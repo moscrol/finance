@@ -1371,3 +1371,133 @@ def test_v4_running_registration_obeys_stale_generation_gate(world: World, monke
     current = world.current_item(item["id"])
     assert current["status"] == "rejudgment_requested" or current["management_revision"] == second["management_revision"]
     assert current["management_revision"] == second["management_revision"], "A 的迟到失败不许迁移 B"
+
+def _two_items(world: World) -> tuple[dict, dict]:
+    """两条底层不同的 open 维护项（与 QC 第六轮探针同形）。"""
+    from intelligence.services import judgments as judgments_svc
+
+    world.track_judgment().raise_for_status()
+    _, original_b = judgments_svc.record_judgment(
+        world.user_root / "judgments.jsonl",
+        memo="另一条独立判断 B：下游成本承压",
+        themes=[fx.ENTITY],
+        stocks=[],
+        session_id=world.conversation_id,
+        ts="2026-09-03T20:00:00+08:00",
+    )
+    ref_b = f"judgments.jsonl:{original_b['id']}"
+    object_b = next(t["object_ref"] for t in world.view()["inputs"]["trackable_objects"] if t["object_ref"]["ref"] == ref_b)
+    world.bind_at(fx.BIND_DAY, object_ref=object_b).raise_for_status()
+    items = [i for i in world.view()["maintenance"]["items"] if i["status"] == "open"]
+    return (
+        next(i for i in items if i["object_ref"]["ref"] != ref_b),
+        next(i for i in items if i["object_ref"]["ref"] == ref_b),
+    )
+
+
+def test_w1_running_run_cannot_be_claimed_by_another_item(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """W1：run 已有核验过的归属（接受侧坐标登记给 A），运行中显式 link_run 到 B 必须被拒。"""
+    gate = threading.Event()
+
+    def delayed_failure(**kwargs: object) -> None:
+        gate.wait(timeout=10)
+        kwargs["run_store"].finish_run(kwargs["run_id"], "failed", error="model unavailable")  # type: ignore[attr-defined]
+
+    a, b = _two_items(world)
+    world.rejudge(a, key="k-w1-request-a")
+    world.rejudge(world.current_item(b["id"]), key="k-w1-request-b")
+    monkeypatch.setattr(app_module, "_run_conversation_turn", delayed_failure)
+    a_now = world.current_item(a["id"])
+    run_a = _launch_message(world, a_now)
+    store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+    assert len(store.list_run_links(item_id=a["id"])) == 1
+
+    before_b = world.current_item(b["id"])
+    response = world.act(idempotency_key="k-w1-claim-a-as-b", run_id=run_a, **world.link_args(b["id"]))
+    assert response.status_code in {400, 404, 409}, f"已有归属的 run 不许跨项转挂：{response.status_code} {response.text}"
+    gate.set()
+    world.wait_terminal(run_a)
+    world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_a)
+    after_b = world.current_item(b["id"])
+    assert after_b["management_revision"] == before_b["management_revision"]
+    assert not store.list_run_links(item_id=b["id"])
+
+
+def test_w2_rejected_stale_message_cannot_gain_current_identity_while_running(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """W2：接受侧已正确拒登的陈旧坐标消息，不能趁 run 运行中经显式 link 洗成当前代身份。"""
+    gate = threading.Event()
+
+    def delayed_failure(**kwargs: object) -> None:
+        gate.wait(timeout=10)
+        kwargs["run_store"].finish_run(kwargs["run_id"], "failed", error="model unavailable")  # type: ignore[attr-defined]
+
+    world.track_judgment().raise_for_status()
+    item = world.open_item()
+    first = world.rejudge(item, key="k-w2-request-a")
+    stale_launch = {
+        "item_id": first["continuation"]["maintenance_item_id"],
+        "request_event_id": first["continuation"]["request_event_id"],
+    }
+    cancel_args = world.link_args(item["id"])
+    cancel_args["action"] = "cancel_rejudge"
+    world.act(idempotency_key="k-w2-cancel-a", **cancel_args).raise_for_status()
+    world.clock.advance(seconds=1)
+    world.rejudge(world.current_item(item["id"]), key="k-w2-request-b")
+    before = world.current_item(item["id"])
+
+    monkeypatch.setattr(app_module, "_run_conversation_turn", delayed_failure)
+    posted = world.client.post(
+        f"/api/conversations/{world.conversation_id}/messages",
+        json={"user": fx.OWNER, "content": "继续核查", "skill_mode": "hybrid", "maintenance_launch": stale_launch},
+    )
+    assert posted.status_code == 202, posted.text
+    run_a = posted.json()["run_id"]
+    store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+    assert not store.list_run_links(item_id=item["id"]), "接受侧必须拒登陈旧坐标"
+
+    response = world.act(idempotency_key="k-w2-stale-as-b", run_id=run_a, **world.link_args(before["id"]))
+    assert response.status_code in {400, 404, 409}, f"被拒的陈旧坐标不许经运行中登记洗白：{response.status_code} {response.text}"
+    gate.set()
+    world.wait_terminal(run_a)
+    world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_a)
+    after = world.current_item(item["id"])
+    assert after["management_revision"] == before["management_revision"]
+    assert not store.list_run_links(item_id=item["id"])
+
+
+def test_w3_cancelled_peers_late_judgment_cannot_close_sole_remaining(world: World) -> None:
+    """W3：取消 A 后其迟到成果不能关闭唯一剩余的 B——「当前唯一 pending」不是因果唯一。"""
+    from intelligence.services import judgments as judgments_svc
+    from intelligence.services.research_evolution.run_observer import ObservingRunStore
+
+    a, b = _two_items(world)
+    world.rejudge(a, key="k-w3-request-a")
+    world.rejudge(world.current_item(b["id"]), key="k-w3-request-b")
+    observer = ObservingRunStore(
+        user_id=fx.OWNER,
+        evolution_root=world.user_root / "research_evolution",
+        maintenance_folder=lambda run_id: world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_id),
+    )
+    run_a = observer.create_run(question="复核 A", task_type="research", session_id=world.conversation_id)
+    world.act(idempotency_key="k-w3-reg-a", run_id=run_a.run_id, **world.link_args(a["id"])).raise_for_status()
+    run_b = observer.create_run(question="复核 B", task_type="research", session_id=world.conversation_id)
+    world.act(idempotency_key="k-w3-reg-b", run_id=run_b.run_id, **world.link_args(b["id"])).raise_for_status()
+    cancel_args = world.link_args(a["id"])
+    cancel_args["action"] = "cancel_rejudge"
+    world.act(idempotency_key="k-w3-cancel-a", **cancel_args).raise_for_status()
+    before = world.current_item(b["id"])
+    world.clock.advance(seconds=1)
+    judgments_svc.record_judgment(
+        world.user_root / "judgments.jsonl",
+        memo="仅 A 的迟到成果，B 没有成果",
+        themes=[fx.ENTITY],
+        stocks=[],
+        session_id=world.conversation_id,
+        ts=world.clock().isoformat(),
+    )
+    observer.finish_run(run_a.run_id, rs.STATUS_COMPLETED)
+    observer.finish_run(run_b.run_id, rs.STATUS_COMPLETED)
+    time.sleep(0.3)
+    after = world.current_item(b["id"])
+    assert after["status"] == "rejudgment_requested", "已取消同伴的迟到判断不许关闭唯一剩余项"
+    assert after["management_revision"] == before["management_revision"]

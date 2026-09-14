@@ -492,3 +492,86 @@ describe("ResearchEvolutionPanel 确认成果入口（QC V3/V4）", () => {
     expect(screen.getByText(/还没有已完成的核查 run/)).toBeInTheDocument();
   });
 });
+
+describe("ResearchEvolutionPanel 确认成果状态转换（QC 第六轮 P2）", () => {
+  const judgmentTrackable = {
+    object_ref: {
+      kind: "judgment",
+      id: "j9",
+      namespace: "judgments",
+      version_or_hash: "content_sha256:x",
+      ref: "judgments.jsonl:j9",
+      scope: {},
+    },
+    kind: "judgment",
+    title: "新判断：制冷剂",
+    recorded_at: "2026-09-14",
+    bound: false,
+    binding_id: null,
+    gaps: [],
+    candidate_refs: [],
+  };
+
+  function requestedView(runStatus: string): ResearchEvolutionView {
+    const view = makeView();
+    const item = view.maintenance!.items[0];
+    item.status = "rejudgment_requested";
+    item.management = { rejudgment: { request_event_id: "evt-1" } };
+    view.maintenance!.run_links = [
+      {
+        item_id: item.id,
+        run_id: "run-1",
+        conversation_id: "conv_1",
+        request_event_id: "evt-1",
+        registered_at: "2026-09-14T08:01:00+00:00",
+        run_status: runStatus,
+      },
+    ];
+    view.inputs.trackable_objects = [judgmentTrackable];
+    return view;
+  }
+
+  it("表单打开时 run 还在跑，完成后投影刷新即可提交（不收起重开）", () => {
+    const onAction = vi.fn();
+    const { rerender } = render(
+      <ResearchEvolutionPanel view={requestedView("running")} onAction={onAction} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "确认成果" }));
+    expect(screen.getByText(/还没有已完成的核查 run/)).toBeInTheDocument();
+
+    // run 完成，投影刷新——表单保持打开，候选出现。
+    rerender(
+      <ResearchEvolutionPanel view={requestedView("completed")} onAction={onAction} />,
+    );
+    const form = screen.getByLabelText("确认成果");
+    fireEvent.change(within(form).getByLabelText(/成果判断/), {
+      target: { value: "judgments.jsonl:j9" },
+    });
+    const submit = within(form).getByRole("button", { name: "确认这条判断是本轮成果" });
+    expect(submit).toBeEnabled();
+    fireEvent.click(submit);
+    expect(onAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "link_run",
+        run_id: "run-1",
+        new_judgment_ref: "judgments.jsonl:j9",
+      }),
+    );
+  });
+
+  it("代际更换后旧选择失效，不会拿陈旧 run 提交", () => {
+    const onAction = vi.fn();
+    const view = requestedView("completed");
+    const { rerender } = render(
+      <ResearchEvolutionPanel view={view} onAction={onAction} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "确认成果" }));
+    // 取消旧代、发起新代：run_links 换成新一代（尚无已完成 run）。
+    const next = requestedView("running");
+    next.maintenance!.items[0].management = { rejudgment: { request_event_id: "evt-2" } };
+    next.maintenance!.run_links = [];
+    rerender(<ResearchEvolutionPanel view={next} onAction={onAction} />);
+    expect(screen.getByText(/还没有已完成的核查 run/)).toBeInTheDocument();
+    expect(onAction).not.toHaveBeenCalled();
+  });
+});

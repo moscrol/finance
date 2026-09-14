@@ -944,20 +944,40 @@ class ResearchEvolutionService:
             existing_link = store.find_run_link(item_id=str(item["id"]), run_id=run_id, request_event_id=request_event_id)
             if existing_link is not None:
                 return None, {"run_id": run_id, "run_status": status, "registered": True, "link_created": False, "registered_at": existing_link.get("registered_at")}
-            # 旧代闸（QC V4）：写入前先查既有归属——这个 run 若已登记在上一代的复核请求，
-            # 不能因为当前代还 pending 就转挂；旧代检查不许只守在终态分支。
-            stale_running = store.find_run_link(item_id=str(item["id"]), run_id=run_id)
-            if stale_running is not None:
+            # 完整既有归属（QC V4/W1）：写入前按 run 查——登记给**任何项任何代**的行都构成
+            # 矛盾来源，不是只查「目标项有没有登记过这个 run」。跨项抢 run 与旧代转挂同罪。
+            any_link = next((r for r in store.list_run_links() if str(r.get("run_id") or "") == run_id), None)
+            if any_link is not None:
                 raise ApiError(
                     ERR_RUN_BINDING_MISMATCH,
-                    "该 run 已登记在这条维护项上一代的复核请求，不能转挂当前这一轮",
+                    "该 run 已登记在别处（其他维护项或其他代际），不能转挂当前这一轮",
                     detail={
                         "run_id": run_id,
                         "item_id": item["id"],
-                        "link_request_event_id": str(stale_running.get("request_event_id") or ""),
+                        "existing_item_id": str(any_link.get("item_id") or ""),
+                        "link_request_event_id": str(any_link.get("request_event_id") or ""),
                         "current_request_event_id": request_event_id,
                     },
                 )
+            # 源消息坐标核验（QC W2）：消息带了坐标就构成来源声明——声明与当前 (项, 代际)
+            # 不一致即矛盾来源，拒绝。R7 保留：无坐标的裸 run（RunStore 直造）仍可显式登记，
+            # 「无来源」不等于「有矛盾来源」。
+            launch = self._source_message_launch(ctx, conversation_id, run_id)
+            if launch:
+                launch_item = str(launch.get("item_id") or "")
+                launch_request = str(launch.get("request_event_id") or "")
+                if (launch_item or launch_request) and (launch_item != str(item["id"]) or launch_request != request_event_id):
+                    raise ApiError(
+                        ERR_RUN_BINDING_MISMATCH,
+                        "该 run 的源消息坐标指向其他维护项或已结束的代际，不能登记到当前这一轮",
+                        detail={
+                            "run_id": run_id,
+                            "item_id": item["id"],
+                            "launch_item_id": launch_item,
+                            "launch_request_event_id": launch_request,
+                            "current_request_event_id": request_event_id,
+                        },
+                    )
             link_id = stable_id("rlink", {"item": item["id"], "run": run_id, "request": request_event_id})
             _, created = store.append_run_link(
                 {
@@ -1025,15 +1045,19 @@ class ResearchEvolutionService:
                         "这条维护项经历过多次复核请求或取消，同会话最新判断无法证明属于本轮；请显式确认新判断",
                         detail={"run_id": run_id, "hint": "link_run 带 new_judgment_ref 显式指定本轮成果"},
                     )
-                # 成果归属（QC V3）：本项首次复核也不代表成果属于本项——同会话还有别的
-                # 待复核项时，每条都可能是那份最新判断的主人，归属不可证，全部不自动认领。
-                maintenance_now = self._current_items(ctx, conversation_id, as_of=None, knowledge_cutoff=None, store=store)
-                pending_ids = [str(i.get("id")) for i in maintenance_now.get("items", []) if str(i.get("status")) == "rejudgment_requested"]
-                if len(pending_ids) > 1:
+                # 成果归属（QC V3/W3）：「当前只剩一条待复核」是状态数量，不是因果唯一——
+                # 已取消/已闭环的其他请求同样可能是这份判断的主人（W3：取消 A 后，A 的迟到
+                # 成果不能关闭唯一剩余的 B）。writer 没有成果归属坐标时，唯一可自动认领的
+                # 形状是「本会话有史以来只有本轮这一次复核请求」；其余一律等显式确认。
+                rejudge_records = [
+                    row for row in store.list_action_records()
+                    if str(row.get("action") or "") == ACTION_REJUDGE and str(row.get("conversation_id") or "") == conversation_id
+                ]
+                if len(rejudge_records) > 1:
                     raise ApiError(
                         ERR_DEPENDENCY_MISSING,
-                        "同会话有多条待复核的维护项，同会话最新判断无法证明属于哪一条；请显式确认成果",
-                        detail={"run_id": run_id, "pending_item_ids": pending_ids, "hint": "link_run 带 new_judgment_ref 显式指定本轮成果"},
+                        "本会话存在过其他复核请求，同会话最新判断无法证明属于本轮；请显式确认成果",
+                        detail={"run_id": run_id, "hint": "link_run 带 new_judgment_ref 显式指定本轮成果"},
                     )
                 # 已被本会话其他闭环消费掉的判断不再当候选（顺序确认也不能串单）。
                 consumed = {

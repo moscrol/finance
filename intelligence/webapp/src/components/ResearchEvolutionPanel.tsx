@@ -51,10 +51,20 @@ function ConfirmOutcomeForm({
   const judgments = (view.inputs.trackable_objects ?? []).filter(
     (t) => t.object_ref.kind === "judgment",
   );
-  const [runId, setRunId] = useState<string>(eligibleRuns[0]?.run_id ?? "");
+  const [runId, setRunId] = useState<string>("");
   const [judgmentRef, setJudgmentRef] = useState<string>("");
-  const canSubmit =
-    !busy && runId !== "" && judgmentRef !== "" && eligibleRuns.length > 0;
+  // QC 第六轮 P2：候选集合随投影刷新变化（表单打开时 run 可能还在跑，完成后才出现）。
+  // useState 不会重新初始化，所以有效选择**派生**自候选：选中值不在候选里就回落到
+  // 唯一候选/空；提交前再验一次所选 run 仍在当前代已完成候选里。
+  const selectedRun = eligibleRuns.some((link) => link.run_id === runId)
+    ? runId
+    : eligibleRuns.length === 1
+      ? eligibleRuns[0].run_id
+      : "";
+  const selectedJudgment = judgments.some((t) => t.object_ref.ref === judgmentRef)
+    ? judgmentRef
+    : "";
+  const canSubmit = !busy && selectedRun !== "" && selectedJudgment !== "";
 
   return (
     <div className="re-confirm" aria-label="确认成果">
@@ -67,7 +77,8 @@ function ConfirmOutcomeForm({
         <>
           <label>
             本轮核查 run
-            <select value={runId} onChange={(e) => setRunId(e.target.value)}>
+            <select value={selectedRun} onChange={(e) => setRunId(e.target.value)}>
+              {eligibleRuns.length !== 1 && <option value="">选择 run…</option>}
               {eligibleRuns.map((link) => (
                 <option key={link.run_id} value={link.run_id}>
                   {link.run_id}（登记于 {String(link.registered_at ?? "")}）
@@ -78,7 +89,7 @@ function ConfirmOutcomeForm({
           <label>
             成果判断
             <select
-              value={judgmentRef}
+              value={selectedJudgment}
               onChange={(e) => setJudgmentRef(e.target.value)}
             >
               <option value="">选择本轮产生的新判断…</option>
@@ -95,10 +106,10 @@ function ConfirmOutcomeForm({
             onClick={() =>
               onAction({
                 action: "link_run",
-                idempotency_key: `link_run_confirm:${item.id}:${runId}:${judgmentRef}`,
+                idempotency_key: `link_run_confirm:${item.id}:${selectedRun}:${selectedJudgment}`,
                 item_id: item.id,
-                run_id: runId,
-                new_judgment_ref: judgmentRef,
+                run_id: selectedRun,
+                new_judgment_ref: selectedJudgment,
                 expected_item_version: item.item_version,
                 expected_management_revision: item.management_revision,
               })
@@ -310,11 +321,12 @@ export function ResearchEvolutionPanel({
                   </button>
                 )}
               </div>
-              {item.status === "rejudgment_requested" &&
+                {item.status === "rejudgment_requested" &&
                 onAction &&
                 openConfirm === item.id &&
                 view && (
                   <ConfirmOutcomeForm
+                    key={`${item.id}:${String(((item.management?.rejudgment ?? {}) as Record<string, unknown>).request_event_id ?? "")}`}
                     item={item}
                     view={view}
                     busy={busy}
