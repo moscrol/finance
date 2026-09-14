@@ -4,7 +4,7 @@
 - **gitea/main = 1fef3d27**（含换库契约修复 + hithink 重建 + 卡口脚本 + 证据，fast-forward 已推）。
 - **生产库 09-11 修复已落**：run_id=1ef953440995；用户独立复核 24/24 **PASSED**（评审分支 315ff05f）。
 - **302132 回填·准备阶段完成**（授权：只读审计+副本验证，未写生产）：交审文档 `docs/handoffs/2026-09-14-302132-backfill-prep.md`（缺口 53 行+06-23 空壳、字段映射、派生影响、副本验证 10/10 PASS、执行方案草案）。证据 `~/.finance-runtime/db-repair/hithink-20260911/backfill-prep-302132/prep-evidence.json`。复审合同 `docs/handoffs/2026-09-14-302132-prep-review.md`：数据准备通过、初版执行草案两条 P1 被挡。
-- **执行实现已移交新分支 `fix/backfill-302132-scoped`**（worktree `/Users/a77/fwp-wt-backfill-302132`，从 main 1fef3d27 开出）：P1 全修 + 完整副本演练 15/15 PASS，交审文档 `2026-09-14-302132-backfill-execution-design.md`。**后续 302132 工作去新分支，本分支不再动。**
+- **执行实现已移交新分支 `fix/backfill-302132-scoped`**（worktree `/Users/a77/fwp-wt-backfill-302132`，从 main 1fef3d27 开出）：复审五项退修已全部修复、副本演练 13/13 PASS（tip efe2d28b + 文档），交审文档 `2026-09-14-302132-backfill-execution-design.md`。**后续 302132 工作去新分支，本分支不再动。**
 - 等授权：事项 2 生产执行（先过执行实现代码评审）；事项 3 并跑表补齐（届时先交端点×日期×额外表清单）。
 
 ## 关键背景
