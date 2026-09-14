@@ -301,8 +301,11 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 - 分支 `feat/extraction-first-p0`；被测 revision **`b916091e`**
 - 交接 `docs/handoffs/inflight/feat-extraction-first-p0.md`（状态）+
   `docs/handoffs/2026-09-14-extraction-first-p0-review-fixes.md`（背景全文）
-- 复跑：`git worktree add <新树> `7a86ce4e`` → §6 那八条命令 → 变异按 §4 手改复现
-  （每次改前清 `__pycache__`）。**跑全量期间不要碰那棵树**——本页 §0 就是这么栽的。
+- 复跑：`git worktree add <新树> <本页 §1「被测最终 revision」那个 SHA>` → §6 那八条命令
+  → 变异按 §4 手改复现（每次改前清 `__pycache__`）。**跑全量期间不要碰那棵树**——
+  本页 §0 就是这么栽的。
+  > 这里刻意**不写死 SHA**：写死过一次（`7a86ce4e`），下一轮返修后它就指向了旧树，
+  > 而复审方按它复跑会漏掉最终修复（复审二实测）。指针只留一处，就是 §1 那一行。
 - **未推、未合 main。** `gitea/main` 现为 `1fef3d27`；
   `git merge-tree --write-tree gitea/main HEAD` 预演 **0 冲突**（`/tmp/xfp0/mergetree.txt`）。合并前按
   「比较基准是目标分支不是快照」重新 diff，并对工单 INDEX 这个热文件跑

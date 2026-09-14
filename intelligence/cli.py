@@ -3441,6 +3441,25 @@ def cmd_observation_read(args: argparse.Namespace) -> int:
         return 2
     aid = str(attempt["attempt_id"])
 
+    # 再查一次收据，这次按**真正被认领的** aid。上面那次只覆盖显式 `--attempt-id`
+    # （那条路必须前置，因为已关闭的尝试会被 open_attempt 拒掉）；而「收据已落、
+    # 关闭失败」留下的是一个**仍 pending** 的尝试，不带参数原样重跑会自动复用它，
+    # 于是正文被重新生成、台账却沿用旧收据——重放了正文却声称没重放（复审二实测）。
+    if not args.attempt_id:
+        done = osc.find_event(osc.load_raw(path), event=osc.EVENT_READ_COMPLETED, attempt_id=aid)
+        if done:
+            try:
+                osc.close_attempt(path, attempt_id=aid, user_id=us.user_id,
+                                  reason="read_completed", entrypoint="read")
+            except Exception as exc:
+                print(f"⚠ 完成收据在，但尝试终态仍补不上（{type(exc).__name__}: {exc}）",
+                      file=_sys.stderr)
+                return 1
+            print(_json.dumps(done, ensure_ascii=False, indent=2) if args.json
+                  else f"提取尝试 {aid} 已完成过一次带读"
+                       f"（收据 {done['event_id']}｜{done.get('occurred_at')}）。要重新读取请开新尝试。")
+            return 0
+
     gate = guided_reading.gated(
         us,
         sl,
@@ -3614,7 +3633,11 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
             }
         )
         source_draft_id = str(mine.get("draft_id") or "")
-        attempt_id = str(mine.get("extraction_attempt_id") or "") or None
+        # **归属跟你指名的那次尝试走**，不跟草稿行走。「取哪一版」与「算在哪次尝试
+        # 名下」是两件事：A 提交草稿、B 复用读完、你指名 B 确认时，版本来自 A 的那一行，
+        # 但这次确认动作发生在 B。从草稿行取 attempt_id 会把事件挂回 A（复审二实测）。
+        # 没显式给时才回落到草稿自己的尝试。
+        attempt_id = str(wanted or mine.get("extraction_attempt_id") or "") or None
         entrypoint, author_origin = "confirm", observation_script.AUTHOR_USER
 
     if args.from_slice:

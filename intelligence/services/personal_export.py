@@ -79,8 +79,17 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     out: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
+    # **按字节读、逐行解码**：断电可以把写入截在一个汉字中间，而 ``read_text``
+    # 是整文件一次解码——半个字符会让 ``UnicodeDecodeError`` 从最外层抛出来，
+    # **整份导出失败**，而不是丢一行。台账侧 2026-09-14 修过同一个形状，
+    # 导出侧是同族的第二处（「修了一处，先问同族还有谁」）。
+    for raw_line in path.read_bytes().split(b"\n"):
+        try:
+            line = raw_line.decode("utf-8").strip()
+        except UnicodeDecodeError:
+            # 坏字节同样不静默丢：可读部分带走，让用户看得见这里出过事。
+            out.append({"_unparsed_line": raw_line.decode("utf-8", errors="replace")})
+            continue
         if not line:
             continue
         try:
