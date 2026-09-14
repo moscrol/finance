@@ -1,0 +1,395 @@
+{
+  "target": "d3c6e516ee36e244836b9aadca17f05d7f39e312",
+  "parent": "723bf50e8e83ef8e3433b4a405418b80d2ddd5a0",
+  "remote_target": {
+    "exit_code": 0,
+    "stdout": "d3c6e516ee36e244836b9aadca17f05d7f39e312\trefs/heads/feat/e2-material-contract-design",
+    "stderr": ""
+  },
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "scope": "static document review only; no target parser execution, no formal PK, no runtime tests",
+  "changed_files": {
+    "exit_code": 0,
+    "stdout": "docs/handoffs/inflight/feat-e2-material-contract-design.md\ndocs/learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md",
+    "stderr": ""
+  },
+  "target_diff_check": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "evidence_and_questions_delta": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "hash_checks": [
+    {
+      "run": "t2",
+      "file": "answer.md",
+      "original": {
+        "exists": true,
+        "size": 3402,
+        "sha256": "ad501176187443d2772cd27e89a7fddbd869e49c940b0d4ed6132afe81f2a25e",
+        "passed": true
+      },
+      "in_repo": {
+        "exists": true,
+        "size": 3402,
+        "sha256": "ad501176187443d2772cd27e89a7fddbd869e49c940b0d4ed6132afe81f2a25e",
+        "passed": true
+      },
+      "transform_passed": true
+    },
+    {
+      "run": "t2",
+      "file": "continuous-episode.json",
+      "original": {
+        "exists": true,
+        "size": 361120,
+        "sha256": "fd8df35617c2121fd01d2a3c6c720c69f9dab8890c47bd6a0719507dffded255",
+        "passed": true
+      }
+    },
+    {
+      "run": "t2",
+      "file": "followups.json",
+      "original": {
+        "exists": true,
+        "size": 2054,
+        "sha256": "2d63eb07dc0c16160f5d9f9fb0430f80250d561ee06ba75968b2ee3aa41056bd",
+        "passed": true
+      },
+      "in_repo": {
+        "exists": true,
+        "size": 2054,
+        "sha256": "2d63eb07dc0c16160f5d9f9fb0430f80250d561ee06ba75968b2ee3aa41056bd",
+        "passed": true
+      },
+      "transform_passed": true
+    },
+    {
+      "run": "t2",
+      "file": "report.json",
+      "original": {
+        "exists": true,
+        "size": 8904,
+        "sha256": "c5bdba3ab0247481f3d3305dda8c996836dd4b1811e227213db6999897215a51",
+        "passed": true
+      },
+      "in_repo": {
+        "exists": true,
+        "size": 8904,
+        "sha256": "c5bdba3ab0247481f3d3305dda8c996836dd4b1811e227213db6999897215a51",
+        "passed": true
+      },
+      "transform_passed": true
+    },
+    {
+      "run": "t2",
+      "file": "run.json",
+      "original": {
+        "exists": true,
+        "size": 4505,
+        "sha256": "4ffb0ad495c47cfb98c4dccb485de7bfeb0f804d29381703e2637745cd9e69dc",
+        "passed": true
+      },
+      "in_repo": {
+        "exists": true,
+        "size": 4505,
+        "sha256": "4ffb0ad495c47cfb98c4dccb485de7bfeb0f804d29381703e2637745cd9e69dc",
+        "passed": true
+      },
+      "transform_passed": true
+    },
+    {
+      "run": "t2",
+      "file": "stream.jsonl",
+      "original": {
+        "exists": true,
+        "size": 1168112,
+        "sha256": "573299634bb7c66e34f19ddeae193bafd286ff59e1458e2ddd688c27a493d313",
+        "passed": true
+      }
+    },
+    {
+      "run": "t2",
+      "file": "trace.jsonl",
+      "original": {
+        "exists": true,
+        "size": 19471,
+        "sha256": "ebc26c152e7f3950c669c4a8bcbd263b5858759a929a412afbaec9495245120f",
+        "passed": true
+      }
+    },
+    {
+      "run": "t3",
+      "file": "answer.md",
+      "original": {
+        "exists": true,
+        "size": 3969,
+        "sha256": "e3c9cd9ef1dab5ab3b35aa25058d6f8df2fdcfaf34d96055a6a1a99f6e99a636",
+        "passed": true
+      },
+      "in_repo": {
+        "exists": true,
+        "size": 3969,
+        "sha256": "e3c9cd9ef1dab5ab3b35aa25058d6f8df2fdcfaf34d96055a6a1a99f6e99a636",
+        "passed": true
+      },
+      "transform_passed": true
+    },
+    {
+      "run": "t3",
+      "file": "continuous-episode.json",
+      "original": {
+        "exists": true,
+        "size": 533590,
+        "sha256": "2b6315d1961e08f0be1fb06649f7a888dc49fc21d1b1243d9790864334f50976",
+        "passed": true
+      }
+    },
+    {
+      "run": "t3",
+      "file": "followups.json",
+      "original": {
+        "exists": true,
+        "size": 3151,
+        "sha256": "1cbaaca548b463dacb5e9100f113dfd2974e4f4a2946ada0e423a27ee49d7bdb",
+        "passed": true
+      },
+      "in_repo": {
+        "exists": true,
+        "size": 3151,
+        "sha256": "1cbaaca548b463dacb5e9100f113dfd2974e4f4a2946ada0e423a27ee49d7bdb",
+        "passed": true
+      },
+      "transform_passed": true
+    },
+    {
+      "run": "t3",
+      "file": "report.json",
+      "original": {
+        "exists": true,
+        "size": 13728,
+        "sha256": "65ac229205c98c828a3e76755981c0b3dae892f6505f9516d2ea853e0dee737b",
+        "passed": true
+      },
+      "in_repo": {
+        "exists": true,
+        "size": 13728,
+        "sha256": "65ac229205c98c828a3e76755981c0b3dae892f6505f9516d2ea853e0dee737b",
+        "passed": true
+      },
+      "transform_passed": true
+    },
+    {
+      "run": "t3",
+      "file": "run.json",
+      "original": {
+        "exists": true,
+        "size": 4069,
+        "sha256": "9784942e5d3d9a2b60edc534d353b53e01438329b174ccea7f87ef1f51144594",
+        "passed": true
+      },
+      "in_repo": {
+        "exists": true,
+        "size": 4069,
+        "sha256": "9784942e5d3d9a2b60edc534d353b53e01438329b174ccea7f87ef1f51144594",
+        "passed": true
+      },
+      "transform_passed": true
+    },
+    {
+      "run": "t3",
+      "file": "stream.jsonl",
+      "original": {
+        "exists": true,
+        "size": 1250795,
+        "sha256": "46dbe4f1572c5f122ab16fcd77f9d8dbc9bc1861ea936ece967d5639bcce1fa6",
+        "passed": true
+      }
+    },
+    {
+      "run": "t3",
+      "file": "trace.jsonl",
+      "original": {
+        "exists": true,
+        "size": 20376,
+        "sha256": "f482c964478a220eb4824368fe435102edb9b901f24130fb77e9b0a60c2b10a5",
+        "passed": true
+      }
+    },
+    {
+      "run": "qc-pack",
+      "file": "data-qc.json",
+      "original": {
+        "exists": true,
+        "size": 7806,
+        "sha256": "5cfebf5799262920a718a2919699a48b582274bd44f60bb44021cb4b54c0efce",
+        "passed": true
+      },
+      "in_repo": {
+        "exists": true,
+        "size": 7797,
+        "sha256": "833e5f7e424d7692f9ffa9d0f05eb73df24e434183aebb55e77dca37400fb105",
+        "passed": true
+      },
+      "transform_passed": true
+    },
+    {
+      "run": "qc-pack",
+      "file": "route-parent-recheck.json",
+      "original": {
+        "exists": true,
+        "size": 244,
+        "sha256": "eba7289ffadeef43026e1d7c7434de76f1f3607a82f72303013fe7b5935453a4",
+        "passed": true
+      },
+      "in_repo": {
+        "exists": true,
+        "size": 244,
+        "sha256": "eba7289ffadeef43026e1d7c7434de76f1f3607a82f72303013fe7b5935453a4",
+        "passed": true
+      },
+      "transform_passed": true
+    },
+    {
+      "run": "qc-pack",
+      "file": "repro_quick_fact_gate.py",
+      "original": {
+        "exists": true,
+        "size": 1817,
+        "sha256": "f1000b2c89079435cfd4c1c897cdd9c8d7c7b8b94906d0b4e1df93edf22f35d9",
+        "passed": true
+      }
+    },
+    {
+      "run": "qc-pack",
+      "file": "quick_fact_question.txt",
+      "original": {
+        "exists": true,
+        "size": 565,
+        "sha256": "b709fa2c07a81df9392938d93b7ba2101bf080226f88c793bc17141f0559813d",
+        "passed": true
+      },
+      "in_repo": {
+        "exists": true,
+        "size": 565,
+        "sha256": "b709fa2c07a81df9392938d93b7ba2101bf080226f88c793bc17141f0559813d",
+        "passed": true
+      },
+      "transform_passed": true
+    },
+    {
+      "run": "qc-pack",
+      "file": "runs-summary.json",
+      "original": {
+        "exists": true,
+        "size": 39493,
+        "sha256": "2d584a65b3c4ac813b29bba6ce9ec51749b5c0f1d4fa6c687a43abfaf34a7aee",
+        "passed": true
+      },
+      "in_repo": {
+        "exists": true,
+        "size": 39439,
+        "sha256": "368011b3589d1ece9dad4c65e360a0ad81adab7588c0914b754a5d07d8dff562",
+        "passed": true
+      },
+      "transform_passed": true
+    },
+    {
+      "run": "qc-pack",
+      "file": "source-snapshot.json",
+      "original": {
+        "exists": true,
+        "size": 300,
+        "sha256": "2fe732d340dbb2c6b9002057f3b59bb64494ac134f7ada8334cee1dcbbf627d3",
+        "passed": true
+      },
+      "in_repo": {
+        "exists": true,
+        "size": 291,
+        "sha256": "28be0c6a247a106f21a358a389fb7f7b4d234949da5190b7d314d44584e25ff5",
+        "passed": true
+      },
+      "transform_passed": true
+    },
+    {
+      "run": "qc-pack",
+      "file": "spec-axis/material-question.txt",
+      "original": {
+        "exists": true,
+        "size": 2379,
+        "sha256": "a2f0d262b76ba9f130e5c90d6605ec0bfd26cbd0651d308ce11245378d214a83",
+        "passed": true
+      },
+      "in_repo": {
+        "exists": true,
+        "size": 2379,
+        "sha256": "a2f0d262b76ba9f130e5c90d6605ec0bfd26cbd0651d308ce11245378d214a83",
+        "passed": true
+      },
+      "transform_passed": true
+    }
+  ],
+  "summary": {
+    "originals": 21,
+    "originals_passed": 21,
+    "copies": 14,
+    "copies_passed": 14,
+    "transforms_passed": 14
+  },
+  "material_min_chars_ast": {
+    "value": 40,
+    "line": 461
+  },
+  "acceptance_ids": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+  ],
+  "continuation_vocabulary_membership": {
+    "继续": {
+      "in_trigger_table": false,
+      "in_D1_step2": true
+    },
+    "接着": {
+      "in_trigger_table": false,
+      "in_D1_step2": true
+    },
+    "其余条件不变": {
+      "in_trigger_table": false,
+      "in_D1_step2": true
+    },
+    "同上": {
+      "in_trigger_table": false,
+      "in_D1_step2": true
+    }
+  },
+  "source_handoff": {
+    "size_bytes": 3488,
+    "stale_title": true,
+    "stale_strong_intro_definition": true
+  },
+  "counterexample_kind": "manual rule trace, not an executed parser reproduction",
+  "counterexample": {
+    "prior_state": "fictional x material_only",
+    "message": "材料如下：\n丁公司去年总收入8，相关业务收入1。\n继续上一轮，其余条件不变。\n\n1. 相关业务收入占比多少？\n2. 这个比例能说明什么？",
+    "risk": "D1 step1 exclusive table misses continuation; step2 excludes reviewed block; D7.5 may reset on new subject/material with lost continuation"
+  }
+}
