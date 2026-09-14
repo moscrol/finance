@@ -404,5 +404,215 @@ class S10AttemptFilterCoversPendingToo(Base):
         self.assertEqual(payload["events"], [])
 
 
+# =========================================================================== #
+# 第二轮质检（2026-09-14 复审，6 项 P2）
+# =========================================================================== #
+class R1TornMultibyteDoesNotBrickTheLedger(Base):
+    """复审规范轴：写入断在**汉字中间**时，读取先抛 UTF-8 解码异常。
+
+    上一轮只修了「残片没有换行 → 粘住下一条」，补换行救不回来：
+    ``load_raw`` 用 ``read_text(encoding="utf-8")`` **整文件一次解码**，
+    半个汉字会让整本台账直接抛异常——不是丢一条，是一条都读不出来。
+    """
+
+    def _write_torn_cjk(self) -> None:
+        self.ledger().parent.mkdir(parents=True, exist_ok=True)
+        good = json.dumps({"id": "os-1", "record_kind": osc.RECORD_SCRIPT,
+                           "as_of": AS_OF, "status": "drafted"}, ensure_ascii=False)
+        # 「算」= e7 ae 97，只写前两个字节：断在字符中间。
+        self.ledger().write_bytes(
+            good.encode("utf-8") + b"\n" + b'{"id":"partial","note":"\xe7\xae'
+        )
+
+    def test_load_raw_survives_a_torn_multibyte_tail(self) -> None:
+        self._write_torn_cjk()
+        rows = osc.load_raw(self.ledger())
+        self.assertEqual([r["id"] for r in rows], ["os-1"], "好行必须照常读出来")
+
+    def test_next_append_still_lands_and_is_readable(self) -> None:
+        self._write_torn_cjk()
+        key = ox.make_key("u1", AS_OF, CANON)
+        attempt, created = osc.open_attempt(self.ledger(), key=key, entrypoint="read")
+        self.assertTrue(created)
+        self.assertIn(str(attempt["attempt_id"]),
+                      osc.attempt_states(osc.load_raw(self.ledger())))
+
+    def test_the_torn_bytes_are_kept_on_disk(self) -> None:
+        self._write_torn_cjk()
+        osc.open_attempt(self.ledger(), key=ox.make_key("u1", AS_OF, CANON), entrypoint="read")
+        self.assertIn(b'{"id":"partial"', self.ledger().read_bytes())
+
+
+class R2CloseFailureIsHealedOnRetry(Base):
+    """复审规范轴：完成事件已落盘、关闭失败 → 重试只返收据，尝试永远 pending。"""
+
+    def test_retry_closes_the_attempt_left_open_by_a_failed_close(self) -> None:
+        self.draft()
+        real_close = osc.close_attempt
+        with mock.patch.object(osc, "close_attempt", side_effect=OSError("disk full")):
+            code, _ = self.read()
+        self.assertEqual(code, 1, "关闭失败要如实报可诊断失败")
+        self.assertEqual(len(self.kinds(osc.EVENT_READ_COMPLETED)), 1, "完成事件确实落了")
+        self.assertEqual(len(self.pending()), 1, "这一刻尝试确实还挂着")
+
+        aid = self.kinds(osc.EVENT_READ_COMPLETED)[0]["attempt_id"]
+        with mock.patch.object(osc, "close_attempt", real_close):
+            code, _ = self.read(extra=["--attempt-id", aid])
+        self.assertEqual(code, 0)
+        self.assertEqual(self.pending(), [], "重试必须把这个终态补上")
+        self.assertEqual(len(self.kinds(osc.EVENT_READ_COMPLETED)), 1, "不重复记完成")
+        self.assertEqual(self.kinds(osc.EVENT_ABANDONED), [], "读完了不是放弃")
+
+
+class R3AttemptSelectsTheDraftItActuallyRead(Base):
+    """复审 S4 未修完整：新尝试**复用**旧草稿读完后，按该尝试确认要选到那一版。
+
+    `draft_for_attempt` 只认「在这个尝试里提交的草稿」，而复用场景下这个尝试
+    一条草稿都没提交过——正确依据是它自己的完成收据里的 ``source_draft_id``。
+    """
+
+    def test_reused_draft_is_found_via_the_completion_receipt(self) -> None:
+        self.draft(variables=["题材轨：题材所处阶段是否推进"])
+        first = self.pending()[0]["attempt_id"]
+        _run(["observation", "close", "--user", "u1", "--attempt-id", first])
+
+        self.read()  # 新尝试，复用上一轮的草稿
+        (receipt,) = self.kinds(osc.EVENT_READ_COMPLETED)
+        second = receipt["attempt_id"]
+        self.assertNotEqual(second, first)
+        self.assertTrue(receipt["source_draft_id"])
+
+        code, out = _run(
+            ["observation", "confirm", "--user", "u1", "--as-of", AS_OF, "--from-draft", ENTITY,
+             "--attempt-id", second, "--db-path", "/tmp/no-such.duckdb", "--json"]
+        )
+        self.assertEqual(code, 0, out)
+        record = json.loads(out)
+        self.assertEqual(record["source_draft_id"], receipt["source_draft_id"])
+        self.assertEqual(list(record["variables"]), ["题材轨：题材所处阶段是否推进"])
+
+
+class R4ManualConfirmValidatesTheAttempt(Base):
+    """复审：完整手填路径根本没读 `--attempt-id`，传错目标也照样建 checkpoint。"""
+
+    def _manual(self, extra: list[str]) -> tuple[int, str]:
+        return _run(
+            ["observation", "confirm", "--user", "u1", "--as-of", AS_OF, "--scope", "theme",
+             "--entity", ENTITY, "--variable", MY_VARS[0], "--abandon", MY_ABANDON[0],
+             "--db-path", "/tmp/no-such.duckdb"] + extra
+        )
+
+    def test_attempt_of_another_target_is_refused(self) -> None:
+        self.read(entity=OTHER_ENTITY)
+        other = self.pending()[0]["attempt_id"]
+        code, out = self._manual(["--attempt-id", other])
+        self.assertEqual(code, 2, out)
+        self.assertIn("不属于", out)
+        self.assertEqual(osc.load(self.ledger()), [], "被拒时不许落剧本行")
+
+    def test_unknown_attempt_is_refused(self) -> None:
+        code, out = self._manual(["--attempt-id", "oa-nope"])
+        self.assertEqual(code, 2, out)
+
+    def test_valid_attempt_is_carried_into_the_record(self) -> None:
+        self.read()
+        aid = self.pending()[0]["attempt_id"]
+        code, out = self._manual(["--attempt-id", aid, "--json"])
+        self.assertEqual(code, 0, out)
+        record = json.loads(out)
+        self.assertEqual(record["extraction_attempt_id"], aid)
+        self.assertEqual(record["action_event"]["attempt_id"], aid)
+
+    def test_without_the_flag_it_is_still_a_manual_confirm(self) -> None:
+        code, out = self._manual(["--json"])
+        self.assertEqual(code, 0, out)
+        record = json.loads(out)
+        self.assertIsNone(record["action_event"]["attempt_id"])
+        self.assertEqual(record["action_event"]["entrypoint"], osc.ENTRYPOINT_MANUAL_CONFIRM)
+
+
+class R5ConfirmAndSkipRespectAConcurrentClose(Base):
+    """复审：并发 close 插在「门过了」与「落盘」之间，确认 / 跳过仍然写了进去。
+
+    上一轮只给 `submit_draft` / `record_event` 加了复验，`register` 漏了——
+    于是同一个尝试上同时存在 `abandoned=true` 与一条确认 + 一个 checkpoint。
+    """
+
+    def _close_during_gate(self, aid_box: list[str]):
+        real = gr.gated
+
+        def _spy(*a, **kw):
+            out = real(*a, **kw)
+            if aid_box:
+                osc.close_attempt(self.ledger(), attempt_id=aid_box[0], user_id="u1",
+                                  reason="raced", entrypoint="close")
+            return out
+
+        return mock.patch.object(gr, "gated", _spy)
+
+    def _arm(self) -> list[str]:
+        self.draft()
+        box = [self.pending()[0]["attempt_id"]]
+        return box
+
+    def test_confirm_from_slice_is_refused_after_a_racing_close(self) -> None:
+        box = self._arm()
+        with self._close_during_gate(box):
+            code, out = _run(
+                ["observation", "confirm", "--user", "u1", "--as-of", AS_OF,
+                 "--from-slice", ENTITY, "--attempt-id", box[0], "--db-path", "/tmp/no-such.duckdb"]
+            )
+        self.assertEqual(code, 2, out)
+        self.assertEqual([r for r in osc.load(self.ledger()) if r["status"] in {"confirmed", "late"}], [])
+        self.assertFalse(self.space().checkpoints_path.exists(), "被拒就不该有可证伪点")
+
+    def test_skip_is_refused_after_a_racing_close(self) -> None:
+        box = self._arm()
+        with self._close_during_gate(box):
+            code, out = _run(
+                ["observation", "skip", "--user", "u1", "--as-of", AS_OF, "--entity", ENTITY,
+                 "--attempt-id", box[0]]
+            )
+        self.assertEqual(code, 2, out)
+        self.assertEqual([r for r in osc.load(self.ledger()) if r["status"] == "skipped"], [])
+
+
+class R6DueIsPartOfTheConfirmActionIdentity(Base):
+    """复审：S6 的去重键漏了 `due`——改回检日期返回成功却沿用旧日期、旧 checkpoint。
+
+    这是上一轮返修**新引入的回归**：稳定动作键治好了跨秒重试，却把
+    「同内容不同到期日」也当成了同一个动作。
+    """
+
+    def _confirm(self, due: str) -> dict:
+        code, out = _run(
+            ["observation", "confirm", "--user", "u1", "--as-of", AS_OF, "--from-slice", ENTITY,
+             "--due", due, "--db-path", "/tmp/no-such.duckdb", "--json"]
+        )
+        self.assertEqual(code, 0, out)
+        return json.loads(out)
+
+    def test_changing_the_due_date_is_a_new_action(self) -> None:
+        self.draft()
+        first = self._confirm("2026-09-04")
+        second = self._confirm("2026-09-07")
+        self.assertEqual(first["due"], "2026-09-04")
+        self.assertEqual(second["due"], "2026-09-07", "改了到期日就不能沿用旧记录")
+        self.assertNotEqual(second["id"], first["id"])
+        self.assertNotEqual(
+            second["action_event"]["action_key"], first["action_event"]["action_key"]
+        )
+
+    def test_same_due_is_still_deduped(self) -> None:
+        """修 due 不能把跨秒重试的去重一起修坏。"""
+        self.draft()
+        first = self._confirm("2026-09-04")
+        stamps = iter(["2026-09-14T10:00:00+08:00", "2026-09-14T10:00:59+08:00"])
+        with mock.patch.object(osc, "_now_iso", lambda: next(stamps, "2026-09-14T10:01:00+08:00")):
+            again = self._confirm("2026-09-04")
+        self.assertEqual(again["id"], first["id"])
+        self.assertEqual(len(self.kinds(osc.EVENT_SCRIPT_CONFIRMED)), 1)
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
