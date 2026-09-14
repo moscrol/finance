@@ -26,7 +26,7 @@ import hashlib
 import math
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, replace, field
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
@@ -432,6 +432,268 @@ class MessageParts:
     question: str
     materials: tuple[MaterialRef, ...] = ()
     material_texts: tuple[str, ...] = field(default=(), repr=False)
+    # E2/P1：顶层三分区结果（classify_top_level_regions）。默认 None 时与旧行为
+    # 完全一致；消费方（两轴/继承/冻结点）在后续阶段接线。
+    regions: "TopLevelRegions | None" = None
+
+    # ── E2 消费 API（P2+ 的消费方从这里读；P1 先定义，保证字段写读同仓）──
+    @property
+    def classification(self) -> str:
+        """三态分类；未启用三分区时等同 no_constraint_confirmed。"""
+        if self.regions is None:
+            return "no_constraint_confirmed"
+        return self.regions.classification
+
+    @property
+    def sub_questions(self) -> tuple[str, ...]:
+        """编号题组（question_id = 用户原编号序）；无题组返回空。"""
+        if self.regions is None:
+            return ()
+        return self.regions.sub_questions
+
+    @property
+    def uncertain_reasons(self) -> tuple[str, ...]:
+        """boundary_uncertain 的确定性原因码（供澄清提问与审计）。"""
+        if self.regions is None:
+            return ()
+        return self.regions.uncertain_reasons
+
+    @property
+    def boundary_uncertain(self) -> bool:
+        """True = 任何后续状态操作前必须先澄清（设计稿 v10 §3.1 三态）。"""
+        return self.classification == "boundary_uncertain"
+
+
+# ── E2 材料题边界（设计稿 v10，docs/learning/knevo-distill/recheck/
+# 2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md）─────────────
+#
+# 两类状态操作共用词表（QC 实施守则 1：第 1 步内容复核与第 2 步指令识别共用同
+# 一份，不得复制成两份）。
+# ① 轴值更新（B 轴 / A 轴 / 显式放宽）：
+_B_MATERIAL_ONLY_PHRASES: tuple[str, ...] = (
+    "只依据", "仅根据", "不读取任何材料外", "不读取材料外",
+)
+_B_LOCAL_ONLY_PHRASES: tuple[str, ...] = (
+    "不要联网", "不联网", "别查实时", "不读外部",
+)
+_A_FICTIONAL_PHRASES: tuple[str, ...] = (
+    "纯属虚构", "完全虚构", "虚构案例", "以下为虚构", "以下是虚构",
+)
+_B_RELAX_PHRASES: tuple[str, ...] = ("可以查真实数据", "结合最新行情")
+# ② 基底继承（续轮声明）：
+_CONTINUATION_PHRASES: tuple[str, ...] = ("继续", "接着", "其余条件不变", "同上")
+
+# 内容复核的「疑似状态操作」行首形态：行首（允许空白与「请」前缀）命中才算；
+# 句中叙述（如「收入继续上涨」）不算（A11：材料内部的「假设/继续」字样不触发）。
+_STATE_OP_LINE_RE = re.compile(
+    r"^\s*(?:请\s*)?(?:"
+    + "|".join(
+        re.escape(p)
+        for p in (
+            _B_MATERIAL_ONLY_PHRASES
+            + _B_LOCAL_ONLY_PHRASES
+            + _A_FICTIONAL_PHRASES
+            + _B_RELAX_PHRASES
+            + _CONTINUATION_PHRASES
+        )
+    )
+    + r")"
+)
+# 短句「假设」仅在指令/问句形态下才算疑似（长叙述行首的「假设」属材料内容）。
+_HYPOTHESIS_INSTRUCTION_RE = re.compile(r"^\s*假设.{2,60}(?:成立|会怎样|[？?])\s*$")
+
+_FENCE_RE = re.compile(r"^\s*(```|~~~)")
+_QUOTE_PAIRS: tuple[tuple[str, str], ...] = (
+    ("「", "」"), ("『", "』"), ("“", "”"), ("‘", "’"), ('"', '"'), ("'", "'"),
+)
+_LEADIN_RE = re.compile(
+    r"^\s*(?:以下|下面是|以下是)?\s*(?:材料|材料内容|报告原文|报告|原文|案例|资料)"
+    r"(?:如下|全文)?\s*[:：]\s*$"
+)
+_NUMBERED_ITEM_RE = re.compile(r"^\s*(\d{1,2})[.、\)）]\s*(\S.*)$")
+
+
+@dataclass(frozen=True)
+class InstructionSpan:
+    """指令区片段（D1 第 2 步）：行为指令 / 前提声明 / 续轮声明。"""
+
+    kind: str  # "constraint_b" | "premise_declaration" | "continuation"
+    text: str
+    line_index: int
+    scope: str = "message"
+
+
+@dataclass(frozen=True)
+class TopLevelRegions:
+    """D1 顶层三分区 + 三态分类结果（设计稿 v10 §3.1）。"""
+
+    classification: str  # constraint_confirmed | no_constraint_confirmed | boundary_uncertain
+    instructions: tuple[InstructionSpan, ...] = ()
+    sub_questions: tuple[str, ...] = ()
+    uncertain_reasons: tuple[str, ...] = ()
+
+
+def _closed_quote_lines(lines: list[str]) -> tuple[set[int], list[int]]:
+    """栈配对引号（转义不计）。返回（闭合引用覆盖的行集合, 未闭合开引号所在行）。"""
+    protected: set[int] = set()
+    unclosed: list[int] = []
+    for opener, closer in _QUOTE_PAIRS:
+        stack: list[tuple[int, int]] = []
+        for li, line in enumerate(lines):
+            for ci, ch in enumerate(line):
+                if ci > 0 and line[ci - 1] == "\\":
+                    continue
+                if ch == opener and (opener != closer or not stack):
+                    stack.append((li, ci))
+                elif ch == closer and stack:
+                    start_li, _ = stack.pop()
+                    protected.update(range(start_li, li + 1))
+        unclosed.extend(li for li, _ in stack)
+    return protected, unclosed
+
+
+def _content_review(lines: list[str], begin: int, end: int, why: str) -> str | None:
+    """内容复核类块的失败分支：块内行首检出状态操作短语 → 不确定原因，否则 None。
+
+    词表 = 轴值更新 + 基底继承两类状态操作（与第 2 步共用同一份）。归属不明的
+    续轮声明同样不得复核通过（QC v10：识别前吞掉续轮 → D7 复位路径）。
+    """
+    for line in lines[begin:end]:
+        if _STATE_OP_LINE_RE.search(line) or _HYPOTHESIS_INSTRUCTION_RE.search(line):
+            return why
+    return None
+
+
+def classify_top_level_regions(text: str) -> TopLevelRegions:
+    """E2 设计稿 v10 §3.1：先保护、后解释、三态分类（全部确定性）。
+
+    有序五步：①保护范围冻结（强保护=闭合构造；引导/缩进/长文=内容复核类）
+    ②指令区识别（三类）③题组区识别（编号项，允许空行分隔）④材料区
+    ⑤三态分类。任何未闭合/复核未过/相邻歧义 → boundary_uncertain。
+    """
+    raw = str(text or "").replace("\r\n", "\n").replace("\r", "\n").strip("\n")
+    if not raw.strip():
+        return TopLevelRegions(classification="no_constraint_confirmed")
+    lines = raw.split("\n")
+    n = len(lines)
+    uncertain: list[str] = []
+    protected: set[int] = set()  # 强保护 + 复核通过的内容复核块
+
+    # 第 1 步 a：代码围栏（强保护；未闭合 → uncertain）
+    fence_open: int | None = None
+    fence_mark = ""
+    for li, line in enumerate(lines):
+        m = _FENCE_RE.match(line)
+        if not m:
+            continue
+        if fence_open is None:
+            fence_open, fence_mark = li, m.group(1)
+        elif m.group(1) == fence_mark:
+            protected.update(range(fence_open, li + 1))
+            fence_open = None
+    if fence_open is not None:
+        uncertain.append("unclosed_fence")
+
+    # 第 1 步 b：引号块（强保护；未闭合且后文含疑似状态操作 → uncertain）
+    quoted, unclosed_quote_lines = _closed_quote_lines(lines)
+    protected.update(quoted)
+    for li in unclosed_quote_lines:
+        tail = "\n".join(lines[li:])
+        if _STATE_OP_LINE_RE.search(tail) or any(
+            _STATE_OP_LINE_RE.search(x) for x in tail.split("\n")
+        ):
+            uncertain.append("unclosed_quote_with_state_op")
+
+    # 第 1 步 c：引导块 / 缩进块 / 长文块（内容复核类）
+    li = 0
+    while li < n:
+        if li in protected or not lines[li].strip():
+            li += 1
+            continue
+        begin, end, why = -1, -1, ""
+        if _LEADIN_RE.match(lines[li]):
+            begin = li
+            end = n
+            for j in range(li + 1, n):
+                if not lines[j].strip() and j + 1 < n and (
+                    _NUMBERED_ITEM_RE.match(lines[j + 1]) or _looks_like_question(lines[j + 1])
+                ):
+                    end = j
+                    break
+            why = "leadin_block_with_state_op"
+        elif lines[li].startswith("  ") and not lines[li].startswith("   \t"):
+            begin = li
+            end = li
+            while end < n and lines[end].startswith("  "):
+                end += 1
+            why = "indent_block_with_state_op"
+        li_next = li
+        if begin >= 0:
+            reason = _content_review(lines, begin, end, why)
+            if reason:
+                uncertain.append(reason)
+            else:
+                protected.update(range(begin, end))
+            li_next = max(end, li + 1)
+        li = li_next if li_next > li else li + 1
+
+    # 第 1 步 d：相邻规则——材料区与疑似顶层禁令无空行相连 → uncertain
+    for li in range(1, n):
+        if (
+            (li - 1) in protected
+            and li not in protected
+            and lines[li - 1].strip()
+            and _STATE_OP_LINE_RE.search(lines[li])
+        ):
+            uncertain.append("adjacent_state_op_after_material")
+
+    # 第 2 步：指令区识别（只扫未保护行）
+    instructions: list[InstructionSpan] = []
+    for li, line in enumerate(lines):
+        if li in protected or not line.strip():
+            continue
+        stripped = line.strip()
+        compact = stripped.lstrip("请").lstrip()
+        if compact.startswith(_B_MATERIAL_ONLY_PHRASES + _B_LOCAL_ONLY_PHRASES):
+            instructions.append(InstructionSpan("constraint_b", stripped, li))
+        elif compact.startswith(_A_FICTIONAL_PHRASES) or (
+            compact.startswith("假设") and _HYPOTHESIS_INSTRUCTION_RE.search(stripped)
+        ):
+            instructions.append(InstructionSpan("premise_declaration", stripped, li))
+        elif compact.startswith(_CONTINUATION_PHRASES) or "其余条件不变" in compact:
+            instructions.append(InstructionSpan("continuation", stripped, li))
+
+    # 第 3 步：题组区识别（未保护、非指令行；编号连续成组，允许空行分隔）
+    instruction_lines = {span.line_index for span in instructions}
+    sub_questions: list[str] = []
+    expected = 1
+    for li, line in enumerate(lines):
+        if li in protected or li in instruction_lines:
+            continue
+        m = _NUMBERED_ITEM_RE.match(line)
+        if not m:
+            continue
+        number = int(m.group(1))
+        if number == expected:
+            sub_questions.append(m.group(2).strip())
+            expected = number + 1
+        elif number == 1 and not sub_questions:
+            sub_questions.append(m.group(2).strip())
+            expected = 2
+
+    # 第 5 步：三态分类
+    if uncertain:
+        classification = "boundary_uncertain"
+    elif instructions:
+        classification = "constraint_confirmed"
+    else:
+        classification = "no_constraint_confirmed"
+    return TopLevelRegions(
+        classification=classification,
+        instructions=tuple(instructions),
+        sub_questions=tuple(sub_questions),
+        uncertain_reasons=tuple(dict.fromkeys(uncertain)),
+    )
 
 
 _URL_RE = re.compile(r"https?://[^\s<>\"'）)】\]]+", re.IGNORECASE)
@@ -545,6 +807,16 @@ def _looks_like_question(text: str) -> bool:
 
 
 def split_user_message(text: str) -> MessageParts:
+    """Separate the question from pasted materials in one user message.
+
+    E2/P1：返回值附带顶层三分区结果（classify_top_level_regions），旧抽取行为
+    不变；两轴/继承/冻结点等消费方在后续阶段接线。
+    """
+    parts = _split_user_message_core(text)
+    return replace(parts, regions=classify_top_level_regions(text))
+
+
+def _split_user_message_core(text: str) -> MessageParts:
     """Separate the question from pasted materials in one user message.
 
     Shapes handled (all deterministic):
