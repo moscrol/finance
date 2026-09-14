@@ -252,6 +252,9 @@ class EpisodeScope:
             raise ValueError("episode scope 必须携带 episode_id")
         if not isinstance(self.invoked_tools, set):
             object.__setattr__(self, "invoked_tools", set(self.invoked_tools))
+        material = self.context.contract.material_contract
+        if material is not None and material.data_scope in {"local_only", "material_only"}:
+            object.__setattr__(self, "registry", self.registry.with_read_scope(material.data_scope))
 
     # ── 运行中登记 ────────────────────────────────────────────────────
 
@@ -378,8 +381,7 @@ class EpisodeScope:
         """判定单个工具是否被本次 contract 授权。
 
         与 ``registry.execute`` 内联那次判定的差别只在**形态**（返回值 vs 抛异常），
-        判据完全一致：``spec.capability in contract.allowed_capabilities``。
-        第 3 步接线时由这里取代内联判定，语义不变。
+        判据共用 registry.authorization_denial：能力授权与实际 IO 上限都必须满足。
         """
 
         try:
@@ -394,12 +396,13 @@ class EpisodeScope:
                 capability=None,
                 reason="工具未注册",
             )
-        if spec.capability not in self.allowed_capabilities:
+        denial = self.registry.authorization_denial(spec, self.context)
+        if denial:
             return Authorization(
                 allowed=False,
                 tool=spec.name,
                 capability=spec.capability,
-                reason=f"能力未授权：{spec.capability}",
+                reason=denial,
             )
         return Authorization(allowed=True, tool=spec.name, capability=spec.capability)
 

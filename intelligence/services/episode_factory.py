@@ -36,6 +36,7 @@ from intelligence.services.research_contract import (
 from intelligence.services.research_tool_registry import (
     DEFAULT_RESEARCH_CAPABILITIES,
 )
+from intelligence.services.material_permissions import restrict_read_capabilities
 from intelligence.services.task_frame import TaskFrame, task_frame_requires_retrieval
 from intelligence.services.user_task import (
     MaterialRef,
@@ -654,12 +655,15 @@ def build_episode_context(
             raise ValueError(f"unknown runtime capability: {capability}")
         if capability not in authorized:
             authorized.append(capability)
-    # P3a：限制最后施加，题型的 mandatory 下限不能把已禁止的读能力加回来。
-    # 后续 local_only/歧义交集须按实际 IO 审计后扩展，不能借 cost/freshness 猜权限。
+    # 限制最后施加，题型的 mandatory 下限不能把已禁止的读能力加回来。
+    # local_only 白名单来自实际 runner 审计，不借 cost/freshness 猜权限。
+    capability_tuple = restrict_read_capabilities(tuple(authorized), material.data_scope if material else None)
     if material_only:
-        authorized = []
         evidence_plan = EvidencePlan(profile="material_only", requirements=(), freshness="stable")
-    capability_tuple = tuple(authorized)
+    elif material is not None and material.data_scope == "local_only":
+        evidence_plan = replace(evidence_plan, requirements=tuple(
+            item for item in evidence_plan.requirements if item.capability in capability_tuple
+        ))
 
     # 必须在 capability_tuple 定稿之后：`_with_prior_recall` 的前置条件是
     # 「memory_lookup 真的在这次的授权里」，而授权到这一行才算最终确定
@@ -776,7 +780,9 @@ def build_episode_context(
         task_frame_hash=frame.task_frame_hash,
         material_contract=material,
     )
-    if frame.history_intent is not None and "finance_query" in capability_tuple:
+    if frame.history_intent is not None and "finance_query" in capability_tuple and not (
+        material is not None and material.data_scope == "local_only"
+    ):
         # Capability authorizes execution; evidence_types admits the actual
         # producer names. Keep historical provenance and narrow output contracts
         # (for example memory/news/financial anchors) intact.
@@ -796,7 +802,9 @@ def build_episode_context(
                 for output in contract.required_outputs
             ),
         )
-    if not material_only:
+    if material is None or material.data_scope == "full":
+        # 自动 KB 预检不走工具授权，且 knowledge 可由调用方替换；受限轮不运行。
+        # 本地证据仍由已审定 runner 获取，不把未分类读取当作预置缺口依据。
         contract = apply_static_chain_mapping_precheck(contract, knowledge=knowledge)
     cutoff = (
         information_cutoff
