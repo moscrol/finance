@@ -1,0 +1,209 @@
+{
+  "checks": [
+    {
+      "name": "exact_64_dates",
+      "ok": true,
+      "detail": 64
+    },
+    {
+      "name": "fact_stock_daily:stock_ts_code<>'302132.SZ'",
+      "ok": true,
+      "detail": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "fact_stock_daily:stock_ts_code='302132.SZ' AND trade_date IN (SELECT trade_date FROM prod.fact_stock_daily WHERE stock_ts_code='302132.SZ' AND trade_date<>'2026-06-23')",
+      "ok": true,
+      "detail": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "feature_stock_technical_daily:stock_ts_code<>'302132.SZ' OR trade_date NOT BETWEEN '2026-06-15' AND '2026-09-11'",
+      "ok": true,
+      "detail": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "feature_stock_window:stock_ts_code<>'302132.SZ' OR as_of_date NOT BETWEEN '2026-06-15' AND '2026-09-11'",
+      "ok": true,
+      "detail": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "fact_market_daily:TRUE",
+      "ok": true,
+      "detail": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "fact_sector_daily_generation:TRUE",
+      "ok": true,
+      "detail": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "fact_sector_stock_daily_generation:TRUE",
+      "ok": true,
+      "detail": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "54_full_field_oracle",
+      "ok": true,
+      "detail": {
+        "n": 54,
+        "bad": []
+      }
+    },
+    {
+      "name": "technical_exact_dates",
+      "ok": true,
+      "detail": 39
+    },
+    {
+      "name": "window_exact_tuples",
+      "ok": true,
+      "detail": 161
+    },
+    {
+      "name": "technical_pins",
+      "ok": true,
+      "detail": [
+        [
+          59.8542,
+          2.6845,
+          61.9052,
+          2.45
+        ]
+      ]
+    },
+    {
+      "name": "window_pins",
+      "ok": true,
+      "detail": [
+        [
+          "2026-06-18",
+          6.89,
+          5.0148
+        ],
+        [
+          "2026-08-14",
+          9.34,
+          6.198
+        ],
+        [
+          "2026-08-28",
+          5.7,
+          7.9351
+        ],
+        [
+          "2026-09-04",
+          0.19,
+          6.9264
+        ]
+      ]
+    },
+    {
+      "name": "inputs_unchanged",
+      "ok": true,
+      "detail": {
+        "production": {
+          "sha256": "76a32fac9c8bcd542982e5f7ffd654ffcf0e8646f515487aeba3b74c3ceff168",
+          "stat": [
+            140555030,
+            3612880896,
+            1789323587584092374
+          ]
+        },
+        "clone": {
+          "sha256": "3e9fe3f48ef77a118e361dd64c9de540d17bddfb4dde76521737108fecd46ba4",
+          "stat": [
+            142100983,
+            3617337344,
+            1789352819269805749
+          ]
+        },
+        "parquet": {
+          "sha256": "51f9ee9cba1ceb4a6ff50c4c4dce8267cb39f78add28d6a33699cbf90bf28d17",
+          "stat": [
+            133442174,
+            1077771,
+            1789231689792439208
+          ]
+        }
+      }
+    },
+    {
+      "name": "production_bound_to_reported_baseline",
+      "ok": true,
+      "detail": {
+        "sha256": "76a32fac9c8bcd542982e5f7ffd654ffcf0e8646f515487aeba3b74c3ceff168",
+        "stat": [
+          140555030,
+          3612880896,
+          1789323587584092374
+        ]
+      }
+    }
+  ],
+  "observations": {
+    "retained_main_rows": 10,
+    "ops_schema": [
+      "run_id",
+      "kind",
+      "plan",
+      "trade_date",
+      "started_at",
+      "finished_at",
+      "duration_s",
+      "ok",
+      "pid",
+      "child_pid",
+      "copy_method",
+      "copy_seconds",
+      "source_bytes",
+      "rows_summary",
+      "steps_summary"
+    ],
+    "repair_ops": [
+      [
+        "dbfd8291f271",
+        "repair-backfill-302132",
+        "staging-swap",
+        true,
+        "[{\"name\": \"repair-backfill-302132\", \"ok\": true, \"technical_rows\": 39, \"window_rows\": 161}]"
+      ],
+      [
+        "492bd1c16751",
+        "repair-backfill-302132",
+        "staging-swap",
+        true,
+        "[{\"name\": \"repair-backfill-302132\", \"ok\": true, \"technical_rows\": 39, \"window_rows\": 161}]"
+      ]
+    ],
+    "freshness": {
+      "fact_market_daily": "2026-09-11",
+      "fact_stock_daily": "2026-09-11",
+      "fact_stock_daily_hithink": "2026-09-08"
+    }
+  },
+  "inputs": {
+    "production": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+    "clone": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/fake-prod.duckdb",
+    "parquet": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/daily-k-10d.parquet"
+  }
+}
