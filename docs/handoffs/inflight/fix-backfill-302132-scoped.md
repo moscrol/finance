@@ -1,18 +1,18 @@
-# 在途交接：fix/backfill-302132-scoped（302132 历史回填执行实现，第二轮交审）
+# 在途交接：fix/backfill-302132-scoped（302132 历史回填执行实现，第三轮交审）
 
-## 状态（2026-09-14 中午）
-- **第二轮修复完成并重演练**：QC 复审（6abd08ac，2 P1 + 3 P2，7 条误放行复现）已全部修复——tip `efe2d28b`（代码）+ 文档提交。交审文档 `docs/handoffs/2026-09-14-302132-backfill-execution-design.md`（含逐项修复对照表）。
-- 单测 19/19（7 条误放行探针翻转为必须拒绝 + 2 条收据守卫）；全量 pytest **9,636 passed / 0 failed / 77 skipped**（收据 20260914T035247Z-efe2d28b.json，dirty=false）；ruff 全仓过。
-- 全新副本演练 ×2（真实父流程）：apply run_id=dc6d8a7a174f、verify run_id=de751020ba23；**每轮不可覆盖收据**（backfill-report/execution 按 run_id 命名，绑定 revision/dirty/备份身份）。外部验收 v2 **13/13 PASS**（`~/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/dryrun-acceptance-v2.json`）。
-- **未写生产**。生产授权需另行申请（前提清单见交审文档末节）。
+## 状态（2026-09-14 午后）
+- **第三轮：干净修订重演练完成**。第二轮因 run3/run4 收据绑定 1b936486+dirty（在 efe2d28b 提交前运行）被判证据无效；已在干净提交 `f9b3663e` 重跑：run5 apply=`1a34c356050a`、run6 verify=`432521cb81cd`，验收 v3 **16/16 PASS**（父=子收据 revision==f9b3663e、dirty==false、备份哈希与收据一致、生产未变；`~/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/dryrun-acceptance-v3.json`）。
+- 代码补强同提交：收据换库前预校验（不可写/冲突在换库前拦截，有反例测试）、写后失败响亮 rc=2、单测身份断言、验收脚本入库 `scripts/verify_302132_backfill_acceptance.py`。
+- 单测 20/20；全量 pytest **9,637 passed / 0 failed / 77 skipped**（收据 20260914T043925Z-f9b3663e.json，dirty=false）；ruff 全仓过。交审文档 `docs/handoffs/2026-09-14-302132-backfill-execution-design.md`（三轮沿革）。
+- **未写生产**。生产授权需另行申请（前提见交审文档末节，含当场 `--expected-revision` 复核）。
 
 ## 关键背景
-- 合同源：准备复审 `docs/handoffs/2026-09-14-302132-prep-review.md`；执行复审 `docs/handoffs/2026-09-14-302132-execution-review.md`（QC 分支 docs/qc-backfill-302132-1b936486）。
-- 修复要点：源日期集合与市场历逐日相等（LAG 前驱身份）；验收分母=spec 键集+全字段 oracle+标签守恒；保留 10 行全列含 updated_at 指纹；window 黄金三元组；`_guarded_write_json` O_EXCL+别名隔离。
-- 磁盘 ~8Gi；备份不删；演练目录保留 fake-prod.duckdb（第二轮产物）+ 证据 JSON + 日志。
-- 前身脉络：换库契约修复与 09-11 生产修复已合 main（1fef3d27）并验收；准备阶段审计在施工分支 742c3ff5。
+- 教训：演练也必须「先提交后跑」——dirty 树的演练收据不能充当目标修订证据（P2-3 自查自证）。
+- 合同链：prep-review（P1×2+合同）→ execution-review（五项退修）→ 三轮（证据绑定阻断）。QC 分支 docs/qc-backfill-302132-1b936486。
+- 磁盘一度降至 ~4.3Gi（他 agent 占用）；演练目录含 fake-prod.duckdb + 两轮 CoW 备份 + 证据 JSON，评审期间保留。
+- 前身脉络：换库契约修复与 09-11 生产修复已合 main（1fef3d27）；准备阶段审计在施工分支 742c3ff5。
 
 ## 下一步
 1. 代码复审 → 合 main（须用户确认）。
-2. 生产执行授权后：从合入修订干净检出跑 `repair-backfill-302132 --parquet <冻结 parquet>`；基线若变（新日更）先重跑副本演练。
+2. 生产执行授权后：干净检出跑 `repair-backfill-302132 --parquet <冻结 parquet>`，当场跑验收脚本（--expected-revision=合入修订）；基线若变先重跑副本演练。
 3. 事项 3（并跑表补齐）：授权后先交端点×日期×额外表清单。

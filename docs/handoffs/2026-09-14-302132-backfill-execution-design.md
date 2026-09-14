@@ -1,6 +1,15 @@
-# 302132.SZ 历史回填·执行实现交审（fix/backfill-302132-scoped @ efe2d28b）
+# 302132.SZ 历史回填·执行实现交审（fix/backfill-302132-scoped @ f9b3663e）
 
-按 `2026-09-14-302132-prep-review.md` 的两条 P1 与「执行前合同」实现并全链演练；后经 `2026-09-14-302132-execution-review.md`（QC 分支 docs/qc-backfill-302132-1b936486）五项退修，已全部修复并重新演练。**本轮未写生产**；生产授权另行申请。
+按 `2026-09-14-302132-prep-review.md` 的两条 P1 与「执行前合同」实现；经两轮复审退修（五项修复 + 证据绑定阻断）全部落地。**第三轮演练在干净提交 f9b3663e 上完成，收据 revision 身份断言通过。本轮未写生产**；生产授权另行申请。
+
+## 第三轮（f9b3663e）：证据绑定修复与干净修订重演练
+
+第二轮阻断（复审三轮）：run3/run4 收据如实绑定 `1b936486+dirty`（机制正常），但其在 efe2d28b 提交**之前**运行，不能作为第二轮代码证据。处理：
+
+- **代码补强**：父模式换库前预校验本轮收据可写（O_EXCL 探针即建即删，目录不可写/路径冲突在换库**之前**拦截，`run_daily_full_staged` 不被调用——有反例测试）；换库后收据写出失败响亮 rc=2；`_guarded_write_json` 把 OS 层写入失败统一转为 fail-closed；删除「字段存在即过」的弱断言，单测改为**身份断言**（receipt.revision == 运行时 HEAD、dirty 如实）；外部验收脚本入库 `scripts/verify_302132_backfill_acceptance.py`（fail-closed 门禁，身份断言内建，参数化可复跑）。
+- **干净修订重演练**：提交 f9b3663e（git status 空）后重跑：run5（apply）run_id=`1a34c356050a`、run6（verify）run_id=`432521cb81cd`。
+- **外部验收 v3 16/16 PASS**（`~/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/dryrun-acceptance-v3.json`）：**两轮父收据与子报告的 code_revision 均 == f9b3663e9a436299838216706c5843f07736d985、code_dirty == false、父=子一致**；apply/verify 模式正确；两份备份文件存在且其 sha256 与收据记录一致；生产 sha256 未变；11 项数据合同检查（同 v2 口径）全过。
+- 全量 pytest：收据 `~/.finance-runtime/test-receipts/20260914T043925Z-f9b3663e.json`，**9,637 passed / 0 failed / 77 skipped**，revision=f9b3663e，dirty=false。ruff 全仓过。单测 20/20（含收据预校验反例与身份断言）。
 
 ## 第二轮（efe2d28b）：复审五项修复
 
@@ -41,11 +50,10 @@
 - 单测 10/10：`tests/test_repair_backfill_stock_history.py`（happy/scoped/置缺/幂等/6 拒跑/反例/oracle 锚）。
 - 第一轮全量 pytest：收据 `~/.finance-runtime/test-receipts/20260914T023634Z-ef90ea7d.json`，9,627 passed / 0 failed / 77 skipped，revision=ef90ea7d，dirty=false（已被上方 efe2d28b 收据取代）。
 - **真实父流程完整副本演练 ×2**（第二轮代码，`MARKET_FEATURE_STORE_DB` 指向生产 CoW 克隆）：
-  - run3（apply）：run_id=dc6d8a7a174f，克隆→子进程→验收→备份→原子换库全链 OK，执行收据绑定 revision+备份身份；
-  - run4（verify 幂等重跑）：run_id=de751020ba23，零写入 verify 模式 OK；两轮收据并存不覆盖。
-- **外部独立验收 v2 13/13 PASS**（`~/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/dryrun-acceptance-v2.json`）：生产 sha256 未变；他股主表全列双向 0；**保留 10 行（9 旧 + 09-11）全列含 updated_at 逐字节相等**；54 行键集分母全字段 oracle；两派生表保护切片全列（含 calculated_at）双向 0；window 黄金三元组集合相等；technical 精确 39 日期集；09-11 四值+四窗钉；fact_market_daily 不变；两轮收据绑定 revision/dirty/备份身份/spec/源指纹且 verify 模式正确。
-- 第一轮演练（已被第二轮取代）：run1=dbfd8291f271、run2=492bd1c16751，验收 15/15（`dryrun-acceptance.json`）。
-- 全量 pytest：收据 `~/.finance-runtime/test-receipts/20260914T035247Z-efe2d28b.json`，**9,636 passed / 0 failed / 77 skipped**，exit 0，revision=efe2d28b，dirty=false。ruff 全仓通过。
+  - run3（apply）：run_id=dc6d8a7a174f；run4（verify）：run_id=de751020ba23。
+  - ⚠️ 两轮收据如实绑定 `1b936486+dirty`（在 efe2d28b 提交前运行）——复审三轮认定**不能作为第二轮代码证据**，已被上方第三轮干净重演练取代；此处仅留痕。
+- 第二轮外部验收 v2 13/13（`dryrun-acceptance-v2.json`）：数据合同全过，但收据身份不满足「revision==efe2d28b 且 dirty==false」，整轮作废。
+- 第二轮全量 pytest：收据 `20260914T035247Z-efe2d28b.json`，9,636 passed / 0 failed / 77 skipped，revision=efe2d28b，dirty=false（测试门禁本身有效）。
 
 ## P2 声明修正落实
 
@@ -57,7 +65,7 @@
 
 ## 生产执行前提（待授权清单）
 
-1. 代码评审通过并合入 main；执行从合入后的干净检出运行（revision 绑定）。
+1. 代码评审通过并合入 main；执行从合入后的干净检出运行（`git status` 为空）。执行后当场以 `scripts/verify_302132_backfill_acceptance.py --expected-revision <合入修订> --expected-production-sha256 <换库前生产 sha>` 复核：收据 revision==合入修订且 dirty==false、父=子一致、备份身份可读、数据合同全项。
 2. 生产若在此之前发生合法新写入（如 09-12 日更），基线变化 → 需重新副本演练（spec 钉值以现生产为准重核）。
 3. 磁盘：演练实测 staging/备份均 clonefile CoW（0.004s/近零增量）；执行前仍按 df 实查 + 余量核算（当前 ~8.8Gi 可用）；备份不自动删。
 4. 执行命令：`python3 -m market_feature_store.cli repair-backfill-302132 --parquet <冻结 parquet>`（MARKET_FEATURE_STORE_DB 指生产；默认即父编排，无 --direct 类逃生口）。
