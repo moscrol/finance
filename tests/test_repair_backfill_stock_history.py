@@ -626,3 +626,149 @@ def test_cli_parent_preflight_blocks_on_open_permission_error(tmp_path,
     args = SimpleNamespace(parquet=str(pq), child=False, db=None, report_path=None)
     assert cli.cmd_repair_backfill_302132(args) == 2
     assert called == {}
+
+
+def test_refused_cli_parent_report_path_never_deletes_user_file(tmp_path,
+                                                                monkeypatch):
+    """P1-1（五轮）：--report-path 指向已有文件时，父命令拒绝但绝不删除它。"""
+    from market_feature_store import cli
+    from market_feature_store.sync import sync_daily_full
+
+    db, pq = tmp_path / "staging.duckdb", tmp_path / "tail.parquet"
+    fixture = _fixture(db, pq)
+    spec = _spec(db, pq, fixture["pinned"])
+    witness = tmp_path / "witness.duckdb"
+    with duckdb.connect(str(witness)) as c:
+        c.execute("CREATE TABLE witness AS SELECT 123 AS x")
+    before = witness.read_bytes()
+    called = {}
+
+    def parent(**kwargs):
+        called.update(kwargs)
+        return {"swapped": False, "reason": "must not reach", "rc": 2}
+
+    monkeypatch.setattr(sync_daily_full, "run_daily_full_staged", parent)
+    monkeypatch.setenv("MARKET_FEATURE_STORE_PRODUCTION_DB",
+                       str(tmp_path / "elsewhere.duckdb"))
+    monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(db))
+    monkeypatch.setattr(mod, "BackfillSpec", lambda: spec)
+    from types import SimpleNamespace
+    args = SimpleNamespace(parquet=str(pq), child=False, db=None,
+                           report_path=str(witness))
+    assert cli.cmd_repair_backfill_302132(args) == 2
+    assert called == {}                       # 父编排未被调用
+    assert witness.read_bytes() == before     # 用户文件原样
+
+
+def test_refused_receipt_eexist_race_keeps_other_writers_file(tmp_path,
+                                                              monkeypatch):
+    """P1-2（五轮）：O_EXCL 竞争失败——另一写者的文件必须原样保留。"""
+    import os as _os
+
+    target = tmp_path / "r.json"
+    real_open = _os.open
+
+    def racing_open(path, flags, mode=0o644):
+        # 另一写者抢先创建并写完自己的文件
+        fd = real_open(path, _os.O_WRONLY | _os.O_CREAT | _os.O_EXCL, mode)
+        with _os.fdopen(fd, "w") as fh:
+            fh.write('{"winner": true}\n')
+        raise FileExistsError(17, "File exists (simulated race)")
+
+    monkeypatch.setattr(mod.os, "open", racing_open)
+    with pytest.raises(RepairRefused, match="收据写出失败|已存在"):
+        mod._guarded_write_json(target, {"loser": 1})
+    assert target.read_text() == '{"winner": true}\n'
+
+
+def test_acceptance_script_rejects_hardlink_alias(tmp_path):
+    """P1-3（五轮）：production 与 clone 互为硬链接 → 预检拒绝，rc=2。"""
+    import subprocess
+    import sys
+
+    prod = tmp_path / "prod.duckdb"
+    with duckdb.connect(str(prod)) as c:
+        c.execute("CREATE TABLE t AS SELECT 1 AS x")
+    clone = tmp_path / "clone-hard.duckdb"
+    import os as _os
+    _os.link(prod, clone)  # 硬链接：realpath 不同，同一 inode
+    pq = tmp_path / "q.parquet"
+    pq.write_bytes(b"x")
+    out = tmp_path / "out.json"
+    script = (mod.PROJECT_DIR / "scripts"
+              / "verify_302132_backfill_acceptance.py")
+    res = subprocess.run(
+        [sys.executable, str(script), "--production", str(prod),
+         "--clone", str(clone), "--parquet", str(pq),
+         "--run-apply", "a", "--run-verify", "v",
+         "--expected-revision", "0" * 40,
+         "--expected-production-sha256", "0" * 64,
+         "--output", str(out)],
+        capture_output=True, text=True, timeout=120)
+    assert res.returncode == 2
+    verdict = json.loads(out.read_text())
+    assert verdict["verdict"] == "FAIL"
+    alias = [c for c in verdict["checks"]
+             if c["name"] == "clone_is_not_production_alias"]
+    assert alias and alias[0]["ok"] is False
+    skipped = [c for c in verdict["checks"]
+               if c["name"] == "data_checks_executed"]
+    assert skipped and skipped[0]["ok"] is False  # 数据检查被跳过，不发绿
+
+
+def test_acceptance_script_receipt_schema_mutation_fails(tmp_path):
+    """P2-1（五轮）：收据缺 spec_version → 结构化 FAIL，缺证据不发绿。"""
+    import subprocess
+    import sys
+
+    prod = tmp_path / "prod.duckdb"
+    with duckdb.connect(str(prod)) as c:
+        c.execute("CREATE TABLE t AS SELECT 1 AS x")
+    clone = tmp_path / "clone.duckdb"
+    with duckdb.connect(str(clone)) as c:
+        c.execute("CREATE TABLE t AS SELECT 2 AS x")
+    pq = tmp_path / "q.parquet"
+    pq.write_bytes(b"x")
+    prod_sha = mod._sha256(prod)
+    for tag in ("apply", "verify"):
+        receipt = {
+            "kind": "repair-backfill-302132", "run_id": tag, "trade_date": "2026-09-11",
+            "code_revision": "f" * 40, "code_dirty": False, "interpreter": "py",
+            "parent": {"swapped": True, "rc": 0, "run_id": tag},
+            "backup": {"backup_path": str(prod), "backup_sha256": prod_sha},
+            "spec": {"code": "302132.SZ", "name": "中航成飞",
+                     # spec_version 故意缺失（变异）
+                     "window_start": "2026-06-15", "window_end": "2026-09-11",
+                     "main_fill_end": "2026-09-10", "shell_date": "2026-06-23",
+                     "parquet_sha256": "0" * 64,
+                     "gap_parallel": ["2026-06-17"], "gap_parquet": ["2026-09-09"],
+                     "pinned_technical_0911": {}, "pinned_windows_0911": [1],
+                     "expected_window_counts": {}, "expected_technical_count": 39},
+            "child_report": {"kind": "repair-backfill-302132", "run_id": tag,
+                             "mode": tag, "code_revision": "f" * 40,
+                             "code_dirty": False, "parquet_sha256": "0" * 64,
+                             "protected_slices": {}},
+            "child_report_path": None,
+        }
+        (tmp_path / f"clone.duckdb.repair-backfill-execution.{tag}.json"
+         ).write_text(json.dumps(receipt))
+    out = tmp_path / "out.json"
+    script = (mod.PROJECT_DIR / "scripts"
+              / "verify_302132_backfill_acceptance.py")
+    res = subprocess.run(
+        [sys.executable, str(script), "--production", str(prod),
+         "--clone", str(clone), "--parquet", str(pq),
+         "--run-apply", "apply", "--run-verify", "verify",
+         "--expected-revision", "f" * 40,
+         "--expected-production-sha256", prod_sha,
+         "--output", str(out)],
+        capture_output=True, text=True, timeout=120)
+    assert res.returncode == 2
+    verdict = json.loads(out.read_text())
+    assert verdict["verdict"] == "FAIL"
+    schema = [c for c in verdict["checks"] if c["name"] == "receipt_apply_schema"]
+    assert schema and schema[0]["ok"] is False
+    assert "spec.spec_version" in str(schema[0]["detail"])
+    skipped = [c for c in verdict["checks"]
+               if c["name"] == "data_checks_executed"]
+    assert skipped and skipped[0]["ok"] is False

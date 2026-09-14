@@ -1301,28 +1301,34 @@ def cmd_repair_backfill_302132(args) -> int:
     if args.report_path:
         child_argv += ["--report-path", args.report_path]
     # 换库前预校验本轮收据可写（评审：收据在换库后才发现不可写 = 数据已发布、
-    # 证据缺失的窗口）。探针 O_EXCL 创建即删，与正式收据同一守卫语义。
+    # 证据缺失的窗口）。两条铁律：用户传入路径只纯校验（不创建、不删除——绝不
+    # 触碰用户已有文件）；可写性探针用独立 pid 命名，且仅本轮成功创建才删除。
     from .sync.repair_backfill_stock_history import (
-        _code_revision, _guarded_write_json)
+        _code_revision, _guarded_write_json, _validate_receipt_path)
     from .write_path import canonical_production_candidates
 
     env_db = os.environ.get("MARKET_FEATURE_STORE_DB")
     from . import db as _dbmod_pre
     pre_target = Path(env_db) if env_db else _dbmod_pre.DB_PATH
-    if pre_target is not None:
-        protected = {pre_target, parquet, *canonical_production_candidates()}
-        probes = [Path(str(pre_target)
-                       + f".repair-backfill-execution.probe-{os.getpid()}.json")]
-        if args.report_path:
-            probes.append(Path(args.report_path))
-        for probe in probes:
-            try:
-                _guarded_write_json(probe, {"probe": True}, protected)
-            except RepairRefused as exc:
-                print(f"执行收据路径预校验不通过（换库前拦截）: {exc}")
-                return 2
-            finally:
-                probe.unlink(missing_ok=True)
+    protected = {pre_target, parquet, *canonical_production_candidates()}
+    if args.report_path:
+        try:
+            _validate_receipt_path(Path(args.report_path), protected)
+        except RepairRefused as exc:
+            print(f"报告路径预校验不通过（换库前拦截）: {exc}")
+            return 2
+    probe = Path(str(pre_target)
+                 + f".repair-backfill-execution.probe-{os.getpid()}.json")
+    probe_created = False
+    try:
+        _guarded_write_json(probe, {"probe": True}, protected)
+        probe_created = True
+    except RepairRefused as exc:
+        print(f"执行收据路径预校验不通过（换库前拦截）: {exc}")
+        return 2
+    finally:
+        if probe_created:  # 只清理本轮自己成功创建的探针
+            probe.unlink(missing_ok=True)
     result = run_daily_full_staged(
         trade_date=spec.window_end,
         child_argv=child_argv,

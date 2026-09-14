@@ -129,9 +129,10 @@ def _code_revision() -> tuple[str, bool]:
     return head, dirty
 
 
-def _guarded_write_json(path: Path, payload: dict,
-                        protected: set[Path] | frozenset | None = None) -> Path:
-    """收据/报告的唯一写出通道：O_EXCL 不可覆盖 + 与受保护文件及其别名隔离。"""
+def _validate_receipt_path(path: Path,
+                           protected: set[Path] | frozenset | None = None
+                           ) -> Path:
+    """收据路径纯校验：不创建、不删除（绝不触碰调用方/用户已有文件）。"""
     p = Path(path).expanduser()
     if p.suffix != ".json":
         _fail("收据/报告必须为 .json", str(p))
@@ -145,9 +146,23 @@ def _guarded_write_json(path: Path, payload: dict,
             _fail("收据路径与受保护文件（生产/staging/冻结输入）冲突或别名", str(p))
     if p.exists():
         _fail("收据路径已存在（每轮收据不可覆盖）", str(p))
+    return p
+
+
+def _guarded_write_json(path: Path, payload: dict,
+                        protected: set[Path] | frozenset | None = None) -> Path:
+    """收据/报告的唯一写出通道：O_EXCL 不可覆盖 + 别名隔离 + 全阶段 fail-closed。
+
+    半成品清理严格限于「本轮 os.open 成功创建、且清理时 (st_dev, st_ino) 仍是
+    同一个 inode」的文件——EEXIST 竞争失败或未取得所有权时绝不 unlink。
+    """
+    p = _validate_receipt_path(path, protected)
     fd = None
+    created: tuple[int, int] | None = None
     try:
         fd = os.open(str(p), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        st = os.fstat(fd)
+        created = (st.st_dev, st.st_ino)
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fd = None  # 所有权移交 fh；异常时由 with 负责关闭
             fh.write(json.dumps(payload, ensure_ascii=False, indent=2, default=str)
@@ -157,7 +172,13 @@ def _guarded_write_json(path: Path, payload: dict,
     except OSError as exc:
         if fd is not None:
             os.close(fd)
-        p.unlink(missing_ok=True)  # 不留半截收据（否则下轮 O_EXCL 必拒）
+        if created is not None:
+            try:  # 仅清理本轮自己创建且仍是同一 inode 的文件
+                cur = p.lstat()
+                if (cur.st_dev, cur.st_ino) == created:
+                    p.unlink()
+            except OSError:
+                pass
         _fail("收据写出失败", f"{type(exc).__name__}: {exc}")
     return p
 

@@ -1,41 +1,54 @@
 #!/usr/bin/env python3
 """302132 回填完整副本演练·外部独立验收（fail-closed 门禁，非报告生成器）。
 
+对象角色（两种用法同一语义）：
+- `--production`：**不可变基线**库。演练复验 = 未动的真生产；生产执行后验收 =
+  换库前备份文件（路径与 sha 见执行收据 backup 字段）。
+- `--clone`：**换库后结果**库。演练 = 演练产物库；生产执行后 = canonical 生产库
+  （收据按 `<clone>.repair-backfill-execution.<run_id>.json` 派生）。
+- `--expected-production-sha256`：基线 sha（生产执行后 = 换库前生产 sha =
+  执行收据 backup.backup_sha256），首尾各核一次（TOCTOU 闭环）。
+
 实际执行的检查（文档只声称实现了的）：
 
-预检：
-- production / clone / parquet 均为常规文件，且 production 与 clone 不是同一
-  文件或别名（realpath 相等即拒，数据检查跳过——同源假阳性路径封堵）；
-- production sha256 在验收开始与结束各核一次，都必须等于
-  --expected-production-sha256（TOCTOU 首尾闭环；验收只读、不持锁，写入方
-  并发改动会被尾核抓住）；
-- --parquet 实际文件 sha256 == 收据 spec.parquet_sha256（冻结输入身份绑定）。
+预检（DuckDB connect/ATTACH 之前）：
+- production / clone / parquet 均为常规文件且非符号链接；
+- `os.path.samefile(production, clone)` 为假——覆盖同路径、符号链接、硬链接
+  三种别名；无法判定（文件不存在等）按失败处理；不通过则跳过全部数据检查；
+- production 基线 sha 开头核一次（结尾再核一次）。
 
-收据（apply/verify。
-- 结构正确；
-- 父收据 kind/swapped==True/rc==0、子报告 kind；
-- 父收据与子报告的 code_revision 均 == --expected-revision、code_dirty 为
-  False、父=子一致、run_id 与命令行一致且父=子一致、apply/verify 模式正确；
-- spec_version 父=子一致；
-- child_report_path 存在且可读；
-- 备份身份：备份文件存在且其 sha256 == 收据记录值；
-- --expected-old-receipt path=sha256（可重复）：旧收据逐份存在且哈希不变
-  （「旧收据未被覆盖」由此参数显式核验；不传则不声称检查）。
+收据（apply/verify 两份执行收据 + 其指向的独立子报告）：
+- 完整 schema：kind/run_id/code_revision(40hex)/code_dirty==False/interpreter/
+  trade_date/parent{swapped==True,rc==0,run_id一致}/backup{path,64hex sha}/
+  spec{code,name,window_start,window_end,main_fill_end,shell_date,spec_version
+  (非空、302132-backfill- 前缀),parquet_sha256(64hex),gap_parallel/gap_parquet
+  (非空 list),pinned_technical_0911,pinned_windows_0911,expected_window_counts,
+  expected_technical_count}/child_report{kind,spec_version,parquet_sha256,mode,
+  run_id,code_revision,code_dirty}——缺字段/类型错/空值逐项记 check False，
+  不抛异常逃逸，不缺项跳过；
+- 身份：父=子 revision == --expected-revision、dirty==False、run_id 与命令行
+  一致、apply/verify 模式各一、父=子 spec_version 一致且非空；
+- 独立子报告文件：存在、可解析、与父收据嵌入 child_report 深比较相等；
+- 冻结输入身份：spec.parquet_sha256 == child_report.parquet_sha256 ==
+  sha256(--parquet 实际文件)；
+- 备份身份：备份文件存在且其 sha256 == 收据记录值；apply 收据的备份 sha 还
+  必须 == --expected-production-sha256（备份=基线绑定）；
+- --expected-old-receipt 路径=sha256（可重复）：旧收据逐份存在且哈希不变
+  （不传则不声称检查旧收据）。
 
-数据合同（clone vs production 双向对照 + 独立 oracle）：
+数据合同（clone vs 基线双向对照 + 独立 oracle，预检不过不执行）：
 - 他股 fact_stock_daily 全列双向零差；目标股窗外无行；保留 10 行全列
-  （含 updated_at）逐字节相等；54 键集分母全字段 oracle（名称/OHLC/昨收/
-  涨跌/额/量/turnover NULL/来源标签/有限性）；两派生表保护切片全列
-  （含 calculated_at）双向零差；window 黄金三元组（市场历索引构造）；technical
-  精确日期集；目标日 technical/window 钉值；fact_market_daily 双向零差。
+  （含 updated_at）逐字节相等；54 键集分母全字段 oracle；两派生表保护切片
+  全列（含 calculated_at）双向零差；window 黄金三元组；technical 精确日期集；
+  目标日 technical/window 钉值；fact_market_daily 双向零差。
 
-用法：
+用法（生产执行后）：
 python3 scripts/verify_302132_backfill_acceptance.py \
-  --production <生产库> --clone <演练产物库> --parquet <冻结 parquet> \
-  --run-apply <run_id> --run-verify <run_id> \
-  --expected-revision <40hex> --expected-production-sha256 <64hex> \
-  [--expected-old-receipt <路径>=<64hex>]... \
-  --output <验收 JSON 写出路径（不得已存在）>
+  --production <换库前备份.duckdb> --clone <canonical 生产库> \
+  --parquet <冻结 parquet> --run-apply <run_id> --run-verify <run_id> \
+  --expected-revision <合入修订 40hex> \
+  --expected-production-sha256 <换库前生产 sha=收据 backup sha> \
+  [--expected-old-receipt <路径>=<sha256>]... --output <新验收 JSON 路径>
 """
 from __future__ import annotations
 
@@ -63,16 +76,15 @@ def _sha256(path: Path) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--production", required=True)
-    ap.add_argument("--clone", required=True)
+    ap.add_argument("--production", required=True, help="不可变基线库")
+    ap.add_argument("--clone", required=True, help="换库后结果库")
     ap.add_argument("--parquet", required=True)
     ap.add_argument("--run-apply", required=True)
     ap.add_argument("--run-verify", required=True)
     ap.add_argument("--expected-revision", required=True)
     ap.add_argument("--expected-production-sha256", required=True)
     ap.add_argument("--expected-old-receipt", action="append", default=[],
-                    metavar="PATH=SHA256",
-                    help="旧收据路径=入场时 sha256；逐份核验存在且未变（可重复）")
+                    metavar="PATH=SHA256")
     ap.add_argument("--output", required=True)
     args = ap.parse_args()
 
@@ -87,21 +99,27 @@ def main() -> int:
     prod, clone, pq = (Path(args.production), Path(args.clone),
                        Path(args.parquet))
 
-    # ── 预检：常规文件 + production/clone 非同一文件或别名 ─────────────
+    # ── 预检：常规文件 + samefile 别名（含硬链接）────────────────────
     check("inputs_regular_files",
           all(p.is_file() and not p.is_symlink() for p in (prod, clone, pq)),
           [str(p) for p in (prod, clone, pq)
            if not (p.is_file() and not p.is_symlink())])
-    same = os.path.realpath(prod) == os.path.realpath(clone)
-    check("clone_is_not_production_alias", not same,
-          {"production": os.path.realpath(prod), "clone": os.path.realpath(clone)})
+    try:
+        same = os.path.samefile(prod, clone)
+    except OSError as exc:
+        same, same_err = None, f"{type(exc).__name__}: {exc}"
+    else:
+        same_err = ""
+    check("clone_is_not_production_alias", same is False,
+          same_err or {"production": os.path.realpath(prod),
+                       "clone": os.path.realpath(clone)})
     preflight_ok = all(c["ok"] for c in checks)
 
-    check("production_sha256_before", _sha256(prod)
-          == args.expected_production_sha256,
+    check("production_sha256_before",
+          _sha256(prod) == args.expected_production_sha256,
           args.expected_production_sha256[:16])
 
-    # ── 收据读取（健壮：损坏/缺字段一律记 check False，不抛异常逃逸）───
+    # ── 收据：读取 + 完整 schema + 身份 ──────────────────────────────
     receipts: dict[str, dict] = {}
 
     def _read_receipt(tag: str, run_id: str) -> None:
@@ -120,51 +138,137 @@ def main() -> int:
     _read_receipt("apply", args.run_apply)
     _read_receipt("verify", args.run_verify)
 
-    spec = None
-    if len(receipts) == 2:
-        exp = args.expected_revision
-        id_detail, id_ok = {}, True
-        for tag, r in receipts.items():
-            ch = r.get("child_report")
-            ch = ch if isinstance(ch, dict) else {}
-            want_run = args.run_apply if tag == "apply" else args.run_verify
-            parent = r.get("parent") if isinstance(r.get("parent"), dict) else {}
-            ok = (
-                r.get("kind") == KIND
-                and parent.get("swapped") is True and parent.get("rc") == 0
-                and r.get("code_revision") == exp and r.get("code_dirty") is False
-                and r.get("run_id") == want_run
-                and ch.get("kind") == KIND
-                and ch.get("code_revision") == exp and ch.get("code_dirty") is False
-                and ch.get("run_id") == r.get("run_id")
-                and ch.get("mode") == tag
-                and isinstance(r.get("spec"), dict)
-                and r["spec"].get("spec_version") == ch.get("spec_version")
-            )
-            crp = r.get("child_report_path")
-            crp_ok = bool(crp) and Path(str(crp)).is_file()
-            id_detail[tag] = {"parent_rev": str(r.get("code_revision"))[:8],
-                              "child_rev": str(ch.get("code_revision"))[:8],
-                              "child_report_path_exists": crp_ok}
-            id_ok &= ok and crp_ok
-        check("receipts_identity", id_ok, id_detail)
-        for tag, r in receipts.items():
-            b = r.get("backup") if isinstance(r.get("backup"), dict) else {}
-            bp = Path(str(b.get("backup_path", "")))
-            try:
-                ok = (bool(b.get("backup_sha256")) and bp.is_file()
-                      and _sha256(bp) == b["backup_sha256"])
-                check(f"backup_{tag}_identity", ok, str(bp)[-48:])
-            except OSError as exc:
-                check(f"backup_{tag}_identity", False, str(exc))
-        if isinstance(receipts["apply"].get("spec"), dict):
-            spec = receipts["apply"]["spec"]
+    def _schema(tag: str, r: dict, want_run: str, exp_rev: str) -> bool:
+        bad: list[str] = []
 
-    # ── 冻结输入身份：parquet 实际文件 == spec 记录 ────────────────────
-    if spec is not None and spec.get("parquet_sha256"):
+        def req(cond: bool, field: str) -> None:
+            if not cond:
+                bad.append(field)
+
+        req(r.get("kind") == KIND, "kind")
+        req(isinstance(r.get("run_id"), str) and r["run_id"] == want_run, "run_id")
+        req(isinstance(r.get("code_revision"), str)
+            and r["code_revision"] == exp_rev, "code_revision")
+        req(r.get("code_dirty") is False, "code_dirty")
+        req(isinstance(r.get("interpreter"), str) and bool(r["interpreter"]),
+            "interpreter")
+        req(isinstance(r.get("trade_date"), str) and bool(r["trade_date"]),
+            "trade_date")
+        par = r.get("parent")
+        req(isinstance(par, dict), "parent")
+        if isinstance(par, dict):
+            req(par.get("swapped") is True, "parent.swapped")
+            req(par.get("rc") == 0, "parent.rc")
+            req(par.get("run_id") == r.get("run_id"), "parent.run_id")
+        b = r.get("backup")
+        req(isinstance(b, dict), "backup")
+        if isinstance(b, dict):
+            req(isinstance(b.get("backup_path"), str) and bool(b["backup_path"]),
+                "backup.backup_path")
+            req(isinstance(b.get("backup_sha256"), str)
+                and len(b["backup_sha256"]) == 64, "backup.backup_sha256")
+        spec = r.get("spec")
+        req(isinstance(spec, dict), "spec")
+        if isinstance(spec, dict):
+            for k in ("code", "name", "window_start", "window_end",
+                      "main_fill_end", "shell_date", "spec_version",
+                      "parquet_sha256"):
+                req(isinstance(spec.get(k), str) and bool(spec[k]), f"spec.{k}")
+            for k in ("gap_parallel", "gap_parquet"):
+                req(isinstance(spec.get(k), list) and bool(spec[k]), f"spec.{k}")
+            req(isinstance(spec.get("pinned_technical_0911"), dict),
+                "spec.pinned_technical_0911")
+            req(isinstance(spec.get("pinned_windows_0911"), list)
+                and bool(spec["pinned_windows_0911"]),
+                "spec.pinned_windows_0911")
+            req(isinstance(spec.get("expected_window_counts"), dict),
+                "spec.expected_window_counts")
+            req(isinstance(spec.get("expected_technical_count"), int),
+                "spec.expected_technical_count")
+            if isinstance(spec.get("spec_version"), str):
+                req(spec["spec_version"].startswith("302132-backfill-"),
+                    "spec.spec_version:前缀")
+            if isinstance(spec.get("parquet_sha256"), str):
+                req(len(spec["parquet_sha256"]) == 64, "spec.parquet_sha256:长度")
+        ch = r.get("child_report")
+        req(isinstance(ch, dict), "child_report")
+        if isinstance(ch, dict):
+            req(ch.get("kind") == KIND, "child.kind")
+            req(isinstance(ch.get("spec_version"), str)
+                and bool(ch["spec_version"]), "child.spec_version")
+            req(isinstance(spec, dict)
+                and ch.get("spec_version") == spec.get("spec_version")
+                and bool(ch.get("spec_version")), "child.spec_version==parent")
+            req(isinstance(ch.get("parquet_sha256"), str)
+                and len(ch["parquet_sha256"]) == 64, "child.parquet_sha256")
+            req(isinstance(spec, dict)
+                and ch.get("parquet_sha256") == spec.get("parquet_sha256"),
+                "child.parquet_sha256==parent")
+            req(ch.get("mode") == tag, "child.mode")
+            req(ch.get("run_id") == r.get("run_id"), "child.run_id")
+            req(ch.get("code_revision") == r.get("code_revision"),
+                "child.code_revision")
+            req(ch.get("code_dirty") is False, "child.code_dirty")
+            req(isinstance(ch.get("protected_slices"), dict),
+                "child.protected_slices")
+        crp = r.get("child_report_path")
+        req(isinstance(crp, str) and bool(crp), "child_report_path")
+        check(f"receipt_{tag}_schema", not bad, bad[:8])
+        return not bad
+
+    schema_ok = True
+    for tag, r in receipts.items():
+        want = args.run_apply if tag == "apply" else args.run_verify
+        schema_ok &= _schema(tag, r, want, args.expected_revision)
+
+    # 独立子报告文件：存在 + 可解析 + 与父收据嵌入子报告深比较相等
+    for tag, r in receipts.items():
+        crp = r.get("child_report_path")
+        if not (isinstance(crp, str) and crp):
+            continue
+        try:
+            ext = json.loads(Path(crp).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+            check(f"receipt_{tag}_child_report_file", False,
+                  f"{type(exc).__name__}: {exc}")
+            continue
+        check(f"receipt_{tag}_child_report_file",
+              isinstance(ext, dict) and ext == r.get("child_report"),
+              "与父收据嵌入子报告深比较")
+
+    # 备份身份：文件存在 + sha 与收据一致；apply 备份还须 == 基线 sha
+    for tag, r in receipts.items():
+        b = r.get("backup")
+        if not isinstance(b, dict):
+            continue
+        bp = Path(str(b.get("backup_path", "")))
+        want = b.get("backup_sha256")
+        try:
+            ok = (isinstance(want, str) and bp.is_file()
+                  and _sha256(bp) == want)
+            check(f"backup_{tag}_identity", ok, str(bp)[-48:])
+        except OSError as exc:
+            check(f"backup_{tag}_identity", False, str(exc))
+    if isinstance(receipts.get("apply", {}).get("backup"), dict):
+        check("backup_apply_matches_baseline",
+              receipts["apply"]["backup"].get("backup_sha256")
+              == args.expected_production_sha256,
+              "apply 备份 sha == 基线 sha（换库前生产身份）")
+
+    # 冻结输入身份：spec == child == 实际文件（三向）
+    spec = receipts.get("apply", {}).get("spec")
+    ch_apply = receipts.get("apply", {}).get("child_report")
+    if (isinstance(spec, dict) and isinstance(spec.get("parquet_sha256"), str)
+            and len(spec["parquet_sha256"]) == 64
+            and isinstance(ch_apply, dict)
+            and ch_apply.get("parquet_sha256") == spec["parquet_sha256"]):
         actual_pq = _sha256(pq)
         check("parquet_identity", actual_pq == spec["parquet_sha256"],
-              {"expected": spec["parquet_sha256"][:16], "actual": actual_pq[:16]})
+              {"expected": spec["parquet_sha256"][:16],
+               "actual": actual_pq[:16]})
+    else:
+        check("parquet_identity", False,
+              "收据 spec/child 缺 parquet_sha256 或父=子不一致（缺证据不发绿）")
 
     # ── 旧收据保留（显式参数核验；未传则不声称检查）────────────────────
     for item in args.expected_old_receipt:
@@ -178,8 +282,14 @@ def main() -> int:
             continue
         check(f"old_receipt:{op.name}", _sha256(op) == want_sha, want_sha[:12])
 
-    # ── 数据合同（预检同源/非常规文件时跳过，避免假阳性）─────────────
-    if preflight_ok and spec is not None:
+    # ── 数据合同（预检/收据 schema 不过不执行，避免假阳性）────────────
+    spec_ok = (preflight_ok and schema_ok and isinstance(spec, dict)
+               and all(isinstance(spec.get(k), str) and spec[k] for k in (
+                   "window_start", "window_end", "name"))
+               and isinstance(spec.get("gap_parallel"), list)
+               and isinstance(spec.get("gap_parquet"), list)
+               and isinstance(spec.get("shell_date"), str))
+    if spec_ok:
         con = duckdb.connect(str(clone), read_only=True)
         con.execute(f"ATTACH '{prod}' AS prod (READ_ONLY)")
 
@@ -192,7 +302,8 @@ def main() -> int:
                 f"EXCEPT ALL SELECT {sel} FROM {table} {where})").fetchone()[0]
             rev = con.execute(
                 f"SELECT COUNT(*) FROM (SELECT {sel} FROM {table} {where} "
-                f"EXCEPT ALL SELECT {sel} FROM prod.{table} {where})").fetchone()[0]
+                f"EXCEPT ALL SELECT {sel} FROM prod.{table} {where})"
+            ).fetchone()[0]
             return [fwd, rev]
 
         d0, d1 = spec["window_start"], spec["window_end"]
@@ -310,10 +421,13 @@ def main() -> int:
                   and abs(r[2] - p[2]) < 1e-9 for r, p in zip(w9, pins)))
         check("market_daily_untouched", xa("fact_market_daily", "") == [0, 0])
         con.close()
+    else:
+        check("data_checks_executed", False,
+              "预检或收据 schema 未过，数据检查跳过（不发绿）")
 
-    # ── 尾核：验收结束时生产 sha256 仍等于期望（TOCTOU 闭环）──────────
-    check("production_sha256_after", _sha256(prod)
-          == args.expected_production_sha256,
+    # ── 尾核：验收结束时基线 sha 仍等于期望（TOCTOU 闭环）─────────────
+    check("production_sha256_after",
+          _sha256(prod) == args.expected_production_sha256,
           args.expected_production_sha256[:16])
 
     verdict = "PASS" if all(c["ok"] for c in checks) else "FAIL"
