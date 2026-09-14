@@ -1,6 +1,7 @@
 """Frozen batch through the real scoring adapter and a fake HTTP boundary."""
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
 from dataclasses import replace
@@ -188,6 +189,18 @@ def test_closing_a_batch_prevents_reusing_finish(judge, monkeypatch):
     with pytest.raises(ValueError, match="open"):
         run.finish_judging(data, seed=1)
     assert not calls
+
+
+def test_coverage_excludes_blank_delivery_and_non_finite_scores():
+    data = artifact()
+    scored = {"scored": True, "scores": dict.fromkeys(run.RUBRIC_DIMENSIONS, 3), "total": 15}
+    for answer in data["answers"]:
+        answer["judge"] = deepcopy(scored)
+    data["answers"][0]["answer"] = "   "          # ok=True，但没有可评正文
+    data["answers"][1]["judge"]["total"] = float("nan")   # scored 标了 True，数却不可用
+    assert run.batch_coverage(data) == {
+        "registered": 4, "collected": 4, "delivered": 3, "scored": 3, "failed_attempts": 0,
+    }
 
 
 def test_cli_judge_receives_quality_schema_and_effective_effort(judge, monkeypatch):

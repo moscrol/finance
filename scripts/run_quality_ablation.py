@@ -1007,6 +1007,24 @@ def writer_preflight(answers, spec, questions):
     return sorted(reasons)
 
 
+def batch_coverage(artifact):
+    """人读报告与 JSON 收据共用的唯一分母台账（§3.3）。
+
+    分母取事前冻结的题臂登记数而非 ``len(answers)``——删行要看得出来。
+    ``delivered`` 与 ``pending_indices`` 同口径：空白正文不算交付；``scored``
+    用 ``_score_is_numeric``，光有 ``scored=True`` 而数不可用的不算已评分。
+    """
+
+    answers = artifact["answers"]
+    run = artifact["manifest"]["run_manifest"]
+    return {"registered": len(run["questions"]) * len(run["arms"]),
+            "collected": len(answers),
+            "delivered": sum(r.get("ok") is True and bool(str(r.get("answer") or "").strip())
+                             for r in answers),
+            "scored": sum(_score_is_numeric(r.get("judge")) for r in answers),
+            "failed_attempts": (artifact.get("call_ledger") or {}).get("failure_count", 0)}
+
+
 _IDENTITY_FATAL = {
     "judge_identity_unknown", "judge_identity_mismatch", "judge_spec_mismatch",
     "judge_request_mismatch", "judge_result_mismatch", "judge_not_independent",
@@ -1107,6 +1125,7 @@ def finish_judging(artifact, *, seed, judge_fn=None, persist=lambda: None, clock
             artifact["aggregates"] = aggregate_components(
                 answers, run["arms"][1:], noise_floor=artifact["noise_floor"],
                 calibration=calibration, manifest=artifact["manifest"], now=clock())
+            artifact["coverage"] = batch_coverage(artifact)
             persist()
     return artifact
 
@@ -1179,6 +1198,8 @@ def main(argv=None) -> int:
         for arm, spec, q in plan:
             knob = spec["close_via"] if spec else "默认全开"
             print(f"  {arm:<18} {q.case_id:<22} {knob}")
+        print(f"[plan] judge 尝试上界={(len(plan) + len(questions) * args.calibration_repeats) * 2}；"
+              "writer 身份须 ask 收据返回后核验；缺失则 no_call")
         return 0
 
     output = args.output or (REPO / "intelligence" / "eval" / "runs" /
@@ -1262,6 +1283,7 @@ def main(argv=None) -> int:
             answers, artifact["calibration"], artifact["manifest"], noise_floor=artifact.get("noise_floor"))
         artifact["length_bias"] = length_bias_audit(answers)
         artifact["abstention_by_arm"] = abstain_rates_by_arm(answers)
+        artifact["coverage"] = batch_coverage(artifact)
         persist()
     calibration, noise_floor, aggregates = artifact["calibration"], artifact["noise_floor"], artifact["aggregates"]
 
@@ -1316,7 +1338,11 @@ def main(argv=None) -> int:
         warn = " ⚠ 高于 0.7，先查是不是「变长了」而不是「变好了」" if lb.get("flag") else ""
         print(f"\n分数-长度相关性 r={lb['pearson_r']}（n={lb['n']}）{warn}")
     print(f"\n收据 → {output}")
-    return 0
+    counts = artifact["coverage"]
+    print(f"分母：总样本={counts['registered']} 已交付={counts['delivered']} "
+          f"已评分={counts['scored']} 失败尝试={counts['failed_attempts']}")
+    print(f"状态={artifact['status']} 资格原因={'; '.join(artifact['judging_validity']['reason_codes']) or '-'}")
+    return 0 if artifact["status"] == "complete" else 1
 
 
 if __name__ == "__main__":

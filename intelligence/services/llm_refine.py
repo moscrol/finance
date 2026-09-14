@@ -1030,6 +1030,7 @@ def _post_chat_synthesis(
         content = choice["message"]["content"]
         attempt.observe_result(content)
     except Exception as exc:
+        attempt.observe_response(response=exc)
         _record_llm_call("synthesis", provider, "failed", started, _failure_reason(exc), attempt=attempt)
         raise
     if len(content) > max_chars:
@@ -1327,6 +1328,7 @@ def _post_chat_message(
         message = dict(body["choices"][0]["message"])
         attempt.observe_result(message)
     except Exception as exc:
+        attempt.observe_response(response=exc)
         _record_llm_call(
             "chat_tools", provider, "failed", started, _failure_reason(exc), attempt=attempt,
         )
@@ -2033,6 +2035,7 @@ def _post_chat_stream(
         )
         attempt.observe_result(result[0])
     except Exception as exc:
+        attempt.observe_response(response=exc)
         _record_llm_call(
             "synthesis_stream", provider, "failed", started, _failure_reason(exc), attempt=attempt,
         )

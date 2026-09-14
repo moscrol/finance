@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from scripts import rejudge_quality_ablation as rejudge
-from scripts.run_quality_ablation import aggregate_components, provider_label
+from scripts.run_quality_ablation import aggregate_components, batch_coverage, provider_label
 from intelligence.services import llm_refine
 from intelligence.tests.judge_validity_fixtures import valid_batch
 
@@ -296,6 +296,25 @@ def test_cli_new_batch_completes_with_actual_judge_and_prints_qualification(tmp_
     output = capsys.readouterr().out
     assert "决定=callable" in output
     assert "总样本=4 已交付=4 已评分=4 本批失败尝试=0" in output
+
+
+@pytest.mark.parametrize("mode", ["pending", "new-batch"])
+def test_report_and_receipt_read_one_coverage_ledger(tmp_path, monkeypatch, capsys, mode):
+    """人读报告的分母不得自己重算——行内副本会和收据分叉（§3.3）。"""
+    _configure_http(monkeypatch, lambda *_a, **_k: _HTTPResponse())
+    builder = rejudge.new_batch_artifact if mode == "new-batch" else rejudge.rejudge_artifact
+    source = _versioned_artifact()
+    if mode == "pending":
+        source["answers"][0]["judge"] = {"scored": False, "reason": "judge_failed"}
+    result = builder(source, source_path=tmp_path / "source.json",
+                     source_sha256="a" * 64, seed=1)
+    result["answers"][1]["judge"]["total"] = float("nan")   # 标了 scored，数却不可用
+    result["coverage"] = batch_coverage(result)
+    rejudge._print_diff(result)
+    counts = result["coverage"]
+    assert counts["scored"] == 3 and counts["registered"] == 4
+    assert (f"总样本={counts['registered']} 已交付={counts['delivered']} "
+            f"已评分={counts['scored']}") in capsys.readouterr().out
 
 
 def test_budget_rejection_is_zero_attempts_and_never_qualifies(tmp_path, monkeypatch):

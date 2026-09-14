@@ -25,6 +25,7 @@ from scripts.run_quality_ablation import (  # noqa: E402
     _JUDGE_OVERRIDE,
     _score_is_numeric,
     COMPONENTS,
+    batch_coverage,
     resolve_judge,
     RUBRIC_DIMENSIONS,
     Question,
@@ -355,6 +356,7 @@ def rejudge_artifact(
                 answers, run["arms"][1:], noise_floor=result["noise_floor"],
                 calibration=[], manifest=result["manifest"], now=clock())
             _force_diagnostic(result, ["calibration_stale", *result["source_reason_codes"]])
+            result["coverage"] = batch_coverage(result)
             result["baseline_absolute"] = baseline_absolute(answers)
             result["baseline_absolute"].update(
                 decision_eligible=False, reason_codes=result["judging_validity"]["reason_codes"])
@@ -415,12 +417,9 @@ def _print_diff(artifact: dict[str, object]) -> None:
         f"（{base['questions_scored']}/{base['questions_total']} 题已评）"  # type: ignore[index]
         "；仅作描述性统计，配置同名不能证明跨批次可比"
     )
-    answers = artifact["answers"]
-    delivered = sum(record.get("ok") is True and bool(str(record.get("answer") or "").strip())
-                    for record in answers)
-    scored = sum((record.get("judge") or {}).get("scored") is True for record in answers)
-    failures = (artifact.get("call_ledger") or {}).get("failure_count", 0)
-    print(f"  分母：总样本={len(answers)} 已交付={delivered} 已评分={scored} 本批失败尝试={failures}")
+    counts = artifact.get("coverage") or batch_coverage(artifact)
+    print(f"  分母：总样本={counts['registered']} 已交付={counts['delivered']} "
+          f"已评分={counts['scored']} 本批失败尝试={counts['failed_attempts']}")
     print(f"  资格原因={'; '.join((artifact.get('judging_validity') or {}).get('reason_codes', [])) or '-'}")
     still = artifact.get("still_unscored") or []
     if still:
