@@ -452,6 +452,13 @@ class MessageParts:
         return self.regions.sub_questions
 
     @property
+    def question_ids(self) -> tuple[str, ...]:
+        """与 sub_questions 并行的原编号；消费者不得自行从1重新编号。"""
+        if self.regions is None:
+            return ()
+        return self.regions.question_ids
+
+    @property
     def uncertain_reasons(self) -> tuple[str, ...]:
         """boundary_uncertain 的确定性原因码（供澄清提问与审计）。"""
         if self.regions is None:
@@ -489,9 +496,9 @@ _FICTIONAL_SENT_RE = re.compile(
 )
 # A8 的「假设 X，结合当前行情」不要求额外的「成立」。是否顶层由区域复核决定，
 # 而不是把明确假设漏成无约束；材料内同形态仍走 uncertain，强保护内不可见。
-_HYPOTHESIS_STRONG_RE = re.compile(r"^(?:假设|如果)\S.{1,}")
+_HYPOTHESIS_STRONG_RE = re.compile(r"^(?:假设|如果)\s*\S.{1,}")
 # 题内假设：句首 假设/如果 即算（题上下文消歧，scope=q{n}）。
-_HYPOTHESIS_IN_QUESTION_RE = re.compile(r"^(?:假设|如果)\S{2,}")
+_HYPOTHESIS_IN_QUESTION_RE = re.compile(r"^(?:假设|如果)\s*\S.{1,}")
 
 _FENCE_RE = re.compile(r"^\s*(```|~~~)")
 _QUOTE_PAIRS: tuple[tuple[str, str], ...] = (
@@ -507,6 +514,16 @@ _NUMBERED_ITEM_RE = re.compile(r"^\s*(\d{1,2})[.、\)）]\s*(\S.*)$")
 _QUESTIONISH_RE = re.compile(
     r"[？?]|吗\b|什么|怎么|多少|哪些|如何|为何|是否|请|如果|假设|选哪|排序|指出|说明"
 )
+# 「行业空间说明」是标题而非请求；题首证明必须比正文关键词更强。
+_QUESTION_START_RE = re.compile(
+    r"[？?]|什么|怎么|多少|哪些|如何|为何|是否|选哪|"
+    r"^(?:请|假设|如果|排序|指出|说明|计算|分析|比较|判断)"
+)
+_STATE_PREFIX_RE = re.compile(r"^(?:(?:请|麻烦|烦请|本轮|这次|此次)\s*)+")
+
+
+def _state_head(text: str) -> str:
+    return _STATE_PREFIX_RE.sub("", text.strip())
 
 
 def _sentences(text: str) -> list[str]:
@@ -541,7 +558,7 @@ def _state_op_in_sentence(sent: str) -> str | None:
     s = sent.strip()
     if not s:
         return None
-    head = re.sub(r"^(?:请|麻烦|烦请)\s*", "", s)
+    head = _state_head(s)
     if head.startswith(_B_MATERIAL_ONLY_PHRASES + _B_LOCAL_ONLY_PHRASES + _B_RELAX_PHRASES):
         return "constraint_b"
     if head.startswith(_CONTINUATION_HEAD_PHRASES) or "其余条件不变" in s:
@@ -563,76 +580,97 @@ def find_state_ops(text: str) -> tuple[tuple[str, str], ...]:
     return tuple(out)
 
 
-def _visible_lines(lines: list[str]) -> tuple[list[str], list[str]]:
-    """强保护掩码：围栏整行、闭合引号按字符区间置空格（退修 R2/R5）。
+def _protected_layout(lines: list[str]) -> tuple[list[str], list[str], set[int]]:
+    """按文本次序冻结最外层闭合容器，同时保留容器内空行的身份。
 
-    返回 (掩码后行列表, 保护失败原因)。闭合引号只掩码引用区间本身，同一行引用
-    之外的指令文字仍然可见；未闭合构造按设计落 boundary_uncertain。
+    引号查找跳过完整围栏（围栏里的闭引号不能配对外层），但不清空外层栈；
+    外层引用若能在围栏外闭合，引用整体拥有内部围栏，反向嵌套不泄漏。
     """
-    masked = list(lines)
-    uncertain: list[str] = []
-    fence_open: int | None = None
-    fence_mark = ""
-    for li, line in enumerate(lines):
-        m = _FENCE_RE.match(line)
-        if not m:
-            continue
-        if fence_open is None:
-            fence_open, fence_mark = li, m.group(1)
-        elif m.group(1) == fence_mark:
-            for j in range(fence_open, li + 1):
-                masked[j] = " " * len(masked[j])
-            fence_open = None
-    if fence_open is not None:
-        uncertain.append("unclosed_fence")
-
-    # 先只在围栏之外配对；每个闭合围栏都是配对屏障。按文本次序冻结最外层
-    # 引用，不能按引号类型逐轮重扫原文（内层未闭合符号会泄漏到外层）。
-    visible = "\n".join(masked)
-    chars = list(visible)
-    barriers: set[int] = set()
+    text = "\n".join(lines)
+    offsets: list[int] = []
     offset = 0
-    for original, line in zip(lines, masked):
-        if original != line:
-            barriers.add(offset)
+    for line in lines:
+        offsets.append(offset)
         offset += len(line) + 1
-    pairs: dict[int, int] = {}
-    openers: set[int] = set()
-    for opener, closer in _QUOTE_PAIRS:
-        stack: list[int] = []
-        backslashes = 0
-        for pos, ch in enumerate(visible):
-            if pos in barriers:
-                stack.clear()
-            escaped = backslashes % 2 == 1
-            backslashes = backslashes + 1 if ch == "\\" else 0
-            if escaped:
+    fences = {
+        offsets[i]: (match.group(1), offsets[i] + len(line))
+        for i, line in enumerate(lines)
+        if (match := _FENCE_RE.match(line))
+    }
+    fence_ends: dict[int, int] = {}
+    markers = list(fences)
+    for i, start in enumerate(markers):
+        for end in markers[i + 1:]:
+            if fences[start][0] == fences[end][0]:
+                fence_ends[start] = fences[end][1]
+                break
+    escaped: set[int] = set()
+    backslashes = 0
+    for pos, char in enumerate(text):
+        if backslashes % 2:
+            escaped.add(pos)
+        backslashes = backslashes + 1 if char == "\\" else 0
+    quote_pairs = dict(_QUOTE_PAIRS)
+
+    def quote_end(start: int) -> int | None:
+        opener = text[start]
+        closer = quote_pairs[opener]
+        depth = 1
+        pos = start + 1
+        while pos < len(text):
+            if pos in fence_ends:
+                pos = fence_ends[pos]
                 continue
-            if ch == opener and (opener != closer or not stack):
-                stack.append(pos)
-                openers.add(pos)
-            elif ch == closer and stack:
-                pairs[stack.pop()] = pos
-    unclosed: list[int] = []
-    pos = 0
-    while pos < len(chars):
-        if pos in pairs:
-            end = pairs[pos] + 1
-            for index in range(pos, end):
-                if chars[index] != "\n":
-                    chars[index] = " "
-            pos = end
-        else:
-            if pos in openers:
-                unclosed.append(pos)
+            char = text[pos]
+            if pos not in escaped:
+                if char == closer:
+                    depth -= 1
+                    if depth == 0:
+                        return pos + 1
+                elif char == opener:
+                    depth += 1
             pos += 1
+        return None
+
+    chars = list(text)
+    uncertain: list[str] = []
+    unclosed: list[int] = []
+    intervals: list[tuple[int, int]] = []
+    pos = 0
+    while pos < len(text):
+        end = None
+        if pos in fences:
+            end = fence_ends.get(pos)
+            if end is None:
+                uncertain.append("unclosed_fence")
+        elif pos not in escaped and text[pos] in quote_pairs:
+            end = quote_end(pos)
+            if end is None:
+                unclosed.append(pos)
+        if end is None:
+            pos += 1
+            continue
+        intervals.append((pos, end))
+        for index in range(pos, end):
+            if chars[index] != "\n":
+                chars[index] = " "
+        pos = end
     visible = "".join(chars)
-    for pos in unclosed:
-        # 检测从开引号之后开始；已冻结内容仍不可见，不能误报内部状态操作。
-        end = min((b for b in barriers if b > pos), default=len(visible))
-        if find_state_ops(visible[pos + 1 : end]):
+    for start in unclosed:
+        # 不跨越后续冻结容器借用闭符，也不把已保护内容拿来复核。
+        end = min((a for a, _ in intervals if a > start), default=len(text))
+        if find_state_ops(visible[start + 1:end]):
             uncertain.append("unclosed_quote_with_state_op")
-    return visible.split("\n"), uncertain
+    protected_blank_lines = {
+        li for li, offset in enumerate(offsets)
+        if not lines[li].strip() and any(a <= offset < b for a, b in intervals)
+    }
+    return visible.split("\n"), uncertain, protected_blank_lines
+
+
+def _visible_lines(lines: list[str]) -> tuple[list[str], list[str]]:
+    masked, uncertain, _ = _protected_layout(lines)
+    return masked, uncertain
 
 
 @dataclass(frozen=True)
@@ -656,6 +694,8 @@ class TopLevelRegions:
     instructions: tuple[InstructionSpan, ...] = ()
     sub_questions: tuple[str, ...] = ()
     uncertain_reasons: tuple[str, ...] = ()
+    # 保留用户原编号，不让从7开始的题被消费者重新编号为1。
+    question_ids: tuple[str, ...] = ()
 
 
 def classify_top_level_regions(text: str) -> TopLevelRegions:
@@ -672,7 +712,7 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
         return TopLevelRegions(classification="no_constraint_confirmed")
     lines = raw.split("\n")
     n = len(lines)
-    masked, uncertain = _visible_lines(lines)
+    masked, uncertain, protected_blanks = _protected_layout(lines)
     claimed = [False] * n  # 已归材料区（保护/复核通过块）或题组区
 
     # 第 2 步：引导块 / 缩进块（内容复核类；复核在掩码后文本上做，R5）
@@ -702,6 +742,19 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
             why = "leadin_block_with_state_op"
             body_from = begin + 1  # 引导行本身不进复核，其状态操作走第 4 步指令区
         elif lines[li].startswith("  ") and masked[li].strip():
+            previous = li - 1
+            while previous >= 0 and lines[previous].startswith("  "):
+                previous -= 1
+            question_start = (
+                _NUMBERED_ITEM_RE.match(masked[previous]) if previous >= 0 else None
+            )
+            if (
+                question_start and not claimed[previous]
+                and _QUESTION_START_RE.search(question_start.group(2))
+            ):
+                # 已有明确题首的缩进是题文，不抢作独立材料候选。
+                li += 1
+                continue
             begin, end = li, li
             while end < n and lines[end].startswith("  ") and masked[end].strip():
                 end += 1
@@ -726,11 +779,11 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
         fragments = _sentences(visible)
         state_only = bool(fragments) and all(_state_op_in_sentence(s) for s in fragments)
         numbered = _NUMBERED_ITEM_RE.match(visible)
-        if not claimed[li] and numbered and _QUESTIONISH_RE.search(numbered.group(2)):
+        if not claimed[li] and numbered and _QUESTION_START_RE.search(numbered.group(2)):
             # 题首已经具备请求句法，其紧邻续行是同一候选，不能从第二行另起
             # 长文候选抢走限定条件；真正题组是否连续仍由后续题组步骤验证。
             li += 1
-            while li < n and lines[li].strip() and not _NUMBERED_ITEM_RE.match(masked[li]):
+            while li < n and (lines[li].strip() or li in protected_blanks) and not _NUMBERED_ITEM_RE.match(masked[li]):
                 li += 1
             continue
         if (
@@ -760,16 +813,18 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
     # 第 3 步：题组区。检测看可见文本，段落边界和存储看原文。
     # 已认定题体的长续行/全引用续行不是材料阈值或空行。
     sub_questions: list[str] = []
+    question_ids: list[str] = []
     q_spans: list[InstructionSpan] = []
-    expected = 1
+    expected: int | None = None
     li = 0
     while li < n:
         m = None if claimed[li] else _NUMBERED_ITEM_RE.match(masked[li])
-        if m and int(m.group(1)) == expected:
+        if m and (expected is None or int(m.group(1)) == expected):
+            number = int(m.group(1))
             j = li + 1
             while (
                 j < n
-                and lines[j].strip()
+                and (lines[j].strip() or j in protected_blanks)
                 and not claimed[j]
                 and not _NUMBERED_ITEM_RE.match(masked[j])
             ):
@@ -781,13 +836,20 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
             followed_by_next_item = (
                 nxt < n
                 and _NUMBERED_ITEM_RE.match(masked[nxt]) is not None
-                and int(_NUMBERED_ITEM_RE.match(masked[nxt]).group(1)) == expected + 1
+                and int(_NUMBERED_ITEM_RE.match(masked[nxt]).group(1)) == number + 1
+            )
+            # 空行后的独立状态指令也是明确终点；不能因此把最后一题扔回材料。
+            tail_sentences = _sentences(masked[nxt]) if nxt < n else []
+            followed_by_instruction = bool(tail_sentences) and all(
+                _state_op_in_sentence(s) for s in tail_sentences
             )
             body = "\n".join(
                 [m.group(2).strip(), *(masked[k].strip() for k in range(li + 1, j))]
             ).strip()
-            # 组在文末结束 或 紧随下一编号项 → 题；题间夹叙述正文 → 小节标题
-            if _QUESTIONISH_RE.search(body) and (nxt >= n or followed_by_next_item):
+            # 组在文末、下一编号或独立指令前结束；叙述正文仍不能证明题组终点。
+            if _QUESTIONISH_RE.search(body) and (
+                nxt >= n or followed_by_next_item or followed_by_instruction
+            ):
                 # 存储用原文（掩码仅供检测），保留题内引号内容
                 original_body = "\n".join(
                     [
@@ -796,6 +858,7 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
                     ]
                 ).strip()
                 sub_questions.append(original_body)
+                question_ids.append(f"q{number}")
                 for k in range(li, j):
                     claimed[k] = True
                     # 题内状态操作：检测在掩码句上做，文本按同偏移切回原文（R6）；
@@ -811,10 +874,10 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
                                     kind,
                                     lines[k][base + s_off : base + e_off].strip(),
                                     k,
-                                    scope=f"q{expected}",
+                                    scope=f"q{number}",
                                 )
                             )
-                expected += 1
+                expected = number + 1
         li += 1
 
     # 第 4 步：指令区识别（句级；未占行；行内第二句同样检出，R1；
@@ -847,6 +910,22 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
                 uncertain.append("adjacent_state_op")
                 break
 
+    # D2/D7.3：题级B不能静默局部化。只有消息级最终已 material_only 才作备注；
+    # 单独续轮的基底本层不可知，保守留歧义供载体层处理，不能猜权限。
+    message_scope = "full"
+    for span in instructions:
+        if span.kind != "constraint_b":
+            continue
+        head = _state_head(span.text)
+        if head.startswith(_B_MATERIAL_ONLY_PHRASES):
+            message_scope = "material_only"
+        elif head.startswith(_B_RELAX_PHRASES):
+            message_scope = "full"
+        elif head.startswith(_B_LOCAL_ONLY_PHRASES) and message_scope == "full":
+            message_scope = "local_only"
+    if message_scope != "material_only" and any(s.kind == "constraint_b" for s in q_spans):
+        uncertain.append("question_scoped_data_scope")
+
     # 第 6 步：三态分类
     if uncertain:
         classification = "boundary_uncertain"
@@ -859,6 +938,7 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
         instructions=tuple(instructions) + tuple(q_spans),
         sub_questions=tuple(sub_questions),
         uncertain_reasons=tuple(dict.fromkeys(uncertain)),
+        question_ids=tuple(question_ids),
     )
 
 
