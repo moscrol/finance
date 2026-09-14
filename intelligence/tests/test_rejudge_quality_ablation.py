@@ -7,7 +7,12 @@ from types import SimpleNamespace
 import pytest
 
 from scripts import rejudge_quality_ablation as rejudge
-from scripts.run_quality_ablation import aggregate_components, provider_label
+from scripts.run_quality_ablation import (
+    RUBRIC_DIMENSIONS,
+    RUBRIC_VERSION,
+    aggregate_components,
+    provider_label,
+)
 
 _NOW = datetime(2026, 8, 27, 1, 30, tzinfo=timezone.utc)
 
@@ -292,3 +297,62 @@ def test_收据登记补评来源与_judge_连续性():
     assert "zhipu" in result["judge_continuity"]
     # 修正前的读数留在收据里，改了什么可自证
     assert result["aggregates_before"]["kb-rag"]["questions_usable"] == 1
+
+
+# --------------------------------------------------------------------------- #
+# 判官身份与校准有效性（plans/2026-09-14-judge-calibration-validity.md，Task 1）
+# --------------------------------------------------------------------------- #
+# **这条现在是红的，红是本轮的交付物。** 它钉住修复目标，Task 3 把门补进
+# `aggregate_components` 之后才应转绿；在此之前转绿只可能是门被绕开了。
+#
+# 现状：`rejudge_artifact` 把源轮 `noise_floor` 原样传给 `aggregate_components`，
+# 而后者只校验 rubric 版本没混用（`run_quality_ablation.py:736-742`），**不绑判官
+# 身份**。于是「旧底是 Grok 测的、补评换 GPT 打分」照样出 `callable`。
+# 脚本自己其实写明了这个假设——收据里的 `judge_continuity` 原文：
+#   「跨臂分差可比性建立在两次都走同一条已配置 provider 链的**假设**上。」
+# 假设写进人读字符串，就是没有门。
+
+
+def _verdict_with_provider(score: int, provider: str) -> dict[str, object]:
+    """带 provider 标签与显式 rubric 版本的评分——两臂同版，避开混版拒跑那条路。"""
+
+    return {
+        "scored": True,
+        "scores": dict.fromkeys(RUBRIC_DIMENSIONS, score),
+        "total": score * len(RUBRIC_DIMENSIONS),
+        "rubric_version": RUBRIC_VERSION,
+        "provider": provider,
+    }
+
+
+def test_判官换人时不得沿用旧校准出结论():
+    """旧底由 Grok 测得、补评换 GPT 打分，分差再大也只能 no_call。
+
+    这份夹具**只证明聚合缺门**，不证明真实模型之间有这份分差：分数是桩。
+    """
+
+    source = {
+        "kind": "quality_ablation",
+        "questions": [{"case_id": "q1", "text": "fixture", "as_of": "2026-09-01"}],
+        "answers": [
+            _answer("baseline", "q1", _verdict_with_provider(4, "judge/grok-test"),
+                    answer="original A"),
+            _answer("kb-rag", "q1", {"scored": False}, answer="original B"),
+        ],
+        "aggregates": {"kb-rag": {}},
+        # 旧底：measured=True、sigma=2、单题标准差 0.1 → 门槛 0.2，形式上完全合法
+        "noise_floor": {"measured": True, "sigma": 2, "sd_delta_single_question": 0.1},
+    }
+
+    out = rejudge.rejudge_artifact(
+        source,
+        judge_fn=lambda question, answer: _verdict_with_provider(1, "judge/gpt-test"),
+        seed=1,
+        source_path="/tmp/fixture.json",
+        source_sha256="fixture",
+        now=_NOW,
+    )
+
+    assert out["aggregates"]["kb-rag"]["decision"] == "no_call"
+    # 读数本身要保留：门是拦结论，不是删证据
+    assert out["aggregates"]["kb-rag"]["questions_usable"] == 1
