@@ -5,31 +5,27 @@
 工单 `docs/superpowers/specs/2026-09-14-extraction-first-p0-workorder.md`；设计依据 `~/foresight/docs/specs/2026-09-13-extraction-first-spec.md` rev.4（仓外，未改）。
 
 ## 当前状态
-已提交、未推、未合 main、未开真人实验。**顶端以 `git log -1` 为准**——写死过 SHA，下轮返修后它就指向旧树，复审按它复跑会漏掉最终修复（复审二实测）。三轮返修：`08ca525f`（S1–S10/N2/N3）→ `8410e9d3`（R1–R6）→ 第三轮（T1–T4 + 导出同族）。
-复审报告与探针：`~/.finance-runtime/reviews/extraction-caba87c7-20260914/`。
+未推、未合 main、未开真人实验。**顶端以 `git log -1` 为准**（写死 SHA 会漂，复审二实测）。
+返修链：`08ca525f`（一轮 S1–S10/N2/N3）→ `8410e9d3`（二轮 R1–R6）→ `b69ac4b4`（三轮 T1–T4）→ `901c7a87`（三轮漏项 Q2 收据选版优先 + Q3 abandoned 禁手填）→ `60fdc37c`（三轮验证文档，含 Q2/Q3 与 25 条变异两笔账）。
+**注意**：T2/T3/T4 是修复方自找的相邻缺口，三轮复审报告只有 Q1–Q3；T3 改了 draft 去重合同（只比紧邻上一版），一轮复审曾把 A→B→A 留作「不作确定违规」——下轮复审要裁决这个超范围变更。
+三轮审查报告+探针：分支 `docs/qc-extraction-b916091e`，探针 `scripts/review_probes/check_extraction_attempt_contract.py`。
 
 ## 决策与被否方案
-首轮五个取舍见快照 `docs/handoffs/2026-09-14-extraction-first-p0-review-fixes.md`；各轮返修的修法与理由逐条在对应提交信息正文，此处不抄。
+首轮五个取舍见快照 `docs/handoffs/2026-09-14-extraction-first-p0-review-fixes.md`；各轮修法逐条在对应提交信息正文（8410e9d3 / b69ac4b4 / 901c7a87），此处不抄。核心原则：**草稿创建来源、读取实际采用版本、确认动作归属是三种关系**，分别由 source_draft_id / 完成收据 / 显式 attempt-id 表达，互不顶替。
 
-## 已验证（第二轮由另一 agent 独立复跑，非提交者自述）
-- 复审三根探针全翻绿：残片隔离后读写通且残片保留；`pending_after_retry=[]`；错误关联退 2 且无 checkpoint；close 后 confirm/skip 退 2；改 due 出新记录新 checkpoint；复用草稿可按新尝试确认（exit=0）。
-- 10 个相关测试模块 245 过；改动三文件 ruff 过；`merge-tree` 对 `gitea/main@1fef3d27` 无冲突；树干净。
+## 已验证（两轮都有独立复核，非提交者自述）
+- 三轮探针在 `901c7a87` 上 10/10 绿（修前 8P/2F：Q2/Q3 红）；返修模块 50 过；复审十模块 307 过；ruff 过；merge-tree 对 `gitea/main@1fef3d27` 无冲突。
+- 二轮结论（残片隔离、终态补齐、归属/去重键）见 `8410e9d3`；全量 9671P/0F 收据在验证文档 §1（唯一 SHA 来源）。
 
 ## 未验证 / 已知边界
-- 19 条变异 RED→GREEN 仅提交者自述，未独立复跑。
-- **仓级全量已跑**（提交者，`8410e9d3` 干净树）：首跑 1 红 `test_real_conversation_round_trip_persists_skills_sse_and_three_turns`，
-  **重跑 9670P/0F/exit 0**。判负载敏感抖动：零路径交集、隔离连跑两次绿、
-  `docs/verification/2026-09-07-forward-call-gate-live.md` 有同一条测试的同一处置。
-  **不是「已知红照常合」**，两读数留档 `/tmp/xfp0/final{3,4}-pytest.txt`。
-- read 失败诊断已拆成两句（收据没落 = 交付结果未知 / 收据已落仅终态没写 = 确实交付了、重试可愈合），带断言。
-- 绑定读数与被测 SHA **只记在收据 §1 / §6.1 一处**，其余文档一律指过去、不复制 SHA。
-- 真人效果 / §7 阈值 / 真库身份解析仍未验（同前轮）。
+- 25 条变异 RED→GREEN 仅提交者自述；其中 19 条由复审方独立重放过，新增 6 条没有。
+- 仓级全量、前端、e2e 未在 `901c7a87`+ 上重跑；真人效果 / §7 阈值 / 真库身份解析仍未验。
 
 ## 下一步
-1. 下一轮复审固定**当前分支顶端**复核（收据 §1 那一行是唯一 SHA 来源）；通过且**用户明说**才合 main，不推不合。
-2. 合并前对当时最新 `gitea/main` 重跑 merge-tree + 本机等价 CI 全叶子（pytest/ruff/前端/e2e/registry-check）。
+1. 第四轮复审固定**当时顶端**复核；通过且**用户明说**才合 main，不推不合。
+2. 合并前对当时最新 `gitea/main` 重跑 merge-tree + 本机等价 CI 全叶子。
 
 ## 踩过的坑
-前轮三条（跑测中途改码、夹具绕过缺陷路径、同名两道防线分别钉）见快照。本轮新增：
-- `git status` 显示 ` M` 但 `git diff` 为空 = 只被碰过 mtime；先 `update-index --refresh` 再下「树干净」结论。
-- 共享仓里别的 agent 可能正在你读状态的间隙推进分支：动手前 `rev-parse HEAD` + reflog 确认顶端没动。
+前轮四条见快照与上一版交接。本轮两条，都很贵：
+- **修复范围以复审方的可执行探针为准，不以二手转述为准**：修复方按摘要修了 T1–T4，漏了 Q2/Q3，跑探针才暴露 8P/2F。接手返修先把审查分支的探针跑一遍再动手。
+- **共享 worktree 的索引竞态会吃掉你已 add 的文件**：另一方 `git commit -- <paths>` 与我的 add+commit 交错，工作树文件被挤回旧版。同一棵树有别的 agent 在动时，add 和 commit 放进同一条命令、做完立刻核对 blob。
