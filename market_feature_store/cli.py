@@ -1334,7 +1334,7 @@ def cmd_check_daily(args) -> int:
     from .quality import check_daily
 
     res = check_daily(trade_date=args.trade_date, window=args.window, plan=args.plan)
-    print(f"跨日质检 @{res['trade_date']} (日历窗口={args.window}" + (f", plan={args.plan}" if args.plan else "") + ")")
+    print(f"跨日质检 @{res['trade_date']} (日历窗口={args.window}, plan={res.get('plan')})")
     for g in res["gaps"]:
         print(f"  [\u65ad\u6863] {g['table']}: {', '.join(g['missing_dates'])}" + (f" ({g['note']})" if g.get("note") else ""))
     for a in res["row_anomalies"]:
@@ -2046,7 +2046,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_cd.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
     p_cd.add_argument("--window", type=int, default=20, help="交易日历窗口, 默认20")
     p_cd.add_argument("--json", default=None, help="质检报告 JSON 落盘路径, 可选")
-    p_cd.add_argument("--plan", default=None, help="计划档位 full/cheap/local；local 按 registry 裁剪期望表（自算链路不产 fupanhui 独有表）")
+    from .consumption_registry import PLAN_CHOICES
+
+    p_cd.add_argument("--plan", choices=PLAN_CHOICES, default=None,
+                      help="计划档位 full/cheap/local/auto；默认 REVIEW_SYNC_PLAN 或 full；auto 按交易日解析")
     p_cd.set_defaults(func=cmd_check_daily)
 
     p_wg = sub.add_parser("weighted-gainers", help="区间加权涨幅排行 (本地计算)")

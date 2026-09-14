@@ -29,7 +29,7 @@ import subprocess
 import sys
 import time
 import urllib.request
-from datetime import datetime, date
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -37,6 +37,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from market_feature_store.db import connect  # noqa: E402
+from market_feature_store.consumption_registry import (  # noqa: E402
+    PLAN_CHOICES as PLANS,
+    resolve_plan,
+)
 
 SKILL_DIR = Path(__file__).resolve().parents[1]
 RUNLOG = SKILL_DIR / "state" / "runlog.md"
@@ -349,18 +353,6 @@ def _count_by_source(table: str, trade_date: str, source: str) -> int:
         con.close()
 
 
-PLANS = ("full", "cheap", "local", "auto")
-
-
-def resolve_plan(plan: str, trade_date: str) -> str:
-    """auto → 周五 full（周全量兜换血盲区），其余 cheap。"""
-    if plan not in PLANS:
-        raise ValueError(f"unknown plan {plan!r}; expected one of {PLANS}")
-    if plan != "auto":
-        return plan
-    return "full" if date.fromisoformat(trade_date).isoweekday() == 5 else "cheap"
-
-
 def build_local_plan(trade_date: str, timeout: int, heavy_timeout: int):
     """local：不发任何 fupanhui 请求（2026-09-07 账号风控后的日更链路）。
 
@@ -481,12 +473,15 @@ def main() -> int:
     ap.add_argument(
         "--plan",
         choices=PLANS,
-        default=os.environ.get("REVIEW_SYNC_PLAN", "full"),
-        help="分档：full=全量打复盘会；cheap=identity/value 分层省配额；auto=周五 full 其余 cheap。"
+        default=None,
+        help="分档：full=全量打复盘会；cheap=分层省配额；local=零复盘会请求；auto=周五 full 其余 cheap。"
              "默认取环境变量 REVIEW_SYNC_PLAN，未设则 full（launchd 包装脚本不改也能切档）",
     )
     args = ap.parse_args()
-    plan = resolve_plan(args.plan, args.date)
+    try:
+        plan = resolve_plan(args.plan, args.date)
+    except ValueError as exc:
+        ap.error(str(exc))
     print(f"== plan={plan} (requested={args.plan}) date={args.date} ==", flush=True)
 
     if not args.skip_preflight:
@@ -553,7 +548,7 @@ def main() -> int:
     print("\n== 同步段结束 ==", flush=True)
     print("下一步生成段：", flush=True)
     print(f"  python3 -m intelligence.cli daily --date {args.date} --skip-sync --from-step daily-review \\", flush=True)
-    print(f"    --summary-json market_feature_store/exports/{args.date}-daily-workflow-summary.json", flush=True)
+    print(f"    --plan {plan} --summary-json market_feature_store/exports/{args.date}-daily-workflow-summary.json", flush=True)
     return 0 if gate_ok else 1
 
 

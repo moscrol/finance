@@ -9,6 +9,7 @@ from intelligence.paths import ProjectPaths, default_paths, vector_index_dir_for
 from intelligence.runner import run_command_step
 from intelligence.summary import WorkflowStep, WorkflowSummary, now_iso
 from scripts.notify_ops import send_alert
+from market_feature_store.consumption_registry import resolve_plan
 
 
 @dataclass(frozen=True)
@@ -42,10 +43,13 @@ class DailyReviewOptions:
     step_timeout_sec: float = 1800
     alerts_enabled: bool = True
     alert_on_warn: bool = False
+    plan: str | None = None
 
     def __post_init__(self) -> None:
         if self.step_timeout_sec <= 0:
             raise ValueError("step_timeout_sec must be positive")
+        # 入口解析一次，恢复执行和两道门使用同一实际档位，不再各自读环境。
+        object.__setattr__(self, "plan", resolve_plan(self.plan, self.date))
 
 
 def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | None = None) -> list[CommandSpec]:
@@ -82,7 +86,7 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
 
     plan.append(CommandSpec(
         name="quality-gate",
-        argv=["python3", "scripts/check_daily_review_data.py", date, "--phase", "data"],
+        argv=["python3", "scripts/check_daily_review_data.py", date, "--phase", "data", "--plan", options.plan],
         outputs=[],
     ))
 
@@ -92,6 +96,7 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
             "python3", "-m", "market_feature_store.cli", "check-daily",
             "--trade-date", date,
             "--json", str(paths.finance_root / "skills" / "daily-full-review" / "state" / f"quality-{date}.json"),
+            "--plan", options.plan,
         ],
         outputs=[],
     ))
@@ -123,7 +128,7 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
 
     plan.append(CommandSpec(
         name="daily-review-html",
-        argv=["python3", "scripts/render_daily_review_briefing.py", date],
+        argv=["python3", "scripts/render_daily_review_briefing.py", date, "--plan", options.plan],
         outputs=[str(daily_dir / f"{date}-daily-review.html")],
     ))
 
@@ -284,6 +289,15 @@ def filter_plan(plan: list[CommandSpec], options: DailyReviewOptions) -> tuple[l
     step_names = [step.name for step in plan]
     if options.from_step and options.only_step:
         return [], ["--from-step and --only-step cannot be used together"]
+    sync_selected = not options.skip_sync and (
+        options.only_step in {"preflight-db-lock", "daily-update"}
+        or (not options.only_step and options.from_step in {None, "preflight-db-lock", "daily-update"})
+    )
+    if sync_selected and options.plan != "full":
+        return [], [
+            f"daily-update does not support plan={options.plan}; refusing full sync. "
+            "Complete the matching sync plan first, then use --skip-sync."
+        ]
     if options.from_step:
         if options.from_step not in step_names:
             return [], [f"unknown --from-step: {options.from_step}; allowed: {', '.join(step_names)}"]
@@ -321,6 +335,7 @@ def filter_plan(plan: list[CommandSpec], options: DailyReviewOptions) -> tuple[l
 def summary_inputs(options: DailyReviewOptions, dry_run: bool) -> dict:
     return {
         "date": options.date,
+        "plan": options.plan,
         "user": options.user,
         "skip_sync": options.skip_sync,
         "skip_long": options.skip_long,

@@ -86,7 +86,8 @@ plans:
     - features
   # local（2026-09-07 起）：不发任何 fupanhui 请求。名单冻结在最后一份 published 宇宙
   # （carry-forward-universe → stitch），加工层按公开规则自算（limit-stats-local / market-overview-local）。
-  # 不产 mainline / theme_flow / stock_high / 公开资产——门禁按 tables_for_plan('local') 裁剪。
+  # 主线/新高/核心股已有自算；theme_flow 等复盘会专属数据不产，范围以各数据族 steps 为准。
+  # 门禁按 tables_for_plan('local') 裁剪，不把本地篮子资金当复盘会题材面板。
   local:
     - db-lock
     - stock-daily
