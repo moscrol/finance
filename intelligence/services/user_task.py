@@ -467,8 +467,8 @@ class MessageParts:
 # ── E2 材料题边界（设计稿 v10，docs/learning/knevo-distill/recheck/
 # 2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md）─────────────
 #
-# 两类状态操作共用词表（QC 实施守则 1：第 1 步内容复核与第 2 步指令识别共用同
-# 一份，不得复制成两份）。
+# 两类状态操作共用词表与共用探测器（QC 守则 1 + 退修 R3：第 1 步内容复核与第 2
+# 步指令识别不仅共用词表，还必须共用同一个句级识别函数 find_state_ops）。
 # ① 轴值更新（B 轴 / A 轴 / 显式放宽）：
 _B_MATERIAL_ONLY_PHRASES: tuple[str, ...] = (
     "只依据", "仅根据", "不读取任何材料外", "不读取材料外",
@@ -476,46 +476,149 @@ _B_MATERIAL_ONLY_PHRASES: tuple[str, ...] = (
 _B_LOCAL_ONLY_PHRASES: tuple[str, ...] = (
     "不要联网", "不联网", "别查实时", "不读外部",
 )
-_A_FICTIONAL_PHRASES: tuple[str, ...] = (
-    "纯属虚构", "完全虚构", "虚构案例", "以下为虚构", "以下是虚构",
-)
 _B_RELAX_PHRASES: tuple[str, ...] = ("可以查真实数据", "结合最新行情")
 # ② 基底继承（续轮声明）：
-_CONTINUATION_PHRASES: tuple[str, ...] = ("继续", "接着", "其余条件不变", "同上")
+_CONTINUATION_HEAD_PHRASES: tuple[str, ...] = ("继续", "接着", "同上")
 
-# 内容复核的「疑似状态操作」行首形态：行首（允许空白与「请」前缀）命中才算；
-# 句中叙述（如「收入继续上涨」）不算（A11：材料内部的「假设/继续」字样不触发）。
-_STATE_OP_LINE_RE = re.compile(
-    r"^\s*(?:请\s*)?(?:"
-    + "|".join(
-        re.escape(p)
-        for p in (
-            _B_MATERIAL_ONLY_PHRASES
-            + _B_LOCAL_ONLY_PHRASES
-            + _A_FICTIONAL_PHRASES
-            + _B_RELAX_PHRASES
-            + _CONTINUATION_PHRASES
-        )
-    )
-    + r")"
+_SENT_SPLIT_RE = re.compile(r"[。！？；\n]")
+# 虚构前提声明：「以下是完全虚构的研究案例」「均为虚构」「纯属虚构」等（句中即算，
+# 这类措辞极少出现在叙述句里；出现在复核块里时走 boundary_uncertain 保守分支）。
+_FICTIONAL_SENT_RE = re.compile(
+    r"以下\s*[是为][^。；，]{0,12}虚构|均为虚构|纯属虚构|完全虚构|虚构案例"
 )
-# 短句「假设」仅在指令/问句形态下才算疑似（长叙述行首的「假设」属材料内容）。
-_HYPOTHESIS_INSTRUCTION_RE = re.compile(r"^\s*假设.{2,60}(?:成立|会怎样|[？?])\s*$")
+# 消息级假设前提：句首 假设/如果 且带 成立/会怎样 的强形态（弱形态只在题内算，R6）。
+_HYPOTHESIS_STRONG_RE = re.compile(r"^(?:假设|如果).{2,120}(?:成立|会怎样)")
+# 题内假设：句首 假设/如果 即算（题上下文消歧，scope=q{n}）。
+_HYPOTHESIS_IN_QUESTION_RE = re.compile(r"^(?:假设|如果)\S{2,}")
 
 _FENCE_RE = re.compile(r"^\s*(```|~~~)")
 _QUOTE_PAIRS: tuple[tuple[str, str], ...] = (
     ("「", "」"), ("『", "』"), ("“", "”"), ("‘", "’"), ('"', '"'), ("'", "'"),
 )
 _LEADIN_RE = re.compile(
-    r"^\s*(?:以下|下面是|以下是)?\s*(?:材料|材料内容|报告原文|报告|原文|案例|资料)"
-    r"(?:如下|全文)?\s*[:：]\s*$"
+    r"(?:材料|材料内容|报告原文|报告|原文|案例|资料)"
+    r"(?:如下|全文)?[^\n]{0,24}[:：]\s*$"
 )
+_QUESTION_LEAD_RE = re.compile(r"按以下|逐项|回答以下|以下\s*\d+\s*题")
 _NUMBERED_ITEM_RE = re.compile(r"^\s*(\d{1,2})[.、\)）]\s*(\S.*)$")
+# 题/请求形态（区别于「1. 行业概览」式研报小节标题）。
+_QUESTIONISH_RE = re.compile(
+    r"[？?]|吗\b|什么|怎么|多少|哪些|如何|为何|是否|请|如果|假设|选哪|排序|指出|说明"
+)
+
+
+def _sentences(text: str) -> list[str]:
+    return [s.strip() for s in _SENT_SPLIT_RE.split(text) if s.strip()]
+
+
+def _sentence_spans(text: str) -> list[tuple[int, int, str]]:
+    """按句边界切分，返回 (start, end, stripped_sentence)；start/end 为原文偏移。
+
+    掩码是按字符等长替换的，掩码文本上算出的偏移可直接切回原始行取原文。
+    """
+    out: list[tuple[int, int, str]] = []
+    pos = 0
+    for m in _SENT_SPLIT_RE.finditer(text):
+        seg = text[pos : m.start()]
+        if seg.strip():
+            lead = len(seg) - len(seg.lstrip())
+            out.append((pos + lead, m.start(), seg.strip()))
+        pos = m.end()
+    seg = text[pos:]
+    if seg.strip():
+        lead = len(seg) - len(seg.lstrip())
+        out.append((pos + lead, len(text), seg.strip()))
+    return out
+
+
+def _state_op_in_sentence(sent: str) -> str | None:
+    """句级状态操作识别（内容复核与指令识别共用的唯一入口，退修 R3）。
+
+    返回 "constraint_b" | "premise_declaration" | "continuation" | None。
+    """
+    s = sent.strip()
+    if not s:
+        return None
+    head = re.sub(r"^(?:请|麻烦|烦请)\s*", "", s)
+    if head.startswith(_B_MATERIAL_ONLY_PHRASES + _B_LOCAL_ONLY_PHRASES + _B_RELAX_PHRASES):
+        return "constraint_b"
+    if head.startswith(_CONTINUATION_HEAD_PHRASES) or "其余条件不变" in s:
+        return "continuation"
+    if _FICTIONAL_SENT_RE.search(s):
+        return "premise_declaration"
+    if _HYPOTHESIS_STRONG_RE.match(s):
+        return "premise_declaration"
+    return None
+
+
+def find_state_ops(text: str) -> tuple[tuple[str, str], ...]:
+    """对一段（已按强保护掩码的）文本做句级状态操作扫描，返回 (kind, 原句) 列表。"""
+    out: list[tuple[str, str]] = []
+    for sent in _sentences(text):
+        kind = _state_op_in_sentence(sent)
+        if kind:
+            out.append((kind, sent))
+    return tuple(out)
+
+
+def _visible_lines(lines: list[str]) -> tuple[list[str], list[str]]:
+    """强保护掩码：围栏整行、闭合引号按字符区间置空格（退修 R2/R5）。
+
+    返回 (掩码后行列表, 保护失败原因)。闭合引号只掩码引用区间本身，同一行引用
+    之外的指令文字仍然可见；未闭合构造按设计落 boundary_uncertain。
+    """
+    masked = list(lines)
+    uncertain: list[str] = []
+    fence_open: int | None = None
+    fence_mark = ""
+    for li, line in enumerate(lines):
+        m = _FENCE_RE.match(line)
+        if not m:
+            continue
+        if fence_open is None:
+            fence_open, fence_mark = li, m.group(1)
+        elif m.group(1) == fence_mark:
+            for j in range(fence_open, li + 1):
+                masked[j] = " " * len(masked[j])
+            fence_open = None
+    if fence_open is not None:
+        uncertain.append("unclosed_fence")
+
+    def _blank(s: str, a: int, b: int) -> str:
+        return s[:a] + " " * (b - a + 1) + s[b + 1 :]
+
+    unclosed_openers: list[tuple[int, int]] = []
+    for opener, closer in _QUOTE_PAIRS:
+        stack: list[tuple[int, int]] = []
+        for li, line in enumerate(lines):
+            for ci, ch in enumerate(line):
+                if ci > 0 and line[ci - 1] == "\\":
+                    continue
+                if ch == opener and (opener != closer or not stack):
+                    stack.append((li, ci))
+                elif ch == closer and stack:
+                    sli, sci = stack.pop()
+                    if sli == li:
+                        masked[sli] = _blank(masked[sli], sci, ci)
+                    else:
+                        masked[sli] = masked[sli][:sci] + " " * (len(masked[sli]) - sci)
+                        for j in range(sli + 1, li):
+                            masked[j] = " " * len(masked[j])
+                        masked[li] = " " * (ci + 1) + masked[li][ci + 1 :]
+        unclosed_openers.extend(stack)
+    for sli, sci in unclosed_openers:
+        tail = "\n".join([lines[sli][sci:], *lines[sli + 1 :]])
+        if find_state_ops(tail):
+            uncertain.append("unclosed_quote_with_state_op")
+    return masked, uncertain
 
 
 @dataclass(frozen=True)
 class InstructionSpan:
-    """指令区片段（D1 第 2 步）：行为指令 / 前提声明 / 续轮声明。"""
+    """指令区片段（D1）：行为指令 / 前提声明 / 续轮声明。
+
+    scope="message" 为消息级；题内检出的状态操作 scope="q{用户原编号}"（退修 R6）。
+    """
 
     kind: str  # "constraint_b" | "premise_declaration" | "continuation"
     text: str
@@ -533,164 +636,165 @@ class TopLevelRegions:
     uncertain_reasons: tuple[str, ...] = ()
 
 
-def _closed_quote_lines(lines: list[str]) -> tuple[set[int], list[int]]:
-    """栈配对引号（转义不计）。返回（闭合引用覆盖的行集合, 未闭合开引号所在行）。"""
-    protected: set[int] = set()
-    unclosed: list[int] = []
-    for opener, closer in _QUOTE_PAIRS:
-        stack: list[tuple[int, int]] = []
-        for li, line in enumerate(lines):
-            for ci, ch in enumerate(line):
-                if ci > 0 and line[ci - 1] == "\\":
-                    continue
-                if ch == opener and (opener != closer or not stack):
-                    stack.append((li, ci))
-                elif ch == closer and stack:
-                    start_li, _ = stack.pop()
-                    protected.update(range(start_li, li + 1))
-        unclosed.extend(li for li, _ in stack)
-    return protected, unclosed
-
-
-def _content_review(lines: list[str], begin: int, end: int, why: str) -> str | None:
-    """内容复核类块的失败分支：块内行首检出状态操作短语 → 不确定原因，否则 None。
-
-    词表 = 轴值更新 + 基底继承两类状态操作（与第 2 步共用同一份）。归属不明的
-    续轮声明同样不得复核通过（QC v10：识别前吞掉续轮 → D7 复位路径）。
-    """
-    for line in lines[begin:end]:
-        if _STATE_OP_LINE_RE.search(line) or _HYPOTHESIS_INSTRUCTION_RE.search(line):
-            return why
-    return None
-
-
 def classify_top_level_regions(text: str) -> TopLevelRegions:
     """E2 设计稿 v10 §3.1：先保护、后解释、三态分类（全部确定性）。
 
-    有序五步：①保护范围冻结（强保护=闭合构造；引导/缩进/长文=内容复核类）
-    ②指令区识别（三类）③题组区识别（编号项，允许空行分隔）④材料区
-    ⑤三态分类。任何未闭合/复核未过/相邻歧义 → boundary_uncertain。
+    有序步骤：①强保护掩码（围栏整行 / 闭合引号字符区间；未闭合→uncertain）
+    ②引导块/缩进块吸收 + 内容复核（掩码后文本，命中状态操作→uncertain）
+    ③题组区识别（编号连续、吸收短续行、题间不得夹正文；题内状态操作 scope=qN）
+    ④指令区识别（句级，行内第二句也算，退修 R1）⑤邻接规则（与叙述无空行相连
+    的疑似指令→uncertain，退修 R4）⑥三态分类。
     """
     raw = str(text or "").replace("\r\n", "\n").replace("\r", "\n").strip("\n")
     if not raw.strip():
         return TopLevelRegions(classification="no_constraint_confirmed")
     lines = raw.split("\n")
     n = len(lines)
-    uncertain: list[str] = []
-    protected: set[int] = set()  # 强保护 + 复核通过的内容复核块
+    masked, uncertain = _visible_lines(lines)
+    claimed = [False] * n  # 已归材料区（保护/复核通过块）或题组区
 
-    # 第 1 步 a：代码围栏（强保护；未闭合 → uncertain）
-    fence_open: int | None = None
-    fence_mark = ""
-    for li, line in enumerate(lines):
-        m = _FENCE_RE.match(line)
-        if not m:
-            continue
-        if fence_open is None:
-            fence_open, fence_mark = li, m.group(1)
-        elif m.group(1) == fence_mark:
-            protected.update(range(fence_open, li + 1))
-            fence_open = None
-    if fence_open is not None:
-        uncertain.append("unclosed_fence")
-
-    # 第 1 步 b：引号块（强保护；未闭合且后文含疑似状态操作 → uncertain）
-    quoted, unclosed_quote_lines = _closed_quote_lines(lines)
-    protected.update(quoted)
-    for li in unclosed_quote_lines:
-        tail = "\n".join(lines[li:])
-        if _STATE_OP_LINE_RE.search(tail) or any(
-            _STATE_OP_LINE_RE.search(x) for x in tail.split("\n")
-        ):
-            uncertain.append("unclosed_quote_with_state_op")
-
-    # 第 1 步 c：引导块 / 缩进块 / 长文块（内容复核类）
+    # 第 2 步：引导块 / 缩进块（内容复核类；复核在掩码后文本上做，R5）
     li = 0
     while li < n:
-        if li in protected or not lines[li].strip():
+        if claimed[li] or not masked[li].strip():
             li += 1
             continue
         begin, end, why = -1, -1, ""
-        if _LEADIN_RE.match(lines[li]):
+        body_from = begin
+        if _LEADIN_RE.search(masked[li]):
             begin = li
             end = n
             for j in range(li + 1, n):
-                if not lines[j].strip() and j + 1 < n and (
-                    _NUMBERED_ITEM_RE.match(lines[j + 1]) or _looks_like_question(lines[j + 1])
-                ):
-                    end = j
-                    break
+                if not masked[j].strip():
+                    nxt = j + 1
+                    while nxt < n and not masked[nxt].strip():
+                        nxt += 1
+                    if nxt < n and (
+                        _NUMBERED_ITEM_RE.match(masked[nxt])
+                        or _QUESTION_LEAD_RE.search(masked[nxt])
+                        or _looks_like_question(masked[nxt])
+                    ):
+                        end = j
+                        break
             why = "leadin_block_with_state_op"
-        elif lines[li].startswith("  ") and not lines[li].startswith("   \t"):
-            begin = li
-            end = li
-            while end < n and lines[end].startswith("  "):
+            body_from = begin + 1  # 引导行本身不进复核，其状态操作走第 4 步指令区
+        elif lines[li].startswith("  ") and masked[li].strip():
+            begin, end = li, li
+            while end < n and lines[end].startswith("  ") and masked[end].strip():
                 end += 1
             why = "indent_block_with_state_op"
-        li_next = li
+            body_from = begin
         if begin >= 0:
-            reason = _content_review(lines, begin, end, why)
-            if reason:
-                uncertain.append(reason)
+            if find_state_ops("\n".join(masked[body_from:end])):
+                uncertain.append(why)
             else:
-                protected.update(range(begin, end))
-            li_next = max(end, li + 1)
-        li = li_next if li_next > li else li + 1
-
-    # 第 1 步 d：相邻规则——材料区与疑似顶层禁令无空行相连 → uncertain
-    for li in range(1, n):
-        if (
-            (li - 1) in protected
-            and li not in protected
-            and lines[li - 1].strip()
-            and _STATE_OP_LINE_RE.search(lines[li])
-        ):
-            uncertain.append("adjacent_state_op_after_material")
-
-    # 第 2 步：指令区识别（只扫未保护行）
-    instructions: list[InstructionSpan] = []
-    for li, line in enumerate(lines):
-        if li in protected or not line.strip():
+                for j in range(body_from, end):
+                    claimed[j] = True
+            li = max(end, li + 1)
             continue
-        stripped = line.strip()
-        compact = stripped.lstrip("请").lstrip()
-        if compact.startswith(_B_MATERIAL_ONLY_PHRASES + _B_LOCAL_ONLY_PHRASES):
-            instructions.append(InstructionSpan("constraint_b", stripped, li))
-        elif compact.startswith(_A_FICTIONAL_PHRASES) or (
-            compact.startswith("假设") and _HYPOTHESIS_INSTRUCTION_RE.search(stripped)
-        ):
-            instructions.append(InstructionSpan("premise_declaration", stripped, li))
-        elif compact.startswith(_CONTINUATION_PHRASES) or "其余条件不变" in compact:
-            instructions.append(InstructionSpan("continuation", stripped, li))
+        li += 1
 
-    # 第 3 步：题组区识别（未保护、非指令行；编号连续成组，允许空行分隔）
-    instruction_lines = {span.line_index for span in instructions}
+    # 第 3 步：题组区（编号连续成组；吸收紧邻短续行（R6）；题间夹正文→非题组，
+    # 防把研报编号小节误认成用户题组（R4 后半））
     sub_questions: list[str] = []
+    q_spans: list[InstructionSpan] = []
     expected = 1
-    for li, line in enumerate(lines):
-        if li in protected or li in instruction_lines:
-            continue
-        m = _NUMBERED_ITEM_RE.match(line)
-        if not m:
-            continue
-        number = int(m.group(1))
-        if number == expected:
-            sub_questions.append(m.group(2).strip())
-            expected = number + 1
-        elif number == 1 and not sub_questions:
-            sub_questions.append(m.group(2).strip())
-            expected = 2
+    li = 0
+    while li < n:
+        m = None if claimed[li] else _NUMBERED_ITEM_RE.match(masked[li])
+        if m and int(m.group(1)) == expected:
+            j = li + 1
+            while (
+                j < n
+                and masked[j].strip()
+                and len(masked[j].strip()) < _MATERIAL_MIN_CHARS  # 长行是正文不是续行
+                and not claimed[j]
+                and not _NUMBERED_ITEM_RE.match(masked[j])
+            ):
+                j += 1
+            # j = 题体之后首个空行/编号/已占行；向前看下一个非空行
+            nxt = j
+            while nxt < n and not masked[nxt].strip():
+                nxt += 1
+            followed_by_next_item = (
+                nxt < n
+                and _NUMBERED_ITEM_RE.match(masked[nxt]) is not None
+                and int(_NUMBERED_ITEM_RE.match(masked[nxt]).group(1)) == expected + 1
+            )
+            body = "\n".join(
+                [m.group(2).strip(), *(masked[k].strip() for k in range(li + 1, j))]
+            ).strip()
+            # 组在文末结束 或 紧随下一编号项 → 题；题间夹叙述正文 → 小节标题
+            if _QUESTIONISH_RE.search(body) and (nxt >= n or followed_by_next_item):
+                # 存储用原文（掩码仅供检测），保留题内引号内容
+                original_body = "\n".join(
+                    [
+                        _NUMBERED_ITEM_RE.match(lines[li]).group(2).strip(),
+                        *(lines[k].strip() for k in range(li + 1, j)),
+                    ]
+                ).strip()
+                sub_questions.append(original_body)
+                for k in range(li, j):
+                    claimed[k] = True
+                    # 题内状态操作：检测在掩码句上做，文本按同偏移切回原文（R6）；
+                    # 首行跳过编号前缀，否则「8. 如果…」的句首形态被编号挡住
+                    base = m.start(2) if k == li else 0
+                    for s_off, e_off, sent in _sentence_spans(masked[k][base:]):
+                        kind = _state_op_in_sentence(sent)
+                        if kind is None and _HYPOTHESIS_IN_QUESTION_RE.match(sent):
+                            kind = "premise_declaration"
+                        if kind:
+                            q_spans.append(
+                                InstructionSpan(
+                                    kind,
+                                    lines[k][base + s_off : base + e_off].strip(),
+                                    k,
+                                    scope=f"q{expected}",
+                                )
+                            )
+                expected += 1
+        li += 1
 
-    # 第 5 步：三态分类
+    # 第 4 步：指令区识别（句级；未占行；行内第二句同样检出，R1；
+    # 检测在掩码句上做，span 文本按同偏移切回原文，保留引用内容）
+    instructions: list[InstructionSpan] = []
+    instruction_lines: set[int] = set()
+    for li in range(n):
+        if claimed[li] or not masked[li].strip():
+            continue
+        for s_off, e_off, sent in _sentence_spans(masked[li]):
+            kind = _state_op_in_sentence(sent)
+            if kind:
+                instructions.append(
+                    InstructionSpan(kind, lines[li][s_off:e_off].strip(), li)
+                )
+                instruction_lines.add(li)
+
+    # 第 5 步：邻接规则——疑似指令行与叙述行无空行相连 → 归属不明 → uncertain
+    # （长研报里混入的禁令字样不升级为指令，R4；顶层消息首行/空行分隔不受影响）
+    for span in instructions:
+        li = span.line_index
+        for neighbor in (li - 1, li + 1):
+            if (
+                0 <= neighbor < n
+                and not claimed[neighbor]
+                and neighbor not in instruction_lines
+                and masked[neighbor].strip()
+                and not _LEADIN_RE.search(masked[neighbor])
+            ):
+                uncertain.append("adjacent_state_op")
+                break
+
+    # 第 6 步：三态分类
     if uncertain:
         classification = "boundary_uncertain"
-    elif instructions:
+    elif instructions or q_spans:
         classification = "constraint_confirmed"
     else:
         classification = "no_constraint_confirmed"
     return TopLevelRegions(
         classification=classification,
-        instructions=tuple(instructions),
+        instructions=tuple(instructions) + tuple(q_spans),
         sub_questions=tuple(sub_questions),
         uncertain_reasons=tuple(dict.fromkeys(uncertain)),
     )
