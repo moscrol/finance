@@ -388,3 +388,151 @@ def test_oracle_matches_module_mapping():
         assert abs(row[1] - _oracle_amount(turnover)) < 1e-9
         assert abs(row[2] - _oracle_volume(volume)) < 1e-9
     mem.close()
+
+
+# ── 评审退修（6abd08ac）七条误放行反例 → 全部必须拒绝 ─────────────
+import json  # noqa: E402
+
+import market_feature_store.sync.repair_backfill_stock_history as mod  # noqa: E402
+
+
+def test_refused_missing_retained_source_day(env):
+    """P1-2：保留日主表行的并跑表源被删，LAG 会跨日——必须写前拒绝。"""
+    db, pq, spec = env
+    con = duckdb.connect(str(db))
+    con.execute("DELETE FROM fact_stock_daily_hithink WHERE stock_ts_code=? "
+                "AND trade_date=?", [CODE, CAL[2]])
+    with pytest.raises(RepairRefused, match="源日期集合"):
+        mod.run_backfill_child(con, spec, pq)
+    con.close()
+
+
+@pytest.mark.parametrize("field,value", [("open", None), ("pre_close", -999.0)])
+def test_refused_verify_corrupt_backfilled_fields(env, field, value):
+    """P2-1：回填行关键字段损坏，verify 必须拒绝（全字段 oracle + 键集分母）。"""
+    db, pq, spec = env
+    con = duckdb.connect(str(db))
+    mod.run_backfill_child(con, spec, pq)
+    con.execute(f"UPDATE fact_stock_daily SET {field}=? WHERE stock_ts_code=? "
+                "AND trade_date=?", [value, CODE, CAL[3]])
+    with pytest.raises(RepairRefused, match="oracle"):
+        mod.run_backfill_child(con, spec, pq)
+    con.close()
+
+
+def test_refused_verify_source_label_swap(env):
+    """P2-1：并跑段行误标 parquet 来源——逐键标签断言必须拒绝。"""
+    db, pq, spec = env
+    con = duckdb.connect(str(db))
+    mod.run_backfill_child(con, spec, pq)
+    con.execute("UPDATE fact_stock_daily SET source=? WHERE stock_ts_code=? "
+                "AND trade_date=?", [mod.SOURCE_PARQUET, CODE, CAL[3]])
+    with pytest.raises(RepairRefused, match="oracle"):
+        mod.run_backfill_child(con, spec, pq)
+    con.close()
+
+
+def test_refused_window_nontrading_start(env, monkeypatch):
+    """P2-2：窗口起点改为非交易日（跨度计数不变）——黄金三元组必须拒绝。"""
+    db, pq, spec = env
+    con = duckdb.connect(str(db))
+    real = mod._rebuild_derived_scoped
+
+    def corrupt(connection, contract, mode="apply"):
+        out = real(connection, contract, mode)
+        sunday = (date.fromisoformat(CAL[5]) - timedelta(days=1)).isoformat()
+        connection.execute(
+            "UPDATE feature_stock_window SET start_date=? WHERE stock_ts_code=? "
+            "AND as_of_date=? AND start_date=?", [sunday, CODE, CAL[10], CAL[5]])
+        return out
+
+    monkeypatch.setattr(mod, "_rebuild_derived_scoped", corrupt)
+    with pytest.raises(RepairRefused, match="黄金三元组"):
+        mod.run_backfill_child(con, spec, pq)
+    con.close()
+
+
+def test_refused_pinned_updated_at_tamper(env, monkeypatch):
+    """P2-1：09-11 updated_at 被改——保留行全列快照（含 updated_at）必须拒绝。"""
+    db, pq, spec = env
+    con = duckdb.connect(str(db))
+    real = mod._apply_main
+
+    def corrupt(connection, contract, parquet, prev_day, mode="apply"):
+        out = real(connection, contract, parquet, prev_day, mode)
+        connection.execute("UPDATE fact_stock_daily SET updated_at='2000-01-01' "
+                           "WHERE stock_ts_code=? AND trade_date=?",
+                           [CODE, spec.window_end])
+        return out
+
+    monkeypatch.setattr(mod, "_apply_main", corrupt)
+    with pytest.raises(RepairRefused, match="保留行"):
+        mod.run_backfill_child(con, spec, pq)
+    con.close()
+
+
+# ── P1-1/P2-3：CLI 报告/收据写出守卫 ────────────────────────────────
+def _cli_args(pq, db, report_path=None):
+    from types import SimpleNamespace
+    return SimpleNamespace(parquet=str(pq), child=True, db=str(db),
+                           report_path=str(report_path) if report_path else None)
+
+
+def test_refused_cli_report_path_overwrites_canonical(tmp_path, monkeypatch):
+    """P1-1：--report-path 指向 canonical 见证库——拒绝且库内容不变。"""
+    from market_feature_store import cli
+
+    db, pq = tmp_path / "staging.duckdb", tmp_path / "tail.parquet"
+    fixture = _fixture(db, pq)
+    spec = _spec(db, pq, fixture["pinned"])
+    canonical = tmp_path / "canonical-witness.duckdb"
+    with duckdb.connect(str(canonical)) as c:
+        c.execute("CREATE TABLE witness AS SELECT 123 AS x")
+    before = canonical.read_bytes()
+    monkeypatch.setenv("MARKET_FEATURE_STORE_PRODUCTION_DB", str(canonical))
+    monkeypatch.setattr(mod, "BackfillSpec", lambda: spec)
+    rc = cli.cmd_repair_backfill_302132(_cli_args(pq, db, canonical))
+    assert rc == 2 and canonical.read_bytes() == before
+
+
+def test_refused_cli_report_path_existing_file(tmp_path, monkeypatch):
+    """P2-3：--report-path 已存在——不可覆盖。"""
+    from market_feature_store import cli
+
+    db, pq = tmp_path / "staging.duckdb", tmp_path / "tail.parquet"
+    fixture = _fixture(db, pq)
+    spec = _spec(db, pq, fixture["pinned"])
+    existing = tmp_path / "occupied.json"
+    existing.write_text("{}")
+    monkeypatch.setenv("MARKET_FEATURE_STORE_PRODUCTION_DB",
+                       str(tmp_path / "elsewhere.duckdb"))
+    monkeypatch.setattr(mod, "BackfillSpec", lambda: spec)
+    rc = cli.cmd_repair_backfill_302132(_cli_args(pq, db, existing))
+    assert rc == 2 and existing.read_text() == "{}"
+
+
+def test_cli_child_receipt_binds_revision_and_run_id(tmp_path, monkeypatch):
+    """P2-3：每轮收据绑定 revision/dirty/run_id/spec/源指纹，按 run_id 命名不覆盖。"""
+    from market_feature_store import cli
+
+    db, pq = tmp_path / "staging.duckdb", tmp_path / "tail.parquet"
+    fixture = _fixture(db, pq)
+    spec = _spec(db, pq, fixture["pinned"])
+    monkeypatch.setenv("MARKET_FEATURE_STORE_PRODUCTION_DB",
+                       str(tmp_path / "elsewhere.duckdb"))
+    monkeypatch.setenv("MARKET_FEATURE_STORE_RUN_ID", "test-run-001")
+    monkeypatch.setattr(mod, "BackfillSpec", lambda: spec)
+    rc = cli.cmd_repair_backfill_302132(_cli_args(pq, db))
+    assert rc == 0
+    report_path = tmp_path / "staging.duckdb.backfill-report.test-run-001.json"
+    report = json.loads(report_path.read_text())
+    assert report["run_id"] == "test-run-001"
+    assert len(report["code_revision"]) == 40
+    assert report["code_dirty"] is not None
+    assert report["parquet_sha256"] and report["parallel_source_md5"]
+    assert report["interpreter"]
+    # 同 run_id 重跑：报告已存在 → 拒绝覆盖
+    rc2 = cli.cmd_repair_backfill_302132(_cli_args(pq, db))
+    assert rc2 == 2
+    count = len(list(tmp_path.glob("staging.duckdb.backfill-report.*.json")))
+    assert count == 1

@@ -19,14 +19,19 @@
   合计 161 行、精确日期与 start/end、每窗恰 6/11/21/61 观测且与市场历切片相等、
   09-11 四窗钉值；保护切片（他股全部行 + 目标股窗外行，含 calculated_at）前后
   指纹相等；09-11 主表钉值行全列不变。
-- **指纹绑定**：代码 revision、并跑表源行集 md5、冻结 parquet sha256、spec 版本、
-  输入生产版本由父流程 ops 收据绑定（run_id / run_class=repair 是父流程既有语义）。
+- **指纹绑定**：每轮执行由 CLI 写出不可覆盖收据（`_guarded_write_json`，O_EXCL +
+  与生产/staging/冻结输入及别名隔离），绑定代码 revision/dirty、run_id、spec、
+  并跑表源行集 md5、冻结 parquet sha256、备份身份与验收摘要。
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import math
+import os
 import re
+import subprocess
+import sys
 from dataclasses import dataclass, field
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
@@ -104,6 +109,56 @@ class BackfillSpec:
 
 def _fail(msg: str, detail) -> None:
     raise RepairRefused(f"{msg}: {detail}")
+
+
+PROJECT_DIR = Path(__file__).resolve().parents[2]
+
+
+def _code_revision() -> tuple[str, bool]:
+    """运行代码的 git revision 与 dirty 标志；解析不出即拒绝（收据不许无绑定）。"""
+    try:
+        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(PROJECT_DIR),
+                              capture_output=True, text=True, check=True).stdout.strip()
+        dirty = bool(subprocess.run(
+            ["git", "status", "--porcelain"], cwd=str(PROJECT_DIR),
+            capture_output=True, text=True, check=True).stdout.strip())
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError) as exc:
+        raise RepairRefused(f"代码 revision 绑定失败（非 git 检出或 git 不可用）: {exc}")
+    if not head:
+        raise RepairRefused("代码 revision 绑定失败: HEAD 为空")
+    return head, dirty
+
+
+def _guarded_write_json(path: Path, payload: dict,
+                        protected: set[Path] | frozenset | None = None) -> Path:
+    """收据/报告的唯一写出通道：O_EXCL 不可覆盖 + 与受保护文件及其别名隔离。"""
+    p = Path(path).expanduser()
+    if p.suffix != ".json":
+        _fail("收据/报告必须为 .json", str(p))
+    if not p.parent.is_dir():
+        _fail("收据目录不存在", str(p.parent))
+    if p.is_symlink():
+        _fail("收据路径是符号链接", str(p))
+    real = Path(os.path.realpath(p))
+    for prot in (protected or ()):
+        if real == Path(os.path.realpath(prot)):
+            _fail("收据路径与受保护文件（生产/staging/冻结输入）冲突或别名", str(p))
+    if p.exists():
+        _fail("收据路径已存在（每轮收据不可覆盖）", str(p))
+    fd = os.open(str(p), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(json.dumps(payload, ensure_ascii=False, indent=2, default=str) + "\n")
+    return p
+
+
+def _finite(v) -> bool:
+    """有限数值（int/float/Decimal；None/NaN/Inf/字符串拒绝）。"""
+    if isinstance(v, bool):
+        return False
+    try:
+        return math.isfinite(float(v))
+    except (TypeError, ValueError):
+        return False
 
 
 def _sha256(path: Path) -> str:
@@ -243,8 +298,54 @@ def _guard(con, spec: BackfillSpec, parquet_path: Path) -> dict:
             [spec.code, spec.window_start, spec.window_end]).fetchall())
         if stale_w != spec.stale_window_keys:
             _fail("窗内既有 window ≠ spec 登记的删 key 清单", stale_w)
-    return {"calendar": cal, "pinned_0911_before": pinned_before,
-            "prev_day": prev_day, "mode": mode}
+    # ── 源依赖完整性（评审 P1-2）：参与 LAG 的源日期集合必须与市场历逐日相等，
+    # 缺日/非历日都会让 LAG 前驱错位；逐回填日证明前驱身份；源值有限且必填非空。
+    cal_full = [str(r[0]) for r in con.execute(
+        "SELECT DISTINCT trade_date FROM fact_market_daily WHERE trade_date BETWEEN ? "
+        "AND ? ORDER BY 1", [prev_day, spec.window_end]).fetchall()]
+    seg_a_end = max(spec.gap_parallel)
+    cal_a = [d for d in cal_full if d <= seg_a_end]
+    src_a = {str(r[0]): r[1:] for r in con.execute(
+        "SELECT trade_date, open, high, low, close, volume, turnover "
+        "FROM fact_stock_daily_hithink WHERE stock_ts_code=? AND adjusted='none' "
+        "AND trade_date BETWEEN ? AND ? ORDER BY 1",
+        [spec.code, prev_day, seg_a_end]).fetchall()}
+    if sorted(src_a) != cal_a:
+        _fail("并跑表源日期集合 ≠ 市场历（缺日/多日将使 LAG 前驱错位）",
+              {"missing": sorted(set(cal_a) - set(src_a))[:5],
+               "extra": sorted(set(src_a) - set(cal_a))[:5]})
+    first_b, last_b = min(spec.gap_parquet), max(spec.gap_parquet)
+    pred_b = cal_full[cal_full.index(first_b) - 1]
+    cal_b = [d for d in cal_full if pred_b <= d <= last_b]
+    src_b = {str(r[0]): r[1:] for r in con.execute(
+        "SELECT CAST(to_timestamp(date_ms/1000) AS DATE), open_price, high_price, "
+        "low_price, close_price, volume, turnover FROM read_parquet(?) "
+        "WHERE thscode=? AND currency='CNY' AND interval='1d' AND adjusted='none' "
+        "AND CAST(to_timestamp(date_ms/1000) AS DATE) BETWEEN ? AND ? ORDER BY 1",
+        [str(parquet_path), spec.code, pred_b, last_b]).fetchall()}
+    if sorted(src_b) != cal_b:
+        _fail("冻结 parquet 源日期集合 ≠ 市场历（缺日/多日将使 LAG 前驱错位）",
+              {"missing": sorted(set(cal_b) - set(src_b))[:5],
+               "extra": sorted(set(src_b) - set(cal_b))[:5]})
+    write_days = set(spec.gap_parallel) | set(spec.gap_parquet) | {spec.shell_date}
+    merged = {**src_a, **src_b}
+    for d in sorted(write_days):
+        pred = cal_full[cal_full.index(d) - 1]  # 逐日证明：前驱 = 前一市场交易日
+        if pred not in merged:
+            _fail("回填日的前驱市场日缺源行", (d, pred))
+    for label, src in (("并跑表", src_a), ("parquet", src_b)):
+        for d, r in src.items():
+            if not _finite(r[3]):  # close 全区间必填（pre_close/pct/均线链）
+                _fail(f"{label}源行 close 空/非有限", d)
+            if d in write_days and not all(_finite(v) for v in r):
+                _fail(f"{label}源行必填字段空/非有限（回填日）", (d, r))
+    # 目标股未授权修改行（保留行，含 09-11）全列快照（含 updated_at）——写后必须逐列相等
+    retained = con.execute(
+        f"SELECT * FROM fact_stock_daily WHERE stock_ts_code=? "
+        f"AND trade_date NOT IN ({marks}) ORDER BY trade_date",
+        [spec.code]).fetchall()
+    return {"calendar": cal, "calendar_full": cal_full, "pinned_0911_before": pinned_before,
+            "prev_day": prev_day, "mode": mode, "retained_rows": retained}
 
 
 # ── 阶段 1：主表回填 ──────────────────────────────────────────────────
@@ -458,42 +559,68 @@ def _rebuild_derived_scoped(con, spec: BackfillSpec, mode: str = "apply") -> dic
 # ── 阶段 3：验收（fail closed）────────────────────────────────────────
 def _accept(con, spec: BackfillSpec, pre: dict) -> dict:
     code, d0, d1 = spec.code, spec.window_start, spec.window_end
-    # 3a. 主表：64 日精确集合 + 54 行字段独立 oracle 复核
+    # 3a. 主表：64 日精确集合 + 54 行验收（分母 = spec 精确键集，不按输出 source 筛）
     dates = [str(r[0]) for r in con.execute(
         "SELECT trade_date FROM fact_stock_daily WHERE stock_ts_code=? "
         "AND trade_date BETWEEN ? AND ? ORDER BY 1", [code, d0, d1]).fetchall()]
     if len(dates) != spec.expected_total_rows or set(dates) != pre["calendar"]:
         _fail("回填后窗口日期集合 ≠ 市场历", (len(dates), len(pre["calendar"])))
+    write_keys = list(spec.gap_parallel) + list(spec.gap_parquet) + [spec.shell_date]
+    marks = ",".join(f"'{d}'" for d in write_keys)
+    rows = con.execute(
+        f"SELECT trade_date, stock_name, open, high, low, close, pre_close, pct_chg,"
+        f" amount, turnover, volume, source FROM fact_stock_daily "
+        f"WHERE stock_ts_code=? AND trade_date IN ({marks})", [code]).fetchall()
+    if len(rows) != len(write_keys):
+        _fail("回填键集行数 ≠ spec（验收分母必须来自授权键集）",
+              (len(rows), len(write_keys)))
+    src_a = {str(r[0]): r[1:] for r in con.execute(
+        "SELECT trade_date, open, high, low, close, volume, turnover FROM bf_src").fetchall()}
+    src_b = {str(r[0]): r[1:] for r in con.execute(
+        "SELECT trade_date, open, high, low, close, volume, turnover FROM bf_pq").fetchall()}
+    merged = {**src_a, **src_b}
+    cal_full = pre["calendar_full"]
+    expected_label = ({d: SOURCE_PARALLEL for d in spec.gap_parallel}
+                      | {spec.shell_date: SOURCE_PARALLEL}
+                      | {d: SOURCE_PARQUET for d in spec.gap_parquet})
     bad = []
-    for tbl_src, label in (("bf_src", SOURCE_PARALLEL), ("bf_pq", SOURCE_PARQUET)):
-        rows = con.execute(
-            f"SELECT w.trade_date, w.open, w.high, w.low, w.close, w.pre_close, "
-            f"w.pct_chg, w.amount, w.volume, w.source, s.close, s.prev_close, "
-            f"s.turnover, s.volume "
-            f"FROM fact_stock_daily w JOIN {tbl_src} s ON s.trade_date = w.trade_date "
-            f"WHERE w.stock_ts_code=? AND w.source=?", [code, label]).fetchall()
-        for r in rows:
-            exp_pct = _oracle_pct(r[10], r[11])
-            exp_amt = _oracle_amount(r[12])
-            exp_vol = _oracle_volume(r[13])
-            if (abs(r[6] - exp_pct) > 1e-9 or abs(r[7] - exp_amt) > 1e-9
-                    or abs(r[8] - exp_vol) > 1e-9):
-                bad.append((str(r[0]), r[6], exp_pct, r[7], exp_amt, r[8], exp_vol))
+    for r in rows:
+        d = str(r[0])
+        src = src_b.get(d) if d in spec.gap_parquet else src_a.get(d)
+        if src is None:
+            bad.append((d, "源行缺失"))
+            continue
+        pred = cal_full[cal_full.index(d) - 1]  # oracle 前驱 = 市场历前一日（护栏已证身份）
+        pred_close = merged[pred][3]
+        exp_pre = float(Decimal(str(pred_close)).quantize(Decimal("0.01")))
+        exp_pct = _oracle_pct(r[5], exp_pre)
+        exp_amt = _oracle_amount(src[5])
+        exp_vol = _oracle_volume(src[4])
+        ok = (r[1] == spec.name and r[2] == float(src[0]) and r[3] == float(src[1])
+              and r[4] == float(src[2]) and r[5] == float(src[3])
+              and r[6] is not None and abs(r[6] - exp_pre) <= 1e-9
+              and r[7] is not None and abs(r[7] - exp_pct) <= 1e-9
+              and r[8] is not None and abs(r[8] - exp_amt) <= 1e-9
+              and r[9] is None and r[10] is not None and abs(r[10] - exp_vol) <= 1e-9
+              and r[11] == expected_label[d]
+              and all(_finite(v) for v in (r[2], r[3], r[4], r[5])))
+        if not ok:
+            bad.append((d, tuple(r[1:]), tuple(src)))
     if bad:
-        _fail("回填行映射 ≠ 独立 oracle 重算", bad[:5])
-    # 06-23 填充行同样过 oracle（其 prev_close 来自 bf_src lag）
-    shell = con.execute(
-        "SELECT w.close, w.pre_close, w.pct_chg, w.amount, w.volume, s.close, "
-        "s.prev_close, s.turnover, s.volume "
-        "FROM fact_stock_daily w JOIN bf_src s ON s.trade_date = w.trade_date "
-        "WHERE w.stock_ts_code=? AND w.trade_date=?",
-        [code, spec.shell_date]).fetchone()
-    if shell is None or shell[1] is None:
-        _fail("空壳行未被填充", spec.shell_date)
-    if (abs(shell[2] - _oracle_pct(shell[5], shell[6])) > 1e-9
-            or abs(shell[3] - _oracle_amount(shell[7])) > 1e-9
-            or abs(shell[4] - _oracle_volume(shell[8])) > 1e-9):
-        _fail("空壳填充行映射 ≠ oracle", shell)
+        _fail("回填行全字段验收 ≠ 独立 oracle（含 OHLC/昨收/来源标签）", bad[:3])
+    # 副查：带回填标签的总行数恰为 54（标签错标/漏标都会破坏守恒）
+    labeled = con.execute(
+        "SELECT COUNT(*) FROM fact_stock_daily WHERE stock_ts_code=? "
+        "AND source IN (?, ?)", [code, SOURCE_PARALLEL, SOURCE_PARQUET]).fetchone()[0]
+    if labeled != len(write_keys):
+        _fail("回填标签行数 ≠ 键集（来源标签守恒破坏）", labeled)
+    # 目标股未授权修改行（含 09-11，全列含 updated_at）必须与写前快照逐列相等
+    retained_after = con.execute(
+        f"SELECT * FROM fact_stock_daily WHERE stock_ts_code=? "
+        f"AND trade_date NOT IN ({marks}) ORDER BY trade_date", [code]).fetchall()
+    if retained_after != pre["retained_rows"]:
+        _fail("目标股保留行（含 09-11 updated_at）被改动",
+              (len(pre["retained_rows"]), len(retained_after)))
     # 3b. 09-11 钉值行逐列不变
     pinned_after = con.execute(
         "SELECT stock_name, close, pre_close, pct_chg, amount, turnover, source,"
@@ -523,16 +650,23 @@ def _accept(con, spec: BackfillSpec, pre: dict) -> dict:
     for key in spec.stale_window_keys:
         if any((str(r[0]), str(r[1])) == key for r in win):
             _fail("应删旧 window key 残留", key)
+    # 黄金三元组（评审 P2-2）：按市场历索引构造全部合法 (as_of, start, end)，双向集合相等；
+    # start 必须是市场日、跨度必须恰为 p+1 观测，由构造保证，不靠计数推断。
     cal_sorted = sorted(pre["calendar"])
+    golden = set()
+    for i, a in enumerate(cal_sorted):
+        for p in (5, 10, 20, 60):
+            if i >= p:  # 观测数 i+1 >= p+1
+                golden.add((a, cal_sorted[i - p], a))
+    actual = {(str(r[0]), str(r[1]), str(r[2])) for r in win}
+    if len(actual) != len(win) or actual != golden:
+        _fail("window (as_of,start,end) 集合 ≠ 市场历黄金三元组",
+              {"only_actual": sorted(actual - golden)[:3],
+               "only_golden": sorted(golden - actual)[:3]})
+    idx = {d: i for i, d in enumerate(cal_sorted)}
     counts = {5: 0, 10: 0, 20: 0, 60: 0}
-    for as_of, start, end, _gain, _amt in win:
-        span = [d for d in cal_sorted if str(start) <= d <= str(end)]
-        n = len(span)
-        if n - 1 not in counts:
-            _fail("window 跨度观测数异常", (as_of, start, end, n))
-        counts[n - 1] += 1
-        if str(end) != str(as_of):
-            _fail("window end ≠ as_of", (as_of, end))
+    for a, s, _e in actual:
+        counts[idx[a] - idx[s]] += 1
     if counts != spec.expected_window_counts:
         _fail("window 各期计数 ≠ 钉值", (counts, spec.expected_window_counts))
     # 3d. 09-11 派生钉值
@@ -596,10 +730,14 @@ def run_backfill_child(con, spec: BackfillSpec, parquet_path: Path) -> dict:
         if fp_before[k] != fp_after[k]:
             _fail(f"保护切片被改动（{k}，含 calculated_at）",
                   (len(fp_before[k]), len(fp_after[k])))
+    revision, dirty = _code_revision()
     return {
         "spec_version": spec.spec_version,
         "code": spec.code,
         "parquet_sha256": spec.parquet_sha256,
+        "code_revision": revision,
+        "code_dirty": dirty,
+        "interpreter": sys.executable,
         **facts, **accepted,
         "protected_slices": {k: len(v) for k, v in fp_after.items()},
     }

@@ -1235,14 +1235,17 @@ def cmd_repair_backfill_302132(args) -> int:
         # 目标解析与 run_repair 同一顺序：--db > MARKET_FEATURE_STORE_DB > 包默认。
         env_db = os.environ.get("MARKET_FEATURE_STORE_DB")
         target = Path(args.db or env_db) if (args.db or env_db) else None
+        if target is None:
+            print("--child 需要 --db 或 MARKET_FEATURE_STORE_DB（收据必须有主）")
+            return 2
         refused = _refuse_production_write_direct(target)
         if refused is not None:
             return refused
         import duckdb
 
-        status_json = Path(str(target) + ".status.json") if target else None
+        status_json = Path(str(target) + ".status.json")
         try:
-            con = duckdb.connect(str(target)) if target else duckdb.connect()
+            con = duckdb.connect(str(target))
             try:
                 report = run_backfill_child(con, spec, parquet)
             finally:
@@ -1250,32 +1253,40 @@ def cmd_repair_backfill_302132(args) -> int:
         except RepairRefused as exc:
             print(f"回填护栏/验收不通过，未发布: {exc}")
             return 2
-        report["run_id"] = os.environ.get("MARKET_FEATURE_STORE_RUN_ID")
+        from datetime import datetime, timezone
+
+        from .sync.repair_backfill_stock_history import _guarded_write_json
+        from .write_path import canonical_production_candidates
+
+        run_id = (os.environ.get("MARKET_FEATURE_STORE_RUN_ID")
+                  or "norun-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                  + f"-{os.getpid()}")
+        report["run_id"] = run_id
         report["trade_date"] = spec.window_end
         report["kind"] = "repair-backfill-302132"
         report["ok"] = True
+        protected = {target, parquet, *canonical_production_candidates()}
         report_path = (
             Path(args.report_path)
             if args.report_path
-            else Path(str(target) + ".backfill-report.json") if target else None
+            else Path(str(target) + f".backfill-report.{run_id}.json")
         )
-        if report_path is not None:
-            report_path.write_text(
-                json.dumps(report, ensure_ascii=False, indent=2, default=str) + "\n",
-                encoding="utf-8",
-            )
-        if status_json is not None:
-            status_json.write_text(
-                json.dumps({
-                    "trade_date": spec.window_end,
-                    "ok": True,
-                    "run_id": os.environ.get("MARKET_FEATURE_STORE_RUN_ID"),
-                    "steps": [{"name": "repair-backfill-302132", "ok": True,
-                               "technical_rows": report["technical_rows"],
-                               "window_rows": report["window_rows"]}],
-                }, ensure_ascii=False) + "\n",
-                encoding="utf-8",
-            )
+        try:
+            _guarded_write_json(report_path, report, protected)
+        except RepairRefused as exc:
+            print(f"报告路径护栏不通过，未发布: {exc}")
+            return 2
+        status_json.write_text(
+            json.dumps({
+                "trade_date": spec.window_end,
+                "ok": True,
+                "run_id": run_id,
+                "steps": [{"name": "repair-backfill-302132", "ok": True,
+                           "technical_rows": report["technical_rows"],
+                           "window_rows": report["window_rows"]}],
+            }, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
         print(
             f"回填完成: {report['code']} 窗内 {report['technical_rows']} technical / "
             f"{report['window_rows']} window，保护切片指纹不变，报告 {report_path}"
@@ -1303,6 +1314,47 @@ def cmd_repair_backfill_302132(args) -> int:
                 f"(sha256={result['backup']['backup_sha256'][:16]}…, "
                 "恢复步骤见同级 .receipt.json)"
             )
+        # 每轮不可覆盖执行收据（评审 P2-3）：绑定 revision/dirty、run_id、spec、
+        # 两源指纹、备份身份与验收摘要。
+        from dataclasses import asdict
+
+        from . import db as _dbmod
+        from .sync.repair_backfill_stock_history import (
+            _code_revision, _guarded_write_json)
+        from .write_path import canonical_production_candidates
+
+        run_id = result.get("run_id")
+        env_db = os.environ.get("MARKET_FEATURE_STORE_DB")
+        target = Path(env_db) if env_db else _dbmod.DB_PATH
+        child_report, child_err = None, None
+        cand = (Path(args.report_path) if args.report_path else (
+            Path(str(_dbmod.staging_path(target))
+                 + f".backfill-report.{run_id}.json") if run_id else None))
+        if cand is not None:
+            try:
+                child_report = json.loads(cand.read_text(encoding="utf-8"))
+            except OSError as exc:
+                child_err = f"{type(exc).__name__}: {exc}"
+        revision, dirty = _code_revision()
+        receipt = {
+            "kind": "repair-backfill-302132",
+            "trade_date": spec.window_end,
+            "run_id": run_id,
+            "code_revision": revision,
+            "code_dirty": dirty,
+            "interpreter": sys.executable,
+            "spec": asdict(spec),
+            "child_report_path": str(cand) if cand else None,
+            "child_report": child_report,
+            "child_report_error": child_err,
+            "backup": result.get("backup"),
+            "parent": {"swapped": result["swapped"], "rc": result["rc"],
+                       "run_id": run_id},
+        }
+        receipt_path = _guarded_write_json(
+            Path(str(target) + f".repair-backfill-execution.{run_id}.json"),
+            receipt, {target, parquet, *canonical_production_candidates()})
+        print(f"执行收据: {receipt_path}")
     else:
         print(f"回填状态: BLOCKED | 生产库未动 | {result['reason']}")
     return result["rc"]
