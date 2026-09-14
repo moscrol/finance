@@ -188,7 +188,8 @@ def test_failed_run_without_report_counts_failure_and_known_cost() -> None:
     assert failed["failed"] is True and failed["run_status"] == "failed" and failed["has_error"] is True
     assert task["terminal_state"] == C.TERMINAL_COMPLETED
     assert receipt["known_cost_by_currency"] == {"CNY": 0.12}
-    assert [u["reason"] for u in receipt["unknown_cost_components"]] == ["usage_without_rate"]
+    # round-9：成功 attempt a-fr-2 只挂了 writer 的账——review 缺口由收据自身携带（与汇总层同规则）
+    assert [u["reason"] for u in receipt["unknown_cost_components"]] == ["no_usage_evidence_for_attempt", "usage_without_rate"]
     assert receipt["status"] == C.RECEIPT_INCOMPLETE
     assert "cost_unknown:c-fr-2" in receipt["limitations"]
     assert receipt["numerator_ids"] == ["t-fr-a", "t-fr-o"]
@@ -224,7 +225,8 @@ def test_cost_gaps_are_retained_not_zeroed_or_merged() -> None:
     reasons = {(u["component"], u["reason"]) for u in receipt["unknown_cost_components"]}
     assert reasons == {
         ("writer_model", "usage_without_rate"),  # 总 tokens 缺费率
-        ("retry", "no_usage_evidence_for_attempt"),  # 失败重试无账
+        # round-9：失败执行缺的是 writer 模型账（retry 是费用类别，不是该次执行被漏记的消耗）
+        ("writer_model", "no_usage_evidence_for_attempt"),
         ("manual_rescue", "manual_time_uncosted"),  # 人工救援未计费
     }
     assert "usage_missing:c-cg-r" in receipt["limitations"]  # 自审缺用量
@@ -245,7 +247,9 @@ def test_no_cost_evidence_for_attempt_is_unknown_not_zero() -> None:
     events, reader = _scenario("complete_pair")
     receipt = measure_pair(_without(events, "e-cp-a-cost-w", "e-cp-a-cost-r", "e-cp-a-cost-span"), PROTOCOL, reader)
     assert receipt["known_cost_by_currency"] == {}
-    assert [u["reason"] for u in receipt["unknown_cost_components"]] == ["no_usage_evidence_for_attempt"]
+    # round-9：成功 attempt 无任何账 → 逐组件缺口 writer+review 两条（不再合并为一条）
+    unbilled = [u for u in receipt["unknown_cost_components"] if u["reason"] == "no_usage_evidence_for_attempt"]
+    assert {u["component"] for u in unbilled} == {"writer_model", "review_model"}
     assert receipt["status"] == C.RECEIPT_INCOMPLETE
 
 
@@ -372,3 +376,289 @@ def test_owner_is_taken_from_events_and_hash_a_matches_reader() -> None:
     receipt = measure_pair(events, PROTOCOL, reader)
     assert receipt["owner_user_id"] == OWNER
     assert reader.resolve_run(OWNER, "r-cp-1")["artifacts"] == {"art-cp-1": HASH_A}
+
+
+# ------------------------------------------------- 返修 PV1：缺同意不得当作已同意 -----
+
+
+def test_missing_consent_record_blocks_blind_review_quality() -> None:
+    """评审 PV1：没有任何同意记录时，盲审既不能进质量读数，也不能让配对可比。
+
+    原实现只在「有 scopes 但不含 blind_review」时排除评审，未知同意范围被当成已同意，
+    于是缺同意的配对照样算出 assisted_not_lower，汇总层据此判 pass。
+    """
+    events, reader = _scenario("complete_pair")
+    receipt = measure_pair(_without(events, "e-cp-consent"), PROTOCOL, reader)
+    assert "consent_unknown:p01" in receipt["limitations"]
+    for condition in (C.CONDITION_ORIGINAL, C.CONDITION_ASSISTED):
+        assert receipt["tasks"][condition]["quality"] == {
+            "status": "unknown",
+            "reason": "blind_review_consent_unknown",
+        }
+    assert {"id": "e-cp-a-review", "reason": "blind_review_consent_unknown", "rule_version": "1"} in receipt["exclusions"]
+    assert receipt["quality"]["assisted_not_lower"] is None
+    assert receipt["quality"]["severe_error_count_assisted"] is None
+    assert receipt["status"] == C.RECEIPT_INCOMPLETE
+
+
+def test_attempt_run_conflict_is_flagged_and_blocks_full_cost():
+    """round-8 补遗 P1：同一 attempt_id 绑定到两个不同 run——合并前必须验身份冲突，
+    显式留错并降级收据、阻断完整成本，不能静默保留第一条让第二次执行消失。"""
+    import copy as _copy
+    from datetime import datetime as _dt, timedelta as _td
+
+    from intelligence.services.product_value.summarize import summarize
+    from intelligence.tests.test_product_value_summarize import _r7_setup
+
+    proto, complete, evidence1, _, evidence2, writer, review, base = _r7_setup()
+    attempt1 = next(e for e in base if e["event_type"] == "run_started")["payload"]["attempt_id"]
+    run2 = "qc-r8-run-2"
+    extra_events = []
+    for event in base:
+        if event["event_type"] in {"run_started", "run_finished"}:
+            extra = _copy.deepcopy(event)
+            extra["event_id"] += "-second"
+            extra["run_ids"] = [run2]
+            extra["payload"].update(run_id=run2, attempt_id=attempt1)  # 第二次生命周期误复用 attempt1
+            for key in ("event_at", "recorded_at"):
+                extra[key] = (_dt.fromisoformat(extra[key]) + _td(minutes=8)).isoformat()
+            extra_events.append(extra)
+    evidence_extra = _copy.deepcopy(evidence2["runs"][0])
+    evidence_extra.update(run_id=run2, artifacts={})
+    for key in ("created_at", "finished_at"):
+        evidence_extra[key] = (_dt.fromisoformat(evidence_extra[key]) + _td(minutes=8)).isoformat()
+    reader = InMemoryEvidenceReader.from_json({"runs": evidence1["runs"] + evidence2["runs"] + [evidence_extra]})
+    events = base + extra_events + [writer, review]  # 只给 run1 完整费用
+    r2 = measure_pair(events, proto, reader)
+    assert r2["invalid_reasons"] == [] and r2["event_accounting"]["rejected"] == []
+    assert r2["status"] == "incomplete"  # 不是 valid——冲突必须降级
+    assert any(lim.startswith("attempt_run_conflict:") for lim in r2["limitations"])
+    conflict = [u for u in r2["unknown_cost_components"] if u["reason"] == "attempt_run_conflict"]
+    assert conflict and conflict[0]["attempt_id"] == attempt1
+    summary = summarize(
+        [measure_pair(complete, proto, reader), r2],
+        [e for e in complete + events if e["event_type"] == "assignment_created"],
+        proto, cohort_events=complete + events, due_rechecks=[],
+    )
+    cost = next(m for m in summary["metrics"] if m["metric_id"] == "cost_full_status")
+    assert cost["detail"]["full_cost_status"] == "unknown"
+
+
+def test_receipt_gap_clearance_uses_joint_identity():
+    """round-8 补遗 P1：收据层派生缺口与汇总层共用联合身份——错配费用（attempt_id 指
+    第二次执行、run_id 是第一次的 run）不得消掉执行缺账；收据自身携带缺口并降级。"""
+    import copy as _copy
+    from datetime import datetime as _dt, timedelta as _td
+
+    from intelligence.tests.test_product_value_summarize import _r7_fee, _r7_setup
+
+    proto, complete, evidence1, _, evidence2, writer, review, base = _r7_setup()
+    run2, attempt2 = "qc-r8-run-2", "qc-r8-attempt-2"
+    extra_events = []
+    for event in base:
+        if event["event_type"] in {"run_started", "run_finished"}:
+            extra = _copy.deepcopy(event)
+            extra["event_id"] += "-second"
+            extra["run_ids"] = [run2]
+            extra["payload"].update(run_id=run2, attempt_id=attempt2)
+            for key in ("event_at", "recorded_at"):
+                extra[key] = (_dt.fromisoformat(extra[key]) + _td(minutes=8)).isoformat()
+            extra_events.append(extra)
+    evidence_extra = _copy.deepcopy(evidence2["runs"][0])
+    evidence_extra.update(run_id=run2, artifacts={})
+    for key in ("created_at", "finished_at"):
+        evidence_extra[key] = (_dt.fromisoformat(evidence_extra[key]) + _td(minutes=8)).isoformat()
+    two_runs = evidence2["runs"] + [evidence_extra]
+    two_base = base + extra_events + [writer, review]
+    run1 = writer["payload"]["cost_item"]["run_id"]
+    reader = InMemoryEvidenceReader.from_json({"runs": evidence1["runs"] + two_runs})
+
+    mismatched = [
+        _r7_fee(writer, "tool", 0.01, run_id=run1, attempt_id=attempt2, suffix="-mm-tool"),
+        _r7_fee(writer, "writer_model", 0.36, run_id=run1, attempt_id=attempt2, suffix="-mm-writer"),
+        _r7_fee(writer, "review_model", 0.10, run_id=run1, attempt_id=attempt2, suffix="-mm-review"),
+    ]
+    r2 = measure_pair(two_base + mismatched, proto, reader)
+    assert r2["status"] == "incomplete"  # 收据自身降级
+    gaps = [u for u in r2["unknown_cost_components"] if u["reason"] == "no_usage_evidence_for_attempt" and u["attempt_id"] == attempt2]
+    assert gaps, "错配费用不得消掉第二次执行的缺账"
+    # 合法对照：联合一致的同一组费用 → 收据 valid、无执行缺账
+    consistent = [
+        _r7_fee(writer, "tool", 0.01, run_id=run2, attempt_id=attempt2, suffix="-ok-tool"),
+        _r7_fee(writer, "writer_model", 0.36, run_id=run2, attempt_id=attempt2, suffix="-ok-writer"),
+        _r7_fee(writer, "review_model", 0.10, run_id=run2, attempt_id=attempt2, suffix="-ok-review"),
+    ]
+    r2_ok = measure_pair(two_base + consistent, proto, reader)
+    assert r2_ok["status"] == "valid"
+    assert [u for u in r2_ok["unknown_cost_components"] if u["reason"] == "no_usage_evidence_for_attempt"] == []
+
+
+def _r9_two_attempt_base():
+    """round-9 公共夹具：第二配对 + 第二次执行（run2×attempt2），第一次执行账齐。"""
+    import copy as _copy
+    from datetime import datetime as _dt, timedelta as _td
+
+    from intelligence.tests.test_product_value_summarize import _r7_setup
+
+    proto, complete, evidence1, _, evidence2, writer, review, base = _r7_setup()
+    run2, attempt2 = "qc-r9-run-2", "qc-r9-attempt-2"
+    extra_events = []
+    for event in base:
+        if event["event_type"] in {"run_started", "run_finished"}:
+            extra = _copy.deepcopy(event)
+            extra["event_id"] += "-second"
+            extra["run_ids"] = [run2]
+            extra["payload"].update(run_id=run2, attempt_id=attempt2)
+            for key in ("event_at", "recorded_at"):
+                extra[key] = (_dt.fromisoformat(extra[key]) + _td(minutes=8)).isoformat()
+            extra_events.append(extra)
+    evidence_extra = _copy.deepcopy(evidence2["runs"][0])
+    evidence_extra.update(run_id=run2, artifacts={})
+    for key in ("created_at", "finished_at"):
+        evidence_extra[key] = (_dt.fromisoformat(evidence_extra[key]) + _td(minutes=8)).isoformat()
+    reader = InMemoryEvidenceReader.from_json({"runs": evidence1["runs"] + evidence2["runs"] + [evidence_extra]})
+    return proto, complete, evidence1, writer, review, base, extra_events, reader, run2, attempt2, evidence2["runs"] + [evidence_extra]
+
+
+def test_excluded_fine_fee_cannot_clear_attempt_gap():
+    """round-9 P1：被去重排除（selected=False）的费用不能核销执行缺口——先统一有效
+    费用候选集，再做身份匹配。错配 run 级粗账（attempt_id 指第一次执行）+ 身份正确的
+    attempt 级细账（被粗账挤出）→ 收据仍 incomplete、缺口保留。"""
+    from intelligence.tests.test_product_value_summarize import _r7_fee
+
+    proto, _, _, writer, _, base, extra_events, reader, run2, attempt2, _ = _r9_two_attempt_base()
+    attempt1 = next(e for e in base if e["event_type"] == "run_started")["payload"]["attempt_id"]
+    run1 = writer["payload"]["cost_item"]["run_id"]
+    coarse = _r7_fee(writer, "writer_model", 0.36, run_id=run2, attempt_id=attempt1, suffix="-r9-coarse")  # 身份错配的 run 级粗账
+    fine = _r7_fee(writer, "writer_model", 0.36, run_id=run2, attempt_id=attempt2, suffix="-r9-fine")  # 身份正确的 attempt 级细账
+    fine["payload"]["cost_item"]["coverage_scope"] = "attempt"
+    events = base + extra_events + [writer, _r7_fee(writer, "review_model", 0.10, run_id=run1, attempt_id=attempt1, suffix="-r9-review")]
+    r2 = measure_pair(events + [coarse, fine], proto, reader)
+    fine_item = next(i for i in r2["cost_items"] if i["cost_id"].endswith("-r9-fine"))
+    assert fine_item["selected"] is False  # 前置：细账确实被去重排除
+    assert r2["status"] == "incomplete"  # 被排除的账不能证明「账齐了」
+    gaps = {u["component"] for u in r2["unknown_cost_components"] if u["reason"] == "no_usage_evidence_for_attempt" and u["attempt_id"] == attempt2}
+    assert gaps == {"writer_model", "review_model"}
+
+
+def test_receipt_gap_requires_per_component_completeness():
+    """round-9 P1：收据层与汇总层共用「按协议 × 执行实例 × 组件」规则——一笔工具费
+    不能核销整个执行的缺口；成功执行要 writer+review，失败执行只要 writer（合法通路）。"""
+    import copy as _copy
+
+    from intelligence.tests.test_product_value_summarize import _r7_fee
+
+    proto, _, _, writer, review, base, extra_events, reader, run2, attempt2, runs2 = _r9_two_attempt_base()
+    run1 = writer["payload"]["cost_item"]["run_id"]
+    attempt1 = next(e for e in base if e["event_type"] == "run_started")["payload"]["attempt_id"]
+    first_bills = [writer, _r7_fee(review, "review_model", 0.10, run_id=run1, attempt_id=attempt1, suffix="-r9-r1")]
+    two_base = base + extra_events + first_bills
+
+    def gaps_for(fees):
+        r2 = measure_pair(two_base + fees, proto, reader)
+        gaps = {u["component"] for u in r2["unknown_cost_components"] if u["reason"] == "no_usage_evidence_for_attempt" and u["attempt_id"] == attempt2}
+        return r2, gaps
+
+    r2, gaps = gaps_for([_r7_fee(writer, "tool", 0.01, run_id=run2, attempt_id=attempt2, suffix="-r9-t")])
+    assert r2["status"] == "incomplete" and gaps == {"writer_model", "review_model"}  # 只有工具费
+    r2, gaps = gaps_for([
+        _r7_fee(writer, "writer_model", 0.36, run_id=run2, attempt_id=attempt2, suffix="-r9-w"),
+        _r7_fee(writer, "tool", 0.01, run_id=run2, attempt_id=attempt2, suffix="-r9-t"),
+    ])
+    assert r2["status"] == "incomplete" and gaps == {"review_model"}  # 写手+工具费
+    r2, gaps = gaps_for([
+        _r7_fee(writer, "writer_model", 0.36, run_id=run2, attempt_id=attempt2, suffix="-r9-w"),
+        _r7_fee(review, "review_model", 0.10, run_id=run2, attempt_id=attempt2, suffix="-r9-r"),
+        _r7_fee(writer, "tool", 0.01, run_id=run2, attempt_id=attempt2, suffix="-r9-t"),
+    ])
+    assert r2["status"] == "valid" and gaps == set()  # 合法对照：三件套
+    # 合法通路：失败执行只要 writer 账（review 未发生不强要）
+    failed_events = _copy.deepcopy(extra_events)
+    for event in failed_events:
+        if event["event_type"] == "run_finished":
+            event["payload"].update(status="failed", error_ref="err:writer-timeout")
+            event["event_id"] += "-f"
+        else:
+            event["event_id"] += "-f"
+    failed_run = _copy.deepcopy(runs2[-1])  # 克隆已知良好的 run 证据记录，只改身份与状态
+    failed_run.update(run_id="qc-r9-run-3", status="failed", error="writer timeout", artifacts={})
+    for event in failed_events:
+        event["run_ids"] = ["qc-r9-run-3"]
+        event["payload"].update(run_id="qc-r9-run-3", attempt_id="qc-r9-attempt-3")
+    reader2 = InMemoryEvidenceReader.from_json({"runs": runs2 + [failed_run]})
+    r2 = measure_pair(base + failed_events + first_bills + [
+        _r7_fee(writer, "writer_model", 0.36, run_id="qc-r9-run-3", attempt_id="qc-r9-attempt-3", suffix="-r9-fw"),
+    ], proto, reader2)
+    gaps = {u["component"] for u in r2["unknown_cost_components"] if u["reason"] == "no_usage_evidence_for_attempt" and u["attempt_id"] == "qc-r9-attempt-3"}
+    assert r2["status"] == "valid" and gaps == set()
+
+
+def test_no_run_assisted_task_component_gaps_reach_receipt():
+    """round-10 P1：无执行实例的辅助任务——可信计时 + 任务级费用时，组件完整性同样
+    在收据层核验：缺 writer/review 由收据自身写缺项并降级，不只汇总层拦。合法通路：
+    完整任务级费用 → valid；协议豁免 → valid；原流程无 run 人工计时路径不受影响。"""
+    from intelligence.services.product_value.summarize import summarize
+    from intelligence.tests.test_product_value_summarize import _r7_fee, _r7_setup
+
+    proto, complete, evidence1, _, evidence2, writer, review, base = _r7_setup()
+    assisted_task = next(e["task_id"] for e in base if e.get("assistance_condition") == "assisted" and e["event_type"] == "task_started")
+    no_run_base = [e for e in base if not (e["event_type"] in {"run_started", "run_finished"} and e.get("assistance_condition") == "assisted")]
+    # 证据记录保留（完成证据的 artifact 挂在 run 记录里）；只移除辅助侧生命周期事件 → attempts == []
+    reader = InMemoryEvidenceReader.from_json({"runs": evidence1["runs"] + evidence2["runs"]})
+
+    def task_fee(template, component, amount, suffix):
+        fee = _r7_fee(template, component, amount, suffix=suffix)
+        fee["payload"]["cost_item"].update(run_id=None, attempt_id=None, coverage_scope="task")
+        fee["run_ids"] = []
+        return fee
+
+    def gaps_for(fees):
+        r2 = measure_pair(no_run_base + fees, proto, reader)
+        task = r2["tasks"]["assisted"]
+        assert task["attempts"] == [] and task["task_id"] == assisted_task
+        assert "timing_missing" not in " ".join(r2["limitations"])  # 可信计时保留
+        gaps = {u["component"] for u in r2["unknown_cost_components"] if u["reason"] == "no_usage_evidence_for_task" and u.get("task_id") == assisted_task}
+        return r2, gaps
+
+    r2, gaps = gaps_for([])
+    assert r2["status"] == "incomplete" and gaps == {"writer_model", "review_model"}  # 无账
+    r2, gaps = gaps_for([task_fee(writer, "tool", 0.01, "-r10-t")])
+    assert r2["status"] == "incomplete" and gaps == {"writer_model", "review_model"}  # 仅工具费
+    r2, gaps = gaps_for([task_fee(writer, "writer_model", 0.36, "-r10-w"), task_fee(writer, "tool", 0.01, "-r10-t")])
+    assert r2["status"] == "incomplete" and gaps == {"review_model"}  # 写手+工具费
+    full_fees = [task_fee(writer, "writer_model", 0.36, "-r10-w"), task_fee(review, "review_model", 0.10, "-r10-r"), task_fee(writer, "tool", 0.01, "-r10-t")]
+    r2, gaps = gaps_for(full_fees)
+    assert r2["status"] == "valid" and gaps == set()  # 合法对照：完整任务级费用
+    summary = summarize(
+        [measure_pair(complete, proto, reader), r2],
+        [e for e in complete + no_run_base + full_fees if e["event_type"] == "assignment_created"],
+        proto, cohort_events=complete + no_run_base + full_fees, due_rechecks=[],
+    )
+    cost = next(m for m in summary["metrics"] if m["metric_id"] == "cost_full_status")
+    assert cost["detail"]["full_cost_status"] == "known"
+
+    # 协议豁免：review 在 not_applicable → 只有 writer 的任务级费用也 valid
+    from intelligence.tests.test_product_value_summarize import _clone_complete_pair, _six_pair_protocol
+    from intelligence.services.product_value.protocol import freeze_protocol
+
+    proto2 = _six_pair_protocol()
+    proto2.pop("protocol_hash")
+    proto2["criteria"]["cost"] = {"not_applicable_components": sorted(C.COST_COMPONENTS - {"writer_model", "tool"})}
+    proto2 = freeze_protocol(proto2)
+    _, ev1 = _clone_complete_pair(1, "p10", proto2["protocol_hash"], provenance="imported")
+    second2, ev2 = _clone_complete_pair(2, "p11", proto2["protocol_hash"], provenance="imported")
+    base2 = [e for e in second2 if e["event_type"] != "cost_recorded"]
+    w2 = next(e for e in second2 if e["event_type"] == "cost_recorded" and e["payload"]["cost_item"]["component"] == "writer_model")
+    no_run2 = [e for e in base2 if not (e["event_type"] in {"run_started", "run_finished"} and e.get("assistance_condition") == "assisted")]
+    reader2 = InMemoryEvidenceReader.from_json({"runs": ev1["runs"] + ev2["runs"]})
+    fee = _r7_fee(w2, "writer_model", 0.36, suffix="-r10-exempt")
+    fee["payload"]["cost_item"].update(run_id=None, attempt_id=None, coverage_scope="task")
+    fee["run_ids"] = []
+    r2x = measure_pair(no_run2 + [fee], proto2, reader2)
+    assert r2x["status"] == "valid", r2x["limitations"]  # 豁免通路：review 不被要求
+
+    # 原流程无 run 的人工计时路径：original 无 run 无模型账 → 不被新检查误伤
+    no_run_both = [e for e in base if e["event_type"] not in {"run_started", "run_finished"}]
+    r2m = measure_pair(no_run_both + full_fees, proto, reader)
+    assert r2m["status"] == "valid", r2m["limitations"]
+    assert [u for u in r2m["unknown_cost_components"] if u["reason"] == "no_usage_evidence_for_task"] == []

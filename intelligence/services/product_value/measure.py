@@ -40,6 +40,7 @@ from intelligence.services.product_value.hashing import content_id, hash_ids
 from intelligence.services.product_value.protocol import (
     allowed_pause_reasons,
     case_index,
+    criteria,
     exclusion_rule_versions,
     pair_index,
     protocol_hash,
@@ -64,6 +65,7 @@ _BLOCKING_LIMITATION_PREFIXES: tuple[str, ...] = (
     "cost_coverage_unknown",
     "completion_evidence_missing",
     "usage_missing",
+    "attempt_run_conflict",
 )
 
 
@@ -216,6 +218,7 @@ def _measure_task(
     pauses_allowed: frozenset[str],
     invalid: list[dict[str, str]],
     limitations: set[str],
+    attempt_conflicts: list[dict[str, str]],
 ) -> dict[str, Any]:
     task_id = str(assignment["task_id"])
     payload = assignment["payload"]
@@ -265,11 +268,20 @@ def _measure_task(
             continue
         run_payload = event["payload"]
         attempt_id = str(run_payload.get("attempt_id"))
+        run_id = str(run_payload.get("run_id"))
+        existing = attempts.get(attempt_id)
+        if existing is not None and existing["run_id"] != run_id:
+            # 合并前先验身份：同一 attempt 绑到两个不同 run，合并会静默丢掉一次执行
+            # （round-8 补遗 P1）。显式留错并阻断完整成本；不合并冲突事件的时间/状态，
+            # 记录保留第一条。
+            attempt_conflicts.append({"attempt_id": attempt_id, "kept_run_id": existing["run_id"], "conflicting_run_id": run_id})
+            limitations.add(f"attempt_run_conflict:{attempt_id}")
+            continue
         record = attempts.setdefault(
             attempt_id,
             {
                 "attempt_id": attempt_id,
-                "run_id": str(run_payload.get("run_id")),
+                "run_id": run_id,
                 "started_at": None,
                 "finished_at": None,
                 "reported_status": None,
@@ -431,16 +443,21 @@ def _quality_for_task(
     rule_versions: Mapping[str, str],
 ) -> dict[str, Any]:
     reviews: list[Mapping[str, Any]] = []
+    consent_unknown = False
     for event in task_events:
         if event["event_type"] != "quality_reviewed" or event.get("source_channel") != C.SOURCE_MANUAL:
             continue
         if participant is not None:
             scopes = _scopes_at(consent, participant, event_time(event))
-            if scopes is not None and "blind_review" not in scopes:
+            # 没有同意记录 ≠ 已同意盲审。缺记录与明确未授权同样不能进质量读数，
+            # 否则「缺同意」只留一条 limitation，判据照常算出 pass（评审 PV1）。
+            if scopes is None or "blind_review" not in scopes:
+                reason = "blind_review_consent_unknown" if scopes is None else "blind_review_consent_missing"
+                consent_unknown = consent_unknown or scopes is None
                 exclusions.append(
                     {
                         "id": str(event["event_id"]),
-                        "reason": "blind_review_consent_missing",
+                        "reason": reason,
                         "rule_version": rule_versions.get("consent_scope", ""),
                     }
                 )
@@ -448,7 +465,10 @@ def _quality_for_task(
         reviews.append(event)
     if not reviews:
         limitations.add(f"quality_unknown:{task_id}")
-        return {"status": "unknown", "reason": "no_independent_review"}
+        return {
+            "status": "unknown",
+            "reason": "blind_review_consent_unknown" if consent_unknown else "no_independent_review",
+        }
     adjudicated = [r for r in reviews if r["payload"].get("adjudication_ref")]
     pool = adjudicated or reviews
     chosen = sorted(pool, key=lambda e: (event_time(e), str(e["event_id"])))[-1]
@@ -480,6 +500,7 @@ def _aggregate_costs(
     tasks: Mapping[str, Mapping[str, Any]],
     *,
     limitations: set[str],
+    applicable_components: set[str],
 ) -> dict[str, Any]:
     items: list[dict[str, Any]] = []
     for event in cost_events:
@@ -546,26 +567,58 @@ def _aggregate_costs(
             limitations.add(f"usage_missing:{member.get('cost_id')}")
 
     # 派生缺口：有尝试没账、有人工救援没工时费。预算与未观察到的调用都不作零费用依据。
-    costed_runs = {str(m.get("run_id")) for m in selected if m.get("run_id")}
-    costed_attempts = {str(m.get("attempt_id")) for m in selected if m.get("attempt_id")}
+    # 与汇总层共用「按协议 × 执行实例 × 组件」规则（C.attempt_uncovered_components）：
+    # 先统一有效候选集（selected=False 的去重排除项不作证），再做联合身份匹配——
+    # 错配费用不为任何执行作证，一笔工具费不能核销整个执行；失败执行只要 writer 账
+    # （review 未发生不强要）。收据自身携带缺项并降级（round-8 补遗 / round-9 P1）。
     for task in tasks.values():
         for attempt in task.get("attempts") or ():
-            if attempt["run_id"] in costed_runs or attempt["attempt_id"] in costed_attempts:
-                continue
+            missing = C.attempt_uncovered_components(
+                selected,
+                attempt_id=str(attempt.get("attempt_id") or ""),
+                run_id=str(attempt.get("run_id") or ""),
+                applicable=applicable_components,
+                failed=bool(attempt.get("failed")),
+            )
+            for component in missing:
+                unknown.append(
+                    {
+                        "component": component,
+                        "cost_id": None,
+                        "run_id": attempt["run_id"],
+                        "attempt_id": attempt["attempt_id"],
+                        "quantity": None,
+                        "unit": None,
+                        "reason": "no_usage_evidence_for_attempt",
+                    }
+                )
+            if missing:
+                limitations.add(f"cost_unknown:attempt:{attempt['attempt_id']}")
+    # 无执行实例的辅助任务：任务级组件完整性（与汇总层无 run 分支同规则）——可信计时 +
+    # 没有 run 不等于零费用，任务级费用只证明它自己那个组件（round-10 P1）。只查辅助侧：
+    # 原流程无 run 的人工计时基线是合法通路，不要求模型组件。
+    assisted_no_run = tasks.get(C.CONDITION_ASSISTED)
+    if assisted_no_run is not None and not assisted_no_run.get("attempts"):
+        task_id = str(assisted_no_run.get("task_id") or "")
+        covered = {str(m.get("component")) for m in selected if m.get("selected") and str(m.get("task_id") or "") == task_id}
+        missing = sorted(set(applicable_components) & C.ATTEMPT_MODEL_COMPONENTS - covered)
+        for component in missing:
             unknown.append(
                 {
-                    "component": "retry" if attempt["failed"] else "writer_model",
+                    "component": component,
                     "cost_id": None,
-                    "run_id": attempt["run_id"],
-                    "attempt_id": attempt["attempt_id"],
+                    "run_id": None,
+                    "attempt_id": None,
+                    "task_id": task_id,
                     "quantity": None,
                     "unit": None,
-                    "reason": "no_usage_evidence_for_attempt",
+                    "reason": "no_usage_evidence_for_task",
                 }
             )
-            limitations.add(f"cost_unknown:attempt:{attempt['attempt_id']}")
+        if missing:
+            limitations.add(f"cost_unknown:task:{task_id}")
     rescue_minutes = sum(float(task["timing"].get("manual_rescue_minutes") or 0.0) for task in tasks.values())
-    if rescue_minutes > 0 and not any(m.get("component") == "manual_rescue" for m in selected):
+    if rescue_minutes > 0 and not any(m.get("component") == "manual_rescue" and m.get("selected") for m in selected):
         unknown.append(
             {
                 "component": "manual_rescue",
@@ -619,6 +672,7 @@ def measure_pair(
     invalid: list[dict[str, str]] = []
     limitations: set[str] = set()
     exclusions: list[dict[str, Any]] = []
+    attempt_conflicts: list[dict[str, str]] = []
 
     owners = sorted({str(e["owner_user_id"]) for e in accepted})
     if len(owners) > 1:
@@ -727,6 +781,7 @@ def measure_pair(
                 pauses_allowed=pauses_allowed,
                 invalid=invalid,
                 limitations=limitations,
+                attempt_conflicts=attempt_conflicts,
             )
             measured["quality"] = _quality_for_task(
                 task_id,
@@ -752,7 +807,26 @@ def measure_pair(
             cost_events.append(event)
         elif event.get("case_pair_id") == pair:
             cost_events.append(event)
-    costs = _aggregate_costs(cost_events, tasks, limitations=limitations)
+    cost_applicable = set(C.COST_COMPONENTS) - {str(x) for x in (criteria(proto)["cost"].get("not_applicable_components") or ())}
+    costs = _aggregate_costs(cost_events, tasks, limitations=limitations, applicable_components=cost_applicable)
+    seen_conflict_attempts: set[str] = set()
+    for conflict in attempt_conflicts:
+        if conflict["attempt_id"] in seen_conflict_attempts:
+            continue
+        seen_conflict_attempts.add(conflict["attempt_id"])
+        # 冲突执行的消耗不可知——收据自身携带缺口（显式 reason），并经 cost_unknown 前缀降级。
+        costs["unknown_cost_components"].append(
+            {
+                "component": "writer_model",  # 执行确实发生，其模型消耗不可知，按固有组件列
+                "cost_id": None,
+                "run_id": conflict["conflicting_run_id"],
+                "attempt_id": conflict["attempt_id"],
+                "quantity": None,
+                "unit": None,
+                "reason": "attempt_run_conflict",
+            }
+        )
+        limitations.add(f"cost_unknown:attempt:{conflict['attempt_id']}")
 
     # ---- 配对级读数 ----
     original = tasks.get(C.CONDITION_ORIGINAL)

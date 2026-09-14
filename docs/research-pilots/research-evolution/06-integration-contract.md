@@ -23,7 +23,9 @@
 4. **单 writer 落盘**（登记 ledger-map 后启用）：`UserSpace.root/research_evolution/product_value_events.jsonl`（append-only，重试不重复追加）、`protocols/<protocol_hash>.json`（冻结协议）、`receipts/<receipt_id>.json`、`summaries/<summary_id>.json`（不可变；新输入产新版本并保留 `supersedes`）。
 5. **rebuild**：按协议哈希 + 原事件摘要调用 `measure_pair` / `summarize`；同输入得到同 `receipt_id / summary_id`（`generated_at` 除外），可用来做重启后的对账。
 6. **到期回检清单**：从 01 的维护项取 `due_rechecks=[{object_ref, due_at, accessible}]` 传给 `summarize`；不传则回检指标 `unknown(due_list_unavailable)`。
-7. **同意**：`consent_changed` 事件必须在测量事件之前存在；参与者无同意记录 → 收据 `incomplete(consent_unknown)`；撤回 `research`/`logging` 后的事件被排除（`exclusions.reason=consent_withdrawn`），退出计数保留。
+7. **同意**：`consent_changed` 事件必须在测量事件之前存在；参与者无同意记录 → 收据 `incomplete(consent_unknown)`，且该配对的盲审不进质量读数（`exclusions.reason=blind_review_consent_unknown`）、效果判据 `unknown(consent)`——缺同意是补授权的事，不是等样本；撤回 `research`/`logging` 后的事件被排除（`exclusions.reason=consent_withdrawn`），退出计数保留。
+8. **主动复用观察**：分母是激活队列（可信 `task_started` 或复用记录自带的 `activation_at`），凡观察周已走完的人都在分母里。因此 06 要保证 `reuse_observed` 对**整个队列**发，不能只给真的复用了的人发——只给复用者发会让没复用的人整批列为 `unknown(reuse_observation_missing)`，判据一直 `unknown`。观察周长度由协议 `criteria.proactive_reuse.observation_weeks` 事前定，或由 `reuse_observed.observation_window.end` 显式声明。
+9. **成本完整性**：`full_cost_status=known` 要求全部已分配任务都有测量收据，且合同要求的费用类别（`contracts.COST_COMPONENTS`）要么有账、要么在冻结协议 `criteria.cost.not_applicable_components` 里事前声明不适用。托管 / 数据授权 / 获客分摊这类试点级费用由 06 以不带 `task_id`、不带 `case_pair_id` 的 `cost_recorded` 补上，否则完整成本与毛利一直是 `unknown`。
 
 ## 3. 06 不得做的事
 
