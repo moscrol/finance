@@ -181,3 +181,10 @@ QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结�
   2. **收据用「任意一笔」代替逐组件完整性**：any(联合身份命中) 让一笔工具费核销整个执行。修复：「按协议 × 执行实例 × 组件」上移 `contracts.attempt_uncovered_components`（必需 = 协议适用集 ∩ 固有模型组件；成功 writer+review、失败 writer），测量/汇总共用；收据逐组件写缺项并降级。合法通路保留（失败不强要 review、人工计时不动）。
 - 既有 pin 透明调整 4 处（语义修正结果，注释写明）：cost_gaps retry→writer_model；no_cost_evidence 缺口 1→2 条；failed_run_without_report 新增 review 缺口；gross_margin 类别级 review_model 被收据级 a-fr-2 精确命名顶替（计数巧合仍 11）。
 - 验证：模块 123 passed（121+2）；第一至八轮归档全绿（05extra exit=0、五探针 OK、round4–7 = 4/5/6/8 passed）；**全量 9663 passed / 77 skipped，exit=0**（干净树 @cee71963，本轮无 flaky）；ruff 干净。
+
+## Round-10（2026-09-14，QC：无 run 任务级核验 + 投影组件归属）
+- 状态：round-9 两项修复通过可关闭；相邻边界再确证 1 项 P1 + 1 项 P2（父提交存在，非回归）。QC 归档 `…/reviews/research-evolution-round9-qc/`（日志与 before/after JSON；脚本本体在评审分支未推送，按其 failure log 断言原文对齐）。
+- 修复（`ded78479`，2 条公开入口回归测试先红后绿）：
+  1. **P1 无 run 的辅助任务缺账不进收据**：round-9 共享规则只在遍历 attempts 时调用——无 run 但有可信计时 + 任务级费用时收据仍 valid/空（QC 四档）。修复：`_aggregate_costs` 无执行实例分支（只查 CONDITION_ASSISTED，原流程人工计时基线不受影响），按「协议适用集 ∩ 固有模型组件 - 任务级已核销」逐组件写 `no_usage_evidence_for_task`（带 task_id）并降级 incomplete。
+  2. **P2 投影层丢组件归属**：同一 attempt 缺两笔账变成两条一模一样的行；镜像场景公开 unknown 完全相同。修复：投影逐项透传 component + attempt_id/run_id/task_id，id 兜底链加入 task_id；unmeasured_task / cost_category 条目加性带上 component。
+- 验证：模块 125 passed（123+2）；第一至八轮归档全绿（05extra exit=0、五探针 OK、round4–7 = 4/5/6/8 passed）；全量 9665 passed / 77 skipped，exit=0（干净树 @ded78479）；ruff 干净。
