@@ -7,7 +7,8 @@
 ## 状态一句话
 
 **engineering_complete：是。** 四个端点接真实 01–05，前端「维护」页可用，单 writer 与两个受控入口有测试。
-**product_verified：部分**——I01–I12 / I16 在真实 API + 真实模块 + 临时用户态上走通并有反向证伪；
+**product_verified：部分**——I01–I12 / I16 在真实 API + 真实模块 + 临时用户态上走通并有反向证伪，
+且已在**最终四轨组合 `3d72b53a`** 上重跑（含新增 I17 复现场景，见末节）；
 I13 / I14 / I15 未验（缺真人参与者、浏览器可见性事件、已授权结果源，逐条见 BLOCKED §3）。
 **field_evidence：无。** 没有冻结任何真实前向协议，没有任何真人试点数据；03 一律 pending，05 `commercial_status=unstarted`。
 
@@ -234,3 +235,33 @@ I13 / I14 / I15 未验（缺真人参与者、浏览器可见性事件、已授�
 | `347bf8b2` | 后端 Q1–Q9 + 25 例合同测试（返修文件现有 25 例） |
 | `e8b1bd85` | 前端 Q1/Q4/Q8 + e2e 双服务与新 spec |
 | `089526ab` | 重建 static（全量收据绑定此 SHA） |
+
+## 最终四轨组合重建与验收（2026-09-14，01/02/04/05 全部 QC 收口后）
+
+### 取版记录（取版 HEAD ≠ 业务基线，两者并记）
+
+| 轨道 | 取版 HEAD | 业务代码基线 | 合入提交 |
+|---|---|---|---|
+| 01 | `85c90b24` | `a3cf9d4b` | `eac41a64` |
+| 02 | `e27b3352` | `e27b3352` | `d432a67b` |
+| 04 | `fcc7838c` | `fcc7838c` | `196cfdc1` |
+| 05 | `2c278e07` | `ded78479` | `505d1747` |
+
+01 / 05 的取版 HEAD 与业务基线差异仅文档（handoff / PROGRESS）。组合分支 HEAD = `3d72b53a`
+（四组合入 + 第六轮返修收口文档 `9266407f` + I17 测试）。此前组合收据（`d460b3aa` / `297c47c3` /
+`089526ab` 等）绑定旧四轨版本，仅作历史，不可替代本节收据。
+
+### 最终组合上的验收收据
+
+- 跨轨接缝：06 套件 **109 passed**（I01–I12 / I16 在最终组合上重跑 + 新增 I17）；
+  四轨模块各自全绿（01 110 / 02+04 139 / 05 125）。
+- **I17（新增，`test_research_evolution_api.py`）**：A → 歧义 B → 复现 A ×（旧 snooze / 旧 reviewed_no_change）
+  双参数——旧事件折归后逐条 rejected（terminal_state、归属历史节点 id）、复现节点独立 id 保持 open、
+  替代链线性无环、歧义留审计轨迹、复现项仍进 02 排序段、迟到动作 400 terminal_state / 409 version_conflict。
+- 前端：pnpm lint / typecheck / test（94）/ build 全绿；e2e **31 passed / 2 skipped**（隔离服务 + 临时用户目录
+  + 独立端口 + 空 LLM key；研究进化绑定 spec desktop 通过，tablet/mobile 按设计跳过；worktree 无 venv，
+  e2e 需 `WORKBENCH_PYTHON` 指主树 `.venv-workbench/bin/python`）。
+- 全仓：ruff 干净；pytest **10137 passed / 77 skipped / 2 xfailed / exit=0**，收据
+  `~/.finance-runtime/test-receipts/20260914T052743Z-3d72b53a.json`（dirty=false，无排除项）；
+  `build_registry.py check` 一致；`graph_audit` 106 条断言无漂移（2 条 PENDING 属其他分支在途项）。
+- 状态矩阵不变：engineering_complete 是（最终组合复验成立）；product_verified **部分**；field_evidence 无。

@@ -1,45 +1,49 @@
 # feat/research-evolution-06-workbench 在途交接
 
-最近更新：2026-09-14 · HEAD f90e27c5（第六轮返修已提交）· 基于 b481804c
+最近更新：2026-09-14 · HEAD 见 git（组合 + I17 = `3d72b53a`）· 基于 9266407f
 
-## 当前任务（第七轮 QC 复审等待中）
+## 当前任务（等用户确认合并）
 
-第六轮 P1×2 + P2 返修完成、全绿待复审。根因：坐标只约束了接受侧与补偿侧，运行中显式登记漏查完整归属；成果侧把「当前唯一 pending」误当因果唯一。
+最终四轨组合已重建并完成全部代码侧验收。四轨 QC 十一轮全部收口、三处 P3 文档修正完毕后的取版：
 
-## 本轮改动（相对 c8536482）
+| 轨 | 取版 HEAD | 业务基线 | 合入 |
+|---|---|---|---|
+| 01 | `85c90b24` | `a3cf9d4b` | `eac41a64` |
+| 02 | `e27b3352` | 同左 | `d432a67b` |
+| 04 | `fcc7838c` | 同左 | `196cfdc1` |
+| 05 | `2c278e07` | `ded78479` | `505d1747` |
 
-- W1/W2：`_link_run_event` 运行中分支写入前查 run 的**完整**既有归属（任何项任何代 → 400）+ 源消息坐标与当前 (项,代际) 一致性核验；R7 裸 run 保留（无来源 ≠ 矛盾来源）。
-- W3：auto-pick 唯一性 = 「本会话有史以来只有本轮一次 rejudge 记录」（不再是当前 pending 数）；Q2 单请求自动关闭不变。已取消同伴的迟到成果不再能关唯一剩余项。
-- P2：确认表单有效选择派生自候选集合（投影刷新即生效），按 item+request_event_id 作 key 换代重置，提交前再验；面板新增 2 条状态转换测试。
-- 仓内新增 W1–W3 镜像回归（test_research_evolution_rework.py）。
+01/05 取版与基线差仅文档。旧组合收据（d460b3aa 等）绑旧四轨，仅作历史。
 
-## 验证
+## 本轮改动
 
-- 新三针 3/3 原样；组合门禁（5 套件 + 四轮历史探针）**130 passed**。
-- **干净候选全量**：HEAD f90e27c5、dirty=false 裸 pytest **10057 passed / 0 failed / 77 skipped**，收据 `~/.finance-runtime/test-receipts/20260914T043357Z-f90e27c5.json`。
-- 沙箱两条（codex_headless）本机绿；评审环境的 `live_root_read=unexpected_success` 是嵌套沙箱环境特异、修前即红，未归因本次返修；详情见 REWORK.md。
-- 前端 94 tests / lint / typecheck / build 全绿；e2e 31 passed / 2 skipped。
+- 四次 `--no-ff` 合并（零冲突）纳入四轨最终 HEAD；补登第六轮收口文档（`abb668cd`/`9266407f`）。
+- 新增 I17：A→歧义B→复现A ×（旧 snooze / 旧 reviewed_no_change）——旧事件折归后逐条 rejected
+  （terminal_state、归属历史节点）、复现节点独立 id 保持 open、链无环、歧义留审计、复现项进 02 排序、
+  迟到动作 400/409。01 交接的 06 明确验收项就此关闭。
+- 副产认知（非缺陷）：item_version 是证据/绑定/条件快照哈希——复现节点与历史节点同证据则内容版相同；「旧令牌 + 新 id」非真实旧页面可达，旧页面（旧 id）由 terminal_state 拒绝覆盖。
 
-## 细节快照与证据
+## 验证（全部在最终组合 `3d72b53a` 上）
 
-- `docs/handoffs/2026-09-14-re06-round6-w1-w3.md`（决策与被否方案）。
-- `docs/verification/re06-c8536482/`：REVIEW.md（裁决）+ REWORK.md（返修说明）+ test_review_round6.py（探针）。
-- 历轮：re06-0c275716（R3）、re06-957e83f4（R4 U1–U4）、re06-ecd90a3c（R5 V1–V4）。
+- 06 套件 109 passed（I01–I12/I16 重跑 + I17）；四轨模块 110/139/125 passed。
+- 前端 lint/typecheck/test(94)/build 全绿；e2e 31 passed / 2 skipped（隔离服务+临时用户态+独立端口；绑定 spec desktop 绿）。
+- 全仓 ruff 干净；pytest **10137 passed / 77 skipped / exit=0**，收据 `~/.finance-runtime/test-receipts/20260914T052743Z-3d72b53a.json`（dirty=false，无排除）。
+- `build_registry.py check` 一致；`graph_audit` 106 断言无漂移。
 
-## 信任阶梯（当前全貌，复审参考）
+## 未验证 / 已知边界
 
-1. 接受侧绑定：只认消息 `maintenance_launch` 坐标（rejudge 台账回查当前代）。
-2. 运行中登记：同代复用 → 完整归属矛盾检查 → 源消息坐标矛盾检查 → 登记。
-3. 终态折回：当前代登记行；缺失时补偿只认源消息当前代坐标。
-4. 成果归属：显式 new_judgment_ref（过 session/ts/存在/未消费闸）或 auto-pick（会话史唯一请求）。
-5. 终态重放：会话内 + run 会话核验 + 版本闸。
+- product_verified 仍**部分**：I13 真人试点、I14 visibilitychange、I15 真实前向实验未验（BLOCKED §3）；
+  04 outcome_identity×03 结果身份合同、生产诊断策略/题包签署、02 生产 sources 未决。
+- field_evidence 无。e2e 绑定 spec 的 tablet/mobile 按设计跳过。
+- 旧动作是否继承到复现节点仍是产品决定（当前：不继承，rejected + 界面反馈）。
 
-## 合并顺序（通过后再走，等用户确认）
+## 下一步
 
-spec 链 → 主链原序；不合并、不部署、不动其他 worktree。
+- 用户确认后才谈合并 main / push；部署与 /api/health revision 验收另授权。
+- 真人试点（I13）与真实前向实验（I15）需另行授权结果源与参与者。
 
-## 留痕
+## 踩过的坑
 
-- judgments 写入侧不扩展（登记依赖）；归属只靠坐标+历史唯一。
-- 运行中 link_run 带 new_judgment_ref 被忽略（终态才读）；面板只对已完成 run 开放确认。
-- 探针台账：round2 在 ~/.finance-runtime/reviews/research-evolution-06-ba10747d/，round3–6 在 docs/verification/re06-*/。
+- worktree 无 `.venv-workbench`：e2e 必须 `WORKBENCH_PYTHON=<主树>/.venv-workbench/bin/python pnpm test:e2e`，否则落宿主 3.14 缺 uvicorn。
+- `#recur:<day>` 只喂 id 派生（dedup_key 加 salt），公开 id 是哈希——断言独立身份用「id 异 + dedup_key 同 + 链形」。
+- 动作错误体是 `{code, message, detail}`——reason_code 在嵌套 `detail.detail`。磁盘满曾让 merge 报 Unable to write index，先 `df -h`。
