@@ -31,6 +31,7 @@ import type {
   TraceStep,
 } from "../types";
 import { ResearchEvolutionPanel } from "./ResearchEvolutionPanel";
+import { ResearchActivityControl } from "./ResearchActivityControl";
 import { ResearchProjectPanel } from "./ResearchProjectPanel";
 import { StructuredReportView } from "./StructuredReportView";
 
@@ -214,6 +215,13 @@ export function ResearchInspector({
           </details>
         )}
 
+        {evolution && (
+          <ResearchActivityControl
+            key={`${evolution.owner_user_id}:${evolution.conversation_id}`}
+            conversationId={evolution.conversation_id}
+            user={evolution.owner_user_id}
+          />
+        )}
         <div className="inspector-body">
           {tab === "evolution" && (
             <section aria-labelledby="inspector-evolution-heading">
