@@ -188,3 +188,11 @@ QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结�
   1. **P1 无 run 的辅助任务缺账不进收据**：round-9 共享规则只在遍历 attempts 时调用——无 run 但有可信计时 + 任务级费用时收据仍 valid/空（QC 四档）。修复：`_aggregate_costs` 无执行实例分支（只查 CONDITION_ASSISTED，原流程人工计时基线不受影响），按「协议适用集 ∩ 固有模型组件 - 任务级已核销」逐组件写 `no_usage_evidence_for_task`（带 task_id）并降级 incomplete。
   2. **P2 投影层丢组件归属**：同一 attempt 缺两笔账变成两条一模一样的行；镜像场景公开 unknown 完全相同。修复：投影逐项透传 component + attempt_id/run_id/task_id，id 兜底链加入 task_id；unmeasured_task / cost_category 条目加性带上 component。
 - 验证：模块 125 passed（123+2）；第一至八轮归档全绿（05extra exit=0、五探针 OK、round4–7 = 4/5/6/8 passed）；全量 9665 passed / 77 skipped，exit=0（干净树 @ded78479）；ruff 干净。
+
+## Round-10 复验通过（2026-09-14，QC：可交 06 集成验收）
+- 结论：P1（无 run 辅助任务收据缺账）与 P2（投影丢组件归属）均关闭；本轮范围内无新增阻断项，05 不需要再返修，但不代替 06 组合验收与最终放行。
+- QC 独立验证：原 task/receipt 探针原样复跑 修前 5 failed/3 passed → 候选 8 passed；selection/identity 14 passed；round4–7 归档 23 passed；干净候选树模块 125 passed；新增边界矩阵 20 组全通过（16 组「协议适用 × 已入账」组合 + 估算/未知金额 + 覆盖不明 + 跨任务代签 + 公开归属 + 事件逆序幂等）；全仓 ruff 通过。作者全量收据原件核验成立（ded78479，9665 passed / exit=0）。
+- 非阻断建议（留 06/后续）：无 run 组件规则在 measure 和 summarize 各写一份，当前一致；后续改规则时可抽公共函数防漂移。
+- 06 接线注意：unknown 的 id 不保证逐组件唯一，不能只按 id 去重——消费时保留组件与执行身份。
+- 留档：QC 报告 2026-09-14-product-value-round10-qc.md（评审提交 308b3584、交接 5717f92d，均未推 gitea）。
+- 下一步：06 用四轨 SHA（01 6cc5748a / 02 e27b3352 / 04 fcc7838c / 05 8a7baedd）做集成验收；前端、e2e、registry、真人试点不在本轮结论内。
