@@ -103,6 +103,7 @@ ERR_RUN_NOT_TERMINAL = "run_not_terminal"  # link_run：run 尚未结束，不�
 ERR_DEPENDENCY_MISSING = "dependency_missing"  # 动作依赖的对象（维护项 / 任务 / 练习）不在当前视图中
 ERR_RUN_BINDING_MISMATCH = "run_binding_mismatch"  # link_run：run 或新判断不属于本会话的这次复核
 ERR_INVALID_TRANSITION = "invalid_transition"  # 用原判断引用冒充新判断：版本血统不前进，等于没有重判
+ERR_SOURCE_UNAVAILABLE = "source_unavailable"  # 503：run 来源身份读取失败——保持待复核，恢复后重试，不折算成裸 run
 
 _HTTP_BY_CODE = {
     ERR_INVALID_REQUEST: 400,
@@ -120,6 +121,7 @@ _HTTP_BY_CODE = {
     ERR_EXPOSURE_CONFLICT: 409,
     ERR_STORE_CORRUPT: 500,
     ERR_MODULE_UNAVAILABLE: 503,
+    ERR_SOURCE_UNAVAILABLE: 503,
 }
 
 

@@ -2954,11 +2954,14 @@ def create_app(
                     print(f"[research-evolution] 首轮任务上下文水合失败（{conversation_id}）：{exc}", file=sys.stderr)
             _precheck_admission(run_store.user_id)
             _reserve_run_quota(run_store.user_id)
+            # QC Y1：maintenance_launch 坐标随 run 创建同步落盘（发布前保存的可信启动身份）——
+            # run 一旦对外可见/可取消，终态折回就能判定身份，不把「源消息还没落盘」当「无来源」。
             run = run_store.create_run(
                 req.content,
                 "ask",
                 session_id=conversation_id,
                 parent_run_id=parent_run_id,
+                maintenance_launch=maintenance_launch_payload,
             )
 
             def _compensate_failed_submission() -> None:

@@ -1636,3 +1636,151 @@ def test_x2_accept_registration_must_respect_existing_run_owner(world: World, mo
     assert late.status_code in {400, 404, 409}, f"矛盾来源的登记不得驱动终态：{late.status_code} {late.text}"
     after_b = world.current_item(b["id"])
     assert after_b["management_revision"] == before_b["management_revision"], "B 不许被错误折回"
+
+
+# --------------------------------------------------------------------------- #
+# Y1/Y2：第八轮复审反例——来源身份三态（确认无来源 / 未就绪 / 读取失败）
+# --------------------------------------------------------------------------- #
+def test_y1_cancel_before_source_persistence_cannot_fold_other_item(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Y1：源消息落盘前取消 run，不得消费窗口期抢登的错误维护项。
+
+    run 创建时同步落的可信启动身份（maintenance_launch 随 create_run 落盘）让终态折回
+    在消息落盘前就能判矛盾——「暂时读不到来源」不再被当作「确认无来源」。
+    """
+    a, b = _two_items(world)
+    request_a = world.rejudge(a, key="k-y1-request-a")
+    world.rejudge(world.current_item(b["id"]), key="k-y1-request-b")
+    before_b = world.current_item(b["id"])
+    at_message = threading.Event()
+    continue_message = threading.Event()
+    responses: list = []
+    original_append = ConversationStore.append_message
+
+    def delayed_append(self: ConversationStore, conversation_id: str, role: str, content: str, **kwargs: object) -> object:
+        if role == "user" and kwargs.get("maintenance_launch"):
+            at_message.set()
+            assert continue_message.wait(15)
+        return original_append(self, conversation_id, role, content, **kwargs)
+
+    monkeypatch.setattr(ConversationStore, "append_message", delayed_append)
+    continuation = request_a["continuation"]
+    body = {
+        "user": fx.OWNER,
+        "content": continuation["full_prompt"],
+        "skill_mode": "hybrid",
+        "maintenance_launch": {
+            "item_id": continuation["maintenance_item_id"],
+            "request_event_id": continuation["request_event_id"],
+        },
+    }
+    thread = threading.Thread(
+        target=lambda: responses.append(world.client.post(f"/api/conversations/{world.conversation_id}/messages", json=body))
+    )
+    thread.start()
+    try:
+        assert at_message.wait(10)
+        visible = world.client.get("/api/runs", params={"user": fx.OWNER})
+        visible.raise_for_status()
+        runs = [r for r in visible.json() if r["session_id"] == world.conversation_id]
+        assert len(runs) == 1
+        run_id = runs[0]["run_id"]
+        claimed = world.act(idempotency_key="k-y1-claim-window-b", run_id=run_id, **world.link_args(b["id"]))
+        assert claimed.status_code == 200, claimed.text  # 窗口期抢登保留为 R7 合同的合法延伸
+        cancelled = world.client.post(f"/api/runs/{run_id}/cancel", params={"user": fx.OWNER})
+        assert cancelled.status_code == 200 and cancelled.json()["status"] == "cancelled", cancelled.text
+        world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_id)
+        during_b = world.current_item(b["id"])
+    finally:
+        continue_message.set()
+        thread.join(20)
+    assert not thread.is_alive() and responses and responses[0].status_code == 202, [r.text for r in responses]
+    messages = world.service.res.conversation_store_for(fx.OWNER).load_messages(world.conversation_id)
+    source = next(m for m in messages if m.role == "user" and m.run_id == run_id)
+    assert source.maintenance_launch["item_id"] == a["id"]
+    after_b = world.current_item(b["id"])
+    assert during_b["management_revision"] == before_b["management_revision"], "消息落盘前的取消不许消费 B 的请求"
+    assert after_b["management_revision"] == before_b["management_revision"], "A 的取消不得迁移 B 的状态"
+    assert after_b["status"] == "rejudgment_requested"
+
+
+def test_y1_record_identity_compensates_fold_without_source_message(world: World) -> None:
+    """Y1 正向：创建时落的启动身份让「源消息永不落盘」的 run 也能被显式补偿折回——身份就绪即可恢复。"""
+    a, b = _two_items(world)
+    request_a = world.rejudge(a, key="k-y1p-request-a")
+    world.rejudge(world.current_item(b["id"]), key="k-y1p-request-b")
+    before_b = world.current_item(b["id"])
+    run_store = RunStore(user_id=fx.OWNER)
+    run = run_store.create_run(
+        question="复核 A",
+        task_type="research",
+        session_id=world.conversation_id,
+        maintenance_launch={"item_id": a["id"], "request_event_id": request_a["continuation"]["request_event_id"]},
+    )
+    run_store.finish_run(run.run_id, "failed", error="message persistence failed")
+    store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+    assert [r for r in store.list_run_links() if str(r.get("run_id") or "") == run.run_id] == [], "无消息、无登记：补偿前没有任何关联"
+    response = world.act(idempotency_key="k-y1p-fold-a", run_id=run.run_id, **world.link_args(a["id"]))
+    assert response.status_code == 200, f"身份就绪的 run 不许因消息未落盘卡死：{response.text}"
+    assert response.json()["reason_code"] == "rejudgment_failed"
+    closed = world.current_item(a["id"])
+    assert closed["status"] == "open"
+    assert closed["management"]["rejudgment"]["last_failure"]["kind"] == "rejudgment_failed"
+    after_b = world.current_item(b["id"])
+    assert after_b["management_revision"] == before_b["management_revision"] and after_b["status"] == "rejudgment_requested"
+
+
+def test_y2_unreadable_source_cannot_activate_conflicting_link(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Y2：来源读取失败不得把已被拒绝的矛盾链接重新激活——读错误不折算成裸 run。"""
+    a, b = _two_items(world)
+    request_a = world.rejudge(a, key="k-y2-request-a")
+    world.rejudge(world.current_item(b["id"]), key="k-y2-request-b")
+    before_b = world.current_item(b["id"])
+    run_store = RunStore(user_id=fx.OWNER)
+    run = run_store.create_run(question="Maintenance A", task_type="research", session_id=world.conversation_id)
+    registered = world.act(idempotency_key="k-y2-claim-b", run_id=run.run_id, **world.link_args(b["id"]))
+    assert registered.status_code == 200, registered.text
+    conversation = world.service.res.conversation_store_for(fx.OWNER)
+    conversation.append_message(
+        world.conversation_id,
+        "user",
+        request_a["continuation"]["full_prompt"],
+        run_id=run.run_id,
+        maintenance_launch={"item_id": a["id"], "request_event_id": request_a["continuation"]["request_event_id"]},
+    )
+    run_store.finish_run(run.run_id, "failed", error="deterministic failure")
+    ctx = OwnerContext.for_owner(fx.OWNER)
+    assert world.service.fold_run_terminal(ctx=ctx, run_id=run.run_id) is None
+    assert world.current_item(b["id"])["management_revision"] == before_b["management_revision"]
+
+    def unreadable(self: ConversationStore, conversation_id: str) -> list:
+        raise OSError("source reader temporarily unavailable")
+
+    with monkeypatch.context() as unavailable:
+        unavailable.setattr(ConversationStore, "load_messages", unreadable)
+        result = world.service.fold_run_terminal(ctx=ctx, run_id=run.run_id)
+    assert result is None, "读取失败的折回必须保持 pending，不许冒充成功也不许消费"
+    after_b = world.current_item(b["id"])
+    assert after_b["management_revision"] == before_b["management_revision"], "来源读取失败不得驱动 B 的状态"
+    assert after_b["status"] == "rejudgment_requested"
+
+
+def test_y2_read_recovery_allows_legitimate_fold_retry(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Y2 正向：读取失败只暂停折回（pending），恢复后合法裸 run 照常折回——失败不留半成品、不毒化幂等键。"""
+    item = world.seed_rejudged_item()
+    run_store = RunStore(user_id=fx.OWNER)
+    run = run_store.create_run(question="复核", task_type="research", session_id=world.conversation_id)
+    registered = world.act(idempotency_key="k-y2p-reg", run_id=run.run_id, **world.link_args(item["id"]))
+    assert registered.status_code == 200, registered.text
+    run_store.finish_run(run.run_id, "failed", error="deterministic failure")
+    ctx = OwnerContext.for_owner(fx.OWNER)
+
+    def unreadable(self: ConversationStore, conversation_id: str) -> list:
+        raise OSError("source reader temporarily unavailable")
+
+    with monkeypatch.context() as unavailable:
+        unavailable.setattr(ConversationStore, "load_messages", unreadable)
+        assert world.service.fold_run_terminal(ctx=ctx, run_id=run.run_id) is None
+    assert world.current_item(item["id"])["status"] == "rejudgment_requested", "读取失败期间终态保持待复核"
+    recovered = world.service.fold_run_terminal(ctx=ctx, run_id=run.run_id)
+    assert recovered is not None and recovered["reason_code"] == "rejudgment_failed", f"恢复后重试必须能折回：{recovered}"
+    assert world.current_item(item["id"])["status"] == "open"

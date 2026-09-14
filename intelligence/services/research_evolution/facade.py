@@ -30,6 +30,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+from intelligence.services.conversation_store import ConversationDataIntegrityError
 from intelligence.services.research_evolution import adapters as re_adapters
 from intelligence.services.research_evolution.access import OwnerContext
 from intelligence.services.research_evolution.contracts import (
@@ -56,6 +57,7 @@ from intelligence.services.research_evolution.contracts import (
     ERR_REF_UNRESOLVABLE,
     ERR_RUN_BINDING_MISMATCH,
     ERR_INVALID_TRANSITION,
+    ERR_SOURCE_UNAVAILABLE,
     ERR_VERSION_CONFLICT,
     MAINTENANCE_ACTIONS,
     STATUS_ERROR,
@@ -105,6 +107,41 @@ class Resources:
     finance_root: Path | None = None
     code_sha: str = ""
     clock: Callable[[], datetime] = field(default_factory=lambda: (lambda: datetime.now(_shanghai())))
+
+
+# --------------------------------------------------------------------------- #
+# 来源身份三态（QC Y1/Y2，第八轮复审）
+# --------------------------------------------------------------------------- #
+@dataclass(frozen=True)
+class _SourceIdentity:
+    """run 来源身份的三种裁决，各自有不同的状态迁移权限：
+
+    - ``ready``：拿到可信启动坐标（run 记录创建时落的身份优先，其次已落盘源消息）——可比对，
+      一致放行 / 矛盾拒收。
+    - ``confirmed_none``：读取成功且确定无来源（裸 run / 普通聊天 run）——可按登记归属消费。
+    - ``unavailable``：来源读取失败——**不得驱动维护项状态**；终态保持待复核，恢复后重试。
+
+    第八轮复审根因：旧合同用同一个 ``None`` 表达「确认无来源 / 未就绪 / 读取故障」，
+    把后两者折算成裸 run 放行（Y1 窗口期误折、Y2 读故障激活矛盾链接）。
+    「来源未就绪」由创建时落身份消除（消息 API 在 run 对外可见前写入 maintenance_launch），
+    所以运行期只剩读取失败一种 unavailable。
+    """
+
+    state: str  # "ready" | "confirmed_none" | "unavailable"
+    launch: Mapping[str, Any] | None = None
+    reason: str = ""
+
+    @classmethod
+    def ready(cls, launch: Mapping[str, Any]) -> "_SourceIdentity":
+        return cls(state="ready", launch=launch)
+
+    @classmethod
+    def confirmed_none(cls) -> "_SourceIdentity":
+        return cls(state="confirmed_none")
+
+    @classmethod
+    def unavailable(cls, reason: str) -> "_SourceIdentity":
+        return cls(state="unavailable", reason=reason)
 
 
 class ResearchEvolutionService:
@@ -1018,18 +1055,12 @@ class ResearchEvolutionService:
                     "无法证明该 run 由本次维护请求发起（缺少运行中的关联登记），不能折回本维护项",
                     detail={"run_id": run_id, "item_id": item["id"]},
                 )
-        # 终态消费侧统一归属校验（QC X2）：登记行存在 ≠ 归属成立。运行中登记与补偿之后，
-        # 消费前再验一次源消息坐标不与本次 (项, 代际) 矛盾——窗口期被抢到别处的 run，
-        # 源消息后来落盘带着别的坐标：链接行留在台账里当审计，但不得驱动本项状态。
-        conflict = self._source_coordinate_conflict(
-            ctx, conversation_id, item_id=str(item["id"]), run_id=run_id, request_event_id=request_event_id
+        # 终态消费侧统一归属校验（QC X2/Y1/Y2）：登记行存在 ≠ 归属成立。运行中登记与补偿之后，
+        # 消费前再过一次三态来源身份闸——窗口期被抢到别处的 run，身份就绪后判矛盾：链接行留在
+        # 台账里当审计，但不得驱动本项状态；来源读取失败保持待复核，不折算成裸 run 放行。
+        self._terminal_source_gate(
+            ctx, conversation_id, item_id=str(item["id"]), run=run, request_event_id=request_event_id
         )
-        if conflict is not None:
-            raise ApiError(
-                ERR_RUN_BINDING_MISMATCH,
-                "该 run 的源消息坐标指向其他维护项或已结束的代际，既有登记不得驱动本项状态",
-                detail=conflict,
-            )
         association = "registered"
         continuation = self._run_continuation(ctx, conversation_id, run_id)
         inherits = (continuation or {}).get("inherits") or {}
@@ -1124,7 +1155,8 @@ class ResearchEvolutionService:
     ) -> dict[str, Any] | None:
         """终态先到的补偿登记（QC T1/V1）：客户端显式 link_run 点名 (item, run) 时才发生。
 
-        补偿只能重建**已有可信启动身份**（V1）：run 的源用户消息必须携带指向该项
+        补偿只能重建**已有可信启动身份**（V1/Y1）：run 创建时落的启动身份或源用户消息坐标，
+        必须携带指向该项
         **当前代**请求的实例坐标（item_id + request_event_id，与接受侧登记同一验证器）。
         「同会话有一条用户消息」不是充分条件——先于请求存在的普通聊天、改写过的启动
         文案，只要没带结构化坐标，都不能把旧 run 补登成当前请求的执行。
@@ -1133,7 +1165,16 @@ class ResearchEvolutionService:
         """
         if not request_event_id or str(item.get("status")) != "rejudgment_requested":
             return None
-        launch = self._source_message_launch(ctx, conversation_id, run.run_id)
+        # 三态身份（QC Y2）：unavailable 不冒充已核验——抛 503 让客户端恢复后重试；
+        # confirmed_none / ready 但坐标不符 → None（调用方报「无法证明归属」）。
+        identity = self._source_launch_identity(ctx, conversation_id, str(run.run_id), run=run)
+        if identity.state == "unavailable":
+            raise ApiError(
+                ERR_SOURCE_UNAVAILABLE,
+                "run 的来源身份暂时读不出来，无法补偿登记；恢复后重试",
+                detail={"run_id": str(run.run_id), "item_id": str(item["id"]), "reason": identity.reason},
+            )
+        launch = identity.launch if identity.state == "ready" else None
         if launch is None:
             return None
         if str(launch.get("item_id") or "") != str(item["id"]):
@@ -1298,8 +1339,8 @@ class ResearchEvolutionService:
             if item is None:
                 return None
             # QC X2：登记前按 run 查既有归属——任何已存在的行（窗口期被显式登记给了别处）
-            # 都说明来源有争议：接受侧不追加矛盾的第二归属。归属裁决交给消费侧的坐标核验
-            # （运行中登记与终态折回共用 `_source_coordinate_conflict`）。
+            # 都说明来源有争议：接受侧不追加矛盾的第二归属。归属裁决交给消费侧终态闸
+            # （`_terminal_source_gate`，Y1/Y2 起为三态身份，不再共用接受侧的乐观检查）。
             prior = [r for r in txn.list_run_links() if str(r.get("run_id") or "") == run_id]
             exact = next(
                 (
@@ -1361,7 +1402,11 @@ class ResearchEvolutionService:
         return None
 
     def _source_message_launch(self, ctx: OwnerContext, conversation_id: str, run_id: str) -> Mapping[str, Any] | None:
-        """该 run 的源用户消息上落的维护启动坐标；读不到 / 没带就是 None，不猜。"""
+        """该 run 的源用户消息上落的维护启动坐标；读不到 / 没带就是 None，不猜。
+
+        只服务**接受侧**的乐观登记（运行中登记不迁状态，读不到先放行，消费侧终态闸再验）。
+        终态消费 / 补偿登记不许用它——那里必须走三态的 ``_source_launch_identity``（QC Y1/Y2）。
+        """
         try:
             messages = self.res.conversation_store_for(ctx.owner_user_id).load_messages(conversation_id)
         except (FileNotFoundError, ValueError, OSError):
@@ -1380,8 +1425,9 @@ class ResearchEvolutionService:
     ) -> dict[str, str] | None:
         """源消息坐标与本次 (项, 代际) 矛盾时返回 detail；无坐标 / 一致 / 消息未落盘返回 None。
 
-        运行中登记与终态消费共用的矛盾检查（QC W2/X2）：「来源正在持久化、暂时查不到」
-        与「确实无来源的裸 run」都返回 None——前者由消费侧在消息落盘后再次核验拦住。
+        **接受侧专用**（QC W2/X2）：运行中登记是乐观路径——「来源正在持久化、暂时查不到」
+        与「确实无来源的裸 run」都返回 None，窗口期抢登是 R7 合同的合法延伸；
+        终态消费侧改用 ``_terminal_source_gate``（三态身份，Y1/Y2 起不再共用本函数）。
         """
         launch = self._source_message_launch(ctx, conversation_id, run_id)
         if not launch:
@@ -1399,6 +1445,80 @@ class ResearchEvolutionService:
             "launch_request_event_id": launch_request,
             "current_request_event_id": request_event_id,
         }
+
+    def _source_launch_identity(
+        self, ctx: OwnerContext, conversation_id: str, run_id: str, *, run: Any = None
+    ) -> _SourceIdentity:
+        """run 来源身份的三态裁决（QC Y1/Y2）：ready / confirmed_none / unavailable。
+
+        优先级：
+
+        1. **run 记录创建时落的启动身份**（消息 API 在 run 对外可见前写入 ``maintenance_launch``）——
+           消息时序无关：源消息未落盘 / 永不落盘都不影响判定（Y1 的「未就绪」窗口由此消除）。
+        2. **已落盘源消息**携带的坐标（覆盖本修复前创建的 run 与测试直写消息的回填路径）。
+        3. 读取成功且两边都没有 → ``confirmed_none``（裸 run / 普通聊天 run，R7 合同保留）。
+           会话本身不存在（FileNotFoundError）也归这里——消息入口要求会话先存在，
+           不存在的会话永远不会有来源消息落盘。
+        4. 读取故障（OSError / ValueError / 完整性错误）→ ``unavailable``——
+           读错误不折算成裸 run（Y2）。
+        """
+        launch = getattr(run, "maintenance_launch", None) if run is not None else None
+        if isinstance(launch, Mapping) and (str(launch.get("item_id") or "") or str(launch.get("request_event_id") or "")):
+            return _SourceIdentity.ready(launch)
+        try:
+            messages = self.res.conversation_store_for(ctx.owner_user_id).load_messages(conversation_id)
+        except FileNotFoundError:
+            return _SourceIdentity.confirmed_none()
+        except (OSError, ValueError, ConversationDataIntegrityError) as exc:
+            return _SourceIdentity.unavailable(f"{type(exc).__name__}: {exc}")
+        message = next(
+            (m for m in messages if str(getattr(m, "role", "") or "") == "user" and str(getattr(m, "run_id", "") or "") == str(run_id)),
+            None,
+        )
+        if message is None:
+            return _SourceIdentity.confirmed_none()
+        message_launch = getattr(message, "maintenance_launch", None)
+        if isinstance(message_launch, Mapping) and (
+            str(message_launch.get("item_id") or "") or str(message_launch.get("request_event_id") or "")
+        ):
+            return _SourceIdentity.ready(message_launch)
+        return _SourceIdentity.confirmed_none()
+
+    def _terminal_source_gate(
+        self, ctx: OwnerContext, conversation_id: str, *, item_id: str, run: Any, request_event_id: str
+    ) -> None:
+        """终态消费侧的来源身份闸（QC X2 收口 + Y1/Y2）：三种裁决三种处理。
+
+        - ready 且与本次 (项, 代际) 矛盾 → ``ERR_RUN_BINDING_MISMATCH``：链接只留审计，不得驱动状态。
+        - unavailable → ``ERR_SOURCE_UNAVAILABLE``（503）：终态保持待复核，恢复读取后重试；
+          读失败不得驱动状态，也不许折算成「无来源」放行。
+        - ready 一致 / confirmed_none（裸 run）→ 放行（R7 合同保留）。
+        """
+        identity = self._source_launch_identity(ctx, conversation_id, str(run.run_id), run=run)
+        if identity.state == "unavailable":
+            raise ApiError(
+                ERR_SOURCE_UNAVAILABLE,
+                "run 的来源身份暂时读不出来，终态折回保持待复核；恢复后重试",
+                detail={"run_id": str(run.run_id), "item_id": item_id, "reason": identity.reason},
+            )
+        if identity.state != "ready":
+            return
+        launch = identity.launch or {}
+        launch_item = str(launch.get("item_id") or "")
+        launch_request = str(launch.get("request_event_id") or "")
+        if launch_item == item_id and launch_request == request_event_id:
+            return
+        raise ApiError(
+            ERR_RUN_BINDING_MISMATCH,
+            "该 run 的启动身份指向其他维护项或已结束的代际，既有登记不得驱动本项状态",
+            detail={
+                "run_id": str(run.run_id),
+                "item_id": item_id,
+                "launch_item_id": launch_item,
+                "launch_request_event_id": launch_request,
+                "current_request_event_id": request_event_id,
+            },
+        )
 
     def pending_task_continuation(self, *, ctx: OwnerContext, conversation_id: str, content: str) -> dict[str, Any] | None:
         """首轮任务启动上下文的服务端水合（QC T3）。
