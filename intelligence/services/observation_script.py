@@ -425,7 +425,9 @@ def enters_calibration(record: dict[str, Any]) -> bool:
 # --------------------------------------------------------------------------- #
 # 台账
 # --------------------------------------------------------------------------- #
-def _make_id(script: ObservationScript, recorded_at: str) -> str:
+def _make_id(script: ObservationScript, recorded_at: str, due: str = "") -> str:
+    """记录 id。``due`` 进哈希：同一秒内改到期日重新确认是两条不同的记录，
+    不带它两行会撞同一个 id（第二轮复审实测）。"""
     payload = json.dumps(
         {
             "as_of": script.as_of,
@@ -433,6 +435,7 @@ def _make_id(script: ObservationScript, recorded_at: str) -> str:
             "entity_ids": list(script.entity_ids),
             "variables": list(script.variables),
             "recorded_at": recorded_at,
+            "due": str(due),
         },
         ensure_ascii=False,
         sort_keys=True,
@@ -441,17 +444,27 @@ def _make_id(script: ObservationScript, recorded_at: str) -> str:
 
 
 def _confirm_action_key(
-    script: ObservationScript, *, attempt_id: str | None, entrypoint: str | None
+    script: ObservationScript,
+    *,
+    attempt_id: str | None,
+    entrypoint: str | None,
+    due: str,
 ) -> str:
-    """确认动作的稳定身份：由**内容 + 尝试 + 入口**算出，**不含录入时刻**。
+    """确认动作的稳定身份：由**内容 + 到期日 + 尝试 + 入口**算出，**不含录入时刻**。
 
-    动作身份一旦掺进时间戳，重试就会换键，而重试恰恰是唯一需要去重的场景。
+    两侧都会出错，方向相反，必须同时守住：
+
+    - 掺进时间戳 → 重试换键，去重在唯一需要它的场景失效（第一轮质检 S6）；
+    - 漏掉 ``due`` → 改回检日期被当成同一个动作，返回成功却沿用旧日期与旧
+      checkpoint（第二轮复审实测）。到期日是这条剧本**进哪一天回检队列**的决定，
+      改它就是另一个动作。
     """
     payload = json.dumps(
         {
             "user_id": script.user_id,
             "as_of": script.as_of,
             "scope": script.scope,
+            "due": str(due),
             "entity_ids": list(extraction.normalize_values(script.entity_ids)),
             **{
                 f: list(extraction.normalize_values(getattr(script, f)))
@@ -629,6 +642,7 @@ def register(
     attempt_id: str | None = None,
     entrypoint: str | None = None,
     source_draft_id: str | None = None,
+    require_open_attempt: bool = False,
 ) -> tuple[Path, dict[str, Any]]:
     """登记剧本，返回 ``(path, record)``。硬门不过直接抛 ``ObservationScriptRejected``。
 
@@ -668,30 +682,47 @@ def register(
         if late:
             status = "late"
 
-    record_id = _make_id(stamped, str(stamped.recorded_at))
     # 能查日历就用真交易日，查不到才回落跳周末规则——节假日周末规则挡不住。
     due_norm = due or resolve_due(stamped.as_of, db_path=db_path)
+    record_id = _make_id(stamped, str(stamped.recorded_at), due_norm)
     # 受控入口的确认动作要有**稳定身份**：键由内容 + 尝试算出，不含录入时刻。
     # 之前用 record_id 当判别位，而 record_id 派生自 recorded_at（秒级）——
     # 跨秒重试就换了一把键，于是「去重」在最需要它的场景（重试）恰好失效
     # （质检 S6 实测：两条同一确认，还多登记了一个可证伪点）。
     action_key = (
-        _confirm_action_key(stamped, attempt_id=attempt_id, entrypoint=entrypoint)
+        _confirm_action_key(stamped, attempt_id=attempt_id, entrypoint=entrypoint, due=due_norm)
         if entrypoint and status in {"confirmed", "late"}
         else None
     )
 
     p = Path(path).expanduser()
     with _ledger_lock(p):
+        raw_now = load_raw(p)
         # 认领与去重必须在**产生 checkpoint 之前**：先登记再发现重复，
         # 回检队列里已经多了一条，删不掉也不该删（台账 append-only）。
         if action_key is not None:
-            for existing in load_raw(p):
+            for existing in raw_now:
                 if (
                     record_kind_of(existing) == RECORD_SCRIPT
                     and str((existing.get("action_event") or {}).get("action_key") or "") == action_key
                 ):
                     return p, dict(existing)
+        # 复验尝试仍可写，和 submit_draft / record_event 同一道闸：并发 close 可以插在
+        # 「CLI 的门过了」与「这里落盘」之间，上一轮只给那两处加了复验，这里漏了，
+        # 于是同一个尝试上同时出现 abandoned=true 与一条确认 + 一个 checkpoint。
+        #
+        # ⚠ 只对**在这个尝试里进行中**的动作复验（``require_open_attempt``）。
+        # `confirm --from-draft --attempt-id <已完成的旧尝试>` 是 §2.4.4 明确允许的
+        # 「关联已完成尝试的具体草稿版本」——那是**引用出处**，不是往里写，
+        # 一刀切会把这条合法路径也拒掉。
+        if require_open_attempt and attempt_id:
+            ensure_attempt_writable(
+                raw_now,
+                attempt_id=str(attempt_id),
+                key=extraction.make_key(
+                    stamped.user_id, stamped.as_of, str(canonical_entity_id or "")
+                ),
+            )
 
         checkpoint_id: str | None = None
         if status == "confirmed":
@@ -776,8 +807,16 @@ def load_raw(path: str | Path) -> list[dict[str, Any]]:
     if not p.exists():
         return []
     out: list[dict[str, Any]] = []
-    for line in p.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
+    # **按字节读、逐行解码**，不是整文件一次 ``read_text``。
+    # 断电可以把写入截在一个汉字**中间**（「算」= e7 ae 97，只落了 e7 ae）。
+    # 整文件解码时那半个字符会让 ``UnicodeDecodeError`` 从最外层抛出来——
+    # 不是丢一条，是整本台账一条都读不出来，而 ``json.JSONDecodeError``
+    # 那个 except 根本接不到它。逐行解码把损坏限制在它自己那一行。
+    for raw_line in p.read_bytes().split(b"\n"):
+        try:
+            line = raw_line.decode("utf-8").strip()
+        except UnicodeDecodeError:
+            continue  # 半个字符：跳过这一行，它仍原样留在盘上（残片是证据）
         if not line:
             continue
         try:
@@ -1005,9 +1044,30 @@ def draft_for_attempt(
 
     存在的理由是工单 §2.4.4「后续确认可关联**已完成尝试的具体草稿版本**」：
     一律取 latest 就没法回到「我当时确认的是哪一版」。
+
+    两条路，缺一不可：
+
+    1. 这个尝试里**提交过**的草稿（同尝试多版取最后一版）；
+    2. 都没提交过时，看它自己的 ``read_completed`` 收据里的 ``source_draft_id``——
+       **复用**是主路径：用户昨天写的草稿，今天开新尝试直接读，这个尝试一条草稿
+       都没提交，但它确实读的是某一版。只认第 1 条会在这种最常见的情形下
+       报「没有提交过草稿」（第二轮复审实测）。
     """
-    rows = [d for d in user_drafts(raw, key=key) if str(d.get("extraction_attempt_id") or "") == str(attempt_id)]
-    return rows[-1] if rows else None
+    rows = [
+        d
+        for d in user_drafts(raw, key=key)
+        if str(d.get("extraction_attempt_id") or "") == str(attempt_id)
+    ]
+    if rows:
+        return rows[-1]
+    receipt = find_event(raw, event=EVENT_READ_COMPLETED, attempt_id=str(attempt_id))
+    wanted = str((receipt or {}).get("source_draft_id") or "")
+    if not wanted:
+        return None
+    for d in user_drafts(raw, key=key):
+        if str(d.get("draft_id") or "") == wanted:
+            return d
+    return None
 
 
 def latest_user_draft(

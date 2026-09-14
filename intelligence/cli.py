@@ -3415,6 +3415,18 @@ def cmd_observation_read(args: argparse.Namespace) -> int:
             return 2
         done = osc.find_event(raw, event=osc.EVENT_READ_COMPLETED, attempt_id=str(args.attempt_id))
         if done:
+            # 交付成功但**关闭失败**时，上一次会留下「完成事件已落、尝试仍 pending」。
+            # 重试必须把这个终态补上，否则那个尝试永远挂着，而它其实早就读完了。
+            # `close_attempt` 对已关闭是幂等的；这次不是放弃（已有完成事件），
+            # 所以补出来的只是 closed，不会多一条 abandoned。
+            if str(state.get("status")) == osc.ATTEMPT_PENDING:
+                try:
+                    osc.close_attempt(path, attempt_id=str(args.attempt_id), user_id=us.user_id,
+                                      reason="read_completed", entrypoint="read")
+                except Exception as exc:
+                    print(f"⚠ 完成收据在，但尝试终态仍补不上（{type(exc).__name__}: {exc}）",
+                          file=_sys.stderr)
+                    return 1
             # 返回原成功收据：不重放正文、不重新构建骨架、不重复记完成事件——
             # 「又给你看了一遍」和「当时确实交付过」是两件事，混起来会让完成率虚高。
             print(_json.dumps(done, ensure_ascii=False, indent=2) if args.json
@@ -3523,6 +3535,32 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
     author_origin: str | None = None
     canonical: str | None = None
     source_draft_id: str | None = None
+
+    if not args.from_draft and not args.from_slice and getattr(args, "attempt_id", None):
+        # 完整手填 + 显式尝试：这条路径此前**根本没读这个参数**，传另一个目标的 ID
+        # 也照样 exit=0 建出 checkpoint，关联被静默丢弃。给了就得验，验过才用。
+        raw = observation_script.load_raw(us.observation_scripts_path)
+        state = observation_script.attempt_states(raw).get(str(args.attempt_id))
+        if state is None:
+            print(f"没有这个提取尝试：{args.attempt_id}")
+            return 2
+        if str(state.get("user_id") or "") != us.user_id or str(state.get("as_of") or "") != args.as_of:
+            print(f"提取尝试 {args.attempt_id} 不属于该用户 / 阅读目标")
+            return 2
+        entities = args.entities or []
+        canonical_of_attempt = str(state.get("canonical_entity_id") or "")
+        try:
+            named = {ox.resolve_identity(args.as_of, e, db_path=args.db_path) for e in entities}
+        except ox.IdentityUnresolved as exc:
+            print(str(exc))
+            return 2
+        if named and canonical_of_attempt not in named:
+            print(f"提取尝试 {args.attempt_id} 不属于该用户 / 阅读目标"
+                  f"（它是 {canonical_of_attempt}，你确认的是 {sorted(named)}）")
+            return 2
+        canonical = canonical_of_attempt
+        attempt_id = str(args.attempt_id)
+        entrypoint = "confirm"
 
     if args.from_draft:
         # 确认**你自己那份草稿**：保留 source_draft_id 指回原稿，不覆盖它。
@@ -3645,9 +3683,16 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
             attempt_id=attempt_id,
             entrypoint=entrypoint,
             source_draft_id=source_draft_id,
+            # 只有 `--from-slice` 是**在一个进行中的尝试里**做的动作，要复验它仍可写；
+            # `--from-draft` / 手填带 attempt-id 是引用出处，引用一个已完成的尝试合法。
+            require_open_attempt=bool(args.from_slice),
         )
     except observation_script.ObservationScriptRejected as exc:
         return _print_rejections(exc, args.json)
+    except ValueError as exc:
+        # 并发 close 插在门与落盘之间：如实拒绝，不写剧本行、不建 checkpoint。
+        print(str(exc))
+        return 2
 
     if args.json:
         print(_json.dumps(record, ensure_ascii=False, indent=2))
@@ -3714,9 +3759,13 @@ def cmd_observation_skip(args: argparse.Namespace) -> int:
             canonical_entity_id=canonical,
             attempt_id=aid,
             entrypoint="skip",
+            require_open_attempt=True,
         )
     except observation_script.ObservationScriptRejected as exc:
         return _print_rejections(exc, args.json)
+    except ValueError as exc:
+        print(str(exc))
+        return 2
     if args.json:
         print(_json.dumps(record, ensure_ascii=False, indent=2))
     else:
