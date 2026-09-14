@@ -1,0 +1,22 @@
+{
+  "target_revision": "8bd55b26ca431c1c2a37c3c5782854ee52a75497",
+  "implementation_diff": "",
+  "files": {
+    "intelligence/services/user_task.py": "09c200294b015c4103a01d167f4a8a8a721505dd05db6abee2197edd3c336c61",
+    "intelligence/tests/test_e2_top_level_regions.py": "bc9840629c473896d6bb7109e05bba268210c2ac0d54345b93e65c164cdcef4a",
+    "scripts/e2_boundary_review_probe.py": "aab24c20e6b11277a3358640dbba1da6afcd384683dbced8dbae086cf6ba8eb6"
+  },
+  "previous_probe_sha256": "d332712defe1ec73dbc41ae3371d4354db410afa32b66e84700ce48381fa5c05",
+  "original_questions": {
+    "t2": {
+      "byte_identical_to_run_question": true,
+      "bytes": 2434,
+      "sha256": "dda3a7f0d9e3ae3b24735ea92651df28672ad391f19d4233b24637be35a0aaec"
+    },
+    "t3": {
+      "byte_identical_to_run_question": true,
+      "bytes": 1988,
+      "sha256": "cf39be488be9e60425fd07c0542fb16da6557a9d64eef366e076ad92a124e8a6"
+    }
+  }
+}

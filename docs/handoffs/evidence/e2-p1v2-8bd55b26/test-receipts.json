@@ -1,0 +1,56 @@
+[
+  {
+    "source": "~/.finance-runtime/test-receipts/20260914T065343Z-8bd55b26.json",
+    "source_sha256": "84c1b8c0b565aa61446c79b4ead38dcb80db9ee9f38aa5e68bbf3d3075730692",
+    "receipt": {
+      "interpreter": "~/finance-workspace-private/.venv-workbench/bin/python",
+      "python_version": "3.12.13",
+      "dependency_fingerprint": "3328bed61f3e21ea",
+      "tree": "/private/tmp/e2-p1v2-qc-8bd55b26",
+      "revision": "8bd55b26ca431c1c2a37c3c5782854ee52a75497",
+      "branch": "docs/qc-e2-p1v2-8bd55b26",
+      "dirty": false,
+      "dirty_paths": [],
+      "worktree_dirty_total": 1,
+      "dependency_gate_bypassed": false,
+      "target": "intelligence/tests/test_e2_top_level_regions.py intelligence/tests/test_fine_grained_route_length_gate.py intelligence/tests/test_user_task.py",
+      "counts": {
+        "passed": 73,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0
+      },
+      "failed_ids": [],
+      "exit_status": 0,
+      "finished_at": "2026-09-14T06:53:43+00:00"
+    }
+  },
+  {
+    "source": "~/.finance-runtime/test-receipts/20260914T071240Z-8bd55b26.json",
+    "source_sha256": "e5d8b718aa0be96e31094b8662cb4e89dd7be83a90ddc894a3a17bef4d883ef2",
+    "receipt": {
+      "interpreter": "~/finance-workspace-private/.venv-workbench/bin/python",
+      "python_version": "3.12.13",
+      "dependency_fingerprint": "3328bed61f3e21ea",
+      "tree": "/private/tmp/e2-p1v2-qc-8bd55b26",
+      "revision": "8bd55b26ca431c1c2a37c3c5782854ee52a75497",
+      "branch": "docs/qc-e2-p1v2-8bd55b26",
+      "dirty": true,
+      "dirty_paths": [
+        "scripts/e2_boundary_review_probe.py"
+      ],
+      "worktree_dirty_total": 2,
+      "dependency_gate_bypassed": false,
+      "target": "intelligence/tests/test_e2_top_level_regions.py intelligence/tests/test_fine_grained_route_length_gate.py intelligence/tests/test_user_task.py intelligence/tests/test_route_composition_gate.py tests/test_scripts_module_references.py",
+      "counts": {
+        "passed": 88,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0
+      },
+      "failed_ids": [],
+      "exit_status": 0,
+      "finished_at": "2026-09-14T07:12:40+00:00"
+    }
+  }
+]
