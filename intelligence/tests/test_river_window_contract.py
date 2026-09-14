@@ -7,7 +7,9 @@ from datetime import date, datetime
 from pathlib import Path
 from unittest import mock
 
+from intelligence.services import river
 from intelligence.services import river_derive as rd
+from intelligence.services import river_projection
 from intelligence.services import river_query
 from intelligence.services import river_window as rw
 from intelligence.services import river_window_contract as rwc
@@ -294,6 +296,112 @@ class RiverObjectContractFieldsTests(unittest.TestCase):
             valid_from="2026-09-01", recorded_at=None, payload={},
         )
         self.assertEqual(n.derivation, "frozen_llm")
+
+
+class RiverCorrectionAndHardnessTests(unittest.TestCase):
+    """G-02 契约后半：修正链（``expired_at`` / ``superseded_by``）与硬度（``hardness``）。
+
+    契约原文 ``docs/superpowers/specs/2026-09-05-time-river-gap-roadmap.md`` G-02：
+    ``slice`` 取 ``valid_from <= T < valid_to`` 且 ``recorded_at <= C``
+    且 ``(expired_at is null or expired_at > C)``。
+    """
+
+    def _o(self, ref: str, **kw: object) -> RiverObject:
+        base: dict = dict(
+            track="market", entity_id="E", object_type="stage", ref=ref, source_hash="h",
+            valid_from="2026-09-01", recorded_at="2026-09-01T18:00:00", payload={},
+        )
+        base.update(kw)
+        return RiverObject(**base)
+
+    # ── 载体就位 ──
+    def test_三个契约字段存在且缺省为None(self) -> None:
+        o = self._o("r1")
+        self.assertIsNone(o.hardness)
+        self.assertIsNone(o.expired_at)
+        self.assertIsNone(o.superseded_by)
+        self.assertEqual(
+            {"hardness": None, "expired_at": None, "superseded_by": None},
+            {k: o.to_dict()[k] for k in ("hardness", "expired_at", "superseded_by")},
+        )
+
+    # ── frozen_llm 封顶 L1 ──
+    def test_frozen_llm的硬度被封顶到L1(self) -> None:
+        n = self._o("r2", object_type="narrative_version", hardness="L4")
+        self.assertEqual(n.derivation, "frozen_llm")
+        self.assertEqual(n.hardness, "L1")
+
+    def test_deterministic不被封顶(self) -> None:
+        """反向钉住：封顶只对 frozen_llm 生效，否则等于把所有对象一起降级。"""
+        d = self._o("r3", hardness="L4")
+        self.assertEqual(d.derivation, "deterministic")
+        self.assertEqual(d.hardness, "L4")
+
+    def test_封顶不会给无硬度的对象塞值(self) -> None:
+        n = self._o("r4", object_type="narrative_version")
+        self.assertIsNone(n.hardness)
+
+    # ── expired_at 参与切片过滤 ──
+    def test_截至cutoff已失效的对象被滤掉(self) -> None:
+        out = river._enforce_cutoff(
+            {"market": [self._o("live"), self._o("dead", expired_at="2026-09-02T09:00:00")]},
+            "2026-09-03",
+        )
+        self.assertEqual([o.ref for o in out["market"]], ["live"])
+
+    def test_cutoff之后才失效的对象在回放时仍可见(self) -> None:
+        """T+5 写的纠正在重放 T 日时不可见——靶子不许挪走。"""
+        out = river._enforce_cutoff(
+            {"market": [self._o("x", expired_at="2026-09-10T09:00:00")]}, "2026-09-03",
+        )
+        self.assertEqual([o.ref for o in out["market"]], ["x"])
+
+    def test_两个NULL的处置刻意相反(self) -> None:
+        """``expired_at`` 为 null = 现行（保留）；``recorded_at`` 为 null = 不可判（滤掉）。
+
+        把前者也当不可判滤掉，会让今天所有对象一起消失。
+        """
+        out = river._enforce_cutoff(
+            {"market": [self._o("current"), self._o("unknown", recorded_at=None)]},
+            "2026-09-03",
+        )
+        self.assertEqual([o.ref for o in out["market"]], ["current"])
+
+    def test_同日失效在当日即生效(self) -> None:
+        """与 ``recorded_at`` 的 ``<=`` 对齐：纠正与被纠正者不并存于同一切片。"""
+        out = river._enforce_cutoff(
+            {"market": [self._o("s", expired_at="2026-09-03T15:00:00")]}, "2026-09-03",
+        )
+        self.assertIsInstance(out["market"], Gap)
+
+    def test_整轨滤空时Gap分别报两种原因(self) -> None:
+        out = river._enforce_cutoff(
+            {"market": [
+                self._o("a", recorded_at=None),
+                self._o("b", expired_at="2026-09-01T09:00:00"),
+            ]},
+            "2026-09-03",
+        )
+        gap = out["market"]
+        assert isinstance(gap, Gap)
+        self.assertIn("1 个对象的 recorded_at", gap.detail)
+        self.assertIn("1 个截至 cutoff 已失效", gap.detail)
+
+    # ── 单一事实源 ──
+    def test_投影层的硬度排名就是river那份(self) -> None:
+        """两层各存一份会漂，而漂了之后排序静默变化、没有任何断言会红。"""
+        self.assertIs(river_projection.HARDNESS_RANK, river.HARDNESS_RANK)
+        self.assertFalse(hasattr(river_projection, "_HARDNESS_RANK"))
+
+    def test_对象上的hardness流到投影层排序(self) -> None:
+        """``hardness_of`` 的 ``obj.get("hardness")`` 分支此前永远取不到值（消费者空转）。"""
+        hard = self._o("hard", hardness="L4").to_dict()
+        soft = self._o("soft", hardness="L1").to_dict()
+        self.assertEqual(river_projection.hardness_of(hard), "L4")
+        self.assertEqual(river_projection.hardness_of(self._o("none").to_dict()), river.HARDNESS_NA)
+        self.assertLess(
+            river_projection.default_sort_key(hard), river_projection.default_sort_key(soft),
+        )
 
 
 class ForwardLookingRatchetTests(unittest.TestCase):

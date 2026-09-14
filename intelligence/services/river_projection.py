@@ -37,7 +37,7 @@ from typing import Any, Protocol
 
 from intelligence.services import compliance_gate
 from intelligence.services.methodology_backtest.labels import LABEL_VERSION
-from intelligence.services.river import TRACKS
+from intelligence.services.river import HARDNESS_NA, HARDNESS_RANK, TRACKS, hardness_rank
 
 PROJECTION_VERSION = "cp-v0"
 HASH_PREFIX = "cp:"
@@ -47,9 +47,11 @@ SELECTED_BY_DEFAULT = "default"
 # 被省的键只影响文案，投影里对象是整条在的，哈希不变。
 RENDER_KEYS = 6
 
-# 硬度：payload 里可选的 ``hardness``（L1–L4，数字越大越硬；``frozen_llm`` 封顶 L1）。
-# v0 的 RiverObject 没有这个字段，所以今天全部平局、落到 recorded_at 与 ref 上。
-_HARDNESS_RANK = {"L4": 4, "L3": 3, "L2": 2, "L1": 1}
+# 硬度：``RiverObject.hardness`` 或 payload 里的 ``hardness``（L1–L4，越大越硬；
+# ``frozen_llm`` 封顶 L1，由 ``RiverObject.__post_init__`` 强制）。
+# 排名表与 ``n/a`` 的口径**只有 river 一份**——两层各存一份漂了之后排序静默变化，
+# 没有任何断言会红。本模块已经从 river import TRACKS，方向不变。
+# 载体已就位，但现存六轨尚无生产者填值，所以今天仍全部平局、落到 recorded_at 与 ref 上。
 DERIVATION_DETERMINISTIC = "deterministic"
 DERIVATION_FROZEN_LLM = "frozen_llm"
 
@@ -208,7 +210,7 @@ class TopNRule:
 # --------------------------------------------------------------------------- #
 def hardness_of(obj: dict[str, Any]) -> str:
     h = str((obj.get("payload") or {}).get("hardness") or obj.get("hardness") or "").strip()
-    return h if h in _HARDNESS_RANK else "n/a"
+    return h if h in HARDNESS_RANK else HARDNESS_NA
 
 
 def derivation_of(obj: dict[str, Any]) -> str:
@@ -220,7 +222,7 @@ def default_sort_key(obj: dict[str, Any]) -> tuple[Any, ...]:
     """硬度降序 → recorded_at 升序（None 最后）→ ref 字典序。§4.5 原文，不是字母序。"""
     rec = obj.get("recorded_at")
     return (
-        -_HARDNESS_RANK.get(hardness_of(obj), 0),
+        -hardness_rank(hardness_of(obj)),
         1 if rec is None else 0,
         str(rec or ""),
         str(obj.get("ref") or ""),
@@ -228,8 +230,8 @@ def default_sort_key(obj: dict[str, Any]) -> tuple[Any, ...]:
 
 
 def _max_hardness(objs: list[dict[str, Any]]) -> str:
-    ranked = sorted((hardness_of(o) for o in objs), key=lambda h: -_HARDNESS_RANK.get(h, 0))
-    return ranked[0] if ranked else "n/a"
+    ranked = sorted((hardness_of(o) for o in objs), key=lambda h: -hardness_rank(h))
+    return ranked[0] if ranked else HARDNESS_NA
 
 
 # --------------------------------------------------------------------------- #
@@ -364,7 +366,7 @@ def project(
             groups.items(),
             key=lambda kv: (
                 0 if kv[0][1] == DERIVATION_DETERMINISTIC else 1,
-                -_HARDNESS_RANK.get(_max_hardness(kv[1]), 0),
+                -hardness_rank(_max_hardness(kv[1])),
                 kv[0][0],
             ),
         )

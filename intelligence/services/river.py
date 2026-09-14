@@ -72,6 +72,22 @@ def default_derivation(object_type: str) -> Derivation:
     return "frozen_llm" if object_type in _FROZEN_LLM_OBJECT_TYPES else "deterministic"
 
 
+# 硬度：roadmap G-02 契约「hardness L1–L4，或 n/a」，数字越大越硬。
+# 常量落在本模块而不是投影层：本模块零 intelligence 依赖，是两层都 import 得到的最底层。
+# 两处各存一份会漂，而漂了之后排序静默变化、没有任何断言会红——这是跨层裸字面量的
+# 同一形状，这里先按「下沉到共同底座」解掉。``river_projection`` 从这里 import。
+HARDNESS_RANK: dict[str, int] = {"L4": 4, "L3": 3, "L2": 2, "L1": 1}
+HARDNESS_NA = "n/a"
+# frozen_llm 是模型写一次的散文（见 ``Derivation``），证据强度封顶 L1——
+# 它不该和确定性算出的事实等重。``RiverObject.__post_init__`` 强制执行。
+FROZEN_LLM_HARDNESS_CAP = "L1"
+
+
+def hardness_rank(value: Any) -> int:
+    """硬度排名。None / ``n/a`` / 不认识的值一律 0，比 L1 还低。"""
+    return HARDNESS_RANK.get(str(value or "").strip(), 0)
+
+
 @dataclass(frozen=True)
 class RiverObject:
     """河上的一个对象。字段对齐 roadmap G-02 契约 + 09-06 spec §4.2 的 validity_kind / derivation。
@@ -91,6 +107,10 @@ class RiverObject:
     validity_kind: str | None = None  # None → 按 object_type 映射
     derivation: str | None = None  # None → 按 object_type 映射
     valid_to: str | None = None  # state：null = 现行；range：区间尾；point：= valid_from
+    # ── G-02 契约后半：修正链与硬度。同样**不进 ``source_hash``**，理由同上。
+    hardness: str | None = None  # L1–L4；None = n/a。frozen_llm 封顶 L1（下面强制）
+    expired_at: str | None = None  # 被 superseded / invalidated 的时刻；null = 现行（不删只标）
+    superseded_by: str | None = None  # 替代对象的 ref
 
     def __post_init__(self) -> None:
         if self.validity_kind is None:
@@ -99,6 +119,10 @@ class RiverObject:
             object.__setattr__(self, "derivation", default_derivation(self.object_type))
         if self.validity_kind == "point" and self.valid_to is None:
             object.__setattr__(self, "valid_to", self.valid_from)
+        # 封顶而不是报错：契约说「frozen_llm 封顶 L1」，不是「不许给 frozen_llm 标硬度」。
+        # 报错会让上游为了过构造去改判据；封顶只影响排序权重，且被测试钉住。
+        if self.derivation == "frozen_llm" and hardness_rank(self.hardness) > hardness_rank(FROZEN_LLM_HARDNESS_CAP):
+            object.__setattr__(self, "hardness", FROZEN_LLM_HARDNESS_CAP)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -110,6 +134,9 @@ class RiverObject:
             "valid_from": self.valid_from,
             "valid_to": self.valid_to,
             "recorded_at": self.recorded_at,
+            "expired_at": self.expired_at,
+            "superseded_by": self.superseded_by,
+            "hardness": self.hardness,
             "validity_kind": self.validity_kind,
             "derivation": self.derivation,
             "payload": self.payload,
@@ -856,24 +883,43 @@ def resolve_entity(con: Any, as_of: str, entity: str) -> EntityRef | None:
 
 
 def _enforce_cutoff(tracks: dict[Track, TrackResult], cutoff: str) -> dict[Track, TrackResult]:
-    """滤掉 ``recorded_at > C`` 或为 NULL 的对象；整条轨被滤空则退化成 ``Gap``。
+    """执行 G-02 契约 ``slice`` 的两条记录时间条件；整条轨被滤空则退化成 ``Gap``。
 
-    ``recorded_at`` 为 NULL 的一律滤掉：不可判等于不能证明当时已知，按无前视红线
-    走 fail closed，不给「可能知道」留后门。
+    契约（roadmap G-02）：取 ``recorded_at <= C`` 且 ``(expired_at is null or expired_at > C)``
+    的对象。两个 NULL 的处置**刻意相反**，不是疏漏：
+
+    - ``recorded_at`` 为 NULL → **滤掉**。不可判等于不能证明当时已知，按无前视红线 fail
+      closed，不给「可能知道」留后门。
+    - ``expired_at`` 为 NULL → **保留**。契约明写 null = 现行（「不删，只标」），与快照
+      分代、证据边现在的做法一致。把它也当不可判滤掉，会让今天所有对象一起消失。
+
+    ``expired_at`` 用 ``<= cutoff`` 判失效（而非 ``<``）：与 ``recorded_at`` 的 ``<=`` 对齐，
+    同一天记录的失效当天即生效——纠正与被纠正者不并存于同一切片。
     """
     out: dict[Track, TrackResult] = {}
     for track, result in tracks.items():
         if isinstance(result, Gap):
             out[track] = result
             continue
-        kept = [o for o in result if o.recorded_at is not None and o.recorded_at[:10] <= cutoff]
+        kept: list[RiverObject] = []
+        n_unknown = 0  # recorded_at 缺失或晚于 cutoff
+        n_expired = 0  # 截至 cutoff 已被 superseded / invalidated
+        for o in result:
+            if o.recorded_at is None or o.recorded_at[:10] > cutoff:
+                n_unknown += 1
+                continue
+            if o.expired_at is not None and o.expired_at[:10] <= cutoff:
+                n_expired += 1
+                continue
+            kept.append(o)
         if kept:
             out[track] = kept
         else:
             out[track] = Gap(
                 track,
                 "pit_filtered",
-                f"{len(result)} 个对象的 recorded_at 晚于 cutoff={cutoff} 或缺失，按无前视滤除",
+                f"{n_unknown} 个对象的 recorded_at 晚于 cutoff={cutoff} 或缺失、"
+                f"{n_expired} 个截至 cutoff 已失效，按无前视滤除",
             )
     return out
 
