@@ -481,6 +481,20 @@ class ResearchEvolutionService:
             ctx, store, as_of=as_of, knowledge_cutoff=knowledge_cutoff, now=now, conversation_id=conversation_id
         )
         gaps.extend(m_gaps)
+        # QC V3 配套：把本会话的 run 关联登记投影进视图（补 run 状态）——维护面板的
+        # 「显式确认成果」入口只对已完成的 run 开放。只读投影，不写。
+        if isinstance(maintenance, dict):
+            links = [row for row in store.list_run_links() if str(row.get("conversation_id") or "") == conversation_id]
+            run_store = self.res.run_store_for(ctx.owner_user_id)
+            projected: list[dict[str, Any]] = []
+            for row in links:
+                entry = dict(row)
+                try:
+                    entry["run_status"] = str(getattr(run_store.load_run(str(row.get("run_id") or "")), "status", "unknown"))
+                except (FileNotFoundError, ValueError):
+                    entry["run_status"] = "unknown"
+                projected.append(entry)
+            maintenance["run_links"] = projected
 
         priority, statuses["priority"], p_gaps = self._priority(
             ctx,
@@ -855,7 +869,9 @@ class ResearchEvolutionService:
                 }
 
             if action == ACTION_REJUDGE:
-                result_core["continuation"] = self._continuation_for(ctx, item, conversation_id)
+                # 请求实例坐标（QC V2）：坐标就是刚落盘的 rejudgment_requested 事件 id，
+                # 客户端随启动消息回传，服务端按当前代际核验——首轮不依赖 origin run。
+                result_core["continuation"] = self._continuation_for(ctx, item, conversation_id, request_event_id=str(event.event_id))
 
             assert isinstance(event, ManagementEvent)
             txn.append_action(
@@ -928,6 +944,20 @@ class ResearchEvolutionService:
             existing_link = store.find_run_link(item_id=str(item["id"]), run_id=run_id, request_event_id=request_event_id)
             if existing_link is not None:
                 return None, {"run_id": run_id, "run_status": status, "registered": True, "link_created": False, "registered_at": existing_link.get("registered_at")}
+            # 旧代闸（QC V4）：写入前先查既有归属——这个 run 若已登记在上一代的复核请求，
+            # 不能因为当前代还 pending 就转挂；旧代检查不许只守在终态分支。
+            stale_running = store.find_run_link(item_id=str(item["id"]), run_id=run_id)
+            if stale_running is not None:
+                raise ApiError(
+                    ERR_RUN_BINDING_MISMATCH,
+                    "该 run 已登记在这条维护项上一代的复核请求，不能转挂当前这一轮",
+                    detail={
+                        "run_id": run_id,
+                        "item_id": item["id"],
+                        "link_request_event_id": str(stale_running.get("request_event_id") or ""),
+                        "current_request_event_id": request_event_id,
+                    },
+                )
             link_id = stable_id("rlink", {"item": item["id"], "run": run_id, "request": request_event_id})
             _, created = store.append_run_link(
                 {
@@ -961,10 +991,10 @@ class ResearchEvolutionService:
                         "current_request_event_id": request_event_id,
                     },
                 )
-            # 终态先到的补偿登记（QC T1/U2）：执行器可能在浏览器的第二个请求之前把 run 跑完，
-            # 接受侧又因身份不符没有自动登记（U1：普通聊天不被认领）。此刻客户端**显式点名**
-            # (item, run) 且过了版本闸——可信基座是 run 的用户消息真实存在于本会话（经消息入口
-            # 接受，不是 RunStore 旁路造的），不是「同会话唯一候选」的服务端猜测。
+            # 终态先到的补偿登记（QC T1/V1）：执行器可能在浏览器的第二个请求之前把 run 跑完，
+            # 接受侧又因坐标缺失/核验不过没有自动登记。此刻客户端**显式点名** (item, run)
+            # 且过了版本闸——但补偿只能重建已有可信启动身份：run 的源用户消息必须携带
+            # 指向该项当前代请求的实例坐标（与接受侧同一验证器），「同会话有消息」不算数（V1）。
             link = self._compensate_terminal_link(
                 ctx=ctx, conversation_id=conversation_id, item=item, run=run, request_event_id=request_event_id, now=now, store=store
             )
@@ -995,10 +1025,29 @@ class ResearchEvolutionService:
                         "这条维护项经历过多次复核请求或取消，同会话最新判断无法证明属于本轮；请显式确认新判断",
                         detail={"run_id": run_id, "hint": "link_run 带 new_judgment_ref 显式指定本轮成果"},
                     )
+                # 成果归属（QC V3）：本项首次复核也不代表成果属于本项——同会话还有别的
+                # 待复核项时，每条都可能是那份最新判断的主人，归属不可证，全部不自动认领。
+                maintenance_now = self._current_items(ctx, conversation_id, as_of=None, knowledge_cutoff=None, store=store)
+                pending_ids = [str(i.get("id")) for i in maintenance_now.get("items", []) if str(i.get("status")) == "rejudgment_requested"]
+                if len(pending_ids) > 1:
+                    raise ApiError(
+                        ERR_DEPENDENCY_MISSING,
+                        "同会话有多条待复核的维护项，同会话最新判断无法证明属于哪一条；请显式确认成果",
+                        detail={"run_id": run_id, "pending_item_ids": pending_ids, "hint": "link_run 带 new_judgment_ref 显式指定本轮成果"},
+                    )
+                # 已被本会话其他闭环消费掉的判断不再当候选（顺序确认也不能串单）。
+                consumed = {
+                    str(((row.get("event") or {}).get("payload") or {}).get("new_judgment_ref") or "")
+                    for row in store.list_action_records()
+                    if str(row.get("conversation_id") or "") == conversation_id
+                    and str((row.get("event") or {}).get("kind") or "") == "rejudgment_linked"
+                }
                 candidates = [
                     r
                     for r in judgments
-                    if str(r.get("session_id") or "") == conversation_id and (not requested_at or _ts_ge(r.get("ts"), requested_at))
+                    if str(r.get("session_id") or "") == conversation_id
+                    and (not requested_at or _ts_ge(r.get("ts"), requested_at))
+                    and f"judgments.jsonl:{r['id']}" not in consumed
                 ]
                 if not candidates:
                     raise ApiError(
@@ -1066,28 +1115,25 @@ class ResearchEvolutionService:
         now: datetime,
         store: EvolutionStore,
     ) -> dict[str, Any] | None:
-        """终态先到的补偿登记（QC T1/U2）：客户端显式 link_run 点名 (item, run) 时才发生。
+        """终态先到的补偿登记（QC T1/V1）：客户端显式 link_run 点名 (item, run) 时才发生。
 
-        可信基座（缺一不可）：
-        1. 项仍在``rejudgment_requested``（当前代还开着）；
-        2. run 的用户消息真实存在于本会话——run 经消息入口接受，不是 RunStore 旁路造的；
-        3. 请求代际取项上**当前**的 request_event_id——补偿登记永远是当前代的。
-
-        不做墙钟时间窗校验：消息/run 的时间戳是真实时钟，``requested_at`` 来自可注入的
-        领域时钟，两个时钟域在验收环境刻意分裂，跨域比较不是有效证据。completed 方向的
-        实质闸门是判断归属（同会话 + 不早于请求 + 多代际下要显式指定，见 _link_run_event）。
+        补偿只能重建**已有可信启动身份**（V1）：run 的源用户消息必须携带指向该项
+        **当前代**请求的实例坐标（item_id + request_event_id，与接受侧登记同一验证器）。
+        「同会话有一条用户消息」不是充分条件——先于请求存在的普通聊天、改写过的启动
+        文案，只要没带结构化坐标，都不能把旧 run 补登成当前请求的执行。
+        时钟不可比较（消息/run 是真实时钟、requested_at 是可注入领域时钟），
+        所以坐标而不是时间窗充当因果校验；completed 方向的实质闸门是判断归属。
         """
         if not request_event_id or str(item.get("status")) != "rejudgment_requested":
             return None
-        try:
-            messages = self.res.conversation_store_for(ctx.owner_user_id).load_messages(conversation_id)
-        except (FileNotFoundError, ValueError, OSError):
+        launch = self._source_message_launch(ctx, conversation_id, run.run_id)
+        if launch is None:
             return None
-        message = next(
-            (m for m in messages if str(getattr(m, "role", "") or "") == "user" and str(getattr(m, "run_id", "") or "") == str(run.run_id)),
-            None,
-        )
-        if message is None:
+        if str(launch.get("item_id") or "") != str(item["id"]):
+            return None
+        if str(launch.get("request_event_id") or "") != request_event_id:
+            return None
+        if self._rejudge_record(store, conversation_id, str(item["id"]), request_event_id) is None:
             return None
         link_id = stable_id("rlink", {"item": item["id"], "run": run.run_id, "request": request_event_id})
         row, _ = store.append_run_link(
@@ -1208,94 +1254,42 @@ class ResearchEvolutionService:
         )
         return {"replayed": True, **result_core}
 
-    # ---- 消息接受侧的水合与绑定（QC T1/T3/U1/U2） --------------------------- #
+    # ---- 消息接受侧的水合与绑定（QC T1/T3/U1/V1/V2） ------------------------ #
     def bind_pending_rejudge_run(
         self,
         *,
         ctx: OwnerContext,
         conversation_id: str,
         run_id: str,
-        content: str,
-        continuation: Mapping[str, Any] | None = None,
+        launch: Mapping[str, Any] | None = None,
     ) -> dict[str, Any] | None:
-        """在**启动执行器之前**把刚接受的 run 登记到它真正启动的那一轮复核请求（QC T1/U1/U2）。
+        """在**启动执行器之前**把刚接受的 run 登记到它真正启动的那一轮复核请求（QC T1/V2）。
 
-        UI 的次序是「先 POST messages 拿 run_id，再 POST actions(link_run)」，而服务端在
-        消息响应之前已提交执行器：run 在第二个请求之前到终态时，没有这行登记，终态闸
-        只能拒收——合法复核收不了尾（T1）。但关联的因果证明必须来自**请求身份**，不是
-        「本会话只有一条待复核」的数量推断：普通聊天不许被认领（U1）。
-
-        两条可信身份，精确命中其一才登记：
-        1. 消息 continuation 携带 ``maintenance_item_id``（第二轮起前端会透传）——
-           坐标不受信，必须核验该项确实处于本会话发起的当前代复核；
-        2. 消息内容命中当前代请求的**启动话语**：``full_prompt`` 逐字一致（真实客户端
-           首轮形状），或与动作 ``label`` 逐字一致/为 label 的 ≥4 字符前缀（用户照按钮
-           文案的复述简写）。full_prompt 与 label 都是 rejudge 动作记录里持久化过的
-           服务端生成文本，命中即请求身份（U2：多条待复核按此精确分流）。
-
-        零命中 / 多命中 → 不登记：普通消息不产生 run_links、不迁移维护状态；
-        终态先到的恢复交给 link_run 的补偿登记（``_link_run_event`` 终态分支）。
+        请求身份只认消息携带的**请求实例坐标**（item_id + request_event_id）：
+        服务端回查 rejudge 动作台账核验 owner/会话/维护项/**当前代际**后才登记。
+        首轮消息也能携带（不依赖 origin run，QC V2 建议）；不带坐标的消息永远是普通聊天，
+        不产生 run_links、不迁移维护状态（U1）；文本相似不充当身份（V2：跨代 full_prompt
+        逐字相同也不许认领）。坐标核验不过（陈旧标签页带着已取消代际的坐标）同样不登记——
+        客户端随后的显式 link_run 会拿到真实错误。
         任何失败由调用方吞掉：消息入口不为研究进化的降级买单。
         """
+        item_id = str((launch or {}).get("item_id") or "").strip()
+        request_event_id = str((launch or {}).get("request_event_id") or "").strip()
+        if not item_id or not request_event_id:
+            return None
         store = self._store(ctx)
         with store.try_transaction(timeout=0.5) as txn:
-            # 廉价预筛：本会话从没发起过复核 → 不计算维护视图（绝大多数消息走这里）。
-            rejudge_records = [
-                row
-                for row in txn.list_action_records()
-                if str(row.get("action") or "") == ACTION_REJUDGE and str(row.get("conversation_id") or "") == conversation_id
-            ]
-            if not rejudge_records:
-                return None
-            maintenance = self._current_items(ctx, conversation_id, as_of=None, knowledge_cutoff=None, store=txn)
-            # 本会话当前代待复核项：rejudgment 不存会话，用「产生了当前 request_event_id
-            # 的那条 rejudge 动作记录」回查归属——别会话的待复核不能认领本会话的 run。
-            pending: dict[str, tuple[Mapping[str, Any], str]] = {}
-            for item in maintenance.get("items", []):
-                if str(item.get("status")) != "rejudgment_requested":
-                    continue
-                request_event_id = str(((item.get("management") or {}).get("rejudgment") or {}).get("request_event_id") or "")
-                if not request_event_id:
-                    continue
-                requested_here = any(
-                    str(row.get("item_id") or "") == str(item.get("id"))
-                    and str((row.get("event") or {}).get("event_id") or "") == request_event_id
-                    for row in rejudge_records
-                )
-                if requested_here:
-                    pending[str(item["id"])] = (item, request_event_id)
-            if not pending:
-                return None
-
-            claimed_item_id = str(
-                (continuation or {}).get("maintenance_item_id")
-                or ((continuation or {}).get("inherits") or {}).get("maintenance_item_id")
-                or ""
+            item = self._verify_launch_coordinate(
+                ctx, conversation_id, item_id=item_id, request_event_id=request_event_id, store=txn
             )
-            if claimed_item_id:
-                # 身份来源 1：continuation 里的维护项坐标。坐标本身不受信——
-                # 必须在本会话当前代待复核集合里才算数。
-                target = pending.get(claimed_item_id)
-                if target is None:
-                    return None
-                item, request_event_id = target
-            else:
-                # 身份来源 2：启动话语匹配（full_prompt / label 取自当前代 rejudge 动作记录的持久化结果）。
-                matched = []
-                for item_id, pair in pending.items():
-                    prompt, label = self._request_launch_texts(rejudge_records, item_id, pair[1])
-                    if _is_launch_utterance(content, prompt=prompt, label=label):
-                        matched.append(pair)
-                if len(matched) != 1:
-                    return None
-                item, request_event_id = matched[0]
-
-            link_id = stable_id("rlink", {"item": item["id"], "run": run_id, "request": request_event_id})
+            if item is None:
+                return None
+            link_id = stable_id("rlink", {"item": item_id, "run": run_id, "request": request_event_id})
             row, created = txn.append_run_link(
                 {
                     "link_id": link_id,
                     "owner_user_id": ctx.owner_user_id,
-                    "item_id": str(item["id"]),
+                    "item_id": item_id,
                     "run_id": run_id,
                     "conversation_id": conversation_id,
                     # 与 link_run 登记同构的请求代际身份（QC T2）：观察器终态收尾只折回同代。
@@ -1303,19 +1297,54 @@ class ResearchEvolutionService:
                     "registered_at": utc_iso(self._now()),
                 }
             )
-            return {"item_id": str(item["id"]), "run_id": run_id, "request_event_id": request_event_id, "link_created": created}
+            return {"item_id": item_id, "run_id": run_id, "request_event_id": request_event_id, "link_created": created}
+
+    def _verify_launch_coordinate(
+        self, ctx: OwnerContext, conversation_id: str, *, item_id: str, request_event_id: str, store: EvolutionStore
+    ) -> Mapping[str, Any] | None:
+        """核验请求实例坐标，通过则返回当前代待复核的项（QC V2/V4 共用的精确身份验证器）。
+
+        四个条件缺一不可：rejudge 动作记录证明该请求由**本会话**发起（owner/会话归属回查）；
+        项存在；项仍在 rejudgment_requested；项的当前代际**就是**坐标声明的代际——
+        已取消/已折回代际的坐标一律失效（陈旧标签页不能冒名当前代）。
+        """
+        if self._rejudge_record(store, conversation_id, item_id, request_event_id) is None:
+            return None
+        maintenance = self._current_items(ctx, conversation_id, as_of=None, knowledge_cutoff=None, store=store)
+        item = next((i for i in maintenance.get("items", []) if str(i.get("id")) == item_id), None)
+        if item is None or str(item.get("status")) != "rejudgment_requested":
+            return None
+        current = str(((item.get("management") or {}).get("rejudgment") or {}).get("request_event_id") or "")
+        if not current or current != request_event_id:
+            return None
+        return item
 
     @staticmethod
-    def _request_launch_texts(rejudge_records: Sequence[Mapping[str, Any]], item_id: str, request_event_id: str) -> tuple[str, str]:
-        """当前代 rejudge 动作记录里持久化的 (full_prompt, label)；取不到返回空串（永不命中）。"""
-        for row in reversed(rejudge_records):
-            if str(row.get("item_id") or "") != item_id:
+    def _rejudge_record(store: EvolutionStore, conversation_id: str, item_id: str, request_event_id: str) -> Mapping[str, Any] | None:
+        """产生了该 request_event_id 的 rejudge 动作记录；rejudgment 不存会话，会话归属靠它回查。"""
+        for row in reversed(store.list_action_records()):
+            if str(row.get("action") or "") != ACTION_REJUDGE:
                 continue
-            if str((row.get("event") or {}).get("event_id") or "") != request_event_id:
+            if str(row.get("conversation_id") or "") != conversation_id or str(row.get("item_id") or "") != item_id:
                 continue
-            continuation = (row.get("result") or {}).get("continuation") or {}
-            return str(continuation.get("full_prompt") or ""), str(continuation.get("label") or "")
-        return "", ""
+            if str((row.get("event") or {}).get("event_id") or "") == request_event_id:
+                return row
+        return None
+
+    def _source_message_launch(self, ctx: OwnerContext, conversation_id: str, run_id: str) -> Mapping[str, Any] | None:
+        """该 run 的源用户消息上落的维护启动坐标；读不到 / 没带就是 None，不猜。"""
+        try:
+            messages = self.res.conversation_store_for(ctx.owner_user_id).load_messages(conversation_id)
+        except (FileNotFoundError, ValueError, OSError):
+            return None
+        message = next(
+            (m for m in messages if str(getattr(m, "role", "") or "") == "user" and str(getattr(m, "run_id", "") or "") == str(run_id)),
+            None,
+        )
+        if message is None:
+            return None
+        launch = getattr(message, "maintenance_launch", None)
+        return launch if isinstance(launch, Mapping) else None
 
     def pending_task_continuation(self, *, ctx: OwnerContext, conversation_id: str, content: str) -> dict[str, Any] | None:
         """首轮任务启动上下文的服务端水合（QC T3）。
@@ -1412,8 +1441,8 @@ class ResearchEvolutionService:
         rounds = state.completed_rounds
         return str(rounds[-1].run_id) if rounds else None
 
-    def _continuation_for(self, ctx: OwnerContext, item: Mapping[str, Any], conversation_id: str) -> dict[str, Any]:
-        return _continuation_payload(item, conversation_id, self._origin_run_id(ctx, conversation_id))
+    def _continuation_for(self, ctx: OwnerContext, item: Mapping[str, Any], conversation_id: str, request_event_id: str = "") -> dict[str, Any]:
+        return _continuation_payload(item, conversation_id, self._origin_run_id(ctx, conversation_id), request_event_id)
 
     def _select_task(self, *, ctx: OwnerContext, conversation_id: str, idempotency_key: str, body: Mapping[str, Any]) -> dict[str, Any]:
         """02 任务选择：只记录选择与点击载荷，不改任何判定（02 明写「不因点击改判定」）。
@@ -1929,23 +1958,6 @@ def _ts_ge(value: Any, floor: str) -> bool:
     return moment >= bound
 
 
-def _is_launch_utterance(content: str, *, prompt: str, label: str) -> bool:
-    """消息内容是否携带这条复核请求的启动身份（QC U1/U2）。
-
-    - ``full_prompt`` 逐字一致：真实客户端首轮形状（App 把 full_prompt 作为消息正文发出）；
-    - ``label`` 逐字一致：客户端在 full_prompt 缺失时的降级正文就是按钮文案；
-    - ``label`` 的 ≥4 字符前缀：用户照按钮文案复述的简写（如「继续核查」之于
-      「继续核查这条判断」）。短于 4 字符的前缀太容易被日常用语撞上，不算启动话语。
-
-    普通聊天（内容与两者都无关）返回 False——不产生关联、不迁移维护状态。
-    """
-    if prompt and content == prompt:
-        return True
-    if label and (content == label or (len(content) >= 4 and label.startswith(content))):
-        return True
-    return False
-
-
 def _latest_summary(summaries: Sequence[Mapping[str, Any]]) -> dict[str, Any] | None:
     """无 id 时的「最新一份总结」：按 ``generated_at`` 取，歧义就要求显式 id。
 
@@ -1989,12 +2001,14 @@ def _reviewed_versions(item: Mapping[str, Any]) -> list[dict[str, str]]:
     return out
 
 
-def _continuation_payload(item: Mapping[str, Any], conversation_id: str, origin_run_id: str | None) -> dict[str, Any]:
+def _continuation_payload(item: Mapping[str, Any], conversation_id: str, origin_run_id: str | None, request_event_id: str = "") -> dict[str, Any]:
     """「继续核查」的 continuation 载荷：带原对象、维护项与来源版本，由前端交给现有 POST 消息入口。
 
     ``run_id`` 只在有真实已完成轮次时出现（既有消息合同要求来源 run 真实存在）；
     ``inherits`` 是结构化关联字段的扁平版（消息合同是 dict[str, str]），
     服务端 link_run 靠它核验「这个 run 是这次维护请求发起的」。
+    ``request_event_id`` 是本轮请求的唯一实例坐标（QC V2）——首轮没有 origin run 时，
+    客户端用它作为 maintenance_launch 回传，服务端按当前代际核验。
     """
     object_ref = dict(item.get("object_ref") or {})
     versions = [f"{v.get('ref')}@{v.get('source_hash')}" for v in (item.get("current") or item.get("before") or ())]
@@ -2015,12 +2029,14 @@ def _continuation_payload(item: Mapping[str, Any], conversation_id: str, origin_
         "label": "继续核查这条判断",
         "maintenance_item_id": item.get("id"),
         "item_version": item.get("item_version"),
+        "request_event_id": request_event_id,
         "object_ref": object_ref,
         "source_versions": versions,
         "full_prompt": _rejudge_prompt(item),
         "inherits": {
             "maintenance_item_id": str(item.get("id") or ""),
             "item_version": str(item.get("item_version") or ""),
+            "request_event_id": str(request_event_id),
             "object_ref": str(object_ref.get("ref") or ""),
             "source_versions": ";".join(versions),
         },

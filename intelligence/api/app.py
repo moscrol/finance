@@ -1522,6 +1522,18 @@ class ContinuationRequest(BaseModel):
         return value
 
 
+class MaintenanceLaunchRef(BaseModel):
+    """研究进化「继续核查」启动消息携带的请求实例坐标（06 QC V1/V2）。
+
+    首轮没有 origin run，continuation 上不了消息合同；请求身份必须有独立信道。
+    坐标只是声明——服务端回查 rejudge 动作台账（owner/会话/维护项/当前请求代际）后才登记；
+    核验不过时消息仍是普通聊天，不产生 run_links、不迁移维护状态。
+    """
+
+    item_id: str = Field(min_length=1)
+    request_event_id: str = Field(min_length=1)
+
+
 class CreateMessageRequest(BaseModel):
     content: str = Field(min_length=1)
     skill_mode: Literal["manual", "auto", "hybrid"]
@@ -1530,6 +1542,7 @@ class CreateMessageRequest(BaseModel):
     selected_perspective_ids: list[str] = Field(default_factory=list)
     user: str | None = None
     continuation: ContinuationRequest | None = None
+    maintenance_launch: MaintenanceLaunchRef | None = None
 
     @field_validator("content")
     @classmethod
@@ -2922,6 +2935,7 @@ def create_app(
             parent_run_id = conversation.last_run_id
             run_store = store_for(req.user)
             continuation_payload: dict[str, object] | None = None
+            maintenance_launch_payload = req.maintenance_launch.model_dump() if req.maintenance_launch is not None else None
             if req.continuation is not None:
                 continuation_payload = _validated_continuation(
                     run_store, conversation_id, req.continuation
@@ -2971,6 +2985,7 @@ def create_app(
                     perspective_mode=req.perspective_mode,
                     selected_perspective_ids=list(selected_perspective_ids),
                     continuation=continuation_payload,
+                    maintenance_launch=maintenance_launch_payload,
                 )
                 assistant_message = store.append_message(
                     conversation_id,
@@ -2988,17 +3003,16 @@ def create_app(
             except Exception:
                 _compensate_failed_submission()
                 raise
-            # QC T1/U1/U2：启动执行器**之前**建立可信的 request→run 关联——请求身份来自
-            # continuation 的维护项坐标或 full_prompt 逐字命中（服务端台账回查），普通聊天
-            # 不被认领；run 在浏览器第二个请求（link_run）之前到终态时，终态收尾认的正是
-            # 这行运行前登记。失败只留痕：客户端显式 link_run 仍是主路径。
+            # QC T1/U1/V1/V2：启动执行器**之前**建立可信的 request→run 关联——请求身份只认
+            # 消息携带的请求实例坐标（item_id + request_event_id），服务端回查 rejudge 动作台账
+            # 核验 owner/会话/维护项/当前代际后登记；不带坐标的消息永远是普通聊天（U1），
+            # 文本相似不再充当身份（V2）。失败只留痕：客户端显式 link_run 仍是主路径。
             try:
                 _evolution_service.bind_pending_rejudge_run(
                     ctx=research_evolution_svc.OwnerContext.for_owner(run_store.user_id),
                     conversation_id=conversation_id,
                     run_id=run.run_id,
-                    content=req.content,
-                    continuation=continuation_payload,
+                    launch=maintenance_launch_payload,
                 )
             except Exception as exc:  # noqa: BLE001 - 登记失败不阻塞消息，link_run 仍可补偿
                 print(f"[research-evolution] 消息接受侧关联登记失败（{run.run_id}）：{exc}", file=sys.stderr)

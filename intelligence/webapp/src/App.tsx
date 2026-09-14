@@ -73,6 +73,7 @@ import type {
   Conversation,
   DailyReportProjection,
   FollowupContinuation,
+  MaintenanceLaunchRef,
   CreateMessageResponse,
   LiveMessageState,
   LLMConfig,
@@ -648,6 +649,8 @@ export default function App() {
       },
       // 09 连续研究：由「猜你想问」卡片点出时带延续坐标；普通提问不带。
       continuation?: FollowupContinuation,
+      // 06 研究进化：「继续核查」启动消息带请求实例坐标（QC V2，首轮也能带）。
+      maintenanceLaunch?: MaintenanceLaunchRef,
     ): Promise<CreateMessageResponse | null> => {
       if (submitting) return null;
       setSubmitting(true);
@@ -672,6 +675,9 @@ export default function App() {
           selected_perspective_ids: effectivePerspectiveIds,
           user,
           ...(continuation ? { continuation } : {}),
+          ...(maintenanceLaunch
+            ? { maintenance_launch: maintenanceLaunch }
+            : {}),
         });
         const now = new Date().toISOString();
         const userMessage: ChatMessage = {
@@ -795,7 +801,20 @@ export default function App() {
           const followup = cont.run_id
             ? (cont as unknown as FollowupContinuation)
             : undefined;
-          const created = await submitResearch(prompt, undefined, followup);
+          // QC V2：请求实例坐标随启动消息发出（首轮不依赖 origin run），
+          // 服务端回查 rejudge 台账核验当前代际后登记 run 关联。
+          const launchItemId = String(cont.maintenance_item_id ?? "");
+          const launchRequestId = String(cont.request_event_id ?? "");
+          const maintenanceLaunch =
+            launchItemId && launchRequestId
+              ? { item_id: launchItemId, request_event_id: launchRequestId }
+              : undefined;
+          const created = await submitResearch(
+            prompt,
+            undefined,
+            followup,
+            maintenanceLaunch,
+          );
           if (!isSelectTask) {
             // 「继续核查」rejudge：登记「本次维护请求发起了这个 run」的持久化关联；
             // 消息没被接受则退回 open，不留「请求挂着、永远没有 run」的假进行态。

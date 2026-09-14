@@ -67,6 +67,12 @@ export interface Followup {
   inherits?: Record<string, string>;
 }
 
+/** 研究进化「继续核查」启动消息携带的请求实例坐标；服务端回查 rejudge 台账核验当前代际后才登记关联。 */
+export interface MaintenanceLaunchRef {
+  item_id: string;
+  request_event_id: string;
+}
+
 /** 卡片点击时随消息一起 POST 的延续坐标；服务端核验 run 归属后落在用户消息上。 */
 export interface FollowupContinuation {
   run_id: string;
@@ -672,6 +678,8 @@ export interface CreateMessageRequest {
   selected_perspective_ids?: string[];
   user?: string;
   continuation?: FollowupContinuation;
+  /** 06 QC V2：首轮也能携带的请求实例坐标；普通提问不带。 */
+  maintenance_launch?: MaintenanceLaunchRef;
 }
 
 export interface CreateMessageResponse {
@@ -828,6 +836,19 @@ export interface MaintenanceReport {
   gaps: EvolutionGap[];
   items: MaintenanceItem[];
   counts: Record<string, number>;
+  /** 本会话的 run 关联登记投影（QC V3）：面板「确认成果」入口的数据源。 */
+  run_links?: EvolutionRunLink[];
+}
+
+/** run_links 台账行的会话内投影。run_status 由服务端投影时补。 */
+export interface EvolutionRunLink {
+  link_id?: string;
+  item_id: string;
+  run_id: string;
+  conversation_id: string;
+  request_event_id?: string;
+  registered_at?: string;
+  run_status?: string;
 }
 
 /** 02 的视图行：中文键由 `research_priority.render_view` 生成，前端不再翻译一遍。 */

@@ -886,24 +886,30 @@ def test_q9_observer_never_blocks_run_on_evolution_lock(world: World, capsys: py
 # 第三轮 QC（re06-0c275716）T1–T5：探针的正确合同固化。
 # 探针本体在 docs/verification/re06-0c275716/test_review_round3.py；这里是仓内回归。
 # --------------------------------------------------------------------------- #
+def _launch_message(world: World, item: dict, content: str = "继续核查") -> str:
+    """以真实客户端形状发启动消息：携带服务端生成的请求实例坐标（QC V2）。返回 run_id。"""
+    launch = {"item_id": item["id"], "request_event_id": item["management"]["rejudgment"]["request_event_id"]}
+    posted = world.client.post(
+        f"/api/conversations/{world.conversation_id}/messages",
+        json={"user": fx.OWNER, "content": content, "skill_mode": "hybrid", "maintenance_launch": launch},
+    )
+    assert posted.status_code == 202, posted.text
+    return posted.json()["run_id"]
+
+
 def test_t1_run_terminal_before_second_request_still_reconciles(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
     """T1：run 在浏览器第二个请求（link_run）之前到终态——消息接受侧已登记可信关联，收尾不卡死。
 
     真实 UI 次序是「先 POST messages 拿 run_id，再 POST link_run」，模型可以在此之前就失败。
-    修复：create_message 在启动执行器前，按**请求身份**（full_prompt 逐字 / label 复述，U1/U2）
-    把 run 登记到命中的待复核项（带 request_event_id 代际）；「继续核查」是 label 的复述简写。
+    修复：create_message 在启动执行器前按消息携带的**请求实例坐标**（QC V2：item_id +
+    request_event_id，首轮也能携带）登记关联，服务端回查 rejudge 台账核验当前代际。
     """
     def fail_turn(**kwargs: object) -> None:
         kwargs["run_store"].finish_run(kwargs["run_id"], "failed", error="model unavailable")  # type: ignore[attr-defined]
 
     monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
     item = world.seed_rejudged_item()
-    posted = world.client.post(
-        f"/api/conversations/{world.conversation_id}/messages",
-        json={"user": fx.OWNER, "content": "继续核查", "skill_mode": "hybrid"},
-    )
-    assert posted.status_code == 202, posted.text
-    run_id = posted.json()["run_id"]
+    run_id = _launch_message(world, item)
     world.wait_terminal(run_id)
 
     # 关联在消息接受侧已落盘（不等客户端 link_run），且带本轮请求的代际身份。
@@ -1075,8 +1081,9 @@ def test_u1_plain_message_does_not_claim_pending_maintenance(world: World, monke
     assert after["management_revision"] == item["management_revision"]
 
 
-def test_u2_two_pending_items_full_prompt_binds_exact_item(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
-    """U2：多条待复核时，full_prompt 逐字命中只绑定被点名的那一条；另一条不动。"""
+def test_u2_two_pending_items_coordinate_binds_exact_item(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """U2/V2：多条待复核时，请求实例坐标把 run 精确登记到被点名那一条；文案不再是身份
+    （用户改写过的文案照绑不误；跨代逐字相同的文案见 V2 测试，不绑）。"""
 
     def fail_turn(**kwargs: object) -> None:
         kwargs["run_store"].finish_run(kwargs["run_id"], "failed", error="model unavailable")  # type: ignore[attr-defined]
@@ -1086,31 +1093,25 @@ def test_u2_two_pending_items_full_prompt_binds_exact_item(world: World, monkeyp
     open_items = [i for i in world.view()["maintenance"]["items"] if i["status"] == "open"]
     assert len(open_items) == 2, f"夹具应给两条 open 项：{[(i['change_type'], i['status']) for i in world.view()['maintenance']['items']]}"
     first = world.rejudge(open_items[0], key="k-u2-first")
-    second = world.rejudge(open_items[1], key="k-u2-second")
-    prompt = str(second["continuation"]["full_prompt"])
-    assert prompt and prompt != str(first["continuation"]["full_prompt"]), "两条请求的 full_prompt 必须可区分"
-
-    posted = world.client.post(
-        f"/api/conversations/{world.conversation_id}/messages",
-        json={"user": fx.OWNER, "content": prompt, "skill_mode": "hybrid"},
-    )
-    assert posted.status_code == 202, posted.text
-    run_id = posted.json()["run_id"]
+    second_item = world.current_item(open_items[1]["id"])
+    world.rejudge(second_item, key="k-u2-second")
+    second = world.current_item(second_item["id"])
+    run_id = _launch_message(world, second, content="这条我自己复述了一遍，开跑")
     world.wait_terminal(run_id)
 
-    # 接受侧按 full_prompt 精确绑定到第二项（带第二项当前代际）。
+    # 接受侧按请求实例坐标精确绑定到第二项（带第二项当前代际）。
     store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
     links = [r for r in store.list_run_links() if str(r.get("run_id")) == run_id]
-    assert len(links) == 1 and links[0]["item_id"] == second["item_id"], links
+    assert len(links) == 1 and links[0]["item_id"] == second["id"], links
 
     # 观察器终态收尾折回第二项；迟到的显式 link_run 重放；第一项不动。
     world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_id)
-    assert world.current_item(second["item_id"])["status"] == "open"
-    response = world.act(idempotency_key=f"link_run:{second['item_id']}:{run_id}", run_id=run_id, **world.link_args(second["item_id"]))
+    assert world.current_item(second["id"])["status"] == "open"
+    response = world.act(idempotency_key=f"link_run:{second['id']}:{run_id}", run_id=run_id, **world.link_args(second["id"]))
     assert response.status_code == 200, response.text
     assert response.json()["replayed"] is True
     assert world.current_item(first["item_id"])["status"] == "rejudgment_requested"
-    assert world.current_item(second["item_id"])["status"] == "open"
+    assert world.current_item(second["id"])["status"] == "open"
 
 
 def test_u3_cross_conversation_terminal_replay_is_rejected(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1121,12 +1122,7 @@ def test_u3_cross_conversation_terminal_replay_is_rejected(world: World, monkeyp
 
     monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
     item = world.seed_rejudged_item()
-    posted = world.client.post(
-        f"/api/conversations/{world.conversation_id}/messages",
-        json={"user": fx.OWNER, "content": "继续核查", "skill_mode": "hybrid"},
-    )
-    assert posted.status_code == 202, posted.text
-    run_id = posted.json()["run_id"]
+    run_id = _launch_message(world, item)
     world.wait_terminal(run_id)
     folded = world.wait_item_status(item["id"], "open")
 
@@ -1189,38 +1185,189 @@ def test_u4_late_judgment_of_old_attempt_does_not_close_new_request(world: World
     assert after["management_revision"] == before["management_revision"]
 
 
-def test_u2_edited_launch_text_recovers_via_explicit_link_run(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
-    """U2 补偿方向：用户改写了启动文案（不命中 full_prompt/label）→ 接受侧不登记；
-
-    客户端显式 link_run 时，run 的用户消息真实存在于本会话即补登当前代关联并折回——
-    「真实可补偿的可信登记」让终态先到也能收尾，而不是恢复路径只有文案承诺。
-    """
+def test_u2_degraded_accept_binding_recovers_via_explicit_link_run(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """补偿登记正向（QC T1/V1）：接受侧绑定降级（锁超时等被吞掉）时，客户端显式 link_run
+    凭源消息上的请求实例坐标补登当前代并折回——坐标是补偿唯一认可的启动身份，
+    「run 有同会话消息」单独不算数（V1 负向见 test_v1）。"""
+    monkeypatch.setattr(ResearchEvolutionService, "bind_pending_rejudge_run", lambda self, **kwargs: None)
 
     def fail_turn(**kwargs: object) -> None:
         kwargs["run_store"].finish_run(kwargs["run_id"], "failed", error="model unavailable")  # type: ignore[attr-defined]
 
     monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
     item = world.seed_rejudged_item()
-    posted = world.client.post(
-        f"/api/conversations/{world.conversation_id}/messages",
-        json={"user": fx.OWNER, "content": "动手吧，按上面说的方向再查一遍", "skill_mode": "hybrid"},
-    )
-    assert posted.status_code == 202, posted.text
-    run_id = posted.json()["run_id"]
+    run_id = _launch_message(world, item, content="动手吧，按上面说的方向再查一遍")
     world.wait_terminal(run_id)
 
-    # 文案被改写 → 接受侧无法证明身份 → 不登记；项保持待复核。
+    # 接受侧绑定被降级吞掉 → 无关联；项保持待复核。
     store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
     assert store.list_run_links(item_id=item["id"]) == []
     held = world.current_item(item["id"])
     assert held["status"] == "rejudgment_requested"
 
-    # 显式 link_run 补偿登记：run 确由本会话消息入口产生 → 补登当前代并折回。
+    # 显式 link_run 补偿登记：源消息携带该项当前代坐标 → 补登并折回。
     response = world.act(idempotency_key=f"link_run:{item['id']}:{run_id}", run_id=run_id, **world.link_args(item["id"]))
-    assert response.status_code == 200, f"改写文案的合法复核不许卡死：{response.text}"
+    assert response.status_code == 200, f"降级后显式点名的合法复核不许卡死：{response.text}"
     closed = world.wait_item_status(item["id"], "open")
     assert closed["management_revision"] == held["management_revision"] + 1
     assert closed["management"]["rejudgment"]["last_failure"]["kind"] == "rejudgment_failed"
     links = [r for r in store.list_run_links(item_id=item["id"]) if str(r.get("run_id")) == run_id]
     assert len(links) == 1
     assert links[0]["request_event_id"] == closed["management"]["rejudgment"]["request_event_id"]
+
+def test_v1_old_ordinary_message_cannot_be_compensated_into_new_request(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """V1：先于请求存在的普通聊天 run，显式 link_run 也不能补登成新请求的执行——
+    「run 有同会话消息」单独不再充当因果证明，补偿只认源消息上的当前代坐标。"""
+
+    def fail_turn(**kwargs: object) -> None:
+        kwargs["run_store"].finish_run(kwargs["run_id"], "failed", error="model unavailable")  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
+    posted = world.client.post(
+        f"/api/conversations/{world.conversation_id}/messages",
+        json={"user": fx.OWNER, "content": "请解释市盈率是什么。", "skill_mode": "hybrid"},
+    )
+    assert posted.status_code == 202, posted.text
+    old_run = posted.json()["run_id"]
+    world.wait_terminal(old_run)
+
+    item = world.seed_rejudged_item()  # 复核请求在聊天 run 终态之后才出现
+    response = world.act(idempotency_key="k-v1-old-chat", run_id=old_run, **world.link_args(item["id"]))
+    assert response.status_code in {400, 404, 409}, f"旧聊天不许补登成新请求的执行：{response.status_code} {response.text}"
+    after = world.current_item(item["id"])
+    assert after["status"] == "rejudgment_requested" and after["management_revision"] == item["management_revision"]
+    store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+    assert not [r for r in store.list_run_links() if str(r.get("run_id")) == old_run]
+
+
+def test_v2_cancelled_generation_prompt_cannot_claim_replacement(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """V2：跨代 full_prompt 逐字相同也不绑——启动话语不再是任何身份；A 的迟到文案不产生关联、不迁移 B。"""
+    world.track_judgment().raise_for_status()
+    item = world.open_item()
+    first = world.rejudge(item, key="k-v2-request-a")
+    old_prompt = str(first["continuation"]["full_prompt"])
+    assert old_prompt
+    cancel_args = world.link_args(item["id"])
+    cancel_args["action"] = "cancel_rejudge"
+    world.act(idempotency_key="k-v2-cancel-a", **cancel_args).raise_for_status()
+    world.clock.advance(seconds=1)
+    world.rejudge(world.current_item(item["id"]), key="k-v2-request-b")
+    before = world.current_item(item["id"])
+    assert before["status"] == "rejudgment_requested"
+
+    def fail_turn(**kwargs: object) -> None:
+        kwargs["run_store"].finish_run(kwargs["run_id"], "failed", error="model unavailable")  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
+    # 陈旧标签页在 B 代发出 A 的 full_prompt 原文——不带坐标的裸文案。
+    posted = world.client.post(
+        f"/api/conversations/{world.conversation_id}/messages",
+        json={"user": fx.OWNER, "content": old_prompt, "skill_mode": "hybrid"},
+    )
+    assert posted.status_code == 202, posted.text
+    run_id = posted.json()["run_id"]
+    world.wait_terminal(run_id)
+    world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_id)
+
+    after = world.current_item(item["id"])
+    assert after["status"] == "rejudgment_requested"
+    assert after["management_revision"] == before["management_revision"], "旧代文案的失败不许迁移当前代"
+    store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+    assert not [r for r in store.list_run_links() if str(r.get("run_id")) == run_id], "裸文案不产生关联（U1 合同延伸至文本渠道）"
+
+
+def test_v3_first_attempt_cannot_consume_other_items_judgment(world: World) -> None:
+    """V3：两条不同原判断同会话首次复核——B 没有自身成果时，不得拿 A 的新判断自动关闭。"""
+    from intelligence.services import judgments as judgments_svc
+    from intelligence.services.research_evolution.run_observer import ObservingRunStore
+
+    world.track_judgment().raise_for_status()
+    # 挂一条底层不同的判断 B（同一对象的两次维护不算数，必须真两条）。
+    _, original_b = judgments_svc.record_judgment(
+        world.user_root / "judgments.jsonl",
+        memo="下游制冷剂采购利润承压，是另一条独立判断",
+        themes=[fx.ENTITY],
+        stocks=[],
+        session_id=world.conversation_id,
+        ts="2026-09-03T20:00:00+08:00",
+    )
+    ref_b = f"judgments.jsonl:{original_b['id']}"
+    object_b = next(t["object_ref"] for t in world.view()["inputs"]["trackable_objects"] if t["object_ref"]["ref"] == ref_b)
+    world.bind_at(fx.BIND_DAY, object_ref=object_b).raise_for_status()
+    open_items = [i for i in world.view()["maintenance"]["items"] if i["status"] == "open"]
+    item_b = next(i for i in open_items if i["object_ref"]["ref"] == ref_b)
+    item_a = next(i for i in open_items if i["object_ref"]["ref"] != ref_b)
+    assert item_a["object_ref"]["ref"] != item_b["object_ref"]["ref"]
+    world.rejudge(item_a, key="k-v3-rejudge-a")
+    world.rejudge(world.current_item(item_b["id"]), key="k-v3-rejudge-b")
+
+    observer = ObservingRunStore(
+        user_id=fx.OWNER,
+        evolution_root=world.user_root / "research_evolution",
+        maintenance_folder=lambda run_id: world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_id),
+    )
+    run_a = observer.create_run(question="重新复核 A", task_type="research", session_id=world.conversation_id)
+    world.act(idempotency_key="k-v3-reg-a", run_id=run_a.run_id, **world.link_args(item_a["id"])).raise_for_status()
+    run_b = observer.create_run(question="重新复核 B", task_type="research", session_id=world.conversation_id)
+    world.act(idempotency_key="k-v3-reg-b", run_id=run_b.run_id, **world.link_args(item_b["id"])).raise_for_status()
+    world.clock.advance(seconds=1)
+    _, judgment_a = judgments_svc.record_judgment(
+        world.user_root / "judgments.jsonl",
+        memo="对 A 的新判断",
+        themes=["萤石"],
+        stocks=[],
+        session_id=world.conversation_id,
+        ts=world.clock().isoformat(),
+    )
+    assert judgment_a["session_id"] == world.conversation_id
+
+    observer.finish_run(run_a.run_id, rs.STATUS_COMPLETED)
+    time.sleep(0.3)
+    observer.finish_run(run_b.run_id, rs.STATUS_COMPLETED)
+    time.sleep(0.3)
+
+    item_a_after = world.current_item(item_a["id"])
+    assert item_a_after["status"] == "rejudgment_requested" or (
+        item_a_after["status"] == "closed"
+        and ((item_a_after.get("management") or {}).get("rejudgment") or {}).get("new_judgment_ref") == f"judgments.jsonl:{judgment_a['id']}"
+    ), "A 要么持守（多待复核下不自动认领），要么挂上自己的成果判断"
+    item_b_after = world.current_item(item_b["id"])
+    assert item_b_after["status"] == "rejudgment_requested", "B 没有自身成果时不得拿别的判断自动关闭"
+
+
+def test_v4_running_registration_obeys_stale_generation_gate(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """V4：运行中登记也过旧代闸——A 的 run 已登记，取消 A 发起 B 后不得转挂 B；A 的迟到失败只留 A 的审计。"""
+    gate = threading.Event()
+
+    def delayed_failure(**kwargs: object) -> None:
+        gate.wait(timeout=10)
+        kwargs["run_store"].finish_run(kwargs["run_id"], "failed", error="model unavailable")  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(app_module, "_run_conversation_turn", delayed_failure)
+    world.track_judgment().raise_for_status()
+    item = world.open_item()
+    world.rejudge(item, key="k-v4-request-a")
+    # 请求 A 的启动消息（运行中；裸消息接受侧不登记——运行中登记走显式 link_run，R7 合同）。
+    posted = world.client.post(
+        f"/api/conversations/{world.conversation_id}/messages",
+        json={"user": fx.OWNER, "content": "继续核查", "skill_mode": "hybrid"},
+    )
+    assert posted.status_code == 202, posted.text
+    run_id = posted.json()["run_id"]
+    world.act(idempotency_key="link_run:request-a", run_id=run_id, **world.link_args(item["id"])).raise_for_status()
+
+    cancel_args = world.link_args(item["id"])
+    cancel_args["action"] = "cancel_rejudge"
+    world.act(idempotency_key="k-v4-cancel-a", **cancel_args).raise_for_status()
+    world.clock.advance(seconds=1)
+    world.rejudge(world.current_item(item["id"]), key="k-v4-request-b")
+    second = world.current_item(item["id"])
+    response = world.act(idempotency_key="link_run:request-b", run_id=run_id, **world.link_args(second["id"]))
+    assert response.status_code in {400, 404, 409}, f"已登记在 A 的运行中 run 不得转挂 B：{response.status_code} {response.text}"
+
+    gate.set()
+    world.wait_terminal(run_id)
+    world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_id)
+    current = world.current_item(item["id"])
+    assert current["status"] == "rejudgment_requested" or current["management_revision"] == second["management_revision"]
+    assert current["management_revision"] == second["management_revision"], "A 的迟到失败不许迁移 B"

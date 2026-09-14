@@ -26,6 +26,92 @@ interface ResearchEvolutionPanelProps {
   busy?: boolean;
 }
 
+/** 显式确认成果（QC V3/V4 纠偏）：服务端无法自动证明「新判断属于本轮复核」时，
+ * 由用户点名本轮已完成的核查 run 与成果判断。只列当前代际已完成的关联 run；
+ * 判断候选取自台账投影，服务端仍会做会话/时间/存在性/重复消费校验。 */
+function ConfirmOutcomeForm({
+  item,
+  view,
+  busy,
+  onAction,
+}: {
+  item: MaintenanceItem;
+  view: ResearchEvolutionView;
+  busy?: boolean;
+  onAction: (body: Record<string, unknown>) => void;
+}) {
+  const rejudgment = (item.management?.rejudgment ?? {}) as Record<string, unknown>;
+  const currentRequest = String(rejudgment.request_event_id ?? "");
+  const eligibleRuns = (view.maintenance?.run_links ?? []).filter(
+    (link) =>
+      link.item_id === item.id &&
+      String(link.request_event_id ?? "") === currentRequest &&
+      link.run_status === "completed",
+  );
+  const judgments = (view.inputs.trackable_objects ?? []).filter(
+    (t) => t.object_ref.kind === "judgment",
+  );
+  const [runId, setRunId] = useState<string>(eligibleRuns[0]?.run_id ?? "");
+  const [judgmentRef, setJudgmentRef] = useState<string>("");
+  const canSubmit =
+    !busy && runId !== "" && judgmentRef !== "" && eligibleRuns.length > 0;
+
+  return (
+    <div className="re-confirm" aria-label="确认成果">
+      <p className="re-muted">
+        服务端无法自动证明新判断属于本轮复核（多代际或多条待复核），请显式点名。
+      </p>
+      {eligibleRuns.length === 0 ? (
+        <p className="re-muted">还没有已完成的核查 run——先「继续核查」并等它跑完。</p>
+      ) : (
+        <>
+          <label>
+            本轮核查 run
+            <select value={runId} onChange={(e) => setRunId(e.target.value)}>
+              {eligibleRuns.map((link) => (
+                <option key={link.run_id} value={link.run_id}>
+                  {link.run_id}（登记于 {String(link.registered_at ?? "")}）
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            成果判断
+            <select
+              value={judgmentRef}
+              onChange={(e) => setJudgmentRef(e.target.value)}
+            >
+              <option value="">选择本轮产生的新判断…</option>
+              {judgments.map((t) => (
+                <option key={t.object_ref.ref} value={t.object_ref.ref}>
+                  {t.title || t.object_ref.ref}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={() =>
+              onAction({
+                action: "link_run",
+                idempotency_key: `link_run_confirm:${item.id}:${runId}:${judgmentRef}`,
+                item_id: item.id,
+                run_id: runId,
+                new_judgment_ref: judgmentRef,
+                expected_item_version: item.item_version,
+                expected_management_revision: item.management_revision,
+              })
+            }
+          >
+            确认这条判断是本轮成果
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 /** 变化类型 → 用户看得懂的业务标签。哈希/内部版本只在详情里给，不上主屏。 */
 const CHANGE_LABEL: Record<string, string> = {
   content_changed: "依据变了",
@@ -95,6 +181,7 @@ export function ResearchEvolutionPanel({
   busy = false,
 }: ResearchEvolutionPanelProps) {
   const [openDetail, setOpenDetail] = useState<string | null>(null);
+  const [openConfirm, setOpenConfirm] = useState<string | null>(null);
 
   if (!view) {
     return <div className="inspector-empty">选择一个会话后显示需要复核的旧判断与下一步研究。</div>;
@@ -211,7 +298,29 @@ export function ResearchEvolutionPanel({
                 >
                   {openDetail === item.id ? "收起详情" : "详情"}
                 </button>
+                {item.status === "rejudgment_requested" && onAction && (
+                  <button
+                    type="button"
+                    className="re-link"
+                    onClick={() =>
+                      setOpenConfirm(openConfirm === item.id ? null : item.id)
+                    }
+                  >
+                    {openConfirm === item.id ? "收起确认" : "确认成果"}
+                  </button>
+                )}
               </div>
+              {item.status === "rejudgment_requested" &&
+                onAction &&
+                openConfirm === item.id &&
+                view && (
+                  <ConfirmOutcomeForm
+                    item={item}
+                    view={view}
+                    busy={busy}
+                    onAction={onAction}
+                  />
+                )}
               {openDetail === item.id && (
                 <dl className="re-detail" aria-label="内部版本详情">
                   <div>

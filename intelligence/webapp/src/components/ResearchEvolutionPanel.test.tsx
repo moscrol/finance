@@ -426,3 +426,69 @@ describe("ResearchEvolutionPanel · 第二轮复审合同", () => {
     expect(feedback).toHaveTextContent("choices_match");
   });
 });
+
+describe("ResearchEvolutionPanel 确认成果入口（QC V3/V4）", () => {
+  it("待复核中的项可点名本轮已完成 run 与成果判断", () => {
+    const view = makeView();
+    const item = view.maintenance!.items[0];
+    item.status = "rejudgment_requested";
+    item.management = { rejudgment: { request_event_id: "evt-1" } };
+    view.maintenance!.run_links = [
+      {
+        item_id: item.id,
+        run_id: "run-1",
+        conversation_id: "conv_1",
+        request_event_id: "evt-1",
+        registered_at: "2026-09-14T08:01:00+00:00",
+        run_status: "completed",
+      },
+    ];
+    view.inputs.trackable_objects = [
+      {
+        object_ref: {
+          kind: "judgment",
+          id: "j9",
+          namespace: "judgments",
+          version_or_hash: "content_sha256:x",
+          ref: "judgments.jsonl:j9",
+          scope: {},
+        },
+        kind: "judgment",
+        title: "新判断：制冷剂",
+        recorded_at: "2026-09-14",
+        bound: false,
+        binding_id: null,
+        gaps: [],
+        candidate_refs: [],
+      },
+    ];
+    const onAction = vi.fn();
+    render(<ResearchEvolutionPanel view={view} onAction={onAction} />);
+    fireEvent.click(screen.getByRole("button", { name: "确认成果" }));
+    const form = screen.getByLabelText("确认成果");
+    fireEvent.change(within(form).getByLabelText(/成果判断/), {
+      target: { value: "judgments.jsonl:j9" },
+    });
+    fireEvent.click(
+      within(form).getByRole("button", { name: "确认这条判断是本轮成果" }),
+    );
+    expect(onAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "link_run",
+        item_id: item.id,
+        run_id: "run-1",
+        new_judgment_ref: "judgments.jsonl:j9",
+      }),
+    );
+  });
+
+  it("没有已完成的核查 run 时给提示而不是表单", () => {
+    const view = makeView();
+    const item = view.maintenance!.items[0];
+    item.status = "rejudgment_requested";
+    item.management = { rejudgment: { request_event_id: "evt-1" } };
+    render(<ResearchEvolutionPanel view={view} onAction={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "确认成果" }));
+    expect(screen.getByText(/还没有已完成的核查 run/)).toBeInTheDocument();
+  });
+});

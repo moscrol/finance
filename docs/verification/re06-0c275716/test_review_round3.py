@@ -30,9 +30,12 @@ def test_fast_failed_run_can_be_reconciled_after_message_response(world, monkeyp
 
     monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
     item = world.seed_rejudged_item()
+    # 第五轮 QC 纠偏：消息携带服务端生成的请求实例坐标（首轮也能带，不依赖 origin run），
+    # 不再用裸文案充当请求身份；核心断言（快速终态可收尾）不变。
+    launch = {"item_id": item["id"], "request_event_id": item["management"]["rejudgment"]["request_event_id"]}
     posted = world.client.post(
         f"/api/conversations/{world.conversation_id}/messages",
-        json={"user": fx.OWNER, "content": "继续核查", "skill_mode": "hybrid"},
+        json={"user": fx.OWNER, "content": "继续核查", "skill_mode": "hybrid", "maintenance_launch": launch},
     )
     assert posted.status_code == 202, posted.text
     run_id = posted.json()["run_id"]

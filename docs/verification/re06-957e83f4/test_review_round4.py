@@ -24,10 +24,13 @@ def fail_turn(**kwargs):
     kwargs["run_store"].finish_run(kwargs["run_id"], "failed", error="deterministic fast failure")
 
 
-def post_message(world, content, continuation=None):
+def post_message(world, content, continuation=None, launch=None):
     body = {"user": fx.OWNER, "content": content, "skill_mode": "hybrid"}
     if continuation and continuation.get("run_id"):
         body["continuation"] = continuation
+    # 第五轮 QC 纠偏：启动消息携带请求实例坐标（item_id + request_event_id），文本不再充当身份。
+    if launch:
+        body["maintenance_launch"] = launch
     response = world.client.post(f"/api/conversations/{world.conversation_id}/messages", json=body)
     assert response.status_code == 202, response.text
     return response.json()["run_id"]
@@ -54,7 +57,8 @@ def test_two_pending_items_fast_terminal_can_reconcile_selected_item(world, monk
     before = world.current_item(items[1]["id"])
     continuation = second["continuation"]
     monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
-    run_id = post_message(world, continuation["full_prompt"], continuation)
+    launch = {"item_id": before["id"], "request_event_id": continuation["request_event_id"]}
+    run_id = post_message(world, continuation["full_prompt"], continuation, launch=launch)
     world.wait_terminal(run_id)
     response = world.act(
         action="link_run", idempotency_key=f"link_run:{before['id']}:{run_id}",
@@ -70,7 +74,9 @@ def test_two_pending_items_fast_terminal_can_reconcile_selected_item(world, monk
 def test_terminal_global_replay_still_checks_conversation(world, monkeypatch):
     item = world.seed_rejudged_item()
     monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
-    run_id = post_message(world, "继续核查")
+    # 第五轮 QC 纠偏：setup 升级为携带真实请求坐标（核心断言不变：快速终态可收尾、跨会话拒绝）。
+    launch = {"item_id": item["id"], "request_event_id": item["management"]["rejudgment"]["request_event_id"]}
+    run_id = post_message(world, "继续核查", launch=launch)
     world.wait_terminal(run_id)
     world.wait_item_status(item["id"], "open")
     other = world.client.post("/api/conversations", json={"user": fx.OWNER}).json()["conversation_id"]
