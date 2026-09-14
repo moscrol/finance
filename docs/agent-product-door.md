@@ -70,11 +70,20 @@ P3d 小片在 `TurnOrchestrator` 拿到本轮 TaskFrame 后，对明确 `materia
 报告与日志见 [P3d 独立归档](verification/e2-boundary-closeout/p3d-1f6ebc5d-independent-qc-20260915/)。
 不声明 controller 历史输入、确定性/legacy 回落或交付阶段已经安全。
 
+P3e 候选在 `QueryResolver.resolve` 的词典读取前复用 D1/D2 材料合同编译；明确
+`material_only` 时仅走既有文本理解，不访问实体/题材词典、证券名单或其缓存，也不注入
+词典验证出的锚点/候选/比较实体。普通、full、local_only 保持原解析；不新造禁令词表，
+不把未知边界或“继续”一律澄清。作者36针通过，撤闸恢复23F/13P，服务层452P/1项排除，
+均不能替代独立QC（待完成）；453针组合虽pytest绿，隔离器曾拦8次尝试，原失败保留。
+[本片收据与覆盖限制](verification/e2-boundary-closeout/p3e-query-resolver-20260915/README.md)。
+仍未关闭静态路由配置/日历先验、controller历史、可信继承、注入式resolver和其他旁路；
+本片不宣称整个 `understand_query` 零IO或完整入口安全。
+
 **本阶段不是材料题全链完成**：`local_only` 仅已审定 runner 的局部路径，未覆盖所有
 本地工具；歧义/基底不可恢复的预取前澄清、controller 前缀/默认摘要/压缩/恢复/子研究等
 全部注入路径、确定性旁路仍待 P3 收口。local_only 原题号槽、逐题最终交付、可信跨轮继承、
 纯度与材料锚点待后续阶段；普通上下文不是按来源过滤后的安全输入。
-不得把局部短路当成真实入口已经零外呼，也不得运行正式 T2→T3/Knevo 对照。Grok CLI 已做过一次隔离的回顾性语义判卷试跑，但输入未含完整原题/材料，结果仅作试跑证据，不是本片验收或正式评分；Knevo 有已登录浏览器的 CDP 回贴入口，但本轮未发新题、没有未揭盲成对答案，故没有正式 PK；详细状态见 [判官/Knevo 记录](verification/e2-boundary-closeout/llm-judge-knevo-status-20260915.md)。设计与阶段证据见
+不得把局部短路当成真实入口已经零外呼，也不得运行正式 T2→T3/Knevo 对照。Grok CLI 已做过回顾性语义判卷试跑，但有效返回来自关闭系统沙箱的配置（不再沿用），且输入未含完整原题/材料，结果仅作试跑证据，不是隔离验收或正式评分；Knevo 有已登录浏览器的 CDP 回贴入口，但本轮未发新题、没有未揭盲成对答案，故没有正式 PK；详细状态见 [判官/Knevo 记录](verification/e2-boundary-closeout/llm-judge-knevo-status-20260915.md)。设计与阶段证据见
 [设计 v10](learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md)
 及 `docs/handoffs/inflight/fix-e2-boundary-closeout.md`；是否部署看实际服务 revision。
 
