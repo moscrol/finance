@@ -28,7 +28,8 @@ import socket
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Callable, Iterator, Mapping
+import uuid
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
@@ -436,16 +437,41 @@ def provider_override(provider: LLMProvider) -> Iterator[None]:
 # 调用方用 contextvars.copy_context() 传播（台账对象共享，list.append 原子）。
 
 
+# 身份采集状态（工单方案 §3.1），与 status=success/failed **正交**：
+# 一次成功的调用也可能没拿到身份（中转不回 `model` 字段）。
+#
+# ⚠️ `intelligence/eval/judge_validity.py` 各存一份同名常量——那一层不许 import
+# services（纯函数、无 IO）。两份字面量会漂，而漂的时候
+# `identity_state != "reported"` 要么把所有评分判成 unknown、要么反过来放行，
+# **两个方向都是静默的**。`test_llm_call_provenance.py::test_身份状态常量与eval层逐字一致`
+# 把这个漂变成红。
+IDENTITY_NOT_CALLED = "not_called"
+IDENTITY_UNREPORTED = "unreported"
+IDENTITY_REPORTED = "reported"
+
+
 @dataclass(frozen=True)
 class LLMCallRecord:
     caller: str  # chat | chat_tools | synthesis | synthesis_stream
     provider: str
-    model: str
+    model: str  # 请求配置值。**保持原语义**，旧消费者不动；身份看下面三个字段
     status: str  # success | failed
     elapsed_ms: int
     # 失败原因（成功为空）。不记原因就无法回答"为什么 35% 的 chat 调用失败"，
     # 诊断只能靠猜 elapsed_ms 的分布。
     reason: str = ""
+    # --- 身份证据（2026-09-14，工单方案 §3.1）---------------------------------
+    # `attempt_id` 在**实际派发前**由 `_reserve_llm_call` 生成并绑进调用作用域的
+    # 局部变量：fallback 轮换与重试各自一条，不靠列表位置关联。
+    attempt_id: str = ""
+    requested_model: str = ""
+    # 响应体自报的 `model`。中转不回就是 None——**不回填请求值**
+    # （沿用 `_served_model_from_body` 的既有规则）。
+    reported_model: str | None = None
+    identity_state: str = IDENTITY_NOT_CALLED
+    # 流式分块报告了不止一个模型时，第一个之外的都记在这里。取第一个掩盖后续
+    # 变化，等于替一次换过模型的调用背书。
+    reported_model_conflicts: tuple[str, ...] = ()
 
 
 @dataclass
@@ -542,6 +568,15 @@ class LLMCallLedger:
                     "model": record.model,
                     "status": record.status,
                     "elapsed_ms": record.elapsed_ms,
+                    "attempt_id": record.attempt_id,
+                    "requested_model": record.requested_model,
+                    "reported_model": record.reported_model,
+                    "identity_state": record.identity_state,
+                    **(
+                        {"reported_model_conflicts": list(record.reported_model_conflicts)}
+                        if record.reported_model_conflicts
+                        else {}
+                    ),
                     **({"reason": record.reason} if record.reason else {}),
                 }
                 for record in records
@@ -615,16 +650,24 @@ def _budget_rejection() -> str | None:
     return None
 
 
-def _reserve_llm_call() -> None:
-    """Reserve one attempt at the actual HTTP boundary.
+def _reserve_llm_call() -> str:
+    """Reserve one attempt at the actual HTTP boundary; return its ``attempt_id``.
 
     Public-entry checks remain a cheap fast path, but this reservation is the
     authoritative guard because provider fallback, retries and concurrent
     callers can all pass an earlier check.
+
+    返回的 ``attempt_id`` 由**调用点用局部变量接住**再传给 ``_record_llm_call``
+    （工单方案 §3.1「所有字段在调用作用域内绑定」）。用 ContextVar 或「最近一次」
+    全局值都会在 fallback 轮换、并发两题、嵌套作用域时串号；局部变量不会。
+
+    预算拒发时抛出，**不生成 attempt_id** ——那次调用没有派发，不能伪造一次
+    已花费的尝试（``not_called``）。
     """
     ledger = _CALL_LEDGER.get()
     if ledger is not None and not ledger.try_reserve():
         raise LLMCallBudgetExceeded(ledger.rejection_reason())
+    return uuid.uuid4().hex
 
 
 def current_call_ledger() -> LLMCallLedger | None:
@@ -698,10 +741,21 @@ def _record_llm_call(
     status: str,
     started: float,
     reason: str = "",
+    *,
+    attempt_id: str = "",
+    reported_model: str | None = None,
+    reported_model_conflicts: Sequence[str] = (),
 ) -> None:
+    """记一次实际派发的结果，含身份证据。
+
+    ``reported_model`` 只由**成功路径**传入（且只从响应体取）：HTTP 错误页里的
+    模型名不能证明评分身份（§3.1），所以失败路径一律留空 → ``unreported``。
+    """
+
     ledger = _CALL_LEDGER.get()
     if ledger is None:
         return
+    served = (reported_model or "").strip() or None
     ledger.record(
         LLMCallRecord(
             caller=caller,
@@ -710,6 +764,13 @@ def _record_llm_call(
             status=status,
             elapsed_ms=max(0, round((time.monotonic() - started) * 1000)),
             reason=reason,
+            attempt_id=attempt_id,
+            requested_model=provider.model,
+            reported_model=served,
+            identity_state=(
+                IDENTITY_REPORTED if served else IDENTITY_UNREPORTED
+            ),
+            reported_model_conflicts=tuple(reported_model_conflicts),
         )
     )
 
@@ -781,14 +842,19 @@ def _complete_cli_judge(
 
     from intelligence.services.grok_cli_judge import complete_grok_cli
 
-    _reserve_llm_call()
+    attempt_id = _reserve_llm_call()
     started = time.monotonic()
     try:
         content = complete_grok_cli(provider, messages, timeout)
     except Exception as exc:
-        _record_llm_call("chat", provider, "failed", started, _failure_reason(exc))
+        _record_llm_call(
+            "chat", provider, "failed", started, _failure_reason(exc),
+            attempt_id=attempt_id,
+        )
         raise
-    _record_llm_call("chat", provider, "success", started)
+    # CLI 无结构化模型字段 → 身份保持 unreported。**不从自然语言自述或配置补齐**
+    # （工单方案 §2 对 grok_cli_judge 的要求）。
+    _record_llm_call("chat", provider, "success", started, attempt_id=attempt_id)
     return content
 
 
@@ -798,7 +864,7 @@ def _post_chat(
     timeout: float,
     temperature: float = 0.2,
 ) -> str:
-    _reserve_llm_call()
+    attempt_id = _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload = {"model": provider.model, "messages": messages, "temperature": temperature}
     _apply_thinking_controls(
@@ -816,9 +882,16 @@ def _post_chat(
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = json.loads(resp.read().decode("utf-8"))
     except Exception as exc:
-        _record_llm_call("chat", provider, "failed", started, _failure_reason(exc))
+        _record_llm_call(
+            "chat", provider, "failed", started, _failure_reason(exc),
+            attempt_id=attempt_id,
+        )
         raise
-    _record_llm_call("chat", provider, "success", started)
+    _record_llm_call(
+        "chat", provider, "success", started,
+        attempt_id=attempt_id,
+        reported_model=_served_model_from_body(body),
+    )
     return body["choices"][0]["message"]["content"]
 
 
@@ -830,7 +903,7 @@ def _post_chat_synthesis(
     max_tokens: int,
     max_chars: int,
 ) -> tuple[str, str | None]:
-    _reserve_llm_call()
+    attempt_id = _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload = {
         "model": provider.model,
@@ -850,14 +923,27 @@ def _post_chat_synthesis(
         with urllib.request.urlopen(request, timeout=timeout) as resp:
             body = json.loads(resp.read().decode("utf-8"))
     except Exception as exc:
-        _record_llm_call("synthesis", provider, "failed", started, _failure_reason(exc))
+        _record_llm_call(
+            "synthesis", provider, "failed", started, _failure_reason(exc),
+            attempt_id=attempt_id,
+        )
         raise
     choice = body["choices"][0]
     content = choice["message"]["content"]
     if len(content) > max_chars:
-        _record_llm_call("synthesis", provider, "failed", started, "output_too_long")
+        # 内容超长是**我们**判的失败，但对端确实回了身份——照记，别因为我们不收货
+        # 就把已经拿到的身份证据丢了。
+        _record_llm_call(
+            "synthesis", provider, "failed", started, "output_too_long",
+            attempt_id=attempt_id,
+            reported_model=_served_model_from_body(body),
+        )
         raise LLMOutputTooLong()
-    _record_llm_call("synthesis", provider, "success", started)
+    _record_llm_call(
+        "synthesis", provider, "success", started,
+        attempt_id=attempt_id,
+        reported_model=_served_model_from_body(body),
+    )
     return content, _stable_finish_reason(choice.get("finish_reason"))
 
 
@@ -987,7 +1073,7 @@ def _post_chat_message_stream(
     crossed to the user before deciding it may retry.
     """
 
-    _reserve_llm_call()
+    attempt_id = _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload: dict = {
         "model": provider.model,
@@ -1022,6 +1108,8 @@ def _post_chat_message_stream(
     finish_reason: str | None = None
     usage: dict | None = None
     served_model = ""
+    # 按出现顺序去重收集分块自报的模型；[0] 之外的都是冲突（V9b）。
+    reported_models: list[str] = []
     saw_any_chunk = False
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -1039,8 +1127,15 @@ def _post_chat_message_stream(
                 except json.JSONDecodeError:
                     continue
                 saw_any_chunk = True
-                if not served_model and isinstance(event, dict):
-                    served_model = _served_model_from_body(event)
+                if isinstance(event, dict):
+                    # **收全部不同的自报模型，不是只认第一个。** 原写法是
+                    # `if not served_model:` —— 后续分块换了模型会被静默掩盖，
+                    # 等于替一次换过模型的调用背书（工单方案 §3.1）。
+                    chunk_model = _served_model_from_body(event)
+                    if chunk_model and chunk_model not in reported_models:
+                        reported_models.append(chunk_model)
+                        if not served_model:
+                            served_model = chunk_model
                 event_usage = event.get("usage")
                 if isinstance(event_usage, dict):
                     usage = dict(event_usage)
@@ -1065,18 +1160,29 @@ def _post_chat_message_stream(
                     streamed_chars += len(piece)
                     on_content_delta(piece)
     except Exception as exc:
+        # 流中途炸了，但已经收到的分块身份不丢——**已返回成功内容的未知/冲突身份
+        # 不能因为后续解析失败被丢掉**（工单方案 §3.3-2）。
         _record_llm_call(
-            "chat_tools_stream", provider, "failed", started, _failure_reason(exc)
+            "chat_tools_stream", provider, "failed", started, _failure_reason(exc),
+            attempt_id=attempt_id,
+            reported_model=served_model,
+            reported_model_conflicts=tuple(reported_models[1:]),
         )
         if streamed_chars:
             raise LLMStreamAlreadyEmitted(str(exc)) from exc
         raise
     if not saw_any_chunk:
         _record_llm_call(
-            "chat_tools_stream", provider, "failed", started, "streaming_unsupported"
+            "chat_tools_stream", provider, "failed", started, "streaming_unsupported",
+            attempt_id=attempt_id,
         )
         raise LLMStreamingUnsupported()
-    _record_llm_call("chat_tools_stream", provider, "success", started)
+    _record_llm_call(
+        "chat_tools_stream", provider, "success", started,
+        attempt_id=attempt_id,
+        reported_model=served_model,
+        reported_model_conflicts=tuple(reported_models[1:]),
+    )
     message: dict = {
         "role": "assistant",
         "content": "".join(content_chunks),
@@ -1106,7 +1212,7 @@ def _post_chat_message(
 
     The message may contain ``tool_calls`` (OpenAI-compatible function calling)
     in addition to / instead of ``content`` — needed to drive an agent loop."""
-    _reserve_llm_call()
+    attempt_id = _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload: dict = {"model": provider.model, "messages": messages, "temperature": temperature}
     _apply_thinking_controls(
@@ -1133,10 +1239,15 @@ def _post_chat_message(
             body = json.loads(resp.read().decode("utf-8"))
     except Exception as exc:
         _record_llm_call(
-            "chat_tools", provider, "failed", started, _failure_reason(exc)
+            "chat_tools", provider, "failed", started, _failure_reason(exc),
+            attempt_id=attempt_id,
         )
         raise
-    _record_llm_call("chat_tools", provider, "success", started)
+    _record_llm_call(
+        "chat_tools", provider, "success", started,
+        attempt_id=attempt_id,
+        reported_model=_served_model_from_body(body),
+    )
     message = dict(body["choices"][0]["message"])
     usage = body.get("usage")
     if isinstance(usage, dict):
@@ -1820,7 +1931,7 @@ def _post_chat_stream(
     max_tokens: int,
     max_chars: int,
 ) -> tuple[str, str | None]:
-    _reserve_llm_call()
+    attempt_id = _reserve_llm_call()
     started = time.monotonic()
     try:
         result = _post_chat_stream_raw(
@@ -1837,10 +1948,17 @@ def _post_chat_stream(
         )
     except Exception as exc:
         _record_llm_call(
-            "synthesis_stream", provider, "failed", started, _failure_reason(exc)
+            "synthesis_stream", provider, "failed", started, _failure_reason(exc),
+            attempt_id=attempt_id,
         )
         raise
-    _record_llm_call("synthesis_stream", provider, "success", started)
+    # ⚠️ 已知缺口：`_post_chat_stream_raw` 目前不把分块自报的 model 传回来，
+    # 所以这条路的身份停在 `unreported`。这是**保守方向**（不会谎称身份），
+    # 但它意味着走合成流式的 writer 会被判 `writer_identity_unknown`。
+    # 补法是让 raw reader 一并返回 reported_models，与 chat_tools_stream 同构。
+    _record_llm_call(
+        "synthesis_stream", provider, "success", started, attempt_id=attempt_id
+    )
     return result
 
 
