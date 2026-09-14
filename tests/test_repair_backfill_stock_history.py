@@ -25,7 +25,7 @@ from market_feature_store.sync.repair_backfill_stock_history import (
 )
 from market_feature_store.sync.repair_hithink_stock_day import RepairRefused
 
-CODE = "999999.SZ"
+CODE = "302132.SZ"  # 与验收脚本钉死的合同代码一致（E2E 验收回归复用本夹具）
 NAME = "测试股份"
 OTHER = "000001.SZ"
 PREV = "2026-07-31"  # 窗口前一交易日（周五）
@@ -772,3 +772,365 @@ def test_acceptance_script_receipt_schema_mutation_fails(tmp_path):
     skipped = [c for c in verdict["checks"]
                if c["name"] == "data_checks_executed"]
     assert skipped and skipped[0]["ok"] is False
+
+
+# ── 第六轮退修（审查 595a9acd）：验收脚本深 schema / 跨轮绑定 / oracle 输入独立 ──
+# 策略：好产物必绿（真实形状两轮产物 E2E PASS）+ 坏产物必红（逐字段单因素变异，
+# 父收据与独立子报告同步修改，与审查探针 qc_302132_round6_probes.py 同构）。
+import copy  # noqa: E402
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
+import sys  # noqa: E402
+from dataclasses import asdict, replace  # noqa: E402
+from unittest import mock  # noqa: E402
+
+E2E_REV = "f" * 40
+APPLY_RUN = "run-apply-001"
+VERIFY_RUN = "run-verify-001"
+SCHEMA_BOTH = ("receipt_apply_schema", "receipt_verify_schema")
+
+
+def _build_e2e_artifacts(root: Path) -> dict:
+    """完整可通过验收的两轮产物：基线库 + 结果库（apply/verify 各跑一遍）+
+    冻结 parquet + 父收据/独立子报告（字段形状与 cli.py 实际写出一致）。"""
+    baseline = root / "baseline.duckdb"
+    pq = root / "tail.parquet"
+    fx = _fixture(baseline, pq)
+    spec = replace(_spec(baseline, pq, fx["pinned"]),
+                   spec_version="302132-backfill-test-v1")
+    clone = root / "clone.duckdb"
+    shutil.copy(str(baseline), str(clone))
+    children = {}
+    with mock.patch.object(mod, "_code_revision",
+                           return_value=(E2E_REV, False)):
+        con = duckdb.connect(str(clone))
+        try:
+            for mode, rid in (("apply", APPLY_RUN), ("verify", VERIFY_RUN)):
+                report = mod.run_backfill_child(con, spec, pq)
+                assert report["mode"] == mode
+                report.update({"run_id": rid, "trade_date": spec.window_end,
+                               "kind": "repair-backfill-302132", "ok": True})
+                # JSON 往返：内存中的产物形状与验收器读到的完全一致
+                # （int 键 → str 键等），变异测试不会在假形状上操作
+                children[mode] = json.loads(json.dumps(report))
+        finally:
+            con.close()
+    base_sha = mod._sha256(baseline)
+    receipts = {}
+    for mode, rid in (("apply", APPLY_RUN), ("verify", VERIFY_RUN)):
+        child_path = root / f"child-{mode}.json"
+        child_path.write_text(json.dumps(children[mode], ensure_ascii=False))
+        receipt = {
+            "kind": "repair-backfill-302132", "trade_date": spec.window_end,
+            "run_id": rid, "code_revision": E2E_REV, "code_dirty": False,
+            "interpreter": sys.executable,
+            "spec": json.loads(json.dumps(asdict(spec))),
+            "child_report_path": str(child_path),
+            "child_report": children[mode], "child_report_error": None,
+            "backup": {"backup_path": str(baseline), "backup_sha256": base_sha,
+                       "run_id": rid},
+            "parent": {"swapped": True, "rc": 0, "run_id": rid},
+        }
+        (root / f"clone.duckdb.repair-backfill-execution.{rid}.json"
+         ).write_text(json.dumps(receipt, ensure_ascii=False))
+        receipts[mode] = receipt
+    return {"baseline": baseline, "clone": clone, "pq": pq, "spec": spec,
+            "receipts": receipts, "base_sha": base_sha}
+
+
+@pytest.fixture(scope="module")
+def e2e_art(tmp_path_factory):
+    return _build_e2e_artifacts(tmp_path_factory.mktemp("e2e302132"))
+
+
+def _run_acceptance(clone: Path, art: dict, out: Path,
+                    expected_revision: str = E2E_REV):
+    script = mod.PROJECT_DIR / "scripts" / "verify_302132_backfill_acceptance.py"
+    return subprocess.run(
+        [sys.executable, str(script), "--production", str(art["baseline"]),
+         "--clone", str(clone), "--parquet", str(art["pq"]),
+         "--run-apply", APPLY_RUN, "--run-verify", VERIFY_RUN,
+         "--expected-revision", expected_revision,
+         "--expected-production-sha256", art["base_sha"],
+         "--output", str(out)],
+        capture_output=True, text=True, timeout=120)
+
+
+def _install(tmp_path: Path, art: dict, mutate) -> Path:
+    """复制结果库并按轮同步变异父收据与独立子报告（与审查探针 install 同构）。"""
+    clone = tmp_path / "clone.duckdb"
+    shutil.copy(str(art["clone"]), str(clone))
+    for mode, rid in (("apply", APPLY_RUN), ("verify", VERIFY_RUN)):
+        receipt = copy.deepcopy(art["receipts"][mode])
+        mutate(mode, receipt)
+        child_path = tmp_path / f"child-{mode}.json"
+        child_path.write_text(
+            json.dumps(receipt["child_report"], ensure_ascii=False))
+        receipt["child_report_path"] = str(child_path)
+        (tmp_path / f"clone.duckdb.repair-backfill-execution.{rid}.json"
+         ).write_text(json.dumps(receipt, ensure_ascii=False))
+    return clone
+
+
+def _assert_structured_fail(res, out: Path, must_fail=(), must_pass=()):
+    """坏产物必红：rc=2 + 结构化 FAIL JSON（非裸异常）；指定检查必红/必绿。"""
+    assert res.returncode == 2, (res.stdout, res.stderr)
+    assert out.exists(), (res.stdout, res.stderr)
+    verdict = json.loads(out.read_text())
+    assert verdict["verdict"] == "FAIL"
+    for name in must_fail:
+        assert name in verdict["failed"], verdict["failed"]
+    for name in must_pass:
+        assert name not in verdict["failed"], verdict["failed"]
+    return verdict
+
+
+def test_acceptance_e2e_baseline_pass(e2e_art, tmp_path):
+    """好产物必绿：深 schema 加严后，真实形状的两轮产物仍通过（不用全绿替代必红）。"""
+    out = tmp_path / "out.json"
+    res = _run_acceptance(e2e_art["clone"], e2e_art, out)
+    assert res.returncode == 0, (res.stdout, res.stderr)
+    verdict = json.loads(out.read_text())
+    assert verdict["verdict"] == "PASS" and verdict["failed"] == []
+
+
+def _set0(lst, v):
+    lst[0] = v
+
+
+# 逐字段单因素变异（删除/错误类型/非法值）；每个变异同步作用于两轮收据及其
+# 独立子报告文件。全部必须结构化 FAIL（rc=2 + FAIL JSON），不允许裸异常。
+RECEIPT_MUTATIONS = [
+    # ── 子报告字段（含六轮实测发绿的 parallel_source_md5 缺失 / ok=false）──
+    ("child_missing_parallel_source_md5",
+     lambda m, r: r["child_report"].pop("parallel_source_md5")),
+    ("child_ok_false", lambda m, r: r["child_report"].update(ok=False)),
+    ("child_mode_wrong",
+     lambda m, r: r["child_report"].update(
+         mode="verify" if m == "apply" else "apply")),
+    ("child_code_dirty_true",
+     lambda m, r: r["child_report"].update(code_dirty=True)),
+    ("child_interpreter_mismatch",
+     lambda m, r: r["child_report"].update(interpreter="/other/python")),
+    ("child_trade_date_mismatch",
+     lambda m, r: r["child_report"].update(trade_date="2026-01-04")),
+    ("child_window_counts_mismatch",
+     lambda m, r: r["child_report"]["window_counts"].update({"5": 999})),
+    ("child_window_rows_mismatch",
+     lambda m, r: r["child_report"].update(window_rows=1)),
+    ("child_technical_rows_mismatch",
+     lambda m, r: r["child_report"].update(technical_rows=99)),
+    ("child_technical_staged_mismatch",
+     lambda m, r: r["child_report"].update(technical_staged=1)),
+    ("child_protected_slices_missing_key",
+     lambda m, r: r["child_report"]["protected_slices"].pop("tech_protected")),
+    ("child_spec_version_mismatch",
+     lambda m, r: r["child_report"].update(
+         spec_version="302132-backfill-other")),
+    ("child_parquet_sha_mismatch",
+     lambda m, r: r["child_report"].update(parquet_sha256="1" * 64)),
+    ("child_code_mismatch",
+     lambda m, r: r["child_report"].update(code="000001.SZ")),
+    ("child_run_id_mismatch",
+     lambda m, r: r["child_report"].update(run_id="other-run")),
+    # ── spec 字段（含六轮实测发绿的空 expected_window_counts / 缺 ma26）──
+    ("empty_expected_window_counts",
+     lambda m, r: r["spec"].update(expected_window_counts={})),
+    ("expected_window_counts_missing_key",
+     lambda m, r: r["spec"]["expected_window_counts"].pop("60")),
+    ("expected_window_counts_negative",
+     lambda m, r: r["spec"]["expected_window_counts"].update({"5": -1})),
+    ("expected_window_counts_wrong_type",
+     lambda m, r: r["spec"]["expected_window_counts"].update({"5": "59"})),
+    ("missing_nested_ma26",
+     lambda m, r: r["spec"]["pinned_technical_0911"].pop("ma26")),
+    ("pinned_technical_extra_key",
+     lambda m, r: r["spec"]["pinned_technical_0911"].update(foo=1.0)),
+    ("pinned_technical_nan",
+     lambda m, r: r["spec"]["pinned_technical_0911"].update(
+         ma26=float("nan"))),
+    ("pinned_windows_member_short",
+     lambda m, r: r["spec"].update(pinned_windows_0911=[["2026-08-28", 5.7]])),
+    ("pinned_windows_empty",
+     lambda m, r: r["spec"].update(pinned_windows_0911=[])),
+    ("pinned_windows_member_bad_type",
+     lambda m, r: r["spec"].update(
+         pinned_windows_0911=[["2026-08-28", "5.7", 7.9]])),
+    ("pinned_0911_missing_key",
+     lambda m, r: r["spec"]["pinned_0911"].pop("close")),
+    ("pinned_0911_turnover_wrong_type",
+     lambda m, r: r["spec"]["pinned_0911"].update(turnover="x")),
+    ("gap_parallel_empty", lambda m, r: r["spec"].update(gap_parallel=[])),
+    ("gap_parallel_duplicate",
+     lambda m, r: r["spec"].update(
+         gap_parallel=r["spec"]["gap_parallel"][:1] * 2
+         + r["spec"]["gap_parallel"][1:])),
+    ("gap_parallel_bad_member_type",
+     lambda m, r: _set0(r["spec"]["gap_parallel"], 123)),
+    ("gap_parallel_out_of_window",
+     lambda m, r: _set0(r["spec"]["gap_parallel"], r["spec"]["window_end"])),
+    ("gap_lists_overlap",
+     lambda m, r: _set0(r["spec"]["gap_parquet"],
+                        r["spec"]["gap_parallel"][0])),
+    ("shell_date_in_gap",
+     lambda m, r: r["spec"].update(shell_date=r["spec"]["gap_parallel"][0])),
+    ("window_order_bad",
+     lambda m, r: r["spec"].update(main_fill_end=r["spec"]["window_end"])),
+    ("shell_date_out_of_window",
+     lambda m, r: r["spec"].update(shell_date=r["spec"]["window_end"])),
+    ("spec_version_bad_prefix",
+     lambda m, r: r["spec"].update(spec_version="v9")),
+    ("spec_parquet_sha_short",
+     lambda m, r: r["spec"].update(parquet_sha256="0" * 63)),
+    ("spec_code_bad_format", lambda m, r: r["spec"].update(code="BAD")),
+    ("expected_technical_count_zero",
+     lambda m, r: r["spec"].update(expected_technical_count=0)),
+    ("expected_total_rows_zero",
+     lambda m, r: r["spec"].update(expected_total_rows=0)),
+    ("stale_technical_bad_member",
+     lambda m, r: r["spec"].update(stale_technical_dates=["not-a-date"])),
+    ("stale_window_keys_bad_member",
+     lambda m, r: r["spec"].update(stale_window_keys=[["2026-06-25"]])),
+    # ── 父收据字段 ──
+    ("parent_swapped_false", lambda m, r: r["parent"].update(swapped=False)),
+    ("parent_rc_nonzero", lambda m, r: r["parent"].update(rc=1)),
+    ("parent_run_id_mismatch", lambda m, r: r["parent"].update(run_id="x")),
+    ("backup_sha_short",
+     lambda m, r: r["backup"].update(backup_sha256="0" * 63)),
+    ("backup_run_id_mismatch", lambda m, r: r["backup"].update(run_id="x")),
+    ("child_report_error_nonnull",
+     lambda m, r: r.update(child_report_error="boom")),
+    ("trade_date_not_window_end",
+     lambda m, r: r.update(trade_date="2026-09-10")),
+    ("code_dirty_true", lambda m, r: r.update(code_dirty=True)),
+    ("interpreter_empty", lambda m, r: r.update(interpreter="")),
+    ("kind_wrong", lambda m, r: r.update(kind="other")),
+    ("run_id_mismatch", lambda m, r: r.update(run_id="other-run")),
+]
+
+
+@pytest.mark.parametrize("case,mutate", RECEIPT_MUTATIONS,
+                         ids=[c for c, _ in RECEIPT_MUTATIONS])
+def test_acceptance_receipt_mutation_fails(e2e_art, tmp_path, case, mutate):
+    """六轮 P2-1：逐字段单独变异（父收据与独立子报告同步）→ 结构化 FAIL。"""
+    clone = _install(tmp_path, e2e_art, mutate)
+    out = tmp_path / "out.json"
+    res = _run_acceptance(clone, e2e_art, out)
+    _assert_structured_fail(res, out, must_fail=SCHEMA_BOTH)
+
+
+def test_acceptance_malformed_revision_fails(e2e_art, tmp_path):
+    """六轮 P2-1：revision 非 40hex——连 --expected-revision 同步造假也必红。"""
+    def mutate(_m, r):
+        r["code_revision"] = "not-a-git-revision"
+        r["child_report"]["code_revision"] = "not-a-git-revision"
+
+    clone = _install(tmp_path, e2e_art, mutate)
+    out = tmp_path / "out.json"
+    res = _run_acceptance(clone, e2e_art, out,
+                          expected_revision="not-a-git-revision")
+    _assert_structured_fail(res, out, must_fail=("args_expected_revision_format",
+                                                 *SCHEMA_BOTH))
+
+
+def test_acceptance_verify_other_parquet_fails(e2e_art, tmp_path):
+    """六轮 P2-2：只改 verify 轮 parquet 哈希（父=子同步）必红；apply 臂不受影响。"""
+    def mutate(m, r):
+        if m == "verify":
+            r["spec"]["parquet_sha256"] = "0" * 64
+            r["child_report"]["parquet_sha256"] = "0" * 64
+
+    clone = _install(tmp_path, e2e_art, mutate)
+    out = tmp_path / "out.json"
+    res = _run_acceptance(clone, e2e_art, out)
+    _assert_structured_fail(
+        res, out,
+        must_fail=("parquet_identity_verify", "spec_alignment_apply_verify"),
+        must_pass=("parquet_identity_apply", "receipt_verify_schema"))
+
+
+def test_acceptance_apply_other_parquet_fails(e2e_art, tmp_path):
+    """P2-2 对称臂：只改 apply 轮输入哈希同样必红，verify 臂不受影响。"""
+    def mutate(m, r):
+        if m == "apply":
+            r["spec"]["parquet_sha256"] = "0" * 64
+            r["child_report"]["parquet_sha256"] = "0" * 64
+
+    clone = _install(tmp_path, e2e_art, mutate)
+    out = tmp_path / "out.json"
+    res = _run_acceptance(clone, e2e_art, out)
+    _assert_structured_fail(
+        res, out,
+        must_fail=("parquet_identity_apply", "spec_alignment_apply_verify"),
+        must_pass=("parquet_identity_verify", "receipt_apply_schema"))
+
+
+def test_acceptance_verify_spec_divergence_fails(e2e_art, tmp_path):
+    """六轮 P2-2：只改 verify 轮授权 spec（子报告同步、轮内一致）——
+    跨轮 spec 深比较无白名单，必须单独抓住。"""
+    def mutate(m, r):
+        if m == "verify":
+            r["spec"]["expected_window_counts"]["5"] += 1
+            r["child_report"]["window_counts"]["5"] += 1
+            r["child_report"]["window_rows"] += 1
+
+    clone = _install(tmp_path, e2e_art, mutate)
+    out = tmp_path / "out.json"
+    res = _run_acceptance(clone, e2e_art, out)
+    _assert_structured_fail(res, out,
+                            must_fail=("spec_alignment_apply_verify",),
+                            must_pass=SCHEMA_BOTH)
+
+
+# ── 数据库层变异（六轮 P1-1）：源/输出共同损坏不得自证通过 ──
+_GAP_DAY = CAL[3]  # 并跑段首个回填日
+_DB_MUTATIONS = [
+    # 输出与源一起改（六轮实测发绿的反例）：源表禁止变更 + 基线 oracle 双臂抓住
+    ("output_and_source_corrupted_together",
+     [f"UPDATE fact_stock_daily SET open=open+1 WHERE stock_ts_code='{CODE}' "
+      f"AND trade_date='{_GAP_DAY}'",
+      f"UPDATE fact_stock_daily_hithink SET open=open+1 "
+      f"WHERE stock_ts_code='{CODE}' AND trade_date='{_GAP_DAY}' "
+      f"AND adjusted='none'"],
+     ("hithink_source_untouched", "keyset_fullfield_oracle"), ()),
+    # 只改结果库源表：oracle 从基线读，键集仍过；整表禁止变更单独抓住
+    ("source_only_corrupted",
+     [f"UPDATE fact_stock_daily_hithink SET open=open+1 "
+      f"WHERE stock_ts_code='{CODE}' AND trade_date='{_GAP_DAY}' "
+      f"AND adjusted='none'"],
+     ("hithink_source_untouched",),
+     ("keyset_fullfield_oracle", "parallel_source_md5_binding")),
+    # 只改输出：基线 oracle 单独抓住（源表比较不受影响）
+    ("output_only_corrupted",
+     [f"UPDATE fact_stock_daily SET open=open+1 WHERE stock_ts_code='{CODE}' "
+      f"AND trade_date='{_GAP_DAY}'"],
+     ("keyset_fullfield_oracle",), ("hithink_source_untouched",)),
+    # 删结果库源行：禁止变更抓住；基线重算指纹不受影响
+    ("source_row_deleted",
+     [f"DELETE FROM fact_stock_daily_hithink WHERE stock_ts_code='{CODE}' "
+      f"AND trade_date='{_GAP_DAY}' AND adjusted='none'"],
+     ("hithink_source_untouched",), ("parallel_source_md5_binding",)),
+    # 除权源表（pre_close 口径前提）越权写入也禁止
+    ("adjustment_source_tampered",
+     [f"INSERT INTO fact_stock_adjustment_hithink VALUES "
+      f"('{CODE}', '{_GAP_DAY}', 0.1, 0.0, 0.0, 0.0, 'CNY', "
+      f"'hithink:adjustment-factors', '2026-09-14 00:00:00')"],
+     ("hithink_adjustment_untouched",), ()),
+]
+
+
+@pytest.mark.parametrize("case,sqls,must_fail,must_pass", _DB_MUTATIONS,
+                         ids=[c for c, *_ in _DB_MUTATIONS])
+def test_acceptance_db_mutation_fails(e2e_art, tmp_path, case, sqls,
+                                      must_fail, must_pass):
+    """六轮 P1-1：结果库源表/输出任何组合损坏 → 结构化 FAIL（rc=2）。"""
+    clone = _install(tmp_path, e2e_art, lambda m, r: None)
+    con = duckdb.connect(str(clone))
+    try:
+        for sql in sqls:
+            con.execute(sql)
+    finally:
+        con.close()
+    out = tmp_path / "out.json"
+    res = _run_acceptance(clone, e2e_art, out)
+    _assert_structured_fail(res, out, must_fail=must_fail, must_pass=must_pass)
