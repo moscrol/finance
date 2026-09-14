@@ -19,7 +19,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import date as date_cls, datetime
+from datetime import date as date_cls, datetime, timedelta, timezone
 from typing import Any, Mapping
 
 from intelligence import userspace
@@ -242,6 +242,51 @@ def day_of(stamp: str | None) -> str | None:
     return stamp[:10] if stamp else None
 
 
+def instant_of(stamp: str | None) -> datetime | None:
+    """ISO 时刻 → 可比较的绝对时刻；说不出绝对时刻的返回 ``None``。
+
+    时钟比较必须落在同一条时间轴上：``2026-09-13T10:00:00+08:00`` 其实早于 ``2026-09-13T03:00:00Z``，
+    按字符串比大小恰好得到相反结论（前者字典序更大）。纯日期与不带偏移的 naive 时刻各自可以指向
+    24 小时里的任何一刻，这里不替调用方假设时区——假设错了就会提前唤醒或永不唤醒——返回 ``None``，
+    由调用点按各自语义 fail closed。
+    """
+    if not stamp:
+        return None
+    raw = stamp.strip()
+    if len(raw) == 10:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else None
+
+
+# 市场日历日按东八区算（与同批 02 轨的 MARKET_TZ 同义，本模块不 import 02）：
+# 同一时刻换时区写法必须落同一天，否则同一版本会在两种写法下被放到不同的知识日（评审 J6）。
+MARKET_DAY_TZ = timezone(timedelta(hours=8))
+
+
+def market_day_of(stamp: str | None) -> str | None:
+    """记录时刻的市场日历日：带明确偏移的完整时刻先折算东八区再取日历日；
+    纯日期 / naive / 缺失说不出绝对时刻，退字符串的日期部分（与 day_of 相同）。"""
+    instant = instant_of(stamp)
+    if instant is not None:
+        return instant.astimezone(MARKET_DAY_TZ).date().isoformat()
+    return day_of(stamp)
+
+
+def stamp_grade(stamp: str | None) -> str:
+    """记录时刻的实际精度 → pit 档位（spec 01 §4「日期粒度降级，不截时分秒冒充严格回放」）。
+
+    只有带时区的完整时刻能支撑 strict 回放；纯日期与 naive 时刻都只证明「哪一天知道的」，
+    落 ``trade_date_only``。「字段非空」不是精度，不能据此升档。
+    """
+    if not stamp:
+        return "unverifiable"
+    return "strict" if instant_of(stamp) is not None else "trade_date_only"
+
+
 def validate_ref(value: Any, *, owner_user_id: str, where: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise MaintenanceContractError("invalid_ref", where, "引用缺失")
@@ -381,7 +426,8 @@ class DependencyBinding:
 
     @property
     def created_day(self) -> str:
-        return self.created_at[:10]
+        # 市场日历日：先折算东八区再取日（评审 J9）——同一时刻的 UTC 写法不得让绑定提前一天成立。
+        return market_day_of(self.created_at) or self.created_at[:10]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -451,7 +497,9 @@ def parse_binding(data: Any, *, owner_user_id: str, where: str) -> DependencyBin
         raise MaintenanceContractError("hash_for_undeclared_ref", f"{where}.baseline_source_hashes", f"这些 ref 不在 baseline_evidence_refs：{undeclared}")
     baseline_cutoff = validate_date(d.get("baseline_cutoff"), f"{where}.baseline_cutoff")
     created_at = validate_stamp(d.get("created_at"), f"{where}.created_at")
-    if baseline_cutoff > created_at[:10]:
+    # J11：解析端与使用端同一日历日口径——带偏移时刻先折算东八区再取日，
+    # 否则同一时刻的 Z/+08 写法一个被拒一个放行，+14:00 伪装也能骗过前缀比较。
+    if baseline_cutoff > (market_day_of(created_at) or created_at[:10]):
         raise MaintenanceContractError("baseline_cutoff_after_created_at", f"{where}.baseline_cutoff", "基线截止不能晚于绑定时刻")
     conditions_raw = d.get("conditions") or []
     if not isinstance(conditions_raw, list):
@@ -1264,6 +1312,8 @@ __all__ = [
     "ObjectRef",
     "canonical_json",
     "day_of",
+    "instant_of",
+    "market_day_of",
     "parse_binding",
     "parse_command",
     "parse_condition",
@@ -1278,6 +1328,7 @@ __all__ = [
     "parse_report",
     "sha256_hex",
     "short_hash",
+    "stamp_grade",
     "validate_date",
     "validate_owner",
     "validate_ref",

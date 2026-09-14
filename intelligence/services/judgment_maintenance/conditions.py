@@ -19,7 +19,8 @@ from intelligence.services.judgment_maintenance.contracts import (
     ConditionObservation,
     Gap,
     MaintenanceContractError,
-    day_of,
+    market_day_of,
+    stamp_grade,
     weakest_pit,
 )
 
@@ -110,7 +111,7 @@ def evaluate_condition(
         # 先按知识截止过滤：recorded_at 晚于截止的观测「当时还不知道」；没有 recorded_at 的只能按交易日放置。
         known: list[ConditionObservation] = []
         for obs in candidates:
-            if obs.recorded_at is not None and day_of(obs.recorded_at) > knowledge_cutoff:
+            if obs.recorded_at is not None and (market_day_of(obs.recorded_at) or "") > knowledge_cutoff:
                 continue
             known.append(obs)
         base = dict(label=pred.label, op=pred.op, value=pred.value, entity_id=cond.entity_id)
@@ -173,7 +174,9 @@ def evaluate_condition(
                     condition_ref=cond.condition_id,
                 )
             )
-        grades.append("strict" if obs.recorded_at else "trade_date_only")
+        # 与证据版本同一把尺子：观测的 recorded_at 也按实际精度定档，纯日期不冒充严格回放。
+        # 完全没有 recorded_at 时仍按交易日放置（as_of 本身可信），维持既有的 trade_date_only。
+        grades.append(stamp_grade(obs.recorded_at) if obs.recorded_at else "trade_date_only")
         readings.append(
             PredicateReading(
                 **base,

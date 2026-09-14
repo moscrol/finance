@@ -469,3 +469,354 @@ def test_unchanged_dependency_is_only_coverage_unless_policy_emits_it():
     emitted = _run([_binding({REF_A: "h1"})], versions, policy={"schema_version": jm.POLICY_SCHEMA_VERSION, "emit_unchanged": True})
     assert [(it.change_type, it.reason_code, it.action) for it in emitted.items] == [("unchanged", "no_change", "none")]
     assert emitted.counts["items_open"] == 0
+
+
+# --------------------------------------------------------------------------- #
+# 评审返修 J1：显式替代链的末端失效后，被替代的祖先不得复活成有效依据
+# --------------------------------------------------------------------------- #
+def test_expired_successor_does_not_revive_explicitly_superseded_ancestor():
+    """ann:new 于 09-10 明确 supersedes ann:old，09-12 自身过期；旧版没有单独写 expired_at。
+
+    规格 01 §4「源失效 / 缺引用 / 时间不明：unknown+gap」「恢复新版本关联旧项；更正链断裂为 gap」：
+    链末端失效 = 这条依赖现在没有有效依据，必须留一条 open 的待办，而不是退回旧版本装作没事。
+    """
+    versions = [
+        _version(REF_A, "h1", "2026-09-01T18:00:00+08:00"),
+        _version("fact_market_daily:2026-09-01-v2", "h2", "2026-09-10T18:00:00+08:00", supersedes_ref=REF_A, expired_at="2026-09-12T08:00:00+08:00"),
+    ]
+    report = _run([_binding({REF_A: "h1"})], versions)
+    live = _live(report)
+    assert len(live) == 1, [(it.change_type, it.status) for it in report.items]
+    item = live[0]
+    assert (item.change_type, item.reason_code, item.epistemic_state) == ("source_expired", "validity_ended", "unknown")
+    assert item.action == "restore_evidence" and item.status == "open"
+    # 复活的证据就是「当前依据仍是旧版」；被显式替代的祖先永不再成为 current。
+    assert [v.ref for v in item.current] != [REF_A]
+    assert report.counts["items_open"] >= 1
+    assert report.counts["objects_unverifiable"] == 1
+    assert any(g.reason == "validity_ended" for g in report.gaps)
+
+
+def test_superseded_ancestor_stays_dead_even_when_successor_validity_ends():
+    """同一条链用 valid_to 结束（而不是 expired_at）也一样：祖先已被显式替代，不能当回退目标。"""
+    versions = [
+        _version(REF_A, "h1", "2026-09-01T18:00:00+08:00"),
+        _version("fact_market_daily:2026-09-01-v2", "h2", "2026-09-10T18:00:00+08:00", supersedes_ref=REF_A, valid_to="2026-09-11"),
+    ]
+    report = _run([_binding({REF_A: "h1"})], versions)
+    live = _live(report)
+    assert [it.change_type for it in live] == ["source_expired"]
+    assert [v.ref for v in live[0].current] != [REF_A]
+
+
+def test_unsuperseded_sibling_still_serves_when_one_version_expires():
+    """反向证伪：没有被谁显式替代的版本在另一版本过期后照常回到台前，不能被一起判失效。
+
+    退场的资格来自「被显式更正」，不是「同一条链上有东西过期了」——两者混为一谈会把这条测试也判红。
+    """
+    versions = [
+        _version(REF_A, "h1", "2026-09-01T18:00:00+08:00"),
+        _version(REF_A, "h2", "2026-09-10T18:00:00+08:00", valid_from="2026-09-10", expired_at="2026-09-12T08:00:00+08:00"),
+    ]
+    report = _run([_binding({REF_A: "h1"})], versions)
+    assert _live(report) == []  # 末态回到 unchanged：没有待办
+    assert not any(it.change_type == "source_expired" for it in report.items)
+    assert not any(g.reason == "validity_ended" for g in report.gaps)
+    assert report.counts["objects_unverifiable"] == 0
+
+
+# --------------------------------------------------------------------------- #
+# 评审返修 J2：同 ref 更正（同生效起点 / 更晚记录 / 新哈希）也是替代——更正版过期后旧哈希不得复活
+# --------------------------------------------------------------------------- #
+def test_same_ref_correction_expiry_does_not_revive_replaced_hash():
+    """h2 与 h1 同 ref、同 valid_from，更晚记录、哈希不同：这是对同一版的更正，不是另一版有效期安排。
+
+    规格 01 §4「哈希变 / 显式更正：保留前后引用、requires_review；源失效 / 缺引用 / 时间不明：unknown+gap」：
+    最新已知版本过期 = 这条依赖现在没有有效依据，必须留 open 待办；退回被更正的旧哈希等于装作没事。
+    同 ref 合同禁止 supersedes_ref 自指（J3），所以隐式替代与显式替代同效：被替代者永久退场。
+    """
+    versions = [
+        _version(REF_A, "h1", "2026-09-01T18:00:00+08:00"),
+        _version(REF_A, "h2", "2026-09-10T18:00:00+08:00", expired_at="2026-09-11T18:00:00+08:00"),
+    ]
+    binding = _binding({REF_A: "h1"})
+    before_expiry = _run([binding], versions, as_of="2026-09-10", cutoff="2026-09-10")
+    assert [(it.change_type, it.status) for it in _live(before_expiry)] == [("content_changed", "open")]
+    report = _run([binding], versions)
+    live = _live(report)
+    assert len(live) == 1, [(it.change_type, it.status) for it in report.items]
+    item = live[0]
+    assert (item.change_type, item.reason_code, item.epistemic_state) == ("source_expired", "validity_ended", "unknown")
+    assert item.action == "restore_evidence" and item.status == "open"
+    assert [v.source_hash for v in item.current] == ["h2"]  # 指出最后已知版本，而不是复活 h1
+    assert report.counts["items_open"] >= 1 and report.counts["objects_unverifiable"] == 1
+    assert any(g.reason == "validity_ended" for g in report.gaps)
+
+
+def test_same_ref_correction_chain_restores_only_via_rerecord():
+    """更正链的合法回台方式是把旧哈希重新记录一次（新的 known_day），不是靠前一条记录复活。"""
+    versions = [
+        _version(REF_A, "h1", "2026-09-01T18:00:00+08:00"),
+        _version(REF_A, "h2", "2026-09-10T18:00:00+08:00", expired_at="2026-09-11T18:00:00+08:00"),
+        _version(REF_A, "h1", "2026-09-12T09:00:00+08:00"),
+    ]
+    report = _run([_binding({REF_A: "h1"})], versions)
+    assert _live(report) == []  # 末态 unchanged：h1 以新记录回到台前，没有待办
+    assert not any(it.change_type == "source_expired" and it.status == "open" for it in report.items)
+    assert report.counts["objects_unverifiable"] == 0
+
+
+# --------------------------------------------------------------------------- #
+# 评审返修 J4/J5：记录先后按真实时刻比；同刻不同哈希保留歧义，哈希序不冒充先后
+# --------------------------------------------------------------------------- #
+def _j4_view(versions):
+    report = _run(
+        [_binding({REF_A: "h1"}, created_at="2026-09-10T12:00:00+08:00", baseline_cutoff="2026-09-10")],
+        versions,
+    )
+    return {
+        "counts": report.counts,
+        "pit_grade": report.pit_grade,
+        "gaps": sorted(g.reason for g in report.gaps),
+        "live": [
+            (it.change_type, it.status, it.epistemic_state, [v.source_hash for v in it.current], sorted(g.reason for g in it.gaps))
+            for it in _live(report)
+        ],
+    }
+
+
+def test_same_ref_correction_orders_by_recorded_instant_not_string():
+    """J4：h2 登记 03:00Z = 北京时间 11:00，比 h1 的 10:00+08 更晚。
+
+    ISO 文本顺序会把 h2 当成较旧记录（"03" < "10"），h2 过期后 h1 复活、待办消失。
+    同一时刻换一种合法写法不得改变业务结论：两种写法的评估视图必须逐字段一致，
+    且结论都是「更正版过期、旧哈希不复活」（source_expired / open / unknown）。
+    """
+    mixed = [
+        _version(REF_A, "h1", "2026-09-10T10:00:00+08:00"),
+        _version(REF_A, "h2", "2026-09-10T03:00:00Z", expired_at="2026-09-11T18:00:00+08:00"),
+    ]
+    normalized = [
+        _version(REF_A, "h1", "2026-09-10T10:00:00+08:00"),
+        _version(REF_A, "h2", "2026-09-10T11:00:00+08:00", expired_at="2026-09-11T18:00:00+08:00"),
+    ]
+    assert _j4_view(mixed) == _j4_view(normalized)
+    view = _j4_view(mixed)
+    assert view["live"] == [("source_expired", "open", "unknown", ["h2"], ["validity_ended"])]
+    assert view["counts"]["items_open"] == 1
+
+
+def test_same_instant_distinct_hash_keeps_ambiguous_version_order():
+    """J5：同 ref、同 valid_from、完全相同 recorded_at、不同哈希——分不出先后。
+
+    哈希排序只保证输出确定，不能证明版本先后：两个版本都不得被对方退休，
+    ambiguous_version_order 歧义提示必须保留（修前行为，J2 修复不得把它吃掉）。
+    """
+    versions = [
+        _version(REF_A, "h1", "2026-09-10T10:00:00+08:00"),
+        _version(REF_A, "h2", "2026-09-10T10:00:00+08:00"),
+    ]
+    report = _run([_binding({REF_A: "h1"}, created_at="2026-09-10T12:00:00+08:00", baseline_cutoff="2026-09-10")], versions)
+    assert any(g.reason == "ambiguous_version_order" for g in report.gaps)
+
+
+# --------------------------------------------------------------------------- #
+# 评审返修 S2：只有日期的 recorded_at 不得升为 strict（规格 01 §4 日期粒度降级）
+# --------------------------------------------------------------------------- #
+def test_date_only_recorded_at_is_never_strict():
+    versions = [
+        _version(REF_A, "h1", "2026-09-01"),
+        _version(REF_A, "h2", "2026-09-11"),
+    ]
+    report = _run([_binding({REF_A: "h1"})], versions)
+    item = _live(report)[0]
+    assert item.change_type == "content_changed"
+    assert item.pit_grade == "trade_date_only"
+    assert report.pit_grade == "trade_date_only"
+
+
+def test_naive_recorded_at_without_offset_is_never_strict():
+    """没有时区的时分秒不是可靠时刻：不能凭「字段非空」升 strict。"""
+    versions = [
+        _version(REF_A, "h1", "2026-09-01T18:00:00"),
+        _version(REF_A, "h2", "2026-09-11T18:00:00"),
+    ]
+    report = _run([_binding({REF_A: "h1"})], versions)
+    item = _live(report)[0]
+    assert item.pit_grade == "trade_date_only"
+    assert report.pit_grade == "trade_date_only"
+
+
+def test_complete_fixture_truncated_to_dates_loses_strict_everywhere():
+    payload = _load("complete")
+    for group in ("evidence_versions", "condition_observations"):
+        for row in payload[group]:
+            if row.get("recorded_at"):
+                row["recorded_at"] = row["recorded_at"][:10]
+    report = _assess(payload)
+    assert report.pit_grade != "strict"
+    assert "strict" not in {it.pit_grade for it in report.items}
+
+
+def _dep_view(result: jm.MaintenanceReport) -> dict:
+    return {
+        "counts": result.counts,
+        "pit_grade": result.pit_grade,
+        "gaps": [g.reason for g in result.gaps],
+        "live": [
+            {"change": i.change_type, "status": i.status, "hash": [v.source_hash for v in i.current], "gaps": [g.reason for g in i.gaps]}
+            for i in _live(result)
+        ],
+    }
+
+
+def test_same_instant_cross_midnight_representation_same_view():
+    """J6：known_day 必须先折算市场时区再取日历日——同一时刻的 Z 写法与 +08:00 写法逐字段一致。"""
+    binding = _binding({"ann:old": "h1"}, created_at="2026-09-10T12:00:00+08:00", baseline_cutoff="2026-09-10")
+    mixed = [_version("ann:old", "h1", "2026-09-10T10:00:00+08:00"), _version("ann:old", "h2", "2026-09-11T16:30:00Z")]
+    normalized = [_version("ann:old", "h1", "2026-09-10T10:00:00+08:00"), _version("ann:old", "h2", "2026-09-12T00:30:00+08:00")]
+    mixed_view = _dep_view(_run([binding], mixed, as_of="2026-09-11", cutoff="2026-09-11"))
+    normalized_view = _dep_view(_run([binding], normalized, as_of="2026-09-11", cutoff="2026-09-11"))
+    assert mixed_view == normalized_view
+
+
+def test_incomparable_recorded_precision_keeps_ambiguous_version_order():
+    """J7：naive 与带偏移的记录时刻不可比——不得静默定序，必须留 ambiguous_version_order。"""
+    binding = _binding({"ann:old": "h1"}, created_at="2026-09-10T12:00:00+08:00", baseline_cutoff="2026-09-10")
+    mixed = [_version("ann:old", "h1", "2026-09-10T10:00:00"), _version("ann:old", "h2", "2026-09-10T10:00:00+08:00")]
+    actual = _run([binding], mixed, as_of="2026-09-12", cutoff="2026-09-12")
+    assert "ambiguous_version_order" in [g.reason for g in actual.gaps]
+    # 双向补齐负控：同一墙面时刻补上偏移后先后可证，歧义消失、结论各归其位
+    early = [_version("ann:old", "h1", "2026-09-10T10:00:00+09:00"), _version("ann:old", "h2", "2026-09-10T10:00:00+08:00")]
+    fill_early = _run([binding], early, as_of="2026-09-12", cutoff="2026-09-12")
+    assert fill_early.counts["items_open"] == 1
+    assert "ambiguous_version_order" not in [g.reason for g in fill_early.gaps]
+    late = [_version("ann:old", "h1", "2026-09-10T10:00:00+07:00"), _version("ann:old", "h2", "2026-09-10T10:00:00+08:00")]
+    fill_late = _run([binding], late, as_of="2026-09-12", cutoff="2026-09-12")
+    assert fill_late.counts["items_open"] == 0
+    assert "ambiguous_version_order" not in [g.reason for g in fill_late.gaps]
+
+
+def test_ambiguous_unchanged_not_swallowed_by_unchanged_early_return():
+    """J5-补充：歧义 + 绑定恰好等于排序胜出者——unchanged 早退不得吞掉歧义提示。"""
+    versions = [_version("ann:old", "h1", "2026-09-10T10:00:00+08:00"), _version("ann:old", "h0", "2026-09-10T10:00:00+08:00")]
+    result = _run(
+        [_binding({"ann:old": "h1"}, created_at="2026-09-10T12:00:00+08:00", baseline_cutoff="2026-09-10")],
+        versions,
+        as_of="2026-09-12",
+        cutoff="2026-09-12",
+    )
+    assert "ambiguous_version_order" in [g.reason for g in result.gaps]
+    live = _live(result)
+    assert len(live) == 1
+    assert live[0].change_type == "unchanged"
+    assert live[0].status == "open"
+    assert "ambiguous_version_order" in [g.reason for g in live[0].gaps]
+
+
+def test_binding_created_day_uses_market_day_not_string_prefix():
+    """J9：绑定创建日按市场时区取日——上海 09-12 00:30 创建的绑定，回放 09-11 不得提前成立。"""
+    versions = [_version("ann:old", "h1", "2026-09-10T10:00:00+08:00"), _version("ann:old", "h2", "2026-09-11T10:00:00+08:00")]
+    for stamp in ("2026-09-11T16:30:00Z", "2026-09-12T00:30:00+08:00"):
+        binding = _binding({"ann:old": "h1"}, created_at=stamp, baseline_cutoff="2026-09-10")
+        result = _run([binding], versions, as_of="2026-09-11", cutoff="2026-09-11")
+        assert result.counts["objects_bound"] == 0, stamp
+    # 合法对照：上海 09-11 23:30 创建，当日回放照常成立
+    binding = _binding({"ann:old": "h1"}, created_at="2026-09-11T15:30:00Z", baseline_cutoff="2026-09-10")
+    assert _run([binding], versions, as_of="2026-09-11", cutoff="2026-09-11").counts["objects_bound"] == 1
+
+
+def test_condition_observation_uses_market_day_for_cutoff():
+    """J8：条件观测的知识日同样先折算市场时区——同一时刻的 Z 写法不得越过知识截止提前触发。"""
+    binding = _binding({"ann:old": "h1"}, created_at="2026-09-10T12:00:00+08:00", baseline_cutoff="2026-09-10", conditions=[_condition()])
+    versions = [_version("ann:old", "h1", "2026-09-10T10:00:00+08:00")]
+
+    def condition_result(recorded: str):
+        obs = _obs("market_stage", "反弹", as_of="2026-09-11", recorded=recorded)
+        result = _run([binding], versions, [obs], as_of="2026-09-11", cutoff="2026-09-11")
+        return next(i for i in result.items if i.condition_result is not None).condition_result
+
+    assert condition_result("2026-09-11T15:30:00Z") == "true"  # 上海 23:30 当日已知（合法对照）
+    assert condition_result("2026-09-12T00:30:00+08:00") == "unknown"  # 上海次日，越截止
+    assert condition_result("2026-09-11T16:30:00Z") == "unknown"  # 同一时刻的 Z 写法，同样越截止
+
+
+def test_ambiguity_transition_survives_item_dedup():
+    """J10：歧义进入时间轴后项身份必须区分——同 id 去重不得把 open 项丢成 superseded。"""
+    binding = _binding({"ann:old": "h1"}, created_at="2026-09-10T12:00:00+08:00", baseline_cutoff="2026-09-10")
+    versions = [
+        _version("ann:old", "h1", "2026-09-10T09:00:00+08:00"),
+        _version("ann:old", "h2", "2026-09-10T20:00:00", valid_from="2026-09-02"),  # naive，与 h0 不可比
+        _version("ann:old", "h0", "2026-09-11T00:30:00+08:00", valid_from="2026-09-02"),
+    ]
+    before = _run([binding], versions, as_of="2026-09-10", cutoff="2026-09-10")
+    assert before.counts["items_open"] == 1
+    after = _run([binding], versions, as_of="2026-09-12", cutoff="2026-09-12")
+    assert after.counts["items_open"] == 1
+    assert "ambiguous_version_order" in [g.reason for g in after.gaps]
+    open_items = _live(after)
+    assert len(open_items) == 1
+    assert "ambiguous_version_order" in [g.reason for g in open_items[0].gaps]
+    superseded = [i for i in after.items if i.status == "superseded"]
+    assert superseded, "旧项应保留为 superseded"
+    assert open_items[0].id != superseded[0].id
+    assert open_items[0].supersedes_item_id == superseded[0].id
+
+
+def test_ambiguity_resolved_keeps_open_item_and_audit_gap():
+    """J10 延伸：歧义出现后又消解（纯日期竞争者过期）时，末态与首态同 id——
+    去重必须留下仍 open 的项（变迁仍待复核），歧义提示留在审计轨迹里。"""
+    binding = _binding({"ann:old": "h1"}, created_at="2026-09-10T12:00:00+08:00", baseline_cutoff="2026-09-10")
+    versions = [
+        _version("ann:old", "h1", "2026-09-10T09:00:00+08:00"),
+        _version("ann:old", "h2", "2026-09-10T20:00:00+08:00"),
+        _version("ann:old", "h0", "2026-09-11", expired_at="2026-09-12T10:00:00+08:00"),  # 纯日期，不可比
+    ]
+    result = _run([binding], versions, as_of="2026-09-12", cutoff="2026-09-12")
+    assert result.counts["items_open"] == 1
+    open_items = _live(result)
+    assert open_items[0].change_type == "content_changed"
+    assert "ambiguous_version_order" not in [g.reason for g in open_items[0].gaps]  # 已消解
+    assert "ambiguous_version_order" in [g.reason for g in result.gaps]  # 审计轨迹保留
+
+
+def test_binding_validation_created_day_uses_market_day():
+    """J11：绑定解析端的「基线截止不能晚于绑定时刻」也按市场日判——
+    同一时刻的 Z/+08 写法结论一致；偏移量伪装（+14:00 写出 09-12 前缀实际是上海 09-11）必须拒绝。"""
+    versions = [_version("ann:old", "h1", "2026-09-12T00:00:00+08:00")]
+    for stamp in ("2026-09-11T16:30:00Z", "2026-09-12T00:30:00+08:00"):
+        binding = _binding({"ann:old": "h1"}, created_at=stamp, baseline_cutoff="2026-09-12")
+        assert _run([binding], versions).counts["objects_bound"] == 1
+    for stamp in ("2026-09-11T18:30:00+08:00", "2026-09-12T00:30:00+14:00"):
+        with pytest.raises(jm.MaintenanceContractError) as excinfo:
+            _run([_binding({"ann:old": "h1"}, created_at=stamp, baseline_cutoff="2026-09-12")], versions)
+        assert excinfo.value.code == "baseline_cutoff_after_created_at"
+
+
+def test_resolution_chain_stays_acyclic_and_preserves_history():
+    """J12：歧义出现又消解（A→B→A）时，复现节点必须有独立身份——
+    替代链保持线性无环，三个历史节点都留在报告里，B 回指初态 A 而不是未来节点。"""
+    binding = _binding({"ann:old": "h1"}, created_at="2026-09-10T12:00:00+08:00", baseline_cutoff="2026-09-10")
+    versions = [
+        _version("ann:old", "h1", "2026-09-10T09:00:00+08:00"),
+        _version("ann:old", "h2", "2026-09-10T20:00:00+08:00"),
+        _version("ann:old", "h0", "2026-09-11", expired_at="2026-09-12T10:00:00+08:00"),
+    ]
+    result = _run([binding], versions, as_of="2026-09-12", cutoff="2026-09-12")
+    assert result.counts["items_open"] == 1
+    assert "ambiguous_version_order" in [g.reason for g in result.gaps]
+    assert len(result.items) == 3
+    assert len({i.id for i in result.items}) == 3
+    by_id = {i.id: i for i in result.items}
+    for item in result.items:  # 沿 supersedes 指针不得成环
+        seen: list[str] = []
+        pointer = item.id
+        while pointer in by_id:
+            assert pointer not in seen
+            seen.append(pointer)
+            pointer = by_id[pointer].supersedes_item_id
+    open_item = _live(result)[0]
+    middle = by_id[open_item.supersedes_item_id]
+    assert middle.status == "superseded" and "ambiguous_version_order" in [g.reason for g in middle.gaps]
+    first = by_id[middle.supersedes_item_id]
+    assert first.status == "superseded" and first.first_known_day == "2026-09-10" and first.supersedes_item_id is None

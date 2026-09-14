@@ -12,7 +12,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Any
 
@@ -30,13 +30,15 @@ from intelligence.services.judgment_maintenance.contracts import (
     MaintenancePolicy,
     MaintenanceReport,
     canonical_json,
-    day_of,
+    instant_of,
+    market_day_of,
     parse_binding,
     parse_evidence_version,
     parse_observation,
     parse_policy,
     sha256_hex,
     short_hash,
+    stamp_grade,
     validate_date,
     validate_owner,
     validate_stamp,
@@ -74,7 +76,7 @@ def _as_list(value: Any, where: str) -> list[Any]:
 class _Placed:
     version: EvidenceVersion
     known_day: str  # 系统何时知道（recorded_at 的日期）；没有就退到 valid_from
-    knowledge_grade: str  # strict：有 recorded_at；trade_date_only：只按交易日放置
+    knowledge_grade: str  # strict：recorded_at 是带时区的完整时刻；trade_date_only：只知道哪一天
 
 
 def _place(versions: list[EvidenceVersion], *, checked_at: str) -> tuple[dict[str, list[_Placed]], list[Gap]]:
@@ -82,7 +84,9 @@ def _place(versions: list[EvidenceVersion], *, checked_at: str) -> tuple[dict[st
     gaps: list[Gap] = []
     for v in versions:
         if v.recorded_at:
-            placed = _Placed(v, day_of(v.recorded_at) or "", "strict")
+            # 档位按 recorded_at 的实际精度算：纯日期 / 无时区的时刻只到 trade_date_only（spec 01 §4）。
+            # known_day 是市场日历日：先折算东八区再取日，同一时刻换时区写法落同一天（评审 J6）。
+            placed = _Placed(v, market_day_of(v.recorded_at) or "", stamp_grade(v.recorded_at))
         elif v.valid_from:
             placed = _Placed(v, v.valid_from, "trade_date_only")
         else:
@@ -134,25 +138,66 @@ class _State:
     ambiguous: bool = False
 
     def signature(self) -> tuple[Any, ...]:
+        # ambiguous 进签名：歧义出现/消解本身就是时间轴上的转折，不能被相邻同签名状态吞掉。
         if self.current is None:
-            return (self.kind, None, None)
-        return (self.kind, self.current.version.ref, self.current.version.source_hash)
+            return (self.kind, None, None, self.ambiguous)
+        return (self.kind, self.current.version.ref, self.current.version.source_hash, self.ambiguous)
 
 
 def _sort_key(p: _Placed) -> tuple[str, str, str]:
     # 先看 as_of 那天谁在生效（valid_from 最晚），再看谁更晚被记录（后知更正压前），最后哈希序兜底确定性。
-    return (p.version.valid_from or p.known_day, p.version.recorded_at or "", p.version.source_hash or "")
+    # recorded_at 按真实时刻排（J4）：同一时刻的不同时区写法是同一时刻，ISO 文本顺序会给出相反结论；
+    # 说不出绝对时刻的（纯日期 / naive / 缺失）留原文兜底——只用于输出确定性，不充当先后证据。
+    instant = instant_of(p.version.recorded_at)
+    recorded = instant.astimezone(timezone.utc).isoformat() if instant is not None else (p.version.recorded_at or "")
+    return (p.version.valid_from or p.known_day, recorded, p.version.source_hash or "")
 
 
 def _state_at(root_ref: str, baseline_hash: str | None, chain_refs: list[str], by_ref: dict[str, list[_Placed]], *, as_of: str, day: str) -> _State:
     placed = [p for r in chain_refs for p in by_ref.get(r, []) if p.known_day <= day]
     if not placed:
         return _State("unresolved", None)
+    # 显式更正一旦在 as_of 生效，被替代的那个 ref 就永久退场：后继自己再失效也不能把它复活成有效依据，
+    # 否则「来源已被撤回」会表现成「没有需要维护的问题」（spec 01 §4：更正链断裂为 gap，不默认回退祖先）。
+    # 只认已经生效的更正——后继若在 as_of 之后才成立，当天仍该看旧版本。
+    retired_refs = {
+        p.version.supersedes_ref
+        for p in placed
+        if p.version.supersedes_ref and (p.version.valid_from or p.known_day) <= as_of
+    }
+    # 同 ref 的更正也是替代（J2）：同一生效起点（valid_from，缺省退回 known_day）、更晚被记录、哈希不同，
+    # 就是来源把同一版内容改了——被更正的旧记录永久退场，更正版自己再失效也不能把它复活成有效依据。
+    # 同 ref 合同禁止 supersedes_ref 自指，所以这层隐式替代与上面的显式替代同效。
+    # 生效起点不同的新版本不在此列：那是另一版有效期安排，旧版从未被替代，过期后照常回台（见既有同级测试）。
+    retired_same_ref: set[int] = set()
+    by_ref_group: dict[str, list[_Placed]] = {}
+    for p in placed:
+        by_ref_group.setdefault(p.version.ref, []).append(p)
+    for group in by_ref_group.values():
+        if len(group) < 2:
+            continue
+        for p in group:
+            p_from = p.version.valid_from or p.known_day
+            if p_from > as_of:
+                continue  # p 在 as_of 本就不成立，谈不上被谁替代
+            for q in group:
+                if q is p or q.version.source_hash == p.version.source_hash:
+                    continue
+                if (q.version.valid_from or q.known_day) != p_from:
+                    continue
+                # J4/J5：退休只认「已证明的严格更晚记录」——按真实时刻比（instant_of，同一时刻换时区写法
+                # 结论不变）；时刻相同或说不出绝对时刻（纯日期 / naive / 缺失）都不算更晚，两个版本都留下，
+                # 歧义由 ambiguous_version_order 提示。哈希序只用于输出确定性，不是先后证据。
+                q_instant = instant_of(q.version.recorded_at)
+                p_instant = instant_of(p.version.recorded_at)
+                if q_instant is not None and p_instant is not None and q_instant > p_instant:
+                    retired_same_ref.add(id(p))
+                    break
     live: list[_Placed] = []
     ended: list[_Placed] = []
     for p in placed:
         v = p.version
-        if v.expired_at and (day_of(v.expired_at) or "") <= day:
+        if v.expired_at and (market_day_of(v.expired_at) or "") <= day:
             ended.append(p)
             continue
         effective_from = v.valid_from or p.known_day
@@ -161,14 +206,26 @@ def _state_at(root_ref: str, baseline_hash: str | None, chain_refs: list[str], b
         if v.valid_to and v.valid_to < as_of:
             ended.append(p)
             continue
+        if v.ref in retired_refs or id(p) in retired_same_ref:
+            ended.append(p)  # 已被更正（显式或同 ref 隐式）：留在 ended 里只为让「整条链都没了」时还能指出最后一版是什么
+            continue
         live.append(p)
     if not live:
         if ended:
             return _State("expired", max(ended, key=_sort_key))
         return _State("unresolved", None)
     current = max(live, key=_sort_key)
+    # J5/J7：「current 是最新版」必须能对每个同生效起点的竞争者证明。证明不了就是歧义：
+    # 同一时刻的不同哈希写法（J5），或任一方说不出精确时刻（J7：纯日期 / naive / 缺失——
+    # 不可比时间不得静晕参与 current 选择，必须留 ambiguous_version_order）。
+    # 生效起点不同的版本按有效期排序，不靠记录时刻定先后，不在此列。
+    current_from = current.version.valid_from or current.known_day
+    current_instant = instant_of(current.version.recorded_at)
     ambiguous = any(
-        p is not current and _sort_key(p)[:2] == _sort_key(current)[:2] and p.version.source_hash != current.version.source_hash
+        p is not current
+        and p.version.source_hash != current.version.source_hash
+        and (p.version.valid_from or p.known_day) == current_from
+        and (instant_of(p.version.recorded_at) is None or current_instant is None or instant_of(p.version.recorded_at) == current_instant)
         for p in live
     )
     if current.version.ref == root_ref:
@@ -206,27 +263,31 @@ def _dedup_key(
     after_hash: str | None,
     change_type: str,
     reason_code: str,
+    ambiguous: bool = False,
     condition_ref: str | None = None,
     expression_digest: str | None = None,
     window: str | None = None,
 ) -> str:
-    return canonical_json(
-        {
-            "owner_user_id": owner,
-            "object": list(binding.object_ref.identity()),
-            "binding_id": binding.binding_id,
-            "binding_version": binding.binding_version,
-            "dependency_ref": dependency_ref,
-            "before_hash": before_hash,
-            "after_ref": after_ref,
-            "after_hash": after_hash,
-            "change_type": change_type,
-            "reason_code": reason_code,
-            "condition_ref": condition_ref,
-            "expression_digest": expression_digest,
-            "window": window,
-        }
-    )
+    payload = {
+        "owner_user_id": owner,
+        "object": list(binding.object_ref.identity()),
+        "binding_id": binding.binding_id,
+        "binding_version": binding.binding_version,
+        "dependency_ref": dependency_ref,
+        "before_hash": before_hash,
+        "after_ref": after_ref,
+        "after_hash": after_hash,
+        "change_type": change_type,
+        "reason_code": reason_code,
+        "condition_ref": condition_ref,
+        "expression_digest": expression_digest,
+        "window": window,
+    }
+    # 歧义进项身份（J10）：同一变迁「顺序可证」与「顺序有歧义」是两个不同状态，同 id 会被
+    # 末端去重留下旧项弃掉新项。只在有歧义时加键——无歧义项的 dedup_key 保持字节不变。
+    if ambiguous:
+        payload["ambiguous"] = True
+    return canonical_json(payload)
 
 
 def _dependency_items(
@@ -291,17 +352,19 @@ def _dependency_items(
             after_hash=after_hash,
             change_type=change_type,
             reason_code=reason_code,
+            ambiguous=state.ambiguous,
         )
-        item_version = short_hash(
-            {
-                "before": [before.to_dict()],
-                "current": [v.to_dict() for v in current],
-                "binding_id": binding.binding_id,
-                "binding_version": binding.binding_version,
-                "change_type": change_type,
-                "reason_code": reason_code,
-            }
-        )
+        version_payload = {
+            "before": [before.to_dict()],
+            "current": [v.to_dict() for v in current],
+            "binding_id": binding.binding_id,
+            "binding_version": binding.binding_version,
+            "change_type": change_type,
+            "reason_code": reason_code,
+        }
+        if state.ambiguous:
+            version_payload["ambiguous"] = True
+        item_version = short_hash(version_payload)
         return MaintenanceItem(
             id=_item_id(key),
             item_version=item_version,
@@ -339,7 +402,7 @@ def _dependency_items(
         for p in by_ref.get(r, []):
             if start < p.known_day <= cutoff:
                 days.add(p.known_day)
-            expired_day = day_of(p.version.expired_at)
+            expired_day = market_day_of(p.version.expired_at)
             if expired_day and start < expired_day <= cutoff:
                 days.add(expired_day)
     timeline: list[tuple[str, _State]] = []
@@ -351,14 +414,27 @@ def _dependency_items(
     unresolved_override = ("dependency_missing", "time_metadata_missing", "unknown", "restore_evidence") if ref_time_gaps else None
     items: list[MaintenanceItem] = []
     previous_id: str | None = None
+    seen_base_ids: set[str] = set()
     for index, (day, state) in enumerate(timeline):
         is_last = index == len(timeline) - 1
-        if state.kind == "unchanged":
+        if state.kind == "unchanged" and not state.ambiguous:
             if is_last and policy.emit_unchanged:
                 items.append(build(day, state, status="open", supersedes=previous_id))
             continue
-        override = unresolved_override if state.kind == "unresolved" else None
+        if state.kind == "unchanged":
+            # J5-补充：顺序有歧义时「没观察到变化」本身不可证实——不能像普通 unchanged 一样静默略过，
+            # 必须建项把 ambiguous_version_order 摆到台面上（epistemic unknown → 计入 unverifiable）。
+            override = ("unchanged", "ambiguous_version_order", "unknown", "review_evidence")
+        else:
+            override = unresolved_override if state.kind == "unresolved" else None
         item = build(day, state, status="open" if is_last else "superseded", supersedes=previous_id, override=override)
+        # J12：同一内容状态在一条链上复现（歧义出现又消解的 A→B→A）时，「内容相同」不等于
+        # 「历史上同一次出现」——复现节点拿独立 id（dedup_key 不动，跨报告归并语义不变），
+        # 否则 supersedes 链成环、末端去重还会把 open 项错换成初态。
+        base_id = item.id
+        if base_id in seen_base_ids:
+            item = replace(item, id=_item_id(f"{item.dedup_key}#recur:{day}"))
+        seen_base_ids.add(base_id)
         items.append(item)
         previous_id = item.id
     final_day, final_state = timeline[-1]
@@ -567,7 +643,7 @@ def assess(
 
     unique_items: dict[str, MaintenanceItem] = {}
     for it in sorted(items, key=_item_sort_key):
-        unique_items.setdefault(it.id, it)
+        unique_items.setdefault(it.id, it)  # id 由构造保证链内唯一（J10/J12），此处仅作安全去重
     final_items = tuple(unique_items.values())
     gap_pool: dict[tuple[Any, ...], Gap] = {}
     for g in report_gaps + [g for it in final_items for g in it.gaps]:

@@ -113,3 +113,87 @@ M1 合取先看 unknown、M2 去掉知识截止过滤、M3 dedup_key 去掉 owne
 1. 06：按 `BLOCKED.md` 五条接线；接线时把 06 侧 `EvidenceVersion` 构造与本包 `parse_evidence_version` 的拒绝码对齐成 UI 业务码。
 2. 02 / 04：直接消费 `fixtures/research_evolution/01/*/expected.json`；02 注意 `condition_result=true` 且 `condition_role ∈ {abandon, downgrade}` 才是「明确登记的条件角色及已观测触发」，`content_changed` 最多是 review_changed_evidence。
 3. 合并前（等用户确认）：在本工作树跑现役等价 CI（`ruff check . && pytest -q` 全仓）+ registry/e2e 门禁；本轨未动前端与注册表。
+
+---
+
+## 2026-09-13 返修（评审 J1 / S1 / S2）
+
+评审报告 `/Users/a77/.finance-runtime/reviews/research-evolution-20260913/review.md` 对本轨提了 3 条（需求符合性 J1、规范轴 S1/S2，附属复现「到期后同命令重试不幂等」并入 S1）。三条均已修复；每条先写调用真实函数的回归测试并证明现版红，再改实现。**没有改判定口径以外的输出 schema，`complete / missing_source / legacy` 三份冻结夹具逐字节不变**（golden 测试与 02 的输入快照双向确认，见下）。
+
+### J1 [P1]：新版过期后，被显式替代的旧版复活成有效依据
+
+- **根因**：`assess.py::_state_at` 把 `expired_at` / `valid_to` 已结束的后继移出 `live` 后，直接 `max(live)` 取当前版本，而 `live` 里仍留着被 `supersedes_ref` 显式替代的祖先——祖先于是「继承」了失效后继的位置。
+- **修法**：在 `_state_at` 里先算 `retired_refs`（截至 `day` 已知、且在 `as_of` 当天已生效的更正所指向的 `supersedes_ref`），这些 ref 的版本一律不进 `live`，改进 `ended`。链上所有版本都失效时仍能指出最后一版是什么（`current` = `ended` 里最晚的那条），末态落 `source_expired / validity_ended / unknown / restore_evidence` + `validity_ended` gap。
+  只认**已生效**的更正：后继若在 `as_of` 之后才成立，当天仍看旧版本，不提前退场。
+- **新测试**：`test_expired_successor_does_not_revive_explicitly_superseded_ancestor`、`test_superseded_ancestor_stays_dead_even_when_successor_validity_ends`（`valid_to` 结束的同形场景）、`test_unsuperseded_sibling_still_serves_when_one_version_expires`（反向证伪：退场资格来自「被显式更正」而非「链上有东西过期了」，把两者混为一谈这条会红）。
+- **修前 → 修后**：`AssertionError: [('source_corrected', 'superseded')]`，`_live` 为空、`items_open=0`、`objects_unverifiable=0` → `items_open=1`、`objects_unverifiable=1`，open 项的 `current` 是 `ann:new` 而非复活的 `ann:old`。
+
+### S1 [P2]：暂缓时刻按 ISO 字符串比较 + 到期后同命令重试不幂等
+
+- **根因**：`actions.py:65`（`wake_if_expired`）、`:204`（`validate_action`）、`:127`（`apply_event` snoozed 分支）都在比 ISO 字符串。`"2026-09-13T10:00:00+08:00"` 的字典序大于 `"2026-09-13T03:00:00Z"`，实际却早 5 小时，于是同一时刻换个写法就得到相反结论。另外 `validate_action` 把 `snooze_until` 有效性检查放在幂等判定之前，同一条已成功的命令在到期后重试变成 `rejected/invalid_snooze_until`，违反 spec 01 §5「重复同载荷同结果」。
+- **修法**：`contracts.py` 新增 `instant_of(stamp) -> datetime | None`（唯一的时刻解析器，纯日期与无偏移的 naive 时刻返回 `None`，不替调用方假设时区）；`actions.py` 用它实现 `_deadline_reached` / `_is_future`，三处比较全部改走绝对时刻。`validate_action` 改为先按 `command_id + payload_digest` 判定是否重放，重放不再过时钟闸。
+- **取舍（口径收紧，需知悉）**：说不出绝对时刻的 `snooze_until`（纯日期 `2026-09-20`、无偏移 `2026-09-13T10:00:00`）从「按字符串侥幸通过」改为 `rejected/invalid_snooze_until`。理由是接受它就得替用户补一个时分秒或时区，正是 spec 01 §4 与总合同 §5.4 禁止的事；唤醒侧则反向 fail closed——证不出已到期就保持 `snoozed`，未知不能变成「已经解除」。既有测试与 `actions` 夹具的时刻全部带 `+08:00`，不受影响。
+- **新测试**：`test_snooze_until_in_the_future_accepted_when_written_in_another_zone`、`test_expired_snooze_wakes_even_when_now_is_written_in_utc`、`test_equivalent_instants_in_different_zones_give_the_same_verdict`、`test_same_snooze_command_replays_after_its_deadline_passed`、`test_snooze_until_without_a_usable_instant_is_rejected_not_guessed`。
+- **修前 → 修后**：`rejected/invalid_snooze_until`（实际还有 30 分钟）→ `accepted`；已过期 1 小时仍 `snoozed` → `open`；到期后重试 `rejected/invalid_snooze_until` → `replayed/duplicate_command`。
+
+### S2 [P2]：只有日期的 `recorded_at` 被升成 strict
+
+- **根因**：`assess.py:84` 只要 `recorded_at` 非空就赋 `strict`，而 `validate_stamp` 明确接受纯日期；`conditions.py:176` 对观测同样按「字段非空」判档。「字段非空」不是精度。
+- **修法**：`contracts.py` 新增 `stamp_grade(stamp)`，按 `instant_of` 的结果定档——带时区的完整时刻 `strict`，纯日期与 naive 时刻 `trade_date_only`。`_place` 与条件判定改用它。观测完全没有 `recorded_at` 时仍按交易日放置（`as_of` 本身可信），维持既有 `trade_date_only`，不降成 `unverifiable`。
+- **naive 时刻的落点**：选 `trade_date_only` 而非 `unverifiable`——我们确实知道是哪一天记录的，只是不知道那一天的哪一刻；判 `unverifiable` 会把「日粒度可回放」错报成「完全不可回放」。已写进 `test_naive_recorded_at_without_offset_is_never_strict`。
+- **新测试**：`test_date_only_recorded_at_is_never_strict`、`test_naive_recorded_at_without_offset_is_never_strict`、`test_complete_fixture_truncated_to_dates_loses_strict_everywhere`（把 complete 夹具的 `recorded_at` 全截成日期，报告与全部条目都不得是 strict）。
+- **修前 → 修后**：`report_pit_grade: strict` / `item_pit_grades: ["strict"]` → 两者均 `trade_date_only`。
+- **顺带**：`adapters.verdict_evidence_versions` 用旧 verdict 真实的 `checked_at` 当 `recorded_at`，现在会自动按其实际精度定档，legacy 日粒度 verdict 不再冒充严格回放。
+
+### 返修收据
+
+| 项目 | 结果 |
+|---|---|
+| 命令 | `.venv-workbench/bin/python -m pytest -q -p no:cacheprovider intelligence/tests/test_judgment_maintenance_*.py` |
+| 结果 | **97 passed / 0 failed / 0 skipped**，exit 0（基线 86 + 本轮新增 11） |
+| 收据 | `~/.finance-runtime/test-receipts/20260913T075301Z-e8db50db.json`（按 revision 取时间戳文件，非 `latest.json`） |
+| ruff | `ruff check intelligence/services/judgment_maintenance/ intelligence/tests/test_judgment_maintenance_{assess,actions}.py` → All checks passed，exit 0 |
+| 评审需求探针 | `probe_01_02_04.py 01`：`items_open=1`、`objects_unverifiable=1`、open 项 `source_expired` 且 `current=[ann:new]`；`11_00_local_passed_as_UTC=open`；`retry_after_expiry=[replayed, duplicate_command]` — 与 expected 一致 |
+| 评审规范探针 | `standards_01_probe.py`（/tmp 副本放开 SHA 钉）：`future_snooze_rejected.actual_status=accepted`、`expired_snooze_not_woken.actual_status=open`、`date_only_recorded_at_grades` report 与 item 均 `trade_date_only` — 与 expected 一致 |
+| 跨轨接缝 | `cross_module_probe.py` 三场景 `complete / missing_source / legacy` 全 PASS，含「02 保存的 01 输出快照除 `generated_at` 外逐字节相同」这条断言 → **本轮修改未改变 01 对外输出，02 / 04 无需同步改动** |
+
+改动文件：`intelligence/services/judgment_maintenance/{contracts,assess,conditions,actions}.py`、`intelligence/tests/test_judgment_maintenance_{assess,actions}.py`、本文件。均在 spec 01 §6 白名单内；未动夹具（`expected.json` 仍冻结于 9735103c）、未动公共源模块、未 push、未合并。
+
+**完成状态不变**：engineering_complete 是（本轮把三条被既有绿色用例漏掉的反例补成回归）；product_verified 仍归 06；全仓等价 CI 由集成人在合并前重跑（本轮只跑了模块测试，上表 9626 例的全仓收据绑定的是 dbaa3968，不覆盖本次代码改动）。
+
+## 2026-09-13 QC 第二轮（扩大边界复审）
+
+QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结论：原 13 项固定反例转绿，扩大边界确证 8 项，本轨 1 项。
+
+- **J2[P1] 同 ref 哈希复活**：同 ref 哈希更新 h1→h2，h2 过期后 h1 复活、待复核项消失。`_state_at` 的 `retired_refs` 原只认跨 ref 显式 `supersedes_ref`；修复加同 ref 隐式替代（同生效起点 valid_from/known_day + 更晚记录 + 不同哈希 → 旧记录永久退场进 ended）。既有控制测试 `test_unsuperseded_sibling...`（valid_from 不同 = 另一版有效期安排）语义不变。
+- 修复提交 **`d1a514ee`**；新增 2 条回归测试先红后绿；模块 99 passed；ruff 干净；QC 探针 `spec_010204_probes.py` J2 组复跑转绿。
+- **06 联测请用 `d1a514ee`**。口径纠偏：上轮「13 项已修复」实为「原 13 项固定反例转绿」。
+
+## 2026-09-13 QC 第三轮（J4/J5）
+
+- 独立复核（`~/.finance-runtime/reviews/research-evolution-round3-qc-20260913/`）：原 8 项固定反例通过，扩大边界确证 5 项新问题，本轨占 2 项：J4[P1]（recorded_at 按 ISO 字符串比大小，03:00Z 被当成比 10:00+08 更旧，h2 过期后 h1 复活）、J5[P2]（本轮新回归：同 ref 同 valid_from 完全相同 recorded_at 不同哈希时，哈希序被当成「更晚」先退休其一，ambiguous_version_order 消失）。
+- 修复 `dbf4d357`：`_sort_key` 的 recorded 分量经 `instant_of` 折算 UTC ISO（可解析时），说不出绝对时刻的留原文兜底；隐式替代退休条件改为「双方时刻均可解析且严格更晚」，同刻/不可比不退休、歧义保留。
+- 验证：新增 2 条回归测试先红后绿；模块 101 passed；全量 9641 passed / 77 skipped（干净树 @dbf4d357）；ruff 干净；QC 第三轮探针 01 组复跑——J4 mixed==normalized 逐字段一致且 source_expired/open/unknown，J5 ambiguous_version_order 在列；第一/二轮归档探针 01 组复跑不回归。
+- 06 联测请用 `dbf4d357`。
+
+## 2026-09-13 QC 第四轮（J6/J7/J5-补充）
+
+- 独立复核（`~/.finance-runtime/reviews/research-evolution-round4-qc-20260913/`）：原 8+5 项固定反例通过，扩大边界确证 4 项新问题，本轨占 3 项：J6（known_day 取字符串日期部分，Z 写法与 +08:00 写法的同一时刻落不同知识日）、J7（naive 与带偏移时刻不可比却被静默定序、不留 gap）、J5-补充（绑定恰好等于排序胜出者时，歧义被 unchanged 早退吞掉）。
+- 修复 `cfd88c04`：`contracts.market_day_of` 统一按东八区折算日历日（known_day 与 expired_at 取日三处）；歧义判定改为「同生效起点 + 不同哈希 +（任一方说不出精确时刻或同刻）」；ambiguous 进 `_State.signature()`；unchanged+ambiguous 仍建 open 项（reason=ambiguous_version_order、epistemic=unknown 计入 unverifiable）。
+- 验证：3 条新回归测试先红后绿；模块 104 passed；全量 9644 passed / 77 skipped（干净树 @cfd88c04）；ruff 干净；QC 第四轮探针 01 组三项全绿（J6 actual==normalized；J7 actual 留歧义、fill_early open=1 / fill_late open=0；J5-补充 actual 与 other_hash 均留歧义），安全断言 test_adjacent.py 4 passed；第一/二/三轮归档探针 01 组复跑不回归。
+- 06 联测请用 `cfd88c04`。
+
+## 第五轮（2026-09-13，QC round-5 复审：J8/J9/J10）
+- 状态：原四轮修复复核有效，但扩大边界确证 3 项新问题（本轨 J8[P1]、J9[P2]、J10[P1]；05 另有 PV9[P1]），整包暂不签收。
+- 修复（`8127283d`，3+1 条新测试先红后绿）：
+  - J8[P1]（J6 相邻遗漏）：条件观测的知识截止过滤用 `market_day_of` 替代 day_of 截字符串——同一观测时刻 Z/+08 写法结论一致。
+  - J9[P2]（J6 相邻遗漏）：绑定 `created_day` 用 `market_day_of`——上海 09-12 00:30 创建的绑定不再因 UTC 写法提前一天成立。
+  - J10[P1]（第四轮修复引出的新回归）：ambiguous 进项身份（dedup_key/item_version，仅歧义时加键）；最终去重同 id 冲突优先留 open 项——歧义消解（A→B→A）情形也不再吞 open。
+- 验证：模块 108 passed；QC 第五轮安全断言 test_round5.py 5 passed；全量 9648 passed / 77 skipped / 2 xfailed（干净树 @8127283d，`-rf` 无 FAILED 行）；ruff 干净；第一至四轮归档探针 01 组复跑不回归（与 QC 归档归一身份字段后逐字节一致）。
+
+## 第六轮（2026-09-13，QC round-6 复审：J11/J12）
+- 状态：第五轮修复复核有效，扩大边界确证 2 项（J11[P2] 解析端相邻遗漏；J12[P2] 本轮新回归；05 另有 PV10[P1]），整包暂不签收。
+- 修复（`a3cf9d4b`，2 条新测试先红后绿）：
+  - J11：parse_binding 的基线截止校验改用 market_day_of（Z/+08 同一时刻同结论；+14:00 伪装拒绝）。
+  - J12：链内复现节点拿独立 id（dedup_key 不动），supersedes 链恢复线性无环、三历史节点全留；末端去重还原 setdefault。附带语义（交 06）：旧 snooze/close 不自动作用于复现节点（实测落 rejected，open 保持 1）。
+- 验证：模块 110 passed；QC 第六轮安全断言 test_round6.py 6 passed；全量 9650 passed / 77 skipped / 2 xfailed（干净树 @a3cf9d4b，`-rf` 无 FAILED 行）；ruff 干净；第一至五轮归档探针 01 组复跑不回归（standards_01 输出与 QC 第六轮归档归一后逐字节一致）。
