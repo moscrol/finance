@@ -41,7 +41,7 @@
 | 被测最终 revision | 见 §6.1 收据校验那一段的 `--expect-revision`（**本页是全仓唯一的 SHA 来源**，其余文档指过来、不复制） |
 | 解释器 | `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`（AGENTS.md 指定） |
 | 平台 | macOS darwin 25.4.0 / `pytest -q -p no:randomly` |
-| 原始输出 | `/tmp/xfp0/`：`baseline2-pytest.txt`（基线）、`final2/3/4/5/6-pytest.txt`（历次最终，含 §6.2 那次 1 红的原始输出）、`mutations.txt`、`fe-*.txt`、`registry.txt`、`receipt-*.txt`、`mergetree.txt` |
+| 原始输出 | `/tmp/xfp0/`：`baseline2-pytest.txt`（基线）、`final2…7-pytest.txt`（历次最终，含 §6.2 那次 1 红的原始输出）、`mutations.txt`、`fe-*.txt`、`registry.txt`、`receipt-*.txt`、`mergetree.txt` |
 
 ### 1.1 干净基线读数
 
@@ -263,7 +263,7 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
 | python-lint | `ruff check .` | ✅ |
 | python | `pytest -q -p no:randomly` | 见 §6.1 |
 | frontend-lint / typecheck / test / build | `pnpm --dir intelligence/webapp …` | ✅ 四条均 exit 0 |
-| e2e | `PATH=.venv-workbench/bin:$PATH pnpm test:e2e` | ✅ **15 passed (47.9s)** |
+| e2e | `PATH=.venv-workbench/bin:$PATH pnpm test:e2e` | ✅ **15 passed (57.0s)** |
 | registry-check | `market_feature_store.cli registry-check` | ✅ exit 0，「registry 校验通过（档位/表名/计划步骤归属）」 |
 
 > 新树跑前端叶子前要先 `pnpm --dir intelligence/webapp install --frozen-lockfile`：
@@ -274,26 +274,26 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
 ### 6.1 全量 pytest 读数
 
 ```
-9678 passed, 77 skipped, 2 xfailed, 17 warnings in 402.56s (0:06:42)   exit 0
+9682 passed, 77 skipped, 2 xfailed, 17 warnings in 519.53s (0:08:39)   exit 0
 ```
 
 收据校验（把「收据树 == 被测树」从规程文字变成 exit code）：
 
 ```
 $ .venv-workbench/bin/python scripts/check_test_receipt.py \
-      ~/.finance-runtime/test-receipts/20260914T030608Z-b69ac4b4.json \
-      --expect-revision b69ac4b4
-  读数     passed=9678 failed=0 error=0 skipped=77
+      ~/.finance-runtime/test-receipts/20260914T032322Z-c9ebab07.json \
+      --expect-revision c9ebab07
+  读数     passed=9682 failed=0 error=0 skipped=77
   ✓ revision 一致   ✓ 解释器一致   ✓ python 版本一致   ✓ 依赖指纹一致
-  ✓ 收据来自干净树   ✓ 依赖门禁未被绕过   ✓ 收据 revision == b69ac4b4a2f2
+  ✓ 收据来自干净树   ✓ 依赖门禁未被绕过   ✓ 收据 revision == c9ebab0761cc
 ✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。        VALIDATOR_EXIT=0
 ```
 
 差量对账：
 
-| | 基线 `d7e5380` | 最终 `b69ac4b4` | 差量 |
+| | 基线 `d7e5380` | 最终 `c9ebab07` | 差量 |
 |---|---|---|---|
-| passed | 9554 | 9678 | **+124** |
+| passed | 9554 | 9682 | **+128** |
 | failed | 0 | 0 | **0** |
 | skipped | 77 | 77 | 0 |
 | xfailed | 2 | 2 | 0 |
@@ -303,12 +303,21 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 | 来源 | 条数 |
 |---|---|
 | `test_observation_extraction_first.py`（A1–A14） | 77 |
-| `test_extraction_first_review_fixes.py`（S1–S10/N2/N3 25 + R1–R6 14 + T1–T4 7） | 46 |
+| `test_extraction_first_review_fixes.py`（S1–S10/N2/N3 25 + R1–R6 14 + T1–T4 7 + Q2/Q3 4） | 50 |
 | `test_guided_reading_daily_seam.py`（2 元组视图不是死代码） | 1 |
-| 合计 | **124** |
+| 合计 | **128** |
 
-> 三轮对照：`7a86ce4e` 9657P → `b916091e` 9671P（+14 = R1–R6）→ `b69ac4b4` 9678P
-> （+7 = T1–T4）。每一跳的增量都点得出名字。
+> 逐跳对照：`7a86ce4e` 9657P → `b916091e` 9671P（+14 = R1–R6）→ `b69ac4b4` 9678P
+> （+7 = T1–T4）→ `c9ebab07` 9682P（+4 = Q2/Q3）。每一跳的增量都点得出名字。
+
+> **这次读数的一个限定语，必须写下来。** 本次全量**起跑时**树在 `60fdc37c`，
+> 跑测中途另一个并驻 agent 提交了 `c9ebab07`，所以收据记的 revision 是后者——
+> 正是本页 §0 那个形状（跑测期间树被动过）。这次仍然可采信，理由是**可验证的**、
+> 不是「结论没变所以算了」：`git diff 60fdc37c c9ebab07 -- '*.py'` **为空**
+> （那笔只改了一个交接 md），且收据 `dirty=false`、校验 exit=0。
+> 也就是说这 9682 对两个 revision 同时成立。
+> **但取法本身仍是错的**——共享工作树上取门禁读数，应当先与并驻 agent 约定窗口，
+> 或另开一棵 detached 树（基线那次就是这么做的）。下一轮照基线那个做法取。
 
 > 耗时 347s → 357s：两次都在安静机器上、同一解释器、同一依赖指纹下取得，
 > 这 10s 属于噪声量级，**不作为耗时结论**。
