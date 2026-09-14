@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/private/tmp/re06-qc-c8536482",
+  "revision": "42e8f4eee81d4ad04108b0f37c5bf9607af86aa6",
+  "branch": "docs/qc-re06-c8536482",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "intelligence/tests/test_research_evolution_api.py intelligence/tests/test_research_evolution_falsification.py intelligence/tests/test_research_evolution_io.py intelligence/tests/test_research_evolution_rework.py intelligence/tests/test_research_evolution_store.py /Users/a77/.finance-runtime/reviews/research-evolution-06-ba10747d/test_review_contracts.py docs/verification/re06-0c275716/test_review_round3.py docs/verification/re06-957e83f4/test_review_round4.py docs/verification/re06-ecd90a3c/test_review_round5.py",
+  "counts": {
+    "passed": 127,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-14T03:48:16+00:00"
+}

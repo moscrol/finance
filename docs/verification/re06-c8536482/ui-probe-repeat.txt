@@ -1,0 +1,39 @@
+
+ RUN  v3.2.4 /private/tmp/re06-qc-c8536482-evidence/ui
+
+ ❯ confirm.test.tsx (1 test | 1 failed) 71ms
+   × W4: an open confirmation form becomes submittable after its only run completes 71ms
+     → [2mexpect([22m[31melement[39m[2m).toBeEnabled()[22m
+
+Received element is not enabled:
+  [31m<button
+  disabled=""
+  type="button"
+/>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  confirm.test.tsx > W4: an open confirmation form becomes submittable after its only run completes
+Error: [2mexpect([22m[31melement[39m[2m).toBeEnabled()[22m
+
+Received element is not enabled:
+  [31m<button
+  disabled=""
+  type="button"
+/>[39m
+ ❯ confirm.test.tsx:38:19
+     36|   fireEvent.change(within(form).getByLabelText('成果判断'), {target: {valu…
+     37|   const confirm = within(form).getByRole('button', {name: '确认这条判断是本轮成果…
+     38|   expect(confirm).toBeEnabled();
+       |                   ^
+     39|   fireEvent.click(confirm);
+     40|   expect(onAction).toHaveBeenCalledWith(expect.objectContaining({run_i…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  11:55:51
+   Duration  885ms (transform 67ms, setup 139ms, collect 59ms, tests 71ms, environment 298ms, prepare 80ms)
+

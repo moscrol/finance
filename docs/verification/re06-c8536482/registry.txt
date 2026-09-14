@@ -1,0 +1,8 @@
+[check] 部分仓在场（['ws']），跨仓项已跳过；忽略缺仓 skill 23 个。
+[check] 注册表与源一致。
+[check-parseability] 全部 38 个 SKILL.md frontmatter 可解析、name 与目录名一致。
+/private/tmp/re06-qc-c8536482/scripts/build_registry.py:624: DeprecationWarning: 'maxsplit' is passed as positional argument
+  bare = re.split(r"[（(]", col0, 1)[0].strip()
+[backfill] 无变化：finance-workspace-private/AGENTS.md
+[backfill --check] 文档 skill 表与注册表一致。
+[generate-views --check] agent 目录视图与 skills/ 源一致。

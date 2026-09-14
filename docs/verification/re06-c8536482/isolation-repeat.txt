@@ -1,0 +1,73 @@
+FF                                                                       [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260914T035658Z-42e8f4ee.json
+
+=================================== FAILURES ===================================
+______ test_installed_codex_sandbox_denies_network_and_unix_socket[False] ______
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-110/test_installed_codex_sandbox_d0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1092ff6b0>
+prepend_venv_path = False
+
+    @pytest.mark.skipif(
+        not Path("/Applications/ChatGPT.app/Contents/Resources/codex").is_file(),
+        reason="Codex desktop binary unavailable",
+    )
+    @pytest.mark.parametrize("prepend_venv_path", [False, True])
+    def test_installed_codex_sandbox_denies_network_and_unix_socket(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        prepend_venv_path: bool,
+    ) -> None:
+        if prepend_venv_path:
+            monkeypatch.setenv(
+                "PATH", f"{Path(sys.executable).parent}{os.pathsep}{os.environ['PATH']}"
+            )
+        receipt = probe_sealed_isolation(
+            "/Applications/ChatGPT.app/Contents/Resources/codex",
+            tmp_path,
+        )
+    
+>       assert receipt.status == "proven"
+E       AssertionError: assert 'unproven' == 'proven'
+E         
+E         - proven
+E         + unproven
+E         ? ++
+
+intelligence/tests/test_codex_headless_runtime.py:738: AssertionError
+______ test_installed_codex_sandbox_denies_network_and_unix_socket[True] _______
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-110/test_installed_codex_sandbox_d1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10932a780>
+prepend_venv_path = True
+
+    @pytest.mark.skipif(
+        not Path("/Applications/ChatGPT.app/Contents/Resources/codex").is_file(),
+        reason="Codex desktop binary unavailable",
+    )
+    @pytest.mark.parametrize("prepend_venv_path", [False, True])
+    def test_installed_codex_sandbox_denies_network_and_unix_socket(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        prepend_venv_path: bool,
+    ) -> None:
+        if prepend_venv_path:
+            monkeypatch.setenv(
+                "PATH", f"{Path(sys.executable).parent}{os.pathsep}{os.environ['PATH']}"
+            )
+        receipt = probe_sealed_isolation(
+            "/Applications/ChatGPT.app/Contents/Resources/codex",
+            tmp_path,
+        )
+    
+>       assert receipt.status == "proven"
+E       AssertionError: assert 'unproven' == 'proven'
+E         
+E         - proven
+E         + unproven
+E         ? ++
+
+intelligence/tests/test_codex_headless_runtime.py:738: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket[False]
+FAILED intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket[True]
+2 failed, 30 deselected in 0.47s

@@ -1,0 +1,110 @@
+W1 200 {'replayed': False, 'status': 'registered', 'reason_code': 'run_registered', 'item_id': 'jmi-239aab334b2ed1fb', 'link': {'run_id': 'run_20260914_115251_387449', 'run_status': 'running', 'registered': True, 'link_created': True, 'registered_at': '2026-09-14T08:00:00+00:00'}} B rejudgment_requested 1 -> open 2 LINKS [{'content_digest': 'ebc5e5b1d8efd5c22eebb65c2044361aaa32bbc3604b2c927516a690f502729b', 'conversation_id': 'conv_074acf1fb211473ea49244a1848b1cd1', 'item_id': 'jmi-ad6fc3ace0cd2ba0', 'link_id': 'rlink-2d278c6bdf567e27', 'owner_user_id': 'default', 'registered_at': '2026-09-14T08:00:00+00:00', 'request_event_id': 'jme-c15b4483325b959d', 'run_id': 'run_20260914_115251_387449'}, {'content_digest': '859ee7bb88a44062b1a780ea7a6a3e885d880d36f18ee3b96666048fac7d4262', 'conversation_id': 'conv_074acf1fb211473ea49244a1848b1cd1', 'item_id': 'jmi-239aab334b2ed1fb', 'link_id': 'rlink-ff046d33b7199650', 'owner_user_id': 'default', 'registered_at': '2026-09-14T08:00:00+00:00', 'request_event_id': 'jme-e36e456ba87518d9', 'run_id': 'run_20260914_115251_387449'}]
+FW2 200 {'replayed': False, 'status': 'registered', 'reason_code': 'run_registered', 'item_id': 'jmi-d3487daf081aa352', 'link': {'run_id': 'run_20260914_115252_100106', 'run_status': 'running', 'registered': True, 'link_created': True, 'registered_at': '2026-09-14T08:00:01+00:00'}} ITEM rejudgment_requested 3 -> open 4 LINKS [{'content_digest': '43b529dec17fe2054b2e1761e700a6e4bf0f62e5c77133ccaf5c406e7f691fb7', 'conversation_id': 'conv_2bd253ce1b1f453aaba781f77c9f589b', 'item_id': 'jmi-d3487daf081aa352', 'link_id': 'rlink-f0466592839d5222', 'owner_user_id': 'default', 'registered_at': '2026-09-14T08:00:01+00:00', 'request_event_id': 'jme-48a48548f8216eb6', 'run_id': 'run_20260914_115252_100106'}]
+FW3 A_JUDGMENT df9a2621474e B rejudgment_requested 1 -> closed 2 {'applied_commands': [{'command_id': 'request-B', 'payload_digest': '7a30c4bae6a11041bd276bec001e2dd4e0cd974ec78c82d9a386dc93942bd61f', 'event_id': 'jme-9d70130c5fa6f9ba', 'management_revision': 1}], 'snooze_until': None, 'claimed_at': None, 'closed_at': '2026-09-14T08:00:01+00:00', 'closure': {'kind': 'rejudged', 'linked_judgment_ref': 'judgments.jsonl:df9a2621474e', 'event_id': 'jme-d6759a7c3f539444', 'at': '2026-09-14T08:00:01+00:00'}, 'rejudgment': {'request_event_id': 'jme-9d70130c5fa6f9ba', 'requested_at': '2026-09-14T08:00:00+00:00', 'attempts': 1, 'last_failure': None}}
+F
+=================================== FAILURES ===================================
+____________ test_w1_running_run_cannot_be_claimed_by_another_item _____________
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x10ce33ad0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ce339b0>
+
+    def test_w1_running_run_cannot_be_claimed_by_another_item(world, monkeypatch):
+        a, b = two_items(world)
+        first = world.rejudge(a, key="request-A")
+        world.rejudge(b, key="request-B")
+        monkeypatch.setattr(app_module, "_run_conversation_turn", delayed_failure(world))
+        world.turn_gate.clear()
+        try:
+            run_a = launch(world, first["continuation"])
+            store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+            assert len(store.list_run_links(item_id=a["id"])) == 1
+            before_b = world.current_item(b["id"])
+            response = world.act(idempotency_key="claim-A-as-B", run_id=run_a, **world.link_args(b["id"]))
+        finally:
+            world.turn_gate.set()
+        world.wait_terminal(run_a)
+        world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_a)
+        after_b = world.current_item(b["id"])
+        print("W1", response.status_code, response.json(), "B", before_b["status"], before_b["management_revision"], "->", after_b["status"], after_b["management_revision"], "LINKS", store.list_run_links())
+>       assert response.status_code in {400, 404, 409}, "run already has A's verified coordinate; linking it to B must be rejected"
+E       AssertionError: run already has A's verified coordinate; linking it to B must be rejected
+E       assert 200 in {400, 404, 409}
+E        +  where 200 = <Response [200 OK]>.status_code
+
+../re06-qc-c8536482-evidence/test_review_round6.py:77: AssertionError
+__ test_w2_rejected_stale_message_cannot_gain_current_identity_while_running ___
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x10cedb5c0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10cedb050>
+
+    def test_w2_rejected_stale_message_cannot_gain_current_identity_while_running(world, monkeypatch):
+        world.track_judgment().raise_for_status()
+        item = world.open_item()
+        first = world.rejudge(item, key="request-A")
+        cancel(world, item["id"], "cancel-A")
+        world.clock.advance(seconds=1)
+        world.rejudge(world.current_item(item["id"]), key="request-B")
+        before = world.current_item(item["id"])
+        monkeypatch.setattr(app_module, "_run_conversation_turn", delayed_failure(world))
+        world.turn_gate.clear()
+        try:
+            # Send A's coordinate only after B exists. Accept-side correctly refuses to bind it.
+            run_a = launch(world, first["continuation"])
+            store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+            assert not store.list_run_links(item_id=item["id"])
+            response = world.act(idempotency_key="stale-message-as-B", run_id=run_a, **world.link_args(item["id"]))
+        finally:
+            world.turn_gate.set()
+        world.wait_terminal(run_a)
+        world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_a)
+        after = world.current_item(item["id"])
+        print("W2", response.status_code, response.json(), "ITEM", before["status"], before["management_revision"], "->", after["status"], after["management_revision"], "LINKS", store.list_run_links())
+>       assert response.status_code in {400, 404, 409}, "rejected stale launch must not be laundered through explicit running registration"
+E       AssertionError: rejected stale launch must not be laundered through explicit running registration
+E       assert 200 in {400, 404, 409}
+E        +  where 200 = <Response [200 OK]>.status_code
+
+../re06-qc-c8536482-evidence/test_review_round6.py:104: AssertionError
+___ test_w3_cancelled_other_item_is_still_a_possible_late_judgment_producer ____
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x10d210590>
+
+    def test_w3_cancelled_other_item_is_still_a_possible_late_judgment_producer(world):
+        a, b = two_items(world)
+        world.rejudge(a, key="request-A")
+        world.rejudge(b, key="request-B")
+        observer = ObservingRunStore(
+            user_id=fx.OWNER, evolution_root=world.user_root / "research_evolution",
+            maintenance_folder=lambda run_id: world.service.fold_run_terminal(
+                ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_id),
+        )
+        run_a = observer.create_run(question="复核 A", task_type="research", session_id=world.conversation_id)
+        run_b = observer.create_run(question="复核 B", task_type="research", session_id=world.conversation_id)
+        for item, run, key in ((a, run_a, "register-A"), (b, run_b, "register-B")):
+            world.act(idempotency_key=key, run_id=run.run_id, **world.link_args(item["id"])).raise_for_status()
+        cancel(world, a["id"], "cancel-A")
+        before = world.current_item(b["id"])
+        assert before["management"]["rejudgment"]["attempts"] == 1
+        assert len([i for i in world.view()["maintenance"]["items"] if i["status"] == "rejudgment_requested"]) == 1
+        world.clock.advance(seconds=1)
+        _, judgment_a = judgments_svc.record_judgment(
+            world.user_root / "judgments.jsonl", themes=[fx.ENTITY], memo="仅 A 的迟到成果，B 没有成果",
+            session_id=world.conversation_id, ts=world.clock().isoformat(),
+        )
+        observer.finish_run(run_a.run_id, "completed")
+        observer.finish_run(run_b.run_id, "completed")
+        after = world.current_item(b["id"])
+        print("W3", "A_JUDGMENT", judgment_a["id"], "B", before["status"], before["management_revision"], "->", after["status"], after["management_revision"], after["management"])
+>       assert after["status"] == "rejudgment_requested", "one pending item does not prove ownership of an unconsumed judgment from a cancelled peer"
+E       AssertionError: one pending item does not prove ownership of an unconsumed judgment from a cancelled peer
+E       assert 'closed' == 'rejudgment_requested'
+E         
+E         - rejudgment_requested
+E         + closed
+
+../re06-qc-c8536482-evidence/test_review_round6.py:135: AssertionError
+=========================== short test summary info ============================
+FAILED ../re06-qc-c8536482-evidence/test_review_round6.py::test_w1_running_run_cannot_be_claimed_by_another_item
+FAILED ../re06-qc-c8536482-evidence/test_review_round6.py::test_w2_rejected_stale_message_cannot_gain_current_identity_while_running
+FAILED ../re06-qc-c8536482-evidence/test_review_round6.py::test_w3_cancelled_other_item_is_still_a_possible_late_judgment_producer
+3 failed in 3.14s

@@ -1,0 +1,25 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/private/tmp/re06-qc-c8536482",
+  "revision": "42e8f4eee81d4ad04108b0f37c5bf9607af86aa6",
+  "branch": "docs/qc-re06-c8536482",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/private/tmp/re06-qc-c8536482",
+  "counts": {
+    "passed": 10047,
+    "failed": 2,
+    "error": 0,
+    "skipped": 79
+  },
+  "failed_ids": [
+    "intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket[False]",
+    "intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket[True]"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-14T03:57:16+00:00"
+}

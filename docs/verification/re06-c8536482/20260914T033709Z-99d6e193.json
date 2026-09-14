@@ -1,0 +1,37 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-research-evolution-06",
+  "revision": "99d6e193f72273a8c1fa20029c802623284d7699",
+  "branch": "feat/research-evolution-06-workbench",
+  "dirty": true,
+  "dirty_paths": [
+    "intelligence/api/app.py",
+    "intelligence/api/static/assets/index-CsTQzh3-.js",
+    "intelligence/api/static/assets/index-DmGneaOJ.js",
+    "intelligence/api/static/assets/index-PWBPuqE4.css",
+    "intelligence/api/static/assets/index-n8kCH1Be.css",
+    "intelligence/api/static/index.html",
+    "intelligence/services/conversation_store.py",
+    "intelligence/services/research_evolution/facade.py",
+    "intelligence/tests/test_research_evolution_rework.py",
+    "intelligence/webapp/src/App.tsx",
+    "intelligence/webapp/src/components/ResearchEvolutionPanel.test.tsx",
+    "intelligence/webapp/src/components/ResearchEvolutionPanel.tsx",
+    "intelligence/webapp/src/components/researchEvolution.css",
+    "intelligence/webapp/src/types.ts"
+  ],
+  "worktree_dirty_total": 17,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/fwp-wt-research-evolution-06",
+  "counts": {
+    "passed": 10051,
+    "failed": 0,
+    "error": 0,
+    "skipped": 77
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-14T03:37:09+00:00"
+}

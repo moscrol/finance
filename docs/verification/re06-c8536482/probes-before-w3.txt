@@ -1,0 +1,44 @@
+W3 A_JUDGMENT df9a2621474e B rejudgment_requested 1 -> closed 2 {'applied_commands': [{'command_id': 'request-B', 'payload_digest': 'd5012af644de1c7dadea536f59e8b442fd48159796aef3ffdc2ccfac69253ba8', 'event_id': 'jme-c786997f69c4cd7c', 'management_revision': 1}], 'snooze_until': None, 'claimed_at': None, 'closed_at': '2026-09-14T08:00:01+00:00', 'closure': {'kind': 'rejudged', 'linked_judgment_ref': 'judgments.jsonl:df9a2621474e', 'event_id': 'jme-b09b9ed832d5f921', 'at': '2026-09-14T08:00:01+00:00'}, 'rejudgment': {'request_event_id': 'jme-c786997f69c4cd7c', 'requested_at': '2026-09-14T08:00:00+00:00', 'attempts': 1, 'last_failure': None}}
+F
+=================================== FAILURES ===================================
+___ test_w3_cancelled_other_item_is_still_a_possible_late_judgment_producer ____
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x10d67b470>
+
+    def test_w3_cancelled_other_item_is_still_a_possible_late_judgment_producer(world):
+        a, b = two_items(world)
+        world.rejudge(a, key="request-A")
+        world.rejudge(b, key="request-B")
+        observer = ObservingRunStore(
+            user_id=fx.OWNER, evolution_root=world.user_root / "research_evolution",
+            maintenance_folder=lambda run_id: world.service.fold_run_terminal(
+                ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_id),
+        )
+        run_a = observer.create_run(question="复核 A", task_type="research", session_id=world.conversation_id)
+        run_b = observer.create_run(question="复核 B", task_type="research", session_id=world.conversation_id)
+        for item, run, key in ((a, run_a, "register-A"), (b, run_b, "register-B")):
+            world.act(idempotency_key=key, run_id=run.run_id, **world.link_args(item["id"])).raise_for_status()
+        cancel(world, a["id"], "cancel-A")
+        before = world.current_item(b["id"])
+        assert before["management"]["rejudgment"]["attempts"] == 1
+        assert len([i for i in world.view()["maintenance"]["items"] if i["status"] == "rejudgment_requested"]) == 1
+        world.clock.advance(seconds=1)
+        _, judgment_a = judgments_svc.record_judgment(
+            world.user_root / "judgments.jsonl", themes=[fx.ENTITY], memo="仅 A 的迟到成果，B 没有成果",
+            session_id=world.conversation_id, ts=world.clock().isoformat(),
+        )
+        observer.finish_run(run_a.run_id, "completed")
+        observer.finish_run(run_b.run_id, "completed")
+        after = world.current_item(b["id"])
+        print("W3", "A_JUDGMENT", judgment_a["id"], "B", before["status"], before["management_revision"], "->", after["status"], after["management_revision"], after["management"])
+>       assert after["status"] == "rejudgment_requested", "one pending item does not prove ownership of an unconsumed judgment from a cancelled peer"
+E       AssertionError: one pending item does not prove ownership of an unconsumed judgment from a cancelled peer
+E       assert 'closed' == 'rejudgment_requested'
+E         
+E         - rejudgment_requested
+E         + closed
+
+../re06-qc-c8536482-evidence/test_review_round6.py:135: AssertionError
+=========================== short test summary info ============================
+FAILED ../re06-qc-c8536482-evidence/test_review_round6.py::test_w3_cancelled_other_item_is_still_a_possible_late_judgment_producer
+1 failed, 2 deselected in 0.98s
