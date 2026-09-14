@@ -44,6 +44,20 @@
 
 实现和分期验收见 [历史发现 spec](superpowers/specs/2026-09-09-historical-discovery-research-design.md) 与 [执行计划](superpowers/plans/2026-09-09-historical-discovery.md)。部署状态以运行服务 `/api/health` 的 revision 为准，仓内存在代码不等于线上已更新。
 
+### 质量消融评测：结论只覆盖 legacy CLI ask
+
+`scripts/run_quality_ablation.py` 与 `scripts/rejudge_quality_ablation.py` **不是产品门**，是评测工装。它们经 `run_ask` 调 `python3 -m intelligence.cli ask --compose`，走的是引擎 B 的 legacy CLI 问答路径；**跑出来的分差只覆盖该入口，不代表 Workbench Episode（引擎 A）**。拿消融读数论证「Agent 质量」之前先问这一句。
+
+出实验结论的**唯一资格门**是 `intelligence/eval/judge_validity.py::validate_judging_batch`（纯函数、无 IO）。`aggregate_components` 每次调用都重新验证原始记录与 manifest，不采信传入的 `valid=True` 或旧 `decision`——补评、完整重评与主评共用这一扇门。资格不成立时保留描述性分差与覆盖率，但组件决定降为 `no_call`。
+
+三条容易被读反的边界：
+
+- `decision=callable` 只表示**越过当次判官的噪声门**，不是合并授权，也不证明跨任务或未来效果；`baseline_absolute` 只是该批次的描述性统计，配置同名不能证明跨批次可比。
+- 分母以 `run_quality_ablation.batch_coverage` 为唯一来源（人读报告与 JSON 收据共用）：登记数取**事前冻结的题臂数**而非 `len(answers)`，产品未交付的样本留在分母里，不能靠身份门重归因成「实验条件失效」。
+- 判官身份来自本次响应的结构化字段。CLI 没有该字段就记 unknown，**不从自然语言自述或当前环境配置补齐**；响应自报身份只支持「按对端声明相同/不同」的审计强度，不等于已认证真实模型。
+
+方案与验收矩阵见 [判官身份与校准有效性 plan](superpowers/plans/2026-09-14-judge-calibration-validity.md)，取舍见 [handoff](handoffs/2026-09-14-judge-calibration-plan.md)。
+
 ## 两条引擎（调度器后面）
 
 一个调度器（`conversation_orchestrator` / `TurnOrchestrator`）+ 两条引擎。两条都调 LLM，差别是**流程谁定**：
