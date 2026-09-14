@@ -1,0 +1,35 @@
+{
+  "target_revision": "723bf50e8e83ef8e3433b4a405418b80d2ddd5a0",
+  "kind": "static_manifest_and_set_algebra_not_runtime_acceptance",
+  "changed_files": [
+    "docs/handoffs/inflight/feat-e2-material-contract-design.md",
+    "docs/learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md"
+  ],
+  "manifest": {
+    "original_ok": 21,
+    "copy_ok": 14,
+    "transform_ok": 14,
+    "external_only": 7
+  },
+  "acceptance_ids": "A1-A17 contiguous",
+  "set_algebra": {
+    "single_fragment_cases": 9,
+    "two_fragment_fold_cases": 27,
+    "meaning": "formula identity only; does not test parser/state implementation",
+    "strict_base_ambiguous_local_result": []
+  },
+  "symbol_locations": {
+    "intelligence/services/user_task.py::split_user_message": 547,
+    "intelligence/services/task_frame.py::TaskFrame": 108,
+    "intelligence/services/episode_factory.py::_grounding_mode": 509,
+    "intelligence/services/episode_factory.py::_authorized_capabilities": 244,
+    "intelligence/services/turn_controller.py::_needs_retrieval_floor": 655,
+    "intelligence/services/episode_tools.py::_opening_prefetch_evidence": 791
+  },
+  "target_diff_check": {
+    "exit_code": 2,
+    "output": "docs/learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md:111: trailing whitespace.\n+  {\"text_ref\": \"<消息内偏移或片段哈希>\", \n"
+  },
+  "runtime_parser_tested": false,
+  "formal_pk_run": false
+}
