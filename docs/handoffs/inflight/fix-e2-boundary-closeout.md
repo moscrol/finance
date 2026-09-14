@@ -4,7 +4,7 @@
 按v10分片收口E2材料边界；开发树fwp-wt-e2-boundary-closeout，主树不动。
 
 ## 当前状态
-应用1f6ebc5d已提交，未推/合/部署。D1/P2/P3a此前独立通过；P3b/P3c+返修@301dcd9e独立通过，报告归档dcd57d60（qc-301dcd9e/）。新P3d阻止material_only在frame确定后读四类先验，作者验证通过，待独立QC；prompt已备，未启动。
+应用1f6ebc5d已提交，未推/合/部署。D1/P2/P3a此前独立通过；P3b/P3c+返修@301dcd9e独立通过，报告归档dcd57d60（qc-301dcd9e/）。P3d已获独立QC通过（16P；material_only四类禁止尝试0/0/0/0），报告归档p3d-1f6ebc5d-independent-qc-20260915/，仅限四生产者。Grok仅有不完整输入的回顾性试跑；Knevo本轮未发新题、无未揭盲配对、无正式PK（详见`llm-judge-knevo-status-20260915.md`）。
 
 ## 决策与被否方案
 - 能力/证据计划/输出同源冻结；local_only只留认证本地runner，不按cost/freshness猜IO。
@@ -18,9 +18,9 @@ local_only原题号槽/更多认证runner、P4逐题三态、P5可信继承旧�
 b4ba6fb5全测首RAG迟到响应1红、复跑绿仍未归因；不是已判清的独立晚结果探针错误。
 
 ## 下一步
-1. 固定1f6ebc5d独立审P3d；范围prompt=docs/verification/e2-boundary-closeout/p3d-1f6ebc5d/qc-prompt.txt。无有效报告不继续堆片。
-2. 通过后按v10推进余P3–P7；前置合同与可信续轮一起接，不把所有“继续”拦成材料澄清；T3不得重贴禁令。
-3. 6c7bea6e/413b7a07重叠集成写接替；合并部署另授权。
+1. 继续按v10推进余P3–P7，但每片单独冻结、作者验证、独立QC；下一片先审controller前history/context与QueryResolver早读，不把所有“继续”拦成材料澄清。
+2. q3被解析进材料的问题单列为上游解析缺口；不得用动态题号断言宣称原题号完整。预取前澄清、可信继承、来源过滤、恢复/压缩/确定性旁路仍未闭环。
+3. 正式T2→T3/Knevo PK须先完成可审产品路径、全题交付、未揭盲成对答案与固定判官；合并部署另授权。6c7bea6e/413b7a07重叠集成写接替。
 
 ## 已验证
 干净1f6ebc5d定向210P；全仓9797P/83skip/2xfail/17warnings、exit0，Ruff/钩子绿。四处各删闸均4F/12P。收据归档p3d-1f6ebc5d/；初始夹具16F、有效修前4F/12P、全测工具240秒中断均保留，后者无pytest终态。

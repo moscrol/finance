@@ -65,14 +65,16 @@ Scope 可能仍授权旧实现；返修让批菜单/执行及续轮重绑 Scope 
 P3d 小片在 `TurnOrchestrator` 拿到本轮 TaskFrame 后，对明确 `material_only` 停止读取
 旧答案产物、stance pack、研究项目先验及视角提示；使用同一 material_contract 的数据范围，
 不等这些生产者读取之后才在 Episode 工厂丢弃字段。full/local_only/普通问题保持原路径。
-本片作者定向测试通过，尚待独立复核；只覆盖 controller 之后、Episode 之前这四个生产者，
+固定 `1f6ebc5d` 已获独立复核通过，但仅限 controller 之后、Episode 之前这四个生产者：
+独立探针16P，material_only四类禁止尝试0/0/0/0，正例各实际读取1，项目先验异常验证了先计数后吞错。
+报告与日志见 [P3d 独立归档](verification/e2-boundary-closeout/p3d-1f6ebc5d-independent-qc-20260915/)。
 不声明 controller 历史输入、确定性/legacy 回落或交付阶段已经安全。
 
 **本阶段不是材料题全链完成**：`local_only` 仅已审定 runner 的局部路径，未覆盖所有
 本地工具；歧义/基底不可恢复的预取前澄清、controller 前缀/默认摘要/压缩/恢复/子研究等
 全部注入路径、确定性旁路仍待 P3 收口。local_only 原题号槽、逐题最终交付、可信跨轮继承、
 纯度与材料锚点待后续阶段；普通上下文不是按来源过滤后的安全输入。
-不得把局部短路当成真实入口已经零外呼，也不得运行正式 T2→T3/Knevo 对照。设计与阶段证据见
+不得把局部短路当成真实入口已经零外呼，也不得运行正式 T2→T3/Knevo 对照。Grok CLI 已做过一次隔离的回顾性语义判卷试跑，但输入未含完整原题/材料，结果仅作试跑证据，不是本片验收或正式评分；Knevo 有已登录浏览器的 CDP 回贴入口，但本轮未发新题、没有未揭盲成对答案，故没有正式 PK；详细状态见 [判官/Knevo 记录](verification/e2-boundary-closeout/llm-judge-knevo-status-20260915.md)。设计与阶段证据见
 [设计 v10](learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md)
 及 `docs/handoffs/inflight/fix-e2-boundary-closeout.md`；是否部署看实际服务 revision。
 

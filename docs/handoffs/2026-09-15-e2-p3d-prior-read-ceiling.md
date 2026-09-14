@@ -38,7 +38,7 @@
 
 ## 下一步与范围外
 
-独立范围提示已存同目录`qc-prompt.txt`，**本轮仅准备，尚未启动独立审查**。固定1f6ebc5d分审，本片通过才继续余P3。
+独立范围提示已存同目录`qc-prompt.txt`，**本轮独立复核已完成；最终报告与16P日志见 `docs/verification/e2-boundary-closeout/p3d-1f6ebc5d-independent-qc-20260915/`**。固定1f6ebc5d分审，本片通过才继续余P3。
 
 controller前history/context与QueryResolver早读、歧义/基底不可恢复预取前澄清、全部四组九类来源过滤、可信继承/历史身份、压缩/恢复/子研究/非工具provider事实、确定性/legacy回落及交付后读取、local_only原题槽及更多runner、P4–P7仍未完成。测试显式保留controller看到旧历史的事实，不把此片假写为整轮零读取。原T2→T3不得改题/重贴禁令。
 
