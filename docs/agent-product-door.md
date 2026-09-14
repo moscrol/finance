@@ -62,6 +62,12 @@ Scope 可能仍授权旧实现；返修让批菜单/执行及续轮重绑 Scope 
 获同型号独立上下文复核通过，均仅限本片；[完整报告与原失败证据](verification/e2-boundary-closeout/qc-301dcd9e/README.md)
 已归档。晚结果唯一红针判为测试二次进入过期适配器，修正保留原断言与超时；不是产品修改。
 
+P3d 小片在 `TurnOrchestrator` 拿到本轮 TaskFrame 后，对明确 `material_only` 停止读取
+旧答案产物、stance pack、研究项目先验及视角提示；使用同一 material_contract 的数据范围，
+不等这些生产者读取之后才在 Episode 工厂丢弃字段。full/local_only/普通问题保持原路径。
+本片作者定向测试通过，尚待独立复核；只覆盖 controller 之后、Episode 之前这四个生产者，
+不声明 controller 历史输入、确定性/legacy 回落或交付阶段已经安全。
+
 **本阶段不是材料题全链完成**：`local_only` 仅已审定 runner 的局部路径，未覆盖所有
 本地工具；歧义/基底不可恢复的预取前澄清、controller 前缀/默认摘要/压缩/恢复/子研究等
 全部注入路径、确定性旁路仍待 P3 收口。local_only 原题号槽、逐题最终交付、可信跨轮继承、

@@ -1975,10 +1975,18 @@ class TurnOrchestrator:
                     task_frame=task_frame,
                 )
             contextual_query = contextualize_intent_query(query, turn_intent)
+            # P3d: use the same frozen material scope as Episode assembly, but
+            # stop untyped fact priors before their producers perform reads.
+            # This does not filter history already supplied to the controller.
+            material_only = bool(
+                task_frame.material_contract is not None
+                and task_frame.material_contract.data_scope == "material_only"
+            )
             inherited_answer_spec = (
                 self._load_answer_spec(inherited_message.run_id)
                 if (
-                    inherited_message is not None
+                    not material_only
+                    and inherited_message is not None
                     and turn_intent.inherited_from_turn is not None
                 )
                 else None
@@ -2048,7 +2056,7 @@ class TurnOrchestrator:
             )
             self._check_cancelled()
             stance_pack = None
-            if should_run_stance_pack(
+            if not material_only and should_run_stance_pack(
                 lane=decision.lane,
                 question_type=task_frame.question_type or decision.question_type,
                 query=query,
@@ -2065,7 +2073,7 @@ class TurnOrchestrator:
             # 没有先验（首轮 / 换题）时逐字节不变；投影失败只记 degrade，不拖死主答案。
             project_prior_block = ""
             project_prior_status: str | None = None
-            if decision.lane == "research" and canned is None:
+            if not material_only and decision.lane == "research" and canned is None:
                 try:
                     project_prior_block, project_prior_status = (
                         research_project.prior_for_turn(
@@ -2114,11 +2122,13 @@ class TurnOrchestrator:
                     # 生产 continuous 主路径上视角只在 API 层验证与存储，模型
                     # prompt 永远看不到（2026-08-14 生产 smoke 实测）。
                     # neutral 时该原语返回空串，episode 输入逐字节不变。
-                    perspective_context=perspective_lab.active_runtime_prompt(
-                        userspace.user_space(self.run_store.user_id),
-                        mode=perspective_mode,
-                        perspective_ids=tuple(selected_perspective_ids),
-                        query=query,
+                    perspective_context=(
+                        "" if material_only else perspective_lab.active_runtime_prompt(
+                            userspace.user_space(self.run_store.user_id),
+                            mode=perspective_mode,
+                            perspective_ids=tuple(selected_perspective_ids),
+                            query=query,
+                        )
                     ),
                 )
                 if stance_pack is not None:
