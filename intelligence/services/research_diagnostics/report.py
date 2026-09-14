@@ -27,6 +27,7 @@ from intelligence.services.research_diagnostics.contracts import (
     UncertaintyFlag,
     VerdictRecord,
     content_hash,
+    maintenance_provenance_conflicts,
     parse_exercise_pack,
     parse_maintenance_reports,
     require_owner,
@@ -179,6 +180,27 @@ def diagnose(
         gaps.append(Gap("no_records", None, detail="没有可诊断的原对象记录"))
     if not kept_items:
         gaps.append(Gap("no_maintenance_reports", None, detail="没有 01 维护报告，过期证据沿用只能 unknown"))
+    undeclared = sorted({i.report_id for i in kept_items if not i.provenance_declared})
+    if undeclared:
+        # 失败关闭已经把报告压成 synthetic；这条 gap 让「默认」与「认证」区分得开。
+        gaps.append(
+            Gap(
+                "maintenance_provenance_undeclared",
+                None,
+                detail=f"维护报告 {undeclared} 没声明 provenance，按 synthetic 处理；接入真实 01 产物需显式带来源标记",
+            )
+        )
+    kept_report_ids = {i.report_id for i in kept_items}
+    conflicts = [r for r in maintenance_provenance_conflicts(maintenance_reports) if r in kept_report_ids]
+    if conflicts:
+        # S4：项级自称 observed 而报告级不是 observed——已按报告级压回 synthetic，这里让冲突可见。
+        gaps.append(
+            Gap(
+                "maintenance_provenance_conflict",
+                None,
+                detail=f"维护报告 {conflicts} 的报告级来源不是 observed，项级却声明 observed：按报告级 synthetic 处理，项级声明未采信",
+            )
+        )
 
     ctx = CheckContext(
         owner_user_id=owner,
@@ -208,8 +230,9 @@ def diagnose(
     uncertainty = _uncertainty(findings=findings, denominators=denominators, gaps=gaps, min_sample=pol.min_sample, records=kept_recs)
 
     pit = weakest_pit([r.pit_grade for r in kept_recs] + [i.pit_grade for i in kept_items]) if kept_recs else "unverifiable"
+    # 参与判定的任一合成来源都要传到输出：维护报告也算一份输入，漏掉它就等于让合成证据洗白成 observed。
     provenance = "synthetic" if any(
-        x.provenance == "synthetic" for x in (*kept_recs, *kept_vds, *kept_rcts)
+        x.provenance == "synthetic" for x in (*kept_recs, *kept_vds, *kept_rcts, *kept_items)
     ) or any(cs.provenance == "synthetic" for cs in cases) else "observed"
     input_digest = content_hash(
         {

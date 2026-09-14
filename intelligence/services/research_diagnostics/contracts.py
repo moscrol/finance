@@ -614,6 +614,10 @@ class MaintenanceItemView:
     pit_grade: str
     before: tuple[EvidenceVersionView, ...]
     current: tuple[EvidenceVersionView, ...]
+    # 来源必须跟着输入走：合成维护证据不能混进真实用户效果统计（总合同 §5 第 8 条）。
+    # ``provenance_declared=False`` 表示 01 报告没写来源、这里按失败关闭默认成 synthetic，不是认证结果。
+    provenance: str = "synthetic"
+    provenance_declared: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -627,13 +631,21 @@ class MaintenanceItemView:
             "pit_grade": self.pit_grade,
             "before": [v.to_dict() for v in self.before],
             "current": [v.to_dict() for v in self.current],
+            "provenance": self.provenance,
+            "provenance_declared": self.provenance_declared,
         }
 
 
 def parse_maintenance_reports(
     reports: Iterable[Mapping[str, Any]], *, owner_user_id: str
 ) -> tuple[MaintenanceItemView, ...]:
-    """把 01 的 ``judgment-maintenance/v1`` 报告拆成项视图；版本不对、owner 不对都拒绝。"""
+    """把 01 的 ``judgment-maintenance/v1`` 报告拆成项视图；版本不对、owner 不对都拒绝。
+
+    来源（``provenance``）跟着项一起传出去：报告级声明，项可自带覆盖。**没有声明时失败关闭成
+    ``synthetic``**——``PROVENANCES`` 只有 ``observed/synthetic`` 两个值，没有「未知」档，而 ``observed``
+    是一句「这是真实用户效果」的断言，必须被证明而不是被默认。01 现有产物还不带这个字段，所以缺声明
+    会标 ``provenance_declared=False``，由 ``diagnose`` 出一条 gap 让降级可见（接线见 06）。
+    """
     out: list[MaintenanceItemView] = []
     for i, report in enumerate(reports or ()):
         where = f"maintenance_reports[{i}]"
@@ -643,6 +655,10 @@ def parse_maintenance_reports(
         require_owner(owner_user_id, report.get("owner_user_id"), where=where)
         report_id = check_ref_text(report.get("id"), f"{where}.id")
         report_pit = str(report.get("pit_grade") or "unverifiable")
+        report_prov = _opt_str(report.get("provenance"))
+        if report_prov is not None:
+            # 父级来源独立校验：未知枚举不能被项级声明遮掉（S4）。
+            report_prov = _enum(report_prov, PROVENANCES, f"{where}.provenance")
         for j, item in enumerate(report.get("items") or []):
             w = f"{where}.items[{j}]"
             if not isinstance(item, Mapping):
@@ -651,6 +667,13 @@ def parse_maintenance_reports(
             if item_schema is not None and str(item_schema) != MAINTENANCE_SCHEMA_VERSION:
                 raise UnsupportedSchema(f"{w} schema_version={item_schema!r}")
             require_owner(owner_user_id, item.get("owner_user_id", report.get("owner_user_id")), where=w)
+            item_prov = _opt_str(item.get("provenance"))
+            if item_prov is not None:
+                item_prov = _enum(item_prov, PROVENANCES, f"{w}.provenance")
+            declared = item_prov or report_prov
+            # 报告级来源是天花板：项级只能持平或再降档。父报告是合成（或未声明、失败关闭为合成）
+            # 而项级自称 observed 是冲突声明——保留父级合成标记，冲突由 diagnose 出 gap 可见（S4）。
+            effective_prov = "observed" if report_prov == "observed" and declared == "observed" else "synthetic"
             out.append(
                 MaintenanceItemView(
                     item_id=check_ref_text(item.get("id"), f"{w}.id"),
@@ -663,9 +686,26 @@ def parse_maintenance_reports(
                     pit_grade=_enum(item.get("pit_grade") or report_pit, PIT_GRADES, f"{w}.pit_grade"),
                     before=tuple(EvidenceVersionView.from_dict(v) for v in (item.get("before") or [])),
                     current=tuple(EvidenceVersionView.from_dict(v) for v in (item.get("current") or [])),
+                    provenance=effective_prov,
+                    provenance_declared=declared is not None,
                 )
             )
     return tuple(out)
+
+
+def maintenance_provenance_conflicts(reports: Iterable[Mapping[str, Any]]) -> list[str]:
+    """报告级来源不是 observed、项级却自称 observed 的冲突清单（S4），返回报告 id 供 diagnose 出 gap。"""
+    out: list[str] = []
+    for i, report in enumerate(reports or ()):
+        if not isinstance(report, Mapping):
+            continue
+        if _opt_str(report.get("provenance")) == "observed":
+            continue
+        for item in report.get("items") or []:
+            if isinstance(item, Mapping) and _opt_str(item.get("provenance")) == "observed":
+                out.append(str(report.get("id") or f"maintenance_reports[{i}]"))
+                break
+    return sorted(set(out))
 
 
 # --------------------------------------------------------------------------- #

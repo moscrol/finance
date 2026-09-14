@@ -197,10 +197,17 @@ class StageMismatch(unittest.TestCase):
 class OverdueUnreviewed(unittest.TestCase):
     def test_a5_data_or_system_limits_are_not_user_issues(self) -> None:
         report = run_scenario()
+        # ck-unverifiable：窗口内**有**回检动作，只是结果不可核验。机会已被履行 → 已评估的 context。
         unv = one(report, "overdue_unreviewed", "ck-unverifiable")
         self.assertEqual(unv.classification, "context")
-        agent = one(report, "overdue_unreviewed", "ck-agent")
-        self.assertEqual(agent.classification, "context")
+        # ck-agent：回检责任在系统，用户根本没有这次机会 → 按规格 §5 落 excluded 并列原因。
+        # 旧断言要它当 context，等于把无责任故障算进 evaluated 分母、夸大诊断覆盖（评审 D2）。
+        self.assertFalse(findings_of(report, "overdue_unreviewed", "ck-agent"))
+        excluded = next(
+            e for e in report.exclusions if e.kind == "overdue_unreviewed" and e.object_identity.endswith("|ck-agent")
+        )
+        self.assertEqual(excluded.reason, "system_recheck_missing")
+        # 排除出分母不等于从责任归属清单里消失。
         reasons = {(n.object_identity.split("|")[-1], n.reason) for n in report.non_attributable}
         self.assertIn(("ck-unverifiable", "data_or_system_limit"), reasons)
         self.assertIn(("ck-agent", "system_recheck_missing"), reasons)
