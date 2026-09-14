@@ -1,36 +1,43 @@
-# feat/research-evolution-06-workbench · 2026-09-14 · 研究进化 06：第四轮 U1–U4 返修完，等复审
+# feat/research-evolution-06-workbench 在途交接
 
-## 这个分支做什么
+最近更新：2026-09-14 · HEAD 99d6e193（+未提交第五轮返修；提交后 HEAD 见 git）· 基于 b481804c
 
-01–05 接进既有 Workbench 会话，06 只组装不改域算法，单 writer `EvolutionStore`。第四轮 QC 的 U1–U4（退修清单：`docs/verification/re06-957e83f4/REVIEW.md`）已全部返修完，等复审放行。第三轮 T1–T5 背景见 `docs/handoffs/2026-09-14-re06-round3-t1-t5.md`。
+## 当前任务（第六轮 QC 复审等待中）
 
-## 决策与被否方案
+第五轮 P1 返修 V1–V4 已完成、全绿待复审。根因一句话：第四轮把「文本」当身份、「同会话有消息」当因果；
+时钟域分裂下唯一可信归属坐标是**请求实例（item_id + request_event_id）**。
 
-- U1/U2（接受侧绑定）：`bind_pending_rejudge_run` 不再看「唯一待复核」，改按**请求身份**登记——continuation 维护项坐标（核验当前代+本会话动作记录）/ full_prompt 逐字 / label 的 ≥4 字符前缀复述；零命中、多命中都不登记，普通聊天零 run_links 零迁移。关键张力：U3 setup 的裸「继续核查」必须绑（= label 前缀），U1 的「先不处理…市盈率」必须不绑——唯一判别面是内容串对 rejudge 动作记录持久化的 label/full_prompt。
-- U2（补偿登记）：`_compensate_terminal_link`——显式 link_run 时 run 的用户消息确在本会话（非 RunStore 旁路）即补登当前代关联并折回。**不做墙钟时间窗**：消息/run 是真实时钟、requested_at 是注入时钟，跨域比较在验收环境恒假。
-- U3：终态重放加会话匹配（重放不免授权，仍站版本闸前——QC 否决退回闸后）；run 会话闸前置到视图计算前（别会话无绑定会先 503 掩盖越界，探针只收 400/404/409）。
-- U4：auto-pick 判断仅当 `attempts<=1` 且无 `last_failure`（无先前代际，时间窗不可能撞车）；多代际必须显式 `new_judgment_ref`。否了改 judgments writer 加归属字段（越 06 边界，留作登记依赖）。
+## 本轮改动
 
-## 当前状态
+- 消息合同 `maintenance_launch {item_id, request_event_id}`（首轮可带）；Message 台账同名字段，revise 保留。
+- continuation 载荷带 `request_event_id`（= rejudge 事件 event_id）；App rejudge 流程回传坐标。
+- `bind_pending_rejudge_run` 只认坐标（`_verify_launch_coordinate` 四条件：rejudge 台账回查会话/项/requested/当前代）；文本匹配（`_is_launch_utterance`/`_request_launch_texts`）**已删除**。
+- V4：运行中登记前查旧代归属，已登记 → 400。R7 合同不变（无消息 running run 可登记）。
+- V1：终态补偿 `_compensate_terminal_link` 只认源消息当前代坐标（同一验证器），时间窗检查弃用。
+- V3：auto-pick 收窄——同会话待复核 >1 必拒（ERR_DEPENDENCY_MISSING+pending_item_ids+hint）；
+  已被其他闭环消费的 judgment 从候选排除。U4 闸（attempts>1/last_failure）保留在前。
+- 产品入口：视图 `maintenance.run_links`（含 run_status）；面板「确认成果」（rejudgment_requested 项：
+  选当前代已完成 run + 成果判断 → link_run 带 new_judgment_ref）。运行中带 ref 会被忽略（文档化，不对运行中开放）。
+- 旧探针 setup 升级带坐标（round-3 T1 / round-4 U2/U3，裁决许可，核心断言不动）；新四针原样。
 
-- 代码 HEAD = `ecd90a3c`（已提交，工作树干净）。等第四轮复审；未合并、未部署。
-- 前端本轮零改动。非显然决策完整背景：`docs/handoffs/2026-09-14-re06-round4-u1-u4.md`。
+## 验证（本机多树并发，收据按 tree 区分）
 
-## 已验证
+- 新四针 4/4 原样；组合门禁（5 套件+三轮历史探针）127 passed。
+- 全仓裸 pytest **10051 passed / 0 failed**，收据 `~/.finance-runtime/test-receipts/20260914T033709Z-99d6e193.json`。
+- 前端 92 tests / lint / typecheck / build 全绿；e2e 31 passed / 2 skipped。
+- 勘误：第四轮 10043 全量收据实为 `20260913T202240Z-b481804c`（旧交接 T201520Z 写错）。
 
-- 第四轮探针 4/4 连续两次绿；QC 原 110 条命令 + 新仓内 5 条 = 115 绿；全仓 10043 passed / 0 failed（收据 `~/.finance-runtime/test-receipts/20260913T201520Z-b481804c.json`）；e2e 全套 31 绿 2 跳过（端口 19791/19794）；ruff 干净。
+## 细节快照与证据
 
-## 未验证 / 已知边界
+- `docs/handoffs/2026-09-14-re06-round5-v1-v4.md`（改动矩阵、被否方案）。
+- `docs/verification/re06-ecd90a3c/`：REVIEW.md（裁决原文）+ REWORK.md（返修说明）+ 探针。
 
-- 「继续核查」遇两条待复核：label 相同 → 多命中不登记（落补偿路径），形状安全未专测。
-- 内联折回后换基键+过期版本的重试得 409（语义正确；`:terminal` 派生键只有观察器路径写）。
-- 前端四件套沿用候选结论（本轮无 diff）；最终组合门禁归复审跑。
+## 合并顺序（通过后再走，等用户确认）
 
-## 下一步
+spec 链 → 主链原序；不合并、不部署、不动其他 worktree。
 
-复审者重跑新四针 + 原 110 命令 + 组合门禁；放行后按原顺序合并（规格分支先进 main），用户确认前不合。
+## 留痕（下轮注意）
 
-## 踩过的坑
-
-- `git commit -- <paths> -m` 不行：`-m` 在 `--` 后被当 pathspec；消息放 `--` 前或用 `-F`。
-- 全仓 pytest 会收集 `docs/verification/` 下的探针——探针进仓即进全量。
+- judgments 写入侧不扩展（登记依赖）；归属只靠坐标+唯一性。
+- 观察器终态收尾无 payload：显式 ref 只走 HTTP link_run。
+- 探针台账：round2 在 ~/.finance-runtime/reviews/research-evolution-06-ba10747d/，round3/4/5 在 docs/verification/re06-*/。
