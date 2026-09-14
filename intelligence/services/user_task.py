@@ -486,11 +486,13 @@ _B_LOCAL_ONLY_PHRASES: tuple[str, ...] = (
 _B_RELAX_PHRASES: tuple[str, ...] = ("可以查真实数据", "结合最新行情", "结合当前行情")
 # ② 基底继承（续轮声明）：
 _CONTINUATION_HEAD_PHRASES: tuple[str, ...] = ("继续", "接着", "同上")
+# 切句与句首归一化共用前缀，避免礼貌用语令第二个状态操作漏检。
+_STATE_PREFIX_ATOM = r"(?:请|麻烦|烦请|本轮|这次|此次)\s*"
 
 # 同句多轴操作不仅以标点分开，也可用「且/并」连接。只在后面确有
 # 状态操作时切分，不能把公司名/普通叙述里的「并」拆碎；偏移仍对应原文。
 _SENT_SPLIT_RE = re.compile(
-    r"[。！？；，,\n]|(?:并且|而且|且|并|同时)(?=\s*(?:(?:请|本轮|这次|此次)\s*)*(?:"
+    r"[。！？；，,\n]|(?:并且|而且|且|并|同时)(?=\s*(?:" + _STATE_PREFIX_ATOM + r")*(?:"
     + "|".join(re.escape(p) for p in (
         *_B_MATERIAL_ONLY_PHRASES, *_B_LOCAL_ONLY_PHRASES, *_B_RELAX_PHRASES,
         *_CONTINUATION_HEAD_PHRASES, "其余条件不变", "假设", "如果",
@@ -527,7 +529,7 @@ _QUESTION_START_RE = re.compile(
     r"[？?]|什么|怎么|多少|哪些|如何|为何|是否|选哪|"
     r"^(?:请|假设|如果|排序|指出|说明|计算|分析|比较|判断)"
 )
-_STATE_PREFIX_RE = re.compile(r"^(?:(?:请|麻烦|烦请|本轮|这次|此次)\s*)+")
+_STATE_PREFIX_RE = re.compile(r"^(?:" + _STATE_PREFIX_ATOM + r")+")
 
 
 def _state_head(text: str) -> str:

@@ -105,13 +105,15 @@ def test_date_prefix_is_not_a_numbered_question():
 
 
 @pytest.mark.parametrize("joiner", ["且", "并且", "而且", "并", "同时"])
-def test_conjoined_a_and_b_are_both_interpreted(joiner):
-    text = f"假设甲公司订单翻倍成立{joiner}不要联网。"
+@pytest.mark.parametrize("prefix", ["", "请", "麻烦", "烦请", "本轮", "这次", "此次", "本轮 烦请 "])
+def test_conjoined_a_and_b_are_both_interpreted(joiner, prefix):
+    text = f"假设甲公司订单翻倍成立{joiner}{prefix}不要联网。"
     parsed = contract(text)
     assert (parsed.authenticity, parsed.data_scope) == ("fictional", "local_only")
-    relaxation = contract(f"假设甲公司订单翻倍成立{joiner}结合当前行情分析。")
+    assert parsed.data_scope_declared
+    relaxation = contract(f"假设甲公司订单翻倍成立{joiner}{prefix}结合当前行情分析。")
     assert relaxation.data_scope == "full" and relaxation.data_scope_declared
-    protected = contract(f"只依据「假设订单翻倍{joiner}可以查真实数据」的材料。")
+    protected = contract(f"只依据「假设订单翻倍{joiner}{prefix}可以查真实数据」的材料。")
     assert (protected.authenticity, protected.data_scope) == ("real", "material_only")
     assert contract("材料如下：\n" + text).classification == "boundary_uncertain"
 
