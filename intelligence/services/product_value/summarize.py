@@ -826,10 +826,16 @@ def _compute_block(
             denominator_ids=[str(r.get("receipt_id")) for r in receipts],
             unknown=[
                 {
-                    "id": str(c.get("cost_id") or c.get("attempt_id") or c.get("component")),
+                    "id": str(c.get("cost_id") or c.get("attempt_id") or c.get("task_id") or c.get("component")),
                     "reason": str(c.get("reason")),
                     # PV13：缺哪个组件必须穿过公开投影层——06 从公开结果直接知道补哪笔账。
                     **({"uncovered_components": list(c["uncovered_components"])} if c.get("uncovered_components") else {}),
+                    # round-10 P2：逐组件缺口连同执行坐标逐项透传——同一 attempt 缺两笔账
+                    # 不能变成两条一模一样的行；修复动作按「哪次执行缺哪个组件」下达。
+                    **({"component": str(c["component"])} if c.get("component") else {}),
+                    **({"attempt_id": str(c["attempt_id"])} if c.get("attempt_id") else {}),
+                    **({"run_id": str(c["run_id"])} if c.get("run_id") else {}),
+                    **({"task_id": str(c["task_id"])} if c.get("task_id") else {}),
                 }
                 for c in unknown_components
             ],

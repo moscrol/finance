@@ -1058,3 +1058,55 @@ def test_mismatched_run_attempt_identity_cannot_cover():
     _, m = _r7_measure(proto, complete, evidence1, two_base + consistent, two_runs)
     assert m["detail"]["full_cost_status"] == "known"
     assert m["detail"]["known_cost_by_currency"] == {"CNY": 1.39}
+
+
+def test_summary_projection_preserves_component_and_attempt_identity():
+    """round-10 P2：逐组件缺口穿过公开投影层必须带组件与执行坐标——同一 attempt 缺
+    两笔账不能是两条一模一样的行；镜像场景（执行1缺review/执行2缺writer 及反之）的
+    公开 unknown 行必须可区分，修复动作能按「哪次执行缺哪个组件」下达。"""
+    import copy as _copy
+    from datetime import datetime as _dt, timedelta as _td
+
+
+    proto, complete, evidence1, _, evidence2, writer, review, base = _r7_setup()
+    run1 = writer["payload"]["cost_item"]["run_id"]
+    attempt1 = writer["payload"]["cost_item"]["attempt_id"]
+    run2, attempt2 = "qc-r10-run-2", "qc-r10-attempt-2"
+    extra_events = []
+    for event in base:
+        if event["event_type"] in {"run_started", "run_finished"}:
+            extra = _copy.deepcopy(event)
+            extra["event_id"] += "-second"
+            extra["run_ids"] = [run2]
+            extra["payload"].update(run_id=run2, attempt_id=attempt2)
+            for key in ("event_at", "recorded_at"):
+                extra[key] = (_dt.fromisoformat(extra[key]) + _td(minutes=8)).isoformat()
+            extra_events.append(extra)
+    evidence_extra = _copy.deepcopy(evidence2["runs"][0])
+    evidence_extra.update(run_id=run2, artifacts={})
+    w1 = _r7_fee(writer, "writer_model", 0.36, run_id=run1, attempt_id=attempt1, suffix="-r10-w1")
+    r1_ = _r7_fee(review, "review_model", 0.10, run_id=run1, attempt_id=attempt1, suffix="-r10-r1")
+    w2 = _r7_fee(writer, "writer_model", 0.36, run_id=run2, attempt_id=attempt2, suffix="-r10-w2")
+    r2_ = _r7_fee(review, "review_model", 0.10, run_id=run2, attempt_id=attempt2, suffix="-r10-r2")
+
+    def gap_rows(fees):
+        events = base + extra_events + fees
+        _, m = _r7_measure(proto, complete, evidence1, events, evidence2["runs"] + [evidence_extra])
+        assert m["detail"]["full_cost_status"] == "unknown"
+        return [u for u in m["unknown"] if u["reason"] == "no_usage_evidence_for_attempt"]
+
+    # 同一 attempt 缺两笔账：两行必须可区分（组件 + 执行坐标逐项透传）
+    rows = gap_rows([_r7_fee(writer, "tool", 0.01, run_id=run1, attempt_id=attempt1, suffix="-r10-t1"),
+                     w2, r2_])
+    assert len(rows) == 2 and len({(r.get("component"), r.get("attempt_id")) for r in rows}) == 2
+    assert all(r.get("component") and r.get("attempt_id") and r.get("run_id") for r in rows)
+    # 镜像场景：修复动作不同，公开行必须不同
+    rows_a = gap_rows([w1, r2_])  # 执行1缺 review、执行2缺 writer
+    rows_b = gap_rows([r1_, w2])  # 执行1缺 writer、执行2缺 review
+
+    def key(rows):
+        return sorted((r.get("attempt_id"), r.get("component")) for r in rows)
+
+    assert key(rows_a) != key(rows_b)
+    assert key(rows_a) == [(attempt1, "review_model"), (attempt2, "writer_model")]
+    assert key(rows_b) == [(attempt1, "writer_model"), (attempt2, "review_model")]

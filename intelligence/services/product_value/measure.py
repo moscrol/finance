@@ -594,6 +594,29 @@ def _aggregate_costs(
                 )
             if missing:
                 limitations.add(f"cost_unknown:attempt:{attempt['attempt_id']}")
+    # 无执行实例的辅助任务：任务级组件完整性（与汇总层无 run 分支同规则）——可信计时 +
+    # 没有 run 不等于零费用，任务级费用只证明它自己那个组件（round-10 P1）。只查辅助侧：
+    # 原流程无 run 的人工计时基线是合法通路，不要求模型组件。
+    assisted_no_run = tasks.get(C.CONDITION_ASSISTED)
+    if assisted_no_run is not None and not assisted_no_run.get("attempts"):
+        task_id = str(assisted_no_run.get("task_id") or "")
+        covered = {str(m.get("component")) for m in selected if m.get("selected") and str(m.get("task_id") or "") == task_id}
+        missing = sorted(set(applicable_components) & C.ATTEMPT_MODEL_COMPONENTS - covered)
+        for component in missing:
+            unknown.append(
+                {
+                    "component": component,
+                    "cost_id": None,
+                    "run_id": None,
+                    "attempt_id": None,
+                    "task_id": task_id,
+                    "quantity": None,
+                    "unit": None,
+                    "reason": "no_usage_evidence_for_task",
+                }
+            )
+        if missing:
+            limitations.add(f"cost_unknown:task:{task_id}")
     rescue_minutes = sum(float(task["timing"].get("manual_rescue_minutes") or 0.0) for task in tasks.values())
     if rescue_minutes > 0 and not any(m.get("component") == "manual_rescue" and m.get("selected") for m in selected):
         unknown.append(

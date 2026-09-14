@@ -591,3 +591,74 @@ def test_receipt_gap_requires_per_component_completeness():
     ], proto, reader2)
     gaps = {u["component"] for u in r2["unknown_cost_components"] if u["reason"] == "no_usage_evidence_for_attempt" and u["attempt_id"] == "qc-r9-attempt-3"}
     assert r2["status"] == "valid" and gaps == set()
+
+
+def test_no_run_assisted_task_component_gaps_reach_receipt():
+    """round-10 P1：无执行实例的辅助任务——可信计时 + 任务级费用时，组件完整性同样
+    在收据层核验：缺 writer/review 由收据自身写缺项并降级，不只汇总层拦。合法通路：
+    完整任务级费用 → valid；协议豁免 → valid；原流程无 run 人工计时路径不受影响。"""
+    from intelligence.services.product_value.summarize import summarize
+    from intelligence.tests.test_product_value_summarize import _r7_fee, _r7_setup
+
+    proto, complete, evidence1, _, evidence2, writer, review, base = _r7_setup()
+    assisted_task = next(e["task_id"] for e in base if e.get("assistance_condition") == "assisted" and e["event_type"] == "task_started")
+    no_run_base = [e for e in base if not (e["event_type"] in {"run_started", "run_finished"} and e.get("assistance_condition") == "assisted")]
+    # 证据记录保留（完成证据的 artifact 挂在 run 记录里）；只移除辅助侧生命周期事件 → attempts == []
+    reader = InMemoryEvidenceReader.from_json({"runs": evidence1["runs"] + evidence2["runs"]})
+
+    def task_fee(template, component, amount, suffix):
+        fee = _r7_fee(template, component, amount, suffix=suffix)
+        fee["payload"]["cost_item"].update(run_id=None, attempt_id=None, coverage_scope="task")
+        fee["run_ids"] = []
+        return fee
+
+    def gaps_for(fees):
+        r2 = measure_pair(no_run_base + fees, proto, reader)
+        task = r2["tasks"]["assisted"]
+        assert task["attempts"] == [] and task["task_id"] == assisted_task
+        assert "timing_missing" not in " ".join(r2["limitations"])  # 可信计时保留
+        gaps = {u["component"] for u in r2["unknown_cost_components"] if u["reason"] == "no_usage_evidence_for_task" and u.get("task_id") == assisted_task}
+        return r2, gaps
+
+    r2, gaps = gaps_for([])
+    assert r2["status"] == "incomplete" and gaps == {"writer_model", "review_model"}  # 无账
+    r2, gaps = gaps_for([task_fee(writer, "tool", 0.01, "-r10-t")])
+    assert r2["status"] == "incomplete" and gaps == {"writer_model", "review_model"}  # 仅工具费
+    r2, gaps = gaps_for([task_fee(writer, "writer_model", 0.36, "-r10-w"), task_fee(writer, "tool", 0.01, "-r10-t")])
+    assert r2["status"] == "incomplete" and gaps == {"review_model"}  # 写手+工具费
+    full_fees = [task_fee(writer, "writer_model", 0.36, "-r10-w"), task_fee(review, "review_model", 0.10, "-r10-r"), task_fee(writer, "tool", 0.01, "-r10-t")]
+    r2, gaps = gaps_for(full_fees)
+    assert r2["status"] == "valid" and gaps == set()  # 合法对照：完整任务级费用
+    summary = summarize(
+        [measure_pair(complete, proto, reader), r2],
+        [e for e in complete + no_run_base + full_fees if e["event_type"] == "assignment_created"],
+        proto, cohort_events=complete + no_run_base + full_fees, due_rechecks=[],
+    )
+    cost = next(m for m in summary["metrics"] if m["metric_id"] == "cost_full_status")
+    assert cost["detail"]["full_cost_status"] == "known"
+
+    # 协议豁免：review 在 not_applicable → 只有 writer 的任务级费用也 valid
+    from intelligence.tests.test_product_value_summarize import _clone_complete_pair, _six_pair_protocol
+    from intelligence.services.product_value.protocol import freeze_protocol
+
+    proto2 = _six_pair_protocol()
+    proto2.pop("protocol_hash")
+    proto2["criteria"]["cost"] = {"not_applicable_components": sorted(C.COST_COMPONENTS - {"writer_model", "tool"})}
+    proto2 = freeze_protocol(proto2)
+    _, ev1 = _clone_complete_pair(1, "p10", proto2["protocol_hash"], provenance="imported")
+    second2, ev2 = _clone_complete_pair(2, "p11", proto2["protocol_hash"], provenance="imported")
+    base2 = [e for e in second2 if e["event_type"] != "cost_recorded"]
+    w2 = next(e for e in second2 if e["event_type"] == "cost_recorded" and e["payload"]["cost_item"]["component"] == "writer_model")
+    no_run2 = [e for e in base2 if not (e["event_type"] in {"run_started", "run_finished"} and e.get("assistance_condition") == "assisted")]
+    reader2 = InMemoryEvidenceReader.from_json({"runs": ev1["runs"] + ev2["runs"]})
+    fee = _r7_fee(w2, "writer_model", 0.36, suffix="-r10-exempt")
+    fee["payload"]["cost_item"].update(run_id=None, attempt_id=None, coverage_scope="task")
+    fee["run_ids"] = []
+    r2x = measure_pair(no_run2 + [fee], proto2, reader2)
+    assert r2x["status"] == "valid", r2x["limitations"]  # 豁免通路：review 不被要求
+
+    # 原流程无 run 的人工计时路径：original 无 run 无模型账 → 不被新检查误伤
+    no_run_both = [e for e in base if e["event_type"] not in {"run_started", "run_finished"}]
+    r2m = measure_pair(no_run_both + full_fees, proto, reader)
+    assert r2m["status"] == "valid", r2m["limitations"]
+    assert [u for u in r2m["unknown_cost_components"] if u["reason"] == "no_usage_evidence_for_task"] == []
