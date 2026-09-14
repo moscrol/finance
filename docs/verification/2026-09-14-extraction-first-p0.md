@@ -38,10 +38,10 @@
 | 基线工作树 | `.claude/worktrees/xfp0-baseline-d7e5380`（**专为取基线新建的独立树**，detached 于冻结 SHA，跑测期间零改动） |
 | 分支 | `feat/extraction-first-p0` |
 | 冻结基线 revision | `d7e5380551ba92758935d268fdd0e6fbfdd51ce8`（= 开工时 `gitea/main`，与工单一致） |
-| 被测最终 revision | `b916091e`（第二轮复审返修后；`7a86ce4e` 是第一轮的被测树，读数保留在 §6.1 对照里） |
+| 被测最终 revision | 见 §6.1 收据校验那一段的 `--expect-revision`（**本页是全仓唯一的 SHA 来源**，其余文档指过来、不复制） |
 | 解释器 | `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`（AGENTS.md 指定） |
 | 平台 | macOS darwin 25.4.0 / `pytest -q -p no:randomly` |
-| 原始输出 | `/tmp/xfp0/`：`baseline2-pytest.txt`（基线）、`final2/3/4/5-pytest.txt`（历次最终，含 §6.2 那次 1 红的原始输出）、`mutations.txt`、`fe-*.txt`、`registry.txt`、`receipt-*.txt`、`mergetree.txt` |
+| 原始输出 | `/tmp/xfp0/`：`baseline2-pytest.txt`（基线）、`final2/3/4/5/6-pytest.txt`（历次最终，含 §6.2 那次 1 红的原始输出）、`mutations.txt`、`fe-*.txt`、`registry.txt`、`receipt-*.txt`、`mergetree.txt` |
 
 ### 1.1 干净基线读数
 
@@ -74,15 +74,16 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 | `intelligence/services/observation_script.py` | 台账侧（唯一写入者）：`record_kind` 三分型、草稿版本、提取尝试、五事件、flock + 整行 fsync + 残片封口、动作认领与去重 |
 | `intelligence/services/guided_reading.py` | `gated()` 共用门（门在 `build` 之前）、差异段渲染、`daily_section()` 接缝与入口提示 |
 | `intelligence/cli.py` | `observation draft` / `close` / `list --events`；`read` / `confirm` / `skip` / daily 接入同一道门 |
-| `intelligence/services/personal_export.py` | 台账描述改成「台账行（三类）」——行数不再等于剧本数 |
+| `intelligence/services/personal_export.py` | 台账描述改成「台账行（三类）」；逐行解码（残片不再让整份导出失败） |
 | `docs/learning/ledger-map.md` | 登记分型格式与唯一写入者 |
 | `intelligence/tests/test_observation_extraction_first.py` | **新增** A1–A14，77 条 |
-| `intelligence/tests/test_extraction_first_review_fixes.py` | **新增** 两轮返修回归，39 条（首轮 S1–S10/N2/N3 + 复审 R1–R6） |
+| `intelligence/tests/test_extraction_first_review_fixes.py` | **新增** 三轮返修回归，50 条（S1–S10/N2/N3 + R1–R6 + T1–T4 + Q2/Q3） |
 | `intelligence/tests/test_guided_reading_daily_seam.py` | 接线断言改指 `daily_section` 并加强 |
 
 提交链：`95f3c5e7`（实现）→ `b42dc9bf`（收据）→ `08ca525f`（首轮返修 12 项）→
 `7a86ce4e`（撤回脏树读数 + 压缩交接）→ `caba87c7`（回填读数）→
-`8410e9d3`（复审返修 6 项）→ `b916091e`（诊断拆句 + 交接回填）→ 本页所在提交。
+`8410e9d3`（复审返修 6 项）→ `b916091e`（诊断拆句 + 交接回填）→ `642c3f5d`（回填读数）→
+`b69ac4b4`（复审二返修 4 项 + 文档指针）→ `901c7a87`（Q2 / Q3，复审方所写）→ 本页所在提交。
 
 ## 3 逐条验收（A1–A15）
 
@@ -104,7 +105,7 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 | A10 | 重试不重复、并发只一个 pending、成功事件与剧本行同一次写、跨用户 / 跨目标拒绝、**收据落盘失败 → 退 1 + 保持 pending**、已完成尝试返回原收据、原始导出保留三类 | ✅ 10 条 |
 | A11 | 开关矩阵七种；**只写提取台账不翻转新老用户判据**；带读关闭时独立 draft 仍能存 | ✅ 7 条 |
 | A12 | 无类型旧剧本可读；事件不进状态数 / 过期 / 非交易日扫描；`--from-draft` 是 `user_authored` 且不伪造投影；hindsight 活过 draft 这一跳 | ✅ 7 条 |
-| A13 | 有牙验收：见 §4 | ✅ 19/19 |
+| A13 | 有牙验收：见 §4 | ✅ 25/25 |
 | A14 | 差异载荷**一个数都没有**；收据键在来源关联白名单内且无数值；新模块不定义评分型符号（探针先在坏样本上验证会红）；profile / 校准台账零写入 | ✅ 6 条 |
 | A15 | 本页 | ✅ |
 
@@ -162,7 +163,49 @@ A 系两条按真实行为重写（其中 `test_completed_attempt_replays_the_re
 > 另一个方向修坏。稳定键的字段集合必须**逐个论证「改了它算不算另一个动作」**，
 > 不能只反向排除不该进的。
 
-## 4 变异测试（A13 有牙验收，19 条）
+## 3.3 复审二返修（2026-09-14 第三轮，4 处行为缺口 + 1 处文档）
+
+复审在 `642c3f5d` 上实测，逐条成立。修前 4 红，修后全绿。
+
+| # | 缺陷 | 修法 | 回归 |
+|---|---|---|---|
+| T1 | `--from-draft --attempt-id B` 时 `attempt_id` 从**草稿行**取：A 提交草稿、B 复用读完、指名 B 确认，事件却挂回 A | 「取哪一版」与「算在哪次尝试名下」分开——归属跟显式参数走，没给才回落草稿自己的尝试 | `T1ConfirmIsAttributedToTheAttemptYouNamed` |
+| T2 | 收据已落、关闭失败留下一个**仍 pending** 的尝试；**不带** `--attempt-id` 原样重跑会自动复用它，正文重新生成、台账沿用旧收据——重放了正文却声称没重放 | 认领到 `aid` 之后再查一次收据（显式那条仍需前置：已关闭的会被 `open_attempt` 拒） | `T2AutoResumeAlsoHonoursTheReceipt` |
+| T3 | 去重比**全历史**，把 A→B→A 的第三次吞掉，有效草稿停在 B，而用户刚把它改回了 A | 从内容分不出「连跑两次」与「想了想改回去」，只能靠位置：**只与紧邻上一版比**，同内容才算重试 | `T3RevertingToAnEarlierDraftIsANewVersion` |
+| T4 | R1 只修了观察台账的读取面，**个人导出漏了**——同一份半汉字残片照样让整份导出抛 `UnicodeDecodeError` | 同族第二处补上逐行解码；坏字节也不静默丢，可读部分带走 | `T4PersonalExportSurvivesTheSameTornLine` |
+| — | 收据复跑命令与交接复核指针都**写死过 SHA**，返修一轮就指向旧树，复审按它复跑会漏掉最终修复 | SHA 只在收据 §1 留唯一来源，其余文档一律指过去 | —（本条是流程，见 §8） |
+
+> **T3 与 T4 各代表一类反复出现的形状，值得单独记。**
+>
+> T3：**幂等的边界不能只看内容**。内容相同未必是同一个动作——「重试」与「回滚到旧值」
+> 在载荷上完全一样，区别只在它相对于**上一次**的位置。比全历史等于假定用户不会反悔。
+>
+> T4：**修了一处要先问同族还有谁**。R1 修的是 `observation_script.load_raw`，而
+> `personal_export._read_jsonl` 是同一份台账的第二个读者、同一个 `read_text` 写法。
+> 一处修好、另一处没修，比两处都没修更难发现——台账读得出来了，导出仍然整份失败。
+
+### 3.3.1 同轮另外两项（Q2 / Q3）与一处范围问题
+
+本轮还有两项由**复审方自己**写实现与用例（提交 `901c7a87`），不是我修的：
+
+| # | 缺陷 | 修法 |
+|---|---|---|
+| Q2 | 收据落盘、关闭失败的窗口里，同一 pending 尝试又合法提交了 v2；按该尝试确认会选 v2，而那一版**从未出现在那次 read 里** | 完成收据是选版的**最高依据**：有收据就按 `source_draft_id` 取，收据缺来源则返回 `None`，不悄悄回退 |
+| Q3 | 手填确认验了归属却把终态校验整体豁免，完全 `abandoned` 的尝试上也能新增确认与 checkpoint | 手填 + 显式尝试是「在进行中的尝试里做动作」，`require_open_attempt=True` |
+
+> **两处要如实记账。**
+>
+> 1. `b69ac4b4` 那笔是我用 pathspec 提交的，但当时同一棵工作树里有另一个 agent 正在改
+>    `observation_script.py` / `cli.py`，他的 Q2/Q3 早期改动被我的提交**一并带走**，
+>    而我的提交信息没有描述它们。AGENTS.md 早就写过这个形状（同一棵树两个 agent 共用
+>    索引），我照做了 pathspec 却没在提交前重看一遍 diff。
+> 2. 复审方标注 **T3 属于范围外变更，待下一轮裁决**。我的依据是：第三轮复审给我的清单
+>    里，「草稿 A→B→A，最后修改不生效…全历史内容去重吞掉了新提交」是**需求轴三项之一**，
+>    不是我自找的相邻缺口。两边看到的报告版本可能不同，**以复审方的裁决为准**——
+>    要退回「只比全历史」，改 `submit_draft` 里那一处 `latest_user_draft` 判据即可，
+>    回归 `T3RevertingToAnEarlierDraftIsANewVersion` 与变异 M22 一并撤。
+
+## 4 变异测试（A13 有牙验收，25 条）
 
 harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONTWRITEBYTECODE=1`
 （防「同长度改动 + 秒内还原」被 `.pyc` 缓存伪造成回归），锚点唯一性由 harness 自检
@@ -189,8 +232,14 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
 | M17 | 手填确认不验尝试（回退 R4） | R4 | ✅ |
 | M18 | 落盘不复验尝试（回退 R5） | R5 | ✅ |
 | M19 | 去重键漏 due（回退 R6） | R6 | ✅ |
+| M20 | 归属跟草稿行走（回退 T1） | T1 | ✅ |
+| M21 | 自动续接不查收据（回退 T2） | T2 | ✅ |
+| M22 | 全历史内容去重（回退 T3） | T3 | ✅ |
+| M23 | 导出仍整文件解码（回退 T4） | T4 | ✅ |
+| M24 | 同尝试新版顶掉收据（回退 Q2） | Q2 | ✅ |
+| M25 | 手填豁免终态校验（回退 Q3） | Q3 | ✅ |
 
-全部还原后 `115 passed`，工作树无残留。原始输出 `/tmp/xfp0/mutations.txt`。
+全部还原后 `127 passed`，工作树无残留。原始输出 `/tmp/xfp0/mutations.txt`。
 （M10 / M3 / M4 的锚点在历次重构后失配过，每次都是 harness 的唯一性自检先发现的。）
 
 > M12 第一版是「没有牙」：写入侧回退后，读取侧的去重把它兜住了，测试照样绿。
@@ -214,7 +263,7 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
 | python-lint | `ruff check .` | ✅ |
 | python | `pytest -q -p no:randomly` | 见 §6.1 |
 | frontend-lint / typecheck / test / build | `pnpm --dir intelligence/webapp …` | ✅ 四条均 exit 0 |
-| e2e | `PATH=.venv-workbench/bin:$PATH pnpm test:e2e` | ✅ **15 passed (48.0s)** |
+| e2e | `PATH=.venv-workbench/bin:$PATH pnpm test:e2e` | ✅ **15 passed (47.9s)** |
 | registry-check | `market_feature_store.cli registry-check` | ✅ exit 0，「registry 校验通过（档位/表名/计划步骤归属）」 |
 
 > 新树跑前端叶子前要先 `pnpm --dir intelligence/webapp install --frozen-lockfile`：
@@ -225,26 +274,26 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
 ### 6.1 全量 pytest 读数
 
 ```
-9671 passed, 77 skipped, 2 xfailed, 17 warnings in 397.58s (0:06:37)   exit 0
+9678 passed, 77 skipped, 2 xfailed, 17 warnings in 402.56s (0:06:42)   exit 0
 ```
 
 收据校验（把「收据树 == 被测树」从规程文字变成 exit code）：
 
 ```
 $ .venv-workbench/bin/python scripts/check_test_receipt.py \
-      ~/.finance-runtime/test-receipts/20260914T022225Z-b916091e.json \
-      --expect-revision b916091e
-  读数     passed=9671 failed=0 error=0 skipped=77
+      ~/.finance-runtime/test-receipts/20260914T030608Z-b69ac4b4.json \
+      --expect-revision b69ac4b4
+  读数     passed=9678 failed=0 error=0 skipped=77
   ✓ revision 一致   ✓ 解释器一致   ✓ python 版本一致   ✓ 依赖指纹一致
-  ✓ 收据来自干净树   ✓ 依赖门禁未被绕过   ✓ 收据 revision == b916091e1f43
+  ✓ 收据来自干净树   ✓ 依赖门禁未被绕过   ✓ 收据 revision == b69ac4b4a2f2
 ✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。        VALIDATOR_EXIT=0
 ```
 
 差量对账：
 
-| | 基线 `d7e5380` | 最终 `b916091e` | 差量 |
+| | 基线 `d7e5380` | 最终 `b69ac4b4` | 差量 |
 |---|---|---|---|
-| passed | 9554 | 9671 | **+117** |
+| passed | 9554 | 9678 | **+124** |
 | failed | 0 | 0 | **0** |
 | skipped | 77 | 77 | 0 |
 | xfailed | 2 | 2 | 0 |
@@ -254,12 +303,12 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 | 来源 | 条数 |
 |---|---|
 | `test_observation_extraction_first.py`（A1–A14） | 77 |
-| `test_extraction_first_review_fixes.py`（首轮 S1–S10/N2/N3 25 条 + 复审 R1–R6 14 条） | 39 |
+| `test_extraction_first_review_fixes.py`（S1–S10/N2/N3 25 + R1–R6 14 + T1–T4 7） | 46 |
 | `test_guided_reading_daily_seam.py`（2 元组视图不是死代码） | 1 |
-| 合计 | **117** |
+| 合计 | **124** |
 
-> 中途对照：`7a86ce4e`（第一轮返修后）是 9657P，与本行的 9671P 差 14，
-> 正是复审返修新增的那 14 条。
+> 三轮对照：`7a86ce4e` 9657P → `b916091e` 9671P（+14 = R1–R6）→ `b69ac4b4` 9678P
+> （+7 = T1–T4）。每一跳的增量都点得出名字。
 
 > 耗时 347s → 357s：两次都在安静机器上、同一解释器、同一依赖指纹下取得，
 > 这 10s 属于噪声量级，**不作为耗时结论**。
@@ -298,7 +347,7 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 
 ## 8 最终提交与复跑
 
-- 分支 `feat/extraction-first-p0`；被测 revision **`b916091e`**
+- 分支 `feat/extraction-first-p0`；被测 revision 见 §1 那一行（**唯一来源**）
 - 交接 `docs/handoffs/inflight/feat-extraction-first-p0.md`（状态）+
   `docs/handoffs/2026-09-14-extraction-first-p0-review-fixes.md`（背景全文）
 - 复跑：`git worktree add <新树> <本页 §1「被测最终 revision」那个 SHA>` → §6 那八条命令
