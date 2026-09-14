@@ -195,4 +195,4 @@ QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结�
 - 非阻断建议（留 06/后续）：无 run 组件规则在 measure 和 summarize 各写一份，当前一致；后续改规则时可抽公共函数防漂移。
 - 06 接线注意：unknown 的 id 不保证逐组件唯一，不能只按 id 去重——消费时保留组件与执行身份。
 - 留档：QC 报告 2026-09-14-product-value-round10-qc.md（评审提交 308b3584、交接 5717f92d，均未推 gitea）。
-- 下一步：06 用四轨 SHA（01 6cc5748a / 02 e27b3352 / 04 fcc7838c / 05 8a7baedd）做集成验收；前端、e2e、registry、真人试点不在本轮结论内。
+- 下一步：06 用四轨分支 HEAD 做集成验收（业务代码基线：01 `a3cf9d4b` / 02 `e27b3352` / 04 `fcc7838c` / 05 `ded78479`；各 docs tip 在其上，只增文档与消费提醒）；前端、e2e、registry、真人试点不在本轮结论内。
