@@ -150,6 +150,48 @@ def test_p12_unknown_and_gaps_survive_and_every_item_reconciles():
     assert len(all_ids) == len(set(all_ids)) == report["totals"]["candidate_count"]
 
 
+def test_condition_task_keeps_its_observation_window_across_two_01_reports():
+    """评审 P1（适配侧）：同一 binding/condition 在两个观测窗口的 01 报告不得并成一条。
+
+    01 的 dedup_key 含「条件/观测窗口」，02 必须保持同一口径：当天那份仍进第 1 组，
+    未来那份单独 blocked(future_record)，不把当天的关键条件一起拖走。
+    """
+    today = _load("maintenance_report_synthetic.json")
+    tomorrow = copy.deepcopy(today)
+    tomorrow["id"] = "mr_synth_0914"
+    tomorrow["as_of"] = "2026-09-14"
+    tomorrow["knowledge_cutoff"] = "2026-09-14T15:30:00+08:00"
+    for item in tomorrow["items"]:
+        item["id"] = item["id"] + "_0914"
+        item["as_of"] = "2026-09-14"
+        item["knowledge_cutoff"] = "2026-09-14T15:30:00+08:00"
+
+    candidates = rp.adapt_candidates(
+        [
+            {"kind": rp.SOURCE_MAINTENANCE_REPORT, "payload": today},
+            {"kind": rp.SOURCE_MAINTENANCE_REPORT, "payload": tomorrow},
+        ],
+        CONTEXT,
+    )
+    report = rp.prioritize(candidates, None, None, EVAL_AT)
+
+    today_section, today_row = _section_of(report, "mi_001_abandon_true")
+    future_section, future_row = _section_of(report, "mi_001_abandon_true_0914")
+    assert today_section == "selected" and today_row["group"] == c.GROUP_ABANDON
+    assert future_section == "blocked" and future_row["reason"] == c.BLOCK_FUTURE_RECORD
+    assert today_row["task"]["id"] != future_row["task"]["id"]
+    assert today_row["task"]["maintenance_item_ids"] == ["mi_001_abandon_true"]
+    assert future_row["task"]["maintenance_item_ids"] == ["mi_001_abandon_true_0914"]
+
+    # 条件证据引用带上观测窗口，06/04 能看出这条 condition 取自哪一次观测。
+    condition_ref = next(
+        r for r in today_row["task"]["effect_evidence_refs"] if r["kind"] == "condition" and r["id"] == "cond_abandon_alpha"
+    )
+    assert condition_ref["namespace"] == "binding:b_alpha"
+    assert condition_ref["scope"]["as_of"] == "2026-09-12"
+    assert condition_ref["scope"]["knowledge_cutoff"] == "2026-09-12T15:30:00+08:00"
+
+
 def test_maintenance_report_of_another_owner_is_rejected():
     fixture = _load("maintenance_report_synthetic.json")
     with pytest.raises(c.ContractError) as excinfo:
@@ -397,3 +439,11 @@ def test_combined_sources_match_frozen_golden():
     # 冻结场景本身也要能说得通：第 1 组是放弃条件、第 2 组是三判断共用证据、等待区四类原因各一。
     assert [row["group"] for row in report["selected"]] == [c.GROUP_ABANDON, c.GROUP_REVIEW_CHANGED, c.GROUP_VERIFY_DUE]
     assert sorted(row["reason"] for row in report["blocked"]) == [c.AVAIL_MISSING_DATA, c.AVAIL_MISSING_DATA, c.BLOCK_NOT_YET_DUE, c.AVAIL_WAITING_RELEASE]
+    # task_id 是 identity_key 的内容寻址结果，合并口径一变整批都会变；再钉一层「与 id 无关」的
+    # 落位，这样 golden 因 id 漂移而重生成时，语义回归不会跟着一起被放过。
+    assert sorted((row["reason"], tuple(sorted(r["id"] for r in row["task"]["merged_source_refs"]))) for row in report["blocked"]) == [
+        (c.AVAIL_MISSING_DATA, ("dr-bbbbbbbbbb",)),
+        (c.AVAIL_MISSING_DATA, ("mi_005_condition_unknown",)),
+        (c.BLOCK_NOT_YET_DUE, ("conv_1#checkpoint:cp_pending_0920",)),
+        (c.AVAIL_WAITING_RELEASE, ("2026-09-12:today_wait_market_validation:低空经济",)),
+    ]
