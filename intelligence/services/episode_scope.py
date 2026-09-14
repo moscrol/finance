@@ -252,9 +252,7 @@ class EpisodeScope:
             raise ValueError("episode scope 必须携带 episode_id")
         if not isinstance(self.invoked_tools, set):
             object.__setattr__(self, "invoked_tools", set(self.invoked_tools))
-        material = self.context.contract.material_contract
-        if material is not None and material.data_scope in {"local_only", "material_only"}:
-            object.__setattr__(self, "registry", self.registry.with_read_scope(material.data_scope))
+        object.__setattr__(self, "registry", self.registry.for_context(self.context))
 
     # ── 运行中登记 ────────────────────────────────────────────────────
 

@@ -283,6 +283,7 @@ def tool_definitions_for_menu(
 ) -> list[dict[str, object]]:
     """把菜单落成模型 API 的 tool definitions；两条 loop 共用，菜单只算一次。"""
 
+    registry = registry.for_context(context)
     visible = set(menu.visible)
     return [
         definition
@@ -364,6 +365,7 @@ class EpisodeToolBatchSession:
         此刻必超时的工具。领域只申报 ``min_window_seconds``，装不装得下由这里判。
         """
 
+        registry = registry.for_context(context)
         would_grant = context.deadline.stage_timeout(
             tool_batch_timeout_seconds(context.policy)
         )
@@ -405,6 +407,7 @@ class EpisodeToolBatchSession:
         turn_elapsed_at_dispatch: float | None = None,
         request_extras: Mapping[str, Mapping[str, object]] | None = None,
     ) -> ToolBatchResult:
+        registry = registry.for_context(context)
         with self._lock:
             return self._execute_locked(
                 calls,

@@ -1156,6 +1156,9 @@ class ContinuousAgentEpisode:
         # 只在真有下游 sink 时才挂：否则 ``dump()`` 的 ``event_sink_attached``
         # 会在没人接收时报 True——收据不说谎优先于形式上"接线了"。
         #
+        # Scope 内的副本不能约束还持有原 registry 的消费者；先绑定本地引用，
+        # 再生成配置快照、绑 episode 工具、拼提示词与播种账本。
+        registry = registry.for_context(context)
         # 证据账本要在绑 sub_research 之前建：分支证据经它的 branch_sink 进父账本。
         # 建得早不改任何事件——它只依赖 context。
         evidence_ledger = EvidenceLedger(
@@ -2142,7 +2145,8 @@ class ContinuousAgentEpisode:
         accumulator = state.accumulator
         messages = state.messages
         tool_session = state.tool_session
-        registry = state.registry
+        registry = state.registry.for_context(context)
+        state.registry = registry
         task_frame = state.task_frame
         repair_seconds = max(0.0, float(goal.remaining_seconds))
         if context.root_budget is not None:

@@ -539,6 +539,11 @@ class ContinuousTurnAdapter:
                 ResearchToolRegistry,
                 self._registry_factory(frame, context),
             )
+            material = context.contract.material_contract
+            if material is not None and material.data_scope in {"local_only", "material_only"}:
+                # 受限轮必须拿得到同一注册表合同；full 的旧鸭子类型注入点不变。
+                # 不支持绑定就由现有失败出口收口，不能先预取后才发现没授权。
+                registry = registry.for_context(context)
             # 展望座位升 deep：判定在领域，落账在底座（runtime/tier_promotion）。
             context = maybe_promote_forecast_residual(
                 context,

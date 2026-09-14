@@ -1009,6 +1009,14 @@ class ResearchToolRegistry:
             read_scope=effective,
         )
 
+    def for_context(self, context: ResearchRunContext) -> "ResearchToolRegistry":
+        """Bind once before any menu/prompt/prefetch consumer, not only dispatch."""
+        material = context.contract.material_contract
+        if material is not None and material.data_scope in {"local_only", "material_only"}:
+            return self.with_read_scope(material.data_scope)
+        # 未决语义的预取前澄清仍由入口负责；这里不猜测/复位已有上限。
+        return self
+
     def authorization_denial(self, spec: ToolSpec, context: ResearchRunContext) -> str:
         """One decision shared by dispatch and EpisodeScope; no side effects."""
         if spec.capability not in context.contract.allowed_capabilities:
