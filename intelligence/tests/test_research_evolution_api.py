@@ -730,3 +730,126 @@ def test_i12_the_whole_flow_leaves_every_legacy_ledger_byte_identical(world: Wor
     written = sorted(p.name for p in (world.user_root / "research_evolution").iterdir())
     assert "dependency_bindings.jsonl" in written
     assert "maintenance_actions.jsonl" in written
+
+
+# --------------------------------------------------------------------------- #
+# I17：A → 歧义 B → 复现 A（01 交接给 06 的明确验收项，QC round-11）。
+# 旧 snooze / reviewed_no_change 绑历史节点 id：折归时必须逐条 rejected，
+# 复现节点保持 open、独立身份，替代链线性无环、历史节点不丢，API 暴露真实反馈。
+# --------------------------------------------------------------------------- #
+
+
+def _recurrence_slice_catalog() -> fx.EvidenceCatalog:
+    """SLICE_DAY 目录：A（09-01 基线）→ B（09-12 明确时刻修订）→ C（同 A 哈希、纯日期 09-13 记录、当日过期）。
+
+    B 的记录时刻严格更晚 → A 被同 ref 隐式更正退场；C 纯日期与 B 不可比 → 歧义；
+    C 过期 → 歧义消解、B 的状态签名复现 → 复现节点（J12 独立身份，不入原历史链）。
+    """
+    base_a = {
+        "ref": fx.REF_SECTOR,
+        "source_hash": "h-sector-v1",
+        "valid_from": fx.SLICE_DAY,
+        "valid_to": None,
+        "recorded_at": f"{fx.SLICE_DAY}T18:00:00+08:00",
+        "derivation": "deterministic",
+        "namespace": "market_feature_store",
+        "_track": "theme",
+        "_object_type": "label",
+        "_entity_id": "866006.FP",
+    }
+    report_v = {**base_a, "ref": fx.REF_REPORT, "source_hash": "h-report-v1", "_track": "opinion", "_object_type": "event"}
+    revised_b = {**base_a, "source_hash": "h-sector-v2", "recorded_at": "2026-09-12T18:00:00+08:00"}
+    interloper = {**base_a, "recorded_at": "2026-09-13", "expired_at": "2026-09-14T10:00:00+08:00"}
+    return fx.EvidenceCatalog(
+        entity=fx.ENTITY,
+        as_of=fx.SLICE_DAY,
+        knowledge_cutoff=fx.TODAY,
+        versions=(base_a, report_v, revised_b, interloper),
+        observations=(),
+        gaps=(),
+        pit_grade="strict",
+        available=True,
+    )
+
+
+@pytest.mark.parametrize("old_action", ["snooze", "reviewed_no_change"])
+def test_i17_recurrence_keeps_old_actions_on_the_historical_node(world: World, old_action: str) -> None:
+    world.evidence.catalogs[(fx.ENTITY, fx.SLICE_DAY)] = _recurrence_slice_catalog()
+    world.track_judgment().raise_for_status()
+
+    # 复现发生前（as_of=09-12）：当前项是 B 的变更节点 N1，旧动作合法落在它身上。
+    before = world.view(as_of="2026-09-12", knowledge_cutoff="2026-09-12")["maintenance"]
+    open_then = [i for i in before["items"] if i["status"] == "open"]
+    assert len(open_then) == 1, [(i["change_type"], i["status"]) for i in before["items"]]
+    n1 = open_then[0]
+    payload: dict[str, object] = {
+        "action": old_action,
+        "idempotency_key": f"k-old-{old_action}",
+        "item_id": n1["id"],
+        "expected_item_version": n1["item_version"],
+        "expected_management_revision": n1["management_revision"],
+        "as_of": "2026-09-12",
+        "knowledge_cutoff": "2026-09-12",
+    }
+    if old_action == "snooze":
+        payload["snooze_until"] = "2026-09-15T09:00:00+08:00"
+    accepted = world.act(**payload)
+    assert accepted.status_code == 200, accepted.text
+
+    # 复现后（今天）：N1 已被替代；复现节点是独立身份的 open 项，不继承旧动作。
+    today = world.view()["maintenance"]
+    items = {i["id"]: i for i in today["items"]}
+    live_now = [i for i in today["items"] if i["status"] not in ("closed", "superseded")]
+    assert len(live_now) == 1, [(i["id"], i["status"]) for i in today["items"]]
+    recur = live_now[0]
+    assert recur["status"] == "open"
+    # J12 独立身份：id 由 dedup_key + "#recur:<day>" 盐派生——公开面上 id 不同、
+    # dedup_key 不变（跨报告归并语义不动），而不是 id 里含字面标记。
+    assert recur["id"] != n1["id"]
+    assert recur["dedup_key"] == n1["dedup_key"]
+
+    # 替代链线性无环、历史节点不丢：recur → … → N1 → 无。
+    chain: list[str] = []
+    pointer = recur["id"]
+    while pointer:
+        assert pointer not in chain, "supersedes 成环"
+        chain.append(pointer)
+        pointer = items[pointer].get("supersedes_item_id")
+    assert n1["id"] in chain and len(items) >= 3
+
+    # 歧义提示留在审计轨迹；旧动作事件逐条 rejected 且归属历史节点——API 可见的真实反馈。
+    assert "ambiguous_version_order" in json.dumps(today, ensure_ascii=False)
+    outcomes = today["management_log"]["outcomes"]
+    old = [o for o in outcomes if o["item_id"] == n1["id"]]
+    assert len(old) == 1 and old[0]["outcome"] == "rejected", outcomes
+    assert not any(o["item_id"] == recur["id"] for o in outcomes), "旧动作不得触碰复现节点"
+
+    # 复现项仍进入排序段（01→02 接缝不断）。
+    assert recur["id"] in json.dumps(world.view()["priority"]["selected"], ensure_ascii=False)
+
+    # 迟到动作一：拿历史节点再操作 → 明确拒绝（终态），反馈带原因。
+    late = world.act(
+        action="reviewed_no_change",
+        idempotency_key=f"k-late-{old_action}",
+        item_id=n1["id"],
+        expected_item_version=items[n1["id"]]["item_version"],
+        expected_management_revision=items[n1["id"]]["management_revision"],
+    )
+    assert late.status_code == 400, late.text
+    body = late.json()["detail"]
+    assert body["code"] == "action_rejected" and body["detail"]["reason_code"] == "terminal_state", body
+
+    # 迟到动作二：复现节点自身的版本闸仍然有效——错误预期修订号 → 409，不关闭新变化。
+    # （item_version 是证据/绑定/条件快照哈希：复现节点与 N1 同证据同绑定，内容版相同，
+    #   「拿 N1 旧令牌戳复现节点」与节点真实状态一致时接受是正确行为；真实旧页面只知道
+    #   N1 的 id，该情形由上面的 terminal_state 拒绝覆盖。）
+    stale = world.act(
+        action="reviewed_no_change",
+        idempotency_key="k-stale-page",
+        item_id=recur["id"],
+        expected_item_version=recur["item_version"],
+        expected_management_revision=99,
+    )
+    assert stale.status_code == 409 and stale.json()["detail"]["code"] == "version_conflict", stale.text
+    still_open = next(i for i in world.view()["maintenance"]["items"] if i["id"] == recur["id"])
+    assert still_open["status"] == "open"
