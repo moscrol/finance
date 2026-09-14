@@ -1,28 +1,9 @@
 #!/usr/bin/env python3
-"""补评：对 provider 故障期间未打分的答案重跑盲评，重算聚合。
+"""对冻结答案补评或完整重评，逐次保存独立收据，不重跑 ask。
 
-**不重跑任何 ask（答案原样保留）；只补 judge。产出修正收据（原文件不覆盖）。**
-
-起因（2026-08-26 干净轮 `20260826T143558Z`）：judge 链在夜里断了
-（`zhipu:URLError / openai:URLError`），15 份答案里 7 份记 unscored。这不是内容
-失败——答案本身跑出来了、正文完好——但聚合只算「双方都 scored」的题，于是
-`reading-baseline` 的边际贡献落到 `questions_usable: 1/5`。**拿那份收据下结论，
-读到的是 1 题的噪声，不是 5 题的读数。**
-
-为什么补评合法而不是「洗数据」：原脚本第 15 行的设计是**每份答案独立盲评**
-（judge 只见问题 + 答案，不见臂标签），所以单独补评 7 份与整轮一起评在统计上
-等价——洗牌顺序只决定评审次序，不进入单份分数。答案文本 sha256 前后逐条断言
-不变，补评动不了「答得怎么样」，只补上「谁给它打分」。
-
-三条不许越的线（都在代码里 fail-closed，不靠自觉）：
-  1. 原文件绝不覆盖：``--output`` 指向输入即退出。
-  2. 已打分的分数绝不重评：只碰 ``scored != True`` 且有正文的行。
-  3. 补评再失败仍记 unscored：不编造分数，不把「评不出来」写成「评过了」。
-
-用法：
-    python3 scripts/rejudge_quality_ablation.py --run intelligence/eval/runs/X.json --dry-run
-    . <(grep '^export ' ~/.local/bin/start-finance-workbench)   # 继承生产 provider 链
-    python3 scripts/rejudge_quality_ablation.py --run intelligence/eval/runs/X.json
+pending 仅补未评分行，旧校准只保留历史，决定始终 no_call。
+new-batch 用当前判官完整重评全部臂并重新校准；源写作者不可核实的探索仍无资格。
+两种模式都保留源文件、答案和源评分，输出路径必须事前独占。
 """
 
 from __future__ import annotations
@@ -32,6 +13,7 @@ import hashlib
 import json
 import random
 import sys
+from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -41,6 +23,8 @@ if str(REPO) not in sys.path:
 
 from scripts.run_quality_ablation import (  # noqa: E402
     _JUDGE_OVERRIDE,
+    _score_is_numeric,
+    COMPONENTS,
     resolve_judge,
     RUBRIC_DIMENSIONS,
     Question,
@@ -48,7 +32,12 @@ from scripts.run_quality_ablation import (  # noqa: E402
     judge_answer,
     provider_label,
     require_llm_ready,
+    build_judge_spec,
+    finish_judging,
+    write_artifact,
+    writer_preflight,
 )
+from intelligence.eval import judge_validity as validity  # noqa: E402
 
 
 def _fail(msg: str) -> "SystemExit":
@@ -59,14 +48,116 @@ def _sha256_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def load_run(path: Path) -> dict[str, object]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict) or payload.get("kind") != "quality_ablation":
+def load_run(path: Path, *, raw: bytes | None = None) -> dict[str, object]:
+    payload = json.loads(raw if raw is not None else path.read_bytes())
+    if not isinstance(payload, dict) or payload.get("kind") not in {
+        "quality_ablation", "quality_ablation_rejudge",
+    }:
         raise _fail(f"不是 quality_ablation 收据：{path}")
     for key in ("questions", "answers", "aggregates"):
         if key not in payload:
             raise _fail(f"收据缺 {key}：{path}")
     return payload
+
+
+def source_preflight(artifact):
+    """Validate frozen coordinates and contents without trusting old judge scores."""
+    try:
+        questions, answers, aggregates = artifact["questions"], artifact["answers"], artifact["aggregates"]
+        if not isinstance(questions, list) or not questions or not isinstance(answers, list):
+            raise ValueError("questions and answers must be arrays")
+        if not isinstance(aggregates, dict) or not aggregates:
+            raise ValueError("aggregates must identify the registered components")
+        ids = []
+        for question in questions:
+            if (not isinstance(question, dict) or set(question) != {"case_id", "text", "as_of"}
+                    or any(not isinstance(question[key], str) or not question[key]
+                           for key in ("case_id", "text", "as_of"))):
+                raise ValueError("invalid question")
+            ids.append(question["case_id"])
+        if len(set(ids)) != len(ids):
+            raise ValueError("duplicate case_id")
+        components = list(aggregates)
+        if any(component not in COMPONENTS for component in components):
+            raise ValueError("unknown component")
+        arms = ["baseline", *components]
+        actual = []
+        for answer in answers:
+            if (not isinstance(answer, dict) or not isinstance(answer.get("answer"), str)
+                    or type(answer.get("ok")) is not bool):
+                raise ValueError("invalid answer")
+            actual.append((answer["case_id"], answer["arm"]))
+        expected = {(case_id, arm) for case_id in ids for arm in arms}
+        if len(actual) != len(expected) or set(actual) != expected:
+            raise ValueError("manifest_denominator_mismatch")
+        manifest = artifact.get("manifest")
+        if manifest is not None and not isinstance(manifest, dict):
+            raise ValueError("invalid source manifest")
+        if manifest is None or manifest.get("schema_version") != 2:
+            return deepcopy(questions), components, ["unsupported_schema"]
+        run, bound = manifest["run_manifest"], manifest["answer_manifest"]
+        if (questions != run["questions"] or arms != run["arms"]
+                or validity.canonical_hash(run) != manifest["run_manifest_sha256"]
+                or validity.canonical_hash(bound) != manifest["answer_manifest_sha256"]
+                or bound["run_manifest_sha256"] != manifest["run_manifest_sha256"]
+                or run["batch_id"] != manifest["batch_id"]):
+            raise ValueError("manifest_hash_mismatch")
+        bindings = [validity._answer_binding(manifest, answer) for answer in answers]
+        if bindings != bound["answers"]:
+            raise ValueError("answer_binding_mismatch")
+        for answer, binding in zip(answers, bindings):
+            if any(answer.get(key) != binding[key]
+                   for key in ("answer_id", "answer_sha256", "judge_input_sha256")):
+                raise ValueError("answer_binding_mismatch")
+        return deepcopy(questions), components, []
+    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        raise _fail(f"源收据冻结内容校验失败：{exc}") from exc
+
+
+def _prepare_batch(artifact, *, mode, source_path, source_sha256, seed, spec,
+                   calibration_repeats, batch_max_seconds, independence, now, output_path):
+    questions, component_ids, source_reasons = source_preflight(artifact)
+    source_manifest = artifact.get("manifest") or {}
+    manifest = validity.new_manifest(
+        questions, component_ids, spec, source_run_sha256=source_sha256,
+        parent_batch_id=source_manifest.get("batch_id"), calibration_repeats=calibration_repeats,
+        batch_max_seconds=batch_max_seconds, independence=independence, now=now,
+    )
+    result = {
+        "schema_version": 2, "kind": "quality_ablation_rejudge", "mode": mode,
+        "status": "incomplete", "generated_at": (now or datetime.now(timezone.utc)).isoformat(),
+        "source_run": str(source_path), "source_sha256": source_sha256,
+        "source_generated_at": artifact.get("generated_at"),
+        "parent_batch_id": source_manifest.get("batch_id"),
+        "seed": artifact.get("seed"), "rejudge_seed": seed,
+        "source_reason_codes": source_reasons,
+        "manifest": manifest, "questions": questions, "answers": [],
+        "calibration": [], "noise_floor": None,
+        "source_calibration": deepcopy(artifact.get("calibration")),
+        "source_noise_floor": deepcopy(artifact.get("noise_floor")),
+        "aggregates_before": deepcopy(artifact["aggregates"]), "aggregates": {},
+    }
+    if output_path is not None:
+        write_artifact(Path(output_path), result, create=True)
+    for original in artifact["answers"]:
+        record = deepcopy(original)
+        if mode == "new-batch":
+            for key in ("judge", "judge_history", "rejudge_attempts"):
+                record.pop(key, None)
+        result["answers"].append(validity.stamp_answer(manifest, record))
+    result["manifest"] = validity.bind_answers(manifest, result["answers"])
+    if output_path is not None:
+        write_artifact(Path(output_path), result)
+    return result
+
+
+def _force_diagnostic(result, reasons):
+    gate = deepcopy(result.get("judging_validity") or {})
+    gate.update(valid=False, reason_codes=sorted(set(gate.get("reason_codes", [])) | set(reasons)))
+    result["judging_validity"] = gate
+    for aggregate in result["aggregates"].values():
+        aggregate.update(decision="no_call", judging_validity=gate)
+        aggregate["decision_reason"] = "; ".join(gate["reason_codes"])
 
 
 def pending_indices(answers: list[dict[str, object]]) -> list[int]:
@@ -100,7 +191,7 @@ def baseline_absolute(answers: list[dict[str, object]]) -> dict[str, object]:
     scored = [
         rec["judge"]
         for rec in answers
-        if rec.get("arm") == "baseline" and (rec.get("judge") or {}).get("scored")
+        if rec.get("arm") == "baseline" and _score_is_numeric(rec.get("judge") or {})
     ]
     total_n = sum(1 for rec in answers if rec.get("arm") == "baseline")
     if not scored:
@@ -141,22 +232,31 @@ def assert_only_judge_changed(
 def rejudge_artifact(
     artifact: dict[str, object],
     *,
-    judge_fn,
+    judge_fn=None,
     seed: int,
     source_path: Path,
     source_sha256: str,
     now: datetime | None = None,
+    spec=None,
+    independence="require",
+    batch_max_seconds=3600,
+    output_path=None,
+    clock=None,
 ) -> dict[str, object]:
-    """纯函数核心：吃一份 run 收据，吐一份补评后的新收据。
+    """Create a diagnostic batch, preserving every prior scored verdict."""
+    from intelligence.services import llm_refine
 
-    judge 从参数注入 → 测试用确定性桩跑，不打真 LLM。
-    """
-
-    answers = [dict(rec) for rec in artifact["answers"]]  # type: ignore[index]
-    questions = {
-        str(q["case_id"]): Question(str(q["case_id"]), str(q["text"]), str(q["as_of"]))
-        for q in artifact["questions"]  # type: ignore[union-attr]
-    }
+    clock = clock or ((lambda: now) if now is not None else (lambda: datetime.now(timezone.utc)))
+    result = _prepare_batch(
+        artifact, mode="pending", source_path=source_path, source_sha256=source_sha256,
+        seed=seed, spec=spec or build_judge_spec(), calibration_repeats=0,
+        batch_max_seconds=batch_max_seconds, independence=independence, now=now,
+        output_path=output_path,
+    )
+    answers = result["answers"]
+    manifest = result["manifest"]
+    run = manifest["run_manifest"]
+    questions = {q["case_id"]: Question(**q) for q in result["questions"]}
     answers_before = {
         i: _sha256_text(str(rec.get("answer") or "")) for i, rec in enumerate(answers)
     }
@@ -166,95 +266,139 @@ def rejudge_artifact(
         if (rec.get("judge") or {}).get("scored")
     }
 
-    pending = pending_indices(answers)
-    # 补评内部同样洗牌：份数少时位置效应弱，但保持与主轮同一条纪律，且种子入收据。
-    order = list(pending)
+    order = pending_indices(answers)
     random.Random(seed).shuffle(order)
-
     rejudged: list[dict[str, object]] = []
     still_unscored: list[dict[str, object]] = []
-    for idx in order:
-        rec = answers[idx]
-        case_id = str(rec["case_id"])
-        question = questions.get(case_id)
-        if question is None:
-            raise _fail(f"答案 #{idx} 的 case_id 不在题集里：{case_id}")
-        previous = dict(rec.get("judge") or {})
-        verdict = dict(judge_fn(question, str(rec["answer"])))
-        # provider 压成串再入收据：判官跑完才在 json.dumps 那步炸，等于钱花了
-        # 收据没了。注入的 judge_fn 形状不受本脚本控制，所以在这里收口。
-        if "provider" in verdict:
-            verdict["provider"] = provider_label(verdict["provider"])
-        row = {
-            "arm": rec.get("arm"),
-            "case_id": case_id,
-            "previous_reason": previous.get("reason"),
-            "scored": bool(verdict.get("scored")),
-            "total": verdict.get("total"),
-            "provider": verdict.get("provider"),
-        }
-        if verdict.get("scored"):
-            verdict = {**verdict, "rejudged": True, "previous_reason": previous.get("reason")}
-            rec["judge"] = verdict
-            rejudged.append(row)
-        else:
-            # 补评也没成：保留原始失败记录，只叠一层「补评又试过一次」的痕迹。
-            rec["judge"] = {
-                **previous,
-                "rejudge_attempted": True,
-                "rejudge_reason": verdict.get("reason"),
-            }
-            row["rejudge_reason"] = verdict.get("reason")
-            still_unscored.append(row)
+    result.update(rejudged=rejudged, still_unscored=still_unscored)
 
-    assert_only_judge_changed(answers, answers_before, judged_before)
+    def persist():
+        if output_path is not None:
+            write_artifact(Path(output_path), result)
 
-    component_ids = [cid for cid in artifact["aggregates"]]  # type: ignore[union-attr]
-    # 方差底沿用源收据实测的那一份：补评只补 unscored 的份，没有重新校准判官，
-    # 凭空给个新底就是编数。源轮没测过（旧收据 / --calibration-repeats 0）时
-    # 传 None，聚合按 fail-closed 全记 no_call——这正是该有的结果。
-    noise_floor = artifact.get("noise_floor")
-    if not isinstance(noise_floor, dict):
-        noise_floor = None
-    aggregates = aggregate_components(
-        answers, component_ids, noise_floor=noise_floor
+    with llm_refine.call_ledger_scope(max_calls=len(order) * run["judge_spec"]["max_attempts"]) as ledger:
+        try:
+            for idx in order:
+                remaining = (datetime.fromisoformat(run["expires_at"]) - clock()).total_seconds()
+                if remaining <= 0:
+                    result["stop_reason_codes"] = ["batch_expired"]
+                    raise TimeoutError("batch_expired")
+                rec = answers[idx]
+                previous = deepcopy(rec.get("judge") or {})
+                rec.setdefault("judge_history", []).append(previous)
+                attempts = rec.setdefault("rejudge_attempts", [])
+                attempts.append({"scored": False, "reason": "not_called", "batch_id": manifest["batch_id"]})
+                attempt_index = len(attempts) - 1
+
+                def settled(verdict):
+                    snapshot = deepcopy(dict(verdict))
+                    if "provider" in snapshot:
+                        snapshot["provider"] = provider_label(snapshot["provider"])
+                    attempts[attempt_index] = snapshot
+                    result["call_ledger"] = ledger.summary()
+                    persist()
+
+                if judge_fn is None:
+                    verdict = judge_answer(
+                        questions[rec["case_id"]], rec["answer"],
+                        spec=run["judge_spec"], batch_id=manifest["batch_id"], phase="judge",
+                        on_attempt=settled, timeout=min(90.0, remaining),
+                    )
+                else:
+                    verdict = judge_fn(questions[rec["case_id"]], rec["answer"])
+                settled(verdict)
+                verdict = attempts[attempt_index]
+                row = {"arm": rec["arm"], "case_id": rec["case_id"],
+                       "previous_reason": previous.get("reason"),
+                       "scored": bool(verdict.get("scored")), "total": verdict.get("total"),
+                       "provider": verdict.get("provider")}
+                if verdict.get("scored"):
+                    rec["judge"] = {**verdict, "rejudged": True, "previous_reason": previous.get("reason")}
+                    rejudged.append(row)
+                else:
+                    rec["judge"] = {**previous, "rejudge_attempted": True,
+                                    "rejudge_reason": verdict.get("reason")}
+                    row["rejudge_reason"] = verdict.get("reason")
+                    still_unscored.append(row)
+                persist()
+                if judge_fn is None:
+                    gate = validity._Validation()
+                    question = questions[rec["case_id"]].__dict__
+                    families = validity._writer_families(rec, question, gate)
+                    validity._validate_verdict(verdict, rec, question, manifest, families, gate, phase="judge")
+                    fatal = {reason for reason in gate.reasons if reason.startswith("judge_")}
+                    if independence == "allow-correlated":
+                        fatal.discard("judge_not_independent")
+                    if fatal:
+                        result["stop_reason_codes"] = sorted(fatal)
+                        raise ValueError("judge identity or binding invalid")
+            result["manifest"] = validity.seal_manifest(manifest, now=clock())
+            result["status"] = "diagnostic"
+        except (ValueError, TimeoutError) as exc:
+            manifest["state"] = "invalid"
+            result.update(status="invalid", error_type=type(exc).__name__)
+        except BaseException as exc:
+            manifest["state"] = "invalid"
+            result.update(status="incomplete", error_type=type(exc).__name__)
+            raise
+        finally:
+            assert_only_judge_changed(answers, answers_before, judged_before)
+            result["call_ledger"] = ledger.summary()
+            result["noise_floor"] = deepcopy(artifact.get("noise_floor"))
+            result["noise_floor_source"] = (
+                "源轮实测仅作历史证据；calibration_stale，不授予本批资格"
+                if result["noise_floor"] else "源轮未实测；calibration_stale，全部 no_call"
+            )
+            result["judging_validity"] = validity.validate_judging_batch(
+                answers, [], result["manifest"], noise_floor=result["noise_floor"], now=clock())
+            result["aggregates"] = aggregate_components(
+                answers, run["arms"][1:], noise_floor=result["noise_floor"],
+                calibration=[], manifest=result["manifest"], now=clock())
+            _force_diagnostic(result, ["calibration_stale", *result["source_reason_codes"]])
+            result["baseline_absolute"] = baseline_absolute(answers)
+            result["baseline_absolute"].update(
+                decision_eligible=False, reason_codes=result["judging_validity"]["reason_codes"])
+            providers = sorted({str(row["provider"]) for row in rejudged if row.get("provider")})
+            result["judge_continuity"] = (
+                f"新诊断批次补评 provider={providers}；旧分与新分仅作描述，"
+                "calibration_stale，全部实验决定 no_call。"
+            )
+            persist()
+    return result
+
+
+def new_batch_artifact(artifact, *, source_path, source_sha256, seed, judge_fn=None,
+                       calibration_repeats=2, batch_max_seconds=3600,
+                       spec=None, independence="require", output_path=None, now=None, clock=None):
+    """Re-score every frozen answer using a newly frozen current specification."""
+    result = _prepare_batch(
+        artifact, mode="new-batch", source_path=source_path, source_sha256=source_sha256,
+        seed=seed, spec=spec or build_judge_spec(), calibration_repeats=calibration_repeats,
+        batch_max_seconds=batch_max_seconds, independence=independence, now=now,
+        output_path=output_path,
     )
-    stamp = (now or datetime.now(timezone.utc)).isoformat()
 
-    providers = sorted({str(r["provider"]) for r in rejudged if r.get("provider")})
-    return {
-        "kind": "quality_ablation_rejudge",
-        "generated_at": stamp,
-        "source_run": str(source_path),
-        "source_sha256": source_sha256,
-        "source_generated_at": artifact.get("generated_at"),
-        "seed": artifact.get("seed"),
-        "rejudge_seed": seed,
-        "judge_note": artifact.get("judge_note"),
-        "judge_continuity": (
-            f"本轮 {len(rejudged)} 份为事后补评（provider 故障后重跑），"
-            f"补评 provider={providers or '未记录'}；"
-            "主轮已打分那些的 provider 未入账（该字段本次才加），"
-            "跨臂分差可比性建立在两次都走同一条已配置 provider 链的假设上。"
-        ),
-        "rejudged": rejudged,
-        "still_unscored": still_unscored,
-        "questions": artifact["questions"],
-        "answers": answers,
-        "noise_floor": noise_floor,
-        "noise_floor_source": (
-            "沿用源轮实测（补评未重新校准判官）" if noise_floor else "源轮未实测 → 全部 no_call"
-        ),
-        "aggregates_before": artifact["aggregates"],
-        "aggregates": aggregates,
-        "baseline_absolute": baseline_absolute(answers),
-    }
+    def persist():
+        if output_path is not None:
+            write_artifact(Path(output_path), result)
+
+    try:
+        finish_judging(result, seed=seed, judge_fn=judge_fn, persist=persist, clock=clock)
+    finally:
+        if result["source_reason_codes"]:
+            _force_diagnostic(result, result["source_reason_codes"])
+        result["baseline_absolute"] = baseline_absolute(result["answers"])
+        result["baseline_absolute"]["decision_eligible"] = bool(result["judging_validity"]["valid"])
+        result["baseline_absolute"]["reason_codes"] = result["judging_validity"]["reason_codes"]
+        persist()
+    return result
 
 
 def _print_diff(artifact: dict[str, object]) -> None:
-    before = artifact["aggregates_before"]
+    before = artifact.get("aggregates_before") or {}
     after = artifact["aggregates"]
-    print("\n== 修正读数（补评前 → 补评后）==")
+    mode = artifact.get("mode", "pending")
+    print(f"\n== {mode} 描述性读数（源批次 → 新批次）==")
     for cid, agg in after.items():  # type: ignore[union-attr]
         old = before.get(cid, {})  # type: ignore[union-attr]
         print(
@@ -264,15 +408,23 @@ def _print_diff(artifact: dict[str, object]) -> None:
             f"{agg['questions_usable']}/{agg['questions_total']} 题）"
         )
         print(f"                     分维度={agg['marginal_by_dim']}")
-    base = artifact["baseline_absolute"]
+        print(f"                     决定={agg['decision']} 原因={agg.get('decision_reason') or '-'}")
+    base = artifact.get("baseline_absolute") or baseline_absolute(artifact["answers"])
     print(
         f"\n  基线绝对分 均值={base['mean_total']}/20"  # type: ignore[index]
         f"（{base['questions_scored']}/{base['questions_total']} 题已评）"  # type: ignore[index]
-        "  ⚠️ 绝对分只在同一 judge 下可比，跨轮对比前先确认两轮 judge 同链"
+        "；仅作描述性统计，配置同名不能证明跨批次可比"
     )
-    still = artifact["still_unscored"]
+    answers = artifact["answers"]
+    delivered = sum(record.get("ok") is True and bool(str(record.get("answer") or "").strip())
+                    for record in answers)
+    scored = sum((record.get("judge") or {}).get("scored") is True for record in answers)
+    failures = (artifact.get("call_ledger") or {}).get("failure_count", 0)
+    print(f"  分母：总样本={len(answers)} 已交付={delivered} 已评分={scored} 本批失败尝试={failures}")
+    print(f"  资格原因={'; '.join((artifact.get('judging_validity') or {}).get('reason_codes', [])) or '-'}")
+    still = artifact.get("still_unscored") or []
     if still:
-        print(f"\n  ⚠️ 仍未打分 {len(still)} 份（不计入聚合，未编造）：")
+        print(f"\n  仍未打分 {len(still)} 份（留在总分母，质量决定 no_call）：")
         for row in still:  # type: ignore[union-attr]
             print(f"     {row['arm']:<18} {row['case_id']:<22} {row.get('rejudge_reason')}")
 
@@ -287,67 +439,85 @@ def build_parser() -> argparse.ArgumentParser:
         help="修正收据路径（默认 <原名>-rejudge.json）；指向原文件会被拒绝",
     )
     parser.add_argument("--seed", type=int, default=20260827, help="补评洗牌种子")
+    parser.add_argument("--mode", choices=("pending", "new-batch"), default="pending",
+                        help="pending 只补未评分；new-batch 对全部冻结答案重评分")
+    parser.add_argument("--batch-max-seconds", type=int, default=3600)
+    parser.add_argument("--calibration-repeats", type=int, default=2)
     parser.add_argument("--dry-run", action="store_true", help="只列出待补评行，不调 LLM")
     parser.add_argument(
         "--judge-independence",
         choices=("require", "allow-correlated"),
         default="require",
-        help="与主轮同口径：默认要求判官与合成异构，否则拒跑（补评不该有更松的门）",
+        help="默认依据源答案收据要求写作者与当前判官异构；allow-correlated 仅作诊断",
     )
+    parser.add_argument("--allowed-reported-models", default=None,
+                        help="调用前冻结允许的响应型号，逗号分隔；默认仅请求型号")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     source = args.run.resolve()
-    raw = source.read_text(encoding="utf-8")
-    artifact = load_run(source)
+    raw = source.read_bytes()
+    artifact = load_run(source, raw=raw)
+    if args.calibration_repeats < 0 or args.batch_max_seconds <= 0:
+        raise _fail("calibration-repeats 必须非负，batch-max-seconds 必须大于零")
+    suffix = "rejudge" if args.mode == "pending" else "new-batch"
+    output = args.output or source.with_name(f"{source.stem}-{suffix}.json")
+    if output.resolve() == source:
+        raise _fail("--output 指向原文件；新收据必须另存，原始读数不可覆盖")
+    if output.exists():
+        raise _fail(f"输出已存在，拒绝覆盖：{output}")
+    questions, _components, source_reasons = source_preflight(artifact)
     answers = artifact["answers"]  # type: ignore[assignment]
     pending = pending_indices(answers)  # type: ignore[arg-type]
 
     print(f"[run] {source}")
-    print(f"[plan] 共 {len(answers)} 份答案，待补评 {len(pending)} 份（只补 judge，不重跑 ask）")
+    print(f"[plan] 共 {len(answers)} 份答案，待补评 {len(pending)} 份；模式={args.mode}（不重跑 ask）")
     for idx in pending:
         rec = answers[idx]  # type: ignore[index]
         reason = str((rec.get("judge") or {}).get("reason") or "")[:60]
         print(f"  #{idx:<3} {rec['arm']:<18} {rec['case_id']:<22} 原因={reason}")
-    if not pending:
-        print("没有待补评的行——原收据已完整。")
-        return 0
     if args.dry_run:
+        if args.mode == "new-batch":
+            print(f"[plan] 全臂重评 {len(answers)} 份，另加每份基线 {args.calibration_repeats} 次校准")
         return 0
-
-    output = args.output or source.with_name(f"{source.stem}-rejudge.json")
-    if output.resolve() == source:
-        raise _fail("--output 指向原文件；修正收据必须另存，原始读数不可覆盖")
-
-    require_llm_ready()
-    # 补评也要过判官独立性闸。不过闸的话，主轮 fail-closed 拦住的自审会从这条
-    # 侧门溜回来：补评产出的行和独立评审的行在收据里长得一模一样，
-    # 而「自审收据与独立评审收据同形」正是这个缺陷此前活那么久的原因。
-    # 2026-08-31 质检点名：主轮堵了、补评没堵。
-    judge_info = resolve_judge(
-        require_independent=(args.judge_independence == "require")
-    )
+    will_dispatch = bool(pending) or args.mode == "new-batch"
+    if will_dispatch:
+        require_llm_ready()
+    # Current composer settings do not identify a historical writer.
+    judge_info = resolve_judge(require_independent=False)
     _JUDGE_OVERRIDE["provider"] = judge_info.pop("override")
+    allowed = None
+    if args.allowed_reported_models is not None:
+        allowed = [model.strip() for model in args.allowed_reported_models.split(",") if model.strip()]
+        if not allowed:
+            raise _fail("allowed-reported-models 不能为空")
+    spec = build_judge_spec(allowed_models=allowed)
+    preflight_reasons = sorted(set(source_reasons + writer_preflight(answers, spec, questions)))
+    if will_dispatch and preflight_reasons and args.judge_independence == "require":
+        raise _fail("源写作者/收据预检失败，零调用：" + "; ".join(preflight_reasons))
     print(
-        f"[judge] 合成={judge_info['composer']} 判官={judge_info['judge']} "
-        f"独立性={judge_info['independence']}"
+        f"[judge] 当前判官={judge_info['judge']} 源写作者预检={preflight_reasons or '通过'}"
     )
-    result = rejudge_artifact(
-        artifact,
-        judge_fn=lambda q, a: judge_answer(q, a),
-        seed=args.seed,
-        source_path=source,
-        source_sha256=_sha256_text(raw),
-    )
+    common = {
+        "source_path": source, "source_sha256": hashlib.sha256(raw).hexdigest(),
+        "seed": args.seed, "spec": spec, "independence": args.judge_independence,
+        "batch_max_seconds": args.batch_max_seconds, "output_path": output,
+    }
+    if args.mode == "new-batch":
+        result = new_batch_artifact(
+            artifact, **common, calibration_repeats=args.calibration_repeats,
+        )
+    else:
+        result = rejudge_artifact(artifact, **common)
     result["judge_independence"] = judge_info
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    result["source_preflight_reason_codes"] = preflight_reasons
+    write_artifact(output, result)
     _print_diff(result)
     print(f"\n原始收据（未改动）→ {source}")
     print(f"修正收据 → {output}")
-    return 0
+    return 0 if result["status"] in {"complete", "diagnostic"} else 1
 
 
 if __name__ == "__main__":

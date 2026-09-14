@@ -115,6 +115,7 @@ def build_grok_judge_argv(
     system_prompt: str,
     effort: str = DEFAULT_EFFORT,
     sandbox: str = DEFAULT_SANDBOX,
+    response_schema: dict | None = None,
 ) -> list[str]:
     argv = [
         binary,
@@ -127,7 +128,8 @@ def build_grok_judge_argv(
         "--output-format",
         "json",
         "--json-schema",
-        json.dumps(JUDGE_JSON_SCHEMA, ensure_ascii=False, separators=(",", ":")),
+        json.dumps(response_schema if response_schema is not None else JUDGE_JSON_SCHEMA,
+                   ensure_ascii=False, separators=(",", ":")),
         "--disable-web-search",
         "--no-subagents",
         "--no-plan",
@@ -190,6 +192,18 @@ def _extract_text(stdout: str) -> str:
     return text
 
 
+class GrokCliResponse(str):
+    """A string-compatible response retaining only structured transport metadata."""
+
+    def __new__(cls, content: str, payload: object):
+        value = super().__new__(cls, content)
+        metadata = payload if isinstance(payload, dict) else {}
+        for target, source in (("reported_model", "model"), ("request_id", "request_id"), ("response_id", "id")):
+            field = metadata.get(source)
+            setattr(value, target, field.strip() or None if isinstance(field, str) else None)
+        return value
+
+
 def complete_grok_cli(
     provider: object,
     messages: Sequence[Mapping[str, object]],
@@ -220,6 +234,7 @@ def complete_grok_cli(
             cwd=cwd,
             prompt_file=prompt_path,
             model=model,
+            response_schema=getattr(provider, "response_schema", None),
             system_prompt=system or "You are a JSON judge. Output only the schema.",
             effort=effort,
             sandbox=sandbox,
@@ -239,4 +254,6 @@ def complete_grok_cli(
         if int(getattr(completed, "returncode", 1) or 0) != 0:
             stderr = str(getattr(completed, "stderr", "") or "")[:400]
             raise GrokCliExit(f"GrokCliExit {completed.returncode}: {stderr}")
-        return _extract_text(str(getattr(completed, "stdout", "") or ""))
+        stdout = str(getattr(completed, "stdout", "") or "")
+        content = _extract_text(stdout)
+        return GrokCliResponse(content, json.loads(stdout))

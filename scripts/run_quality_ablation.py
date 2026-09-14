@@ -35,15 +35,17 @@ KNOWLEDGE_WIKI 数据根）；无 key 直接退出，绝不产出模板答案冒
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import math
 import os
 import random
-import re
 import statistics
 import subprocess
 import sys
-from dataclasses import dataclass
+import tempfile
+from uuid import uuid4
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Mapping, Sequence
@@ -65,6 +67,7 @@ from intelligence.eval.variance_baseline import ab_decision as _compare_against_
 # 弃权率是一等读数（能力放大 spec §3.2 · P1）：与均分并列念，不折进总分。
 # 一个 100% 弃权的臂零错误、rubric 分不难看——2026-08-27 组件臂 11.1 分背后是 10/10 弃权。
 from intelligence.eval.abstention import abstain_rate, classify_text  # noqa: E402
+from intelligence.eval import judge_validity as validity  # noqa: E402
 
 
 def ab_decision(observed_delta: float, threshold_same_unit: float) -> str:
@@ -282,6 +285,14 @@ def run_ask(
     exports_dir: str,
     timeout: float,
 ) -> dict[str, object]:
+    with tempfile.TemporaryDirectory(prefix="quality-writer-") as directory:
+        return _run_ask_with_receipt(question, extra_env=extra_env, extra_flags=extra_flags,
+                                     exports_dir=exports_dir, timeout=timeout,
+                                     receipt_path=Path(directory) / "writer.json")
+
+
+def _run_ask_with_receipt(question, *, extra_env, extra_flags, exports_dir, timeout, receipt_path):
+    receipt_id = uuid4().hex
     cmd = [
         sys.executable,
         "-m",
@@ -298,6 +309,8 @@ def run_ask(
         "--no-clarify",
         "--exports-dir",
         exports_dir,
+        "--call-provenance-json", str(receipt_path),
+        "--call-provenance-id", receipt_id,
         *extra_flags,
     ]
     env = {**os.environ, **extra_env}
@@ -311,22 +324,28 @@ def run_ask(
             env=env,
             cwd=str(REPO),
         )
-    except subprocess.TimeoutExpired:
-        return {"ok": False, "error": f"ask 超时（>{timeout}s）", "answer": ""}
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        return {"ok": False, "error": f"ask 未交付（{type(exc).__name__}）", "answer": "",
+                "delivery_state": "no_answer"}
     elapsed = (datetime.now(timezone.utc) - started).total_seconds()
     answer = (proc.stdout or "").strip()
-    # answer_lint 质检门用非零退出码表达「已交卷但标低置信」——那是答案的属性，
-    # 不是失败；判失败会把整臂丢掉。只有「没有实质答案」才算失败。
-    if len(answer) < 200:
-        return {
-            "ok": False,
-            "error": f"exit={proc.returncode} 答案过短({len(answer)}字) "
-            f"stderr尾={(proc.stderr or '')[-300:]}",
-            "answer": answer,
-            "elapsed_sec": elapsed,
-        }
+    provenance = None
+    try:
+        provenance = json.loads(receipt_path.read_text(encoding="utf-8"))
+        verified = (provenance.get("receipt_id") == receipt_id
+                    and provenance.get("question_sha256") == validity.canonical_hash(
+                        {"text": question.text, "as_of": question.as_of})
+                    and provenance.get("raw_output_sha256") == validity.text_hash(proc.stdout or "")
+                    and provenance.get("answer_sha256") == validity.text_hash(answer))
+        provenance["receipt_verified"] = verified
+    except (OSError, ValueError, AttributeError):
+        verified = False
+    delivered = verified and provenance.get("delivery_state") == "delivered" and bool(answer)
     return {
-        "ok": True,
+        "ok": bool(delivered),
+        "delivery_state": provenance.get("delivery_state") if verified else "no_answer",
+        "writer_provenance": provenance,
+        "error": None if delivered else "writer_provenance_mismatch or no product delivery",
         "answer": answer,
         "elapsed_sec": elapsed,
         "exit_code": proc.returncode,
@@ -343,10 +362,10 @@ def _parse_judge_payload(
         return None
     scores: dict[str, int] = {}
     for dim in RUBRIC_DIMENSIONS:
-        try:
-            value = int(payload.get(dim))
-        except (TypeError, ValueError):
+        raw = payload.get(dim)
+        if not isinstance(raw, int) or isinstance(raw, bool):
             return None
+        value = raw
         if not 0 <= value <= 4:
             return None
         scores[dim] = value
@@ -397,11 +416,7 @@ def model_family(label: str | None) -> str:
     认不出来时返回原串（宁可判成同族而误拦，不要误放）。
     """
 
-    if not label:
-        return ""
-    model = str(label).split("/", 1)[-1].strip().lower()
-    match = re.match(r"[a-z]+", model)
-    return match.group(0) if match else model
+    return validity.model_family(label)
 
 
 def resolve_judge(*, require_independent: bool) -> dict[str, object]:
@@ -454,7 +469,9 @@ def resolve_judge(*, require_independent: bool) -> dict[str, object]:
             if getattr(override, "transport", "") == "cli"
             else ""
         )
-        if composer_family != judge_family:
+        if "unknown" in (composer_family, judge_family):
+            independence, reason = "unknown", "无法识别写作者或判官模型家族"
+        elif composer_family != judge_family:
             independence = "independent"
             reason = f"跨模型家族：{composer_family} vs {judge_family}{transport_note}"
         else:
@@ -508,12 +525,47 @@ def deterministic_score(question: Question, answer: str) -> dict[str, object]:
     }
 
 
+def build_judge_spec(*, rubric_version=RUBRIC_VERSION, attempts=2, allowed_models=None):
+    from intelligence.services import grok_cli_judge, llm_refine
+
+    provider = _JUDGE_OVERRIDE.get("provider") or llm_refine.detect_provider()
+    thinking = {}
+    llm_refine._apply_thinking_controls(
+        thinking, disable_thinking=os.environ.get("LLM_THINKING") == "disabled"
+    )
+    transport = "cli" if grok_cli_judge.is_cli_judge_provider(provider) else "http"
+    if transport == "cli":
+        thinking = {"reasoning_effort": os.environ.get("LLM_JUDGE_GROK_EFFORT") or grok_cli_judge.DEFAULT_EFFORT,
+                    "sandbox": os.environ.get("LLM_JUDGE_GROK_SANDBOX") or grok_cli_judge.DEFAULT_SANDBOX}
+    return {
+        "requested_model": getattr(provider, "model", "unknown"),
+        "allowed_reported_models": list(allowed_models or [getattr(provider, "model", "unknown")]),
+        "model_family_version": validity.MODEL_FAMILY_VERSION,
+        "endpoint_id": llm_refine.provider_endpoint_id(provider) if provider else "unconfigured",
+        "transport": transport, "rubric_version": rubric_version,
+        "rubric_text": JUDGE_SYSTEMS[rubric_version], "temperature": None if transport == "cli" else 0.1,
+        "response_schema": {"type": "object", "properties": {
+            **{d: {"type": "integer", "minimum": 0, "maximum": 4} for d in RUBRIC_DIMENSIONS},
+            "pitfalls": {"type": "array", "items": {"type": "string"}}, "justification": {"type": "string"}},
+            "required": list(RUBRIC_DIMENSIONS), "additionalProperties": False} if transport == "cli" else None,
+        "thinking": thinking, "max_tokens": None if transport == "cli" else 1000,
+        "answer_char_limit": _JUDGE_ANSWER_CHARS, "truncation_version": "prefix-v1",
+        "retry_prompt": "上一次输出无法解析。这次**只输出 JSON 对象本身**，不要任何解释、markdown 围栏或其他文字。\n\n",
+        "selection_rule": "first_valid", "max_attempts": attempts,
+    }
+
+
 def judge_answer(
     question: Question,
     answer: str,
     *,
     attempts: int = 2,
     rubric_version: str = RUBRIC_VERSION,
+    spec: Mapping | None = None,
+    batch_id: str | None = None,
+    phase: str = "judge",
+    on_attempt=None,
+    timeout: float = 90.0,
 ) -> dict[str, object]:
     """盲评一份答案；解析失败重试一次（带更硬的格式提示）。
 
@@ -524,51 +576,62 @@ def judge_answer(
 
     from intelligence.services import llm_refine
 
-    body = answer
-    truncated = False
-    if len(body) > _JUDGE_ANSWER_CHARS:
-        body = body[:_JUDGE_ANSWER_CHARS]
-        truncated = True
-    header = "（以下答案已按预算截断，只保留开头部分）\n" if truncated else ""
-    base_prompt = f"问题：{question.text}\n\n{header}答案：\n{body}"
-    last_reason = "未尝试"
-    for attempt in range(max(1, attempts)):
-        prompt = base_prompt
-        if attempt > 0:
-            prompt = (
-                "上一次输出无法解析。这次**只输出 JSON 对象本身**，"
-                "不要任何解释、markdown 围栏或其他文字。\n\n" + base_prompt
-            )
-        messages = [
-            {"role": "system", "content": JUDGE_SYSTEMS[rubric_version]},
-            {"role": "user", "content": prompt},
-        ]
-        # 走独立判官链（若已解析）。照抄仓内既有用法
-        # （`evidence_judge.py:95` 的 judge_override + provider_override）。
-        override = _JUDGE_OVERRIDE.get("provider")
-        if override is not None:
-            with llm_refine.provider_override(override):
-                content, provider, reason = llm_refine.complete(
-                    messages, timeout=90.0, temperature=0.1
-                )
-        else:
-            content, provider, reason = llm_refine.complete(
-                messages, timeout=90.0, temperature=0.1
-            )
-        if content is None:
-            # 无 key / 预算不足：重试同样会失败，直接放弃。
-            return {"scored": False, "reason": reason, "attempts": attempt + 1}
-        parsed = _parse_judge_payload(
-            llm_refine._extract_json(content), rubric_version=rubric_version
-        )
-        if parsed is not None:
-            parsed["attempts"] = attempt + 1
-            # 记下实际出分的 provider：跨轮补评时，「这一份是谁评的」是分差
-            # 可比性的成立条件，不记就只能靠假设。
-            parsed["provider"] = provider_label(provider)
-            return parsed
-        last_reason = "judge 输出无法解析为合法五维 JSON"
-    return {"scored": False, "reason": last_reason, "attempts": max(1, attempts)}
+    frozen = dict(spec or build_judge_spec(rubric_version=rubric_version, attempts=attempts))
+    current = build_judge_spec(rubric_version=rubric_version, attempts=frozen["max_attempts"],
+                               allowed_models=frozen["allowed_reported_models"])
+    result = {"scored": False, "batch_id": batch_id,
+              "judge_spec_sha256": validity.canonical_hash(frozen),
+              "judge_input_sha256": validity.judge_input_hash(question.__dict__, answer, frozen),
+              "attempt_records": [], "attempt_outputs": [], "attempts": 0, "identity_state": "not_called"}
+    # Check effective transport options again before every logical dispatch.
+    if spec is not None and any(frozen.get(k) != current.get(k) for k in
+                               ("thinking", "requested_model", "endpoint_id", "transport", "max_tokens")):
+        return {**result, "reason": "judge_spec_mismatch"}
+    call_id = uuid4().hex
+    deadline = llm_refine.Deadline.from_timeout(timeout)
+    with llm_refine.call_ledger_scope() as ledger, llm_refine.call_provenance_scope(call_id, phase) as context:
+        for index in range(frozen["max_attempts"]):
+            messages = validity.judge_messages(question.__dict__, answer, frozen, retry=index > 0)
+            override = _JUDGE_OVERRIDE.get("provider") or llm_refine.detect_provider()
+            try:
+                if deadline.remaining() <= 0:
+                    content, provider, reason = None, None, "batch_expired"
+                elif override is None:
+                    content, provider, reason = None, None, "未配置判官"
+                else:
+                    effective = replace(override, response_schema=frozen.get("response_schema"))
+                    with llm_refine.provider_override(effective):
+                        content, provider, reason = llm_refine.complete(
+                            messages, timeout=deadline.remaining(), temperature=frozen["temperature"],
+                            max_tokens=frozen["max_tokens"],
+                        )
+                result.update(attempts=index + 1, selected_attempt_id=context.selected_attempt_id,
+                              identity_state=context.identity_state,
+                              attempt_records=ledger.records_for_call(call_id),
+                              provider=provider_label(provider), request_sha256=validity.canonical_hash(messages),
+                              raw_content=content, raw_content_sha256=validity.text_hash(content) if content is not None else None)
+                result["attempt_outputs"].append({"selected_attempt_id": context.selected_attempt_id,
+                                                  "raw_content": content, "reason": reason})
+                parsed = _parse_judge_payload(llm_refine._extract_json(content),
+                                             rubric_version=frozen["rubric_version"]) if content is not None else None
+                result.update(parsed or {"reason": reason or "judge 输出无法解析为合法五维 JSON"})
+                bad_identity = None
+                for record in result["attempt_records"]:
+                    if record["status"] != "success":
+                        continue
+                    if validity.model_family(record.get("reported_model")) == "unknown":
+                        bad_identity = "judge_identity_unknown"
+                    elif (record.get("identity_conflict") or record.get("reported_model") not in frozen["allowed_reported_models"]):
+                        bad_identity = "judge_identity_mismatch"
+                if bad_identity:
+                    result["reason"] = bad_identity
+            finally:
+                result["attempt_records"] = ledger.records_for_call(call_id)
+                if on_attempt is not None:
+                    on_attempt(copy.deepcopy(result))
+            if result["scored"] or content is None or bad_identity:
+                break
+    return result
 
 
 # ---------------------------------------------------------------- 方差门
@@ -596,7 +659,8 @@ NOISE_FLOOR_FORMULA = (
 
 
 def judge_noise_floor(
-    calibration: Sequence[Mapping[str, object]], *, sigma: float = 2.0
+    calibration: Sequence[Mapping[str, object]], *, sigma: float = 2.0,
+    manifest: Mapping | None = None,
 ) -> dict[str, object]:
     """从「同一份答案重复盲评」的散布，量出当次判官噪声。
 
@@ -616,7 +680,15 @@ def judge_noise_floor(
     per_question: list[dict[str, object]] = []
     variances: list[float] = []
     for block in calibration:
-        totals = [int(x) for x in (block.get("totals") or [])]  # type: ignore[union-attr]
+        if manifest is not None:
+            verdicts = [block.get("initial") or {}, *block.get("repeats", [])]
+            raw_totals = [verdict["total"] for verdict in verdicts if _score_is_numeric(verdict)]
+        else:
+            raw_totals = block.get("totals") or []
+        totals = [x for x in raw_totals if isinstance(x, (int, float))
+                  and not isinstance(x, bool) and math.isfinite(x) and 0 <= x <= 20]
+        if len(totals) != len(raw_totals):
+            return {"measured": False, "reason": "noise_floor_invalid"}
         row: dict[str, object] = {
             "case_id": block.get("case_id"),
             "n": len(totals),
@@ -648,7 +720,7 @@ def judge_noise_floor(
         }
 
     sd_judging = math.sqrt(statistics.fmean(variances))
-    return {
+    result = {
         "measured": True,
         "sigma": sigma,
         "questions_measured": len(variances),
@@ -661,6 +733,11 @@ def judge_noise_floor(
         ),
         "questions": per_question,
     }
+    if manifest is not None:
+        result.update(batch_id=manifest["batch_id"],
+                      judge_spec_sha256=manifest["run_manifest"]["judge_spec_sha256"],
+                      calibration_sha256=validity.canonical_hash(calibration))
+    return result
 
 
 def length_bias_audit(answers: Sequence[Mapping[str, object]]) -> dict[str, object]:
@@ -700,13 +777,27 @@ def length_bias_audit(answers: Sequence[Mapping[str, object]]) -> dict[str, obje
     }
 
 
+def _score_is_numeric(judge):
+    if not isinstance(judge, Mapping) or judge.get("scored") is not True:
+        return False
+    if not isinstance(judge.get("scores"), Mapping):
+        return False
+    values = [judge.get("total"), *[judge["scores"].get(d) for d in RUBRIC_DIMENSIONS]]
+    return all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in values)
+
+
 def threshold_for(noise_floor: Mapping[str, object] | None, n: int) -> float | None:
     """该组件在 n 道可用题上的判定门槛；未实测方差或无可用题时返回 None。"""
 
     if not noise_floor or not noise_floor.get("measured") or n <= 0:
         return None
-    sigma = float(noise_floor.get("sigma") or 2.0)
-    sd_delta = float(noise_floor.get("sd_delta_single_question") or 0.0)
+    try:
+        sigma = float(noise_floor["sigma"])
+        sd_delta = float(noise_floor["sd_delta_single_question"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not math.isfinite(sigma) or not math.isfinite(sd_delta) or sigma <= 0 or sd_delta < 0:
+        return None
     return round(sigma * sd_delta / math.sqrt(n), 4)
 
 
@@ -715,6 +806,9 @@ def aggregate_components(
     component_ids: list[str],
     *,
     noise_floor: Mapping[str, object] | None = None,
+    calibration: Sequence[Mapping] | None = None,
+    manifest: Mapping | None = None,
+    now: datetime | None = None,
 ) -> dict[str, object]:
     """每颗组件 = 平均(关断臂总分) − 平均(同题基线总分)，只聚合双方都 scored 的题。
 
@@ -727,6 +821,8 @@ def aggregate_components(
     默认放行：读数没有方差底就不成立，这一点必须由结构而非纪律来保证。
     """
 
+    qualification = validity.validate_judging_batch(
+        answers, calibration, manifest, now=now, noise_floor=noise_floor)
     baseline_by_case = {str(r["case_id"]): r for r in answers if r["arm"] == "baseline"}
     unknown = [cid for cid in component_ids if cid not in COMPONENTS]
     if unknown:
@@ -739,16 +835,20 @@ def aggregate_components(
         if (r.get("judge") or {}).get("scored")
     }
     if len(versions) > 1:
-        raise _fail(f"同一份收据里混了多个 rubric 版本 {sorted(versions)}，分差不可比")
+        qualification["valid"] = False
+        qualification["reason_codes"].append("rubric_version_mismatch")
     aggregates: dict[str, object] = {}
     for cid in component_ids:
         rows = []
-        for r in answers:
-            if r["arm"] != cid:
-                continue
+        component_rows = [r for r in answers if r["arm"] == cid]
+        if manifest and isinstance(manifest.get("run_manifest"), Mapping):
+            cases = manifest["run_manifest"].get("questions", [])
+            by_case = {r["case_id"]: r for r in component_rows}
+            component_rows = [by_case.get(q["case_id"], {"case_id": q["case_id"], "arm": cid}) for q in cases]
+        for r in component_rows:
             base = baseline_by_case.get(str(r["case_id"]))
             jr, jb = r.get("judge") or {}, (base or {}).get("judge") or {}
-            if not (jr.get("scored") and jb.get("scored")):
+            if not (_score_is_numeric(jr) and _score_is_numeric(jb)):
                 rows.append({"case_id": r["case_id"], "usable": False})
                 continue
             delta_total = jr["total"] - jb["total"]
@@ -782,6 +882,9 @@ def aggregate_components(
         else:
             # 比较规则不在这里重写：复用方差治理的单一真本源。
             decision, decision_reason = ab_decision(edge, threshold), ""
+        if not qualification["valid"]:
+            decision = "no_call"
+            decision_reason = "; ".join(filter(None, [decision_reason, *qualification["reason_codes"]]))
         # 确定性层的同口径读数：零方差，所以不需要噪声门。
         # 语义判官那路判不出来时，先看这一路动没动——它测不了推理对不对，
         # 但「证据标记少了几个」是硬事实。
@@ -818,6 +921,7 @@ def aggregate_components(
             "noise_threshold": threshold,
             "decision": decision,
             "decision_reason": decision_reason,
+            "judging_validity": qualification,
             "abstention": abstention,
             "deterministic_marginal": (
                 round(-sum(a - b for a, b in det_usable) / len(det_usable), 3)
@@ -864,7 +968,150 @@ def load_questions_file(path: Path) -> tuple[Question, ...]:
     return tuple(questions)
 
 
-def main() -> int:
+def write_artifact(path: Path, artifact: Mapping, *, create=False):
+    """Reserve a new output before spending; checkpoint only that owned output."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    encoded = json.dumps(artifact, ensure_ascii=False, indent=2, allow_nan=False)
+    if create:
+        with path.open("x", encoding="utf-8") as stream:
+            stream.write(encoded)
+        return
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, delete=False) as stream:
+        temporary = Path(stream.name)
+        try:
+            stream.write(encoded)
+            stream.flush()
+            os.fsync(stream.fileno())
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+    os.replace(temporary, path)
+
+
+def writer_preflight(answers, spec, questions):
+    """Use source receipt identities; today's composer cannot attest old answers."""
+    reasons = set()
+    judge_family = validity.model_family(spec.get("requested_model"))
+    if judge_family == "unknown":
+        reasons.add("judge_identity_unknown")
+    for answer in answers:
+        gate = validity._Validation()
+        question = next((q for q in questions if q["case_id"] == answer["case_id"]), None)
+        if question is None:
+            reasons.add("writer_provenance_mismatch")
+            continue
+        families = validity._writer_families(answer, question, gate)
+        reasons.update(gate.reasons)
+        if judge_family in families:
+            reasons.add("judge_not_independent")
+    return sorted(reasons)
+
+
+_IDENTITY_FATAL = {
+    "judge_identity_unknown", "judge_identity_mismatch", "judge_spec_mismatch",
+    "judge_request_mismatch", "judge_result_mismatch", "judge_not_independent",
+    "judge_call_duplicate", "judge_attempt_duplicate", "batch_window_violation",
+}
+
+
+def finish_judging(artifact, *, seed, judge_fn=None, persist=lambda: None, clock=None):
+    """Collect one batch and checkpoint every returned attempt, including interruptions."""
+    from intelligence.services import llm_refine
+
+    clock = clock or (lambda: datetime.now(timezone.utc))
+    manifest = artifact["manifest"]
+    if manifest.get("state") != "open" or artifact.get("calibration"):
+        raise ValueError("only a new open batch may start collecting")
+    run = manifest["run_manifest"]
+    answers = artifact["answers"]
+    questions = {q["case_id"]: Question(**q) for q in run["questions"]}
+    calibration = artifact.setdefault("calibration", [])
+    for rec in answers:
+        if rec["arm"] == "baseline":
+            calibration.append({k: rec[k] for k in
+                                ("case_id", "answer_id", "answer_sha256", "judge_input_sha256")} | {
+                "batch_id": manifest["batch_id"], "judge_spec_sha256": run["judge_spec_sha256"],
+                "totals": [], "repeats": [],
+            })
+    for rec in answers:
+        rec["judge"] = {"scored": False, "reason": "not_called", "attempt_records": []}
+
+    def score(rec, phase, update):
+        remaining = (datetime.fromisoformat(run["expires_at"]) - clock()).total_seconds()
+        if remaining <= 0:
+            raise TimeoutError("batch_expired")
+        if not rec.get("ok") or not str(rec.get("answer") or "").strip():
+            update({"scored": False, "reason": "product_not_delivered", "attempt_records": []})
+            return
+        def settled(verdict):
+            update(verdict)
+            artifact["call_ledger"] = ledger.summary()
+            persist()
+        if judge_fn is None:
+            result = judge_answer(questions[rec["case_id"]], rec["answer"],
+                                  spec=run["judge_spec"], batch_id=manifest["batch_id"],
+                                  phase=phase, timeout=min(90.0, remaining), on_attempt=settled)
+        else:
+            result = judge_fn(questions[rec["case_id"]], rec["answer"])
+        settled(result)
+        gate = validity._Validation()
+        families = validity._writer_families(rec, questions[rec["case_id"]].__dict__, gate)
+        validity._validate_verdict(result, rec, questions[rec["case_id"]].__dict__, manifest,
+                                    families, gate, phase=phase)
+        fatal = _IDENTITY_FATAL.intersection(gate.reasons)
+        if run.get("independence") == "allow-correlated":
+            fatal.discard("judge_not_independent")
+        if fatal:
+            artifact["stop_reason_codes"] = sorted(fatal)
+            raise ValueError("judging identity became invalid")
+
+    order = list(range(len(answers)))
+    random.Random(seed).shuffle(order)
+    cap = len(answers) + sum(r["arm"] == "baseline" for r in answers) * run["calibration_plan"]["repeats"]
+    with llm_refine.call_ledger_scope(max_calls=cap * run["judge_spec"]["max_attempts"]) as ledger:
+        try:
+            for index in order:
+                rec = answers[index]
+                score(rec, "judge", lambda v, rec=rec: rec.update(judge=v))
+            by_id = {rec["answer_id"]: rec for rec in answers}
+            for block in calibration:
+                rec = by_id[block["answer_id"]]
+                first = rec["judge"]
+                block["initial"] = copy.deepcopy(first)
+                if _score_is_numeric(first):
+                    block["totals"].append(first["total"])
+                for index in range(run["calibration_plan"]["repeats"]):
+                    block["repeats"].append({"scored": False, "reason": "not_called"})
+                    score(rec, "calibration", lambda v, i=index, b=block: b["repeats"].__setitem__(i, v))
+                    if _score_is_numeric(block["repeats"][index]):
+                        block["totals"].append(block["repeats"][index]["total"])
+                    persist()
+            artifact["manifest"] = validity.seal_manifest(manifest, now=clock())
+            artifact["status"] = "complete"
+        except (ValueError, TimeoutError) as exc:
+            manifest["state"] = "invalid"
+            artifact["status"] = "invalid"
+            artifact["error_type"] = type(exc).__name__
+        except BaseException as exc:
+            manifest["state"] = "invalid"
+            artifact["status"] = "incomplete"
+            artifact["error_type"] = type(exc).__name__
+            raise
+        finally:
+            artifact["call_ledger"] = ledger.summary()
+            artifact["noise_floor"] = judge_noise_floor(calibration, manifest=manifest)
+            artifact["judging_validity"] = validity.validate_judging_batch(
+                answers, calibration, artifact["manifest"], now=clock(), noise_floor=artifact["noise_floor"])
+            if artifact.get("status") == "complete" and not artifact["judging_validity"]["valid"]:
+                artifact["status"] = "incomplete"
+            artifact["aggregates"] = aggregate_components(
+                answers, run["arms"][1:], noise_floor=artifact["noise_floor"],
+                calibration=calibration, manifest=artifact["manifest"], now=clock())
+            persist()
+    return artifact
+
+
+def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--components", default="all", help="all 或逗号分隔的组件名")
     parser.add_argument(
@@ -900,8 +1147,13 @@ def main() -> int:
         ),
     )
     parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument("--batch-max-seconds", type=int, default=3600)
+    parser.add_argument("--judge-allowed-models", default=None,
+                        help="事前声明可接受响应型号，逗号分隔；默认仅请求型号")
     parser.add_argument("--dry-run", action="store_true", help="只打印执行计划，不调任何 LLM")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    if args.batch_max_seconds <= 0 or args.calibration_repeats < 0 or args.ask_timeout <= 0:
+        raise _fail("批次时限与 ask 时限必须为正，校准次数必须非负")
 
     if args.components == "all":
         component_ids = list(COMPONENTS)
@@ -910,6 +1162,8 @@ def main() -> int:
         unknown = [c for c in component_ids if c not in COMPONENTS]
         if unknown:
             raise _fail(f"未知组件：{unknown}（可选：{', '.join(COMPONENTS)}）")
+    if not component_ids or len(component_ids) != len(set(component_ids)):
+        raise _fail("组件列表必须非空且不重复")
 
     question_pool = (
         load_questions_file(args.questions_file) if args.questions_file else QUESTIONS
@@ -927,6 +1181,11 @@ def main() -> int:
             print(f"  {arm:<18} {q.case_id:<22} {knob}")
         return 0
 
+    output = args.output or (REPO / "intelligence" / "eval" / "runs" /
+                            f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-quality-ablation.json")
+    if output.exists():
+        raise _fail(f"输出已存在，拒绝覆盖：{output}")
+
     require_llm_ready()
     judge_info = resolve_judge(
         require_independent=(args.judge_independence == "require")
@@ -938,102 +1197,73 @@ def main() -> int:
         + (f"（{judge_info['reason']}）" if judge_info["reason"] else "")
     )
 
-    answers: list[dict[str, object]] = []
-    for arm, spec, q in plan:
-        extra_env = dict(spec["env"]) if spec else {}
-        extra_flags = tuple(spec["flags"]) if spec else ()
-        print(f"[ask] {arm} × {q.case_id} …", flush=True)
-        result = run_ask(
-            q,
-            extra_env=extra_env,
-            extra_flags=extra_flags,
-            exports_dir=args.exports_dir,
-            timeout=args.ask_timeout,
-        )
-        record: dict[str, object] = {"arm": arm, "case_id": q.case_id, **result}
-        # 弃权在 ask 后立刻判、写进记录：判官看不出「什么都没说」，收据得自己带。
-        record.update(abstention_of(record))
-        answers.append(record)
-        print(
-            f"       {'ok' if result.get('ok') else '失败: ' + str(result.get('error'))} "
-            f"({result.get('elapsed_sec', 0):.0f}s, {len(str(result.get('answer') or ''))} 字"
-            f"{'，弃权:' + str(record['abstain_reason']) if record['abstained'] else ''})",
-            flush=True,
-        )
-
-    by_case = {q.case_id: q for q in questions}
-
-    # 确定性层先跑：零 LLM、零 IO、方差恒 0，失败了也不花钱。
-    # 「先确定性判据，后语义判官」——判官只吃它够不着的那部分残差。
-    for rec in answers:
-        if not rec.get("ok"):
-            continue
-        rec["deterministic"] = deterministic_score(
-            by_case[str(rec["case_id"])], str(rec["answer"])
-        )
-
-    # 盲评：洗牌后逐份独立打分，judge 不见 arm 标签（位置偏差防护）。
-    order = list(range(len(answers)))
-    random.Random(args.seed).shuffle(order)
-    for idx in order:
-        rec = answers[idx]
-        if not rec.get("ok"):
-            rec["judge"] = {"scored": False, "reason": "答案臂失败，未送评"}
-            continue
-        print(f"[judge] #{idx}（盲）…", flush=True)
-        rec["judge"] = judge_answer(by_case[str(rec["case_id"])], str(rec["answer"]))
-
-    # 方差校准：同一份基线答案重复盲评。不再跑 ask，只多花 judge 调用。
-    # 放在主盲评之后，让它和被测臂共享同一个 judge / provider 状态——
-    # 换了 judge 的方差底就不是这一轮的方差底。
-    calibration: list[dict[str, object]] = []
-    if args.calibration_repeats > 0:
-        for rec in answers:
-            if rec["arm"] != "baseline":
-                continue
-            first = rec.get("judge") or {}
-            if not first.get("scored"):
-                continue
-            case_id = str(rec["case_id"])
-            totals = [first["total"]]
-            repeats: list[dict[str, object]] = []
-            for k in range(args.calibration_repeats):
-                print(f"[calib] {case_id} 同文本复评 #{k + 1} …", flush=True)
-                again = judge_answer(by_case[case_id], str(rec["answer"]))
-                repeats.append(again)
-                if again.get("scored"):
-                    totals.append(again["total"])
-            calibration.append(
-                {"case_id": case_id, "totals": totals, "repeats": repeats}
-            )
-
-    noise_floor = judge_noise_floor(calibration)
-    aggregates = aggregate_components(answers, component_ids, noise_floor=noise_floor)
+    judge_spec = build_judge_spec(
+        rubric_version=RUBRIC_VERSION,
+        attempts=2,
+        allowed_models=args.judge_allowed_models.split(",") if args.judge_allowed_models else None,
+    )
+    manifest = validity.new_manifest(
+        [q.__dict__ for q in questions], component_ids, judge_spec,
+        calibration_repeats=args.calibration_repeats,
+        batch_max_seconds=args.batch_max_seconds,
+        independence=args.judge_independence,
+    )
 
     artifact = {
-        "kind": "quality_ablation",
+        "kind": "quality_ablation", "schema_version": 2, "status": "incomplete",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "seed": args.seed,
         "rubric_version": RUBRIC_VERSION,
-        "judge_note": "同一 judge 评所有臂，标签盲；分差可比，绝对分不可跨 judge 比",
+        "judge_note": "legacy ask --compose；按对端自报身份审计；资格通过后才解释分差",
         "judge_independence": judge_info,
-        "length_bias": length_bias_audit(answers),
         "questions": [q.__dict__ for q in questions],
-        "answers": answers,
-        "calibration": calibration,
-        "noise_floor": noise_floor,
-        "aggregates": aggregates,
-        "abstention_by_arm": abstain_rates_by_arm(answers),
+        "answers": [], "calibration": [], "aggregates": {},
+        "manifest": manifest,
     }
-    output = args.output or (
-        REPO
-        / "intelligence"
-        / "eval"
-        / "runs"
-        / f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-quality-ablation.json"
-    )
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(artifact, ensure_ascii=False, indent=2), encoding="utf-8")
+    write_artifact(output, artifact, create=True)
+    def persist():
+        write_artifact(output, artifact)
+    answers = artifact["answers"]
+    try:
+        for arm, component, question in plan:
+            remaining = (datetime.fromisoformat(manifest["run_manifest"]["expires_at"])
+                         - datetime.now(timezone.utc)).total_seconds()
+            if remaining <= 0:
+                result = {"ok": False, "answer": "", "error": "batch_expired", "delivery_state": "no_answer"}
+            else:
+                result = run_ask(question, extra_env=dict(component["env"]) if component else {},
+                                 extra_flags=tuple(component["flags"]) if component else (),
+                                 exports_dir=args.exports_dir, timeout=min(args.ask_timeout, remaining))
+            rec = validity.stamp_answer(manifest, {"arm": arm, "case_id": question.case_id, **result})
+            rec.update(abstention_of(rec))
+            if rec["ok"]:
+                rec["deterministic"] = deterministic_score(question, rec["answer"])
+            answers.append(rec)
+            persist()
+        artifact["manifest"] = validity.bind_answers(manifest, answers)
+        gaps = writer_preflight(answers, judge_spec, artifact["questions"])
+        artifact["preflight_reason_codes"] = gaps
+        persist()
+        if gaps and args.judge_independence == "require":
+            artifact["status"] = "invalid"
+            artifact["manifest"]["state"] = "invalid"
+            artifact["noise_floor"] = judge_noise_floor([])
+            artifact["aggregates"] = aggregate_components(
+                answers, component_ids, manifest=artifact["manifest"], calibration=[])
+        else:
+            finish_judging(artifact, seed=args.seed, persist=persist)
+    except BaseException as exc:
+        artifact["status"] = "incomplete"
+        artifact["manifest"]["state"] = "invalid"
+        artifact["error_type"] = type(exc).__name__
+        raise
+    finally:
+        artifact["judging_validity"] = validity.validate_judging_batch(
+            answers, artifact["calibration"], artifact["manifest"], noise_floor=artifact.get("noise_floor"))
+        artifact["length_bias"] = length_bias_audit(answers)
+        artifact["abstention_by_arm"] = abstain_rates_by_arm(answers)
+        persist()
+    calibration, noise_floor, aggregates = artifact["calibration"], artifact["noise_floor"], artifact["aggregates"]
 
     if noise_floor.get("measured"):
         print(
@@ -1058,7 +1288,7 @@ def main() -> int:
 
     print("\n== 组件边际贡献（关掉后平均掉分，正=在涨分）==")
     for cid, agg in aggregates.items():
-        verdict = "✅ 可下结论" if agg["decision"] == "callable" else "⚠️ 噪声内，不下结论"
+        verdict = "可下结论" if agg["decision"] == "callable" else f"不下结论：{agg['decision_reason']}"
         gate = (
             f"门槛±{agg['noise_threshold']}"
             if agg["noise_threshold"] is not None
