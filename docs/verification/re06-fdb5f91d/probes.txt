@@ -1,0 +1,120 @@
+Y1 cancel {'run_id': 'run_20260914_150504_555251', 'status': 'cancelled', 'cancel_requested': True} source {'item_id': 'jmi-da02cc1bd8bb151a', 'request_event_id': 'jme-1111da731d867fd6'} before rejudgment_requested 1 during open 2 after open 2 events ['rejudgment_requested', 'rejudgment_failed']
+F[research-evolution] 终态折回被拒（run_20260914_150505_187638）：该 run 的源消息坐标指向其他维护项或已结束的代际，既有登记不得驱动本项状态
+Y2 registration 200 fault_fold {'replayed': False, 'status': 'accepted', 'reason_code': 'rejudgment_failed', 'item_id': 'jmi-2682d0628f0c3a9d', 'link': {'run_status': 'failed', 'association': 'registered'}} before rejudgment_requested 1 after open 2
+F读数收据: /Users/a77/.finance-runtime/test-receipts/20260914T070505Z-fdb5f91d.json
+
+=================================== FAILURES ===================================
+_______ test_y1_cancel_before_source_persistence_cannot_fold_other_item ________
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x10a96f470>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a96d670>
+
+    def test_y1_cancel_before_source_persistence_cannot_fold_other_item(world, monkeypatch):
+        a, b = two_items(world)
+        request_a = world.rejudge(a, key="request-a")
+        world.rejudge(b, key="request-b")
+        before_b = world.current_item(b["id"])
+        at_message = threading.Event()
+        continue_message = threading.Event()
+        responses = []
+        original_append = ConversationStore.append_message
+    
+        def delayed_append(self, conversation_id, role, content, **kwargs):
+            if role == "user" and kwargs.get("maintenance_launch"):
+                at_message.set()
+                assert continue_message.wait(15)
+            return original_append(self, conversation_id, role, content, **kwargs)
+    
+        monkeypatch.setattr(ConversationStore, "append_message", delayed_append)
+        continuation = request_a["continuation"]
+        body = {
+            "user": fx.OWNER, "content": continuation["full_prompt"], "skill_mode": "hybrid",
+            "maintenance_launch": {
+                "item_id": continuation["maintenance_item_id"],
+                "request_event_id": continuation["request_event_id"],
+            },
+        }
+        thread = threading.Thread(target=lambda: responses.append(world.client.post(
+            f"/api/conversations/{world.conversation_id}/messages", json=body,
+        )))
+        thread.start()
+        try:
+            assert at_message.wait(10)
+            visible = world.client.get("/api/runs", params={"user": fx.OWNER})
+            visible.raise_for_status()
+            runs = [r for r in visible.json() if r["session_id"] == world.conversation_id]
+            assert len(runs) == 1
+            run_id = runs[0]["run_id"]
+            claimed = world.act(idempotency_key="claim-window-b", run_id=run_id, **world.link_args(b["id"]))
+            assert claimed.status_code == 200, claimed.text
+            cancelled = world.client.post(f"/api/runs/{run_id}/cancel", params={"user": fx.OWNER})
+            assert cancelled.status_code == 200, cancelled.text
+            assert cancelled.json()["status"] == "cancelled", cancelled.text
+            world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_id)
+            during_b = world.current_item(b["id"])
+        finally:
+            continue_message.set()
+            thread.join(20)
+        assert not thread.is_alive()
+        assert responses and responses[0].status_code == 202, [r.text for r in responses]
+        messages = world.service.res.conversation_store_for(fx.OWNER).load_messages(world.conversation_id)
+        source = next(m for m in messages if m.role == "user" and m.run_id == run_id)
+        assert source.maintenance_launch["item_id"] == a["id"]
+        after_b = world.current_item(b["id"])
+        store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+        rows = [r for r in store.list_action_records() if r["item_id"] == b["id"] and r.get("event")]
+        print("Y1", "cancel", cancelled.json(), "source", source.maintenance_launch,
+              "before", before_b["status"], before_b["management_revision"],
+              "during", during_b["status"], during_b["management_revision"],
+              "after", after_b["status"], after_b["management_revision"],
+              "events", [r["event"]["kind"] for r in rows])
+>       assert after_b["management_revision"] == before_b["management_revision"], "A's cancellation before message persistence must not consume B's request"
+E       AssertionError: A's cancellation before message persistence must not consume B's request
+E       assert 2 == 1
+
+docs/verification/re06-fdb5f91d/test_review_round8.py:98: AssertionError
+__________ test_y2_unreadable_source_cannot_activate_conflicting_link __________
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x10ac3e5a0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ac3d340>
+
+    def test_y2_unreadable_source_cannot_activate_conflicting_link(world, monkeypatch):
+        a, b = two_items(world)
+        request_a = world.rejudge(a, key="request-a")
+        world.rejudge(b, key="request-b")
+        before_b = world.current_item(b["id"])
+        run_store = RunStore(user_id=fx.OWNER)
+        run = run_store.create_run(question="Maintenance A", task_type="research", session_id=world.conversation_id)
+        registered = world.act(idempotency_key="claim-b", run_id=run.run_id, **world.link_args(b["id"]))
+        assert registered.status_code == 200, registered.text
+        conversation = world.service.res.conversation_store_for(fx.OWNER)
+        conversation.append_message(
+            world.conversation_id, "user", request_a["continuation"]["full_prompt"],
+            run_id=run.run_id, maintenance_launch={
+                "item_id": a["id"], "request_event_id": request_a["continuation"]["request_event_id"],
+            },
+        )
+        run_store.finish_run(run.run_id, status="failed", error="deterministic failure")
+        ctx = OwnerContext.for_owner(fx.OWNER)
+        assert world.service.fold_run_terminal(ctx=ctx, run_id=run.run_id) is None
+        assert world.current_item(b["id"])["management_revision"] == before_b["management_revision"]
+    
+        def unreadable(self, conversation_id):
+            raise OSError("source reader temporarily unavailable")
+    
+        with monkeypatch.context() as unavailable:
+            unavailable.setattr(ConversationStore, "load_messages", unreadable)
+            result = world.service.fold_run_terminal(ctx=ctx, run_id=run.run_id)
+        after_b = world.current_item(b["id"])
+        print("Y2", "registration", registered.status_code, "fault_fold", result,
+              "before", before_b["status"], before_b["management_revision"],
+              "after", after_b["status"], after_b["management_revision"])
+>       assert after_b["management_revision"] == before_b["management_revision"], "Source read failure must preserve B's pending request"
+E       AssertionError: Source read failure must preserve B's pending request
+E       assert 2 == 1
+
+docs/verification/re06-fdb5f91d/test_review_round8.py:133: AssertionError
+=========================== short test summary info ============================
+FAILED docs/verification/re06-fdb5f91d/test_review_round8.py::test_y1_cancel_before_source_persistence_cannot_fold_other_item
+FAILED docs/verification/re06-fdb5f91d/test_review_round8.py::test_y2_unreadable_source_cannot_activate_conflicting_link
+2 failed in 3.65s

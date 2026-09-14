@@ -1,0 +1,76 @@
+Y1 cancel {'run_id': 'run_20260914_145917_047568', 'status': 'cancelled', 'cancel_requested': True} source {'item_id': 'jmi-452be660a899021b', 'request_event_id': 'jme-247c87656ba122b5'} before rejudgment_requested 1 during open 2 after open 2 events ['rejudgment_requested', 'rejudgment_failed']
+F读数收据: /Users/a77/.finance-runtime/test-receipts/20260914T065917Z-fdb5f91d.json
+
+=================================== FAILURES ===================================
+_______ test_y1_cancel_before_source_persistence_cannot_fold_other_item ________
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x10d4b1490>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d4b1100>
+
+    def test_y1_cancel_before_source_persistence_cannot_fold_other_item(world, monkeypatch):
+        a, b = two_items(world)
+        request_a = world.rejudge(a, key="request-a")
+        world.rejudge(b, key="request-b")
+        before_b = world.current_item(b["id"])
+        at_message = threading.Event()
+        continue_message = threading.Event()
+        responses = []
+        original_append = ConversationStore.append_message
+    
+        def delayed_append(self, conversation_id, role, content, **kwargs):
+            if role == "user" and kwargs.get("maintenance_launch"):
+                at_message.set()
+                assert continue_message.wait(15)
+            return original_append(self, conversation_id, role, content, **kwargs)
+    
+        monkeypatch.setattr(ConversationStore, "append_message", delayed_append)
+        continuation = request_a["continuation"]
+        body = {
+            "user": fx.OWNER, "content": continuation["full_prompt"], "skill_mode": "hybrid",
+            "maintenance_launch": {
+                "item_id": continuation["maintenance_item_id"],
+                "request_event_id": continuation["request_event_id"],
+            },
+        }
+        thread = threading.Thread(target=lambda: responses.append(world.client.post(
+            f"/api/conversations/{world.conversation_id}/messages", json=body,
+        )))
+        thread.start()
+        try:
+            assert at_message.wait(10)
+            visible = world.client.get("/api/runs", params={"user": fx.OWNER})
+            visible.raise_for_status()
+            runs = [r for r in visible.json() if r["session_id"] == world.conversation_id]
+            assert len(runs) == 1
+            run_id = runs[0]["run_id"]
+            claimed = world.act(idempotency_key="claim-window-b", run_id=run_id, **world.link_args(b["id"]))
+            assert claimed.status_code == 200, claimed.text
+            cancelled = world.client.post(f"/api/runs/{run_id}/cancel", params={"user": fx.OWNER})
+            assert cancelled.status_code == 200, cancelled.text
+            assert cancelled.json()["status"] == "cancelled", cancelled.text
+            world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_id)
+            during_b = world.current_item(b["id"])
+        finally:
+            continue_message.set()
+            thread.join(20)
+        assert not thread.is_alive()
+        assert responses and responses[0].status_code == 202, [r.text for r in responses]
+        messages = world.service.res.conversation_store_for(fx.OWNER).load_messages(world.conversation_id)
+        source = next(m for m in messages if m.role == "user" and m.run_id == run_id)
+        assert source.maintenance_launch["item_id"] == a["id"]
+        after_b = world.current_item(b["id"])
+        store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+        rows = [r for r in store.list_action_records() if r["item_id"] == b["id"] and r.get("event")]
+        print("Y1", "cancel", cancelled.json(), "source", source.maintenance_launch,
+              "before", before_b["status"], before_b["management_revision"],
+              "during", during_b["status"], during_b["management_revision"],
+              "after", after_b["status"], after_b["management_revision"],
+              "events", [r["event"]["kind"] for r in rows])
+>       assert after_b["management_revision"] == before_b["management_revision"], "A's cancellation before message persistence must not consume B's request"
+E       AssertionError: A's cancellation before message persistence must not consume B's request
+E       assert 2 == 1
+
+docs/verification/re06-fdb5f91d/test_review_round8.py:97: AssertionError
+=========================== short test summary info ============================
+FAILED docs/verification/re06-fdb5f91d/test_review_round8.py::test_y1_cancel_before_source_persistence_cannot_fold_other_item
+1 failed in 2.62s
