@@ -509,7 +509,7 @@ _LEADIN_RE = re.compile(
     r"(?:如下|全文)?[^\n]{0,24}[:：]\s*$"
 )
 _QUESTION_LEAD_RE = re.compile(r"按以下|逐项|回答以下|以下\s*\d+\s*题")
-_NUMBERED_ITEM_RE = re.compile(r"^\s*(\d{1,2})[.、\)）]\s*(\S.*)$")
+_NUMBERED_ITEM_RE = re.compile(r"^\s*(\d{1,2})[.、\)）](?!\d)\s*(\S.*)$")
 # 题/请求形态（区别于「1. 行业概览」式研报小节标题）。
 _QUESTIONISH_RE = re.compile(
     r"[？?]|吗\b|什么|怎么|多少|哪些|如何|为何|是否|请|如果|假设|选哪|排序|指出|说明"
@@ -684,6 +684,9 @@ class InstructionSpan:
     text: str
     line_index: int
     scope: str = "message"
+    visible_text: str = ""
+    start_offset: int = 0
+    end_offset: int = 0
 
 
 @dataclass(frozen=True)
@@ -696,6 +699,7 @@ class TopLevelRegions:
     uncertain_reasons: tuple[str, ...] = ()
     # 保留用户原编号，不让从7开始的题被消费者重新编号为1。
     question_ids: tuple[str, ...] = ()
+    question_line_ranges: tuple[tuple[int, int], ...] = ()
 
 
 def classify_top_level_regions(text: str) -> TopLevelRegions:
@@ -814,6 +818,7 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
     # 已认定题体的长续行/全引用续行不是材料阈值或空行。
     sub_questions: list[str] = []
     question_ids: list[str] = []
+    question_line_ranges: list[tuple[int, int]] = []
     q_spans: list[InstructionSpan] = []
     expected: int | None = None
     li = 0
@@ -859,6 +864,7 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
                 ).strip()
                 sub_questions.append(original_body)
                 question_ids.append(f"q{number}")
+                question_line_ranges.append((li, j))
                 for k in range(li, j):
                     claimed[k] = True
                     # 题内状态操作：检测在掩码句上做，文本按同偏移切回原文（R6）；
@@ -875,6 +881,9 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
                                     lines[k][base + s_off : base + e_off].strip(),
                                     k,
                                     scope=f"q{number}",
+                                    visible_text=sent,
+                                    start_offset=base + s_off,
+                                    end_offset=base + e_off,
                                 )
                             )
                 expected = number + 1
@@ -891,7 +900,8 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
             kind = _state_op_in_sentence(sent)
             if kind:
                 instructions.append(
-                    InstructionSpan(kind, lines[li][s_off:e_off].strip(), li)
+                    InstructionSpan(kind, lines[li][s_off:e_off].strip(), li,
+                                    visible_text=sent, start_offset=s_off, end_offset=e_off)
                 )
                 instruction_lines.add(li)
 
@@ -939,6 +949,7 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
         sub_questions=tuple(sub_questions),
         uncertain_reasons=tuple(dict.fromkeys(uncertain)),
         question_ids=tuple(question_ids),
+        question_line_ranges=tuple(question_line_ranges),
     )
 
 
@@ -1055,11 +1066,29 @@ def _looks_like_question(text: str) -> bool:
 def split_user_message(text: str) -> MessageParts:
     """Separate the question from pasted materials in one user message.
 
-    E2/P1：返回值附带顶层三分区结果（classify_top_level_regions），旧抽取行为
-    不变；两轴/继承/冻结点等消费方在后续阶段接线。
+    E2/P2：已确认题组接入正式question字段；原编号和完整题文保留。
+    材料由原文扣除已确认指令/题区产生，不拿最后一题冒充整个问题。
+    无新增语义的普通问答/纯贴研报仍走原抽取。
     """
     parts = _split_user_message_core(text)
-    return replace(parts, regions=classify_top_level_regions(text))
+    regions = classify_top_level_regions(text)
+    if regions.sub_questions and regions.classification != "boundary_uncertain":
+        lines = str(text or "").replace("\r\n", "\n").replace("\r", "\n").strip("\n").split("\n")
+        for start, end in regions.question_line_ranges:
+            for index in range(start, end):
+                lines[index] = ""
+        for span in sorted(regions.instructions, key=lambda s: (s.line_index, s.start_offset), reverse=True):
+            if span.scope == "message":
+                line = lines[span.line_index]
+                lines[span.line_index] = line[:span.start_offset] + line[span.end_offset:]
+        residual = "\n".join(line for line in lines if line.strip(" 。！？；，,\t"))
+        material = material_from_text(residual)
+        parts = MessageParts(
+            question="\n\n".join(f"{qid[1:]}. {body}" for qid, body in zip(regions.question_ids, regions.sub_questions, strict=True)),
+            materials=(material,) if material else (),
+            material_texts=(residual,) if material else (),
+        )
+    return replace(parts, regions=regions)
 
 
 def _split_user_message_core(text: str) -> MessageParts:

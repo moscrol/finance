@@ -14,6 +14,7 @@ from dataclasses import asdict, dataclass, replace
 from typing import TYPE_CHECKING, Callable
 
 from intelligence.services.trading_calendar import question_non_trading_note
+from intelligence.services.material_contract import MaterialContract, compile_material_contract
 from intelligence.services.user_task import (
     Hypothesis,
     MaterialRef,
@@ -128,6 +129,7 @@ class TaskFrame:
     competing_explanations: tuple[Hypothesis, ...] = ()
     method_candidates: tuple[MethodCandidate, ...] = ()
     history_intent: HistoryIntent | None = None
+    material_contract: MaterialContract | None = None
 
     def _payload(self) -> dict[str, object]:
         payload = asdict(self)
@@ -136,6 +138,8 @@ class TaskFrame:
                 payload.pop(key, None)
         if payload.get("history_intent") is None:
             payload.pop("history_intent", None)
+        if self.material_contract is None:
+            payload.pop("material_contract", None)
         return payload
 
     @property
@@ -241,6 +245,10 @@ class TaskFrame:
                     value.get("method_candidates"), MethodCandidate.from_dict
                 ),
                 history_intent=HistoryIntent.from_dict(value.get("history_intent")),
+                material_contract=(
+                    MaterialContract.from_dict(value["material_contract"])
+                    if "material_contract" in value else None
+                ),
             )
         except (KeyError, TypeError, ValueError):
             return None
@@ -273,6 +281,7 @@ def build_task_frame(
     inherited_subject: str | None = None,
     llm_complete: LLMComplete | None = None,
     conversation_context: str | None = None,
+    source_turn: int = 0,
 ) -> TaskFrame:
     """Compile rules first, then optionally merge one constrained LLM draft.
 
@@ -404,7 +413,10 @@ def build_task_frame(
         else:
             ambiguities.append(MISSING_MATERIAL_AMBIGUITY)
 
+    material_contract = compile_material_contract(parts.regions, source_turn=source_turn) if parts.regions else None
     premises = extract_user_premises(core)
+    if material_contract and material_contract.needs_clarification:
+        ambiguities.append("材料约束归属或上一轮基底不可确认，请明确本轮前提与允许的数据范围")
     methods = extract_method_candidates(core)
     if methods:
         assumptions.append(
@@ -459,7 +471,10 @@ def build_task_frame(
         competing_explanations=hypotheses,
         method_candidates=methods,
         history_intent=history_intent,
+        material_contract=material_contract,
     )
+    if material_contract and material_contract.needs_clarification:
+        frame = replace(frame, clarification_question="请明确本轮是否沿用虚构前提，以及只依据材料、不联网或允许外部数据中的哪一种范围。")
     if llm_complete is None:
         return frame
     try:

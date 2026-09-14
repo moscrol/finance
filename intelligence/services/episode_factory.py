@@ -509,6 +509,10 @@ def _required_output_evidence_types(
 def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
     """Project question semantics into the output grounding contract."""
 
+    if output_id == "evidence_boundary" and frame.material_contract is not None:
+        if frame.material_contract.authenticity == "fictional" or frame.material_contract.data_scope == "material_only":
+            # 只给范围声明前提资格；其它事实槽仍需证据，A轴不能取消B轴检索。
+            return "user_premise"
     if output_id in {"prior_recall", "prime_memory"}:
         # 这一格装的是用户自己的历史判断，按定义不是当前世界事实，所以既不能
         # 要求它有市场证据支撑，也不能让它被当成证据去支撑别的结论。语义裁判
@@ -517,7 +521,9 @@ def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
         return "user_premise"
     if frame.question_type == "methodology_discussion" or "method" in frame.required_outputs:
         return "model_reasoning"
-    if frame.user_goal.startswith("判断反事实条件"):
+    if frame.user_goal.startswith("判断反事实条件") and not (
+        frame.material_contract and frame.material_contract.data_scope_declared
+    ):
         return "user_premise"
     if (
         frame.question_type == "market_cause"
@@ -548,6 +554,10 @@ def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
 
 
 def _is_evidence_free_task(frame: TaskFrame) -> bool:
+    if frame.material_contract is not None and frame.material_contract.data_scope_declared:
+        # 两轴独立：显式fictional×full仍要真实检索；材料权限在P3统一冻结，
+        # 不借旧evidence_free快捷通道把前提标签当授权。
+        return False
     return (
         frame.question_type == "methodology_discussion"
         or "method" in frame.required_outputs
@@ -843,6 +853,16 @@ def assemble_input_understanding_context(frame: TaskFrame, conversation_context:
     """
 
     blocks: list[str] = []
+    if frame.material_contract is not None:
+        contract = frame.material_contract
+        lines = ["## 本轮材料任务语义", f"前提真实性={contract.authenticity}；数据范围={contract.data_scope}；状态={contract.classification}"]
+        for mark in contract.premise_marks:
+            lines.append(f"前提标注：{mark.scope} / {mark.authenticity} / 轮次{mark.source_turn} / {mark.text_ref}")
+        if contract.premise_marks:
+            lines.append("虚构前提不是待证伪信念；前提域声明仅证明结论范围，不能替事实背书。")
+        for question in contract.questions:
+            lines.append(f"{question.question_id}：{question.text}")
+        blocks.append("\n".join(lines))
     earlier = materials_in_conversation(conversation_context)
     earlier_refs = tuple(ref for ref, _text in earlier)
     referent: MaterialRef | None = None

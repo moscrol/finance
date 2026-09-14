@@ -30,6 +30,19 @@
 
 编码任务「仓库里有没有现成实现」走 `python3 scripts/code_map.py query "<问题>"`，不是本页，也不是问答门。空图不得写成架构结论。
 
+### 材料题边界（E2，分阶段接线中）
+
+D1 分类器已独立复核；P2 把完整题组/原题号、前提真实性与数据范围接入
+`TaskFrame.material_contract`，随任务序列化和哈希保存。无新语义的普通问题不增加该字段。
+虚构前提标注与旧 `user_premises` 分开；仅范围声明槽使用前提资格，不能替事实背书。
+续轮基底未接入前明确 `state_unavailable`，不从助手旧答猜权限。
+
+**本阶段不是材料题全链完成**：冻结授权/全部注入路径过滤、逐题最终交付、可信跨轮继承、
+纯度与材料锚点尚待 P3–P7。不得把载体里的 `material_only` 标签当成工具已经零外呼，
+也不得以本阶段运行正式 T2→T3/Knevo 对照。设计与阶段证据见
+[设计 v10](learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md)
+及 `docs/handoffs/inflight/fix-e2-boundary-closeout.md`；是否部署看实际服务 revision。
+
 ### 历史发现研究
 
 入口仍是 Workbench 对话，例如「这一波农业怎么走出来的，找出值得检验的特征」→「以前有没有类似，失败案例也看看」→「把观察窗口改成……」。`TaskFrame.history_intent` 区分事后发现与历史比较，随 `TurnIntent` 跨轮传递；普通概念解释与明确取消历史研究不会继承该权限。用户明确限定日期时，历史计算、普通结构化查询与原件读取共用范围门。
