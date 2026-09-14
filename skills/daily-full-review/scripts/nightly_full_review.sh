@@ -59,6 +59,12 @@ fi
 export FINANCE_CODE_ROOT="$CODE_ROOT"
 export FINANCE_DATA_ROOT="$DATA_ROOT"
 export FINANCE_WS="$DATA_ROOT"
+# Python 的 -m 会优先把 cwd 放进 sys.path；生成段及其所有子步骤都必须看到
+# CODE_ROOT 的包，而 direct script 的 ROOT 仍按脚本文件位置指向 DATA_ROOT。
+# PYTHONSAFEPATH（等价于 -P）移除 cwd/script 目录这个隐式优先项，PYTHONPATH
+# 再显式钉住代码根；两根职责因此不混：import 读 CODE_ROOT，数据路径读 FINANCE_WS。
+export PYTHONSAFEPATH=1
+export PYTHONPATH="$CODE_ROOT${PYTHONPATH:+:$PYTHONPATH}"
 export MARKET_FEATURE_STORE_DB="${MARKET_FEATURE_STORE_DB:-$DATA_ROOT/db/market_feature_store.duckdb}"
 export MONEYFLOW_OUTPUT_DIR="${MONEYFLOW_OUTPUT_DIR:-$DATA_ROOT/scripts/moneyflow/outputs}"
 export FORESIGHT_USER="linxiaoqi5111"
@@ -200,13 +206,11 @@ if [ "$dow" -gt 5 ]; then
   exit 0
 fi
 
-# 遗留未修（另单）：下面生成段的 `python -m intelligence.cli daily` 在这个 cwd 下跑，
-# `-m` 会把 cwd 放进 sys.path[0]（实测是空串），于是 intelligence 仍从 WORKSPACE 加载
-# ——也就是那棵共用的、会漂的主检出树（实测
-# /Users/a77/finance-workspace-private/intelligence/__init__.py）。
-# 质检闸门（REVIEW_CHECKER）已钉住代码根、同步段已只走 S7，
-# **生成段还没有**：修对两处不等于整个 finalize 已修对根。
-# 不在本单顺手改：生成段要连 users 目录、episode 目录、模型网关一起验，改动面比闸门大。
+# 生成段也必须从显式代码根加载，不依赖 WORKSPACE 的 cwd。
+# `python -m` 会把当前目录放进 sys.path[0]；因此仅设置 PYTHONPATH 不够——当
+# WORKSPACE 本身是另一份检出树时，cwd 仍可能优先加载它的 intelligence。
+# 生成段在自身启动前校验代码快照；FINANCE_WS / MARKET_FEATURE_STORE_DB 继续把
+# DuckDB、exports、用户态和 episode 指向 DATA_ROOT。L2 分支保持独立，不被这道生成门连坐。
 cd "$WORKSPACE" || exit 1
 REV=$(git -C "$CODE_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 WORKSPACE_REV=$(git -C "$WORKSPACE" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
@@ -263,7 +267,25 @@ run_l2_branch() {
 
 # 生成段 + 收尾（KB 时效 / 最终硬门）。前置：sync 与 L2 均已通过。
 run_generation_and_finalize() {
-  "$OPS_PYTHON" -m intelligence.cli daily --date "$D" --skip-sync --from-step daily-review \
+  if [ ! -f "$CODE_ROOT/intelligence/__init__.py" ] || [ ! -f "$CODE_ROOT/intelligence/cli.py" ]; then
+    echo "[$(date '+%F %T')] 生成段代码根无效：缺少 intelligence 包/CLI（CODE_ROOT=$CODE_ROOT）；拒绝回退到 WORKSPACE=$WORKSPACE" >&2
+    notify "❌ 全量复盘 $D 生成段代码根校验失败；未生成报告"
+    return 2
+  fi
+
+  # 这是生成段的根验收，不只检查文件存在：用和 daily 相同的解释器/安全路径实际
+  # import，并把加载位置写入日志。任何 cwd 抢包或代码根失效都在产物生成前失败。
+  local generation_import
+  generation_import=$("$OPS_PYTHON" -P -c 'import intelligence; print(intelligence.__file__)' 2>&1)
+  local import_rc=$?
+  echo "[$(date '+%F %T')] generation_import=$generation_import"
+  if [ "$import_rc" -ne 0 ] || [[ "$generation_import" != "$CODE_ROOT/intelligence/"* ]] || [[ "$generation_import" == "$WORKSPACE/intelligence/"* ]]; then
+    echo "[$(date '+%F %T')] 生成段加载代码根不符：expected CODE_ROOT=$CODE_ROOT actual=$generation_import；拒绝生成" >&2
+    notify "❌ 全量复盘 $D 生成段代码根校验失败；未生成报告"
+    return 2
+  fi
+
+  "$OPS_PYTHON" -P -m intelligence.cli daily --date "$D" --skip-sync --from-step daily-review \
     --summary-json "market_feature_store/exports/$D-daily-workflow-summary.json"
   local rc=$?
 

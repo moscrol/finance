@@ -65,6 +65,7 @@ NIGHTLY = ROOT / "skills" / "daily-full-review" / "scripts" / "nightly_full_revi
 _FAKE_PYTHON = """#!/bin/sh
 printf 'python %s\\n' "$*" >> "$CALL_LOG"
 case "$*" in
+  *"-c import intelligence"*) printf '%s/intelligence/__init__.py\n' "$FINANCE_CODE_ROOT"; exit 0 ;;
   *check_daily_review_data.py*"--phase data"*) exit "${FAKE_GUARD_RC:-0}" ;;
   *check_daily_review_data.py*"--phase l2"*) exit "${FAKE_L2_GATE_RC:-0}" ;;
 esac
@@ -86,6 +87,7 @@ def _run_nightly_finalize(
     l2_gate_rc: int = 0,
     moneyflow_rc: int = 0,
     script_text: str | None = None,
+    valid_code_root: bool = True,
 ) -> tuple[subprocess.CompletedProcess[str], str, str]:
     """真启动 `nightly_full_review.sh finalize`，外呼与写库全换成假执行器。
 
@@ -121,6 +123,10 @@ def _run_nightly_finalize(
     )
     # 质检闸门只需**存在**（脚本对它 fail closed）；真正的退出码由假 python 给。
     (code_root / "scripts" / "check_daily_review_data.py").write_text("", encoding="utf-8")
+    if valid_code_root:
+        (code_root / "intelligence").mkdir(parents=True, exist_ok=True)
+        (code_root / "intelligence" / "__init__.py").write_text("", encoding="utf-8")
+        (code_root / "intelligence" / "cli.py").write_text("", encoding="utf-8")
     # 刻意不建 scripts/method_validation.py：绑定解析整段跳过，本夹具不测那条链。
 
     for target, body in (
@@ -350,6 +356,18 @@ def test_nightly_closes_the_staging_bypassing_sync_phases() -> None:
     #    塞回去测试照样绿（变异测试实测）。别把它改回文本断言。
 
 
+def test_nightly_generation_fails_closed_when_code_root_is_missing(tmp_path: Path) -> None:
+    """缺少生成代码根时不能退回 DATA_ROOT 继续产出报告。"""
+    proc, calls, _ = _run_nightly_finalize(tmp_path, valid_code_root=False)
+
+    assert proc.returncode == 2
+    assert "生成段代码根无效" in proc.stderr
+    assert "WORKSPACE=" in proc.stderr
+    assert "moneyflow " in calls
+    assert "--phase l2" in calls
+    assert "intelligence.cli daily" not in calls
+
+
 def test_nightly_finalize_attempts_l2_even_when_the_sync_guard_fails(tmp_path: Path) -> None:
     """同步守卫失败时，L2 仍然被尝试；生成段仍然被挡住。（工单 #51）
 
@@ -383,6 +401,8 @@ def test_nightly_finalize_happy_path_still_runs_generation(tmp_path: Path) -> No
     assert "moneyflow " in calls, f"L2 段没跑：\n{calls}"
     assert "--phase data" in calls, f"同步守卫没跑：\n{calls}"
     assert "intelligence.cli daily" in calls, f"守卫放行了却没跑生成段：\n{calls}"
+    assert "-P -c import intelligence" in calls, f"没有执行代码根 import 探针：\n{calls}"
+    assert "-P -m intelligence.cli daily" in calls, f"生成段没有使用安全的代码根模块启动：\n{calls}"
     assert proc.returncode == 0, f"顺利路径应退 0，实际 {proc.returncode}\n{proc.stderr[-2000:]}"
 
 
