@@ -35,6 +35,17 @@ Task 1–5 代码与验收全部完成。提交链：
 - **覆盖率分叉是实测的，不是推演**：把 rejudge 的行内重算副本改回去，两个模式的同源断言都变红（人读报告「已评分=4」/ JSON 收据 `scored=3`）。
 - `graph_audit.py` exit 0，62 节点 / 115 断言无漂移；本轮新增行的 6 个符号都被识别为 `@codex/judge-calibration-validity` 分支待合。
 - `registry-check` 两步 exit 0（60 个 SKILL.md 可解析、注册表与源一致）。
+- **四叶等价 CI 全绿**（`c92127c5`，代码态仍是 `7117125e`）：
+
+  | 叶子 | 命令 | 读数 |
+  |---|---|---|
+  | python | `ruff check .` / `pytest -q` | exit 0 / **9766 passed, 0 failed** |
+  | frontend | `pnpm lint` / `typecheck` / `test` / `build` | 四步 exit 0，vitest **76 passed** |
+  | e2e | `WORKBENCH_PYTHON=<主树venv> pnpm test:e2e` | exit 0，**15 passed**（desktop/tablet/mobile 三视口）|
+  | registry | `build_registry.py check-parseability` / `check` | 两步 exit 0 |
+
+  `data-quality-check` 按 paths 触发，本枝未碰 `scripts/db_delta_*.py` / `tests/test_db_delta.py` / `skills/report-search/scripts/**`，**未触发，不算缺结论**。
+  `vite build` 产物写进被 git 跟踪的 `intelligence/api/static/`，构建后树仍干净——哈希名与已提交的逐字节一致，顺带证明该构建可复现。
 
 ## 未验证 / 已知边界
 
@@ -47,9 +58,20 @@ Task 1–5 代码与验收全部完成。提交链：
 
 ## 下一步（合入前）
 
-1. **frontend / e2e 两片叶子还没结论**。本枝 21 个改动文件里零个在 `intelligence/webapp/**`，但仓库规矩是四叶都要有读数：`cd intelligence/webapp && pnpm lint && pnpm typecheck && pnpm test && pnpm build`；e2e 记得把 venv 放进 PATH（`PATH=.venv-workbench/bin:$PATH pnpm test:e2e`），否则 playwright 会退回宿主 python 而没有 uvicorn。`data-quality-check` 按 paths 触发，本枝没碰那些路径，**不算缺结论**。
-2. 合入 main 必须等用户确认；本计划不含合并授权。
-3. 若要拿真实模型跑一轮消融：先按 `probe-shared-llm-gateway-before-a-batch` 预检网关（一次深 episode 能触发 75 分钟整模型冷却），再串行、逐题预检。
+1. 四叶已全绿（见上），**合入 main 仍必须等用户确认**；本计划不含合并授权。
+2. 若要拿真实模型跑一轮消融：先按 `probe-shared-llm-gateway-before-a-batch` 预检网关（一次深 episode 能触发 75 分钟整模型冷却），再串行、逐题预检。这是本轮唯一没做的验证类别。
+
+### 在这棵树上重跑 frontend / e2e 的前置
+
+本工作树**没有** `.venv-workbench`（它在主树 `/Users/a77/finance-workspace-private/`）。`playwright.config.ts` 按 `repoRoot/.venv-workbench/bin/python → .venv → python3` 顺序解析，本树会一路退到宿主 `python3`，而它没有 uvicorn——webServer 在任何测试跑起来之前就死。显式传解释器：
+
+```bash
+cd intelligence/webapp
+pnpm install --frozen-lockfile   # 新工作树没有 node_modules，store 命中约 3 秒
+WORKBENCH_PYTHON=/Users/a77/finance-workspace-private/.venv-workbench/bin/python pnpm test:e2e
+```
+
+e2e 占 8791（可用 `WORKBENCH_E2E_PORT` 改），`reuseExistingServer: false`，跑前先确认端口空闲。
 
 ## 踩过的坑
 
