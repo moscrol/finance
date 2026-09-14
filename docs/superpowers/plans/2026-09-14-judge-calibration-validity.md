@@ -8,7 +8,9 @@
 
 **Tech Stack:** Python 标准库（dataclasses、contextvars、hashlib、json、math）与现有 pytest。正文中的新字段、函数和测试名是待实现合同，不表示代码已具备。
 
-**状态：方案已整理，代码未实施。** 日期 2026-09-14；依据 `gitea/main@1fef3d276d0e251158803fc09d5a81e60d79241b`。执行前从最新 `gitea/main` 开独立分支，复核下列入口；旧主检出树 `b4a35fa2` 不能当实现基线。
+**状态：Task 1–5 已实施并验收，未合 main。** 日期 2026-09-14；依据 `gitea/main@1fef3d276d0e251158803fc09d5a81e60d79241b`，实施在 `codex/judge-calibration-validity`（代码 `7117125e`、文档 `87845e09`），工作树 `/Users/a77/fwp-wt-judge-calibration-validity`。
+
+全量 9766 passed / 0 failed 与 `ruff check .` 绑定 `7117125e`（收据 `~/.finance-runtime/test-receipts/20260914T152057Z-7117125e.json`，`check_test_receipt.py --expect-revision` 七项全过、干净树）。§5 的反向证明已跑：拆掉身份门 / 源 writer 独立性 / 校准绑定哈希 / 非有限数检查，V1/V4/V6/V8 分别见红，还原后 85 项全绿。**未调真实判官**——全部验收走假传输与内存夹具，「门会拦」已证、「真实模型分差如何」未测。frontend / e2e 两片叶子尚无结论（本枝零前端改动），合入仍待用户确认。交接见 `docs/handoffs/inflight/codex-judge-calibration-validity.md`。
 
 ## 1. 已核实的故障与范围
 
@@ -117,7 +119,7 @@ PYTHON=/Users/a77/finance-workspace-private/.venv-workbench/bin/python
 
 ### Task 1: 先复现现有缺口，再建立纯合同
 
-- [ ] 把下列最小反例固定到 `test_rejudge_quality_ablation.py`，先断言修复目标 `no_call`，在现有代码应红；记录基线 revision。只用内存数据，不调模型。
+- [x] 把下列最小反例固定到 `test_rejudge_quality_ablation.py`，先断言修复目标 `no_call`，在现有代码应红；记录基线 revision。只用内存数据，不调模型。
 
 ```python
 from pathlib import Path
@@ -146,37 +148,37 @@ def test_changed_judge_cannot_reuse_old_calibration():
     assert out["aggregates"]["kb-rag"]["decision"] == "no_call"
 ```
 
-- [ ] 在 `test_judge_validity.py` 建立完整 v2 正常夹具：两题、每题两臂、冻结 writer 家族、同一 judge、每题两次校准，原始 verdict 与 manifest 都能重算哈希；正常夹具可取得有效资格。
-- [ ] 实现 `judge_validity.py` 的规格/manifest 规范哈希、显式版本解析和纯资格函数；使用 §5 的 V1-V8 变体测试，不依赖生产库或环境模型设置。
-- [ ] 运行 `$PYTHON -m pytest -q intelligence/tests/test_judge_validity.py`；全部通过后检查没有 services 导入 eval 或 runtime。
+- [x] 在 `test_judge_validity.py` 建立完整 v2 正常夹具：两题、每题两臂、冻结 writer 家族、同一 judge、每题两次校准，原始 verdict 与 manifest 都能重算哈希；正常夹具可取得有效资格。
+- [x] 实现 `judge_validity.py` 的规格/manifest 规范哈希、显式版本解析和纯资格函数；使用 §5 的 V1-V8 变体测试，不依赖生产库或环境模型设置。
+- [x] 运行 `$PYTHON -m pytest -q intelligence/tests/test_judge_validity.py`；全部通过后检查没有 services 导入 eval 或 runtime。
 
 ### Task 2: 贯通真实调用证据与源 writer
 
-- [ ] 扩展 `LLMCallRecord` 可选字段和序列化，传输适配器返回值保持兼容；为请求绑定作用域中的 call/attempt 身份。单元测试假 HTTP、CLI 和流式响应先红，再接记录点。
-- [ ] 在 `cmd_ask` 中仅对 `--call-provenance-json` 建立或复用台账作用域，最终输出与身份一并写入该路径；嵌套已有台账不重置预算。提前短路、异常、零调用均明确记状态。
-- [ ] `run_ask` 每次新建唯一收据路径并验证原始/规范化输出哈希；不扫描 `exports_dir` 找“最新文件”。校准不能把旧 run 的 writer 收据换成当前配置。
-- [ ] 运行 `$PYTHON -m pytest -q intelligence/tests/test_llm_call_provenance.py intelligence/tests/test_grok_cli_judge.py intelligence/tests/test_llm_refine_tool_stream.py`；V9-V12 通过，CLI 普通输出保持原字节。
+- [x] 扩展 `LLMCallRecord` 可选字段和序列化，传输适配器返回值保持兼容；为请求绑定作用域中的 call/attempt 身份。单元测试假 HTTP、CLI 和流式响应先红，再接记录点。
+- [x] 在 `cmd_ask` 中仅对 `--call-provenance-json` 建立或复用台账作用域，最终输出与身份一并写入该路径；嵌套已有台账不重置预算。提前短路、异常、零调用均明确记状态。
+- [x] `run_ask` 每次新建唯一收据路径并验证原始/规范化输出哈希；不扫描 `exports_dir` 找“最新文件”。校准不能把旧 run 的 writer 收据换成当前配置。
+- [x] 运行 `$PYTHON -m pytest -q intelligence/tests/test_llm_call_provenance.py intelligence/tests/test_grok_cli_judge.py intelligence/tests/test_llm_refine_tool_stream.py`；V9-V12 通过，CLI 普通输出保持原字节。
 
 ### Task 3: 主轮评分、校准与聚合共用一扇门
 
-- [ ] 主评与补评进程开启或复用 `call_ledger_scope`，逐次 `judge_answer` 使用 §3.1 的调用 context，返回完整 attempt 引用与有效规格哈希，校准重复走同一接口；失败保留原因与已收集身份。初次和 JSON 格式重试的提示都纳入预声明策略。
-- [ ] 主 runner 先冻结计划并落盘，再 ask、评分、校准、封存；每次结果结算保存工作收据，`judge_noise_floor` 从完整校准 verdict 计算。
-- [ ] `aggregate_components` 每次复验原始记录与 manifest；所有不兼容路径按 §3.3 降为 `no_call`。`threshold_for` 缺值不再当 0，返回的旧 `decision` 字段不能绕开新门。
-- [ ] 修改 `test_补评沿用源轮实测的方差底`：旧无身份夹具应 `no_call`；另加同一 open 批次的正例，完整零方差也可通过。保留原噪声公式测试，不删数学验收。
-- [ ] 运行 `$PYTHON -m pytest -q intelligence/tests/test_quality_ablation_noise_floor.py intelligence/tests/test_quality_ablation_judge_independence.py intelligence/tests/test_judge_validity.py`。
+- [x] 主评与补评进程开启或复用 `call_ledger_scope`，逐次 `judge_answer` 使用 §3.1 的调用 context，返回完整 attempt 引用与有效规格哈希，校准重复走同一接口；失败保留原因与已收集身份。初次和 JSON 格式重试的提示都纳入预声明策略。
+- [x] 主 runner 先冻结计划并落盘，再 ask、评分、校准、封存；每次结果结算保存工作收据，`judge_noise_floor` 从完整校准 verdict 计算。
+- [x] `aggregate_components` 每次复验原始记录与 manifest；所有不兼容路径按 §3.3 降为 `no_call`。`threshold_for` 缺值不再当 0，返回的旧 `decision` 字段不能绕开新门。
+- [x] 修改 `test_补评沿用源轮实测的方差底`：旧无身份夹具应 `no_call`；另加同一 open 批次的正例，完整零方差也可通过。保留原噪声公式测试，不删数学验收。
+- [x] 运行 `$PYTHON -m pytest -q intelligence/tests/test_quality_ablation_noise_floor.py intelligence/tests/test_quality_ablation_judge_independence.py intelligence/tests/test_judge_validity.py`。
 
 ### Task 4: 两种重评模式与安全恢复
 
-- [ ] CLI 增加 §3.4 模式与期限参数，`--dry-run` 输出调用数上界、资格缺口和预计模式；路径冲突/未知 writer 在 require 模式下应零调用、零覆盖。
-- [ ] `pending` 保留原 scored 项和源答案；`new-batch` 新建全部评分，不拷旧分进新聚合。源文件哈希、原答案及既有分数前后逐条一致，输出目标已存在时拒绝覆盖。
-- [ ] 统一人读报告与 JSON 的有效性、覆盖率、失败尝试和原因码；读取旧收据展示历史数但不复活旧 `callable`。正文缩短、拒答、内部判官扣稿仍按产品状态统计。
-- [ ] 运行 `$PYTHON -m pytest -q intelligence/tests/test_rejudge_quality_ablation.py intelligence/tests/test_quality_ablation_noise_floor.py intelligence/tests/test_quality_ablation_judge_independence.py intelligence/tests/test_judge_validity.py intelligence/tests/test_llm_call_provenance.py`；V13-V17 全过。
+- [x] CLI 增加 §3.4 模式与期限参数，`--dry-run` 输出调用数上界、资格缺口和预计模式；路径冲突/未知 writer 在 require 模式下应零调用、零覆盖。
+- [x] `pending` 保留原 scored 项和源答案；`new-batch` 新建全部评分，不拷旧分进新聚合。源文件哈希、原答案及既有分数前后逐条一致，输出目标已存在时拒绝覆盖。
+- [x] 统一人读报告与 JSON 的有效性、覆盖率、失败尝试和原因码；读取旧收据展示历史数但不复活旧 `callable`。正文缩短、拒答、内部判官扣稿仍按产品状态统计。
+- [x] 运行 `$PYTHON -m pytest -q intelligence/tests/test_rejudge_quality_ablation.py intelligence/tests/test_quality_ablation_noise_floor.py intelligence/tests/test_quality_ablation_judge_independence.py intelligence/tests/test_judge_validity.py intelligence/tests/test_llm_call_provenance.py`；V13-V17 全过。
 
 ### Task 5: 反向证明门会拦，再交接
 
-- [ ] 分别临时绕过身份门、源 writer 校验、校准哈希与非有限数检查，对应 V1/V4/V6/V8 必须见红；还原后全绿。变异只在隔离副本，不改他人树。
-- [ ] 在 `docs/agent-product-door.md` 登记 legacy 评测边界，更新能力图谱与在途交接：只有实现和检查完成后才改“已实现”。旧收据不批量重写，不用 live 重评美化历史结果。
-- [ ] 冻结候选 revision，运行 `$PYTHON -m ruff check .` 与 `$PYTHON -m pytest -q`；合入前按仓库要求补齐 frontend/e2e/registry 等价检查，并将每片结果绑定 revision。任何门红或无结论均不合；本计划不含合并授权。
+- [x] 分别临时绕过身份门、源 writer 校验、校准哈希与非有限数检查，对应 V1/V4/V6/V8 必须见红；还原后全绿。变异只在隔离副本，不改他人树。
+- [x] 在 `docs/agent-product-door.md` 登记 legacy 评测边界，更新能力图谱与在途交接：只有实现和检查完成后才改“已实现”。旧收据不批量重写，不用 live 重评美化历史结果。
+- [x] 冻结候选 revision，运行 `$PYTHON -m ruff check .` 与 `$PYTHON -m pytest -q`；合入前按仓库要求补齐 frontend/e2e/registry 等价检查，并将每片结果绑定 revision。任何门红或无结论均不合；本计划不含合并授权。
 
 ## 5. 必须满足的验收矩阵
 
@@ -205,6 +207,6 @@ def test_changed_judge_cannot_reuse_old_calibration():
 - [x] 复核真实 judge 调用链、源 writer 缺口及旧噪声底反例。
 - [x] 明确两种重评模式、共同资格门、来源哈希、缺失与失效语义。
 - [x] 给出文件职责、执行步骤和成功/失败验收。
-- [ ] Task 1-5 的代码实现、测试和运行收据仍由执行阶段完成；本文件不充当测试通过证明。
+- [x] Task 1-5 的代码实现、测试和运行收据已完成（见开头状态行）；本文件仍不充当测试通过证明——读数以收据与 `check_test_receipt.py` 为准。
 
 方法依据：agent-memory 的 `kept-history-is-not-replayable-history.md` 与 `exclusion-must-name-its-denominator.md`。项目实现合同以本文件为准；知识笔记保留可迁移原则，不复制全部字段和任务。
