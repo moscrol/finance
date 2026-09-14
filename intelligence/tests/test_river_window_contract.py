@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import unittest
 from datetime import date, datetime
 from pathlib import Path
@@ -402,6 +403,34 @@ class RiverCorrectionAndHardnessTests(unittest.TestCase):
         self.assertLess(
             river_projection.default_sort_key(hard), river_projection.default_sort_key(soft),
         )
+
+
+class SpecPointerRatchetTests(unittest.TestCase):
+    """契约指针不得悬空：模块 docstring 引用的 09-06 spec 章节必须真实存在。
+
+    2026-09-15 实测：``river_window_contract`` / ``river_projection`` / ``river_anchor`` /
+    ``river_derive`` 四个模块都写着「契约见 09-06 统一 spec §4.4 / §4.5 / §4.6」，而那份
+    spec 的 §4 只到 4.3——三节从没写过。指针悬空比没有指针更贵：下一个人照着它去找契约，
+    会以为是自己没找到，而不会怀疑契约不存在。
+    """
+
+    SPEC = (
+        Path(__file__).resolve().parents[2]
+        / "docs/superpowers/specs/2026-09-06-personal-research-calibration-endstate-design.md"
+    )
+    MODULES = ("river_window_contract", "river_projection", "river_anchor", "river_derive")
+
+    def test_09_06_spec_的章节引用都能落到实处(self) -> None:
+        present = set(re.findall(r"^#{2,4}\s+(\d+\.\d+)\s", self.SPEC.read_text(encoding="utf-8"), re.M))
+        self.assertTrue(present, f"没解析出任何章节，检查 spec 路径：{self.SPEC}")
+        services = Path(__file__).resolve().parents[1] / "services"
+        cited: list[tuple[str, str]] = []
+        for name in self.MODULES:
+            src = (services / f"{name}.py").read_text(encoding="utf-8")
+            cited += [(name, sec) for sec in re.findall(r"09-06[^\n]{0,12}spec\s+§(\d+\.\d+)", src)]
+        self.assertTrue(cited, "一条引用都没扫到——正则或 docstring 写法变了，门禁会假绿")
+        missing = [f"{n}.py → §{s}" for n, s in cited if s not in present]
+        self.assertEqual([], missing, f"契约指针悬空：{missing}；spec 现有章节 {sorted(present)}")
 
 
 class ForwardLookingRatchetTests(unittest.TestCase):

@@ -158,6 +158,75 @@ gap { track, reason, source_checked_at, retryable }
 
 缺失来源、授权不明、时间不完整和阶段不可判定都必须成为可见状态。Agent 不得用另一条轨“补齐”缺失事实。
 
+### 4.4 区间契约
+
+§4.1–4.3 定义的是**点**：一天 × 一个实体。但题材与盘面是走出来的，用户的问法多数是「这一段怎么走过来的」。区间与单点**同级、同一套时钟**：
+
+```text
+window(start, end, entity, knowledge_cutoff=C) -> RiverWindow
+  slices[]    [start, end] 内每个交易日一片，各自带 pit_grade
+  derived[]   区间派生对象（validity_kind=range）
+  coverage    {track: 有对象天数 / 区间天数}
+  pit_grade   = min(slices.pit_grade)：任一天降档整段降档
+```
+
+两条硬约束（实现见 `intelligence/services/river_window_contract.py`，本节只定契约）：
+
+1. **每一片必须与 `slice(day, C)` 逐字节相同。** 允许日后加按区间批量取数的快路径，但快路径的正确性靠这条断言守，不靠信任。
+2. **整段只有一个 C。** 区间回答「站在 C 那天回看这段路」；若每天各用当天作 cutoff，那是「逐日重放」——回放里的另一种问法，不是区间。
+
+**区间不是把每条轨压成一个数再求均值**，而是保留对象身份的切片序列 + 可拆回到天与行的派生对象。派生五类（`river_derive`）：`streak`（连续 N 日满足标签）、`transition`（标签从 a 到 b 的跃迁日）、`cumulative`（区间累计）、`first_event`（区间内首次出现）、`signature`（六维 z-score）。每条必带 `member_refs[]`、`derivation_rule{name,version}`、`gap_policy` 与 `gaps_applied[]`。
+
+标签谓词只能引用 `methodology_backtest.labels.ALL_LABELS`，**不新造标签名**。
+
+### 4.5 上下文投影契约
+
+从河到「读者 / 模型看到的那几段」。投影是纯函数，由 `(source_ref, framework_version, task, budget, projection_version, label_version)` 重算，**不落库不缓存**；`projection_hash` 是回放钥匙不是存储键。
+
+**单点投影**（已实现，`river_projection.project`）：输入一片切片，输出有序 `blocks` + `omitted{track:count}` + `omitted_refs` + `limits` / `gaps` 强制块 + `budget`。默认序：轨按 `TRACKS`；轨内 硬度降序 → `recorded_at` 升序 → `ref` 字典序；`frozen_llm` 排在同轨 `deterministic` 之后。省略**按块整体**，不在对象中间截断。
+
+**区间投影**（本节新定）。核心决定：
+
+> **按变化选，不按天铺。**
+
+规则：
+
+1. 区间投影的一等公民是 §4.4 的**派生对象**，不是每日切片。`transition` / `first_event` 回答「什么时候变的、什么先出现」，这正是区间要答的。
+2. 每日切片**默认不进投影**。只有派生对象 `member_refs[]` 命中的那几天按单点规则投影，标 `selected_by=derived:<rule_name>`——模型看到「3-05 阶段由震荡切反弹」时，能顺着拆回那天的六轨。
+3. `validity_kind=range` 的对象进上下文必须带 `gap_policy` 与 `gaps_applied[]`：**缺天的累计量不能看起来和完整的一样**。
+4. 预算不足时先省切片、后省派生对象；派生对象之间按 `transition` > `first_event` > `streak` > `cumulative` > `signature` 让位（前两类携带时间因果，后三类是统计量）。
+
+**被否方案**：
+
+| 否掉的 | 为什么 |
+|---|---|
+| 每天一片全铺进上下文 | N 天 × 六轨必然撑爆预算；且模型要自己从一堆日切片里找重点，读不出「哪天变了」 |
+| 按固定间隔采样 N 天 | 采样点与变化点无关，恰好丢掉区间唯一要答的东西 |
+| 让模型自己从全量天里找变化 | 把确定性计算推给模型，违反 §3「换模型能重算」——`transition` 是代码算得出的，不该由模型猜 |
+
+**验收**：
+
+- (a) 同一 `(start, end, entity, C, framework_version, task, budget)` 两次投影 `projection_hash` 相同；
+- (b) 投影里每个派生对象的 `member_refs` 所指的天，都能用 `slice(day, C)` 取回且与投影中该天逐字节一致（可回溯不降级）；
+- (c) 任一派生对象 `gaps_applied` 非空时，其内容必须出现在投影的 `limits` 块里；
+- (d) **区间投影的块数不随区间长度线性增长**——若随 N 线性增长，说明退化成了按天铺。
+
+### 4.6 事件锚点契约
+
+催化点驱动的问法：「这个消息出来之后发生了什么」「这只票起涨之前那段怎么酝酿的」。锚点是 §4.1 的点与 §4.4 的段的**组合，不另写第三套**：
+
+```text
+anchor_windows(anchor_label, before, after|until, C, entity) -> [AnchorRecord]
+  context   slice(锚点日, C)            锚点那天的世界
+  forward   window(锚点日 → 之后, C)     之后怎么走
+  lookback  window(起涨−m → 起涨, C)     往回看怎么酝酿的
+  pit_grade 各段取最差；任一段所需轨缺失 → 整条 unverifiable
+```
+
+硬规矩：`anchor_label` 必须 ∈ `ALL_LABELS` 或已注册派生规则；`C` 至少是 `forward_end`；**N < 10 只报样本不足，不报「下次也会这样」**。
+
+**`lookback` 当前是 v0 占位**（`river_anchor.py` 返回空列表）。补它之前先定与 `theme-fermentation-tracer` 的分工：该 skill 已实现「消息→首板→板块双红→补涨扩散」的题材特化回溯。**分工按「骨架 / 特化」切**——`anchor` 只给「锚点 → 前后区间 → 派生对象」的通用骨架与 PIT 保证，题材语义（谁是起涨股、谁是补涨股）留在 skill；skill 改读 `anchor` 的输出，不再自己拼时间轴。不这么切就会有两套发酵链路，且只有一套受 `knowledge_cutoff` 约束。
+
 ## 5. 方法生命周期与数据飞轮
 
 ### 5.1 候选到方法的状态机
