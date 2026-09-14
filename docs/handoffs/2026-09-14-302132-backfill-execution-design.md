@@ -1,6 +1,22 @@
-# 302132.SZ 历史回填·执行实现交审（fix/backfill-302132-scoped @ 5b0cd87e）
+# 302132.SZ 历史回填·执行实现交审（fix/backfill-302132-scoped @ 00d64e37）
 
-按 `2026-09-14-302132-prep-review.md` 的两条 P1 与「执行前合同」实现；经五轮复审退修（五项修复 → 证据绑定 → 验收链加固 → 异常路径与验收角色）全部落地。**第五轮演练在干净提交 5b0cd87e 上完成，收据身份与数据合同 33/33 通过。本轮未写生产**；生产授权另行申请。
+按 `2026-09-14-302132-prep-review.md` 的两条 P1 与「执行前合同」实现；经六轮复审退修全部落地。**第六轮演练在干净提交 00d64e37 上完成，验收 v6 49/49 通过。本轮未写生产**；生产授权另行申请。
+
+## 第六轮（00d64e37）：oracle 输入独立、收据深 schema、跨轮绑定
+
+复审六轮（1 P1 + 2 P2；审查树 595a9acd，探针 `qc_302132_round6_probes.py`）修复（提交 `00d64e37`）：
+
+| 退修 | 修复 |
+|---|---|
+| P1-1 独立验收从结果库读并跑源表，输出与源一起坏仍 PASS（实测：2026-07-02 open 58→59 同改 `fact_stock_daily` 与 `fact_stock_daily_hithink`，25/25 发绿） | oracle 并跑源行与 `parallel_source_md5` 重算一律改从**基线**（`prod.`）读；新增 `hithink_source_untouched` / `hithink_adjustment_untouched` **整表**全列双向零差（合同承诺写入器不触碰这两张输入表；10.27M 行整表 diff 实测 ≈15s）；重算源指纹绑定两轮子报告记录值（不只比较两份 JSON 相等）。共同变异现被 `hithink_source_untouched` + `keyset_fullfield_oracle` 双臂抓住 |
+| P2-1 「完整 schema」是浅层外壳：删 `parallel_source_md5` / `ok=false` / 非 40hex revision / `expected_window_counts={}` 均 PASS；删 `pinned_technical_0911.ma26` 裸 KeyError rc=1 无 FAIL JSON | `_validate_receipt` 递归深校验：必需键、成员类型、ISO 真日期、40/64/32hex 格式、数值有限性、非空集合、子-父-spec 跨字段一致、子报告显式成功终态 `ok is True`；参数格式（--expected-revision 40hex 等）先于一切访问；数据段整体 try/except 归 `data_checks_error` 结构化 FAIL（rc=2）不裸逃逸；`expected_window_counts` 另与黄金三元组派生计数核对、`expected_technical_count` 与市场历推导核对（与实况一致） |
+| P2-2 parquet 三向绑定只覆盖 apply：verify 父 spec 与子报告同步改 64 个零仍 PASS | `parquet_identity_apply` / `parquet_identity_verify` **逐轮**三向（spec==child==实际文件）；新增 `spec_alignment_apply_verify`：两轮完整授权 spec 深比较（**无白名单**）——「同一输入同一合同下的幂等复验」以 spec 全等为前提 |
+
+干净重演练（00d64e37，git status 空）：run11=`3925f59c0281`（apply）/ run12=`9b2b60f7278c`（verify）；**验收 v6 49/49 PASS**（`dryrun-acceptance-v6.json`）：参数格式、samefile 别名、基线首尾 sha、收据深 schema（含独立子报告深比较与成功终态）、备份身份、**逐轮 parquet 三向 + 跨轮 spec 全等**、**run5–run10 共 12 份旧收据逐份哈希核验**、14 项数据合同（含源表整表禁止变更与基线源指纹绑定）。
+
+**冻结纪律升级（审查末节要求）**：`receipts-manifest-20260914-v6.json` 在冻结时落盘完整 sha256 清单（12 旧收据 + 历史验收 JSON + run9/10 备份收据 + post-run10 库状态 `03f50c9f…` 及其 CoW 快照名），不再以「当前重算值」替代历史承诺。post-run10 状态另存 `fake-prod.duckdb.post-run10-snapshot`（clonefile，零额外磁盘）。
+
+单测 **89/89**（+63：E2E 好产物必绿、52 条收据逐字段变异、5 条库层变异、3 条逐轮/跨轮绑定专项——坏产物全部结构化 FAIL rc=2）；审查探针 `--expect-fixed` 两模式（收据变异 6 例 + 源/输出共同变异 1 例）包装器均 rc=0（证据 `round6-fixcheck-*-summary.json`）；全量 pytest **9,706 passed / 0 failed / 77 skipped**（收据 `20260914T080259Z-00d64e37.json`，dirty=false，dependency_gate_bypassed=false）；ruff 全仓过。
 
 ## 第五轮（5b0cd87e）：删除所有权、硬链接别名、收据 schema、验收角色
 
