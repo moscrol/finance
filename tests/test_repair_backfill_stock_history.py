@@ -567,3 +567,62 @@ def test_cli_child_receipt_binds_revision_and_run_id(tmp_path, monkeypatch):
     assert rc2 == 2
     count = len(list(tmp_path.glob("staging.duckdb.backfill-report.*.json")))
     assert count == 1
+
+
+def test_refused_receipt_write_failure_cleans_partial(tmp_path, monkeypatch):
+    """P1：write/flush 阶段 OSError → RepairRefused 且不留半截文件。"""
+    import os as _os
+
+    target = tmp_path / "r.json"
+
+    class Bomb:
+        def __init__(self, fd):
+            self.fd = fd
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            _os.close(self.fd)
+            return False
+
+        def write(self, _s):
+            raise OSError("ENOSPC (simulated)")
+
+        def flush(self):
+            pass
+
+        def fileno(self):
+            return self.fd
+
+    monkeypatch.setattr(mod.os, "fdopen",
+                        lambda fd, mode, encoding=None: Bomb(fd))
+    with pytest.raises(RepairRefused, match="收据写出失败"):
+        mod._guarded_write_json(target, {"x": 1})
+    assert not target.exists()
+
+
+def test_cli_parent_preflight_blocks_on_open_permission_error(tmp_path,
+                                                              monkeypatch):
+    """预校验拦截不依赖运行用户权限：os.open 抛 PermissionError 也必须拒绝。"""
+    from market_feature_store import cli
+    from market_feature_store.sync import sync_daily_full
+
+    pq = tmp_path / "source.parquet"
+    pq.write_bytes(b"preflight bomb")
+    called = {}
+
+    def parent(**kwargs):
+        called.update(kwargs)
+        return {"swapped": False, "reason": "must not reach", "rc": 2}
+
+    def bomb(*_a, **_k):
+        raise PermissionError(13, "simulated")
+
+    monkeypatch.setattr(sync_daily_full, "run_daily_full_staged", parent)
+    monkeypatch.setattr(mod.os, "open", bomb)
+    monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(tmp_path / "fake.duckdb"))
+    from types import SimpleNamespace
+    args = SimpleNamespace(parquet=str(pq), child=False, db=None, report_path=None)
+    assert cli.cmd_repair_backfill_302132(args) == 2
+    assert called == {}
