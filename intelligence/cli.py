@@ -3566,6 +3566,7 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
     author_origin: str | None = None
     canonical: str | None = None
     source_draft_id: str | None = None
+    require_open_attempt = False
 
     if not args.from_draft and not args.from_slice and getattr(args, "attempt_id", None):
         # 完整手填 + 显式尝试：这条路径此前**根本没读这个参数**，传另一个目标的 ID
@@ -3592,6 +3593,11 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
         canonical = canonical_of_attempt
         attempt_id = str(args.attempt_id)
         entrypoint = "confirm"
+        # 手填 + 显式尝试是**在进行中的尝试里做动作**，不是引用出处——这条路径
+        # 没有任何草稿或收据版本可引用。终态（含 abandoned）必须连登记副作用一起拒，
+        # 复验收进 writer 的持锁区，不停留在 CLI 先查再写（第三轮复审 Q3 实测：
+        # closed/abandoned=true 的尝试上还新增了一条确认与一个 checkpoint）。
+        require_open_attempt = True
 
     if args.from_draft:
         # 确认**你自己那份草稿**：保留 source_draft_id 指回原稿，不覆盖它。
@@ -3718,9 +3724,11 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
             attempt_id=attempt_id,
             entrypoint=entrypoint,
             source_draft_id=source_draft_id,
-            # 只有 `--from-slice` 是**在一个进行中的尝试里**做的动作，要复验它仍可写；
-            # `--from-draft` / 手填带 attempt-id 是引用出处，引用一个已完成的尝试合法。
-            require_open_attempt=bool(args.from_slice),
+            # `--from-slice` 与「手填 + 显式尝试」是在**进行中的尝试里**做的动作，
+            # 落盘前持锁复验它仍可写；只有 `--from-draft` 是引用已完成尝试的历史版本
+            # （§2.4.4），已完成旧尝试的合法引用不一刀切拒掉。同动作重试在复验之前
+            # 已被去重短路，不会产生新副作用。
+            require_open_attempt=bool(args.from_slice) or require_open_attempt,
         )
     except observation_script.ObservationScriptRejected as exc:
         return _print_rejections(exc, args.json)

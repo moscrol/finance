@@ -757,5 +757,98 @@ class T4PersonalExportSurvivesTheSameTornLine(Base):
                         "坏行不静默丢：原样带走，让用户看得见台账里确实有这么一行")
 
 
+class Q2CompletedReceiptWinsOverLaterDraft(Base):
+    """复审三 Q2：完成收据是选版的**最高依据**。
+
+    收据落盘、关闭失败的窗口里，同一 pending 尝试又合法提交了 v2；按该尝试确认
+    必须选**实际读过的** v1——v2 从未出现在那次 read 里，不能顶掉收据指的版本。
+    """
+
+    def test_receipt_source_wins_over_a_later_unread_version(self) -> None:
+        self.draft()
+        aid = self.pending()[0]["attempt_id"]
+        # 只注入一次真实 writer 的关闭失败：收据落、尝试仍 pending，不伪造台账。
+        original = osc._append_line
+
+        def fail_close(path, record):
+            if record.get("record_kind") == osc.RECORD_ATTEMPT and record.get("status") == osc.ATTEMPT_CLOSED:
+                raise OSError("injected close append failure")
+            return original(path, record)
+
+        with mock.patch.object(osc, "_append_line", side_effect=fail_close):
+            code, _ = self.read(extra=["--attempt-id", aid])
+        self.assertEqual(code, 1)
+        (receipt,) = self.kinds(osc.EVENT_READ_COMPLETED)
+
+        # 正常 draft 入口：同一 pending 尝试提交 v2（合法路径，复审探针同序列）。
+        code, out = self.draft(variables=["资金轨：板块 / 题材资金流是否延续"], extra=["--json"])
+        self.assertEqual(code, 0, out)
+        newer = json.loads(out)
+        self.assertNotEqual(newer["draft_id"], receipt["source_draft_id"])
+        self.assertEqual(newer["extraction_attempt_id"], aid)
+
+        # 重试补终态，再按该尝试确认。
+        self.assertEqual(self.read(extra=["--attempt-id", aid])[0], 0)
+        code, out = _run(
+            ["observation", "confirm", "--user", "u1", "--as-of", AS_OF, "--from-draft", ENTITY,
+             "--attempt-id", aid, "--db-path", "/tmp/no-such.duckdb", "--json"]
+        )
+        self.assertEqual(code, 0, out)
+        record = json.loads(out)
+        self.assertEqual(
+            record["source_draft_id"], receipt["source_draft_id"],
+            "完成收据指向哪一版，确认就是哪一版；后提交的未读版本不许顶替",
+        )
+        self.assertNotEqual(record["source_draft_id"], newer["draft_id"])
+
+    def test_receipt_without_source_is_not_silently_replaced(self) -> None:
+        """收据缺来源 = 那次读取没采用任何用户草稿：不许悄悄回退成另一版。"""
+        self.draft()
+        aid = self.pending()[0]["attempt_id"]
+        raw = osc.load_raw(self.ledger())
+        key = ox.make_key("u1", AS_OF, CANON)
+        fake_receipt = {"event": osc.EVENT_READ_COMPLETED, "attempt_id": aid, "source_draft_id": None}
+        with mock.patch.object(osc, "find_event", return_value=fake_receipt):
+            self.assertIsNone(osc.draft_for_attempt(raw, key=key, attempt_id=aid))
+
+
+class Q3ManualConfirmCannotWriteToAnAbandonedAttempt(Base):
+    """复审三 Q3：手填关联验了归属，却把终态校验整体豁免——完全 abandoned 的
+    尝试（没有草稿或完成收据可引用）也能新增确认与 checkpoint。
+    §2.4.4 的例外只有「已完成尝试的具体草稿版本」，不能扩大成所有关闭尝试都放行。
+    """
+
+    def _manual(self, extra: list[str]) -> tuple[int, str]:
+        return _run(
+            ["observation", "confirm", "--user", "u1", "--as-of", AS_OF, "--scope", "theme",
+             "--entity", ENTITY, "--variable", MY_VARS[0], "--abandon", MY_ABANDON[0],
+             "--db-path", "/tmp/no-such.duckdb"] + extra
+        )
+
+    def test_abandoned_attempt_rejects_manual_confirm_without_side_effects(self) -> None:
+        self.read()
+        aid = self.pending()[0]["attempt_id"]
+        closed, event = osc.close_attempt(
+            self.ledger(), attempt_id=aid, user_id="u1", reason="user_closed", entrypoint="close"
+        )
+        self.assertTrue(closed["abandoned"])
+        before = self.ledger().read_bytes()
+        with mock.patch.object(osc, "is_late", return_value=False):
+            code, out = self._manual(["--attempt-id", aid])
+        self.assertEqual(code, 2, out)
+        self.assertIn("已结束", out)
+        self.assertEqual(self.ledger().read_bytes(), before, "被拒时一个字节都不许多写")
+        self.assertFalse(self.space().checkpoints_path.exists())
+
+    def test_pending_attempt_manual_confirm_still_works(self) -> None:
+        """闸只拦终态：进行中的尝试手填确认不受影响（R4 正例的另一半）。"""
+        self.read()
+        aid = self.pending()[0]["attempt_id"]
+        code, out = self._manual(["--attempt-id", aid, "--json"])
+        self.assertEqual(code, 0, out)
+        record = json.loads(out)
+        self.assertEqual(record["extraction_attempt_id"], aid)
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

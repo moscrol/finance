@@ -1045,29 +1045,28 @@ def draft_for_attempt(
     存在的理由是工单 §2.4.4「后续确认可关联**已完成尝试的具体草稿版本**」：
     一律取 latest 就没法回到「我当时确认的是哪一版」。
 
-    两条路，缺一不可：
+    **完成收据是选版的最高依据**：它记的是那次读取**实际采用**的版本。收据落盘、
+    关闭失败的窗口里，同一 pending 尝试还能合法提交新版本——那版从未被读过，
+    不能顶掉收据指的那一版（第三轮复审 Q2 实测）。收据缺来源 = 那次读取没采用
+    任何用户草稿，返回 None，不许悄悄回退成「该尝试最后提交的一版」。
 
-    1. 这个尝试里**提交过**的草稿（同尝试多版取最后一版）；
-    2. 都没提交过时，看它自己的 ``read_completed`` 收据里的 ``source_draft_id``——
-       **复用**是主路径：用户昨天写的草稿，今天开新尝试直接读，这个尝试一条草稿
-       都没提交，但它确实读的是某一版。只认第 1 条会在这种最常见的情形下
-       报「没有提交过草稿」（第二轮复审实测）。
+    没有完成收据 = 尝试还在进行中：取它自己提交的最新一版（同尝试多版取最后）。
     """
+    receipt = find_event(raw, event=EVENT_READ_COMPLETED, attempt_id=str(attempt_id))
+    if receipt is not None:
+        wanted = str(receipt.get("source_draft_id") or "")
+        if not wanted:
+            return None
+        for d in user_drafts(raw, key=key):
+            if str(d.get("draft_id") or "") == wanted:
+                return d
+        return None
     rows = [
         d
         for d in user_drafts(raw, key=key)
         if str(d.get("extraction_attempt_id") or "") == str(attempt_id)
     ]
-    if rows:
-        return rows[-1]
-    receipt = find_event(raw, event=EVENT_READ_COMPLETED, attempt_id=str(attempt_id))
-    wanted = str((receipt or {}).get("source_draft_id") or "")
-    if not wanted:
-        return None
-    for d in user_drafts(raw, key=key):
-        if str(d.get("draft_id") or "") == wanted:
-            return d
-    return None
+    return rows[-1] if rows else None
 
 
 def latest_user_draft(
