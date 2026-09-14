@@ -463,6 +463,30 @@ class R2CloseFailureIsHealedOnRetry(Base):
         self.assertEqual(len(self.kinds(osc.EVENT_READ_COMPLETED)), 1, "不重复记完成")
         self.assertEqual(self.kinds(osc.EVENT_ABANDONED), [], "读完了不是放弃")
 
+    def test_the_two_failure_modes_are_reported_differently(self) -> None:
+        """「收据没落」与「收据落了、只是终态没写」事实完全不同：
+        前者交付结果未知，后者确实交付了、且重试能愈合。合成一句话会误导人。"""
+        import contextlib
+        import io
+
+        self.draft()
+        err = io.StringIO()
+        with mock.patch.object(osc, "close_attempt", side_effect=OSError("disk full")):
+            with contextlib.redirect_stderr(err):
+                self.read()
+        msg = err.getvalue()
+        self.assertIn("确实交付了", msg)
+        self.assertNotIn("交付结果未知", msg)
+
+        # 第二种：收据本身没落。用另一个目标且**先写好草稿**——不能走 --skip-draft，
+        # 那条路径的 on_skip 也调 record_event，异常会在门里就抛出来，测不到这一段。
+        self.draft(entity=OTHER_ENTITY)
+        err2 = io.StringIO()
+        with mock.patch.object(osc, "record_event", side_effect=OSError("disk full")):
+            with contextlib.redirect_stderr(err2):
+                self.read(entity=OTHER_ENTITY)
+        self.assertIn("交付结果未知", err2.getvalue())
+
 
 class R3AttemptSelectsTheDraftItActuallyRead(Base):
     """复审 S4 未修完整：新尝试**复用**旧草稿读完后，按该尝试确认要选到那一版。

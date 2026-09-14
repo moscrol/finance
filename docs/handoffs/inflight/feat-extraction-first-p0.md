@@ -1,37 +1,35 @@
 # feat/extraction-first-p0 · 工单 #53 提取前置 P0
 
 ## 这个分支做什么
-带读披露之前先收**用户自己写的**观察剧本，再展示字段差异（不评分、不算收敛）；可显式跳过，不计失败。
-工单 `docs/superpowers/specs/2026-09-14-extraction-first-p0-workorder.md`，收据 `docs/verification/2026-09-14-extraction-first-p0.md`。
-基线 `gitea/main@d7e5380551ba`（工单冻结号）。设计依据 `~/foresight/docs/specs/2026-09-13-extraction-first-spec.md` rev.4（仓外，未改）。
+带读披露前先收用户自己写的观察剧本，再展示字段差异（不评分、不算收敛）；可显式跳过，不计失败。
+工单 `docs/superpowers/specs/2026-09-14-extraction-first-p0-workorder.md`；设计依据 `~/foresight/docs/specs/2026-09-13-extraction-first-spec.md` rev.4（仓外，未改）。
 
 ## 当前状态
-已提交三笔，**未推、未合 main、未部署、未开真人实验**：
-- `95f3c5e7` 实现 + 测试 + 文档
-- `b42dc9bf` 收据回填
-- `08ca525f` 质检返修（S1–S10 / N2 / N3 十二项）
+已提交、未推、未合 main、未开真人实验。顶端 `8410e9d3` = 第二轮复审 6 项 P2 返修（ mirasim agent 断线前完成）；其前 `caba87c7`/`7a86ce4e` 验证文档、`08ca525f` 首轮返修（S1–S10/N2/N3）。
+复审报告与探针：`~/.finance-runtime/reviews/extraction-caba87c7-20260914/`。
 
 ## 决策与被否方案
-五个非显然取舍（成功事件随行写、顺序门在 build 之前、台账分型不另开文件、确认去重键不含时间戳、关联键 scope 由身份推导）连同理由，在日期快照 `docs/handoffs/2026-09-14-extraction-first-p0-review-fixes.md`。
+首轮五个取舍见快照 `docs/handoffs/2026-09-14-extraction-first-p0-review-fixes.md`；本轮 6 项修法与理由逐条写在 `8410e9d3` 提交信息正文（R1–R6），此处不抄。
 
-## 已验证
-- 干净基线与最终读数：见收据 §1 / §6，两次都在**跑测期间无人触碰**的干净提交上取得，并用 `scripts/check_test_receipt.py --expect-revision` 绑定。
-- 八条门禁叶子：ruff / pytest / frontend lint·typecheck·test·build / e2e / registry-check。
-- 验收 A1–A15 + 质检返修 25 条回归；13 个变异逐条 RED→GREEN（`/tmp/xfp0/mutations.txt`）。
+## 已验证（另一 agent 在 8410e9d3 上独立复跑，非提交者自述）
+- 复审三根探针全翻绿：残片隔离后读写通且残片保留；`pending_after_retry=[]`；错误关联退 2 且无 checkpoint；close 后 confirm/skip 退 2；改 due 出新记录新 checkpoint；复用草稿可按新尝试确认（exit=0）。
+- 10 个相关测试模块 245 过；改动三文件 ruff 过；`merge-tree` 对 `gitea/main@1fef3d27` 无冲突；树干净。
 
 ## 未验证 / 已知边界
-- **真人效果完全未验证**：工单 §7 三项阈值未填，实验未开跑。`read_completed` 只证明系统交付，`pending` 不等于离开。
-- 真库路径上的身份解析未在本单跑过（用例全打桩），复用既有 `river.resolve_entity`。
-- `--from-draft` 与 `--from-slice` 同传时后者胜，未做互斥拒绝。
-- 关联键里的 `scope` 是冗余项（由 canonical id 唯一决定），按工单口径保留。
+- 19 条变异 RED→GREEN 仅提交者自述，未独立复跑。
+- **仓级全量已跑**（提交者，`8410e9d3` 干净树）：首跑 1 红 `test_real_conversation_round_trip_persists_skills_sse_and_three_turns`，
+  **重跑 9670P/0F/exit 0**。判负载敏感抖动：零路径交集、隔离连跑两次绿、
+  `docs/verification/2026-09-07-forward-call-gate-live.md` 有同一条测试的同一处置。
+  **不是「已知红照常合」**，两读数留档 `/tmp/xfp0/final{3,4}-pytest.txt`。
+- read 失败诊断已拆成两句（收据没落 = 交付结果未知 / 收据已落仅终态没写 = 确实交付了、重试可愈合），带断言。
+- 验证收据文档的绑定读数回填到 `8410e9d3` 之后那一笔（见 §最终提交）。
+- 真人效果 / §7 阈值 / 真库身份解析仍未验（同前轮）。
 
 ## 下一步
-1. 用户评审；**要合并请明说**（本分支不自行合 main、不推）。
-2. 合并前按「比较基准是目标分支不是快照」重新 diff；`gitea/main` 已从 `d7e5380` 前移到 `1fef3d27`，工单 INDEX 是热文件，开 PR 前 `git merge-tree` 列一遍新造冲突。
-3. 开跑真人实验前先由用户填 §7 三项阈值写进工单，不得事后补。
+1. 第三轮复审固定 `8410e9d3` 复核；通过且**用户明说**才合 main，不推不合。
+2. 合并前对当时最新 `gitea/main` 重跑 merge-tree + 本机等价 CI 全叶子（pytest/ruff/前端/e2e/registry-check）。
 
 ## 踩过的坑
-全部细节（含质检 14 项的逐条根因与返修取舍）在日期快照 `docs/handoffs/2026-09-14-extraction-first-p0-review-fixes.md`。三条最贵的：
-- **全量跑到一半改被测代码**，那次读数条件不自洽；收据还把它写成「干净基线」——假证据比没证据更糟。
-- **夹具绕开了缺陷路径**：遮蔽用例的夹具行没有 `due`，正好躲过 `expire_stale`，于是缺陷在绿灯下活着。
-- **同名两道防线要分别钉**：写入侧与读取侧都修了，只断言最终结果会被其中一道兜住，另一道回退看不出来。
+前轮三条（跑测中途改码、夹具绕过缺陷路径、同名两道防线分别钉）见快照。本轮新增：
+- `git status` 显示 ` M` 但 `git diff` 为空 = 只被碰过 mtime；先 `update-index --refresh` 再下「树干净」结论。
+- 共享仓里别的 agent 可能正在你读状态的间隙推进分支：动手前 `rev-parse HEAD` + reflog 确认顶端没动。

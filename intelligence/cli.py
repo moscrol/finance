@@ -3509,13 +3509,25 @@ def cmd_observation_read(args: argparse.Namespace) -> int:
                 "granted_by": gate.decision.code,
             },
         )
+    except Exception as exc:
+        print(
+            f"⚠ 带读正文已输出，但完成收据落盘失败（{type(exc).__name__}: {exc}）："
+            f"本次交付结果未知，尝试 {aid} 仍是 pending，不记为已完成。",
+            file=_sys.stderr,
+        )
+        return 1
+
+    # 收据与关闭分开报：两者的事实完全不同，合成一句话会把「已完成、只是终态没落」
+    # 说成「交付结果未知」，而前者重试就能愈合、后者不能。
+    try:
         osc.close_attempt(
             path, attempt_id=aid, user_id=us.user_id, reason="read_completed", entrypoint="read"
         )
     except Exception as exc:
         print(
-            f"⚠ 带读正文已输出，但完成收据落盘失败（{type(exc).__name__}: {exc}）："
-            f"本次交付结果未知，尝试 {aid} 仍是 pending，不记为已完成。",
+            f"⚠ 完成收据已落盘（本次带读**确实交付了**），但尝试 {aid} 的终态没写上"
+            f"（{type(exc).__name__}: {exc}）：它仍是 pending。"
+            f"重跑 `observation read --attempt-id {aid}` 即可补上，不会重复记完成。",
             file=_sys.stderr,
         )
         return 1
