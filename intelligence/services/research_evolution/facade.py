@@ -22,6 +22,7 @@
 
 from __future__ import annotations
 
+import sys
 import time
 from dataclasses import dataclass, field
 from datetime import date as date_cls
@@ -959,25 +960,18 @@ class ResearchEvolutionService:
                         "current_request_event_id": request_event_id,
                     },
                 )
-            # 源消息坐标核验（QC W2）：消息带了坐标就构成来源声明——声明与当前 (项, 代际)
+            # 源消息坐标核验（QC W2/X2）：消息带了坐标就构成来源声明——声明与当前 (项, 代际)
             # 不一致即矛盾来源，拒绝。R7 保留：无坐标的裸 run（RunStore 直造）仍可显式登记，
-            # 「无来源」不等于「有矛盾来源」。
-            launch = self._source_message_launch(ctx, conversation_id, run_id)
-            if launch:
-                launch_item = str(launch.get("item_id") or "")
-                launch_request = str(launch.get("request_event_id") or "")
-                if (launch_item or launch_request) and (launch_item != str(item["id"]) or launch_request != request_event_id):
-                    raise ApiError(
-                        ERR_RUN_BINDING_MISMATCH,
-                        "该 run 的源消息坐标指向其他维护项或已结束的代际，不能登记到当前这一轮",
-                        detail={
-                            "run_id": run_id,
-                            "item_id": item["id"],
-                            "launch_item_id": launch_item,
-                            "launch_request_event_id": launch_request,
-                            "current_request_event_id": request_event_id,
-                        },
-                    )
+            # 「无来源」不等于「有矛盾来源」。终态消费侧用同一辅助再验一次（X2 窗口期抢登）。
+            conflict = self._source_coordinate_conflict(
+                ctx, conversation_id, item_id=str(item["id"]), run_id=run_id, request_event_id=request_event_id
+            )
+            if conflict is not None:
+                raise ApiError(
+                    ERR_RUN_BINDING_MISMATCH,
+                    "该 run 的源消息坐标指向其他维护项或已结束的代际，不能登记到当前这一轮",
+                    detail=conflict,
+                )
             link_id = stable_id("rlink", {"item": item["id"], "run": run_id, "request": request_event_id})
             _, created = store.append_run_link(
                 {
@@ -1024,6 +1018,18 @@ class ResearchEvolutionService:
                     "无法证明该 run 由本次维护请求发起（缺少运行中的关联登记），不能折回本维护项",
                     detail={"run_id": run_id, "item_id": item["id"]},
                 )
+        # 终态消费侧统一归属校验（QC X2）：登记行存在 ≠ 归属成立。运行中登记与补偿之后，
+        # 消费前再验一次源消息坐标不与本次 (项, 代际) 矛盾——窗口期被抢到别处的 run，
+        # 源消息后来落盘带着别的坐标：链接行留在台账里当审计，但不得驱动本项状态。
+        conflict = self._source_coordinate_conflict(
+            ctx, conversation_id, item_id=str(item["id"]), run_id=run_id, request_event_id=request_event_id
+        )
+        if conflict is not None:
+            raise ApiError(
+                ERR_RUN_BINDING_MISMATCH,
+                "该 run 的源消息坐标指向其他维护项或已结束的代际，既有登记不得驱动本项状态",
+                detail=conflict,
+            )
         association = "registered"
         continuation = self._run_continuation(ctx, conversation_id, run_id)
         inherits = (continuation or {}).get("inherits") or {}
@@ -1035,51 +1041,15 @@ class ResearchEvolutionService:
             ledgers = re_adapters.load_legacy_ledgers(ctx.user_root)
             judgments = [r for r in ledgers.judgments if r.get("id")]
             if not judgment_ref:
-                # 成果归属（QC U4）：legacy 判断台账只有 session/ts，没有 run/request 归属。
-                # 只有「本项从未有过先前请求代际」（attempts<=1 且无 last_failure）时，
-                # 同会话+时间窗才不可能撞上别代的迟到成果，允许自动认领；否则无法证明
-                # 属于本轮——保持待复核，要求调用方显式传 new_judgment_ref 确认成果。
-                if int(rejudgment.get("attempts") or 0) > 1 or rejudgment.get("last_failure"):
-                    raise ApiError(
-                        ERR_DEPENDENCY_MISSING,
-                        "这条维护项经历过多次复核请求或取消，同会话最新判断无法证明属于本轮；请显式确认新判断",
-                        detail={"run_id": run_id, "hint": "link_run 带 new_judgment_ref 显式指定本轮成果"},
-                    )
-                # 成果归属（QC V3/W3）：「当前只剩一条待复核」是状态数量，不是因果唯一——
-                # 已取消/已闭环的其他请求同样可能是这份判断的主人（W3：取消 A 后，A 的迟到
-                # 成果不能关闭唯一剩余的 B）。writer 没有成果归属坐标时，唯一可自动认领的
-                # 形状是「本会话有史以来只有本轮这一次复核请求」；其余一律等显式确认。
-                rejudge_records = [
-                    row for row in store.list_action_records()
-                    if str(row.get("action") or "") == ACTION_REJUDGE and str(row.get("conversation_id") or "") == conversation_id
-                ]
-                if len(rejudge_records) > 1:
-                    raise ApiError(
-                        ERR_DEPENDENCY_MISSING,
-                        "本会话存在过其他复核请求，同会话最新判断无法证明属于本轮；请显式确认成果",
-                        detail={"run_id": run_id, "hint": "link_run 带 new_judgment_ref 显式指定本轮成果"},
-                    )
-                # 已被本会话其他闭环消费掉的判断不再当候选（顺序确认也不能串单）。
-                consumed = {
-                    str(((row.get("event") or {}).get("payload") or {}).get("new_judgment_ref") or "")
-                    for row in store.list_action_records()
-                    if str(row.get("conversation_id") or "") == conversation_id
-                    and str((row.get("event") or {}).get("kind") or "") == "rejudgment_linked"
-                }
-                candidates = [
-                    r
-                    for r in judgments
-                    if str(r.get("session_id") or "") == conversation_id
-                    and (not requested_at or _ts_ge(r.get("ts"), requested_at))
-                    and f"judgments.jsonl:{r['id']}" not in consumed
-                ]
-                if not candidates:
-                    raise ApiError(
-                        ERR_DEPENDENCY_MISSING,
-                        "关闭维护项需要原写入者在本会话写下的新判断；管理动作不能冒充它",
-                        detail={"run_id": run_id, "hint": "先在本会话记录新判断，再关联"},
-                    )
-                judgment_ref = f"judgments.jsonl:{candidates[-1]['id']}"
+                # 成果归属合同（QC X1，第七轮）：writer 没有归属坐标，「同会话 + 时间较新 +
+                # 历史唯一请求」都证明不了一份判断属于本轮——复核请求历史唯一 ≠ 判断生产者唯一。
+                # 自动认领整体移除，停止用数量代替成果来源证明：无身份成果一律保持待复核，
+                # 走维护面板「确认成果」显式点名（link_run 带 new_judgment_ref）。
+                raise ApiError(
+                    ERR_DEPENDENCY_MISSING,
+                    "核查 run 已完成，但无法证明哪条判断是本轮成果；请在维护面板显式确认成果判断",
+                    detail={"run_id": run_id, "hint": "link_run 带 new_judgment_ref 显式指定本轮成果"},
+                )
             by_ref = {f"judgments.jsonl:{r['id']}": r for r in judgments}
             judgment = by_ref.get(judgment_ref)
             if judgment is None:
@@ -1101,6 +1071,19 @@ class ResearchEvolutionService:
                     ERR_DEPENDENCY_MISSING,
                     "新判断早于本次复核请求，不是这次重判的成果",
                     detail={"ref": judgment_ref, "requested_at": requested_at},
+                )
+            # 已被本会话其他闭环消费掉的判断不能再当本轮成果（显式点名也不许重复串单）。
+            consumed = {
+                str(((row.get("event") or {}).get("payload") or {}).get("new_judgment_ref") or "")
+                for row in store.list_action_records()
+                if str(row.get("conversation_id") or "") == conversation_id
+                and str((row.get("event") or {}).get("kind") or "") == "rejudgment_linked"
+            }
+            if judgment_ref in consumed:
+                raise ApiError(
+                    ERR_INVALID_TRANSITION,
+                    "该判断已被本会话其他复核闭环消费，不能重复充当本轮成果",
+                    detail={"ref": judgment_ref},
                 )
             kind = "rejudgment_linked"
             payload = {"new_judgment_ref": judgment_ref, "owner_user_id": ctx.owner_user_id, "run_id": run_id, "association": association}
@@ -1205,9 +1188,15 @@ class ResearchEvolutionService:
             if str(link.get("request_event_id") or "") != current_request:
                 # 迟到的旧请求结果：只留在 run_links / run 自己的台账里当审计，不迁移当前这一轮的状态。
                 return None
-            event, link_detail = self._link_run_event(
-                ctx=ctx, conversation_id=conversation_id, item=item, body={"run_id": run_id}, now=now, store=txn
-            )
+            try:
+                event, link_detail = self._link_run_event(
+                    ctx=ctx, conversation_id=conversation_id, item=item, body={"run_id": run_id}, now=now, store=txn
+                )
+            except ApiError as exc:
+                # 业务拒收（归属矛盾 / 成果证据不足等）不外抛：终态收尾可恢复，
+                # 留给显式确认或客户端重试；观察器与确定性恢复调用都不许被它炸断（QC X1/X2）。
+                print(f"[research-evolution] 终态折回被拒（{run_id}）：{exc}", file=sys.stderr)
+                return None
             if event is None:
                 return None  # claim_terminal 之后 run 必终态；防守性返回
             result_core = {"status": "accepted", "reason_code": event.kind, "item_id": item_id, "link": link_detail}
@@ -1308,6 +1297,22 @@ class ResearchEvolutionService:
             )
             if item is None:
                 return None
+            # QC X2：登记前按 run 查既有归属——任何已存在的行（窗口期被显式登记给了别处）
+            # 都说明来源有争议：接受侧不追加矛盾的第二归属。归属裁决交给消费侧的坐标核验
+            # （运行中登记与终态折回共用 `_source_coordinate_conflict`）。
+            prior = [r for r in txn.list_run_links() if str(r.get("run_id") or "") == run_id]
+            exact = next(
+                (
+                    r
+                    for r in prior
+                    if str(r.get("item_id") or "") == item_id and str(r.get("request_event_id") or "") == request_event_id
+                ),
+                None,
+            )
+            if exact is not None:
+                return {"item_id": item_id, "run_id": run_id, "request_event_id": request_event_id, "link_created": False}
+            if prior:
+                return None
             link_id = stable_id("rlink", {"item": item_id, "run": run_id, "request": request_event_id})
             row, created = txn.append_run_link(
                 {
@@ -1369,6 +1374,31 @@ class ResearchEvolutionService:
             return None
         launch = getattr(message, "maintenance_launch", None)
         return launch if isinstance(launch, Mapping) else None
+
+    def _source_coordinate_conflict(
+        self, ctx: OwnerContext, conversation_id: str, *, item_id: str, run_id: str, request_event_id: str
+    ) -> dict[str, str] | None:
+        """源消息坐标与本次 (项, 代际) 矛盾时返回 detail；无坐标 / 一致 / 消息未落盘返回 None。
+
+        运行中登记与终态消费共用的矛盾检查（QC W2/X2）：「来源正在持久化、暂时查不到」
+        与「确实无来源的裸 run」都返回 None——前者由消费侧在消息落盘后再次核验拦住。
+        """
+        launch = self._source_message_launch(ctx, conversation_id, run_id)
+        if not launch:
+            return None
+        launch_item = str(launch.get("item_id") or "")
+        launch_request = str(launch.get("request_event_id") or "")
+        if not launch_item and not launch_request:
+            return None
+        if launch_item == item_id and launch_request == request_event_id:
+            return None
+        return {
+            "run_id": run_id,
+            "item_id": item_id,
+            "launch_item_id": launch_item,
+            "launch_request_event_id": launch_request,
+            "current_request_event_id": request_event_id,
+        }
 
     def pending_task_continuation(self, *, ctx: OwnerContext, conversation_id: str, content: str) -> dict[str, Any] | None:
         """首轮任务启动上下文的服务端水合（QC T3）。

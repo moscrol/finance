@@ -693,8 +693,12 @@ def test_q1_binding_form_ref_string_accepted(world: World) -> None:
     assert isinstance(binding["object_ref"], dict) and binding["object_ref"]["kind"] == "judgment"
 
 
-def test_q2_terminal_auto_close_without_second_link(world: World) -> None:
-    """放行条件 #2：注册 → 终态 → 观察器自动收尾闭合，不再需要第二次 link_run。"""
+def test_q2_terminal_completed_run_waits_for_explicit_outcome_confirmation(world: World) -> None:
+    """过渡合同（QC 第七轮 X1 调整）：注册 → 终态 → 观察器**不再**自动收尾闭合。
+
+    writer 无归属坐标时，「同会话 + 时间较新 + 历史唯一」都证明不了判断属于本轮；
+    无身份成果一律保持待复核，显式 link_run 带 new_judgment_ref 才闭环（面板「确认成果」）。
+    """
     world.track_judgment().raise_for_status()
     item = world.open_item()
     rejudge = world.rejudge(item)
@@ -720,17 +724,91 @@ def test_q2_terminal_auto_close_without_second_link(world: World) -> None:
     )
     world.turn_gate.set()
     assert world.wait_terminal(run_id)["status"] == "completed"
-    # 终态 claim 与观察器收尾在同一线程，但 run 状态先可见——轮询等折回落地。
-    world.wait_item_status(item["id"], "closed")
-    # 终态动作恰好一条（观察器与客户端路径共用幂等键，双触发不双写）。
+    # 观察器收尾与内联恢复都必须拒绝自动关闭：无身份成果不是本轮成果。
+    world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_id)
+    held = world.current_item(item["id"])
+    assert held["status"] == "rejudgment_requested", "无身份成果不许自动关闭（X1：数量不是归属证明）"
+    rows = [json.loads(line) for line in (world.user_root / "research_evolution" / "maintenance_actions.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    linked = [r for r in rows if isinstance(r.get("event"), dict) and r["event"]["kind"] == "rejudgment_linked"]
+    assert not linked, "未确认前不许落闭环事件"
+
+    # 显式确认成果 → 闭环，恰好一条；同键重试 = 重放（载荷逐字节相同，模拟响应丢失）。
+    confirm_args = world.link_args(item["id"])
+    confirm_ref = f"judgments.jsonl:{new_judgment['id']}"
+    closed = world.act(
+        idempotency_key="k-q2-confirm",
+        run_id=run_id,
+        new_judgment_ref=confirm_ref,
+        **confirm_args,
+    )
+    assert closed.status_code == 200 and closed.json()["reason_code"] == "rejudgment_linked", closed.text
+    assert world.current_item(item["id"])["status"] == "closed"
     rows = [json.loads(line) for line in (world.user_root / "research_evolution" / "maintenance_actions.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
     linked = [r for r in rows if isinstance(r.get("event"), dict) and r["event"]["kind"] == "rejudgment_linked"]
     assert len(linked) == 1, f"rejudgment_linked 应恰好一条：{len(linked)}"
+    retry = world.act(
+        idempotency_key="k-q2-confirm",
+        run_id=run_id,
+        new_judgment_ref=confirm_ref,
+        **confirm_args,
+    )
+    assert retry.status_code == 200 and retry.json()["replayed"] is True
 
-    # 客户端同键重试（响应丢失场景，载荷逐字节相同）：返回折回结果的重放，不再假装是新注册。
-    retry = world.act(idempotency_key="k-q2-reg", run_id=run_id, **reg_args)
-    assert retry.status_code == 200, retry.text
-    assert retry.json()["replayed"] is True and retry.json()["reason_code"] == "rejudgment_linked"
+
+def test_x1_sole_rejudge_cannot_autopick_ordinary_chat_judgment(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """X1：本会话历史唯一一次复核，也不能认领普通聊天产生的同会话判断——
+    复核请求历史唯一 ≠ 判断生产者唯一。"""
+    from intelligence.services import judgments as judgments_svc
+
+    world.track_judgment().raise_for_status()
+    item = world.open_item()
+    request = world.rejudge(item)
+    store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+
+    def ordinary_turn(**kwargs: object) -> None:
+        judgments_svc.record_judgment(
+            world.user_root / "judgments.jsonl",
+            memo="普通聊天产生的独立观点：银行息差，不是复核成果",
+            themes=["银行"],
+            session_id=world.conversation_id,
+            ts=world.clock().isoformat(),
+        )
+        kwargs["run_store"].finish_run(kwargs["run_id"], "completed")  # type: ignore[attr-defined]
+
+    world.clock.advance(seconds=1)
+    monkeypatch.setattr(app_module, "_run_conversation_turn", ordinary_turn)
+    ordinary = world.client.post(
+        f"/api/conversations/{world.conversation_id}/messages",
+        json={"user": fx.OWNER, "content": "先放下复核，记录另一个银行观点。", "skill_mode": "hybrid"},
+    )
+    assert ordinary.status_code == 202, ordinary.text
+    world.wait_terminal(ordinary.json()["run_id"])
+    assert not store.list_run_links()
+    before = world.current_item(item["id"])
+
+    def no_judgment_turn(**kwargs: object) -> None:
+        kwargs["run_store"].finish_run(kwargs["run_id"], "completed")  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(app_module, "_run_conversation_turn", no_judgment_turn)
+    maintenance = world.client.post(
+        f"/api/conversations/{world.conversation_id}/messages",
+        json={
+            "user": fx.OWNER,
+            "content": request["continuation"]["full_prompt"],
+            "skill_mode": "hybrid",
+            "maintenance_launch": {
+                "item_id": request["continuation"]["maintenance_item_id"],
+                "request_event_id": request["continuation"]["request_event_id"],
+            },
+        },
+    )
+    assert maintenance.status_code == 202, maintenance.text
+    maintenance_id = maintenance.json()["run_id"]
+    world.wait_terminal(maintenance_id)
+    world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=maintenance_id)
+    after = world.current_item(item["id"])
+    assert after["status"] == "rejudgment_requested", "历史唯一请求也不是成果来源证明"
+    assert after["management_revision"] == before["management_revision"]
 
 
 def test_q5_running_link_retry_replays_not_conflicts(world: World) -> None:
@@ -1501,3 +1579,60 @@ def test_w3_cancelled_peers_late_judgment_cannot_close_sole_remaining(world: Wor
     after = world.current_item(b["id"])
     assert after["status"] == "rejudgment_requested", "已取消同伴的迟到判断不许关闭唯一剩余项"
     assert after["management_revision"] == before["management_revision"]
+
+def test_x2_accept_registration_must_respect_existing_run_owner(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """X2：run 已创建、源消息尚未落盘的窗口期被显式登记给 B（R7 允许）——接受侧随后
+    不得追加矛盾的 A 归属；错误的 B 链接不得驱动 B 的终态状态。"""
+    a, b = _two_items(world)
+    request_a = world.rejudge(a, key="k-x2-request-a")
+    world.rejudge(world.current_item(b["id"]), key="k-x2-request-b")
+    before_b = world.current_item(b["id"])
+    at_message = threading.Event()
+    continue_message = threading.Event()
+    responses: list = []
+    original_append = ConversationStore.append_message
+
+    def delayed_append(self: ConversationStore, conversation_id: str, role: str, content: str, **kwargs: object) -> object:
+        if role == "user" and kwargs.get("maintenance_launch"):
+            at_message.set()
+            assert continue_message.wait(10)
+        return original_append(self, conversation_id, role, content, **kwargs)
+
+    def failure(**kwargs: object) -> None:
+        kwargs["run_store"].finish_run(kwargs["run_id"], "failed", error="deterministic failure")  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(ConversationStore, "append_message", delayed_append)
+    monkeypatch.setattr(app_module, "_run_conversation_turn", failure)
+    cont = request_a["continuation"]
+    body = {
+        "user": fx.OWNER,
+        "content": cont["full_prompt"],
+        "skill_mode": "hybrid",
+        "maintenance_launch": {"item_id": cont["maintenance_item_id"], "request_event_id": cont["request_event_id"]},
+    }
+    thread = threading.Thread(
+        target=lambda: responses.append(world.client.post(f"/api/conversations/{world.conversation_id}/messages", json=body))
+    )
+    thread.start()
+    try:
+        assert at_message.wait(10)
+        observed = world.client.get("/api/runs", params={"user": fx.OWNER})
+        assert observed.status_code == 200, observed.text
+        visible = [r for r in observed.json() if r["session_id"] == world.conversation_id]
+        assert len(visible) == 1
+        run_id = visible[0]["run_id"]
+        claimed = world.act(idempotency_key="k-x2-claim-as-b", run_id=run_id, **world.link_args(b["id"]))
+        assert claimed.status_code == 200, claimed.text  # 窗口期裸 run 登记是 R7 合同的合法延伸
+    finally:
+        continue_message.set()
+        thread.join(15)
+    assert not thread.is_alive() and responses[0].status_code == 202
+    world.wait_terminal(run_id)
+    world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_id)
+    store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+    links = [r for r in store.list_run_links() if r["run_id"] == run_id]
+    assert len(links) <= 1, "接受侧不许追加矛盾的第二归属"
+    late = world.act(idempotency_key="k-x2-fold-as-b", run_id=run_id, **world.link_args(b["id"]))
+    assert late.status_code in {400, 404, 409}, f"矛盾来源的登记不得驱动终态：{late.status_code} {late.text}"
+    after_b = world.current_item(b["id"])
+    assert after_b["management_revision"] == before_b["management_revision"], "B 不许被错误折回"
