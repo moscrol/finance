@@ -1,6 +1,20 @@
-# 302132.SZ 历史回填·执行实现交审（fix/backfill-302132-scoped @ ef90ea7d）
+# 302132.SZ 历史回填·执行实现交审（fix/backfill-302132-scoped @ efe2d28b）
 
-按 `2026-09-14-302132-prep-review.md` 的两条 P1 与「执行前合同」实现并全链演练。**本轮未写生产**；生产授权另行申请。
+按 `2026-09-14-302132-prep-review.md` 的两条 P1 与「执行前合同」实现并全链演练；后经 `2026-09-14-302132-execution-review.md`（QC 分支 docs/qc-backfill-302132-1b936486）五项退修，已全部修复并重新演练。**本轮未写生产**；生产授权另行申请。
+
+## 第二轮（efe2d28b）：复审五项修复
+
+| 退修 | 修复 |
+|---|---|
+| P1-1 报告写出绕过 canonical 护栏（--report-path 可截断数据库文件） | 所有报告/收据只经 `_guarded_write_json`：O_EXCL 不可覆盖 + 拒绝符号链接 + realpath 与 {target, parquet, canonical 候选集} 别名隔离；默认名按 run_id 派生；护栏不过 → rc=2 不发布（反例测试：canonical 见证库字节不变） |
+| P1-2 保留日源行缺失 → LAG 跨日、错误昨收/涨跌被放行 | 写前校验完整依赖日期集：并跑表段源日期集合与市场历**逐日相等**（缺日/多日都拒绝，含 adjusted 过滤口径一致）；parquet 段同；逐回填日证明前驱=前一市场交易日；源值有限且必填非空。oracle 前驱改按市场历取，不再共享 SQL LAG |
+| P2-1 verify 给损坏行签绿（分母按 source 自筛、只验三字段、09-11 无 updated_at 保护） | 验收分母 = spec 精确键集（54 键）逐键 LEFT 取行；全字段比对（名称/OHLC/昨收/涨跌/额/量/turnover=NULL/来源标签）+ 有限性；标签守恒副查；目标股保留 10 行全列快照**含 updated_at** 写后逐列相等 |
+| P2-2 window「精确集合」只验跨度计数（非交易日起点仍过） | 按市场历索引构造全部合法 (as_of, start, end) 黄金三元组（161 个）与实际集合双向相等；各期计数由三元组索引距离推导再对钉值 |
+| P2-3 证据未绑定代码修订、重跑覆盖 apply 报告 | 每轮两份不可覆盖收据：子进程 `…backfill-report.<run_id>.json`（revision/dirty/interpreter/run_id/spec/两源指纹/验收摘要）+ 父模式 `…repair-backfill-execution.<run_id>.json`（另含备份身份 path+sha256 与子报告全文）；git 解析不出即拒绝执行；删除不实的 run_class 注释 |
+
+复审探针（7 条误放行复现）已逐条翻转为必须拒绝的单测，与原 10 条共 **19/19 通过**。
+
+## 第一轮（ef90ea7d）：P1-1/P1-2 原始修复（合同来源）
 
 ## P1-1 修复：专用父子入口（不再误用普通 daily-full）
 
@@ -25,11 +39,13 @@
 ## 证据（全部随库外运行目录 + 本提交）
 
 - 单测 10/10：`tests/test_repair_backfill_stock_history.py`（happy/scoped/置缺/幂等/6 拒跑/反例/oracle 锚）。
-- 全量 pytest：收据 `~/.finance-runtime/test-receipts/20260914T023634Z-ef90ea7d.json`，**9,627p/0f/77s**，exit 0，revision=ef90ea7d，dirty=false。ruff 全仓通过。
-- **真实父流程完整副本演练 ×2**（`MARKET_FEATURE_STORE_DB` 指向生产 CoW 克隆）：
-  - run1（apply）：run_id=dbfd8291f271，克隆→子进程→验收→备份→原子换库全链 OK；
-  - run2（verify 幂等重跑）：run_id=492bd1c16751，零写入 verify 模式 OK。
-- **外部独立验收 15/15 PASS**（演练产物 vs 生产只读对照，`~/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/dryrun-acceptance.json`）：生产 sha256 未变；他股主表全列（含 updated_at）双向 0；窗外目标股 0 行；11 条既有行逐字节相等；54 新行字段 oracle 全等；两派生表保护切片全列（**含 calculated_at**）双向 0；technical 精确 39 日期集；window 161 行 59/54/44/4 跨度精确；09-11 四值+四窗钉值全中；fact_market_daily 与板块生成表不变。
+- 第一轮全量 pytest：收据 `~/.finance-runtime/test-receipts/20260914T023634Z-ef90ea7d.json`，9,627 passed / 0 failed / 77 skipped，revision=ef90ea7d，dirty=false（已被上方 efe2d28b 收据取代）。
+- **真实父流程完整副本演练 ×2**（第二轮代码，`MARKET_FEATURE_STORE_DB` 指向生产 CoW 克隆）：
+  - run3（apply）：run_id=dc6d8a7a174f，克隆→子进程→验收→备份→原子换库全链 OK，执行收据绑定 revision+备份身份；
+  - run4（verify 幂等重跑）：run_id=de751020ba23，零写入 verify 模式 OK；两轮收据并存不覆盖。
+- **外部独立验收 v2 13/13 PASS**（`~/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/dryrun-acceptance-v2.json`）：生产 sha256 未变；他股主表全列双向 0；**保留 10 行（9 旧 + 09-11）全列含 updated_at 逐字节相等**；54 行键集分母全字段 oracle；两派生表保护切片全列（含 calculated_at）双向 0；window 黄金三元组集合相等；technical 精确 39 日期集；09-11 四值+四窗钉；fact_market_daily 不变；两轮收据绑定 revision/dirty/备份身份/spec/源指纹且 verify 模式正确。
+- 第一轮演练（已被第二轮取代）：run1=dbfd8291f271、run2=492bd1c16751，验收 15/15（`dryrun-acceptance.json`）。
+- 全量 pytest：收据 `~/.finance-runtime/test-receipts/20260914T035247Z-efe2d28b.json`，**9,636 passed / 0 failed / 77 skipped**，exit 0，revision=efe2d28b，dirty=false。ruff 全仓通过。
 
 ## P2 声明修正落实
 
