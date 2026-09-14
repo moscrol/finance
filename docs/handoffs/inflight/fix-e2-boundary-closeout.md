@@ -1,29 +1,30 @@
 # fix/e2-boundary-closeout
 
 ## 这个分支做什么
-从main=1fef3d27收口E2 D1/P1旧独立QC六类反例，代码1a7363c4；不越阶段接P2。
+按v10分阶段收口E2材料题边界；主树不动，开发树fwp-wt-e2-boundary-closeout。
 
 ## 当前状态
-代码已提交，未合未推未部署。独立树fwp-wt-e2-closeout-qc固定1a7363c4，QC四次尝试未完成：前两次连接故障，后两次命令宿主缺失/禁用导致未执行代码检查。**P2仍不放行**，没有有效独立findings。
+代码e178bb57已提交，未合/未推/未部署。D1@71929260、P2@8d1b3573、P3a@e178bb57均独立通过；P3a仅明确material_only的Episode装配，不是P3全链。QC与测试见docs/verification/e2-boundary-closeout/。
 
 ## 决策与被否方案
-- 原46探针/原题/判据保留；否了改尺求绿。
-- 引用外层屏障、长材料先复核再认题、掩码只识别而原文保留；否了编号抢题与掩码裁正文。
-- 作者自验不替代独立QC；详见 `docs/handoffs/2026-09-14-e2-boundary-closeout.md`。
+- 双轴独立：虚构不等于禁检索；显式fictional×full事实槽仍需证据。
+- 冻结点最后收窄授权+requirements+原题号槽，否了只清菜单/只改prompt；注册前已有日期/实体/预取读取。
+- 坏合同拒恢复；未分型历史/视角背景不注入，否了从助手旧答猜权限。
+- 撤回未就绪state_unavailable全局澄清闸，否了劫持所有研究“继续”；可信基底与入口分流仍须接。
+- 原题/评分/46针不改；17/29不连续编号上游只留q29，v10只保证连续组，保留为已知边界不改尺。
+- 展开见docs/handoffs/2026-09-14-e2-p2-p3a-closeout.md。
 
 ## 未验证 / 已知边界
-split_user_message仍旧抽取只附regions；P2–P7载体/权限/逐题/跨轮/纯度未实现。未全新原始T2→T3、未Knevo配对/迁移题、未冻结生产主备模型。不是全链材料题已修，也不是全量pytest结论。
+P3仍缺local_only实际IO、预取前歧义澄清、全部输入路径过滤、确定性旁路与失败回落。controller旧摘要、stance、project prior在工厂前已发生；工厂清理不代表入口零读。
+P4最终逐题三态、P5可信继承/旧答身份、P6材料锚点纯度、P7全新原始T2→T3均未完成。未冻主备模型、未Knevo正式配对。RE06独立在fix/re06-visibility-timing@a4ace074，I14未闭环，不扩为纯材料比较前置。
 
 ## 下一步
-1. 恢复能执行命令的独立审查入口，审1a7363c4（不可绕安全边界）；提示/tmp/e2-closeout-qc-prompt.txt。
-2. 过D1才按v10做P2–P7；报告反例先修P1。
-3. P7全新会话原始T2→T3，T3不重新贴禁令；旧题和评分不改。
-4. 材料账本6c7bea6e/降级413b7a07有重叠，集成明确接替。
-5. 06在fwp-wt-re06-closeout-check分支fix/re06-visibility-timing@a4ace074：会话计时部分工程绿，I14任务配对未结案，见其交接。
+1. P3b按实际runner审IO；混合/未知不借cost或freshness放行，保留已证明的本地读取。
+2. 依v10收口剩余P3–P7；T3不得重贴禁令。6c7bea6e/413b7a07重叠补丁集成时注明接替。
+3. 每阶段独立复核、冻结收据；合并/部署另放行。
 
 ## 已验证
-原探针29/46→46/46；干净1a7363c4六文件 **234 passed/4skip/1xfail**，全仓Ruff/提交钩子/diff绿。4skip为同类引号参数组合不适用，有独立嵌套针。
-收据 `~/.finance-runtime/test-receipts/20260914T082049Z-1a7363c4.json`；原始证据 `docs/verification/e2-boundary-closeout/`，含QC第三/四次未完成报告。
+干净e178bb57全仓pytest：9743 passed/83 skipped/2 xfailed，exit0；定向446 passed/4skip/1xfail；全仓Ruff、提交钩子通过。独立P3a：222 passed+复制恢复/旁路反例。8d1b3573全仓曾1红为旧图召回，刷新图后单针绿，原红收据保留，不拼接成全绿；e178bb57才完整全仓绿。
 
 ## 踩过的坑
-每条shell显式cd；pytest主树.venv-workbench解释器。主检出脏不要碰。Codex缺code-mode-host，单次关开关仍没命令工具；别把模型能回复当作能做审查，也不要反复空跑消耗。
+每shell显式cd；pytest用主树.venv-workbench/bin/python。Codex重连多但现可执行，最终报告未出不算通过。识别与切句共用前缀，否则“且麻烦不要联网”会漏权限。纯度/锚点没接完前不得实跑宣称安全。
