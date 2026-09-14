@@ -1,0 +1,18 @@
+
+> market-intelligence-workbench@0.1.0 test /private/tmp/re06-qc-ecd90a3c/intelligence/webapp
+> vitest run
+
+
+ RUN  v3.2.4 /private/tmp/re06-qc-ecd90a3c/intelligence/webapp
+
+ ✓ src/streamEventRegistry.test.ts (2 tests) 3ms
+ ✓ src/components/ResearchProjectPanel.test.tsx (5 tests) 61ms
+ ✓ src/components/ResearchEvolutionPanel.test.tsx (14 tests) 137ms
+ ✓ src/components/DailyReportView.test.tsx (4 tests) 107ms
+ ✓ src/components/components.test.tsx (65 tests) 1299ms
+
+ Test Files  5 passed (5)
+      Tests  90 passed (90)
+   Start at  09:38:32
+   Duration  2.29s (transform 360ms, setup 733ms, collect 797ms, tests 1.61s, environment 1.24s, prepare 240ms)
+

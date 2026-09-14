@@ -1,0 +1,145 @@
+OLD_CHAT_COMPENSATION 200 {'replayed': False, 'status': 'accepted', 'reason_code': 'rejudgment_failed', 'item_id': 'jmi-b8b7e272afd7f04a', 'link': {'run_status': 'failed', 'association': 'registered'}} AFTER open 2 LINKS [{'content_digest': 'df4c1cb6ff32c5b895da02ed936407b2f4d354c9ba0a33a9620a21c993ca4dd4', 'conversation_id': 'conv_1eb50069a7c94dd280d2773b173f17e7', 'item_id': 'jmi-b8b7e272afd7f04a', 'link_id': 'rlink-8204b18c0a66addb', 'owner_user_id': 'default', 'registered_at': '2026-09-14T08:00:00+00:00', 'request_event_id': 'jme-5727030f65b6141c', 'run_id': 'run_20260914_094405_262906'}]
+FLAUNCH_TEXT_EQUAL_ACROSS_GENERATIONS True
+DELAYED_A_MESSAGE BEFORE rejudgment_requested 3 AFTER open 4 LINKS [{'content_digest': '6ef70e737ebcd5f101d6306e6db757b3cc3558e244f05050c8d72341db19f3a8', 'conversation_id': 'conv_ca0b6a7b18214836a0e065b8b5168bbc', 'item_id': 'jmi-efcbb104c99987db', 'link_id': 'rlink-b1f04d9ba4a90c46', 'owner_user_id': 'default', 'registered_at': '2026-09-14T08:00:01+00:00', 'request_event_id': 'jme-e2de4ecc4677af84', 'run_id': 'run_20260914_094406_147678'}]
+FOTHER_ITEM_JUDGMENT 3c19fb028e69 BEFORE rejudgment_requested AFTER closed {'applied_commands': [{'command_id': 'request-item-1', 'payload_digest': '329596db662c8be3a63eb36a8f069b42f15f338cd7ae1a9992976ee7153f586a', 'event_id': 'jme-42375989e0904d50', 'management_revision': 1}], 'snooze_until': None, 'claimed_at': None, 'closed_at': '2026-09-14T08:00:01+00:00', 'closure': {'kind': 'rejudged', 'linked_judgment_ref': 'judgments.jsonl:3c19fb028e69', 'event_id': 'jme-03187cb81df18115', 'at': '2026-09-14T08:00:01+00:00'}, 'rejudgment': {'request_event_id': 'jme-42375989e0904d50', 'requested_at': '2026-09-14T08:00:00+00:00', 'attempts': 1, 'last_failure': None}}
+FRUNNING_OLD_REREGISTRATION 200 {'replayed': False, 'status': 'registered', 'reason_code': 'run_registered', 'item_id': 'jmi-aca3cf77353b73d4', 'link': {'run_id': 'run_20260914_094407_436773', 'run_status': 'running', 'registered': True, 'link_created': True, 'registered_at': '2026-09-14T08:00:01+00:00'}} BEFORE 3 AFTER open 4
+F
+=================================== FAILURES ===================================
+_______ test_old_ordinary_message_cannot_be_compensated_into_new_request _______
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x10cf56450>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10cf56330>
+
+    def test_old_ordinary_message_cannot_be_compensated_into_new_request(world, monkeypatch):
+        monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
+        old_run = post_message(world, "请解释市盈率是什么。")
+        world.wait_terminal(old_run)
+        # This user message and run predate even the creation of the maintenance request.
+        item = world.seed_rejudged_item()
+        response = world.act(idempotency_key="old-chat-as-new-rejudge", run_id=old_run, **world.link_args(item["id"]))
+        after = world.current_item(item["id"])
+        links = EvolutionStore(world.user_root / "research_evolution", fx.OWNER).list_run_links(item_id=item["id"])
+        print("OLD_CHAT_COMPENSATION", response.status_code, response.json(), "AFTER", after["status"], after["management_revision"], "LINKS", links)
+>       assert response.status_code in {400, 404, 409}, "An old unrelated user message is not proof of this newly created request"
+E       AssertionError: An old unrelated user message is not proof of this newly created request
+E       assert 200 in {400, 404, 409}
+E        +  where 200 = <Response [200 OK]>.status_code
+
+../re06-qc-ecd90a3c-evidence/test_review_round5.py:63: AssertionError
+____ test_cancelled_request_launch_text_cannot_claim_replacement_generation ____
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x10d2219d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d2228d0>
+
+    def test_cancelled_request_launch_text_cannot_claim_replacement_generation(world, monkeypatch):
+        world.track_judgment().raise_for_status()
+        item = world.open_item()
+        first = world.rejudge(item, key="request-A")
+        old_prompt = first["continuation"]["full_prompt"]
+        request_a = world.current_item(item["id"])["management"]["rejudgment"]["request_event_id"]
+        cancel(world, item["id"], "cancel-A")
+        world.clock.advance(seconds=1)
+        second = world.rejudge(world.current_item(item["id"]), key="request-B")
+        before = world.current_item(item["id"])
+        assert before["management"]["rejudgment"]["request_event_id"] != request_a
+        print("LAUNCH_TEXT_EQUAL_ACROSS_GENERATIONS", old_prompt == second["continuation"]["full_prompt"])
+        monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
+        # A tab sends its saved request-A response after another tab has cancelled A and requested B.
+        run_id = post_message(world, old_prompt)
+        world.wait_terminal(run_id)
+        # Also invoke the real folder synchronously so assertions don't race its async callback.
+        world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_id)
+        after = world.current_item(item["id"])
+        links = EvolutionStore(world.user_root / "research_evolution", fx.OWNER).list_run_links(item_id=item["id"])
+        print("DELAYED_A_MESSAGE", "BEFORE", before["status"], before["management_revision"], "AFTER", after["status"], after["management_revision"], "LINKS", links)
+>       assert after["management_revision"] == before["management_revision"], "Request A's delayed message must not be assigned request B's current identity"
+E       AssertionError: Request A's delayed message must not be assigned request B's current identity
+E       assert 4 == 3
+
+../re06-qc-ecd90a3c-evidence/test_review_round5.py:89: AssertionError
+____________ test_first_attempt_cannot_consume_other_items_judgment ____________
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x10d320fe0>
+
+    def test_first_attempt_cannot_consume_other_items_judgment(world):
+        world.track_judgment().raise_for_status()
+        # Bind a distinct underlying judgment, not merely two changes of the same object.
+        _, original_b = judgments_svc.record_judgment(
+            world.user_root / "judgments.jsonl", themes=[fx.ENTITY], memo="下游制冷剂采购利润承压，是另一条独立判断",
+            session_id=world.conversation_id, ts="2026-09-03T20:00:00+08:00",
+        )
+        ref_b = f"judgments.jsonl:{original_b['id']}"
+        object_b = next(t["object_ref"] for t in world.view()["inputs"]["trackable_objects"] if t["object_ref"]["ref"] == ref_b)
+        world.bind_at(fx.BIND_DAY, object_ref=object_b).raise_for_status()
+        open_items = [i for i in world.view()["maintenance"]["items"] if i["status"] == "open"]
+        item_b = next(i for i in open_items if i["object_ref"]["ref"] == ref_b)
+        item_a = next(i for i in open_items if i["object_ref"]["ref"] != ref_b)
+        items = [item_a, item_b]
+        assert items[0]["object_ref"]["ref"] != items[1]["object_ref"]["ref"]
+        observer = observer_for(world)
+        for idx, item in enumerate(items[:2]):
+            world.rejudge(item, key=f"request-item-{idx}")
+        run_a = observer.create_run(question="复核维护项 A", task_type="research", session_id=world.conversation_id)
+        run_b = observer.create_run(question="复核维护项 B", task_type="research", session_id=world.conversation_id)
+        world.act(idempotency_key="register-item-A", run_id=run_a.run_id, **world.link_args(items[0]["id"])).raise_for_status()
+        world.act(idempotency_key="register-item-B", run_id=run_b.run_id, **world.link_args(items[1]["id"])).raise_for_status()
+        before = world.current_item(items[1]["id"])
+        assert before["management"]["rejudgment"]["attempts"] == 1
+        world.clock.advance(seconds=1)
+        _, judgment_a = judgments_svc.record_judgment(
+            world.user_root / "judgments.jsonl", themes=[fx.ENTITY], memo="仅维护项 A 的成果，不是 B 的成果",
+            session_id=world.conversation_id, ts=world.clock().isoformat(),
+        )
+        observer.finish_run(run_a.run_id, "completed")
+        observer.finish_run(run_b.run_id, "completed")  # B writes no judgment.
+        after = world.current_item(items[1]["id"])
+        print("OTHER_ITEM_JUDGMENT", judgment_a["id"], "BEFORE", before["status"], "AFTER", after["status"], after["management"])
+>       assert after["status"] == "rejudgment_requested", "First attempt of B is not evidence that the latest session judgment belongs to B"
+E       AssertionError: First attempt of B is not evidence that the latest session judgment belongs to B
+E       assert 'closed' == 'rejudgment_requested'
+E         
+E         - rejudgment_requested
+E         + closed
+
+../re06-qc-ecd90a3c-evidence/test_review_round5.py:126: AssertionError
+______ test_running_old_request_cannot_be_reregistered_as_new_generation _______
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x10d403f20>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d400770>
+
+    def test_running_old_request_cannot_be_reregistered_as_new_generation(world, monkeypatch):
+        def delayed_failure(**kwargs):
+            world.turn_gate.wait(10)
+            fail_turn(**kwargs)
+    
+        monkeypatch.setattr(app_module, "_run_conversation_turn", delayed_failure)
+        world.track_judgment().raise_for_status()
+        item = world.open_item()
+        first = world.rejudge(item, key="request-A")
+        world.turn_gate.clear()
+        try:
+            old_run = post_message(world, first["continuation"]["full_prompt"])
+            world.act(idempotency_key="register-A", run_id=old_run, **world.link_args(item["id"])).raise_for_status()
+            cancel(world, item["id"], "cancel-A")
+            world.clock.advance(seconds=1)
+            world.rejudge(world.current_item(item["id"]), key="request-B")
+            before = world.current_item(item["id"])
+            response = world.act(idempotency_key="reregister-old-run", run_id=old_run, **world.link_args(item["id"]))
+        finally:
+            world.turn_gate.set()
+        world.wait_terminal(old_run)
+        world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=old_run)
+        after = world.current_item(item["id"])
+        print("RUNNING_OLD_REREGISTRATION", response.status_code, response.json(), "BEFORE", before["management_revision"], "AFTER", after["status"], after["management_revision"])
+>       assert response.status_code in {400, 404, 409}, "Generation validation must apply during registration, not only after terminal"
+E       AssertionError: Generation validation must apply during registration, not only after terminal
+E       assert 200 in {400, 404, 409}
+E        +  where 200 = <Response [200 OK]>.status_code
+
+../re06-qc-ecd90a3c-evidence/test_review_round5.py:154: AssertionError
+=========================== short test summary info ============================
+FAILED ../re06-qc-ecd90a3c-evidence/test_review_round5.py::test_old_ordinary_message_cannot_be_compensated_into_new_request
+FAILED ../re06-qc-ecd90a3c-evidence/test_review_round5.py::test_cancelled_request_launch_text_cannot_claim_replacement_generation
+FAILED ../re06-qc-ecd90a3c-evidence/test_review_round5.py::test_first_attempt_cannot_consume_other_items_judgment
+FAILED ../re06-qc-ecd90a3c-evidence/test_review_round5.py::test_running_old_request_cannot_be_reregistered_as_new_generation
+4 failed in 4.00s

@@ -1,0 +1,26 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/private/tmp/re06-qc-ecd90a3c",
+  "revision": "99d6e193f72273a8c1fa20029c802623284d7699",
+  "branch": "docs/qc-re06-ecd90a3c",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/private/tmp/re06-qc-ecd90a3c",
+  "counts": {
+    "passed": 10038,
+    "failed": 3,
+    "error": 0,
+    "skipped": 79
+  },
+  "failed_ids": [
+    "intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket[False]",
+    "intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket[True]",
+    "intelligence/tests/test_workbench_conversation_integration.py::test_real_conversation_round_trip_persists_skills_sse_and_three_turns"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-14T01:47:14+00:00"
+}

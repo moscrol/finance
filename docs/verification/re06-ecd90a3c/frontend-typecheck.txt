@@ -1,0 +1,4 @@
+
+> market-intelligence-workbench@0.1.0 typecheck /private/tmp/re06-qc-ecd90a3c/intelligence/webapp
+> tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false
+
