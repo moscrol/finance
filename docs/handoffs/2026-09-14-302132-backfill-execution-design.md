@@ -1,8 +1,26 @@
-# 302132.SZ 历史回填·执行实现交审（fix/backfill-302132-scoped @ 399ac41a）
+# 302132.SZ 历史回填·执行实现交审（fix/backfill-302132-scoped @ 5b0cd87e）
 
-按 `2026-09-14-302132-prep-review.md` 的两条 P1 与「执行前合同」实现；经三轮复审退修（五项修复 → 证据绑定 → 验收链加固）全部落地。**第四轮演练在干净提交 399ac41a 上完成，收据身份与数据合同 25/25 通过。本轮未写生产**；生产授权另行申请。
+按 `2026-09-14-302132-prep-review.md` 的两条 P1 与「执行前合同」实现；经五轮复审退修（五项修复 → 证据绑定 → 验收链加固 → 异常路径与验收角色）全部落地。**第五轮演练在干净提交 5b0cd87e 上完成，收据身份与数据合同 33/33 通过。本轮未写生产**；生产授权另行申请。
 
-## 第四轮（399ac41a）：验收链加固与干净重演练
+## 第五轮（5b0cd87e）：删除所有权、硬链接别名、收据 schema、验收角色
+
+复审五轮（3 P1 + 2 P2）修复（提交 `5b0cd87e`）：
+
+| 退修 | 修复 |
+|---|---|
+| P1 父拒绝后 `finally: unlink` 删除用户已有文件（探针列表混入 `--report-path`；复现：见证库被删、父未执行） | 用户传入路径改**纯校验**（不创建、不删除）；可写性探针独立 pid 命名、**仅本轮成功创建才删除**；补真实父命令回归测试（见证库 rc=2、字节不变、父未调用） |
+| P1 O_EXCL 竞争失败删除另一写者文件（复现：monkeypatch 插入竞争写者，其 JSON 被删） | 仅 `os.open` 成功创建（`fstat` 记录 `(st_dev,st_ino)`）才允许清理，清理前 `lstat` 再核同一 inode；EEXIST 竞争一律不 unlink；补「竞争胜出方文件原样」测试 |
+| P1 验收别名检查漏硬链接（realpath 只看符号链接；复现：硬链接 PASS 21/21） | 改 `os.path.samefile`（同路径/符号链接/硬链接全覆）；不可判定按失败；仍在 DuckDB connect 之前；补硬链接反例子进程测试 |
+| P2 收据缺字段跳过检查甚至发绿（缺 `parquet_sha256` PASS；父子同缺 `spec_version` 以 None==None 过；`child_report_path` 不解析；缺 `window_start` 裸 KeyError） | 完整 schema 校验：必需字段存在/类型/非空/格式（40hex、64hex、spec_version 前缀），缺证据一律记 check False；独立子报告文件解析并与父收据嵌入件深比较；parquet 哈希父=子=实际文件三向；结构错误一律结构化 FAIL、rc=2；补变异子进程测试 |
+| P2 生产执行后验收命令与哈希合同矛盾（换库后 canonical ≠ 换库前哈希） | 重定义对象角色：`--production`=不可变基线（生产执行后=**换库前备份文件**），`--clone`=换库后结果（canonical），`--expected-production-sha256`=基线 sha（=收据 backup sha）；新增 `backup_apply_matches_baseline` 检查；本演练 v5 即按此形态执行 |
+
+干净重演练（5b0cd87e，git status 空）：run9=`efc2b64d8870`（apply）/ run10=`11bad970c4e1`（verify）；**验收 v5 33/33 PASS**（`dryrun-acceptance-v5.json`）：samefile 别名、基线首尾 sha、收据全 schema（含独立子报告深比较）、备份身份（apply 备份 sha==基线 sha）、parquet 三向、**run5–run8 共 8 份旧收据逐份哈希核验**、11 项数据合同。
+
+**哈希转录事件（如实披露）**：我第四轮交回消息中 run5/run6 收据的完整哈希在 8 位前缀之后转录有误——文件本身从未被修改（v4 验收 JSON 留存的 12 位前缀与当前 shasum 完全一致，文件 mtime 未变）。v5 首次运行以错误期望值触发 `old_receipt` FAIL，门禁按设计拒签；纠正后 33/33 PASS。教训：哈希一律程序化引用，不手打。
+
+单测 26/26（含本轮 4 个新反例）；全量 pytest **9,643 passed / 0 failed / 77 skipped**（收据绑定 5b0cd87e，dirty=false）；ruff 全仓过。
+
+## 第四轮（399ac41a）：验收链加固与干净重演练（已被第五轮取代，留痕）
 
 复审四轮（3 P1 + 2 P2）修复：
 
@@ -85,9 +103,9 @@
 
 ## 生产执行前提（待授权清单）
 
-1. 代码评审通过并合入 main；执行从合入后的干净检出运行（`git status` 为空）。执行后当场以 `scripts/verify_302132_backfill_acceptance.py --expected-revision <合入修订> --expected-production-sha256 <换库前生产 sha> [--expected-old-receipt <前序收据>=<sha>]...` 复核：首尾生产 sha、收据 revision==合入修订且 dirty==false、父=子一致、备份与 parquet 身份、旧收据逐份未变、数据合同全项。
+1. 代码评审通过并合入 main；执行从合入后的干净检出运行（`git status` 为空）。执行后当场验收，对象角色明确：`--production` 传**换库前备份文件**（路径与 sha 取自执行收据 `backup` 字段，该文件执行中生成、此后不可变），`--clone` 传**换库后的 canonical 生产库**（收据从其文件名前缀派生），`--expected-production-sha256` 传**换库前生产 sha**（=收据 backup sha，验收脚本 `backup_apply_matches_baseline` 强制一致性）：基线首尾 sha、收据全 schema、revision==合入修订且 dirty==false、父=子一致、备份与 parquet 身份、旧收据逐份未变、数据合同全项（clone vs 基线双向对照）。
 2. 生产若在此之前发生合法新写入（如 09-12 日更），基线变化 → 需重新副本演练（spec 钉值以现生产为准重核）。
-3. 磁盘：演练实测 staging/备份均 clonefile CoW（0.004s/近零增量）；执行前仍按 df 实查 + 余量核算（当前 ~8.8Gi 可用）；备份不自动删。
+3. 磁盘：演练实测 staging/备份均 clonefile CoW（0.004s/近零增量）；执行前必须实时 `df -h` + 余量核算（不写静态数字作为前提）；备份不自动删。
 4. 执行命令：`python3 -m market_feature_store.cli repair-backfill-302132 --parquet <冻结 parquet>`（MARKET_FEATURE_STORE_DB 指生产；默认即父编排，无 --direct 类逃生口）。
 
 仓外证据目录：`~/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/`（run1/run2 日志、dryrun-acceptance.json、子进程报告）。
