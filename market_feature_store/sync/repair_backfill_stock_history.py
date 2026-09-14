@@ -145,7 +145,10 @@ def _guarded_write_json(path: Path, payload: dict,
             _fail("收据路径与受保护文件（生产/staging/冻结输入）冲突或别名", str(p))
     if p.exists():
         _fail("收据路径已存在（每轮收据不可覆盖）", str(p))
-    fd = os.open(str(p), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    try:
+        fd = os.open(str(p), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    except OSError as exc:
+        _fail("收据路径不可写", f"{type(exc).__name__}: {exc}")
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
         fh.write(json.dumps(payload, ensure_ascii=False, indent=2, default=str) + "\n")
     return p

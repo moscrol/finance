@@ -511,6 +511,30 @@ def test_refused_cli_report_path_existing_file(tmp_path, monkeypatch):
     assert rc == 2 and existing.read_text() == "{}"
 
 
+def test_cli_parent_preflight_blocks_unwritable_receipt_dir(tmp_path, monkeypatch):
+    """收据目录不可写 → 换库前拦截（run_daily_full_staged 不得被调用）。"""
+    from market_feature_store import cli
+    from market_feature_store.sync import sync_daily_full
+
+    ro_dir = tmp_path / "ro"
+    ro_dir.mkdir()
+    ro_dir.chmod(0o555)
+    pq = tmp_path / "source.parquet"
+    pq.write_bytes(b"preflight only checks dir writability")
+    called = {}
+
+    def parent(**kwargs):
+        called.update(kwargs)
+        return {"swapped": False, "reason": "must not reach", "rc": 2}
+
+    monkeypatch.setattr(sync_daily_full, "run_daily_full_staged", parent)
+    monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(ro_dir / "fake.duckdb"))
+    from types import SimpleNamespace
+    args = SimpleNamespace(parquet=str(pq), child=False, db=None, report_path=None)
+    assert cli.cmd_repair_backfill_302132(args) == 2
+    assert called == {}  # 预校验拦截在父编排之前
+
+
 def test_cli_child_receipt_binds_revision_and_run_id(tmp_path, monkeypatch):
     """P2-3：每轮收据绑定 revision/dirty/run_id/spec/源指纹，按 run_id 命名不覆盖。"""
     from market_feature_store import cli
@@ -527,8 +551,15 @@ def test_cli_child_receipt_binds_revision_and_run_id(tmp_path, monkeypatch):
     report_path = tmp_path / "staging.duckdb.backfill-report.test-run-001.json"
     report = json.loads(report_path.read_text())
     assert report["run_id"] == "test-run-001"
-    assert len(report["code_revision"]) == 40
-    assert report["code_dirty"] is not None
+    # 身份断言（不是存在性断言）：revision 必须等于运行时 HEAD，dirty 必须如实
+    import subprocess
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(mod.PROJECT_DIR),
+                          capture_output=True, text=True, check=True).stdout.strip()
+    dirty = bool(subprocess.run(["git", "status", "--porcelain"],
+                                cwd=str(mod.PROJECT_DIR), capture_output=True,
+                                text=True, check=True).stdout.strip())
+    assert report["code_revision"] == head
+    assert report["code_dirty"] is dirty
     assert report["parquet_sha256"] and report["parallel_source_md5"]
     assert report["interpreter"]
     # 同 run_id 重跑：报告已存在 → 拒绝覆盖
