@@ -449,15 +449,19 @@ def _confirm_action_key(
     attempt_id: str | None,
     entrypoint: str | None,
     due: str,
+    source_draft_id: str | None = None,
 ) -> str:
-    """确认动作的稳定身份：由**内容 + 到期日 + 尝试 + 入口**算出，**不含录入时刻**。
+    """确认动作的稳定身份：由**内容 + 到期日 + 来源版本 + 尝试 + 入口**算出，
+    **不含录入时刻**。
 
-    两侧都会出错，方向相反，必须同时守住：
+    三侧都会出错，方向不同，必须同时守住：
 
     - 掺进时间戳 → 重试换键，去重在唯一需要它的场景失效（第一轮质检 S6）；
     - 漏掉 ``due`` → 改回检日期被当成同一个动作，返回成功却沿用旧日期与旧
-      checkpoint（第二轮复审实测）。到期日是这条剧本**进哪一天回检队列**的决定，
-      改它就是另一个动作。
+      checkpoint（第二轮复审实测）。到期日是这条剧本**进哪一天回检队列**的决定；
+    - 漏掉 ``source_draft_id`` → A 确认 → B 确认 → A 确认时，第三次撞上第一次的
+      内容哈希被去重，返回的来源指向 v1，而当前有效草稿是 v3（第三轮复审实测）。
+      **同内容不同来源版本是两个动作**。
     """
     payload = json.dumps(
         {
@@ -465,6 +469,7 @@ def _confirm_action_key(
             "as_of": script.as_of,
             "scope": script.scope,
             "due": str(due),
+            "source_draft_id": str(source_draft_id or ""),
             "entity_ids": list(extraction.normalize_values(script.entity_ids)),
             **{
                 f: list(extraction.normalize_values(getattr(script, f)))
@@ -690,7 +695,13 @@ def register(
     # 跨秒重试就换了一把键，于是「去重」在最需要它的场景（重试）恰好失效
     # （质检 S6 实测：两条同一确认，还多登记了一个可证伪点）。
     action_key = (
-        _confirm_action_key(stamped, attempt_id=attempt_id, entrypoint=entrypoint, due=due_norm)
+        _confirm_action_key(
+            stamped,
+            attempt_id=attempt_id,
+            entrypoint=entrypoint,
+            due=due_norm,
+            source_draft_id=source_draft_id,
+        )
         if entrypoint and status in {"confirmed", "late"}
         else None
     )
@@ -1397,26 +1408,33 @@ def submit_draft(
     ensure_valid(stamped)
 
     content_hash = _draft_content_hash(stamped, key)
-    action_key = _action_key(EVENT_DRAFT_SUBMITTED, attempt_id, content_hash)
     p = Path(path).expanduser()
     with _ledger_lock(p):
         raw = load_raw(p)
         # 去重**只比最后一版**，不比全历史。
         #
         # 从内容上分不出「同一条命令连跑两次」和「想了想又改回上一版」，所以得靠位置：
-        # 与**紧邻的上一版**同内容 = 重试（幂等返回原记录）；与更早的某版同内容 =
-        # 用户主动改回去，那是新版本。比全历史会把 A→B→A 的第三次吞掉，
+        # 与**紧邻的上一版**同内容且同尝试 = 重试（幂等返回原记录）；与更早的某版
+        # 同内容 = 用户主动改回去，那是新版本。比全历史会把 A→B→A 的第三次吞掉，
         # 于是有效草稿停在 B，而用户明明刚把它改回了 A（复审二实测）。
+        #
+        # 判据用**内容哈希**而不是动作键：动作键现在含版本序号（见下），
+        # 拿它比会让每一次提交都成为「新动作」，重试的幂等就没了。
         previous = latest_user_draft(raw, key=key)
         if (
             previous is not None
-            and str((previous.get("action_event") or {}).get("action_key") or "") == action_key
+            and str(previous.get("draft_content_hash") or "") == content_hash
+            and str(previous.get("extraction_attempt_id") or "") == str(attempt_id)
         ):
             return dict(previous), False
         # 复验放在**去重之后、追加之前**：同一条命令重跑该拿回原记录（幂等），
         # 但尝试一旦被 close 掉就不能再往里塞新版本（质检 S9）。
         ensure_attempt_writable(raw, attempt_id=str(attempt_id), key=key)
         seq = len(user_drafts(raw, key=key)) + 1
+        # **版本序号进动作身份**：A→B→A 时 v3 与 v1 同内容同尝试，只按内容算身份
+        # 会让 v3 复用 v1 的 event_id，于是台账有三行草稿、事件却只有两条提交
+        # （复审三实测）。「三版草稿」与「三次提交动作」必须同时成立。
+        action_key = _action_key(EVENT_DRAFT_SUBMITTED, attempt_id, f"{content_hash}#{seq}")
         when = str(stamped.recorded_at)
         draft_id = f"od-{key.as_of}-{seq:03d}-{content_hash[:8]}"
         record = stamped.to_dict()
@@ -1426,6 +1444,8 @@ def submit_draft(
                 "id": draft_id,
                 "draft_id": draft_id,
                 "draft_version": seq,
+                # 重试判据读它，不读动作键（动作键含版本序号，每次都不同）。
+                "draft_content_hash": content_hash,
                 "author_origin": AUTHOR_USER,
                 "canonical_entity_id": key.canonical_entity_id,
                 "extraction_attempt_id": attempt_id,
