@@ -71,6 +71,19 @@ def test_response_identity_is_required_and_must_match_the_frozen_spec(model, rea
     assert reason in check(batch)["reason_codes"]
 
 
+def test_consistent_but_disallowed_model_is_rejected():
+    # 全部评分一致改报同一未获准型号时，批次级一致性检查不再能发现，
+    # 必须由逐条 allowed_reported_models 门拦下（反向钉住该层）。
+    batch = valid_batch()
+    for answer in batch[0]:
+        answer["judge"]["attempt_records"][0]["reported_model"] = "claude-4"
+    for block in batch[1]:
+        block["repeats"][0]["attempt_records"][0]["reported_model"] = "claude-4"
+    result = check(batch)
+    assert not result["valid"]
+    assert "judge_identity_mismatch" in result["reason_codes"]
+
+
 def test_unknown_success_before_json_retry_cannot_be_erased():
     batch = valid_batch()
     verdict = batch[0][0]["judge"]
@@ -109,8 +122,15 @@ def test_historical_writer_and_all_successful_contributors_control_independence(
     assert "judge_not_independent" in check(batch)["reason_codes"]
 
 
-@pytest.mark.parametrize("mutation", ["batch", "text", "repeat", "totals", "floor_binding", "extra"])
-def test_calibration_cannot_reuse_a_different_batch_or_pick_successful_samples(mutation):
+@pytest.mark.parametrize("mutation,reason", [
+    ("batch", "calibration_binding_mismatch"),
+    ("text", "calibration_binding_mismatch"),
+    ("repeat", "calibration_incomplete"),
+    ("totals", "calibration_binding_mismatch"),
+    ("floor_binding", "calibration_stale"),
+    ("duplicate", "judge_attempt_duplicate"),
+])
+def test_calibration_cannot_reuse_a_different_batch_or_pick_successful_samples(mutation, reason):
     batch = valid_batch()
     block = batch[1][0]
     if mutation == "batch":
@@ -125,7 +145,9 @@ def test_calibration_cannot_reuse_a_different_batch_or_pick_successful_samples(m
         batch[3]["calibration_sha256"] = "old-calibration"
     else:
         batch[1].append(deepcopy(block))
-    assert not check(batch)["valid"]
+    result = check(batch)
+    assert not result["valid"]
+    assert reason in result["reason_codes"]
 
 
 @pytest.mark.parametrize("field", ["sigma", "sd_judging", "sd_delta_single_question"])
@@ -133,7 +155,11 @@ def test_calibration_cannot_reuse_a_different_batch_or_pick_successful_samples(m
 def test_noise_must_be_present_finite_and_recomputed(field, value):
     batch = valid_batch()
     batch[3][field] = value
-    assert not check(batch)["valid"]
+    result = check(batch)
+    assert not result["valid"]
+    # 缺失/非有限/负值/字符串一律由 noise_floor_invalid 钉住（_number 要求非负有限），
+    # 不依赖重算比对兜底，反向保证有限性检查层不可拆除。
+    assert "noise_floor_invalid" in result["reason_codes"]
 
 
 def test_unscored_product_failure_stays_in_denominator():
