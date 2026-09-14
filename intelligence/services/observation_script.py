@@ -1402,12 +1402,18 @@ def submit_draft(
     p = Path(path).expanduser()
     with _ledger_lock(p):
         raw = load_raw(p)
-        for existing in raw:
-            if (
-                record_kind_of(existing) == RECORD_SCRIPT
-                and str((existing.get("action_event") or {}).get("action_key") or "") == action_key
-            ):
-                return dict(existing), False
+        # 去重**只比最后一版**，不比全历史。
+        #
+        # 从内容上分不出「同一条命令连跑两次」和「想了想又改回上一版」，所以得靠位置：
+        # 与**紧邻的上一版**同内容 = 重试（幂等返回原记录）；与更早的某版同内容 =
+        # 用户主动改回去，那是新版本。比全历史会把 A→B→A 的第三次吞掉，
+        # 于是有效草稿停在 B，而用户明明刚把它改回了 A（复审二实测）。
+        previous = latest_user_draft(raw, key=key)
+        if (
+            previous is not None
+            and str((previous.get("action_event") or {}).get("action_key") or "") == action_key
+        ):
+            return dict(previous), False
         # 复验放在**去重之后、追加之前**：同一条命令重跑该拿回原记录（幂等），
         # 但尝试一旦被 close 掉就不能再往里塞新版本（质检 S9）。
         ensure_attempt_writable(raw, attempt_id=str(attempt_id), key=key)

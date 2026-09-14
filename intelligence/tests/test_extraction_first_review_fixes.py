@@ -638,5 +638,124 @@ class R6DueIsPartOfTheConfirmActionIdentity(Base):
         self.assertEqual(len(self.kinds(osc.EVENT_SCRIPT_CONFIRMED)), 1)
 
 
+# =========================================================================== #
+# 第三轮质检（2026-09-14 复审二，4 处行为缺口）
+# =========================================================================== #
+class T1ConfirmIsAttributedToTheAttemptYouNamed(Base):
+    """复审二：A 提交草稿、B 复用读完，指定 B 确认，事件却挂回 A。
+
+    上一轮我把 `attempt_id` 从**草稿行**里取，而不是从用户显式给的参数取——
+    「取哪一版」和「算在哪次尝试名下」是两件事，混用就把归属写错了。
+    """
+
+    def _setup_reuse(self) -> tuple[str, str]:
+        self.draft(variables=["题材轨：题材所处阶段是否推进"])
+        a = self.pending()[0]["attempt_id"]
+        _run(["observation", "close", "--user", "u1", "--attempt-id", a])
+        self.read()  # B：新尝试，复用 A 的草稿
+        b = self.kinds(osc.EVENT_READ_COMPLETED)[0]["attempt_id"]
+        self.assertNotEqual(a, b)
+        return a, b
+
+    def test_event_is_attributed_to_the_named_attempt(self) -> None:
+        a, b = self._setup_reuse()
+        code, out = _run(
+            ["observation", "confirm", "--user", "u1", "--as-of", AS_OF, "--from-draft", ENTITY,
+             "--attempt-id", b, "--db-path", "/tmp/no-such.duckdb", "--json"]
+        )
+        self.assertEqual(code, 0, out)
+        record = json.loads(out)
+        self.assertEqual(record["extraction_attempt_id"], b, "算在你指名的那次尝试名下")
+        self.assertEqual(record["action_event"]["attempt_id"], b)
+        confirmed = self.kinds(osc.EVENT_SCRIPT_CONFIRMED)
+        self.assertEqual([e["attempt_id"] for e in confirmed], [b])
+
+    def test_version_still_comes_from_the_receipt(self) -> None:
+        """归属改对，不能把「取哪一版」一起改错。"""
+        _a, b = self._setup_reuse()
+        _, out = _run(
+            ["observation", "confirm", "--user", "u1", "--as-of", AS_OF, "--from-draft", ENTITY,
+             "--attempt-id", b, "--db-path", "/tmp/no-such.duckdb", "--json"]
+        )
+        record = json.loads(out)
+        self.assertEqual(list(record["variables"]), ["题材轨：题材所处阶段是否推进"])
+        self.assertTrue(record["source_draft_id"])
+
+
+class T2AutoResumeAlsoHonoursTheReceipt(Base):
+    """复审二：收据已落、关闭失败后，**不带** `--attempt-id` 原样重跑会复用同一尝试、
+    重新生成正文，台账却沿用旧收据——重放了正文却声称没重放。"""
+
+    def test_bare_rerun_returns_the_receipt_without_rebuilding(self) -> None:
+        self.draft()
+        with mock.patch.object(osc, "close_attempt", side_effect=OSError("disk full")):
+            self.read()
+        self.assertEqual(len(self.kinds(osc.EVENT_READ_COMPLETED)), 1)
+        self.assertEqual(len(self.pending()), 1)
+
+        with mock.patch.object(gr, "build", wraps=gr.build) as built:
+            code, out = self.read()  # 注意：没有 --attempt-id
+        self.assertEqual(code, 0, out)
+        self.assertEqual(built.call_count, 0, "不该重新构建骨架")
+        self.assertNotIn("今日带读", out, "不该把正文再放一遍")
+        self.assertEqual(len(self.kinds(osc.EVENT_READ_COMPLETED)), 1)
+        self.assertEqual(self.pending(), [], "顺带把终态补上")
+
+
+class T3RevertingToAnEarlierDraftIsANewVersion(Base):
+    """复审二：同一尝试里 A→B→A，第三次被「全历史内容去重」吞掉，
+    有效草稿仍是 B——用户主动改回旧内容，被当成了重试。"""
+
+    A = ["题材轨：题材所处阶段是否推进"]
+    B = ["资金轨：板块 / 题材资金流是否延续"]
+
+    def test_a_then_b_then_a_leaves_a_effective(self) -> None:
+        self.draft(variables=self.A)
+        self.draft(variables=self.B)
+        code, out = self.draft(variables=self.A)
+        self.assertEqual(code, 0, out)
+        key = ox.make_key("u1", AS_OF, CANON)
+        raw = osc.load_raw(self.ledger())
+        drafts = osc.user_drafts(raw, key=key)
+        self.assertEqual([list(d["variables"]) for d in drafts], [self.A, self.B, self.A])
+        self.assertEqual(list(osc.latest_user_draft(raw, key=key)["variables"]), self.A)
+
+    def test_immediate_rerun_is_still_a_retry(self) -> None:
+        """改回旧内容算新版本，不能把「同一条命令连跑两次」也变成新版本。"""
+        self.draft(variables=self.A)
+        self.draft(variables=self.A)
+        key = ox.make_key("u1", AS_OF, CANON)
+        self.assertEqual(len(osc.user_drafts(osc.load_raw(self.ledger()), key=key)), 1)
+
+    def test_the_read_receipt_points_at_the_effective_version(self) -> None:
+        self.draft(variables=self.A)
+        self.draft(variables=self.B)
+        self.draft(variables=self.A)
+        self.read()
+        key = ox.make_key("u1", AS_OF, CANON)
+        latest = osc.latest_user_draft(osc.load_raw(self.ledger()), key=key)
+        (receipt,) = self.kinds(osc.EVENT_READ_COMPLETED)
+        self.assertEqual(receipt["source_draft_id"], latest["draft_id"])
+
+
+class T4PersonalExportSurvivesTheSameTornLine(Base):
+    """复审二：R1 只修了观察台账的读取面，**个人导出漏了**——同一份残片照样
+    让整份导出抛 UnicodeDecodeError。修一处就得问同族还有谁。"""
+
+    def test_export_reads_a_ledger_with_a_torn_multibyte_tail(self) -> None:
+        from intelligence.services import personal_export
+
+        us = self.space()
+        us.root.mkdir(parents=True, exist_ok=True)
+        good = json.dumps({"id": "os-1", "as_of": AS_OF, "status": "drafted"}, ensure_ascii=False)
+        self.ledger().write_bytes(good.encode("utf-8") + b"\n" + b'{"id":"partial","note":"\xe7\xae')
+
+        result = personal_export.export_ledger(us)
+        rows = result.parts["observation_scripts"]
+        self.assertEqual(rows[0]["id"], "os-1")
+        self.assertTrue(any("_unparsed_line" in r for r in rows),
+                        "坏行不静默丢：原样带走，让用户看得见台账里确实有这么一行")
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
