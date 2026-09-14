@@ -38,10 +38,10 @@
 | 基线工作树 | `.claude/worktrees/xfp0-baseline-d7e5380`（**专为取基线新建的独立树**，detached 于冻结 SHA，跑测期间零改动） |
 | 分支 | `feat/extraction-first-p0` |
 | 冻结基线 revision | `d7e5380551ba92758935d268fdd0e6fbfdd51ce8`（= 开工时 `gitea/main`，与工单一致） |
-| 被测最终 revision | `7a86ce4e` |
+| 被测最终 revision | `b916091e`（第二轮复审返修后；`7a86ce4e` 是第一轮的被测树，读数保留在 §6.1 对照里） |
 | 解释器 | `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`（AGENTS.md 指定） |
 | 平台 | macOS darwin 25.4.0 / `pytest -q -p no:randomly` |
-| 原始输出 | `/tmp/xfp0/`：`baseline2-pytest.txt`、`final2-pytest.txt`、`mutations.txt`、`fe-*.txt`、`registry.txt`、`receipt-*.txt` |
+| 原始输出 | `/tmp/xfp0/`：`baseline2-pytest.txt`（基线）、`final2/3/4/5-pytest.txt`（历次最终，含 §6.2 那次 1 红的原始输出）、`mutations.txt`、`fe-*.txt`、`registry.txt`、`receipt-*.txt`、`mergetree.txt` |
 
 ### 1.1 干净基线读数
 
@@ -77,10 +77,12 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 | `intelligence/services/personal_export.py` | 台账描述改成「台账行（三类）」——行数不再等于剧本数 |
 | `docs/learning/ledger-map.md` | 登记分型格式与唯一写入者 |
 | `intelligence/tests/test_observation_extraction_first.py` | **新增** A1–A14，77 条 |
-| `intelligence/tests/test_extraction_first_review_fixes.py` | **新增** 质检返修回归，25 条 |
+| `intelligence/tests/test_extraction_first_review_fixes.py` | **新增** 两轮返修回归，39 条（首轮 S1–S10/N2/N3 + 复审 R1–R6） |
 | `intelligence/tests/test_guided_reading_daily_seam.py` | 接线断言改指 `daily_section` 并加强 |
 
-提交：`95f3c5e7`（实现）→ `b42dc9bf`（收据）→ `08ca525f`（质检返修）→ 本页所在提交。
+提交链：`95f3c5e7`（实现）→ `b42dc9bf`（收据）→ `08ca525f`（首轮返修 12 项）→
+`7a86ce4e`（撤回脏树读数 + 压缩交接）→ `caba87c7`（回填读数）→
+`8410e9d3`（复审返修 6 项）→ `b916091e`（诊断拆句 + 交接回填）→ 本页所在提交。
 
 ## 3 逐条验收（A1–A15）
 
@@ -102,7 +104,7 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 | A10 | 重试不重复、并发只一个 pending、成功事件与剧本行同一次写、跨用户 / 跨目标拒绝、**收据落盘失败 → 退 1 + 保持 pending**、已完成尝试返回原收据、原始导出保留三类 | ✅ 10 条 |
 | A11 | 开关矩阵七种；**只写提取台账不翻转新老用户判据**；带读关闭时独立 draft 仍能存 | ✅ 7 条 |
 | A12 | 无类型旧剧本可读；事件不进状态数 / 过期 / 非交易日扫描；`--from-draft` 是 `user_authored` 且不伪造投影；hindsight 活过 draft 这一跳 | ✅ 7 条 |
-| A13 | 有牙验收：见 §4 | ✅ 13/13 |
+| A13 | 有牙验收：见 §4 | ✅ 19/19 |
 | A14 | 差异载荷**一个数都没有**；收据键在来源关联白名单内且无数值；新模块不定义评分型符号（探针先在坏样本上验证会红）；profile / 校准台账零写入 | ✅ 6 条 |
 | A15 | 本页 | ✅ |
 
@@ -137,7 +139,30 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 A 系两条按真实行为重写（其中 `test_completed_attempt_replays_the_receipt_not_the_body`
 正是 S3 点名的名实不符那条，此前断言 `exit=2`），**没有把旧错误断言留作「兼容」**。
 
-## 4 变异测试（A13 有牙验收，13 条）
+## 3.2 复审返修（2026-09-14 第二轮，6 项 P2）
+
+复审在 `caba87c7` 上实测出 6 项，**逐条复核成立**。其中 **R6 是第一轮返修新引入的回归**，
+一并认领。修前 11 红 / 2 绿，修后全绿。
+
+| # | 缺陷 | 修法 | 回归 |
+|---|---|---|---|
+| R1 | 写入断在**汉字中间**时（「算」= `e7 ae 97` 只落了 `e7 ae`），`load_raw` 的 `read_text` 整文件一次解码抛 `UnicodeDecodeError`——不是丢一条，是整本台账读不出来；那个 `except` 只接 `JSONDecodeError`，接不到它。第一轮补的换行救不回来：**读取先炸** | 按字节读、**逐行解码**，损坏限制在它自己那一行；残片仍原样留盘 | `R1TornMultibyteDoesNotBrickTheLedger` |
+| R2 | 交付成功但关闭失败 → 完成事件已落、尝试仍 pending；同 ID 重试只返收据就返回，尝试永远挂着 | 重试先补终态（`close_attempt` 幂等；已有完成事件所以只补 closed，不会多一条 abandoned） | `R2CloseFailureIsHealedOnRetry` |
+| R3 | 新尝试**复用**旧草稿读完后，按该尝试确认报「没有提交过草稿」——`draft_for_attempt` 只认「在这个尝试里提交的」，而复用是主路径 | 补第二条依据：该尝试自己的 `read_completed` 收据里的 `source_draft_id` | `R3AttemptSelectsTheDraftItActuallyRead` |
+| R4 | 完整手填路径**根本没读** `--attempt-id`，传另一目标的 ID 也照样建 checkpoint、关联静默丢弃 | 给了就验归属，验过才用 | `R4ManualConfirmValidatesTheAttempt` |
+| R5 | 第一轮只给 `submit_draft` / `record_event` 加了落盘复验，`register` 漏了：并发 close 插在「门过了」与「落盘」之间时，同一尝试上同时出现 `abandoned=true` 与一条确认 + 一个 checkpoint | 新增 `require_open_attempt`，**只对在进行中的尝试里做的动作**复验（`--from-slice` / `skip`）——`--from-draft` 引用已完成的旧尝试是 §2.4.4 明确允许的，不能一刀切 | `R5ConfirmAndSkipRespectAConcurrentClose` |
+| R6 | **本轮自伤**：S6 的稳定动作键治好了跨秒重试，却漏了 `due`，于是改回检日期被当成同一个动作，返回成功却沿用旧日期与旧 checkpoint | `due` 进动作键；`_make_id` 也带上 `due`，否则同一秒内两次不同到期日的确认会撞同一个 id | `R6DueIsPartOfTheConfirmActionIdentity` |
+
+另修一处复审点到的措辞残留：`read` 把「收据没落」与「收据已落、仅终态没写」合成一句
+「交付结果未知」。两者事实完全不同——后者**确实交付了**且重试能愈合。已拆成两条分支，
+各给可执行的下一步，并加断言钉住措辞差异。
+
+> **R6 这条要单独记一笔。** 第一轮我把「动作身份不能掺时间戳」修对了，却把
+> 「到期日是动作的一部分」漏了——同一次修改在同一个函数上，一个方向修对、
+> 另一个方向修坏。稳定键的字段集合必须**逐个论证「改了它算不算另一个动作」**，
+> 不能只反向排除不该进的。
+
+## 4 变异测试（A13 有牙验收，19 条）
 
 harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONTWRITEBYTECODE=1`
 （防「同长度改动 + 秒内还原」被 `.pyc` 缓存伪造成回归），锚点唯一性由 harness 自检
@@ -158,8 +183,15 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
 | M11 | 确认丢掉用户机检条件（回退 S1） | S1 | ✅ |
 | M12 | 改点伪造第二次确认（**写入侧**） | S7 | ✅ |
 | M13 | 读取面不去重（**读取侧**） | S7 | ✅ |
+| M14 | 整文件解码（回退 R1） | R1 | ✅ |
+| M15 | 关闭失败不补终态（回退 R2） | R2 | ✅ |
+| M16 | 复用草稿找不回来（回退 R3） | R3 | ✅ |
+| M17 | 手填确认不验尝试（回退 R4） | R4 | ✅ |
+| M18 | 落盘不复验尝试（回退 R5） | R5 | ✅ |
+| M19 | 去重键漏 due（回退 R6） | R6 | ✅ |
 
-全部还原后 `102 passed`，工作树无残留。原始输出 `/tmp/xfp0/mutations.txt`。
+全部还原后 `115 passed`，工作树无残留。原始输出 `/tmp/xfp0/mutations.txt`。
+（M10 / M3 / M4 的锚点在历次重构后失配过，每次都是 harness 的唯一性自检先发现的。）
 
 > M12 第一版是「没有牙」：写入侧回退后，读取侧的去重把它兜住了，测试照样绿。
 > 说明**同一个不变量的两道防线必须分别钉**，只断言最终结果会漏掉其中一道。
@@ -171,6 +203,7 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
   后断言改指新名字，并**加两条**（`hint=` 真的接到 merge 上；`build_for_daily_review`
   仍是 2 元组视图、不是死代码）。
 - `test_observation_extraction_first.py` 两条按真实行为重写（见 §3.1 末）。
+- 复审返修未改写任何既有断言，只新增 14 条（R1–R6）。
 
 **没有删除或放松任何既有语义断言**；checkpoint / 投影 / hindsight / late 的测试一行未动。
 
@@ -181,7 +214,7 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
 | python-lint | `ruff check .` | ✅ |
 | python | `pytest -q -p no:randomly` | 见 §6.1 |
 | frontend-lint / typecheck / test / build | `pnpm --dir intelligence/webapp …` | ✅ 四条均 exit 0 |
-| e2e | `PATH=.venv-workbench/bin:$PATH pnpm test:e2e` | ✅ **15 passed (48.3s)** |
+| e2e | `PATH=.venv-workbench/bin:$PATH pnpm test:e2e` | ✅ **15 passed (48.0s)** |
 | registry-check | `market_feature_store.cli registry-check` | ✅ exit 0，「registry 校验通过（档位/表名/计划步骤归属）」 |
 
 > 新树跑前端叶子前要先 `pnpm --dir intelligence/webapp install --frozen-lockfile`：
@@ -192,41 +225,61 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
 ### 6.1 全量 pytest 读数
 
 ```
-9657 passed, 77 skipped, 2 xfailed, 17 warnings in 356.62s (0:05:56)   exit 0
+9671 passed, 77 skipped, 2 xfailed, 17 warnings in 397.58s (0:06:37)   exit 0
 ```
 
 收据校验（把「收据树 == 被测树」从规程文字变成 exit code）：
 
 ```
 $ .venv-workbench/bin/python scripts/check_test_receipt.py \
-      ~/.finance-runtime/test-receipts/20260913T220714Z-7a86ce4e.json \
-      --expect-revision 7a86ce4e2bbb5b31a9e41d92bf527123bf1ed0bf
-  读数     passed=9657 failed=0 error=0 skipped=77
+      ~/.finance-runtime/test-receipts/20260914T022225Z-b916091e.json \
+      --expect-revision b916091e
+  读数     passed=9671 failed=0 error=0 skipped=77
   ✓ revision 一致   ✓ 解释器一致   ✓ python 版本一致   ✓ 依赖指纹一致
-  ✓ 收据来自干净树   ✓ 依赖门禁未被绕过   ✓ 收据 revision == 7a86ce4e2bbb
+  ✓ 收据来自干净树   ✓ 依赖门禁未被绕过   ✓ 收据 revision == b916091e1f43
 ✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。        VALIDATOR_EXIT=0
 ```
 
 差量对账：
 
-| | 基线 `d7e5380` | 最终 `7a86ce4e` | 差量 |
+| | 基线 `d7e5380` | 最终 `b916091e` | 差量 |
 |---|---|---|---|
-| passed | 9554 | 9657 | **+103** |
+| passed | 9554 | 9671 | **+117** |
 | failed | 0 | 0 | **0** |
 | skipped | 77 | 77 | 0 |
 | xfailed | 2 | 2 | 0 |
 
-**+103 逐条点得出名字**，不是「总数不增所以没回归」这种含糊口径：
+**+117 逐条点得出名字**，不是「总数不增所以没回归」这种含糊口径：
 
 | 来源 | 条数 |
 |---|---|
 | `test_observation_extraction_first.py`（A1–A14） | 77 |
-| `test_extraction_first_review_fixes.py`（质检返修回归） | 25 |
+| `test_extraction_first_review_fixes.py`（首轮 S1–S10/N2/N3 25 条 + 复审 R1–R6 14 条） | 39 |
 | `test_guided_reading_daily_seam.py`（2 元组视图不是死代码） | 1 |
-| 合计 | **103** |
+| 合计 | **117** |
+
+> 中途对照：`7a86ce4e`（第一轮返修后）是 9657P，与本行的 9671P 差 14，
+> 正是复审返修新增的那 14 条。
 
 > 耗时 347s → 357s：两次都在安静机器上、同一解释器、同一依赖指纹下取得，
 > 这 10s 属于噪声量级，**不作为耗时结论**。
+
+### 6.2 一次 1 红与它的归因
+
+第二轮返修后的首跑（`/tmp/xfp0/final3-pytest.txt`）出现 **1 红**：
+`test_workbench_conversation_integration.py::test_real_conversation_round_trip_persists_skills_sse_and_three_turns`
+（断言第三轮助手消息仍是 `pending` 而非 `completed`）。
+
+判**负载敏感抖动、非本单回归**，三条依据缺一不可：
+
+1. **零路径交集**——该测试文件全文不含 `observation` / `guided_reading`；本单改动全部
+   落在 observation 服务与 `observation` CLI 子命令内。
+2. **隔离复跑**——单文件连跑两次，6 passed / 6 passed。
+3. **本仓成文前例**——`docs/verification/2026-09-07-forward-call-gate-live.md` 记过
+   **同一条测试**在高负载下转红、降 load 后同文件 109/109 绿，处置同为「负载敏感、非回归」。
+
+随后两次全量（`final4` 9670P、`final5` 9671P）均 exit 0。**两次读数都留档**，
+不按「已知红」掩过去——首跑那份原始输出也在 `/tmp/xfp0/` 里。
 
 ## 7 未验证 / 明确不在本次范围
 
@@ -245,11 +298,12 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 
 ## 8 最终提交与复跑
 
-- 分支 `feat/extraction-first-p0`；被测 revision **`7a86ce4e`**
+- 分支 `feat/extraction-first-p0`；被测 revision **`b916091e`**
 - 交接 `docs/handoffs/inflight/feat-extraction-first-p0.md`（状态）+
   `docs/handoffs/2026-09-14-extraction-first-p0-review-fixes.md`（背景全文）
 - 复跑：`git worktree add <新树> `7a86ce4e`` → §6 那八条命令 → 变异按 §4 手改复现
   （每次改前清 `__pycache__`）。**跑全量期间不要碰那棵树**——本页 §0 就是这么栽的。
-- **未推、未合 main。** `gitea/main` 已从 `d7e5380` 前移到 `1fef3d27`；合并前按
+- **未推、未合 main。** `gitea/main` 现为 `1fef3d27`；
+  `git merge-tree --write-tree gitea/main HEAD` 预演 **0 冲突**（`/tmp/xfp0/mergetree.txt`）。合并前按
   「比较基准是目标分支不是快照」重新 diff，并对工单 INDEX 这个热文件跑
   `git merge-tree` 列新造冲突。
