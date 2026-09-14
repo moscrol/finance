@@ -1,0 +1,280 @@
+{
+  "target_revision": "24a79124102fada7af2db456113e4951fde6ec7f",
+  "notes": [
+    "Two 8039/4 runs belong to dirty main checkout b4a35fa2, not the implementation worktree.",
+    "The attempted isolation receipt at 052055 collected zero tests (exit 4).",
+    "Targeted tests overlap; do not add their counts. No full-suite conclusion in this review.",
+    "Home paths replaced by ~ in receipt copies; SHA256 records original source bytes."
+  ],
+  "receipts": [
+    {
+      "source": "~/.finance-runtime/test-receipts/20260914T051013Z-b4a35fa2.json",
+      "source_sha256": "9a5988c780f93adb39434bfdbbd05a63c44bcef3ae09849c09bfabd68437bfc3",
+      "source_bytes": 2309,
+      "receipt": {
+        "interpreter": "~/finance-workspace-private/.venv-workbench/bin/python",
+        "python_version": "3.12.13",
+        "dependency_fingerprint": "3328bed61f3e21ea",
+        "tree": "~/finance-workspace-private",
+        "revision": "b4a35fa2c143d152f4a87162f5fc044325d566a8",
+        "branch": "HEAD",
+        "dirty": true,
+        "dirty_paths": [
+          "intelligence/services/river.py",
+          "intelligence/services/river_query.py",
+          "intelligence/services/river_window.py",
+          "market_feature_store/cli.py",
+          "market_feature_store/consumption_registry.yaml",
+          "market_feature_store/schema.sql",
+          "market_feature_store/sync/sync_eastmoney_fund_flow.py",
+          "market_feature_store/sync/sync_fupanhui_theme_flow_daily.py",
+          "market_feature_store/sync/sync_theme_capital_from_baskets.py",
+          "market_feature_store/trading_days.py",
+          "scripts/build_bp_public.py",
+          "scripts/build_registry.py",
+          "scripts/check_daily_review_data.py",
+          "scripts/check_path_literals.py",
+          "scripts/moneyflow/README.md",
+          "scripts/moneyflow/baidu_share.py",
+          "scripts/moneyflow/cdn_chunks.py",
+          "scripts/moneyflow/l2_paths.py",
+          "scripts/moneyflow/moneyflow.py",
+          "scripts/moneyflow/process_l2_archive.py",
+          "scripts/moneyflow/run_l2_from_share.py",
+          "scripts/moneyflow/run_l2_pipeline.sh",
+          "scripts/moneyflow/write_to_duckdb.py",
+          "scripts/render_bp_pdf.py",
+          "tests/test_build_bp_public.py",
+          "tests/test_code_map.py",
+          "tests/test_l2_file_pipeline.py",
+          "tests/test_river_recorded_at.py",
+          "tests/test_sync_eastmoney_fund_flow.py",
+          "tests/test_theme_capital_from_baskets.py"
+        ],
+        "worktree_dirty_total": 112,
+        "dependency_gate_bypassed": false,
+        "target": "~/finance-workspace-private",
+        "counts": {
+          "passed": 8039,
+          "failed": 4,
+          "error": 0,
+          "skipped": 8
+        },
+        "failed_ids": [
+          "intelligence/tests/test_conversation_orchestrator.py::test_completed_stream_persists_human_readable_answer",
+          "tests/test_scripts_module_references.py::test_dash_m_module_references_resolve",
+          "tests/test_scripts_module_references.py::test_import_statement_module_references_resolve",
+          "tests/test_theme_capital_from_baskets.py::test_load_ticks_scales_price_and_keeps_active_side"
+        ],
+        "exit_status": 1,
+        "finished_at": "2026-09-14T05:10:13+00:00"
+      }
+    },
+    {
+      "source": "~/.finance-runtime/test-receipts/20260914T052007Z-b4a35fa2.json",
+      "source_sha256": "302b25e78891c77c172c3de7243cf5be8f1c9fee34bf1ab7c33fd659018f5cf1",
+      "source_bytes": 2309,
+      "receipt": {
+        "interpreter": "~/finance-workspace-private/.venv-workbench/bin/python",
+        "python_version": "3.12.13",
+        "dependency_fingerprint": "3328bed61f3e21ea",
+        "tree": "~/finance-workspace-private",
+        "revision": "b4a35fa2c143d152f4a87162f5fc044325d566a8",
+        "branch": "HEAD",
+        "dirty": true,
+        "dirty_paths": [
+          "intelligence/services/river.py",
+          "intelligence/services/river_query.py",
+          "intelligence/services/river_window.py",
+          "market_feature_store/cli.py",
+          "market_feature_store/consumption_registry.yaml",
+          "market_feature_store/schema.sql",
+          "market_feature_store/sync/sync_eastmoney_fund_flow.py",
+          "market_feature_store/sync/sync_fupanhui_theme_flow_daily.py",
+          "market_feature_store/sync/sync_theme_capital_from_baskets.py",
+          "market_feature_store/trading_days.py",
+          "scripts/build_bp_public.py",
+          "scripts/build_registry.py",
+          "scripts/check_daily_review_data.py",
+          "scripts/check_path_literals.py",
+          "scripts/moneyflow/README.md",
+          "scripts/moneyflow/baidu_share.py",
+          "scripts/moneyflow/cdn_chunks.py",
+          "scripts/moneyflow/l2_paths.py",
+          "scripts/moneyflow/moneyflow.py",
+          "scripts/moneyflow/process_l2_archive.py",
+          "scripts/moneyflow/run_l2_from_share.py",
+          "scripts/moneyflow/run_l2_pipeline.sh",
+          "scripts/moneyflow/write_to_duckdb.py",
+          "scripts/render_bp_pdf.py",
+          "tests/test_build_bp_public.py",
+          "tests/test_code_map.py",
+          "tests/test_l2_file_pipeline.py",
+          "tests/test_river_recorded_at.py",
+          "tests/test_sync_eastmoney_fund_flow.py",
+          "tests/test_theme_capital_from_baskets.py"
+        ],
+        "worktree_dirty_total": 112,
+        "dependency_gate_bypassed": false,
+        "target": "~/finance-workspace-private",
+        "counts": {
+          "passed": 8039,
+          "failed": 4,
+          "error": 0,
+          "skipped": 8
+        },
+        "failed_ids": [
+          "intelligence/tests/test_conversation_orchestrator.py::test_completed_stream_persists_human_readable_answer",
+          "tests/test_scripts_module_references.py::test_dash_m_module_references_resolve",
+          "tests/test_scripts_module_references.py::test_import_statement_module_references_resolve",
+          "tests/test_theme_capital_from_baskets.py::test_load_ticks_scales_price_and_keeps_active_side"
+        ],
+        "exit_status": 1,
+        "finished_at": "2026-09-14T05:20:07+00:00"
+      }
+    },
+    {
+      "source": "~/.finance-runtime/test-receipts/20260914T052055Z-ec54ef55.json",
+      "source_sha256": "ff9077fc5fbf92595eaa5f9f68619983477f43f6e567fa27387978c8258b4171",
+      "source_bytes": 862,
+      "receipt": {
+        "interpreter": "~/finance-workspace-private/.venv-workbench/bin/python",
+        "python_version": "3.12.13",
+        "dependency_fingerprint": "3328bed61f3e21ea",
+        "tree": "~/fwp-wt-e2-impl-p1",
+        "revision": "ec54ef556864fe48f1e74564c4343e156421701a",
+        "branch": "feat/e2-material-contract-impl",
+        "dirty": true,
+        "dirty_paths": [
+          "intelligence/services/user_task.py",
+          "intelligence/tests/test_e2_top_level_regions.py"
+        ],
+        "worktree_dirty_total": 3,
+        "dependency_gate_bypassed": false,
+        "target": "intelligence/tests/test_conversation_orchestrator.py::test_completed_stream_persists_human_readable_answer intelligence/tests/test_scripts_module_references.py",
+        "counts": {
+          "passed": 0,
+          "failed": 0,
+          "error": 0,
+          "skipped": 0
+        },
+        "failed_ids": [],
+        "exit_status": 4,
+        "finished_at": "2026-09-14T05:20:55+00:00"
+      }
+    },
+    {
+      "source": "~/.finance-runtime/test-receipts/20260914T045725Z-ec54ef55.json",
+      "source_sha256": "891de689fdb9a3e092ac29c592d44942509dccdb4502f9d1a984f3f11e1374cc",
+      "source_bytes": 809,
+      "receipt": {
+        "interpreter": "~/finance-workspace-private/.venv-workbench/bin/python",
+        "python_version": "3.12.13",
+        "dependency_fingerprint": "3328bed61f3e21ea",
+        "tree": "~/fwp-wt-e2-impl-p1",
+        "revision": "ec54ef556864fe48f1e74564c4343e156421701a",
+        "branch": "feat/e2-material-contract-impl",
+        "dirty": true,
+        "dirty_paths": [
+          "intelligence/services/user_task.py",
+          "intelligence/tests/test_e2_top_level_regions.py"
+        ],
+        "worktree_dirty_total": 3,
+        "dependency_gate_bypassed": false,
+        "target": "intelligence/tests/test_e2_top_level_regions.py intelligence/tests/test_fine_grained_route_length_gate.py",
+        "counts": {
+          "passed": 40,
+          "failed": 0,
+          "error": 0,
+          "skipped": 0
+        },
+        "failed_ids": [],
+        "exit_status": 0,
+        "finished_at": "2026-09-14T04:57:25+00:00"
+      }
+    },
+    {
+      "source": "~/.finance-runtime/test-receipts/20260914T054057Z-24a79124.json",
+      "source_sha256": "a7fab79105942873e7a710a3c327d0a2cd806d635f91828c2e69c2b829b64b43",
+      "source_bytes": 792,
+      "receipt": {
+        "interpreter": "~/finance-workspace-private/.venv-workbench/bin/python",
+        "python_version": "3.12.13",
+        "dependency_fingerprint": "3328bed61f3e21ea",
+        "tree": "/private/tmp/e2-p1-qc-24a79124",
+        "revision": "24a79124102fada7af2db456113e4951fde6ec7f",
+        "branch": "docs/qc-e2-p1-24a79124",
+        "dirty": false,
+        "dirty_paths": [],
+        "worktree_dirty_total": 0,
+        "dependency_gate_bypassed": false,
+        "target": "intelligence/tests/test_e2_top_level_regions.py intelligence/tests/test_user_task.py intelligence/tests/test_fine_grained_route_length_gate.py intelligence/tests/test_route_composition_gate.py",
+        "counts": {
+          "passed": 72,
+          "failed": 0,
+          "error": 0,
+          "skipped": 0
+        },
+        "failed_ids": [],
+        "exit_status": 0,
+        "finished_at": "2026-09-14T05:40:57+00:00"
+      }
+    },
+    {
+      "source": "~/.finance-runtime/test-receipts/20260914T054341Z-24a79124.json",
+      "source_sha256": "629b5d339b1b02443c9ccc9b4b5cbd613ab9a6a19e3a51d3ff71119cbf5bea1f",
+      "source_bytes": 638,
+      "receipt": {
+        "interpreter": "~/finance-workspace-private/.venv-workbench/bin/python",
+        "python_version": "3.12.13",
+        "dependency_fingerprint": "3328bed61f3e21ea",
+        "tree": "/private/tmp/e2-p1-qc-24a79124",
+        "revision": "24a79124102fada7af2db456113e4951fde6ec7f",
+        "branch": "docs/qc-e2-p1-24a79124",
+        "dirty": false,
+        "dirty_paths": [],
+        "worktree_dirty_total": 0,
+        "dependency_gate_bypassed": false,
+        "target": "tests/test_scripts_module_references.py",
+        "counts": {
+          "passed": 3,
+          "failed": 0,
+          "error": 0,
+          "skipped": 0
+        },
+        "failed_ids": [],
+        "exit_status": 0,
+        "finished_at": "2026-09-14T05:43:41+00:00"
+      }
+    },
+    {
+      "source": "~/.finance-runtime/test-receipts/20260914T054625Z-24a79124.json",
+      "source_sha256": "7e3549457344534501d36d3c587cb32dde3f8f419db40058e2be361cd936a717",
+      "source_bytes": 856,
+      "receipt": {
+        "interpreter": "~/finance-workspace-private/.venv-workbench/bin/python",
+        "python_version": "3.12.13",
+        "dependency_fingerprint": "3328bed61f3e21ea",
+        "tree": "/private/tmp/e2-p1-qc-24a79124",
+        "revision": "24a79124102fada7af2db456113e4951fde6ec7f",
+        "branch": "docs/qc-e2-p1-24a79124",
+        "dirty": true,
+        "dirty_paths": [
+          "scripts/e2_boundary_review_probe.py"
+        ],
+        "worktree_dirty_total": 1,
+        "dependency_gate_bypassed": false,
+        "target": "intelligence/tests/test_e2_top_level_regions.py intelligence/tests/test_fine_grained_route_length_gate.py intelligence/tests/test_conversation_orchestrator.py::test_completed_stream_persists_human_readable_answer",
+        "counts": {
+          "passed": 41,
+          "failed": 0,
+          "error": 0,
+          "skipped": 0
+        },
+        "failed_ids": [],
+        "exit_status": 0,
+        "finished_at": "2026-09-14T05:46:25+00:00"
+      }
+    }
+  ]
+}
