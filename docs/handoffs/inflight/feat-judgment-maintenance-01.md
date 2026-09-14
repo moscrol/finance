@@ -11,23 +11,24 @@
 
 ## 当前状态
 - QC 第六轮修复 **`a3cf9d4b`**（J11 绑定解析端市场日、J12 复现节点独立身份消环）已提交，树干净。
-- 背景：QC 二至六轮原固定反例均转绿，扩大边界累计确证 24 项，本轨占 11 项（J2–J12）均已修。证据 `…/reviews/research-evolution-round6-qc-20260913/`。
+- 背景：QC 二至六轮反例均转绿，累计确证 24 项、本轨 11 项（J2–J12）均已修。证据 `…/research-evolution-round6-qc-20260913/`。
 - **06 联测请用 `a3cf9d4b`。**
 
 ## 已验证
-- 模块 110 passed（J2–J12 回归均先红后绿）；全量 9650 passed / 77 skipped（干净树 @a3cf9d4b，`-rf` 无失败）；ruff 干净。
-- QC 第六轮安全断言 6 passed；第一至五轮归档探针 01 组复跑不回归（与 QC 归档归一身份字段后逐字节一致）。
+- 模块 110 passed（回归均先红后绿）；全量 9650 passed / 77 skipped（干净树 @a3cf9d4b，`-rf` 无失败）；ruff 干净。
+- QC 第六轮断言 6 passed；第一至五轮归档探针复跑不回归（归一身份后与归档逐字节一致）。
 
 ## 未验证 / 已知边界
-- 未与 02/04/05 的新 SHA 做跨轨联测（06 的职责）。
-- J12 附带语义（QC 点名交 06 验证）：旧 snooze/close 绑历史节点 id，不自动作用于复现的 open 项（实测落 rejected，open 保持 1）；是否允许继承旧动作是产品决定。
-- 纯日期 / naive recorded_at 不造精确先后，但会触发 ambiguous_version_order；dedup_key 歧义时加键，与修复前台账里同一问题的旧 key 不匹配（06 联测留意衔接）。
+- 未与 02/04/05 新 SHA 跨轨联测（06 的职责）。
+- J12：旧 snooze/close 绑历史节点 id，不作用于复现 open 项（实测 rejected、open=1）——06 验收项见「下一步」。
+- 纯日期 / naive recorded_at 触发 ambiguous_version_order；dedup_key 歧义时加键，与修复前台账旧 key 不匹配（06 留意衔接）。
 
 ## 下一步
 - 等 06 用 `a3cf9d4b` 联测；用户确认后才谈合并 main（合前跑全仓等价 CI）。
+- **06 明确验收项（QC round-11）**：A → 歧义 B → 复现 A，分别带旧 snooze、close——查完整处理后的 rejected、复现项 open=1、历史链与界面反馈，不只看 assess 的 open 数；是否继承旧动作需产品裁决。
 
 ## 踩过的坑
-- 报告 id / 项 id 全由内容派生：改判定规则必须 `JM_FIXTURES_UPDATE=1` 重生成夹具并把 diff 一起送审。
+- 报告/项 id 全由内容派生：改判定规则必须 `JM_FIXTURES_UPDATE=1` 重生成夹具并送审 diff。
 - 输入侧未知字段会被拒绝（不是忽略）；06 造 `EvidenceVersion` 时 `source_hash` 必填，缺 `recorded_at` 降档不报错。
 - 汇报口径要区分「固定反例集转绿」与「无缺陷」（上轮误报「13 项已修复」）。
 - 交接里引用的 `docs/superpowers/summaries/2026-09-13-*.md` 从未落盘，总结以本文件与 commit message 为准。
