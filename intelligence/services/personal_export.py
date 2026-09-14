@@ -87,8 +87,11 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
         try:
             line = raw_line.decode("utf-8").strip()
         except UnicodeDecodeError:
-            # 坏字节同样不静默丢：可读部分带走，让用户看得见这里出过事。
-            out.append({"_unparsed_line": raw_line.decode("utf-8", errors="replace")})
+            # 坏字节同样不静默丢，而且要**可逆**：`errors="replace"` 把所有坏字节
+            # 压成同一个 `�`，「算」断成的 e7 ae 与「固」断成的 e5 9b 会长得一模一样，
+            # 残片就不再是证据了。`backslashreplace` 把每个坏字节写成 \xNN，
+            # 不同字节仍然不同、原字节可还原（复审三实测）。
+            out.append({"_unparsed_line": raw_line.decode("utf-8", errors="backslashreplace")})
             continue
         if not line:
             continue

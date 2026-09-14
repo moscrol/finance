@@ -850,5 +850,121 @@ class Q3ManualConfirmCannotWriteToAnAbandonedAttempt(Base):
         self.assertEqual(record["extraction_attempt_id"], aid)
 
 
+# =========================================================================== #
+# 第四轮质检（2026-09-14 复审三，4 项 P2）
+# =========================================================================== #
+class U1RevertedDraftGetsItsOwnEventIdentity(Base):
+    """复审三 U1：A→B→A 三版都落盘了，但 **v3 复用了 v1 的事件身份**——
+    动作键 = `draft_submitted|attempt|内容哈希`，v3 与 v1 同内容同尝试，
+    于是 `projected_events` 按 action_key 去重只剩两条提交事件。
+
+    「三版草稿」与「三次提交动作」必须同时成立：台账有三行、事件只有两条，
+    下游数事件的人就会以为用户只写过两次。
+    """
+
+    A = ["题材轨：题材所处阶段是否推进"]
+    B = ["资金轨：板块 / 题材资金流是否延续"]
+
+    def test_three_submissions_yield_three_events(self) -> None:
+        self.draft(variables=self.A)
+        self.draft(variables=self.B)
+        self.draft(variables=self.A)
+        events = self.kinds(osc.EVENT_DRAFT_SUBMITTED)
+        self.assertEqual(len(events), 3, "三次成功提交就该有三条提交事件")
+        self.assertEqual(len({e["event_id"] for e in events}), 3, "事件身份不许复用")
+
+    def test_event_ids_line_up_with_the_draft_rows(self) -> None:
+        self.draft(variables=self.A)
+        self.draft(variables=self.B)
+        self.draft(variables=self.A)
+        key = ox.make_key("u1", AS_OF, CANON)
+        drafts = osc.user_drafts(osc.load_raw(self.ledger()), key=key)
+        self.assertEqual(
+            [d["draft_id"] for d in drafts],
+            [e["draft_id"] for e in self.kinds(osc.EVENT_DRAFT_SUBMITTED)],
+        )
+
+    def test_immediate_rerun_is_still_one_event(self) -> None:
+        """给 v3 独立身份，不能把「同一条命令连跑两次」也变成两条事件。"""
+        self.draft(variables=self.A)
+        self.draft(variables=self.A)
+        self.assertEqual(len(self.kinds(osc.EVENT_DRAFT_SUBMITTED)), 1)
+
+
+class U2ConfirmIdentityIncludesTheSourceVersion(Base):
+    """复审三 U2：A 确认 → B 确认 → A 确认，当前有效草稿是 v3，
+    第三次确认却因内容哈希撞上第一次而被去重，返回的 `source_draft_id` 指向 v1。
+
+    确认动作的身份漏了「确认的是哪一版」——同内容不同来源版本是两个动作。
+    """
+
+    A = ["题材轨：题材所处阶段是否推进"]
+    B = ["资金轨：板块 / 题材资金流是否延续"]
+
+    def _confirm(self) -> dict:
+        code, out = _run(
+            ["observation", "confirm", "--user", "u1", "--as-of", AS_OF, "--from-draft", ENTITY,
+             "--db-path", "/tmp/no-such.duckdb", "--json"]
+        )
+        self.assertEqual(code, 0, out)
+        return json.loads(out)
+
+    def test_third_confirm_points_at_the_third_version(self) -> None:
+        self.draft(variables=self.A)
+        first = self._confirm()
+        self.draft(variables=self.B)
+        second = self._confirm()
+        self.draft(variables=self.A)
+        third = self._confirm()
+
+        key = ox.make_key("u1", AS_OF, CANON)
+        drafts = osc.user_drafts(osc.load_raw(self.ledger()), key=key)
+        self.assertEqual(len(drafts), 3)
+        self.assertEqual(third["source_draft_id"], drafts[2]["draft_id"],
+                         "确认的是当前这一版，不是内容相同的那个老版本")
+        self.assertNotEqual(third["source_draft_id"], first["source_draft_id"])
+        self.assertNotEqual(second["source_draft_id"], third["source_draft_id"])
+
+    def test_same_version_reconfirm_is_still_deduped(self) -> None:
+        """来源进身份，不能把「同一版重复确认」的去重一起修坏。"""
+        self.draft(variables=self.A)
+        first = self._confirm()
+        again = self._confirm()
+        self.assertEqual(again["id"], first["id"])
+        self.assertEqual(len(self.kinds(osc.EVENT_SCRIPT_CONFIRMED)), 1)
+
+
+class U3ExportPreservesTornBytesReversibly(Base):
+    """复审三 U3：`errors="replace"` 把不同坏字节压成同一个 `�`，
+    原审查要的是**可逆保留**——残片是证据，证据不能有损。"""
+
+    def _export_one(self, tail: bytes) -> str:
+        from intelligence.services import personal_export
+
+        us = self.space()
+        us.root.mkdir(parents=True, exist_ok=True)
+        self.ledger().write_bytes(b'{"id":"os-1","as_of":"' + AS_OF.encode() + b'"}\n' + tail)
+        rows = personal_export.export_ledger(us).parts["observation_scripts"]
+        bad = [r for r in rows if "_unparsed_line" in r]
+        self.assertEqual(len(bad), 1)
+        return bad[0]["_unparsed_line"]
+
+    def test_different_bad_bytes_stay_distinguishable(self) -> None:
+        a = self._export_one(b'{"n":"\xe7\xae')   # 「算」的前两字节
+        b = self._export_one(b'{"n":"\xe5\x9b')   # 「固」的前两字节
+        self.assertNotEqual(a, b, "不同坏字节压成同一个替换符 = 证据有损")
+
+    def test_the_original_bytes_can_be_recovered(self) -> None:
+        text = self._export_one(b'{"n":"\xe7\xae')
+        self.assertIn("\\xe7", text)
+        self.assertIn("\\xae", text)
+
+    def test_ledger_reader_is_unaffected(self) -> None:
+        """导出侧改表示法，台账读取面的行为不变（好行照读、残片照跳）。"""
+        self.ledger().parent.mkdir(parents=True, exist_ok=True)
+        self.ledger().write_bytes(b'{"id":"os-1"}\n{"n":"\xe7\xae')
+        self.assertEqual([r["id"] for r in osc.load_raw(self.ledger())], ["os-1"])
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
