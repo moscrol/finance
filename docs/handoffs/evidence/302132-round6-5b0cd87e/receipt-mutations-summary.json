@@ -1,0 +1,69 @@
+[
+  {
+    "case": "baseline_real_artifacts",
+    "rc": 0,
+    "output_exists": true,
+    "stdout": "{\"verdict\": \"PASS\", \"failed\": [], \"n\": 33}",
+    "stderr_tail": "",
+    "verdict": "PASS",
+    "failed": [],
+    "n": 33
+  },
+  {
+    "case": "verify_other_parquet",
+    "rc": 0,
+    "output_exists": true,
+    "stdout": "{\"verdict\": \"PASS\", \"failed\": [], \"n\": 25}",
+    "stderr_tail": "",
+    "verdict": "PASS",
+    "failed": [],
+    "n": 25
+  },
+  {
+    "case": "missing_parallel_source_md5",
+    "rc": 0,
+    "output_exists": true,
+    "stdout": "{\"verdict\": \"PASS\", \"failed\": [], \"n\": 25}",
+    "stderr_tail": "",
+    "verdict": "PASS",
+    "failed": [],
+    "n": 25
+  },
+  {
+    "case": "missing_nested_ma26",
+    "rc": 1,
+    "output_exists": false,
+    "stdout": "",
+    "stderr_tail": "Traceback (most recent call last):\n  File \"/private/tmp/backfill-302132-qc-5b0cd87e/scripts/verify_302132_backfill_acceptance.py\", line 449, in <module>\n    raise SystemExit(main())\n                     ^^^^^^\n  File \"/private/tmp/backfill-302132-qc-5b0cd87e/scripts/verify_302132_backfill_acceptance.py\", line 411, in main\n    t9, (tp[\"ma26\"], tp[\"std26\"], tp[\"up_value\"],\n         ~~^^^^^^^^\nKeyError: 'ma26'\n"
+  },
+  {
+    "case": "malformed_revision",
+    "rc": 0,
+    "output_exists": true,
+    "stdout": "{\"verdict\": \"PASS\", \"failed\": [], \"n\": 25}",
+    "stderr_tail": "",
+    "verdict": "PASS",
+    "failed": [],
+    "n": 25
+  },
+  {
+    "case": "child_ok_false",
+    "rc": 0,
+    "output_exists": true,
+    "stdout": "{\"verdict\": \"PASS\", \"failed\": [], \"n\": 25}",
+    "stderr_tail": "",
+    "verdict": "PASS",
+    "failed": [],
+    "n": 25
+  },
+  {
+    "case": "empty_expected_window_counts",
+    "rc": 0,
+    "output_exists": true,
+    "stdout": "{\"verdict\": \"PASS\", \"failed\": [], \"n\": 25}",
+    "stderr_tail": "",
+    "verdict": "PASS",
+    "failed": [],
+    "n": 25
+  }
+]

@@ -1,0 +1,24 @@
+{
+  "unchanged": true,
+  "sha256": {
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/dryrun-acceptance-v2.json": "4064e41f1d84074ba925fb9842450e9e29e565d88e9383a84f7a5b53bc99c487",
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/dryrun-acceptance-v3.json": "cb5d719c4c97e96684460d3b66637034ffc49d8c6464b695bb014dfede82f301",
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/dryrun-acceptance-v4.json": "40949bc44e7c0b48ea31cd34e0917dc7a6ed9fd7c045f66657f4ba1e8b9dcca3",
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/dryrun-acceptance-v5.json": "0829c1b847f34aa53e55bd269b04fbeb93fd652cc4f5e9d5339ea14a7baee97f",
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/dryrun-acceptance.json": "4ec9277b3f83ea906c111014c2a48a1e0e531d56009f2ec3685c90f73b50ccfc",
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/fake-prod.duckdb.bak-20260914T134449-efc2b64d8870.receipt.json": "235ef405fd4b07f300753d2768a409863cfcfaf605840338ffc124f7b8ec1c1e",
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/fake-prod.duckdb.bak-20260914T134526-11bad970c4e1.receipt.json": "48b94f9e0012ce0ec4dfd22e84a542f6ae758b816b9079520805d18275265d0c",
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/fake-prod.duckdb.repair-backfill-execution.11bad970c4e1.json": "b12b9130c7a99ca71a705a87375592daaf3c8a881eb11dc5adb5aa8e1994cd44",
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/fake-prod.duckdb.repair-backfill-execution.efc2b64d8870.json": "849f6638414da78ddc1178b8231183fc1bb4615fb9dabd47c1452806c94248c1",
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/fake-prod.duckdb.staging.backfill-report.11bad970c4e1.json": "6bbb5d419ad1cc4f3b51e23e237198ec0c264d162c203ca57300164bc10524ea",
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/fake-prod.duckdb.staging.backfill-report.efc2b64d8870.json": "67e9f8ba812dd2f7d4e67002267a6a6a93deb7363550c70c2af525b80ecd48ff",
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run5-run6/fake-prod.duckdb.repair-backfill-execution.1a34c356050a.json": "0cda5af051397563403bd5a7b6b39a46cbd56bf4d97c79f7dd5b272b20ea5dd3",
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run5-run6/fake-prod.duckdb.repair-backfill-execution.432521cb81cd.json": "98aefceb15c920f671cbd18efe491ad5940bcb9606cf2a7e934e9dfbc8a227ff",
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run5-run6/fake-prod.duckdb.staging.backfill-report.1a34c356050a.json": "84bdd122b5d0052240d7bf152e1213a86a32af91679906247984517a87f19c35",
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run5-run6/fake-prod.duckdb.staging.backfill-report.432521cb81cd.json": "2b5c89627523a4e821605c828566447811384fc59ab69d34304a7f4e1fc8c287",
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run7-run8/fake-prod.duckdb.repair-backfill-execution.205a94a4b531.json": "31c271810cc2d946a3f06da08628553b0a4dc712f65374f5224a29f8ae89469c",
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run7-run8/fake-prod.duckdb.repair-backfill-execution.cabdeaca07b7.json": "5703e9eac1fee66da1bbf551d7a13aec92aa0917bd2ec0c1eea6b8082f5ad144",
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run7-run8/fake-prod.duckdb.staging.backfill-report.205a94a4b531.json": "a29189496887d9057cfed953d7545aa99275de04dc9ffbbecf7fea52161cbc85",
+    "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run7-run8/fake-prod.duckdb.staging.backfill-report.cabdeaca07b7.json": "bf4918ac7ea4793dd3280843c8a96be3edd61be472eb18b1ac0def989326ce3f"
+  }
+}

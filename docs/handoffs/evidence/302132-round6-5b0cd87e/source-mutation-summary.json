@@ -1,0 +1,12 @@
+[
+  {
+    "case": "output_and_source_corrupted_together",
+    "rc": 0,
+    "output_exists": true,
+    "stdout": "{\"verdict\": \"PASS\", \"failed\": [], \"n\": 25}",
+    "stderr_tail": "",
+    "verdict": "PASS",
+    "failed": [],
+    "n": 25
+  }
+]

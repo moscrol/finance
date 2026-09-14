@@ -1,0 +1,42 @@
+[
+  {
+    "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run5-run6/fake-prod.duckdb.repair-backfill-execution.1a34c356050a.json",
+    "sha256": "0cda5af051397563403bd5a7b6b39a46cbd56bf4d97c79f7dd5b272b20ea5dd3",
+    "v5_prefix": "0cda5af05139"
+  },
+  {
+    "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run5-run6/fake-prod.duckdb.repair-backfill-execution.432521cb81cd.json",
+    "sha256": "98aefceb15c920f671cbd18efe491ad5940bcb9606cf2a7e934e9dfbc8a227ff",
+    "v5_prefix": "98aefceb15c9"
+  },
+  {
+    "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run5-run6/fake-prod.duckdb.staging.backfill-report.1a34c356050a.json",
+    "sha256": "84bdd122b5d0052240d7bf152e1213a86a32af91679906247984517a87f19c35",
+    "v5_prefix": "84bdd122b5d0"
+  },
+  {
+    "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run5-run6/fake-prod.duckdb.staging.backfill-report.432521cb81cd.json",
+    "sha256": "2b5c89627523a4e821605c828566447811384fc59ab69d34304a7f4e1fc8c287",
+    "v5_prefix": "2b5c89627523"
+  },
+  {
+    "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run7-run8/fake-prod.duckdb.repair-backfill-execution.205a94a4b531.json",
+    "sha256": "31c271810cc2d946a3f06da08628553b0a4dc712f65374f5224a29f8ae89469c",
+    "v5_prefix": "31c271810cc2"
+  },
+  {
+    "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run7-run8/fake-prod.duckdb.repair-backfill-execution.cabdeaca07b7.json",
+    "sha256": "5703e9eac1fee66da1bbf551d7a13aec92aa0917bd2ec0c1eea6b8082f5ad144",
+    "v5_prefix": "5703e9eac1fe"
+  },
+  {
+    "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run7-run8/fake-prod.duckdb.staging.backfill-report.205a94a4b531.json",
+    "sha256": "a29189496887d9057cfed953d7545aa99275de04dc9ffbbecf7fea52161cbc85",
+    "v5_prefix": "a29189496887"
+  },
+  {
+    "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run7-run8/fake-prod.duckdb.staging.backfill-report.cabdeaca07b7.json",
+    "sha256": "bf4918ac7ea4793dd3280843c8a96be3edd61be472eb18b1ac0def989326ce3f",
+    "v5_prefix": "bf4918ac7ea4"
+  }
+]
