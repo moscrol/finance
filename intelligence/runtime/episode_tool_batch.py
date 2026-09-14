@@ -353,6 +353,23 @@ class EpisodeToolBatchSession:
         # 唯一不允许的形状，所以这里不吞。
         self.on_dispatch: Callable[[DispatchIntent], None] | None = None
 
+    def bind_scope(
+        self, *, registry: ResearchToolRegistry, context: ResearchRunContext
+    ) -> EpisodeScope | None:
+        """Synchronize the diagnostic/runner view under the batch lock."""
+        with self._lock:
+            self._bind_scope_locked(registry=registry, context=context)
+            return self._scope
+
+    def _bind_scope_locked(
+        self, *, registry: ResearchToolRegistry, context: ResearchRunContext
+    ) -> ResearchToolRegistry:
+        registry = registry.for_context(context)
+        if self._scope is not None:
+            self._scope = self._scope.for_execution(context=context, registry=registry)
+            registry = self._scope.registry
+        return registry
+
     def menu(
         self,
         *,
@@ -365,7 +382,6 @@ class EpisodeToolBatchSession:
         此刻必超时的工具。领域只申报 ``min_window_seconds``，装不装得下由这里判。
         """
 
-        registry = registry.for_context(context)
         would_grant = context.deadline.stage_timeout(
             tool_batch_timeout_seconds(context.policy)
         )
@@ -373,6 +389,7 @@ class EpisodeToolBatchSession:
         visible: list[str] = []
         hidden: list[tuple[str, float]] = []
         with self._lock:
+            registry = self._bind_scope_locked(registry=registry, context=context)
             for spec in registry.authorized_specs(context.contract.allowed_capabilities):
                 if (
                     spec.query_scope == "episode"
@@ -407,8 +424,8 @@ class EpisodeToolBatchSession:
         turn_elapsed_at_dispatch: float | None = None,
         request_extras: Mapping[str, Mapping[str, object]] | None = None,
     ) -> ToolBatchResult:
-        registry = registry.for_context(context)
         with self._lock:
+            registry = self._bind_scope_locked(registry=registry, context=context)
             return self._execute_locked(
                 calls,
                 registry=registry,

@@ -403,6 +403,167 @@ def test_rebinding_strips_late_prefetch_injection_without_relaxing_existing_ceil
     assert bound.authorized_specs(context.contract.allowed_capabilities) == ()
 
 
+@pytest.mark.parametrize("replacement_io", ["unknown", "external_or_mixed"])
+def test_batch_replacement_denial_uses_current_runner_and_retains_scope_history(
+    replacement_io,
+):
+    _, context = _fixture("local_only")
+    attempts, events, dispatches = [], [], []
+    original = _registry(attempts)
+
+    class Sink:
+        def emit(self, kind, payload):
+            events.append((kind, dict(payload)))
+
+    scope = EpisodeScope(
+        episode_id=context.contract.task_id,
+        user_id="fixture",
+        context=context,
+        registry=original,
+        event_sink=Sink(),
+    )
+    scope.record_invocation("earlier_tool")
+    scope.record_derive_mismatch("earlier_mismatch")
+    batch = EpisodeToolBatchSession(scope=scope)
+    batch.on_dispatch = dispatches.append
+    replacement = original.with_specs(
+        replace(
+            original.resolve("certified_read"),
+            io_effect=replacement_io,
+            parse_arguments=original.resolve("uncertified_read").parse_arguments,
+        )
+    )
+    result = batch.execute(
+        (ModelToolCall("replacement", "certified_read", {}),),
+        registry=replacement,
+        context=context,
+        remaining_slots=1,
+    )
+    assert result.executed_count == 0 and attempts == dispatches == []
+    denial = next(p for k, p in events if k == TOOL_ERROR)
+    assert denial["stage"] == "authorize" and "IO" in denial["reason"]
+    assert denial["capability"] == "finance_query"
+    current = batch.bind_scope(registry=replacement, context=context)
+    assert not current.authorize("certified_read").allowed
+    assert current.invoked_tools is scope.invoked_tools
+    assert current._derive_mismatches is scope._derive_mismatches
+    assert "earlier_tool" in current.invoked_tools
+    assert "earlier_mismatch" in current._derive_mismatches
+    # An old immutable view remains a receipt of its own runner set.
+    assert scope.authorize("certified_read").allowed
+
+
+def test_repair_same_name_unknown_runner_has_matching_scope_denial_and_no_dispatch():
+    frame, context = _fixture("local_only")
+    attempts, states, live, dispatches = [], [], [], []
+    registry = _registry(attempts)
+
+    class Model:
+        repair = False
+
+        def complete(self, *, messages, tools, timeout):
+            if self.repair:
+                self.repair = False
+                assert "certified_read" not in {d["function"]["name"] for d in tools}
+                return ModelTurn(
+                    "",
+                    (ModelToolCall("repair-bad", "certified_read", {}),),
+                    "scripted",
+                    "",
+                )
+            return ModelTurn(
+                json.dumps(
+                    {
+                        "status": "partial",
+                        "draft": "现有证据不足。",
+                        "gaps": ["缺少证据"],
+                        "bindings": [
+                            {
+                                "output_id": o.output_id,
+                                "evidence_hashes": [],
+                                "gap": "缺少证据",
+                            }
+                            for o in context.contract.required_outputs
+                            if o.required
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                (),
+                "scripted",
+                "",
+            )
+
+    model = Model()
+    episode = ContinuousAgentEpisode(model, event_sink=live.append)
+    previous = episode.run(
+        task_frame=frame, context=context, registry=registry, _continuation_sink=states
+    )
+    state = states[0]
+    state.registry = registry.with_specs(
+        replace(
+            registry.resolve("certified_read"),
+            io_effect="unknown",
+            parse_arguments=registry.resolve("uncertified_read").parse_arguments,
+        )
+    )
+    original_dispatch = state.tool_session.on_dispatch
+
+    def record(intent):
+        dispatches.append(intent)
+        original_dispatch(intent)
+
+    state.tool_session.on_dispatch = record
+    goal = RepairGoal(
+        episode_id=context.contract.task_id,
+        repair_goal_id="replacement-repair",
+        cycle=1,
+        missing_answer_elements=(),
+        unsupported_claims=(),
+        missing_evidence_modes=(),
+        attempted_actions=(),
+        evidence_progress=CoverageDelta(0, 0, 0),
+        remaining_calls=1,
+        remaining_seconds=8,
+        reopen_tools=True,
+    )
+    model.repair = True
+    outcome = episode.resume(state, previous, goal)
+    assert attempts == dispatches == []
+    # A rejected model request may be recorded; it must never become durable dispatch intent.
+    assert not any(
+        e.kind == "tool_request" and "replay" in e.payload for e in outcome.events
+    )
+    denial = next(
+        e.payload
+        for e in live
+        if e.kind == TOOL_ERROR and e.payload.get("tool_call_id") == "repair-bad"
+    )
+    assert "IO" in denial["reason"]
+    assert not state.episode_scope.authorize("certified_read").allowed
+    assert state.episode_scope.registry is state.registry
+
+
+def test_scope_rebinding_preserves_stricter_ceiling_and_rejects_different_task():
+    _, context = _fixture("local_only")
+    registry = _registry().with_read_scope("material_only")
+    scope = EpisodeScope(
+        episode_id=context.contract.task_id,
+        user_id="fixture",
+        context=context,
+        registry=registry,
+    )
+    rebound = scope.for_execution(context=context, registry=_registry())
+    assert rebound.registry.read_scope == "material_only"
+    assert rebound.allowed_tools() == ()
+    assert (
+        rebound.registry.opening_prefetch == () and rebound.registry.calc_loader is None
+    )
+    _, other_context = _fixture("local_only")
+    with pytest.raises(ValueError, match="different episode"):
+        scope.for_execution(context=other_context, registry=_registry())
+
+
 def test_full_context_binding_preserves_original_registry_identity_and_prefetch():
     _, context = _fixture("full")
     registry = _registry()

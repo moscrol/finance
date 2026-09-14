@@ -2184,6 +2184,16 @@ class ContinuousAgentEpisode:
                 repair_tool_context,
                 contract=downgraded_contract,
             )
+        # 同名 runner/contract 可能在修复入口被替换：Scope 诊断与执行必须
+        # 使用同一份当前注册表，不能只有 state.registry 更新、Scope 仍授权旧实现。
+        rebound_scope = tool_session.bind_scope(
+            registry=registry, context=repair_tool_context,
+        )
+        if rebound_scope is not None:
+            state.episode_scope = rebound_scope
+            registry = rebound_scope.registry
+            state.registry = registry
+            ledger.derive_mismatch_sink = rebound_scope.record_derive_mismatch
         # 修复轮的时钟账，记在动手之前。
         #
         # 这三个数是 judge 那次诊断里 ``timeout_asked`` 的同位物：judge 看着像元凶，
