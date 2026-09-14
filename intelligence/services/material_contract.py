@@ -64,6 +64,8 @@ class MaterialContract:
             raise ValueError("invalid material axes")
         if status in {"constraint_confirmed", "no_constraint_confirmed"} and (authenticity is None or data_scope is None):
             raise ValueError("confirmed material contract requires both axes")
+        if status == "state_unavailable" and (authenticity is not None or data_scope is not None):
+            raise ValueError("unavailable base cannot restore resolved axes")
         continuation = value.get("continuation_requested", False)
         declared = value.get("data_scope_declared", False)
         if not isinstance(continuation, bool) or not isinstance(declared, bool):

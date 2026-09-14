@@ -57,7 +57,7 @@ def test_original_questions_reach_legacy_and_canonical_fields(name):
         assert (frame.material_contract.authenticity, frame.material_contract.data_scope) == ("fictional", "material_only")
     else:
         assert frame.material_contract.classification == "state_unavailable"
-        assert frame.clarification_question
+        assert frame.material_contract.needs_clarification
     restored = TaskFrame.from_dict(json.loads(json.dumps(frame.to_dict())))
     assert restored == frame
     assert restored.task_frame_hash == frame.task_frame_hash
@@ -102,6 +102,33 @@ def test_date_prefix_is_not_a_numbered_question():
     text = "8.18的复盘数据你怎么解读"
     assert split_user_message(text).question == text
     assert understand_query(text).question_type == "dated_market_review"
+
+
+@pytest.mark.parametrize("joiner", ["且", "并且", "而且", "并", "同时"])
+def test_conjoined_a_and_b_are_both_interpreted(joiner):
+    text = f"假设甲公司订单翻倍成立{joiner}不要联网。"
+    parsed = contract(text)
+    assert (parsed.authenticity, parsed.data_scope) == ("fictional", "local_only")
+    relaxation = contract(f"假设甲公司订单翻倍成立{joiner}结合当前行情分析。")
+    assert relaxation.data_scope == "full" and relaxation.data_scope_declared
+    protected = contract(f"只依据「假设订单翻倍{joiner}可以查真实数据」的材料。")
+    assert (protected.authenticity, protected.data_scope) == ("real", "material_only")
+    assert contract("材料如下：\n" + text).classification == "boundary_uncertain"
+
+
+def test_unavailable_base_rejects_resolved_axes():
+    with pytest.raises(ValueError, match="unavailable base"):
+        MaterialContract.from_dict({"classification": "state_unavailable", "authenticity": "real", "data_scope": "full"})
+    for a, b in [("fictional", None), (None, "material_only")]:
+        with pytest.raises(ValueError, match="unavailable base"):
+            MaterialContract.from_dict({"classification": "state_unavailable", "authenticity": a, "data_scope": b})
+
+
+def test_p2_does_not_hijack_ordinary_continuation_route():
+    # 澄清出口在P3与可信基底恢复一起接，不把一个未就绪的载体当全局路由闸。
+    from intelligence.services.turn_controller import decide_turn
+    decision = decide_turn("接着 09-02 那次复盘，用 2026-09-07 收盘数据更新：哪些变了？", llm_complete=lambda *_a, **_k: (None, None, "disabled"))
+    assert decision.lane != "clarify"
 
 
 def test_refinement_cannot_mutate_material_axes():

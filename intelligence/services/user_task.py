@@ -487,8 +487,16 @@ _B_RELAX_PHRASES: tuple[str, ...] = ("可以查真实数据", "结合最新行�
 # ② 基底继承（续轮声明）：
 _CONTINUATION_HEAD_PHRASES: tuple[str, ...] = ("继续", "接着", "同上")
 
-# 同一句逗号两侧可以分别声明 A 前提和 B 权限，偏移仍对应原文。
-_SENT_SPLIT_RE = re.compile(r"[。！？；，,\n]")
+# 同句多轴操作不仅以标点分开，也可用「且/并」连接。只在后面确有
+# 状态操作时切分，不能把公司名/普通叙述里的「并」拆碎；偏移仍对应原文。
+_SENT_SPLIT_RE = re.compile(
+    r"[。！？；，,\n]|(?:并且|而且|且|并|同时)(?=\s*(?:(?:请|本轮|这次|此次)\s*)*(?:"
+    + "|".join(re.escape(p) for p in (
+        *_B_MATERIAL_ONLY_PHRASES, *_B_LOCAL_ONLY_PHRASES, *_B_RELAX_PHRASES,
+        *_CONTINUATION_HEAD_PHRASES, "其余条件不变", "假设", "如果",
+    ))
+    + r"))"
+)
 # 虚构前提声明：「以下是完全虚构的研究案例」「均为虚构」「纯属虚构」等（句中即算，
 # 这类措辞极少出现在叙述句里；出现在复核块里时走 boundary_uncertain 保守分支）。
 _FICTIONAL_SENT_RE = re.compile(

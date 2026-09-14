@@ -415,8 +415,6 @@ def build_task_frame(
 
     material_contract = compile_material_contract(parts.regions, source_turn=source_turn) if parts.regions else None
     premises = extract_user_premises(core)
-    if material_contract and material_contract.needs_clarification:
-        ambiguities.append("材料约束归属或上一轮基底不可确认，请明确本轮前提与允许的数据范围")
     methods = extract_method_candidates(core)
     if methods:
         assumptions.append(
@@ -473,8 +471,6 @@ def build_task_frame(
         history_intent=history_intent,
         material_contract=material_contract,
     )
-    if material_contract and material_contract.needs_clarification:
-        frame = replace(frame, clarification_question="请明确本轮是否沿用虚构前提，以及只依据材料、不联网或允许外部数据中的哪一种范围。")
     if llm_complete is None:
         return frame
     try:
