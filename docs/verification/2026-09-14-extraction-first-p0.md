@@ -39,9 +39,10 @@
 | 分支 | `feat/extraction-first-p0` |
 | 冻结基线 revision | `d7e5380551ba92758935d268fdd0e6fbfdd51ce8`（= 开工时 `gitea/main`，与工单一致） |
 | 被测最终 revision | 见 §6.1 收据校验那一段的 `--expect-revision`（**本页是全仓唯一的 SHA 来源**，其余文档指过来、不复制） |
+| 最终读数工作树 | `.claude/worktrees/xfp0-final-04c68c54`（**专为取读数新建的 detached 树**，跑测全程零改动、前后 HEAD 一致） |
 | 解释器 | `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`（AGENTS.md 指定） |
 | 平台 | macOS darwin 25.4.0 / `pytest -q -p no:randomly` |
-| 原始输出 | `/tmp/xfp0/`：`baseline2-pytest.txt`（基线）、`final2…7-pytest.txt`（历次最终，含 §6.2 那次 1 红的原始输出）、`mutations.txt`、`fe-*.txt`、`registry.txt`、`receipt-*.txt`、`mergetree.txt` |
+| 原始输出 | `/tmp/xfp0/`：`baseline2-pytest.txt`（基线）、`final2…8-pytest.txt`（历次最终，含 §6.2 那次 1 红的原始输出）、`mutations.txt`、`fe-*.txt`、`registry.txt`、`receipt-*.txt`、`mergetree.txt` |
 
 ### 1.1 干净基线读数
 
@@ -105,7 +106,7 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 | A10 | 重试不重复、并发只一个 pending、成功事件与剧本行同一次写、跨用户 / 跨目标拒绝、**收据落盘失败 → 退 1 + 保持 pending**、已完成尝试返回原收据、原始导出保留三类 | ✅ 10 条 |
 | A11 | 开关矩阵七种；**只写提取台账不翻转新老用户判据**；带读关闭时独立 draft 仍能存 | ✅ 7 条 |
 | A12 | 无类型旧剧本可读；事件不进状态数 / 过期 / 非交易日扫描；`--from-draft` 是 `user_authored` 且不伪造投影；hindsight 活过 draft 这一跳 | ✅ 7 条 |
-| A13 | 有牙验收：见 §4 | ✅ 25/25 |
+| A13 | 有牙验收：见 §4 | ✅ 28/28 |
 | A14 | 差异载荷**一个数都没有**；收据键在来源关联白名单内且无数值；新模块不定义评分型符号（探针先在坏样本上验证会红）；profile / 校准台账零写入 | ✅ 6 条 |
 | A15 | 本页 | ✅ |
 
@@ -205,7 +206,24 @@ A 系两条按真实行为重写（其中 `test_completed_attempt_replays_the_re
 >    要退回「只比全历史」，改 `submit_draft` 里那一处 `latest_user_draft` 判据即可，
 >    回归 `T3RevertingToAnEarlierDraftIsANewVersion` 与变异 M22 一并撤。
 
-## 4 变异测试（A13 有牙验收，25 条）
+## 3.4 复审三返修（2026-09-14 第四轮，4 项 P2）
+
+复审在 `f43b89c6` 上实测，逐条成立。修前 5 红。**T3 的范围争议由复审方裁决：属范围内、
+保留**——原 `642c3f5d` 报告的 S3 明确要求 A→B→A 生效；上一版交接那句「超范围待裁决」作废。
+
+| # | 缺陷 | 修法 | 回归 |
+|---|---|---|---|
+| U1 | 三版草稿都落盘了，但 **v3 复用了 v1 的事件身份**：动作键 = `draft_submitted｜attempt｜内容哈希`，A→B→A 时 v3 与 v1 同内容同尝试，投影去重后只剩两条提交事件——台账三行、事件两条 | 版本序号进动作身份（`{hash}#{seq}`）；重试判据随之改用**内容哈希**（新落盘字段 `draft_content_hash`）——再拿动作键当判据，每次提交都成「新动作」，重试的幂等就没了 | `U1RevertedDraftGetsItsOwnEventIdentity` |
+| U2 | A 确认 → B 确认 → A 确认，当前有效草稿是 v3，第三次却撞上第一次的内容哈希被去重，返回的 `source_draft_id` 指向 v1 | `source_draft_id` 进确认动作键：**同内容不同来源版本是两个动作** | `U2ConfirmIdentityIncludesTheSourceVersion` |
+| U3 | 导出用 `errors="replace"`，所有坏字节压成同一个 `�`：「算」断成的 `e7 ae` 与「固」断成的 `e5 9b` 长得一样，残片不再是证据 | 改 `errors="backslashreplace"`——每个坏字节写成 `\xNN`，不同字节仍不同、原字节可还原 | `U3ExportPreservesTornBytesReversibly` |
+| — | 交接过期（写着旧读数、把 T3 误述为范围外） | 读数与 SHA 只指 §1 / §6.1，不复制；T3 裁决回写 | —（`c31219a4`） |
+
+> **U1 / U2 是同一个形状的两次。** 动作身份里只放了「内容」，没放「这是第几版 / 确认的是
+> 哪一版」。同内容的不同动作于是互相顶替：提交那边表现为事件少了一条，确认那边表现为
+> 来源指向旧版本。**幂等键的字段集合要逐个论证「改了它算不算另一个动作」**——这已经是
+> 第三次栽在同一句话上（S6 漏 `due`、U1 漏版本序号、U2 漏来源版本），前两次也都写在本页。
+
+## 4 变异测试（A13 有牙验收，28 条）
 
 harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONTWRITEBYTECODE=1`
 （防「同长度改动 + 秒内还原」被 `.pyc` 缓存伪造成回归），锚点唯一性由 harness 自检
@@ -238,8 +256,15 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
 | M23 | 导出仍整文件解码（回退 T4） | T4 | ✅ |
 | M24 | 同尝试新版顶掉收据（回退 Q2） | Q2 | ✅ |
 | M25 | 手填豁免终态校验（回退 Q3） | Q3 | ✅ |
+| M26 | 提交身份不含版本序号（回退 U1） | U1 | ✅ |
+| M27 | 确认身份不含来源版本（回退 U2） | U2 | ✅ |
+| M28 | 导出残片不可逆（回退 U3） | U3 | ✅ |
 
-全部还原后 `127 passed`，工作树无残留。原始输出 `/tmp/xfp0/mutations.txt`。
+全部还原后 `135 passed`，工作树无残留。原始输出 `/tmp/xfp0/mutations.txt`。
+
+> **第四轮的改动打失效了四个旧锚点**（M16 / M19 / M22 / M23——它们的代码区域被 U1–U3
+> 与 Q2 重写过），harness 报「锚点命中 0 次，跳过」。已逐条重新锚定：
+> **「跳过」的锚点等于没有牙，不能留在数字里充数。** 28/28 全部 RED→GREEN。
 （M10 / M3 / M4 的锚点在历次重构后失配过，每次都是 harness 的唯一性自检先发现的。）
 
 > M12 第一版是「没有牙」：写入侧回退后，读取侧的去重把它兜住了，测试照样绿。
@@ -263,7 +288,7 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
 | python-lint | `ruff check .` | ✅ |
 | python | `pytest -q -p no:randomly` | 见 §6.1 |
 | frontend-lint / typecheck / test / build | `pnpm --dir intelligence/webapp …` | ✅ 四条均 exit 0 |
-| e2e | `PATH=.venv-workbench/bin:$PATH pnpm test:e2e` | ✅ **15 passed (57.0s)** |
+| e2e | `PATH=.venv-workbench/bin:$PATH pnpm test:e2e` | ✅ **15 passed (1.1m)** |
 | registry-check | `market_feature_store.cli registry-check` | ✅ exit 0，「registry 校验通过（档位/表名/计划步骤归属）」 |
 
 > 新树跑前端叶子前要先 `pnpm --dir intelligence/webapp install --frozen-lockfile`：
@@ -274,26 +299,28 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
 ### 6.1 全量 pytest 读数
 
 ```
-9682 passed, 77 skipped, 2 xfailed, 17 warnings in 519.53s (0:08:39)   exit 0
+9690 passed, 77 skipped, 2 xfailed, 17 warnings in 745.36s (0:12:25)   exit 0
 ```
 
 收据校验（把「收据树 == 被测树」从规程文字变成 exit code）：
 
 ```
 $ .venv-workbench/bin/python scripts/check_test_receipt.py \
-      ~/.finance-runtime/test-receipts/20260914T032322Z-c9ebab07.json \
-      --expect-revision c9ebab07
-  读数     passed=9682 failed=0 error=0 skipped=77
+$ cd .claude/worktrees/xfp0-final-04c68c54          # ← 专为取读数新建的独立树
+$ .venv-workbench/bin/python scripts/check_test_receipt.py \
+      ~/.finance-runtime/test-receipts/20260914T043310Z-04c68c54.json \
+      --expect-revision 04c68c54
+  读数     passed=9690 failed=0 error=0 skipped=77
   ✓ revision 一致   ✓ 解释器一致   ✓ python 版本一致   ✓ 依赖指纹一致
-  ✓ 收据来自干净树   ✓ 依赖门禁未被绕过   ✓ 收据 revision == c9ebab0761cc
+  ✓ 收据来自干净树   ✓ 依赖门禁未被绕过   ✓ 收据 revision == 04c68c54a49b
 ✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。        VALIDATOR_EXIT=0
 ```
 
 差量对账：
 
-| | 基线 `d7e5380` | 最终 `c9ebab07` | 差量 |
+| | 基线 `d7e5380` | 最终 `04c68c54` | 差量 |
 |---|---|---|---|
-| passed | 9554 | 9682 | **+128** |
+| passed | 9554 | 9690 | **+136** |
 | failed | 0 | 0 | **0** |
 | skipped | 77 | 77 | 0 |
 | xfailed | 2 | 2 | 0 |
@@ -303,21 +330,22 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 | 来源 | 条数 |
 |---|---|
 | `test_observation_extraction_first.py`（A1–A14） | 77 |
-| `test_extraction_first_review_fixes.py`（S1–S10/N2/N3 25 + R1–R6 14 + T1–T4 7 + Q2/Q3 4） | 50 |
+| `test_extraction_first_review_fixes.py`（S1–S10/N2/N3 25 + R1–R6 14 + T1–T4 7 + Q2/Q3 4 + U1–U3 8） | 58 |
 | `test_guided_reading_daily_seam.py`（2 元组视图不是死代码） | 1 |
-| 合计 | **128** |
+| 合计 | **136** |
 
 > 逐跳对照：`7a86ce4e` 9657P → `b916091e` 9671P（+14 = R1–R6）→ `b69ac4b4` 9678P
-> （+7 = T1–T4）→ `c9ebab07` 9682P（+4 = Q2/Q3）。每一跳的增量都点得出名字。
+> （+7 = T1–T4）→ `c9ebab07` 9682P（+4 = Q2/Q3）→ `04c68c54` 9690P（+8 = U1–U3）。
+> 每一跳的增量都点得出名字。
 
-> **这次读数的一个限定语，必须写下来。** 本次全量**起跑时**树在 `60fdc37c`，
-> 跑测中途另一个并驻 agent 提交了 `c9ebab07`，所以收据记的 revision 是后者——
-> 正是本页 §0 那个形状（跑测期间树被动过）。这次仍然可采信，理由是**可验证的**、
-> 不是「结论没变所以算了」：`git diff 60fdc37c c9ebab07 -- '*.py'` **为空**
-> （那笔只改了一个交接 md），且收据 `dirty=false`、校验 exit=0。
-> 也就是说这 9682 对两个 revision 同时成立。
-> **但取法本身仍是错的**——共享工作树上取门禁读数，应当先与并驻 agent 约定窗口，
-> 或另开一棵 detached 树（基线那次就是这么做的）。下一轮照基线那个做法取。
+> **取法这次终于对了，前两次不是。** 本次全量跑在**专为取读数新建的 detached 树**
+> （`xfp0-final-04c68c54`）上：脚本在跑前跑后各打一次 `git status --short` 与
+> `rev-parse HEAD`，前后都是空 + `04c68c54`。
+>
+> 此前两次（`c9ebab07` 与更早那次）都取在共享工作树上，而并驻 agent 在跑测期间提交过，
+> 收据记的 revision 因此不是起跑时那个——正是本页 §0 的形状。那两次结论仍可采信
+> （`git diff` 证明中途那笔是 docs-only），但**理由是事后补的，不是取法本身保证的**。
+> 基线那次一开始就用的独立树，四轮之后终于把最终读数也改回同一做法。
 
 > 耗时 347s → 357s：两次都在安静机器上、同一解释器、同一依赖指纹下取得，
 > 这 10s 属于噪声量级，**不作为耗时结论**。
