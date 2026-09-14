@@ -1,8 +1,28 @@
-# 302132.SZ 历史回填·执行实现交审（fix/backfill-302132-scoped @ f9b3663e）
+# 302132.SZ 历史回填·执行实现交审（fix/backfill-302132-scoped @ 399ac41a）
 
-按 `2026-09-14-302132-prep-review.md` 的两条 P1 与「执行前合同」实现；经两轮复审退修（五项修复 + 证据绑定阻断）全部落地。**第三轮演练在干净提交 f9b3663e 上完成，收据 revision 身份断言通过。本轮未写生产**；生产授权另行申请。
+按 `2026-09-14-302132-prep-review.md` 的两条 P1 与「执行前合同」实现；经三轮复审退修（五项修复 → 证据绑定 → 验收链加固）全部落地。**第四轮演练在干净提交 399ac41a 上完成，收据身份与数据合同 25/25 通过。本轮未写生产**；生产授权另行申请。
 
-## 第三轮（f9b3663e）：证据绑定修复与干净修订重演练
+## 第四轮（399ac41a）：验收链加固与干净重演练
+
+复审四轮（3 P1 + 2 P2）修复：
+
+| 退修 | 修复 |
+|---|---|
+| P1 验收脚本允许 --clone 与生产同文件/别名（假阳性路径） | 打开 DuckDB 前 fail-closed：三者须常规文件且非符号链接；`realpath(production) != realpath(clone)`；不通过则跳过全部数据检查并 FAIL（自测：同路径调用 → FAIL exit 2，n=6 无数据比较） |
+| P1 文档声称「旧收据未被覆盖」但脚本未实现 | 新增 `--expected-old-receipt <路径>=<sha256>`（可重复）：逐份核验存在且哈希不变；不传则不声称检查；文档只写真实现的 |
+| P1 `_guarded_write_json` 只捕获 os.open 异常 | 创建/写入/flush/fsync/close 全阶段统一 try；OSError → 关 fd、**清理半成品**、RepairRefused；补 write 抛 ENOSPC 单测（不留半截文件）与 os.open 权限炸弹预校验测试（不依赖运行用户权限） |
+| P2 parquet 实际文件未与 spec 哈希绑定 | `parquet_identity`：sha256(--parquet) == 收据 spec.parquet_sha256 |
+| P2 生产 sha256 只验开头（TOCTOU） | `production_sha256_before/after` 首尾双核 |
+| 观察项 | 收据结构断言补齐：父 kind/swapped==True/rc==0、子 kind、父=子 spec_version、child_report_path 存在；收据 JSON 损坏/非 dict/缺字段统一记 check False，不抛异常逃逸 |
+
+**干净修订重演练**：run7（apply）run_id=`205a94a4b531`、run8（verify）run_id=`cabdeaca07b7`（399ac41a，git status 空）。
+**外部验收 v4 25/25 PASS**（`~/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/dryrun-acceptance-v4.json`）：含别名/常规文件预检、首尾生产 sha、收据身份（父=子=399ac41a，dirty=false）、备份身份（文件哈希==收据记录）、parquet 身份、**run5/run6 四份旧收据逐份哈希核验**、11 项数据合同。
+
+**如实披露**：run3/run4 收据（dc6d8a7a174f/de751020ba23）并非被代码覆盖（O_EXCL 按 run_id 命名从未覆盖），而是我在 run5 前手工 `rm fake-prod.duckdb*` 清理时误删；仅存 run3/run4 日志与 v2 验收 JSON。本轮起旧收据移入 `receipts-run5-run6/` 子目录隔离，不再与 active 文件同前缀。
+
+全量 pytest：收据 `20260914T051535Z-399ac41a.json`，**9,639 passed / 0 failed / 77 skipped**，revision=399ac41a，dirty=false。ruff 全仓过。单测 22/22。
+
+## 第三轮（f9b3663e）：证据绑定修复（已被第四轮取代，留痕）
 
 第二轮阻断（复审三轮）：run3/run4 收据如实绑定 `1b936486+dirty`（机制正常），但其在 efe2d28b 提交**之前**运行，不能作为第二轮代码证据。处理：
 
@@ -65,7 +85,7 @@
 
 ## 生产执行前提（待授权清单）
 
-1. 代码评审通过并合入 main；执行从合入后的干净检出运行（`git status` 为空）。执行后当场以 `scripts/verify_302132_backfill_acceptance.py --expected-revision <合入修订> --expected-production-sha256 <换库前生产 sha>` 复核：收据 revision==合入修订且 dirty==false、父=子一致、备份身份可读、数据合同全项。
+1. 代码评审通过并合入 main；执行从合入后的干净检出运行（`git status` 为空）。执行后当场以 `scripts/verify_302132_backfill_acceptance.py --expected-revision <合入修订> --expected-production-sha256 <换库前生产 sha> [--expected-old-receipt <前序收据>=<sha>]...` 复核：首尾生产 sha、收据 revision==合入修订且 dirty==false、父=子一致、备份与 parquet 身份、旧收据逐份未变、数据合同全项。
 2. 生产若在此之前发生合法新写入（如 09-12 日更），基线变化 → 需重新副本演练（spec 钉值以现生产为准重核）。
 3. 磁盘：演练实测 staging/备份均 clonefile CoW（0.004s/近零增量）；执行前仍按 df 实查 + 余量核算（当前 ~8.8Gi 可用）；备份不自动删。
 4. 执行命令：`python3 -m market_feature_store.cli repair-backfill-302132 --parquet <冻结 parquet>`（MARKET_FEATURE_STORE_DB 指生产；默认即父编排，无 --direct 类逃生口）。
