@@ -11,8 +11,8 @@
 
 ## 当前状态
 - QC 第六轮修复 **`a3cf9d4b`**（J11 绑定解析端市场日、J12 复现节点独立身份消环）已提交，树干净。
-- 背景：QC 二至六轮反例均转绿，累计确证 24 项、本轨 11 项（J2–J12）均已修。证据 `…/research-evolution-round6-qc-20260913/`。
-- **06 联测请用 `a3cf9d4b`。**
+- 背景：QC 二至六轮反例均转绿，本轨 11 项（J2–J12）均已修。证据 `…/research-evolution-round6-qc-20260913/`。
+- **06 联测请用本分支 HEAD。**
 
 ## 已验证
 - 模块 110 passed（回归均先红后绿）；全量 9650 passed / 77 skipped（干净树 @a3cf9d4b，`-rf` 无失败）；ruff 干净。
@@ -24,7 +24,7 @@
 - 纯日期 / naive recorded_at 触发 ambiguous_version_order；dedup_key 歧义时加键，与修复前台账旧 key 不匹配（06 留意衔接）。
 
 ## 下一步
-- 等 06 用 `a3cf9d4b` 联测；用户确认后才谈合并 main（合前跑全仓等价 CI）。
+- 等 06 联测；用户确认后才谈合并 main（合前跑全仓等价 CI）。
 - **06 明确验收项（QC round-11）**：A → 歧义 B → 复现 A，分别带旧 snooze、close——查完整处理后的 rejected、复现项 open=1、历史链与界面反馈，不只看 assess 的 open 数；是否继承旧动作需产品裁决。
 
 ## 踩过的坑
