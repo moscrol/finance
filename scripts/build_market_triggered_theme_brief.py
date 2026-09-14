@@ -16,10 +16,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 # Direct execution needs the repository root on sys.path before project imports.
-from intelligence.paths import resolve_knowledge_wiki  # noqa: E402
+from intelligence.paths import default_paths, resolve_knowledge_wiki  # noqa: E402
 from market_feature_store.db import connect  # noqa: E402
 
-EXPORT_DIR = ROOT / "market_feature_store" / "exports"
+EXPORT_DIR = default_paths().market_exports
 DEFAULT_VAULT = resolve_knowledge_wiki()
 CANONICAL_ALIASES = {
     "CCL": "覆铜板",

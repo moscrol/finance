@@ -1475,7 +1475,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
     con = connect(read_only=True)
     try:
         td = trade_date or str(_latest_date(con, "fact_market_daily"))
-        exports = PROJECT_DIR / "market_feature_store" / "exports"
+        exports = Path(output_path).parent if output_path else PROJECT_DIR / "market_feature_store" / "exports"
         exports.mkdir(parents=True, exist_ok=True)
         out_path = Path(output_path) if output_path else exports / f"{td}-daily-review.md"
         img_path = Path(chart_path) if chart_path else exports / f"{td}-advancers-ma5.png"

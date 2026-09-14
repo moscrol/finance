@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from intelligence.paths import default_paths  # noqa: E402
 from market_feature_store.consumption_registry import PLAN_CHOICES, resolve_plan  # noqa: E402
 
 STYLE = """
@@ -65,9 +66,10 @@ def main(argv: list[str] | None = None) -> int:
     if gate.returncode:
         return gate.returncode
 
-    md_path = ROOT / f"market_feature_store/exports/{trade_date}-daily-review.md"
-    chart_path = ROOT / f"market_feature_store/exports/{trade_date}-advancers-ma5.png"
-    out_dir = ROOT / f"复盘/daily/{trade_date}"
+    paths = default_paths()
+    md_path = paths.market_exports / f"{trade_date}-daily-review.md"
+    chart_path = paths.market_exports / f"{trade_date}-advancers-ma5.png"
+    out_dir = paths.review_daily_root / trade_date
     out_path = out_dir / f"{trade_date}-daily-review.html"
 
     text = md_path.read_text(encoding="utf-8").replace(str(chart_path), chart_path.name)

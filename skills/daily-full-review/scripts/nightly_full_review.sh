@@ -59,12 +59,6 @@ fi
 export FINANCE_CODE_ROOT="$CODE_ROOT"
 export FINANCE_DATA_ROOT="$DATA_ROOT"
 export FINANCE_WS="$DATA_ROOT"
-# Python 的 -m 会优先把 cwd 放进 sys.path；生成段及其所有子步骤都必须看到
-# CODE_ROOT 的包，而 direct script 的 ROOT 仍按脚本文件位置指向 DATA_ROOT。
-# PYTHONSAFEPATH（等价于 -P）移除 cwd/script 目录这个隐式优先项，PYTHONPATH
-# 再显式钉住代码根；两根职责因此不混：import 读 CODE_ROOT，数据路径读 FINANCE_WS。
-export PYTHONSAFEPATH=1
-export PYTHONPATH="$CODE_ROOT${PYTHONPATH:+:$PYTHONPATH}"
 export MARKET_FEATURE_STORE_DB="${MARKET_FEATURE_STORE_DB:-$DATA_ROOT/db/market_feature_store.duckdb}"
 export MONEYFLOW_OUTPUT_DIR="${MONEYFLOW_OUTPUT_DIR:-$DATA_ROOT/scripts/moneyflow/outputs}"
 export FORESIGHT_USER="linxiaoqi5111"
@@ -206,11 +200,7 @@ if [ "$dow" -gt 5 ]; then
   exit 0
 fi
 
-# 生成段也必须从显式代码根加载，不依赖 WORKSPACE 的 cwd。
-# `python -m` 会把当前目录放进 sys.path[0]；因此仅设置 PYTHONPATH 不够——当
-# WORKSPACE 本身是另一份检出树时，cwd 仍可能优先加载它的 intelligence。
-# 生成段在自身启动前校验代码快照；FINANCE_WS / MARKET_FEATURE_STORE_DB 继续把
-# DuckDB、exports、用户态和 episode 指向 DATA_ROOT。L2 分支保持独立，不被这道生成门连坐。
+# 运维步骤保持数据 cwd；生成启动器独立钉住代码根和数据配置，不改变 L2 的环境。
 cd "$WORKSPACE" || exit 1
 REV=$(git -C "$CODE_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 WORKSPACE_REV=$(git -C "$WORKSPACE" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
@@ -220,7 +210,7 @@ echo "[$(date '+%F %T')] === 全量复盘开始 phase=$PHASE date=$D l2_code=$CO
 # ~/.finance-runtime/alerts.log（--no-desktop 免得重复弹）；告警自身失败不影响退出码
 notify() {
   osascript -e "display notification \"$1\" with title \"全量复盘告警\" sound name \"Basso\"" 2>/dev/null || true
-  "$OPS_PYTHON" "$WORKSPACE/scripts/notify_ops.py" --no-desktop "$1" 2>/dev/null || true
+  "$OPS_PYTHON" "$CODE_ROOT/scripts/notify_ops.py" --no-desktop "$1" 2>/dev/null || true
 }
 
 run_moneyflow() {
@@ -267,31 +257,22 @@ run_l2_branch() {
 
 # 生成段 + 收尾（KB 时效 / 最终硬门）。前置：sync 与 L2 均已通过。
 run_generation_and_finalize() {
-  if [ ! -f "$CODE_ROOT/intelligence/__init__.py" ] || [ ! -f "$CODE_ROOT/intelligence/cli.py" ]; then
-    echo "[$(date '+%F %T')] 生成段代码根无效：缺少 intelligence 包/CLI（CODE_ROOT=$CODE_ROOT）；拒绝回退到 WORKSPACE=$WORKSPACE" >&2
+  local generation_launcher="$CODE_ROOT/scripts/run_daily_generation.py"
+  if [ ! -f "$generation_launcher" ]; then
+    echo "[$(date '+%F %T')] 生成段代码根无效：缺少 $generation_launcher；拒绝回退到 WORKSPACE=$WORKSPACE" >&2
     notify "❌ 全量复盘 $D 生成段代码根校验失败；未生成报告"
     return 2
   fi
-
-  # 这是生成段的根验收，不只检查文件存在：用和 daily 相同的解释器/安全路径实际
-  # import，并把加载位置写入日志。任何 cwd 抢包或代码根失效都在产物生成前失败。
-  local generation_import
-  generation_import=$("$OPS_PYTHON" -P -c 'import intelligence; print(intelligence.__file__)' 2>&1)
-  local import_rc=$?
-  echo "[$(date '+%F %T')] generation_import=$generation_import"
-  if [ "$import_rc" -ne 0 ] || [[ "$generation_import" != "$CODE_ROOT/intelligence/"* ]] || [[ "$generation_import" == "$WORKSPACE/intelligence/"* ]]; then
-    echo "[$(date '+%F %T')] 生成段加载代码根不符：expected CODE_ROOT=$CODE_ROOT actual=$generation_import；拒绝生成" >&2
-    notify "❌ 全量复盘 $D 生成段代码根校验失败；未生成报告"
-    return 2
-  fi
-
-  "$OPS_PYTHON" -P -m intelligence.cli daily --date "$D" --skip-sync --from-step daily-review \
-    --summary-json "market_feature_store/exports/$D-daily-workflow-summary.json"
+  # 启动器在实际 daily 进程里验 import、输出根；子进程同样固定代码与解释器。
+  # 环境仅作用于生成段，不把 Python 搜索路径的变化扩散给独立 L2 分支。
+  PYTHONPATH="$CODE_ROOT" PYTHONSAFEPATH=1 PYTHONDONTWRITEBYTECODE=1 \
+    "$OPS_PYTHON" -P "$generation_launcher" --date "$D" --skip-sync --from-step daily-review \
+    --summary-json "$DATA_ROOT/market_feature_store/exports/$D-daily-workflow-summary.json"
   local rc=$?
 
   # 幂等兜底：20:05 fidelity 或 daily 步已写出的 kb-ingest-queue 归档进 wiki/raw。
   # 只 receive，不 apply。daily 计划里也有同一步；重复跑按 payload hash 去重。
-  local RECEIVE_SH="$WORKSPACE/skills/daily-full-review/scripts/receive_kb_ingest_queue.sh"
+  local RECEIVE_SH="$CODE_ROOT/skills/daily-full-review/scripts/receive_kb_ingest_queue.sh"
   if [ -f "$RECEIVE_SH" ]; then
     /bin/zsh "$RECEIVE_SH" "$D" "$WORKSPACE" "$KNOWLEDGE_WIKI" \
       || echo "[$(date '+%F %T')] kb ingest receive 失败（不阻断）"
@@ -308,7 +289,7 @@ run_generation_and_finalize() {
 
   # 知识库证据断更监控（超 7 天未 ingest 新批次则告警；不阻断收尾）
   local kb_msg
-  kb_msg=$("$OPS_PYTHON" "$WORKSPACE/scripts/check_kb_freshness.py" --max-age 7)
+  kb_msg=$("$OPS_PYTHON" "$CODE_ROOT/scripts/check_kb_freshness.py" --max-age 7)
   if [ $? -eq 2 ]; then
     notify "$kb_msg——研报证据需要补 ingest（PDF 批次）"
   fi

@@ -50,6 +50,7 @@ def run_command_step(
     cwd: str | Path,
     outputs: list[str] | None = None,
     timeout_sec: float | None = None,
+    env: dict[str, str] | None = None,
 ) -> WorkflowStep:
     started = time.monotonic()
     status_path = _status_json_path(argv)
@@ -70,6 +71,7 @@ def run_command_step(
         process = subprocess.Popen(
             [str(item) for item in argv],
             cwd=str(cwd),
+            env=env,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

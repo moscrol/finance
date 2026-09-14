@@ -630,7 +630,9 @@ def update_fill_rate_baseline(con, path: Path = FILL_RATE_BASELINE_PATH, *, toda
 
 def check_report(date: str) -> list[str]:
     missing: list[str] = []
-    report = Path(f"market_feature_store/exports/{date}-daily-review.md")
+    from intelligence.paths import default_paths
+
+    report = default_paths().market_exports / f"{date}-daily-review.md"
     if not report.exists():
         missing.append(f"{report} 不存在")
     else:

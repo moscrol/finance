@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -10,6 +12,9 @@ from intelligence.runner import run_command_step
 from intelligence.summary import WorkflowStep, WorkflowSummary, now_iso
 from scripts.notify_ops import send_alert
 from market_feature_store.consumption_registry import resolve_plan
+
+
+CODE_ROOT = Path(__file__).resolve().parents[2]
 
 
 @dataclass(frozen=True)
@@ -108,11 +113,15 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
             "skills/daily-full-review/scripts/export_increment.py",
             "--date",
             date,
+            "--db", str(Path(os.environ.get("MARKET_FEATURE_STORE_DB") or paths.finance_root / "db/market_feature_store.duckdb").expanduser()),
+            "--out-root", str(Path(os.environ.get("DUCKDB_SNAPSHOT_OUT_ROOT") or paths.finance_root / "db/snapshots").expanduser()),
         ],
         outputs=[],
     ))
 
-    review_argv = ["python3", "-m", "market_feature_store.cli", "daily-review", "--trade-date", date]
+    review_argv = ["python3", "-m", "market_feature_store.cli", "daily-review", "--trade-date", date,
+                   "--output", str(exports / f"{date}-daily-review.md"),
+                   "--chart-output", str(exports / f"{date}-advancers-ma5.png")]
     if options.start_date:
         review_argv.extend(["--start-date", options.start_date])
     # JSON 是台账真本源（Workbench 投影 / 框架解读读它），md 是渲染物。
@@ -281,6 +290,13 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
             outputs=[str(paths.finance_root / "复盘" / "index.html")],
         ))
 
+    # 用本进程解释器，所有可执行文件只属于加载的代码树；输出参数仍来自 paths。
+    # 直接脚本用绝对路径，缺文件即失败，不让 scripts 命名空间搜索到别的检出树。
+    for step in plan:
+        argv = step.argv
+        if argv[1].startswith(("scripts/", "skills/")):
+            argv[1] = str(CODE_ROOT / argv[1])
+        argv[0:1] = [sys.executable, "-P"]
     return plan
 
 
@@ -477,6 +493,12 @@ def run_daily_review(options: DailyReviewOptions, paths: ProjectPaths | None = N
         warnings=plan_messages,
     )
 
+    child_env = dict(os.environ)
+    child_env.update(FINANCE_WS=str(paths.finance_root.resolve()),
+                     FINANCE_DATA_ROOT=str(paths.finance_root.resolve()),
+                     PYTHONPATH=str(CODE_ROOT), PYTHONSAFEPATH="1", PYTHONDONTWRITEBYTECODE="1")
+    child_env.setdefault("MARKET_FEATURE_STORE_DB", str(paths.finance_root / "db/market_feature_store.duckdb"))
+    child_env.setdefault("FORESIGHT_USERS_DIR", str(userspace.users_dir()))
     blocked = False
     for step in plan:
         if blocked:
@@ -492,6 +514,7 @@ def run_daily_review(options: DailyReviewOptions, paths: ProjectPaths | None = N
             step.name,
             step.argv,
             cwd=paths.finance_root,
+            env=child_env,
             outputs=step.outputs,
             timeout_sec=step.timeout_sec or options.step_timeout_sec,
         )
