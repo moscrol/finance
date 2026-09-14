@@ -630,6 +630,8 @@ def build_episode_context(
 ) -> ResearchRunContext:
     """Freeze control output into one immutable research run contract."""
 
+    material = frame.material_contract
+    material_only = bool(material is not None and material.data_scope == "material_only")
     output_ids = _required_output_ids(frame)
     grounding_modes = tuple(
         _grounding_mode(frame, output_id) for output_id in output_ids
@@ -652,6 +654,11 @@ def build_episode_context(
             raise ValueError(f"unknown runtime capability: {capability}")
         if capability not in authorized:
             authorized.append(capability)
+    # P3a：限制最后施加，题型的 mandatory 下限不能把已禁止的读能力加回来。
+    # 后续 local_only/歧义交集须按实际 IO 审计后扩展，不能借 cost/freshness 猜权限。
+    if material_only:
+        authorized = []
+        evidence_plan = EvidencePlan(profile="material_only", requirements=(), freshness="stable")
     capability_tuple = tuple(authorized)
 
     # 必须在 capability_tuple 定稿之后：`_with_prior_recall` 的前置条件是
@@ -663,6 +670,13 @@ def build_episode_context(
     # 挂在最后：交集判据要看**定稿后**的 output_ids（含 valuation_estimate 在
     # `_required_output_ids` 里追加的 invalidation_conditions），否则会重复挂槽。
     output_ids, forward_slots = _with_forward_hypothesis_slots(output_ids, frame)
+    material_descriptions: dict[str, str] = {}
+    if material_only:
+        assert material is not None
+        material_descriptions = {f"answer_{q.question_id}": q.text for q in material.questions}
+        if material_descriptions:
+            output_ids = (*material_descriptions, "evidence_boundary")
+        forward_slots = frozenset()
 
     base_policy = ResearchPolicy.for_tier(tier)
     effective_timeout = base_policy.total_seconds
@@ -696,7 +710,7 @@ def build_episode_context(
         required_outputs=tuple(
             RequiredOutput(
                 output_id=output_id,
-                description=_require_output_description(output_id),
+                description=(material_descriptions[output_id] if output_id in material_descriptions else _require_output_description(output_id)),
                 # 前瞻信号挂上的槽 evidence_types 必须是**空**：这几格由推理
                 # 填、没有任何工具能填。`_required_output_evidence_types` 对不
                 # 认识的 output_id 会回全量能力列表，那正是 prior_recall 踩过
@@ -705,7 +719,7 @@ def build_episode_context(
                 # 比挂空更糟——它在暗示这格该去检索。
                 evidence_types=(
                     ()
-                    if output_id in forward_slots
+                    if material_only or output_id in forward_slots
                     else _required_output_evidence_types(
                         output_id,
                         capability_tuple,
@@ -741,7 +755,9 @@ def build_episode_context(
                 # 按题型/问句判签法，让它再去感知「这个槽是不是本次挂上来的」
                 # 会把两件事揉进一个判据。
                 grounding_mode=(
-                    "model_reasoning"
+                    "evidence"
+                    if output_id in material_descriptions
+                    else "model_reasoning"
                     if output_id in forward_slots
                     else _grounding_mode(frame, output_id)
                 ),
@@ -758,6 +774,7 @@ def build_episode_context(
         timeframe=frame.timeframe,
         evidence_plan=evidence_plan,
         task_frame_hash=frame.task_frame_hash,
+        material_contract=material,
     )
     if frame.history_intent is not None and "finance_query" in capability_tuple:
         # Capability authorizes execution; evidence_types admits the actual
@@ -779,7 +796,8 @@ def build_episode_context(
                 for output in contract.required_outputs
             ),
         )
-    contract = apply_static_chain_mapping_precheck(contract, knowledge=knowledge)
+    if not material_only:
+        contract = apply_static_chain_mapping_precheck(contract, knowledge=knowledge)
     cutoff = (
         information_cutoff
         or requested_information_cutoff(frame.raw_question, today=today)
@@ -805,14 +823,15 @@ def build_episode_context(
         latest_data_date=latest_data_date,
         conversation_context=assemble_input_understanding_context(
             frame,
-            str(conversation_context or "").strip(),
+            "" if material_only else str(conversation_context or "").strip(),
         ),
         information_cutoff=cutoff,
         root_budget=root_budget_for_policy(policy, episode_id=task_id),
-        perspective_context=str(perspective_context or "").strip(),
-        stance_pack=stance_pack,
-        retrieval_stages=tuple(retrieval_stages or ()),
-        history_intent=frame.history_intent,
+        # 未分型的旧答/视角/研究背景可能含材料外事实；可信续轮在P5恢复，不猜。
+        perspective_context="" if material_only else str(perspective_context or "").strip(),
+        stance_pack=None if material_only else stance_pack,
+        retrieval_stages=() if material_only else tuple(retrieval_stages or ()),
+        history_intent=None if material_only else frame.history_intent,
     )
 
 
@@ -886,7 +905,13 @@ def assemble_input_understanding_context(frame: TaskFrame, conversation_context:
     if frame.materials or referent is not None or short_follow_up or (
         earlier_refs and frame.referenced_material_ids
     ):
-        lines = ["## 用户提供的材料（身份表）", _MATERIAL_RULE]
+        material_only = frame.material_contract is not None and frame.material_contract.data_scope == "material_only"
+        rule = (
+            "本轮只以用户材料为前提作答；事实和计算须标材料 id 与片段，不调用材料外检索；"
+            "材料未提供的量写明缺口，范围声明不能替事实背书。"
+            if material_only else _MATERIAL_RULE
+        )
+        lines = ["## 用户提供的材料（身份表）", rule]
         # I2 收口：对话块被截断时，本轮重贴的材料的「此前对话」身份无法从窗口里恢复；
         # 但用户重贴的正文 hash 与窗口外那一轮的 hash 相同，内容等同。如实标注
         # 「本轮重贴」与「对话块已被截断，此前同一份材料的记录不在窗口内」，让模型

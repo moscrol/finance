@@ -797,6 +797,8 @@ def _opening_prefetch_evidence(
     perspective_ids: tuple[str, ...] = (),
     perspective_mode: str = "neutral",
 ) -> tuple[agent_research.AgentEvidence, ...]:
+    if context.contract.material_contract is not None and context.contract.material_contract.data_scope == "material_only":
+        return ()
     from intelligence.services.asof_prefetch import (
         collect_prefetch_items,
         evidence_from_prefetch,
@@ -972,6 +974,10 @@ def build_episode_registry(
     history_session=None,
 ) -> ResearchToolRegistry:
     """Build a read-only registry from the repository's current tool runners."""
+
+    if context.contract.material_contract is not None and context.contract.material_contract.data_scope == "material_only":
+        # 必须早于 _roots / 日期探测 / 实体解析 / 预取；菜单清空不能撤销已经发生的读取。
+        return ResearchToolRegistry(())
 
     finance, wiki = _roots(finance_root, knowledge_wiki)
     market_db_path = _market_db_path(finance_root, finance, fixture_policy)
