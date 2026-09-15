@@ -1,0 +1,20 @@
+{
+  "original_path": "/tmp/hithink-capture-mutation-terminal.patch",
+  "raw_sha256": "488d5a2e316a43417c0c528ef3a78388083af338d5343190c322781b03e0a49b",
+  "encoding": "utf-8",
+  "lines": [
+    "diff --git a/market_feature_store/hithink_sector_capture.py b/market_feature_store/hithink_sector_capture.py\n",
+    "index 1f07b0c9..5fed28ff 100644\n",
+    "--- a/market_feature_store/hithink_sector_capture.py\n",
+    "+++ b/market_feature_store/hithink_sector_capture.py\n",
+    "@@ -177,7 +177,7 @@ class SectorCapture:\n",
+    "         try:\n",
+    "             row = self.con.execute(\n",
+    "                 \"UPDATE ops_hithink_sector_capture SET status=status \"\n",
+    "-                \"WHERE capture_id=? AND status='running' AND contract_version=? \"\n",
+    "+                \"WHERE capture_id=? AND contract_version=? \"\n",
+    "                 \"RETURNING include_members, member_limit, members_planned\", [self.capture_id, CONTRACT_VERSION],\n",
+    "             ).fetchone()\n",
+    "             if row is None:\n"
+  ]
+}
