@@ -1,0 +1,561 @@
+/* ==========================================================================
+ * tech 主题：深色「专业终端」质感
+ * 配色取向：Grok / Apple / Codex 式克制——近单色石墨底、米白文字、
+ * 单一低饱和陶土点缀（沿用品牌 accent 的降饱和版），红涨绿跌同降饱和。
+ * 通过 html[data-theme="tech"] 令牌覆盖生效，不改动 styles.css 原规则。
+ * ========================================================================== */
+
+html[data-theme="tech"] {
+  color-scheme: dark;
+  --ink: #e7e7ea;
+  --muted: #9a9ba3;
+  --faint: #60616a;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.15);
+  --surface: #16171b;
+  --surface-soft: #111216;
+  --accent: #b98a70;
+  --accent-dark: #cfa183;
+  --accent-soft: rgba(185, 138, 112, 0.14);
+  --amber: #c2a05e;
+  --amber-soft: rgba(194, 160, 94, 0.12);
+  --red: #cf6f60;
+  --red-soft: rgba(207, 111, 96, 0.12);
+  --blue: #8ea6c2;
+  --blue-soft: rgba(142, 166, 194, 0.12);
+  --shadow: 0 18px 52px rgba(0, 0, 0, 0.5);
+  color: var(--ink);
+  background: #0e0e11;
+}
+
+html[data-theme="tech"] body {
+  background: #0e0e11;
+}
+
+html[data-theme="tech"] ::selection {
+  background: rgba(185, 138, 112, 0.3);
+}
+
+html[data-theme="tech"] button:focus-visible,
+html[data-theme="tech"] a:focus-visible,
+html[data-theme="tech"] textarea:focus-visible,
+html[data-theme="tech"] input:focus-visible,
+html[data-theme="tech"] select:focus-visible,
+html[data-theme="tech"] summary:focus-visible {
+  outline-color: rgba(185, 138, 112, 0.5);
+}
+
+/* ---------- 效果层 ---------- */
+.tech-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.tech-spotlight {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 46% at 50% -6%, rgba(235, 236, 240, 0.05), transparent 70%),
+    radial-gradient(ellipse 40% 30% at 82% 0%, rgba(185, 138, 112, 0.05), transparent 70%);
+}
+
+.tech-dotgrid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(235, 236, 240, 0.05) 0 1px, transparent 1.4px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(ellipse 85% 62% at 50% 0%, black 25%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 85% 62% at 50% 0%, black 25%, transparent 75%);
+}
+
+.tech-particles {
+  position: absolute;
+  inset: 0;
+}
+
+.tech-grain {
+  position: absolute;
+  inset: -100px;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: tech-grain-jitter 1.2s steps(4) infinite;
+}
+
+@keyframes tech-grain-jitter {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-30px, 20px); }
+  50% { transform: translate(20px, -25px); }
+  75% { transform: translate(-15px, -10px); }
+  100% { transform: translate(0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tech-grain { animation: none; }
+}
+
+/* 主内容浮在效果层之上，大面透明化让粒子透出 */
+html[data-theme="tech"] .main-surface {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+}
+
+/* ---------- 左侧：会话列表 / 导航 ---------- */
+html[data-theme="tech"] .conversation-list {
+  background: rgba(16, 17, 20, 0.92);
+  border-right-color: var(--line-soft);
+}
+
+html[data-theme="tech"] .conversation-list-header .brand-mark {
+  background: linear-gradient(145deg, #b98a70, #7d5a47);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
+  color: #f5f2ee;
+}
+
+html[data-theme="tech"] .workspace-module {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--line);
+}
+
+html[data-theme="tech"] .output-navigation {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+html[data-theme="tech"] .output-navigation button {
+  color: var(--muted);
+}
+
+html[data-theme="tech"] .output-navigation button.active {
+  box-shadow: inset 0 0 0 1px rgba(185, 138, 112, 0.22);
+}
+
+html[data-theme="tech"] .new-conversation-button {
+  background: #e7e7ea;
+  color: #17181c;
+  box-shadow: 0 7px 17px rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme="tech"] .new-conversation-button:hover {
+  background: #ffffff;
+  color: #17181c;
+}
+
+html[data-theme="tech"] .conversation-search {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+html[data-theme="tech"] .conversation-search:focus-within {
+  border-color: rgba(185, 138, 112, 0.45);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+html[data-theme="tech"] .conversation-search input::placeholder {
+  color: var(--faint);
+}
+
+html[data-theme="tech"] .conversation-row.active {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px rgba(185, 138, 112, 0.2);
+}
+
+html[data-theme="tech"] .data-dot,
+html[data-theme="tech"] .agent-status-dot,
+html[data-theme="tech"] .model-status-button.ready > span {
+  background: #62a87f;
+  box-shadow: 0 0 0 3px rgba(98, 168, 127, 0.15);
+}
+
+/* ---------- 顶栏 ---------- */
+html[data-theme="tech"] .chat-topbar {
+  background: rgba(14, 14, 17, 0.78);
+  border-bottom-color: var(--line-soft);
+}
+
+html[data-theme="tech"] .model-status-button,
+html[data-theme="tech"] .private-mode-badge {
+  background: rgba(255, 255, 255, 0.045);
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+html[data-theme="tech"] .demo-stage-badge {
+  border-color: rgba(194, 160, 94, 0.3);
+  background: rgba(194, 160, 94, 0.08);
+  color: var(--amber);
+}
+
+/* ---------- 输入区 ---------- */
+html[data-theme="tech"] .chat-composer-dock {
+  background: linear-gradient(180deg, rgba(14, 14, 17, 0), rgba(14, 14, 17, 0.96) 30%);
+}
+
+html[data-theme="tech"] .composer {
+  background: rgba(23, 24, 28, 0.92);
+  border-color: var(--line);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+}
+
+html[data-theme="tech"] .composer:focus-within {
+  border-color: rgba(185, 138, 112, 0.45);
+  box-shadow: 0 15px 42px rgba(0, 0, 0, 0.55);
+}
+
+html[data-theme="tech"] .composer textarea::placeholder {
+  color: var(--faint);
+}
+
+html[data-theme="tech"] .composer-compact {
+  box-shadow: 0 -6px 30px rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme="tech"] .run-composer-dock {
+  background: linear-gradient(transparent, rgba(14, 14, 17, 0.96) 28%);
+}
+
+/* ---------- 消息流 ---------- */
+html[data-theme="tech"] .message-user .message-bubble {
+  background: rgba(185, 138, 112, 0.13);
+  border: 1px solid rgba(185, 138, 112, 0.24);
+  color: var(--ink);
+}
+
+html[data-theme="tech"] .message-terminal-notice {
+  border-color: rgba(194, 160, 94, 0.3);
+  background: rgba(194, 160, 94, 0.08);
+  color: var(--amber);
+}
+
+html[data-theme="tech"] .message-evidence-warning {
+  border-color: rgba(194, 160, 94, 0.28);
+  background: rgba(194, 160, 94, 0.07);
+  color: var(--amber);
+}
+
+html[data-theme="tech"] .progress-timeline-live {
+  background: rgba(21, 22, 26, 0.9);
+  border-color: var(--line-soft);
+}
+
+html[data-theme="tech"] .progress-step-icon {
+  color: #62a87f;
+}
+
+html[data-theme="tech"] .progress-step.is-failed .progress-step-icon {
+  color: var(--red);
+}
+
+html[data-theme="tech"] .step-marker {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+html[data-theme="tech"] .progress-row.active .step-marker {
+  box-shadow: 0 0 0 4px rgba(185, 138, 112, 0.15);
+}
+
+html[data-theme="tech"] .skill-chip {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+html[data-theme="tech"] .skill-mode select {
+  background: #1a1b20;
+}
+
+html[data-theme="tech"] .skill-menu-popover {
+  background: #1a1b20;
+  border-color: var(--line);
+  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.55);
+}
+
+html[data-theme="tech"] .message-action {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme="tech"] .message-followups button {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--line);
+}
+
+html[data-theme="tech"] .message-followups button:hover {
+  border-color: rgba(185, 138, 112, 0.4);
+}
+
+html[data-theme="tech"] .stream-items article p {
+  color: var(--ink);
+}
+
+/* ---------- Markdown / 代码 ---------- */
+html[data-theme="tech"] .markdown-view {
+  color: #d7d8dc;
+}
+
+html[data-theme="tech"] .markdown-view blockquote {
+  border-left-color: rgba(185, 138, 112, 0.4);
+}
+
+html[data-theme="tech"] .markdown-view code {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+html[data-theme="tech"] .markdown-view pre {
+  background: #111216;
+  border-color: var(--line-soft);
+}
+
+html[data-theme="tech"] .markdown-view th {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+html[data-theme="tech"] .loading-line {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
+}
+
+/* ---------- 结构化工作台 ---------- */
+html[data-theme="tech"] .output-workbench {
+  background: transparent;
+}
+
+html[data-theme="tech"] .output-workbench-header {
+  background: rgba(20, 21, 25, 0.6);
+  backdrop-filter: blur(14px);
+}
+
+html[data-theme="tech"] .output-workbench-header button {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+html[data-theme="tech"] .output-workbench-header button:hover {
+  border-color: rgba(185, 138, 112, 0.4);
+}
+
+html[data-theme="tech"] .freshness-rail {
+  background: rgba(20, 21, 25, 0.85);
+  border-color: var(--line-soft);
+}
+
+html[data-theme="tech"] .freshness-item {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+html[data-theme="tech"] .freshness-status.complete {
+  color: #62a87f;
+}
+
+html[data-theme="tech"] .freshness-dot.complete {
+  background: #62a87f;
+}
+
+html[data-theme="tech"] .freshness-dot.running {
+  background: var(--amber);
+}
+
+html[data-theme="tech"] .freshness-dot.failed {
+  background: var(--red);
+}
+
+html[data-theme="tech"] .market-hero {
+  border-color: var(--line);
+  background: linear-gradient(130deg, rgba(255, 255, 255, 0.045), rgba(185, 138, 112, 0.05));
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+html[data-theme="tech"] .market-hero-strength {
+  border-color: rgba(185, 138, 112, 0.25);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+html[data-theme="tech"] .output-metric,
+html[data-theme="tech"] .output-card,
+html[data-theme="tech"] .theme-matrix,
+html[data-theme="tech"] .signal-event,
+html[data-theme="tech"] .moneyflow-state {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: var(--line);
+}
+
+html[data-theme="tech"] .signal-column,
+html[data-theme="tech"] .moneyflow-section {
+  background: rgba(255, 255, 255, 0.025);
+  border-color: var(--line-soft);
+}
+
+html[data-theme="tech"] .output-metric.positive strong,
+html[data-theme="tech"] .moneyflow-card .positive {
+  color: var(--red);
+}
+
+html[data-theme="tech"] .output-metric.negative strong,
+html[data-theme="tech"] .moneyflow-card .negative {
+  color: #62a87f;
+}
+
+html[data-theme="tech"] .matrix-cell {
+  background-image: linear-gradient(135deg, transparent 70%, rgba(185, 138, 112, 0.04));
+}
+
+html[data-theme="tech"] .theme-bubble {
+  border-color: rgba(185, 138, 112, 0.3);
+}
+
+html[data-theme="tech"] .theme-bubble.stale {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+html[data-theme="tech"] .quadrant-guide article {
+  border-left-color: rgba(185, 138, 112, 0.45);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* ---------- 检查器 / 产物库 ---------- */
+html[data-theme="tech"] .research-inspector {
+  background: rgba(16, 17, 20, 0.96);
+  border-left-color: var(--line-soft);
+}
+
+html[data-theme="tech"] .inspector-task-summary {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+html[data-theme="tech"] .inspector-task-summary > div > strong[data-status="complete"] {
+  color: #62a87f;
+}
+
+html[data-theme="tech"] .evidence-mark {
+  border-color: #62a87f;
+}
+
+html[data-theme="tech"] .trace-completed {
+  background: #62a87f;
+}
+
+html[data-theme="tech"] .workflow-row:hover,
+html[data-theme="tech"] .library-row:hover {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+html[data-theme="tech"] .status-badge {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme="tech"] .json-view {
+  color: var(--muted);
+}
+
+/* ---------- 弹层 / 遮罩 ---------- */
+html[data-theme="tech"] .conversation-backdrop,
+html[data-theme="tech"] .inspector-backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+html[data-theme="tech"] .model-settings-backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+html[data-theme="tech"] .model-settings {
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.6);
+}
+
+html[data-theme="tech"] .model-choice.active {
+  border-color: rgba(185, 138, 112, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(185, 138, 112, 0.12);
+}
+
+html[data-theme="tech"] .session-only-badge {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--muted);
+}
+
+html[data-theme="tech"] .model-readiness.ready {
+  color: #62a87f;
+  background: rgba(98, 168, 127, 0.12);
+}
+
+html[data-theme="tech"] .byok-form {
+  background: #15161a;
+}
+
+html[data-theme="tech"] .byok-fields input:focus {
+  box-shadow: 0 0 0 3px rgba(185, 138, 112, 0.14);
+}
+
+html[data-theme="tech"] .byok-security-note svg {
+  color: #62a87f;
+}
+
+html[data-theme="tech"] .global-error {
+  color: #e5a49a;
+  border-bottom-color: rgba(207, 111, 96, 0.35);
+  background: rgba(207, 111, 96, 0.08);
+}
+
+html[data-theme="tech"] .alert-warning {
+  color: var(--amber);
+  border-color: rgba(194, 160, 94, 0.35);
+}
+
+html[data-theme="tech"] .alert-error {
+  color: #e5a49a;
+  border-color: rgba(207, 111, 96, 0.4);
+}
+
+/* ---------- 空态 / 引导 ---------- */
+html[data-theme="tech"] .onboarding-mark {
+  border-color: var(--line);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(185, 138, 112, 0.07));
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
+}
+
+html[data-theme="tech"] .starter-grid > button {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--line);
+}
+
+html[data-theme="tech"] .starter-grid > button:hover {
+  border-color: rgba(185, 138, 112, 0.4);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+}
+
+/* ---------- 其余零散 ---------- */
+html[data-theme="tech"] .secondary-button {
+  color: var(--muted);
+}
+
+html[data-theme="tech"] .secondary-button:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+html[data-theme="tech"] .recent-run {
+  border-bottom-color: var(--line-soft);
+  color: var(--muted);
+}
+
+html[data-theme="tech"] .recent-run.active {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+html[data-theme="tech"] .daily-summary li,
+html[data-theme="tech"] .daily-report-meta dd,
+html[data-theme="tech"] .daily-report-row-main .next-action {
+  color: var(--muted);
+}
+
+html[data-theme="tech"] .projection-warning {
+  border-bottom-color: rgba(194, 160, 94, 0.3);
+}
+
+html[data-theme="tech"] .projection-warning p {
+  color: var(--amber);
+}
+
+html[data-theme="tech"] .floating-inspector-button {
+  border-color: var(--line-strong);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* 主题切换按钮：与 icon-button 同形，激活态微光 */
+.theme-toggle[aria-pressed="true"] {
+  color: var(--accent-dark);
+  box-shadow: inset 0 0 0 1px rgba(185, 138, 112, 0.3);
+}

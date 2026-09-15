@@ -3,9 +3,11 @@ import {
   KeyRound,
   LoaderCircle,
   LockKeyhole,
+  Moon,
   PanelLeftOpen,
   PanelRightOpen,
   RefreshCw,
+  Sun,
 } from "lucide-react";
 import {
   useCallback,
@@ -48,10 +50,13 @@ import { ArtifactLibrary } from "./components/ArtifactLibrary";
 import { ArtifactViewer } from "./components/ArtifactViewer";
 import { Composer } from "./components/Composer";
 import { ConversationList } from "./components/ConversationList";
+import { DecodeTitle } from "./components/DecodeTitle";
 import { MessageThread } from "./components/MessageThread";
 import { ModelSettings } from "./components/ModelSettings";
 import { OutputWorkbench } from "./components/OutputWorkbench";
 import { ResearchInspector } from "./components/ResearchInspector";
+import { TechBackdrop } from "./components/TechBackdrop";
+import { applyTheme, getInitialTheme, type WorkbenchTheme } from "./theme";
 import { supportsDailyProjection } from "./dailyReports";
 import { userFacingIssue } from "./displayText";
 import {
@@ -138,6 +143,7 @@ export default function App() {
     useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [theme, setTheme] = useState<WorkbenchTheme>(getInitialTheme);
   const activeConversationRef = useRef<string | null>(null);
   const conversationGeneration = useRef(0);
   const artifactGeneration = useRef(0);
@@ -755,6 +761,14 @@ export default function App() {
     }
   };
 
+  const toggleTheme = useCallback(() => {
+    setTheme((current) => {
+      const next = current === "tech" ? "paper" : "tech";
+      applyTheme(next);
+      return next;
+    });
+  }, []);
+
   const runningLive = Object.values(liveMessages).find(
     (message) =>
       message.conversationId === activeConversationId &&
@@ -923,6 +937,7 @@ export default function App() {
         inspectorOpen ? "inspector-open" : "inspector-closed"
       }`}
     >
+      {theme === "tech" && <TechBackdrop running={Boolean(runningLive)} />}
       <ConversationList
         conversations={conversations}
         activeConversationId={activeConversationId}
@@ -949,10 +964,26 @@ export default function App() {
           </button>
           <div className="chat-title">
             <span className="thread-kicker">{sectionKicker}</span>
-            <strong>{sectionTitle}</strong>
+            <strong>
+              <DecodeTitle text={sectionTitle} />
+            </strong>
             <small>{sectionSubtitle}</small>
           </div>
           <div className="chat-topbar-actions">
+            <button
+              className="icon-button theme-toggle"
+              type="button"
+              aria-label={theme === "tech" ? "切换为暖纸主题" : "切换为科技主题"}
+              title={theme === "tech" ? "切换为暖纸主题" : "切换为科技主题"}
+              aria-pressed={theme === "tech"}
+              onClick={toggleTheme}
+            >
+              {theme === "tech" ? (
+                <Sun aria-hidden="true" size={17} />
+              ) : (
+                <Moon aria-hidden="true" size={17} />
+              )}
+            </button>
             <button
               className={`model-status-button ${
                 llmConfig?.ready ? "ready" : "pending"
