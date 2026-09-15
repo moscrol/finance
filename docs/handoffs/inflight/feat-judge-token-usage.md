@@ -215,3 +215,13 @@ CLI 实付档 → `80f6a01e` 报表按新价目表重出 → docs → `9ef40ef5`
 - 全量 pytest 同一时段有另一棵树的 `run_main_gate.sh` 并跑，`latest.json` 被覆盖——按指令只读自己的 `<stamp>-<rev8>.json`。
 - `report.json.llm.model` 才是写手真实模型（`runtime_backend=continuous_glm` 不等于 GLM）：8 月 243/356 个 run 跑在 `gpt-5.6-terra`。
 - `ruff.toml` target py39：`with (a, b):` 括号多上下文写法虽在 3.12 可跑，改成嵌套 `with` 才与声明一致。
+
+---
+
+## 2026-09-15 前向合并（按 PR #593 质检意见）
+
+质检（09-11）：「`git merge-tree` 实探对 main 真冲突：`docs/learning/ledger-map.md`。请 rebase 后重开验收」。
+
+- **唯一冲突就是那一处，且是纯追加型**：本单在台账地图加「单次研究成本报表」行，主干同期加了「历史重放读数」「补数请求完成 / 恢复回执」两行，三行落在同一个位置。处置：三行全留（主干两行在前，保持主干顺序）。**代码零冲突**——`llm_refine.py` / `episode_semantic_verifier.py` / `glm_agent_runtime.py` / `continuous_turn_adapter` 测试都自动合上了。
+- tip `18ce83c6`（merge 提交）。干净树全量 **9,666 passed / 0 failed / 77 skipped / 2 xfailed**（369 s，exit 0，日志 `/tmp/593-full.log`），ruff 全绿，`merge-tree` 对 `gitea/main@1fef3d27` 干净。
+- **本轮未重跑**真实 server 的全口径成本数（¥0.4902/次 那条仍是 09-05 的读数）——前向合并没动取价与记账路径，只并了一份文档表。
