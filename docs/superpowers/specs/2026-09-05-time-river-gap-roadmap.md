@@ -27,6 +27,15 @@
 >
 > 收据 `docs/verification/2026-09-06-observation-script-g03.md`；交接 `docs/handoffs/inflight/feat-observation-script.md`。
 > 终局 spec 已由 `2026-09-06-personal-research-calibration-endstate-design.md` 承接，本文件只留缺口顺序。
+>
+> **实施状态回写（2026-09-15，G-04 / #21 剩余 P1）**：主体在 PR #673（本分支）——七段钦定为唯一标签值、
+> 八阶段降读法层别名（`theme_stage_vocab`，tsm-v1）、旁路库 `lifecycle_stage` 标签（逐日即时状态 daily=，
+> 非事后段落表——按段落表取值是前视）、42 条人工对照集草稿 + `stage-agreement` 报告、错位标记双表退役为
+> 词表派生物。2026-09-15 前向合并 `gitea/main@1fef3d27`，`LABEL_VERSION` 按 PR 评论既定方案升 **v6**
+> （v5 已被 #49 合取三值占用），真库临时 v6 库验证 lifecycle_stage 99,111 行 / 620 板块 / 六段值域
+> （酝酿恒无：旁路库不读知识库，如实）。**仍开着的**：创始人填 `stage_manual`（≥30 条才出一致率）、
+> 合入后共享旁路库重建 + 四条规则收据重跑记漂移。曾有同题并行轨 PR #745（2026-09-15，不知 #673 在途
+> 而重做了浅版），已关闭并留接替指针，其双表派生化增量已吸收（064a172a）。
 
 ---
 

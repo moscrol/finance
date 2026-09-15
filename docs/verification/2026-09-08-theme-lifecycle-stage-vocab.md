@@ -45,3 +45,38 @@
 - 连板高度 / 首板数不接（模糊匹配），主升判定按状态机声明「放宽为仅连续双红 ≥3」。
 - 与 #36 同样把 `LABEL_VERSION` 升到 v4：后合入者 rebase 再升 v5，并把两个新标签都写进 v5 的版本说明。
 - `segment_hindsight` 在 payload 里是**事后视角**的段落说明，读者不得拿它当当天读数——字段名已标明。
+
+---
+
+## 2026-09-15 前向合并追加（`gitea/main@1fef3d27`，本分支 tip `064a172a`）
+
+原分支停在 09-08 的基线上，主干已走远 —— 本轮做前向合并并按 PR #673 评论的既定方案收口版本号。
+
+### 撞车与处置
+
+| 撞的是 | 处置 |
+|---|---|
+| **`LABEL_VERSION`**：#36（`opinion_stage`）同样升 v4；工单 #49（合取式三值）已在主干占 **v5** | 本单改登 **v6**：`v6-…-opinion_stage_os_v0-conjunction_three_valued-lifecycle_stage_tsm_v1`。三段版本说明全部保留，不覆写别人的那两行 |
+| **`THEME_LABELS` / `LABEL_KINDS` / `build_labels` 调用链**：两个 `*_stage` 标签各加一个 | 两个都保留（五个 theme 标签），两个 `_build_*_stage_labels` 都进建库链 |
+| **`test_labels_inventory_and_data_gap` 写死 `== 16`** | 改 `set(rep.rows_by_label) == set(ALL_LABELS)` / `== len(ALL_LABELS)`。绝对计数在合并撞车时**两边各自为真、合起来就错**——这是目录类断言该用不变量的现成反例 |
+| **`river.theme_lifecycle_stage_object` 用了 `sector_recorded_at_sql(with_ledger=)` 与 `_has_table` / `SECTOR_LEDGER_TABLE`** | 主干已由 #43 / `07857c80` 撤销「与名单台账 `captured_at` 取较早」（台账证明名单版本、不证明行情内容）。本函数改用主干现行签名 `sector_recorded_at_sql("v")`，取行自身 `updated_at` |
+| **错位标记 `THEME_STAGE_COARSE`**（#36 的手工双表） | 按本分支交接「下一步」第 2 条执行：退役为 `theme_stage_vocab.module_coarse_tables()` 的派生物，新增 `CANONICAL_COARSE` / `coarse_of()`；`THEME_STAGE_MAPPING_VERSION` 归一到 `tsm-v1`。**行为逐字节不变**，由 `test_theme_stage_vocab` 以 tsc-v0 字面表冻结对照锁死 |
+
+### 合并后读数（全部 [实测]）
+
+| 项 | 结果 |
+|---|---|
+| 临时 v6 旁路库（`/tmp/history_labels.v6-merge.duckdb`，主库只读重建） | `lifecycle_stage` **99,111 行 / 419 日 / 620 板块**，值域 首发 / 退潮 / 回流 / 发酵 / 主升 / 分歧（**酝酿 0**，如实——旁路库不读知识库）；`opinion_stage` 145,168 行 / 422 日 / 344 板块，两标签共存于同一 `label_version` |
+| `river.theme_lifecycle_stage_object` vs 旁路库 `lifecycle_stage` | 真库随机 **30/30**（`seed=20260915`，从 v6 库抽样反查河），与 09-08 的 30/30 结论在新口径下仍成立 |
+| 干净树全量 | **9,630 passed / 0 failed / 77 skipped / 2 xfailed**（691 s，exit 0），ruff `All checks passed`；日志 `/tmp/g04-merge-full-pytest.log` |
+
+### 同题并行轨的处置（PR #745 已关闭）
+
+2026-09-15 另一条会话在不知本 PR 在途的情况下重做了一份浅版 G-04（PR #745：`theme_stage_vocab` 只含映射 + payload 字段 + 一份新对照集脚本）。裁决 **以本 PR 为主体**（早 7 天、更完整：旁路库标签 + 河对象 + daily_agent + 对照集草稿 + 报告命令），#745 已关闭并留接替指针。
+
+从 #745 **吸收**的只有一项：错位标记双表派生化（上表最后一行）——它本就是本分支交接写下的待办。**未吸收**其 `scripts/theme_stage_concordance.py`：该脚本从**事后段落表**（`load_theme_timeline_artifact().segments`）采样，而本单已实测那正是前视来源（按段落表取值 28/30，改 `daily=` 后 30/30）；对照集以本分支的 42 条草稿 + `stage-agreement` 为准。
+
+### 仍开着的（与 09-08 一致，未因合并改变）
+
+1. 创始人填 `methodology/reference/theme_stage_reference_set.jsonl` 的 `stage_manual`（≥ 30 条才出一致率）；
+2. 合入后重建**共享** `db/history_labels.duckdb`（仍是旧版本）并重跑四条规则收据记漂移——`lifecycle_stage` / `opinion_stage` 都是新增列，预期零漂移，但要跑过才算。
