@@ -375,6 +375,7 @@ def test_real_cli_exit_readonly_hash_and_scope(tmp_path, complete):
     process = run_cli(path, args)
     assert process.returncode == (0 if complete else 2), process.stderr
     report = json.loads(process.stdout)
+    assert report["contract_version"] == "hithink-stock-preview-v1"
     assert report["calculation_ready"] is complete
     assert not report["production_ready"]
     assert hashlib.sha256(path.read_bytes()).hexdigest() == before
@@ -386,6 +387,8 @@ def test_cli_missing_database_never_initializes_it(tmp_path):
     assert process.returncode == 2
     report = json.loads(process.stdout)
     assert not report["calculation_ready"]
+    # 失败 fallback 也必须可做合同版本核对（QC P3-1）。
+    assert report["contract_version"] == "hithink-stock-preview-v1"
     assert report["gaps"][0]["reason"] == "database-unavailable-or-schema-mismatch"
     assert not path.parent.exists()
 
@@ -400,7 +403,9 @@ def test_cli_missing_action_table_and_invalid_scope_are_structural(tmp_path):
     assert json.loads(process.stdout)["gaps"][0]["reason"] == "database-unavailable-or-schema-mismatch"
     process = run_cli(path, cli_args() + ["--stock-code", CODE])
     assert process.returncode == 2
-    assert json.loads(process.stdout)["gaps"][0]["reason"] == "invalid-preview-options"
+    invalid = json.loads(process.stdout)
+    assert invalid["gaps"][0]["reason"] == "invalid-preview-options"
+    assert invalid["contract_version"] == "hithink-stock-preview-v1"
 
 
 def test_cli_requires_denominator_before_database_open(tmp_path):

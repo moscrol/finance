@@ -139,9 +139,12 @@ def cmd_hithink_sector_preview(args) -> int:
     import duckdb
 
     from .hithink_sector_capture import CaptureNotReadyError
-    from .hithink_sector_preview import preview_sector_calculation
+    from .hithink_sector_preview import CONTRACT_VERSION, preview_sector_calculation
 
+    # 失败路径也带合同版本，下游才能对 fallback 报告做版本核对；
+    # 范围/输入指纹不补——失败时范围未验证、输入未读到，伪造指纹即冒充「验证过」。
     report: dict[str, object] = {
+        "contract_version": CONTRACT_VERSION,
         "trade_date": args.trade_date,
         "member_date": args.member_date,
         "capture_id": args.capture_id,
@@ -179,9 +182,10 @@ def cmd_hithink_stock_preview(args) -> int:
     """个股标准化只读预演，显式股票分母；不建库、不取 key、不写 canonical。"""
     import duckdb
 
-    from .hithink_stock_preview import preview_stock_calculation
+    from .hithink_stock_preview import CONTRACT_VERSION, preview_stock_calculation
 
     report = {
+        "contract_version": CONTRACT_VERSION,
         "trade_date": args.trade_date, "stock_codes": args.stock_code,
         "calculation_ready": False, "production_ready": False,
         "request_complete": None, "provider_completeness": "unverified",

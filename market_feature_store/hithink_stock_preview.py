@@ -195,7 +195,8 @@ def preview_stock_calculation(con, trade_date, *, stock_codes: Sequence[str]) ->
         current = inputs.get(("bar", td, code), [])
         previous = inputs.get(("bar", prev, code), [])
         actions = inputs.get(("adjustment", td, code), [])
-        reasons = []
+        # row 每股重置：_calculate 抛异常时不得残留上一只股票的行。
+        row, reasons = None, []
         for label, bars in (("current", current), ("previous", previous)):
             if len(bars) != 1:
                 reasons.append(f"{'missing' if not bars else 'duplicate'}-{label}-bar")

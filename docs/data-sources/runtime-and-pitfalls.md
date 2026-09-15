@@ -141,7 +141,8 @@ local 分步暂不自动抓当前成员；成员抓取与采集日期修复见�
   在相邻交易日的成交额计算，复用 `sync_local_sector_daily.diff_ratio` 与 `signals.is_double_red`。
   这是明示的同篮子比较，不是把新池今额与旧池昨额拼接；也不认证旧供应商全序列等价。
 - 默认名单/目录年龄为 0；承接旧名单必须同时指定 `--member-date` 与
-  `--max-member-age-days N`（自然日）。前一交易日由统一休市表判定，不能拿「库中最近有行」替代。
+  `--max-member-age-days N`（自然日）。前一交易日由统一休市表判定，不能拿「库中最近有行」替代；
+  休市表当前仅登记 2026 年，目标日或前一计划日落在未登记年份即报 `invalid-preview-options`。
 - 缺目录、名单计数/时刻不符、任一成员缺日线/关键值、非法数字、错误来源、重复身份或
   指数模式缺相邻 bar 时，`calculation_ready=false`、exit 2；部分可算行仅供诊断，
   不给全池 `double_red_codes`。输入齐全 exit 0 也**只表示本次所选输入可计算**。
@@ -206,6 +207,10 @@ MARKET_FEATURE_STORE_DB=/path/to/isolated.duckdb \
 - 一条 SQL 读取 `fact_stock_daily_hithink` 的目标及前一**计划交易日**，以及
   `fact_stock_adjustment_hithink` 的目标日事件，校验与计算消费同一份输入。
   不读 canonical 表填名字/换手率/前收，不跨缺行情日找更早裸收，不读取未来除权事件。
+- 可预演范围受统一休市表（`trading_days.closed_dates`，**当前仅登记 2026 年**）限制：
+  目标日与其前一计划交易日都必须落在已登记年份内。2025 及更早、2027 及更晚的目标日，
+  以及前日跨入 2025 的 2026 年首个交易日，一律 fail-closed 报 `invalid-preview-options`——
+  这是日历未登记，不是行情缺失。要预演其他年份先扩休市表，不放宽校验。
 - 价格保持 `adjusted=none`：开高低收有限、正值、符合分价与高低区间；成交量为正整数股，
   成交额为正数元。零成交不自行标成停牌/平盘；其他源标签、重复身份、缺表/关键字段拒绝。
   仅做上述结构和数值校验，**不认证成交均价与量额比、供应商原单位或更新时间的新鲜度**。
@@ -223,7 +228,9 @@ MARKET_FEATURE_STORE_DB=/path/to/isolated.duckdb \
 - 输出合同 `hithink-stock-preview-v1`、范围及输入指纹、逐行来源/参考基准。输入指纹对所读白名单行
   排序并保留重复；输入变更能检测，但没有保存历史原件、独立签名或股票市场全集分母。
   `updated_at` 仅要求有时间，不以其推导当时可见性；历史预演读的是**当前所存版本**。
-- exit0仅为全声明范围可算，缺口/非法参数/不可读库或schema不符exit2；
+- exit0仅为全声明范围可算，缺口/非法参数/不可读库或schema不符exit2。
+  失败 fallback 报告同样带 `contract_version` 供版本核对，但**不带**范围/输入指纹——
+  失败时范围未验证、输入未读到，补指纹等于伪造「验证过」；
   `production_ready` 恒false，`request_complete=null`，`provider_completeness` 和
   `adjustment_coverage` 恒为 `unverified`。已有板块capture审计不扩权认证这些行情/事件。
 

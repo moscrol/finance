@@ -25,6 +25,7 @@ from .hithink_sector_contract import (
 )
 from .trading_days import closed_dates, previous_scheduled_trading_day
 
+CONTRACT_VERSION = "hithink-sector-preview-v1"
 PCT_BASES = ("member_equal_weight", "index_close_return")
 
 
@@ -199,6 +200,7 @@ def preview_sector_calculation(
     ).encode()).hexdigest()
     ready = bool(rows) and not gaps
     return {
+        "contract_version": CONTRACT_VERSION,
         "trade_date": str(td), "previous_trade_date": str(prev),
         "member_date": str(md), "member_age_days": age, "member_fingerprint": fingerprint,
         "category": category, "sector_count": len(sectors), "rows": rows, "gaps": gaps,

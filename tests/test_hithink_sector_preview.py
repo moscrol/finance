@@ -247,6 +247,7 @@ def test_real_cli_is_read_only_and_returns_nonzero_for_incomplete(con, tmp_path,
     result = _run_cli(path, _cli_args())
     assert result.returncode == (0 if complete else 2), result.stderr
     report = json.loads(result.stdout)
+    assert report["contract_version"] == "hithink-sector-preview-v1"
     assert report["calculation_ready"] is complete
     assert report["production_ready"] is False
     assert hashlib.sha256(path.read_bytes()).hexdigest() == before
@@ -266,6 +267,8 @@ def test_cli_missing_db_fails_structurally_without_creating_it(tmp_path):
     assert result.returncode == 2
     report = json.loads(result.stdout)
     assert not report["calculation_ready"] and not report["production_ready"]
+    # 失败 fallback 也必须可做合同版本核对（QC P3-1，两片一起补）。
+    assert report["contract_version"] == "hithink-sector-preview-v1"
     assert report["gaps"][0]["reason"] == "database-unavailable-or-schema-mismatch"
     assert not path.parent.exists()
 
