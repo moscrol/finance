@@ -1,5 +1,9 @@
 # feat/extraction-first-p0 · 工单 #53 提取前置 P0
 
+> **本文件已冻结（2026-09-15）**：#53 由 `fix/extraction-first-closeout` 接管——整条链重放到
+> 最新 `gitea/main` 之上（SHA 全变、内容不变）+ 第五轮收口（V1/V2 修复、变异 runner 入仓 31 条）。
+> 接手读 `docs/handoffs/inflight/fix-extraction-first-closeout.md`。本分支只作历史，合并后清理。
+
 ## 这个分支做什么
 带读披露前先收用户自己写的观察剧本，再展示字段差异（不评分、不算收敛）；可显式跳过，不计失败。
 工单 `docs/superpowers/specs/2026-09-14-extraction-first-p0-workorder.md`；设计依据 `~/foresight/.../2026-09-13-extraction-first-spec.md` rev.4（仓外，未改）。

@@ -67,6 +67,22 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 # 从候选树去校验基线收据会得到 exit=1（比的是候选树的 HEAD），那是处境不符不是收据坏。
 ```
 
+### 1.2 Closeout（第五轮）环境与基线
+
+第五轮起整条链**重放到最新 `gitea/main` 之上**，分支改名 `fix/extraction-first-closeout`：
+`feat/extraction-first-p0` 的提交逐笔重建（SHA 全变、内容不变），merge-base 就是当前 main，
+`git merge-tree` 预演 0 冲突（可快进）。§3.4 及之前各轮引用的旧 SHA 指 feat 分支上的历史提交，保留不改。
+
+| 项 | 值 |
+|---|---|
+| 工作树 | `~/fwp-wt-extraction-first-closeout` |
+| 分支 | `fix/extraction-first-closeout` |
+| 冻结基线 revision | `1fef3d276d0e251158803fc09d5a81e60d79241b`（= 本轮 `gitea/main`） |
+| 被测最终 revision | 见 §6.1「Closeout 读数」的 `--expect-revision`（**唯一来源**，其余位置一律指过来） |
+| 门禁工作树 | `~/.finance-runtime/reviews/extraction-closeout-20260915/gate/finance-workspace-private`（专建 detached 树） |
+| 基线工作树 | `~/.finance-runtime/reviews/extraction-closeout-20260915/baseline/finance-workspace-private`（detached 于冻结基线） |
+| 原始输出 | `~/.finance-runtime/reviews/extraction-closeout-20260915/`：`gate/` 各叶 exit+log+junit、`mutations-<§6.1 revision>/`、`pinned-probes-rerun/`、`baseline-pytest.log`、`mergetree.txt` |
+
 ## 2 改了什么
 
 | 文件 | 一句话 |
@@ -85,6 +101,15 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 `7a86ce4e`（撤回脏树读数 + 压缩交接）→ `caba87c7`（回填读数）→
 `8410e9d3`（复审返修 6 项）→ `b916091e`（诊断拆句 + 交接回填）→ `642c3f5d`（回填读数）→
 `b69ac4b4`（复审二返修 4 项 + 文档指针）→ `901c7a87`（Q2 / Q3，复审方所写）→ 本页所在提交。
+
+第五轮（closeout）：上述链在 `fix/extraction-first-closeout` 上逐笔重建（内容同、SHA 变），
+其后新增一笔收口提交（即 §6.1 绑定的被测 revision）：
+`observation_script.py`（受控确认 record_id 由动作键派生，V1）、
+`personal_export.py`（坏行落 `_unparsed_bytes_hex`，V2）、
+**新增** `intelligence/tests/test_extraction_closeout.py`（14 条：坏行字节级往返 ×5、
+字面量 `\xe7` 与坏字节不塌缩、同秒不同确认动作 ×6、历史确认 id 不被重写、
+真 CLI + 临时 DuckDB 全链）、**变异 runner 入仓**
+`scripts/review_probes/run_extraction_mutations.py` + 冻结定义 `extraction_mutations.json`（31 条）。
 
 ## 3 逐条验收（A1–A15）
 
@@ -106,7 +131,7 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 | A10 | 重试不重复、并发只一个 pending、成功事件与剧本行同一次写、跨用户 / 跨目标拒绝、**收据落盘失败 → 退 1 + 保持 pending**、已完成尝试返回原收据、原始导出保留三类 | ✅ 10 条 |
 | A11 | 开关矩阵七种；**只写提取台账不翻转新老用户判据**；带读关闭时独立 draft 仍能存 | ✅ 7 条 |
 | A12 | 无类型旧剧本可读；事件不进状态数 / 过期 / 非交易日扫描；`--from-draft` 是 `user_authored` 且不伪造投影；hindsight 活过 draft 这一跳 | ✅ 7 条 |
-| A13 | 有牙验收：见 §4 | ✅ 28/28 |
+| A13 | 有牙验收：见 §4 | ✅ 31/31 |
 | A14 | 差异载荷**一个数都没有**；收据键在来源关联白名单内且无数值；新模块不定义评分型符号（探针先在坏样本上验证会红）；profile / 校准台账零写入 | ✅ 6 条 |
 | A15 | 本页 | ✅ |
 
@@ -223,7 +248,25 @@ A 系两条按真实行为重写（其中 `test_completed_attempt_replays_the_re
 > 来源指向旧版本。**幂等键的字段集合要逐个论证「改了它算不算另一个动作」**——这已经是
 > 第三次栽在同一句话上（S6 漏 `due`、U1 漏版本序号、U2 漏来源版本），前两次也都写在本页。
 
-## 4 变异测试（A13 有牙验收，28 条）
+## 3.5 收口自查（2026-09-15 第五轮，2 项 P2）
+
+在重放链顶端自查实测，2 项成立；修法与回归都在收口提交里（§6.1「Closeout 读数」绑定的那个 SHA）。
+
+| # | 缺陷 | 修法 | 回归 |
+|---|---|---|---|
+| V1 | U2 把来源版本放进了**动作键**，事件不再互相顶替；但记录 id `_make_id` 仍只哈希「内容 + 秒级时间 + due」——同一秒内同内容的两次**不同**确认动作（换来源版本 / 换条件 / 换尝试）事件各一条，`script_id` 却指向同一条剧本行：身份在记录层重新撞上 | 受控确认的 record_id 直接由**动作键**派生（`os-<as_of>-<sha256(action_key)[:24]>`）；旧入口 id 合同不变；既有成功行走去重分支**原样返回，不重写历史 id** | `test_distinct_confirmation_actions_have_distinct_record_ids`（换来源版本 / 换条件 / 换尝试 × on-time / late，6 条）+ `test_retry_preserves_preexisting_confirmation_id` |
+| V2 | U3 的 `backslashreplace` 只是**预览**：坏字节 `e7` 与原文里的字面量 `\xe7`（四个字符）渲染成同一串，行尾空白也被 strip——展示可分辨 ≠ 字节可还原，JSON 往返后更分不出 | 坏行（`UnicodeDecodeError` 与 `JSONDecodeError` 两类）额外落 `_unparsed_bytes_hex`，`bytes.fromhex` 逐字节还原（含空白与 `\r`）；导出 note 写明恢复方法 | `test_bad_line_round_trips_exact_bytes_through_export`（5 种坏行，**过真实 JSON 序列化**再断言，且台账原字节不动）+ `test_literal_escape_and_torn_byte_do_not_collapse` |
+
+> V1 是「幂等键的字段集合要逐个论证」的**第四次**，但形状推进了一层：这回键本身是对的，
+> 错在**以键去重的记录身份没跟着键走**。动作键修对之后，还要挨个检查以它为输入的派生身份
+> （record id、事件 `script_id` 指向）是否同步——键与 id 是两层，各要有自己的牙。
+>
+> 顺带补上 §7 此前明记的一条缺口：`test_real_cli_draft_read_and_receipt_with_local_database`
+> 用**真实 CLI + 真实身份解析 + 真实 River 切片**跑通 draft→read→重试收据全链
+> （数据面是临时 DuckDB 固定夹具 `fact_sector_daily_generation`，legacy 快照），
+> 打桩不再是唯一证据；但仍不是生产库证据。
+
+## 4 变异测试（A13 有牙验收，31 条）
 
 harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONTWRITEBYTECODE=1`
 （防「同长度改动 + 秒内还原」被 `.pyc` 缓存伪造成回归），锚点唯一性由 harness 自检
@@ -259,8 +302,32 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
 | M26 | 提交身份不含版本序号（回退 U1） | U1 | ✅ |
 | M27 | 确认身份不含来源版本（回退 U2） | U2 | ✅ |
 | M28 | 导出残片不可逆（回退 U3） | U3 | ✅ |
+| M29 | 确认动作唯一但 script_id 沿用同秒内容哈希（回退 V1） | V1 | ✅ |
+| M30 | 坏 UTF-8 行只留预览、丢原始字节（回退 V2） | V2 | ✅ |
+| M31 | 坏 JSON 行丢 `_unparsed_bytes_hex`（回退 V2） | V2 | ✅ |
 
-全部还原后 `135 passed`，工作树无残留。原始输出 `/tmp/xfp0/mutations.txt`。
+第四轮（M1–M28，旧 harness `/tmp/xfp0/mutate.py`）：全部还原后 `135 passed`，工作树无残留。
+原始输出 `/tmp/xfp0/mutations.txt`。
+
+**第五轮起 runner 入仓**：`scripts/review_probes/run_extraction_mutations.py` + 冻结定义
+`scripts/review_probes/extraction_mutations.json`（M1–M31，每轮全量重放，不再依赖 /tmp）。
+与旧 harness 的差异全部 fail-closed：
+
+- **锚点必须恰好命中一次**——旧版失配是「跳过继续跑」（本页 §4 曾专门写「跳过的锚点等于
+  没有牙」当纪律），新版直接断言中止，纪律变成 exit code；
+- **collection error ≠ 红**——红要求 `exit=1` 且 `failures>0` 且 `errors=0`，收集错误冒充不了牙；
+- **只测已提交 revision**——runner 自建 detached 临时树，定义与被执行的 runner 都从**那棵树**里读
+  （两者与调用方逐字节相等才开跑），未提交改动混不进证据；
+- 每条变异留 diff、红 / 绿完整日志（含 command/cwd/revision 头）、JUnit、改前 / 改后 / 还原三个
+  sha256；还原按原字节写回并断言相等，逐条重跑绿 + 收尾全量绿 + 树 porcelain 干净才写
+  `complete=true`；失败保留树用于诊断。
+- 跑在 `-B` + `PYTHONDONTWRITEBYTECODE=1` 下（.pyc 缓存教训照旧），`FORESIGHT_USERS_DIR`
+  指向隔离目录、`FWP_TEST_RECEIPT=0`（局部变异不产全量收据，不污染收据流）。
+
+第五轮读数（在 §6.1 绑定的被测 revision 上）：基线 `149 passed` → **M1–M31 逐条 RED**
+（failures>0、errors=0）→ **逐条还原 GREEN** → 收尾 `restored-full` `149 passed`；
+`results.json` `complete=true`，`definitions_sha256` 与仓内冻结文件 shasum 一致（`200aa1f2…`）。
+证据目录 `~/.finance-runtime/reviews/extraction-closeout-20260915/mutations-<§6.1 revision>/`。
 
 > **第四轮的改动打失效了四个旧锚点**（M16 / M19 / M22 / M23——它们的代码区域被 U1–U3
 > 与 Q2 重写过），harness 报「锚点命中 0 次，跳过」。已逐条重新锚定：
@@ -350,6 +417,49 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 > 耗时 347s → 357s：两次都在安静机器上、同一解释器、同一依赖指纹下取得，
 > 这 10s 属于噪声量级，**不作为耗时结论**。
 
+#### Closeout 读数（第五轮；取法同上：专建 detached 树、跑期零改动、收据绑定）
+
+```
+基线 1fef3d27：9617 passed, 77 skipped, 2 xfailed, 17 warnings in 680.81s   exit 0
+最终        ：9767 passed, 77 skipped, 2 xfailed, 17 warnings in 366.29s   exit 0
+```
+
+收据校验（两棵树各自跑、各自绑，均 VALIDATOR_EXIT=0）：
+
+```
+$ cd ~/.finance-runtime/reviews/extraction-closeout-20260915/gate/finance-workspace-private
+$ .venv-workbench/bin/python scripts/check_test_receipt.py \
+      ~/.finance-runtime/test-receipts/20260915T095136Z-e20302a6.json \
+      --expect-revision e20302a6f8df0e5cf4597011eab07e00d478fe5f
+  读数     passed=9767 failed=0 error=0 skipped=77
+  ✓ revision 一致   ✓ 解释器一致   ✓ python 版本一致   ✓ 依赖指纹一致
+  ✓ 收据来自干净树   ✓ 依赖门禁未被绕过   ✓ 收据 revision == e20302a6f8df
+✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。        VALIDATOR_EXIT=0
+
+# 基线收据 ~/.finance-runtime/test-receipts/20260915T104747Z-1fef3d27.json
+# 在基线树（§1.2）内同法校验：passed=9617 failed=0，✓ 干净树，VALIDATOR_EXIT=0。
+```
+
+差量对账（对 closeout 冻结基线）：
+
+| | 基线 `1fef3d27` | 最终 | 差量 |
+|---|---|---|---|
+| passed | 9617 | 9767 | **+150** |
+| failed | 0 | 0 | 0 |
+| skipped | 77 | 77 | 0 |
+| xfailed | 2 | 2 | 0 |
+
++150 逐条点得出名字（`--collect-only` 两边核过：四个测试文件在最终 revision 共收 164 条，
+接缝文件在基线收 14 条）：
+
+| 来源 | 条数 |
+|---|---|
+| `test_observation_extraction_first.py`（A1–A14） | 77 |
+| `test_extraction_first_review_fixes.py`（S / R / T / Q / U 各轮回归） | 58 |
+| `test_extraction_closeout.py`（V1 / V2 + 真 CLI 全链，§3.5） | 14 |
+| `test_guided_reading_daily_seam.py`（15 − 14） | +1 |
+| 合计 | **150** |
+
 ### 6.2 一次 1 红与它的归因
 
 第二轮返修后的首跑（`/tmp/xfp0/final3-pytest.txt`）出现 **1 红**：
@@ -367,16 +477,35 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 随后两次全量（`final4` 9670P、`final5` 9671P）均 exit 0。**两次读数都留档**，
 不按「已知红」掩过去——首跑那份原始输出也在 `/tmp/xfp0/` 里。
 
+### 6.3 Closeout 门禁全叶与审查探针重放（第五轮）
+
+全部叶子在 gate 树（§1.2）重跑，exit 码与日志逐叶留档（`gate/*.exit` / `*.log` / `*.xml`）：
+ruff ✅ / 全量 pytest ✅（读数见 §6.1 Closeout 段）/ frontend install+lint+typecheck+test(76)+build ✅ /
+e2e **15 passed** ✅ / registry 四步 ✅ / `audit_ledger_spec_crosswalk` ✅ / dataset `registry-check` ✅。
+
+三、四轮复审的 **20 条原始探针**（`test_original_four_contracts.py` / `test_version_contracts.py` /
+`test_export_bytes.py` / `check_extraction_attempt_contract.py`）在被测树上重放 **20/20 绿**：
+把探针文件复制到中立目录、从 gate 树根运行，import 就解析到被测代码
+（`pinned-probes-rerun/rerun.xml`；跑前后 gate 树 porcelain 干净）。
+
+> **一条会误导的红，先归因再入档。** 同一批探针若按 QC 快照里的原路径跑
+> （`/private/tmp/extraction-qc-<被审 sha>/…`），得 **10 红**——QC 目录是整棵冻结在被审
+> revision 的仓快照，自带根 `conftest.py`，pytest 在快照内收集时 import 的是**旧代码**
+> （JUnit classname `docs.verification.extraction-f43b89c6.…` 实锤）。那 10 红是已修缺陷在
+> 旧代码上的红，不是被测树的红。两种跑法都留档（`gate/original-probes.*` = 快照内、红；
+> `gate/original-probes-pinned.*` 与 `pinned-probes-rerun/` = 被测树、绿），
+> 探针目录跑前后指纹一致（`gate/probes-tree-{before,after}.txt`，仅头部时间戳行不同）。
+
 ## 7 未验证 / 明确不在本次范围
 
 - **真人效果完全未验证。** §7 三项阈值未填，实验未开跑。`read_completed` 只证明
   **系统成功交付**，不证明人读完或学会；`pending` 不等于离开。
 - **P1–P5 未做**：知识分类、预埋提问、勾稽 / 试教台、§4.5 方案 C 均未实现。
 - **未推、未合 main、未部署、未改生产运行时。** 合并需用户明确确认。
-- **真库路径上的身份解析未在本单跑过**：全部用例对 `river.slice_river` 与
-  `resolve_identity` 打桩。复用既有 `river.resolve_entity`，但没有本单的真库证据。
-  （质检独立补测过 16 个临时库场景 + 少量只读生产解析，与 River 现有结果一致；
-  那是质检方的证据，不是本单的。）
+- **生产库上的身份解析未在本单跑过**：closeout 补了一条真 CLI + 真实身份解析 + 真实
+  River 切片的全链用例（临时 DuckDB 固定夹具，§3.5），A1–A15 主体用例仍对
+  `river.slice_river` / `resolve_identity` 打桩——打桩不再是唯一证据，但**生产库**上仍只有
+  质检方的旁证（16 个临时库场景 + 少量只读生产解析），不是本单的。
 - **`--from-draft` 与 `--from-slice` 同传时后者胜**，未做互斥拒绝，无测试。
 - **提取门未过时退出码是 0**（与既有「带读未开启 → 0」同档；机器判定看 JSON 的
   `blocked` / `code`）。这是一个选择而不是必然。
@@ -384,15 +513,19 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 
 ## 8 最终提交与复跑
 
-- 分支 `feat/extraction-first-p0`；被测 revision 见 §1 那一行（**唯一来源**）
-- 交接 `docs/handoffs/inflight/feat-extraction-first-p0.md`（状态）+
+- 分支 `fix/extraction-first-closeout`（第五轮起，见 §1.2；`feat/extraction-first-p0` 与各 QC
+  分支为历史，合并后清理）；被测 revision 见 §6.1「Closeout 读数」那一段（**唯一来源**）
+- 交接 `docs/handoffs/inflight/fix-extraction-first-closeout.md`（状态；
+  `feat-extraction-first-p0.md` 已冻结为历史并加转向）+
   `docs/handoffs/2026-09-14-extraction-first-p0-review-fixes.md`（背景全文）
-- 复跑：`git worktree add <新树> <本页 §1「被测最终 revision」那个 SHA>` → §6 那八条命令
-  → 变异按 §4 手改复现（每次改前清 `__pycache__`）。**跑全量期间不要碰那棵树**——
-  本页 §0 就是这么栽的。
+- 复跑：`git worktree add <新树> <§6.1「Closeout 读数」那个 SHA>` → §6 那八条命令
+  → 变异一条命令复现：`python scripts/review_probes/run_extraction_mutations.py --output <新目录>`
+  （runner 自建 detached 树；锚点唯一 / 可编译 / 执行非空 / 还原逐字节相等全 fail-closed）。
+  **跑全量期间不要碰那棵树**——本页 §0 就是这么栽的。
   > 这里刻意**不写死 SHA**：写死过一次（`7a86ce4e`），下一轮返修后它就指向了旧树，
-  > 而复审方按它复跑会漏掉最终修复（复审二实测）。指针只留一处，就是 §1 那一行。
-- **未推、未合 main。** `gitea/main` 现为 `1fef3d27`；
-  `git merge-tree --write-tree gitea/main HEAD` 预演 **0 冲突**（`/tmp/xfp0/mergetree.txt`）。合并前按
-  「比较基准是目标分支不是快照」重新 diff，并对工单 INDEX 这个热文件跑
-  `git merge-tree` 列新造冲突。
+  > 而复审方按它复跑会漏掉最终修复（复审二实测）。指针只留一处，就是 §6.1 那一段。
+- **未推、未合 main。** closeout 分支的 merge-base 就是当前 `gitea/main`（§1.2 冻结基线），
+  `git merge-tree --write-tree gitea/main fix/extraction-first-closeout` 预演 **0 冲突**
+  （`~/.finance-runtime/reviews/extraction-closeout-20260915/mergetree.txt`）。合并前按
+  「比较基准是目标分支不是快照」对**当时**的 `gitea/main` 重新预演，并对工单 INDEX
+  这个热文件跑 `git merge-tree` 列新造冲突。
