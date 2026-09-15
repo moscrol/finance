@@ -1727,10 +1727,11 @@ def cmd_refresh_profile(args: argparse.Namespace) -> int:
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 
-def cmd_daily(args: argparse.Namespace) -> int:
-    from intelligence.workflows.daily_review import DailyReviewOptions, dry_run_daily_review, run_daily_review
+def daily_options_from_args(args: argparse.Namespace):
+    """One daily option mapping for both the CLI and generation preflight."""
+    from intelligence.workflows.daily_review import DailyReviewOptions
 
-    options = DailyReviewOptions(
+    return DailyReviewOptions(
         date=args.date,
         plan=args.plan,
         user=args.user,
@@ -1750,6 +1751,12 @@ def cmd_daily(args: argparse.Namespace) -> int:
         alerts_enabled=not args.no_alert,
         alert_on_warn=args.alert_on_warn,
     )
+
+
+def cmd_daily(args: argparse.Namespace) -> int:
+    from intelligence.workflows.daily_review import dry_run_daily_review, run_daily_review
+
+    options = daily_options_from_args(args)
     summary = dry_run_daily_review(options) if args.dry_run else run_daily_review(options)
     if args.summary_json:
         summary.write_json(args.summary_json)

@@ -342,3 +342,179 @@ sys.exit(0)
     restored = run()
     assert restored.returncode == 0, restored.stdout + restored.stderr
     assert inventory(code) == before
+
+
+@pytest.mark.parametrize("destination,step", [
+    ("app/users/root-test", "framework-interpretation"),
+    (f"复盘/daily/{DAY}", "daily-review-html"),
+    ("skills/daily-full-review/state", "daily-review"),
+    (f"market_feature_store/exports/{DAY}-daily-review.json", "daily-review"),
+    ("app/users/root-test/workflow_metrics.jsonl", "framework-interpretation"),
+    ("state/episodes/fixture-episode", "daily-review"),
+    ("db/snapshots/increments", "daily-review"),
+])
+def test_existing_write_destination_symlink_into_code_is_rejected_before_steps(rig, destination, step):
+    code, data, _, _ = rig
+    target = code / "qc-wrong-output"
+    if destination.endswith((".json", ".jsonl")):
+        target.write_text("keep me")
+    else:
+        target.mkdir()
+    link = data / destination
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(target, target_is_directory=target.is_dir())
+    before_code, before_data = inventory(code), inventory(data)
+    result = launch(rig, "--only-step", step)
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "writable path is in CODE_ROOT" in result.stderr
+    assert inventory(code) == before_code
+    assert inventory(data) == before_data
+
+
+@pytest.mark.parametrize("variant", ["abbreviation", "equals", "duplicate-last-unsafe"])
+def test_summary_guard_uses_same_argument_meaning_as_daily_cli(rig, variant):
+    code, data, _, _ = rig
+    unsafe = str(code / "qc-summary.json")
+    args = {"abbreviation": ["--summary-j", unsafe],
+            "equals": [f"--summary-json={unsafe}"],
+            "duplicate-last-unsafe": ["--summary-json", "safe.json", "--summary-json", unsafe]}[variant]
+    before = inventory(code)
+    result = launch(rig, "--dry-run", *args)
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "writable path is in CODE_ROOT" in result.stderr
+    assert not (data / "safe.json").exists()
+    assert inventory(code) == before
+
+
+def test_summary_last_value_and_safe_external_user_symlinks_are_preserved(rig):
+    code, data, elsewhere, _ = rig
+    target = elsewhere / "existing-user"
+    target.mkdir()
+    sentinel = target / "profile.json"
+    sentinel.write_text('{"existing": true}')
+    user = data / "app/users/root-test"
+    user.parent.mkdir(parents=True)
+    user.symlink_to(target, target_is_directory=True)
+    before = inventory(code)
+    result = launch(rig, "--only-step", "framework-interpretation", "--summary-json",
+                    str(code / "unused.json"), "--summary-j=safe.json")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (data / "safe.json").is_file()
+    assert (target / "workflow_metrics.jsonl").is_file()
+    assert sentinel.read_text() == '{"existing": true}'
+    assert inventory(code) == before
+
+
+@pytest.mark.parametrize("relative", [
+    "scripts/render_daily_review_briefing.py",
+    "scripts/build_market_triggered_theme_brief.py",
+    "skills/strategy1-matrix/scripts/update_matrix.py",
+    "intelligence/workflows/daily_review.py",
+])
+@pytest.mark.parametrize("raises", [False, True])
+def test_code_symlink_escape_is_rejected_before_any_stale_code_executes(rig, relative, raises):
+    code, data, _, _ = rig
+    stale = data / "stale.py"
+    marker = "QC_DATA_TREE_SCRIPT_EXECUTED"
+    stale.write_text(f"raise RuntimeError({marker!r})\n" if raises else f"print({marker!r})\n")
+    link = code / relative
+    link.unlink()
+    link.symlink_to(stale)
+    before_code, before_data = inventory(code), inventory(data)
+    result = launch(rig, "--only-step", "daily-review-html")
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "code escapes FINANCE_CODE_ROOT" in result.stderr
+    assert marker not in result.stdout + result.stderr
+    assert inventory(code) == before_code
+    assert inventory(data) == before_data
+
+
+def test_internal_code_symlink_still_uses_same_snapshot(rig):
+    code, _, _, _ = rig
+    original = code / "scripts/render_daily_review_briefing.py"
+    target = code / "scripts/pinned_renderer.py"
+    original.rename(target)
+    original.symlink_to(target)
+    result = launch(rig, "--dry-run")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_safe_external_directory_link_does_not_hide_nested_code_write(rig):
+    code, data, elsewhere, _ = rig
+    target = elsewhere / "external-user"
+    target.mkdir()
+    (target / "workflow_metrics.jsonl").symlink_to(code / "qc-metrics.jsonl")
+    user = data / "app/users/root-test"
+    user.parent.mkdir(parents=True)
+    user.symlink_to(target, target_is_directory=True)
+    before = inventory(code)
+    result = launch(rig, "--only-step", "framework-interpretation")
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "writable path is in CODE_ROOT" in result.stderr
+    assert inventory(code) == before
+
+
+def test_safe_user_directory_cycle_is_bounded_and_not_rejected(rig):
+    code, data, _, _ = rig
+    user = data / "app/users/root-test"
+    user.mkdir(parents=True)
+    (user / "cycle").symlink_to(user, target_is_directory=True)
+    before = inventory(code)
+    result = launch(rig, "--only-step", "framework-interpretation")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (user / "workflow_metrics.jsonl").is_file()
+    assert inventory(code) == before
+
+
+@pytest.mark.parametrize("gate", ["write-tree", "summary", "source-snapshot"])
+def test_removed_guard_reproduces_defect_then_restore_blocks_it(rig, gate):
+    """Mutate only rig's isolated copy: witness the forbidden side effect, not argv."""
+    code, data, _, _ = rig
+    marker = "QC_NESTED_CODE_EXECUTED"
+    if gate == "write-tree":
+        target = code / "qc-user"
+        target.mkdir()
+        user = data / "app/users/root-test"
+        user.parent.mkdir(parents=True)
+        user.symlink_to(target, target_is_directory=True)
+        source = code / "intelligence/workflows/generation_paths.py"
+        old = "        _validate_write_tree(target, code=code, data=data, seen=seen)"
+        replacement = "        pass  # mutation: bypass descendant checks"
+        args = ["--only-step", "framework-interpretation"]
+        forbidden = target / "workflow_metrics.jsonl"
+    elif gate == "summary":
+        source = code / "intelligence/workflows/generation_paths.py"
+        old = "        _outside_code(Path(summary_json), code=code, data=data)"
+        replacement = "        pass  # mutation: bypass summary validation"
+        forbidden = code / "qc-summary.json"
+        args = ["--dry-run", "--summary-j", str(forbidden)]
+    else:
+        source = code / "scripts/run_daily_generation.py"
+        old = "        _validate_code_snapshot(code)"
+        replacement = "        pass  # mutation: bypass source snapshot validation"
+        stale = data / "stale.py"
+        stale.write_text(f"raise RuntimeError({marker!r})\n")
+        link = code / "intelligence/workflows/daily_review.py"
+        link.unlink()
+        link.symlink_to(stale)
+        args = ["--dry-run"]
+        forbidden = None
+    original = source.read_text()
+    assert original.count(old) == 1
+    good = launch(rig, *args)
+    assert good.returncode == 2 and marker not in good.stdout + good.stderr
+    try:
+        source.write_text(original.replace(old, replacement))
+        broken = launch(rig, *args)
+        if forbidden:
+            assert broken.returncode == 0, broken.stdout + broken.stderr
+            assert forbidden.is_file()
+            forbidden.unlink()
+        else:
+            assert marker in broken.stdout + broken.stderr
+    finally:
+        source.write_text(original)
+    restored = launch(rig, *args)
+    assert restored.returncode == 2 and marker not in restored.stdout + restored.stderr
+    if forbidden:
+        assert not forbidden.exists()

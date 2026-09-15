@@ -5,10 +5,37 @@
 """
 from __future__ import annotations
 
-import argparse
 import os
 from pathlib import Path
 import sys
+
+
+def _validate_code_snapshot(code: Path) -> None:
+    """Validate source links before importing project code (including this gate's helpers).
+
+    These are code surfaces, not data/asset stores. Walk metadata only, follow
+    internal links once, and reject external links before Python can execute them.
+    Existing persistent/build directories are not part of the executable snapshot.
+    """
+    excluded = {"__pycache__", "node_modules", ".git", "users", "webapp", "exports", "outputs", "state"}
+    pending = [code / name for name in ("intelligence", "market_feature_store", "scripts", "skills", "evolution")
+               if (code / name).exists() or (code / name).is_symlink()]
+    seen: set[Path] = set()
+    while pending:
+        directory = pending.pop()
+        resolved = directory.resolve(strict=True)
+        if not resolved.is_relative_to(code):
+            raise ValueError(f"generation code escapes FINANCE_CODE_ROOT: {directory}")
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        for child in resolved.iterdir():
+            if child.name in excluded:
+                continue
+            if child.is_symlink() and not child.resolve(strict=True).is_relative_to(code):
+                raise ValueError(f"generation code escapes FINANCE_CODE_ROOT: {child}")
+            if child.is_dir():
+                pending.append(child)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -23,6 +50,7 @@ def main(argv: list[str] | None = None) -> int:
                          "market_feature_store/__init__.py", "scripts/notify_ops.py"):
             if not (code / relative).resolve(strict=True).is_relative_to(code):
                 raise ValueError(f"generation code escapes FINANCE_CODE_ROOT: {relative}")
+        _validate_code_snapshot(code)
         data_raw = os.environ.get("FINANCE_DATA_ROOT", "").strip()
         if not data_raw:
             raise ValueError("FINANCE_DATA_ROOT is required")
@@ -54,11 +82,6 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError(f"generation writable path is in CODE_ROOT: {key}={path}")
             os.environ[key] = str(path)
         arguments = list(sys.argv[1:] if argv is None else argv)
-        parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
-        parser.add_argument("--summary-json")
-        known, _ = parser.parse_known_args(arguments)
-        if known.summary_json and (data / Path(known.summary_json).expanduser()).resolve().is_relative_to(code):
-            raise ValueError("generation writable path is in CODE_ROOT: --summary-json")
 
         import intelligence
         import market_feature_store
@@ -66,6 +89,7 @@ def main(argv: list[str] | None = None) -> int:
         from intelligence.paths import default_paths
         from intelligence.services.episode_store import resolve_episode_store_root
         from intelligence.userspace import users_dir
+        from intelligence.workflows.generation_paths import validate_generation_paths
 
         for module in (intelligence, cli, market_feature_store):
             if not Path(module.__file__).resolve().is_relative_to(code):
@@ -75,15 +99,20 @@ def main(argv: list[str] | None = None) -> int:
                      users_dir(), resolve_episode_store_root()):
             if path.resolve().is_relative_to(code):
                 raise ValueError(f"generation writable path is in CODE_ROOT: {path}")
+        # Parse exactly once with the real daily CLI, including abbreviation,
+        # '=' and repeated-option semantics. Dispatch this same Namespace below.
+        parsed = cli.build_parser().parse_args(["daily", *arguments])
+        validate_generation_paths(cli.daily_options_from_args(parsed), code_root=code,
+                                  summary_json=parsed.summary_json, paths=paths)
         print(f"generation_import={intelligence.__file__} cli={cli.__file__} "
               f"data_root={data} users={users_dir()} episodes={resolve_episode_store_root()}",
               file=sys.stderr, flush=True)
         # 历史相对数据参数（summary-json 等）保持数据根语义，与启动者 cwd 无关。
         os.chdir(data)
-    except (OSError, ValueError, ImportError) as exc:
+    except (OSError, ValueError, ImportError, RuntimeError) as exc:
         print(f"generation code/data root invalid: {exc}; refusing workspace fallback", file=sys.stderr)
         return 2
-    return cli.main(["daily", *arguments])
+    return parsed.func(parsed)
 
 
 if __name__ == "__main__":
