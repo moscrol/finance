@@ -12,7 +12,10 @@ from pathlib import Path
 # 引用，不复制第二份——两张表一旦分叉，「哪张是对的」没人答得出。方向合法：
 # layer_audit 只圈 `intelligence/services/** ↛ intelligence.runtime.*`，
 # 同向先例见 `intelligence/services/external_market.py` import `market_feature_store`。
-from market_feature_store.trading_days import closed_dates  # noqa: E402
+from market_feature_store.trading_days import (  # noqa: E402
+    closed_dates,
+    previous_scheduled_trading_day,
+)
 
 
 def _known_trading_days(db_path: str | Path | None) -> list[date]:
@@ -46,20 +49,6 @@ def _known_trading_days(db_path: str | Path | None) -> list[date]:
 _FULL_DATE_RE = re.compile(
     r"(20\d{2})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]?\s*(\d{1,2})\s*日?"
 )
-
-
-def previous_scheduled_trading_day(value: date) -> date | None:
-    """按周末 + 交易所公告休市表向前找最近交易日；年份不在表内 fail closed。"""
-
-    candidate = value - timedelta(days=1)
-    for _ in range(20):
-        closures = closed_dates(candidate.year)
-        if closures is None:
-            return None
-        if candidate.weekday() < 5 and candidate not in closures:
-            return candidate
-        candidate -= timedelta(days=1)
-    return None
 
 
 def non_trading_day_note(value: date) -> str | None:

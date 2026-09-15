@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import hashlib
 import tempfile
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable
+from zoneinfo import ZoneInfo
 
 import duckdb
 
@@ -60,6 +61,11 @@ GetJson = Callable[..., dict[str, Any]]
 
 class HithinkSectorSyncError(RuntimeError):
     """板块同步失败。消息里不得带 key。"""
+
+
+def _shanghai_now() -> datetime:
+    """表列为无时区 TIMESTAMP，统一存上海墙钟，不能依赖宿主/DB 时区。"""
+    return datetime.now(ZoneInfo("Asia/Shanghai")).replace(tzinfo=None)
 
 
 def skip_reason_if_no_key() -> str | None:
@@ -152,13 +158,19 @@ def fetch_constituents(thscode: str, getter: GetJson) -> list[dict[str, Any]]:
         "/api/a-share-index/constituents/ths-stock-list",
         params={"thscode": thscode},
     )
-    rows = []
-    for item in _items(payload):
-        code = item.get("thscode")
+    data = payload.get("data")
+    raw = data.get("item", data.get("items")) if isinstance(data, dict) else data
+    if not isinstance(raw, list) or not raw:
+        raise HithinkSectorSyncError(f"{thscode}: 当前成员为空或格式错误，不认领完整快照")
+    rows, seen = [], set()
+    for item in raw:
+        code = str(item.get("thscode") or "").strip().upper() if isinstance(item, dict) else ""
+        if not code or code in seen:
+            raise HithinkSectorSyncError(f"{thscode}: 当前成员身份缺失或重复")
+        seen.add(code)
         ticker = item.get("ticker")
         _name = item.get("name")  # 接住但不落库：产品面不出个股名
-        if code:
-            rows.append({"thscode": str(code), "ticker": ticker, "name": _name})
+        rows.append({"thscode": code, "ticker": ticker, "name": _name})
     return rows
 
 
@@ -169,15 +181,15 @@ def _upsert_dim(con: duckdb.DuckDBPyConnection, rows: list[dict[str, Any]]) -> i
         """
         INSERT INTO dim_sector_hithink
             (sector_ts_code, sector_name, category, source, updated_at)
-        VALUES (?, ?, ?, ?, now())
+        VALUES (?, ?, ?, ?, ?)
         ON CONFLICT (sector_ts_code) DO UPDATE SET
             sector_name = excluded.sector_name,
             category = excluded.category,
             source = excluded.source,
-            updated_at = now()
+            updated_at = excluded.updated_at
         """,
         [
-            (row["thscode"], row.get("name"), row["category"], SOURCE_CATALOG)
+            (row["thscode"], row.get("name"), row["category"], SOURCE_CATALOG, _shanghai_now())
             for row in rows
         ],
     )
@@ -255,25 +267,52 @@ def _flush_kline(con: duckdb.DuckDBPyConnection, rows: list[tuple], dest: Path) 
 def _flush_constituents(
     con: duckdb.DuckDBPyConnection, rows: list[tuple], dest: Path
 ) -> int:
-    return _flush_parquet(
-        con,
-        create_sql="""
+    """按 (真实采集日, 板块) 整批替换；普通 upsert 会留下已退出的成员。
+
+    每个板块响应完整后才进批；失败批删除/插入/目录计数同回滚。空响应在抓取层
+    拒绝，不拿旧批次冒充本次成功。captured_at 为日期、updated_at 为响应接收时刻。
+    """
+    if not rows:
+        return 0
+    mem = duckdb.connect(":memory:")
+    try:
+        mem.execute("""
             CREATE TABLE t (
                 captured_at DATE, sector_ts_code TEXT, stock_ts_code TEXT,
-                ticker TEXT, source TEXT
+                ticker TEXT, source TEXT, updated_at TIMESTAMP
             )
-        """,
-        insert_mem_sql="INSERT INTO t VALUES (?,?,?,?,?)",
-        copy_into_sql="""
-            INSERT OR REPLACE INTO fact_sector_constituent_hithink
-                (captured_at, sector_ts_code, stock_ts_code, ticker, in_index,
-                 source, updated_at)
-            SELECT captured_at, sector_ts_code, stock_ts_code, ticker, 1, source, now()
+        """)
+        mem.executemany("INSERT INTO t VALUES (?,?,?,?,?,?)", rows)
+        mem.execute(f"COPY t TO '{dest}' (FORMAT PARQUET)")
+    finally:
+        mem.close()
+    con.execute("BEGIN TRANSACTION")
+    try:
+        con.execute("""
+            DELETE FROM fact_sector_constituent_hithink m
+            USING read_parquet(?) n
+            WHERE m.captured_at=n.captured_at AND m.sector_ts_code=n.sector_ts_code
+        """, [str(dest)])
+        con.execute("""
+            INSERT INTO fact_sector_constituent_hithink
+                (captured_at, sector_ts_code, stock_ts_code, ticker, in_index, source, updated_at)
+            SELECT captured_at, sector_ts_code, stock_ts_code, ticker, 1, source, updated_at
             FROM read_parquet(?)
-        """,
-        rows=rows,
-        parquet_path=dest,
-    )
+        """, [str(dest)])
+        con.execute("""
+            UPDATE dim_sector_hithink d
+            SET constituent_count=s.n, constituents_captured_at=s.captured
+            FROM (
+                SELECT sector_ts_code, COUNT(*) n, MAX(updated_at) captured
+                FROM read_parquet(?) GROUP BY sector_ts_code
+            ) s
+            WHERE d.sector_ts_code=s.sector_ts_code
+        """, [str(dest)])
+        con.execute("COMMIT")
+    except Exception:
+        con.execute("ROLLBACK")
+        raise
+    return len(rows)
 
 
 def _codes_already_fresh(
@@ -553,7 +592,7 @@ def sync_hithink_sector_kline(
             )
         dim_n = _upsert_dim(con, catalog_rows)
 
-        codes = [row["thscode"] for row in catalog_rows]
+        codes = list(dict.fromkeys(row["thscode"] for row in catalog_rows))
         if resume:
             fresh = _codes_already_fresh(con, end_day)
             codes = [c for c in codes if c not in fresh]
@@ -582,24 +621,29 @@ def sync_hithink_sector_kline(
                     )
 
             constituent_n = 0
+            constituent_capture_dates: set[str] = set()
             if not skip_constituents:
-                member_codes = [
+                # 目录标签可重叠；同一板块只取一次完整快照，避免主键冲突/混批。
+                member_codes = list(dict.fromkeys(
                     row["thscode"]
                     for row in catalog_rows
                     if row["category"] != "index"
-                ]
+                ))
                 if limit is not None:
                     member_codes = member_codes[:limit]
                 const_buf: list[tuple] = []
                 for i, code in enumerate(member_codes, start=1):
                     members = fetch_constituents(code, getter)
+                    captured = _shanghai_now()  # 接口只有当前成员，不能用 K 线 end_day 回标
+                    constituent_capture_dates.add(captured.date().isoformat())
                     const_buf.extend(
                         (
-                            end_day,
+                            captured.date(),
                             code,
                             row["thscode"],
                             row.get("ticker"),
                             SOURCE_CONSTITUENT,
+                            captured,
                         )
                         for row in members
                     )
@@ -614,22 +658,6 @@ def sync_hithink_sector_kline(
                             f"constituents {i}/{len(member_codes)} rows={constituent_n}",
                             flush=True,
                         )
-                con.execute(
-                    """
-                    UPDATE dim_sector_hithink d
-                    SET constituent_count = s.n,
-                        constituents_captured_at = s.captured,
-                        updated_at = now()
-                    FROM (
-                        SELECT sector_ts_code, captured_at AS captured, COUNT(*) AS n
-                        FROM fact_sector_constituent_hithink
-                        WHERE captured_at = ?
-                        GROUP BY 1, 2
-                    ) s
-                    WHERE d.sector_ts_code = s.sector_ts_code
-                    """,
-                    [end_day],
-                )
 
         stats = kline_stats(con)
         result: dict[str, Any] = {
@@ -642,6 +670,7 @@ def sync_hithink_sector_kline(
             "bars_written": written,
             "empty_codes": empty,
             "constituent_rows": constituent_n,
+            "constituent_capture_dates": sorted(constituent_capture_dates),
             "fingerprint": table_fingerprint(con),
             "old_ti": coverage_old_ti(con, end_day),
         }
