@@ -14,15 +14,15 @@
 P3h=50687c0b、P3g=f05d0681、P3f2=e1fc53a7。P3注入面（D4四组九类）已逐条对账收口，矩阵+reading_baseline定性留痕`docs/handoffs/2026-09-15-e2-p3-injection-surface-audit.md`，payload卫生钉测试锁现状。未推送/合并/部署，不跑正式T2→T3/Knevo。
 
 ## 已验证
-P3h反例先红（adapter20用例=4合同×5确定性题型；run_turn3用例，probe用构造参数answer_query_fn/route_skills_fn注入——那俩是实例属性，monkeypatch类会AttributeError）后绿；813P/4S零破坏（805基线+新用例，含误伤复绿，收据20260915T104611Z）；Ruff通过；engine_b×10+adapter集×5稳定；变异（还原点50687c0b）撤防线1→20/20红、撤防线2→2/2红，完全正交，还原后151P复绿。
+P3h反例先红后绿（adapter20=4合同×5题型+run_turn3）；813P/4S零破坏；变异正交撤1→20红/撤2→2红。**四叶等价CI全绿@e37ada9b**：python=ruff全仓过+pytest全量9937P/83S/2xfail/0F（638s）；frontend=install(frozen)/lint/typecheck/test76P/build各exit0；e2e=15P（WORKBENCH_PYTHON=venv）；registry=四条--check+crosswalk全0（resync后，另148个registry测试绿）。registry曾红：kb仓当日提交致7条kb哈希漂移，机械resync@kb=6431e6b8a（e37ada9b）；check只报3条而scan刷7条，check疑有盲区待查。
 
 ## 未验证 / 已知边界
 作者自验非独立QC（注入面核查同样是作者对账）。引擎B内部仍无合同意识（被门挡住≠免疫，不得绕两道门直调）；注入式registry_factory内部读取不可撤销。fictional×full前提标注送达属P4/P6。未盖：D7跨轮继承五格全链版（P5）、P4–P7、全仓合入门禁。
 
 ## 下一步
-1. P3注入面已收口，转P4（D5逐题终态answered/legal_gap/missing+完成状态口径completed/partial）或P5（D7逐轴继承五格全链版，编译器层已有test_axes_update_independently）。
-2. P6纯度/锚点时复议reading_baseline是否污染材料题（收口点build_episode_input）。
-3. 合并回main前全仓等价CI+用户确认。
+1. 合并窗口开：P3收口+全仓CI绿，是否合回main等用户确认（不擅自合并）。
+2. P4（D5）划片已探明：material_only轮required槽「交代了缺口」现在进missing_outputs→驱动gap-resume repair空转（材料仍没有那个量，白烧轮次）。P4=verifier对material_only把此类分为legal_gap（不进missing_outputs不挂issue），「没交代」仍missing由repair救；全legal_gap→partial+顶部声明与memo槽随后。semantic_verifier对material零引用，材料语义判据属P6。
+3. P6纯度/锚点时复议reading_baseline是否污染材料题（收口点build_episode_input）。
 
 ## 踩过的坑
 `compile_material_contract`把一切「继续/接着」开头（无inherited）编成state_unavailable——写引擎门禁前先探普通词面会不会撞上材料合同语义，全量回归是抓误伤的唯一网。TurnOrchestrator的answer_query/route_skills是构造注入的实例属性。adapter的_run_episode会把context_factory异常吞成failed结果——「必须进装配」断言用calls列表不用pytest.raises。shell显式cd；pytest/ruff用主树venv。
