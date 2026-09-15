@@ -153,9 +153,12 @@ degrade+trace，零外呼）。分界：material_only/local_only 恒拦，bounda
 送达仍属 P4/P6 纯度范围。
 
 **本阶段不是材料题全链完成**：`local_only` 仅已审定 runner 的局部路径，未覆盖所有
-本地工具；歧义的预取前澄清（基底已知缺失的前置澄清已在 P3f2 接通）、controller
-前缀/默认摘要/压缩/恢复/子研究等其余注入路径仍待 P3 收口（确定性旁路已在 P3h
-收口，但引擎 B 内部仍无合同意识，不得绕过两道门直接调用）。local_only 原题号槽、逐题最终交付、可信跨轮继承、
+本地工具。D4 四组九类注入路径已逐条对账收口（矩阵与定性判断见
+[P3 注入面核查](handoffs/2026-09-15-e2-p3-injection-surface-audit.md)，payload 卫生
+钉测试锁现状）；判读基线/题型规则等方法文案留在 material_only 输入里，定性为
+「非事实、无 IO」不越 P3 红线，答案质量影响归 P4/P6 再议。引擎 B 内部仍无合同
+意识，不得绕过 P3h 两道门直接调用；注入式 registry_factory 内部读取不可撤销
+（P3c 声明）。local_only 原题号槽、逐题最终交付、可信跨轮继承、
 纯度与材料锚点待后续阶段；普通上下文不是按来源过滤后的安全输入。
 不得把局部短路当成真实入口已经零外呼，也不得运行正式 T2→T3/Knevo 对照。Grok CLI 已做过回顾性语义判卷试跑，但有效返回来自关闭系统沙箱的配置（不再沿用），且输入未含完整原题/材料，结果仅作试跑证据，不是隔离验收或正式评分；Knevo 有已登录浏览器的 CDP 回贴入口，但本轮未发新题、没有未揭盲成对答案，故没有正式 PK；详细状态见 [判官/Knevo 记录](verification/e2-boundary-closeout/llm-judge-knevo-status-20260915.md)。设计与阶段证据见
 [设计 v10](learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md)

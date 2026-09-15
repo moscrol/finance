@@ -519,3 +519,36 @@ def test_ordinary_turn_still_reaches_engine_b_without_adapter(tmp_path, monkeypa
             assistant_message_id=assistant.message_id, query=query,
             skill_mode="auto", selected_skill_ids=[],
         )
+
+
+def test_material_only_payload_carries_no_market_metadata_or_tools():
+    """P3 injection-surface closure pin: the assembled model input for a
+    material_only turn carries no market dates, no tools, no prime slots and
+    no factual market residue — only method-rule text (reading_baseline /
+    question_type_rules) which contains no values and performs no IO."""
+
+    frame = decide_turn(T3, conversation_materials=history(message(T2))).task_frame
+    context = build_episode_context(frame, task_id="p3-pin", conversation_context="")
+    payload = json.loads(build_episode_input(frame, context, ResearchToolRegistry(())))
+    assert payload["today"] is None  # market-date resolution short-circuited (P3a)
+    assert payload["latest_data_date"] is None
+    assert payload["available_tools"] == ""
+    contract = payload["research_contract"]
+    assert contract["allowed_capabilities"] == []
+    assert contract["evidence_plan"]["requirements"] == []
+    output_ids = [item["output_id"] for item in contract["required_outputs"]]
+    assert not any(oid.startswith("prime_") for oid in output_ids)
+    assert "prior_recall" not in output_ids
+    # No factual market numbers outside the user's own texts: strip the two
+    # method-rule blocks (pure how-to-read text) and the user materials, then
+    # require the rest to carry no digit-bearing market claims.
+    residue = json.dumps(
+        {
+            key: value
+            for key, value in payload.items()
+            if key not in {"reading_baseline", "question_type_rules", "task_frame", "conversation_context"}
+        },
+        ensure_ascii=False,
+    )
+    for token in ("上证指数", "成交额", "涨停家数", "沪深300"):
+        assert token not in residue
