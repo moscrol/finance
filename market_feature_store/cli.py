@@ -175,6 +175,32 @@ def cmd_hithink_sector_preview(args) -> int:
     return 0 if report["calculation_ready"] else 2
 
 
+def cmd_hithink_stock_preview(args) -> int:
+    """个股标准化只读预演，显式股票分母；不建库、不取 key、不写 canonical。"""
+    import duckdb
+
+    from .hithink_stock_preview import preview_stock_calculation
+
+    report = {
+        "trade_date": args.trade_date, "stock_codes": args.stock_code,
+        "calculation_ready": False, "production_ready": False,
+        "request_complete": None, "provider_completeness": "unverified",
+        "adjustment_coverage": "unverified", "rows": [],
+    }
+    try:
+        con = connect(read_only=True)
+        try:
+            report = preview_stock_calculation(con, args.trade_date, stock_codes=args.stock_code)
+        finally:
+            con.close()
+    except ValueError as exc:
+        report["gaps"] = [{"reason": "invalid-preview-options", "detail": str(exc)}]
+    except duckdb.Error:
+        report["gaps"] = [{"reason": "database-unavailable-or-schema-mismatch"}]
+    print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False))
+    return 0 if report["calculation_ready"] else 2
+
+
 def cmd_sync_sectors(args) -> int:
     from .sync.sync_fupanhui_sectors import sync_dim_sector
 
@@ -1677,6 +1703,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="允许的名单/目录最大年龄（自然日），默认只认当日；承接旧名单必须显式给值",
     )
     p_ht_preview.set_defaults(func=cmd_hithink_sector_preview)
+
+    p_ht_stock = sub.add_parser(
+        "hithink-stock-preview",
+        help="只读预演同花顺个股元/股换算和参考涨幅；不是日更或生产发布器",
+    )
+    p_ht_stock.add_argument("--trade-date", required=True, help="目标交易日 YYYY-MM-DD")
+    p_ht_stock.add_argument(
+        "--stock-code", required=True, action="append",
+        help="显式待验 A 股代码，可重复传不同股票；缺行情不缩小分母",
+    )
+    p_ht_stock.set_defaults(func=cmd_hithink_stock_preview)
 
     p_sectors = sub.add_parser("sync-sectors", help="同步复盘会板块清单到 dim_sector")
     p_sectors.add_argument("--trade-date", default=None, help="交易日期 YYYY-MM-DD, 留空取最新")

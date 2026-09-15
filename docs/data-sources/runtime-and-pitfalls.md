@@ -187,3 +187,46 @@ local 分步暂不自动抓当前成员；成员抓取与采集日期修复见�
 尚未将 dump 的元/股换算接入通用 canonical 日更投影，也未替换 canonical 板块宇宙。
 独立供应商完整分母、正式涨幅分类、复权/窗口及真实日报/队列/矩阵/snapshot 产物还需验收。
 单日修复器 `repair_hithink_stock_day.py` 有日期特定合同，不能直接当通用日更器使用。
+
+### 个股标准化只读预演（本分支代码，未部署）
+
+入口 `hithink-stock-preview`，实现 `market_feature_store/hithink_stock_preview.py`；
+决策见 [ADR-0005](../adr/0005-stock-preview-is-not-daily-publication.md)。仅输出诊断 JSON，
+不调用供应商/取密钥、不建表、不写 canonical，也未接入 local 分步或板块预览。
+使用时明确指定隔离库，不把示例日期当真实补数授权：
+
+```bash
+MARKET_FEATURE_STORE_DB=/path/to/isolated.duckdb \
+  .venv-workbench/bin/python -m market_feature_store.cli hithink-stock-preview \
+  --trade-date YYYY-MM-DD --stock-code 600001.SH --stock-code 000001.SZ
+```
+
+- 股票范围必须非空、唯一、显式声明；代码正则只检查形状和市场后缀，不证明上市名册。
+  输出 `requested_stock_count` / `calculated_stock_count`，缺股票不缩小分母；部分行仅作诊断。
+- 一条 SQL 读取 `fact_stock_daily_hithink` 的目标及前一**计划交易日**，以及
+  `fact_stock_adjustment_hithink` 的目标日事件，校验与计算消费同一份输入。
+  不读 canonical 表填名字/换手率/前收，不跨缺行情日找更早裸收，不读取未来除权事件。
+- 价格保持 `adjusted=none`：开高低收有限、正值、符合分价与高低区间；成交量为正整数股，
+  成交额为正数元。零成交不自行标成停牌/平盘；其他源标签、重复身份、缺表/关键字段拒绝。
+  仅做上述结构和数值校验，**不认证成交均价与量额比、供应商原单位或更新时间的新鲜度**。
+- 换算 `amount=turnover/1e8`（亿元、4位小数）、`volume=volume/100`（手、整数）；
+  原字段 `turnover` 是成交额而非换手率，输出 canonical 同名换手率 `turnover=null`、
+  `stock_name=null`。保留 `raw_amount_yuan` / `raw_volume_shares` 解释小量舍入成零，
+  换算零值不等于原始无成交。
+- 无事件行：参考前收=前一计划日裸收，但含义只是「未记录事件」，**不是已证实无除权**。
+  有事件行：仅支持来源明确的CNY纯现金分红，送转/配股比例/价格明确为零，不能用NULL代零；
+  `pre_close=round_half_up(prev_close-dividend_per_share,2)`，须为正数。
+  非现金事件明确拒绝，未直接复制授课模块更宽的公式。
+- `pct_chg=round_half_up((close-pre_close)*100/pre_close,2)`。运算从已入库DOUBLE的十进制文本
+  构造Decimal，固定精度50、完整上下文和半进舍入；先舍入参考前收再计算涨幅。
+  不是还原供应商原始任意精度，不冒称与单日修复器的DOUBLE/DECIMAL混合算法逐边界等价。
+- 输出合同 `hithink-stock-preview-v1`、范围及输入指纹、逐行来源/参考基准。输入指纹对所读白名单行
+  排序并保留重复；输入变更能检测，但没有保存历史原件、独立签名或股票市场全集分母。
+  `updated_at` 仅要求有时间，不以其推导当时可见性；历史预演读的是**当前所存版本**。
+- exit0仅为全声明范围可算，缺口/非法参数/不可读库或schema不符exit2；
+  `production_ready` 恒false，`request_complete=null`，`provider_completeness` 和
+  `adjustment_coverage` 恒为 `unverified`。已有板块capture审计不扩权认证这些行情/事件。
+
+本片只覆盖两个相邻计划日的普通行情/纯现金除息，不生成前后复权序列、3/5/10/20日收益或新高窗口。
+新股、停复牌、配股/送转、股票名、换手率、事件采集覆盖/真实字段对账，以及新池正式涨幅分类、
+候选/发布和当次产物验收仍待完成；不能用这份预演的exit0放行生产日报。
