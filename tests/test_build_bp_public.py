@@ -120,7 +120,11 @@ def test_generated_copy_current(model):
 def test_positioning_and_current_support(model):
     public = bp.build(bp.SRC.read_text(), model)
     assert "认知投降" in public and "认知复利" in public
-    assert "副业" in public and "自媒体" in public
+    # v1.4 经用户授权改为研究主干；“自媒体”不再是必须出现的旧文案。
+    assert "副业" in public and "资深投资者" in public
+    assert "取证、比较、计算" in public
+    assert "学习与判断校准是可选模式，不是使用门槛" in public
+    assert public.index("## 1 目标用户") < public.index("### 可选长期积累")
     support = public.split("### 希望社区提供的支持")[1].split(
         "### 进入收费阶段前的准备"
     )[0]
@@ -128,6 +132,51 @@ def test_positioning_and_current_support(model):
     assert "项目诊断" in support and "一人创业交流" in support
     assert "金融合规服务" in support
     assert "资金" not in support and "法务" not in support
+
+
+def test_demo_is_one_historical_task_not_live_composite(model):
+    public = bp.build(bp.SRC.read_text(), model)
+    demo = public.split("### 现在能展示什么")[1].split("### Alpha 前")[0]
+    assert "2026-09-09" in demo and "M2" in demo
+    assert "77 个窗口，71 个缺失、1 个未成熟、5 个有效" in demo
+    assert "独立性未建立" in demo
+    assert "不冒充产品截图或当前现场执行" in demo
+    assert "不拼接其他局部验收" in demo
+
+
+def test_evidence_and_commercial_boundaries_preserved(model):
+    public = bp.build(bp.SRC.read_text(), model)
+    for required in (
+        "严格按当时所知回放还须有相应内容快照",
+        "不是保证模型两次回答一样",
+        "当前没有已验证护城河",
+        "不证明投资方法有效",
+        "3 块不等于 3 个独立个股样本",
+        "尚无外部用户和产品收入",
+        "尚未生效",
+        "本轮扩展产品叙事不自动扩展套餐",
+        "真实输出样本",
+        "专业评估",
+        "商业分发授权",
+    ):
+        assert required in public
+    for obsolete_claim in (
+        "通用 AI 助手不记得",
+        "通用 Agent 有模型没有框架",
+        "大厂不是做不到，是做了会伤",
+        "同一天同一对象两次读取结果完全一致",
+    ):
+        assert obsolete_claim not in public
+
+
+def test_validation_counts_research_and_optional_calibration_separately(model):
+    public = bp.build(bp.SRC.read_text(), model)
+    plan = public.split("## 5 验证计划与调整机制")[1].split("## 6 项目预算")[0]
+    assert "仅在自愿校准子组计算" in plan
+    assert "失败、重试和人工救场不得从分母删除" in plan
+    assert "自动存档不算主动保存" in plan
+    assert "创始人工时" in plan
+    assert "至少半数登记过判断，才考虑扩大" not in plan
 
 
 def test_red_line_wording(model):
