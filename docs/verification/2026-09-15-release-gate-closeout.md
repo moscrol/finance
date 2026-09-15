@@ -103,7 +103,13 @@ Python收据（`~/.finance-runtime/test-receipts/`）：
 - CLI自报成本对账未完成：需要同一次生产调用的raw成本和metrics；没有冒用旧探针。BP未动。
 - 作者handoff仍含运行/人工待办，不整份归档删除。顶部加当前更正与新收口指针，旧正文明确标历史，保留作者决策证据。
 
-## 4. 证据索引与后续
+## 4. 收口增量复验（PR #747）
+
+PR #747 base为#592分支，代码尖 `8768b3f8fc1ea982f786bfeea2a8f49ca325b4a7`，8个增量文件；独立干净树全套复验：Ruff0，pytest **9749P/0F/77S/2xfail**（334.33s），前端四件套全0/76P，Playwright15P，registry四check与crosswalk全0。
+收据 `20260915T140914Z-8768b3f8.json` 在对应树按expect-revision校验exit0，基座漂移0；原始日志`closeout-*.log`。
+之后仅本次文档收据/日期快照更新，最终文档尖的同revision复验与push结果以PR #747最新评论为准；不将代码尖数字冒充main收据。
+
+## 5. 证据索引与后续
 
 原始日志：`~/.finance-runtime/release-gate-closeout-20260915/`，main-* / candidate-* / rules-before / rules-after / rules-published.log / build-labels.json / build-outcomes.json / label-drift.json / drift-transitions.json / data-publish.json / cost/。`evidence-manifest.json`列初轮文件hash（不含其后新增文件）。
 
