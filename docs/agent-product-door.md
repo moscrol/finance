@@ -74,7 +74,7 @@ P3e 候选在 `QueryResolver.resolve` 的词典读取前复用 D1/D2 材料合�
 `material_only` 时仅走既有文本理解，不访问实体/题材词典、证券名单或其缓存，也不注入
 词典验证出的锚点/候选/比较实体。普通、full、local_only 保持原解析；不新造禁令词表，
 不把未知边界或“继续”一律澄清。作者36针通过，撤闸恢复23F/13P，服务层452P/1项排除，
-均不能替代独立QC（待完成）；453针组合虽pytest绿，隔离器曾拦8次尝试，原失败保留。
+均不能替代独立QC；独立审查已在固定 `0b83e14f` 通过（focused 41P、相关347P，修正版禁止尝试0；首次启动器误拒41次的失败证据保留），仅限本片词典早读闸门。
 [本片收据与覆盖限制](verification/e2-boundary-closeout/p3e-query-resolver-20260915/README.md)。
 仍未关闭静态路由配置/日历先验、controller历史、可信继承、注入式resolver和其他旁路；
 本片不宣称整个 `understand_query` 零IO或完整入口安全。
