@@ -84,6 +84,16 @@ P3f 的“明确 material_only 就清空 controller 历史/旧 intent”候选�
 当前应用未增加这道闸，新增正例只锁住兼容行为；不是历史来源过滤或可信续轮已经完成。
 [候选原件、反例与撤回对照](verification/e2-boundary-closeout/p3f-rejected-history-clear-20260915/README.md)。
 
+P3f1 改为**只绑定历史材料来源**：当前轮明确 `material_only` 时，从真实 completed
+用户消息、材料内容身份与 message_id 构建不可变投影；只取既有上下文窗口内完整消息，
+不解析正文角色字样、标题或 summary 来授予来源身份。投影经默认 controller 到 TaskFrame，
+已知空投影不回退猜测；旧注入 controller 签名兼容，legacy frame 重建使用同一投影。
+普通/full/local_only 等其他路径保留旧行为。这不是 controller 模型提示词过滤，
+pending恢复/旧frame重验、跨轮权限及 Episode 历史正文交付尚未覆盖。
+作者最终回归249P、禁止尝试0；三种撤线分别6F/27P、2F/31P、2F/31P。
+相邻测试110P但100次禁止尝试、启动器exit3的失败保留；无审计复跑不能洗掉它。
+**尚无独立 QC，不代表 P3/E2 完成**；[范围与完整作者证据](verification/e2-boundary-closeout/p3f1-source-binding-20260915/README.md)。
+
 **本阶段不是材料题全链完成**：`local_only` 仅已审定 runner 的局部路径，未覆盖所有
 本地工具；歧义/基底不可恢复的预取前澄清、controller 前缀/默认摘要/压缩/恢复/子研究等
 全部注入路径、确定性旁路仍待 P3 收口。local_only 原题号槽、逐题最终交付、可信跨轮继承、
