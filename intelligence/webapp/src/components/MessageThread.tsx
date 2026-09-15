@@ -8,6 +8,7 @@ import {
 import { useEffect, useRef } from "react";
 import type {
   ChatMessage,
+  FollowupContinuation,
   LiveMessageState,
   ProductSkillDescription,
   RunBundle,
@@ -21,7 +22,7 @@ interface MessageThreadProps {
   runBundles: Record<string, RunBundle>;
   onRegenerate: (message: ChatMessage) => void;
   onOpenArtifact: (artifactId: string) => void;
-  onFollowup: (question: string) => void;
+  onFollowup: (question: string, continuation?: FollowupContinuation) => void;
   onStarter: (prompt: string) => void;
 }
 

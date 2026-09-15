@@ -23,6 +23,7 @@ from dataclasses import replace
 import itertools
 import json
 from pathlib import Path
+import re
 
 import pytest
 
@@ -529,6 +530,30 @@ def test_default_project_tool_result_equals_the_inline_projection() -> None:
     )
     assert again.audit_payload == expected_audit
     assert json.loads(again.model_content).get("observation") != facing["observation"]
+
+
+def test_lean_switch_slims_only_the_model_view_and_leaves_the_audit_untouched(monkeypatch) -> None:
+    """spec 2026-09-07 §3.1：开关开 → 模型正文去掉空值与 independent_key；审计底稿逐字节同前；关 → 同前。"""
+
+    evidence = (_evidence("evidence-1"), _evidence("evidence-2", title="第二条"))
+    observation = _observation(evidence, telemetry={"queued_ms": 3})
+    harness = FinanceResearchHarness()
+
+    monkeypatch.delenv("ASK_EPISODE_LEAN_OBSERVATION", raising=False)
+    baseline = harness.project_tool_result(observation, evidence_so_far=evidence, seen_prose=set())
+    monkeypatch.setenv("ASK_EPISODE_LEAN_OBSERVATION", "on")
+    leaned = harness.project_tool_result(observation, evidence_so_far=evidence, seen_prose=set())
+
+    assert leaned.audit_payload == baseline.audit_payload  # 审计底稿不动
+    base_view, lean_view = json.loads(baseline.model_content), json.loads(leaned.model_content)
+    assert all("independent_key" in row for row in base_view["evidence"])
+    assert all("independent_key" not in row for row in lean_view["evidence"])
+    for row in lean_view["evidence"]:
+        assert all(value not in ("", None, []) for value in row.values())
+    # 红线字段：来源 / 时点 / 分档 / E 号仍在；非空 gaps 仍在。
+    assert {"source", "source_date", "evidence_tier", "evidence_id", "title", "detail"} <= set(lean_view["evidence"][0])
+    assert lean_view["gaps"] == ["缺少反方证据"] and lean_view["evidence_ids"] == ["E1", "E2"]
+    assert len(leaned.model_content) < len(baseline.model_content)
 
 
 def test_default_govern_mode_equals_governor_decide_and_message() -> None:
@@ -1742,7 +1767,8 @@ def test_resume_no_longer_carries_repair_wording_or_verdict() -> None:
     ):
         assert needle not in source, needle
     assert "repair_goal_message(" in source
-    assert 'steering_message(\n                        "repair_finalize"' in source
+    # 收口指令仍由 harness 给（不依赖调用处换行方式）。
+    assert re.search(r'steering_message\(\s*"repair_finalize"', source)
     assert "admit_repair_result(" in source
     assert "downgrade_unreachable(" in source
     tree = ast.parse(source)

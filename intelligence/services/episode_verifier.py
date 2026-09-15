@@ -42,6 +42,9 @@ class VerifiedEpisodeOutcome:
     contract: ResearchTaskContract | None = None
     missing_outputs: tuple[str, ...] = ()
     mandatory_missing_capabilities: tuple[str, ...] = ()
+    # 契约外、但引用的哈希都在证据池里的输出绑定（「扩展区」）。它们不参与结构
+    # 完成度，也不进 completion.outputs；正文仍由语义判官逐句核验。
+    extension_outputs: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "issues", serialize_issues(self.issue_items))
@@ -56,6 +59,7 @@ class VerifiedEpisodeOutcome:
             "mandatory_missing_capabilities": list(
                 self.mandatory_missing_capabilities
             ),
+            "extension_outputs": list(self.extension_outputs),
         }
 
 
@@ -101,13 +105,40 @@ def verify_episode_outcome(
         required.output_id: required for required in contract.required_outputs
     }
     bindings = {binding.output_id: binding for binding in outcome.bindings}
-    unknown_outputs = sorted(set(bindings) - set(required_by_id))
-    for output_id in unknown_outputs:
+    # 契约外的输出绑定不再连坐已完成的必需输出（2026-09-09 判官修复 01 第一刀）。
+    # 复现：两个必需输出都 fulfilled、正文与证据完全一样，只多绑一个引用真实证据
+    # 的 extra_analysis，旧判据就把整篇打成 partial 并拒绝部分放行，语义判官连核心
+    # 答案都没看到。现在按「引用是否可核验」分两档：哈希都在池里 → 扩展区
+    # （EXTRA_OUTPUT_BINDING，STRIP_OK，隔离出结构完成度）；引用了池里没有 /
+    # 重复的哈希 → 编造引用（UNKNOWN_OUTPUT_BINDING，仍 BLOCK）。
+    extension_outputs: list[str] = []
+    forged_extra_outputs: list[str] = []
+    for output_id in sorted(set(bindings) - set(required_by_id)):
+        binding = bindings[output_id]
+        unverifiable = tuple(
+            content_hash
+            for content_hash in binding.evidence_hashes
+            if content_hash not in evidence_by_hash or content_hash in duplicate_hashes
+        )
+        if unverifiable:
+            forged_extra_outputs.append(output_id)
+            issues.append(
+                Issue(
+                    IssueCode.UNKNOWN_OUTPUT_BINDING,
+                    output_id,
+                    (
+                        f"unknown output binding: {output_id} cites unverifiable "
+                        "evidence hash " + ",".join(unverifiable)
+                    ),
+                )
+            )
+            continue
+        extension_outputs.append(output_id)
         issues.append(
             Issue(
-                IssueCode.UNKNOWN_OUTPUT_BINDING,
+                IssueCode.EXTRA_OUTPUT_BINDING,
                 output_id,
-                f"unknown output binding: {output_id}",
+                f"extension output binding isolated from contract: {output_id}",
             )
         )
 
@@ -368,7 +399,7 @@ def verify_episode_outcome(
     structurally_complete = bool(
         all_required_fulfilled
         and not mandatory_missing
-        and not unknown_outputs
+        and not forged_extra_outputs
         and outcome.draft.strip()
     )
 
@@ -398,6 +429,7 @@ def verify_episode_outcome(
         contract=contract,
         missing_outputs=missing_outputs,
         mandatory_missing_capabilities=mandatory_missing,
+        extension_outputs=tuple(extension_outputs),
     )
 
 

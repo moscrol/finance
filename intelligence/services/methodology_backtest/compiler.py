@@ -252,8 +252,9 @@ _BASELINE_TAIL = (
 _BASELINE_SQL: dict[str, str] = {kind: cte + _BASELINE_TAIL for kind, cte in _BASELINE_UNIVERSE.items()}
 _EMPTY_BASELINE_SQL = "SELECT 0 AS n, 0 AS k"
 
-# 按阶段基准率：同一个 u，多一个对大盘阶段标签的按日 LEFT JOIN + GROUP BY。阶段值原文返回（NULL = 当日无标签），
-# 命名 / 归一都不在 SQL 里做。大盘标签的 entity_type / entity_id / label 也走绑定参数，SQL 文本里没有任何常量字面量。
+# 按阶段基准率：同一个 u，多一个对大盘阶段标签的按日 LEFT JOIN + GROUP BY。阶段值来自 G-05
+# canonical 标签（NULL = 当日无标签）；命名 / 归一都不在 SQL 里做。大盘标签的 entity_type /
+# entity_id / label 也走绑定参数，SQL 文本里没有任何常量字面量。
 MARKET_ENTITY_TYPE = "market"
 STAGE_LABEL = "market_stage"
 _STAGE_BASELINE_TAIL = (

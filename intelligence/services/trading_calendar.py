@@ -8,31 +8,11 @@ from datetime import date, timedelta
 from pathlib import Path
 
 
-_SSE_CLOSURES: dict[int, frozenset[date]] = {
-    2026: frozenset(
-        {
-            date(2026, 1, 1),
-            date(2026, 1, 2),
-            date(2026, 2, 16),
-            date(2026, 2, 17),
-            date(2026, 2, 18),
-            date(2026, 2, 19),
-            date(2026, 2, 20),
-            date(2026, 2, 23),
-            date(2026, 4, 6),
-            date(2026, 5, 1),
-            date(2026, 5, 4),
-            date(2026, 5, 5),
-            date(2026, 6, 19),
-            date(2026, 9, 25),
-            date(2026, 10, 1),
-            date(2026, 10, 2),
-            date(2026, 10, 5),
-            date(2026, 10, 6),
-            date(2026, 10, 7),
-        }
-    ),
-}
+# 休市表的单一事实源在 `market_feature_store/trading_days.py`（低层）。这里反向
+# 引用，不复制第二份——两张表一旦分叉，「哪张是对的」没人答得出。方向合法：
+# layer_audit 只圈 `intelligence/services/** ↛ intelligence.runtime.*`，
+# 同向先例见 `intelligence/services/external_market.py` import `market_feature_store`。
+from market_feature_store.trading_days import closed_dates  # noqa: E402
 
 
 def _known_trading_days(db_path: str | Path | None) -> list[date]:
@@ -73,7 +53,7 @@ def previous_scheduled_trading_day(value: date) -> date | None:
 
     candidate = value - timedelta(days=1)
     for _ in range(20):
-        closures = _SSE_CLOSURES.get(candidate.year)
+        closures = closed_dates(candidate.year)
         if closures is None:
             return None
         if candidate.weekday() < 5 and candidate not in closures:
@@ -96,7 +76,7 @@ def non_trading_day_note(value: date) -> str | None:
     elif weekday == 6:
         reason = "周日"
     else:
-        closures = _SSE_CLOSURES.get(value.year)
+        closures = closed_dates(value.year)
         if closures is None or value not in closures:
             return None
         reason = "交易所公告休市日"
@@ -210,7 +190,7 @@ def next_trading_day(
 
     candidate = anchor_date + timedelta(days=1)
     for _ in range(20):
-        closures = _SSE_CLOSURES.get(candidate.year)
+        closures = closed_dates(candidate.year)
         if closures is None:
             return None
         if candidate.weekday() < 5 and candidate not in closures:

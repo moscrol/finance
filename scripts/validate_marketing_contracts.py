@@ -14,6 +14,11 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from intelligence.services import compliance_gate  # noqa: E402  （需先补 sys.path）
+
 MARKETING = ROOT / "docs" / "marketing"
 
 PROHIBITED_PATTERNS = [
@@ -95,6 +100,14 @@ def main() -> int:
         for per in brief.get("personas", []):
             if per not in persona_ids:
                 errors.append(f"{brief_path.name}: persona {per} 不存在")
+
+    # G-12a：对外内容契约与成稿共用 compliance_gate 的词表（「策略」单独出现 /
+    # 「第二天的方向」）。词表不在本文件里再抄一份——两处词表必漂。
+    for path in sorted((MARKETING).glob("*.yaml")) + sorted((MARKETING / "generated").glob("*.md")):
+        raw = path.read_text(encoding="utf-8")
+        for hit in compliance_gate.scan(raw, codes=compliance_gate.MARKETING_CODES):
+            line_no = raw.count("\n", 0, hit.start) + 1
+            errors.append(f"{path.name}:{line_no} [{hit.code}] 命中「{hit.term}」——{hit.hint}")
 
     for gen_path in sorted((MARKETING / "generated").glob("*.md")):
         text = gen_path.read_text(encoding="utf-8")

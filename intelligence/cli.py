@@ -471,12 +471,19 @@ def add_answer_score_parser(subparsers: argparse._SubParsersAction) -> None:
         "--rule-id",
         default=None,
         help="这张卡对应的方法论规则 rule_id（methodology/rules/<rule_id>.v<n>.json）。给了就过统计门："
-        "promoted / methodology / promoted_to_code 要求该规则最近一次回测收据为 supported，否则拒绝落卡（退出码 2）",
+        "promoted / methodology / promoted_to_code 要求该规则通过统一晋升认证"
+        "（同身份 discovery → validation → holdout 三段链，与 methodology_backtest.py queue 同口径），"
+        "否则拒绝落卡（退出码 2）",
     )
     parser.add_argument(
         "--receipts-dir",
         default=None,
         help="回测收据目录（默认 methodology/receipts），只在 --rule-id 时读取",
+    )
+    parser.add_argument(
+        "--rules-dir",
+        default=None,
+        help="规则目录（默认 methodology/rules），只在 --rule-id 时读取（锁定当前生效规则内容的身份）",
     )
     parser.set_defaults(func=cmd_answer_score)
 
@@ -605,6 +612,27 @@ def add_daily_agent_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--wiki-rag-timeout", type=int, default=120, help="单次 W 召回超时时间")
     parser.add_argument("--effectiveness-window", type=int, default=20, help="历史有效性评估回看的 theme-candidates 交易日数")
     parser.add_argument("--catalyst-window-days", type=int, default=5, help="催化归因回看的自然日数（卖方观点/晨汇）")
+    parser.add_argument(
+        "--guided-reading",
+        dest="guided_reading",
+        action="store_const",
+        const=True,
+        default=None,
+        help="强制在日报里附今日带读（默认：新用户开、老用户关；老用户不加此参数时输出逐字节不变）",
+    )
+    parser.add_argument(
+        "--no-guided-reading",
+        dest="guided_reading",
+        action="store_const",
+        const=False,
+        help="强制关闭今日带读",
+    )
+    parser.add_argument(
+        "--teaching-labels-db",
+        default=None,
+        help="授课框架旁路库路径（scripts/teaching_framework.py 的 --labels-db；也可用环境变量 FORESIGHT_TEACHING_LABELS_DB）。"
+        "给了且带读开启时，带读多一段「授课框架读数」并写上证卡片 SVG；不给 = 现状，逐字节不变",
+    )
     parser.add_argument("--out-json", default=None, help="写出完整 agent 日报 JSON（best-effort；研究队列写在其 sibling）")
     parser.add_argument("--out-md", default=None, help="写出完整 agent 日报 Markdown（best-effort）")
     parser.add_argument("--out-html", default=None, help="写出完整 agent 日报 HTML（best-effort；工作台优先读研究队列 HTML）")
@@ -748,6 +776,29 @@ def cmd_daily_agent(args: argparse.Namespace) -> int:
     queue_md = sibling_queue_path(out_md)
     queue_html = sibling_queue_path(out_html)
     kb_queue_path = out_json.with_name(f"{args.date}-kb-ingest-queue.json")
+    # 今日带读（G-03）：默认「新用户开、老用户关」，所以既有用户这里是**零动作**、
+    # `answer` 原样传下去。关掉后逐字节不变不是靠约定，是靠 merge_into_daily_review
+    # 在 gr 为 None 时返回同一个对象。
+    from intelligence import userspace as _userspace
+    from intelligence.services import guided_reading as _gr
+
+    _guided, _gr_reason = _gr.build_for_daily_review(
+        report, _userspace.user_space(getattr(args, "user", None)),
+        override=getattr(args, "guided_reading", None),
+        teaching_labels_db=getattr(args, "teaching_labels_db", None),
+        card_dir=out_md.parent,
+    )
+    if _guided is not None:
+        answer = _gr.merge_into_daily_review(answer, _guided)
+        print(f"带读已并入日报：{_gr_reason}", file=sys.stderr)
+    # 情景树逐日解析（#37 / G-15）：默认关，`FORESIGHT_SCENARIO_TREE_RESOLVE=1` 才跑；
+    # 关着时 answer 是同一个对象——逐字节不变靠 is 等价，不靠约定。
+    from intelligence.services import scenario_trees as _st
+
+    answer = _st.daily_review_hook(
+        answer, _userspace.user_space(getattr(args, "user", None)), args.date, db_path=getattr(args, "db_path", None)
+    )
+
     full_written = True
     try:
         write_daily_agent_outputs(report, answer, out_json, out_md, out_html)
@@ -885,7 +936,9 @@ def cmd_answer_score(args: argparse.Namespace) -> int:
         rule_id = str(getattr(args, "rule_id", None) or "").strip() or None
         rule_verdict: str | None = None
         rule_receipt: str | None = None
+        method_state: dict | None = None
         if rule_id:
+            from intelligence.services.methodology_backtest import lifecycle
             from intelligence.services.methodology_backtest.receipts import latest_receipt
 
             receipts_dir = (
@@ -893,10 +946,18 @@ def cmd_answer_score(args: argparse.Namespace) -> int:
                 if getattr(args, "receipts_dir", None)
                 else userspace.REPO_ROOT / "methodology" / "receipts"
             )
+            rules_dir = (
+                Path(args.rules_dir).expanduser()
+                if getattr(args, "rules_dir", None)
+                else userspace.REPO_ROOT / "methodology" / "rules"
+            )
             receipt = latest_receipt(receipts_dir, rule_id)
             if receipt is not None:
                 rule_verdict = str(receipt.get("verdict") or "") or None
                 rule_receipt = receipt.get("_path")
+            # 统一晋升认证（工单 #42 第二刀）：与 queue 同一推导，不再单看一份收据
+            state = lifecycle.state_for_rule(rules_dir, receipts_dir, rule_id)
+            method_state = state.to_dict() if state is not None else None
         us = userspace.user_space(args.user)
         card_path = Path(args.card_file).expanduser() if args.card_file else us.experience_cards_path
         try:
@@ -912,6 +973,7 @@ def cmd_answer_score(args: argparse.Namespace) -> int:
                 rule_id=rule_id,
                 rule_verdict=rule_verdict,
                 rule_receipt=rule_receipt,
+                method_state=method_state,
             )
         except experience_cards.PromotionGateError as exc:
             print(f"统计门拒绝：{exc.gate.reason}", file=sys.stderr)
@@ -1252,6 +1314,96 @@ def cmd_kb_queue_receive(args: argparse.Namespace) -> int:
     if result.status == "warn":
         print(f"WARN kb-queue-receive: {result.reason}", file=sys.stderr)
     # 归档失败不阻断复盘；skipped/warn 都当成功退出。
+    return 0
+
+
+def add_data_requests_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "data-requests",
+        help="问题驱动补数：聚合回答里的 window_uncovered 缺口 → 请求 → 覆盖检查 → 隔离补齐 → 恢复原研究",
+    )
+    parser.add_argument(
+        "action",
+        choices=["build", "check", "fill", "resume", "status"],
+        help="build 只列请求；check 加覆盖检查；fill 在隔离库上调现有 writer；resume 重问已满足的消费者；status = check + 回执摘要",
+    )
+    parser.add_argument("--runs-dir", default=None, help="users 根目录或 run_* 目录；缺省 FORESIGHT_USERS_DIR")
+    parser.add_argument(
+        "--users-dir",
+        default=None,
+        help="回执（data_request_receipts.jsonl）所在 users 根；缺省跟随 --runs-dir——回执必须与消费者同域，否则重放键对不上（2026-09-09 实测把回执写进了另一棵 users 树）",
+    )
+    parser.add_argument("--since", default="30d", help="只看该时间之后的事件（7d / 24h / ISO / all）")
+    parser.add_argument("--db", default=None, help="要检查 / 补齐的 DuckDB；缺省 MARKET_FEATURE_STORE_DB / 数据根 db/")
+    parser.add_argument("--request-id", action="append", default=[], help="只处理这些请求（可重复）")
+    parser.add_argument("--workbench-url", default=None, help="resume 用：Workbench API 根地址，例如 http://127.0.0.1:8792")
+    parser.add_argument("--dry-run", action="store_true", help="fill / resume 只打印计划")
+    parser.add_argument("--no-historical-workaround", action="store_true", help="fill sw_l1 历史窗时不关实时步（复现日期覆写）")
+    parser.add_argument("--out", default=None, help="把产物 JSON 写到该路径（同名 .md 一起写）")
+    parser.set_defaults(func=cmd_data_requests)
+
+
+def cmd_data_requests(args: argparse.Namespace) -> int:
+    from intelligence import userspace
+    from intelligence.paths import default_market_db_path
+    from intelligence.services import data_requests as dr
+
+    runs_root = Path(args.runs_dir).expanduser() if args.runs_dir else userspace.users_dir()
+    db_path = Path(args.db).expanduser() if args.db else default_market_db_path()
+    since = dr.parse_since(args.since)
+    events = dr.collect_gap_events(runs_root, since=since)
+    requests = dr.build_requests(events)
+    if args.request_id:
+        wanted = set(args.request_id)
+        requests = [r for r in requests if r.request_id in wanted]
+    completions: list[dr.Completion] = []
+    extra: dict[str, object] = {}
+    repo_root = Path(__file__).resolve().parents[1]
+    if args.action in {"check", "fill", "resume", "status"}:
+        completions = dr.check_requests(requests, db_path=db_path)
+    if args.action == "fill":
+        extra["fills"] = [
+            dr.fill_request(
+                r,
+                db_path=db_path,
+                dry_run=args.dry_run,
+                historical_workaround=not args.no_historical_workaround,
+                repo_root=repo_root,
+            )
+            for r in requests
+        ]
+        if not args.dry_run:
+            completions = dr.check_requests(requests, db_path=db_path)
+    # 回执域与消费者域必须一致：--users-dir > --runs-dir > env。
+    receipts_root = (
+        Path(args.users_dir).expanduser()
+        if args.users_dir
+        else (runs_root if args.runs_dir else userspace.users_dir())
+    )
+    if args.action == "resume":
+        extra["completed_receipts"] = dr.record_completions(completions, users_dir=receipts_root)
+        actions, skipped = dr.plan_resume(completions, users_dir=receipts_root)
+        extra["resume_skipped"] = skipped
+        extra["resume_results"] = dr.execute_resume(
+            actions,
+            users_dir=receipts_root,
+            workbench_url=args.workbench_url,
+            dry_run=args.dry_run,
+        )
+    if args.action == "status":
+        users = sorted({str(c.get("user")) for r in requests for c in r.consumers if c.get("user")})
+        extra["receipts"] = {user: dr.load_receipts(receipts_root, user) for user in users}
+    artifact = dr.wrap_artifact(requests, completions, runs_root=runs_root, since=args.since, db_path=db_path)
+    artifact.update(extra)
+    if args.out:
+        out_path = Path(args.out).expanduser()
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
+        out_path.with_suffix(".md").write_text(dr.render_markdown(artifact), encoding="utf-8")
+        print(out_path)
+        print(out_path.with_suffix(".md"))
+    else:
+        print(json.dumps(artifact, ensure_ascii=False, indent=2, default=str))
     return 0
 
 
@@ -1631,25 +1783,6 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
     server.serve(server.build_config(args))
     return 0
-
-
-def add_feishu_bot_parser(subparsers: argparse._SubParsersAction) -> None:
-    from intelligence.chat import feishu_bot
-
-    parser = subparsers.add_parser(
-        "feishu-bot",
-        help="飞书 IM 入口（已退役；调用 exit 2。问答用 ask / Workbench Episode）",
-        description="飞书 IM 入口（已退役）。不连 WebSocket；问答用 ask / Workbench Episode。",
-    )
-    feishu_bot.add_arguments(parser)
-    parser.set_defaults(func=cmd_feishu_bot)
-
-
-def cmd_feishu_bot(args: argparse.Namespace) -> int:
-    from intelligence.chat import feishu_bot
-
-    _ = args  # 旧旗标仍可解析，退役闸不读凭据、不连 WebSocket
-    return feishu_bot.run()
 
 
 def add_dream_collect_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -2144,6 +2277,108 @@ def cmd_theme(args: argparse.Namespace) -> int:
         summary.write_json(args.summary_json)
     print(summary.to_json(), end="")
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
+
+
+def add_personal_export_parser(subparsers: argparse._SubParsersAction) -> None:
+    p = subparsers.add_parser(
+        "personal-export",
+        help="导出你自己的判断台账（判断 / 可证伪点 / 回检 / 观察剧本 / 纠偏 / 经验卡 / 画像）。"
+        "只读，只含本 user_id，不含共享层与他人记录",
+    )
+    p.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p.add_argument("--out", default=None, help="写到这个文件（缺省只打印摘要，不落盘）")
+    p.add_argument("--json", action="store_true", help="把整份导出打到 stdout")
+    p.set_defaults(func=cmd_personal_export)
+
+
+def cmd_personal_export(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence import userspace
+    from intelligence.services import personal_export
+
+    us = userspace.user_space(args.user)
+    result = personal_export.export_ledger(us)
+    payload = result.to_dict()
+
+    if args.out:
+        out = Path(args.out).expanduser()
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(_json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(personal_export.render(result))
+        print(f"\n  已写入 {out}")
+        return 0
+    if args.json:
+        print(_json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+    print(personal_export.render(result))
+    return 0
+
+
+def add_observation_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "observation",
+        help="观察剧本（G-03）：今日带读 → 确认 / 修改 / 跳过 → 登记 T+1 回检。"
+        "只到指数 / 板块 / 题材，不出个股名单、不给方向与时点",
+    )
+    sub = parser.add_subparsers(dest="action", required=True)
+
+    p_read = sub.add_parser("read", help="今日带读：读 as-of 河切片 → 事实 / 限制 / 缺口 + 剧本骨架")
+    p_read.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_read.add_argument("--as-of", required=True, help="交易日 YYYY-MM-DD")
+    p_read.add_argument("--entity", required=True, help="板块 / 题材名或代码（不接受个股）")
+    p_read.add_argument("--knowledge-cutoff", default=None, help="知识截止（回放用；缺省=as-of 当日带读口径）")
+    p_read.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径")
+    p_read.add_argument("--on", dest="force", action="store_const", const=True, default=None, help="强制开带读（默认：新用户开、老用户关）")
+    p_read.add_argument("--off", dest="force", action="store_const", const=False, help="强制关带读")
+    p_read.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_read.set_defaults(func=cmd_observation_read)
+
+    p_conf = sub.add_parser("confirm", help="确认登记一条观察剧本（不传变量则用当日骨架）")
+    p_conf.add_argument("--user", default=None, help="用户 id")
+    p_conf.add_argument("--as-of", required=True, help="交易日 YYYY-MM-DD")
+    p_conf.add_argument("--entity", dest="entities", action="append", default=[], help="实体（可多次）；缺省用 --from-slice 的实体")
+    p_conf.add_argument("--scope", default=None, choices=list(observation_scope_choices()), help="作用域（缺省由骨架决定）")
+    p_conf.add_argument("--variable", dest="variables", action="append", default=[], help="要观察的变量（可多次）")
+    p_conf.add_argument("--upgrade", dest="upgrades", action="append", default=[], help="升级条件（可多次）")
+    p_conf.add_argument("--abandon", dest="abandons", action="append", default=[], help="降级 / 放弃条件（可多次，至少一条）")
+    p_conf.add_argument("--condition", dest="conditions", action="append", default=[], help="可机检盘面条件（可多次），形如 advancers>=3000；缺省到期走人工判定")
+    p_conf.add_argument("--from-slice", default=None, help="用该实体的当日骨架补齐未给的字段（板块 / 题材名）")
+    p_conf.add_argument("--due", default=None, help="回检日（缺省 T+1 自然日）")
+    p_conf.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径（仅 --from-slice 时用）")
+    p_conf.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_conf.set_defaults(func=cmd_observation_confirm)
+
+    p_skip = sub.add_parser("skip", help="跳过当日剧本（有效行为，不计失败；只进负担指标）")
+    p_skip.add_argument("--user", default=None, help="用户 id")
+    p_skip.add_argument("--as-of", required=True, help="交易日 YYYY-MM-DD")
+    p_skip.add_argument("--entity", required=True, help="板块 / 题材名或代码")
+    p_skip.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径")
+    p_skip.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_skip.set_defaults(func=cmd_observation_skip)
+
+    p_rp = sub.add_parser(
+        "repoint",
+        help="把 due 落在非交易日（节假日）的剧本改点到下一个真交易日——"
+        "不改的话它每晚重判一次、每次 unverifiable，永远卡在队列里",
+    )
+    p_rp.add_argument("--user", default=None, help="用户 id")
+    p_rp.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径（交易日历来源）")
+    p_rp.add_argument("--apply", action="store_true", help="真正改点（缺省只预览）")
+    p_rp.add_argument("--json", action="store_true")
+    p_rp.set_defaults(func=cmd_observation_repoint)
+
+    p_ls = sub.add_parser("list", help="列出剧本台账与状态分布")
+    p_ls.add_argument("--user", default=None, help="用户 id")
+    p_ls.add_argument("--as-of", default=None, help="只看某一天")
+    p_ls.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_ls.set_defaults(func=cmd_observation_list)
+
+
+def observation_scope_choices() -> tuple[str, ...]:
+    from intelligence.services.observation_script import SCOPES
+
+    return SCOPES
 
 
 def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -2935,6 +3170,223 @@ def cmd_checkpoint_adjudicate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _observation_user_space(args: argparse.Namespace):
+    from intelligence import userspace
+
+    return userspace.user_space(getattr(args, "user", None))
+
+
+def _observation_slice(args: argparse.Namespace, us, entity: str) -> dict[str, object]:
+    from intelligence.services import river
+
+    return river.slice_river(
+        args.as_of,
+        entity,
+        knowledge_cutoff=getattr(args, "knowledge_cutoff", None),
+        db_path=getattr(args, "db_path", None),
+        checkpoints_path=us.checkpoints_path,
+    ).to_dict()
+
+
+def _print_rejections(exc, as_json: bool) -> int:
+    """硬门拒绝：退出码 2（区别于 1=运行错误），错误清单可直接改。"""
+    import json as _json
+
+    if as_json:
+        print(_json.dumps(exc.to_dict(), ensure_ascii=False, indent=2))
+    else:
+        print("观察剧本被硬门拒绝（改完再登记）：")
+        for r in exc.rejections:
+            print(f"  - [{r.code}] {r.field}：{r.detail}")
+            if r.hint:
+                print(f"      → {r.hint}")
+    return 2
+
+
+def cmd_observation_read(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import guided_reading
+
+    us = _observation_user_space(args)
+    sl = _observation_slice(args, us, args.entity)
+    gr, reason = guided_reading.run(us, sl, override=args.force)
+    if gr is None:
+        print(f"带读未开启（{reason}）。要看今天的带读：加 --on")
+        return 0
+    text = guided_reading.render(gr)
+    hits = guided_reading.lint_output(text)
+    if hits:
+        # 产品自己的输出过不了自己的门，是硬故障：宁可不出，也不能把方向词发出去。
+        print("带读输出未过用词 lint（G-12a），已拦下：")
+        for h in hits:
+            print(f"  - [{h.code}] {h.term}：{h.context}")
+        return 1
+    if args.json:
+        print(_json.dumps({"enabled": True, "reason": reason, **gr.to_dict()}, ensure_ascii=False, indent=2))
+    else:
+        print(text)
+    return 0
+
+
+def cmd_observation_confirm(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import guided_reading, observation_script
+
+    us = _observation_user_space(args)
+    draft = None
+    if args.from_slice:
+        sl = _observation_slice(args, us, args.from_slice)
+        draft = guided_reading.build(sl).draft
+        if draft is None:
+            print(f"{args.as_of} 的「{args.from_slice}」六轨全缺，没有可确认的骨架")
+            return 1
+
+    script = observation_script.make(
+        as_of=args.as_of,
+        scope=args.scope or (draft.scope if draft else ""),
+        entity_ids=args.entities or (list(draft.entity_ids) if draft else []),
+        variables=args.variables or (list(draft.variables) if draft else []),
+        downgrade_or_abandon_conditions=args.abandons
+        or (list(draft.downgrade_or_abandon_conditions) if draft else []),
+        upgrade_conditions=args.upgrades,
+        machine_conditions=args.conditions,
+        evidence_refs=list(draft.evidence_refs) if draft else [],
+        knowledge_cutoff=draft.knowledge_cutoff if draft else None,
+        user_id=us.user_id,
+        status="confirmed",
+        # 从切片确认的剧本带着带读投影的哈希（工单 #34）；没有 --from-slice 的是用户手写，
+        # 没有投影可引用——登记时显式声明 user_authored，台账单列，而不是伪造一个哈希。
+        projection_hash=draft.projection_hash if draft else None,
+        model_id=draft.model_id if draft else None,
+    )
+    # late 判据用**交易日历**而不是自然日：周六补做周五的功课不该被判迟到。
+    # 查不到日历（无库 / 老库）时 register 内部回落自然日——更早的截止线，安全方向。
+    next_open = observation_script.next_trading_open(args.as_of, db_path=args.db_path)
+    try:
+        _, record = observation_script.register(
+            us.observation_scripts_path,
+            script,
+            checkpoints_path=us.checkpoints_path,
+            due=args.due,
+            next_open=next_open,
+            db_path=args.db_path,
+            user_authored=draft is None,
+        )
+    except observation_script.ObservationScriptRejected as exc:
+        return _print_rejections(exc, args.json)
+
+    if args.json:
+        print(_json.dumps(record, ensure_ascii=False, indent=2))
+    else:
+        tail = f"｜checkpoint {record['checkpoint_id']}" if record.get("checkpoint_id") else ""
+        print(f"已登记观察剧本 {record['id']}（status={record['status']}｜到期 {record['due']}{tail}）")
+        if record["status"] == "late":
+            print("  ⚠ 晚于次日开盘登记，标记 late：入台账但不进方法校准（避免前视污染）")
+        print(f"  {observation_script.DISCLAIMER}")
+    return 0
+
+
+def cmd_observation_skip(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import guided_reading, observation_script
+
+    us = _observation_user_space(args)
+    sl = _observation_slice(args, us, args.entity)
+    draft = guided_reading.build(sl).draft
+    if draft is None:
+        print(f"{args.as_of} 的「{args.entity}」六轨全缺，没有可跳过的剧本")
+        return 1
+    # ``make`` 不吃 id / checkpoint_id（登记时才生成），先摘掉再改状态。
+    payload = {k: v for k, v in draft.to_dict().items() if k not in {"id", "checkpoint_id"}}
+    skipped = observation_script.make(**{**payload, "status": "skipped", "user_id": us.user_id})
+    try:
+        _, record = observation_script.register(us.observation_scripts_path, skipped)
+    except observation_script.ObservationScriptRejected as exc:
+        return _print_rejections(exc, args.json)
+    if args.json:
+        print(_json.dumps(record, ensure_ascii=False, indent=2))
+    else:
+        print(f"已记跳过 {record['id']}——跳过是有效行为，不计失败，只进负担指标")
+    return 0
+
+
+def cmd_observation_repoint(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import observation_script, river
+
+    us = _observation_user_space(args)
+    records = observation_script.load(us.observation_scripts_path)
+    try:
+        import duckdb
+
+        db = args.db_path or river.DEFAULT_DB
+        con = duckdb.connect(str(db), read_only=True)
+        try:
+            days = {
+                str(r[0])
+                for r in con.execute(
+                    "SELECT DISTINCT CAST(trade_date AS DATE) FROM fact_market_daily"
+                ).fetchall()
+            }
+        finally:
+            con.close()
+    except Exception as exc:
+        print(f"读不到交易日历（{type(exc).__name__}）：没有日历就判不出哪天不开盘，不猜。")
+        return 2
+
+    stuck = observation_script.nontrading_dues(records, days)
+    if not stuck:
+        print("没有 due 落在非交易日的剧本。")
+        return 0
+    if not args.apply:
+        print(f"发现 {len(stuck)} 条 due 落在非交易日（加 --apply 才改点）：")
+        for rec in stuck:
+            print(f"  - {rec['id']}｜as_of={rec['as_of']}｜due={rec['due']}（不开盘）")
+        return 0
+
+    moved = []
+    for rec in stuck:
+        new = observation_script.repoint_due(
+            us.observation_scripts_path,
+            rec,
+            checkpoints_path=us.checkpoints_path,
+            verdicts_path=us.verdicts_path,
+            trading_days=days,
+        )
+        if new:
+            moved.append({"from": rec["id"], "to": new["id"], "old_due": rec["due"], "new_due": new["due"]})
+    if args.json:
+        print(_json.dumps(moved, ensure_ascii=False, indent=2))
+    else:
+        for m in moved:
+            print(f"已改点 {m['from']} → {m['to']}：{m['old_due']} → {m['new_due']}")
+    return 0
+
+
+def cmd_observation_list(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import observation_script
+
+    us = _observation_user_space(args)
+    records = observation_script.expire_stale(observation_script.load(us.observation_scripts_path))
+    if args.as_of:
+        records = [r for r in records if str(r.get("as_of")) == args.as_of]
+    counts = observation_script.status_counts(records)
+    if args.json:
+        print(_json.dumps({"counts": counts, "records": records}, ensure_ascii=False, indent=2))
+        return 0
+    print(f"观察剧本台账：{us.observation_scripts_path}")
+    print("  " + "｜".join(f"{k}={v}" for k, v in counts.items()))
+    for rec in records[-20:]:
+        print(f"  - {rec['id']}｜{rec['as_of']}｜{rec['status']}｜{'/'.join(rec.get('entity_ids') or [])}")
+    return 0
+
+
 def cmd_checkpoint_register(args: argparse.Namespace) -> int:
     import json as _json
 
@@ -3573,6 +4025,111 @@ def cmd_digest(args: argparse.Namespace) -> int:
     return 0
 
 
+def add_steer_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "steer",
+        help="给正在跑的 episode 递一句话（运行底座 P3 收件箱，INV-R5）。跨进程走 durable 目录的投递槽："
+        "写进 <episode_dir>/inbox-spool/，loop 在下一次模型请求前认领；--wait 轮询 events.jsonl 拿回执。",
+    )
+    parser.add_argument(
+        "episode_id",
+        nargs="?",
+        help="episode id（= 契约 task_id，形如 run_…:msg_…）；--list 列出 store 里未收口的",
+    )
+    parser.add_argument("text", nargs="?", help="要递的话（user 角色）")
+    parser.add_argument(
+        "--target",
+        choices=("next_step", "next_turn"),
+        default="next_step",
+        help="next_step=下一次模型请求前送达（默认）；next_turn=模型停下时送达并让它再跑一轮",
+    )
+    parser.add_argument("--source", default="cli", help="进 inbox_inserted.source 的来源标记（默认 cli）")
+    parser.add_argument(
+        "--wait",
+        type=float,
+        default=0.0,
+        metavar="SECONDS",
+        help="投递后最多等 N 秒回执（inserted / claimed / discarded），默认不等",
+    )
+    parser.add_argument(
+        "--store-root",
+        default=None,
+        help="覆盖 episode store 根（默认 FORESIGHT_EPISODE_STORE > $FINANCE_WS/state/episodes > "
+        "~/.finance-runtime/episodes；必须与 Workbench 进程一致，否则是另一个家）",
+    )
+    parser.add_argument("--list", action="store_true", dest="list_open", help="只列出 store 里未收口的 episode，不递话")
+    parser.set_defaults(func=cmd_steer)
+
+
+def cmd_steer(args: argparse.Namespace) -> int:
+    from intelligence.services.episode_steer import (
+        EpisodeFinished,
+        EpisodeNotFound,
+        SteerError,
+        deliver_steer,
+        list_open_episodes,
+        wait_receipt,
+    )
+    from intelligence.services.episode_store import resolve_episode_store_root
+
+    root = Path(args.store_root).expanduser() if args.store_root else resolve_episode_store_root()
+    if args.list_open:
+        print(
+            json.dumps(
+                {"store_root": str(root), "open_episodes": list(list_open_episodes(root))},
+                ensure_ascii=False,
+            )
+        )
+        return 0
+    if not args.episode_id or not str(args.text or "").strip():
+        print(
+            json.dumps(
+                {"ok": False, "error": "usage", "detail": "需要 <episode_id> <text>，或 --list"},
+                ensure_ascii=False,
+            ),
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        delivery = deliver_steer(
+            store_root=root,
+            episode_id=args.episode_id,
+            content=args.text,
+            target=args.target,
+            source=args.source,
+        )
+    except EpisodeNotFound as exc:
+        print(json.dumps({"ok": False, "error": exc.code, "detail": str(exc)}, ensure_ascii=False), file=sys.stderr)
+        return 2
+    except EpisodeFinished as exc:
+        print(json.dumps({"ok": False, "error": exc.code, "detail": str(exc)}, ensure_ascii=False), file=sys.stderr)
+        return 1
+    result: dict[str, object] = {
+        "ok": True,
+        **delivery.to_dict(),
+        "delivery": "queued_in_spool",
+        "receipt": None,
+    }
+    if args.wait > 0:
+        try:
+            receipt = wait_receipt(
+                store_root=root,
+                episode_id=args.episode_id,
+                spool_id=delivery.spool_id,
+                timeout_s=args.wait,
+            )
+        except SteerError as exc:
+            result["receipt_error"] = str(exc)
+        else:
+            result["receipt"] = receipt.to_dict() if receipt is not None else None
+            if receipt is None:
+                result["receipt_note"] = "等待期内未见 inbox_inserted：loop 还没到认领点，或 episode 刚收口"
+            elif not receipt.settled:
+                result["receipt_note"] = "已入箱、尚未认领"
+    print(json.dumps(result, ensure_ascii=False))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Financial intelligence product CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -3600,9 +4157,9 @@ def build_parser() -> argparse.ArgumentParser:
     add_theme_parser(subparsers)
     add_kb_queue_status_parser(subparsers)
     add_kb_queue_receive_parser(subparsers)
+    add_data_requests_parser(subparsers)
     add_l3_ingest_parser(subparsers)
     add_serve_parser(subparsers)
-    add_feishu_bot_parser(subparsers)
     add_dream_collect_parser(subparsers)
     add_dream_mine_parser(subparsers)
     add_dream_evolve_suggest_parser(subparsers)
@@ -3610,12 +4167,15 @@ def build_parser() -> argparse.ArgumentParser:
     add_dream_nightly_parser(subparsers)
     add_subconscious_parser(subparsers)
     add_checkpoint_parser(subparsers)
+    add_observation_parser(subparsers)
+    add_personal_export_parser(subparsers)
     add_red_team_parser(subparsers)
     add_retrieval_audit_parser(subparsers)
     add_perspective_parser(subparsers)
     add_self_use_parser(subparsers)
     add_tool_hunger_parser(subparsers)
     add_news_alias_parser(subparsers)
+    add_steer_parser(subparsers)
     return parser
 
 

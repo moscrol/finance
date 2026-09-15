@@ -5,6 +5,10 @@ metadata:
 description: 抓取 fupanhui.com 227个板块数据，写入飞书多维表格和电子表格，验证后筛选成交额>500、涨幅>0、边际量>10%的板块，输出条件格式公式。触发：边际量、/sector-data、板块数据、抓取板块
 ---
 
+> **⚠ 2026-09-11 飞书整体退役（#727）后的实际可用性**：本 skill 已按用户要求保留（#729）。
+> 五个里只有它的**输入是独立的**（fupanhui，不依赖飞书），失效的只是写飞书表那一步。
+> 板块边际量的现役链路是 `daily-full`（`sync_fupanhui_sector_daily`）→ `fact_sector_daily`；本 skill 作为旧链路参考保留。
+
 # sector-data Skill
 
 每天从 fupanhui.com 抓取板块数据，写入飞书，筛选量价齐升板块。

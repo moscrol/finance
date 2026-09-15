@@ -432,7 +432,13 @@ def test_agent_episode_run_constructs_scope(monkeypatch: pytest.MonkeyPatch) -> 
     assert isinstance(scope, EpisodeScope)
     # 身份是仓内既有约定（contract.task_id），不是新发明的第二种 Episode 身份
     assert scope.episode_id == context.contract.task_id
-    # 注册表不经复制或替换：授权、可见性、登记对着的是同一个对象
-    assert scope.registry is registry
+    # 注册表是 run() 实际用的那一份：传入的每个 spec 原对象不经复制或替换，只多出
+    # episode 期才绑得出 runner 的 derived_calculation（capability-amplification §3.4，
+    # 与 sub_research 同一条 with_specs 路）；传入的注册表本身不被改动。
+    assert scope.registry is not registry
+    for name in registry.names():
+        assert scope.registry.resolve(name) is registry.resolve(name)
+    assert set(scope.registry.names()) == {*registry.names(), "derived_calculation"}
+    assert "derived_calculation" not in registry.names()
     # Scope 不只是被构造了，还真的活在执行路径里：登记经真实入口发生
     assert scope.dump()["invoked_tools"] == ["market_data"]

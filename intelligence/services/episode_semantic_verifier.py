@@ -24,8 +24,8 @@ import inspect
 import json
 import os
 import re
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass, replace
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field, replace
 from datetime import date
 from typing import Literal, Protocol, cast, runtime_checkable
 
@@ -121,6 +121,11 @@ MAX_SEMANTIC_JUDGE_WINDOW_SECONDS = 60.0
 LEFTOVER_WINDOW_ISSUE = (
     "semantic judge leftover window below one complete attempt"
 )
+# 共享窗被**上一次尝试**吃光、本次拿到 0 秒——与「根期限到点」是两回事。
+# 2026-09-07 max 档 D5 两发收据：judge_attempt_index=1、timeout_asked=0.0，
+# remaining_seconds_at_entry=415/469，却写着 deadline exhausted，归因被带偏了一轮。
+WINDOW_EXHAUSTED_ISSUE = "semantic judge window exhausted by prior attempt"
+ROOT_DEADLINE_EXHAUSTED_ISSUE = "semantic judge deadline exhausted"
 
 
 def semantic_judge_window_seconds(policy: ResearchPolicy | None = None) -> float:
@@ -135,6 +140,34 @@ def semantic_judge_window_seconds(policy: ResearchPolicy | None = None) -> float
 
     caps = derive_stage_caps(policy or policy_for_env())
     return apply_env_ceiling(caps.judge_window_seconds, "ASK_SEMANTIC_JUDGE_WINDOW")
+
+
+def judge_attempt_seconds(
+    configured_attempt_timeout: float,
+    policy: ResearchPolicy | None = None,
+) -> float:
+    """Per-attempt cap: the configured value, floored by the tier's own cap.
+
+    档位地板只有 max 档有（``derive_stage_caps``）；其余档位返回配置值，
+    与改动前逐字节一致。``policy`` 缺省走 ``policy_for_env()``——注意那读的是
+    ``ASK_RESEARCH_TIER``，生产设的是 ``WORKBENCH_RESEARCH_TIER``，所以 episode
+    路径必须把合同上的真实档位传进来，不能靠缺省。
+    """
+
+    configured = max(0.1, float(configured_attempt_timeout))
+    floor = derive_stage_caps(policy or policy_for_env()).judge_attempt_seconds
+    if floor is None:
+        return configured
+    return max(configured, float(floor))
+
+
+def policy_for_contract(contract: object | None) -> ResearchPolicy | None:
+    """The episode's real tier from its contract; None when there is no contract."""
+
+    tier = getattr(contract, "research_tier", None)
+    if not isinstance(tier, str) or not tier.strip():
+        return None
+    return ResearchPolicy.for_tier(tier.strip().lower())
 MAX_SEMANTIC_JUDGE_ATTEMPTS = 3
 JudgeFn = Callable[..., object]
 
@@ -177,9 +210,13 @@ _ISSUE_SENTENCE_INDEX_RE = re.compile(
 # 拒句账（P2 第一步）的枚举值。字符串进产物，改名等于改契约，读侧脚本按这些值统计。
 VERDICT_STAGE_PREFLIGHT = "preflight"
 VERDICT_STAGE_JUDGE = "judge"
+# V11：回检索后的 grounding 重判放过了首判拒掉的语义句。
+VERDICT_STAGE_GUIDED_REJUDGE = "guided_rejudge"
 VERDICT_DELETED = "deleted"
 VERDICT_DEMOTED = "demoted_to_issue"
+VERDICT_LIFTED = "lifted"
 VERDICT_REASON_JUDGE = "judge"
+VERDICT_REASON_GUIDED_EVIDENCE = "guided_retrieval_evidence"
 VERDICT_REASON_NUMERIC = "novel_numeric_condition"
 VERDICT_REASON_WEEKDAY = "calendar_weekday"
 VERDICT_REASON_PATH = "path_trend"
@@ -504,6 +541,10 @@ class SemanticEpisodeOutcome:
     # 删了还是降成 issue、机械还是语义、句子引了哪些 E / 绑到哪些哈希 / 来源档。
     # 只记不改任何判据；读侧 ``scripts/offline_judge_verdict_census.py``。
     sentence_verdicts: tuple[dict[str, object], ...] = ()
+    # V11 判官引导回检索的账（设计 §7.1 的 v11_* 字段由 to_dict 平铺）。
+    guided_retrieval: GuidedRetrievalTelemetry = field(
+        default_factory=lambda: GuidedRetrievalTelemetry()
+    )
 
     def __post_init__(self) -> None:
         if not self.repair_output_ids:
@@ -569,6 +610,22 @@ class SemanticEpisodeOutcome:
             "repair_collapsed_to_stub": self.repair_collapsed_to_stub,
             "repair_rollback_mode": self.repair_rollback_mode,
             "sentence_verdicts": [dict(item) for item in self.sentence_verdicts],
+            # V11 §7.1：缺 = None，禁止用 0 冒充「没开火」；v11_outcome 是闭集。
+            "v11_triggered": self.guided_retrieval.triggered,
+            "v11_skip_reason": self.guided_retrieval.skip_reason,
+            "v11_query": self.guided_retrieval.query,
+            "v11_reserved_seconds": self.guided_retrieval.reserved_seconds,
+            "v11_deadline_expires_at": self.guided_retrieval.deadline_expires_at,
+            "v11_effective_mode": self.guided_retrieval.effective_mode,
+            "v11_hit_count": self.guided_retrieval.hit_count,
+            "v11_new_hit_count": self.guided_retrieval.new_hit_count,
+            "v11_rejudge_called": self.guided_retrieval.rejudge_called,
+            "v11_outcome": self.guided_retrieval.outcome,
+            "v11_lifted_count": self.guided_retrieval.lifted_count,
+            "v11_still_doubted_count": self.guided_retrieval.still_doubted_count,
+            "v11_support_evidence": [
+                dict(item) for item in self.guided_retrieval.support_evidence
+            ],
             "projection_dropped_field_chars": telemetry.dropped_field_chars,
             "projection_truncated_field_chars": telemetry.truncated_field_chars,
             "projection_ordinal_mismatch_count": telemetry.ordinal_mismatch_count,
@@ -675,6 +732,141 @@ def _attach_judge_clock(
     )
 
 
+# ---------------------------------------------------------------------------
+# V11 · 判官引导的一次有界回检索
+# 设计：docs/superpowers/specs/2026-08-22-v11-judge-guided-retrieval-design.md
+# 接进默认路径：2026-09-09 判官修复 01 第三刀（任务包 01-judge-recovery-goal-brief.md）
+#
+# 只在「纯语义早退」那条路上开火：首判拒了句、_plan_repair_indexes 为空（没有机械
+# 句要删）、V8 已把语义拒句降成 issue 准备直接出门。此时用被拒句拼一条确定性 query
+# 回库一次，检回新卡就让判官再看同一份草稿一眼；判官明确放过的句子撤标（从
+# _semantic_reject_texts 拿掉），其余原样。不改 draft、不进 _repair、不加第二修复窗、
+# 每 episode 最多一枪、旗标在 IO 之前预占、预算不够就当 V8 没发生过。
+# ---------------------------------------------------------------------------
+GUIDED_RETRIEVE_ENV = "FINANCE_V11_GUIDED_RETRIEVE"
+# 复用 episode_tools.retrieve_kb 的 min(timeout, 30.0)，不新发明 16 / 25 / 45。
+GUIDED_RETRIEVE_CAP_SECONDS = 30.0
+GUIDED_QUERY_MAX_CHARS = 80
+GUIDED_SENTENCE_MAX_CHARS = 40
+GUIDED_MAX_SENTENCES = 3
+GUIDED_MAX_SUPPORT_EVIDENCE = 6
+GUIDED_OUTCOMES = (
+    "skipped",
+    "retrieved_empty",
+    "retrieved_no_rejudge",
+    "lifted",
+    "still_annotated",
+)
+_GUIDED_META_STOPWORDS = (
+    "无据",
+    "因果",
+    "发明",
+    "环节",
+    "外部原因",
+    "偷渡",
+    "证明不了",
+    "质量不够",
+    "证据不足",
+)
+_GUIDED_META_TOKEN_RE = re.compile(r"第\s*\d+\s*句|句\s*\d+|code=\S+|subject=\S+|::")
+_GUIDED_QUALITY_MARK_RE = re.compile(r"【质检[^】]*】")
+_GUIDED_CJK_RUN_RE = re.compile(r"[一-鿿]{2,}")
+_GUIDED_QUESTION_SPLIT_RE = re.compile(r"怎么看|怎么样|如何|为什么|吗")
+_GUIDED_EDGE_PUNCT = "。，、；：！？.,;:!?「」『』\"' "
+
+GuidedRetrieveFn = Callable[[str, float], Sequence[AgentEvidence]]
+
+
+def guided_retrieve_enabled() -> bool:
+    """回滚闸。默认开。
+
+    V11 设计稿（§7.3）为 A/B 卫生写的是默认关；2026-09-09 判官修复 01 的范围合同明确
+    「不能只接一个永远不开的开关」，改为默认开、保留环境变量作回滚。开火面本身已被
+    三道闸收窄（纯语义早退 / ≥15s 余量 / 每 episode 一枪），简单题不会为此缴税。
+    """
+
+    raw = str(os.environ.get(GUIDED_RETRIEVE_ENV, "1")).strip().lower()
+    return raw not in {"0", "false", "off", "no"}
+
+
+def build_guided_query(
+    *,
+    subject: str,
+    raw_question: str,
+    reject_texts: Sequence[str],
+    reject_issues: Sequence[str] = (),
+) -> str:
+    """确定性拼 query（V11 §6）：骨干是被拒句，不是判官话术；不调 LLM。
+
+    规则：主体（空则取问句「怎么看/如何/为什么」之前的前缀）+ 最多 3 条被拒句
+    （去【质检…】标、截 40 字、去首尾标点）+ issue 里不含元话语的 CJK 词（去重）；
+    空白折叠、总长 80 字；空则退回「主体 问句」。
+    """
+
+    head = str(subject or "").strip()
+    question = str(raw_question or "").strip()
+    if not head and question:
+        prefix = _GUIDED_QUESTION_SPLIT_RE.split(question, maxsplit=1)[0].strip()
+        head = prefix or question
+    parts: list[str] = [head] if head else []
+    for text in tuple(reject_texts)[:GUIDED_MAX_SENTENCES]:
+        cleaned = _GUIDED_QUALITY_MARK_RE.sub("", str(text or "")).strip()
+        cleaned = cleaned[:GUIDED_SENTENCE_MAX_CHARS].strip(_GUIDED_EDGE_PUNCT)
+        if cleaned and cleaned not in parts:
+            parts.append(cleaned)
+    joined = " ".join(parts)
+    extras: list[str] = []
+    for issue in reject_issues:
+        cleaned_issue = _GUIDED_META_TOKEN_RE.sub(" ", str(issue or ""))
+        for token in _GUIDED_CJK_RUN_RE.findall(cleaned_issue):
+            if any(stop in token for stop in _GUIDED_META_STOPWORDS):
+                continue
+            if token in joined or token in extras:
+                continue
+            extras.append(token)
+    query = re.sub(r"\s+", " ", " ".join((*parts, *extras))).strip()
+    query = query[:GUIDED_QUERY_MAX_CHARS].strip()
+    if not query:
+        fallback = re.sub(r"\s+", " ", f"{head} {question}").strip()
+        query = (fallback or question)[:GUIDED_QUERY_MAX_CHARS].strip()
+    return query
+
+
+@dataclass(frozen=True)
+class GuidedRetrievalTelemetry:
+    """一次 verify 的 V11 账。缺 = None，不报 0（V11 §7.1）。"""
+
+    triggered: bool = False
+    skip_reason: str | None = None
+    query: str | None = None
+    reserved_seconds: float | None = None
+    deadline_expires_at: float | None = None
+    effective_mode: str | None = None
+    hit_count: int | None = None
+    new_hit_count: int | None = None
+    rejudge_called: bool = False
+    outcome: str = "skipped"
+    lifted_count: int | None = None
+    still_doubted_count: int | None = None
+    # 重判放过的句子所依赖的新卡（hash / 标题 / 工具 / 来源）。v1 只记账，不写回
+    # ``verified.outcome.evidence``、不绑定（V11 §10.1 防稀释）；下一增量再谈入账。
+    support_evidence: tuple[dict[str, object], ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.outcome not in GUIDED_OUTCOMES:
+            raise ValueError(f"unsupported guided retrieval outcome: {self.outcome}")
+
+
+def _guided_support_row(item: AgentEvidence) -> dict[str, object]:
+    return {
+        "content_hash": item.content_hash,
+        "tool": item.tool,
+        "title": str(item.title or "")[:MAX_EVIDENCE_TITLE_CHARS],
+        "source": str(item.source or ""),
+        "source_date": item.source_date,
+    }
+
+
 class SemanticEpisodeVerifier:
     """Gate a structurally verified episode before public presentation.
 
@@ -698,11 +890,21 @@ class SemanticEpisodeVerifier:
         self._primary_judge = primary_judge or judge_client
         self._finalizer = finalizer
         self._judge_timeout = max(0.1, float(judge_timeout))
+        # 本次 verify 的 episode 档位（来自合同）。判官窗与单次帽按它派生；
+        # None 时回到 policy_for_env()，即改动前的行为。
+        self._active_policy: ResearchPolicy | None = None
         self._active_hygiene: _HygieneSnapshot | None = None
         self._semantic_reject_texts: tuple[str, ...] = ()
         self._semantic_reject_issues: tuple[str, ...] = ()
         self._sentence_verdicts: list[dict[str, object]] = []
         self._judge_round = 0
+        # V11：本轮 verify 的回检索账 + 跨轮配额。配额按 task_frame_hash 记（一个 episode
+        # 一枪）：gap-repair 之后同帧再 verify 直接 already_used；实例若被复用给别的
+        # episode，换帧即重置。
+        self._guided_retrieve_fn: GuidedRetrieveFn | None = None
+        self._guided_result = GuidedRetrievalTelemetry()
+        self._guided_used = False
+        self._guided_frame_hash: str | None = None
 
     def _record_sentence_verdicts(
         self,
@@ -857,23 +1059,210 @@ class SemanticEpisodeVerifier:
         frame: TaskFrame,
         structurally_verified: VerifiedEpisodeOutcome,
         deadline: ResearchDeadline,
+        retrieve_fn: GuidedRetrieveFn | None = None,
     ) -> SemanticEpisodeOutcome:
         """Run structural-first verification with bounded deletion-only repair.
 
         拒句账（``sentence_verdicts``）在这一层统一挂到返回值上：内层有十几条
         提前返回路径，逐条挂会漏；账本为空时不动返回值（历史夹具逐字节不变）。
+
+        ``retrieve_fn`` 是 V11 回检索的注入口（形状 ``fn(query, granted_seconds)
+        -> Sequence[AgentEvidence]``），由 ``continuous_turn_adapter`` 按回合从工具
+        注册表造；不注入 = 所有既有夹具自动 skip（``no_retriever``）。
         """
 
         self._sentence_verdicts = []
         self._judge_round = 0
+        self._guided_retrieve_fn = retrieve_fn
+        self._guided_result = GuidedRetrievalTelemetry()
+        if frame.task_frame_hash != self._guided_frame_hash:
+            self._guided_frame_hash = frame.task_frame_hash
+            self._guided_used = False
         outcome = self._verify_inner(
             frame=frame,
             structurally_verified=structurally_verified,
             deadline=deadline,
         )
+        if self._guided_result != GuidedRetrievalTelemetry() and (
+            outcome.guided_retrieval == GuidedRetrievalTelemetry()
+        ):
+            outcome = replace(outcome, guided_retrieval=self._guided_result)
         if not self._sentence_verdicts or outcome.sentence_verdicts:
             return outcome
         return replace(outcome, sentence_verdicts=tuple(self._sentence_verdicts))
+
+    def _guided_retrieve_and_rejudge(
+        self,
+        *,
+        frame: TaskFrame,
+        structural: VerifiedEpisodeOutcome,
+        sentences: list[dict[str, object]],
+        first: _JudgeCall,
+        deadline: ResearchDeadline,
+    ) -> GuidedRetrievalTelemetry:
+        """纯语义早退路上的那一枪（V11 §3–§6）。返回本轮账，副作用只有两处：
+
+        - ``self._guided_used`` 在调用 ``retrieve_fn`` **之前**置位（配额在副作用前预占）；
+        - 判官重判明确放过的句子从 ``self._semantic_reject_texts`` 拿掉（撤标）。
+
+        不改 draft、不进 ``_repair``、不把新卡写回 ``verified.outcome.evidence``。
+        """
+
+        def skipped(reason: str) -> GuidedRetrievalTelemetry:
+            return GuidedRetrievalTelemetry(skip_reason=reason)
+
+        if not guided_retrieve_enabled():
+            return skipped("disabled")
+        retrieve = self._guided_retrieve_fn
+        if retrieve is None:
+            return skipped("no_retriever")
+        if self._guided_used:
+            return skipped("already_used")
+        if first.report is None or first.report.passed:
+            return skipped("passed")
+        texts = tuple(self._semantic_reject_texts)
+        if not texts:
+            return skipped("no_semantic")
+        if bool(getattr(deadline, "expired", False)):
+            return skipped("budget")
+        stage_timeout = getattr(deadline, "stage_timeout", None)
+        if not callable(stage_timeout):
+            return skipped("budget")
+        try:
+            available = float(stage_timeout(GUIDED_RETRIEVE_CAP_SECONDS))
+        except Exception:
+            return skipped("budget")
+        # 档位真值表与 15.0 阈值都复用 kb_rag，零新降档函数（V11 §4.3）。
+        from intelligence.services.kb_rag import (
+            HYBRID_MIN_REMAINING_SECONDS,
+            select_mode_for_remaining,
+        )
+
+        if available < HYBRID_MIN_REMAINING_SECONDS:
+            return skipped("budget")
+
+        # ---- 预占：从这里起本 episode 不再补枪，哪怕下面失败 ----
+        self._guided_used = True
+        query = build_guided_query(
+            subject=frame.subject,
+            raw_question=frame.raw_question,
+            reject_texts=texts,
+            reject_issues=self._semantic_reject_issues,
+        )
+        mode, _fallback = select_mode_for_remaining("hybrid", available)
+        fired = GuidedRetrievalTelemetry(
+            triggered=True,
+            query=query,
+            reserved_seconds=available,
+            deadline_expires_at=(
+                float(getattr(deadline, "expires_at", 0.0) or 0.0) or None
+            ),
+            effective_mode=mode,
+            outcome="retrieved_empty",
+            hit_count=0,
+            new_hit_count=0,
+            still_doubted_count=len(texts),
+        )
+        try:
+            hits = tuple(retrieve(query, available))
+        except Exception:
+            return fired
+        known = {
+            str(item.content_hash or "").strip()
+            for item in structural.outcome.evidence
+        }
+        fresh: list[AgentEvidence] = []
+        seen: set[str] = set()
+        for item in hits:
+            if not isinstance(item, AgentEvidence):
+                continue
+            digest = str(item.content_hash or "").strip()
+            if not digest or digest in known or digest in seen:
+                continue
+            seen.add(digest)
+            fresh.append(item)
+        fired = replace(fired, hit_count=len(hits), new_hit_count=len(fresh))
+        if not fresh:
+            return fired
+
+        # ---- 重判：同一份草稿分句 + 仅本请求可见的扩展证据表 ----
+        remaining = _deadline_remaining_seconds(deadline)
+        if remaining is None or remaining <= 0.001:
+            return replace(fired, outcome="retrieved_no_rejudge")
+        extended_outcome = replace(
+            structural.outcome,
+            evidence=(*structural.outcome.evidence, *fresh),
+        )
+        request = self._judge_request(
+            frame, replace(structural, outcome=extended_outcome), sentences
+        )
+        ordinals = evidence_ordinal_table(extended_outcome.evidence)
+        registry_rows = list(
+            cast(list[dict[str, object]], request.get("evidence_registry") or [])
+        )
+        for item in fresh:
+            row: dict[str, object] = {
+                "evidence_id": ordinals[item.content_hash],
+                "tool": item.tool,
+                "guided_retrieval": True,
+            }
+            if item.source_date:
+                row["source_date"] = item.source_date
+            if item.evidence_tier:
+                row["evidence_tier"] = item.evidence_tier
+            title = str(item.title or "")
+            if title:
+                row["title"] = title[:MAX_EVIDENCE_TITLE_CHARS]
+            detail = str(item.detail or "")
+            if detail:
+                row["detail"] = detail
+            registry_rows.append(row)
+        request["evidence_registry"] = registry_rows
+        second = self._run_judge(request, deadline)
+        if second.report is None:
+            return replace(fired, rejudge_called=True, outcome="retrieved_no_rejudge")
+        self._judge_round += 1
+        text_by_index = {int(item["index"]): str(item["text"]) for item in sentences}
+        first_rejected = tuple(
+            index
+            for index in first.report.rejected_sentence_indexes
+            if text_by_index.get(int(index), "").strip() in texts
+        )
+        still_rejected = set(second.report.rejected_sentence_indexes)
+        lifted = tuple(sorted(index for index in first_rejected if index not in still_rejected))
+        if lifted:
+            lifted_texts = {text_by_index[int(index)].strip() for index in lifted}
+            self._semantic_reject_texts = tuple(
+                text for text in texts if text not in lifted_texts
+            )
+            self._record_sentence_verdicts(
+                stage=VERDICT_STAGE_GUIDED_REJUDGE,
+                indexes=lifted,
+                sentences=sentences,
+                verified=structural,
+                decision_for={int(index): VERDICT_LIFTED for index in lifted},
+                reasons_for={
+                    int(index): (VERDICT_REASON_GUIDED_EVIDENCE,) for index in lifted
+                },
+                issues=tuple(second.report.issues),
+                judge_round=self._judge_round,
+            )
+        # 重判若点了新的机械句号：不删、不进 _repair（V11 §5.4），当 still_annotated 记。
+        return replace(
+            fired,
+            rejudge_called=True,
+            outcome="lifted" if lifted else "still_annotated",
+            lifted_count=len(lifted),
+            still_doubted_count=len(self._semantic_reject_texts),
+            support_evidence=(
+                tuple(
+                    _guided_support_row(item)
+                    for item in fresh[:GUIDED_MAX_SUPPORT_EVIDENCE]
+                )
+                if lifted
+                else ()
+            ),
+        )
 
     def _verify_inner(
         self,
@@ -886,6 +1275,7 @@ class SemanticEpisodeVerifier:
         self._semantic_reject_issues = ()
         structural = structurally_verified
         contract = structural.contract
+        self._active_policy = policy_for_contract(contract)
         guard_status: SemanticStatus = (
             "failed" if structural.verified_status == "failed" else "partial"
         )
@@ -1082,14 +1472,17 @@ class SemanticEpisodeVerifier:
                 first,
                 report=None,
                 unavailable=True,
-                issue="semantic judge deadline exhausted",
+                issue=ROOT_DEADLINE_EXHAUSTED_ISSUE,
                 root_deadline_exhausted=True,
                 monotonic_release_safe=deadline_release_safe,
             )
         if first.report is None:
             issue = first.issue or "semantic judge unavailable"
+            # 窗被前一发吃光与根期限到点走同一条瞬态候选路：拆标签只为归因，
+            # 不改这里的放行判定。
             if first.monotonic_release_safe and issue in {
-                "semantic judge deadline exhausted",
+                ROOT_DEADLINE_EXHAUSTED_ISSUE,
+                WINDOW_EXHAUSTED_ISSUE,
                 "semantic judge transient provider error",
                 LEFTOVER_WINDOW_ISSUE,
             }:
@@ -1128,6 +1521,7 @@ class SemanticEpisodeVerifier:
         first = _apply_unresolved_evidence_ordinal_gate(first, sentences, structural)
         assert first.report is not None
         if first.report.passed:
+            self._guided_result = GuidedRetrievalTelemetry(skip_reason="passed")
             if marker_loss_outputs:
                 return self._marker_loss_or_withhold(
                     frame,
@@ -1174,6 +1568,14 @@ class SemanticEpisodeVerifier:
             first.report.issues,
         )
         if not first_repair_indexes:
+            # ★ V11 唯一入口：纯语义早退。开火与否都不改下面这条返回路径。
+            self._guided_result = self._guided_retrieve_and_rejudge(
+                frame=frame,
+                structural=structural,
+                sentences=sentences,
+                first=first,
+                deadline=deadline,
+            )
             return self._completed_public(
                 frame,
                 structural,
@@ -1191,6 +1593,8 @@ class SemanticEpisodeVerifier:
                 call=first,
             )
 
+        # 混合案 / 机械删句路径：V11 永不开火（§3.2），只记 skip 原因。
+        self._guided_result = GuidedRetrievalTelemetry(skip_reason="mechanical_pending")
         repaired = self._repair(
             frame=frame,
             structural=structural,
@@ -1778,24 +2182,45 @@ class SemanticEpisodeVerifier:
             transient_provider_failure=transient_provider_failure,
             monotonic_release_safe=monotonic_release_safe,
             timeout_asked=asked,
-            timeout_configured=self._judge_timeout,
+            timeout_configured=self._judge_attempt_cap(),
             remaining_seconds_at_entry=remaining,
             exc_class=exc_class,
             http_status=http_status,
             judge_attempt_index=judge_attempt_index,
         )
 
+    def _judge_attempt_cap(self) -> float:
+        """构造时配置的单次帽，按本次 episode 的档位取地板（只有 max 档有）。"""
+
+        return judge_attempt_seconds(self._judge_timeout, self._active_policy)
+
+    @staticmethod
+    def _window_starved_issue(attempt: int, deadline: ResearchDeadline) -> str:
+        """0 秒尝试的归因。
+
+        根期限到点（``deadline.expired``）或首发就拿 0 → 根期限耗尽；
+        期限未到、后发拿 0 → 共享窗被前一发吃光（2026-09-07 D5：剩 415s、
+        attempt 1、asked 0.0）。``expired`` 用 getattr 读：测试替身是鸭子类型。
+        """
+
+        if attempt == 0 or bool(getattr(deadline, "expired", False)):
+            return ROOT_DEADLINE_EXHAUSTED_ISSUE
+        return WINDOW_EXHAUSTED_ISSUE
+
     def _run_judge(
         self,
         request: dict[str, object],
         deadline: ResearchDeadline,
     ) -> _JudgeCall:
+        policy = self._active_policy
+        attempt_cap = self._judge_attempt_cap()
         total_window = semantic_total_judge_window(
-            deadline, configured_attempt_timeout=self._judge_timeout
+            deadline, configured_attempt_timeout=attempt_cap, policy=policy
         )
         attempt_timeouts = semantic_attempts_for_window(
             total_window,
-            configured_attempt_timeout=self._judge_timeout,
+            configured_attempt_timeout=attempt_cap,
+            policy=policy,
         )
         if not attempt_timeouts:
             return self._clocked_judge_call(
@@ -1803,7 +2228,7 @@ class SemanticEpisodeVerifier:
                 remaining=_deadline_remaining_seconds(deadline),
                 correlated=False,
                 unavailable=True,
-                issue="semantic judge deadline exhausted",
+                issue=ROOT_DEADLINE_EXHAUSTED_ISSUE,
                 root_deadline_exhausted=True,
                 monotonic_release_safe=True,
             )
@@ -1820,7 +2245,7 @@ class SemanticEpisodeVerifier:
         if provider is not None:
             leftover = _deadline_remaining_seconds(deadline)
             if leftover_window_blocks_complete_attempt(
-                leftover, self._judge_timeout
+                leftover, attempt_cap, policy
             ):
                 return self._clocked_judge_call(
                     asked=0.0,
@@ -1850,7 +2275,7 @@ class SemanticEpisodeVerifier:
                 previous_remaining = remaining_at_entry
                 timeout_limit = min(timeout_limit, max(0.0, window_left))
                 if leftover_window_blocks_complete_attempt(
-                    remaining_at_entry, self._judge_timeout
+                    remaining_at_entry, attempt_cap, policy
                 ):
                     return self._clocked_judge_call(
                         asked=0.0,
@@ -1867,13 +2292,16 @@ class SemanticEpisodeVerifier:
                     failure_chain_release_safe = (
                         attempt == 0 or prior_failures_release_safe
                     )
+                    # root_deadline_exhausted 保持 True：释放语义（预算到点 →
+                    # 只删不改地放行早先完成的报告）对「窗被吃光」同样成立，
+                    # 这里只把归因写对，不改放行行为。
                     return self._clocked_judge_call(
                         asked=attempt_timeout,
                         judge_attempt_index=attempt,
                         remaining=remaining_at_entry,
                         correlated=False,
                         unavailable=True,
-                        issue="semantic judge deadline exhausted",
+                        issue=self._window_starved_issue(attempt, deadline),
                         root_deadline_exhausted=True,
                         monotonic_release_safe=failure_chain_release_safe,
                     )
@@ -1986,7 +2414,7 @@ class SemanticEpisodeVerifier:
                 request,
                 asked,
                 True,
-                timeout_configured=self._judge_timeout,
+                timeout_configured=attempt_cap,
                 remaining_seconds_at_entry=remaining_at_entry,
             )
 
@@ -2009,7 +2437,7 @@ class SemanticEpisodeVerifier:
                 request,
                 asked,
                 True,
-                timeout_configured=self._judge_timeout,
+                timeout_configured=attempt_cap,
                 remaining_seconds_at_entry=remaining_at_entry,
             )
         messages = [
@@ -2041,7 +2469,7 @@ class SemanticEpisodeVerifier:
                     remaining=remaining_at_entry,
                     correlated=True,
                     unavailable=True,
-                    issue="semantic judge deadline exhausted",
+                    issue=self._window_starved_issue(attempt, deadline),
                     root_deadline_exhausted=True,
                     monotonic_release_safe=failure_chain_release_safe,
                 )
@@ -2987,7 +3415,12 @@ def _contract_slots_all_fulfilled(verified: VerifiedEpisodeOutcome) -> bool:
 
     if not verified.outcome.draft.strip():
         return False
-    if verified.issue_items:
+    # 扩展区绑定（契约外、引用可核验）已被结构层隔离，不算契约槽位的问题；
+    # 其余任何 issue 仍让这条「诚实 runtime partial」升格失效。
+    if any(
+        item.code is not IssueCode.EXTRA_OUTPUT_BINDING
+        for item in verified.issue_items
+    ):
         return False
     if verified.completion.factual_grounding != "fulfilled":
         return False
@@ -3431,7 +3864,7 @@ def _apply_optional_rejudge_deadline(
             call,
             report=None,
             unavailable=True,
-            issue="semantic judge deadline exhausted",
+            issue=ROOT_DEADLINE_EXHAUSTED_ISSUE,
             root_deadline_exhausted=True,
         )
     return call
@@ -4794,12 +5227,19 @@ def _stable_semantic_judge_error(value: object) -> tuple[str, bool, bool]:
     return "semantic judge provider error", False, False
 
 
-def complete_judge_attempt_seconds(configured_attempt_timeout: float) -> float:
-    """One complete first attempt under a full window, not a leftover sliver."""
+def complete_judge_attempt_seconds(
+    configured_attempt_timeout: float,
+    policy: ResearchPolicy | None = None,
+) -> float:
+    """One complete first attempt under a full window, not a leftover sliver.
 
-    per_attempt_cap = max(0.1, float(configured_attempt_timeout))
+    ``policy`` 是 episode 的真实档位：窗与单次帽都按它派生。缺省仍走
+    ``policy_for_env()``，历史调用点逐字节不变。
+    """
+
+    per_attempt_cap = judge_attempt_seconds(configured_attempt_timeout, policy)
     full_window = min(
-        semantic_judge_window_seconds(),
+        semantic_judge_window_seconds(policy),
         per_attempt_cap * MAX_SEMANTIC_JUDGE_ATTEMPTS,
     )
     return min(per_attempt_cap, full_window)
@@ -4808,13 +5248,14 @@ def complete_judge_attempt_seconds(configured_attempt_timeout: float) -> float:
 def leftover_window_blocks_complete_attempt(
     remaining_seconds: float | None,
     configured_attempt_timeout: float,
+    policy: ResearchPolicy | None = None,
 ) -> bool:
     """True when the leftover window cannot fit one complete judge attempt."""
 
     if remaining_seconds is None:
         return False
     return float(remaining_seconds) + 1e-9 < complete_judge_attempt_seconds(
-        configured_attempt_timeout
+        configured_attempt_timeout, policy
     )
 
 
@@ -4822,6 +5263,7 @@ def _semantic_attempt_timeouts(
     deadline: ResearchDeadline,
     *,
     configured_attempt_timeout: float,
+    policy: ResearchPolicy | None = None,
 ) -> tuple[float, ...]:
     """Reserve one bounded semantic window; spend it without pre-splitting.
 
@@ -4836,12 +5278,13 @@ def _semantic_attempt_timeouts(
     时守卫拒发——对 grok 来说那本就是半截。
     """
 
-    per_attempt_cap = max(0.1, float(configured_attempt_timeout))
+    per_attempt_cap = judge_attempt_seconds(configured_attempt_timeout, policy)
     return semantic_attempts_for_window(
         semantic_total_judge_window(
-            deadline, configured_attempt_timeout=per_attempt_cap
+            deadline, configured_attempt_timeout=per_attempt_cap, policy=policy
         ),
         configured_attempt_timeout=per_attempt_cap,
+        policy=policy,
     )
 
 
@@ -4849,6 +5292,7 @@ def semantic_attempts_for_window(
     total_window: float,
     *,
     configured_attempt_timeout: float,
+    policy: ResearchPolicy | None = None,
 ) -> tuple[float, ...]:
     """Attempt quotes for an already-measured window.
 
@@ -4857,10 +5301,12 @@ def semantic_attempts_for_window(
     就会把它的计数器错开。
     """
 
-    per_attempt_cap = max(0.1, float(configured_attempt_timeout))
+    per_attempt_cap = judge_attempt_seconds(configured_attempt_timeout, policy)
     if total_window <= 0.001:
         return ()
-    complete = min(complete_judge_attempt_seconds(per_attempt_cap), total_window)
+    complete = min(
+        complete_judge_attempt_seconds(per_attempt_cap, policy), total_window
+    )
     if complete <= 0.001:
         return ()
     return tuple(complete for _ in range(MAX_SEMANTIC_JUDGE_ATTEMPTS))
@@ -4870,13 +5316,14 @@ def semantic_total_judge_window(
     deadline: ResearchDeadline,
     *,
     configured_attempt_timeout: float,
+    policy: ResearchPolicy | None = None,
 ) -> float:
     """Total wall clock all judge attempts may share. Unchanged by the repartition."""
 
-    per_attempt_cap = max(0.1, float(configured_attempt_timeout))
+    per_attempt_cap = judge_attempt_seconds(configured_attempt_timeout, policy)
     return deadline.synthesis_timeout(
         min(
-            semantic_judge_window_seconds(),
+            semantic_judge_window_seconds(policy),
             per_attempt_cap * MAX_SEMANTIC_JUDGE_ATTEMPTS,
         )
     )

@@ -41,7 +41,7 @@ if str(ROOT) not in sys.path:
 import duckdb  # noqa: E402
 
 from intelligence.services import checkpoints as ck  # noqa: E402
-from intelligence.services.methodology_backtest.labels import build_labels  # noqa: E402
+from intelligence.services.methodology_backtest.labels import LABEL_VERSION, build_labels  # noqa: E402
 from intelligence.services.methodology_backtest.outcomes import DEFAULT_HORIZONS, build_outcomes  # noqa: E402
 from intelligence.services.methodology_backtest.propose import (  # noqa: E402
     build_rule_doc,
@@ -52,6 +52,8 @@ from intelligence.services.methodology_backtest.propose import (  # noqa: E402
     write_rule_file,
 )
 from intelligence.services.methodology_backtest.receipts import (  # noqa: E402
+    _parse_ts,
+    DECLARED_STAGES,
     REFUTED_VERDICT,
     build_receipt,
     build_scan_summary,
@@ -273,6 +275,7 @@ def cmd_run(args) -> int:
         environment=env,
         test_mode="single",
         appendix=appendix,
+        declared_stage=args.stage,
     )
     _print_readout(res)
     for note in res.readout.notes:
@@ -321,6 +324,7 @@ def cmd_scan(args) -> int:
             test_mode="scan",
             bh=bh,
             appendix=appendix,
+            declared_stage=args.stage,
         )
         if args.no_write:
             receipt_paths.append(None)
@@ -396,9 +400,65 @@ def cmd_propose(args) -> int:
     return 0
 
 
+def cmd_queue(args) -> int:
+    """候选经验队列：每条规则现在在生命周期的哪一档、卡在什么上。
+
+    状态**从收据推导**，不读也不写任何 status 字段——同一个事实开第二个真源必漂。
+    """
+    import json as _json
+
+    from intelligence.services.methodology_backtest import lifecycle
+
+    rules_dir = Path(args.rules_dir).expanduser()
+    receipts_dir = Path(args.receipts_dir).expanduser()
+    approvals: dict[str, dict] = {}
+    if args.approvals:
+        apath = Path(args.approvals).expanduser()
+        if apath.exists():
+            loaded = _json.loads(apath.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                approvals = {str(k): v for k, v in loaded.items() if isinstance(v, dict)}
+
+    states: list[lifecycle.MethodState] = []
+    for path in sorted(rules_dir.glob("*.json")):
+        try:
+            doc = _json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(doc, dict):
+            continue
+        rule_id = str(doc.get("rule_id") or doc.get("id") or path.stem.split(".v")[0])
+        steps = lifecycle.load_steps(receipts_dir, rule_id)
+        # 规则文件的 sha256 就是收据里的 rule.sha256：只认当前这份内容的收据，改过文件的旧收据是历史
+        states.append(
+            lifecycle.derive_state(
+                {**doc, "rule_id": rule_id},
+                steps,
+                human_approval=approvals.get(rule_id),
+                rule_sha256=_sha256(path),
+                # 标签口径升版后，旧版本收据一律降历史观察——不等下一份新收据才切轮次
+                current_label_version=LABEL_VERSION,
+            )
+        )
+
+    if args.json:
+        print(_json.dumps([s.to_dict() for s in states], ensure_ascii=False, indent=2))
+    else:
+        print(lifecycle.render_queue(states))
+    return 0
+
+
 def cmd_report_refuted(args) -> int:
-    entries = load_refuted(args.refuted_dir)
+    entries, unreadable = load_refuted(args.refuted_dir)
     print(render_refuted_markdown(entries), end="")
+    if unreadable:
+        # 读不出的证伪不能被「目前没有任何规则被证伪」掩盖：既打印到报告里，也用非零
+        # 退出码让脚本调用方知道这次读数不完整（09-12 第五轮质检）。
+        print(f"\n⚠ {len(unreadable)} 份证伪条目读不出来，本次汇总**不完整**：")
+        for path in unreadable:
+            print(f"  - {path}")
+        print("  请人工确认后移走或归档，不要凭文件名推断其结论。")
+        return 2
     return 0
 
 
@@ -449,11 +509,21 @@ def cmd_report(args) -> int:
             files = sorted(folder.glob("*.json"))
             if not files:
                 continue
-            latest = files[-1]
-            try:
-                doc = json.loads(latest.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
+            # 「最近」按收据自述的 generated_at 取，且要**解析成时刻**再比：
+            #   - 不能按文件名字典序——同日三段里 holdout < validation，会永远选中 validation，
+            #     即使稍后跑的 holdout 已经把它证伪；
+            #   - 也不能按裸字符串——`12:00:00Z` 与 `12:00:00.500000+00:00` 都是合法 ISO UTC，
+            #     字符串序与时间序相反，report 会与 latest_receipt / load_steps 给出不同答案。
+            # 三处共用 receipts._parse_ts，口径只有一套。
+            docs = []
+            for f in files:
+                try:
+                    docs.append((json.loads(f.read_text(encoding="utf-8")), f))
+                except (OSError, ValueError):
+                    continue
+            if not docs:
                 continue
+            doc, latest = max(docs, key=lambda pair: (_parse_ts(pair[0].get("generated_at")), pair[1].name))
             if folder.name == "scan":
                 print(f"- scan/{latest.name}: {doc.get('family_size')} 条，q={doc.get('q')}")
                 continue
@@ -494,6 +564,13 @@ def _add_run_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--refuted-dir", default=str(REFUTED_DIR), help="证伪库目录（默认 methodology/refuted，进 git）")
     p.add_argument("--no-write", action="store_true", help="只打印读数，不落收据、不落证伪库")
     p.add_argument(
+        "--stage",
+        choices=list(DECLARED_STAGES),
+        default=None,
+        help="跑之前声明这份收据的角色：discovery / validation / holdout。不声明 = 探索或历史观察，"
+        "lifecycle 不拿它当晋升证据（refuted 照旧生效）",
+    )
+    p.add_argument(
         "--calibration-user-dir",
         default=None,
         help="可选：含 checkpoints.jsonl / verdicts.jsonl 的用户目录，只读跑 min_n ∈ {2,10,20} 消融写进收据附录",
@@ -527,6 +604,22 @@ def build_parser() -> argparse.ArgumentParser:
     _add_run_args(s)
     s.set_defaults(func=cmd_scan)
 
+    q = sub.add_parser(
+        "queue",
+        help="候选经验队列：每条规则在生命周期哪一档（candidate → 发现 → 验证 → holdout → "
+        "个人方法 → 共享），卡在什么上。状态由收据推导，不存第二份 status",
+    )
+    q.add_argument("--rules-dir", default=str(RULES_DIR))
+    q.add_argument("--receipts-dir", default=str(RECEIPTS_DIR))
+    q.add_argument(
+        "--approvals",
+        default=None,
+        help="人工审阅记录 JSON（{rule_id: {state, approved_by, ...}}）。"
+        "升共享层只能靠它——agent 推导永远到不了 shared_*",
+    )
+    q.add_argument("--json", action="store_true")
+    q.set_defaults(func=cmd_queue)
+
     pp = sub.add_parser("propose", help="纠偏 → 候选规则：谓词短句解析 + 白名单校验 + 溯源，落 methodology/rules/")
     pp.add_argument("--rule-id", required=True, help="^[a-z][a-z0-9_]{2,63}$")
     pp.add_argument("--title", required=True)
@@ -535,7 +628,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--pred",
         action="append",
         required=True,
-        help="谓词短句，可重复：`dual_red_streak@1 >= 3`、`market:market_stage in 主升阶段,主升`、`first_board == true`",
+        help="谓词短句，可重复：`dual_red_streak@1 >= 3`、`market:market_stage in 主升,反弹`、`first_board == true`",
     )
     pp.add_argument("--success", required=True, help="成功判据：`fwd_return 5 > 0`")
     pp.add_argument("--horizons", default=None, help="逗号分隔，默认 3,5,7,10（自动并入 success 的窗口）")

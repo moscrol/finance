@@ -319,3 +319,181 @@ def stage_matched_p0(stages: Sequence[StageBucket]) -> float | None:
     if not total:
         return None
     return sum(b.n * b.p0 for b in usable) / total  # type: ignore[operator]
+
+
+# --------------------------------------------------------------------------- #
+# 相关样本（OPT-05）：同日共振与重叠窗口下的依赖感知读数
+# --------------------------------------------------------------------------- #
+
+DEFAULT_BLOCK_BOOT = 500
+DEFAULT_MIN_BLOCKS = 10
+DEFAULT_BLOCK_SEED = 20260911  # 固定：同输入同读数；换种子 = 换统计口径，须走版本
+
+
+@dataclass(frozen=True)
+class DependenceReadout:
+    """日期块重采样读数：不把「同一天的 400 个板块」当 400 个独立证据。
+
+    上面的 Wilson / 二项检验都假设样本独立；A 股的截面相关让同日事件高度共振，
+    重叠的 outcome 窗（5 日收益、隔日又触发）再叠一层序列依赖。OPT-05 的对策
+    （Petersen 2009 / 金融面板惯用法）：**按日期整块重采样**——一个块携带该段
+    日期的全部实体事件，块内相关性原样保留，块间近似独立。CI 因此比 Wilson 宽，
+    宽出来的正是被复制样本冒充的那部分「证据」。
+    """
+
+    n_events: int
+    n_dates: int
+    n_clusters: int          # 事件簇：同实体、事件日 index 间隔 ≤ block_len 归一簇
+    span_dates: int          # 首末事件日之间的唯一事件日个数
+    block_len: int           # 块长（唯一事件日个数）：≥ success outcome 的重叠范围
+    n_blocks: int            # 完整非重叠块数 = n_dates // block_len
+    min_blocks: int
+    n_boot: int
+    seed: int
+    boot_p_lo: float | None  # 命中率的块 bootstrap percentile 95% CI
+    boot_p_hi: float | None
+    method: str
+    verdict: str             # supported / refuted / not_distinguishable / insufficient_blocks
+    notes: tuple[str, ...] = field(default_factory=tuple)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "n_events": self.n_events,
+            "n_dates": self.n_dates,
+            "n_clusters": self.n_clusters,
+            "span_dates": self.span_dates,
+            "block_len": self.block_len,
+            "n_blocks": self.n_blocks,
+            "min_blocks": self.min_blocks,
+            "n_boot": self.n_boot,
+            "seed": self.seed,
+            "boot_p_lo": self.boot_p_lo,
+            "boot_p_hi": self.boot_p_hi,
+            "method": self.method,
+            "verdict": self.verdict,
+            "notes": list(self.notes),
+        }
+
+
+def _cluster_count(events: Sequence[tuple[str, str, bool]], block_len: int) -> int:
+    """同实体、相邻触发的**自然日**间隔 ≤ block_len → 同一簇（同源事件的 v0 归组口径）。
+
+    间隔不能按「事件日序号」数——两次触发隔 16 天、中间恰好没有别的事件日，序号只差 1，
+    会被误并成一簇。自然日是交易日距离的下界，判「断开」偏松 → 簇数只多不少，作为
+    报告字段方向安全。
+    """
+    from datetime import date as _date
+
+    by_entity: dict[str, list[_date]] = {}
+    for eid, d, _s in events:
+        by_entity.setdefault(str(eid), []).append(_date.fromisoformat(str(d)[:10]))
+    clusters = 0
+    for days in by_entity.values():
+        days.sort()
+        clusters += 1
+        clusters += sum(1 for a, b in zip(days, days[1:]) if (b - a).days > block_len)
+    return clusters
+
+
+def block_bootstrap_readout(
+    events: Sequence[tuple[str, str, bool]],
+    *,
+    p0: float | None,
+    block_len: int,
+    n_boot: int = DEFAULT_BLOCK_BOOT,
+    min_blocks: int = DEFAULT_MIN_BLOCKS,
+    seed: int = DEFAULT_BLOCK_SEED,
+) -> DependenceReadout:
+    """circular date-block bootstrap：事件 ``(entity_id, trade_date, success)`` 不展平。
+
+    - 块在**唯一事件日序列**上取（交易日的事件版近似），长度 ``block_len`` 至少要
+      盖住 success outcome 的重叠范围（调用方传 ``rule.success.horizon``）。
+    - 每轮重采样拼出与原序列等长的日期序列（circular，尾部绕回），取上面**全部**
+      事件算命中率；B 轮的 2.5 / 97.5 分位即 CI。
+    - 完整非重叠块数 ``n_dates // block_len < min_blocks`` → ``insufficient_blocks``：
+      有效独立单元不足，**不回落**成把事件数当 N 的二项检验——那正是要堵的口子。
+    - 固定 ``seed``：同输入两次调用逐字段相同；seed / n_boot / method 全部入收据。
+    """
+    import random
+
+    clean = [(str(e), str(d)[:10], bool(s)) for e, d, s in events]
+    dates = sorted({d for _e, d, _s in clean})
+    n_dates = len(dates)
+    block = max(1, int(block_len))
+    n_blocks = n_dates // block
+    n_clusters = _cluster_count(clean, block) if clean else 0
+    base = dict(
+        n_events=len(clean),
+        n_dates=n_dates,
+        n_clusters=n_clusters,
+        span_dates=n_dates,
+        block_len=block,
+        n_blocks=n_blocks,
+        min_blocks=int(min_blocks),
+        n_boot=int(n_boot),
+        seed=int(seed),
+        method="circular_date_block_bootstrap_v1",
+    )
+    if not clean or n_blocks < min_blocks:
+        return DependenceReadout(
+            **base,
+            boot_p_lo=None,
+            boot_p_hi=None,
+            verdict="insufficient_blocks",
+            notes=(
+                f"完整日期块 {n_blocks} < min_blocks={min_blocks}（{n_dates} 个事件日 / 块长 {block}）："
+                "有效独立单元不足，不以事件数冒充 N",
+            ),
+        )
+    by_date: dict[str, list[bool]] = {}
+    for _e, d, s in clean:
+        by_date.setdefault(d, []).append(s)
+    rng = random.Random(seed)
+    draws_per_round = -(-n_dates // block)  # ceil：拼到 ≥ 原序列长度
+    rates: list[float] = []
+    for _ in range(int(n_boot)):
+        k = n = 0
+        for _j in range(draws_per_round):
+            start = rng.randrange(n_dates)
+            for off in range(block):
+                for s in by_date[dates[(start + off) % n_dates]]:
+                    n += 1
+                    k += s
+        if n:
+            rates.append(k / n)
+    rates.sort()
+    if not rates:
+        lo = hi = None
+    else:
+        lo = rates[max(0, int(0.025 * len(rates)) - 1) if int(0.025 * len(rates)) else 0]
+        hi = rates[min(len(rates) - 1, int(0.975 * len(rates)))]
+    if p0 is None or lo is None or hi is None:
+        verdict = "not_distinguishable"
+        notes = ("基准率或 bootstrap 分布不可得",)
+    elif lo > p0:
+        verdict, notes = "supported", ()
+    elif hi < p0:
+        verdict, notes = "refuted", ()
+    else:
+        verdict, notes = "not_distinguishable", ()
+    return DependenceReadout(**base, boot_p_lo=lo, boot_p_hi=hi, verdict=verdict, notes=notes)
+
+
+def combined_verdict(independent: str, dependence: str) -> tuple[str, str | None]:
+    """最终四态 = 独立假设读数（Wilson / 前后半段）与依赖感知读数的**保守合成**。
+
+    OPT-05：「Wilson 等独立样本区间可保留为描述性读数；没有独立性依据时不得作为
+    晋升的唯一依据。」supported 与 refuted 都要两道一致——同日 400 个负样本同样
+    不独立，证伪的统计门不因『推翻不用预注册』而豁免（那条不对称说的是晋升流程，
+    不是显著性）。
+    """
+    if independent == "insufficient_n":
+        return "insufficient_n", None
+    if dependence == "insufficient_blocks":
+        return "insufficient_n", "依赖感知读数：有效日期块不足，按样本不足处理（不以事件数冒充 N）"
+    if independent == dependence:
+        return independent, None
+    return (
+        "not_distinguishable",
+        f"独立假设读数 {independent} 与依赖感知读数 {dependence} 不一致，按保守取 not_distinguishable",
+    )
