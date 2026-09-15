@@ -890,7 +890,18 @@ def assemble_input_understanding_context(frame: TaskFrame, conversation_context:
         for question in contract.questions:
             lines.append(f"{question.question_id}：{question.text}")
         blocks.append("\n".join(lines))
-    earlier = materials_in_conversation(conversation_context)
+    typed = frame.conversation_materials
+    material_only = bool(frame.material_contract and frame.material_contract.data_scope == "material_only")
+    if typed is not None:
+        earlier = tuple((item.ref, item.text) for item in typed.items)
+        if material_only:
+            # Do not parse this typed block with the legacy role-text parser.
+            # Source coordinates, complete bodies and context-only old answers
+            # travel together, including after TaskFrame serialization/restore.
+            conversation_context = ""
+            blocks.append("## 可信历史材料与旧答来源\n" + typed.to_prompt_block())
+    else:
+        earlier = () if material_only else materials_in_conversation(conversation_context)
     earlier_refs = tuple(ref for ref, _text in earlier)
     referent: MaterialRef | None = None
     compact_question = re.sub(r"\s+", "", frame.raw_question)

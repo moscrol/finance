@@ -131,6 +131,7 @@ class TaskFrame:
     method_candidates: tuple[MethodCandidate, ...] = ()
     history_intent: HistoryIntent | None = None
     material_contract: MaterialContract | None = None
+    conversation_materials: ConversationMaterials | None = None
 
     def _payload(self) -> dict[str, object]:
         payload = asdict(self)
@@ -141,6 +142,8 @@ class TaskFrame:
             payload.pop("history_intent", None)
         if self.material_contract is None:
             payload.pop("material_contract", None)
+        if self.conversation_materials is None:
+            payload.pop("conversation_materials", None)
         return payload
 
     @property
@@ -250,6 +253,10 @@ class TaskFrame:
                     MaterialContract.from_dict(value["material_contract"])
                     if "material_contract" in value else None
                 ),
+                conversation_materials=(
+                    ConversationMaterials.from_dict(value["conversation_materials"])
+                    if "conversation_materials" in value else None
+                ),
             )
         except (KeyError, TypeError, ValueError):
             return None
@@ -300,6 +307,14 @@ def build_task_frame(
     # 材料与问题分开：路由、目标、日历、产出物都只看问题部分；raw_question 仍是
     # 完整原文（模型需要读材料本身）。没有材料时 core == question，一切照旧。
     parts = split_user_message(question)
+    material_contract = compile_material_contract(
+        parts.regions,
+        source_turn=conversation_materials.source_turn if conversation_materials else source_turn,
+        inherited_contract=conversation_materials.base_contract if conversation_materials else None,
+    ) if parts.regions else None
+    restricted_material = bool(material_contract and (
+        material_contract.data_scope == "material_only" or material_contract.needs_clarification
+    ))
     materials = parts.materials
     core = parts.question or question
     question_type = str(envelope.question_type or "general_finance_qa")
@@ -344,7 +359,7 @@ def build_task_frame(
         and _UNBOUND_LINE_REFERENCE_RE.search(core)
     )
     assumptions: list[str] = []
-    nickname_pairs = resolve_nicknames(core)
+    nickname_pairs = () if restricted_material else resolve_nicknames(core)
     if nickname_pairs:
         canonicals = tuple(canonical for _alias, canonical in nickname_pairs)
         if subject is None:
@@ -370,7 +385,7 @@ def build_task_frame(
     # 「该日休市、无行情数据」注入假设——它随 episode input 到达模型，
     # 模型据此直接回答，而不是烧完检索窗后答「证据不足」。只看问题部分：
     # 材料里的日期是材料的发布日 / 数据日，不是用户要查的交易日。
-    if _is_financial_task(question_type, core):
+    if not restricted_material and _is_financial_task(question_type, core):
         calendar_note = question_non_trading_note(core)
         if calendar_note is not None:
             assumptions.append(calendar_note)
@@ -400,9 +415,11 @@ def build_task_frame(
                 f"{item.char_count} 字）由用户在本轮提供，引用时写材料段落 / 表头 / 日期，"
                 "其中的数字是材料的说法而非市场事实"
             )
-    elif references_material(core) and (
-        conversation_materials is not None or conversation_context is not None
-    ):
+    references_previous = (not materials and references_material(core)) or bool(
+        material_contract and material_contract.continuation_requested
+        and conversation_materials is not None and conversation_materials.items
+    )
+    if references_previous and (conversation_materials is not None or conversation_context is not None):
         earlier_refs = (
             tuple(item.ref for item in conversation_materials.items)
             if conversation_materials is not None
@@ -434,7 +451,6 @@ def build_task_frame(
         else:
             ambiguities.append(MISSING_MATERIAL_AMBIGUITY)
 
-    material_contract = compile_material_contract(parts.regions, source_turn=source_turn) if parts.regions else None
     premises = extract_user_premises(core)
     methods = extract_method_candidates(core)
     if methods:
@@ -491,6 +507,7 @@ def build_task_frame(
         method_candidates=methods,
         history_intent=history_intent,
         material_contract=material_contract,
+        conversation_materials=conversation_materials,
     )
     if llm_complete is None:
         return frame

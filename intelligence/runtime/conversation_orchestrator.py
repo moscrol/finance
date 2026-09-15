@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextvars
+import inspect
 import json
 import os
 import re
@@ -152,7 +153,9 @@ from intelligence.runtime.turn_control_core import (
 )
 from intelligence.services.turn_controller import TurnDecision, decide_turn
 from intelligence.services.task_frame import TaskFrame, build_task_frame
-from intelligence.services.conversation_materials import collect_conversation_materials
+from intelligence.services.conversation_materials import (
+    ConversationMaterials, collect_conversation_materials, collect_material_turn_history,
+)
 from intelligence.services.material_contract import compile_material_contract
 from intelligence.services.user_task import split_user_message
 from intelligence import userspace
@@ -1935,29 +1938,69 @@ class TurnOrchestrator:
                     "inherited_turn_id": inherited_turn_id,
                 },
             )
-            # Only confirmed material-only turns opt into source-aware binding.
-            # This does NOT filter the controller prompt or recover permissions.
+            # Recover state only from complete persisted user messages in the
+            # same bounded window; summary/assistant prose is never authority.
             parts = split_user_message(str(query or "").strip())
             material_contract = compile_material_contract(parts.regions) if parts.regions else None
-            material_history = (
-                collect_conversation_materials(
-                    context.material_messages,
+            material_history = None
+            if material_contract and material_contract.continuation_requested:
+                material_history = collect_material_turn_history(
+                    context.material_messages or (),
                     unavailable=context.material_history_unavailable,
                 )
-                if material_contract is not None
-                and material_contract.data_scope == "material_only"
-                and context.material_messages is not None
-                else None
+                material_contract = compile_material_contract(
+                    parts.regions, source_turn=material_history.source_turn,
+                    inherited_contract=material_history.base_contract,
+                )
+            elif material_contract and material_contract.data_scope == "material_only":
+                material_history = (
+                    ConversationMaterials()
+                    if parts.materials else collect_conversation_materials(
+                        context.material_messages or (),
+                        unavailable=context.material_history_unavailable,
+                    )
+                )
+            elif material_contract and material_contract.needs_clarification:
+                material_history = ConversationMaterials(unavailable=True)
+            # Known absence must reach the default controller: dropping it
+            # would reopen resolver/model and pending-frame recovery. Legacy
+            # injected controllers keep their pre-existing keyword contract.
+            if not material_contract or (
+                material_contract.data_scope != "material_only"
+                and not self._uses_default_turn_controller
+            ):
+                material_history = None
+            restricted_history = bool(
+                material_contract
+                and material_history is not None
+                and (material_contract.data_scope == "material_only" or material_contract.needs_clarification)
             )
+            # Keep the established controller context contract byte-compatible.
+            # The typed projection is an additional authority input; the model
+            # controller itself replaces untyped context at its own prompt seam.
+            controller_context = context.to_prompt_block()
+            accepts_materials = self._uses_default_turn_controller
+            if material_history is not None and not accepts_materials:
+                try:
+                    parameters = inspect.signature(self.turn_controller).parameters.values()
+                except (TypeError, ValueError):
+                    parameters = ()
+                accepts_materials = any(
+                    item.kind is inspect.Parameter.VAR_KEYWORD
+                    or (item.name == "conversation_materials" and item.kind in {
+                        inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY,
+                    })
+                    for item in parameters
+                )
             controller_options = (
                 {"conversation_materials": material_history}
-                if self._uses_default_turn_controller and material_history is not None
+                if accepts_materials and material_history is not None
                 else {}
             )
             controller_started = time.monotonic()
             decision = self.turn_controller(
                 query,
-                context=context.to_prompt_block(),
+                context=controller_context,
                 skill_mode=skill_mode,
                 selected_skill_ids=selected_skill_ids,
                 previous_intent=inherited_intent,
@@ -1995,6 +2038,13 @@ class TurnOrchestrator:
                 raw_envelope = project_task_frame(task_frame, legacy_envelope)
             else:
                 raw_envelope = envelope_from_task_frame(task_frame)
+            if restricted_history and not self._uses_default_turn_controller:
+                # Injected controllers may supply stale/full frames. Recompile
+                # the source-aware contract, not just replace its permission bit.
+                decision = decide_turn(query, conversation_materials=material_history)
+                task_frame = decision.task_frame
+                assert task_frame is not None
+                raw_envelope = envelope_from_task_frame(task_frame)
             turn_intent = decision.turn_intent or build_turn_intent(
                 query,
                 raw_envelope,
@@ -2029,7 +2079,8 @@ class TurnOrchestrator:
             # This does not filter history already supplied to the controller.
             material_only = bool(
                 task_frame.material_contract is not None
-                and task_frame.material_contract.data_scope == "material_only"
+                and (task_frame.material_contract.data_scope == "material_only"
+                     or task_frame.material_contract.needs_clarification)
             )
             inherited_answer_spec = (
                 self._load_answer_spec(inherited_message.run_id)
@@ -2162,9 +2213,9 @@ class TurnOrchestrator:
                     # 递进 episode（trace 里那份与模型看到的不再可能漂移）。
                     retrieval_stages=research_plan.retrieval_stages,
                     conversation_context=(
-                        f"{context.to_prompt_block()}\n\n{project_prior_block}"
+                        f"{controller_context}\n\n{project_prior_block}"
                         if project_prior_block
-                        else context.to_prompt_block()
+                        else controller_context
                     ),
                     # 视角约束在这里进入 continuous 引擎。此前只有 legacy 合成
                     # 路径注入（ask_synthesis._active_perspective_prompt），

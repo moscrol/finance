@@ -8,6 +8,7 @@ from typing import Literal, TypeAlias, cast
 
 from intelligence.services import ask_clarify, llm_refine
 from intelligence.services.conversation_materials import ConversationMaterials
+from intelligence.services.material_contract import compile_material_contract
 from intelligence.services.query_resolution import (
     QueryResolution,
     QueryResolver,
@@ -672,6 +673,8 @@ def _controller_messages(
     context: str,
     task_frame: TaskFrame,
 ) -> list[dict[str, str]]:
+    if task_frame.material_contract and task_frame.material_contract.data_scope == "material_only":
+        context = task_frame.conversation_materials.to_prompt_block() if task_frame.conversation_materials else ""
     return [
         {
             "role": "system",
@@ -1088,6 +1091,39 @@ def decide_turn(
     resolver: QueryResolver | None = None,
     conversation_materials: ConversationMaterials | None = None,
 ) -> TurnDecision:
+    # Source-aware material turns are resolved before pending-frame recovery,
+    # lexicons and generic routing. An old research intent is not a permission.
+    if conversation_materials is not None:
+        from intelligence.services.user_task import split_user_message
+
+        parts = split_user_message(query)
+        material = compile_material_contract(
+            parts.regions, source_turn=conversation_materials.source_turn,
+            inherited_contract=conversation_materials.base_contract,
+        ) if parts.regions else None
+        if material and (material.data_scope == "material_only" or material.needs_clarification):
+            envelope = QueryEnvelope(
+                "general_finance_qa", "unknown", None,
+                "逐题依据用户材料回答，分开事实前提、推导与缺口", None, "explicit", 1.0,
+            )
+            frame = build_task_frame(query, envelope, conversation_materials=conversation_materials)
+            if material.needs_clarification:
+                question = (
+                    "无法恢复上一轮的可信条件，请补充原材料和本轮允许的数据范围。"
+                    if material.classification == "state_unavailable"
+                    else "材料与指令边界不明确，请将本轮限制和材料正文分开提供。"
+                )
+                frame = replace(frame, clarification_question=question,
+                                ambiguities=(*frame.ambiguities, *material.uncertain_reasons))
+            intent = build_turn_intent(query, envelope, task_frame=frame)
+            return _attach_turn_intent(
+                _decision(
+                    "clarify" if frame.clarification_question else "research", envelope=envelope,
+                    needs_retrieval=False, needs_memory=False, needs_template=False,
+                    reason="可信材料合同在读取与旧任务恢复前冻结",
+                    clarification_questions=(frame.clarification_question,) if frame.clarification_question else (),
+                ), intent, task_frame=frame,
+            )
     pending_frame = (
         TaskFrame.from_dict(previous_intent.pending_task_frame)
         if previous_intent is not None

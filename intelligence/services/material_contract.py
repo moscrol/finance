@@ -107,8 +107,9 @@ class MaterialContract:
 
 def compile_material_contract(
     regions: TopLevelRegions, *, source_turn: int = 0,
+    inherited_contract: MaterialContract | None = None,
 ) -> MaterialContract | None:
-    """只解释D1确认的可见指令；续轮恢复在P5接可信持久化基底，当前不猜。"""
+    """解释D1可见指令；仅显式续轮继承调用方提供的可信用户指令基底。"""
     if not regions.instructions and not regions.sub_questions and regions.classification == "no_constraint_confirmed":
         return None
     if isinstance(source_turn, bool) or not isinstance(source_turn, int) or source_turn < 0:
@@ -118,12 +119,15 @@ def compile_material_contract(
     if regions.classification == "boundary_uncertain":
         return MaterialContract("boundary_uncertain", None, None, questions=questions,
                                 continuation_requested=continuation, uncertain_reasons=regions.uncertain_reasons)
-    if continuation:
+    if continuation and (inherited_contract is None or inherited_contract.needs_clarification):
         return MaterialContract("state_unavailable", None, None, questions=questions,
                                 continuation_requested=True, uncertain_reasons=("base_state_unavailable",))
-    authenticity, data_scope = "real", "full"
+    base = inherited_contract if continuation else None
+    authenticity = base.authenticity if base else "real"
+    data_scope = base.data_scope if base else "full"
     data_scope_declared = False
-    marks = []
+    # 题级标注带原轮次，不能因续轮又出现q1就改成当前轮次的前提。
+    marks = list(base.premise_marks) if base else []
     for span in regions.instructions:
         # text保留完整原文供锚定；识别必须读D1掩码，引用里的虚构/放宽不能变权限。
         text = span.visible_text
@@ -142,5 +146,5 @@ def compile_material_contract(
             data_scope_declared = True
             if data_scope == "full":
                 data_scope = "local_only"
-    return MaterialContract(regions.classification, authenticity, data_scope, tuple(marks), questions,
-                            data_scope_declared=data_scope_declared)
+    return MaterialContract(regions.classification, authenticity, data_scope, tuple(dict.fromkeys(marks)), questions,
+                            continuation_requested=continuation, data_scope_declared=data_scope_declared)

@@ -161,6 +161,14 @@ def test_source_binding_opt_in_preserves_other_scopes_and_injected_signature(
     assert len(collected) == int(scope == "material_only")
     if scope == "material_only" and not injected:
         assert typed.items[0].source_message_id == source.message_id
+    elif scope in {"continuation", "uncertain"} and not injected:
+        # P3f2 intentionally extends the default seam: known missing base or
+        # uncertain boundary must clarify before resolver/model/pending restore.
+        assert typed is not None
+        if scope == "continuation":
+            assert typed.base_contract is None
+        else:
+            assert typed.unavailable
     else:
         assert typed is None
 
