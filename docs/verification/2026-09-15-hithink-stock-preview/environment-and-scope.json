@@ -1,0 +1,123 @@
+{
+  "recorded_at": "2026-09-15T10:07:44.870679+00:00",
+  "author_tree": "/Users/a77/fwp-wt-hithink-review-wiring",
+  "revision": "40317d780d71de03ca6884c4c437b9accece0b49",
+  "branch": "fix/hithink-review-wiring",
+  "author_status_before_archive": " M docs/handoffs/inflight/fix-hithink-review-wiring.md\n?? docs/handoffs/2026-09-15-hithink-stock-preview.md\n?? docs/verification/2026-09-15-hithink-stock-preview/\n",
+  "scope": "author verification of stock-preview slice only; ten-file targeted 277P; full suite, deletion-protection mutation, frontend/E2E, registry commands and independent QC NOT run for this slice; not production acceptance",
+  "platform": "macOS-26.4-arm64-arm-64bit",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "dependency_gate_bypassed": false,
+  "frontend_e2e": "not run this slice; prior-slice results belong to c85d0101 only",
+  "independent_qc": "not attempted this slice; prior slices failed on Codex quota / Claude 503, no report exists",
+  "code_map": "build ok at 3bba5b4e but query status=stale vault=unavailable; no architecture conclusions taken from empty map",
+  "receipts": {
+    "20260915T085754Z-3bba5b4e.json": {
+      "revision": "3bba5b4e",
+      "dirty": true,
+      "counts": {
+        "passed": 0,
+        "failed": 5,
+        "error": 74,
+        "skipped": 0
+      },
+      "exit_status": 1
+    },
+    "20260915T085853Z-3bba5b4e.json": {
+      "revision": "3bba5b4e",
+      "dirty": true,
+      "counts": {
+        "passed": 0,
+        "failed": 79,
+        "error": 0,
+        "skipped": 0
+      },
+      "exit_status": 1
+    },
+    "20260915T090550Z-3bba5b4e.json": {
+      "revision": "3bba5b4e",
+      "dirty": true,
+      "counts": {
+        "passed": 1,
+        "failed": 78,
+        "error": 0,
+        "skipped": 0
+      },
+      "exit_status": 1
+    },
+    "20260915T091033Z-3bba5b4e.json": {
+      "revision": "3bba5b4e",
+      "dirty": true,
+      "counts": {
+        "passed": 79,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0
+      },
+      "exit_status": 0
+    },
+    "20260915T091227Z-3bba5b4e.json": {
+      "revision": "3bba5b4e",
+      "dirty": true,
+      "counts": {
+        "passed": 90,
+        "failed": 3,
+        "error": 0,
+        "skipped": 0
+      },
+      "exit_status": 1
+    },
+    "20260915T092601Z-3bba5b4e.json": {
+      "revision": "3bba5b4e",
+      "dirty": true,
+      "counts": {
+        "passed": 275,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0
+      },
+      "exit_status": 0
+    },
+    "20260915T093748Z-3bba5b4e.json": {
+      "revision": "3bba5b4e",
+      "dirty": true,
+      "counts": {
+        "passed": 277,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0
+      },
+      "exit_status": 0
+    },
+    "20260915T094612Z-40317d78.json": {
+      "revision": "40317d78",
+      "dirty": false,
+      "counts": {
+        "passed": 277,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0
+      },
+      "exit_status": 0
+    }
+  },
+  "log_receipt_mapping": {
+    "hithink-stock-preview-before-r2.log": "20260915T085853Z-3bba5b4e.json",
+    "hithink-stock-preview-before.log": "20260915T085754Z-3bba5b4e.json",
+    "hithink-stock-preview-clean-40317d78.log": "20260915T094612Z-40317d78.json",
+    "hithink-stock-preview-code-commit.log": null,
+    "hithink-stock-preview-edges-before.log": "20260915T091227Z-3bba5b4e.json",
+    "hithink-stock-preview-graph-before.log": null,
+    "hithink-stock-preview-map-build.log": null,
+    "hithink-stock-preview-map-query.log": null,
+    "hithink-stock-preview-receipt-check-40317d78.log": null,
+    "hithink-stock-preview-regression-r2.log": "20260915T093748Z-3bba5b4e.json",
+    "hithink-stock-preview-regression.log": "20260915T092601Z-3bba5b4e.json",
+    "hithink-stock-preview-ruff-40317d78.log": null,
+    "hithink-stock-preview-ruff-handoff.log": null,
+    "hithink-stock-preview-unit-r2.log": "20260915T091033Z-3bba5b4e.json",
+    "hithink-stock-preview-unit.log": "20260915T090550Z-3bba5b4e.json"
+  }
+}

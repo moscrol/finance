@@ -1,32 +1,32 @@
 # fix/hithink-review-wiring · 2026-09-15
 
 ## 这个分支做什么
-同花顺local并跑＋新池只读验算＋目录/成员请求版本；尚未恢复生产日报链。
+同花顺local并跑、板块采集版本/只读验算、个股标准化预演；生产日报链尚未恢复。
 
 ## 决策与被否方案
-- 允许同花顺池；不复制复盘会集合，公式与样本分开验，缺口不暗换算法。
-- 当前成员用真实上海接收时刻；否了历史end-date回标、跨日硬拼名单。
-- 先落请求分母；limit也留缺口。版本读只消费已验证行，否了失败后回退最新表。
-- 请求完成≠供应商全集≠发布；白名单/指纹不冒充外部签名，production_ready恒false。
-- 背景/被否方案/证据：`docs/handoffs/2026-09-15-hithink-sector-capture-audit.md`；前两片另见同日preview快照。
+- 允许换同花顺池，不复制复盘会集合；公式/单位/复权/窗口另验，缺口不暗换算法。
+- 成员用真实上海接收时刻；指定capture只消费已验证行，不回标历史或回退最新表。
+- 个股显式股票分母＋相邻计划交易日；否了最近有行日/旧canonical补值，防缺数被洗掉。
+- 仅普通行情/纯现金除息；Decimal完整上下文固定半进舍入，非现金事件/缺前日/零成交不猜。
+- 可算≠供应商全集≠发布；production_ready恒false，无事件行不等于已证无除权。
 
 ## 当前状态
-作者树`/Users/a77/fwp-wt-hithink-review-wiring`；代码9621128a/dcee18f2/c85d0101，基线1fef3d27。第三片已提交、作者验证已归档；归档只改文档/证据，不把其SHA称作新全量。未push/合并/部署，未取行情key/真实行情或改生产库。
+作者树`/Users/a77/fwp-wt-hithink-review-wiring`，本片代码/测试/ADR已提交`40317d78`，其上只归档交接。父`3bba5b4e`为前三片归档，基线`1fef3d27`。未push/合并/部署，未取真实行情或改生产库。用户要求handoff，先停扩功能。
 
 ## 未验证 / 已知边界
-- 独立QC未完成：前两片Codex额度/Claude503，本片新Codex也额度失败，无审查报告。作者变异不代签。
-- 跨仓registry仍KB七指纹漂移；单仓五命令绿不覆盖它。前端/E2E本机Node26；工作流Node22/Linux同环境未复现，不称merge-ready。
-- local仍skip-constituents，仅catalog-only；未接通canonical日更/新池投影，日报/队列/矩阵/snapshot当次产物未验。
-- provider_completeness=unverified；只冻结名单不冻结行情，不审K线覆盖/逐HTTP重试。失败staging丢弃后审计不保永久。
-- 未继承local-plan-gate-alignment、generation-stage-code-root等他枝代码/收据。
+- 40317d78仅作者定向277P：全量、删保护变异、前端/E2E、当前单/跨仓registry及独立QC未跑。旧c85d0101全量/六类变异不借给本片。
+- 独立QC历史因Codex额度/Claude503未完成；本片没重试。上次跨仓KB七指纹红，Node26/macOS不等于Node22/Linux工作流环境。
+- local仍skip-constituents，仅catalog-only；未接通通用canonical日更/新池发布，日报/队列/矩阵/snapshot当次产物未验。
+- 个股预演不认证行情/事件采集覆盖、真实单位/量额比、更新时间新鲜度；不支持非现金除权、新股/停牌判定、复权序列/多日收益。名字/换手率NULL。
+- 板块版本只冻结名单不冻结行情；个股输入指纹不保存历史原件。生产仍须既有暂存校验＋原子换库，板块走SectorUniverseStore，不写VIEW。
 
 ## 下一步
-1. 固定c85d0101续独立复核；任务在`~/.finance-runtime/reviews/hithink-c85d0101-qc-20260915/request.md`，不自动无限重试。
-2. 处理跨仓登记与环境差异；再明确单位/复权/窗口/涨幅分类和目标日关键字段，做通用canonical投影，经SectorUniverseStore发布接口。
-3. 真实数据/历史补数/产物验收另取授权；合并部署须用户确认，生产只走daily-full暂存＋原子换库。
+1. 先为固定40317d78补全量与删保护反证，恢复后再留干净收据；独立QC另取有效报告，不无限重试。
+2. 再补行情/事件覆盖与特殊交易状态合同，明确新池涨幅分类及窗口，才做通用投影；不复用单日修复白名单当日更。
+3. 真实行情/补历史/产物验收另取授权；合并部署须确认，不继承他枝成果/关闭QC权限。
 
 ## 踩过的坑
-旧每日表仍最新单category；仅显式capture-id有多标签版本语义。repair_hithink_stock_day是单日白名单非通用日更。禁异口径资金补旧面板。地图仍vault unavailable/structure missing。
+DDL不能按首个分号截（注释也有分号），已用DuckDB解析器；正则缺括号是实现错误，不算业务反证。localcontext默认继承traps，必须固定完整Context。地图build成功但query仍stale/vault unavailable，不拿空图作结论。
 
 ## 已验证
-干净c85d0101：Ruff过，全仓9739P/79S/2X、exit0；收据072124Z。六类作者变异均exit1，恢复141P/exit0、树干净（080851Z）。前端lint/typecheck/build过、76P，浏览器三视口15P。收据校验通过。证据与SHA256在`docs/verification/2026-09-15-hithink-sector-capture-audit/`；图谱audit过但含他仓混合树，不是运行绿灯。
+干净40317d78定向277P/exit0，收据`20260915T094612Z-40317d78.json`，条件校验通过；三文件Ruff/diff及提交hooks过。新片详见`docs/handoffs/2026-09-15-hithink-stock-preview.md`；前三片证据见同日sector-capture-audit快照，不重跑/重命名旧结论。
