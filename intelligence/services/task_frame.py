@@ -21,6 +21,7 @@ from intelligence.services.user_task import (
     MaterialRef,
     MethodCandidate,
     UserTask,
+    classify_top_level_regions,
     conversation_context_material_unrecoverable,
     extract_method_candidates,
     extract_user_premises,
@@ -669,6 +670,52 @@ def resolve_task_frame_clarification(
                 ),
             )
         return frame
+    if frame.material_contract is not None and frame.material_contract.needs_clarification:
+        # 材料合同类澄清（基底不可恢复 / 边界不明）的回答：轴值只能出自 D1/D2 编译器，
+        # 这里不猜。回答带显式声明 → 编译结果就是新合同（逐轴显式覆盖）；只贴材料 /
+        # 无法识别 → 合同如实保留 needs_clarification，装配层按最严收窄执行——预算
+        # 一轮，不二次采访，也绝不静默放宽成 full。题组与续轮标记从挂起合同保留。
+        pending = frame.material_contract
+        answer_text = str(answer or "")
+        parts = split_user_message(answer_text)
+        answered = compile_material_contract(classify_top_level_regions(answer_text))
+        materials = tuple(item for item in (parts.materials or ()) if item is not None)
+        if not materials and cleaned and answered is None:
+            fallback = material_from_text(answer_text)
+            materials = (fallback,) if fallback is not None else ()
+        if answered is not None:
+            contract = replace(
+                answered,
+                questions=pending.questions or answered.questions,
+                continuation_requested=(
+                    pending.continuation_requested or answered.continuation_requested
+                ),
+                premise_marks=tuple(
+                    dict.fromkeys((*pending.premise_marks, *answered.premise_marks))
+                ),
+            )
+        else:
+            contract = pending
+        if answered is not None and not answered.needs_clarification:
+            assumption = (
+                "用户在唯一一次澄清中声明了本轮边界"
+                f"（数据范围 {contract.data_scope}，材料 {len(materials)} 份）"
+            )
+        elif materials:
+            assumption = (
+                f"用户在唯一一次澄清中补充了材料 {len(materials)} 份，"
+                "数据范围未声明，按最严格边界继续"
+            )
+        else:
+            assumption = "澄清预算已用尽，边界仍未声明，按最严格边界继续"
+        return replace(
+            frame,
+            material_contract=contract,
+            materials=_merge_materials(frame.materials, materials),
+            ambiguities=(),
+            clarification_question=None,
+            assumptions=_merge_strings(frame.assumptions, (assumption,)),
+        )
     if is_missing_material_clarification(frame) or is_material_out_of_window_clarification(frame):
         # 追问的是「材料在哪 / 材料超出窗口」，回答是贴进来的材料本身：它不是主体名，不能走下面的
         # 主体/市场归一（一段研报正文会被 _safe_subject 判掉、再默认成「A股市场 /

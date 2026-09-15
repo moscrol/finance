@@ -507,6 +507,22 @@ def _required_output_evidence_types(
     return capabilities
 
 
+def _material_restricted(contract: object | None) -> bool:
+    """material_only OR a contract still awaiting clarification.
+
+    Unconfirmed axes are None and must never execute as full (A13): when the
+    interview budget is spent with the scope undeclared, assembly and prompt
+    rules both fall back to the strictest material treatment.
+    """
+
+    if contract is None:
+        return False
+    return bool(
+        getattr(contract, "data_scope", None) == "material_only"
+        or getattr(contract, "needs_clarification", False)
+    )
+
+
 def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
     """Project question semantics into the output grounding contract."""
 
@@ -632,7 +648,7 @@ def build_episode_context(
     """Freeze control output into one immutable research run contract."""
 
     material = frame.material_contract
-    material_only = bool(material is not None and material.data_scope == "material_only")
+    material_only = _material_restricted(material)
     output_ids = _required_output_ids(frame)
     grounding_modes = tuple(
         _grounding_mode(frame, output_id) for output_id in output_ids
@@ -657,7 +673,11 @@ def build_episode_context(
             authorized.append(capability)
     # 限制最后施加，题型的 mandatory 下限不能把已禁止的读能力加回来。
     # local_only 白名单来自实际 runner 审计，不借 cost/freshness 猜权限。
-    capability_tuple = restrict_read_capabilities(tuple(authorized), material.data_scope if material else None)
+    # 待澄清合同（轴仍是 None）按 material_only 收窄，不能当 full 用。
+    capability_tuple = restrict_read_capabilities(
+        tuple(authorized),
+        "material_only" if material_only else (material.data_scope if material else None),
+    )
     if material_only:
         evidence_plan = EvidencePlan(profile="material_only", requirements=(), freshness="stable")
     elif material is not None and material.data_scope == "local_only":
@@ -891,7 +911,7 @@ def assemble_input_understanding_context(frame: TaskFrame, conversation_context:
             lines.append(f"{question.question_id}：{question.text}")
         blocks.append("\n".join(lines))
     typed = frame.conversation_materials
-    material_only = bool(frame.material_contract and frame.material_contract.data_scope == "material_only")
+    material_only = _material_restricted(frame.material_contract)
     if typed is not None:
         earlier = tuple((item.ref, item.text) for item in typed.items)
         if material_only:
@@ -924,7 +944,7 @@ def assemble_input_understanding_context(frame: TaskFrame, conversation_context:
     if frame.materials or referent is not None or short_follow_up or (
         earlier_refs and frame.referenced_material_ids
     ):
-        material_only = frame.material_contract is not None and frame.material_contract.data_scope == "material_only"
+        material_only = _material_restricted(frame.material_contract)
         rule = (
             "本轮只以用户材料为前提作答；事实和计算须标材料 id 与片段，不调用材料外检索；"
             "材料未提供的量写明缺口，范围声明不能替事实背书。"

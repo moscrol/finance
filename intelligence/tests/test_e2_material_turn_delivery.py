@@ -265,3 +265,153 @@ def test_material_only_paste_preserves_existing_axes_and_material_chain():
     pasted = history(message(T2), message(REPORT, identity="supplement"))
     assert (pasted.base_contract.authenticity, pasted.base_contract.data_scope) == ("fictional", "material_only")
     assert {item.source_message_id for item in pasted.items} == {"source-t2", "supplement"}
+
+
+# ── P3g: pending clarification recovery must re-verify the material contract ──
+
+BARE_MATERIAL_ANSWER = (
+    "甲公司2026年上半年营业收入100亿元，同比增长45%。\n\n"
+    "公司在互动平台表示，制冷剂配额已获批。\n\n"
+    "机构预计全年净利润20亿元。"
+)
+
+
+def missing_base_clarify(query=T3):
+    decision = decide_turn(query, conversation_materials=history())
+    assert decision.lane == "clarify"
+    assert decision.task_frame.material_contract.classification == "state_unavailable"
+    return decision
+
+
+def recovered(answer, *, query=T3, identity="clarify-answer"):
+    prior = missing_base_clarify(query).turn_intent
+    return decide_turn(
+        answer,
+        previous_intent=prior,
+        conversation_materials=history(message(answer, identity=identity)),
+    )
+
+
+def test_material_clarify_attaches_pending_frame_for_recovery():
+    intent = missing_base_clarify().turn_intent
+    assert intent.pending_task_frame is not None
+    assert intent.clarification_rounds == 1
+    restored = TaskFrame.from_dict(intent.pending_task_frame)
+    assert restored.material_contract.classification == "state_unavailable"
+    assert len(restored.material_contract.questions) == 8
+
+
+def test_bare_material_answer_keeps_materials_and_stays_restricted():
+    from intelligence.services.user_task import material_id_for
+
+    frame = recovered(BARE_MATERIAL_ANSWER).task_frame
+    # the pasted body must not be dropped: its content id joins the frame
+    assert material_id_for(BARE_MATERIAL_ANSWER) in {m.material_id for m in frame.materials}
+    assert frame.subject != "A股市场"  # not rewritten into a market-pattern question
+    assert frame.clarification_question is None  # one-round budget: no second interview
+    # scope was asked for but never declared: stay restricted, never guess full
+    assert frame.material_contract.needs_clarification
+    assert len(frame.material_contract.questions) == 8  # question slots survive recovery
+    context = build_episode_context(frame, task_id="p3g-bare", conversation_context="")
+    assert context.contract.allowed_capabilities == ()
+    assert context.contract.evidence_plan.requirements == ()
+
+
+def test_explicit_relax_answer_is_neither_material_nor_subject():
+    pending_materials = missing_base_clarify().task_frame.materials
+    frame = recovered("不用材料了，可以查真实数据。").task_frame
+    contract = frame.material_contract
+    assert (contract.authenticity, contract.data_scope) == ("real", "full")
+    assert not contract.needs_clarification  # D7.2 explicit per-axis override
+    assert contract.data_scope_declared
+    assert len(contract.questions) == 8
+    # a permission statement is not a material: nothing beyond the pending set
+    assert frame.materials == pending_materials
+    assert "可以查真实数据" not in (frame.subject or "")
+    assert frame.clarification_question is None
+
+
+def test_material_with_boundary_answer_restores_material_only():
+    frame = recovered(
+        "材料如下：\n\n甲公司收入100亿元，同比增45%。\n\n只依据以上材料回答。"
+    ).task_frame
+    contract = frame.material_contract
+    assert contract.data_scope == "material_only"
+    assert not contract.needs_clarification
+    assert len(contract.questions) == 8
+    context = build_episode_context(frame, task_id="p3g-bound", conversation_context="")
+    assert context.contract.allowed_capabilities == ()
+
+
+def test_unrecognised_answer_continues_restricted_without_second_interview():
+    frame = recovered("嗯").task_frame
+    assert frame.clarification_question is None
+    assert frame.material_contract.needs_clarification  # still not executable as declared
+    assert len(frame.material_contract.questions) == 8
+    context = build_episode_context(frame, task_id="p3g-vague", conversation_context="")
+    assert context.contract.allowed_capabilities == ()
+
+
+def test_real_run_turn_recovers_pending_material_clarification(tmp_path, monkeypatch):
+    from intelligence.runtime import conversation_orchestrator as runtime
+    from intelligence.services.conversation_store import ConversationStore
+    from intelligence.services.run_store import RunStore
+
+    class Reached(BaseException):
+        pass
+
+    contexts = []
+
+    class Adapter:
+        def handle(self, *, frame, control):
+            contexts.append(
+                build_episode_context(
+                    frame, task_id="p3g-real-entry",
+                    conversation_context=control.conversation_context,
+                )
+            )
+            raise Reached
+
+    store = ConversationStore("alice", root=tmp_path / "conversations")
+    runs = RunStore("alice", root=tmp_path / "runs")
+    conv = store.create_conversation()
+    orchestrator = runtime.TurnOrchestrator(
+        repo_root=tmp_path, conversation_store=store, run_store=runs,
+        continuous_turn_adapter=Adapter(),
+    )
+    # Turn 1: continuation with no recoverable base -> the real clarify turn.
+    ask = runs.create_run(T3, "ask", session_id=conv.conversation_id)
+    store.append_message(conv.conversation_id, "user", T3, run_id=ask.run_id)
+    pending = store.append_message(
+        conv.conversation_id, "assistant", "", status="running", run_id=ask.run_id
+    )
+    first = orchestrator.run_turn(
+        conversation_id=conv.conversation_id, run_id=ask.run_id,
+        assistant_message_id=pending.message_id, query=T3,
+        skill_mode="auto", selected_skill_ids=[],
+    )
+    assert not contexts, f"clarify turn must not assemble an episode: {first.status}"
+    stored_intent = next(
+        m.turn_intent for m in reversed(store.load_messages(conv.conversation_id))
+        if m.role == "assistant" and m.turn_intent
+    )
+    assert stored_intent.get("pending_task_frame")
+    # Turn 2: the user answers the clarification with the bare material body.
+    answer_run = runs.create_run(BARE_MATERIAL_ANSWER, "ask", session_id=conv.conversation_id)
+    store.append_message(
+        conv.conversation_id, "user", BARE_MATERIAL_ANSWER, run_id=answer_run.run_id
+    )
+    assistant = store.append_message(
+        conv.conversation_id, "assistant", "", status="running", run_id=answer_run.run_id
+    )
+    with pytest.raises(Reached):
+        orchestrator.run_turn(
+            conversation_id=conv.conversation_id, run_id=answer_run.run_id,
+            assistant_message_id=assistant.message_id, query=BARE_MATERIAL_ANSWER,
+            skill_mode="auto", selected_skill_ids=[],
+        )
+    context = contexts[0]
+    frame = context.contract
+    assert frame.material_contract.needs_clarification  # scope still undeclared
+    assert context.contract.allowed_capabilities == ()
+    assert len(frame.material_contract.questions) == 8

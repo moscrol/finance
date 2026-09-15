@@ -1079,6 +1079,21 @@ def _question_carries_its_own_foothold(
     return latest_explicit_query_date(text) is not None
 
 
+def _pending_material_clarification(previous_intent: TurnIntent | None) -> TaskFrame | None:
+    """The pending frame iff the previous turn froze a material contract that
+    still needs clarification. Structural check on the contract state — never
+    on the clarification wording, which is free to change."""
+
+    if previous_intent is None or previous_intent.clarification_rounds < 1:
+        return None
+    if not previous_intent.pending_task_frame:
+        return None
+    pending = TaskFrame.from_dict(previous_intent.pending_task_frame)
+    if pending is None or pending.material_contract is None:
+        return None
+    return pending if pending.material_contract.needs_clarification else None
+
+
 def decide_turn(
     query: str,
     *,
@@ -1093,7 +1108,11 @@ def decide_turn(
 ) -> TurnDecision:
     # Source-aware material turns are resolved before pending-frame recovery,
     # lexicons and generic routing. An old research intent is not a permission.
-    if conversation_materials is not None:
+    # Exception: a pending material-contract clarification means this message
+    # answers the interview — recovery merges it via the same compiler instead
+    # of treating the pasted body as a fresh material turn (question slots and
+    # the frozen contract would be dropped otherwise).
+    if conversation_materials is not None and _pending_material_clarification(previous_intent) is None:
         from intelligence.services.user_task import split_user_message
 
         parts = split_user_message(query)
@@ -1116,6 +1135,15 @@ def decide_turn(
                 frame = replace(frame, clarification_question=question,
                                 ambiguities=(*frame.ambiguities, *material.uncertain_reasons))
             intent = build_turn_intent(query, envelope, task_frame=frame)
+            if frame.clarification_question:
+                # The answer must come back through pending-frame recovery, not
+                # generic routing: without the pending snapshot the interview
+                # result (materials, scope declaration) is silently discarded.
+                intent = replace(
+                    intent,
+                    pending_task_frame=frame.to_dict(),
+                    clarification_rounds=1,
+                )
             return _attach_turn_intent(
                 _decision(
                     "clarify" if frame.clarification_question else "research", envelope=envelope,
