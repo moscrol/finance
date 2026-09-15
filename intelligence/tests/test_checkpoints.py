@@ -105,9 +105,15 @@ class RuleIdFieldTests(unittest.TestCase):
             _, rec = checkpoints.register_checkpoint(path, claim="x", due="2026-09-30", category="估值切换")
             for key in ("rule_id", "rule_verdict", "rule_receipt", "bias_flags"):
                 self.assertNotIn(key, rec)
-            # 旧记录形状不变：五个既有调用方零改动
+            # 记录形状不因本单变化：既有调用方零改动。
+            # 基线形状随主干走——2026-09-15 前向合并时 main 已把 object_type / hindsight /
+            # projection_hash 加成恒在字段（工单 #34），本单只负责「不加 rule 四字段」。
             self.assertEqual(
-                set(rec), {"id", "ts", "claim", "due", "category", "source", "themes", "stocks"}
+                set(rec),
+                {
+                    "id", "ts", "claim", "due", "category", "source", "themes", "stocks",
+                    "object_type", "hindsight", "projection_hash",
+                },
             )
 
     def test_bad_rule_id_raises_and_does_not_write(self) -> None:

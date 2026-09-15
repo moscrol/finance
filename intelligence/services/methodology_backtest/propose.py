@@ -9,7 +9,7 @@
     dual_red_strict == true
     dual_red_streak >= 3
     dual_red_streak@1 >= 2            # @lag：之前第 1 个交易日
-    market:market_stage in 主升阶段,主升   # entity:label；in / not_in 用逗号分列表
+    market:market_stage in 主升,反弹   # entity:label；in / not_in 用逗号分列表（G-05 canonical 值）
     market:volume_surge@1 == true
 
 值的类型只按字面猜（true/false → 布尔，数字 → 数值，其余 → 文本或列表），合法性交给 ``rules.validate_rule``。
@@ -27,6 +27,7 @@ from .rules import (
     DEFAULT_MIN_N,
     METRICS,
     SCOPE_ENTITY_TYPES,
+    SYSTEM_OWNER,
     UNIVERSES,
     Rule,
     RuleError,
@@ -60,7 +61,7 @@ def parse_predicate(text: str) -> dict[str, Any]:
     """把一条谓词短句解析成规则 JSON 里的谓词对象。语法错抛 ValueError（白名单校验在后面）。"""
     m = _PRED_RE.match(text or "")
     if not m:
-        raise ValueError(f"谓词短句不合语法：{text!r}（形如 `dual_red_streak@1 >= 3` 或 `market:market_stage in 主升阶段,主升`）")
+        raise ValueError(f"谓词短句不合语法：{text!r}（形如 `dual_red_streak@1 >= 3` 或 `market:market_stage in 主升,反弹`）")
     op = m.group("op")
     raw = m.group("value")
     if op in ("in", "not_in"):
@@ -127,11 +128,16 @@ def build_rule_doc(
     version: int = 1,
     notes: str | None = None,
     provenance: dict[str, Any] | None = None,
+    sharing: str = "private",
+    owner: str | None = None,
+    source_perspective: str | None = None,
 ) -> tuple[dict[str, Any], Rule]:
     """组装规则文档并校验；不合法抛 RuleValidationError（带字段路径）。返回 (文档, 解析后的 Rule)。
 
     universe 取该实体类型白名单里的第一个（每类目前只有一个：sector=published_snapshot /
-    theme=heat_final / stock=limit_high_union）。
+    theme=heat_final / stock=limit_high_union）。归属默认 **private**——纠偏是某个用户的纠偏，登记出来的候选
+    规则只对本人回测；升共享要过统计门 supported 且由人拍板。``owner`` 未给时：private 由调用方传用户 id，
+    shared 恒为 system。
     """
     if entity_type not in UNIVERSES:
         raise RuleValidationError(
@@ -141,6 +147,8 @@ def build_rule_doc(
     hs = sorted({int(h) for h in (horizons or [3, 5, 7, 10])})
     if int(success.get("horizon", 0)) not in hs:
         hs = sorted({*hs, int(success["horizon"])})
+    if owner is None and sharing == "shared":
+        owner = SYSTEM_OWNER
     doc: dict[str, Any] = {
         "rule_id": rule_id,
         "version": int(version),
@@ -155,7 +163,11 @@ def build_rule_doc(
         },
         "baseline": {"kind": "same_universe_all_days"},
         "min_n": int(min_n),
+        "sharing": sharing,
+        "owner": owner,
     }
+    if source_perspective:
+        doc["source_perspective"] = str(source_perspective)
     if notes:
         doc["notes"] = str(notes)
     if provenance:

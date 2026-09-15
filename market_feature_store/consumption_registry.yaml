@@ -84,6 +84,26 @@ plans:
     - theme-flow-daily
     - public-assets
     - features
+  # local（2026-09-07 起）：不发任何 fupanhui 请求。名单冻结在最后一份 published 宇宙
+  # （carry-forward-universe → stitch），加工层按公开规则自算（limit-stats-local / market-overview-local）。
+  # 不产 mainline / theme_flow / stock_high / 公开资产——门禁按 tables_for_plan('local') 裁剪。
+  local:
+    - db-lock
+    - stock-daily
+    - index-daily
+    - sw-l1-daily
+    - carry-forward-universe
+    - stitch-sector-stocks
+    - sector-daily-local
+    - limit-stats-local
+    - market-overview-local
+    - market-editorial-local
+    - market-stage-local
+    - stock-high-local
+    - mainline-local
+    - core-stock-local
+    - core-leader-local
+    - features
 
 # ============================================================================
 # 数据族层
@@ -94,7 +114,7 @@ datasets:
     label: 板块宇宙 (990.FP)
     tables: [dim_sector, fact_sector_universe_daily, ops_sector_universe_snapshot_daily, ops_sector_search_payload_daily]
     endpoint: /reviews/sectors/search
-    steps: {full: [sectors], cheap: [sectors]}
+    steps: {full: [sectors], cheap: [sectors], local: [carry-forward-universe]}
     identity:
       what: 板块代码集合（活宇宙只有 990.FP）
       cadence: 极慢
@@ -117,7 +137,7 @@ datasets:
     label: 板块成分（谁在哪个题材里）
     tables: [fact_sector_stock_daily, ops_sector_member_sync_daily]
     endpoint: /reviews/sector-cycle/{ts}/stocks
-    steps: {full: [sector-stocks], cheap: [stitch-sector-stocks, sector-stocks-delta]}
+    steps: {full: [sector-stocks], cheap: [stitch-sector-stocks, sector-stocks-delta], local: [stitch-sector-stocks]}
     identity:
       what: sector→stock 归属关系
       cadence: 极慢
@@ -157,7 +177,7 @@ datasets:
     label: 板块日行情 + 边际量
     tables: [fact_sector_daily]
     endpoint: "/reviews/sector-cycle/{ts}/kline（full）→ sectors/search payload + 本地聚合（cheap）"
-    steps: {full: [sector-daily], cheap: [sector-daily-local]}
+    steps: {full: [sector-daily], cheap: [sector-daily-local], local: [sector-daily-local]}
     identity: {what: 与宇宙同, cadence: 极慢, evidence: 同 sector_universe}
     value:
       what: pct_chg / amount / diff_ratio / strength
@@ -184,7 +204,7 @@ datasets:
   - key: stock_daily
     label: 全 A 个股日线
     tables: [fact_stock_daily]
-    steps: {full: [stock-daily], cheap: [stock-daily]}
+    steps: {full: [stock-daily], cheap: [stock-daily], local: [stock-daily]}
     identity: {what: 全A股票宇宙, cadence: 慢}
     value: {what: 收盘/涨幅/成交额, cadence: 极快}
     refresh:
@@ -198,29 +218,29 @@ datasets:
     label: 市场总览（要拆开看）
     tables: [fact_market_daily]
     endpoint: /reviews/market + /summary + /cycle
-    steps: {full: [market-overview, market-deviation], cheap: [market-overview, market-deviation]}
+    steps: {full: [market-overview, market-deviation], cheap: [market-overview, market-deviation], local: [market-overview-local, market-editorial-local, market-stage-local]}
     identity:
-      what: market_stage 阶段名
+      what: market_stage 阶段名（外层六类）+ cycle_stage 内层八段（2026-09-08 起，授课框架的校准参照，带平台 updated_at）
       cadence: 偏慢
-      evidence: "「底部横盘」可连持十几天（stage_day 到 19、25~26）[用户实测]"
+      evidence: "「底部横盘」可连持十几天（stage_day 到 19、25~26）[用户实测]；内层标注平台会事后改写（440 天里 435 天 updated_at 晚于交易日）[2026-09-07 实测]"
     value:
       what: stage_day(+1/日)、冰点、涨停家数、AI摘要 note、成交额、涨跌家
       cadence: 快
       evidence: "冰点等级、摘要每天重写 [用户实测]"
     refresh:
       tier: C-daily
-      policy: "保留复盘会（阶段/冰点/摘要是编辑判断，独有价值），~3 请求。成交额/涨跌家等客观量已有 akshare 上证交叉验证。周均线/偏离度走 CDP 页面 hover，失效时 MA5 本地复算兜底。"
+      policy: "保留复盘会（阶段/冰点/摘要是编辑判断，独有价值），~3 请求；内层八段先从 summary / cycle 取，两者都没有字段时才多 1 次 overview?days=1（页面自己加载复盘总览就是这个请求），一天最多 4 次。成交额/涨跌家等客观量已有 akshare 上证交叉验证。周均线/偏离度走 CDP 页面 hover，失效时 MA5 本地复算兜底。禁止对复盘总览做历史翻页（2026-09-07 一次 440 天触发 entity_breadth、账号被禁）。"
 
   - key: index_and_sw_l1
     label: 上证指数 / 申万一级
     tables: [fact_sw_l1_daily]
-    steps: {full: [index-daily, sw-l1-daily], cheap: [index-daily, sw-l1-daily]}
+    steps: {full: [index-daily, sw-l1-daily], cheap: [index-daily, sw-l1-daily], local: [index-daily, sw-l1-daily]}
     refresh: {tier: A-replace, policy: "已是 akshare（非复盘会）。维持。"}
 
   - key: mainline
     label: 主线题材 / 主线股 / 主线板块
     tables: [fact_mainline_theme_daily, fact_mainline_stock_daily, fact_mainline_sector_daily]
-    steps: {full: [mainline-daily, mainline-sector-daily], cheap: [mainline-daily, mainline-sector-daily]}
+    steps: {full: [mainline-daily, mainline-sector-daily], cheap: [mainline-daily, mainline-sector-daily], local: [mainline-local]}
     identity:
       what: 主线题材代码 TH*.FP
       cadence: 偏慢
@@ -237,7 +257,7 @@ datasets:
   - key: limit_heat
     label: 涨停热度（题材归属）
     tables: [fact_theme_limit_heat_daily, fact_theme_limit_stock_daily]
-    steps: {full: [limit-heat], cheap: [limit-heat]}
+    steps: {full: [limit-heat], cheap: [limit-heat], local: [limit-stats-local]}
     identity:
       what: 哪些题材上榜
       cadence: 快
@@ -246,11 +266,26 @@ datasets:
     refresh:
       tier: C-daily
       policy: "保留（题材归属绑在 990.FP 上是独有价值；明细供 stitch 的 limit_times join 和同日门禁，chunk 化 ~5 请求）。"
+    pitfalls:
+      - >-
+        local 计划下 fact_theme_limit_stock_daily **只有 12/38 列有值**：limit-stats-local
+        从日线 OHLCV 自算，first_limit_time / last_limit_time / limit_status / open_times /
+        fd_amount / theme_names_json / ths_concept_top / 多周期涨跌幅 等**盘中事实整批为
+        NULL，行照常进**（2026-09-03 切换当天 22 列同时归零 [实测]）。这是能力边界不是故障，
+        风控期会一直如此。要判当天是哪条链路写的，查 source 列：fupanhui:watchlist/... vs
+        local:limit-rule；**别用 count(col is not null) 的累计数判断它是否日更**，那个数在
+        断供后仍然很大（spec 曾据此立项，交付出来是惰性的）。
+      - >-
+        封板时点的替代源是 fact_limit_pool_hithink（同花顺官方，limit_up 池的 limit_up_time，
+        100% 非空、回溯到 2020-07）。2026-09-02 双源交叉验证 49 只交集逐只到分钟一致；
+        source_switch_coverage_diff 读数 416 vs 394 天、裸切丢 0 天。[D18] 块已按日回退到它。
+        但该表**没有末封时点**（limit_up 与 limit_break 两池互斥），且 turnover_ratio_pct
+        实测 0% 填充——换手是否充分两个源都判不了（G1b 仍开着）。
 
   - key: stock_high
     label: 新高个股
     tables: [fact_stock_high_daily]
-    steps: {full: [stock-high], cheap: [stock-high]}
+    steps: {full: [stock-high], cheap: [stock-high], local: [stock-high-local]}
     identity: {what: 新高集合, cadence: 快, evidence: "J=0.32（1243 vs 768），口径还漂 [用户实测]"}
     value: {what: 价格/映射, cadence: 极快}
     refresh:
@@ -260,7 +295,7 @@ datasets:
   - key: limit_advance
     label: 连板晋级梯队
     tables: [fact_limit_advance_daily]
-    steps: {full: [limit-advance], cheap: [limit-advance]}
+    steps: {full: [limit-advance], cheap: [limit-advance], local: [limit-stats-local]}
     identity: {what: 梯队名单, cadence: 快, evidence: "J=0.24，龙头高度日更 [用户实测]"}
     value: {what: boards/晋级率, cadence: 极快}
     refresh: {tier: C-daily, policy: "每天 1 请求，便宜。"}
@@ -278,13 +313,33 @@ datasets:
   - key: core_stocks
     label: 核心股 TOP50
     tables: [fact_core_stock_daily]
-    steps: {full: [public-assets], cheap: [public-assets]}
+    steps: {full: [public-assets], cheap: [public-assets], local: [core-stock-local]}
     identity:
       what: 名单本身
       cadence: 快（名字像名单，实测是快变量）
       evidence: "J=0.54~0.64，每天进出约 14 只 [用户实测]"
     value: {what: 排名/行情, cadence: 极快}
-    refresh: {tier: C-daily, policy: "每天 1 请求。他们的『核心』≠涨幅榜，产品判断不可替代。"}
+    refresh:
+      tier: D-derived
+      policy: >-
+        2026-09-07 反推：这个『核心』既不是编辑判断也不是涨幅榜，就是**当日成交额前 50**
+        （405 日 20250 行，集合命中 99.5%，rank 与 amount 降序一致 99.98%）。local 档自算，
+        不再需要请求；full/cheap 仍走 public-assets 拿 fund_flow_today（唯一自算不了的字段）。
+
+  - key: core_leaders
+    label: 核心个股（自家：主线 × 正宗 × 人气）
+    tables: [fact_core_leader_daily]
+    steps: {local: [core-leader-local]}
+    identity:
+      what: 主线题材成员池
+      cadence: 跟随 mainline
+      evidence: "池 = 当日主线板块成分股 [实测]"
+    value: {what: 正宗度 × 人气排序, cadence: 极快}
+    refresh:
+      tier: D-derived
+      policy: >-
+        纯本地派生：行情来自 fact_stock_daily / fact_stock_high_daily，正宗度来自知识库
+        entity_exposures（无网络）。与 core_stocks 是两个口径，不混表。
 
   - key: regulation
     label: 监管事件 / 监管池
@@ -336,7 +391,7 @@ datasets:
   - key: leader_height_similar_days
     label: 龙头高度 / 历史相似日
     tables: [fact_leader_height_daily, fact_historical_mapping]
-    steps: {full: [public-assets], cheap: [public-assets]}
+    steps: {full: [public-assets], cheap: [public-assets], local: [limit-stats-local]}
     identity: {what: 当日龙头/相似日集合, cadence: 快, evidence: "海鸥住工7板→国芳集团4板 结构日更 [用户实测]"}
     value: {what: 高度/相似度, cadence: 极快}
     refresh: {tier: C-daily, policy: "各 1 请求。相似日是产品相似度判断，独有。"}
@@ -378,7 +433,7 @@ datasets:
   - key: sector_period_rank
     label: 板块多周期涨幅排名
     tables: [fact_sector_period_rank_daily]
-    steps: {full: [features], cheap: [features]}
+    steps: {full: [features], cheap: [features], local: [features]}
     refresh: {tier: D-derived, policy: "compute_features 本地派生，无请求。"}
 
 # ============================================================================
@@ -435,12 +490,14 @@ recipes:
       - "两张榜单都从 fact_stock_daily 本地派生（D 档，0 请求）：区间涨幅 = 周期内 close 首尾；加权强度 = Σ sqrt(amount)×pct_chg（沿用 foresight_methodology §二；弃 high-volume-gainers 的 日均成交额×涨幅/100——线性权重基本退化成成交额榜）"
       - "案例表（feature_ma5_cycle_case，待建）字段性质：周期起止/长度、上升段与下降段各自的两榜 Top N、两榜重合率、与上一周期领涨群体的重合率。假设 (a) 成立的形状 = 相邻周期两榜的领涨群体交替占优"
       - "跑马策略纪律：这是假设不是定律——实验台账记输入窗口/候选池/后验，3/5/7/10 日多窗口对比，单次观察不写成规则"
-    proactive: "MA5 峰或谷确认日主动报：本周期长度、领涨群体属于哪张榜、与上一周期是否交替；确认日之前不预判"
+    proactive: "MA5 峰或谷确认日主动报：本周期长度、两榜 Top 20 与重合率、领涨「个头」（榜内中位成交额/全市场中位）落在哪个 regime；确认日之前不预判"
     status: note
     decisions:
       - "2026-09-04 先编假设 (a) 领涨群体交替；(b) 同批个股强弱交替、(c) 板块层面交替留作对照假设"
       - "2026-09-04 加权公式取 sqrt(amount)×pct（开方压住成交额主导）"
-    open: "round 2：Top N 大小、重合率口径（Jaccard 还是加权）、案例表落夜跑 features 步还是独立脚本"
+      - "2026-09-04 round 2 默认值生效：Top N=20、重合率=Jaccard、先独立脚本出台账再进夜跑"
+      - "2026-09-04 假设 (a)「逐周期交替」未获支持 [探索：72 段 / 36 上升段，2025-01-02~2026-09-02，MA5_MIN_SWING 默认]：两榜确是两群人（J(R,W) 中位 0.2；W 榜个头 25x、R 榜 4.5x），但每段换人（与上一同向段 J≈0），下一段无延续亦无反转（均收益中位 +0.1%，胜率 51~52%），相邻上升段 R 榜个头大/小翻转率 34% < 随机 50%。看到的是多周期 regime（小票领涨连续数周期、再换大票），不是逐周期交替 → 新假设 (a′)：领涨个头的大小是 regime 变量，与 money_effect_clustering 的四簇对照"
+    open: "round 3：(a′) 与赚钱效应簇的交叉表；MA5_MIN_SWING 敏感性（现有 2~3 日的碎段）；(b)/(c) 对照假设是否还值得跑；案例表是否入 feature_ 表（假设未成立前不入）"
 
   - key: money_effect_clustering
     question: 市场赚钱效应识别——把交易日按情绪结构聚成可命名的状态（扩散/抱团/分化/收缩/冰点一类），并识别状态切换日
@@ -456,4 +513,6 @@ recipes:
       - "2026-09-04 特征取 D10 十维底座 (a)；弃只用情绪三件 (b)（要再定义一套）与加结构维 (c)（并入 (a) 的权重即可）"
       - "2026-09-04 方法取两段式 (d)：聚类找边界、规则守生产；弃纯规则（阈值拍脑袋）、纯 k-means（簇无名、不可测试）、HDBSCAN（几百天大半判噪声）"
       - "2026-09-04 聚类单位取 trailing 5 日窗口：单日 → 相邻日 71% 换簇、同簇中位 1 天、轮廓 0.16；3 日 → 21% / 3 天 / 0.17；5 日 → 10% / 6 天 / 0.22 [探索，281 个全维可用交易日 2025-01-07~2026-09-02，剔 sh_deviation_pct]。轮廓 ≤0.22 说明是连续谱上的软区域而非硬状态——规则只能定几条可解释的轴，不能照抄簇边界"
-    open: "round 2：簇命名（5 日窗口 k=4 四簇质心见 docs/handoffs/inflight/feat-registry-knowhow-recipes.md）、k 取 4（重启稳定 53%）还是 5（分离更好 0.216 但稳定 20%）、报警去抖天数、规则阈值回测窗口"
+      - "2026-09-04 round 2（用户「你来命名，没有异议」）：k=4；四簇命名 缩量普涨 / 主线引领 / 放量分化 / 巨量轮动，命名经 簇×fupanhui 六段周期、簇×月份 两张交叉表校验（巨量轮动集中 2026-06/07 且主升 0 天；主线引领集中 2025-01/02 主升 14 天连板 7.1；缩量普涨集中 2025-04~07；放量分化集中 2025-08/09）[探索]"
+      - "2026-09-04 规则草案 4 条决策表（5 日均值，按序命中）：① 成交额>26196 亿 且 新高≤464 家 → 巨量轮动；② 成交额>22114 亿 → 放量分化；③ 第一题材涨停份额>29% 且 最高连板>6 → 主线引领；④ 其余 → 缩量普涨。与簇标签 in-sample 一致率 81%（depth-2 树 79%、depth-3 树 86%）；切换去抖取 2 日：277 窗口切换 29→21 次 ≈ 每 13 个交易日一次 [探索]。成交额阈值 ≈ 样本第 59 / 78 百分位，绝对亿元会随市值漂——生产版改滚动 250 日分位"
+    open: "round 3：规则进生产（D 档模块 + 主动扫描 → 翻 live）、阈值改滚动分位后重测一致率、样本外验证（2026-09 起的新窗口）、主线引领 vs 缩量普涨的软边界（混淆 19 天）"

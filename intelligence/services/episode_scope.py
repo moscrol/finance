@@ -241,6 +241,11 @@ class EpisodeScope:
     _event_sink_failures: list[str] = field(
         default_factory=list, compare=False, repr=False
     )
+    # INV-R1 请求前对账失败的描述，按发生顺序。生产不炸只记账（终态稿 §6.1 第 3 条），
+    # 这里就是那本账。存描述不存计数：查案要知道第几轮、哪个角色分歧。
+    _derive_mismatches: list[str] = field(
+        default_factory=list, compare=False, repr=False
+    )
 
     def __post_init__(self) -> None:
         if not str(self.episode_id).strip():
@@ -288,6 +293,11 @@ class EpisodeScope:
             self.event_sink.emit(kind, payload)
         except Exception:
             self._event_sink_failures.append(kind)
+
+    def record_derive_mismatch(self, detail: str) -> None:
+        """INV-R1 对账失败的落账点（``episode_messages.check_derivation`` 的 on_mismatch）。"""
+
+        self._derive_mismatches.append(str(detail))
 
     # ── 派生视图：以下全部从 context + registry 算出，不另存一份 ──────────
 
@@ -434,6 +444,9 @@ class EpisodeScope:
             # 挂上了不等于送到了。sink 抛异常被吞掉时，这里是唯一的痕迹。
             "event_sink_failures": len(self._event_sink_failures),
             "event_sink_failed_kinds": sorted(set(self._event_sink_failures)),
+            # INV-R1：非零即「模型看到的字与 durable 事件对不上」，生产里唯一的痕迹。
+            "derive_mismatches": len(self._derive_mismatches),
+            "derive_mismatch_details": list(self._derive_mismatches),
             "root_budget_attached": self.root_budget is not None,
             "information_cutoff": self._cutoff_dict(),
             "policy_present": self.policy is not None,

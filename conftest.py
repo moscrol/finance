@@ -381,7 +381,13 @@ _PERSONAL_STATE_ENV = (
 # DuckDB**——在有库的机器上，实体锚定测试会随全市场股票名单变化而变（#310
 # 刚修过的同一种环境依赖病）。需要该词典的测试自己 setenv 指向 tmp 库，
 # 或直接给 resolve_entity_anchor 传 securities_db_path 参数。
-_FORCED_TEST_ENV = (("ENTITY_ANCHOR_SECURITIES_DB", "0"),)
+_FORCED_TEST_ENV = (
+    ("ENTITY_ANCHOR_SECURITIES_DB", "0"),
+    # INV-R1「模型可见即已落账」在测试里是硬断言：两条 loop 每次请求前都对账，
+    # 不一致即抛（生产只记账不炸）。全量套件里每一次脚本化模型请求都因此在验它，
+    # 不另写一套「覆盖」它的用例。见 intelligence/services/episode_messages.py 文首。
+    ("FORESIGHT_STRICT_DERIVATION", "1"),
+)
 
 
 # ⚠ 必须在**模块级**先清一次，不能只靠下面的 autouse 夹具（2026-08-12 实测补）：

@@ -2,25 +2,49 @@
 
 流程：读成立条件（labels / outcomes 两次构建必须同源同版本，否则 fail closed）→ 解析窗口 →
 编译 → 事件集 + 命中 → 基准率（同 universe、[首个事件日, 末个事件日]）→ 逐窗口 metrics 汇总 →
-四态。``scan_rules`` 在此之上做 Benjamini–Hochberg 降级。
+按大盘阶段拆事件（``market_stage`` 标签，事件日当日）→ 四态。``scan_rules`` 在此之上做 Benjamini–Hochberg 降级。
+
+按大盘阶段拆分：每个阶段桶有**自己的基准率** p0_stage = 同 universe、同窗口、同 success 定义下、当日处于该阶段的
+全部 (实体, 日) 的 success 比例（编译器 ``baseline_by_stage_for``），据此给阶段级 Wilson / lift / 四态——
+「每一个结论都要有它自己的基准」：主升期板块本来就更容易涨，拿整体 p0 比主升桶的 p 会把择时误认成选择。
+一条规则拆 m 个阶段就是 m 次检验，阶段级结论在**规则内部**按 Benjamini–Hochberg 校正（族 = 该规则 p 值可得的阶段），
+不并进规则级的族——并进去会改变规则级结论，规则级四态仍只看规则声明的基准。阶段 n < min_n 一律 ``insufficient_n``。
+第三列对照 ``baseline_stage_matched``（kind ``same_stage_days``）：按事件的阶段分布对各阶段 p0 加权得到的 p0，
+回答「控制住大盘阶段后规则还有没有提升」；与 ``baseline_alt`` 一样只作对照，不定结论。
 
 不写任何东西：主库、旁路库、用户台账、params.json、经验卡、画像都不碰。
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from typing import Any, Sequence
 
 import duckdb
 
-from .compiler import CompiledRule, compile_rule
+from .compiler import STAGE_LABEL, CompiledRule, compile_rule
+from .labels import MARKET_ENTITY_ID
 from .rules import BASELINE_KINDS, Rule
-from .stats import Readout, apply_bh_downgrade, benjamini_hochberg, four_state, readout
+from .stats import (
+    DependenceReadout,
+    Readout,
+    StageBucket,
+    apply_bh_downgrade,
+    benjamini_hochberg,
+    block_bootstrap_readout,
+    combined_verdict,
+    four_state,
+    readout,
+    stage_matched_p0,
+    stage_readouts,
+)
 from .store import read_meta
 
 EVENT_SAMPLE_LIMIT = 12
+UNKNOWN_STAGE = "(无大盘阶段)"
+STAGE_MATCHED_BASELINE_KIND = "same_stage_days"
+DEFAULT_Q = 0.05
 
 
 @dataclass(frozen=True)
@@ -67,15 +91,25 @@ class RunResult:
     baseline_window: tuple[str, str] | None
     readout: Readout
     baseline_alt: AltBaseline | None
+    baseline_stage_matched: AltBaseline | None
     n_matched: int
     n_pending: int
     n_missing: int
     first_event_date: str | None
     last_event_date: str | None
     horizons: list[HorizonSummary]
+    stage_breakdown: list[StageBucket]
     conditions: dict[str, Any]
     events_sample: list[dict[str, Any]]
     sql: dict[str, Any] = field(default_factory=dict)
+    # 规则声明了 windows 时：本对象是 validation 窗的读数（顶层结论只认它），discovery 窗的读数挂在这里作对照。
+    # 没声明 windows 时恒为 None，收据不多任何键。
+    discovery: "RunResult | None" = None
+    # OPT-05：依赖感知读数（日期块重采样）与跨窗 purge 计数。dependence 为 None 只发生在
+    # 无 ok 事件时；readout.verdict 已是「独立假设 × 依赖感知」的保守合成。
+    dependence: DependenceReadout | None = None
+    n_purged: int = 0
+    purge_cut_date: str | None = None
 
 
 @dataclass
@@ -186,6 +220,98 @@ def _summarize_horizons(rows: Sequence[tuple], horizons: Sequence[int]) -> list[
     return out
 
 
+def _stage_of_dates(con: duckdb.DuckDBPyConnection, dates: Sequence[str]) -> dict[str, str]:
+    """事件日 → 当日 canonical ``market_stage``；无标签 → UNKNOWN_STAGE。
+
+    G-05 在标签构建时完成归一，这里只读取旁路库，不再承担别名折叠。
+    日期走绑定参数（个数 <= 日历长度）。
+    """
+    if not dates:
+        return {}
+    placeholders = ", ".join("?" for _ in dates)
+    rows = con.execute(
+        "SELECT trade_date, value_text FROM history_labels "
+        f"WHERE entity_type = ? AND entity_id = ? AND label = ? AND trade_date IN ({placeholders})",
+        ["market", MARKET_ENTITY_ID, STAGE_LABEL, *dates],
+    ).fetchall()
+    return {str(d): (s if s else UNKNOWN_STAGE) for d, s in rows}
+
+
+def stage_baseline_counts(
+    con: duckdb.DuckDBPyConnection,
+    compiled: CompiledRule,
+    baseline_window: tuple[str, str],
+    *,
+    event_dates: Sequence[str],
+) -> dict[str, tuple[int, int]]:
+    """各阶段的基准率计数 {stage: (n, k)}，口径跟规则声明的 baseline.kind 走；NULL 阶段归 UNKNOWN_STAGE。"""
+    q = compiled.baseline_by_stage_for(*baseline_window, event_dates=event_dates)
+    out: dict[str, tuple[int, int]] = {}
+    for stage, n, k in con.execute(q.sql, list(q.params)).fetchall():
+        out[stage if stage else UNKNOWN_STAGE] = (int(n or 0), int(k or 0))
+    return out
+
+
+def _stage_breakdown(
+    con: duckdb.DuckDBPyConnection,
+    ok_events: Sequence[tuple],
+    compiled: CompiledRule,
+    baseline_window: tuple[str, str],
+    *,
+    min_n: int,
+    q: float,
+) -> list[StageBucket]:
+    """按事件日当日的 canonical ``market_stage`` 把已到期事件拆桶，取各阶段自己的基准率，
+    交给 ``stats.stage_readouts`` 出读数与规则内 BH。ok_events 已按日期排好（编译器 ORDER BY），每桶内序列也是按日期的。
+    """
+    if not ok_events:
+        return []
+    dates = sorted({str(e[1]) for e in ok_events})
+    stage_by_date = _stage_of_dates(con, dates)
+    successes: dict[str, list[bool]] = {}
+    for _eid, d, success, _m in ok_events:
+        successes.setdefault(stage_by_date.get(str(d), UNKNOWN_STAGE), []).append(bool(success))
+    baseline_by_stage = stage_baseline_counts(con, compiled, baseline_window, event_dates=dates)
+    return stage_readouts(successes, baseline_by_stage, min_n=min_n, q=q)
+
+
+def stage_matched_baseline(stages: Sequence[StageBucket], rd: Readout, min_n: int) -> AltBaseline | None:
+    """第三列对照 ``same_stage_days``：p0 按事件阶段分布加权（``stats.stage_matched_p0``），同一事件集换这个 p0 看结论会不会变。"""
+    p0 = stage_matched_p0(stages)
+    if p0 is None:
+        return None
+    usable = [b for b in stages if b.p0 is not None and b.n > 0]
+    return AltBaseline(
+        kind=STAGE_MATCHED_BASELINE_KIND,
+        n=sum(b.readout.baseline_n for b in usable),
+        k=sum(b.readout.baseline_k for b in usable),
+        p0=p0,
+        lift=(rd.p - p0) if rd.p is not None else None,
+        verdict_if_used=four_state(rd.n, rd.k, p0, rd.p_first, rd.p_second, min_n),
+    )
+
+
+def _purge_cut_date(con: duckdb.DuckDBPyConnection, end: str, horizon: int) -> str | None:
+    """窗内最后一个「outcome 不跨窗」的事件日：日历（history_labels 的唯一交易日）上
+    ``end`` 往前数第 ``horizon`` 个交易日。日历不足 horizon+1 天 → None（全窗事件的
+    outcome 都伸出窗外，一个都不能要——窗口比 outcome 还短本来就不该出统计）。"""
+    rows = con.execute(
+        "SELECT trade_date FROM ("
+        "  SELECT DISTINCT trade_date FROM history_labels"
+        "  WHERE CAST(trade_date AS DATE) <= CAST(? AS DATE)"
+        "  ORDER BY trade_date DESC LIMIT ?"
+        ") ORDER BY trade_date LIMIT 1",
+        [end, int(horizon) + 1],
+    ).fetchall()
+    count = con.execute(
+        "SELECT COUNT(DISTINCT trade_date) FROM history_labels WHERE CAST(trade_date AS DATE) <= CAST(? AS DATE)",
+        [end],
+    ).fetchone()[0]
+    if int(count or 0) < int(horizon) + 1:
+        return None
+    return str(rows[0][0])[:10] if rows else None
+
+
 def execute_compiled(
     con: duckdb.DuckDBPyConnection,
     rule: Rule,
@@ -193,11 +319,19 @@ def execute_compiled(
     *,
     window: tuple[str, str],
     conditions: dict[str, Any],
+    q: float = DEFAULT_Q,
 ) -> RunResult:
     events = con.execute(compiled.events.sql, list(compiled.events.params)).fetchall()
     ok_events = [(eid, d, bool(s), metric) for eid, d, status, s, metric in events if status == "ok"]
     n_pending = sum(1 for e in events if e[2] == "pending")
     n_missing = sum(1 for e in events if e[2] not in ("ok", "pending"))
+
+    # OPT-05 purge：窗末最后 horizon 个交易日内的事件，其 outcome 落在窗外——发现窗
+    # 用它等于读了下一窗（验证窗）的价格，跨窗标签泄漏。按日历剔除并如实计数。
+    cut_date = _purge_cut_date(con, window[1], rule.success.horizon)
+    kept = [e for e in ok_events if cut_date is not None and str(e[1])[:10] <= cut_date]
+    n_purged = len(ok_events) - len(kept)
+    ok_events = kept
 
     baseline_window: tuple[str, str] | None = None
     baseline_n = baseline_k = 0
@@ -216,6 +350,20 @@ def execute_compiled(
         baseline_k=int(baseline_k or 0),
         min_n=rule.min_n,
     )
+    # OPT-05 依赖感知：事件不展平（保留 entity × date 身份），按日期块重采样出第二道
+    # 区间。最终 verdict 是两道的保守合成——Wilson 读数降为描述性，同日共振与重叠
+    # outcome 不再靠「事件数 = N」冒充统计力量。
+    dependence: DependenceReadout | None = None
+    if ok_events:
+        dependence = block_bootstrap_readout(
+            [(str(e), str(d)[:10], bool(s)) for e, d, s, _m in ok_events],
+            p0=rd.p0,
+            block_len=rule.success.horizon,
+        )
+        final, note = combined_verdict(rd.verdict, dependence.verdict)
+        if final != rd.verdict or note:
+            notes = rd.notes + ((note,) if note else ())
+            rd = replace(rd, verdict=final, notes=notes)
     if ok_events:
         # 另一种口径只作对照：同一事件集换个 p0，看结论会不会变——变了说明读数受择时 / 选择的混杂
         other = next(k for k in BASELINE_KINDS if k != compiled.baseline_kind)
@@ -233,6 +381,14 @@ def execute_compiled(
         )
     metric_rows = con.execute(compiled.metrics.sql, list(compiled.metrics.params)).fetchall()
     horizons = _summarize_horizons(metric_rows, rule.horizons)
+    stages: list[StageBucket] = []
+    stage_matched: AltBaseline | None = None
+    stage_baseline_sql: dict[str, Any] | None = None
+    if ok_events and baseline_window is not None:
+        stages = _stage_breakdown(con, ok_events, compiled, baseline_window, min_n=rule.min_n, q=q)
+        stage_matched = stage_matched_baseline(stages, rd, rule.min_n)
+        sq = compiled.baseline_by_stage_for(*baseline_window, event_dates=dates)
+        stage_baseline_sql = {"kind": compiled.baseline_kind, "sql": sq.sql, "params": list(sq.params)}
 
     sample = [
         {
@@ -248,20 +404,26 @@ def execute_compiled(
         rule=rule,
         window=window,
         baseline_window=baseline_window,
+        dependence=dependence,
+        n_purged=n_purged,
+        purge_cut_date=cut_date,
         readout=rd,
         baseline_alt=alt,
+        baseline_stage_matched=stage_matched,
         n_matched=len(events),
         n_pending=n_pending,
         n_missing=n_missing,
         first_event_date=min(all_dates) if all_dates else None,
         last_event_date=max(all_dates) if all_dates else None,
         horizons=horizons,
+        stage_breakdown=stages,
         conditions=conditions,
         events_sample=sample,
         sql={
             "events": {"sql": compiled.events.sql, "params": list(compiled.events.params)},
             "metrics": {"sql": compiled.metrics.sql, "params": list(compiled.metrics.params)},
             "baseline": baseline_sql,
+            "baseline_by_stage": stage_baseline_sql,
         },
     )
 
@@ -273,12 +435,27 @@ def run_rule(
     start: date | str | None = None,
     end: date | str | None = None,
     conditions: dict[str, Any] | None = None,
+    q: float = DEFAULT_Q,
 ) -> RunResult:
     conditions = conditions or load_conditions(con)
     _check_horizons(rule, conditions)
+    if rule.windows:
+        # 双窗（设计稿 §10.2 第二条）：discovery / validation 各跑一次，同一编译器、同一执行器；调用方给的 start / end
+        # 只作夹紧（与各窗取交集），不会把两窗合成一窗。顶层结论 = validation 窗；discovery 挂在 .discovery 作对照。
+        results: dict[str, RunResult] = {}
+        for name in ("discovery", "validation"):
+            w_start, w_end = rule.windows[name]
+            clamped_start = max(w_start, str(start)) if start else w_start
+            clamped_end = min(w_end, str(end)) if end else w_end
+            window = resolve_window(conditions, clamped_start, clamped_end)
+            compiled = compile_rule(rule, start=window[0], end=window[1])
+            results[name] = execute_compiled(con, rule, compiled, window=window, conditions=conditions, q=q)
+        validation = results["validation"]
+        validation.discovery = results["discovery"]
+        return validation
     window = resolve_window(conditions, start, end)
     compiled = compile_rule(rule, start=window[0], end=window[1])
-    return execute_compiled(con, rule, compiled, window=window, conditions=conditions)
+    return execute_compiled(con, rule, compiled, window=window, conditions=conditions, q=q)
 
 
 def scan_rules(
@@ -287,11 +464,14 @@ def scan_rules(
     *,
     start: date | str | None = None,
     end: date | str | None = None,
-    q: float = 0.05,
+    q: float = DEFAULT_Q,
 ) -> ScanResult:
-    """多条规则一起跑：每条先出单次读数，再按 BH 控制 FDR、降级未过校正的支持 / 证伪。"""
+    """多条规则一起跑：每条先出单次读数，再按 BH 控制 FDR、降级未过校正的支持 / 证伪。
+
+    规则级的族是这一批规则；各规则内部的阶段族用同一个 q 各自校正，两层族互不掺和。
+    """
     conditions = load_conditions(con)
-    results = [run_rule(con, r, start=start, end=end, conditions=conditions) for r in rules]
+    results = [run_rule(con, r, start=start, end=end, conditions=conditions, q=q) for r in rules]
     p_values = [r.readout.p_value for r in results]
     testable = [i for i, p in enumerate(p_values) if p is not None]
     rejected = [False] * len(results)

@@ -397,6 +397,10 @@ RULE_DOC = {
     },
     "baseline": {"kind": "same_universe_all_days"},
     "min_n": 20,
+    # 2026-09-15 前向合并：main 的规则 schema（PR #589 第四刀）把 sharing / owner 改为必填，
+    # 夹具照最小合法形状补齐——不补的话本测试挂在 schema 校验上，测不到它要测的编译器行为。
+    "sharing": "shared",
+    "owner": "system",
 }
 
 
