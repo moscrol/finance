@@ -129,7 +129,13 @@ expired_at is null OR expired_at > C
 
 若历史对象缺少 `recorded_at`，整片标记 `pit_grade=trade_date_only`，与 `pit_grade=strict` 分开统计，不能混成一个平均值。`hindsight=true` 只用于人工复核，不得进入任何校准或方法有效性统计。
 
-**`expired_at` 属于记录时间时钟：只能填标注动作发生的当下时刻（系统何时记下失效），禁止回填「回头看它何时开始错」——那是有效时间（`valid_to`）的事。** 两种填法的差别可机器证伪：回填过去时刻会让已发生过的 `slice(T, C)` 在回检跑过之后内容改变，违反 §7 第 9 条回放幂等；填当下时刻则永不 ≤ 历史 C，历史切片逐字节不变。判断轨「verdict 的 `valid_from` 用到期日而非登记日」是时钟 1 的合法用法，不得把那个先例抄到 `expired_at` 上。接自动触发（回检 miss → 标失效、纠偏 → 写 `superseded_by`）之前，先按本条写测试。
+**`expired_at` 属于记录时间时钟：只能填标注动作发生的当下时刻（系统何时记下失效），禁止回填「回头看它何时开始错」——那是有效时间（`valid_to`）的事。** 两种填法的差别可机器证伪：回填过去时刻会让已发生过的 `slice(T, C)` 在回检跑过之后内容改变，违反 §7 第 9 条回放幂等；填当下时刻则永不 ≤ 历史 C，历史切片逐字节不变。判断轨「verdict 的 `valid_from` 用到期日而非登记日」是时钟 1 的合法用法，不得把那个先例抄到 `expired_at` 上。接自动触发之前，先按本条写测试。
+
+**判断轨的修正链语义**（接触发前钉死；2026-09-15 对照实现侦察后定）：
+
+1. **回检终态（hit / partial / miss）不写 `expired_at`。** 被证伪的判断是有价值的历史事实——回放 due 之前任何一天，它都必须还在切片里；「已被证伪」的可见性由同一切片里的 **verdict 对象**承担（`valid_from` = 到期日、`recorded_at` = 打分时刻），不由抹掉判断承担。判断退出「活跃期」靠 `valid_to = due`（时钟 1 的自然到期），不靠 `expired_at`。miss 触发的失效已有一半在别处：`checkpoint_writeback` 把关联**证据边**标 `invalidated`——那是证据轨的事，别把它复制到判断对象上。
+2. **`expired_at` / `superseded_by` 只在「到期前被撤回或取代」时写**：用户纠偏明确指向某条判断时，旧判断 `expired_at` = 纠偏时刻（当下，时钟 2）、`superseded_by` = 纠偏记录 ref。前置缺口：`corrections.jsonl` 目前没有指向 checkpoint 的关联字段——接触发先补关联载体，没有关联就没有「指向某条判断的纠偏」，只有泛泛的经验教训（那不触发修正链）。
+3. **现状如实（勿按契约设想直接写代码）**：judgment 轨 provider 是 v0——只投登记日（`ts == as_of`）、`verdicts.jsonl` 不进河、`valid_to = due` 未落；上面「verdict 的 valid_from 用到期日」仍是设想。触发这一刀的真实形状 = provider v1（判断活跃期逐日可见 + verdict 对象进河）+ 纠偏关联载体，**不是**给 miss 标 `expired_at`。
 
 ### 4.2 通用对象契约
 
