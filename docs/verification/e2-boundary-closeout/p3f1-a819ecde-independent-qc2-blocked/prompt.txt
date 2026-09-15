@@ -1,0 +1,26 @@
+你是独立代码审查者，中文裁定。新上下文，不是作者。只审P3f1固定小片，不调用另一个模型，不跑金融问答、Grok、Knevo或生产Episode。
+
+固定应用树 /tmp/e2-p3f1-qc2-a819ecde，HEAD必须是 a819ecde6529784da06401e59152a476343f9011；父提交418f2bc910c673820d0accdec42b46be5aaa5528。每shell显式cd。应用和作者测试只读；不提交/推送/合并/部署。证据只写 /tmp/e2-p3f1-qc2-a819ecde-evidence/，合成数据只写 /tmp/e2-p3f1-qc2-a819ecde-data/；最终报告 /tmp/e2-p3f1-qc2-a819ecde-report.md。用 /Users/a77/finance-workspace-private/.venv-workbench/bin/python 跑pytest/ruff。你须实际运行测试并补少量独立反例，不只转述作者结论。
+
+先核对HEAD/status，读AGENTS.md（不用执行金融命令、共享记忆回写、全仓测试或合并流程）。读本树：
+- docs/verification/e2-boundary-closeout/p3f1-source-binding-20260915/README.md、launch.json、candidate-source-state.json
+- docs/agent-product-door.md 的E2段
+- docs/learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md 的D1/D2/D7及相关验收
+- git diff 418f2bc9..a819ecde -- intelligence/runtime/conversation_orchestrator.py intelligence/services/conversation_materials.py intelligence/services/task_frame.py intelligence/services/turn_controller.py intelligence/tests/test_conversation_materials.py intelligence/tests/test_e2_material_source_binding.py
+
+本片范围：只有当前材料合同明确material_only才由实际completed用户Message形成不可变ConversationMaterials（MaterialRef+source_message_id）。正文user:/assistant:/##不决定消息角色/边界；较早消息只取既有summary尾窗口中完整记录，recent完整保留；只有summary则不可冒充用户来源。默认controller到TaskFrame，显式空投影权威，不回读prompt。旧注入controller调用签名兼容，runtime legacy frame重建接同一投影。普通/full/local_only、保护块、显式放宽、未知/普通继续保留旧路。
+不声称：controller模型历史提示词过滤、pending-frame提前恢复/已有注入frame重验、D7权限继承、Episode历史正文交付、最终答案、完整P3/E2。投影不保存正文，绑定材料ID不等于正文送达。但如果这些范围限制使本片承诺本身不成立，须指出而不是迎合分片给通过。
+
+作者读数（不是你的裁定）：初版八针基线4F/4P（助手伪装、用户正文角色/标题、summary-only红；截断当时绿）；后补来源坐标，最终八针基线6F/2P。focused33P；八文件249P/0禁止尝试。只断controller传递6F/27P；去角色检查2F/31P；撤完整窗口筛选2F/31P；恢复33P，全0禁止。归档68文件Git blob通过。初版八针全文未独立冻结，before日志保存四个失败函数正文，不把最终快照冒充初版。
+相邻orchestrator/integration虽110P却100次禁止尝试、pytest0/shell3：83次版本git子进程、16次用户目录扫描、1次localhost:3456地址解析（栈不足以定位上层）。随后无审计复跑不算隔离通过；保留原失败，不准解除禁止限制追绿。
+
+必须独立验证：
+1. 代码与窗口/缺失状态语义、源身份和内容ID、材料次序/重复材料、当前消息排除、状态过滤、签名兼容。检查是否仅在备注中写源坐标却未真正控制来源，测试是否只mock新返回值。实际接口要经真实run_turn→decide_turn→TaskFrame。注入式controller兼容测试与默认链测试分别判。
+2. 用 scripts/check_evidence_archive.py 对固定提交核查归档；复跑作者focused和适当回归，独立补针至少覆盖你发现的边缘情况，用自己的合成输入而不是import作者夹具。不要改作者测试/断言求绿。父版本/撤线若不重跑，报告明确未做。
+3. pytest之前先搭隔离：可复制本树p3f1-source-binding-20260915/launcher.py.txt到你的证据目录修改（原件不改），DATA改为你的专有数据根，标executor independent reviewer。清除凭据/真人用户环境；HOME/FINANCE_WS/FORESIGHT_USERS_DIR/FORESIGHT_EPISODE_STORE/KB_VAULT/KNOWLEDGE_WIKI/MARKET_FEATURE_STORE_DB重定向，ENTITY_ANCHOR_SECURITIES_DB=0。禁插件自动加载；basetemp必须是专有合成目录，root conftest不能绕出隔离。
+Python audit在抛异常前累加网络/子进程/生产用户/KB/主库/密钥文件访问次数；结束必须报告累计计数，异常被吞也不能算绿。native DuckDB必须另拦connect，只许memory或合成数据根。resolve /tmp与/private/tmp比较。这个不是OS沙箱，不认证所有native IO。
+审查模型服务自身不属于产品外呼；审查工具严禁调用金融LLM/API/真实用户台账/生产DB或KB正文。源代码、静态配置允许只读但不冒称材料事实。不要直接无审计跑pytest，也不要白名单生产路径掩盖计数。相邻API导入红针可列未覆盖。
+4. 所有轮次使用新NAME，stdout/stderr、pytest/shell exit、IO计数、测试原件均保留。不要覆盖失败、第一次launcher错误或修正版。报告通过/退修/阻塞（仅P3f1），P1/P2/P3发现、固定HEAD、命令/测试集合、每轮结果/禁止次数、执行者与隔离限制。原failed IDs和断言差异须足够追溯，不只给摘要。
+5. 报告写完再核对应用树HEAD/status仍clean。CLI exit0不是裁定，必须有实际报告与可核对证据。有上游失败就记阻塞；不无限重试、不另调外部模型。
+
+本次为用户授权的第二次全新上下文复核；不得读取上次中断事件充当裁定。总时限20分钟，测试子命令最多180秒。优先完成审代码、隔离focused/八文件回归和少量独立针后写报告。无须做范围外110条相邻测试。发现缺陷保留失败立即报告，不修应用，不自动续跑。独立测试与启动器写证据目录；不要在审查树写任何配置。
