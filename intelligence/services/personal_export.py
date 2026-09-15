@@ -67,7 +67,8 @@ class ExportResult:
                 "excluded": [{"what": w, "why": y} for w, y in EXCLUDED],
                 "note": (
                     "本文件只含该 user_id 目录下的记录，不含共享层、不含其他用户。"
-                    "每一行都按台账原文搬运，未做解释或加工。"
+                    "正常记录按台账字段搬运；坏行保留可读预览及 _unparsed_bytes_hex，"
+                    "用 bytes.fromhex 可恢复该行原始字节（不含分隔换行）。"
                 ),
             },
             "profile": self.profile,
@@ -87,11 +88,12 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
         try:
             line = raw_line.decode("utf-8").strip()
         except UnicodeDecodeError:
-            # 坏字节同样不静默丢，而且要**可逆**：`errors="replace"` 把所有坏字节
-            # 压成同一个 `�`，「算」断成的 e7 ae 与「固」断成的 e5 9b 会长得一模一样，
-            # 残片就不再是证据了。`backslashreplace` 把每个坏字节写成 \xNN，
-            # 不同字节仍然不同、原字节可还原（复审三实测）。
-            out.append({"_unparsed_line": raw_line.decode("utf-8", errors="backslashreplace")})
+            # backslashreplace 只是预览：坏字节 e7 与原文中的字面量 \\xe7 显示相同。
+            # 独立保留原始 hex，才可逐字节还原（包括空白），不猜反斜杠来自哪里。
+            out.append({
+                "_unparsed_line": raw_line.decode("utf-8", errors="backslashreplace"),
+                "_unparsed_bytes_hex": raw_line.hex(),
+            })
             continue
         if not line:
             continue
@@ -99,7 +101,7 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
             rec = json.loads(line)
         except json.JSONDecodeError:
             # 坏行不静默丢：原样带走，让用户看得见台账里确实有这么一行。
-            out.append({"_unparsed_line": line})
+            out.append({"_unparsed_line": line, "_unparsed_bytes_hex": raw_line.hex()})
             continue
         if isinstance(rec, dict):
             out.append(rec)

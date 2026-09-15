@@ -425,9 +425,17 @@ def enters_calibration(record: dict[str, Any]) -> bool:
 # --------------------------------------------------------------------------- #
 # 台账
 # --------------------------------------------------------------------------- #
-def _make_id(script: ObservationScript, recorded_at: str, due: str = "") -> str:
-    """记录 id。``due`` 进哈希：同一秒内改到期日重新确认是两条不同的记录，
-    不带它两行会撞同一个 id（第二轮复审实测）。"""
+def _make_id(
+    script: ObservationScript, recorded_at: str, due: str = "", *, action_key: str | None = None
+) -> str:
+    """受控确认的记录身份复用动作键；旧入口保留原来的 id 合同。
+
+    只修动作去重还不够：同秒同内容但不同来源版本 / 条件 / 尝试的两次确认，
+    不能在事件里指向同一个 script_id。复用已定义的动作身份，不另维护一套字段。
+    既有成功记录仍由 register 的去重分支原样返回，不重写历史 id。
+    """
+    if action_key is not None:
+        return f"os-{script.as_of}-{hashlib.sha256(action_key.encode('utf-8')).hexdigest()[:24]}"
     payload = json.dumps(
         {
             "as_of": script.as_of,
@@ -689,7 +697,6 @@ def register(
 
     # 能查日历就用真交易日，查不到才回落跳周末规则——节假日周末规则挡不住。
     due_norm = due or resolve_due(stamped.as_of, db_path=db_path)
-    record_id = _make_id(stamped, str(stamped.recorded_at), due_norm)
     # 受控入口的确认动作要有**稳定身份**：键由内容 + 尝试算出，不含录入时刻。
     # 之前用 record_id 当判别位，而 record_id 派生自 recorded_at（秒级）——
     # 跨秒重试就换了一把键，于是「去重」在最需要它的场景（重试）恰好失效
@@ -705,6 +712,7 @@ def register(
         if entrypoint and status in {"confirmed", "late"}
         else None
     )
+    record_id = _make_id(stamped, str(stamped.recorded_at), due_norm, action_key=action_key)
 
     p = Path(path).expanduser()
     with _ledger_lock(p):
