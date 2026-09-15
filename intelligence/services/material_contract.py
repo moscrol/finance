@@ -105,6 +105,33 @@ class MaterialContract:
         return cls(status, authenticity, data_scope, tuple(parsed_marks), tuple(parsed_questions), continuation, tuple(reasons), declared)
 
 
+def blocks_contract_blind_pipelines(
+    contract: MaterialContract | None, *, has_material_context: bool = False
+) -> bool:
+    """约束轮不得进入没有材料合同意识的执行面（引擎 B / 确定性 owner 管线）。
+
+    这些管线按题型直接检索、读库或外呼，读不到 data_scope 也读不到待澄清状态；
+    material_only、local_only 与材料语境下的待澄清合同一旦进入，P3 的读取收窄
+    整体失效。adapter 让路判定与 orchestrator 掉落总闸共用本谓词——两处各自
+    维护会改一漏一。
+
+    分界：state_unavailable 声明的是「基底未知」而不是「受限边界」——任何裸
+    「继续/接着」的日常追问都会编出它。只有带材料语境（题组、材料、可信历史）
+    时才算禁区；普通续轮保持既有引擎 B 行为。boundary_uncertain（材料与指令
+    粘连）本身就是材料语境，一律算。
+    """
+
+    if contract is None:
+        return False
+    if contract.data_scope in {"material_only", "local_only"}:
+        return True
+    if contract.classification == "boundary_uncertain":
+        return True
+    if contract.classification == "state_unavailable":
+        return bool(has_material_context or contract.questions)
+    return False
+
+
 def compile_material_contract(
     regions: TopLevelRegions, *, source_turn: int = 0,
     inherited_contract: MaterialContract | None = None,

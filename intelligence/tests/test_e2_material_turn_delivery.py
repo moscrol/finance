@@ -415,3 +415,107 @@ def test_real_run_turn_recovers_pending_material_clarification(tmp_path, monkeyp
     assert frame.material_contract.needs_clarification  # scope still undeclared
     assert context.contract.allowed_capabilities == ()
     assert len(frame.material_contract.questions) == 8
+
+
+# ── P3h: engine B (contract-blind) must never receive restricted turns ────────
+
+
+def _engine_b_probes():
+    calls = []
+
+    def forbidden(name):
+        def call(*_args, **_kwargs):
+            calls.append(name)
+            raise AssertionError(f"{name} is contract-blind and must not run")
+
+        return call
+
+    return calls, {
+        "answer_query_fn": forbidden("answer_query"),
+        "route_skills_fn": forbidden("route_skills"),
+    }
+
+
+def _turn(store, runs, conv, query):
+    run = runs.create_run(query, "ask", session_id=conv.conversation_id)
+    store.append_message(conv.conversation_id, "user", query, run_id=run.run_id)
+    assistant = store.append_message(
+        conv.conversation_id, "assistant", "", status="running", run_id=run.run_id
+    )
+    return run, assistant
+
+
+def test_local_only_deterministic_owner_never_reaches_engine_b(tmp_path, monkeypatch):
+    from intelligence.runtime import conversation_orchestrator as runtime
+    from intelligence.services.conversation_store import ConversationStore
+    from intelligence.services.run_store import RunStore
+
+    calls, probes = _engine_b_probes()
+    store = ConversationStore("alice", root=tmp_path / "conversations")
+    runs = RunStore("alice", root=tmp_path / "runs")
+    conv = store.create_conversation()
+    # No continuous adapter configured: the purest fall-through path.
+    orchestrator = runtime.TurnOrchestrator(
+        repo_root=tmp_path, conversation_store=store, run_store=runs, **probes
+    )
+    query = "只用本地已有数据，不要联网。美股隔夜表现如何？"
+    run, assistant = _turn(store, runs, conv, query)
+    result = orchestrator.run_turn(
+        conversation_id=conv.conversation_id, run_id=run.run_id,
+        assistant_message_id=assistant.message_id, query=query,
+        skill_mode="auto", selected_skill_ids=[],
+    )
+    assert calls == []  # neither skill routing nor the Ask pipeline ran
+    assert "未调用任何外部数据管线" in (result.content or "")
+
+
+def test_material_only_turn_never_reaches_engine_b_without_adapter(tmp_path, monkeypatch):
+    from intelligence.runtime import conversation_orchestrator as runtime
+    from intelligence.services.conversation_store import ConversationStore
+    from intelligence.services.run_store import RunStore
+
+    calls, probes = _engine_b_probes()
+    store = ConversationStore("alice", root=tmp_path / "conversations")
+    runs = RunStore("alice", root=tmp_path / "runs")
+    conv = store.create_conversation()
+    orchestrator = runtime.TurnOrchestrator(
+        repo_root=tmp_path, conversation_store=store, run_store=runs, **probes
+    )
+    store.append_message(conv.conversation_id, "user", T2, run_id="t2")
+    store.append_message(conv.conversation_id, "assistant", OLD, run_id="t2")
+    run, assistant = _turn(store, runs, conv, T3)
+    result = orchestrator.run_turn(
+        conversation_id=conv.conversation_id, run_id=run.run_id,
+        assistant_message_id=assistant.message_id, query=T3,
+        skill_mode="auto", selected_skill_ids=[],
+    )
+    assert calls == []
+    assert "未调用任何外部数据管线" in (result.content or "")
+
+
+def test_ordinary_turn_still_reaches_engine_b_without_adapter(tmp_path, monkeypatch):
+    from intelligence.runtime import conversation_orchestrator as runtime
+    from intelligence.services.conversation_store import ConversationStore
+    from intelligence.services.run_store import RunStore
+
+    class ReachedEngineB(BaseException):
+        pass
+
+    def reached(*_args, **_kwargs):
+        raise ReachedEngineB
+
+    store = ConversationStore("alice", root=tmp_path / "conversations")
+    runs = RunStore("alice", root=tmp_path / "runs")
+    conv = store.create_conversation()
+    orchestrator = runtime.TurnOrchestrator(
+        repo_root=tmp_path, conversation_store=store, run_store=runs,
+        route_skills_fn=reached, answer_query_fn=reached,
+    )
+    query = "低空经济板块最近的产业逻辑怎么看？"
+    run, assistant = _turn(store, runs, conv, query)
+    with pytest.raises(ReachedEngineB):
+        orchestrator.run_turn(
+            conversation_id=conv.conversation_id, run_id=run.run_id,
+            assistant_message_id=assistant.message_id, query=query,
+            skill_mode="auto", selected_skill_ids=[],
+        )

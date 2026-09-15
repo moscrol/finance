@@ -67,7 +67,7 @@ from intelligence.services.research_tool_registry import (
     check_satisfiability,
 )
 from intelligence.services.run_store import redact, redact_value
-from intelligence.services.task_frame import TaskFrame
+from intelligence.services.task_frame import TaskFrame, frame_blocks_contract_blind_pipelines
 from intelligence.services.judgment_delta import judgment_delta_receipt
 from intelligence.services.pricing_split import pricing_split_receipt
 from intelligence.services.ranking_contract import (
@@ -297,7 +297,12 @@ class ContinuousTurnAdapter:
             or frame.task_frame_hash != control_frame.task_frame_hash
         ):
             return _control_frame_mismatch_result(self._runtime_name)
-        if frame.question_type in DETERMINISTIC_OWNER_TYPES:
+        if frame.question_type in DETERMINISTIC_OWNER_TYPES and not (
+            frame_blocks_contract_blind_pipelines(frame)
+        ):
+            # P3h：确定性 owner 管线（引擎 B）没有材料合同意识。约束轮
+            # （material_only / local_only / 待澄清）留在 episode 收窄执行，
+            # 不让路——让路等于把 P3 的读取上限整体交给一个读不到它的引擎。
             return _declined_result()
         if control.terminal_kind == "clarification":
             questions = tuple(

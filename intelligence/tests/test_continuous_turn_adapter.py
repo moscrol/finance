@@ -5783,3 +5783,102 @@ def test_numeric_unsupported_unknown_subject_skips_backfill() -> None:
     ).handle(frame=frame, control=control)
 
     assert result.private_artifact["backfill_turns"] == 0
+
+
+# ── P3h: contract-blind pipelines must not receive restricted frames ──────────
+
+def _restricted_contract(kind: str):
+    from intelligence.services.material_contract import MaterialContract, MaterialQuestion
+
+    if kind == "material_only":
+        return MaterialContract("constraint_confirmed", "real", "material_only")
+    if kind == "local_only":
+        return MaterialContract("constraint_confirmed", "real", "local_only")
+    if kind == "boundary_uncertain":
+        return MaterialContract("boundary_uncertain", None, None)
+    if kind == "unavailable_with_questions":
+        return MaterialContract(
+            "state_unavailable", None, None,
+            questions=(MaterialQuestion("q1", "甲公司的订单进展如何？"),),
+        )
+    raise AssertionError(kind)
+
+
+@pytest.mark.parametrize("question_type", sorted(adapter_module.DETERMINISTIC_OWNER_TYPES))
+@pytest.mark.parametrize(
+    "contract_kind",
+    ("material_only", "local_only", "boundary_uncertain", "unavailable_with_questions"),
+)
+def test_restricted_frames_stay_in_episode_despite_deterministic_owner(
+    question_type: str, contract_kind: str
+) -> None:
+    """Engine B has no material-contract awareness: a restricted frame must not
+    be declined into it, whatever the deterministic owner type says."""
+
+    frame = replace(
+        _frame(question_type=question_type),
+        material_contract=_restricted_contract(contract_kind),
+    )
+    calls: list[str] = []
+
+    def track(name):
+        def call(*_args, **_kwargs):
+            calls.append(name)
+            raise RuntimeError("stop-after-entry")
+
+        return call
+
+    class Runtime:
+        run = track("runtime")
+
+    class Semantic:
+        verify = track("semantic")
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        mode="on",
+        context_factory=track("context"),
+        registry_factory=track("registry"),
+        structural_verifier=track("structural"),
+        semantic_verifier=Semantic(),
+    ).handle(frame=frame, control=_control(frame))
+
+    # Episode assembly was reached (the tracked factory raised inside the
+    # episode path and was settled there) — the turn was NOT declined into
+    # the contract-blind engine.
+    assert calls and calls[0] == "context"
+    assert result.handled is True
+
+
+@pytest.mark.parametrize(
+    "contract_kind", (None, "explicit_full", "bare_continuation_unavailable")
+)
+def test_unrestricted_deterministic_owner_types_still_decline(contract_kind) -> None:
+    from intelligence.services.material_contract import MaterialContract
+
+    if contract_kind == "explicit_full":
+        contract = MaterialContract(
+            "constraint_confirmed", "real", "full", data_scope_declared=True
+        )
+    elif contract_kind == "bare_continuation_unavailable":
+        # 「继续检索」类日常追问：基底未知≠受限边界，保持既有引擎 B 行为。
+        contract = MaterialContract(
+            "state_unavailable", None, None, continuation_requested=True
+        )
+    else:
+        contract = None
+    frame = replace(
+        _frame(question_type="external_market"), material_contract=contract
+    )
+    class Semantic:
+        def verify(self, **_kwargs):
+            pytest.fail("must decline")
+
+    result = ContinuousTurnAdapter(
+        runtime=type("R", (), {"run": staticmethod(lambda **_: None)})(),
+        mode="on",
+        context_factory=lambda *_a, **_k: pytest.fail("must decline"),
+        registry_factory=lambda *_a, **_k: pytest.fail("must decline"),
+        semantic_verifier=Semantic(),
+    ).handle(frame=frame, control=_control(frame))
+    assert result.handled is False

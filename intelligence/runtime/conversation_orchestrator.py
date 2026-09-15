@@ -152,7 +152,11 @@ from intelligence.runtime.turn_control_core import (
     project_turn_decision,
 )
 from intelligence.services.turn_controller import TurnDecision, decide_turn
-from intelligence.services.task_frame import TaskFrame, build_task_frame
+from intelligence.services.task_frame import (
+    TaskFrame,
+    build_task_frame,
+    frame_blocks_contract_blind_pipelines,
+)
 from intelligence.services.conversation_materials import (
     ConversationMaterials, collect_conversation_materials, collect_material_turn_history,
 )
@@ -2082,6 +2086,10 @@ class TurnOrchestrator:
                 and (task_frame.material_contract.data_scope == "material_only"
                      or task_frame.material_contract.needs_clarification)
             )
+            # P3h: engine B (skill routing + the Ask pipeline) has no material
+            # contract awareness at all. Same predicate as the adapter's
+            # yield rule — the two sides must never drift apart.
+            engine_b_restricted = frame_blocks_contract_blind_pipelines(task_frame)
             inherited_answer_spec = (
                 self._load_answer_spec(inherited_message.run_id)
                 if (
@@ -2280,6 +2288,8 @@ class TurnOrchestrator:
                     decision.lane == "knowledge"
                     and lane_answer.fallback_reason
                     and decision.question_type != QUESTION_METHODOLOGY
+                    # P3h: the fallback retrieval below is contract-blind.
+                    and not engine_b_restricted
                 ):
                     retrieval_attempted = True
                     fallback_started = time.monotonic()
@@ -2412,6 +2422,57 @@ class TurnOrchestrator:
                     citations=lane_citations,
                     warnings=lane_warnings,
                     as_of=lane_as_of,
+                )
+            if engine_b_restricted:
+                # P3h 兜底总闸：continuous 引擎未接管（模式关闭 / 让路 / 未配置）
+                # 时，约束轮（material_only / local_only / 待澄清）不得进入无
+                # 材料合同意识的 skill 路由与 Ask 检索管线——那会让 P3 的读取
+                # 收窄整体失效。fail closed：不外呼、不路由、如实降级。
+                scope_label = str(
+                    (task_frame.material_contract.data_scope if task_frame.material_contract else None)
+                    or "待澄清"
+                )
+                degraded_warning = f"material_scope_engine_unavailable:{scope_label}"
+                self.run_store.add_degrade(run_id, degraded_warning)
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "material_gate",
+                    "engine_b_material_gate",
+                    {
+                        "data_scope": scope_label,
+                        "needs_clarification": bool(
+                            task_frame.material_contract is not None
+                            and task_frame.material_contract.needs_clarification
+                        ),
+                        "question_type": str(task_frame.question_type or ""),
+                        "lane": decision.lane,
+                    },
+                )
+                return self._complete_lane_turn(
+                    conversation_id=conversation_id,
+                    run_id=run_id,
+                    assistant_message_id=assistant_message_id,
+                    query=query,
+                    report=report,
+                    answer=LaneAnswer(
+                        answer=(
+                            "本轮声明了数据边界（"
+                            + scope_label
+                            + "），但当前运行模式下没有可执行该边界的研究引擎；"
+                            "为不越权检索，本轮未调用任何外部数据管线。"
+                            "请在支持材料边界的连续研究模式下重试，"
+                            "或去掉边界声明后重新提问。"
+                        ),
+                        fallback_reason="material_scope_engine_unavailable",
+                    ),
+                    selected_skill_ids=manual_selected,
+                    turn_intent=turn_intent,
+                    research_plan=research_plan,
+                    citations=[],
+                    warnings=[degraded_warning],
+                    as_of=None,
                 )
             route_started = time.monotonic()
             relation_guard_requested = bool(

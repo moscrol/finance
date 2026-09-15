@@ -976,6 +976,28 @@ def _clarification_for(ambiguities: tuple[str, ...]) -> str | None:
     return "你希望我围绕哪个明确主体继续判断？"
 
 
+def frame_blocks_contract_blind_pipelines(frame: TaskFrame) -> bool:
+    """P3h：本轮是否禁入无材料合同意识的执行面（引擎 B / 确定性 owner 管线）。
+
+    合同级分界见 ``blocks_contract_blind_pipelines``；材料语境（本轮材料、
+    可信历史条目）在 frame 级推导，adapter 与 orchestrator 共用本函数，
+    不各自拼条件。
+    """
+
+    from intelligence.services.material_contract import blocks_contract_blind_pipelines
+
+    return blocks_contract_blind_pipelines(
+        frame.material_contract,
+        has_material_context=bool(
+            frame.materials
+            or (
+                frame.conversation_materials is not None
+                and frame.conversation_materials.items
+            )
+        ),
+    )
+
+
 def is_missing_material_clarification(frame: object) -> bool:
     return getattr(frame, "clarification_question", None) == MISSING_MATERIAL_CLARIFICATION
 
