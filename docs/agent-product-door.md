@@ -93,6 +93,8 @@ pending恢复/旧frame重验、跨轮权限及 Episode 历史正文交付尚未�
 作者最终回归249P、禁止尝试0；三种撤线分别6F/27P、2F/31P、2F/31P。
 相邻测试110P但100次禁止尝试、启动器exit3的失败保留；无审计复跑不能洗掉它。
 **尚无独立 QC，不代表 P3/E2 完成**；[范围与完整作者证据](verification/e2-boundary-closeout/p3f1-source-binding-20260915/README.md)。
+独立复核固定a819ecde的首次启动被服务并发限制中断，未运行测试/无报告，CLI exit0不算通过；
+[中断原件](verification/e2-boundary-closeout/p3f1-a819ecde-independent-qc-blocked/README.md)保留，未自动重试。
 
 **本阶段不是材料题全链完成**：`local_only` 仅已审定 runner 的局部路径，未覆盖所有
 本地工具；歧义/基底不可恢复的预取前澄清、controller 前缀/默认摘要/压缩/恢复/子研究等
