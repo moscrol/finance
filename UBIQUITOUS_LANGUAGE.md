@@ -128,8 +128,8 @@
 - 三个阈值的真源是 `skills/opinion-cross/scripts/consensus_staging.py`（`TH_RESONANCE_SOURCES / TH_CONSENSUS_SOURCES / TH_CONSENSUS_DAYS`），本词表只读不复制。
 - **另一条轴，不互译**：`consensus_staging` 的阶梯（暗流 → 萌芽 → 第一轮 → 催化共振 → 一致认同）是「证据至少撑到哪一阶」的**下限**，只升不降；本词表可退。三维对照只用本词表，`opinion_cross` 技能继续用阶梯。阅读参考映射：暗流 → unverifiable / 萌芽，萌芽 → 萌芽，第一轮 / 催化共振 → 扩散，一致认同 → 拥挤。
 - **回填批次**：同一 `created_at` 日入库 >= 10 份研报的日子，读数 `inputs.backfill_batch_dates` 点名，其 ±30 日的斜率是采集节奏不是舆论，报告里单列。
-- **错位标记**（题材侧 × 舆论侧）：`aligned | opinion_leads | opinion_lags | unverifiable`，两侧映到三档粗序（early / mid / late）再比；题材侧在词表统一（G-04）前按模块双表映射（`theme_lifecycle` 八阶段、`theme_lifecycle_timeline` 七段），任一侧缺 → unverifiable。
-- 旁路库标签 `opinion_stage`（`theme` 实体，文本值），`LABEL_VERSION` v4。
+- **错位标记**（题材侧 × 舆论侧）：`aligned | opinion_leads | opinion_lags | unverifiable`，两侧映到三档粗序（early / mid / late）再比；题材侧粗序由钦定词表派生（G-04 已落，`theme_stage_vocab.module_coarse_tables`，`tsm-v1`——tsc-v0 手工双表退役为派生物，行为逐字节不变），任一侧缺 → unverifiable。
+- 旁路库标签 `opinion_stage`（`theme` 实体，文本值），`LABEL_VERSION` v6（v4 时代入库，v5 合取三值、v6 加 `lifecycle_stage` 均不改它的口径）。
 
 ## Flagged ambiguities
 

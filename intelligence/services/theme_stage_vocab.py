@@ -133,3 +133,40 @@ def render_mapping_markdown() -> str:
         lines.append(f"| {stage} | {' / '.join(aliases) if aliases else '—'} | {'；'.join(notes) if notes else ''} |")
     lines.append(f"| `{GAP}` | {_eight.STAGE_UNKNOWN} | {CONDITIONS[_eight.STAGE_UNKNOWN]} |")
     return "\n".join(lines)
+
+
+# --------------------------------------------------------------------------- #
+# 粗序（early / mid / late）：错位标记（opinion_stage.dislocation）的题材侧输入。
+# 2026-09-15 前向合并时吸收：#36 的 THEME_STAGE_COARSE 手工双表退役为本表派生物
+# （PR #673 交接「下一步」第 2 条），行为与 tsc-v0 逐字节一致，测试以字面表冻结对照。
+# --------------------------------------------------------------------------- #
+CANONICAL_COARSE: dict[str, str] = {
+    _seven.STAGE_INCUBATION: "early",
+    _seven.STAGE_FIRST_MOVE: "early",
+    _seven.STAGE_FERMENT: "mid",
+    _seven.STAGE_MAIN_UP: "late",
+    _seven.STAGE_DIVERGENCE: "late",
+    _seven.STAGE_EBB: "late",
+    _seven.STAGE_REFLOW: "late",
+}
+
+
+def coarse_of(word: str | None, *, first_signal: bool | None = None) -> str | None:
+    """任一套词 → 三档粗序；gap / 空值 → None。一对多词（升温验证）按默认分支（发酵 → mid），
+    与 tsc-v0 的手工取值一致。"""
+    t = canonical_of(word, first_signal=first_signal)
+    return None if t.canonical == GAP else CANONICAL_COARSE[t.canonical]
+
+
+def module_coarse_tables() -> dict[str, dict[str, str]]:
+    """按模块生成「细词 → 粗序」双表，形状与退役的 tsc-v0 ``THEME_STAGE_COARSE`` 相同。
+
+    八阶段表不含「无法判定」（它映 gap，不在序上）；七段表是恒等 → 粗序。
+    """
+    eight = {
+        word: CANONICAL_COARSE[eight_to_canonical(word).canonical]
+        for word in EIGHT_TO_CANONICAL
+        if EIGHT_TO_CANONICAL[word] != (GAP,)
+    }
+    seven = {stage: CANONICAL_COARSE[stage] for stage in CANONICAL_STAGES}
+    return {"theme_lifecycle": eight, "theme_lifecycle_timeline": seven}

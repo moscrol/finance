@@ -18,7 +18,7 @@ import pytest
 
 from intelligence.services.methodology_backtest import outcomes as outcomes_mod
 from intelligence.services.methodology_backtest.compiler import compile_rule
-from intelligence.services.methodology_backtest.labels import LABEL_VERSION, build_labels
+from intelligence.services.methodology_backtest.labels import ALL_LABELS, LABEL_VERSION, build_labels
 from intelligence.services.methodology_backtest.outcomes import build_outcomes
 from intelligence.services.methodology_backtest.receipts import build_receipt, render_receipt_markdown
 from intelligence.services.methodology_backtest.rules import RuleValidationError, load_rule, parse_rule, validate_rule
@@ -326,12 +326,14 @@ def _label(con, entity_type, entity_id, label):
 
 def test_labels_inventory_and_data_gap(mini):
     rep = mini["report"]
-    assert len(rep.rows_by_label) == 16
+    # 用目录不变量而非写死计数：合并撞车时（#36 加 opinion_stage 与 #21 加 lifecycle_stage 各 +1）
+    # 绝对数字两边各自为真、合起来就错。夹具里每个已注册标签都必须产出行。
+    assert set(rep.rows_by_label) == set(ALL_LABELS)
     assert rep.data_gap_days == [str(DAYS[GAP])]
     assert rep.label_version == LABEL_VERSION
     con = duckdb.connect(str(mini["labels"]), read_only=True)
     try:
-        assert con.execute("SELECT COUNT(DISTINCT label) FROM history_labels").fetchone()[0] == 16
+        assert con.execute("SELECT COUNT(DISTINCT label) FROM history_labels").fetchone()[0] == len(ALL_LABELS)
         assert con.execute("SELECT MAX(trade_date) FROM history_labels").fetchone()[0] == DAYS[-1]
     finally:
         con.close()

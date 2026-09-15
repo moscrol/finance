@@ -80,3 +80,43 @@ class ThemeLifecycleTimelineAliasTests(unittest.TestCase):
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
+
+
+# --------------------------------------------------------------------------- #
+# 粗序派生（2026-09-15 前向合并吸收：#36 的 THEME_STAGE_COARSE 退役为派生物）
+# --------------------------------------------------------------------------- #
+# tsc-v0 冻结对照：退役前 opinion_stage.THEME_STAGE_COARSE 的手工双表原文。
+# 「换唯一出处」不是「换行为」——派生表必须与它逐字节相等。
+TSC_V0_FROZEN = {
+    "theme_lifecycle": {
+        "新出现": "early", "旧逻辑唤醒": "early", "升温验证": "mid", "加速定价": "late",
+        "高位分歧": "late", "二阶段回流": "late", "衰退观察": "late", "证伪退出": "late",
+    },
+    "theme_lifecycle_timeline": {
+        "酝酿": "early", "首发": "early", "发酵": "mid", "主升": "late",
+        "分歧": "late", "退潮": "late", "回流": "late",
+    },
+}
+
+
+def test_module_coarse_tables_byte_equal_to_tsc_v0():
+    assert v.module_coarse_tables() == TSC_V0_FROZEN
+
+
+def test_opinion_stage_coarse_now_derives_from_vocab():
+    from intelligence.services import opinion_stage as os_
+
+    assert os_.THEME_STAGE_COARSE == TSC_V0_FROZEN
+    assert os_.THEME_STAGE_MAPPING_VERSION == v.MAPPING_VERSION
+    # 错位标记行为不变（tsc-v0 时代的三个代表用例）
+    assert os_.dislocation("主升", os_.STAGE_SPROUT, theme_module="theme_lifecycle_timeline") == "opinion_lags"
+    assert os_.dislocation("新出现", os_.STAGE_CROWDED) == "opinion_leads"
+    assert os_.dislocation(None, os_.STAGE_SPREAD) == os_.UNVERIFIABLE
+
+
+def test_coarse_of_translates_any_vocab_and_gaps_to_none():
+    assert v.coarse_of("升温验证") == "mid"      # 一对多默认分支（发酵）
+    assert v.coarse_of("高潮") == "late"          # 五段作废别名 → 主升
+    assert v.coarse_of("回流") == "late"
+    assert v.coarse_of(None) is None
+    assert v.coarse_of("无法判定") is None        # gap 不在序上
