@@ -1,5 +1,7 @@
 # 在途交接 · feat/checkpoint-rule-id-bias（工单 INDEX #24 / PR #592）
 
+> **09-16 当前状态更正**：用户已明确授权，PR #592 已合 main@c1f8416a，收口 #747 已合918f8d5a，主干四叶全绿；8792未切。实际收据 `docs/verification/2026-09-16-release-merge.md`，运行面接续 `docs/handoffs/inflight/fix-release-gate-closeout.md`。下文为合入前历史，“等合并”不再成立。
+
 > 2026-09-15 更新：按 PR #592 质检意见前向合并 `gitea/main@1fef3d27`，四处冲突已解，全量 9,670P/0F。等合并授权。
 
 ## 这个分支做什么

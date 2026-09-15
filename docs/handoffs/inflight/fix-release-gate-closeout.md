@@ -1,36 +1,34 @@
 # fix/release-gate-closeout
 
 ## 这个分支做什么
-用户授权的#592/#673/#593批次收口：冲突整合、四叶门禁、共享旁路库重建、漂移审计、INDEX/G-04状态纠正。
+#592/#673/#593批次收口及用户授权合并；代码与数据动作已完成，保留人工和生产观察待办。
 
 ## 决策与被否方案
-- 不豁免基线红、不自合main、不切8792；#592普通推送，作者树原样保留。
-- 旁路库从完整副本重建，不从空库覆盖其他表；源/目标锁内复查→备份→原子替换，主库只读。
-- 原作者handoff有人工/生产待办，只加当前更正，不删历史、不伪装全部完成。
-- 详细决策/被否方案与收据：`docs/verification/2026-09-15-release-gate-closeout.md`。
+- 用户09-16明确说「合并」，已按#592→#747顺序合main；没有把授权扩大为切8792。
+- 主检出脏树不动，主干门禁在独立干净树跑；前端也按锁文件独立安装。
+- 共享旁路库复制完整旧库重建、审计后锁内原子发布，不原地DROP共享库。
+- 详细决策快照 `docs/handoffs/2026-09-15-release-gate-closeout.md`；实际合入与门禁见 `docs/verification/2026-09-16-release-merge.md`。
 
 ## 当前状态
-#592已推9550a931，open待合；#673已合ce9643b1，#593已合1bcb1ebc。
-本枝已提交推送，PR #747（base=#592分支），代码尖8768b3f8；追加只读漂移工具/测试和收口文档。最终文档尖收据见PR最新评论，不能借#592收据。
-共享db/history_labels.duckdb已于09-15 21:56发布v6；labels1736327/outcomes2277800。
-备份db/history_labels.duckdb.bak-v4-20260915-release-closeout；正式四规则收据已写，主检出原有改动未碰。
+#592已合c1f8416a；#747改base=main后已合918f8d5a。两次merge-tree均无冲突且结果等于已测文件树。
+共享db/history_labels.duckdb于09-15 21:56发布v6；labels1736327/outcomes2277800，备份bak-v4-20260915-release-closeout。
+本轮仅补文档合入状态，不再重建数据。文档回执最终head和同revision门禁见其PR最新评论。
 
 ## 已验证
-#592@9550a931干净树四叶全绿：pytest9745P/0F/77S/2xfail，ruff0，前端76P，e2e15P，registry四check+crosswalk全0。
-收据20260915T133709Z-9550a931.json校验exit0；基线漂移0；main@1bcb1ebc的Python9692P/0F。
-数据：15张其他表逐行不变，旧标签无丢行；3941个NULL→0与#49三值修复一致。
-本枝代码尖8768b3f8四叶全绿：pytest9749P/0F/77S/2xfail（+4为新工具），前端76P/e2e15P/ruff与registry全0；收据20260915T140914Z-8768b3f8.json校验exit0。
+最终业务合并点main@918f8d5a：pytest9749P/0F/77S/2xfail（367.84s）、ruff0、前端76P、e2e15P、registry四check+crosswalk全0。
+收据20260915T170134Z-918f8d5a.json；fetch后expect-revision=main校验exit0，漂移0。
+原始日志 `~/.finance-runtime/release-merge-20260916/main-*.log`；主检出未提交代码不在收据范围。
 
 ## 未验证 / 已知边界
 人工stage_manual仍0/42，至少填30；G-04非全验收完成。
-生产8792仍e40f22b83717，合入后统计合格新run0；未核同调用CLI实付、未填BP。
-未做同一源v4/v5/v6三臂消融，不把所有统计漂移归因到单一补丁。
+8792仍e40f22b83717，未切流；成本样本0是09-15只读扫描结果，非实时计数。未核同调用CLI实付、未填BP。
+旧标签3941个NULL→0与#49一致，其他15张表逐行不变；未做同源v4/v5/v6三臂消融。
 
 ## 下一步
-等待用户明确合并确认：先#592，再将#747 base改main、复查合流后合#747，重跑main tip门禁。不要把“继续”擅自当合并/部署授权。
+合并任务已完成，不再等待#592/#747合并授权。
 另约部署窗口→第一条生产judge_usage→自然积累≥20→成本对账/BP。
-创始人填人工对照后stage-agreement，逐条归因。
+创始人填≥30条人工对照后stage-agreement，逐条归因。
 
 ## 踩过的坑
-main已有与6d709cfd等价的Codex修复，别再cherry-pick。check_test_receipt必须在被测树执行。
-工具沉淀：新增脚本防“只数行数看不出历史改值/重复行丢失”；未改通用harness，harness-reference现场脏故未动。
+等价代码已入main不代表git祖先一定含原提交；check_test_receipt须在被测树执行。
+新增只读漂移工具防只数行数漏历史改值/重复行丢失；未新增通用harness部件，未动脏harness-reference。

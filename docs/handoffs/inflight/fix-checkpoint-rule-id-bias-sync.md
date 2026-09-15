@@ -1,29 +1,23 @@
-# fix/checkpoint-rule-id-bias-sync
+# fix/checkpoint-rule-id-bias-sync · 已完成
 
 ## 这个分支做什么
-接续用户授权的批次收口：将 PR #592 前向整合 main@1bcb1ebc，消除 INDEX 冲突并刷新跨仓注册表指纹。
+#592前向整合、INDEX冲突收敛与跨仓注册表指纹刷新。
 
 ## 决策与被否方案
-- 独立树 / 不改作者树：作者分支及主检出现场原样保留；向原 PR 推送只做 fast-forward，不强推。
-- INDEX 保留 main 的 #23 与 #592 的 #24；不整表选一边，不修改业务行为。
-- 注册表按知识库 gitea/main@8a413cde5 重扫；七个源 skill 均无未提交改动，仅七个 computedHash 和生成时间变化。
-- 不豁免基线红；不合 main、不切 8792。完整批次回执在 release-gate-closeout 分支，见下方指针。
+保留main的#23和本单#24，不整表选一边；普通fast-forward更新原PR，不改作者工作树、不强推。
 
 ## 当前状态
-前向 merge 提交 fe733616；本提交仅注册表与本交接。PR 原 head 2a0fc382 的原始实现保留。
-工作树 /Users/a77/fwp-wt-checkpoint-bias-sync。冻结门禁、push 结果与运行面收口见
-`docs/verification/2026-09-15-release-gate-closeout.md`（fix/release-gate-closeout 分支）。
+用户09-16明确授权后，#592@9550a931已合main@c1f8416a；随后收口#747已合918f8d5a。本枝无剩余实施动作，保留此短指针防旧树接手误判。
 
 ## 已验证
-- fe733616：merge-tree 对 main@1bcb1ebc exit 0，ruff 全仓 exit 0。
-- .venv-workbench 定向六个 checkpoint/methodology 测试文件 221 passed；收据 20260915T132757Z-fe733616.json。
+合前9550a931四叶全绿；合后main@918f8d5a全量9749P/0F、前端76P、e2e15P、ruff和registry/crosswalk全0。
+实际收据 `docs/verification/2026-09-16-release-merge.md`；合入前决策 `docs/handoffs/2026-09-15-release-gate-closeout.md`。
 
 ## 未验证 / 已知边界
-旧 09-05 bias-scan 83 条不冒充本轮复测。生产真实判断台账未写入。
-人工 stage_manual、生产成本观察属于 #673/#593 的运行面，不在本枝代填。
+09-05 bias-scan 83条不冒充本轮复测；8792未切，生产判断台账未写入。
 
 ## 下一步
-按收口回执核实精确 revision 四叶门禁和 PR head；用户确认后才进入合并窗口。
+无待合动作。人工标注/生产成本观察统一由 `docs/handoffs/inflight/fix-release-gate-closeout.md` 接续。
 
 ## 踩过的坑
-主干 Codex 解释器修复与 6d709cfd 的 runtime 文件逐字节相同；不要凭祖先关系再 cherry-pick。
+Codex等价修复已入main，不按原提交是否祖先盲目cherry-pick。
