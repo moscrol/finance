@@ -45,7 +45,10 @@ VERDICTS = ("hit", "partial", "miss", "unverifiable")
 TERMINAL_VERDICTS = ("hit", "partial", "miss")
 SCORE_MAP: dict[str, float | None] = {"hit": 1.0, "partial": 0.5, "miss": 0.0, "unverifiable": None}
 
-METRIC_TYPES = ("stock_return", "kb_evidence", "market_daily", "manual")
+# ``method_validation``：方法观察的到期回检不比阈值，走原协议（冻结成员 + 旁路库五日结果），
+# resolver 在 ``checkpoint_resolvers.MethodValidationResolver``；规格只带三条路径。
+METRIC_TYPES = ("stock_return", "kb_evidence", "market_daily", "manual", "method_validation")
+METHOD_VALIDATION_METRIC_KEYS = ("study_dir", "observation", "labels_db")
 NUMERIC_METRIC_TYPES = ("stock_return", "kb_evidence")
 VALID_OPS = (">=", ">", "<=", "<", "==")
 
@@ -53,12 +56,19 @@ VALID_OPS = (">=", ">", "<=", "<", "==")
 # 用户自己下的判断、agent 下的判断、系统生成经用户确认的观察剧本。
 # 三类混进同一个胜率分母，会让「用户决策」的读数被另外两类稀释——G-09 的胜率面板
 # 要按这个维度分列，所以字段必须在**登记时**就写下，事后从 category 反推是猜。
-OBJECT_TYPES = ("judgment", "agent_judgment", "observation_script")
+# 判断轨五类对象：用户判断 / agent 判断 / 观察剧本（09-06 spec §2）、情景树（§3.3，#37）、
+# ``method_observation``（能力升级任务包 07：固定方法协议在 D0 收盘后冻结的前向观察，到期按
+# 原协议回检）。后两类各自单列是为了命中率**不进**用户判断 / agent 判断的分母（G-09 分列）。
+OBJECT_TYPES = ("judgment", "agent_judgment", "observation_script", "scenario_tree", "method_observation")
 DEFAULT_OBJECT_TYPE = "judgment"
+# ``projection_hash_missing`` 的唯一合法取值：用户在产品外手写、本来就没有上下文投影。
+USER_AUTHORED = "user_authored"
 OBJECT_TYPE_CN = {
     "judgment": "用户判断",
     "agent_judgment": "agent 判断",
     "observation_script": "观察剧本",
+    "scenario_tree": "情景树",
+    "method_observation": "方法观察",
     "unknown_legacy": "存量未标类型",
 }
 
@@ -127,6 +137,14 @@ def normalize_metric(metric: dict[str, Any] | None) -> dict[str, Any] | None:
         return {"type": "manual"}
     if mtype == "market_daily":
         return _normalize_market_daily_metric(metric)
+    if mtype == "method_validation":
+        normalized: dict[str, Any] = {"type": mtype}
+        for key in METHOD_VALIDATION_METRIC_KEYS:
+            value = str(metric.get(key) or "").strip()
+            if not value:
+                raise ValueError(f"metric.type=method_validation 需要 {key}")
+            normalized[key] = value
+        return normalized
     out: dict[str, Any] = {"type": mtype}
     op = str(metric.get("op") or ">=").strip()
     if op not in VALID_OPS:
@@ -211,17 +229,48 @@ def register_checkpoint(
     object_type: str = DEFAULT_OBJECT_TYPE,
     hindsight: bool = False,
     ts: str | None = None,
+    projection_hash: str | None = None,
+    model_id: str | None = None,
+    user_authored: bool = False,
 ) -> tuple[Path, dict[str, Any]]:
     """登记一个可证伪点到 ``checkpoints.jsonl``，返回 ``(path, record)``。
 
     ``claim`` 为空或 ``due`` 非法日期时抛 ``ValueError``——可证伪点至少要有陈述与到期日。
     ``object_type`` 非法同样抛错：认不出类型就 fail closed，不默默按「用户判断」记。
+
+    **投影门禁（工单 #34；09-06 spec §4.2 / §4.5 第 5 条）**：agent 产物必须带它生成时看到的
+    上下文哈希，否则台账拒收——
+
+    - ``agent_judgment``：``projection_hash`` 与 ``model_id`` 都必须有；
+    - ``observation_script``：``projection_hash`` 必须有，除非显式 ``user_authored=True``
+      （用户在产品外手写、本来就没有投影）——此时记 ``projection_hash=None`` 并写
+      ``projection_hash_missing=user_authored``，校准里单列；
+    - ``judgment``（用户自己的判断）：可空，有就记。
+
+    「忘了传」与「本来就没有」在这里被分开：前者抛错，后者要显式声明。
     """
     text = str(claim or "").strip()
     if not text:
         raise ValueError("claim 不能为空：可证伪点至少要有陈述")
     if object_type not in OBJECT_TYPES:
         raise ValueError(f"非法 object_type={object_type!r}（允许 {OBJECT_TYPES}）")
+    ph = (str(projection_hash).strip() or None) if projection_hash else None
+    mid = (str(model_id).strip() or None) if model_id else None
+    missing_reason: str | None = None
+    if object_type in ("agent_judgment", "scenario_tree"):
+        lacking = [name for name, v in (("projection_hash", ph), ("model_id", mid)) if v is None]
+        if lacking:
+            raise ValueError(
+                f"object_type={object_type} 缺 {'/'.join(lacking)}：agent 产物必须带生成时的上下文投影哈希与模型号"
+                "（09-06 spec §4.2），台账拒收"
+            )
+    elif object_type == "observation_script" and ph is None:
+        if not user_authored:
+            raise ValueError(
+                "object_type=observation_script 缺 projection_hash：从切片派生的剧本必须带投影哈希；"
+                "用户产品外手写的剧本请显式传 user_authored=True（09-06 spec §4.2）"
+            )
+        missing_reason = USER_AUTHORED
     due_norm = _parse_date(due)
     metric_norm = normalize_metric(metric)
     ts_norm = ts or _now().isoformat(timespec="seconds")
@@ -242,6 +291,12 @@ def register_checkpoint(
     }
     if metric_norm:
         record["metric"] = metric_norm
+    # 投影哈希对所有类型都落字段（有就记）；缺席原因只在显式声明时写，不用默认值遮住「忘了」。
+    record["projection_hash"] = ph
+    if mid:
+        record["model_id"] = mid
+    if missing_reason:
+        record["projection_hash_missing"] = missing_reason
     if framework_version and str(framework_version).strip():
         record["framework_version"] = str(framework_version).strip()
     if source_judgment_ts and str(source_judgment_ts).strip():
@@ -289,7 +344,13 @@ LEGACY_OBJECT_TYPE = "unknown_legacy"
 # ``foresight_judgment`` 是用户 accept 后入账的用户判断，其余无 source 的手工登记同样多为用户判断——
 # 但「多为」不是「是」，所以剩下的一律进 ``unknown_legacy`` 单独一格。
 # 把它们折进 ``judgment``，等于用一个默认值把三种来源合成一种，胜率面板就再也分不开了。
-_AGENT_SOURCES = ("framework_interpretation", "logic_lifecycle", "track_next_watch")
+_AGENT_SOURCES = (
+    "framework_interpretation",
+    "logic_lifecycle",
+    "track_next_watch",
+    # 排序题改判条件（10 号单，ranking_contract.ingest_flip_conditions）也是 agent 侧产出。
+    "ranking_flip_condition",
+)
 _USER_SOURCES = ("foresight_judgment",)
 
 
@@ -401,6 +462,9 @@ class CategoryStat:
     miss: int = 0
     score_sum: float = 0.0
     samples: list[str] = field(default_factory=list)
+    # 这一格里有多少条带上下文投影哈希（工单 #34）。只是计数，不进任何率：
+    # 它回答「这格的判断有几条能回放出当时看到了什么」，不回答准不准。
+    with_projection_hash: int = 0
 
     @property
     def hit_rate(self) -> float:
@@ -433,6 +497,8 @@ class Calibration:
     # 因 hindsight 被挡在校准之外的条数。**必须报出来**：静默剔除会让样本
     # 莫名其妙变少，而「样本少」和「样本被规则挡了」是两件事，后者是产品在守纪律。
     hindsight_excluded: int = 0
+    # 用户产品外手写、显式声明没有投影的条数（09-06 spec §4.2「产品外补录的标 null 并在校准里单列」）。
+    projection_hash_missing: int = 0
 
     @property
     def overall_rate(self) -> float:
@@ -456,6 +522,7 @@ def calibrate(
     src_stats: dict[str, CategoryStat] = {}
     obj_stats: dict[str, CategoryStat] = {}
     hindsight_excluded = 0
+    projection_hash_missing = 0
     for cid, v in terminal.items():
         ck = by_id.get(cid)
         if ck is None:
@@ -474,10 +541,15 @@ def calibrate(
         verdict = str(v.get("verdict"))
         score = v.get("score")
         score = SCORE_MAP.get(verdict, 0.0) if score is None else float(score)
+        has_projection = bool(ck.get("projection_hash"))
+        if ck.get("projection_hash_missing") == USER_AUTHORED:
+            projection_hash_missing += 1
         for key, bucket in ((cat, stats), (src, src_stats), (obj, obj_stats)):
             st = bucket.setdefault(key, CategoryStat(category=key))
             st.n += 1
             st.score_sum += score
+            if has_projection:
+                st.with_projection_hash += 1
             if verdict == "hit":
                 st.hits += 1
             elif verdict == "partial":
@@ -496,6 +568,7 @@ def calibrate(
         pending=pending,
         unverifiable=unverifiable,
         hindsight_excluded=hindsight_excluded,
+        projection_hash_missing=projection_hash_missing,
     )
 
 
@@ -560,6 +633,12 @@ def render_report(cal: Calibration) -> str:
                 f"- {OBJECT_TYPE_CN.get(st.category, st.category)}："
                 f"命中率 {round(st.hit_rate * 100)}%（{st.reliability}）"
                 f"，样本 {st.n}：命中 {st.hits} / 半对 {st.partial} / 落空 {st.miss}"
+                f"；带上下文投影 {st.with_projection_hash}/{st.n}"
+            )
+        if cal.projection_hash_missing:
+            lines.append(
+                f"- 另有 {cal.projection_hash_missing} 条为用户产品外手写、显式无投影（projection_hash_missing=user_authored），"
+                "已计入以上各格，单列在此"
             )
     return "\n".join(lines) + "\n"
 

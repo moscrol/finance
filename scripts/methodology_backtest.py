@@ -41,7 +41,7 @@ if str(ROOT) not in sys.path:
 import duckdb  # noqa: E402
 
 from intelligence.services import checkpoints as ck  # noqa: E402
-from intelligence.services.methodology_backtest.labels import build_labels  # noqa: E402
+from intelligence.services.methodology_backtest.labels import LABEL_VERSION, build_labels  # noqa: E402
 from intelligence.services.methodology_backtest.outcomes import DEFAULT_HORIZONS, build_outcomes  # noqa: E402
 from intelligence.services.methodology_backtest.propose import (  # noqa: E402
     build_rule_doc,
@@ -52,6 +52,8 @@ from intelligence.services.methodology_backtest.propose import (  # noqa: E402
     write_rule_file,
 )
 from intelligence.services.methodology_backtest.receipts import (  # noqa: E402
+    _parse_ts,
+    DECLARED_STAGES,
     REFUTED_VERDICT,
     build_receipt,
     build_scan_summary,
@@ -274,6 +276,7 @@ def cmd_run(args) -> int:
         environment=env,
         test_mode="single",
         appendix=appendix,
+        declared_stage=args.stage,
     )
     _print_readout(res)
     for note in res.readout.notes:
@@ -322,6 +325,7 @@ def cmd_scan(args) -> int:
             test_mode="scan",
             bh=bh,
             appendix=appendix,
+            declared_stage=args.stage,
         )
         if args.no_write:
             receipt_paths.append(None)
@@ -426,8 +430,16 @@ def cmd_queue(args) -> int:
             continue
         rule_id = str(doc.get("rule_id") or doc.get("id") or path.stem.split(".v")[0])
         steps = lifecycle.load_steps(receipts_dir, rule_id)
+        # 规则文件的 sha256 就是收据里的 rule.sha256：只认当前这份内容的收据，改过文件的旧收据是历史
         states.append(
-            lifecycle.derive_state({**doc, "rule_id": rule_id}, steps, human_approval=approvals.get(rule_id))
+            lifecycle.derive_state(
+                {**doc, "rule_id": rule_id},
+                steps,
+                human_approval=approvals.get(rule_id),
+                rule_sha256=_sha256(path),
+                # 标签口径升版后，旧版本收据一律降历史观察——不等下一份新收据才切轮次
+                current_label_version=LABEL_VERSION,
+            )
         )
 
     if args.json:
@@ -438,8 +450,16 @@ def cmd_queue(args) -> int:
 
 
 def cmd_report_refuted(args) -> int:
-    entries = load_refuted(args.refuted_dir)
+    entries, unreadable = load_refuted(args.refuted_dir)
     print(render_refuted_markdown(entries), end="")
+    if unreadable:
+        # 读不出的证伪不能被「目前没有任何规则被证伪」掩盖：既打印到报告里，也用非零
+        # 退出码让脚本调用方知道这次读数不完整（09-12 第五轮质检）。
+        print(f"\n⚠ {len(unreadable)} 份证伪条目读不出来，本次汇总**不完整**：")
+        for path in unreadable:
+            print(f"  - {path}")
+        print("  请人工确认后移走或归档，不要凭文件名推断其结论。")
+        return 2
     return 0
 
 
@@ -490,11 +510,21 @@ def cmd_report(args) -> int:
             files = sorted(folder.glob("*.json"))
             if not files:
                 continue
-            latest = files[-1]
-            try:
-                doc = json.loads(latest.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
+            # 「最近」按收据自述的 generated_at 取，且要**解析成时刻**再比：
+            #   - 不能按文件名字典序——同日三段里 holdout < validation，会永远选中 validation，
+            #     即使稍后跑的 holdout 已经把它证伪；
+            #   - 也不能按裸字符串——`12:00:00Z` 与 `12:00:00.500000+00:00` 都是合法 ISO UTC，
+            #     字符串序与时间序相反，report 会与 latest_receipt / load_steps 给出不同答案。
+            # 三处共用 receipts._parse_ts，口径只有一套。
+            docs = []
+            for f in files:
+                try:
+                    docs.append((json.loads(f.read_text(encoding="utf-8")), f))
+                except (OSError, ValueError):
+                    continue
+            if not docs:
                 continue
+            doc, latest = max(docs, key=lambda pair: (_parse_ts(pair[0].get("generated_at")), pair[1].name))
             if folder.name == "scan":
                 print(f"- scan/{latest.name}: {doc.get('family_size')} 条，q={doc.get('q')}")
                 continue
@@ -534,6 +564,13 @@ def _add_run_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--receipts-dir", default=str(RECEIPTS_DIR), help="收据目录（默认 methodology/receipts）")
     p.add_argument("--refuted-dir", default=str(REFUTED_DIR), help="证伪库目录（默认 methodology/refuted，进 git）")
     p.add_argument("--no-write", action="store_true", help="只打印读数，不落收据、不落证伪库")
+    p.add_argument(
+        "--stage",
+        choices=list(DECLARED_STAGES),
+        default=None,
+        help="跑之前声明这份收据的角色：discovery / validation / holdout。不声明 = 探索或历史观察，"
+        "lifecycle 不拿它当晋升证据（refuted 照旧生效）",
+    )
     p.add_argument(
         "--calibration-user-dir",
         default=None,

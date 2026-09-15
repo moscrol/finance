@@ -13,14 +13,15 @@ stock 用 ``stock_ts_code``）：
 
 | 实体 | 标签 | 值 | 定义 |
 |---|---|---|---|
-| sector | dual_red_strict | 1/0/NULL | 严格双红；输入缺失或 data_gap 日为 NULL |
+| sector | dual_red_strict | 1/0/NULL | 严格双红；合取式三值逻辑——任一**已知**条件为假即 0，仅「已知的都为真但有输入缺失」与 data_gap 日为 NULL |
 | sector | dual_red_streak | n/NULL | 截至当日连续双红天数（当日不双红为 0；日历断档或 data_gap 后重新计数） |
-| sector | diff_ratio_turn_up | 1/0/NULL | 前一交易日 diff_ratio<=0 且当日 >0；前一日缺行/缺值/为 gap 日则 NULL |
+| sector | diff_ratio_turn_up | 1/0/NULL | 前一交易日 diff_ratio<=0 且当日 >0；无相邻前一日 / 前一日为 gap 日则 NULL（结构前提），前提成立后同样走合取式三值逻辑 |
 | sector | multi_period_resonance | 1/0/NULL | 直接投影布尔列 |
 | sector | amount_rank_top10 | 1/0/NULL | 当日成交额在 published 名单内排名 <=10（RANK，并列同名次） |
 | theme | limit_heat_rank | rank | 涨停热度排名，档位写死见 ``HEAT_TIER`` |
 | theme | limit_heat_rank_jump | 1/0/NULL | 排名较前一交易日提升 >=5；前一日无名次则 NULL |
 | theme | mainline_flag | 1/0/NULL | 当日出现在 ``fact_mainline_sector_daily``；主线表无覆盖的日子为 NULL |
+| theme | opinion_stage | text/NULL | 舆论生命周期段（萌芽/扩散/拥挤/退热/证伪；``opinion_stage.derive_stage``，当日带读口径 C=当日）；该板块名从未被研报 tag 命中的日子为 NULL，命中过但近 90 日为 0 记 ``unverifiable`` |
 | theme | lifecycle_stage | text/NULL | 题材生命周期七段（酝酿/首发/发酵/主升/分歧/退潮/回流；``theme_lifecycle_timeline.derive_stages`` 状态机，阈值不复制）；首个盘面信号之前与段间空档为 NULL（gap，不是「酝酿」——酝酿要消息面证据，旁路库不读知识库） |
 | market | market_stage | text | 投影 ``fact_market_daily.market_stage``，去掉末尾「阶段」别名；NULL 保留 |
 | market | volume_surge | 1/0/NULL | ``amount_vs_yesterday_pct > VOLUME_SURGE_PCT``（与 detect_turning_points 同阈值，真库上两口径 74 日完全一致） |
@@ -90,9 +91,21 @@ from .store import (
 # 口径版本。热度档位、阈值、算法、标签目录任何一处变动都要升版本，旧收据凭它判「不可比」。
 # v1 → v2：新增 stock 三标签（limit_up / first_board / new_high_1y），sector / theme / market 口径未动。
 # v2 → v3：market_stage 去掉上游值末尾的「阶段」别名，NULL 仍为 NULL。
-# v3 → v4：新增 theme 标签 lifecycle_stage（工单 #21 剩余 / G-04：七段单一词表，theme_lifecycle_timeline 状态机）；其余口径未动。
+# v3 → v4：新增 theme 标签 opinion_stage（工单 #36 / G-06 舆论生命周期，os-v0 派生规则）；其余口径未动。
+# v4 → v5：`dual_red_strict` / `diff_ratio_turn_up` 改用合取式三值逻辑——任一**已知**条件为假即判 0，
+#   只有「已知的都为真、却有输入缺失」才是 NULL。判 1 的条件一字未动，不是放宽口径，是把原先
+#   被 NULL 吞掉的「确定为假」还回来（旧写法任一输入缺失一律传播 NULL）。data_gap 日与
+#   turn_up 的结构前提（无相邻前一交易日 / 前一日为 gap）仍是 NULL，那是真不可判。
+#   实测触发面：8 个 .TI 板块 2025-01-02→2026-02-27 全程缺 diff_ratio，旧口径下每个交易日都留
+#   约 8 个 unknown 成员，方法验证按纪律把整个信号日判成数据不足（18 个信号日作废 16 个）。
+# v5 → v6：新增 theme 标签 lifecycle_stage（工单 #21 剩余 / G-04：七段单一词表，theme_lifecycle_timeline
+#   状态机，逐日即时状态 daily=，非事后段落表）；其余口径未动。原分支曾标 v4，与 #36 撞号后按
+#   PR #673 评论的既定方案改 v6（v5 已被 #49 合取三值占用）。
 HEAT_TIER = {"dimension": "sector", "scope": "all", "data_stage": "final", "is_realtime": False}
-LABEL_VERSION = "v4-heat_sector_all_final_nonrt-stock_limit_high_union-market_stage_normalized-lifecycle_stage_tsm_v1"
+LABEL_VERSION = (
+    "v6-heat_sector_all_final_nonrt-stock_limit_high_union-market_stage_normalized"
+    "-opinion_stage_os_v0-conjunction_three_valued-lifecycle_stage_tsm_v1"
+)
 
 DATA_GAP_ZERO_RATIO = 0.9
 DUAL_RED_DIFF_RATIO_GT = 10.0
@@ -112,7 +125,7 @@ SECTOR_LABELS = (
     "multi_period_resonance",
     "amount_rank_top10",
 )
-THEME_LABELS = ("limit_heat_rank", "limit_heat_rank_jump", "mainline_flag", "lifecycle_stage")
+THEME_LABELS = ("limit_heat_rank", "limit_heat_rank_jump", "mainline_flag", "opinion_stage", "lifecycle_stage")
 MARKET_LABELS = ("market_stage", "volume_surge", "ma5_peak_confirmed", "ma5_valley_confirmed")
 STOCK_LABELS = ("limit_up", "first_board", "new_high_1y")
 ALL_LABELS = SECTOR_LABELS + THEME_LABELS + MARKET_LABELS + STOCK_LABELS
@@ -130,6 +143,7 @@ LABEL_SPEC: dict[str, Any] = {
     "ma5": f"turning_points.SignalDetector(MA5_MIN_SWING={MA5_MIN_SWING}) confirm-day, full fact_market_daily range",
     "market_stage": "normalize_market_stage(fact_market_daily.market_stage): strip one trailing '阶段'; NULL stays NULL",
     "mainline_flag": "fact_mainline_sector_daily (trade_date, sector_ts_code) exists; NULL on days without coverage",
+    "opinion_stage": "opinion_stage.derive_stage(hits by sector_name tag match, as_of=day, C=day) → 萌芽/扩散/拥挤/退热/证伪/unverifiable; NULL when the sector name never matched a report tag",
     "lifecycle_stage": "theme_lifecycle_timeline.derive_stages(fact_sector_daily rows + limit_heat limit_up_count; no message dates, no boards) → 酝酿/首发/发酵/主升/分歧/退潮/回流 per day; NULL before first market signal / between segments",
     "stock_universe": (
         f"{STOCK_UNIVERSE}: distinct (trade_date, stock_ts_code) in fact_theme_limit_stock_daily UNION "
@@ -159,6 +173,7 @@ def build_labels(
             gap_days = _build_data_gaps(con, computed_at)
             _build_sector_labels(con, computed_at)
             _build_theme_labels(con, computed_at)
+            _build_opinion_stage_labels(con, computed_at)
             _build_lifecycle_stage_labels(con, computed_at)
             ma5_counts = _build_market_labels(con, computed_at)
             stock_coverage = _build_stock_labels(con, computed_at)
@@ -272,10 +287,19 @@ def _build_sector_labels(con: duckdb.DuckDBPyConnection, computed_at: datetime) 
         CREATE OR REPLACE TEMP TABLE _sec_feat AS
         WITH base AS (
             SELECT *,
+                -- 合取式的三值逻辑：**任一已知条件为假就确定为假**，不必知道其余
+                -- （`FALSE AND unknown = FALSE`）。原写法把「任一输入缺失」一律传播成 NULL，
+                -- 丢掉了这半边信息：8 个 .TI 板块 2025-01-02→2026-02-27 全程缺 diff_ratio，
+                -- 其中多数 amount ≤ 阈值本就确定不是双红，却被记成「不知道」，于是每个交易日
+                -- 都有约 8 个 unknown 成员，method_validation 按纪律把整个信号日判成数据不足
+                -- （18 个信号日作废 16 个）。这不是放宽口径：判 1 的条件一字未动，只把
+                -- 「确定为假」从 NULL 改回 0。data_gap 日仍整日 NULL——那是该日数据不可信的
+                -- 刻意设计，与单行缺字段是两回事。
                 CASE
-                    WHEN is_gap OR pct_chg IS NULL OR diff_ratio IS NULL OR amount IS NULL THEN NULL
-                    WHEN pct_chg > 0 AND diff_ratio > {DUAL_RED_DIFF_RATIO_GT} AND amount > {DUAL_RED_AMOUNT_GT} THEN 1
-                    ELSE 0
+                    WHEN is_gap THEN NULL
+                    WHEN pct_chg <= 0 OR diff_ratio <= {DUAL_RED_DIFF_RATIO_GT} OR amount <= {DUAL_RED_AMOUNT_GT} THEN 0
+                    WHEN pct_chg IS NULL OR diff_ratio IS NULL OR amount IS NULL THEN NULL
+                    ELSE 1
                 END AS dual_red,
                 LAG(idx) OVER w AS prev_idx,
                 LAG(diff_ratio) OVER w AS prev_diff,
@@ -304,10 +328,14 @@ def _build_sector_labels(con: duckdb.DuckDBPyConnection, computed_at: datetime) 
                  ELSE COUNT(*) FILTER (WHERE dual_red = 1) OVER (
                         PARTITION BY entity_id, seg ORDER BY idx ROWS UNBOUNDED PRECEDING)
             END AS streak,
-            CASE WHEN is_gap OR diff_ratio IS NULL THEN NULL
-                 WHEN prev_idx IS NULL OR idx - prev_idx <> 1 OR prev_diff IS NULL OR prev_is_gap THEN NULL
-                 WHEN prev_diff <= 0 AND diff_ratio > 0 THEN 1
-                 ELSE 0 END AS turn_up
+            -- 两层分开：**结构前提**（有没有可比的前一交易日）缺了是真不可判，一律 NULL；
+            -- 前提成立后才对合取式用三值逻辑（同 dual_red：任一已知条件为假即为假）。
+            -- 前一日 diff_ratio 已知为正时，当日值无论是什么都不构成「由负转正」。
+            CASE WHEN is_gap THEN NULL
+                 WHEN prev_idx IS NULL OR idx - prev_idx <> 1 OR prev_is_gap THEN NULL
+                 WHEN prev_diff > 0 OR diff_ratio <= 0 THEN 0
+                 WHEN prev_diff IS NULL OR diff_ratio IS NULL THEN NULL
+                 ELSE 1 END AS turn_up
         FROM grp
         """
     )
@@ -459,6 +487,72 @@ def _build_lifecycle_stage_labels(con: duckdb.DuckDBPyConnection, computed_at: d
             if day not in days:
                 continue
             rows.append(("theme", code, day, "lifecycle_stage", None, stage, LABEL_VERSION, computed_at))
+    if rows:
+        con.executemany(
+            """
+            INSERT INTO history_labels
+                (entity_type, entity_id, trade_date, label, value_num, value_text, label_version, computed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+    return len(rows)
+
+
+# --------------------------------------------------------------------------- #
+# theme：舆论生命周期（工单 #36 / G-06）
+# --------------------------------------------------------------------------- #
+def _build_opinion_stage_labels(con: duckdb.DuckDBPyConnection, computed_at: datetime) -> int:
+    """每个（板块, 交易日）一条 ``opinion_stage``，由 ``opinion_stage.derive_stage`` 从研报 tag 命中算出。
+
+    实体 = ``fact_sector_daily`` 出现过的 ``sector_ts_code``，按 ``sector_name`` 精确匹配研报 tag
+    （与 ``river.coverage_hits`` 同口径：不用 LIKE）。名字从未命中任何研报的板块**不落行**（NULL 语义：
+    连「负证据缺失」都谈不上）；命中过但当日近 90 日为 0 的落 ``unverifiable``。当日带读口径 C = 当日：
+    ``created_at`` 晚于当日的研报那天看不见。表缺失时整段跳过并返回 0——不伪造。
+    """
+    from intelligence.services import opinion_stage as _os
+    from intelligence.services.river import _report_tags
+
+    try:
+        reports = con.execute(
+            f"""
+            SELECT report_date, created_at, sector_tags, concept_tags
+            FROM {SOURCE_ALIAS}.fact_research_report_catalog
+            WHERE report_date IS NOT NULL
+            ORDER BY report_date
+            """
+        ).fetchall()
+    except duckdb.Error:
+        return 0
+    if not reports:
+        return 0
+    sectors = con.execute(
+        f"""
+        SELECT DISTINCT sector_ts_code, sector_name FROM {SOURCE_ALIAS}.fact_sector_daily
+        WHERE sector_ts_code IS NOT NULL AND sector_name IS NOT NULL
+        """
+    ).fetchall()
+    days = [str(r[0]) for r in con.execute("SELECT trade_date FROM history_calendar ORDER BY trade_date").fetchall()]
+    if not days:
+        return 0
+
+    tagged = [
+        ({*_report_tags(r[2]), *_report_tags(r[3])}, {"report_date": r[0], "created_at": r[1]})
+        for r in reports
+    ]
+    # 同一个 sector_ts_code 在历史上可能改过名（实测 990380.FP 两个名字）：按代码归并全部名字，
+    # 研报按「任一名字命中」计且去重——否则同一 (code, day) 会落两行撞主键。
+    names_by_code: dict[str, set[str]] = {}
+    for code, name in sectors:
+        names_by_code.setdefault(str(code), set()).add(str(name))
+    rows: list[tuple] = []
+    for code, names in sorted(names_by_code.items()):
+        hits = [row for tags, row in tagged if tags & names]
+        if not hits:
+            continue
+        for day in days:
+            readout = _os.derive_stage(hits, day, knowledge_cutoff=day)
+            rows.append(("theme", code, day, "opinion_stage", None, readout.stage, LABEL_VERSION, computed_at))
     if rows:
         con.executemany(
             """

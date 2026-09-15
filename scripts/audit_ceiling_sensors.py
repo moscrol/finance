@@ -248,6 +248,40 @@ def inspect_episode(episode: dict[str, Any]) -> dict[str, dict[str, Any]]:
     }
 
 
+V11_OUTCOMES = (
+    "skipped",
+    "retrieved_empty",
+    "retrieved_no_rejudge",
+    "lifted",
+    "still_annotated",
+)
+
+
+def inspect_v11(episode: dict[str, Any]) -> dict[str, Any]:
+    """V11 判官引导回检索（2026-09-09 判官修复 01 第三刀）只读：缺字段记 unjudgeable，不报 0。
+
+    读 ``semantic_verifier.v11_*``：``v11_outcome`` 闭集 / ``v11_skip_reason`` /
+    ``v11_hit_count`` / ``v11_new_hit_count`` / ``v11_lifted_count``。字段落地前的
+    存量 run 没有这些键 → 不可判，与 ``pointer_dropped`` 同一口径。
+    """
+
+    semantic = _as_dict(episode.get("semantic_verifier"))
+    if "v11_outcome" not in semantic:
+        return {"status": "unjudgeable"}
+    outcome = str(semantic.get("v11_outcome") or "")
+    return {
+        "status": "judged",
+        "outcome": outcome if outcome in V11_OUTCOMES else "unknown",
+        "triggered": bool(semantic.get("v11_triggered")),
+        "skip_reason": semantic.get("v11_skip_reason"),
+        "hit_count": semantic.get("v11_hit_count"),
+        "new_hit_count": semantic.get("v11_new_hit_count"),
+        "lifted_count": semantic.get("v11_lifted_count"),
+        "still_doubted_count": semantic.get("v11_still_doubted_count"),
+        "reserved_seconds": semantic.get("v11_reserved_seconds"),
+    }
+
+
 def _question_type(episode: dict[str, Any]) -> str:
     contract = _as_dict(episode.get("contract"))
     task = _as_dict(episode.get("task_frame"))
@@ -511,6 +545,10 @@ def audit(
     iii_detail: list[int] = []
     iii_detail_missing = 0
     iii_hits: list[int] = []
+    v11_unjudgeable = 0
+    v11_outcomes: dict[str, int] = {key: 0 for key in V11_OUTCOMES}
+    v11_skip_reasons: dict[str, int] = {}
+    v11_fired_runs: list[dict[str, Any]] = []
     for run_dir in iter_run_dirs(runs_dirs):
         run_id = run_dir.name
         if not _in_window(run_id, since_d, until_d):
@@ -519,6 +557,25 @@ def audit(
         if episode is None:
             continue
         scanned += 1
+        v11 = inspect_v11(episode)
+        if v11["status"] == "unjudgeable":
+            v11_unjudgeable += 1
+        else:
+            outcome = str(v11["outcome"])
+            v11_outcomes[outcome] = v11_outcomes.get(outcome, 0) + 1
+            if not v11["triggered"]:
+                reason = str(v11.get("skip_reason") or "none")
+                v11_skip_reasons[reason] = v11_skip_reasons.get(reason, 0) + 1
+            else:
+                v11_fired_runs.append(
+                    {
+                        "run_id": run_id,
+                        "outcome": outcome,
+                        "hit_count": v11.get("hit_count"),
+                        "new_hit_count": v11.get("new_hit_count"),
+                        "lifted_count": v11.get("lifted_count"),
+                    }
+                )
         verdict = inspect_episode(episode)
         if verdict["A"]["status"] == "unjudgeable":
             unjudgeable["A"] += 1
@@ -581,6 +638,15 @@ def audit(
                 "hit_counts": iii_hits,
             },
         },
+        # V11 判官引导回检索：四结局计数 / 开火率 / 空检率 / 撤标率的原料。
+        # 缺字段 → unjudgeable，不报 0；fired_runs 列到 run 级供人工抽检 lifted 样本。
+        "v11": {
+            "judgeable": scanned - v11_unjudgeable,
+            "unjudgeable": v11_unjudgeable,
+            "outcomes": v11_outcomes,
+            "skip_reasons": v11_skip_reasons,
+            "fired_runs": v11_fired_runs,
+        },
     }
 
 
@@ -626,6 +692,37 @@ def render_report(report: dict[str, Any]) -> str:
             f"不可判={unjudgeable_iii} "
             f"no_call_runs={shape_iii.get('no_call_runs', 0)}"
         )
+    v11 = _as_dict(report.get("v11"))
+    if v11:
+        outcomes = _as_dict(v11.get("outcomes"))
+        fired = [
+            row for row in (v11.get("fired_runs") or []) if isinstance(row, dict)
+        ]
+        lines.append("")
+        lines.append(
+            "V11 判官引导回检索  "
+            f"judgeable={v11.get('judgeable', 0)} "
+            f"不可判={v11.get('unjudgeable', 0)} "
+            f"fired={len(fired)} "
+            f"retrieved_empty={outcomes.get('retrieved_empty', 0)} "
+            f"no_rejudge={outcomes.get('retrieved_no_rejudge', 0)} "
+            f"lifted={outcomes.get('lifted', 0)} "
+            f"still_annotated={outcomes.get('still_annotated', 0)}"
+        )
+        skip_reasons = _as_dict(v11.get("skip_reasons"))
+        if skip_reasons:
+            lines.append(
+                "   skip: "
+                + " ".join(
+                    f"{reason}={count}" for reason, count in sorted(skip_reasons.items())
+                )
+            )
+        for row in fired:
+            lines.append(
+                f"   V11 {row.get('run_id')}  {row.get('outcome')} "
+                f"hits={row.get('hit_count')} new={row.get('new_hit_count')} "
+                f"lifted={row.get('lifted_count')}"
+            )
     listed = False
     for shape in SHAPES:
         rows = report["hits"][shape]

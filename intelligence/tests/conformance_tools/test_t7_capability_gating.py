@@ -85,11 +85,31 @@ def test_capability_matches_metadata_and_gating_is_total(
     assert probe.invocations == [], "未授权工具的 runner 被执行了"
 
 
+# 声明共享 capability 的工具：历史发现研究三件按批准 spec（2026-09-09-historical-discovery-
+# research-design）复用 finance_query 授权，不新开授权面。除此之外仍是一名一能力；新增共享
+# 先改这张表再改元数据，两边都不改就在这里红。
+SHARED_CAPABILITY_TOOLS: dict[str, str] = {
+    "history_query": "finance_query",
+    "read_history_result": "finance_query",
+    "save_history_research": "finance_query",
+}
+
+
 def test_metadata_names_and_capabilities_stay_one_to_one() -> None:
-    """当前元数据里工具名即 capability 名（一名一能力）。若将来出现
-    多工具共享一个 capability，这条会红——届时先改声明再改断言。"""
+    """元数据里工具名即 capability 名（一名一能力），唯一例外是登记在
+    ``SHARED_CAPABILITY_TOOLS`` 里、声明复用既有 capability 的工具；共享的目标
+    必须本身就是一个已声明的 capability。"""
 
     for name, (capability, _description, _freshness, _produces) in (
         _DEFAULT_TOOL_METADATA.items()
     ):
+        if name in SHARED_CAPABILITY_TOOLS:
+            assert capability == SHARED_CAPABILITY_TOOLS[name], (
+                f"{name} 声明的共享 capability 与登记表不一致"
+            )
+            assert capability in _DEFAULT_TOOL_METADATA, (
+                f"{name} 共享的 {capability} 不是已声明的 capability"
+            )
+            continue
         assert capability == name
+    assert set(SHARED_CAPABILITY_TOOLS) <= set(_DEFAULT_TOOL_METADATA)
