@@ -185,7 +185,7 @@ window(start, end, entity, knowledge_cutoff=C) -> RiverWindow
 
 ### 4.5 上下文投影契约
 
-从河到「读者 / 模型看到的那几段」。投影是纯函数，由 `(source_ref, framework_version, task, budget, projection_version, label_version)` 重算，**不落库不缓存**；`projection_hash` 是回放钥匙不是存储键。**凡登记 `projection_hash` 的台账（如 `checkpoints`）必须同时保证六元组可复原**——存下来，或逐项证明是常量 / 可由已存字段推导。哈希是单向的，钥匙开不了锁时「回放钥匙」只是校验和（现状：checkpoints 只存 hash 与 `framework_version`，其余四项的可复原性在接区间投影时一并补证）。
+从河到「读者 / 模型看到的那几段」。投影是纯函数，由 `(source_ref, framework_version, task, budget, projection_version, label_version)` 重算，**不落库不缓存**；`projection_hash` 是回放钥匙不是存储键。**凡登记 `projection_hash` 的台账（如 `checkpoints`）必须同时保证六元组可复原**——存下来，或逐项证明是常量 / 可由已存字段推导。哈希是单向的，钥匙开不了锁时「回放钥匙」只是校验和。载体已就位：`register_checkpoint(projection_inputs=...)` 落六元组（形状由 `river_range_projection.projection_inputs_of` 给出，有 inputs 无 hash 拒收），登记方接线时传入。
 
 **单点投影**（已实现，`river_projection.project`）：输入一片切片，输出有序 `blocks` + `omitted{track:count}` + `omitted_refs` + `limits` / `gaps` 强制块 + `budget`。默认序：轨按 `TRACKS`；轨内 硬度降序 → `recorded_at` 升序 → `ref` 字典序；`frozen_llm` 排在同轨 `deterministic` 之后。省略**按块整体**，不在对象中间截断。
 

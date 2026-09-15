@@ -12,6 +12,7 @@ from intelligence.services import river
 from intelligence.services import river_derive as rd
 from intelligence.services import river_projection
 from intelligence.services import river_query
+from intelligence.services import river_range_projection as rrp
 from intelligence.services import river_window as rw
 from intelligence.services import river_window_contract as rwc
 from intelligence.services.river import Gap, RiverObject, RiverSlice, TRACKS
@@ -572,6 +573,55 @@ class RangeProjectionContractTests(unittest.TestCase):
         p = river_projection.project_window(src, framework_version=None, task="t")
         self.assertTrue(any("2026-08-30" in g and "无对应切片" in g for g in p.gaps), f"悬空事件日必须可见：{p.gaps}")
         self.assertNotIn("2026-08-30", p.source_ref["selected_days"])
+
+
+class RangeGateTests(unittest.TestCase):
+    """正门 ``project_range``：``window()`` 默认只挂 cumulative，正门必须补齐标准派生集。
+
+    没有正门时每个消费方都得自己知道「transition / streak 要显式派生」——漏了的那个
+    拿到的区间投影只有累计量、没有「哪天变的」，且不报错。真库真链路读数见分支交接
+    （2026-08-25→09-12 AIGC概念：两次真实跃迁、19 块 vs 全铺 ~112 块）。
+    """
+
+    def _win(self) -> rwc.RiverWindow:
+        days = ["2026-09-01", "2026-09-02", "2026-09-03"]
+        return _window_from_slices(
+            [_slice(d, market_stage=("震荡" if d < "2026-09-03" else "反弹")) for d in days]
+        )
+
+    def test_正门补齐标准派生集_事件日进投影_且幂等(self) -> None:
+        win = self._win()
+        with mock.patch("intelligence.services.river_range_projection.window", return_value=win):
+            cp = rrp.project_range("2026-09-01", "2026-09-03", "E", task="t")
+            cp2 = rrp.project_range("2026-09-01", "2026-09-03", "E", task="t")
+        derived_tags = {b.selected_by for b in cp.blocks if b.object_type in river_projection.DERIVED_PRECEDENCE}
+        self.assertEqual(
+            {"derived:transition:market_stage", "derived:streak:dual_red_strict", "derived:streak:volume_surge"},
+            derived_tags, "标准派生集三条必须都在（窗口自带的 cumulative 本夹具没挂）",
+        )
+        self.assertEqual(["2026-09-03"], cp.source_ref["selected_days"], "09-03 震荡→反弹是唯一事件日")
+        self.assertEqual(cp.projection_hash, cp2.projection_hash)
+
+    def test_extra_derived追加参与投影(self) -> None:
+        win = self._win()
+        extra = (rd.derive_first_event(win, "market", "stage"),)
+        with mock.patch("intelligence.services.river_range_projection.window", return_value=win):
+            base = rrp.project_range("2026-09-01", "2026-09-03", "E", task="t")
+            cp = rrp.project_range("2026-09-01", "2026-09-03", "E", task="t", extra_derived=extra)
+        self.assertIn("derived:first_event:market:stage", {b.selected_by for b in cp.blocks})
+        self.assertNotEqual(base.projection_hash, cp.projection_hash, "extra_derived 参与哈希")
+
+    def test_projection_inputs_of六键齐且可回放(self) -> None:
+        win = self._win()
+        with mock.patch("intelligence.services.river_range_projection.window", return_value=win):
+            cp = rrp.project_range("2026-09-01", "2026-09-03", "E", task="t", budget=5)
+        inputs = rrp.projection_inputs_of(cp)
+        self.assertEqual(
+            {"source_ref", "framework_version", "task", "budget", "projection_version", "label_version"},
+            set(inputs), "§4.5 六元组一个不少",
+        )
+        self.assertEqual(5, inputs["budget"])
+        self.assertEqual(cp.source_ref, inputs["source_ref"])
 
 
 class SpecPointerRatchetTests(unittest.TestCase):

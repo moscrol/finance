@@ -232,6 +232,7 @@ def register_checkpoint(
     projection_hash: str | None = None,
     model_id: str | None = None,
     user_authored: bool = False,
+    projection_inputs: dict[str, Any] | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     """登记一个可证伪点到 ``checkpoints.jsonl``，返回 ``(path, record)``。
 
@@ -248,6 +249,11 @@ def register_checkpoint(
     - ``judgment``（用户自己的判断）：可空，有就记。
 
     「忘了传」与「本来就没有」在这里被分开：前者抛错，后者要显式声明。
+
+    ``projection_inputs``（09-06 spec §4.5）：``projection_hash`` 是单向的，回放验证要用
+    生成时的完整输入重算再比对——哈希开不了锁时只是校验和。登记方从
+    ``river_range_projection.projection_inputs_of(cp)`` 拿这份 dict 一起落；有就记，
+    校准不读它（它是回放的钥匙柄，不是打分的输入）。
     """
     text = str(claim or "").strip()
     if not text:
@@ -297,6 +303,12 @@ def register_checkpoint(
         record["model_id"] = mid
     if missing_reason:
         record["projection_hash_missing"] = missing_reason
+    if projection_inputs is not None:
+        if not isinstance(projection_inputs, dict):
+            raise ValueError("projection_inputs 必须是 dict（river_range_projection.projection_inputs_of 的返回形状）")
+        if ph is None:
+            raise ValueError("有 projection_inputs 没有 projection_hash：钥匙柄配不上锁，先传哈希")
+        record["projection_inputs"] = dict(projection_inputs)
     if framework_version and str(framework_version).strip():
         record["framework_version"] = str(framework_version).strip()
     if source_judgment_ts and str(source_judgment_ts).strip():

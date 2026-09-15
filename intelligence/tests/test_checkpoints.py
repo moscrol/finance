@@ -686,5 +686,40 @@ class CliHelpTests(unittest.TestCase):
         self.assertIn("涨幅%", buf.getvalue())
 
 
+class ProjectionInputsTests(unittest.TestCase):
+    """§4.5 六元组载体：``projection_hash`` 单向，回放验证要用完整输入重算再比对。"""
+
+    INPUTS = {
+        "source_ref": {"kind": "window", "start": "2026-09-01", "end": "2026-09-03"},
+        "framework_version": None, "task": "t", "budget": 5,
+        "projection_version": "cp-v0", "label_version": "v5",
+    }
+
+    def test_projection_inputs_随记录落盘(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "checkpoints.jsonl"
+            _, rec = checkpoints.register_checkpoint(
+                path, claim="x", due="2026-09-30",
+                projection_hash="cp:abc", projection_inputs=dict(self.INPUTS),
+            )
+            self.assertEqual(self.INPUTS, rec["projection_inputs"])
+            on_disk = json.loads(path.read_text(encoding="utf-8").strip().splitlines()[-1])
+            self.assertEqual(self.INPUTS, on_disk["projection_inputs"])
+
+    def test_有inputs无hash拒收(self) -> None:
+        """钥匙柄配不上锁：inputs 描述的是某个 hash 的生成条件，没有 hash 它什么都复原不了。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "checkpoints.jsonl"
+            with self.assertRaises(ValueError):
+                checkpoints.register_checkpoint(path, claim="x", due="2026-09-30", projection_inputs=dict(self.INPUTS))
+
+    def test_不传时键不落盘(self) -> None:
+        """「没传」与「传了空」要分得开：旧行没有这个键，读侧 .get 天然兼容。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "checkpoints.jsonl"
+            _, rec = checkpoints.register_checkpoint(path, claim="x", due="2026-09-30")
+            self.assertNotIn("projection_inputs", rec)
+
+
 if __name__ == "__main__":
     unittest.main()
