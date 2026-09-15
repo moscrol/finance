@@ -12,7 +12,7 @@
 | 复盘答卷 | `docs/learning/forecast-review-ledger/<date>.answer.<agent>.json` | JSON | `dual_blind_forecast.py validate`（校验；**夜跑已退役**） | 是 | `<date>.md` |
 | 复盘验证 | `docs/learning/forecast-review-ledger/<date>.verdict.json` | JSON | `dual_blind_forecast.py verdict`（**夜跑已退役**，仅手动） | 是 | `index.md` 状态表（`index` 子命令） |
 | 回答评分 | `intelligence/users/<id>/answer_scores.jsonl` | JSONL | auto_eval | 否（用户态） | — |
-| 个人判断回检 | `intelligence/users/<id>/checkpoints.jsonl` + `verdicts.jsonl` | JSONL | foresight checkpoint | 否（用户态） | — |
+| 个人判断回检 | `intelligence/users/<id>/checkpoints.jsonl` + `verdicts.jsonl` | JSONL（`checkpoints` 每行可选字段 `rule_id / rule_verdict / rule_receipt / bias_flags`：引用的方法论规则、登记当时该规则最近收据的四态与路径、偏差目录命中 code 列表——2026-09-05 INDEX #24，读者 `calibrate.by_rule` / `render_report` / `checkpoint bias-scan`） | foresight checkpoint | 否（用户态） | — |
 | 情景树（多步推演，#37 / G-15） | `userspace.user_space(user).root/scenario_trees.jsonl`（`FORESIGHT_USERS_DIR` 优先） | JSONL，append-only；登记须带 `projection_hash / model_id / framework_version`，`realized_path` 只由 `river.slice(T+k, C=T+k)` 判定 | `intelligence/services/scenario_trees.py::register / resolve`（无独立 CLI；每日复盘钩子 `daily_review_hook` 默认关，`FORESIGHT_SCENARIO_TREE_RESOLVE=1` 才跑）；登记同时进 `checkpoints.jsonl`（`object_type=scenario_tree`） | 否（用户态） | 三项回检（覆盖 / 沿路剧本 / 规则样本）；到达节点剧本按 G-03 登记 |
 | 记忆候选留档 | `intelligence/users/<id>/memory_candidates.jsonl` | JSONL | `run_memory_candidate_loop.py` | 否（用户态） | `trace` 子命令（归因反查）；生命周期见 `memory-candidate-lifecycle.md` |
 | 双盲错因反思候选 | `docs/learning/forecast-lessons/reflections/<date>.reflection.<agent>.<source>.json` | JSON | `forecast_learning_loop sync-reflections` | 是 | Workbench / 人工审批 |

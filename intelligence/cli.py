@@ -2279,6 +2279,12 @@ def cmd_theme(args: argparse.Namespace) -> int:
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 
+def _add_bias_source_args(parser: argparse.ArgumentParser) -> None:
+    """偏差目录扫描的三个只读数据源（register / bias-scan 共用）。缺省走双根解析；缺哪个哪条就 unverifiable。"""
+    parser.add_argument("--db-path", default=None, help="主库 DuckDB 路径（themes → sector_ts_code 映射；默认 MARKET_FEATURE_STORE_DB / 数据根 db/）")
+    parser.add_argument("--labels-db", default=None, help="旁路库 history_labels.duckdb（标签 + 交易日历；默认与主库同目录）")
+    parser.add_argument("--rules-dir", default=None, help="方法论规则目录（rule_not_firing 编译用；默认 methodology/rules）")
+
 def add_personal_export_parser(subparsers: argparse._SubParsersAction) -> None:
     p = subparsers.add_parser(
         "personal-export",
@@ -2406,9 +2412,40 @@ def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
     p_reg.add_argument("--trade-date", default=None, help="market_daily 取数交易日（缺省用 due）")
     p_reg.add_argument("--from-judgment", default=None, help="反链 B 核心判断的 ts（可选）")
     p_reg.add_argument("--session", default=None, help="来源会话 id（可选）")
+    p_reg.add_argument(
+        "--rule-id",
+        default=None,
+        help="这条判断依据的方法论规则 rule_id（methodology/rules/<rule_id>.v<n>.json）。给了就读该规则最近一次回测收据、"
+        "把四态与收据路径写进记录并回显一行；无收据也照常登记（只提示，不拦截）",
+    )
+    p_reg.add_argument(
+        "--receipts-dir",
+        default=None,
+        help="回测收据目录（默认 methodology/receipts），只在 --rule-id 时读取",
+    )
     p_reg.add_argument("--checkpoints-file", default=None, help="覆盖可证伪点台账路径")
+    p_reg.add_argument("--verdicts-file", default=None, help="覆盖回检打分台账路径（偏差目录扫描读同类 / 同标的历史判定）")
+    _add_bias_source_args(p_reg)
+    p_reg.add_argument(
+        "--no-bias-scan",
+        action="store_true",
+        help="登记后不跑偏差目录扫描（默认跑：late_streak / post_miss_streak / rule_not_firing / revenge_reentry，只提示不拦截）",
+    )
     p_reg.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_reg.set_defaults(func=cmd_checkpoint_register)
+
+    p_bias = sub.add_parser(
+        "bias-scan",
+        help="离线对已有台账跑偏差目录 v1（只读：不写台账、不写库）：每条 flag 的命中 / 无法判定 / 干净 / 不适用计数与命中判断 id",
+    )
+    p_bias.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_bias.add_argument("--since", default=None, help="只扫登记日 >= 该日（YYYY-MM-DD，按 ts 的 UTC 日期比较）的判断")
+    p_bias.add_argument("--checkpoints-file", default=None, help="覆盖可证伪点台账路径")
+    p_bias.add_argument("--verdicts-file", default=None, help="覆盖回检打分台账路径")
+    _add_bias_source_args(p_bias)
+    p_bias.add_argument("--show-ids", type=int, default=10, help="文本输出里每条 flag 最多列出多少个命中 id（默认 10）")
+    p_bias.add_argument("--json", action="store_true", help="输出机器可读 JSON（含逐条 flags）")
+    p_bias.set_defaults(func=cmd_checkpoint_bias_scan)
 
     p_due = sub.add_parser("due", help="列出到期且尚未拿到终态打分的检查点")
     p_due.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
@@ -2444,11 +2481,12 @@ def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
     p_score.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_score.set_defaults(func=cmd_checkpoint_score)
 
-    p_cal = sub.add_parser("calibrate", help="按类别聚合已回检判断的胜率，定位你哪类二阶推演靠谱/偏差")
+    p_cal = sub.add_parser("calibrate", help="按类别 / 产出模块 / 引用规则聚合已回检判断的胜率，定位你哪类二阶推演靠谱/偏差")
     p_cal.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
     p_cal.add_argument("--date", default=None, help="判定到期/待回检的基准日 YYYY-MM-DD（默认今天）")
     p_cal.add_argument("--checkpoints-file", default=None, help="覆盖可证伪点台账路径")
     p_cal.add_argument("--verdicts-file", default=None, help="覆盖回检打分台账路径")
+    p_cal.add_argument("--receipts-dir", default=None, help="回测收据目录（默认 methodology/receipts）；「按规则」段并排各规则最近收据")
     p_cal.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_cal.set_defaults(func=cmd_checkpoint_calibrate)
 
@@ -3170,6 +3208,49 @@ def cmd_checkpoint_adjudicate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _receipts_dir(args: argparse.Namespace) -> Path:
+    """回测收据目录：``--receipts-dir`` > 仓内 ``methodology/receipts``（与经验卡统计门同一处、同一读法）。"""
+    from intelligence import userspace
+
+    explicit = getattr(args, "receipts_dir", None)
+    return Path(explicit).expanduser() if explicit else userspace.REPO_ROOT / "methodology" / "receipts"
+
+
+def _rule_receipt_line(rule_id: str, receipt: dict | None) -> str:
+    """登记时回显：规则最近收据一行（无收据也回显，不拦截）。"""
+    from intelligence.services import checkpoints
+
+    if receipt is None:
+        return f"规则 {rule_id} 尚无收据——先跑 scripts/methodology_backtest.py run"
+    return f"规则 {rule_id} 最近收据：{checkpoints.summarize_rule_receipt(receipt)}"
+
+
+def _bias_sources(args: argparse.Namespace):
+    """把 --db-path / --labels-db / --rules-dir 解析成只读数据源（缺省：双根解析的主库、同目录旁路库、仓内规则目录）。"""
+    from intelligence import userspace
+    from intelligence.paths import default_market_db_path
+    from intelligence.services import checkpoint_bias
+    from intelligence.services.methodology_backtest.store import default_labels_db_path
+
+    db_path = Path(args.db_path).expanduser() if getattr(args, "db_path", None) else default_market_db_path()
+    labels_db = Path(args.labels_db).expanduser() if getattr(args, "labels_db", None) else default_labels_db_path(db_path)
+    rules_dir = Path(args.rules_dir).expanduser() if getattr(args, "rules_dir", None) else userspace.REPO_ROOT / "methodology" / "rules"
+    return checkpoint_bias.LedgerDataSources(labels_db=labels_db, market_db=db_path, rules_dir=rules_dir)
+
+
+def _scan_one(sources, checkpoint: dict, checkpoints_all: list[dict], verdicts_all: list[dict]) -> list:
+    from intelligence.services import checkpoint_bias
+
+    return checkpoint_bias.scan(
+        checkpoint,
+        checkpoints=checkpoints_all,
+        verdicts=verdicts_all,
+        label_lookup=sources.label_lookup,
+        rule_fire_lookup=sources.rule_fire_lookup,
+        entity_lookup=sources.entity_lookup,
+        calendar=sources.calendar,
+    )
+
 def _observation_user_space(args: argparse.Namespace):
     from intelligence import userspace
 
@@ -3392,7 +3473,7 @@ def cmd_checkpoint_register(args: argparse.Namespace) -> int:
 
     from intelligence.services import checkpoints
 
-    cpath, _ = _checkpoint_paths(args)
+    cpath, vpath = _checkpoint_paths(args)
     metric: dict[str, object] | None = None
     if args.metric_type:
         metric = {"type": args.metric_type}
@@ -3407,8 +3488,26 @@ def cmd_checkpoint_register(args: argparse.Namespace) -> int:
                 metric["window_days"] = args.window_days
         if args.target_name:
             metric["target_name"] = args.target_name
-    _, record = checkpoints.register_checkpoint(
-        cpath,
+
+    # 规则四态：与经验卡统计门同源同口径（latest_receipt 跨版本取最近）。这里只回显、只记录，不设门。
+    rule_id = str(getattr(args, "rule_id", None) or "").strip() or None
+    receipt: dict | None = None
+    rule_verdict: str | None = None
+    rule_receipt: str | None = None
+    if rule_id:
+        try:
+            rule_id = checkpoints.normalize_rule_id(rule_id)
+        except ValueError as exc:
+            print(f"登记失败：{exc}", file=sys.stderr)
+            return 2
+        from intelligence.services.methodology_backtest.receipts import latest_receipt
+
+        receipt = latest_receipt(_receipts_dir(args), rule_id)
+        if receipt is not None:
+            rule_verdict = str(receipt.get("verdict") or "") or None
+            rule_receipt = receipt.get("_path")
+
+    fields = dict(
         claim=args.claim,
         due=args.due,
         category=args.category,
@@ -3418,14 +3517,130 @@ def cmd_checkpoint_register(args: argparse.Namespace) -> int:
         metric=metric,
         source_judgment_ts=args.from_judgment,
         session_id=args.session,
+        rule_id=rule_id,
+        rule_verdict=rule_verdict,
+        rule_receipt=rule_receipt,
     )
+    # 先把「将要落盘的那条记录」算出来（同一 ts → 同一 id），对它跑偏差目录，再连 bias_flags 一起落盘。
+    # 扫描出任何异常都只打一行警告、不写 bias_flags 键（= 没扫），登记照常——只提示不拦截。
+    try:
+        preview = checkpoints.build_checkpoint_record(**fields)
+    except ValueError as exc:
+        print(f"登记失败：{exc}", file=sys.stderr)
+        return 2
+    flags: list = []
+    bias_codes: list[str] | None = None
+    scan_note: str | None = None
+    if not getattr(args, "no_bias_scan", False):
+        try:
+            cks_all, _ = checkpoints.load_checkpoints(cpath)
+            vds_all, _ = checkpoints.load_verdicts(vpath)
+            with _bias_sources(args) as sources:
+                flags = _scan_one(sources, preview, cks_all, vds_all)
+                scan_note = "；".join(sources.notes) or None
+            bias_codes = [f.code for f in flags]
+        except Exception as exc:  # noqa: BLE001 - 偏差扫描是提示层，不能让登记失败
+            print(f"[checkpoint] 偏差目录扫描失败（不影响登记）：{exc}", file=sys.stderr)
+            flags, bias_codes = [], None
+    try:
+        _, record = checkpoints.register_checkpoint(cpath, ts=preview["ts"], bias_flags=bias_codes, **fields)
+    except ValueError as exc:
+        print(f"登记失败：{exc}", file=sys.stderr)
+        return 2
     if args.json:
-        print(_json.dumps({"path": str(cpath), "checkpoint": record}, ensure_ascii=False, indent=2))
+        payload: dict[str, object] = {
+            "path": str(cpath),
+            "checkpoint": record,
+            "rule_id": rule_id,
+            "rule_verdict": rule_verdict,
+            "rule_receipt": rule_receipt,
+            "rule_receipt_line": _rule_receipt_line(rule_id, receipt) if rule_id else None,
+            "bias_flags": [f.to_dict() for f in flags],
+            "bias_scan_note": scan_note,
+        }
+        print(_json.dumps(payload, ensure_ascii=False, indent=2))
     else:
+        from intelligence.services import checkpoint_bias
+
         mtail = f"｜机检 {record['metric']['type']}" if record.get("metric") else "｜人工判定"
         print(f"已登记可证伪点 {record['id']}（到期 {record['due']}{mtail}）")
         print(f"  {record['claim']}")
+        if rule_id:
+            print(f"  {_rule_receipt_line(rule_id, receipt)}")
+        if bias_codes is not None:
+            if flags:
+                print(f"  偏差目录（只提示不拦截）：{len(flags)} 条")
+                for line in checkpoint_bias.render_flag_lines(flags):
+                    print(f"    {line}")
+            else:
+                print("  偏差目录：未命中")
+            if scan_note:
+                print(f"    （数据源：{scan_note}）")
         print(f"  → 到期跑 `checkpoint recheck --user {args.user or 'default'} --apply`")
+    return 0
+
+
+def cmd_checkpoint_bias_scan(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import checkpoint_bias, checkpoints
+
+    cpath, vpath = _checkpoint_paths(args)
+    cks, cwarn = checkpoints.load_checkpoints(cpath)
+    vds, vwarn = checkpoints.load_verdicts(vpath)
+    targets = cks
+    if args.since:
+        since = checkpoints._parse_date(args.since)
+        targets = [c for c in cks if str(c.get("ts") or "")[:10] >= since]
+    results: list[tuple[dict, list]] = []
+    with _bias_sources(args) as sources:
+        availability = sources.availability()
+        for c in targets:
+            results.append((c, _scan_one(sources, c, cks, vds)))
+    summary = checkpoint_bias.summarize(results)
+    if args.json:
+        print(_json.dumps(
+            {
+                "checkpoints_path": str(cpath),
+                "verdicts_path": str(vpath),
+                "since": args.since,
+                "sources": availability,
+                "summary": summary,
+                "results": [
+                    {"id": c.get("id"), "ts": c.get("ts"), "category": c.get("category"),
+                     "themes": c.get("themes"), "rule_id": c.get("rule_id"),
+                     "status": checkpoint_bias.classify(c, flags),
+                     "flags": [f.to_dict() for f in flags]}
+                    for c, flags in results
+                ],
+                "warnings": [w for w in (cwarn, vwarn) if w],
+            },
+            ensure_ascii=False, indent=2,
+        ))
+        return 0
+    print(f"偏差目录 v1 离线扫描：{summary['scanned']} 条判断（台账 {cpath}）")
+    print(
+        f"  数据源：旁路库 {'✓' if availability['labels_db_ok'] else '✗'}（日历 {availability['calendar_days']} 日，"
+        f"至 {availability['calendar_end']}，{availability['label_version']}）· "
+        f"主库 {'✓' if availability['market_db_ok'] else '✗'} · 规则目录 {'✓' if availability['rules_dir_ok'] else '✗'}"
+    )
+    for note in availability["notes"]:
+        print(f"  · {note}")
+    for code, bucket in summary["by_code"].items():
+        print(
+            f"- {code}：命中 {bucket['flagged']} · 无法判定 {bucket['unverifiable']} · "
+            f"干净 {bucket['clean']} · 不适用 {bucket['not_applicable']}"
+        )
+        ids = bucket["flagged_ids"]
+        if ids:
+            shown = ", ".join(ids[: max(0, args.show_ids)])
+            more = f" …共 {len(ids)} 条" if len(ids) > args.show_ids else ""
+            print(f"    命中：{shown}{more}")
+        for reason, n in list(bucket["unverifiable_reasons"].items())[:3]:
+            print(f"    无法判定 ×{n}：{reason}")
+    for w in (cwarn, vwarn):
+        if w:
+            print(f"  ⚠ {w}")
     return 0
 
 
@@ -3582,7 +3797,32 @@ def cmd_checkpoint_calibrate(args: argparse.Namespace) -> int:
 
     cpath, vpath = _checkpoint_paths(args)
     cal, warnings = checkpoints.load_calibration(cpath, vpath, today=args.date)
+    # 「按规则」段的收据由这里读文件系统再传进纯函数；calibrate / render_report 本身不碰磁盘。
+    rule_receipts: dict[str, dict] = {}
+    if cal.by_rule:
+        from intelligence.services.methodology_backtest.receipts import latest_receipt
+
+        receipts_dir = _receipts_dir(args)
+        for st in cal.by_rule:
+            found = latest_receipt(receipts_dir, st.category)
+            if found is not None:
+                rule_receipts[st.category] = found
     if args.json:
+        def _receipt_summary(receipt: dict | None) -> dict | None:
+            if receipt is None:
+                return None
+            stats = receipt.get("stats") if isinstance(receipt.get("stats"), dict) else {}
+            return {
+                "verdict": receipt.get("verdict"),
+                "n": stats.get("n"),
+                "p": stats.get("p"),
+                "p0": stats.get("p0"),
+                "wilson_lo": stats.get("wilson_lo"),
+                "wilson_hi": stats.get("wilson_hi"),
+                "generated_at": receipt.get("generated_at"),
+                "path": receipt.get("_path"),
+            }
+
         print(_json.dumps(
             {
                 "scored": cal.scored,
@@ -3615,12 +3855,26 @@ def cmd_checkpoint_calibrate(args: argparse.Namespace) -> int:
                     }
                     for s in cal.by_source
                 ],
+                "by_rule": [
+                    {
+                        "rule_id": s.category,
+                        "n": s.n,
+                        "hits": s.hits,
+                        "partial": s.partial,
+                        "miss": s.miss,
+                        "hit_rate": round(s.hit_rate, 4),
+                        "reliability": s.reliability,
+                        "samples": s.samples,
+                        "receipt": _receipt_summary(rule_receipts.get(s.category)),
+                    }
+                    for s in cal.by_rule
+                ],
                 "warnings": warnings,
             },
             ensure_ascii=False, indent=2,
         ))
     else:
-        print(checkpoints.render_report(cal), end="")
+        print(checkpoints.render_report(cal, rule_receipts=rule_receipts), end="")
     return 0
 
 
