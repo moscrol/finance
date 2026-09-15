@@ -17,7 +17,7 @@ P3h=50687c0b、P3g=f05d0681、P3f2=e1fc53a7。P3注入面（D4四组九类）已
 P3h反例先红（adapter20用例=4合同×5确定性题型；run_turn3用例，probe用构造参数answer_query_fn/route_skills_fn注入——那俩是实例属性，monkeypatch类会AttributeError）后绿；813P/4S零破坏（805基线+新用例，含误伤复绿，收据20260915T104611Z）；Ruff通过；engine_b×10+adapter集×5稳定；变异（还原点50687c0b）撤防线1→20/20红、撤防线2→2/2红，完全正交，还原后151P复绿。
 
 ## 未验证 / 已知边界
-作者自验非独立QC。引擎B内部仍无合同意识（被门挡住≠免疫，不得绕两道门直调）。fictional×full前提标注送达属P4/P6。未盖：②组prime/知识前缀/系统级默认市场摘要注入、歧义（非缺失）预取前澄清、D7跨轮继承（P5）、P4–P7、全仓合入门禁。
+作者自验非独立QC（注入面核查同样是作者对账）。引擎B内部仍无合同意识（被门挡住≠免疫，不得绕两道门直调）；注入式registry_factory内部读取不可撤销。fictional×full前提标注送达属P4/P6。未盖：D7跨轮继承五格全链版（P5）、P4–P7、全仓合入门禁。
 
 ## 下一步
 1. P3注入面已收口，转P4（D5逐题终态answered/legal_gap/missing+完成状态口径completed/partial）或P5（D7逐轴继承五格全链版，编译器层已有test_axes_update_independently）。
