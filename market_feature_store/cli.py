@@ -138,11 +138,15 @@ def cmd_hithink_sector_preview(args) -> int:
     """只读换池验算；exit 0 仅代表 calculation_ready，不授予生产发布资格。"""
     import duckdb
 
+    from .hithink_sector_capture import CaptureNotReadyError
     from .hithink_sector_preview import preview_sector_calculation
 
     report: dict[str, object] = {
         "trade_date": args.trade_date,
         "member_date": args.member_date,
+        "capture_id": args.capture_id,
+        "request_complete": None,
+        "provider_completeness": "unverified",
         "calculation_ready": False,
         "production_ready": False,
         "rows": [],
@@ -154,10 +158,14 @@ def cmd_hithink_sector_preview(args) -> int:
             report = preview_sector_calculation(
                 con, args.trade_date, member_date=args.member_date,
                 category=args.category, pct_basis=args.pct_basis,
-                max_member_age_days=args.max_member_age_days,
+                max_member_age_days=args.max_member_age_days, capture_id=args.capture_id,
             )
         finally:
             con.close()
+    except CaptureNotReadyError as exc:
+        report["request_complete"] = exc.audit["request_complete"]
+        report["capture_audit"] = exc.audit
+        report["gaps"] = [{"reason": "capture-not-ready"}]
     except ValueError as exc:
         report["gaps"] = [{"reason": "invalid-preview-options", "detail": str(exc)}]
     except duckdb.Error:
@@ -922,7 +930,13 @@ def cmd_sync_hithink_sector_kline(args) -> int:
     if stats.get("sidecar"):
         print("wrote sidecar (production db locked)")
     print(f"fingerprint={stats['fingerprint']}")
-    return 0
+    audit = stats["capture_audit"]
+    print(
+        f"capture_id={audit['capture_id']} status={audit['status']} scope={audit['scope']} "
+        f"request_complete={str(audit['request_complete']).lower()} "
+        f"provider_completeness={audit['provider_completeness']}"
+    )
+    return 0 if audit["request_complete"] else 2
 
 
 def cmd_sync_hithink_limit_pools(args) -> int:
@@ -1650,6 +1664,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_ht_preview.add_argument("--trade-date", required=True, help="目标交易日 YYYY-MM-DD")
     p_ht_preview.add_argument("--member-date", required=True, help="真实名单采集日 YYYY-MM-DD")
     p_ht_preview.add_argument("--category", required=True, choices=CATALOG_TAGS)
+    p_ht_preview.add_argument(
+        "--capture-id", default=None,
+        help="显式选不可覆盖的目录/成员采集批；缺批/不完整拒绝，不回退最新名单",
+    )
     p_ht_preview.add_argument(
         "--pct-basis", required=True, choices=PCT_BASES,
         help="member_equal_weight=成员等权；index_close_return=官方指数收盘收益，不相互兜底",

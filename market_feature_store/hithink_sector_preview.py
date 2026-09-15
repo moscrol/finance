@@ -6,7 +6,7 @@
 本模块不将原始 dump（元/股）绕过换算直接写入事实表。
 
 calculation_ready 只证明所选目录和名单内输入可算；production_ready 永远 False：
-目录/成员请求完整性、canonical 投影及下游真实产物尚需独立验收。
+请求完成度与供应商完整性分别报告，canonical 投影及下游真实产物尚需独立验收。
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ import json
 import math
 
 from .signals import is_double_red
-from .sync.sync_hithink_sector_kline import (
+from .hithink_sector_contract import (
     CATALOG_TAGS,
     SOURCE_CATALOG,
     SOURCE_CONSTITUENT,
@@ -75,7 +75,7 @@ def _index_returns(con, td: date, prev: date) -> dict[str, float]:
 
 def preview_sector_calculation(
     con, trade_date, *, member_date, category: str, pct_basis: str,
-    max_member_age_days: int = 0,
+    max_member_age_days: int = 0, capture_id: str | None = None,
 ) -> dict:
     """只读；缺任一成员关键值即阻断该板块，不把缺数据默默变成缩小名单。"""
     # CLI 构建参数时只取选项常量，不提前载入复盘计算/供应商模块。
@@ -95,16 +95,22 @@ def preview_sector_calculation(
         raise ValueError(f"pct_basis 必须显式选择 {PCT_BASES}")
     index_returns = _index_returns(con, td, prev) if pct_basis == "index_close_return" else {}
 
-    sectors = con.execute(
-        "SELECT sector_ts_code, sector_name, updated_at, constituent_count, "
-        "constituents_captured_at, source FROM dim_sector_hithink "
-        "WHERE category=? ORDER BY sector_ts_code", [category],
-    ).fetchall()
-    members = con.execute(
-        "SELECT sector_ts_code, stock_ts_code, source, updated_at "
-        "FROM fact_sector_constituent_hithink "
-        "WHERE captured_at=? AND in_index=1 ORDER BY sector_ts_code, stock_ts_code", [md],
-    ).fetchall()
+    capture_audit = None
+    if capture_id is not None:
+        from .hithink_sector_capture import capture_inputs
+
+        sectors, members, capture_audit = capture_inputs(con, capture_id, category)
+    else:
+        sectors = con.execute(
+            "SELECT sector_ts_code, sector_name, updated_at, constituent_count, "
+            "constituents_captured_at, source FROM dim_sector_hithink "
+            "WHERE category=? ORDER BY sector_ts_code", [category],
+        ).fetchall()
+        members = con.execute(
+            "SELECT sector_ts_code, stock_ts_code, source, updated_at "
+            "FROM fact_sector_constituent_hithink "
+            "WHERE captured_at=? AND in_index=1 ORDER BY sector_ts_code, stock_ts_code", [md],
+        ).fetchall()
     by_sector: dict[str, list[tuple]] = {}
     for code, stock, source, updated in members:
         by_sector.setdefault(code, []).append((stock, source, updated))
@@ -197,6 +203,9 @@ def preview_sector_calculation(
         "member_date": str(md), "member_age_days": age, "member_fingerprint": fingerprint,
         "category": category, "sector_count": len(sectors), "rows": rows, "gaps": gaps,
         "calculation_ready": ready, "production_ready": False,
+        "capture_id": capture_id, "capture_audit": capture_audit,
+        "request_complete": capture_audit["request_complete"] if capture_audit else None,
+        "provider_completeness": "unverified",
         "double_red_codes": [row["sector_ts_code"] for row in rows if row["double_red"]] if ready else [],
         "value_sources": sorted(value_sources),
         "basis": {
@@ -204,5 +213,6 @@ def preview_sector_calculation(
             "pct_source": SOURCE_KLINE if pct_basis == "index_close_return" else "canonical_fact_stock_daily",
             "previous_amount": "same_selected_members", "values": "canonical_fact_stock_daily",
             "max_member_age_days": max_member_age_days,
+            "members": "capture_version" if capture_id is not None else "latest_daily_legacy",
         },
     }

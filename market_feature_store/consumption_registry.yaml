@@ -237,14 +237,17 @@ datasets:
 
   - key: hithink_sector_kline
     label: 同花顺板块与指数 K 线（并跑）
-    tables: [dim_sector_hithink, fact_sector_kline_daily]
+    tables: [dim_sector_hithink, fact_sector_kline_daily, ops_hithink_sector_capture, ops_hithink_sector_request]
     steps: {local: [hithink-sector-kline]}
     refresh:
       tier: A-replace
       policy: >-
         目录 + 截至目标交易日近五日 K 线；显式传 end-date，缺 key 明确 skip。
-        本片不拉当前成员，不写 fact_sector_daily/stock_daily；采集时点的成员不能冒充历史名单。
-        未来以同花顺池计算无需先映射 .FP；目录覆盖及消费切换另验。
+        local仍不拉当前成员，不写 fact_sector_daily/stock_daily；采集时点的成员不能冒充历史名单。
+        同一步追加目录逻辑请求审计（catalog-only）；显式成员采集才产生catalog-and-members批，
+        按capture_id保留多标签目录/成员版本，不覆盖旧批。request_complete只指声明范围执行齐全，
+        不是供应商独立完整性（unverified）、K线目标日覆盖或canonical发布。
+        未来以同花顺池计算无需先映射 .FP；独立完整分母及消费切换另验。
 
   - key: hithink_limit_pools
     label: 同花顺涨停跌停炸板池（并跑）

@@ -62,6 +62,11 @@ def _empty_db(path) -> None:
         con.execute(KLINE_DDL)
         con.execute(CONST_DDL)
         con.execute(OLD_DDL)
+        # 采集审计 DDL 只从 schema.sql 取，不在夹具复制第二份。
+        from market_feature_store.db import SCHEMA_PATH
+        for statement in SCHEMA_PATH.read_text().split(";"):
+            if "CREATE TABLE IF NOT EXISTS ops_hithink_sector_" in statement:
+                con.execute(statement)
     finally:
         con.close()
 
@@ -103,7 +108,8 @@ def _getter(end: date):
                         ]
                     },
                 }
-            return {"code": 0, "data": {"item": []}}
+            # 目录必须非空，模拟跨标签重叠；不把空标签伪装成成功。
+            return {"code": 0, "data": {"item": [{"thscode": "886053.TI", "name": "BC电池"}]}}
         if path.endswith("/historical"):
             code = params["thscode"]
             assert (params["end"] - params["start"]) / 86_400_000 < htb.MAX_WINDOW_DAYS
@@ -323,7 +329,7 @@ def test_member_capture_can_cross_midnight_without_backdating(db_path, monkeypat
     getter = _getter(date(2026, 9, 8))
 
     def get_json(path, **kwargs):
-        if path.endswith("/ths-stock-list") and kwargs["params"]["thscode"] == "885725.TI":
+        if path.endswith("/ths-stock-list") and kwargs["params"]["thscode"] == "886053.TI":
             now[0] = datetime(2026, 9, 15, 0, 1)
         return getter(path, **kwargs)
 
@@ -334,7 +340,7 @@ def test_member_capture_can_cross_midnight_without_backdating(db_path, monkeypat
     with duckdb.connect(str(db_path), read_only=True) as con:
         assert con.execute(
             "SELECT sector_ts_code, captured_at FROM fact_sector_constituent_hithink ORDER BY 1"
-        ).fetchall() == [("885725.TI", date(2026, 9, 15)), ("886053.TI", date(2026, 9, 14))]
+        ).fetchall() == [("885725.TI", date(2026, 9, 14)), ("886053.TI", date(2026, 9, 15))]
 
 
 @pytest.mark.parametrize("items", [[], [{"thscode": "600000.SH"}] * 2, [{}], [None], "bad"])

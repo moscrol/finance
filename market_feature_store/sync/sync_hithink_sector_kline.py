@@ -19,12 +19,21 @@ import duckdb
 
 from ..db import DB_PATH, init_db, is_lock_conflict
 from ..hithink_client import get_json, has_api_key, ms_to_shanghai_date, shanghai_midnight_ms
+from ..hithink_sector_contract import (
+    CATALOG_TAGS,
+    SOURCE_CATALOG,
+    SOURCE_CONSTITUENT,
+    SOURCE_KLINE,
+    HithinkSectorSyncError,
+    normalize_catalog_items,
+    normalize_constituent_items,
+    snapshot_items,
+)
 
 TRADE_DATE_SQL = (
     "CAST(to_timestamp(date_ms/1000) AT TIME ZONE 'UTC' + INTERVAL 8 HOUR AS DATE)"
 )
 
-CATALOG_TAGS = ("cn_concept", "industry", "region", "tszs")
 INDEX_CODES = (
     "000001.SH",
     "399001.SZ",
@@ -40,10 +49,6 @@ INCR_WINDOW_DAYS = 5
 BC_BATTERY_CODE = "886053.TI"
 BC_BATTERY_START = date(2023, 9, 6)
 
-SOURCE_CATALOG = "hithink:ths-index-list"
-SOURCE_KLINE = "hithink:index-historical"
-SOURCE_CONSTITUENT = "hithink:ths-stock-list"
-
 CATALOG_FIELDS = ("thscode", "name")
 HISTORICAL_BAR_FIELDS = (
     "date_ms",
@@ -57,10 +62,6 @@ HISTORICAL_BAR_FIELDS = (
 CONSTITUENT_FIELDS = ("thscode", "ticker", "name")
 
 GetJson = Callable[..., dict[str, Any]]
-
-
-class HithinkSectorSyncError(RuntimeError):
-    """板块同步失败。消息里不得带 key。"""
 
 
 def _shanghai_now() -> datetime:
@@ -122,14 +123,7 @@ def window_ms(end_day: date, days: int) -> tuple[int, int]:
 
 def fetch_catalog(tag: str, getter: GetJson) -> list[dict[str, Any]]:
     payload = getter("/api/a-share-index/catalog/ths-index-list", params={"tag": tag})
-    rows = []
-    for item in _items(payload):
-        # 请求了就必须接住
-        thscode = item.get("thscode")
-        name = item.get("name")
-        if thscode:
-            rows.append({"thscode": str(thscode), "name": name, "category": tag})
-    return rows
+    return normalize_catalog_items(snapshot_items(payload), tag)
 
 
 def fetch_historical(
@@ -158,20 +152,7 @@ def fetch_constituents(thscode: str, getter: GetJson) -> list[dict[str, Any]]:
         "/api/a-share-index/constituents/ths-stock-list",
         params={"thscode": thscode},
     )
-    data = payload.get("data")
-    raw = data.get("item", data.get("items")) if isinstance(data, dict) else data
-    if not isinstance(raw, list) or not raw:
-        raise HithinkSectorSyncError(f"{thscode}: 当前成员为空或格式错误，不认领完整快照")
-    rows, seen = [], set()
-    for item in raw:
-        code = str(item.get("thscode") or "").strip().upper() if isinstance(item, dict) else ""
-        if not code or code in seen:
-            raise HithinkSectorSyncError(f"{thscode}: 当前成员身份缺失或重复")
-        seen.add(code)
-        ticker = item.get("ticker")
-        _name = item.get("name")  # 接住但不落库：产品面不出个股名
-        rows.append({"thscode": code, "ticker": ticker, "name": _name})
-    return rows
+    return normalize_constituent_items(snapshot_items(payload))
 
 
 def _upsert_dim(con: duckdb.DuckDBPyConnection, rows: list[dict[str, Any]]) -> int:
@@ -580,12 +561,24 @@ def sync_hithink_sector_kline(
     end_day = end_date or date.today()
     start_ms, end_ms = window_ms(end_day, days)
 
+    from ..hithink_sector_capture import SectorCapture
+
     con, sidecar = _open_writable(db_path)
+    capture = None
+    capture_sealed = False
     try:
         init_db(con)
+        capture = SectorCapture.start(
+            con, requested_end_date=end_day, include_members=not skip_constituents,
+            member_limit=limit, clock=_shanghai_now,
+        )
+        print(f"capture_id={capture.capture_id} status=running", flush=True)
         catalog_rows: list[dict[str, Any]] = []
         for tag in CATALOG_TAGS:
-            catalog_rows.extend(fetch_catalog(tag, getter))
+            rows, _ = capture.request("catalog", tag, lambda tag=tag: fetch_catalog(tag, getter))
+            catalog_rows.extend(rows)
+        # 所有目录齐全后冻结成员请求分母；K线失败也保留尚未执行的请求计划。
+        member_codes = capture.plan_members() if not skip_constituents else []
         for code in INDEX_CODES:
             catalog_rows.append(
                 {"thscode": code, "name": None, "category": "index"}
@@ -623,18 +616,13 @@ def sync_hithink_sector_kline(
             constituent_n = 0
             constituent_capture_dates: set[str] = set()
             if not skip_constituents:
-                # 目录标签可重叠；同一板块只取一次完整快照，避免主键冲突/混批。
-                member_codes = list(dict.fromkeys(
-                    row["thscode"]
-                    for row in catalog_rows
-                    if row["category"] != "index"
-                ))
-                if limit is not None:
-                    member_codes = member_codes[:limit]
+                # 目录标签可重叠；成员计划按唯一代码排序，每个响应保留不可覆盖版本。
                 const_buf: list[tuple] = []
                 for i, code in enumerate(member_codes, start=1):
-                    members = fetch_constituents(code, getter)
-                    captured = _shanghai_now()  # 接口只有当前成员，不能用 K 线 end_day 回标
+                    members, received = capture.request(
+                        "members", code, lambda code=code: fetch_constituents(code, getter),
+                    )
+                    captured = received.replace(tzinfo=None)  # 已是上海时间，不取 end_day
                     constituent_capture_dates.add(captured.date().isoformat())
                     const_buf.extend(
                         (
@@ -703,6 +691,23 @@ def sync_hithink_sector_kline(
                     render_fp_mapping(mapping), encoding="utf-8"
                 )
                 result["mapping_path"] = Path(mapping_path).name
+        audit = capture.finish()
+        capture_sealed = True
+        if not audit["request_complete"] and limit is None:
+            raise HithinkSectorSyncError(f"capture {capture.capture_id}: 请求审计未通过")
+        result["capture_audit"] = {
+            key: audit[key] for key in (
+                "capture_id", "status", "scope", "request_complete", "provider_completeness", "gaps",
+            )
+        }
         return result
+    except Exception:
+        if capture is not None and not capture_sealed:
+            # 留痕失败不能替换首个异常；留 running/requesting 也比假封为成功更诚实。
+            try:
+                capture.fail()
+            except Exception:
+                print(f"capture {capture.capture_id}: audit-finalization-failed", flush=True)
+        raise
     finally:
         con.close()
