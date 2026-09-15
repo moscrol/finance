@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Protocol
 
 from intelligence.services import compliance_gate
@@ -429,8 +429,9 @@ def project(
 
 def render(cp: ContextProjection) -> str:
     """人读投影。段序固定：限制 → 缺口 → 事实块（§4.5：边界条件排在事实之前）→ 省略。"""
+    when = cp.source_ref.get("as_of") or f"{cp.source_ref.get('start')} → {cp.source_ref.get('end')}"
     lines = [
-        f"# 上下文投影｜{cp.source_ref.get('entity_name') or cp.source_ref.get('entity_id')}｜{cp.source_ref.get('as_of')}",
+        f"# 上下文投影｜{cp.source_ref.get('entity_name') or cp.source_ref.get('entity_id')}｜{when}",
         f"（{cp.projection_hash}｜{cp.projection_version}｜task={cp.task}｜framework={cp.framework_version or 'none'}"
         f"｜labels={cp.label_version}｜budget={cp.budget['limit']}/{cp.budget['used']}）",
         "",
@@ -455,3 +456,214 @@ def render(cp: ContextProjection) -> str:
     else:
         lines.append("- （无）")
     return "\n".join(lines)
+
+
+# --------------------------------------------------------------------------- #
+# 区间投影（09-06 spec §4.5：按变化选，不按天铺）
+# --------------------------------------------------------------------------- #
+# 预算让位序（§4.5 规则 4）：前两类携带时间因果，后三类是统计量。
+DERIVED_PRECEDENCE = ("transition", "first_event", "streak", "cumulative", "signature")
+
+# 派生对象 payload 里的契约元数据键（渲染时折叠成计数 / 尾注，把语义 body 让到前面）。
+_DERIVED_META_KEYS = ("derivation_rule", "label_version", "status", "gap_policy", "gaps_applied", "member_refs", "pit_grade")
+
+
+def rule_name_of(obj: dict[str, Any]) -> str:
+    name = str(((obj.get("payload") or {}).get("derivation_rule") or {}).get("name") or "").strip()
+    if not name:
+        raise ValueError(f"派生对象缺 derivation_rule.name（§4.4 必带）：ref={obj.get('ref')!r}")
+    return name
+
+
+def event_days_of(obj: dict[str, Any]) -> tuple[str, ...]:
+    """派生对象的事件日（§4.5 规则 2）：``transition`` 取跃迁日、``first_event`` 取首现日。
+
+    ``streak`` / ``cumulative`` / ``signature`` 是统计量，只进派生对象块、不带切片。
+    ⚠ 不是 ``member_refs``：那是证据链（参与计算的全部对象，覆盖区间每一天），按它选就是全铺
+    ——恰好违反 §4.5 的核心决定。
+    """
+    payload = obj.get("payload") or {}
+    otype = str(obj.get("object_type") or "")
+    if otype == "transition":
+        return tuple(str(t.get("day")) for t in (payload.get("transitions") or []) if isinstance(t, dict) and t.get("day"))
+    if otype == "first_event":
+        day = payload.get("first_day")
+        return (str(day),) if day else ()
+    return ()
+
+
+def render_derived(obj: dict[str, Any]) -> str:
+    """派生对象一行：语义 body（transitions / first_day / longest…）优先，证据链折叠成计数。
+
+    不复用 ``render_object``：派生 payload 的插入序把契约元数据排前、语义 body 排后，
+    ``RENDER_KEYS`` 截断后模型看到一堆 member_refs 却看不到跃迁列表——渲染顺序也是投影决定。
+    """
+    payload = obj.get("payload") or {}
+    rule = payload.get("derivation_rule") or {}
+    body_keys = [k for k in payload if k not in _DERIVED_META_KEYS and payload[k] is not None]
+    body = "，".join(f"{k}={payload[k]}" for k in body_keys)
+    gaps_applied = list(payload.get("gaps_applied") or [])
+    tail = f"｜gaps_applied={gaps_applied}" if gaps_applied else ""
+    return (
+        f"{obj.get('object_type')}｜rule={rule.get('name')}@{rule.get('version')}｜status={payload.get('status')}"
+        f"｜{body}｜members={len(payload.get('member_refs') or [])}｜ref={obj.get('ref')}｜hash={obj.get('source_hash')}{tail}"
+    )
+
+
+def window_source_ref_of(source: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "kind": "window",
+        "start": str(source.get("start") or ""),
+        "end": str(source.get("end") or ""),
+        "entity_id": str(source.get("entity_id") or ""),
+        "entity_name": str(source.get("entity_name") or ""),
+        "knowledge_cutoff": str(source.get("knowledge_cutoff") or ""),
+        "pit_grade": str(source.get("pit_grade") or "trade_date_only"),
+        "hindsight": bool(source.get("hindsight")),
+        "alias_applied": bool(source.get("alias_applied")),
+        "days": len(source.get("days") or []),
+    }
+
+
+def _window_limits(source: dict[str, Any], derived: list[dict[str, Any]]) -> list[str]:
+    limits: list[str] = []
+    if source.get("hindsight"):
+        limits.append(
+            "hindsight=true：knowledge_cutoff 晚于 end，整段是事后视角，只可人工复核，不进校准"
+        )
+    if str(source.get("pit_grade") or "trade_date_only") != "strict":
+        limits.append(
+            f"pit_grade={source.get('pit_grade')}：区间内有切片降档（任一天降档整段降档），不能进回放与方法校准"
+        )
+    if source.get("alias_applied"):
+        limits.append("alias_applied=true：实体身份跨供应商归一过，跨换源日的数值不可直接比较")
+    # §4.5 验收 (c)：任一派生对象 gaps_applied 非空，其内容必须出现在 limits 块。
+    for obj in derived:
+        gaps_applied = list((obj.get("payload") or {}).get("gaps_applied") or [])
+        if gaps_applied:
+            limits.append(
+                f"derived:{rule_name_of(obj)}：gaps_applied={gaps_applied}（缺天的读数不能看起来和完整的一样）"
+            )
+    return limits
+
+
+def _window_gaps(source: dict[str, Any]) -> list[str]:
+    gaps: list[str] = []
+    coverage = source.get("coverage") or {}
+    for track in TRACKS:
+        c = coverage.get(track) or {}
+        n, total = int(c.get("days_with_objects") or 0), int(c.get("days") or 0)
+        if total and n < total:
+            gaps.append(f"{track}：{n}/{total} 天有对象（其余天按缺口处理，不当作「没变化」）")
+    return gaps
+
+
+def project_window(
+    source: dict[str, Any],
+    *,
+    framework_version: str | None,
+    task: str,
+    budget: int | None = None,
+    rules: dict[str, SelectionRule] | None = None,
+) -> ContextProjection:
+    """河区间（``RiverWindow.to_dict()`` 形状）→ 上下文投影。§4.5：**按变化选，不按天铺**。
+
+    一等公民是派生对象；每日切片默认不进，只有事件日（``event_days_of``）按单点规则投影，
+    标 ``selected_by=derived:<rule>``（多规则命中同一天时字典序 ``+`` 连接）。预算不足先省
+    切片、后省派生对象，派生对象间按 ``DERIVED_PRECEDENCE`` 让位（§4.5 规则 4）。
+    纯函数；事件日那天的块复用单点 ``project``，与单点投影逐字节相同、仅换 ``selected_by``
+    （§4.5 验收 (b) 的「可回溯不降级」靠这条成立）。投影层不自造派生对象：``derived`` 里
+    出现五类之外的 ``object_type`` 直接拒绝（§4.5 验收 (d) 配套约束）。
+    """
+    task_norm = str(task or "").strip()
+    if not task_norm:
+        raise ValueError("task 不能为空：投影要知道是给谁看的（guided_reading / ask_synthesis / …）")
+    if budget is not None and int(budget) < 0:
+        raise ValueError("budget 不能为负")
+
+    derived_raw = [o for o in (source.get("derived") or []) if isinstance(o, dict)]
+    for o in derived_raw:
+        otype = str(o.get("object_type") or "")
+        if otype not in DERIVED_PRECEDENCE:
+            raise ValueError(
+                f"未知派生对象类型 {otype!r}（§4.4 钦定五类，投影层只消费 river_derive 的产出）：ref={o.get('ref')!r}"
+            )
+    derived = sorted(
+        derived_raw,
+        key=lambda o: (DERIVED_PRECEDENCE.index(str(o.get("object_type") or "")), default_sort_key(o)),
+    )
+
+    slices = {str(s.get("as_of") or ""): s for s in (source.get("slices") or []) if isinstance(s, dict)}
+
+    # 事件日 → 命中它的规则名。指向区间外的事件日不许静默消失（验收 (b) 只有两种合法去向），进 gaps。
+    day_rules: dict[str, set[str]] = {}
+    dangling: list[str] = []
+    for o in derived:
+        rname = rule_name_of(o)
+        for day in event_days_of(o):
+            if day not in slices:
+                dangling.append(f"event_day {day}：无对应切片（derived:{rname} 指向区间外），未投影")
+                continue
+            day_rules.setdefault(day, set()).add(rname)
+    selected_days = sorted(day_rules)
+
+    blocks: list[ProjectedBlock] = []
+    omitted: dict[str, int] = {}
+    omitted_refs: dict[str, list[str]] = {}
+    budget_left: int | None = None if budget is None else int(budget)
+
+    def _omit_refs(track: str, refs: list[str]) -> None:
+        if not refs:
+            return
+        omitted[track] = omitted.get(track, 0) + len(refs)
+        omitted_refs.setdefault(track, []).extend(refs)
+
+    # 1) 派生对象块：一等公民先装，超预算的也按让位序省（排在后面的 signature 先没）。
+    for o in derived:
+        blk = ProjectedBlock(
+            track=str(o.get("track") or ""),
+            object_type=str(o.get("object_type") or ""),
+            object_refs=((str(o.get("ref") or ""), str(o.get("source_hash") or "")),),
+            hardness=hardness_of(o),
+            derivation=derivation_of(o),
+            selected_by=f"derived:{rule_name_of(o)}",
+            rendered_text=render_derived(o),
+        )
+        if budget_left is not None and budget_left <= 0:
+            _omit_refs(blk.track, [ref for ref, _ in blk.object_refs])
+            continue
+        blocks.append(blk)
+        if budget_left is not None:
+            budget_left -= 1
+
+    # 2) 事件日切片块：后装 = 预算不足先省切片（§4.5 规则 4）。每天复用单点投影（不限内部预算，
+    #    省略统一由本层做），块原样进、仅换 selected_by；该日的 limits / gaps 带日期前缀并入。
+    day_limits: list[str] = []
+    day_gaps: list[str] = []
+    for day in selected_days:
+        tag = "+".join(f"derived:{n}" for n in sorted(day_rules[day]))
+        day_proj = project(slices[day], framework_version=framework_version, task=task_norm, rules=rules)
+        day_limits += [f"{day}｜{x}" for x in day_proj.limits]
+        day_gaps += [f"{day}｜{x}" for x in day_proj.gaps]
+        for b in day_proj.blocks:
+            if budget_left is not None and budget_left <= 0:
+                _omit_refs(b.track, [ref for ref, _ in b.object_refs])
+                continue
+            blocks.append(replace(b, selected_by=tag))
+            if budget_left is not None:
+                budget_left -= 1
+
+    src_ref = window_source_ref_of(source)
+    src_ref["selected_days"] = selected_days
+    return ContextProjection(
+        projection_version=PROJECTION_VERSION,
+        framework_version=(str(framework_version).strip() or None) if framework_version else None,
+        task=task_norm,
+        source_ref=src_ref,
+        blocks=tuple(blocks),
+        omitted=dict(sorted(omitted.items())),
+        omitted_refs={k: tuple(v) for k, v in sorted(omitted_refs.items())},
+        limits=tuple(_window_limits(source, derived) + day_limits),
+        gaps=tuple(_window_gaps(source) + day_gaps + dangling),
+        budget={"limit": budget, "used": len(blocks)},
+    )

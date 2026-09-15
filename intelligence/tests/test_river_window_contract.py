@@ -425,6 +425,155 @@ class RiverCorrectionAndHardnessTests(unittest.TestCase):
             self.assertNotIn(needle, "".join(b.rendered_text for b in p2.blocks))
 
 
+class RangeProjectionContractTests(unittest.TestCase):
+    """§4.5 区间投影验收 (a)–(d)：按变化选，不按天铺。
+
+    夹具全在内存（``project_window`` 是纯函数，不读盘）：五个交易日、
+    market 轨每天一条 stage 对象；派生三条——transition（跃迁日 09-03、09-05）、
+    first_event（首现日 09-03，与 transition 同日测 ``selected_by`` 拼接）、
+    cumulative（``gaps_applied`` 非空，测验收 (c)；统计量，不带切片）。
+    """
+
+    DAYS = ("2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04", "2026-09-05")
+
+    def _slice(self, day: str, stage: str) -> dict:
+        obj = RiverObject(
+            track="market", entity_id="E", object_type="stage", ref=f"stage:{day}",
+            source_hash=f"h{day[-2:]}", valid_from=day, recorded_at=f"{day}T18:00:00",
+            payload={"market_stage": stage},
+        ).to_dict()
+        return {
+            "as_of": day, "entity_id": "E", "entity_name": "全市场",
+            "knowledge_cutoff": self.DAYS[-1], "pit_grade": "strict",
+            "hindsight": False, "alias_applied": False, "tracks": {"market": [obj]},
+        }
+
+    def _derived(self, object_type: str, rule: str, days: tuple[str, ...], body: dict, *, gaps_applied: list | None = None, status: str = "ok") -> dict:
+        return {
+            "track": "market", "entity_id": "E", "object_type": object_type,
+            "ref": f"{object_type}:{rule}:E:{days[0]}:{days[-1]}", "source_hash": f"dh:{rule}:{days[-1]}",
+            "valid_from": days[0], "valid_to": days[-1], "recorded_at": None,
+            "hardness": None, "expired_at": None, "superseded_by": None,
+            "validity_kind": "range", "derivation": "deterministic",
+            "payload": {
+                "derivation_rule": {"name": rule, "version": "v1"}, "label_version": "v2",
+                "status": status, "gap_policy": "unverifiable",
+                "gaps_applied": list(gaps_applied or []),
+                "member_refs": [f"stage:{d}" for d in days], "pit_grade": "strict", **body,
+            },
+        }
+
+    def _window(self, days: tuple[str, ...], stages: tuple[str, ...], derived: list[dict]) -> dict:
+        return {
+            "start": days[0], "end": days[-1], "entity_id": "E", "entity_name": "全市场",
+            "knowledge_cutoff": days[-1], "pit_grade": "strict", "hindsight": False,
+            "alias_applied": False,
+            "coverage": {"market": {"days_with_objects": len(days), "days": len(days)}},
+            "days": list(days),
+            "slices": [self._slice(d, s) for d, s in zip(days, stages)],
+            "derived": derived,
+        }
+
+    STAGES = ("震荡", "震荡", "反弹", "反弹", "回落")
+
+    def _fixture(self, days: tuple[str, ...] = DAYS, stages: tuple[str, ...] = STAGES) -> dict:
+        trans = [
+            {"day": "2026-09-03", "from": "震荡", "to": "反弹", "refs": ["stage:2026-09-02", "stage:2026-09-03"]},
+            {"day": "2026-09-05", "from": "反弹", "to": "回落", "refs": ["stage:2026-09-04", "stage:2026-09-05"]},
+        ]
+        return self._window(days, stages, [
+            self._derived("transition", "transition:market_stage", days, {"label": "market_stage", "transitions": trans, "count": len(trans)}),
+            self._derived("first_event", "first_event:market:stage", days, {"first_day": "2026-09-03", "count_on_day": 1}),
+            self._derived("cumulative", "range_aggregate", days, {}, gaps_applied=["missing_dates=['2026-09-04']"], status="unverifiable"),
+        ])
+
+    def test_验收a_同输入两次投影哈希相同(self) -> None:
+        src = self._fixture()
+        p1 = river_projection.project_window(src, framework_version=None, task="t")
+        p2 = river_projection.project_window(src, framework_version=None, task="t")
+        self.assertEqual(p1.projection_hash, p2.projection_hash)
+
+    def test_按变化选_只有事件日切片进投影(self) -> None:
+        p = river_projection.project_window(self._fixture(), framework_version=None, task="t")
+        slice_refs = {ref for b in p.blocks for ref, _ in b.object_refs if ref.startswith("stage:")}
+        self.assertEqual({"stage:2026-09-03", "stage:2026-09-05"}, slice_refs, "非事件日（01/02/04）不得进投影")
+        self.assertEqual(["2026-09-03", "2026-09-05"], p.source_ref["selected_days"])
+        by_ref = {ref: b.selected_by for b in p.blocks for ref, _ in b.object_refs}
+        self.assertEqual(
+            "derived:first_event:market:stage+derived:transition:market_stage",
+            by_ref["stage:2026-09-03"], "同日双规则命中要按字典序 + 连接",
+        )
+        self.assertEqual("derived:transition:market_stage", by_ref["stage:2026-09-05"])
+        self.assertEqual(
+            ["transition", "first_event", "cumulative"],
+            [b.object_type for b in p.blocks[:3]], "派生对象块按让位序排最前",
+        )
+
+    def test_验收b_事件日切片块与单点投影逐字节一致仅换标(self) -> None:
+        src = self._fixture()
+        p = river_projection.project_window(src, framework_version=None, task="t")
+        day_block = next(b for b in p.blocks if ("stage:2026-09-03", "h03") in b.object_refs)
+        solo = river_projection.project(src["slices"][2], framework_version=None, task="t")
+        self.assertEqual(1, len(solo.blocks))
+        want, got = solo.blocks[0].hashed_dict(), day_block.hashed_dict()
+        want.pop("selected_by"), got.pop("selected_by")
+        self.assertEqual(want, got)
+        self.assertEqual(solo.blocks[0].rendered_text, day_block.rendered_text)
+
+    def test_验收b_被预算省略的事件日必须进omitted_refs(self) -> None:
+        p = river_projection.project_window(self._fixture(), framework_version=None, task="t", budget=3)
+        self.assertEqual(3, len(p.blocks))
+        self.assertTrue(all(b.object_type in river_projection.DERIVED_PRECEDENCE for b in p.blocks), "先省切片后省派生对象")
+        for ref in ("stage:2026-09-03", "stage:2026-09-05"):
+            self.assertIn(ref, p.omitted_refs.get("market", ()), "两种去向必居其一：不在投影里就必须在 omitted_refs")
+
+    def test_验收c_gaps_applied必须出现在limits(self) -> None:
+        p = river_projection.project_window(self._fixture(), framework_version=None, task="t")
+        self.assertTrue(
+            any("missing_dates=['2026-09-04']" in x and "range_aggregate" in x for x in p.limits),
+            f"limits 里找不到 cumulative 的 gaps_applied：{p.limits}",
+        )
+
+    def test_验收d_平坦尾巴_延长k天无新事件块数与切片块不变(self) -> None:
+        p5 = river_projection.project_window(self._fixture(), framework_version=None, task="t")
+        days7 = self.DAYS + ("2026-09-06", "2026-09-07")
+        stages7 = self.STAGES + ("回落", "回落")  # 尾巴平坦：无新跃迁、无新首现
+        trans = [
+            {"day": "2026-09-03", "from": "震荡", "to": "反弹", "refs": ["stage:2026-09-02", "stage:2026-09-03"]},
+            {"day": "2026-09-05", "from": "反弹", "to": "回落", "refs": ["stage:2026-09-04", "stage:2026-09-05"]},
+        ]
+        src7 = self._window(days7, stages7, [
+            self._derived("transition", "transition:market_stage", days7, {"label": "market_stage", "transitions": trans, "count": len(trans)}),
+            self._derived("first_event", "first_event:market:stage", days7, {"first_day": "2026-09-03", "count_on_day": 1}),
+            self._derived("cumulative", "range_aggregate", days7, {}, gaps_applied=["missing_dates=['2026-09-04']"], status="unverifiable"),
+        ])
+        p7 = river_projection.project_window(src7, framework_version=None, task="t")
+        self.assertEqual(len(p5.blocks), len(p7.blocks), "块数是变化数的函数，不是天数的函数")
+        slice5 = [b for b in p5.blocks if b.object_type not in river_projection.DERIVED_PRECEDENCE]
+        slice7 = [b for b in p7.blocks if b.object_type not in river_projection.DERIVED_PRECEDENCE]
+        self.assertEqual([b.to_dict() for b in slice5], [b.to_dict() for b in slice7], "切片块逐字节不变")
+        key5 = [(b.track, b.object_type, b.selected_by) for b in p5.blocks]
+        key7 = [(b.track, b.object_type, b.selected_by) for b in p7.blocks]
+        self.assertEqual(key5, key7, "派生对象块的 (track, object_type, selected_by) 序列不变")
+
+    def test_规则4_让位序_预算1只剩transition(self) -> None:
+        p = river_projection.project_window(self._fixture(), framework_version=None, task="t", budget=1)
+        self.assertEqual(["transition"], [b.object_type for b in p.blocks])
+
+    def test_验收d配套_五类之外的派生对象被拒绝(self) -> None:
+        src = self._fixture()
+        src["derived"].append(self._derived("daily_expanded", "sneaky", self.DAYS, {}))
+        with self.assertRaises(ValueError):
+            river_projection.project_window(src, framework_version=None, task="t")
+
+    def test_事件日无对应切片时进gaps不静默消失(self) -> None:
+        src = self._fixture()
+        src["derived"][0]["payload"]["transitions"].append({"day": "2026-08-30", "from": "x", "to": "y", "refs": []})
+        p = river_projection.project_window(src, framework_version=None, task="t")
+        self.assertTrue(any("2026-08-30" in g and "无对应切片" in g for g in p.gaps), f"悬空事件日必须可见：{p.gaps}")
+        self.assertNotIn("2026-08-30", p.source_ref["selected_days"])
+
+
 class SpecPointerRatchetTests(unittest.TestCase):
     """契约指针不得悬空：模块 docstring 引用的 09-06 spec 章节必须真实存在。
 

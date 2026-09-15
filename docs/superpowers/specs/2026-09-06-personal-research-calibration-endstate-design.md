@@ -198,7 +198,7 @@ window(start, end, entity, knowledge_cutoff=C) -> RiverWindow
 规则：
 
 1. 区间投影的一等公民是 §4.4 的**派生对象**，不是每日切片。`transition` / `first_event` 回答「什么时候变的、什么先出现」，这正是区间要答的。
-2. 每日切片**默认不进投影**。只有派生对象 `member_refs[]` 命中的那几天按单点规则投影，标 `selected_by=derived:<rule_name>`——模型看到「3-05 阶段由震荡切反弹」时，能顺着拆回那天的六轨。同一天被多个派生对象命中时，`selected_by` 为全部 `derived:<rule_name>` 按字典序以 `+` 连接（类型仍是 str——单点投影的 `selected_by` 合同与哈希已定，不为多值改类型）。
+2. 每日切片**默认不进投影**。只有派生对象的**事件日**按单点规则投影，标 `selected_by=derived:<rule_name>`——模型看到「3-05 阶段由震荡切反弹」时，能顺着拆回那天的六轨。事件日按类取：`transition` 取 `transitions[].day`（跃迁日）、`first_event` 取 `first_day`；`streak` / `cumulative` / `signature` 是统计量，**只进派生对象块、不带切片**。⚠ 不是按 `member_refs[]` 选：那是证据链（参与计算的全部对象，覆盖区间每一天），按它选就退化成全铺——本节初稿正是这么写的，实现时对照 `river_derive` 才发现。同一天被多个派生对象命中时，`selected_by` 为全部 `derived:<rule_name>` 按字典序以 `+` 连接（类型仍是 str——单点投影的 `selected_by` 合同与哈希已定，不为多值改类型）。
 3. `validity_kind=range` 的对象进上下文必须带 `gap_policy` 与 `gaps_applied[]`：**缺天的累计量不能看起来和完整的一样**。
 4. 预算不足时先省切片、后省派生对象；派生对象之间按 `transition` > `first_event` > `streak` > `cumulative` > `signature` 让位（前两类携带时间因果，后三类是统计量），同类之间沿用单点默认序。**被预算省略的 `member_refs` 命中日必须进 `omitted_refs`**——省略要可见，与单点投影同一机制，不得静默消失。
 
@@ -215,7 +215,7 @@ window(start, end, entity, knowledge_cutoff=C) -> RiverWindow
 - (a) 同一 `(start, end, entity, C, framework_version, task, budget)` 两次投影 `projection_hash` 相同；
 - (b) 派生对象 `member_refs` 所指的天，**出现在投影里的**必须能用 `slice(day, C)` 取回且与投影中该天逐字节一致（可回溯不降级）；**被预算省略的**必须出现在 `omitted_refs`——两种去向必居其一，不允许第三种（静默消失）；
 - (c) 任一派生对象 `gaps_applied` 非空时，其内容必须出现在投影的 `limits` 块里；
-- (d) **块数是变化数的函数，不是天数的函数**：把区间右端延长 k 天、且这 k 天不产生任何新派生对象时，投影块数与内容逐个不变（平坦尾巴不变量，可直接写成夹具测试；「不随区间长度线性增长」是它的推论）。配套约束：**投影层不得自造派生对象，只消费 `river_derive` 的产出**——否则把 `streak` 逐日拆条就能让「变化数」随天数膨胀，本条名存实亡。
+- (d) **块数是变化数的函数，不是天数的函数**：把区间右端延长 k 天、且这 k 天不新增事件（无新跃迁、无新首现、派生规则集不变）时，**块数不变、切片块逐字节不变、派生对象块的 (track, object_type, selected_by) 序列不变**（平坦尾巴不变量，可直接写成夹具测试；「不随区间长度线性增长」是它的推论）。派生对象块的 ref / source_hash / 统计字段（days、coverage）允许随区间自然更新——它们描述的区间本来就变了，钉死它们反而钉错东西。配套约束：**投影层不得自造派生对象，只消费 `river_derive` 的产出**——否则把 `streak` 逐日拆条就能让「变化数」随天数膨胀，本条名存实亡。
 
 ### 4.6 事件锚点契约
 
