@@ -969,6 +969,42 @@ class ResolveDispatchTests(unittest.TestCase):
         self.assertEqual(out.verdict, "hit")
 
 
+class AttributionGateTests(unittest.TestCase):
+    """投影门禁负例（09-06 spec §4.2 / 最小验收集第 12 条；2026-09-15 验收对账点名补）。"""
+
+    def test_bare_agent_judgment_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "checkpoints.jsonl"
+            with self.assertRaisesRegex(ValueError, "缺 projection_hash/model_id"):
+                checkpoints.register_checkpoint(
+                    path, claim="agent 裸判断", due="2026-09-30", object_type="agent_judgment",
+                )
+            self.assertFalse(path.exists())  # 拒收 = 一行都不落
+
+    def test_agent_judgment_with_hash_but_no_model_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "checkpoints.jsonl"
+            with self.assertRaisesRegex(ValueError, "缺 model_id"):
+                checkpoints.register_checkpoint(
+                    path, claim="只有投影哈希", due="2026-09-30",
+                    object_type="agent_judgment", projection_hash="cp:deadbeef00000001",
+                )
+
+    def test_observation_script_without_hash_needs_explicit_user_authored(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "checkpoints.jsonl"
+            with self.assertRaises(ValueError):
+                checkpoints.register_checkpoint(
+                    path, claim="无投影的剧本", due="2026-09-30", object_type="observation_script",
+                )
+            _, rec = checkpoints.register_checkpoint(
+                path, claim="产品外手写的剧本", due="2026-09-30",
+                object_type="observation_script", user_authored=True,
+            )
+            self.assertIsNone(rec.get("projection_hash"))
+            self.assertEqual(rec.get("projection_hash_missing"), "user_authored")
+
+
 class CliHelpTests(unittest.TestCase):
     def test_register_help_renders_without_format_error(self) -> None:
         # 回归：--target 的 help 串里字面量 % 必须转义成 %%，否则 argparse
