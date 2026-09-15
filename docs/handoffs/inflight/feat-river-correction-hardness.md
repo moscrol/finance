@@ -46,13 +46,26 @@
     不是合法实体、六轨 entity_unresolved——问「大盘这段怎么走」要先定实体口径
 - **只加载体，不给 track 填 `hardness` 值**
 
+## 分支已就绪待验收（09-15，四叶等价 CI 全绿）
+
+- python：ruff 绿 + 全量 **9645 passed / 0 failed / 77 skipped / 2 xfailed**（末提交为 docs-only，
+  契约门禁在 spec 改后复跑 40 passed）
+- frontend：`pnpm lint / typecheck / test(76 passed) / build` 全绿（worktree 内 fresh install）
+- e2e：`pnpm test:e2e` **15 passed**（`WORKBENCH_PYTHON` 指 workbench venv）
+- registry-check：`build_registry.py check` 注册表与源一致
+- **未 push 未开 PR**（推送需用户确认）；分支 9 提交，基线 `gitea/main@1fef3d27`
+
 ## 下一步
 
-1. **把 `project_range` 接进消费方**（带读 / ask_synthesis 里「这一段怎么走过来的」类问法）：
-   正门已备好，接线剩三件——消费方在哪个 seam 调（路由/意图判定归消费方）、登记判断时把
-   `projection_inputs_of(cp)` 传进 `register_checkpoint`、以及「全市场」类问法的实体口径。
-2. **接自动触发**：回检 miss → 标 `expired_at`、纠偏 → 写 `superseded_by`。**动手前先按
-   §4.1 写「标注后历史切片逐字节不变」的测试**——expired_at 填当下时刻不是 verdict 到期日。
+1. **触发刀（判断轨修正链）——语义已钉进 spec §4.1「判断轨的修正链语义」，照它做**：
+   真实形状 = judgment provider v1（判断活跃期逐日可见 `valid_to=due` + verdict 对象进河）
+   + corrections 补 checkpoint 关联载体 + 纠偏时旧判断标 `expired_at`（当下时刻）/
+   `superseded_by`。**不是给 miss 标 expired_at**——被证伪的判断必须留在历史切片里，
+   「已证伪」由 verdict 对象承担；miss 的失效触发在证据边已存在（`checkpoint_writeback`）。
+   ⚠ provider v1 会改变含 judgment 轨的切片内容与投影哈希——是语义升级不是回归，预期它。
+2. **把 `project_range` 接进消费方**（带读 / ask_synthesis「这一段怎么走过来的」类问法）：
+   正门已备好，剩 seam 选择（归消费方）、登记时传 `projection_inputs_of(cp)`、
+   「全市场」类问法的实体口径（实体是板块粒度）。
 3. **给各 track 填 `hardness`**。⚠ 填值后 `projection_hash` 会变（hardness 在哈希白名单里，
    刻意），要预期并重绑基线；`expired_at`/`superseded_by` 相反不进哈希，测试已钉。
 4. `river_anchor.lookback` 仍是 v0 占位。§4.6 分工与完成判据已写进 spec。
