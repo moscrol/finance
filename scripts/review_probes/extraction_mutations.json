@@ -310,5 +310,45 @@
     "targets": [
       "test_bad_line_round_trips_exact_bytes_through_export"
     ]
+  },
+  {
+    "id": "M32",
+    "description": "M32 去掉遗留确认行（无 action_event）的内容身份去重，只按动作键认",
+    "path": "intelligence/services/observation_script.py",
+    "old": "                if not meta and str(existing.get(\"status\") or \"\") in {\"confirmed\", \"late\"}:",
+    "new": "                if False:",
+    "targets": [
+      "test_legacy_confirmed_row_without_action_event_is_not_duplicated"
+    ]
+  },
+  {
+    "id": "M33",
+    "description": "M33 遗留行身份漏掉 due 维度：改回检日期被旧行吞掉",
+    "path": "intelligence/services/observation_script.py",
+    "old": "            \"due\": str(due or \"\"),\n            \"entity_ids\": list(extraction.normalize_values(entity_ids)),",
+    "new": "            \"entity_ids\": list(extraction.normalize_values(entity_ids)),",
+    "targets": [
+      "test_legacy_match_requires_full_content_identity"
+    ]
+  },
+  {
+    "id": "M34",
+    "description": "M34 导出丢弃合法 JSON 非记录行（回退 F2）",
+    "path": "intelligence/services/personal_export.py",
+    "old": "        out.append(_carried(raw_line, line))\n    return out",
+    "new": "    return out",
+    "targets": [
+      "test_non_record_line_is_carried_not_dropped"
+    ]
+  },
+  {
+    "id": "M35",
+    "description": "M35 导出静默跳过全空白行（回退 F3）",
+    "path": "intelligence/services/personal_export.py",
+    "old": "            out.append(_carried(raw_line, raw_line.decode(\"utf-8\")))\n            continue",
+    "new": "            continue",
+    "targets": [
+      "test_non_record_line_is_carried_not_dropped"
+    ]
   }
 ]

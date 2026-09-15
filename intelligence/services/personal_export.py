@@ -76,6 +76,15 @@ class ExportResult:
         }
 
 
+def _carried(raw_line: bytes, preview: str) -> dict[str, Any]:
+    """搬不成记录的一行：可读预览 + 原始字节 hex。**四个分支唯一的构造点。**
+
+    每个分支各拼一份 dict，迟早会有一个分支忘了带 hex（本文件的前一版就是这样：
+    `UnicodeDecodeError` 那支带了、`JSONDecodeError` 那支带了、另外两种情形整行丢弃）。
+    """
+    return {"_unparsed_line": preview, "_unparsed_bytes_hex": raw_line.hex()}
+
+
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
@@ -85,26 +94,32 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     # **整份导出失败**，而不是丢一行。台账侧 2026-09-14 修过同一个形状，
     # 导出侧是同族的第二处（「修了一处，先问同族还有谁」）。
     for raw_line in path.read_bytes().split(b"\n"):
+        if not raw_line:
+            continue  # 行分隔符自己切出来的空段（含末尾那个换行）：没有字节，没有行
         try:
             line = raw_line.decode("utf-8").strip()
         except UnicodeDecodeError:
             # backslashreplace 只是预览：坏字节 e7 与原文中的字面量 \\xe7 显示相同。
             # 独立保留原始 hex，才可逐字节还原（包括空白），不猜反斜杠来自哪里。
-            out.append({
-                "_unparsed_line": raw_line.decode("utf-8", errors="backslashreplace"),
-                "_unparsed_bytes_hex": raw_line.hex(),
-            })
+            out.append(_carried(raw_line, raw_line.decode("utf-8", errors="backslashreplace")))
             continue
         if not line:
+            # 全空白行（``"   "`` / ``" \t\r"``）：有字节就有证据，照样搬走并计数。
+            out.append(_carried(raw_line, raw_line.decode("utf-8")))
             continue
         try:
             rec = json.loads(line)
         except json.JSONDecodeError:
             # 坏行不静默丢：原样带走，让用户看得见台账里确实有这么一行。
-            out.append({"_unparsed_line": line, "_unparsed_bytes_hex": raw_line.hex()})
+            out.append(_carried(raw_line, line))
             continue
         if isinstance(rec, dict):
             out.append(rec)
+            continue
+        # 合法 JSON 但不是记录（``[1,2]`` / ``"str"`` / ``42`` / ``null`` / ``true``）。
+        # 它同样是台账里真实存在的一行：不静默丢，也照实计数
+        # （复审六 F2 实测：7 行台账导出只剩 2 行、counts=2，五行既不在导出也不在计数里）。
+        out.append(_carried(raw_line, line))
     return out
 
 

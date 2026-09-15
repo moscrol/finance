@@ -493,6 +493,41 @@ def _confirm_action_key(
     )
 
 
+def _legacy_confirm_identity(
+    *,
+    user_id: Any,
+    as_of: Any,
+    scope: Any,
+    due: Any,
+    entity_ids: Any,
+    fields: Mapping[str, Any],
+) -> str:
+    """**升级前**成功确认行的内容身份：动作键的「内容」那几维，不含来源版本 / 尝试 / 入口。
+
+    `action_event` 的唯一写点是 `register` 本身，所以本次升级之前落盘的确认行**没有**
+    动作键可比——只按动作键去重，等于对这些行完全不去重（复审六 F1 实测：同一动作
+    重试新增第二条 confirmed，还把同一个可证伪点重复登记进回检队列）。
+
+    维度刻意与 `_confirm_action_key` 的内容部分逐一对齐（user / as_of / scope / due /
+    实体 / `DIFF_FIELDS`），且两侧共用本函数推导——各推一份必然漂成两个键。
+    遗留行里根本没记来源版本与尝试，拿它们当判据只会永不命中；能比的维度全比上，
+    比不了的维度不假装比过。
+    """
+    payload = json.dumps(
+        {
+            "user_id": str(user_id or ""),
+            "as_of": str(as_of or ""),
+            "scope": str(scope or ""),
+            "due": str(due or ""),
+            "entity_ids": list(extraction.normalize_values(entity_ids)),
+            **{f: list(extraction.normalize_values(fields.get(f))) for f in extraction.DIFF_FIELDS},
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+    return hashlib.sha1(payload.encode("utf-8")).hexdigest()
+
+
 def to_claim(script: ObservationScript) -> str:
     """剧本 → 可证伪陈述（checkpoint 的 ``claim``）。
 
@@ -720,12 +755,35 @@ def register(
         # 认领与去重必须在**产生 checkpoint 之前**：先登记再发现重复，
         # 回检队列里已经多了一条，删不掉也不该删（台账 append-only）。
         if action_key is not None:
+            legacy_identity = _legacy_confirm_identity(
+                user_id=stamped.user_id,
+                as_of=stamped.as_of,
+                scope=stamped.scope,
+                due=due_norm,
+                entity_ids=stamped.entity_ids,
+                fields={f: getattr(stamped, f) for f in extraction.DIFF_FIELDS},
+            )
             for existing in raw_now:
-                if (
-                    record_kind_of(existing) == RECORD_SCRIPT
-                    and str((existing.get("action_event") or {}).get("action_key") or "") == action_key
-                ):
+                if record_kind_of(existing) != RECORD_SCRIPT:
+                    continue
+                meta = existing.get("action_event") or {}
+                if str(meta.get("action_key") or "") == action_key:
                     return p, dict(existing)
+                # 没有动作元数据的成功确认行 = 升级前落的盘（也含旧的非受控确认路径）。
+                # 它没有键可比，只能按内容身份认；认得出就原样返回，绝不新增第二条。
+                if not meta and str(existing.get("status") or "") in {"confirmed", "late"}:
+                    if (
+                        _legacy_confirm_identity(
+                            user_id=existing.get("user_id"),
+                            as_of=existing.get("as_of"),
+                            scope=existing.get("scope"),
+                            due=existing.get("due"),
+                            entity_ids=existing.get("entity_ids"),
+                            fields=existing,
+                        )
+                        == legacy_identity
+                    ):
+                        return p, dict(existing)
         # 复验尝试仍可写，和 submit_draft / record_event 同一道闸：并发 close 可以插在
         # 「CLI 的门过了」与「这里落盘」之间，上一轮只给那两处加了复验，这里漏了，
         # 于是同一个尝试上同时出现 abandoned=true 与一条确认 + 一个 checkpoint。

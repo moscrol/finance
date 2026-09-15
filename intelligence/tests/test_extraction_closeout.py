@@ -85,6 +85,98 @@ def test_distinct_confirmation_actions_have_distinct_record_ids(tmp_path, change
     assert len({event["script_id"] for event in events}) == 2
 
 
+@pytest.mark.parametrize(
+    "fragment",
+    [b"[1, 2]", b'"str"', b"42", b"null", b"true", b"   ", b" \t\r"],
+    ids=["array", "string", "number", "null", "bool", "spaces", "blank-cr"],
+)
+def test_non_record_line_is_carried_not_dropped(tmp_path, fragment):
+    """合法 JSON 但不是记录的行、全空白行，同样是台账行：不静默丢、计数、可逆（QC6 F2/F3）。"""
+    ledger = tmp_path / "observation_scripts.jsonl"
+    user = SimpleNamespace(user_id="closeout", observation_scripts_path=ledger)
+    original = b'{"id":"before"}\n' + fragment + b'\n{"id":"after"}\n'
+    ledger.write_bytes(original)
+    result = personal_export.export_ledger(user, now="2026-09-15T00:00:00Z")
+    rows = json.loads(json.dumps(result.to_dict(), ensure_ascii=False))["observation_scripts"]
+    assert rows[0] == {"id": "before"}
+    assert rows[-1] == {"id": "after"}
+    assert bytes.fromhex(rows[1]["_unparsed_bytes_hex"]) == fragment
+    assert result.counts["observation_scripts"] == 3
+    assert ledger.read_bytes() == original
+
+
+def _legacy_confirm_fixture(tmp_path, **common_over):
+    common = dict(
+        as_of="2026-09-02", scope="theme", user_id="u1", entity_ids=["990306.FP"],
+        variables=["题材轨：题材所处阶段是否推进"],
+        downgrade_or_abandon_conditions=["题材轨阶段标签回退或转为缺口"],
+        recorded_at="2026-09-02T18:00:00+08:00", status="confirmed",
+    )
+    common.update(common_over)
+    options = dict(
+        checkpoints_path=tmp_path / "checkpoints.jsonl",
+        due="2026-09-03", user_authored=True, entrypoint="confirm_from_draft",
+        source_draft_id="draft-v1", attempt_id="attempt-a",
+    )
+    return common, options
+
+
+def test_legacy_confirmed_row_without_action_event_is_not_duplicated(tmp_path):
+    """升级前的成功确认行没有 action_event；同一动作重试必须原样返回它，
+    不新增行、不重复登记 checkpoint（QC6 F1）。"""
+    ledger = tmp_path / "observation_scripts.jsonl"
+    common, options = _legacy_confirm_fixture(tmp_path)
+    _, first = osc.register(ledger, osc.make(**common), **options)
+    stripped = ("action_event", "record_kind", "entrypoint", "extraction_attempt_id", "source_draft_id")
+    legacy = {k: v for k, v in first.items() if k not in stripped}
+    legacy["id"] = "os-2026-09-02-abcdef"
+    ledger.write_text(json.dumps(legacy, ensure_ascii=False) + "\n", encoding="utf-8")
+    checkpoints_before = (tmp_path / "checkpoints.jsonl").read_bytes()
+
+    _, retry = osc.register(
+        ledger, osc.make(**{**common, "recorded_at": "2026-09-05T09:00:00+08:00"}), **options
+    )
+
+    assert retry == legacy
+    assert [r["id"] for r in osc.load_raw(ledger)] == ["os-2026-09-02-abcdef"]
+    assert (tmp_path / "checkpoints.jsonl").read_bytes() == checkpoints_before
+
+
+@pytest.mark.parametrize(
+    "change",
+    ["due", "user", "as_of", "entity",
+     "variables", "upgrade_conditions", "downgrade_or_abandon_conditions", "machine_conditions"],
+)
+def test_legacy_match_requires_full_content_identity(tmp_path, change):
+    """遗留行匹配的维度必须与动作键的内容维度一致：任一维度不同 = 另一个动作，照常新增。"""
+    ledger = tmp_path / "observation_scripts.jsonl"
+    common, options = _legacy_confirm_fixture(tmp_path)
+    _, first = osc.register(ledger, osc.make(**common), **options)
+    stripped = ("action_event", "record_kind", "entrypoint", "extraction_attempt_id", "source_draft_id")
+    legacy = {k: v for k, v in first.items() if k not in stripped}
+    legacy["id"] = "os-2026-09-02-abcdef"
+    ledger.write_text(json.dumps(legacy, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    common["recorded_at"] = "2026-09-05T09:00:00+08:00"
+    if change == "due":
+        options["due"] = "2026-09-04"
+    elif change == "user":
+        common["user_id"] = "u2"
+    elif change == "as_of":
+        common["as_of"] = "2026-09-01"
+    elif change == "entity":
+        common["entity_ids"] = ["990307.FP"]
+    else:
+        # 机检条件有格式门（形如 advancers>=3000），文本轨用自然语句。
+        extra = "advancers>=3000" if change == "machine_conditions" else "另一条件：板块连续放量"
+        common[change] = [*common.get(change, []), extra]
+
+    _, second = osc.register(ledger, osc.make(**common), **options)
+
+    assert second["id"] != legacy["id"], f"改 {change} 仍被遗留行吞掉"
+    assert len(osc.load_raw(ledger)) == 2
+
+
 def test_retry_preserves_preexisting_confirmation_id(tmp_path):
     ledger = tmp_path / "observation_scripts.jsonl"
     script = osc.make(
