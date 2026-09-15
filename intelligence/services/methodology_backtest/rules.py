@@ -70,6 +70,8 @@ LABEL_KINDS: dict[str, tuple[str, str]] = {
     "mainline_flag": ("theme", "bool"),
     # 舆论生命周期段（#36 / G-06）：文本标签，词表见 opinion_stage.STAGES + "unverifiable"。
     "opinion_stage": ("theme", "text"),
+    # 题材生命周期七段（#21 剩余 / G-04）：文本标签，词表见 theme_stage_vocab.CANONICAL_STAGES。
+    "lifecycle_stage": ("theme", "text"),
     "market_stage": ("market", "text"),
     "volume_surge": ("market", "bool"),
     "ma5_peak_confirmed": ("market", "bool"),

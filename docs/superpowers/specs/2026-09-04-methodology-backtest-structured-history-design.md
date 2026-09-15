@@ -85,7 +85,7 @@ flowchart LR
 | market | `volume_surge` | `amount_vs_yesterday_pct > 10`（与 `detect_turning_points` 同口径） | 同上 |
 | market | `ma5_peak_confirmed` / `ma5_valley_confirmed` | 复用 `detect_turning_points.detect` 的确认日算法，标在**确认日** | 同上 |
 | stock（P1） | `limit_up` / `first_board` / `new_high_1y` | `fact_limit_advance_daily` / `fact_stock_high_daily` | — |
-| theme（P1） | `lifecycle_stage`（启动 / 发酵 / 高潮 / 分歧 / 退潮） | 需先设计规则并用 `theme-fermentation-tracer` 的历史链路做人工标注对照 | — |
+| theme（P1） | `lifecycle_stage` ~~（启动 / 发酵 / 高潮 / 分歧 / 退潮）~~ **五段预留已作废（2026-09-08，工单 #21 剩余 / G-04）：改用七段词表 `theme_stage_vocab.CANONICAL_STAGES`（酝酿 / 首发 / 发酵 / 主升 / 分歧 / 退潮 / 回流，启动 → 首发、高潮 → 主升），值由 `theme_lifecycle_timeline.derive_stages` 状态机派生** | 已落旁路库（`LABEL_VERSION` v4）；人工对照集草稿 `methodology/reference/theme_stage_reference_set.jsonl`，`stage_manual` 待创始人填 | `lifecycle_stage` |
 | theme（P1） | `news_event`（消息面事件） | KB `evidence_index / theme_signals.recognition_timeline` 按日对齐 | 知识库仓 |
 
 **为什么先做规则标签、不做图像识别 / 学习表征**（三条路对比，结论写死，执行方不要重开）：
