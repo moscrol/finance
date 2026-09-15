@@ -1,27 +1,30 @@
 # fix/e2-boundary-closeout
 
 ## 这个分支做什么
-按 v10 分片收口 E2 材料边界；开发树 `fwp-wt-e2-boundary-closeout`，主树不动。
+按v10分片收口E2材料边界；只动fwp-wt-e2-boundary-closeout，主树不动。
 
 ## 当前状态
-应用 P3e 修复已在 `0b83e14f` 提交，P3e 独立 QC 已通过并完成仓内归档；当前仅有产品门、作者收据说明、独立报告/证据归档与本交接的未提交文档改动，尚未推送、合并或部署。正式 T2→T3/Knevo 暂不运行。
+`a819ecde` 已提交P3f1真实消息材料身份绑定及作者归档；固定干净检出复验完成。待独立QC，不推进正式T2→T3/Knevo，未推送/合并/部署。
+P3e独立通过仅限词典闸门；原P3f一律清空历史已反证撤回，不恢复该方案。
 
 ## 决策与被否方案
-- P3e 只判 `QueryResolver` 词典早读闸门；不把 41P/347P 外推成完整 P3，避免局部证据伪装成全链安全。
-- 保留首次启动器误拒 41 次及日志；不以修正版收据覆盖失败历史，保证审查器自身故障可追溯。
-- 独立报告、失败/修正版收据、启动器、补针和哈希入仓；不只在 `/tmp` 留证，避免临时证据丢失。
-- 归档后再决定下一片；不直接进入正式 T2→T3/Knevo，也不把 controller 前 history/context 与 P3e 合并处理。
+- 从completed用户Message、内容材料ID及message_id绑定；否决从正文角色/标题猜来源，防伪装和误截断。
+- 共用既有窗口，只取完整消息；否决无限历史/片段冒充原件。summary-only标不可恢复，已知空投影不回读prompt。
+- 当前明确material_only才启用；默认controller及legacy frame重建接线，旧注入签名兼容，不扩大到普通/full/local_only。
+- 坐标≠事实证据≠权限；本片不保存正文、不改controller历史提示词。完整理由：`docs/handoffs/2026-09-15-e2-p3f1-source-binding.md`。
 
 ## 已验证
-独立审查固定 `0b83e14f`：focused 作者测试+独立补针 41P、修正版禁止 IO 尝试0；相关八文件回归347P、禁止 IO 尝试0；改动 Python 文件 Ruff 通过。首次 focused 36 errors/5 failed，原因是 `/tmp` 与 `/private/tmp` 路径比较错误，原件已保留。报告见 `docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915-independent-qc-20260915/`。产品门和作者 README 已更新为“独立 QC 完成、仅限本片”。
+a819ecde干净树作者八文件249P/禁止尝试0，检查器15P、Ruff通过。三处撤线6F/27P、2F/31P、2F/31P，恢复33P，均0禁止尝试。初版4F/4P；最终八针加来源坐标后基线6F/2P，不混读。
+Git归档P3f1 68/68、P3e 26/26、被否P3f 27/27。固定提交收据：`docs/verification/e2-boundary-closeout/p3f1-a819ecde-committed-recheck/`。
 
 ## 未验证 / 已知边界
-P3 仍未完成：controller 前 history/context、静态路由/简称/日历先验、预取前歧义与不可恢复基底澄清、注入式 resolver、可信继承、四组九类来源过滤、恢复/压缩/子研究/非工具事实、确定性/legacy 回落及交付后读取。local_only 原题号槽和更多 runner、P4–P7、前端/E2E/完整 registry-check 未完成。不得将本片声明扩展到 `understand_query` 零 IO、真实入口隔离或产品验收。
+P3f1无独立QC。相邻两文件110P但100次禁止尝试、shell exit3：83次版本子进程、16次用户目录扫描、1次localhost:3456解析。无审计110P不能洗掉失败；尚无该集合零尝试结论。
+未盖controller模型历史、pending恢复/已有注入frame重验、D7权限继承、Episode历史正文交付、最终答案。其余P3静态路由/日历/未知基底/旁路、local_only更多runner与原题号槽、P4–P7及全仓/前端/E2E合入门禁仍未完。
 
 ## 下一步
-1. 核对归档目录、哈希、产品门、作者 README 和本文件的 diff；仅按 pathspec 提交文档。
-2. 提交后再决定下一片；若继续，先冻结 controller 前 history/context 与 QueryResolver 交界的小片，作者验证后独立 QC。
-3. 合并/部署及正式 T2→T3/Knevo 均等待用户另行授权。
+1. 独立上下文复核a819ecde及新正反例，先读作者范围与原失败，不把作者复跑称QC。
+2. 通过后再冻结历史提示词及正文送达小片，不能直接宣称来源全链安全。
+3. 能力图谱有他人脏改；harness-reference BUILD也脏且HEAD领先远端1，图谱/KIT工具索引待安全专树回写。
 
 ## 踩过的坑
-每条 shell 显式 `cd`；pytest/ruff 使用 `.venv-workbench/bin/python`。审查器路径必须对临时根 `resolve()` 后比较；Python audit hook 不是 OS 沙箱，native IO 需另拦。相关回归 347P 不能替代完整 453P 隔离结论；各组收据不相加。
+shell显式cd；pytest/ruff用主树venv。重叠集合不相加；计数先于异常，Python audit不是OS沙箱。原证据逐字节保留、提交后检查Git blob完整性。初版八针未单独快照，before日志留函数；最终快照不冒充初版。
