@@ -2,7 +2,7 @@
 
 测试代码固定于 `40317d780d71de03ca6884c4c437b9accece0b49`。这份归档不修改运行代码；不是生产切源验收——那些对 c85d0101 成立的结论不借给本片。背景、决定、各收据适用范围见 [日期快照](../../handoffs/2026-09-15-hithink-stock-preview.md)。
 
-归档分两批：第一批（交接时）只有定向 277P；第二批（同日续跑）补齐全量、12 项删保护变异、全仓 Ruff、前端四叶与 registry 只读检查。全量跑在 `2ad19f35`（`40317d78` + 纯文档归档提交，`git diff 40317d78..2ad19f35 -- ':!docs'` 为空，代码等同）。
+归档分三批：第一批（交接时）只有定向 277P；第二批（同日续跑）补齐全量、12 项删保护变异、全仓 Ruff、前端四叶与 registry 只读检查。全量跑在 `2ad19f35`（`40317d78` + 纯文档归档提交，`git diff 40317d78..2ad19f35 -- ':!docs'` 为空，代码等同）。第三批（同日，QC P3 修复）：修复提交 `728ecf82`（stock/sector CLI 失败 fallback 补 `contract_version`、sector 片新增 `hithink-sector-preview-v1` 进成功报告、文档写明 2026 日历边界、`row=None` 防御性重置），3 项删保护变异见红 + 全量复跑 9834P 零回归。
 
 ## 证据索引
 
@@ -22,6 +22,16 @@
 | registry（第二批） | `hithink-stock-preview-registry-{crossrepo-check,crossrepo-check-parseability,generate-views}.output.json`、各 `.exit` | check-parseability 60/60 与 generate-views（跑后树仍干净）exit0；跨仓 check exit1，7 处漂移全在 kb/ 侧、finance 侧零漂移，与前一片记录一致，是他仓既存问题不是本片新增。backfill-tables 会写姊妹仓，未跑 |
 | QC 配额探针（第二批） | `hithink-stock-preview-qc-probe.output.json`、`.exit` | codex 网关最小探针 exit0（此前两片卡额度/503 的门已通）；后按用户指示独立 QC 改用 k3，codex 正式复核已中止（其部分 session 存 `qc-40317d78-codex-aborted-session-log.output.json`，不作复核证据） |
 | 独立 QC（第二批，k3） | `qc-40317d78-{request-md,report-md,k3-session-log,k3-exit-code,probes-py,author-tests-*,qc_probes_output-*}.output.json`、四份收据 `20260915T10{3556,4513,4732,5745}Z-40317d78.json` | k3（pi/provider mirasim-kimi）隔离树复核 exit0：**无 P0/P1/P2**；155 项独立探针+CLI/类型边界全过；QC 自跑全量 9836P/0F/77S（作者侧 9834P/79S：两侧总数同为 9913、均 0 失败，差异是 2 项在作者壳下 skip、在 QC 壳下执行并通过）。两条 P3（CLI 失败路径缺 contract_version、文档缺 2026 年份边界说明）与两条观察项见报告 §3。复核后作者树/分支 ref/QC 树零污染由作者独立核验，vault 变动归因为其他并发会话 |
+
+### 第三批（QC P3 修复，728ecf82）
+
+| 证据 | 落点 | 结论与限制 |
+|---|---|---|
+| 修复后定向 | `20260915T113143Z-a8616d74.json`（dirty，提交前首跑）、`20260915T113340Z-728ecf82.json`（干净基线复跑） | 两个 preview 测试文件 139P（含 5 条新增 `contract_version` 断言，测试函数数不变）。`20260915T113400Z-728ecf82.json` 是一次含不存在文件名的误跑（no tests ran），不作证据 |
+| 删保护变异（3/3 红） | `p3fix-mutations.json`、收据 `20260915T1133{04,17,34}Z-728ecf82.json` | 三个新增 `contract_version` 落点（stock CLI fallback / sector CLI fallback / sector 成功报告）逐一删除，红的是语义对应测试（2F/1F/2F），还原后 139P 干净。`row=None` 重置无行为差异、无对应变异，如实记录为防御性改动 |
+| 兄弟 hithink 测试 | `20260915T113421Z-728ecf82.json` | 九个既有 hithink 测试文件 132P，sector 成功报告加字段未破任何消费者断言 |
+| QC 复现命令重放 | `p3fix-p3-stock-invalid-options{,.exit}.output.json`、`p3fix-p3-{stock,sector}-fallback{,.exit}.output.json` | QC P3-1 的字面复现命令（`--trade-date 2026-10-01`，空隔离库）现输出 `contract_version=hithink-stock-preview-v1` + `invalid-preview-options`；库不可达路径两片同带各自版本，均 exit2 且未创建库目录。指纹仍不补——失败时范围未验证、输入未读到 |
+| 全量复跑 | `p3fix-full-728ecf82.output.json`、`p3fix-full-728ecf82.exit`、`20260915T114624Z-728ecf82.json` | 干净 728ecf82 全量 9834P/79S/2X、698s、exit0，计数与第二批基线一致（零回归）；收据七项条件核验「可采信」。全仓 Ruff 同轮通过（未另存输出件） |
 
 ## 无损格式与核验
 

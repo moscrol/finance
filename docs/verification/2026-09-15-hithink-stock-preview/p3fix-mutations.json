@@ -1,0 +1,45 @@
+{
+ "batch": 3,
+ "purpose": "QC P3 修复的删保护变异：三个新增 contract_version 落点逐一删除，断言对应测试见红",
+ "revision_under_test": "728ecf824c283a5bde7f0f3bf7b7d251148e36f6",
+ "method": "git 已提交还原点；每轮改动前 assert 锚点唯一、跑后 git checkout -- 还原并清 market_feature_store __pycache__；CLI 测试经子进程重新 import，不受进程内缓存影响",
+ "mutations": [
+  {
+   "id": "m1-stock-cli-fallback",
+   "file": "market_feature_store/cli.py",
+   "edit": "删 cmd_hithink_stock_preview fallback dict 的 \"contract_version\": CONTRACT_VERSION 行",
+   "expected_red": [
+    "test_cli_missing_database_never_initializes_it",
+    "test_cli_missing_action_table_and_invalid_scope_are_structural"
+   ],
+   "observed": "2 failed, 93 deselected",
+   "receipt": "20260915T113304Z-728ecf82.json"
+  },
+  {
+   "id": "m2-sector-cli-fallback",
+   "file": "market_feature_store/cli.py",
+   "edit": "删 cmd_hithink_sector_preview fallback dict 的 \"contract_version\": CONTRACT_VERSION 行",
+   "expected_red": [
+    "test_cli_missing_db_fails_structurally_without_creating_it"
+   ],
+   "observed": "1 failed, 43 deselected",
+   "receipt": "20260915T113317Z-728ecf82.json"
+  },
+  {
+   "id": "m3-sector-success-report",
+   "file": "market_feature_store/hithink_sector_preview.py",
+   "edit": "删 preview_sector_calculation 返回 dict 的 \"contract_version\": CONTRACT_VERSION 行",
+   "expected_red": [
+    "test_real_cli_is_read_only_and_returns_nonzero_for_incomplete[True/False]"
+   ],
+   "observed": "2 failed, 42 deselected",
+   "receipt": "20260915T113334Z-728ecf82.json"
+  }
+ ],
+ "baseline_after_restore": {
+  "result": "139 passed",
+  "receipt": "20260915T113340Z-728ecf82.json",
+  "dirty": false
+ },
+ "not_mutated": "row=None 防御性重置（观察项2）：当前无行为差异（异常路径本就被 reasons 守卫拦住），不存在能让它单独见红的测试，如实记录为防御性改动而非行为修复"
+}
