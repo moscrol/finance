@@ -10,6 +10,10 @@
 
 输出不是机械字段表，而是"阶段 + 市场奖励谁/抛弃谁 + 相对昨天变化了什么"。
 纯规则、确定性、可测试；与个股深挖共享 market_structure 的阶段判定。
+
+词表（G-04 已统一）：八阶段是本模块的**细词**，保留叙事判读粒度；跨模块联立 / 数据层
+引用用 ``to_dict()`` 里的 ``stage_canonical``（钦定七段词，映射见
+``theme_stage_vocab.TO_CANONICAL``），不再要求引用方标模块。
 """
 
 from __future__ import annotations
@@ -17,6 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from intelligence.services import theme_stage_vocab
 from intelligence.services.market_structure import (
     MarketStructureState,
     PHASE_HIGH_LOW_SWITCH,
@@ -82,6 +87,10 @@ class ThemeLifecycleDiagnosis:
         return {
             "theme": self.theme,
             "stage": self.stage,
+            "stage_canonical": theme_stage_vocab.to_canonical(
+                self.stage, theme_stage_vocab.MODULE_DIAGNOSIS
+            ),
+            "vocab_version": theme_stage_vocab.VOCAB_VERSION,
             "guidance": self.guidance,
             "market_phase": self.market_phase,
             "signals": list(self.signals),

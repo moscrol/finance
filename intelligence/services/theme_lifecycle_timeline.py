@@ -6,7 +6,8 @@
       + 市场奖励谁/抛弃谁，已接进 ask/agent 运行时。
     - 本模块：答「这个题材**历史上**怎么走过来的」。输入是 DuckDB 盘面逐日行（+可选
       消息面日期），输出可回放的**盘面结构段**时间线（严格双红口径），每段带触发条件。
-      两套阶段词表口径不同（交易叙事 vs 盘面结构），引用时须标明来源模块，不得混用。
+      词表（G-04 已统一）：本模块七段就是钦定 canonical 词（``theme_stage_vocab``），
+      八阶段诊断经 ``TO_CANONICAL`` 映射同名；跨模块联立不再要求引用方标模块。
 
 背景（为什么要这个模块）：
     theme-radar 给当前快照、fermentation-tracer 给发酵链路回溯、theme_lifecycle 给当前
@@ -37,7 +38,7 @@ from pathlib import Path
 from typing import Any
 
 from intelligence.paths import default_market_db_path
-from intelligence.services import retrieval_cache
+from intelligence.services import retrieval_cache, theme_stage_vocab
 from market_feature_store import signals as _signals
 
 DEFAULT_MARKET_DB_PATH = default_market_db_path()
@@ -89,9 +90,13 @@ class StageSegment:
     end_date: str
     trigger: str
 
-    def to_payload(self) -> dict[str, str]:
+    def to_payload(self) -> dict[str, str | None]:
         return {
             "stage": self.stage,
+            # 本模块七段即 canonical 词；仍显式过 to_canonical，保证映射只有一个出处
+            "stage_canonical": theme_stage_vocab.to_canonical(
+                self.stage, theme_stage_vocab.MODULE_TIMELINE
+            ),
             "start_date": self.start_date,
             "end_date": self.end_date,
             "trigger": self.trigger,
@@ -119,6 +124,10 @@ class ThemeTimelineArtifact:
             "theme": self.theme,
             "available": self.available,
             "current_stage": self.current_stage,
+            "current_stage_canonical": theme_stage_vocab.to_canonical(
+                self.current_stage, theme_stage_vocab.MODULE_TIMELINE
+            ),
+            "vocab_version": theme_stage_vocab.VOCAB_VERSION,
             "segments": [s.to_payload() for s in self.segments],
             "gaps": list(self.gaps),
             "params": dict(self.params),

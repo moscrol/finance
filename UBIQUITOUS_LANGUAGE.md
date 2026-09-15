@@ -91,6 +91,24 @@
 | **来源状态** | 当前指数阶段之前的上一段关键状态，用于判断阶段性质和风险收益位置 | 前置状态、前序阶段 |
 | **指数区间涨跌幅** | 指数在一段关键区间内的累计涨跌幅，用于辅助判断上涨空间、回撤幅度和阶段位置 | 区间涨幅、大盘涨跌幅 |
 
+## 题材生命周期钦定词表（G-04；`theme_stage_vocab`，`tsv-v1`）
+
+题材阶段只有**一套 canonical 词**：**酝酿 / 首发 / 发酵 / 主升 / 分歧 / 退潮 / 回流**（取自七段时间线——库内逐日行确定性派生、任意历史区间可重放）。两模块细词经 `theme_stage_vocab.TO_CANONICAL` 映射后同名，「引用必须标模块」的临时纪律在**数据层退出**：跨模块联立、错位标记、落账一律引用 `stage_canonical`（payload 均带 `vocab_version`）。
+
+| 八阶段细词（`theme_lifecycle` 诊断） | canonical | 备注 |
+|---|---|---|
+| 新出现 / 旧逻辑唤醒 | 酝酿 | 证据侧起点，无盘面确认不声称「首发」 |
+| 升温验证 | 发酵 | |
+| 加速定价 | 主升 | |
+| 高位分歧 | 分歧 | |
+| 二阶段回流 | 回流 | |
+| 衰退观察 / 证伪退出 | 退潮 | 证伪语义由细词与 signals 保留 |
+| 无法判定 | —（`None`，不在序上） | |
+
+- 细词**不废除**：八阶段的叙事判读粒度（奖励谁 / 抛弃谁）保留在模块 `stage` + `guidance` 字段，canonical 是并排新增字段，信息不丢。
+- 粗序（early / mid / late）由 canonical 词派生（`coarse_of`），旧 `tsc-v0` 手工双表退役为派生物，行为逐字节不变（`test_theme_stage_vocab` 冻结对照锁死）。
+- **尚未切**（等人工对照集裁定，不抢跑）：prompt / 渲染层的显示词、canonical 阶段入旁路库标签与 `LABEL_VERSION` 升版。对照集 `scripts/theme_stage_concordance.py`（build 生成待标注模板 / report 出一致率，N < 10 只报样本不足），标注规则见 `docs/learning/theme-stage-concordance/README.md`。
+
 ## 舆论生命周期（工单 #36 / G-06；派生规则 `opinion_stage.derive_stage`，`os-v0`）
 
 一条逻辑**传播**到哪一段，全部从研报事件（`fact_research_report_catalog`，按 `recorded_at <= C` 取）确定性派生；只说传播，不说涨跌。与题材生命周期（八阶段 / 七段）不混名。
@@ -107,7 +125,7 @@
 - 三个阈值的真源是 `skills/opinion-cross/scripts/consensus_staging.py`（`TH_RESONANCE_SOURCES / TH_CONSENSUS_SOURCES / TH_CONSENSUS_DAYS`），本词表只读不复制。
 - **另一条轴，不互译**：`consensus_staging` 的阶梯（暗流 → 萌芽 → 第一轮 → 催化共振 → 一致认同）是「证据至少撑到哪一阶」的**下限**，只升不降；本词表可退。三维对照只用本词表，`opinion_cross` 技能继续用阶梯。阅读参考映射：暗流 → unverifiable / 萌芽，萌芽 → 萌芽，第一轮 / 催化共振 → 扩散，一致认同 → 拥挤。
 - **回填批次**：同一 `created_at` 日入库 >= 10 份研报的日子，读数 `inputs.backfill_batch_dates` 点名，其 ±30 日的斜率是采集节奏不是舆论，报告里单列。
-- **错位标记**（题材侧 × 舆论侧）：`aligned | opinion_leads | opinion_lags | unverifiable`，两侧映到三档粗序（early / mid / late）再比；题材侧在词表统一（G-04）前按模块双表映射（`theme_lifecycle` 八阶段、`theme_lifecycle_timeline` 七段），任一侧缺 → unverifiable。
+- **错位标记**（题材侧 × 舆论侧）：`aligned | opinion_leads | opinion_lags | unverifiable`，两侧映到三档粗序（early / mid / late）再比；题材侧粗序由钦定词表派生（G-04 已统一，`theme_stage_vocab.module_coarse_tables`，`tsv-v1`），任一侧缺 → unverifiable。
 - 旁路库标签 `opinion_stage`（`theme` 实体，文本值），`LABEL_VERSION` v4。
 
 ## Flagged ambiguities

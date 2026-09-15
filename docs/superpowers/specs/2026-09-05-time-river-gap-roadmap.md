@@ -27,6 +27,16 @@
 >
 > 收据 `docs/verification/2026-09-06-observation-script-g03.md`；交接 `docs/handoffs/inflight/feat-observation-script.md`。
 > 终局 spec 已由 `2026-09-06-personal-research-calibration-endstate-design.md` 承接，本文件只留缺口顺序。
+>
+> **实施状态回写（2026-09-15，G-04）**：钦定词表已落——canonical 取七段时间线词，八阶段经
+> `theme_stage_vocab.TO_CANONICAL` 映射同名（`tsv-v1`），两模块 payload 带 `stage_canonical`，
+> `opinion_stage` 的 tsc-v0 手工双表退役为派生物（行为逐字节不变，冻结对照锁死）；「引用必须标模块」
+> 在数据层退出，词表进 `UBIQUITOUS_LANGUAGE.md`。验收 (b) 的机器侧已落：
+> `scripts/theme_stage_concordance.py`（模板 + 一致率报告，N<10 不出率），首版模板 131 样本 / 12 题材
+> 待创始人标注（`docs/learning/theme-stage-concordance/`）。**仍开着的**：渲染层切词、canonical 阶段
+> 入旁路库 + `LABEL_VERSION` 升版 + 收据重跑（验收 c）——两者等对照集裁定，见交接
+> `docs/handoffs/inflight/feat-theme-stage-vocab-g04.md`。诊断列历史无按日落账，对照集如实标
+> `gap:no_recorded_diagnosis`，不回填。
 
 ---
 
