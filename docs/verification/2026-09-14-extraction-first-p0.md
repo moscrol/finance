@@ -79,7 +79,8 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 | 分支 | `fix/extraction-first-closeout` |
 | 冻结基线 revision | `1fef3d276d0e251158803fc09d5a81e60d79241b`（= 本轮 `gitea/main`） |
 | 被测最终 revision | 见 §6.1「Closeout 读数」的 `--expect-revision`（**唯一来源**，其余位置一律指过来） |
-| 门禁工作树 | `~/.finance-runtime/reviews/extraction-closeout-20260915/gate/finance-workspace-private`（专建 detached 树） |
+| 门禁工作树 | 第五轮 `…/extraction-closeout-20260915/gate/finance-workspace-private`；第六轮 `…/gate3/finance-workspace-private`（均专建 detached 树） |
+| 独立复审树 | `…/extraction-closeout-20260915/qc6/finance-workspace-private`（复审方自建，冻结 `37a4e7b7`，全程未改动） |
 | 基线工作树 | `~/.finance-runtime/reviews/extraction-closeout-20260915/baseline/finance-workspace-private`（detached 于冻结基线） |
 | 原始输出 | `~/.finance-runtime/reviews/extraction-closeout-20260915/`：`gate/` 各叶 exit+log+junit、`mutations-<§6.1 revision>/`、`pinned-probes-rerun/`、`baseline-pytest.log`、`mergetree.txt` |
 
@@ -111,6 +112,12 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 真 CLI + 临时 DuckDB 全链）、**变异 runner 入仓**
 `scripts/review_probes/run_extraction_mutations.py` + 冻结定义 `extraction_mutations.json`（31 条）。
 
+第六轮（独立复审返修）再动两处同样的文件：`observation_script.py` 增 `_legacy_confirm_identity`
+（遗留确认行的内容身份，两侧共用一个推导）并接进 `register` 的去重循环；
+`personal_export.py` 把四个分支的搬运 dict 归一到 `_carried` 并补两种此前整行丢弃的情形；
+`test_extraction_closeout.py` 增 16 条（14 → 30）；冻结定义 31 → **35**（M32–M35），
+另重锚 M10 / M23 / M30 / M31。
+
 ## 3 逐条验收（A1–A15）
 
 全部用隔离 `FORESIGHT_USERS_DIR` 临时目录 + 固定本地切片 + 显式写进夹具的开关状态；
@@ -131,7 +138,7 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 | A10 | 重试不重复、并发只一个 pending、成功事件与剧本行同一次写、跨用户 / 跨目标拒绝、**收据落盘失败 → 退 1 + 保持 pending**、已完成尝试返回原收据、原始导出保留三类 | ✅ 10 条 |
 | A11 | 开关矩阵七种；**只写提取台账不翻转新老用户判据**；带读关闭时独立 draft 仍能存 | ✅ 7 条 |
 | A12 | 无类型旧剧本可读；事件不进状态数 / 过期 / 非交易日扫描；`--from-draft` 是 `user_authored` 且不伪造投影；hindsight 活过 draft 这一跳 | ✅ 7 条 |
-| A13 | 有牙验收：见 §4 | ✅ 31/31 |
+| A13 | 有牙验收：见 §4 | ✅ 35/35 |
 | A14 | 差异载荷**一个数都没有**；收据键在来源关联白名单内且无数值；新模块不定义评分型符号（探针先在坏样本上验证会红）；profile / 校准台账零写入 | ✅ 6 条 |
 | A15 | 本页 | ✅ |
 
@@ -266,7 +273,35 @@ A 系两条按真实行为重写（其中 `test_completed_attempt_replays_the_re
 > （数据面是临时 DuckDB 固定夹具 `fact_sector_daily_generation`，legacy 快照），
 > 打桩不再是唯一证据；但仍不是生产库证据。
 
-## 4 变异测试（A13 有牙验收，31 条）
+## 3.6 独立复审六与返修（2026-09-15，3 项）
+
+第五轮的 V1 / V2 是**自查**所得、无人独立复核，M29–M31 也从未由非提交者重放过。
+第六轮请独立复审在冻结 `37a4e7b7` 上实测：变异重放 31/31 零偏差、文档抽查四组全对上，
+**另实测出 3 项缺陷，逐条复核成立、无误报**。报告与可复现证据
+`~/.finance-runtime/reviews/extraction-closeout-20260915/qc6/REPORT.md`。
+
+| # | 缺陷 | 修法 | 回归 |
+|---|---|---|---|
+| F1 · P1 | **V1 的修复自己留的洞**：`action_event` 的唯一写点就是 `register`，所以本次升级**之前**落盘的确认行根本没有动作键；而去重分支只认动作键 → 对这些行完全不去重。实测同内容重试后台账出现两条 confirmed、同一个可证伪点被重复登记进回检队列（checkpoints 两行同 id），而 `load_events` 只投影出 1 个事件且只指新行——「2 条确认、1 个事件」自相矛盾地落了盘 | 补「内容身份」判据：维度与动作键的内容部分逐一对齐（user / as_of / scope / due / 实体 / `DIFF_FIELDS`），两侧共用 `_legacy_confirm_identity` 推导。遗留行没记来源版本与尝试，**不拿它们当判据**（永不命中），能比的维度全比上 | `test_legacy_confirmed_row_without_action_event_is_not_duplicated` + `test_legacy_match_requires_full_content_identity`（8 个维度逐个证明「改了它就是另一个动作」） |
+| F2 · P2 | 导出对「合法 JSON 但不是记录」的行（`[1,2]` / `"str"` / `42` / `null` / `true`）整行丢弃：`isinstance(rec, dict)` 没有 else。实测 7 行台账导出只剩 2 行、`counts=2`，五行既不在导出也不在计数里 | 归一到唯一构造点 `_carried`，四个分支共用 | `test_non_record_line_is_carried_not_dropped`（7 种 × 字节级往返 + 计数 + 台账原字节不动） |
+| F3 · P3 | 全空白行（`"   "` / `" \t\r"`）同样静默跳过且不计数，与同一函数「计数是台账行数」的口径相反 | 有字节就有行：照搬并计数；**行分隔符切出的空段仍然跳过**，不凭空多出一行 | 同上（`spaces` / `blank-cr` 两个参数化变体） |
+
+> **F1 是这条链上最值得记的一次。** 前四轮的教训是「幂等键的字段集合要逐个论证」，
+> 第五轮我照做了，把键修对了；F1 说明还差一层：**键修对之后，要问「这个键在历史数据上
+> 存不存在」**。我的新判据对**将来**写入的行成立，对**已经落盘**的行永不命中——而去重分支
+> 存在的全部意义就是拦住重试，历史行恰恰是最可能被重试的那批。
+> 可迁移的一句话：**给已有数据加判别字段时，先问没有这个字段的旧数据走哪条路**；
+> 「新数据都对」不等于修好了，往往等于把洞挪到了你不看的那一半。
+>
+> F2 / F3 则是「修了一处先问同族还有谁」的第三次（R1 台账读取面 → T4 导出面 → 本轮
+> 导出的其余分支）。同一个函数里，两个分支带了 hex、另两种情形整行丢——
+> 各分支各拼一份 dict 就必然漂。现在只有 `_carried` 一个构造点。
+
+**一处如实记账**：`c64e0ff2` 的提交信息把新增回归写成「22 条」，实测是 **16 条**
+（7 + 1 + 8，`--collect-only` 实测该文件 14 → 30）。提交信息已落盘不改写，在此更正；
+本页与 §6.1 的差量表以实测为准。
+
+## 4 变异测试（A13 有牙验收，35 条）
 
 harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONTWRITEBYTECODE=1`
 （防「同长度改动 + 秒内还原」被 `.pyc` 缓存伪造成回归），锚点唯一性由 harness 自检
@@ -305,6 +340,10 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
 | M29 | 确认动作唯一但 script_id 沿用同秒内容哈希（回退 V1） | V1 | ✅ |
 | M30 | 坏 UTF-8 行只留预览、丢原始字节（回退 V2） | V2 | ✅ |
 | M31 | 坏 JSON 行丢 `_unparsed_bytes_hex`（回退 V2） | V2 | ✅ |
+| M32 | 拆掉遗留确认行的内容身份去重，只按动作键认（回退 F1） | F1 | ✅ |
+| M33 | 遗留行身份漏掉 `due`：改回检日期被旧行吞掉 | F1 边界 | ✅（只红 `[due]` 一个变体） |
+| M34 | 导出丢弃合法 JSON 非记录行（回退 F2） | F2 | ✅（红在 5 个非记录变体） |
+| M35 | 导出静默跳过全空白行（回退 F3） | F3 | ✅（红在 2 个空白变体） |
 
 第四轮（M1–M28，旧 harness `/tmp/xfp0/mutate.py`）：全部还原后 `135 passed`，工作树无残留。
 原始输出 `/tmp/xfp0/mutations.txt`。
@@ -324,10 +363,24 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
 - 跑在 `-B` + `PYTHONDONTWRITEBYTECODE=1` 下（.pyc 缓存教训照旧），`FORESIGHT_USERS_DIR`
   指向隔离目录、`FWP_TEST_RECEIPT=0`（局部变异不产全量收据，不污染收据流）。
 
-第五轮读数（在 §6.1 绑定的被测 revision 上）：基线 `149 passed` → **M1–M31 逐条 RED**
-（failures>0、errors=0）→ **逐条还原 GREEN** → 收尾 `restored-full` `149 passed`；
-`results.json` `complete=true`，`definitions_sha256` 与仓内冻结文件 shasum 一致（`200aa1f2…`）。
-证据目录 `~/.finance-runtime/reviews/extraction-closeout-20260915/mutations-<§6.1 revision>/`。
+第五轮读数：基线 `149 passed` → **M1–M31 逐条 RED**（failures>0、errors=0）→ **逐条还原 GREEN**
+→ 收尾 `restored-full` `149 passed`；`complete=true`，`definitions_sha256=200aa1f2…`
+与仓内冻结文件 shasum 一致。**该轮已由独立复审在冻结 `37a4e7b7` 上重放，31/31 零偏差**
+（§6.4），两次 `definitions_sha256` 相同。
+
+第六轮读数（在 §6.1「最终读数」绑定的 revision 上，35 条）：基线 `165 passed` →
+**M1–M35 逐条 RED** → 逐条还原 GREEN → `restored-full` `165 passed`；`complete=true`、
+`final_status` 空（树 porcelain 干净）、35 条 `before_sha256 == restored_sha256`。
+证据目录 `~/.finance-runtime/reviews/extraction-closeout-20260915/mutations-<该 revision>/`。
+
+> **这一轮 runner 自己派上了用场：它在 M10 上 fail-closed 中止了整次运行。**
+> F1 的修复改写了去重循环、F2/F3 的修复把四个分支的搬运 dict 归一到 `_carried`，
+> 于是 M10 / M23 / M30 / M31 四条旧锚点命中 0 次。第四轮遇到同样的事时，旧 harness
+> 是「跳过继续跑」，靠人记得「跳过的锚点等于没有牙」并逐条重锚；这次是 exit code 直接
+> 把话说死——**纪律写进文档会漂，写进退出码不会**。四条已逐条重新锚定到**同一语义**
+> （不是换个更好咬的地方）：M10 关掉整条去重含新旧两支、M23 退回整文件一次解码、
+> M30/M31 让两支各自绕过 `_carried` 只留预览（归一之后仍要逐支证明有牙）。
+> 重锚后全量 35 条自检：锚点恰好命中一次 + 改后可编译 + 红来自各自声明的 targets。
 
 > **第四轮的改动打失效了四个旧锚点**（M16 / M19 / M22 / M23——它们的代码区域被 U1–U3
 > 与 Q2 重写过），harness 报「锚点命中 0 次，跳过」。已逐条重新锚定：
@@ -417,48 +470,56 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 > 耗时 347s → 357s：两次都在安静机器上、同一解释器、同一依赖指纹下取得，
 > 这 10s 属于噪声量级，**不作为耗时结论**。
 
-#### Closeout 读数（第五轮；取法同上：专建 detached 树、跑期零改动、收据绑定）
+#### Closeout 读数（第五 / 六轮；取法同上：专建 detached 树、跑期零改动、收据绑定）
 
 ```
-基线 1fef3d27：9617 passed, 77 skipped, 2 xfailed, 17 warnings in 680.81s   exit 0
-最终        ：9767 passed, 77 skipped, 2 xfailed, 17 warnings in 366.29s   exit 0
+基线 1fef3d27（= 本轮 gitea/main）：9617 passed, 77 skipped, 2 xfailed   exit 0
+第五轮 e20302a6                  ：9767 passed, 77 skipped, 2 xfailed   exit 0
+最终   3b0531b9（本页唯一 SHA 来源）：9783 passed, 77 skipped, 2 xfailed   exit 0
 ```
 
-收据校验（两棵树各自跑、各自绑，均 VALIDATOR_EXIT=0）：
+**最终读数**取在 `~/.finance-runtime/reviews/extraction-closeout-20260915/gate3/finance-workspace-private`
+（专为取读数新建、detached 于顶端）：脚本跑前跑后各打一次 `git status --porcelain` 与
+`rev-parse HEAD`，前后都是空 + `3b0531b9`（`gate3/status-{before,after}.txt`、
+`revision{,-after}.txt`）。收据校验：
 
 ```
-$ cd ~/.finance-runtime/reviews/extraction-closeout-20260915/gate/finance-workspace-private
+$ cd ~/.finance-runtime/reviews/extraction-closeout-20260915/gate3/finance-workspace-private
 $ .venv-workbench/bin/python scripts/check_test_receipt.py \
-      ~/.finance-runtime/test-receipts/20260915T095136Z-e20302a6.json \
-      --expect-revision e20302a6f8df0e5cf4597011eab07e00d478fe5f
-  读数     passed=9767 failed=0 error=0 skipped=77
+      ~/.finance-runtime/test-receipts/20260915T122059Z-3b0531b9.json \
+      --expect-revision 3b0531b9832df571897c6a5e75c305b63f9623f2
+  读数     passed=9783 failed=0 error=0 skipped=77
   ✓ revision 一致   ✓ 解释器一致   ✓ python 版本一致   ✓ 依赖指纹一致
-  ✓ 收据来自干净树   ✓ 依赖门禁未被绕过   ✓ 收据 revision == e20302a6f8df
+  ✓ 收据来自干净树   ✓ 依赖门禁未被绕过   ✓ 收据 revision == 3b0531b9832d
 ✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。        VALIDATOR_EXIT=0
 
-# 基线收据 ~/.finance-runtime/test-receipts/20260915T104747Z-1fef3d27.json
-# 在基线树（§1.2）内同法校验：passed=9617 failed=0，✓ 干净树，VALIDATOR_EXIT=0。
+# 基线收据 20260915T104747Z-1fef3d27.json（在基线树内同法校验，passed=9617、干净树、exit 0）；
+# 第五轮收据 20260915T095136Z-e20302a6.json（gate 树，passed=9767、干净树、exit 0）。三份都留档。
 ```
+
+> **一次取法上的自我纠正**：最终全量一度在落后一提交的 `c64e0ff2` 上开跑（那时顶端已是
+> `3b0531b9`）。发现后直接停掉、另建 gate3 于顶端重取——**落后一提交的收据冒充顶端读数，
+> 正是本页 §0 记的那个错**；「差的那一提交只改了 JSON」是事后辩解，不是取法保证的。
 
 差量对账（对 closeout 冻结基线）：
 
-| | 基线 `1fef3d27` | 最终 | 差量 |
+| | 基线 `1fef3d27` | 最终 `3b0531b9` | 差量 |
 |---|---|---|---|
-| passed | 9617 | 9767 | **+150** |
+| passed | 9617 | 9783 | **+166** |
 | failed | 0 | 0 | 0 |
 | skipped | 77 | 77 | 0 |
 | xfailed | 2 | 2 | 0 |
 
-+150 逐条点得出名字（`--collect-only` 两边核过：四个测试文件在最终 revision 共收 164 条，
-接缝文件在基线收 14 条）：
++166 逐条点得出名字（`--collect-only` 两边核过：三个提取测试文件在最终 revision 共收
+**165** 条 = 变异 runner 的 baseline `executed`，接缝文件基线 14 / 最终 15）：
 
 | 来源 | 条数 |
 |---|---|
 | `test_observation_extraction_first.py`（A1–A14） | 77 |
 | `test_extraction_first_review_fixes.py`（S / R / T / Q / U 各轮回归） | 58 |
-| `test_extraction_closeout.py`（V1 / V2 + 真 CLI 全链，§3.5） | 14 |
+| `test_extraction_closeout.py`（V1 / V2 §3.5 的 14 + F1 / F2 / F3 §3.6 的 16） | 30 |
 | `test_guided_reading_daily_seam.py`（15 − 14） | +1 |
-| 合计 | **150** |
+| 合计 | **166** |
 
 ### 6.2 一次 1 红与它的归因
 
@@ -477,11 +538,16 @@ $ .venv-workbench/bin/python scripts/check_test_receipt.py \
 随后两次全量（`final4` 9670P、`final5` 9671P）均 exit 0。**两次读数都留档**，
 不按「已知红」掩过去——首跑那份原始输出也在 `/tmp/xfp0/` 里。
 
-### 6.3 Closeout 门禁全叶与审查探针重放（第五轮）
+### 6.3 Closeout 门禁全叶与审查探针重放（第五 / 六轮）
 
-全部叶子在 gate 树（§1.2）重跑，exit 码与日志逐叶留档（`gate/*.exit` / `*.log` / `*.xml`）：
-ruff ✅ / 全量 pytest ✅（读数见 §6.1 Closeout 段）/ frontend install+lint+typecheck+test(76)+build ✅ /
+全部叶子在 gate 树（第五轮，`gate/`）与 gate3 树（第六轮，detached 于顶端）各跑一遍，
+exit 码与日志逐叶留档（`gate{,3}/*.exit` / `*.log` / `*.xml`）。**第六轮 gate3 全绿**：
+ruff ✅ / 全量 pytest ✅（读数见 §6.1）/ frontend install+lint+typecheck+test(**76**)+build ✅ /
 e2e **15 passed** ✅ / registry 四步 ✅ / `audit_ledger_spec_crosswalk` ✅ / dataset `registry-check` ✅。
+
+> 前端与 e2e 叶子本轮的 diff 是**纯 Python**，照样在 gate3 重跑了一遍：
+> 「改动不涉及它所以它还是绿」是推理，exit code 才是证据。新树跑前端叶子前仍需
+> `pnpm install --frozen-lockfile`，e2e 仍需把 `.venv-workbench/bin` 放进 `PATH`。
 
 三、四轮复审的 **20 条原始探针**（`test_original_four_contracts.py` / `test_version_contracts.py` /
 `test_export_bytes.py` / `check_extraction_attempt_contract.py`）在被测树上重放 **20/20 绿**：
@@ -495,6 +561,31 @@ e2e **15 passed** ✅ / registry 四步 ✅ / `audit_ledger_spec_crosswalk` ✅ 
 > 旧代码上的红，不是被测树的红。两种跑法都留档（`gate/original-probes.*` = 快照内、红；
 > `gate/original-probes-pinned.*` 与 `pinned-probes-rerun/` = 被测树、绿），
 > 探针目录跑前后指纹一致（`gate/probes-tree-{before,after}.txt`，仅头部时间戳行不同）。
+
+### 6.4 独立复审六（2026-09-15）
+
+第五轮之后补的一轮**独立复审**（另一个 agent、独立上下文、自建 detached 复审树，
+固定冻结 `37a4e7b7`，全程未改仓内任何文件、未 commit）。它做了三件事，结论各自留档：
+
+| 任务 | 结论 |
+|---|---|
+| 独立重放当时冻结的 31 条变异（M29–M31 首次由**非提交者**重放） | **零偏差**：`exit 0`、`complete=true`、baseline/收尾均 149、31 条红形状全部合规、31 条还原逐字节相等、`definitions_sha256` 与仓内冻结文件及提交者归档**三方一致** |
+| 30 条对抗探针（自己写，不抄仓内测试） | **27 面守住、3 条 CONFIRMED 缺陷**（即 §3.6 的 F1/F2/F3，已返修） |
+| 文档抽查四组（§3.5 / §4 / §6.1 / §6.3 对归档证据） | **四组全部对上**：两份收据的 passed/failed/skipped/revision/dirty 与差量 +150、归档变异 run 的 `complete`/sha/149、pinned 探针 20/20 与各叶 exit 0、逐文件收集数 77+58+14=149 与 seam 15 |
+
+守住的 27 面逐条列在 `qc6/REPORT.md` §D（每条都有探针名与运行记录），其中值得单独点出的：
+非受控入口的 id 合同与**从 `e20302a6^` 提取并 exec 的旧版 `_make_id` oracle** 逐字符相等
+（证明「只改受控确认、旧合同不变」不是自述）；`check_result` 对 10 种伪造读数逐一拒绝
+（证明 runner 的 fail-closed 不是注释）；31 条 targets 恰等命中、`-k` 零卷入。
+
+复审方还自己记了**一条勘误**：其第一版 definitions 分析脚本按函数名比对 targets，把类名
+targets 全部误报成 stray，v2 修正后为零，两版输出都留档。这条值得抄进纪律——
+**报告里的「发现」也要先证伪一次**，否则误报会和真发现一起被下一个人当事实用。
+
+返修后我方重放复审方那 30 条探针：**28 绿 2 红**，两条红都是探针自带的
+`test_probe_targets_reviewed_tree`（断言 import 解析到**复审方那棵树**），我在自己的树上跑，
+处境不符、非缺陷；已另行打印 `observation_script.__file__` / `personal_export.__file__`
+证明绑在被测树上。F1/F2/F3 三条原本红的探针**在返修后全绿**。
 
 ## 7 未验证 / 明确不在本次范围
 
@@ -521,6 +612,8 @@ e2e **15 passed** ✅ / registry 四步 ✅ / `audit_ledger_spec_crosswalk` ✅ 
 - 复跑：`git worktree add <新树> <§6.1「Closeout 读数」那个 SHA>` → §6 那八条命令
   → 变异一条命令复现：`python scripts/review_probes/run_extraction_mutations.py --output <新目录>`
   （runner 自建 detached 树；锚点唯一 / 可编译 / 执行非空 / 还原逐字节相等全 fail-closed）。
+  独立复审可直接复用 `qc6/probe_v1_identity.py` / `probe_v2_export.py` / `probe_runner.py`——
+  它们各带一条「我 import 的是哪棵树」的自检，**改那条常量指向你自己的树再跑**。
   **跑全量期间不要碰那棵树**——本页 §0 就是这么栽的。
   > 这里刻意**不写死 SHA**：写死过一次（`7a86ce4e`），下一轮返修后它就指向了旧树，
   > 而复审方按它复跑会漏掉最终修复（复审二实测）。指针只留一处，就是 §6.1 那一段。
