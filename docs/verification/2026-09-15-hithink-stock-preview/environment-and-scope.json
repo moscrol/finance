@@ -4,7 +4,7 @@
   "revision": "40317d780d71de03ca6884c4c437b9accece0b49",
   "branch": "fix/hithink-review-wiring",
   "author_status_before_archive": " M docs/handoffs/inflight/fix-hithink-review-wiring.md\n?? docs/handoffs/2026-09-15-hithink-stock-preview.md\n?? docs/verification/2026-09-15-hithink-stock-preview/\n",
-  "scope": "author verification of stock-preview slice only; ten-file targeted 277P; full suite, deletion-protection mutation, frontend/E2E, registry commands and independent QC NOT run for this slice; not production acceptance",
+  "scope": "author verification of stock-preview slice; batch1 targeted 277P at handoff; batch2 same day: full suite 9834P on code-identical 2ad19f35, 12 deletion-protection mutations all red, repo-wide ruff, frontend lint/typecheck/vitest/build, registry read-only checks; Playwright E2E not run; independent QC on k3 complete with no blocking findings — still not production acceptance (real vendor data, coverage and publication remain out of scope)",
   "platform": "macOS-26.4-arm64-arm-64bit",
   "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
   "python_version": "3.12.13",
@@ -119,5 +119,20 @@
     "hithink-stock-preview-ruff-handoff.log": null,
     "hithink-stock-preview-unit-r2.log": "20260915T091033Z-3bba5b4e.json",
     "hithink-stock-preview-unit.log": "20260915T090550Z-3bba5b4e.json"
+  },
+  "batch2": {
+    "recorded_at": "2026-09-15T10:35:52.003892+00:00",
+    "full_suite": {
+      "revision": "2ad19f35",
+      "code_identical_to": "40317d78",
+      "result": "9834 passed / 79 skipped / 2 xfailed, exit 0, 642s",
+      "receipt": "20260915T103043Z-2ad19f35.json"
+    },
+    "mutation_tree": "/Users/a77/fwp-wt-hithink-stock-mutation-40317d78",
+    "mutations": "12 landed, 12 red (1-56 failed each), baseline and restored both 95P clean",
+    "frontend": "lint/typecheck/build exit0, vitest 76P; local Node26/macOS, not CI Node22/Linux; no Playwright",
+    "registry": "check-parseability 60/60 exit0; generate-views exit0 tree clean; crossrepo check exit1 with 7 kb-side drifts (pre-existing), finance-side zero",
+    "independent_qc": "k3 via pi (provider mirasim-kimi, thinking high) per user instruction, isolated worktree at 40317d78, exit 0: NO P0/P1/P2; 155 probes + CLI/type edges all pass; QC own full suite 9836P/0F/77S (author 9834P/79S, same 9913 total, both 0 failed); two P3 advisories (CLI fallback report lacks contract_version; docs missing 2026-only year boundary) and two observations; post-QC zero-pollution verified by author against pre-QC fingerprints",
+    "qc_report": "qc-40317d78-report-md.output.json (original: reviews/hithink-stock-preview-40317d78-qc-20260915/report.md)"
   }
 }

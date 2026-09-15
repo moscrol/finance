@@ -1,0 +1,31 @@
+{
+  "original_path": "/tmp/hithink-stock-preview-frontend-test.log",
+  "raw_sha256": "dead4ef898b4420684c244ed64343a38296edebc6d9eed9c3bf74de280dfddda",
+  "encoding": "utf-8",
+  "lines": [
+    "\n",
+    "> market-intelligence-workbench@0.1.0 test /Users/a77/fwp-wt-hithink-review-wiring/intelligence/webapp\n",
+    "> vitest run\n",
+    "\n",
+    "\n",
+    " RUN  v3.2.4 /Users/a77/fwp-wt-hithink-review-wiring/intelligence/webapp\n",
+    "\n",
+    " ✓ src/streamEventRegistry.test.ts (2 tests) 19ms\n",
+    " ✓ src/components/ResearchProjectPanel.test.tsx (5 tests) 408ms\n",
+    " ✓ src/components/DailyReportView.test.tsx (4 tests) 402ms\n",
+    " ✓ src/components/components.test.tsx (65 tests) 5269ms\n",
+    "   ✓ Workbench navigation reliability > opens on today and navigates across the five product surfaces  620ms\n",
+    "   ✓ Workbench navigation reliability > restores the latest conversation and submits in hybrid mode  369ms\n",
+    "   ✓ Workbench navigation reliability > submits an explicit KOL perspective without mixing other profiles  396ms\n",
+    "   ✓ Workbench navigation reliability > recovers a persisted terminal run after the stream disconnects  335ms\n",
+    "   ✓ Workbench navigation reliability > keeps cancel pending until polling confirms the cancelled state  339ms\n",
+    "   ✓ Workbench navigation reliability > configures session-only BYOK without exposing the key  301ms\n",
+    "   ✓ Workbench navigation reliability > persists BYOK only after opt-in and can explicitly forget it  340ms\n",
+    "\n",
+    " Test Files  4 passed (4)\n",
+    "      Tests  76 passed (76)\n",
+    "   Start at  18:32:18\n",
+    "   Duration  10.48s (transform 1.43s, setup 2.38s, collect 3.60s, tests 6.10s, environment 5.37s, prepare 1.44s)\n",
+    "\n"
+  ]
+}

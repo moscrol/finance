@@ -1,0 +1,8 @@
+{
+  "original_path": "/tmp/hithink-stock-preview-registry-crossrepo-check-parseability.log",
+  "raw_sha256": "104962d1dbcc92dd0ed15bac5c93456266e6ba3dfa14e27995a34547806f4bad",
+  "encoding": "utf-8",
+  "lines": [
+    "[check-parseability] 全部 60 个 SKILL.md frontmatter 可解析、name 与目录名一致。\n"
+  ]
+}

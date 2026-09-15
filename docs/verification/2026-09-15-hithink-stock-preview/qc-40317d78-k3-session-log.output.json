@@ -1,0 +1,30 @@
+{
+  "original_path": "/Users/a77/.finance-runtime/reviews/hithink-stock-preview-40317d78-qc-20260915/session-k3.log",
+  "raw_sha256": "d84334effd0284d3997e0745ab1fd9a56637023549b2c40f0ea0b02939adef46",
+  "encoding": "utf-8",
+  "lines": [
+    "复核完成，报告已写入 `/Users/a77/.finance-runtime/reviews/hithink-stock-preview-40317d78-qc-20260915/report.md`。\n",
+    "\n",
+    "## 结论摘要\n",
+    "\n",
+    "**无阻断性缺陷（无 P0/P1/P2）。** 九项重点全部经独立构造的反例实测通过，作者声明中未发现站不住的部分。\n",
+    "\n",
+    "**独立验证规模**（未借用作者绿灯）：\n",
+    "- 自建探针 155 项全 PASS（`probes/qc_probes.py`，输出存 `probes/qc_probes_output-20260915T184302.txt`），另加 CLI 边界 6 项、类型边界 4 项\n",
+    "- 全量 pytest 自跑：9836 passed / 0 failed（收据 `20260915T105745Z-40317d78.json`，含 tree/revision/dirty=false 指纹）；ruff 干净\n",
+    "\n",
+    "**关键实测读数**：\n",
+    "- 分母：1000 个未知代码 → `requested=1000, calculated=1, gaps=999`，洗不掉\n",
+    "- 窗口：跨国庆取 09-30 而非最近有行日；休市日脏 bar（close=55）不被借作前收；canonical 诱饵行（pre_close=998）不被回退\n",
+    "- 舍入顺序可证：前收 10.03 派 0.004 → 先舍入得 10.03、pct=0.10（顺序反则为 0.14）；±0.125% tie → 0.13 / -0.13 双向远离零\n",
+    "- Decimal：外部 `localcontext` 极端化 + 污染可变 `DefaultContext` 后结果逐字节不变；1e308 → 缺口而非炸进程或非有限 JSON\n",
+    "- CLI：库文件 sha256 前后不变、无 WAL 残留；缺库/损坏库/0 字节/目录冒充/写锁占用均 exit 2 且不建文件（对照组确认写模式会建库）；禁网+禁 key+禁 init_db 下仍 exit 0\n",
+    "\n",
+    "**非阻断发现（2 项 P3 + 2 项观察）**：\n",
+    "1. P3：CLI 失败路径的 fallback 报告缺 `contract_version`，下游无法对失败报告核对合同版本（与既有 sector preview 同 pattern）\n",
+    "2. P3：休市表仅登记 2026 年，预演实际只支持 2026 年目标日（含前日跨年的 2026-01-05 也拒），行为 fail-closed 但文档新增段未写明这个年份边界\n",
+    "3. 观察：全零现金事件行被标 `cash_dividend_reference`（数值与无事件等价，无后果）；`_calculate` 异常路径靠 `if not reasons` 守卫防 stale `row` 追加，当前正确但提示未来改动小心\n",
+    "\n",
+    "**边界遵守**：被审树 `git status` 干净、HEAD 未动；探针全在复核目录 `probes/` 与 `$TMPDIR`；未碰生产库/真实行情/复盘会/共享记忆；收据均按时间戳文件名取，未用 `latest.json`。未跑到的部分（真实 dump 数据、前端/e2e、`--trade-date` 缺失路径、跨 duckdb 版本指纹稳定性）已在报告第 6 节明示。\n"
+  ]
+}

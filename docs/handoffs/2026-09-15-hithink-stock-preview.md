@@ -100,3 +100,18 @@ preview_stock_calculation(con, trade_date, *, stock_codes: Sequence[str]) -> dic
 本片新增的自动能力已在产品CLI/模块和pytest内，不是临时通用运行器；不另造发布器、台账或测试框架。DDL解析用已有DuckDB解析器；固定数值环境和整数oracle可迁移到计费/金额计算，方法回写既有`source-switch-coverage-must-be-reconciled-first.md`，具体守卫已经落测试。删保护反证待补，不将先红后绿称作变异已完成。未触碰他人的`harness-reference/BUILD.md`修改。
 
 能力图谱回写沿既有同花顺节点；graph audit仅检查路径/符号且包含主检出/KB脏树，不是运行或合流验收。证据归档的输入hash只证明字节未损，不证明业务正确。
+
+---
+
+## 批次 2 · 同日续跑补验（追加段，上文交接时状态保持原文）
+
+用户指示「继续按最优路线推进」后同日完成，证据全部追加进 [verification/2026-09-15-hithink-stock-preview/](../verification/2026-09-15-hithink-stock-preview/README.md)：
+
+1. **全量**：干净 `2ad19f35`（= `40317d78` + 纯文档归档提交，`git diff -- ':!docs'` 为空）全量 pytest **9834P/79S/2X、exit0、642s**，收据 `20260915T103043Z-2ad19f35.json` 七项条件核验通过。全仓 Ruff 通过。
+2. **删保护变异 12/12 红**：隔离树基线 95P → M1 整数股、M2 非现金拒绝、M3 固定 Decimal Context、M4 参考价先舍入、M5 零成交、M6 缺/重行、M7 分母不缩、M8 production_ready、M9 元→亿元、M10 计划交易日、M11 来源标签、M12 分价，逐个落盘核验、逐个见红（1–56F，红的均为语义对应测试）、还原后 95P。驱动源码与逐项结果表在归档内。
+3. **前端四叶**：lint/typecheck/build exit0、Vitest 76P（本片零前端改动；本机 Node26/macOS，非 CI 环境；Playwright E2E 未跑）。
+4. **registry**：check-parseability 60/60、generate-views 跑后树干净；跨仓 check 仍红且 7 处漂移全在 kb/ 侧、finance 侧零漂移（与前三片时一致，非本片新增）。
+5. **独立 QC 完成（本任务首次有报告）**：codex 配额探针已通但按用户指示改用 **k3（`pi --provider mirasim-kimi --model kimi-k3`）**，隔离 worktree 固定 `40317d78`，exit0。结论：**无 P0/P1/P2**；155 项独立探针 + CLI/类型边界全过；QC 自跑全量 9836P/0F/77S（与作者侧总数同为 9913、均 0 失败）。两条 P3：CLI 失败路径 fallback 报告缺 `contract_version`（与 sector-preview 同 pattern，建议两片一起补）；文档未写「休市表仅登记 2026 年 → 仅支持 2026 目标日」。两条观察项（全零事件行 basis 标签、`row` 变量初始化健壮性）见报告 §3。复核后作者树/分支 ref/QC 树零污染由作者对照事前指纹独立核验。
+6. pi 无 codex 式 OS 沙箱，隔离改为「指令约束 + 事前指纹、事后归因」：全仓 refs 变化归因为其他并发会话分支，vault 三笔 auto-sync 归因为其他会话台账 + 本轮图谱/笔记回写。
+
+**批次 2 后仍然不变的边界**：真实供应商数据未碰、覆盖完整性未验、`production_ready` 恒 false、未 push/合并/部署；Playwright E2E 与 kb 侧 registry 漂移是留给合并前的既存项，不属本片。
