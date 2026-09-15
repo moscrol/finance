@@ -33,7 +33,17 @@ Python收据：`~/.finance-runtime/test-receipts/20260915T170134Z-918f8d5a.json`
 - `main-*.log` / `main-*.exit`：各叶原始输出；
 - `main-gate-summary.json` / `main-receipt-check.log`：汇总与条件校验。
 
-裁决已写PR评论：#592 comment4598、#747 comment4599。后续纯文档状态回写也单独执行门禁；其精确head、merge提交及最终main收据由该文档PR评论承载，避免不断改收据文件造成自指revision循环。这里的9749读数只绑定918f8d5a，不冒充其他提交。
+裁决已写PR评论：#592 comment4598、#747 comment4599。后续状态回写为 **PR #748**，最终head、merge提交及最终main收据由该PR评论承载，避免不断改收据文件造成自指revision循环。这里的9749读数只绑定918f8d5a，不冒充其他提交。
+
+## 补充回执门禁暴露的消息竞态
+
+#748最初只有6份Markdown。文档head `e2e7d11a` 全量出现 **9748P/1F**，会话三轮测试读到第三轮消息pending；原样定向复验 **5P/1F**。失败收据 `20260915T171122Z-e2e7d11a.json` / `20260915T171217Z-e2e7d11a.json` 均保留，不靠重跑挑绿。
+
+一手依据：`c50714f7` 与当前 `TurnOrchestrator` 明确run claim先于message revise，两次落盘不等于跨对象原子提交。同文件已有 `_wait_message_terminal`，但 `_send` 只等run。最小修复是 `_send` 返回前复用消息级终态等待，让下一轮也不抢读前一轮pending；原消息、技能、SSE和取消断言、10秒上限均保留，HTTP失败立即报错。
+
+新增事件屏障回归：真API / 真RunStore claim后阻塞终稿，首次消息GET确认pending后释放，要求 `_send` 返回时消息已completed。移除消息等待的变异 **1F**（1.04s，明确报“_send仅等run”），修复版文件 **7P**（23.95s）。这些是修改中定向读数，不冒充最终head全量。证据 `message-wait-mutation.log` / `message-wait-fixed.log`；完整因果与方案取舍见 `../handoffs/2026-09-16-release-merge-message-wait.md`。
+
+因此#748不再是纯文档：另含一个测试文件和教训/决策记录；**无runtime、业务规则、数据或超时配置变更**。最终提交重跑四叶全绿后才合，合后main精确revision再跑全套；结果以#748评论为准。
 
 ## 运行面与剩余事项
 
