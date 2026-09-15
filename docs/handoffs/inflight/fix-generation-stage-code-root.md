@@ -17,6 +17,7 @@
 - 新22项用临时库；SQL collector/质量结果为夹具，真实 writer/CLI/子进程执行。episode 是真实存储接口探针，不是真模型回合。
 - 代码零新增只覆盖所跑夹具，不是 OS 沙箱。runtime 部署可能只复制 intelligence，必须确认 scripts/skills/market_feature_store 齐全。
 - registry 三仓在场通过，但知识库/研究站是有 WIP 的现场树，不是冻结跨仓提交验收。
+- 共享记忆图谱审计exit1：E2他枝的`TurnOrchestrator._run_turn_ledgered`引用漂移，本轮不改；#50引用可解析。图谱报MERGED仅指同名符号存在，不证明补丁合入。
 
 ## 下一步
 独立复核 → 用户明确授权才 push/合并 → 完整快照部署 → 分别验 import、持久化根、真实三道门 → 另行授权生成。继续不请求复盘会/不补资金兜底/不碰原数据树 WIP。
