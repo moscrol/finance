@@ -1,5 +1,9 @@
 # feat/judge-token-usage
 
+> **当前状态更正（2026-09-15）**：PR #593 已合 `main@1bcb1ebc`（20:45:59 +08）。生产8792仍为 `e40f22b83717`，本次未切；只读扫描1318个生产run，自合入时刻起符合统计条件的新run为0。**未完：切流后≥20个新run、同调用CLI自报成本核对、BP §7.3回填。** n=1旁路读数仍不可代填。最新可执行状态见 `docs/verification/2026-09-15-release-gate-closeout.md` 与 `docs/handoffs/inflight/fix-release-gate-closeout.md`。本次保留作者决策历史，不删除仍有运行待办的交接；下文“未合main/等待合并”是旧状态。
+
+## 合入前历史记录（不作为当前状态）
+
 树 `/Users/a77/fwp-wt-judge-token-usage`，基座 `gitea/main`=`c6e702a6`（派单时；实施中 main 前移 10 个提交，
 已 `2ac58896` 合入本分支，merge-tree 干净）。工单 `docs/superpowers/specs/2026-09-04-judge-token-usage-workorder.md`
 （INDEX #23）。解释器 `.venv-workbench/bin/python`。PR **#593** `http://127.0.0.1:3300/a77/finance-workspace-private/pulls/593`。
