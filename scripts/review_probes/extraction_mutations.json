@@ -93,10 +93,10 @@
   },
   {
     "id": "M10",
-    "description": "M10 确认重试不去重（回退 S6）",
+    "description": "M10 确认重试不去重（回退 S6；本轮 F1 修复后重新锚定）",
     "path": "intelligence/services/observation_script.py",
-    "old": "        if action_key is not None:\n            for existing in raw_now:",
-    "new": "        if False:\n            for existing in raw_now:",
+    "old": "        if action_key is not None:\n            legacy_identity = _legacy_confirm_identity(",
+    "new": "        if False:\n            legacy_identity = _legacy_confirm_identity(",
     "targets": [
       "S6ConfirmRetryIsDeduped"
     ]
@@ -223,10 +223,10 @@
   },
   {
     "id": "M23",
-    "description": "M23 导出仍整文件解码（回退 T4）",
+    "description": "M23 导出仍整文件解码（回退 T4；本轮 _carried 归一后重新锚定）",
     "path": "intelligence/services/personal_export.py",
-    "old": "    for raw_line in path.read_bytes().split(b\"\\n\"):\n        try:\n            line = raw_line.decode(\"utf-8\").strip()\n        except UnicodeDecodeError:",
-    "new": "    for raw_line in path.read_text(encoding=\"utf-8\").splitlines():\n        if True:\n            line = raw_line.strip()\n        if False:",
+    "old": "    for raw_line in path.read_bytes().split(b\"\\n\"):\n        if not raw_line:\n            continue  # 行分隔符自己切出来的空段（含末尾那个换行）：没有字节，没有行\n        try:\n            line = raw_line.decode(\"utf-8\").strip()\n        except UnicodeDecodeError:",
+    "new": "    for raw_line in path.read_text(encoding=\"utf-8\").splitlines():\n        if not raw_line:\n            continue\n        if True:\n            line = raw_line.strip()\n        if False:",
     "targets": [
       "T4PersonalExportSurvivesTheSameTornLine"
     ]
@@ -293,19 +293,19 @@
   },
   {
     "id": "M30",
-    "description": "坏 UTF-8 只有预览不含原始字节",
+    "description": "M30 坏 UTF-8 只有预览不含原始字节（本轮 _carried 归一后重新锚定）",
     "path": "intelligence/services/personal_export.py",
-    "old": "                \"_unparsed_bytes_hex\": raw_line.hex(),\n",
-    "new": "",
+    "old": "            out.append(_carried(raw_line, raw_line.decode(\"utf-8\", errors=\"backslashreplace\")))",
+    "new": "            out.append({\"_unparsed_line\": raw_line.decode(\"utf-8\", errors=\"backslashreplace\")})",
     "targets": [
       "test_bad_line_round_trips_exact_bytes_through_export"
     ]
   },
   {
     "id": "M31",
-    "description": "坏 JSON 的原始字节字段消失",
+    "description": "M31 坏 JSON 的原始字节字段消失（本轮 _carried 归一后重新锚定）",
     "path": "intelligence/services/personal_export.py",
-    "old": "            out.append({\"_unparsed_line\": line, \"_unparsed_bytes_hex\": raw_line.hex()})",
+    "old": "            # 坏行不静默丢：原样带走，让用户看得见台账里确实有这么一行。\n            out.append(_carried(raw_line, line))",
     "new": "            out.append({\"_unparsed_line\": line})",
     "targets": [
       "test_bad_line_round_trips_exact_bytes_through_export"
