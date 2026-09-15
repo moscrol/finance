@@ -97,7 +97,10 @@ pending恢复/旧frame重验、跨轮权限及 Episode 历史正文交付尚未�
 [中断原件](verification/e2-boundary-closeout/p3f1-a819ecde-independent-qc-blocked/README.md)保留，未自动重试。
 用户授权后的第二次全新有界复核也被服务过载阻塞：工具调用0、测试未执行、无报告，
 禁止IO次数未测而非0；自动重试关闭，未再次启动或换模型。
-[第二次原件与终态](verification/e2-boundary-closeout/p3f1-a819ecde-independent-qc2-blocked/README.md)单独归档，仍无独立裁定。
+[第二次原件与终态](verification/e2-boundary-closeout/p3f1-a819ecde-independent-qc2-blocked/README.md)单独归档。
+用户再授权的[第三次有界复核](verification/e2-boundary-closeout/p3f1-a819ecde-independent-qc3-blocked/README.md)
+同样首响应过载、0工具/无测试/无报告，未自动重试；仍无独立裁定。停止相同渠道重复请求，
+后续以服务恢复证据或用户明确指定可用替代独立审查渠道为前提，不能把服务失败当代码通过。
 
 **本阶段不是材料题全链完成**：`local_only` 仅已审定 runner 的局部路径，未覆盖所有
 本地工具；歧义/基底不可恢复的预取前澄清、controller 前缀/默认摘要/压缩/恢复/子研究等
