@@ -115,3 +115,17 @@ preview_stock_calculation(con, trade_date, *, stock_codes: Sequence[str]) -> dic
 6. pi 无 codex 式 OS 沙箱，隔离改为「指令约束 + 事前指纹、事后归因」：全仓 refs 变化归因为其他并发会话分支，vault 三笔 auto-sync 归因为其他会话台账 + 本轮图谱/笔记回写。
 
 **批次 2 后仍然不变的边界**：真实供应商数据未碰、覆盖完整性未验、`production_ready` 恒 false、未 push/合并/部署；Playwright E2E 与 kb 侧 registry 漂移是留给合并前的既存项，不属本片。
+
+---
+
+## 批次 3 · QC 两条 P3 修复（追加段，上文保持原文）
+
+用户指示「继续推进」后同日完成，修复提交 `728ecf82`、归档提交 `cee4d9f2`，证据追加进同一归档目录（现 100 文件，SHA256SUMS 重算全核验）：
+
+1. **P3-1**：stock/sector 两片 CLI 的 `invalid-preview-options` / `database-unavailable-or-schema-mismatch` fallback 报告补 `contract_version`。sector 片原先连成功报告都无版本字段，为此新增 `hithink-sector-preview-v1` 常量并进成功报告（该片同在本分支未合，无已发布合同变更问题）。**指纹刻意不补**：失败时范围未验证、输入未读到，补范围/输入指纹等于伪造「验证过」——此取舍已写进 `runtime-and-pitfalls.md` 的 exit 语义段。
+2. **P3-2**：`runtime-and-pitfalls.md` stock 段新增 bullet、sector 段补句：统一休市表当前仅登记 2026 年，目标日与前一计划交易日都须在已登记年份内，范围外（含前日跨入 2025 的年初首日）fail-closed 报 `invalid-preview-options`；扩年先补休市表，不放宽校验。
+3. **观察项 2 顺手修**：`preview_stock_calculation` 循环内 `row, reasons = None, []` 防御性重置。无行为差异（异常路径本就被 reasons 守卫拦住），不存在能单独见红的测试，如实记录为防御性改动。观察项 1（全零事件行 basis 标签）不改：无数值后果，供应商数据洁癖。
+4. **验证**：新增 5 条断言锁两片成功/失败路径的版本字段（139P）；3/3 删保护变异见红（两片 CLI fallback + sector 成功报告，红的均为语义对应测试，还原后基线干净）；九个兄弟 hithink 测试文件 132P 证明 sector 加字段未破消费者；QC 复现命令（`--trade-date 2026-10-01` 空隔离库）字面重放现输出 `contract_version` + `invalid-preview-options`、exit2、不建库目录；干净 `728ecf82` 全量 **9834P/79S/2X exit0（698s）**，计数与批次 2 基线一致（零回归），收据七项条件「可采信」；全仓 Ruff 绿。
+5. 分支已 push `gitea/fix-hithink-review-wiring`（推分支非合并）；合并仍等用户确认。
+
+**批次 3 后仍然不变的边界**：真实供应商数据未碰、覆盖完整性未验、`production_ready` 恒 false、未合并/部署；Playwright E2E 与 kb 侧 registry 漂移仍是合并前既存项。
