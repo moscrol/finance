@@ -118,8 +118,22 @@ resolver/模型之前发起澄清；旧注入 controller 按签名探测兼容�
 注册表（GC 时机依赖），修为每用例唯一 id，不改产品弱引用语义。独立审查按用户决定
 保持关闭，本片为作者自验；提交 `e1fc53a7`，决策留痕
 `docs/handoffs/2026-09-15-e2-p3f2-frame-delivery-and-material-chain.md`。
-未覆盖：歧义（非缺失）的预取前澄清、pending 恢复重验、D7 跨轮权限继承、
-最终答案质量（P4/P6）与全仓合入门禁。
+未覆盖：歧义（非缺失）的预取前澄清、D7 跨轮权限继承、最终答案质量（P4/P6）
+与全仓合入门禁；pending 恢复重验由 P3g 接续收口（见下段）。
+
+P3g 收口材料类澄清挂起的恢复重验——「用户回答了 P3f2 那句澄清之后」的四个真实入口
+bug：material clarify 决策未挂 pending_task_frame（回答绕过恢复走普通路由，材料被丢、
+权限声明被当主体名）；顶部材料分支抢在恢复前重建 frame（题组丢）；
+`resolve_task_frame_clarification` 无材料合同分支（needs_clarification 合同残留仍放行
+research）；装配层只按 data_scope==material_only 收窄（state_unavailable 轴 None 被当
+full 执行 8 能力）。修复三层：clarify 挂 pending 快照；材料类澄清挂起时顶部分支让路
+（结构化判定合同状态，不比文案）；恢复用同一 D1/D2 编译器重编译回答——显式声明成为
+新合同（D7.2），裸材料并入且合同如实保留待澄清、由装配层 `_material_restricted`
+（material_only 或 needs_clarification）按最严收窄执行与提示，不猜 full、不二次采访。
+6 个真实入口反例先红后绿（含两轮 run_turn 全链）；文件×10=290/290，选集 689P/4S 零
+破坏；变异验证三层各有独立承重针（6/6、3/6、3/6）。提交 `f05d0681`，决策留痕
+`docs/handoffs/2026-09-15-e2-p3g-pending-clarification-recovery.md`。旧类型澄清
+（entity tristate、主体归一）走原路径未动；歧义（非缺失）预取前澄清与 D7 继承仍未盖。
 
 **本阶段不是材料题全链完成**：`local_only` 仅已审定 runner 的局部路径，未覆盖所有
 本地工具；歧义的预取前澄清（基底已知缺失的前置澄清已在 P3f2 接通）、controller
