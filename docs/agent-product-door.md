@@ -79,6 +79,11 @@ P3e 候选在 `QueryResolver.resolve` 的词典读取前复用 D1/D2 材料合�
 仍未关闭静态路由配置/日历先验、controller历史、可信继承、注入式resolver和其他旁路；
 本片不宣称整个 `understand_query` 零IO或完整入口安全。
 
+P3f 的“明确 material_only 就清空 controller 历史/旧 intent”候选已被作者反证并撤回：
+它会丢掉上轮用户材料，也把已知缺材料误当未知上下文（候选两条正例2F，恢复原代码2P）。
+当前应用未增加这道闸，新增正例只锁住兼容行为；不是历史来源过滤或可信续轮已经完成。
+[候选原件、反例与撤回对照](verification/e2-boundary-closeout/p3f-rejected-history-clear-20260915/README.md)。
+
 **本阶段不是材料题全链完成**：`local_only` 仅已审定 runner 的局部路径，未覆盖所有
 本地工具；歧义/基底不可恢复的预取前澄清、controller 前缀/默认摘要/压缩/恢复/子研究等
 全部注入路径、确定性旁路仍待 P3 收口。local_only 原题号槽、逐题最终交付、可信跨轮继承、
