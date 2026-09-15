@@ -129,6 +129,8 @@ expired_at is null OR expired_at > C
 
 若历史对象缺少 `recorded_at`，整片标记 `pit_grade=trade_date_only`，与 `pit_grade=strict` 分开统计，不能混成一个平均值。`hindsight=true` 只用于人工复核，不得进入任何校准或方法有效性统计。
 
+**`expired_at` 属于记录时间时钟：只能填标注动作发生的当下时刻（系统何时记下失效），禁止回填「回头看它何时开始错」——那是有效时间（`valid_to`）的事。** 两种填法的差别可机器证伪：回填过去时刻会让已发生过的 `slice(T, C)` 在回检跑过之后内容改变，违反 §7 第 9 条回放幂等；填当下时刻则永不 ≤ 历史 C，历史切片逐字节不变。判断轨「verdict 的 `valid_from` 用到期日而非登记日」是时钟 1 的合法用法，不得把那个先例抄到 `expired_at` 上。接自动触发（回检 miss → 标失效、纠偏 → 写 `superseded_by`）之前，先按本条写测试。
+
 ### 4.2 通用对象契约
 
 ```text
@@ -177,13 +179,17 @@ window(start, end, entity, knowledge_cutoff=C) -> RiverWindow
 
 **区间不是把每条轨压成一个数再求均值**，而是保留对象身份的切片序列 + 可拆回到天与行的派生对象。派生五类（`river_derive`）：`streak`（连续 N 日满足标签）、`transition`（标签从 a 到 b 的跃迁日）、`cumulative`（区间累计）、`first_event`（区间内首次出现）、`signature`（六维 z-score）。每条必带 `member_refs[]`、`derivation_rule{name,version}`、`gap_policy` 与 `gaps_applied[]`。
 
+`cumulative` 涉及涨幅 / 成交额类指标时必须调用 `river_query.range_aggregate`（「算区间涨幅」的正门：个股 close_to_close、板块只能连乘日涨幅，带 coverage / codes_seen / MetricGap 纪律），不得自算——否则就是两套区间累计、只有一套带覆盖率纪律，与 §4.6 拒绝两套发酵链路同理。
+
 标签谓词只能引用 `methodology_backtest.labels.ALL_LABELS`，**不新造标签名**。
 
 ### 4.5 上下文投影契约
 
-从河到「读者 / 模型看到的那几段」。投影是纯函数，由 `(source_ref, framework_version, task, budget, projection_version, label_version)` 重算，**不落库不缓存**；`projection_hash` 是回放钥匙不是存储键。
+从河到「读者 / 模型看到的那几段」。投影是纯函数，由 `(source_ref, framework_version, task, budget, projection_version, label_version)` 重算，**不落库不缓存**；`projection_hash` 是回放钥匙不是存储键。**凡登记 `projection_hash` 的台账（如 `checkpoints`）必须同时保证六元组可复原**——存下来，或逐项证明是常量 / 可由已存字段推导。哈希是单向的，钥匙开不了锁时「回放钥匙」只是校验和（现状：checkpoints 只存 hash 与 `framework_version`，其余四项的可复原性在接区间投影时一并补证）。
 
 **单点投影**（已实现，`river_projection.project`）：输入一片切片，输出有序 `blocks` + `omitted{track:count}` + `omitted_refs` + `limits` / `gaps` 强制块 + `budget`。默认序：轨按 `TRACKS`；轨内 硬度降序 → `recorded_at` 升序 → `ref` 字典序；`frozen_llm` 排在同轨 `deterministic` 之后。省略**按块整体**，不在对象中间截断。
+
+**修正链标注（`expired_at` / `superseded_by`）不进块序列化、不进 `projection_hash`、不进渲染正文**（白名单见 `ProjectedBlock.hashed_dict`）：留在切片里的对象这两个字段只能取 null 或 > C 的值——那是 C 之后的知识，投给模型即前视；进哈希则每次标注都会漂移历史投影哈希，`checkpoints` 里存的钥匙集体失配。`hardness` 相反，**要进**：它是证据强度标注，属于投影语义。
 
 **区间投影**（本节新定）。核心决定：
 
@@ -192,9 +198,9 @@ window(start, end, entity, knowledge_cutoff=C) -> RiverWindow
 规则：
 
 1. 区间投影的一等公民是 §4.4 的**派生对象**，不是每日切片。`transition` / `first_event` 回答「什么时候变的、什么先出现」，这正是区间要答的。
-2. 每日切片**默认不进投影**。只有派生对象 `member_refs[]` 命中的那几天按单点规则投影，标 `selected_by=derived:<rule_name>`——模型看到「3-05 阶段由震荡切反弹」时，能顺着拆回那天的六轨。
+2. 每日切片**默认不进投影**。只有派生对象 `member_refs[]` 命中的那几天按单点规则投影，标 `selected_by=derived:<rule_name>`——模型看到「3-05 阶段由震荡切反弹」时，能顺着拆回那天的六轨。同一天被多个派生对象命中时，`selected_by` 为全部 `derived:<rule_name>` 按字典序以 `+` 连接（类型仍是 str——单点投影的 `selected_by` 合同与哈希已定，不为多值改类型）。
 3. `validity_kind=range` 的对象进上下文必须带 `gap_policy` 与 `gaps_applied[]`：**缺天的累计量不能看起来和完整的一样**。
-4. 预算不足时先省切片、后省派生对象；派生对象之间按 `transition` > `first_event` > `streak` > `cumulative` > `signature` 让位（前两类携带时间因果，后三类是统计量）。
+4. 预算不足时先省切片、后省派生对象；派生对象之间按 `transition` > `first_event` > `streak` > `cumulative` > `signature` 让位（前两类携带时间因果，后三类是统计量），同类之间沿用单点默认序。**被预算省略的 `member_refs` 命中日必须进 `omitted_refs`**——省略要可见，与单点投影同一机制，不得静默消失。
 
 **被否方案**：
 
@@ -207,9 +213,9 @@ window(start, end, entity, knowledge_cutoff=C) -> RiverWindow
 **验收**：
 
 - (a) 同一 `(start, end, entity, C, framework_version, task, budget)` 两次投影 `projection_hash` 相同；
-- (b) 投影里每个派生对象的 `member_refs` 所指的天，都能用 `slice(day, C)` 取回且与投影中该天逐字节一致（可回溯不降级）；
+- (b) 派生对象 `member_refs` 所指的天，**出现在投影里的**必须能用 `slice(day, C)` 取回且与投影中该天逐字节一致（可回溯不降级）；**被预算省略的**必须出现在 `omitted_refs`——两种去向必居其一，不允许第三种（静默消失）；
 - (c) 任一派生对象 `gaps_applied` 非空时，其内容必须出现在投影的 `limits` 块里；
-- (d) **区间投影的块数不随区间长度线性增长**——若随 N 线性增长，说明退化成了按天铺。
+- (d) **块数是变化数的函数，不是天数的函数**：把区间右端延长 k 天、且这 k 天不产生任何新派生对象时，投影块数与内容逐个不变（平坦尾巴不变量，可直接写成夹具测试；「不随区间长度线性增长」是它的推论）。配套约束：**投影层不得自造派生对象，只消费 `river_derive` 的产出**——否则把 `streak` 逐日拆条就能让「变化数」随天数膨胀，本条名存实亡。
 
 ### 4.6 事件锚点契约
 
@@ -226,6 +232,8 @@ anchor_windows(anchor_label, before, after|until, C, entity) -> [AnchorRecord]
 硬规矩：`anchor_label` 必须 ∈ `ALL_LABELS` 或已注册派生规则；`C` 至少是 `forward_end`；**N < 10 只报样本不足，不报「下次也会这样」**。
 
 **`lookback` 当前是 v0 占位**（`river_anchor.py` 返回空列表）。补它之前先定与 `theme-fermentation-tracer` 的分工：该 skill 已实现「消息→首板→板块双红→补涨扩散」的题材特化回溯。**分工按「骨架 / 特化」切**——`anchor` 只给「锚点 → 前后区间 → 派生对象」的通用骨架与 PIT 保证，题材语义（谁是起涨股、谁是补涨股）留在 skill；skill 改读 `anchor` 的输出，不再自己拼时间轴。不这么切就会有两套发酵链路，且只有一套受 `knowledge_cutoff` 约束。
+
+lookback 补上时的验收：`theme-fermentation-tracer` 的时间轴段引用 `anchor` 输出的 ref，SKILL.md 里不再有自拼时间轴的查询步骤——「skill 改读 anchor 的输出」由这一条打勾，不靠口头。
 
 ## 5. 方法生命周期与数据飞轮
 

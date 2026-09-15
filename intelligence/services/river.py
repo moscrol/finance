@@ -109,7 +109,9 @@ class RiverObject:
     valid_to: str | None = None  # state：null = 现行；range：区间尾；point：= valid_from
     # ── G-02 契约后半：修正链与硬度。同样**不进 ``source_hash``**，理由同上。
     hardness: str | None = None  # L1–L4；None = n/a。frozen_llm 封顶 L1（下面强制）
-    expired_at: str | None = None  # 被 superseded / invalidated 的时刻；null = 现行（不删只标）
+    # 时钟 2（09-06 spec §4.1）：只填标注动作的当下时刻，禁止回填「回头看它何时开始错」
+    # ——回填会让已发生过的 slice(T, C) 在回检跑过之后变内容，违反回放幂等。
+    expired_at: str | None = None  # 系统记下失效的时刻；null = 现行（不删只标）
     superseded_by: str | None = None  # 替代对象的 ref
 
     def __post_init__(self) -> None:

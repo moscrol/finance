@@ -404,6 +404,26 @@ class RiverCorrectionAndHardnessTests(unittest.TestCase):
             river_projection.default_sort_key(hard), river_projection.default_sort_key(soft),
         )
 
+    # ── 修正链标注不进投影（§4.5）──
+    def test_修正链标注不进投影哈希也不进渲染正文(self) -> None:
+        """留在切片里的 ``expired_at`` / ``superseded_by`` 只能是 > C 的值——C 之后的知识。
+
+        进哈希：接上自动触发后每次标注都漂历史投影哈希，checkpoints 里的钥匙集体失配；
+        进正文：模型站在 C 却看到「这条判断将在未来被推翻」，前视。
+        ``hashed_dict`` 是白名单序列化，这条钉住它不被改回全量 dict。
+        """
+        plain = {"tracks": {"market": [self._o("r1").to_dict(), self._o("r2").to_dict()]}}
+        marked = {"tracks": {"market": [
+            self._o("r1", expired_at="2027-01-01T09:00:00", superseded_by="river://market/E/x").to_dict(),
+            self._o("r2").to_dict(),
+        ]}}
+        p1 = river_projection.project(plain, framework_version=None, task="t")
+        p2 = river_projection.project(marked, framework_version=None, task="t")
+        self.assertEqual(p1.projection_hash, p2.projection_hash)
+        for needle in ("expired_at", "superseded_by", "2027-01-01", "river://market/E/x"):
+            self.assertNotIn(needle, p2.canonical_json())
+            self.assertNotIn(needle, "".join(b.rendered_text for b in p2.blocks))
+
 
 class SpecPointerRatchetTests(unittest.TestCase):
     """契约指针不得悬空：模块 docstring 引用的 09-06 spec 章节必须真实存在。
@@ -418,18 +438,23 @@ class SpecPointerRatchetTests(unittest.TestCase):
         Path(__file__).resolve().parents[2]
         / "docs/superpowers/specs/2026-09-06-personal-research-calibration-endstate-design.md"
     )
-    MODULES = ("river_window_contract", "river_projection", "river_anchor", "river_derive")
+    # 扫 glob 不扫名单：写死四个名字时，river.py（§4.2 两处）与 river_window.py（§4.4）
+    # 的引用已经在门禁外——名单会漏现存成员，更别提未来新增的。
+    MODULE_GLOB = "river*.py"
+    MIN_MODULES = 8  # 2026-09-15 实测 river 系模块数；少于它说明 glob 或目录结构变了
 
     def test_09_06_spec_的章节引用都能落到实处(self) -> None:
         present = set(re.findall(r"^#{2,4}\s+(\d+\.\d+)\s", self.SPEC.read_text(encoding="utf-8"), re.M))
         self.assertTrue(present, f"没解析出任何章节，检查 spec 路径：{self.SPEC}")
         services = Path(__file__).resolve().parents[1] / "services"
+        modules = sorted(services.glob(self.MODULE_GLOB))
+        self.assertGreaterEqual(len(modules), self.MIN_MODULES, f"river 系模块只扫到 {[m.name for m in modules]}")
         cited: list[tuple[str, str]] = []
-        for name in self.MODULES:
-            src = (services / f"{name}.py").read_text(encoding="utf-8")
-            cited += [(name, sec) for sec in re.findall(r"09-06[^\n]{0,12}spec\s+§(\d+\.\d+)", src)]
+        for path in modules:
+            src = path.read_text(encoding="utf-8")
+            cited += [(path.name, sec) for sec in re.findall(r"09-06[^\n]{0,12}spec\s+§(\d+\.\d+)", src)]
         self.assertTrue(cited, "一条引用都没扫到——正则或 docstring 写法变了，门禁会假绿")
-        missing = [f"{n}.py → §{s}" for n, s in cited if s not in present]
+        missing = [f"{n} → §{s}" for n, s in cited if s not in present]
         self.assertEqual([], missing, f"契约指针悬空：{missing}；spec 现有章节 {sorted(present)}")
 
 
