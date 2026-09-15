@@ -1,5 +1,9 @@
 # 在途交接 · feat/methodology-backtest-p1-lifecycle-stage（工单 #21 剩余 P1 / G-04）
 
+> **当前状态更正（2026-09-15 21:56 后）**：PR #673 已合 `main@ce9643b1`。共享旁路库已发布 v6，labels 1,736,327 / outcomes 2,277,800，四条规则已重跑；3941 个 NULL→0 的旧标签漂移已登记，不是零漂移。**仅人工一致率仍待：0/42 已标注，至少填30条。** 本次不删除/归档仍有人工待办的交接，不覆盖原作者决策历史；最新可执行状态、备份和收据见 `docs/verification/2026-09-15-release-gate-closeout.md` 与 `docs/handoffs/inflight/fix-release-gate-closeout.md`。下文是原作者合入前记录，其中“待合/共享库未动”均已失效。
+
+## 合入前历史记录（不作为当前状态）
+
 > 2026-09-15 更新：前向合并至 `gitea/main@1fef3d27`，`LABEL_VERSION` 收口为 **v6**，吸收 PR #745 的双表派生化后关闭该并行轨。PR #673 仍开着等合并授权。
 
 ## 这个分支做什么
