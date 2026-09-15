@@ -2,10 +2,10 @@
 
 ## 这个分支做什么
 
-让时间长河能表达**认知的演变**，不只是某天快照。四步：补契约后半的载体（`hardness` /
+让时间长河能表达**认知的演变**，不只是某天快照。五步：补契约后半的载体（`hardness` /
 `expired_at` / `superseded_by`），定「投影该吃点还是吃段」这份从未存在过的契约，按审阅
-把契约模糊点在写代码前收紧，再**按 §4.5 实现区间投影**。基线 `gitea/main@1fef3d27`，
-六提交，未合 main。
+把契约模糊点在写代码前收紧，**按 §4.5 实现区间投影**，再落取数正门 + 六元组载体并用
+真库真链路冒烟。基线 `gitea/main@1fef3d27`，八提交，未合 main。
 
 ## 决策与被否方案
 
@@ -32,14 +32,25 @@
     日级 limits/gaps 带日期前缀并入；悬空事件日进 gaps 不静默；五类之外的 object_type 拒绝
   - `render_derived` 单列：派生 payload 插入序把 member_refs 排在 transitions 前面，
     复用 `render_object` 会让模型看到证据链看不到跃迁列表——渲染顺序也是投影决定
+- `1131bc0b` **正门 `river_range_projection.project_range` + 六元组载体，真链路已冒烟**：
+  - 真库只读冒烟（2026-08-25→09-12 AIGC概念）：transition 抓到两次真实跃迁（09-01 下跌→
+    底部横盘、09-03 底部横盘→下跌），selected_days 恰为这两天，**19 块 vs 全铺 ~112 块**，
+    幂等成立。复现：`MARKET_FEATURE_STORE_DB=<主树>/db/market_feature_store.duckdb`，
+    `project_range('2026-08-25','2026-09-12','AIGC概念',task='smoke')`
+  - 正门封装「window() 默认只挂 cumulative」这条知识；标准派生集确定性固定
+    （transition:market_stage + streak:dual_red_strict + streak:volume_surge）；
+    first_event / signature 无无争议默认，走 `extra_derived` 显式加
+  - `register_checkpoint(projection_inputs=...)`：§4.5 六元组载体（形状 =
+    `projection_inputs_of(cp)`），有 inputs 无 hash 拒收；校准不读它
+  - ⚠ 实体是**板块粒度**（`resolve_entity` 查 `fact_sector_daily` 精确匹配），「全市场」
+    不是合法实体、六轨 entity_unresolved——问「大盘这段怎么走」要先定实体口径
 - **只加载体，不给 track 填 `hardness` 值**
 
 ## 下一步
 
-1. **把 `project_window` 接进消费方**（带读 / ask_synthesis 里「这一段怎么走过来的」类问法）：
-   调用链 `window()` → `derive_*`（⚠ `window()` 默认只挂 cumulative，transition / first_event /
-   streak 要显式调 `river_derive` 再塞进 `RiverWindow.derived`）→ `project_window(win.to_dict())`。
-   接线时顺带补证 checkpoints 六元组可复原（§4.5，现状只存 hash + framework_version）。
+1. **把 `project_range` 接进消费方**（带读 / ask_synthesis 里「这一段怎么走过来的」类问法）：
+   正门已备好，接线剩三件——消费方在哪个 seam 调（路由/意图判定归消费方）、登记判断时把
+   `projection_inputs_of(cp)` 传进 `register_checkpoint`、以及「全市场」类问法的实体口径。
 2. **接自动触发**：回检 miss → 标 `expired_at`、纠偏 → 写 `superseded_by`。**动手前先按
    §4.1 写「标注后历史切片逐字节不变」的测试**——expired_at 填当下时刻不是 verdict 到期日。
 3. **给各 track 填 `hardness`**。⚠ 填值后 `projection_hash` 会变（hardness 在哈希白名单里，
@@ -48,11 +59,10 @@
 
 ## 未验证 / 已知边界
 
-- `project_window` 只被内存夹具测过，**没接过真库真 window()**——`derive_*` 产出的真实对象
-  过一遍投影是接线时的第一件事（transitions 的 refs 字段、body 键序都来自 derive 真实现，
-  夹具是按它抄的，但「按它抄」不是「跑过它」）。
 - 事件日只认 transition / first_event；`streak.longest_end`、`cumulative.peak_date` 有语义
   但 v0 不投切片（统计量），要扩先改 §4.5 再改 `event_days_of`。
+- 正门标准集只覆盖 market 轨标签；题材/舆论轨的 transition（如 `opinion_stage`）等 G-06
+  词表落地后再进标准集，别提前拍。
 - **回检 verdict 不会给河上对象标 `expired_at`**（checkpoints.py 零命中，09-15 复核成立）。
 - 「记忆长河炼化」全景（09-15 查证）：载体 ✅ 本分支；§5.1 队列 ✅ 已合 main（4b5b78d9）；
   judgment_maintenance ⚠ 未合分支 `feat/research-evolution-06-workbench`；自动触发 ❌；
@@ -69,11 +79,12 @@
 
 ## 已验证
 
-- `d6e4d19c`：**全量 9639 passed / 0 failed / 77 skipped / 2 xfailed**（上轮 9630，+9 为
-  §4.5 验收测试）；river 全家 65 passed；ruff 绿；pre-commit 11 道全过。
-- 四门变异各自见红、替换数各 1、还原后 37 passed 树干净：M1 让位序失效 → 2 红；
-  M2 gaps_applied 不进 limits → 1 红（验收 c 承重）；M3 省略不记 refs → 1 红（验收 b 承重）；
-  M4 **退化成全铺 → 3 红**（验收 d 抓得住全铺回归，这正是它存在的意义）。
+- `1131bc0b`：**全量 9645 passed / 0 failed / 77 skipped / 2 xfailed**（上轮 9639，+6）；
+  真库真链路冒烟通过（读数见「当前状态」）；四门变异各红还原干净：标准集丢 transition、
+  载体不落盘、有 inputs 无 hash 拒收门失效、六元组丢 label_version。
+- `d6e4d19c`：9639/0（+9 为 §4.5 验收测试）；river 全家 65 passed。四门变异各红：让位序
+  失效 → 2 红；gaps_applied 不进 limits → 1 红；省略不记 refs → 1 红；**退化成全铺 → 3 红**
+  （验收 d 抓得住全铺回归，这正是它存在的意义）。
 - `459dac29`：9630/0，两门变异见红（spec 改号 → glob 新覆盖的 river.py 引用悬空报红；
   投影块泄入 expired_at → 白名单红）。
 - `1ee6a881`/`f8fc5e5b`：9629/0，五门变异见红，指针门禁双向承重。
