@@ -173,5 +173,21 @@ def compile_material_contract(
             data_scope_declared = True
             if data_scope == "full":
                 data_scope = "local_only"
-    return MaterialContract(regions.classification, authenticity, data_scope, tuple(dict.fromkeys(marks)), questions,
+    return MaterialContract(regions.classification, authenticity, data_scope, _settled_marks(marks), questions,
                             continuation_requested=continuation, data_scope_declared=data_scope_declared)
+
+
+def _settled_marks(marks: list[PremiseMark]) -> tuple[PremiseMark, ...]:
+    """同值重申幂等：同一句、同作用域的前提只留最早那一次（D7.2 第④格）。
+
+    `text_ref` 是原句哈希，所以重申会得到同 ref、同 scope、只差 source_turn 的第二条。
+    按整条去重挡不住它——续一轮就多一条模型可见标注，且两条指向同一个前提。
+    保留最早轮次与既有注释一致：题级标注带原轮次，不因续轮改写成当前轮。
+    """
+    settled: dict[tuple[str, str, str], PremiseMark] = {}
+    for mark in marks:
+        key = (mark.text_ref, mark.authenticity, mark.scope)
+        kept = settled.get(key)
+        if kept is None or mark.source_turn < kept.source_turn:
+            settled[key] = mark
+    return tuple(settled.values())

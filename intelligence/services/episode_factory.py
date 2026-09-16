@@ -904,7 +904,10 @@ def assemble_input_understanding_context(frame: TaskFrame, conversation_context:
         contract = frame.material_contract
         lines = ["## 本轮材料任务语义", f"前提真实性={contract.authenticity}；数据范围={contract.data_scope}；状态={contract.classification}"]
         for mark in contract.premise_marks:
-            lines.append(f"前提标注：{mark.scope} / {mark.authenticity} / 轮次{mark.source_turn} / {mark.text_ref}")
+            # 题级标注写成裸「q3」时，续轮里本轮的 q3 是另一道题，模型会读成
+            # 「本轮第 3 题有虚构前提」。作用域自带轮次才唯一（D7.2）。
+            scope = "消息级" if mark.scope == "message" else f"轮次{mark.source_turn}的{mark.scope}"
+            lines.append(f"前提标注：{scope} / {mark.authenticity} / 轮次{mark.source_turn} / {mark.text_ref}")
         if contract.premise_marks:
             lines.append("虚构前提不是待证伪信念；前提域声明仅证明结论范围，不能替事实背书。")
         for question in contract.questions:
