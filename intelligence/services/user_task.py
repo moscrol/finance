@@ -712,6 +712,30 @@ class TopLevelRegions:
     question_line_ranges: tuple[tuple[int, int], ...] = ()
 
 
+def _question_candidate_end(
+    lines: list[str], masked: list[str], claimed: list[bool],
+    protected_blanks: set[int], start: int,
+) -> int | None:
+    """题首可先给案例、续行才提问；弱材料识别不得抢走这种完整题体。
+
+    只检查强保护之外、未被外层材料认领的连续段，最终编号连续性仍由题组扫描检查。
+    不以「案例/材料如下」词表开后门；请求句法须在完整候选中实际出现。
+    """
+    item = None if claimed[start] else _NUMBERED_ITEM_RE.match(masked[start])
+    if item is None:
+        return None
+    end = start + 1
+    while (
+        end < len(lines) and (lines[end].strip() or end in protected_blanks)
+        and not claimed[end] and not _NUMBERED_ITEM_RE.match(masked[end])
+    ):
+        end += 1
+    body_lines = [item.group(2), *masked[start + 1:end]]
+    if any(_QUESTION_START_RE.search(line.strip()) for line in body_lines):
+        return end
+    return None
+
+
 def classify_top_level_regions(text: str) -> TopLevelRegions:
     """E2 设计稿 v10 §3.1：先保护、后解释、三态分类（全部确定性）。
 
@@ -734,6 +758,11 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
     while li < n:
         if claimed[li] or not masked[li].strip():
             li += 1
+            continue
+        question_end = _question_candidate_end(lines, masked, claimed, protected_blanks, li)
+        if question_end is not None:
+            # 引导行/缩进位于编号题内时属于题文；外层材料若已认领则不会进入这里。
+            li = question_end
             continue
         begin, end, why = -1, -1, ""
         body_from = begin
@@ -792,13 +821,10 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
         visible = masked[li].strip()
         fragments = _sentences(visible)
         state_only = bool(fragments) and all(_state_op_in_sentence(s) for s in fragments)
-        numbered = _NUMBERED_ITEM_RE.match(visible)
-        if not claimed[li] and numbered and _QUESTION_START_RE.search(numbered.group(2)):
-            # 题首已经具备请求句法，其紧邻续行是同一候选，不能从第二行另起
-            # 长文候选抢走限定条件；真正题组是否连续仍由后续题组步骤验证。
-            li += 1
-            while li < n and (lines[li].strip() or li in protected_blanks) and not _NUMBERED_ITEM_RE.match(masked[li]):
-                li += 1
+        question_end = _question_candidate_end(lines, masked, claimed, protected_blanks, li)
+        if question_end is not None:
+            # 与引导块/缩进识别共用完整题体边界，不能从题内案例另起长文候选。
+            li = question_end
             continue
         if (
             claimed[li] or not visible or state_only
