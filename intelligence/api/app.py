@@ -89,8 +89,8 @@ from intelligence.services.draft_publisher import (
 from intelligence.services.episode_progress import (
     EpisodeProgress,
     RunEpisodeProgressPublisher,
+    is_public_progress_message,
     project_episode_progress,
-    public_progress_messages,
 )
 from intelligence.services.episode_store import (
     JsonlEpisodeStore,
@@ -724,7 +724,6 @@ _PUBLIC_PROGRESS_MESSAGES = {
     "verification": "正在核验证据绑定与回答完整性。",
     "finalizing": "正在基于核验结果形成公开回答。",
 }
-_EPISODE_PROGRESS_MESSAGES = public_progress_messages()
 _PUBLIC_HIDDEN_CONTROL_KEYS = frozenset(
     {
         "task_frame_hash",
@@ -846,10 +845,10 @@ def _public_trace_step(step: dict[str, object]) -> dict[str, object]:
         # 只会得到同一句「已完成一项证据核对。」——上游写了、下游不读，实测
         # （:8801 三轮）UI 上一个工具标签都没出现。
         #
-        # 放行判据是**集合成员**：只有本进程自己那张表生成过的句子才过，模型
-        # 措辞或别的 trace 生产者的 output_summary 一律不过，seam 不放宽。
+        # 放行判据是**封闭词表/语法**：固定进度句或同一工具标签表组成的菜单；
+        # 不是只验前缀。模型自由措辞仍不过，seam 不放宽。
         already_projected = str(step.get("output_summary") or "").strip()
-        if already_projected in _EPISODE_PROGRESS_MESSAGES:
+        if is_public_progress_message(already_projected):
             message = already_projected
         elif status == "failed":
             message = "一项研究步骤未完成，相关结果未纳入结论。"

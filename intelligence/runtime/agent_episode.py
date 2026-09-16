@@ -1353,11 +1353,13 @@ class ContinuousAgentEpisode:
             ledger.verify_model_visible(messages)
             # INV-R2：模型请求前的意图（含预留 turn_id）。菜单在意图之前算——它只读状态，
             # 不是外部效果；``tool_menu`` 事件因此仍先于 ``model_intent``。
-            definitions = self._available_tool_definitions(
-                tool_session=tool_session,
-                registry=registry,
-                context=context,
-                ledger=ledger,
+            definitions = (
+                [] if finalization_started else self._available_tool_definitions(
+                    tool_session=tool_session,
+                    registry=registry,
+                    context=context,
+                    ledger=ledger,
+                )
             )
             turn_id = ledger.record_model_intent(
                 timeout_asked=timeout,
@@ -2966,9 +2968,9 @@ class ContinuousAgentEpisode:
         ledger: _EpisodeLedger,
     ) -> list[dict[str, object]]:
         menu = tool_session.menu(registry=registry, context=context)
-        # 只在真藏了工具时记账：无裁剪轮的事件流与改前逐字节相同。
-        if menu.hidden:
-            ledger.add("tool_menu", menu.to_payload())
+        # 每个开放工具的模型步都留实际菜单：configure 早于动态工具装配，且合同
+        # 授权不等于预算/去重裁剪后的可见集合。与参照 loop 同源，UI 只投影标签。
+        ledger.add("tool_menu", menu.to_payload())
         return tool_definitions_for_menu(menu, registry=registry, context=context)
 
     @staticmethod

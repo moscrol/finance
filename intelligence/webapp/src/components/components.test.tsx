@@ -1403,6 +1403,25 @@ describe("Chat-first conversation components", () => {
     expect(screen.getByText("正在查主线结构。")).toBeVisible();
   });
 
+  it("shows the actual tool menu before any call, including on a failed run", () => {
+    const menu = {
+      ...episodeSteps[0],
+      step_id: "step:menu",
+      output_summary:
+        "此步模型可调用工具：沙箱派生计算、子研究分支。授权不代表已调用或服务可用。",
+    };
+    render(
+      bubbleWithProgress(
+        { content: "模型服务不可用，暂不能可靠回答。", status: "failed" },
+        [menu],
+      ),
+    );
+    expect(screen.getByText(menu.output_summary)).toBeInTheDocument();
+    expect(screen.getByText("模型服务不可用，暂不能可靠回答。")).toBeVisible();
+    expect(screen.queryByText("已取得沙箱派生计算。")).toBeNull();
+    expect(screen.queryByText("已取得子研究分支。")).toBeNull();
+  });
+
   it("keeps the timeline available after the answer lands", () => {
     render(
       bubbleWithProgress(
