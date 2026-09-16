@@ -449,17 +449,20 @@ def classify_repair_failure(
     """领域失败分类。``missing_outputs`` 是结构缺口 ∪ 语义缺口（调用方已合并）。"""
 
     from intelligence.services.episode_issues import IssueCode
+    from intelligence.services.episode_protocol import REJECTION_KINDS, RejectionKind
+    from intelligence.services.material_delivery import material_input_output_ids
 
+    # A rejected finish can lose its draft/bindings before structural verification.
+    # Preserve its typed integrity failure instead of laundering it into omissions.
+    if outcome.stop_reason == "integrity_violation" or any(
+        event.kind == "finish"
+        and REJECTION_KINDS.get(event.payload.get("rejection_code")) == RejectionKind.INTEGRITY
+        for event in outcome.events
+    ):
+        return RepairFailureShape(delivery=False, cold_restart=False, contract_rewrite=False)
     has_evidence = bool(outcome.evidence)
     contract = structural.contract
-    material = contract.material_contract if contract is not None else None
-    # Numbered questions and ordinary output slots share the same frozen scope.
-    material_ids = {
-        item.output_id for item in contract.required_outputs if item.required
-    } if (
-        contract is not None and material is not None
-        and material.data_scope == "material_only" and not material.needs_clarification
-    ) else set()
+    material_ids = material_input_output_ids(contract) if contract is not None else frozenset()
     material_rewrite = bool(
         missing_outputs and set(missing_outputs) <= material_ids
         and not rejected_claims and not structural.mandatory_missing_capabilities

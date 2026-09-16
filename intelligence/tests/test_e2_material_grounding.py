@@ -252,6 +252,38 @@ def test_real_episode_consumes_claim_binding_without_tool_calls():
     assert verify(frame, context, result, passing).status == "completed"
 
 
+@pytest.mark.parametrize("mutation", ["quote", "sentence"])
+def test_real_adapter_does_not_reopen_repair_after_source_integrity_rejection(mutation):
+    from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
+    from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
+    from intelligence.runtime.turn_control_core import TurnControlResult
+
+    frame, context = setup()
+    value = outcome(context)
+    claim = value.bindings[0].claims[0]
+    if mutation == "quote":
+        claim = replace(claim, material_anchors=(replace(claim.material_anchors[0], quote="材料中不存在"),))
+    else:
+        claim = replace(claim, text=claim.text.replace("。", "；"))
+    value = replace(value, bindings=(replace(value.bindings[0], claims=(claim,)), value.bindings[1]))
+    writer = Writer(value)
+    requests = []
+    result = ContinuousTurnAdapter(
+        runtime=GLMAgentRuntime(client=writer), runtime_name="continuous_glm", mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: ResearchToolRegistry(()),
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=lambda request: requests.append(request)),
+    ).handle(frame=frame, control=TurnControlResult(
+        task_frame=frame, execution_route=frame.question_type, terminal_kind="research",
+        needs_retrieval=False, capabilities=(), contract_required=True,
+    ))
+    assert len(writer.calls) == 1 and not requests
+    assert result.status != "completed" and FACT not in result.answer
+    events = result.private_artifact["outcome"]["events"]
+    assert not any(event["kind"] == "repair_reentry" for event in events)
+    assert any(event["kind"] == "finish" and event["payload"].get("rejection_code") == "material_source_violation" for event in events)
+
+
 def test_finalizer_recovery_receives_same_material_grounding_contract():
     frame, context = setup(history=True)
     writer = Writer(outcome(context))
@@ -442,8 +474,10 @@ def test_dispatch_stamps_runner_provenance_before_cache_and_serialization(effect
 
 
 @pytest.mark.parametrize("numbered", [True, False])
-def test_rejected_material_claim_can_be_rewritten_with_fresh_binding_and_same_sources(numbered):
+@pytest.mark.parametrize("real_runtime", [False, True])
+def test_rejected_material_claim_can_be_rewritten_with_fresh_binding_and_same_sources(numbered, real_runtime):
     from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
+    from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
     from intelligence.runtime.turn_control_core import TurnControlResult
     from intelligence.services.episode_session import CallbackEpisodeSession
 
@@ -469,12 +503,18 @@ def test_rejected_material_claim_can_be_rewritten_with_fresh_binding_and_same_so
                 assert goal.remaining_calls == 0 and not goal.reopen_tools
                 return replace(good, events=(*previous.events, EpisodeEvent(len(previous.events) + 1, "model_turn", {})))
             return CallbackEpisodeSession(episode_id=context.contract.task_id, outcome=bad, resume_callback=resume)
+    class RepairWriter(Writer):
+        def complete(self, *, messages, tools, timeout):
+            self.value = good if self.calls else bad
+            assert tools == []
+            return super().complete(messages=messages, tools=tools, timeout=timeout)
+    writer = RepairWriter(bad)
     def judge(request):
         requests.append(request)
         rejected = [row["index"] for row in request["sentences"] if row["text"] == text]
         return {"passed": not rejected, "rejected_sentence_indexes": rejected, "issues": ["计算错误。"] if rejected else []}
     result = ContinuousTurnAdapter(
-        runtime=Runtime(), runtime_name="continuous_glm", mode="on",
+        runtime=GLMAgentRuntime(client=writer) if real_runtime else Runtime(), runtime_name="continuous_glm", mode="on",
         context_factory=lambda *_args, **_kwargs: context,
         registry_factory=lambda *_args, **_kwargs: ResearchToolRegistry(()),
         semantic_verifier=SemanticEpisodeVerifier(judge_fn=judge),
@@ -482,7 +522,18 @@ def test_rejected_material_claim_can_be_rewritten_with_fresh_binding_and_same_so
         task_frame=frame, execution_route=frame.question_type, terminal_kind="research",
         needs_retrieval=False, capabilities=(), contract_required=True,
     ))
-    assert len(resumes) == 1 and len(requests) == 2, result.private_artifact
+    if real_runtime:
+        assert len(writer.calls) == 2
+        events = result.private_artifact["outcome"]["events"]
+        goals = [json.loads(event["payload"]["content"]) for event in events
+                 if event["kind"] == "model_input" and event["payload"].get("source") == "repair_goal"]
+        assert len(goals) == 1
+        assert goals[0]["missing_answer_elements"] == [output_id]
+        assert goals[0]["remaining_calls"] == 0 and not goals[0]["reopen_tools"]
+        assert all(not event["payload"].get("unreachable_without_tools") for event in events if event["kind"] == "repair_goal")
+    else:
+        assert len(resumes) == 1
+    assert len(requests) == 2, result.private_artifact
     assert requests[0]["material_grounding"] == requests[1]["material_grounding"]
     assert requests[0]["output_bindings"][0]["claims"] != requests[1]["output_bindings"][0]["claims"]
     assert result.status == "completed" and FACT in result.answer and text not in result.answer
@@ -492,6 +543,7 @@ def test_rejected_material_claim_can_be_rewritten_with_fresh_binding_and_same_so
 @pytest.mark.parametrize("case", [
     "material_only", "local_only", "full", "ordinary", "uncertain",
     "source_violation", "unknown_output", "mandatory_capability", "rejected_claim",
+    "terminal_material_source_violation", "terminal_forged_hash",
 ])
 def test_unnumbered_rewrite_permission_requires_settled_scope_and_only_delivery_gaps(case):
     from intelligence.services.episode_issues import Issue, IssueCode
@@ -518,6 +570,10 @@ def test_unnumbered_rewrite_permission_requires_settled_scope_and_only_delivery_
             Issue(IssueCode.MATERIAL_SOURCE_VIOLATION, "direct_answer", "forged anchor")))
     elif case == "mandatory_capability":
         structural = replace(structural, mandatory_missing_capabilities=("finance_query",))
+    elif case.startswith("terminal_"):
+        value = replace(value, stop_reason="invalid_model_finish", events=(*value.events,
+            EpisodeEvent(2, "finish", {"rejection_code": case.removeprefix("terminal_")})))
+        structural = replace(structural, outcome=value)
     shape = classify_repair_failure(
         value, structural,
         missing_outputs=("invented_output",) if case == "unknown_output" else structural.missing_outputs,
