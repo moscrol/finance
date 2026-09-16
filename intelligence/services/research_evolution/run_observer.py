@@ -19,7 +19,10 @@
 - ``cost_recorded`` 只在 trace 里有可核 token 用量时写，``certainty=unknown``
   （只有用量、没有费率；05 会把它聚成 usage_without_rate，不冒充金额）；
 - 自用事件的 ``protocol_version`` 是 ``workbench-self-use/v1``、``pilot_id`` 带会话前缀——
-  05 ``summarize`` 按 pilot_id 分区，自用事件永远混不进真人试点读数。
+  05 ``summarize`` 按 pilot_id 分区，自用事件永远混不进真人试点读数；
+- 同意门（QC I11）：owner 一旦在台账里表达过同意范围，``research`` + ``logging``
+  （05 的 ``REQUIRED_MEASUREMENT_SCOPES``）都在事件时刻生效才写这三类事件；撤回其一后
+  研究照常跑，测量停。没有任何同意记录时保持自用默认（照写）——owner 观察自己，没人可问。
 """
 
 from __future__ import annotations
@@ -131,13 +134,57 @@ class ObservingRunStore(RunStore):
             {"cost_item": cost_item, "initiator": "system", "assistance_source": "workbench"},
         )
 
+    def _measurement_consented(self, at: datetime) -> bool:
+        """自用测量的同意门（QC I11）。
+
+        只认 owner 自己的 ``consent_changed`` 记录（``participant_id`` 为空或等于 owner），按
+        ``effective_at``（缺则 ``event_at``）排序折叠 grant / withdraw，得到 ``at`` 时刻生效的范围。
+        没有任何记录返回 True（自用默认，见模块说明）；有记录则必须覆盖 ``REQUIRED_MEASUREMENT_SCOPES``。
+        台账读不出来按「未知」处理并留 stderr 痕迹——同意门是测量的门，不是被测 run 的门。
+        """
+        try:
+            from intelligence.services.product_value.contracts import REQUIRED_MEASUREMENT_SCOPES
+            from intelligence.services.product_value.events import parse_ts
+
+            events = self._evolution_store.list_product_value_events()
+        except Exception as exc:  # noqa: BLE001 - 读台账失败不阻断被测对象
+            print(f"[research-evolution] 读同意记录失败，按未知处理（继续写测量事件）：{exc}", file=sys.stderr)
+            return True
+        entries: list[tuple[datetime, str, frozenset[str]]] = []
+        for event in events:
+            if event.get("event_type") != "consent_changed":
+                continue
+            if event.get("participant_id") not in (None, self.user_id):
+                continue
+            payload = event.get("payload") or {}
+            effective = parse_ts(payload.get("effective_at")) or parse_ts(event.get("event_at"))
+            if effective is None:
+                continue
+            entries.append((effective, str(payload.get("action")), frozenset(str(s) for s in payload.get("scopes") or ())))
+        if not entries:
+            return True
+        entries.sort(key=lambda item: (item[0], item[1]))
+        active: set[str] = set()
+        for effective, action, scopes in entries:
+            if effective > at:
+                break
+            if action == "grant":
+                active |= scopes
+            elif action == "withdraw":
+                active -= scopes
+        return REQUIRED_MEASUREMENT_SCOPES <= active
+
     def _record(self, event_type: str, run: Run, payload: dict[str, Any]) -> None:
         """构造 + 05 校验 + 同 writer 落盘；任何失败只留 stderr 痕迹，不阻断 run 生命周期。"""
         try:
             from intelligence.services.product_value import validate_event
             from intelligence.services.product_value.contracts import EVENT_SCHEMA, PROVENANCE_OBSERVED, SOURCE_SERVER
 
-            stamp = utc_iso(self._clock())
+            now = self._clock()
+            if not self._measurement_consented(now):
+                print(f"[research-evolution] owner 未同意测量范围，跳过 {event_type}（{run.run_id}）；研究不受影响", file=sys.stderr)
+                return
+            stamp = utc_iso(now)
             session = str(run.session_id or "no-session")
             event = {
                 "schema_version": EVENT_SCHEMA,
