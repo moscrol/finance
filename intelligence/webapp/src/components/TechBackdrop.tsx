@@ -86,10 +86,10 @@ export function TechBackdrop({ running }: { running: boolean }) {
         if (p.y > height + 20) p.y = -20;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(235, 236, 240, 0.22)";
+        ctx.fillStyle = "rgba(43, 38, 32, 0.2)";
         ctx.fill();
       }
-      const linkAlpha = active ? 0.075 : 0.045;
+      const linkAlpha = active ? 0.085 : 0.055;
       for (let a = 0; a < parts.length; a += 1) {
         for (let b = a + 1; b < parts.length; b += 1) {
           const dx = parts[a].x - parts[b].x;
@@ -99,7 +99,7 @@ export function TechBackdrop({ running }: { running: boolean }) {
             ctx.beginPath();
             ctx.moveTo(parts[a].x, parts[a].y);
             ctx.lineTo(parts[b].x, parts[b].y);
-            ctx.strokeStyle = `rgba(235, 236, 240, ${(
+            ctx.strokeStyle = `rgba(43, 38, 32, ${(
               linkAlpha *
               (1 - dist / LINK)
             ).toFixed(4)})`;

@@ -6,34 +6,33 @@
  * ========================================================================== */
 
 html[data-theme="tech"] {
-  color-scheme: dark;
-  --ink: #e7e7ea;
-  --muted: #9a9ba3;
-  --faint: #60616a;
-  --line: rgba(255, 255, 255, 0.08);
-  --line-strong: rgba(255, 255, 255, 0.15);
-  --surface: #16171b;
-  --surface-soft: #111216;
-  --accent: #b98a70;
-  --accent-dark: #cfa183;
-  --accent-soft: rgba(185, 138, 112, 0.14);
-  --amber: #c2a05e;
-  --amber-soft: rgba(194, 160, 94, 0.12);
-  --red: #cf6f60;
-  --red-soft: rgba(207, 111, 96, 0.12);
-  --blue: #8ea6c2;
-  --blue-soft: rgba(142, 166, 194, 0.12);
-  --shadow: 0 18px 52px rgba(0, 0, 0, 0.5);
+  --ink: #2b2620;
+  --muted: #6e6759;
+  --faint: #a39a8b;
+  --line: rgba(43, 38, 32, 0.11);
+  --line-strong: rgba(43, 38, 32, 0.2);
+  --surface: #fcf9f3;
+  --surface-soft: #f2ede3;
+  --accent: #a0603c;
+  --accent-dark: #8a4f2f;
+  --accent-soft: rgba(160, 96, 60, 0.1);
+  --amber: #8a6d3b;
+  --amber-soft: rgba(138, 109, 59, 0.1);
+  --red: #b04a3a;
+  --red-soft: rgba(176, 74, 58, 0.09);
+  --blue: #5d7a96;
+  --blue-soft: rgba(93, 122, 150, 0.1);
+  --shadow: 0 18px 52px rgba(92, 78, 58, 0.12);
   color: var(--ink);
-  background: #0e0e11;
+  background: #f5f0e6;
 }
 
 html[data-theme="tech"] body {
-  background: #0e0e11;
+  background: #f5f0e6;
 }
 
 html[data-theme="tech"] ::selection {
-  background: rgba(185, 138, 112, 0.3);
+  background: rgba(160, 96, 60, 0.2);
 }
 
 html[data-theme="tech"] button:focus-visible,
@@ -42,7 +41,7 @@ html[data-theme="tech"] textarea:focus-visible,
 html[data-theme="tech"] input:focus-visible,
 html[data-theme="tech"] select:focus-visible,
 html[data-theme="tech"] summary:focus-visible {
-  outline-color: rgba(185, 138, 112, 0.5);
+  outline-color: rgba(160, 96, 60, 0.4);
 }
 
 /* ---------- 效果层 ---------- */
@@ -58,14 +57,14 @@ html[data-theme="tech"] summary:focus-visible {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 70% 46% at 50% -6%, rgba(235, 236, 240, 0.05), transparent 70%),
-    radial-gradient(ellipse 40% 30% at 82% 0%, rgba(185, 138, 112, 0.05), transparent 70%);
+    radial-gradient(ellipse 70% 46% at 50% -6%, rgba(255, 255, 255, 0.6), transparent 70%),
+    radial-gradient(ellipse 40% 30% at 82% 0%, rgba(160, 96, 60, 0.06), transparent 70%);
 }
 
 .tech-dotgrid {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(circle, rgba(235, 236, 240, 0.05) 0 1px, transparent 1.4px);
+  background-image: radial-gradient(circle, rgba(43, 38, 32, 0.07) 0 1px, transparent 1.4px);
   background-size: 28px 28px;
   mask-image: radial-gradient(ellipse 85% 62% at 50% 0%, black 25%, transparent 75%);
   -webkit-mask-image: radial-gradient(ellipse 85% 62% at 50% 0%, black 25%, transparent 75%);
@@ -79,7 +78,7 @@ html[data-theme="tech"] summary:focus-visible {
 .tech-grain {
   position: absolute;
   inset: -100px;
-  opacity: 0.035;
+  opacity: 0.04;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
   animation: tech-grain-jitter 1.2s steps(4) infinite;
 }
@@ -105,23 +104,23 @@ html[data-theme="tech"] .main-surface {
 
 /* ---------- 左侧：会话列表 / 导航 ---------- */
 html[data-theme="tech"] .conversation-list {
-  background: rgba(16, 17, 20, 0.92);
+  background: rgba(242, 237, 227, 0.94);
   border-right-color: var(--line-soft);
 }
 
 html[data-theme="tech"] .conversation-list-header .brand-mark {
-  background: linear-gradient(145deg, #b98a70, #7d5a47);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
+  background: linear-gradient(145deg, #b06a42, #8a4f2f);
+  box-shadow: 0 8px 18px rgba(138, 79, 47, 0.25);
   color: #f5f2ee;
 }
 
 html[data-theme="tech"] .workspace-module {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.6);
   border-color: var(--line);
 }
 
 html[data-theme="tech"] .output-navigation {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.5);
 }
 
 html[data-theme="tech"] .output-navigation button {
@@ -133,23 +132,23 @@ html[data-theme="tech"] .output-navigation button.active {
 }
 
 html[data-theme="tech"] .new-conversation-button {
-  background: #e7e7ea;
-  color: #17181c;
-  box-shadow: 0 7px 17px rgba(0, 0, 0, 0.4);
+  background: #2b2620;
+  color: #f5f0e6;
+  box-shadow: 0 7px 17px rgba(92, 78, 58, 0.14);
 }
 
 html[data-theme="tech"] .new-conversation-button:hover {
-  background: #ffffff;
-  color: #17181c;
+  background: #1d1a15;
+  color: #f5f0e6;
 }
 
 html[data-theme="tech"] .conversation-search {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.6);
 }
 
 html[data-theme="tech"] .conversation-search:focus-within {
   border-color: rgba(185, 138, 112, 0.45);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.66);
 }
 
 html[data-theme="tech"] .conversation-search input::placeholder {
@@ -164,13 +163,13 @@ html[data-theme="tech"] .conversation-row.active {
 html[data-theme="tech"] .data-dot,
 html[data-theme="tech"] .agent-status-dot,
 html[data-theme="tech"] .model-status-button.ready > span {
-  background: #62a87f;
-  box-shadow: 0 0 0 3px rgba(98, 168, 127, 0.15);
+  background: #4d8a68;
+  box-shadow: 0 0 0 3px rgba(77, 138, 104, 0.15);
 }
 
 /* ---------- 顶栏 ---------- */
 html[data-theme="tech"] .chat-topbar {
-  background: rgba(14, 14, 17, 0.78);
+  background: rgba(245, 240, 230, 0.86);
   border-bottom-color: var(--line-soft);
 }
 
@@ -189,18 +188,18 @@ html[data-theme="tech"] .demo-stage-badge {
 
 /* ---------- 输入区 ---------- */
 html[data-theme="tech"] .chat-composer-dock {
-  background: linear-gradient(180deg, rgba(14, 14, 17, 0), rgba(14, 14, 17, 0.96) 30%);
+  background: linear-gradient(180deg, rgba(245, 240, 230, 0), rgba(245, 240, 230, 0.96) 30%);
 }
 
 html[data-theme="tech"] .composer {
-  background: rgba(23, 24, 28, 0.92);
+  background: rgba(255, 255, 255, 0.92);
   border-color: var(--line);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 14px 34px rgba(92, 78, 58, 0.14);
 }
 
 html[data-theme="tech"] .composer:focus-within {
   border-color: rgba(185, 138, 112, 0.45);
-  box-shadow: 0 15px 42px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 15px 42px rgba(92, 78, 58, 0.18);
 }
 
 html[data-theme="tech"] .composer textarea::placeholder {
@@ -208,11 +207,11 @@ html[data-theme="tech"] .composer textarea::placeholder {
 }
 
 html[data-theme="tech"] .composer-compact {
-  box-shadow: 0 -6px 30px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 -6px 30px rgba(92, 78, 58, 0.1);
 }
 
 html[data-theme="tech"] .run-composer-dock {
-  background: linear-gradient(transparent, rgba(14, 14, 17, 0.96) 28%);
+  background: linear-gradient(transparent, rgba(245, 240, 230, 0.96) 28%);
 }
 
 /* ---------- 消息流 ---------- */
@@ -235,12 +234,12 @@ html[data-theme="tech"] .message-evidence-warning {
 }
 
 html[data-theme="tech"] .progress-timeline-live {
-  background: rgba(21, 22, 26, 0.9);
+  background: rgba(252, 249, 243, 0.95);
   border-color: var(--line-soft);
 }
 
 html[data-theme="tech"] .progress-step-icon {
-  color: #62a87f;
+  color: #4d8a68;
 }
 
 html[data-theme="tech"] .progress-step.is-failed .progress-step-icon {
@@ -248,7 +247,7 @@ html[data-theme="tech"] .progress-step.is-failed .progress-step-icon {
 }
 
 html[data-theme="tech"] .step-marker {
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: rgba(43, 38, 32, 0.3);
 }
 
 html[data-theme="tech"] .progress-row.active .step-marker {
@@ -256,25 +255,25 @@ html[data-theme="tech"] .progress-row.active .step-marker {
 }
 
 html[data-theme="tech"] .skill-chip {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.66);
 }
 
 html[data-theme="tech"] .skill-mode select {
-  background: #1a1b20;
+  background: #fcf9f3;
 }
 
 html[data-theme="tech"] .skill-menu-popover {
-  background: #1a1b20;
+  background: #fcf9f3;
   border-color: var(--line);
-  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 18px 52px rgba(92, 78, 58, 0.18);
 }
 
 html[data-theme="tech"] .message-action {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.72);
 }
 
 html[data-theme="tech"] .message-followups button {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.5);
   border-color: var(--line);
 }
 
@@ -288,7 +287,7 @@ html[data-theme="tech"] .stream-items article p {
 
 /* ---------- Markdown / 代码 ---------- */
 html[data-theme="tech"] .markdown-view {
-  color: #d7d8dc;
+  color: #3a342c;
 }
 
 html[data-theme="tech"] .markdown-view blockquote {
@@ -296,20 +295,20 @@ html[data-theme="tech"] .markdown-view blockquote {
 }
 
 html[data-theme="tech"] .markdown-view code {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(43, 38, 32, 0.07);
 }
 
 html[data-theme="tech"] .markdown-view pre {
-  background: #111216;
+  background: #f0eadf;
   border-color: var(--line-soft);
 }
 
 html[data-theme="tech"] .markdown-view th {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.6);
 }
 
 html[data-theme="tech"] .loading-line {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.66));
 }
 
 /* ---------- 结构化工作台 ---------- */
@@ -318,12 +317,12 @@ html[data-theme="tech"] .output-workbench {
 }
 
 html[data-theme="tech"] .output-workbench-header {
-  background: rgba(20, 21, 25, 0.6);
+  background: rgba(245, 240, 230, 0.72);
   backdrop-filter: blur(14px);
 }
 
 html[data-theme="tech"] .output-workbench-header button {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.66);
 }
 
 html[data-theme="tech"] .output-workbench-header button:hover {
@@ -331,20 +330,20 @@ html[data-theme="tech"] .output-workbench-header button:hover {
 }
 
 html[data-theme="tech"] .freshness-rail {
-  background: rgba(20, 21, 25, 0.85);
+  background: rgba(245, 240, 230, 0.92);
   border-color: var(--line-soft);
 }
 
 html[data-theme="tech"] .freshness-item {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.6);
 }
 
 html[data-theme="tech"] .freshness-status.complete {
-  color: #62a87f;
+  color: #4d8a68;
 }
 
 html[data-theme="tech"] .freshness-dot.complete {
-  background: #62a87f;
+  background: #4d8a68;
 }
 
 html[data-theme="tech"] .freshness-dot.running {
@@ -358,12 +357,12 @@ html[data-theme="tech"] .freshness-dot.failed {
 html[data-theme="tech"] .market-hero {
   border-color: var(--line);
   background: linear-gradient(130deg, rgba(255, 255, 255, 0.045), rgba(185, 138, 112, 0.05));
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 20px 60px rgba(92, 78, 58, 0.1);
 }
 
 html[data-theme="tech"] .market-hero-strength {
   border-color: rgba(185, 138, 112, 0.25);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.5);
 }
 
 html[data-theme="tech"] .output-metric,
@@ -371,13 +370,13 @@ html[data-theme="tech"] .output-card,
 html[data-theme="tech"] .theme-matrix,
 html[data-theme="tech"] .signal-event,
 html[data-theme="tech"] .moneyflow-state {
-  background: rgba(255, 255, 255, 0.035);
+  background: rgba(255, 255, 255, 0.66);
   border-color: var(--line);
 }
 
 html[data-theme="tech"] .signal-column,
 html[data-theme="tech"] .moneyflow-section {
-  background: rgba(255, 255, 255, 0.025);
+  background: rgba(255, 255, 255, 0.6);
   border-color: var(--line-soft);
 }
 
@@ -388,7 +387,7 @@ html[data-theme="tech"] .moneyflow-card .positive {
 
 html[data-theme="tech"] .output-metric.negative strong,
 html[data-theme="tech"] .moneyflow-card .negative {
-  color: #62a87f;
+  color: #4d8a68;
 }
 
 html[data-theme="tech"] .matrix-cell {
@@ -400,34 +399,34 @@ html[data-theme="tech"] .theme-bubble {
 }
 
 html[data-theme="tech"] .theme-bubble.stale {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.66);
 }
 
 html[data-theme="tech"] .quadrant-guide article {
   border-left-color: rgba(185, 138, 112, 0.45);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.5);
 }
 
 /* ---------- 检查器 / 产物库 ---------- */
 html[data-theme="tech"] .research-inspector {
-  background: rgba(16, 17, 20, 0.96);
+  background: rgba(245, 240, 230, 0.97);
   border-left-color: var(--line-soft);
 }
 
 html[data-theme="tech"] .inspector-task-summary {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.5);
 }
 
 html[data-theme="tech"] .inspector-task-summary > div > strong[data-status="complete"] {
-  color: #62a87f;
+  color: #4d8a68;
 }
 
 html[data-theme="tech"] .evidence-mark {
-  border-color: #62a87f;
+  border-color: #4d8a68;
 }
 
 html[data-theme="tech"] .trace-completed {
-  background: #62a87f;
+  background: #4d8a68;
 }
 
 html[data-theme="tech"] .workflow-row:hover,
@@ -436,7 +435,7 @@ html[data-theme="tech"] .library-row:hover {
 }
 
 html[data-theme="tech"] .status-badge {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.72);
 }
 
 html[data-theme="tech"] .json-view {
@@ -446,15 +445,15 @@ html[data-theme="tech"] .json-view {
 /* ---------- 弹层 / 遮罩 ---------- */
 html[data-theme="tech"] .conversation-backdrop,
 html[data-theme="tech"] .inspector-backdrop {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(43, 38, 32, 0.3);
 }
 
 html[data-theme="tech"] .model-settings-backdrop {
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(43, 38, 32, 0.36);
 }
 
 html[data-theme="tech"] .model-settings {
-  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 28px 90px rgba(92, 78, 58, 0.2);
 }
 
 html[data-theme="tech"] .model-choice.active {
@@ -463,17 +462,17 @@ html[data-theme="tech"] .model-choice.active {
 }
 
 html[data-theme="tech"] .session-only-badge {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(43, 38, 32, 0.07);
   color: var(--muted);
 }
 
 html[data-theme="tech"] .model-readiness.ready {
-  color: #62a87f;
-  background: rgba(98, 168, 127, 0.12);
+  color: #4d8a68;
+  background: rgba(77, 138, 104, 0.12);
 }
 
 html[data-theme="tech"] .byok-form {
-  background: #15161a;
+  background: #f7f2e9;
 }
 
 html[data-theme="tech"] .byok-fields input:focus {
@@ -481,13 +480,13 @@ html[data-theme="tech"] .byok-fields input:focus {
 }
 
 html[data-theme="tech"] .byok-security-note svg {
-  color: #62a87f;
+  color: #4d8a68;
 }
 
 html[data-theme="tech"] .global-error {
-  color: #e5a49a;
-  border-bottom-color: rgba(207, 111, 96, 0.35);
-  background: rgba(207, 111, 96, 0.08);
+  color: #a8523f;
+  border-bottom-color: rgba(176, 74, 58, 0.3);
+  background: rgba(176, 74, 58, 0.07);
 }
 
 html[data-theme="tech"] .alert-warning {
@@ -496,25 +495,25 @@ html[data-theme="tech"] .alert-warning {
 }
 
 html[data-theme="tech"] .alert-error {
-  color: #e5a49a;
-  border-color: rgba(207, 111, 96, 0.4);
+  color: #a8523f;
+  border-color: rgba(176, 74, 58, 0.35);
 }
 
 /* ---------- 空态 / 引导 ---------- */
 html[data-theme="tech"] .onboarding-mark {
   border-color: var(--line);
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(185, 138, 112, 0.07));
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.66), rgba(185, 138, 112, 0.07));
+  box-shadow: 0 16px 34px rgba(92, 78, 58, 0.12);
 }
 
 html[data-theme="tech"] .starter-grid > button {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.5);
   border-color: var(--line);
 }
 
 html[data-theme="tech"] .starter-grid > button:hover {
   border-color: rgba(185, 138, 112, 0.4);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 12px 28px rgba(92, 78, 58, 0.1);
 }
 
 /* ---------- 其余零散 ---------- */
@@ -523,7 +522,7 @@ html[data-theme="tech"] .secondary-button {
 }
 
 html[data-theme="tech"] .secondary-button:hover {
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: rgba(43, 38, 32, 0.3);
 }
 
 html[data-theme="tech"] .recent-run {
@@ -532,7 +531,7 @@ html[data-theme="tech"] .recent-run {
 }
 
 html[data-theme="tech"] .recent-run.active {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.66);
 }
 
 html[data-theme="tech"] .daily-summary li,
@@ -551,11 +550,106 @@ html[data-theme="tech"] .projection-warning p {
 
 html[data-theme="tech"] .floating-inspector-button {
   border-color: var(--line-strong);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 24px rgba(92, 78, 58, 0.16);
 }
 
 /* 主题切换按钮：与 icon-button 同形，激活态微光 */
 .theme-toggle[aria-pressed="true"] {
   color: var(--accent-dark);
   box-shadow: inset 0 0 0 1px rgba(185, 138, 112, 0.3);
+}
+
+/* ---------- 排版节奏：放宽密度（仅 tech 主题，暖纸保持原样） ---------- */
+html[data-theme="tech"] body {
+  letter-spacing: 0.01em;
+}
+
+html[data-theme="tech"] .chat-topbar {
+  min-height: 60px;
+}
+
+html[data-theme="tech"] .chat-topbar-actions {
+  gap: 10px;
+}
+
+html[data-theme="tech"] .nav-row,
+html[data-theme="tech"] .sidebar-row {
+  min-height: 40px;
+  gap: 12px;
+}
+
+html[data-theme="tech"] .output-navigation button {
+  min-height: 52px;
+  gap: 6px;
+  padding: 8px 4px;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+}
+
+html[data-theme="tech"] .workspace-module {
+  padding: 9px 11px;
+}
+
+html[data-theme="tech"] .message-thread {
+  padding: 56px max(28px, calc((100% - 800px) / 2)) 32px;
+}
+
+html[data-theme="tech"] .message-row {
+  margin-bottom: 36px;
+}
+
+html[data-theme="tech"] .message-bubble {
+  padding: 14px 18px;
+}
+
+html[data-theme="tech"] .markdown-view {
+  font-size: 15.5px;
+  line-height: 1.92;
+}
+
+html[data-theme="tech"] .markdown-view p {
+  margin-bottom: 12px;
+}
+
+html[data-theme="tech"] .composer textarea {
+  min-height: 116px;
+  padding: 22px 22px 10px;
+  line-height: 1.7;
+}
+
+html[data-theme="tech"] .chat-composer-dock {
+  padding-bottom: 24px;
+}
+
+html[data-theme="tech"] .freshness-rail {
+  min-height: 52px;
+  padding: 10px 28px;
+  gap: 18px;
+}
+
+html[data-theme="tech"] .output-panel-stack {
+  gap: 24px;
+}
+
+html[data-theme="tech"] .output-metric {
+  padding: 17px;
+}
+
+html[data-theme="tech"] .market-hero,
+html[data-theme="tech"] .output-section-heading {
+  line-height: 1.18;
+  margin: 10px 0 8px;
+}
+
+html[data-theme="tech"] .signal-event {
+  padding: 14px;
+}
+
+html[data-theme="tech"] .theme-bubble {
+  padding: 10px 12px;
+  gap: 5px;
+}
+
+html[data-theme="tech"] .inspector-body {
+  padding: 20px;
 }
