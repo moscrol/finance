@@ -1,3 +1,5 @@
+> **2026-09-16 已被接替**：合并候选改为 `fix/re06-i11-consent-measurement@50074c76`（含 I11 同意门修复 + 前向合并 main + 03 尖端），读数与裁决见 `docs/handoffs/inflight/fix-re06-i11-consent-measurement.md` 与 `docs/verification/2026-09-16-re06-i11-consent-gate.md`。下文是 09-14 的历史状态。
+
 # feat/research-evolution-06-workbench 在途交接
 
 最近更新：2026-09-14 · 06 HEAD `c5359120`（含 X1/X2/Y1/Y2）· 等第九轮 QC 复审，未合未部署
