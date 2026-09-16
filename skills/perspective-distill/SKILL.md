@@ -38,10 +38,11 @@ description: 视角蒸馏——用户发来 KOL/博主原文，走固定闭环�
    不设环境变量时默认落 `intelligence/users/<user>/perspectives/`。**在 worktree 里
    跑同样会写出生产读不到的副本**——先确认写的是启动器那份。
 2. **user 是哪个**：路径对了但 user 写错，视角照样不可见。用 Workbench
-   实际登录的那个 user。本机 launcher **不设** `FORESIGHT_USER`，API/UI
-   因此落 `default`（`userspace.resolve_user_id`）。不要用 shell 里的
-   `linxiaoqi5111`（那是共享大脑身份），也不要信本段 08-14 的旧结论。
-   每次先查：`curl -s http://127.0.0.1:8792/api/perspectives` 能列到的就是对的 user。
+   实际登录的那个 user，真值同样只在启动器：
+   `rg -n 'FORESIGHT_USER\b' ~/.local/bin/start-finance-workbench`
+   （2026-09-16 实测为 `linxiaoqi5111`；08-14 那版启动器不设它、落 `default`，
+   两版结论相反，所以不要信任何一段旧结论，每次现查）。再用
+   `curl -s http://127.0.0.1:8792/api/perspectives?user=<id>` 确认能列到该视角。
 3. **角色 id**：已有角色（`perspective profile --perspective <id>` 能读到）就直接
    ingest；新角色先 init。id 用小写下划线（如 `sptfei`），display_name 存中文名。
 4. **文章元信息**：每篇要有 date（发文日期）和 title；`--date` **缺省是今天**，
