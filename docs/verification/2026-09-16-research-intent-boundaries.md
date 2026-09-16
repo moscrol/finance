@@ -1,7 +1,8 @@
 # 研究意图边界修补（R-20260916-05 实锤缺陷）
 
 - 日期：2026-09-16
-- 分支：`fix/research-intent-boundaries`（隔离工作树，base `gitea/main@d433b907`）
+- 分支：`fix/research-intent-boundaries`（隔离工作树，base `gitea/main@d433b907`；2026-09-17 前向合并
+  `gitea/main@ce009718`，主干 6 张合并 / 20 提交，与本分支 7 个文件零重叠，`merge-tree` 0 冲突）
 - 结论：三类**运行时误解用户意图**的缺陷已修复并有变异验证；2026-09-17 独立 QC 复核后
   又补了三族同形漏洞与第三道闸的独立断言（见「QC 复核」节），并在本树起的 sidecar 上用
   隔离用户真跑了一臂：`checkpoints.jsonl` 未被创建、两臂 frame 同型（见「真实会话复测」节）。

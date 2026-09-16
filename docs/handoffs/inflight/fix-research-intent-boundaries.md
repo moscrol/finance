@@ -4,7 +4,8 @@
 同形漏洞 + 第三道闸独立断言，并在本树 sidecar 上真跑一臂复测通过；已提交到分支，未推送、
 未合并、未部署 8792。**
 
-- 树 `/Users/a77/fwp-wt-research-intent-boundaries`，base `gitea/main@d433b907`；
+- 树 `/Users/a77/fwp-wt-research-intent-boundaries`，base `gitea/main@d433b907`，2026-09-17 已前向合并
+  `gitea/main@ce009718`（0 冲突，无同文件重叠）；
   权威说明 `docs/verification/2026-09-16-research-intent-boundaries.md`（QC 复核节 + 真实会话复测节）；
   解释器 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`
 
