@@ -782,15 +782,24 @@ def cmd_daily_agent(args: argparse.Namespace) -> int:
     from intelligence import userspace as _userspace
     from intelligence.services import guided_reading as _gr
 
-    _guided, _gr_reason = _gr.build_for_daily_review(
+    # 提取前置（工单 #53）：带读开着但用户今天还没写自己的剧本时，这里只放一段入口提示，
+    # 非带读正文一字不动。夜跑不等 stdin、不替用户记跳过 / 离开——后台跑过一次
+    # 不证明用户进过这个页面。
+    _section = _gr.daily_section(
         report, _userspace.user_space(getattr(args, "user", None)),
         override=getattr(args, "guided_reading", None),
         teaching_labels_db=getattr(args, "teaching_labels_db", None),
         card_dir=out_md.parent,
     )
-    if _guided is not None:
-        answer = _gr.merge_into_daily_review(answer, _guided)
-        print(f"带读已并入日报：{_gr_reason}", file=sys.stderr)
+    if _section.guided is not None or _section.hint:
+        answer = _gr.merge_into_daily_review(
+            answer, _section.guided, hint=_section.hint, diff_lines=_section.diff_lines
+        )
+        print(
+            ("带读已并入日报：" if _section.guided is not None else "带读位置只放了提取入口提示：")
+            + _section.reason,
+            file=sys.stderr,
+        )
     # 情景树逐日解析（#37 / G-15）：默认关，`FORESIGHT_SCENARIO_TREE_RESOLVE=1` 才跑；
     # 关着时 answer 是同一个对象——逐字节不变靠 is 等价，不靠约定。
     from intelligence.services import scenario_trees as _st
@@ -2324,12 +2333,29 @@ def cmd_personal_export(args: argparse.Namespace) -> int:
 def add_observation_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "observation",
-        help="观察剧本（G-03）：今日带读 → 确认 / 修改 / 跳过 → 登记 T+1 回检。"
-        "只到指数 / 板块 / 题材，不出个股名单、不给方向与时点",
+        help="观察剧本（G-03 / 工单 #53）：**先写你自己的** → 今日带读 + 字段差异 → "
+        "确认 / 修改 / 跳过 → 登记 T+1 回检。只到指数 / 板块 / 题材，不出个股名单、不给方向与时点",
     )
     sub = parser.add_subparsers(dest="action", required=True)
 
-    p_read = sub.add_parser("read", help="今日带读：读 as-of 河切片 → 事实 / 限制 / 缺口 + 剧本骨架")
+    p_draft = sub.add_parser(
+        "draft",
+        help="先写下你自己今天要看什么（提取前置）。保存草稿不生成系统骨架、不登记回检",
+    )
+    p_draft.add_argument("--user", default=None, help="用户 id")
+    p_draft.add_argument("--as-of", required=True, help="所读交易日 YYYY-MM-DD")
+    p_draft.add_argument("--entity", required=True, help="板块 / 题材名或代码（不接受个股）")
+    p_draft.add_argument("--scope", default=None, choices=list(observation_scope_choices()), help="作用域（缺省 theme）")
+    p_draft.add_argument("--variable", dest="variables", action="append", default=[], help="你要观察的变量（可多次，至少一条）")
+    p_draft.add_argument("--upgrade", dest="upgrades", action="append", default=[], help="升级条件（可多次）")
+    p_draft.add_argument("--abandon", dest="abandons", action="append", default=[], help="降级 / 放弃条件（可多次，至少一条）")
+    p_draft.add_argument("--condition", dest="conditions", action="append", default=[], help="可机检盘面条件（可多次），形如 advancers>=3000")
+    p_draft.add_argument("--attempt-id", default=None, help="续接某次提取尝试（缺省复用同键未结束的那个）")
+    p_draft.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径（身份解析用）")
+    p_draft.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_draft.set_defaults(func=cmd_observation_draft)
+
+    p_read = sub.add_parser("read", help="今日带读：读 as-of 河切片 → 事实 / 限制 / 缺口 + 剧本骨架 + 与你那份的字段差异")
     p_read.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
     p_read.add_argument("--as-of", required=True, help="交易日 YYYY-MM-DD")
     p_read.add_argument("--entity", required=True, help="板块 / 题材名或代码（不接受个股）")
@@ -2337,6 +2363,7 @@ def add_observation_parser(subparsers: argparse._SubParsersAction) -> None:
     p_read.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径")
     p_read.add_argument("--on", dest="force", action="store_const", const=True, default=None, help="强制开带读（默认：新用户开、老用户关）")
     p_read.add_argument("--off", dest="force", action="store_const", const=False, help="强制关带读")
+    add_extraction_args(p_read)
     p_read.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_read.set_defaults(func=cmd_observation_read)
 
@@ -2349,19 +2376,34 @@ def add_observation_parser(subparsers: argparse._SubParsersAction) -> None:
     p_conf.add_argument("--upgrade", dest="upgrades", action="append", default=[], help="升级条件（可多次）")
     p_conf.add_argument("--abandon", dest="abandons", action="append", default=[], help="降级 / 放弃条件（可多次，至少一条）")
     p_conf.add_argument("--condition", dest="conditions", action="append", default=[], help="可机检盘面条件（可多次），形如 advancers>=3000；缺省到期走人工判定")
-    p_conf.add_argument("--from-slice", default=None, help="用该实体的当日骨架补齐未给的字段（板块 / 题材名）")
+    p_conf.add_argument("--from-slice", default=None, help="用该实体的当日骨架补齐未给的字段（板块 / 题材名）；受提取门约束")
+    p_conf.add_argument("--from-draft", default=None, help="用你自己那份草稿补齐未给的字段（板块 / 题材名）")
     p_conf.add_argument("--due", default=None, help="回检日（缺省 T+1 自然日）")
-    p_conf.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径（仅 --from-slice 时用）")
+    p_conf.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径（--from-slice / --from-draft 时用）")
+    add_extraction_args(p_conf)
     p_conf.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_conf.set_defaults(func=cmd_observation_confirm)
 
-    p_skip = sub.add_parser("skip", help="跳过当日剧本（有效行为，不计失败；只进负担指标）")
+    p_skip = sub.add_parser("skip", help="跳过**系统**当日剧本（有效行为，不计失败；只进负担指标）。"
+                                         "跳过提取用 read --skip-draft，两件事分开记")
     p_skip.add_argument("--user", default=None, help="用户 id")
     p_skip.add_argument("--as-of", required=True, help="交易日 YYYY-MM-DD")
     p_skip.add_argument("--entity", required=True, help="板块 / 题材名或代码")
     p_skip.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径")
+    add_extraction_args(p_skip)
     p_skip.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_skip.set_defaults(func=cmd_observation_skip)
+
+    p_close = sub.add_parser(
+        "close",
+        help="明确结束一次提取尝试。只有从未提交 / 跳过 / 成功读取的尝试才记 abandoned——"
+        "关掉终端不算离开，那没有任何可证明的结束信号",
+    )
+    p_close.add_argument("--user", default=None, help="用户 id")
+    p_close.add_argument("--attempt-id", required=True, help="要结束的提取尝试 id")
+    p_close.add_argument("--reason", default="user_closed", help="结束原因（自由文本，进台账）")
+    p_close.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_close.set_defaults(func=cmd_observation_close)
 
     p_rp = sub.add_parser(
         "repoint",
@@ -2374,11 +2416,25 @@ def add_observation_parser(subparsers: argparse._SubParsersAction) -> None:
     p_rp.add_argument("--json", action="store_true")
     p_rp.set_defaults(func=cmd_observation_repoint)
 
-    p_ls = sub.add_parser("list", help="列出剧本台账与状态分布")
+    p_ls = sub.add_parser("list", help="列出剧本台账与状态分布；加 --events 看五业务事件与未结束的尝试")
     p_ls.add_argument("--user", default=None, help="用户 id")
-    p_ls.add_argument("--as-of", default=None, help="只看某一天")
+    p_ls.add_argument("--as-of", default=None, help="只看某一天（按记录的 as_of 判断）")
+    p_ls.add_argument("--entity", default=None, help="只看某个实体身份（canonical_entity_id）")
+    p_ls.add_argument("--events", action="store_true", help="列五业务事件与 pending 尝试，而不是剧本")
+    p_ls.add_argument("--attempt-id", default=None, help="只看某次提取尝试的事件")
     p_ls.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_ls.set_defaults(func=cmd_observation_list)
+
+
+def add_extraction_args(p: argparse.ArgumentParser) -> None:
+    """提取门的两个公共参数。集中加，避免某个入口漏掉一个就成了绕门的口子。"""
+    p.add_argument(
+        "--skip-draft",
+        action="store_true",
+        help="显式跳过本次提取，直接看系统那份（跳过是有效行为，不计失败）。"
+        "授权只对本次尝试 / 本日 / 本实体有效，不跨用户、不跨新尝试",
+    )
+    p.add_argument("--attempt-id", default=None, help="续接某次提取尝试（缺省复用同键未结束的那个）")
 
 
 def observation_scope_choices() -> tuple[str, ...]:
@@ -3284,18 +3340,222 @@ def _print_rejections(exc, as_json: bool) -> int:
     return 2
 
 
-def cmd_observation_read(args: argparse.Namespace) -> int:
+def _observation_identity(args: argparse.Namespace, slice_dict: dict[str, object]) -> str | None:
+    """从已取到的切片里读实体身份。解析不出返回 ``None``——不拿用户输入的别名顶替。"""
+    from intelligence.services import observation_extraction as ox
+
+    return ox.identity_from_slice(slice_dict)
+
+
+def _print_identity_error(entity: str, as_of: str, as_json: bool) -> int:
     import json as _json
 
+    detail = f"「{entity}」在 {as_of} 解析不出实体身份（只做精确匹配，不做模糊匹配）"
+    print(_json.dumps({"error": "entity_unresolved", "detail": detail}, ensure_ascii=False, indent=2) if as_json else detail)
+    return 2
+
+
+def _print_gate_block(gate, attempt_id: str | None, as_json: bool) -> int:
+    """提取门未过：只回提示、原因与 attempt_id。**正文与 JSON 里都没有系统骨架**。
+
+    退出码 0 而不是非零：这不是运行错误，是「该你先写一句」的提示，
+    与既有「带读未开启」那条分支同一档。机器判定看 JSON 里的 ``blocked`` / ``code``。
+    """
+    import json as _json
+
+    from intelligence.services import observation_extraction as _ox
+
+    payload = {
+        "enabled": gate.decision.code != _ox.BLOCK_GUIDED_READING_OFF,
+        "blocked": True,
+        "code": gate.decision.code,
+        "reason": gate.reason,
+        "attempt_id": attempt_id,
+    }
+    if as_json:
+        print(_json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        print(gate.reason)
+        if attempt_id:
+            print(f"  （本次提取尝试 {attempt_id}；写完可加 --attempt-id {attempt_id} 续接）")
+    return 0
+
+
+def cmd_observation_draft(args: argparse.Namespace) -> int:
+    """提取前置入口：先收用户自己的观察剧本。不生成系统骨架、不登记 checkpoint。"""
+    import json as _json
+
+    from intelligence.services import observation_extraction as ox
+    from intelligence.services import observation_script as osc
+
+    us = _observation_user_space(args)
+    try:
+        canonical = ox.resolve_identity(args.as_of, args.entity, db_path=args.db_path)
+    except ox.IdentityUnresolved as exc:
+        print(_json.dumps({"error": "entity_unresolved", "detail": str(exc)}, ensure_ascii=False, indent=2) if args.json else str(exc))
+        return 2
+
+    key = ox.make_key(us.user_id, args.as_of, canonical)
+    # 直接 draft 也能开尝试：用户可以不先 read 就写下自己的看法。
+    attempt, _ = osc.open_attempt(
+        us.observation_scripts_path, key=key, entrypoint="draft", attempt_id=args.attempt_id
+    )
+    script = osc.make(
+        as_of=args.as_of,
+        scope=args.scope or "theme",
+        entity_ids=[args.entity],
+        variables=args.variables,
+        downgrade_or_abandon_conditions=args.abandons,
+        upgrade_conditions=args.upgrades,
+        machine_conditions=args.conditions,
+        user_id=us.user_id,
+        status="drafted",
+    )
+    try:
+        record, created = osc.submit_draft(
+            us.observation_scripts_path,
+            script,
+            key=key,
+            attempt_id=str(attempt["attempt_id"]),
+            entrypoint="draft",
+        )
+    except osc.ObservationScriptRejected as exc:
+        return _print_rejections(exc, args.json)
+
+    if args.json:
+        print(_json.dumps({"created": created, "attempt_id": attempt["attempt_id"], **record}, ensure_ascii=False, indent=2))
+    else:
+        verb = "已记下你的观察剧本" if created else "这一版你已经提交过（同一尝试内重跑不重复记）"
+        print(f"{verb} {record['draft_id']}（第 {record['draft_version']} 版｜{record['as_of']}｜{canonical}）")
+        print(f"  提取尝试 {attempt['attempt_id']}；现在可以看系统那份：observation read --as-of {args.as_of} --entity {args.entity}")
+        print(f"  {osc.DISCLAIMER}")
+    return 0
+
+
+def cmd_observation_close(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import observation_script as osc
+
+    us = _observation_user_space(args)
+    try:
+        closed, event = osc.close_attempt(
+            us.observation_scripts_path,
+            attempt_id=args.attempt_id,
+            user_id=us.user_id,
+            reason=args.reason,
+            entrypoint="close",
+        )
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+    if args.json:
+        print(_json.dumps({"attempt": closed, "abandoned_event": event}, ensure_ascii=False, indent=2))
+    else:
+        tail = "，记为 abandoned（这次从未提交 / 跳过 / 成功读取）" if event else "，保留已发生的事件"
+        print(f"已结束提取尝试 {args.attempt_id}{tail}")
+    return 0
+
+
+def cmd_observation_read(args: argparse.Namespace) -> int:
+    import json as _json
+    import sys as _sys
+
     from intelligence.services import guided_reading
+    from intelligence.services import observation_script as osc
 
     us = _observation_user_space(args)
     sl = _observation_slice(args, us, args.entity)
-    gr, reason = guided_reading.run(us, sl, override=args.force)
-    if gr is None:
-        print(f"带读未开启（{reason}）。要看今天的带读：加 --on")
+    canonical = _observation_identity(args, sl)
+    if canonical is None:
+        return _print_identity_error(args.entity, args.as_of, args.json)
+
+    from intelligence.services import observation_extraction as ox
+
+    key = ox.make_key(us.user_id, args.as_of, canonical)
+    path = us.observation_scripts_path
+
+    # 开关排在最前：带读关闭时连提取尝试都不创建——记录动作本身会改变
+    # 「新用户 / 老用户」判据与「关掉后逐字节不变」这两条既有合同。
+    enabled, enabled_reason = guided_reading.resolve_enabled(us, override=args.force)
+    if not enabled:
+        print(f"带读未开启（{enabled_reason}）。要看今天的带读：加 --on")
         return 0
-    text = guided_reading.render(gr)
+
+    raw = osc.load_raw(path)
+    # 收据查询排在 open_attempt **之前**：成功的 read 会关闭尝试，所以「同 ID 重试」
+    # 撞上的第一件事是 open_attempt 的「已结束不能复活」，退 2 之后收据分支根本不可达
+    # （质检 S3）。先验归属再看收据，别人的收据不能凭 ID 读走。
+    if args.attempt_id:
+        state = osc.attempt_states(raw).get(str(args.attempt_id))
+        if state is None:
+            print(f"没有这个提取尝试：{args.attempt_id}")
+            return 2
+        if osc._key_of(state) != key.as_tuple():
+            print(f"提取尝试 {args.attempt_id} 不属于该用户 / 阅读目标")
+            return 2
+        done = osc.find_event(raw, event=osc.EVENT_READ_COMPLETED, attempt_id=str(args.attempt_id))
+        if done:
+            # 交付成功但**关闭失败**时，上一次会留下「完成事件已落、尝试仍 pending」。
+            # 重试必须把这个终态补上，否则那个尝试永远挂着，而它其实早就读完了。
+            # `close_attempt` 对已关闭是幂等的；这次不是放弃（已有完成事件），
+            # 所以补出来的只是 closed，不会多一条 abandoned。
+            if str(state.get("status")) == osc.ATTEMPT_PENDING:
+                try:
+                    osc.close_attempt(path, attempt_id=str(args.attempt_id), user_id=us.user_id,
+                                      reason="read_completed", entrypoint="read")
+                except Exception as exc:
+                    print(f"⚠ 完成收据在，但尝试终态仍补不上（{type(exc).__name__}: {exc}）",
+                          file=_sys.stderr)
+                    return 1
+            # 返回原成功收据：不重放正文、不重新构建骨架、不重复记完成事件——
+            # 「又给你看了一遍」和「当时确实交付过」是两件事，混起来会让完成率虚高。
+            print(_json.dumps(done, ensure_ascii=False, indent=2) if args.json
+                  else f"提取尝试 {args.attempt_id} 已完成过一次带读"
+                       f"（收据 {done['event_id']}｜{done.get('occurred_at')}）。要重新读取请开新尝试。")
+            return 0
+
+    try:
+        attempt, _ = osc.open_attempt(path, key=key, entrypoint="read", attempt_id=args.attempt_id)
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+    aid = str(attempt["attempt_id"])
+
+    # 再查一次收据，这次按**真正被认领的** aid。上面那次只覆盖显式 `--attempt-id`
+    # （那条路必须前置，因为已关闭的尝试会被 open_attempt 拒掉）；而「收据已落、
+    # 关闭失败」留下的是一个**仍 pending** 的尝试，不带参数原样重跑会自动复用它，
+    # 于是正文被重新生成、台账却沿用旧收据——重放了正文却声称没重放（复审二实测）。
+    if not args.attempt_id:
+        done = osc.find_event(osc.load_raw(path), event=osc.EVENT_READ_COMPLETED, attempt_id=aid)
+        if done:
+            try:
+                osc.close_attempt(path, attempt_id=aid, user_id=us.user_id,
+                                  reason="read_completed", entrypoint="read")
+            except Exception as exc:
+                print(f"⚠ 完成收据在，但尝试终态仍补不上（{type(exc).__name__}: {exc}）",
+                      file=_sys.stderr)
+                return 1
+            print(_json.dumps(done, ensure_ascii=False, indent=2) if args.json
+                  else f"提取尝试 {aid} 已完成过一次带读"
+                       f"（收据 {done['event_id']}｜{done.get('occurred_at')}）。要重新读取请开新尝试。")
+            return 0
+
+    gate = guided_reading.gated(
+        us,
+        sl,
+        key=key,
+        override=args.force,
+        skip_draft=bool(getattr(args, "skip_draft", False)),
+        records=raw,
+        on_skip=lambda: osc.record_event(
+            path, event=osc.EVENT_DRAFT_SKIPPED, key=key, entrypoint="read", attempt_id=aid
+        ),
+    )
+    if gate.guided is None:
+        return _print_gate_block(gate, aid, args.json)
+
+    text = guided_reading.render(gate.guided, diff_lines=gate.diff_lines)
     hits = guided_reading.lint_output(text)
     if hits:
         # 产品自己的输出过不了自己的门，是硬故障：宁可不出，也不能把方向词发出去。
@@ -3304,9 +3564,73 @@ def cmd_observation_read(args: argparse.Namespace) -> int:
             print(f"  - [{h.code}] {h.term}：{h.context}")
         return 1
     if args.json:
-        print(_json.dumps({"enabled": True, "reason": reason, **gr.to_dict()}, ensure_ascii=False, indent=2))
+        print(_json.dumps(
+            {"enabled": True, "reason": gate.reason, "attempt_id": aid,
+             "extraction": gate.to_dict(), **gate.guided.to_dict()},
+            ensure_ascii=False, indent=2,
+        ))
     else:
         print(text)
+
+    # 先把正文交付出去并 flush，再落完成收据。两者之间崩溃 = 交付结果未知：
+    # 如实报可诊断失败，不补造一条成功——stdout 与台账是两个介质，
+    # 「恰好一次」在这里做不到，能做到的是「不谎报」。
+    try:
+        _sys.stdout.flush()
+    except Exception as exc:  # pragma: no cover - stdout 坏了本来就无处输出
+        print(f"带读正文输出失败：{type(exc).__name__}: {exc}", file=_sys.stderr)
+        return 1
+
+    if gate.guided.draft is None:
+        # 六轨全缺：交付的是**缺口说明**，不是完整带读。§2.4 那张表写得很直白——
+        # 「无系统骨架」不得记 read_completed。也不关尝试：这一天数据还没到，
+        # 用户回头再读同一目标应当接着这次尝试，而不是被记成「已经读完了」。
+        print(
+            f"⚠ {args.as_of} 的「{args.entity}」六轨全缺，只交付了缺口说明，"
+            f"不记为完整带读；提取尝试 {aid} 保持 pending。",
+            file=_sys.stderr,
+        )
+        return 0
+
+    try:
+        osc.record_event(
+            path,
+            event=osc.EVENT_READ_COMPLETED,
+            key=key,
+            entrypoint="read",
+            attempt_id=aid,
+            # 只存**来源关联**：这次比较的是哪一版草稿、哪一份骨架、哪一片投影。
+            # 差异本身与它的大小都不落盘，展示时重算——一旦把「差了几项」存进台账，
+            # 下一个人就会拿它做时间序列，而那就是收敛指标，收敛指标奖励迎合。
+            extra={
+                "system_script_ref": gate.system_script_ref,
+                "projection_hash": gate.guided.projection_hash,
+                "source_draft_id": (gate.decision.draft or {}).get("draft_id"),
+                "granted_by": gate.decision.code,
+            },
+        )
+    except Exception as exc:
+        print(
+            f"⚠ 带读正文已输出，但完成收据落盘失败（{type(exc).__name__}: {exc}）："
+            f"本次交付结果未知，尝试 {aid} 仍是 pending，不记为已完成。",
+            file=_sys.stderr,
+        )
+        return 1
+
+    # 收据与关闭分开报：两者的事实完全不同，合成一句话会把「已完成、只是终态没落」
+    # 说成「交付结果未知」，而前者重试就能愈合、后者不能。
+    try:
+        osc.close_attempt(
+            path, attempt_id=aid, user_id=us.user_id, reason="read_completed", entrypoint="read"
+        )
+    except Exception as exc:
+        print(
+            f"⚠ 完成收据已落盘（本次带读**确实交付了**），但尝试 {aid} 的终态没写上"
+            f"（{type(exc).__name__}: {exc}）：它仍是 pending。"
+            f"重跑 `observation read --attempt-id {aid}` 即可补上，不会重复记完成。",
+            file=_sys.stderr,
+        )
+        return 1
     return 0
 
 
@@ -3314,15 +3638,133 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
     import json as _json
 
     from intelligence.services import guided_reading, observation_script
+    from intelligence.services import observation_extraction as ox
 
     us = _observation_user_space(args)
     draft = None
+    attempt_id: str | None = None
+    entrypoint = observation_script.ENTRYPOINT_MANUAL_CONFIRM
+    author_origin: str | None = None
+    canonical: str | None = None
+    source_draft_id: str | None = None
+    require_open_attempt = False
+
+    if not args.from_draft and not args.from_slice and getattr(args, "attempt_id", None):
+        # 完整手填 + 显式尝试：这条路径此前**根本没读这个参数**，传另一个目标的 ID
+        # 也照样 exit=0 建出 checkpoint，关联被静默丢弃。给了就得验，验过才用。
+        raw = observation_script.load_raw(us.observation_scripts_path)
+        state = observation_script.attempt_states(raw).get(str(args.attempt_id))
+        if state is None:
+            print(f"没有这个提取尝试：{args.attempt_id}")
+            return 2
+        if str(state.get("user_id") or "") != us.user_id or str(state.get("as_of") or "") != args.as_of:
+            print(f"提取尝试 {args.attempt_id} 不属于该用户 / 阅读目标")
+            return 2
+        entities = args.entities or []
+        canonical_of_attempt = str(state.get("canonical_entity_id") or "")
+        try:
+            named = {ox.resolve_identity(args.as_of, e, db_path=args.db_path) for e in entities}
+        except ox.IdentityUnresolved as exc:
+            print(str(exc))
+            return 2
+        if named and canonical_of_attempt not in named:
+            print(f"提取尝试 {args.attempt_id} 不属于该用户 / 阅读目标"
+                  f"（它是 {canonical_of_attempt}，你确认的是 {sorted(named)}）")
+            return 2
+        canonical = canonical_of_attempt
+        attempt_id = str(args.attempt_id)
+        entrypoint = "confirm"
+        # 手填 + 显式尝试是**在进行中的尝试里做动作**，不是引用出处——这条路径
+        # 没有任何草稿或收据版本可引用。终态（含 abandoned）必须连登记副作用一起拒，
+        # 复验收进 writer 的持锁区，不停留在 CLI 先查再写（第三轮复审 Q3 实测：
+        # closed/abandoned=true 的尝试上还新增了一条确认与一个 checkpoint）。
+        require_open_attempt = True
+
+    if args.from_draft:
+        # 确认**你自己那份草稿**：保留 source_draft_id 指回原稿，不覆盖它。
+        try:
+            canonical = ox.resolve_identity(args.as_of, args.from_draft, db_path=args.db_path)
+        except ox.IdentityUnresolved as exc:
+            print(str(exc))
+            return 2
+        key = ox.make_key(us.user_id, args.as_of, canonical)
+        raw = observation_script.load_raw(us.observation_scripts_path)
+        wanted = getattr(args, "attempt_id", None)
+        if wanted:
+            # 显式给了尝试就**按它取版本**，并先验归属：§2.4.1 要求拒绝其他用户 / 目标的 ID，
+            # §2.4.4 要求能关联「已完成尝试的具体草稿版本」。之前这条路径完全没读这个参数，
+            # 传错目标照样 exit=0，然后悄悄改用 latest（质检 S4）。
+            state = observation_script.attempt_states(raw).get(str(wanted))
+            if state is None:
+                print(f"没有这个提取尝试：{wanted}")
+                return 2
+            if observation_script._key_of(state) != key.as_tuple():
+                print(f"提取尝试 {wanted} 不属于该用户 / 阅读目标")
+                return 2
+            mine = observation_script.draft_for_attempt(raw, key=key, attempt_id=str(wanted))
+            if mine is None:
+                print(f"提取尝试 {wanted} 里没有提交过草稿")
+                return 1
+        else:
+            mine = observation_script.latest_user_draft(raw, key=key)
+        if mine is None:
+            print(f"{args.as_of} 的「{args.from_draft}」你还没提交过草稿：先 observation draft")
+            return 1
+        # ``make`` 不吃 id / checkpoint_id（登记时才生成），先摘掉。
+        draft = observation_script.make(
+            **{
+                k: v
+                for k, v in mine.items()
+                if k in observation_script.ObservationScript.__dataclass_fields__
+                and k not in {"id", "checkpoint_id"}
+            }
+        )
+        source_draft_id = str(mine.get("draft_id") or "")
+        # **归属跟你指名的那次尝试走**，不跟草稿行走。「取哪一版」与「算在哪次尝试
+        # 名下」是两件事：A 提交草稿、B 复用读完、你指名 B 确认时，版本来自 A 的那一行，
+        # 但这次确认动作发生在 B。从草稿行取 attempt_id 会把事件挂回 A（复审二实测）。
+        # 没显式给时才回落到草稿自己的尝试。
+        attempt_id = str(wanted or mine.get("extraction_attempt_id") or "") or None
+        entrypoint, author_origin = "confirm", observation_script.AUTHOR_USER
+
     if args.from_slice:
         sl = _observation_slice(args, us, args.from_slice)
-        draft = guided_reading.build(sl).draft
+        canonical = _observation_identity(args, sl)
+        if canonical is None:
+            return _print_identity_error(args.from_slice, args.as_of, args.json)
+        key = ox.make_key(us.user_id, args.as_of, canonical)
+        path = us.observation_scripts_path
+        enabled, _reason = guided_reading.resolve_enabled(us, override=None)
+        # `--from-slice` 是用户显式索要系统骨架，不被「老用户默认关」静默吞掉；
+        # 但它照样要过提取门——门与开关是两件事。
+        try:
+            attempt, _ = observation_script.open_attempt(
+                path, key=key, entrypoint="confirm", attempt_id=getattr(args, "attempt_id", None)
+            )
+        except ValueError as exc:
+            print(str(exc))
+            return 2
+        attempt_id = str(attempt["attempt_id"])
+        gate = guided_reading.gated(
+            us,
+            sl,
+            key=key,
+            override=True if enabled is False else None,
+            skip_draft=bool(getattr(args, "skip_draft", False)),
+            on_skip=lambda: observation_script.record_event(
+                path, event=observation_script.EVENT_DRAFT_SKIPPED, key=key,
+                entrypoint="confirm", attempt_id=attempt_id,
+            ),
+        )
+        if gate.guided is None:
+            return _print_gate_block(gate, attempt_id, args.json)
+        draft = gate.guided.draft
         if draft is None:
             print(f"{args.as_of} 的「{args.from_slice}」六轨全缺，没有可确认的骨架")
             return 1
+        entrypoint = "confirm"
+        author_origin = observation_script.AUTHOR_SYSTEM
+        source_draft_id = str((gate.decision.draft or {}).get("draft_id") or "") or None
 
     script = observation_script.make(
         as_of=args.as_of,
@@ -3331,8 +3773,12 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
         variables=args.variables or (list(draft.variables) if draft else []),
         downgrade_or_abandon_conditions=args.abandons
         or (list(draft.downgrade_or_abandon_conditions) if draft else []),
-        upgrade_conditions=args.upgrades,
-        machine_conditions=args.conditions,
+        # 升级条件与机检条件同样**从来源继承**，命令行只在给了值时覆盖。
+        # 之前这两个字段只认命令行：`--from-draft` 时用户自己写的机检规则会被静默清空，
+        # 于是及时确认的剧本到期从「盘面自动判定」掉成「人工判定」，而台账上看不出
+        # 发生过这件事（质检 S1）。
+        upgrade_conditions=args.upgrades or (list(draft.upgrade_conditions) if draft else []),
+        machine_conditions=args.conditions or (list(draft.machine_conditions) if draft else []),
         evidence_refs=list(draft.evidence_refs) if draft else [],
         knowledge_cutoff=draft.knowledge_cutoff if draft else None,
         user_id=us.user_id,
@@ -3353,10 +3799,24 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
             due=args.due,
             next_open=next_open,
             db_path=args.db_path,
-            user_authored=draft is None,
+            user_authored=draft is None or args.from_draft is not None,
+            author_origin=author_origin,
+            canonical_entity_id=canonical,
+            attempt_id=attempt_id,
+            entrypoint=entrypoint,
+            source_draft_id=source_draft_id,
+            # `--from-slice` 与「手填 + 显式尝试」是在**进行中的尝试里**做的动作，
+            # 落盘前持锁复验它仍可写；只有 `--from-draft` 是引用已完成尝试的历史版本
+            # （§2.4.4），已完成旧尝试的合法引用不一刀切拒掉。同动作重试在复验之前
+            # 已被去重短路，不会产生新副作用。
+            require_open_attempt=bool(args.from_slice) or require_open_attempt,
         )
     except observation_script.ObservationScriptRejected as exc:
         return _print_rejections(exc, args.json)
+    except ValueError as exc:
+        # 并发 close 插在门与落盘之间：如实拒绝，不写剧本行、不建 checkpoint。
+        print(str(exc))
+        return 2
 
     if args.json:
         print(_json.dumps(record, ensure_ascii=False, indent=2))
@@ -3374,9 +3834,41 @@ def cmd_observation_skip(args: argparse.Namespace) -> int:
 
     from intelligence.services import guided_reading, observation_script
 
+    from intelligence.services import observation_extraction as ox
+
     us = _observation_user_space(args)
     sl = _observation_slice(args, us, args.entity)
-    draft = guided_reading.build(sl).draft
+    canonical = _observation_identity(args, sl)
+    if canonical is None:
+        return _print_identity_error(args.entity, args.as_of, args.json)
+    key = ox.make_key(us.user_id, args.as_of, canonical)
+    path = us.observation_scripts_path
+    # `skip` 会**回显系统骨架**（它把骨架原样记成 skipped），所以照样要过提取门。
+    # 注意它跳过的是「系统这份剧本」，与 `read --skip-draft` 跳过的「提取」是两件事，
+    # 台账上分开记：前者是一条 skipped 剧本，后者是一条 draft_skipped 事件。
+    enabled, _reason = guided_reading.resolve_enabled(us, override=None)
+    try:
+        attempt, _ = observation_script.open_attempt(
+            path, key=key, entrypoint="skip", attempt_id=getattr(args, "attempt_id", None)
+        )
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+    aid = str(attempt["attempt_id"])
+    gate = guided_reading.gated(
+        us,
+        sl,
+        key=key,
+        override=True if enabled is False else None,
+        skip_draft=bool(getattr(args, "skip_draft", False)),
+        on_skip=lambda: observation_script.record_event(
+            path, event=observation_script.EVENT_DRAFT_SKIPPED, key=key,
+            entrypoint="skip", attempt_id=aid,
+        ),
+    )
+    if gate.guided is None:
+        return _print_gate_block(gate, aid, args.json)
+    draft = gate.guided.draft
     if draft is None:
         print(f"{args.as_of} 的「{args.entity}」六轨全缺，没有可跳过的剧本")
         return 1
@@ -3384,9 +3876,20 @@ def cmd_observation_skip(args: argparse.Namespace) -> int:
     payload = {k: v for k, v in draft.to_dict().items() if k not in {"id", "checkpoint_id"}}
     skipped = observation_script.make(**{**payload, "status": "skipped", "user_id": us.user_id})
     try:
-        _, record = observation_script.register(us.observation_scripts_path, skipped)
+        _, record = observation_script.register(
+            us.observation_scripts_path,
+            skipped,
+            author_origin=observation_script.AUTHOR_SYSTEM,
+            canonical_entity_id=canonical,
+            attempt_id=aid,
+            entrypoint="skip",
+            require_open_attempt=True,
+        )
     except observation_script.ObservationScriptRejected as exc:
         return _print_rejections(exc, args.json)
+    except ValueError as exc:
+        print(str(exc))
+        return 2
     if args.json:
         print(_json.dumps(record, ensure_ascii=False, indent=2))
     else:
@@ -3451,12 +3954,57 @@ def cmd_observation_repoint(args: argparse.Namespace) -> int:
 def cmd_observation_list(args: argparse.Namespace) -> int:
     import json as _json
 
+    from intelligence.services import observation_extraction as ox
     from intelligence.services import observation_script
 
     us = _observation_user_space(args)
-    records = observation_script.expire_stale(observation_script.load(us.observation_scripts_path))
-    if args.as_of:
-        records = [r for r in records if str(r.get("as_of")) == args.as_of]
+    raw = observation_script.load_raw(us.observation_scripts_path)
+
+    def _match(rec: dict) -> bool:
+        if args.as_of and str(rec.get("as_of")) != args.as_of:
+            return False
+        if args.entity and str(rec.get("canonical_entity_id") or "") != args.entity:
+            return False
+        return True
+
+    if args.events:
+        def _attempt_match(rec: dict) -> bool:
+            """事件与 pending 共用同一个筛选谓词。
+
+            两边各写各的，就会出现「按 attempt 查询却把别的 pending 一起带出来」
+            （质检 S10 实测）——查询面的过滤条件不一致，读的人会以为那个尝试有两条挂着。
+            """
+            if not _match(rec):
+                return False
+            return not args.attempt_id or str(rec.get("attempt_id") or "") == args.attempt_id
+
+        events = [e for e in observation_script.projected_events(raw) if _attempt_match(e)]
+        pending = [
+            s for s in observation_script.attempt_states(raw).values()
+            if str(s.get("status")) == observation_script.ATTEMPT_PENDING and _attempt_match(s)
+        ]
+        # 逐事件分列，**不合并成一个跳过率**：五个事件的分母各不相同，
+        # 合成单一比率就再也说不清「谁没进来」与「进来了没作答」。
+        counts = {name: sum(1 for e in events if str(e.get("event")) == name) for name in observation_script.EVENTS}
+        if args.json:
+            print(_json.dumps({"counts": counts, "pending_attempts": pending, "events": events}, ensure_ascii=False, indent=2))
+            return 0
+        print(f"提取事件台账：{us.observation_scripts_path}")
+        print("  " + "｜".join(f"{k}={v}" for k, v in counts.items()) + f"｜pending={len(pending)}")
+        for ev in events[-20:]:
+            print(f"  - {ev.get('event')}｜{ev.get('as_of')}｜{ev.get('canonical_entity_id')}"
+                  f"｜attempt={ev.get('attempt_id')}｜{ev.get('occurred_at')}")
+        for att in pending:
+            print(f"  · pending {att.get('attempt_id')}｜{att.get('as_of')}｜{att.get('canonical_entity_id')}"
+                  f"｜自 {att.get('opened_at')}（等待中，不算离开）")
+        return 0
+
+    scripts = observation_script.expire_stale(
+        [r for r in raw if observation_script.record_kind_of(r) == observation_script.RECORD_SCRIPT]
+    )
+    # 尚无用户草稿的阅读目标，不回显系统骨架正文——列表不是绕过提取门的后门。
+    scripts = ox.redact_system_skeletons(scripts, keys_with_draft=observation_script.keys_with_user_draft(raw))
+    records = [r for r in scripts if _match(r)]
     counts = observation_script.status_counts(records)
     if args.json:
         print(_json.dumps({"counts": counts, "records": records}, ensure_ascii=False, indent=2))
@@ -3464,7 +4012,8 @@ def cmd_observation_list(args: argparse.Namespace) -> int:
     print(f"观察剧本台账：{us.observation_scripts_path}")
     print("  " + "｜".join(f"{k}={v}" for k, v in counts.items()))
     for rec in records[-20:]:
-        print(f"  - {rec['id']}｜{rec['as_of']}｜{rec['status']}｜{'/'.join(rec.get('entity_ids') or [])}")
+        mine = "你写的" if str(rec.get("author_origin") or "") == observation_script.AUTHOR_USER else "系统"
+        print(f"  - {rec['id']}｜{rec['as_of']}｜{rec['status']}｜{mine}｜{'/'.join(rec.get('entity_ids') or [])}")
     return 0
 
 
