@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-09-15T11:42:22Z",
+  "generated_at": "2026-09-15T13:28:26Z",
   "repos": [
     {
       "name": "finance-workspace-private",
