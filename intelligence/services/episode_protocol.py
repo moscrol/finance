@@ -20,6 +20,9 @@ from intelligence.services.episode_output_substance import (
     required_outputs_without_substance,
 )
 from intelligence.services import knowledge_injection_policy
+from intelligence.services.material_grounding import (
+    ClaimSourceBinding, binding_source_errors, grounding_scope, material_grounding_payload,
+)
 from intelligence.services.judgment_delta import episode_judgment_delta_rule
 from intelligence.services.pricing_split import episode_pricing_split_rule
 from intelligence.services.research_contract import (
@@ -111,6 +114,25 @@ def finish_json_schema() -> dict[str, object]:
                             ],
                         },
                         "gap": {"type": "string"},
+                        "claims": {
+                            "type": "array",
+                            "items": {
+                                "type": "object", "additionalProperties": False,
+                                "properties": {
+                                    "text": {"type": "string"},
+                                    "kind": {"type": "string", "enum": ["material_fact", "reasoning", "premise_declaration", "historical_assistant_statement"]},
+                                    "material_anchors": {"type": "array", "items": {
+                                        "type": "object", "additionalProperties": False,
+                                        "properties": {"material_id": {"type": "string"}, "quote": {"type": "string"}},
+                                        "required": ["material_id", "quote"],
+                                    }},
+                                    "old_answer_coordinate": {"type": "string"},
+                                    "historical_quote": {"type": "string"},
+                                    "basis": {"type": "string"},
+                                },
+                                "required": ["text", "kind"],
+                            },
+                        },
                     },
                     "required": [
                         "output_id",
@@ -310,6 +332,8 @@ def build_episode_instructions(
         "权限、预算或继续派生分支。计划修订必须保持原任务且 revision 严格递增。\n"
         "\n"
         "【工具与观察】\n"
+        "若本轮提供 material_grounding，以下工具证据要求按其 data_scope 条件化："
+        "材料事实在 binding.claims 绑定材料坐标，历史纠错绑定旧答坐标；其它事实仍绑定工具证据。\n"
         "每次看到工具原始观察后，自主决定继续查、改写查询或停止。只能调用本轮提供的"
         "只读工具，不能臆造工具结果。\n"
         "事实判断必须绑定工具观察里的证据序号 E1、E2…；"
@@ -405,6 +429,9 @@ def build_episode_input(
 
     if material_question_outputs(context.contract):
         payload["material_delivery"] = material_delivery_payload(context.contract)
+    grounding = material_grounding_payload(context.contract)
+    if grounding is not None:
+        payload["material_grounding"] = grounding
     # 市场态题型（market_watch）不注入：三轮消融实测该题型上判读基线稳定负贡献
     # （主线题七读数全 ≤0），与 Engine B 合成侧共用 knowledge_injection_policy 门控。
     baseline = knowledge_injection_policy.reading_guidance_for(task_frame.question_type)
@@ -519,6 +546,8 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
     "hashes_not_list": RejectionKind.FORMAT,
     "unknown_evidence_ref": RejectionKind.FORMAT,
     "basis_mismatch": RejectionKind.FORMAT,
+    "bad_claim_binding": RejectionKind.FORMAT,
+    "material_source_violation": RejectionKind.INTEGRITY,
     "duplicate_binding": RejectionKind.FORMAT,
     # 内容不足 → 降级保留草稿
     "empty_draft": RejectionKind.SUBSTANCE,
@@ -858,12 +887,23 @@ def validate_episode_finish(
         raw_hashes = raw.get("evidence_hashes", [])
         if not isinstance(raw_hashes, list):
             raise _reject("hashes_not_list", "binding evidence_hashes must be a list")
+        raw_claims = raw.get("claims", [])
+        if not isinstance(raw_claims, list):
+            raise _reject("bad_claim_binding", "binding claims must be a list")
+        try:
+            claims = tuple(ClaimSourceBinding.from_dict(item) for item in raw_claims)
+        except ValueError as exc:
+            raise _reject("bad_claim_binding", str(exc)) from exc
         binding = OutputEvidenceBinding(
             output_id=str(raw.get("output_id") or ""),
             evidence_hashes=resolve_evidence_refs(raw_hashes, evidence),
             gap=str(raw.get("gap") or ""),
             basis=str(raw.get("basis") or "evidence"),
+            claims=claims,
         )
+        source_errors = binding_source_errors(context.contract, binding, draft, evidence)
+        if source_errors:
+            raise _reject("material_source_violation", "; ".join(source_errors))
         if binding.output_id not in allowed_outputs:
             if binding.output_id in TRACK_CONTRACT_OUTPUT_ID_SET:
                 # 跟踪题的表达槽（四态 / TTL / 下期关注）由 track_contract 以合成 id 并进
@@ -1022,7 +1062,9 @@ def validate_episode_finish(
             if binding.gap and not binding.evidence_hashes:
                 missing.append(required.output_id)
                 continue
-            if required.grounding_mode == "evidence" and not binding.evidence_hashes:
+            if required.grounding_mode == "evidence" and not binding.evidence_hashes and not (
+                grounding_scope(context.contract) == "material_only" and binding.claims
+            ):
                 missing.append(required.output_id)
         if missing:
             raise _reject(
@@ -1083,14 +1125,7 @@ def expand_comparison_set_bindings(
             siblings = cohorts.get(key, ())
             if len(siblings) >= 2:
                 hashes.extend(siblings)
-        expanded.append(
-            OutputEvidenceBinding(
-                output_id=binding.output_id,
-                evidence_hashes=tuple(dict.fromkeys(hashes)),
-                gap=binding.gap,
-                basis=binding.basis,
-            )
-        )
+        expanded.append(replace(binding, evidence_hashes=tuple(dict.fromkeys(hashes))))
     return tuple(expanded)
 
 
@@ -1129,14 +1164,7 @@ def expand_episode_snapshot_bindings(
         for tool, tool_hashes in snapshot_hashes.items():
             if tool in selected_snapshot_tools:
                 hashes.extend(tool_hashes)
-        expanded.append(
-            OutputEvidenceBinding(
-                output_id=binding.output_id,
-                evidence_hashes=tuple(dict.fromkeys(hashes)),
-                gap=binding.gap,
-                basis=binding.basis,
-            )
-        )
+        expanded.append(replace(binding, evidence_hashes=tuple(dict.fromkeys(hashes))))
     return expand_comparison_set_bindings(
         bindings=tuple(expanded),
         evidence=evidence,
