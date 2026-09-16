@@ -17,14 +17,20 @@ CLAIM_CHECK_SCHEMA = {
             "claim_id": {"type": "string"},
             "supported": {"type": "boolean"},
             "reason": {"type": "string"},
+            "support_kind": {"type": "string", "enum": ["bound_material", "historical_quote", "nonfactual", "unsupported"]},
+            "anchor_indexes": {"type": "array", "items": {"type": "integer", "minimum": 1}, "uniqueItems": True},
         },
-        "required": ["claim_id", "supported", "reason"],
+        "required": ["claim_id", "supported", "reason", "support_kind", "anchor_indexes"],
     },
 }
 
 CLAIM_CHECK_RULE = (
     " 本轮必须额外返回 material_claim_checks 数组，逐项覆盖 material_claims 的 claim_id，不能遗漏或重复。"
-    "每项仅含 claim_id、supported(boolean)、reason(非空的具体判断依据)。"
+    "每项仅含 claim_id、supported(boolean)、reason(非空的具体判断依据)、support_kind、anchor_indexes。"
+    "support_kind=bound_material 时，anchor_indexes 列出本条 material_anchors 从1开始的序号，"
+    "supported=true 必须有真实存在的序号；本条锚点为空就不能声称材料支持，不得捏造序号或借邻句的序号。"
+    "historical_quote 只用于已绑定历史旧答；nonfactual 只用于确实不含事实或计算的句子；"
+    "unsupported 表示无有效支持，必须 supported=false。后三类 anchor_indexes=[]。"
     "每条当前事实和计算只能用该条 material_anchors 的 quote 作直接支持，不能从同一 output 的邻句、"
     "其它 binding 或完整材料目录借用未绑定的输入；目录只用于核验出处和缺失声明。"
     "问句不是它所询问结果的证据。计算要逐一核对分子、分母、单位、期间和运算，reason 写出输入和推导。"
@@ -80,12 +86,32 @@ def reconcile_claim_checks(payload: dict, claims: list[dict[str, object]]) -> di
     rejected = set(payload["rejected_sentence_indexes"])
     issues = list(payload["issues"])
     for check in checks:
-        if not isinstance(check, dict) or set(check) != {"claim_id", "supported", "reason"}:
+        if not isinstance(check, dict) or set(check) != set(CLAIM_CHECK_SCHEMA["items"]["required"]):
             return None
         key, supported, reason = check["claim_id"], check["supported"], check["reason"]
         if (not isinstance(key, str) or key not in expected or key in seen
                 or not isinstance(supported, bool) or not isinstance(reason, str) or not reason.strip()):
             return None
+        support_kind, indexes = check["support_kind"], check["anchor_indexes"]
+        row = expected[key]
+        if (not isinstance(support_kind, str)
+                or support_kind not in CLAIM_CHECK_SCHEMA["items"]["properties"]["support_kind"]["enum"]
+                or not isinstance(indexes, list)
+                or any(type(index) is not int or index < 1 or index > len(row.get("material_anchors", ())) for index in indexes)
+                or len(set(indexes)) != len(indexes)):
+            return None
+        if support_kind != "bound_material" and indexes:
+            return None
+        if supported:
+            if support_kind == "unsupported" or (support_kind == "bound_material" and not indexes):
+                return None
+            if support_kind == "historical_quote" and not (
+                row.get("kind") == "historical_assistant_statement" and row.get("old_answer_coordinate")
+                and row.get("historical_quote") and row.get("basis") == "assistant_judgment"
+            ):
+                return None
+            if support_kind == "nonfactual" and row.get("kind") in {"material_fact", "historical_assistant_statement"}:
+                return None
         seen.add(key)
         if not supported:
             index = expected[key]["sentence_index"]

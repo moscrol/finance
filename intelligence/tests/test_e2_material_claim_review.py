@@ -39,6 +39,33 @@ def test_material_judge_missing_or_malformed_receipt_cannot_pass(mutation):
     assert SemanticEpisodeVerifier._parse_report(payload, 2, material_claims=request["material_claims"]) is None
 
 
+def test_claim_pass_requires_explicit_support_kind_and_anchor_receipt():
+    request = request_for(None)
+    payload = {"passed": True, "rejected_sentence_indexes": [], "issues": [],
+               "material_claim_checks": [{"claim_id": "c1", "supported": True, "reason": "该句已有材料支持。"}]}
+    assert SemanticEpisodeVerifier._parse_report(payload, 2, material_claims=request["material_claims"]) is None
+
+
+@pytest.mark.parametrize("indexes", [[], [1], [True], [0], [-1], ["1"]])
+def test_judge_cannot_invent_anchors_for_a_claim_with_empty_anchors(indexes):
+    request = request_for(None)
+    payload = reviewed(request)
+    payload["material_claim_checks"][0].update(support_kind="bound_material", anchor_indexes=indexes)
+    assert SemanticEpisodeVerifier._parse_report(payload, 2, material_claims=request["material_claims"]) is None
+
+
+def test_material_support_receipt_validates_against_this_claim_not_the_catalogue():
+    request = request_for(None)
+    request["material_claims"][0].update(kind="material_fact", material_anchors=[{"material_id": "m1", "quote": "输入"}])
+    payload = reviewed(request)
+    payload["material_claim_checks"][0].update(support_kind="bound_material", anchor_indexes=[1])
+    assert SemanticEpisodeVerifier._parse_report(payload, 2, material_claims=request["material_claims"]).passed
+    payload["material_claim_checks"][0]["anchor_indexes"] = [2]
+    assert SemanticEpisodeVerifier._parse_report(payload, 2, material_claims=request["material_claims"]) is None
+    payload["material_claim_checks"][0].update(support_kind="nonfactual", anchor_indexes=[])
+    assert SemanticEpisodeVerifier._parse_report(payload, 2, material_claims=request["material_claims"]) is None
+
+
 def test_per_claim_rejection_overrides_global_pass():
     request = request_for(None)
     payload = reviewed(request)
@@ -98,6 +125,29 @@ def test_material_review_payload_reaches_all_supported_judge_callback_styles(sty
     result = verify(frame, context, outcome(context), keywords if style == "keywords" else named)
     assert result.status == "completed" and seen[0]["material_claims"]
     assert seen[0]["material_grounding"]["data_scope"] == "material_only"
+
+
+@pytest.mark.parametrize("case_index", range(4))
+def test_control_probe_cases_are_validated_and_require_specific_verdict(case_index):
+    from scripts.material_claim_support_probe import CASES, probe_case
+
+    case = CASES[case_index]
+
+    def judge(request):
+        rejected = () if case[3] else tuple(row["sentence_index"] for row in request["material_claims"] if row["output_id"] == "evidence_boundary")
+        return reviewed(request, rejected=rejected)
+
+    assert probe_case(case, judge)["expectation_matched"]
+    if not case[3]:
+        assert not probe_case(case, lambda _request: "malformed")["expectation_matched"]
+
+
+def test_control_probe_requires_explicit_live_opt_in():
+    from scripts.material_claim_support_probe import main
+
+    with pytest.raises(SystemExit) as exc:
+        main([])
+    assert exc.value.code == 2
 
 
 def test_complete_material_receipt_allows_correct_calculation():
