@@ -1,0 +1,55 @@
+{
+  "followups": [
+    {
+      "question": "数据中心供电目前最硬的一条公司级证据是什么，出自哪份公告或研报？",
+      "type": "evidence",
+      "rationale": "完整结论也打最薄一层证据核验",
+      "type_label": "证据加深",
+      "source": "",
+      "label": "核对最硬证据",
+      "full_prompt": "数据中心供电目前最硬的一条公司级证据是什么，出自哪份公告或研报？",
+      "angle": "A",
+      "kind": "gap_fill",
+      "kind_label": "补关键缺口",
+      "inherits": {
+        "subject": "数据中心供电",
+        "question_type": "theme_analysis"
+      }
+    },
+    {
+      "question": "除了当前已点名的标的，数据中心供电同链暴露度相近的下一跳应先核谁的订单或认证？不要把已有名单当成新发现。",
+      "type": "alternative",
+      "rationale": "连续对话第一期无 D3 结构，只问下一跳不点新票",
+      "type_label": "替代标的",
+      "source": "",
+      "label": "同链下一跳",
+      "full_prompt": "除了当前已点名的标的，数据中心供电同链暴露度相近的下一跳应先核谁的订单或认证？不要把已有名单当成新发现。",
+      "angle": "B",
+      "kind": "alternative_explanation",
+      "kind_label": "比较替代解释",
+      "inherits": {
+        "subject": "数据中心供电",
+        "question_type": "theme_analysis"
+      }
+    },
+    {
+      "question": "出现哪些反证应下调对数据中心供电的判断？",
+      "type": "counter",
+      "rationale": "完整答案的默认证伪件",
+      "type_label": "反证验证",
+      "source": "",
+      "label": "证伪条件",
+      "full_prompt": "出现哪些反证应下调对数据中心供电的判断？",
+      "angle": "D",
+      "kind": "condition_test",
+      "kind_label": "检验条件",
+      "inherits": {
+        "subject": "数据中心供电",
+        "question_type": "theme_analysis"
+      }
+    }
+  ],
+  "llm_used": false,
+  "llm_provider": null,
+  "warnings": []
+}

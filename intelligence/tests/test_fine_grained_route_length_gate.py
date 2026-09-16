@@ -163,16 +163,77 @@ def test_kol_review_example_preexisting_miss() -> None:
 
 
 @pytest.mark.parametrize(
-    "route_id,query", ROUTE_EXAMPLES, ids=[query for _, query in ROUTE_EXAMPLES]
+    "route_id,query",
+    [item for item in ROUTE_EXAMPLES if item[0] != "quick_fact"],
+    ids=[query for route_id, query in ROUTE_EXAMPLES if route_id != "quick_fact"],
 )
-def test_padding_past_the_gate_kills_any_fine_grained_route(
+def test_padding_past_the_gate_kills_word_cooccurrence_routes(
     route_id: str, query: str
 ) -> None:
-    """家族级：同样的词面超过阈值后六条路由一律不认——不是只堵 disclosure_scan。"""
+    """家族级：五条词面共现路由超过阈值后一律不认——不是只堵 disclosure_scan。
+
+    quick_fact 不在此列：它按窄意图判，入场券是「无材料正文」而非纯长度，
+    见下方 test_long_pure_quick_fact_passes_both_entries。
+    """
     pad = FINE_GRAINED_ROUTE_MAX_CHARS + 1 - _stripped_len(query) - 1
     padded = query + "。" + "垫" * pad
     assert _stripped_len(padded) == FINE_GRAINED_ROUTE_MAX_CHARS + 1
     assert _fine_grained_route_row(padded) is None
+
+
+# 2026-09-13 QC N1 实测题：192 字（去空白）的明确取值题，长度来自格式要求而非材料。
+QC_N1_LONG_QUICK_FACT = (
+    "300750是哪家公司？请使用公司常用的中文证券简称，不需要公司全称，也不需要英文译名。"
+    "回答只包含证券代码和公司简称，两者之间使用中文冒号；不要额外生成标题、表格、列表、"
+    "前言或者结尾。输出将直接复制进证券代码对照表，表格已有其他列，因此不需要证券交易所、"
+    "注册地址、行业分类、公司网址、联系电话或者成立时间。旧表来自人工摘录，代码可能存在抄写错误，"
+    "无法确认对应公司的时候请说明无法确认。"
+)
+
+
+def test_long_pure_quick_fact_passes_both_entries() -> None:
+    """N1 收口：长但意图明确的纯取值题（无材料正文）在两个入口一致归 quick_fact。
+
+    decide_turn（turn_controller._fine_grained_route_row）与 plan_answer_question
+    （answer_orchestrator）必须用同一完整策略 route_table.quick_fact_route_ok；
+    闸只下在其中一个入口时，该题 decide_turn 判 stock_deep_dive/research、
+    plan 判 quick_fact，入口分叉。
+    """
+    from intelligence.services.answer_orchestrator import plan_answer_question
+
+    assert _stripped_len(QC_N1_LONG_QUICK_FACT) == 192
+    assert not fine_grained_route_length_ok(QC_N1_LONG_QUICK_FACT)
+    row = _fine_grained_route_row(QC_N1_LONG_QUICK_FACT)
+    assert row is not None and row.route_id == "quick_fact"
+    assert decide_turn(QC_N1_LONG_QUICK_FACT).question_type == "quick_fact"
+    assert plan_answer_question(QC_N1_LONG_QUICK_FACT).question_type == "quick_fact"
+
+
+def test_quick_fact_intent_with_materials_is_gated() -> None:
+    """quick_fact 的材料侧：材料题尾问里的取值措辞不放行（S1 家族语义）。"""
+    head = T2_MATERIAL_QUESTION.split("请按以下 8 题逐项回答")[0]
+    material_with_value_tail = head + "请问甲公司去年总收入是多少？"
+    assert not fine_grained_route_length_ok(material_with_value_tail)
+    assert _fine_grained_route_row(material_with_value_tail) is None
+
+
+def test_material_with_scan_like_short_tail_survives_end_to_end() -> None:
+    """S1 收口：802 字材料 + 扫描词面短尾问，第二入口与端到端都不再劫 disclosure_scan。
+
+    QC 2026-09-13 S1：query_understanding 的闸原来量拆分后的短尾问（text）而不是
+    完整原文（raw_text）——尾问「公告涉及的甲乙丙…哪些有正式订单？」三提示词凑齐
+    且长度过关，envelope 与 decide_turn 均判 disclosure_scan。闸改量完整原文后退回
+    正常 lane。变体构造：T2 前 7 问保留、末问替换（QC route-parent-recheck.json）。
+    """
+    head = T2_MATERIAL_QUESTION.split("8. 如果只能先深入研究一家公司")[0]
+    variant = head + "请只依据上面的虚构行业材料，公告涉及的甲乙丙公司中，哪些已有正式订单？"
+    assert _stripped_len(variant) == 802  # 与 QC 复现计数一致
+    assert is_disclosure_scan_query(variant) is True  # 裸匹配器仍命中，闸在它之外
+    assert _fine_grained_route_row(variant) is None
+    assert understand_query(variant).question_type != "disclosure_scan"
+    decision = decide_turn(variant)
+    assert decision.question_type != "disclosure_scan"
+    assert decision.lane == "research"
 
 
 def test_gate_threshold_boundary() -> None:

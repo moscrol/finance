@@ -1,0 +1,17 @@
+"""Repeated real-thread timeout/rebind; also test active query-ledger exclusion."""
+import pytest
+import test_independent_scope_v2 as probes
+from intelligence.services import query_ledger
+
+@pytest.mark.parametrize('repeat', range(5))
+@pytest.mark.parametrize('active_ledger', [False, True])
+def test_late_scope_repeat(monkeypatch, repeat, active_ledger):
+    if not active_ledger:
+        assert query_ledger.current_query_ledger() is None
+        probes.test_late_result_captures_old_scope_not_new_context(monkeypatch)
+    else:
+        with query_ledger.query_ledger_scope() as ledger:
+            probes.test_late_result_captures_old_scope_not_new_context(monkeypatch)
+            assert ledger.entries == {} and ledger._inflight == {}
+            assert len(ledger.late_result_discards) == 1
+            assert ledger.late_result_discards[0]['reason'] == 'subscription_inactive'

@@ -108,6 +108,12 @@ esac
 
 echo "L2 calendar date=$D verdict=$CAL_VERDICT source=$CAL_SOURCE data=$CAL_DATA"
 
+# 日历判定落台账（2026-09-13 QC S2）：unknown 不再只在 stderr 吼一声——
+# 调度守卫/值班查的是 ops_pipeline_run_daily，不是日志。trading/closed 也记，
+# 于是「无 calendar 行」唯一地意味着「本副本还没带这版修复」。台账失败不阻断。
+python3 "$moneyflow_dir/write_to_duckdb.py" --calendar "$D" "$CAL_VERDICT" "$CAL_SOURCE" "$CAL_REASON" \
+  || echo "[$(date '+%F %T')] ⚠️ 日历台账写入失败 date=$D（不阻断）" >&2
+
 if [ "$CAL_VERDICT" = "closed" ]; then
   echo "[$(date '+%F %T')] 休市 date=$D（$CAL_SOURCE）：$CAL_REASON —— 跳过 L2 流水线"
   exit 0

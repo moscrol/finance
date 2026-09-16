@@ -55,6 +55,7 @@ const apiMocks = vi.hoisted(() => ({
   getArtifactText: vi.fn(),
   getBootstrap: vi.fn(),
   getConversationMessages: vi.fn(),
+  getCredits: vi.fn(),
   getFollowups: vi.fn(),
   getResearchProject: vi.fn(),
   getResearchEvolution: vi.fn(),
@@ -1403,6 +1404,25 @@ describe("Chat-first conversation components", () => {
     expect(screen.getByText("正在查主线结构。")).toBeVisible();
   });
 
+  it("shows the actual tool menu before any call, including on a failed run", () => {
+    const menu = {
+      ...episodeSteps[0],
+      step_id: "step:menu",
+      output_summary:
+        "此步模型可调用工具：沙箱派生计算、子研究分支。授权不代表已调用或服务可用。",
+    };
+    render(
+      bubbleWithProgress(
+        { content: "模型服务不可用，暂不能可靠回答。", status: "failed" },
+        [menu],
+      ),
+    );
+    expect(screen.getByText(menu.output_summary)).toBeInTheDocument();
+    expect(screen.getByText("模型服务不可用，暂不能可靠回答。")).toBeVisible();
+    expect(screen.queryByText("已取得沙箱派生计算。")).toBeNull();
+    expect(screen.queryByText("已取得子研究分支。")).toBeNull();
+  });
+
   it("keeps the timeline available after the answer lands", () => {
     render(
       bubbleWithProgress(
@@ -1842,6 +1862,12 @@ describe("Workbench navigation reliability", () => {
       value: vi.fn(),
     });
     apiMocks.getBootstrap.mockResolvedValue(bootstrap);
+    apiMocks.getCredits.mockResolvedValue({
+      enabled: false,
+      exempt: false,
+      remaining: null,
+      next_expiry: null,
+    });
     apiMocks.getWorkbenchOverview.mockResolvedValue(workbenchOverview);
     apiMocks.approveForecastReflection.mockResolvedValue({
       ...workbenchOverview.learning_feedback,
@@ -1948,6 +1974,43 @@ describe("Workbench navigation reliability", () => {
         user: "default",
       },
     );
+  });
+
+  it("seeds the credits line from bootstrap and refreshes it once a question is accepted", async () => {
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getBootstrap.mockResolvedValue({
+      ...bootstrap,
+      credits: {
+        enabled: true,
+        exempt: false,
+        remaining: 2000,
+        points_per_yuan: 100,
+        next_expiry: null,
+      },
+    });
+    apiMocks.getCredits.mockResolvedValue({
+      enabled: true,
+      exempt: false,
+      remaining: 1900,
+      points_per_yuan: 100,
+      next_expiry: null,
+    });
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "问答" }));
+    await screen.findByText("每轮重新检索当前证据");
+    expect(screen.getByRole("status", { name: "剩余 2000 积分" })).toHaveTextContent(
+      "剩余 2000 积分 (¥20.00)",
+    );
+
+    await user.type(screen.getByLabelText("输入研究问题"), "预占一次");
+    await user.click(screen.getByRole("button", { name: "发送研究问题" }));
+
+    expect(apiMocks.getCredits).toHaveBeenCalledWith("default");
+    expect(
+      await screen.findByRole("status", { name: "剩余 1900 积分" }),
+    ).toHaveTextContent("剩余 1900 积分 (¥19.00)");
   });
 
   it("submits an explicit KOL perspective without mixing other profiles", async () => {
@@ -2592,5 +2655,68 @@ describe("DigestSnapshotView（P1b 证据快照页）", () => {
       />,
     );
     expect(screen.queryByTestId("digest-snapshot")).not.toBeInTheDocument();
+  });
+
+  it("shows remaining credits only for metered users and warns at zero", () => {
+    const listProps = {
+      conversations: [] as Conversation[],
+      activeConversationId: null,
+      mobileOpen: false,
+      onSelect: vi.fn(),
+      onNew: vi.fn(),
+      onArchive: vi.fn(),
+      onClose: vi.fn(),
+      onLibrary: vi.fn(),
+      activeSection: "ask" as const,
+      onSection: vi.fn(),
+    };
+    // 钱包关着 / 没拿到 credits：不占位
+    const off = render(<ConversationList {...listProps} credits={null} />);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    off.unmount();
+
+    const metered = render(
+      <ConversationList
+        {...listProps}
+        credits={{
+          enabled: true,
+          exempt: false,
+          remaining: 1965,
+          points_per_yuan: 100,
+          next_expiry: "2026-10-03T06:39:58+00:00",
+        }}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("剩余 1965 积分 (¥19.65)");
+    expect(screen.getByRole("status")).toHaveTextContent("10-03 到期");
+    metered.unmount();
+
+    const exempt = render(
+      <ConversationList
+        {...listProps}
+        credits={{ enabled: true, exempt: true, remaining: null, next_expiry: null }}
+      />,
+    );
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    exempt.unmount();
+
+    const zero = render(
+      <ConversationList
+        {...listProps}
+        credits={{ enabled: true, exempt: false, remaining: 0, next_expiry: null }}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("积分已用完");
+    expect(screen.getByRole("status")).toHaveClass("empty");
+    zero.unmount();
+
+    render(
+      <ConversationList
+        {...listProps}
+        credits={{ enabled: true, exempt: false, remaining: -14, next_expiry: null }}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("积分已透支 14 分");
+    expect(screen.getByRole("status")).toHaveClass("empty");
   });
 });
