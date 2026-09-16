@@ -61,7 +61,20 @@
 - **运行时数据其实已经在落**：`intelligence/runtime/agent_episode.py:2877` 把 `allowed_capabilities` 写进 episode 日志，每个 `tool_request` 事件带工具名。本仓 2026-09-09 核 `derived_calculation` 是否真被授权，正是从这里读出来的。
 - **缺的只是投影**：`intelligence/services/session_projection.py` 对 `allowed_capabilities` 零引用。
 
-→ **这是投影缺口，不是仪表缺口**，成本比原估低一个量级。动手前先收敛读取点：`intelligence/services/episode_scope.py` 自述「`contract.allowed_capabilities` 在 runtime/ 与 services/ 的十几处各读各的」——不收敛就可能投影出一份与门控实际所用不同的清单。**不另建第二份。**
+→ **这是投影缺口，不另建权限表**。上面是 09-09 的定位，不是最终落点：
+
+**2026-09-16 实施复核**（`gitea/main=32bff514`；改动在 `fix/audit-followup-0916`，未部署）：
+`session_projection.py` 是终局公开答案的纯函数出口，不能仅因它不读授权字段就在那里塞
+工具状态。`configure` 又早于 `derived_calculation` / `sub_research` 动态装配，直接投影它
+会少报工具；`allowed_capabilities` 只是授权上限，也不能证明工具已装配。
+实际读取点改为模型请求前的 **`tool_menu.visible`**：与发给模型的定义同源，已经过授权、
+装配、时间窗、去重裁剪，两条 loop 每个开放工具的模型步均落账（此前只在藏工具时落）。
+经 `episode_progress` → RunStore 持久轨迹 / SSE → API 公开边界 → 研究过程 UI 展示既有中文
+标签；不进答案正文、不新增工具表、不扩大权限。菜单明确声明「授权不代表已调用或服务可用」。
+空菜单、未记录、未知标签分开；收口步不计算实际不会传给模型的菜单，旧 run 不补猜。
+模型失败 / 子研究未装配 / 私有字段防泄漏 / trace 与 SSE 重放的承重测试见
+`intelligence/tests/test_tool_menu_progress.py`。这闭合的是**此步工具菜单**可观测，不包括
+本轮规则集清单或上游健康诊断。
 2. **[判读方法 → reading_baseline]** 给规则加一维 **`regime_scope`（适用环境）**。现有 `ReadingRule` 只有 `id / title / rule / source` 四个字段 [实测]，**没有失效条件字段，也没有环境字段**；FY-A10 自限阀（已内置、测试钉死排第一）只要求「与本轮证据冲突时以证据为准」，拦的是**单轮证据冲突**，拦不住 M3a 那种形态——规则在本轮证据下自洽、在**另一个 regime 里方向整体反转**。这是自限阀的一个真洞。
 3. **[判别式 → divergence-distill §2]** 现有两个判别式（可证伪测试分方法 / 倾向，双用户测试分 baseline / 视角）不够，补第三个：**跨 regime 测试** —— 换一个市场环境这条规则的**方向**会不会反转？会 → 进 baseline 必须带 `regime_scope`，不能默认全局开。
 4. **[回归用例，不是散文 → question_router / retrieval_planner]** M3b 六个反例应写成参数化用例。第 ⑥ 条（季报 / 非日频口径当实时）我们有同形状的坑：记忆里「snapshot backfill silently clones dates」与 AGENTS.md「覆盖率审计只能抓行数，抓不到行在值全 NULL」。

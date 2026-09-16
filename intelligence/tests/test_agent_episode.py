@@ -262,15 +262,17 @@ def test_progress_sink_observes_append_only_events_before_and_during_model_work(
     class ProgressAwareModel(ScriptedModel):
         def complete(self, *, messages, tools, timeout):
             if not self.calls:
-                # 首轮请求前 durable 侧已有四条：configure（配置快照，唯一允许先于 task 的
-                # 事件）、task、模型可见即已落账（INV-R1）要求的 prompt_assembled——system 与
-                # 首轮 user 先落事件再进 messages——以及效果三明治（INV-R2）的 model_intent：
-                # 向 provider 开口之前，意图必须已经在日志里。
+                # 向 provider 开口前：配置、任务、提示词、装配及裁剪后的实际菜单、
+                # 模型意图均已落账。不能只留早于动态工具装配的 configure 快照。
                 assert [event.kind for event in observed] == [
                     "configure",
                     "task",
                     "prompt_assembled",
+                    "tool_menu",
                     "model_intent",
+                ]
+                assert list(observed[-2].payload["visible"]) == [
+                    tool["function"]["name"] for tool in tools
                 ]
             return super().complete(messages=messages, tools=tools, timeout=timeout)
 

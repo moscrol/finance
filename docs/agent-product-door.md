@@ -179,6 +179,20 @@ P4（D5）在 `fix/e2-delivery-closeout` 补齐 `material_only` 逐题交付：�
 [设计 v10](learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md)
 及 `docs/handoffs/inflight/fix-e2-boundary-closeout.md`；是否部署看实际服务 revision。
 
+### 研究过程中的实际工具菜单
+
+引擎 A 在开放工具的模型请求前记录 `tool_menu.visible`，与该步交给模型的工具定义同源，
+已经过合同授权、动态装配、时间窗与去重筛选；不从更早的 `configure` 或静态注册表猜。
+`episode_progress` 把名字映射成既有中文标签，经 RunStore 持久轨迹和 SSE（服务端事件流）
+进入研究过程 / 运行详情；API 只放行固定句及封闭标签语法，不外露内部名、参数或提示词。
+授权菜单、开始调用、取得资料是不同事件；**菜单不证明上游可用**，模型首轮失败仍可看到
+请求前菜单，未装配的子研究不会被报成可调用。收口阶段不计算未交给模型的工具菜单。
+
+这是过程投影，不是 `session_projection.view()` 的金融答案出口，也不是新的权限表。
+无菜单记录的旧 run 不反推授权。覆盖两条 loop 与公开边界的测试在
+`intelligence/tests/test_tool_menu_progress.py`、`test_harness_reference_loop.py`；
+本段接线尚待本分支合入/部署，线上是否已有仍看运行 revision。
+
 ### 历史发现研究
 
 入口仍是 Workbench 对话，例如「这一波农业怎么走出来的，找出值得检验的特征」→「以前有没有类似，失败案例也看看」→「把观察窗口改成……」。`TaskFrame.history_intent` 区分事后发现与历史比较，随 `TurnIntent` 跨轮传递；普通概念解释与明确取消历史研究不会继承该权限。用户明确限定日期时，历史计算、普通结构化查询与原件读取共用范围门。
