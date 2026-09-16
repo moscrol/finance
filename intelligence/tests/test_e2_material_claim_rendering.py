@@ -8,6 +8,7 @@ from intelligence.runtime.agent_episode import ContinuousAgentEpisode
 from intelligence.services.agent_runtime import ModelTurn
 from intelligence.services.episode_protocol import build_episode_input, build_episode_instructions, validate_episode_finish
 from intelligence.services.research_tool_registry import ResearchToolRegistry
+from intelligence.services.material_grounding import claim_sentences
 from intelligence.tests.test_e2_material_grounding import FACT, finish, outcome, setup
 
 
@@ -34,6 +35,47 @@ def test_writer_receives_parseable_claim_template_with_exact_frozen_basis():
         binding["claims"] = claims[binding["output_id"]]
     assert validate_episode_finish(template, context=context, evidence=()).draft
     assert "wire_template" in build_episode_instructions(frame, context, registry)
+
+
+@pytest.mark.parametrize("marker", ["**", "*", "__", "_", "***", "~~", "`"])
+def test_markdown_closers_stay_with_exact_claim_and_judge_sentence(marker):
+    from intelligence.services.episode_semantic_verifier import _numbered_sentences
+
+    _, context = setup()
+    payload = claim_finish(context)
+    text = marker + FACT + marker
+    payload["bindings"][0]["claims"][0]["text"] = text
+    parsed = validate_episode_finish(payload, context=context, evidence=())
+    assert claim_sentences(text) == (text,)
+    assert text in parsed.draft
+    assert _numbered_sentences(parsed.draft)[1]["text"] == text
+
+
+def test_markdown_does_not_merge_separate_sentences_or_steal_next_opener():
+    assert claim_sentences("甲收入100万元。**订单20万元。**") == ("甲收入100万元。", "**订单20万元。**")
+    assert claim_sentences("**收入100万元；订单20万元。**") == ("**收入100万元；", "订单20万元。**")
+    _, context = setup()
+    payload = claim_finish(context)
+    payload["bindings"][0]["claims"][0]["text"] = "**收入100万元；订单20万元。**"
+    with pytest.raises(ValueError, match="one sentence"):
+        validate_episode_finish(payload, context=context, evidence=())
+
+
+@pytest.mark.parametrize("location", ["claim", "top_gap", "binding_gap"])
+def test_private_material_coordinates_are_recoverable_format_errors(location):
+    _, context = setup()
+    payload = claim_finish(context)
+    source_id = context.contract.material_grounding.materials[0].material_id
+    if location == "claim":
+        payload["bindings"][1]["claims"][0]["text"] = f"仅依据材料（{source_id}）。"
+    elif location == "top_gap":
+        payload["gaps"] = [f"材料{source_id}缺少期间。"]
+    else:
+        payload["status"] = "partial"
+        payload["bindings"][0].update(claims=[], gap=f"材料{source_id}缺少已确认金额。")
+    with pytest.raises(ValueError) as error:
+        validate_episode_finish(payload, context=context, evidence=())
+    assert error.value.code == "private_material_reference" and error.value.kind.value == "format"
 
 
 def test_claim_first_finish_renders_exact_sentences_and_retains_sources():

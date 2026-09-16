@@ -22,7 +22,7 @@ from intelligence.services.episode_output_substance import (
 from intelligence.services import knowledge_injection_policy
 from intelligence.services.material_grounding import (
     ClaimSourceBinding, binding_source_errors, grounding_scope, material_grounding_payload,
-    render_material_claims,
+    material_private_tokens, render_material_claims,
 )
 from intelligence.services.judgment_delta import episode_judgment_delta_rule
 from intelligence.services.pricing_split import episode_pricing_split_rule
@@ -552,6 +552,7 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
     "unknown_evidence_ref": RejectionKind.FORMAT,
     "basis_mismatch": RejectionKind.FORMAT,
     "bad_claim_binding": RejectionKind.FORMAT,
+    "private_material_reference": RejectionKind.FORMAT,
     "material_source_violation": RejectionKind.INTEGRITY,
     "duplicate_binding": RejectionKind.FORMAT,
     # 内容不足 → 降级保留草稿
@@ -1008,6 +1009,12 @@ def validate_episode_finish(
                 + "；派生数必须能指回它算的那几条证据",
             )
 
+    private_tokens = material_private_tokens(context.contract)
+    if any(token in text.casefold() for text in (draft, *gaps, *(b.gap for b in bindings)) for token in private_tokens):
+        raise _reject(
+            "private_material_reference",
+            "材料ID与消息坐标仅用于私有绑定，不可写进 claims.text、draft 或 gap；公开正文改用‘用户材料’等自然语言，保留原引用绑定。",
+        )
     binding_map = {item.output_id: item for item in bindings}
     empty_outputs = tuple(
         output_id

@@ -199,9 +199,31 @@ def binding_source_errors(contract: ResearchTaskContract, binding: OutputEvidenc
     return tuple(dict.fromkeys(errors))
 
 
+def material_private_tokens(contract: ResearchTaskContract | None) -> frozenset[str]:
+    catalogue = contract.material_grounding if contract is not None else None
+    if catalogue is None:
+        return frozenset()
+    return frozenset(token.casefold() for token in (
+        *(item.material_id for item in catalogue.materials),
+        *(item.source_message_id for item in catalogue.materials),
+        *(item.source_message_id for item in catalogue.historical_assistant_statements),
+    ) if token)
+
+
 def claim_sentences(text: str) -> tuple[str, ...]:
-    """Same sentence boundaries as the judge; never classify facts by keywords."""
-    return tuple(part.strip() for part in re.split(r"(?<=[。！？!?；;])|\n+", text) if part.strip())
+    """Keep exact source slices, including Markdown closers at a sentence boundary."""
+    parts = []
+    start = 0
+    # A closing delimiter before whitespace/end belongs to the preceding sentence;
+    # an opener followed by prose (e.g. 'first。**second。**') does not.
+    for match in re.finditer(r"[。！？!?；;](?:[*_~`]+(?=\s|$))?|\n+", text):
+        part = text[start:match.end()].strip()
+        if part:
+            parts.append(part)
+        start = match.end()
+    if tail := text[start:].strip():
+        parts.append(tail)
+    return tuple(parts)
 
 
 def render_material_claims(contract: ResearchTaskContract, raw_bindings: object) -> str:
@@ -269,6 +291,8 @@ def material_grounding_payload(contract: ResearchTaskContract) -> dict[str, obje
             "多材料计算列出全部输入锚点，正文交代推导。不得绑定工具证据。local_only 只接受实际本地 IO 来源；full 不作材料纯度限制。"
             "basis=user_premise 仅是范围声明标签，不替事实绑定；fictional 前提按给定假设推理，不要求证明它，也不取消 full 的真实检索。"
             "非事实推理可标 reasoning，范围声明可标 premise_declaration；标签不能掩盖未绑定的当前事实。"
+            "范围声明若重复收入、订单等数值，重复部分也是事实，须在该句重新绑定输入锚点；"
+            "仅写‘本答复只依据用户材料’这类不重复事实的声明可不绑数值。"
             "历史引用/纠错/撤回标 historical_assistant_statement，绑定 old_answer_coordinate（旧消息 source_message_id）、"
             "historical_quote（旧答逐字片段）、basis=assistant_judgment；它不主张当前市场事实，豁免材料锚点与纯度扫描。"
             "旧答与当前推断混句必须拆句分别绑定，无法拆则整句拒绝；不能借旧答材料外数字支持当前结论。"

@@ -55,7 +55,7 @@ from intelligence.services.material_claim_review import (
     CLAIM_CHECK_RULE, CLAIM_CHECK_SCHEMA, material_claim_rows, reconcile_claim_checks,
 )
 from intelligence.services.material_grounding import (
-    claim_sentences, grounding_scope, historical_claim_texts, material_grounding_payload,
+    claim_sentences, grounding_scope, historical_claim_texts, material_grounding_payload, material_private_tokens,
 )
 from intelligence.services.agent_runtime import (
     AgentModelClient,
@@ -684,6 +684,9 @@ def recheck_material_public_delivery(
     ):
         return outcome
     public = outcome.public_answer if projected is None else projected
+    private_tokens = material_private_tokens(contract)
+    if _contains_private_token(public, private_tokens):
+        public = _sanitize_public_answer(public, (), (), extra_private_tokens=private_tokens)
     if outcome.judge_status == "unavailable":
         # A review outage/structural early exit deliberately withholds the draft.
         # That is not a writer omission: preserve its existing repair targets,
@@ -5412,6 +5415,7 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             claim_policy=request.get("claim_policy") or dict(_CLAIM_POLICY),
             sentences=request["sentences"],
             timeout=timeout,
+            **{key: request[key] for key in ("material_claims", "material_grounding", "material_delivery") if key in request},
         )
     named = {
         name: request[name]
@@ -5422,8 +5426,11 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             "output_bindings",
             "evidence_registry",
             "sentences",
+            "material_claims",
+            "material_grounding",
+            "material_delivery",
         )
-        if name in parameters
+        if name in parameters and name in request
     }
     if "tool_status_registry" in parameters:
         named["tool_status_registry"] = request.get("tool_status_registry") or []
@@ -5708,8 +5715,10 @@ def _sanitize_public_answer(
     draft: str,
     evidence: tuple[AgentEvidence, ...],
     traces: tuple[ProviderTrace, ...],
+    *,
+    extra_private_tokens: frozenset[str] = frozenset(),
 ) -> str:
-    private_tokens = _private_tokens(evidence, traces)
+    private_tokens = _private_tokens(evidence, traces) | extra_private_tokens
     kept: list[str] = []
     for raw in str(draft or "").splitlines():
         line = raw.strip()

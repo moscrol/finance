@@ -81,6 +81,25 @@ def test_calculation_cannot_borrow_inputs_from_adjacent_fact_even_in_same_bindin
     assert FACT not in result.public_answer and premise in result.public_answer
 
 
+@pytest.mark.parametrize("style", ["keywords", "named"])
+def test_material_review_payload_reaches_all_supported_judge_callback_styles(style):
+    frame, context = setup()
+    seen = []
+
+    def keywords(**request):
+        seen.append(request)
+        return reviewed(request)
+
+    def named(*, material_claims, material_grounding, sentences):
+        request = {"material_claims": material_claims, "material_grounding": material_grounding, "sentences": sentences}
+        seen.append(request)
+        return reviewed(request)
+
+    result = verify(frame, context, outcome(context), keywords if style == "keywords" else named)
+    assert result.status == "completed" and seen[0]["material_claims"]
+    assert seen[0]["material_grounding"]["data_scope"] == "material_only"
+
+
 def test_complete_material_receipt_allows_correct_calculation():
     frame, context = setup()
     result = verify(frame, context, outcome(context), reviewed)
@@ -88,6 +107,64 @@ def test_complete_material_receipt_allows_correct_calculation():
     checks = result.to_dict()["material_claim_checks"]
     assert checks[0]["text"] == FACT and checks[0]["supported"] is True
     assert checks[0]["material_anchors"] and checks[0]["reason"]
+
+
+def test_declaration_repeating_numbers_cannot_borrow_prior_claim_support():
+    from intelligence.services.episode_semantic_verifier import _judge_system_prompt
+
+    frame, context = setup()
+    text = "本答案仅依据材料中的收入100万元和新增订单20万元。"
+    question = context.contract.material_grounding.materials[-1]
+    claim = ClaimSourceBinding(text, "premise_declaration", (MaterialAnchor(question.material_id, question.text),))
+    value = outcome(context)
+    value = replace(value, draft=value.draft + "\n" + text, bindings=(
+        value.bindings[0], replace(value.bindings[1], claims=(claim,)),
+    ))
+    calls = []
+
+    def judge(request):
+        calls.append(request)
+        payload = reviewed(request)
+        row = next(row for row in request["material_claims"] if row["text"] == text)
+        check = next(check for check in payload["material_claim_checks"] if check["claim_id"] == row["claim_id"])
+        check.update(supported=False, reason="声明中重复的收入和订单也是事实，该句仅引问句不能支持这些数字。")
+        return payload
+
+    result = verify(frame, context, value, judge)
+    assert calls and "重复" in _judge_system_prompt(calls[0])
+    assert text not in result.public_answer and result.status == "partial"
+    assert "evidence_boundary" in result.verified.missing_outputs
+    assert any(check["text"] == text and not check["supported"] for check in result.material_claim_checks)
+
+
+def test_final_public_projection_filters_private_material_ids_and_reopens_lost_slot():
+    from intelligence.services.episode_semantic_verifier import recheck_material_public_delivery
+
+    frame, context = setup()
+    good = verify(frame, context, outcome(context), reviewed)
+    source_id = context.contract.material_grounding.materials[0].material_id
+    projected = good.public_answer.replace(FACT, FACT[:-1] + f"（{source_id}）。")
+    result = recheck_material_public_delivery(good, projected=projected)
+    assert source_id not in result.public_answer
+    assert result.status == "partial" and "answer_q1" in result.verified.missing_outputs
+
+
+def test_judge_outage_also_filters_known_material_coordinates():
+    from intelligence.services.episode_semantic_verifier import recheck_material_public_delivery
+
+    frame, context = setup()
+    result = verify(frame, context, outcome(context), lambda request: {})
+    source_id = context.contract.material_grounding.materials[0].material_id
+    result = recheck_material_public_delivery(result, projected=f"材料{source_id}尚未审核。")
+    assert result.judge_status == "unavailable" and source_id not in result.public_answer
+
+
+def test_public_projection_does_not_filter_arbitrary_id_like_user_data():
+    frame, context = setup()
+    text = "记录编号为m-0123456789。"
+    value = outcome(context, (fact_claim(context, text),), text=text)
+    result = verify(frame, context, value, reviewed)
+    assert text in result.public_answer
 
 
 def test_ordinary_judge_contract_does_not_gain_material_fields():
