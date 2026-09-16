@@ -162,7 +162,9 @@ P4（D5）在 `fix/e2-delivery-closeout` 补齐 `material_only` 逐题交付：�
 所有非空白字符和标点/Markdown，不含题标题，引用不可藏超长）。真漏答可获有界
 零工具补写，不靠降 optional 或假增证据数量；已交代缺口不触发空转修复。
 前置同时修了题内案例弱分区吞题、验收采集 followup 错开会话/误收旧答。
-证据仅为离线反例与定向回归，详见 `docs/handoffs/2026-09-16-e2-delivery-p4.md`。
+公开稿的两处再出口（投影后复验、判官拒绝重开）只经 `session_projection.view()`
+并已登记，不另开拼串路径。证据：离线反例与定向回归（`docs/handoffs/2026-09-16-e2-delivery-p4.md`）；
+精确提交上的四叶等价 CI 与删保护变异（`docs/handoffs/2026-09-16-e2-delivery-p4-verification.md`）。
 
 **本阶段不是材料题全链完成**：`local_only` 仅已审定 runner 的局部路径，未覆盖所有
 本地工具。D4 四组九类注入路径已逐条对账收口（矩阵与定性判断见
