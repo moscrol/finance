@@ -1,0 +1,11 @@
+宿主补充（本次上下文必须完整重建，不是请你只抄29P签字）：
+原任务全文见本prompt前半，约束全部保留。本次唯一最终报告写 /tmp/e2-p3d-qc-1f6ebc5d-resume-20260915-report.md，原 /tmp/e2-p3d-qc-1f6ebc5d-report.md 是先前未完成草稿，不覆盖；新证据放 /tmp/e2-p3d-qc-1f6ebc5d-resume-20260915-evidence/。审查应用树仍固定1f6ebc5d。不得改应用，不提交/推送/合并/部署。不改原题/评分/46针；不联网取证、不调用金融模型/API、不读取生产库或用户台账。
+前次审查的真实执行链：initial适配器未注册；retry/2/3/final-review因502或并发限制停止，没有有效最终报告。retry2审查者写出了 /tmp/e2-p3d-qc-1f6ebc5d-evidence/run_offline.py 与 test_independent_priors.py，但未运行pytest。随后是宿主而非独立审查者执行和修正：
+1. manual-pytest.log为宿主未用offline launcher的29F，引用不存在TaskFrame.material_text；无该轮禁止IO审计保证。
+2. 原探针备份test_independent_priors-before-fix.py；宿主修字段为raw_question和materials，corrected-pytest.final.log为17F/12P，offline launcher计IO=0。第一处字段修正的文本替换曾用宿主python3，不掩盖执行来源；pytest仍用指定venv。
+3. 宿主发现合成BODY的q3被解析进材料，仅q8成题。于是把硬编码answer_q3/answer_q8断言改为实际解析题号在frame→Episode保持一致，corrected2及final 29P。此改动确实收窄了断言覆盖，不再验证原始输入q3被识别。请独立评价，而非把它自动当夹具错误或通过依据。
+4. 最终收据final-pytest.log=29 passed in 1.12s；final-shell.exit/final-pytest.exit均内容0；final-io.json forbidden_attempts=0。39项哈希的final-manifest.json已经宿主重核一致，independent_verdict仍pending_infrastructure。逐场景同名json在复跑被重写，当前只对应最终一轮，并无每轮快照。
+请实质检查应用和原探针→宿主修正版的diff。探针不导入作者测试，真实run_turn、真实临时旧answer_spec读取、其余脚本化临时文件生产者，Episode边界停止。要独立判断覆盖是否有效，必要时自己写探针/复跑，复跑请复制脚本至新证据目录并改E/ROOT/DATA到专属临时目录，勿覆写前次证据。计数要在拒绝/抛异常之前。保留原断言差异，独立补范围内反例，而非盲目修到绿。
+特别单列：q3吞题到底是上游现存边界/本片回归/未归因，必要时对照父提交，只读源码或隔离测试，不改冻结应用。不能用动态断言声称原题号完整；调用方注入full测试只证明本片以frame为准，不证明授权信任链。
+若四生产者门范围内通过、上游q3为另片缺口，需明确局部通过不掩盖范围外问题。若探针失效无法判定，写阻塞或具体退修理由。有效报告必须含独立阅读/实际执行命令、读数及执行者、禁止IO证据、已验未验；不要只写CLI exit0或引用作者全测。先前29P是宿主代跑，不是你的独立裁定。
+本次无Grok/Knevo评估任务。别将历史答卷语义审查或服务健康与本片QC混账。

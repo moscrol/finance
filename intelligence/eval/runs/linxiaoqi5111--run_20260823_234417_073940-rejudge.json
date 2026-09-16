@@ -1,0 +1,23 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "linxiaoqi5111--run_20260823_234417_073940",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "b203d8e5df99af1d3e4a046db33209fdea20bdd1de2c6cc1f5de3e15d93793bb",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      13
+    ],
+    "issues": [
+      "第13句提出两项事件不及预期会压制算力链情绪的因果预测，但本题绑定为evidence模式，注册证据仅证明事件存在，未直接支持该市场影响。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

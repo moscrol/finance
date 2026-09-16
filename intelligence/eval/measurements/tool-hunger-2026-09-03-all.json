@@ -1,0 +1,63 @@
+{
+  "generated_at": "2026-09-03T14:39:39+08:00",
+  "runs_root": "/Users/a77/.local/share/finance-workbench/users",
+  "since": null,
+  "runs_scanned": 1218,
+  "event_count": 12,
+  "groups": [
+    {
+      "event_type": "finance_query_rejected",
+      "requested_name": "theme_limit_heat_daily",
+      "count": 4,
+      "sample_run_ids": [
+        "run_20260828_013535_597659",
+        "run_20260828_013634_297886",
+        "run_20260828_002209_616295",
+        "run_20260828_010136_666196"
+      ]
+    },
+    {
+      "event_type": "finance_query_rejected",
+      "requested_name": "market_daily",
+      "count": 2,
+      "sample_run_ids": [
+        "run_20260828_015506_501373",
+        "run_20260828_190919_296971"
+      ]
+    },
+    {
+      "event_type": "finance_query_rejected",
+      "requested_name": "sector_daily",
+      "count": 2,
+      "sample_run_ids": [
+        "run_20260828_013634_297886",
+        "run_20260828_010136_666196"
+      ]
+    },
+    {
+      "event_type": "finance_query_rejected",
+      "requested_name": "stock_daily",
+      "count": 2,
+      "sample_run_ids": [
+        "run_20260830_015207_802388"
+      ]
+    },
+    {
+      "event_type": "finance_query_rejected",
+      "requested_name": "leader_height_daily",
+      "count": 1,
+      "sample_run_ids": [
+        "run_20260827_203359_346648"
+      ]
+    },
+    {
+      "event_type": "finance_query_rejected",
+      "requested_name": "sector_stock_daily",
+      "count": 1,
+      "sample_run_ids": [
+        "run_20260828_214035_764162"
+      ]
+    }
+  ],
+  "cadence_note": "建议每周扫一次 runs 目录，把 count 最高的 dataset/工具名推进决策队列；节奏最终由用户定。"
+}

@@ -16,7 +16,8 @@ description: 每日市场复盘（fupanhui API → DuckDB）。触发词：帮�
 
 通过 fupanhui.com 内部 REST API 获取 A 股市场数据，写入本地 DuckDB（`market_feature_store.duckdb`），输出结构化每日总结。
 
-> **⚠ 飞书 Bitable 写入已废弃。** 复盘数据统一走 `daily-full` → DuckDB 路径。原 Steps 4（写飞书）和 Step 5（verify_and_patch）不再执行。
+> **⚠ 飞书自建应用与凭证已于 2026-09-11 退役。** 复盘数据统一走 `daily-full` → DuckDB；原 Step 4（写飞书）、Step 5（verify_and_patch）**不再执行**。
+> 脚本本体（`scripts/verify_and_patch.py` / `scripts/check_coverage.py`）**保留在仓内**（见 #729）：写飞书那一段因凭证退役而失效，但它们的取数 / 覆盖度核对逻辑仍是有用的参考。
 
 ## 数据源
 
@@ -33,7 +34,7 @@ fupanhui.com 数据源说明（CDP proxy + `fetch_api` 取数代码、6 个 REST
 python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD
 ```
 
-`daily-full` 会自动执行：sync-sectors → sync-market-overview → sync-index-daily → sync-sw-l1-daily → sync-market-deviation → sync-sector-daily → sync-sector-stocks → sync-limit-heat → sync-stock-high → sync-limit-advance → sync-stock-daily → **sync-mainline-daily** → **sync-theme-flow-daily** → advancers-chart → daily-review。飞书 `sync-market-daily` 已退役。
+`daily-full` 会自动执行：sync-sectors → sync-market-overview → sync-index-daily → sync-sw-l1-daily → sync-market-deviation → sync-sector-daily → sync-sector-stocks → sync-limit-heat → sync-stock-high → sync-limit-advance → sync-stock-daily → **sync-mainline-daily** → **sync-theme-flow-daily** → daily-review。飞书 `sync-market-daily` 与 advancers-chart（飞书图表）均已退役，涨家数图由 `daily-review --chart-output` 本地出。
 
 > 新增两步走**公开 API 直接 HTTPS**（`api_get_public()`），不需要 CDP proxy：
 > - `sync-mainline-daily`：每日主线题材 + 龙头个股池 → `fact_mainline_theme_daily` / `fact_mainline_stock_daily`
@@ -52,9 +53,9 @@ python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD
 > `db_delta_export.py` / `db_delta_pull.py` 保留在 `scripts/`（将来再起第二台机器可复用），
 > 但**复盘收尾不包含导出步骤**。复盘收尾 = daily-full 三道门通过 + `audit_coverage.py` 验证覆盖，到此为止。
 
-### 旧流程（仅供参考，已废弃飞书写入部分）
+### 旧流程（仅供参考）
 
-原 7 步流程见 `references/steps.md`。其中 Step 4（写飞书）和 Step 5（verify_and_patch）已废弃，不再执行。
+原 7 步流程见 `references/steps.md`。其中 Step 4（写飞书）和 Step 5（verify_and_patch）随飞书凭证退役而**不再执行**（脚本保留），取数与展示部分仍可用。
 
 ## CDP proxy
 
@@ -76,13 +77,13 @@ curl -s http://localhost:3456/targets
 
 ## 批量复盘多日
 
-批量复盘多日的协同方式（子 agent 并行 API 抓取的 prompt 模板 + 主 agent 串行写飞书 + `check_coverage.py` 覆盖检查）见 `references/batch-review.md`。
+批量复盘多日的协同方式（子 agent 并行 API 抓取的 prompt 模板）见 `references/batch-review.md`；其中写飞书段落已失效，落库一律走 `daily-full`（`check_coverage.py` 脚本仍在）。
 
 ## Common Mistakes
 
 | Mistake | Fix |
 |---------|-----|
-| 误触飞书写入流程 | 飞书写入已废弃，复盘数据统一走 `daily-full` → DuckDB |
+| 写飞书的脚本跑不通 | 飞书自建应用与凭证已退役（2026-09-11），脚本保留但写入步失效；复盘数据统一走 `daily-full` → DuckDB |
 | Copying AI summary verbatim | Condense to 2-3 key sentences |
 | Adding personal market opinion | Report data, don't interpret beyond the reference ranges |
 | Reading K-line tooltip before it renders | Wait 500ms after mousemove |

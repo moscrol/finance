@@ -1,0 +1,59 @@
+{
+  "framework_version_base": "tf-v0.1",
+  "week_ma_col": "sh_week_ma",
+  "deviation_bands": {
+    "oversold_le": -2.5,
+    "overheated_ge": 1.5
+  },
+  "volume_level": {
+    "basis": "amount_vs_ma20_pct",
+    "moderate_from_pct": 100,
+    "surge_from_pct": 120
+  },
+  "breadth_min_stocks": 4000,
+  "index_range_windows": [5, 10],
+  "index_new_high_windows": [20, 60],
+  "upgrade_new_high_window": 20,
+  "double_volume_dod_pct": 10,
+  "left_down_entry": {
+    "persist_days": 3,
+    "volume": "shrink"
+  },
+  "range_leader_windows": [20, 60, 90, 120],
+  "range_leader_top": 10,
+  "range_leader_context": 30,
+  "dynasty_top": 10,
+  "dynasty_cohort": 30,
+  "separation_percentile": 0.9,
+  "separation_new_high_window": 60,
+  "money_losing": {
+    "basis": "limit_premium_ma5_pct",
+    "lt_pct": 1.0,
+    "derived_from": "训练期（≤ 2025-12-31）承接 5 日均值 p10 = 1.045 取整；底部四段 vs 顶部三段标出比例 训练 15.8% vs 5.1%、验证 27.8% vs 8.5%，主升 / 2.0 为 0%（骨架 §8.14）"
+  },
+  "breakout_confirm_days": 3,
+  "deviation_streak_min": 3,
+  "transition_policy": "entry_or_reachable",
+  "ambiguity_memory": "last_valid_stage",
+  "surge_in_trend": {
+    "role": "view"
+  },
+  "shrink_day": {
+    "basis": "amount_ma20",
+    "alt_basis_noted": "prev_day"
+  },
+  "shrink_streak_min": 2,
+  "mainline_amount_stepping_up_days": 3,
+  "mainline_share_basis": "prev_day",
+  "mainline_definitions": ["vendor", "volume_top3"],
+  "leader_top": {
+    "tie_policy": "group",
+    "break_rule": "all_members_off_table"
+  },
+  "instant_seal_time": "09:35",
+  "rebound_window_days": 5,
+  "high_turnover_ratio": null,
+  "amount_unit_policy": "fail_closed_on_mismatch",
+  "top100_n": 100,
+  "min_n": 10
+}

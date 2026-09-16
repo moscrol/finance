@@ -57,6 +57,9 @@ const apiMocks = vi.hoisted(() => ({
   getConversationMessages: vi.fn(),
   getCredits: vi.fn(),
   getFollowups: vi.fn(),
+  getResearchProject: vi.fn(),
+  getResearchEvolution: vi.fn(),
+  postResearchEvolutionAction: vi.fn(),
   getLLMConfig: vi.fn(),
   getPerspectives: vi.fn(),
   getRun: vi.fn(),
@@ -497,8 +500,13 @@ describe("Workbench components", () => {
     await user.click(screen.getByText("运行详情"));
     expect(screen.getByText(/本轮存在限制/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "查看最强反证" }));
+    // 09 连续研究：点击除原文外还带延续坐标（来源 run + 卡片原文），服务端据此继承研究状态。
     expect(onFollowup).toHaveBeenCalledWith(
       "请列出哪些证据最容易证伪，并给出核验来源？",
+      expect.objectContaining({
+        run_id: "run_demo",
+        full_prompt: "请列出哪些证据最容易证伪，并给出核验来源？",
+      }),
     );
   });
 
@@ -1396,6 +1404,25 @@ describe("Chat-first conversation components", () => {
     expect(screen.getByText("正在查主线结构。")).toBeVisible();
   });
 
+  it("shows the actual tool menu before any call, including on a failed run", () => {
+    const menu = {
+      ...episodeSteps[0],
+      step_id: "step:menu",
+      output_summary:
+        "此步模型可调用工具：沙箱派生计算、子研究分支。授权不代表已调用或服务可用。",
+    };
+    render(
+      bubbleWithProgress(
+        { content: "模型服务不可用，暂不能可靠回答。", status: "failed" },
+        [menu],
+      ),
+    );
+    expect(screen.getByText(menu.output_summary)).toBeInTheDocument();
+    expect(screen.getByText("模型服务不可用，暂不能可靠回答。")).toBeVisible();
+    expect(screen.queryByText("已取得沙箱派生计算。")).toBeNull();
+    expect(screen.queryByText("已取得子研究分支。")).toBeNull();
+  });
+
   it("keeps the timeline available after the answer lands", () => {
     render(
       bubbleWithProgress(
@@ -1863,6 +1890,10 @@ describe("Workbench navigation reliability", () => {
     apiMocks.getFollowups.mockResolvedValue([]);
     apiMocks.getLLMConfig.mockResolvedValue(llmConfig);
     apiMocks.getRunContext.mockResolvedValue(bundle.context);
+    // 新增 api 导出必须在这张表里给默认值：vi.mock 工厂会把没列到的导出变成 undefined，
+    // App 里那次调用就抛 TypeError，一批不相关的测试跟着红。
+    apiMocks.getResearchEvolution.mockResolvedValue(null);
+    apiMocks.postResearchEvolutionAction.mockResolvedValue({ replayed: false });
     apiMocks.getRunReport.mockResolvedValue(null);
     apiMocks.getTrace.mockResolvedValue([]);
     apiMocks.getRunArtifactText.mockResolvedValue(null);

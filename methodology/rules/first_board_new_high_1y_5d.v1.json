@@ -1,0 +1,22 @@
+{
+  "rule_id": "first_board_new_high_1y_5d",
+  "version": 1,
+  "title": "首板且当日创一年新高的个股，后 5 日仍上涨",
+  "notes": "「新高首板」（趋势首板）优于反弹首板是打板方法论里的常见说法，这里只检验选择效应。universe 是涨停表 ∪ 新高表的个股日并集（labels.py STOCK_UNIVERSE），基准率 = 同池子里任一强势股 5 日为正的比例；择时看 baseline_alt。首板取 fact_theme_limit_stock_daily.limit_times=1（连板梯队表没有首板，见 labels.py）。收据事件样例含个股代码，只供分析师侧核对，不进共享层渲染。",
+  "scope": {"entity_type": "stock", "universe": "limit_high_union"},
+  "condition": {"all": [
+    {"label": "first_board", "op": "==", "value": true, "lag": 0},
+    {"label": "new_high_1y", "op": "==", "value": true, "lag": 0}
+  ]},
+  "outcome": {
+    "target": "pct_chg",
+    "horizons": [3, 5, 7, 10],
+    "metrics": ["fwd_return", "max_return", "days_to_peak", "drawdown_after_peak"],
+    "success": {"metric": "fwd_return", "horizon": 5, "op": ">", "value": 0}
+  },
+  "baseline": {"kind": "same_universe_all_days"},
+  "min_n": 20,
+  "sharing": "shared",
+  "owner": "system",
+  "source_perspective": "系统内置：打板方法论常见说法「新高首板优于反弹首板」"
+}

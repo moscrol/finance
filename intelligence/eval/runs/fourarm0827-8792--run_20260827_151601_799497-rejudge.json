@@ -1,0 +1,33 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "fourarm0827-8792--run_20260827_151601_799497",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "799ba649f19e280acbb736f68625a8331d5fe67d6267375304cd70b9b6289803",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      1,
+      3,
+      4,
+      7,
+      8,
+      13
+    ],
+    "issues": [
+      "第1句在缺少总股本、市值和可比估值锚的情况下断言显著偏贵，并把价格归因于短线情绪和题材溢价，证据不足。",
+      "第3句称连续第6个涨停附近交易日，但只提供7月14日、16日、23日三个离散行情点；同时把6.55元错误归到7月16日起点。",
+      "第4句仅凭6月22日和26日两个离散点断言6月下旬横盘，并把随后上涨确定归因为短线资金行为。",
+      "第7句缺少总股本和市值却断言当前市值对应PE已达极高水平，该估值结论无法计算或核验。",
+      "第8句断言价格已计入净利率持续修复及远超披露业绩的成长，缺少可核验的当前市值和估值映射。",
+      "第13句称当前价格处于估值情景的中性偏上位置，但没有总股本，无法把股价换算为当前市值并与情景市值比较。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

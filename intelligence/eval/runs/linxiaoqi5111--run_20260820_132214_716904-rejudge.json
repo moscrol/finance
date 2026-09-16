@@ -1,0 +1,23 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "linxiaoqi5111--run_20260820_132214_716904",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "179ac6728c39b73018f6b618d0d51bb4b490805c13d2398f1b5fd241e9301726",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      11
+    ],
+    "issues": [
+      "第11句称主线表为人工筛选子集且不代表全市板块全集，但证据注册表没有提供该表的人工筛选或覆盖范围元数据。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

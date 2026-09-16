@@ -695,8 +695,59 @@ def active_runtime_prompt(
         return ""
 
 
-def _save_profile(us: UserSpace, profile: dict[str, Any]) -> Path:
+class ProfileRegressionError(ValueError):
+    """整表回写会丢掉磁盘上已有的人工/棘轮字段。"""
+
+
+# 只减不增。换措辞（同长度）放行——考卷禁语改写、数字剥离都走这条路。
+_PROFILE_RATCHET_LISTS = (
+    "market_lenses",
+    "opportunity_preferences",
+    "risk_triggers",
+    "evidence_hierarchy",
+    "reasoning_patterns",
+    "anti_patterns",
+    "falsification_style",
+    "contradictions",
+    "honest_boundaries",
+    "patch_history",
+)
+
+
+def _profile_regression_reasons(disk: dict[str, Any], incoming: dict[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    disk_n = int((disk.get("confidence") or {}).get("article_count") or 0)
+    inc_n = int((incoming.get("confidence") or {}).get("article_count") or 0)
+    if inc_n < disk_n:
+        reasons.append(f"article_count {disk_n}→{inc_n}")
+    for key in _PROFILE_RATCHET_LISTS:
+        old = disk.get(key) or []
+        new = incoming.get(key) or []
+        if isinstance(old, list) and isinstance(new, list) and len(new) < len(old):
+            reasons.append(f"{key} {len(old)}→{len(new)}")
+    return reasons
+
+
+def _save_profile(
+    us: UserSpace,
+    profile: dict[str, Any],
+    *,
+    allow_regression: bool = False,
+) -> Path:
     path = profile_path(us, str(profile.get("id")))
+    if path.is_file() and not allow_regression:
+        try:
+            disk = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            disk = None
+        if isinstance(disk, dict):
+            reasons = _profile_regression_reasons(disk, profile)
+            if reasons:
+                raise ProfileRegressionError(
+                    "拒写画像：整表回写会丢掉已有字段（"
+                    + "；".join(reasons)
+                    + "）。先重读磁盘再改，或直接编辑 JSON。"
+                )
     profile["updated_at"] = _now_iso()
     path.write_text(json.dumps(profile, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path
@@ -820,6 +871,8 @@ def ingest_article(
     with mpath.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(record, ensure_ascii=False) + "\n")
 
+    # 写完原文再重读：入档期间若有人改了 HOW/四表，不得用入场时的内存副本盖回去。
+    profile = load_profile(us, perspective_id)
     # 更新画像置信度（确定性：只改样本数与置信度标签，不动认知字段）
     conf = profile.setdefault("confidence", {})
     count = len(existing) + 1

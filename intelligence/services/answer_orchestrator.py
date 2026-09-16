@@ -8,7 +8,7 @@ from typing import Any
 from intelligence.services.answer_model import ThemeResearchSpec, resolve_theme_research_spec
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.query_understanding import QueryEnvelope, understand_query
-from intelligence.services.route_table import is_quick_fact_query
+from intelligence.services.route_table import quick_fact_route_ok
 
 
 QUESTION_STOCK_DEEP_DIVE = "stock_deep_dive"
@@ -264,7 +264,9 @@ def resolve_question_type(
     # 「光刻胶板块今天成交额多少」主语是题材，两者要的都是一个确定的值。
     # 让主语压掉意图，这类问题就会被派去做深挖/题材分析，然后在任务契约里
     # 被要求写反证、在 rubric 里被追加前瞻维度——一个成交额数字满足不了。
-    if is_quick_fact_query(raw_query):
+    # 入场策略与 turn_controller 共用 route_table.quick_fact_route_ok（含材料检查），
+    # 不再裸用意图匹配——2026-09-13 QC N1：两边各判各的会在长取值题上分叉。
+    if quick_fact_route_ok(raw_query):
         return QUESTION_QUICK_FACT, 0.85
     if query_envelope.question_type in {
         QUESTION_EXTERNAL_MARKET,
@@ -585,9 +587,9 @@ def _classify_question_type(raw_query: str, q: str) -> tuple[str, float]:
     # 「宁德时代今天收盘多少」这种纯粹问过去数字的问题被判成 market_forecast，
     # 进而在 rubric 里追加四源合议/策略状态映射等 5 个前瞻维度、在 task_frame 里
     # 被要求给出情景路径与失效条件——查一个收盘价满足不了其中任何一条。
-    # 词面判定与 turn_controller 共用 route_table.is_quick_fact_query，避免两条
-    # 并行判定链再次漂移。
-    if is_quick_fact_query(raw_query):
+    # 词面判定与 turn_controller 共用 route_table.quick_fact_route_ok（同一完整
+    # 策略：意图 + 无材料正文或短问句），避免两条并行判定链再次漂移。
+    if quick_fact_route_ok(raw_query):
         return QUESTION_QUICK_FACT, 0.85
     # 兜底：到这里说明既不是「问现状」也没有明确的后市措辞，按前瞻处理。
     # 移除了原有的 "6."——那是个会匹配任意含 "6." 文本的误留模式（例如

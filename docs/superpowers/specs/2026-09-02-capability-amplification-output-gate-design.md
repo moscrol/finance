@@ -222,6 +222,16 @@ Episode 臂：   kb_search✗ → financial_data✓ → l3_lookup✗ → evidenc
 
 **不做**：不抬 judge 窗口（`LEFTOVER_WINDOW_ISSUE` 处「不要靠再抬窗口罩尾部」的约束保持）。
 
+> **状态（2026-09-03）**：第 1 步已落——`SemanticEpisodeOutcome.sentence_verdicts`（私有产物 `semantic_verifier.sentence_verdicts`），
+> 每条拒句记 `stage`（preflight / judge）、`judge_round`、`sentence`、`decision`（**deleted / demoted_to_issue**）、`reasons`
+> （judge / novel_numeric_condition / calendar_weekday / path_trend / unresolved_evidence_ordinal）、`judge_issues`（点到该句的判官原话）、
+> `cited_evidence_ordinals` / `unresolved_evidence_ordinals` / `bound_evidence_hashes` / `source_tiers`。判据零改动，钉子 6 条、变异
+> 「降级误记删除」2 红。读侧 `scripts/offline_judge_verdict_census.py` 算第 2 步的占比；对生产 814 个历史 run 报「不可判」（字段刚有），
+> 第 2 步要等切流后积累。**本轮 live 发现修正本节前提**：当前判官对 `public_web` 不是「整片删」——腾讯题 5 条 `public_web` 证据全部绑定发布，
+> 4 条 issue 全是**降级标注**（`decision=demoted_to_issue` 那一类，V8 语义降级已把「必需槽内的语义拒句」改成只记 issue），
+> 见 `docs/verification/2026-09-03-web-chain-two-arm-live.md` §3。所以第 2 步要数的是两个数：`deleted` 里有出处的占比（判据是否过严），
+> 以及 `demoted` 里低档来源的条数（标注是否被展示层吃掉——§3.3 那条「前提是展示层真的把标注展示出来」）。
+
 ### 3.4 P3：沙箱按 `derived_calculation` 落地
 
 **定位**：这一刀**不修任何已量出的缺陷**。react 1.000 vs 8792 0.357、茅台题——全是取数类题，沙箱一个都不修。它开的是一类目前**完全答不了**的题：DCF/敏感性、回测、统计检验、跨源口径核对。**是能力扩张，不是修复。**
@@ -249,6 +259,16 @@ Episode 臂：   kb_search✗ → financial_data✓ → l3_lookup✗ → evidenc
 | 产出 `input_evidence_hashes` | 空或伪造 | 天然完整 |
 
 而且它接上一个反复出现的形状（`10_knowledge/cross-layer-vocabulary-reconciliation.md`：两个自洽子系统各用各的词表、中间无对账）——**沙箱可以当那个对账器**。
+
+> **落地回写（2026-09-08，分支 `feat/sandbox-derived-calculation`，工单 #41）**：协议四条全落。工具 `derived_calculation`（`services/derived_calculation.py`）
+> 按 episode 绑证据账本进注册表（与 `sub_research` 同「没账本不挂」规矩，参考 loop 没有它）；产物 `DerivedCalculation` 带 `calc_id`
+> （prelude 版本 | 脚本 | 排序输入哈希 | DuckDB 指纹）、`input_evidence_hashes`（本回合全部已绑定证据）、原样 `script`、`as_of`（输入最旧）、
+> `enforcement`。**机制拍板为两层**：进程层守卫（独立解释器 + 从零 env + prelude 换掉 socket / 拦 import / 写只许工作目录 + rlimit + 墙钟）永远开，
+> macOS 有 `sandbox-exec` 时叠 Seatbelt deny-list（network / process-fork / 工作目录外写）；实测 Seatbelt 单独一层就拦下 connect / 越界写 / fork。
+> `produces` 不写自己的名字（词表规矩 output_id ≠ 工具名），派生身份由 `evidence_tier=derived_calculation` + `AgentEvidence.derived_from` 说明。
+> 授权从 `financial_data` 派生（与 `web_fetch` 从 `web_search` 派生同理）。§5 第 16 条落为 `validate_episode_finish` 的 `derived_without_inputs`
+> （INTEGRITY）；第 17 / 18 条各有夹具，18 条走 `ContinuousAgentEpisode` 端到端（两源 1741.44 / 1740.0 → diff 1.44、`as_of` 2025-04-03、结论绑
+> E1/E2/E3 被接受）。三处变异（门关掉 / as_of 取最新 / prelude 守卫整段关掉）分别 1 / 3 / 4 红。未做：另冻计算类题集、脚本实读遥测、CLI / Workbench 入口。
 
 ### 3.5 P4：底座 A/B——`sdk_glm` 主臂，`sdk_gpt` 可选第三臂
 

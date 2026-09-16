@@ -1,0 +1,31 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "fsr2-r3--run_20260828_182913_064559",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "e067692209f600f4563f8c48eae9b8bb54afdbcac5492677f95af80a5f712793",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "issues": [
+      "第3句声称以板块日频全量数据为全集，但证据注册表没有直接证明全量覆盖。",
+      "第4句关于多数板块涨幅集中在0.4%至3%及下跌板块很少的观察没有直接证据支持。",
+      "第5句声称来自全量板块表且为已收盘口径，现有证据未直接支持全量覆盖和收盘口径。",
+      "第6句对边际量字段作“成交边际比例”的定义，证据注册表未提供该定义。",
+      "第7句断言查询覆盖当日全部板块且无缺口，现有证据不能直接证明。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

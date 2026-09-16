@@ -46,6 +46,47 @@ _DAILY_REVIEW_MD = """# 2026-07-03 每日市场复盘
 """
 
 
+_DAILY_REVIEW_JSON = {
+    "schema": "daily-review/v1",
+    "trade_date": "2026-07-03",
+    "core_board": [
+        {"dimension": "情绪状态", "conclusion": "涨家数 1541，MA5 2903.2，涨停 52，跌停 8"},
+    ],
+    "facts": {
+        "nature": "普通交易日",
+        "price_day": False,
+        "volume_day": True,
+        "ma5_position": "震荡区间",
+        "ma5_trend": "下降",
+        "multi_period_themes": [["军贸概念", 4], ["旅游", 2]],
+        "full_period_themes": ["军贸概念"],
+        "max_boards": 4,
+    },
+    "sections": [
+        {
+            "id": "sentiment",
+            "index": 2,
+            "title": "市场情绪",
+            "blocks": [
+                {"kind": "table", "title": None, "columns": ["项目", "今日"], "rows": [["涨家数", 1541]]},
+                {"kind": "note", "text": "**MA5位置**：当前处于 **震荡区间**，趋势为 **下降**。"},
+                {"kind": "conclusion", "text": "涨家数收缩，MA5 走平。"},
+            ],
+        },
+        {
+            "id": "double_red_matrix",
+            "index": 6,
+            "title": "重点申万一级近15日子板块双红矩阵",
+            "blocks": [
+                {"kind": "note", "text": "单元格格式说明（不该进摘要）。"},
+                {"kind": "conclusion", "text": "重点观察申万一级为 电子。"},
+            ],
+        },
+    ],
+    "assessment": "主线：人形机器人；双红题材扩散",
+}
+
+
 class ExtractFactsDigestTest(unittest.TestCase):
     def test_extracts_only_fact_sections(self) -> None:
         digest = fi.extract_facts_digest(_DAILY_REVIEW_MD)
@@ -56,6 +97,36 @@ class ExtractFactsDigestTest(unittest.TestCase):
 
     def test_empty_when_no_sections(self) -> None:
         self.assertEqual(fi.extract_facts_digest("# 空\n\n正文"), "")
+
+    def test_json_digest_carries_lens_facts_and_section_conclusions(self) -> None:
+        digest = fi.extract_facts_digest_from_json(_DAILY_REVIEW_JSON)
+        # 核心看板与总评照旧
+        self.assertIn("| 情绪状态 | 涨家数 1541", digest)
+        self.assertIn("> 主线：人形机器人", digest)
+        # 画像信号词真正会落的口径：MA5 位置/趋势、价日量日、共振题材、连板高度
+        self.assertIn("涨家数MA5位置：震荡区间", digest)
+        self.assertIn("涨家数MA5趋势：下降", digest)
+        self.assertIn("价日：否", digest)
+        self.assertIn("量日：是", digest)
+        self.assertIn("多周期共振题材：军贸概念(4次)、旅游(2次)", digest)
+        self.assertIn("最高连板：4", digest)
+        # 分节结论逐字进来，格式说明类 note 不进
+        self.assertIn("市场情绪：涨家数收缩，MA5 走平。", digest)
+        self.assertIn("市场情绪：**MA5位置**", digest)
+        self.assertIn("重点观察申万一级为 电子", digest)
+        self.assertNotIn("单元格格式说明", digest)
+
+    def test_load_prefers_json_sibling_and_falls_back_to_md(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            md = Path(tmp) / "2026-07-03-daily-review.md"
+            md.write_text(_DAILY_REVIEW_MD, encoding="utf-8")
+            self.assertIn("量能放大但涨家数收缩", fi.load_facts_digest(md))
+            md.with_suffix(".json").write_text(
+                json.dumps(_DAILY_REVIEW_JSON, ensure_ascii=False), encoding="utf-8"
+            )
+            digest = fi.load_facts_digest(md)
+            self.assertIn("涨家数MA5位置：震荡区间", digest)
+            self.assertNotIn("量能放大但涨家数收缩", digest)
 
 
 class FrameworkVersionTest(unittest.TestCase):

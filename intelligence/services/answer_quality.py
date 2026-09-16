@@ -43,7 +43,7 @@ class AnswerQualityContext:
         selects only the relevant reasoning blocks.
         """
         normalized = str(question_type or "general_finance_qa").lower()
-        deep = research_tier == "deep"
+        deep = research_tier in {"deep", "max"}
         common = {
             "stage": self.stage,
             "layers": self.layers,
