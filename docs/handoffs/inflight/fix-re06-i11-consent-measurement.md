@@ -1,3 +1,5 @@
+> **2026-09-16 已收口**：PR #750 已合 → `gitea/main@6e23dd57`（合前在含 E2 #752 的新 main 上重跑四叶：pytest 10952P/0F、e2e 31/2sk、注册表五步 0）；第九轮独立复核 **放行**（20 探针，`docs/verification/re06-50074c76/REVIEW.md`）；分支与工作树已删。仍开：I14（`fix/re06-visibility-timing` 待 rebase）、F2 前端同意控制、写读折叠函数两份待抽共用、六份 RE 规格仍在未合的 `docs/river-next-specs`。生产 8792 由另一 session 切至 `6e23dd57`，revision 以部署账本 `~/.finance-runtime/deploy-ledger.jsonl` 为准。下文为合并前状态。
+
 # fix/re06-i11-consent-measurement · 研究进化 06 全批次合并候选（含 I11 修复）
 
 ## 这个分支做什么
