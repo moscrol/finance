@@ -76,6 +76,27 @@
 | **新能源** | 固态电池、钠离子电池、钙钛矿、PET铜箔 |
 | **前沿科技** | 人形机器人、商业航天、低轨卫星星座、液冷服务器、算力租赁 |
 
+## 题材生命周期（工单 #21 剩余 / G-04；单一词表 `theme_stage_vocab`，映射版本 `tsm-v1`）
+
+题材阶段只有**一套标签值**：七段（酝酿 / 首发 / 发酵 / 主升 / 分歧 / 退潮 / 回流），由 `theme_lifecycle_timeline.derive_stages` 状态机从板块逐日行确定性派生（每段有触发条件，可在任意区间重放）。八阶段（`theme_lifecycle.py`）降为**读法层别名**，经下表翻译，不再作为标签值出现；设计稿曾预留的五段（启动 / 发酵 / 高潮 / 分歧 / 退潮）**作废**（启动 → 首发、高潮 → 主升，其余同名）。选主词表的判据不是哪套更像行话，而是哪套能在历史上每天重算。
+
+| 钦定（标签值） | 八阶段别名（读法层） | 备注 |
+|---|---|---|
+| 酝酿 | 新出现 / 旧逻辑唤醒 | 需消息面证据；无则 gap，不是「酝酿」；同上；旧逻辑二次唤醒仍是酝酿态 |
+| 首发 | 升温验证 | 首次双红 / 首板 → 首发；此后持续双红 → 发酵（一词对两段，翻译时要给 first_signal） |
+| 发酵 | 升温验证 | 首次双红 / 首板 → 首发；此后持续双红 → 发酵（一词对两段，翻译时要给 first_signal） |
+| 主升 | 加速定价 |  |
+| 分歧 | 高位分歧 |  |
+| 退潮 | 衰退观察 / 证伪退出 | 证伪退出要消息面证伪事件；盘面状态机只能到退潮 |
+| 回流 | 二阶段回流 |  |
+| `gap` | 无法判定 | 缺原料，不猜 |
+
+- 一对多的映射带条件：「升温验证」翻译时要给 `first_signal`（首次双红 / 首板 → 首发；持续双红 → 发酵），不给则按发酵并标 `ambiguous`。
+- 段外（首个盘面信号之前、段间空档）是 `gap`，不是「酝酿」——酝酿要消息面证据；旁路库标签 `lifecycle_stage`（`theme` 实体，文本值）段外不落行。
+- 本词表只统一**词**，不动状态机阈值（`DOUBLE_RED_* / MAINUP_CONSECUTIVE / EBB_BREAK_DAYS / REFLOW_CONFIRM_DAYS`）；阈值改动另立单并过统计门。
+- 「主升」与供应商 `market_stage` 的「主升」同字不同物（前者题材、后者指数），引用时带实体类型。
+- 人工对照集 `methodology/reference/theme_stage_reference_set.jsonl`（`stage_manual` 由创始人填），一致率报告 `scripts/methodology_backtest.py stage-agreement`；一致率**不进对外物料**。
+
 ## 指数环境周期
 
 | Term | Definition | Aliases to avoid |
@@ -112,8 +133,8 @@
 - 三个阈值的真源是 `skills/opinion-cross/scripts/consensus_staging.py`（`TH_RESONANCE_SOURCES / TH_CONSENSUS_SOURCES / TH_CONSENSUS_DAYS`），本词表只读不复制。
 - **另一条轴，不互译**：`consensus_staging` 的阶梯（暗流 → 萌芽 → 第一轮 → 催化共振 → 一致认同）是「证据至少撑到哪一阶」的**下限**，只升不降；本词表可退。三维对照只用本词表，`opinion_cross` 技能继续用阶梯。阅读参考映射：暗流 → unverifiable / 萌芽，萌芽 → 萌芽，第一轮 / 催化共振 → 扩散，一致认同 → 拥挤。
 - **回填批次**：同一 `created_at` 日入库 >= 10 份研报的日子，读数 `inputs.backfill_batch_dates` 点名，其 ±30 日的斜率是采集节奏不是舆论，报告里单列。
-- **错位标记**（题材侧 × 舆论侧）：`aligned | opinion_leads | opinion_lags | unverifiable`，两侧映到三档粗序（early / mid / late）再比；题材侧在词表统一（G-04）前按模块双表映射（`theme_lifecycle` 八阶段、`theme_lifecycle_timeline` 七段），任一侧缺 → unverifiable。
-- 旁路库标签 `opinion_stage`（`theme` 实体，文本值），`LABEL_VERSION` v4。
+- **错位标记**（题材侧 × 舆论侧）：`aligned | opinion_leads | opinion_lags | unverifiable`，两侧映到三档粗序（early / mid / late）再比；题材侧粗序由钦定词表派生（G-04 已落，`theme_stage_vocab.module_coarse_tables`，`tsm-v1`——tsc-v0 手工双表退役为派生物，行为逐字节不变），任一侧缺 → unverifiable。
+- 旁路库标签 `opinion_stage`（`theme` 实体，文本值），`LABEL_VERSION` v6（v4 时代入库，v5 合取三值、v6 加 `lifecycle_stage` 均不改它的口径）。
 
 ## Flagged ambiguities
 
