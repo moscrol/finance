@@ -22,6 +22,7 @@ from intelligence.services.episode_output_substance import (
 from intelligence.services import knowledge_injection_policy
 from intelligence.services.material_grounding import (
     ClaimSourceBinding, binding_source_errors, grounding_scope, material_grounding_payload,
+    render_material_claims,
 )
 from intelligence.services.judgment_delta import episode_judgment_delta_rule
 from intelligence.services.pricing_split import episode_pricing_split_rule
@@ -86,6 +87,7 @@ def finish_json_schema() -> dict[str, object]:
                 "enum": ["completed", "partial"],
             },
             "draft": {"type": "string"},
+            "render_from_claims": {"type": "boolean"},
             "gaps": {
                 "type": "array",
                 "items": {"type": "string"},
@@ -860,7 +862,18 @@ def validate_episode_finish(
     draft = decoded.get("draft")
     if not isinstance(draft, str):
         raise _reject("draft_not_string", "finish draft must be a string")
-    draft = _normalize_natural_language_layout(draft)
+    render_from_claims = decoded.get("render_from_claims", False)
+    if not isinstance(render_from_claims, bool):
+        raise _reject("bad_claim_binding", "render_from_claims must be a boolean")
+    if render_from_claims:
+        if draft:
+            raise _reject("bad_claim_binding", "claim rendering cannot include a second draft")
+        try:
+            draft = render_material_claims(context.contract, decoded.get("bindings"))
+        except ValueError as exc:
+            raise _reject("bad_claim_binding", str(exc)) from exc
+    else:
+        draft = _normalize_natural_language_layout(draft)
     if status == "completed" and not draft.strip():
         raise _reject("empty_draft", "completed finish draft must be non-empty")
     forward_hits = forward_direction_call_hits(

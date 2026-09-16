@@ -8,6 +8,8 @@ from uuid import uuid4
 
 import pytest
 
+from intelligence.tests.material_judge_helpers import material_judge_report
+
 from intelligence.runtime.agent_episode import ContinuousAgentEpisode
 from intelligence.runtime.episode_finalizer import EpisodeFinalizer
 from intelligence.services.agent_research import AgentEvidence
@@ -79,7 +81,7 @@ def passing(request):
     assert "material_grounding" in request
     assert "claims" in request["output_bindings"][0]
     assert "material_fact" in _judge_system_prompt(request)
-    return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+    return material_judge_report(request)
 
 
 def test_real_material_calculation_completes_without_fabricating_tool_evidence():
@@ -206,7 +208,7 @@ def test_semantic_rejection_of_laundered_current_fact_reopens_question_not_meta_
         calls.append(request)
         assert request["output_bindings"][0]["claims"][0]["kind"] == kind
         indexes = [row["index"] for row in request["sentences"] if text == row["text"]]
-        return {"passed": False, "rejected_sentence_indexes": indexes, "issues": ["历史数字被挪为当前推断，混句拒绝。"]}
+        return material_judge_report(request, rejected=indexes, issues=["历史数字被挪为当前推断，混句拒绝。"])
     result = verify(frame, context, value, reject_mix)
     assert calls and result.status != "completed"
     assert text not in result.public_answer
@@ -348,7 +350,7 @@ def test_semantic_rejection_cannot_hide_current_facts_outside_question_body(loca
     def reject(request):
         rejected = [row["index"] for row in request["sentences"] if text in row["text"]]
         assert rejected
-        return {"passed": False, "rejected_sentence_indexes": rejected, "issues": ["无当前事实来源。"]}
+        return material_judge_report(request, rejected=rejected, issues=["无当前事实来源。"])
     result = verify(frame, context, value, reject)
     assert result.status == "partial" and result.judge_status == "rejected"
     assert result.verified.missing_outputs and text not in result.public_answer
@@ -361,7 +363,7 @@ def test_judge_deletion_drops_only_the_rejected_claim_and_keeps_recheck_strict()
     validate_episode_finish(finish(value), context=context, evidence=())
     def reject_fact(request):
         indexes = [row["index"] for row in request["sentences"] if row["text"] == FACT]
-        return {"passed": False, "rejected_sentence_indexes": indexes, "issues": ["计算错误。"]}
+        return material_judge_report(request, rejected=indexes, issues=["计算错误。"])
     result = verify(frame, context, value, reject_fact)
     assert result.status == "partial" and "answer_q1" in result.verified.missing_outputs
     assert [claim.text for claim in result.verified.outcome.bindings[0].claims] == [extra]
@@ -373,7 +375,7 @@ def test_judge_deletion_drops_only_the_rejected_claim_and_keeps_recheck_strict()
     # Rejecting every answered sentence leaves a well-formed gap binding, never a legal gap.
     def reject_all(request):
         indexes = [row["index"] for row in request["sentences"] if row["text"] in {FACT, extra}]
-        return {"passed": False, "rejected_sentence_indexes": indexes, "issues": ["全部拒绝。"]}
+        return material_judge_report(request, rejected=indexes, issues=["全部拒绝。"])
     emptied = verify(frame, context, value, reject_all)
     binding = emptied.verified.outcome.bindings[0]
     assert binding.claims == () and binding.gap and emptied.verified.missing_outputs == ("answer_q1",)
@@ -410,7 +412,7 @@ def test_multiple_material_calculation_is_reviewed_for_inputs_and_derivation(mut
         answer = re.search(r"=(\d+)%", claim["text"])
         supported = bool(revenue and orders and answer and Decimal(answer[1]) == Decimal(orders[1]) / Decimal(revenue[1]) * 100)
         indexes = [] if supported else [row["index"] for row in request["sentences"] if row["text"] == text]
-        return {"passed": supported, "rejected_sentence_indexes": indexes, "issues": [] if supported else ["计算输入或推导不成立。"]}
+        return material_judge_report(request, rejected=indexes, issues=[] if supported else ["计算输入或推导不成立。"])
     result = verify(frame, context, value, arithmetic_oracle)
     assert calls
     assert (result.status == "completed") == (mutation == "correct")
@@ -433,7 +435,7 @@ def test_unnumbered_material_question_has_sources_and_rejects_current_fact_laund
                     bindings=(replace(value.bindings[0], claims=(ClaimSourceBinding(text, "reasoning"),)), value.bindings[1]))
     def reject(request):
         indexes = [row["index"] for row in request["sentences"] if row["text"] == text]
-        return {"passed": False, "rejected_sentence_indexes": indexes, "issues": ["标签不能替当前事实背书。"]}
+        return material_judge_report(request, rejected=indexes, issues=["标签不能替当前事实背书。"])
     result = verify(frame, context, value, reject)
     assert result.status == "partial" and "direct_answer" in result.verified.missing_outputs
     assert text not in result.public_answer
@@ -512,7 +514,7 @@ def test_rejected_material_claim_can_be_rewritten_with_fresh_binding_and_same_so
     def judge(request):
         requests.append(request)
         rejected = [row["index"] for row in request["sentences"] if row["text"] == text]
-        return {"passed": not rejected, "rejected_sentence_indexes": rejected, "issues": ["计算错误。"] if rejected else []}
+        return material_judge_report(request, rejected=rejected, issues=["计算错误。"] if rejected else [])
     result = ContinuousTurnAdapter(
         runtime=GLMAgentRuntime(client=writer) if real_runtime else Runtime(), runtime_name="continuous_glm", mode="on",
         context_factory=lambda *_args, **_kwargs: context,

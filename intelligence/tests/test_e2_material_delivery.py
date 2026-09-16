@@ -9,6 +9,8 @@ from uuid import uuid4
 
 import pytest
 
+from intelligence.tests.material_judge_helpers import material_judge_report
+
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import AgentOutcome, AgentUsage, EpisodeEvent, OutputEvidenceBinding
 from intelligence.services.episode_factory import build_episode_context
@@ -148,7 +150,7 @@ def test_all_answered_honest_runtime_partial_keeps_existing_semantic_completion(
                        bindings=(answered_binding(context, "answer_q1", "甲订单占收入20%。"), answered_binding(context, "answer_q2", "已按材料说明限制。"), original.bindings[2]))
     # This offline judge approves an intentionally synthetic draft: no claim
     # of real-world accuracy, only the pre-existing partial->completed seam.
-    result = SemanticEpisodeVerifier(judge_fn=lambda _: {"passed": True, "rejected_sentence_indexes": [], "issues": []}).verify(
+    result = SemanticEpisodeVerifier(judge_fn=material_judge_report).verify(
         frame=frame, structurally_verified=verify_episode_outcome(context.contract, original), deadline=ResearchDeadline.from_timeout(60),
     )
     assert result.judge_status == "passed" and result.status == "completed"
@@ -181,7 +183,7 @@ def test_gap_does_not_bypass_integrity_gates(mutation):
     calls = []
     def judge(request):
         calls.append(request)
-        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+        return material_judge_report(request)
     SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=setup_delivery()[0], structurally_verified=verified, deadline=ResearchDeadline.from_timeout(60),
     )
@@ -196,7 +198,7 @@ def test_material_partial_is_actually_judged_and_preserves_public_question_gaps(
     calls = []
     def judge(request):
         calls.append(request)
-        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+        return material_judge_report(request)
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(60),
     )
@@ -258,7 +260,7 @@ def test_adapter_settles_gaps_without_resume_or_old_ranking_requirements(all_gap
 
     def judge(request):
         calls.append(request)
-        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+        return material_judge_report(request)
 
     result = ContinuousTurnAdapter(
         runtime=Runtime(), runtime_name="continuous_glm", mode="on",
@@ -322,7 +324,7 @@ def test_missing_material_question_enters_tool_closed_expression_repair():
         runtime=Runtime(), runtime_name="continuous_glm", mode="on",
         context_factory=lambda *_args, **_kwargs: context,
         registry_factory=lambda *_args, **_kwargs: ResearchToolRegistry(()),
-        semantic_verifier=SemanticEpisodeVerifier(judge_fn=lambda _: {"passed": True, "rejected_sentence_indexes": [], "issues": []}),
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=material_judge_report),
     ).handle(frame=frame, control=TurnControlResult(
         task_frame=frame, execution_route=frame.question_type, terminal_kind="research",
         needs_retrieval=False, capabilities=(), contract_required=True,
@@ -445,7 +447,7 @@ def test_sanitization_that_removes_a_gap_reopens_that_question():
                       bindings=(answered_binding(context, "answer_q1", "甲订单占收入20%。"), replace(outcome.bindings[1], gap=gap), outcome.bindings[2]))
     verified = verify_episode_outcome(context.contract, outcome)
     assert verified.missing_outputs == ()
-    result = SemanticEpisodeVerifier(judge_fn=lambda _: {"passed": True, "rejected_sentence_indexes": [], "issues": []}).verify(
+    result = SemanticEpisodeVerifier(judge_fn=material_judge_report).verify(
         frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(60),
     )
     assert "answer_q2" in result.repair_output_ids
@@ -605,7 +607,7 @@ def test_adapter_last_sanitizer_reopens_question_before_repair_and_never_publish
         runtime=Runtime(), runtime_name="continuous_glm", mode="on",
         context_factory=lambda *_args, **_kwargs: context,
         registry_factory=lambda *_args, **_kwargs: ResearchToolRegistry(()),
-        semantic_verifier=SemanticEpisodeVerifier(judge_fn=lambda _: {"passed": True, "rejected_sentence_indexes": [], "issues": []}),
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=material_judge_report),
     ).handle(frame=frame, control=TurnControlResult(
         task_frame=frame, execution_route=frame.question_type, terminal_kind="research",
         needs_retrieval=False, capabilities=(), contract_required=True,
@@ -743,7 +745,7 @@ def test_adapter_final_projection_downgrade_reaches_the_turn_status(monkeypatch)
         runtime=Runtime(), runtime_name="continuous_glm", mode="on",
         context_factory=lambda *_args, **_kwargs: context,
         registry_factory=lambda *_args, **_kwargs: ResearchToolRegistry(()),
-        semantic_verifier=SemanticEpisodeVerifier(judge_fn=lambda _: {"passed": True, "rejected_sentence_indexes": [], "issues": []}),
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=material_judge_report),
     ).handle(frame=frame, control=TurnControlResult(
         task_frame=frame, execution_route=frame.question_type, terminal_kind="research",
         needs_retrieval=False, capabilities=(), contract_required=True,

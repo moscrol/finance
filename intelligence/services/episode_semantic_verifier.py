@@ -20,6 +20,7 @@ is on; the default remains off.
 
 from __future__ import annotations
 
+from copy import deepcopy
 import inspect
 import json
 import os
@@ -49,6 +50,9 @@ from intelligence.services.session_projection import (
     CAUSE_VERIFIED,
     TerminalFacts,
     view,
+)
+from intelligence.services.material_claim_review import (
+    CLAIM_CHECK_RULE, CLAIM_CHECK_SCHEMA, material_claim_rows, reconcile_claim_checks,
 )
 from intelligence.services.material_grounding import (
     claim_sentences, grounding_scope, historical_claim_texts, material_grounding_payload,
@@ -401,6 +405,15 @@ _JUDGE_REPORT_TOOLS = [
     }
 ]
 
+def _judge_report_tools(request: Mapping[str, object]) -> list[dict]:
+    tools = deepcopy(_JUDGE_REPORT_TOOLS)
+    if request.get("material_claims"):
+        schema = tools[0]["function"]["parameters"]
+        schema["properties"]["material_claim_checks"] = deepcopy(CLAIM_CHECK_SCHEMA)
+        schema["required"].append("material_claim_checks")
+    return tools
+
+
 _JUDGE_SYSTEM_PROMPT = (
     "你是严格的语义证据审查器。只审查用户 JSON 中的原问题、required-output "
     "绑定、证据注册表和编号句子；不要引入外部知识，也不要重写句子。检查主体、"
@@ -543,6 +556,7 @@ class SemanticEpisodeOutcome:
     # 删了还是降成 issue、机械还是语义、句子引了哪些 E / 绑到哪些哈希 / 来源档。
     # 只记不改任何判据；读侧 ``scripts/offline_judge_verdict_census.py``。
     sentence_verdicts: tuple[dict[str, object], ...] = ()
+    material_claim_checks: tuple[dict[str, object], ...] = ()
     # V11 判官引导回检索的账（设计 §7.1 的 v11_* 字段由 to_dict 平铺）。
     guided_retrieval: GuidedRetrievalTelemetry = field(
         default_factory=lambda: GuidedRetrievalTelemetry()
@@ -639,6 +653,8 @@ class SemanticEpisodeOutcome:
             "pending_rejudge": self.judge_status == "unavailable",
             "verified": self.verified.to_dict(),
         }
+        if self.material_claim_checks:
+            payload["material_claim_checks"] = [dict(row) for row in self.material_claim_checks]
         if self.judge_request is not None:
             payload["judge_request"] = self.judge_request
         return payload
@@ -1026,6 +1042,8 @@ class SemanticEpisodeVerifier:
             outcome = replace(outcome, **extras)
         outcome = recheck_material_public_delivery(self._project_semantic_quality_marks(outcome))
         if call is not None:
+            if call.report is not None and call.report.material_claim_checks:
+                outcome = replace(outcome, material_claim_checks=call.report.material_claim_checks)
             outcome = _attach_judge_clock(outcome, call)
         return outcome
 
@@ -2350,6 +2368,9 @@ class SemanticEpisodeVerifier:
             grounding = material_grounding_payload(contract)
             if grounding is not None:
                 payload["material_grounding"] = grounding
+        claims = material_claim_rows(verified, sentences)
+        if claims:
+            payload["material_claims"] = claims
         if recheck_enabled():
             draft = " ".join(str(item.get("text") or "") for item in sentences)
             payload["source_recheck"] = recheck_draft(draft)
@@ -2555,7 +2576,7 @@ class SemanticEpisodeVerifier:
                         ),
                         monotonic_release_safe=prior_failures_release_safe,
                     )
-                report = self._parse_report(content, len(request["sentences"]))
+                report = self._parse_report(content, len(request["sentences"]), material_claims=request.get("material_claims"))
                 if report is not None:
                     return self._clocked_judge_call(
                         asked=attempt_timeout,
@@ -2678,7 +2699,7 @@ class SemanticEpisodeVerifier:
                 with llm_refine.call_purpose("judge"):
                     turn = primary.complete(
                         messages=messages,
-                        tools=_JUDGE_REPORT_TOOLS,
+                        tools=_judge_report_tools(request),
                         timeout=attempt_timeout,
                     )
             except Exception as exc:
@@ -2744,6 +2765,7 @@ class SemanticEpisodeVerifier:
                 report = self._parse_tool_report(
                     turn,
                     len(request["sentences"]),
+                    material_claims=request.get("material_claims"),
                 )
                 if report is None:
                     return self._clocked_judge_call(
@@ -2763,7 +2785,7 @@ class SemanticEpisodeVerifier:
                     report=report,
                     monotonic_release_safe=prior_failures_release_safe,
                 )
-            report = self._parse_report(turn.content, len(request["sentences"]))
+            report = self._parse_report(turn.content, len(request["sentences"]), material_claims=request.get("material_claims"))
             if report is None:
                 return self._clocked_judge_call(
                     asked=attempt_timeout,
@@ -2794,6 +2816,7 @@ class SemanticEpisodeVerifier:
     def _parse_tool_report(
         turn: ModelTurn,
         sentence_count: int,
+        *, material_claims: list[dict[str, object]] | None = None,
     ) -> answer_model.GroundingJudgeReport | None:
         if len(turn.tool_calls) != 1:
             return None
@@ -2803,6 +2826,7 @@ class SemanticEpisodeVerifier:
         return SemanticEpisodeVerifier._parse_report(
             call.to_dict()["arguments"],
             sentence_count,
+            material_claims=material_claims,
         )
 
     @staticmethod
@@ -2837,6 +2861,7 @@ class SemanticEpisodeVerifier:
         report = SemanticEpisodeVerifier._parse_report(
             value,
             len(cast(list[object], request["sentences"])),
+            material_claims=request.get("material_claims"),
         )
         if report is None:
             return _JudgeCall(
@@ -2864,9 +2889,12 @@ class SemanticEpisodeVerifier:
     def _parse_report(
         value: object,
         sentence_count: int,
+        *, material_claims: list[dict[str, object]] | None = None,
     ) -> answer_model.GroundingJudgeReport | None:
         try:
             if isinstance(value, answer_model.GroundingJudgeReport):
+                if material_claims:
+                    return None
                 if not isinstance(value.passed, bool):
                     return None
                 rejected = value.rejected_sentence_indexes
@@ -2906,11 +2934,10 @@ class SemanticEpisodeVerifier:
                 payload = json.loads(serialized)
             else:
                 return None
-            if not isinstance(payload, dict) or set(payload) != {
-                "passed",
-                "rejected_sentence_indexes",
-                "issues",
-            }:
+            expected_fields = {"passed", "rejected_sentence_indexes", "issues"}
+            if material_claims:
+                expected_fields.add("material_claim_checks")
+            if not isinstance(payload, dict) or set(payload) != expected_fields:
                 return None
             passed = payload["passed"]
             rejected_raw = payload["rejected_sentence_indexes"]
@@ -2926,6 +2953,16 @@ class SemanticEpisodeVerifier:
                 not isinstance(issue, str) for issue in issues_raw
             ):
                 return None
+            if any(index < 1 or index > sentence_count for index in rejected_raw):
+                return None
+            checks = ()
+            if material_claims:
+                checks_by_id = {row["claim_id"]: row for row in material_claims}
+                raw_checks = payload.get("material_claim_checks")
+                payload = reconcile_claim_checks(payload, material_claims)
+                if payload is None:
+                    return None
+                checks = tuple({**checks_by_id[row["claim_id"]], **row} for row in raw_checks)
             canonical = json.dumps(payload, ensure_ascii=False)
             report = answer_model.parse_grounding_judge_report(
                 canonical,
@@ -2933,7 +2970,7 @@ class SemanticEpisodeVerifier:
             )
             if report is None:
                 return None
-            return _reconcile_issue_sentence_indexes(report, sentence_count)
+            return _reconcile_issue_sentence_indexes(replace(report, material_claim_checks=checks), sentence_count)
         except Exception:
             return None
 
@@ -3821,8 +3858,8 @@ def _reconcile_issue_sentence_indexes(
     canonical = tuple(sorted(rejected))
     if canonical == report.rejected_sentence_indexes:
         return report
-    return answer_model.GroundingJudgeReport(
-        passed=False,
+    return replace(
+        report, passed=False,
         rejected_sentence_indexes=canonical,
         issues=report.issues,
     )
@@ -3852,8 +3889,8 @@ def _apply_numeric_condition_gate(
     issues = tuple(dict.fromkeys((*report.issues, _NUMERIC_CONDITION_ISSUE.message)))
     return replace(
         call,
-        report=answer_model.GroundingJudgeReport(
-            passed=False,
+        report=replace(
+            report, passed=False,
             rejected_sentence_indexes=tuple(sorted(rejected)),
             issues=issues,
         ),
@@ -3948,8 +3985,8 @@ def _apply_unresolved_evidence_ordinal_gate(
     )
     return replace(
         call,
-        report=answer_model.GroundingJudgeReport(
-            passed=False,
+        report=replace(
+            report, passed=False,
             rejected_sentence_indexes=tuple(sorted(rejected)),
             issues=issues,
         ),
@@ -4067,8 +4104,8 @@ def _apply_meta_disclosure_exemption(
     )
     return replace(
         call,
-        report=answer_model.GroundingJudgeReport(
-            passed=not kept,
+        report=replace(
+            report, passed=not kept,
             rejected_sentence_indexes=kept,
             issues=kept_issues,
         ),
@@ -5340,6 +5377,8 @@ def _judge_system_prompt(request: Mapping[str, object]) -> str:
             "借旧答支持当前判断或不可分的历史+当前混句必须整句拒绝。"
             "真实性 fictional 不改变数据范围；声明仅限前提内成立不能替其它事实背书。"
         )
+    if request.get("material_claims"):
+        prompt += CLAIM_CHECK_RULE
     if request.get("material_delivery"):
         prompt += (
             " 本轮另有 material_delivery：question_states 中 legal_gap 仅为结构候选，"
