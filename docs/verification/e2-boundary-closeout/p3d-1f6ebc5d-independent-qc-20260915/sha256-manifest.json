@@ -1,0 +1,12 @@
+{
+  "revision": "1f6ebc5de9e906ccedf70c0377d45919fb5f7b34",
+  "source": "/tmp/e2-p3d-qc-1f6ebc5d-resume-20260915",
+  "independent_verdict": "passed_limited_scope",
+  "files": {
+    "evidence/focused.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "evidence/focused.log": "97d5fe05afbdd729a84db6f58777dae2cb5603bc3f0ca6b67f596884d06d965c",
+    "host-supplement.txt": "fd393755c73100bca8ae36ed1efaf1fcc1d37faca5071462187c8d2ba31daeb1",
+    "prompt.txt": "ac8daae86fcfa7759277e144f521a08d8687d08f94d98f56260e6e23f9c3acdd",
+    "report.md": "950257b4fc696243de1ace72404e6a53cf0150d0661900eff2228a1c64562002"
+  }
+}

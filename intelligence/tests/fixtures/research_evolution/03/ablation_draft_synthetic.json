@@ -1,0 +1,81 @@
+{
+  "_comment": "synthetic · 规则二桶消融草稿。calendar / baseline_spec / version_hashes / source_hashes 由 runner.build_protocol_input 从旁路库填入；窗口日期由测试按生成的日历改写。",
+  "lineage_id": "lineage-ablation-synthetic",
+  "question": "在严格双红板块上，加入 L2 大单排名信息后，D+5 上涨概率的 Brier 是否更低？（synthetic）",
+  "mode": "historical_rule",
+  "event_spec": {"kind": "rule", "arm_id": "base"},
+  "universe_ref": "sector:published_snapshot@synthetic-labels-db",
+  "universe_hash": "00000000000000000000000000000000000000000000000000000000000000aa",
+  "outcome_spec": {"metric": "fwd_return", "horizon": 5, "op": ">", "value": 0},
+  "discovery_window": {"start": "FILL", "end": "FILL"},
+  "validation_window": {"start": "FILL", "end": "FILL"},
+  "forward_start": "FILL",
+  "evaluation_end": "FILL",
+  "arms": [
+    {
+      "arm_id": "base",
+      "role": "base",
+      "allowed_fields": ["dual_red_strict"],
+      "recipe_id": "rule_two_bucket/v1",
+      "rule": {
+        "rule_id": "syn_dual_red_base",
+        "version": 1,
+        "title": "synthetic base: 严格双红",
+        "scope": {"entity_type": "sector", "universe": "published_snapshot"},
+        "condition": {"all": [{"label": "dual_red_strict", "op": "==", "value": true, "lag": 0}]},
+        "outcome": {"target": "pct_chg", "horizons": [5], "metrics": ["fwd_return"], "success": {"metric": "fwd_return", "horizon": 5, "op": ">", "value": 0}},
+        "baseline": {"kind": "same_universe_event_days"},
+        "min_n": 20,
+        "sharing": "private",
+        "owner": "u_test"
+      }
+    },
+    {
+      "arm_id": "full",
+      "role": "full",
+      "allowed_fields": ["dual_red_strict", "amount_rank_top10"],
+      "recipe_id": "rule_two_bucket/v1",
+      "rule": {
+        "rule_id": "syn_dual_red_full",
+        "version": 1,
+        "title": "synthetic full: 严格双红 + 成交额前十",
+        "scope": {"entity_type": "sector", "universe": "published_snapshot"},
+        "condition": {"all": [
+          {"label": "dual_red_strict", "op": "==", "value": true, "lag": 0},
+          {"label": "amount_rank_top10", "op": "==", "value": true, "lag": 0}
+        ]},
+        "outcome": {"target": "pct_chg", "horizons": [5], "metrics": ["fwd_return"], "success": {"metric": "fwd_return", "horizon": 5, "op": ">", "value": 0}},
+        "baseline": {"kind": "same_universe_event_days"},
+        "min_n": 20,
+        "sharing": "private",
+        "owner": "u_test"
+      }
+    },
+    {
+      "arm_id": "minus_l2",
+      "role": "minus_track",
+      "allowed_fields": ["dual_red_strict"],
+      "removed_track": {"track_id": "l2_amount_rank", "fields": ["amount_rank_top10"], "derived_fields": []},
+      "recipe_id": "rule_two_bucket/v1",
+      "rule": {
+        "rule_id": "syn_dual_red_minus_l2",
+        "version": 1,
+        "title": "synthetic minus_track: full 去掉 L2 谓词",
+        "scope": {"entity_type": "sector", "universe": "published_snapshot"},
+        "condition": {"all": [{"label": "dual_red_strict", "op": "==", "value": true, "lag": 0}]},
+        "outcome": {"target": "pct_chg", "horizons": [5], "metrics": ["fwd_return"], "success": {"metric": "fwd_return", "horizon": 5, "op": ">", "value": 0}},
+        "baseline": {"kind": "same_universe_event_days"},
+        "min_n": 20,
+        "sharing": "private",
+        "owner": "u_test"
+      }
+    }
+  ],
+  "comparisons": [
+    {"comparison_id": "primary_base_vs_full", "base_arm_id": "base", "candidate_arm_id": "full", "claim_kind": "paired_date_win_rate", "confirmatory": true},
+    {"comparison_id": "explore_minus_vs_full", "base_arm_id": "minus_l2", "candidate_arm_id": "full", "claim_kind": "mean_brier_difference_descriptive", "confirmatory": false}
+  ],
+  "primary_comparison_id": "primary_base_vs_full",
+  "analysis_policy": {"exposure_ledger_complete": true},
+  "tags": ["synthetic"]
+}

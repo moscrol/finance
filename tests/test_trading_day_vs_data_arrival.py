@@ -272,7 +272,7 @@ def test_guard_skips_only_on_a_real_closure(guard_env):
     assert proc.returncode == 0
     assert "verdict=closed" in proc.stdout
     assert "source=sse_closure" in proc.stdout
-    assert _steps(step_log) == [], "休市日不该跑任何步骤"
+    assert _steps(step_log) == ["write_to_duckdb"], "休市日只落日历台账（QC S2），不跑管线步骤"
 
 
 def test_guard_runs_the_pipeline_on_a_zero_row_trading_day(guard_env, tmp_path):
@@ -289,7 +289,8 @@ def test_guard_runs_the_pipeline_on_a_zero_row_trading_day(guard_env, tmp_path):
     assert "verdict=trading" in proc.stdout
     assert "data=missing" in proc.stdout
     assert _steps(step_log) == [
-        "write_to_duckdb",
+        "write_to_duckdb",  # --calendar：日历判定落台账（QC S2），每跑必写
+        "write_to_duckdb",  # --begin：标 running
         "scan_limitup",
         "scan_top100",
         "scan_quant",
@@ -338,4 +339,4 @@ def test_guard_still_honours_the_force_non_trade_day_escape_hatch(guard_env):
     assert proc.returncode == 0
     assert "verdict=closed" in proc.stdout
     assert "source=env_override" in proc.stdout
-    assert _steps(step_log) == []
+    assert _steps(step_log) == ["write_to_duckdb"]  # 只落日历台账（QC S2）

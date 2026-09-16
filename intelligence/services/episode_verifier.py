@@ -19,6 +19,10 @@ from intelligence.services.episode_output_substance import (
 )
 from intelligence.services.evidence_capabilities import collect_satisfied_plan_capabilities
 from intelligence.services.generic_research_owner import CompletionReport
+from intelligence.services.material_delivery import (
+    has_disclosed_material_gap,
+    material_question_outputs,
+)
 from intelligence.services.research_contract import (
     OutputStatus,
     ResearchTaskContract,
@@ -143,6 +147,7 @@ def verify_episode_outcome(
         )
 
     statuses: list[OutputStatus] = []
+    material_specs = {spec.output_id: spec for spec in material_question_outputs(contract)}
     stripped_hashes: set[str] = set()
     for required in contract.required_outputs:
         binding = bindings.get(required.output_id)
@@ -179,25 +184,6 @@ def verify_episode_outcome(
                 )
             )
 
-        if binding.gap:
-            statuses.append(
-                OutputStatus(
-                    required.output_id,
-                    "missing" if required.required else "gap",
-                    (),
-                    binding.gap,
-                )
-            )
-            if required.required:
-                issues.append(
-                    Issue(
-                        IssueCode.REQUIRED_OUTPUT_GAP,
-                        required.output_id,
-                        f"required output reports gap: {required.output_id}",
-                    )
-                )
-            continue
-
         unknown_hashes = tuple(
             content_hash
             for content_hash in binding.evidence_hashes
@@ -230,6 +216,28 @@ def verify_episode_outcome(
                     ),
                 )
             )
+        if binding.gap:
+            spec = material_specs.get(required.output_id)
+            legal_gap = bool(
+                spec is not None
+                and not basis_mismatch
+                and not binding.evidence_hashes
+                and has_disclosed_material_gap(spec, outcome.draft, binding.gap)
+            )
+            statuses.append(OutputStatus(
+                required.output_id,
+                "legal_gap" if legal_gap else ("missing" if required.required else "gap"),
+                (),
+                binding.gap,
+            ))
+            if required.required and not legal_gap:
+                issues.append(Issue(
+                    IssueCode.REQUIRED_OUTPUT_GAP,
+                    required.output_id,
+                    f"required output reports gap: {required.output_id}",
+                ))
+            continue
+
         evidence_items = tuple(
             evidence_by_hash[content_hash]
             for content_hash in binding.evidence_hashes
@@ -391,7 +399,7 @@ def verify_episode_outcome(
     missing_outputs = tuple(
         status.output_id
         for required, status in zip(contract.required_outputs, statuses)
-        if required.required and status.status != "fulfilled"
+        if required.required and status.status not in {"fulfilled", "legal_gap"}
     )
     all_required_fulfilled = all(
         status.status == "fulfilled" for status in required_statuses

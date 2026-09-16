@@ -7,6 +7,8 @@ from dataclasses import asdict, dataclass, replace
 from typing import Literal, TypeAlias, cast
 
 from intelligence.services import ask_clarify, llm_refine
+from intelligence.services.conversation_materials import ConversationMaterials
+from intelligence.services.material_contract import compile_material_contract
 from intelligence.services.query_resolution import (
     QueryResolution,
     QueryResolver,
@@ -33,6 +35,7 @@ from intelligence.services.route_table import (
     RouteRow,
     fine_grained_route_length_ok,
     is_quick_fact_query,
+    quick_fact_route_ok,
     render_route_table_prompt,
     research_lane_for_dated_quick_fact,
     route_by_id,
@@ -607,24 +610,32 @@ def _deterministic_decision(
 # `intelligence/tests/test_fine_grained_route_length_gate.py`。
 def _fine_grained_route_row(query: str) -> RouteRow | None:
     if not fine_grained_route_length_ok(query):
-        return None
-    route_id: str | None = None
-    if is_disclosure_scan_query(query):
-        route_id = "disclosure_scan"
-    elif _TRADE_ADVICE_ROUTE_PATTERN.search(query):
-        route_id = "trade_advice"
-    elif _KOL_REVIEW_ROUTE_PATTERN.search(query):
-        route_id = "kol_review"
-    elif (
-        parse_analog_intent(query)
-        or parse_regime_intent(query)
-        or _COMPARISON_ANALOG_ROUTE_PATTERN.search(query)
-    ):
-        route_id = "comparison_analog"
-    elif _THEME_TRACK_ROUTE_PATTERN.search(query):
-        route_id = "theme_track"
-    elif is_quick_fact_query(query):
-        route_id = "quick_fact"
+        # 超长：五条词面共现路由一律退回（无锚点共现在长文里必然凑巧命中）；
+        # 只有 quick_fact 有独立入场券（route_table.quick_fact_route_ok）——它按
+        # 窄意图判（要一个确定的值），长但无材料正文的纯取值问句照常归位，且
+        # 必须与 answer_orchestrator 的判定同一策略（2026-09-13 QC N1：闸只下在
+        # 本函数时，192 字取值题在 decide_turn 与 plan_answer_question 两入口分叉）。
+        if not quick_fact_route_ok(query):
+            return None
+        route_id: str | None = "quick_fact"
+    else:
+        route_id = None
+        if is_disclosure_scan_query(query):
+            route_id = "disclosure_scan"
+        elif _TRADE_ADVICE_ROUTE_PATTERN.search(query):
+            route_id = "trade_advice"
+        elif _KOL_REVIEW_ROUTE_PATTERN.search(query):
+            route_id = "kol_review"
+        elif (
+            parse_analog_intent(query)
+            or parse_regime_intent(query)
+            or _COMPARISON_ANALOG_ROUTE_PATTERN.search(query)
+        ):
+            route_id = "comparison_analog"
+        elif _THEME_TRACK_ROUTE_PATTERN.search(query):
+            route_id = "theme_track"
+        elif is_quick_fact_query(query):
+            route_id = "quick_fact"
     row = route_by_id(route_id) if route_id is not None else None
     row = research_lane_for_dated_quick_fact(row, query)
     if (
@@ -662,6 +673,8 @@ def _controller_messages(
     context: str,
     task_frame: TaskFrame,
 ) -> list[dict[str, str]]:
+    if task_frame.material_contract and task_frame.material_contract.data_scope == "material_only":
+        context = task_frame.conversation_materials.to_prompt_block() if task_frame.conversation_materials else ""
     return [
         {
             "role": "system",
@@ -1066,6 +1079,21 @@ def _question_carries_its_own_foothold(
     return latest_explicit_query_date(text) is not None
 
 
+def _pending_material_clarification(previous_intent: TurnIntent | None) -> TaskFrame | None:
+    """The pending frame iff the previous turn froze a material contract that
+    still needs clarification. Structural check on the contract state — never
+    on the clarification wording, which is free to change."""
+
+    if previous_intent is None or previous_intent.clarification_rounds < 1:
+        return None
+    if not previous_intent.pending_task_frame:
+        return None
+    pending = TaskFrame.from_dict(previous_intent.pending_task_frame)
+    if pending is None or pending.material_contract is None:
+        return None
+    return pending if pending.material_contract.needs_clarification else None
+
+
 def decide_turn(
     query: str,
     *,
@@ -1076,7 +1104,54 @@ def decide_turn(
     previous_intent: TurnIntent | None = None,
     previous_turn_id: str | None = None,
     resolver: QueryResolver | None = None,
+    conversation_materials: ConversationMaterials | None = None,
 ) -> TurnDecision:
+    # Source-aware material turns are resolved before pending-frame recovery,
+    # lexicons and generic routing. An old research intent is not a permission.
+    # Exception: a pending material-contract clarification means this message
+    # answers the interview — recovery merges it via the same compiler instead
+    # of treating the pasted body as a fresh material turn (question slots and
+    # the frozen contract would be dropped otherwise).
+    if conversation_materials is not None and _pending_material_clarification(previous_intent) is None:
+        from intelligence.services.user_task import split_user_message
+
+        parts = split_user_message(query)
+        material = compile_material_contract(
+            parts.regions, source_turn=conversation_materials.source_turn,
+            inherited_contract=conversation_materials.base_contract,
+        ) if parts.regions else None
+        if material and (material.data_scope == "material_only" or material.needs_clarification):
+            envelope = QueryEnvelope(
+                "general_finance_qa", "unknown", None,
+                "逐题依据用户材料回答，分开事实前提、推导与缺口", None, "explicit", 1.0,
+            )
+            frame = build_task_frame(query, envelope, conversation_materials=conversation_materials)
+            if material.needs_clarification:
+                question = (
+                    "无法恢复上一轮的可信条件，请补充原材料和本轮允许的数据范围。"
+                    if material.classification == "state_unavailable"
+                    else "材料与指令边界不明确，请将本轮限制和材料正文分开提供。"
+                )
+                frame = replace(frame, clarification_question=question,
+                                ambiguities=(*frame.ambiguities, *material.uncertain_reasons))
+            intent = build_turn_intent(query, envelope, task_frame=frame)
+            if frame.clarification_question:
+                # The answer must come back through pending-frame recovery, not
+                # generic routing: without the pending snapshot the interview
+                # result (materials, scope declaration) is silently discarded.
+                intent = replace(
+                    intent,
+                    pending_task_frame=frame.to_dict(),
+                    clarification_rounds=1,
+                )
+            return _attach_turn_intent(
+                _decision(
+                    "clarify" if frame.clarification_question else "research", envelope=envelope,
+                    needs_retrieval=False, needs_memory=False, needs_template=False,
+                    reason="可信材料合同在读取与旧任务恢复前冻结",
+                    clarification_questions=(frame.clarification_question,) if frame.clarification_question else (),
+                ), intent, task_frame=frame,
+            )
     pending_frame = (
         TaskFrame.from_dict(previous_intent.pending_task_frame)
         if previous_intent is not None
@@ -1163,6 +1238,7 @@ def decide_turn(
         # B05-1：对话块已知才传；空串是「调用方没给」（旧语义 = 未知，不追问）。
         # 真实入口的空历史块带「（无历史消息）」字样，非空，走「已知为空」车道。
         conversation_context=context if context else None,
+        conversation_materials=conversation_materials,
     )
     if task_frame.history_intent is None and history_followup is not None:
         task_frame = replace(

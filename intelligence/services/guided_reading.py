@@ -28,11 +28,17 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from intelligence.services import compliance_gate, observation_script, river_projection
+from intelligence.services import (
+    compliance_gate,
+    observation_extraction as extraction,
+    observation_script,
+    river_projection,
+)
 
 ENV_FLAG = "FORESIGHT_GUIDED_READING"
 # 授课框架旁路库（scripts/teaching_framework.py 的 --labels-db）。给了才读教学标签、才出「授课框架读数」
@@ -247,7 +253,9 @@ def _draft_script(
     读者当时看到的那些，两者一旦分叉，``projection_hash`` 对账就对不上。
     """
     entity_id = str(slice_dict.get("entity_id") or "")
-    scope = "index" if entity_id.upper().startswith("SH0") or entity_id in {"上证指数", "全市场"} else "theme"
+    # 作用域推导与提取关联键共用同一个函数：两处各写一遍，迟早一处改了另一处没改，
+    # 而漂了的那天表现是「你写的草稿凭空不见了」，不是报错。
+    scope = extraction.scope_for(entity_id)
     variables = [_TRACK_VARIABLES[t] for t in present if t in _TRACK_VARIABLES]
     abandon = [_TRACK_ABANDON[t] for t in present if t in _TRACK_ABANDON]
     return observation_script.make(
@@ -269,10 +277,13 @@ def _draft_script(
     )
 
 
-def render(gr: GuidedReading) -> str:
-    """人类可读带读。段序固定：限制 → 缺口 → 事实 → 判读 → 待确认剧本。
+def render(gr: GuidedReading, *, diff_lines: list[str] | None = None) -> str:
+    """人类可读带读。段序固定：限制 → 缺口 → 事实 → 判读 → 待确认剧本 → 字段差异。
 
     限制与缺口排在事实之前是 09-06 spec §4.5 第 2 条：缺口是判读的边界条件，不是脚注。
+
+    ``diff_lines`` 给了就在末尾追加「你写的 vs 系统列的」一段（工单 #53 §2.5）。
+    差异排在**最后**：它是对照，不是判读——放前面会让人以为系统那份是标准答案。
     """
     lines = [
         f"# 今日带读｜{gr.entity_name or gr.entity_id}｜{gr.as_of}",
@@ -309,6 +320,9 @@ def render(gr: GuidedReading) -> str:
         lines.append(f"- {observation_script.DISCLAIMER}")
     else:
         lines.append("- 本日无可读对象，不生成剧本骨架。")
+    if diff_lines is not None:
+        lines += ["", DIFF_SECTION_TITLE]
+        lines += list(diff_lines)
     return "\n".join(lines)
 
 
@@ -325,6 +339,104 @@ def run(
     if not enabled:
         return None, reason
     return build(slice_dict, alias_applied=alias_applied, framework_version=framework_version), reason
+
+
+# --------------------------------------------------------------------------- #
+# 提取前置：先收用户自己的剧本，再披露系统骨架（工单 #53）
+# --------------------------------------------------------------------------- #
+DIFF_SECTION_TITLE = "## 你写的 vs 系统列的（只列字段差异；不评分、不判谁对）"
+# 日报里「无草稿」时放的入口提示。它替代整段带读，所以自己也得过用词 lint
+# （测试锁死）——提示语里出现方向词，等于在提示位置把产品红线破了。
+EXTRACTION_HINT_LINES = (
+    "- 今天先写下**你自己**要看什么，再看系统那份；系统这份不是标准答案，只用来对照你漏了什么。",
+    "- 提交：`python3 -m intelligence.cli observation draft --as-of <交易日> --entity <板块或题材>"
+    " --variable <要观察的变量> --abandon <降级或放弃条件>`",
+    "- 写完再跑一次本日报，这里会出现带读与字段差异。",
+    "- 确实不想写：`observation read --as-of <交易日> --entity <板块或题材> --skip-draft`——"
+    "跳过是有效行为，不计失败。",
+)
+
+
+@dataclass(frozen=True)
+class GatedReading:
+    """一次「提取门 + 带读」的完整结果。门没过时 ``guided`` 是 ``None``。"""
+
+    decision: extraction.Decision
+    reason: str
+    guided: GuidedReading | None = None
+    diff: list[dict[str, Any]] = field(default_factory=list)
+    # 有没有可比较的系统骨架。``comparable=False`` 时差异恒为 ``[]``，
+    # 渲染成「本次无可比较剧本」而**不是**「完全一致」——没得比不等于一致。
+    comparable: bool = False
+    system_script_ref: str | None = None
+
+    @property
+    def diff_lines(self) -> list[str]:
+        return extraction.render_diff(self.diff, comparable=self.comparable)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            **self.decision.to_dict(),
+            "reason": self.reason,
+            "comparable": self.comparable,
+            "system_script_ref": self.system_script_ref,
+            "diff": self.diff,
+        }
+
+
+def gated(
+    us: Any,
+    slice_dict: dict[str, Any],
+    *,
+    key: extraction.ExtractionKey,
+    override: bool | None = None,
+    skip_draft: bool = False,
+    records: list[dict[str, Any]] | None = None,
+    alias_applied: bool | None = None,
+    framework_version: str | None = None,
+    teaching_card: str | None = None,
+    on_skip: Callable[[], None] | None = None,
+) -> GatedReading:
+    """**共用入口门**：开关 → 提取资格 → 构建 → 差异。CLI 与日报都走这一条。
+
+    门没过时 ``build`` 根本不会被调用——系统骨架不生成、不输出、不登记。
+
+    本函数自己不写台账；``on_skip`` 是调用方传进来的落盘动作，**在 ``build`` 之前**
+    被调用。把这个顺序放进共用门而不是交给每个调用方自觉：「先记跳过、再生成骨架」
+    一旦靠约定维持，总有一个入口会把两行写反，而写反了从输出上看不出来。
+
+    为什么门要放在 ``build`` 之前而不是渲染之前：``build`` 出来的对象已经是系统的
+    答案，只要它存在，任何一个 ``--json`` 分支、日志或异常回显都可能把它漏出去。
+    不生成，才是真的不泄漏。
+    """
+    enabled, enabled_reason = resolve_enabled(us, override=override)
+    raw = records if records is not None else observation_script.load_raw(
+        getattr(us, "observation_scripts_path", "")
+    )
+    draft = observation_script.latest_user_draft(raw, key=key)
+    decision = extraction.decide(
+        enabled=enabled, enabled_reason=enabled_reason, draft=draft, skip_draft=skip_draft
+    )
+    if not decision.allowed:
+        return GatedReading(decision=decision, reason=decision.reason)
+    if decision.needs_skip_event and on_skip is not None:
+        on_skip()
+
+    gr = build(
+        slice_dict,
+        alias_applied=alias_applied,
+        framework_version=framework_version,
+        teaching_card=teaching_card,
+    )
+    system = gr.draft.to_dict() if gr.draft else None
+    return GatedReading(
+        decision=decision,
+        reason=f"{decision.reason}（{enabled_reason}）",
+        guided=gr,
+        diff=extraction.diff_scripts(decision.draft, system),
+        comparable=system is not None and decision.draft is not None,
+        system_script_ref=extraction.system_script_ref(system, key=key),
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -360,20 +472,115 @@ def pick_entity(report: dict[str, Any]) -> str | None:
     return sorted(cands, key=lambda x: (-x[0], x[1]))[0][1]
 
 
-def merge_into_daily_review(text: str, gr: GuidedReading | None) -> str:
+def merge_into_daily_review(
+    text: str,
+    gr: GuidedReading | None,
+    *,
+    hint: bool = False,
+    diff_lines: list[str] | None = None,
+) -> str:
     """把带读并进每日复盘正文。**关闭时原样返回同一个对象**。
 
     这条 ``is`` 级别的等价是刻意的：spec / roadmap 要求「关掉带读 = 现有行为逐字节不变」。
     只做 ``==`` 相等还留着「重新拼一遍恰好拼回原样」的余地，那种实现一旦哪天多加一个
     换行，验收就悄悄不成立了。返回同一个对象，改动无处藏身。
+
+    ``hint=True``（带读开着、但用户今天还没写自己的剧本）时，在**带读原本那个位置**
+    放一段入口提示，其余正文一字不动：夜跑不能等 stdin，也不能替用户记跳过 / 离开。
+    ``gr is None and not hint`` 仍然返回同一个对象——带读关闭那条验收不受影响。
     """
-    if gr is None:
+    if gr is None and not hint:
         return text
     body = text or ""
-    section = render(gr)
+    section = (
+        "\n".join([DAILY_SECTION_TITLE, *EXTRACTION_HINT_LINES])
+        if gr is None
+        else render(gr, diff_lines=diff_lines)
+    )
     if section in body:  # 幂等：重复合并不叠加
         return body
     return (body.rstrip("\n") + "\n\n" + section + "\n") if body else section + "\n"
+
+
+@dataclass(frozen=True)
+class DailySection:
+    """每日复盘「今日带读」那个位置该放什么。
+
+    三种可能：整段带读（``guided``）、一段入口提示（``hint``）、什么都不放。
+    第三种必须存在——带读关闭时那一段连提示都不该出现，否则「逐字节不变」就破了。
+    """
+
+    guided: GuidedReading | None
+    reason: str
+    hint: bool = False
+    gate: GatedReading | None = None
+
+    @property
+    def diff_lines(self) -> list[str] | None:
+        return self.gate.diff_lines if (self.gate and self.guided) else None
+
+
+def daily_section(
+    report: dict[str, Any],
+    us: Any,
+    *,
+    override: bool | None = None,
+    db_path: str | Path | None = None,
+    teaching_labels_db: str | Path | None = None,
+    card_dir: str | Path | None = None,
+) -> DailySection:
+    """每日复盘的带读接缝，**走同一道提取门**。
+
+    ``import river`` 放函数里：本模块其余部分不碰数据库，保持可离线单测。
+
+    ``teaching_labels_db`` 给了（经 ``resolve_teaching_db`` 解析）才接授课框架：切片多出 ``teaching_*``
+    对象、带读多一段读数；再给 ``card_dir`` 就把上证卡片写成 ``<as_of>-teaching-card.svg``——这是本函数
+    唯一的写盘，且只在带读开启且旁路库接上时发生。两者都不给 = 现状。
+
+    顺序是「先取切片、再过提取门」而不是反过来：取切片是读事实，不是生成系统骨架；
+    而身份要从切片里读（切片已经做过跨供应商归一），提前解析等于开两次库。
+    """
+    enabled, reason = resolve_enabled(us, override=override)
+    if not enabled:
+        return DailySection(None, reason)
+    entity = pick_entity(report)
+    if not entity:
+        return DailySection(None, "report 里挑不出可带读的题材（logic_batch.results 为空或无题材名）")
+    as_of = str((report or {}).get("date") or "").strip()
+    if not as_of:
+        return DailySection(None, "report 没有 date，无法定 as_of")
+
+    from intelligence.services import river
+
+    teaching_db = resolve_teaching_db(teaching_labels_db)
+    try:
+        sl = river.slice_river(
+            as_of, entity, db_path=db_path, checkpoints_path=us.checkpoints_path, teaching_labels_db=teaching_db,
+        )
+    except Exception as exc:  # 读不到就不出这一段，不让带读把整份复盘带崩
+        return DailySection(None, f"切片读取失败：{type(exc).__name__}: {exc}")
+    slice_dict = sl.to_dict()
+    canonical = extraction.identity_from_slice(slice_dict)
+    if canonical is None:
+        return DailySection(None, f"「{entity}」在 {as_of} 解析不出实体身份，不出这一段")
+    card_name: str | None = None
+    if teaching_db is not None and card_dir is not None:
+        card_name = write_teaching_card(teaching_db, as_of, slice_dict, Path(card_dir) / f"{as_of}{TEACHING_CARD_SUFFIX}")
+    tail = "，授课框架读数已接" if teaching_db is not None else ""
+
+    gate = gated(
+        us,
+        slice_dict,
+        key=extraction.make_key(getattr(us, "user_id", "default"), as_of, canonical),
+        override=override,
+        # 日报是无人值守的后台产物：**不能替用户跳过**。没有草稿就放入口提示，
+        # 不写任何事件、不创建尝试——后台跑过一次不证明用户进过这个页面。
+        skip_draft=False,
+        teaching_card=card_name,
+    )
+    if gate.guided is None:
+        return DailySection(None, f"带读 {entity} 未披露（{gate.reason}）", hint=True, gate=gate)
+    return DailySection(gate.guided, f"带读 {entity}（{reason}{tail}）", gate=gate)
 
 
 def build_for_daily_review(
@@ -385,39 +592,19 @@ def build_for_daily_review(
     teaching_labels_db: str | Path | None = None,
     card_dir: str | Path | None = None,
 ) -> tuple[GuidedReading | None, str]:
-    """每日复盘用的带读。返回 ``(带读 | None, 理由)``——关闭或挑不出实体都返回 None。
+    """``daily_section`` 的 ``(带读 | None, 理由)`` 视图（既有调用方与回归测试用）。
 
-    ``import river`` 放函数里：本模块其余部分不碰数据库，保持可离线单测。
-
-    ``teaching_labels_db`` 给了（经 ``resolve_teaching_db`` 解析）才接授课框架：切片多出 ``teaching_*``
-    对象、带读多一段读数；再给 ``card_dir`` 就把上证卡片写成 ``<as_of>-teaching-card.svg``——这是本函数
-    唯一的写盘，且只在带读开启且旁路库接上时发生。两者都不给 = 现状。
+    新代码请用 ``daily_section``：入口提示与字段差异只在那边拿得到。
     """
-    enabled, reason = resolve_enabled(us, override=override)
-    if not enabled:
-        return None, reason
-    entity = pick_entity(report)
-    if not entity:
-        return None, "report 里挑不出可带读的题材（logic_batch.results 为空或无题材名）"
-    as_of = str((report or {}).get("date") or "").strip()
-    if not as_of:
-        return None, "report 没有 date，无法定 as_of"
-
-    from intelligence.services import river
-
-    teaching_db = resolve_teaching_db(teaching_labels_db)
-    try:
-        sl = river.slice_river(
-            as_of, entity, db_path=db_path, checkpoints_path=us.checkpoints_path, teaching_labels_db=teaching_db,
-        )
-    except Exception as exc:  # 读不到就不出这一段，不让带读把整份复盘带崩
-        return None, f"切片读取失败：{type(exc).__name__}: {exc}"
-    slice_dict = sl.to_dict()
-    card_name: str | None = None
-    if teaching_db is not None and card_dir is not None:
-        card_name = write_teaching_card(teaching_db, as_of, slice_dict, Path(card_dir) / f"{as_of}{TEACHING_CARD_SUFFIX}")
-    tail = "，授课框架读数已接" if teaching_db is not None else ""
-    return build(slice_dict, framework_version=None, teaching_card=card_name), f"带读 {entity}（{reason}{tail}）"
+    section = daily_section(
+        report,
+        us,
+        override=override,
+        db_path=db_path,
+        teaching_labels_db=teaching_labels_db,
+        card_dir=card_dir,
+    )
+    return section.guided, section.reason
 
 
 def write_teaching_card(teaching_db: str | Path, as_of: str, slice_dict: dict[str, Any], out_path: Path) -> str | None:

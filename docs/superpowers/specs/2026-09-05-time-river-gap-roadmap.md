@@ -27,6 +27,18 @@
 >
 > 收据 `docs/verification/2026-09-06-observation-script-g03.md`；交接 `docs/handoffs/inflight/feat-observation-script.md`。
 > 终局 spec 已由 `2026-09-06-personal-research-calibration-endstate-design.md` 承接，本文件只留缺口顺序。
+>
+> **实施状态回写（2026-09-15，G-04 / #21 剩余 P1）**：主体 PR #673 已合 main@ce9643b1——七段钦定为唯一标签值、
+> 八阶段降读法层别名（`theme_stage_vocab`，tsm-v1）、旁路库 `lifecycle_stage` 标签（逐日即时状态 daily=，
+> 非事后段落表——按段落表取值是前视）、42 条人工对照集草稿 + `stage-agreement` 报告、错位标记双表退役为
+> 词表派生物。2026-09-15 前向合并 `gitea/main@1fef3d27`，`LABEL_VERSION` 按 PR 评论既定方案升 **v6**
+> （v5 已被 #49 合取三值占用），真库临时 v6 库验证 lifecycle_stage 99,111 行 / 620 板块 / 六段值域
+> （酝酿恒无：旁路库不读知识库，如实）。**仍开着的**：创始人填 `stage_manual`（≥30 条才出一致率）、
+> 共享旁路库重建 + 四条规则收据重跑已于 09-15 21:56 完成：v6 labels 1,736,327 / outcomes 2,277,800，
+> 数据至 09-15；3941 个旧值 NULL→0（#49 三值逻辑相关），15 张其他表逐行不变，非零漂移已登记。
+> G-04 代码与运行面完成，人工一致率仍待 0/42→≥30 标注，不宣告全验收通过。
+> 收据 `docs/verification/2026-09-15-release-gate-closeout.md`。曾有同题并行轨 PR #745（2026-09-15，不知 #673 在途
+> 而重做了浅版），已关闭并留接替指针，其双表派生化增量已吸收（064a172a）。
 
 ---
 
@@ -43,7 +55,7 @@
 | 无前视 / 拒答 / 五段出门 / 独立判官 | 判官 + PIT + 11 道门禁 + 7,386 条测试（BP §10.1） | 保持 |
 | 判断轨回检 | `intelligence/services/checkpoints.py`（可证伪点、回检、`calibrate` / `by_rule`）、用户态 `checkpoints.jsonl` / `corrections.jsonl`；83 个可证伪点、124 条纠偏 | 保持；要加对象分类（G-03 / G-09） |
 | 方法论统计门 | `intelligence/services/methodology_backtest/`（labels / outcomes / 编译器 / 四态）、`scripts/methodology_backtest.py`；#21 P0–P1 五刀已合，三条种子规则 `not_distinguishable` | 保持；授课框架规则进同一条门（G-01） |
-| 题材轴 | `intelligence/services/theme_lifecycle.py`（八阶段诊断）、`theme_lifecycle_timeline.py`（酝酿→…→回流）、`skills/theme-fermentation-tracer` | 两套词表待统一（G-04） |
+| 题材轴 | `intelligence/services/theme_lifecycle.py`（八阶段诊断）、`theme_lifecycle_timeline.py`（酝酿→…→回流）、`skills/theme-fermentation-tracer` | 已统一并重建共享 v6 库；人工一致率待标注（G-04） |
 | 盘面轴 / 市场对标 | 旁路库 12 个逐日标签、`intelligence/services/market_regime_analogs.py`（D10，只报后续事实）、按阶段基准率 `same_stage_days`（#21 第五刀） | `market_stage` 两套写法待归一（G-05） |
 | 舆论轴（两轨） | `skills/opinion-cross/scripts/consensus_staging.py`（事实硬度 × 舆情广度）、观点事件库 | 无阶段词表（G-06） |
 | 资金轨 | `fact_sector_stock_daily`（含资金流）、`fact_theme_flow_daily`、龙虎榜三表 `fact_dragon_tiger_daily / fact_dragon_seat_daily / fact_dragon_summary_daily`、`l2-moneyflow` 技能 | 有板块 / 题材 / 龙虎榜层；北向、两融、ETF 份额无表——按 `gap` 声明，不补编（G-02b） |
@@ -67,7 +79,7 @@
 
 
 - **已有**：八阶段诊断与七段时间线两套口径；旁路库 `lifecycle_stage` 标签（#21 P1 剩余项：人工对照集）。
-- **缺**：一张映射表 + 一套钦定词表进 `UBIQUITOUS_LANGUAGE.md`；`LABEL_VERSION` 升版；「引用必须标模块」的临时纪律退出。
+- **当前缺口（09-15）**：#673 已合，映射表 / 单一词表 / `LABEL_VERSION` v6 / 共享库及四条规则重跑均已完成；只剩人工 `stage_manual`（0/42，至少30）与不一致样本归因。历史标签漂移已记录，不能声称零漂移。
 - **验收**：(a) 词表里只剩一套题材阶段词，两模块输出经映射后同名；(b) 在人工对照集上出两模块一致率报告，不一致的样本逐条有归因；(c) `lifecycle_stage` 重建后，已有规则收据重跑要么无漂移、要么漂移有记录。
 - **依赖**：#21 剩余项（同一工单收口，不另立——spec §13.2 F3）。
 - **对外**：做完前「题材生命周期八阶段已上线」（v0.7 现状口径，不变）；做完后可说「题材轴单一词表、历史可重算」。
