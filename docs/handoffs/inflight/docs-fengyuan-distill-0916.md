@@ -31,7 +31,7 @@
 
 ## 下一步
 1. Q-002 #12–#30 按各行数据源前提逐条标定（#28/#29 本仓可回放，优先）。
-2. ~~生产 smoke 待网关~~ 已完成：用户拍板「切回 glm 当写手」。路径=先 BYOK 试跑（PUT /api/llm/config，remember=false）→ 单视角完整冒烟 completed、零降级、答案用上本日蒸馏内容（B型出清+三维检查）→ 备份启动器（bak-20260916-pre-glm-writer）改 FORESIGHT_BUILTIN_* 三行为智谱直连 glm-5.2（coding 端点）→ launchctl kickstart 重启（新 pid、同 rev 0758a423、deps 全绿）→ 内置链再冒烟 completed（短问路由到轻通道、库截止 09-15 故答「无数据」，属数据新鲜度非写手问题）。接线前按三种报文形状（plain/tools:[]/real tools）各探一次全 200。LLM_MODEL=gpt-5.6-sol@8080 保留作第二 provider，网关恢复即自愈；sidecar 8796 未动。
+2. ~~生产 smoke 待网关~~ 已完成：用户拍板「切回 glm 当写手」。路径=先 BYOK 试跑（PUT /api/llm/config，remember=false）→ 单视角完整冒烟 completed、零降级、答案用上本日蒸馏内容（B型出清+三维检查）→ 备份启动器（bak-20260916-pre-glm-writer）改 FORESIGHT_BUILTIN_* 三行为智谱直连 glm-5.2（coding 端点）→ launchctl kickstart 重启（新 pid、同 rev 0758a423、deps 全绿）→ 内置链再冒烟 completed。同晚按用户指示升级 glm-5.3-flash（官方直连就有，无需 fomo；三形状探针全 200；注意它每答先思考约500 token，max_tokens<1024 会得到空正文——运行时合成默认 3000 不受影响）；完整冒烟 ~1 分钟完稿、答案带证据层声明与三维检查。备份链：bak-20260916-pre-glm-writer（kimi 版）→ bak-20260916-glm52-writer（5.2 版）。接线前按三种报文形状（plain/tools:[]/real tools）各探一次全 200。LLM_MODEL=gpt-5.6-sol@8080 保留作第二 provider，网关恢复即自愈；sidecar 8796 未动。
 3. 用户随时可翻案：known_gaps 与四份 policy 文件保有全部溯源，说一声即撤任意条目。
 
 ## 踩过的坑
