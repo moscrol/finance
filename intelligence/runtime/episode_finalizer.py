@@ -16,6 +16,8 @@ from intelligence.services.episode_protocol import (
     evidence_ordinal_table,
     strip_hashes_for_model,
 )
+from intelligence.services.material_grounding import material_grounding_payload
+from intelligence.services.material_delivery import material_delivery_payload, material_question_outputs
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.task_frame import TaskFrame
 
@@ -45,6 +47,7 @@ _RECOVERY_SYSTEM_PROMPT = (
     '"gaps":["..."],"bindings":[{"output_id":"...",'
     '"evidence_hashes":["E1","E2"],"basis":"evidence|user_premise|model_reasoning",'
     '"gap":""}]}。'
+    "若输入带 material_grounding，按其规则在 binding.claims 绑定用户材料/旧答坐标，材料事实无需工具序号；"
     "binding.basis 必须与 required_outputs 的 grounding_mode 一致；"
     "model_reasoning 与 user_premise 可以不带证据序号，但不得把它们伪装成 evidence。"
     "证据不能覆盖 required output 时必须返回 partial 并填写 gap；不要输出代码围栏、"
@@ -195,6 +198,11 @@ class EpisodeFinalizer:
             "latest_data_date": context.latest_data_date,
             "failure_reason": _stable_failure_reason(failure_reason),
         }
+        grounding = material_grounding_payload(context.contract)
+        if grounding is not None:
+            payload["material_grounding"] = grounding
+        if material_question_outputs(context.contract):
+            payload["material_delivery"] = material_delivery_payload(context.contract)
         if len(selected) < len(evidence):
             tools = dict.fromkeys(item.tool for item in evidence)
             payload["evidence_selection"] = {
