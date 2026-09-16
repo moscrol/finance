@@ -5466,6 +5466,12 @@ class TurnOrchestrator:
         user_id = self.run_store.user_id
         if not user_id or user_id in {"golden-test", "tester", "default"}:
             return
+        from intelligence.services.track_contract import persistence_opt_out
+
+        if persistence_opt_out(query):
+            # 用户明确说了「不登记长期跟踪」。两个 ingest 内部也各自挡了一道；
+            # 这里再挡是因为写入是**不可撤销的外部副作用**，多一道早退比事后清理便宜。
+            return
         checkpoints_path = userspace.user_space(user_id).checkpoints_path
         try:
             from intelligence.services.track_contract import ingest_next_watch

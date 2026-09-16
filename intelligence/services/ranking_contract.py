@@ -224,8 +224,8 @@ _ARROW_RE = re.compile(r"(↑+|↓+|上移|下移|上升|下降|升|降)")
 _TAGGED_MOVE_RE = re.compile(rf"({_TOKEN})\s*(↑+|↓+|上移|下移|上升|下降)")
 _DISTINGUISH_RE = re.compile(r"区分变量[：:]\s*([^；;。\n]+)")
 _DATE_RE = re.compile(r"(20\d{2}-\d{2}-\d{2})")
-_CN_DATE_RE = re.compile(r"(20\d{2})年(\d{1,2})月(\d{1,2})日")
 _DAYS_RE = re.compile(r"(\d+)\s*(?:个)?\s*(天|日|周|月)")
+_YEAR_MONTH_SCRUB_RE = re.compile(r"(20\d{2})\s*[-/年]\s*(\d{1,2})\s*月?")
 _EXPLANATION_HEADINGS = ("竞争解释", "互斥解释", "替代解释")
 _NEXT_HEADINGS = ("下一步",)
 
@@ -952,15 +952,23 @@ def _as_of_date(as_of: str | None) -> date:
 
 
 def _due_from_watch(watch: str, as_of: str | None) -> str:
+    from intelligence.services.track_contract import calendar_month_due, chinese_full_date
+
     text = str(watch or "")
     found = _DATE_RE.search(text)
     if found:
         return found.group(1)
-    cn = _CN_DATE_RE.search(text)
-    if cn:
-        return f"{cn.group(1)}-{int(cn.group(2)):02d}-{int(cn.group(3)):02d}"
+    cn_due = chinese_full_date(text)
+    if cn_due:
+        return cn_due
+    # 日历月必须排在时长之前，否则「约2026-10月底披露」会被 _DAYS_RE 读成
+    # 「10 个月」= +300 天（R-20260916-05 真实写出 due=2027-07-13）。
+    month_due = calendar_month_due(text)
+    if month_due:
+        return month_due
     base = _as_of_date(as_of)
-    span = _DAYS_RE.search(text)
+    # 时长解析前把已识别的年月 token 摹掉，避免残留数字被当成周期。
+    span = _DAYS_RE.search(_YEAR_MONTH_SCRUB_RE.sub(" ", text))
     if span:
         amount = int(span.group(1))
         unit = span.group(2)
@@ -1030,6 +1038,12 @@ def ingest_flip_conditions(
         register_checkpoint,
     )
 
+    from intelligence.services.track_contract import persistence_opt_out
+
+    if persistence_opt_out(query):
+        # 与 track_next_watch 同一道边界：用户拒绝登记时，改判条件也不得落盘。
+        # 两个入口共用一本 checkpoints.jsonl，只堵一个等于没堵。
+        return []
     if not parse_ranking_intent(query, question_type):
         return []
     artifact = parse_ranking_artifact(answer)
