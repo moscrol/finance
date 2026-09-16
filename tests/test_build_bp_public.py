@@ -198,7 +198,7 @@ def test_founder_recruitment_and_later_community_support(model):
     for obsolete in ("从社区和公开内容招募首批用户", "100 人候补名单", "对接 3–10 名首批体验者"):
         assert obsolete not in public
     form = (ROOT / "docs/bp/2026-09-opc-application-form-answers.md").read_text()
-    assert "Foresight v1.6" in form
+    assert "Foresight v1.7" in form
     assert "首轮资深用户测评我自己安排" in form
     assert "通过 OPC 社区与公开研究内容招募 3–10 人" not in form
 
@@ -216,6 +216,32 @@ def test_collaborative_design_and_ninety_day_plan_are_not_results(model):
     assert "不把日期当上线保证" in public
     assert "算力和模型 API 额度是补充" in public
     assert "破卷" not in public and "knevo" not in public.lower()
+
+
+def test_domain_methods_and_flow_vision_are_not_validated_results(model):
+    public = bp.build(bp.SRC.read_text(), model)
+    for required in (
+        "观测面就是研究问题的角度",
+        "发现规律与验证规律的数据须分开",
+        "历史高命中率不能保证泛化",
+        "当前没有已验证护城河",
+        "长期愿景：人机交互的心流平台",
+        "不是心理学心流效果已获证明",
+        "当前仍聚焦 A 股研究",
+    ):
+        assert required in public
+
+
+def test_enterprise_discovery_precedes_conditional_pilot(model):
+    public = bp.build(bp.SRC.read_text(), model)
+    enterprise = public.split("### 机构探索：")[1].split("### 进入收费阶段")[0]
+    for required in (
+        "同时可访谈", "当前无机构订单或收入证明", "不同时开发两套完整平台",
+        "验收标准", "数据授权", "权限隔离", "专业评估", "人工审核",
+        "首次实施费＋持续订阅", "不计原预算", "不得默认跨客户复用",
+    ):
+        assert required in enterprise
+    assert "个人订阅验证后再评估，单独报价" not in public
 
 
 def test_red_line_wording(model):
