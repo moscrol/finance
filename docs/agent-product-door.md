@@ -31,14 +31,14 @@
 
 编码任务「仓库里有没有现成实现」走 `python3 scripts/code_map.py query "<问题>"`，不是本页，也不是问答门。空图不得写成架构结论。
 
-### 专项研究纪律（Knevo 增量，在途）
+### 专项研究纪律（Knevo 增量，2026-09-17 已合 main）
 
 `research_workflow_guidance.workflow_guidance` 给财报、事件推演、观点审查、事实核对、历史类比
 五类既有题型补分析纪律；连续 Episode 的动态规则与 ask 合成共用，不增加产品门、工具或权限。
 旧 ask 保留信封已识别的专项意图，显式 override 优先；不代表所有自然语言路由已经准确。
 默认开，`FINANCE_RESEARCH_WORKFLOW_GUIDANCE=0` 可关。它是生成指令，不是新增语义审稿器；
 权限、材料范围、证据绑定与写侧门保持原合同。代码/对账与效果状态见
-[逐项吸收记录](learning/knevo-distill/workflow-absorption-2026-09-16.md)，未据此宣称部署或质量增益。
+[逐项吸收记录](learning/knevo-distill/workflow-absorption-2026-09-16.md)，未据此宣称部署或质量增益。PR #774 已于 2026-09-17 合入 main（`c67413c7`），部署状态仍以运行服务 `/api/health` 的 revision 为准。
 
 ### 材料题边界（E2，分阶段接线中）
 
