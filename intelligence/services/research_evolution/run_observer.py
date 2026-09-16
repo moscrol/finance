@@ -22,7 +22,8 @@
   05 ``summarize`` 按 pilot_id 分区，自用事件永远混不进真人试点读数；
 - 同意门（QC I11）：owner 一旦在台账里表达过同意范围，``research`` + ``logging``
   （05 的 ``REQUIRED_MEASUREMENT_SCOPES``）都在事件时刻生效才写这三类事件；撤回其一后
-  研究照常跑，测量停。没有任何同意记录时保持自用默认（照写）——owner 观察自己，没人可问。
+  研究照常跑，测量停。没有任何同意记录时保持自用默认（照写）——owner 观察自己，没人可问；
+  注意首条只授部分范围（如只授 ``blind_review``）也算「表达过」，会把自用默认翻成不写（复核 T08）。
 """
 
 from __future__ import annotations
@@ -140,7 +141,9 @@ class ObservingRunStore(RunStore):
         只认 owner 自己的 ``consent_changed`` 记录（``participant_id`` 为空或等于 owner），按
         ``effective_at``（缺则 ``event_at``）排序折叠 grant / withdraw，得到 ``at`` 时刻生效的范围。
         没有任何记录返回 True（自用默认，见模块说明）；有记录则必须覆盖 ``REQUIRED_MEASUREMENT_SCOPES``。
-        台账读不出来按「未知」处理并留 stderr 痕迹——同意门是测量的门，不是被测 run 的门。
+        台账读不出来按「未知」处理并留 stderr 痕迹（门本身放行）；但同一份坏台账会让随后的
+        ``append_product_value_event`` 重读时再抛一次，净效果是**不写 + 两行 stderr**（第九轮复核 T12 实测）——
+        同意门是测量的门，不是被测 run 的门，两处都不会阻断 run。
         """
         try:
             from intelligence.services.product_value.contracts import REQUIRED_MEASUREMENT_SCOPES
