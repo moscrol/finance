@@ -438,8 +438,7 @@ def check_l2(date: str) -> list[str]:
         return []
     if _l2_paused():
         print(
-            f"CHECK L2 {date} L2 已挂账暂停（L2_PAUSED=1），跳过检查；"
-            "欠账日期待鉴权恢复后用 run_l2_pipeline.sh 回补"
+            f"CHECK L2 {date} L2_PAUSED=1，跳过检查（应急开关；夜跑文件源不再读 flag）"
         )
         return []
     missing: list[str] = []
@@ -491,7 +490,7 @@ def check_l2(date: str) -> list[str]:
             ):
                 missing.append(
                     f"L2 步骤 {step} complete 但 row_count=0（input={input_count}）；"
-                    "疑似 CH 空响应/VPN，拒绝通过"
+                    "疑似日包缺票/解压失败，拒绝通过"
                 )
         for table in L2_TABLES:
             max_date, count = con.execute(

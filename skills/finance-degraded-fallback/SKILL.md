@@ -1,9 +1,11 @@
 ---
 name: finance-degraded-fallback
+user-invocable: false
+disable-model-invocation: true
 metadata:
   pattern: prompt-only
   routable: false
-description: 降级回答章法与输出兜底，由 ASK_DEGRADED_FALLBACK 确定性注入与确定性渲染，蒸馏自 knevo 拒答降级纪律（q13 七项、E-004 诚实降级、缺数三档）。不是可路由工作流，不要手工调用。无触发词。
+description: 降级回答章法与输出兜底，由 intelligence/services/degraded_fallback.py 在 ASK_DEGRADED_FALLBACK 开启时确定性注入与渲染，蒸馏自 knevo 拒答降级纪律（q13 七项、E-004 诚实降级、缺数三档）；不是可路由工作流，不进技能列表，无触发词。
 ---
 
 # 降级回答章法

@@ -1,6 +1,8 @@
 # Theme Radar Workflow：题材雷达产品化闭环
 
-更新时间：2026-06-11
+更新时间：2026-06-11（2026-09 校订脚本位置）
+
+> 单题材只读雷达的执行契约以 `skills/theme-radar/SKILL.md` 为准。方向池 / 补充数据池 / 回归脚本（`build_theme_direction_pool.py`、`build_theme_supplement_pool.py`、`check_theme_supplement_pool.py`、`run_theme_radar_regression.py`）已随 ingest 类能力迁到知识库仓，下文写作 `<知识库>/scripts/...`；`radar.py` 仍在本仓 `skills/theme-radar/scripts/`。
 
 ## 1. 目标
 
@@ -185,7 +187,7 @@ Markdown 报告
 命令：
 
 ```bash
-python3 scripts/build_theme_direction_pool.py \
+python3 <知识库>/scripts/build_theme_direction_pool.py \
   --theme 商业航天 \
   --theme-info-jsonl /path/to/商业航天.theme_information_items.jsonl \
   --out-dir /tmp/theme-radar \
@@ -217,7 +219,7 @@ python3 scripts/build_theme_direction_pool.py \
 如有 Theme Radar 补充材料：
 
 ```bash
-python3 scripts/build_theme_supplement_pool.py \
+python3 <知识库>/scripts/build_theme_supplement_pool.py \
   /path/to/商业航天补充数据.md \
   --theme 商业航天 \
   --out-dir /tmp/theme-radar \
@@ -244,14 +246,14 @@ python3 scripts/build_theme_supplement_pool.py \
 命令：
 
 ```bash
-python3 scripts/check_theme_supplement_pool.py \
+python3 <知识库>/scripts/check_theme_supplement_pool.py \
   /tmp/theme-radar/商业航天.theme_supplement_pool.json
 ```
 
 可选输出：
 
 ```bash
-python3 scripts/check_theme_supplement_pool.py \
+python3 <知识库>/scripts/check_theme_supplement_pool.py \
   /tmp/theme-radar/商业航天.theme_supplement_pool.json \
   --out-json /tmp/theme-radar/商业航天.supplement_qc.json \
   --out-md /tmp/theme-radar/商业航天.supplement_qc.md
@@ -460,13 +462,13 @@ python3 scripts/build_theme_evidence_readiness.py \
 命令：
 
 ```bash
-python3 scripts/run_theme_radar_regression.py
+python3 <知识库>/scripts/run_theme_radar_regression.py
 ```
 
 指定题材：
 
 ```bash
-python3 scripts/run_theme_radar_regression.py \
+python3 <知识库>/scripts/run_theme_radar_regression.py \
   --themes 先进封装 商业航天 固态电池 人形机器人
 ```
 

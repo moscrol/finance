@@ -2,7 +2,7 @@
 name: limit-advance
 metadata:
   pattern: pipeline
-description: 连板晋级数据抓取与飞书入库。触发词：晋级。
+description: 连板晋级数据抓取（fupanhui 连板梯队）并串行写入飞书 Bitable。触发词：晋级、连板晋级、连板、晋级率。注意：只看涨停热度或题材层面的连板统计走 market-overview。
 ---
 
 # 连板晋级筛选

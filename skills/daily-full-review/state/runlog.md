@@ -1054,3 +1054,28 @@ Notes:
 | 轻症 | 不修 | 日报 HTML 涨家数图 `<img src>` 相对路径可用；「点击打开」是 `file://…png`（08-24 同形，渲染器老问题）。`exports/…-daily-workflow-summary.json` 仍是 00:02 的 `skip_agent=true`，队列是之后补的，别拿它当 agent 步骤证据 |
 
 > 结论：08-25 收尾**可以当完成**。空壳抽查是第三层——`COUNT(*)` 过门不等于值在。`fact_leader_height_daily` 每日 1 行是「最高板」不是 120 只名单。
+
+## 2026-09-10 | run 2026-09-10 22:18 | plan=local
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| stock-daily | ok | 18 | eastmoney snapshot ok |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 25 |  |
+| carry-forward-universe | ok | 1 |  |
+| stitch-sector-stocks | ok | 15 |  |
+| sector-daily-local | ok | 1 |  |
+| limit-stats-local | ok | 1 |  |
+| market-overview-local | ok | 1 |  |
+| market-editorial-local | ok | 0 |  |
+| market-stage-local | ok | 1 |  |
+| stock-high-local | ok | 1 |  |
+| mainline-local | ok | 0 |  |
+| core-stock-local | ok | 0 |  |
+| core-leader-local | ok | 1 |  |
+| features | ok | 2 |  |
+| same-day-gate | ok | 0 |  |
+| cross-day-gate | ok | 0 |  |
+| export-increment | ok | 0 |  |
+| quality-gate | COMPLETE | - | check_daily_review_data.py |

@@ -66,11 +66,13 @@ BASELINE_PATH = REPO / "path-literals-baseline.json"
 
 # 不扫的目录：虚拟环境、git 内部、历史 clone、各类缓存。
 # ``tmp/`` 下有 4 个历史工作 clone（pytest.ini 也为此设了 norecursedirs）。
+# ``state/`` 是 gitignore 的运行时目录（锁、分享入口、L2 日包缓存），不是源码。
 SKIP_PARTS = frozenset(
     {
         ".venv-workbench",
         ".git",
         "tmp",
+        "state",
         "node_modules",
         "__pycache__",
         ".pytest_cache",

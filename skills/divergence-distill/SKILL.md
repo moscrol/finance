@@ -78,5 +78,5 @@ verifier 误杀，先蒸第 1 行；控制面排除后剩下的差异才轮到�
 ## 红线
 
 - 原文矿只读；引用带路径。
-- 公司事实走知识库证据层（evidence 分层红线同 AGENTS.md），画像/基线不收。
+- 公司事实走知识库证据层（evidence 分层口径见 docs/knowledge-backfill-rules.md），画像/基线不收。
 - 人未过闸不写回；写回不验注入不算完。

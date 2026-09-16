@@ -7,6 +7,8 @@ description: 题材雷达 / 新词雷达——输入一个新名词、新闻事�
 ---
 
 > 硬约束在前；细节见 `references/`。官方压缩截断保开头，所以闸门/红线必须留在文首。
+>
+> **质量对齐**：写雷达报告前读 `references/gold-standard.md`。形状对齐 `judgment-framework.md`；定锚密度对齐知识库 `wiki/concepts/电子布.md`。自动生成的发酵复盘空核心标的栏不是完成样本。IMA 15 章写库不走本 skill。
 
 
 # Theme Radar Skill

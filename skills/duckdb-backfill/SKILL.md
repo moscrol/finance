@@ -4,14 +4,14 @@ disable-model-invocation: true
 metadata:
   pattern: tool-wrapper
   also: [pipeline]
-description: "DuckDB market_feature_store 回补。用户说「回补 duckdb」「全量回补」「补缺口」「修 fact_* 覆盖」或 sync 挂起需短命令重试时用。按覆盖审计与超时兜底跑。不改策略、不改 vault。"
+description: "DuckDB market_feature_store 历史缺口回补：先覆盖审计再按模块短命令补数，带超时兜底；不改策略、不改 vault。触发词：回补 duckdb、全量回补、补缺口、修 fact 覆盖、增量补数据、duckdb backfill。注意：当日全量复盘走 daily-full-review；sync 挂起需短命令重试时也用本 skill。"
 ---
 
 # DuckDB Backfill
 
 ## Overview
 
-Use this skill to backfill `/Users/lbq/Desktop/c c/金融/db/market_feature_store.duckdb` safely and incrementally. Prefer small observable commands, read-only audits first, and script improvements whenever a sync path hangs or becomes fragile.
+Use this skill to backfill `db/market_feature_store.duckdb`（仓根相对路径，勿写死家目录）safely and incrementally. Prefer small observable commands, read-only audits first, and script improvements whenever a sync path hangs or becomes fragile.
 
 ## Mandatory start
 
@@ -54,7 +54,7 @@ curl -s http://localhost:3456/targets
 
 回补 runbook（按表顺序：日历/基础 fact → 轻表 → stock_high 中表 → limit_heat/sector_stock 重表；常用 CLI 命令清单；以及 2026-06-15 起的已知覆盖状态、卡死/超时/CDP 500 日期与 skip 文件）见 `references/backfill-runbook.md`。回补前加载，按顺序小批执行。
 
-## 复盘会公开资产（2026-08-13 起）
+## 复盘会公开资产
 
 十类公开 API 资产（keywords/相似日/龙头高度/外盘/龙虎榜/监管/核心个股/竞价/事件/研报目录/题材挖掘）已进 `daily-full` 一步 `sync-fupanhui-public-assets`，无需 CDP。回补与质检：
 
@@ -88,7 +88,7 @@ python3 skills/duckdb-backfill/scripts/backfill_dragon_seats_full.py --start-dat
 
 写锁约束：DuckDB 单写者，线上 agent API 服务（`uvicorn intelligence.api.app`，端口 8792）在跑时会占写锁，批量回填得在其停止的写窗口进行，或走 `daily-full` 既有写窗口。
 
-## 已知问题（2026-06-20 更新）
+## 已知问题
 
 - **sync-market-deviation tooltip 提取失败**：`sync-market-deviation` 通过 hover K 线图 tooltip 提取周均线/偏离度，偶发失败。Fallback：手动查询最近 5 个交易日上证收盘价，计算 MA5，然后直接 SQL 写入：
   ```sql
