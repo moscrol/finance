@@ -1,0 +1,1139 @@
+FFFFFFFFFF.                                                              [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260916T142359Z-2e2329ea.json
+
+=================================== FAILURES ===================================
+______________ test_bad_archive_cannot_publish_or_skip_retry[crc] ______________
+
+pipeline = namespace(db=PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2203/test_bad_ar...3xv80000gn/T/pytest-of-a77/pytest-2203/test_bad_archive_cannot_publis0/cache'), real_run=<function run at 0x10890afc0>)
+mode = 'crc'
+
+    @pytest.mark.parametrize("mode", ["crc", "crc_full", "partial", "empty", "malformed"])
+    def test_bad_archive_cannot_publish_or_skip_retry(pipeline, mode):
+        pipeline.mode = mode
+>       with pytest.raises((RuntimeError, KeyError)):
+E       Failed: DID NOT RAISE (<class 'RuntimeError'>, <class 'KeyError'>)
+
+tests/test_l2_file_source_quality.py:113: Failed
+----------------------------- Captured stdout call -----------------------------
+2026-09-16 prev=2026-09-15 limitup=1 top100=100
+7zz x 100 tick files
+CRC Failed 
+MISS 600001
+MISS 600002
+MISS 600003
+MISS 600004
+MISS 600005
+MISS 600006
+MISS 600007
+MISS 600008
+MISS 600009
+MISS 600010
+MISS 600011
+MISS 600012
+MISS 600013
+MISS 600014
+MISS 600015
+MISS 600016
+MISS 600017
+MISS 600018
+MISS 600019
+MISS 600020
+MISS 600021
+MISS 600022
+MISS 600023
+MISS 600024
+MISS 600025
+MISS 600026
+MISS 600027
+MISS 600028
+MISS 600029
+MISS 600030
+MISS 600031
+MISS 600032
+MISS 600033
+MISS 600034
+MISS 600035
+MISS 600036
+MISS 600037
+MISS 600038
+MISS 600039
+MISS 600040
+MISS 600041
+MISS 600042
+MISS 600043
+MISS 600044
+MISS 600045
+MISS 600046
+MISS 600047
+MISS 600048
+MISS 600049
+MISS 600050
+MISS 600051
+MISS 600052
+MISS 600053
+MISS 600054
+MISS 600055
+MISS 600056
+MISS 600057
+MISS 600058
+MISS 600059
+MISS 600060
+MISS 600061
+MISS 600062
+MISS 600063
+MISS 600064
+MISS 600065
+MISS 600066
+MISS 600067
+MISS 600068
+MISS 600069
+MISS 600070
+MISS 600071
+MISS 600072
+MISS 600073
+MISS 600074
+MISS 600075
+MISS 600076
+MISS 600077
+MISS 600078
+MISS 600079
+MISS 600080
+MISS 600081
+MISS 600082
+MISS 600083
+MISS 600084
+MISS 600085
+MISS 600086
+MISS 600087
+MISS 600088
+MISS 600089
+MISS 600090
+MISS 600091
+MISS 600092
+MISS 600093
+MISS 600094
+MISS 600095
+MISS 600096
+MISS 600097
+MISS 600098
+MISS 600099
+extracted 1/100
+600000 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily limitup 2026-09-16 写入 1 行
+600000 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily top100 2026-09-16 写入 1 行
+DuckDB: feature_l2_quant_orders_daily 2026-09-16 写入 0 行
+wrote limitup=1 top100=1 quant=0
+done 2026-09-16
+___________ test_bad_archive_cannot_publish_or_skip_retry[crc_full] ____________
+
+pipeline = namespace(db=PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2203/test_bad_ar...3xv80000gn/T/pytest-of-a77/pytest-2203/test_bad_archive_cannot_publis1/cache'), real_run=<function run at 0x10890afc0>)
+mode = 'crc_full'
+
+    @pytest.mark.parametrize("mode", ["crc", "crc_full", "partial", "empty", "malformed"])
+    def test_bad_archive_cannot_publish_or_skip_retry(pipeline, mode):
+        pipeline.mode = mode
+>       with pytest.raises((RuntimeError, KeyError)):
+E       Failed: DID NOT RAISE (<class 'RuntimeError'>, <class 'KeyError'>)
+
+tests/test_l2_file_source_quality.py:113: Failed
+----------------------------- Captured stdout call -----------------------------
+2026-09-16 prev=2026-09-15 limitup=1 top100=100
+7zz x 100 tick files
+CRC Failed 
+extracted 100/100
+600000 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily limitup 2026-09-16 写入 1 行
+600000 主买:200万 总买:0万
+600001 主买:200万 总买:0万
+600002 主买:200万 总买:0万
+600003 主买:200万 总买:0万
+600004 主买:200万 总买:0万
+600005 主买:200万 总买:0万
+600006 主买:200万 总买:0万
+600007 主买:200万 总买:0万
+600008 主买:200万 总买:0万
+600009 主买:200万 总买:0万
+600010 主买:200万 总买:0万
+600011 主买:200万 总买:0万
+600012 主买:200万 总买:0万
+600013 主买:200万 总买:0万
+600014 主买:200万 总买:0万
+600015 主买:200万 总买:0万
+600016 主买:200万 总买:0万
+600017 主买:200万 总买:0万
+600018 主买:200万 总买:0万
+600019 主买:200万 总买:0万
+600020 主买:200万 总买:0万
+600021 主买:200万 总买:0万
+600022 主买:200万 总买:0万
+600023 主买:200万 总买:0万
+600024 主买:200万 总买:0万
+600025 主买:200万 总买:0万
+600026 主买:200万 总买:0万
+600027 主买:200万 总买:0万
+600028 主买:200万 总买:0万
+600029 主买:200万 总买:0万
+600030 主买:200万 总买:0万
+600031 主买:200万 总买:0万
+600032 主买:200万 总买:0万
+600033 主买:200万 总买:0万
+600034 主买:200万 总买:0万
+600035 主买:200万 总买:0万
+600036 主买:200万 总买:0万
+600037 主买:200万 总买:0万
+600038 主买:200万 总买:0万
+600039 主买:200万 总买:0万
+600040 主买:200万 总买:0万
+600041 主买:200万 总买:0万
+600042 主买:200万 总买:0万
+600043 主买:200万 总买:0万
+600044 主买:200万 总买:0万
+600045 主买:200万 总买:0万
+600046 主买:200万 总买:0万
+600047 主买:200万 总买:0万
+600048 主买:200万 总买:0万
+600049 主买:200万 总买:0万
+600050 主买:200万 总买:0万
+600051 主买:200万 总买:0万
+600052 主买:200万 总买:0万
+600053 主买:200万 总买:0万
+600054 主买:200万 总买:0万
+600055 主买:200万 总买:0万
+600056 主买:200万 总买:0万
+600057 主买:200万 总买:0万
+600058 主买:200万 总买:0万
+600059 主买:200万 总买:0万
+600060 主买:200万 总买:0万
+600061 主买:200万 总买:0万
+600062 主买:200万 总买:0万
+600063 主买:200万 总买:0万
+600064 主买:200万 总买:0万
+600065 主买:200万 总买:0万
+600066 主买:200万 总买:0万
+600067 主买:200万 总买:0万
+600068 主买:200万 总买:0万
+600069 主买:200万 总买:0万
+600070 主买:200万 总买:0万
+600071 主买:200万 总买:0万
+600072 主买:200万 总买:0万
+600073 主买:200万 总买:0万
+600074 主买:200万 总买:0万
+600075 主买:200万 总买:0万
+600076 主买:200万 总买:0万
+600077 主买:200万 总买:0万
+600078 主买:200万 总买:0万
+600079 主买:200万 总买:0万
+600080 主买:200万 总买:0万
+600081 主买:200万 总买:0万
+600082 主买:200万 总买:0万
+600083 主买:200万 总买:0万
+600084 主买:200万 总买:0万
+600085 主买:200万 总买:0万
+600086 主买:200万 总买:0万
+600087 主买:200万 总买:0万
+600088 主买:200万 总买:0万
+600089 主买:200万 总买:0万
+600090 主买:200万 总买:0万
+600091 主买:200万 总买:0万
+600092 主买:200万 总买:0万
+600093 主买:200万 总买:0万
+600094 主买:200万 总买:0万
+600095 主买:200万 总买:0万
+600096 主买:200万 总买:0万
+600097 主买:200万 总买:0万
+600098 主买:200万 总买:0万
+600099 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily top100 2026-09-16 写入 100 行
+DuckDB: feature_l2_quant_orders_daily 2026-09-16 写入 0 行
+wrote limitup=1 top100=100 quant=0
+done 2026-09-16
+____________ test_bad_archive_cannot_publish_or_skip_retry[partial] ____________
+
+pipeline = namespace(db=PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2203/test_bad_ar...3xv80000gn/T/pytest-of-a77/pytest-2203/test_bad_archive_cannot_publis2/cache'), real_run=<function run at 0x10890afc0>)
+mode = 'partial'
+
+    @pytest.mark.parametrize("mode", ["crc", "crc_full", "partial", "empty", "malformed"])
+    def test_bad_archive_cannot_publish_or_skip_retry(pipeline, mode):
+        pipeline.mode = mode
+>       with pytest.raises((RuntimeError, KeyError)):
+E       Failed: DID NOT RAISE (<class 'RuntimeError'>, <class 'KeyError'>)
+
+tests/test_l2_file_source_quality.py:113: Failed
+----------------------------- Captured stdout call -----------------------------
+2026-09-16 prev=2026-09-15 limitup=1 top100=100
+7zz x 100 tick files
+MISS 600001
+MISS 600002
+MISS 600003
+MISS 600004
+MISS 600005
+MISS 600006
+MISS 600007
+MISS 600008
+MISS 600009
+MISS 600010
+MISS 600011
+MISS 600012
+MISS 600013
+MISS 600014
+MISS 600015
+MISS 600016
+MISS 600017
+MISS 600018
+MISS 600019
+MISS 600020
+MISS 600021
+MISS 600022
+MISS 600023
+MISS 600024
+MISS 600025
+MISS 600026
+MISS 600027
+MISS 600028
+MISS 600029
+MISS 600030
+MISS 600031
+MISS 600032
+MISS 600033
+MISS 600034
+MISS 600035
+MISS 600036
+MISS 600037
+MISS 600038
+MISS 600039
+MISS 600040
+MISS 600041
+MISS 600042
+MISS 600043
+MISS 600044
+MISS 600045
+MISS 600046
+MISS 600047
+MISS 600048
+MISS 600049
+MISS 600050
+MISS 600051
+MISS 600052
+MISS 600053
+MISS 600054
+MISS 600055
+MISS 600056
+MISS 600057
+MISS 600058
+MISS 600059
+MISS 600060
+MISS 600061
+MISS 600062
+MISS 600063
+MISS 600064
+MISS 600065
+MISS 600066
+MISS 600067
+MISS 600068
+MISS 600069
+MISS 600070
+MISS 600071
+MISS 600072
+MISS 600073
+MISS 600074
+MISS 600075
+MISS 600076
+MISS 600077
+MISS 600078
+MISS 600079
+MISS 600080
+MISS 600081
+MISS 600082
+MISS 600083
+MISS 600084
+MISS 600085
+MISS 600086
+MISS 600087
+MISS 600088
+MISS 600089
+MISS 600090
+MISS 600091
+MISS 600092
+MISS 600093
+MISS 600094
+MISS 600095
+MISS 600096
+MISS 600097
+MISS 600098
+MISS 600099
+extracted 1/100
+600000 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily limitup 2026-09-16 写入 1 行
+600000 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily top100 2026-09-16 写入 1 行
+DuckDB: feature_l2_quant_orders_daily 2026-09-16 写入 0 行
+wrote limitup=1 top100=1 quant=0
+done 2026-09-16
+_____________ test_bad_archive_cannot_publish_or_skip_retry[empty] _____________
+
+pipeline = namespace(db=PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2203/test_bad_ar...3xv80000gn/T/pytest-of-a77/pytest-2203/test_bad_archive_cannot_publis3/cache'), real_run=<function run at 0x10890afc0>)
+mode = 'empty'
+
+    @pytest.mark.parametrize("mode", ["crc", "crc_full", "partial", "empty", "malformed"])
+    def test_bad_archive_cannot_publish_or_skip_retry(pipeline, mode):
+        pipeline.mode = mode
+>       with pytest.raises((RuntimeError, KeyError)):
+E       Failed: DID NOT RAISE (<class 'RuntimeError'>, <class 'KeyError'>)
+
+tests/test_l2_file_source_quality.py:113: Failed
+----------------------------- Captured stdout call -----------------------------
+2026-09-16 prev=2026-09-15 limitup=1 top100=100
+7zz x 100 tick files
+extracted 100/100
+600000 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily limitup 2026-09-16 写入 1 行
+600000 主买:200万 总买:0万
+600002 主买:200万 总买:0万
+600003 主买:200万 总买:0万
+600004 主买:200万 总买:0万
+600005 主买:200万 总买:0万
+600006 主买:200万 总买:0万
+600007 主买:200万 总买:0万
+600008 主买:200万 总买:0万
+600009 主买:200万 总买:0万
+600010 主买:200万 总买:0万
+600011 主买:200万 总买:0万
+600012 主买:200万 总买:0万
+600013 主买:200万 总买:0万
+600014 主买:200万 总买:0万
+600015 主买:200万 总买:0万
+600016 主买:200万 总买:0万
+600017 主买:200万 总买:0万
+600018 主买:200万 总买:0万
+600019 主买:200万 总买:0万
+600020 主买:200万 总买:0万
+600021 主买:200万 总买:0万
+600022 主买:200万 总买:0万
+600023 主买:200万 总买:0万
+600024 主买:200万 总买:0万
+600025 主买:200万 总买:0万
+600026 主买:200万 总买:0万
+600027 主买:200万 总买:0万
+600028 主买:200万 总买:0万
+600029 主买:200万 总买:0万
+600030 主买:200万 总买:0万
+600031 主买:200万 总买:0万
+600032 主买:200万 总买:0万
+600033 主买:200万 总买:0万
+600034 主买:200万 总买:0万
+600035 主买:200万 总买:0万
+600036 主买:200万 总买:0万
+600037 主买:200万 总买:0万
+600038 主买:200万 总买:0万
+600039 主买:200万 总买:0万
+600040 主买:200万 总买:0万
+600041 主买:200万 总买:0万
+600042 主买:200万 总买:0万
+600043 主买:200万 总买:0万
+600044 主买:200万 总买:0万
+600045 主买:200万 总买:0万
+600046 主买:200万 总买:0万
+600047 主买:200万 总买:0万
+600048 主买:200万 总买:0万
+600049 主买:200万 总买:0万
+600050 主买:200万 总买:0万
+600051 主买:200万 总买:0万
+600052 主买:200万 总买:0万
+600053 主买:200万 总买:0万
+600054 主买:200万 总买:0万
+600055 主买:200万 总买:0万
+600056 主买:200万 总买:0万
+600057 主买:200万 总买:0万
+600058 主买:200万 总买:0万
+600059 主买:200万 总买:0万
+600060 主买:200万 总买:0万
+600061 主买:200万 总买:0万
+600062 主买:200万 总买:0万
+600063 主买:200万 总买:0万
+600064 主买:200万 总买:0万
+600065 主买:200万 总买:0万
+600066 主买:200万 总买:0万
+600067 主买:200万 总买:0万
+600068 主买:200万 总买:0万
+600069 主买:200万 总买:0万
+600070 主买:200万 总买:0万
+600071 主买:200万 总买:0万
+600072 主买:200万 总买:0万
+600073 主买:200万 总买:0万
+600074 主买:200万 总买:0万
+600075 主买:200万 总买:0万
+600076 主买:200万 总买:0万
+600077 主买:200万 总买:0万
+600078 主买:200万 总买:0万
+600079 主买:200万 总买:0万
+600080 主买:200万 总买:0万
+600081 主买:200万 总买:0万
+600082 主买:200万 总买:0万
+600083 主买:200万 总买:0万
+600084 主买:200万 总买:0万
+600085 主买:200万 总买:0万
+600086 主买:200万 总买:0万
+600087 主买:200万 总买:0万
+600088 主买:200万 总买:0万
+600089 主买:200万 总买:0万
+600090 主买:200万 总买:0万
+600091 主买:200万 总买:0万
+600092 主买:200万 总买:0万
+600093 主买:200万 总买:0万
+600094 主买:200万 总买:0万
+600095 主买:200万 总买:0万
+600096 主买:200万 总买:0万
+600097 主买:200万 总买:0万
+600098 主买:200万 总买:0万
+600099 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily top100 2026-09-16 写入 99 行
+DuckDB: feature_l2_quant_orders_daily 2026-09-16 写入 0 行
+wrote limitup=1 top100=99 quant=0
+done 2026-09-16
+___________ test_bad_archive_cannot_publish_or_skip_retry[malformed] ___________
+
+pipeline = namespace(db=PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2203/test_bad_ar...3xv80000gn/T/pytest-of-a77/pytest-2203/test_bad_archive_cannot_publis4/cache'), real_run=<function run at 0x10890afc0>)
+mode = 'malformed'
+
+    @pytest.mark.parametrize("mode", ["crc", "crc_full", "partial", "empty", "malformed"])
+    def test_bad_archive_cannot_publish_or_skip_retry(pipeline, mode):
+        pipeline.mode = mode
+        with pytest.raises((RuntimeError, KeyError)):
+            pipeline.runner.run_date(DATE)
+>       assert {row[1] for row in _ledger(pipeline)} == {"failed"}
+E       AssertionError: assert {'complete'} == {'failed'}
+E         
+E         Extra items in the left set:
+E         'complete'
+E         Extra items in the right set:
+E         'failed'
+E         Use -v to get more diff
+
+tests/test_l2_file_source_quality.py:115: AssertionError
+----------------------------- Captured stdout call -----------------------------
+2026-09-16 prev=2026-09-15 limitup=1 top100=100
+7zz x 100 tick files
+extracted 100/100
+600000 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily limitup 2026-09-16 写入 1 行
+600000 主买:200万 总买:0万
+FAIL 2026-09-16，本地 7z 留下便于重试
+___________ test_skip_revalidates_ledger_and_result_tables[partial] ____________
+
+pipeline = namespace(db=PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2203/test_skip_r...3xv80000gn/T/pytest-of-a77/pytest-2203/test_skip_revalidates_ledger_a0/cache'), real_run=<function run at 0x10890afc0>)
+damage = 'partial'
+
+    @pytest.mark.parametrize("damage", ["partial", "missing_stats", "result_deleted", "failed"])
+    def test_skip_revalidates_ledger_and_result_tables(pipeline, damage):
+        pipeline.runner.run_date(DATE)
+        with duckdb.connect(str(pipeline.db)) as con:
+            if damage in {"partial", "result_deleted"}:
+                con.execute(
+                    "DELETE FROM feature_l2_capital_flow_daily "
+                    "WHERE scan_type='top100' AND stock_code != '600000'"
+                )
+            if damage == "partial":
+                # Old false-complete shape: 1 real row but self-reported 100/100, no failures.
+                con.execute("UPDATE ops_pipeline_run_daily SET row_count=1 WHERE step='top100'")
+            elif damage == "missing_stats":
+                con.execute("UPDATE ops_pipeline_run_daily SET processed_count=NULL WHERE step='quant'")
+            elif damage == "failed":
+                con.execute("UPDATE ops_pipeline_run_daily SET failed_count=1 WHERE step='quant'")
+>       assert checker.check_l2(DATE)
+E       AssertionError: assert []
+E        +  where [] = <function check_l2 at 0x1092c96c0>('2026-09-16')
+E        +    where <function check_l2 at 0x1092c96c0> = checker.check_l2
+
+tests/test_l2_file_source_quality.py:162: AssertionError
+----------------------------- Captured stdout call -----------------------------
+2026-09-16 prev=2026-09-15 limitup=1 top100=100
+7zz x 100 tick files
+extracted 100/100
+600000 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily limitup 2026-09-16 写入 1 行
+600000 主买:200万 总买:0万
+600001 主买:200万 总买:0万
+600002 主买:200万 总买:0万
+600003 主买:200万 总买:0万
+600004 主买:200万 总买:0万
+600005 主买:200万 总买:0万
+600006 主买:200万 总买:0万
+600007 主买:200万 总买:0万
+600008 主买:200万 总买:0万
+600009 主买:200万 总买:0万
+600010 主买:200万 总买:0万
+600011 主买:200万 总买:0万
+600012 主买:200万 总买:0万
+600013 主买:200万 总买:0万
+600014 主买:200万 总买:0万
+600015 主买:200万 总买:0万
+600016 主买:200万 总买:0万
+600017 主买:200万 总买:0万
+600018 主买:200万 总买:0万
+600019 主买:200万 总买:0万
+600020 主买:200万 总买:0万
+600021 主买:200万 总买:0万
+600022 主买:200万 总买:0万
+600023 主买:200万 总买:0万
+600024 主买:200万 总买:0万
+600025 主买:200万 总买:0万
+600026 主买:200万 总买:0万
+600027 主买:200万 总买:0万
+600028 主买:200万 总买:0万
+600029 主买:200万 总买:0万
+600030 主买:200万 总买:0万
+600031 主买:200万 总买:0万
+600032 主买:200万 总买:0万
+600033 主买:200万 总买:0万
+600034 主买:200万 总买:0万
+600035 主买:200万 总买:0万
+600036 主买:200万 总买:0万
+600037 主买:200万 总买:0万
+600038 主买:200万 总买:0万
+600039 主买:200万 总买:0万
+600040 主买:200万 总买:0万
+600041 主买:200万 总买:0万
+600042 主买:200万 总买:0万
+600043 主买:200万 总买:0万
+600044 主买:200万 总买:0万
+600045 主买:200万 总买:0万
+600046 主买:200万 总买:0万
+600047 主买:200万 总买:0万
+600048 主买:200万 总买:0万
+600049 主买:200万 总买:0万
+600050 主买:200万 总买:0万
+600051 主买:200万 总买:0万
+600052 主买:200万 总买:0万
+600053 主买:200万 总买:0万
+600054 主买:200万 总买:0万
+600055 主买:200万 总买:0万
+600056 主买:200万 总买:0万
+600057 主买:200万 总买:0万
+600058 主买:200万 总买:0万
+600059 主买:200万 总买:0万
+600060 主买:200万 总买:0万
+600061 主买:200万 总买:0万
+600062 主买:200万 总买:0万
+600063 主买:200万 总买:0万
+600064 主买:200万 总买:0万
+600065 主买:200万 总买:0万
+600066 主买:200万 总买:0万
+600067 主买:200万 总买:0万
+600068 主买:200万 总买:0万
+600069 主买:200万 总买:0万
+600070 主买:200万 总买:0万
+600071 主买:200万 总买:0万
+600072 主买:200万 总买:0万
+600073 主买:200万 总买:0万
+600074 主买:200万 总买:0万
+600075 主买:200万 总买:0万
+600076 主买:200万 总买:0万
+600077 主买:200万 总买:0万
+600078 主买:200万 总买:0万
+600079 主买:200万 总买:0万
+600080 主买:200万 总买:0万
+600081 主买:200万 总买:0万
+600082 主买:200万 总买:0万
+600083 主买:200万 总买:0万
+600084 主买:200万 总买:0万
+600085 主买:200万 总买:0万
+600086 主买:200万 总买:0万
+600087 主买:200万 总买:0万
+600088 主买:200万 总买:0万
+600089 主买:200万 总买:0万
+600090 主买:200万 总买:0万
+600091 主买:200万 总买:0万
+600092 主买:200万 总买:0万
+600093 主买:200万 总买:0万
+600094 主买:200万 总买:0万
+600095 主买:200万 总买:0万
+600096 主买:200万 总买:0万
+600097 主买:200万 总买:0万
+600098 主买:200万 总买:0万
+600099 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily top100 2026-09-16 写入 100 行
+DuckDB: feature_l2_quant_orders_daily 2026-09-16 写入 0 行
+wrote limitup=1 top100=100 quant=0
+done 2026-09-16
+CHECK L2 2026-09-16
+l2-moneyflow/limitup: ('complete', 1, 1, 1, 0, datetime.datetime(2026, 9, 16, 22, 23, 54, 369711))
+l2-moneyflow/top100: ('complete', 1, 100, 100, 0, datetime.datetime(2026, 9, 16, 22, 23, 54, 716477))
+l2-moneyflow/quant: ('complete', 0, 100, 100, 0, datetime.datetime(2026, 9, 16, 22, 23, 54, 996690))
+feature_l2_capital_flow_daily: rows=2 max=2026-09-16
+feature_l2_quant_orders_daily: rows=0 max=None
+________ test_skip_revalidates_ledger_and_result_tables[missing_stats] _________
+
+pipeline = namespace(db=PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2203/test_skip_r...3xv80000gn/T/pytest-of-a77/pytest-2203/test_skip_revalidates_ledger_a1/cache'), real_run=<function run at 0x10890afc0>)
+damage = 'missing_stats'
+
+    @pytest.mark.parametrize("damage", ["partial", "missing_stats", "result_deleted", "failed"])
+    def test_skip_revalidates_ledger_and_result_tables(pipeline, damage):
+        pipeline.runner.run_date(DATE)
+        with duckdb.connect(str(pipeline.db)) as con:
+            if damage in {"partial", "result_deleted"}:
+                con.execute(
+                    "DELETE FROM feature_l2_capital_flow_daily "
+                    "WHERE scan_type='top100' AND stock_code != '600000'"
+                )
+            if damage == "partial":
+                # Old false-complete shape: 1 real row but self-reported 100/100, no failures.
+                con.execute("UPDATE ops_pipeline_run_daily SET row_count=1 WHERE step='top100'")
+            elif damage == "missing_stats":
+                con.execute("UPDATE ops_pipeline_run_daily SET processed_count=NULL WHERE step='quant'")
+            elif damage == "failed":
+                con.execute("UPDATE ops_pipeline_run_daily SET failed_count=1 WHERE step='quant'")
+        assert checker.check_l2(DATE)
+>       assert not pipeline.runner.already_complete(DATE)
+E       AssertionError: assert not True
+E        +  where True = <function already_complete at 0x10f46ac00>('2026-09-16')
+E        +    where <function already_complete at 0x10f46ac00> = <module 'run_l2_from_share' from '/Users/a77/.finance-runtime/reviews/pr773-fix/before/scripts/moneyflow/run_l2_from_share.py'>.already_complete
+E        +      where <module 'run_l2_from_share' from '/Users/a77/.finance-runtime/reviews/pr773-fix/before/scripts/moneyflow/run_l2_from_share.py'> = namespace(db=PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2203/test_skip_r...3xv80000gn/T/pytest-of-a77/pytest-2203/test_skip_revalidates_ledger_a1/cache'), real_run=<function run at 0x10890afc0>).runner
+
+tests/test_l2_file_source_quality.py:163: AssertionError
+----------------------------- Captured stdout call -----------------------------
+2026-09-16 prev=2026-09-15 limitup=1 top100=100
+7zz x 100 tick files
+extracted 100/100
+600000 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily limitup 2026-09-16 写入 1 行
+600000 主买:200万 总买:0万
+600001 主买:200万 总买:0万
+600002 主买:200万 总买:0万
+600003 主买:200万 总买:0万
+600004 主买:200万 总买:0万
+600005 主买:200万 总买:0万
+600006 主买:200万 总买:0万
+600007 主买:200万 总买:0万
+600008 主买:200万 总买:0万
+600009 主买:200万 总买:0万
+600010 主买:200万 总买:0万
+600011 主买:200万 总买:0万
+600012 主买:200万 总买:0万
+600013 主买:200万 总买:0万
+600014 主买:200万 总买:0万
+600015 主买:200万 总买:0万
+600016 主买:200万 总买:0万
+600017 主买:200万 总买:0万
+600018 主买:200万 总买:0万
+600019 主买:200万 总买:0万
+600020 主买:200万 总买:0万
+600021 主买:200万 总买:0万
+600022 主买:200万 总买:0万
+600023 主买:200万 总买:0万
+600024 主买:200万 总买:0万
+600025 主买:200万 总买:0万
+600026 主买:200万 总买:0万
+600027 主买:200万 总买:0万
+600028 主买:200万 总买:0万
+600029 主买:200万 总买:0万
+600030 主买:200万 总买:0万
+600031 主买:200万 总买:0万
+600032 主买:200万 总买:0万
+600033 主买:200万 总买:0万
+600034 主买:200万 总买:0万
+600035 主买:200万 总买:0万
+600036 主买:200万 总买:0万
+600037 主买:200万 总买:0万
+600038 主买:200万 总买:0万
+600039 主买:200万 总买:0万
+600040 主买:200万 总买:0万
+600041 主买:200万 总买:0万
+600042 主买:200万 总买:0万
+600043 主买:200万 总买:0万
+600044 主买:200万 总买:0万
+600045 主买:200万 总买:0万
+600046 主买:200万 总买:0万
+600047 主买:200万 总买:0万
+600048 主买:200万 总买:0万
+600049 主买:200万 总买:0万
+600050 主买:200万 总买:0万
+600051 主买:200万 总买:0万
+600052 主买:200万 总买:0万
+600053 主买:200万 总买:0万
+600054 主买:200万 总买:0万
+600055 主买:200万 总买:0万
+600056 主买:200万 总买:0万
+600057 主买:200万 总买:0万
+600058 主买:200万 总买:0万
+600059 主买:200万 总买:0万
+600060 主买:200万 总买:0万
+600061 主买:200万 总买:0万
+600062 主买:200万 总买:0万
+600063 主买:200万 总买:0万
+600064 主买:200万 总买:0万
+600065 主买:200万 总买:0万
+600066 主买:200万 总买:0万
+600067 主买:200万 总买:0万
+600068 主买:200万 总买:0万
+600069 主买:200万 总买:0万
+600070 主买:200万 总买:0万
+600071 主买:200万 总买:0万
+600072 主买:200万 总买:0万
+600073 主买:200万 总买:0万
+600074 主买:200万 总买:0万
+600075 主买:200万 总买:0万
+600076 主买:200万 总买:0万
+600077 主买:200万 总买:0万
+600078 主买:200万 总买:0万
+600079 主买:200万 总买:0万
+600080 主买:200万 总买:0万
+600081 主买:200万 总买:0万
+600082 主买:200万 总买:0万
+600083 主买:200万 总买:0万
+600084 主买:200万 总买:0万
+600085 主买:200万 总买:0万
+600086 主买:200万 总买:0万
+600087 主买:200万 总买:0万
+600088 主买:200万 总买:0万
+600089 主买:200万 总买:0万
+600090 主买:200万 总买:0万
+600091 主买:200万 总买:0万
+600092 主买:200万 总买:0万
+600093 主买:200万 总买:0万
+600094 主买:200万 总买:0万
+600095 主买:200万 总买:0万
+600096 主买:200万 总买:0万
+600097 主买:200万 总买:0万
+600098 主买:200万 总买:0万
+600099 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily top100 2026-09-16 写入 100 行
+DuckDB: feature_l2_quant_orders_daily 2026-09-16 写入 0 行
+wrote limitup=1 top100=100 quant=0
+done 2026-09-16
+CHECK L2 2026-09-16
+l2-moneyflow/limitup: ('complete', 1, 1, 1, 0, datetime.datetime(2026, 9, 16, 22, 23, 55, 258474))
+l2-moneyflow/top100: ('complete', 100, 100, 100, 0, datetime.datetime(2026, 9, 16, 22, 23, 55, 676769))
+l2-moneyflow/quant: ('complete', 0, 100, None, 0, datetime.datetime(2026, 9, 16, 22, 23, 55, 983075))
+feature_l2_capital_flow_daily: rows=101 max=2026-09-16
+feature_l2_quant_orders_daily: rows=0 max=None
+________ test_skip_revalidates_ledger_and_result_tables[result_deleted] ________
+
+pipeline = namespace(db=PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2203/test_skip_r...3xv80000gn/T/pytest-of-a77/pytest-2203/test_skip_revalidates_ledger_a2/cache'), real_run=<function run at 0x10890afc0>)
+damage = 'result_deleted'
+
+    @pytest.mark.parametrize("damage", ["partial", "missing_stats", "result_deleted", "failed"])
+    def test_skip_revalidates_ledger_and_result_tables(pipeline, damage):
+        pipeline.runner.run_date(DATE)
+        with duckdb.connect(str(pipeline.db)) as con:
+            if damage in {"partial", "result_deleted"}:
+                con.execute(
+                    "DELETE FROM feature_l2_capital_flow_daily "
+                    "WHERE scan_type='top100' AND stock_code != '600000'"
+                )
+            if damage == "partial":
+                # Old false-complete shape: 1 real row but self-reported 100/100, no failures.
+                con.execute("UPDATE ops_pipeline_run_daily SET row_count=1 WHERE step='top100'")
+            elif damage == "missing_stats":
+                con.execute("UPDATE ops_pipeline_run_daily SET processed_count=NULL WHERE step='quant'")
+            elif damage == "failed":
+                con.execute("UPDATE ops_pipeline_run_daily SET failed_count=1 WHERE step='quant'")
+        assert checker.check_l2(DATE)
+>       assert not pipeline.runner.already_complete(DATE)
+E       AssertionError: assert not True
+E        +  where True = <function already_complete at 0x10f457ce0>('2026-09-16')
+E        +    where <function already_complete at 0x10f457ce0> = <module 'run_l2_from_share' from '/Users/a77/.finance-runtime/reviews/pr773-fix/before/scripts/moneyflow/run_l2_from_share.py'>.already_complete
+E        +      where <module 'run_l2_from_share' from '/Users/a77/.finance-runtime/reviews/pr773-fix/before/scripts/moneyflow/run_l2_from_share.py'> = namespace(db=PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2203/test_skip_r...3xv80000gn/T/pytest-of-a77/pytest-2203/test_skip_revalidates_ledger_a2/cache'), real_run=<function run at 0x10890afc0>).runner
+
+tests/test_l2_file_source_quality.py:163: AssertionError
+----------------------------- Captured stdout call -----------------------------
+2026-09-16 prev=2026-09-15 limitup=1 top100=100
+7zz x 100 tick files
+extracted 100/100
+600000 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily limitup 2026-09-16 写入 1 行
+600000 主买:200万 总买:0万
+600001 主买:200万 总买:0万
+600002 主买:200万 总买:0万
+600003 主买:200万 总买:0万
+600004 主买:200万 总买:0万
+600005 主买:200万 总买:0万
+600006 主买:200万 总买:0万
+600007 主买:200万 总买:0万
+600008 主买:200万 总买:0万
+600009 主买:200万 总买:0万
+600010 主买:200万 总买:0万
+600011 主买:200万 总买:0万
+600012 主买:200万 总买:0万
+600013 主买:200万 总买:0万
+600014 主买:200万 总买:0万
+600015 主买:200万 总买:0万
+600016 主买:200万 总买:0万
+600017 主买:200万 总买:0万
+600018 主买:200万 总买:0万
+600019 主买:200万 总买:0万
+600020 主买:200万 总买:0万
+600021 主买:200万 总买:0万
+600022 主买:200万 总买:0万
+600023 主买:200万 总买:0万
+600024 主买:200万 总买:0万
+600025 主买:200万 总买:0万
+600026 主买:200万 总买:0万
+600027 主买:200万 总买:0万
+600028 主买:200万 总买:0万
+600029 主买:200万 总买:0万
+600030 主买:200万 总买:0万
+600031 主买:200万 总买:0万
+600032 主买:200万 总买:0万
+600033 主买:200万 总买:0万
+600034 主买:200万 总买:0万
+600035 主买:200万 总买:0万
+600036 主买:200万 总买:0万
+600037 主买:200万 总买:0万
+600038 主买:200万 总买:0万
+600039 主买:200万 总买:0万
+600040 主买:200万 总买:0万
+600041 主买:200万 总买:0万
+600042 主买:200万 总买:0万
+600043 主买:200万 总买:0万
+600044 主买:200万 总买:0万
+600045 主买:200万 总买:0万
+600046 主买:200万 总买:0万
+600047 主买:200万 总买:0万
+600048 主买:200万 总买:0万
+600049 主买:200万 总买:0万
+600050 主买:200万 总买:0万
+600051 主买:200万 总买:0万
+600052 主买:200万 总买:0万
+600053 主买:200万 总买:0万
+600054 主买:200万 总买:0万
+600055 主买:200万 总买:0万
+600056 主买:200万 总买:0万
+600057 主买:200万 总买:0万
+600058 主买:200万 总买:0万
+600059 主买:200万 总买:0万
+600060 主买:200万 总买:0万
+600061 主买:200万 总买:0万
+600062 主买:200万 总买:0万
+600063 主买:200万 总买:0万
+600064 主买:200万 总买:0万
+600065 主买:200万 总买:0万
+600066 主买:200万 总买:0万
+600067 主买:200万 总买:0万
+600068 主买:200万 总买:0万
+600069 主买:200万 总买:0万
+600070 主买:200万 总买:0万
+600071 主买:200万 总买:0万
+600072 主买:200万 总买:0万
+600073 主买:200万 总买:0万
+600074 主买:200万 总买:0万
+600075 主买:200万 总买:0万
+600076 主买:200万 总买:0万
+600077 主买:200万 总买:0万
+600078 主买:200万 总买:0万
+600079 主买:200万 总买:0万
+600080 主买:200万 总买:0万
+600081 主买:200万 总买:0万
+600082 主买:200万 总买:0万
+600083 主买:200万 总买:0万
+600084 主买:200万 总买:0万
+600085 主买:200万 总买:0万
+600086 主买:200万 总买:0万
+600087 主买:200万 总买:0万
+600088 主买:200万 总买:0万
+600089 主买:200万 总买:0万
+600090 主买:200万 总买:0万
+600091 主买:200万 总买:0万
+600092 主买:200万 总买:0万
+600093 主买:200万 总买:0万
+600094 主买:200万 总买:0万
+600095 主买:200万 总买:0万
+600096 主买:200万 总买:0万
+600097 主买:200万 总买:0万
+600098 主买:200万 总买:0万
+600099 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily top100 2026-09-16 写入 100 行
+DuckDB: feature_l2_quant_orders_daily 2026-09-16 写入 0 行
+wrote limitup=1 top100=100 quant=0
+done 2026-09-16
+CHECK L2 2026-09-16
+l2-moneyflow/limitup: ('complete', 1, 1, 1, 0, datetime.datetime(2026, 9, 16, 22, 23, 56, 227508))
+l2-moneyflow/top100: ('complete', 100, 100, 100, 0, datetime.datetime(2026, 9, 16, 22, 23, 56, 569577))
+l2-moneyflow/quant: ('complete', 0, 100, 100, 0, datetime.datetime(2026, 9, 16, 22, 23, 56, 949545))
+feature_l2_capital_flow_daily: rows=2 max=2026-09-16
+feature_l2_quant_orders_daily: rows=0 max=None
+____________ test_skip_revalidates_ledger_and_result_tables[failed] ____________
+
+pipeline = namespace(db=PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2203/test_skip_r...3xv80000gn/T/pytest-of-a77/pytest-2203/test_skip_revalidates_ledger_a3/cache'), real_run=<function run at 0x10890afc0>)
+damage = 'failed'
+
+    @pytest.mark.parametrize("damage", ["partial", "missing_stats", "result_deleted", "failed"])
+    def test_skip_revalidates_ledger_and_result_tables(pipeline, damage):
+        pipeline.runner.run_date(DATE)
+        with duckdb.connect(str(pipeline.db)) as con:
+            if damage in {"partial", "result_deleted"}:
+                con.execute(
+                    "DELETE FROM feature_l2_capital_flow_daily "
+                    "WHERE scan_type='top100' AND stock_code != '600000'"
+                )
+            if damage == "partial":
+                # Old false-complete shape: 1 real row but self-reported 100/100, no failures.
+                con.execute("UPDATE ops_pipeline_run_daily SET row_count=1 WHERE step='top100'")
+            elif damage == "missing_stats":
+                con.execute("UPDATE ops_pipeline_run_daily SET processed_count=NULL WHERE step='quant'")
+            elif damage == "failed":
+                con.execute("UPDATE ops_pipeline_run_daily SET failed_count=1 WHERE step='quant'")
+        assert checker.check_l2(DATE)
+>       assert not pipeline.runner.already_complete(DATE)
+E       AssertionError: assert not True
+E        +  where True = <function already_complete at 0x10f560d60>('2026-09-16')
+E        +    where <function already_complete at 0x10f560d60> = <module 'run_l2_from_share' from '/Users/a77/.finance-runtime/reviews/pr773-fix/before/scripts/moneyflow/run_l2_from_share.py'>.already_complete
+E        +      where <module 'run_l2_from_share' from '/Users/a77/.finance-runtime/reviews/pr773-fix/before/scripts/moneyflow/run_l2_from_share.py'> = namespace(db=PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2203/test_skip_r...3xv80000gn/T/pytest-of-a77/pytest-2203/test_skip_revalidates_ledger_a3/cache'), real_run=<function run at 0x10890afc0>).runner
+
+tests/test_l2_file_source_quality.py:163: AssertionError
+----------------------------- Captured stdout call -----------------------------
+2026-09-16 prev=2026-09-15 limitup=1 top100=100
+7zz x 100 tick files
+extracted 100/100
+600000 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily limitup 2026-09-16 写入 1 行
+600000 主买:200万 总买:0万
+600001 主买:200万 总买:0万
+600002 主买:200万 总买:0万
+600003 主买:200万 总买:0万
+600004 主买:200万 总买:0万
+600005 主买:200万 总买:0万
+600006 主买:200万 总买:0万
+600007 主买:200万 总买:0万
+600008 主买:200万 总买:0万
+600009 主买:200万 总买:0万
+600010 主买:200万 总买:0万
+600011 主买:200万 总买:0万
+600012 主买:200万 总买:0万
+600013 主买:200万 总买:0万
+600014 主买:200万 总买:0万
+600015 主买:200万 总买:0万
+600016 主买:200万 总买:0万
+600017 主买:200万 总买:0万
+600018 主买:200万 总买:0万
+600019 主买:200万 总买:0万
+600020 主买:200万 总买:0万
+600021 主买:200万 总买:0万
+600022 主买:200万 总买:0万
+600023 主买:200万 总买:0万
+600024 主买:200万 总买:0万
+600025 主买:200万 总买:0万
+600026 主买:200万 总买:0万
+600027 主买:200万 总买:0万
+600028 主买:200万 总买:0万
+600029 主买:200万 总买:0万
+600030 主买:200万 总买:0万
+600031 主买:200万 总买:0万
+600032 主买:200万 总买:0万
+600033 主买:200万 总买:0万
+600034 主买:200万 总买:0万
+600035 主买:200万 总买:0万
+600036 主买:200万 总买:0万
+600037 主买:200万 总买:0万
+600038 主买:200万 总买:0万
+600039 主买:200万 总买:0万
+600040 主买:200万 总买:0万
+600041 主买:200万 总买:0万
+600042 主买:200万 总买:0万
+600043 主买:200万 总买:0万
+600044 主买:200万 总买:0万
+600045 主买:200万 总买:0万
+600046 主买:200万 总买:0万
+600047 主买:200万 总买:0万
+600048 主买:200万 总买:0万
+600049 主买:200万 总买:0万
+600050 主买:200万 总买:0万
+600051 主买:200万 总买:0万
+600052 主买:200万 总买:0万
+600053 主买:200万 总买:0万
+600054 主买:200万 总买:0万
+600055 主买:200万 总买:0万
+600056 主买:200万 总买:0万
+600057 主买:200万 总买:0万
+600058 主买:200万 总买:0万
+600059 主买:200万 总买:0万
+600060 主买:200万 总买:0万
+600061 主买:200万 总买:0万
+600062 主买:200万 总买:0万
+600063 主买:200万 总买:0万
+600064 主买:200万 总买:0万
+600065 主买:200万 总买:0万
+600066 主买:200万 总买:0万
+600067 主买:200万 总买:0万
+600068 主买:200万 总买:0万
+600069 主买:200万 总买:0万
+600070 主买:200万 总买:0万
+600071 主买:200万 总买:0万
+600072 主买:200万 总买:0万
+600073 主买:200万 总买:0万
+600074 主买:200万 总买:0万
+600075 主买:200万 总买:0万
+600076 主买:200万 总买:0万
+600077 主买:200万 总买:0万
+600078 主买:200万 总买:0万
+600079 主买:200万 总买:0万
+600080 主买:200万 总买:0万
+600081 主买:200万 总买:0万
+600082 主买:200万 总买:0万
+600083 主买:200万 总买:0万
+600084 主买:200万 总买:0万
+600085 主买:200万 总买:0万
+600086 主买:200万 总买:0万
+600087 主买:200万 总买:0万
+600088 主买:200万 总买:0万
+600089 主买:200万 总买:0万
+600090 主买:200万 总买:0万
+600091 主买:200万 总买:0万
+600092 主买:200万 总买:0万
+600093 主买:200万 总买:0万
+600094 主买:200万 总买:0万
+600095 主买:200万 总买:0万
+600096 主买:200万 总买:0万
+600097 主买:200万 总买:0万
+600098 主买:200万 总买:0万
+600099 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily top100 2026-09-16 写入 100 行
+DuckDB: feature_l2_quant_orders_daily 2026-09-16 写入 0 行
+wrote limitup=1 top100=100 quant=0
+done 2026-09-16
+CHECK L2 2026-09-16
+l2-moneyflow/limitup: ('complete', 1, 1, 1, 0, datetime.datetime(2026, 9, 16, 22, 23, 57, 235410))
+l2-moneyflow/top100: ('complete', 100, 100, 100, 0, datetime.datetime(2026, 9, 16, 22, 23, 57, 658777))
+l2-moneyflow/quant: ('complete', 0, 100, 100, 1, datetime.datetime(2026, 9, 16, 22, 23, 57, 988741))
+feature_l2_capital_flow_daily: rows=101 max=2026-09-16
+feature_l2_quant_orders_daily: rows=0 max=None
+_____________ test_guard_keeps_interpreter_valid_after_chdir[True] _____________
+
+guard_env = ({'AI_AGENT': 'pi', 'COLORTERM': 'truecolor', 'COMMAND_MODE': 'unix2003', 'ENTITY_ANCHOR_SECURITIES_DB': '0', ...}, Po...('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2203/test_guard_keeps_interpreter_v0'))
+relative = True
+
+    @pytest.mark.parametrize("relative", [True, False])
+    def test_guard_keeps_interpreter_valid_after_chdir(guard_env, relative):
+        import sys
+    
+        env, step_log, root = guard_env
+        python = root / ".venv-workbench" / "bin" / "python"
+        python.parent.mkdir(parents=True)
+        python.symlink_to(sys.executable)
+        env["FINANCE_PYTHON"] = ".venv-workbench/bin/python" if relative else str(python)
+        env["MARKET_FEATURE_STORE_DB"] = str(root / "absent.duckdb")
+        proc = subprocess.run(
+            ["/bin/zsh", str(GUARD), INCIDENT], cwd=root, env=env,
+            capture_output=True, text=True, timeout=180,
+        )
+>       assert proc.returncode == 0, proc.stdout + proc.stderr
+E       AssertionError: L2 start date=2026-09-11 source=baidu-share:xianyu-l2-7z code=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2203/test_guard_keeps_interpreter_v0/code rev=unknown data=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2203/test_guard_keeps_interpreter_v0/data db=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2203/test_guard_keeps_interpreter_v0/absent.duckdb
+E         L2 calendar date=2026-09-11 verdict=trading source=sse_calendar data=unknown
+E         [2026-09-16 22:23:58] ⚠️ 当日行情 data=unknown（非 present）：日包侧可照常，依赖当日 fact_stock_daily 的口径可能空转——这是行情缺口，不是 L2 故障
+E         /Users/a77/.finance-runtime/reviews/pr773-fix/before/scripts/moneyflow/run_l2_pipeline.sh:145: no such file or directory: .venv-workbench/bin/python
+E         
+E       assert 127 == 0
+E        +  where 127 = CompletedProcess(args=['/bin/zsh', '/Users/a77/.finance-runtime/reviews/pr773-fix/before/scripts/moneyflow/run_l2_pipe...ws/pr773-fix/before/scripts/moneyflow/run_l2_pipeline.sh:145: no such file or directory: .venv-workbench/bin/python\n').returncode
+
+tests/test_trading_day_vs_data_arrival.py:316: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_l2_file_source_quality.py::test_bad_archive_cannot_publish_or_skip_retry[crc]
+FAILED tests/test_l2_file_source_quality.py::test_bad_archive_cannot_publish_or_skip_retry[crc_full]
+FAILED tests/test_l2_file_source_quality.py::test_bad_archive_cannot_publish_or_skip_retry[partial]
+FAILED tests/test_l2_file_source_quality.py::test_bad_archive_cannot_publish_or_skip_retry[empty]
+FAILED tests/test_l2_file_source_quality.py::test_bad_archive_cannot_publish_or_skip_retry[malformed]
+FAILED tests/test_l2_file_source_quality.py::test_skip_revalidates_ledger_and_result_tables[partial]
+FAILED tests/test_l2_file_source_quality.py::test_skip_revalidates_ledger_and_result_tables[missing_stats]
+FAILED tests/test_l2_file_source_quality.py::test_skip_revalidates_ledger_and_result_tables[result_deleted]
+FAILED tests/test_l2_file_source_quality.py::test_skip_revalidates_ledger_and_result_tables[failed]
+FAILED tests/test_trading_day_vs_data_arrival.py::test_guard_keeps_interpreter_valid_after_chdir[True]
+10 failed, 1 passed, 24 deselected in 8.41s

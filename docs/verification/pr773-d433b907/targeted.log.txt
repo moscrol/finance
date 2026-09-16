@@ -1,0 +1,20 @@
+........................................................................ [ 62%]
+...........................................                              [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260916T142651Z-d433b907.json
+
+=============================== warnings summary ===============================
+tests/test_pipeline_p0.py::test_mainline_complete_snapshot_is_atomic_and_idempotent
+tests/test_pipeline_p0.py::test_mainline_complete_snapshot_is_atomic_and_idempotent
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[exception]
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[empty_groups]
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[empty_stocks]
+tests/test_pipeline_p0.py::test_mainline_empty_theme_list_is_failed_without_writing
+  /Users/a77/.finance-runtime/reviews/pr773-fix/finance-workspace-private/market_feature_store/sync/sync_fupanhui_mainline_daily.py:66: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+tests/test_pipeline_p0.py::test_mainline_sector_failure_keeps_previous_snapshot[response0]
+tests/test_pipeline_p0.py::test_mainline_sector_failure_keeps_previous_snapshot[response1]
+  /Users/a77/.finance-runtime/reviews/pr773-fix/finance-workspace-private/market_feature_store/sync/sync_fupanhui_mainline_sector_daily.py:121: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+115 passed, 8 warnings in 17.22s
