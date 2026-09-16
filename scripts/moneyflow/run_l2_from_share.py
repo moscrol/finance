@@ -20,6 +20,7 @@ from baidu_share import (  # noqa: E402
 from cdn_chunks import download  # noqa: E402
 from l2_paths import archive_name, cache_dir, month_dir, yyyymmdd  # noqa: E402
 from process_l2_archive import process_date  # noqa: E402
+from write_to_duckdb import mark_failed  # noqa: E402
 
 STEPS = ("limitup", "top100", "quant")
 
@@ -32,15 +33,31 @@ def already_complete(date: str) -> bool:
         return False
     con = duckdb.connect(DUCKDB_PATH, read_only=True)
     try:
-        rows = con.execute(
-            "SELECT step, status FROM ops_pipeline_run_daily "
-            "WHERE trade_date=? AND pipeline='l2-moneyflow'",
-            [date],
-        ).fetchall()
+        from scripts.check_daily_review_data import L2_RESULT_SQL
+
+        for step in STEPS:
+            row = con.execute(
+                "SELECT status, row_count, input_count, processed_count, failed_count "
+                "FROM ops_pipeline_run_daily "
+                "WHERE trade_date=? AND pipeline='l2-moneyflow' AND step=?",
+                [date, step],
+            ).fetchone()
+            if row is None:
+                return False
+            status, count, inputs, processed, failed = row
+            if (
+                status != "complete" or inputs is None or inputs <= 0
+                or processed != inputs or failed != 0
+                or (step == "top100" and inputs < 100)
+            ):
+                return False
+            actual, = con.execute(L2_RESULT_SQL[step], [date]).fetchone()
+            # File scans require a valid tick file for every capital candidate.
+            if count != actual or (step != "quant" and actual != inputs):
+                return False
+        return True
     finally:
         con.close()
-    got = {row[0]: row[1] for row in rows}
-    return all(got.get(step) == "complete" for step in STEPS)
 
 
 def cleanup_local(day: str) -> None:
@@ -93,15 +110,16 @@ def run_date(date: str) -> None:
         print(f"{date} l2-moneyflow 已 complete，跳过", flush=True)
         cleanup_local(day)
         return
-    wait_share_file(date)
-    transferred = ensure_transferred(name, month_dir(date))
-    size = int(transferred["file"]["size"])
-    inbox = transferred["inbox"].rstrip("/")
     archive = cache_dir() / name
     try:
+        wait_share_file(date)
+        transferred = ensure_transferred(name, month_dir(date))
+        size = int(transferred["file"]["size"])
+        inbox = transferred["inbox"].rstrip("/")
         download(name, size, dest=archive, pan_file=f"{inbox}/{name}")
         process_date(date, archive)
-    except Exception:
+    except Exception as exc:
+        mark_failed(date, f"file pipeline failed: {exc}")
         print(f"FAIL {date}，本地 7z 留下便于重试", flush=True)
         raise
     cleanup_local(day)

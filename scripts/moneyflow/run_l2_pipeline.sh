@@ -15,6 +15,11 @@ CODE_ROOT="${FINANCE_CODE_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 export FINANCE_CODE_ROOT="$CODE_ROOT"
 export PATH="/opt/homebrew/bin:/opt/homebrew/opt/node/bin:/usr/local/bin:$PATH"
 PY="${FINANCE_PYTHON:-python3}"
+# Anchor relative paths before cd; keep the venv symlink (realpath would lose its environment).
+case "$PY" in
+  /*) ;;
+  */*) PY="$PWD/$PY" ;;
+esac
 
 if [ "${1:-}" = "--force-rescan" ]; then
   export L2_FORCE_RESCAN=1

@@ -299,6 +299,25 @@ def test_guard_runs_the_pipeline_on_a_zero_row_trading_day(guard_env, tmp_path):
     assert "行情缺口，不是 L2 故障" in proc.stderr
 
 
+@pytest.mark.parametrize("relative", [True, False])
+def test_guard_keeps_interpreter_valid_after_chdir(guard_env, relative):
+    import sys
+
+    env, step_log, root = guard_env
+    python = root / ".venv-workbench" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.symlink_to(sys.executable)
+    env["FINANCE_PYTHON"] = ".venv-workbench/bin/python" if relative else str(python)
+    env["MARKET_FEATURE_STORE_DB"] = str(root / "absent.duckdb")
+    proc = subprocess.run(
+        ["/bin/zsh", str(GUARD), INCIDENT], cwd=root, env=env,
+        capture_output=True, text=True, timeout=180,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "verdict=trading" in proc.stdout
+    assert _steps(step_log) == ["write_to_duckdb", "run_l2_from_share", "render"]
+
+
 def test_guard_runs_and_shouts_when_the_calendar_is_unknown(guard_env):
     """判不定：照跑 + 吼一声。绝不允许「什么都没干却 exit 0」。"""
     env, step_log, _ = guard_env

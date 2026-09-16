@@ -21,7 +21,12 @@ from moneyflow import (  # noqa: E402
     duck_top_turnover_codes,
     stock_info,
 )
-from write_to_duckdb import write_capital_flow, write_quant_orders  # noqa: E402
+from write_to_duckdb import (  # noqa: E402
+    begin_l2_run,
+    mark_failed,
+    write_capital_flow,
+    write_quant_orders,
+)
 
 BIG_THR = float(os.environ.get("L2_BIG_THR_WAN", "100"))
 QUANT_THR = float(os.environ.get("L2_QUANT_THR_WAN", "200"))
@@ -60,6 +65,8 @@ def prev_trade_date(date: str) -> str:
 
 
 def extract_trades(archive: Path, day: str, codes: list[str], outdir: Path) -> dict[str, Path]:
+    if not codes:
+        raise ValueError("no candidates to extract")
     if outdir.exists():
         shutil.rmtree(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
@@ -68,7 +75,10 @@ def extract_trades(archive: Path, day: str, codes: list[str], outdir: Path) -> d
     print(f"7zz x {len(inners)} tick files", flush=True)
     result = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
     if result.returncode != 0:
-        print(result.stdout[-800:], result.stderr[-400:], flush=True)
+        raise RuntimeError(
+            f"7z extraction failed rc={result.returncode}: "
+            f"{result.stdout[-800:]} {result.stderr[-400:]}"
+        )
     extracted: dict[str, Path] = {}
     for code in codes:
         dest = outdir / day / folder(code) / "逐笔成交.csv"
@@ -141,16 +151,13 @@ def rows_for_codes(
     extracted: dict[str, Path], codes: list[str], pct_map: dict[str, float]
 ) -> tuple[pd.DataFrame, dict]:
     recs = []
-    empty = 0
     for code in codes:
         path = extracted.get(code)
         if not path:
-            empty += 1
-            continue
+            raise RuntimeError(f"missing tick file for {code}")
         ticks = load_ticks(path)
         if ticks.empty:
-            empty += 1
-            continue
+            raise RuntimeError(f"no valid ticks for {code}; cannot confirm no trading")
         active, total, _change = capital_from_ticks(ticks)
         pct = pct_map.get(code)
         recs.append(
@@ -165,10 +172,10 @@ def rows_for_codes(
         print(f"{code} 主买:{active:.0f}万 总买:{total:.0f}万", flush=True)
     stats = {
         "input_count": len(codes),
-        "processed_count": len(codes),
+        "processed_count": len(recs),
         "failed_count": 0,
         "nonempty_count": len(recs),
-        "empty_count": empty,
+        "empty_count": 0,
     }
     return pd.DataFrame(recs), stats
 
@@ -205,26 +212,26 @@ def process_date(date: str, archive: Path) -> dict[str, int]:
             flush=True,
         )
     extract_dir = cache_dir() / f"extract-{day}"
-    extracted = extract_trades(archive, day, codes, extract_dir)
+    begin_l2_run(date)
     try:
+        if not limitup or len(top100) < TOP_N:
+            raise RuntimeError(
+                f"incomplete candidates: limitup={len(limitup)} top100={len(top100)}/{TOP_N}"
+            )
+        extracted = extract_trades(archive, day, codes, extract_dir)
+        # Compute all three scans before publishing any result; missing ticks are not zero signals.
         lim_df, lim_stats = rows_for_codes(extracted, limitup, pct_map)
-        write_capital_flow(
-            date,
-            "limitup",
-            attach_info(lim_df),
-            BIG_THR,
-            prev_limitup_date=prev,
-            stats=lim_stats,
-        )
         top_df, top_stats = rows_for_codes(extracted, top100, pct_map)
-        write_capital_flow(date, "top100", attach_info(top_df), BIG_THR, stats=top_stats)
+        lim_df = attach_info(lim_df)
+        top_df = attach_info(top_df)
         qrecs = []
+        qprocessed = 0
         for code in top100:
-            path = extracted.get(code)
-            if not path:
-                continue
-            ticks = load_ticks(path)
+            ticks = load_ticks(extracted[code])
+            if ticks.empty:
+                raise RuntimeError(f"no valid ticks for {code} during quant scan")
             quant = quant_from_ticks(ticks)
+            qprocessed += 1
             if not quant:
                 continue
             _active, _total, _change = capital_from_ticks(ticks)
@@ -237,12 +244,16 @@ def process_date(date: str, archive: Path) -> dict[str, int]:
             info = stock_info(list(qdf["code"]))
             qdf["name"] = qdf["code"].map(lambda c: info.get(c, {}).get("name", ""))
         qstats = {
-            "input_count": max(len(top100), 1),
-            "processed_count": max(len(top100), 1),
+            "input_count": len(top100),
+            "processed_count": qprocessed,
             "failed_count": 0,
             "nonempty_count": len(qrecs),
-            "empty_count": max(len(top100), 1) - len(qrecs),
+            "empty_count": qprocessed - len(qrecs),
         }
+        write_capital_flow(
+            date, "limitup", lim_df, BIG_THR, prev_limitup_date=prev, stats=lim_stats
+        )
+        write_capital_flow(date, "top100", top_df, BIG_THR, stats=top_stats)
         write_quant_orders(
             date,
             qdf if not qdf.empty else pd.DataFrame(),
@@ -255,6 +266,9 @@ def process_date(date: str, archive: Path) -> dict[str, int]:
             flush=True,
         )
         return {"limitup": len(lim_df), "top100": len(top_df), "quant": len(qrecs)}
+    except Exception as exc:
+        mark_failed(date, f"archive processing failed: {exc}")
+        raise
     finally:
         shutil.rmtree(extract_dir, ignore_errors=True)
 

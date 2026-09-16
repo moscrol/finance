@@ -656,7 +656,7 @@ def check_l2(date: str) -> list[str]:
         for step in L2_STEPS:
             row = con.execute(
                 """
-                SELECT status, row_count, input_count, processed_count, failed_count, finished_at
+                SELECT status, row_count, input_count, processed_count, failed_count, source
                 FROM ops_pipeline_run_daily
                 WHERE trade_date = ? AND pipeline = 'l2-moneyflow' AND step = ?
                 """,
@@ -666,7 +666,7 @@ def check_l2(date: str) -> list[str]:
             if row is None:
                 missing.append(f"L2 步骤 {step} 无 {date} 完成记录")
                 continue
-            status, row_count, input_count, processed_count, failed_count, _finished = row
+            status, row_count, input_count, processed_count, failed_count, source = row
             if status != "complete":
                 missing.append(f"L2 步骤 {step} 状态为 {status}，未完成")
                 continue
@@ -684,6 +684,14 @@ def check_l2(date: str) -> list[str]:
                     f"L2 步骤 {step} processed_count={processed_count} != input_count={input_count}"
                 )
             actual, = con.execute(L2_RESULT_SQL[step], [date]).fetchone()
+            if (
+                (source or "").startswith("baidu-share:")
+                and step in {"limitup", "top100"}
+                and actual != input_count
+            ):
+                missing.append(
+                    f"L2 步骤 {step} 文件源候选 {input_count} 只但实际 {actual} 行，拒绝残缺榜单"
+                )
             if row_count is None or actual != row_count:
                 missing.append(
                     f"L2 步骤 {step} 状态表 row_count={row_count} 与结果表实际 {actual} 行不一致"
