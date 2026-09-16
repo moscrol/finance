@@ -20,6 +20,24 @@
 - 复核：2026-09-11 评审（基于 39a2b775，对照 gitea/main @ 3ed44703）修订 W1/W2/W3/W5/W6；
   W4 无实施硬伤，维持原文。
 
+## 2026-09-16 状态复核（先于下文历史立项前提阅读）
+
+读数：13:56 北京时间，`gitea/main=32bff514`。下文保留 09-10/11 的设计背景，
+其中「缺测试 / 只展示不干预 / 分支未合」不能继续当成当前状态。
+
+| 项 | 当前代码 / 验收事实 | 仍不能推出什么 |
+|---|---|---|
+| W1/W2 | `f63a2352` 已是 main 祖先。`test_user_memory.py` 钉三类召回来源与先验脚注，`test_episode_tools.py` 钉 user_memory 证据等级与先验自标；W2b 的其他出口见下文及 `test_judgments.py` / `test_prime.py` / `test_corrections.py` / `test_red_team.py` | 证据等级与归属测试不保证模型每句话都正确使用历史记忆 |
+| W3 | `user_memory.reliability_downweight` 与真实召回接线已有，按计分率降权，口径/小样本/无分类均有测试；**`RELIABILITY_DOWNWEIGHT_THRESHOLD=None`**，关闭降权与警告。`test_threshold_defaults_to_none_until_backtested` 锁住该状态；Q-001 已测但不足定阈值 | 不是功能没实现，也不是生产已降权；`structural_neighbor_demoted` 是别的遥测，不能替代本项证据。本轮未实测生产进程的内存值，不改阈值 |
+| W4 | 用户先前授权的 AB-001/002 补分已完成；#758 又合入 AB-003 回检与「暂停 B 线」建议，当前台账见 `ab-ledger.md` | 建议进入 main **不等于用户批准暂停**；Knevo 干净样本为 0，不能写胜率 |
+| W5 | D18 出口及同花顺回退实现已在 main；`test_limit_seal_time_block.py` 验空日不注入、历史截止、换源与不夹带 SPT-A06 | 夹具通过不等于今日生产数据完整；SPT-A06 仍 pending，不改规则启用状态 |
+| W6 | `251a2cf6` 已是 main 祖先；`test_event_pricing.py` / `test_sync_polymarket_macro_odds.py` 的日历 as-of 与赔率判据已落，验收详见 `docs/verification/2026-09-11-e007-p3p4-criteria.md` | 验收包含「truncated 不落库」的已知洞测试，不是洞已修；不等于赔率接入 agent 或夜跑 |
+
+本轮这五个定向测试文件（user_memory / episode_tools / limit_seal_time_block /
+event_pricing / sync_polymarket_macro_odds）复跑 **151 passed**，日志
+`/tmp/audit-followup-e009.log`；这是作者分支复验，不给生产部署或金融效果代签。
+因此本轮不重做 W1/W3/W5/W6，只做 E-008 工具菜单投影与审计订正。
+
 ## W1（P1）· 读侧「记忆 = prior」断言 —— harness/runtime 池
 
 **这意味着什么**【2026-09-11 评审修正】：读侧并非完全无闸——主干已有分层：`memory_lookup`

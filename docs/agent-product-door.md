@@ -179,6 +179,27 @@ P4（D5）在 `fix/e2-delivery-closeout` 补齐 `material_only` 逐题交付：�
 [设计 v10](learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md)
 及 `docs/handoffs/inflight/fix-e2-boundary-closeout.md`；是否部署看实际服务 revision。
 
+### 研究过程中的实际工具菜单
+
+引擎 A 在开放工具的模型请求前记录 `tool_menu.visible`，与该步交给模型的工具定义同源，
+已经过合同授权、动态装配、时间窗与去重筛选；不从更早的 `configure` 或静态注册表猜。
+`episode_progress` 把名字映射成既有中文标签，经 RunStore 持久轨迹和 SSE（服务端事件流）
+进入研究过程 / 运行详情；API 只放行固定句及封闭标签语法，不外露内部名、参数或提示词。
+授权菜单、开始调用、取得资料是不同事件；**菜单不证明上游可用**，模型首轮失败仍可看到
+请求前菜单，未装配的子研究不会被报成可调用。收口阶段不计算未交给模型的工具菜单。
+
+这是过程投影，不是 `session_projection.view()` 的金融答案出口，也不是新的权限表。
+无菜单记录的旧 run 不反推授权。覆盖两条 loop 与公开边界的测试在
+`intelligence/tests/test_tool_menu_progress.py`、`test_harness_reference_loop.py`；
+本段接线已合入 main `0758a423`（PR #760，2026-09-16）；线上是否已有仍看运行 revision，
+切 8792 的记录在 `docs/handoffs/2026-09-16-8792-switch-0758a423.md`。
+
+### 会话使用计时（分支候选，非试点效果）
+
+研究检查器提供「同意并开始本次计时」，默认关闭。经既有 `research-evolution/events` 保存同意后，`ResearchActivityControl` / `startResearchActivity` 记录可见与隐藏区间；使用单调时钟量经过时间，前端不自报服务端时钟或任务完成。停止、切会话和 `pagehide` 结束采集并尽力保存末段与撤回；保存失败在当前页显示缺口，异常退出不能保证送达，也不自动恢复采集。
+
+这里只产生 `workbench:<conversation_id>` 自用事件，`task_id=null`；优先队列候选不是冻结试点分配，不能拿它填身份。可见时间不等于键鼠操作时间；隐藏原因 `tab_hidden` 不代表获准扣减端到端时间，也不推断外部查阅。真正的配对效果仍需授权、冻结分配、任务终态和05测量收据，不由计时按钮创建。当前接线和隔离测试不等于生产部署。
+
 ### 历史发现研究
 
 入口仍是 Workbench 对话，例如「这一波农业怎么走出来的，找出值得检验的特征」→「以前有没有类似，失败案例也看看」→「把观察窗口改成……」。`TaskFrame.history_intent` 区分事后发现与历史比较，随 `TurnIntent` 跨轮传递；普通概念解释与明确取消历史研究不会继承该权限。用户明确限定日期时，历史计算、普通结构化查询与原件读取共用范围门。

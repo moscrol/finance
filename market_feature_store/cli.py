@@ -699,6 +699,83 @@ def cmd_registry_check(_args) -> int:
     return 0
 
 
+def cmd_money_effect_regime(args) -> int:
+    """赚钱效应 regime（D 档、只读、不落表）：今日/昨日簇名、是否切换、四轴值 vs 分位阈值；
+    ``--replay-since`` 出整段回放，``--cluster-labels`` 给实验目录里的簇标签 JSON 时附一致率与混淆矩阵。"""
+    from . import money_effect_regime as mer
+    from .market_regime_vectors import load_market_regime_vectors
+
+    con = connect(read_only=True)
+    try:
+        vectors, missing = load_market_regime_vectors(con, as_of=args.as_of)
+    finally:
+        con.close()
+    if not vectors:
+        print("fact_market_daily 无数据或不可读", file=sys.stderr)
+        return 2
+
+    if args.replay_since:
+        labels = None
+        if args.cluster_labels:
+            labels = json.loads(Path(args.cluster_labels).expanduser().read_text(encoding="utf-8"))
+        series = mer.compute_regime_series(vectors)
+        result = mer.replay(series, labels, since=args.replay_since)
+        if args.json:
+            payload = dict(result)
+            payload["series"] = [rd.to_dict() for rd in series if rd.regime is not None and rd.trade_date >= args.replay_since]
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+            return 0
+        print(f"赚钱效应回放 since {args.replay_since}：{result['windows']} 个窗口 "
+              f"{result['first_date']} ~ {result['last_date']}")
+        print(f"  切换：去抖前 {result['raw_switches']} 次，{mer.DEBOUNCE_DAYS} 日去抖后 {result['switches']} 次"
+              f"（≈ 每 {result['windows_per_switch']} 个窗口一次，同簇连续中位 {result['median_run']:.0f}）")
+        print("  簇分布：" + "，".join(f"{k} {v}" for k, v in result["regime_counts"].items()))
+        cmp = result.get("cluster_comparison")
+        if cmp:
+            print(f"  与簇标签配对 {cmp['paired_windows']} 个窗口：一致率 去抖前 {cmp['agreement_raw']:.1%}，"
+                  f"去抖后 {cmp['agreement_debounced']:.1%}")
+            print("  混淆（行=簇标签，列=规则去抖前）：")
+            for c, row in cmp["confusion_cluster_rows_rule_cols"].items():
+                print(f"    {c}: " + "，".join(f"{r} {n}" for r, n in row.items()))
+        print("  最近 10 个窗口（原始 / 去抖）：")
+        for rd in [x for x in series if x.regime is not None][-10:]:
+            flag = " ⚠切换" if rd.switched else ""
+            print(f"    {rd.trade_date}: {rd.raw_regime} / {rd.regime}{flag}")
+        return 0
+
+    state = mer.regime_state_from_vectors(vectors, missing)
+    if args.json:
+        print(json.dumps(state.to_dict(), ensure_ascii=False, indent=2))
+        return 0 if state.available else 2
+    if not state.available:
+        print(mer.one_line(state))
+        return 2
+    headline = mer.switch_headline(state)
+    if headline:
+        print(headline)
+    print(mer.one_line(state))
+    assert state.today is not None
+    print(f"  窗口 {state.today.window_dates[0]} ~ {state.today.window_dates[-1]}；昨日簇 {state.today.prev_regime or '-'}；"
+          f"原始规则标签 {state.today.raw_regime}")
+    for row in mer.axis_rows(state.today):
+        print("  " + " | ".join(row))
+    print("  " + mer.forward_facts_text(state.today.regime, state.forward_facts))
+    return 0
+
+
+def cmd_sync_limit_advance_feishu(_args) -> int:
+    from .sync.sync_feishu_limit_advance import sync_limit_advance
+
+    s = sync_limit_advance()
+    print(f"连板晋级表 {s['table_id']}: 记录 {s['records']} 行, 股票 {s['stocks']}")
+    print(f"展开写入 (stock×date 存在性): {s['rows_written']} 行")
+    if s["unresolved_cols"]:
+        print(f"无法对齐交易日的列 {len(s['unresolved_cols'])}: {s['unresolved_cols']}")
+    print(f"fact_limit_advance_presence: {s['table_total']} 行, {s['table_dates']} 交易日, "
+          f"{s['table_stocks']} 股 ({s['date_min']}~{s['date_max']})")
+    return 0
+
+
 def cmd_sync_limit_advance(args) -> int:
     from .sync.sync_fupanhui_limit_advance_daily import sync_fupanhui_limit_advance
 
@@ -1276,12 +1353,6 @@ def cmd_interval_gainers(args) -> int:
     return 0
 
 
-def _fmt_num(value, digits=2):
-    if value is None:
-        return "-"
-    return f"{float(value):.{digits}f}"
-
-
 def _short_text(value, max_len=18):
     text = str(value or "-").replace("\x00", "")
     return text if len(text) <= max_len else text[:max_len - 1] + "…"
@@ -1354,7 +1425,14 @@ def cmd_sector_stocks(args) -> int:
     from .query import sector_stocks
 
     res = sector_stocks(args.sector, trade_date=args.trade_date, top=args.top, order_by=args.order_by)
+    resolution = res.get("resolution") or {}
+    resolved = resolution.get("resolved_sector_ts_code")
     print(f"{res['sector']} 成分股 @{res['trade_date']} (按{args.order_by}排序, Top{args.top})")
+    if resolved and resolved != res["sector"]:
+        print(f"  解析: {res['sector']} -> {resolved} (按 {resolution.get('matched_by')} 命中)")
+    if resolution.get("ambiguous"):
+        others = [c for c in resolution.get("codes", []) if c != resolved]
+        print(f"  ⚠ 同名歧义: 还有 {', '.join(others)} 也叫这个名, 本次只取 {resolved}")
     for s in res["stocks"]:
         print(f"  {s['stock_name']:<8} {s['stock_ts_code']:<11} 涨{s['pct_chg']} 额{s['amount']}亿 "
               f"5日{s['pct_chg_5d']} {s['sw_industry']} 资金1d{s['fund_flow_1d']}")
@@ -1373,6 +1451,102 @@ def cmd_stock_sectors(args) -> int:
     if not res["sectors"]:
         print("  (无数据, 检查个股名/代码或先同步该日成分股)")
     return 0
+
+
+def cmd_sector_alias(args) -> int:
+    """板块维度一致化: plan 只读预览 / apply 写映射 / resolve 排查解析结果。"""
+    from . import sector_alias
+
+    action = args.action
+    if action == "plan":
+        con = connect(read_only=True)
+        try:
+            summary = sector_alias.plan_provider_migration(con).summary()
+        finally:
+            con.close()
+        if args.json:
+            print(json.dumps(summary, ensure_ascii=False, indent=2))
+            return 0
+        print(f"退役码→现行码 同名唯一匹配: {summary['mapped']} 条可写")
+        print(f"无同名现行码 (待人工): {summary['unmapped']} 条")
+        for line in summary["unmapped_codes"]:
+            print(f"    - {line}")
+        print(f"同名多个现行码 (歧义, 不写): {summary['ambiguous']} 条")
+        for line in summary["ambiguous_codes"]:
+            print(f"    - {line}")
+        return 0
+
+    if action == "resolve":
+        if not args.sector:
+            print("resolve 需要给板块名或码")
+            return 2
+        con = connect(read_only=True)
+        try:
+            res = sector_alias.resolve_sector_codes(con, args.sector)
+            payload = res.to_dict()
+            if args.trade_date and res.codes:
+                payload["picked_for_date"] = sector_alias.pick_code_with_rows(
+                    con, "fact_sector_daily", args.trade_date, res.codes
+                )
+        finally:
+            con.close()
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+
+    if action == "apply":
+        if args.staged:
+            result = sector_alias.apply_provider_migration_staged()
+            print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+            return 0 if result.get("swapped") else 2
+        refused = _refuse_production_write(bool(args.direct))
+        if refused is not None:
+            print("  或者加 --staged: 克隆到 staging 应用后原子换名, 不占生产库写锁。")
+            return refused
+        con = connect()
+        try:
+            result = sector_alias.apply_provider_migration(
+                con, plan_name="direct-prod" if args.direct else "direct"
+            )
+        finally:
+            con.close()
+        if args.direct:
+            from .write_path import write_direct_receipt
+
+            receipt = write_direct_receipt(
+                trade_date=None, command="sector-alias apply --direct", ok=True,
+                extra={"written": result["written"]},
+            )
+            print(f"direct 收据: {receipt}")
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
+
+    print(f"未知动作: {action}")
+    return 2
+
+
+def cmd_maintenance(args) -> int:
+    """库级维护: 成分股表空壳行清除 (装 CHECK) + 整库压缩; 默认只读 dry-run。"""
+    from . import maintenance
+
+    if not args.staged:
+        report = maintenance.dry_run_report()
+        shell = report["shell"]
+        f = report["file"]
+        print(f"目标库: {report['target']}")
+        print(f"  {shell['table']}: 共 {shell['rows_total']:,} 行, 空壳 {shell['rows_shell']:,} 行 "
+              f"({100.0 * shell['rows_shell'] / max(shell['rows_total'], 1):.1f}%), 保留 {shell['rows_keep']:,}")
+        for item in shell["shell_by_source"]:
+            print(f"    - source={item['source']}: {item['rows']:,} 行 {item['first']}~{item['last']}")
+        print(f"  CHECK(至少一个行情值) 已装: {'是' if shell['has_quote_check'] else '否'}")
+        print(f"  文件 {f['bytes'] / 1e9:.2f} GB, 在用 {f['used_bytes'] / 1e9:.2f} GB, 空闲块 {f['free_bytes'] / 1e9:.2f} GB")
+        print(f"  对象: 表 {report['shape']['tables']} / 视图 {report['shape']['views']} / "
+              f"索引 {report['shape']['indexes']} / 约束 {report['shape']['constraints']}")
+        print("  (这是 dry-run; 加 --staged 才会克隆→重建→压缩→换名)")
+        return 0
+
+    result = maintenance.run_maintenance_staged(purge=not args.no_purge, compact=not args.no_compact)
+    print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+    return 0 if result.get("swapped") else 2
 
 
 def _fmt_num(value, digits=2):
@@ -1565,11 +1739,99 @@ def cmd_strong_subtheme_trace(args) -> int:
 def cmd_top_sectors(args) -> int:
     from .query import top_sectors
 
-    res = top_sectors(trade_date=args.trade_date, top=args.top, order_by=args.order_by)
-    print(f"板块排行 @{res['trade_date']} (按{res['order_by']}排序, Top{args.top})")
+    res = top_sectors(trade_date=args.trade_date, top=args.top, order_by=args.order_by,
+                      min_amount=args.min_amount, min_pct_chg=args.min_pct_chg,
+                      min_diff_ratio=args.min_diff_ratio)
+    note = ""
+    if res.get("filters"):
+        note = " 筛选 " + " ".join(f"{k.removeprefix('min_')}>={v}" for k, v in res["filters"].items())
+    print(f"板块排行 @{res['trade_date']} (按{res['order_by']}排序, Top{args.top}){note}")
     for s in res["sectors"]:
         print(f"  {s['sector_name']:<12} ({s['sw_l1']}) 涨{s['pct_chg']} 边际{s['diff_ratio']} 额{s['amount']}亿")
     return 0
+
+
+def cmd_stock_technicals(args) -> int:
+    """个股技术位：均线、UP 线、回踩状态。原飞书三件套（watchlist-ma /
+    top-gainers-feishu / up-line）的本地统一入口。"""
+    import json as _json
+
+    from .query import SCREENS, screen_stock_technicals
+    from .watchlist import load_watchlist, list_watchlists
+
+    terms: list[str] = list(args.codes or [])
+    if args.watchlist:
+        loaded = load_watchlist(args.watchlist)
+        if not loaded:
+            available = list_watchlists()
+            print(f"清单 {args.watchlist!r} 为空或不存在", file=sys.stderr)
+            print(f"已有清单: {', '.join(available) if available else '（无）'}", file=sys.stderr)
+            return 1
+        terms.extend(loaded)
+    if not terms:
+        print("请用 --codes 或 --watchlist 指定股票", file=sys.stderr)
+        return 1
+
+    res = screen_stock_technicals(terms, screen=args.screen, as_of=args.as_of)
+    if args.json:
+        print(_json.dumps(res, ensure_ascii=False, indent=2))
+        return 0
+
+    shown = res.get("matched") if args.screen else res["rows"]
+    label = f"（{SCREENS[args.screen][1]}）" if args.screen else ""
+    date_note = f"截至 {res['as_of']}" if res.get("as_of") else "最新交易日"
+    print(f"个股技术位 @{res.get('data_date') or '-'}  {date_note}{label}")
+    print(f"  {'股票':<10} {'现价':>9} {'MA5':>9} {'MA10':>9} {'MA20':>9} "
+          f"{'UP':>9} {'偏离%':>8}  状态")
+    for r in shown or []:
+        marks = []
+        if r.get("pullback_ma10_ma20"):
+            marks.append("中期回踩")
+        if r.get("pullback_ma5_ma10"):
+            marks.append("短线回踩")
+        if r.get("above_up"):
+            marks.append("UP上方")
+        print(f"  {str(r.get('stock_name') or r['term']):<10} "
+              f"{_fmt_num(r.get('close')):>9} {_fmt_num(r.get('ma5')):>9} "
+              f"{_fmt_num(r.get('ma10')):>9} {_fmt_num(r.get('ma20')):>9} "
+              f"{_fmt_num(r.get('up_value')):>9} {_fmt_num(r.get('up_deviation_pct')):>8}  "
+              f"{'/'.join(marks) or '-'}")
+    if args.screen:
+        print(f"  命中 {len(shown)}/{len(res['rows'])} 只")
+    if res["missing"]:
+        print(f"  缺数据: {', '.join(res['missing'])}", file=sys.stderr)
+    return 0
+
+
+def cmd_watchlist(args) -> int:
+    from .watchlist import list_watchlists, load_watchlist, save_watchlist, watchlist_path
+
+    if args.action == "show":
+        items = load_watchlist(args.name)
+        if not items:
+            print(f"清单 {args.name!r} 为空或不存在（{watchlist_path(args.name)}）")
+            return 1
+        print(f"{args.name}（{len(items)} 只）: {watchlist_path(args.name)}")
+        for item in items:
+            print(f"  {item}")
+        return 0
+    if args.action == "list":
+        names = list_watchlists()
+        print("\n".join(names) if names else "（还没有任何清单）")
+        return 0
+    if args.action in {"add", "remove"}:
+        if not args.items:
+            print("请给出要增删的股票", file=sys.stderr)
+            return 1
+        items = load_watchlist(args.name)
+        if args.action == "add":
+            items.extend(i for i in args.items if i not in items)
+        else:
+            items = [i for i in items if i not in set(args.items)]
+        path = save_watchlist(items, args.name)
+        print(f"{args.name} 现有 {len(items)} 只 -> {path}")
+        return 0
+    return 1
 
 
 def cmd_info(_args) -> int:
@@ -1877,6 +2139,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="校验 consumption_registry.yaml：档位合法、表在 schema、计划步骤有归属",
     ).set_defaults(func=cmd_registry_check)
 
+    p_mer = sub.add_parser(
+        "money-effect-regime",
+        help="赚钱效应 regime（D 档只读、不落表）：今日/昨日簇名、是否切换、四轴 vs 分位阈值；--replay-since 出回放",
+    )
+    p_mer.add_argument("--as-of", default=None, help="截止交易日 YYYY-MM-DD（默认库内最新日）")
+    p_mer.add_argument("--json", action="store_true", help="输出 JSON")
+    p_mer.add_argument("--replay-since", default=None, metavar="YYYY-MM-DD", help="输出该日起的整段回放统计")
+    p_mer.add_argument("--cluster-labels", default=None, metavar="PATH",
+                       help="实验目录里的簇标签 JSON（{trade_date: 簇名}），配合 --replay-since 出一致率与混淆矩阵")
+    p_mer.set_defaults(func=cmd_money_effect_regime)
+
     p_skd = sub.add_parser("sync-stock-daily", help="mootdx 全A股日线回补到 fact_stock_daily (历史日的日期参数化源; 含 open/high/low/volume)")
     p_skd.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD, 留空对齐 fact_market_daily 最早日")
     p_skd.add_argument("--end-date", default=None, help="截止交易日(含); 与 --start-date 相同即只重写单日, 如东财快照写坏的那天")
@@ -2076,6 +2349,31 @@ def build_parser() -> argparse.ArgumentParser:
     p_q2.add_argument("--trade-date", default=None, help="交易日, 留空取最新")
     p_q2.set_defaults(func=cmd_stock_sectors)
 
+    p_sa = sub.add_parser(
+        "sector-alias",
+        help="板块维度一致化: 退役码(.TI)→现行码(.FP) 映射的预览/写入, 及名/码解析排查",
+    )
+    p_sa.add_argument("action", choices=["plan", "apply", "resolve"],
+                      help="plan=只读预览映射; apply=写 config_sector_alias(+建视图); resolve=看某名/码怎么解析")
+    p_sa.add_argument("sector", nargs="?", default=None, help="resolve 用: 板块名或码")
+    p_sa.add_argument("--trade-date", default=None, help="resolve 用: 看该日会落到哪个码")
+    p_sa.add_argument("--json", action="store_true", help="plan 输出 JSON")
+    p_sa.add_argument("--staged", action="store_true",
+                      help="apply 用: 克隆生产库到 staging 应用后原子换名 (生产库正门)")
+    p_sa.add_argument("--direct", action="store_true",
+                      help="apply 用: 急救直写生产库 (短暂持写锁, 落 direct 收据)")
+    p_sa.set_defaults(func=cmd_sector_alias)
+
+    p_mt = sub.add_parser(
+        "maintenance",
+        help="库级维护: 成分股表空壳行清除(装 CHECK) + 整库压缩; 默认 dry-run, --staged 才动库",
+    )
+    p_mt.add_argument("--staged", action="store_true",
+                      help="克隆生产库到 staging → 重建+压缩 → 校验 → 原子换名 (唯一会改库的模式)")
+    p_mt.add_argument("--no-purge", action="store_true", help="跳过空壳行清除/CHECK 重建, 只压缩")
+    p_mt.add_argument("--no-compact", action="store_true", help="跳过压缩, 只重建")
+    p_mt.set_defaults(func=cmd_maintenance)
+
     p_qh = sub.add_parser("query-stock-high", help="按一级行业回溯查询某日新高个股")
     p_qh.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
     p_qh.add_argument("--period", default=None,
@@ -2128,10 +2426,31 @@ def build_parser() -> argparse.ArgumentParser:
     p_trace.add_argument("--top", type=int, default=50, help="每类最多展示 N 条, 默认50")
     p_trace.set_defaults(func=cmd_strong_subtheme_trace)
 
+    p_st = sub.add_parser("stock-technicals",
+                          help="个股技术位: 均线/UP线/回踩筛选 (本地计算, 支持 --as-of 回溯)")
+    p_st.add_argument("--codes", nargs="*", default=None, help="股票代码或名称, 可混写")
+    p_st.add_argument("--watchlist", default=None, help="本地清单名, 如 default")
+    p_st.add_argument("--screen", default=None,
+                      choices=["pullback", "short-pullback", "above-up"],
+                      help="筛选口径: pullback=MA20<价<MA10, short-pullback=MA10<价<MA5, above-up=站上UP线")
+    p_st.add_argument("--as-of", default=None,
+                      help="截止交易日, 留空取库尾; 回答历史某天的问题必须传")
+    p_st.add_argument("--json", action="store_true", help="输出 JSON")
+    p_st.set_defaults(func=cmd_stock_technicals)
+
+    p_wl = sub.add_parser("watchlist", help="本地自选股清单: show/list/add/remove")
+    p_wl.add_argument("action", choices=["show", "list", "add", "remove"])
+    p_wl.add_argument("items", nargs="*", help="add/remove 时的股票代码或名称")
+    p_wl.add_argument("--name", default="default", help="清单名, 默认 default")
+    p_wl.set_defaults(func=cmd_watchlist)
+
     p_q3 = sub.add_parser("top-sectors", help="板块排行: 按边际量/涨幅/成交额")
     p_q3.add_argument("--trade-date", default=None, help="交易日, 留空取最新")
     p_q3.add_argument("--top", type=int, default=20, help="返回前 N 个, 默认20")
     p_q3.add_argument("--order-by", default="diff_ratio", help="排序字段: diff_ratio/pct_chg/amount")
+    p_q3.add_argument("--min-amount", type=float, default=None, help="成交额下限(亿), 量价齐升口径常用 500")
+    p_q3.add_argument("--min-pct-chg", type=float, default=None, help="涨幅下限(%%), 量价齐升口径常用 0")
+    p_q3.add_argument("--min-diff-ratio", type=float, default=None, help="边际量下限(%%), 量价齐升口径常用 10")
     p_q3.set_defaults(func=cmd_top_sectors)
 
     return parser
