@@ -58,7 +58,7 @@
   `scripts/fupanhui_review_overview_pull.py` 落的 JSON 形状（`cycle_stage / external_cycle / internal_cycle / is_ice_point / 量能比 / up_rate_ma5 / …`）。
 - 载入：`scripts/teaching_framework.py load-reference --json <导出文件> --labels-db <旁路库>`（已有命令，幂等）。
 - **holdout 纪律先写死再载**：训练 ≤ 2024-12-31（含回补段）/ 验证 2025 全年 / **holdout 2026 只读一次**，读完写进收据；
-  `calibrate-stages --train-until 2024-12-31`。09-07 那 29 次验证集咨询（`docs/verification/2026-09-08-teaching-framework-mcnemar.md` §3——该文件随 PR #660 分支在途，main 尚无）
+  `calibrate-stages --train-until 2024-12-31`。09-07 那 29 次验证集咨询（`docs/verification/2026-09-08-teaching-framework-mcnemar.md` §3——#660 已合，文件已在 main）
   不能再发生在 holdout 上。
 
 ### B. 上证指数 K 线回补 314 天
