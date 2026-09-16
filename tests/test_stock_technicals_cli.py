@@ -74,7 +74,14 @@ def test_retired_feishu_skills_have_a_documented_successor():
         assert retired in routing, f"dispatcher 没提已退役的 {retired}"
         line = next(ln for ln in routing.splitlines() if f"`{retired}`" in ln)
         assert successor in line, f"{retired} 的去处没写明 {successor}：{line}"
-        assert not (REPO / "skills" / retired).exists(), f"{retired} 又被恢复了"
+        # 2026-09-11 用户裁定（main@30458c4c）：五个 skill 本体保留、封存不删——
+        # 「目录必须不存在」是 #727 时代的旧策略。现断言封存态：目录在，且
+        # SKILL.md 带 #727 可用性横幅（说明输入链路断在哪、复活路径是什么）。
+        skill_md = REPO / "skills" / retired / "SKILL.md"
+        assert skill_md.exists(), f"{retired} 被删了——用户裁定是封存不是删除"
+        assert "飞书整体退役（#727）后的实际可用性" in skill_md.read_text(encoding="utf-8"), (
+            f"{retired} 缺 #727 封存横幅（若已按本 PR 改接 DuckDB 复活，请同步更新横幅与本断言）"
+        )
 
 
 def test_new_skill_is_registered_with_matching_hash():
