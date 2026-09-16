@@ -1,7 +1,8 @@
 # 2026-09-16 · E-008 审计补漏：研究过程投影实际工具菜单（fix/audit-followup-0916）
 
-> 分支 `fix/audit-followup-0916`，单提交 `ef1d56f5`，PR #760（开着，**未合并、未部署**）。
-> 在途交接 `inflight/fix-audit-followup-0916.md`；本文是决策留痕快照，写完不改。
+> 分支 `fix/audit-followup-0916`，代码单提交 `ef1d56f5`，PR #760。写作时 PR 开着、未合并、未部署。
+> **真值化（2026-09-16 15 时后）**：#760 已合并为 main `0758a423`，分支与工作树已删，在途交接已从 inflight 移除；
+> 部署与真实 run 读数见 `docs/handoffs/2026-09-16-8792-switch-0758a423.md`。以下正文保持写作时口径不改。
 > 作者 session 做了实现与主要验证，接手 session 补前端 lint/vitest、registry 叶、推分支、开 PR、写本文。
 
 ## 一、背景（不读这段会误判后面每个决定）

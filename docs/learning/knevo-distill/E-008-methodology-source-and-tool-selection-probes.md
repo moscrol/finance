@@ -63,7 +63,7 @@
 
 → **这是投影缺口，不另建权限表**。上面是 09-09 的定位，不是最终落点：
 
-**2026-09-16 实施复核**（`gitea/main=32bff514`；改动在 `fix/audit-followup-0916`，未部署）：
+**2026-09-16 实施复核**（复核时 `gitea/main=32bff514`；改动随 PR #760 合入 main `0758a423`，部署见 `docs/handoffs/2026-09-16-8792-switch-0758a423.md`）：
 `session_projection.py` 是终局公开答案的纯函数出口，不能仅因它不读授权字段就在那里塞
 工具状态。`configure` 又早于 `derived_calculation` / `sub_research` 动态装配，直接投影它
 会少报工具；`allowed_capabilities` 只是授权上限，也不能证明工具已装配。
