@@ -683,3 +683,76 @@ def test_dynamic_model_input_delivers_question_identity_gap_and_explicit_memo_ru
     assert delivery["questions"][1]["delivery_kind"] == "memo"
     assert delivery["questions"][1]["max_chars"] == 200
     assert "legal_gap" in delivery["rules"] and "partial" in delivery["rules"]
+
+
+# ── 2026-09-16 删保护变异后补的反例：四个仍绿的门各自要有一条独立承重的断言 ──
+
+
+def test_question_copy_with_evidence_binding_is_still_not_an_answer():
+    """带证据绑定的题正文只复述题干：不能靠邻近的「缺口须公开」检查兜底（那条只看带 gap 的题）。"""
+    _, context = setup_delivery()
+    outcome = outcome_for(context, draft=f"## q1\n甲新增利润是多少？\n\n## q2\n{GAP2}{BOUNDARY}")
+    verified = verify_episode_outcome(context.contract, outcome)
+    assert "answer_q1" in verified.missing_outputs
+    assert {s.output_id: s.status for s in verified.completion.outputs}["answer_q1"] == "missing"
+    with pytest.raises(ValueError):
+        validate_episode_finish(finish_for(outcome), context=context, evidence=outcome.evidence)
+
+
+def test_material_settlement_blocks_on_integrity_issue_or_mandatory_gap():
+    """结清判定自己必须看 issue / mandatory；missing 被槽位状态吸收，这两项没有别的门。"""
+    from intelligence.services.episode_issues import Issue, IssueCode
+    from intelligence.services.episode_semantic_verifier import _material_questions_settled
+    _, context = setup_delivery()
+    verified = verify_episode_outcome(context.contract, outcome_for(context, all_gap=True))
+    assert verified.missing_outputs == () and _material_questions_settled(verified)
+    with_issue = replace(verified, issue_items=(Issue(IssueCode.REQUIRED_OUTPUT_GAP, "answer_q2", "synthetic"),))
+    assert not _material_questions_settled(with_issue)
+    with_capability = replace(verified, mandatory_missing_capabilities=("synthetic_capability",))
+    assert not _material_questions_settled(with_capability)
+
+
+def test_adapter_final_projection_downgrade_reaches_the_turn_status(monkeypatch):
+    """最终投影（日历披露 / 公开告示）之后复验降级，公开 status 必须跟着降，不能沿用复验前的 completed。"""
+    from intelligence.runtime import continuous_turn_adapter as adapter_module
+    from intelligence.runtime.turn_control_core import TurnControlResult
+    from intelligence.services.episode_session import CallbackEpisodeSession
+    frame, context = setup_delivery()
+    original = outcome_for(context, status="completed")
+    original = replace(original, draft=f"## q1\n甲订单占收入20%。\n## q2\n已按材料说明限制。{BOUNDARY}",
+                       bindings=(original.bindings[0], replace(original.bindings[1], evidence_hashes=(original.evidence[0].content_hash,), gap=""), original.bindings[2]))
+    resumes = []
+    class Runtime:
+        def start(self, _frame, *, context, registry):
+            return CallbackEpisodeSession(episode_id=context.contract.task_id, outcome=original,
+                                          resume_callback=lambda previous, goal: (resumes.append(goal), previous)[1])
+    # 站在「最后一步公开变换」的位置：让它复制出第二个 q2 段，复验必须把 q2 打回并降级。
+    monkeypatch.setattr(adapter_module, "_with_calendar_disclosure", lambda answer, frame: f"{answer}\n\n## q2\n（重复段）")
+    result = adapter_module.ContinuousTurnAdapter(
+        runtime=Runtime(), runtime_name="continuous_glm", mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: ResearchToolRegistry(()),
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=lambda _: {"passed": True, "rejected_sentence_indexes": [], "issues": []}),
+    ).handle(frame=frame, control=TurnControlResult(
+        task_frame=frame, execution_route=frame.question_type, terminal_kind="research",
+        needs_retrieval=False, capabilities=(), contract_required=True,
+    ))
+    assert resumes == []
+    assert "answer_q2" in result.private_artifact["semantic_verifier"]["repair_output_ids"]
+    assert result.status == "partial"
+
+
+def test_material_rejection_with_unmatched_sentence_coordinates_fails_closed():
+    """判过的句子在稿里找不到坐标时，所有合法缺口一律重开，不猜归属。"""
+    from intelligence.services import answer_model
+    from intelligence.services.episode_semantic_verifier import _JudgeCall
+    _, context = setup_delivery()
+    verified = verify_episode_outcome(context.contract, outcome_for(context, all_gap=True))
+    assert {s.status for s in verified.completion.outputs if s.output_id.startswith("answer_")} == {"legal_gap"}
+    call = _JudgeCall(report=answer_model.GroundingJudgeReport(False, (0,), ("第0句：与材料不符。",)),
+                      unavailable=False, correlated=False)
+    result = SemanticEpisodeVerifier()._reject_material_gaps(
+        verified, [{"index": 0, "text": "这句话不在被判的稿里。"}], call,
+    )
+    assert result is not None and result.judge_status == "rejected"
+    assert set(result.verified.missing_outputs) == {"answer_q1", "answer_q2"}
