@@ -1,7 +1,28 @@
 # 判官校准有效性：并主干 + `identity_state` 跨层一致性（2026-09-16 快照）
 
 分支 `codex/judge-calibration-validity`，工作树 `/Users/a77/fwp-wt-judge-calibration-validity`，HEAD `26f18e99`。
-**未合 main、未部署、未调真实判官。** 本文是决策与证据快照，在途状态见 `inflight/codex-judge-calibration-validity.md`。
+**2026-09-17 00:50 已合 main（PR #775 → `0ab15e9b`），未部署、未调真实判官。** 本文是决策与证据快照；inflight 交接已随合入归档删除，合并前独立 QC 见 §0。
+
+## 0. 合入记录与合并前独立 QC（2026-09-17）
+
+合并：PR #775 经 Gitea API 合入 → `gitea/main@0ab15e9b`，远端分支已删；本地分支与工作树 `fwp-wt-judge-calibration-validity` / `-plan` 已清（plan 树两份未提交早期草稿移至 `/private/tmp/judge-calibration-plan-untracked-drafts-20260917/`）。合前 `gitea/main` 仍在 `d433b907`（基座漂移 0），`merge-tree` 零冲突；同题 `feat/judge-calibration-validity` 轨已在 `19ae9973` 自标作废并指向本枝，非竞争轨。
+
+独立复核（不沿用上一轮结论，逐项重取）：
+
+| 项 | 读数 |
+|---|---|
+| Python 收据 | `20260916T152203Z-26f18e99.json` 在 `26f18e99` 干净检出上 `check_test_receipt.py --expect-revision 26f18e99 --base-drift-max 5` 八项全过；`3c1bf131` 对 `26f18e99` 仅 3 个 docs 文件 |
+| ruff / registry | `ruff check .` 0；`build_registry.py` 四项 + `audit_ledger_spec_crosswalk.py` 全 exit 0 |
+| e2e | PR 树 `intelligence/webapp/test-results/.last-run.json` status=passed（09-16 23:10），与交接 34P/2S 一致 |
+| 变异反证复现 | 服务层 `_record_llm_call` 恒标 reported → 12 红；评测层覆盖 `IDENTITY_REPORTED="reporte"` → 16 红；还原 225 全绿（8 个相关测试文件，`-B -p no:cacheprovider`） |
+| 代码复核 | `judge_validity.py` 未见 fail-open：manifest / 答案 / 判官 / 校准 / 噪声底五层绑定全部 fail-closed；生产者→校验器缝有真链路测试（`test_real_scoring_chain_seals_eligible_batch…` 走真 `judge_answer`→`complete`→假 `urlopen`） |
+
+复核留痕（非阻塞）：
+
+- `_record_to_dict` 改为 `asdict` 投影后，每条 `LLMCallRecord` 多出 16 个身份 / 哈希字段（未知为 null），并随 `llm_call_ledger` trace 事件写进 Episode 记录——体积增长，非正确性问题；旧 docstring「老读者键不变」的承诺已不成立，以本文为记录。
+- 提交 `64c8f90c` 顺带订正了河 #27 / #43 / INDEX 的历史取回指针（指向已在 main 的 #47 文档），与本 PR 主题无关但内容一致、无冲突。
+- `latest.json` 已被另一棵树（e2-material-closeout）覆盖，从 PR 树裸跑 `check_test_receipt.py` 会误报「另一棵树」；按时间戳收据文件校验才是正解。
+- 仍未做：真实判官调用（唯一未验证类别）。
 
 ## 1. 两次合并
 

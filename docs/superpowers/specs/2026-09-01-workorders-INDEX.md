@@ -2,7 +2,7 @@
 
 `docs/superpowers/specs/2026-08-28-backlog-workorders-INDEX.md` 当时不在 `gitea/main`。本文件只登记 09-01 起从本基座分发的单。
 
-2026-09-14 执行依据订正：#43 的后续为 [#47 冻结内容版本取回](2026-09-11-river-frozen-content-versions-workorder.md)；旧 [recorded-at 工单](2026-09-05-river-recorded-at-workorder.md) 只冻时间戳而仍覆盖内容，已标为历史方案。判官身份与校准失效的 [执行方案](../plans/2026-09-14-judge-calibration-validity.md) 已整理，尚未实施；使用日期路径作为本轮标识，不占用或猜测工单号。
+2026-09-14 执行依据订正：#43 的后续为 [#47 冻结内容版本取回](2026-09-11-river-frozen-content-versions-workorder.md)；旧 [recorded-at 工单](2026-09-05-river-recorded-at-workorder.md) 只冻时间戳而仍覆盖内容，已标为历史方案。判官身份与校准失效的 [执行方案](../plans/2026-09-14-judge-calibration-validity.md) 已实施并于 2026-09-17 合入 main（PR #775 → `0ab15e9b`）；使用日期路径作为本轮标识，不占用或猜测工单号。
 
 | # | 工单 | 优先级 | 主仓 | 一句话 |
 |---|------|--------|------|--------|
