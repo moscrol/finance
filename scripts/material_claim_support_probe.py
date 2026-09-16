@@ -9,7 +9,6 @@ Prints JSONL including actual judge requests/turns, never credentials.
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
 import json
 import subprocess
 
@@ -71,8 +70,14 @@ class RecordingClient:
         self.calls = []
 
     def complete(self, *, messages, tools, timeout):
-        turn = self.delegate.complete(messages=messages, tools=tools, timeout=timeout)
-        self.calls.append({"messages": messages, "tools": tools, "timeout": timeout, "turn": asdict(turn)})
+        call = {"messages": messages, "tools": tools, "timeout": timeout}
+        self.calls.append(call)
+        try:
+            turn = self.delegate.complete(messages=messages, tools=tools, timeout=timeout)
+            call["turn"] = turn.to_dict()
+        except Exception as exc:
+            call["error_type"] = type(exc).__name__
+            raise
         return turn
 
 

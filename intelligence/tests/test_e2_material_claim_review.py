@@ -142,6 +142,31 @@ def test_control_probe_cases_are_validated_and_require_specific_verdict(case_ind
         assert not probe_case(case, lambda _request: "malformed")["expectation_matched"]
 
 
+@pytest.mark.parametrize("raises", [False, True])
+def test_probe_recorder_preserves_native_tool_turns_and_failed_attempts(raises):
+    from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
+    from scripts.material_claim_support_probe import RecordingClient
+
+    turn = ModelTurn(content="", tool_calls=(ModelToolCall("call1", "submit_grounding_report", {"passed": True}),))
+
+    class Client:
+        def complete(self, **kwargs):
+            if raises:
+                raise TypeError("synthetic adapter error")
+            return turn
+
+    client = RecordingClient(Client())
+    if raises:
+        with pytest.raises(TypeError):
+            client.complete(messages=[], tools=[], timeout=1)
+        assert client.calls[0]["error_type"] == "TypeError"
+    else:
+        assert client.complete(messages=[], tools=[], timeout=1) is turn
+        assert client.calls[0]["turn"]["tool_calls"][0]["arguments"] == {"passed": True}
+    assert len(client.calls) == 1
+    json.dumps(client.calls)
+
+
 def test_control_probe_requires_explicit_live_opt_in():
     from scripts.material_claim_support_probe import main
 
