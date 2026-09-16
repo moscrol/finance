@@ -1,5 +1,8 @@
 # Knevo 三轮样本与 8792 状态
 
+> **状态更新 2026-09-16**：本分支已随 PR #749（合并提交 `8bb20aa9`）合入 main，分支与工作树已删。
+> 下文是合入前的在途状态，保留作背景；「下一步」里的候选去向见 `docs/learning/knevo-distill/README.md` §九。
+
 ## 这个分支做什么
 冻结用户回贴的三轮答卷与原题，核对 8792，提炼待验样例。正文：`docs/learning/distill/2026-09-12-knevo-three-turns-intake.md`。
 

@@ -1,6 +1,9 @@
 # Knevo 连续批次 · 2026-09-14
 
-- 工作树：/Users/a77/fwp-wt-knevo-20260913-intake；分支 docs/knevo-20260913-intake。独立文档树，主工作树未动，未合并。
+> **状态更新 2026-09-16**：本分支已随 PR #749（合并提交 `8bb20aa9`）合入 main，分支与工作树已删。
+> 下文是合入前的在途状态，保留作背景；两批审读的候选去向见 `docs/learning/knevo-distill/README.md` §九。
+
+- 工作树：/Users/a77/fwp-wt-knevo-20260913-intake（已删）；分支 docs/knevo-20260913-intake（已合入）。独立文档树，主工作树未动。
 - 用户目的：吸收Knevo工具/skill/架构与产品取舍，改善投研agent。已有架构探查很广，当前补具体行为与验收；不要把工作缩成找错题。
 - 最新完成：9月14日三组45问完整回贴已存。原文84,579字节、673行，与附件逐字节相同；3份题稿与昨日版本忽略空白行后一致，45个答题章节齐全。目录 docs/learning/knevo-distill/batches/2026-09-14-product-interviews/。正文归档60268ae8；c251a9b8仅规范两份导出答卷EOF空白并更新摘要，原文未动。
 - 审读：docs/learning/distill/2026-09-14-knevo-product-interviews-intake.md。保留四项：交付匹配用户下一步决定；基线/命题/时间窗接续；共享事实与局部更新；反馈在后续行为中验证。优先验收原命题保真及记忆保存→召回→注入→使用四环。
