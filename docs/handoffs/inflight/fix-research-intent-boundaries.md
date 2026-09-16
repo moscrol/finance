@@ -1,8 +1,9 @@
 # 研究意图边界修补（分支 `fix/research-intent-boundaries`）
 
 一句话：**R-20260916-05 实锤的三类「运行时听错用户」缺陷已修完；2026-09-17 独立 QC 补了三族
-同形漏洞 + 第三道闸独立断言，并在本树 sidecar 上真跑一臂复测通过；已提交到分支，未推送、
-未合并、未部署 8792。**
+同形漏洞 + 第三道闸独立断言，并在本树 sidecar 上真跑一臂复测通过；已推送并开 PR **#779**
+（`http://127.0.0.1:3300/a77/finance-workspace-private/pulls/779`），对 `gitea/main` 与兄弟 PR #770
+`merge-tree` 均 0 冲突；未合并、未部署 8792，合入等用户确认。**
 
 - 树 `/Users/a77/fwp-wt-research-intent-boundaries`，base `gitea/main@d433b907`，2026-09-17 已前向合并
   `gitea/main@ce009718`（0 冲突，无同文件重叠）；
@@ -38,5 +39,6 @@
 
 ## 下一步
 
-1. 推送 + 开 PR（等用户确认）；合并前分支尖收据 + conflict-check。
+1. PR #779 已就绪；合入用 `scripts/gitea_pr.py merge 779 --yes`（用户确认后），合前重探
+   `conflict-check` 与 `check_test_receipt.py --expect-revision <尖> --base-drift-max 5`。
 2. 未修项见验证文档「明确没有修的」与「仍然知道但没动的边界」，先攒误杀样本集再动门禁。
