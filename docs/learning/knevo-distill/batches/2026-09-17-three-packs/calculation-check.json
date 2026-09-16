@@ -1,0 +1,229 @@
+{
+  "method": "Python Decimal，题设数值独立复算；非生产代码测试",
+  "rows": [
+    {
+      "id": "g1_inventory_current",
+      "formula": "20+125-105",
+      "value": "40",
+      "unit": "万件",
+      "scope": "题设恒等式"
+    },
+    {
+      "id": "g1_increment_end_use",
+      "formula": "105-100",
+      "value": "5",
+      "unit": "万件",
+      "scope": "终端消耗增量，不等于需求曲线移动"
+    },
+    {
+      "id": "g1_increment_inventory",
+      "formula": "(40-20)-(20-20)",
+      "value": "20",
+      "unit": "万件",
+      "scope": "两期库存变动之差"
+    },
+    {
+      "id": "g1_increment_end_use_share",
+      "formula": "5/25",
+      "value": "0.2",
+      "unit": "ratio",
+      "scope": "出货增量分解，非因果归因"
+    },
+    {
+      "id": "g1_increment_inventory_share",
+      "formula": "20/25",
+      "value": "0.8",
+      "unit": "ratio",
+      "scope": "出货增量分解，非因果归因"
+    },
+    {
+      "id": "g1_prior_stock_use",
+      "formula": "20/100",
+      "value": "0.2",
+      "unit": "quarters",
+      "scope": "期末库存/当季终端消耗；非历史正常值"
+    },
+    {
+      "id": "g1_prior_quantity_price_index",
+      "formula": "100*100",
+      "value": "10000",
+      "unit": "index",
+      "scope": "仅算术量价乘积；厂商收入尚需价格环节/产品/确认口径相符，非利润"
+    },
+    {
+      "id": "g1_current_stock_use",
+      "formula": "40/105",
+      "value": "0.3809523809523809523809523810",
+      "unit": "quarters",
+      "scope": "期末库存/当季终端消耗；非历史正常值"
+    },
+    {
+      "id": "g1_current_quantity_price_index",
+      "formula": "125*110",
+      "value": "13750",
+      "unit": "index",
+      "scope": "仅算术量价乘积；厂商收入尚需价格环节/产品/确认口径相符，非利润"
+    },
+    {
+      "id": "g1_A_stock_use",
+      "formula": "30/120",
+      "value": "0.25",
+      "unit": "quarters",
+      "scope": "期末库存/当季终端消耗；非历史正常值"
+    },
+    {
+      "id": "g1_A_quantity_price_index",
+      "formula": "110*90",
+      "value": "9900",
+      "unit": "index",
+      "scope": "仅算术量价乘积；厂商收入尚需价格环节/产品/确认口径相符，非利润"
+    },
+    {
+      "id": "g1_B_stock_use",
+      "formula": "60/100",
+      "value": "0.6",
+      "unit": "quarters",
+      "scope": "期末库存/当季终端消耗；非历史正常值"
+    },
+    {
+      "id": "g1_B_quantity_price_index",
+      "formula": "120*120",
+      "value": "14400",
+      "unit": "index",
+      "scope": "仅算术量价乘积；厂商收入尚需价格环节/产品/确认口径相符，非利润"
+    },
+    {
+      "id": "g1_A_index_change",
+      "formula": "9900/13750-1",
+      "value": "-0.28",
+      "unit": "ratio",
+      "scope": "条件性量价指数变化"
+    },
+    {
+      "id": "g1_B_index_change",
+      "formula": "14400/13750-1",
+      "value": "0.047272727272727272727272727",
+      "unit": "ratio",
+      "scope": "条件性量价指数变化"
+    },
+    {
+      "id": "g1_A_consumption_change",
+      "formula": "120/105-1",
+      "value": "0.142857142857142857142857143",
+      "unit": "ratio",
+      "scope": "实际消耗环比"
+    },
+    {
+      "id": "g1_B_consumption_change",
+      "formula": "100/105-1",
+      "value": "-0.0476190476190476190476190476",
+      "unit": "ratio",
+      "scope": "实际消耗环比"
+    },
+    {
+      "id": "g2_revenue_growth",
+      "formula": "27/20-1",
+      "value": "0.35",
+      "unit": "ratio",
+      "scope": "题设同口径"
+    },
+    {
+      "id": "g2_reported_profit_growth",
+      "formula": "4.5/3-1",
+      "value": "0.5",
+      "unit": "ratio",
+      "scope": "报告归母净利润"
+    },
+    {
+      "id": "g2_adjusted_profit",
+      "formula": "4.5-1.2",
+      "value": "3.3",
+      "unit": "亿元",
+      "scope": "仅剔除题设税后一次性项"
+    },
+    {
+      "id": "g2_adjusted_profit_growth",
+      "formula": "3.3/3-1",
+      "value": "0.1",
+      "unit": "ratio",
+      "scope": "题设约定调整口径"
+    },
+    {
+      "id": "g2_ocf_minus_capex_prior",
+      "formula": "3.2-1.5",
+      "value": "1.7",
+      "unit": "亿元",
+      "scope": "现金流子项差额，不是总现金净变动"
+    },
+    {
+      "id": "g2_ocf_minus_capex_current",
+      "formula": "0.4-5",
+      "value": "-4.6",
+      "unit": "亿元",
+      "scope": "现金流子项差额；完整融资需求未知"
+    },
+    {
+      "id": "g2_three_balance_delta",
+      "formula": "(8-4)+(5.5-3)-(1-2)",
+      "value": "7.5",
+      "unit": "亿元",
+      "scope": "三项余额变动代理；未调整非现金因素及其余营运资本项，不是已证明现金占用"
+    },
+    {
+      "id": "g2_required_profit_base",
+      "formula": "(120-80)/20",
+      "value": "2",
+      "unit": "亿元/年",
+      "scope": "给定分部股权估值假设的反推，不是市场一致预期"
+    },
+    {
+      "id": "g2_required_profit_lower_old_equity",
+      "formula": "(120-60)/20",
+      "value": "3",
+      "unit": "亿元/年",
+      "scope": "给定分部股权估值假设的反推，不是市场一致预期"
+    },
+    {
+      "id": "g2_required_profit_lower_multiple",
+      "formula": "(120-80)/15",
+      "value": "2.666666666666666666666666667",
+      "unit": "亿元/年",
+      "scope": "给定分部股权估值假设的反推，不是市场一致预期"
+    },
+    {
+      "id": "g2_required_profit_joint_sensitivity_extra",
+      "formula": "(120-60)/15",
+      "value": "4",
+      "unit": "亿元/年",
+      "scope": "给定分部股权估值假设的反推，不是市场一致预期"
+    },
+    {
+      "id": "g2_new_profit_one_equity",
+      "formula": "80+20*1",
+      "value": "100",
+      "unit": "亿元",
+      "scope": "条件性框架值，不是无条件估值结论"
+    },
+    {
+      "id": "g3_order_budget_ratio",
+      "formula": "0.3/2",
+      "value": "0.15",
+      "unit": "ratio",
+      "scope": "订单金额/项目总预算；不证明同类产品供货份额，税费等口径未给"
+    },
+    {
+      "id": "g3_even_monthly_average",
+      "formula": "0.3/12",
+      "value": "0.025",
+      "unit": "亿元/月",
+      "scope": "均匀摊分平均；实际交付/收入节奏未知"
+    }
+  ],
+  "semantic_non_results": [
+    "库存正常值及季节基线未知",
+    "行业价格指数的成交环节未知，厂商利润方向不能由量价指数推出",
+    "新业务上年利润未知，0.5不是已证实同比增量",
+    "净借款、完整投资与融资现金流、总现金净变动未知",
+    "不存在本批双方胜率或模型优劣结论"
+  ]
+}

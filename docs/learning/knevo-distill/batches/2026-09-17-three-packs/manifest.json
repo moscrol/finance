@@ -1,0 +1,81 @@
+{
+  "intake_date": "2026-09-17",
+  "prompt_prepared_date": "2026-09-16",
+  "captured_at": "2026-09-16T16:17:10.962414+00:00",
+  "source_type": "user_pasted_text",
+  "source_path": "/Users/a77/.codex/attachments/8c9e0223-4800-4ee8-8fdd-2601ecffc285/pasted-text.txt",
+  "original_file": "knevo-original.txt",
+  "original_bytes": 45567,
+  "original_lines": 372,
+  "original_sha256": "d8347cfa5d3f5a7770896927aa3100fcbfade8fc25de824d41efac30a142d287",
+  "groups": [
+    {
+      "group": 1,
+      "question_lines": [
+        1,
+        17
+      ],
+      "answer_lines": [
+        23,
+        129
+      ],
+      "question_count": 8,
+      "answer_section_count": 8,
+      "question_sha256": "58049aacb0571b6fa036d920d634dce43ff01f540ce99586d5f9b5cf3aa418b8",
+      "answer_sha256": "b3c1055e71c26775c626fe188f97d7af99e0f4bca41cfa3213eb573a4b0cfaa0",
+      "matches_2026_09_16_prompt_ignoring_blank_lines": true,
+      "ui_duration_seconds_unverified": 273,
+      "ui_cost_label": "本轮免费",
+      "session_boundary_verified": false
+    },
+    {
+      "group": 2,
+      "question_lines": [
+        130,
+        154
+      ],
+      "answer_lines": [
+        158,
+        273
+      ],
+      "question_count": 8,
+      "answer_section_count": 8,
+      "question_sha256": "4f733f678981da95f2414473b7ee3fd42db94e5aa03a32d32f0696fa7812dd18",
+      "answer_sha256": "09415614c2d0dc89a19d6793036e5b5bdadf1daa1fa17a4cb3b9c22eb0165f1b",
+      "matches_2026_09_16_prompt_ignoring_blank_lines": true,
+      "ui_duration_seconds_unverified": 271,
+      "ui_cost_label": "本轮免费",
+      "session_boundary_verified": false
+    },
+    {
+      "group": 3,
+      "question_lines": [
+        274,
+        294
+      ],
+      "answer_lines": [
+        301,
+        372
+      ],
+      "question_count": 8,
+      "answer_section_count": 8,
+      "question_sha256": "e9fc5dae9b0b816a4993b21c1d961242126e563aaf25fa5ae000a0419d1f0da5",
+      "answer_sha256": "ebab56ae52b68d394eb76db1e9cc0fb4acc0189be3539e96b68f45430836512a",
+      "matches_2026_09_16_prompt_ignoring_blank_lines": true,
+      "ui_duration_seconds_unverified": 204,
+      "ui_cost_label": "本轮免费",
+      "session_boundary_verified": false
+    }
+  ],
+  "comparison_status": "single_sided_unpaired",
+  "local_8792_run": false,
+  "backend_trace_available": false,
+  "model_identity_verified": false,
+  "network_and_memory_side_effects_verified": false,
+  "notes": [
+    "不将24子问视为24个独立样本",
+    "第3组版本A/B同包可见，不是盲化时间隔离或真实跨轮测试",
+    "截图/界面标签为用户回贴文本，不是独立测量",
+    "原文与审读不得作为被测agent检索材料"
+  ]
+}

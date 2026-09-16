@@ -1,0 +1,35 @@
+{
+  "checked_at": "2026-09-16T16:24:05.121177+00:00",
+  "source_byte_identity": true,
+  "original_bytes": 45567,
+  "extracted_question_answer_files": 6,
+  "extraction_line_ranges_and_hashes_match": true,
+  "questions_per_group": [
+    8,
+    8,
+    8
+  ],
+  "answer_sections_per_group": [
+    8,
+    8,
+    8
+  ],
+  "matches_prepared_prompts_ignoring_blank_lines": true,
+  "calculation_rows": 31,
+  "additional_arithmetic_check": "115/105-1 = 9.5238095%, not at least 10%",
+  "parseable_input_json_files": [
+    "manifest.json",
+    "calculation-check.json",
+    "source-check.json"
+  ],
+  "new_batch_and_review_local_links_checked": 16,
+  "git_diff_check": "原始回贴及三份原答片段保留原有EOF空行以维持字节/提取一致；其余新增文档和元数据无空白错误。全diff在仅关闭blank-at-eof提示后通过；没有关闭提交钩子。",
+  "local_model_runs": 0,
+  "production_changes": false,
+  "runtime_rule_injection": false,
+  "limitations": [
+    "不等同于模型质量测试",
+    "未独立核验Knevo工具/联网/写入/耗时",
+    "未做8792同题比较"
+  ]
+}
