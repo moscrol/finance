@@ -128,8 +128,10 @@ def test_positioning_and_current_support(model):
     support = public.split("### 希望社区提供的支持")[1].split(
         "### 进入收费阶段前的准备"
     )[0]
-    # v1.1 起诉求改为项目诊断 / 产业资源（含金融合规服务）/ 算力与一人创业交流；v1.0 曾明确排除合规支持
+    # v1.6: founder owns first-round recruitment; community supports later validation.
     assert "项目诊断" in support and "一人创业交流" in support
+    assert "首轮资深测评由创始人安排" in support
+    assert "不是首要请求" in support
     assert "金融合规服务" in support
     assert "资金" not in support and "法务" not in support
 
@@ -185,6 +187,35 @@ def test_public_copy_avoids_internal_jargon(model):
     for jargon in ("M1–M5", "M6/UI", "质量门", "关系包", "六单季实数", "配对效果", "倒签"):
         assert jargon not in public
     assert "内部编号 M2" in public
+
+
+def test_founder_recruitment_and_later_community_support(model):
+    public = bp.build(bp.SRC.read_text(), model)
+    acquisition = public.split("### 先自主邀请测评")[1].split("### 单用户收入")[0]
+    assert "首轮由创始人邀请资深投资者" in acquisition
+    assert "资深用户认可不等于" in acquisition
+    assert "再与社区探索" in acquisition
+    for obsolete in ("从社区和公开内容招募首批用户", "100 人候补名单", "对接 3–10 名首批体验者"):
+        assert obsolete not in public
+    form = (ROOT / "docs/bp/2026-09-opc-application-form-answers.md").read_text()
+    assert "Foresight v1.6" in form
+    assert "首轮资深用户测评我自己安排" in form
+    assert "通过 OPC 社区与公开研究内容招募 3–10 人" not in form
+
+
+def test_collaborative_design_and_ninety_day_plan_are_not_results(model):
+    public = bp.build(bp.SRC.read_text(), model)
+    assert "提取前置是设计中的可选模式" in public
+    for goal in ("你在进步", "它在改进协作", "双方共同积累"):
+        assert goal in public
+    assert "不是完整跨日闭环已验收" in public
+    assert "模型理解问题、决定查什么" in public
+    assert "数据库与计算工具负责联立和核算" in public
+    for stage in ("第 1–30 天", "第 31–60 天", "第 61–90 天"):
+        assert stage in public
+    assert "不把日期当上线保证" in public
+    assert "算力和模型 API 额度是补充" in public
+    assert "破卷" not in public and "knevo" not in public.lower()
 
 
 def test_red_line_wording(model):
