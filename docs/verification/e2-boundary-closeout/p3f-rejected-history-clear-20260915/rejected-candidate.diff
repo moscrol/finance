@@ -1,0 +1,90 @@
+diff --git a/intelligence/runtime/conversation_orchestrator.py b/intelligence/runtime/conversation_orchestrator.py
+index 6d123f16..27bcff68 100644
+--- a/intelligence/runtime/conversation_orchestrator.py
++++ b/intelligence/runtime/conversation_orchestrator.py
+@@ -152,6 +152,8 @@ from intelligence.runtime.turn_control_core import (
+ )
+ from intelligence.services.turn_controller import TurnDecision, decide_turn
+ from intelligence.services.task_frame import TaskFrame, build_task_frame
++from intelligence.services.material_contract import compile_material_contract
++from intelligence.services.user_task import split_user_message
+ from intelligence import userspace
+ from intelligence.workbench_skills.contracts import (
+     SkillExecutionContext,
+@@ -1907,14 +1909,41 @@ class TurnOrchestrator:
+                     "inherited_turn_id": inherited_turn_id,
+                 },
+             )
++            # P3f: the default controller must not receive prior history before
++            # the current message's material scope is known.  Reuse the same
++            # pure D1/D2 compiler as TaskFrame/QueryResolver; this is a scope
++            # check, not a second phrase vocabulary.  Do not guess on uncertain
++            # or unavailable contracts, and do not disable the conversation
++            # store or later material parsing.
++            pre_controller_parts = split_user_message(str(query or "").strip())
++            pre_controller_contract = (
++                compile_material_contract(pre_controller_parts.regions)
++                if pre_controller_parts.regions
++                else None
++            )
++            controller_material_only = bool(
++                pre_controller_contract is not None
++                and pre_controller_contract.data_scope == "material_only"
++            )
++            controller_context = (
++                ""
++                if controller_material_only
++                else context.to_prompt_block()
++            )
++            controller_previous_intent = (
++                None if controller_material_only else inherited_intent
++            )
++            controller_previous_turn_id = (
++                None if controller_material_only else inherited_turn_id
++            )
+             controller_started = time.monotonic()
+             decision = self.turn_controller(
+                 query,
+-                context=context.to_prompt_block(),
++                context=controller_context,
+                 skill_mode=skill_mode,
+                 selected_skill_ids=selected_skill_ids,
+-                previous_intent=inherited_intent,
+-                previous_turn_id=inherited_turn_id,
++                previous_intent=controller_previous_intent,
++                previous_turn_id=controller_previous_turn_id,
+             )
+             controller_question_type_supplied = decision.question_type is not None
+             task_frame = decision.task_frame
+diff --git a/intelligence/tests/test_e2_turn_prior_reads.py b/intelligence/tests/test_e2_turn_prior_reads.py
+index 29c52618..4d1a5001 100644
+--- a/intelligence/tests/test_e2_turn_prior_reads.py
++++ b/intelligence/tests/test_e2_turn_prior_reads.py
+@@ -84,6 +84,8 @@ def test_post_controller_prior_reads_obey_material_only(
+ 
+     def controller(raw, **kwargs):
+         captured["controller_context"] = kwargs["context"]
++        captured["controller_previous_intent"] = kwargs["previous_intent"]
++        captured["controller_previous_turn_id"] = kwargs["previous_turn_id"]
+         assert raw == query
+         return TurnDecision(
+             lane="research", needs_retrieval=True, needs_memory=True, needs_template=True,
+@@ -145,5 +147,16 @@ def test_post_controller_prior_reads_obey_material_only(
+     assert ("PROJECT_PRIOR_SENTINEL" in control.conversation_context) == (
+         scope != "material_only" and not prior_raises
+     )
+-    # This test does NOT claim to filter the history already sent to controller.
+-    assert "旧回答仅用于测试历史坐标" in captured["controller_context"]
++    assert ("旧回答仅用于测试历史坐标" in captured["controller_context"]) == (
++        scope != "material_only"
++    )
++    if scope == "material_only":
++        assert captured["controller_previous_intent"] is None
++    else:
++        # ConversationStore rehydrates the prior assistant message's intent;
++        # the current-turn inherited marker is computed after the controller
++        # call, so the controller receives the persisted value without it.
++        assert captured["controller_previous_intent"] == intent
++    assert captured["controller_previous_turn_id"] == (
++        None if scope == "material_only" else old.message_id
++    )

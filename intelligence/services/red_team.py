@@ -84,7 +84,12 @@ class RedTeamBrief:
                 parts.append(f"被纠正为「{correction}」")
                 if principle:
                     parts.append(f"原则：{principle}")
-                lines.append(f"- {'；'.join(parts)}")
+                # W2b 续：这是 corrections 的第七个渲染点，也是唯一一处**自己拼**
+                # 而不走 corrections.render_for_prompt 的（所以改那个渲染器改不到这里）。
+                # 逐条补日期，理由同：块标题只说「你纠正过的错」，说不出是什么时候。
+                date = str(rec.get("ts") or "")[:10]
+                own = f"[你的纠偏 {date}]" if date else "[你的纠偏]"
+                lines.append(f"- {own} {'；'.join(parts)}")
         else:
             lines.append("- （corrections 里没有同类题材的历史纠偏）")
         lines.append("")

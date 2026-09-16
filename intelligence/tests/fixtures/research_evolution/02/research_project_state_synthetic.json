@@ -1,0 +1,31 @@
+{
+  "synthetic": true,
+  "_note": "research_project.load_project 投影（ResearchProjectState.to_dict 同形）的合成夹具；只保留 02 读取的字段。",
+  "conversation_id": "conv_1",
+  "user_id": "u_test",
+  "title": "制冷剂配额与三代制冷剂价格",
+  "subject": "制冷剂",
+  "question_type": "theme",
+  "as_of": "2026-09-12",
+  "updated_at": "2026-09-12T20:00:00+08:00",
+  "rounds": [],
+  "current_judgment": "配额收紧下三代制冷剂价格中枢上移",
+  "open_questions": ["三代制冷剂 2026 年配额分配公告原文", "制冷剂配额落地后价格是否继续上行？"],
+  "materials_read": 12,
+  "artifacts": [],
+  "triggers": [
+    {"kind": "checkpoint", "id": "cp_due_0911", "claim": "R32 华东报价 9 月 11 日前站上 4.5 万/吨", "due": "2026-09-11", "status": "due", "checked_at": null, "source": "conv_1", "themes": ["制冷剂"], "linked": "conversation"},
+    {"kind": "checkpoint", "id": "cp_pending_0920", "claim": "9 月 20 日前配额分配公告落地", "due": "2026-09-20", "status": "pending", "checked_at": null, "source": "conv_1", "themes": ["制冷剂"], "linked": "conversation"},
+    {"kind": "checkpoint", "id": "cp_hit_0905", "claim": "9 月 5 日前 R134a 报价不跌破 3.8 万/吨", "due": "2026-09-05", "status": "hit", "checked_at": "2026-09-06T09:00:00+08:00", "source": "conv_1", "themes": ["制冷剂"], "linked": "conversation"},
+    {"kind": "checkpoint", "id": "cp_unv_0910", "claim": "巨化股份 9 月 10 日前公告新增产能", "due": "2026-09-10", "status": "unverifiable", "checked_at": "2026-09-11T09:00:00+08:00", "source": "conv_1", "themes": ["制冷剂"], "linked": "subject"}
+  ],
+  "next_questions": [
+    {"question": "制冷剂配额落地后价格是否继续上行？", "type": "counter", "kind": "condition_test", "kind_label": "检验条件", "rationale": "上一轮判断依赖配额收紧的持续性"},
+    {"question": "补齐：三代制冷剂 2026 年配额分配公告原文", "type": "gap", "kind": "gap_fill", "kind_label": "补关键缺口", "label": "补齐：三代制冷剂 2026 年配额分配公告原文"}
+  ],
+  "prior_status": "pending",
+  "prior_note": "上次「R32 华东报价…」到期裁决为到期待判，本轮先补齐到期未判的缺口",
+  "origin_conversation_id": null,
+  "warnings": [],
+  "completed_rounds": 0
+}

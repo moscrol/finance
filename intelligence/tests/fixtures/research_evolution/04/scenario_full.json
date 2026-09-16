@@ -1,0 +1,232 @@
+{
+  "provenance": "synthetic",
+  "note": "复合验收场景（规格 §8 第 1–8、11 条）。owner u-alpha，区间 2026-09-01..09-10，站在 2026-09-12 回看。配 policy.json / maintenance_report_01.json / exercise_pack.json。",
+  "owner_user_id": "u-alpha",
+  "start": "2026-09-01",
+  "end": "2026-09-10",
+  "knowledge_cutoff": "2026-09-12",
+  "records": [
+    {
+      "record_id": "os-timely", "owner_user_id": "u-alpha", "provenance": "synthetic",
+      "object_ref": {"kind": "observation_script", "namespace": "observation_scripts.jsonl", "id": "os-timely"},
+      "object_kind": "observation_script",
+      "actor": {"author": "user", "agent_refs": ["observation_script:drafted:cp:aaa"], "evidence": ["status=confirmed", "system_drafted"]},
+      "recorded_at": "2026-09-02T20:00:00+08:00", "event_time": "2026-09-02", "knowledge_cutoff": "2026-09-02",
+      "declared_deadline": "2026-09-03T09:30:00+08:00", "deadline_rule_ref": "observation_script.default_next_open",
+      "due": "2026-09-03", "review_responsibility": "user", "pit_grade": "strict",
+      "source_refs": ["observation_scripts.jsonl#os-timely"]
+    },
+    {
+      "record_id": "os-late", "owner_user_id": "u-alpha", "provenance": "synthetic",
+      "object_ref": {"kind": "observation_script", "namespace": "observation_scripts.jsonl", "id": "os-late"},
+      "object_kind": "observation_script",
+      "actor": {"author": "user", "evidence": ["status=late", "user_authored"]},
+      "recorded_at": "2026-09-04T10:15:00+08:00", "event_time": "2026-09-03", "knowledge_cutoff": "2026-09-03",
+      "declared_deadline": "2026-09-04T09:30:00+08:00", "deadline_rule_ref": "observation_script.default_next_open",
+      "due": "2026-09-04", "review_responsibility": "user", "pit_grade": "strict",
+      "source_refs": ["observation_scripts.jsonl#os-late"]
+    },
+    {
+      "record_id": "os-backfill", "owner_user_id": "u-alpha", "provenance": "synthetic",
+      "object_ref": {"kind": "observation_script", "namespace": "observation_scripts.jsonl", "id": "os-backfill"},
+      "object_kind": "observation_script",
+      "actor": {"author": "user", "evidence": ["status=confirmed", "user_authored"]},
+      "recorded_at": "2026-09-04T12:00:00+08:00", "event_time": "2026-09-01", "knowledge_cutoff": "2026-09-01",
+      "declared_deadline": "2026-09-02T09:30:00+08:00", "deadline_rule_ref": "observation_script.default_next_open",
+      "is_backfill": true, "review_responsibility": "user", "pit_grade": "strict",
+      "source_refs": ["observation_scripts.jsonl#os-backfill"]
+    },
+    {
+      "record_id": "ck-dateonly", "owner_user_id": "u-alpha", "provenance": "synthetic",
+      "object_ref": {"kind": "checkpoint", "namespace": "checkpoints.jsonl", "id": "ck-dateonly"},
+      "object_kind": "checkpoint",
+      "actor": {"author": "user", "evidence": ["object_type=judgment"]},
+      "recorded_at": "2026-09-05", "declared_deadline": "2026-09-05T09:30:00+08:00",
+      "review_responsibility": "user", "pit_grade": "trade_date_only",
+      "source_refs": ["checkpoints.jsonl#ck-dateonly"]
+    },
+    {
+      "record_id": "ck-nodeadline", "owner_user_id": "u-alpha", "provenance": "synthetic",
+      "object_ref": {"kind": "checkpoint", "namespace": "checkpoints.jsonl", "id": "ck-nodeadline"},
+      "object_kind": "checkpoint",
+      "actor": {"author": "user", "evidence": ["object_type=judgment"]},
+      "recorded_at": "2026-09-05T10:00:00+08:00", "due": "2026-09-06",
+      "review_responsibility": "user", "pit_grade": "strict",
+      "source_refs": ["checkpoints.jsonl#ck-nodeadline"]
+    },
+    {
+      "record_id": "ck-hindsight", "owner_user_id": "u-alpha", "provenance": "synthetic",
+      "object_ref": {"kind": "checkpoint", "namespace": "checkpoints.jsonl", "id": "ck-hindsight"},
+      "object_kind": "checkpoint",
+      "actor": {"author": "user", "evidence": ["object_type=judgment"]},
+      "recorded_at": "2026-09-06T10:00:00+08:00", "declared_deadline": "2026-09-05T09:30:00+08:00",
+      "hindsight": true, "review_responsibility": "user", "pit_grade": "strict",
+      "source_refs": ["checkpoints.jsonl#ck-hindsight"]
+    },
+    {
+      "record_id": "jd-memo", "owner_user_id": "u-alpha", "provenance": "synthetic",
+      "object_ref": {"kind": "judgment", "namespace": "judgments.jsonl", "id": "jd-memo"},
+      "object_kind": "judgment",
+      "actor": {"author": "user", "evidence": ["memo"]},
+      "recorded_at": "2026-09-02T10:00:00+08:00", "event_time": "2026-09-02",
+      "versions": [
+        {"version": "v1", "recorded_at": "2026-09-02T10:00:00+08:00", "content_hash": "a1"},
+        {"version": "v2", "recorded_at": "2026-09-05T11:00:00+08:00", "content_hash": "b2", "reason": "公告更新产能口径", "disclosed": true, "linked_refs": ["ann:001"]}
+      ],
+      "version_chain_complete": true, "pit_grade": "strict",
+      "source_refs": ["judgments.jsonl#jd-memo"]
+    },
+    {
+      "record_id": "jd-undisclosed", "owner_user_id": "u-alpha", "provenance": "synthetic",
+      "object_ref": {"kind": "judgment", "namespace": "judgments.jsonl", "id": "jd-undisclosed"},
+      "object_kind": "judgment",
+      "actor": {"author": "user", "evidence": ["memo"]},
+      "recorded_at": "2026-09-03T09:00:00+08:00", "event_time": "2026-09-03",
+      "versions": [
+        {"version": "v1", "recorded_at": "2026-09-03T09:00:00+08:00", "content_hash": "c1"},
+        {"version": "v2", "recorded_at": "2026-09-06T09:00:00+08:00", "content_hash": "c3", "disclosed": false}
+      ],
+      "version_chain_complete": true, "pit_grade": "strict",
+      "source_refs": ["judgments.jsonl#jd-undisclosed"]
+    },
+    {
+      "record_id": "jd-chain-unknown", "owner_user_id": "u-alpha", "provenance": "synthetic",
+      "object_ref": {"kind": "judgment", "namespace": "judgments.jsonl", "id": "jd-chain-unknown"},
+      "object_kind": "judgment",
+      "actor": {"author": "user", "evidence": ["memo"]},
+      "recorded_at": "2026-09-04T09:00:00+08:00", "event_time": "2026-09-04",
+      "versions": [
+        {"version": "v1", "recorded_at": "2026-09-04T09:00:00+08:00", "content_hash": "d1"},
+        {"version": "v2", "recorded_at": "2026-09-07T09:00:00+08:00", "content_hash": "d2"}
+      ],
+      "version_chain_complete": null, "pit_grade": "strict",
+      "source_refs": ["judgments.jsonl#jd-chain-unknown"]
+    },
+    {
+      "record_id": "ck-agent", "owner_user_id": "u-alpha", "provenance": "synthetic",
+      "object_ref": {"kind": "checkpoint", "namespace": "checkpoints.jsonl", "id": "ck-agent"},
+      "object_kind": "checkpoint",
+      "actor": {"author": "agent", "evidence": ["object_type=agent_judgment", "model_id=m-synthetic"]},
+      "recorded_at": "2026-09-02T12:00:00+08:00", "due": "2026-09-04",
+      "review_responsibility": "system", "pit_grade": "strict",
+      "source_refs": ["checkpoints.jsonl#ck-agent"]
+    },
+    {
+      "record_id": "ck-unverifiable", "owner_user_id": "u-alpha", "provenance": "synthetic",
+      "object_ref": {"kind": "checkpoint", "namespace": "checkpoints.jsonl", "id": "ck-unverifiable"},
+      "object_kind": "checkpoint",
+      "actor": {"author": "user", "evidence": ["object_type=judgment"]},
+      "recorded_at": "2026-09-03T12:00:00+08:00", "due": "2026-09-05",
+      "review_responsibility": "user", "pit_grade": "strict",
+      "source_refs": ["checkpoints.jsonl#ck-unverifiable"]
+    },
+    {
+      "record_id": "ck-notdue", "owner_user_id": "u-alpha", "provenance": "synthetic",
+      "object_ref": {"kind": "checkpoint", "namespace": "checkpoints.jsonl", "id": "ck-notdue"},
+      "object_kind": "checkpoint",
+      "actor": {"author": "user", "evidence": ["object_type=judgment"]},
+      "recorded_at": "2026-09-03T12:00:00+08:00", "due": "2026-09-20",
+      "review_responsibility": "user", "pit_grade": "strict",
+      "source_refs": ["checkpoints.jsonl#ck-notdue"]
+    },
+    {
+      "record_id": "ck-window-open", "owner_user_id": "u-alpha", "provenance": "synthetic",
+      "object_ref": {"kind": "checkpoint", "namespace": "checkpoints.jsonl", "id": "ck-window-open"},
+      "object_kind": "checkpoint",
+      "actor": {"author": "user", "evidence": ["object_type=judgment"]},
+      "recorded_at": "2026-09-03T12:00:00+08:00", "due": "2026-09-10",
+      "review_responsibility": "user", "pit_grade": "strict",
+      "source_refs": ["checkpoints.jsonl#ck-window-open"]
+    },
+    {
+      "record_id": "ck-legacy", "owner_user_id": "u-alpha", "provenance": "synthetic",
+      "object_ref": {"kind": "checkpoint", "namespace": "checkpoints.jsonl", "id": "ck-legacy"},
+      "object_kind": "checkpoint",
+      "actor": {"author": "unknown", "evidence": ["object_type=unknown_legacy"]},
+      "recorded_at": "2026-09-02T12:00:00+08:00", "due": "2026-09-04",
+      "review_responsibility": "user", "pit_grade": "strict",
+      "source_refs": ["checkpoints.jsonl#ck-legacy"]
+    },
+    {
+      "record_id": "ck-early-due", "owner_user_id": "u-alpha", "provenance": "synthetic",
+      "object_ref": {"kind": "checkpoint", "namespace": "checkpoints.jsonl", "id": "ck-early-due"},
+      "object_kind": "checkpoint",
+      "actor": {"author": "user", "evidence": ["object_type=judgment"]},
+      "recorded_at": "2026-08-30T12:00:00+08:00", "due": "2026-09-02",
+      "review_responsibility": "user", "pit_grade": "strict",
+      "source_refs": ["checkpoints.jsonl#ck-early-due"]
+    }
+  ],
+  "verdicts": [
+    {"verdict_id": "vd-os-timely-miss", "owner_user_id": "u-alpha", "provenance": "synthetic",
+     "object_ref": {"kind": "observation_script", "namespace": "observation_scripts.jsonl", "id": "os-timely"},
+     "verdict": "miss", "checked_at": "2026-09-03T20:00:00+08:00", "data_source": "market_daily", "auto": true,
+     "source_refs": ["verdicts.jsonl#os-timely"]},
+    {"verdict_id": "vd-os-late-hit", "owner_user_id": "u-alpha", "provenance": "synthetic",
+     "object_ref": {"kind": "observation_script", "namespace": "observation_scripts.jsonl", "id": "os-late"},
+     "verdict": "hit", "checked_at": "2026-09-04T20:00:00+08:00", "data_source": "market_daily", "auto": true,
+     "source_refs": ["verdicts.jsonl#os-late"]},
+    {"verdict_id": "vd-ck-unverifiable", "owner_user_id": "u-alpha", "provenance": "synthetic",
+     "object_ref": {"kind": "checkpoint", "namespace": "checkpoints.jsonl", "id": "ck-unverifiable"},
+     "verdict": "unverifiable", "checked_at": "2026-09-05T20:00:00+08:00", "data_source": "duckdb", "auto": true,
+     "degradation_reason": "本机无 DuckDB 数据，待补数后重判",
+     "source_refs": ["verdicts.jsonl#ck-unverifiable"]},
+    {"verdict_id": "vd-ck-nodeadline-future", "owner_user_id": "u-alpha", "provenance": "synthetic",
+     "object_ref": {"kind": "checkpoint", "namespace": "checkpoints.jsonl", "id": "ck-nodeadline"},
+     "verdict": "hit", "checked_at": "2026-09-13T20:00:00+08:00", "data_source": "manual", "auto": false,
+     "source_refs": ["verdicts.jsonl#ck-nodeadline"]}
+  ],
+  "process_receipts": [
+    {"receipt_id": "cov-verdicts", "owner_user_id": "u-alpha", "provenance": "synthetic", "kind": "coverage",
+     "recorded_at": "2026-09-11T00:00:00+08:00",
+     "payload": {"ledger": "verdicts", "complete_from": "2026-09-03", "complete_through": "2026-09-10"}},
+    {"receipt_id": "rv-dup-jd-memo", "owner_user_id": "u-alpha", "provenance": "synthetic", "kind": "revision",
+     "object_ref": {"kind": "judgment", "namespace": "judgments.jsonl", "id": "jd-memo"},
+     "occurred_at": "2026-09-05T11:00:00+08:00", "recorded_at": "2026-09-05T11:00:00+08:00",
+     "payload": {"from_version": "v1", "to_version": "v2", "reason": "公告更新产能口径", "disclosed": true, "linked_refs": ["ann:001"]}},
+    {"receipt_id": "eu-001", "owner_user_id": "u-alpha", "provenance": "synthetic", "kind": "evidence_use",
+     "object_ref": {"kind": "judgment", "namespace": "judgments.jsonl", "id": "jd-memo"},
+     "occurred_at": "2026-09-06T10:00:00+08:00", "recorded_at": "2026-09-06T10:00:00+08:00",
+     "payload": {"evidence_ref": "ann:001", "version_or_hash": "h1", "projection_ref": "proj:eu-001"}},
+    {"receipt_id": "eu-001-dup", "owner_user_id": "u-alpha", "provenance": "synthetic", "kind": "evidence_use",
+     "object_ref": {"kind": "judgment", "namespace": "judgments.jsonl", "id": "jd-memo"},
+     "occurred_at": "2026-09-06T10:00:00+08:00", "recorded_at": "2026-09-06T10:05:00+08:00",
+     "payload": {"evidence_ref": "ann:001", "version_or_hash": "h1", "projection_ref": "proj:eu-001-rescan"}},
+    {"receipt_id": "eu-002", "owner_user_id": "u-alpha", "provenance": "synthetic", "kind": "evidence_use",
+     "object_ref": {"kind": "judgment", "namespace": "judgments.jsonl", "id": "jd-memo"},
+     "occurred_at": "2026-09-07T10:00:00+08:00", "recorded_at": "2026-09-07T10:00:00+08:00",
+     "payload": {"evidence_ref": "ann:002", "version_or_hash": "k1"}},
+    {"receipt_id": "eu-003", "owner_user_id": "u-alpha", "provenance": "synthetic", "kind": "evidence_use",
+     "object_ref": {"kind": "judgment", "namespace": "judgments.jsonl", "id": "jd-undisclosed"},
+     "occurred_at": "2026-09-08T10:00:00+08:00", "recorded_at": "2026-09-08T10:00:00+08:00",
+     "payload": {"evidence_ref": "ann:003", "version_or_hash": "m2"}},
+    {"receipt_id": "eu-004", "owner_user_id": "u-alpha", "provenance": "synthetic", "kind": "evidence_use",
+     "object_ref": {"kind": "judgment", "namespace": "judgments.jsonl", "id": "jd-undisclosed"},
+     "occurred_at": "2026-09-04T10:00:00+08:00", "recorded_at": "2026-09-04T10:00:00+08:00",
+     "payload": {"evidence_ref": "ann:004", "version_or_hash": "n1"}},
+    {"receipt_id": "eu-005", "owner_user_id": "u-alpha", "provenance": "synthetic", "kind": "evidence_use",
+     "object_ref": {"kind": "judgment", "namespace": "judgments.jsonl", "id": "jd-memo"},
+     "occurred_at": "2026-09-08T10:00:00+08:00", "recorded_at": "2026-09-08T10:00:00+08:00",
+     "payload": {"evidence_ref": "ann:009", "version_or_hash": "z1"}},
+    {"receipt_id": "su-001", "owner_user_id": "u-alpha", "provenance": "synthetic", "kind": "stage_use",
+     "object_ref": {"kind": "judgment", "namespace": "judgments.jsonl", "id": "jd-memo"},
+     "occurred_at": "2026-09-03T14:00:00+08:00", "recorded_at": "2026-09-03T14:00:00+08:00",
+     "payload": {"method_ref": "M-breakout-volume", "method_version": "v1", "stage_label": "左底向下", "stage_label_grade": "deterministic", "stage_label_cutoff": "2026-09-03"}},
+    {"receipt_id": "su-002", "owner_user_id": "u-alpha", "provenance": "synthetic", "kind": "stage_use",
+     "object_ref": {"kind": "judgment", "namespace": "judgments.jsonl", "id": "jd-undisclosed"},
+     "occurred_at": "2026-09-04T14:00:00+08:00", "recorded_at": "2026-09-04T14:00:00+08:00",
+     "payload": {"method_ref": "M-breakout-volume", "method_version": "v1", "stage_label": "主流主升", "stage_label_grade": "deterministic", "stage_label_cutoff": "2026-09-04"}},
+    {"receipt_id": "su-003", "owner_user_id": "u-alpha", "provenance": "synthetic", "kind": "stage_use",
+     "object_ref": {"kind": "judgment", "namespace": "judgments.jsonl", "id": "jd-undisclosed"},
+     "occurred_at": "2026-09-05T14:00:00+08:00", "recorded_at": "2026-09-09T18:00:00+08:00",
+     "payload": {"method_ref": "M-breakout-volume", "method_version": "v1", "stage_label": "左底向下", "stage_label_grade": "deterministic", "stage_label_cutoff": "2026-09-09"}},
+    {"receipt_id": "su-004", "owner_user_id": "u-alpha", "provenance": "synthetic", "kind": "stage_use",
+     "object_ref": {"kind": "judgment", "namespace": "judgments.jsonl", "id": "jd-memo"},
+     "occurred_at": "2026-09-06T14:00:00+08:00", "recorded_at": "2026-09-06T14:00:00+08:00",
+     "payload": {"method_ref": "M-breakout-volume", "method_version": "v1", "stage_label": null, "stage_label_grade": "gap", "stage_label_cutoff": "2026-09-06"}},
+    {"receipt_id": "su-005", "owner_user_id": "u-alpha", "provenance": "synthetic", "kind": "stage_use",
+     "object_ref": {"kind": "judgment", "namespace": "judgments.jsonl", "id": "jd-memo"},
+     "occurred_at": "2026-09-07T14:00:00+08:00", "recorded_at": "2026-09-07T14:00:00+08:00",
+     "payload": {"method_ref": "M-unknown-method", "method_version": "v1", "stage_label": "主流主升", "stage_label_grade": "deterministic", "stage_label_cutoff": "2026-09-07"}}
+  ]
+}

@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""复盘会「复盘总览」逐日记录抓取（只抓不写，输出 JSON）。
+"""复盘会「复盘总览」逐日记录抓取（只抓不写，输出 JSON）——**已停用，除非平台明确许可**。
+
+2026-09-07 用本脚本一次翻了 22 页 / 440 天，触发平台反爬规则 ``entity_breadth``（HTTP 429、锁 72 小时），
+09-08 创始人账号被平台禁用。这是我方自动化造成的后果。此后**不再对复盘会做任何自动抓取**（低频也不做、换账号也不做），
+全量参照历史只走两条路：平台恢复账号并同意，或平台提供官方导出。要再跑本脚本，必须设置环境变量
+``FUPANHUI_PULL_ACK=platform-permission``，表示已取得平台许可；否则直接退出，什么都不发。
 
 通过本机 CDP 代理，在用户已登录的复盘会标签页里分页调用
 ``GET /api/v1/client/reviews/overview?days=N&offset=M&direction=older``，
@@ -20,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -30,6 +36,8 @@ from pathlib import Path
 
 DEFAULT_PROXY = "http://localhost:3456"
 API_PATH = "/api/v1/client/reviews/overview"
+ACK_ENV = "FUPANHUI_PULL_ACK"
+ACK_VALUE = "platform-permission"
 
 # 单页取数：Authorization 从页面 localStorage 的 user_token 取（页面自身的请求就是这样带的）。
 PAGE_JS = """
@@ -131,6 +139,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--delay", type=float, default=1.0, help="页间停顿秒数")
     ap.add_argument("--max-pages", type=int, default=400)
     args = ap.parse_args(argv)
+    if os.environ.get(ACK_ENV) != ACK_VALUE:
+        print(
+            f"已停用：2026-09-07 的批量拉取触发复盘会反爬（entity_breadth）、账号随后被禁用。未取得平台许可前不再对该站自动抓取；"
+            f"取得许可后设置 {ACK_ENV}={ACK_VALUE} 再跑。本次未发出任何请求。",
+            file=sys.stderr,
+        )
+        return 2
     try:
         target = args.target or find_target(args.proxy)
         payload = pull(args.proxy, target, since=args.since, days=args.days, delay=args.delay, max_pages=args.max_pages)

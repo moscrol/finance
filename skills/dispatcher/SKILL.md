@@ -104,9 +104,9 @@ python3 rx.py -- "cd '/Users/lbq/Desktop/c c/金融' && python3 skills/dispatche
 | report-search | 搜研报、找研报、研报搜索 | tool-wrapper | ✅ |
 | hithink-market-query | 股票价格、ETF行情、涨跌幅 | tool-wrapper | ✅ cli.py |
 | top-gainers | 涨幅排行、涨幅前N、区间涨幅 | pipeline | ✅ query_sectors.py |
-| top-gainers-feishu | 强势股入库、涨幅入库、区间强势 | pipeline | ✅ |
-| high-volume-gainers | 大成交排行、大成交涨幅、加权涨幅 | pipeline | ✅ write.py |
-| advancers-chart | 涨家数折线图、涨家数走势、涨跌趋势图 | generator | ✅ sync.py |
+| top-gainers-feishu | 强势股入库、涨幅入库、区间强势 | pipeline | ✅ query_ma.py（写入步已停） |
+| high-volume-gainers | 大成交排行、大成交涨幅、加权涨幅 | pipeline | ✅ write.py（写入步已停） |
+| advancers-chart | 涨家数折线图、涨家数走势、涨跌趋势图 | generator | ✅ sync.py（写入步已停） |
 | limit-advance | 晋级 | pipeline | ✅ scrape.py |
 | sector-data | 边际量、板块数据、抓取板块 | pipeline | - |
 | watchlist-ma | 自选股均线、自选股MA、自选股过滤 | tool-wrapper | ✅ query.py |

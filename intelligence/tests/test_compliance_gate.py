@@ -47,6 +47,15 @@ class HitTests(unittest.TestCase):
         for text in ("801080.TI 的边际量", "883418.FP 走强", "20260906 的切片"):
             self.assertNotIn(cg.E_STOCK_SCOPE, self._codes(text), text)
 
+    def test_digits_inside_alnum_token_not_stock(self) -> None:
+        """嵌在字母数字串中间的六位不是代码：带读末行的投影哈希 ``cp:29a433862d1424aa`` 恰好含
+        北交所号段的 ``433862``，不守住这条，带读会被自己的门随机拦下（任何十六进制哈希都可能中招）。"""
+        for text in ("（projection=cp:29a433862d1424aa）", "ref a600519b", "0x300750ff"):
+            self.assertNotIn(cg.E_STOCK_SCOPE, self._codes(text), text)
+        # 同一号段的裸代码照旧拦：哈希误伤修好了，门不能顺手变松。
+        for text in ("关注 433862", "433862 的公告", "cp:29a4 之后另起 433862"):
+            self.assertIn(cg.E_STOCK_SCOPE, self._codes(text), text)
+
     def test_holding_words_not_direction(self) -> None:
         """「基金重仓股占比」是合法观察变量：拦它等于逼用户放弃一个能看的量。"""
         for text in ("基金重仓股占比变化", "两融余额与仓位水平"):

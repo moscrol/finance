@@ -31,8 +31,9 @@ def _gain(code, gain, l1=None, boards=None, name=None):
     return {"stock_ts_code": code, "stock_name": name or code.lower(), "gain_pct": gain, "sw_l1": l1, "max_boards": boards}
 
 
-def _stat(code, ret, dd=-5.0, new_high=False, leg=None, losing=None):
-    return {"stock_ts_code": code, "ret_pct": ret, "max_dd_pct": dd, "new_high": new_high, "first_leg_ret_pct": leg, "losing_ret_pct": losing}
+def _stat(code, ret, dd=-5.0, new_high=False, leg=None, losing=None, other=None):
+    return {"stock_ts_code": code, "ret_pct": ret, "max_dd_pct": dd, "new_high": new_high, "first_leg_ret_pct": leg, "losing_ret_pct": losing,
+            "other_ret_pct": other}
 
 
 def test_build_dynasties_ranks_members_describes_handoff_and_flags_separation():
@@ -44,10 +45,10 @@ def test_build_dynasties_ranks_members_describes_handoff_and_flags_separation():
     # Collapse of wave 1: the old leaders crash; F and G hold up (top decile is the single best return out of 10 → F only).
     # On the window's two 亏钱效应日 the picture inverts: F falls with the market (−4), G is the only one to rise (+1).
     collapse = [_stat("A", -40.0, -45.0, False, -30.0, losing=-9.0), _stat("B", -35.0, -40.0, False, -25.0, losing=-8.0), _stat("C", -20.0, losing=-5.0),
-                _stat("D", -8.0, losing=-3.0), _stat("E", -9.0, losing=-3.5), _stat("F", 12.0, -3.0, True, 1.0, losing=-4.0), _stat("G", 6.0, -6.0, True, -2.0, losing=1.0),
+                _stat("D", -8.0, losing=-3.0), _stat("E", -9.0, losing=-3.5), _stat("F", 12.0, -3.0, True, 1.0, losing=-4.0, other=16.7), _stat("G", 6.0, -6.0, True, -2.0, losing=1.0, other=5.0),
                 _stat("H", -10.0, losing=-2.0), _stat("I", -12.0, losing=-6.0), _stat("J", -15.0, losing=-7.0)]
     money_losing = {1: {"peak_block": {"days": 5, "flagged": 0}, "lead": {"days": 4, "flagged": 1}, "collapse": {"days": 2, "flagged": 2},
-                        "collapse_days": [CAL[10], CAL[11]]}}
+                        "collapse_days": [CAL[10], CAL[11]], "collapse_other_days": 0}}
     out = build_dynasties(
         waves, {1: old_gains, 2: new_gains}, {1: collapse}, top=2, cohort=3, separation_percentile=0.9, index_returns={1: -7.5}, min_n=10,
         money_losing=money_losing,
@@ -69,6 +70,9 @@ def test_build_dynasties_ranks_members_describes_handoff_and_flags_separation():
     # 亏钱日上的强弱是第三条、独立的分离读数：G is the best of 10 on the losing days (percentile 90) while F sits mid-pack (50).
     assert h["G"]["losing_days_ret_pct"] == 1.0 and h["G"]["losing_days_ret_percentile"] == 90.0 and h["G"]["separation_on_losing_days"] is True
     assert h["F"]["losing_days_ret_percentile"] == 50.0 and h["F"]["separation_on_losing_days"] is False
+    # 亏钱日之外的日子 (only F and G carry a value here): F is the best of two → percentile 50, G 0; neither reaches 0.9.
+    assert h["F"]["other_days_ret_pct"] == 16.7 and h["F"]["other_days_ret_percentile"] == 50.0 and h["F"]["separation_on_other_days"] is False
+    assert h["D"]["other_days_ret_pct"] is None and h["D"]["separation_on_other_days"] is None
     readouts = out["readouts"]
     ml = readouts["waves"][1]["money_losing"]
     assert ml["peak_block"] == {"days": 5, "flagged": 0, "share": 0.0} and ml["lead_10d"]["share"] == 0.25 and ml["collapse"]["share"] == 1.0
@@ -90,6 +94,8 @@ def test_build_dynasties_ranks_members_describes_handoff_and_flags_separation():
     on = top2["on_losing_days"]
     assert on["old_ret_pct"]["median"] == -8.5 and on["new_ret_pct"]["median"] == -1.5 and on["new_ret_percentile"]["median"] == 70.0
     assert on["new_share_above_median"] == 1.0 and on["new_share_separation"] == 0.5
+    other = top2["on_other_days"]
+    assert other["days_ret_pct_all"]["n"] == 2 and other["new_ret_percentile"]["median"] == 25.0 and other["old_ret_pct"] is None
     gate = readouts["separation_gate"]
     assert gate["cycles"] == 1 and gate["top2"]["n"] == 1 and gate["top2"]["k"] == 1 and gate["top2"]["verdict"] == "insufficient_n"
     assert gate["cohort3"]["baseline_n"] == 10 and gate["cohort3"]["baseline_k"] == 3

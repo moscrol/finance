@@ -289,4 +289,98 @@ pytest intelligence/tests/test_methodology_backtest*.py → 67 passed；ruff 通
 
 ## 18. 结论
 
-亏钱效应量出来了：承接 5 日均值 < 1% 是两期都分得开的唯一一维，覆灭窗里的亏钱日占比是顶部块的 2–4 倍，且先于平台的左底向下标注出现。它同时改了一句话的含义——新王朝在亏钱日本身上不分离（分位中位 32–66），被打的是旧王朝，分离在覆灭窗里亏钱日之外的日子；「在亏钱效应下酝酿走强」是亏钱效应期间走强，不是亏钱日当天抗跌，定义取哪一条待创始人看 §8.14 (3)。覆灭窗仍按阶段段落定。一致率维持 46.6%。全部改动在领域层，`intelligence/runtime/` 不动。
+亏钱效应量出来了：承接 5 日均值 < 1% 是两期都分得开的唯一一维，覆灭窗里的亏钱日占比是顶部块的 2–4 倍，且先于平台的左底向下标注出现。它同时改了一句话的含义——新王朝在亏钱日本身上没有一致的分离（分位中位 34–66），被打的是旧王朝。
+
+补：把覆灭窗拆成亏钱日 / 其余日子再看（`history_dynasty_handoffs` +3 列 `other_days_*`，dynasties 哈希 31f82b769e45255a…，两次重建一致）——新前 10 分位中位 整窗 / 亏钱日 / 其余日子：W0→W1 82.7 / 34.5 / 83.4，W1→W2 65.3 / 66.4 / 36.9，W2→W3 75.6 / 32.1 / 81.4，W3→W4 48.9 / 54.9 / 46.6。常态覆灭的分离全在其余日子，关税暴跌那次反在亏钱日上抗跌，日级没有一致形状；「在亏钱效应下酝酿走强」= 整个亏钱效应期间的相对强弱，建议定义取整窗（现口径），待创始人认（骨架 §8.14 (4)）。覆灭窗仍按阶段段落定。一致率维持 46.6%。全部改动在领域层，`intelligence/runtime/` 不动。
+
+## 19. 授课框架接进时间长河读取面（用户「继续推进」，G-01 (b) 前置）
+
+```text
+pytest intelligence/tests/test_teaching_framework_river_objects.py → 4 passed + 1（真库：临时链接 db/market_feature_store.duckdb 跑过，之后清理）
+  真库用例：slice_river 不给 teaching_labels_db 与给 None 逐字节相同；给旁路库 → 盘面轨追加 teaching_stage / teaching_dynasty /
+           teaching_range_leaders；pit_grade 降为 trade_date_only（构建时刻 09-07 晚于 as_of）；require_strict 把三者全部滤掉
+tests/test_river_*.py 29 passed（真库）；intelligence/tests/test_guided_reading*.py 32 passed（带读默认路径不动）
+teaching 90 + methodology 67 passed；ruff 通过；layer_audit ERROR 0 == 基线；intelligence/runtime/ 零触碰
+
+顺手修：river 资金轨聚合 SUM(DOUBLE) 并行求和顺序不定——2026-01-12 算力租赁 amount_sum 两次调用 2413.130000000001 vs 2413.1299999999997，
+       source_hash 随之变，破「同一入参两次调用逐字段相同」；三个 SUM 改 DECIMAL(24,6) 精确求和后一致
+王朝对象的无前视契约（测试锁死）：顶部块内的日子没有王朝对象；下一波未见顶时上一波仍是「最近一波」、不写覆灭窗终点；
+       进入这一波的那次衔接（分离确认旗标）只在这一波见顶后出现；永不出现候选新王朝名单
+```
+
+## 20. 带读接授课框架读数 + 上证卡片（用户「接线」，默认关）
+
+```text
+pytest intelligence/tests/test_teaching_framework_reading.py → 6 passed（读数句 / 衔接句 / SVG 卡片 / 带读分段 / 开关解析 / 卡片写盘）
+pytest intelligence/tests/test_guided_reading*.py → 32 passed（老用户默认关的接缝不动）；test_teaching_framework_river_objects.py 4 + 1（真库）
+teaching 90 + methodology 67 passed；ruff 通过；layer_audit ERROR 0 == 基线；intelligence/runtime/ 零触碰
+
+产品面边界（测试锁死）：读数句不出个股名字与代码（夹具 8 个名字 / 代码零出现）；compliance_gate.lint_output 零命中；
+  无教学对象时 GuidedReading.teaching == []、渲染无「授课框架读数」段、卡片名不挂；teaching_card 只在有读数时写
+真库试渲染（/tmp/tf15-full-A.duckdb，2026-09-02）：
+  阶段：歧义（证据并列，当日未判）｜来源状态：共建主线
+  量能：shrink（量能比 81）｜偏离度带：below｜周均线下方第 1 天（首次下穿周期）
+  亏钱效应：否｜承接 5 日均值 1.54%
+  王朝链：最近见顶的王朝 W4（2026-04-08 → 2026-06-05），覆灭窗自 2026-06-08 起，至今有标签 59 天、亏钱效应日 15 天；其前 10：申万一级 3 个（电子 6、机械设备 3、电力设备 1）；载体 趋势 9，连板 1｜进入这一波的衔接：上一王朝 W3 覆灭窗 2026-02-02 → 2026-04-07，本波前 10 里 3 只相对分离、6 只窗内创新高
+  区间涨幅高标：20 日前 10：申万一级 6 个（农林牧渔 3、机械设备 2、电子 2），连板高标 0 只，在位天数中位 4，入组门槛 88%；…
+  SVG 7.2 KB，高度随读数行数走（636 px），qlmanage 转 PNG 预览可读
+```
+
+## 21. 资金面先量与视角（用户第十五段）
+
+```text
+先量（/tmp/tf15_measure_capital.py，旁路库 402 日 × 平台八段，训练 ≤ 2025-12-31）：十四个市场级日读数
+  两期都分得开：龙虎榜净额/全市场成交‰ 5 日均（底 0.34 vs 顶 0.62 / 0.71 vs 0.96）、龙虎榜买盘/卖盘 5 日均（1.39 vs 1.88 / 1.88 vs 2.32）
+  方向一致幅度小：封单金额中位、封单占流通市值中位（底部反而厚）、厚封单占比；反向或平：净额率中位、上榜家数、为正比例、成交占全市场、封单合计占比
+  竞价三条只有 2026-01 起（148 日），无训练期
+进带区实验（/tmp/tf16_band_experiment.py：monkeypatch BAND_VIEWS → calibrate-stages → build-labels；基线 46.57 / 50.48 / 40.00）：
+  +净额占比 5 日均 43.39 / 47.03 / 37.21 · +买卖比 5 日均 45.93 / 48.15 / 42.19 · 两个一起 40.17 / 43.06 / 35.38 · +封单占流通市值 45.61 / 48.34 / 41.22 → 都不进
+再建：CAPITAL_SQL 十二个市场级视角进 SECTOR_FIELDS；labels 行 34572 → 39396；缺口按列记（竞价 254 天、买卖比 6 天、5 日均 4–10 天、封单 11 天）
+  两次全新重建（22:00 / 23:00Z）：labels 0c402e71f3ad9e12… · succession a25b7f774f8186f8…（context 多了资金列）· sector 102ae4fc4c1aec5a… ·
+                                range_leaders 25dd6d6c91199a84… · dynasties 31f82b769e45255a…  均 identical ×2；一致率不变 46.57 / 50.48 / 40.00
+读取面：teaching_capital 对象 + 带读「资金面」一行；真库 2026-09-02：
+  资金面：龙虎榜席位净流入 16.0 亿（占全市场成交 0.89‰，5 日均 1.21‰）｜涨停封单占流通市值中位 124（万/亿），厚封单占比 62%｜
+         昨日涨停股竞价涨幅中位 3.00%，为正 100%｜成交额前 100 占全市场 25.7%      lint 零命中（「净买入」会撞动作词，改「净流入」）
+pytest teaching 90 + reading 6 + river_objects 4(+1 真库) + guided 32 + methodology 67；ruff 通过；layer_audit ERROR 0 == 基线
+```
+
+## 22. 消息面视角（用户第十六段）
+
+```text
+先量（/tmp/tf17_measure_narrative.py）：卖方观点事件 9,733 条，报告日 2026-02-08 → 07-05（121 天、日中位 61 条），07-05 起断更；
+  ingested_at 同日只 4.6%；stance 中性 77% / 看多 23%；hardness 硬证据 14%；Tier 1 恒为 0（盘面共振在晨汇正文里）
+  板块名与概念名精确重合 83 个；叙事覆盖率（5 日涨幅前 10 板块里过去 5 天有卖方叙事）验证期 底 10% vs 顶 20%（2.0 45%）
+再建：narrative.py（隔夜窗口）→ build-labels --kb-wiki → tf.narrative_* 九个市场级视角；缺口三类（before_source 268 天 / stale 35 天 / 不给知识库 absent）
+  带知识库两次构建（00:30 / 01:30Z）labels 哈希一致 d5b39dda4ac11539…，行 39396 → 43014；一致率不变 46.57 / 50.48 / 40.00
+  按八段中位（n 6–21）：事件数对 20 日均 2.0 265% · 缩量右底 38%；新概念占比 二次探底 14.2 / 共建 13.9 vs 主升 4.3；硬证据占比 2.0 23.6；
+                        叙事覆盖率 左底向上 50 / 2.0 40 / 承接 40 vs 主升 10 / 底部三段 10
+读取面：teaching_narrative 对象；带读一行（真库 2026-05-06）：
+  消息面：隔夜卖方事件 261 条（对 20 日均 402%），覆盖概念 101 个，其中首次出现 16 个｜硬证据占比 22%，前三概念集中度 18%｜今日赚钱效应板块里过去 5 天有卖方叙事的占 20%
+  2026-09-02：消息面：卖方观点事件源断更（超过 7 天没有新报告），今日不出读数      lint 零命中
+pytest teaching + reading + river_objects + narrative + guided：135 passed（+1 真库 skip）；methodology 67；ruff 通过；layer_audit ERROR 0 == 基线
+```
+
+## 23. 晨汇 Tier 写进事件文件（用户 09-08 第十七段）
+
+```text
+源核实：opinion-events.jsonl 9,733 条 = 晚间卖方研报那条流——report_title「晚间卖方研报YYYYMMDD」6,687 条（112 报告日）、
+  无题 2,187 条（06-10 → 06-12 按题材批灌，来源同一批机构）、单篇研报标题 668 条、[晨汇转述] 191 条（2%）；
+  入库晚于报告日 ≥ 56 天的 4,338/6,687。用户拍板两条源都补不满一年 → 只作视角，不对八段校准。
+知识库侧（kb-wt-briefing-tier-events，PR knowledge-base-private #144，未合）：
+  skills/morning-briefing/scripts/extract_tier_events.py → wiki/raw/theme-radar/opinion-store/briefing-tier-events.jsonl
+  87 份 → 1,159 行（T1 187 / T2 427 / T3 545）；逐份 T1 / T2 条目数 == 正文 T1-x / T2-x 编号数；空内容条目 0；两次运行 cmp 相同；--check OK
+  维度：只有 2026-06-12-三维交叉.md dimensions = 3（盘面共振 2 条）；185 条 Tier 1 全 downgraded；43 份回填写成晚材料日 20–56 天
+  精确匹配：438 个双链里 71 个是 fact_sector_daily 板块名；25 个条目标题是板块名
+本仓：narrative.py::briefing_daily（可知日 → 其后第一个交易日；缺口 before_source / absent_day / stale；二维日子 market_confirmed 记 briefing_no_market_input）
+  → SECTOR_FIELDS 七个 tf.briefing_*；river_objects teaching_briefing（缺口挂阶段对象 briefing_gap）；reading 消息面第二段
+  真库两次全新构建（03:00 / 04:00Z，/tmp/mfs-snap2.duckdb + kb 工作树 wiki）：market 标签逐行哈希一致 94c4b1274458e87a；
+    有读数 78 天（04-17 → 08-20；08-17 / 08-21 / 08-24 是 market_input 缺口日，晨汇读数随之不写），
+    缺口 before_source 310 / absent_day 11 / stale 3 / no_market_input 77；market_confirmed 有数 1 天（06-12 = 2）
+  按平台八段（n 3–18）：Tier 1+2 条目中位 5.5–8.5 八段不分；主题被赚钱效应板块点名 均值 0–10.7%，78 天里 22 天非零；lag 中位 承接 17.5 / 2.0 33.5 / 左底向上 0
+  带读（真库）：
+    2026-05-21：…｜晨汇 Tier 1 / 2 / 3 各 3 / 5 / 10 条（二维：无盘面输入，Tier 1 不算盘面共振），Tier 1 / 2 主题被今日赚钱效应板块点名的占 12%，晨汇写成滞后 22 天
+    2026-06-12：…｜晨汇 Tier 1 / 2 / 3 各 5 / 14 / 15 条（三维，盘面共振 2 条），Tier 1 / 2 主题被今日赚钱效应板块点名的占 5%
+    2026-09-02：消息面：卖方观点事件源断更（超过 7 天没有新报告），今日不出读数｜晨汇断更（超过 7 天没有新一期），今日不出晨汇读数
+    lint 零命中
+pytest test_teaching_framework_*.py 106 passed（+1 真库 skip）；knowledge-base tests/test_extract_tier_events.py 5 passed；ruff 通过；pre-commit 11 道全过；conflict-check clean
+```

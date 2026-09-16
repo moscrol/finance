@@ -37,7 +37,11 @@ def _canonical_value(value: Any) -> Any:
     if isinstance(value, float):
         # JSON's shortest decimal representation is stable across DuckDB and
         # Python for the finite values used by these labels.
-        return value if value == value and abs(value) != float("inf") else None
+        if value != value or abs(value) == float("inf"):
+            return None
+        # -0.0 == 0.0 but serializes as "-0.0": DuckDB's parallel MEDIAN / AVG can hand back either sign of zero
+        # for identical input (2026-09-08, tf.sector_pct_chg_median on 2026-07-15 flipped the whole labels hash).
+        return 0.0 if value == 0 else value
     return value
 
 

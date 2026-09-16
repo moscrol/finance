@@ -89,16 +89,17 @@ def test_sw_l1_sync_falls_back_to_fupanhui_aggregate_when_realtime_empty(tmp_pat
         },
     )
 
-    def raise_empty_realtime():
-        raise ValueError("Length mismatch: Expected axis has 0 elements")
-
-    monkeypatch.setattr(sw_sync, "_fetch_realtime", raise_empty_realtime)
+    monkeypatch.setattr(
+        sw_sync,
+        "_fetch_realtime",
+        lambda: (_ for _ in ()).throw(AssertionError("历史回填窗（end != 今天）不得调用 _fetch_realtime")),
+    )
     monkeypatch.setattr(sw_sync.time, "sleep", lambda _seconds: None)
 
     stats = sw_sync.sync_akshare_sw_l1_daily(trade_date="2026-07-10", days=2)
 
     assert stats["degraded_rows"] == 2
-    assert any(item["sw_l1"] == "realtime" for item in stats["failures"])
+    assert "realtime" not in {item["sw_l1"] for item in stats["failures"]}
     con = connect(read_only=True)
     try:
         rows = con.execute(
