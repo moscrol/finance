@@ -59,6 +59,7 @@ from typing import Literal, Protocol
 from intelligence.services.agent_runtime import EpisodeEvent, ModelToolCall, ModelTurn
 
 __all__ = [
+    "unreported_invalid_finish",
     "APPLICATION_TOOL_CALL_KIND",
     "APPLICATION_TOOL_CALL_SOURCES",
     "ApplicationToolCallSource",
@@ -132,6 +133,8 @@ ModelInputSource = Literal[
     "mode_decision",
     "sub_research",
     "repair_goal",
+    # 修复轮开场补发的「上一集最后一次拒收原因」（仅当它从未回灌过）。
+    "repair_last_rejection",
 ]
 MODEL_INPUT_SOURCES: frozenset[str] = frozenset(
     {
@@ -143,6 +146,7 @@ MODEL_INPUT_SOURCES: frozenset[str] = frozenset(
         "mode_decision",
         "sub_research",
         "repair_goal",
+        "repair_last_rejection",
     }
 )
 
@@ -591,6 +595,31 @@ def derive_messages(events: Iterable[EpisodeEvent]) -> list[EpisodeMessage]:
                     )
                 messages[target] = replace(messages[target], content=str(item["model_content"]))
     return messages
+
+
+def unreported_invalid_finish(events: Iterable[EpisodeEvent]) -> str:
+    """上一集里作者**没听过**的那次终局拒收原因。
+
+    loop 只在第一次 finish 失败时回灌 steering（``steering_invalid_finish``）：
+    再失败就停机。于是最后一次、也往往是最具体的那条病因只落在账上，修复轮的作者
+    看不到，只能对着「缺某个输出」重发同一份结构——2026-09-16 的真实 run
+    （invalid_repair_finish / 三次 invalid_action）就是这么打转的。
+
+    这里不改回灌次数、不多花一次模型调用：只是把账上尚未送达的那一条取出来，
+    由调用方在修复轮开场一并交给作者。已回灌过的不再重复。
+    """
+
+    pending = ""
+    for event in events:
+        if event.kind == "invalid_action":
+            reason = _payload_dict(event).get("reason")
+            pending = reason.strip() if isinstance(reason, str) else ""
+        elif (
+            event.kind == "model_input"
+            and _payload_dict(event).get("source") == "steering_invalid_finish"
+        ):
+            pending = ""
+    return pending
 
 
 def _last_tool_message_index(messages: Sequence[EpisodeMessage], call_id: str) -> int | None:

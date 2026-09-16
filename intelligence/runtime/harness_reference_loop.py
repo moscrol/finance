@@ -73,6 +73,7 @@ from intelligence.services.episode_messages import (
     system_message,
     to_provider,
     tool_message,
+    unreported_invalid_finish,
     user_message,
 )
 from intelligence.services.provider_observability import ProviderTrace
@@ -533,6 +534,16 @@ class HarnessReferenceLoop:
         # 底座策略（与 Episode 同）：工具开不开只看研究窗——底座批了重开、或窗还没关。
         # 额度为 0 时窗仍算开着，模型若真调工具，由批次执行器按 remaining_slots 拒掉。
         tools_open = goal.reopen_tools or not context.deadline.expired
+        # 与 agent_episode.resume 同：账上尚未送达作者的最后一次终局拒收原因，
+        # 在修复轮开场一并交出去（文案仍由 harness 给，底座不新造话术）。
+        unreported = unreported_invalid_finish(previous.events)
+        if unreported:
+            append_model_input(
+                messages,
+                ledger,
+                content=harness.steering_message("invalid_finish", detail=unreported),
+                source="repair_last_rejection",
+            )
         append_model_input(
             messages,
             ledger,

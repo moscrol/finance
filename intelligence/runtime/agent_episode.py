@@ -97,6 +97,7 @@ from intelligence.services.episode_messages import (
     system_message,
     to_provider,
     tool_message,
+    unreported_invalid_finish,
     user_message,
 )
 from intelligence.services.episode_restore import RestoreResult, restore_episode
@@ -2234,6 +2235,19 @@ class ContinuousAgentEpisode:
                 "previous_draft_chars": len(previous.draft),
             },
         )
+        # 上一集最后一次拒收如果从没回灌过（loop 只回灌第一次），作者进修复轮时
+        # 只知道「缺哪个输出」、不知道「上次为什么被拒」，往往原样重发。
+        # 此处不多花模型调用，只把账上尚未送达的那句用 harness 同一段文案补上。
+        unreported = unreported_invalid_finish(previous.events)
+        if unreported:
+            append_model_input(
+                messages,
+                ledger,
+                content=self._harness.steering_message(
+                    "invalid_finish", detail=unreported
+                ),
+                source="repair_last_rejection",
+            )
         append_model_input(
             messages,
             ledger,

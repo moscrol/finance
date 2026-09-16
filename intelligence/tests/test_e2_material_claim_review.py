@@ -276,3 +276,50 @@ def test_related_judge_tool_schema_and_parser_enforce_same_claim_checks():
     assert report and report.passed and report.to_dict()["material_claim_checks"]
     payload.pop("material_claim_checks")
     assert SemanticEpisodeVerifier._parse_report(json.dumps(payload), 2, material_claims=request["material_claims"]) is None
+
+
+def contradiction_request():
+    return {"material_claims": [{"claim_id": "c1", "sentence_index": 2, "kind": "material_fact",
+                                 "material_anchors": [{"material_id": "m1", "quote": "数据日期为2026年9月16日"}]}],
+            "sentences": [{"index": 1}, {"index": 2}]}
+
+
+def test_anchor_that_contradicts_the_sentence_is_a_legal_rejection_not_a_dropped_report():
+    request = contradiction_request()
+    payload = reviewed(request)
+    payload["material_claim_checks"][0].update(
+        supported=False, support_kind="contradicted", anchor_indexes=[1],
+        reason="锚点写明数据日期为2026年9月16日，与本句‘材料未注明日期’矛盾。")
+    payload.update(passed=False, rejected_sentence_indexes=[2])
+    report = SemanticEpisodeVerifier._parse_report(payload, 2, material_claims=request["material_claims"])
+    assert report is not None and not report.passed
+    assert report.rejected_sentence_indexes == (2,)
+    assert report.material_claim_checks[0]["support_kind"] == "contradicted"
+
+
+@pytest.mark.parametrize("mutation", ["supported", "no_anchor", "unsupported_with_anchor", "anchor_out_of_range"])
+def test_contradiction_receipt_still_cannot_claim_support_or_invent_anchors(mutation):
+    request = contradiction_request()
+    payload = reviewed(request)
+    row = payload["material_claim_checks"][0]
+    row.update(supported=False, support_kind="contradicted", anchor_indexes=[1], reason="锚点与本句矛盾。")
+    payload.update(passed=False, rejected_sentence_indexes=[2])
+    if mutation == "supported":
+        row["supported"] = True
+    elif mutation == "no_anchor":
+        row["anchor_indexes"] = []
+    elif mutation == "unsupported_with_anchor":
+        row["support_kind"] = "unsupported"
+    else:
+        row["anchor_indexes"] = [2]
+    assert SemanticEpisodeVerifier._parse_report(payload, 2, material_claims=request["material_claims"]) is None
+
+
+def test_contradiction_kind_is_offered_in_the_schema_and_explained_in_the_rule():
+    from intelligence.services.material_claim_review import CLAIM_CHECK_RULE, CLAIM_CHECK_SCHEMA
+
+    assert "contradicted" in CLAIM_CHECK_SCHEMA["items"]["properties"]["support_kind"]["enum"]
+    schema = _judge_report_tools(contradiction_request())[0]["function"]["parameters"]
+    kinds = schema["properties"]["material_claim_checks"]["items"]["properties"]["support_kind"]["enum"]
+    assert "contradicted" in kinds
+    assert "contradicted" in CLAIM_CHECK_RULE and "矛盾" in CLAIM_CHECK_RULE

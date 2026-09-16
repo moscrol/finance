@@ -587,6 +587,55 @@ def test_unnumbered_rewrite_permission_requires_settled_scope_and_only_delivery_
     assert not shape.cold_restart
 
 
+def test_repair_writer_reads_the_rejected_sentence_and_reason_not_a_bare_index():
+    from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
+    from intelligence.runtime.turn_control_core import TurnControlResult
+    from intelligence.services.episode_session import CallbackEpisodeSession
+
+    frame, context = setup()
+    bad = "订单增速明显高于行业平均。"
+    material_id = context.contract.material_grounding.materials[0].material_id
+    reason = f"该句带入材料之外的行业平均前提，{material_id} 里没有行业数据。"
+    value = outcome(context, claims=(fact_claim(context), ClaimSourceBinding(bad, "reasoning")))
+    value = replace(value, draft="## q1\n" + FACT + "\n" + bad + BOUNDARY)
+    goals = []
+
+    class Runtime:
+        def start(self, _frame, *, context, registry):
+            def resume(previous, goal):
+                goals.append(goal)
+                return replace(outcome(context), events=(*previous.events, EpisodeEvent(len(previous.events) + 1, "model_turn", {})))
+            return CallbackEpisodeSession(episode_id=context.contract.task_id, outcome=value, resume_callback=resume)
+
+    def judge(request):
+        indexes = [row["index"] for row in request["sentences"] if row["text"] == bad]
+        report = material_judge_report(request, rejected=indexes, issues=["外部前提不得写进材料结论。"])
+        for row in report.get("material_claim_checks", []):
+            if not row["supported"]:
+                row["reason"] = reason
+        return report
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(), runtime_name="continuous_glm", mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: ResearchToolRegistry(()),
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=judge),
+    ).handle(frame=frame, control=TurnControlResult(
+        task_frame=frame, execution_route=frame.question_type, terminal_kind="research",
+        needs_retrieval=False, capabilities=(), contract_required=True,
+    ))
+    assert len(goals) == 1 and result.status == "completed"
+    carried = goals[0].rejected_claim_notes
+    assert len(carried) == 1 and carried[0].startswith("claim_index:")
+    assert bad in carried[0] and "行业平均前提" in carried[0]
+    assert material_id not in carried[0] and material_id.casefold() not in carried[0].casefold()
+    assert bad not in result.answer and FACT in result.answer
+    # 带给作者的话真的进了 REPAIR_GOAL 提示（文案仍由 harness 组装）。
+    from intelligence.services.research_harness import FinanceResearchHarness
+    prompt = json.loads(FinanceResearchHarness().repair_goal_message(goals[0], tools_open=False))
+    assert prompt["rejected_claim_notes"] == list(carried)
+
+
 @pytest.mark.parametrize("judge_outage", [False, True])
 def test_unnumbered_final_projection_and_judge_outage_cannot_publish_completed(monkeypatch, judge_outage):
     from intelligence.runtime import continuous_turn_adapter as adapter_module

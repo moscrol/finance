@@ -17,7 +17,7 @@ CLAIM_CHECK_SCHEMA = {
             "claim_id": {"type": "string"},
             "supported": {"type": "boolean"},
             "reason": {"type": "string"},
-            "support_kind": {"type": "string", "enum": ["bound_material", "historical_quote", "nonfactual", "unsupported"]},
+            "support_kind": {"type": "string", "enum": ["bound_material", "historical_quote", "nonfactual", "unsupported", "contradicted"]},
             "anchor_indexes": {"type": "array", "items": {"type": "integer", "minimum": 1}, "uniqueItems": True},
         },
         "required": ["claim_id", "supported", "reason", "support_kind", "anchor_indexes"],
@@ -44,7 +44,10 @@ CLAIM_CHECK_RULE = (
     "support_kind=bound_material 时，anchor_indexes 列出本条 material_anchors 从1开始的序号，"
     "supported=true 必须有真实存在的序号；本条锚点为空就不能声称材料支持，不得捏造序号或借邻句的序号。"
     "historical_quote 只用于已绑定历史旧答；nonfactual 只用于确实不含事实或计算的句子；"
-    "unsupported 表示无有效支持，必须 supported=false。后三类 anchor_indexes=[]。"
+    "unsupported 表示无有效支持，必须 supported=false，且 anchor_indexes=[]；historical_quote 与 nonfactual 也一律 anchor_indexes=[]。"
+    "若本句的锚点原文直接与本句矛盾（如句子声称材料未给日期，锚点里却写明了日期），"
+    "用 supported=false、support_kind=contradicted，并在 anchor_indexes 填那个矛盾锚点的序号（至少一个）；"
+    "不得用 unsupported 搭配非空 anchor_indexes，也不得因为发现矛盾就把本句改成已支持。"
     "每条当前事实和计算只能用该条 material_anchors 的 quote 作直接支持，不能从同一 output 的邻句、"
     "其它 binding 或完整材料目录借用未绑定的输入；目录只用于核验出处和缺失声明。"
     "问句不是它所询问结果的证据。计算要逐一核对分子、分母、单位、期间和运算，reason 写出输入和推导。"
@@ -233,7 +236,14 @@ def reconcile_claim_checks(payload: dict, claims: list[dict[str, object]]) -> di
                 or any(type(index) is not int or index < 1 or index > len(row.get("material_anchors", ())) for index in indexes)
                 or len(set(indexes)) != len(indexes)):
             return None
-        if support_kind != "bound_material" and indexes:
+        # 矛盾是第三种结论，不是「没找到出处」：句子声称材料未给日期、锚点却写明了日期时，
+        # 判官需要指出是哪个锚点推翻了它。没有这个形状时，真实判官会写出
+        # unsupported+anchor_indexes 的非法组合，整份报告被丢弃→ judge unavailable
+        # （2026-09-16 contradicted_absence 对照）。放宽的只是表达力：矛盾仍是拒句。
+        if support_kind == "contradicted":
+            if supported or not indexes:
+                return None
+        elif support_kind != "bound_material" and indexes:
             return None
         if supported:
             if support_kind == "unsupported" or (support_kind == "bound_material" and not indexes):

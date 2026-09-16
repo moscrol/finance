@@ -169,6 +169,60 @@ def test_claim_rendering_does_not_bypass_memo_limit(length, valid):
             validate_episode_finish(payload, context=context, evidence=())
 
 
+def test_multisentence_error_locates_claim_without_rewriting_payload():
+    _, context = setup()
+    payload = claim_finish(context)
+    text = "计算采用订单除收入；材料未说明日期。"
+    payload["bindings"][1]["claims"][0]["text"] = text
+    with pytest.raises(ValueError) as error:
+        validate_episode_finish(payload, context=context, evidence=())
+    assert error.value.code == "bad_claim_binding"
+    assert "evidence_boundary.claims[0]" in str(error.value)
+    assert "2 sentences" in str(error.value)
+    assert payload["bindings"][1]["claims"][0]["text"] == text
+
+
+@pytest.mark.parametrize("reference_loop", [False, True])
+def test_last_format_error_reaches_repair_writer_without_extra_attempt(reference_loop):
+    from copy import deepcopy
+    from intelligence.runtime.harness_reference_loop import HarnessReferenceLoop
+    from intelligence.services.repair_coordinator import CoverageDelta, RepairGoal
+
+    frame, context = setup()
+    good = claim_finish(context)
+    bad = deepcopy(good)
+    bad["bindings"][1]["claims"][0]["text"] = "计算采用订单除收入；材料未说明日期。"
+    calls = []
+
+    class Writer:
+        def complete(self, *, messages, tools, timeout):
+            calls.append(deepcopy(messages))
+            text = "not JSON" if len(calls) == 1 else json.dumps(bad if len(calls) == 2 else good, ensure_ascii=False)
+            return ModelTurn(text, (), "offline", "")
+
+    loop = HarnessReferenceLoop(Writer()) if reference_loop else ContinuousAgentEpisode(Writer())
+    states = []
+    first = loop.run(task_frame=frame, context=context, registry=ResearchToolRegistry(()), _continuation_sink=states)
+    assert len(calls) == 2 and first.status == "partial"
+    goal = RepairGoal(context.contract.task_id, "repair-format-context", 1, ("answer_q1", "evidence_boundary"),
+                      (), (), (), CoverageDelta(0, 0, 0), 0, 20)
+    result = loop.resume(states[0], first, goal)
+    assert len(calls) == 3 and result.status == "completed"
+    feedback = [message["content"] for message in calls[2] if message["role"] == "user" and "one sentence" in message["content"]]
+    assert len(feedback) == 1
+    assert "evidence_boundary.claims[0]" in feedback[0]
+    # 第二次失败在本集只落账、不再多花一次模型调用；它到修复轮才交给作者。
+    injected = [event for event in first.events
+                if event.kind == "model_input" and event.payload.get("source") == "steering_invalid_finish"]
+    assert len(injected) == 1 and "one sentence" not in injected[0].payload["content"]
+    assert any(event.kind == "invalid_action" and "evidence_boundary.claims[0]" in event.payload["reason"]
+               for event in first.events)
+    carried = [event for event in result.events
+               if event.kind == "model_input" and event.payload.get("source") == "repair_last_rejection"]
+    assert len(carried) == 1 and carried[0].payload["content"] == feedback[0]
+    assert result.usage.tool_calls == 0
+
+
 def test_claim_rendering_keeps_wrong_quote_as_terminal_integrity_rejection():
     _, context = setup()
     payload = claim_finish(context)

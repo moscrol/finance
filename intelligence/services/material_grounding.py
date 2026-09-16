@@ -253,8 +253,15 @@ def render_material_claims(contract: ResearchTaskContract, raw_bindings: object)
             raise ValueError("a gap cannot carry answered claims")
         if not gap.strip() and not claims:
             raise ValueError("claim rendering requires sentences or a disclosed gap")
-        if any(len(claim_sentences(claim.text)) != 1 for claim in claims):
-            raise ValueError("claim rendering requires one sentence per claim")
+        for index, claim in enumerate(claims):
+            count = len(claim_sentences(claim.text))
+            if count != 1:
+                # 病灶坐标进错误文本：作者要改的是哪一条，不能靠猜。修复轮把这句原样回灌，
+                # 只说「需要一句一条」时，作者只会把同一份 bindings 再发一次。
+                raise ValueError(
+                    "claim rendering requires one sentence per claim: "
+                    f"{output_id}.claims[{index}] has {count} sentences"
+                )
         title = questions.get(output_id) or ("证据边界" if output_id == "evidence_boundary" else "")
         body = gap.strip() if gap else "\n\n".join(claim.text.strip() for claim in claims)
         blocks.append(("## " + title + "\n" if title else "") + body)
