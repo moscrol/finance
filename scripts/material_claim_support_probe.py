@@ -32,6 +32,9 @@ CASES = (
     ("pure_scope_unbound", "本回答仅依据用户材料，未引入外部数据。", "", True),
     ("unbound_computation_repeat", "比例12.5%是对材料内两个数字的直接算术结果，若两者口径或期间不一致，该比例需相应调整。", "", False),
     ("facts_only", "本回答仅依据用户材料，未引入外部数据。", "只依据材料", False),
+    ("unbound_absence", "材料未说明收入与订单的数据日期。", "", False),
+    ("bound_absence", "所引材料未说明收入与订单的数据日期。", INPUTS, True),
+    ("contradicted_absence", "材料未说明收入与订单的数据日期。", INPUTS + "，数据日期为2026年9月16日", False),
 )
 
 
@@ -44,6 +47,9 @@ def probe_case(case, client):
         answer = "新增订单占收入比例为30÷240=12.5%。"
     if name == "facts_only":
         answer = "材料事实：甲收入100万元，新增订单20万元。"
+    if name == "contradicted_absence":
+        inputs = quote
+        question = "只依据材料：" + inputs + "，订单占收入比例是多少？"
     frame = understand_query(question).task_frame
     context = build_episode_context(frame, task_id="controlled-claim-judge-" + name)
     source = context.contract.material_grounding.materials[0]

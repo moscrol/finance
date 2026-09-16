@@ -52,7 +52,7 @@ from intelligence.services.session_projection import (
     view,
 )
 from intelligence.services.material_claim_review import (
-    CLAIM_CHECK_RULE, CLAIM_CHECK_SCHEMA, NONFACTUAL_REVIEW_RULE, OUTPUT_CHECK_RULE, OUTPUT_CHECK_SCHEMA,
+    CLAIM_CHECK_RULE, CLAIM_CHECK_SCHEMA, MATERIAL_REVIEW_RULE, NONFACTUAL_REVIEW_RULE, OUTPUT_CHECK_RULE, OUTPUT_CHECK_SCHEMA,
     material_claim_rows, material_output_rows, nonfactual_review_request, reconcile_claim_checks, reconcile_output_checks,
 )
 from intelligence.services.material_grounding import (
@@ -410,11 +410,15 @@ def _judge_report_tools(request: Mapping[str, object]) -> list[dict]:
     tools = deepcopy(_JUDGE_REPORT_TOOLS)
     if request.get("material_claims"):
         schema = tools[0]["function"]["parameters"]
-        schema["properties"]["material_claim_checks"] = deepcopy(CLAIM_CHECK_SCHEMA)
+        claim_schema = deepcopy(CLAIM_CHECK_SCHEMA)
+        claim_schema["items"]["properties"]["claim_id"]["enum"] = [row["claim_id"] for row in request["material_claims"]]
+        claim_schema["minItems"] = claim_schema["maxItems"] = len(request["material_claims"])
+        schema["properties"]["material_claim_checks"] = claim_schema
         schema["required"].append("material_claim_checks")
     if request.get("material_outputs"):
         schema = tools[0]["function"]["parameters"]
         output_schema = deepcopy(OUTPUT_CHECK_SCHEMA)
+        output_schema["minItems"] = output_schema["maxItems"] = len(request["material_outputs"])
         output_schema["items"]["properties"]["output_id"]["enum"] = [row["output_id"] for row in request["material_outputs"]]
         schema["properties"]["material_output_checks"] = output_schema
         schema["required"].append("material_output_checks")
@@ -2403,6 +2407,9 @@ class SemanticEpisodeVerifier:
         if contract is not None:
             grounding = material_grounding_payload(contract)
             if grounding is not None:
+                if grounding_scope(contract) == "material_only":
+                    # The reviewer needs the frozen sources, not the author's finish template.
+                    grounding = {key: value for key, value in grounding.items() if key not in {"finish_format", "rule"}}
                 payload["material_grounding"] = grounding
         claims = material_claim_rows(verified, sentences)
         if claims:
@@ -2410,6 +2417,8 @@ class SemanticEpisodeVerifier:
         outputs = material_output_rows(verified, sentences, claims)
         if outputs:
             payload["material_outputs"] = outputs
+            answer_ids = {row["output_id"] for row in outputs}
+            payload["required_outputs"] = [row for row in required_outputs if row["output_id"] in answer_ids]
         if recheck_enabled():
             draft = " ".join(str(item.get("text") or "") for item in sentences)
             payload["source_recheck"] = recheck_draft(draft)
@@ -5459,7 +5468,8 @@ def _lost_grounded_output_substance(
 
 
 def _judge_system_prompt(request: Mapping[str, object]) -> str:
-    prompt = (
+    material_only = (request.get("material_grounding") or {}).get("data_scope") == "material_only"
+    prompt = MATERIAL_REVIEW_RULE if material_only else (
         _NON_EVIDENCE_JUDGE_SYSTEM_PROMPT
         if request.get("answer_grounding_mode") in {"model_reasoning", "user_premise"}
         else _JUDGE_SYSTEM_PROMPT

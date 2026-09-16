@@ -293,6 +293,8 @@ def material_grounding_payload(contract: ResearchTaskContract) -> dict[str, obje
             "非事实推理可标 reasoning，范围声明可标 premise_declaration；标签不能掩盖未绑定的当前事实。"
             "范围声明若重复收入、订单等数值，重复部分也是事实，须在该句重新绑定输入锚点；"
             "仅写‘本答复只依据用户材料’这类不重复事实的声明可不绑数值。"
+            "‘材料未注明日期/口径’是关于材料内容的缺项陈述，也须本句引用所审原材料（不能仅引问句）；"
+            "缺项只在已审引用范围内陈述，不凭短片段声称所有材料均缺失，后续材料有补充或修订须一并核对。"
             "历史引用/纠错/撤回标 historical_assistant_statement，绑定 old_answer_coordinate（旧消息 source_message_id）、"
             "historical_quote（旧答逐字片段）、basis=assistant_judgment；它不主张当前市场事实，豁免材料锚点与纯度扫描。"
             "旧答与当前推断混句必须拆句分别绑定，无法拆则整句拒绝；不能借旧答材料外数字支持当前结论。"

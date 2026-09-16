@@ -173,6 +173,64 @@ def test_output_tool_schema_has_exact_output_identity_set():
     assert schema["properties"]["material_output_checks"]["items"]["properties"]["output_id"]["enum"] == ["answer_q1"]
 
 
+def test_material_review_does_not_receive_writer_instructions_or_generic_exemption():
+    from intelligence.services.episode_semantic_verifier import _judge_system_prompt
+
+    frame, context = setup()
+    seen = []
+    verify(frame, context, outcome(context), lambda request: (seen.append(request), reviewed(request))[1])
+    request = seen[0]
+    assert "finish_format" not in request["material_grounding"]
+    assert "wire_template" not in str(request)
+    assert [row["output_id"] for row in request["required_outputs"]] == [row["output_id"] for row in request["material_outputs"]]
+    prompt = _judge_system_prompt(request)
+    assert "不要求证据也不得拒绝" not in prompt
+    assert "缺项陈述" in prompt and "supported=true" in prompt
+    assert "materials" in request["material_grounding"]
+    assert any(row["output_id"] == "evidence_boundary" for row in request["output_bindings"])
+
+
+def test_material_tool_schema_limits_receipt_count_and_claim_identity():
+    from intelligence.services.episode_semantic_verifier import _judge_report_tools
+
+    request = {"material_claims": [{"claim_id": "c1"}, {"claim_id": "c2"}],
+               "material_outputs": [{"output_id": "answer_q1"}]}
+    properties = _judge_report_tools(request)[0]["function"]["parameters"]["properties"]
+    assert properties["material_claim_checks"]["minItems"] == properties["material_claim_checks"]["maxItems"] == 2
+    assert properties["material_claim_checks"]["items"]["properties"]["claim_id"]["enum"] == ["c1", "c2"]
+    assert properties["material_output_checks"]["minItems"] == properties["material_output_checks"]["maxItems"] == 1
+
+
+@pytest.mark.parametrize("bound", [True, False])
+def test_absence_statement_is_a_fact_and_cannot_gain_context_from_neighbor(bound):
+    frame, context = setup()
+    text = "所引材料未注明收入与订单的数据日期。"
+    claim = replace(fact_claim(context, text), kind="reasoning") if bound else ClaimSourceBinding(text, "reasoning")
+    value = outcome(context)
+    value = replace(value, draft=value.draft + "\n" + text, bindings=(
+        value.bindings[0], replace(value.bindings[1], claims=(claim,)),
+    ))
+    seen = []
+
+    def judge(request):
+        seen.append(request)
+        payload = reviewed(request)
+        row = next(row for row in request["material_claims"] if row["text"] == text)
+        check = next(check for check in payload["material_claim_checks"] if check["claim_id"] == row["claim_id"])
+        if request.get("nonfactual_review"):
+            check.update(supported=bound, support_kind="bound_material" if bound else "unsupported",
+                         anchor_indexes=[1] if bound else [], reason="缺项是对材料内容的断言，只有本句引用可供核验。")
+        else:
+            check.update(support_kind="nonfactual", anchor_indexes=[])
+        return payload
+
+    result = verify(frame, context, value, judge)
+    assert len(seen) == 2
+    assert "material_grounding" not in seen[1] and "material_outputs" not in seen[1]
+    assert (result.status == "completed") is bound
+    assert result.material_nonfactual_checks[0]["supported"] is bound
+
+
 @pytest.mark.parametrize("mutation", ["missing", "empty", "duplicate", "foreign", "bool_index", "no_witness", "false_with_witness", "extra", "empty_reason"])
 def test_malformed_output_receipt_is_unavailable(mutation):
     frame, context = setup()

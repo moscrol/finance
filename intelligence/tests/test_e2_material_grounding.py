@@ -128,7 +128,8 @@ def test_writer_judge_and_contract_restore_share_original_source_catalogue():
     value = outcome(context)
     calls = []
     verify(frame, context, value, lambda request: (calls.append(request), passing(request))[1])
-    assert calls[0]["material_grounding"] == writer
+    assert calls[0]["material_grounding"] == {key: value for key, value in writer.items() if key not in {"finish_format", "rule"}}
+    assert "finish_format" in writer
     assert all(OLD not in row["text"] for row in writer["materials"])
     assert writer["historical_assistant_statements"][0]["source_message_id"] == "assistant-old"
     restored = ResearchTaskContract.from_dict(json.loads(json.dumps(context.contract.to_dict())))

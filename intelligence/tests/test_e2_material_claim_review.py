@@ -8,6 +8,7 @@ from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerif
 from intelligence.services.agent_runtime import ModelTurn, ModelToolCall
 from intelligence.services.material_grounding import ClaimSourceBinding, MaterialAnchor
 from intelligence.tests.test_e2_material_grounding import FACT, fact_claim, outcome, setup, verify
+from scripts.material_claim_support_probe import CASES
 
 
 from intelligence.tests.material_judge_helpers import material_judge_report as reviewed
@@ -127,11 +128,9 @@ def test_material_review_payload_reaches_all_supported_judge_callback_styles(sty
     assert seen[0]["material_grounding"]["data_scope"] == "material_only"
 
 
-@pytest.mark.parametrize("case_index", range(7))
-def test_control_probe_cases_are_validated_and_require_specific_verdict(case_index):
-    from scripts.material_claim_support_probe import CASES, probe_case
-
-    case = CASES[case_index]
+@pytest.mark.parametrize("case", CASES, ids=lambda case: case[0])
+def test_control_probe_cases_are_validated_and_require_specific_verdict(case):
+    from scripts.material_claim_support_probe import probe_case
 
     def judge(request):
         rejected = () if case[3] or case[0] == "facts_only" else tuple(row["sentence_index"] for row in request["material_claims"] if row["output_id"] == "evidence_boundary")
