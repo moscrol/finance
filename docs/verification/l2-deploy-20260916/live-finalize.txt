@@ -1,0 +1,71 @@
+[2026-09-16 23:05:33] === 全量复盘开始 phase=finalize date=2026-09-16 l2_code=/Users/a77/.finance-runtime/finance-l2-d433b90788c0 l2_rev=d433b90788c0 workspace=/Users/a77/finance-workspace-private workspace_rev=b4a35fa2c143 db=/Users/a77/finance-workspace-private/db/market_feature_store.duckdb moneyflow_out=/Users/a77/finance-workspace-private/scripts/moneyflow/outputs ===
+L2 start date=2026-09-16 source=baidu-share:xianyu-l2-7z code=/Users/a77/.finance-runtime/finance-l2-d433b90788c0 rev=d433b90788c0 data=/Users/a77/finance-workspace-private db=/Users/a77/finance-workspace-private/db/market_feature_store.duckdb
+L2 calendar date=2026-09-16 verdict=trading source=sse_calendar data=missing
+DuckDB: l2-moneyflow 2026-09-16 日历判定 trading 已落台账
+share has 20260916.7z size=5097702316
+already complete /Users/a77/finance-workspace-private/state/l2-cache/20260916.7z
+2026-09-16 prev=2026-09-15 limitup=33 top100=0
+WARN 2026-09-16 top100 名单只有 0 只
+⚠️ 2026-09-16 fact_stock_daily 无 pct_chg（行情缺口）：当日涨幅% 写 NULL，不拿日内末笔/首笔口径冒充
+DuckDB: l2-moneyflow/limitup 2026-09-16 已 complete，跳过 begin 降级
+FAIL 2026-09-16，本地 7z 留下便于重试
+[2026-09-16 23:06:26] 资金流段失败 rc=1
+DuckDB: l2-moneyflow 2026-09-16 未完成步骤标记为 failed
+CHECK L2 2026-09-16
+l2-moneyflow/limitup: ('complete', 33, 33, 33, 0, 'baidu-share:xianyu-l2-7z')
+l2-moneyflow/top100: ('failed', None, None, None, None, 'baidu-share:xianyu-l2-7z')
+l2-moneyflow/quant: ('failed', None, None, None, None, 'baidu-share:xianyu-l2-7z')
+feature_l2_capital_flow_daily: rows=33 max=2026-09-16
+feature_l2_quant_orders_daily: rows=0 max=2026-09-15
+RESULT: INCOMPLETE
+- L2 步骤 top100 状态为 failed，未完成
+- L2 步骤 quant 状态为 failed，未完成
+[2026-09-16 23:06:27] L2 质量门未通过 rc=2
+[2026-09-16 23:06:27] L2 段失败 date=2026-09-16 资金流 rc=1 L2门 rc=2；继续查同步守卫（生成段另行守门）
+CHECK DATA 2026-09-16 (plan=auto: 19/20 表)
+fact_market_daily: rows=0 max=2026-09-15
+fact_sector_daily: rows=0 max=2026-09-15
+fact_sw_l1_daily: rows=0 max=2026-09-15
+fact_sector_stock_daily: rows=0 max=2026-09-15
+fact_stock_high_daily: rows=0 max=2026-09-15
+fact_theme_limit_heat_daily: rows=0 max=2026-09-15
+fact_theme_limit_stock_daily: rows=0 max=2026-09-15
+fact_limit_advance_daily: rows=0 max=2026-09-15
+fact_stock_daily: rows=0 max=2026-09-15
+fact_mainline_theme_daily: rows=0 max=2026-09-15
+fact_mainline_stock_daily: rows=0 max=2026-09-15
+fact_mainline_sector_daily: rows=0 max=2026-09-15
+fact_theme_flow_daily: rows=0 max=2026-09-15
+fact_sector_period_rank_daily: rows=0 max=2026-09-15
+fact_core_stock_daily: rows=0 max=2026-09-15
+feature_market_window: rows=0 max=2026-09-15
+feature_sector_window: rows=0 max=2026-09-15
+feature_stock_window: rows=0 max=2026-09-15
+feature_stock_technical_daily: rows=0 max=2026-09-15
+fill-rate: fact_market_daily 15 列 / fact_stock_daily 736 日已扫，问题 0
+STAGING CONTRAST 2026-09-16 (market_feature_store.duckdb.staging)
+RESULT: INCOMPLETE
+- fact_market_daily 无 2026-09-16 数据，最新 2026-09-15
+- fact_sector_daily 无 2026-09-16 数据，最新 2026-09-15
+- fact_sw_l1_daily 无 2026-09-16 数据，最新 2026-09-15
+- fact_sector_stock_daily 无 2026-09-16 数据，最新 2026-09-15
+- fact_stock_high_daily 无 2026-09-16 数据，最新 2026-09-15
+- fact_theme_limit_heat_daily 无 2026-09-16 数据，最新 2026-09-15
+- fact_theme_limit_stock_daily 无 2026-09-16 数据，最新 2026-09-15
+- fact_limit_advance_daily 无 2026-09-16 数据，最新 2026-09-15
+- fact_stock_daily 无 2026-09-16 数据，最新 2026-09-15
+- fact_mainline_theme_daily 无 2026-09-16 数据，最新 2026-09-15
+- fact_mainline_stock_daily 无 2026-09-16 数据，最新 2026-09-15
+- fact_mainline_sector_daily 无 2026-09-16 数据，最新 2026-09-15
+- fact_theme_flow_daily 无 2026-09-16 数据，最新 2026-09-15
+- fact_sector_period_rank_daily 无 2026-09-16 数据，最新 2026-09-15
+- fact_core_stock_daily 无 2026-09-16 数据，最新 2026-09-15
+- feature_market_window 无 2026-09-16 数据，最新 2026-09-15
+- feature_sector_window 无 2026-09-16 数据，最新 2026-09-15
+- feature_stock_window 无 2026-09-16 数据，最新 2026-09-15
+- feature_stock_technical_daily 无 2026-09-16 数据，最新 2026-09-15
+- fact_market_daily 缺失整行
+- fact_sw_l1_daily 2026-09-16 只有 0 个行业，应为 31
+- fact_sector_daily 无 2026-09-16 板块行情
+[2026-09-16 23:06:29] finalize 守卫未通过：2026-09-16 同步段数据不完整（same-day-gate rc=2），中止生成段（L2 段已跑，rc=1）
+[2026-09-16 23:06:29] === finalize 中止 date=2026-09-16 sync 守卫 rc=2 L2段 rc=1 ===

@@ -1,0 +1,9 @@
+[2026-09-16 23:05:34] ⚠️ 当日行情 data=missing（非 present）：日包侧可照常，依赖当日 fact_stock_daily 的口径可能空转——这是行情缺口，不是 L2 故障
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/finance-l2-d433b90788c0/scripts/moneyflow/run_l2_from_share.py", line 137, in <module>
+    run_date(sys.argv[1])
+  File "/Users/a77/.finance-runtime/finance-l2-d433b90788c0/scripts/moneyflow/run_l2_from_share.py", line 120, in run_date
+    process_date(date, archive)
+  File "/Users/a77/.finance-runtime/finance-l2-d433b90788c0/scripts/moneyflow/process_l2_archive.py", line 218, in process_date
+    raise RuntimeError(
+RuntimeError: incomplete candidates: limitup=33 top100=0/100

@@ -1,0 +1,53 @@
+{
+  "verified_at": "2026-09-16T15:36:06.032096+00:00",
+  "revision": "d433b90788c0727d71043a992e69c20f34203257",
+  "snapshot": "/Users/a77/.finance-runtime/finance-l2-d433b90788c0",
+  "snapshot_dirty": false,
+  "deployment": "loaded_and_exercised",
+  "business_result": "blocked_missing_daily_facts",
+  "launchd": {
+    "label": "com.financeworkspace.daily-full-review-finalize",
+    "state": "not running",
+    "runs": 1,
+    "last_exit_code": 2,
+    "schedule": {
+      "Hour": 20,
+      "Minute": 40
+    }
+  },
+  "live_run": {
+    "start_local": "2026-09-16T23:05:33+08:00",
+    "end_local": "2026-09-16T23:06:29+08:00",
+    "l2_exit_code": 1,
+    "l2_gate_exit_code": 2,
+    "data_gate_exit_code": 2,
+    "error": "incomplete candidates: limitup=33 top100=0/100",
+    "new_result_write_reached": false,
+    "existing_l2_status_and_row_counts_unchanged": true,
+    "share_lookup_succeeded": true,
+    "archive_reused_from_cache": true,
+    "archive_size": 5097702316,
+    "archive_integrity_verified": false,
+    "generation_started": false
+  },
+  "workbench": {
+    "status": "healthy",
+    "revision": "db2963d4fbaa9e4a3f8c3958032b004ba31915a7",
+    "code_matches_repo": true,
+    "source_dirty": false,
+    "config_and_runtime_link_unchanged": true
+  },
+  "sync_configuration_unchanged": true,
+  "cdp_health_now": {
+    "status": "ok",
+    "connected": true
+  },
+  "targeted_receipt": "/Users/a77/.finance-runtime/test-receipts/20260916T150231Z-d433b907.json",
+  "backup": "/Users/a77/.finance-runtime/l2-deploy-20260916/backup",
+  "not_tested": [
+    "production success path after same-day market data repair",
+    "fresh multi-GB archive download",
+    "production archive extraction and result publication",
+    "rollback execution"
+  ]
+}

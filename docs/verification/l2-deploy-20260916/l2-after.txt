@@ -1,0 +1,9 @@
+CHECK L2 2026-09-16
+l2-moneyflow/limitup: ('complete', 33, 33, 33, 0, 'baidu-share:xianyu-l2-7z')
+l2-moneyflow/top100: ('failed', None, None, None, None, 'baidu-share:xianyu-l2-7z')
+l2-moneyflow/quant: ('failed', None, None, None, None, 'baidu-share:xianyu-l2-7z')
+feature_l2_capital_flow_daily: rows=33 max=2026-09-16
+feature_l2_quant_orders_daily: rows=0 max=2026-09-15
+RESULT: INCOMPLETE
+- L2 步骤 top100 状态为 failed，未完成
+- L2 步骤 quant 状态为 failed，未完成

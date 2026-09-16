@@ -1,0 +1,21 @@
+{
+  "revision": "d433b90788c0727d71043a992e69c20f34203257",
+  "snapshot": "/Users/a77/.finance-runtime/finance-l2-d433b90788c0",
+  "label": "com.financeworkspace.daily-full-review-finalize",
+  "old_code_root": "/Users/a77/finance-workspace-runtime",
+  "backup": "/Users/a77/.finance-runtime/l2-deploy-20260916/backup",
+  "before": {
+    "com.financeworkspace.daily-full-review-finalize.plist": "64e7f8639fc8b1c370f2d24e4e21704b8c5d934964da97dad9822e49fc688bec",
+    "nightly_full_review.sh": "da12d8d92c19d9a4e25df7a23f83ea3c0490ec65022e2d2660e22274d17f0269"
+  },
+  "unrelated": {
+    "/Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist": "66831a26a7a4d999085dea8893f703f7d20286bce741bc18bcef600e0f367787",
+    "/Users/a77/Library/LaunchAgents/com.a77.finance-workbench.plist": "e2f6f3653cce55044a05c1867c2694bc1524db13dc5936000b32044bad47acb9"
+  },
+  "workbench_runtime": "/Users/a77/.finance-runtime/finance-workspace-db2963d4fbaa",
+  "after": {
+    "com.financeworkspace.daily-full-review-finalize.plist": "443d0a7d84d36cdb95514b90d79165ea62922eab22737676698e6147cc81b9ef",
+    "nightly_full_review.sh": "e075484e7e0d1ed54566201df95835effbc3e6ba26455824c8422b2e53c2bd36"
+  },
+  "status": "deployed_not_kickstarted"
+}
