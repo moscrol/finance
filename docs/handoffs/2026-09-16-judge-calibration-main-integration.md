@@ -1,7 +1,7 @@
 # 判官校准有效性：并主干 + `identity_state` 跨层一致性（2026-09-16 快照）
 
 分支 `codex/judge-calibration-validity`，工作树 `/Users/a77/fwp-wt-judge-calibration-validity`，HEAD `26f18e99`。
-**2026-09-17 00:50 已合 main（PR #775 → `0ab15e9b`），未部署、未调真实判官。** 本文是决策与证据快照；inflight 交接已随合入归档删除，合并前独立 QC 见 §0。
+**2026-09-17 00:50 已合 main（PR #775 → `0ab15e9b`）；01:19 随 `ce0097185443` 切 8792（health 三读全对、readiness 13/13、长电题 grounded 探针通过，收据 `~/.finance-runtime/cutover-20260917-ce009718-8792.md`）；未调真实判官——独立判官自 09-12 起按用户决策停用（kimi-k3 自审，启动器 `LLM_JUDGE_*` 全注掉），当前配置下消融批次按本 PR 的门只能是 `judge_not_independent` → `no_call`，要验真实分差须先另配独立判官链。** 本文是决策与证据快照；inflight 交接已随合入归档删除，合并前独立 QC 见 §0。
 
 ## 0. 合入记录与合并前独立 QC（2026-09-17）
 

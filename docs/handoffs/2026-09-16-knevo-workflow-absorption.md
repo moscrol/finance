@@ -51,7 +51,7 @@
 
 ## 后续与禁止项
 
-PR #774 已于 2026-09-17 由用户确认合入 main（`c67413c7`）。合并前独立 QC 在合并预演 `47adcfe9`（merge-tree 于 `gitea/main@0ab15e9b`）上完成：全量 pytest 11395 passed / 0 failed（收据 `20260916T170425Z-47adcfe9.json`，`check_test_receipt.py` 八项全过）、ruff 0、vitest 107、e2e 34 passed / 2 skipped、registry 五项 exit 0；代码复核无路由 / 工具 / 权限扩张，读数留在 PR #774 评论。部署另做，不直接改 8792；inflight 交接已随合入归档删除。
+PR #774 已于 2026-09-17 由用户确认合入 main（`c67413c7`）。合并前独立 QC 在合并预演 `47adcfe9`（merge-tree 于 `gitea/main@0ab15e9b`）上完成：全量 pytest 11395 passed / 0 failed（收据 `20260916T170425Z-47adcfe9.json`，`check_test_receipt.py` 八项全过）、ruff 0、vitest 107、e2e 34 passed / 2 skipped、registry 五项 exit 0；代码复核无路由 / 工具 / 权限扩张，读数留在 PR #774 评论。已随 `ce0097185443` 于 2026-09-17 01:19 切 8792（health 三读全对、readiness 13/13、长电题 grounded 探针 `run_20260917_012253_640026` 通过：fact_stock_daily×8、数据日 09-15 == 库内 max；收据 `~/.finance-runtime/cutover-20260917-ce009718-8792.md`）；inflight 交接已随合入归档删除。
 五类规则效果需隔离模型样本验证；不能用 575 项接线回归称质量提升。
 三处 Knevo 自述矛盾保留；W3 阈值仍不启用；冻结 28 题及 q18 runner 未动；B 线未擅自暂停。
 本轮没有新增跨项目工具：复用现有生成器、审计器、测试收据；不修改已有他改的 harness-reference/BUILD.md。
