@@ -11,7 +11,7 @@
 - 日包解包口径测试迁入本单 / 否留在资金面板单：那边不依赖 `scripts/moneyflow`。
 
 ## 当前状态
-已提交 7dc17832 + 修正 8b4e1626（守卫先于前置件、代码根认 FINANCE_CODE_ROOT、撞名修复），已推 gitea，**PR #773**（http://127.0.0.1:3300/a77/finance-workspace-private/pulls/773）等用户审；`merge-tree` 对 main 干净，与 #772 互相干净。全量：ruff 通过，pytest 11141 passed / 0 failed / 81 skipped / 2 xfailed，收据 `~/.finance-runtime/test-receipts/20260916T132429Z-8b4e1626.json`（dirty=false）。第一轮全量 6 红已修并复现验证。
+已提交 7dc17832 + 修正 8b4e1626（守卫先于前置件、代码根认 FINANCE_CODE_ROOT、撞名修复），已推 gitea，**PR #773**（http://127.0.0.1:3300/a77/finance-workspace-private/pulls/773）等用户审；`merge-tree` 对 main 干净；#772 已合入 c29a6401，本单对新主干重探仍干净。全量：ruff 通过，pytest 11141 passed / 0 failed / 81 skipped / 2 xfailed，收据 `~/.finance-runtime/test-receipts/20260916T132429Z-8b4e1626.json`（dirty=false）。第一轮全量 6 红已修并复现验证。
 
 ## 已验证
 定向 109 通过（test_l2_file_pipeline / non_trading_day_l2_guard / eval_launchd_wiring / pipeline_p0 / method_flywheel）；pre-commit 11 道全过；`build_registry.py scan / check / check-parseability`；`check_path_literals.py` 无新增；`zsh -n` 两个脚本。

@@ -44,8 +44,8 @@
 | 单 | PR | 代码提交 | 全量 pytest | 收据（`~/.finance-runtime/test-receipts/`） |
 |---|---|---|---|---|
 | B · L2 文件源 | [#773](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/773) | 7dc17832 + 8b4e1626（守卫先于前置件、代码根认 FINANCE_CODE_ROOT） | 11141 passed / 0 failed / 81 skipped / 2 xfailed，ruff 通过 | `20260916T132429Z-8b4e1626.json`（dirty=false） |
-| A · 资金面板 | [#772](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/772) | 28c11b99 | 11163 passed / 0 failed / 81 skipped / 2 xfailed，ruff 通过 | `20260916T131231Z-28c11b99.json`（dirty=false） |
+| A · 资金面板 | [#772](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/772) **已合入 c29a6401（2026-09-16 21:34，用户授权）** | 28c11b99 | 11163 passed / 0 failed / 81 skipped / 2 xfailed，ruff 通过；前端 lint / typecheck / vitest 107 / build 全过；e2e 34 passed / 2 skipped；registry check 一致 | `20260916T131231Z-28c11b99.json`（dirty=false） |
 
-两单 `git merge-tree --write-tree gitea/main <branch>` 均干净，互相亦干净。B 第一轮全量曾 6 红（前置件检查早于日历守卫、`config` 裸模块名撞名），已在 8b4e1626 修掉并复现验证。前端 / e2e 叶两单都未跑（未改 webapp），合入前由合入者补跑或说明。
+两单 `git merge-tree --write-tree gitea/main <branch>` 均干净，互相亦干净；#772 合入后 #773 对新主干 c29a6401 重探仍干净。B 第一轮全量曾 6 红（前置件检查早于日历守卫、`config` 裸模块名撞名），已在 8b4e1626 修掉并复现验证。前端 / e2e 叶两单都未跑（未改 webapp），合入前由合入者补跑或说明。
 
 备份分支：`salvage/main-tree-20260916` @ 08de2b00（gitea 同步）。主树 `~/finance-workspace-private` 本轮一个文件都没动。
