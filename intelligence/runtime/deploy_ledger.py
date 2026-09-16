@@ -3,10 +3,14 @@
 失败形状（W6 / 8792 a7e2d74f）：生产切换没有机器记录，验收时靠人对
 readiness 才发现。人写台账会漏；launchd watcher 挂了也没人知道。
 
-写入者 = 启动路径自己（BUILD.md「事实投递 > 提醒」）。账本必须落在数据仓
-（``FINANCE_WS/state/``），不能跟 snapshot：生产 PYTHONPATH 指向
-``~/.finance-runtime/finance-workspace-<sha>``，每切一次目录就换，写进快照
-等于丢掉切换史。
+写入者 = 启动路径自己（BUILD.md「事实投递 > 提醒」）。账本只有一个家
+``~/.finance-runtime/deploy-ledger.jsonl``（``default_ledger_path``）：不跟 snapshot（生产
+PYTHONPATH 指向 ``~/.finance-runtime/finance-workspace-<sha>``，每切一次目录就换，写进快照等于
+丢掉切换史），也不再跟 ``$FINANCE_WS/state/`` 或代码根。2026-09-09 工单 #44 量出那两级让账本
+长出两个家——主树 ``state/`` 281 行（带 ``FINANCE_WS`` 的生产启动 + 部署脚本），
+``~/.finance-runtime`` 24 行（链切规程显式 ``--ledger``），生产真实的 rev 只在后者里。解析结果
+随环境变量与调用者目录变，就一定分家。旧位置由 ``legacy_ledger_candidates`` 列出，只供读取侧
+过渡与 ``migrate-homes`` 并入。
 
 进程 IO 放 runtime/（layer_audit 口径：做 IO → runtime）。lifespan 调用必须
 fail-open：KeepAlive + ThrottleInterval 下，启动抛错会变成每 10 秒崩溃循环。
@@ -14,6 +18,7 @@ fail-open：KeepAlive + ThrottleInterval 下，启动抛错会变成每 10 秒�
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 import json
 import logging
 import os
@@ -32,17 +37,26 @@ _HEX_REV = re.compile(r"[^0-9a-f]")
 _MIN_REV_PREFIX = 7
 
 
+def default_ledger_path() -> Path:
+    """账本唯一的默认家：``~/.finance-runtime/deploy-ledger.jsonl``。
+
+    这台机器上唯一不随快照、worktree、环境变量变的位置：hook（宿主 python3、无 ``FINANCE_WS``）、
+    launchd 生产进程、部署脚本、手工链切四种写读者零配置都落到同一个文件；episode store 的末级
+    也是它。``scripts/worktree_board.py`` 抄了这个地址（SessionStart 不 import 包），改址两处一起改。
+    """
+
+    return Path.home() / ".finance-runtime" / LEDGER_NAME
+
+
 def resolve_ledger_path(
     repo_root: str | Path | None = None,
     ledger_path: str | Path | None = None,
 ) -> Path:
-    """解析账本路径。覆盖序刻意把数据仓排在代码根前面。
+    """解析账本路径：显式 ``ledger_path``（CLI ``--ledger``）> ``FINANCE_DEPLOY_LEDGER`` > 唯一默认家。
 
-    1. 显式 ``ledger_path`` 参数（CLI ``--ledger``）
-    2. ``FINANCE_DEPLOY_LEDGER``（测试 / 显式覆盖）
-    3. ``$FINANCE_WS/state/deploy-ledger.jsonl``（生产数据仓，跨快照）
-    4. ``<repo_root>/state/deploy-ledger.jsonl``（create_app 传入的代码根）
-    5. ``~/.finance-runtime/deploy-ledger.jsonl``（无数据仓、无代码根时）
+    ``repo_root`` 保留在签名里（``create_app`` 与 CLI 仍在传），但**不再参与解析**：它与
+    ``$FINANCE_WS/state/`` 两级正是「两个家」的来源（模块 docstring）。旧位置见
+    ``legacy_ledger_candidates``。
     """
 
     if ledger_path:
@@ -50,12 +64,175 @@ def resolve_ledger_path(
     override = os.environ.get("FINANCE_DEPLOY_LEDGER", "").strip()
     if override:
         return Path(override).expanduser()
-    finance_ws = os.environ.get("FINANCE_WS", "").strip()
-    if finance_ws:
-        return Path(finance_ws).expanduser() / "state" / LEDGER_NAME
+    return default_ledger_path()
+
+
+def legacy_ledger_candidates(
+    repo_root: str | Path | None = None,
+    *,
+    finance_ws: str | None = None,
+) -> list[Path]:
+    """老写入序里会落账的两级：``$FINANCE_WS/state/``、``<repo_root>/state/``（按老顺序，去重）。
+
+    只给读取侧过渡（旧代码的生产进程切流前仍往这里写 startup）与 ``migrate-homes`` 并入用；
+    写入者不得再拿它当目标。
+    """
+
+    workspace = (
+        finance_ws if finance_ws is not None else os.environ.get("FINANCE_WS", "")
+    ).strip()
+    candidates: list[Path] = []
+    if workspace:
+        candidates.append(Path(workspace).expanduser() / "state" / LEDGER_NAME)
     if repo_root is not None:
-        return Path(repo_root).expanduser() / "state" / LEDGER_NAME
-    return Path.home() / ".finance-runtime" / LEDGER_NAME
+        candidates.append(Path(repo_root).expanduser() / "state" / LEDGER_NAME)
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for path in candidates:
+        key = str(path.resolve())
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(path)
+    return unique
+
+
+def read_rows(path: Path) -> list[dict[str, Any]]:
+    """读整本账；坏行跳过（与 ``last_relevant_row`` 同口径），文件不在回空。"""
+
+    if not path.is_file():
+        return []
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        try:
+            row = json.loads(stripped)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(row, dict):
+            rows.append(row)
+    return rows
+
+
+def _row_identity(row: dict[str, Any]) -> str:
+    return json.dumps(row, ensure_ascii=False, sort_keys=True)
+
+
+def _row_order(row: dict[str, Any]) -> float:
+    """排序键：``unix``，缺则解析 ``ts``；都没有的老格式行排最前（它们确实最老）。
+    读者 ``last_relevant_row`` 按文件顺序取「最后一行」，所以并入后文件顺序必须是时间顺序。"""
+
+    unix = row.get("unix")
+    if isinstance(unix, (int, float)) and not isinstance(unix, bool):
+        return float(unix)
+    if isinstance(unix, str):
+        try:
+            return float(unix)
+        except ValueError:
+            pass
+    ts = row.get("ts")
+    if isinstance(ts, str) and ts:
+        try:
+            return datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            pass
+    return float("-inf")
+
+
+def _stat_signature(path: Path) -> tuple[int, int] | None:
+    try:
+        info = path.stat()
+    except FileNotFoundError:
+        return None
+    return (info.st_size, info.st_mtime_ns)
+
+
+def _write_rows_atomic(path: Path, rows: Sequence[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as handle:
+        for row in rows:
+            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(tmp, path)
+
+
+def merge_ledgers(
+    sources: Sequence[str | Path],
+    target: str | Path,
+    *,
+    apply: bool,
+    stamp: str | None = None,
+) -> dict[str, Any]:
+    """把旧家并入唯一家。
+
+    并集去重（整行 JSON 规范化后相等即重复）、按 ``unix``（缺则 ``ts``）稳定排序、原子覆写目标
+    （tmp → fsync → ``os.replace``），旧文件改名 ``.migrated-<日期>`` 保留不删。默认只出计划；
+    ``apply=True`` 才动文件。目标在读与替换之间被别人 append 了就放弃替换（不吞那一行），报告
+    ``aborted=target_changed``，重跑即可——并入是幂等的。
+    """
+
+    target_path = Path(target).expanduser()
+    before = _stat_signature(target_path)
+    target_rows = read_rows(target_path)
+    seen = {_row_identity(row) for row in target_rows}
+    merged = list(target_rows)
+    per_source: list[dict[str, Any]] = []
+    for source in sources:
+        source_path = Path(source).expanduser()
+        if source_path.resolve() == target_path.resolve():
+            continue
+        rows = read_rows(source_path)
+        added = 0
+        for row in rows:
+            key = _row_identity(row)
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(row)
+            added += 1
+        per_source.append(
+            {
+                "path": str(source_path),
+                "exists": source_path.is_file(),
+                "rows": len(rows),
+                "added": added,
+                "duplicates": len(rows) - added,
+            }
+        )
+    merged.sort(key=_row_order)
+    report: dict[str, Any] = {
+        "target": str(target_path),
+        "target_rows_before": len(target_rows),
+        "target_rows_after": len(merged),
+        "sources": per_source,
+        "applied": False,
+    }
+    if not apply:
+        return report
+    if _stat_signature(target_path) != before:
+        report["aborted"] = "target_changed"
+        return report
+    _write_rows_atomic(target_path, merged)
+    suffix = f".migrated-{stamp or datetime.now(timezone.utc).strftime('%Y%m%d')}"
+    renamed: list[dict[str, str]] = []
+    for entry in per_source:
+        source_path = Path(str(entry["path"]))
+        if not source_path.is_file():
+            continue
+        destination = source_path.with_name(source_path.name + suffix)
+        counter = 1
+        while destination.exists():
+            destination = source_path.with_name(f"{source_path.name}{suffix}.{counter}")
+            counter += 1
+        os.replace(source_path, destination)
+        renamed.append({"from": str(source_path), "to": str(destination)})
+    report["applied"] = True
+    report["renamed"] = renamed
+    return report
 
 
 def infer_port(argv: list[str] | None = None) -> int | None:

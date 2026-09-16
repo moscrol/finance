@@ -156,8 +156,27 @@ def _deep_decision(
     )
 
 
+# 模型没请求 deep 时，改由治理侧发起升档所需的可观察条件条数。
+#
+# 为什么不是 1（= 模型请求 deep 时的门槛）：模型主动交 PLAN 本身就是一条信息，
+# 少了它就该要更多佐证。为什么不是 3：`separable_sub_research_branch` 与
+# `multiple_independent_entities` 常常同时成立，3 会让治理侧发起几乎不可达。
+_UNREQUESTED_DEEP_MIN_CONDITIONS = 2
+
+
 class ModeGovernor:
-    """Approve model-requested depth from observable, code-owned signals."""
+    """Approve research depth from observable, code-owned signals.
+
+    深度有两条来源：模型在 PLAN 里请求，或治理侧按可观察信号自行发起。**第二条
+    是 2026-09-03 补的**——2026-08-17 生产模型从 gpt-5.6-terra 换成 GLM 后，deep
+    升档归零：同日同码 gpt 交 PLAN 30%（24/80、44/154）、glm-5.2 是 0%（0/20、
+    0/12），全量批 deep gpt 48/417 对 glm 2/385。升档链的第一环是模型「可以」
+    主动交的 PLAN，GLM 几乎不交，链就断了，子研究协调器因此休眠 12 天而所有门禁
+    全绿（`docs/verification/2026-09-03-plan-deep-rate-by-model.md`）。
+
+    把一个承重的控制决定挂在「模型愿不愿意配合」上，就是这个失败形状；observable
+    信号本来就是 code-owned 的，让它们能独立发起，链路不再随模型而断。
+    """
 
     def decide(self, plan: ResearchPlan, signals: ModeSignals) -> ModeDecision:
         if not isinstance(plan, ResearchPlan):
@@ -190,6 +209,19 @@ class ModeGovernor:
                 conditions=observable,
             )
         if requested == "quick":
+            # 治理侧自行发起：模型没提，但可观察条件够多，且 deep 的两个前置都在。
+            # 这里重复检查 dependencies/deadline 而不是把本分支挪到它们之后，是为了
+            # 让「模型请求 quick」那条路的 reason 逐字不变——只新增一条出口。
+            if (
+                len(observable) >= _UNREQUESTED_DEEP_MIN_CONDITIONS
+                and signals.dependencies_available
+                and signals.deep_deadline_available
+            ):
+                return _deep_decision(
+                    requested_mode=requested,
+                    reason="observable_complexity_without_plan",
+                    conditions=observable,
+                )
             return _quick_decision(
                 requested_mode=requested,
                 reason="model_requested_quick",

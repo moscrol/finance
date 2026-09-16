@@ -750,18 +750,37 @@ def _event_row(item: dict, event_date: str | None, *, is_future: bool, now: str)
     )
 
 
-def sync_research_catalog(page_size: int = 50, max_pages: int = 20) -> dict:
+def _known_report_ids() -> set[int]:
+    init_db()
+    con = connect(read_only=True)
+    try:
+        return {int(r[0]) for r in con.execute("SELECT report_id FROM fact_research_report_catalog").fetchall()}
+    finally:
+        con.close()
+
+
+def sync_research_catalog(page_size: int = 50, max_pages: int = 20, *, stop_on_known: bool = False) -> dict:
+    """研报目录。``stop_on_known``：某页全是已入库 report_id 就停（增量翻页，通常 1 页）。
+
+    目录按 created_at 倒序，新报告只会出现在前面几页；全量 20 页只在 full 计划里跑，
+    用来刷 is_hot / 标签这类会漂的字段（consumption_registry.yaml research_catalog）。
+    """
     now = _now()
     source = f"{SOURCE_PREFIX}/reports/list"
     rows = []
     total = None
+    known = _known_report_ids() if stop_on_known else set()
+    pages_fetched = 0
+    stopped_on_known = False
     for page in range(1, max_pages + 1):
         data = fs.get_reports_page(page=page, page_size=page_size)
+        pages_fetched += 1
         if total is None:
             total = _int(data.get("total"))
         items = data.get("items") or []
         if not items:
             break
+        page_ids = {int(i.get("id")) for i in items if isinstance(i, dict) and i.get("id") is not None}
         for item in items:
             if not isinstance(item, dict):
                 continue
@@ -793,6 +812,9 @@ def sync_research_catalog(page_size: int = 50, max_pages: int = 20) -> dict:
             break
         if len(items) < page_size:
             break
+        if stop_on_known and page_ids and page_ids <= known:
+            stopped_on_known = True
+            break
     written = _executemany(
         """
         INSERT INTO fact_research_report_catalog
@@ -814,7 +836,12 @@ def sync_research_catalog(page_size: int = 50, max_pages: int = 20) -> dict:
         """,
         rows,
     )
-    return {"rows": written, "listed_total": total}
+    return {
+        "rows": written,
+        "listed_total": total,
+        "pages_fetched": pages_fetched,
+        "stopped_on_known": stopped_on_known,
+    }
 
 
 def _kb_root() -> Path | None:
@@ -1046,6 +1073,54 @@ ONCE_SYNCS = (
 
 ASSET_SYNCS = DAILY_SYNCS + ONCE_SYNCS
 
+
+def sync_dragon_seats_cheap(trade_date: str) -> dict:
+    """cheap 计划的席位明细：akshare 优先，零行/异常回退复盘会逐股 detail。
+
+    回退存在的理由是门禁：fact_dragon_seat_daily 在 GAP_TABLES 里，当日无行会让跨日
+    门禁 FAIL、后面所有生成步骤连坐。换源省配额，但不能拿门禁绿换。
+    """
+    from .sync_akshare_dragon_seats import sync_dragon_seats_akshare
+
+    try:
+        result = sync_dragon_seats_akshare(trade_date)
+    except Exception as exc:  # noqa: BLE001
+        result = {"rows": 0, "errors": {"akshare": f"{type(exc).__name__}: {exc}"}}
+    if result.get("rows"):
+        result["path"] = "akshare"
+        return result
+    fallback = sync_dragon_seats(trade_date)
+    fallback["path"] = "fupanhui-fallback"
+    fallback["akshare_errors"] = result.get("errors")
+    return fallback
+
+
+# cheap 计划相对 full 的差异，键 = 子任务名（consumption_registry.yaml 对应数据族的
+# refresh.policy 写明了每条的理由）。None = 停跑；callable = 换实现。
+CHEAP_PLAN_OVERRIDES: dict[str, object] = {
+    "auction": None,
+    "dragon_seats": sync_dragon_seats_cheap,
+    "research_catalog": lambda _td: sync_research_catalog(stop_on_known=True),
+}
+
+PLANS = ("full", "cheap")
+
+
+def asset_syncs_for(plan: str) -> tuple[tuple[str, object], ...]:
+    if plan not in PLANS:
+        raise ValueError(f"unknown plan {plan!r}; expected one of {PLANS}")
+    if plan == "full":
+        return ASSET_SYNCS
+    out = []
+    for name, fn in ASSET_SYNCS:
+        if name in CHEAP_PLAN_OVERRIDES:
+            override = CHEAP_PLAN_OVERRIDES[name]
+            if override is None:
+                continue
+            fn = override
+        out.append((name, fn))
+    return tuple(out)
+
 _COVERAGE_SQL = {
     "keywords": (
         "SELECT COUNT(*) FROM fact_market_daily "
@@ -1193,18 +1268,21 @@ def calendar_dates(start_date: str, end_date: str) -> list[str]:
     return [r[0] for r in rows]
 
 
-def sync(trade_date: str) -> dict:
-    """跑完全部公开资产子任务。至少一个成功则步骤可继续；全失败才 raise。"""
+def sync(trade_date: str, *, plan: str = "full") -> dict:
+    """跑完公开资产子任务（按 plan 分档）。至少一个成功则步骤可继续；全失败才 raise。"""
     init_db()
     results: dict[str, object] = {}
     errors: dict[str, str] = {}
-    for name, fn in ASSET_SYNCS:
+    syncs = asset_syncs_for(plan)
+    for name, fn in syncs:
         try:
             results[name] = fn(trade_date)
         except Exception as exc:  # noqa: BLE001
             errors[name] = f"{type(exc).__name__}: {exc}"
     payload = {
         "trade_date": trade_date,
+        "plan": plan,
+        "skipped": [name for name, _ in ASSET_SYNCS if name not in dict(syncs)],
         "results": results,
         "errors": errors,
         "ok": bool(results),

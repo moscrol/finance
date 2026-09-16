@@ -62,6 +62,10 @@ ALLOWED = frozenset(
         "__dict__",
         "__class__",
         "maxDiff",
+        # 对外投影字段：research_project.ResearchProjectState.next_questions 经
+        # GET /api/conversations/{id}/research-project 出仓，读者是 webapp
+        # ResearchProjectPanel（TS），本脚本只扫 Python 看不见。
+        "next_questions",
     }
 )
 

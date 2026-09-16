@@ -149,13 +149,13 @@ class RenderForPromptTests(unittest.TestCase):
         ]
         rendered = judgments.render_for_prompt(records)
         lines = rendered.splitlines()
-        # 最近的（判断B）在最前
-        self.assertEqual(lines[0], "- 铜箔、铜冠铜箔：判断B（2026-06-18）")
-        self.assertEqual(lines[1], "- 液冷：判断A（2026-06-10）")
+        # 最近的（判断B）在最前；日期从行尾后缀移入归属前缀（仍逐条，不丢）
+        self.assertEqual(lines[0], "- [你的判断 2026-06-18][铜箔、铜冠铜箔]：判断B")
+        self.assertEqual(lines[1], "- [你的判断 2026-06-10][液冷]：判断A")
 
     def test_no_theme_falls_back_to_bare_memo(self) -> None:
         rendered = judgments.render_for_prompt([{"memo": "裸判断", "ts": "2026-06-18T00:00:00"}])
-        self.assertEqual(rendered, "- 裸判断（2026-06-18）")
+        self.assertEqual(rendered, "- [你的判断 2026-06-18]：裸判断")
 
     def test_empty_records_render_empty(self) -> None:
         self.assertEqual(judgments.render_for_prompt([]), "")

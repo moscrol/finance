@@ -380,6 +380,7 @@ def run_mine(
             source="workbench",
             conversations_dir=options.conversations_dir,
             since_days=options.since_days,
+            now=now,
         )
     )
 
