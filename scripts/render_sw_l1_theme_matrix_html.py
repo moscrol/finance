@@ -94,15 +94,22 @@ def market_map(con, start: str, end: str) -> dict[str, dict]:
 
 
 def sector_names(con, start: str, end: str, sw_l1: str) -> list[dict]:
+    # 按 canonical 码聚合而不是名字: 两套供应商码系并存的 124 个交易日里同名板块各有一行,
+    # 按名字 GROUP BY 会把双红天数翻倍; 天数用 COUNT(DISTINCT trade_date), 同一天两套都
+    # 双红只算一天。名字取当前 dim_sector 的。
     rows = con.execute(
         """
-        SELECT sector_name, COUNT(*) AS dr_days, MIN(trade_date) AS first_day, MAX(trade_date) AS last_day,
-               MAX(amount) AS max_amount, AVG(amount) AS avg_amount
-        FROM fact_sector_daily
-        WHERE trade_date BETWEEN ? AND ?
-          AND sw_l1 = ?
-          AND pct_chg > 0 AND diff_ratio > 10 AND amount > 500
-        GROUP BY sector_name
+        SELECT COALESCE(d.sector_name, f.sector_name) AS sector_name,
+               COUNT(DISTINCT f.trade_date) AS dr_days,
+               MIN(f.trade_date) AS first_day, MAX(f.trade_date) AS last_day,
+               MAX(f.amount) AS max_amount, AVG(f.amount) AS avg_amount
+        FROM fact_sector_daily AS f
+        LEFT JOIN dim_sector_canonical AS c ON c.sector_ts_code = f.sector_ts_code
+        LEFT JOIN dim_sector AS d ON d.sector_ts_code = COALESCE(c.canonical_sector_ts_code, f.sector_ts_code)
+        WHERE f.trade_date BETWEEN ? AND ?
+          AND f.sw_l1 = ?
+          AND f.pct_chg > 0 AND f.diff_ratio > 10 AND f.amount > 500
+        GROUP BY COALESCE(c.canonical_sector_ts_code, f.sector_ts_code), COALESCE(d.sector_name, f.sector_name)
         ORDER BY dr_days DESC, max_amount DESC, sector_name
         """,
         [start, end, sw_l1],

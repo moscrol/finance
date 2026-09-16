@@ -67,6 +67,7 @@ from intelligence.eval.variance_baseline import ab_decision as _compare_against_
 # 弃权率是一等读数（能力放大 spec §3.2 · P1）：与均分并列念，不折进总分。
 # 一个 100% 弃权的臂零错误、rubric 分不难看——2026-08-27 组件臂 11.1 分背后是 10/10 弃权。
 from intelligence.eval.abstention import abstain_rate, classify_text  # noqa: E402
+from intelligence.call_identity import IDENTITY_NOT_CALLED  # noqa: E402
 from intelligence.eval import judge_validity as validity  # noqa: E402
 
 
@@ -582,7 +583,7 @@ def judge_answer(
     result = {"scored": False, "batch_id": batch_id,
               "judge_spec_sha256": validity.canonical_hash(frozen),
               "judge_input_sha256": validity.judge_input_hash(question.__dict__, answer, frozen),
-              "attempt_records": [], "attempt_outputs": [], "attempts": 0, "identity_state": "not_called"}
+              "attempt_records": [], "attempt_outputs": [], "attempts": 0, "identity_state": IDENTITY_NOT_CALLED}
     # Check effective transport options again before every logical dispatch.
     if spec is not None and any(frozen.get(k) != current.get(k) for k in
                                ("thinking", "requested_model", "endpoint_id", "transport", "max_tokens")):

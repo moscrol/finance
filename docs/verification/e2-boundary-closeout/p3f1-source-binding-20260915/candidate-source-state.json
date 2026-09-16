@@ -1,0 +1,12 @@
+{
+  "base_commit": "418f2bc910c673820d0accdec42b46be5aaa5528",
+  "kind": "author candidate, dirty worktree",
+  "sha256": {
+    "intelligence/runtime/conversation_orchestrator.py": "14db6c9e5e55f93e388ea40001ec4af4865930f43fee7b0583efa4cdf8af86c5",
+    "intelligence/services/task_frame.py": "23f3491b319bb51a0ff53a020388e3c9e942666611b0e3a8064ac89e4af03017",
+    "intelligence/services/turn_controller.py": "2c598bdbc8833a13573fe7cee9ad8e0d18fc74ede27da15d0567cd48b2608f30",
+    "intelligence/services/conversation_materials.py": "6a30b19b97a70169a9f24811e74d4a3a7a5c9328bff7ccdd4799dad6b385f7a8",
+    "intelligence/tests/test_conversation_materials.py": "4c7f7c92f1f2fbdf6c1af5a3ae85a6b3e0f719132c36154d52187314db06c7fa",
+    "intelligence/tests/test_e2_material_source_binding.py": "e791bf87ea6cd600466b3005493c5283670b364d3f86e076d5349d760dad71ec"
+  }
+}

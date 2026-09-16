@@ -16,6 +16,8 @@ import re
 import statistics
 from uuid import uuid4
 
+from intelligence.call_identity import IDENTITY_REPORTED, IDENTITY_UNREPORTED
+
 
 SCHEMA_VERSION = 2
 MODEL_FAMILY_VERSION = "explicit-v1"
@@ -261,7 +263,7 @@ def _writer_families(answer: Mapping, question: Mapping, gate: _Validation) -> s
             gate.reject("writer_provenance_mismatch", answer_id)
         ids.add(attempt_id)
         family = model_family(record.get("reported_model"))
-        if (record.get("identity_state") != "reported" or family == "unknown"
+        if (record.get("identity_state") != IDENTITY_REPORTED or family == "unknown"
                 or record.get("identity_conflict") or not record.get("call_id")):
             gate.reject("writer_identity_unknown", answer_id)
         else:
@@ -335,7 +337,7 @@ def _validate_verdict(verdict: object, answer: Mapping, question: Mapping, manif
             local_call_ids.add(call_id)
         if attempt_id == verdict.get("selected_attempt_id"):
             selected.append(record)
-        if (record.get("identity_state") not in ("reported", "unreported")
+        if (record.get("identity_state") not in (IDENTITY_REPORTED, IDENTITY_UNREPORTED)
                 or record.get("status") not in ("success", "failed")):
             gate.reject("judge_attempt_invalid", answer_id)
         try:
@@ -354,7 +356,7 @@ def _validate_verdict(verdict: object, answer: Mapping, question: Mapping, manif
             continue
         reported = record.get("reported_model")
         family = model_family(reported)
-        if record.get("identity_state") != "reported" or family == "unknown":
+        if record.get("identity_state") != IDENTITY_REPORTED or family == "unknown":
             gate.reject("judge_identity_unknown", answer_id)
         else:
             gate.judge_models.add(reported)

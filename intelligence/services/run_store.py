@@ -272,6 +272,9 @@ class Run:
     degrades: list[str] = field(default_factory=list)
     error: str | None = None
     artifacts: list[dict[str, Any]] = field(default_factory=list)
+    # 消息入口创建 run 时同步落的启动身份（06 QC Y1）：run 对外可见时身份已就绪，
+    # 终态折回不再依赖「源消息是否已落盘」来判定归属。仅消息 API 带 maintenance_launch 时非空。
+    maintenance_launch: dict[str, Any] | None = None
 
 
 class RunStore:
@@ -302,6 +305,7 @@ class RunStore:
         duckdb_cutoff: str | None = None,
         kb_commit: str | None = None,
         manifest_ref: str | None = None,
+        maintenance_launch: dict[str, Any] | None = None,
     ) -> Run:
         run = Run(
             run_id=new_run_id(),
@@ -315,6 +319,7 @@ class RunStore:
             duckdb_cutoff=duckdb_cutoff,
             kb_commit=kb_commit,
             manifest_ref=manifest_ref,
+            maintenance_launch=maintenance_launch,
         )
         run_dir = self.run_dir(run.run_id)
         run_dir.mkdir(parents=True, exist_ok=True)

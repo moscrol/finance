@@ -1,0 +1,137 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_______ test_material_only_retains_user_material_or_known_absence[True] ________
+
+tmp_path = PosixPath('/private/tmp/e2-p3f-author-probe-20260915/candidate-data/pytest/test_material_only_retains_use0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b631310>
+has_user_material = True
+
+    @pytest.mark.parametrize("has_user_material", [True, False])
+    def test_material_only_retains_user_material_or_known_absence(
+        tmp_path, monkeypatch, has_user_material,
+    ):
+        monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+        monkeypatch.setenv("FINANCE_WS", str(tmp_path / "finance"))
+        monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(tmp_path / "absent.duckdb"))
+        store = ConversationStore("alice", root=tmp_path / "conversations")
+        runs = RunStore("alice", root=tmp_path / "runs")
+        conversation = store.create_conversation()
+        if has_user_material:
+            store.append_message(conversation.conversation_id, "user", REPORT, run_id="prior")
+            store.append_message(
+                conversation.conversation_id, "assistant", "已收到用户材料。", run_id="prior",
+            )
+        run = runs.create_run(QUERY, "ask", session_id=conversation.conversation_id)
+        store.append_message(conversation.conversation_id, "user", QUERY, run_id=run.run_id)
+        message = store.append_message(
+            conversation.conversation_id, "assistant", "", status="running", run_id=run.run_id,
+        )
+        captured = []
+        model_calls = []
+    
+        def no_external_model(messages):
+            model_calls.append(messages)
+            return None, None, "offline author probe"
+    
+        def controller(raw, **kwargs):
+            decision = decide_turn(raw, **kwargs, llm_complete=no_external_model)
+            captured.append(decision)
+            raise ControllerReached
+    
+        orchestrator = runtime.TurnOrchestrator(
+            repo_root=tmp_path, conversation_store=store, run_store=runs,
+            turn_controller_fn=controller,
+        )
+        with pytest.raises(ControllerReached):
+            orchestrator.run_turn(
+                conversation_id=conversation.conversation_id, run_id=run.run_id,
+                assistant_message_id=message.message_id, query=QUERY,
+                skill_mode="auto", selected_skill_ids=[],
+            )
+        assert len(captured) == 1
+        decision = captured[0]
+        assert decision.task_frame.material_contract.data_scope == "material_only"
+        if has_user_material:
+            refs = split_user_message(REPORT).materials
+            assert refs, "fixture must actually contain a recognized material"
+>           assert decision.task_frame.referenced_material_ids == tuple(
+                ref.material_id for ref in reversed(refs)
+            )
+E           AssertionError: assert () == ('m-67f3ee73e3',)
+E             
+E             Right contains one more item: 'm-67f3ee73e3'
+E             Use -v to get more diff
+
+intelligence/tests/test_e2_controller_material_history.py:81: AssertionError
+_______ test_material_only_retains_user_material_or_known_absence[False] _______
+
+tmp_path = PosixPath('/private/tmp/e2-p3f-author-probe-20260915/candidate-data/pytest/test_material_only_retains_use1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b6327e0>
+has_user_material = False
+
+    @pytest.mark.parametrize("has_user_material", [True, False])
+    def test_material_only_retains_user_material_or_known_absence(
+        tmp_path, monkeypatch, has_user_material,
+    ):
+        monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+        monkeypatch.setenv("FINANCE_WS", str(tmp_path / "finance"))
+        monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(tmp_path / "absent.duckdb"))
+        store = ConversationStore("alice", root=tmp_path / "conversations")
+        runs = RunStore("alice", root=tmp_path / "runs")
+        conversation = store.create_conversation()
+        if has_user_material:
+            store.append_message(conversation.conversation_id, "user", REPORT, run_id="prior")
+            store.append_message(
+                conversation.conversation_id, "assistant", "已收到用户材料。", run_id="prior",
+            )
+        run = runs.create_run(QUERY, "ask", session_id=conversation.conversation_id)
+        store.append_message(conversation.conversation_id, "user", QUERY, run_id=run.run_id)
+        message = store.append_message(
+            conversation.conversation_id, "assistant", "", status="running", run_id=run.run_id,
+        )
+        captured = []
+        model_calls = []
+    
+        def no_external_model(messages):
+            model_calls.append(messages)
+            return None, None, "offline author probe"
+    
+        def controller(raw, **kwargs):
+            decision = decide_turn(raw, **kwargs, llm_complete=no_external_model)
+            captured.append(decision)
+            raise ControllerReached
+    
+        orchestrator = runtime.TurnOrchestrator(
+            repo_root=tmp_path, conversation_store=store, run_store=runs,
+            turn_controller_fn=controller,
+        )
+        with pytest.raises(ControllerReached):
+            orchestrator.run_turn(
+                conversation_id=conversation.conversation_id, run_id=run.run_id,
+                assistant_message_id=message.message_id, query=QUERY,
+                skill_mode="auto", selected_skill_ids=[],
+            )
+        assert len(captured) == 1
+        decision = captured[0]
+        assert decision.task_frame.material_contract.data_scope == "material_only"
+        if has_user_material:
+            refs = split_user_message(REPORT).materials
+            assert refs, "fixture must actually contain a recognized material"
+            assert decision.task_frame.referenced_material_ids == tuple(
+                ref.material_id for ref in reversed(refs)
+            )
+            assert decision.lane != "clarify"
+        else:
+            from intelligence.services.task_frame import MISSING_MATERIAL_CLARIFICATION
+    
+>           assert decision.lane == "clarify"
+E           AssertionError: assert 'research' == 'clarify'
+E             
+E             - clarify
+E             + research
+
+intelligence/tests/test_e2_controller_material_history.py:88: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_e2_controller_material_history.py::test_material_only_retains_user_material_or_known_absence[True]
+FAILED intelligence/tests/test_e2_controller_material_history.py::test_material_only_retains_user_material_or_known_absence[False]
+2 failed in 0.31s

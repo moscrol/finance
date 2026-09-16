@@ -65,7 +65,7 @@ from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
 )
-from intelligence.services.repair_coordinator import RepairGoal
+from intelligence.services.repair_coordinator import BudgetGrant, RepairGoal
 from intelligence.services.research_contract import (
     PRODUCT_MAX_TOOL_CALLS,
     ResearchDeadline,
@@ -1156,6 +1156,9 @@ class ContinuousAgentEpisode:
         # 只在真有下游 sink 时才挂：否则 ``dump()`` 的 ``event_sink_attached``
         # 会在没人接收时报 True——收据不说谎优先于形式上"接线了"。
         #
+        # Scope 内的副本不能约束还持有原 registry 的消费者；先绑定本地引用，
+        # 再生成配置快照、绑 episode 工具、拼提示词与播种账本。
+        registry = registry.for_context(context)
         # 证据账本要在绑 sub_research 之前建：分支证据经它的 branch_sink 进父账本。
         # 建得早不改任何事件——它只依赖 context。
         evidence_ledger = EvidenceLedger(
@@ -1350,11 +1353,13 @@ class ContinuousAgentEpisode:
             ledger.verify_model_visible(messages)
             # INV-R2：模型请求前的意图（含预留 turn_id）。菜单在意图之前算——它只读状态，
             # 不是外部效果；``tool_menu`` 事件因此仍先于 ``model_intent``。
-            definitions = self._available_tool_definitions(
-                tool_session=tool_session,
-                registry=registry,
-                context=context,
-                ledger=ledger,
+            definitions = (
+                [] if finalization_started else self._available_tool_definitions(
+                    tool_session=tool_session,
+                    registry=registry,
+                    context=context,
+                    ledger=ledger,
+                )
             )
             turn_id = ledger.record_model_intent(
                 timeout_asked=timeout,
@@ -1462,6 +1467,20 @@ class ContinuousAgentEpisode:
                     ),
                 },
             )
+            if not turn.tool_calls and not turn.error:
+                # 写作轮（没点工具的模型轮）超出研究额度的部分从合成保留的余量里出。
+                # 账本 initial_seconds = total − reserve 是研究额度，reserve 本就是留给
+                # 写结论的钱，但此前写作轮照样从研究额度扣：2026-09-08 GLM 思考臂
+                # max 档 reserve 抬到 240 后研究额度缩到 360，写作 181s 一到账本就溢出、
+                # 墙钟还剩 167s 却报 deadline_exhausted（收据 glm-ceiling-20260907 §7）。
+                # 只铸差额、不铸整段：sol 写作 15–40s 研究额度盖得住 → 一笔不铸、账本
+                # 逐字节同前；余量尽量留给修复（修复也从同一段余量铸）。
+                self._grant_writing_shortfall(
+                    context=context,
+                    ledger=ledger,
+                    elapsed=model_elapsed,
+                    llm_calls=llm_calls,
+                )
             # P4 步点②：模型结算刚落，下一件外部效果（派发 / 收口）还没开始。
             yield StepPoint("model_settled", llm_calls, tool_calls, turn_id=turn_id)
             if not _consume_root_seconds(context, model_elapsed):
@@ -2142,7 +2161,8 @@ class ContinuousAgentEpisode:
         accumulator = state.accumulator
         messages = state.messages
         tool_session = state.tool_session
-        registry = state.registry
+        registry = state.registry.for_context(context)
+        state.registry = registry
         task_frame = state.task_frame
         repair_seconds = max(0.0, float(goal.remaining_seconds))
         if context.root_budget is not None:
@@ -2180,6 +2200,16 @@ class ContinuousAgentEpisode:
                 repair_tool_context,
                 contract=downgraded_contract,
             )
+        # 同名 runner/contract 可能在修复入口被替换：Scope 诊断与执行必须
+        # 使用同一份当前注册表，不能只有 state.registry 更新、Scope 仍授权旧实现。
+        rebound_scope = tool_session.bind_scope(
+            registry=registry, context=repair_tool_context,
+        )
+        if rebound_scope is not None:
+            state.episode_scope = rebound_scope
+            registry = rebound_scope.registry
+            state.registry = registry
+            ledger.derive_mismatch_sink = rebound_scope.record_derive_mismatch
         # 修复轮的时钟账，记在动手之前。
         #
         # 这三个数是 judge 那次诊断里 ``timeout_asked`` 的同位物：judge 看着像元凶，
@@ -2952,9 +2982,9 @@ class ContinuousAgentEpisode:
         ledger: _EpisodeLedger,
     ) -> list[dict[str, object]]:
         menu = tool_session.menu(registry=registry, context=context)
-        # 只在真藏了工具时记账：无裁剪轮的事件流与改前逐字节相同。
-        if menu.hidden:
-            ledger.add("tool_menu", menu.to_payload())
+        # 每个开放工具的模型步都留实际菜单：configure 早于动态工具装配，且合同
+        # 授权不等于预算/去重裁剪后的可见集合。与参照 loop 同源，UI 只投影标签。
+        ledger.add("tool_menu", menu.to_payload())
         return tool_definitions_for_menu(menu, registry=registry, context=context)
 
     @staticmethod
@@ -3472,6 +3502,61 @@ class ContinuousAgentEpisode:
             cleaned = str(value or "").strip()
             if cleaned and cleaned not in target:
                 target.append(cleaned)
+
+    @staticmethod
+    def _grant_writing_shortfall(
+        *,
+        context: ResearchRunContext,
+        ledger: "_EpisodeLedger",
+        elapsed: float,
+        llm_calls: int,
+    ) -> float:
+        """写作轮超出研究额度的秒数，从根账本的余量（= 合成保留）里铸一笔补上。
+
+        余量 = ``hard_seconds_cap − allocated_seconds``，正是档位表留给写结论的
+        ``synthesis_reserve``。只铸 ``min(差额, 余量)``：研究额度盖得住的写作轮
+        一笔不铸（sol 路径逐字节同前），铸不满时照旧走 ``consume_seconds`` 失败 →
+        ``_carry_just_written_finish`` 补救。修复轮从同一段余量铸窗，所以这里
+        绝不预铸整段 reserve。账本鸭子类型：替身没有 ``grant`` 就什么也不做。
+        """
+
+        root = context.root_budget
+        if root is None or elapsed <= 0.0:
+            return 0.0
+        grant_fn = getattr(root, "grant", None)
+        if not callable(grant_fn):
+            return 0.0
+        remaining = max(0.0, float(getattr(root, "remaining_seconds", 0.0) or 0.0))
+        shortfall = max(0.0, float(elapsed) - remaining)
+        if shortfall <= 1e-9:
+            return 0.0
+        hard_cap = float(getattr(root, "hard_seconds_cap", 0.0) or 0.0)
+        allocated = float(getattr(root, "allocated_seconds", hard_cap) or 0.0)
+        headroom = max(0.0, hard_cap - allocated)
+        seconds = min(shortfall, headroom)
+        if seconds <= 1e-9:
+            return 0.0
+        episode_id = str(getattr(root, "episode_id", "") or "").strip()
+        grant = BudgetGrant(
+            grant_id=f"writing-{episode_id}-{int(llm_calls)}",
+            episode_id=episode_id,
+            cycle=0,
+            calls_granted=0,
+            seconds_granted=seconds,
+        )
+        if not grant_fn(grant):
+            return 0.0
+        ledger.add(
+            "writing_grant",
+            {
+                "seconds_granted": round(seconds, 3),
+                "model_elapsed": round(float(elapsed), 3),
+                "shortfall": round(shortfall, 3),
+                "headroom_before": round(headroom, 3),
+                "llm_calls": int(llm_calls),
+            },
+        )
+        return seconds
 
     def _carry_just_written_finish(
         self,

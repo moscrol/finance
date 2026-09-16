@@ -1,0 +1,12 @@
+# M2 反向证伪：hash 变化临时当放弃条件触发（预期 P02 必红）
+tree: /Users/a77/fwp-wt-research-priority-0913 @ HEAD 28804505 (package files uncommitted at run time)
+ranker.py  sha256: d8552055ff47a932
+adapters.py sha256: fa0beffc06a9119d
+command: /Users/a77/finance-workspace-private/.venv-workbench/bin/python -B -m pytest -q -p no:cacheprovider intelligence/tests -k research_priority
+run_at_utc: 2026-09-13T06:37:10Z
+---
+exit_code: 1
+2 failed, 53 passed, 8360 deselected in 10.73s
+--- failed tests ---
+FAILED intelligence/tests/test_research_priority_adapters.py::test_p02_hash_only_change_becomes_review_not_abandon
+FAILED intelligence/tests/test_research_priority_adapters.py::test_combined_sources_match_frozen_golden

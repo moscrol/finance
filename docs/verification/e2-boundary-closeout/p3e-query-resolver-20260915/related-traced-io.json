@@ -1,0 +1,167 @@
+{
+  "executor": "author",
+  "forbidden_attempts": 8,
+  "events": [
+    {
+      "event": "open",
+      "details": "/Users/a77/knowledge-base-private/wiki/relations/entity_exposures.json",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 159, in pytest_pyfunc_call\n    result = testfunction(**testargs)\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/tests/test_turn_controller.py\", line 201, in test_greeting_is_chat_without_tools_or_memory\n    decision = decide_turn(\"你好\", llm_complete=_no_llm)\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/turn_controller.py\", line 1136, in decide_turn\n    (resolver or QueryResolver()).resolve(resolution_query),\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/query_resolution.py\", line 206, in resolve\n    anchor = resolve_entity_anchor(cleaned, self.knowledge)\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/entity_anchor.py\", line 248, in resolve_entity_anchor\n    records = _cached_entity_records(knowledge)\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/entity_anchor.py\", line 201, in _cached_entity_records\n    records = _load_entity_records(knowledge)\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/entity_anchor.py\", line 85, in _load_entity_records\n    relation = knowledge.load_relation(\"entity_exposures\")\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/adapters/knowledge.py\", line 182, in load_relation\n    data = json.loads(path.read_text(encoding=\"utf-8\"))\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 1027, in read_text\n    with self.open(mode='r', encoding=encoding, errors=errors) as f:\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 1013, in open\n    return io.open(self, mode, buffering, encoding, errors, newline)\n",
+        "  File \"/tmp/e2-p3e-author-offline.py\", line 49, in audit\n    deny(event, str(p))\n",
+        "  File \"/tmp/e2-p3e-author-offline.py\", line 33, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "open",
+      "details": "/Users/a77/knowledge-base-private/wiki/relations/aliases.json",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 159, in pytest_pyfunc_call\n    result = testfunction(**testargs)\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/tests/test_turn_controller.py\", line 201, in test_greeting_is_chat_without_tools_or_memory\n    decision = decide_turn(\"你好\", llm_complete=_no_llm)\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/turn_controller.py\", line 1136, in decide_turn\n    (resolver or QueryResolver()).resolve(resolution_query),\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/query_resolution.py\", line 216, in resolve\n    matched_theme = None if anchor is not None else self._resolve_theme(cleaned)\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/query_resolution.py\", line 287, in _resolve_theme\n    for term, canonical in _theme_terms(self.knowledge):\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/query_resolution.py\", line 132, in _theme_terms\n    aliases_relation = knowledge.load_relation(\"aliases\")\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/adapters/knowledge.py\", line 182, in load_relation\n    data = json.loads(path.read_text(encoding=\"utf-8\"))\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 1027, in read_text\n    with self.open(mode='r', encoding=encoding, errors=errors) as f:\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 1013, in open\n    return io.open(self, mode, buffering, encoding, errors, newline)\n",
+        "  File \"/tmp/e2-p3e-author-offline.py\", line 49, in audit\n    deny(event, str(p))\n",
+        "  File \"/tmp/e2-p3e-author-offline.py\", line 33, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "subprocess.Popen",
+      "details": "('git', ['git', '-C', '/Users/a77/fwp-wt-e2-boundary-closeout', 'rev-parse', 'HEAD'])",
+      "stack": [
+        "  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n",
+        "  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n",
+        "  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n",
+        "  File \"<frozen importlib._bootstrap_external>\", line 999, in exec_module\n",
+        "  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/api/app.py\", line 3451, in <module>\n    app = create_app()\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/api/app.py\", line 2298, in create_app\n    runtime_provenance = build_runtime_provenance(root)\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/runtime_provenance.py\", line 119, in build_runtime_provenance\n    revision = _git_output(root, \"rev-parse\", \"HEAD\")\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/runtime_provenance.py\", line 28, in _git_output\n    completed = subprocess.run(\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py\", line 548, in run\n    with Popen(*popenargs, **kwargs) as process:\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py\", line 1026, in __init__\n    self._execute_child(args, executable, preexec_fn, close_fds,\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py\", line 1823, in _execute_child\n    sys.audit(\"subprocess.Popen\", executable, args, cwd, env)\n",
+        "  File \"/tmp/e2-p3e-author-offline.py\", line 41, in audit\n    deny(event, args[:2])\n",
+        "  File \"/tmp/e2-p3e-author-offline.py\", line 33, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "subprocess.Popen",
+      "details": "('git', ['git', '-C', '/Users/a77/fwp-wt-e2-boundary-closeout', 'status', '--porcelain'])",
+      "stack": [
+        "  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n",
+        "  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n",
+        "  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n",
+        "  File \"<frozen importlib._bootstrap_external>\", line 999, in exec_module\n",
+        "  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/api/app.py\", line 3451, in <module>\n    app = create_app()\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/api/app.py\", line 2298, in create_app\n    runtime_provenance = build_runtime_provenance(root)\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/runtime_provenance.py\", line 120, in build_runtime_provenance\n    dirty = bool(_git_output(root, \"status\", \"--porcelain\"))\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/runtime_provenance.py\", line 28, in _git_output\n    completed = subprocess.run(\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py\", line 548, in run\n    with Popen(*popenargs, **kwargs) as process:\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py\", line 1026, in __init__\n    self._execute_child(args, executable, preexec_fn, close_fds,\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py\", line 1823, in _execute_child\n    sys.audit(\"subprocess.Popen\", executable, args, cwd, env)\n",
+        "  File \"/tmp/e2-p3e-author-offline.py\", line 41, in audit\n    deny(event, args[:2])\n",
+        "  File \"/tmp/e2-p3e-author-offline.py\", line 33, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "os.scandir",
+      "details": "/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/users",
+      "stack": [
+        "  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n",
+        "  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n",
+        "  File \"<frozen importlib._bootstrap_external>\", line 999, in exec_module\n",
+        "  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/api/app.py\", line 3451, in <module>\n    app = create_app()\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/api/app.py\", line 2298, in create_app\n    runtime_provenance = build_runtime_provenance(root)\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/runtime_provenance.py\", line 127, in build_runtime_provenance\n    loaded_fingerprint, loaded_modules = _package_tree_fingerprint(loaded_root)\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/runtime_provenance.py\", line 61, in _package_tree_fingerprint\n    for path in sorted(package_root.rglob(\"*.py\")):\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 1109, in rglob\n    for p in selector.select_from(self):\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 237, in _select_from\n    for p in successor_select(starting_point, scandir):\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 204, in _select_from\n    with scandir(parent_path) as scandir_it:\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 1063, in _scandir\n    return os.scandir(self)\n",
+        "  File \"/tmp/e2-p3e-author-offline.py\", line 49, in audit\n    deny(event, str(p))\n",
+        "  File \"/tmp/e2-p3e-author-offline.py\", line 33, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "os.scandir",
+      "details": "/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/users",
+      "stack": [
+        "  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n",
+        "  File \"<frozen importlib._bootstrap_external>\", line 999, in exec_module\n",
+        "  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/api/app.py\", line 3451, in <module>\n    app = create_app()\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/api/app.py\", line 2298, in create_app\n    runtime_provenance = build_runtime_provenance(root)\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/runtime_provenance.py\", line 127, in build_runtime_provenance\n    loaded_fingerprint, loaded_modules = _package_tree_fingerprint(loaded_root)\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/runtime_provenance.py\", line 61, in _package_tree_fingerprint\n    for path in sorted(package_root.rglob(\"*.py\")):\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 1109, in rglob\n    for p in selector.select_from(self):\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 236, in _select_from\n    for starting_point in self._iterate_directories(parent_path):\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 230, in _iterate_directories\n    for dirpath, dirnames, _ in parent_path.walk():\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 1129, in walk\n    scandir_it = path._scandir()\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 1063, in _scandir\n    return os.scandir(self)\n",
+        "  File \"/tmp/e2-p3e-author-offline.py\", line 49, in audit\n    deny(event, str(p))\n",
+        "  File \"/tmp/e2-p3e-author-offline.py\", line 33, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "os.scandir",
+      "details": "/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/users",
+      "stack": [
+        "  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n",
+        "  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n",
+        "  File \"<frozen importlib._bootstrap_external>\", line 999, in exec_module\n",
+        "  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/api/app.py\", line 3451, in <module>\n    app = create_app()\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/api/app.py\", line 2298, in create_app\n    runtime_provenance = build_runtime_provenance(root)\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/runtime_provenance.py\", line 129, in build_runtime_provenance\n    repo_fingerprint, repo_modules = _package_tree_fingerprint(repo_package)\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/runtime_provenance.py\", line 61, in _package_tree_fingerprint\n    for path in sorted(package_root.rglob(\"*.py\")):\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 1109, in rglob\n    for p in selector.select_from(self):\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 237, in _select_from\n    for p in successor_select(starting_point, scandir):\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 204, in _select_from\n    with scandir(parent_path) as scandir_it:\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 1063, in _scandir\n    return os.scandir(self)\n",
+        "  File \"/tmp/e2-p3e-author-offline.py\", line 49, in audit\n    deny(event, str(p))\n",
+        "  File \"/tmp/e2-p3e-author-offline.py\", line 33, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "os.scandir",
+      "details": "/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/users",
+      "stack": [
+        "  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n",
+        "  File \"<frozen importlib._bootstrap_external>\", line 999, in exec_module\n",
+        "  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/api/app.py\", line 3451, in <module>\n    app = create_app()\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/api/app.py\", line 2298, in create_app\n    runtime_provenance = build_runtime_provenance(root)\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/runtime_provenance.py\", line 129, in build_runtime_provenance\n    repo_fingerprint, repo_modules = _package_tree_fingerprint(repo_package)\n",
+        "  File \"/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/services/runtime_provenance.py\", line 61, in _package_tree_fingerprint\n    for path in sorted(package_root.rglob(\"*.py\")):\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 1109, in rglob\n    for p in selector.select_from(self):\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 236, in _select_from\n    for starting_point in self._iterate_directories(parent_path):\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 230, in _iterate_directories\n    for dirpath, dirnames, _ in parent_path.walk():\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 1129, in walk\n    scandir_it = path._scandir()\n",
+        "  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 1063, in _scandir\n    return os.scandir(self)\n",
+        "  File \"/tmp/e2-p3e-author-offline.py\", line 49, in audit\n    deny(event, str(p))\n",
+        "  File \"/tmp/e2-p3e-author-offline.py\", line 33, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    }
+  ],
+  "pytest_exit": 0
+}
