@@ -1276,12 +1276,6 @@ def cmd_interval_gainers(args) -> int:
     return 0
 
 
-def _fmt_num(value, digits=2):
-    if value is None:
-        return "-"
-    return f"{float(value):.{digits}f}"
-
-
 def _short_text(value, max_len=18):
     text = str(value or "-").replace("\x00", "")
     return text if len(text) <= max_len else text[:max_len - 1] + "…"
@@ -1565,11 +1559,99 @@ def cmd_strong_subtheme_trace(args) -> int:
 def cmd_top_sectors(args) -> int:
     from .query import top_sectors
 
-    res = top_sectors(trade_date=args.trade_date, top=args.top, order_by=args.order_by)
-    print(f"板块排行 @{res['trade_date']} (按{res['order_by']}排序, Top{args.top})")
+    res = top_sectors(trade_date=args.trade_date, top=args.top, order_by=args.order_by,
+                      min_amount=args.min_amount, min_pct_chg=args.min_pct_chg,
+                      min_diff_ratio=args.min_diff_ratio)
+    note = ""
+    if res.get("filters"):
+        note = " 筛选 " + " ".join(f"{k.removeprefix('min_')}>={v}" for k, v in res["filters"].items())
+    print(f"板块排行 @{res['trade_date']} (按{res['order_by']}排序, Top{args.top}){note}")
     for s in res["sectors"]:
         print(f"  {s['sector_name']:<12} ({s['sw_l1']}) 涨{s['pct_chg']} 边际{s['diff_ratio']} 额{s['amount']}亿")
     return 0
+
+
+def cmd_stock_technicals(args) -> int:
+    """个股技术位：均线、UP 线、回踩状态。原飞书三件套（watchlist-ma /
+    top-gainers-feishu / up-line）的本地统一入口。"""
+    import json as _json
+
+    from .query import SCREENS, screen_stock_technicals
+    from .watchlist import load_watchlist, list_watchlists
+
+    terms: list[str] = list(args.codes or [])
+    if args.watchlist:
+        loaded = load_watchlist(args.watchlist)
+        if not loaded:
+            available = list_watchlists()
+            print(f"清单 {args.watchlist!r} 为空或不存在", file=sys.stderr)
+            print(f"已有清单: {', '.join(available) if available else '（无）'}", file=sys.stderr)
+            return 1
+        terms.extend(loaded)
+    if not terms:
+        print("请用 --codes 或 --watchlist 指定股票", file=sys.stderr)
+        return 1
+
+    res = screen_stock_technicals(terms, screen=args.screen, as_of=args.as_of)
+    if args.json:
+        print(_json.dumps(res, ensure_ascii=False, indent=2))
+        return 0
+
+    shown = res.get("matched") if args.screen else res["rows"]
+    label = f"（{SCREENS[args.screen][1]}）" if args.screen else ""
+    date_note = f"截至 {res['as_of']}" if res.get("as_of") else "最新交易日"
+    print(f"个股技术位 @{res.get('data_date') or '-'}  {date_note}{label}")
+    print(f"  {'股票':<10} {'现价':>9} {'MA5':>9} {'MA10':>9} {'MA20':>9} "
+          f"{'UP':>9} {'偏离%':>8}  状态")
+    for r in shown or []:
+        marks = []
+        if r.get("pullback_ma10_ma20"):
+            marks.append("中期回踩")
+        if r.get("pullback_ma5_ma10"):
+            marks.append("短线回踩")
+        if r.get("above_up"):
+            marks.append("UP上方")
+        print(f"  {str(r.get('stock_name') or r['term']):<10} "
+              f"{_fmt_num(r.get('close')):>9} {_fmt_num(r.get('ma5')):>9} "
+              f"{_fmt_num(r.get('ma10')):>9} {_fmt_num(r.get('ma20')):>9} "
+              f"{_fmt_num(r.get('up_value')):>9} {_fmt_num(r.get('up_deviation_pct')):>8}  "
+              f"{'/'.join(marks) or '-'}")
+    if args.screen:
+        print(f"  命中 {len(shown)}/{len(res['rows'])} 只")
+    if res["missing"]:
+        print(f"  缺数据: {', '.join(res['missing'])}", file=sys.stderr)
+    return 0
+
+
+def cmd_watchlist(args) -> int:
+    from .watchlist import list_watchlists, load_watchlist, save_watchlist, watchlist_path
+
+    if args.action == "show":
+        items = load_watchlist(args.name)
+        if not items:
+            print(f"清单 {args.name!r} 为空或不存在（{watchlist_path(args.name)}）")
+            return 1
+        print(f"{args.name}（{len(items)} 只）: {watchlist_path(args.name)}")
+        for item in items:
+            print(f"  {item}")
+        return 0
+    if args.action == "list":
+        names = list_watchlists()
+        print("\n".join(names) if names else "（还没有任何清单）")
+        return 0
+    if args.action in {"add", "remove"}:
+        if not args.items:
+            print("请给出要增删的股票", file=sys.stderr)
+            return 1
+        items = load_watchlist(args.name)
+        if args.action == "add":
+            items.extend(i for i in args.items if i not in items)
+        else:
+            items = [i for i in items if i not in set(args.items)]
+        path = save_watchlist(items, args.name)
+        print(f"{args.name} 现有 {len(items)} 只 -> {path}")
+        return 0
+    return 1
 
 
 def cmd_info(_args) -> int:
@@ -2128,10 +2210,31 @@ def build_parser() -> argparse.ArgumentParser:
     p_trace.add_argument("--top", type=int, default=50, help="每类最多展示 N 条, 默认50")
     p_trace.set_defaults(func=cmd_strong_subtheme_trace)
 
+    p_st = sub.add_parser("stock-technicals",
+                          help="个股技术位: 均线/UP线/回踩筛选 (本地计算, 支持 --as-of 回溯)")
+    p_st.add_argument("--codes", nargs="*", default=None, help="股票代码或名称, 可混写")
+    p_st.add_argument("--watchlist", default=None, help="本地清单名, 如 default")
+    p_st.add_argument("--screen", default=None,
+                      choices=["pullback", "short-pullback", "above-up"],
+                      help="筛选口径: pullback=MA20<价<MA10, short-pullback=MA10<价<MA5, above-up=站上UP线")
+    p_st.add_argument("--as-of", default=None,
+                      help="截止交易日, 留空取库尾; 回答历史某天的问题必须传")
+    p_st.add_argument("--json", action="store_true", help="输出 JSON")
+    p_st.set_defaults(func=cmd_stock_technicals)
+
+    p_wl = sub.add_parser("watchlist", help="本地自选股清单: show/list/add/remove")
+    p_wl.add_argument("action", choices=["show", "list", "add", "remove"])
+    p_wl.add_argument("items", nargs="*", help="add/remove 时的股票代码或名称")
+    p_wl.add_argument("--name", default="default", help="清单名, 默认 default")
+    p_wl.set_defaults(func=cmd_watchlist)
+
     p_q3 = sub.add_parser("top-sectors", help="板块排行: 按边际量/涨幅/成交额")
     p_q3.add_argument("--trade-date", default=None, help="交易日, 留空取最新")
     p_q3.add_argument("--top", type=int, default=20, help="返回前 N 个, 默认20")
     p_q3.add_argument("--order-by", default="diff_ratio", help="排序字段: diff_ratio/pct_chg/amount")
+    p_q3.add_argument("--min-amount", type=float, default=None, help="成交额下限(亿), 量价齐升口径常用 500")
+    p_q3.add_argument("--min-pct-chg", type=float, default=None, help="涨幅下限(%%), 量价齐升口径常用 0")
+    p_q3.add_argument("--min-diff-ratio", type=float, default=None, help="边际量下限(%%), 量价齐升口径常用 10")
     p_q3.set_defaults(func=cmd_top_sectors)
 
     return parser
