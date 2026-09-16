@@ -1106,9 +1106,9 @@ class ContinuousTurnAdapter:
         for notice in public_notices:
             if notice not in answer:
                 answer = "\n\n".join(part for part in (answer, notice) if part)
-        from intelligence.services.material_delivery import material_question_outputs
+        from intelligence.services.material_grounding import grounding_scope
 
-        if material_question_outputs(context.contract):
+        if grounding_scope(context.contract) == "material_only":
             semantic = recheck_material_public_delivery(semantic, projected=answer)
             final_outcome = semantic.verified.outcome
             answer = semantic.public_answer

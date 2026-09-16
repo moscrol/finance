@@ -425,7 +425,7 @@ class RepairFailureShape:
     - ``delivery``：有证据、有结构缺口，但没写出稿或没绑定——tool-closed 交付修复。
     - ``cold_restart``：零证据饿死（窗烧穿 / 主路径模型不可用）——重开工具一发。
     - ``contract_rewrite``：缺的全是契约表达槽——从已有证据/材料补写，不开工具。
-    - ``input_only_rewrite``：材料逐题交付的显式许可；不伪造证据计数。
+    - ``input_only_rewrite``：仅依据材料交付的显式许可；不要求题号，不伪造证据计数。
 
     不看预算、不看 cycle 状态（「交付修复只许一次」是底座的账，由调用方叠）。
     """
@@ -449,10 +449,17 @@ def classify_repair_failure(
     """领域失败分类。``missing_outputs`` 是结构缺口 ∪ 语义缺口（调用方已合并）。"""
 
     from intelligence.services.episode_issues import IssueCode
-    from intelligence.services.material_delivery import material_question_outputs
 
     has_evidence = bool(outcome.evidence)
-    material_ids = {item.output_id for item in material_question_outputs(structural.contract)} if structural.contract else set()
+    contract = structural.contract
+    material = contract.material_contract if contract is not None else None
+    # Numbered questions and ordinary output slots share the same frozen scope.
+    material_ids = {
+        item.output_id for item in contract.required_outputs if item.required
+    } if (
+        contract is not None and material is not None
+        and material.data_scope == "material_only" and not material.needs_clarification
+    ) else set()
     material_rewrite = bool(
         missing_outputs and set(missing_outputs) <= material_ids
         and not rejected_claims and not structural.mandatory_missing_capabilities

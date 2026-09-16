@@ -167,14 +167,22 @@ P4（D5）在 `fix/e2-delivery-closeout` 补齐 `material_only` 逐题交付：�
 并已登记，不另开拼串路径。证据：离线反例与定向回归（`docs/handoffs/2026-09-16-e2-delivery-p4.md`）；
 精确提交上的四叶等价 CI 与删保护变异（`docs/handoffs/2026-09-16-e2-delivery-p4-verification.md`）。
 
+P5/P6 候选在 `fix/e2-material-closeout` 集成：跨轮前提按内容与作用范围去重，
+保留最早轮次；材料原文与历史助手陈述分目录冻结，事实句绑定材料身份与逐字引用。
+引用只证明来源身份，支持关系和计算仍交语义判官；判官删句同时撤去该句的绑定，
+不撤销其余来源检查。无编号材料题及范围声明槽也按冻结的 `material_only` 合同获得
+有界零工具补写，不以有无 `qN` 判断资格；来源违规、未知输出、待澄清合同不获许可。
+最终公开稿在最后一次投影后按同一范围复核，无编号题删掉答案不能仍标完成。
+这些是候选代码与作者回归结果，不代表 P7 真实模型验收、合入或部署。
+
 **本阶段不是材料题全链完成**：`local_only` 仅已审定 runner 的局部路径，未覆盖所有
 本地工具。D4 四组九类注入路径已逐条对账收口（矩阵与定性判断见
 [P3 注入面核查](handoffs/2026-09-15-e2-p3-injection-surface-audit.md)，payload 卫生
 钉测试锁现状）；判读基线/题型规则等方法文案留在 material_only 输入里，定性为
 「非事实、无 IO」不越 P3 红线，答案质量影响归 P4/P6 再议。引擎 B 内部仍无合同
 意识，不得绕过 P3h 两道门直接调用；注入式 registry_factory 内部读取不可撤销
-（P3c 声明）。local_only 原题号槽、材料题真实模型交付、可信跨轮继承五格全链、
-纯度与材料锚点待后续阶段；普通上下文不是按来源过滤后的安全输入。
+（P3c 声明）。local_only 原题号槽、材料题真实模型交付及可信跨轮继承五格全链
+仍待验收；纯度与材料锚点已有上述候选实现，普通上下文不是按来源过滤后的安全输入。
 不得把局部短路当成真实入口已经零外呼，也不得运行正式 T2→T3/Knevo 对照。Grok CLI 已做过回顾性语义判卷试跑，但有效返回来自关闭系统沙箱的配置（不再沿用），且输入未含完整原题/材料，结果仅作试跑证据，不是隔离验收或正式评分；Knevo 有已登录浏览器的 CDP 回贴入口，但本轮未发新题、没有未揭盲成对答案，故没有正式 PK；详细状态见 [判官/Knevo 记录](verification/e2-boundary-closeout/llm-judge-knevo-status-20260915.md)。设计与阶段证据见
 [设计 v10](learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md)
 及 `docs/handoffs/inflight/fix-e2-boundary-closeout.md`；是否部署看实际服务 revision。

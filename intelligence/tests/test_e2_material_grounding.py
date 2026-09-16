@@ -441,21 +441,31 @@ def test_dispatch_stamps_runner_provenance_before_cache_and_serialization(effect
     assert tuple(ClaimSourceBinding.from_dict(row) for row in raw["bindings"][0]["claims"]) == value.bindings[0].claims
 
 
-def test_rejected_material_claim_can_be_rewritten_with_fresh_binding_and_same_sources():
+@pytest.mark.parametrize("numbered", [True, False])
+def test_rejected_material_claim_can_be_rewritten_with_fresh_binding_and_same_sources(numbered):
     from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
     from intelligence.runtime.turn_control_core import TurnControlResult
     from intelligence.services.episode_session import CallbackEpisodeSession
 
     frame, context = setup()
+    output_id = "answer_q1" if numbered else "direct_answer"
+    if not numbered:
+        frame = understand_query("只依据材料：甲收入100万元，新增订单20万元，订单占收入比例是多少？").task_frame
+        context = build_episode_context(frame, task_id="unnumbered-repair-" + uuid4().hex)
     good = outcome(context)
     text = "订单占收入比例为50%。"
     bad = outcome(context, text=text)
+    if not numbered:
+        def unnumber(value):
+            return replace(value, draft=value.draft.replace("## q1\n", ""),
+                           bindings=(replace(value.bindings[0], output_id=output_id), value.bindings[1]))
+        good, bad = unnumber(good), unnumber(bad)
     resumes, requests = [], []
     class Runtime:
         def start(self, _frame, *, context, registry):
             def resume(previous, goal):
                 resumes.append(goal)
-                assert goal.missing_answer_elements == ("answer_q1",)
+                assert goal.missing_answer_elements == (output_id,)
                 assert goal.remaining_calls == 0 and not goal.reopen_tools
                 return replace(good, events=(*previous.events, EpisodeEvent(len(previous.events) + 1, "model_turn", {})))
             return CallbackEpisodeSession(episode_id=context.contract.task_id, outcome=bad, resume_callback=resume)
@@ -477,3 +487,86 @@ def test_rejected_material_claim_can_be_rewritten_with_fresh_binding_and_same_so
     assert requests[0]["output_bindings"][0]["claims"] != requests[1]["output_bindings"][0]["claims"]
     assert result.status == "completed" and FACT in result.answer and text not in result.answer
     assert result.private_artifact["semantic_verifier"]["repair_output_ids"] == []
+
+
+@pytest.mark.parametrize("case", [
+    "material_only", "local_only", "full", "ordinary", "uncertain",
+    "source_violation", "unknown_output", "mandatory_capability", "rejected_claim",
+])
+def test_unnumbered_rewrite_permission_requires_settled_scope_and_only_delivery_gaps(case):
+    from intelligence.services.episode_issues import Issue, IssueCode
+    from intelligence.services.repair_coordinator import classify_repair_failure
+
+    frame = understand_query("只依据材料：甲收入100万元，新增订单20万元，订单占收入比例是多少？").task_frame
+    context = build_episode_context(frame, task_id="rewrite-permission-" + uuid4().hex)
+    value = replace(outcome(context), draft=BOUNDARY, bindings=(
+        OutputEvidenceBinding("direct_answer", (), gap="回答尚未交付"),
+        OutputEvidenceBinding("evidence_boundary", (), basis="user_premise"),
+    ))
+    structural = verify_episode_outcome(context.contract, value)
+    assert structural.missing_outputs == ("direct_answer",)
+    contract = context.contract
+    if case in {"local_only", "full"}:
+        contract = replace(contract, material_contract=replace(contract.material_contract, data_scope=case))
+    elif case == "ordinary":
+        contract = replace(contract, material_contract=None)
+    elif case == "uncertain":
+        contract = replace(contract, material_contract=replace(contract.material_contract, classification="boundary_uncertain"))
+    structural = replace(structural, contract=contract)
+    if case == "source_violation":
+        structural = replace(structural, issue_items=(*structural.issue_items,
+            Issue(IssueCode.MATERIAL_SOURCE_VIOLATION, "direct_answer", "forged anchor")))
+    elif case == "mandatory_capability":
+        structural = replace(structural, mandatory_missing_capabilities=("finance_query",))
+    shape = classify_repair_failure(
+        value, structural,
+        missing_outputs=("invented_output",) if case == "unknown_output" else structural.missing_outputs,
+        rejected_claims=("unresolved_claim",) if case == "rejected_claim" else (),
+        semantic_gap_outputs=(),
+    )
+    assert shape.input_only_rewrite is (case == "material_only")
+    assert not shape.cold_restart
+
+
+@pytest.mark.parametrize("judge_outage", [False, True])
+def test_unnumbered_final_projection_and_judge_outage_cannot_publish_completed(monkeypatch, judge_outage):
+    from intelligence.runtime import continuous_turn_adapter as adapter_module
+    from intelligence.runtime.turn_control_core import TurnControlResult
+    from intelligence.services.episode_session import CallbackEpisodeSession
+
+    frame = understand_query("只依据材料：甲收入100万元，新增订单20万元，订单占收入比例是多少？").task_frame
+    context = build_episode_context(frame, task_id="unnumbered-projection-" + uuid4().hex)
+    value = outcome(context)
+    value = replace(value, draft=FACT + BOUNDARY,
+                    bindings=(replace(value.bindings[0], output_id="direct_answer"), value.bindings[1]))
+    resumes, requests = [], []
+    class Runtime:
+        def start(self, _frame, *, context, registry):
+            def resume(previous, goal):
+                resumes.append(goal)
+                pytest.fail("projection after repair or judge outage must not start a new rewrite")
+            return CallbackEpisodeSession(episode_id=context.contract.task_id, outcome=value, resume_callback=resume)
+    def judge(request):
+        requests.append(request)
+        if judge_outage:
+            raise ValueError("offline judge outage")
+        return passing(request)
+    if not judge_outage:
+        # This projection runs after the repair loop's public-text recheck.
+        monkeypatch.setattr(adapter_module, "_with_calendar_disclosure", lambda answer, _frame: answer.replace(FACT, ""))
+    result = adapter_module.ContinuousTurnAdapter(
+        runtime=Runtime(), runtime_name="continuous_glm", mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: ResearchToolRegistry(()),
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=judge),
+    ).handle(frame=frame, control=TurnControlResult(
+        task_frame=frame, execution_route=frame.question_type, terminal_kind="research",
+        needs_retrieval=False, capabilities=(), contract_required=True,
+    ))
+    assert len(requests) == 1 and not resumes
+    assert result.status != "completed" and FACT not in result.answer
+    semantic = result.private_artifact["semantic_verifier"]
+    if judge_outage:
+        assert semantic["pending_rejudge"] is True and semantic["repair_output_ids"] == []
+    else:
+        assert "direct_answer" in semantic["repair_output_ids"]
