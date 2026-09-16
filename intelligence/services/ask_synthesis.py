@@ -24,6 +24,7 @@ from intelligence.services import (
     perspective_lab,
     pricing_split,
     ranking_contract,
+    research_workflow_guidance,
     scenario_tree,
     track_contract,
 )
@@ -848,6 +849,17 @@ def _prepare_answer_spec_synthesis(
     # 表达契约（情景树/跟踪）与经验卡片分开注入：契约是强制格式约束，塞进
     # 「历史经验卡片」段会被模型当参考经验忽略（2026-08-13 workbench 实测）。
     contract_parts: list[str] = []
+    workflow_guidance = research_workflow_guidance.workflow_guidance(
+        question_plan.question_type
+    )
+    # Legacy plans can translate a material critique into financial_analysis.
+    # Preserve its recognized intent, but never override an explicit caller choice.
+    if options.question_type_override in {None, "general_finance_qa"}:
+        workflow_guidance = research_workflow_guidance.workflow_guidance(
+            knowledge_injection_policy.routed_question_type(question_plan)
+        ) or workflow_guidance
+    if workflow_guidance:
+        contract_parts.append(workflow_guidance)
     if options.include_scenario_guidance:
         scenario_guidance = scenario_tree.scenario_guidance_for_query(
             options.query,
