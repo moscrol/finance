@@ -10,7 +10,9 @@
 
 **状态：Task 1–5 已实施并验收，未合 main。** 日期 2026-09-14；依据 `gitea/main@1fef3d276d0e251158803fc09d5a81e60d79241b`，实施在 `codex/judge-calibration-validity`（代码 `7117125e`、文档 `87845e09`），工作树 `/Users/a77/fwp-wt-judge-calibration-validity`。
 
-全量 9766 passed / 0 failed 与 `ruff check .` 绑定 `7117125e`（收据 `~/.finance-runtime/test-receipts/20260914T152057Z-7117125e.json`，`check_test_receipt.py --expect-revision` 七项全过、干净树）。§5 的反向证明已跑：拆掉身份门 / 源 writer 独立性 / 校准绑定哈希 / 非有限数检查，V1/V4/V6/V8 分别见红，还原后 85 项全绿。**未调真实判官**——全部验收走假传输与内存夹具，「门会拦」已证、「真实模型分差如何」未测。frontend / e2e 两片叶子尚无结论（本枝零前端改动），合入仍待用户确认。交接见 `docs/handoffs/inflight/codex-judge-calibration-validity.md`。
+**2026-09-16 追平主干**：两次合并 `ffb0d281`（并 `main@c29a6401`，解两处 token 计费 × 调用身份冲突）、`26f18e99`（并 `main@d433b907`），并落实移交的 `identity_state` 跨层一致性 P1（`intelligence/call_identity.py` + `intelligence/tests/test_call_identity_contract.py`）。四叶对 `26f18e99` 重跑全绿：pytest **11359 passed / 0 failed**、vitest **107 passed**、e2e **34 passed / 2 skipped**、registry 五项 exit 0（收据 `20260916T152203Z-26f18e99.json`）。详见 `docs/handoffs/2026-09-16-judge-calibration-main-integration.md`。
+
+全量 9766 passed / 0 failed 与 `ruff check .` 绑定 `7117125e`（收据 `~/.finance-runtime/test-receipts/20260914T152057Z-7117125e.json`，`check_test_receipt.py --expect-revision` 七项全过、干净树）。§5 的反向证明已跑：拆掉身份门 / 源 writer 独立性 / 校准绑定哈希 / 非有限数检查，V1/V4/V6/V8 分别见红，还原后 85 项全绿。**未调真实判官**——全部验收走假传输与内存夹具，「门会拦」已证、「真实模型分差如何」未测。frontend / e2e 两片叶子已在 `26f18e99` 补跑全绿（见上方追平段），合入仍待用户确认。交接见 `docs/handoffs/inflight/codex-judge-calibration-validity.md`。
 
 ## 1. 已核实的故障与范围
 
