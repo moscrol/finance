@@ -1,0 +1,151 @@
+2026-09-16 prev=2026-09-15 limitup=1 top100=100
+7zz x 100 tick files
+ERROR: CRC Failed Data Error
+MISS 600001
+MISS 600002
+MISS 600003
+MISS 600004
+MISS 600005
+MISS 600006
+MISS 600007
+MISS 600008
+MISS 600009
+MISS 600010
+MISS 600011
+MISS 600012
+MISS 600013
+MISS 600014
+MISS 600015
+MISS 600016
+MISS 600017
+MISS 600018
+MISS 600019
+MISS 600020
+MISS 600021
+MISS 600022
+MISS 600023
+MISS 600024
+MISS 600025
+MISS 600026
+MISS 600027
+MISS 600028
+MISS 600029
+MISS 600030
+MISS 600031
+MISS 600032
+MISS 600033
+MISS 600034
+MISS 600035
+MISS 600036
+MISS 600037
+MISS 600038
+MISS 600039
+MISS 600040
+MISS 600041
+MISS 600042
+MISS 600043
+MISS 600044
+MISS 600045
+MISS 600046
+MISS 600047
+MISS 600048
+MISS 600049
+MISS 600050
+MISS 600051
+MISS 600052
+MISS 600053
+MISS 600054
+MISS 600055
+MISS 600056
+MISS 600057
+MISS 600058
+MISS 600059
+MISS 600060
+MISS 600061
+MISS 600062
+MISS 600063
+MISS 600064
+MISS 600065
+MISS 600066
+MISS 600067
+MISS 600068
+MISS 600069
+MISS 600070
+MISS 600071
+MISS 600072
+MISS 600073
+MISS 600074
+MISS 600075
+MISS 600076
+MISS 600077
+MISS 600078
+MISS 600079
+MISS 600080
+MISS 600081
+MISS 600082
+MISS 600083
+MISS 600084
+MISS 600085
+MISS 600086
+MISS 600087
+MISS 600088
+MISS 600089
+MISS 600090
+MISS 600091
+MISS 600092
+MISS 600093
+MISS 600094
+MISS 600095
+MISS 600096
+MISS 600097
+MISS 600098
+MISS 600099
+extracted 1/100
+600000 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily limitup 2026-09-16 写入 1 行
+600000 主买:200万 总买:0万
+DuckDB: feature_l2_capital_flow_daily top100 2026-09-16 写入 1 行
+DuckDB: feature_l2_quant_orders_daily 2026-09-16 写入 0 行
+wrote limitup=1 top100=1 quant=0
+CHECK L2 2026-09-16
+l2-moneyflow/limitup: ('complete', 1, 1, 1, 0, datetime.datetime(2026, 9, 16, 21, 59, 31, 299022))
+l2-moneyflow/top100: ('complete', 1, 100, 100, 0, datetime.datetime(2026, 9, 16, 21, 59, 31, 378530))
+l2-moneyflow/quant: ('complete', 0, 100, 100, 0, datetime.datetime(2026, 9, 16, 21, 59, 31, 449409))
+feature_l2_capital_flow_daily: rows=2 max=2026-09-16
+feature_l2_quant_orders_daily: rows=0 max=None
+{
+  "result": {
+    "limitup": 1,
+    "top100": 1,
+    "quant": 0
+  },
+  "ledger": [
+    [
+      "limitup",
+      "complete",
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      "quant",
+      "complete",
+      0,
+      100,
+      100,
+      0
+    ],
+    [
+      "top100",
+      "complete",
+      1,
+      100,
+      100,
+      0
+    ]
+  ],
+  "quality_problems": [],
+  "next_run_skips": true
+}
+REPRODUCED: corrupt 1/100 extraction accepted; future ordinary run skips repair

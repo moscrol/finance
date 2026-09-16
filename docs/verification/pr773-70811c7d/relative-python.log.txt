@@ -1,0 +1,15 @@
+[
+  {
+    "python": ".venv-workbench/bin/python",
+    "returncode": 127,
+    "stdout": "L2 start date=2026-09-16 source=baidu-share:xianyu-l2-7z code=/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pr773-python-_r9gv1qa/code rev=unknown data=/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pr773-python-_r9gv1qa/data db=/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pr773-python-_r9gv1qa/data/nonexistent.duckdb\nL2 calendar date=2026-09-16 verdict=trading source=sse_calendar data=unknown\nSAFE_STUB\n",
+    "stderr": "[2026-09-16 21:59:30] ⚠️ 当日行情 data=unknown（非 present）：日包侧可照常，依赖当日 fact_stock_daily 的口径可能空转——这是行情缺口，不是 L2 故障\n/Users/a77/.finance-runtime/reviews/pr773-qc/finance-workspace-private/scripts/moneyflow/run_l2_pipeline.sh:145: no such file or directory: .venv-workbench/bin/python\n"
+  },
+  {
+    "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "returncode": 0,
+    "stdout": "L2 start date=2026-09-16 source=baidu-share:xianyu-l2-7z code=/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pr773-python-_r9gv1qa/code rev=unknown data=/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pr773-python-_r9gv1qa/data db=/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pr773-python-_r9gv1qa/data/nonexistent.duckdb\nL2 calendar date=2026-09-16 verdict=trading source=sse_calendar data=unknown\nSAFE_STUB\nSAFE_STUB\nSAFE_STUB\n",
+    "stderr": "[2026-09-16 21:59:30] ⚠️ 当日行情 data=unknown（非 present）：日包侧可照常，依赖当日 fact_stock_daily 的口径可能空转——这是行情缺口，不是 L2 故障\n"
+  }
+]
+REPRODUCED: relative interpreter fails after cd; identical absolute interpreter succeeds
