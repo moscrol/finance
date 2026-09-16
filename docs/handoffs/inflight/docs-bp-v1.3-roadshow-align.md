@@ -1,26 +1,26 @@
-# BP v1.4 · 研究主干叙事校准 · 2026-09-15
+# BP v1.5 · 可读性修订 + 申请表同步 · 2026-09-16
 
 ## 这个分支做什么
-BP 母本及生成版与 product v2 / 口播 v2.3 / PPT v4 对齐；纯材料任务。前序作者的 v1.3 交接原文保存在 `../2026-09-15-bp-v13-before-research-alignment.md`，不删历史。
+BP 母本/生成版与 product v2 / 口播 v2.3 / PPT v4 同源；纯材料任务。v1.4 交接见 git 历史（f80733b8），v1.3 交接在 `../2026-09-15-bp-v13-before-research-alignment.md`。
 
 ## 决策与被否方案
-- 研究 Agent 是主干，校准自愿；否每天先记判断，避免遮蔽即时研究价值。
-- 只讲历史 M2 已验收单题摘要；否拼接多条局部成功冒充自然全链。
-- 固定版本读取可复现；否模型答案恒定与全历史无前视，快照覆盖有边界。
-- 只改母本再生成，offer 与第6节预算整页不动；否把叙事授权当改价授权。
-- 展开与四份产物：`~/foresight/docs/handoffs/2026-09-15-research-first-materials.md`。
+- v1.5 只改可读性与配套件：§2 表去内部编号/术语，事故句改成「上线≠每次任务成功」的例子；否保留 v1.4 原句（评审读不懂 M1–M5 / 质量门）。
+- 内容变了就升版号，桌面留 v1.4；否同版号覆盖 PDF（收据绑旧 SHA）。
+- 申请表答案重写到研究主干口径；否继续附 v1.2（与 BP 正面冲突）。
+- 定价 / 套餐一律不提不改（用户 09-16：不是融资阶段）；Pro 行仍是 offer 草稿原范围。
+- foresight 正文与 M-001 分两笔按 hunk 入库；否整文件顺带提交或继续留工作区。
 
 ## 当前状态
-当前稿 v1.4；本树基线 `6a90a978`，前序两笔提交保留。BP、定向回归与本交接按路径提交；未合主线、未部署。foresight 为混合树，其材料正文仍未提交，勿顺带提交他人 validation/specs。
+本树 `docs/bp-v1.3-roadshow-align`：6a90a978 → f80733b8（v1.4）→ 0727ec92（v1.5），工作区干净，未合主线。foresight `feat/advisory-loop`：cc186cf（product v2 / D-008 / 验证补充 / 口播 v2.3 + 归档）、a989f75（M-001）；剩余 specs / advisory 是他人 WIP。桌面：`Foresight-BP-对外版-v1.5-2026-09-16.pdf`（8 页）与 md v1.5；PPT v4 目录已重生成（第 9 页脚注、备注页脚 BP v1.5），旧件归档 `.build/revision-v4.0-2026-09-16-before-slide9-copyedit/`，`.build/delivery-check.json` 重出（pptx 859a5a6a…）。
 
 ## 已验证
-生成一致性通过；17 passed（定向），ruff通过；PDF8页；第6节预算逐字不变、offer字节不变。PPT15页＋备注，包/几何/回读与HTML离线交互通过。收据：桌面 `Foresight-路演-v4-2026-09-15/.build/delivery-check.json`。无全仓测试结论。
+18 passed（新增：对外版禁内部术语）、build --check、ruff；PDF 回读 8 页 = 8 区块；对外版无 预测 / 涨跌 / 家目录 / 术语；HTML 15 页无越界无报错、演讲者交互过、pptx finalize 过、check-delivery pass（预算整页与 offer 字节不变）。无全仓测试结论。
 
 ## 未验证 / 已知边界
-当前模型无法目视图像，未做人工审美与原生PowerPoint字体验收；未真人计时。M2原件公开脱敏/真实界面彩排尚待，第5页仅收据摘要。未重跑产品live；报价draft、外部用户/收入0、方法未获支持。旧申请表/DOCX未更新。
+未目视 PDF / PPT 版面；PowerPoint 原生字体未验（Arial Unicode MS / Helvetica Neue，Windows 会替换，PDF 为安全件）；未真人计时（口播 1172 字约 5–6 分钟 + 演示 60–90 秒）。桌面申请表 DOCX 与 BP 可编辑 DOCX 仍是 v1.2，本机无 LibreOffice，须按答案文件手工重填。M2 原件脱敏 / 界面彩排未做。
 
 ## 下一步
-用户看桌面 BP v1.4 PDF 与 PPT v4 PDF，目视/计时；要演真实界面另备脱敏原件。合主线仍须用户确认。
+用户目视 v1.5 PDF 与 PPT v4 PDF 并计时；重填申请表 DOCX；合主线需用户确认（合并前跑等价 CI）；合并后删分支与 `fwp-wt-bp-v13`。
 
 ## 踩过的坑
-旧测试强制“自媒体”导致首轮13P/1F；按新授权合同更新并增边界断言，最终17P。PPT finalize拒绝覆盖最终件和收据，重生成须两者一起归档；不能继续引用旧SHA收据。
+`set -e` 下 heredoc python 断言失败没有中止后续 git 命令，扫描要单独跑再提交；BSD sed 不支持 `1,2c\` 多行，patch 头用 python 重写；finalize 拒覆盖，先归档再 rm 最终件 + 收据。
