@@ -102,7 +102,7 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
     ),
     "web_search": (
         "web_search",
-        "全网网页检索",
+        "全网网页检索（摘要是线索；核对原文时用已授权的 web_fetch，未取到正文须披露）",
         "current",
         frozenset({"supporting_evidence", "event_facts", "impact_transmission"}),
     ),
@@ -130,7 +130,7 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
     ),
     "graph_lookup": (
         "graph_lookup",
-        "知识图谱实体与关系",
+        "知识图谱实体与关系（关系是检索线索，不自动证明因果或受益强度；空结果不代表不存在关联）",
         "stable",
         frozenset({"chain_mapping", "company_mapping", "relation_map"}),
     ),
@@ -170,7 +170,7 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
     ),
     "financial_data": (
         "financial_data",
-        "结构化逐季财务指标（每行带机器可读观察值；可一次取多家公司）",
+        "结构化逐季财务指标（每行带机器可读观察值；可一次取多家公司；实际财报不等于一致预期，缺值不是零）",
         "current",
         frozenset({"financial_assessment", "metric_evidence", "supporting_evidence"}),
     ),
