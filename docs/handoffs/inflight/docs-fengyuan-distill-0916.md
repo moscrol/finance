@@ -8,9 +8,10 @@ Q-002 追加行 #12–#15（数字阈值排队，均未提交）。
 
 ## 当前状态（2026-09-16 15:35，接手自 pi 会话）
 - 原料私存 `~/.local/share/finance-workbench/private-distillation/fengyuan-20260916/`（0700；148 文件 before 备份 +
-  sha256；`plan.json` 记四批：优先 8 / 第二批 14（已切好 `batch2-20260712-new-rest.md`，7106 字，未 ingest）/
-  「部分」22 未切 / B 侧 08-08 快照 11 条未切）。
-- **步骤 1 ingest 已落**：article `pa-516facf90296`，date 2026-07-12（快照日），风远 21 篇；写前核过指纹 = 备份。
+  sha256；`plan.json` 记四批：优先 8 / 第二批 14 / 「部分」22 未切 / B 侧 08-08 快照 11 条未切）。
+- **步骤 1 ingest 已落两批**：优先 8 卡 `pa-516facf90296`、第二批 14 卡 `pa-e0178691c647`（均 date 2026-07-12
+  快照日），风远 22 篇；首写前核过指纹 = 备份。第二批只 ingest **不抽取**——`review-policy.md` 只覆盖优先 8 卡，
+  extract-cards 必须带 `--article-id pa-516facf90296`，第二批等自己的评审策略。
   8792 已由另一会话切到 gitea/main=0758a423，切后 GET /api/perspectives 仍见 fengyuan 21 篇（可见性闸通过）。
 - **步骤 2 extract-cards 阻塞在模型网关**：127.0.0.1:8080 六模型自 14:50 起全 502/503（网关 /health ok、上游不可用），
   14:55–15:33 每分钟探针无一恢复。共享网关，不自行重启、不绕道别的凭证。
