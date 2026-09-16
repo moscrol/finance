@@ -44,6 +44,8 @@ class IssueCode(str, Enum):
     PATH_TREND_MISMATCH = "path_trend_mismatch"
     MARKER_LOSS = "marker_loss"
     UNRESOLVED_EVIDENCE_ORDINAL = "unresolved_evidence_ordinal"
+    # #55：句内完整日期与其唯一所引证据携带的日期全部不符（机械探测，替代判官抓的那类）。
+    EVIDENCE_DATE_MISMATCH = "evidence_date_mismatch"
 
 
 class ReleaseAction(str, Enum):
