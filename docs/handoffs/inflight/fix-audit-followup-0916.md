@@ -13,7 +13,7 @@ E-008 审计补漏：研究过程 UI 投影模型请求前的**实际工具菜�
 | 进研究过程，不进 `session_projection` | 塞进金融答案 | 那是纯函数终局出口 |
 
 ## 当前状态
-`ef1d56f5` 已推 gitea，PR #760 开着，领先 main=32bff514 一提交、落后 0。**未合、未部署**（8792 跑 6e23dd57）。树干净。
+代码 `ef1d56f5` + 交接 `cdb20071`（本文）已推 gitea，PR #760 开着，基线 main=32bff514、落后 0。**未合、未部署**（8792 跑 6e23dd57）。树干净。
 
 ## 下一步
 1. 用户确认后合并；先重探 `git merge-tree --write-tree gitea/main fix/audit-followup-0916`。
