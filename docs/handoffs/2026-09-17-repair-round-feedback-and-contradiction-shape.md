@@ -1,6 +1,6 @@
-# 2026-09-17 修复轮病因回传 与 矛盾回执的合法形状（8f6e6eaa）
+# 2026-09-17 修复轮病因回传 与 矛盾回执的合法形状（8f6e6eaa → d8ba0fb2）
 
-分支 `fix/e2-material-closeout`，候选 `8f6e6eaa`（父 `c6151407`）。未合 main、未部署、未推远端。
+分支 `fix/e2-material-closeout`，候选 `8f6e6eaa`（父 `c6151407`），随后追加 `d8ba0fb2`。未合 main、未部署。
 
 ## 背景
 
@@ -97,3 +97,63 @@ E2「只依据材料」这条线上，前几版把**写作合同**（单份 clai
 3. `rejected_claim_indexes` 死字段仍在：要么接上（并重跑修复路由的证据），要么删。
 4. 缺项陈述的判据仍是同源模型判断；正式 T2→T3、跨轮五格、`local_only` 全读取面未验。
 5. 离线绿 + 固定对照 + 三次自然会话都**不等于** D6/P7 验收。
+
+---
+
+# 追加：`d8ba0fb2` —— 修复轮要重述它仍然要求的成稿形状
+
+## 新证据（先有现象再改码）
+
+在 `8f6e6eaa` 上用一道「逼作者越界」的真实提问跑出 `run_20260917_004950_254515`：
+
+- `repair_goal` 里**真的带上了** `rejected_claim_notes`：
+  `claim_index:8｜原句：材料是一段43字的粘贴文本…｜判官：「43字」是事实性字数断言，本条锚点原文中不存在…`
+  ——判官理由过桥这一条在真实模型上成立。
+- 但这一集仍然 `failed`：修复稿把两句塞进一条 claim，
+  `claim rendering requires one sentence per claim: evidence_boundary.claims[1] has 2 sentences`
+  → `invalid_repair_finish`。**内容改对了，格式在最后一步失手。**
+
+查 `repair_goal_message` 发现：修复轮只发 `REPAIR_GOAL` JSON（缺件 + 指令），
+**从不重述它仍然要求的 wire 形状**；作者只能靠回忆开场的 `finish_format`。
+
+## 改了什么
+
+- `material_grounding.claim_finish_format(contract)`：把那份冻结模板抽成**单一构造点**，
+  开场 payload 与修复轮共用（两处各写一份迟早漂移）。
+- `harness.repair_goal_message(..., finish_format=None)`：传进来就原样重述；
+  不传时消息逐字节不变，非 material 题型零变化。接缝目录 `docs/runtime/harness-seams.md` 同步。
+- 两条 loop 各传降级后的合同（`downgraded_contract` / `downgrade.contract`）。
+
+## 真实复验（sidecar 8826，health 实读 `d8ba0fb2e483`/dirty=false/1093 模块）
+
+`run_20260917_011813_492269` 把三件事一次性证了：
+
+| seq | 事件 | 含义 |
+|----|------|------|
+| 7 | invalid_action | `answer_q2.claims[0] has 2 sentences`——**坐标上线** |
+| 8 | model_input `steering_invalid_finish` | 首次回灌（旧行为） |
+| 12 | invalid_action | 同一错误再犯，只落账 |
+| 15 | repair_goal | 四个输出全缺 |
+| 17 | model_input `repair_last_rejection` | **尾次拒收原因过桥**（135 字） |
+| 18 | model_input `repair_goal` | 1689 字，**含重述的冻结 wire 形状** |
+| 23 | finish | `completed` / `repair_model_finish`——**修复稿被接受** |
+
+同类形状在 `c6151407`（`run_20260916_231545_220949`）与 `8f6e6eaa`（`run_20260917_004950_254515`）
+都死在 `invalid_repair_finish`。另两次真实会话（`…011446_084812`、`…011622_494649`）首轮就改对，
+其中后者的拒绝理由正是带坐标的 `answer_q1.claims[0] has 2 sentences`。
+事件存档：工件根 `live-repair-evidence.json`。
+
+## 这次复验同时暴露的、没修的问题
+
+`run_20260917_011813_492269` 最终仍是 `partial`：修复稿写出了「按行业常识…属于偏低水平」
+这类材料外断言，而判官这次返回无效 tool call → `judge_status=unavailable` →
+公开答案退化成一句「本次未完成独立复核（复核服务不可用）」。
+扣下未复核的材料外断言是对的；但**判官不稳定时用户什么都拿不到**仍是未解决的产品问题，
+是否改成「带未复核标识发出」属于用户级策略，本轮不自己决。
+
+## `d8ba0fb2` 收据
+
+全仓 `11318 passed / 0 failed / 0 error / 83 skipped / 2 xfailed`（805.62s），
+收据 `20260916T171208Z-d8ba0fb2.json`，`--expect-revision d8ba0fb2` 七项全过；ruff 通过。
+前端未重跑（本次改动不碰 webapp，上一份对 `8f6e6eaa` 的前端/E2E 结果仍成立）。
+固定十例未重跑：本次不改判官侧，9/10 结论仍挂在 `8f6e6eaa`。
