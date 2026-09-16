@@ -21,12 +21,12 @@
 - 每批评审后考卷重跑均 3/3（边题「核报表质量」始终弃权）；8792（gitea/main=0758a423）可见 fengyuan 23 篇。
 - 抽取经 `~/.local/bin/start-finance-workbench-glm-canary` 的智谱直连（glm-5.2）完成——8080 网关上游
   （Mirasim 账号组）自 14:50 起全 503，用户在会话中指路用 GLM。评审判据与结果：job 目录
-  `~/.local/share/finance-workbench/private-distillation/fengyuan-20260916/review-policy{,-batch2}.md`。
+  `~/.local/share/finance-workbench/private-distillation/fengyuan-20260916/review-policy{,-batch2,-batch3}.md`。
 
 ## 下一步
 1. 用户裁决五条 pending：报表边界（R27/R29/R30，推荐采纳+把边界第 1 条收窄为「报表只作涨价/订单兑现的验证
    信号」）；技术面边界（R59/R60，推荐采纳，R59 需先剥 ≥20日 数字）。三句剥离版手编句在两份 review-policy 里。
-2. 复核 13 条已批；不认可的直接说，agent 撤（编辑 JSON 删条目 + patch_history 记 revert）。
+2. 复核 24 条已批；不认可的直接说，agent 撤（编辑 JSON 删条目 + patch_history 记 revert）。
 3. 剩余语料：A 侧「部分」22 卡（台账 §5 各有建议动作，多为并入或改写已有条目=人工编辑域，逐张先看动作）。B 侧已完成。
 4. Q-002 #12–#23 的标定各有数据源前提（#13/#14 依赖报表边界裁决；#16/#17 数据不在本仓；#19 依赖 R59 裁决）。
 
