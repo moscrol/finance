@@ -19,8 +19,8 @@ python：`1f24a6ef` 10018P/0F，收据见验证记录，`check_test_receipt --ex
 作者自验非独立 QC；判官全是离线替身；不证明材料锚点真实（D6）。M22 的 issue/mandatory 分支在 material_only 下可达性未论证。前端/e2e 未在 `1f24a6ef` 重跑（靠结构性等价）。引擎 B 仍无合同意识；local_only 原题号槽、跨轮继承五格（P5）、纯度/锚点（P6）、隔离验收（P7）未做。
 
 ## 下一步
-1. 合并窗口：四叶绿 + 变异闭合，是否合回 main 等用户确认；合并前 `check_test_receipt.py <收据> --expect-revision <合并头>`。
+1. 合并窗口：四叶绿 + 变异闭合，是否合回 main 等用户确认。gitea/main（`727b2611`）领先 45 提交，`merge-tree` 唯一冲突 `skills.registry.json`（生成件，双方各一次 resync）：合并时 `build_registry.py` 重生成并跑五条 registry 检查，不手改；合并头再 `check_test_receipt.py --expect-revision`。
 2. P5 起点：`intelligence/runtime/conversation_orchestrator.py` 约 2030/2048 行 `conversation_materials=material_history` 进 `decide_turn`；真实 run_turn→controller→Episode 的五格继承与角色身份是下一片，另开分支。
 
 ## 踩过的坑
-定向集绕不过全树结构门：`rg -l 'ast\.walk|rglob\(' intelligence/tests tests` 一次把这类文件加进迭代集。zsh 不分词，`cmd $var` 整串成文件名 → 假 exit 2。跑收据期间别动树（docs 也算脏）。变异驱动 JSON 会被重跑覆盖，先复制。
+定向集绕不过全树结构门：`rg -l 'ast\.walk|rglob\(' intelligence/tests tests` 把这类文件加进迭代集。zsh 不分词，`cmd $var` 整串成文件名→假 exit 2。跑收据期间别动树（docs 也算脏）。变异驱动 JSON 会被重跑覆盖，先复制。
