@@ -2,6 +2,12 @@
 
 > 格式：`[日期] 错误 → 根因 → 正确做法`
 
+## 判官探针记录
+
+- **[2026-09-16] 新诊断脚本把四个真实判官返回记成 provider error，calls=0。**
+  根因：记录器用 `dataclasses.asdict(ModelTurn)` 深拷贝工具参数中的只读 mappingproxy，异常发生在记录追加前；原测试只覆盖字典回调，没有原生工具返回。
+  做法：复用 `ModelTurn.to_dict()`，调用前先记尝试，失败保留异常类型；原生工具返回和异常路径各补回归。记录0不等于零外呼，旧四例不能算语义拒绝。见 `docs/handoffs/2026-09-16-e2-claim-rendering-and-judge-receipts.md`。
+
 ## 异步消息可见性
 
 - **[2026-09-16] 全量绿后文档收尾再现三轮会话消息pending，定向复验也红。**
