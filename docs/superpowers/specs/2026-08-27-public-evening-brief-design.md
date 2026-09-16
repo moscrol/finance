@@ -63,7 +63,7 @@
 4. CLI 挂点：`intelligence/cli.py` 的 `add_digest_parser` / `cmd_digest` / `build_parser` 形状（`brief` 照此新增）。
 5. Chrome 无头可用：`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`，PNG 为尽力而为（失败不红，HTML 是主产物）。
 6. `services/` 禁 import `runtime/`（层级门禁）；包必须纯函数，测试用临时 DuckDB 夹具。
-7. 台账 `R-20260827-01…-06` 已被占用；本单预注册 **`R-20260827-07/-08/-09`**（若合并前撞号，按 `R-20260824-31` 先例改号并留记录）。
+7. 台账 `R-20260827-01…-06` 已被占用；本单原预注册 `R-20260827-07/-08/-09`，**2026-09-16 合并时证实撞号**（同号已被 export-increment 分诊 / 工单 §P2-D2 / §P2-D5 占用），按 `R-20260824-31` 先例改号为 **`R-20260916-01/-02/-03`**（claim_ledger_id 领号，本行即记录；语义与验收判据不变）。
 
 ---
 
@@ -129,9 +129,9 @@ Live（合并后、人工转发前）：真库只读生成最近交易日晚报�
 
 | ID | fix_type | verification_prediction |
 |---|---|---|
-| `R-20260827-07` | `DATA_CONTRACT_FIX` | 公开产物数字逐字 ⊆ 快照冻结行；精确日无邻日回落；无该日行只出无行情句 |
-| `R-20260827-08` | `HARNESS_FIX` | 白名单+deny-token 双保险生效：变异（塞 diff_ratio 字段 / 注入「双红」词）→ 测试红 |
-| `R-20260827-09` | `ROUTING_FIX` | 本单零路由改动：`watchlist_digest`/`market_watch` 等既有题型行为逐字节不变（回归） |
+| `R-20260916-01` | `DATA_CONTRACT_FIX` | 公开产物数字逐字 ⊆ 快照冻结行；精确日无邻日回落；无该日行只出无行情句 |
+| `R-20260916-02` | `HARNESS_FIX` | 白名单+deny-token 双保险生效：变异（塞 diff_ratio 字段 / 注入「双红」词）→ 测试红 |
+| `R-20260916-03` | `ROUTING_FIX` | 本单零路由改动：`watchlist_digest`/`market_watch` 等既有题型行为逐字节不变（回归） |
 
 ---
 
