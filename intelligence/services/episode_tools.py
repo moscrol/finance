@@ -797,6 +797,9 @@ def _opening_prefetch_evidence(
     perspective_ids: tuple[str, ...] = (),
     perspective_mode: str = "neutral",
 ) -> tuple[agent_research.AgentEvidence, ...]:
+    if context.contract.material_contract is not None and context.contract.material_contract.data_scope in {"material_only", "local_only"}:
+        # local_only 的工具已保留纯本地路径；未按同一授权分类的自动播种暂不执行。
+        return ()
     from intelligence.services.asof_prefetch import (
         collect_prefetch_items,
         evidence_from_prefetch,
@@ -973,6 +976,11 @@ def build_episode_registry(
 ) -> ResearchToolRegistry:
     """Build a read-only registry from the repository's current tool runners."""
 
+    if context.contract.material_contract is not None and context.contract.material_contract.data_scope == "material_only":
+        # 必须早于 _roots / 日期探测 / 实体解析 / 预取；菜单清空不能撤销已经发生的读取。
+        return ResearchToolRegistry((), read_scope="material_only")
+
+    local_only = context.contract.material_contract is not None and context.contract.material_contract.data_scope == "local_only"
     finance, wiki = _roots(finance_root, knowledge_wiki)
     market_db_path = _market_db_path(finance_root, finance, fixture_policy)
     freshness_floor = _structured_freshness_floor(context)
@@ -1019,7 +1027,8 @@ def build_episode_registry(
             anchor_admission="subject_local",
         )
     knowledge = KnowledgeAdapter(wiki_root=wiki)
-    subject_anchor = entity_anchor.resolve_entity_anchor(
+    # 保留的本地 runner 不消费 subject_anchor；避免为被禁工具先读全局证券词典。
+    subject_anchor = None if local_only else entity_anchor.resolve_entity_anchor(
         f"{frame.subject or ''} {frame.raw_question}",
         knowledge,
     )
@@ -1059,7 +1068,7 @@ def build_episode_registry(
         )
 
     # 02：把本题问句交给 web_fetch 做定向选段（工具参数面只有 url，问句只能从这里进）。
-    default_tools = agent_research.build_default_tools(
+    default_tools = {} if local_only else agent_research.build_default_tools(
         retrieve_kb, focus_query=subject_query
     )
     if fixture_policy is not None and not fixture_policy.external_search_enabled:
@@ -1448,8 +1457,14 @@ def build_episode_registry(
         # 的调用方（与可达性审计）留同一个座位，没传就不挂。
         tools["derived_calculation"] = derived_calculation_runner
     base_registry = default_registry(tools)
-    specs = list(base_registry.authorized_specs())
-    if frame.history_intent is not None:
+    # 这两条 runner 就在本装配函数内选定：mainline_runner 只读 DuckDB；
+    # build_graph_tools._evidence_lookup 只读 KnowledgeAdapter JSON。不是从标签猜。
+    specs = [
+        replace(spec, io_effect="local_read")
+        if spec.name in {"mainline_context", "evidence_lookup"} else spec
+        for spec in base_registry.authorized_specs()
+    ]
+    if frame.history_intent is not None and not local_only:
         from intelligence.services.historical_research.episode import history_tool_specs
 
         specs.extend(
@@ -1705,6 +1720,7 @@ def build_episode_registry(
                 cost="local",
                 freshness="current",
                 runner=finance_query_runner,
+                io_effect="local_read",
                 parameters=_agent_finance_parameters(),
                 parse_arguments=parse_finance_arguments,
             )
@@ -1909,8 +1925,19 @@ def build_episode_registry(
                 cost="local",
                 freshness="stable",
                 runner=memory_lookup_runner,
+                io_effect="local_read",
             )
         )
+
+    if local_only:
+        # 不加载 live weekly/计算恢复，不执行尚未按capability分类的自动预取。
+        # with_specs 追加的未知 runner 仍受此注册表上限与 dispatch 同时约束。
+        local_specs = tuple(
+            spec for spec in specs
+            if spec.capability in context.contract.allowed_capabilities and spec.io_effect == "local_read"
+        )
+        require_tool_contracts(local_specs)
+        return ResearchToolRegistry(local_specs, read_scope="local_only")
 
     live_us = user_space
     if live_us is None and str(memory_user or "").strip():

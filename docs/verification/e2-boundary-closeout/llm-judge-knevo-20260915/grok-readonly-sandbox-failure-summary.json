@@ -1,0 +1,26 @@
+{
+  "kind": "retrospective_llm_as_judge",
+  "backend": "grok-cli",
+  "binary": "/Users/a77/.grok/bin/grok",
+  "model": "grok-4.6",
+  "sandbox": "read-only",
+  "not_formal_pk": true,
+  "records": [
+    {
+      "label": "T2",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-completed-20260913/run_20260913_035722_162700-answer.md",
+      "source_sha256": "ad501176187443d2772cd27e89a7fddbd869e49c940b0d4ed6132afe81f2a25e",
+      "status": "unavailable",
+      "error_type": "GrokCliExit",
+      "error": "GrokCliExit 1: warning: sandbox could not be applied: runtime-socket deny resolution failed: could not resolve runtime-socket deny path /var/run/docker.sock: endpoint is a symlink\nerror: could not apply the 'read-only' sandbox profile; see the warning above for the cause. Refusing to start with its "
+    },
+    {
+      "label": "T3",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-completed-20260913/run_20260913_041146_035132-answer.md",
+      "source_sha256": "e3c9cd9ef1dab5ab3b35aa25058d6f8df2fdcfaf34d96055a6a1a99f6e99a636",
+      "status": "unavailable",
+      "error_type": "GrokCliExit",
+      "error": "GrokCliExit 1: warning: sandbox could not be applied: runtime-socket deny resolution failed: could not resolve runtime-socket deny path /var/run/docker.sock: endpoint is a symlink\nerror: could not apply the 'read-only' sandbox profile; see the warning above for the cause. Refusing to start with its "
+    }
+  ]
+}

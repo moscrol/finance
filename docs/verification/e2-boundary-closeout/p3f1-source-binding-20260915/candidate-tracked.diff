@@ -1,0 +1,225 @@
+diff --git a/intelligence/runtime/conversation_orchestrator.py b/intelligence/runtime/conversation_orchestrator.py
+index 6d123f16..3dd5adc5 100644
+--- a/intelligence/runtime/conversation_orchestrator.py
++++ b/intelligence/runtime/conversation_orchestrator.py
+@@ -152,6 +152,9 @@ from intelligence.runtime.turn_control_core import (
+ )
+ from intelligence.services.turn_controller import TurnDecision, decide_turn
+ from intelligence.services.task_frame import TaskFrame, build_task_frame
++from intelligence.services.conversation_materials import collect_conversation_materials
++from intelligence.services.material_contract import compile_material_contract
++from intelligence.services.user_task import split_user_message
+ from intelligence import userspace
+ from intelligence.workbench_skills.contracts import (
+     SkillExecutionContext,
+@@ -1104,6 +1107,10 @@ def _llm_failure_brief() -> str | None:
+ class ConversationContext:
+     summary: str
+     recent_messages: tuple[Message, ...]
++    # Complete records only, within the existing text window. None means a
++    # legacy context whose source records were not supplied (not known empty).
++    material_messages: tuple[Message, ...] | None = None
++    material_history_unavailable: bool = False
+ 
+     def to_prompt_block(self) -> str:
+         recent = "\n".join(
+@@ -1314,14 +1321,18 @@ def _summarize_messages(messages: Sequence[Message]) -> str:
+ 
+     lines = [f"{message.role}: {message.content}" for message in messages]
+     text = "\n".join(lines)
+-    if len(text) <= SUMMARY_CHAR_LIMIT:
++    dropped = _summary_tail_start(text, len(messages))
++    if not dropped:
+         return text
+-    marker = f"（前 {{dropped}} 字符已省略，共 {len(messages)} 条较早消息）\n"
+-    # 先按标记的最终长度扣预算，再切——否则加上标记就超预算了。
+-    reserve = len(marker.format(dropped=len(text)))
+-    kept = max(0, SUMMARY_CHAR_LIMIT - reserve)
+-    dropped = len(text) - kept
+-    return marker.format(dropped=dropped) + text[-kept:]
++    return f"（前 {dropped} 字符已省略，共 {len(messages)} 条较早消息）\n" + text[dropped:]
++
++
++def _summary_tail_start(text: str, message_count: int) -> int:
++    """One window budget for prompt rendering and complete-record selection."""
++    if len(text) <= SUMMARY_CHAR_LIMIT:
++        return 0
++    marker = f"（前 {len(text)} 字符已省略，共 {message_count} 条较早消息）\n"
++    return len(text) - max(0, SUMMARY_CHAR_LIMIT - len(marker))
+ 
+ 
+ def _redact_object(value: object) -> object:
+@@ -1639,7 +1650,23 @@ def build_conversation_context(
+     recent = tuple(history[-RECENT_MESSAGE_LIMIT:])
+     older = history[:-RECENT_MESSAGE_LIMIT]
+     summary = _summarize_messages(older) if older else conversation.summary
+-    return ConversationContext(summary=summary, recent_messages=recent)
++    # P3f1: select complete older records using the very same tail budget as
++    # the prompt. Never recover roles/materials from summary text, and never
++    # mint a new material identity from the surviving tail of a partial row.
++    older_text = "\n".join(f"{message.role}: {message.content}" for message in older)
++    cutoff = _summary_tail_start(older_text, len(older))
++    complete_older = []
++    start = 0
++    for message in older:
++        if start >= cutoff:
++            complete_older.append(message)
++        start += len(f"{message.role}: {message.content}") + 1
++    return ConversationContext(
++        summary=summary,
++        recent_messages=recent,
++        material_messages=(*complete_older, *recent),
++        material_history_unavailable=bool(cutoff or (not older and conversation.summary)),
++    )
+ 
+ 
+ def contextualize_follow_up_query(
+@@ -1706,6 +1733,7 @@ class TurnOrchestrator:
+         self.skill_registry = skill_registry or builtin_skill_registry()
+         self.llm_model = llm_model
+         self.turn_controller = turn_controller_fn or decide_turn
++        self._uses_default_turn_controller = turn_controller_fn is None
+         self.generate_lane_answer = lane_answer_fn or generate_lane_answer
+         self.research_policy = research_policy or ResearchExecutionPolicy()
+         self.is_cancelled = is_cancelled or (lambda: False)
+@@ -1907,6 +1935,25 @@ class TurnOrchestrator:
+                     "inherited_turn_id": inherited_turn_id,
+                 },
+             )
++            # Only confirmed material-only turns opt into source-aware binding.
++            # This does NOT filter the controller prompt or recover permissions.
++            parts = split_user_message(str(query or "").strip())
++            material_contract = compile_material_contract(parts.regions) if parts.regions else None
++            material_history = (
++                collect_conversation_materials(
++                    context.material_messages,
++                    unavailable=context.material_history_unavailable,
++                )
++                if material_contract is not None
++                and material_contract.data_scope == "material_only"
++                and context.material_messages is not None
++                else None
++            )
++            controller_options = (
++                {"conversation_materials": material_history}
++                if self._uses_default_turn_controller and material_history is not None
++                else {}
++            )
+             controller_started = time.monotonic()
+             decision = self.turn_controller(
+                 query,
+@@ -1915,6 +1962,7 @@ class TurnOrchestrator:
+                 selected_skill_ids=selected_skill_ids,
+                 previous_intent=inherited_intent,
+                 previous_turn_id=inherited_turn_id,
++                **controller_options,
+             )
+             controller_question_type_supplied = decision.question_type is not None
+             task_frame = decision.task_frame
+@@ -1932,6 +1980,7 @@ class TurnOrchestrator:
+                 task_frame = build_task_frame(
+                     query,
+                     legacy_envelope,
++                    conversation_materials=material_history,
+                     inherited_subject=(
+                         inherited_intent.primary_subject
+                         if inherited_intent is not None
+diff --git a/intelligence/services/task_frame.py b/intelligence/services/task_frame.py
+index dbce5573..b603c160 100644
+--- a/intelligence/services/task_frame.py
++++ b/intelligence/services/task_frame.py
+@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Callable
+ 
+ from intelligence.services.trading_calendar import question_non_trading_note
+ from intelligence.services.material_contract import MaterialContract, compile_material_contract
++from intelligence.services.conversation_materials import ConversationMaterials
+ from intelligence.services.user_task import (
+     Hypothesis,
+     MaterialRef,
+@@ -281,6 +282,7 @@ def build_task_frame(
+     inherited_subject: str | None = None,
+     llm_complete: LLMComplete | None = None,
+     conversation_context: str | None = None,
++    conversation_materials: ConversationMaterials | None = None,
+     source_turn: int = 0,
+ ) -> TaskFrame:
+     """Compile rules first, then optionally merge one constrained LLM draft.
+@@ -289,7 +291,9 @@ def build_task_frame(
+     caller has it (``None`` = unknown, legacy callers).  It is only used to bind
+     「这篇 / 这份材料」to a material pasted earlier, or — when the block is known
+     and holds no material — to ask for the material deterministically instead of
+-    hoping the alignment model writes the ambiguity.  Unknown context never asks.
++    hoping the alignment model writes the ambiguity. Unknown context never asks.
++    When supplied, ``conversation_materials`` is authoritative even when empty:
++    bind its complete user-message records, never parse roles from prompt text.
+     """
+ 
+     question = str(raw_question or "").strip()
+@@ -396,16 +400,33 @@ def build_task_frame(
+                 f"{item.char_count} 字）由用户在本轮提供，引用时写材料段落 / 表头 / 日期，"
+                 "其中的数字是材料的说法而非市场事实"
+             )
+-    elif references_material(core) and conversation_context is not None:
+-        earlier = materials_in_conversation(conversation_context)
+-        if earlier:
+-            newest = earlier[-1][0]
+-            referenced_ids = tuple(ref.material_id for ref, _text in reversed(earlier))
++    elif references_material(core) and (
++        conversation_materials is not None or conversation_context is not None
++    ):
++        earlier_refs = (
++            tuple(item.ref for item in conversation_materials.items)
++            if conversation_materials is not None
++            else tuple(ref for ref, _text in materials_in_conversation(conversation_context))
++        )
++        unavailable = (
++            conversation_materials.unavailable
++            if conversation_materials is not None
++            else conversation_context_material_unrecoverable(conversation_context)
++        )
++        if earlier_refs:
++            newest = earlier_refs[-1]
++            referenced_ids = tuple(ref.material_id for ref in reversed(earlier_refs))
+             assumptions.append(
+                 f"「这篇 / 这份」按最近一次提供的材料理解：{newest.material_id}"
+                 f"（{newest.title or _MATERIAL_KIND_LABEL.get(newest.kind, newest.kind)}）"
+             )
+-        elif conversation_context_material_unrecoverable(conversation_context):
++            if conversation_materials is not None:
++                assumptions.extend(
++                    f"材料 {item.ref.material_id} 来自完整用户消息 {item.source_message_id}；"
++                    "来源坐标仅用于材料绑定，不授予市场事实或跨轮权限资格"
++                    for item in conversation_materials.items
++                )
++        elif unavailable:
+             # I2 收口：对话块被截断 ≠ 没有材料——「这篇」超窗口丢了，不把它错当成
+             # 「用户引用了但根本没贴过」的缺材料车道。用更具体的缺口措辞提示重贴，
+             # 且这条歧义措辞与 MISSING_MATERIAL_AMBIGUITY 不同，可分别判卷。
+diff --git a/intelligence/services/turn_controller.py b/intelligence/services/turn_controller.py
+index b1efcf18..7e8b9063 100644
+--- a/intelligence/services/turn_controller.py
++++ b/intelligence/services/turn_controller.py
+@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass, replace
+ from typing import Literal, TypeAlias, cast
+ 
+ from intelligence.services import ask_clarify, llm_refine
++from intelligence.services.conversation_materials import ConversationMaterials
+ from intelligence.services.query_resolution import (
+     QueryResolution,
+     QueryResolver,
+@@ -1085,6 +1086,7 @@ def decide_turn(
+     previous_intent: TurnIntent | None = None,
+     previous_turn_id: str | None = None,
+     resolver: QueryResolver | None = None,
++    conversation_materials: ConversationMaterials | None = None,
+ ) -> TurnDecision:
+     pending_frame = (
+         TaskFrame.from_dict(previous_intent.pending_task_frame)
+@@ -1172,6 +1174,7 @@ def decide_turn(
+         # B05-1：对话块已知才传；空串是「调用方没给」（旧语义 = 未知，不追问）。
+         # 真实入口的空历史块带「（无历史消息）」字样，非空，走「已知为空」车道。
+         conversation_context=context if context else None,
++        conversation_materials=conversation_materials,
+     )
+     if task_frame.history_intent is None and history_followup is not None:
+         task_frame = replace(

@@ -36,6 +36,7 @@ from intelligence.services.episode_semantic_verifier import (
     SemanticEpisodeOutcome,
     draft_sentence_count,
     numeric_condition_unsupported,
+    recheck_material_public_delivery,
 )
 from intelligence.services.rejudge_pending import append_pending_from_artifact
 from intelligence.services.episode_tools import (
@@ -67,7 +68,7 @@ from intelligence.services.research_tool_registry import (
     check_satisfiability,
 )
 from intelligence.services.run_store import redact, redact_value
-from intelligence.services.task_frame import TaskFrame
+from intelligence.services.task_frame import TaskFrame, frame_blocks_contract_blind_pipelines
 from intelligence.services.judgment_delta import judgment_delta_receipt
 from intelligence.services.pricing_split import pricing_split_receipt
 from intelligence.services.ranking_contract import (
@@ -297,7 +298,12 @@ class ContinuousTurnAdapter:
             or frame.task_frame_hash != control_frame.task_frame_hash
         ):
             return _control_frame_mismatch_result(self._runtime_name)
-        if frame.question_type in DETERMINISTIC_OWNER_TYPES:
+        if frame.question_type in DETERMINISTIC_OWNER_TYPES and not (
+            frame_blocks_contract_blind_pipelines(frame)
+        ):
+            # P3h：确定性 owner 管线（引擎 B）没有材料合同意识。约束轮
+            # （material_only / local_only / 待澄清）留在 episode 收窄执行，
+            # 不让路——让路等于把 P3 的读取上限整体交给一个读不到它的引擎。
             return _declined_result()
         if control.terminal_kind == "clarification":
             questions = tuple(
@@ -539,6 +545,11 @@ class ContinuousTurnAdapter:
                 ResearchToolRegistry,
                 self._registry_factory(frame, context),
             )
+            material = context.contract.material_contract
+            if material is not None and material.data_scope in {"local_only", "material_only"}:
+                # 受限轮必须拿得到同一注册表合同；full 的旧鸭子类型注入点不变。
+                # 不支持绑定就由现有失败出口收口，不能先预取后才发现没授权。
+                registry = registry.for_context(context)
             # 展望座位升 deep：判定在领域，落账在底座（runtime/tier_promotion）。
             context = maybe_promote_forecast_residual(
                 context,
@@ -1095,6 +1106,18 @@ class ContinuousTurnAdapter:
         for notice in public_notices:
             if notice not in answer:
                 answer = "\n\n".join(part for part in (answer, notice) if part)
+        from intelligence.services.material_delivery import material_question_outputs
+
+        if material_question_outputs(context.contract):
+            semantic = recheck_material_public_delivery(semantic, projected=answer)
+            final_outcome = semantic.verified.outcome
+            answer = semantic.public_answer
+            fulfilled_output_ids = _fulfilled_output_ids(
+                semantic.verified, excluded_output_ids=frozenset(semantic.gap_output_ids),
+            )
+            citations = _public_citation_projection(final_outcome, private_tokens, allowed_output_ids=fulfilled_output_ids)
+            if status == "completed" and semantic.status != "completed":
+                status = "partial"
         _phase_note(
             phase_recorder,
             status,
@@ -1206,6 +1229,7 @@ class ContinuousTurnAdapter:
                     (*_open_gap_labels(
                         context.contract,
                         fulfilled_output_ids=fulfilled_output_ids,
+                        disclosed_gaps={item.output_id: item.gap for item in semantic.verified.completion.outputs if item.status == "legal_gap"},
                     ), *public_notices)
                 )
             ),
@@ -1232,7 +1256,12 @@ class ContinuousTurnAdapter:
         candidate = verify(**kwargs)
         if not isinstance(candidate, SemanticEpisodeOutcome):
             raise TypeError("semantic verifier must return SemanticEpisodeOutcome")
-        return candidate
+        # Check the adapter's own sanitizer before deciding whether to resume.
+        # A previously disclosed gap cannot hide a deletion at the final seam.
+        return recheck_material_public_delivery(
+            candidate,
+            projected=_safe_public_text(candidate.public_answer, private_tokens=_private_tokens(candidate.verified.outcome)),
+        )
 
     def _resume_for_gap(
         self,
@@ -1498,8 +1527,14 @@ def _with_track_contract_gaps(
 ) -> VerifiedEpisodeOutcome:
     """Merge track / ranking expression-contract gaps into missing_outputs only.
 
-    Do not touch ``issues``: the #224 release gate matches issue prefixes.
+    Do not touch ``issues``: release policy is owned by Issue.code.
     """
+    from intelligence.services.material_delivery import material_question_outputs
+
+    # 原题逐题交付替代旧题型模板；不能把一个已交代的排序缺口再次投影
+    # 成矩阵/TTL/下一期关注等用户没要求的必填项。
+    if material_question_outputs(context.contract):
+        return structural
     merged = merge_track_missing_outputs(
         structural.missing_outputs,
         structural.outcome.draft,
@@ -1538,6 +1573,7 @@ def _repair_snapshot(
         information_cutoff=context.information_cutoff.as_of_date,
     )
     missing = set(structural.missing_outputs)
+    legal_gaps = {item.output_id for item in structural.completion.outputs if item.status == "legal_gap"}
     targets_by_hash: dict[str, list[str]] = {}
     for binding in outcome.bindings:
         if binding.gap or not binding.evidence_hashes:
@@ -1552,6 +1588,10 @@ def _repair_snapshot(
             continue
         if required.output_id in missing:
             ledger.open_gap(required.output_id)
+            continue
+        if required.output_id in legal_gaps:
+            # 结清交代义务，不伪造证据覆盖；这条仍出现在公开未决项中。
+            ledger.close_gap(required.output_id)
             continue
         flattened = tuple(
             content_hash
@@ -1947,6 +1987,7 @@ def _open_gap_labels(
     *,
     fulfilled_output_ids: frozenset[str],
     limit: int = 3,
+    disclosed_gaps: dict[str, str] | None = None,
 ) -> tuple[str, ...]:
     """未满足必需输出的描述文案——与公开缺口声明同一套口径。
 
@@ -1956,7 +1997,7 @@ def _open_gap_labels(
     if contract is None:
         return ()
     return tuple(
-        item.description.strip()
+        (disclosed_gaps or {}).get(item.output_id) or item.description.strip()
         for item in contract.required_outputs
         if item.required
         and item.output_id not in fulfilled_output_ids

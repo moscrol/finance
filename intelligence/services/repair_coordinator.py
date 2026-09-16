@@ -424,7 +424,8 @@ class RepairFailureShape:
 
     - ``delivery``：有证据、有结构缺口，但没写出稿或没绑定——tool-closed 交付修复。
     - ``cold_restart``：零证据饿死（窗烧穿 / 主路径模型不可用）——重开工具一发。
-    - ``contract_rewrite``：缺的全是跟踪契约表达槽——从既有证据重写，不开工具。
+    - ``contract_rewrite``：缺的全是契约表达槽——从已有证据/材料补写，不开工具。
+    - ``input_only_rewrite``：材料逐题交付的显式许可；不伪造证据计数。
 
     不看预算、不看 cycle 状态（「交付修复只许一次」是底座的账，由调用方叠）。
     """
@@ -432,6 +433,9 @@ class RepairFailureShape:
     delivery: bool
     cold_restart: bool
     contract_rewrite: bool
+    # Domain authorization to repair delivery from the input itself (D5), not
+    # a synthetic evidence count. The budget layer may grant zero tool calls.
+    input_only_rewrite: bool = False
 
 
 def classify_repair_failure(
@@ -444,7 +448,20 @@ def classify_repair_failure(
 ) -> RepairFailureShape:
     """领域失败分类。``missing_outputs`` 是结构缺口 ∪ 语义缺口（调用方已合并）。"""
 
+    from intelligence.services.episode_issues import IssueCode
+    from intelligence.services.material_delivery import material_question_outputs
+
     has_evidence = bool(outcome.evidence)
+    material_ids = {item.output_id for item in material_question_outputs(structural.contract)} if structural.contract else set()
+    material_rewrite = bool(
+        missing_outputs and set(missing_outputs) <= material_ids
+        and not rejected_claims and not structural.mandatory_missing_capabilities
+        and all(item.code in {
+            IssueCode.MISSING_REQUIRED_OUTPUT,
+            IssueCode.REQUIRED_OUTPUT_NO_SUBSTANCE,
+            IssueCode.REQUIRED_OUTPUT_GAP,
+        } for item in structural.issue_items)
+    )
     return RepairFailureShape(
         delivery=bool(
             outcome.stop_reason in DELIVERY_REPAIR_STOP_REASONS
@@ -455,11 +472,12 @@ def classify_repair_failure(
         cold_restart=(
             outcome.stop_reason in COLD_RESTART_STOP_REASONS and not has_evidence
         ),
-        contract_rewrite=is_contract_rewrite_only(
+        contract_rewrite=material_rewrite or is_contract_rewrite_only(
             missing_outputs,
             rejected_claims=rejected_claims,
             semantic_gap_outputs=semantic_gap_outputs,
         ),
+        input_only_rewrite=material_rewrite,
     )
 
 

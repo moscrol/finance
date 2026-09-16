@@ -1,0 +1,43 @@
+{
+  "kind": "retrospective_llm_as_judge",
+  "backend": "grok-cli",
+  "binary": "/Users/a77/.grok/bin/grok",
+  "model": "grok-4.6",
+  "sandbox": "off",
+  "isolation": "temporary cwd; web/subagents/tools disabled by argv",
+  "not_formal_pk": true,
+  "records": [
+    {
+      "label": "T2",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-completed-20260913/run_20260913_035722_162700-answer.md",
+      "source_sha256": "ad501176187443d2772cd27e89a7fddbd869e49c940b0d4ed6132afe81f2a25e",
+      "sandbox": "off",
+      "judge": {
+        "passed": false,
+        "rejected_sentence_indexes": [
+          2
+        ],
+        "issues": [
+          "主判断第三句引入数据中心板块 2026-09-11 跌幅、边际量与成交额等材料外真实行情，虚构材料题不得使用材料未给出的市场数据。"
+        ]
+      },
+      "status": "completed"
+    },
+    {
+      "label": "T3",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-completed-20260913/run_20260913_041146_035132-answer.md",
+      "source_sha256": "e3c9cd9ef1dab5ab3b35aa25058d6f8df2fdcfaf34d96055a6a1a99f6e99a636",
+      "sandbox": "off",
+      "judge": {
+        "passed": false,
+        "rejected_sentence_indexes": [
+          1
+        ],
+        "issues": [
+          "引入材料外真实行情：数据中心板块截至2026-09-11跌1.4019%，超出虚构材料A—D边界"
+        ]
+      },
+      "status": "completed"
+    }
+  ]
+}
