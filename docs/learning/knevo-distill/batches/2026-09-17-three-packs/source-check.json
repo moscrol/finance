@@ -1,0 +1,15 @@
+{
+  "checked_on": "2026-09-17",
+  "purpose": "审读者核对通用FCFE定义；不是给虚构题追加行业事实，也不是Knevo实际引用记录",
+  "sources": [
+    {
+      "title": "Free Cash Flow Valuation",
+      "publisher": "CFA Institute",
+      "curriculum": "2026 Level II Equity Valuation",
+      "url": "https://www.cfainstitute.org/insights/professional-learning/refresher-readings/2026/free-cash-flow-valuation",
+      "section": "Summary",
+      "verified_formula": "FCFE = CFO – FCInv + Net borrowing.",
+      "scope": "股权融资和回购不作为该标准公式的附加项；股权价值与企业价值的口径应分别处理。"
+    }
+  ]
+}
