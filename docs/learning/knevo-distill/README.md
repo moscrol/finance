@@ -106,3 +106,36 @@
   （事实校验闸门、可靠性雏形），矛盾去重双方空白。
 - 防误抄：它声称的派单与闭合纪律已有反证（E-008 子 skill 未挂载、AB-002 用预测日信息）。
 - 工作清单（六项候选，待人过闸）→ `docs/superpowers/specs/2026-09-10-knevo-arch-delta-worklist.md`。
+
+## 九、2026-09-16 全量炼化对账与收口
+
+起因：用户问「沉淀的 Knevo 资料还有没有没炼化的」。用血统对账（provenance）逐份原料问一句
+「哪份产物用编号或路径指回了它」，方法沉淀在 agent-memory `10_knowledge/distillation-provenance-audit.md`。
+**审计口径**：以 `gitea/main` 与全部 `*knevo*` 分支为准，不以手边检出树为准——主树当时落后 729 个提交，
+看不到 q16–q18、absorption-plan 与 recheck/。
+
+### 9.1 资料四层与各自的状态源
+
+| 层 | 在哪 | 状态源 |
+|---|---|---|
+| 原始导出 | agent-memory `60_dialogues/knevo/`（26 篇 07-08 对话 + 08-08 的 44 轮原文）；`~/Downloads/fengyuan_knevo_archive_2026-07-12.zip`（66 张风远规则卡 + KOL/机构本体，**不进 git**）；本目录 `batches/`（09-12 / 09-13 / 09-14 三批） | `60_dialogues/INDEX.md` 的蒸馏状态列 |
+| 整理语料 | 本目录 `q1`–`q18` | 本目录 `question-bank.md` §五 |
+| 实验记录 | 本目录 `E-001`–`E-009`、`D-001`、`ab/AB-001`–`003`、`recheck/` | `ab-ledger.md` 回检状态表 |
+| 炼化产物 | agent-memory `10_knowledge/knevo-*.md`；仓内代码与 spec | **`absorption-plan-2026-09-11.md` 第一至四档是唯一状态源** |
+
+### 9.2 本轮做了什么
+
+1. **三支纯文档分支合并入库**（PR #749，合并提交 `8bb20aa9`）：09-12 / 09-13 / 09-14 三批回贴原文与审读（`docs/learning/distill/`）、E-008、E-009、两份 spec。README §六/§七/§八 的手工归并在此完成；`docs/knevo-m-probes-verification`（PR #685）是其严格子集，已关闭并留接替指针。
+2. **AB-003 回检 + W4 裁决建议**（见 `ab-ledger.md`）：本地 miss，Knevo 侧原题至今无答卷。顺带查出冻结答卷把连板晋级池的 9 行写成「涨停总数」（同日真实 35 只），记为 A2 口径错标。建议**暂停 B 线而非废弃**——三条样本仍是 `answer_lint` 的红样本来源。
+3. **早期语料表态**（`absorption-plan-2026-09-11.md` 新增第四档）：q13 早已落地（前科警示对它不成立）、q14 吸收一半、q15 不吸收为代码（结构进 `docs/learning/position-framework.md` §6、阈值进 `evolution/backtest-queue.md` Q-002 #7–#11）、q18 转验收题组候选（`intelligence/eval/cases/knevo_q18_candidate_cases.json`，未接 runner、不改 28 题冻结基准）。
+4. **44 轮原文第 28–36 轮蒸馏**：图谱与知识库结构增量已拼进 agent-memory `knevo-reverse-engineering.md` §3B.2；逐条对账与第 15–28 轮的重叠审计表在 `10_knowledge/knevo-44turn-rounds15-36-distill-2026-09-16.md`。
+5. **归位与清理**：09-11 复核笔记从 vault inbox 搬进本目录 `absorption-review-2026-09-11.md`（inbox 会被清空）；六棵已合并的 knevo 工作树与十二条已合并分支删除；主树里 E-008 的旧草稿副本清掉。
+
+### 9.3 仍然未闭合（不要读成已完成）
+
+- **44 轮原文第 15–28 轮**：只做了重叠审计，**8 项未覆盖**（轮 18 earnings-review 全文、轮 19 四篇 skill 全文、轮 26 消融实验、轮 27 后半、轮 28）。清单在上述对账笔记 §2。
+- **三处矛盾待人裁决**（既有文档原文未改）：风远与 finmemory 的包含关系；`finance_memory_write` 实测直写长期记忆 vs「agent 只有提案权」；主 agent 汇总是否二次压缩。
+- **B 线 / C 线 / final-report**：W4 建议待拍板；C 线第 7 题（提示注入韧性）未问，「失效模式清单」本体未写；`final-report.md` 只剩「它真正领先的 top3」一节。
+- **phase2 计划里从未跑的实验**：E-002 同题改写稳定性（`ab-ledger` 的「稳定性」列因此永远空着）、成本—质量前沿、T-001 审稿器盲测。
+- **宽基指数 delta**：`specs/2026-09-09-broad-index-coverage-delta.md` 的三个指数码尚未入库，分支 `data-source/broad-index-delta`。q15 压力测试 L2 的「指数破位」一条阻塞在这里。
+- **knevo28**：spec 与 D0/D1 复验文档仍只在未合分支 `docs/knevo28-p0a-view-deepen`（含一笔未审阅的 wip 封存提交），而主干有十份文档引用 knevo28。
