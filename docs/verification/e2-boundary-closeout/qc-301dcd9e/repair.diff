@@ -1,0 +1,308 @@
+diff --git a/docs/agent-product-door.md b/docs/agent-product-door.md
+index 721600a2..606eeae0 100644
+--- a/docs/agent-product-door.md
++++ b/docs/agent-product-door.md
+@@ -56,7 +56,9 @@ P3c 将同一读取上限绑定到运行器实际持有的注册表，而不只
+ Episode 车道在消费预取做升档判断、可满足性预检、配置快照、提示词与证据账本播种前收窄；
+ 批工具菜单/定义/执行和内存修复续轮也重新绑定，原始 full 注册表不被修改。
+ 这防止外部预取先进入模型、未知 IO 工具先被列出后才在 dispatch 拒绝；不是清洗历史消息，
+-也不能撤销注入式 registry_factory 内部已经发生的读取。P3b/P3c 尚待有效独立复核。
++也不能撤销注入式 registry_factory 内部已经发生的读取。独立反例指出修复续轮同名工具替换后
++Scope 可能仍授权旧实现；返修让批菜单/执行及续轮重绑 Scope 视图，保留调用/诊断历史与
++既有更严读取上限，拒绝事件使用当前 runner 的判据。P3b/P3c 尚待完整独立复核结论。
+ 
+ **本阶段不是材料题全链完成**：`local_only` 仅已审定 runner 的局部路径，未覆盖所有
+ 本地工具；歧义/基底不可恢复的预取前澄清、controller 前缀/默认摘要/压缩/恢复/子研究等
+diff --git a/intelligence/runtime/agent_episode.py b/intelligence/runtime/agent_episode.py
+index 52e1701f..2b06b119 100644
+--- a/intelligence/runtime/agent_episode.py
++++ b/intelligence/runtime/agent_episode.py
+@@ -2184,6 +2184,16 @@ class ContinuousAgentEpisode:
+                 repair_tool_context,
+                 contract=downgraded_contract,
+             )
++        # 同名 runner/contract 可能在修复入口被替换：Scope 诊断与执行必须
++        # 使用同一份当前注册表，不能只有 state.registry 更新、Scope 仍授权旧实现。
++        rebound_scope = tool_session.bind_scope(
++            registry=registry, context=repair_tool_context,
++        )
++        if rebound_scope is not None:
++            state.episode_scope = rebound_scope
++            registry = rebound_scope.registry
++            state.registry = registry
++            ledger.derive_mismatch_sink = rebound_scope.record_derive_mismatch
+         # 修复轮的时钟账，记在动手之前。
+         #
+         # 这三个数是 judge 那次诊断里 ``timeout_asked`` 的同位物：judge 看着像元凶，
+diff --git a/intelligence/runtime/episode_tool_batch.py b/intelligence/runtime/episode_tool_batch.py
+index 38701e8f..ffa32e81 100644
+--- a/intelligence/runtime/episode_tool_batch.py
++++ b/intelligence/runtime/episode_tool_batch.py
+@@ -353,6 +353,23 @@ class EpisodeToolBatchSession:
+         # 唯一不允许的形状，所以这里不吞。
+         self.on_dispatch: Callable[[DispatchIntent], None] | None = None
+ 
++    def bind_scope(
++        self, *, registry: ResearchToolRegistry, context: ResearchRunContext
++    ) -> EpisodeScope | None:
++        """Synchronize the diagnostic/runner view under the batch lock."""
++        with self._lock:
++            self._bind_scope_locked(registry=registry, context=context)
++            return self._scope
++
++    def _bind_scope_locked(
++        self, *, registry: ResearchToolRegistry, context: ResearchRunContext
++    ) -> ResearchToolRegistry:
++        registry = registry.for_context(context)
++        if self._scope is not None:
++            self._scope = self._scope.for_execution(context=context, registry=registry)
++            registry = self._scope.registry
++        return registry
++
+     def menu(
+         self,
+         *,
+@@ -365,7 +382,6 @@ class EpisodeToolBatchSession:
+         此刻必超时的工具。领域只申报 ``min_window_seconds``，装不装得下由这里判。
+         """
+ 
+-        registry = registry.for_context(context)
+         would_grant = context.deadline.stage_timeout(
+             tool_batch_timeout_seconds(context.policy)
+         )
+@@ -373,6 +389,7 @@ class EpisodeToolBatchSession:
+         visible: list[str] = []
+         hidden: list[tuple[str, float]] = []
+         with self._lock:
++            registry = self._bind_scope_locked(registry=registry, context=context)
+             for spec in registry.authorized_specs(context.contract.allowed_capabilities):
+                 if (
+                     spec.query_scope == "episode"
+@@ -407,8 +424,8 @@ class EpisodeToolBatchSession:
+         turn_elapsed_at_dispatch: float | None = None,
+         request_extras: Mapping[str, Mapping[str, object]] | None = None,
+     ) -> ToolBatchResult:
+-        registry = registry.for_context(context)
+         with self._lock:
++            registry = self._bind_scope_locked(registry=registry, context=context)
+             return self._execute_locked(
+                 calls,
+                 registry=registry,
+diff --git a/intelligence/services/episode_scope.py b/intelligence/services/episode_scope.py
+index 7c94c12b..b4dc0c51 100644
+--- a/intelligence/services/episode_scope.py
++++ b/intelligence/services/episode_scope.py
+@@ -58,7 +58,7 @@ generic_research_owner、ask ……）。每处都自己判一次，就会各自
+ from __future__ import annotations
+ 
+ from collections.abc import Mapping
+-from dataclasses import dataclass, field
++from dataclasses import dataclass, field, replace
+ from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
+ 
+ from intelligence.services.research_tool_registry import (
+@@ -232,8 +232,8 @@ class EpisodeScope:
+     # 本次实际发生过调用的工具名——可达性四段里的最后一段靠它填。
+     #
+     # 这是一个**可变**集合，而 Scope 本身是 frozen：frozen 只挡重新绑定属性，
+-    # 不挡改它指向的对象。这个区别是有意的——Scope 的**身份**（episode、契约、
+-    # 注册表）在一次 Episode 内不可变，而「哪些工具真的跑过」是运行中累积的事实，
++    # 不挡改它指向的对象。这个区别是有意的——每份 Scope 的 episode/契约/注册表
++    # 不可变；修复重绑生成新视图，而「哪些工具真的跑过」是同一 Episode 累积的事实，
+     # 只能边跑边记。compare=False：两个 Scope 是否相同不取决于跑到哪一步了。
+     invoked_tools: set[str] = field(default_factory=set, compare=False)
+     # sink 发射失败的事件种类，按发生顺序。与 invoked_tools 同理是可变的。
+@@ -254,6 +254,21 @@ class EpisodeScope:
+             object.__setattr__(self, "invoked_tools", set(self.invoked_tools))
+         object.__setattr__(self, "registry", self.registry.for_context(self.context))
+ 
++    def for_execution(
++        self, *, context: ResearchRunContext, registry: ResearchToolRegistry
++    ) -> "EpisodeScope":
++        """Rebind a same-episode view to the actual runner set, retaining audit history.
++
++        A repair may replace tools/contracts, but may not relax the existing registry
++        ceiling. Copies share invocation and diagnostic accumulators; old views stay
++        immutable rather than silently changing what a previous round authorized.
++        """
++        if context.contract.task_id != self.context.contract.task_id:
++            raise ValueError("cannot rebind scope to a different episode task")
++        if self.registry.read_scope != "full":
++            registry = registry.with_read_scope(self.registry.read_scope)
++        return replace(self, context=context, registry=registry)
++
+     # ── 运行中登记 ────────────────────────────────────────────────────
+ 
+     def record_invocation(self, tool: str) -> None:
+diff --git a/intelligence/tests/test_e2_runtime_ceiling.py b/intelligence/tests/test_e2_runtime_ceiling.py
+index 51149156..54767967 100644
+--- a/intelligence/tests/test_e2_runtime_ceiling.py
++++ b/intelligence/tests/test_e2_runtime_ceiling.py
+@@ -403,6 +403,167 @@ def test_rebinding_strips_late_prefetch_injection_without_relaxing_existing_ceil
+     assert bound.authorized_specs(context.contract.allowed_capabilities) == ()
+ 
+ 
++@pytest.mark.parametrize("replacement_io", ["unknown", "external_or_mixed"])
++def test_batch_replacement_denial_uses_current_runner_and_retains_scope_history(
++    replacement_io,
++):
++    _, context = _fixture("local_only")
++    attempts, events, dispatches = [], [], []
++    original = _registry(attempts)
++
++    class Sink:
++        def emit(self, kind, payload):
++            events.append((kind, dict(payload)))
++
++    scope = EpisodeScope(
++        episode_id=context.contract.task_id,
++        user_id="fixture",
++        context=context,
++        registry=original,
++        event_sink=Sink(),
++    )
++    scope.record_invocation("earlier_tool")
++    scope.record_derive_mismatch("earlier_mismatch")
++    batch = EpisodeToolBatchSession(scope=scope)
++    batch.on_dispatch = dispatches.append
++    replacement = original.with_specs(
++        replace(
++            original.resolve("certified_read"),
++            io_effect=replacement_io,
++            parse_arguments=original.resolve("uncertified_read").parse_arguments,
++        )
++    )
++    result = batch.execute(
++        (ModelToolCall("replacement", "certified_read", {}),),
++        registry=replacement,
++        context=context,
++        remaining_slots=1,
++    )
++    assert result.executed_count == 0 and attempts == dispatches == []
++    denial = next(p for k, p in events if k == TOOL_ERROR)
++    assert denial["stage"] == "authorize" and "IO" in denial["reason"]
++    assert denial["capability"] == "finance_query"
++    current = batch.bind_scope(registry=replacement, context=context)
++    assert not current.authorize("certified_read").allowed
++    assert current.invoked_tools is scope.invoked_tools
++    assert current._derive_mismatches is scope._derive_mismatches
++    assert "earlier_tool" in current.invoked_tools
++    assert "earlier_mismatch" in current._derive_mismatches
++    # An old immutable view remains a receipt of its own runner set.
++    assert scope.authorize("certified_read").allowed
++
++
++def test_repair_same_name_unknown_runner_has_matching_scope_denial_and_no_dispatch():
++    frame, context = _fixture("local_only")
++    attempts, states, live, dispatches = [], [], [], []
++    registry = _registry(attempts)
++
++    class Model:
++        repair = False
++
++        def complete(self, *, messages, tools, timeout):
++            if self.repair:
++                self.repair = False
++                assert "certified_read" not in {d["function"]["name"] for d in tools}
++                return ModelTurn(
++                    "",
++                    (ModelToolCall("repair-bad", "certified_read", {}),),
++                    "scripted",
++                    "",
++                )
++            return ModelTurn(
++                json.dumps(
++                    {
++                        "status": "partial",
++                        "draft": "现有证据不足。",
++                        "gaps": ["缺少证据"],
++                        "bindings": [
++                            {
++                                "output_id": o.output_id,
++                                "evidence_hashes": [],
++                                "gap": "缺少证据",
++                            }
++                            for o in context.contract.required_outputs
++                            if o.required
++                        ],
++                    },
++                    ensure_ascii=False,
++                ),
++                (),
++                "scripted",
++                "",
++            )
++
++    model = Model()
++    episode = ContinuousAgentEpisode(model, event_sink=live.append)
++    previous = episode.run(
++        task_frame=frame, context=context, registry=registry, _continuation_sink=states
++    )
++    state = states[0]
++    state.registry = registry.with_specs(
++        replace(
++            registry.resolve("certified_read"),
++            io_effect="unknown",
++            parse_arguments=registry.resolve("uncertified_read").parse_arguments,
++        )
++    )
++    original_dispatch = state.tool_session.on_dispatch
++
++    def record(intent):
++        dispatches.append(intent)
++        original_dispatch(intent)
++
++    state.tool_session.on_dispatch = record
++    goal = RepairGoal(
++        episode_id=context.contract.task_id,
++        repair_goal_id="replacement-repair",
++        cycle=1,
++        missing_answer_elements=(),
++        unsupported_claims=(),
++        missing_evidence_modes=(),
++        attempted_actions=(),
++        evidence_progress=CoverageDelta(0, 0, 0),
++        remaining_calls=1,
++        remaining_seconds=8,
++        reopen_tools=True,
++    )
++    model.repair = True
++    outcome = episode.resume(state, previous, goal)
++    assert attempts == dispatches == []
++    # A rejected model request may be recorded; it must never become durable dispatch intent.
++    assert not any(
++        e.kind == "tool_request" and "replay" in e.payload for e in outcome.events
++    )
++    denial = next(
++        e.payload
++        for e in live
++        if e.kind == TOOL_ERROR and e.payload.get("tool_call_id") == "repair-bad"
++    )
++    assert "IO" in denial["reason"]
++    assert not state.episode_scope.authorize("certified_read").allowed
++    assert state.episode_scope.registry is state.registry
++
++
++def test_scope_rebinding_preserves_stricter_ceiling_and_rejects_different_task():
++    _, context = _fixture("local_only")
++    registry = _registry().with_read_scope("material_only")
++    scope = EpisodeScope(
++        episode_id=context.contract.task_id,
++        user_id="fixture",
++        context=context,
++        registry=registry,
++    )
++    rebound = scope.for_execution(context=context, registry=_registry())
++    assert rebound.registry.read_scope == "material_only"
++    assert rebound.allowed_tools() == ()
++    assert (
++        rebound.registry.opening_prefetch == () and rebound.registry.calc_loader is None
++    )
++    _, other_context = _fixture("local_only")
++    with pytest.raises(ValueError, match="different episode"):
++        scope.for_execution(context=other_context, registry=_registry())
++
++
+ def test_full_context_binding_preserves_original_registry_identity_and_prefetch():
+     _, context = _fixture("full")
+     registry = _registry()

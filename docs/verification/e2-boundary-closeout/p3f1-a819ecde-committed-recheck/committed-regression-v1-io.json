@@ -1,0 +1,6 @@
+{
+  "executor": "author",
+  "forbidden_attempts": 0,
+  "events": [],
+  "pytest_exit": 0
+}

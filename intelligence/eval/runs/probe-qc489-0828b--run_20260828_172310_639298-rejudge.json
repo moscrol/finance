@@ -1,0 +1,23 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "probe-qc489-0828b--run_20260828_172310_639298",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "a656da102bfee887f9e9de6fb7d04d867955d00a555cb1db284a6ba62ad7e828",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      10
+    ],
+    "issues": [
+      "第10句把73.8元称为8月24日低点，但E12只登记当日收盘价73.8元，并未提供日内低点。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

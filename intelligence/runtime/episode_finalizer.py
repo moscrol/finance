@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import json
 
 from intelligence.services.agent_research import AgentEvidence
@@ -111,8 +112,15 @@ class EpisodeFinalizer:
         evidence: tuple[AgentEvidence, ...],
         gaps: tuple[str, ...],
         failure_reason: str,
+        on_prompt: Callable[[str, str], None] | None = None,
+        evidence_priority: tuple[str, ...] = (),
     ) -> ModelTurn:
-        """Return the provider turn unchanged after one no-tools recovery call."""
+        """Return the provider turn unchanged after one no-tools recovery call.
+
+        ``on_prompt(system, user)`` 在向模型开口之前收到这段独立 prompt 的正文——Episode 用它
+        落 ``prompt_assembled{source: finalizer}``（模型可见即已落账，运行底座 P0 已知边界 a）。
+        默认 None：不接线的调用方行为不变。
+        """
 
         payload = self._payload(
             task_frame=task_frame,
@@ -120,11 +128,13 @@ class EpisodeFinalizer:
             evidence=evidence,
             gaps=gaps,
             failure_reason=failure_reason,
+            evidence_priority=evidence_priority,
         )
         return self._complete(
             system_prompt=_RECOVERY_SYSTEM_PROMPT,
             payload=payload,
             context=context,
+            on_prompt=on_prompt,
         )
 
     def _complete(
@@ -133,10 +143,14 @@ class EpisodeFinalizer:
         system_prompt: str,
         payload: dict[str, object],
         context: ResearchRunContext,
+        on_prompt: Callable[[str, str], None] | None = None,
     ) -> ModelTurn:
         timeout = context.deadline.synthesis_timeout(self._llm_timeout)
         if timeout <= 0.0:
             raise TimeoutError("finalization deadline exhausted")
+        user_content = json.dumps(payload, ensure_ascii=False)
+        if on_prompt is not None:
+            on_prompt(system_prompt, user_content)
         return self._model.complete(
             messages=[
                 {
@@ -145,10 +159,7 @@ class EpisodeFinalizer:
                 },
                 {
                     "role": "user",
-                    "content": json.dumps(
-                        payload,
-                        ensure_ascii=False,
-                    ),
+                    "content": user_content,
                 },
             ],
             tools=[],
@@ -163,8 +174,10 @@ class EpisodeFinalizer:
         evidence: tuple[AgentEvidence, ...],
         gaps: tuple[str, ...],
         failure_reason: str,
+        evidence_priority: tuple[str, ...] = (),
     ) -> dict[str, object]:
-        return {
+        selected = _compact_evidence(evidence, evidence_priority=evidence_priority)
+        payload = {
             "task_frame": task_frame.to_dict(),
             "required_outputs": [
                 {
@@ -176,22 +189,54 @@ class EpisodeFinalizer:
                 }
                 for item in context.contract.required_outputs
             ],
-            "evidence": _compact_evidence(evidence),
+            "evidence": selected,
             "gaps": list(gaps),
             "today": context.today,
             "latest_data_date": context.latest_data_date,
             "failure_reason": _stable_failure_reason(failure_reason),
         }
+        if len(selected) < len(evidence):
+            tools = dict.fromkeys(item.tool for item in evidence)
+            payload["evidence_selection"] = {
+                "available": len(evidence),
+                "selected": len(selected),
+                "omitted": len(evidence) - len(selected),
+                "by_tool": {
+                    tool: {
+                        "available": sum(item.tool == tool for item in evidence),
+                        "selected": sum(item["tool"] == tool for item in selected),
+                    }
+                    for tool in tools
+                },
+                "instruction": (
+                    "这是有条数上限的证据投影；未展示不等于数据缺失。"
+                    "不得把展示条数当作原始样本数或覆盖范围；真实缺失只能依据gaps"
+                    "及证据中明确的状态。未展示的信息不能据此断言不存在，证据不足须写明恢复投影边界。"
+                ),
+            }
+        return payload
 
 
 def _compact_evidence(
     evidence: tuple[AgentEvidence, ...],
+    *,
+    evidence_priority: tuple[str, ...] = (),
 ) -> list[dict[str, object]]:
     """Select a bounded, tool-balanced view. IDs follow the full episode table."""
 
     grouped: dict[str, list[AgentEvidence]] = {}
     for item in evidence:
         grouped.setdefault(item.tool, []).append(item)
+
+    available = {item.content_hash for item in evidence if item.content_hash}
+    priority = tuple(dict.fromkeys(
+        digest for digest in evidence_priority[:MAX_RECOVERY_EVIDENCE]
+        if isinstance(digest, str) and digest in available
+    ))
+    rank = {digest: index for index, digest in enumerate(priority)}
+    if priority:
+        for items in grouped.values():
+            items.sort(key=lambda item: rank.get(item.content_hash, len(rank)))
 
     selected: list[AgentEvidence] = []
     index = 0
@@ -207,6 +252,20 @@ def _compact_evidence(
         if not added:
             break
         index += 1
+        if index == 1 and priority:
+            # Keep one observation per tool before allocating remaining slots to
+            # domain hints. Ordinary recovery retains its original round robin.
+            for digest in priority:
+                if len(selected) >= MAX_RECOVERY_EVIDENCE:
+                    break
+                item = next(item for item in evidence if item.content_hash == digest)
+                if item not in selected:
+                    selected.append(item)
+            # Priority picks may be beyond the next round-robin cursor.
+            for tool, items in grouped.items():
+                grouped[tool] = [item for item in items if item not in selected]
+            index = 0
+            priority = ()
 
     ordinals = evidence_ordinal_table(evidence)
     projected: list[dict[str, object]] = []

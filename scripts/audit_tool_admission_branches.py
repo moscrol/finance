@@ -249,7 +249,7 @@ def assembled_spec_fields() -> dict[str, dict[str, object]]:
 
     from intelligence.services.episode_factory import build_episode_context
     from intelligence.services.episode_tools import build_episode_registry
-    from intelligence.services.research_tool_registry import _DEFAULT_TOOL_METADATA
+    from intelligence.services.research_tool_registry import DEFAULT_RESEARCH_CAPABILITIES
     from intelligence.services.task_frame import TaskFrame
 
     frame = TaskFrame(
@@ -270,7 +270,9 @@ def assembled_spec_fields() -> dict[str, dict[str, object]]:
     context = build_episode_context(
         frame,
         task_id="tool-admission-gate",
-        capabilities=tuple(sorted(_DEFAULT_TOOL_METADATA)),
+        # 授 capability 全集而不是工具名全集：历史三工具共享 finance_query，
+        # 把它们的名字当 capability 传会被 build_episode_context 判 unknown runtime capability。
+        capabilities=tuple(sorted(DEFAULT_RESEARCH_CAPABILITIES)),
         timeout=30.0,
     )
     registry = build_episode_registry(frame, context, memory_user="__audit_probe__")

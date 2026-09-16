@@ -1,0 +1,29 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "probe-r05close-0828--run_20260828_191131_322496",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "10b92dcd7b8bd26f46b150b6f22c69f8ebacc2c1abbf3148e69f11f30b758139",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      1,
+      2,
+      6,
+      7
+    ],
+    "issues": [
+      "第1句断言航空发动机板块在2026-08-19已不在板块行情全集内，但证据只给出两个相邻口径记录和该板块一条较早记录，不能证明当日全集缺席。",
+      "第2句断言2026-07-24是最后一次出现且此后因板块构成要素退出而未再出现，注册证据既未覆盖完整后续日期，也未提供退出原因。",
+      "第6句把正边际量描述为缩量下跌中的量能回升，并发明后续1至2个交易日同步转正的确认阈值；前者与正边际量口径冲突，后者无直接证据。",
+      "第7句宣称数据是全量板块口径，但注册证据未证明查询结果覆盖板块全集。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

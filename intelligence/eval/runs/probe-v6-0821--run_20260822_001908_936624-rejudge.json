@@ -1,0 +1,25 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "probe-v6-0821--run_20260822_001908_936624",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "874149f1ee6ea2cd19d02eb4d7ff4c0d5ddf7adba13889e3fb39527660717d12",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      1,
+      5
+    ],
+    "issues": [
+      "第1句将本轮发酵归因于事件脉冲和资金回流，但注册证据只有盘面时间轴，没有事件或资金流向证据。",
+      "第5句把概念名称映射进一步解释为研发服务、临床前服务、生产及商业化外包的产业链角色，E3至E7只提供概念名称和匹配分，未支持这些环节定义。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

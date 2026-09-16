@@ -4,6 +4,7 @@ from intelligence.runtime.episode_tool_batch import tool_batch_timeout_seconds
 from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     complete_judge_attempt_seconds,
+    judge_attempt_seconds,
     semantic_judge_window_seconds,
 )
 from intelligence.services.research_contract import (
@@ -60,6 +61,37 @@ def test_standard_judge_window_floor_covers_r06_terra_p95() -> None:
     assert min(DEFAULT_JUDGE_TIMEOUT_SECONDS, standard.judge_window_seconds) == 50.0
     assert quick.judge_window_seconds < 25.0
     assert deep.judge_window_seconds == 50.0
+
+
+def test_max_tier_judge_caps_pin_measured_grok_latency(monkeypatch) -> None:
+    """max 档判官：单次 75s、窗 150s = 两次完整尝试；其余档位一字不变。
+
+    2026-09-07 用两发 judge=unavailable 的真实 13.3K/13.6K 载荷重放 grok-4.6
+    n=6：p50 52.0s / max 60.6s，4/6 超过 50s 帽；给足时 6/6 有效。50s 在 max 档
+    载荷上是中位数即超时，75 = max + 约 24% 余量；窗两倍于帽，首发超时后仍剩
+    一次完整尝试。
+    """
+
+    monkeypatch.delenv("ASK_SEMANTIC_JUDGE_WINDOW", raising=False)
+    maximum = derive_stage_caps(ResearchPolicy.for_tier("max"))
+    assert maximum.judge_attempt_seconds == 75.0
+    assert maximum.judge_window_seconds == 150.0
+    assert maximum.judge_window_seconds == 2 * maximum.judge_attempt_seconds
+    assert maximum.tool_batch_seconds == 540.0
+
+    for tier in ("quick", "standard", "deep"):
+        caps = derive_stage_caps(ResearchPolicy.for_tier(tier))
+        assert caps.judge_attempt_seconds is None, tier
+    assert derive_stage_caps(ResearchPolicy.for_tier("standard")).judge_window_seconds == 50.0
+    assert derive_stage_caps(ResearchPolicy.for_tier("deep")).judge_window_seconds == 50.0
+
+    max_policy = ResearchPolicy.for_tier("max")
+    assert judge_attempt_seconds(DEFAULT_JUDGE_TIMEOUT_SECONDS, max_policy) == 75.0
+    # 档位值是地板不是天花板：显式配置得更高时沿用配置。
+    assert judge_attempt_seconds(90.0, max_policy) == 90.0
+    assert judge_attempt_seconds(DEFAULT_JUDGE_TIMEOUT_SECONDS, ResearchPolicy.for_tier("standard")) == 50.0
+    assert complete_judge_attempt_seconds(DEFAULT_JUDGE_TIMEOUT_SECONDS, max_policy) == 75.0
+    assert semantic_judge_window_seconds(max_policy) == 150.0
 
 
 def test_env_ceiling_can_only_lower_derived_cap(monkeypatch) -> None:

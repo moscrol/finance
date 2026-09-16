@@ -994,3 +994,85 @@ def test_forward_opinion_requires_board_suffix() -> None:
     envelope = understand_query("下游产业链接下来怎么看")
 
     assert envelope.subject is None
+
+
+# --- 输入理解层（2026-09-09，05 单）：真实问法的路由 -------------------------------
+
+from datetime import date as _date  # noqa: E402
+
+_REPORT_TEXT = (
+    "【卖方摘要｜2026-08-28】固态电池：硫化物路线进入中试放量期\n\n"
+    "一、核心观点\n公司 A 硫化物电解质中试线 2026 年 8 月投产，规划产能 200 吨/年。\n\n"
+    "二、关键数据\n2026 年上半年新签订单 12 亿元，同比增长 40%；毛利率 31.5%。"
+)
+
+
+def test_yearless_dated_review_gets_iso_timeframe() -> None:
+    # 真实流量（2026-08，linxiaoqi5111）：「8.18的复盘数据你怎么解读」此前落通用检索、timeframe None。
+    envelope = understand_query("8.18的复盘数据你怎么解读")
+
+    assert envelope.question_type == "dated_market_review"
+    assert envelope.timeframe is not None and envelope.timeframe.endswith("-08-18")
+    assert int(envelope.timeframe[:4]) <= _date.today().year
+    assert envelope.task_frame is not None
+    assert envelope.task_frame.timeframe == envelope.timeframe
+
+
+def test_yearless_follow_up_carries_its_own_date() -> None:
+    envelope = understand_query("那8.19呢")
+    assert envelope.timeframe is not None and envelope.timeframe.endswith("-08-19")
+
+
+def test_quantity_before_a_dot_number_is_not_a_date() -> None:
+    assert understand_query("涨幅8.5的板块有哪些").timeframe is None
+    assert understand_query("跌了2.3个点").timeframe is None
+
+
+def test_dated_single_metric_question_is_not_a_dated_review() -> None:
+    # turn_controller 的守卫：「2026-08-14涨停家数多少」要的是一个数，不是一份复盘。
+    envelope = understand_query("2026-08-14涨停家数多少")
+    assert envelope.question_type != "dated_market_review"
+    assert understand_query("2026-07-23 哪些板块是双红").question_type != "dated_market_review"
+
+
+def test_wave_reference_names_the_theme() -> None:
+    envelope = understand_query("这一波农业是怎么走出来的？请事后复盘，找出值得进一步检验的特征")
+
+    assert envelope.question_type == "theme_analysis"
+    assert envelope.subject == "农业"
+    assert envelope.subject_kind == "theme"
+
+
+def test_next_day_operation_question_is_market_forecast() -> None:
+    envelope = understand_query("基于周五的行情，周一该怎么操作")
+
+    assert envelope.question_type == "market_forecast"
+    assert envelope.task_frame is not None
+    assert envelope.task_frame.subject == "A股市场"
+
+
+def test_pasted_material_does_not_hijack_routing() -> None:
+    with_question = understand_query(f"{_REPORT_TEXT}\n\n这篇研报的核心逻辑站得住吗？帮我分开哪些是硬事实、哪些只是推测")
+    assert with_question.question_type == "kol_review"
+    assert with_question.task_frame is not None
+    assert len(with_question.task_frame.materials) == 1
+
+    material_only = understand_query(_REPORT_TEXT)
+    assert material_only.question_type == "kol_review"
+    assert material_only.task_frame is not None
+    assert material_only.task_frame.materials[0].material_id == with_question.task_frame.materials[0].material_id
+
+    # 同一段材料单独作为题材问题出现时，路由不受影响（对照）。
+    assert understand_query("固态电池现在怎么看").question_type == "theme_analysis"
+
+
+def test_company_nicknames_resolve_in_comparison_and_single_form() -> None:
+    pair = understand_query("宁王和迪王现在谁的估值更贵")
+    assert pair.question_type == "comparison"
+    assert pair.subject == "宁德时代、比亚迪"
+    assert pair.subject_kind == "company"
+
+    single = understand_query("宁王现在贵不贵")
+    assert single.question_type == "valuation_estimate"
+    assert single.subject == "宁德时代"
+    assert single.matched_by == "alias"

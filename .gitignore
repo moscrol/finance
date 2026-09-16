@@ -60,6 +60,8 @@ temp/
 /state/
 
 # Generated market review exports
+# 台账真本源 *-daily-review.json 入库（几十 KB/天，Workbench 与框架解读读它）；
+# md 是它的渲染物，仍忽略（见 docs/learning/ledger-map.md）。
 market_feature_store/exports/*-daily-review.md
 market_feature_store/exports/*-advancers-ma5.png
 market_feature_store/exports/*-triggered-themes.json
@@ -123,6 +125,10 @@ evolution/records/
 evolution/validation/
 evolution/suggestions/
 
+# 方法论回测：只跟踪规则 JSON（methodology/rules/），收据可由主库 + 规则重建，不入库；
+# 旁路库 db/history_labels.duckdb 已被上面 db/ 与 *.duckdb 覆盖
+methodology/receipts/
+
 # 本地手动备份，从不入库
 *.bak
 *.bak-*
@@ -167,3 +173,13 @@ market_snapshot/
 /state/
 /work/
 /.playwright-mcp/
+
+# 主树收拾（2026-09-03，用户拍板）
+# 每日复盘 HTML/PNG 是台账的渲染物，留本地按需重渲，不再入库（已跟踪的历史份保持原样）
+复盘/daily/
+# 框架解读输出含「最近纠偏回灌」原文（账号/权益等个人语境），与 intelligence/users/* 同性质
+market_feature_store/exports/*-framework-interpretation.md
+# 回答评分是用户态（台账地图标「否」），此前漏在忽略清单外，探针用户目录因此冒头
+intelligence/users/*/answer_scores.jsonl
+# WorkBuddy 工具本地记忆（与 .windsurf/ 同类）
+.workbuddy/

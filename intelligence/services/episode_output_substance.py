@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 
+from intelligence.services.material_delivery import material_question_outputs, question_body
 from intelligence.services.research_contract import ResearchTaskContract
 from intelligence.services.task_fulfillment import (
     answer_has_non_boundary_substance,
@@ -110,13 +111,17 @@ def required_outputs_without_substance(
 ) -> tuple[str, ...]:
     """Return required typed slots whose presentation shell has no payload."""
 
-    return tuple(
+    material_missing = tuple(
+        spec.output_id for spec in material_question_outputs(contract)
+        if not question_body(spec, answer)
+    )
+    return (*material_missing, *(
         item.output_id
         for item in contract.required_outputs
         if item.required
         and item.output_id == "scenario_range"
         and not _scenario_range_has_substance(answer)
-    )
+    ))
 
 
 def required_output_evidence_floor(output_id: str) -> tuple[str, ...]:
@@ -135,10 +140,15 @@ def lost_required_output_substance(
     """Return typed slots emptied by a deletion-only semantic repair."""
 
     lost: list[str] = []
+    material_specs = {spec.output_id: spec for spec in material_question_outputs(contract)}
     for item in contract.required_outputs:
         if not item.required:
             continue
-        if item.output_id == "scenario_range":
+        if item.output_id in material_specs:
+            spec = material_specs[item.output_id]
+            before_present = bool(question_body(spec, before))
+            after_present = bool(question_body(spec, after))
+        elif item.output_id == "scenario_range":
             before_present = _scenario_range_has_substance(before)
             after_present = _scenario_range_has_substance(after)
         elif item.output_id == "direct_answer":

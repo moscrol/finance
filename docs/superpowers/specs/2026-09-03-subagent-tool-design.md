@@ -1,8 +1,15 @@
 # 设计：子代理作为模型可点的工具——抄 dsh `tool-subagent` 的形状，账本用我们的
 
 日期：2026-09-03
-状态：**设计稿，未实施、未开分支。** 能力放大线交接「下一步 ⑤」。写完先停：§1.3 的前置事实（deep 升档在生产上已归零）
-没查清之前，实施了也够不着。
+状态：**已实施（2026-09-07，分支 `feat/sub-research-tool`）。** §7 的前置「deep 在 GLM 下怎么可达」被两件事一起解掉：
+生产出口 09-06 切到 sol@57244（gpt 交 PLAN 30%，GLM 0%），且 #608 加了 `max` 档（600s / 32 步）并作为生产起步档位——
+「standard 窗装不下一支 60s 分支」（§4）不再成立，工具不再依赖 PLAN 升档才够得着。实施与 §2–§6 的差异只有两处：
+① 分支事件 `branch_started / completed / failed` 由 runner 的 `on_result` 回调在批执行器线程里记（`_EpisodeLedger` 有 RLock），
+带 `origin=tool` 与 PLAN 路径区分；② 分支 deadline 收进**本批工具窗 × 0.9** 而不是 episode deadline——批执行器等的是那个窗，
+超了会记 `tool_timeout` 而线程照跑，先收窗才守得住「父臂走掉后分支不再往账本写」。验收 §6 第 1–6 条由
+`intelligence/tests/test_sub_research_tool.py` 13 例钉住（三个变异各击杀一条）；第 7 条 live 待切流后跑；第 8 条读数即上面两件事。
+`SubResearchCoordinator` 的档位门从 `== deep` 改为 `∈ {deep, max}`，否则 max 起步的 run 永远拿 `deep_mode_required`。
+（原状态：设计稿，未实施、未开分支。能力放大线交接「下一步 ⑤」。）
 父稿：`2026-09-02-capability-amplification-output-gate-design.md` §3.5.1（两家的子代理都是插件）、§3.5.5（子代理回文本不回证据
 这条形状不能原样抄）、§3.6（三条契约缺一不挂）；`docs/handoffs/2026-08-15-dsh-absorption-p0-execution-handoff.md`（现有协调器的来历）。
 
@@ -42,9 +49,11 @@ hash 的证据，这是比 dsh / knevo 领先的一点，别为了像它而丢�
 77 条模型自请 quick。批 deep 的全部落在 **08-13 ～ 08-22**；**08-22 之后零 deep、零分支**，此后约 400 个 run 的
 `contract.research_tier` 全是 standard。`mode_decision` 只在有 PLAN 的 run 里出现，而 PLAN 自 08-19 起只出现在 3 个 run。
 
-**结论**：升档路径在生产上事实关闭 12 天，协调器休眠。原因**未查**——怀疑 08-22 前后的 prompt 重构
-（`46053d3f refactor(episode): 题型规则与工具表移出 system`）改变了模型交 PLAN 的频率，这是 [推断]，必须先验。
-交接说「先看 govern_mode 升 deep 频次」，答案是：**零**。这决定了本稿的排期（§7）。
+**结论**：升档路径在生产上事实关闭 12 天，协调器休眠。**原因已查清 [实测，同日同代码双模型对照]**：08-17 起生产模型从
+`gpt-5.6-terra` 换成 GLM，而 **GLM 几乎不主动交 PLAN**——08-13 gpt 24/80（30%）对 glm-5.2 0/20，08-16 gpt 44/154（29%）对 glm-5.2 0/12；
+全量批 deep：gpt 48/417、glm-5.2 2/272、glm-5.3 0/113。PLAN 指令原文自 08-07 一字未动，`46053d3f` 不碰 PLAN——09-03 首版此处对
+prompt 重构的 [推断] **撤回**。读数 `docs/verification/2026-09-03-plan-deep-rate-by-model.md`。
+交接说「先看 govern_mode 升 deep 频次」，答案是：**GLM 下为零，且是模型行为不是代码**。这决定了本稿的排期（§7）。
 
 ### 1.4 dsh `tool-subagent` 的形状（只读 `/Users/a77/deepseek-harness/packages/subagent/tool-subagent/README.md`）
 
@@ -113,7 +122,8 @@ hash 的证据，这是比 dsh / knevo 领先的一点，别为了像它而丢�
 1. 注册表守门：`sub_research` 在 `_TOOL_CONTRACTS` 有条目（§3 三条），缺则装配抛（沿用父稿第 8 条的有牙测试）。
 2. 深度 = 1：分支拿到的 `authorized_specs` 不含 `sub_research`；分支里点它 → `tool_hunger` 记 `capability_denied`（有牙：去掉过滤 → 红）。
 3. 证据绑定：父臂结论句绑到分支证据 hash 才过 `admit_finish`；构造一条只绑 `SUB_RESEARCH_RESULTS` 文本的结论 → 驳回（有牙）。
-4. 预算：三支总耗 ≤ 3 × 60s，父 `remaining_seconds` 单调减且不越 reserve；`_BranchBudgetView.grant()` 仍返回 False。
+4. 预算：**秒是墙钟**——并行分支共享同一段窗（deep 60s / max 150s），父账本的秒由父臂对 `sub_research` 那一批做批结算时记**一次**，分支只向父账本扣**次数**；起分支前父臂先留尾段（一批次数 `batch_call_cap` + 一次合成的秒 `synthesis_reserve` + 保险丝 8 次），留不下就拒（`parent_reserve_exhausted:calls|seconds` / `llm_call_reserve_exhausted`），拒绝带准入账；`_BranchBudgetView.grant()` 仍返回 False。
+   （2026-09-07 改口径。原文「三支总耗 ≤ 3 × 60s，父 `remaining_seconds` 单调减」是把并行秒累加记到父账本：#615 把每支抬到 150s 后三支跑满记 450s、批结算再记 180s，540s 账本在墙钟 190s 归零，父臂墙钟还剩 396s 却 `deadline_exhausted`、判官 unavailable。读数与三个候选形状见 `docs/verification/2026-09-07-branch-level-trace.md` §4.2 / §5，用户拍 C。）
 5. 菜单：standard 档 `tool_menu.hidden` 含 `sub_research`，`min_window_seconds` 记 60；deep 档首轮 visible。
 6. 排空：Episode 关闭后无分支线程存活（复用 `test_sub_research.py` 的 `is_alive()` 断言，改成钉协调器返回后）。
 7. live：deep 档一题两臂，Episode 臂 `sub_research` 被点、分支证据进 `bindings`；参考臂按 §5 预期为菜单不含该工具。n=1 只断言结构。
@@ -123,9 +133,10 @@ hash 的证据，这是比 dsh / knevo 领先的一点，别为了像它而丢�
 
 ## 7. 排期与非目标
 
-- **先做**：查 §1.3——`mode_decision` 为什么停在 08-22。抓法：对比 08-22 前后同题型的首轮 system/user 消息里 PLAN 指令是否还在
-  （`46053d3f` 把题型规则移出 system），以及 `research_plan.parse_research_plan` 在近两周 run 的 `model_turn` 上的命中数。
-  这是一个下午能出读数的事，且它决定 deep 档是不是还活着——比子代理工具本身值钱。
+- **已做**：§1.3 查清——是模型（GLM 不交 PLAN），不是代码。
+- **先拍（用户）**：deep 在 GLM 下怎么可达——a) 治理侧不经 PLAN 按可观察信号升档（`mode_governor` 已有 `observable_conditions`，缺一个
+  不依赖 PLAN 的入口）；b) 对复杂题型把 PLAN 从「可以」改成必填；c) 接受 GLM 下 deep 为零、本稿搁置。三条都是协议/预算线级的决定。
+  在拍之前实施 §2–§6 等于装一个够不着的工具。
 - **然后**：本稿 §2–§6，一张 PR：`ToolSpec` + 契约 + runner（包协调器）+ `min_window_seconds` + 守门测试；零 loop 改动。
 - **不做**：后台 / 可续接；嵌套；换 loop；新账本；改任何预算线；在 §1.3 查清前切流。
 - **不读成**：「有了子代理就能答 knevo 那类题」——knevo 的 22 次调用赢在 `web_fetch` 与 web 授权（父稿 §1.4），那两样今天已经在
@@ -140,4 +151,5 @@ hash 的证据，这是比 dsh / knevo 领先的一点，别为了像它而丢�
 生产读数：`~/.local/share/finance-workbench/users/*/runs/run_*/continuous-episode.json` 814 份，按 `events[].kind` 与
 `contract.research_tier` 计数，一次性脚本未入库（复现：数 `mode_decision` / `branch_started` 按 `run_id` 日期分桶）。
 dsh 原文：只读 `/Users/a77/deepseek-harness/packages/subagent/tool-subagent/README.md`（未改动）。
-§1.3 的原因为 [推断]；§2–§6 为设计；§4 的 standard 档窗读数来自 09-03 腾讯题 live（`docs/verification/2026-09-03-web-chain-two-arm-live.md`）。
+§1.3 的原因 09-03 下午由 [推断] 升为 [实测]（同日双模型对照，`docs/verification/2026-09-03-plan-deep-rate-by-model.md`）；§2–§6 为设计；
+§4 的 standard 档窗读数来自 09-03 腾讯题 live（`docs/verification/2026-09-03-web-chain-two-arm-live.md`）。

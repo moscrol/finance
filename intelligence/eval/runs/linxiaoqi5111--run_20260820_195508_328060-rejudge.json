@@ -1,0 +1,25 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "linxiaoqi5111--run_20260820_195508_328060",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "257cd6c1645adbf63b796742f816b23b411d737bc8b25e822f2f3f792a681ce1",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      1,
+      9
+    ],
+    "issues": [
+      "第1句将铝板块断言为全部板块第14位，但证据注册表未直接提供排名字段，不能仅凭证据条目编号或排列顺序确认该观察事实。",
+      "第9句引用不存在于证据注册表的E33、E34，并据此声称存在宏微观归因的多条外部网页观点线索，超出已注册证据范围。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

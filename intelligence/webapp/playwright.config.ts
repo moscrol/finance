@@ -23,6 +23,12 @@ const fixtureRoot = resolve(
   "intelligence/tests/fixtures/chat_workbench_repo",
 );
 const usersRoot = resolve(webappRoot, "test-results/workbench-users");
+// 研究进化绑定 e2e 的隔离服务（放行条件 #1：真浏览器表单 → 真 bindings API → 真刷新投影）：
+// 独立端口 + 独立用户态 + 一份真实市场库（由 bootstrap 现造）。
+const re06Port = process.env.RE06_E2E_PORT ?? "8794";
+const re06URL = `http://127.0.0.1:${re06Port}`;
+const re06UsersRoot = resolve(webappRoot, "test-results/re06-users");
+const re06Db = resolve(webappRoot, "test-results/re06-market.duckdb");
 const emptyLlmKeys = [
   "FORESIGHT_BUILTIN_LLM_API_KEY",
   "DEEPSEEK_API_KEY",
@@ -48,12 +54,22 @@ export default defineConfig({
     baseURL: serverURL,
     trace: "retain-on-failure",
   },
-  webServer: {
-    command: `rm -rf ${shellQuote(usersRoot)} && mkdir -p ${shellQuote(usersRoot)} && cd ${shellQuote(repoRoot)} && WORKBENCH_REPO_ROOT=${shellQuote(fixtureRoot)} WORKBENCH_TEST_RUN_DELAY_MS=500 FINANCE_WS=${shellQuote(fixtureRoot)} KB_VAULT=${shellQuote(resolve(fixtureRoot, "wiki"))} FORESIGHT_USER=default FORESIGHT_USERS_DIR=${shellQuote(usersRoot)} ${emptyLlmKeys} ${shellQuote(python)} -m uvicorn intelligence.api.app:app --host 127.0.0.1 --port ${shellQuote(serverPort)}`,
-    url: serverURL,
-    reuseExistingServer: false,
-    timeout: 120000,
-  },
+  webServer: [
+    {
+      name: "workbench",
+      command: `rm -rf ${shellQuote(usersRoot)} && mkdir -p ${shellQuote(usersRoot)} && cd ${shellQuote(repoRoot)} && WORKBENCH_REPO_ROOT=${shellQuote(fixtureRoot)} WORKBENCH_TEST_RUN_DELAY_MS=500 FINANCE_WS=${shellQuote(fixtureRoot)} KB_VAULT=${shellQuote(resolve(fixtureRoot, "wiki"))} FORESIGHT_USER=default FORESIGHT_USERS_DIR=${shellQuote(usersRoot)} ${emptyLlmKeys} ${shellQuote(python)} -m uvicorn intelligence.api.app:app --host 127.0.0.1 --port ${shellQuote(serverPort)}`,
+      url: serverURL,
+      reuseExistingServer: false,
+      timeout: 120000,
+    },
+    {
+      name: "research-evolution-binding",
+      command: `rm -rf ${shellQuote(re06UsersRoot)} && mkdir -p ${shellQuote(re06UsersRoot)} && cd ${shellQuote(repoRoot)} && ${shellQuote(python)} intelligence/webapp/e2e/prepare_re06_fixture.py --repo-root ${shellQuote(repoRoot)} --users-root ${shellQuote(re06UsersRoot)} --db ${shellQuote(re06Db)} && WORKBENCH_REPO_ROOT=${shellQuote(fixtureRoot)} WORKBENCH_TEST_RUN_DELAY_MS=200 FINANCE_WS=${shellQuote(fixtureRoot)} KB_VAULT=${shellQuote(resolve(fixtureRoot, "wiki"))} MARKET_FEATURE_STORE_DB=${shellQuote(re06Db)} FORESIGHT_USER=default FORESIGHT_USERS_DIR=${shellQuote(re06UsersRoot)} ${emptyLlmKeys} ${shellQuote(python)} -m uvicorn intelligence.api.app:app --host 127.0.0.1 --port ${shellQuote(re06Port)}`,
+      url: re06URL,
+      reuseExistingServer: false,
+      timeout: 120000,
+    },
+  ],
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } },
     { name: "tablet", use: { ...devices["Desktop Chrome"], viewport: { width: 1024, height: 768 } } },
