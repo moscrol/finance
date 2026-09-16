@@ -62,11 +62,12 @@ OUTPUT_CHECK_SCHEMA = {
 }
 
 OUTPUT_CHECK_RULE = (
-    " 另返回 material_output_checks，逐项覆盖 material_outputs：output_id、answered(boolean)、"
+    " 另返回 material_output_checks，恰好逐项覆盖 material_outputs（不是 required_outputs）：output_id、answered(boolean)、"
     "answer_sentence_indexes、reason。answered=true 必须列出本输出 candidate_sentences 中实际回答原题的句子序号，"
     "不能引用题标题、边界声明、邻题或仅复述输入的句子；只复述收入和订单而没给所问占比，answered=false。"
     "answered=false 时 answer_sentence_indexes=[]，reason 明确还缺哪部分答案；普通漏答使顶层 passed=false。"
     "事实有支持和回答完整是两个判断：不得因所有事实都正确便认定回答完整。"
+    "evidence_boundary 不在 material_outputs 内，不得擅自追加它的回执，也不能追加 optional 输出。"
     "legal_gap 仍是未回答，不能标 answered=true；若缺项声明合法，不单独要求顶层 passed=false，结构层仍保持 partial。"
     "遗漏答案不用捏造拒句，rejected_sentence_indexes 可为空；正确的原始事实可以保留。"
 )
@@ -74,8 +75,9 @@ OUTPUT_CHECK_RULE = (
 NONFACTUAL_REVIEW_RULE = (
     "本次只做隔离的非事实豁免复核。只看每条句子本身，不评估它在原答案中的合理性。"
     "任一句包含具体对象的事实、数值、计算结果或事实前提，即使重复先前结论、标为推理、条件或范围声明，"
-    "也不能用 nonfactual 支持：返回 supported=false、support_kind=unsupported、anchor_indexes=[]。"
-    "此请求刻意不给邻句、材料目录或原问题；不能猜测那些上下文，也不能把待审句彼此当证据。"
+    "也不能用 nonfactual 支持；只用本条 material_anchors 核对，确有支持可改判 bound_material 并给真实锚点序号，"
+    "无本句支持则返回 supported=false、support_kind=unsupported、anchor_indexes=[]。"
+    "本次保留本条原始锚点，刻意不给邻句、材料目录或原问题；不能猜测那些上下文，也不能把待审句彼此当证据。"
     "纯范围声明（本回答仅依据用户材料）或不带具体事实前提的通用方法可支持，"
     "如按新增订单除以收入计算占比；编号、步骤数不自动视作市场事实。"
     "只返回 passed、rejected_sentence_indexes、issues、material_claim_checks，使用给定索引。"
@@ -147,7 +149,8 @@ def nonfactual_review_request(checks: tuple[dict[str, object], ...]) -> dict[str
     if not candidates:
         return None
     rows = [{"claim_id": row["claim_id"], "sentence_index": i, "text": row["text"], "output_id": row["output_id"],
-             "kind": row.get("kind"), "material_anchors": []} for i, row in enumerate(candidates, 1)]
+             "kind": row.get("kind"), "material_anchors": [dict(anchor) for anchor in row.get("material_anchors", ())]}
+            for i, row in enumerate(candidates, 1)]
     return {
         "question": "逐句复核是否符合非事实豁免。", "answer_grounding_mode": "material_only",
         "required_outputs": [], "output_bindings": [], "evidence_registry": [], "tool_status_registry": [],

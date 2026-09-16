@@ -414,7 +414,9 @@ def _judge_report_tools(request: Mapping[str, object]) -> list[dict]:
         schema["required"].append("material_claim_checks")
     if request.get("material_outputs"):
         schema = tools[0]["function"]["parameters"]
-        schema["properties"]["material_output_checks"] = deepcopy(OUTPUT_CHECK_SCHEMA)
+        output_schema = deepcopy(OUTPUT_CHECK_SCHEMA)
+        output_schema["items"]["properties"]["output_id"]["enum"] = [row["output_id"] for row in request["material_outputs"]]
+        schema["properties"]["material_output_checks"] = output_schema
         schema["required"].append("material_output_checks")
     return tools
 
@@ -3062,7 +3064,7 @@ class SemanticEpisodeVerifier:
                 )
             if report is None:
                 return None
-            if not incomplete:
+            if not material_claims and not material_outputs:
                 report = _reconcile_issue_sentence_indexes(report, sentence_count)
             return replace(report, passed=report.passed and not incomplete, material_claim_checks=checks,
                            material_output_checks=output_checks)

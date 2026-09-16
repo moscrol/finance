@@ -128,6 +128,51 @@ def test_unnumbered_material_answer_also_needs_coverage_receipt():
     assert result.status != "completed" and result.judge_status == "unavailable"
 
 
+def test_isolated_review_retains_own_anchor_when_first_judge_misclassifies_fact():
+    frame, context = setup()
+    text = "本回答仅依据收入100万元与订单20万元。"
+    value = outcome(context)
+    claim = replace(fact_claim(context, text), kind="premise_declaration")
+    value = replace(value, draft=value.draft + "\n" + text, bindings=(
+        value.bindings[0], replace(value.bindings[1], claims=(claim,)),
+    ))
+    seen = []
+
+    def judge(request):
+        seen.append(request)
+        payload = reviewed(request)
+        if not request.get("nonfactual_review"):
+            payload["material_claim_checks"][-1].update(support_kind="nonfactual", anchor_indexes=[])
+        else:
+            row = request["material_claims"][0]
+            assert row["material_anchors"] == claim.to_dict()["material_anchors"]
+            assert "material_grounding" not in request and FACT not in str(request)
+        return payload
+
+    result = verify(frame, context, value, judge)
+    assert len(seen) == 2 and result.status == "completed"
+    assert result.material_nonfactual_checks[0]["support_kind"] == "bound_material"
+
+
+def test_material_positive_issue_prose_never_creates_a_rejection_index():
+    from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier
+
+    claims = [
+        {"claim_id": "c1", "sentence_index": 1, "text": "纯声明。", "kind": "reasoning"},
+        {"claim_id": "c2", "sentence_index": 2, "text": UNBOUND_REPEAT, "kind": "reasoning"},
+    ]
+    payload = reviewed({"material_claims": claims}, rejected=[2], issues=["句1符合非事实豁免，句2不符合。"])
+    report = SemanticEpisodeVerifier._parse_report(payload, 2, material_claims=claims)
+    assert report.rejected_sentence_indexes == (2,)
+
+
+def test_output_tool_schema_has_exact_output_identity_set():
+    from intelligence.services.episode_semantic_verifier import _judge_report_tools
+
+    schema = _judge_report_tools({"material_outputs": [{"output_id": "answer_q1"}]})[0]["function"]["parameters"]
+    assert schema["properties"]["material_output_checks"]["items"]["properties"]["output_id"]["enum"] == ["answer_q1"]
+
+
 @pytest.mark.parametrize("mutation", ["missing", "empty", "duplicate", "foreign", "bool_index", "no_witness", "false_with_witness", "extra", "empty_reason"])
 def test_malformed_output_receipt_is_unavailable(mutation):
     frame, context = setup()
