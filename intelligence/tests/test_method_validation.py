@@ -1,5 +1,7 @@
 """Public method-validation boundaries, with literal worked examples."""
 
+import json
+import shlex
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,6 +25,7 @@ from intelligence.services.method_validation import (
     write_record,
 )
 
+REPO = Path(__file__).resolve().parents[2]
 RULE = (
     Path(__file__).resolve().parents[2]
     / "methodology/rules/dual_red_streak3_continuation.v1.json"
@@ -500,3 +503,374 @@ def test_archived_records_survive_version_upgrade_but_new_computation_refuses(
         compare(p, features, outcomes)
     with pytest.raises(ValueError):
         read_features(path, p, start=CALENDAR[0], end=CALENDAR[0])
+
+
+def test_supersede_actually_deactivates_not_just_annotates(tmp_path):
+    """封存必须有运行语义：只写标记而消费者照常枚举，等于没封存。"""
+    from intelligence.services.method_validation import (
+        is_superseded, list_studies, supersede,
+    )
+
+    older = build_protocol(
+        RULE, history_start="2026-08-24", history_end="2026-09-04",
+        forward_start="2026-09-07", now=datetime(2026, 9, 4, 8, tzinfo=timezone.utc),
+    )
+    d_old = register(tmp_path, older)
+    d_new = register(tmp_path, protocol())
+    assert len(list_studies(tmp_path)) == 2
+
+    supersede(d_old, successor_id=protocol()["protocol_id"], reason="标签版本迁移")
+    assert is_superseded(d_old)
+    active = list_studies(tmp_path)
+    assert active == [d_new], "封存后消费者仍在枚举旧协议"
+    # 审计口径要能看见全部，否则就成了删除
+    assert len(list_studies(tmp_path, include_superseded=True)) == 2
+
+
+def test_activate_switches_binding_and_refuses_superseded(tmp_path):
+    """登记 ≠ 切换：绑定要能被显式切换，且不能切到已封存协议。"""
+    from intelligence.services.method_validation import (
+        active_study, set_active, supersede,
+    )
+
+    older = build_protocol(
+        RULE, history_start="2026-08-24", history_end="2026-09-04",
+        forward_start="2026-09-07", now=datetime(2026, 9, 4, 8, tzinfo=timezone.utc),
+    )
+    d_old = register(tmp_path, older)
+    d_new = register(tmp_path, protocol())
+    assert active_study(tmp_path) is None, "未切换时不应凭空产生绑定"
+
+    set_active(tmp_path, d_old)
+    assert active_study(tmp_path) == d_old
+    set_active(tmp_path, d_new)
+    assert active_study(tmp_path) == d_new, "切换未生效"
+
+    supersede(d_new, reason="误操作")
+    assert active_study(tmp_path) is None, "指向已封存协议时必须失效, 由调用方回退"
+    with pytest.raises(ValueError, match="superseded"):
+        set_active(tmp_path, d_new)
+
+
+def test_active_binding_distinguishes_unset_from_broken(tmp_path):
+    """「从未配置」和「配置过但失效」处置相反：前者兼容默认, 后者必须停。"""
+    from intelligence.services.method_validation import (
+        active_binding, set_active, supersede,
+    )
+
+    assert active_binding(tmp_path)["state"] == "unset"
+
+    d_new = register(tmp_path, protocol())
+    set_active(tmp_path, d_new)
+    assert active_binding(tmp_path)["state"] == "ok"
+
+    supersede(d_new, reason="迁移")
+    binding = active_binding(tmp_path)
+    assert binding["state"] == "superseded", "封存后仍报可用, 夜跑会拿错协议写新观察"
+    assert binding["study_dir"] is None and binding["detail"]
+
+    (tmp_path / "active.json").write_text("{ 不是 json", encoding="utf-8")
+    assert active_binding(tmp_path)["state"] == "corrupt"
+
+
+def test_structurally_valid_json_that_is_not_an_object_is_corrupt_not_unset(tmp_path):
+    """`[]` / `null` / `"x"` 都能被 json.loads 解析, 但 doc.get 会抛 AttributeError。
+
+    未捕获就是进程 exit 1, 恰好与旧版「从未配置」的业务码相同, 夜跑于是静默回退旧协议
+    （09-12 质检实测）。这类内容必须归 corrupt, 不能归 unset, 更不能抛出去。
+    """
+    from intelligence.services.method_validation import active_binding
+
+    for payload in ("[]", "null", '"x"', "123"):
+        (tmp_path / "active.json").write_text(payload, encoding="utf-8")
+        binding = active_binding(tmp_path)
+        assert binding["state"] == "corrupt", f"{payload} 被判成 {binding['state']}"
+        assert binding["study_dir"] is None
+
+
+def test_unreadable_pointer_is_not_reported_as_unset(tmp_path):
+    """「查不出来」不是「不存在」。
+
+    `lexists()` 把**任何** lstat 失败都压成 False——父目录没有遍历权限时, 有效指针会被
+    报成「从未配置」(rc=4), 夜跑据此静默回退旧协议（09-12 质检实测）。只有
+    FileNotFoundError 能证明确实不存在。
+    """
+    import os
+
+    from intelligence.services.method_validation import active_binding, set_active
+
+    study = register(tmp_path, protocol())
+    set_active(tmp_path, study)
+    assert active_binding(tmp_path)["state"] == "ok"
+
+    os.chmod(tmp_path, 0o000)
+    try:
+        binding = active_binding(tmp_path)
+    finally:
+        os.chmod(tmp_path, 0o700)
+    assert binding["state"] == "unreadable", f"读不到却报 {binding['state']}"
+    assert binding["study_dir"] is None
+    assert "Permission" in binding["detail"] or "denied" in binding["detail"]
+
+
+def test_supersede_refuses_to_reach_outside_the_declared_root(tmp_path):
+    """`--user`/`--root` 是**变更边界**, 不只是「读哪个根的 active」。
+
+    上一版只拿它选根, 标记却按 --study-dir 直接写: `supersede --user u1 --study-dir
+    <别人的协议>` 照样 rc=0 把别人的协议封了（质检实测）。
+    """
+    import subprocess
+    import sys
+
+    mine = tmp_path / "users" / "u1" / "method_validation"
+    theirs = tmp_path / "users" / "other" / "method_validation"
+    mine.mkdir(parents=True)
+    theirs.mkdir(parents=True)
+    register(mine, protocol())
+    victim = register(theirs, protocol())
+
+    cli = [sys.executable, str(REPO / "scripts" / "method_validation.py"), "supersede"]
+    done = subprocess.run([*cli, "--root", str(mine), "--study-dir", str(victim), "--reason", "越界"],
+                          capture_output=True, text=True)
+    assert done.returncode != 0, "跨根封存被放行"
+    assert "不属于该 root" in (done.stdout + done.stderr)
+    assert not (victim / "superseded.json").exists(), "拒绝了却仍写下了封存标记"
+
+    ok = subprocess.run([*cli, "--root", str(theirs), "--study-dir", str(victim), "--reason", "正常"],
+                        capture_output=True, text=True)
+    assert ok.returncode == 0, f"指对根却封不了: {ok.stderr[-200:]}"
+    assert (victim / "superseded.json").exists()
+
+
+def test_pointer_that_is_not_a_regular_file_is_corrupt_not_unset(tmp_path):
+    """目录与悬空软链都会让 is_file() 返回 False——旧实现据此报「没配过」。"""
+    from intelligence.services.method_validation import active_binding
+
+    (tmp_path / "active.json").mkdir()
+    assert active_binding(tmp_path)["state"] == "corrupt", "指针是目录却报「没配过」"
+
+    (tmp_path / "active.json").rmdir()
+    (tmp_path / "active.json").symlink_to(tmp_path / "does-not-exist")
+    assert active_binding(tmp_path)["state"] == "corrupt", "悬空软链却报「没配过」"
+
+
+def test_broken_protocol_is_invalid_in_both_output_modes(tmp_path):
+    """有效性不能由展示格式决定: --print-dir 说有效、普通模式说损坏（质检实测 0 vs 2）。"""
+    import subprocess
+    import sys
+
+    from intelligence.services.method_validation import active_binding, set_active
+
+    study = register(tmp_path, protocol())
+    set_active(tmp_path, study)
+    (study / "protocol.json").write_text('{"protocol_id": "坏了"}', encoding="utf-8")
+
+    assert active_binding(tmp_path)["state"] == "corrupt"
+    cli = [sys.executable, str(REPO / "scripts" / "method_validation.py"), "active", "--root", str(tmp_path)]
+    printed = subprocess.run([*cli, "--print-dir"], capture_output=True, text=True)
+    plain = subprocess.run(cli, capture_output=True, text=True)
+    assert printed.returncode == plain.returncode != 0, \
+        f"两种输出模式判定不一致: --print-dir={printed.returncode} 普通={plain.returncode}"
+    assert printed.stdout.strip() == "", "判定为坏却仍打印了目录, 夜跑会照用"
+
+
+def test_set_active_rejects_study_outside_root(tmp_path):
+    """指针只存目录名, 跨根写入会「返回成功但读不回」。"""
+    from intelligence.services.method_validation import active_study, set_active
+
+    home = tmp_path / "users" / "real" / "method_validation"
+    other = tmp_path / "users" / "default" / "method_validation"
+    home.mkdir(parents=True)
+    other.mkdir(parents=True)
+    study = register(home, protocol())
+
+    with pytest.raises(ValueError, match="does not belong to root"):
+        set_active(other, study)
+    assert active_study(other) is None
+    assert not (other / "active.json").exists(), "拒绝后不该留下半条指针"
+
+
+def test_supersede_is_idempotent_for_same_intent(tmp_path):
+    """同一封存意图重试必须幂等: superseded_at 每次都是 now, 否则撞不可覆盖发布。"""
+    from intelligence.services.method_validation import supersede
+
+    study = register(tmp_path, protocol())
+    first = supersede(study, successor_id=None, reason="口径 v3 → v5")
+    stamp = json.loads(first.read_text(encoding="utf-8"))["superseded_at"]
+
+    again = supersede(study, successor_id=None, reason="口径 v3 → v5")
+    assert again == first
+    assert json.loads(again.read_text(encoding="utf-8"))["superseded_at"] == stamp, \
+        "重试刷新了封存时刻, 首次封存的事实被改写"
+
+    with pytest.raises(ValueError, match="different successor/reason"):
+        supersede(study, successor_id=None, reason="换个理由")
+
+
+def test_history_on_superseded_protocol_is_refused(tmp_path):
+    """`history` 也直接吃 --study-dir, 不过 list_studies——自查实测它 rc=0、写入记录
+    **并刷新 standing**, 而我上一轮只堵了 daily / capture。
+
+    这里用**真的旁路库**跑真实入口: 库缺失会先报参数错误, 那样的非零证明不了任何事
+    （「返回非零 ≠ 走到了封存闸」）。
+    """
+    import subprocess
+    import sys
+
+    from intelligence.services.method_validation import supersede
+
+    db = make_db(tmp_path)
+    root = tmp_path / "m"
+    root.mkdir()
+    study = register(root, protocol())
+    supersede(study, reason="已封存")
+
+    done = subprocess.run(
+        [sys.executable, str(REPO / "scripts" / "method_validation.py"), "history",
+         "--study-dir", str(study), "--labels-db", str(db)],
+        capture_output=True, text=True,
+    )
+    assert done.returncode != 0, "已封存协议仍接受 history"
+    assert "已封存" in (done.stdout + done.stderr), \
+        f"非零但不是封存闸拦的, 证明不了: {(done.stdout + done.stderr)[-200:]}"
+    assert not (study / "history").exists(), "封存后仍写出了 history 记录"
+    assert not (study / "standing").exists(), "封存后仍刷新了 standing 摘要"
+
+
+def test_every_new_observation_entry_calls_the_supersede_gate():
+    """**漏调用报警**: 凡是调用 ``write_record`` 的函数, 必须也调用 ``_refuse_if_superseded``,
+    且闸的调用位置在第一处写入之前。
+
+    保障范围要说准（质检指出）: 这是静态的「有没有调、谁在前」, **不是控制流证明**。
+    把闸放进一个永不执行的分支、或放在 ``return`` 之后又挪回前面几行, 它都看不出来。
+    真正钉住行为的是各写入口的行为回归（见 ``test_history_on_superseded_protocol_is_refused``
+    与 daily/capture 的同类用例）; 这条只负责在**新增写入口忘了加闸**时立刻报警——
+    上一轮漏掉 history 正是这个场景。
+    """
+    import ast
+
+    src = (REPO / "scripts" / "method_validation.py").read_text(encoding="utf-8")
+    tree = ast.parse(src)
+
+    def first_lineno(node, name: str) -> int | None:
+        hits = [
+            n.lineno for n in ast.walk(node)
+            if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == name
+        ]
+        return min(hits) if hits else None
+
+    missing, late = [], []
+    for fn in ast.walk(tree):
+        if not isinstance(fn, ast.FunctionDef):
+            continue
+        writes = first_lineno(fn, "write_record")
+        if writes is None:
+            continue
+        gate = first_lineno(fn, "_refuse_if_superseded")
+        if gate is None:
+            missing.append(fn.name)
+        elif gate > writes:
+            late.append(fn.name)
+
+    assert not missing, f"这些函数会写新观察却没调封存闸: {missing}"
+    assert not late, f"这些函数的封存闸写在第一处写入之后: {late}"
+
+
+MIGRATION_DOC = REPO / "docs" / "superpowers" / "specs" / "2026-09-12-label-version-migration-plan.md"
+
+
+def _acceptance_block() -> str:
+    """把迁移方案 ④ 的验收代码**原样**抽出来跑。
+
+    抽而不抄, 是因为上一版正是「文档写着别往下走、代码却不退出」——两边各说各话时,
+    抄一份到测试里只会让测试验一个文档里并不存在的写法。
+    """
+    text = MIGRATION_DOC.read_text(encoding="utf-8")
+    start = text.index("verify_history() {")
+    return text[start:text.index("```", start)]
+
+
+def _run_acceptance(tmp_path, study, labels_db):
+    """按迁移方案的用法跑 ④, 并在其后放一个 ⑤ 的哨兵。"""
+    import subprocess
+    import sys
+
+    block = _acceptance_block()
+    assert "verify_history ||" in block, "抽出来的不是完整的 ④（缺调用与失败出口）"
+    script = "\n".join([
+        "set -u",
+        f"PY={shlex.quote(sys.executable)}",
+        f'CLI={shlex.quote(str(REPO / "scripts" / "method_validation.py"))}',
+        f"NEW={shlex.quote(str(study))}",
+        f"LABELS_DB={shlex.quote(str(labels_db))}",
+        'mv_() { "$PY" "$CLI" "$@"; }',
+        "prot_() { \"$PY\" -c 'import json,sys; d=json.load(open(sys.argv[1]))[\"protocol\"];"
+        " print(json.dumps({k:d.get(k) for k in sys.argv[2:]}, ensure_ascii=False))'"
+        ' "$1/protocol.json" "${@:2}"; }',
+        block,
+        'echo "STEP5_SENTINEL_RAN"',   # ⑤ 的替身: 只有 ④ 放行才该出现
+    ])
+    return subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                          cwd=str(tmp_path))
+
+
+
+def test_history_acceptance_stops_the_migration_when_there_is_no_record(tmp_path):
+    """④ 的失败必须**真的**挡住 ⑤, 而不是打印一句就继续。
+
+    质检复现: 空 history 日期目录 + 不存在的 labels 库 —— history 非零、record 解析失败,
+    但旧写法里 `[ "$rc" -eq 0 ] || { echo …; }` 只打印不退出, 末尾 `prot_` 又成功,
+    于是整块 rc=0, ⑤ 照跑。这里直接跑文档里的那段代码, 断言它非零且哨兵没执行。
+    """
+    make_db(tmp_path)
+    root = tmp_path / "m"
+    root.mkdir()
+    study = register(root, protocol())
+    (study / "history" / "2026-09-12").mkdir(parents=True)   # 空目录: ls 会假通过
+
+    done = _run_acceptance(tmp_path, study, tmp_path / "does-not-exist.duckdb")
+
+    assert done.returncode != 0, f"④ 失败却返回 0, ⑤ 会被放行\n{done.stdout}\n{done.stderr}"
+    assert "STEP5_SENTINEL_RAN" not in done.stdout, "④ 没挡住, ⑤ 已经执行"
+    assert "④" in done.stderr, f"④ 失败得悄无声息: {done.stderr[-300:]}"
+    assert not list((study / "history" / "2026-09-12").glob("*.json")), "前提: 确实没有收据"
+
+
+def test_history_acceptance_checks_the_record_not_the_directory(tmp_path):
+    """④ 通过时, 必须是从 record 原件里读出四样东西, 不是看见目录就算。
+
+    `ls` 给不出其中任何一样: 协议 id / 类型 / 观察窗口 / 三组读数与共同可评估日期数。
+    最后一样单独钉住——质检让报告少输出对照读数时, 早先只查窗口的版本仍然通过。
+    """
+    import subprocess
+    import sys
+
+    db = make_db(tmp_path)
+    root = tmp_path / "m"
+    root.mkdir()
+    study = register(root, protocol())
+
+    done = _run_acceptance(tmp_path, study, db)
+    assert done.returncode == 0, f"{done.stdout}\n{done.stderr}"
+    assert "STEP5_SENTINEL_RAN" in done.stdout, "④ 通过了却不让 ⑤ 执行"
+
+    records = sorted((study / "history").rglob("*.json"))
+    assert records, "④ 报成功却没留下 record 原件"
+
+    cli = [sys.executable, str(REPO / "scripts" / "method_validation.py")]
+    report = subprocess.run([*cli, "report", "--record", str(records[0])],
+                            capture_output=True, text=True)
+    assert report.returncode == 0, report.stderr[-300:]
+    body = report.stdout
+
+    assert study.name in body, "report 认不出这份记录属于哪个协议"
+    assert "history" in body, "report 没标出记录类型"
+    assert "2026-08-31" in body and "2026-09-07" in body, "report 没打出观察窗口"
+    # 组名在不够, 读数也必须在——质检把「留名称、删数值」的变异跑出来仍然全绿。
+    # 期望值来自上面的固定夹具（make_db）：universe 2 / dual_red 4 / streak3 6, 共同日期 1 天；
+    # 夹具改动时这里要同步改。
+    assert "三组共同可评估日期：**1**" in body, "report 没给出共同可评估日期数（光有小节名不算）"
+    for arm, expected in (("同日板块总体", "2.0000%"), ("当日严格双红", "4.0000%"),
+                          ("连续至少三日严格双红", "6.0000%")):
+        row = f"| {arm} | {expected} |"
+        assert row in body, f"report 缺组或缺读数: 期望整行 {row!r}"

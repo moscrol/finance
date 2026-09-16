@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 import random
 import time
-from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import asdict, dataclass, replace
 from datetime import date as date_type
 from datetime import datetime
 from pathlib import Path
@@ -39,7 +39,10 @@ class TradeSource:
 class CapitalFlowSummary:
     active_net_wan: float
     total_net_wan: float
-    change_pct: float
+    # 当日涨幅%。原始聚合只能给「末笔/首笔」日内口径；读出侧被
+    # L2QueryService._with_canonical_pct 统一覆盖为日线口径（收盘/前收），
+    # 覆盖表缺该代码时为 None——不拿日内口径冒充日线。
+    change_pct: float | None
 
 
 def trade_source(code: str) -> TradeSource:
@@ -244,6 +247,7 @@ class L2QueryService:
         client_factory: Callable[[], QueryClient],
         cache: SharedQueryCache | None = None,
         retries: int = 3,
+        pct_chg_by_code: Mapping[str, float] | None = None,
     ):
         self.date = date
         self.threshold_wan = threshold_wan
@@ -254,6 +258,7 @@ class L2QueryService:
         )
         self.retries = retries
         self.query_executions = 0
+        self._pct_chg_by_code = pct_chg_by_code
 
     def cache_stats(self) -> dict[str, int | str]:
         return {**self.cache.stats(), "queries": self.query_executions}
@@ -286,7 +291,7 @@ class L2QueryService:
             self.date, code, self.threshold_wan
         )
         if hit:
-            return client, cached
+            return client, self._with_canonical_pct(code, cached)
         source = trade_source(code)
         client, rows = self._execute(
             client,
@@ -314,7 +319,20 @@ class L2QueryService:
             self.cache.put_capital_flow(
                 self.date, code, self.threshold_wan, summary
             )
-        return client, summary
+        return client, self._with_canonical_pct(code, summary)
+
+    def _with_canonical_pct(
+        self, code: str, summary: CapitalFlowSummary | None
+    ) -> CapitalFlowSummary | None:
+        """当日涨幅%在读出侧统一覆盖为日线口径（收盘/前收）。
+
+        放在读出侧而不是写入侧：磁盘缓存里的旧口径条目（末笔/首笔）命中时同样被
+        纠正，无需清缓存。覆盖表缺该代码时置 None——宁可 NULL 也不拿日内口径冒充
+        日线（2026-09-13 QC E3：两口径系统性背离，会翻转下游「资金背离」标签）。
+        """
+        if summary is None or self._pct_chg_by_code is None:
+            return summary
+        return replace(summary, change_pct=self._pct_chg_by_code.get(code))
 
     def buyer_orders(
         self, client: QueryClient, code: str

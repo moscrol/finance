@@ -18,7 +18,7 @@ import pytest
 
 from intelligence.services.methodology_backtest import outcomes as outcomes_mod
 from intelligence.services.methodology_backtest.compiler import compile_rule
-from intelligence.services.methodology_backtest.labels import LABEL_VERSION, build_labels
+from intelligence.services.methodology_backtest.labels import ALL_LABELS, LABEL_VERSION, build_labels
 from intelligence.services.methodology_backtest.outcomes import build_outcomes
 from intelligence.services.methodology_backtest.receipts import build_receipt, render_receipt_markdown
 from intelligence.services.methodology_backtest.rules import RuleValidationError, load_rule, parse_rule, validate_rule
@@ -292,6 +292,14 @@ def _build_mini_db(path: Path) -> None:
             "INSERT INTO fact_mainline_sector_daily (trade_date, theme_code, theme_name, sector_ts_code, sector_name, sort_no) VALUES (?,?,?,?,?,?)",
             [DAYS[4], "TH1.FP", "主线", "S2.TI", "板块二", 1],
         )
+        # 舆论生命周期（#36）：板块一被两份研报 tag 命中，其中一份 created_at 落在 DAYS[4]（当天前看不见）。
+        con.executemany(
+            "INSERT INTO fact_research_report_catalog (report_id, title, report_date, report_type, sector_tags, concept_tags, created_at) VALUES (?,?,?,?,?,?,?)",
+            [
+                (1, "板块一研报 A", DAYS[0], "industry", '["板块一"]', "[]", f"{DAYS[0]}T18:00:00"),
+                (2, "板块一研报 B", DAYS[1], "industry", '["板块一"]', "[]", f"{DAYS[4]}T18:00:00"),
+            ],
+        )
         _plant_mini_stocks(con)
     finally:
         con.close()
@@ -318,12 +326,14 @@ def _label(con, entity_type, entity_id, label):
 
 def test_labels_inventory_and_data_gap(mini):
     rep = mini["report"]
-    assert len(rep.rows_by_label) == 15
+    # 用目录不变量而非写死计数：合并撞车时（#36 加 opinion_stage 与 #21 加 lifecycle_stage 各 +1）
+    # 绝对数字两边各自为真、合起来就错。夹具里每个已注册标签都必须产出行。
+    assert set(rep.rows_by_label) == set(ALL_LABELS)
     assert rep.data_gap_days == [str(DAYS[GAP])]
     assert rep.label_version == LABEL_VERSION
     con = duckdb.connect(str(mini["labels"]), read_only=True)
     try:
-        assert con.execute("SELECT COUNT(DISTINCT label) FROM history_labels").fetchone()[0] == 15
+        assert con.execute("SELECT COUNT(DISTINCT label) FROM history_labels").fetchone()[0] == len(ALL_LABELS)
         assert con.execute("SELECT MAX(trade_date) FROM history_labels").fetchone()[0] == DAYS[-1]
     finally:
         con.close()
@@ -662,13 +672,21 @@ def test_compiler_stage_baseline_sql_parameterized_for_both_kinds():
 
 
 def test_synthetic_positive_control_supported_in_every_stage_with_own_baseline(synthetic, tmp_path):
-    """合成库阳性对照（120 日 / 12 板块）：五个阶段各自 p=1.0、各自 p0≈0.5；n ≥ min_n 的阶段 supported 且过规则内 BH，
-    n < min_n 的阶段一律 insufficient_n（不因 p=1.0 而升格）；前视夹具翻转后同样按 n 分成 refuted / insufficient_n；
+    """小合成库（120 日 / 12 板块，**独立于共享 fixture**——240 日下小桶消失）：五个阶段各自
+    p=1.0、各自 p0≈0.5；n ≥ min_n 的阶段 supported 且过规则内 BH，n < min_n 的阶段一律
+    insufficient_n（不因 p=1.0 而升格）；前视夹具翻转后阶段桶按 n 分成 refuted / insufficient_n。
+    顶层 verdict 在这个尺寸下是 insufficient_n：事件日太少（36 日 / 7 块），OPT-05 依赖门下
+    **连 refuted 也不出**——同日的负样本同样不独立。阶段桶保留独立口径（解释用，晋升只看顶层）。
     证伪库条目与 report 带阶段级 p0 / 结论。"""
     from intelligence.services.methodology_backtest.receipts import load_refuted, render_refuted_markdown, summarize_refuted_by_stage, write_refuted
 
     st = synthetic["st"]
-    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    small_src = tmp_path / "small-src.duckdb"
+    small_lab = tmp_path / "small-labels.duckdb"
+    st.build_sample_db(small_src, n_days=120, n_sectors=12)
+    build_labels(small_src, small_lab)
+    build_outcomes(small_src, small_lab)
+    res = st.run(small_lab, st.POSITIVE_RULE)
     stages = res.stage_breakdown
     assert len(stages) == 5 and all(b.p == 1.0 for b in stages)
     assert all(0.3 < b.p0 < 0.7 for b in stages), [(b.stage, b.p0) for b in stages]
@@ -681,15 +699,24 @@ def test_synthetic_positive_control_supported_in_every_stage_with_own_baseline(s
     sm = res.baseline_stage_matched
     assert sm is not None and sm.verdict_if_used == "supported" and sm.lift > 0.3
 
-    shifted = _shifted_labels_db(st, synthetic["src"], tmp_path / "labels-shift.duckdb")
+    shifted = _shifted_labels_db(st, small_src, tmp_path / "labels-shift.duckdb")
     bad = st.run(shifted, st.POSITIVE_RULE)
-    assert bad.readout.verdict == "refuted" and all(b.p == 0.0 for b in bad.stage_breakdown)
+    # 顶层：独立读数 refuted，但 7 块 < min_blocks → 依赖门把它压回 insufficient_n——
+    # 「块不足时不出结论」对 refuted 同样成立（同日负样本同样不独立）。
+    assert bad.dependence is not None and bad.dependence.verdict == "insufficient_blocks"
+    assert bad.readout.verdict == "insufficient_n"
+    assert all(b.p == 0.0 for b in bad.stage_breakdown)
     assert {b.verdict for b in bad.stage_breakdown if b.n >= 20} == {"refuted"}
     assert {b.verdict for b in bad.stage_breakdown if b.n < 20} <= {"insufficient_n"}
-    receipt = build_receipt(bad, rule_path=None, rule_sha256=None, environment=_ENV)
+    # 证伪库只收 verdict=refuted：小夹具的翻转被依赖门压回 insufficient_n，出不了真
+    # refuted——用共享 240 日夹具的前视翻转（块数够，两道读数一致 refuted）。
+    shifted_big = _shifted_labels_db(st, synthetic["src"], tmp_path / "labels-shift-big.duckdb")
+    bad_big = st.run(shifted_big, st.POSITIVE_RULE)
+    assert bad_big.readout.verdict == "refuted"
+    receipt = build_receipt(bad_big, rule_path=None, rule_sha256=None, environment=_ENV)
     root = tmp_path / "refuted"
     write_refuted(root, receipt, date_str="2026-09-05", receipt_path=None)
-    loaded = load_refuted(root)
+    loaded, _unreadable = load_refuted(root)
     entry = loaded[0]
     assert entry["baseline_stage_matched"]["kind"] == "same_stage_days"
     rows = summarize_refuted_by_stage(loaded)
@@ -729,9 +756,9 @@ def test_refuted_entry_written_only_for_refuted_verdict(synthetic, tmp_path):
     assert res.readout.verdict == "refuted"
     receipt = build_receipt(res, rule_path="methodology/rules/x.v1.json", rule_sha256=None, environment=env)
     root = tmp_path / "refuted"
-    assert load_refuted(root) == [] and "证伪库为空" in render_refuted_markdown([])
+    assert load_refuted(root) == ([], []) and "证伪库为空" in render_refuted_markdown([])
     path = write_refuted(root, receipt, date_str="2026-09-04", receipt_path="methodology/receipts/x@v1/2026-09-04.json")
-    assert path == root / "selftest_positive@v1" / "2026-09-04.json"
+    assert path.parent == root / "selftest_positive@v1" and path.name.startswith("2026-09-04-")
     entry = __import__("json").loads(path.read_text(encoding="utf-8"))
     assert entry["schema_version"] == REFUTED_SCHEMA
     for key in ("rule_id", "rule_version", "sharing", "owner", "n", "p", "p0", "ci", "by_market_stage", "refuted_at", "receipt_path"):
@@ -741,7 +768,7 @@ def test_refuted_entry_written_only_for_refuted_verdict(synthetic, tmp_path):
     assert entry["by_market_stage"] and sum(b["n"] for b in entry["by_market_stage"]) == entry["n"]
     assert entry["refuted_at"] == receipt["generated_at"]
 
-    loaded = load_refuted(root)
+    loaded, _unreadable = load_refuted(root)
     assert len(loaded) == 1 and loaded[0]["_path"] == str(path)
     rows = summarize_refuted_by_stage(loaded)
     assert rows and all(r["rule_ref"] == "selftest_positive@v1" and r["p0"] == entry["p0"] for r in rows)
@@ -757,7 +784,29 @@ def test_refuted_entry_written_only_for_refuted_verdict(synthetic, tmp_path):
     # 坏文件 / 别的 schema 跳过
     (root / "selftest_positive@v1" / "broken.json").write_text("{", encoding="utf-8")
     (root / "selftest_positive@v1" / "other.json").write_text('{"schema_version": "x"}', encoding="utf-8")
-    assert len(load_refuted(root)) == 1
+    assert len(load_refuted(root)[0]) == 1
+
+
+def test_receipt_carries_declared_stage(synthetic):
+    """工单 #42：跑之前声明的阶段落在收据顶层；不声明为 null 并在 md 里说明不作晋升证据；乱写拒绝。"""
+    from intelligence.services.methodology_backtest.receipts import (
+        DECLARED_STAGES,
+        build_receipt,
+        render_receipt_markdown,
+    )
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    assert DECLARED_STAGES == ("discovery", "validation", "holdout")
+    declared = build_receipt(res, rule_path=None, rule_sha256="abc", environment=env, declared_stage="discovery")
+    assert declared["declared_stage"] == "discovery"
+    assert "声明阶段 `discovery`" in render_receipt_markdown(declared)
+    undeclared = build_receipt(res, rule_path=None, rule_sha256="abc", environment=env)
+    assert undeclared["declared_stage"] is None
+    assert "不作晋升证据" in render_receipt_markdown(undeclared)
+    with pytest.raises(ValueError):
+        build_receipt(res, rule_path=None, rule_sha256="abc", environment=env, declared_stage="主升")
 
 
 def test_cli_run_scan_write_refuted_and_report_refuted(synthetic, tmp_path, capsys):
@@ -786,8 +835,13 @@ def test_cli_run_scan_write_refuted_and_report_refuted(synthetic, tmp_path, caps
     # scan：阳性 refuted（BH 拒绝 H0）落库，阴性不落
     assert cli.main(["scan", str(pos), str(neg), "--labels-db", str(shifted), *common]) == 0
     assert not (refuted / "selftest_negative@v1").exists()
-    doc = __import__("json").loads(entries[0].read_text(encoding="utf-8"))
-    assert doc["test_mode"] == "scan" and doc["bh"]["rejected"] is True  # 同日重跑覆盖，最后一次是 scan
+    # 证伪是资产：scan 那条**另落一份**，不覆盖 run 那条（09-12 复核：同日重跑抹掉记录 = 丢证据）
+    after = sorted((refuted / "selftest_positive@v1").glob("*.json"))
+    assert len(after) == 2, [p.name for p in after]
+    docs = [__import__("json").loads(p.read_text(encoding="utf-8")) for p in after]
+    assert {d["test_mode"] for d in docs} == {"single", "scan"}
+    scan_doc = next(d for d in docs if d["test_mode"] == "scan")
+    assert scan_doc["bh"]["rejected"] is True
     capsys.readouterr()
     assert cli.main(["report", "--refuted", "--refuted-dir", str(refuted), "--labels-db", str(tmp_path / "nope.duckdb")]) == 0
     out = capsys.readouterr().out
@@ -811,6 +865,79 @@ def test_cli_propose_sharing_defaults_and_shared_owner_rule(synthetic, tmp_path)
     assert (shared.sharing, shared.owner, shared.raw["source_perspective"]) == ("shared", "system", "系统内置")
     assert cli.main([*base, "--rule-id", "bad_shared", "--sharing", "shared", "--owner", "alice"]) == 2
     assert not (rules_dir / "bad_shared.v1.json").exists()
+
+
+def test_conjunction_labels_use_three_valued_logic(tmp_path):
+    """合取式标签：任一**已知**条件为假就判 0，不因为别的输入缺失而退成 NULL。
+
+    真库形状（v4→v5 的动因）：8 个 .TI 板块 2025-01-02→2026-02-27 全程缺 ``diff_ratio``，
+    其中多数 ``amount`` 本就低于阈值、确定不是双红，旧写法却一律记 NULL；每个交易日
+    留 8 个 unknown 成员，method_validation 按纪律把整个信号日判成数据不足。
+
+    这里逐格钉三值逻辑，并把「仍然必须是 NULL」的两类一并钉住——判 1 的条件没有放宽：
+    ``data_gap`` 日整日 NULL、turn_up 的结构前提（无相邻前一日 / 前一日 gap）NULL。
+    """
+    src, lab = tmp_path / "src.duckdb", tmp_path / "labels.duckdb"
+    days = _weekdays(4)
+    con = duckdb.connect(str(src))
+    try:
+        init_db(con)
+        for d in days:
+            con.execute(
+                "INSERT INTO fact_market_daily (trade_date, market_stage, total_amount, advancers) VALUES (?,?,?,?)",
+                [d, "主升阶段", 10000.0, 2000],
+            )
+        # (pct_chg, amount, diff_ratio)；None = 该字段缺失
+        cases = {
+            # 已知条件足以判假 → 0，哪怕另一个输入缺失
+            "A_amount_low_diff_null": [(1.0, 100.0, None)] * 4,       # amount<=500 → 确定不是双红
+            "B_pct_down_diff_null": [(-1.0, 900.0, None)] * 4,        # pct<=0 → 确定不是
+            "C_diff_low_pct_null": [(None, 900.0, 3.0)] * 4,          # diff<=10 → 确定不是
+            # 已知的都为真、仍有缺失 → 真不可判，NULL
+            "D_all_pass_but_diff_null": [(1.0, 900.0, None)] * 4,
+            # 全部已知：正常 1 / 0
+            "E_full_yes": [(1.0, 900.0, 20.0)] * 4,
+            "F_full_no": [(1.0, 900.0, 5.0)] * 4,
+        }
+        rows = []
+        for code, series in cases.items():
+            for d, (pct, amt, diff) in zip(days, series):
+                rows.append((d, "legacy", f"{code}.TI", code, pct, amt, diff, None))
+        con.executemany(
+            "INSERT INTO fact_sector_daily_generation (trade_date, sector_universe_snapshot_id,"
+            " sector_ts_code, sector_name, pct_chg, amount, diff_ratio, multi_period_resonance)"
+            " VALUES (?,?,?,?,?,?,?,?)",
+            rows,
+        )
+    finally:
+        con.close()
+    build_labels(src, lab)
+
+    con = duckdb.connect(str(lab), read_only=True)
+    try:
+        def val(code, label, day_idx=2):
+            row = con.execute(
+                "SELECT value_num FROM history_labels WHERE entity_id=? AND label=? AND trade_date=?",
+                [f"{code}.TI", label, days[day_idx]],
+            ).fetchone()
+            return None if row is None else row[0]
+
+        assert val("A_amount_low_diff_null", "dual_red_strict") == 0, "amount 已知低于阈值 → 确定不是双红"
+        assert val("B_pct_down_diff_null", "dual_red_strict") == 0, "pct 已知非正 → 确定不是双红"
+        assert val("C_diff_low_pct_null", "dual_red_strict") == 0, "diff 已知低于阈值 → 确定不是双红"
+        assert val("D_all_pass_but_diff_null", "dual_red_strict") is None, "已知的都为真但有缺失 → 真不可判"
+        assert val("E_full_yes", "dual_red_strict") == 1
+        assert val("F_full_no", "dual_red_strict") == 0
+        # streak 跟着 dual_red 走：确定为假的那几个不再是 NULL，而是 0
+        assert val("A_amount_low_diff_null", "dual_red_streak") == 0
+        assert val("D_all_pass_but_diff_null", "dual_red_streak") is None
+        # turn_up：当日 diff 已知非正 → 0（不必知道前一日）；前一日已知为正 → 0
+        assert val("C_diff_low_pct_null", "diff_ratio_turn_up") == 0
+        assert val("E_full_yes", "diff_ratio_turn_up") == 0, "前一日 diff 已知为正 → 确定不是由负转正"
+        # 结构前提缺失仍是 NULL：第 0 日没有前一交易日
+        assert val("E_full_yes", "diff_ratio_turn_up", day_idx=0) is None
+    finally:
+        con.close()
 
 
 def test_sector_label_semantics(mini):
@@ -968,7 +1095,11 @@ def synthetic(tmp_path_factory):
     root = tmp_path_factory.mktemp("synthetic")
     src = root / "src.duckdb"
     lab = root / "labels.duckdb"
-    planted = st.build_sample_db(src, n_days=120, n_sectors=12)
+    # 240 天：事件日相位只有 4 种（event_days 的 sector_idx % 4），120 天只出 36 个
+    # 事件日 = 7 个完整日期块，OPT-05 依赖门下真阳性也会 insufficient_blocks——门要
+    # 拦的是「事件多、日期少」的复制形状，不是拦掉整个夹具，所以把日历放大到接近
+    # 真库量级（413 交易日），让阳性对照在依赖口径下也确实够块数。
+    planted = st.build_sample_db(src, n_days=240, n_sectors=12)
     build_labels(src, lab)
     build_outcomes(src, lab)
     return {"st": st, "src": src, "labels": lab, "planted": planted}
@@ -979,7 +1110,9 @@ def test_positive_control_supported(synthetic):
     res = st.run(synthetic["labels"], st.POSITIVE_RULE)
     rd = res.readout
     assert rd.verdict == "supported" and rd.lo > rd.p0
-    assert rd.n + res.n_pending == synthetic["planted"]["n_events"]
+    assert res.dependence is not None and res.dependence.verdict == "supported", "依赖感知读数也须过门"
+    # purge 剔掉的是窗末 outcome 跨窗的事件：三者相加才是全部植入事件
+    assert rd.n + res.n_pending + res.n_purged == synthetic["planted"]["n_events"]
 
 
 def test_negative_control_not_supported(synthetic):
@@ -1070,6 +1203,643 @@ def test_scan_applies_bh_and_marks_exploratory(synthetic):
     assert "成立条件" in md and "Wilson" in md
 
 
+def test_same_day_three_stages_do_not_overwrite_each_other(synthetic, tmp_path):
+    """同一天跑完 discovery / validation / holdout 三段：三份收据共存且能凑齐晋升链；
+    同段重跑**各留一份**，由读取层决定采用哪次——写入层不删除失败记录。
+
+    两个缺口一起钉（09-12 走真实闭环 + 复核时暴露）：
+    1. 收据文件名原本只有日期粒度，同日三段互相覆盖只剩最后一份，``lifecycle`` 凑不齐三级；
+    2. 更要命的是同段重跑**物理删掉**上一次结果——留出窗 refuted 之后当天换窗重跑 supported，
+       失败那份被覆盖，「同阶段两个不同窗口 = 事后挑窗」检测没有证据可查，直接晋升。
+    """
+    import datetime as _dt
+
+    from intelligence.services.methodology_backtest import lifecycle
+    from intelligence.services.methodology_backtest.receipts import write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    day = "2026-09-12"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+
+    def put(stage, ws, we, hour, verdict=None):
+        receipt = build_receipt(
+            res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage=stage,
+            now=_dt.datetime(2026, 9, 12, hour, tzinfo=_dt.timezone.utc),
+        )
+        receipt["window"] = {"start": ws, "end": we}
+        receipt["rule"]["version"] = 1
+        if verdict is not None:
+            receipt["verdict"] = verdict
+        return write_receipt(root, receipt, date_str=day)[0]
+
+    def state():
+        return lifecycle.derive_state(
+            {"rule_id": "selftest_positive", "version": 1, "owner": "t"},
+            lifecycle.load_steps(root, "selftest_positive"), rule_sha256="sha-x",
+        )
+
+    put("discovery", "2026-01-01", "2026-03-31", 10)
+    put("validation", "2026-04-01", "2026-06-30", 11)
+    put("holdout", "2026-07-01", "2026-08-31", 12)
+
+    folder = root / "selftest_positive@v1"
+    names = sorted(p.name for p in folder.glob("*.json"))
+    assert len(names) == 3 and [n.split("-")[3] for n in names] == ["discovery", "holdout", "validation"], names
+    assert all(n.startswith(f"{day}-") for n in names), names
+    assert [s.declared_stage for s in lifecycle.load_steps(root, "selftest_positive")] == ["discovery", "validation", "holdout"]
+    assert state().state == "personal_method", state().blocked_by
+
+    # 留出窗重跑判证伪：12 点那份 supported 仍在档、确实让它一度过门，13 点把它推翻 →
+    # invalidated（「过门后被推翻」）。旧的覆盖模式会删掉 12 点那份，于是显示成
+    # contradicted——保留记录之后，终态才如实反映发生过什么。两者都不在方法库里。
+    put("holdout", "2026-07-01", "2026-08-31", 13, verdict="refuted")
+    assert state().state == "invalidated" and not state().in_method_library
+
+    # 同日换一个窗口重跑并判 supported：**失败记录仍在**，于是 refuted 切出的新轮次照常生效，
+    # 换窗那份落进第 2 轮次、只有 holdout 一段 → 不得晋升。
+    # （旧的覆盖模式下失败记录被删，这一份 supported 会直接补齐三段链 → personal_method。）
+    put("holdout", "2026-07-15", "2026-09-10", 14)
+    assert len(list(folder.glob("*.json"))) == 5, "每次运行各留一份，不覆盖"
+    after = state()
+    assert not after.in_method_library, f"换窗重跑不得晋升，得到 {after.state}"
+    assert after.validation_cycle == 2 and "新轮次重新走三段门" in (after.blocked_by or ""), after.blocked_by
+
+
+def test_same_second_runs_keep_their_order(synthetic, tmp_path):
+    """同一秒内的两次运行：读取端必须取**时间上更晚**的那份，不能由文件名 hash 决定。
+
+    时间戳原本截到秒，同秒两份逐字相同，排序键退化到文件名，而文件名后缀含内容 hash——
+    实测能让稍后的 not_distinguishable 排在更早的 supported 之前，生命周期停在
+    personal_method（09-12 复核）。
+    """
+    import datetime as _dt
+
+    from intelligence.services.methodology_backtest import lifecycle
+    from intelligence.services.methodology_backtest.receipts import latest_receipt, write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+
+    def put(stage, ws, we, hour, micros=0, verdict=None):
+        receipt = build_receipt(
+            res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage=stage,
+            now=_dt.datetime(2026, 9, 12, hour, microsecond=micros, tzinfo=_dt.timezone.utc),
+        )
+        receipt["window"] = {"start": ws, "end": we}
+        receipt["rule"]["version"] = 1
+        if verdict is not None:
+            receipt["verdict"] = verdict
+        write_receipt(root, receipt, date_str="2026-09-12")
+        return receipt
+
+    put("discovery", "2026-01-01", "2026-03-31", 10)
+    put("validation", "2026-04-01", "2026-06-30", 11)
+    early = put("holdout", "2026-07-01", "2026-08-31", 12, micros=100_000)
+    late = put("holdout", "2026-07-01", "2026-08-31", 12, micros=900_000, verdict="not_distinguishable")
+
+    assert early["generated_at"] != late["generated_at"], "同秒两次运行的时间戳必须可区分"
+    assert latest_receipt(root, "selftest_positive")["verdict"] == "not_distinguishable"
+    steps = lifecycle.load_steps(root, "selftest_positive")
+    assert [s.verdict for s in steps][-1] == "not_distinguishable", "排序必须按时刻，不按文件名"
+    state = lifecycle.derive_state(
+        {"rule_id": "selftest_positive", "version": 1, "owner": "t"}, steps, rule_sha256="sha-x",
+    )
+    assert not state.in_method_library, f"最新一次未过门，不得晋升，得到 {state.state}"
+
+
+def test_write_receipt_refuses_silent_overwrite(synthetic, tmp_path):
+    """同名 + 内容不同 → 抛 ``ReceiptCollision``；同名 + 内容相同 → 幂等跳过。
+
+    文件名已带微秒时刻 + 128 bit 摘要，正常路径撞不上；这道闸是兜底——撞上说明时钟回退
+    或摘要口径变了，那时**报错比覆盖安全**，被覆盖的可能正是一次失败记录。
+    """
+    import datetime as _dt
+
+    from intelligence.services.methodology_backtest.receipts import (
+        ReceiptCollision,
+        _guard_no_silent_overwrite,
+        write_receipt,
+    )
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    receipt = build_receipt(
+        res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage="holdout",
+        now=_dt.datetime(2026, 9, 12, 12, tzinfo=_dt.timezone.utc),
+    )
+    receipt["rule"]["version"] = 1
+    json_path, _ = write_receipt(root, receipt, date_str="2026-09-12")
+    folder = root / "selftest_positive@v1"
+
+    # 同内容重写：幂等，不新增文件、不抛错
+    write_receipt(root, receipt, date_str="2026-09-12")
+    assert len(list(folder.glob("*.json"))) == 1
+
+    # 同名但内容不同：拒绝
+    mutated = dict(receipt, verdict="refuted")
+    with pytest.raises(ReceiptCollision) as exc:
+        _guard_no_silent_overwrite(json_path, mutated)
+    assert "拒绝静默覆盖" in str(exc.value)
+
+
+def test_concurrent_writes_cannot_overwrite_each_other(synthetic, tmp_path):
+    """强制同名 + 并发：必须恰好一个成功、一个被 ``ReceiptCollision`` 拒，且只留一份。
+
+    「先 exists() 再 write」是 check-then-act，两个写手可以都通过检查、都去写，后者覆盖
+    前者（09-12 复核用线程池实测）。改用 ``O_CREAT | O_EXCL`` 把「不存在才创建」交给内核
+    一次完成。这里用 monkeypatch 强制同名来构造碰撞条件——不是在赌 128 bit 自然碰撞。
+    """
+    import datetime as _dt
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    from intelligence.services.methodology_backtest import receipts as receipts_mod
+    from intelligence.services.methodology_backtest.receipts import ReceiptCollision, write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+
+    def doc(verdict):
+        r = build_receipt(
+            res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage="holdout",
+            now=_dt.datetime(2026, 9, 12, 12, tzinfo=_dt.timezone.utc),
+        )
+        r["rule"]["version"] = 1
+        r["verdict"] = verdict
+        return r
+
+    ok, rejected = [], []
+    barrier = threading.Barrier(2)
+
+    def run(verdict):
+        barrier.wait()
+        try:
+            ok.append(write_receipt(root, doc(verdict), date_str="2026-09-12"))
+        except ReceiptCollision:
+            rejected.append(verdict)
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(receipts_mod, "_run_suffix", lambda _receipt: "forced-collision")
+        with ThreadPoolExecutor(2) as pool:
+            list(pool.map(run, ["refuted", "supported"]))
+
+    folder = root / "selftest_positive@v1"
+    assert len(ok) == 1 and len(rejected) == 1, (ok, rejected)
+    assert len(list(folder.glob("*.json"))) == 1
+
+
+def test_scan_summary_also_refuses_overwrite(synthetic, tmp_path):
+    """扫描汇总原本完全没接闸，强制同名即可覆盖旧汇总。"""
+    import datetime as _dt
+
+    from intelligence.services.methodology_backtest import receipts as receipts_mod
+    from intelligence.services.methodology_backtest.receipts import (
+        SCAN_SCHEMA,
+        ReceiptCollision,
+        write_scan_summary,
+    )
+
+    root = tmp_path / "receipts"
+    first = {
+        "schema_version": SCAN_SCHEMA,
+        "generated_at": _dt.datetime(2026, 9, 12, 12, tzinfo=_dt.timezone.utc).isoformat(),
+        "q": 0.05, "family_size": 2, "rules": [], "conditions": {},
+    }
+    second = dict(first, q=0.1)
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(receipts_mod, "_run_suffix", lambda _summary: "forced-collision")
+        write_scan_summary(root, first, date_str="2026-09-12")
+        with pytest.raises(ReceiptCollision):
+            write_scan_summary(root, second, date_str="2026-09-12")
+    kept = __import__("json").loads(next((root / "scan").glob("*.json")).read_text(encoding="utf-8"))
+    assert kept["q"] == 0.05, "先写的那份必须留着"
+
+
+def test_retry_repairs_a_half_written_pair(synthetic, tmp_path):
+    """json 落盘、md 写失败 → 原样重试必须把 md 补上，不能因为 json 在就整体当成功返回。
+
+    两个文件各自判幂等；早先的写法一看 json 在就 return 两个路径，缺失的 md 永远补不回来
+    （09-12 复核用文件写入故障注入实测）。
+    """
+    import datetime as _dt
+    import os as _os
+
+    from intelligence.services.methodology_backtest.receipts import write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    receipt = build_receipt(
+        res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage="holdout",
+        now=_dt.datetime(2026, 9, 12, 12, tzinfo=_dt.timezone.utc),
+    )
+    receipt["rule"]["version"] = 1
+
+    # 注入点要跟着实现走：发布路径是「临时文件 → fsync → os.link 正式名」，所以让 md 的
+    # link 失败，模拟「json 已发布、md 没发布成」。（早先注入 os.open 是对着上一版
+    # O_CREAT|O_EXCL 写的，实现换成 link 之后那个注入点就打不中了。）
+    real_link = _os.link
+
+    def flaky(src, dst, *args, **kwargs):
+        if str(dst).endswith(".md"):
+            raise OSError(28, "No space left on device")
+        return real_link(src, dst, *args, **kwargs)
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(_os, "link", flaky)
+        with pytest.raises(OSError):
+            write_receipt(root, receipt, date_str="2026-09-12")
+
+    folder = root / "selftest_positive@v1"
+    assert len(list(folder.glob("*.json"))) == 1 and not list(folder.glob("*.md")), "中间态：json 在、md 缺"
+    assert not list(folder.glob(".pending-*")), "失败的发布不留临时文件"
+
+    json_path, md_path = write_receipt(root, receipt, date_str="2026-09-12")
+    assert md_path.exists(), "重试必须补上缺失的 md"
+    assert len(list(folder.glob("*.json"))) == 1, "json 幂等，不新增"
+
+
+def test_idempotent_retry_still_syncs_the_directory(synthetic, tmp_path) -> None:
+    """首次发布时目录 fsync 失败 → 重试走「已存在」分支，仍必须补做目录同步。
+
+    否则上一次在 `link` 成功、`fsync` 目录失败之间中断的发布，目录项永远落不了盘，
+    而重试因为「文件已存在」直接判成功（09-12 第五轮质检；仓内 `_publish` 会补做）。
+    """
+    import datetime as _dt
+    import os as _os
+
+    from intelligence.services.methodology_backtest.receipts import write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    receipt = build_receipt(
+        res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage="holdout",
+        now=_dt.datetime(2026, 9, 12, 12, tzinfo=_dt.timezone.utc),
+    )
+    receipt["rule"]["version"] = 1
+
+    real_fsync = _os.fsync
+    synced: list[int] = []
+
+    def counting_fsync(fd):
+        synced.append(fd)
+        return real_fsync(fd)
+
+    # 首次发布：让目录 fsync 抛错（文件已 link 成功）
+    def failing_dir_fsync(fd):
+        raise OSError(5, "Input/output error")
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(_os, "fsync", lambda fd: None)  # 让首次发布顺利完成
+        write_receipt(root, receipt, date_str="2026-09-12")
+
+    # 重试（同内容）：必须再次尝试目录同步
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(_os, "fsync", counting_fsync)
+        write_receipt(root, receipt, date_str="2026-09-12")
+    assert synced, "同内容重试没有补做目录同步"
+
+
+def test_directory_sync_failure_is_not_swallowed(synthetic, tmp_path) -> None:
+    """目录打不开 / fsync 失败要往上抛，三条成功路径都不许虚报持久化成功。
+
+    上一版把 `os.open` 的 `OSError` 当平台差异 `return` 掉：`fsync` 失败会报、比它更早
+    一步的 `open` 失败却不会——只修了发现问题的那个失败点（09-12 质检注入实测）。
+    真正该容忍的只有「本平台不支持对目录 fsync」那一类 errno。
+    """
+    import datetime as _dt
+    import errno as _errno
+    import os as _os
+
+    from intelligence.services.methodology_backtest.receipts import write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+
+    def receipt():
+        r = build_receipt(
+            res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage="holdout",
+            now=_dt.datetime(2026, 9, 12, 12, tzinfo=_dt.timezone.utc),
+        )
+        r["rule"]["version"] = 1
+        return r
+
+    real_open = _os.open
+
+    def failing_dir_open(path, flags, *args, **kwargs):
+        if Path(path).is_dir():
+            raise OSError(_errno.EIO, "Input/output error")
+        return real_open(path, flags, *args, **kwargs)
+
+    # 首次发布
+    root = tmp_path / "first"
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(_os, "open", failing_dir_open)
+        with pytest.raises(OSError):
+            write_receipt(root, receipt(), date_str="2026-09-12")
+
+    # 幂等重试：先正常写一份，再注入
+    root2 = tmp_path / "retry"
+    write_receipt(root2, receipt(), date_str="2026-09-12")
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(_os, "open", failing_dir_open)
+        with pytest.raises(OSError):
+            write_receipt(root2, receipt(), date_str="2026-09-12")
+
+    # 平台不支持那一类仍要放行（不是错误，是能力差异）
+    def unsupported_dir_open(path, flags, *args, **kwargs):
+        if Path(path).is_dir():
+            raise OSError(_errno.EINVAL, "Invalid argument")
+        return real_open(path, flags, *args, **kwargs)
+
+    root3 = tmp_path / "unsupported"
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(_os, "open", unsupported_dir_open)
+        json_path, md_path = write_receipt(root3, receipt(), date_str="2026-09-12")
+    assert json_path.exists() and md_path.exists()
+
+
+def test_structurally_invalid_refuted_entries_are_reported(tmp_path) -> None:
+    """合法 JSON、非法结构同样要报——`[]` 解析得动，但它不是一条证伪条目。
+
+    只在解析失败时报警，`report --refuted` 遇到 `[]` 仍会打印「目前没有任何规则被证伪」：
+    同一个「损坏证据伪装成证据不存在」，换了个入口（09-12 质检实测）。
+    """
+    import io
+    from contextlib import redirect_stderr
+
+    from intelligence.services.methodology_backtest.receipts import load_refuted
+
+    root = tmp_path / "refuted"
+    folder = root / "r1@v1"
+    folder.mkdir(parents=True)
+    for name, body in (
+        ("array.json", "[]"),
+        ("string.json", '"x"'),
+        ("number.json", "123"),
+        ("no_schema.json", '{"rule_id": "r1"}'),
+    ):
+        (folder / name).write_text(body, encoding="utf-8")
+
+    err = io.StringIO()
+    with redirect_stderr(err):
+        entries, unreadable = load_refuted(root)
+    assert entries == []
+    assert len(unreadable) == 4, unreadable
+    for name in ("array.json", "string.json", "number.json", "no_schema.json"):
+        assert name in err.getvalue(), name
+
+
+def test_refuted_library_reports_unreadable_entries(tmp_path) -> None:
+    """证伪库里读不出的条目必须被报出来，不能被「没有任何规则被证伪」掩盖。
+
+    0 字节反证在场时，`report --refuted` 原本照常打印「目前没有任何规则……被证伪」——
+    「证据损坏」伪装成「证据不存在」，恰好是证伪库最不能出的错（09-12 第五轮质检）。
+    """
+    import io
+    import json as _json
+    from contextlib import redirect_stderr
+
+    from intelligence.services.methodology_backtest.receipts import REFUTED_SCHEMA, load_refuted
+
+    root = tmp_path / "refuted"
+    folder = root / "r1@v1"
+    folder.mkdir(parents=True)
+    (folder / "good.json").write_text(
+        _json.dumps({
+            "schema_version": REFUTED_SCHEMA, "rule_id": "r1", "rule_version": 1,
+            "rule_ref": "r1@v1", "sharing": "private", "owner": "u",
+            "refuted_at": "2026-09-12T12:00:00.000000+00:00", "n": 30,
+        }, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    (folder / "broken.json").write_text("", encoding="utf-8")      # 0 字节
+    (folder / "binary.json").write_bytes(b"\xff\xfe")             # 非 UTF-8
+
+    err = io.StringIO()
+    with redirect_stderr(err):
+        entries, unreadable = load_refuted(root)
+    assert [e["n"] for e in entries] == [30]
+    assert len(unreadable) == 2, unreadable
+    assert "broken.json" in err.getvalue() and "binary.json" in err.getvalue()
+
+
+def test_non_utf8_receipt_is_wrapped_with_its_path(synthetic, tmp_path) -> None:
+    """非 UTF-8 的坏文件要包成带路径的 ``ReceiptCollision``，不能漏 UnicodeDecodeError。
+
+    ``UnicodeDecodeError`` 不是 ``OSError`` 的子类，只捕 ``OSError`` 会让它裸奔出去，
+    调用方拿到的异常里没有文件路径，不知道是哪份收据坏了。
+    """
+    import datetime as _dt
+
+    from intelligence.services.methodology_backtest.receipts import ReceiptCollision, write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    receipt = build_receipt(
+        res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage="holdout",
+        now=_dt.datetime(2026, 9, 12, 12, tzinfo=_dt.timezone.utc),
+    )
+    receipt["rule"]["version"] = 1
+    json_path, _ = write_receipt(root, receipt, date_str="2026-09-12")
+    json_path.write_bytes(b"\xff\xfe\x00")
+
+    with pytest.raises(ReceiptCollision) as exc:
+        write_receipt(root, receipt, date_str="2026-09-12")
+    assert json_path.name in str(exc.value)
+    assert "UnicodeDecodeError" in str(exc.value)
+
+
+def test_refuted_library_orders_by_parsed_timestamp(tmp_path) -> None:
+    """`report --refuted` 的读取路径同样不能按字符串排时间。
+
+    `refuted_at` 抄自收据的 `generated_at`，混着 `12:00:00Z` 与 `12:00:00.500000+00:00`
+    两种合法 ISO UTC 时，字符串序与时间序相反——实测会把较早那份当成最新（09-12 质检）。
+    四个读取口径（load_steps / latest_receipt / report / load_refuted）共用 `_parse_ts`。
+    """
+    import json as _json
+
+    from intelligence.services.methodology_backtest.receipts import REFUTED_SCHEMA, load_refuted
+
+    root = tmp_path / "refuted"
+    folder = root / "r1@v1"
+    folder.mkdir(parents=True)
+    for name, stamp, n in (
+        ("early", "2026-09-12T12:00:00Z", 10),
+        ("late", "2026-09-12T12:00:00.500000+00:00", 20),
+    ):
+        (folder / f"{name}.json").write_text(
+            _json.dumps({
+                "schema_version": REFUTED_SCHEMA, "rule_id": "r1", "rule_version": 1,
+                "rule_ref": "r1@v1", "sharing": "private", "owner": "u",
+                "refuted_at": stamp, "n": n,
+            }, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    loaded, _unreadable = load_refuted(root)
+    assert [d["n"] for d in loaded] == [20, 10], "倒序第一条应是时间上更晚的那份"
+
+
+def test_mixed_timestamp_forms_order_consistently(synthetic, tmp_path):
+    """``12:00:00Z`` 与 ``12:00:00.500000+00:00`` 都是合法 ISO UTC，字符串序与时间序相反。
+
+    三个读取口径（``load_steps`` / ``latest_receipt`` / ``report``）必须给同一个答案。
+    """
+    import datetime as _dt
+
+    from intelligence.services.methodology_backtest import lifecycle
+    from intelligence.services.methodology_backtest.receipts import latest_receipt, write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+
+    def put(stage, ws, we, hour, stamp=None, verdict=None):
+        r = build_receipt(
+            res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage=stage,
+            now=_dt.datetime(2026, 9, 12, hour, tzinfo=_dt.timezone.utc),
+        )
+        r["rule"]["version"] = 1
+        r["window"] = {"start": ws, "end": we}
+        if stamp:
+            r["generated_at"] = stamp
+        if verdict:
+            r["verdict"] = verdict
+        write_receipt(root, r, date_str="2026-09-12")
+
+    put("discovery", "2026-01-01", "2026-03-31", 10)
+    put("validation", "2026-04-01", "2026-06-30", 11)
+    put("holdout", "2026-07-01", "2026-08-31", 12, stamp="2026-09-12T12:00:00Z")
+    put("holdout", "2026-07-01", "2026-08-31", 12,
+        stamp="2026-09-12T12:00:00.500000+00:00", verdict="not_distinguishable")
+
+    assert latest_receipt(root, "selftest_positive")["verdict"] == "not_distinguishable"
+    steps = lifecycle.load_steps(root, "selftest_positive")
+    assert steps[-1].verdict == "not_distinguishable", "字符串序会把 Z 那份排到后面"
+
+
+def test_receipt_stem_never_collides_across_distinct_contents(synthetic, tmp_path):
+    """几千份不同内容的收据，文件名后缀零碰撞——4 位 hash 那版实测撞得上。"""
+    import datetime as _dt
+
+    from intelligence.services.methodology_backtest.receipts import receipt_stem
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    seen: set[str] = set()
+    for nonce in range(1500):
+        for verdict in ("supported", "refuted"):
+            receipt = build_receipt(
+                res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage="holdout",
+                now=_dt.datetime(2026, 9, 12, 12, tzinfo=_dt.timezone.utc),
+            )
+            receipt["verdict"] = verdict
+            receipt["appendix"] = {"nonce": nonce}
+            stem = receipt_stem(receipt, "2026-09-12")
+            assert stem not in seen, f"后缀碰撞：{stem}"
+            seen.add(stem)
+    assert len(seen) == 3000
+
+
+def test_same_window_rerun_keeps_both_runs_and_takes_the_latest(synthetic, tmp_path):
+    """同窗重跑是正当的（数据修订后重算）：两次都留档，读取层取**最新**那次的结论。
+
+    「采用最新」≠「删除旧的」——旧那份留着，`refuted → supported` 的改判才有痕迹可查。
+    """
+    import datetime as _dt
+
+    from intelligence.services.methodology_backtest import lifecycle
+    from intelligence.services.methodology_backtest.receipts import write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+
+    def put(stage, ws, we, hour, verdict=None):
+        receipt = build_receipt(
+            res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage=stage,
+            now=_dt.datetime(2026, 9, 12, hour, tzinfo=_dt.timezone.utc),
+        )
+        receipt["window"] = {"start": ws, "end": we}
+        receipt["rule"]["version"] = 1
+        if verdict is not None:
+            receipt["verdict"] = verdict
+        write_receipt(root, receipt, date_str="2026-09-12")
+
+    put("discovery", "2026-01-01", "2026-03-31", 10)
+    put("validation", "2026-04-01", "2026-06-30", 11)
+    put("holdout", "2026-07-01", "2026-08-31", 12, verdict="refuted")
+    put("holdout", "2026-07-01", "2026-08-31", 13)  # 同窗重跑，改判 supported
+
+    folder = root / "selftest_positive@v1"
+    assert len(list(folder.glob("*.json"))) == 4, "两次 holdout 都在档"
+    state = lifecycle.derive_state(
+        {"rule_id": "selftest_positive", "version": 1, "owner": "t"},
+        lifecycle.load_steps(root, "selftest_positive"), rule_sha256="sha-x",
+    )
+    # refuted 那一份仍然切了轮次：改判发生在新轮次里，只有 holdout 一段，到不了方法档
+    assert not state.in_method_library, f"同窗改判不得直接复活方法，得到 {state.state}"
+
+
+def test_stale_label_version_receipts_are_history_not_evidence(synthetic, tmp_path):
+    """标签口径升版后，旧版本收据一律降历史观察——不必等「下一份新版本收据」才切轮次。
+
+    没有这道绝对检查时，三份同为旧版本的成功收据彼此一致，`_cycles` 看不出任何变化，
+    于是在新代码下照样成链、照样 personal_method（09-12 实测）。重建旁路库不触发失效，
+    是同一个洞。
+    """
+    import datetime as _dt
+
+    from intelligence.services.methodology_backtest import lifecycle
+    from intelligence.services.methodology_backtest.receipts import write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    stale = "v4-old-taxonomy"
+    for i, (stage, ws, we) in enumerate((
+        ("discovery", "2026-01-01", "2026-03-31"),
+        ("validation", "2026-04-01", "2026-06-30"),
+        ("holdout", "2026-07-01", "2026-08-31"),
+    )):
+        receipt = build_receipt(
+            res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage=stage,
+            now=_dt.datetime(2026, 9, 12, 10 + i, tzinfo=_dt.timezone.utc),
+        )
+        receipt["window"] = {"start": ws, "end": we}
+        receipt["rule"]["version"] = 1
+        receipt["conditions"]["label_version"] = stale
+        write_receipt(root, receipt, date_str="2026-09-12")
+
+    steps = lifecycle.load_steps(root, "selftest_positive")
+    rule = {"rule_id": "selftest_positive", "version": 1, "owner": "t"}
+    # 不传当前版本：旧行为，三份彼此一致 → 成链
+    assert lifecycle.derive_state(rule, steps, rule_sha256="sha-x").state == "personal_method"
+    # 传当前版本：全部降历史观察
+    now = lifecycle.derive_state(rule, steps, rule_sha256="sha-x", current_label_version="v5-current")
+    assert now.state == "candidate" and not now.in_method_library
+    assert now.history_receipts == 3
+    assert stale in (now.blocked_by or "") and "v5-current" in (now.blocked_by or "")
+
+
 def test_latest_receipt_picks_newest_across_versions(synthetic, tmp_path):
     """P1 统计门读的是规则最近一次收据：跨版本按 generated_at 取，坏文件与别的 schema 跳过。"""
     from intelligence.services.methodology_backtest.receipts import latest_receipt, write_receipt
@@ -1091,15 +1861,19 @@ def test_latest_receipt_picks_newest_across_versions(synthetic, tmp_path):
 
     got = latest_receipt(root, "selftest_positive")
     assert got is not None and got["rule"]["ref"] == "selftest_positive@v2"
-    assert got["verdict"] == "supported" and got["_path"].endswith("selftest_positive@v2/2026-09-03.json")
+    assert got["verdict"] == "supported" and "selftest_positive@v2/2026-09-03-" in got["_path"]
     assert latest_receipt(root, "nope") is None
     assert latest_receipt(tmp_path / "missing", "selftest_positive") is None
 
 
 def test_cli_answer_score_gate_refuses_promotion_without_supported_receipt(synthetic, tmp_path):
-    """经验卡统计门端到端：not_distinguishable 的规则不能把卡晋升为 methodology；candidate 仍可落卡。"""
+    """经验卡统计门端到端（工单 #42 第二刀）：单份收据不论结论都不能晋升 methodology——
+    须完整三段认证链；candidate 仍可落卡。"""
+    import hashlib as _hashlib
+    import json as _json
+
     from intelligence import cli as intel_cli
-    from intelligence.services.methodology_backtest.receipts import write_receipt
+    from intelligence.services.methodology_backtest.receipts import RECEIPT_SCHEMA, write_receipt
 
     st = synthetic["st"]
     env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
@@ -1108,21 +1882,48 @@ def test_cli_answer_score_gate_refuses_promotion_without_supported_receipt(synth
     write_receipt(root, neg, date_str="2026-09-04")
     pos = build_receipt(st.run(synthetic["labels"], st.POSITIVE_RULE), rule_path=None, rule_sha256=None, environment=env)
     write_receipt(root, pos, date_str="2026-09-04")
+    # certified_rule：规则文件 + 同身份三段链（discovery → validation → holdout 全 supported）
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    rule_path = rules_dir / "certified_rule.v1.json"
+    rule_path.write_text(_json.dumps({"rule_id": "certified_rule", "version": 1, "owner": "tester"}), encoding="utf-8")
+    sha = _hashlib.sha256(rule_path.read_bytes()).hexdigest()
+    chain_dir = root / "certified_rule@v1"
+    chain_dir.mkdir(parents=True)
+    for stage, (ws, we), at in (
+        ("discovery", ("2026-01-01", "2026-03-31"), "2026-04-01T00:00:00"),
+        ("validation", ("2026-04-01", "2026-06-30"), "2026-07-01T00:00:00"),
+        ("holdout", ("2026-07-01", "2026-08-31"), "2026-09-01T00:00:00"),
+    ):
+        (chain_dir / f"{stage}.json").write_text(
+            _json.dumps({
+                "schema_version": RECEIPT_SCHEMA, "generated_at": at,
+                "rule": {"rule_id": "certified_rule", "version": 1, "ref": "certified_rule@v1", "sha256": sha},
+                "window": {"start": ws, "end": we}, "verdict": "supported",
+                "declared_stage": stage, "stats": {"verdict": "supported"},
+                # 必须是**当前生效**的口径：升版后旧收据会被 state_for_rule 降历史观察
+                "conditions": {"label_version": LABEL_VERSION},
+            }),
+            encoding="utf-8",
+        )
     cards = tmp_path / "cards.jsonl"
     common = [
         "answer-score", "--question", "双红后还涨吗", "--answer", "会涨。（非投资建议）",
         "--local-source", "market_feature_store", "--save-card", "--card-file", str(cards),
-        "--receipts-dir", str(root), "--json",
+        "--receipts-dir", str(root), "--rules-dir", str(rules_dir), "--json",
     ]
     assert intel_cli.main([*common, "--promotion", "methodology", "--rule-id", "selftest_negative"]) == 2
     assert not cards.exists()
     assert intel_cli.main([*common, "--promotion", "methodology", "--rule-id", "nope_rule"]) == 2
+    # 单份 supported、无三段链：拒——这是 OPT-04 后经验卡侧要堵的那个「另一入口」
+    assert intel_cli.main([*common, "--promotion", "methodology", "--rule-id", "selftest_positive"]) == 2
     assert intel_cli.main([*common, "--promotion", "candidate", "--rule-id", "selftest_negative"]) == 0
-    assert intel_cli.main([*common, "--promotion", "methodology", "--rule-id", "selftest_positive"]) == 0
-    rows = [__import__("json").loads(line) for line in cards.read_text(encoding="utf-8").splitlines()]
+    assert intel_cli.main([*common, "--promotion", "methodology", "--rule-id", "certified_rule"]) == 0
+    rows = [_json.loads(line) for line in cards.read_text(encoding="utf-8").splitlines()]
     assert [r["promotion"] for r in rows] == ["candidate", "methodology"]
     assert rows[0]["rule_verdict"] != "supported" and rows[1]["rule_verdict"] == "supported"
-    assert rows[1]["rule_receipt"].endswith("selftest_positive@v1/2026-09-04.json")
+    assert rows[1]["rule_lifecycle_state"] == "personal_method"
+    assert rows[1]["rule_receipt"].endswith("certified_rule@v1/holdout.json")
 
 
 # --------------------------------------------------------------------------- #
@@ -1290,3 +2091,107 @@ def test_cli_run_and_invalid_rule_exit_codes(synthetic, tmp_path):
     bad.write_text('{"rule_id": "bad_rule", "version": 1}', encoding="utf-8")
     assert cli.main(["run", str(bad), "--labels-db", str(synthetic["labels"]), "--no-write"]) == 2
     assert cli.main(["run", str(rule_path), "--labels-db", str(tmp_path / "nope.duckdb"), "--no-write"]) == 2
+
+
+def test_lifecycle_stage_label_matches_state_machine_and_leaves_gaps_null(mini):
+    """#21 剩余 / G-04：旁路库 lifecycle_stage 与 theme_lifecycle_timeline.derive_stages 同一台机器；段外不落行。"""
+    from intelligence.services import theme_lifecycle_timeline as tl
+    from intelligence.services.methodology_backtest.labels import lifecycle_stage_rows_by_code
+    from intelligence.services.theme_stage_vocab import CANONICAL_STAGES
+
+    con = duckdb.connect(str(mini["labels"]), read_only=True)
+    try:
+        got = _label(con, "theme", "S1.TI", "lifecycle_stage")
+        # 用同一份原料在测试里重跑状态机
+        con.execute(f"ATTACH '{mini['src']}' AS src (READ_ONLY)")
+        try:
+            series = lifecycle_stage_rows_by_code(con)["S1.TI"]
+        finally:
+            con.execute("DETACH src")
+    finally:
+        con.close()
+    daily: dict[str, str] = {}
+    tl.derive_stages(series, daily=daily)
+    expected = {i: daily[str(d)] for i, d in enumerate(DAYS) if str(d) in daily}
+    assert got == expected
+    assert got, "夹具 S1 有双红日，状态机至少要开一段"
+    assert set(got.values()) <= set(CANONICAL_STAGES)
+
+
+def test_opinion_stage_label_is_pit_correct_and_only_for_tagged_sectors(mini):
+    """#36：板块一有研报命中 → 每个交易日一行；研报 B 的 created_at 在 DAYS[4]，DAYS[1..3] 只看得见 A（萌芽 count=1）；
+    板块二从未被 tag 命中 → 一行都没有（NULL 语义，不是 unverifiable）。"""
+    con = duckdb.connect(str(mini["labels"]), read_only=True)
+    try:
+        s1 = _label(con, "theme", "S1.TI", "opinion_stage")
+        s2 = _label(con, "theme", "S2.TI", "opinion_stage")
+    finally:
+        con.close()
+    assert s2 == {}
+    assert len(s1) == len(DAYS)
+    assert s1[0] == "萌芽"
+    assert s1[1] == "萌芽" and s1[3] == "萌芽"  # 研报 B 尚未入库
+    assert s1[4] == "萌芽"  # 两份仍 < TH_RESONANCE_SOURCES(3)
+
+
+def test_interrupted_publish_leaves_no_unreadable_official_file(tmp_path):
+    """**原子占名 ≠ 完整发布**：进程在发布点被真实杀死，正式目录不许留下坏对象。
+
+    旧实现用 ``O_CREAT | O_EXCL`` 直接开正式文件：名字立刻可见、内容随后才写。用
+    ``os._exit`` 在这个窗口终止进程（不是可捕获异常，``except BaseException`` 的清理
+    根本不执行），正式目录就留下 0 字节 JSON——读取端静默跳过、派生状态停在旧值，而
+    **原内容重试反被当成撞名拒绝**（09-12 质检实测）。
+    """
+    import json as _json
+    import subprocess
+    import sys as _sys
+
+    from intelligence.services.methodology_backtest.receipts import (
+        RECEIPT_SCHEMA, ReceiptCollision, _write_exclusive,
+    )
+
+    target = tmp_path / "rule@v1" / "x.json"
+    target.parent.mkdir(parents=True)
+    payload = {"schema_version": RECEIPT_SCHEMA, "k": "v"}
+    text = _json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+    child = (
+        "import os, sys, pathlib\n"
+        f"sys.path.insert(0, {str(Path(__file__).resolve().parents[2])!r})\n"
+        "from intelligence.services.methodology_backtest import receipts as R\n"
+        "os.link = lambda a, b: os._exit(73)\n"   # 内容已写满、正式名未发布的那一刻
+        f"R._write_exclusive(pathlib.Path({str(target)!r}), {text!r}, {payload!r})\n"
+    )
+    assert subprocess.run([_sys.executable, "-c", child], capture_output=True).returncode == 73
+
+    assert not target.exists(), "中断在正式命名空间留下了对象"
+    assert list(target.parent.glob("*.json")) == [], "残留会被读取端当成收据"
+
+    # 中断后原内容重试必须成功，且再来一次是幂等而非拒绝
+    assert _write_exclusive(target, text, payload) is True
+    assert _write_exclusive(target, text, payload) is False
+    assert _json.loads(target.read_text(encoding="utf-8")) == payload
+
+    other = {"schema_version": RECEIPT_SCHEMA, "k": "DIFFERENT"}
+    with pytest.raises(ReceiptCollision):
+        _write_exclusive(target, _json.dumps(other, ensure_ascii=False, sort_keys=True), other)
+
+
+def test_legacy_corrupt_receipt_is_reported_not_silently_skipped(tmp_path, capsys):
+    """旧版残留的坏收据：不自动覆盖删除，但必须出声——静默跳过会让状态停在旧值。"""
+    from intelligence.services.methodology_backtest.lifecycle import load_steps
+    from intelligence.services.methodology_backtest.receipts import (
+        RECEIPT_SCHEMA, ReceiptCollision, _write_exclusive,
+    )
+
+    folder = tmp_path / "rule@v1"
+    folder.mkdir(parents=True)
+    broken = folder / "legacy.json"
+    broken.write_bytes(b"")                      # 旧实现中断留下的 0 字节
+
+    assert load_steps(tmp_path, "rule") == []
+    assert "legacy.json" in capsys.readouterr().err, "坏收据被静默跳过, 没有任何告警"
+
+    with pytest.raises(ReceiptCollision, match="0 字节|可读 JSON"):
+        _write_exclusive(broken, "{}", {"schema_version": RECEIPT_SCHEMA})
+    assert broken.exists() and broken.read_bytes() == b"", "真实证据不该被自动覆盖或删除"

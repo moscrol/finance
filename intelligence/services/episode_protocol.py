@@ -20,6 +20,8 @@ from intelligence.services.episode_output_substance import (
     required_outputs_without_substance,
 )
 from intelligence.services import knowledge_injection_policy
+from intelligence.services.judgment_delta import episode_judgment_delta_rule
+from intelligence.services.pricing_split import episode_pricing_split_rule
 from intelligence.services.research_contract import (
     FORWARD_HYPOTHESIS_OUTPUT_IDS,
     ResearchRunContext,
@@ -167,6 +169,16 @@ def _question_type_rules(
         task_frame.raw_question,
         task_frame.question_type,
         conversation_context=context.conversation_context,
+    )
+    # 判断增量契约（q17 Q8 回灌）与产业/定价二分契约（q17 Q4 回灌）：同一条注入口，
+    # 材料型判断题 / 定价状态题命中才有文本，其它题空串。
+    track_rule += episode_judgment_delta_rule(
+        task_frame.raw_question,
+        task_frame.question_type,
+    )
+    track_rule += episode_pricing_split_rule(
+        task_frame.raw_question,
+        task_frame.question_type,
     )
     longtail_rule = episode_rule(task_frame)
     # ASK_DEGRADED_FALLBACK（默认 off）：降级回答章法，off 时空串。
@@ -389,6 +401,10 @@ def build_episode_input(
         ),
         "question_type_rules": _question_type_rules(task_frame, context),
     }
+    from intelligence.services.material_delivery import material_delivery_payload, material_question_outputs
+
+    if material_question_outputs(context.contract):
+        payload["material_delivery"] = material_delivery_payload(context.contract)
     # 市场态题型（market_watch）不注入：三轮消融实测该题型上判读基线稳定负贡献
     # （主线题七读数全 ≤0），与 Engine B 合成侧共用 knowledge_injection_policy 门控。
     baseline = knowledge_injection_policy.reading_guidance_for(task_frame.question_type)
@@ -982,6 +998,18 @@ def validate_episode_finish(
     if relocated_gaps:
         gaps = tuple(dict.fromkeys((*gaps, *relocated_gaps)))
     binding_map = {item.output_id: item for item in bindings}
+    from intelligence.services.material_delivery import (
+        material_delivery_missing_outputs,
+        with_all_material_gaps_notice,
+    )
+
+    material_missing = material_delivery_missing_outputs(context.contract, draft, tuple(bindings))
+    if material_missing:
+        raise _reject(
+            "no_substantive_answer",
+            "material question missing, repeated, over length, or gap not disclosed: "
+            + ",".join(material_missing),
+        )
     if status == "completed":
         missing = []
         for required in context.contract.required_outputs:
@@ -1001,6 +1029,7 @@ def validate_episode_finish(
                 "missing_evidence",
                 "required output lacks evidence: " + ",".join(missing),
             )
+    draft = with_all_material_gaps_notice(context.contract, draft, tuple(bindings))
     return EpisodeFinish(
         status=cast(EpisodeStatus, status),
         draft=draft,

@@ -29,7 +29,10 @@ LEDGER_PARTS: tuple[tuple[str, str, str], ...] = (
     ("judgments", "judgments_path", "核心判断（含 pending 提案）"),
     ("checkpoints", "checkpoints_path", "可证伪点：陈述 + 到期日 + 机检规格"),
     ("verdicts", "verdicts_path", "回检打分"),
-    ("observation_scripts", "observation_scripts_path", "观察剧本：变量与升级/放弃条件"),
+    # 这个文件自 2026-09-14（工单 #53）起是分型台账：剧本 + 提取尝试 + 提取事件。
+    # 导出照旧带走**全部**行（原始导出不筛类型），但计数是「台账行数」不是「剧本数」——
+    # 描述必须说清，否则那个数字读起来像剧本数，而它已经不是了。
+    ("observation_scripts", "observation_scripts_path", "观察剧本台账行（草稿 / 提取尝试 / 提取事件三类）"),
     ("corrections", "corrections_path", "你对 agent 的纠偏"),
     ("experience_cards", "experience_cards_path", "从低分回答与纠偏压缩出的经验卡"),
     ("answer_scores", "answer_scores_path", "你给回答打的分"),
@@ -64,7 +67,8 @@ class ExportResult:
                 "excluded": [{"what": w, "why": y} for w, y in EXCLUDED],
                 "note": (
                     "本文件只含该 user_id 目录下的记录，不含共享层、不含其他用户。"
-                    "每一行都按台账原文搬运，未做解释或加工。"
+                    "正常记录按台账字段搬运；坏行保留可读预览及 _unparsed_bytes_hex，"
+                    "用 bytes.fromhex 可恢复该行原始字节（不含分隔换行）。"
                 ),
             },
             "profile": self.profile,
@@ -72,22 +76,50 @@ class ExportResult:
         }
 
 
+def _carried(raw_line: bytes, preview: str) -> dict[str, Any]:
+    """搬不成记录的一行：可读预览 + 原始字节 hex。**四个分支唯一的构造点。**
+
+    每个分支各拼一份 dict，迟早会有一个分支忘了带 hex（本文件的前一版就是这样：
+    `UnicodeDecodeError` 那支带了、`JSONDecodeError` 那支带了、另外两种情形整行丢弃）。
+    """
+    return {"_unparsed_line": preview, "_unparsed_bytes_hex": raw_line.hex()}
+
+
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     out: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
+    # **按字节读、逐行解码**：断电可以把写入截在一个汉字中间，而 ``read_text``
+    # 是整文件一次解码——半个字符会让 ``UnicodeDecodeError`` 从最外层抛出来，
+    # **整份导出失败**，而不是丢一行。台账侧 2026-09-14 修过同一个形状，
+    # 导出侧是同族的第二处（「修了一处，先问同族还有谁」）。
+    for raw_line in path.read_bytes().split(b"\n"):
+        if not raw_line:
+            continue  # 行分隔符自己切出来的空段（含末尾那个换行）：没有字节，没有行
+        try:
+            line = raw_line.decode("utf-8").strip()
+        except UnicodeDecodeError:
+            # backslashreplace 只是预览：坏字节 e7 与原文中的字面量 \\xe7 显示相同。
+            # 独立保留原始 hex，才可逐字节还原（包括空白），不猜反斜杠来自哪里。
+            out.append(_carried(raw_line, raw_line.decode("utf-8", errors="backslashreplace")))
+            continue
         if not line:
+            # 全空白行（``"   "`` / ``" \t\r"``）：有字节就有证据，照样搬走并计数。
+            out.append(_carried(raw_line, raw_line.decode("utf-8")))
             continue
         try:
             rec = json.loads(line)
         except json.JSONDecodeError:
             # 坏行不静默丢：原样带走，让用户看得见台账里确实有这么一行。
-            out.append({"_unparsed_line": line})
+            out.append(_carried(raw_line, line))
             continue
         if isinstance(rec, dict):
             out.append(rec)
+            continue
+        # 合法 JSON 但不是记录（``[1,2]`` / ``"str"`` / ``42`` / ``null`` / ``true``）。
+        # 它同样是台账里真实存在的一行：不静默丢，也照实计数
+        # （复审六 F2 实测：7 行台账导出只剩 2 行、counts=2，五行既不在导出也不在计数里）。
+        out.append(_carried(raw_line, line))
     return out
 
 

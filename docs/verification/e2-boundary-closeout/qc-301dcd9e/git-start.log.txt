@@ -1,0 +1,11 @@
+/tmp/e2-qc-301dcd9e
+301dcd9e1eef5095424027ffa703bfeab2472cc6
+commit 301dcd9e1eef5095424027ffa703bfeab2472cc6
+Author:     linxiaoqi5111-del <linxiaoqi5111-del@users.noreply.github.com>
+AuthorDate: Mon Sep 14 22:48:50 2026 +0800
+Commit:     linxiaoqi5111-del <linxiaoqi5111-del@users.noreply.github.com>
+CommitDate: Mon Sep 14 22:48:50 2026 +0800
+
+    fix(e2): synchronize scope authorization with replacement runners
+linxiaoqi5111-del
+linxiaoqi5111-del@users.noreply.github.com

@@ -1156,6 +1156,9 @@ class ContinuousAgentEpisode:
         # 只在真有下游 sink 时才挂：否则 ``dump()`` 的 ``event_sink_attached``
         # 会在没人接收时报 True——收据不说谎优先于形式上"接线了"。
         #
+        # Scope 内的副本不能约束还持有原 registry 的消费者；先绑定本地引用，
+        # 再生成配置快照、绑 episode 工具、拼提示词与播种账本。
+        registry = registry.for_context(context)
         # 证据账本要在绑 sub_research 之前建：分支证据经它的 branch_sink 进父账本。
         # 建得早不改任何事件——它只依赖 context。
         evidence_ledger = EvidenceLedger(
@@ -1350,11 +1353,13 @@ class ContinuousAgentEpisode:
             ledger.verify_model_visible(messages)
             # INV-R2：模型请求前的意图（含预留 turn_id）。菜单在意图之前算——它只读状态，
             # 不是外部效果；``tool_menu`` 事件因此仍先于 ``model_intent``。
-            definitions = self._available_tool_definitions(
-                tool_session=tool_session,
-                registry=registry,
-                context=context,
-                ledger=ledger,
+            definitions = (
+                [] if finalization_started else self._available_tool_definitions(
+                    tool_session=tool_session,
+                    registry=registry,
+                    context=context,
+                    ledger=ledger,
+                )
             )
             turn_id = ledger.record_model_intent(
                 timeout_asked=timeout,
@@ -2142,7 +2147,8 @@ class ContinuousAgentEpisode:
         accumulator = state.accumulator
         messages = state.messages
         tool_session = state.tool_session
-        registry = state.registry
+        registry = state.registry.for_context(context)
+        state.registry = registry
         task_frame = state.task_frame
         repair_seconds = max(0.0, float(goal.remaining_seconds))
         if context.root_budget is not None:
@@ -2180,6 +2186,16 @@ class ContinuousAgentEpisode:
                 repair_tool_context,
                 contract=downgraded_contract,
             )
+        # 同名 runner/contract 可能在修复入口被替换：Scope 诊断与执行必须
+        # 使用同一份当前注册表，不能只有 state.registry 更新、Scope 仍授权旧实现。
+        rebound_scope = tool_session.bind_scope(
+            registry=registry, context=repair_tool_context,
+        )
+        if rebound_scope is not None:
+            state.episode_scope = rebound_scope
+            registry = rebound_scope.registry
+            state.registry = registry
+            ledger.derive_mismatch_sink = rebound_scope.record_derive_mismatch
         # 修复轮的时钟账，记在动手之前。
         #
         # 这三个数是 judge 那次诊断里 ``timeout_asked`` 的同位物：judge 看着像元凶，
@@ -2835,7 +2851,13 @@ class ContinuousAgentEpisode:
         """
 
         registry = registry.with_specs(
-            bind_derived_calculation_tool(evidence_ledger=evidence_ledger)
+            bind_derived_calculation_tool(
+                evidence_ledger=evidence_ledger,
+                # 身份由装配层折进注册表（``ResearchToolRegistry.calc_loader``）。
+                # 本层只转交、不解析——EpisodeScope.user_id 恒为 "" 这条边界不动。
+                # None = 装配方没给身份，走 load_calculation_record 的默认解析。
+                calc_loader=getattr(registry, "calc_loader", None),
+            )
         )
         coordinator = self._sub_research_coordinator
         if coordinator is None:
@@ -2946,9 +2968,9 @@ class ContinuousAgentEpisode:
         ledger: _EpisodeLedger,
     ) -> list[dict[str, object]]:
         menu = tool_session.menu(registry=registry, context=context)
-        # 只在真藏了工具时记账：无裁剪轮的事件流与改前逐字节相同。
-        if menu.hidden:
-            ledger.add("tool_menu", menu.to_payload())
+        # 每个开放工具的模型步都留实际菜单：configure 早于动态工具装配，且合同
+        # 授权不等于预算/去重裁剪后的可见集合。与参照 loop 同源，UI 只投影标签。
+        ledger.add("tool_menu", menu.to_payload())
         return tool_definitions_for_menu(menu, registry=registry, context=context)
 
     @staticmethod

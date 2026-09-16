@@ -29,8 +29,9 @@ python3 /Users/lbq/Desktop/c c/金融/skills/limit-advance/scripts/scrape.py [�
 抓取归本 skill，入库归流水线：
 `python3 -m market_feature_store.cli sync-fupanhui-limit-advance-daily --trade-date D`
 写 `fact_limit_advance_presence`（daily-full 里已经有这一步）。
-原 Step 2「写入飞书连板晋级表」与 `write.py` / `check_coverage.py` / `dedup_fields.py`
-已于 2026-09-11 随飞书自建应用退役删除（那张表最后一次写入是 2026-06-03）。
+原 Step 2「写入飞书连板晋级表」随飞书自建应用于 2026-09-11 退役而**不再执行**
+（那张表最后一次写入是 2026-06-03）；`write.py` / `check_coverage.py` / `dedup_fields.py`
+**保留在仓内**（见 #729），写入步因凭证退役失效，其去重 / 覆盖度核对逻辑仍可参考。
 
 ## 注意事项
 

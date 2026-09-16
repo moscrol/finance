@@ -19,6 +19,8 @@ from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.route_table import owner_skills_from_route_table
 from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRequirement
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.material_contract import MaterialContract
+from intelligence.services.material_permissions import restrict_read_capabilities
 from intelligence.services.historical_research.intent import HistoryIntent
 
 AnswerOwner: TypeAlias = Literal[
@@ -835,7 +837,8 @@ class RequiredOutput:
 @dataclass(frozen=True)
 class OutputStatus:
     output_id: str
-    status: Literal["fulfilled", "gap", "missing"]
+    # fulfilled is D5's answered projection; legal_gap is disclosed, not answered.
+    status: Literal["fulfilled", "legal_gap", "gap", "missing"]
     evidence_ids: tuple[str, ...] = ()
     gap: str = ""
 
@@ -860,8 +863,13 @@ class ResearchTaskContract:
     evidence_plan: EvidencePlan = field(default_factory=EvidencePlan)
     contract_version: str = "1"
     task_frame_hash: str = ""
+    material_contract: MaterialContract | None = None
 
     def __post_init__(self) -> None:
+        if isinstance(self.material_contract, dict):
+            object.__setattr__(self, "material_contract", MaterialContract.from_dict(self.material_contract))
+        if self.material_contract is not None and not isinstance(self.material_contract, MaterialContract):
+            raise ResearchContractError("material_contract 必须是 MaterialContract")
         # Backwards compatibility for callers that expand ``to_dict()`` into
         # the constructor (older tests/integrations predate EvidencePlan).
         if isinstance(self.evidence_plan, dict):
@@ -900,6 +908,22 @@ class ResearchTaskContract:
         for requirement in self.evidence_plan.requirements:
             if not requirement.provider_name.strip() or not requirement.capability.strip():
                 raise ResearchContractError("evidence plan requirement 必须声明 provider/capability")
+        if self.material_contract is not None and self.material_contract.data_scope == "material_only":
+            if self.allowed_capabilities or self.evidence_plan.requirements:
+                raise ResearchContractError("material_only 不允许读能力或材料外证据计划")
+            if any(output.evidence_types for output in self.required_outputs):
+                raise ResearchContractError("material_only 输出槽不能要求材料外工具证据")
+            for question in self.material_contract.questions:
+                matches = tuple(item for item in self.required_outputs if item.output_id == f"answer_{question.question_id}")
+                if len(matches) != 1 or not matches[0].required:
+                    raise ResearchContractError("material_only 每题须保留唯一必需输出槽：" + question.question_id)
+        if self.material_contract is not None and self.material_contract.data_scope == "local_only":
+            if restrict_read_capabilities(tuple(self.allowed_capabilities), "local_only") != tuple(self.allowed_capabilities):
+                raise ResearchContractError("local_only 含未审定的读取能力")
+            if any(item.capability not in self.allowed_capabilities for item in self.evidence_plan.requirements):
+                raise ResearchContractError("local_only 证据计划超出冻结读取授权")
+            if any(cap not in self.allowed_capabilities for output in self.required_outputs for cap in output.evidence_types):
+                raise ResearchContractError("local_only 输出工具证据超出冻结读取授权")
         mandatory = set(self.evidence_plan.mandatory_capabilities)
         if not mandatory.issubset(set(self.allowed_capabilities)):
             raise ResearchContractError(
@@ -922,6 +946,7 @@ class ResearchTaskContract:
             "evidence_plan": self.evidence_plan.to_dict(),
             "contract_version": self.contract_version,
             "task_frame_hash": self.task_frame_hash,
+            **({"material_contract": self.material_contract.to_dict()} if self.material_contract is not None else {}),
         }
 
     @classmethod
@@ -999,6 +1024,7 @@ class ResearchTaskContract:
             evidence_plan=evidence_plan,
             contract_version=str(value.get("contract_version") or "1"),
             task_frame_hash=str(value.get("task_frame_hash") or ""),
+            material_contract=(MaterialContract.from_dict(value["material_contract"]) if "material_contract" in value else None),
         )
 
 

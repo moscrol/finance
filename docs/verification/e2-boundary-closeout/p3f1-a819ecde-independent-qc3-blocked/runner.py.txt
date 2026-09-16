@@ -1,0 +1,53 @@
+"""Single bounded independent review. No automatic service retries.
+Application tests require a separate audited launcher; not an OS sandbox.
+"""
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import time
+
+prefix = Path('/tmp/e2-p3f1-qc3-a819ecde')
+cmd = [
+    '/opt/homebrew/bin/pi', '--provider', 'dcprwo', '--model', 'gpt-6-astra',
+    '--thinking', 'medium', '--mode', 'json', '--print', '--no-session',
+    '--no-extensions', '--extension',
+    '/Users/a77/.pi/agent/extensions/retryable-stream-errors.ts',
+    '--no-skills', '--no-prompt-templates', '--no-context-files',
+    '--tools', 'read,bash,write,edit', '--offline', '@' + str(prefix) + '-prompt.txt',
+]
+env = os.environ.copy()
+for key in list(env):
+    if key.startswith(('FORESIGHT_', 'SUBCONSCIOUS_', 'PI_SESSION')):
+        env.pop(key)
+env['PI_CODING_AGENT_DIR'] = str(prefix) + '-agent-config'
+env['PI_TELEMETRY'] = '0'
+launch = {
+    'executor': 'independent reviewer, fresh pi context', 'command': cmd,
+    'target': 'a819ecde6529784da06401e59152a476343f9011',
+    'parent': '418f2bc910c673820d0accdec42b46be5aaa5528',
+    'retry_enabled': False, 'max_retries': 0, 'timeout_seconds': 1200,
+    'started_at_epoch': time.time(), 'status': 'launch is not completion',
+    'prompt_sha256': hashlib.sha256(Path(str(prefix)+'-prompt.txt').read_bytes()).hexdigest(),
+    'runner_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+    'settings_sha256': hashlib.sha256(Path(str(prefix)+'-agent-config/settings.json').read_bytes()).hexdigest(),
+}
+with Path(str(prefix)+'-launch.json').open('x') as f:
+    json.dump(launch, f, ensure_ascii=False, indent=2)
+with Path(str(prefix)+'.jsonl').open('x') as out, Path(str(prefix)+'.err').open('x') as err:
+    process = subprocess.Popen(cmd, cwd=prefix, env=env, stdout=out, stderr=err, start_new_session=True)
+    try:
+        code = process.wait(timeout=1200)
+    except subprocess.TimeoutExpired:
+        os.killpg(process.pid, signal.SIGTERM)
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.wait()
+        code = 124
+with Path(str(prefix)+'.exit').open('x') as f:
+    f.write(str(code)+'\n')
+print(json.dumps({'process_exit': code, 'report_exists': Path(str(prefix)+'-report.md').exists(), 'process_exit_is_not_verdict': True}))

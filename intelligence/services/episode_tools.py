@@ -16,7 +16,7 @@ import re
 import time
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
-from intelligence.paths import default_paths
+from intelligence.paths import default_market_db_path, default_paths
 from intelligence.services import (
     agent_research,
     ask_blocks,
@@ -693,6 +693,56 @@ def _roots(
     )
 
 
+def _market_db_path(
+    finance_root: str | Path | None,
+    finance: Path,
+    fixture_policy: SealedFixturePolicy | None,
+) -> Path:
+    """引擎 A 的盘面库路径。三档优先级，各自有不可让位的理由。
+
+    1. ``fixture_policy``：封存夹具必须压过一切，否则评测可以被环境变量逃逸。
+    2. 显式传进来的 ``finance_root``：调用方点名了哪棵树，就用那棵树的 ``db/``。
+    3. 都没有 → ``default_market_db_path()``，也就是 ``MARKET_FEATURE_STORE_DB``
+       → 数据根 ``db/``。
+
+    第 3 档是本次修的缺口：此前这里写死 ``finance / "db" / …``，**从不看**
+    ``MARKET_FEATURE_STORE_DB``，而 ``intelligence/paths.py`` 的
+    ``default_market_db_path()`` 自称「唯一来源，供 intelligence 各层共用」
+    ——于是同一进程里两层对「库在哪」的认知可以不一致。实际后果：把数据补进
+    非默认库根之后，恢复出来的 run 仍然读旧库、照样答「证据不足」，而覆盖率
+    审计和 exports 因为走数据根反而是对的，两者不一致正是这个 bug 的表征。
+    无 ``finance_root`` 且无该环境变量时，本函数与旧写法逐字节同值。
+    """
+
+    if fixture_policy is not None and fixture_policy.market_db_path is not None:
+        return Path(fixture_policy.market_db_path).expanduser()
+    if finance_root:
+        return finance / "db" / "market_feature_store.duckdb"
+    return default_market_db_path()
+
+
+def _calc_loader_for(memory_user: str | None):
+    """按装配期已解析的身份折出计算记录加载器；无身份回 None（沿用默认解析）。"""
+
+    uid = str(memory_user or "").strip()
+    if not uid:
+        return None
+    # 延迟 import：derived_calculation 会把沙箱执行面拖进模块级依赖图。
+    from intelligence import userspace  # noqa: PLC0415
+    from intelligence.services.derived_calculation import (  # noqa: PLC0415
+        calc_loader_for_runs_root,
+    )
+
+    try:
+        runs_root = userspace.user_space(uid).root / "runs"
+    except ValueError:
+        # 可达性审计用 ``__audit_probe__`` 这类非法 id 探装配（与下方 live_us 同一情形）：
+        # 身份解析不出来就不绑 loader，但工具照常装配出来——审计要数的是工具在不在，
+        # 不是这个探针有没有 runs 目录。
+        return None
+    return calc_loader_for_runs_root(runs_root)
+
+
 def _is_fermentation_prefetch(frame: TaskFrame) -> bool:
     from intelligence.services.query_understanding import (
         SIGNAL_FERMENTATION,
@@ -747,6 +797,9 @@ def _opening_prefetch_evidence(
     perspective_ids: tuple[str, ...] = (),
     perspective_mode: str = "neutral",
 ) -> tuple[agent_research.AgentEvidence, ...]:
+    if context.contract.material_contract is not None and context.contract.material_contract.data_scope in {"material_only", "local_only"}:
+        # local_only 的工具已保留纯本地路径；未按同一授权分类的自动播种暂不执行。
+        return ()
     from intelligence.services.asof_prefetch import (
         collect_prefetch_items,
         evidence_from_prefetch,
@@ -923,12 +976,13 @@ def build_episode_registry(
 ) -> ResearchToolRegistry:
     """Build a read-only registry from the repository's current tool runners."""
 
+    if context.contract.material_contract is not None and context.contract.material_contract.data_scope == "material_only":
+        # 必须早于 _roots / 日期探测 / 实体解析 / 预取；菜单清空不能撤销已经发生的读取。
+        return ResearchToolRegistry((), read_scope="material_only")
+
+    local_only = context.contract.material_contract is not None and context.contract.material_contract.data_scope == "local_only"
     finance, wiki = _roots(finance_root, knowledge_wiki)
-    market_db_path = (
-        Path(fixture_policy.market_db_path).expanduser()
-        if fixture_policy is not None and fixture_policy.market_db_path is not None
-        else finance / "db" / "market_feature_store.duckdb"
-    )
+    market_db_path = _market_db_path(finance_root, finance, fixture_policy)
     freshness_floor = _structured_freshness_floor(context)
     structured_source_date = None
     if frame.question_type != "valuation_estimate":
@@ -973,7 +1027,8 @@ def build_episode_registry(
             anchor_admission="subject_local",
         )
     knowledge = KnowledgeAdapter(wiki_root=wiki)
-    subject_anchor = entity_anchor.resolve_entity_anchor(
+    # 保留的本地 runner 不消费 subject_anchor；避免为被禁工具先读全局证券词典。
+    subject_anchor = None if local_only else entity_anchor.resolve_entity_anchor(
         f"{frame.subject or ''} {frame.raw_question}",
         knowledge,
     )
@@ -1013,7 +1068,7 @@ def build_episode_registry(
         )
 
     # 02：把本题问句交给 web_fetch 做定向选段（工具参数面只有 url，问句只能从这里进）。
-    default_tools = agent_research.build_default_tools(
+    default_tools = {} if local_only else agent_research.build_default_tools(
         retrieve_kb, focus_query=subject_query
     )
     if fixture_policy is not None and not fixture_policy.external_search_enabled:
@@ -1402,8 +1457,14 @@ def build_episode_registry(
         # 的调用方（与可达性审计）留同一个座位，没传就不挂。
         tools["derived_calculation"] = derived_calculation_runner
     base_registry = default_registry(tools)
-    specs = list(base_registry.authorized_specs())
-    if frame.history_intent is not None:
+    # 这两条 runner 就在本装配函数内选定：mainline_runner 只读 DuckDB；
+    # build_graph_tools._evidence_lookup 只读 KnowledgeAdapter JSON。不是从标签猜。
+    specs = [
+        replace(spec, io_effect="local_read")
+        if spec.name in {"mainline_context", "evidence_lookup"} else spec
+        for spec in base_registry.authorized_specs()
+    ]
+    if frame.history_intent is not None and not local_only:
         from intelligence.services.historical_research.episode import history_tool_specs
 
         specs.extend(
@@ -1659,6 +1720,7 @@ def build_episode_registry(
                 cost="local",
                 freshness="current",
                 runner=finance_query_runner,
+                io_effect="local_read",
                 parameters=_agent_finance_parameters(),
                 parse_arguments=parse_finance_arguments,
             )
@@ -1863,8 +1925,19 @@ def build_episode_registry(
                 cost="local",
                 freshness="stable",
                 runner=memory_lookup_runner,
+                io_effect="local_read",
             )
         )
+
+    if local_only:
+        # 不加载 live weekly/计算恢复，不执行尚未按capability分类的自动预取。
+        # with_specs 追加的未知 runner 仍受此注册表上限与 dispatch 同时约束。
+        local_specs = tuple(
+            spec for spec in specs
+            if spec.capability in context.contract.allowed_capabilities and spec.io_effect == "local_read"
+        )
+        require_tool_contracts(local_specs)
+        return ResearchToolRegistry(local_specs, read_scope="local_only")
 
     live_us = user_space
     if live_us is None and str(memory_user or "").strip():
@@ -1886,6 +1959,10 @@ def build_episode_registry(
             perspective_ids=tuple(perspective_ids),
             perspective_mode=perspective_mode,
         ),
+        # 与 memory_lookup 共用同一个身份输入：``derived_calculation`` 的
+        # ``inputs_from_calc``（改假设重算）要去「这一轮用户的 runs 目录」找上一次的
+        # 计算记录，而 episode 层刻意不认识用户。身份缺席时留 None = 沿用默认解析。
+        calc_loader=_calc_loader_for(memory_user),
     )
 
 

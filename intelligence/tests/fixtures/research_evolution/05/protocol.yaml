@@ -1,0 +1,107 @@
+schema_version: pilot-protocol/v1
+protocol_version: pilot-synthetic-v1
+pilot_id: pilot-synthetic-01
+frozen_at: '2026-09-14T08:00:00+08:00'
+task_categories:
+- fact_check
+- judgment_recheck
+cases:
+- case_id: case-fc-01
+  case_version: '1'
+  category: fact_check
+  title: 核对某公司三季度订单口径
+  deliverable: 核对单 + 出处列表
+  source_scale: 3 份公告
+  cutoff: '2026-09-12'
+- case_id: case-fc-02
+  case_version: '1'
+  category: fact_check
+  title: 核对某板块成交额口径
+  deliverable: 核对单 + 出处列表
+  source_scale: 3 份公告
+  cutoff: '2026-09-12'
+- case_id: case-fc-03
+  case_version: '1'
+  category: fact_check
+  title: 核对某产品价格数据
+  deliverable: 核对单 + 出处列表
+  source_scale: 2 份数据表
+  cutoff: '2026-09-12'
+- case_id: case-fc-04
+  case_version: '1'
+  category: fact_check
+  title: 核对某产能数据
+  deliverable: 核对单 + 出处列表
+  source_scale: 2 份数据表
+  cutoff: '2026-09-12'
+- case_id: case-jr-01
+  case_version: '1'
+  category: judgment_recheck
+  title: 回检一条旧板块判断
+  deliverable: 变化单 + 维持/修订结论
+  source_scale: 1 条判断 + 5 条新证据
+  cutoff: '2026-09-12'
+- case_id: case-jr-02
+  case_version: '1'
+  category: judgment_recheck
+  title: 回检一条旧题材判断
+  deliverable: 变化单 + 维持/修订结论
+  source_scale: 1 条判断 + 5 条新证据
+  cutoff: '2026-09-12'
+case_pairs:
+- case_pair_id: pair-01
+  category: fact_check
+  case_ids:
+  - case-fc-01
+  - case-fc-02
+- case_pair_id: pair-02
+  category: judgment_recheck
+  case_ids:
+  - case-jr-01
+  - case-jr-02
+- case_pair_id: pair-03
+  category: fact_check
+  case_ids:
+  - case-fc-03
+  - case-fc-04
+rubric:
+  rubric_version: rubric-v1
+  dimensions:
+  - fact_sourcing
+  - calculation
+  - assumption_gaps
+  - task_completion
+  max_per_dimension: 2
+  severe_error_rule: 关键事实或计算错误计一次严重错误
+allowed_pause_reasons:
+- pre_registered_break
+- scheduled_meeting
+criteria:
+  time_saving:
+    min_participants: 3
+    min_complete_pairs: 6
+    require_both_categories: true
+    median_saving_min: 0.2
+  proactive_reuse:
+    min_participants: 3
+    min_rate: 0.5
+    manual_reminder_quiet_hours: 72
+  renewal:
+    renewal_window_days: 14
+exclusion_rules:
+- rule_id: original_time_zero
+  rule_version: '1'
+  description: 原流程耗时为 0 的配对不进省时中位数，比例单列
+- rule_id: consent_withdrawn
+  rule_version: '1'
+  description: 撤回研究/日志同意后的事件不进有效测量，退出计数保留
+- rule_id: consent_scope
+  rule_version: '1'
+  description: 未同意盲审的评审不进质量读数
+- rule_id: conflicting_event_id
+  rule_version: '1'
+  description: 同 ID 不同内容的事件整体不进计算
+cohort_window:
+  start: '2026-09-14'
+  end: '2026-10-11'
+protocol_hash: d8f8a78a0884536bbc4235189af276fb867146bf7d5b305f38507b474b1473b5

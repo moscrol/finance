@@ -923,6 +923,9 @@ class ToolSpec:
     # （下单、落库、发消息）必须显式 ``never``，恢复时对它只合成 ``tool_error{interrupted}``、
     # 绝不重跑。底座读它，不改任何执行行为。
     replay: Literal["safe", "never"] = "safe"
+    # Actual runner effect, certified at the owning assembly seam. Unknown is
+    # denied under local_only, even when cost="local" or freshness="stable".
+    io_effect: Literal["local_read", "external_or_mixed", "unknown"] = "unknown"
 
     def __post_init__(self) -> None:
         if not isinstance(self.runner, ToolRunnerAdapter):
@@ -933,6 +936,8 @@ class ToolSpec:
         object.__setattr__(self, "parameters", frozen_parameters)
         if not isinstance(self.produces, frozenset):
             object.__setattr__(self, "produces", frozenset(self.produces))
+        if self.io_effect not in {"local_read", "external_or_mixed", "unknown"}:
+            raise ValueError("invalid tool IO effect")
         if self.replay not in ("safe", "never"):
             raise ValueError(f"tool replay declaration must be safe|never: {self.replay!r}")
 
@@ -943,9 +948,22 @@ class ResearchToolRegistry:
         specs: tuple[ToolSpec, ...],
         *,
         opening_prefetch: tuple[agent_research.AgentEvidence, ...] = (),
+        calc_loader: object | None = None,
+        read_scope: str = "full",
     ) -> None:
+        if read_scope not in {"full", "local_only", "material_only"}:
+            raise ValueError("invalid registry read scope")
+        self.read_scope = read_scope
         self._specs = {spec.name: spec for spec in specs}
-        self.opening_prefetch = tuple(opening_prefetch)
+        # 自动注入/恢复加载器还没有逐项实际 IO 认证；收窄时不带入旁路。
+        self.opening_prefetch = tuple(opening_prefetch) if read_scope == "full" else ()
+        # ``derived_calculation`` 的 runner 只有 episode 期绑得出（要那一轮的证据账本），
+        # 但「上一轮的计算记录在谁的 runs 目录里」是**装配期**才知道的身份问题
+        # ——运行器刻意不认识用户（agent_episode 的 EpisodeScope.user_id 恒为 ""）。
+        # 与 memory_lookup 同一条经验：授权与身份穿透必须成对出现，只做一半不报错。
+        # 这一格就是装配层把已解析的身份折成一个闭包带进 episode 的通道；
+        # None = 调用方没给身份，沿用 load_calculation_record 的默认解析。
+        self.calc_loader = calc_loader if read_scope == "full" else None
 
     def resolve(self, name: str) -> ToolSpec:
         spec = self._specs.get(str(name).strip())
@@ -963,6 +981,8 @@ class ResearchToolRegistry:
         return ResearchToolRegistry(
             tuple(merged.values()),
             opening_prefetch=self.opening_prefetch,
+            calc_loader=self.calc_loader,
+            read_scope=self.read_scope,
         )
 
     def without(self, *names: str) -> "ResearchToolRegistry":
@@ -972,7 +992,42 @@ class ResearchToolRegistry:
         return ResearchToolRegistry(
             tuple(spec for spec in self._specs.values() if spec.name not in dropped),
             opening_prefetch=self.opening_prefetch,
+            calc_loader=self.calc_loader,
+            read_scope=self.read_scope,
         )
+
+    def with_read_scope(self, read_scope: str) -> "ResearchToolRegistry":
+        """A derived registry may narrow but never relax its existing IO ceiling."""
+        ranks = {"full": 0, "local_only": 1, "material_only": 2}
+        if read_scope not in ranks:
+            raise ValueError("invalid registry read scope")
+        effective = max((self.read_scope, read_scope), key=ranks.__getitem__)
+        return ResearchToolRegistry(
+            tuple(self._specs.values()),
+            opening_prefetch=self.opening_prefetch,
+            calc_loader=self.calc_loader,
+            read_scope=effective,
+        )
+
+    def for_context(self, context: ResearchRunContext) -> "ResearchToolRegistry":
+        """Bind once before any menu/prompt/prefetch consumer, not only dispatch."""
+        material = context.contract.material_contract
+        if material is not None and material.data_scope in {"local_only", "material_only"}:
+            return self.with_read_scope(material.data_scope)
+        # 未决语义的预取前澄清仍由入口负责；这里不猜测/复位已有上限。
+        return self
+
+    def authorization_denial(self, spec: ToolSpec, context: ResearchRunContext) -> str:
+        """One decision shared by dispatch and EpisodeScope; no side effects."""
+        if spec.capability not in context.contract.allowed_capabilities:
+            return f"能力未授权：{spec.capability}"
+        material = context.contract.material_contract
+        scopes = {self.read_scope, material.data_scope if material else "full"}
+        if "material_only" in scopes:
+            return "material_only 禁止读取工具"
+        if "local_only" in scopes and spec.io_effect != "local_read":
+            return f"local_only 未审定工具实际 IO：{spec.name}"
+        return ""
 
     def names(self) -> tuple[str, ...]:
         return tuple(self._specs)
@@ -1000,6 +1055,10 @@ class ResearchToolRegistry:
                 for spec in self._specs.values()
                 if spec.capability in allowed_set
             )
+        if self.read_scope == "material_only":
+            specs = ()
+        elif self.read_scope == "local_only":
+            specs = tuple(spec for spec in specs if spec.io_effect == "local_read")
         return tuple(sorted(specs, key=lambda spec: spec.name))
 
     def tool_definitions(
@@ -1105,7 +1164,8 @@ class ResearchToolRegistry:
         """
 
         spec = self.resolve(name)
-        if spec.capability not in context.contract.allowed_capabilities:
+        denial = self.authorization_denial(spec, context)
+        if denial:
             # 错误契约保持不变（仍抛 UnknownResearchTool、消息逐字不变）：
             # ``unknown_or_unauthorized_tool`` 这个串有 4 个生产者、1 个分支消费者
             # （agent_episode.py:311），并且进了模型可见的消息文本。拆它是一次
@@ -1114,7 +1174,6 @@ class ResearchToolRegistry:
             # 但**区分**不用等：它落进阶段事件（新增，无存量消费者），
             # 于是诊断拿到了区分，契约一点没动。
             if scope is not None:
-                decision = scope.authorize(name)
                 scope.emit(
                     TOOL_ERROR,
                     {
@@ -1123,12 +1182,12 @@ class ResearchToolRegistry:
                         "step_id": step_id,
                         "stage": "authorize",
                         # 与 wire 上那个压扁的串不同，这里是分开的
-                        "reason": decision.reason,
-                        "capability": decision.capability,
+                        "reason": denial,
+                        "capability": spec.capability,
                     },
                 )
             raise UnknownResearchTool(
-                f"能力未授权：{spec.capability}（工具 {spec.name}）"
+                f"{denial}（工具 {spec.name}）"
             )
 
         prepared = self.prepare(name, arguments)
@@ -1685,9 +1744,23 @@ def require_tool_contracts(specs: Iterable[ToolSpec]) -> None:
 #   kb_search       成功 30 / 真超时 57，成功耗时 p50 9.5s、80% 在 20s 内（一次检索 + 一次相关性裁判）
 #   evidence_search 成功  3 / 真超时 66，成功耗时 32–40s（narrow→broad→counter 多轮检索 + 语义裁判）
 # 数字是成功样本的分位，被 ~23s 的实授窗右截断，只会低估不会高估。改数字要重跑那份脚本。
+#
+# 2026-09-03 补登三条网络工具。上面那句「9 个 p95 < 9s，任何授予都够，不登记」有个
+# 洞：**零授予也是一种授予**。同一份收据里 `web_search` 就有 1 次零授权，当日 live
+# 三次复现——`would_grant=0` 时它因无地板照旧留在菜单上，模型点了、授 0 秒、
+# 立即 `tool_timeout`，白烧一整轮。地板在这里防的不是「窗太小」而是「窗是零」，
+# 与 kb/evidence 两条「这活本来就要那么久」的地板用途不同。
+#   web_search  成功 8   p50 2.72 / p95 4.76 → 5.0 正好压住 p95
+#   news_search 成功 64  p50 1.53 / p95 8.68 → 同给 5.0：p95 未被覆盖是**有意的**，
+#               它 p50 只要 1.53s，按 p95 设 9s 会把大量本可成功的窗也遮掉；
+#               5s 是零授予护栏，不是 p95 保证
+#   web_fetch   成功 0（无实测样本）→ 按同族一次往返给 5.0，[推断] 非实测
 MIN_WINDOW_SECONDS: dict[str, float] = {
     "kb_search": 20.0,
     "evidence_search": 30.0,
+    "web_search": 5.0,
+    "news_search": 5.0,
+    "web_fetch": 5.0,
     # 设计常数而非实测：一支分支的时间上限（见 SUB_RESEARCH_MIN_WINDOW_SECONDS）。
     "sub_research": SUB_RESEARCH_MIN_WINDOW_SECONDS,
 }
