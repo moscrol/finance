@@ -7,6 +7,7 @@ from datetime import date, datetime, time
 from typing import Any, Iterable, Mapping
 
 from .coverage import collapse_limit_rows
+from .structure import structure_daily, structure_params
 
 NULL = None
 
@@ -185,12 +186,16 @@ def compute_flags(
     double_volume_dod = float(p.get("double_volume_dod_pct", DOUBLE_VOLUME_DOD_PCT))
     money_losing_lt = float((p.get("money_losing") or {}).get("lt_pct", DEFAULT_MONEY_LOSING["lt_pct"]))
     losing_streak = 0
+    # 结构视角（创始人 09-08「MACD 底背离和缠论的用法能结合起来吗」）：上证日线 MACD 背离与缠论分型 / 笔 / 中枢 / 三买，
+    # 整段序列一次算完、逐日只写出（每个事件记在被确认的那一天）。参数块 structure（divergence_lookback 背离两极值最大间隔 / swing_k 摆动确认天数 / fail_horizon 失效观察期）。
+    structure = structure_daily(rows, **structure_params(p))
     for i, row in enumerate(rows):
         prev = _prev(rows, i, cal_index)
         d = _date(row.get("trade_date"))
         rec: dict[str, Any] = {"trade_date": d, "scalar_gaps": {}}
         for passthrough in SOURCE_PASSTHROUGH:
             rec[f"{SOURCE_PREFIX}{passthrough}"] = row.get(passthrough)
+        rec.update(structure[i])
         close, ma = _num(row.get("sh_index_close")), _num(row.get("sh_week_ma"))
         rec["above_week_ma"] = None if close is None or ma is None else close > ma
         rec["cross_above_week_ma"] = (
@@ -562,6 +567,13 @@ BREADTH_FIELDS = (
     ("stock_ma10_deviation_median", "ma10_deviation_median", "ma10_count"),
     # 复盘会「情绪均值回归」的原料：当日上涨家数占比；其 5 日均值另算（UP_RATIO_MA_DAYS）。
     ("stock_up_ratio_pct", "up_ratio_pct", "stock_count"),
+    # 第二十五段候选维度（先量再进靶子）：个股周均线上方占比、20 日 / 一年新低家数、20 日新高家数、背离广度。
+    ("stock_above_ma5_share_pct", "above_ma5_share_pct", "ma5_count"),
+    ("new_low_20d_count", "new_low_20d_count", "window20_count"),
+    ("new_high_20d_count", "new_high_20d_count", "window20_count"),
+    ("new_low_1y_count", "new_low_1y_count", "window250_count"),
+    ("stock_div_bottom_observe_share_pct", "div_bottom_observe_share_pct", "stock_count"),
+    ("stock_div_top_share_pct", "div_top_share_pct", "stock_count"),
 )
 UP_RATIO_MA_DAYS = 5
 
