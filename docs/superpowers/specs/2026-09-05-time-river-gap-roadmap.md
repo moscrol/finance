@@ -44,7 +44,7 @@
 
 ## 0. 一句话
 
-终局六轨（盘面 / 题材 / 舆论 / 资金 / 个股 / 判断；资金独立成轨见终局 §13.2 F9）的数据大多已在按日积累，方法论统计门、题材八阶段 + 时间线、D8 / D10 对标、记忆晋升门都在主干上；**还差 13 件**，按依赖分四层——L0 两项前置（题材词表统一、`market_stage` 归一）、L1 四项 V1 前必须（授课框架 v0、联立读取面、观察剧本 + 带读模式、合规硬门）、L2 五项 V2 前（舆论阶段轴、三维并置、环境剧本、胜率面板分列、私有层容器）、L3 抬上限杂项。**关键路径不是代码，是创始人把课纲写成母本（G-01）**：它是小白路径的前提、差分声明的基准、历史重放的规则集，agent 只能搭骨架不能替写。
+终局六轨（盘面 / 题材 / 舆论 / 资金 / 个股 / 判断；资金独立成轨见终局 §13.2 F9）的数据大多已在按日积累，方法论统计门、题材八阶段 + 时间线、D8 / D10 对标、记忆晋升门都在主干上；**还差 13 件（09-06 第二轮再加 4 件：G-02c / G-14 / G-15 / G-16，见 §2.5）**，按依赖分四层——L0 两项前置（题材词表统一、`market_stage` 归一）、L1 四项 V1 前必须（授课框架 v0、联立读取面、观察剧本 + 带读模式、合规硬门）、L2 五项 V2 前（舆论阶段轴、三维并置、环境剧本、胜率面板分列、私有层容器）、L3 抬上限杂项。**关键路径不是代码，是创始人把课纲写成母本（G-01）**：它是小白路径的前提、差分声明的基准、历史重放的规则集，agent 只能搭骨架不能替写。
 
 ---
 
@@ -75,6 +75,9 @@
 
 #### G-04 题材生命周期两套词表统一
 
+> **2026-09-08 实施状态**：已落——PR #673 `feat/methodology-backtest-p1-lifecycle-stage`（七段为唯一标签值、八阶段降为别名、五段预留作废；旁路库 `lifecycle_stage`，`LABEL_VERSION` 合入时序为 v6——v5 已被 #49 占用；对照集草稿 42 条 `stage_manual` 待创始人填）。**已合入**（09-15，`ce9643b1`，共享旁路库已重建发布 v6）；一致率等人工标注 ≥ 30 条（当前 0/42）。
+
+
 - **已有**：八阶段诊断与七段时间线两套口径；旁路库 `lifecycle_stage` 标签（#21 P1 剩余项：人工对照集）。
 - **当前缺口（09-15）**：#673 已合，映射表 / 单一词表 / `LABEL_VERSION` v6 / 共享库及四条规则重跑均已完成；只剩人工 `stage_manual`（0/42，至少30）与不一致样本归因。历史标签漂移已记录，不能声称零漂移。
 - **验收**：(a) 词表里只剩一套题材阶段词，两模块输出经映射后同名；(b) 在人工对照集上出两模块一致率报告，不一致的样本逐条有归因；(c) `lifecycle_stage` 重建后，已有规则收据重跑要么无漂移、要么漂移有记录。
@@ -93,7 +96,7 @@
 
 #### G-01 授课框架 artifact v0（课纲 → 词表 → 判读规则 → 阈值队列）
 
-- **已有**：结构语言词表（严格双红、MA5 峰谷确认日、指数完整周期、来源状态……已在 `UBIQUITOUS_LANGUAGE.md`）；`perspective_lab.py` 的 profile 机制；A / B / C 分类法（reading-rules-inventory §0）可直接复用。
+- **已有**：结构语言词表（严格双红、MA5 峰谷确认日、指数完整周期、来源状态……已在 `UBIQUITOUS_LANGUAGE.md`）；`perspective_lab.py` 的 profile 机制；A / B / C 分类法（reading-rules-inventory §0）可直接复用。**2026-09-06 新增**：骨架 `docs/learning/teaching-framework/00-concept-label-skeleton.md`（用户口述 → 四类对象：A 指数阶段 `index_stage` state 标签族、B 市场风格标量、C 板块角色 量 / 价 / 锐度 / 主流、D 事件锚点回溯；每个概念对照库内字段标 可算 / 待接 / 无源；§6 是创始人待填清单）。[实测] A 类全部输入字段（`sh_week_ma / sh_deviation_pct / volume_state / advancers …`）都在 `fact_market_daily`，缺的只是创始人写阈值与转移条件；07-03 问卷第八层已有量板块 / 价板块定义。**供应商 `market_stage` 不是授课指数阶段**，`index_stage` 另起标签族、另起版本。**2026-09-07**：G-01 (3) 第一批规则的设计稿已落——`2026-09-07-teaching-framework-slice1-index-stage-leader-succession-design.md`（`index_stage` 标签族 + 最高标接力链 `LeaderSuccession`，后者同时是 G-02c `anchor_windows` 事件到事件模式的第一个实例；C 类板块角色留第二刀）。待用户审后拆工单。
 - **缺**：(1) 母本 `docs/learning/teaching-framework/`（**人写**——沿 08-19 §5 红线，agent 只搭骨架、抽词表、对照数据字段，不撰写判读内容）：每条规则带课纲出处、A / B 分类、适用阶段；(2) `teaching_framework` profile 作共享层默认判读（`neutral` 逐字节不变——08-19 非目标）；(3) B 类数字阈值写成 `methodology_backtest` 规则 JSON 进回测队列；(4) 差分声明模板：KOL 25 条 A 类对授课框架逐条标「采纳 / 结构同阈值异 / 拒绝」（§13.1 第 1 题）。
 - **验收**：(a) 母本有版本号，每条规则可追到课纲 / 直播的一处出处；(b) 复盘 run 新增 `teaching` 模式，默认开、可关，关掉后输出与当前逐字节一致；(c) ≥ N 条 A 类结构规则能贴到数据块渲染（N 由母本定，先不定数字）；(d) 每条含阈值的规则在旁路库有一张四态收据（含 `insufficient`）；(e) 对外物料在 (a)–(d) 全过之前只写「代码化中」。
 - **依赖**：无代码依赖。**人力瓶颈是创始人写母本**，其余全部等它。
@@ -169,6 +172,9 @@ RiverObject
 
 #### G-06 舆论生命周期阶段词表 + 派生器
 
+> **2026-09-08 实施状态**：已落——PR #671 `feat/opinion-lifecycle-stage`（萌芽 / 扩散 / 拥挤 / 退热 / 证伪 + unverifiable；`opinion_stage.derive_stage` 无状态派生；旁路库 `opinion_stage`，`LABEL_VERSION` 合入时 v4；§5 第 3 题按推荐执行）。**已合入**（09-11，PR #671 → `4fa297cd`）；版本链此后 #49 升 v5、#673 合入升 v6。
+
+
 - **已有**：`consensus_staging.py` 两轨；观点事件库；`wiki/sources` 7,036 份带日期的研报来源（覆盖密度可算）。
 - **缺**：(1) 钦定 4–5 段词表（例：萌芽 → 扩散 → 拥挤 → 退热 / 证伪；「无人问津」需要负证据，先不入词表或标 `unverifiable`）；(2) 派生规则只从事件算：首次卖方覆盖日、覆盖密度斜率、观点版本 v1 概念 → v2 订单 → v3 兑现 / 证伪的切换、证伪事件；(3) 不落状态机、不新增抓取器（§13.1 第 2 题条件）。
 - **验收**：(a) 每一段都有确定性派生规则且能在历史上重算；(b) 覆盖率报告：多少 `(theme, as_of)` 能出阶段、多少 `unverifiable`；(c) 与题材轴并排时能输出「错位」标记；(d) 词表进 `UBIQUITOUS_LANGUAGE.md`，与题材八阶段不混名。
@@ -228,6 +234,49 @@ RiverObject
 - 带读评测题：冻结题集加「带读题」——给 as-of 切片，判官检查观察剧本合规 + 五段 + 缺口声明；进 28 题验收台的同一条路径。
 - 知识库脱敏（Beta 硬门槛，BP §3.5 / §10.2 V2）。
 
+### 2.5 第二轮新增缺口（2026-09-06；决策见终局 spec §14，契约正文见 09-06 统一 spec）
+
+#### G-02c 区间契约 `river.window` + 区间 PIT
+
+> **2026-09-08 实施状态**：已落——PR #670 `feat/river-window-contract`（`river_window_contract.window` / 五类派生 `river_derive` / `river_anchor.anchor_windows`；`build_daily_vectors` 必填 `knowledge_cutoff`，`market_regime_analogs` / `range_aggregate` 出 `pit_grade`；前视棘轮测试）。**已合入**（09-11，PR #670 → `35d8d473`）；事件定价迁移随事件定价线推进（#663 已关，内容随 #722 链进 main）；`leader_succession` 接 river 为 opt-in。
+
+
+- **已有**：`river_window.py`（六维签名、层次聚类、`FeatureSpec` 回溯链）、`river_query.range_aggregate`（带 `coverage / codes_seen / caveats`，`require_complete` 时只给 gap）、`market_regime_analogs` 的签名与距离。
+- **缺**：`window(start, end, C)` 契约与 `RiverWindow` 对象（切片序列 + `derived[]` + `coverage` + 段级 `pit_grade`）；五类派生对象 `streak / transition / cumulative / first_event / signature`，各带 `derivation_rule` 与 `member_refs`、`gap_policy` 默认 `unverifiable`；`build_daily_vectors` 与 D10 窗口读数改走契约。[实测] 今天它们读全历史、不接 C、不出 `pit_grade`——单点守住的无前视到区间断了。**另含 `anchor_windows`（09-06 spec §4.6 事件锚点回溯）**：锚点日上下文 + 前瞻窗 + 回看窗合成一条记录，`windows_around` 与 `cohort_compare` 是两段原型；锚点 / 目标 / 形态三个定义由创始人在母本骨架 §4 填，没定义前不能跑。**2026-09-07 第二实例设计稿已落**：`2026-09-07-event-pricing-slice1-calendar-reaction-design.md`——外生事件锚点（事件锚点日历：编辑日历 + 手录官方日程，确定性反应日，`latest_known` 只答何时不答数值）+ `EventReaction`（事前 / 当日 / 事后窗，事后窗复用 `history_outcomes`，形状标签过四态，预期内 / 非预期分表，「已定价」三代理并排）；不等 `river.window` 契约，契约落地后改走并带 `pit_grade` 是本项验收的迁移义务。**2026-09-07 晚已执行**：`intelligence/services/event_pricing/` + `scripts/event_reaction.py`，真库读数与数据现实见 `docs/verification/2026-09-07-event-pricing-slice1.md`（板块价格序列 07-24 起从 `.TI` 换到 `.FP`，板块级锚点只覆盖 2026-06-30 起；主库 2026-08-17 指数涨跌幅 NULL）。
+- **验收**：09-06 §10 第 9、10 条；`river_window` 与 `market_regime_analogs` 的每个窗口读数带 `pit_grade`；`range_aggregate` 作为 `cumulative` 类接入，不重写。
+- **依赖**：G-02a。**G-02b 的相似匹配、G-08 环境剧本排在它后面**——没有段级 PIT 的相似窗口是前视泄漏。
+- **对外**：不进对外物料。
+
+#### G-14 上下文投影契约 + `projection_hash` 门禁
+
+> **2026-09-08 实施状态**：已落——PR #667 `feat/river-context-projection`（`river_projection.project` / `guided_reading` 改为消费方 / `register_checkpoint` 对 agent 产物无哈希拒收 / `replay --expect`）。干净树 8185P/0F。**已合入**（09-11，PR #667 → `03ea3042`）。上文「09-06 §10 第 11、12 条」的条号以 09-06 spec 现文为准（第 11 条投影幂等 + gap 全带上，§11 第 11 条投影门禁）。
+
+
+- **已有**：`guided_reading` 的渲染（[实测] 写死截断：6 键 / 10 节点 / 字母序）、`ask_synthesis` 注入点、五段出门。
+- **缺**：`project()` 与 `ContextProjection`；框架规则作选择器、无规则时确定性默认序并标 `selected_by=default`；`omitted / limits / gaps` 强制块；按块省略不截断；台账拒收无 `projection_hash` 的 agent 产物。
+- **验收**：09-06 §10 第 11、12 条；`guided_reading` 改为投影的一个消费方，关掉带读仍逐字节不变。
+- **依赖**：G-02a；G-01 v0 提供选择规则（未成前全部 `default`，管线先通）。**G-03 接进每日复盘之前必须先有它**——接线之后再补，已入账的判断就没有 hash 可追。
+- **对外**：做完前不提；做完后可说「每条 agent 判断都能回放它当时看到的上下文」。
+
+#### G-15 情景树对象（多步推演）
+
+> **2026-09-08 实施状态**：v0 已落——PR #674 `feat/scenario-tree-v0`（叠在 #667 + #670 上：`scenario_trees.py` 编译门 / 互斥 + otherwise / `resolve` 只读 `slice(T+k, C=T+k)` / 三项回检 / 每日复盘钩子默认关）。**已合入**（09-12，PR #674 → `73dd3d1e`；#667 / #670 先已合入）。
+
+
+- **已有**：`observation_script` 对象与硬门、`compliance_gate` 词表、`checkpoints` 回检、`methodology_backtest` 规则编译器白名单。
+- **缺**：`ScenarioTree` 对象；条件编译门（只接注册标签谓词）；同父子条件互斥 + `otherwise` 强制校验；逐日解析器（只从 `slice(T+k, C=T+k)` 写 `realized_path`，所需标签 `gap` → `unresolvable`）；三项回检（覆盖 / 沿路剧本触发 / 规则样本产出）；`analog_ref` 只带 N 与后续事实。
+- **验收**：09-06 §10 第 13、14 条；「策略」「方向」词与概率数字在树上被 lint 拒绝。
+- **依赖**：G-03、G-14、G-05（分枝条件多半用 `market_stage`，归一前不能当条件）。v0 深度 ≤ 3、条件限于已归一标签；V3 放开到 5 并接 `analog_ref`。
+- **对外**：产品语言只用「情景树」；「推演」作口语翻译，不出现「预测路径」。
+
+#### G-16 注册标签目录统一 + 候选规则提议契约
+
+- **已有**：`history_labels` 目录与 `LABEL_VERSION`；D8 / D10 / `stock_analogs` / `river_window` 四套各自命名的特征维；`propose` 登记入口（#21 P1）；G-13 双窗设计。
+- **缺**：四个匹配模块的 `FEATURES` 改引用注册标签（一张目录、一个版本）；`propose` 收紧为「只接规则 JSON」并加 `provenance.kind ∈ {user_feedback, agent_discovered, teaching}`；提议次数进多重检验分母，与 G-13 同一本账；输入可为 verdict 或情景树 `realized_path`。
+- **验收**：四个匹配模块的每个特征维都能映射到 `history_labels` 目录项；提议产物 100% 是可编译规则 JSON；收据带 `n_candidates_tried`。
+- **依赖**：G-05、G-13（同一工单收口，不另立）、G-15（`realized_path` 作输入）。
+- **对外**：沿 G-13 的诚实写法——「AI 提议了 N 条候选，M 条过门，K 条证伪」。
+
 ---
 
 ## 3. 依赖图与顺序
@@ -239,15 +288,20 @@ G-05 market_stage 归一 ──┬──> G-08 环境剧本 ──> (G-11 重放
 G-04 题材词表统一 ────────┴──> G-02a 三轨读取面 ──> G-03 观察剧本 + 带读 <── G-01 授课框架 v0（人写母本）
 G-12a 合规门 / lint ──────────────────────────────> G-03 / G-07 / G-08
 G-01 ─────────────────────────────────────────────> G-10 私有层差分 ──> G-11
+
+（2026-09-06 第二轮新增）
+G-02a ──> G-14 上下文投影 ──> G-03 接进每日复盘 ──> G-15 情景树 <── G-05
+G-02a ──> G-02c 区间契约 + 区间 PIT ──> G-02b 相似匹配 / G-08 环境剧本
+G-05 ──┬──> G-16 注册标签目录统一 + 提议契约 <── G-13 / G-15
 ```
 
 对应 BP v0.7 §13.3 的承诺：
 
 | 时点 | 必须落地 | 说明 |
 |---|---|---|
-| 3 个月（V1） | G-01 v0、G-04、G-02a、G-03、G-12a；#24、#23 | 没有 G-01 v0 就没有「授课框架带读」，V1 只能按 v0.6 口径跑高手路径——对外要如实降级 |
-| 6 个月（V2） | G-05、G-02b、G-06、G-07、G-09；脱敏 | 三维对照与「两类分开记」的转化读数靠这些 |
-| 12 个月（V3） | G-08、G-10、G-11、G-13、G-12b 其余 | 环境剧本与私有层是「认知复利」的产品面 |
+| 3 个月（V1） | G-01 v0、G-04、G-02a、G-03、G-12a、**G-14 v0**；#24、#23 | 没有 G-01 v0 就没有「授课框架带读」，V1 只能按 v0.6 口径跑高手路径——对外要如实降级。G-14 v0 全部 `selected_by=default` 也要先落，否则带读接线后入账的判断没有 hash 可追 |
+| 6 个月（V2） | G-05、**G-02c**、G-02b、G-06、G-07、G-09、**G-15 v0**；脱敏 | 三维对照与「两类分开记」的转化读数靠这些；G-02c 在 G-02b 之前 |
+| 12 个月（V3） | G-08、G-10、G-11、G-13、**G-16**、G-15 放开深度、G-12b 其余 | 环境剧本与私有层是「认知复利」的产品面；G-16 与 G-13 同一工单 |
 
 ---
 
