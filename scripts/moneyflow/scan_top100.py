@@ -25,6 +25,7 @@ import pandas as pd
 
 from moneyflow import (
     current_git_revision,
+    duck_pct_chg_map,
     duck_top_turnover_codes,
     make_client,
     run_scan,
@@ -107,7 +108,14 @@ def main():
 
     codes = top_turnover_stocks(client, date)
     print(f"{date} 成交额前{len(codes)}股票，开始逐只计算大单资金流...")
-    queries = L2QueryService(date, big_thr, make_client)
+    pct_map = duck_pct_chg_map(date)
+    if not pct_map:
+        print(
+            f"⚠️ {date} fact_stock_daily 无 pct_chg（行情缺口）："
+            "当日涨幅% 写 NULL，不拿日内末笔/首笔口径冒充",
+            flush=True,
+        )
+    queries = L2QueryService(date, big_thr, make_client, pct_chg_by_code=pct_map)
 
     def compute(client, code):
         client, summary = queries.capital_flow(client, code)
@@ -118,7 +126,11 @@ def main():
         print(f"{code} 主买:{active:.0f}万 总买:{total:.0f}万")
         return client, {"code": code, "主买净额(万)": round(active),
                         "总买净额(万)": round(total),
-                        "当日涨幅%": round(summary.change_pct, 2)}
+                        "当日涨幅%": (
+                            None
+                            if summary.change_pct is None
+                            else round(summary.change_pct, 2)
+                        )}
 
     client, results, stats = run_scan(
         client, codes, date, "top100_server_v1", compute

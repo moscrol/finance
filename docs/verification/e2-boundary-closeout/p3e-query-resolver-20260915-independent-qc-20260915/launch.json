@@ -1,0 +1,8 @@
+{
+  "pid": 33070,
+  "one_attempt_only": true,
+  "provider": "dcprwo",
+  "model": "gpt-6-astra",
+  "target": "0b83e14f5c6e664772d617f075a24911f16f7547",
+  "prompt_sha256": "6483e2e282a871f34971dd971ce6ee3138160788161fb4a2965e34ad73202a45"
+}

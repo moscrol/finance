@@ -84,7 +84,9 @@ def test_writer_reader_and_auditor_resolve_the_same_file(
     assert not (sealed.ws / "state").exists() and not (sealed.repo / "state").exists()
     # 读取侧（SessionStart 那条 8792 行）
     assert board.resolve_ledger_path(sealed.repo) == sealed.home
-    assert board.last_switch_for_port(sealed.home)["rev"] == "0060da5c1a08"
+    matched, unattributed = board.last_switch_for_port(sealed.home)
+    assert matched["rev"] == "0060da5c1a08"
+    assert unattributed is None
     # 审计侧：check 读的也是这一份
     monkeypatch.setattr(
         audit, "fetch_health", lambda url, timeout=5.0: {"runtime": {"source_revision": "0060da5c1a08"}}

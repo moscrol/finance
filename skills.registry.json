@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-09-12T12:29:30Z",
+  "generated_at": "2026-09-15T13:28:26Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -405,7 +405,7 @@
       "name": "l2-moneyflow",
       "repo": "finance-workspace-private",
       "sourceType": "local",
-      "skillPath": ".claude/skills/l2-moneyflow/SKILL.md",
+      "skillPath": "skills/l2-moneyflow/SKILL.md",
       "description": "Level2 大单资金流分析（ClickHouse 逐笔成交 → 榜单/个股图 → DuckDB 特征表）。触发词：大单资金流、主买净额、总买净额、涨停股资金流、资金流榜单、量化单、量化买单、大单扫描、moneyflow。注意：问财口径的资金流向查询用 hithink-market-query；本 skill 是自有大单口径（委托编号判主动方向）的逐笔级分析。",
       "triggers": [
         "大单资金流",
@@ -421,8 +421,14 @@
       "note": "问财口径的资金流向查询用 hithink-market-query；本 skill 是自有大单口径（委托编号判主动方向）的逐笔级分析。",
       "entrypoint": null,
       "computedHash": "sha256:1f811a2e00a939c4f010265d1cdde4c25b64f41750847578b8c0098451e78bda",
-      "agentOnly": true,
-      "views": []
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/l2-moneyflow",
+          "type": "symlink",
+          "target": "../../skills/l2-moneyflow"
+        }
+      ]
     },
     "ws/limit-advance": {
       "name": "limit-advance",
@@ -968,7 +974,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:5d0720da673c7ffbae04ed7b748274840716dfe72189f77d347932e91d4ed5ed",
+      "computedHash": "sha256:9c5713058c5f7161e9a1c9e0c045d9376bd512258bc8863c235a15aab1a6b713",
       "agentOnly": false,
       "views": [
         {
@@ -987,7 +993,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:47a8e7a77c59e0ed19e4ccde7d82ad5eb17152ecc0fb6ceb2cf1a967eee6dff2",
+      "computedHash": "sha256:73e876538bd427c8eb3220f3a343375f84aead8c172a021fcade81870a92a19a",
       "agentOnly": false,
       "views": [
         {
@@ -1032,7 +1038,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:52a27ffb26a3b5a12f0493c12ae5117f5267a262b5d3b5b17d4835ac39437dcc",
+      "computedHash": "sha256:7a41e5d2d7e85b7bdb61300b4beda7de6a5ccc98b3182773c6dfa8e5ef3ffe93",
       "agentOnly": false,
       "views": [
         {
@@ -1170,7 +1176,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:eb06541164a7a302a9af99884c236f18dd3be80c37a41b5601d9b6a4b903cb61",
+      "computedHash": "sha256:05d8f4605e7ef9a9f6d052c260f55d1aaa4557301a1d6de19d551e95b3d4e5e5",
       "agentOnly": false,
       "views": []
     },
@@ -1236,7 +1242,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:e6769eab1c44a0d81dbf35602adf44d6b5dfb065f4e47623de1047ccf998a8c4",
+      "computedHash": "sha256:54b2868ae54cf715260dcc4ba1c2b9c40f3dabf51d0a4d6f4bc3ea56743a101e",
       "agentOnly": false,
       "views": [
         {
@@ -1279,7 +1285,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:f7af3741fb04a403a1c6d52012f49616e9495b726991d54ad425e4ac61a54bfb",
+      "computedHash": "sha256:4b982d28e5a752a5fb149271b53bb557c165497aa01d4dab976eb634148935be",
       "agentOnly": false,
       "views": [
         {
@@ -1344,7 +1350,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:a3a83b13819d23e61e55e9e691d9f1571ab04d73c07b0332f27527771fd9db60",
+      "computedHash": "sha256:fad96bca3a32fe495f623fc63b30fcaf91adc019a2fb3ccfef90974d9ba97676",
       "agentOnly": false,
       "views": [
         {

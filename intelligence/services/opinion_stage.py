@@ -37,6 +37,8 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
+from intelligence.services import theme_stage_vocab as _tsv
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONSENSUS_STAGING_PATH = REPO_ROOT / "skills" / "opinion-cross" / "scripts" / "consensus_staging.py"
 
@@ -313,20 +315,12 @@ def derive_stage_series(
 
 
 # --------------------------------------------------------------------------- #
-# 错位标记：题材侧 × 舆论侧（题材词表未统一前双模块映射；G-04 落地后并成一张）
+# 错位标记：题材侧 × 舆论侧。题材细词 → 粗序由钦定词表派生（G-04 已落，词表统一）：
+# theme_stage_vocab 是唯一映射源，tsc-v0 手工双表退役为派生物——行为逐字节不变，
+# 由 test_theme_stage_vocab 以 tsc-v0 字面表冻结对照锁死。
 # --------------------------------------------------------------------------- #
-THEME_STAGE_COARSE: dict[str, dict[str, str]] = {
-    # theme_lifecycle 八阶段（模块 theme_lifecycle.py）
-    "theme_lifecycle": {
-        "新出现": "early", "旧逻辑唤醒": "early", "升温验证": "mid", "加速定价": "late",
-        "高位分歧": "late", "二阶段回流": "late", "衰退观察": "late", "证伪退出": "late",
-    },
-    # theme_lifecycle_timeline 七段（模块 theme_lifecycle_timeline.py）
-    "theme_lifecycle_timeline": {
-        "酝酿": "early", "首发": "early", "发酵": "mid", "主升": "late", "分歧": "late", "退潮": "late", "回流": "late",
-    },
-}
-THEME_STAGE_MAPPING_VERSION = "tsc-v0"
+THEME_STAGE_COARSE: dict[str, dict[str, str]] = _tsv.module_coarse_tables()
+THEME_STAGE_MAPPING_VERSION = _tsv.MAPPING_VERSION
 _COARSE_ORDER = {"early": 0, "mid": 1, "late": 2}
 
 

@@ -16,6 +16,7 @@ from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.market_analogs import parse_analog_intent
 from intelligence.services.market_regime_analogs import parse_regime_intent
 from intelligence.services.market_midterm import parse_midterm_intent
+from intelligence.services.route_table import fine_grained_route_length_ok
 from intelligence.services.scenario_tree import parse_scenario_intent
 from intelligence.services.task_frame import TaskFrame, build_task_frame
 from intelligence.services.user_task import resolve_nicknames, split_user_message
@@ -1592,7 +1593,13 @@ def understand_query(
             0.98,
         )
 
-    if is_disclosure_scan_query(text):
+    # 与 turn_controller 的细粒度路由同一把闸（阈值 SSOT：
+    # route_table.FINE_GRAINED_ROUTE_MAX_CHARS），但**闸必须量完整原文 raw_text**：
+    # 此处的 text 已被 split_user_message 换成材料拆分后的短尾问，量尾问等于没闸——
+    # 2026-09-13 QC S1 实测：802 字材料 + 短尾问「公告涉及的甲乙丙…哪些有正式订单？」
+    # 尾问三提示词凑齐且长度过关，仍被劫进 disclosure_scan。匹配器读尾问（材料路由
+    # 语义），入场闸读全文（材料段的词面共现是巧合），两者作用域不能混。
+    if is_disclosure_scan_query(text) and fine_grained_route_length_ok(raw_text):
         buckets = parse_disclosure_buckets(text)
         subject = "、".join(bucket.name for bucket in buckets) or None
         return envelope(

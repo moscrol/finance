@@ -210,19 +210,39 @@ prot_() { "$PY" -c 'import json,sys; d=json.load(open(sys.argv[1]))["protocol"];
 
 `ls "$NEW/history"` 会**假通过**——手工建个空日期目录，它照样 rc=0，
 `prot_ … label_version` 也照样打印 v5（那只是协议自己的声明）。两者合起来只证明
-「目录在、协议声称 v5」，不证明 history 真的算出了东西。要留住真证据：
+「目录在、协议声称 v5」，不证明 history 真的算出了东西。
+
+而且**光把验收写成文字没用**：上一版末尾写了句「若 record 路径取不到就别往下走」，
+但命令块里 `[ "$rc" -eq 0 ] || { echo …; }` 只打印不退出，最后一条 `prot_` 又成功了，
+**整个块 rc=0**，⑤ 照跑不误——失败被最后一条命令的成功盖住。所以验收必须是**会退出的
+代码**，不是叮嘱。把 ④ 整个包成一个函数，三处失败各自非零返回：
 
 ```bash
-out="$(mv_ history --study-dir "$NEW" --labels-db "$LABELS_DB")"; rc=$?
-[ "$rc" -eq 0 ] || { echo "history 失败 rc=$rc"; echo "$out"; }
-rec="$("$PY" -c 'import json,sys; print(json.load(sys.stdin)["record"])' <<<"$out")"
-mv_ report --record "$rec"        # ← 验原件：协议 id / 类型：history / 窗口 / 三组读数
-prot_ "$NEW" label_version        # ← 再核协议声明的口径
+verify_history() {          # ④：任一环节失败即非零返回，绝不往下走
+  local out rc rec
+  out="$(mv_ history --study-dir "$NEW" --labels-db "$LABELS_DB")" || {
+    rc=$?; echo "④ history 失败 rc=$rc" >&2; echo "$out" >&2; return "$rc"; }
+  rec="$("$PY" -c 'import json,sys; print(json.load(sys.stdin)["record"])' <<<"$out")" \
+    || { echo "④ 取不到 record：history 没产出" >&2; return 3; }
+  [ -n "$rec" ] && [ -f "$rec" ] || { echo "④ record 路径不存在：$rec" >&2; return 3; }
+  mv_ report --record "$rec" || { rc=$?; echo "④ report 读不出原件 rc=$rc" >&2; return "$rc"; }
+  prot_ "$NEW" label_version
+}
+
+verify_history || { echo "④ 未通过，停止迁移（不要执行 ⑤）" >&2; exit 1; }
+# ⑤ 只能写在这一行之后——上面 exit 1 之后的内容不会执行
 ```
 
 `report --record` 的输出里要同时对上四样：**协议 id 是 `$NEW`**、**`类型：history`**、
 **观察日期区间等于协议的 history 窗口**、**三组读数与共同可评估日期数**（`ls` 给不出
-其中任何一样）。若 record 路径取不到，说明 history 压根没产出，别往下走。
+其中任何一样）。前三样人眼扫一遍即可；第四样是「同日板块总体 / 当日严格双红 /
+连续至少三日严格双红」三行读数，外加「三组共同可评估日期」那个数字——**少一行就说明
+报告没算全，不能放行**。
+
+> 这条不只是文档约定：`test_history_acceptance_stops_the_migration_when_there_is_no_record`
+> 真跑一遍上面的 `verify_history`（空目录版必须非零且 ⑤ 的哨兵不执行）；
+> `test_history_acceptance_checks_the_record_not_the_directory` 逐条断言那四样都在报告里，
+> 且三组读数与共同日期数必须带着**具体数值**出现（夹具定值），光留组名不算。
 
 ### 4.2 暂停 / 恢复边界
 
