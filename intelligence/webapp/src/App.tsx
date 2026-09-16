@@ -26,6 +26,7 @@ import {
   getArtifactText,
   getBootstrap,
   getConversationMessages,
+  getCredits,
   getFollowups,
   forgetSavedLLM,
   getLLMConfig,
@@ -71,6 +72,7 @@ import type {
   Bootstrap,
   ChatMessage,
   Conversation,
+  CreditsSummary,
   DailyReportProjection,
   FollowupContinuation,
   MaintenanceLaunchRef,
@@ -100,6 +102,7 @@ interface StreamIdentity {
 
 export default function App() {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
+  const [credits, setCredits] = useState<CreditsSummary | null>(null);
   const [surface, setSurface] = useState<Surface>({ kind: "today" });
   const [overview, setOverview] = useState<WorkbenchOverview | null>(null);
   const [overviewRefreshing, setOverviewRefreshing] = useState(false);
@@ -159,6 +162,14 @@ export default function App() {
   const finalizingRunRef = useRef<string | null>(null);
 
   const user = bootstrap?.user ?? "default";
+
+  // 余额在两个时刻变：提问被受理（预占）与 run 结束（按用量结算、释放预占）。
+  // 拉不到就保留上一次的数，展示项不该把主流程带红。
+  const refreshCredits = useCallback(() => {
+    void getCredits(user)
+      .then(setCredits)
+      .catch(() => undefined);
+  }, [user]);
 
   const fetchRunBundle = useCallback(
     async (runId: string): Promise<RunBundle> => {
@@ -288,6 +299,8 @@ export default function App() {
           loadConversationData(identity.conversationId),
           listConversations(user).then(setConversations),
         ]);
+        // 结算发生在 worker 返回之后、SSE 收口之后几毫秒；等两次往返回来再读余额，读到的是结算后的数。
+        refreshCredits();
         setLiveMessages((current) => {
           const state = current[identity.messageId];
           if (
@@ -313,7 +326,7 @@ export default function App() {
         }
       }
     },
-    [clearRunPolling, loadConversationData, user],
+    [clearRunPolling, loadConversationData, refreshCredits, user],
   );
 
   const connectStream = useCallback(
@@ -509,6 +522,7 @@ export default function App() {
       .then(async (nextBootstrap) => {
         if (disposed) return;
         setBootstrap(nextBootstrap);
+        setCredits(nextBootstrap.credits ?? null);
         const [
           nextConversations,
           nextSkills,
@@ -724,6 +738,7 @@ export default function App() {
           }),
         }));
         setDraft("");
+        refreshCredits();
         connectStream({
           conversationId,
           messageId: created.assistant_message_id,
@@ -755,6 +770,7 @@ export default function App() {
       connectStream,
       conversations,
       newConversation,
+      refreshCredits,
       selectedSkillIds,
       selectedPerspectiveIds,
       skillMode,
@@ -1122,6 +1138,7 @@ export default function App() {
         onLibrary={openLibrary}
         activeSection={activeSection}
         onSection={navigateSection}
+        credits={credits}
       />
 
       <main className="main-surface chat-surface">
