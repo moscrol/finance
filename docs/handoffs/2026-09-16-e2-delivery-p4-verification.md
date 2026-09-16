@@ -87,7 +87,7 @@ registry 叶第一次跑出五条 exit 2 是 zsh 不对 `$c` 分词把「脚本 
 - 变异只证明「拆掉这一处，定向集会红」，不证明门的逻辑正确；M22 的 issue / mandatory 分支在
   material_only 下是否可达未论证（material_only 无读能力、无证据类型要求），补的是断言不是可达性。
 - 前端与 e2e 叶未在 `1f24a6ef` 重跑，依赖的是 tree hash 相同 / 只改测试文件这两个结构性事实。
-- 未推送、未合并、未部署；主检出与 8792 未动。
+- 未切 8792、未部署；主检出未动。合并结果见文末。
 
 ## 精确头收据（`1f24a6ef`）
 
@@ -95,3 +95,9 @@ registry 叶第一次跑出五条 exit 2 是 zsh 不对 `$c` 分词把「脚本 
 skipped=83，dirty=false，target=整树。本文与 inflight 是其后的 docs-only 提交，和 P3 的
 `e37ada9b`（代码头）→ `851e7886`（文档头）同一惯例；合并前用
 `python3 scripts/check_test_receipt.py <该收据> --expect-revision <合并候选的代码头>` 复核。
+
+## 合并结果（2026-09-16）
+
+前向合并 `gitea/main`（`727b2611`）得 `f89742eb`：唯一冲突 `skills.registry.json`（生成件，本分支未动 `skills/`，取主干版本，五条 registry 检查 0）。合并头四叶：python ruff 0 / pytest 10151P/0F/83S/2xfail（收据 `20260916T031445Z-f89742eb.json`，`check_test_receipt.py --expect-revision f89742eb --base-drift-max 5` ✅，漂移 4 来自 #749 的 4 个 merge 提交，#749 只动 32 个 `docs/` 文件）；frontend install(frozen)/lint/typecheck/vitest 76P/build 各 0；e2e 15P（端口 8793，另一 session 同时在 8791 跑它的 e2e）；registry 五条 0。日志 `merge-f89742eb-*.log`。
+
+PR #752 经 Gitea API 合并（`merge-tree` 干净），merge 提交 `693043a5`，远端分支已删；`git diff f89742eb gitea/main -- . ':!docs'` 为空。未切 8792。
