@@ -42,10 +42,9 @@
 
 两个已知的读数陷阱（写在这里，因为它们会伪装成结论）
 --------------------------------------------------
-1. **`market_stage` 有两套写法**——「顶部横盘阶段」与「顶部横盘」、「下跌阶段」与
-   「下跌」在库里各算各的。不归一，一个阶段会被劈成两格、每格样本减半，
-   纵扫直接失真。本模块用 `normalize_stage` 兜住，但那只是补丁：
-   正解是 roadmap G-05 归一并升 `LABEL_VERSION`。
+1. **`market_stage` 上游曾有两套写法**——「顶部横盘阶段」与「顶部横盘」、「下跌阶段」与
+   「下跌」。历史标签层已由 G-05 统一；本模块读取仍保留 `normalize_stage` 这个兼容入口，
+   以便直接查询尚未迁移的主库原始事实时使用同一套 canonical 规则。
 2. **研报覆盖的累计数被回填批次污染**——469 份里 249 份（53%）在 2026-01。
    横扫一律按近 90 日覆盖排序，累计只作背景列。理由见 `river.coverage_metrics`。
 """
@@ -65,6 +64,7 @@ from intelligence.services.methodology_backtest.stats import (
     split_halves,
     wilson,
 )
+from intelligence.services.market_stage import normalize_market_stage
 from intelligence.services.river import (
     DEFAULT_DB,
     coverage_hits,
@@ -79,16 +79,9 @@ BH_Q = 0.05
 
 
 def normalize_stage(value: Any) -> str:
-    """`market_stage` 两套写法归一。「顶部横盘阶段」→「顶部横盘」。
+    """兼容旧调用方：主库原始事实投影到 G-05 canonical 阶段名。"""
 
-    ⚠ 这是**读取侧的补丁**，不是修复。真正的归一要在标签层做并升
-    `LABEL_VERSION`（roadmap G-05），否则每个读取方都得记得打这个补丁，
-    而漏打的那个会安静地给出减半的样本。
-    """
-    text = str(value or "").strip()
-    if not text:
-        return "未知"
-    return text[:-2] if text.endswith("阶段") else text
+    return normalize_market_stage(value) or "未知"
 
 
 # --------------------------------------------------------------------------- #
@@ -543,6 +536,9 @@ class RangeAggregate:
     peak_date: str | None = None
     gaps: tuple[MetricGap, ...] = ()
     caveats: tuple[str, ...] = ()
+    # 工单 #35：区间读数带 PIT。None = 调用方没传 knowledge_cutoff（老路径逐字节不变）。
+    knowledge_cutoff: str | None = None
+    pit_grade: str | None = None
 
     @property
     def trustworthy(self) -> bool:
@@ -568,6 +564,8 @@ class RangeAggregate:
             "peak_date": self.peak_date,
             "gaps": [g.to_dict() for g in self.gaps],
             "caveats": list(self.caveats),
+            "knowledge_cutoff": self.knowledge_cutoff,
+            "pit_grade": self.pit_grade,
         }
 
 
@@ -594,17 +592,33 @@ def _drawdown_and_peak(curve: list[tuple[str, float]]) -> tuple[float | None, fl
     return round(max_dd * 100, 4), round((peak_v - 1.0) * 100, 4), peak_d
 
 
+def _has_column(con: Any, table: str, column: str) -> bool:
+    """老库 / 测试夹具可能没有 ``updated_at``：没有就取 NULL——记录时间判不了，PIT 走 trade_date_only，不猜。"""
+    try:
+        rows = con.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_name = ? AND column_name = ? LIMIT 1",
+            [table, column],
+        ).fetchall()
+    except Exception:
+        return False
+    return bool(rows)
+
+
+def _updated_at_expr(con: Any, table: str) -> str:
+    return "updated_at" if _has_column(con, table, "updated_at") else "NULL AS updated_at"
+
+
 def _stock_rows(con: Any, start: str, end: str, entity: str) -> list[dict[str, Any]]:
     return _rows_dict(
         con,
-        """
+        f"""
         SELECT CAST(trade_date AS DATE) AS d, stock_ts_code, stock_name,
-               close, pre_close, amount, turnover
+               close, pre_close, amount, turnover, {_updated_at_expr(con, "fact_stock_daily")}
         FROM fact_stock_daily
         WHERE CAST(trade_date AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
           AND (stock_ts_code = ? OR stock_name = ?)
         ORDER BY d
-        """,
+        """,  # noqa: S608 - 列表达式只有两种字面量，值走参数
         [start, end, entity, entity],
     )
 
@@ -614,14 +628,14 @@ def _sector_rows(con: Any, start: str, end: str, entity: str) -> list[dict[str, 
     # 把 codes_seen 摆出来，让调用方看见这段区间横跨了几套代码。
     return _rows_dict(
         con,
-        """
+        f"""
         SELECT CAST(trade_date AS DATE) AS d, sector_ts_code, sector_name,
-               pct_chg, amount
+               pct_chg, amount, {_updated_at_expr(con, "fact_sector_daily")}
         FROM fact_sector_daily
         WHERE CAST(trade_date AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
           AND (sector_name = ? OR sector_ts_code = ?)
         ORDER BY d
-        """,
+        """,  # noqa: S608 - 同上
         [start, end, entity, entity],
     )
 
@@ -668,6 +682,7 @@ def range_aggregate(
     kind: str | None = None,
     db_path: str | Path | None = None,
     require_complete: bool = False,
+    knowledge_cutoff: str | None = None,
 ) -> RangeAggregate:
     """一个实体在 ``[start, end]`` 上的区间读数。
 
@@ -675,13 +690,23 @@ def range_aggregate(
     ——回放、校准、方法检验这类不能吃「偏低但不知道偏多少」的消费方必须传它。
     与 `river.slice_river(require_strict=True)` 是同一个态度，参数名也照它。
 
+    ``knowledge_cutoff``（工单 #35）：``None`` = ``end``，且**不写** ``pit_grade``——老路径逐字节不变。
+    显式传入时按每行 ``updated_at <= C`` 判段级 ``pit_grade``（刷新时间是「那时已存在」的充分证据）。
+
     个股走 ``close_to_close``（精确），板块走 ``compounded_daily``（连乘，缺天会偏低）。
     """
     import duckdb
+    from datetime import datetime, timedelta
 
     db = Path(db_path or os.environ.get("MARKET_FEATURE_STORE_DB", DEFAULT_DB)).expanduser()
     if not db.exists():
         raise FileNotFoundError(f"数据库不存在：{db}（不自动创建）")
+
+    # None → end：有效时间仍然是 [start, end]，只是不报 PIT（保持老路径）。
+    cutoff = (str(knowledge_cutoff).strip()[:10] if knowledge_cutoff else None)
+    report_pit = cutoff is not None
+    if cutoff is None:
+        cutoff = end
 
     con = duckdb.connect(str(db), read_only=True)
     try:
@@ -708,6 +733,25 @@ def range_aggregate(
         missing_dates=tuple(sorted(set(expected) - {str(r["d"]) for r in rows})),
         duplicate_dates=duplicate_dates,
     )
+
+    def _pit(rows_for_pit: list[dict[str, Any]]) -> str | None:
+        if not report_pit:
+            return None
+        cutoff_end = datetime.fromisoformat(cutoff) + timedelta(days=1)
+        if not rows_for_pit:
+            return "trade_date_only"
+        for r in rows_for_pit:
+            stamp = r.get("updated_at")
+            if stamp is None:
+                return "trade_date_only"
+            try:
+                ts = stamp if isinstance(stamp, datetime) else datetime.fromisoformat(str(stamp))
+            except ValueError:
+                return "trade_date_only"
+            if ts >= cutoff_end:
+                return "trade_date_only"
+        return "strict"
+
     if not rows:
         return RangeAggregate(
             kind=resolved_kind,
@@ -718,6 +762,8 @@ def range_aggregate(
             method="none",
             coverage=coverage,
             gaps=(MetricGap("*", f"{start}~{end} 区间内读不到「{entity}」的任何行"),),
+            knowledge_cutoff=(cutoff if report_pit else None),
+            pit_grade=_pit([]),
         )
 
     code_key = "stock_ts_code" if resolved_kind == "stock" else "sector_ts_code"
@@ -811,6 +857,8 @@ def range_aggregate(
         peak_date=peak_date,
         gaps=tuple(gaps),
         caveats=tuple(caveats),
+        knowledge_cutoff=(cutoff if report_pit else None),
+        pit_grade=_pit(rows),
     )
 
 

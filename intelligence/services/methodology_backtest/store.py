@@ -274,6 +274,9 @@ TEACHING_DDL = (
         losing_days_ret_pct DOUBLE,
         losing_days_ret_percentile DOUBLE,
         separation_on_losing_days BOOLEAN,
+        other_days_ret_pct DOUBLE,
+        other_days_ret_percentile DOUBLE,
+        separation_on_other_days BOOLEAN,
         framework_version VARCHAR,
         computed_at     TIMESTAMP NOT NULL,
         PRIMARY KEY (old_wave_idx, new_rank)

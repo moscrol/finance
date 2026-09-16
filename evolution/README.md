@@ -58,6 +58,9 @@ python3 scripts/evolve.py audit                        # 随时体检：前视/�
 
 - `params.json`        版本化参数（唯一可调入口，含 strategy1/3/4 三段）
 - `params_history.md`  参数变更台账（人工记录）
+- `backtest-queue.md`  **待标定阈值队列**（人工登记）：reading_baseline / 判读规则清单
+  说的「数字进 `evolution/` 回测队列」落在这里；与 `suggestions/`（自动生成、面向
+  已有参数）不同，本文件收的是**还没有值**的阈值：口径、候选值、凭什么算过
 - `strategy1.py`       策略一确定性生成器（`generate_for_date` / `payload_for_date` / `picks_in_scope`）
 - `strategy3.py`       策略三确定性生成器（`generate_range` / `picks_in_scope`）
 - `strategy4.py`       策略四双引擎确定性生成器（`generate_range` / `picks_in_scope`）

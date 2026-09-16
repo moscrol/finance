@@ -248,11 +248,15 @@ def build_dynasties(
             return round(100.0 * bisect.bisect_left(all_ret, x) / n_all, 2)
 
         threshold_pct = 100.0 * float(separation_percentile)
-        # 亏钱日上的累计收益：只有窗内真有亏钱日、且该股每个亏钱日都有行时才有值。
+        # 亏钱日上的累计收益：只有窗内真有亏钱日、且该股每个亏钱日都有行时才有值；「其余日子」= 覆灭窗里亏钱日之外的日子。
         losing_all = sorted(float(s["losing_ret_pct"]) for s in stats.values() if _num(s.get("losing_ret_pct")) is not None)
+        other_all = sorted(float(s["other_ret_pct"]) for s in stats.values() if _num(s.get("other_ret_pct")) is not None)
 
         def pct_losing(x: float) -> float | None:
             return None if not losing_all else round(100.0 * bisect.bisect_left(losing_all, x) / len(losing_all), 2)
+
+        def pct_other(x: float) -> float | None:
+            return None if not other_all else round(100.0 * bisect.bisect_left(other_all, x) / len(other_all), 2)
 
         new_rows = ranked[nwi][:cohort]
         old_top_l1 = {r.get("sw_l1") for r in top_rows if r.get("sw_l1")}
@@ -266,6 +270,8 @@ def build_dynasties(
             percentile = None if ret is None else pct(ret)
             losing_ret = _num(s.get("losing_ret_pct"))
             losing_pct = None if losing_ret is None else pct_losing(losing_ret)
+            other_ret = _num(s.get("other_ret_pct"))
+            other_pct = None if other_ret is None else pct_other(other_ret)
             handoffs_out.append({
                 "old_wave_idx": wi, "new_wave_idx": nwi, "new_rank": n, "stock_ts_code": code, "stock_name": r.get("stock_name"),
                 "new_wave_gain_pct": _num(r.get("gain_pct")), "sw_l1": r.get("sw_l1"), "form": _form(r.get("max_boards")),
@@ -278,6 +284,8 @@ def build_dynasties(
                 "separation_new_high": None if s.get("new_high") is None else bool(s["new_high"]),
                 "losing_days_ret_pct": losing_ret, "losing_days_ret_percentile": losing_pct,
                 "separation_on_losing_days": None if losing_pct is None else (losing_pct >= threshold_pct),
+                "other_days_ret_pct": other_ret, "other_days_ret_percentile": other_pct,
+                "separation_on_other_days": None if other_pct is None else (other_pct >= threshold_pct),
             })
         # pooled units for the statistical gate: every stock in this collapse window, ordered by code
         for key, target in ((f"top{top}", new_codes_top), (f"cohort{cohort}", new_codes_cohort)):
@@ -295,6 +303,7 @@ def build_dynasties(
             wi, nwi, w, nw, rows, ranked[nwi], stats, all_ret, med_ret, pct, threshold_pct,
             top=top, cohort=cohort, index_ret=(index_returns or {}).get(wi),
             losing_all=losing_all, pct_losing=pct_losing, money_losing=money_losing.get(wi),
+            other_all=other_all, pct_other=pct_other,
         ))
 
     separation = {
@@ -333,15 +342,30 @@ def _money_losing_readout(counts: Mapping[str, Any] | None) -> dict[str, Any] | 
             "collapse_first_flagged_day": dates[0] if dates else None, "collapse_flagged_days": dates}
 
 
+def _days_subset_readout(key, old_s, new_s, all_vals, pct_fn, threshold_pct) -> dict[str, Any] | None:
+    """Old / new members' compounded return over a subset of the collapse window's days, against all stocks."""
+    if not all_vals or pct_fn is None:
+        return None
+    med = median(all_vals)
+    old_v = [float(s[key]) for s in old_s if _num(s.get(key)) is not None]
+    new_v = [float(s[key]) for s in new_s if _num(s.get(key)) is not None]
+    return {
+        "days_ret_pct_all": _quartiles(all_vals),
+        "old_ret_pct": _quartiles(old_v), "new_ret_pct": _quartiles(new_v),
+        "new_ret_percentile": _quartiles([pct_fn(v) for v in new_v]),
+        "new_share_above_median": _share(new_v, lambda v: v > med),
+        "new_share_separation": _share(new_v, lambda v: pct_fn(v) >= threshold_pct),
+    }
+
+
 def _handoff_readout(
     wi, nwi, w, nw, old_ranked, new_ranked, stats, all_ret, med_ret, pct, threshold_pct, *, top, cohort, index_ret,
-    losing_all=(), pct_losing=None, money_losing=None,
+    losing_all=(), pct_losing=None, money_losing=None, other_all=(), pct_other=None,
 ):
     """One completed handoff, for the founder to read: 亏钱效应、旧王朝的覆灭、新王朝的分离、两者的关系。"""
     n_all = len(all_ret)
     old_rank = {str(r["stock_ts_code"]): n + 1 for n, r in enumerate(old_ranked)}
-    losing_all = list(losing_all)
-    losing_med = median(losing_all) if losing_all else None
+    losing_all, other_all = list(losing_all), list(other_all)
     out: dict[str, Any] = {
         "handoff": f"W{wi}→W{nwi}", "status": "ok", "old_wave_status": w["status"],
         "old_wave": [str(w["start"]), str(w["peak_end"])], "collapse": [str(w["collapse_start"]), str(w["collapse_end"])],
@@ -353,7 +377,9 @@ def _handoff_readout(
             "share_stocks_positive": round(sum(1 for r in all_ret if r > 0) / n_all, 4),
             "share_new_high_all": _share([s for s in stats.values() if s.get("new_high") is not None], lambda s: bool(s["new_high"])),
             "losing_days": len((money_losing or {}).get("collapse_days") or []),
+            "other_days": (money_losing or {}).get("collapse_other_days"),
             "losing_days_ret_pct_all": _quartiles(losing_all),
+            "other_days_ret_pct_all": _quartiles(other_all),
             "counts": _money_losing_readout(money_losing),
         },
     }
@@ -388,14 +414,9 @@ def _handoff_readout(
                 "share_separation_new_high": _share([s for s in new_s if s.get("new_high") is not None], lambda s: bool(s["new_high"])),
                 "first_leg_ret_pct": _quartiles([float(s["first_leg_ret_pct"]) for s in new_s if _num(s.get("first_leg_ret_pct")) is not None]),
             },
-            # 第十四段：亏钱日本身上的强弱，与整窗分离并排——「酝酿走强」发生在亏钱日上还是亏钱效应期间的其余日子。
-            "on_losing_days": None if not losing_all or pct_losing is None else {
-                "old_ret_pct": _quartiles([float(s["losing_ret_pct"]) for s in old_s if _num(s.get("losing_ret_pct")) is not None]),
-                "new_ret_pct": _quartiles([float(s["losing_ret_pct"]) for s in new_s if _num(s.get("losing_ret_pct")) is not None]),
-                "new_ret_percentile": _quartiles([pct_losing(float(s["losing_ret_pct"])) for s in new_s if _num(s.get("losing_ret_pct")) is not None]),
-                "new_share_above_median": _share([s for s in new_s if _num(s.get("losing_ret_pct")) is not None], lambda s: float(s["losing_ret_pct"]) > losing_med),
-                "new_share_separation": _share([s for s in new_s if _num(s.get("losing_ret_pct")) is not None], lambda s: pct_losing(float(s["losing_ret_pct"])) >= threshold_pct),
-            },
+            # 第十四段：亏钱日本身上的强弱 与 亏钱日之外的日子，与整窗分离并排——「酝酿走强」发生在哪些日子。
+            "on_losing_days": _days_subset_readout("losing_ret_pct", old_s, new_s, losing_all, pct_losing, threshold_pct),
+            "on_other_days": _days_subset_readout("other_ret_pct", old_s, new_s, other_all, pct_other, threshold_pct),
             "relation": {
                 "new_members_old_wave_rank": _quartiles([old_rank[c] for c in new_codes if c in old_rank]),
                 "new_members_from_old_cohort": sum(1 for c in new_codes if old_rank.get(c, 10**9) <= cohort),

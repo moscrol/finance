@@ -5,8 +5,10 @@ import json
 from intelligence.services.teaching_framework.flags import compute_flags
 from intelligence.services.teaching_framework.index_stage import (
     REQUIRED_MARKET_FIELDS,
+    SEPARATION_METRICS,
     build_index_stage,
     label_readouts,
+    stage_separation,
     supplier_contingency,
     to_label_rows,
 )
@@ -41,7 +43,6 @@ BANDS = {
     "stage_bands": {
         "左底向下": {"amount_vs_ma20_pct": [78, 90], "stock_ma10_deviation_median": [-4.0, -1.0]},
         "左底向上": {"amount_vs_ma20_pct": [88, 102], "ma_episode_pct_chg": [1.0, 3.0]},
-        "二次探底": {"amount_vs_ma20_pct": [80, 111], "sh_index_pct_chg_10d": [-4.0, 1.0]},
         "缩量右底": {"amount_vs_ma20_pct": [86, 100], "stock_ma10_deviation_median": [-1.2, 0.8]},
         "共建主线": {"amount_vs_ma20_pct": [97, 111], "stock_ma10_deviation_median": [-0.5, 1.8]},
         "主流主升": {"amount_vs_ma20_pct": [115, 135], "stock_ma10_deviation_median": [1.4, 2.5]},
@@ -54,11 +55,11 @@ BANDS = {
 
 
 def test_eight_stages_are_the_platform_vocabulary_and_aliases_fold_onto_them():
-    assert STAGES == ("左底向下", "左底向上", "二次探底", "缩量右底", "共建主线", "主流主升", "主流主升2.0", "高位震荡")
+    assert STAGES == ("左底向下", "左底向上", "缩量右底", "共建主线", "主流主升", "主流主升2.0", "高位震荡")
     assert "回踩周均线" not in STAGES
     assert REFERENCE_STAGE_ALIASES["承接盘反复"] == "高位震荡"
     assert all(REFERENCE_STAGE_ALIASES[s] == s for s in STAGES)
-    assert BOTTOM_STAGES == ("左底向下", "左底向上", "二次探底", "缩量右底")
+    assert BOTTOM_STAGES == ("左底向下", "左底向上", "缩量右底")
 
 
 def test_transition_graph_comes_from_params_with_self_loops_first():
@@ -103,7 +104,7 @@ def test_transition_constraint_blocks_jumps_without_a_turning_point():
 def test_breakout_entry_only_counts_when_coming_out_of_the_bottom_cycle():
     """第六段流程: 放量上穿 ends 下穿 → 探底 → 反弹 → 回踩; inside a top range the 5-day MA is crossed every few days."""
     flags = {"days_since_cross_above": 0, "volume_expanding": True, "above_week_ma": True}
-    for origin in (None, "左底向下", "左底向上", "二次探底", "缩量右底"):
+    for origin in (None, "左底向下", "左底向上", "缩量右底"):
         assert ("共建主线", "E:breakout_volume_within_window") in predicate_hits(flags, BANDS, origin)
     for origin in ("共建主线", "主流主升", "主流主升2.0", "高位震荡"):
         assert ("共建主线", "E:breakout_volume_within_window") not in predicate_hits(flags, BANDS, origin)
@@ -151,11 +152,77 @@ def test_switch_margin_hysteresis_is_off_by_default_and_exempts_entries():
 
 
 def test_shrink_after_retest_is_a_continuing_view_for_缩量右底():
-    hits = predicate_hits({"below_ma_cycle_retest_seen": True, "volume_band": "shrink"}, BANDS)
+    hits = predicate_hits({"below_ma_cycle_retest_seen": True, "volume_band": "shrink", "above_week_ma": False}, BANDS)
     assert ("缩量右底", "H:shrink_after_retest") in hits
-    assert predicate_hits({"below_ma_cycle_retest_seen": False, "volume_band": "shrink"}, BANDS) == []
-    assert predicate_hits({"below_ma_cycle_retest_seen": True, "volume_band": "moderate"}, BANDS) == []
-    assert stage_predicates(BANDS)["缩量右底"][0] == "H:shrink_after_retest"
+    assert predicate_hits({"below_ma_cycle_retest_seen": False, "volume_band": "shrink", "above_week_ma": False}, BANDS) == []
+    assert predicate_hits({"below_ma_cycle_retest_seen": True, "volume_band": "moderate", "above_week_ma": False}, BANDS) == []
+    assert stage_predicates(BANDS)["缩量右底"][:2] == ("E:retest_cross_below", "H:shrink_after_retest")
+
+
+def test_缩量右底_only_scores_below_the_weekly_ma():
+    """创始人 09-08 第十九段：「缩量右底是在周均线的下方」——结构性硬条件，上方（或不知道在哪一侧）一分不得，含带区分。"""
+    below = {"below_ma_cycle_retest_seen": True, "volume_band": "shrink", "above_week_ma": False, "amount_vs_ma20_pct": 102.0}
+    above = {**below, "above_week_ma": True}
+    unknown = {**below, "above_week_ma": None}
+    params = {**BANDS, "stage_bands": {**BANDS["stage_bands"], "缩量右底": {"amount_vs_ma20_pct": [99, 105]}}}
+    assert [pid for stage, pid in predicate_hits(below, params) if stage == "缩量右底"] == ["H:shrink_after_retest", "H:in_band:amount_vs_ma20_pct"]
+    assert [pid for stage, pid in predicate_hits(above, params) if stage == "缩量右底"] == []
+    assert [pid for stage, pid in predicate_hits(unknown, params) if stage == "缩量右底"] == []
+    # 门只关缩量右底：同一天别的段照常得分。
+    assert ("共建主线", "H:in_band:amount_vs_ma20_pct") in predicate_hits({**above, "amount_vs_ma20_pct": 100.0}, BANDS)
+
+
+def test_主流主升_is_the_process_of_share_and_volume_expanding_from_共建主线():
+    """创始人 09-08 第十九段：「共建主线到主流主升，就是成交占比不断放大，量能也逐步放大的过程」——两条窗口均值都在升。
+    从共建主线来算进入（可以跨转移图），已在主升里算持续；别的来源只算持续。"""
+    both = {"mainline_share_trend_up": True, "volume_trend_up": True}
+    assert predicate_hits(both, BANDS, origin="共建主线") == [("主流主升", "E:share_and_volume_trend_up"), ("主流主升", "H:share_and_volume_trend_up")]
+    assert predicate_hits(both, BANDS, origin="主流主升") == [("主流主升", "H:share_and_volume_trend_up")]
+    assert predicate_hits(both, BANDS, origin="高位震荡") == [("主流主升", "H:share_and_volume_trend_up")]
+    # 只有一条在升、或不知道 → 不算。
+    assert predicate_hits({"mainline_share_trend_up": True, "volume_trend_up": False}, BANDS, origin="共建主线") == []
+    assert predicate_hits({"mainline_share_trend_up": None, "volume_trend_up": True}, BANDS, origin="共建主线") == []
+    catalog = stage_predicates(BANDS)["主流主升"]
+    assert catalog[:2] == ("E:share_and_volume_trend_up", "H:share_and_volume_trend_up")
+
+
+def test_breakout_entry_origin_policy_and_bottom_only_gate_are_parameter_variants():
+    """第二十段「顶部横盘里的放量上穿算不算共建主线——你看下算不算」：两端都做成参数供靶子比较，默认维持 bottom。"""
+    top_breakout = {"days_since_cross_above": 1, "volume_expanding": True, "above_week_ma": True}
+    # 默认：来源是顶部段（高位震荡）时放量上穿不算进入；来源是底部段或未知才算。
+    assert ("共建主线", "E:breakout_volume_within_window") not in predicate_hits(top_breakout, BANDS, origin="高位震荡")
+    assert ("共建主线", "E:breakout_volume_within_window") in predicate_hits(top_breakout, BANDS, origin="缩量右底")
+    assert ("共建主线", "E:breakout_volume_within_window") in predicate_hits(top_breakout, BANDS, origin=None)
+    # B：任何来源都算（真库上靶子全面变差：平均 η² 0.140 → 0.123，见骨架第二十段）。
+    any_origin = {**BANDS, "breakout_entry_origin": "any"}
+    assert ("共建主线", "E:breakout_volume_within_window") in predicate_hits(top_breakout, any_origin, origin="高位震荡")
+    # C：共建主线只能从底部来——来源是顶部段时带区分也不算；来源是底部段 / 共建主线自己 / 未知照常。
+    bottom_only = {**BANDS, "mainline_build_from_bottom_only": True}
+    band_day = {"amount_vs_ma20_pct": 100.0, "stock_ma10_deviation_median": 0.5}
+    assert not [pid for stage, pid in predicate_hits(band_day, bottom_only, origin="高位震荡") if stage == "共建主线"]
+    assert [pid for stage, pid in predicate_hits(band_day, bottom_only, origin="共建主线") if stage == "共建主线"]
+    assert [pid for stage, pid in predicate_hits(band_day, bottom_only, origin="缩量右底") if stage == "共建主线"]
+    assert [pid for stage, pid in predicate_hits(band_day, BANDS, origin="高位震荡") if stage == "共建主线"]  # 默认不关这道门
+
+
+def test_window_mean_trend_flags_tolerate_a_single_shrinking_day():
+    """窗口均值比窗口均值：近 5 日均 vs 前 5 日均；中间一天小缩量不翻它；不足 2n 天或日历不连续 → None。"""
+    days = [f"2026-01-{d:02d}" for d in range(5, 21) if d not in (10, 11, 17, 18)]  # 12 个交易日
+    rows = []
+    for i, day in enumerate(days):
+        # 成交额与成交占比前 6 天平、后 6 天抬一档，但第 9 天（后半段中间）单日缩量。
+        amount = 100.0 if i < 6 else (130.0 if i != 8 else 95.0)
+        share = 0.30 if i < 6 else (0.36 if i != 8 else 0.29)
+        rows.append(_market_row(day, total_amount=amount, top3_industry_ratio=share))
+    out = compute_flags(rows, calendar=days)
+    assert out[8]["volume_trend_up"] is None  # 第 9 天：窗口 [i-9, i] 需要 10 天，i = 8 只有 9 天
+    assert out[9]["volume_trend_up"] is True and out[9]["mainline_share_trend_up"] is True and out[9]["mainline_amount_trend_up"] is True
+    assert out[11]["volume_trend_up"] is True  # 窗口里含那一天缩量，均值仍在升
+    flat = compute_flags([_market_row(d) for d in days], calendar=days)
+    assert flat[11]["volume_trend_up"] is False and flat[11]["mainline_share_trend_up"] is False
+    # 日历有洞（缺一天）→ None，不猜。
+    holed = compute_flags([r for k, r in enumerate(rows) if k != 3], calendar=days)
+    assert holed[9]["volume_trend_up"] is None
 
 
 def test_bands_and_catalog_follow_the_parameter_file():
@@ -164,7 +231,7 @@ def test_bands_and_catalog_follow_the_parameter_file():
     assert stage_bands(None) == {stage: {} for stage in STAGES}
     catalog = stage_predicates(BANDS)
     assert catalog["共建主线"] == ("E:breakout_volume_within_window", "H:in_band:amount_vs_ma20_pct", "H:in_band:stock_ma10_deviation_median")
-    assert catalog["缩量右底"] == ("H:shrink_after_retest", "H:in_band:amount_vs_ma20_pct", "H:in_band:stock_ma10_deviation_median")
+    assert catalog["缩量右底"] == ("E:retest_cross_below", "H:shrink_after_retest", "H:in_band:amount_vs_ma20_pct", "H:in_band:stock_ma10_deviation_median")
     assert stage_predicates(None) == {stage: ENTRY_PREDICATES[stage] + CONTINUING_PREDICATES.get(stage, ()) for stage in STAGES}
     assert {view for view, _ in BAND_VIEWS} >= {"amount_vs_ma20_pct", "stock_ma10_deviation_median", "stock_up_ratio_ma5_pct", "src.sh_deviation_pct"}
 
@@ -193,14 +260,14 @@ def test_entry_predicates_are_the_founders_turning_points_and_bands_score_member
         {**quiet, "below_ma_cycle_day": 2, "volume_band": "surge"}, {**BANDS, "left_down_entry": {"persist_days": 2, "volume": "any"}}
     )
     assert ("左底向下", "H:in_band:amount_vs_ma20_pct") in hits and ("左底向下", "H:in_band:stock_ma10_deviation_median") in hits
-    assert ("二次探底", "H:in_band:amount_vs_ma20_pct") in hits  # 84 also sits inside 二次探底's wide band
+    assert ("缩量右底", "H:in_band:amount_vs_ma20_pct") not in hits  # 84 is outside 缩量右底 band in fixture; gate also requires below MA
     assert not any(stage == "主流主升" for stage, _ in hits)
     scores = {s: 0 for s in STAGES}
     for stage, _ in hits:
         scores[stage] += 1
     assert scores["左底向下"] == 3 and resolve_stage(scores, None, BANDS)[0] == "左底向下"
     # Retest cross below opens 二次探底; overheated opens 高位震荡; a breakout with volume opens 共建主线.
-    assert ("二次探底", "E:retest_cross_below") in predicate_hits({"cross_below_kind": "retest"}, BANDS)
+    assert ("缩量右底", "E:retest_cross_below") in predicate_hits({"cross_below_kind": "retest", "above_week_ma": False}, BANDS)
     assert ("高位震荡", "E:overheated") in predicate_hits({"deviation_band": "overheated"}, BANDS)
     assert ("共建主线", "E:breakout_volume_within_window") in predicate_hits(
         {"days_since_cross_above": 2, "volume_expanding": True, "above_week_ma": True}, {**BANDS, "breakout_confirm_days": 3}
@@ -232,6 +299,14 @@ def test_every_catalogued_predicate_can_fire_and_nothing_else_does():
     seen.update(predicate_hits(upgrade, BANDS, origin="高位震荡"))
     # 左底向下 entry lives in the first phase of a below-MA cycle (the generated grid above stays above the MA).
     seen.update(predicate_hits({"below_ma_cycle_day": 1, "below_ma_cycle_retest_seen": False, "above_week_ma": False, "gap_down_open": True}, BANDS))
+    # 第十九段：缩量右底只在周均线下方得分（上面的网格都在上方，所以它的三条要在下方单独点一次）；主流主升的进入 / 持续
+    # 是「成交占比与量能的窗口均值都在升」，从共建主线来才算进入。
+    seen.update(predicate_hits({
+        "below_ma_cycle_retest_seen": True, "volume_band": "shrink", "above_week_ma": False,
+        "cross_below_kind": "retest",
+        "amount_vs_ma20_pct": 95.0, "stock_ma10_deviation_median": 0.5,
+    }, BANDS))
+    seen.update(predicate_hits({"mainline_share_trend_up": True, "volume_trend_up": True}, BANDS, origin="共建主线"))
     catalog = {(stage, pid) for stage, pids in stage_predicates(BANDS).items() for pid in pids}
     assert seen == catalog
     assert confidence("ambiguous", {s: 0 for s in STAGES}, [], BANDS) is None
@@ -270,7 +345,7 @@ def _replay_turns(sequence: list[str | None]) -> dict[str, int]:
 
 
 def test_turns_keep_the_origin_through_ambiguity_but_not_through_gaps():
-    seq = ["二次探底", "共建主线", "共建主线", "ambiguous", "高位震荡", "左底向下", None, "左底向下", "高位震荡", "主流主升2.0", "共建主线"]
+    seq = ["缩量右底", "共建主线", "共建主线", "ambiguous", "高位震荡", "左底向下", None, "左底向下", "高位震荡", "主流主升2.0", "共建主线"]
     turns = derive_turns(seq)
     assert sum(x["turn_up"] for x in turns) == 1  # 主流主升2.0 → 共建主线 is not a turn up: not from a bottom stage
     assert sum(x["turn_top"] for x in turns) == 2  # 共建主线 → (ambiguous) → 高位震荡 counts; 左底向下 → 高位震荡 counts
@@ -327,7 +402,7 @@ def test_stage_evidence_is_structured_json_and_uses_band_membership():
     assert ("共建主线", "E:breakout_volume_within_window") in hits  # cross above on day 2 with 量能比 ≥ 100
     assert ("共建主线", "H:in_band:amount_vs_ma20_pct") in hits and ("主流主升2.0", "H:in_band:amount_vs_ma20_pct") in hits
     assert ("左底向上", "H:in_band:ma_episode_pct_chg") in hits  # the leg gained 2.02%: inside 左底向上's band too
-    assert evidence["scores"] == {"左底向下": 0, "左底向上": 1, "二次探底": 1, "缩量右底": 0, "共建主线": 3, "主流主升": 0, "主流主升2.0": 2, "高位震荡": 2}
+    assert evidence["scores"] == {"左底向下": 0, "左底向上": 1, "缩量右底": 0, "共建主线": 3, "主流主升": 0, "主流主升2.0": 2, "高位震荡": 2}
     # Day 1 is 左底向下; 共建主线 is not reachable from it, so day 2 wins through its breakout entry.
     assert records[0]["stage_coarse"] == "左底向下"
     assert records[1]["stage_coarse"] == "共建主线" and evidence["resolution"] == "entry"
@@ -397,7 +472,7 @@ def test_supplier_contingency_and_readouts_keep_versions_apart():
     assert readouts["stage_coarse_distribution"] == {"主流主升": 2}
     assert readouts["supplier_disagree_days"] == 2 and readouts["unresolved_rate"] == 0.0
     assert set(readouts["transition_graph"]) == set(STAGES)
-    assert readouts["stage_predicate_catalog"]["主流主升"] == ["H:in_band:amount_vs_ma20_pct", "H:in_band:stock_ma10_deviation_median"]
+    assert readouts["stage_predicate_catalog"]["主流主升"] == ["E:share_and_volume_trend_up", "H:share_and_volume_trend_up", "H:in_band:amount_vs_ma20_pct", "H:in_band:stock_ma10_deviation_median"]
     assert readouts["stage_bands_derived_from"] == BANDS["stage_bands_derived_from"]
     assert readouts["founder_unconfirmed_predicate_days"] == {}
 
@@ -409,13 +484,14 @@ def test_confidence_tier_reports_views_fired_missing_and_margin():
     rows = [_market_row(days[0], total_amount=115.0), _market_row(days[1], total_amount=115.0, sh_deviation_pct=0.1)]
     breadth = [_breadth(days[0], 1.5), _breadth(days[1], 1.3)]
     records = build_index_stage(rows, calendar=days, breadth_rows=breadth, params=BANDS)
-    assert records[0]["confidence"] == {"stage": "主流主升", "hits": 2, "possible": 2, "missing": [], "margin": 1}
+    # 第十九段后 主流主升 多了两条过程证据（两天的窗口不够算趋势 → 没命中，记在 missing 里）。
+    assert records[0]["confidence"] == {"stage": "主流主升", "hits": 2, "possible": 4, "missing": ["E:share_and_volume_trend_up", "H:share_and_volume_trend_up"], "margin": 1}
     # Day 2: 主流主升 / 主流主升2.0 / 共建主线 tie at one view each; only the self-loop is reachable from 主流主升 → margin 0.
     assert records[1]["stage_coarse"] == "主流主升" and records[1]["confidence"]["margin"] == 0
-    assert records[1]["confidence"]["missing"] == ["H:in_band:stock_ma10_deviation_median"]
+    assert records[1]["confidence"]["missing"] == ["E:share_and_volume_trend_up", "H:share_and_volume_trend_up", "H:in_band:stock_ma10_deviation_median"]
     readouts = label_readouts(records, BANDS)
     assert readouts["resolved_days_by_margin"] == {"0": 1, "1": 1}
-    assert readouts["resolved_days_by_confidence"] == {"主流主升 1/2": 1, "主流主升 2/2": 1}
+    assert readouts["resolved_days_by_confidence"] == {"主流主升 1/4": 1, "主流主升 2/4": 1}
 
 
 def test_views_by_event_reports_common_ranges_and_forward_path():
@@ -474,3 +550,48 @@ def test_perturbing_a_future_day_leaves_earlier_flags_and_stages_untouched():
 def test_null_inputs_do_not_infer_flags():
     got = compute_flags([{"trade_date": "2026-01-01", "sh_index_close": None, "sh_week_ma": 1, "sh_deviation_pct": None}], calendar=["2026-01-01"])[0]
     assert got["above_week_ma"] is None and got["deviation_band"] is None and got["amount_vs_ma20_pct"] is None
+
+
+def _sep_record(day: str, stage: str, **flags):
+    return {"trade_date": day, "stage_coarse": stage, "flags": {f"tf.{k}" if not k.startswith("src_") else "src." + k[4:]: v for k, v in flags.items()}}
+
+
+def test_stage_separation_is_the_calibration_target_not_platform_agreement():
+    """创始人 09-08：校准的靶子是赚钱 / 亏钱效应和资金的区分力。η² 按阶段分组；训练 / 验证两半分开报；平台阶段只在同一组天上作参考。"""
+    days = [f"2026-01-{d:02d}" for d in range(1, 31)]
+    # 前 15 天我们判「左底向下」、后 15 天判「主流主升」；承接与上涨比例在两段之间分得很开，涨停家数完全分不开。
+    records = []
+    for i, d in enumerate(days):
+        ours = "左底向下" if i < 15 else "主流主升"
+        records.append(_sep_record(d, ours, limit_premium_ma5_pct=1.0 + (i % 3) * 0.1 if i < 15 else 2.5 + (i % 3) * 0.1,
+                                   stock_up_ratio_ma5_pct=38.0 + (i % 4) if i < 15 else 56.0 + (i % 4),
+                                   src_limit_up=60 + (i % 5), money_losing_day=1.0 if i % 3 == 0 and i < 15 else 0.0))
+    # 平台把同一段历史切成前 10 / 后 20：它的分界比我们的偏早 5 天，所以承接在它的两组里混得更多。
+    reference = {d: {"cycle_stage": "左底向下" if i < 10 else "主流主升"} for i, d in enumerate(days)}
+    out = stage_separation(records, reference, train_until="2026-01-15")
+    assert out["train_until"] == "2026-01-15" and out["summary"]["resolved_days"] == 30
+    prem = out["metrics"]["承接 5 日均 %"]
+    assert prem["family"] == "赚钱效应" and prem["days"] == 30
+    assert prem["eta2"]["all"] > 0.9 and prem["level_by_stage"]["左底向下"]["median"] == 1.1 and prem["level_by_stage"]["主流主升"]["median"] == 2.6
+    # 训练期（前 15 天）只有一个阶段 → η² 算不出（None），验证期同理；「all」才有——两半都单段的读数不能拿来吹。
+    assert prem["eta2"]["train"] is None and prem["eta2"]["validate"] is None
+    assert out["metrics"]["涨停家数"]["eta2"]["all"] < 0.05  # 分不开就是分不开
+    assert out["metrics"]["亏钱效应日"]["level_by_stage"]["主流主升"]["median"] == 0.0
+    # 同一组天上：我们的分界让承接分得更开（平台的分界偏了 5 天）；涨停家数两边都分不开 → tie。
+    vs = out["summary"]["vs_platform_same_days"]
+    assert vs["days"] == 30 and vs["metrics_compared"] == 4 and vs["ours_separates_better"] >= 2 and vs["platform_separates_better"] == 0
+    assert prem["eta2_same_days"]["all"] > prem["eta2_platform_same_days"]["all"]
+    # 没在标签里的指标：days 0、η² None，不报错。
+    assert out["metrics"]["平均股价"]["days"] == 0 and out["metrics"]["平均股价"]["eta2"]["all"] is None
+    assert len(out["metrics"]) == len(SEPARATION_METRICS)
+    # 未决日（ambiguous）不进分组。
+    out2 = stage_separation(records + [_sep_record("2026-02-01", "ambiguous", limit_premium_ma5_pct=9.0)], None)
+    assert out2["summary"]["resolved_days"] == 30 and "vs_platform_same_days" not in out2["summary"]
+
+
+def test_二次探底_is_fine_inside_缩量右底():
+    """第二十一段：粗段是缩量右底；回踩下穿当日 fine = 二次探底。"""
+    from intelligence.services.teaching_framework.stage_rules import stage_fine
+    assert stage_fine("缩量右底", {"cross_below_kind": "retest"}) == "二次探底"
+    assert stage_fine("缩量右底", {"cross_below_kind": "first"}) == "缩量右底"
+    assert stage_fine("缩量右底", {}) == "缩量右底"

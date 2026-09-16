@@ -1177,6 +1177,8 @@ def collect_daily_review(con, trade_date: str | None = None, *, out_path: Path, 
         "nature": nature,
         "market_stage": today.get("market_stage"),
         "stage_day": today.get("stage_day"),
+        # 复盘会内层八段（2026-09-08 起每日同步落库；此前的日子为 None）。只作事实摆出，判读归授课框架。
+        "cycle_stage": today.get("cycle_stage"),
         "price_day": price_day,
         "volume_day": volume_day,
         "double_volume_day": double_volume_day,
@@ -1229,9 +1231,12 @@ def collect_daily_review(con, trade_date: str | None = None, *, out_path: Path, 
     def add_section(section_id: str, title: str, blocks: list[dict]) -> None:
         sections.append({"id": section_id, "index": len(sections) + 1, "title": title, "blocks": blocks})
 
+    stage_text = f"{today.get('market_stage') or '-'} 第{today.get('stage_day') or '-'}天"
+    if today.get("cycle_stage"):
+        stage_text += f"（内层 {today['cycle_stage']}）"
     add_section("market", "指数 / 量能 / 偏离度 / 市场阶段", [
         _table_block(["项目", "数值"], [
-            ["市场阶段", f"{today.get('market_stage') or '-'} 第{today.get('stage_day') or '-'}天"],
+            ["市场阶段", stage_text],
             ["上证指数", f"{_fmt(today.get('sh_index_close'), 3)} / {_pct(today.get('sh_index_pct_chg'))}"],
             ["成交额", _yi(today.get("total_amount"))],
             ["较昨日比", _pct(today.get("amount_vs_yesterday_pct"))],

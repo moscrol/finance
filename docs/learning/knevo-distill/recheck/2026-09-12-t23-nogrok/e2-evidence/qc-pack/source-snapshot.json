@@ -1,0 +1,6 @@
+{
+  "path": "~/finance-workspace-private/scripts/moneyflow/process_l2_archive.py",
+  "sha256": "ccbdc18530a5b93848ad112af1e05e3f03decc7718a59f6e5f32e44aa03bba16",
+  "observed_at": "2026-09-13T12:05:56.514332+08:00",
+  "status": "untracked production pipeline source; not part of 2ee664fa"
+}

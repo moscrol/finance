@@ -269,6 +269,23 @@ def test_sector_scalars_fail_closed_per_field_and_per_day():
     assert absent["limit_themes_ge3"] is None and absent["scalar_gaps"]["limit_themes_ge3"] == "sector_rows_absent"
 
 
+def test_narrative_sources_carry_their_own_gap_reasons():
+    """消息面两个源各自的缺口原因盖过 ``<field>_null``；二维晨汇的盘面共振那一格是 briefing_no_market_input，不是 0。"""
+    days = ["2026-01-05", "2026-01-06"]
+    sector = [
+        {"trade_date": days[0], "new_high_1y_count": 176, "narrative_gap": "narrative_stale", "briefing_gap": "briefing_absent_day"},
+        {"trade_date": days[1], "new_high_1y_count": 60, "narrative_events": 61, "narrative_cover_rps5_pct": 40.0,
+         "briefing_tier1_items": 3, "briefing_tier2_items": 5, "briefing_tier3_items": 10, "briefing_dimensions": 2,
+         "briefing_market_confirmed": None, "briefing_hit_rps5_pct": 12.5, "briefing_lag_days": 23},
+    ]
+    stale, live = compute_flags([_market(d, 100.0) for d in days], calendar=days, sector_rows=sector)
+    assert stale["scalar_gaps"]["narrative_events"] == "narrative_stale" and stale["scalar_gaps"]["briefing_tier1_items"] == "briefing_absent_day"
+    assert stale["scalar_gaps"]["briefing_market_confirmed"] == "briefing_absent_day"
+    assert (live["narrative_events"], live["briefing_tier1_items"], live["briefing_dimensions"], live["briefing_lag_days"]) == (61.0, 3.0, 2.0, 23.0)
+    assert live["briefing_market_confirmed"] is None and live["scalar_gaps"]["briefing_market_confirmed"] == "briefing_no_market_input"
+    assert live["scalar_gaps"]["narrative_hard_share_pct"] == "narrative_hard_share_pct_null"  # 源活着、某一格没算出来：还是它自己的 null
+
+
 def test_breadth_scalars_fail_closed_on_absent_day_and_thin_coverage():
     days = ["2026-01-05", "2026-01-06", "2026-01-07"]
     breadth = [

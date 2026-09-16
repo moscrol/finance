@@ -597,7 +597,69 @@ def test_cli_omits_retired_sector_feishu_commands():
         "sync-sector-daily-metrics",
         "sync-sector-resonance",
         "sync-market-daily",
+        # 2026-09-11 随飞书自建应用一起退：最后一个拿凭证的 sync 子命令。
+        "sync-limit-advance-feishu",
     }.isdisjoint(commands)
+
+
+def test_no_module_reads_feishu_credentials():
+    """仓内不得再有任何东西拿飞书凭证。
+
+    这是「删应用」能不能真删的门禁：只要还有一处读 `feishu_config.json` /
+    换 `tenant_access_token`，用户在开放平台上删掉应用就会把某条链路打断。
+    `intelligence/dream/collector.py` 的 `normalize_feishu_event` 不在此列：
+    它只解析已归档的 transcript 文件，不联网、不拿密钥。
+
+    用 `git grep`（只看已跟踪文件）——门禁守的是「能合进主干的东西」，
+    本地未入库的草稿文件不在射程内，这是有意的取舍。
+
+    2026-09-11 #729 收窄口径（用户裁定「那几个 skill 别删，它们是有用的」）：
+    禁令对**自动链路**（`market_feature_store/` `intelligence/` `scripts/` 等）保持绝对——
+    那才是「删掉应用会把某条链路打断」的射程。`skills/` 下是人/agent 显式触发、
+    且已在各自 SKILL.md 标注「写入步已停」的封存脚本，没有任何流水线调用它们，
+    删应用不会打断任何链路，故予以豁免；但豁免是**逐文件钉死的**，
+    新增的读取点仍会红——只保留不扩张。
+    """
+    import subprocess
+
+    needles = ("feishu_config.json", "tenant_access_token", "FEISHU_APP_SECRET", "feishu_utils")
+    # 反向白名单：这处提到文件名是为了「禁止提交它」，是防线不是读取点。
+    allowed = {"scripts/agent_review/contract.py"}
+    # 封存名单（#729）：飞书退役前就存在、随 skill 一并保留的读取点，逐个钉死。
+    parked_allowed = {
+        "skills/advancers-chart/scripts/feishu_chart.py",
+        "skills/advancers-chart/scripts/migrate_dates.py",
+        "skills/advancers-chart/scripts/sync.py",
+        "skills/high-volume-gainers/scripts/write.py",
+        "skills/limit-advance/scripts/check_coverage.py",
+        "skills/limit-advance/scripts/dedup_fields.py",
+        "skills/limit-advance/scripts/write.py",
+        "skills/market-overview/scripts/check_coverage.py",
+        "skills/market-overview/scripts/verify_and_patch.py",
+        "skills/top-gainers-feishu/scripts/query_ma.py",
+        "skills/top-gainers-feishu/scripts/write.py",
+        "skills/up-line/scripts/update.py",
+        "skills/watchlist-ma/scripts/query.py",
+    }
+    live_hits: list[str] = []
+    parked_hits: list[str] = []
+    for needle in needles:
+        out = subprocess.run(
+            ["git", "grep", "-l", "-F", needle, "--", "*.py", "*.sh"],
+            cwd=ROOT, capture_output=True, text=True,
+        ).stdout
+        for line in out.splitlines():
+            if not line or "tests/" in line or line in allowed:
+                continue
+            (parked_hits if line.startswith("skills/") else live_hits).append(f"{needle}: {line}")
+
+    assert not live_hits, "飞书凭证读取点已退役，自动链路不得重新引入：" + "; ".join(live_hits)
+
+    unexpected = sorted({h.split(": ", 1)[1] for h in parked_hits} - parked_allowed)
+    assert not unexpected, (
+        "skills/ 下新增了飞书凭证读取点——封存名单只保留不扩张，"
+        "新链路请走 DuckDB：" + "; ".join(unexpected)
+    )
 
 
 def test_daily_update_omits_retired_sector_feishu_module():
@@ -611,23 +673,46 @@ def test_daily_update_omits_retired_sector_feishu_module():
     assert "sync-market-daily" not in source
 
 
-def test_nightly_script_attempts_l2_before_sync_failure_exit():
-    """`all` 阶段里 L2 必须在「同步段失败就退出」之前跑。
+def test_nightly_attempts_l2_before_the_sync_guard():
+    """L2 排在同步守卫**之前**：同步失败不连坐 L2。（工单 #51 已做）
 
-    L2（资金流）不依赖同步段产物，所以同步失败也该照跑，否则一次 CDP 掉线就
-    连带丢掉当天的 L2 数据。脚本后来拆成 sync/finalize/all 三阶段，调用点从
-    ``run_moneyflow`` 改名为 ``run_l2_branch``（后者内部才调前者），这里按新
-    名字锚定，并把断言限定在 `all)` 分支内——sync 阶段本就不跑 L2。
+    L2（资金流 + 质量门）读逐笔日包，不依赖同步段产物，一次 CDP 掉线不该连带丢掉
+    当天的 L2。这条不变量的前身 ``test_nightly_script_attempts_l2_before_sync_failure_exit``
+    只钉在 `all)` 分支上，而生产链是 sync plist（走 S7）+ finalize plist 两个独立
+    job，`finalize)` 里一直是守卫在前、L2 在后——**生产路径从未满足过它**。代价已经
+    发生：`feature_l2_capital_flow_daily` / `feature_l2_quant_orders_daily` 的 max 都
+    停在 2026-09-09，9-10 与 9-11 两天的 L2 全丢。`all)` 因绕开 staging 被删除后，
+    那条断言连唯一的锚点也没了（见 ``test_nightly_closes_the_staging_bypassing_sync_phases``）。
+
+    现在锚点落在 `finalize)` 这条**生产真路径**上。本测试是结构侧的快速哨兵，行为侧
+    由 ``test_nightly_finalize_attempts_l2_even_when_the_sync_guard_fails`` 真跑脚本
+    验证（假执行器记录 L2 到底有没有被调用）。两条都在，别只留一条。
     """
     script = (
         ROOT / "skills" / "daily-full-review" / "scripts" / "nightly_full_review.sh"
     ).read_text(encoding="utf-8")
-    all_phase = script.index("\n  all)")
-    sync_result = script.index("rc=$?", all_phase)
-    l2 = script.index("run_l2_branch", sync_result)
-    sync_exit = script.index('if [ "$rc" -ne 0 ]', l2)
+    finalize = script.index("\n  finalize)")
+    end = script.index("\nesac", finalize)
+    body = script[finalize:end]
 
-    assert sync_result < l2 < sync_exit
+    # 1. L2 还在被调用——别在收拾旁路时把它整个弄丢。
+    assert "run_l2_branch" in body
+
+    # 2. 顺序：L2 在前、同步守卫在后。
+    guard = body.index("$REVIEW_CHECKER")
+    l2 = body.index("run_l2_branch")
+    assert l2 < guard, (
+        "同步守卫又排到 L2 之前了——同步一失败就会连坐掉当天的 L2（9-10/9-11 就是这么丢的）"
+    )
+
+    # 3. 生成段仍然严格守门：守卫非 0 就不许走到 run_generation_and_finalize。
+    #    L2 提前不等于放宽生成段，这两件事必须分开。
+    assert "run_generation_and_finalize" in body
+    gen = body.index("run_generation_and_finalize")
+    assert guard < gen, "生成段跑到同步守卫之前了"
+
+    # 4. `all)` 分支必须保持消失（它绕开 staging）。
+    assert "\n  all)" not in script
 
 
 def test_market_dependent_tables_are_excluded_from_row_anomaly_checks() -> None:
