@@ -1,0 +1,23 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "probe-cutover-445-0827--run_20260827_034154_898758",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "f6982ecec23ba0c88970154f2e223250437dd63bb8227b89ea121963f8d5c91a",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      14
+    ],
+    "issues": [
+      "第14句把封测行业属于重资产周期行业作为已知外部事实写入因果前提，但注册证据没有提供这一行业属性。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

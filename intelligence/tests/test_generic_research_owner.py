@@ -12,6 +12,7 @@ from intelligence.services import (
     agent_research,
     answer_model,
     ask,
+    evidence_registry,
     generic_research_owner,
     query_ledger,
 )
@@ -296,6 +297,96 @@ def test_current_mainline_prefetches_market_daily_and_d4_once(
         "agent:market_data",
         "agent:mainline_context",
     }
+
+
+def test_mainline_market_daily_respects_enabled_providers_pruning(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """MARKET_DAILY 被 enabled_providers 裁剪时：零下游取数、显式留痕、缺口如实。
+
+    R-20260829-02：该块注册进 evidence_registry（检索计划的可选词表）却从未
+    接门控——`without_providers("MARKET_DAILY")` / LLM 检索计划都关不掉它。
+    裁剪语义 = 诚实缺席（空证据 + 既有 prefetch 缺口声明机制自动接管），
+    **绝不**回落到周窗口等替代口径（那是 2026-06-22 静默换口径的同族）。
+    """
+
+    intent = conversation_orchestrator.TurnIntent(
+        primary_subject=None,
+        secondary_topics=(),
+        question_type="general_finance_qa",
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+    )
+    contract = conversation_orchestrator._build_generic_research_contract(
+        "你觉得目前市场的主线是什么，给我你的判断依据",
+        task_id="mainline-prune",
+        turn_intent=intent,
+    )
+    assert contract.presentation_profile == "mainline_current"
+
+    def _overview_must_not_run(_path):
+        raise AssertionError("MARKET_DAILY 已被裁剪，禁止触碰同日总览下游")
+
+    monkeypatch.setattr(
+        ask, "_daily_market_overview_block_for_llm", _overview_must_not_run
+    )
+    monkeypatch.setattr(
+        ask,
+        "_market_review_mainline_context_block_for_llm",
+        lambda *_args: "## 主线\n- 算力：涨停 8，强度高",
+    )
+    monkeypatch.setattr(ask, "_market_data_asof", lambda _path: "2026-07-20")
+    monkeypatch.setattr(agent_research, "build_default_tools", lambda _retrieve: {})
+    monkeypatch.setattr(agent_research, "build_graph_tools", lambda _knowledge: {})
+    monkeypatch.setattr(ask.llm_refine, "detect_provider", lambda _model=None: None)
+    monkeypatch.setattr(
+        agent_research.llm_refine,
+        "complete",
+        lambda messages, **_kwargs: (
+            '{"tool":"finish","args":{"sufficient":true,'
+            '"assessment":"主线结构已核验；同日盘面总览被检索计划裁剪。",'
+            '"gaps":[]},"reason":"按裁剪后的证据面收束"}',
+            "fixture",
+            "",
+        ),
+    )
+
+    result = ask._answer_generic_owner(
+        ask.AskOptions(
+            query=contract.question,
+            kb_wiki=tmp_path / "wiki",
+            market_db_path=tmp_path / "missing.duckdb",
+            research_task_contract=contract,
+            use_llm=False,
+            compose=False,
+            enabled_providers=evidence_registry.without_providers("MARKET_DAILY"),
+        )
+    )
+
+    pruned = [
+        item
+        for item in result.provider_traces
+        if item.provider == "agent:market_data"
+    ]
+    assert pruned, "裁剪不得抹掉 trace——零痕迹与静默降级同形"
+    assert pruned[0].status == "skipped"
+    assert pruned[0].detail == "market_daily_pruned_by_enabled_providers"
+    assert pruned[0].result_count == 0
+    # 主线结构（MAINLINE 之外的另一条事实能力）不受连坐。
+    assert any(
+        item.provider == "agent:mainline_context" and item.status == "success"
+        for item in result.provider_traces
+    )
+    # 缺口如实：空证据经既有完成层投影成 required-output 缺口（公开词面是
+    # 合同描述「同日市场总览」，不是内部块名 MARKET_DAILY）。
+    assert result.completion_report is not None
+    assert result.completion_report["status"] == "partial"
+    assert result.answer_spec is not None
+    assert any(
+        "同日市场总览" in gap.text for gap in result.answer_spec.gaps
+    ), "被裁剪必须在答案缺口里说出来，不得假装完整"
 
 
 def test_current_mainline_boundary_only_cannot_complete_mainline_answer(

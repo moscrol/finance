@@ -1,0 +1,105 @@
+{
+  "schema_version": "research-diagnostics-policy/v1",
+  "policy_id": "pol-synthetic-06-v1",
+  "provenance": "synthetic",
+  "note": "synthetic · 06 验收登记用的诊断策略，形状取自 04 的工程夹具。生产策略的规则生效日由方法 owner 决定；本件只证明「策略登记 → 诊断可算」这条线通，不代表任何真实流程判定。",
+  "min_sample": 10,
+  "rules": [
+    {
+      "rule_id": "R-LATE",
+      "rule_version": "v1",
+      "kind": "late_registration",
+      "effective_from": "2026-08-01",
+      "effective_to": null,
+      "applies_to_object_kinds": [
+        "observation_script",
+        "scenario_tree",
+        "checkpoint"
+      ],
+      "params": {
+        "deadline_source": "declared_deadline"
+      }
+    },
+    {
+      "rule_id": "R-REV",
+      "rule_version": "v1",
+      "kind": "condition_revision",
+      "effective_from": "2026-08-01",
+      "effective_to": null,
+      "applies_to_object_kinds": [
+        "judgment",
+        "observation_script",
+        "checkpoint",
+        "scenario_tree"
+      ],
+      "params": {
+        "disclosure_required_fields": [
+          "recorded_at",
+          "reason",
+          "linked_refs"
+        ],
+        "require_disclosure_always": true,
+        "freeze_after": null
+      }
+    },
+    {
+      "rule_id": "R-STALE",
+      "rule_version": "v1",
+      "kind": "stale_evidence_reuse",
+      "effective_from": "2026-08-01",
+      "effective_to": null,
+      "applies_to_object_kinds": [
+        "judgment",
+        "checkpoint",
+        "observation_script",
+        "scenario_tree"
+      ],
+      "params": {
+        "require_valid_evidence": true
+      }
+    },
+    {
+      "rule_id": "R-STAGE",
+      "rule_version": "v1",
+      "kind": "stage_mismatch",
+      "effective_from": "2026-08-01",
+      "effective_to": null,
+      "applies_to_object_kinds": [
+        "judgment",
+        "checkpoint",
+        "observation_script"
+      ],
+      "params": {}
+    },
+    {
+      "rule_id": "R-OVERDUE",
+      "rule_version": "v1",
+      "kind": "overdue_unreviewed",
+      "effective_from": "2026-08-01",
+      "effective_to": null,
+      "applies_to_object_kinds": [
+        "checkpoint",
+        "observation_script",
+        "scenario_tree"
+      ],
+      "params": {
+        "review_window_days": 2
+      }
+    }
+  ],
+  "applicability_tables": [
+    {
+      "table_ref": "tbl-breakout-volume",
+      "version": "v1",
+      "method_ref": "M-breakout-volume",
+      "method_version": null,
+      "applicable_stages": [
+        "共建主线",
+        "主流主升",
+        "主流主升2.0"
+      ],
+      "effective_from": "2026-08-01",
+      "effective_to": null
+    }
+  ]
+}

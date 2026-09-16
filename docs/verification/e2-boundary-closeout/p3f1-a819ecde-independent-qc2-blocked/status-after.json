@@ -1,0 +1,9 @@
+{
+  "recorded_by": "coordinator after reviewer settled; not reviewer evidence",
+  "target_head": "a819ecde6529784da06401e59152a476343f9011",
+  "target_status_porcelain": "",
+  "coordinator_head": "6f7eef144b4c8fc982f2cd91e8db583c3416d0d1",
+  "report_exists": false,
+  "reviewer_evidence_files": [],
+  "reviewer_data_files": []
+}

@@ -5,7 +5,7 @@
 ## 目录结构
 
 - `index.html`：驾驶舱总入口，用卡片/导航把每日复盘、卖方机构胜率榜、晨汇边际变化、策略矩阵串成一个可点进去的界面（本地生成，不入 git）。
-- `daily/`：按交易日归档的每日复盘 HTML 和涨家数 MA5 图片。
+- `daily/`：按交易日归档的每日复盘 HTML 和涨家数 MA5 图片（2026-09-03 起不入 git，留本地按需重渲；历史已入库的保持原样）。
 - `matrices/`：跨日期矩阵，包括策略1、策略2、策略3、二板晋级和申万题材矩阵。
 - `templates/`：复盘模板。
 - `selections/`：人工筛选、双红选择等专题记录。
@@ -26,7 +26,7 @@
 - 如果两台 Mac 分工：在有 DuckDB 的 Mac 跑上面的全量入口；跑完后同步金融 repo 和知识库 repo。`--kb-wiki` 指向该机同步后的知识库 `wiki/`，不要依赖另一台机器的绝对路径。
 - 只补跑 Agent 简报：`python3 -m intelligence.cli agent-daily --date YYYY-MM-DD --kb-wiki "/path/to/知识库/wiki"`，随后执行 `python3 scripts/render_review_workbench.py` 和 `python3 scripts/render_cockpit.py --knowledge-root "/path/to/知识库"`。
 - 数据完整性闸门：`python3 scripts/check_daily_review_data.py YYYY-MM-DD`。
-- 仅生成每日复盘 Markdown：`python3 -m market_feature_store.cli daily-review --trade-date YYYY-MM-DD --output market_feature_store/exports/YYYY-MM-DD-daily-review.md --chart-output market_feature_store/exports/YYYY-MM-DD-advancers-ma5.png`。这条是底层老入口，不会触发 `agent-daily`、工作台或驾驶舱。
+- 仅生成每日复盘（JSON 真本源 + Markdown）：`python3 -m market_feature_store.cli daily-review --trade-date YYYY-MM-DD --output market_feature_store/exports/YYYY-MM-DD-daily-review.md --chart-output market_feature_store/exports/YYYY-MM-DD-advancers-ma5.png`。同名 `YYYY-MM-DD-daily-review.json` 是台账真本源（进 git；Workbench 复盘页与框架解读读它），md 是它的渲染物（不进 git）。这条是底层老入口，不会触发 `agent-daily`、工作台或驾驶舱。
 - 渲染每日复盘 HTML：`python3 scripts/render_daily_review_briefing.py YYYY-MM-DD`，输出到 `daily/YYYY-MM-DD/`。
 - 渲染统一工作台：`python3 scripts/render_review_workbench.py`。
 - 生成驾驶舱总入口：`python3 scripts/render_cockpit.py --knowledge-root "/path/to/知识库"`，输出 `index.html`，聚合 `daily/`、`winrate/`、`matrices/` 与知识库仓 `dashboard/briefings/` 晨汇看板，复用最新每日复盘的 `<style>`（浅色投研主题）。全量入口会自动把 `--kb-wiki` 的上一级传给这里。

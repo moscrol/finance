@@ -27,12 +27,18 @@ from intelligence.services.theme_lifecycle_timeline import (
     load_theme_daily_rows,
     resolve_theme_alias,
 )
-from intelligence.services.market_analogs import parse_analog_intent
+from intelligence.services.market_analogs import (
+    analog_block_for_llm,
+    parse_analog_intent,
+)
 from intelligence.services.market_regime_analogs import (
     parse_regime_intent,
     regime_block_for_llm,
 )
-from intelligence.services.stock_analogs import parse_stock_analog_intent
+from intelligence.services.stock_analogs import (
+    parse_stock_analog_intent,
+    stock_analog_block_for_llm,
+)
 from intelligence.services.task_frame import is_weekly_calendar_question
 
 FERMENTATION_MARKERS = (
@@ -48,10 +54,18 @@ FERMENTATION_MARKERS = (
 _FERMENT_END_ISO_RE = re.compile(
     r"(?:发酵到|回溯到|截止到|截至|走到)\s*(?P<iso>\d{4}-\d{2}-\d{2})"
 )
-_LEADING_ISO_RE = re.compile(r"^(?P<iso>\d{4}-\d{2}-\d{2})(?!\s*至)")
+# 区间分隔符只有一份词表。原先 `_MD_RANGE_RE` 认全套 `[-~—–～至到]`，而站立日守卫
+# 与 `_LEADING_ISO_RE` 只认「至」——同一个概念在一个文件里存了两份，于是
+# 「2026-07-16 到 07-22 …」绕过守卫，cutoff 落成区间**起点**，终点那端整段取不到
+# （2026-08-27 四臂对照实测）。
+_RANGE_SEP = r"[-~—–～至到]"
+# 分隔符后面必须跟数字：区间总有第二个日期。只判分隔符会把
+# 「2026-07-22 - 今天怎么样」这种误判成区间，把单日题也一起挡掉。
+_RANGE_TAIL = rf"\s*{_RANGE_SEP}+\s*\d"
+_LEADING_ISO_RE = re.compile(rf"^(?P<iso>\d{{4}}-\d{{2}}-\d{{2}})(?!{_RANGE_TAIL})")
 _ISO_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _MD_RANGE_RE = re.compile(
-    r"(?P<m1>\d{1,2})月(?P<d1>\d{1,2})日\s*[-~—–～至到]+\s*"
+    rf"(?P<m1>\d{{1,2}})月(?P<d1>\d{{1,2}})日\s*{_RANGE_SEP}+\s*"
     r"(?:(?P<m2>\d{1,2})月)?(?P<d2>\d{1,2})日"
 )
 _TIMELINE_LOOKBACK_DAYS = 30
@@ -111,8 +125,8 @@ def standing_iso_from_query(query: str) -> str | None:
         if len(isos) >= 2:
             return max(isos)
         return None
-    if re.search(r"\d{4}-\d{2}-\d{2}\s*至", text) or re.search(
-        r"\d{4}年\d{1,2}月\d{1,2}日至", text
+    if re.search(rf"\d{{4}}-\d{{2}}-\d{{2}}{_RANGE_TAIL}", text) or re.search(
+        rf"\d{{4}}年\d{{1,2}}月\d{{1,2}}日{_RANGE_TAIL}", text
     ):
         return None
     leading = _LEADING_ISO_RE.match(text)
@@ -480,10 +494,16 @@ def _history_analog_items(
     as_of_iso: str,
     db_path: Path,
 ) -> list[PrefetchItem]:
-    """算子命中即供数：D10 出块或 gap；D8 / D11 在 P0 只留 gap。
+    """算子命中即供数：D8 / D10 / D11 各自出块或 gap，同一套 as_of 截断。
 
-    不变量：D10 取数按 as_of 截断（见 market_regime_analogs.load_market_regime_vectors），
-    禁止把问句截止日之后的行情写进历史窗口。
+    不变量：三块取数全部按 as_of 截断，且**解析器与取数一起截**——
+    D8 的题材名录（``resolve_query_themes``）、D11 的个股名录（``_resolve_stock``
+    的 ``max(trade_date)``）都是数据自派生的基准，漏截会让块头日期与窗口不是
+    同一天，且整块自洽、「有没有出块」类断言照不出来。禁止把问句截止日之后的
+    行情写进历史窗口。
+
+    分流：题材级类比走 D8，市场情绪级走 D10（``wants_regime`` 优先），个股对标
+    走 D11，三者可同时出（一题既问题材又点名个股是常态）。
     """
     items: list[PrefetchItem] = []
     wants_regime = parse_regime_intent(question)
@@ -514,33 +534,57 @@ def _history_analog_items(
                 )
             )
     elif wants_theme_analog:
-        items.append(
-            PrefetchItem(
-                tool="market_data",
-                title="historical_analogs gap（D8 未预取）",
-                detail=(
-                    "本题命中题材级历史类比算子，D10 市场环境块不适用；"
-                    "D8 未在 Engine A 开场预取接线。historical_analogs 标 gap，"
-                    "禁止编造未注册的历史阶段。"
-                ),
-                source="本地 DuckDB · D8 未预取",
-                source_date=as_of_iso,
+        block = analog_block_for_llm(question, None, db_path, as_of=as_of)
+        if str(block or "").strip():
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title="题材历史类比 [D8]",
+                    detail=block,
+                    source="本地 DuckDB · D8",
+                    source_date=as_of_iso,
+                )
             )
-        )
+        else:
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title="historical_analogs gap（D8 不可用）",
+                    detail=(
+                        "本题命中题材级历史类比算子，D10 市场环境块不适用；"
+                        "D8 题材类比不可用（库缺失、题材未解析到、历史不足或无可比窗口）。"
+                        "historical_analogs 标 gap，禁止编造未注册的历史阶段。"
+                    ),
+                    source="本地 DuckDB · D8",
+                    source_date=as_of_iso,
+                )
+            )
     if parse_stock_analog_intent(question):
-        items.append(
-            PrefetchItem(
-                tool="market_data",
-                title="个股对标 gap（D11 未预取）",
-                detail=(
-                    "本题含个股对标词面。D11 个股走势类比只在 Engine B 接线，"
-                    "且当前实现不按 as_of 截断，P0 不接入 Engine A 预取。"
-                    "个股对标必须标 gap，禁止用画像或题材原文冒充个股历史窗口。"
-                ),
-                source="D11 未预取",
-                source_date=as_of_iso,
+        block = stock_analog_block_for_llm(question, db_path, as_of=as_of)
+        if str(block or "").strip():
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title="个股走势类比 [D11]",
+                    detail=block,
+                    source="本地 DuckDB · D11",
+                    source_date=as_of_iso,
+                )
             )
-        )
+        else:
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title="个股对标 gap（D11 不可用）",
+                    detail=(
+                        "本题含个股对标词面，但 D11 个股走势类比不可用"
+                        "（库缺失、问句里没有库内个股、历史不足或无可比窗口）。"
+                        "个股对标必须标 gap，禁止用画像或题材原文冒充个股历史窗口。"
+                    ),
+                    source="本地 DuckDB · D11",
+                    source_date=as_of_iso,
+                )
+            )
     return items
 
 
@@ -729,6 +773,21 @@ def collect_prefetch_items(
                     )
             except Exception:
                 pass
+        if question_type == "theme_analysis":
+            # R-20260828-02：题材题确定性供数（精确板块行 + 成员映射），
+            # 内层自捕获——本分支失败不得连坐后续 operator 的预取。
+            try:
+                items.extend(
+                    _theme_sector_snapshot_items(
+                        con,
+                        question,
+                        subject,
+                        as_of,
+                        exclude_sector=ferment_sector,
+                    )
+                )
+            except Exception:
+                pass
         if OPERATOR_STEP_TRAJECTORY in program.operators:
             items.extend(
                 _step_trajectory_items(
@@ -820,6 +879,154 @@ def _width_resonance_items(con: Any, as_of: date) -> tuple[PrefetchItem, ...]:
         )
     except Exception:
         return ()
+
+
+THEME_SNAPSHOT_UNANCHORED_TITLE = "题材板块未锚定"
+_THEME_MEMBER_LIMIT = 12
+
+
+def _theme_sector_snapshot_items(
+    con: Any,
+    question: str,
+    subject: str,
+    as_of: date,
+    *,
+    exclude_sector: str | None = None,
+) -> tuple[PrefetchItem, ...]:
+    """theme_analysis 确定性预取：精确板块名 → 当日板块行 + 成员表。
+
+    `R-20260828-02`（四臂 D5、`R-20260827-09` refuted 升格）：模型自选查询
+    从不使用精确板块名（``contains "核"`` 撒网 / 按成交额 top8），判据要的
+    板块数值与成员映射永远缺供数。解析复用 ``resolve_prefetch_sector``
+    （问句内精确长名 > subject > 既有别名梯，与发酵分支同一把尺）；解析不到
+    → 单条 fail-closed 提示项，不臆配。``exclude_sector``：发酵分支已交付
+    同板块逐日时间轴时，板块行让位、成员表仍交付（时间轴不含成员映射）。
+    """
+
+    as_of_iso = as_of.isoformat()
+    sector = resolve_prefetch_sector(con, question, subject)
+    if sector is None:
+        return (
+            PrefetchItem(
+                tool="finance_query",
+                title=THEME_SNAPSHOT_UNANCHORED_TITLE,
+                detail=(
+                    "未在板块表中锚定精确板块名，当日板块行与成员表未预取；"
+                    "请用 finance_query 精确板块名查 sector_daily / "
+                    "sector_stock_daily，不要 contains 近义名"
+                ),
+                source_date=as_of_iso,
+            ),
+        )
+    items: list[PrefetchItem] = []
+    trade_iso = as_of_iso
+    row = con.execute(
+        "select trade_date, pct_chg, diff_ratio, amount from fact_sector_daily "
+        "where sector_name = ? and trade_date <= cast(? as date) "
+        "order by trade_date desc limit 1",
+        [sector, as_of_iso],
+    ).fetchone()
+    if row is None:
+        # 板块锚定成功、却没有当日及之前的板块行（`R-20260828-04`）。这条路真实
+        # 可达：`resolve_prefetch_sector` 经 `load_theme_daily_rows` 判存在性，
+        # 而后者**不带日期过滤**——「板块在表里有行」与「as_of 当天有行」是两件
+        # 事，问一个板块诞生前的日期即命中（本仓明确支持回溯问句）。
+        # 缺口必须出声：静默返回 = 让模型以为没有异常。
+        items.append(
+            PrefetchItem(
+                tool="finance_query",
+                title=f"{sector} 板块行缺失（{as_of_iso}）",
+                detail=(
+                    f"fact_sector_daily 在 {as_of_iso} 及之前无 {sector} 行，"
+                    "当日板块数值未预取；不要用其他日期的板块行冒充"
+                ),
+                source_date=as_of_iso,
+            )
+        )
+    else:
+        trade_iso = str(row[0])[:10]
+        pct, diff, amount = row[1], row[2], row[3]
+        if sector != exclude_sector:
+            parts = [f"{sector} {trade_iso}："]
+            observations: list[StructuredObservation] = []
+            for metric, value, label, fmt in (
+                ("pct_chg", pct, "涨跌幅", "{:+.2f}%"),
+                ("diff_ratio", diff, "边际量", "{:+.1f}%"),
+                ("amount", amount, "成交额", "{:.1f} 亿"),
+            ):
+                if value is None:
+                    continue
+                parts.append(f"{label} {fmt.format(float(value))}")
+                observations.append(
+                    StructuredObservation(
+                        subject=sector,
+                        as_of=trade_iso,
+                        metric=metric,
+                        value=float(value),
+                    )
+                )
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title=f"{sector} 板块日行情（{trade_iso}）",
+                    detail=parts[0] + "，".join(parts[1:]),
+                    source_date=trade_iso,
+                    observations=tuple(observations),
+                )
+            )
+    member_rows = con.execute(
+        "select stock_name, pct_chg, amount, pct_chg_5d "
+        "from fact_sector_stock_daily "
+        "where sector_name = ? and trade_date = cast(? as date) "
+        "order by amount desc nulls last limit ?",
+        [sector, trade_iso, _THEME_MEMBER_LIMIT],
+    ).fetchall()
+    if member_rows:
+        lines = []
+        member_obs: list[StructuredObservation] = []
+        for name, pct, amount, pct_5d in member_rows:
+            piece = [str(name)]
+            if pct is not None:
+                piece.append(f"涨跌幅 {float(pct):+.2f}%")
+                member_obs.append(
+                    StructuredObservation(
+                        subject=str(name),
+                        as_of=trade_iso,
+                        metric="pct_chg",
+                        value=float(pct),
+                    )
+                )
+            if amount is not None:
+                piece.append(f"成交额 {float(amount):.1f}亿")
+            if pct_5d is not None:
+                piece.append(f"5日 {float(pct_5d):+.1f}%")
+            lines.append(" ".join(piece))
+        items.append(
+            PrefetchItem(
+                tool="finance_query",
+                title=f"{sector} 成员当日表现 top{len(member_rows)}（{trade_iso}，按成交额）",
+                detail="；".join(lines),
+                source_date=trade_iso,
+                observations=tuple(member_obs),
+            )
+        )
+    else:
+        # 缺口声明**不再挂在「板块行已产出」上**（`R-20260828-04`）。原先写作
+        # `elif items:`，于是它恰好在两种最该出声的场合被抑制：板块行本身缺失
+        # 时，以及 exclude_sector 命中（发酵分支已交付时间轴）时——而成员映射
+        # 正是发酵分支不提供、本函数存在的理由。
+        items.append(
+            PrefetchItem(
+                tool="finance_query",
+                title=f"{sector} 成员行缺失（{trade_iso}）",
+                detail=(
+                    f"fact_sector_stock_daily 在 {trade_iso} 无 {sector} 成员行，"
+                    "个股映射存在覆盖缺口；不要用其他日期的成员表冒充"
+                ),
+                source_date=trade_iso,
+            )
+        )
+    return tuple(items)
 
 
 QUALIFICATION_TITLE = "大盘量能资格盘"

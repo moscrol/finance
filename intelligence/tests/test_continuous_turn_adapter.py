@@ -50,7 +50,13 @@ from intelligence.services.research_tool_registry import (
     ToolSpec,
 )
 from intelligence.services.task_frame import TaskFrame
-from intelligence.services.repair_coordinator import BACKFILL_BUDGET_FRACTION
+from intelligence.services.repair_coordinator import RepairFailureShape, RepairWarrant
+from intelligence.services.research_harness import (
+    FinanceResearchHarness,
+    PublicationAssessment,
+    ResearchHarness,
+)
+from intelligence.runtime.repair_budget import BACKFILL_BUDGET_FRACTION
 from intelligence.runtime.turn_control_core import TurnControlResult
 
 
@@ -155,6 +161,7 @@ def _scripted_episode_result(
     gap_output_ids: tuple[str, ...] = (),
     runtime_name: str = "continuous_glm",
     progress_sink=None,
+    harness: ResearchHarness | None = None,
 ):
     frame = _frame(required_outputs=required_outputs)
     capabilities = tuple(dict.fromkeys(item.tool for item in evidence)) or (
@@ -213,6 +220,7 @@ def _scripted_episode_result(
         registry_factory=lambda *_args, **_kwargs: "registry",
         semantic_verifier=Semantic(),
         progress_sink=progress_sink,
+        harness=harness,
     ).handle(frame=frame, control=control)
 
 
@@ -250,6 +258,45 @@ def test_perspective_context_reaches_context_factory_only_when_active() -> None:
     )
     assert captured[1]["perspective_context"] == (
         "只允许使用下方这一位 KOL 的画像与原文召回。"
+    )
+
+
+def test_retrieval_stages_reach_context_factory_only_when_present() -> None:
+    """阶段表进 context 构造只在非空时发生（R-20260827-09 送达层）。
+
+    空阶段（chat/meta 或无 owner 的题）的 context_factory kwargs 必须与改动前
+    逐字节一致；非空时必须原样到达。变异验证：删掉 _run_episode 里的 if 守卫，
+    本条必红。
+    """
+    frame = _frame()
+    captured: list[dict[str, object]] = []
+
+    def factory(_frame, **kwargs):
+        captured.append(dict(kwargs))
+        raise RuntimeError("stop after capturing context kwargs")
+
+    def run_once(control) -> None:
+        ContinuousTurnAdapter(
+            runtime=_RuntimeThatRaises(),
+            mode="on",
+            context_factory=factory,
+            registry_factory=_raises,
+            semantic_verifier=_SemanticThatRaises(),
+        ).handle(frame=frame, control=control)
+
+    run_once(_control(frame))
+    assert "retrieval_stages" not in captured[0]
+
+    run_once(
+        replace(
+            _control(frame),
+            retrieval_stages=("definition", "chain_stages", "company_mapping"),
+        )
+    )
+    assert captured[1]["retrieval_stages"] == (
+        "definition",
+        "chain_stages",
+        "company_mapping",
     )
 
 
@@ -600,6 +647,102 @@ def test_verifier_gap_reenters_same_session_without_second_runtime_run() -> None
     assert result.private_artifact["repair_cycles"] == 1
 
 
+def test_private_artifact_carries_runtime_handle_receipt_and_log_version() -> None:
+    """RuntimeHandle 收据落进 continuous-episode.json（运行底座 P2）。
+
+    09-07 探针发现它至今只在内存：INV-R1 的 derive_mismatches 只有进程内断言、无落盘收据。
+    session 在适配器 finally 里已关闭，所以收据是终态全貌（state=closed）；没有会话接缝
+    的 runtime（只有 run()）如实给 None。
+    """
+
+    from intelligence.services.runtime_handle import RuntimeHandle
+
+    frame = _frame(required_outputs=("direct_assessment",))
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-handle-receipt",
+        capabilities=control.capabilities,
+        timeout=60.0,
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="handle-evidence-1",
+        supports=("direct_assessment",),
+        independent_key="market",
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="当前偏修复。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+            EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+        ),
+        bindings=(OutputEvidenceBinding("direct_assessment", ("handle-evidence-1",), ""),),
+        usage=AgentUsage(1, 1, 0),
+    )
+
+    class Runtime:
+        def run(self, **_kwargs):
+            raise AssertionError("session runtime must go through start()")
+
+        def start(self, task_frame, *, context, registry):
+            del task_frame, registry
+            handle = RuntimeHandle(episode_id=context.contract.task_id)
+            handle.mark_started()
+            handle.mark_running()
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=outcome,
+                resume_callback=lambda previous, goal: previous,
+                runtime_handle=handle,
+            )
+
+    class Semantic:
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "completed"
+    artifact = result.private_artifact
+    assert artifact["log_version"] == 1
+    receipt = artifact["runtime_handle"]
+    assert receipt["episode_id"] == "adapter-handle-receipt"
+    assert receipt["state"] == "closed"
+    assert receipt["cancel_requested"] is False
+    assert [row["state"] for row in receipt["receipts"] if row["kind"] == "transition"] == [
+        "created",
+        "started",
+        "running",
+        "closed",
+    ]
+    # 收据不带 prompt 正文之类的东西：全是状态与理由，可对外私有产物直接落。
+    assert "scope" in receipt
+
+
 def test_adapter_keeps_the_answer_when_a_repair_comes_back_empty() -> None:
     """修复候选比原件更差时，适配器不得无条件接受它。
 
@@ -920,6 +1063,245 @@ def test_zero_evidence_model_finish_does_not_get_cold_restart() -> None:
 
     assert resume_calls == 0
     assert result.private_artifact["repair_cycles"] == 0
+
+
+# ── 修复准入接缝有牙（状态机 spec §5 第 2 条）：换 harness，修不修 / 修哪种 随之变 ──
+
+
+class _NeverWarrantedHarness(FinanceResearchHarness):
+    """领域说「这个 tier 一轮都不容忍」：进度修复的申请永远不成立。"""
+
+    def warrant_repair(self, *, progress, cycle, research_tier):
+        del progress, cycle, research_tier
+        return RepairWarrant(cycle_allowed=False, progressed=False)
+
+
+class _DeliveryOnlyHarness(FinanceResearchHarness):
+    """领域把一切失败都解释成「有证据没写出稿」，从不申请重开工具。"""
+
+    def classify_repair_need(self, outcome, structural, *, rejected_claims, semantic_gap_outputs):
+        need = super().classify_repair_need(
+            outcome,
+            structural,
+            rejected_claims=rejected_claims,
+            semantic_gap_outputs=semantic_gap_outputs,
+        )
+        return replace(
+            need,
+            shape=RepairFailureShape(delivery=True, cold_restart=False, contract_rewrite=False),
+        )
+
+
+def _resumable_runtime(initial: AgentOutcome, repaired: AgentOutcome, resume_goals: list):
+    class Runtime:
+        def run(self, **_kwargs):
+            raise AssertionError("resumable runtime must not receive a second run")
+
+        def start(self, _frame, *, context, registry):
+            del registry
+
+            def resume(previous, goal):
+                assert previous is initial
+                resume_goals.append(goal)
+                return repaired
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    return Runtime()
+
+
+class _CompletedSemantic:
+    def verify(self, *, structurally_verified, **_kwargs):
+        return SemanticEpisodeOutcome(
+            verified=structurally_verified,
+            status="completed",
+            public_answer=structurally_verified.outcome.draft,
+            judge_status="passed",
+        )
+
+
+def _progress_repair_fixture():
+    """`test_verifier_gap_reenters_same_session_without_second_runtime_run` 的同一形状。"""
+
+    frame = _frame(required_outputs=("direct_assessment", "counterpoint"))
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-warrant-teeth",
+        capabilities=control.capabilities,
+        timeout=60.0,
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复但反方仍待确认",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="warrant-evidence-1",
+        supports=("direct_assessment", "counterpoint"),
+        independent_key="market",
+    )
+    events = (
+        EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="partial",
+        draft="当前偏修复，但反方证据仍缺。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=("counterpoint",),
+        stop_reason="model_finish",
+        events=events,
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("warrant-evidence-1",), ""),
+            OutputEvidenceBinding("counterpoint", (), "缺少反方证据"),
+        ),
+        usage=AgentUsage(1, 1, 0),
+    )
+    repaired = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="当前偏修复，但量能回落构成反方约束。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(*events, EpisodeEvent(3, "model_turn", {"task_frame_hash": frame.task_frame_hash})),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("warrant-evidence-1",), ""),
+            OutputEvidenceBinding("counterpoint", ("warrant-evidence-1",), ""),
+        ),
+        usage=AgentUsage(2, 1, 0),
+    )
+    return frame, control, context, initial, repaired
+
+
+@pytest.mark.parametrize(
+    ("harness", "expected_cycles"),
+    [(None, 1), (_NeverWarrantedHarness(), 0)],
+    ids=["default-harness-repairs", "never-warranted-harness-zero-cycles"],
+)
+def test_warrant_from_harness_decides_whether_a_repair_cycle_happens(
+    harness, expected_cycles
+) -> None:
+    frame, control, context, initial, repaired = _progress_repair_fixture()
+    resume_goals: list = []
+
+    result = ContinuousTurnAdapter(
+        runtime=_resumable_runtime(initial, repaired, resume_goals),
+        semantic_verifier=_CompletedSemantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        harness=harness,
+    ).handle(frame=frame, control=control)
+
+    assert len(resume_goals) == expected_cycles
+    assert result.private_artifact["repair_cycles"] == expected_cycles
+
+
+def _starved_fixture():
+    frame = _frame(required_outputs=("direct_assessment",))
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-classify-teeth",
+        capabilities=control.capabilities,
+        timeout=120.0,
+    )
+    context = replace(
+        context,
+        root_budget=InMemoryRootBudgetLedger(
+            episode_id=context.contract.task_id,
+            initial_calls=2,
+            hard_calls_cap=8,
+            initial_seconds=30.0,
+            hard_seconds_cap=300.0,
+        ),
+    )
+    starved = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="failed",
+        draft="",
+        evidence=(),
+        traces=(),
+        gaps=("研究截止时间已到，仍有必需输出未覆盖",),
+        stop_reason="deadline_exhausted",
+        events=(
+            EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+            EpisodeEvent(2, "model_turn", {}),
+            EpisodeEvent(3, "finish", {"stop_reason": "deadline_exhausted"}),
+        ),
+        bindings=(),
+        usage=AgentUsage(1, 0, 0),
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="冷启动补检索取得的行情观察",
+        source="测试行情",
+        source_date="2026-07-24",
+        content_hash="classify-teeth-evidence",
+        independent_key="market-window",
+    )
+    repaired = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="补检索后：当前更像阶段性修复。",
+        evidence=(evidence,),
+        traces=(ProviderTrace("test:market", "market_data", "success"),),
+        gaps=(),
+        stop_reason="repair_model_finish",
+        events=(
+            *starved.events,
+            EpisodeEvent(4, "repair_reentry", {"cycle": 1}),
+            EpisodeEvent(5, "model_turn", {"phase": "repair"}),
+            EpisodeEvent(6, "tool_result", {"ok": True}),
+            EpisodeEvent(7, "finish", {"stop_reason": "repair_model_finish"}),
+        ),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("classify-teeth-evidence",), ""),
+        ),
+        usage=AgentUsage(2, 1, 0),
+    )
+    return frame, control, context, starved, repaired
+
+
+@pytest.mark.parametrize(
+    ("harness", "expected_cycles"),
+    [(None, 1), (_DeliveryOnlyHarness(), 0)],
+    ids=["default-harness-cold-restarts", "delivery-only-harness-no-cold-restart"],
+)
+def test_classification_from_harness_decides_whether_cold_restart_fires(
+    harness, expected_cycles
+) -> None:
+    """零证据饿死：默认 harness 申请重开工具并拿到冷启动窗；只报 delivery 的 harness
+    申请不到（delivery 要证据，冷启动没被申请），一轮修复都不发生。"""
+
+    frame, control, context, starved, repaired = _starved_fixture()
+    resume_goals: list = []
+
+    result = ContinuousTurnAdapter(
+        runtime=_resumable_runtime(starved, repaired, resume_goals),
+        semantic_verifier=_CompletedSemantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        harness=harness,
+    ).handle(frame=frame, control=control)
+
+    assert len(resume_goals) == expected_cycles
+    assert result.private_artifact["repair_cycles"] == expected_cycles
+    if expected_cycles:
+        assert resume_goals[0].reopen_tools is True
 
 
 def test_adapter_uses_production_sdk_runtime_same_episode_repair() -> None:
@@ -2896,7 +3278,6 @@ def test_market_technical_uses_zero_llm_fast_path() -> None:
     "question_type",
     (
         "external_market",
-        "quick_fact",
         "dated_market_review",
         "market_watch",
         "watchlist_digest",
@@ -2937,6 +3318,45 @@ def test_legacy_deterministic_owner_types_are_declined_without_dependencies(
     assert result.answer == ""
     assert result.private_artifact is None
     assert "支撑位或压力位" not in result.answer
+
+
+def test_structured_quick_fact_enters_episode_instead_of_declining() -> None:
+    """R-20260828-05 F1：排名/过滤类 quick_fact 必须进 episode，不能 decline。
+
+    单日休市仍由 deterministic_lane_answer 在 adapter 之前 canned（C1/C2），
+    不依赖本集合。本测只钉入口：handle 必须走到 context_factory。
+    """
+
+    frame = _frame(question_type="quick_fact")
+    calls: list[str] = []
+
+    def track(name):
+        def call(*_args, **_kwargs):
+            calls.append(name)
+            raise RuntimeError("stop-after-entry")
+
+        return call
+
+    class Runtime:
+        run = track("runtime")
+
+    class Semantic:
+        verify = track("semantic")
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        mode="on",
+        context_factory=track("context"),
+        registry_factory=track("registry"),
+        fast_path_runner=track("fast_path"),
+        structural_verifier=track("structural"),
+        semantic_verifier=Semantic(),
+        task_id_factory=lambda: "quick-fact-entry",
+    ).handle(frame=frame, control=_control(frame))
+
+    assert "context" in calls
+    assert "fast_path" not in calls
+    assert result.handled is not False or "context" in calls
 
 
 def test_market_technical_gap_hides_provider_diagnostic() -> None:
@@ -3312,7 +3732,7 @@ def test_private_artifact_counts_physical_attempts_and_duplicate_queries() -> No
         usage=AgentUsage(llm_calls=2, tool_calls=1),
     )
 
-    def record_provider_attempt(caller: str) -> None:
+    def record_provider_attempt(caller: str, **usage: object) -> None:
         ledger = llm_refine.current_call_ledger()
         assert ledger is not None
         ledger.record(
@@ -3322,6 +3742,7 @@ def test_private_artifact_counts_physical_attempts_and_duplicate_queries() -> No
                 model="test-model",
                 status="success",
                 elapsed_ms=1,
+                **usage,
             )
         )
 
@@ -3333,7 +3754,15 @@ def test_private_artifact_counts_physical_attempts_and_duplicate_queries() -> No
 
     class Semantic:
         def verify(self, *, structurally_verified, **_kwargs):
-            record_provider_attempt("chat")
+            # 判官调用带 purpose=judge 与 CLI 用量（INDEX #23）：metrics.judge_usage
+            # 只汇总这一条，写手的两条 chat_tools 不进去。
+            record_provider_attempt(
+                "chat",
+                purpose="judge",
+                input_tokens=19_326,
+                output_tokens=970,
+                usage_source="cli",
+            )
             return SemanticEpisodeOutcome(
                 verified=structurally_verified,
                 status="completed",
@@ -3358,6 +3787,12 @@ def test_private_artifact_counts_physical_attempts_and_duplicate_queries() -> No
         "duplicate_queries": 1,
         "structural_status": "completed",
         "semantic_status": "passed",
+        "judge_usage": {
+            "calls": 1,
+            "input_tokens": 19_326,
+            "output_tokens": 970,
+            "usage_source": "cli",
+        },
     }
 
 
@@ -3668,6 +4103,45 @@ def test_semantically_verified_partial_is_first_class_not_degraded() -> None:
     assert result.status == "partial"
     assert "持续性仍需补量能验证" in result.answer
     assert result.warnings == ()
+
+
+@pytest.mark.parametrize(
+    "semantic_status,expected_status",
+    [("completed", "partial"), ("partial", "partial"), ("failed", "degraded")],
+)
+def test_publication_ceiling_is_generic_preserves_safe_prose_and_never_upgrades(
+    semantic_status, expected_status
+):
+    notice = "一项必需的外部核验尚未完成。"
+
+    class PendingHarness(FinanceResearchHarness):
+        def assess_publication(self, *, context):
+            return PublicationAssessment(
+                max_status="partial",
+                required_public_notices=(notice, notice, "content_hash=PRIVATE_ID"),
+            )
+
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场观察",
+        detail="可核验的当前行情。",
+        source="本地行情",
+        content_hash="PRIVATE_ID",
+    )
+    result = _scripted_episode_result(
+        semantic_status=semantic_status,
+        public_answer="可核验的当前行情。",
+        evidence=(evidence,),
+        bindings=(OutputEvidenceBinding("direct_assessment", ("PRIVATE_ID",)),),
+        judge_status="passed",
+        harness=PendingHarness(),
+    )
+    assert result.status == expected_status
+    assert result.answer.startswith("可核验的当前行情。")
+    assert result.answer.count(notice) == 1
+    assert "PRIVATE_ID" not in result.answer
+    assert result.open_gaps == (notice,)
+    assert result.private_artifact["publication_assessment"]["max_status"] == "partial"
 
 
 def test_structural_partial_artifact_exports_missing_output_reasons() -> None:
@@ -5324,3 +5798,102 @@ def test_numeric_unsupported_unknown_subject_skips_backfill() -> None:
     ).handle(frame=frame, control=control)
 
     assert result.private_artifact["backfill_turns"] == 0
+
+
+# ── P3h: contract-blind pipelines must not receive restricted frames ──────────
+
+def _restricted_contract(kind: str):
+    from intelligence.services.material_contract import MaterialContract, MaterialQuestion
+
+    if kind == "material_only":
+        return MaterialContract("constraint_confirmed", "real", "material_only")
+    if kind == "local_only":
+        return MaterialContract("constraint_confirmed", "real", "local_only")
+    if kind == "boundary_uncertain":
+        return MaterialContract("boundary_uncertain", None, None)
+    if kind == "unavailable_with_questions":
+        return MaterialContract(
+            "state_unavailable", None, None,
+            questions=(MaterialQuestion("q1", "甲公司的订单进展如何？"),),
+        )
+    raise AssertionError(kind)
+
+
+@pytest.mark.parametrize("question_type", sorted(adapter_module.DETERMINISTIC_OWNER_TYPES))
+@pytest.mark.parametrize(
+    "contract_kind",
+    ("material_only", "local_only", "boundary_uncertain", "unavailable_with_questions"),
+)
+def test_restricted_frames_stay_in_episode_despite_deterministic_owner(
+    question_type: str, contract_kind: str
+) -> None:
+    """Engine B has no material-contract awareness: a restricted frame must not
+    be declined into it, whatever the deterministic owner type says."""
+
+    frame = replace(
+        _frame(question_type=question_type),
+        material_contract=_restricted_contract(contract_kind),
+    )
+    calls: list[str] = []
+
+    def track(name):
+        def call(*_args, **_kwargs):
+            calls.append(name)
+            raise RuntimeError("stop-after-entry")
+
+        return call
+
+    class Runtime:
+        run = track("runtime")
+
+    class Semantic:
+        verify = track("semantic")
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        mode="on",
+        context_factory=track("context"),
+        registry_factory=track("registry"),
+        structural_verifier=track("structural"),
+        semantic_verifier=Semantic(),
+    ).handle(frame=frame, control=_control(frame))
+
+    # Episode assembly was reached (the tracked factory raised inside the
+    # episode path and was settled there) — the turn was NOT declined into
+    # the contract-blind engine.
+    assert calls and calls[0] == "context"
+    assert result.handled is True
+
+
+@pytest.mark.parametrize(
+    "contract_kind", (None, "explicit_full", "bare_continuation_unavailable")
+)
+def test_unrestricted_deterministic_owner_types_still_decline(contract_kind) -> None:
+    from intelligence.services.material_contract import MaterialContract
+
+    if contract_kind == "explicit_full":
+        contract = MaterialContract(
+            "constraint_confirmed", "real", "full", data_scope_declared=True
+        )
+    elif contract_kind == "bare_continuation_unavailable":
+        # 「继续检索」类日常追问：基底未知≠受限边界，保持既有引擎 B 行为。
+        contract = MaterialContract(
+            "state_unavailable", None, None, continuation_requested=True
+        )
+    else:
+        contract = None
+    frame = replace(
+        _frame(question_type="external_market"), material_contract=contract
+    )
+    class Semantic:
+        def verify(self, **_kwargs):
+            pytest.fail("must decline")
+
+    result = ContinuousTurnAdapter(
+        runtime=type("R", (), {"run": staticmethod(lambda **_: None)})(),
+        mode="on",
+        context_factory=lambda *_a, **_k: pytest.fail("must decline"),
+        registry_factory=lambda *_a, **_k: pytest.fail("must decline"),
+        semantic_verifier=Semantic(),
+    ).handle(frame=frame, control=_control(frame))
+    assert result.handled is False

@@ -137,19 +137,35 @@ agent 可以代评并逐条给理由，但要在回复里报告 approve/reject �
 
 ## 第 6 步：验收
 
-1. `perspective profile --user <id> --perspective <角色id>` 通读一遍，确认没有 episodic 残留；
-2. **生产可见性闸**（这一条不过，前面全部不算完成）：
+1. **已知题/边题考卷**（金标人手写，程序只钉钉子；空卷失败）。
+   已知题测保真（原文可以进蒸馏）：至少 2 道，钉子是方向 + 白名单字段 + 信号词 + 禁语。
+   边题至少 1 道：题面落在 `honest_boundaries` 的不可靠侧时必须弃权，给出方向性判断 = 失败。
+   不要用词元回声、不要让 LLM 当考官。
+
+   ```bash
+   python3 -m intelligence.cli perspective exam add --user <id> --perspective <角色id> \
+     --kind known_answer --question "<博主已发表过的场景>" --facts "<含信号词的硬事实>" \
+     --direction risk --field risk_triggers --term "<画像里的信号词>" --forbidden "<不该出现的说法>"
+   python3 -m intelligence.cli perspective exam add --user <id> --perspective <角色id> \
+     --kind edge_case --question "<诚实边界里写明不可靠的领域>"
+   python3 -m intelligence.cli perspective exam run --user <id> --perspective <角色id>
+   ```
+
+   exit 0 才算过。无考卷 / 不足 2 已知 + 1 边 / 任一题失败 = 蒸馏未验收。
+2. `perspective profile --user <id> --perspective <角色id>` 通读一遍，确认没有 episodic 残留；
+3. **生产可见性闸**（这一条不过，前面全部不算完成）：
 
    ```bash
    curl -s "http://127.0.0.1:8792/api/perspectives?user=<id>" | rg '<角色id>'
    ```
 
    查不到就是写到了生产读不到的地方、或 user 写错——回第 0 步，别接着往下走。
-3. 有生产 Workbench 且 DuckDB 无写锁时，单视角选该角色问一句行情题 smoke：
+4. 有生产 Workbench 且 DuckDB 无写锁时，单视角选该角色问一句行情题 smoke：
    正文应出现该视角的证据层级语言，首选证据缺失时应显式声明而不是降格为
-   通用研究结论。**没有环境就停在 profile 通读，不编造端到端通过。**
-4. 回复用户：几篇入库、几条 patch（approve/reject 各多少 + 拒绝理由）、
-   哪些已有规则被本篇强化、哪些字段待复核。无新规则也要交账，不要劝停下一篇。
+   通用研究结论。**没有环境就停在 profile 通读 + exam run，不编造端到端通过。**
+5. 回复用户：几篇入库、几条 patch（approve/reject 各多少 + 拒绝理由）、
+   考卷几题、哪些已有规则被本篇强化、哪些字段待复核。无新规则也要交账，
+   不要劝停下一篇。
 
 ## 常见坑
 
@@ -164,3 +180,7 @@ agent 可以代评并逐条给理由，但要在回复里报告 approve/reject �
 - **CLI 与生产是两套用户空间**：CLI 跟随 shell 环境变量，生产跟随启动器里的 export。
   两者不一致时闭环每一步都会"成功"，只有 Workbench 里选不到视角这一个症状——所以
   第 6 步那道 API 可见性闸是唯一能证明蒸馏落地的检查，不能省。
+- **禁止拿一份内存里的画像循环 `_save_profile`**。`review_patch` / `ingest` 写回的是
+  **整份 JSON**。薄副本（旧 HOW、article_count=0、种子四表）会盖掉磁盘上的收口。
+  2026-08-28 风远已中招。`_save_profile` 对列表长度和 `article_count` 只减不增；
+  要删条目请直接编辑 JSON，或测试夹具显式 `allow_regression=True`。

@@ -3,12 +3,28 @@
 经验卡片和知识库事实不同：它记录的是「以后该怎么回答/怎么检查」，不是公司或
 产业的客观事实。因此默认放在 ``users/<id>/experience_cards.jsonl``，由问答链路按
 问题相关性注入提示词。
+
+生命周期：``candidate`` → ``promoted`` / ``methodology``（常驻注入）→
+``promoted_to_code``（原则已进编排/契约/质检门，``load_cards`` 跳过）。
+``invalidated`` 是另一条出口：教训被证伪，同样不注入。
+
+统计门（2026-09-04 首版按「最近一份收据 supported」放行；2026-09-11 工单 #42 第二刀接
+统一晋升认证）：卡若能映射到一条方法论规则（``rule_id``），晋升到常驻 / 固化态的前置
+条件是该规则通过 ``lifecycle.derive_state`` 的完整认证——同身份、预声明阶段的
+discovery → validation → holdout 三段链（``in_method_library``）。单份 supported 收据
+不再放行：那正是 OPT-04 堵掉的「另一入口」——队列这边要求三段链，经验卡这边一份
+supported 就常驻，等于门修好了但墙上还有个洞。标 ``invalidated`` 的前置条件仍是最近
+收据 ``refuted``（证据的不对称性：推翻不用预注册，晋升要）。映射不到规则的卡走原流程——
+门只加在能被历史数据检验的那部分上，不拦住经验本身。一次纠偏只能给事件集加一行，
+改不了收据结论，所以也改不了一张卡的晋升资格；这就是「不能因为一次错误就否定一套
+方法」落在经验卡上的形状。
 """
 
 from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -17,7 +33,91 @@ from intelligence.eval.finance_answer_rubric import FinanceAnswerScore
 
 DEFAULT_WINDOW = 12
 RESIDENT_PROMOTIONS = frozenset({"promoted", "methodology"})
+# 已固化进编排/契约/质检门的卡：留在 jsonl 可回放，但不再注入 prompt。
+# 与 invalidated 不同——那些是错的；这些是对的，再喂一遍是重复供给。
+ARCHIVED_PROMOTIONS = frozenset({"promoted_to_code"})
 DEFAULT_RESIDENT_LIMIT = 5
+
+# 带 rule_id 的卡：这些晋升态要求规则通过统一晋升认证（lifecycle.in_method_library）。candidate 不设门。
+GATED_PROMOTIONS: frozenset[str] = frozenset({"promoted", "methodology", "promoted_to_code"})
+INVALIDATION_REQUIRES = "refuted"
+
+
+@dataclass(frozen=True)
+class PromotionGate:
+    allowed: bool
+    reason: str
+    rule_id: str | None
+    verdict: str | None
+    receipt: str | None
+    lifecycle_state: str | None = None
+
+
+class PromotionGateError(ValueError):
+    """晋升 / 失效请求没过统计门。带 ``gate`` 供调用方渲染原因。"""
+
+    def __init__(self, gate: PromotionGate):
+        self.gate = gate
+        super().__init__(gate.reason)
+
+
+def gate_promotion(
+    promotion: str,
+    *,
+    rule_id: str | None,
+    verdict: str | None,
+    receipt: str | None = None,
+    invalidated: bool = False,
+    method_state: dict[str, Any] | None = None,
+) -> PromotionGate:
+    """纯函数：给定卡要去的状态与规则的生命周期状态，判能不能去。
+
+    ``method_state`` 是 ``lifecycle.derive_state(...).to_dict()``——读收据、锁身份都发生在
+    调用方（cli 用 ``lifecycle.state_for_rule``），门本身不做 IO，测试才喂得进反例。
+    晋升档只认 ``method_state["in_method_library"]``；``verdict``（最近一份收据的四态）
+    保留为溯源展示与证伪判据。``candidate`` 与无 ``rule_id`` 的卡永远放行。
+    """
+    rid = str(rule_id or "").strip() or None
+    promo = str(promotion or "candidate").strip() or "candidate"
+    if rid is None:
+        return PromotionGate(True, "无 rule_id，走原流程（不经统计门）", None, verdict, receipt)
+    state = str(method_state.get("state") or "") or None if isinstance(method_state, dict) else None
+    if invalidated:
+        if verdict == INVALIDATION_REQUIRES:
+            return PromotionGate(
+                True, f"规则 {rid} 最近收据为 {verdict}，允许标 invalidated", rid, verdict, receipt, state
+            )
+        return PromotionGate(
+            False,
+            f"规则 {rid} 最近收据为 {verdict or '无收据'}，不是 {INVALIDATION_REQUIRES}：一次落空不构成证伪，不能标 invalidated",
+            rid,
+            verdict,
+            receipt,
+            state,
+        )
+    if promo not in GATED_PROMOTIONS:
+        return PromotionGate(True, f"{promo} 不设统计门", rid, verdict, receipt, state)
+    if isinstance(method_state, dict) and method_state.get("in_method_library") is True:
+        return PromotionGate(
+            True,
+            f"规则 {rid} 生命周期 {state}（同身份三段验证链已过），允许晋升为 {promo}",
+            rid,
+            verdict,
+            receipt,
+            state,
+        )
+    blocked = str(method_state.get("blocked_by") or "") if isinstance(method_state, dict) else ""
+    detail = f"生命周期 {state or '无认证状态'}" + (f"，卡在：{blocked}" if blocked else "")
+    return PromotionGate(
+        False,
+        f"规则 {rid} 未过统一晋升认证（{detail}）：拒绝晋升为 {promo}；"
+        "单份 supported 收据不放行，须同身份 discovery → validation → holdout 三段链"
+        "（scripts/methodology_backtest.py queue 看差哪段）",
+        rid,
+        verdict,
+        receipt,
+        state,
+    )
 
 
 def _now() -> datetime:
@@ -145,8 +245,23 @@ def build_card_from_score(
     local_sources: list[str] | None = None,
     promotion: str = "candidate",
     ts: str | None = None,
+    rule_id: str | None = None,
+    rule_verdict: str | None = None,
+    rule_receipt: str | None = None,
+    method_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """从确定性评分结果生成一张机器可读经验卡片。"""
+    """从确定性评分结果生成一张机器可读经验卡片。
+
+    给了 ``rule_id`` 就过统计门：``promoted / methodology / promoted_to_code`` 要求该规则
+    通过统一晋升认证（``method_state["in_method_library"]``，即同身份三段验证链），否则抛
+    ``PromotionGateError``（不落卡）。卡上留 ``rule_id / rule_verdict / rule_receipt /
+    rule_lifecycle_state`` 溯源字段。
+    """
+    gate = gate_promotion(
+        promotion, rule_id=rule_id, verdict=rule_verdict, receipt=rule_receipt, method_state=method_state
+    )
+    if not gate.allowed:
+        raise PromotionGateError(gate)
     weak_dims = [
         {
             "key": dim.key,
@@ -186,6 +301,13 @@ def build_card_from_score(
         card["prompt_rule"] = str(prompt_rule).strip()
     if user_feedback and str(user_feedback).strip():
         card["user_feedback"] = str(user_feedback).strip()
+    if gate.rule_id:
+        card["rule_id"] = gate.rule_id
+        card["rule_verdict"] = gate.verdict
+        if gate.receipt:
+            card["rule_receipt"] = gate.receipt
+        if gate.lifecycle_state:
+            card["rule_lifecycle_state"] = gate.lifecycle_state
     return card
 
 
@@ -203,7 +325,8 @@ def load_cards(path: str | Path, window: int = DEFAULT_WINDOW) -> tuple[list[dic
 
     带 ``invalidated`` 标记的卡片会被跳过，不参与召回和规则生成：教训一旦被证明
     来自坏指标（而非真实缺陷），继续喂进 prompt 就是在教系统去迎合那个坏指标。
-    记录本身保留在 jsonl 里，便于回查「这条教训当时为什么被判为假」。
+    ``promotion=promoted_to_code`` 同样跳过：原则已固化进管线，再注入是重复供给。
+    记录本身保留在 jsonl 里，便于回查「这条教训当时为什么被判为假 / 为何退役」。
     """
     p = Path(path).expanduser()
     if not p.exists():
@@ -224,6 +347,8 @@ def load_cards(path: str | Path, window: int = DEFAULT_WINDOW) -> tuple[list[dic
         if not isinstance(obj, dict) or not str(obj.get("question") or "").strip():
             continue
         if obj.get("invalidated"):
+            continue
+        if str(obj.get("promotion") or "").strip() in ARCHIVED_PROMOTIONS:
             continue
         out.append(obj)
     if window and window > 0:

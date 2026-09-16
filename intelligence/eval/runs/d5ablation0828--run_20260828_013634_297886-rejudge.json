@@ -1,0 +1,37 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "d5ablation0828--run_20260828_013634_297886",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "9ed10467e6cc0624953de96d4ce84c786ee5003e3f41a7d03153599c79bbd66c",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      9,
+      10,
+      11
+    ],
+    "issues": [
+      "第1句把4月的局部新闻外推为截至6月11日的题材状态，并断言远期叙事、事件驱动、脉冲表现及缺乏业绩验证，现有证据不能直接支持这些当前时点事实。",
+      "第3句把“2050年有望实现”的院士观点确定化为商业化时间表极远，混淆观点、实现时间与商业化时间。",
+      "第4句虽有安泰科技业务取得突破的新闻，但“而非行业性订单落地”属于基于证据缺失作出的行业事实断言。",
+      "第6句将东方钽业、永鼎股份、雪人集团分别归入材料、超导线缆、低温制冷环节，但所引新闻标题未提供这些产业链角色。",
+      "第7句称个股归类来自新闻报道，但注册证据并未直接包含这些归类，证据边界披露不准确。",
+      "第9句把“2050年有望实现”改写为确定的商业化时间表，并据此断言当前上涨无法由盈利兑现解释、属于纯预期定价，超出证据。",
+      "第10句引入“题材空窗期的资金轮动”这一未经证据核验的外部原因。",
+      "第11句仅凭单家公司突破消息断言整个题材内部分化明显，缺少题材横截面证据。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

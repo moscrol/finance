@@ -45,6 +45,8 @@ stock-daily）静默挂起，整个 daily 就卡死且无进度输出。**
   `state/runlog.md`，顺的路径记住，坑的路径下次规避。
 - **末尾自动补偿重试**：编排器跑完一轮后会对 fail/timeout 的模块统一重跑
   `--retry-rounds` 轮（默认1），CDP 500 等瞬态故障到末尾往往已自愈；runlog 备注会带 `[retry rN]`。
+- **fupanhui 停抓期间只用 `--plan local`**（2026-09-07 账号风控起）：不发任何复盘会请求，名单冻结 + 加工层自算，
+  门禁按计划裁剪期望表。步骤与坑见 `skills/duckdb-backfill/SKILL.md`「local 计划」。full/cheap 会打复盘会，跑了必失败且续期惩罚。
 - **必须用编排层 run_review_sync.py**：不要手动逐步跑 sync-* 命令，参数极易搞错
   （如 sync-stock-daily --refresh 默认 offset=180 ≈ 90min）。编排层自带正确参数 + 超时 + 兜底。
 - **禁止 `cli daily-update` / `daily-full-exec` 直写生产**：默认 fail closed。急救必须 `--direct`（会写 `ops_sync_run` 与 `state/direct-write-*.json`）。`cli daily-full` 走 staging 换名，不要绕过它手跑 exec。
@@ -81,9 +83,49 @@ git branch --show-current
 
 ### 一键入口（推荐）
 
+**走 S7 包装脚本，它才有 staging + 换名闸**：
+
 ```bash
-python3 skills/daily-full-review/scripts/run_review_sync.py --date YYYY-MM-DD
+/bin/zsh /Users/a77/.local/bin/nightly-full-review-s7.sh YYYY-MM-DD; s7=$?
+/bin/zsh /Users/a77/.local/bin/nightly_full_review.sh finalize YYYY-MM-DD; fin=$?
+echo "sync rc=$s7  finalize rc=$fin"; [ "$s7" -eq 0 ] && [ "$fin" -eq 0 ]
 ```
+
+**两条都要跑，两个退出码都要留**（工单 #51）。这里有两个互相拉扯的要求，所以既不能用
+`&&` 也不能用裸分号：
+
+- **不能用 `&&`**：同步一失败，`finalize` 根本不启动，当天的 L2 跟着一起丢。而 L2 读的是
+  逐笔日包，**不依赖同步段产物**——2026-09-10 与 09-11 两天的 `feature_l2_*` 就是这么没的。
+  跑 `finalize` 是安全的：它自己先跑 L2，再由数据守卫决定要不要生成，守卫不过就只跳过生成段，
+  不会拿半拉数据出报告。
+- **不能用裸分号**：那样整段的退出码只剩 `finalize` 的，同步失败会被收尾的成功掩盖。
+  「守卫放行」只说明库里已有合格数据，**不说明本次同步成功**。
+
+所以分别接住 `$?`、最后一行显式合取——两段各自报账，任一非零整段即非零。
+
+两个脚本都自带 `FINANCE_SYNC_CODE_ROOT` / `REVIEW_SYNC_PLAN` 缺省，干净 shell 直接可跑；
+要覆盖就在命令前面加同名变量。`finalize` 覆盖 L2 + 生成段 + 方法飞轮；同步段只由 S7 负责。
+
+> ⚠ **同步段只有 S7 这一条路。** `nightly_full_review.sh` 的 `sync` / `all`（以及
+> 只传日期的缺省 `all`）已在加锁前拒绝并给出替代命令——它们直调
+> `run_review_sync.py`，而同步器自己**不做** staging：写的就是
+> `MARKET_FEATURE_STORE_DB` 指向的那个库，指向生产就是直写生产，中途失败会留下
+> 改了一半的生产库。「克隆到 staging → 过闸 → 原子换名」全在
+> `nightly-review-sync-staged.py` 里，只有经 S7 入口才走得到。
+> `run_review_sync.py` 里那几处 `staging` 字样是注释，它假定外层已经把库换成 staging。
+
+**从哪棵树跑**：S7 入口会把同步子进程指到 `finance-workspace-sync`（夜跑专用 detached
+worktree，跟随 `gitea/main`）。**不要在 `finance-workspace-private` 里跑**——那是数据仓、
+各 agent 共用，长期停在任意旧提交上；2026-09-12 实测它落后 548 个提交、`PLANS` 里没有
+`local`，直接 `ValueError: unknown plan 'local'`。
+
+**档位**：日更固定 `local`（零复盘会请求，不需要 Chrome 登录态）。`full` / `cheap` 都要
+fupanhui 登录，登录失效时停在 preflight rc=3。
+
+**已知遗留（另单）**：生成段 `python -m intelligence.cli daily` 在 `cd "$WORKSPACE"`
+之后跑，`sys.path[0]` 是空串即 cwd，所以 `intelligence` 仍从主检出树加载
+（实测 `/Users/a77/finance-workspace-private/intelligence/__init__.py`）。
+质检闸门与同步器已钉住代码根，**生成段还没有**。
 
 脚本按下面的"已验证模块顺序"逐个跑，逐模块超时 + 自动兜底 + 写 runlog。
 同步全绿后再跑生成段：
@@ -93,18 +135,22 @@ python3 -m intelligence.cli daily --date YYYY-MM-DD --skip-sync --from-step dail
   --summary-json market_feature_store/exports/YYYY-MM-DD-daily-workflow-summary.json
 ```
 
-### 收尾：当日增量导出到 iCloud（自动）
+### 收尾：当日增量导出到本地快照（自动）
 
 `run_review_sync.py` 在质检后会自动跑一步 `export-increment`（`scripts/export_increment.py`），
-把当日新增的行导成小 parquet 备份到 iCloud：
+把当日新增的行导成小 parquet 备份到本地：
 
 ```bash
 # 编排器已内置调用；也可手动补跑某日：
 python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
 ```
 
-产物：`~/Library/Mobile Documents/com~apple~CloudDocs/duckdb-snapshots/increments/market_feature_store-inc-<日期>.tar.gz`
+产物：`<repo>/db/snapshots/increments/market_feature_store-inc-<日期>.tar.gz`
 （每张含 `trade_date` 的 fact/feature 表 `WHERE trade_date=当日` → parquet+zstd + manifest.json，一天通常仅几 MB）。
+
+> **iCloud 目的地已于 2026-09-01 退役**：macOS TCC 下手动会话对 iCloud 既有占位文件
+> 「能新建、不能读/改/改名」，当日 rerun 覆盖必 EPERM，且会话内无法校验 iCloud 副本完整性。
+> 2026-09-01 及之前的历史增量仍在 `~/Library/Mobile Documents/com~apple~CloudDocs/duckdb-snapshots/`。
 
 **为什么不直接 iCloud 同步 `.duckdb`**：单个 ~3GB 文件 iCloud 无块级增量，每次改动整文件重传，
 且开「优化储存」时可能被逐出成占位、DuckDB 打开要先下完整库。所以按 `trade_date` 导当日增量小文件更省更稳。

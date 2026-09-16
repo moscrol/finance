@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
 from datetime import date
+import inspect
 import os
 import re
 import time
@@ -29,14 +30,17 @@ from intelligence.services.episode_issues import (
 from intelligence.services.episode_phase import PhaseRecorder
 from intelligence.services.episode_projection import project_durable_events
 from intelligence.services.episode_progress import EpisodeProgress
+from intelligence.services.episode_store import EPISODE_LOG_VERSION
 from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     SemanticEpisodeOutcome,
     draft_sentence_count,
     numeric_condition_unsupported,
+    recheck_material_public_delivery,
 )
 from intelligence.services.rejudge_pending import append_pending_from_artifact
 from intelligence.services.episode_tools import (
+    FAST_PATH_RUNNER_SUPPORTED_TYPES,
     build_episode_registry,
     run_deterministic_fast_path,
 )
@@ -45,18 +49,17 @@ from intelligence.services.episode_verifier import (
     verify_episode_outcome,
 )
 from intelligence.services.honesty_gates import with_calendar_disclosure
-from intelligence.services.mandatory_satisfiability import (
-    apply_unreachable_downgrade,
-)
 from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
 )
 from intelligence.services.repair_coordinator import (
-    admit_backfill_repair,
-    admit_repair,
     max_repair_cycles_for_tier,
     progress_from_ledger,
+)
+from intelligence.services.research_harness import (
+    FinanceResearchHarness,
+    ResearchHarness,
 )
 from intelligence.services.research_contract import ResearchDeadline, ResearchRunContext
 from intelligence.services.research_tool_registry import (
@@ -65,18 +68,28 @@ from intelligence.services.research_tool_registry import (
     check_satisfiability,
 )
 from intelligence.services.run_store import redact, redact_value
-from intelligence.services.task_frame import TaskFrame
+from intelligence.services.task_frame import TaskFrame, frame_blocks_contract_blind_pipelines
+from intelligence.services.judgment_delta import judgment_delta_receipt
+from intelligence.services.pricing_split import pricing_split_receipt
+from intelligence.services.ranking_contract import (
+    merge_ranking_missing_outputs,
+    ranking_receipt,
+)
 from intelligence.services.track_contract import (
     contract_receipt,
-    is_contract_rewrite_only,
     merge_track_missing_outputs,
 )
+from intelligence.runtime.repair_budget import admit_backfill_repair, admit_repair
+from intelligence.runtime.tier_promotion import maybe_promote_forecast_residual
 from intelligence.runtime.turn_control_core import TurnControlResult
 
 
 RuntimeMode = Literal["off", "canary", "on"]
 ContinuousTurnStatus = Literal["completed", "partial", "degraded", "failed"]
-CONTINUOUS_FAST_PATH_TYPES = frozenset({"market_technical"})
+# episode 前零 LLM 快路径名单 = runner 支持集本身，不另抄一份：往这里加
+# 题型而 runner 不认识时，得到的是「尚未接入」占位而不是快路径答案
+# （R-20260828-08 对账门禁；等式另由 test_route_composition_gate 钉住防回退）。
+CONTINUOUS_FAST_PATH_TYPES = FAST_PATH_RUNNER_SUPPORTED_TYPES
 _SUCCESSFUL_REPAIR_STOP_REASONS = frozenset(
     {"model_finish", "repair_model_finish"}
 )
@@ -86,25 +99,17 @@ _TERMINAL_REPAIR_STOP_REASONS = frozenset(
         "repair_model_stop",
     }
 )
-_DELIVERY_REPAIR_STOP_REASONS = frozenset(
-    {"sdk_invalid_finish", "sdk_invalid_repair_finish", "sdk_timeout"}
-)
-# 饿死型冷启动：检索窗烧穿，或主路径 LLM 超时/异常，且零证据。
-# A1-R2 是后者——TimeoutError 走 model_unavailable，tools_open 已关，
-# delivery 要证据，进度闸要新证据，三条路全死。不能把「模型主动收场」
-# （model_finish）算进来，那是零证据降级信号，不是饿死。
-_COLD_RESTART_STOP_REASONS = frozenset(
-    {"deadline_exhausted", "model_unavailable"}
-)
 # First judge attempt is the shared window (50s after the 08-20 grok tail
 # of 46.7s). OpenAI-compatible transports can return a few seconds after
 # their client timeout while the socket unwinds. Reserve judge + 10s grace
 # so a full research burn still leaves one dispatchable attempt.
 DEFAULT_VERIFICATION_RESERVE_SECONDS = DEFAULT_JUDGE_TIMEOUT_SECONDS + 10.0
+# quick_fact 不在此列（R-20260828-05）：排名/过滤/区间取值必须进 episode
+# 才能碰到 finance_query。单日休市仍由 deterministic_lane_answer 在
+# adapter 之前 canned（C1/C2），不依赖本集合。
 DETERMINISTIC_OWNER_TYPES = frozenset(
     {
         "external_market",
-        "quick_fact",
         "dated_market_review",
         "market_watch",
         "watchlist_digest",
@@ -168,6 +173,7 @@ class ContinuousTurnAdapter:
         deadline_expires_at: float | None = None,
         progress_sink: Callable[[EpisodeProgress], None] | None = None,
         repair_seconds_cap: float | None = None,
+        harness: ResearchHarness | None = None,
     ) -> None:
         selected_mode = (
             str(os.environ.get("ASK_CONTINUOUS_RUNTIME") or "off").strip().lower()
@@ -215,6 +221,11 @@ class ContinuousTurnAdapter:
             float(repair_seconds_cap)
             if repair_seconds_cap is not None
             else repair_seconds_cap_for(provider_name_from(runtime))
+        )
+        # 修复准入问领域的两件事（修什么 / 配不配再来一轮）走 harness；这里只算
+        # 余量与 cycle 状态。默认金融 harness 与 runtime 里 Episode 拿的是同一种。
+        self._harness: ResearchHarness = (
+            harness if harness is not None else FinanceResearchHarness()
         )
 
     @property
@@ -287,7 +298,12 @@ class ContinuousTurnAdapter:
             or frame.task_frame_hash != control_frame.task_frame_hash
         ):
             return _control_frame_mismatch_result(self._runtime_name)
-        if frame.question_type in DETERMINISTIC_OWNER_TYPES:
+        if frame.question_type in DETERMINISTIC_OWNER_TYPES and not (
+            frame_blocks_contract_blind_pipelines(frame)
+        ):
+            # P3h：确定性 owner 管线（引擎 B）没有材料合同意识。约束轮
+            # （material_only / local_only / 待澄清）留在 episode 收窄执行，
+            # 不让路——让路等于把 P3 的读取上限整体交给一个读不到它的引擎。
             return _declined_result()
         if control.terminal_kind == "clarification":
             questions = tuple(
@@ -504,6 +520,13 @@ class ContinuousTurnAdapter:
             stance_pack = getattr(control, "stance_pack", None)
             if stance_pack is not None:
                 context_kwargs["stance_pack"] = stance_pack
+            # 阶段表只在非空时进 kwargs：无阶段轮的 context 构造调用逐字节
+            # 不变，不认识该参数的注入式 factory 也不会被炸（同视角先例）。
+            retrieval_stages = tuple(
+                getattr(control, "retrieval_stages", ()) or ()
+            )
+            if retrieval_stages:
+                context_kwargs["retrieval_stages"] = retrieval_stages
             if self._synthesis_reserve_for_task is not None:
                 context_kwargs["synthesis_reserve"] = max(
                     0.0,
@@ -522,10 +545,12 @@ class ContinuousTurnAdapter:
                 ResearchToolRegistry,
                 self._registry_factory(frame, context),
             )
-            from intelligence.services.forecast_residual_budget import (
-                maybe_promote_forecast_residual,
-            )
-
+            material = context.contract.material_contract
+            if material is not None and material.data_scope in {"local_only", "material_only"}:
+                # 受限轮必须拿得到同一注册表合同；full 的旧鸭子类型注入点不变。
+                # 不支持绑定就由现有失败出口收口，不能先预取后才发现没授权。
+                registry = registry.for_context(context)
+            # 展望座位升 deep：判定在领域，落账在底座（runtime/tier_promotion）。
             context = maybe_promote_forecast_residual(
                 context,
                 question_type=frame.question_type,
@@ -752,13 +777,19 @@ class ContinuousTurnAdapter:
                 return _cancelled_result()
             if root_deadline.expired:
                 raise TimeoutError("research deadline exhausted before semantic verification")
-            semantic_candidate = self._semantic_verifier.verify(
-                frame=frame,
-                structurally_verified=structural,
-                deadline=root_deadline,
+            # V11 回检索注入口：按本回合的注册表造，kb_search 未授权 / 替身注册表 → None，
+            # 判官侧记 no_retriever，行为与接线前逐字节一致。
+            guided_retriever = _build_guided_retriever(
+                registry,
+                context,
+                is_cancelled=self._is_cancelled,
             )
-            if not isinstance(semantic_candidate, SemanticEpisodeOutcome):
-                raise TypeError("semantic verifier must return SemanticEpisodeOutcome")
+            semantic_candidate = self._verify_semantics(
+                frame=frame,
+                structural=structural,
+                deadline=root_deadline,
+                retrieve_fn=guided_retriever,
+            )
             semantic = replace(
                 semantic_candidate,
                 verified=_with_track_contract_gaps(
@@ -854,15 +885,12 @@ class ContinuousTurnAdapter:
                 ):
                     semantic_verifier_stale = True
                     break
-                semantic_candidate = self._semantic_verifier.verify(
+                semantic_candidate = self._verify_semantics(
                     frame=frame,
-                    structurally_verified=structural,
+                    structural=structural,
                     deadline=root_deadline,
+                    retrieve_fn=guided_retriever,
                 )
-                if not isinstance(semantic_candidate, SemanticEpisodeOutcome):
-                    raise TypeError(
-                        "semantic verifier must return SemanticEpisodeOutcome"
-                    )
                 semantic = replace(
                     semantic_candidate,
                     verified=_with_track_contract_gaps(
@@ -1062,6 +1090,34 @@ class ContinuousTurnAdapter:
             status = "degraded"
         else:
             status = "failed"
+        publication = self._harness.assess_publication(context=context)
+        if status == "completed" and publication.max_status == "partial":
+            status = "partial"
+        if not answer and final_outcome.evidence:
+            answer = _episode_gap_answer(frame, structural)
+        answer = _with_calendar_disclosure(answer, frame)
+        public_notices = tuple(
+            dict.fromkeys(
+                safe
+                for notice in publication.required_public_notices
+                if (safe := _safe_public_text(notice, private_tokens=private_tokens))
+            )
+        )
+        for notice in public_notices:
+            if notice not in answer:
+                answer = "\n\n".join(part for part in (answer, notice) if part)
+        from intelligence.services.material_delivery import material_question_outputs
+
+        if material_question_outputs(context.contract):
+            semantic = recheck_material_public_delivery(semantic, projected=answer)
+            final_outcome = semantic.verified.outcome
+            answer = semantic.public_answer
+            fulfilled_output_ids = _fulfilled_output_ids(
+                semantic.verified, excluded_output_ids=frozenset(semantic.gap_output_ids),
+            )
+            citations = _public_citation_projection(final_outcome, private_tokens, allowed_output_ids=fulfilled_output_ids)
+            if status == "completed" and semantic.status != "completed":
+                status = "partial"
         _phase_note(
             phase_recorder,
             status,
@@ -1071,9 +1127,6 @@ class ContinuousTurnAdapter:
             outcome=outcome,
             repair_attempts=repair_attempts,
         )
-        if not answer and final_outcome.evidence:
-            answer = _episode_gap_answer(frame, structural)
-        answer = _with_calendar_disclosure(answer, frame)
         semantic_verifier_stale = semantic_verifier_stale or (
             semantic.verified.outcome.events != outcome.events
         )
@@ -1083,8 +1136,13 @@ class ContinuousTurnAdapter:
         event_projection = project_durable_events(outcome.events)
         artifact = {
             "schema_version": 1,
+            # 事件日志的 schema 版本（运行底座 P2 G9）：与 store 里 state.json 的同一个数。
+            "log_version": EPISODE_LOG_VERSION,
             "execution_kind": "continuous_episode",
             "runtime_backend": self._runtime_name,
+            # RuntimeHandle 生命周期收据 + Scope 能力收据（含 INV-R1 的 derive_mismatches）。
+            # 09-07 探针发现它至今只在内存里；session 已在 finally 关闭，dump 是终态全貌。
+            "runtime_handle": _runtime_handle_receipt(session),
             "research_context": _episode_context_provenance(context),
             "contract": context.contract.to_dict(),
             "outcome": _private_outcome(outcome),
@@ -1093,11 +1151,34 @@ class ContinuousTurnAdapter:
             "structural_verifier": structural.to_dict(),
             "satisfiability_precheck": _satisfiability_payload(satisfiability),
             "semantic_verifier": semantic.to_dict(),
+            "publication_assessment": asdict(publication),
             "semantic_verifier_stale": semantic_verifier_stale,
             "repair_attempts": repair_attempts,
             "repair_cycles": repair_cycles,
             "backfill_turns": backfill_turns,
             "track_contract": contract_receipt(
+                outcome.draft,
+                query=context.contract.question,
+                question_type=context.contract.question_type,
+                as_of=context.today,
+            ),
+            # 排序与情景契约收据（10 号单）：矩阵/改判条件/竞争解释解析结果 + 缺件。
+            "ranking_contract": ranking_receipt(
+                outcome.draft,
+                query=context.contract.question,
+                question_type=context.contract.question_type,
+                as_of=context.today,
+                conversation_context=context.conversation_context,
+            ),
+            # 判断增量 / 产业·定价二分收据（Knevo q17 Q8、Q4 回灌）：只读，不并进
+            # missing_outputs——先用同题对照实验量出效果，再决定要不要上修复硬门。
+            "judgment_delta": judgment_delta_receipt(
+                outcome.draft,
+                query=context.contract.question,
+                question_type=context.contract.question_type,
+                as_of=context.today,
+            ),
+            "pricing_split": pricing_split_receipt(
                 outcome.draft,
                 query=context.contract.question,
                 question_type=context.contract.question_type,
@@ -1143,10 +1224,43 @@ class ContinuousTurnAdapter:
                 outcome,
                 runtime_name=self._runtime_name,
             ),
-            open_gaps=_open_gap_labels(
-                context.contract,
-                fulfilled_output_ids=fulfilled_output_ids,
+            open_gaps=tuple(
+                dict.fromkeys(
+                    (*_open_gap_labels(
+                        context.contract,
+                        fulfilled_output_ids=fulfilled_output_ids,
+                        disclosed_gaps={item.output_id: item.gap for item in semantic.verified.completion.outputs if item.status == "legal_gap"},
+                    ), *public_notices)
+                )
             ),
+        )
+
+    def _verify_semantics(
+        self,
+        *,
+        frame: TaskFrame,
+        structural: VerifiedEpisodeOutcome,
+        deadline: ResearchDeadline,
+        retrieve_fn: Callable[[str, float], tuple[object, ...]] | None,
+    ) -> SemanticEpisodeOutcome:
+        """调语义判官；V11 的 ``retrieve_fn`` 只在对方声明接收时才传（替身兼容）。"""
+
+        verify = self._semantic_verifier.verify
+        kwargs: dict[str, object] = {
+            "frame": frame,
+            "structurally_verified": structural,
+            "deadline": deadline,
+        }
+        if retrieve_fn is not None and _accepts_keyword(verify, "retrieve_fn"):
+            kwargs["retrieve_fn"] = retrieve_fn
+        candidate = verify(**kwargs)
+        if not isinstance(candidate, SemanticEpisodeOutcome):
+            raise TypeError("semantic verifier must return SemanticEpisodeOutcome")
+        # Check the adapter's own sanitizer before deciding whether to resume.
+        # A previously disclosed gap cannot hide a deletion at the final seam.
+        return recheck_material_public_delivery(
+            candidate,
+            projected=_safe_public_text(candidate.public_answer, private_tokens=_private_tokens(candidate.verified.outcome)),
         )
 
     def _resume_for_gap(
@@ -1187,34 +1301,22 @@ class ContinuousTurnAdapter:
             max(0.0, float(delivery_deadline.remaining())),
         )
         structural = _with_track_contract_gaps(structural, context)
-        missing_outputs = tuple(
-            dict.fromkeys((*structural.missing_outputs, *semantic_gap_outputs))
-        )
-        contract_rewrite_candidate = is_contract_rewrite_only(
-            missing_outputs,
+        # 领域申请（修什么 / 属哪类 / 配不配再来一轮），底座授予（余量 / cycle 状态 / 账本）。
+        need = self._harness.classify_repair_need(
+            outcome,
+            structural,
             rejected_claims=rejected_claims,
             semantic_gap_outputs=semantic_gap_outputs,
         )
-        delivery_candidate = (
-            allow_delivery_repair
-            and outcome.stop_reason in _DELIVERY_REPAIR_STOP_REASONS
-            and outcome.evidence
-            and structural.missing_outputs
-            and (not outcome.draft.strip() or not outcome.bindings)
-        )
-        # 饿死判据：零证据 + 终态是窗烧穿或主路径模型不可用。
-        # 生产三种形状：R7-A3 查询烧穿窗口、R9-A3 规划轮吃光窗口零
-        # trace、A1-R2 主路径 TimeoutError → model_unavailable。
-        # 共同观察量是 stop_reason，不是 trace。
-        cold_restart_candidate = (
-            outcome.stop_reason in _COLD_RESTART_STOP_REASONS
-            and not outcome.evidence
+        warrant = self._harness.warrant_repair(
+            progress=progress,
+            cycle=cycle,
+            research_tier=context.contract.research_tier,
         )
         admission = admit_repair(
+            need,
+            warrant,
             episode_id=episode_id,
-            missing_outputs=missing_outputs,
-            missing_capabilities=structural.mandatory_missing_capabilities,
-            rejected_claims=rejected_claims,
             attempted_actions=tuple(
                 f"{trace.capability}:{trace.provider}" for trace in outcome.traces
             ),
@@ -1223,21 +1325,18 @@ class ContinuousTurnAdapter:
             remaining_seconds=remaining_seconds,
             cycle=cycle,
             root_budget=root_budget,
-            research_tier=context.contract.research_tier,
             tools_open=tools_open,
             allow_delivery_repair=allow_delivery_repair,
-            delivery_candidate=bool(delivery_candidate),
-            contract_rewrite_candidate=contract_rewrite_candidate,
-            cold_restart_candidate=cold_restart_candidate,
             evidence_count=len(outcome.evidence),
             seconds_cap=self._repair_seconds_cap,
         )
         if admission is None:
             return None
-        verify_contract, _ = apply_unreachable_downgrade(
-            context.contract,
+        # 修复轮按哪张契约验：不可达格已降级的那张——与 Episode 开场用的是同一裁决。
+        verify_contract = self._harness.downgrade_unreachable(
             admission.goal,
-        )
+            contract=context.contract,
+        ).contract
         candidate = resume(admission.goal)
         if not isinstance(candidate, AgentOutcome):
             raise TypeError("episode session resume must return AgentOutcome")
@@ -1357,16 +1456,93 @@ def _issue_backfill_plan(
     )
 
 
+def _accepts_keyword(fn: object, name: str) -> bool:
+    """替身 verifier 有 23 个是严格签名 ``(*, frame, structurally_verified, deadline)``，
+    多传一个 kwarg 就炸；只在对方声明了该形参或收 ``**kwargs`` 时才传。"""
+
+    try:
+        parameters = inspect.signature(fn).parameters  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return False
+    if name in parameters:
+        return True
+    return any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD
+        for parameter in parameters.values()
+    )
+
+
+def _build_guided_retriever(
+    registry: object,
+    context: ResearchRunContext,
+    *,
+    is_cancelled: Callable[[], bool],
+) -> Callable[[str, float], tuple[object, ...]] | None:
+    """给语义判官造 V11 回检索的执行者：走本回合注册表的 ``kb_search``。
+
+    为什么走注册表而不是直接调 ``kb_rag.retrieve``：注册表那份闭包里有 fixture
+    policy / wiki 根 / 新鲜度门 / 语义闸（#424），自己再拼一份就是第二条检索链
+    （V11 §10.3「不复制一条检索」）。能力未授权（``allowed_capabilities`` 没有
+    kb_search 的 capability）或注册表是测试替身 → 返回 None，判官记 ``no_retriever``。
+
+    授予的秒数必须到达执行者（V11 §4.4）：给工具一条与根窗取交的**绝对**子
+    deadline（``bounded_stage``），不另起相对时钟、不改根 deadline。
+    """
+
+    names = getattr(registry, "names", None)
+    execute = getattr(registry, "execute", None)
+    resolve = getattr(registry, "resolve", None)
+    if not callable(names) or not callable(execute) or not callable(resolve):
+        return None
+    try:
+        if "kb_search" not in tuple(names()):
+            return None
+        spec = resolve("kb_search")
+        capability = str(getattr(spec, "capability", "") or "")
+        if capability not in context.contract.allowed_capabilities:
+            return None
+    except Exception:
+        return None
+
+    def retrieve(query: str, timeout: float) -> tuple[object, ...]:
+        bounded = replace(
+            context,
+            deadline=context.deadline.bounded_stage(max(0.0, float(timeout))),
+        )
+        observation = execute(
+            "kb_search",
+            {"query": str(query)},
+            context=bounded,
+            step_id=f"guided-retrieval:{uuid4().hex[:8]}",
+            is_cancelled=is_cancelled,
+        )
+        return tuple(getattr(observation, "evidence", ()) or ())
+
+    return retrieve
+
+
 def _with_track_contract_gaps(
     structural: VerifiedEpisodeOutcome,
     context: ResearchRunContext,
 ) -> VerifiedEpisodeOutcome:
-    """Merge track-contract expression gaps into missing_outputs only.
+    """Merge track / ranking expression-contract gaps into missing_outputs only.
 
-    Do not touch ``issues``: the #224 release gate matches issue prefixes.
+    Do not touch ``issues``: release policy is owned by Issue.code.
     """
+    from intelligence.services.material_delivery import material_question_outputs
+
+    # 原题逐题交付替代旧题型模板；不能把一个已交代的排序缺口再次投影
+    # 成矩阵/TTL/下一期关注等用户没要求的必填项。
+    if material_question_outputs(context.contract):
+        return structural
     merged = merge_track_missing_outputs(
         structural.missing_outputs,
+        structural.outcome.draft,
+        query=context.contract.question,
+        question_type=context.contract.question_type,
+    )
+    merged = merge_ranking_missing_outputs(
+        merged,
         structural.outcome.draft,
         query=context.contract.question,
         question_type=context.contract.question_type,
@@ -1397,6 +1573,7 @@ def _repair_snapshot(
         information_cutoff=context.information_cutoff.as_of_date,
     )
     missing = set(structural.missing_outputs)
+    legal_gaps = {item.output_id for item in structural.completion.outputs if item.status == "legal_gap"}
     targets_by_hash: dict[str, list[str]] = {}
     for binding in outcome.bindings:
         if binding.gap or not binding.evidence_hashes:
@@ -1411,6 +1588,10 @@ def _repair_snapshot(
             continue
         if required.output_id in missing:
             ledger.open_gap(required.output_id)
+            continue
+        if required.output_id in legal_gaps:
+            # 结清交代义务，不伪造证据覆盖；这条仍出现在公开未决项中。
+            ledger.close_gap(required.output_id)
             continue
         flattened = tuple(
             content_hash
@@ -1442,6 +1623,67 @@ def _ledger_attempt_count() -> int:
         return 0
     summary = ledger.summary()
     return _non_negative_int(summary.get("call_count"))
+
+
+def _empty_judge_usage() -> dict[str, object]:
+    return {
+        "calls": 0,
+        "input_tokens": None,
+        "output_tokens": None,
+        "usage_source": None,
+    }
+
+
+def _ledger_judge_usage(attempts_before: int) -> dict[str, object]:
+    """本 turn 内 ``purpose=judge`` 记录的 token 汇总（INDEX #23）。
+
+    与 ``provider_attempts`` 同一种差分：台账是 append-only 的 list，本 turn 的
+    记录就是 ``records[attempts_before:]``。``usage_source`` 的合并规则——只要有一条
+    是 ``estimated``，整块就标 ``estimated``（估算值不得混进真实值而不注明）；全部同源
+    取该源；多种真实来源并存（主判官 CLI + 备胎 API）标 ``mixed``。没有一条带用量
+    时 token 为 None、``usage_source`` 为 None——0 与「没记到」在报表里是两件事。
+    """
+
+    ledger = llm_refine.current_call_ledger()
+    if ledger is None:
+        return _empty_judge_usage()
+    records = ledger.summary().get("records")
+    if not isinstance(records, list):
+        return _empty_judge_usage()
+    judge_records = [
+        record
+        for record in records[max(0, attempts_before):]
+        if isinstance(record, dict) and record.get("purpose") == "judge"
+    ]
+    if not judge_records:
+        return _empty_judge_usage()
+    input_total: int | None = None
+    output_total: int | None = None
+    sources: set[str] = set()
+    for record in judge_records:
+        input_value = record.get("input_tokens")
+        output_value = record.get("output_tokens")
+        if isinstance(input_value, int) and not isinstance(input_value, bool):
+            input_total = (input_total or 0) + input_value
+        if isinstance(output_value, int) and not isinstance(output_value, bool):
+            output_total = (output_total or 0) + output_value
+        source = record.get("usage_source")
+        if isinstance(source, str) and source:
+            sources.add(source)
+    if not sources:
+        usage_source: str | None = None
+    elif "estimated" in sources:
+        usage_source = "estimated"
+    elif len(sources) == 1:
+        usage_source = next(iter(sources))
+    else:
+        usage_source = "mixed"
+    return {
+        "calls": len(judge_records),
+        "input_tokens": input_total,
+        "output_tokens": output_total,
+        "usage_source": usage_source,
+    }
 
 
 def _duplicate_query_count(outcome: AgentOutcome | None) -> int:
@@ -1505,6 +1747,8 @@ def _episode_metrics(
             if semantic_status in {"passed", "repaired", "rejected", "unavailable"}
             else "unavailable"
         ),
+        # 判官侧 token（写手侧在 outcome.usage）。读者：intelligence/eval/research_cost.py。
+        "judge_usage": _ledger_judge_usage(attempts_before),
     }
 
 
@@ -1592,14 +1836,18 @@ def _episode_context_provenance(
         "today": context.today,
         "latest_data_date": context.latest_data_date,
         "trace_parent_id": context.trace_parent_id,
+        "history_intent": (
+            context.history_intent.to_dict()
+            if context.history_intent is not None
+            else None
+        ),
+        "history_results": list(context.history_results),
     }
     pack = getattr(context, "stance_pack", None)
     if pack is None:
         return payload
     to_receipt = getattr(pack, "to_receipt", None)
-    payload["stance_pack"] = (
-        to_receipt() if callable(to_receipt) else {"present": True}
-    )
+    payload["stance_pack"] = to_receipt() if callable(to_receipt) else {"present": True}
     return payload
 
 
@@ -1739,6 +1987,7 @@ def _open_gap_labels(
     *,
     fulfilled_output_ids: frozenset[str],
     limit: int = 3,
+    disclosed_gaps: dict[str, str] | None = None,
 ) -> tuple[str, ...]:
     """未满足必需输出的描述文案——与公开缺口声明同一套口径。
 
@@ -1748,7 +1997,7 @@ def _open_gap_labels(
     if contract is None:
         return ()
     return tuple(
-        item.description.strip()
+        (disclosed_gaps or {}).get(item.output_id) or item.description.strip()
         for item in contract.required_outputs
         if item.required
         and item.output_id not in fulfilled_output_ids
@@ -1903,6 +2152,23 @@ def _private_outcome(outcome: AgentOutcome) -> dict[str, object]:
     payload = outcome.to_dict()
     payload["evidence"] = [asdict(item) for item in outcome.evidence]
     return payload
+
+
+def _runtime_handle_receipt(session: object | None) -> dict[str, object] | None:
+    """会话上挂着的 RuntimeHandle 收据；没有会话接缝的臂（codex）如实给 None。
+
+    收据是观测，不拥有执行：dump 抛了也只记一个 unavailable 标记，不顶替产物。
+    """
+
+    handle = getattr(session, "runtime_handle", None)
+    dump = getattr(handle, "dump", None)
+    if not callable(dump):
+        return None
+    try:
+        receipt = dump()
+    except Exception as exc:  # noqa: BLE001 - 收据不可用不是产物不可用
+        return {"unavailable": type(exc).__name__}
+    return receipt if isinstance(receipt, dict) else None
 
 
 def _private_tokens(outcome: AgentOutcome) -> frozenset[str]:

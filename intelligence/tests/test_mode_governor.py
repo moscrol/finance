@@ -4,8 +4,11 @@ from datetime import date
 
 import pytest
 
+from intelligence.runtime.tier_promotion import apply_mode_promotion
 from intelligence.services.mode_governor import ModeGovernor, ModeSignals
 from intelligence.services.research_contract import (
+    PRODUCT_MAX_SECONDS,
+    PRODUCT_MAX_TOOL_CALLS,
     InformationCutoff,
     ResearchDeadline,
     ResearchPolicy,
@@ -109,7 +112,18 @@ def test_user_deep_mode_can_promote_a_model_quick_plan() -> None:
     assert decision.observable_conditions == ("explicit_user_deep",)
 
 
-def test_model_quick_plan_stays_quick_even_when_task_is_complex() -> None:
+def test_governance_promotes_complex_task_even_when_the_model_never_asked() -> None:
+    """模型没交 deep PLAN，但可观察条件够多 → 治理侧自行升档。
+
+    **这条原来断言的是相反的行为**（`test_model_quick_plan_stays_quick_even_when_
+    task_is_complex`）。改的是设计不是修 bug：2026-08-17 生产模型换成 GLM 后
+    deep 归零，同日同码 gpt 交 PLAN 30% 而 glm 0%，链断了 12 天而门禁全绿。
+    升档不该挂在「模型愿不愿意交 PLAN」上。
+
+    读数留痕：`requested_mode` 仍如实记 "quick"，reason 明写是治理侧发起——
+    台账上能一眼看出这次 deep 不是模型要的。
+    """
+
     decision = ModeGovernor().decide(
         _plan("quick"),
         ModeSignals(
@@ -117,6 +131,48 @@ def test_model_quick_plan_stays_quick_even_when_task_is_complex() -> None:
             evidence_domains=("盘面", "新闻"),
             complexity_flags=("causal_attribution",),
             uncovered_answer_elements=2,
+        ),
+    )
+
+    assert decision.requested_mode == "quick"
+    assert decision.effective_mode == "deep"
+    assert decision.approved is True
+    assert decision.reason == "observable_complexity_without_plan"
+    assert len(decision.observable_conditions) >= 2
+
+
+def test_model_quick_plan_stays_quick_when_evidence_is_thin() -> None:
+    """只有一条可观察条件时仍然不升——模型没提，就要更多佐证。
+
+    没有这条，上面那条用「模型说 quick 一律升 deep」也能全绿。
+    """
+
+    decision = ModeGovernor().decide(
+        _plan("quick"),
+        ModeSignals(independent_entities=3),
+    )
+
+    assert decision.observable_conditions == ("multiple_independent_entities",)
+    assert decision.effective_mode == "quick"
+    assert decision.approved is False
+    assert decision.reason == "model_requested_quick"
+
+
+@pytest.mark.parametrize("blocked", ["dependencies", "deadline"])
+def test_governance_initiated_deep_still_respects_the_two_preconditions(
+    blocked: str,
+) -> None:
+    """治理侧发起也不能绕过 deep 的两个前置——绕过就成了「新开一条没人管的路」。"""
+
+    decision = ModeGovernor().decide(
+        _plan("quick"),
+        ModeSignals(
+            independent_entities=3,
+            evidence_domains=("盘面", "新闻"),
+            complexity_flags=("causal_attribution",),
+            uncovered_answer_elements=2,
+            dependencies_available=blocked != "dependencies",
+            deep_deadline_available=blocked != "deadline",
         ),
     )
 
@@ -211,7 +267,7 @@ def test_approved_deep_mode_promotes_the_existing_context_atomically() -> None:
     )
     before_deadline = context.deadline.expires_at
 
-    promoted = ModeGovernor().apply(context, decision)
+    promoted = apply_mode_promotion(context, decision)
 
     assert promoted.contract is context.contract
     assert promoted.information_cutoff == context.information_cutoff
@@ -231,8 +287,8 @@ def test_deep_promotion_is_idempotent_and_never_mints_a_second_ledger() -> None:
         ModeSignals(complexity_flags=("valuation",)),
     )
 
-    first = ModeGovernor().apply(context, decision)
-    second = ModeGovernor().apply(first, decision)
+    first = apply_mode_promotion(context, decision)
+    second = apply_mode_promotion(first, decision)
 
     assert second.root_budget is context.root_budget
     assert second.root_budget is not None
@@ -245,7 +301,7 @@ def test_denied_or_quick_decision_preserves_the_original_context() -> None:
     context = _standard_context(episode_id="mode-no-promotion")
     decision = ModeGovernor().decide(_plan("quick"), ModeSignals())
 
-    assert ModeGovernor().apply(context, decision) is context
+    assert apply_mode_promotion(context, decision) is context
     assert context.root_budget is not None
     assert context.root_budget.hard_calls_cap == 8
     assert context.root_budget.remaining_calls == 6
@@ -265,12 +321,23 @@ def test_root_budget_promotion_is_episode_bound_increase_only_and_capped() -> No
         )
         is False
     )
+    # 产品硬顶绑常数不绑字面量：2026-09-06 加 max 档把顶从 24/240 抬到 48/600，
+    # 「越过顶就拒」这条判据不变。
     assert (
         root.promote_caps(
             episode_id="mode-ledger-authority",
             promotion_id="promotion-too-large",
-            hard_calls_cap=25,
+            hard_calls_cap=PRODUCT_MAX_TOOL_CALLS + 1,
             hard_seconds_cap=240.0,
+        )
+        is False
+    )
+    assert (
+        root.promote_caps(
+            episode_id="mode-ledger-authority",
+            promotion_id="promotion-too-long",
+            hard_calls_cap=24,
+            hard_seconds_cap=PRODUCT_MAX_SECONDS + 1.0,
         )
         is False
     )

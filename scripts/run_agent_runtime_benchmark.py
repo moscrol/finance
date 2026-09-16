@@ -507,6 +507,38 @@ def _freeze_case(
     return control, context
 
 
+def _acceptance_contract_gaps(
+    acceptance_outputs: tuple[str, ...],
+    frame_outputs: set[str],
+) -> list[str]:
+    """验收输出对 frame 输出的缺口，经 canonical 别名归一后再比。
+
+    同一份语义要求在不同 frame 词表里名字不同：general_finance_qa 写作
+    ``direct_answer``/``evidence_boundary``，stock_deep_dive 写作
+    ``direct_assessment``/``counterpoint``——生产侧（合同装配与可满足性对账）
+    都经 ``_LEGACY_OUTPUT_ALIASES`` 归一后才比对。dry-run 缺口检查若做字面
+    比较，主体解析态一变（如实体页新入库把题从通用问答升级成个股深挖）就会
+    把「同义覆盖」误报成缺口（R-20260829-01，A3 现场：08-29 夜批灌入
+    「立新能源」实体页后本检查在代码零变化下由绿转红）。
+
+    延迟 import 与 ``continuous_turn_adapter._normalize_output_id`` 同一手法：
+    别名表的唯一事实源在 conversation_orchestrator，禁止抄第二份。
+    """
+
+    from intelligence.runtime.conversation_orchestrator import (
+        _LEGACY_OUTPUT_ALIASES,
+    )
+
+    normalized_frame = {
+        _LEGACY_OUTPUT_ALIASES.get(item, item) for item in frame_outputs
+    }
+    return [
+        output_id
+        for output_id in acceptance_outputs
+        if _LEGACY_OUTPUT_ALIASES.get(output_id, output_id) not in normalized_frame
+    ]
+
+
 def _planned_case(
     case: RuntimeBenchmarkCase,
     control: object,
@@ -523,11 +555,10 @@ def _planned_case(
         "timeout": case.timeout,
         "conversation_context": list(case.conversation_context),
         "acceptance_outputs": list(case.required_outputs),
-        "acceptance_contract_gaps": [
-            output_id
-            for output_id in case.required_outputs
-            if output_id not in frame_outputs
-        ],
+        "acceptance_contract_gaps": _acceptance_contract_gaps(
+            tuple(case.required_outputs),
+            frame_outputs,
+        ),
         "task_frame_hash": frame.task_frame_hash,
         "task_frame": frame.to_dict(),
         "control": {

@@ -28,10 +28,17 @@ import socket
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
+
+from intelligence.services.llm_usage import (
+    USAGE_SOURCE_API,
+    USAGE_SOURCE_ESTIMATED,
+    estimate_token_usage,
+    token_usage_counts,
+)
 
 DEFAULT_LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "60"))
 # 发起一次非流式调用所需的最小可行秒数。低于此值不发 HTTP，直接返回降级
@@ -289,6 +296,49 @@ def judge_provider() -> LLMProvider | None:
     return None
 
 
+def judge_fallback_provider() -> LLMProvider | None:
+    """判官备胎的显式解析（R-20260829-03）。
+
+    用独立词表 ``LLM_JUDGE_FALLBACK_API_KEY``（+ ``_BASE_URL`` + ``_MODEL``），
+    不复用 ``LLM_JUDGE_MODEL``——CLI 主判官在历史部署里用它命名 grok 模型，
+    备胎若共用同一变量，主备的模型名会互相踩（2026-08-28 sol 切换现场的
+    env 注释即此形状）。未配置返回 None：链退化为单主，行为与改动前一致。
+    """
+
+    key = os.environ.get("LLM_JUDGE_FALLBACK_API_KEY")
+    if not key:
+        return None
+    return LLMProvider(
+        name="judge-fallback",
+        api_key=key,
+        base_url=os.environ.get("LLM_JUDGE_FALLBACK_BASE_URL")
+        or "https://api.openai.com/v1",
+        model=os.environ.get("LLM_JUDGE_FALLBACK_MODEL") or "gpt-4o-mini",
+    )
+
+
+def judge_provider_chain() -> tuple[LLMProvider, ...]:
+    """语义审的判官链：主判官 + 显式配置的备胎（R-20260829-03）。
+
+    动机：判官不可用是慢性病（2026-08-29 积压清账：08-19..28 每日都有，
+    重放 95.5% overturn——宕机窗口交付的答案九成五本该进修复轮）。链上
+    **只有显式配置的独立判官**：主判官解析逻辑不变（grok-cli 优先），备胎
+    走 ``judge_fallback_provider``；**永不自动追加合成主链 provider**——
+    「不静默退回相关自审」是 ``judge_provider`` 在案的设计红线，链不破例。
+    无主判官时返回空链（备胎单独配置视为未接线，调用方保持原有回落）。
+    """
+
+    primary = judge_provider()
+    if primary is None:
+        return ()
+    fallback = judge_fallback_provider()
+    if fallback is None or (
+        fallback.base_url == primary.base_url and fallback.model == primary.model
+    ):
+        return (primary,)
+    return (primary, fallback)
+
+
 def _provider_failure_reason(
     failures: list[tuple[LLMProvider, str]],
 ) -> tuple[LLMProvider, str]:
@@ -362,6 +412,17 @@ def stable_llm_fallback_reason(reason: str) -> str:
         return "provider_http_error"
     if "空内容" in normalized:
         return "empty_response"
+    # CLI judge 退出码 0 却没吐内容 —— 字面就是一次空响应，而 ``empty_response``
+    # 早就在 ``_TRANSIENT_JUDGE_REASONS`` 里。**这不是新增例外，是让空响应被认成
+    # 空响应**：此前它以裸 ``RuntimeError`` 的面目落进 ``provider_unavailable``，
+    # 于是「CLI 抽了一下」和「根本没配 judge」被处置成同一件事——整篇扣住。
+    #
+    # 刻意只放这一种：``GrokCliInvalidJson`` / ``GrokCliExit`` 仍走
+    # ``provider_unavailable``（硬扣）。它们「吐了东西但不对」，不等价于空响应，
+    # 按本函数既有判据（问「被审对象是不是无辜的」）没有同等把握，不放宽。
+    # 那两种仍可被 ``_stable_semantic_judge_error`` 重试，两道闸门本就各判各的。
+    if "grokcliemptyresponse" in normalized:
+        return "empty_response"
     return "provider_unavailable"
 
 
@@ -392,6 +453,20 @@ class LLMCallRecord:
     # 失败原因（成功为空）。不记原因就无法回答"为什么 35% 的 chat 调用失败"，
     # 诊断只能靠猜 elapsed_ms 的分布。
     reason: str = ""
+    # token 用量（INDEX #23）。加在这本账上而不是新开账本：一个 turn 的所有 LLM
+    # 花费在一处，对账不用 join。None = 该次调用没拿到用量（失败、或 provider 不回）。
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    # 用量来源：api（HTTP 响应顶层 usage）/ cli（CLI JSON payload 的 usage）/
+    # estimated（按字符数估算）。估算值必须带标记走完全程（record → summary →
+    # metrics → 报表），任何一层丢标记即为 bug。
+    usage_source: str | None = None
+    # 调用目的：judge / writer / synthesis / other；由 ``call_purpose`` ContextVar
+    # 注入，缺省 None（未标注）。判官调用据此从写手调用里分出来。
+    purpose: str | None = None
+
+
+UNLABELLED_PURPOSE = "unlabelled"
 
 
 @dataclass
@@ -414,6 +489,18 @@ class LLMCallLedger:
                 self.max_calls is not None
                 and self._reservation_count >= self.max_calls
             )
+
+    def headroom(self) -> int | None:
+        """本轮还能发几次模型调用；无上限时 None。
+
+        给准入判断用（子研究起分支前看余量够不够分支 + 判官 / 合成的尾段），
+        不是保留位：预占仍只在 ``try_reserve`` 那道 HTTP 边界发生。
+        """
+
+        with self._lock:
+            if self.max_calls is None:
+                return None
+            return max(0, int(self.max_calls) - int(self._reservation_count))
 
     def try_reserve(self) -> bool:
         """Atomically reserve one real provider attempt.
@@ -469,18 +556,76 @@ class LLMCallLedger:
             "rejected_count": rejected_count,
             "by_caller": by_caller,
             "failure_reasons": _tally_failure_reasons(records),
-            "records": [
-                {
-                    "caller": record.caller,
-                    "provider": record.provider,
-                    "model": record.model,
-                    "status": record.status,
-                    "elapsed_ms": record.elapsed_ms,
-                    **({"reason": record.reason} if record.reason else {}),
-                }
-                for record in records
-            ],
+            "input_tokens_total": sum(
+                record.input_tokens or 0 for record in records
+            ),
+            "output_tokens_total": sum(
+                record.output_tokens or 0 for record in records
+            ),
+            "tokens_by_purpose": _tokens_by_purpose(records),
+            "estimated_share": _estimated_share(records),
+            "records": [_record_to_dict(record) for record in records],
         }
+
+
+def _record_to_dict(record: LLMCallRecord) -> dict[str, object]:
+    """台账记录的落盘形状；可选字段为 None 时不输出，老读者看到的键一字不变。"""
+
+    payload: dict[str, object] = {
+        "caller": record.caller,
+        "provider": record.provider,
+        "model": record.model,
+        "status": record.status,
+        "elapsed_ms": record.elapsed_ms,
+    }
+    if record.reason:
+        payload["reason"] = record.reason
+    if record.input_tokens is not None:
+        payload["input_tokens"] = record.input_tokens
+    if record.output_tokens is not None:
+        payload["output_tokens"] = record.output_tokens
+    if record.usage_source is not None:
+        payload["usage_source"] = record.usage_source
+    if record.purpose is not None:
+        payload["purpose"] = record.purpose
+    return payload
+
+
+def _has_usage(record: LLMCallRecord) -> bool:
+    return record.input_tokens is not None or record.output_tokens is not None
+
+
+def _tokens_by_purpose(
+    records: list[LLMCallRecord],
+) -> dict[str, dict[str, int]]:
+    """按 purpose 聚合调用数与 token；未标注的记在 ``unlabelled`` 下，不冒充 other。"""
+
+    grouped: dict[str, dict[str, int]] = {}
+    for record in records:
+        key = record.purpose or UNLABELLED_PURPOSE
+        bucket = grouped.setdefault(
+            key, {"calls": 0, "input_tokens": 0, "output_tokens": 0}
+        )
+        bucket["calls"] += 1
+        bucket["input_tokens"] += record.input_tokens or 0
+        bucket["output_tokens"] += record.output_tokens or 0
+    return grouped
+
+
+def _estimated_share(records: list[LLMCallRecord]) -> float:
+    """带用量的记录里估算记录的占比（0.0–1.0）；没有带用量的记录时为 0.0。
+
+    分母只数**有用量**的记录：失败 / 无 usage 的记录既不是真实值也不是估算值，
+    放进分母会把占比稀释成假的「大部分是真实值」。
+    """
+
+    with_usage = [record for record in records if _has_usage(record)]
+    if not with_usage:
+        return 0.0
+    estimated = sum(
+        1 for record in with_usage if record.usage_source == USAGE_SOURCE_ESTIMATED
+    )
+    return estimated / len(with_usage)
 
 
 def _insufficient_budget_reason(
@@ -565,6 +710,32 @@ def current_call_ledger() -> LLMCallLedger | None:
     return _CALL_LEDGER.get()
 
 
+# 调用目的标签（INDEX #23）。判官经 ``complete()`` 调用，与写手 / 合成共用底层
+# ``_post_chat*`` 入口——入口本身不知道自己在替谁干活，只有调用方知道。所以标签由
+# 调用方用上下文管理器在最外层贴上，``_record_llm_call`` 读 ContextVar 落进记录。
+# 与 ``_PROVIDER_OVERRIDE`` 同一套机制：跨线程由调用方 ``copy_context()`` 传播。
+_CALL_PURPOSE: ContextVar[str | None] = ContextVar("llm_call_purpose", default=None)
+
+
+@contextmanager
+def call_purpose(purpose: str) -> Iterator[None]:
+    """把作用域内的 LLM 调用标成 ``purpose``（judge / writer / synthesis / other）。
+
+    嵌套时内层覆盖外层、退出时恢复——判官作用域里若再触发其他调用，调用方给
+    它贴自己的标签即可，不会被误标成 judge；不贴则沿用外层。
+    """
+
+    token = _CALL_PURPOSE.set(purpose)
+    try:
+        yield
+    finally:
+        _CALL_PURPOSE.reset(token)
+
+
+def current_call_purpose() -> str | None:
+    return _CALL_PURPOSE.get()
+
+
 # 重试退避。ch06b «API 通信层»：CC 用 BASE_DELAY_MS=500 的指数退避，并在每次退避上
 # **叠加 0-25% 随机抖动**，避免多个客户端在同一时刻同步重试造成雷群（thundering
 # herd）。我们这边的并发是真实的：API 有 2 个 worker，skill 线程经 copy_context
@@ -587,6 +758,21 @@ def _retry_delay_seconds(attempt: int) -> float:
     return base * (1.0 + random.random() * _RETRY_JITTER)
 
 
+# CLI judge 的失败种类必须活着走到分类器。`grok_cli_judge` 用 RuntimeError 承载
+# 四种完全不同的故障，若只压成 `RuntimeError`，「空输出」「非零退出」「坏 JSON」
+# 会落进同一个不可分辨的桶——下游 `_stable_semantic_judge_error` 认不出就判
+# retryable=False，于是三次重试额度一次不用、整篇答案被丢弃（2026-08-27 生产
+# 实测 8/38 = 21% 走的就是这条）。
+#
+# 值全部是稳定的 snake_case 标记，**不带异常消息正文**：`GrokCliExit` 的载荷是
+# stderr，可能含路径 / token / 提示词片段，与本函数「不含敏感串」的契约冲突。
+_GROK_CLI_EXACT_REASONS = {
+    "GrokCliEmpty": "grok_cli_empty",
+    "GrokCliEmptyPrompt": "grok_cli_empty_prompt",
+    "GrokCliInvalidJson": "grok_cli_invalid_json",
+}
+
+
 def _failure_reason(exc: BaseException) -> str:
     """把异常压成一行可聚合的原因，供台账统计（不含 URL/密钥等敏感串）。"""
     if isinstance(exc, urllib.error.HTTPError):
@@ -598,6 +784,16 @@ def _failure_reason(exc: BaseException) -> str:
         if isinstance(inner, (TimeoutError, socket.timeout)):
             return "timeout"
         return f"urlerror_{type(inner).__name__ if inner else 'unknown'}"
+    message = str(exc).strip()
+    if isinstance(exc, FileNotFoundError) and "grok CLI not found" in message:
+        return "grok_cli_not_found"
+    if isinstance(exc, RuntimeError):
+        exact = _GROK_CLI_EXACT_REASONS.get(message)
+        if exact is not None:
+            return exact
+        # `GrokCliExit {returncode}: {stderr}` —— 只取种类，丢掉 stderr 载荷。
+        if message.startswith("GrokCliExit"):
+            return "grok_cli_exit"
     return type(exc).__name__
 
 
@@ -607,10 +803,17 @@ def _record_llm_call(
     status: str,
     started: float,
     reason: str = "",
+    *,
+    input_tokens: int | None = None,
+    output_tokens: int | None = None,
+    usage_source: str | None = None,
 ) -> None:
     ledger = _CALL_LEDGER.get()
     if ledger is None:
         return
+    if input_tokens is None and output_tokens is None:
+        # 没有用量就没有来源——不让 usage_source 单独存在，读者才能用它判「有没有」。
+        usage_source = None
     ledger.record(
         LLMCallRecord(
             caller=caller,
@@ -619,6 +822,10 @@ def _record_llm_call(
             status=status,
             elapsed_ms=max(0, round((time.monotonic() - started) * 1000)),
             reason=reason,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            usage_source=usage_source,
+            purpose=_CALL_PURPOSE.get(),
         )
     )
 
@@ -628,6 +835,27 @@ def synthesis_thinking_disabled() -> bool:
     if configured is None:
         return os.environ.get("LLM_THINKING", "").lower() != "enabled"
     return configured.lower() == "disabled"
+
+
+# 思考强度直传（2026-09-07）。GLM-5.3 / GLM-5.3-FLASH 强制开启思考：官方 paas 端点对
+# ``thinking.type=disabled`` 报错，Coding Plan 端点静默改成 enabled；推理程度由
+# ``reasoning_effort`` 控制，5.3 系列只认 ``max / high / low``（5.2 的 ``xhigh`` 映射到 ``max``）。
+# 本仓 agent 轮此前硬传 ``disable_thinking=True``（省 token、稳工具调用），切到 5.3 会撞这条。
+# 设了本 env 就压过 disable_thinking：thinking=enabled + reasoning_effort=值；没设则老行为一字不变。
+# 只在 GLM 出口的启动器里设；sol@cockpit 那条不设，请求体逐字节同前。
+REASONING_EFFORT_ENV = "LLM_REASONING_EFFORT"
+
+
+def _apply_thinking_controls(payload: dict, *, disable_thinking: bool) -> None:
+    """``thinking`` / ``reasoning_effort`` 两个键的唯一写入点。"""
+
+    effort = str(os.environ.get(REASONING_EFFORT_ENV) or "").strip()
+    if effort:
+        payload["thinking"] = {"type": "enabled"}
+        payload["reasoning_effort"] = effort
+        return
+    if disable_thinking:
+        payload["thinking"] = {"type": "disabled"}
 
 
 def _stable_finish_reason(value: object) -> str | None:
@@ -665,7 +893,13 @@ def _complete_cli_judge(
     messages: list[dict],
     timeout: float,
 ) -> str:
-    """CLI judge still goes through the turn-level call ledger."""
+    """CLI judge still goes through the turn-level call ledger.
+
+    用量：``complete_grok_cli`` 返回的是 ``GrokCliText``（str 子类，挂着从 CLI
+    payload 解析出的 ``input_tokens/output_tokens``）。拿到就记 ``usage_source=cli``；
+    拿不到（payload 无 usage、或测试替身直接回了裸 str）就按字符估算并**必须**记
+    ``estimated``——两种来源在报表里分开算，永不混成一个数。
+    """
 
     from intelligence.services.grok_cli_judge import complete_grok_cli
 
@@ -676,8 +910,23 @@ def _complete_cli_judge(
     except Exception as exc:
         _record_llm_call("chat", provider, "failed", started, _failure_reason(exc))
         raise
-    _record_llm_call("chat", provider, "success", started)
-    return content
+    input_tokens = getattr(content, "input_tokens", None)
+    output_tokens = getattr(content, "output_tokens", None)
+    usage_source = getattr(content, "usage_source", None)
+    if input_tokens is None and output_tokens is None:
+        input_tokens, output_tokens = estimate_token_usage(messages, content)
+        usage_source = USAGE_SOURCE_ESTIMATED
+    _record_llm_call(
+        "chat",
+        provider,
+        "success",
+        started,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        usage_source=usage_source,
+    )
+    # 对外仍是纯 str：``complete()`` 的 ``(content, provider, reason)`` 契约不动。
+    return str(content)
 
 
 def _post_chat(
@@ -689,8 +938,9 @@ def _post_chat(
     _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload = {"model": provider.model, "messages": messages, "temperature": temperature}
-    if os.environ.get("LLM_THINKING") == "disabled":
-        payload["thinking"] = {"type": "disabled"}
+    _apply_thinking_controls(
+        payload, disable_thinking=os.environ.get("LLM_THINKING") == "disabled"
+    )
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -705,7 +955,20 @@ def _post_chat(
     except Exception as exc:
         _record_llm_call("chat", provider, "failed", started, _failure_reason(exc))
         raise
-    _record_llm_call("chat", provider, "success", started)
+    # 响应顶层 usage 此前被丢弃——API 判官走的就是这条路，判官侧 token 因此一直
+    # 没有账（BP §7.3 只量到写手侧）。缺 usage 的响应记 None，不抛。
+    input_tokens, output_tokens = token_usage_counts(
+        body.get("usage") if isinstance(body, Mapping) else None
+    )
+    _record_llm_call(
+        "chat",
+        provider,
+        "success",
+        started,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        usage_source=USAGE_SOURCE_API,
+    )
     return body["choices"][0]["message"]["content"]
 
 
@@ -725,8 +988,7 @@ def _post_chat_synthesis(
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
-    if synthesis_thinking_disabled():
-        payload["thinking"] = {"type": "disabled"}
+    _apply_thinking_controls(payload, disable_thinking=synthesis_thinking_disabled())
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -886,10 +1148,13 @@ def _post_chat_message_stream(
         # 最后一个 chunk 出现，且要显式开。丢了它 episode 的 token 账会归零。
         "stream_options": {"include_usage": True},
     }
-    if disable_thinking is True or (
-        disable_thinking is None and os.environ.get("LLM_THINKING") == "disabled"
-    ):
-        payload["thinking"] = {"type": "disabled"}
+    _apply_thinking_controls(
+        payload,
+        disable_thinking=(
+            disable_thinking is True
+            or (disable_thinking is None and os.environ.get("LLM_THINKING") == "disabled")
+        ),
+    )
     if tools:
         payload["tools"] = tools
         if tool_choice is not None:
@@ -906,6 +1171,7 @@ def _post_chat_message_stream(
     calls = _ToolCallAssembler()
     finish_reason: str | None = None
     usage: dict | None = None
+    served_model = ""
     saw_any_chunk = False
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -923,6 +1189,8 @@ def _post_chat_message_stream(
                 except json.JSONDecodeError:
                     continue
                 saw_any_chunk = True
+                if not served_model and isinstance(event, dict):
+                    served_model = _served_model_from_body(event)
                 event_usage = event.get("usage")
                 if isinstance(event_usage, dict):
                     usage = dict(event_usage)
@@ -971,6 +1239,7 @@ def _post_chat_message_stream(
         message["_finish_reason"] = finish_reason
     if usage is not None:
         message["_usage"] = usage
+    message["_served_model"] = served_model
     return message
 
 
@@ -990,11 +1259,13 @@ def _post_chat_message(
     _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload: dict = {"model": provider.model, "messages": messages, "temperature": temperature}
-    if disable_thinking is True or (
-        disable_thinking is None
-        and os.environ.get("LLM_THINKING") == "disabled"
-    ):
-        payload["thinking"] = {"type": "disabled"}
+    _apply_thinking_controls(
+        payload,
+        disable_thinking=(
+            disable_thinking is True
+            or (disable_thinking is None and os.environ.get("LLM_THINKING") == "disabled")
+        ),
+    )
     if tools:
         payload["tools"] = tools
         if tool_choice is not None:
@@ -1022,7 +1293,22 @@ def _post_chat_message(
         # Usage is adapter metadata only. Preserve counts without returning the
         # request prompt, provider body, or hidden reasoning payload.
         message["_usage"] = dict(usage)
+    message["_served_model"] = _served_model_from_body(body)
     return message
+
+
+def _served_model_from_body(body: Mapping[str, object] | None) -> str:
+    """响应体自报的 ``model``——生效值，不是我们请求的 ``provider.model``。
+
+    2026-08-08 生产出口切中转后 health 报 glm-5.2、实际跑 gpt-5.6-sol，就是因为全仓
+    只记配置值、无人落盘这个字段（``agent_runtime_factory._effective_env_model``
+    的事故记录）。中转不回该字段时返回空串，**不**回填配置值——空串就是「未回」。
+    """
+
+    if not isinstance(body, Mapping):
+        return ""
+    value = body.get("model")
+    return value.strip() if isinstance(value, str) else ""
 
 
 def chat_with_tools(
@@ -1728,8 +2014,7 @@ def _post_chat_stream_raw(
         "stream": True,
         "max_tokens": max_tokens,
     }
-    if synthesis_thinking_disabled():
-        payload["thinking"] = {"type": "disabled"}
+    _apply_thinking_controls(payload, disable_thinking=synthesis_thinking_disabled())
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),

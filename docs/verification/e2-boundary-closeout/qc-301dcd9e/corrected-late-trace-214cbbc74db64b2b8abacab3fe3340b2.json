@@ -1,0 +1,22 @@
+[
+  {
+    "phase": "raw_runner_entered",
+    "elapsed_ms": 0.51
+  },
+  {
+    "phase": "batch_timeout_returned",
+    "elapsed_ms": 85.315
+  },
+  {
+    "phase": "new_scope_bound",
+    "elapsed_ms": 85.411
+  },
+  {
+    "phase": "raw_runner_returning",
+    "elapsed_ms": 85.447
+  },
+  {
+    "phase": "old_result_emitted",
+    "elapsed_ms": 85.578
+  }
+]

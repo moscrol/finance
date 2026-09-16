@@ -243,6 +243,37 @@ def test_episode_input_carries_perspective_context_only_when_active() -> None:
     assert "不得当作事实证据" in active_input["perspective_context_rule"]
 
 
+def test_episode_input_carries_retrieval_stages_only_when_present() -> None:
+    """阶段表只在非空时进模型输入；无阶段轮不得出现任何新键。
+
+    R-20260827-09 送达层修复的渲染端：阶段表是检索规划指引不是证据，
+    规则行必须与内容同时到达（要求「伺候不了的阶段声明缺口」）。
+    """
+    frame = _frame()
+    plain_context = _context(frame)
+    staged_context = dataclasses.replace(
+        plain_context,
+        retrieval_stages=("definition", "chain_stages", "company_mapping"),
+    )
+
+    plain_input = json.loads(
+        build_episode_input(frame, plain_context, _registry())
+    )
+    staged_input = json.loads(
+        build_episode_input(frame, staged_context, _registry())
+    )
+
+    assert "retrieval_stages" not in plain_input
+    assert "retrieval_stages_rule" not in plain_input
+    assert staged_input["retrieval_stages"] == [
+        "definition",
+        "chain_stages",
+        "company_mapping",
+    ]
+    assert "声明缺口" in staged_input["retrieval_stages_rule"]
+    assert "不是证据" in staged_input["retrieval_stages_rule"]
+
+
 def test_episode_input_carries_reading_baseline_by_default() -> None:
     """判读基线默认进 continuous 输入，且能被 env 总开关整块关掉。
 
@@ -389,6 +420,40 @@ def test_system_instructions_are_byte_stable_across_task_frames() -> None:
     assert market_system == valuation_system
     assert market_user != valuation_user
     assert SYSTEM_PROMPT_DYNAMIC_BOUNDARY == "SYSTEM_PROMPT_DYNAMIC_BOUNDARY"
+
+
+def test_first_request_is_byte_stable_across_run_ids() -> None:
+    """同题两次运行（task_id = run_<ts>:msg_<hex> 不同）首轮 (system, user) 逐字节相同。
+
+    守的失败形状（2026-09-03）：两条 loop 同题首轮 input_tokens 14513 vs 14517、09-02 又反向差 2，
+    追到的是 prompt 里的 `research_contract.task_id`——hex 串的分词数随机。模型用不上它，
+    协议也不解析它；它留在 prompt 里，A/B 的「同首轮请求」硬门就永远只能靠容差。
+    """
+
+    frame = _frame()
+    registry = _registry()
+    base = _context(frame)
+    first = dataclasses.replace(
+        base,
+        contract=dataclasses.replace(
+            base.contract, task_id="run_20260903_103700_075260:msg_439fc03cd22244a6930740c7e70aa36e"
+        ),
+    )
+    second = dataclasses.replace(
+        base,
+        contract=dataclasses.replace(
+            base.contract, task_id="run_20260903_103900_081770:msg_94669b8b56294c579909c1d87be2c3ae"
+        ),
+    )
+    assert first.contract.task_id != second.contract.task_id
+
+    assert split_episode_prompt(frame, first, registry) == split_episode_prompt(frame, second, registry)
+    payload = json.loads(build_episode_input(frame, first, registry))
+    assert "task_id" not in payload["research_contract"]
+    assert "run_20260903" not in json.dumps(payload, ensure_ascii=False)
+    # 其它契约字段一个不少：只摘了 task_id。
+    expected = {k for k in first.contract.to_dict() if k != "task_id"}
+    assert set(payload["research_contract"]) == expected
 
 
 def test_episode_input_carries_hash_tools_rules_and_cutoff() -> None:

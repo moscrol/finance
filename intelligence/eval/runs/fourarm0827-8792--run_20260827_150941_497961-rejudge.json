@@ -1,0 +1,35 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "fourarm0827-8792--run_20260827_150941_497961",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "1b5658c91d98f69f2bd502794f5107b2311356ee74dee5c38bdeae9c0b6b1c6d",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      7,
+      8
+    ],
+    "issues": [
+      "第1句把7月23日两条明确冲突、被要求不得合成或任选的口径并列为已核验数值，用其给出双红式放量大涨结论，违反证据中的口径分歧边界。",
+      "第2句把7月22日两条冲突口径合成为约323至357亿及约-23至-24，并据此断言缩量末端单日脉冲；同时热度排名的时间顺序表述不准确。",
+      "第3句用被明确标记为不可作为证据的冲突日数值合成“600亿级滑向300亿级”的近月缩量回撤结论。",
+      "第4句选取冲突口径合成边际量区间，并将其解释为资金悄然回补、缩量洗盘和放量启动，既违反口径边界又引入未核验资金因果。",
+      "第5句暴露news/web通道等内部过程标识，且工具状态注册表没有这些通道未执行的记录。",
+      "第7句把走势归因于低位超跌反弹和事件驱动，但没有估值位置、事件或因果证据。",
+      "第8句发明2至3日、个位数涨停及400亿成交额等任意触发阈值，证据和方法均未给出这些阈值依据。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

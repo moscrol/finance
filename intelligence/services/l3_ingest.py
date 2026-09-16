@@ -491,6 +491,28 @@ def _render_source_note(
     return "\n".join(lines) + "\n"
 
 
+# 公告去重键：与知识库夜批（auto_apply_rss_l3）共用 announcement_id。
+# 两条写入线格式不同（本侧 source-note 式 / 夜批巨潮链接式），没有共同键时
+# 同一公告会以两种格式在实体页重复出现；夜批侧按 announcement_id 是否已在
+# 页面文本中出现去重，所以本侧写入行必须带上它、追加前也先查它。
+_ANNOUNCEMENT_ID_RE = re.compile(
+    r"announcementId=(\d{6,})"
+    r"|\"announcement_?[iI]d\"\s*:\s*\"?(\d{6,})"
+    r"|static\.cninfo\.com\.cn/finalpage/[\d-]+/(\d{6,})\."
+)
+
+
+def _candidate_announcement_id(item: dict[str, str]) -> str:
+    blob = " ".join(
+        str(item.get(key) or "")
+        for key in ("citation", "raw_excerpt", "summary", "title")
+    )
+    match = _ANNOUNCEMENT_ID_RE.search(blob)
+    if not match:
+        return ""
+    return next((group for group in match.groups() if group), "")
+
+
 def _append_entity_l3_section(
     entity_path: Path,
     *,
@@ -518,6 +540,20 @@ def _append_entity_l3_section(
     if source_link in text:
         return False, f"{entity_path} 已包含 {source_link}，跳过重复追加。"
 
+    fresh: list[tuple[dict[str, str], str]] = []
+    dup_ids: list[str] = []
+    for item in selected:
+        announcement_id = _candidate_announcement_id(item)
+        if announcement_id and announcement_id in text:
+            dup_ids.append(announcement_id)
+            continue
+        fresh.append((item, announcement_id))
+    if not fresh:
+        return False, (
+            f"{entity_path} 已含全部候选的 announcement_id（{', '.join(dup_ids)}），"
+            "跳过重复追加。"
+        )
+
     text = _touch_entity_frontmatter(text, run_date, source_link)
     if "## L3 官方证据" not in text:
         text = text.rstrip() + "\n\n## L3 官方证据\n"
@@ -526,16 +562,23 @@ def _append_entity_l3_section(
         f"### {run_date.isoformat()}｜{source_link}",
         "",
     ]
-    for item in selected:
+    for item, announcement_id in fresh:
+        suffix = f"；announcement_id: {announcement_id}" if announcement_id else ""
         entry.append(
             "- "
             f"{item.get('title') or '未命名事实'}："
             f"{item.get('fact_type') or '-'} / {item.get('evidence_layer') or '-'} / {item.get('hardness') or '-'}；"
             f"{item.get('reason') or '无理由'}"
+            f"{suffix}"
         )
     text = text.rstrip() + "\n" + "\n".join(entry) + "\n"
     entity_path.write_text(text, encoding="utf-8")
-    return True, ""
+    warning = (
+        f"{entity_path} 跳过 {len(dup_ids)} 条已存在的 announcement_id（{', '.join(dup_ids)}）。"
+        if dup_ids
+        else ""
+    )
+    return True, warning
 
 
 def _touch_entity_frontmatter(text: str, run_date: date, source_link: str) -> str:

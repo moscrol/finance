@@ -1,0 +1,200 @@
+{
+  "synthetic": true,
+  "report": {
+    "schema_version": "judgment-maintenance/v1",
+    "id": "jmr-17c06953108cb56c",
+    "owner_user_id": "alice",
+    "as_of": "2026-09-12",
+    "knowledge_cutoff": "2026-09-12",
+    "input_digest": "e2843a631d9a638dfd7c3a8138694a03cf6c371f78705785a9d16e806fb13b17",
+    "generated_at": "2026-09-13T00:00:00+00:00",
+    "pit_grade": "unverifiable",
+    "hindsight": false,
+    "gaps": [
+      {
+        "reason": "binding_not_yet_effective",
+        "ref": "judgments.jsonl:j-2026-09-12-cccc",
+        "checked_at": "2026-09-12",
+        "retryable": false,
+        "detail": "绑定建立于 2026-09-13，晚于市场日 2026-09-12：created_at 之前不生成维护样本",
+        "binding_id": "bind-late",
+        "condition_ref": null
+      },
+      {
+        "reason": "dependency_unbound",
+        "ref": "fact_market_daily:2026-09-02",
+        "checked_at": "2026-09-12",
+        "retryable": true,
+        "detail": "绑定时明知没有基线哈希：从现在起只能跟踪当前版本，说不出「变了没有」",
+        "binding_id": "bind-legacy-tree",
+        "condition_ref": null
+      },
+      {
+        "reason": "time_metadata_missing",
+        "ref": "fact_research_report_catalog:r-1",
+        "checked_at": "2026-09-12",
+        "retryable": true,
+        "detail": "版本既无 recorded_at 也无 valid_from，放不到时间轴上，不参与判定",
+        "binding_id": null,
+        "condition_ref": null
+      }
+    ],
+    "items": [
+      {
+        "schema_version": "judgment-maintenance/v1",
+        "id": "jmi-b272a9dda8082536",
+        "item_version": "8fe85dd6c7a120da",
+        "owner_user_id": "alice",
+        "object_ref": {
+          "kind": "judgment",
+          "id": null,
+          "namespace": "judgments",
+          "version_or_hash": "content_sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "ref": "judgments.jsonl:content_sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "scope": {}
+        },
+        "before": [
+          {
+            "ref": "fact_research_report_catalog:r-1",
+            "source_hash": "h-r1",
+            "valid_from": null,
+            "valid_to": null,
+            "recorded_at": null,
+            "expired_at": null,
+            "supersedes_ref": null,
+            "derivation": "unknown",
+            "label_version": null,
+            "namespace": null
+          }
+        ],
+        "current": [],
+        "change_type": "dependency_missing",
+        "reason_code": "time_metadata_missing",
+        "epistemic_state": "unknown",
+        "condition_result": null,
+        "as_of": "2026-09-12",
+        "knowledge_cutoff": "2026-09-12",
+        "pit_grade": "unverifiable",
+        "gaps": [
+          {
+            "reason": "time_metadata_missing",
+            "ref": "fact_research_report_catalog:r-1",
+            "checked_at": "2026-09-12",
+            "retryable": true,
+            "detail": "版本既无 recorded_at 也无 valid_from，放不到时间轴上，不参与判定",
+            "binding_id": null,
+            "condition_ref": null
+          }
+        ],
+        "action": "restore_evidence",
+        "status": "open",
+        "dedup_key": "{\"after_hash\":null,\"after_ref\":null,\"before_hash\":\"h-r1\",\"binding_id\":\"bind-legacy-noid\",\"binding_version\":1,\"change_type\":\"dependency_missing\",\"condition_ref\":null,\"dependency_ref\":\"fact_research_report_catalog:r-1\",\"expression_digest\":null,\"object\":[\"judgment\",\"judgments\",\"judgments.jsonl:content_sha256:4444444444444444444444444444444444444444444444444444444444444444\",\"content_sha256:4444444444444444444444444444444444444444444444444444444444444444\"],\"owner_user_id\":\"alice\",\"reason_code\":\"time_metadata_missing\",\"window\":null}",
+        "binding_id": "bind-legacy-noid",
+        "binding_version": 1,
+        "dependency_ref": "fact_research_report_catalog:r-1",
+        "condition_ref": null,
+        "condition_role": null,
+        "condition_evaluation": null,
+        "supersedes_item_id": null,
+        "first_known_day": "2026-09-11",
+        "management_revision": 0,
+        "management": {
+          "applied_commands": [],
+          "snooze_until": null,
+          "claimed_at": null,
+          "closed_at": null,
+          "closure": null,
+          "rejudgment": null
+        }
+      },
+      {
+        "schema_version": "judgment-maintenance/v1",
+        "id": "jmi-35aa4b33e97b4ba3",
+        "item_version": "45c1c5b8f34d2115",
+        "owner_user_id": "alice",
+        "object_ref": {
+          "kind": "scenario_tree",
+          "id": "st-3333333333333333",
+          "namespace": "scenario_trees",
+          "version_or_hash": "content_sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "ref": "scenario_trees.jsonl:st-3333333333333333",
+          "scope": {}
+        },
+        "before": [
+          {
+            "ref": "fact_market_daily:2026-09-02",
+            "source_hash": null,
+            "valid_from": null,
+            "valid_to": null,
+            "recorded_at": null,
+            "expired_at": null,
+            "supersedes_ref": null,
+            "derivation": "unknown",
+            "label_version": null,
+            "namespace": null
+          }
+        ],
+        "current": [
+          {
+            "ref": "fact_market_daily:2026-09-02",
+            "source_hash": "h-m2",
+            "valid_from": "2026-09-02",
+            "valid_to": null,
+            "recorded_at": "2026-09-02T18:00:00+08:00",
+            "expired_at": null,
+            "supersedes_ref": null,
+            "derivation": "deterministic",
+            "label_version": null,
+            "namespace": "market_feature_store"
+          }
+        ],
+        "change_type": "dependency_missing",
+        "reason_code": "dependency_unbound",
+        "epistemic_state": "unknown",
+        "condition_result": null,
+        "as_of": "2026-09-12",
+        "knowledge_cutoff": "2026-09-12",
+        "pit_grade": "unverifiable",
+        "gaps": [
+          {
+            "reason": "dependency_unbound",
+            "ref": "fact_market_daily:2026-09-02",
+            "checked_at": "2026-09-12",
+            "retryable": true,
+            "detail": "绑定时明知没有基线哈希：从现在起只能跟踪当前版本，说不出「变了没有」",
+            "binding_id": "bind-legacy-tree",
+            "condition_ref": null
+          }
+        ],
+        "action": "restore_evidence",
+        "status": "open",
+        "dedup_key": "{\"after_hash\":\"h-m2\",\"after_ref\":\"fact_market_daily:2026-09-02\",\"before_hash\":null,\"binding_id\":\"bind-legacy-tree\",\"binding_version\":1,\"change_type\":\"dependency_missing\",\"condition_ref\":null,\"dependency_ref\":\"fact_market_daily:2026-09-02\",\"expression_digest\":null,\"object\":[\"scenario_tree\",\"scenario_trees\",\"st-3333333333333333\",\"content_sha256:3333333333333333333333333333333333333333333333333333333333333333\"],\"owner_user_id\":\"alice\",\"reason_code\":\"dependency_unbound\",\"window\":null}",
+        "binding_id": "bind-legacy-tree",
+        "binding_version": 1,
+        "dependency_ref": "fact_market_daily:2026-09-02",
+        "condition_ref": null,
+        "condition_role": null,
+        "condition_evaluation": null,
+        "supersedes_item_id": null,
+        "first_known_day": "2026-09-12",
+        "management_revision": 0,
+        "management": {
+          "applied_commands": [],
+          "snooze_until": null,
+          "claimed_at": null,
+          "closed_at": null,
+          "closure": null,
+          "rejudgment": null
+        }
+      }
+    ],
+    "counts": {
+      "objects_seen": 3,
+      "objects_bound": 2,
+      "objects_unverifiable": 2,
+      "dependencies_checked": 2,
+      "items_open": 2
+    },
+    "management_log": {}
+  }
+}

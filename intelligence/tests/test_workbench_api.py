@@ -280,6 +280,34 @@ def _wait_terminal(
     raise AssertionError("run 未在超时内到终态")
 
 
+def _wait_last_message_settled(
+    client: TestClient,
+    conversation_id: str,
+    timeout: float = 5.0,
+    *,
+    user: str | None = None,
+) -> list[dict]:
+    """轮询到最后一条消息离开 pending，返回整份 messages。
+
+    run 终态后**立读**消息状态是竞态（2026-08-28 全量门禁抓到，单跑 5 连
+    3 挂）：executor 的仲裁顺序是 ``claim_failed_run``（run 先可见）→
+    ``terminal_handler``（再标消息）。这个顺序不能倒——claim 赢了才有资格
+    动消息，倒过来会在与正常完成的并发里错标。于是「run 已终态、消息仍
+    pending」存在毫秒级窗口，是最终一致语义；等待即消费该契约的正确方式。
+    断言「消息保持 pending」的负向测试不适用本 helper（那是时点断言）。
+    """
+    deadline = time.monotonic() + timeout
+    params = {"user": user} if user is not None else None
+    while time.monotonic() < deadline:
+        messages = client.get(
+            f"/api/conversations/{conversation_id}/messages", params=params
+        ).json()
+        if messages and messages[-1]["status"] != "pending":
+            return messages
+        time.sleep(0.02)
+    raise AssertionError("最后一条消息未在超时内离开 pending")
+
+
 def test_session_byok_api_is_user_scoped_and_never_returns_key(
     client: TestClient,
 ) -> None:
@@ -595,7 +623,9 @@ def test_production_continuous_adapter_shares_provider_client_across_gates(
     assert semantic._finalizer is episode._finalizer
     assert episode._model._providers == providers
     assert episode._model._is_cancelled is is_cancelled
-    assert episode._is_cancelled is is_cancelled
+    # 工单 #28：Episode 持有的是包住同一个谓词的 CancelSignal（类型化原因），
+    # 「几处接缝看同一份事实」的判据从对象同一变成 upstream 同一。
+    assert episode._is_cancelled.upstream is is_cancelled
     assert adapter._is_cancelled is is_cancelled
     assert adapter._deadline_expires_at == deadline_expires_at
     assert 0 < adapter._remaining_timeout() <= 42.0
@@ -644,6 +674,82 @@ def test_production_continuous_adapter_shares_provider_client_across_gates(
     # 组合根必须把链首帽钉进 adapter。只靠问 GLMAgentRuntime 会落空，
     # live 就会两发 30.0 TimeoutError（run_20260817_002238_100737）。
     assert adapter._repair_seconds_cap == repair_seconds_cap_for("zhipu")
+
+
+def _glm_thinking_adapter(monkeypatch, tmp_path: Path, *, model: str, effort: str | None):
+    if effort is None:
+        monkeypatch.delenv("LLM_REASONING_EFFORT", raising=False)
+    else:
+        monkeypatch.setenv("LLM_REASONING_EFFORT", effort)
+    monkeypatch.delenv("ASK_SYNTHESIS_RESERVE_FLOOR", raising=False)
+    providers = (
+        app_module.LLMProvider(
+            "zhipu",
+            "primary-secret",
+            "https://glm.example.invalid/v1",
+            model,
+        ),
+    )
+    run_store = RunStore(user_id="reserve", root=tmp_path / "runs")
+    run = run_store.create_run("固态电池题材", "ask", session_id="conversation-r")
+    return app_module._build_continuous_turn_adapter(
+        providers=providers,
+        run_id=run.run_id,
+        assistant_message_id="message-r",
+        run_store=run_store,
+        conversation_id="conversation-r",
+        is_cancelled=lambda: False,
+        timeout=900.0,
+        deadline_expires_at=time.monotonic() + 900.0,
+    )
+
+
+def test_continuous_adapter_floors_synthesis_reserve_by_thinking_model(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """链首是 GLM-5.3 且开了思考：合成保留取模型写作成本地板 240，不再是档位的 60。
+
+    2026-09-07 high×Q1-r3：60s 保留下模型研究到剩 161s 才写，7.3K token 写作轮到点被切。
+    地板来自 provider_latency 的实测表；档位/题型逻辑本身不动（quick 仍走 20 → 取大得 240）。
+    """
+
+    adapter = _glm_thinking_adapter(monkeypatch, tmp_path, model="glm-5.3-flash", effort="max")
+    assert (
+        adapter._synthesis_reserve_for_task(tier="max", question_type="theme_analysis")
+        == 240.0
+    )
+    # P1：同一链首、同一 effort，修复帽也按模型取地板（zhipu 表值 40 → 200）。
+    assert adapter._repair_seconds_cap == 200.0
+    assert (
+        adapter._synthesis_reserve_for_task(tier="standard", question_type="market_cause")
+        == 240.0
+    )
+    # 地板是地板：题型/档位算出来更大时沿用更大的那个（这里没有更大的，故仍 240）。
+    assert (
+        adapter._synthesis_reserve_for_task(tier="quick", question_type="quick_fact")
+        == 240.0
+    )
+
+
+def test_continuous_adapter_keeps_tier_reserve_for_sol_and_non_thinking_glm(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """sol@cockpit（链首 name=zhipu 但 model 是 sol）与未开思考的 GLM：预算逐字节同前。"""
+
+    sol = _glm_thinking_adapter(monkeypatch, tmp_path, model="gpt-5.6-sol", effort="max")
+    assert sol._synthesis_reserve_for_task(tier="max", question_type="theme_analysis") == 60.0
+    assert sol._repair_seconds_cap == 40.0
+    assert sol._synthesis_reserve_for_task(tier="quick", question_type="quick_fact") == 20.0
+
+    glm_low = _glm_thinking_adapter(monkeypatch, tmp_path, model="glm-5.3-flash", effort="low")
+    assert glm_low._synthesis_reserve_for_task(tier="max", question_type="theme_analysis") == 60.0
+    assert glm_low._repair_seconds_cap == 40.0
+
+    glm_unset = _glm_thinking_adapter(monkeypatch, tmp_path, model="glm-5.3-flash", effort=None)
+    assert (
+        glm_unset._synthesis_reserve_for_task(tier="standard", question_type="market_cause")
+        == 75.0
+    )
 
 
 def test_production_adapter_composes_sdk_glm_without_changing_verifier(
@@ -1680,6 +1786,38 @@ def test_health_endpoints_report_worker_and_storage_state(client: TestClient) ->
     assert payload["workers"]["capacity"] == 2
 
 
+def test_readiness_registers_open_episodes_without_restoring_them(
+    client: TestClient, monkeypatch, tmp_path
+) -> None:
+    """运行底座 P2（母单 §12 第 3 题：只登记）：store 里非 done 的 episode 进 readiness，
+    但 readiness 不去 restore、不改 store。"""
+
+    from intelligence.services.episode_store import (
+        EPISODE_STORE_ENV,
+        EpisodeState,
+        JsonlEpisodeStore,
+    )
+
+    root = tmp_path / "episodes"
+    monkeypatch.setenv(EPISODE_STORE_ENV, str(root))
+    store = JsonlEpisodeStore(root)
+    store.put_state("run_a:msg_1", EpisodeState(episode_id="run_a:msg_1", phase="tools_pending"))
+    store.put_state("run_b:msg_2", EpisodeState(episode_id="run_b:msg_2", phase="done"))
+    snapshot = sorted((path.name, path.stat().st_size) for path in root.rglob("*"))
+
+    response = client.get("/api/readiness")
+
+    payload = response.json()
+    assert payload["open_episodes"] == {
+        "count": 1,
+        "episode_ids": ["run_a:msg_1"],
+        "truncated": False,
+    }
+    assert sorted((path.name, path.stat().st_size) for path in root.rglob("*")) == snapshot, (
+        "readiness 只读 store，不 restore、不改写"
+    )
+
+
 def test_readiness_probe_schedules_dead_worker_recovery(
     client: TestClient, monkeypatch
 ) -> None:
@@ -2151,7 +2289,10 @@ def test_executor_timeout_marks_pending_conversation_message_failed(
     release = threading.Event()
 
     def slow_turn(**kwargs: object) -> None:
-        release.wait(timeout=1)
+        # timeout 只是防挂死的兜底，不是契约的一部分：看门狗（50ms）必须先
+        # 到。旧值 1s 在全量负载下被追平过——slow_turn 先正常返回，run 变
+        # completed，断言翻红（R-20260827-11 同批时序余量修复）。
+        release.wait(timeout=30)
 
     monkeypatch.setattr(app_module, "_run_conversation_turn", slow_turn)
     with TestClient(
@@ -2166,11 +2307,15 @@ def test_executor_timeout_marks_pending_conversation_message_failed(
             json={"content": "等待超时", "skill_mode": "auto"},
         ).json()["run_id"]
 
-        run = _wait_terminal(timeout_client, run_id)
-        messages = timeout_client.get(
-            f"/api/conversations/{conversation_id}/messages"
-        ).json()
-        release.set()
+        try:
+            run = _wait_terminal(timeout_client, run_id)
+            # 不可 run 终态后立读：claim（run 可见）→ handler（标消息）
+            # 有毫秒级窗口，立读会撞进 pending（helper docstring 有全案）。
+            messages = _wait_last_message_settled(timeout_client, conversation_id)
+        finally:
+            # 断言前必达 set：否则 _wait_terminal 失败时 TestClient 退出
+            # 会等 slow_turn 的 30s 兜底，失败路径被拖成半分钟。
+            release.set()
 
     assert run["status"] == "failed"
     assert run["error"] == "executor_timeout"
@@ -2196,10 +2341,9 @@ def test_executor_runner_exception_terminalizes_run_and_pending_message(
     ).json()["run_id"]
 
     run = _wait_terminal(client, run_id, user="alice")
-    messages = client.get(
-        f"/api/conversations/{conversation_id}/messages",
-        params={"user": "alice"},
-    ).json()
+    # 同 timeout 路径：_forget 的 done-callback 里也是 claim → handler
+    # 两步，run 终态先于消息可见，立读同样会撞 pending。
+    messages = _wait_last_message_settled(client, conversation_id, user="alice")
 
     assert run["status"] == "failed"
     assert run["error"] == "executor_failure"
@@ -3179,6 +3323,62 @@ def test_artifact_projection_and_registered_asset_routes(client: TestClient) -> 
         f"/api/artifacts/{review['artifact_id']}/..%2F..%2Fsecret.txt"
     )
     assert traversal.status_code in (403, 404)
+
+
+def test_daily_review_projection_prefers_json_canonical_when_present(
+    client: TestClient, tmp_path
+) -> None:
+    exports = tmp_path / "repo" / "market_feature_store" / "exports"
+    (exports / "2026-07-09-daily-review.json").write_text(
+        json.dumps(
+            {
+                "schema": "daily-review/v1",
+                "trade_date": "2026-07-09",
+                "generated_at": "2026-07-09 20:40:05",
+                "warnings": [],
+                "core_board": [
+                    {"dimension": "市场性质", "conclusion": "普通交易日 / 修复阶段 第3天"},
+                    {"dimension": "指数表现", "conclusion": "上证 3996.162，涨幅 1.00%，偏离度 0.28%"},
+                ],
+                "facts": {},
+                "sections": [
+                    {
+                        "id": "limit_advance",
+                        "index": 11,
+                        "title": "3板及以上个股",
+                        "blocks": [
+                            {
+                                "kind": "table",
+                                "title": None,
+                                "columns": ["股票", "连板数"],
+                                "rows": [["国芳集团", 4]],
+                            },
+                            {"kind": "conclusion", "text": "3板及以上个股 1 只，最高连板 4 板。"},
+                        ],
+                    }
+                ],
+                "assessment": "市场回暖，等待量能确认。",
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    review = next(
+        item
+        for item in client.get("/api/artifacts").json()
+        if item["category"] == "daily_review" and item["format"] == "html"
+    )
+    assert review["source_of_truth"].endswith("2026-07-09-daily-review.json")
+
+    payload = client.get(f"/api/artifacts/{review['artifact_id']}/projection").json()
+    assert payload["source_mode"] == "canonical_json"
+    assert payload["provenance"]["canonical_path"].endswith("2026-07-09-daily-review.json")
+    assert payload["provenance"]["original_report_available"] is True
+    assert payload["provenance"]["rendered_path"].endswith("2026-07-09-daily-review.html")
+    stock = next(section for section in payload["sections"] if section["title"] == "个股载体")
+    assert stock["tables"][0]["rows"] == [["国芳集团", 4]]
+    assert stock["items"][0]["summary"] == "3板及以上个股 1 只，最高连板 4 板。"
 
 
 def test_artifact_asset_route_rejects_non_legacy_parent(client: TestClient) -> None:

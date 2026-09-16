@@ -99,6 +99,38 @@ def test_fixture_sample_design_matches_lock() -> None:
     assert design["measured_variance"] != 0.125
 
 
+# 冻结集专用 wiki 词典夹具：把主体解析对活知识库密封（R-20260829-01）。
+# 两本锚定词典里，证券名单由 conftest 的 ENTITY_ANCHOR_SECURITIES_DB=0 密封，
+# wiki entity_exposures 此前读活库——2026-08-29 夜批灌入「立新能源」实体页后，
+# A3 的解析从 general_finance_qa 翻成 stock_deep_dive，本测试在代码零变化下
+# 由绿转红（08-28 22:48 门禁同代码尚绿）。冻结集的输入必须全部冻结，缺一本
+# 词典就不叫冻结。
+_FROZEN_WIKI_FIXTURE = (
+    Path(__file__).resolve().parents[1] / "eval" / "fixtures" / "frozen-thirty-wiki"
+)
+
+
+def _pin_frozen_resolution_state(monkeypatch) -> None:
+    """把实体锚定的 wiki 词典钉到冻结夹具，并用哨兵实体证明密封生效。
+
+    哨兵只存在于夹具里：若 env 接缝失效（解析静默退回活库），哨兵解析必落空，
+    在这里立刻红——而不是等某次夜批 ingest 恰好动了相关实体才暴露。
+    """
+
+    monkeypatch.setenv("KB_VAULT", str(_FROZEN_WIKI_FIXTURE))
+    monkeypatch.setenv("KNOWLEDGE_WIKI", str(_FROZEN_WIKI_FIXTURE))
+    monkeypatch.delenv("CONCEPT_VAULT", raising=False)
+    monkeypatch.delenv("ENTITY_VAULT", raising=False)
+    from intelligence.adapters.knowledge import KnowledgeAdapter
+    from intelligence.services.entity_anchor import resolve_entity_anchor
+
+    sentinel = resolve_entity_anchor("冻结集哨兵实业怎么看", KnowledgeAdapter())
+    assert sentinel is not None and sentinel.entity == "冻结集哨兵实业", (
+        "wiki 词典密封未生效：哨兵实体没有从夹具解析出来，"
+        "本测试正在读活知识库（这正是它要防的失败形状）"
+    )
+
+
 def test_thirty_set_dry_run_has_no_contract_gaps(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -109,6 +141,7 @@ def test_thirty_set_dry_run_has_no_contract_gaps(
             AssertionError("dry-run must not execute a runtime")
         ),
     )
+    _pin_frozen_resolution_state(monkeypatch)
     output = tmp_path / "thirty-dry.json"
     from intelligence.eval.frozen_question_set import default_frozen_thirty_path
 
@@ -131,3 +164,8 @@ def test_thirty_set_dry_run_has_no_contract_gaps(
     assert "/Users/" not in json.dumps(
         {key: payload[key] for key in payload if key != "cases"}
     )
+    # 钉住夹具下最有信息量的解析形态：A3 经夹具词典按公司解析进 stock_deep_dive
+    # （它的验收缺口靠 canonical 别名归一消掉——见 benchmark 的缺口计算）。
+    a3 = next(c for c in payload["cases"] if c["id"] == "A3-stock-deep-dive")
+    assert a3["task_frame"]["subject"] == "立新能源"
+    assert a3["task_frame"]["question_type"] == "stock_deep_dive"

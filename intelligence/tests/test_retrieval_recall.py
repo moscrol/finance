@@ -90,6 +90,8 @@ class ExperienceCardsRetrieverTests(unittest.TestCase):
                 {"ts": "e2", "question": "液冷温控怎么看", "applies_to": ["题材方向判断"]},
                 {"ts": "e3", "question": "深挖飞凯材料（旧版）", "applies_to": ["个股深挖"],
                  "invalidated": "坏指标"},
+                {"ts": "e4", "question": "深挖飞凯材料（已固化）", "applies_to": ["个股深挖"],
+                 "promotion": "promoted_to_code"},
             ],
         )
 
@@ -101,6 +103,8 @@ class ExperienceCardsRetrieverTests(unittest.TestCase):
         self.assertIn("e1", ids)
         # invalidated 卡不参与召回（load_cards 已过滤，尺子必须继承该语义）
         self.assertNotIn("e3", ids)
+        # 已固化进管线的卡同样不注入（promoted_to_code ≠ invalidated：对的，只是重复供给）
+        self.assertNotIn("e4", ids)
 
     def test_k_limits_returned_cards(self) -> None:
         with TemporaryDirectory() as tmp:

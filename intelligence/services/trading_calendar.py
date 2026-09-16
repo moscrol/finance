@@ -8,31 +8,11 @@ from datetime import date, timedelta
 from pathlib import Path
 
 
-_SSE_CLOSURES: dict[int, frozenset[date]] = {
-    2026: frozenset(
-        {
-            date(2026, 1, 1),
-            date(2026, 1, 2),
-            date(2026, 2, 16),
-            date(2026, 2, 17),
-            date(2026, 2, 18),
-            date(2026, 2, 19),
-            date(2026, 2, 20),
-            date(2026, 2, 23),
-            date(2026, 4, 6),
-            date(2026, 5, 1),
-            date(2026, 5, 4),
-            date(2026, 5, 5),
-            date(2026, 6, 19),
-            date(2026, 9, 25),
-            date(2026, 10, 1),
-            date(2026, 10, 2),
-            date(2026, 10, 5),
-            date(2026, 10, 6),
-            date(2026, 10, 7),
-        }
-    ),
-}
+# 休市表的单一事实源在 `market_feature_store/trading_days.py`（低层）。这里反向
+# 引用，不复制第二份——两张表一旦分叉，「哪张是对的」没人答得出。方向合法：
+# layer_audit 只圈 `intelligence/services/** ↛ intelligence.runtime.*`，
+# 同向先例见 `intelligence/services/external_market.py` import `market_feature_store`。
+from market_feature_store.trading_days import closed_dates  # noqa: E402
 
 
 def _known_trading_days(db_path: str | Path | None) -> list[date]:
@@ -73,7 +53,7 @@ def previous_scheduled_trading_day(value: date) -> date | None:
 
     candidate = value - timedelta(days=1)
     for _ in range(20):
-        closures = _SSE_CLOSURES.get(candidate.year)
+        closures = closed_dates(candidate.year)
         if closures is None:
             return None
         if candidate.weekday() < 5 and candidate not in closures:
@@ -96,7 +76,7 @@ def non_trading_day_note(value: date) -> str | None:
     elif weekday == 6:
         reason = "周日"
     else:
-        closures = _SSE_CLOSURES.get(value.year)
+        closures = closed_dates(value.year)
         if closures is None or value not in closures:
             return None
         reason = "交易所公告休市日"
@@ -117,15 +97,9 @@ def non_trading_day_note(value: date) -> str | None:
     )
 
 
-def question_non_trading_note(question: str) -> str | None:
-    """问题里出现的第一个「确定性休市日」的事实说明；没有则 None。
-
-    生产形状（2026-08-13 R15-C1/C2）：「2026-07-25 市场怎么样」（周六）与
-    「2026-02-17 涨停家数多少」（春节休市）都走完了整条研究链，烧几十秒后
-    答「证据不足」——而「这天休市」是纯日历事实，一行代码就能判定。
-    判定结果作为 task frame 假设注入，模型据此直接回答，不再盲查。
-    """
-
+def _dates_in_question(question: str) -> tuple[date, ...]:
+    found: list[date] = []
+    seen: set[date] = set()
     for match in _FULL_DATE_RE.finditer(str(question or "")):
         try:
             value = date(
@@ -135,10 +109,41 @@ def question_non_trading_note(question: str) -> str | None:
             )
         except ValueError:
             continue
+        if value in seen:
+            continue
+        seen.add(value)
+        found.append(value)
+    return tuple(found)
+
+
+def question_non_trading_note(question: str) -> str | None:
+    """问题里出现的第一个「确定性休市日」的事实说明；没有则 None。
+
+    生产形状（2026-08-13 R15-C1/C2）：「2026-07-25 市场怎么样」（周六）与
+    「2026-02-17 涨停家数多少」（春节休市）都走完了整条研究链，烧几十秒后
+    答「证据不足」——而「这天休市」是纯日历事实，一行代码就能判定。
+    判定结果作为 task frame 假设注入，模型据此直接回答，不再盲查。
+    """
+
+    for value in _dates_in_question(question):
         note = non_trading_day_note(value)
         if note is not None:
             return note
     return None
+
+
+def question_has_retrievable_trading_day_range(question: str) -> bool:
+    """区间题且至少有一个可检索交易日时为 True。
+
+    「08-18 到 08-22 这一周」终点是周六，但中间有交易日——整题 canned
+    成终点休市句会吞掉周内峰值（R4 / R-20260828-05）。单日休市（C1/C2）
+    和两端都休的区间返回 False，仍走罐头。
+    """
+
+    dates = _dates_in_question(question)
+    if len(dates) < 2:
+        return False
+    return any(non_trading_day_note(value) is None for value in dates)
 
 
 def next_trading_day(
@@ -185,7 +190,7 @@ def next_trading_day(
 
     candidate = anchor_date + timedelta(days=1)
     for _ in range(20):
-        closures = _SSE_CLOSURES.get(candidate.year)
+        closures = closed_dates(candidate.year)
         if closures is None:
             return None
         if candidate.weekday() < 5 and candidate not in closures:

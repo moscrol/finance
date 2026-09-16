@@ -1,0 +1,58 @@
+{
+  "generated_at": "2026-09-02T19:02:42+00:00",
+  "roots": [
+    "/Users/a77/.local/share/finance-workbench/users",
+    "/Users/a77/finance-base-ab/out/users"
+  ],
+  "n_episode_files": 823,
+  "n_unreadable": 0,
+  "invariant_started_at_most_once": true,
+  "queues": [
+    {
+      "label": "production · linxiaoqi5111",
+      "n_episodes": 381,
+      "n_recovery_attempted": 0,
+      "attempt_rate": 0.0,
+      "n_recovered": 0,
+      "n_failed": 0,
+      "recovered_rate_given_attempt": null,
+      "failure_reason_at_trigger": {},
+      "failed_recovery_reason": {},
+      "recovered_answer_status": {},
+      "attempted_and_also_repair_goal": 0,
+      "attempted_with_adapter_repair_cycles": {},
+      "final_stop_reason_of_attempted": {}
+    },
+    {
+      "label": "production · linxiaoqi5111 · last 14d",
+      "n_episodes": 83,
+      "n_recovery_attempted": 0,
+      "attempt_rate": 0.0,
+      "n_recovered": 0,
+      "n_failed": 0,
+      "recovered_rate_given_attempt": null,
+      "failure_reason_at_trigger": {},
+      "failed_recovery_reason": {},
+      "recovered_answer_status": {},
+      "attempted_and_also_repair_goal": 0,
+      "attempted_with_adapter_repair_cycles": {},
+      "final_stop_reason_of_attempted": {}
+    },
+    {
+      "label": "all users (incl. probes / finance-base-ab)",
+      "n_episodes": 823,
+      "n_recovery_attempted": 0,
+      "attempt_rate": 0.0,
+      "n_recovered": 0,
+      "n_failed": 0,
+      "recovered_rate_given_attempt": null,
+      "failure_reason_at_trigger": {},
+      "failed_recovery_reason": {},
+      "recovered_answer_status": {},
+      "attempted_and_also_repair_goal": 0,
+      "attempted_with_adapter_repair_cycles": {},
+      "final_stop_reason_of_attempted": {}
+    }
+  ],
+  "attempted_production_runs": []
+}

@@ -108,6 +108,31 @@ if [ -f "$REPO/scripts/worktree_board.py" ]; then
   fi
 fi
 
+# ── 1c. 常改共享仓的底况（2026-08-29 加）──────────────────────────────
+# 失败形状：harness-reference 主树停在他人特性分支、落后 gitea/main 15 个提交，
+# agent 从本仓会话跨目录在旧底上写了两批内容（读到的 KIT 还标着「未收口」，
+# main 上早收口了），返工一小时。「树是脏的」与「底是旧的」是两个独立危险，
+# 后者更隐蔽——文件都在，内容是旧的。此处只投事实不拦截；硬拦截另有
+# ~/.claude/hooks/block-stale-shared-tree.sh（PreToolUse Edit|Write，仅 Claude
+# Code 走）。清单按需追加行，格式「仓根|上游 ref」。
+for shared_entry in "$HOME/harness-reference|gitea/main"; do
+  s_repo="${shared_entry%%|*}"; s_up="${shared_entry##*|}"
+  [ -e "${s_repo}/.git" ] || continue
+  s_branch="$(git -C "${s_repo}" branch --show-current 2>/dev/null)"
+  if git -C "${s_repo}" rev-parse --verify --quiet "${s_up}" >/dev/null 2>&1; then
+    s_behind="$(git -C "${s_repo}" rev-list --count "HEAD..${s_up}" 2>/dev/null || echo '?')"
+    s_ahead="$(git -C "${s_repo}" rev-list --count "${s_up}..HEAD" 2>/dev/null || echo '?')"
+  else
+    s_behind="?"; s_ahead="?"
+  fi
+  s_dirty="$(git -C "${s_repo}" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
+  s_mark=""
+  if [ "${s_behind}" != "?" ] && [ "${s_behind}" -gt 0 ] 2>/dev/null; then
+    s_mark="⚠ 底旧勿直接编辑，SSOT=${s_up}，要动先开新树"
+  fi
+  LINES+=("共享仓: ${s_repo##*/} @ ${s_branch:-detached} — 对 ${s_up} 领先 ${s_ahead} 落后 ${s_behind}，脏 ${s_dirty} ${s_mark}")
+done
+
 # ── 2. 用哪个解释器 ────────────────────────────────────────────────────
 # 从 test-environment.json 读（与 conftest.py / check_agent_workspace_facts.py
 # 同一份真本源），不在这里写第二份路径。

@@ -231,6 +231,51 @@ def test_honesty_canned_answers_do_not_need_retrieval(query: str) -> None:
     assert deterministic_lane_answer(query, decision)
 
 
+def test_ranking_quick_fact_authorizes_finance_query_on_requested_date() -> None:
+    """R-20260828-05 F1：排名取值题进 episode 时必须授权 finance_query，cutoff 是问句日。
+
+    旧路径 generic_owner 取的是站立日 market_data，不是结构化 finance_query。
+    """
+
+    from intelligence.services.evidence_capabilities import runtime_capabilities_for_frame
+    from intelligence.services.lane_generation import deterministic_lane_answer
+
+    query = "2026-08-19 全市场成交额排第三的板块是哪个，成交额多少"
+    decision = decide_turn(query)
+    assert decision.question_type == "quick_fact"
+    assert deterministic_lane_answer(query, decision) is None
+    context = build_episode_context(
+        decision.task_frame,
+        task_id="r05-ranking-finance-query",
+        capabilities=runtime_capabilities_for_frame(decision.task_frame),
+        today="2026-08-28",
+        latest_data_date="2026-08-27",
+    )
+    assert "finance_query" in context.contract.allowed_capabilities
+    assert context.information_cutoff == InformationCutoff(
+        date(2026, 8, 19),
+        "requested",
+    )
+
+
+def test_week_range_ending_on_saturday_is_not_canned() -> None:
+    """R4 / R-20260828-05：区间终点休市不能整题 canned，否则周内峰值被吞。
+
+    08-22 确实无行情，假设仍注入（供检索后前置），但 canned 必须是 None，
+    让编排走进取数面。单日休市题（C1/C2）仍由上一测钉死。
+    """
+
+    from intelligence.services.lane_generation import deterministic_lane_answer
+
+    query = "2026-08-18 到 2026-08-22 这一周，全市场哪天成交额最高，是多少"
+    decision = decide_turn(query)
+
+    assert decision.needs_retrieval is True
+    assert calendar_disclosure(decision.task_frame)
+    assert "2026-08-22" in (calendar_disclosure(decision.task_frame) or "")
+    assert deterministic_lane_answer(query, decision) is None
+
+
 def test_mlcc_sector_amount_flags_unit_anomaly_without_llm(monkeypatch) -> None:
     """C4：板块成交额必须取出 fact_sector_daily 原值并质疑单位，禁止换全市口径。"""
 

@@ -14,6 +14,7 @@ from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import InformationCutoff, ResearchDeadline
 from intelligence.services.research_contract import RequiredOutput, ResearchTaskContract
 from intelligence.services.research_state import ResearchState
+from intelligence.services.tool_result_budget import budget_tool_observation
 
 
 def _tool(name: str, hits: int = 1):
@@ -185,6 +186,36 @@ def test_structured_evidence_gets_stable_content_hash() -> None:
     )
     assert evidence[0].content_hash
     assert evidence[0].content_hash == agent_research.evidence_content_hash(evidence[0])
+
+
+def test_qualifier_line_survives_the_context_budget() -> None:
+    """「使用要求」这类限定语必须活过 900 字符预算——那是它存在的全部意义。
+
+    渲染器把它放在数据行之后，而 ``tool_result_budget`` 从头数满 900 就切，
+    于是限定语先于它约束的数据被砍掉。2026-08-30 实测 400 份
+    continuous-episode.json：mainline_context 的「使用要求」出现 81 次，
+    位置均值在全文 89% 处，**31 次被吃掉**；而它被 ``episode_tools`` 刻意
+    挡在 ``evidence`` 之外，砍掉即无处可寻。
+
+    断言的是「预算之后还看得见」这个不变量，不是「排在第一位」这个实现——
+    改成独立字段照样该通过。变异测试：把 ``block_lines_to_evidence`` 里的
+    重排删掉、还原成 ``"；".join(lines[:limit])``，本条必红。
+    """
+
+    rule = "使用要求：cycle_status=分歧/消亡不能写成无条件主升。"
+    block = "\n".join([f"- 板块{index}：涨{index}%，成交{index * 11}亿" for index in range(60)] + [f"- {rule}"])
+
+    _evidence, observation = agent_research.block_lines_to_evidence(
+        "mainline_context",
+        block,
+        "本地 DuckDB · D4 同日主线结构",
+        limit=61,
+    )
+    budgeted = budget_tool_observation({"observation": observation})
+
+    # 先证明这条观察确实撞了预算，否则断言是空转。
+    assert budgeted["context_budget"]["truncated"] is True
+    assert rule in budgeted["observation"]
 
 
 def test_structured_evidence_can_inherit_block_snapshot_date() -> None:

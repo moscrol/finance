@@ -1,0 +1,434 @@
+{
+  "generated_at": "2026-09-02T02:40:30",
+  "roots": [
+    "/Users/a77/.local/share/finance-workbench/users",
+    "/Users/a77/finance-base-ab/out/users"
+  ],
+  "n_episode_files": 820,
+  "n_extract_errors": 0,
+  "n_with_finalization": 277,
+  "n_synthesis_shaped_model_turns": 128,
+  "method": {
+    "duration_field": "persist_delta_seconds",
+    "from": "finalization.at or previous event at",
+    "to": "following model_turn.at",
+    "not_used": [
+      "tool event at",
+      "model_elapsed (computed, never persisted)"
+    ],
+    "window_synthesis": "remaining - asked <= 1s",
+    "production_user": "linxiaoqi5111"
+  },
+  "compose_after_finalization": {
+    "all": {
+      "n_rows": 277,
+      "n_usable_persist": 277,
+      "n_finished": 260,
+      "n_timed_out": 17,
+      "timeout_rate": 0.0614,
+      "persist_finished": {
+        "n": 260,
+        "min": 6.918,
+        "p50": 17.329,
+        "p90": 32.723,
+        "p95": 44.134,
+        "p99": 60.918,
+        "max": 91.165,
+        "mean": 19.929,
+        "n_gt_20": 98,
+        "n_gt_35": 23,
+        "n_gt_60": 4
+      },
+      "persist_timed_out": {
+        "n": 17,
+        "min": 59.641,
+        "p50": 64.201,
+        "p90": 68.426,
+        "p95": 68.598,
+        "p99": 68.835,
+        "max": 68.894,
+        "mean": 64.548,
+        "n_gt_20": 17,
+        "n_gt_35": 17,
+        "n_gt_60": 16
+      },
+      "asked_finished": {
+        "n": 131,
+        "min": 59.06,
+        "p50": 59.977,
+        "p90": 67.678,
+        "p95": 74.276,
+        "p99": 75.0,
+        "max": 75.0,
+        "mean": 62.451,
+        "n_gt_20": 131,
+        "n_gt_35": 131,
+        "n_gt_60": 51
+      },
+      "n_finished_persist_gt_asked_plus_1s": 0,
+      "reasons": {
+        "tool_budget_exhausted": 41,
+        "retrieval_deadline_closed": 215,
+        "planning_model_unavailable": 21
+      },
+      "prev_kind": {
+        "": 277
+      },
+      "floor_checks": {
+        "finished_p95_vs_20": {
+          "p95": 44.134,
+          "floor": 20.0,
+          "p95_le_floor": false
+        },
+        "finished_p95_vs_35": {
+          "p95": 44.134,
+          "floor": 35.0,
+          "p95_le_floor": false
+        },
+        "share_finished_gt_20": 0.3769,
+        "share_finished_gt_35": 0.0885
+      }
+    },
+    "production": {
+      "n_rows": 146,
+      "n_usable_persist": 146,
+      "n_finished": 140,
+      "n_timed_out": 6,
+      "timeout_rate": 0.0411,
+      "persist_finished": {
+        "n": 140,
+        "min": 7.449,
+        "p50": 17.468,
+        "p90": 25.348,
+        "p95": 26.948,
+        "p99": 34.747,
+        "max": 46.761,
+        "mean": 17.84,
+        "n_gt_20": 51,
+        "n_gt_35": 2,
+        "n_gt_60": 0
+      },
+      "persist_timed_out": {
+        "n": 6,
+        "min": 60.139,
+        "p50": 62.916,
+        "p90": 67.82,
+        "p95": 67.919,
+        "p99": 67.999,
+        "max": 68.019,
+        "mean": 63.749,
+        "n_gt_20": 6,
+        "n_gt_35": 6,
+        "n_gt_60": 6
+      },
+      "asked_finished": {
+        "n": 45,
+        "min": 59.724,
+        "p50": 59.977,
+        "p90": 67.33,
+        "p95": 74.236,
+        "p99": 75.0,
+        "max": 75.0,
+        "mean": 62.78,
+        "n_gt_20": 45,
+        "n_gt_35": 45,
+        "n_gt_60": 20
+      },
+      "n_finished_persist_gt_asked_plus_1s": 0,
+      "reasons": {
+        "retrieval_deadline_closed": 110,
+        "tool_budget_exhausted": 24,
+        "planning_model_unavailable": 12
+      },
+      "prev_kind": {
+        "": 146
+      },
+      "floor_checks": {
+        "finished_p95_vs_20": {
+          "p95": 26.948,
+          "floor": 20.0,
+          "p95_le_floor": false
+        },
+        "finished_p95_vs_35": {
+          "p95": 26.948,
+          "floor": 35.0,
+          "p95_le_floor": true
+        },
+        "share_finished_gt_20": 0.3643,
+        "share_finished_gt_35": 0.0143
+      }
+    }
+  },
+  "synthesis_shaped_after_finalization": {
+    "all": {
+      "n_rows": 128,
+      "n_usable_persist": 128,
+      "n_finished": 125,
+      "n_timed_out": 3,
+      "timeout_rate": 0.0234,
+      "persist_finished": {
+        "n": 125,
+        "min": 6.918,
+        "p50": 14.184,
+        "p90": 33.986,
+        "p95": 38.311,
+        "p99": 47.642,
+        "max": 49.35,
+        "mean": 17.357,
+        "n_gt_20": 33,
+        "n_gt_35": 11,
+        "n_gt_60": 0
+      },
+      "persist_timed_out": {
+        "n": 3,
+        "min": 59.641,
+        "p50": 60.139,
+        "p90": 66.124,
+        "p95": 66.872,
+        "p99": 67.47,
+        "max": 67.62,
+        "mean": 62.467,
+        "n_gt_20": 3,
+        "n_gt_35": 3,
+        "n_gt_60": 2
+      },
+      "asked_finished": {
+        "n": 125,
+        "min": 59.06,
+        "p50": 59.969,
+        "p90": 66.404,
+        "p95": 67.758,
+        "p99": 73.343,
+        "max": 75.0,
+        "mean": 61.849,
+        "n_gt_20": 125,
+        "n_gt_35": 125,
+        "n_gt_60": 45
+      },
+      "n_finished_persist_gt_asked_plus_1s": 0,
+      "reasons": {
+        "": 128
+      },
+      "prev_kind": {
+        "finalization": 128
+      },
+      "floor_checks": {
+        "finished_p95_vs_20": {
+          "p95": 38.311,
+          "floor": 20.0,
+          "p95_le_floor": false
+        },
+        "finished_p95_vs_35": {
+          "p95": 38.311,
+          "floor": 35.0,
+          "p95_le_floor": false
+        },
+        "share_finished_gt_20": 0.264,
+        "share_finished_gt_35": 0.088
+      }
+    },
+    "production": {
+      "n_rows": 44,
+      "n_usable_persist": 44,
+      "n_finished": 42,
+      "n_timed_out": 2,
+      "timeout_rate": 0.0455,
+      "persist_finished": {
+        "n": 42,
+        "min": 7.449,
+        "p50": 11.952,
+        "p90": 20.983,
+        "p95": 24.729,
+        "p99": 25.22,
+        "max": 25.376,
+        "mean": 13.405,
+        "n_gt_20": 5,
+        "n_gt_35": 0,
+        "n_gt_60": 0
+      },
+      "persist_timed_out": {
+        "n": 2,
+        "min": 60.139,
+        "p50": 63.88,
+        "p90": 66.872,
+        "p95": 67.246,
+        "p99": 67.545,
+        "max": 67.62,
+        "mean": 63.88,
+        "n_gt_20": 2,
+        "n_gt_35": 2,
+        "n_gt_60": 2
+      },
+      "asked_finished": {
+        "n": 42,
+        "min": 59.724,
+        "p50": 59.968,
+        "p90": 66.378,
+        "p95": 66.646,
+        "p99": 69.784,
+        "max": 71.178,
+        "mean": 61.907,
+        "n_gt_20": 42,
+        "n_gt_35": 42,
+        "n_gt_60": 17
+      },
+      "n_finished_persist_gt_asked_plus_1s": 0,
+      "reasons": {
+        "": 44
+      },
+      "prev_kind": {
+        "finalization": 44
+      },
+      "floor_checks": {
+        "finished_p95_vs_20": {
+          "p95": 24.729,
+          "floor": 20.0,
+          "p95_le_floor": false
+        },
+        "finished_p95_vs_35": {
+          "p95": 24.729,
+          "floor": 35.0,
+          "p95_le_floor": true
+        },
+        "share_finished_gt_20": 0.119,
+        "share_finished_gt_35": 0.0
+      }
+    }
+  },
+  "synthesis_shaped_all_prev": {
+    "all": {
+      "n_rows": 128,
+      "n_usable_persist": 128,
+      "n_finished": 125,
+      "n_timed_out": 3,
+      "timeout_rate": 0.0234,
+      "persist_finished": {
+        "n": 125,
+        "min": 6.918,
+        "p50": 14.184,
+        "p90": 33.986,
+        "p95": 38.311,
+        "p99": 47.642,
+        "max": 49.35,
+        "mean": 17.357,
+        "n_gt_20": 33,
+        "n_gt_35": 11,
+        "n_gt_60": 0
+      },
+      "persist_timed_out": {
+        "n": 3,
+        "min": 59.641,
+        "p50": 60.139,
+        "p90": 66.124,
+        "p95": 66.872,
+        "p99": 67.47,
+        "max": 67.62,
+        "mean": 62.467,
+        "n_gt_20": 3,
+        "n_gt_35": 3,
+        "n_gt_60": 2
+      },
+      "asked_finished": {
+        "n": 125,
+        "min": 59.06,
+        "p50": 59.969,
+        "p90": 66.404,
+        "p95": 67.758,
+        "p99": 73.343,
+        "max": 75.0,
+        "mean": 61.849,
+        "n_gt_20": 125,
+        "n_gt_35": 125,
+        "n_gt_60": 45
+      },
+      "n_finished_persist_gt_asked_plus_1s": 0,
+      "reasons": {
+        "": 128
+      },
+      "prev_kind": {
+        "finalization": 128
+      },
+      "floor_checks": {
+        "finished_p95_vs_20": {
+          "p95": 38.311,
+          "floor": 20.0,
+          "p95_le_floor": false
+        },
+        "finished_p95_vs_35": {
+          "p95": 38.311,
+          "floor": 35.0,
+          "p95_le_floor": false
+        },
+        "share_finished_gt_20": 0.264,
+        "share_finished_gt_35": 0.088
+      }
+    },
+    "production": {
+      "n_rows": 44,
+      "n_usable_persist": 44,
+      "n_finished": 42,
+      "n_timed_out": 2,
+      "timeout_rate": 0.0455,
+      "persist_finished": {
+        "n": 42,
+        "min": 7.449,
+        "p50": 11.952,
+        "p90": 20.983,
+        "p95": 24.729,
+        "p99": 25.22,
+        "max": 25.376,
+        "mean": 13.405,
+        "n_gt_20": 5,
+        "n_gt_35": 0,
+        "n_gt_60": 0
+      },
+      "persist_timed_out": {
+        "n": 2,
+        "min": 60.139,
+        "p50": 63.88,
+        "p90": 66.872,
+        "p95": 67.246,
+        "p99": 67.545,
+        "max": 67.62,
+        "mean": 63.88,
+        "n_gt_20": 2,
+        "n_gt_35": 2,
+        "n_gt_60": 2
+      },
+      "asked_finished": {
+        "n": 42,
+        "min": 59.724,
+        "p50": 59.968,
+        "p90": 66.378,
+        "p95": 66.646,
+        "p99": 69.784,
+        "max": 71.178,
+        "mean": 61.907,
+        "n_gt_20": 42,
+        "n_gt_35": 42,
+        "n_gt_60": 17
+      },
+      "n_finished_persist_gt_asked_plus_1s": 0,
+      "reasons": {
+        "": 44
+      },
+      "prev_kind": {
+        "finalization": 44
+      },
+      "floor_checks": {
+        "finished_p95_vs_20": {
+          "p95": 24.729,
+          "floor": 20.0,
+          "p95_le_floor": false
+        },
+        "finished_p95_vs_35": {
+          "p95": 24.729,
+          "floor": 35.0,
+          "p95_le_floor": true
+        },
+        "share_finished_gt_20": 0.119,
+        "share_finished_gt_35": 0.0
+      }
+    }
+  }
+}
