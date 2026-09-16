@@ -13,7 +13,7 @@ import {
   Search,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { Conversation, WorkbenchSection } from "../types";
+import type { Conversation, CreditsSummary, WorkbenchSection } from "../types";
 
 const outputNavigation = [
   { section: "today", label: "今日", Icon: CalendarDays },
@@ -38,10 +38,53 @@ interface ConversationListProps {
   onLibrary: () => void;
   activeSection: WorkbenchSection;
   onSection: (section: WorkbenchSection) => void;
+  credits?: CreditsSummary | null;
 }
 
 function displayConversationTitle(title: string): string {
   return title === "新对话" ? "未命名研究" : title;
+}
+
+function expiryLabel(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${month}-${day}`;
+}
+
+function yuanLabel(points: number, pointsPerYuan: number): string {
+  const yuan = Math.abs(points) / pointsPerYuan;
+  return `${points < 0 ? "-" : ""}¥${yuan.toFixed(2)}`;
+}
+
+/** 钱包关着或 owner 豁免时不占位；积分 ≤ 0 用警示色，用户不用等到 429 才知道。 */
+function CreditsLine({ credits }: { credits: CreditsSummary | null | undefined }) {
+  if (!credits || !credits.enabled || credits.exempt || credits.remaining === null) {
+    return null;
+  }
+  const perYuan = credits.points_per_yuan ?? 100;
+  const empty = credits.remaining <= 0;
+  const expiry = credits.next_expiry ? expiryLabel(credits.next_expiry) : "";
+  const label = empty
+    ? credits.remaining < 0
+      ? `积分已透支 ${-credits.remaining} 分，请充值`
+      : "积分已用完，请联系管理员充值"
+    : `剩余 ${credits.remaining} 积分 (${yuanLabel(credits.remaining, perYuan)})`;
+  return (
+    <div
+      className={empty ? "credits-line empty" : "credits-line"}
+      role="status"
+      aria-label={empty ? "积分不足" : `剩余 ${credits.remaining} 积分`}
+      title="100 积分 = 1 元，按每次研究的实际模型用量结算"
+    >
+      <span className="credits-dot" aria-hidden="true" />
+      <span>
+        {label}
+        {!empty && expiry ? ` · ${expiry} 到期` : ""}
+      </span>
+    </div>
+  );
 }
 
 export function ConversationList({
@@ -55,6 +98,7 @@ export function ConversationList({
   onLibrary,
   activeSection,
   onSection,
+  credits,
 }: ConversationListProps) {
   const [query, setQuery] = useState("");
   const filteredConversations = useMemo(() => {
@@ -206,6 +250,7 @@ export function ConversationList({
           <FolderArchive aria-hidden="true" size={17} />
           研究产物
         </button>
+        <CreditsLine credits={credits} />
         <div className="private-workspace-status">
           <span className="data-dot" aria-hidden="true" />
           本地执行 · 私有数据

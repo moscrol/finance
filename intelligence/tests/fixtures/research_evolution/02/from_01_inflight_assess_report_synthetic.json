@@ -1,0 +1,409 @@
+{
+  "synthetic": true,
+  "_note": "由 01 在途模块（未提交）的真实 assess() 在其合成夹具 complete/input.json 上产出的报告，原样保存供 02 P12 联测；输入是合成的，所以整体仍标 synthetic。01 engineering_complete 后须用其最终 revision 重跑并替换本文件。",
+  "_provenance": {
+    "producer": "intelligence.services.judgment_maintenance.assess（01 轨 worktree fwp-wt-judgment-maintenance-01，分支 feat/judgment-maintenance-01 @ 5fb13a8c + 未提交）",
+    "producer_file_sha256_16": {
+      "__init__.py": "fec2474876ae91f3",
+      "actions.py": "5a7515fed68faf75",
+      "adapters.py": "5986e9e04adf0aee",
+      "assess.py": "2f517e3bf6984484",
+      "conditions.py": "982b903323454a13",
+      "contracts.py": "ad1764cb26547620"
+    },
+    "input_fixture": "intelligence/tests/fixtures/research_evolution/01/complete/input.json (01 树内，未提交)",
+    "produced_at_utc": "2026-09-13T06:40:00Z",
+    "command": "PYTHONPATH=<01 树根> python -B -c 'assess(**input, generated_at=...)' → report.to_dict()",
+    "producer_file_sha256_16_at_run": {
+      "__init__.py": "fec2474876ae",
+      "actions.py": "abb1219738e9",
+      "adapters.py": "5986e9e04adf",
+      "assess.py": "fec8e35dd072",
+      "conditions.py": "982b90332345",
+      "contracts.py": "ad1764cb2654",
+      "_note": "运行 assess() 前一分钟列出的 12 位前缀；01 正在持续编辑，冻结本文件时 assess.py/actions.py 已再次变化（见 producer_file_sha256_16）。"
+    }
+  },
+  "report": {
+    "schema_version": "judgment-maintenance/v1",
+    "id": "jmr-58d297fc642b4795",
+    "owner_user_id": "alice",
+    "as_of": "2026-09-12",
+    "knowledge_cutoff": "2026-09-12",
+    "input_digest": "8e5f29041fc60d5e7111194611a69bc6586e3349fbbae225fb42edbdcc78ccd0",
+    "generated_at": "2026-09-13T06:40:00Z",
+    "pit_grade": "strict",
+    "hindsight": false,
+    "gaps": [
+      {
+        "reason": "validity_ended",
+        "ref": "fact_theme_fundamental_doc:d-9",
+        "checked_at": "2026-09-12",
+        "retryable": true,
+        "detail": "最后已知版本在 2026-09-12 已失效或已被撤回，且无替代版本",
+        "binding_id": "bind-complete-1",
+        "condition_ref": null
+      }
+    ],
+    "items": [
+      {
+        "schema_version": "judgment-maintenance/v1",
+        "id": "jmi-d66dec187fc8b4d7",
+        "item_version": "5b4f42f95461c3fc",
+        "owner_user_id": "alice",
+        "object_ref": {
+          "kind": "judgment",
+          "id": "j-2026-09-01-aaaa",
+          "namespace": "judgments",
+          "version_or_hash": "content_sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "ref": "judgments.jsonl:j-2026-09-01-aaaa",
+          "scope": {
+            "conversation_id": "conv-synthetic-1"
+          }
+        },
+        "before": [],
+        "current": [],
+        "change_type": "condition_evaluated",
+        "reason_code": "condition_true",
+        "epistemic_state": "observed",
+        "condition_result": "true",
+        "as_of": "2026-09-12",
+        "knowledge_cutoff": "2026-09-12",
+        "pit_grade": "strict",
+        "gaps": [],
+        "action": "rejudge",
+        "status": "open",
+        "dedup_key": "{\"after_hash\":null,\"after_ref\":null,\"before_hash\":null,\"binding_id\":\"bind-complete-1\",\"binding_version\":1,\"change_type\":\"condition_evaluated\",\"condition_ref\":\"cond-stage-downgrade\",\"dependency_ref\":null,\"expression_digest\":\"38e5e29c90891aaa\",\"object\":[\"judgment\",\"judgments\",\"j-2026-09-01-aaaa\",\"content_sha256:1111111111111111111111111111111111111111111111111111111111111111\"],\"owner_user_id\":\"alice\",\"reason_code\":\"condition_true\",\"window\":\"2026-09-12\"}",
+        "binding_id": "bind-complete-1",
+        "binding_version": 1,
+        "dependency_ref": null,
+        "condition_ref": "cond-stage-downgrade",
+        "condition_role": "downgrade",
+        "condition_evaluation": {
+          "result": "true",
+          "readings": [
+            {
+              "label": "market_stage",
+              "op": "in",
+              "value": [
+                "反弹"
+              ],
+              "entity_id": "",
+              "observed": "反弹",
+              "result": "true",
+              "source_ref": "fact_market_daily:2026-09-12",
+              "recorded_at": "2026-09-12T18:00:00+08:00",
+              "reason": null
+            }
+          ]
+        },
+        "supersedes_item_id": null,
+        "first_known_day": "2026-09-12",
+        "management_revision": 0,
+        "management": {
+          "applied_commands": [],
+          "snooze_until": null,
+          "claimed_at": null,
+          "closed_at": null,
+          "closure": null,
+          "rejudgment": null
+        }
+      },
+      {
+        "schema_version": "judgment-maintenance/v1",
+        "id": "jmi-9f605d4fe0922275",
+        "item_version": "eba87781099d9424",
+        "owner_user_id": "alice",
+        "object_ref": {
+          "kind": "judgment",
+          "id": "j-2026-09-01-aaaa",
+          "namespace": "judgments",
+          "version_or_hash": "content_sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "ref": "judgments.jsonl:j-2026-09-01-aaaa",
+          "scope": {
+            "conversation_id": "conv-synthetic-1"
+          }
+        },
+        "before": [],
+        "current": [],
+        "change_type": "condition_evaluated",
+        "reason_code": "condition_false",
+        "epistemic_state": "observed",
+        "condition_result": "false",
+        "as_of": "2026-09-12",
+        "knowledge_cutoff": "2026-09-12",
+        "pit_grade": "strict",
+        "gaps": [],
+        "action": "none",
+        "status": "open",
+        "dedup_key": "{\"after_hash\":null,\"after_ref\":null,\"before_hash\":null,\"binding_id\":\"bind-complete-1\",\"binding_version\":1,\"change_type\":\"condition_evaluated\",\"condition_ref\":\"cond-surge-review\",\"dependency_ref\":null,\"expression_digest\":\"5f6b93046f78878a\",\"object\":[\"judgment\",\"judgments\",\"j-2026-09-01-aaaa\",\"content_sha256:1111111111111111111111111111111111111111111111111111111111111111\"],\"owner_user_id\":\"alice\",\"reason_code\":\"condition_false\",\"window\":\"2026-09-12\"}",
+        "binding_id": "bind-complete-1",
+        "binding_version": 1,
+        "dependency_ref": null,
+        "condition_ref": "cond-surge-review",
+        "condition_role": "review",
+        "condition_evaluation": {
+          "result": "false",
+          "readings": [
+            {
+              "label": "volume_surge",
+              "op": "==",
+              "value": true,
+              "entity_id": "",
+              "observed": false,
+              "result": "false",
+              "source_ref": "fact_market_daily:2026-09-12",
+              "recorded_at": "2026-09-12T18:00:00+08:00",
+              "reason": null
+            }
+          ]
+        },
+        "supersedes_item_id": null,
+        "first_known_day": "2026-09-12",
+        "management_revision": 0,
+        "management": {
+          "applied_commands": [],
+          "snooze_until": null,
+          "claimed_at": null,
+          "closed_at": null,
+          "closure": null,
+          "rejudgment": null
+        }
+      },
+      {
+        "schema_version": "judgment-maintenance/v1",
+        "id": "jmi-8a9c914e34093775",
+        "item_version": "62fe790df6dd03a6",
+        "owner_user_id": "alice",
+        "object_ref": {
+          "kind": "judgment",
+          "id": "j-2026-09-01-aaaa",
+          "namespace": "judgments",
+          "version_or_hash": "content_sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "ref": "judgments.jsonl:j-2026-09-01-aaaa",
+          "scope": {
+            "conversation_id": "conv-synthetic-1"
+          }
+        },
+        "before": [
+          {
+            "ref": "fact_market_daily:2026-09-01",
+            "source_hash": "h-a1",
+            "valid_from": "2026-09-01",
+            "valid_to": null,
+            "recorded_at": "2026-09-01T18:00:00+08:00",
+            "expired_at": null,
+            "supersedes_ref": null,
+            "derivation": "deterministic",
+            "label_version": null,
+            "namespace": "market_feature_store"
+          }
+        ],
+        "current": [
+          {
+            "ref": "fact_market_daily:2026-09-01",
+            "source_hash": "h-a2",
+            "valid_from": "2026-09-01",
+            "valid_to": null,
+            "recorded_at": "2026-09-11T18:00:00+08:00",
+            "expired_at": null,
+            "supersedes_ref": null,
+            "derivation": "deterministic",
+            "label_version": null,
+            "namespace": "market_feature_store"
+          }
+        ],
+        "change_type": "content_changed",
+        "reason_code": "hash_changed",
+        "epistemic_state": "requires_review",
+        "condition_result": null,
+        "as_of": "2026-09-12",
+        "knowledge_cutoff": "2026-09-12",
+        "pit_grade": "strict",
+        "gaps": [],
+        "action": "review_evidence",
+        "status": "open",
+        "dedup_key": "{\"after_hash\":\"h-a2\",\"after_ref\":\"fact_market_daily:2026-09-01\",\"before_hash\":\"h-a1\",\"binding_id\":\"bind-complete-1\",\"binding_version\":1,\"change_type\":\"content_changed\",\"condition_ref\":null,\"dependency_ref\":\"fact_market_daily:2026-09-01\",\"expression_digest\":null,\"object\":[\"judgment\",\"judgments\",\"j-2026-09-01-aaaa\",\"content_sha256:1111111111111111111111111111111111111111111111111111111111111111\"],\"owner_user_id\":\"alice\",\"reason_code\":\"hash_changed\",\"window\":null}",
+        "binding_id": "bind-complete-1",
+        "binding_version": 1,
+        "dependency_ref": "fact_market_daily:2026-09-01",
+        "condition_ref": null,
+        "condition_role": null,
+        "condition_evaluation": null,
+        "supersedes_item_id": null,
+        "first_known_day": "2026-09-11",
+        "management_revision": 0,
+        "management": {
+          "applied_commands": [],
+          "snooze_until": null,
+          "claimed_at": null,
+          "closed_at": null,
+          "closure": null,
+          "rejudgment": null
+        }
+      },
+      {
+        "schema_version": "judgment-maintenance/v1",
+        "id": "jmi-8739ed88bf59d4a6",
+        "item_version": "672325b8a47740f7",
+        "owner_user_id": "alice",
+        "object_ref": {
+          "kind": "judgment",
+          "id": "j-2026-09-01-aaaa",
+          "namespace": "judgments",
+          "version_or_hash": "content_sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "ref": "judgments.jsonl:j-2026-09-01-aaaa",
+          "scope": {
+            "conversation_id": "conv-synthetic-1"
+          }
+        },
+        "before": [
+          {
+            "ref": "fact_theme_fundamental_doc:d-9",
+            "source_hash": "h-c1",
+            "valid_from": "2026-09-01",
+            "valid_to": null,
+            "recorded_at": "2026-09-01T18:00:00+08:00",
+            "expired_at": "2026-09-10T09:00:00+08:00",
+            "supersedes_ref": null,
+            "derivation": "deterministic",
+            "label_version": null,
+            "namespace": "market_feature_store"
+          }
+        ],
+        "current": [
+          {
+            "ref": "fact_theme_fundamental_doc:d-9",
+            "source_hash": "h-c1",
+            "valid_from": "2026-09-01",
+            "valid_to": null,
+            "recorded_at": "2026-09-01T18:00:00+08:00",
+            "expired_at": "2026-09-10T09:00:00+08:00",
+            "supersedes_ref": null,
+            "derivation": "deterministic",
+            "label_version": null,
+            "namespace": "market_feature_store"
+          }
+        ],
+        "change_type": "source_expired",
+        "reason_code": "validity_ended",
+        "epistemic_state": "unknown",
+        "condition_result": null,
+        "as_of": "2026-09-12",
+        "knowledge_cutoff": "2026-09-12",
+        "pit_grade": "strict",
+        "gaps": [
+          {
+            "reason": "validity_ended",
+            "ref": "fact_theme_fundamental_doc:d-9",
+            "checked_at": "2026-09-12",
+            "retryable": true,
+            "detail": "最后已知版本在 2026-09-12 已失效或已被撤回，且无替代版本",
+            "binding_id": "bind-complete-1",
+            "condition_ref": null
+          }
+        ],
+        "action": "restore_evidence",
+        "status": "superseded",
+        "dedup_key": "{\"after_hash\":\"h-c1\",\"after_ref\":\"fact_theme_fundamental_doc:d-9\",\"before_hash\":\"h-c1\",\"binding_id\":\"bind-complete-1\",\"binding_version\":1,\"change_type\":\"source_expired\",\"condition_ref\":null,\"dependency_ref\":\"fact_theme_fundamental_doc:d-9\",\"expression_digest\":null,\"object\":[\"judgment\",\"judgments\",\"j-2026-09-01-aaaa\",\"content_sha256:1111111111111111111111111111111111111111111111111111111111111111\"],\"owner_user_id\":\"alice\",\"reason_code\":\"validity_ended\",\"window\":null}",
+        "binding_id": "bind-complete-1",
+        "binding_version": 1,
+        "dependency_ref": "fact_theme_fundamental_doc:d-9",
+        "condition_ref": null,
+        "condition_role": null,
+        "condition_evaluation": null,
+        "supersedes_item_id": null,
+        "first_known_day": "2026-09-10",
+        "management_revision": 0,
+        "management": {
+          "applied_commands": [],
+          "snooze_until": null,
+          "claimed_at": null,
+          "closed_at": null,
+          "closure": null,
+          "rejudgment": null
+        }
+      },
+      {
+        "schema_version": "judgment-maintenance/v1",
+        "id": "jmi-cb8d2ff0dbd4a493",
+        "item_version": "97eedbbb2e113c59",
+        "owner_user_id": "alice",
+        "object_ref": {
+          "kind": "judgment",
+          "id": "j-2026-09-01-aaaa",
+          "namespace": "judgments",
+          "version_or_hash": "content_sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "ref": "judgments.jsonl:j-2026-09-01-aaaa",
+          "scope": {
+            "conversation_id": "conv-synthetic-1"
+          }
+        },
+        "before": [
+          {
+            "ref": "fact_theme_fundamental_doc:d-9",
+            "source_hash": "h-c1",
+            "valid_from": "2026-09-01",
+            "valid_to": null,
+            "recorded_at": "2026-09-01T18:00:00+08:00",
+            "expired_at": "2026-09-10T09:00:00+08:00",
+            "supersedes_ref": null,
+            "derivation": "deterministic",
+            "label_version": null,
+            "namespace": "market_feature_store"
+          }
+        ],
+        "current": [
+          {
+            "ref": "fact_theme_fundamental_doc:d-10",
+            "source_hash": "h-c2",
+            "valid_from": "2026-09-01",
+            "valid_to": null,
+            "recorded_at": "2026-09-11T09:00:00+08:00",
+            "expired_at": null,
+            "supersedes_ref": "fact_theme_fundamental_doc:d-9",
+            "derivation": "deterministic",
+            "label_version": null,
+            "namespace": "market_feature_store"
+          }
+        ],
+        "change_type": "source_corrected",
+        "reason_code": "explicit_supersession",
+        "epistemic_state": "requires_review",
+        "condition_result": null,
+        "as_of": "2026-09-12",
+        "knowledge_cutoff": "2026-09-12",
+        "pit_grade": "strict",
+        "gaps": [],
+        "action": "review_evidence",
+        "status": "open",
+        "dedup_key": "{\"after_hash\":\"h-c2\",\"after_ref\":\"fact_theme_fundamental_doc:d-10\",\"before_hash\":\"h-c1\",\"binding_id\":\"bind-complete-1\",\"binding_version\":1,\"change_type\":\"source_corrected\",\"condition_ref\":null,\"dependency_ref\":\"fact_theme_fundamental_doc:d-9\",\"expression_digest\":null,\"object\":[\"judgment\",\"judgments\",\"j-2026-09-01-aaaa\",\"content_sha256:1111111111111111111111111111111111111111111111111111111111111111\"],\"owner_user_id\":\"alice\",\"reason_code\":\"explicit_supersession\",\"window\":null}",
+        "binding_id": "bind-complete-1",
+        "binding_version": 1,
+        "dependency_ref": "fact_theme_fundamental_doc:d-9",
+        "condition_ref": null,
+        "condition_role": null,
+        "condition_evaluation": null,
+        "supersedes_item_id": "jmi-8739ed88bf59d4a6",
+        "first_known_day": "2026-09-11",
+        "management_revision": 0,
+        "management": {
+          "applied_commands": [],
+          "snooze_until": null,
+          "claimed_at": null,
+          "closed_at": null,
+          "closure": null,
+          "rejudgment": null
+        }
+      }
+    ],
+    "counts": {
+      "objects_seen": 1,
+      "objects_bound": 1,
+      "objects_unverifiable": 0,
+      "dependencies_checked": 3,
+      "items_open": 3
+    },
+    "management_log": {}
+  }
+}

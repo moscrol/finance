@@ -34,6 +34,23 @@ JUDGMENT_REQUEST_PATTERN = re.compile(
 )
 
 
+# 细粒度词面路由（disclosure_scan / trade_advice / kol_review / comparison_analog /
+# theme_track / quick_fact）只认短问句：判据是「几个提示词同时出现」的去空白全文
+# 无锚点子串匹配，自带 examples 全部 8–21 字。长材料题里几个词分散在不相干段落
+# 也照样 AND 成立——2026-09-12 一道 821 字材料题因此被判成 disclosure_scan 并
+# 静默返回 183 字节存根（llm.used=false 而 answer_status=complete）。完整事故与
+# 阈值依据见 turn_controller._fine_grained_route_row 上方注释；回归锁在
+# intelligence/tests/test_fine_grained_route_length_gate.py。闸要下在每个词面
+# 判定入口（turn_controller._fine_grained_route_row 与
+# query_understanding.understand_query），只闸一处堵不住。
+FINE_GRAINED_ROUTE_MAX_CHARS = 160
+
+
+def fine_grained_route_length_ok(query: str) -> bool:
+    """词面路由的入场券：去空白后超长即退回正常 lane 由模型判，失败方向安全。"""
+    return len(re.sub(r"\s+", "", str(query or ""))) <= FINE_GRAINED_ROUTE_MAX_CHARS
+
+
 def is_quick_fact_query(query: str) -> bool:
     """这句话是不是在要一个确定的数值/代码，而不是要一个判断。
 
@@ -43,6 +60,28 @@ def is_quick_fact_query(query: str) -> bool:
     """
     text = str(query or "")
     return bool(QUICK_FACT_PATTERN.search(text)) and not JUDGMENT_REQUEST_PATTERN.search(text)
+
+
+def quick_fact_route_ok(query: str) -> bool:
+    """quick_fact 的完整入场策略：意图匹配，且（短问句 或 消息里没有材料正文）。
+
+    与六条词面共现路由分开入场：它们的弱点是无锚点共现被长文凑巧命中，闸是纯
+    长度；quick_fact 的判据是窄意图（要一个确定的值），风险面是材料题尾问里的
+    「是多少/涨了多少」把它劫走，所以入场券看材料不看长度——
+      - 长但意图明确的纯取值问句（无材料正文，如带格式要求的 192 字「300750
+        是哪家公司？」）照常归位，且必须与 answer_orchestrator 一致（2026-09-13
+        QC N1：闸只下在 turn_controller 时两入口分叉）；
+      - 材料题尾问里的取值措辞不放行（S1 家族语义：材料段的词面命中是巧合）。
+    split_user_message 延迟 import：route_table 是叶子模块，保持它不被拉进
+    user_task 的依赖闭包。
+    """
+    if not is_quick_fact_query(query):
+        return False
+    if fine_grained_route_length_ok(query):
+        return True
+    from intelligence.services.user_task import split_user_message
+
+    return not split_user_message(query).materials
 
 
 _DATED_METRIC_WORDS = re.compile(

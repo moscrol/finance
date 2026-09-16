@@ -57,10 +57,62 @@ from dataclasses import dataclass
 
 from intelligence.services.agent_runtime import EpisodeEvent
 from intelligence.services.episode_event_lanes import lane_for
+from intelligence.services.episode_messages import (
+    MODEL_VISIBLE_TEXT_FIELDS,
+    sha256_text,
+)
 
 
 _BRANCH_START_KINDS = frozenset({"branch_started"})
 _BRANCH_TERMINAL_KINDS = frozenset({"branch_completed", "branch_failed"})
+
+
+def _redact_model_visible_text(event_dict: dict[str, object]) -> dict[str, object]:
+    """把模型可见正文换成 ``<field>_sha256`` + ``<field>_chars``。
+
+    对外 artifact 的纪律是「不带 prompt 正文」（``test_conversation_orchestrator`` 对
+    ``configure`` 快照的断言），P0 往 durable 流里加了正文字段，这里是它们出仓前
+    唯一的闸。hash 留下是为了事后仍能对账「system 变过没有」「这轮注入是哪一段」。
+    """
+
+    kind = str(event_dict.get("kind") or "")
+    payload = event_dict.get("payload")
+    if not isinstance(payload, dict):
+        return event_dict
+    redacted: dict[str, object] | None = None
+    for field_kind, name in MODEL_VISIBLE_TEXT_FIELDS:
+        if field_kind != kind:
+            continue
+        if "[]." in name:
+            # ``list[].field``：列表里每一项的正文（history_compacted.folded[].model_content）。
+            list_name, inner = name.split("[].", 1)
+            items = payload.get(list_name)
+            if not isinstance(items, list) or not any(
+                isinstance(item, dict) and inner in item for item in items
+            ):
+                continue
+            redacted = dict(payload) if redacted is None else redacted
+            redacted[list_name] = [
+                _redact_text_field(item, inner) if isinstance(item, dict) and inner in item else item
+                for item in items
+            ]
+            continue
+        if name not in payload:
+            continue
+        redacted = _redact_text_field(dict(payload) if redacted is None else redacted, name)
+    if redacted is None:
+        return event_dict
+    return {**event_dict, "payload": redacted}
+
+
+def _redact_text_field(mapping: dict[str, object], name: str) -> dict[str, object]:
+    """把 ``mapping[name]`` 的正文换成 ``<name>_sha256`` + ``<name>_chars``，返回新 dict。"""
+
+    result = dict(mapping)
+    text = str(result.pop(name))
+    result.setdefault(f"{name}_sha256", sha256_text(text))
+    result.setdefault(f"{name}_chars", len(text))
+    return result
 
 
 def _branch_id_of(event: EpisodeEvent) -> str:
@@ -106,12 +158,15 @@ class DurableEventProjection:
 
 def project_durable_events(
     events: Iterable[EpisodeEvent],
+    *,
+    include_model_visible_text: bool = False,
 ) -> DurableEventProjection:
     """把 Episode 事件投影成对外 artifact 的 ``events`` 数组。
 
     形状就是 ``EpisodeEvent.to_dict()`` 逐字段原样——**这里不做裁剪也不改名**：
-    五个下游按现有字段读，投影层擅自改形状等于一次无声的契约变更。本函数唯一做的
-    判断是车道归属。
+    五个下游按现有字段读，投影层擅自改形状等于一次无声的契约变更。本函数做两个判断：
+    车道归属，以及（默认）把模型可见正文换成 hash——见 ``_redact_model_visible_text``。
+    ``include_model_visible_text=True`` 只给私有、不出仓的读者（P2 的 durable store）。
     """
 
     kept: list[dict[str, object]] = []
@@ -133,7 +188,10 @@ def project_durable_events(
             started[_branch_id_of(event)] = None
         elif event.kind in _BRANCH_TERMINAL_KINDS:
             terminated[_branch_id_of(event)] = None
-        kept.append(event.to_dict())
+        row = event.to_dict()
+        if not include_model_visible_text:
+            row = _redact_model_visible_text(row)
+        kept.append(row)
     return DurableEventProjection(
         events=tuple(kept),
         dropped_live_kinds=tuple(dropped),

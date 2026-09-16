@@ -161,13 +161,15 @@ def _seed_articles(tmp: Path) -> userspace.UserSpace:
 
 def test_audit_probe_identity_still_assembles_registry() -> None:
     from intelligence.services.episode_tools import build_episode_registry
-    from intelligence.services.research_tool_registry import _DEFAULT_TOOL_METADATA
+    from intelligence.services.research_tool_registry import DEFAULT_RESEARCH_CAPABILITIES
 
     frame = _forecast_frame()
     context = build_episode_context(
         frame,
         task_id="tool-reachability-audit",
-        capabilities=tuple(sorted(_DEFAULT_TOOL_METADATA)),
+        # 授全部 capability，而不是把工具名当 capability：历史三工具共享 finance_query，
+        # 名字不是 capability。
+        capabilities=tuple(sorted(DEFAULT_RESEARCH_CAPABILITIES)),
     )
     registry = build_episode_registry(frame, context, memory_user="__audit_probe__")
     assert "memory_lookup" in registry.names()

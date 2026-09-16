@@ -559,8 +559,13 @@ def test_ensure_sector_schema_migrates_legacy_tables_and_is_idempotent():
         "values ('2026-07-24', 'OLD.TI', '旧板块')"
     )
     con.execute(
+        "insert into fact_sector_stock_daily(trade_date, sector_ts_code, stock_ts_code, price) "
+        "values ('2026-07-24', 'OLD.TI', '000001.SZ', 10.0)"
+    )
+    # 无报价的 legacy 归属行不是行情事实, 迁移时丢弃 (与代际表的 CHECK 同一条规则)。
+    con.execute(
         "insert into fact_sector_stock_daily(trade_date, sector_ts_code, stock_ts_code) "
-        "values ('2026-07-24', 'OLD.TI', '000001.SZ')"
+        "values ('2026-07-24', 'OLD.TI', '000002.SZ')"
     )
 
     SectorUniverseStore.ensure_schema(con)
@@ -570,8 +575,8 @@ def test_ensure_sector_schema_migrates_legacy_tables_and_is_idempotent():
         "select sector_universe_snapshot_id from fact_sector_daily"
     ).fetchall() == [("legacy",)]
     assert con.execute(
-        "select sector_universe_snapshot_id from fact_sector_stock_daily"
-    ).fetchall() == [("legacy",)]
+        "select stock_ts_code, sector_universe_snapshot_id from fact_sector_stock_daily"
+    ).fetchall() == [("000001.SZ", "legacy")]
     assert _table_type(con, "fact_sector_daily") == "VIEW"
     assert _table_type(con, "fact_sector_stock_daily") == "VIEW"
     assert _table_type(con, "fact_sector_daily_generation") == "BASE TABLE"
@@ -594,8 +599,8 @@ def test_ensure_schema_migrates_legacy_tables_that_still_carry_their_indexes():
         "values ('2026-07-24', 'OLD.TI', '旧板块')"
     )
     con.execute(
-        "insert into fact_sector_stock_daily(trade_date, sector_ts_code, stock_ts_code) "
-        "values ('2026-07-24', 'OLD.TI', '000001.SZ')"
+        "insert into fact_sector_stock_daily(trade_date, sector_ts_code, stock_ts_code, price) "
+        "values ('2026-07-24', 'OLD.TI', '000001.SZ', 10.0)"
     )
 
     SectorUniverseStore.ensure_schema(con)
@@ -688,6 +693,30 @@ def test_ensure_schema_fills_columns_absent_from_an_older_legacy_table():
     con.execute(LEGACY_SECTOR_DAILY_DDL)
     con.execute(
         "create table fact_sector_stock_daily("
+        "trade_date date, sector_ts_code text, stock_ts_code text, stock_name text, price double, "
+        "primary key(trade_date, sector_ts_code, stock_ts_code))"
+    )
+    con.execute(
+        "insert into fact_sector_stock_daily values "
+        "('2026-07-24', 'OLD.TI', '000001.SZ', '测试股', 10.0)"
+    )
+
+    SectorUniverseStore.ensure_schema(con)
+
+    assert con.execute(
+        "select stock_name, price, mcap_source, sector_universe_snapshot_id "
+        "from fact_sector_stock_daily"
+    ).fetchall() == [("测试股", 10.0, None, "legacy")]
+    con.close()
+
+
+def test_ensure_schema_does_not_carry_rows_from_a_legacy_table_without_quote_columns():
+    """旧表连 price/pct_chg/amount 列都没有 = 全是归属行, 一行都不进代际表 (CHECK 也不会收)。"""
+    con = duckdb.connect(":memory:")
+    con.execute(DIM_SECTOR_DDL)
+    con.execute(LEGACY_SECTOR_DAILY_DDL)
+    con.execute(
+        "create table fact_sector_stock_daily("
         "trade_date date, sector_ts_code text, stock_ts_code text, stock_name text, "
         "primary key(trade_date, sector_ts_code, stock_ts_code))"
     )
@@ -698,10 +727,8 @@ def test_ensure_schema_fills_columns_absent_from_an_older_legacy_table():
 
     SectorUniverseStore.ensure_schema(con)
 
-    assert con.execute(
-        "select stock_name, price, mcap_source, sector_universe_snapshot_id "
-        "from fact_sector_stock_daily"
-    ).fetchall() == [("测试股", None, None, "legacy")]
+    assert _table_type(con, "fact_sector_stock_daily") == "VIEW"
+    assert con.execute("select count(*) from fact_sector_stock_daily").fetchone() == (0,)
     con.close()
 
 
@@ -788,8 +815,8 @@ def test_candidate_and_superseded_generations_stay_out_of_the_public_view(store_
         )
         store_con.execute(
             "insert into fact_sector_stock_daily_generation(trade_date, "
-            "sector_universe_snapshot_id, sector_ts_code, stock_ts_code) "
-            "values ('2026-07-28', ?, '990001.FP', '000001.SZ')",
+            "sector_universe_snapshot_id, sector_ts_code, stock_ts_code, price) "
+            "values ('2026-07-28', ?, '990001.FP', '000001.SZ', 10.0)",
             [snapshot_id],
         )
 
@@ -1071,29 +1098,33 @@ def test_fast_copy_refuses_a_date_that_has_a_published_universe(store_con):
     ).fetchone() == (0,)
 
 
-def test_fast_copy_of_a_legacy_date_is_marked_degraded_and_leaves_no_receipt(store_con):
+def test_fast_copy_of_a_legacy_date_is_refused_and_writes_nothing(store_con):
+    """2026-09-03 起「拷昨日成分」一律拒绝: 行情列全空的归属行正是空壳行的来源。"""
     store_con.execute(
         """
         INSERT INTO fact_sector_stock_daily_generation
             (trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name,
-             stock_ts_code, stock_name, source)
+             stock_ts_code, stock_name, price, source)
         VALUES ('2026-07-21', 'legacy', '990001A.FP', 'MLCC',
-                '000001.SZ', '测试股', 'fupanhui')
+                '000001.SZ', '测试股', 10.0, 'fupanhui')
         """
     )
     import scripts.fast_daily_sync as fast
 
     rows, status = fast.fast_sector_stocks(store_con, "2026-07-22")
 
-    assert rows == 1
-    assert status == "degraded_legacy_copy"
+    assert rows == 0
+    assert status == fast.REFUSED_LEGACY_COPY_RETIRED
     assert store_con.execute(
-        "select distinct sector_universe_snapshot_id "
-        "from fact_sector_stock_daily_generation where trade_date = '2026-07-22'"
-    ).fetchall() == [("legacy",)]
+        "select count(*) from fact_sector_stock_daily_generation where trade_date = '2026-07-22'"
+    ).fetchone() == (0,)
     assert store_con.execute(
         "select count(*) from ops_sector_member_sync_daily where trade_date = '2026-07-22'"
     ).fetchone() == (0,)
+    with pytest.raises(SectorUniverseValidationError, match="retired"):
+        SectorUniverseStore(store_con).copy_legacy_member_generation(
+            target_date="2026-07-22", source_date="2026-07-21"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1232,8 +1263,8 @@ def test_audit_rejects_member_facts_outside_the_published_universe(store_con):
     store_con.execute(
         """
         INSERT INTO fact_sector_stock_daily_generation
-            (trade_date, sector_universe_snapshot_id, sector_ts_code, stock_ts_code)
-        VALUES ('2026-07-28', ?, '999999Z.FP', '000009.SZ')
+            (trade_date, sector_universe_snapshot_id, sector_ts_code, stock_ts_code, price)
+        VALUES ('2026-07-28', ?, '999999Z.FP', '000009.SZ', 10.0)
         """,
         [published.snapshot_id],
     )
@@ -1251,8 +1282,8 @@ def test_audit_ignores_legacy_and_superseded_generations(store_con):
     store_con.execute(
         """
         INSERT INTO fact_sector_stock_daily_generation
-            (trade_date, sector_universe_snapshot_id, sector_ts_code, stock_ts_code)
-        VALUES ('2026-07-28', 'legacy', '990001A.FP', '000001.SZ')
+            (trade_date, sector_universe_snapshot_id, sector_ts_code, stock_ts_code, price)
+        VALUES ('2026-07-28', 'legacy', '990001A.FP', '000001.SZ', 10.0)
         """
     )
     audit = SectorUniverseStore(store_con).completion_audit(

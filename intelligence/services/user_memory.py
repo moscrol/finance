@@ -28,6 +28,31 @@ DEFAULT_LIMIT = 5
 PEER_HIT_MIN_N = checkpoints.DEFAULT_CALIBRATION_MIN_N
 PEER_HIT_LINE = "同类判断历史 {hits}/{n} 命中（分母=已裁决数）"
 
+#: W1 读侧来源契约：召回池只从这三源取条目。verdicts 不入池——它只喂回检校准
+#: （calibration_text / PEER_HIT_LINE）。新增来源的流程：先在这里登记、在 PR 里
+#: 声明「该源为什么不含易变事实」，再改 MemoryRecall 与 ReadSideContractTests
+#: 的 slots 断言（不登记直接加槽位，契约测试先红）。来源名单只是辅助：
+#: 真正的防线在证据分级（episode_tools 侧 evidence_tier="user_memory" + 先验自标），
+#: 来源全对也不证明条目正文里没有旧价格、旧订单。
+RECALL_SOURCES: tuple[str, ...] = ("judgments", "corrections", "methods")
+
+# ── W3 召回降权口径（2026-09-11 定；spec: 2026-09-10-knevo-arch-delta-worklist W3）──
+#: 驱动降权的指标 = **计分率**（checkpoints.CategoryStat.hit_rate = score_sum/n；
+#: hit=1、partial=0.5、miss=0），与校准器同一口径。PEER_HIT_LINE 的「x/n 命中」
+#: 是整命中**展示**口径，不驱动决策——两口径对同一组数据（4 hit + 6 partial）
+#: 会读出 40% 与 70%，不钉死驱动口径，同一阈值会得出相反结论。
+#: 分母 n = 已终态裁决数（hit/partial/miss）；unverifiable 与 hindsight 在
+#: calibrate() 已排除，不进分母。
+#: 生效双闸：score_rate < 阈值 且 n ≥ PEER_HIT_MIN_N（KC-11 同一闸，小样本不降权）。
+#: 阈值默认 **None=功能关闭**：候选值须过 evolution 回测队列
+#: （evolution/backtest-queue.md）并经人工确认后才允许填数——reading_baseline
+#: 纪律：结构先行，单点阈值回测过了才升。
+RELIABILITY_DOWNWEIGHT_THRESHOLD: float | None = None
+RELIABILITY_WARNING_LINE = (
+    "⚠ 该类判断（{category}）历史命中率低：计分率 {rate}%（partial 计 0.5，N={n}）"
+    "——已降权召回，仅作反例与风险提示，不作立论起点"
+)
+
 
 def _norm(text: Any) -> str:
     return re.sub(r"\s+", "", str(text or "")).lower()
@@ -152,16 +177,78 @@ def judgment_peer_hits(
     ]
 
 
+def reliability_downweight(
+    records: list[dict[str, Any]],
+    checkpoint_rows: list[dict[str, Any]],
+    cal: checkpoints.Calibration,
+    *,
+    threshold: float | None,
+    min_n: int = PEER_HIT_MIN_N,
+) -> tuple[list[dict[str, Any]], list[str | None]]:
+    """W3：低可靠判断类沉底（稳定重排，其余相对顺序不变）并逐条给警告行。
+
+    threshold=None（生产默认）时不重排、不出警告：阈值未经回测不得生效。
+    口径见 RELIABILITY_DOWNWEIGHT_THRESHOLD 处注释：计分率驱动，小样本（n < min_n）
+    与无分类（resolve_judgment_category → None）一律不降权不警告。
+    """
+    if threshold is None or not records:
+        return list(records), [None] * len(records)
+    keep: list[int] = []
+    sink: list[int] = []
+    warnings: dict[int, str] = {}
+    for idx, rec in enumerate(records):
+        category = resolve_judgment_category(rec, checkpoint_rows)
+        stat = None
+        if category:
+            stat = next((s for s in cal.by_category if s.category == category), None)
+        if stat is not None and stat.n >= min_n and stat.hit_rate < threshold:
+            sink.append(idx)
+            warnings[idx] = RELIABILITY_WARNING_LINE.format(
+                category=category, rate=round(stat.hit_rate * 100), n=stat.n
+            )
+        else:
+            keep.append(idx)
+    order = keep + sink
+    return [records[i] for i in order], [warnings.get(i) for i in order]
+
+
+def judgment_reliability(
+    records: list[dict[str, Any]],
+    *,
+    user: str | None = None,
+    users_root: str | Path | None = None,
+    threshold: float | None = None,
+    min_n: int = PEER_HIT_MIN_N,
+) -> tuple[list[dict[str, Any]], list[str | None]]:
+    """工具侧（memory_lookup）入口：读该用户校准台账后套 reliability_downweight。
+
+    台账读失败只降级为原样返回，不让记忆召回本身失败。
+    """
+    if threshold is None or not records:
+        return list(records), [None] * len(records)
+    _j_path, _c_path, ck_path, v_path = _ledger_paths(user, users_root)
+    try:
+        checkpoint_rows, _ = checkpoints.load_checkpoints(ck_path)
+        cal, _warn = checkpoints.load_calibration(ck_path, v_path)
+    except Exception:
+        return list(records), [None] * len(records)
+    return reliability_downweight(
+        records, checkpoint_rows, cal, threshold=threshold, min_n=min_n
+    )
+
+
 def _judgment_lines(
     records: list[dict[str, Any]],
     peer_lines: list[str | None] | None = None,
     *,
     as_of: str | None = None,
+    warning_lines: list[str | None] | None = None,
 ) -> list[str]:
     from intelligence.services.track_contract import downgrade_expired_text
 
     lines: list[str] = []
     extras = list(peer_lines or [])
+    warns = list(warning_lines or [])
     for index, rec in enumerate(records):
         memo = str(rec.get("memo") or "").strip()
         if not memo:
@@ -175,11 +262,16 @@ def _judgment_lines(
         tags += [str(s).strip() for s in (rec.get("stocks") or []) if str(s).strip()]
         date = str(rec.get("ts") or "")[:10]
         head = "、".join(tags)
-        suffix = f"（{date}）" if date else ""
-        lines.append(f"- 核心判断{f'[{head}]' if head else ''}：{memo}{suffix}")
+        # W2 逐条归属：块内混进一条过期判断时，块级标签救不了单条——每条自带
+        # 「这是你 X 日的判断」。日期从后缀移入前缀（仍逐条），过期降级不变。
+        own = f"[M·你的判断 {date}]" if date else "[M·你的判断]"
+        lines.append(f"- {own}{f'[{head}]' if head else ''}：{memo}")
         peer = extras[index] if index < len(extras) else None
         if peer:
             lines.append(f"  {peer}")
+        warn = warns[index] if index < len(warns) else None
+        if warn:
+            lines.append(f"  {warn}")
     return lines
 
 
@@ -192,8 +284,8 @@ def _correction_lines(records: list[dict[str, Any]]) -> list[str]:
         principle = str(rec.get("principle") or "").strip()
         body = principle or correction
         date = str(rec.get("ts") or "")[:10]
-        suffix = f"（{date}）" if date else ""
-        lines.append(f"- 纠偏原则：{body}{suffix}")
+        own = f"[M·你的纠偏原则 {date}]" if date else "[M·你的纠偏原则]"
+        lines.append(f"- {own}：{body}")
     return lines
 
 
@@ -204,15 +296,21 @@ def build_memory_block(
     peer_lines: list[str | None] | None = None,
     *,
     as_of: str | None = None,
+    method_records: list[dict[str, Any]] | None = None,
+    warning_lines: list[str | None] | None = None,
 ) -> str:
-    """渲染 [M] 块；判断与纠偏都为空时返回空串（不追加块）。"""
-    j_lines = _judgment_lines(judgment_records, peer_lines, as_of=as_of)
+    """渲染 [M] 块；判断、纠偏与方法读数都为空时返回空串（不追加块）。"""
+    j_lines = _judgment_lines(
+        judgment_records, peer_lines, as_of=as_of, warning_lines=warning_lines
+    )
     c_lines = _correction_lines(correction_records)
-    if not j_lines and not c_lines:
+    m_lines = _method_lines(method_records or [])
+    if not j_lines and not c_lines and not m_lines:
         return ""
-    lines = ["## 用户记忆检索块 [M]（你自己的核心判断/纠偏原则/回检胜率，非市场事实）"]
+    lines = ["## 用户记忆检索块 [M]（你自己的核心判断/纠偏原则/回检胜率/方法验证读数，非市场事实）"]
     lines += j_lines
     lines += c_lines
+    lines += m_lines
     if calibration_text:
         lines.append("- 回检校准（该信多少）：")
         lines += [f"  {ln}" for ln in calibration_text.splitlines() if ln.strip()]
@@ -263,7 +361,13 @@ class MemoryRecall:
     implementation instead of forking the relevance logic.
     """
 
-    __slots__ = ("judgments", "corrections", "judgments_path", "corrections_path")
+    __slots__ = (
+        "judgments",
+        "corrections",
+        "judgments_path",
+        "corrections_path",
+        "methods",
+    )
 
     def __init__(
         self,
@@ -272,18 +376,46 @@ class MemoryRecall:
         corrections: list[dict[str, Any]],
         judgments_path: Path,
         corrections_path: Path,
+        methods: list[dict[str, Any]] | None = None,
     ) -> None:
         self.judgments = judgments
         self.corrections = corrections
         self.judgments_path = judgments_path
         self.corrections_path = corrections_path
+        # 方法验证立场（能力升级 07）：该用户自己实验目录下的固定方法读数——历史演练 / 真实前向
+        # 分开标注，只在问题命中方法关键词时召回；别的用户的收据不会进来。
+        self.methods = list(methods or [])
 
     def __bool__(self) -> bool:
-        return bool(self.judgments or self.corrections)
+        return bool(self.judgments or self.corrections or self.methods)
 
     @property
     def total(self) -> int:
-        return len(self.judgments) + len(self.corrections)
+        return len(self.judgments) + len(self.corrections) + len(self.methods)
+
+
+def _method_records(
+    query: str,
+    user: str | None,
+    users_root: str | Path | None,
+) -> list[dict[str, Any]]:
+    """方法验证立场召回；任何失败只降级为空，不让记忆召回本身失败。"""
+    try:
+        from intelligence.services.method_validation import flywheel
+
+        return flywheel.recall_for_query(query, user=user, users_root=users_root)
+    except Exception:
+        return []
+
+
+def _method_lines(records: list[dict[str, Any]]) -> list[str]:
+    lines: list[str] = []
+    for record in records:
+        date = str(record.get("date") or "")[:10]
+        own = f"[M·方法验证读数 {date}]" if date else "[M·方法验证读数]"
+        lines.append(f"- {own}（{record.get('title') or record.get('method_id')}）：")
+        lines += [f"  {ln}" for ln in (record.get("lines") or []) if str(ln).strip()]
+    return lines
 
 
 def relevant_memory_records(
@@ -319,6 +451,7 @@ def relevant_memory_records(
         ),
         judgments_path=j_path,
         corrections_path=c_path,
+        methods=_method_records(query, user, users_root),
     )
 
 
@@ -344,11 +477,19 @@ def memory_block_for_query(
     c_hit = recall.corrections
     calibration_text = ""
     peer_lines: list[str | None] = []
+    warning_lines: list[str | None] = []
     if j_hit or c_hit:
         try:
             checkpoint_rows, _ = checkpoints.load_checkpoints(ck_path)
             cal, _warn = checkpoints.load_calibration(ck_path, v_path)
             calibration_text = checkpoints.render_calibration_for_prompt(cal)
+            # W3：先降权重排（阈值模块级读取，默认 None=关闭），再按新序配胜率行。
+            j_hit, warning_lines = reliability_downweight(
+                j_hit,
+                checkpoint_rows,
+                cal,
+                threshold=RELIABILITY_DOWNWEIGHT_THRESHOLD,
+            )
             peer_lines = [
                 peer_hit_for_judgment(record, checkpoint_rows, cal)
                 for record in j_hit
@@ -356,4 +497,12 @@ def memory_block_for_query(
         except Exception:
             calibration_text = ""
             peer_lines = []
-    return build_memory_block(j_hit, c_hit, calibration_text, peer_lines)
+            warning_lines = []
+    return build_memory_block(
+        j_hit,
+        c_hit,
+        calibration_text,
+        peer_lines,
+        method_records=recall.methods,
+        warning_lines=warning_lines,
+    )

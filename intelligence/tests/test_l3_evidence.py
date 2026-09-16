@@ -22,6 +22,8 @@ from intelligence.services.l3_evidence import (
     L3EvidenceBundle,
     L3EvidenceGap,
     L3EvidenceItem,
+    UNRESOLVED_COMPANY_WARNING,
+    lookup_l3_company,
     lookup_l3_evidence,
 )
 
@@ -206,6 +208,81 @@ class L3EvidenceLookupTests(unittest.TestCase):
 
         self.assertFalse(bundle.items)
         self.assertIn("没有解析到可用证据", "\n".join(bundle.warnings))
+
+    def test_unresolved_company_becomes_an_instruction_the_model_can_act_on(self) -> None:
+        """题材名当公司名送下去：CLI 回「无法解析公司」+ []，警告要说清「这不是公司、换成公司名」。
+
+        2026-09-07 同题五遍 live 父臂 8 次 l3_lookup 全空，一半 query 是「固态电池 量产 产线 公告」。
+        只有一句「查询成功但没有解析到可用证据」时，模型下一轮照样用题材名再点一次。
+        """
+
+        unresolved = subprocess.CompletedProcess(
+            args=["mock"], returncode=0, stdout="[warn] 无法解析公司：固态电池\n[]\n", stderr=""
+        )
+        with mock.patch("intelligence.services.l3_evidence.subprocess.run", return_value=unresolved):
+            bundle = lookup_l3_company(
+                "2026年8月 9月 固态电池 量产 产线 公告 互动易 A股",
+                config=L3LookupConfig(
+                    enabled=True,
+                    cache_ttl_seconds=0,
+                    company_cmd="{python_sh} -m disclosure_lookup.cli company {company_sh} --json",
+                ),
+            )
+        self.assertFalse(bundle.items)
+        self.assertIn(UNRESOLVED_COMPANY_WARNING, bundle.warnings)
+        self.assertIn("没有解析到可用证据", "\n".join(bundle.warnings))
+        self.assertIn("题材名、产品名不是公司", bundle.to_prompt_block())
+
+        # 真公司、近 90 天只有 P2 定期报告（被低信号门丢掉）：不是「没识别出公司」，不能给这条指令。
+        only_periodic = subprocess.CompletedProcess(
+            args=["mock"], returncode=0,
+            stdout='[{"company_name":"万顺新材","source":"cninfo","title":"2026年半年度报告","summary":"2026年半年度报告","url":"https://x","triage_level":"P2"}]',
+            stderr="",
+        )
+        with mock.patch("intelligence.services.l3_evidence.subprocess.run", return_value=only_periodic):
+            resolved = lookup_l3_company(
+                "万顺新材 2026年9月 钠离子电池 铝箔 中批量供货",
+                config=L3LookupConfig(
+                    enabled=True,
+                    cache_ttl_seconds=0,
+                    company_cmd="{python_sh} -m disclosure_lookup.cli company {company_sh} --json",
+                ),
+            )
+        self.assertFalse(resolved.items)
+        self.assertNotIn(UNRESOLVED_COMPANY_WARNING, resolved.warnings)
+        self.assertIn("没有解析到可用证据", "\n".join(resolved.warnings))
+
+    def test_interactive_platform_reply_is_the_evidence_not_the_question(self) -> None:
+        """互动易行：summary 只是投资者提问，公司答复在 raw_excerpt 的「||答复：」之后。
+
+        2026-09-07 实测盛弘股份 irm_szse P0 行：提问「公司为维谛供应 800V HVDC…」，答复「公司和维谛在
+        HVDC 业务上并未合作」（is_reverse=True）。只给提问就把一手反证扔了。"""
+
+        rows = [
+            {
+                "company_name": "盛弘股份", "company_code": "300693", "source": "irm_szse",
+                "title": "尊敬的董秘您好，公司为维谛供应800V HVDC高压直流电源模块，想咨询两点",
+                "url": "https://irm.cninfo.com.cn/", "published_at": "2026-08-10T13:18:29+08:00",
+                "summary": "尊敬的董秘您好，公司为维谛供应800V HVDC高压直流电源模块，想咨询两点：1、是否适配英伟达",
+                "raw_excerpt": "尊敬的董秘您好，公司为维谛供应800V HVDC高压直流电源模块，想咨询两点：1、是否适配英伟达 2、订单是否增长  ||答复：您好，公司和维谛在HVDC业务上并未合作。感谢您的关注。",
+                "matched_keywords": [], "triage_level": "P0", "triage_score": 18.0, "is_reverse": True,
+            },
+            {
+                "company_name": "盛弘股份", "source": "cninfo", "title": "关于签订重大合同的公告",
+                "summary": "关于签订重大合同的公告", "url": "https://www.cninfo.com.cn/x", "triage_level": "P1",
+                "is_reverse": False,
+            },
+        ]
+        items = _try_parse_json_items("company", json.dumps(rows, ensure_ascii=False))
+
+        self.assertEqual(len(items), 2)
+        irm, cninfo = items
+        self.assertEqual(irm.source_type, "irm_szse")
+        self.assertTrue(irm.title.startswith("[反向口径] "))
+        self.assertIn("答复：您好，公司和维谛在HVDC业务上并未合作", irm.summary)
+        self.assertIn("想咨询两点", irm.summary)  # 提问头保留，让答复有上下文
+        self.assertNotIn("[反向口径]", cninfo.title)
+        self.assertEqual(cninfo.summary, "关于签订重大合同的公告")
 
     def test_leading_warning_does_not_hide_or_contaminate_json_evidence(
         self,

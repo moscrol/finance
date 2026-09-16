@@ -381,41 +381,5 @@ class CliWiringTests(unittest.TestCase):
             self.assertEqual(args.source, src)
 
 
-class FeishuTranscriptSinkTests(unittest.TestCase):
-    def test_build_config_picks_transcript_log_flag(self) -> None:
-        from intelligence.chat import feishu_bot
-
-        parser = __import__("argparse").ArgumentParser()
-        feishu_bot.add_arguments(parser)
-        args = parser.parse_args(
-            ["--app-id", "a", "--app-secret", "b", "--transcript-log", "/tmp/t.jsonl"]
-        )
-        config = feishu_bot.build_config(args)
-        self.assertEqual(config.transcript_log, "/tmp/t.jsonl")
-
-    def test_default_transcript_log_off(self) -> None:
-        from intelligence.chat import feishu_bot
-
-        parser = __import__("argparse").ArgumentParser()
-        feishu_bot.add_arguments(parser)
-        args = parser.parse_args(["--app-id", "a", "--app-secret", "b"])
-        config = feishu_bot.build_config(args)
-        self.assertIsNone(config.transcript_log)
-
-    def test_append_transcript_writes_parseable_line(self) -> None:
-        from intelligence.chat import feishu_bot
-
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "nested" / "events.jsonl"
-            event = feishu_bot.build_transcript_event("om_1", "oc_1", "text", "你好", "你好")
-            feishu_bot.append_transcript(str(path), event)
-            line = path.read_text(encoding="utf-8").strip()
-            obj = json.loads(line)
-            self.assertEqual(obj["source"], "feishu")
-            self.assertEqual(obj["text"], "你好")
-            self.assertEqual(obj["reply"], "你好")
-            self.assertEqual(obj["message_type"], "text")
-
-
 if __name__ == "__main__":
     unittest.main()
