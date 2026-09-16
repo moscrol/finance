@@ -1,12 +1,18 @@
 #!/bin/zsh
 set -uo pipefail
 
-CODE_ROOT="${FINANCE_CODE_ROOT:-/Users/a77/finance-workspace-runtime}"
-DATA_ROOT="${FINANCE_DATA_ROOT:-/Users/a77/finance-workspace-private}"
+DATA_ROOT="${FINANCE_DATA_ROOT:-${FINANCE_WS:-$(cd "$(dirname "$0")/../.." && pwd)}}"
 export FINANCE_DATA_ROOT="$DATA_ROOT"
+export FINANCE_WS="$DATA_ROOT"
 export MARKET_FEATURE_STORE_DB="${MARKET_FEATURE_STORE_DB:-$DATA_ROOT/db/market_feature_store.duckdb}"
 export MONEYFLOW_OUTPUT_DIR="${MONEYFLOW_OUTPUT_DIR:-$DATA_ROOT/scripts/moneyflow/outputs}"
+export L2_SOURCE="${L2_SOURCE:-baidu-share:xianyu-l2-7z}"
+# 代码根 = 本脚本所在的那棵树：moneyflow 脚本、trading_days 与本文件同源，信任哪份代码可验证
+#（工单 #51 夜跑代码根钉死）。状态 / 库 / 输出走 DATA_ROOT：闲鱼分享入口 state/l2-baidu-share.json、
+# 日包缓存 state/l2-cache 都在数据根，百度网盘 Cookie 走本机家目录（见 l2_paths.py），与代码根无关。
+CODE_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 export PATH="/opt/homebrew/bin:/opt/homebrew/opt/node/bin:/usr/local/bin:$PATH"
+PY="${FINANCE_PYTHON:-python3}"
 
 if [ "${1:-}" = "--force-rescan" ]; then
   export L2_FORCE_RESCAN=1
@@ -32,16 +38,18 @@ if [ "${L2_LOCK_HELD:-0}" != "1" ]; then
   trap 'rm -rf "$lock_dir"' EXIT INT TERM
 fi
 
-[ -f "$HOME/.secrets/clickhouse.env" ] && source "$HOME/.secrets/clickhouse.env"
 moneyflow_dir="$CODE_ROOT/scripts/moneyflow"
-if [ ! -d "$moneyflow_dir" ] || [ -z "${CH_PASSWORD:-}" ]; then
-  echo "资金流段跳过（缺少代码或 CH_PASSWORD）"
+if [ ! -f "$moneyflow_dir/run_l2_from_share.py" ]; then
+  echo "资金流段跳过（缺少 $moneyflow_dir/run_l2_from_share.py）"
+  exit 2
+fi
+if [ ! -f "$DATA_ROOT/state/l2-baidu-share.json" ]; then
+  echo "资金流段跳过（缺少 state/l2-baidu-share.json）"
   exit 2
 fi
 
 REV=$(git -C "$CODE_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
-echo "L2 start date=$D code=$CODE_ROOT rev=$REV db=$MARKET_FEATURE_STORE_DB"
-echo "L2 shared cache=$MONEYFLOW_OUTPUT_DIR/l2_query_cache_${D}.json force_rescan=${L2_FORCE_RESCAN:-0}"
+echo "L2 start date=$D source=$L2_SOURCE code=$CODE_ROOT rev=$REV data=$DATA_ROOT db=$MARKET_FEATURE_STORE_DB"
 
 # 交易日预检查（工单 #52）。判据是**日历**，与「行情到没到」彻底分开：
 #   旧实现拿当日 fact_stock_daily 行数代理交易日。2026-09-11（周五、真交易日、
@@ -53,13 +61,13 @@ echo "L2 shared cache=$MONEYFLOW_OUTPUT_DIR/l2_query_cache_${D}.json force_resca
 #             很响），也不要 exit 0 装作没事——后者就是本工单要消灭的形状。
 # 探针自身异常（import 失败/无 python/输出对不上格式）一律归 unknown，不再 2>/dev/null
 # 吞掉 stderr：那会让「判定挂了」和「判定说休市」在日志里长得一模一样。
-CAL_OUT="$(MARKET_FEATURE_STORE_DB="$MARKET_FEATURE_STORE_DB" python3 - "$D" "$CODE_ROOT" 2>&1 <<'PY'
+CAL_OUT="$(MARKET_FEATURE_STORE_DB="$MARKET_FEATURE_STORE_DB" "$PY" - "$D" "$CODE_ROOT" 2>&1 <<'PY'
 import os
 import sys
 
-# 只认 $CODE_ROOT 里的那份代码。`python3 -` 会把**当前工作目录**塞进 sys.path，
-# 而本脚本的 cd 在探针之后——不清掉它，夜跑 cwd 恰好是另一棵检出时，判定就用了
-# 那棵树的休市表，日志里完全看不出来（2026-09-12 写守卫测试时实测到：把
+# 只认 $CODE_ROOT（= 本脚本所在的那棵树）里的那份代码。`python -` 会把**当前工作目录**
+# 塞进 sys.path，而本脚本的 cd 在探针之后——不清掉它，夜跑 cwd 恰好是另一棵检出时，
+# 判定就用了那棵树的休市表，日志里完全看不出来（2026-09-12 写守卫测试时实测到：把
 # CODE_ROOT 里的包拆掉，探针照样答 trading，因为它从 cwd 兜到了别处）。
 # 与工单 #51「夜跑代码根钉死」同一条纪律：信任哪份代码必须可验证。
 root = os.path.normpath(sys.argv[2])
@@ -111,7 +119,7 @@ echo "L2 calendar date=$D verdict=$CAL_VERDICT source=$CAL_SOURCE data=$CAL_DATA
 # 日历判定落台账（2026-09-13 QC S2）：unknown 不再只在 stderr 吼一声——
 # 调度守卫/值班查的是 ops_pipeline_run_daily，不是日志。trading/closed 也记，
 # 于是「无 calendar 行」唯一地意味着「本副本还没带这版修复」。台账失败不阻断。
-python3 "$moneyflow_dir/write_to_duckdb.py" --calendar "$D" "$CAL_VERDICT" "$CAL_SOURCE" "$CAL_REASON" \
+"$PY" "$moneyflow_dir/write_to_duckdb.py" --calendar "$D" "$CAL_VERDICT" "$CAL_SOURCE" "$CAL_REASON" \
   || echo "[$(date '+%F %T')] ⚠️ 日历台账写入失败 date=$D（不阻断）" >&2
 
 if [ "$CAL_VERDICT" = "closed" ]; then
@@ -123,16 +131,16 @@ if [ "$CAL_VERDICT" = "unknown" ]; then
   echo "[$(date '+%F %T')] ⚠️ 按「要干活」处理继续跑 L2；失败由上游真实报错暴露，不静默 exit 0" >&2
 fi
 if [ "$CAL_DATA" != "present" ]; then
-  # 行情缺口 ≠ L2 故障。L2 四步对当日行情的依赖是不对称的（见工单 #52 §1）：
-  # limitup 读**前一交易日**涨停池，行情缺当天也能跑完；top100 读**当日**
-  # fact_stock_daily 取成交额前 100，当天 0 行就必然空转。写清楚，免得值班的人
-  # 把「上游行情没到」误判成「L2 坏了」。
-  echo "[$(date '+%F %T')] ⚠️ 当日行情 data=$CAL_DATA（非 present）：limitup 用前一交易日涨停池可照常；top100/quant 依赖当日 fact_stock_daily，可能空转——这是行情缺口，不是 L2 故障" >&2
+  # 行情缺口 ≠ L2 故障。本副本走闲鱼日包，L2 自身不依赖当日 fact_stock_daily；
+  # 但下游 top100/quant 口径依赖它，缺了会空转。写清楚免得值班误判成 L2 坏了。
+  echo "[$(date '+%F %T')] ⚠️ 当日行情 data=$CAL_DATA（非 present）：日包侧可照常，依赖当日 fact_stock_daily 的口径可能空转——这是行情缺口，不是 L2 故障" >&2
 fi
 
 cd "$moneyflow_dir" || exit 1
-python3 write_to_duckdb.py --begin "$D" \
-  && python3 scan_limitup.py "$D" \
-  && python3 scan_top100.py "$D" \
-  && python3 scan_quant.py "$D" \
-  && python3 "$CODE_ROOT/scripts/render_moneyflow_html.py"
+"$PY" run_l2_from_share.py "$D"
+rc=$?
+if [ "$rc" -eq 0 ]; then
+  "$PY" "$CODE_ROOT/scripts/render_moneyflow_html.py" \
+    || echo "[$(date '+%F %T')] render_moneyflow_html 失败（不阻断）"
+fi
+exit "$rc"
