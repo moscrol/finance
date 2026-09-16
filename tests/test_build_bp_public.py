@@ -179,6 +179,14 @@ def test_validation_counts_research_and_optional_calibration_separately(model):
     assert "至少半数登记过判断，才考虑扩大" not in plan
 
 
+def test_public_copy_avoids_internal_jargon(model):
+    """对外版不带内部任务编号与运维术语；评审读不懂的词要么释义要么不出现（母本 v1.5）。"""
+    public = bp.build(bp.SRC.read_text(), model)
+    for jargon in ("M1–M5", "M6/UI", "质量门", "关系包", "六单季实数", "配对效果", "倒签"):
+        assert jargon not in public
+    assert "内部编号 M2" in public
+
+
 def test_red_line_wording(model):
     """对外红线只写「不荐股、不提供个股买卖建议」；不用法规原文动词「预测」认领能力（母本 v1.2 说明）。"""
     public = bp.build(bp.SRC.read_text(), model)
