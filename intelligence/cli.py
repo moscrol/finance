@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import io
 import json
+import os
 import sys
+import tempfile
+import uuid
+from contextlib import redirect_stdout
+from dataclasses import dataclass
 from pathlib import Path
+from typing import TextIO
 
 # NOTE: workflow modules are imported lazily inside each command handler so the
 # CLI (and the duckdb-free `ask` command) can run in environments without the
@@ -156,6 +164,14 @@ def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--l3-lookup-timeout", type=int, default=480, help="单个 L3 工具调用超时秒数；SSE 首跑建 uid 缓存可能接近 7 分钟")
     parser.add_argument("--l3-lookup-limit", type=int, default=5, help="单个 L3 工具最多注入证据条数")
     parser.add_argument("--summary-json", default=None, help="Write workflow summary JSON")
+    parser.add_argument(
+        "--call-provenance-json", default=None,
+        help="Write an exclusive machine receipt binding this ask's output and model calls",
+    )
+    parser.add_argument(
+        "--call-provenance-id", default=None,
+        help="Caller-supplied unique receipt ID; defaults to a generated UUID",
+    )
     parser.add_argument(
         "--brief-json",
         default=None,
@@ -1475,7 +1491,139 @@ def add_l3_ingest_parser(subparsers: argparse._SubParsersAction) -> None:
     p_apply.set_defaults(func=cmd_l3_apply)
 
 
+@dataclass
+class _AskReceiptState:
+    as_of: str | None
+    delivery_state: str = "no_answer"
+
+
+class _AskStdoutCapture:
+    """Forward output immediately while retaining the exact text that was written."""
+
+    def __init__(self, target: TextIO) -> None:
+        self.target = target
+        self.output = io.StringIO()
+
+    def write(self, text: str) -> int:
+        written = self.target.write(text)
+        self.output.write(text[:written])
+        return written
+
+    def flush(self) -> None:
+        self.target.flush()
+
+    def __getattr__(self, name: str):
+        return getattr(self.target, name)
+
+
+def _write_ask_call_receipt(path: Path, receipt: dict[str, object]) -> None:
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=path.parent,
+        prefix=f".{path.name}.", suffix=".tmp", delete=False,
+    ) as output:
+        temporary = Path(output.name)
+        try:
+            json.dump(receipt, output, ensure_ascii=False, sort_keys=True, allow_nan=False)
+            output.write("\n")
+            output.flush()
+            os.fsync(output.fileno())
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+    try:
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def cmd_ask(args: argparse.Namespace) -> int:
+    receipt_path = getattr(args, "call_provenance_json", None)
+    if not receipt_path:
+        if getattr(args, "call_provenance_id", None):
+            print("--call-provenance-id requires --call-provenance-json", file=sys.stderr)
+            return 2
+        return _cmd_ask(args)
+
+    from intelligence.services import llm_refine
+
+    path = Path(receipt_path).expanduser()
+    # An output path alias would overwrite the summary/brief and make a receipt
+    # appear to belong to the wrong artifact. Reject it before any workflow IO.
+    for output_name in ("summary_json", "brief_json", "audit_ledger"):
+        other = getattr(args, output_name, None)
+        if other and path.resolve() == Path(other).expanduser().resolve():
+            print(
+                f"[call-provenance] receipt path conflicts with --{output_name}",
+                file=sys.stderr,
+            )
+            return 2
+    receipt_id = getattr(args, "call_provenance_id", None) or str(uuid.uuid4())
+    state = _AskReceiptState(as_of=args.date)
+    receipt: dict[str, object] = {
+        "schema_version": 1,
+        "scope": "all_successful_ask_calls",
+        "receipt_id": receipt_id,
+        "call_id": receipt_id,
+        "status": "incomplete",
+        "delivery_state": "no_answer",
+        "records": [],
+    }
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("x", encoding="utf-8") as output:
+            json.dump(receipt, output, ensure_ascii=False, sort_keys=True, allow_nan=False)
+            output.write("\n")
+    except OSError as exc:
+        print(f"[call-provenance] cannot create receipt ({type(exc).__name__})", file=sys.stderr)
+        return 2
+
+    capture = _AskStdoutCapture(sys.stdout)
+    with llm_refine.call_ledger_scope(reuse_existing=True) as ledger:
+        previous_count = len(ledger.summary()["records"])
+        try:
+            with llm_refine.call_provenance_scope(receipt_id, "writer"), redirect_stdout(capture):
+                returncode = _cmd_ask(args, receipt_state=state)
+            receipt["status"] = "completed" if returncode != 2 else "invalid_input"
+            receipt["returncode"] = returncode
+            return returncode
+        except BaseException as exc:
+            receipt["status"] = "failed"
+            receipt["error_type"] = type(exc).__name__
+            raise
+        finally:
+            records = ledger.summary()["records"][previous_count:]
+            # A reused outer ledger may receive another copied context in parallel;
+            # only this receipt's call id belongs in its writer evidence. Keep
+            # unbound records so the receipt can explicitly fail closed.
+            records = [
+                item for item in records
+                if item.get("call_id") in {receipt_id, None}
+            ]
+            raw_output = capture.output.getvalue()
+            question = {"text": args.query, "as_of": state.as_of}
+            question_json = json.dumps(
+                question, ensure_ascii=False, sort_keys=True,
+                separators=(",", ":"), allow_nan=False,
+            )
+            receipt.update({
+                "question_sha256": hashlib.sha256(question_json.encode("utf-8")).hexdigest(),
+                "raw_output_sha256": hashlib.sha256(raw_output.encode("utf-8")).hexdigest(),
+                "answer_sha256": hashlib.sha256(raw_output.strip().encode("utf-8")).hexdigest(),
+                "delivery_state": state.delivery_state,
+                "collection_state": (
+                    "unattributed" if any(
+                        item["status"] == "success" and not item.get("call_id")
+                        for item in records
+                    ) else "captured" if records else "not_called"
+                ),
+                "records": records,
+            })
+            _write_ask_call_receipt(path, receipt)
+
+
+def _cmd_ask(
+    args: argparse.Namespace, *, receipt_state: _AskReceiptState | None = None,
+) -> int:
     from intelligence.services.ask import AskOptions
     from intelligence.workflows.ask import run_ask
 
@@ -1513,11 +1661,17 @@ def cmd_ask(args: argparse.Namespace) -> int:
             parallel_blocks=not args.serial_blocks,
         )
     )
+    if receipt_state is not None:
+        # Bind the hash to the date actually used by the workflow. A requested
+        # date may fall back to the latest available snapshot.
+        receipt_state.as_of = _result.trade_date or args.date
     if _result.clarify is not None:
         # 澄清追问短路：印出结构化追问即退出（未检索、不评分）。
         if args.summary_json:
             summary.write_json(args.summary_json)
         print(answer, end="")
+        if receipt_state is not None:
+            receipt_state.delivery_state = "clarification"
         return 0
     if args.summary_json:
         summary.write_json(args.summary_json)
@@ -1542,6 +1696,8 @@ def cmd_ask(args: argparse.Namespace) -> int:
         if record.is_failure:
             print(f"[audit-ledger] 已记为失败样本：{'、'.join(record.failure_tags)}", file=sys.stderr)
     print(answer, end="")
+    if receipt_state is not None:
+        receipt_state.delivery_state = "delivered" if answer.strip() else "no_answer"
     if not args.no_score:
         _auto_score_answer(args.query, _result.synthesis or answer, user=args.user)
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
