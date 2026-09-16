@@ -1,0 +1,69 @@
+{
+  "schema_version": "research-diagnostics-policy/v1",
+  "policy_id": "pol-synthetic-04-v1",
+  "provenance": "synthetic",
+  "note": "工程验收用的合成策略：effective_from 早于全部夹具行为时刻，规则版本与题包 answer_key 对齐。生产策略由 06 注入。",
+  "min_sample": 10,
+  "rules": [
+    {
+      "rule_id": "R-LATE",
+      "rule_version": "v1",
+      "kind": "late_registration",
+      "effective_from": "2026-08-01",
+      "effective_to": null,
+      "applies_to_object_kinds": ["observation_script", "scenario_tree", "checkpoint"],
+      "params": {"deadline_source": "declared_deadline"}
+    },
+    {
+      "rule_id": "R-REV",
+      "rule_version": "v1",
+      "kind": "condition_revision",
+      "effective_from": "2026-08-01",
+      "effective_to": null,
+      "applies_to_object_kinds": ["judgment", "observation_script", "checkpoint", "scenario_tree"],
+      "params": {
+        "disclosure_required_fields": ["recorded_at", "reason", "linked_refs"],
+        "require_disclosure_always": true,
+        "freeze_after": null
+      }
+    },
+    {
+      "rule_id": "R-STALE",
+      "rule_version": "v1",
+      "kind": "stale_evidence_reuse",
+      "effective_from": "2026-08-01",
+      "effective_to": null,
+      "applies_to_object_kinds": ["judgment", "checkpoint", "observation_script", "scenario_tree"],
+      "params": {"require_valid_evidence": true}
+    },
+    {
+      "rule_id": "R-STAGE",
+      "rule_version": "v1",
+      "kind": "stage_mismatch",
+      "effective_from": "2026-08-01",
+      "effective_to": null,
+      "applies_to_object_kinds": ["judgment", "checkpoint", "observation_script"],
+      "params": {}
+    },
+    {
+      "rule_id": "R-OVERDUE",
+      "rule_version": "v1",
+      "kind": "overdue_unreviewed",
+      "effective_from": "2026-08-01",
+      "effective_to": null,
+      "applies_to_object_kinds": ["checkpoint", "observation_script", "scenario_tree"],
+      "params": {"review_window_days": 2}
+    }
+  ],
+  "applicability_tables": [
+    {
+      "table_ref": "tbl-breakout-volume",
+      "version": "v1",
+      "method_ref": "M-breakout-volume",
+      "method_version": null,
+      "applicable_stages": ["共建主线", "主流主升", "主流主升2.0"],
+      "effective_from": "2026-08-01",
+      "effective_to": null
+    }
+  ]
+}
