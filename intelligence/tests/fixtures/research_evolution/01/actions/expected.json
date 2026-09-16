@@ -1,0 +1,316 @@
+{
+  "synthetic": true,
+  "events": [
+    {
+      "schema_version": "judgment-maintenance-event/v1",
+      "event_id": "jme-1a0fa14fc4c8808f",
+      "item_id": "jmi-8a9c914e34093775",
+      "owner_user_id": "alice",
+      "kind": "claimed",
+      "at": "2026-09-13T09:00:00+08:00",
+      "expected_management_revision": 0,
+      "command_id": "cmd-claim-1",
+      "payload_digest": "bad884f1080a1f360595ff594140cf2152a7fd83927b939288bcca5ab8188a1f",
+      "payload": {
+        "expected_item_version": "62fe790df6dd03a6"
+      }
+    },
+    {
+      "schema_version": "judgment-maintenance-event/v1",
+      "event_id": "jme-85df740669138e8a",
+      "item_id": "jmi-8a9c914e34093775",
+      "owner_user_id": "alice",
+      "kind": "reviewed_no_change",
+      "at": "2026-09-13T09:04:00+08:00",
+      "expected_management_revision": 1,
+      "command_id": "cmd-review-ok",
+      "payload_digest": "40fc4923f55604ec7b613d6366349c0f21a486c560227455712700e9db91b00f",
+      "payload": {
+        "expected_item_version": "62fe790df6dd03a6",
+        "reviewed_source_versions": [
+          [
+            "fact_market_daily:2026-09-01",
+            "h-a2"
+          ]
+        ]
+      }
+    },
+    {
+      "schema_version": "judgment-maintenance-event/v1",
+      "event_id": "jme-3027fd677cbfc2e4",
+      "item_id": "jmi-d66dec187fc8b4d7",
+      "owner_user_id": "alice",
+      "kind": "rejudgment_requested",
+      "at": "2026-09-13T09:10:00+08:00",
+      "expected_management_revision": 0,
+      "command_id": "cmd-rejudge-1",
+      "payload_digest": "148468ba295639c7f07b3be24b379b4131e29e974fe042758c45b8e4b3614f93",
+      "payload": {
+        "expected_item_version": "5b4f42f95461c3fc"
+      }
+    },
+    {
+      "kind": "rejudgment_failed",
+      "at": "2026-09-13T09:20:00+08:00",
+      "expected_management_revision": 1,
+      "payload": {
+        "reason": "run cancelled by user"
+      },
+      "schema_version": "judgment-maintenance-event/v1",
+      "event_id": "jme-sys-s09-rejudge-failed",
+      "item_id": "jmi-d66dec187fc8b4d7",
+      "owner_user_id": "alice",
+      "command_id": null,
+      "payload_digest": null
+    },
+    {
+      "schema_version": "judgment-maintenance-event/v1",
+      "event_id": "jme-99ecd94013aea3d8",
+      "item_id": "jmi-d66dec187fc8b4d7",
+      "owner_user_id": "alice",
+      "kind": "rejudgment_requested",
+      "at": "2026-09-13T09:30:00+08:00",
+      "expected_management_revision": 2,
+      "command_id": "cmd-rejudge-2",
+      "payload_digest": "fdd882fb28705a8546ca59ff1b3f4401db524cbb5f0feba0e0182e0fc6938941",
+      "payload": {
+        "expected_item_version": "5b4f42f95461c3fc"
+      }
+    },
+    {
+      "kind": "rejudgment_linked",
+      "at": "2026-09-13T09:40:00+08:00",
+      "expected_management_revision": 3,
+      "payload": {
+        "new_judgment_ref": "judgments.jsonl:j-new-1",
+        "owner_user_id": "bob"
+      },
+      "schema_version": "judgment-maintenance-event/v1",
+      "event_id": "jme-sys-s11-link-foreign-owner",
+      "item_id": "jmi-d66dec187fc8b4d7",
+      "owner_user_id": "alice",
+      "command_id": null,
+      "payload_digest": null
+    },
+    {
+      "kind": "rejudgment_linked",
+      "at": "2026-09-13T09:41:00+08:00",
+      "expected_management_revision": 3,
+      "payload": {
+        "new_judgment_ref": "judgments.jsonl:j-new-1",
+        "owner_user_id": "alice"
+      },
+      "schema_version": "judgment-maintenance-event/v1",
+      "event_id": "jme-sys-s12-link-ok",
+      "item_id": "jmi-d66dec187fc8b4d7",
+      "owner_user_id": "alice",
+      "command_id": null,
+      "payload_digest": null
+    },
+    {
+      "schema_version": "judgment-maintenance-event/v1",
+      "event_id": "jme-72b41cc650c47cfa",
+      "item_id": "jmi-cb8d2ff0dbd4a493",
+      "owner_user_id": "alice",
+      "kind": "snoozed",
+      "at": "2026-09-13T10:00:00+08:00",
+      "expected_management_revision": 0,
+      "command_id": "cmd-snooze-d9",
+      "payload_digest": "a328edc3b186a36eaef19be79ca9b94011ad0a330c396e43da6c1d8e29126e6f",
+      "payload": {
+        "expected_item_version": "97eedbbb2e113c59",
+        "snooze_until": "2026-09-13T11:00:00+08:00"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "s01-claim",
+      "status": "accepted",
+      "reason_code": "ok",
+      "resulting_status": "claimed",
+      "resulting_management_revision": 1
+    },
+    {
+      "id": "s02-claim-replay",
+      "status": "replayed",
+      "reason_code": "duplicate_command",
+      "resulting_status": "claimed",
+      "resulting_management_revision": 1
+    },
+    {
+      "id": "s03-same-id-other-payload",
+      "status": "conflict",
+      "reason_code": "command_payload_mismatch",
+      "resulting_status": null,
+      "resulting_management_revision": null
+    },
+    {
+      "id": "s04-stale-revision",
+      "status": "conflict",
+      "reason_code": "stale_revision",
+      "resulting_status": null,
+      "resulting_management_revision": null
+    },
+    {
+      "id": "s05-review-stale-versions",
+      "status": "conflict",
+      "reason_code": "stale_source_versions",
+      "resulting_status": null,
+      "resulting_management_revision": null
+    },
+    {
+      "id": "s06-review-ok",
+      "status": "accepted",
+      "reason_code": "ok",
+      "resulting_status": "closed",
+      "resulting_management_revision": 2
+    },
+    {
+      "id": "s07-terminal",
+      "status": "rejected",
+      "reason_code": "terminal_state",
+      "resulting_status": null,
+      "resulting_management_revision": null
+    },
+    {
+      "id": "s08-rejudge",
+      "status": "accepted",
+      "reason_code": "ok",
+      "resulting_status": "rejudgment_requested",
+      "resulting_management_revision": 1
+    },
+    {
+      "id": "s09-rejudge-failed",
+      "status": "system_event"
+    },
+    {
+      "id": "s10-rejudge-again",
+      "status": "accepted",
+      "reason_code": "ok",
+      "resulting_status": "rejudgment_requested",
+      "resulting_management_revision": 3
+    },
+    {
+      "id": "s11-link-foreign-owner",
+      "status": "system_event"
+    },
+    {
+      "id": "s12-link-ok",
+      "status": "system_event"
+    },
+    {
+      "id": "s13-snooze-then-expire",
+      "status": "accepted",
+      "reason_code": "ok",
+      "resulting_status": "snoozed",
+      "resulting_management_revision": 1
+    }
+  ],
+  "final_items": [
+    {
+      "id": "jmi-d66dec187fc8b4d7",
+      "status": "closed",
+      "management_revision": 4,
+      "closure": "rejudged"
+    },
+    {
+      "id": "jmi-9f605d4fe0922275",
+      "status": "open",
+      "management_revision": 0,
+      "closure": null
+    },
+    {
+      "id": "jmi-8a9c914e34093775",
+      "status": "closed",
+      "management_revision": 2,
+      "closure": "reviewed_no_change"
+    },
+    {
+      "id": "jmi-8739ed88bf59d4a6",
+      "status": "superseded",
+      "management_revision": 0,
+      "closure": null
+    },
+    {
+      "id": "jmi-cb8d2ff0dbd4a493",
+      "status": "open",
+      "management_revision": 1,
+      "closure": null
+    }
+  ],
+  "counts": {
+    "objects_seen": 1,
+    "objects_bound": 1,
+    "objects_unverifiable": 0,
+    "dependencies_checked": 3,
+    "items_open": 1
+  },
+  "management_log": {
+    "now": "2026-09-13T12:00:00+08:00",
+    "events_seen": 8,
+    "applied": 7,
+    "replayed": 0,
+    "conflict": 0,
+    "rejected": 1,
+    "absent_item": 0,
+    "outcomes": [
+      {
+        "event_id": "jme-1a0fa14fc4c8808f",
+        "item_id": "jmi-8a9c914e34093775",
+        "outcome": "applied",
+        "reason_code": "ok",
+        "detail": "open → claimed"
+      },
+      {
+        "event_id": "jme-85df740669138e8a",
+        "item_id": "jmi-8a9c914e34093775",
+        "outcome": "applied",
+        "reason_code": "ok",
+        "detail": "claimed → closed"
+      },
+      {
+        "event_id": "jme-3027fd677cbfc2e4",
+        "item_id": "jmi-d66dec187fc8b4d7",
+        "outcome": "applied",
+        "reason_code": "ok",
+        "detail": "open → rejudgment_requested"
+      },
+      {
+        "event_id": "jme-sys-s09-rejudge-failed",
+        "item_id": "jmi-d66dec187fc8b4d7",
+        "outcome": "applied",
+        "reason_code": "ok",
+        "detail": "rejudgment_requested → open"
+      },
+      {
+        "event_id": "jme-99ecd94013aea3d8",
+        "item_id": "jmi-d66dec187fc8b4d7",
+        "outcome": "applied",
+        "reason_code": "ok",
+        "detail": "open → rejudgment_requested"
+      },
+      {
+        "event_id": "jme-sys-s11-link-foreign-owner",
+        "item_id": "jmi-d66dec187fc8b4d7",
+        "outcome": "rejected",
+        "reason_code": "invalid_link",
+        "detail": "新判断必须带引用且属于同一 owner"
+      },
+      {
+        "event_id": "jme-sys-s12-link-ok",
+        "item_id": "jmi-d66dec187fc8b4d7",
+        "outcome": "applied",
+        "reason_code": "ok",
+        "detail": "rejudgment_requested → closed"
+      },
+      {
+        "event_id": "jme-72b41cc650c47cfa",
+        "item_id": "jmi-cb8d2ff0dbd4a493",
+        "outcome": "applied",
+        "reason_code": "ok",
+        "detail": "open → snoozed"
+      }
+    ]
+  }
+}

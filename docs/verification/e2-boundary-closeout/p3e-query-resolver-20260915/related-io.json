@@ -1,0 +1,39 @@
+{
+  "executor": "author",
+  "forbidden_attempts": 8,
+  "events": [
+    {
+      "event": "open",
+      "details": "/Users/a77/knowledge-base-private/wiki/relations/entity_exposures.json"
+    },
+    {
+      "event": "open",
+      "details": "/Users/a77/knowledge-base-private/wiki/relations/aliases.json"
+    },
+    {
+      "event": "subprocess.Popen",
+      "details": "('git', ['git', '-C', '/Users/a77/fwp-wt-e2-boundary-closeout', 'rev-parse', 'HEAD'])"
+    },
+    {
+      "event": "subprocess.Popen",
+      "details": "('git', ['git', '-C', '/Users/a77/fwp-wt-e2-boundary-closeout', 'status', '--porcelain'])"
+    },
+    {
+      "event": "os.scandir",
+      "details": "/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/users"
+    },
+    {
+      "event": "os.scandir",
+      "details": "/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/users"
+    },
+    {
+      "event": "os.scandir",
+      "details": "/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/users"
+    },
+    {
+      "event": "os.scandir",
+      "details": "/Users/a77/fwp-wt-e2-boundary-closeout/intelligence/users"
+    }
+  ],
+  "pytest_exit": 0
+}

@@ -12,6 +12,7 @@ import sys
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2]))
 
 from scripts.audit_tool_reachability import audit  # noqa: E402
+from scripts import audit_tool_reachability as reachability  # noqa: E402
 
 
 def test_no_declared_tool_is_structurally_unreachable() -> None:
@@ -41,3 +42,93 @@ def test_audit_is_not_a_tautology() -> None:
 
     assert conditional, "条件装配档为空，判据可能又退化成照镜子了"
     assert set(assembled) < set(declared), "无条件装配应是声明的真子集"
+
+
+def test_history_requires_intent_then_session_in_real_assembly(tmp_path) -> None:
+    without, _context, session = reachability._history_probe(
+        tmp_path / "without", with_session=False
+    )
+    assert session is None
+    assert "history_query" in without.names()
+    assert "read_history_result" not in without.names()
+    assert "save_history_research" not in without.names()
+    with_session, context, session = reachability._history_probe(
+        tmp_path / "with", with_session=True
+    )
+    assert session is not None
+    assert context.history_intent is not None
+    assert {"history_query", "read_history_result", "save_history_research"} <= set(
+        with_session.names()
+    )
+    report = reachability.audit_report()
+    assert report["capability_by_tool"]["history_query"] == "finance_query"
+    assert "history_intent" in report["conditional_requirements"]["history_query"]
+    assert "HistorySession" in report["conditional_requirements"]["read_history_result"]
+
+
+def test_history_tools_execute_through_production_registry_on_local_fixture(
+    tmp_path,
+) -> None:
+    registry, context, session = reachability._history_probe(
+        tmp_path, with_session=True
+    )
+    queried = registry.execute(
+        "history_query",
+        {
+            "operation": "compute_history",
+            "entity_codes": ["AUDIT.FP"],
+            "start": "2026-08-03",
+            "end": "2026-08-04",
+            "features": ["return_pct"],
+        },
+        context=context,
+        step_id="query",
+    )
+    assert queried.trace.status == "success"
+    ref = queried.telemetry["result_ref"]
+    assert session.read(ref)["rows"][0]["entity_code"] == "AUDIT.FP"
+    read = registry.execute(
+        "read_history_result", {"result_ref": ref}, context=context, step_id="read"
+    )
+    assert read.trace.status == "success"
+    saved = registry.execute(
+        "save_history_research",
+        {
+            "draft": {
+                "question": "装配历史研究候选",
+                "purpose": "retrospective_discovery",
+                "entity_ids": ["AUDIT.FP"],
+                "source_refs": [queried.telemetry["query_id"]],
+                "hypotheses": [
+                    {
+                        "hypothesis_id": "audit-h1",
+                        "statement": "保留候选观察",
+                        "source_case_refs": [ref],
+                    }
+                ],
+            }
+        },
+        context=context,
+        step_id="save",
+    )
+    assert saved.trace.status == "success"
+    assert (
+        session.read(saved.telemetry["result_ref"])["draft"]["hypotheses"][0][
+            "hypothesis_id"
+        ]
+        == "audit-h1"
+    )
+
+
+def test_audit_still_detects_declared_but_unwired_tool(monkeypatch) -> None:
+    monkeypatch.setitem(
+        reachability._DEFAULT_TOOL_METADATA,
+        "unwired_audit_probe",
+        (
+            "finance_query",
+            "declared without a production runner",
+            "historical",
+            frozenset(),
+        ),
+    )
+    assert "unwired_audit_probe" in reachability.audit_report()["unreachable"]

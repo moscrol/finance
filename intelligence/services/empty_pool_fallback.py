@@ -57,7 +57,15 @@ def fallback_already_attempted(events: Iterable[object]) -> bool:
     for event in events:
         kind = getattr(event, "kind", None)
         payload = getattr(event, "payload", None)
-        if kind != "tool_request" or not isinstance(payload, Mapping):
+        if not isinstance(payload, Mapping):
+            continue
+        # 声明也算「已尝试」：application_tool_call 落账后、tool_request 前若崩溃，恢复时
+        # 不能再对同一个 call_id 声明第二次（两条同 id 的 assistant.tool_calls 同样是非法请求）。
+        if kind == "application_tool_call" and str(payload.get("call_id") or "").startswith(
+            "empty-pool-fallback"
+        ):
+            return True
+        if kind != "tool_request":
             continue
         if payload.get("fallback_query") is True:
             return True

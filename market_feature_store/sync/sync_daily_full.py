@@ -108,23 +108,51 @@ def _run_step(name, func, *args, **kwargs):
         }
 
 
-def _run_advancers_chart(trade_date: str, chart_table: str | None = None) -> dict:
-    output = PROJECT_DIR / "market_feature_store" / "exports" / f"{trade_date}-advancers-ma5.png"
-    script = PROJECT_DIR / "skills" / "advancers-chart" / "scripts" / "feishu_chart.py"
-    env = os.environ.copy()
-    if chart_table:
-        env["FEISHU_CHART_TABLE"] = chart_table
-    proc = subprocess.run(
-        [sys.executable, str(script), str(output)],
-        cwd=str(PROJECT_DIR),
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=180,
+def run_hithink_sector_kline_step() -> dict:
+    """个股 dump 之后并跑板块 / 指数近 5 日。没 key 算 skip。日更不拉成分。"""
+
+    from .sync_hithink_sector_kline import skip_reason_if_no_key, sync_hithink_sector_kline
+
+    reason = skip_reason_if_no_key()
+    if reason:
+        return {"skipped": True, "reason": reason}
+    return sync_hithink_sector_kline(mode="incremental", skip_constituents=True)
+
+
+def run_hithink_limit_pools_step() -> dict:
+    """板块日 K 之后并跑涨停 / 跌停 / 炸板近 3 个交易日。没 key 算 skip。"""
+
+    from .sync_hithink_limit_pools import skip_reason_if_no_key, sync_hithink_limit_pools
+
+    reason = skip_reason_if_no_key()
+    if reason:
+        return {"skipped": True, "reason": reason}
+    return sync_hithink_limit_pools(mode="incremental")
+
+
+def run_hithink_dragon_auction_step() -> dict:
+    """涨停池之后并跑龙虎榜 / 热榜近 3 日 + 竞价终态。没 key 算 skip。"""
+
+    from .sync_hithink_dragon_auction import (
+        skip_reason_if_no_key,
+        sync_hithink_dragon_auction,
     )
-    if proc.returncode != 0:
-        raise RuntimeError(proc.stderr or proc.stdout)
-    return {"output": str(output), "stdout": proc.stdout.strip()}
+
+    reason = skip_reason_if_no_key()
+    if reason:
+        return {"skipped": True, "reason": reason}
+    return sync_hithink_dragon_auction(mode="incremental")
+
+
+def run_hithink_stock_daily_step() -> dict:
+    """东财 / mootdx 之后并跑十年 K 的日增量。没 key 算 skip，有 key 下载失败才失败。"""
+
+    from .sync_hithink_stock_daily import skip_reason_if_no_key, sync_hithink_stock_daily
+
+    reason = skip_reason_if_no_key()
+    if reason:
+        return {"skipped": True, "reason": reason}
+    return sync_hithink_stock_daily(mode="incremental")
 
 
 def _run_compute_features(trade_date: str) -> dict:
@@ -192,9 +220,7 @@ def validate_daily_data(trade_date: str | None = None) -> dict:
 
 def run_daily_update(
     trade_date: str | None = None,
-    chart_table: str | None = None,
     skip_long: bool = False,
-    with_chart: bool = True,
     stock_source: str = "snapshot",
 ) -> dict:
     """stock_source: 全A日线取数方式。
@@ -239,12 +265,15 @@ def run_daily_update(
             steps.append(_run_step("sync-stock-daily", sync_fact_stock_daily, start_date=td, offset=3, only_missing=True, sleep=0.0, qfq=False))
     else:
         steps.append(_run_step("sync-stock-daily", sync_fact_stock_daily_snapshot, trade_date=td))
+    # 同花顺官方 dump 并跑，不改 fact_stock_daily。缺 key 跳过，不让整条 daily-full 红。
+    steps.append(_run_step("sync-hithink-stock-daily", run_hithink_stock_daily_step))
+    steps.append(_run_step("sync-hithink-sector-kline", run_hithink_sector_kline_step))
+    steps.append(_run_step("sync-hithink-limit-pools", run_hithink_limit_pools_step))
+    steps.append(_run_step("sync-hithink-dragon-auction", run_hithink_dragon_auction_step))
     steps.append(_run_step("sync-mainline-daily", sync_mainline_daily, td))
     steps.append(_run_step("sync-theme-flow-daily", sync_theme_flow_daily, td))
     steps.append(_run_step("sync-mainline-sector-daily", sync_mainline_sector_daily, td))
     steps.append(_run_step("sync-fupanhui-public-assets", sync_public_assets, td))
-    if with_chart:
-        steps.append(_run_step("advancers-chart", _run_advancers_chart, td, chart_table))
     # fact 写完必须派生；漏这一步就是 08-20「有行情无 feature」半成品。
     steps.append(_run_step("compute-features", _run_compute_features, td))
     validation = validate_daily_data(td)
@@ -377,16 +406,67 @@ def _write_receipt(staging: Path, receipt: dict) -> None:
 
 def run_daily_full_staged(
     trade_date: str | None = None,
-    chart_table: str | None = None,
     skip_long: bool = False,
     stock_source: str = "snapshot",
     child_argv: list[str] | None = None,
+    kind: str = "daily-full",
+    pre_swap_backup: bool = False,
+) -> dict:
+    """staging 编排的公共入口：先取运行互斥锁，再进编排本体。
+
+    QC 复审三轮 P1：两轮父进程共用同一 staging 路径时，B 会把 A 尚未发布
+    的 staging 当旧残留清掉重建，A 恢复后发布的是 B 的失败半成品（连 A 写
+    进 staging 的收据一起没了）。因此互斥锁在任何清理之前取得、覆盖本轮
+    全生命周期（db.hold_run_mutex，锁在独立文件上，读写双方无感）。
+    拿不到锁立即 rc=2，不做任何清理、不动 staging、不动生产库。
+    """
+    target = _db.DB_PATH
+    try:
+        with _db.hold_run_mutex(target):
+            return _run_daily_full_staged_locked(
+                trade_date,
+                skip_long=skip_long,
+                stock_source=stock_source,
+                child_argv=child_argv,
+                kind=kind,
+                pre_swap_backup=pre_swap_backup,
+            )
+    except _db.DatabaseLockedError as exc:
+        reason = f"{exc}；本轮不做任何清理与换名"
+        print(f"[staging] {reason}", flush=True)
+        return {
+            "target": str(target),
+            "staging": str(_db.staging_path(target)),
+            "swapped": False,
+            "rc": 2,
+            "reason": reason,
+            "copy": None,
+            "child_returncode": None,
+            "run_id": None,
+            "backup": None,
+        }
+
+
+def _run_daily_full_staged_locked(
+    trade_date: str | None = None,
+    skip_long: bool = False,
+    stock_source: str = "snapshot",
+    child_argv: list[str] | None = None,
+    kind: str = "daily-full",
+    pre_swap_backup: bool = False,
 ) -> dict:
     """daily-full 的 staging 编排: 同步全程不持有生产库写锁 (bookgap S7)。
 
     克隆生产库 → 子进程对 staging 副本跑原管道 (env 重定向, 见下) → 校验 →
-    第三方写者守卫 → 收据 → os.replace 原子换名。生产库文件只在换名一瞬变化,
-    正持旧句柄的读者继续读旧 inode, 新连接读新库。
+    第三方写者守卫 → [可选换名前备份] → 收据 → 原子发布（既有库在换库锁内
+    os.replace 换名；首次建库 os.link no-clobber，六轮 P1）。生产库文件只在
+    发布一瞬变化, 正持旧句柄的读者继续读旧 inode, 新连接读新库。
+    existing/absent 分类钉死在本轮首次观察（七轮 P2，见下文开工闸注释）。
+
+    pre_swap_backup=True 时（修复类调用方，QC S4 执行前提）：守卫通过后、
+    换名前给 target 落一份带 sha256 指纹与恢复步骤收据的备份
+    （db.backup_before_swap），结果带 result["backup"]。日更默认不开——
+    每晚 3.6G 级备份会把磁盘打爆，且日更已有 ops_sync_run 链。
 
     为什么是子进程而不是进程内改 DB_PATH: 包内存在 import 期捕获路径的读点
     (cli 顶层常量、analysis.sector_data 的默认参), 进程内改全局会漏掉它们,
@@ -402,8 +482,10 @@ def run_daily_full_staged(
     """
     started_at = datetime.now()
     started_mono = time.monotonic()
+    run_id = uuid.uuid4().hex[:12]
     target = _db.DB_PATH
     staging = _db.staging_path(target)
+    status_json = Path(str(staging) + ".status.json")
     result: dict = {
         "target": str(target),
         "staging": str(staging),
@@ -412,41 +494,92 @@ def run_daily_full_staged(
         "reason": None,
         "copy": None,
         "child_returncode": None,
-        "run_id": None,
+        "run_id": run_id,
         "stale_staging_removed": False,
+        "stale_status_removed": False,
+        "backup": None,
+        "publish": None,
     }
 
     result["stale_staging_removed"] = _db.remove_stale_staging(staging)
     if result["stale_staging_removed"]:
         print(f"[staging] 清理上一轮残留 staging: {staging}", flush=True)
+    if status_json.exists():
+        # QC 复审二轮 P1（2026-09-13）：旧 status 不被清理，子进程失败且不写
+        # status 时父进程会读到上一轮的成功 JSON 照样换库（复现证据
+        # stale-status-min.json）。开工即删 + 后文 run_id 绑定双保险。
+        status_json.unlink()
+        result["stale_status_removed"] = True
 
     # 开工闸: 有活跃写者时开跑, 克隆是撕裂快照、换名会覆盖对方工作。
+    # QC 七轮 P2：existing/absent 的分类钉死在**本轮首次观察**（就是这次
+    # exists()），之后不再就分类重新观察。此前分类在探针成功之后再做一次
+    # exists()：探针已经打开过旧库、随后目标被第三方删除，第二次 exists 得
+    # False，本轮被静默重新归类为首次建库——子进程建出缺历史的新库并发布
+    # 成功（七轮独立探针实测：旧库 2026-08-14/10000 被删后 rc=0，库里只剩
+    # 2026-08-15/12345）。钉死之后，「已见旧库、随后消失」只剩拒绝：消失在
+    # 探针窗口内由探针抛 SwapTargetReplacedError；消失在探针之后由
+    # hold_swap_lock 开锁失败拒绝——都是 rc=2，不再降格为 bootstrap。反向
+    # （钉为 absent 后第三方新建）由发布前守卫与 os.link EEXIST 原子拒绝
+    # （六轮 P1），所以首次观察一次 exists 就够，不需要身份钉死。
+    # 声明边界：钉死只对「本轮首次观察之后」的消失负责；观察之前就被删的，
+    # 本轮无从知道它存在过。
+    source_exists = target.exists()
     try:
         _db.probe_no_active_writer(target)
+    except _db.SwapTargetReplacedError as exc:
+        # 探针窗口内目标消失（探针的 exists→connect 之间被删）：与「有活跃
+        # 写者」分开给措辞，reason 才能指认是哪一处拒绝。它是
+        # DatabaseLockedError 子类，必须排在前面。
+        result["reason"] = f"{exc}; 拒绝开工"
+        print(f"[staging] {result['reason']}", flush=True)
+        return result
     except _db.DatabaseLockedError as exc:
         result["reason"] = f"生产库有活跃写者, 拒绝开工: {exc}"
         print(f"[staging] {result['reason']}", flush=True)
         return result
 
-    source_exists = target.exists()
-    source_stat = target.stat() if source_exists else None
-    source_shape = _db_shape(target) if source_exists else None
-    if source_exists and source_shape is None:
-        result["reason"] = f"生产库打不开, 拒绝开工: {target}"
-        return result
-
     if source_exists:
-        result["copy"] = _db.clone_to_staging(target, staging)
-        # 克隆完成后的基线 stat: 此后生产文件再有任何变化 = 第三方写者。
-        source_stat = target.stat()
+        # QC 复审三轮 P1：基线与克隆必须落在同一受保护窗口——克隆之后才认领
+        # 来源最新 stat，会把「副本不含的新写入」记成副本基线（QC 复现：克隆
+        # 10000 → 窗口内第三方提交 17000 → 末端守卫拿错基线 → 换入 10000）。
+        # hold_swap_lock 是 SH 锁：排写不排读，克隆内部的只读探针照常工作，
+        # 窗口内任何写者的 rw 打开必失败；窗口外（子进程阶段）的写入仍由
+        # 末端 stat 守卫兜底。形态基线改从克隆体自身读取——基线=副本版本。
+        try:
+            with _db.hold_swap_lock(target) as lock:
+                result["copy"] = _db.clone_to_staging(target, staging)
+                # QC 复审五轮：基线身份必须**来自这把锁**，并在克隆之后复查一次。
+                # 否则「锁住 A → 克隆 A → 路径被换成 B → 从路径 stat 得到 B」会
+                # 把 A 的副本配上 B 的基线，两边都不自知。
+                _db.assert_same_target(target, lock.identity, stage="克隆后基线")
+                # 版本基线读被锁 inode 自身 (fstat)，不再走路径——路径 stat 拿到的
+                # 可能已经是别人换上来的文件。
+                source_stat = lock.stat()
+                source_identity = lock.identity
+                source_shape = _db_shape(staging)
+        except _db.DatabaseLockedError as exc:
+            # SwapTargetReplacedError 是其子类：开锁时目标已没了、克隆期间目标被
+            # 删、克隆后身份漂了，都走这条，统一成 rc=2 拒绝，不让异常逃逸。
+            # （措辞从「拿锁失败」放宽到「失败」：六轮起这条出口不再只有拿锁一种
+            #   来源，具体是哪一处由 exc 自带的 stage 指认。）
+            result["reason"] = f"基线窗口失败: {exc}; 拒绝开工"
+            print(f"[staging] {result['reason']}", flush=True)
+            return result
+        if source_shape is None:
+            result["reason"] = f"克隆体打不开, 拒绝开工: {staging}"
+            return result
         copy = result["copy"]
         print(
             f"[staging] 克隆生产库 -> {staging.name} "
             f"({copy['method']}, {copy['seconds']}s, {copy['bytes']} bytes)",
             flush=True,
         )
+    else:
+        source_stat = None
+        source_shape = None
+        source_identity = None
 
-    status_json = Path(str(staging) + ".status.json")
     if child_argv is None:
         child_argv = [
             sys.executable, "-m", "market_feature_store.cli",
@@ -454,14 +587,14 @@ def run_daily_full_staged(
         ]
         if trade_date:
             child_argv += ["--trade-date", trade_date]
-        if chart_table:
-            child_argv += ["--chart-table", chart_table]
         if skip_long:
             child_argv.append("--skip-long")
         child_argv += ["--stock-source", stock_source]
 
     child_env = os.environ.copy()
     child_env["MARKET_FEATURE_STORE_DB"] = str(staging)
+    # 本轮身份：子进程把 run_id 写进 status，父进程据此拒收上一轮遗留
+    child_env["MARKET_FEATURE_STORE_RUN_ID"] = run_id
     proc = subprocess.Popen(child_argv, env=child_env, cwd=str(PROJECT_DIR))
     print(
         f"[staging] 子进程同步 pid={proc.pid} (写锁只落在 staging, 生产库无锁)",
@@ -471,18 +604,27 @@ def run_daily_full_staged(
     result["child_returncode"] = child_rc
     result["child_pid"] = proc.pid
 
-    status: dict = {}
-    if status_json.exists():
-        try:
-            status = json.loads(status_json.read_text(encoding="utf-8"))
-        finally:
-            status_json.unlink()
-    result["status"] = status
-
     def _abort(reason: str) -> dict:
         result["reason"] = reason
         print(f"[staging] {reason}", flush=True)
         return result
+
+    status: dict = {}
+    if status_json.exists():
+        # QC 复审三轮 P2：损坏/非标量 status 不得抛异常逃逸，统一走明确拒绝。
+        try:
+            raw_status = json.loads(status_json.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            status_json.unlink(missing_ok=True)
+            result["status"] = {}
+            return _abort(f"status.json 解析失败 ({exc}), 不换名")
+        status_json.unlink(missing_ok=True)
+        if not isinstance(raw_status, dict):
+            return _abort(
+                f"status.json 不是 JSON 对象 ({type(raw_status).__name__}), 不换名"
+            )
+        status = raw_status
+    result["status"] = status
 
     if child_rc < 0:
         return _abort(
@@ -491,6 +633,10 @@ def run_daily_full_staged(
     if not status:
         return _abort(
             f"子进程未写出 status.json (rc={child_rc}), 视为未跑完管道, 不换名"
+        )
+    if status.get("run_id") != run_id:
+        return _abort(
+            "status.json 缺本轮 run_id 或不匹配（疑似上一轮遗留/非本轮产物），不换名"
         )
     if child_rc not in (0, 1):
         return _abort(f"子进程异常退出 (rc={child_rc}), 不换名")
@@ -525,12 +671,10 @@ def run_daily_full_staged(
         flush=True,
     )
 
-    run_id = uuid.uuid4().hex[:12]
-    result["run_id"] = run_id
     finished_at = datetime.now()
     _write_receipt(staging, {
         "run_id": run_id,
-        "kind": "daily-full",
+        "kind": kind,
         "plan": "staging-swap",
         "trade_date": status.get("trade_date") or trade_date,
         "started_at": started_at,
@@ -546,12 +690,18 @@ def run_daily_full_staged(
         "steps_summary": status.get("steps") or [],
     })
 
-    # 第三方写者守卫: 克隆基线之后生产文件动过、或此刻有写者持锁,
+    # 第三方写者守卫（锁外预检）: 克隆基线之后生产文件动过、或此刻有写者持锁,
     # 换名都会覆盖对方工作——fail closed, staging 留作取证。
+    # 这里只是早失败 + 给出具体措辞; 权威判定在下面的换库锁内重做一次。
     if source_exists:
-        if not target.exists():
-            return _abort("生产库文件在同步期间被移除, 不换名")
-        now_stat = target.stat()
+        # QC 六轮 P2：一次 stat 兼做「还在不在」与「动没动过」。此前是
+        # exists() + 裸 stat() 两段，两段之间目标被删就是裸 FileNotFoundError
+        # 逃出编排（六轮独立探针在此行复现）；合成一次调用后窗口不存在，
+        # 「已消失」也变成带出口码的拒绝。
+        try:
+            now_stat = target.stat()
+        except FileNotFoundError:
+            return _abort("锁外预检: 生产库文件在同步期间被移除, 不换名")
         if (
             now_stat.st_mtime_ns != source_stat.st_mtime_ns
             or now_stat.st_size != source_stat.st_size
@@ -569,10 +719,84 @@ def run_daily_full_staged(
         return _abort(f"第三方写者守卫: {exc}; 拒绝换名")
 
     swap_started = time.monotonic()
-    try:
-        _db.atomic_swap_into_place(staging, target)
-    except (RuntimeError, FileNotFoundError, OSError) as exc:
-        return _abort(f"换名失败: {exc}")
+    if source_exists:
+        # QC 复审四轮 P1：「最终复查→[备份]→原子换名」整段必须在同一把换库锁
+        # 内，**与 pre_swap_backup 无关**。此前只有备份分支进锁，日更默认走的是
+        # 「守卫 → 无锁 os.replace」，守卫与使用之间是裸窗口（TOCTOU）；四轮复现
+        # 在此窗口内让第三方 rw 提交 17000，编排照样 rc=0/swapped=true，而新库不
+        # 含 17000——写入已提交却被静默覆盖。
+        # hold_swap_lock 是 SH：排写不排读，日更的锁窗口只有「stat + rename」量级
+        # （毫秒），不会重新把只读读者挡在门外（S7 判据 1）；修复类多一次备份。
+        try:
+            with _db.hold_swap_lock(target) as lock:
+                # 锁内权威复查。身份先于版本：版本一致但 inode 已换，说明被整文件
+                # 替换过，此时 mtime/size 相等毫无意义（cp/mv 会带走 mtime）。
+                _db.assert_same_target(
+                    target, source_identity, stage="换库临界区（对克隆基线）"
+                )
+                if lock.identity != source_identity:
+                    # 锁的 inode 与基线 inode 不同 = 我们锁住的不是要换的那个。
+                    return _abort(
+                        f"目标身份守卫: 换库锁锁定 {lock.identity} 与克隆基线 "
+                        f"{source_identity} 不是同一个 inode; 拒绝换名"
+                    )
+                now_stat = lock.stat()  # 读被锁 inode 自身，不走路径
+                if (
+                    now_stat.st_mtime_ns != source_stat.st_mtime_ns
+                    or now_stat.st_size != source_stat.st_size
+                ):
+                    return _abort(
+                        "拿锁前窗口内生产库被修改，拒绝换名；staging 保留待人工裁决"
+                    )
+                if pre_swap_backup:
+                    # QC S4 执行前提：修复类调用方换库前留一份可验明备份。
+                    # 日更不带（每晚 3.6G 级备份会把磁盘打爆），但锁一样要进。
+                    try:
+                        result["backup"] = _db.backup_before_swap(
+                            target, run_id=run_id, writer_lock_held=True
+                        )
+                    except Exception as exc:
+                        return _abort(f"换名前备份失败, 不换名: {exc}")
+                    print(
+                        f"[staging] 换名前备份: {result['backup']['backup_path']} "
+                        f"(sha256={result['backup']['backup_sha256'][:16]}…)",
+                        flush=True,
+                    )
+                try:
+                    _db.atomic_swap_into_place(
+                        staging, target, expect_identity=source_identity
+                    )
+                except _db.SwapTargetReplacedError as exc:
+                    return _abort(f"目标身份守卫: {exc}")
+                except (RuntimeError, FileNotFoundError, OSError) as exc:
+                    return _abort(f"换名失败: {exc}")
+        except _db.SwapTargetReplacedError as exc:
+            return _abort(f"目标身份守卫: {exc}; 拒绝换名")
+        except _db.DatabaseLockedError as exc:
+            return _abort(f"排他协调锁: {exc}; 拒绝换名")
+    else:
+        # 首次建库：目标不存在 = 没有 inode 可锁，但**不等于没有数据可丢**。
+        # QC 六轮 P1 否掉了旧理由：守卫通过之后、发布之前，一个普通
+        # duckdb.connect(target) 写者可以建库、提交、关闭（持 DuckDB 自己的 EX
+        # 锁，没绕过任何机制），os.replace 会把它已提交的数据静默覆盖，编排还报
+        # rc=0/swapped=True。run mutex 只排同协议的 staging 编排，排不掉普通
+        # DuckDB 新建库。改用 os.link 发布：目标名已存在就在同一个 syscall 里
+        # 原子拒绝，「守卫通过后才被创建」这段窗口不再是覆盖而是拒绝。
+        try:
+            result["publish"] = _db.publish_new_into_place(staging, target)
+        except _db.SwapTargetCreatedError as exc:
+            # 注意：它是 RuntimeError 的后代，必须排在下面那条之前。
+            return _abort(f"首次建库守卫: {exc}")
+        except (RuntimeError, FileNotFoundError, OSError) as exc:
+            return _abort(f"首次建库发布失败: {exc}")
+        if not result["publish"]["staging_name_removed"]:
+            # link 已成功 = 已发布。清理失败不得回退成「未换库、生产未动」。
+            print(
+                "[staging] 已发布, 但 staging 名字未删掉: "
+                f"{result['publish']['staging_cleanup_error']}; "
+                "它与 target 同 inode, 删名不伤数据, 下一轮 remove_stale_staging 收掉",
+                flush=True,
+            )
     result["swap_seconds"] = round(time.monotonic() - swap_started, 3)
     result["swapped"] = True
     result["rc"] = child_rc
@@ -587,7 +811,6 @@ def run_daily_full_staged(
 
 def run_daily_full(
     trade_date: str | None = None,
-    chart_table: str | None = None,
     skip_long: bool = False,
     stock_source: str = "snapshot",
 ) -> dict:
@@ -596,9 +819,7 @@ def run_daily_full(
 
     update = run_daily_update(
         trade_date=trade_date,
-        chart_table=chart_table,
         skip_long=skip_long,
-        with_chart=False,
         stock_source=stock_source,
     )
     cross_day_gate = check_daily(trade_date=update["trade_date"]) if update["ok"] else {

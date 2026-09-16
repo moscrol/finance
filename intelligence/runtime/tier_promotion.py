@@ -35,10 +35,28 @@ from intelligence.services.forecast_residual_budget import (
 from intelligence.services.mode_governor import ModeDecision
 from intelligence.services.repair_coordinator import BudgetGrant
 from intelligence.services.research_contract import (
+    PRODUCT_MAX_SECONDS,
+    PRODUCT_MAX_TOOL_CALLS,
     ResearchDeadline,
     ResearchPolicy,
     ResearchRunContext,
 )
+
+
+def _already_at_or_above_deep(context: ResearchRunContext) -> bool:
+    """当前档位的墙钟与步数都不低于 deep 时，升 deep 只会把账本改小。
+
+    max 档（2026-09-06）从一开始就在 deep 之上；PLAN 裁决仍可能「批 deep」，这时
+    账本动作必须是空操作——否则 ``replace(context, policy=deep_policy)`` 会把
+    600s / 32 步换成 240s / 12 步，升档变降档。裁决本身（含 ``max_branches``）不受影响，
+    子研究照常起。
+    """
+
+    deep = ResearchPolicy.for_tier("deep")
+    return (
+        context.policy.total_seconds >= deep.total_seconds
+        and context.policy.max_steps >= deep.max_steps
+    )
 
 
 def apply_mode_promotion(
@@ -57,8 +75,13 @@ def apply_mode_promotion(
         raise TypeError("decision must be ModeDecision")
     if not decision.approved or decision.effective_mode != "deep":
         return context
-    if decision.tool_call_cap > 24 or decision.target_seconds > 240.0:
+    if (
+        decision.tool_call_cap > PRODUCT_MAX_TOOL_CALLS
+        or decision.target_seconds > PRODUCT_MAX_SECONDS
+    ):
         raise ValueError("deep decision exceeds product cap")
+    if _already_at_or_above_deep(context):
+        return context
     root = context.root_budget
     if root is None:
         raise ValueError("deep promotion requires one root budget ledger")
@@ -118,6 +141,8 @@ def promote_forecast_residual(context: ResearchRunContext) -> ResearchRunContext
 
     deep = ResearchPolicy.for_tier("deep")
     if context.policy.tier == "deep" and context.contract.research_tier == "deep":
+        return context
+    if _already_at_or_above_deep(context):
         return context
 
     root = context.root_budget

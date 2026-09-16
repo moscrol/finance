@@ -189,46 +189,112 @@ ENV_FILE="${HOME}/.local/share/finance-workbench/alpha.env"
 USER_MAP="${HOME}/.local/share/finance-workbench/beta-users.json"
 mkdir -p "$(dirname "$ENV_FILE")"
 
+# 这台 Mac 上给 8792 回源的是专用 token 隧道 finance-workbench-beta（launchd
+# com.cloudflare.cloudflared，ingress 在 Zero Trust 后台远程托管），不是 a77-exec。
+BETA_TUNNEL_NAME="finance-workbench-beta"
+BETA_TUNNEL_LABEL="com.cloudflare.cloudflared"
+BETA_TUNNEL_LOG="${HOME}/Library/Logs/com.cloudflare.cloudflared.err.log"
+
+# probe_edge HOST — 从公网视角探一次：DNS 是否解析、/api/health 是 302 登录页
+# （Access 在）、200（Access 缺！）还是别的。把团队域与 AUD 从登录跳转里抠出来
+# 放进 EDGE_TEAM_DOMAIN / EDGE_AUD（抠不到则为空），供后面的 ask 当默认值。
+EDGE_STATUS=""; EDGE_TEAM_DOMAIN=""; EDGE_AUD=""; EDGE_DNS=""
+
+# seed_env KEY VALUE — 只在 KEY 尚无值时静默预填，让后面的 ask 把它当默认值；
+# 不记入 WRITTEN_ENV（真正的写入仍由 ask 之后的 write_env 记账）。
+seed_env() {
+  local key="$1" value="$2" tmp
+  [[ -n "$(_existing "$key" || true)" ]] && return 0
+  touch "$ENV_FILE"
+  tmp=$(mktemp)
+  grep -vE "^${key}=" "$ENV_FILE" > "$tmp" || true
+  printf '%s=%s\n' "$key" "$value" >> "$tmp"
+  mv "$tmp" "$ENV_FILE"
+}
+
+probe_edge() {
+  local host="$1" redirect="" out=""
+  # 1.1.1.1 直查绕开本机代理的 Fake-IP；查不到再退回系统解析器（代理网络下 1.1.1.1 偶发超时）。
+  EDGE_DNS=$(dig @1.1.1.1 +short +time=3 +tries=1 "$host" A 2>/dev/null | awk '/^[0-9.]+$/' | tr '\n' ' ' || true)
+  [[ -z "${EDGE_DNS// /}" ]] && EDGE_DNS=$(dig +short +time=3 +tries=1 "$host" A 2>/dev/null | awk '/^[0-9.]+$/ && $0 !~ /^198\.18\./' | tr '\n' ' ' || true)
+  # HTTP 探测不依赖上面的 DNS 结果；一次请求同时拿状态码与跳转地址。
+  out=$(curl -sS -o /dev/null --max-time 15 -w '%{http_code} %{redirect_url}' "https://${host}/api/health" 2>/dev/null || echo "000")
+  EDGE_STATUS="${out%% *}"
+  redirect="${out#* }"; [[ "$redirect" == "$out" ]] && redirect=""
+  if [[ "$EDGE_STATUS" == "000" && -z "${EDGE_DNS// /}" ]]; then EDGE_STATUS="no-dns"; return 0; fi
+  if [[ "$redirect" =~ ^https://([^/]+\.cloudflareaccess\.com)/cdn-cgi/access/login/ ]]; then
+    EDGE_TEAM_DOMAIN="${BASH_REMATCH[1]}"
+  fi
+  if [[ "$redirect" =~ [?\&]kid=([0-9a-f]{64}) ]]; then
+    EDGE_AUD="${BASH_REMATCH[1]}"
+  fi
+}
+
 banner "Hosted Alpha · Cloudflare Access 人工步骤"
 
 say "本向导只配边缘认证和邀请名单，不改 8792 启动器、不 kickstart。"
 say "配完的环境变量写到 ${ENV_FILE}；接到 start-finance-workbench 需你确认。"
-note "现有隧道 a77-exec 已服务 *.industry7view.com；默认建议加 beta 主机名，而不是再开一条隧道。"
+note "每一步先自己探一遍现状再让你动手：已经就位的只核对，不重做。"
 pause "准备好打开 Cloudflare 控制台了吗？"
 
 # ── Stage 1: hostname ────────────────────────────────────────────────────
 stage "确认公网主机名"
-say "公网入口会变成这个主机名。Cloudflare Access 和 DNS 都绑它。"
-note "建议：beta.industry7view.com（已有同域隧道）。不要用正在跑的 archlume / exec-a77 / api-a77。"
+say "公网入口会变成这个主机名。Cloudflare Access 和隧道回源都绑它。"
+note "建议：beta.industry7view.com（专用隧道 ${BETA_TUNNEL_NAME} 已回源到 8792）。不要用正在跑的 archlume / exec-a77 / api-a77。"
 ask ALPHA_HOSTNAME "公网主机名（例如 beta.industry7view.com）:"
 if [[ -z "$ALPHA_HOSTNAME" ]]; then
   warn "主机名为空，向导中止。"
   exit 1
 fi
 write_env ALPHA_HOSTNAME "$ALPHA_HOSTNAME"
+say "从公网探一次 https://${ALPHA_HOSTNAME}/api/health …"
+probe_edge "$ALPHA_HOSTNAME"
+case "$EDGE_STATUS" in
+  no-dns) warn "DNS 不解析：主机名还没绑到任何隧道（Stage 4 处理）。" ;;
+  302)    say "✓ 302 → ${EDGE_TEAM_DOMAIN:-?}：Access 应用已在，AUD=${EDGE_AUD:0:12}…（Stage 3 会当默认值）。" ;;
+  200)    warn "200：主机名已回源但 Access 没拦——8792 此刻无认证公网可达！先去 Stage 2 建 Access 应用。" ;;
+  *)      warn "HTTP ${EDGE_STATUS}：隧道或回源异常（530/1033 = 连接器没在跑）。Stage 4 处理。" ;;
+esac
+pause "看完现状后按 Enter"
 
 # ── Stage 2: Access application ──────────────────────────────────────────
-# 顺序刻意是「先 Access、后 DNS/ingress」：主机名一旦解析并回源到 8792，而
-# Access 应用还没建，8792 就是无认证公网可达（后端 auth 此刻仍是 off）。
+# 顺序刻意是「先 Access、后回源」：主机名一旦解析并回源到 8792，而 Access
+# 应用还没建，8792 就是无认证公网可达（后端 auth 此刻仍是 off）。
 # Access 应用按主机名配置，DNS 不存在时也能先建好；反过来则有一段裸奔窗口。
-stage "Cloudflare Access 应用（先于 DNS）"
+stage "Cloudflare Access 应用（先于回源）"
 say "Access 在边缘做邮箱 OTP。后端再验一次 JWT，不信任明文邮箱头。"
-warn "先建 Access 再开 DNS/ingress。反过来做，主机名生效到 Access 建好之间 8792 是无认证公网可达。"
 open_url "https://one.dash.cloudflare.com/"
-step "Zero Trust → Access → Applications → Add an application → Self-hosted。"
-step "Application name 填 finance-workbench-alpha。"
-step "Public hostname 填刚才的 ${ALPHA_HOSTNAME}（路径留空或 /）。"
-step "Policy：Action = Allow；Include = Emails。先填你自己的邮箱，以后再加朋友。"
-step "登录方式保持 One-time PIN（邮箱验证码），不必接 Google/GitHub IdP。"
-say "再建第二个应用，给 VPS 外部拨测放行健康检查（后端本来就豁免 /api/health*）："
+if [[ "$EDGE_STATUS" == "302" ]]; then
+  say "Access 应用已存在，只核对："
+  step "Zero Trust → Access → Applications → 找到 ${ALPHA_HOSTNAME} 的 Self-hosted 应用。"
+  step "Policy：Action = Allow；Include = Emails——邮箱要和 Stage 5 的名单一致（双层白名单）。"
+  step "登录方式 One-time PIN；记下应用页的 Application Audience (AUD) tag，下一屏要对。"
+else
+  warn "先建 Access 再开回源。反过来做，主机名生效到 Access 建好之间 8792 是无认证公网可达。"
+  step "Zero Trust → Access → Applications → Add an application → Self-hosted。"
+  step "Application name 填 finance-workbench-alpha。"
+  step "Public hostname 填刚才的 ${ALPHA_HOSTNAME}（路径留空或 /）。"
+  step "Policy：Action = Allow；Include = Emails。先填你自己的邮箱，以后再加朋友。"
+  step "登录方式保持 One-time PIN（邮箱验证码），不必接 Google/GitHub IdP。"
+fi
+say "再要一个应用，给 VPS 外部拨测放行健康检查（后端本来就豁免 /api/health*）："
+if [[ "$EDGE_STATUS" == "302" ]]; then
+  note "（/api/health 现在是 302 登录页 → 这条 Bypass 还没建。）"
+fi
 step "Add an application → Self-hosted；name 填 finance-workbench-health；hostname 填 ${ALPHA_HOSTNAME}，Path 填 api/health。"
 step "Policy：Action = Bypass；Include = Everyone。"
-pause "两个应用建好后按 Enter，下一屏要复制两个值"
+pause "应用核对/建好后按 Enter，下一屏要对两个值"
 
 # ── Stage 3: team domain + AUD ───────────────────────────────────────────
-stage "粘贴 Team Domain 与 AUD"
-step "还在这个 Access 应用页：找到 Application Audience (AUD) tag，整段复制。"
-ask WORKBENCH_CF_ACCESS_AUD "粘贴 AUD tag:"
+stage "Team Domain 与 AUD"
+if [[ -n "$EDGE_AUD" && -n "$EDGE_TEAM_DOMAIN" ]]; then
+  say "从登录跳转里读到：team=${EDGE_TEAM_DOMAIN}  aud=${EDGE_AUD}"
+  note "跳转 URL 的 kid 参数就是应用的 AUD tag。与后台应用页一致就直接 Enter；不一致以后台为准粘过来。"
+  seed_env WORKBENCH_CF_ACCESS_AUD "$EDGE_AUD"
+  seed_env WORKBENCH_CF_ACCESS_TEAM_DOMAIN "$EDGE_TEAM_DOMAIN"
+fi
+step "Access 应用页：Application Audience (AUD) tag，整段复制。"
+ask WORKBENCH_CF_ACCESS_AUD "AUD tag:"
 step "Team domain：Zero Trust → Settings → Custom Pages 附近，形如 <team>.cloudflareaccess.com。"
 note "只要主机名，不要 https://。"
 ask WORKBENCH_CF_ACCESS_TEAM_DOMAIN "Team domain（例如 xxx.cloudflareaccess.com）:"
@@ -238,19 +304,39 @@ if [[ -z "$WORKBENCH_CF_ACCESS_AUD" || -z "$WORKBENCH_CF_ACCESS_TEAM_DOMAIN" ]];
 fi
 write_env WORKBENCH_CF_ACCESS_AUD "$WORKBENCH_CF_ACCESS_AUD"
 write_env WORKBENCH_CF_ACCESS_TEAM_DOMAIN "$WORKBENCH_CF_ACCESS_TEAM_DOMAIN"
+if curl -sS --max-time 10 -o /dev/null "https://${WORKBENCH_CF_ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs" 2>/dev/null; then
+  say "✓ JWKS 可达：https://${WORKBENCH_CF_ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs"
+else
+  warn "JWKS 拉不到——团队域拼错，或本机此刻出不了网。cf_access 下这会让所有请求 503。"
+fi
 
-# ── Stage 4: tunnel ingress + DNS（Access 已就位，现在开门是安全的）──────
-stage "给现有隧道加一条 ingress + DNS"
-say "本机 cloudflared 已在跑（a77-exec，用户域 launchd）。要让公网打到 8792，在 ~/.cloudflared/config.yml 的 ingress 列表最前面加："
-note "  - hostname: ${ALPHA_HOSTNAME}"
-note "    service: http://127.0.0.1:8792"
-step "先备份：cp ~/.cloudflared/config.yml ~/.cloudflared/config.yml.bak.\$(date +%Y%m%d%H%M%S)"
-step "用编辑器把上面两行插到 ingress: 下面、现有 hostname 规则之前。"
-step "校验：cloudflared tunnel ingress validate && cloudflared tunnel ingress rule https://${ALPHA_HOSTNAME}/  （应命中 8792 那条）"
-step "DNS：cloudflared tunnel route dns a77-exec ${ALPHA_HOSTNAME}"
-step "重启隧道：launchctl kickstart -k gui/\$(id -u)/com.cloudflare.cloudflared  （它挂在用户域，不要 sudo/system）"
-warn "不要新建第二条 tunnel：一台 Mac 上两条 cloudflared 抢同一份 cert 会互相踩。"
-pause "ingress + DNS 配好、隧道已重启后按 Enter"
+# ── Stage 4: tunnel（Access 已就位，现在开门是安全的）───────────────────
+stage "隧道回源核对"
+say "给 8792 回源的是专用 token 隧道 ${BETA_TUNNEL_NAME}（launchd ${BETA_TUNNEL_LABEL}），ingress 在后台远程托管，本机没有它的 config。"
+warn "不要把 ${ALPHA_HOSTNAME} 加进 ~/.cloudflared/config.yml（那是 a77-exec 的）：两条隧道争一个主机名，route dns 还会把 CNAME 改指错。"
+if command -v cloudflared >/dev/null 2>&1; then
+  say "本机连接器状态（cloudflared tunnel list）："
+  tunnel_rows=$(cloudflared tunnel list 2>/dev/null | awk -v n="$BETA_TUNNEL_NAME" '/^ID +NAME/ || $2==n' || true)
+  if [[ -n "$tunnel_rows" ]]; then
+    printf '%s\n' "$tunnel_rows" | sed 's/^/    /'
+  else
+    note "    （列不出来：cloudflared 未登录或此刻出不了网；不影响后面的判断，公网探测为准）"
+  fi
+fi
+if [[ -f "$BETA_TUNNEL_LOG" ]]; then
+  say "连接器最近收到的远程 ingress："
+  grep 'Updated to new configuration' "$BETA_TUNNEL_LOG" 2>/dev/null | tail -n1 | sed 's/^/    /' || note "    （日志里没有 ingress 记录）"
+fi
+say "公网现状：DNS=[${EDGE_DNS:-无}]  /api/health=${EDGE_STATUS}"
+if [[ "$EDGE_STATUS" == "302" || "$EDGE_STATUS" == "200" ]]; then
+  say "✓ 主机名已回源到本机，本步不用改任何东西。"
+else
+  step "Zero Trust → Networks → Tunnels → ${BETA_TUNNEL_NAME} → Public Hostname → Add："
+  note "    Subdomain/Domain = ${ALPHA_HOSTNAME}，Service = HTTP，URL = 127.0.0.1:8792"
+  step "保存即生效（DNS CNAME 由后台自动创建，连接器自动收配置，不用重启）。"
+  step "连接器没在跑才需要：launchctl kickstart -k gui/\$(id -u)/${BETA_TUNNEL_LABEL}  （用户域，不要 sudo；a77-exec 是另一个标签）"
+fi
+pause "回源确认后按 Enter"
 
 # ── Stage 5: invite map ──────────────────────────────────────────────────
 stage "邀请名单（邮箱 → user_id）"
@@ -261,17 +347,27 @@ if [[ -f "$USER_MAP" ]]; then
   say "当前内容："
   sed 's/^/    /' "$USER_MAP" || true
 fi
+note "登录邮箱必须是 Access Policy 里放行的那个（OTP 发到哪就填哪）。已有名单时直接 Enter 跳过 = 保留原名单。"
 ask OWNER_EMAIL "你的登录邮箱:"
 ask OWNER_USER "对应 user_id（建议 linxiaoqi5111）:"
 OWNER_USER="${OWNER_USER:-linxiaoqi5111}"
-INVITE_JSON=$(printf '{\n  "%s": "%s"\n}\n' "$OWNER_EMAIL" "$OWNER_USER")
-if [[ -f "$USER_MAP" ]] && ! confirm "覆盖已有 ${USER_MAP}？选 N 则跳过写名单"; then
-  note "保留原名单。"
+if [[ -z "$OWNER_EMAIL" ]]; then
+  if [[ -f "$USER_MAP" ]]; then
+    note "邮箱留空，保留原名单。"
+  else
+    warn "邮箱为空且没有名单文件：cf_access 会在启动时抛。重新跑本步填邮箱。"
+    exit 1
+  fi
 else
-  printf '%s' "$INVITE_JSON" > "$USER_MAP"
-  chmod 600 "$USER_MAP"
-  say "已写入 ${USER_MAP}："
-  sed 's/^/    /' "$USER_MAP"
+  INVITE_JSON=$(printf '{\n  "%s": "%s"\n}\n' "$OWNER_EMAIL" "$OWNER_USER")
+  if [[ -f "$USER_MAP" ]] && ! confirm "覆盖已有 ${USER_MAP}？选 N 则跳过写名单"; then
+    note "保留原名单。"
+  else
+    printf '%s' "$INVITE_JSON" > "$USER_MAP"
+    chmod 600 "$USER_MAP"
+    say "已写入 ${USER_MAP}："
+    sed 's/^/    /' "$USER_MAP"
+  fi
 fi
 write_env WORKBENCH_AUTH_USER_MAP "$USER_MAP"
 write_env WORKBENCH_FULL_ACCESS_USERS "$OWNER_USER"
@@ -286,7 +382,7 @@ say "alpha.env 已经写好。生产启动器现在没有 WORKBENCH_AUTH_MODE，
 say "要上线时，把下面这段加进 ~/.local/bin/start-finance-workbench（GLM/中转段之后），然后："
 note "  launchctl kickstart -k gui/\$(id -u)/com.a77.finance-workbench"
 say ""
-say "建议粘贴："
+say "建议粘贴（只能这样 source，不要展开成 export 行——8796 sidecar 用 grep '^export ' 继承启动器，会跟着开认证）："
 note "  # Hosted Alpha（由 scripts/hosted-alpha-wizard.sh 生成）"
 note "  if [[ -f \"\$HOME/.local/share/finance-workbench/alpha.env\" ]]; then"
 note "    set -a"
@@ -294,6 +390,7 @@ note "    source \"\$HOME/.local/share/finance-workbench/alpha.env\""
 note "    set +a"
 note "  fi"
 warn "现在不要 kickstart。缺 AUD/名单时 cf_access 会让进程启动即抛，本机自用会挂。"
+warn "开认证后本机所有直打 127.0.0.1:8792 的探针/脚本一律 401（含切流用的长电探针）——先按手册 §3.1 选好探针路线。"
 say "回滚：删掉这段 source，或把 alpha.env 里 WORKBENCH_AUTH_MODE 改成 off，再 kickstart。"
 pause "看完接入方式后按 Enter"
 

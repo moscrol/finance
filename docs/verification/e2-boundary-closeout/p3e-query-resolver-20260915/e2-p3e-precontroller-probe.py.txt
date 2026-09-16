@@ -1,0 +1,35 @@
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from intelligence.services import turn_controller as tc
+from intelligence.services.query_resolution import QueryResolver
+from intelligence.adapters.knowledge import KnowledgeAdapter
+from intelligence.services.query_understanding import understand_query
+
+BODY='只依据以下材料回答。\n\n「甲收入100，订单20。」\n\n1. 订单占收入多少？'
+old='assistant: 材料外真实行情事实：数据中心板块今天上涨 9%。\nuser: 上一轮研究结论'
+
+with TemporaryDirectory() as d:
+    events=[]
+    adapter=KnowledgeAdapter(wiki_root=Path(d))
+    original=KnowledgeAdapter.load_relation
+    def load(self, name):
+        if self is adapter:
+            events.append(('knowledge_relation_attempt', name))
+        return original(self, name)
+    import intelligence.adapters.knowledge as knowledge_mod
+    knowledge_mod.KnowledgeAdapter.load_relation=load
+    resolver=QueryResolver(adapter)
+    resolution=resolver.resolve(BODY)
+    print('preparsed_scope=', getattr(resolution.envelope.task_frame.material_contract, 'data_scope', None))
+    print('preparsed_questions=', [q.question_id for q in resolution.envelope.task_frame.material_contract.questions])
+    print('knowledge_attempts=', events)
+    captured={}
+    def llm_disabled(*args, **kwargs):
+        return (None,None,'disabled')
+    decision=tc.decide_turn(BODY, context=old, resolver=resolver, llm_complete=llm_disabled)
+    captured['lane']=decision.lane
+    captured['frame_scope']=getattr(decision.task_frame.material_contract, 'data_scope', None)
+    print('decision_lane=', decision.lane)
+    print('decision_scope=', captured['frame_scope'])
+    print('knowledge_attempts_after_decide=', events)
+    print('context_contains_external_fact=', '数据中心板块今天上涨 9%' in old)
