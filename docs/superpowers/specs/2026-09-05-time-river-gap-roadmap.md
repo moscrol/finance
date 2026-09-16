@@ -75,7 +75,7 @@
 
 #### G-04 题材生命周期两套词表统一
 
-> **2026-09-08 实施状态**：已落——PR #673 `feat/methodology-backtest-p1-lifecycle-stage`（七段为唯一标签值、八阶段降为别名、五段预留作废；旁路库 `lifecycle_stage`，`LABEL_VERSION` v4；对照集草稿 42 条 `stage_manual` 待创始人填）。**待合入**；一致率等标注 ≥ 30 条。
+> **2026-09-08 实施状态**：已落——PR #673 `feat/methodology-backtest-p1-lifecycle-stage`（七段为唯一标签值、八阶段降为别名、五段预留作废；旁路库 `lifecycle_stage`，`LABEL_VERSION` 合入时序为 v6——v5 已被 #49 占用；对照集草稿 42 条 `stage_manual` 待创始人填）。**已合入**（09-15，`ce9643b1`，共享旁路库已重建发布 v6）；一致率等人工标注 ≥ 30 条（当前 0/42）。
 
 
 - **已有**：八阶段诊断与七段时间线两套口径；旁路库 `lifecycle_stage` 标签（#21 P1 剩余项：人工对照集）。
@@ -172,7 +172,7 @@ RiverObject
 
 #### G-06 舆论生命周期阶段词表 + 派生器
 
-> **2026-09-08 实施状态**：已落——PR #671 `feat/opinion-lifecycle-stage`（萌芽 / 扩散 / 拥挤 / 退热 / 证伪 + unverifiable；`opinion_stage.derive_stage` 无状态派生；旁路库 `opinion_stage`，`LABEL_VERSION` v4；§5 第 3 题按推荐执行）。**待合入**；与 #673 撞 v4，后合者升 v5。
+> **2026-09-08 实施状态**：已落——PR #671 `feat/opinion-lifecycle-stage`（萌芽 / 扩散 / 拥挤 / 退热 / 证伪 + unverifiable；`opinion_stage.derive_stage` 无状态派生；旁路库 `opinion_stage`，`LABEL_VERSION` 合入时 v4；§5 第 3 题按推荐执行）。**已合入**（09-11，PR #671 → `4fa297cd`）；版本链此后 #49 升 v5、#673 合入升 v6。
 
 
 - **已有**：`consensus_staging.py` 两轨；观点事件库；`wiki/sources` 7,036 份带日期的研报来源（覆盖密度可算）。
@@ -238,7 +238,7 @@ RiverObject
 
 #### G-02c 区间契约 `river.window` + 区间 PIT
 
-> **2026-09-08 实施状态**：已落——PR #670 `feat/river-window-contract`（`river_window_contract.window` / 五类派生 `river_derive` / `river_anchor.anchor_windows`；`build_daily_vectors` 必填 `knowledge_cutoff`，`market_regime_analogs` / `range_aggregate` 出 `pit_grade`；前视棘轮测试）。**待合入**；事件定价（#663）迁移仍是其义务；`leader_succession` 接 river 为 opt-in。
+> **2026-09-08 实施状态**：已落——PR #670 `feat/river-window-contract`（`river_window_contract.window` / 五类派生 `river_derive` / `river_anchor.anchor_windows`；`build_daily_vectors` 必填 `knowledge_cutoff`，`market_regime_analogs` / `range_aggregate` 出 `pit_grade`；前视棘轮测试）。**已合入**（09-11，PR #670 → `35d8d473`）；事件定价迁移随事件定价线推进（#663 已关，内容随 #722 链进 main）；`leader_succession` 接 river 为 opt-in。
 
 
 - **已有**：`river_window.py`（六维签名、层次聚类、`FeatureSpec` 回溯链）、`river_query.range_aggregate`（带 `coverage / codes_seen / caveats`，`require_complete` 时只给 gap）、`market_regime_analogs` 的签名与距离。
@@ -249,7 +249,7 @@ RiverObject
 
 #### G-14 上下文投影契约 + `projection_hash` 门禁
 
-> **2026-09-08 实施状态**：已落——PR #667 `feat/river-context-projection`（`river_projection.project` / `guided_reading` 改为消费方 / `register_checkpoint` 对 agent 产物无哈希拒收 / `replay --expect`）。干净树 8185P/0F。**待合入**。上文「09-06 §10 第 11、12 条」的条号以 09-06 spec 现文为准（第 11 条投影幂等 + gap 全带上，§11 第 11 条投影门禁）。
+> **2026-09-08 实施状态**：已落——PR #667 `feat/river-context-projection`（`river_projection.project` / `guided_reading` 改为消费方 / `register_checkpoint` 对 agent 产物无哈希拒收 / `replay --expect`）。干净树 8185P/0F。**已合入**（09-11，PR #667 → `03ea3042`）。上文「09-06 §10 第 11、12 条」的条号以 09-06 spec 现文为准（第 11 条投影幂等 + gap 全带上，§11 第 11 条投影门禁）。
 
 
 - **已有**：`guided_reading` 的渲染（[实测] 写死截断：6 键 / 10 节点 / 字母序）、`ask_synthesis` 注入点、五段出门。
@@ -260,7 +260,7 @@ RiverObject
 
 #### G-15 情景树对象（多步推演）
 
-> **2026-09-08 实施状态**：v0 已落——PR #674 `feat/scenario-tree-v0`（叠在 #667 + #670 上：`scenario_trees.py` 编译门 / 互斥 + otherwise / `resolve` 只读 `slice(T+k, C=T+k)` / 三项回检 / 每日复盘钩子默认关）。**待合入**（先合 #667 / #670）。
+> **2026-09-08 实施状态**：v0 已落——PR #674 `feat/scenario-tree-v0`（叠在 #667 + #670 上：`scenario_trees.py` 编译门 / 互斥 + otherwise / `resolve` 只读 `slice(T+k, C=T+k)` / 三项回检 / 每日复盘钩子默认关）。**已合入**（09-12，PR #674 → `73dd3d1e`；#667 / #670 先已合入）。
 
 
 - **已有**：`observation_script` 对象与硬门、`compliance_gate` 词表、`checkpoints` 回检、`methodology_backtest` 规则编译器白名单。

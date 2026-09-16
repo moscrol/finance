@@ -15,7 +15,7 @@ evidence_search 30.0）与 `intelligence/services/episode_tools.py:910` 的 `tim
 钉低了会把窗口烧在必超时的调用上。
 
 阻塞它们的内存层已经治完（工单 #22 步骤 2/3/4，PR #577 + 瘦身三刀 KB #141/#142/#143 + 金融 #587）。
-2026-09-05 生产实测（8792 重启后，快照 `f4c03b9a`，交接 `docs/handoffs/inflight/perf-rag-worker-slimming.md`）：
+2026-09-05 生产实测（8792 重启后，快照 `f4c03b9a`，交接 `docs/handoffs/inflight-archive-2026-09-08/perf-rag-worker-slimming.md`）：
 
 | 条件 | kb_search 端到端 | 出处 |
 |---|---|---|
@@ -68,7 +68,7 @@ evidence_search 30.0）与 `intelligence/services/episode_tools.py:910` 的 `tim
 
 | 文件 | 看什么 |
 |---|---|
-| `docs/handoffs/inflight/perf-rag-worker-slimming.md` | 三刀合入后的生产读数、决策与被否方案、踩过的坑（探针进程组、readiness 503 body） |
+| `docs/handoffs/inflight-archive-2026-09-08/perf-rag-worker-slimming.md` | 三刀合入后的生产读数、决策与被否方案、踩过的坑（探针进程组、readiness 503 body） |
 | `~/.finance-runtime/rag-mem-probe-20260905/samples.csv` + `kb-cases/*.json` | 09-05 的全部一手读数；列含义见同目录 `probe.py` 头部；**复用勿重造**：发题用 `run_kb_probe.py`（每题一探针 user，经 8792 `/api/runs`） |
 | `docs/verification/2026-09-04-budget-matrix-0904-review.md` §3 / §5 | T120/R20 与 T90/R20 的设计、五步计划裁决、为什么「先别跑」——本单是它说的那个「有了热 worker 的 p95 再回来」 |
 | `intelligence/services/research_tool_registry.py:594,1254` | 两个地板的定义与字段语义（`min_window_seconds` = 成功一次至少几秒） |
