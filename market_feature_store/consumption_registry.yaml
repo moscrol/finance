@@ -306,7 +306,12 @@ datasets:
     steps: {full: [theme-flow-daily], cheap: [theme-flow-daily]}
     identity: {what: 面板覆盖题材, cadence: 中速, evidence: "J=0.80 [用户实测]"}
     value: {what: 资金流, cadence: 极快}
-    refresh: {tier: C-daily, policy: "每天 1 请求。"}
+    refresh:
+      tier: C-daily
+      policy: >-
+        每天先打复盘会公开 API 1 次。0 行或失败时用当日 published 板块成分的
+        fund_flow_1d 加总写入同一张表（source=local:sector-basket:fund_flow_1d），
+        不冒充他们的 50 来个编辑格子。
 
   # ---- 公开资产（public-assets 一步之内的子任务，按 plan 分档）----
 
