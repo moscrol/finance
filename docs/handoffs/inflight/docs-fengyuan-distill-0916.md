@@ -1,37 +1,33 @@
 # docs/fengyuan-distill-0916
 
 ## 这个分支做什么
-把风远94 对账台账（`docs/learning/knevo-distill/fengyuan94-corpus-dedup-2026-09-16.md` §5）判为「新增」的
-优先 8 卡（R12 / R27 / R28 / R29 / R30 / R35 / R61 / R65）走 `perspective-distill` 第 1–4 步进 `fengyuan` 画像。
-画像、原料、卡片、patch 全在 gitignore 的用户空间；本分支进 git 的只有本交接 + `evolution/backtest-queue.md`
-Q-002 追加行 #12–#15（数字阈值排队，均未提交）。
+把风远94 对账台账（`docs/learning/knevo-distill/fengyuan94-corpus-dedup-2026-09-16.md` §5）判为「新增」的卡
+走 `perspective-distill` 闭环进 `fengyuan` 画像。画像、原料、卡片、patch 全在 gitignore 的用户空间；
+进 git 的只有本交接、`evolution/backtest-queue.md` Q-002 #12–#15、skill 第 0 步过期段修正。
 
-## 当前状态（2026-09-16 15:35，接手自 pi 会话）
-- 原料私存 `~/.local/share/finance-workbench/private-distillation/fengyuan-20260916/`（0700；148 文件 before 备份 +
-  sha256；`plan.json` 记四批：优先 8 / 第二批 14 / 「部分」22 未切 / B 侧 08-08 快照 11 条未切）。
-- **步骤 1 ingest 已落两批**：优先 8 卡 `pa-516facf90296`、第二批 14 卡 `pa-e0178691c647`（均 date 2026-07-12
-  快照日），风远 22 篇；首写前核过指纹 = 备份。第二批只 ingest **不抽取**——`review-policy.md` 只覆盖优先 8 卡，
-  extract-cards 必须带 `--article-id pa-516facf90296`，第二批等自己的评审策略。
-  8792 已由另一会话切到 gitea/main=0758a423，切后 GET /api/perspectives 仍见 fengyuan 21 篇（可见性闸通过）。
-- **步骤 2 extract-cards 阻塞在模型网关**：127.0.0.1:8080 六模型自 14:50 起全 502/503（网关 /health ok、上游不可用），
-  14:55–15:33 每分钟探针无一恢复。共享网关，不自行重启、不绕道别的凭证。
-- 评审判据已写好：job 目录 `review-policy.md`。R27 / R29 / R30 与边界第 1 条「不做报表核查」交叉，
-  **保持 pending 待用户拍板**，不批不拒；其余五张按三门评审后执行。
-- 考卷基线：`perspective exam run` 3/3 通过（确定性，不用 LLM；边题正是「核三张报表质量」→ 批财报规则后必须重跑）。
+## 当前状态（2026-09-16 17:00 前后，优先批已收口）
+- **优先 8 卡闭环完成**（article `pa-516facf90296`，GLM 直连抽取，8 候选全部引文核验通过）：
+  **4 批**（R61 一致预期锚 / R12 纸面产能 / R65 比率口径 / R28 数据现查通用句，均进 anti_patterns 或对应字段）、
+  **1 拒**（R35：value 写死「1-2季度」违 08-28 剥数纪律；剥离版在 review-policy「待用户手编」段）、
+  **3 pending 待用户**（R27/R29/R30 与画像边界第 1 条「不做报表核查」冲突，推荐采纳+边界收窄，见 review-policy）。
+- 考卷批后重跑 3/3 通过（边题「核报表质量」仍弃权）；8792（gitea/main=0758a423）可见 fengyuan 22 篇。
+- known_gaps 已更新：74 条 approved 均 agent 起草待用户复核 + 本批 4A/1R/3P 一行。
+- 第二批 14 卡已 ingest（`pa-e0178691c647`）**未抽取**——等自己的评审策略再走 extract。
+- 模型网关 8080 自 14:50 起上游（Mirasim 账号组）全 503，恢复未确认；本批经
+  `~/.local/bin/start-finance-workbench-glm-canary` 的智谱直连（glm-5.2, coding 端点）完成，用户在会话中指路。
 
 ## 下一步
-1. 网关恢复后（先 `curl …/chat/completions` 见到 `choices`）：
-   `FORESIGHT_USERS_DIR=/Users/a77/.local/share/finance-workbench/users FORESIGHT_USER=linxiaoqi5111 \
-    .venv-workbench/bin/python -m intelligence.cli perspective extract-cards --user linxiaoqi5111 --perspective fengyuan --article-id pa-516facf90296`
-   → `propose-patches` → 按 `review-policy.md` 逐条 `review-patch` → `exam run` → 覆写本交接。
-2. 剥离数字若与 Q-002 #12–#15 不一致则改表；再决定是否提交本分支（handoff + backtest-queue 两个 pathspec）。
-3. 第二批 ingest 用 `--date 2026-07-12`；B 侧用 `--date 2026-08-08`；每批 <16000 字。
+1. 用户三裁决：① R27/R29/R30 批否 + 边界第 1 条是否收窄；② R35 剥离版手编与否；③ 复核 4 条已批。
+2. 第二批 14 卡：写 review policy（台账 §5 已示警 R59/R60 边界、R13/R19 剥案例、R38 查重 q17 Q6）→ extract
+   `--article-id pa-e0178691c647` → propose → review。之后「部分」22 卡与 B 侧（08-08 快照，`--date 2026-08-08`）。
+3. 抽取用网关（恢复后）或 glm-canary 直连均可；LLM_API_KEY 未设时链条取 FORESIGHT_BUILTIN_*。
 
 ## 踩过的坑
-- 用户空间真值在启动器：`FORESIGHT_USERS_DIR=/Users/a77/.local/share/finance-workbench/users`、
-  `FORESIGHT_USER=linxiaoqi5111`——skill 文档「别用 linxiaoqi5111」那段已过期，以启动器为准。
-- 启动器 `PYTHONPATH` 指向 `finance-workspace-runtime`，整份 eval 进来会加载别的树；只取需要的几个 export。
-- 提供方顺序：`LLM_API_KEY` 未设 → 走 `FORESIGHT_BUILTIN_LLM_*`（kimi-k3 经网关）。
+- 用户空间与 user 真值都在启动器现查（本次 `FORESIGHT_USERS_DIR=~/.local/share/finance-workbench/users`、
+  `FORESIGHT_USER=linxiaoqi5111`）；skill 第 0 步已改为现查。
+- 启动器 `PYTHONPATH` 指向 runtime 树，整份 eval 会加载别的代码；只 eval 需要的 export。
+- 网关探活只信 `chat/completions` 里的 `choices`；`/health`、`/v1/models` 全程是绿的。
 
 ## 未验证
-- 尚无 patch 产出，approve/reject 清单为零。
+- 生产 Workbench 单视角 smoke（选 fengyuan 问行情题）未跑——网关不可用，Workbench 自身模型也走它。
+- 4 条已批与 3 条 pending 的最终认定权在用户。
