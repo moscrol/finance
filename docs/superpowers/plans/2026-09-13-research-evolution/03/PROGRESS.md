@@ -101,3 +101,51 @@ exposures/<operation_id>.json                          exposure-receipt/v1（own
 | 6 | 跨窗 / 错版本 / 缺 PIT 原件 / late 登记 / 历史与前向不混 / 投影哈希形状 | `_service::test_forward_registration_time_gates`, `test_settlement_refuses_version…`, `test_pit_grade_only_upgrades…`, `test_historical_llm_probabilities_never…`, `test_projection_hash_accepts_river…`, `_eval::test_runner_refuses…` |
 | 7 | 改 p 被拦 / 换 study·谱系·别名复用 holdout 被拦 / 未知曝光不 eligible / 崩溃恢复幂等 / 跨 owner 失败 | `_service::test_full_forward_flow…`, `test_unknown_external_exposure…`, `test_cross_owner…`, `_repository::test_owner_mismatch…`, `test_leftover_pending_temp_file…` |
 | 8 | 临时真实文件两次结算 → 收据；未到期 / 块不足完整返回 pending / insufficient | `_service::test_revised_outcome…`, `test_full_forward_flow…`, `_eval::test_ablation_end_to_end…`, `_scoring::test_dependence_insufficient…` |
+
+---
+
+## 2026-09-13 返修（评审 RV1 / RV2 / RV3）
+
+来源：`/Users/a77/.finance-runtime/reviews/research-evolution-20260913/review.md` 需求符合性轴三条。
+基线 `f2a12fa3`（干净树）。三条都先写「调用真实 freeze/register/settle/evaluate + 临时 Repository」的回归测试并证明现版红，再改实现。
+
+### RV1 [P1] 逐日登记后再评估抛 ConflictError
+
+- 根因：`service.py` 里 evaluate 的 `operation_id` 只摘 `{kind, study_id, settled}`，而 `record_exposure` 比对的是**整份意图**（含 `case_manifest_hash` / `window` / `actor` / `outcome_identities`）。D0 登记一对 → evaluate=pending；D1 再登记一对合法预测，期限都没到 → settled 集合不变（仍为空）、case 集合变 → 同 id 撞上异载荷 → `ConflictError`。这是正常使用路径，不是并发重占，违反 spec §5「未来未到 / 块不足也能完整返回 pending/insufficient」。
+- 修法：`operation_id` 改为**逐字段覆盖 `build_exposure_intent` 的全部身份输入** —— `{kind, lineage_id, study_id, framework_hash, window, case_manifest_hash, settled, stage, actor}`。`settled_manifest_hash` 是 `outcome_identities` 的无损摘要（`identity` 本身即整条身份的 sha256），`reason` 在该调用点是常量，故二者不必再入摘要。顺带修掉同一根因的第二个症状：不同 `actor` 评估同一 study 原本也会撞冲突，现在各自留痕。
+- 新测试：`test_incremental_registration_keeps_pending_evaluate_instead_of_conflict`、`test_evaluate_is_idempotent_for_identical_inputs_and_separates_actors`。
+- 修前红：`ConflictError: operation_id=9b579cf4… 已被另一意图占用（stage=evaluate, actor=research_validation.evaluate_study）`。
+- 保住的既有语义：同输入重跑仍返回同一条曝光原件（`accessed_at` 不刷新）；同 `operation_id` 异载荷仍 `ConflictError`（由 `test_record_exposure_is_idempotent_and_conflicts_on_reused_operation_id` 直调 `record_exposure` 钉住）；崩溃恢复按原 id。
+
+### RV2 [P1] PIT 截止比较方向反了
+
+- 根因：`_build_forecast` 只拒「forecast cutoff 晚于收据 cutoff」，不拒反向。于是 09-14 的预测可以采用可知时刻为 09-15 的收据并升 `strict`。
+- 修法：**换方向**，改为 `receipt_cutoff > cutoff` → 拒收，reason `pit_receipt_after_forecast_cutoff`。
+- 为什么是换不是加：两条判据在实践中互斥，同时保留只剩「两个 cutoff 严格相等」才放行，等于废掉该功能。取舍依据是危害方向 —— 收据**晚于**本次截止意味着捕获件含截止后信息，拿它当事前证据就是前视偏差，正是 spec §5「晚于 cutoff 拒收」要防的；反向（收据早于本次截止）是正常事前证据，更早可知者在更晚的截止前必然也可知，拒绝它会把「盘中抓料、收盘定 cutoff」这类正常流程整批打掉。修前实测即如此：探针里唯一被拒的是那条**合法的**早期收据，两条未来收据反而放行。
+- 「收据晚于可信 now」由同一判据覆盖：`cutoff ≤ market_close(as_of) ≤ now` 恒成立（前向模式要求 `now ≥ market_close(as_of)`，历史模式 as_of 在过去），故 `receipt_cutoff > now ⟹ receipt_cutoff > cutoff`。未另设不可达分支，改在测试里用 `cap-after-now` 钉住。
+- `PitVerifier.verify(ref)` 端口签名未动；方向判断留在 `_build_forecast`。
+- 新测试：`test_pit_receipt_later_than_forecast_cutoff_is_rejected`（四条：晚于截止、远晚于 now、早于截止、等于截止）。
+- 修前红：`assert ['knowledge_cutoff_late'] == ['pit_receipt_after_forecast_cutoff', 'pit_receipt_after_forecast_cutoff']`。
+
+### RV3 [P2] pending 状态泄露累计评分
+
+- 根因：comparison 分支已清空期末前累计均值，但 `calibration[arm]` 随后**无条件**汇总全部已结算案例，`mean_brier` 与桶的 `mean_p` / `observed_rate` 成了同一份累计表现的第二个出口，可直接推回累计改善。两处各写一份封存条件，只有一处生效。
+- 修法：把封存闸门提成**唯一变量** `confirmatory_test_run = evaluation_end_reached and pending_total == 0`，comparison 与 calibration 共用（收据里的同名字段也改用它，不再第三次重算）。期末未到时 `mean_brier=None`、各桶 `mean_p` / `observed_rate` 置 None 且 `reason=sealed_until_evaluation_end`，并加 `sealed` / `sealed_reason` 两个显式字段。保留 spec §7 明说可报的「pending 数与单项」：`n_settled`、桶计数、`origins` / `pit_grades` / `recipe_id`。
+- 新测试：`test_cumulative_calibration_is_sealed_until_evaluation_end`、`test_calibration_opens_after_evaluation_end`（55 日实验走到期末，确认封存只在期末前生效、到期后原样输出）。
+- 修前红：`KeyError: 'sealed'`；探针显示期末未到时 base/full 的 `mean_brier` 为 0.26 / 0.34。
+
+### 收据
+
+最终 SHA **`976d4cf0`**（`976d4cf045faeda212704647b7d9a75d55dbe514`）。下表两条收据均在**提交后的干净树**上重跑取得，`dirty=false`、`revision` 即最终 SHA。
+
+| 命令 | 结果 | 收据 |
+|---|---|---|
+| `pytest -q -p no:cacheprovider` 本轨 5 个测试文件 | **96 passed**（91 基线 + 5 新），0 failed / 0 error / 0 skipped，exit 0 | `~/.finance-runtime/test-receipts/20260913T075303Z-976d4cf0.json` |
+| `pytest -q -p no:cacheprovider test_methodology_dependence.py test_method_validation.py test_replay_engine.py test_dual_blind_forecast.py` | **117 passed**，0 failed / 0 error / 0 skipped，exit 0 | `~/.finance-runtime/test-receipts/20260913T075335Z-976d4cf0.json` |
+| `ruff check`（`service.py` + `test_research_validation_service.py`） | All checks passed | — |
+| pre-commit 11 道 | 全部 Passed（红线项无文件 → Skipped） | 提交 `976d4cf0` 的 hook 输出 |
+| 评审独立探针 `probe_03.py`（只读、临时根） | 三场景均转正：`incremental_pending.day2_evaluate={"status":"pending"}`；`later_capture` accepted=0 / rejected `pit_receipt_after_forecast_cutoff` / pit_grade=null；`pre_end_cumulative` 两臂 `mean_brier=None, sealed=true, n_settled=2` | 对话内执行 |
+
+解释器 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`（3.12.13，依赖指纹 `3328bed61f3e21ea`）。收据目录多树共用，按时间戳取本 revision 的文件，未读 `latest.json`。
+
+未做：全仓 / 前端 / registry 未重跑（本次只改 03 白名单内 2 个文件）。真实前向样本仍 pending，与本次返修无关。

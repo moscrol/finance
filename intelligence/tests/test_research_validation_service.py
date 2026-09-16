@@ -443,3 +443,123 @@ def test_read_receipt_returns_none_when_nothing_evaluated(tmp_path):
     repo, protocol = frozen(tmp_path)
     assert read_receipt(owner=OWNER, repository=repo, now=D0_EVENING, study_id=protocol["study_id"]) is None
     assert repo.list_exposures() == []
+
+
+# --------------------------------------------------------------------------- #
+# 返修回归（评审 RV1 / RV2 / RV3）
+# --------------------------------------------------------------------------- #
+def test_incremental_registration_keeps_pending_evaluate_instead_of_conflict(tmp_path):
+    """RV1：逐日登记是正常使用路径，不是并发重占。
+
+    D0 登记一对 → evaluate=pending；D1 再登记一对合法预测（期限都没到，已结算集合仍为空，
+    但 case 集合变了）→ 第二次 evaluate 必须照常返回 pending 收据，不能抛 ConflictError。
+    spec 03 §5「未来未到 / 块不足也能完整返回 pending/insufficient」。
+    """
+    repo, protocol = frozen(tmp_path)
+    sid = protocol["study_id"]
+    d1 = CAL[FS + 1]
+    assert not register_forecasts(owner=OWNER, repository=repo, now=sh(D0, 17), study_id=sid, forecasts=two_arm_inputs(D0, ("S1",))).rejected
+    first = evaluate_study(owner=OWNER, repository=repo, now=sh(D0, 17), study_id=sid)
+    assert first["empirical_status"] == "pending"
+
+    second_day = register_forecasts(owner=OWNER, repository=repo, now=sh(d1, 17), study_id=sid, forecasts=two_arm_inputs(d1, ("S1",)))
+    assert len(second_day.accepted) == 2 and not second_day.rejected
+    second = evaluate_study(owner=OWNER, repository=repo, now=sh(d1, 17), study_id=sid)
+    assert second["empirical_status"] == "pending"
+    assert second["counts"] == {"forecasts": 4, "cases": 2, "settled": 0, "pending": 4, "missing": 0, "invalid": 0}
+    # 输入集合变了 = 新意图 → 新的 operation_id、新的曝光记录，而不是冲突
+    assert second["exposure_receipt_ref"] != first["exposure_receipt_ref"]
+    assert len(repo.list_exposures()) == 2
+
+
+def test_evaluate_is_idempotent_for_identical_inputs_and_separates_actors(tmp_path):
+    """RV1 配套：同输入重跑仍幂等复用同一条曝光；不同 actor 是不同访问，各自留痕不冲突。"""
+    repo, protocol = frozen(tmp_path)
+    sid = protocol["study_id"]
+    register_forecasts(owner=OWNER, repository=repo, now=sh(D0, 17), study_id=sid, forecasts=two_arm_inputs(D0, ("S1",)))
+    first = evaluate_study(owner=OWNER, repository=repo, now=sh(D0, 17), study_id=sid)
+    retry = evaluate_study(owner=OWNER, repository=repo, now=sh(D0, 19), study_id=sid)
+    assert retry["exposure_receipt_ref"] == first["exposure_receipt_ref"]
+    exposures = repo.list_exposures()
+    assert len(exposures) == 1 and exposures[0]["accessed_at"] == repo.list_exposures()[0]["accessed_at"]
+
+    other_actor = evaluate_study(owner=OWNER, repository=repo, now=sh(D0, 19), study_id=sid, actor="06.workbench.read")
+    assert other_actor["exposure_receipt_ref"] != first["exposure_receipt_ref"]
+    assert len(repo.list_exposures()) == 2
+
+
+def test_pit_receipt_later_than_forecast_cutoff_is_rejected(tmp_path):
+    """RV2：PIT 收据的可知时刻晚于本次预测截止 → 拒收，不得升 strict。
+
+    spec 03 §5「输入通过已有 PIT（当时可知）收据校验；晚于 cutoff 拒收」。
+    收据晚于预测截止意味着捕获件里含预测截止之后的信息 = 前视偏差。
+    """
+    repo, protocol = frozen(tmp_path)
+    sid = protocol["study_id"]
+    d0_close = market_close(D0)
+    verifier = FakePitVerifier(
+        {
+            "cap-later": {"verified": True, "pit_grade": "strict", "knowledge_cutoff": utc_iso(market_close(CAL[FS + 1]))},
+            "cap-after-now": {"verified": True, "pit_grade": "strict", "knowledge_cutoff": utc_iso(market_close(CAL[FS + 10]))},
+            "cap-earlier": {"verified": True, "pit_grade": "strict", "knowledge_cutoff": utc_iso(d0_close - timedelta(hours=6))},
+            "cap-equal": {"verified": True, "pit_grade": "strict", "knowledge_cutoff": utc_iso(d0_close)},
+        }
+    )
+    result = register_forecasts(
+        owner=OWNER,
+        repository=repo,
+        now=D0_EVENING,
+        study_id=sid,
+        forecasts=[
+            forecast_input("S1", D0, "base", 0.6, capture_receipt_ref="cap-later"),
+            forecast_input("S2", D0, "base", 0.6, capture_receipt_ref="cap-after-now"),
+            forecast_input("S3", D0, "base", 0.6, capture_receipt_ref="cap-earlier"),
+            forecast_input("S4", D0, "full", 0.6, capture_receipt_ref="cap-equal"),
+        ],
+        pit_verifier=verifier,
+    )
+    assert [r.reason for r in result.rejected] == ["pit_receipt_after_forecast_cutoff"] * 2
+    assert [r.index for r in result.rejected] == [0, 1]
+    # 早于 / 等于本次截止的收据是正常事前证据，照常升 strict
+    assert {f["case"]["entity_id"]: f["pit_grade"] for f in result.accepted} == {"S3": "strict", "S4": "strict"}
+    assert not [f for f in repo.list_forecasts(sid) if f["case"]["entity_id"] in ("S1", "S2")]
+
+
+def test_cumulative_calibration_is_sealed_until_evaluation_end(tmp_path):
+    """RV3：期末未到时 calibration 也要封存累计评分，不能绕过 comparison 的封存门。
+
+    spec 03 §7「evaluation_end 到达才作一次确认检验，此前只报 pending 数 / 单项，累计评分封存」。
+    """
+    repo, protocol = frozen(tmp_path)
+    sid = protocol["study_id"]
+    rows = run_forward(repo, protocol, n_days=2, entities=("S1",))
+    mid_now = sh(CAL[FS + 1 + HORIZON], 18)
+    settle_outcomes(owner=OWNER, repository=repo, now=mid_now, study_id=sid, outcome_source=DictOutcomeSource(calendar=CAL, watermark=CAL[-1], rows=rows))
+    receipt = evaluate_study(owner=OWNER, repository=repo, now=mid_now, study_id=sid)
+
+    assert receipt["empirical_status"] == "pending" and receipt["evaluation_end_reached"] is False
+    assert receipt["confirmatory_test_run"] is False
+    for arm, entry in receipt["calibration"].items():
+        assert entry["n_settled"] == 2, arm  # 计数与单项照报
+        assert entry["sealed"] is True and entry["sealed_reason"] == "sealed_until_evaluation_end", arm
+        assert entry["mean_brier"] is None, arm
+        for bucket in entry["buckets"]:
+            assert bucket["mean_p"] is None and bucket["observed_rate"] is None, (arm, bucket["bucket"])
+            assert bucket["reason"] == "sealed_until_evaluation_end", (arm, bucket["bucket"])
+
+
+def test_calibration_opens_after_evaluation_end(tmp_path):
+    """RV3 配套：期末到达且无未到期预测 → 原样输出累计 Brier 与桶，封存只在期末前生效。"""
+    n_days = 55
+    repo, protocol = frozen(tmp_path, n_forward=n_days)
+    sid = protocol["study_id"]
+    rows = run_forward(repo, protocol, n_days=n_days, entities=("S1",))
+    final_now = sh(CAL[FS + n_days - 1 + HORIZON], 18)
+    settle_outcomes(owner=OWNER, repository=repo, now=final_now, study_id=sid, outcome_source=DictOutcomeSource(calendar=CAL, watermark=CAL[-1], rows=rows))
+    receipt = evaluate_study(owner=OWNER, repository=repo, now=final_now, study_id=sid)
+
+    assert receipt["evaluation_end_reached"] is True and receipt["confirmatory_test_run"] is True
+    base = receipt["calibration"]["base"]
+    assert base["sealed"] is False and base["sealed_reason"] is None
+    assert base["n_settled"] == n_days and base["mean_brier"] == pytest.approx(0.16)
+    assert any(b["mean_p"] is not None and b["observed_rate"] is not None for b in base["buckets"])

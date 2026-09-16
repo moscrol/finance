@@ -65,6 +65,7 @@ ORIGINS_BY_MODE: dict[str, tuple[str, ...]] = {
 }
 UNKNOWN_ACTORS = frozenset({"unknown", "external"})
 EVALUATE_ACTOR = "research_validation.evaluate_study"
+SEALED_UNTIL_END = "sealed_until_evaluation_end"
 _FORECAST_INPUT_KEYS = {
     "entity_type",
     "entity_id",
@@ -274,8 +275,16 @@ def _build_forecast(
         if verdict and verdict.get("verified") is True and verdict.get("pit_grade") in ("strict", "trade_date_only"):
             pit_grade = str(verdict["pit_grade"])
             receipt_cutoff = verdict.get("knowledge_cutoff")
-            if receipt_cutoff is not None and cutoff > parse_ts(receipt_cutoff, field_name="receipt.knowledge_cutoff"):
-                raise ContractError("knowledge_cutoff 晚于 PIT 收据的可知时刻", "knowledge_cutoff_late")
+            # 方向：捕获件的可知时刻必须 **不晚于** 本次预测截止。晚于 = 捕获件里含预测截止
+            # 之后的信息，拿它当事前证据就是前视偏差（spec 03 §5「晚于 cutoff 拒收」）。
+            # 反向（收据早于本次截止）是正常事前证据：更早可知者必然在更晚的截止前也可知，
+            # 拒绝它会把「盘中抓料、收盘定 cutoff」这种正常流程整批打掉。
+            # cutoff ≤ market_close(as_of) ≤ now 恒成立，所以本判据同时覆盖「收据晚于可信 now」。
+            if receipt_cutoff is not None and parse_ts(receipt_cutoff, field_name="receipt.knowledge_cutoff") > cutoff:
+                raise ContractError(
+                    "PIT 收据的可知时刻晚于本次预测 knowledge_cutoff：捕获件含截止后信息，不得作事前证据",
+                    "pit_receipt_after_forecast_cutoff",
+                )
     if pit_grade == "unverified":
         claimed = item.get("pit_grade")
         detail = "无可验证 PIT 收据；只有 hash 而无原件 / 验证收据不能升 strict"
@@ -661,15 +670,34 @@ def evaluate_study(
             settled_identities.append(ident)
     case_manifest_hash = digest(sorted(cases))
     settled_manifest_hash = digest(sorted(seen_identity))
+    window = {"start": protocol["forward_start"], "end": protocol["evaluation_end"]}
+    # operation_id 必须由**整份意图**决定，否则「意图变了」会伪装成「别人占了同一个 id」。
+    # 只算 study + 已结算集合时，逐日登记（case 集合变、settled 仍为空）会撞同一个 id 却带
+    # 不同 case_manifest_hash → ConflictError，把正常使用路径判成重占（评审 RV1）。
+    # 这里逐字段覆盖 build_exposure_intent 的全部身份输入：settled_manifest_hash 是
+    # outcome_identities 的无损摘要（identity 本身就是整条身份的 sha256），reason 在本调用点是常量。
+    operation_id = digest(
+        {
+            "kind": "evaluate",
+            "lineage_id": protocol["lineage_id"],
+            "study_id": protocol["study_id"],
+            "framework_hash": protocol["framework_hash"],
+            "window": window,
+            "case_manifest_hash": case_manifest_hash,
+            "settled": settled_manifest_hash,
+            "stage": "evaluate",
+            "actor": actor,
+        }
+    )
     exposure = record_exposure(
         owner=owner,
         repository=repository,
         now=now,
-        operation_id=digest({"kind": "evaluate", "study_id": protocol["study_id"], "settled": settled_manifest_hash}),
+        operation_id=operation_id,
         lineage_id=protocol["lineage_id"],
         study_id=protocol["study_id"],
         framework_hash=protocol["framework_hash"],
-        window={"start": protocol["forward_start"], "end": protocol["evaluation_end"]},
+        window=window,
         case_manifest_hash=case_manifest_hash,
         outcome_identities=settled_identities,
         stage="evaluate",
@@ -726,6 +754,9 @@ def evaluate_study(
 
     evaluation_end_reached = now >= market_close(protocol["evaluation_end"])
     pending_total = excluded_counts["future_not_due"]
+    # 唯一的封存闸门：期末到达且无未到期预测才跑一次确认检验。comparison 与 calibration
+    # 共用它——评审 RV3 正是因为两处各写一份条件、只有一处生效。
+    confirmatory_test_run = bool(evaluation_end_reached and pending_total == 0)
 
     readouts: list[dict[str, Any]] = []
     for comparison in protocol["comparisons"]:
@@ -817,7 +848,7 @@ def evaluate_study(
             if "arm_missing" not in eligibility_reasons:
                 eligibility_reasons.append("arm_missing")
             gaps.append(make_gap("arm_missing", [comparison["comparison_id"]], detail="主比较有臂没有任何预测"))
-        if not evaluation_end_reached or pending_total > 0:
+        if not confirmatory_test_run:
             # 期末未到：累计评分封存，只报 pending 数与单项
             for key in ("mean_brier_base", "mean_brier_candidate", "mean_brier_difference_descriptive", "independent", "dependence", "verdict", "verdict_if_eligible"):
                 readout[key] = None
@@ -843,6 +874,9 @@ def evaluate_study(
     if empirical_status in ("supported", "refuted", "not_distinguishable") and not eligible:
         empirical_status = "descriptive"
 
+    # 期末未到（或仍有未到期预测）时，comparison 已封存累计评分；calibration 必须一起封存，
+    # 否则两臂的 mean_brier / 桶频率就是同一份累计表现的另一个出口，能直接推回累计改善（评审 RV3）。
+    # 允许保留的是 spec 03 §7 明说的「pending 数与单项」：n_settled、桶计数、口径标签。
     calibration: dict[str, Any] = {}
     for arm in arm_ids:
         samples = [
@@ -850,10 +884,20 @@ def evaluate_study(
             for f in forecasts
             if f["arm_id"] == arm and states[f["id"]] == "settled"
         ]
+        buckets = calibration_buckets(samples, min_n=int(policy["calibration_min_n"]))
+        mean_brier = (sum((p - y) ** 2 for p, y in samples) / len(samples)) if samples else None
+        if not confirmatory_test_run:
+            mean_brier = None
+            for bucket in buckets:
+                bucket["mean_p"] = None
+                bucket["observed_rate"] = None
+                bucket["reason"] = SEALED_UNTIL_END
         calibration[arm] = {
             "n_settled": len(samples),
-            "mean_brier": (sum((p - y) ** 2 for p, y in samples) / len(samples)) if samples else None,
-            "buckets": calibration_buckets(samples, min_n=int(policy["calibration_min_n"])),
+            "mean_brier": mean_brier,
+            "sealed": not confirmatory_test_run,
+            "sealed_reason": None if confirmatory_test_run else SEALED_UNTIL_END,
+            "buckets": buckets,
             "origins": sorted({f["origin"] for f in forecasts if f["arm_id"] == arm}),
             "pit_grades": sorted({f["pit_grade"] for f in forecasts if f["arm_id"] == arm}),
             "recipe_id": origin_by_arm[arm]["recipe_id"],
@@ -880,7 +924,7 @@ def evaluate_study(
         "eligibility_reasons": eligibility_reasons,
         "evaluation_end": protocol["evaluation_end"],
         "evaluation_end_reached": evaluation_end_reached,
-        "confirmatory_test_run": bool(evaluation_end_reached and pending_total == 0),
+        "confirmatory_test_run": confirmatory_test_run,
         "pending_gaps": [g.to_dict() for g in gaps],
         "excluded_counts": excluded_counts,
         "counts": {
