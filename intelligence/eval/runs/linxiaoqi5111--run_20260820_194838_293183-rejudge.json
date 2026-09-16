@@ -1,0 +1,35 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "linxiaoqi5111--run_20260820_194838_293183",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "73874a501a5a8aef7ebfa064d8c6ddeabf0e8cbc15cbd3f10f30d1fb1561c9ac",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      2,
+      3,
+      4,
+      5,
+      7,
+      11,
+      12
+    ],
+    "issues": [
+      "第2句把07-07至07-20概括为连续走弱，但注册表只提供若干离散日期，无法核验整个区间的连续性。",
+      "第3句所述07-17盐湖提锂下跌3.57%不在证据注册表中。",
+      "第4句把该阶段定性为底部区域，证据没有历史区间或估值基准支持这一位置判断。",
+      "第5句称07-21锂矿小幅反弹，但引用的是不同标的锂指数990378.FP，注册表没有07-21锂矿990382.FP行情。",
+      "第7句称量能开始温和回升，但07-22多项相关板块边际量为负，不能支持这一总体判断。",
+      "第11句称资源端涨幅与放量强度显著高于中游，但盐湖提锂涨3.66%低于锂电设备3.85%，且部分资源与中游条目的边际量并不满足该总体比较。",
+      "第12句称628.5亿元未超过628亿元，数值比较错误。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

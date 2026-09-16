@@ -76,7 +76,7 @@ canvas.dispatchEvent(new MouseEvent("mousemove", {clientX: x, clientY: y, bubble
 
 ### ~~Step 4: Write to Feishu~~（已废弃）
 
-> **已废弃。** 复盘数据统一走 `daily-full` → DuckDB 路径，不再写入飞书 Bitable。
+> **已删除（2026-09-11 随飞书自建应用退役）。** 复盘数据统一走 `daily-full` → DuckDB；本节只作历史记录，脚本已不在仓内。
 
 ### ~~Step 5: Verify & Patch~~（已废弃）
 

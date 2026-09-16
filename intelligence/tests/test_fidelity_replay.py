@@ -200,6 +200,51 @@ class FidelityReplayTests(unittest.TestCase):
             )
             self.assertFalse(snapshot["boundary"]["outcome_data_included"])
 
+    def test_strict_updated_at_default_is_unchanged_and_false_is_explicit(self) -> None:
+        """缺省 strict：与旧行为逐字节一致（sha 相同、不多任何键）；显式 False 才放开 updated_at。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            db = self._db(Path(tmp))
+            con = self.duckdb.connect(str(db))
+            try:
+                # 后补行：trade_date 在 D0 之前，但 updated_at 在 D0 之后——strict 必须排除
+                con.execute(
+                    """
+                    INSERT INTO fact_market_daily VALUES
+                    ('2026-06-30', 2500, '震荡', '2026-07-10 20:00:00')
+                    """
+                )
+            finally:
+                con.close()
+            case = {
+                "case_id": "FR-2026-07-02",
+                "as_of": "2026-07-02",
+                "target_date": "2026-07-03",
+                "kb_snapshot": {"commit": "abc"},
+                "status": "ready",
+            }
+            default = build_input_snapshot(db, case)
+            explicit_true = build_input_snapshot(db, case, strict_updated_at=True)
+            self.assertEqual(default["snapshot_sha256"], explicit_true["snapshot_sha256"])
+            self.assertNotIn("pit_grade", default["boundary"])
+            self.assertEqual(
+                set(default["boundary"]),
+                {"max_allowed_date", "outcome_data_included", "max_embedded_date"},
+            )
+            strict_dates = {
+                str(row["trade_date"])[:10] for row in default["data"]["market_history"]
+            }
+            self.assertNotIn("2026-06-30", strict_dates)
+
+            relaxed = build_input_snapshot(db, case, strict_updated_at=False)
+            relaxed_dates = {
+                str(row["trade_date"])[:10] for row in relaxed["data"]["market_history"]
+            }
+            self.assertIn("2026-06-30", relaxed_dates)
+            self.assertNotIn("2026-07-03", relaxed_dates)
+            self.assertEqual(relaxed["boundary"]["pit_grade"], "trade_date_only")
+            self.assertEqual(relaxed["boundary"]["max_embedded_date"], "2026-07-02")
+            self.assertNotEqual(relaxed["snapshot_sha256"], default["snapshot_sha256"])
+
     def test_pilot_selection_is_deterministic(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             db = self._db(Path(tmp))
@@ -220,6 +265,15 @@ class FidelityReplayTests(unittest.TestCase):
                 select_pilot_dates(db, "2026-07-01", "2026-07-03", count=0),
                 [],
             )
+            # only_dates 缺省 = 旧行为；给定子集时只在子集里抽
+            self.assertEqual(
+                select_pilot_dates(db, "2026-07-01", "2026-07-03", count=2, only_dates=None),
+                first,
+            )
+            subset = select_pilot_dates(
+                db, "2026-07-01", "2026-07-03", count=2, only_dates={"2026-07-01"}
+            )
+            self.assertEqual([case["as_of"] for case in subset], ["2026-07-01"])
 
     def test_explicit_claim_schema_is_supported(self) -> None:
         answer = {

@@ -20,18 +20,34 @@ from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
 )
-from intelligence.services.repair_coordinator import (
-    ProgressSnapshot,
+from intelligence.runtime.repair_budget import (
     _REPAIR_SECONDS_CAP,
-    build_repair_goal,
     grant_for_progress,
     grant_for_transient_model_retry,
+)
+from intelligence.services.repair_coordinator import (
+    ProgressSnapshot,
+    build_repair_goal,
+    repair_is_warranted,
+    repair_work_units,
 )
 from intelligence.services.research_contract import InMemoryRootBudgetLedger
 
 
+def _progress_grant(goal, progress, *, root_budget, research_tier, seconds_cap=None):
+    """领域判定算好递进底座（生产里由 adapter 问 harness）；本文件只盯秒数。"""
+
+    return grant_for_progress(
+        goal,
+        root_budget=root_budget,
+        warranted=repair_is_warranted(progress, cycle=goal.cycle, research_tier=research_tier),
+        work_units=repair_work_units(goal),
+        seconds_cap=seconds_cap,
+    )
+
+
 def _progressed_snapshot() -> ProgressSnapshot:
-    """一个「有进展」的快照，好让 should_reenter 放行、把断言 focus 在秒数上。"""
+    """一个「有进展」的快照，好让 repair_is_warranted 放行、把断言 focus 在秒数上。"""
 
     return ProgressSnapshot(
         before_evidence_ids=(),
@@ -139,7 +155,7 @@ def test_bad_env_override_is_ignored_not_fatal(bad: str) -> None:
 def test_grant_uses_injected_cap_not_the_default() -> None:
     """端到端：注入 40s 帽，授予就该是 40s，而不是旧常数 30s。"""
 
-    grant = grant_for_progress(
+    grant = _progress_grant(
         _goal(remaining_seconds=300.0),
         _progressed_snapshot(),
         root_budget=_ledger(),
@@ -153,7 +169,7 @@ def test_grant_uses_injected_cap_not_the_default() -> None:
 def test_grant_without_cap_preserves_legacy_thirty() -> None:
     """不传 cap 的调用方行为逐字节不变。"""
 
-    grant = grant_for_progress(
+    grant = _progress_grant(
         _goal(remaining_seconds=300.0),
         _progressed_snapshot(),
         root_budget=_ledger(),
@@ -166,7 +182,7 @@ def test_grant_without_cap_preserves_legacy_thirty() -> None:
 def test_remaining_still_binds_when_smaller_than_cap() -> None:
     """cap 只是上限：剩余不足时仍以剩余为准，fail-closed 语义不变。"""
 
-    grant = grant_for_progress(
+    grant = _progress_grant(
         _goal(remaining_seconds=12.0),
         _progressed_snapshot(),
         root_budget=_ledger(),
@@ -181,7 +197,7 @@ def test_remaining_still_binds_when_smaller_than_cap() -> None:
 def test_non_positive_cap_falls_back_instead_of_zero_window(bad_cap: float) -> None:
     """坏 cap 落默认帽，不铸 0 秒授予。"""
 
-    grant = grant_for_progress(
+    grant = _progress_grant(
         _goal(remaining_seconds=300.0),
         _progressed_snapshot(),
         root_budget=_ledger(),

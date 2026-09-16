@@ -1,0 +1,27 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "fourarm0827-8792--run_20260827_152616_981147",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "143da53578d6159cff221e9a535933ceaa5bc4f5223b86f85fb1d1811fe7e7b2",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      7,
+      9,
+      10
+    ],
+    "issues": [
+      "第7句把未注明单位的封单额23686.2996换算为约2.37亿元，并断言立新能源方向与风电、电力主线一致，均缺少直接证据。",
+      "第9句把光纤光缆、玻璃玻纤、游戏、PCB、元器件整体称为前期高位科技硬件并判断为高位放量调整，证据没有前期位置，且该分类也未获支持。",
+      "第10句断言资金从高位AI硬件撤出并转向低位风电、电力、贵金属，既引入资金流因果，也在无位置证据时使用高位、低位判断。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

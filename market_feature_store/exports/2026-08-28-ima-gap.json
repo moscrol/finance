@@ -1,0 +1,196 @@
+{
+  "schema_version": "ima-gap/v1",
+  "date": "2026-08-28",
+  "auto_fetch": false,
+  "note": "只出清单。daily-full 不自动问 IMA；补卡/DeepDive 另开一轮。",
+  "theme_run": [
+    "种植业",
+    "AIGC"
+  ],
+  "stock_run": [],
+  "themes": [
+    {
+      "theme": "种植业",
+      "bucket": "today_do_ima",
+      "priority": 133.2,
+      "stocks": [
+        "敦煌种业",
+        "秋乐种业",
+        "农发种业",
+        "众兴菌业",
+        "海南橡胶"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/kb-wt-ima-stock-0826/wiki",
+      "chars": 292,
+      "action": "run_deepdive",
+      "reason": "概念卡偏薄，缺 15 章边界/分篮"
+    },
+    {
+      "theme": "AIGC",
+      "bucket": "today_do_ima",
+      "priority": 123.15,
+      "stocks": [
+        "星网锐捷",
+        "鼎捷数智",
+        "汉得信息",
+        "三六零",
+        "鸿博股份"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/kb-wt-ima-stock-0826/wiki",
+      "chars": 950,
+      "action": "run_deepdive",
+      "reason": "概念卡偏薄，缺 15 章边界/分篮"
+    },
+    {
+      "theme": "医药",
+      "bucket": "today_do_ima",
+      "priority": 123.0,
+      "stocks": [
+        "誉衡药业",
+        "千金药业",
+        "冀衡医药",
+        "神奇制药",
+        "精华制药"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/kb-wt-ima-stock-0826/wiki",
+      "chars": 677,
+      "action": "skip_mega",
+      "reason": "过宽伞页，15 章会写成行业综述"
+    },
+    {
+      "theme": "化工",
+      "bucket": "today_find_official_evidence",
+      "priority": 172.55,
+      "stocks": [
+        "肯特股份",
+        "昊华科技",
+        "金牛化工",
+        "多氟多",
+        "赤天化"
+      ],
+      "page_class": "l1",
+      "wiki": "/Users/a77/kb-wt-ima-stock-0826/wiki",
+      "chars": 3085,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    },
+    {
+      "theme": "信创",
+      "bucket": "today_find_official_evidence",
+      "priority": 123.15,
+      "stocks": [
+        "星网锐捷",
+        "汉得信息",
+        "麒麟信安",
+        "三六零",
+        "天融信"
+      ],
+      "page_class": "l1",
+      "wiki": "/Users/a77/kb-wt-ima-stock-0826/wiki",
+      "chars": 1748,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    }
+  ],
+  "stocks": [
+    {
+      "company": "敦煌种业",
+      "theme": "种植业",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "秋乐种业",
+      "theme": "种植业",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "农发种业",
+      "theme": "种植业",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "众兴菌业",
+      "theme": "种植业",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "海南橡胶",
+      "theme": "种植业",
+      "action": "skip_no_entity",
+      "reason": "无实体页，不空建"
+    },
+    {
+      "company": "星网锐捷",
+      "theme": "AIGC",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "鼎捷数智",
+      "theme": "AIGC",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "汉得信息",
+      "theme": "AIGC",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "三六零",
+      "theme": "AIGC",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "鸿博股份",
+      "theme": "AIGC",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "誉衡药业",
+      "theme": "医药",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "千金药业",
+      "theme": "医药",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "冀衡医药",
+      "theme": "医药",
+      "action": "skip_no_entity",
+      "reason": "无实体页，不空建"
+    },
+    {
+      "company": "神奇制药",
+      "theme": "医药",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "精华制药",
+      "theme": "医药",
+      "action": "skip_no_entity",
+      "reason": "无实体页，不空建"
+    }
+  ],
+  "counts": {
+    "theme_run": 2,
+    "stock_run": 0,
+    "themes": 5,
+    "stocks": 15
+  }
+}

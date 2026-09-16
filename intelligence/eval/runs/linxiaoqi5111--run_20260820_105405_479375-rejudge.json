@@ -1,0 +1,33 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "linxiaoqi5111--run_20260820_105405_479375",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "2bfaa2bc4fdcbd7bae28e6d1245704de3915780507f38fc6e12f3e254c38224b",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      5,
+      6,
+      7,
+      9,
+      11,
+      15
+    ],
+    "issues": [
+      "第5句把浪潮信息、荣亿精密分别绑定为core/L2，但证据注册表中的对应条目未给出公司名称，无法核验公司映射。",
+      "第6句把康盛股份、阿莱德绑定为core/L1_L3_candidate，但证据注册表中的候选条目未给出公司名称。",
+      "第7句列出的公司及E9—E16引用无法由注册表核验：注册表仅到E11，且相关条目未给出公司名称。",
+      "第9句对浪潮信息、中科曙光及其余公司的整机、系统或部件角色作了具体事实映射，但现有证据没有逐家公司产品定位。",
+      "第11句引入风冷改进、建设放缓及其导致液冷渗透不及预期的外部因果，现有证据未直接支持这些条件。",
+      "第15句把算力资本开支明显收缩设为失效事实条件，但证据中没有资本开支信息。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

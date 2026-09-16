@@ -1,0 +1,37 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "fourarm0827-8792--run_20260827_134401_047595",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "dda8763908897e385bb482b60a6d52a2cd9f7a81070ad346426027c7e8978edb",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      1,
+      2,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "issues": [
+      "第1句断言处于“主线热炒中段”及量价加速，证据只覆盖6月8日至11日的有限截面，不能支持周期位置和主线阶段。",
+      "第2句的“6月以来最大量”缺少6月其他交易日证据，“量价配合健康”也建立在不完整窗口上。",
+      "第7句给出完整上下游原料、技术代际和晶圆制造工序，但绑定证据没有这些产业链事实。",
+      "第8句断言国内竞争焦点在KrF/ArF高端品国产替代，现有新闻只支持单家公司相关订单，不能支持行业竞争格局。",
+      "第9句关于关键环节是配方及树脂、单体自主供应没有直接证据，红宝丽澄清也不能证明整个板块存在泛化炒作。",
+      "第10句把逆势上涨归因于避险资金抱团，并预测市场企稳后的资金回流与抱团瓦解，偷渡了未经核验的资金因果。",
+      "第11句仅凭单日跌幅断言波动率极高和追高风险显著，缺少足够波动窗口。",
+      "第12句由单家公司澄清进一步断言部分标的纯蹭概念及扩散末端特征初现，超出直接证据。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

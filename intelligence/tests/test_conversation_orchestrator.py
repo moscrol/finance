@@ -633,6 +633,136 @@ def _continuous_forecast_fixture(
     )
 
 
+def test_continuous_turn_publishes_derived_calculation_artifacts(tmp_path) -> None:
+    """工单 04：私有产物里的 tool_result.telemetry.derived_calculation 记录 → calc-<id>.json/.html/.csv 进 run 产物。"""
+
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "贵州茅台最近几个季度单季营收怎么走"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store, run_store, conversation.conversation_id, query
+    )
+    frame = TaskFrame(
+        raw_question=query,
+        user_goal="单季还原",
+        question_type="financial_analysis",
+        subject="贵州茅台",
+        subject_kind="company",
+        market_scope="A股",
+        timeframe="最近六个季度",
+        required_outputs=("direct_assessment",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="company_financial_evidence",
+        confidence=0.95,
+    )
+    intent = TurnIntent(
+        primary_subject=frame.subject,
+        secondary_topics=(),
+        question_type=frame.question_type,
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+        timeframe=frame.timeframe,
+        required_outputs=frame.required_outputs,
+        task_frame_hash=frame.task_frame_hash,
+    )
+    calc_id = "0123456789abcdef"
+    record = {
+        "calc_id": calc_id,
+        "purpose": "茅台单季营收还原",
+        "script": "emit_result(...)",
+        "as_of": "2026-03-31",
+        "enforcement": "process",
+        "params": {},
+        "inputs": [{"ref": "E1", "hash": "a" * 16, "tool": "financial_data", "as_of": "2026-08-15"}],
+        "result": {
+            "schema": "derived_calculation.result/v1",
+            "summary": {"latest_quarter_yi": 375.75},
+            "tables": [
+                {"name": "单季营收", "columns": ["期间", "单季(亿)"], "rows": [["2026Q1", 547.03], ["2026Q2", 375.75]], "unit": "亿元"}
+            ],
+        },
+    }
+
+    def controller(_query: str, **_kwargs: object) -> TurnDecision:
+        return TurnDecision(
+            lane="research",
+            needs_retrieval=True,
+            needs_memory=False,
+            needs_template=True,
+            question_type=frame.question_type,
+            capabilities=("financial_data",),
+            task_frame=frame,
+            turn_intent=intent,
+        )
+
+    class Adapter:
+        def handle(self, *, frame: TaskFrame, control):
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer="2026Q2 单季营收 375.75 亿元（计算编号 0123456789abcdef）。",
+                as_of="2026-06-30",
+                citations=(),
+                warnings=(),
+                private_artifact={
+                    "events": [
+                        {"kind": "task", "payload": {"task_frame_hash": frame.task_frame_hash}},
+                        {
+                            "kind": "tool_result",
+                            "payload": {
+                                "tool": "derived_calculation",
+                                "telemetry": {"derived_calculation": record},
+                            },
+                        },
+                    ],
+                    "semantic_verifier": {"judge_status": "passed", "issues": []},
+                },
+                events=(),
+            )
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("legacy dependency must not run")
+
+    orchestrator = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=forbidden,
+        route_skills_fn=forbidden,
+        lane_answer_fn=forbidden,
+        turn_controller_fn=controller,
+        continuous_turn_adapter=Adapter(),
+    )
+    result = orchestrator.run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "completed"
+    run = run_store.load_run(run_id)
+    paths = {item["path"]: item for item in run.artifacts}
+    assert {f"calc-{calc_id}.json", f"calc-{calc_id}.html", f"calc-{calc_id}-t1.csv"} <= set(paths)
+    csv_artifact = paths[f"calc-{calc_id}-t1.csv"]
+    assert csv_artifact["renderer"] == "table"
+    assert csv_artifact["visibility"] == "public" and csv_artifact["downloadable"] is True
+    csv_text = (run_store.run_dir(run_id) / f"calc-{calc_id}-t1.csv").read_text(encoding="utf-8")
+    assert "2026Q2,375.75" in csv_text
+    html_text = (run_store.run_dir(run_id) / f"calc-{calc_id}.html").read_text(encoding="utf-8")
+    assert "茅台单季营收还原" in html_text and "<script" not in html_text
+    # 私有审计产物仍在、仍为 internal；calc 产物不影响既有四件。
+    assert paths["continuous-episode.json"]["visibility"] == "internal"
+    assert {"answer.md", "report.json"} <= set(paths)
+    assert not run.degrades
+
+
 def test_continuous_handled_turn_bypasses_legacy_and_persists_public_result(
     tmp_path,
     monkeypatch,

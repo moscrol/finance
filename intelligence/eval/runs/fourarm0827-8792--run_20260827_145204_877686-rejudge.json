@@ -1,0 +1,37 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "fourarm0827-8792--run_20260827_145204_877686",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "5a915f4f537f3e0aa874a978532df43332b2d794ccdb4b0e0c1b29a348d65785",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      1,
+      4,
+      5,
+      6,
+      7,
+      8,
+      10,
+      11
+    ],
+    "issues": [
+      "第1句声称新高扩散广、长周期高度不足并集中于消费和银行，但证据是被截断的若干行业×周期记录，不能支持全量分布。",
+      "第4句断言20日新高占绝对多数、十余行业均出现，并把它解释为收复近一个月跌幅；注册表既无全量计数，也无所列若干行业和此前价格路径。",
+      "第5句用“仅见于”断言历史新高只有银行和交通运输，但返回结果已明确截断，不能据此作排他性计数。",
+      "第6句断言3年新高仅家电，截断记录不能支持“仅”这一全量结论。",
+      "第7句称1年新高仅环保，但证据注册表没有环保记录。",
+      "第8句关于突破型新高高度不够及修复而非主升的判断建立在前述不完整且错误的全量结构结论上。",
+      "第10句从截断记录中推断电子、半导体没有新高，并引入防御、红利、存量强势及资金选择等无直接证据的事实与因果。",
+      "第11句的“普涨修复、高度不足”依赖无法由截断样本证实的新高高度结构。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

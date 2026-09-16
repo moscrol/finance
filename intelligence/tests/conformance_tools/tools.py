@@ -56,6 +56,25 @@ TOOL_NOTES: dict[str, str] = {
         " parse_arguments——装配面独立演化的实例；本套件断注册表默认面，"
         "生产 schema 校验由 finance_query 自己的单测管。"
     ),
+    "financial_data": (
+        "快照工具但带一个可选 report_period（P0b，2026-09-03）：空参合法，"
+        "多余键仍拒；窗口语义由 test_capability_amplification_p0 钉。"
+    ),
+    "web_fetch": (
+        "参数面是一个必填 url（不是 query）；拒绝条件与来源分档由"
+        " test_web_fetch_tool 钉。授权派生自 web_search（runtime_capabilities_for_frame）。"
+    ),
+    "sub_research": (
+        "参数面是一个必填 goals 数组（1–3 条、去重）；runner 输入是 goals 的 JSON 串。"
+        "生产装配为条件工具（runner 由 runtime 按 episode 绑，tool-reachability 门禁已声明）；"
+        "深度 1 / 账本 / 拒绝语义由 test_sub_research_tool 钉。"
+    ),
+    "derived_calculation": (
+        "参数面是必填 script + purpose 与可选 use_duckdb / timeout_seconds；runner 输入是"
+        "规整后参数的 JSON 串。生产装配为条件工具（runner 由 runtime 按 episode 绑证据账本，"
+        "tool-reachability 门禁已声明）；沙箱两层隔离 / 产物协议 / admit_finish 门由"
+        " test_calculation_sandbox + test_derived_calculation 钉。"
+    ),
 }
 
 
@@ -118,13 +137,61 @@ def make_tool_registry(
 
 
 def is_snapshot_tool(spec: ToolSpec) -> bool:
-    """按 spec 运行时判形状，不写死名单（default_registry 的分派即事实源）。"""
+    """按 spec 运行时判形状，不写死名单（default_registry 的分派即事实源）。
 
-    return spec.parse_arguments is parse_snapshot_arguments
+    快照契约的判据是 ``query_scope == "episode"``（一回合一份完整快照，空参合法），
+    不是「解析器恒等于 parse_snapshot_arguments」——financial_data 自 P0b 起带一个
+    可选 ``report_period``，仍是快照，但解析器换了。
+    """
+
+    return spec.query_scope == "episode" or spec.parse_arguments is parse_snapshot_arguments
+
+
+def is_url_tool(spec: ToolSpec) -> bool:
+    """参数面只有一个 ``url`` 的取页类工具（web_fetch）。"""
+
+    properties = spec.parameters.get("properties")
+    return isinstance(properties, Mapping) and set(properties) == {"url"}
+
+
+def is_goals_tool(spec: ToolSpec) -> bool:
+    """参数面只有一个 ``goals`` 数组的派单类工具（sub_research）。"""
+
+    properties = spec.parameters.get("properties")
+    return isinstance(properties, Mapping) and set(properties) == {"goals"}
+
+
+def is_script_tool(spec: ToolSpec) -> bool:
+    """参数面以 ``script`` + ``purpose`` 为必填的沙箱计算类工具（derived_calculation）。"""
+
+    properties = spec.parameters.get("properties")
+    return isinstance(properties, Mapping) and {"script", "purpose"} <= set(properties)
 
 
 def valid_arguments(spec: ToolSpec) -> Mapping[str, object]:
-    return {} if is_snapshot_tool(spec) else {"query": "瑞华泰 产能"}
+    if is_snapshot_tool(spec):
+        return {}
+    if is_url_tool(spec):
+        return {"url": "https://example.invalid/report/600519"}
+    if is_goals_tool(spec):
+        return {"goals": ["瑞华泰 产能", "聚酰亚胺薄膜 需求"]}
+    if is_script_tool(spec):
+        return {"script": "emit({'n': len(EVIDENCE)})", "purpose": "数一数证据条数"}
+    return {"query": "瑞华泰 产能"}
+
+
+def invalid_arguments(spec: ToolSpec) -> Mapping[str, object]:
+    """每种形状各自的坏参数：快照多给键、取页给空 url、派单给空数组、脚本给空正文、query 给空串。"""
+
+    if is_snapshot_tool(spec):
+        return {"query": "多余参数"}
+    if is_url_tool(spec):
+        return {"url": ""}
+    if is_goals_tool(spec):
+        return {"goals": []}
+    if is_script_tool(spec):
+        return {"script": "", "purpose": "空脚本"}
+    return {"query": ""}
 
 
 def make_tool_context(

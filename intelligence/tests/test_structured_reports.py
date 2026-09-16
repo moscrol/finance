@@ -55,6 +55,91 @@ def test_daily_projection_becomes_bounded_stream_modules(tmp_path) -> None:
     assert "<script>" not in rendered
 
 
+def test_daily_projection_prefers_json_canonical_and_keeps_md_fallback(tmp_path) -> None:
+    exports = tmp_path / "market_feature_store" / "exports"
+    exports.mkdir(parents=True)
+    (exports / "2026-09-01-daily-review.md").write_text(
+        """# 2026-09-01 每日市场复盘
+
+## 核心看板
+| 维度 | 结论 |
+|---|---|
+| 指数表现 | 上证上涨 0.3% |
+""",
+        encoding="utf-8",
+    )
+    (exports / "2026-09-02-daily-review.md").write_text(
+        "# 2026-09-02 每日市场复盘\n\n## 核心看板\n| 维度 | 结论 |\n|---|---|\n| 指数表现 | md 版 |\n",
+        encoding="utf-8",
+    )
+    (exports / "2026-09-02-daily-review.json").write_text(
+        json.dumps(
+            {
+                "schema": "daily-review/v1",
+                "trade_date": "2026-09-02",
+                "generated_at": "2026-09-02 20:40:05",
+                "warnings": [],
+                "core_board": [
+                    {"dimension": "指数表现", "conclusion": "上证 3941.386，涨幅 -0.97%，偏离度 -0.55%"},
+                    {"dimension": "强度状态", "conclusion": "强势，强度加权涨幅 6.72%，强度成交占比 7.00%"},
+                ],
+                "facts": {},
+                "sections": [
+                    {
+                        "id": "limit_advance",
+                        "index": 11,
+                        "title": "3板及以上个股",
+                        "blocks": [
+                            {"kind": "table", "title": None, "columns": ["股票", "连板数"], "rows": [["国芳集团", 4]]},
+                            {"kind": "conclusion", "text": "3板及以上个股 6 只，最高连板 4 板。"},
+                        ],
+                    },
+                    {
+                        "id": "coverage",
+                        "index": 14,
+                        "title": "数据覆盖检查",
+                        "blocks": [
+                            {
+                                "kind": "table",
+                                "title": None,
+                                "columns": ["表", "最新日期", "总行数", "目标日行数", "状态"],
+                                "rows": [["fact_market_daily", "2026-09-02", 413, 1, "OK"]],
+                            }
+                        ],
+                    },
+                ],
+                "assessment": "2026-09-02 市场性质为 **普通交易日**。",
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    report_date, modules, warnings = daily_projection_modules(tmp_path)
+
+    assert report_date == "2026-09-02"
+    assert warnings == []
+    assert modules[0]["provenance"]["source"].endswith("2026-09-02-daily-review.json")
+    assert modules[0]["metrics"][0]["value"].startswith("上证收于 3941.39 点")
+    # 「强势」也要口语化，此前只认「沸点」
+    assert "短线热度偏强" in modules[0]["metrics"][1]["value"]
+    titles = [module["title"] for module in modules]
+    assert "个股载体" in titles
+    assert "数据覆盖" not in titles  # 只有表、没有结论的节不进聊天上下文
+    rendered = json.dumps(modules, ensure_ascii=False)
+    assert "最高连板 4 板" in rendered
+    assert "表：状态" not in rendered
+
+    answer = render_daily_review_answer(date_text=report_date, modules=modules, warnings=warnings)
+    assert "短线机会不少" not in answer
+    assert "市场仍处于横盘阶段" not in answer
+    assert "表：状态" not in answer
+
+    older_date, older_modules, _ = daily_projection_modules(tmp_path, requested_date="2026-09-01")
+    assert older_date == "2026-09-01"
+    assert older_modules[0]["provenance"]["source"].endswith("2026-09-01-daily-review.md")
+
+
 def test_daily_projection_can_select_requested_historical_date(tmp_path) -> None:
     exports = tmp_path / "market_feature_store" / "exports"
     exports.mkdir(parents=True)

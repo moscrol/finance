@@ -16,7 +16,7 @@ from intelligence.tests.conformance_tools.baseline import ratchet
 from intelligence.tests.conformance_tools.tools import (
     TOOL_NAMES,
     ToolProbe,
-    is_snapshot_tool,
+    invalid_arguments,
     make_tool_registry,
 )
 
@@ -32,19 +32,17 @@ def test_rejection_message_is_actionable(
     registry = make_tool_registry(ToolProbe())
     spec = registry.resolve(tool_name)
 
-    bad_arguments: dict[str, object] = (
-        {"query": "多余参数"} if is_snapshot_tool(spec) else {"query": ""}
-    )
     with pytest.raises(InvalidResearchToolArguments) as excinfo:
-        registry.prepare(tool_name, bad_arguments)
+        registry.prepare(tool_name, invalid_arguments(spec))
 
     detail = str(excinfo.value)
     code = excinfo.value.code
     assert detail.strip(), f"{tool_name} 的拒绝消息为空——模型只能盲目重试同一形状"
     assert detail != code, f"{tool_name} 的拒绝消息就是分类码本身，不可操作"
-    # 可操作性的最低线：消息里指得出参数或约束（query / argument / snapshot）。
+    # 可操作性的最低线：消息里指得出参数或约束（query / url / argument / snapshot）。
     lowered = detail.lower()
     assert any(
-        keyword in lowered for keyword in ("query", "argument", "snapshot", "object")
+        keyword in lowered
+        for keyword in ("query", "url", "argument", "snapshot", "object")
     ), f"{tool_name} 的拒绝消息指不出哪个参数错在哪：{detail!r}"
     assert isinstance(code, str) and code.strip(), "分类码必须存在（供按类归并）"

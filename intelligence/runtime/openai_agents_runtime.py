@@ -27,16 +27,13 @@ from intelligence.services.episode_session import (
     EpisodeSessionError,
 )
 from intelligence.services.runtime_handle import RuntimeHandle
-from intelligence.services.episode_protocol import (
-    SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
-    build_episode_input,
-    build_episode_instructions,
-    expand_episode_snapshot_bindings,
-    split_episode_prompt,
-    validate_episode_finish,
-)
+from intelligence.services.episode_protocol import SYSTEM_PROMPT_DYNAMIC_BOUNDARY
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.repair_coordinator import RepairGoal
+from intelligence.services.research_harness import (
+    FinanceResearchHarness,
+    ResearchHarness,
+)
 from intelligence.services.research_contract import (
     ResearchDeadline,
     ResearchRunContext,
@@ -121,6 +118,44 @@ def _sdk_delivery_reserve(runtime_timeout: float) -> float:
     )
 
 
+class ServedModelLog:
+    """httpx 响应钩子：逐响应记下对端自报的 ``model`` 字段。
+
+    SDK 臂的 ``ModelResponse``（agents 0.18.3）只有 output / usage / response_id /
+    request_id，读不到响应体的 model；``Runner.run`` 又把整条 loop 包在里面，没有
+    逐 turn 的 ``ModelTurn``。所以挂在 ``build_glm_sdk_model`` 自建的 ``httpx.AsyncClient``
+    上取，一条响应一项，顺序即 turn 顺序；对端没回该字段的响应记 ``""``（「未回」），
+    不回填配置值（§3.5.4 硬门 3）。
+    """
+
+    def __init__(self) -> None:
+        self.models: list[str] = []
+
+    async def __call__(self, response: object) -> None:
+        headers = getattr(response, "headers", None)
+        content_type = str(headers.get("content-type", "") if headers is not None else "")
+        if "json" not in content_type.lower():
+            return
+        aread = getattr(response, "aread", None)
+        if callable(aread):
+            await aread()
+        try:
+            body = response.json()  # type: ignore[attr-defined]
+        except Exception:
+            self.models.append("")
+            return
+        value = body.get("model") if isinstance(body, Mapping) else None
+        self.models.append(value.strip() if isinstance(value, str) else "")
+
+
+def _served_models_of(model: object) -> tuple[str, ...]:
+    log = getattr(model, "served_model_log", None)
+    models = getattr(log, "models", None)
+    if not isinstance(models, list):
+        return ()
+    return tuple(str(item) for item in models)
+
+
 def build_glm_sdk_model(
     *,
     api_key: str,
@@ -134,13 +169,19 @@ def build_glm_sdk_model(
     from agents.models.openai_chatcompletions import OpenAIChatCompletionsModel
     from openai import AsyncOpenAI
 
+    served_model_log = ServedModelLog()
     client = AsyncOpenAI(
         api_key=api_key,
         base_url=base_url,
         timeout=timeout,
-        http_client=httpx.AsyncClient(trust_env=False),
+        http_client=httpx.AsyncClient(
+            trust_env=False,
+            event_hooks={"response": [served_model_log]},
+        ),
     )
-    return OpenAIChatCompletionsModel(model=model, openai_client=client)
+    sdk_model = OpenAIChatCompletionsModel(model=model, openai_client=client)
+    sdk_model.served_model_log = served_model_log  # type: ignore[attr-defined]
+    return sdk_model
 
 
 def build_gpt_sdk_model(model: str = "gpt-5.6-sol") -> str:
@@ -164,13 +205,18 @@ def build_gpt_sdk_model_factory(
         from agents.models.openai_responses import OpenAIResponsesModel
         from openai import AsyncOpenAI
 
+        served_model_log = ServedModelLog()
         client = AsyncOpenAI(
             api_key=api_key,
             base_url=base_url,
             timeout=timeout,
-            http_client=httpx.AsyncClient(trust_env=False),
+            http_client=httpx.AsyncClient(
+                trust_env=False,
+                event_hooks={"response": [served_model_log]},
+            ),
         )
         sdk_model = OpenAIResponsesModel(model=model, openai_client=client)
+        sdk_model.served_model_log = served_model_log  # type: ignore[attr-defined]
         return sdk_model, client.close
 
     return factory
@@ -243,6 +289,10 @@ def _single_function_call_per_response(model: object) -> object:
         def __init__(self, delegate: Model) -> None:
             self._delegate = delegate
             self.batched_tool_calls_dropped = 0
+
+        @property
+        def served_model_log(self) -> object | None:
+            return getattr(self._delegate, "served_model_log", None)
 
         async def get_response(self, *args, **kwargs) -> ModelResponse:
             response = await self._delegate.get_response(*args, **kwargs)
@@ -368,6 +418,8 @@ class AgentsSdkResult:
     output_tokens: int | None = None
     provider_attempts: int | None = None
     batched_tool_calls_dropped: int = 0
+    # 逐响应的对端 model 字段（``ServedModelLog``），顺序即 turn 顺序；``""`` = 未回。
+    served_models: tuple[str, ...] = ()
     continuation_input: InitVar[object | None] = None
 
     def __post_init__(self, continuation_input: object | None) -> None:
@@ -383,6 +435,9 @@ class AgentsSdkResult:
                 continue
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
                 raise ValueError(f"{name} must be a non-negative integer")
+        if any(not isinstance(item, str) for item in self.served_models):
+            raise ValueError("served_models must contain strings")
+        object.__setattr__(self, "served_models", tuple(self.served_models))
         object.__setattr__(
             self,
             "_provider_continuation",
@@ -551,6 +606,7 @@ def _run_openai_agents_sdk(request: AgentsSdkRequest) -> AgentsSdkResult:
         batched_tool_calls_dropped=int(
             getattr(model, "batched_tool_calls_dropped", 0)
         ),
+        served_models=_served_models_of(model),
         continuation_input=continuation_input,
     )
 
@@ -921,9 +977,14 @@ class OpenAIAgentsRuntime:
         model_factory: SdkModelFactory | None = None,
         is_cancelled: Callable[[], bool] | None = None,
         event_sink: Callable[[EpisodeEvent], None] | None = None,
+        harness: ResearchHarness | None = None,
     ) -> None:
         if backend not in {"sdk_glm", "sdk_gpt"}:
             raise ValueError("unsupported SDK backend")
+        # 终局准入与 prompt 归领域 harness；本 runtime 只跑 SDK loop。
+        self._harness: ResearchHarness = (
+            harness if harness is not None else FinanceResearchHarness()
+        )
         if not str(model_name or "").strip():
             raise ValueError("SDK model name must be non-empty")
         if (
@@ -1103,7 +1164,7 @@ class OpenAIAgentsRuntime:
                 gap="sdk_runtime_budget_exhausted",
                 llm_calls=0,
             )
-        system, user = split_episode_prompt(task_frame, context, registry)
+        system, user = self._harness.assemble_prompt(task_frame, context, registry)
         # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: system is byte-stable; input rebuilds.
         # cache_control is not implemented this increment.
         _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
@@ -1142,13 +1203,13 @@ class OpenAIAgentsRuntime:
             continuation_state.continuation_input = result._continuation_input
 
         snapshot = state.snapshot()
-        try:
-            finish = validate_episode_finish(
-                result.final_output,
-                context=context,
-                evidence=snapshot.evidence,
-            )
-        except ValueError:
+        admission = self._harness.admit_finish(
+            result.final_output,
+            context=context,
+            evidence=snapshot.evidence,
+            registry=registry,
+        )
+        if not admission.accepted:
             # Invalid delivery is a verifier gap, not a private SDK retry.  The
             # adapter owns the one shared RepairGoal cycle pool for every gap.
             return self._failure_from_snapshot(
@@ -1159,22 +1220,19 @@ class OpenAIAgentsRuntime:
                 llm_calls=max(1, result.llm_calls),
                 result=result,
             )
+        assert admission.status is not None
 
-        bindings = expand_episode_snapshot_bindings(
-            bindings=finish.bindings,
-            evidence=snapshot.evidence,
-            registry=registry,
-            draft=finish.draft,
-        )
-        gaps = tuple(dict.fromkeys((*snapshot.gaps, *finish.gaps)))
+        bindings = admission.bindings
+        # 本 runtime 的 gap 口径：snapshot gap + 模型声明 gap，不并绑定 gap。
+        gaps = tuple(dict.fromkeys((*snapshot.gaps, *admission.declared_gaps)))
         execution_gap = next(
             (gap for gap in snapshot.gaps if gap in _PARTIAL_EXECUTION_GAPS),
             None,
         )
         status = (
             "partial"
-            if finish.status == "completed" and execution_gap is not None
-            else finish.status
+            if admission.status == "completed" and execution_gap is not None
+            else admission.status
         )
         stop_reason = execution_gap or "model_finish"
         events = self._events(
@@ -1188,7 +1246,7 @@ class OpenAIAgentsRuntime:
         outcome = AgentOutcome(
             task_frame_hash=task_frame.task_frame_hash,
             status=status,
-            draft=finish.draft,
+            draft=admission.draft,
             evidence=snapshot.evidence,
             traces=snapshot.traces,
             gaps=gaps,
@@ -1284,16 +1342,16 @@ class OpenAIAgentsRuntime:
             "kind": "REPAIR_GOAL",
             **_bounded_repair_goal(effective_goal),
         }
+        # 修复轮的 system / task 与开场同源：同一 harness、同一 (system, user)。
+        repair_system, repair_user = self._harness.assemble_prompt(
+            state.task_frame,
+            repair_context,
+            state.registry,
+        )
         if state.continuation_input is None:
             repair_input.update(
                 {
-                    "task": json.loads(
-                        build_episode_input(
-                            state.task_frame,
-                            repair_context,
-                            state.registry,
-                        )
-                    ),
+                    "task": json.loads(repair_user),
                     "evidence": [
                         public_agent_evidence(item)
                         for item in repair_snapshot.evidence
@@ -1310,11 +1368,7 @@ class OpenAIAgentsRuntime:
         _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
         request = AgentsSdkRequest(
             instructions=(
-                build_episode_instructions(
-                    state.task_frame,
-                    repair_context,
-                    state.registry,
-                )
+                repair_system
                 + "\n这是同一 episode 的 verifier 修复轮。保留全部原始观察、"
                 "查询去重账本和任务身份；只补 RepairGoal 指定缺口，不得重启研究。"
                 + (
@@ -1367,6 +1421,9 @@ class OpenAIAgentsRuntime:
                 "provider_attempts": (
                     result.provider_attempts if result is not None else None
                 ),
+                "served_models": (
+                    list(result.served_models) if result is not None else []
+                ),
                 "error": run_error,
             },
         )
@@ -1404,15 +1461,13 @@ class OpenAIAgentsRuntime:
                 plan=previous.plan,
             )
 
-        try:
-            finish = validate_episode_finish(
-                result.final_output,
-                context=repair_context,
-                evidence=snapshot.evidence,
-            )
-        except ValueError:
-            finish = None
-        if finish is None:
+        admission = self._harness.admit_finish(
+            result.final_output,
+            context=repair_context,
+            evidence=snapshot.evidence,
+            registry=state.registry,
+        )
+        if not admission.accepted:
             status = "partial" if snapshot.evidence else "failed"
             stop_reason = "sdk_invalid_repair_finish"
             gaps = tuple(dict.fromkeys((*previous.gaps, stop_reason)))
@@ -1420,6 +1475,7 @@ class OpenAIAgentsRuntime:
             bindings = previous.bindings
             invalid_actions = previous.usage.invalid_actions + 1
         else:
+            assert admission.status is not None
             execution_gap = next(
                 (
                     gap
@@ -1430,20 +1486,17 @@ class OpenAIAgentsRuntime:
             )
             status = (
                 "partial"
-                if finish.status == "completed" and execution_gap is not None
-                else finish.status
+                if admission.status == "completed" and execution_gap is not None
+                else admission.status
             )
             stop_reason = execution_gap or "repair_model_finish"
             gaps = tuple(
-                dict.fromkeys((*previous.gaps, *snapshot.gaps, *finish.gaps))
+                dict.fromkeys(
+                    (*previous.gaps, *snapshot.gaps, *admission.declared_gaps)
+                )
             )
-            draft = finish.draft
-            bindings = expand_episode_snapshot_bindings(
-                bindings=finish.bindings,
-                evidence=snapshot.evidence,
-                registry=state.registry,
-                draft=finish.draft,
-            )
+            draft = admission.draft
+            bindings = admission.bindings
             invalid_actions = previous.usage.invalid_actions
         appended.extend(
             self._continuation_terminal_events(
@@ -1517,6 +1570,7 @@ class OpenAIAgentsRuntime:
                 {
                     "runtime": self._backend,
                     "model": self._model_name,
+                    "served_models": list(result.served_models) if result else [],
                     "input_tokens": result.input_tokens if result else None,
                     "output_tokens": result.output_tokens if result else None,
                     "provider_attempts": (
@@ -1625,7 +1679,10 @@ class OpenAIAgentsRuntime:
                 "runtime_result",
                 {
                     "runtime": self._backend,
+                    # ``model`` 是我们请求的（配置值）；``served_models`` 是对端逐响应
+                    # 自报的（生效值）。两个并列写，A/B 硬门 3 比对的是后者。
                     "model": self._model_name,
+                    "served_models": list(result.served_models) if result else [],
                     "input_tokens": result.input_tokens if result else None,
                     "output_tokens": result.output_tokens if result else None,
                     "provider_attempts": result.provider_attempts if result else None,

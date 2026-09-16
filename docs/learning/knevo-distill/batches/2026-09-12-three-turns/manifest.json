@@ -1,0 +1,44 @@
+{
+  "batch_id": "knevo-20260912-three-turns",
+  "received_at": "2026-09-12T22:53:11.318939+08:00",
+  "source_kind": "user_pasted_transcript",
+  "source_attachment": "/Users/a77/.codex/attachments/4ce84c0b-6d60-470a-94fe-da13fb7bb581/pasted-text.txt",
+  "raw_file": "knevo-original.txt",
+  "raw_sha256": "5569996112618572a97b3eba016686b0e1a8aade609ecd8c3307d19658d16925",
+  "raw_bytes": 47830,
+  "round_count": 3,
+  "subquestion_count": 24,
+  "rounds": [
+    {
+      "round": 1,
+      "prompt_start_line": 1,
+      "prompt_end_line": 21,
+      "response_start_line": 23,
+      "response_end_line": 224,
+      "prompt_sha256": "26d16c7d3a3328e92695d365797db8d6a8b4acfab22178fd83ec73a925f69e0a"
+    },
+    {
+      "round": 2,
+      "prompt_start_line": 225,
+      "prompt_end_line": 266,
+      "response_start_line": 268,
+      "response_end_line": 428,
+      "prompt_sha256": "4fbb588ee75d391221d17df86fc9899559c631ac9634056baa684ef7ddc62e81"
+    },
+    {
+      "round": 3,
+      "prompt_start_line": 429,
+      "prompt_end_line": 455,
+      "response_start_line": 457,
+      "response_end_line": 555,
+      "prompt_sha256": "ec8e287bcf3ec5800c93e46fabbcc9e845cb60543e6446929067c5f6ba2f2be8"
+    }
+  ],
+  "comparison_state": "unpaired_intake",
+  "local_answer_frozen_before_knevo": false,
+  "knevo_model": null,
+  "visible_tool_labels": true,
+  "tool_arguments_and_responses_available": false,
+  "knevo_session_boundaries": "not_supplied",
+  "production_changes_made": false
+}

@@ -1,0 +1,29 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "fourarm0827-8792--run_20260827_150132_866050",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "eca60064ebe6cfb8207baa230ca4771894d4292d5eccc7deaabc2a4456c19555",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      2,
+      4,
+      7,
+      14
+    ],
+    "issues": [
+      "第2句加入“大金融”并称其强度明显偏弱，但证据注册表没有大金融数据。",
+      "第4句称主线表登记了大金融，现有主线板块和题材证据均未出现大金融。",
+      "第7句引用未注册的保险强度109.3，且称半导体、存储芯片、半导体设备占强度榜前三，与证据中强度5093.1的CPO记录冲突。",
+      "第14句断言主线表是人工筛选子集，证据中没有该表生成方式或筛选机制。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

@@ -23,7 +23,9 @@ from intelligence.services.episode_semantic_verifier import (
     LEFTOVER_WINDOW_ISSUE,
     MAX_SEMANTIC_JUDGE_ATTEMPTS,
     REQUIRED_OUTPUT_DEGRADED_MARK,
+    ROOT_DEADLINE_EXHAUSTED_ISSUE,
     SEMANTIC_QUALITY_DOUBT_MARK,
+    WINDOW_EXHAUSTED_ISSUE,
     SemanticEpisodeVerifier,
     _semantic_attempt_timeouts,
     compact_judge_payload,
@@ -75,6 +77,7 @@ def _structural(
     gaps: tuple[str, ...] = (),
     traces: tuple[ProviderTrace, ...] = (),
     required_outputs: tuple[RequiredOutput, ...] | None = None,
+    research_tier: str = "standard",
 ):
     frame = _frame()
     evidence = AgentEvidence(
@@ -97,6 +100,7 @@ def _structural(
         question_type=frame.question_type,
         required_outputs=required_outputs,
         allowed_capabilities=("market_data",),
+        research_tier=research_tier,
         evidence_plan=EvidencePlan(),
         task_frame_hash=frame.task_frame_hash,
     )
@@ -4831,6 +4835,115 @@ def test_judge_attempts_never_exceed_the_shared_window_in_wall_clock(
         ), f"派发了守卫本会拦下的半截调用：{asked}s"
 
 
+class _BurnsGrantThenPasses:
+    """首发吃满自己的窗口后瞬态失败，第二发返回通过报告。
+
+    2026-09-07 D5 的形状：grok 在 13K 载荷上 p50 52s，50s 帽下首发超时。
+    ``now`` 是被 monkeypatch 进 research_contract.time.monotonic 的假钟。
+    """
+
+    def __init__(self, now: list[float]) -> None:
+        self.now = now
+        self.calls: list[float] = []
+
+    def complete(self, *, messages, tools, timeout):
+        del messages, tools
+        self.calls.append(float(timeout))
+        if len(self.calls) == 1:
+            self.now[0] += float(timeout)
+            return ModelTurn("", (), "glm", "LLM 调用失败（TimeoutError）")
+        self.now[0] += 12.0
+        return ModelTurn(
+            '{"passed":true,"rejected_sentence_indexes":[],"issues":[]}',
+            (),
+            "glm",
+            "",
+        )
+
+
+def _freeze_clock(monkeypatch) -> list[float]:
+    now = [1000.0]
+    monkeypatch.setattr(research_contract_module.time, "monotonic", lambda: now[0])
+    monkeypatch.delenv("ASK_RESEARCH_TIER", raising=False)
+    monkeypatch.delenv("ASK_SEMANTIC_JUDGE_WINDOW", raising=False)
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    return now
+
+
+def test_max_tier_judge_survives_one_full_timeout(monkeypatch) -> None:
+    """max 档：首发 75s 超时后，第二发仍是一次完整尝试并能通过。
+
+    生产 ``run_20260907_224810_179995`` / ``..._223741_526797``（max 档）：判官
+    首发吃满窗、第二发 asked=0.0、unavailable，公开稿整篇被扣；而判官窗当时
+    实际按 ``ASK_RESEARCH_TIER`` 缺省的 standard 派生（50s 窗 + 50s 帽 = 只发
+    得出一次）。档位必须从合同来，且 max 档窗 = 两次完整尝试。
+    """
+
+    now = _freeze_clock(monkeypatch)
+    frame, structural = _structural("市场当前偏弱。", research_tier="max")
+    model = _BurnsGrantThenPasses(now)
+
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(600.0),
+    )
+    payload = result.to_dict()
+
+    assert model.calls == [75.0, 75.0], model.calls
+    assert result.judge_status == "passed"
+    assert payload["judge_attempt_index"] == 1
+    assert payload["timeout_configured"] == 75.0
+
+
+def test_standard_tier_judge_caps_unchanged_and_window_starvation_is_labelled(
+    monkeypatch,
+) -> None:
+    """standard 档一字不变：50s 帽、50s 窗，首发吃满后第二发拿 0。
+
+    变的只是归因：根期限还剩 500s+，issue 必须说「窗被前一发吃光」，不能再写
+    「deadline exhausted」把人带去查根期限。
+    """
+
+    now = _freeze_clock(monkeypatch)
+    frame, structural = _structural("市场当前偏弱。")
+    model = _BurnsGrantThenPasses(now)
+
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(600.0),
+    )
+    payload = result.to_dict()
+
+    assert model.calls == [50.0], model.calls
+    assert result.judge_status == "unavailable"
+    assert payload["judge_attempt_index"] == 1
+    assert payload["timeout_asked"] == 0.0
+    assert payload["timeout_configured"] == 50.0
+    assert payload["remaining_seconds_at_entry"] > 500.0
+    assert WINDOW_EXHAUSTED_ISSUE in result.issues
+    assert ROOT_DEADLINE_EXHAUSTED_ISSUE not in result.issues
+
+
+def test_judge_caps_follow_contract_tier_not_env(monkeypatch) -> None:
+    """判官窗跟合同档位走：合同 max 而 env 说 standard，仍按 max 派生。"""
+
+    now = _freeze_clock(monkeypatch)
+    monkeypatch.setenv("ASK_RESEARCH_TIER", "standard")
+    frame, structural = _structural("市场当前偏弱。", research_tier="max")
+    model = _BurnsGrantThenPasses(now)
+
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(600.0),
+    )
+
+    assert model.calls == [75.0, 75.0]
+    assert result.judge_status == "passed"
+
+
 def test_tight_clock_keeps_a_retry_and_does_not_halve_it() -> None:
     """紧窗下重试报价仍与首发相等——修首窗时最容易顺手砍掉的就是它。
 
@@ -4845,3 +4958,90 @@ def test_tight_clock_keeps_a_retry_and_does_not_halve_it() -> None:
 
     assert len(attempts) >= 2, "瞬态重试必须还在"
     assert attempts[1] == pytest.approx(attempts[0]), "重试不得只有首发的一半"
+
+
+def _with_extra_binding(structural, output_id: str, content_hash: str):
+    return verify_episode_outcome(
+        structural.contract,
+        replace(
+            structural.outcome,
+            bindings=(
+                *structural.outcome.bindings,
+                OutputEvidenceBinding(output_id, (content_hash,)),
+            ),
+        ),
+    )
+
+
+def test_extension_binding_keeps_completed_core_in_front_of_the_judge() -> None:
+    """2026-09-09 判官修复 01 复现二（evidence-judge.md 实测二）的语义层验收。
+
+    旧路径：结构层因 unknown_output_binding 判 partial → ``_can_semantically_
+    release_partial`` 拒绝 → 直接 gap 模板，判官零调用。新路径：扩展块被隔离，
+    核心答案照常进判官并 completed 发布。
+    """
+
+    frame, baseline = _structural("基准判断：量能处于修复中段，结构偏强。")
+    with_extension = _with_extra_binding(
+        baseline, "extra_analysis", baseline.outcome.evidence[0].content_hash
+    )
+    assert with_extension.verified_status == "completed"
+    assert with_extension.extension_outputs == ("extra_analysis",)
+
+    judge = _judge(True)
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=with_extension,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert len(judge.calls) == 1
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert "量能处于修复中段" in result.public_answer
+
+
+def test_extension_binding_keeps_deadline_partial_promotable() -> None:
+    """诚实 runtime partial（截止到点、槽位全齐）叠一个扩展块，过审后仍升 completed。"""
+
+    frame, baseline = _structural(
+        "基准判断：量能处于修复中段。失效条件：上涨家数再度明显回落则证伪。",
+        status="partial",
+        gaps=("研究截止时间已到，仍有必需输出未覆盖",),
+    )
+    baseline = replace(
+        baseline,
+        outcome=replace(baseline.outcome, stop_reason="deadline_exhausted"),
+    )
+    with_extension = _with_extra_binding(
+        baseline, "extra_analysis", baseline.outcome.evidence[0].content_hash
+    )
+    assert with_extension.verified_status == "partial"
+
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame,
+        structurally_verified=with_extension,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert "量能处于修复中段" in result.public_answer
+
+
+def test_forged_extra_binding_still_fails_closed_before_the_judge() -> None:
+    frame, baseline = _structural("基准判断：量能处于修复中段，结构偏强。")
+    forged = _with_extra_binding(baseline, "extra_analysis", "not-in-pool")
+    assert forged.verified_status == "partial"
+
+    judge = _judge(True)
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=forged,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert judge.calls == []
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
+    assert "量能处于修复中段" not in result.public_answer

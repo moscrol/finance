@@ -207,30 +207,25 @@ if [[ -z "$ALPHA_HOSTNAME" ]]; then
 fi
 write_env ALPHA_HOSTNAME "$ALPHA_HOSTNAME"
 
-# ── Stage 2: tunnel ingress ──────────────────────────────────────────────
-stage "给现有隧道加一条 ingress"
-say "本机 cloudflared 已在跑（a77-exec）。要让公网打到 8792，在 ~/.cloudflared/config.yml 的 ingress 列表最前面加："
-note "  - hostname: ${ALPHA_HOSTNAME}"
-note "    service: http://127.0.0.1:8792"
-step "先备份：cp ~/.cloudflared/config.yml ~/.cloudflared/config.yml.bak.\$(date +%Y%m%d%H%M%S)"
-step "用编辑器把上面两行插到 ingress: 下面、现有 hostname 规则之前。"
-step "DNS：cloudflared tunnel route dns a77-exec ${ALPHA_HOSTNAME}"
-step "改完后重启隧道：sudo launchctl kickstart -k system/com.cloudflare.cloudflared  （若这条服务名不对，用 launchctl list | grep cloudflare 核对）"
-warn "不要新建第二条 tunnel：一台 Mac 上两条 cloudflared 抢同一份 cert 会互相踩。"
-pause "ingress + DNS 配好、隧道已重启后按 Enter"
-
-# ── Stage 3: Access application ──────────────────────────────────────────
-stage "Cloudflare Access 应用"
+# ── Stage 2: Access application ──────────────────────────────────────────
+# 顺序刻意是「先 Access、后 DNS/ingress」：主机名一旦解析并回源到 8792，而
+# Access 应用还没建，8792 就是无认证公网可达（后端 auth 此刻仍是 off）。
+# Access 应用按主机名配置，DNS 不存在时也能先建好；反过来则有一段裸奔窗口。
+stage "Cloudflare Access 应用（先于 DNS）"
 say "Access 在边缘做邮箱 OTP。后端再验一次 JWT，不信任明文邮箱头。"
+warn "先建 Access 再开 DNS/ingress。反过来做，主机名生效到 Access 建好之间 8792 是无认证公网可达。"
 open_url "https://one.dash.cloudflare.com/"
 step "Zero Trust → Access → Applications → Add an application → Self-hosted。"
 step "Application name 填 finance-workbench-alpha。"
 step "Public hostname 填刚才的 ${ALPHA_HOSTNAME}（路径留空或 /）。"
 step "Policy：Action = Allow；Include = Emails。先填你自己的邮箱，以后再加朋友。"
 step "登录方式保持 One-time PIN（邮箱验证码），不必接 Google/GitHub IdP。"
-pause "应用建好后按 Enter，下一屏要复制两个值"
+say "再建第二个应用，给 VPS 外部拨测放行健康检查（后端本来就豁免 /api/health*）："
+step "Add an application → Self-hosted；name 填 finance-workbench-health；hostname 填 ${ALPHA_HOSTNAME}，Path 填 api/health。"
+step "Policy：Action = Bypass；Include = Everyone。"
+pause "两个应用建好后按 Enter，下一屏要复制两个值"
 
-# ── Stage 4: team domain + AUD ───────────────────────────────────────────
+# ── Stage 3: team domain + AUD ───────────────────────────────────────────
 stage "粘贴 Team Domain 与 AUD"
 step "还在这个 Access 应用页：找到 Application Audience (AUD) tag，整段复制。"
 ask WORKBENCH_CF_ACCESS_AUD "粘贴 AUD tag:"
@@ -243,6 +238,19 @@ if [[ -z "$WORKBENCH_CF_ACCESS_AUD" || -z "$WORKBENCH_CF_ACCESS_TEAM_DOMAIN" ]];
 fi
 write_env WORKBENCH_CF_ACCESS_AUD "$WORKBENCH_CF_ACCESS_AUD"
 write_env WORKBENCH_CF_ACCESS_TEAM_DOMAIN "$WORKBENCH_CF_ACCESS_TEAM_DOMAIN"
+
+# ── Stage 4: tunnel ingress + DNS（Access 已就位，现在开门是安全的）──────
+stage "给现有隧道加一条 ingress + DNS"
+say "本机 cloudflared 已在跑（a77-exec，用户域 launchd）。要让公网打到 8792，在 ~/.cloudflared/config.yml 的 ingress 列表最前面加："
+note "  - hostname: ${ALPHA_HOSTNAME}"
+note "    service: http://127.0.0.1:8792"
+step "先备份：cp ~/.cloudflared/config.yml ~/.cloudflared/config.yml.bak.\$(date +%Y%m%d%H%M%S)"
+step "用编辑器把上面两行插到 ingress: 下面、现有 hostname 规则之前。"
+step "校验：cloudflared tunnel ingress validate && cloudflared tunnel ingress rule https://${ALPHA_HOSTNAME}/  （应命中 8792 那条）"
+step "DNS：cloudflared tunnel route dns a77-exec ${ALPHA_HOSTNAME}"
+step "重启隧道：launchctl kickstart -k gui/\$(id -u)/com.cloudflare.cloudflared  （它挂在用户域，不要 sudo/system）"
+warn "不要新建第二条 tunnel：一台 Mac 上两条 cloudflared 抢同一份 cert 会互相踩。"
+pause "ingress + DNS 配好、隧道已重启后按 Enter"
 
 # ── Stage 5: invite map ──────────────────────────────────────────────────
 stage "邀请名单（邮箱 → user_id）"

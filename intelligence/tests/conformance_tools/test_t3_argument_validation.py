@@ -15,7 +15,10 @@ from intelligence.tests.conformance_tools.baseline import ratchet
 from intelligence.tests.conformance_tools.tools import (
     TOOL_NAMES,
     ToolProbe,
+    is_goals_tool,
+    is_script_tool,
     is_snapshot_tool,
+    is_url_tool,
     make_tool_registry,
 )
 
@@ -45,6 +48,67 @@ def test_bad_arguments_fail_closed(
         assert prepared.tool == tool_name
         return
 
+    if is_url_tool(spec):
+        # url 契约：必须且只能有一个绝对 http(s) URL；检索词、站点名、相对路径一律拒。
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"url": ""})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"url": "贵州茅台 2024 年报"})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"url": "finance.sina.com.cn/600519"})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"query": "https://example.invalid/x"})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"url": "https://example.invalid/x", "extra": 1})
+        prepared = registry.prepare(tool_name, {"url": " https://example.invalid/x "})
+        assert prepared.display_query == "https://example.invalid/x"
+        return
+
+    if is_goals_tool(spec):
+        # goals 契约：必须且只能有一个 1–3 条、非空、去重的字符串数组；不静默截断。
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"goals": []})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"goals": "单个字符串"})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"goals": ["甲", ""]})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"goals": ["甲", "甲"]})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"goals": ["甲", "乙", "丙", "丁"]})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"query": "甲"})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"goals": ["甲"], "extra": 1})
+        prepared = registry.prepare(tool_name, {"goals": [" 甲 ", "乙"]})
+        assert prepared.display_query == "甲；乙"
+        return
+
+    if is_script_tool(spec):
+        # script 契约：script + purpose 必填非空；use_duckdb 只收布尔、timeout_seconds 只收
+        # 1–60 的整数；多余键拒。脚本正文是否合法（禁用模块）不在这里判——runner 回结构化码。
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"script": "", "purpose": "p"})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"script": "emit({})"})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"script": "emit({})", "purpose": "p", "use_duckdb": "yes"})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"script": "emit({})", "purpose": "p", "timeout_seconds": 0})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"script": "emit({})", "purpose": "p", "extra": 1})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"query": "emit({})"})
+        prepared = registry.prepare(tool_name, {"script": "emit({})", "purpose": " 数证据 "})
+        assert prepared.display_query == "数证据"
+        return
+
     # query 契约：必须且只能有一个非空字符串 query。
     with pytest.raises(InvalidResearchToolArguments):
         registry.prepare(tool_name, {})
@@ -72,6 +136,8 @@ def test_prepared_arguments_for_another_tool_are_rejected() -> None:
         name
         for name in TOOL_NAMES
         if not is_snapshot_tool(registry.resolve(name))
+        and not is_url_tool(registry.resolve(name))
+        and not is_goals_tool(registry.resolve(name))
     ]
     first, second = query_tools[0], query_tools[1]
     prepared = registry.prepare(first, {"query": "合法检索词"})

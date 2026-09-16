@@ -123,6 +123,11 @@ class ModelTurn:
     provider_attempts: int = 1
     input_tokens: int | None = None
     output_tokens: int | None = None
+    # 响应体自报的 model（生效值）。三态：``None`` = 这一回合没有到达 provider
+    # （预算/截止在适配器之前拒掉）；``""`` = provider 回了响应但没带 model 字段
+    # （中转常见，记「未回」）；非空 = 对端实际服务的模型名。**永不**用配置的
+    # ``provider.model`` 回填——A/B 读数要靠它分辨「模型没真的切过去」（§3.5.4）。
+    served_model: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.content, str):
@@ -131,6 +136,8 @@ class ModelTurn:
             raise ValueError("provider_name must be a stable string")
         if not isinstance(self.error, str):
             raise ValueError("model error must be a string")
+        if self.served_model is not None and not isinstance(self.served_model, str):
+            raise ValueError("served_model must be a string or None")
         if (
             isinstance(self.provider_attempts, bool)
             or not isinstance(self.provider_attempts, int)
@@ -151,6 +158,8 @@ class ModelTurn:
         object.__setattr__(self, "tool_calls", calls)
         object.__setattr__(self, "provider_name", self.provider_name.strip())
         object.__setattr__(self, "error", self.error.strip())
+        if self.served_model is not None:
+            object.__setattr__(self, "served_model", self.served_model.strip())
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -164,6 +173,9 @@ class ModelTurn:
             payload["input_tokens"] = self.input_tokens
         if self.output_tokens is not None:
             payload["output_tokens"] = self.output_tokens
+        if self.served_model is not None:
+            # 空串也写：那是「provider 未回 model 字段」的收据，与字段缺席不同。
+            payload["served_model"] = self.served_model
         return payload
 
 
@@ -252,6 +264,12 @@ class EpisodeEvent:
     sequence: int
     kind: str
     payload: Mapping[str, object]
+    # 版本语义（运行底座终态稿 §6.3 第 6 条）：写方给一个老读者不认识的 kind 打上
+    # ``ignorable=True``，老读者（``restore`` / ``derive_messages`` 的入口校验）就可以跳过它；
+    # 未打标的未知 kind 一律拒绝而不是静默跳——「缺一条」不能被读成「没发生」。
+    # 有默认值：既有 ``EpisodeEvent(seq, kind, payload)`` 构造零改动；``to_dict`` 只在
+    # True 时带键，老产物与老读者的哈希 / 对账不受影响。
+    ignorable: bool = False
 
     def __post_init__(self) -> None:
         if isinstance(self.sequence, bool) or not isinstance(self.sequence, int):
@@ -262,16 +280,21 @@ class EpisodeEvent:
             raise ValueError("episode event kind must be non-empty")
         if not isinstance(self.payload, Mapping):
             raise ValueError("episode event payload must be an object")
+        if not isinstance(self.ignorable, bool):
+            raise ValueError("event ignorable flag must be a bool")
         copied = _json_freeze(self.payload, path="event payload")
         object.__setattr__(self, "kind", self.kind.strip())
         object.__setattr__(self, "payload", copied)
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        record: dict[str, object] = {
             "sequence": self.sequence,
             "kind": self.kind,
             "payload": _json_copy(self.payload, path="event payload"),
         }
+        if self.ignorable:
+            record["ignorable"] = True
+        return record
 
 
 @dataclass(frozen=True)

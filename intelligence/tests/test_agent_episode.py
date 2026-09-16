@@ -15,6 +15,13 @@ from intelligence.runtime.agent_episode import (
     ContinuousAgentEpisode,
     _public_tool_exception_detail,
 )
+from intelligence.runtime.episode_tool_batch import (
+    ToolBatchResult,
+    ToolCallResult,
+    ToolDispatchClock,
+    public_timeout_detail,
+    stage_timeout_granted_detail,
+)
 from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.agent_runtime import (
@@ -22,6 +29,7 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
     is_transient_model_error,
 )
+from intelligence.services.episode_messages import EpisodeMessage, to_provider
 from intelligence.services.evidence_capabilities import EvidencePlan
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.mode_governor import ModeSignals
@@ -38,6 +46,7 @@ from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
 )
+from intelligence.services.research_harness import FinanceResearchHarness
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     ToolSpec,
@@ -253,7 +262,18 @@ def test_progress_sink_observes_append_only_events_before_and_during_model_work(
     class ProgressAwareModel(ScriptedModel):
         def complete(self, *, messages, tools, timeout):
             if not self.calls:
-                assert [event.kind for event in observed] == ["task"]
+                # 向 provider 开口前：配置、任务、提示词、装配及裁剪后的实际菜单、
+                # 模型意图均已落账。不能只留早于动态工具装配的 configure 快照。
+                assert [event.kind for event in observed] == [
+                    "configure",
+                    "task",
+                    "prompt_assembled",
+                    "tool_menu",
+                    "model_intent",
+                ]
+                assert list(observed[-2].payload["visible"]) == [
+                    tool["function"]["name"] for tool in tools
+                ]
             return super().complete(messages=messages, tools=tools, timeout=timeout)
 
     frame = _frame()
@@ -2222,11 +2242,24 @@ def test_tool_batch_completes_in_reverse_but_returns_original_transcript_order()
         event.payload["task_frame_hash"] == frame.task_frame_hash
         for event in outcome.events
     )
+    # 效果三明治（INV-R2）：一批里**每个**要派发的调用先落意图、再进线程池，所以两条
+    # tool_request 先于任何 tool_result；结算仍按模型给出的顺序回来（与上面 messages
+    # 的 call-1 / call-2 顺序一致），完成顺序（call-2 先）只体现在 runner 里。
     assert [
         event.kind
         for event in outcome.events
         if event.kind in {"tool_request", "tool_result", "tool_error"}
-    ] == ["tool_request", "tool_result", "tool_request", "tool_result"]
+    ] == ["tool_request", "tool_request", "tool_result", "tool_result"]
+    assert [
+        event.payload["call_id"]
+        for event in outcome.events
+        if event.kind in {"tool_request", "tool_result"}
+    ] == ["call-1", "call-2", "call-1", "call-2"]
+    assert all(
+        event.payload["replay"] == "safe"
+        for event in outcome.events
+        if event.kind == "tool_request"
+    )
 
 
 def test_evidence_injection_does_not_mutate_system_message() -> None:
@@ -2647,6 +2680,156 @@ def test_public_tool_exception_detail_keeps_class_and_first_line() -> None:
     assert "/Users/" not in _public_tool_exception_detail(
         "OSError: [Errno 2] /Users/a77/.finance-runtime/db\nTRACE"  # path-literal-ok: redaction fixture
     )
+
+
+def test_public_timeout_detail_is_allowlisted() -> None:
+    assert public_timeout_detail("") == ""
+    assert public_timeout_detail("TimeoutError: RAW_TIMEOUT_EXCEPTION_SENTINEL") == ""
+    assert public_timeout_detail("not_dispatched: stage_timeout_granted=0") == ""
+    assert public_timeout_detail("stage_timeout_granted=1e-3") == ""
+    assert public_timeout_detail("stage_timeout_granted=0") == "stage_timeout_granted=0"
+    assert (
+        public_timeout_detail("stage_timeout_granted=11.5")
+        == "stage_timeout_granted=11.5"
+    )
+
+
+def test_accumulator_strips_raw_timeout_detail_before_the_model() -> None:
+    """Allowlist 必须接在 consume 链路上，不能只靠上游不填 detail。
+
+    真超时的两个 ``_dispatch`` 分支今天不传 detail，所以把 allowlist 改成直通
+    时 ``test_tool_timeout_uses_public_error_code_without_raw_exception_detail``
+    仍绿。本条把带原文的 timeout 结果直接送进 accumulator。
+    """
+
+    from datetime import date as _date
+
+    from intelligence.runtime.agent_episode import (
+        _EpisodeLedger,
+        _EpisodeToolAccumulator,
+    )
+    from intelligence.services.evidence_ledger import EvidenceLedger
+
+    sentinel = "TimeoutError: RAW_TIMEOUT_EXCEPTION_SENTINEL"
+    frame = _frame()
+    messages: list[EpisodeMessage] = []
+    accumulator = _EpisodeToolAccumulator(
+        messages=messages,
+        ledger=_EpisodeLedger(frame),
+        evidence_ledger=EvidenceLedger(information_cutoff=_date(2026, 7, 23)),
+    )
+    batch = ToolBatchResult(
+        items=(
+            ToolCallResult(
+                ModelToolCall("c1", "market_data", {"query": "x"}),
+                "timeout",
+                error="tool_timeout",
+                detail=sentinel,
+            ),
+        ),
+        executed_count=0,
+        normalized_queries=(),
+    )
+    accumulator.consume(batch, _context(frame))
+    wire = to_provider(messages)
+    payload = json.loads(str(wire[-1]["content"]))
+    blob = json.dumps({"messages": wire}, ensure_ascii=False)
+    assert payload["error"] == "tool_timeout"
+    assert payload["detail"] == ""
+    assert sentinel not in blob
+
+
+def test_accumulator_forwards_positive_grant_to_the_model() -> None:
+    """授权 >0 仍超时的那一半：模型必须看见实授值，不是空 detail。"""
+
+    from datetime import date as _date
+
+    from intelligence.runtime.agent_episode import (
+        _EpisodeLedger,
+        _EpisodeToolAccumulator,
+    )
+    from intelligence.services.evidence_ledger import EvidenceLedger
+
+    sentinel = "TimeoutError: RAW_TIMEOUT_EXCEPTION_SENTINEL"
+    frame = _frame()
+    messages: list[EpisodeMessage] = []
+    accumulator = _EpisodeToolAccumulator(
+        messages=messages,
+        ledger=_EpisodeLedger(frame),
+        evidence_ledger=EvidenceLedger(information_cutoff=_date(2026, 7, 23)),
+    )
+    clock = ToolDispatchClock(
+        batch_grant_asked=30.0,
+        stage_timeout_granted=11.5,
+        episode_remaining_at_dispatch=71.5,
+        remaining_slots_at_dispatch=4,
+    )
+    batch = ToolBatchResult(
+        items=(
+            ToolCallResult(
+                ModelToolCall("c1", "kb_search", {"query": "x"}),
+                "timeout",
+                error="tool_timeout",
+                detail=sentinel,
+                dispatch_clock=clock,
+            ),
+        ),
+        executed_count=0,
+        normalized_queries=(),
+    )
+    accumulator.consume(batch, _context(frame))
+    wire = to_provider(messages)
+    payload = json.loads(str(wire[-1]["content"]))
+    blob = json.dumps({"messages": wire}, ensure_ascii=False)
+    assert payload["error"] == "tool_timeout"
+    assert payload["detail"] == "stage_timeout_granted=11.5"
+    assert sentinel not in blob
+
+
+def test_zero_grant_timeout_tells_model_it_was_not_dispatched() -> None:
+    runner_calls = 0
+
+    def runner(query: str, _context: AgentToolContext):
+        del query, _context
+        nonlocal runner_calls
+        runner_calls += 1
+        raise AssertionError("zero-grant must not enter the runner")
+
+    frame = _frame()
+    context = replace(
+        _context(frame),
+        deadline=ResearchDeadline.from_timeout(5.0, synthesis_reserve=60.0),
+        policy=ResearchPolicy("standard", 6, 90.0, 60.0),
+    )
+    model = ScriptedModel(
+        [
+            _tool_turn("A股 最新行情"),
+            _finish_turn(
+                status="partial",
+                draft="工具窗口已关，本轮只能报告证据缺口。",
+                hashes=(),
+                gap="行情工具未派发",
+            ),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(runner),
+    )
+
+    assert runner_calls == 0
+    tool_messages = [
+        json.loads(message["content"])
+        for message in model.calls[1]["messages"]
+        if message.get("role") == "tool"
+    ]
+    assert tool_messages, outcome.stop_reason
+    # 零授权未派发：码是 tool_not_dispatched，不是 tool_timeout（INV-R4，#28）。
+    assert tool_messages[0]["error"] == "tool_not_dispatched"
+    assert tool_messages[0]["detail"] == stage_timeout_granted_detail(0.0)
+    assert "stage_timeout_granted=0" in json.dumps(outcome.to_dict(), ensure_ascii=False)
 
 
 def test_tool_timeout_uses_public_error_code_without_raw_exception_detail() -> None:
@@ -3131,6 +3314,61 @@ def test_next_model_turn_sees_dynamic_tools_and_remaining_budget() -> None:
     assert finish.payload["time_budget_injected"] is True
     assert outcome.status == "completed"
     assert outcome.usage.invalid_actions == 0
+    # 只剩 1 次可点：不劝并行（没什么可并行的），也不写 per_batch_cap。
+    assert "per_batch_cap" not in budget
+    assert "同一轮一起点出" not in budget["instruction"]
+
+
+def test_budget_injection_asks_for_parallel_batches_with_the_tier_cap() -> None:
+    """派发节奏（收据 §10）：19 轮那遍连续 17 轮每轮只点 1 个工具，历史重发 96 万字。
+    预算注入此前只说「不得超过」（上限），现在把每批帽和「一起点」写进同一条；数字 = min(帽, 剩余)。"""
+
+    class RecordingLedger:
+        """预算注入的 durable 载体（INV-R1）：模型看到的整段 content 落 tool_budget_state。"""
+
+        def __init__(self) -> None:
+            self.events: list[tuple[str, dict[str, object]]] = []
+
+        def add(self, kind: str, payload: dict[str, object]) -> None:
+            self.events.append((kind, dict(payload)))
+
+    from intelligence.services.episode_messages import tool_message
+
+    ledger = RecordingLedger()
+    # loop 里的消息是 EpisodeMessage（P1）：量具走同一类型，读属性不拿字典。
+    messages = [tool_message("c1", json.dumps({"ok": True, "tool": "market_data"}))]
+    injected = ContinuousAgentEpisode._append_tool_budget_state(
+        messages=messages,
+        ledger=ledger,
+        remaining_slots=22,
+        remaining_seconds=400.0,
+        total_seconds=600.0,
+        per_batch_cap=8,
+    )
+    assert injected is True
+    budget = json.loads(messages[-1].content)["runtime_budget"]
+    assert budget["per_batch_cap"] == 8
+    assert "互不依赖的工具应在同一轮一起点出（本轮最多 8 个）" in budget["instruction"]
+    assert "只有下一步取决于上一步结果时才逐轮点" in budget["instruction"]
+    assert "不得超过 remaining_tool_calls" in budget["instruction"]  # 上限那句仍在
+    # durable 载体与模型可见正文同一份（模型可见即已落账）。
+    assert [kind for kind, _payload in ledger.events] == ["tool_budget_state"]
+    assert ledger.events[0][1]["model_content"] == messages[-1].content
+
+    # 剩余 3 次、帽 8 → 本轮最多 3；帽 4（quick 标签的分支）→ 4。
+    for slots, cap, expected in ((3, 8, 3), (22, 4, 4)):
+        msgs = [tool_message("c", json.dumps({"ok": True}))]
+        ContinuousAgentEpisode._append_tool_budget_state(
+            messages=msgs, ledger=RecordingLedger(), remaining_slots=slots, per_batch_cap=cap
+        )
+        assert json.loads(msgs[-1].content)["runtime_budget"]["per_batch_cap"] == expected
+    # 没传帽（旧调用方 / 参考 loop）→ 逐字节同前。
+    plain = [tool_message("c", json.dumps({"ok": True}))]
+    ContinuousAgentEpisode._append_tool_budget_state(
+        messages=plain, ledger=RecordingLedger(), remaining_slots=22
+    )
+    plain_budget = json.loads(plain[-1].content)["runtime_budget"]
+    assert "per_batch_cap" not in plain_budget and "一起点出" not in plain_budget["instruction"]
 
 
 def test_episode_snapshot_binding_expands_to_the_complete_atomic_snapshot() -> None:
@@ -3428,6 +3666,28 @@ def test_model_failure_after_tools_close_gets_exactly_one_compact_recovery() -> 
     assert [event.kind for event in outcome.events].count(
         "finalization_recovery_started"
     ) == 1
+    # 兜底合成那段独立 prompt 也「模型可见即已落账」（P0 已知边界 a，P2 补）：
+    # 一条 prompt_assembled{source=finalizer}，正文哈希与第三次请求真发出的逐字节对得上；
+    # 它不进 episode 消息历史——派生器跳过它，严格模式下前两次请求的对账仍成立。
+    finalizer_prompts = [
+        event
+        for event in outcome.events
+        if event.kind == "prompt_assembled" and event.payload.get("source") == "finalizer"
+    ]
+    assert len(finalizer_prompts) == 1
+    recovery_call = model.calls[2]["messages"]
+    assert finalizer_prompts[0].payload["system"] == recovery_call[0]["content"]
+    assert finalizer_prompts[0].payload["user"] == recovery_call[1]["content"]
+    started = next(
+        event for event in outcome.events if event.kind == "finalization_recovery_started"
+    )
+    assert started.sequence < finalizer_prompts[0].sequence
+    episode_prompts = [
+        event
+        for event in outcome.events
+        if event.kind == "prompt_assembled" and "source" not in event.payload
+    ]
+    assert len(episode_prompts) == 1, "episode 自己那条形状不变（不带 source 键）"
 
 
 def test_invalid_finish_after_normal_repair_recovers_only_once() -> None:
@@ -3959,7 +4219,9 @@ def test_deep_plan_without_observable_complexity_keeps_standard_budget() -> None
 
     outcome = ContinuousAgentEpisode(
         model,
-        mode_signals=lambda _frame, _plan: ModeSignals(),
+        harness=FinanceResearchHarness(
+            mode_signals=lambda _frame, _plan: ModeSignals(),
+        ),
     ).run(
         task_frame=frame,
         context=context,
@@ -4335,7 +4597,7 @@ def test_rejected_tool_message_carries_the_reason_to_the_model() -> None:
     from intelligence.services.agent_runtime import ModelToolCall
     from intelligence.services.evidence_ledger import EvidenceLedger
 
-    messages: list[dict[str, object]] = []
+    messages: list[EpisodeMessage] = []
     # 用真的构造函数，别拿 __new__ + setattr 拼桩：拼桩每加一个内部字段就断一次，
     # 而且断的时候看起来像被测代码坏了。
     accumulator = _EpisodeToolAccumulator(
@@ -4350,7 +4612,7 @@ def test_rejected_tool_message_carries_the_reason_to_the_model() -> None:
         "order_by must be an array",
     )
 
-    payload = json.loads(messages[-1]["content"])
+    payload = json.loads(to_provider(messages)[-1]["content"])
     assert payload["error"] == "invalid_arguments"
     assert payload["detail"] == "order_by must be an array"
 

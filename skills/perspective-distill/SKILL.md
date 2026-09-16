@@ -180,3 +180,7 @@ agent 可以代评并逐条给理由，但要在回复里报告 approve/reject �
 - **CLI 与生产是两套用户空间**：CLI 跟随 shell 环境变量，生产跟随启动器里的 export。
   两者不一致时闭环每一步都会"成功"，只有 Workbench 里选不到视角这一个症状——所以
   第 6 步那道 API 可见性闸是唯一能证明蒸馏落地的检查，不能省。
+- **禁止拿一份内存里的画像循环 `_save_profile`**。`review_patch` / `ingest` 写回的是
+  **整份 JSON**。薄副本（旧 HOW、article_count=0、种子四表）会盖掉磁盘上的收口。
+  2026-08-28 风远已中招。`_save_profile` 对列表长度和 `article_count` 只减不增；
+  要删条目请直接编辑 JSON，或测试夹具显式 `allow_regression=True`。

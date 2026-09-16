@@ -1,0 +1,47 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-8.3.5, pluggy-1.6.0 -- /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+rootdir: /tmp/e2-qc-301dcd9e-evidence
+collecting ... collected 37 items
+
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_replacement_matrix[menu_first-unknown] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_replacement_matrix[menu_first-external_or_mixed] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_replacement_matrix[menu_first-different_capability] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_replacement_matrix[menu_first-deleted] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_replacement_matrix[menu_first-contract_removed] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_replacement_matrix[execute_first-unknown] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_replacement_matrix[execute_first-external_or_mixed] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_replacement_matrix[execute_first-different_capability] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_replacement_matrix[execute_first-deleted] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_replacement_matrix[execute_first-contract_removed] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_direct_dispatch_denies_before_parser[unknown] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_direct_dispatch_denies_before_parser[external_or_mixed] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_ceiling_lattice_and_full_context_downgrade[full-full] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_ceiling_lattice_and_full_context_downgrade[full-local_only] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_ceiling_lattice_and_full_context_downgrade[full-material_only] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_ceiling_lattice_and_full_context_downgrade[local_only-full] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_ceiling_lattice_and_full_context_downgrade[local_only-local_only] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_ceiling_lattice_and_full_context_downgrade[local_only-material_only] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_ceiling_lattice_and_full_context_downgrade[material_only-full] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_ceiling_lattice_and_full_context_downgrade[material_only-local_only] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_ceiling_lattice_and_full_context_downgrade[material_only-material_only] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_new_task_rejected_before_parser_or_dispatch[bind] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_new_task_rejected_before_parser_or_dispatch[menu] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_new_task_rejected_before_parser_or_dispatch[execute] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_positive_runner_and_scope_history[full] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_positive_runner_and_scope_history[local_only] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_two_concurrent_batches_bind_under_lock[full] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_two_concurrent_batches_bind_under_lock[local_only] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_late_result_captures_old_scope_not_new_context QC_CORRECTED_LATE_TRACE [{"phase": "raw_runner_entered", "elapsed_ms": 0.129}, {"phase": "batch_timeout_returned", "elapsed_ms": 85.121}, {"phase": "new_scope_bound", "elapsed_ms": 85.188}, {"phase": "raw_runner_returning", "elapsed_ms": 85.211}, {"phase": "old_result_emitted", "elapsed_ms": 85.267}]
+PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_repair_variants_current_scope_denial_and_history[unknown] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_repair_variants_current_scope_denial_and_history[external_or_mixed] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_repair_variants_current_scope_denial_and_history[different_capability] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_repair_variants_current_scope_denial_and_history[deleted] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_repair_variants_current_scope_denial_and_history[contract_removed] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_repair_variants_current_scope_denial_and_history[stricter_registry] PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_repair_actual_downgrade_hook_rebinds_contract_before_menu PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_independent_scope_v2.py::test_summary_counts QC_INDEPENDENT_COUNTS {"concurrent_cases": 2, "direct_denials": 2, "late_result_old_scope": 1, "lattice_cases": 9, "new_task_denials": 3, "positive_runs": 4, "repair_denials": 6, "repair_hook_contract_narrow": 1, "replacement_denials": 10}
+PASSED
+
+============================== 37 passed in 0.49s ==============================
+QC_IO_ATTEMPTS []

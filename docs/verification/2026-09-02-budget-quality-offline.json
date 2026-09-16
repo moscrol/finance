@@ -1,0 +1,203 @@
+{
+  "n_all": 1221,
+  "n_production": 495,
+  "caveat": "Production T is essentially constant (standard/90). This measures whether tool success co-moves with judge, not whether raising T causes better answers.",
+  "all": {
+    "label": "all_users",
+    "n": 1221,
+    "with_episode": 810,
+    "judgeable": 905,
+    "judge_counts": {
+      "missing": 316,
+      "repaired": 396,
+      "not_applicable": 95,
+      "unavailable": 337,
+      "passed": 70,
+      "rejected": 7
+    },
+    "passed_rate": 0.0773,
+    "repaired_rate": 0.4376,
+    "unavailable_rate": 0.3724,
+    "model_finish_rate": 0.2494,
+    "repair_rate": 0.6667,
+    "mean_tool_ok": 2.963,
+    "mean_tool_timeout": 0.405,
+    "by_tool_success": {
+      "no_tools": {
+        "n": 59,
+        "judgeable": 59,
+        "passed": 2,
+        "repaired": 10,
+        "unavailable": 47,
+        "passed_rate": 0.0339,
+        "mean_answer_chars": 211.3
+      },
+      "ok_<25%": {
+        "n": 8,
+        "judgeable": 8,
+        "passed": 0,
+        "repaired": 2,
+        "unavailable": 5,
+        "passed_rate": 0.0,
+        "mean_answer_chars": 119.1
+      },
+      "ok_25-50%": {
+        "n": 52,
+        "judgeable": 52,
+        "passed": 2,
+        "repaired": 20,
+        "unavailable": 28,
+        "passed_rate": 0.0385,
+        "mean_answer_chars": 310.4
+      },
+      "ok_50-75%": {
+        "n": 121,
+        "judgeable": 121,
+        "passed": 13,
+        "repaired": 45,
+        "unavailable": 61,
+        "passed_rate": 0.1074,
+        "mean_answer_chars": 387.3
+      },
+      "ok_>=75%": {
+        "n": 570,
+        "judgeable": 570,
+        "passed": 53,
+        "repaired": 319,
+        "unavailable": 196,
+        "passed_rate": 0.093,
+        "mean_answer_chars": 519.6
+      }
+    },
+    "kb_search_ok": {
+      "n": 91,
+      "judgeable": 91,
+      "passed_rate": 0.1099,
+      "repaired_rate": 0.5714,
+      "unavailable_rate": 0.3187
+    },
+    "kb_search_none": {
+      "n": 719,
+      "judgeable": 719,
+      "passed_rate": 0.0834,
+      "repaired_rate": 0.4784,
+      "unavailable_rate": 0.4284
+    },
+    "had_zero_grant": {
+      "n": 26,
+      "judgeable": 26,
+      "passed_rate": 0.0385,
+      "repaired_rate": 0.2308,
+      "unavailable_rate": 0.7308
+    },
+    "no_zero_grant": {
+      "n": 784,
+      "judgeable": 784,
+      "passed_rate": 0.088,
+      "repaired_rate": 0.4974,
+      "unavailable_rate": 0.4056
+    },
+    "tiers": {
+      "missing": 1221
+    }
+  },
+  "production": {
+    "label": "linxiaoqi5111",
+    "n": 495,
+    "with_episode": 371,
+    "judgeable": 386,
+    "judge_counts": {
+      "missing": 109,
+      "unavailable": 138,
+      "repaired": 192,
+      "passed": 34,
+      "rejected": 7,
+      "not_applicable": 15
+    },
+    "passed_rate": 0.0881,
+    "repaired_rate": 0.4974,
+    "unavailable_rate": 0.3575,
+    "model_finish_rate": 0.2156,
+    "repair_rate": 0.6792,
+    "mean_tool_ok": 3.154,
+    "mean_tool_timeout": 0.402,
+    "by_tool_success": {
+      "no_tools": {
+        "n": 27,
+        "judgeable": 27,
+        "passed": 1,
+        "repaired": 3,
+        "unavailable": 23,
+        "passed_rate": 0.037,
+        "mean_answer_chars": 210.4
+      },
+      "ok_<25%": {
+        "n": 6,
+        "judgeable": 6,
+        "passed": 0,
+        "repaired": 2,
+        "unavailable": 3,
+        "passed_rate": 0.0,
+        "mean_answer_chars": 128.5
+      },
+      "ok_25-50%": {
+        "n": 29,
+        "judgeable": 29,
+        "passed": 0,
+        "repaired": 12,
+        "unavailable": 15,
+        "passed_rate": 0.0,
+        "mean_answer_chars": 261.2
+      },
+      "ok_50-75%": {
+        "n": 44,
+        "judgeable": 44,
+        "passed": 5,
+        "repaired": 15,
+        "unavailable": 22,
+        "passed_rate": 0.1136,
+        "mean_answer_chars": 234.2
+      },
+      "ok_>=75%": {
+        "n": 265,
+        "judgeable": 265,
+        "passed": 28,
+        "repaired": 160,
+        "unavailable": 75,
+        "passed_rate": 0.1057,
+        "mean_answer_chars": 459.7
+      }
+    },
+    "kb_search_ok": {
+      "n": 33,
+      "judgeable": 33,
+      "passed_rate": 0.0909,
+      "repaired_rate": 0.5758,
+      "unavailable_rate": 0.3333
+    },
+    "kb_search_none": {
+      "n": 338,
+      "judgeable": 338,
+      "passed_rate": 0.0917,
+      "repaired_rate": 0.5118,
+      "unavailable_rate": 0.3757
+    },
+    "had_zero_grant": {
+      "n": 4,
+      "judgeable": 4,
+      "passed_rate": 0.0,
+      "repaired_rate": 0.5,
+      "unavailable_rate": 0.5
+    },
+    "no_zero_grant": {
+      "n": 367,
+      "judgeable": 367,
+      "passed_rate": 0.0926,
+      "repaired_rate": 0.5177,
+      "unavailable_rate": 0.3706
+    },
+    "tiers": {
+      "missing": 495
+    }
+  }
+}

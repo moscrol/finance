@@ -40,6 +40,8 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from scripts.run_quality_ablation import (  # noqa: E402
+    _JUDGE_OVERRIDE,
+    resolve_judge,
     RUBRIC_DIMENSIONS,
     Question,
     aggregate_components,
@@ -208,7 +210,15 @@ def rejudge_artifact(
     assert_only_judge_changed(answers, answers_before, judged_before)
 
     component_ids = [cid for cid in artifact["aggregates"]]  # type: ignore[union-attr]
-    aggregates = aggregate_components(answers, component_ids)
+    # 方差底沿用源收据实测的那一份：补评只补 unscored 的份，没有重新校准判官，
+    # 凭空给个新底就是编数。源轮没测过（旧收据 / --calibration-repeats 0）时
+    # 传 None，聚合按 fail-closed 全记 no_call——这正是该有的结果。
+    noise_floor = artifact.get("noise_floor")
+    if not isinstance(noise_floor, dict):
+        noise_floor = None
+    aggregates = aggregate_components(
+        answers, component_ids, noise_floor=noise_floor
+    )
     stamp = (now or datetime.now(timezone.utc)).isoformat()
 
     providers = sorted({str(r["provider"]) for r in rejudged if r.get("provider")})
@@ -231,6 +241,10 @@ def rejudge_artifact(
         "still_unscored": still_unscored,
         "questions": artifact["questions"],
         "answers": answers,
+        "noise_floor": noise_floor,
+        "noise_floor_source": (
+            "沿用源轮实测（补评未重新校准判官）" if noise_floor else "源轮未实测 → 全部 no_call"
+        ),
         "aggregates_before": artifact["aggregates"],
         "aggregates": aggregates,
         "baseline_absolute": baseline_absolute(answers),
@@ -274,6 +288,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--seed", type=int, default=20260827, help="补评洗牌种子")
     parser.add_argument("--dry-run", action="store_true", help="只列出待补评行，不调 LLM")
+    parser.add_argument(
+        "--judge-independence",
+        choices=("require", "allow-correlated"),
+        default="require",
+        help="与主轮同口径：默认要求判官与合成异构，否则拒跑（补评不该有更松的门）",
+    )
     return parser
 
 
@@ -302,6 +322,18 @@ def main(argv: list[str] | None = None) -> int:
         raise _fail("--output 指向原文件；修正收据必须另存，原始读数不可覆盖")
 
     require_llm_ready()
+    # 补评也要过判官独立性闸。不过闸的话，主轮 fail-closed 拦住的自审会从这条
+    # 侧门溜回来：补评产出的行和独立评审的行在收据里长得一模一样，
+    # 而「自审收据与独立评审收据同形」正是这个缺陷此前活那么久的原因。
+    # 2026-08-31 质检点名：主轮堵了、补评没堵。
+    judge_info = resolve_judge(
+        require_independent=(args.judge_independence == "require")
+    )
+    _JUDGE_OVERRIDE["provider"] = judge_info.pop("override")
+    print(
+        f"[judge] 合成={judge_info['composer']} 判官={judge_info['judge']} "
+        f"独立性={judge_info['independence']}"
+    )
     result = rejudge_artifact(
         artifact,
         judge_fn=lambda q, a: judge_answer(q, a),
@@ -309,6 +341,7 @@ def main(argv: list[str] | None = None) -> int:
         source_path=source,
         source_sha256=_sha256_text(raw),
     )
+    result["judge_independence"] = judge_info
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     _print_diff(result)

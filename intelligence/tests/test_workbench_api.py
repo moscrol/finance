@@ -623,7 +623,9 @@ def test_production_continuous_adapter_shares_provider_client_across_gates(
     assert semantic._finalizer is episode._finalizer
     assert episode._model._providers == providers
     assert episode._model._is_cancelled is is_cancelled
-    assert episode._is_cancelled is is_cancelled
+    # 工单 #28：Episode 持有的是包住同一个谓词的 CancelSignal（类型化原因），
+    # 「几处接缝看同一份事实」的判据从对象同一变成 upstream 同一。
+    assert episode._is_cancelled.upstream is is_cancelled
     assert adapter._is_cancelled is is_cancelled
     assert adapter._deadline_expires_at == deadline_expires_at
     assert 0 < adapter._remaining_timeout() <= 42.0
@@ -1706,6 +1708,38 @@ def test_health_endpoints_report_worker_and_storage_state(client: TestClient) ->
     assert payload["market_snapshot"]["requested_date"] == "2026-07-17"
     assert payload["missing_critical"] == []
     assert payload["workers"]["capacity"] == 2
+
+
+def test_readiness_registers_open_episodes_without_restoring_them(
+    client: TestClient, monkeypatch, tmp_path
+) -> None:
+    """运行底座 P2（母单 §12 第 3 题：只登记）：store 里非 done 的 episode 进 readiness，
+    但 readiness 不去 restore、不改 store。"""
+
+    from intelligence.services.episode_store import (
+        EPISODE_STORE_ENV,
+        EpisodeState,
+        JsonlEpisodeStore,
+    )
+
+    root = tmp_path / "episodes"
+    monkeypatch.setenv(EPISODE_STORE_ENV, str(root))
+    store = JsonlEpisodeStore(root)
+    store.put_state("run_a:msg_1", EpisodeState(episode_id="run_a:msg_1", phase="tools_pending"))
+    store.put_state("run_b:msg_2", EpisodeState(episode_id="run_b:msg_2", phase="done"))
+    snapshot = sorted((path.name, path.stat().st_size) for path in root.rglob("*"))
+
+    response = client.get("/api/readiness")
+
+    payload = response.json()
+    assert payload["open_episodes"] == {
+        "count": 1,
+        "episode_ids": ["run_a:msg_1"],
+        "truncated": False,
+    }
+    assert sorted((path.name, path.stat().st_size) for path in root.rglob("*")) == snapshot, (
+        "readiness 只读 store，不 restore、不改写"
+    )
 
 
 def test_readiness_probe_schedules_dead_worker_recovery(
@@ -3213,6 +3247,62 @@ def test_artifact_projection_and_registered_asset_routes(client: TestClient) -> 
         f"/api/artifacts/{review['artifact_id']}/..%2F..%2Fsecret.txt"
     )
     assert traversal.status_code in (403, 404)
+
+
+def test_daily_review_projection_prefers_json_canonical_when_present(
+    client: TestClient, tmp_path
+) -> None:
+    exports = tmp_path / "repo" / "market_feature_store" / "exports"
+    (exports / "2026-07-09-daily-review.json").write_text(
+        json.dumps(
+            {
+                "schema": "daily-review/v1",
+                "trade_date": "2026-07-09",
+                "generated_at": "2026-07-09 20:40:05",
+                "warnings": [],
+                "core_board": [
+                    {"dimension": "市场性质", "conclusion": "普通交易日 / 修复阶段 第3天"},
+                    {"dimension": "指数表现", "conclusion": "上证 3996.162，涨幅 1.00%，偏离度 0.28%"},
+                ],
+                "facts": {},
+                "sections": [
+                    {
+                        "id": "limit_advance",
+                        "index": 11,
+                        "title": "3板及以上个股",
+                        "blocks": [
+                            {
+                                "kind": "table",
+                                "title": None,
+                                "columns": ["股票", "连板数"],
+                                "rows": [["国芳集团", 4]],
+                            },
+                            {"kind": "conclusion", "text": "3板及以上个股 1 只，最高连板 4 板。"},
+                        ],
+                    }
+                ],
+                "assessment": "市场回暖，等待量能确认。",
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    review = next(
+        item
+        for item in client.get("/api/artifacts").json()
+        if item["category"] == "daily_review" and item["format"] == "html"
+    )
+    assert review["source_of_truth"].endswith("2026-07-09-daily-review.json")
+
+    payload = client.get(f"/api/artifacts/{review['artifact_id']}/projection").json()
+    assert payload["source_mode"] == "canonical_json"
+    assert payload["provenance"]["canonical_path"].endswith("2026-07-09-daily-review.json")
+    assert payload["provenance"]["original_report_available"] is True
+    assert payload["provenance"]["rendered_path"].endswith("2026-07-09-daily-review.html")
+    stock = next(section for section in payload["sections"] if section["title"] == "个股载体")
+    assert stock["tables"][0]["rows"] == [["国芳集团", 4]]
+    assert stock["items"][0]["summary"] == "3板及以上个股 1 只，最高连板 4 板。"
 
 
 def test_artifact_asset_route_rejects_non_legacy_parent(client: TestClient) -> None:

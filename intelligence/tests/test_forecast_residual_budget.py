@@ -12,11 +12,11 @@ from intelligence.services.agent_runtime import AgentOutcome, AgentUsage, Episod
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
 from intelligence.services.task_frame import TaskFrame
+from intelligence.runtime.tier_promotion import maybe_promote_forecast_residual
 from intelligence.services.forecast_residual_budget import (
     DO_NOT_LENGTHEN_QUESTION_TYPES,
     forecast_opening_pack_ready,
     forecast_residual_halt_reason,
-    maybe_promote_forecast_residual,
     should_promote_forecast_residual,
 )
 from intelligence.services.repair_coordinator import max_repair_cycles_for_tier

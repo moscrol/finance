@@ -1,6 +1,6 @@
 """Per-provider latency floors for repair-window sizing.
 
-``repair_coordinator._REPAIR_SECONDS_CAP`` 的 docstring 已经把原则写对了：一次
+``runtime/repair_budget._REPAIR_SECONDS_CAP`` 的 docstring 已经把原则写对了：一次
 LLM 调用的成本由**固定延迟地板**（网络 + prompt 处理）主导，与缺口数无关，
 **低于地板的窗口注定超时，还要白烧掉授予本身**。
 

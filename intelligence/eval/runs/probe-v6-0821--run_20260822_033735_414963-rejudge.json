@@ -1,0 +1,27 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "probe-v6-0821--run_20260822_033735_414963",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "8bbedc3de123d01edbce7230c18a3059067126c2dc9abb255f08f4c17488e8e5",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      3,
+      4,
+      7
+    ],
+    "issues": [
+      "第3句把一次强度峰值抬升并伴随涨停家数修复设为主线延续的充分触发条件，该判定阈值没有证据或已披露方法依据。",
+      "第4句的医药主题—创新药板块关系有证据，但又扩展出未由注册证据直接登记的个股层，并将创新药称为核心板块。",
+      "第7句声称两峰之间存在一连串低强度日，但注册表只提供少数离散日期，不能直接支持这一连续时序描述。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

@@ -1,0 +1,267 @@
+"""QC independent probes at 301dcd9e; no author helpers imported."""
+from dataclasses import replace, FrozenInstanceError
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event, Thread
+import json
+import time
+from uuid import uuid4
+import pytest
+from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.query_understanding import understand_query
+from intelligence.services.episode_scope import EpisodeScope, TOOL_ERROR, TOOL_RESULT
+from intelligence.services.research_tool_registry import ResearchToolRegistry, ToolSpec, UnknownResearchTool
+from intelligence.services.research_contract import ResearchDeadline
+from intelligence.services.evidence_capabilities import EvidencePlan
+from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
+from intelligence.runtime.episode_tool_batch import EpisodeToolBatchSession, ToolMenu, tool_definitions_for_menu
+from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.services.repair_coordinator import RepairGoal, CoverageDelta
+from intelligence.services.research_harness import FinanceResearchHarness, RepairDowngrade
+
+COUNTS = Counter()
+
+def fixture(scope='local_only'):
+    question = '不要联网。解释市场变化。' if scope == 'local_only' else '解释市场变化。'
+    frame = replace(understand_query(question).task_frame, question_type='general_finance_qa')
+    context = build_episode_context(frame, task_id='independent-'+uuid4().hex,
+        capabilities=('finance_query','evidence_lookup'), today='2026-07-24',
+        latest_data_date='2026-07-24', timeout=30, synthesis_reserve=0)
+    return frame, context
+
+def restrict(context, caps=()):
+    c = context.contract
+    return replace(context, contract=replace(c, allowed_capabilities=tuple(caps),
+        evidence_plan=EvidencePlan(requirements=()), required_outputs=tuple(
+        replace(o, evidence_types=tuple(t for t in o.evidence_types if t in caps)) for o in c.required_outputs)))
+
+class Sink:
+    def __init__(self): self.events=[]; self.fail=False
+    def emit(self, kind, payload):
+        self.events.append((kind, dict(payload)))
+        if self.fail: raise ValueError('intentional sink failure')
+
+def spec(count, effect='local_read', capability='finance_query', name='same', runner=None):
+    def parse(raw):
+        count['parser'] += 1
+        return raw.get('query', ''), raw.get('query', '')
+    def run(q, ctx):
+        count['runner'] += 1
+        if effect != 'local_read':
+            count['forbidden_runner'] += 1
+            raise AssertionError('denied implementation ran')
+        return ([AgentEvidence(tool=name,title='temporary',detail='fixture '+str(q),source='local',source_date='2026-07-24')],
+            'temporary observation', ProviderTrace(provider='fixture', capability=capability, status='success'))
+    return ToolSpec(name=name, capability=capability, description='fixture',cost='local',freshness='stable',
+        runner=runner or run,parse_arguments=parse,io_effect=effect)
+
+def session(context, registry, sink=None):
+    s = EpisodeScope(context.contract.task_id, 'temporary-user', context, registry,event_sink=sink)
+    return s, EpisodeToolBatchSession(scope=s)
+
+def call(cid='x', query='new'):
+    return (ModelToolCall(cid,'same',{'query':query}),)
+
+@pytest.mark.parametrize('variant',['unknown','external_or_mixed','different_capability','deleted','contract_removed'])
+@pytest.mark.parametrize('entry',['menu_first','execute_first'])
+def test_replacement_matrix(variant,entry):
+    _, ctx = fixture()
+    good, bad, dispatch = Counter(), Counter(), []
+    reg = ResearchToolRegistry((spec(good),))
+    sink=Sink(); old,batch=session(ctx,reg,sink)
+    old.record_invocation('history'); old.record_derive_mismatch('before')
+    sink.fail=True; old.emit('old_fail',{}); sink.fail=False
+    if variant in ('unknown','external_or_mixed'): replacement=ResearchToolRegistry((spec(bad,variant),))
+    elif variant=='different_capability': replacement=ResearchToolRegistry((spec(bad,capability='web_search'),))
+    elif variant=='deleted': replacement=reg.without('same')
+    else: replacement=reg; ctx=restrict(ctx)
+    batch.on_dispatch=dispatch.append
+    if entry=='menu_first':
+        menu=batch.menu(registry=replacement,context=ctx)
+        assert not menu.visible
+        assert tool_definitions_for_menu(ToolMenu(('same',),(),20),registry=replacement,context=ctx)==[]
+    result=batch.execute(call(),registry=replacement,context=ctx,remaining_slots=2)
+    current=batch._scope
+    assert result.executed_count==0 and result.items[0].error=='unknown_or_unauthorized_tool'
+    assert not current.authorize('same').allowed
+    assert good==bad==Counter() and dispatch==[]
+    denials=[p for k,p in sink.events if k==TOOL_ERROR]
+    assert len(denials)==1 and denials[0]['reason']
+    assert denials[0]['reason']==current.authorize('same').reason
+    assert current.invoked_tools is old.invoked_tools and current._derive_mismatches is old._derive_mismatches
+    assert current._event_sink_failures is old._event_sink_failures
+    assert current.event_sink is old.event_sink and current.dump()['event_sink_failures']==1
+    assert current.user_id==old.user_id and old.authorize('same').allowed
+    with pytest.raises(FrozenInstanceError): old.registry=replacement
+    COUNTS['replacement_denials']+=1
+
+@pytest.mark.parametrize('effect',['unknown','external_or_mixed'])
+def test_direct_dispatch_denies_before_parser(effect):
+    _,ctx=fixture(); counts=Counter(); reg=ResearchToolRegistry((spec(counts,effect),)); sink=Sink()
+    scope,_=session(ctx,reg,sink)
+    with pytest.raises(UnknownResearchTool): reg.execute('same',{},context=ctx,step_id='d',scope=scope)
+    assert not counts and sink.events[-1][1]['reason']
+    COUNTS['direct_denials']+=1
+
+@pytest.mark.parametrize('initial',['full','local_only','material_only'])
+@pytest.mark.parametrize('requested',['full','local_only','material_only'])
+def test_ceiling_lattice_and_full_context_downgrade(initial,requested):
+    _,ctx=fixture('full'); count=Counter()
+    old,batch=session(ctx,ResearchToolRegistry((spec(count),),read_scope=initial))
+    replacement=ResearchToolRegistry((spec(count),),read_scope=requested)
+    current=batch.bind_scope(registry=replacement,context=ctx)
+    ranks={'full':0,'local_only':1,'material_only':2}
+    assert current.registry.read_scope==max((initial,requested),key=ranks.get)
+    assert old.registry.read_scope==initial and replacement.read_scope==requested
+    result=batch.execute(call(),registry=ResearchToolRegistry((spec(count),)),context=ctx,remaining_slots=1)
+    if 'material_only' in (initial,requested): assert result.executed_count==0 and count==Counter()
+    else: assert result.items[0].status=='success' and count['runner']==1
+    COUNTS['lattice_cases']+=1
+
+@pytest.mark.parametrize('entry',['bind','menu','execute'])
+def test_new_task_rejected_before_parser_or_dispatch(entry):
+    _,ctx=fixture(); _,other=fixture(); counts=Counter(); reg=ResearchToolRegistry((spec(counts),))
+    old,batch=session(ctx,reg); ds=[]; batch.on_dispatch=ds.append
+    with pytest.raises(ValueError,match='different episode'):
+        if entry=='bind': batch.bind_scope(registry=reg,context=other)
+        elif entry=='menu': batch.menu(registry=reg,context=other)
+        else: batch.execute(call(),registry=reg,context=other,remaining_slots=1)
+    assert batch._scope is old and not counts and not ds
+    COUNTS['new_task_denials']+=1
+
+@pytest.mark.parametrize('scope',['full','local_only'])
+def test_positive_runner_and_scope_history(scope):
+    _,ctx=fixture(scope); counts=Counter(); reg=ResearchToolRegistry((spec(counts),)); sink=Sink()
+    old,batch=session(ctx,reg,sink); ds=[]; batch.on_dispatch=ds.append
+    first=batch.execute(call('one','one'),registry=reg,context=ctx,remaining_slots=1)
+    second=batch.execute(call('two','two'),registry=reg,context=ctx,remaining_slots=1)
+    assert first.items[0].status==second.items[0].status=='success'
+    assert counts['runner']==2 and len(ds)==2 and old.invoked_tools=={'same'}
+    assert len([1 for k,p in sink.events if k==TOOL_RESULT])==2
+    COUNTS['positive_runs']+=2
+
+@pytest.mark.parametrize('scope',['full','local_only'])
+def test_two_concurrent_batches_bind_under_lock(scope):
+    _,ctx=fixture(scope); entered=Event(); release=Event(); bad=Counter(); good=Counter()
+    base=spec(good)
+    def slow(q, tc):
+        entered.set(); assert release.wait(3)
+        return base.runner(q,tc)
+    reg=ResearchToolRegistry((replace(base,runner=slow),)); sink=Sink(); old,batch=session(ctx,reg,sink)
+    result=[]; errors=[]; dispatch=[]; batch.on_dispatch=dispatch.append
+    def first():
+        try: result.append(batch.execute(call('old'),registry=reg,context=ctx,remaining_slots=1))
+        except Exception as e: errors.append(e)
+    def second():
+        try: result.append(batch.execute(call('new'),registry=ResearchToolRegistry((spec(bad,'unknown'),)),context=restrict(ctx),remaining_slots=1))
+        except Exception as e: errors.append(e)
+    a=Thread(target=first); b=Thread(target=second); a.start(); assert entered.wait(2); b.start()
+    time.sleep(.03); assert not result; release.set(); a.join(3); b.join(3)
+    assert not errors and not a.is_alive() and not b.is_alive()
+    assert [r.executed_count for r in result]==[1,0] and good['runner']==1 and not bad
+    assert len(dispatch)==1 and batch._scope.context.contract.allowed_capabilities==()
+    denial=[p for k,p in sink.events if k==TOOL_ERROR]; assert denial and denial[-1]['reason']
+    assert old.authorize('same').allowed
+    COUNTS['concurrent_cases']+=1
+
+def test_late_result_captures_old_scope_not_new_context(monkeypatch):
+    _,ctx=fixture(); entered=Event(); release=Event(); count=Counter(); deliveries=[]
+    orig_emit=EpisodeScope.emit
+    def observed(self,kind,payload):
+        deliveries.append((self,kind,dict(payload)))
+        orig_emit(self,kind,payload)
+    monkeypatch.setattr(EpisodeScope,'emit',observed)
+    base=spec(count)
+    def slow(q,tc):
+        entered.set(); assert release.wait(3)
+        return base.runner(q,tc)
+    reg=ResearchToolRegistry((replace(base,runner=slow),)); old,batch=session(ctx,reg,Sink())
+    short=replace(ctx,deadline=ResearchDeadline.from_timeout(.08))
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        batch._executor=executor
+        timed=batch.execute(call('late'),registry=reg,context=short,remaining_slots=1)
+        assert entered.is_set() and timed.items[0].status=='timeout'
+        execution_scope=batch._scope
+        fresh=restrict(replace(ctx,deadline=ResearchDeadline.from_timeout(5)))
+        batch.bind_scope(registry=reg.without('same'),context=fresh)
+        current=batch._scope
+        release.set()
+    assert count['runner']==1
+    results=[s for s,k,p in deliveries if k==TOOL_RESULT]
+    assert results==[execution_scope] and current is not execution_scope
+    assert execution_scope.context is short and current.context is fresh
+    assert current.invoked_tools is old.invoked_tools
+    assert timed.items[0].observation is None and not current.allowed_tools()
+    COUNTS['late_result_old_scope']+=1
+
+def goal(ctx):
+    return RepairGoal(ctx.contract.task_id,'qc-repair',1,(),(),(),(),CoverageDelta(0,0,0),1,8,True)
+
+def final(ctx):
+    return ModelTurn(json.dumps({'status':'partial','draft':'临时证据不足','gaps':['缺口'],
+        'bindings':[{'output_id':o.output_id,'evidence_hashes':[],'gap':'缺口'} for o in ctx.contract.required_outputs if o.required]},ensure_ascii=False),(), 'offline-script','')
+
+@pytest.mark.parametrize('variant',['unknown','external_or_mixed','different_capability','deleted','contract_removed','stricter_registry'])
+def test_repair_variants_current_scope_denial_and_history(variant):
+    frame,ctx=fixture(); count=Counter(); reg=ResearchToolRegistry((spec(count),)); states=[]; live=[]
+    class Model:
+        repair=False
+        menus=[]
+        def complete(self,*,messages,tools,timeout):
+            self.menus.append(tools)
+            if self.repair:
+                self.repair=False
+                assert 'same' not in {x['function']['name'] for x in tools}
+                return ModelTurn('',call('bad-repair'),'offline-script','')
+            return final(ctx)
+    model=Model(); ep=ContinuousAgentEpisode(model,event_sink=live.append)
+    previous=ep.run(task_frame=frame,context=ctx,registry=reg,_continuation_sink=states)
+    state=states[0]; old=state.episode_scope
+    old.record_invocation('historic'); old.record_derive_mismatch('historic-mismatch')
+    history=(state.accumulator,state.messages,state.evidence_ledger,old.event_sink)
+    if variant in ('unknown','external_or_mixed'): state.registry=ResearchToolRegistry((spec(count,variant),))
+    elif variant=='different_capability': state.registry=ResearchToolRegistry((spec(count,capability='web_search'),))
+    elif variant=='deleted': state.registry=reg.without('same')
+    elif variant=='contract_removed': state.context=restrict(ctx)
+    else: state.registry=reg.with_read_scope('material_only')
+    dispatch=[]; original=state.tool_session.on_dispatch
+    def record(intent): dispatch.append(intent); original(intent)
+    state.tool_session.on_dispatch=record; model.repair=True
+    outcome=ep.resume(state,previous,goal(ctx))
+    assert not count and not dispatch
+    assert not state.episode_scope.authorize('same').allowed
+    assert state.episode_scope.registry is state.registry
+    assert (state.accumulator,state.messages,state.evidence_ledger,state.episode_scope.event_sink)==history
+    assert state.episode_scope._derive_mismatches is old._derive_mismatches
+    assert state.episode_scope.invoked_tools is old.invoked_tools and old.authorize('same').allowed
+    assert state.ledger.derive_mismatch_sink.__self__ is state.episode_scope
+    deny=[e.payload for e in live if e.kind==TOOL_ERROR and e.payload.get('tool_call_id')=='bad-repair']
+    assert len(deny)==1 and deny[0]['reason']==state.episode_scope.authorize('same').reason
+    assert not [e for e in outcome.events if e.kind=='tool_request' and 'replay' in e.payload]
+    COUNTS['repair_denials']+=1
+
+
+def test_repair_actual_downgrade_hook_rebinds_contract_before_menu():
+    frame,ctx=fixture(); count=Counter(); reg=ResearchToolRegistry((spec(count),)); states=[]
+    class NarrowHarness(FinanceResearchHarness):
+        def downgrade_unreachable(self,g,*,contract):
+            narrowed=restrict(replace(ctx,contract=contract)).contract
+            return RepairDowngrade((),narrowed,g)
+    class Model:
+        repair=False
+        def complete(self,*,messages,tools,timeout):
+            if self.repair: assert tools==[]
+            return final(ctx)
+    model=Model(); ep=ContinuousAgentEpisode(model,harness=NarrowHarness())
+    previous=ep.run(task_frame=frame,context=ctx,registry=reg,_continuation_sink=states)
+    state=states[0]; model.repair=True; ep.resume(state,previous,goal(ctx))
+    assert state.context.contract is state.episode_scope.context.contract
+    assert state.episode_scope.context.contract.allowed_capabilities==()
+    assert not state.episode_scope.authorize('same').allowed and not count
+    COUNTS['repair_hook_contract_narrow']+=1
+
+
+def test_summary_counts():
+    print('QC_INDEPENDENT_COUNTS',json.dumps(COUNTS,sort_keys=True))

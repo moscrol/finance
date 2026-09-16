@@ -1,0 +1,74 @@
+{
+  "batch_id": "knevo-20260913-three-packs",
+  "source_kind": "user_provided_long_screenshot",
+  "conversation_url": "https://kandoai.cn/c/c-2aa7d4a9d5b04b76879ef918d2f2cfe3",
+  "original_attachment": "/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/codex-clipboard-7d947953-a8c8-4e2b-9490-197db7e3443d.png",
+  "preserved_image": "/Users/a77/.codex/visualizations/2026/09/13/01a09b18-26b7-7d71-8e0c-3b2c7db89201/knevo-intake/knevo-original.png",
+  "image_bytes": 2765197,
+  "image_sha256": "5ff2d140644720bdeff7ca4fa5128b5214d9e9d81c7ba7498614f1544fc659f4",
+  "image_dimensions": [
+    514,
+    12000
+  ],
+  "round_count": 3,
+  "subquestion_count": 24,
+  "source_question_origin": "Previous assistant response; visually checked against the three user message blocks in the screenshot; no byte-level user-text identity claim",
+  "ocr_kind": "Apple Vision reading aid, imperfect; original image remains authoritative",
+  "source_image_y_ranges": {
+    "round_1_prompt": [
+      72,
+      868
+    ],
+    "round_1_answer": [
+      887,
+      4016
+    ],
+    "round_2_prompt": [
+      4042,
+      4880
+    ],
+    "round_2_answer": [
+      4890,
+      7758
+    ],
+    "round_3_prompt": [
+      7784,
+      8504
+    ],
+    "round_3_answer": [
+      8520,
+      11900
+    ]
+  },
+  "comparison_state": "unpaired_external_answer_review",
+  "local_answer_frozen_before_knevo": false,
+  "browser_observation": "Tab title and URL observed before screenshot was supplied; no transcript or private tool state fetched",
+  "tool_arguments_and_results_available": false,
+  "knevo_model": null,
+  "memory_writes_independently_verified": false,
+  "software_reference_revision": "e40f22b837178322169f47e565282450b4381a3a",
+  "runtime_mutations": false,
+  "candidates_injected": false,
+  "source_question_thread_id": "01a09b18-26b7-7d71-8e0c-3b2c7db89201",
+  "source_question_message_id": "msg_03080067a14bbe29016aa6b03708d887d08dcf2166804485aa",
+  "question_files": [
+    {
+      "round": 1,
+      "file": "q1-question.txt",
+      "sha256": "0fb41d5c0101c61877b5b15e780d23e2386f76fc2c43ddfedf0309ad5f870ebe",
+      "subquestion_count": 8
+    },
+    {
+      "round": 2,
+      "file": "q2-question.txt",
+      "sha256": "13ae8bed5ce0dc1d0425d6e64e30c9e8733fb7158ead80d26e18a40a58dc0ffd",
+      "subquestion_count": 8
+    },
+    {
+      "round": 3,
+      "file": "q3-question.txt",
+      "sha256": "884661d30e4424b739f816b60f4fd9223aa0709320cd2e3947c378b027f4235d",
+      "subquestion_count": 8
+    }
+  ]
+}

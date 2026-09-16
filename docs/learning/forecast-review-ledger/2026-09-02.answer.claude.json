@@ -1,0 +1,902 @@
+{
+  "schema_version": "1.1",
+  "date": "2026-09-02",
+  "agent": "claude",
+  "source": "duckdb",
+  "manifest_sha": "7fdc56991944c733",
+  "input_freeze": {
+    "perspective_date": "2026-09-01",
+    "duckdb_cutoff": "2026-09-01",
+    "kb_commit": "fbaddd0ea76bc8339ebc035f25ed930bb19b0f58",
+    "materials": "manifest.materials 为空——本卷无卖方/晨汇/外盘材料，纯 DuckDB 盘面流",
+    "data_gaps": [
+      "fact_global_index_daily 的美股三大指数自 2026-08-24 起连续 7 个交易日 close/pct_chg 完全不变（IXIC 恒为 25122.18 / +2.78%），是快照克隆而非真实行情——隔夜外盘映射本卷不可用，已登记为 X01 并全程未作为方向依据。",
+      "fact_mainline_sector_daily 的 cycle_level / cycle_status / startup_date_* / high_status_label 在 2026-09-01 全为 NULL，主线周期分级字段缺失，只能用 strength / strength_chg 替代。",
+      "fact_sector_daily 是 VIEW（只暴露 published 快照），2026-09-01 共 403 行；本卷所有板块数值均取自该 published 快照，未跨快照混算。"
+    ]
+  },
+  "evidence_catalog": {
+    "M01": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "market_stage",
+      "value": "底部横盘阶段",
+      "direction": "neutral",
+      "note": "08-25~08-31 该字段为『下跌阶段』(stage_day 3→7)，09-01 翻回『底部横盘阶段』"
+    },
+    "M02": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "stage_day",
+      "value": 25,
+      "direction": "neutral"
+    },
+    "M03": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "total_amount",
+      "value": 20328.97,
+      "direction": "counter",
+      "note": "两市成交额（亿元），环比 -4.58%"
+    },
+    "M04": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "amount_ma20",
+      "value": 22418.42,
+      "direction": "counter",
+      "note": "20 日均量（亿元）；当日成交额低于它 9.3%"
+    },
+    "M05": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "advancers",
+      "value": 3387,
+      "direction": "support"
+    },
+    "M06": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "limit_up",
+      "value": 83,
+      "direction": "support",
+      "note": "08-31 为 88，基本持平"
+    },
+    "M07": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "limit_down",
+      "value": 0,
+      "direction": "support",
+      "note": "08-31 为 11，跌停清零"
+    },
+    "M08": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "stock_high_count_20d",
+      "value": 1243,
+      "direction": "support",
+      "note": "08-31 为 918，单日 +35.4%"
+    },
+    "M09": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "stock_high_count_60d",
+      "value": 505,
+      "direction": "support",
+      "note": "08-31 为 307，单日 +64.5%"
+    },
+    "M10": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "stock_high_count_history",
+      "value": 16,
+      "direction": "support",
+      "note": "08-31 为 13"
+    },
+    "M11": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "sh000001",
+      "field": "sh_index_pct_chg",
+      "value": -0.16080082321993094,
+      "direction": "counter",
+      "note": "上证收 3979.888，指数微跌但个股广度扩张——指数与广度背离"
+    },
+    "M12": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "top3_industry_ratio",
+      "value": 37.4,
+      "direction": "support",
+      "note": "08-31 为 40.0；concentration_state 由『正常』维持，集中度回落=扩散"
+    },
+    "M13": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "电子",
+      "field": "industry_1_ratio",
+      "value": 22.7,
+      "direction": "support",
+      "note": "第一权重行业仍是电子，但占比 08-27 27.4 → 08-28 26.7 → 08-31 25.2 → 09-01 22.7，连续四日退位"
+    },
+    "M14": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "volume_ratio",
+      "value": 90.68,
+      "direction": "counter",
+      "note": "volume_state=正常量能"
+    },
+    "M15": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "strength_avg_pct",
+      "value": 8.16,
+      "direction": "neutral",
+      "note": "strength_status=沸点；但 strength_marginal_pct=-46.85，强势股成交额 2528.9→1344.1 亿"
+    },
+    "P01": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "entity": "market",
+      "field": "stock_high_count_20d",
+      "value": 918,
+      "direction": "support",
+      "note": "前值，用于算 09-01 新高扩张幅度"
+    },
+    "P02": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "entity": "market",
+      "field": "limit_down",
+      "value": 11,
+      "direction": "support",
+      "note": "前值，用于对比 09-01 跌停清零"
+    },
+    "P03": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "entity": "电子",
+      "field": "industry_1_ratio",
+      "value": 25.2,
+      "direction": "support",
+      "note": "前值"
+    },
+    "S01": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-09-01",
+      "entity": "乡村振兴",
+      "field": "diff_ratio",
+      "value": 11.6,
+      "direction": "support",
+      "note": "pct_chg=2.23、amount=1327.2 亿；农业/消费一侧唯一通过严格双红（amount>500）门槛的板块"
+    },
+    "S02": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-09-01",
+      "entity": "传媒",
+      "field": "diff_ratio",
+      "value": 23.1,
+      "direction": "counter",
+      "note": "pct_chg=1.63、amount=826.7 亿；仍是严格双红，但边际量较前日大幅回落"
+    },
+    "S03": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-09-01",
+      "entity": "短剧游戏",
+      "field": "diff_ratio",
+      "value": 11.1,
+      "direction": "counter",
+      "note": "pct_chg=2.43、amount=630.4 亿"
+    },
+    "S04": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-09-01",
+      "entity": "IP经济",
+      "field": "diff_ratio",
+      "value": 21.5,
+      "direction": "counter",
+      "note": "pct_chg=2.23、amount=640.4 亿"
+    },
+    "S05": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-09-01",
+      "entity": "非银金融",
+      "field": "diff_ratio",
+      "value": 24.8,
+      "direction": "neutral",
+      "note": "pct_chg=1.55、amount=566.3 亿；09-01 严格双红榜首"
+    },
+    "S06": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-09-01",
+      "entity": "种植业",
+      "field": "pct_chg",
+      "value": 7.51,
+      "direction": "support",
+      "note": "全市场板块涨幅第 1；amount 仅 154.1 亿、diff_ratio 14.2——涨幅够但容量不够，进不了严格双红"
+    },
+    "S07": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-09-01",
+      "entity": "一般零售",
+      "field": "pct_chg",
+      "value": 5.05,
+      "direction": "support",
+      "note": "板块涨幅第 3；amount 仅 91.4 亿、diff_ratio 42.0——同样是高弹性低容量"
+    },
+    "S08": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-09-01",
+      "entity": "新零售",
+      "field": "amount",
+      "value": 878.3,
+      "direction": "support",
+      "note": "pct_chg=2.03、diff_ratio=9.6，边际量差 0.4 个点没够到严格双红线"
+    },
+    "S09": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-09-01",
+      "entity": "PCB",
+      "field": "pct_chg",
+      "value": -4.74,
+      "direction": "support",
+      "note": "diff_ratio=-14.4；08-27 曾 +5.52/diff 42.9，四个交易日走完从加速到杀跌"
+    },
+    "S10": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-09-01",
+      "entity": "元器件",
+      "field": "pct_chg",
+      "value": -4.85,
+      "direction": "support",
+      "note": "diff_ratio=-12.5、amount=1003.2 亿；被动元件 -5.34、MLCC -3.83、半导体设备 -3.74、半导体封测 -3.36"
+    },
+    "T01": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "entity": "传媒",
+      "field": "diff_ratio",
+      "value": 74.6,
+      "direction": "support",
+      "note": "前值，用于度量 09-01 边际量衰减幅度（74.6→23.1）"
+    },
+    "T02": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "entity": "短剧游戏",
+      "field": "diff_ratio",
+      "value": 76.1,
+      "direction": "support",
+      "note": "前值（76.1→11.1）"
+    },
+    "T03": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "entity": "IP经济",
+      "field": "diff_ratio",
+      "value": 70.2,
+      "direction": "support",
+      "note": "前值（70.2→21.5）"
+    },
+    "H01": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-09-01",
+      "entity": "粮食概念",
+      "field": "limit_up_ratio",
+      "value": 27.08,
+      "direction": "support",
+      "note": "13/48 只涨停，全市场涨停密度第一"
+    },
+    "H02": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-09-01",
+      "entity": "农林牧渔",
+      "field": "limit_up_ratio",
+      "value": 12.5,
+      "direction": "support",
+      "note": "13/104 只涨停"
+    },
+    "H03": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-09-01",
+      "entity": "新零售",
+      "field": "limit_up_count",
+      "value": 18,
+      "direction": "support",
+      "note": "limit_up_ratio=5.47，涨停家数全市场第 2（市场当日总涨停 83）"
+    },
+    "H04": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-09-01",
+      "entity": "乡村振兴",
+      "field": "limit_up_count",
+      "value": 17,
+      "direction": "support",
+      "note": "limit_up_ratio=4.30，涨停家数第 3"
+    },
+    "H05": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-09-01",
+      "entity": "人工智能",
+      "field": "limit_up_ratio",
+      "value": 2.06,
+      "direction": "counter",
+      "note": "22/1070，涨停家数排名第 1 但密度垫底——大成分篮子的排名是稀释假象，不能当强度证据"
+    },
+    "H06": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-09-01",
+      "entity": "IP经济",
+      "field": "limit_up_count",
+      "value": 12,
+      "direction": "support",
+      "note": "limit_up_ratio=6.22；传媒 11/128=8.59%，抖音概念 13/246=5.28%"
+    },
+    "H07": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-08-31",
+      "entity": "芯片",
+      "field": "limit_up_count",
+      "value": 19,
+      "direction": "support",
+      "note": "前日涨停热度第 3；09-01 芯片/东数西算(18)/机器人概念(20)/数据中心(15)/储能(15)/新能源车(17) 全部跌出 top12"
+    },
+    "A01": {
+      "level": "L4",
+      "source": "fact_limit_advance_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "promotion_rate",
+      "value": "9/70=13%",
+      "direction": "counter",
+      "note": "首板→二板晋级率"
+    },
+    "A02": {
+      "level": "L4",
+      "source": "fact_limit_advance_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "promotion_rate_b3",
+      "value": "5/10=50%",
+      "direction": "support",
+      "note": "二板→三板晋级率"
+    },
+    "A03": {
+      "level": "L3",
+      "source": "derived:fact_limit_advance_daily",
+      "source_time": "2026-09-01",
+      "entity": "AI长剧",
+      "field": "second_board_count",
+      "value": 7,
+      "direction": "support",
+      "note": "09-01 共 9 只二板，其中 7 只 theme='AI长剧'（龙版传媒/中广天择/博纳影业/大晟文化/掌阅科技/欢瑞世纪/芒果超媒）——二板梯队被单一题材垄断"
+    },
+    "A04": {
+      "level": "L4",
+      "source": "fact_leader_height_daily",
+      "source_time": "2026-09-01",
+      "entity": "海鸥住工",
+      "field": "height",
+      "value": 7,
+      "direction": "counter",
+      "note": "最高板 7 板，theme='股权'——与任何一条主线分支都不同源，是孤票高度，不能当情绪标尺"
+    },
+    "N01": {
+      "level": "L4",
+      "source": "fact_mainline_sector_daily",
+      "source_time": "2026-09-01",
+      "entity": "粮食概念",
+      "field": "strength_chg",
+      "value": 6273.1,
+      "direction": "support",
+      "note": "strength 240.8→6513.9，主线强度单日跃升幅度全表第一；theme_name=农林牧渔，sort_no=1"
+    },
+    "N02": {
+      "level": "L4",
+      "source": "fact_mainline_sector_daily",
+      "source_time": "2026-09-01",
+      "entity": "一般零售",
+      "field": "strength_chg",
+      "value": 4857.4,
+      "direction": "support",
+      "note": "strength 213.4→5070.8；theme_name=消费零售，该主题 08-31 未入表、09-01 重新入表"
+    },
+    "N03": {
+      "level": "L4",
+      "source": "fact_mainline_sector_daily",
+      "source_time": "2026-09-01",
+      "entity": "AIGC概念",
+      "field": "strength_chg",
+      "value": -1265.0,
+      "direction": "support",
+      "note": "strength 3781.8→2516.8，AI应用分支主线强度转负"
+    },
+    "N04": {
+      "level": "L4",
+      "source": "fact_mainline_sector_daily",
+      "source_time": "2026-09-01",
+      "entity": "短剧游戏",
+      "field": "strength_chg",
+      "value": -2770.9,
+      "direction": "support",
+      "note": "strength 5027.9→2257.0，衰减幅度大于 AIGC"
+    },
+    "G01": {
+      "level": "L3",
+      "source": "derived:fact_stock_high_daily",
+      "source_time": "2026-09-01",
+      "entity": "银行",
+      "field": "history_high_bank_count",
+      "value": 6,
+      "direction": "counter",
+      "note": "16 只历史新高里银行占 6 只（工商/建设/中国/中信/江苏/成都）——防御盘同步创新高，说明扩散里含避险成分，不是纯风险偏好抬升"
+    },
+    "G02": {
+      "level": "L4",
+      "source": "fact_stock_high_daily",
+      "source_time": "2026-09-01",
+      "entity": "敦煌种业",
+      "field": "primary_high_label",
+      "value": "3年新高",
+      "direction": "support",
+      "note": "同日 primary_high_period='3y' 共 25 只，其中农林牧渔占 3 只（敦煌种业/万向德农/金健米业），且这 3 只当日均涨停"
+    },
+    "K01": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-09-01",
+      "entity": "000998.SZ 隆平高科",
+      "field": "pct_chg_10d",
+      "value": 8.13,
+      "direction": "support",
+      "note": "09-01 收 9.97（+10.04%，首板），float_mcap 131.11 亿为种业最大容量，10 日仅涨 8.13% 是分支内位置最低的容量股；fund_flow_1d=3.11 亿，60 日新高"
+    },
+    "K02": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-09-01",
+      "entity": "600354.SH 敦煌种业",
+      "field": "pct_chg_5d",
+      "value": 28.63,
+      "direction": "support",
+      "note": "09-01 收 9.12（+10.01%，首板，前收 8.29），3 年新高，float_mcap 48.14 亿，fund_flow_5d=10.65 亿"
+    },
+    "K03": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-09-01",
+      "entity": "000564.SZ 供销大集",
+      "field": "pct_chg_10d",
+      "value": 7.79,
+      "direction": "support",
+      "note": "09-01 收 1.66（+9.93%，首板，前收 1.51），float_mcap 250.58 亿为全池最大，10 日仅涨 7.79% 位置最低；同属乡村振兴×新零售×一般零售×粮食概念，fund_flow_1d=4.12 亿，60 日新高"
+    },
+    "K04": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-09-01",
+      "entity": "603533.SH 掌阅科技",
+      "field": "pct_chg_20d",
+      "value": 7.48,
+      "direction": "support",
+      "note": "09-01 收 24.85（+10.00%，二板，前收 22.59），AI长剧二板梯队里 20 日涨幅最低（对比芒果超媒 22.26%）；fund_flow_1d=6.67 亿，60 日新高，同属短剧游戏/传媒/IP经济/AIGC概念四个 09-01 严格双红或近线板块"
+    },
+    "K05": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-09-01",
+      "entity": "601086.SH 国芳集团",
+      "field": "limit_times",
+      "value": 3,
+      "direction": "support",
+      "note": "09-01 收 10.09（+10.03%，三板，前收 9.17），120 日新高，float_mcap 67.20 亿；消费零售分支唯一有连板高度的标的"
+    },
+    "K06": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-09-01",
+      "entity": "300413.SZ 芒果超媒",
+      "field": "pct_chg_5d",
+      "value": 44.85,
+      "direction": "counter",
+      "note": "AI长剧最高标，09-01 +20.02% 二板、成交 27.94 亿、fund_flow_1d 18.60 亿；5 日已涨 44.85%——刻意不入池的追高对照组"
+    },
+    "D01": {
+      "level": "L3",
+      "source": "derived:fact_sector_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "strict_double_red_count",
+      "value": 13,
+      "direction": "neutral",
+      "note": "按 R01 口径 count(pct_chg>0 AND diff_ratio>10 AND amount>500)；08-31 为 30，08-27 为 118"
+    },
+    "D02": {
+      "level": "L3",
+      "source": "derived:fact_sector_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "strict_double_red_median_20d",
+      "value": 13.0,
+      "direction": "neutral",
+      "note": "近 20 交易日（08-05~09-01）严格双红家数中位数 13.0、均值 27.1、区间 0~154——09-01 的 13 恰在中位，双红家数本身不构成强/弱信号"
+    },
+    "D03": {
+      "level": "L3",
+      "source": "derived:fact_limit_advance_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "first_board_promotion_rate",
+      "value": 13.0,
+      "direction": "counter",
+      "note": "首板→二板 9/70=13%；近 20 交易日中位 15%、区间 7%~23%——略低于中位，普涨层接力偏弱"
+    },
+    "D04": {
+      "level": "L3",
+      "source": "derived:fact_limit_advance_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "second_board_promotion_rate",
+      "value": 50.0,
+      "direction": "support",
+      "note": "二板→三板 5/10=50%；近 20 交易日中位 40%——高于中位。首板弱+二板强=有题材归属的梯队通畅，无归属的首板断头"
+    },
+    "D05": {
+      "level": "L3",
+      "source": "derived:fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "days_amount_below_ma20",
+      "value": 6,
+      "direction": "counter",
+      "note": "08-25~09-01 连续 6 个交易日 total_amount < amount_ma20（18316<23015、18084<22771、21256<22662、21015<22442、21306<22509、20329<22418）——扩散发生在存量资金内部"
+    },
+    "D06": {
+      "level": "L3",
+      "source": "derived:fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "advancers_p40_20d",
+      "value": 2829.0,
+      "direction": "neutral",
+      "note": "近 20 交易日 advancers 的 40 分位；p20=2020、中位 2980、p80=4074。用于机械推导 §5 市场阈值"
+    },
+    "D07": {
+      "level": "L3",
+      "source": "derived:fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "high20d_p40_20d",
+      "value": 621.0,
+      "direction": "neutral",
+      "note": "近 20 交易日 stock_high_count_20d 的 40 分位（p20=455、中位 736、p60=887）。用于机械推导 §5 证伪线"
+    },
+    "D08": {
+      "level": "L3",
+      "source": "derived:fact_market_daily",
+      "source_time": "2026-09-01",
+      "entity": "market",
+      "field": "limit_down_p80_20d",
+      "value": 14.0,
+      "direction": "neutral",
+      "note": "近 20 交易日 limit_down 的 80 分位（p20=1、中位 4）。用于机械推导 §5 证伪线"
+    },
+    "R01": {
+      "level": "L2",
+      "source": "CLAUDE.md / strategy1-matrix 严格双红定义",
+      "source_time": "2026-09-01",
+      "entity": "rule",
+      "field": "strict_double_red_rule",
+      "value": "pct_chg>0 AND diff_ratio>10 AND amount>500",
+      "direction": "neutral"
+    },
+    "R02": {
+      "level": "L2",
+      "source": "docs/learning/dual-blind-forecast-template.md §3 策略一二三四市场状态语言",
+      "source_time": "2026-09-01",
+      "entity": "rule",
+      "direction": "neutral",
+      "note": "主线流动性池 / 强趋势延续 / 分歧回流 / 流动性切换；异动四分类=情绪脉冲/资金切换/主线扩散/假突破"
+    },
+    "R03": {
+      "level": "L2",
+      "source": "CLAUDE.md 板块快照分代约定",
+      "source_time": "2026-09-01",
+      "entity": "rule",
+      "direction": "neutral",
+      "note": "fact_sector_daily / fact_sector_stock_daily 是 VIEW，只暴露 published 快照；本卷未跨快照混算"
+    },
+    "X01": {
+      "level": "L1",
+      "source": "fact_global_index_daily（数据缺陷，仅作缺口登记）",
+      "source_time": "2026-09-01",
+      "entity": "IXIC 纳斯达克",
+      "field": "close",
+      "value": 25122.18,
+      "direction": "neutral",
+      "note": "08-24/25/26/27/28/31/09-01 七行 close 与 pct_chg 完全相同（25122.18 / +2.78%），source_trade_date 却逐日递增——典型快照克隆。隔夜外盘本卷判定为不可用，未进入任何判断链"
+    },
+    "X02": {
+      "level": "L1",
+      "source": "docs/learning/forecast-review-ledger/2026-09-02.manifest.json",
+      "source_time": "2026-09-01",
+      "entity": "materials",
+      "field": "material_count",
+      "value": 0,
+      "direction": "neutral",
+      "note": "冻结清单 materials 为空：无卖方研报、无晨汇、无外盘材料。本卷全部结论只由 DuckDB 盘面数据支撑，消息面维度整体缺失"
+    }
+  },
+  "stage": "底部横盘阶段第 25 天，内部发生主线换极：从『电子单极』切到『农业+消费零售+AI应用』三分支，属存量高低切换而非增量突破",
+  "stage_features": {
+    "rule_id": "market-stage-v1",
+    "as_of": "2026-09-01",
+    "metrics": {
+      "market_stage": {"value": "底部横盘阶段", "evidence_ref": "M01"},
+      "stage_day": {"value": 25, "evidence_ref": "M02"},
+      "total_amount": {"value": 20328.97, "evidence_ref": "M03"},
+      "amount_ma20": {"value": 22418.42, "evidence_ref": "M04"},
+      "days_amount_below_ma20": {"value": 6, "evidence_ref": "D05"},
+      "advancers": {"value": 3387, "evidence_ref": "M05"},
+      "limit_up": {"value": 83, "evidence_ref": "M06"},
+      "limit_down": {"value": 0, "evidence_ref": "M07"},
+      "stock_high_count_20d": {"value": 1243, "evidence_ref": "M08"},
+      "stock_high_count_60d": {"value": 505, "evidence_ref": "M09"},
+      "stock_high_count_history": {"value": 16, "evidence_ref": "M10"},
+      "sh_index_pct_chg": {"value": -0.16080082321993094, "evidence_ref": "M11"},
+      "top3_industry_ratio": {"value": 37.4, "evidence_ref": "M12"},
+      "industry_1_ratio": {"value": 22.7, "evidence_ref": "M13"},
+      "strict_double_red_count": {"value": 13, "evidence_ref": "D01"},
+      "first_board_promotion_rate": {"value": 13.0, "evidence_ref": "D03"},
+      "second_board_promotion_rate": {"value": 50.0, "evidence_ref": "D04"}
+    },
+    "evidence_refs": ["M01", "M02", "M03", "M04", "M05", "M06", "M07", "M08", "M09", "M10", "M11", "M12", "M13", "D01", "D02", "D03", "D04", "D05"],
+    "reading": "阶段标签本身没变（底部横盘第 25 天，08-25~08-31 那段『下跌阶段』已翻回），真正变的是内部结构。判『切换』而不判『升级』的三条硬依据：(1) 量能连续 6 日在 20 日均量之下（D05），扩散是存量腾挪；(2) 指数 -0.16% 与涨家数 3387、20 日新高 918→1243、跌停 11→0 背离（M11/M05/M08/P01/P02），钱在个股层面流动而不在指数层面进场；(3) 第一权重行业占比连续四日下滑 27.4→22.7（M13/P03）、前三行业集中度 40.0→37.4（M12），单极瓦解。晋级结构给出的是分层结论而非整体结论：首板 13% 低于中位 15%（D03），二板 50% 高于中位 40%（D04）——没有题材归属的首板断头，有梯队归属的（AI长剧 7 只二板，A03）反而通畅。"
+  },
+  "main_judgment": "09-01 是底部横盘期内的一次高低切换日：电子/半导体硬件链单极瓦解（PCB -4.74%、元器件 -4.85%、权重占比 25.2→22.7），资金在存量内（成交额连续 6 日低于 20 日均量）分流进三条低位分支——农业种业（粮食概念涨停密度 27.08%、乡村振兴是该侧唯一严格双红）、消费零售（一般零售 +5.05%、新零售 18 家涨停）、AI应用长剧（9 只二板里 7 只同题材）；扩散是真的（20 日新高 918→1243、跌停清零），但它靠的是换手不是增量，所以三条分支的持续性取决于各自能否自己接出高度，而不是取决于指数。",
+  "direction_ranking": [
+    "农业种业/乡村振兴（主线扩散，容量载体是乡村振兴而非种植业）",
+    "消费零售/新零售（资金切换，弹性最高但板块容量最小）",
+    "AI应用—AI长剧/传媒/IP经济（主线扩散第二天，梯队仍在但边际量已见顶）",
+    "医药（情绪脉冲，个股有涨停无板块级双红，暂不参与）",
+    "电子/半导体/PCB（高位拥挤瓦解，回避）"
+  ],
+  "direction_scoring": {
+    "scenario": "非 A（不是恐慌反弹：跌停 0、涨家数 3387，没有恐慌）、非 B（不是主升浪：量能连续 6 日低于 MA20、指数 -0.16%）；判为 C 的变体——高位拥挤（电子）瓦解 + 低位分支承接，对应策略四『流动性切换』叠加策略一『主线流动性池』重建",
+    "dimensions": "确定性 / 弹性 / 兑现时间 / 拥挤度 / 已定价，各 0-5 分",
+    "ranked": [
+      {
+        "name": "农业种业/乡村振兴",
+        "total": 20,
+        "detail": "确定性 5（粮食概念 13/48=27.08% 全市场涨停密度第一 H01、农林牧渔 12.50% H02、主线 strength +6273.1 N01）；弹性 4（种植业 +7.51% S06，但个股多已连板）；兑现时间 4（当日即兑现，梯队已到 6 板/4 板）；拥挤度 4（乡村振兴 amount 1327.2 亿仍能进严格双红 S01，说明还装得下资金）；已定价 3（万向德农 20 日 +102%，先手部分已定价）",
+        "nature": "主线扩散——有涨停密度、有梯队高度、有 3 年新高（G02），三要素齐"
+      },
+      {
+        "name": "消费零售/新零售",
+        "total": 17,
+        "detail": "确定性 4（新零售 18 家涨停 H03、一般零售 diff 42.0、百货 22.5、商业连锁 36.2）；弹性 5（一般零售 +5.05% S07、百货 +4.46%）；兑现时间 4（国芳集团已三板 K05）；拥挤度 2（一般零售 amount 仅 91.4 亿 S07、百货 55.7 亿——容量是硬伤，大资金进不去）；已定价 2（板块 08-31 还在 -1.59%，几乎未定价）",
+        "nature": "资金切换——从零起步，但容量不足决定它做不成主线，只能做补充"
+      },
+      {
+        "name": "AI应用—AI长剧/传媒/IP经济",
+        "total": 15,
+        "detail": "确定性 4（9 只二板中 7 只 AI长剧 A03、传媒 23.1 / IP经济 21.5 / 短剧游戏 11.1 仍在严格双红榜 S02/S03/S04）；弹性 3（09-01 板块涨幅已降到 1.6~2.4%，前日为 3.7~5.0%）；兑现时间 3；拥挤度 2（边际量塌方：传媒 74.6→23.1、短剧游戏 76.1→11.1、IP经济 70.2→21.5 T01/T02/T03；主线 strength 双双转负 N03/N04）；已定价 3",
+        "nature": "主线扩散的第二天但边际量已见顶——梯队还在跑，增量资金已经在撤，属『人多了但钱少了』"
+      },
+      {
+        "name": "医药",
+        "total": 10,
+        "detail": "确定性 2（透景生命 +19.99%、8 只涨停，但医药系板块无一进严格双红）；弹性 3；兑现时间 2；拥挤度 2；已定价 1（近 5 日 CXO -3.63%、医药 -1.11%、化学制药 -1.09% 仍在跌幅榜）",
+        "nature": "情绪脉冲——个股层面有异动，板块层面无边际量确认，属尚未成形"
+      },
+      {
+        "name": "电子/半导体/PCB",
+        "total": 5,
+        "detail": "确定性 1；弹性 1；兑现时间 1；拥挤度 1（PCB diff -14.4 S09、元器件 diff -12.5 S10，边际量负值）；已定价 1（前日涨停热度 top3 的芯片 19 家 H07 09-01 全部掉榜）",
+        "nature": "高位拥挤瓦解——不是假突破（08-27 那波是真放量），是真兑现完的退潮"
+      }
+    ],
+    "top_gap": "第 1（农业种业 20 分）与第 2（消费零售 17 分）分差 3 分，全部拉开在『拥挤度=容量』这一维：乡村振兴 amount 1327.2 亿 vs 一般零售 91.4 亿。这也是本卷唯一一处我把涨幅榜第一名（种植业 +7.51%）排在推荐位之外的原因——种植业 amount 只有 154.1 亿，按 R01 口径连严格双红都够不上，它是弹性标不是容量标。"
+  },
+  "picks": [
+    {
+      "code": "000998",
+      "name": "隆平高科",
+      "strategy": "策略一（主线流动性池·容量核心）",
+      "reason": "§1『双红』给出的容量载体是乡村振兴（S01，amount 1327.2 亿、diff 11.6，农业侧唯一过严格双红门槛），而不是涨得最猛的种植业（S06，amount 仅 154.1 亿）。隆平高科是这个容量口径下的种业最大市值标（float 131.11 亿，K01），09-01 首板 +10.04% 且 10 日涨幅只有 8.13%——分支已经跑了 5 天而它才第一天涨停，是典型的『主线成立后资金必须找的容量出口』。60 日新高、fund_flow_1d 3.11 亿。同时属种植业/粮食概念/农林牧渔/乡村振兴四个 09-01 强势板块。",
+      "evidence_refs": ["S01", "S06", "K01", "H01", "H02", "N01"],
+      "evidence_as_of": "2026-09-01"
+    },
+    {
+      "code": "600354",
+      "name": "敦煌种业",
+      "strategy": "策略二（强趋势延续）",
+      "reason": "§1『新高』维度上农业侧最硬的一张牌：09-01 首板 +10.01% 同时创 3 年新高（G02），全市场当日 3 年新高仅 25 只。5 日 +28.63%（K02）、fund_flow_5d 10.65 亿说明资金是连续进的不是当天冲的。float 48.14 亿属中小容量，弹性优于隆平高科但承接力弱于它——两只一起放是为了在 T+1 分离『容量核心走』和『弹性标走』两种路径。机械止损位明确：前收 8.29。",
+      "evidence_refs": ["G02", "K02", "S01", "H01", "M10"],
+      "evidence_as_of": "2026-09-01"
+    },
+    {
+      "code": "000564",
+      "name": "供销大集",
+      "strategy": "策略四（流动性切换·分支交集）",
+      "reason": "同时挂在乡村振兴（17 家涨停 H04）与新零售（18 家涨停 H03）两条 09-01 最热涨停分支上，是两条分支的交集票；float 250.58 亿为全池最大容量（K03），而 10 日涨幅只有 7.79%——全池位置最低。09-01 首板 +9.93%、fund_flow_1d 4.12 亿、60 日新高。它是检验『切换是不是真的（钱愿意进大票）』的最灵敏读数：切换成立则大市值低位标必须先被买，切换只是脉冲则它跑不赢板块。",
+      "evidence_refs": ["K03", "H03", "H04", "S01", "S08", "N02"],
+      "evidence_as_of": "2026-09-01"
+    },
+    {
+      "code": "603533",
+      "name": "掌阅科技",
+      "strategy": "策略三（分歧回流·分支内换手）",
+      "reason": "AI长剧二板梯队 7 只（A03）里 20 日涨幅最低的一只（7.48%，K04；对照最高标芒果超媒 22.26%、5 日 44.85%，K06——刻意不选它，因为板块强度不等于个股安全边际）。同属短剧游戏/传媒/IP经济/AIGC概念，其中前三个是 09-01 严格双红（S02/S03/S04）。fund_flow_1d 6.67 亿在该梯队里靠前，60 日新高。放它进池是为了把『AI应用分支整体退潮』和『分支内部从高位标换到低位标』这两种走法在 T+1 分开——我对分支边际量的判断是衰减（H3），但衰减期的资金通常先流向未涨的那一只。",
+      "evidence_refs": ["K04", "K06", "A03", "S02", "S03", "S04"],
+      "evidence_as_of": "2026-09-01"
+    },
+    {
+      "code": "601086",
+      "name": "国芳集团",
+      "strategy": "策略四（流动性切换·高度确认标）",
+      "reason": "消费零售分支唯一有连板高度的标的（三板，K05），120 日新高，float 67.20 亿。该分支的板块证据很强但全是低容量（一般零售 amount 91.4 亿 S07、百货 55.7 亿、商业连锁 187.3 亿），主线 strength 从 213.4 跳到 5070.8（N02）——这种『强度暴涨但容量极小』的组合历史上要么快速做出高度、要么两天内熄火，没有中间态。它是这条分支能否成立的单点判据。机械证伪位：前收 9.17。",
+      "evidence_refs": ["K05", "N02", "S07", "H03", "M07"],
+      "evidence_as_of": "2026-09-01"
+    }
+  ],
+  "picks_excluded_on_purpose": [
+    "300413 芒果超媒（K06）：AI长剧真龙头、09-01 +20.02% 二板、成交 27.94 亿、主力净流入 18.60 亿，板块证据最硬——但 5 日已涨 44.85%、20 日 +22.26%，属于『从板块强度直接跳到个股追高』的典型诱惑，用同梯队 20 日仅 +7.48% 的掌阅科技替代。",
+    "600371 万向德农（6 板、3 年新高、20 日 +102.03%）与 002084 海鸥住工（7 板最高标、theme=股权 A04）：前者位置过高，后者与任何一条分支都不同源，是孤票高度，不能当分支强度的代表。",
+    "300189 神农种业（+20.03%、成交 23.41 亿）：农业弹性最强，但 20 日已 +63.07%，同样属追高位。"
+  ],
+  "thresholds": {
+    "market": "T+1（2026-09-02）判『扩散维持』的三条同时成立：涨家数 ≥ 2800（09-01 为 3387，2800 取近 20 交易日 advancers 的 40 分位 2829 向下取整，D06）、跌停数 ≤ 5（09-01 为 0，近 20 日中位 4，D08）、fact_market_daily.stock_high_count_20d ≥ 900（09-01 为 1243、08-31 为 918，900 取近 20 日 60 分位 887 向上取整）。升级条件（判扩散转增量）：total_amount 重新站上 amount_ma20 22418 亿（09-01 为 20328.97，已连续 6 日在其下，D05）；若涨家数达标但量能仍在均量之下，维持『存量切换』定性不升级。",
+    "direction": "农业侧：T+1 乡村振兴 pct_chg > 0 判分支延续；进一步 diff_ratio > 10 且 amount > 500 亿（09-01 为 11.6 / 1327.2）判延续升级为主线加强。消费零售侧：T+1 一般零售 pct_chg > 0 且新零售 diff_ratio ≥ 9.6（09-01 值）判切换承接住；一般零售 amount 若仍 < 200 亿则容量结论不变，永远只做补充不做主线。AI应用侧：T+1 传媒 diff_ratio < 23.1（09-01 值）判边际量衰竭成立，≥ 23.1 判衰竭证伪、分支重新加速。电子侧：T+1 PCB 与元器件 pct_chg 若双双 > +3%，判『电子退位』结论作废。",
+    "targets": "机械阈值统一取『09-01 涨停日的前收盘价』——T+1 收盘跌破它=当日涨停全部回吐=承接失败：隆平高科 000998（09-01 收 9.97 / 前收 9.06）、敦煌种业 600354（9.12 / 8.29）、供销大集 000564（1.66 / 1.51）、掌阅科技 603533（24.85 / 22.59）、国芳集团 601086（10.09 / 9.17）。相对强度条件（区分标的路径与市场路径）：供销大集 T+1 pct_chg 需 > 乡村振兴板块 pct_chg；掌阅科技 T+1 pct_chg 需 > 短剧游戏板块 pct_chg。高度条件：国芳集团 T+1 若未封四板且收盘跌破 9.17，判消费零售分支因容量不足而熄火。",
+    "falsify": "推翻 §2『电子退位 + 低位分支存量承接』主判断的信号，任一成立即证伪：(a) T+1 涨家数 < 2000（近 20 日 20 分位 2020）且跌停数 ≥ 15（近 20 日 80 分位 14）——扩散是单日脉冲，市场直接转退潮；(b) T+1 fact_market_daily.stock_high_count_20d < 620（近 20 日 40 分位 621，D07）——新高扩散一天蒸发，说明 09-01 的 1243 是技术性回补不是结构性扩散；(c) T+1 PCB 与元器件 pct_chg 双双 > +3% 同时乡村振兴与一般零售双双收绿——切换方向反转，是电子洗盘而非退位。"
+  },
+  "threshold_provenance": {
+    "market": {
+      "origin": "mechanical",
+      "evidence_ref": "D06",
+      "as_of": "2026-09-01",
+      "note": "涨家数 2800 = 近 20 交易日 advancers 40 分位 2829 取整；新高 900 = 同窗口 stock_high_count_20d 60 分位 887 取整；跌停 5 ≈ 同窗口中位 4。均为窗口分位机械推导，非拍脑袋，也非回测校准——没有跑过收益回测，不冒充硬门槛。"
+    },
+    "direction": {
+      "origin": "fixed_rule",
+      "evidence_ref": "R01",
+      "as_of": "2026-09-01",
+      "note": "严格双红 pct_chg>0 且 diff_ratio>10 且 amount>500 是仓库固定规则（CLAUDE.md / strategy1-matrix），直接引用；各板块的具体数值取自 09-01 published 快照（R03）。"
+    },
+    "targets": {
+      "origin": "mechanical",
+      "evidence_ref": "K03",
+      "as_of": "2026-09-01",
+      "note": "全部五只用同一条机械规则『跌破 09-01 涨停日前收盘价』导出，前收值逐只取自 fact_stock_daily.pre_close（9.06 / 8.29 / 1.51 / 22.59 / 9.17），无人工调整。相对强度条件同样机械：个股 pct_chg 与所属板块 pct_chg 直接比大小。"
+    },
+    "falsify": {
+      "origin": "mechanical",
+      "evidence_ref": "D07",
+      "as_of": "2026-09-01",
+      "note": "(a) 用近 20 日 advancers 20 分位 2020 与 limit_down 80 分位 14（D08）；(b) 用 stock_high_count_20d 40 分位 621（D07）。(c) 的 +3% 是经验值（无分位依据），单独看属 heuristic——但因与 (a)(b) 取 OR，整条证伪线的判定门槛由机械分位主导，故整体标 mechanical 并在此显式说明该子项的性质。"
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "market",
+      "category": "market",
+      "claim": "T+1（2026-09-02）扩散维持而非缩口：涨家数 ≥ 2800、跌停数 ≤ 5、stock_high_count_20d ≥ 900 三条同时成立",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.55,
+      "evidence_refs": ["M05", "M07", "M08", "P01", "P02", "D05", "D06", "M03"],
+      "evidence_as_of": "2026-09-01",
+      "falsify_when": "T+1 fact_market_daily 中 advancers < 2800，或 limit_down > 5，或 stock_high_count_20d < 900（任一成立即证伪，查一行即可判定）"
+    },
+    {
+      "id": "direction:agriculture",
+      "category": "direction",
+      "claim": "T+1 乡村振兴板块 pct_chg > 0——农业/乡村振兴分支不是一日游，第二天仍有资金",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": ["S01", "H01", "H02", "H04", "N01", "G02"],
+      "evidence_as_of": "2026-09-01",
+      "falsify_when": "T+1 fact_sector_daily 中 sector_name='乡村振兴' 的 pct_chg ≤ 0（查一行即可判定）"
+    },
+    {
+      "id": "direction:ai_app_exhaustion",
+      "category": "direction",
+      "claim": "T+1 传媒板块 diff_ratio < 23.1——AI应用（长剧/传媒/IP经济）分支的边际量扩张在 08-31 见顶，09-01 已是衰减第一天，T+1 继续衰减",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.65,
+      "evidence_refs": ["S02", "S03", "S04", "T01", "T02", "T03", "N03", "N04"],
+      "evidence_as_of": "2026-09-01",
+      "falsify_when": "T+1 fact_sector_daily 中 sector_name='传媒' 的 diff_ratio ≥ 23.1（边际量重新扩张）→ 衰竭判断证伪；此时须回查是哪一维评估错（多半是低估了 AI长剧 二板梯队 A03 的自我供血能力）"
+    },
+    {
+      "id": "target:000564",
+      "category": "target",
+      "claim": "T+1 供销大集（000564）pct_chg 跑赢乡村振兴板块 pct_chg——切换成立时，大容量低位标先于板块被买",
+      "horizon": "T+1",
+      "confidence": "low",
+      "confidence_probability": 0.45,
+      "evidence_refs": ["K03", "S01", "H03", "H04"],
+      "evidence_as_of": "2026-09-01",
+      "falsify_when": "T+1 供销大集 pct_chg ≤ 乡村振兴板块 pct_chg（两个数直接比大小）"
+    },
+    {
+      "id": "target:603533",
+      "category": "target",
+      "claim": "T+1 掌阅科技（603533）pct_chg 跑赢短剧游戏板块 pct_chg——分支边际量衰减期，资金在分支内部从高位标换到低位标",
+      "horizon": "T+1",
+      "confidence": "low",
+      "confidence_probability": 0.45,
+      "evidence_refs": ["K04", "K06", "A03", "S03"],
+      "evidence_as_of": "2026-09-01",
+      "falsify_when": "T+1 掌阅科技 pct_chg ≤ 短剧游戏板块 pct_chg（两个数直接比大小）"
+    },
+    {
+      "id": "falsify",
+      "category": "falsify",
+      "claim": "T+1 主判断不被推翻：不出现『涨家数 < 2000 且跌停数 ≥ 15』，且 stock_high_count_20d 不跌破 620",
+      "horizon": "T+1",
+      "confidence": "high",
+      "confidence_probability": 0.78,
+      "evidence_refs": ["M05", "M07", "M08", "D06", "D07", "D08"],
+      "evidence_as_of": "2026-09-01",
+      "falsify_when": "T+1 出现 advancers < 2000 且 limit_down ≥ 15；或 stock_high_count_20d < 620。任一成立即 §2 主判断被推翻"
+    }
+  ],
+  "recheck": {}
+}
