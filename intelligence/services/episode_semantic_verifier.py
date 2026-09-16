@@ -645,13 +645,17 @@ class SemanticEpisodeOutcome:
 def recheck_material_public_delivery(
     outcome: SemanticEpisodeOutcome,
     *,
-    public_answer: str | None = None,
+    projected: str | None = None,
 ) -> SemanticEpisodeOutcome:
     """Recheck actual delivery after every public projection, without upgrades.
 
     A rollback may restore rejected prose; structural re-parsing cannot revoke
     an earlier semantic rejection or an integrity issue. Full contracts keep
     their existing presentation behavior.
+
+    ``projected`` is the caller's already-rendered public text (for example the
+    adapter's sanitized projection); the outcome's ``public_answer`` is only ever
+    re-emitted through ``view()``, the single public-text outlet.
     """
     from intelligence.services.material_delivery import material_question_outputs, with_all_material_gaps_notice
 
@@ -659,12 +663,15 @@ def recheck_material_public_delivery(
     contract = before.contract
     if contract is None or not material_question_outputs(contract):
         return outcome
-    public = outcome.public_answer if public_answer is None else public_answer
+    public = outcome.public_answer if projected is None else projected
     if outcome.judge_status == "unavailable":
         # A review outage/structural early exit deliberately withholds the draft.
         # That is not a writer omission: preserve its existing repair targets,
         # retain pending_rejudge, and do not spend a rewrite to fix an outage.
-        return replace(outcome, public_answer=public)
+        return replace(
+            outcome,
+            public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),
+        )
     verified = verify_episode_outcome(contract, replace(before.outcome, draft=public))
     prior_missing = frozenset((*before.missing_outputs, *outcome.gap_output_ids))
     prior_by_id = {item.output_id: item for item in before.completion.outputs}
@@ -690,7 +697,8 @@ def recheck_material_public_delivery(
     notice_bindings = verified.outcome.bindings if not missing and not issues else ()
     public = with_all_material_gaps_notice(contract, public, notice_bindings)
     return replace(
-        outcome, verified=verified, public_answer=public,
+        outcome, verified=verified,
+        public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),
         status="partial" if outcome.status == "completed" and not _contract_slots_all_fulfilled(verified) else outcome.status,
         repair_output_ids=tuple(dict.fromkeys((*outcome.repair_output_ids, *missing))),
         issues=tuple(dict.fromkeys((*outcome.issues, *verified.issues))),
@@ -2233,7 +2241,8 @@ class SemanticEpisodeVerifier:
             )))),
         )
         return self._finalize_outcome(SemanticEpisodeOutcome(
-            verified=verified, status="partial", public_answer=public,
+            verified=verified, status="partial",
+            public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),
             judge_status="rejected", issues=tuple(dict.fromkeys((*verified.issues, *report.issues))),
             correlated_judge=call.correlated, gap_output_ids=missing,
         ), call)

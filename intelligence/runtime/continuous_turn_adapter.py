@@ -1109,7 +1109,7 @@ class ContinuousTurnAdapter:
         from intelligence.services.material_delivery import material_question_outputs
 
         if material_question_outputs(context.contract):
-            semantic = recheck_material_public_delivery(semantic, public_answer=answer)
+            semantic = recheck_material_public_delivery(semantic, projected=answer)
             final_outcome = semantic.verified.outcome
             answer = semantic.public_answer
             fulfilled_output_ids = _fulfilled_output_ids(
@@ -1260,7 +1260,7 @@ class ContinuousTurnAdapter:
         # A previously disclosed gap cannot hide a deletion at the final seam.
         return recheck_material_public_delivery(
             candidate,
-            public_answer=_safe_public_text(candidate.public_answer, private_tokens=_private_tokens(candidate.verified.outcome)),
+            projected=_safe_public_text(candidate.public_answer, private_tokens=_private_tokens(candidate.verified.outcome)),
         )
 
     def _resume_for_gap(
