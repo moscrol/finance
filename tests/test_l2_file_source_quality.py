@@ -1,0 +1,230 @@
+"""Offline regressions for PR #773: real parsing, writers, quality gate and retry."""
+from __future__ import annotations
+
+import importlib.util
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from types import SimpleNamespace
+
+import duckdb
+import pytest
+
+from market_feature_store.db import init_db
+from scripts import check_daily_review_data as checker
+
+ROOT = Path(__file__).resolve().parents[1]
+MONEYFLOW = ROOT / "scripts" / "moneyflow"
+DATE = "2026-09-16"
+DAY = "20260916"
+HEADER = "时间,成交价格,成交数量,叫买序号,叫卖序号\n"
+TICKS = HEADER + "093000000,100000,200000,2,1\n"
+
+
+@pytest.fixture
+def pipeline(tmp_path, monkeypatch):
+    db = tmp_path / "l2.duckdb"
+    with duckdb.connect(str(db)) as con:
+        init_db(con)
+    monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(db))
+    monkeypatch.setenv("FINANCE_DATA_ROOT", str(tmp_path))
+    monkeypatch.setenv("L2_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setenv("L2_SOURCE", "baidu-share:xianyu-l2-7z")
+    monkeypatch.setenv("L2_TOP_N", "100")
+    for name in ("L2_FORCE_RESCAN", "L2_PAUSED", "L2_ALLOW_ALL_EMPTY"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.syspath_prepend(str(MONEYFLOW))
+    modules = {}
+    # Bare script imports share sys.modules with unrelated skills in the full suite.
+    for name in (
+        "config", "l2_paths", "moneyflow", "write_to_duckdb",
+        "process_l2_archive", "baidu_share", "cdn_chunks", "run_l2_from_share",
+    ):
+        spec = importlib.util.spec_from_file_location(name, MONEYFLOW / f"{name}.py")
+        module = importlib.util.module_from_spec(spec)
+        monkeypatch.setitem(sys.modules, name, module)
+        spec.loader.exec_module(module)
+        modules[name] = module
+    processor = modules["process_l2_archive"]
+    runner = modules["run_l2_from_share"]
+    writer = modules["write_to_duckdb"]
+    monkeypatch.setattr(writer, "connect", lambda: duckdb.connect(str(db)))
+    monkeypatch.setattr(
+        checker, "_connect_read_only", lambda: duckdb.connect(str(db), read_only=True)
+    )
+    codes = [f"{600000 + i:06d}" for i in range(100)]
+    monkeypatch.setattr(processor, "prev_trade_date", lambda date: "2026-09-15")
+    monkeypatch.setattr(processor, "duck_limitup_codes", lambda date: codes[:1])
+    monkeypatch.setattr(processor, "duck_top_turnover_codes", lambda date, n: codes)
+    monkeypatch.setattr(processor, "duck_pct_chg_map", lambda date: dict.fromkeys(codes, 1.0))
+    monkeypatch.setattr(
+        processor, "stock_info", lambda codes: {c: {"name": c, "cap": 100.0} for c in codes}
+    )
+    monkeypatch.setattr(processor, "_seven_zip", lambda: "stub-7z")
+    state = SimpleNamespace(
+        db=db, processor=processor, runner=runner, codes=codes,
+        mode="ok", calls=[], meta=[], cache=tmp_path / "cache",
+        real_run=subprocess.run,
+    )
+
+    def extract(cmd, **kwargs):
+        out = Path(next(arg[2:] for arg in cmd if arg.startswith("-o")))
+        selected = codes[:1] if state.mode in {"partial", "crc"} else codes
+        for code in selected:
+            path = out / DAY / processor.folder(code) / "逐笔成交.csv"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            text = TICKS
+            if code == codes[1]:
+                if state.mode == "empty":
+                    text = HEADER
+                elif state.mode == "malformed":
+                    text = "wrong,columns\n1,2\n"
+            path.write_bytes(text.encode("gb18030"))
+        rc = 2 if state.mode in {"crc", "crc_full"} else 0
+        return subprocess.CompletedProcess(cmd, rc, "CRC Failed" if rc else "OK", "")
+
+    def download(name, size, *, dest, pan_file):
+        state.calls.append(name)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"offline archive fixture")
+
+    monkeypatch.setattr(processor.subprocess, "run", extract)
+    monkeypatch.setattr(runner, "wait_share_file", lambda date: None)
+    monkeypatch.setattr(runner, "ensure_transferred", lambda *args: {
+        "file": {"size": 23}, "inbox": "/offline", "meta": {},
+    })
+    monkeypatch.setattr(runner, "download", download)
+    monkeypatch.setattr(runner, "write_meta", state.meta.append)
+    return state
+
+
+def _ledger(pipeline):
+    with duckdb.connect(str(pipeline.db), read_only=True) as con:
+        return con.execute(
+            "SELECT step, status, row_count, input_count, processed_count, failed_count "
+            "FROM ops_pipeline_run_daily WHERE pipeline='l2-moneyflow' ORDER BY step"
+        ).fetchall()
+
+
+@pytest.mark.parametrize("mode", ["crc", "crc_full", "partial", "empty", "malformed"])
+def test_bad_archive_cannot_publish_or_skip_retry(pipeline, mode):
+    pipeline.mode = mode
+    with pytest.raises((RuntimeError, KeyError)):
+        pipeline.runner.run_date(DATE)
+    assert {row[1] for row in _ledger(pipeline)} == {"failed"}
+    with duckdb.connect(str(pipeline.db), read_only=True) as con:
+        for table in checker.L2_TABLES:
+            assert con.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
+    assert checker.check_l2(DATE)
+    assert not pipeline.runner.already_complete(DATE)
+    assert (pipeline.cache / f"{DAY}.7z").exists()
+    assert not (pipeline.cache / f"extract-{DAY}").exists()
+    assert pipeline.meta == []
+
+
+def test_failed_day_is_retried_without_force_and_zero_quant_is_valid(pipeline):
+    pipeline.mode = "partial"
+    with pytest.raises(RuntimeError, match="missing tick file"):
+        pipeline.runner.run_date(DATE)
+    pipeline.mode = "ok"
+    pipeline.runner.run_date(DATE)
+    assert _ledger(pipeline) == [
+        ("limitup", "complete", 1, 1, 1, 0),
+        ("quant", "complete", 0, 100, 100, 0),
+        ("top100", "complete", 100, 100, 100, 0),
+    ]
+    assert checker.check_l2(DATE) == []
+    assert pipeline.runner.already_complete(DATE)
+    assert not (pipeline.cache / f"{DAY}.7z").exists()
+    assert pipeline.meta[0]["last_processed"] == DATE
+    pipeline.runner.run_date(DATE)
+    assert len(pipeline.calls) == 2
+    assert len(pipeline.meta) == 1
+
+
+@pytest.mark.parametrize("damage", ["partial", "missing_stats", "result_deleted", "failed"])
+def test_skip_revalidates_ledger_and_result_tables(pipeline, damage):
+    pipeline.runner.run_date(DATE)
+    with duckdb.connect(str(pipeline.db)) as con:
+        if damage in {"partial", "result_deleted"}:
+            con.execute(
+                "DELETE FROM feature_l2_capital_flow_daily "
+                "WHERE scan_type='top100' AND stock_code != '600000'"
+            )
+        if damage == "partial":
+            # Old false-complete shape: 1 real row but self-reported 100/100, no failures.
+            con.execute("UPDATE ops_pipeline_run_daily SET row_count=1 WHERE step='top100'")
+        elif damage == "missing_stats":
+            con.execute("UPDATE ops_pipeline_run_daily SET processed_count=NULL WHERE step='quant'")
+        elif damage == "failed":
+            con.execute("UPDATE ops_pipeline_run_daily SET failed_count=1 WHERE step='quant'")
+    assert checker.check_l2(DATE)
+    assert not pipeline.runner.already_complete(DATE)
+    pipeline.runner.run_date(DATE)
+    assert len(pipeline.calls) == 2
+    assert checker.check_l2(DATE) == []
+
+
+def test_share_failure_is_visible_in_ledger(pipeline, monkeypatch):
+    def missing(date):
+        raise FileNotFoundError("share not ready")
+
+    monkeypatch.setattr(pipeline.runner, "wait_share_file", missing)
+    with pytest.raises(FileNotFoundError, match="share not ready"):
+        pipeline.runner.run_date(DATE)
+    assert {row[1] for row in _ledger(pipeline)} == {"failed"}
+    assert not pipeline.runner.already_complete(DATE)
+    assert not pipeline.calls
+
+
+def test_failed_forced_rescan_preserves_valid_previous_results(pipeline, monkeypatch):
+    pipeline.runner.run_date(DATE)
+    before = _ledger(pipeline)
+    monkeypatch.setenv("L2_FORCE_RESCAN", "1")
+    pipeline.mode = "crc"
+    with pytest.raises(RuntimeError, match="extraction failed"):
+        pipeline.runner.run_date(DATE)
+    assert _ledger(pipeline) == before
+    assert checker.check_l2(DATE) == []
+    assert (pipeline.cache / f"{DAY}.7z").exists()
+    monkeypatch.delenv("L2_FORCE_RESCAN")
+    assert pipeline.runner.already_complete(DATE)
+
+
+@pytest.mark.parametrize("missing", [False, True])
+def test_real_7z_archive_coverage(pipeline, monkeypatch, tmp_path, missing):
+    executable = shutil.which("7zz") or shutil.which("7z")
+    if not executable:
+        pytest.skip("7z not installed; deterministic extraction regressions still run")
+    monkeypatch.setattr(pipeline.processor.subprocess, "run", pipeline.real_run)
+    monkeypatch.setattr(pipeline.processor, "_seven_zip", lambda: executable)
+    source = tmp_path / "source"
+    for code in pipeline.codes[:1] if missing else pipeline.codes:
+        tick = source / DAY / pipeline.processor.folder(code) / "逐笔成交.csv"
+        tick.parent.mkdir(parents=True)
+        tick.write_bytes(TICKS.encode("gb18030"))
+    archive = tmp_path / "real.7z"
+    pipeline.real_run(
+        [executable, "a", str(archive), DAY], cwd=source,
+        capture_output=True, check=True,
+    )
+    if missing:
+        with pytest.raises(RuntimeError, match="missing tick file"):
+            pipeline.processor.process_date(DATE, archive)
+        assert checker.check_l2(DATE)
+        assert not pipeline.runner.already_complete(DATE)
+    else:
+        assert pipeline.processor.process_date(DATE, archive) == {
+            "limitup": 1, "top100": 100, "quant": 0,
+        }
+        assert checker.check_l2(DATE) == []
+        assert pipeline.runner.already_complete(DATE)
+
+
+def test_empty_candidate_list_does_not_extract_whole_archive(pipeline, monkeypatch):
+    monkeypatch.setattr(pipeline.processor, "duck_limitup_codes", lambda date: [])
+    with pytest.raises(RuntimeError, match="incomplete candidates"):
+        pipeline.runner.run_date(DATE)
+    assert {row[1] for row in _ledger(pipeline)} == {"failed"}
+    assert not (pipeline.cache / f"extract-{DAY}").exists()
