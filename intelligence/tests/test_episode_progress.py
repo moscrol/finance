@@ -183,7 +183,7 @@ def test_whitelist_is_generated_from_the_same_tables_it_guards() -> None:
 def test_progress_kinds_are_registered_durable_kinds() -> None:
     """UI 进度只投影已登记的 durable kind，不另造一套词表。
 
-    进度表是精选子集（不是全表）：model_turn / configure 等故意不出进度。
+    进度表是精选子集：model_turn / configure 不出进度；实际 tool_menu 出进度。
     但子集里的每一个必须在车道表里——否则 UI 认的 kind 和投影层认的 kind 会漂。
     """
 

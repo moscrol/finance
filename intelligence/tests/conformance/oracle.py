@@ -5,8 +5,16 @@
 
     意图 append（sync=True） < 效果开始 < 结算 append（sync=False）
 
-母单 §6.5 说 P4 把它升为 ``conformance/oracle.py`` 公共件；P2 先落在这里、先服务
-``test_inv_r2_write_order``。断言只认 kind / 关联 id / sync 标记，不读 payload 正文。
+P2 先落在这里、先服务 ``test_inv_r2_write_order``；P4（工单 #31）把它定为**公共件**，
+三处复用、同一份断言：
+
+- ``test_inv_r2_write_order``：INV-R2 矩阵那一格（两个工具并发 + 两次模型请求）；
+- ``test_inv_r3_restore``：Tier A 崩溃现场从它的日志截出来，先断言日志本身的写序；
+- ``conformance/races/``：八条竞态 × 两序，每一序结束都 ``assert_sandwich()``。
+
+用法：把它当 ``EpisodeStore`` 传给 ``ContinuousAgentEpisode(store=…)`` / ``GLMAgentRuntime(
+episode_store=…)``；假 model / 假 tool 在开始工作那一刻调 ``effect_started(label, key)``；
+跑完调 ``assert_sandwich()``。断言只认 kind / 关联 id / sync 标记，不读 payload 正文。
 """
 
 from __future__ import annotations

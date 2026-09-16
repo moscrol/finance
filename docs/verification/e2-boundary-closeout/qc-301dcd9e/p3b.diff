@@ -1,0 +1,662 @@
+diff --git a/docs/agent-product-door.md b/docs/agent-product-door.md
+index 1034cec9..07e05590 100644
+--- a/docs/agent-product-door.md
++++ b/docs/agent-product-door.md
+@@ -44,9 +44,18 @@ P3a 已接明确 `material_only` 的 Episode 装配：同一冻结合同生成
+ 与开场预取之前短路；现有 dispatch 拒绝并记事件。工厂不读静态 KB，丢弃未分型的历史、
+ 视角、stance 与检索阶段背景。这是装配层局部约束，不是整个入口的零读取保证。
+ 
+-**本阶段不是材料题全链完成**：`local_only` 实际 IO 分类、歧义/基底不可恢复的预取前
+-澄清、controller 前缀/默认摘要/压缩/恢复/子研究等全部注入路径、确定性旁路仍待 P3
+-收口；逐题最终交付、可信跨轮继承、纯度与材料锚点待 P4–P7。
++P3b 在 Episode 装配层接入 `local_only` 的实际 IO（输入/输出行为）上限：
++`material_permissions` 收窄能力、全部证据要求及输出工具类型；已审定的 DuckDB 查询、
++主线、JSON 证据索引及已解析身份的用户记忆保留。工具实现由装配点声明 `io_effect`，
++未知/混合 runner 不凭 cost/freshness 放行；菜单与执行授权共用上限，注册表副本只能
++继续收窄。受限注册表不带预取/计算恢复加载器，工厂跳过未按能力分类的静态 KB 预检，
++不装默认外呼工具、不为它们做全局实体解析；未审定历史附加工具暂不挂，普通本地
++finance_query 的历史窗口约束保留。此处是可信装配声明与回归测试，不是操作系统网络沙箱。
++
++**本阶段不是材料题全链完成**：`local_only` 仅已审定 runner 的局部路径，未覆盖所有
++本地工具；歧义/基底不可恢复的预取前澄清、controller 前缀/默认摘要/压缩/恢复/子研究等
++全部注入路径、确定性旁路仍待 P3 收口。local_only 原题号槽、逐题最终交付、可信跨轮继承、
++纯度与材料锚点待后续阶段；普通上下文不是按来源过滤后的安全输入。
+ 不得把局部短路当成真实入口已经零外呼，也不得运行正式 T2→T3/Knevo 对照。设计与阶段证据见
+ [设计 v10](learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md)
+ 及 `docs/handoffs/inflight/fix-e2-boundary-closeout.md`；是否部署看实际服务 revision。
+diff --git a/intelligence/services/episode_factory.py b/intelligence/services/episode_factory.py
+index 7793cddf..61af5221 100644
+--- a/intelligence/services/episode_factory.py
++++ b/intelligence/services/episode_factory.py
+@@ -36,6 +36,7 @@ from intelligence.services.research_contract import (
+ from intelligence.services.research_tool_registry import (
+     DEFAULT_RESEARCH_CAPABILITIES,
+ )
++from intelligence.services.material_permissions import restrict_read_capabilities
+ from intelligence.services.task_frame import TaskFrame, task_frame_requires_retrieval
+ from intelligence.services.user_task import (
+     MaterialRef,
+@@ -654,12 +655,15 @@ def build_episode_context(
+             raise ValueError(f"unknown runtime capability: {capability}")
+         if capability not in authorized:
+             authorized.append(capability)
+-    # P3a：限制最后施加，题型的 mandatory 下限不能把已禁止的读能力加回来。
+-    # 后续 local_only/歧义交集须按实际 IO 审计后扩展，不能借 cost/freshness 猜权限。
++    # 限制最后施加，题型的 mandatory 下限不能把已禁止的读能力加回来。
++    # local_only 白名单来自实际 runner 审计，不借 cost/freshness 猜权限。
++    capability_tuple = restrict_read_capabilities(tuple(authorized), material.data_scope if material else None)
+     if material_only:
+-        authorized = []
+         evidence_plan = EvidencePlan(profile="material_only", requirements=(), freshness="stable")
+-    capability_tuple = tuple(authorized)
++    elif material is not None and material.data_scope == "local_only":
++        evidence_plan = replace(evidence_plan, requirements=tuple(
++            item for item in evidence_plan.requirements if item.capability in capability_tuple
++        ))
+ 
+     # 必须在 capability_tuple 定稿之后：`_with_prior_recall` 的前置条件是
+     # 「memory_lookup 真的在这次的授权里」，而授权到这一行才算最终确定
+@@ -776,7 +780,9 @@ def build_episode_context(
+         task_frame_hash=frame.task_frame_hash,
+         material_contract=material,
+     )
+-    if frame.history_intent is not None and "finance_query" in capability_tuple:
++    if frame.history_intent is not None and "finance_query" in capability_tuple and not (
++        material is not None and material.data_scope == "local_only"
++    ):
+         # Capability authorizes execution; evidence_types admits the actual
+         # producer names. Keep historical provenance and narrow output contracts
+         # (for example memory/news/financial anchors) intact.
+@@ -796,7 +802,9 @@ def build_episode_context(
+                 for output in contract.required_outputs
+             ),
+         )
+-    if not material_only:
++    if material is None or material.data_scope == "full":
++        # 自动 KB 预检不走工具授权，且 knowledge 可由调用方替换；受限轮不运行。
++        # 本地证据仍由已审定 runner 获取，不把未分类读取当作预置缺口依据。
+         contract = apply_static_chain_mapping_precheck(contract, knowledge=knowledge)
+     cutoff = (
+         information_cutoff
+diff --git a/intelligence/services/episode_scope.py b/intelligence/services/episode_scope.py
+index 97f9a784..215e41d7 100644
+--- a/intelligence/services/episode_scope.py
++++ b/intelligence/services/episode_scope.py
+@@ -252,6 +252,9 @@ class EpisodeScope:
+             raise ValueError("episode scope 必须携带 episode_id")
+         if not isinstance(self.invoked_tools, set):
+             object.__setattr__(self, "invoked_tools", set(self.invoked_tools))
++        material = self.context.contract.material_contract
++        if material is not None and material.data_scope in {"local_only", "material_only"}:
++            object.__setattr__(self, "registry", self.registry.with_read_scope(material.data_scope))
+ 
+     # ── 运行中登记 ────────────────────────────────────────────────────
+ 
+@@ -378,8 +381,7 @@ class EpisodeScope:
+         """判定单个工具是否被本次 contract 授权。
+ 
+         与 ``registry.execute`` 内联那次判定的差别只在**形态**（返回值 vs 抛异常），
+-        判据完全一致：``spec.capability in contract.allowed_capabilities``。
+-        第 3 步接线时由这里取代内联判定，语义不变。
++        判据共用 registry.authorization_denial：能力授权与实际 IO 上限都必须满足。
+         """
+ 
+         try:
+@@ -394,12 +396,13 @@ class EpisodeScope:
+                 capability=None,
+                 reason="工具未注册",
+             )
+-        if spec.capability not in self.allowed_capabilities:
++        denial = self.registry.authorization_denial(spec, self.context)
++        if denial:
+             return Authorization(
+                 allowed=False,
+                 tool=spec.name,
+                 capability=spec.capability,
+-                reason=f"能力未授权：{spec.capability}",
++                reason=denial,
+             )
+         return Authorization(allowed=True, tool=spec.name, capability=spec.capability)
+ 
+diff --git a/intelligence/services/episode_tools.py b/intelligence/services/episode_tools.py
+index b31f2d64..8d5a4703 100644
+--- a/intelligence/services/episode_tools.py
++++ b/intelligence/services/episode_tools.py
+@@ -797,7 +797,8 @@ def _opening_prefetch_evidence(
+     perspective_ids: tuple[str, ...] = (),
+     perspective_mode: str = "neutral",
+ ) -> tuple[agent_research.AgentEvidence, ...]:
+-    if context.contract.material_contract is not None and context.contract.material_contract.data_scope == "material_only":
++    if context.contract.material_contract is not None and context.contract.material_contract.data_scope in {"material_only", "local_only"}:
++        # local_only 的工具已保留纯本地路径；未按同一授权分类的自动播种暂不执行。
+         return ()
+     from intelligence.services.asof_prefetch import (
+         collect_prefetch_items,
+@@ -977,8 +978,9 @@ def build_episode_registry(
+ 
+     if context.contract.material_contract is not None and context.contract.material_contract.data_scope == "material_only":
+         # 必须早于 _roots / 日期探测 / 实体解析 / 预取；菜单清空不能撤销已经发生的读取。
+-        return ResearchToolRegistry(())
++        return ResearchToolRegistry((), read_scope="material_only")
+ 
++    local_only = context.contract.material_contract is not None and context.contract.material_contract.data_scope == "local_only"
+     finance, wiki = _roots(finance_root, knowledge_wiki)
+     market_db_path = _market_db_path(finance_root, finance, fixture_policy)
+     freshness_floor = _structured_freshness_floor(context)
+@@ -1025,7 +1027,8 @@ def build_episode_registry(
+             anchor_admission="subject_local",
+         )
+     knowledge = KnowledgeAdapter(wiki_root=wiki)
+-    subject_anchor = entity_anchor.resolve_entity_anchor(
++    # 保留的本地 runner 不消费 subject_anchor；避免为被禁工具先读全局证券词典。
++    subject_anchor = None if local_only else entity_anchor.resolve_entity_anchor(
+         f"{frame.subject or ''} {frame.raw_question}",
+         knowledge,
+     )
+@@ -1065,7 +1068,7 @@ def build_episode_registry(
+         )
+ 
+     # 02：把本题问句交给 web_fetch 做定向选段（工具参数面只有 url，问句只能从这里进）。
+-    default_tools = agent_research.build_default_tools(
++    default_tools = {} if local_only else agent_research.build_default_tools(
+         retrieve_kb, focus_query=subject_query
+     )
+     if fixture_policy is not None and not fixture_policy.external_search_enabled:
+@@ -1454,8 +1457,14 @@ def build_episode_registry(
+         # 的调用方（与可达性审计）留同一个座位，没传就不挂。
+         tools["derived_calculation"] = derived_calculation_runner
+     base_registry = default_registry(tools)
+-    specs = list(base_registry.authorized_specs())
+-    if frame.history_intent is not None:
++    # 这两条 runner 就在本装配函数内选定：mainline_runner 只读 DuckDB；
++    # build_graph_tools._evidence_lookup 只读 KnowledgeAdapter JSON。不是从标签猜。
++    specs = [
++        replace(spec, io_effect="local_read")
++        if spec.name in {"mainline_context", "evidence_lookup"} else spec
++        for spec in base_registry.authorized_specs()
++    ]
++    if frame.history_intent is not None and not local_only:
+         from intelligence.services.historical_research.episode import history_tool_specs
+ 
+         specs.extend(
+@@ -1711,6 +1720,7 @@ def build_episode_registry(
+                 cost="local",
+                 freshness="current",
+                 runner=finance_query_runner,
++                io_effect="local_read",
+                 parameters=_agent_finance_parameters(),
+                 parse_arguments=parse_finance_arguments,
+             )
+@@ -1915,9 +1925,20 @@ def build_episode_registry(
+                 cost="local",
+                 freshness="stable",
+                 runner=memory_lookup_runner,
++                io_effect="local_read",
+             )
+         )
+ 
++    if local_only:
++        # 不加载 live weekly/计算恢复，不执行尚未按capability分类的自动预取。
++        # with_specs 追加的未知 runner 仍受此注册表上限与 dispatch 同时约束。
++        local_specs = tuple(
++            spec for spec in specs
++            if spec.capability in context.contract.allowed_capabilities and spec.io_effect == "local_read"
++        )
++        require_tool_contracts(local_specs)
++        return ResearchToolRegistry(local_specs, read_scope="local_only")
++
+     live_us = user_space
+     if live_us is None and str(memory_user or "").strip():
+         from intelligence import userspace
+diff --git a/intelligence/services/material_permissions.py b/intelligence/services/material_permissions.py
+new file mode 100644
+index 00000000..7bf6286b
+--- /dev/null
++++ b/intelligence/services/material_permissions.py
+@@ -0,0 +1,28 @@
++"""E2 frozen read ceiling; only audited runner paths may enter local_only.
++
++This is deliberately not inferred from tool names, cost or freshness. See the
++producer seams below; unknown/mixed paths stay out until separately certified.
++Model inference for answering is not a data-read capability.
++"""
++from __future__ import annotations
++
++# Producers: episode_tools.finance_query_runner -> FinanceQuery (read-only DuckDB);
++# mainline_runner -> ask_blocks._market_review_mainline_context_block_for_llm;
++# agent_research.build_graph_tools._evidence_lookup -> KnowledgeAdapter local JSON;
++# episode_tools.memory_lookup_runner -> user_memory local user ledgers.
++# Not yet certified: kb_search subprocess/model loading, graph_lookup research_map,
++# evidence_search semantic judge, market_data/financial_data external fallbacks.
++LOCAL_READ_CAPABILITIES = frozenset({
++    "finance_query", "mainline_context", "evidence_lookup", "memory_lookup",
++})
++
++
++def restrict_read_capabilities(capabilities: tuple[str, ...], data_scope: str | None) -> tuple[str, ...]:
++    """Intersect the requested reads with the frozen scope; never add a floor."""
++    if data_scope == "material_only":
++        return ()
++    if data_scope == "local_only":
++        return tuple(cap for cap in capabilities if cap in LOCAL_READ_CAPABILITIES)
++    if data_scope == "full" or data_scope is None:
++        return capabilities
++    raise ValueError("unknown material read scope")
+diff --git a/intelligence/services/research_contract.py b/intelligence/services/research_contract.py
+index 7308b45a..6a3e99e3 100644
+--- a/intelligence/services/research_contract.py
++++ b/intelligence/services/research_contract.py
+@@ -20,6 +20,7 @@ from intelligence.services.route_table import owner_skills_from_route_table
+ from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRequirement
+ from intelligence.services.task_frame import TaskFrame
+ from intelligence.services.material_contract import MaterialContract
++from intelligence.services.material_permissions import restrict_read_capabilities
+ from intelligence.services.historical_research.intent import HistoryIntent
+ 
+ AnswerOwner: TypeAlias = Literal[
+@@ -911,6 +912,13 @@ class ResearchTaskContract:
+                 raise ResearchContractError("material_only 不允许读能力或材料外证据计划")
+             if any(output.evidence_types for output in self.required_outputs):
+                 raise ResearchContractError("material_only 输出槽不能要求材料外工具证据")
++        if self.material_contract is not None and self.material_contract.data_scope == "local_only":
++            if restrict_read_capabilities(tuple(self.allowed_capabilities), "local_only") != tuple(self.allowed_capabilities):
++                raise ResearchContractError("local_only 含未审定的读取能力")
++            if any(item.capability not in self.allowed_capabilities for item in self.evidence_plan.requirements):
++                raise ResearchContractError("local_only 证据计划超出冻结读取授权")
++            if any(cap not in self.allowed_capabilities for output in self.required_outputs for cap in output.evidence_types):
++                raise ResearchContractError("local_only 输出工具证据超出冻结读取授权")
+         mandatory = set(self.evidence_plan.mandatory_capabilities)
+         if not mandatory.issubset(set(self.allowed_capabilities)):
+             raise ResearchContractError(
+diff --git a/intelligence/services/research_tool_registry.py b/intelligence/services/research_tool_registry.py
+index 8a6df012..561217de 100644
+--- a/intelligence/services/research_tool_registry.py
++++ b/intelligence/services/research_tool_registry.py
+@@ -923,6 +923,9 @@ class ToolSpec:
+     # （下单、落库、发消息）必须显式 ``never``，恢复时对它只合成 ``tool_error{interrupted}``、
+     # 绝不重跑。底座读它，不改任何执行行为。
+     replay: Literal["safe", "never"] = "safe"
++    # Actual runner effect, certified at the owning assembly seam. Unknown is
++    # denied under local_only, even when cost="local" or freshness="stable".
++    io_effect: Literal["local_read", "external_or_mixed", "unknown"] = "unknown"
+ 
+     def __post_init__(self) -> None:
+         if not isinstance(self.runner, ToolRunnerAdapter):
+@@ -933,6 +936,8 @@ class ToolSpec:
+         object.__setattr__(self, "parameters", frozen_parameters)
+         if not isinstance(self.produces, frozenset):
+             object.__setattr__(self, "produces", frozenset(self.produces))
++        if self.io_effect not in {"local_read", "external_or_mixed", "unknown"}:
++            raise ValueError("invalid tool IO effect")
+         if self.replay not in ("safe", "never"):
+             raise ValueError(f"tool replay declaration must be safe|never: {self.replay!r}")
+ 
+@@ -944,16 +949,21 @@ class ResearchToolRegistry:
+         *,
+         opening_prefetch: tuple[agent_research.AgentEvidence, ...] = (),
+         calc_loader: object | None = None,
++        read_scope: str = "full",
+     ) -> None:
++        if read_scope not in {"full", "local_only", "material_only"}:
++            raise ValueError("invalid registry read scope")
++        self.read_scope = read_scope
+         self._specs = {spec.name: spec for spec in specs}
+-        self.opening_prefetch = tuple(opening_prefetch)
++        # 自动注入/恢复加载器还没有逐项实际 IO 认证；收窄时不带入旁路。
++        self.opening_prefetch = tuple(opening_prefetch) if read_scope == "full" else ()
+         # ``derived_calculation`` 的 runner 只有 episode 期绑得出（要那一轮的证据账本），
+         # 但「上一轮的计算记录在谁的 runs 目录里」是**装配期**才知道的身份问题
+         # ——运行器刻意不认识用户（agent_episode 的 EpisodeScope.user_id 恒为 ""）。
+         # 与 memory_lookup 同一条经验：授权与身份穿透必须成对出现，只做一半不报错。
+         # 这一格就是装配层把已解析的身份折成一个闭包带进 episode 的通道；
+         # None = 调用方没给身份，沿用 load_calculation_record 的默认解析。
+-        self.calc_loader = calc_loader
++        self.calc_loader = calc_loader if read_scope == "full" else None
+ 
+     def resolve(self, name: str) -> ToolSpec:
+         spec = self._specs.get(str(name).strip())
+@@ -972,6 +982,7 @@ class ResearchToolRegistry:
+             tuple(merged.values()),
+             opening_prefetch=self.opening_prefetch,
+             calc_loader=self.calc_loader,
++            read_scope=self.read_scope,
+         )
+ 
+     def without(self, *names: str) -> "ResearchToolRegistry":
+@@ -982,8 +993,34 @@ class ResearchToolRegistry:
+             tuple(spec for spec in self._specs.values() if spec.name not in dropped),
+             opening_prefetch=self.opening_prefetch,
+             calc_loader=self.calc_loader,
++            read_scope=self.read_scope,
+         )
+ 
++    def with_read_scope(self, read_scope: str) -> "ResearchToolRegistry":
++        """A derived registry may narrow but never relax its existing IO ceiling."""
++        ranks = {"full": 0, "local_only": 1, "material_only": 2}
++        if read_scope not in ranks:
++            raise ValueError("invalid registry read scope")
++        effective = max((self.read_scope, read_scope), key=ranks.__getitem__)
++        return ResearchToolRegistry(
++            tuple(self._specs.values()),
++            opening_prefetch=self.opening_prefetch,
++            calc_loader=self.calc_loader,
++            read_scope=effective,
++        )
++
++    def authorization_denial(self, spec: ToolSpec, context: ResearchRunContext) -> str:
++        """One decision shared by dispatch and EpisodeScope; no side effects."""
++        if spec.capability not in context.contract.allowed_capabilities:
++            return f"能力未授权：{spec.capability}"
++        material = context.contract.material_contract
++        scopes = {self.read_scope, material.data_scope if material else "full"}
++        if "material_only" in scopes:
++            return "material_only 禁止读取工具"
++        if "local_only" in scopes and spec.io_effect != "local_read":
++            return f"local_only 未审定工具实际 IO：{spec.name}"
++        return ""
++
+     def names(self) -> tuple[str, ...]:
+         return tuple(self._specs)
+ 
+@@ -1010,6 +1047,10 @@ class ResearchToolRegistry:
+                 for spec in self._specs.values()
+                 if spec.capability in allowed_set
+             )
++        if self.read_scope == "material_only":
++            specs = ()
++        elif self.read_scope == "local_only":
++            specs = tuple(spec for spec in specs if spec.io_effect == "local_read")
+         return tuple(sorted(specs, key=lambda spec: spec.name))
+ 
+     def tool_definitions(
+@@ -1115,7 +1156,8 @@ class ResearchToolRegistry:
+         """
+ 
+         spec = self.resolve(name)
+-        if spec.capability not in context.contract.allowed_capabilities:
++        denial = self.authorization_denial(spec, context)
++        if denial:
+             # 错误契约保持不变（仍抛 UnknownResearchTool、消息逐字不变）：
+             # ``unknown_or_unauthorized_tool`` 这个串有 4 个生产者、1 个分支消费者
+             # （agent_episode.py:311），并且进了模型可见的消息文本。拆它是一次
+@@ -1124,7 +1166,6 @@ class ResearchToolRegistry:
+             # 但**区分**不用等：它落进阶段事件（新增，无存量消费者），
+             # 于是诊断拿到了区分，契约一点没动。
+             if scope is not None:
+-                decision = scope.authorize(name)
+                 scope.emit(
+                     TOOL_ERROR,
+                     {
+@@ -1133,12 +1174,12 @@ class ResearchToolRegistry:
+                         "step_id": step_id,
+                         "stage": "authorize",
+                         # 与 wire 上那个压扁的串不同，这里是分开的
+-                        "reason": decision.reason,
+-                        "capability": decision.capability,
++                        "reason": denial,
++                        "capability": spec.capability,
+                     },
+                 )
+             raise UnknownResearchTool(
+-                f"能力未授权：{spec.capability}（工具 {spec.name}）"
++                f"{denial}（工具 {spec.name}）"
+             )
+ 
+         prepared = self.prepare(name, arguments)
+diff --git a/intelligence/tests/test_e2_local_freeze.py b/intelligence/tests/test_e2_local_freeze.py
+new file mode 100644
+index 00000000..3349da5a
+--- /dev/null
++++ b/intelligence/tests/test_e2_local_freeze.py
+@@ -0,0 +1,251 @@
++"""P3b: audited local runner ceiling; not complete entry/restore/IO acceptance."""
++from dataclasses import replace
++import json
++import socket
++import subprocess
++from uuid import uuid4
++
++import duckdb
++import pytest
++
++from intelligence.services import agent_research, episode_factory, episode_tools
++from intelligence.services.episode_factory import build_episode_context
++from intelligence.services.episode_scope import EpisodeScope, TOOL_ERROR
++from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRequirement
++from intelligence.services.material_permissions import LOCAL_READ_CAPABILITIES
++from intelligence.services.query_understanding import understand_query
++from intelligence.services.research_contract import ResearchContractError, ResearchTaskContract
++from intelligence.services.research_tool_registry import ResearchToolRegistry, ToolSpec, UnknownResearchTool
++
++
++def local_frame():
++    return understand_query("不要联网。今天市场怎么样？").task_frame
++
++
++def local_context():
++    return build_episode_context(
++        local_frame(), task_id=f"local-read-{uuid4().hex}", capabilities=tuple(sorted(LOCAL_READ_CAPABILITIES)) + (
++            "market_data", "financial_data", "news_search", "web_search", "kb_search", "evidence_search", "graph_lookup",
++        ), today="2026-07-24", latest_data_date="2026-07-24", timeout=30, synthesis_reserve=0,
++    )
++
++
++def fail_external(*_args, **_kwargs):
++    raise AssertionError("unexpected external or uncertified read")
++
++
++def test_local_ceiling_rebuilds_optional_and_mandatory_requirements():
++    context = local_context()
++    contract = context.contract
++    assert set(contract.allowed_capabilities) == LOCAL_READ_CAPABILITIES
++    assert contract.material_contract.data_scope == "local_only"
++    assert all(item.capability in contract.allowed_capabilities for item in contract.evidence_plan.requirements)
++    assert set(contract.evidence_plan.mandatory_capabilities) <= LOCAL_READ_CAPABILITIES
++    assert all(set(output.evidence_types) <= LOCAL_READ_CAPABILITIES for output in contract.required_outputs)
++    assert ResearchTaskContract.from_dict(contract.to_dict()) == contract
++    assert not {"prime_quote", "prime_news"} & {output.output_id for output in contract.required_outputs}
++
++
++@pytest.mark.parametrize("mutation", ["capability", "optional", "output"])
++def test_local_contract_rejects_permission_readdition_on_replace_and_restore(mutation):
++    original = local_context().contract
++    payload = original.to_dict()
++    if mutation == "capability":
++        changes = {"allowed_capabilities": (*original.allowed_capabilities, "market_data")}
++        payload["allowed_capabilities"] = list(changes["allowed_capabilities"])
++    elif mutation == "optional":
++        plan = EvidencePlan(requirements=(EvidenceRequirement("external", "web_search", False),))
++        changes = {"evidence_plan": plan}
++        payload["evidence_plan"] = plan.to_dict()
++    else:
++        changes = {"required_outputs": (replace(original.required_outputs[0], evidence_types=("evidence_search",)),)}
++        payload["required_outputs"][0]["evidence_types"] = ["evidence_search"]
++    with pytest.raises(ResearchContractError, match="local_only"):
++        replace(original, **changes)
++    with pytest.raises(ResearchContractError, match="local_only"):
++        ResearchTaskContract.from_dict(payload)
++
++
++@pytest.mark.parametrize("effect", ["unknown", "external_or_mixed"])
++def test_allowed_capability_is_not_enough_for_unknown_or_external_runner(effect):
++    context = local_context()
++    # Capability is allowed; the actual implementation is not certified.
++    spec = ToolSpec(name="injected", capability="finance_query", description="test", cost="local", freshness="stable", runner=fail_external, io_effect=effect)
++    registry = ResearchToolRegistry((spec,))
++    events = []
++
++    class Sink:
++        def emit(self, kind, payload):
++            events.append((kind, dict(payload)))
++
++    scope = EpisodeScope(episode_id="local-read", user_id="test", context=context, registry=registry, event_sink=Sink())
++    assert scope.allowed_tools() == ()
++    assert scope.model_visible_definitions() == []
++    assert not scope.authorize("injected").allowed
++    # Even a caller holding the original unbound registry is denied by context.
++    with pytest.raises(UnknownResearchTool, match="local_only"):
++        registry.execute("injected", {"query": "x"}, context=context, step_id="s", scope=scope, tool_call_id="c")
++    assert events[0][0] == TOOL_ERROR
++    assert events[0][1]["stage"] == "authorize" and "local_only" in events[0][1]["reason"]
++    assert scope.invoked_tools == set()
++
++
++def test_registry_clones_preserve_ceiling_and_unknown_additions_are_not_visible():
++    spec = ToolSpec(name="injected", capability="finance_query", description="test", cost="local", freshness="stable", runner=fail_external)
++    registry = ResearchToolRegistry((), read_scope="local_only").with_specs(spec)
++    assert registry.read_scope == registry.without("absent").read_scope == "local_only"
++    assert registry.with_read_scope("full").read_scope == "local_only"
++    assert registry.authorized_specs(("finance_query",)) == ()
++    assert registry.with_read_scope("material_only").with_read_scope("full").read_scope == "material_only"
++
++
++@pytest.mark.parametrize("source_state", ["current", "missing", "empty", "stale"])
++def test_audited_local_queries_run_against_only_temporary_sources(tmp_path, monkeypatch, source_state):
++    finance = tmp_path / "finance"
++    db = finance / "db" / "market_feature_store.duckdb"
++    db.parent.mkdir(parents=True)
++    con = duckdb.connect(str(db))
++    try:
++        con.execute("create table fact_market_daily(trade_date date, market_stage varchar, total_amount double, sh_index_pct_chg double)")
++        con.execute("create table fact_mainline_theme_daily(trade_date date, theme_name varchar, sector_count integer, min_sort integer)")
++        if source_state != "empty":
++            source_date = "2026-07-23" if source_state == "stale" else "2026-07-24"
++            con.execute("insert into fact_market_daily values (?, '反弹阶段', 22000, 1.2)", [source_date])
++            con.execute("insert into fact_mainline_theme_daily values (?, '临时主线', 2, 1)", [source_date])
++    finally:
++        con.close()
++    if source_state == "missing":
++        db.unlink()
++    wiki = tmp_path / "wiki"
++    relations = wiki / "relations"
++    relations.mkdir(parents=True)
++    (relations / "evidence_index.json").write_text(json.dumps({"items": [{
++        "target": "甲公司", "evidence": "临时公告确认订单20", "source": "临时公告", "source_date": "2026-07-24",
++    }]}, ensure_ascii=False))
++    users = tmp_path / "users"
++    users.mkdir()
++    (users / "judgments.jsonl").write_text(json.dumps({
++        "ts": "2026-07-23T10:00:00", "memo": "甲公司要看订单兑现", "stocks": ["甲公司"], "themes": [],
++    }, ensure_ascii=False) + "\n", encoding="utf-8")
++    # Count attempts as well as throwing: production fallbacks may swallow errors.
++    attempts = []
++
++    def deny_io(*args, **kwargs):
++        attempts.append((args, kwargs))
++        raise AssertionError("unexpected network/subprocess IO")
++
++    monkeypatch.setattr(socket.socket, "connect", deny_io)
++    monkeypatch.setattr(socket.socket, "connect_ex", deny_io)
++    monkeypatch.setattr(socket, "getaddrinfo", deny_io)
++    monkeypatch.setattr(subprocess, "Popen", deny_io)
++    # Neither path serves the retained local tools; don't touch host KB/security roots.
++    monkeypatch.setattr(episode_tools.entity_anchor, "resolve_entity_anchor", fail_external)
++    monkeypatch.setattr(agent_research, "build_default_tools", fail_external)
++    monkeypatch.setattr(episode_tools.kb_rag, "retrieve", fail_external)
++    monkeypatch.setattr(episode_tools.l3_evidence, "lookup_l3_company", fail_external)
++    monkeypatch.setattr(episode_tools.valuation_estimate, "fetch_eastmoney_snapshot", fail_external)
++    monkeypatch.setattr(episode_tools.external_market, "resolve_overnight_leaders", fail_external)
++    monkeypatch.setattr(episode_tools.evidence_search, "default_semantic_judge", fail_external)
++    monkeypatch.setattr(episode_tools, "_opening_prefetch_evidence", fail_external)
++    monkeypatch.setattr(episode_tools, "_calc_loader_for", fail_external)
++    frame, context = local_frame(), local_context()
++    registry = episode_tools.build_episode_registry(
++        frame, context, finance_root=finance, knowledge_wiki=wiki, memory_users_root=users,
++        l3_runner=fail_external, sub_research_runner=fail_external, derived_calculation_runner=fail_external,
++    )
++    assert registry.read_scope == "local_only"
++    assert set(registry.names()) == LOCAL_READ_CAPABILITIES
++    assert all(spec.io_effect == "local_read" for spec in registry.authorized_specs())
++    assert registry.opening_prefetch == () and registry.calc_loader is None
++    arguments = {
++        "dataset": "market_daily", "metrics": ["index_return_pct", "total_amount"],
++        "dimensions": ["trade_date", "market_stage"],
++        "time_range": {"start": "2026-07-24", "end": "2026-07-24"}, "limit": 5,
++    }
++    if source_state == "missing":
++        # Existing engine contract: missing read-only DB raises, never fetches a substitute.
++        with pytest.raises(duckdb.IOException, match="database does not exist"):
++            registry.execute("finance_query", arguments, context=context, step_id="local-query")
++        assert not db.exists()
++    else:
++        result = registry.execute("finance_query", arguments, context=context, step_id="local-query")
++        if source_state == "current":
++            assert result.evidence and result.evidence[0].tool == "finance_query"
++            assert "22000" in result.observation
++        else:
++            assert result.evidence == ()
++            assert result.gaps
++    indexed = registry.execute("evidence_lookup", "甲公司", context=context, step_id="local-index")
++    assert indexed.evidence and "临时公告确认订单20" in indexed.evidence[0].detail
++    mainline = registry.execute("mainline_context", {}, context=context, step_id="local-mainline")
++    if source_state == "current":
++        assert mainline.evidence and "临时主线" in mainline.observation
++    else:
++        assert mainline.evidence == ()
++    memory = registry.execute("memory_lookup", "甲公司", context=context, step_id="local-memory")
++    assert memory.evidence and "甲公司要看订单兑现" in memory.observation
++    assert all(item.evidence_tier == "user_memory" for item in memory.evidence)
++    assert all(str(users) in item.internal_locator for item in memory.evidence)
++    assert attempts == []
++
++
++def test_local_prefetch_direct_call_is_not_an_unclassified_bypass(tmp_path, monkeypatch):
++    from intelligence.services import asof_prefetch
++    monkeypatch.setattr(asof_prefetch, "collect_prefetch_items", fail_external)
++    assert episode_tools._opening_prefetch_evidence(local_frame(), local_context(), tmp_path / "absent.duckdb") == ()
++
++
++@pytest.mark.parametrize("read_scope", ["local_only", "material_only"])
++def test_restricted_constructor_and_clones_drop_unclassified_prefetch_and_loader(read_scope):
++    evidence = agent_research.AgentEvidence(tool="web_search", title="old", detail="external", source="web")
++    registry = ResearchToolRegistry((), opening_prefetch=(evidence,), calc_loader=fail_external, read_scope=read_scope)
++    for derived in (registry, registry.with_specs(), registry.without("absent"), registry.with_read_scope("full")):
++        assert derived.read_scope == read_scope
++        assert derived.opening_prefetch == ()
++        assert derived.calc_loader is None
++
++
++def test_local_factory_does_not_run_unclassified_static_precheck(monkeypatch):
++    monkeypatch.setattr(episode_factory, "apply_static_chain_mapping_precheck", fail_external)
++    frame = understand_query("不要联网。低空经济产业链有哪些公司？").task_frame
++    context = build_episode_context(frame, task_id="local-static", knowledge=object())
++    assert context.contract.material_contract.data_scope == "local_only"
++
++
++def test_local_history_does_not_readd_uncertified_tools_or_output_producers(tmp_path, monkeypatch):
++    from intelligence.services.historical_research import episode as history_episode
++
++    monkeypatch.setattr(history_episode, "history_tool_specs", fail_external)
++    frame = understand_query("不要联网。这一波农业是怎么走出来的？").task_frame
++    assert frame.history_intent is not None
++    context = build_episode_context(frame, task_id="local-history", today="2026-07-24")
++    registry = episode_tools.build_episode_registry(frame, context, finance_root=tmp_path, knowledge_wiki=tmp_path / "wiki")
++    assert "finance_query" in registry.names()
++    assert not {"history_query", "read_history_result", "save_history_research"} & set(registry.names())
++    assert all(set(output.evidence_types) <= set(context.contract.allowed_capabilities) for output in context.contract.required_outputs)
++    # Retain the time restriction used by finance_query; no new history tool permission.
++    assert context.history_intent == frame.history_intent
++    assert ResearchTaskContract.from_dict(context.contract.to_dict()) == context.contract
++
++
++@pytest.mark.parametrize("effect", ["unknown", "external_or_mixed"])
++def test_registry_ceiling_denies_replacement_even_with_full_context_before_argument_parsing(effect):
++    full = build_episode_context(
++        understand_query("今天市场怎么样？").task_frame, task_id="full-context", capabilities=("finance_query",),
++    )
++    original = ToolSpec(name="finance_query", capability="finance_query", description="local", cost="local", freshness="stable", runner=fail_external, io_effect="local_read")
++    registry = ResearchToolRegistry((original,), read_scope="local_only").with_specs(
++        replace(original, io_effect=effect, parse_arguments=fail_external)
++    ).without("absent").with_read_scope("full")
++    scope = EpisodeScope(episode_id="full-context", user_id="test", context=full, registry=registry)
++    assert not scope.authorize("finance_query").allowed
++    assert scope.model_visible_definitions() == []
++    with pytest.raises(UnknownResearchTool, match="local_only"):
++        registry.execute("finance_query", {}, context=full, step_id="denied")
++
++
++def test_invalid_io_effect_and_read_scope_are_rejected():
++    with pytest.raises(ValueError, match="IO effect"):
++        ToolSpec(name="bad", capability="finance_query", description="test", cost="local", freshness="stable", runner=fail_external, io_effect="probably_local")
++    with pytest.raises(ValueError, match="read scope"):
++        ResearchToolRegistry((), read_scope="probably_local")

@@ -659,6 +659,32 @@ def test_branch_batches_are_cut_at_model_turns_and_classify_every_tool_error() -
     assert branch_batches_from_events(()) == ()
 
 
+def test_branch_batches_record_max_queue_wait_from_results_not_from_worker_claims() -> None:
+    """工单 #39 §2.3：分支等全局 worker 等了多久，从 ``tool_result / tool_error.queued_ms`` 取最大值。
+
+    没测到留 None 且 to_dict 不写键（不把缺席伪装成 0）；超时那条也算（等得最久的往往就是它）。
+    """
+
+    events = (
+        _event(1, "model_turn", phase="research"),
+        _event(2, "tool_request", name="kb_search", call_id="a"),
+        _event(3, "tool_request", name="web_search", call_id="b"),
+        _event(4, "tool_request", name="news_search", call_id="c"),
+        _event(5, "tool_result", tool="kb_search", call_id="a", queued_ms=12.5),
+        _event(6, "tool_result", tool="web_search", call_id="b", queued_ms=0.2),
+        _event(7, "tool_error", tool="news_search", call_id="c", error="tool_timeout", queued_ms=1830.0),
+        _event(8, "model_turn", phase="research"),
+        _event(9, "tool_request", name="market_data", call_id="d"),
+        _event(10, "tool_result", tool="market_data", call_id="d"),  # 没带 queued_ms
+    )
+    first, second = branch_batches_from_events(events)
+    assert first.queue_wait_ms_max == 1830.0
+    assert first.to_dict()["queue_wait_ms_max"] == 1830.0
+    assert second.queue_wait_ms_max is None
+    assert "queue_wait_ms_max" not in second.to_dict()
+    # 变异：把 note_queue_wait 只挂在 tool_result 上 → 第一批读 12.5，本条必红。
+
+
 def test_continuous_branch_worker_reports_per_batch_dispatch_and_the_cap_that_bit() -> None:
     """分支上下文带 quick 标签 → 每批帽 4：模型一轮点 5 个，第 5 个必须记成 rejected_by_cap。
 
@@ -765,8 +791,12 @@ def test_continuous_branch_worker_reports_per_batch_dispatch_and_the_cap_that_bi
             "episode_remaining_at_dispatch": pytest.approx(
                 branch.batches[0].episode_remaining_at_dispatch
             ),
+            # 真跑了线程池就有排队读数（工单 #39 §2.3）；本测试里池空，值接近 0 但**存在**。
+            "queue_wait_ms_max": pytest.approx(branch.batches[0].queue_wait_ms_max),
         }
     ]
+    assert branch.batches[0].queue_wait_ms_max is not None
+    assert branch.batches[0].queue_wait_ms_max < 1000.0
     assert branch.budget is not None
     assert (branch.budget.allocated_calls, branch.budget.consumed_calls) == (10, 4)
     assert branch.budget.batch_call_cap == 4  # quick 标签的帽，不是 max 的 8

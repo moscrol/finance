@@ -175,7 +175,7 @@ def test_ledger_picks_the_home_with_the_freshest_switch(
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
 
     assert board.resolve_ledger_path(repo) == fresh
-    assert board.last_switch_for_port(fresh, port=8792)["rev"] == "0060da5c1a08"
+    assert board.last_switch_for_port(fresh, port=8792)[0]["rev"] == "0060da5c1a08"
     # 反向：主树那份更新时仍取主树，说明是按时刻不是按位置
     _write_ledger(
         stale,
@@ -184,18 +184,19 @@ def test_ledger_picks_the_home_with_the_freshest_switch(
     assert board.resolve_ledger_path(repo) == stale
 
 
-def test_ledger_keeps_override_order_when_no_switch_rows(
+def test_ledger_prefers_the_single_home_when_no_switch_rows(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """都没有该 port 的 switch 行（或旧格式没写 unix）时，退回覆盖序第一份。"""
+    """都没有该 port 的 switch 行（或旧格式没写 unix）时，唯一家 ``~/.finance-runtime`` 优先——
+    它是写入侧唯一的目标（工单 #44）；旧家 ``<repo>/state`` 只在它有更新的 8792 切换时才赢。"""
 
     repo = tmp_path / "repo"
     home = tmp_path / "home"
-    first = _write_ledger(
+    legacy = _write_ledger(
         repo / "state" / "deploy-ledger.jsonl",
         [{"action": "startup", "rev": "aaaaaaaaaaaa", "port": 8792}],
     )
-    _write_ledger(
+    single_home = _write_ledger(
         home / ".finance-runtime" / "deploy-ledger.jsonl",
         [{"action": "switch", "rev": "cccccccccccc", "port": 8796, "unix": 1788900000.0}],
     )
@@ -204,7 +205,20 @@ def test_ledger_keeps_override_order_when_no_switch_rows(
     monkeypatch.setattr(board, "_git", _no_common_dir)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
 
-    assert board.resolve_ledger_path(repo) == first
+    assert board.resolve_ledger_path(repo) == single_home
+    # FINANCE_WS 指向的 state/ 只是旧家之一：没有更新的 8792 切换就不抢
+    monkeypatch.setenv("FINANCE_WS", str(repo))
+    assert board.resolve_ledger_path(repo) == single_home
+    # 旧家有更新的 8792 切换时仍按时刻取它（#675 的读法不退）
+    _write_ledger(
+        legacy,
+        [{"action": "switch", "rev": "eeeeeeeeeeee", "port": 8792, "unix": 1788900001.0}],
+    )
+    assert board.resolve_ledger_path(repo) == legacy
+    # 什么都没有时也回唯一家（写入侧会建它）
+    legacy.unlink()
+    single_home.unlink()
+    assert board.resolve_ledger_path(repo) == single_home
 
 
 def test_last_switch_prefers_port_8792(tmp_path: Path) -> None:
@@ -217,9 +231,83 @@ def test_last_switch_prefers_port_8792(tmp_path: Path) -> None:
     ledger.write_text(
         "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
     )
-    found = board.last_switch_for_port(ledger, port=8792)
+    found, unattributed = board.last_switch_for_port(ledger, port=8792)
     assert found is not None
     assert found["rev"] == "ccccccc3"
+    assert unattributed is None
+
+
+def test_newer_switch_without_port_is_not_masked_by_older_matched_row(
+    tmp_path: Path,
+) -> None:
+    """现场形状：09-03 那次切换按规程跑、规程没带 --port，账本落了无 port 的行。
+
+    旧实现返回更旧的 c88c81da（末次带 port 的行），看板每个会话都把它当作
+    8792 现状报出来。判据是「不许把旧 rev 当真值报」，不是「必须报新 rev」——
+    账本确实无从归属。
+    """
+
+    ledger = tmp_path / "deploy-ledger.jsonl"
+    rows = [
+        {"action": "switch", "rev": "c88c81da5120", "port": 8792},
+        {"action": "switch", "rev": "f4c03b9ae610"},  # 规程漏了 --port
+    ]
+    ledger.write_text(
+        "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+    )
+    found, unattributed = board.last_switch_for_port(ledger, port=8792)
+    assert unattributed is not None
+    assert unattributed["rev"] == "f4c03b9ae610"
+    assert found is not None and found["rev"] == "c88c81da5120"
+
+
+def test_unattributed_switch_is_not_credited_to_another_port(tmp_path: Path) -> None:
+    """未归属行不许被「取最新」归给随便哪个 port。
+
+    真账本里 8796 末次 switch 之后同样跟着未归属行；把「最新那条」直接当答案，
+    会把 8792 的 rev 报成 8796 的现状。
+    """
+
+    ledger = tmp_path / "deploy-ledger.jsonl"
+    rows = [
+        {"action": "switch", "rev": "76ee1e89ed8a", "port": 8796},
+        {"action": "switch", "rev": "f4c03b9ae610"},
+    ]
+    ledger.write_text(
+        "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+    )
+    found, unattributed = board.last_switch_for_port(ledger, port=8796)
+    assert found is not None and found["rev"] == "76ee1e89ed8a"
+    assert unattributed is not None and unattributed["rev"] == "f4c03b9ae610"
+
+
+def test_board_line_declines_to_assert_when_newest_switch_lacks_port(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _init_repo(tmp_path)
+    ledger = repo / "state" / "deploy-ledger.jsonl"
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    ledger.write_text(
+        "".join(
+            json.dumps(row) + "\n"
+            for row in (
+                {"action": "switch", "rev": "c88c81da5120", "port": 8792},
+                {"action": "switch", "rev": "f4c03b9ae610"},
+            )
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+    monkeypatch.setenv("FINANCE_DEPLOY_LEDGER", str(ledger))
+    sha = _git(repo, "rev-parse", "HEAD")
+    lines = board.this_tree_lines(
+        cwd=str(repo), base="main", base_sha=sha, timeout=10, repo_root=repo
+    )
+    port_line = next(line for line in lines if line.startswith("8792:"))
+    assert "判不出" in port_line
+    assert "f4c03b9ae610" in port_line
+    # 关键：不能把更旧的 rev 摆成 8792 的现状读数
+    assert not port_line.startswith("8792: c88c81da5120")
 
 
 def test_this_tree_lines_when_already_on_base(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -236,7 +324,83 @@ def test_this_tree_lines_when_already_on_base(tmp_path: Path, monkeypatch: pytes
         repo_root=repo,
     )
     assert lines[0].startswith("合入: 本枝补丁已在 main=")
+    assert "落后" not in lines[0]
     assert lines[-1].startswith("看板:")
+
+
+def _behind_repo(tmp_path: Path, n: int) -> Path:
+    """建一棵「补丁都在 main、但底落后 n 提交」的树。
+
+    这是本修复唯一要拦的形状：``cherry+0`` 与 ``behind>0`` 同时成立。拿生产
+    快照复制一棵证明不了任何事 —— 必须专门造出只有这条分支会拒的那一棵。
+    """
+
+    repo = _init_repo(tmp_path)
+    _git(repo, "checkout", "-b", "topic")
+    for i in range(n):
+        (repo / f"m{i}.txt").write_text(f"{i}\n", encoding="utf-8")
+        _git(repo, "add", f"m{i}.txt")
+        _git(repo, "commit", "-m", f"main-only {i}")
+    _git(repo, "checkout", "main")
+    _git(repo, "merge", "--ff-only", "topic")
+    # 回到落后的那棵：HEAD 停在 base，main 已前进 n 笔，且 HEAD 无独有补丁。
+    _git(repo, "checkout", "-B", "stale", "HEAD~" + str(n) if n else "HEAD")
+    return repo
+
+
+def _this_lines(repo: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    monkeypatch.chdir(repo)
+    monkeypatch.delenv("FINANCE_DEPLOY_LEDGER", raising=False)
+    monkeypatch.delenv("FINANCE_WS", raising=False)
+    return board.this_tree_lines(
+        cwd=str(repo),
+        base="main",
+        base_sha=_git(repo, "rev-parse", "main"),
+        timeout=10,
+        repo_root=repo,
+    )
+
+
+def test_this_tree_lines_reports_behind_even_when_cherry_is_clean(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """cherry+0 不等于「一切正常」：底旧必须同时报出来。"""
+
+    repo = _behind_repo(tmp_path, 3)
+    monkeypatch.setattr(board, "STALE_BASE_WARN", 50)
+    lines = _this_lines(repo, monkeypatch)
+    assert "cherry+0" in lines[0], lines[0]
+    assert "底落后 3 提交" in lines[0], lines[0]
+    # 没过阈值：报数字，不喊。喊多了 agent 会学会忽略。
+    assert "⚠" not in lines[0], lines[0]
+
+
+def test_this_tree_lines_warns_once_base_drift_passes_threshold(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _behind_repo(tmp_path, 3)
+    monkeypatch.setattr(board, "STALE_BASE_WARN", 3)
+    lines = _this_lines(repo, monkeypatch)
+    assert "底落后 3 提交" in lines[0], lines[0]
+    assert "⚠" in lines[0], lines[0]
+    # 后果要写出来，否则读的人不知道这条事实该改变什么行为。
+    assert "我们没有" in lines[0], lines[0]
+
+
+def test_stale_base_warn_is_a_usable_threshold() -> None:
+    """取 0 会每次会话都喊（工作树按构造天天落后），取太大等于没装。"""
+
+    assert 10 <= board.STALE_BASE_WARN <= 200
+
+
+def test_count_treats_non_numeric_output_as_zero(tmp_path: Path) -> None:
+    """git 把话写到 stdout 时不能抛 —— SessionStart 抛出去就是 hook 静默不输出。"""
+
+    repo = _init_repo(tmp_path)
+    assert (
+        board.behind_count("HEAD", "no/such/ref", cwd=str(repo), timeout=10) == 0
+    )
+    assert board._count(["rev-parse", "HEAD"], cwd=str(repo), timeout=10) == 0
 
 
 def test_format_board_splits_unique_and_prunable() -> None:

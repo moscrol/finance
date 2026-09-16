@@ -155,13 +155,25 @@ class FailuresDoNotBreakTheDaily(unittest.TestCase):
 
 
 class ProductionSeamIsWired(unittest.TestCase):
-    """接线本身要被钉住：这条验收的全部意义就在于「真的有生产调用方」。"""
+    """接线本身要被钉住：这条验收的全部意义就在于「真的有生产调用方」。
+
+    2026-09-14（工单 #53）：接缝函数从 ``build_for_daily_review`` 换成 ``daily_section``
+    ——后者多带「入口提示」与「字段差异」两个出口。断言随之指向新名字，并**加一条**
+    「提示真的接到了 merge 上」：只改名不接 hint，日报那一段会静默消失。
+    """
 
     def test_cli_daily_path_calls_the_seam(self) -> None:
         src = Path("intelligence/cli.py").read_text(encoding="utf-8")
-        self.assertIn("build_for_daily_review", src)
+        self.assertIn("daily_section", src)
         self.assertIn("merge_into_daily_review", src)
+        self.assertIn("hint=", src)
         self.assertIn("--no-guided-reading", src)
+
+    def test_two_tuple_view_still_exists_for_existing_callers(self) -> None:
+        """``build_for_daily_review`` 仍是 ``daily_section`` 的 2 元组视图，不是死代码。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _space(tmp, "veteran", with_history=True)
+            self.assertEqual(gr.build_for_daily_review(REPORT, us)[0], gr.daily_section(REPORT, us).guided)
 
 
 if __name__ == "__main__":  # pragma: no cover

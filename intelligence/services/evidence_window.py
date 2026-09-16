@@ -12,6 +12,12 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Iterable, Sequence
 
+from intelligence.services.judgment_delta import (
+    DEFAULT_COUNTER_FLOOR,
+    counter_evidence_floor_order,
+    event_key,
+)
+
 
 _HARD_TERMS = (
     "公告", "年报", "季报", "半年报", "交易所", "互动易", "合同", "订单",
@@ -131,8 +137,20 @@ def select_agent_evidence(
     *,
     max_chars: int = 6000,
     max_items: int = 12,
+    counter_floor: int = DEFAULT_COUNTER_FLOOR,
+    merge_duplicates: bool = True,
 ) -> list[object]:
-    """Return a relevance/hardness/freshness/independence ranked evidence window."""
+    """Return a relevance/hardness/freshness/independence ranked evidence window.
+
+    两处判断增量约束（Knevo q17 Q8 回灌）：
+
+    - ``counter_floor``：最多这么多条反证被提到窗口最前，重复利好再多也挤不掉它们。
+      分数排序本身做不到这件事——同一笔订单的十篇转述稿各自独立、分数不低，数量却是
+      反证的十倍，反证因此常年落在 ``max_items`` 之外。设 0 可关掉做 A/B 对照。
+    - ``merge_duplicates``：同一事件的多篇报道只占一个窗口位（``independent_key``
+      为空时按去噪标题前缀 + 时点判同源）。被省掉的出处由
+      :meth:`judgment_delta.MaterialDigest.to_prompt_block` 另行列出，不静默丢。
+    """
     ranked: list[tuple[float, str, object]] = []
     for index, item in enumerate(evidence):
         tool = str(getattr(item, "tool", ""))
@@ -155,13 +173,20 @@ def select_agent_evidence(
         )
         ranked.append((score, f"{key}:{index}", item))
     ranked.sort(key=lambda row: (-row[0], row[1]))
+    ordered = counter_evidence_floor_order(
+        [row[2] for row in ranked],
+        floor=counter_floor,
+    )
     selected: list[object] = []
     used_independent: set[str] = set()
+    used_events: set[str] = set()
     used_chars = 0
-    for score, _key, item in ranked:
-        del score
+    for item in ordered:
         independent = str(getattr(item, "independent_key", "") or "")
         if independent and independent in used_independent:
+            continue
+        event = event_key(item) if merge_duplicates else ""
+        if event and event in used_events:
             continue
         title = str(getattr(item, "title", ""))
         detail = str(getattr(item, "detail", ""))
@@ -172,6 +197,8 @@ def select_agent_evidence(
         used_chars += cost
         if independent:
             used_independent.add(independent)
+        if event:
+            used_events.add(event)
         if len(selected) >= max_items:
             break
     return selected
