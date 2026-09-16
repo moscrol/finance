@@ -7,10 +7,12 @@ export FINANCE_WS="$DATA_ROOT"
 export MARKET_FEATURE_STORE_DB="${MARKET_FEATURE_STORE_DB:-$DATA_ROOT/db/market_feature_store.duckdb}"
 export MONEYFLOW_OUTPUT_DIR="${MONEYFLOW_OUTPUT_DIR:-$DATA_ROOT/scripts/moneyflow/outputs}"
 export L2_SOURCE="${L2_SOURCE:-baidu-share:xianyu-l2-7z}"
-# 代码根 = 本脚本所在的那棵树：moneyflow 脚本、trading_days 与本文件同源，信任哪份代码可验证
-#（工单 #51 夜跑代码根钉死）。状态 / 库 / 输出走 DATA_ROOT：闲鱼分享入口 state/l2-baidu-share.json、
-# 日包缓存 state/l2-cache 都在数据根，百度网盘 Cookie 走本机家目录（见 l2_paths.py），与代码根无关。
-CODE_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# 代码根：FINANCE_CODE_ROOT 优先（夜跑 launcher 导出的冻结快照；工单 #52 守卫测试也靠它注入假树），
+# 缺省退到本脚本所在的那棵树。moneyflow 脚本与 trading_days 探针都从这里取，信任哪份代码可验证
+#（工单 #51）。状态 / 库 / 输出走 DATA_ROOT：闲鱼分享入口 state/l2-baidu-share.json、日包缓存
+# state/l2-cache 都在数据根，百度网盘 Cookie 走本机家目录（见 l2_paths.py），与代码根无关。
+CODE_ROOT="${FINANCE_CODE_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+export FINANCE_CODE_ROOT="$CODE_ROOT"
 export PATH="/opt/homebrew/bin:/opt/homebrew/opt/node/bin:/usr/local/bin:$PATH"
 PY="${FINANCE_PYTHON:-python3}"
 
@@ -39,14 +41,6 @@ if [ "${L2_LOCK_HELD:-0}" != "1" ]; then
 fi
 
 moneyflow_dir="$CODE_ROOT/scripts/moneyflow"
-if [ ! -f "$moneyflow_dir/run_l2_from_share.py" ]; then
-  echo "资金流段跳过（缺少 $moneyflow_dir/run_l2_from_share.py）"
-  exit 2
-fi
-if [ ! -f "$DATA_ROOT/state/l2-baidu-share.json" ]; then
-  echo "资金流段跳过（缺少 state/l2-baidu-share.json）"
-  exit 2
-fi
 
 REV=$(git -C "$CODE_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 echo "L2 start date=$D source=$L2_SOURCE code=$CODE_ROOT rev=$REV data=$DATA_ROOT db=$MARKET_FEATURE_STORE_DB"
@@ -134,6 +128,17 @@ if [ "$CAL_DATA" != "present" ]; then
   # 行情缺口 ≠ L2 故障。本副本走闲鱼日包，L2 自身不依赖当日 fact_stock_daily；
   # 但下游 top100/quant 口径依赖它，缺了会空转。写清楚免得值班误判成 L2 坏了。
   echo "[$(date '+%F %T')] ⚠️ 当日行情 data=$CAL_DATA（非 present）：日包侧可照常，依赖当日 fact_stock_daily 的口径可能空转——这是行情缺口，不是 L2 故障" >&2
+fi
+
+# 前置件检查放在日历判定之后：休市日只落日历台账，不该因为缺日包入口而报错；
+# 交易日缺入口才是故障（exit 2，由夜跑落 failed 并告警）。
+if [ ! -f "$moneyflow_dir/run_l2_from_share.py" ]; then
+  echo "资金流段跳过（缺少 $moneyflow_dir/run_l2_from_share.py）"
+  exit 2
+fi
+if [ ! -f "$DATA_ROOT/state/l2-baidu-share.json" ]; then
+  echo "资金流段跳过（缺少 state/l2-baidu-share.json）"
+  exit 2
 fi
 
 cd "$moneyflow_dir" || exit 1

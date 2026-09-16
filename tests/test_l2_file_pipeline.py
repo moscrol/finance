@@ -48,9 +48,10 @@ def test_nightly_finalize_calls_code_root_l2_and_drops_pause_flag():
     assert "$DATA_ROOT/scripts/moneyflow/run_l2_pipeline.sh" not in text
 
 
-def test_run_l2_pipeline_code_root_is_its_own_tree_and_state_is_data_root():
+def test_run_l2_pipeline_code_root_is_env_then_own_tree_and_state_is_data_root():
+    """代码根：FINANCE_CODE_ROOT 优先、退到脚本所在树；数据面（state / db / outputs）只认 DATA_ROOT。"""
     text = PIPELINE.read_text(encoding="utf-8")
-    assert 'CODE_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"' in text
+    assert 'CODE_ROOT="${FINANCE_CODE_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"' in text
     assert 'moneyflow_dir="$CODE_ROOT/scripts/moneyflow"' in text
     assert '"$DATA_ROOT/state/l2-baidu-share.json"' in text
     # 代码走 CODE_ROOT；DATA_ROOT 只留给数据面（outputs / state / db）
@@ -60,8 +61,14 @@ def test_run_l2_pipeline_code_root_is_its_own_tree_and_state_is_data_root():
     assert "$DATA_ROOT/scripts/render_moneyflow_html.py" not in text
 
 
-def test_load_ticks_scales_price_and_keeps_active_side(tmp_path):
-    # 属于 L2 日包解包口径（process_l2_archive），从资金面板测试文件迁来：那边不依赖 scripts/moneyflow
+def test_load_ticks_scales_price_and_keeps_active_side(tmp_path, monkeypatch):
+    # 属于 L2 日包解包口径（process_l2_archive），从资金面板测试文件迁来：那边不依赖 scripts/moneyflow。
+    # 全量进程里 `config` 这个裸模块名可能已被 skills/report-search/scripts/config.py 占住，
+    # process_l2_archive 顶层 `from config import DUCKDB_PATH` 会撞名——先清掉再按本目录解析
+    #（与 test_non_trading_day_l2_guard 同一手法；monkeypatch 会在用例结束时还原）。
+    for name in ("config", "process_l2_archive"):
+        monkeypatch.delitem(sys.modules, name, raising=False)
+    monkeypatch.syspath_prepend(str(MONEYFLOW))
     from process_l2_archive import capital_from_ticks, load_ticks
 
     csv_path = tmp_path / "逐笔成交.csv"
