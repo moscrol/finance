@@ -248,6 +248,7 @@ def grant_for_delivery_repair(
     cycle_allowed: bool,
     evidence_count: int,
     seconds_cap: float | None = None,
+    input_only_rewrite: bool = False,
 ) -> BudgetGrant | None:
     """Grant one tool-closed delivery turn from already collected evidence.
 
@@ -257,12 +258,15 @@ def grant_for_delivery_repair(
     it produced a draft or bindings.  Requiring an already-closed output gap in
     that state would make repair conditional on the work repair must perform.
 
-    The grant cannot reopen tools, cannot run without evidence, and remains
-    bounded by the tier cycle cap (``cycle_allowed``, judged by the domain) and
-    the root seconds ledger.
+    The grant cannot reopen tools. Evidence-free delivery requires the domain's
+    explicit ``input_only_rewrite`` permission; both forms remain bounded by
+    the tier cycle cap (``cycle_allowed``) and the root seconds ledger.
     """
 
-    if evidence_count <= 0:
+    # A domain-approved input-only rewrite can disclose missing inputs without
+    # manufacturing an evidence row. Every other evidence-free delivery stays
+    # rejected. Both paths are one bounded tool-closed grant.
+    if evidence_count <= 0 and not input_only_rewrite:
         return None
     if not cycle_allowed:
         return None
@@ -388,7 +392,7 @@ def admit_repair(
         grant is None
         and allow_delivery_repair
         and (not tools_open or delivery_candidate or contract_rewrite_candidate)
-        and evidence_count > 0
+        and (evidence_count > 0 or need.shape.input_only_rewrite)
         and need.missing_outputs
     ):
         grant = grant_for_delivery_repair(
@@ -397,6 +401,7 @@ def admit_repair(
             cycle_allowed=warrant.cycle_allowed,
             evidence_count=evidence_count,
             seconds_cap=seconds_cap,
+            input_only_rewrite=need.shape.input_only_rewrite,
         )
         delivery_only = grant is not None
     if (

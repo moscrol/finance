@@ -152,13 +152,25 @@ degrade+trace，零外呼）。分界：material_only/local_only 恒拦，bounda
 本片不给引擎 B 内部加合同意识（被挡在门外≠免疫），fictional×full 的前提标注
 送达仍属 P4/P6 纯度范围。
 
+P4（D5）在 `fix/e2-delivery-closeout` 补齐 `material_only` 逐题交付：原题号保持
+`answer_qN` 唯一必需槽；已回答沿用 `fulfilled`，公开交代具体缺项才是 `legal_gap`，
+遗漏/重复/空壳/超长仍是 `missing`。合法缺口只能 `partial`，全缺口加顶部说明；
+它只证明结构已交代，不证明材料真缺失，仍实际送判。判官拒绝会重开原题，普通
+元陈述豁免不能洗白；公开稿删句/脱敏后重验，题号不重新编号。判官不可用保持
+`unavailable/pending_rejudge`，不伪造成功，也不为暂扣稿再烧补写轮。
+备忘录只由明确题意触发，与该题共用一个槽；T3 q8 上限200字（保守计入正文
+所有非空白字符和标点/Markdown，不含题标题，引用不可藏超长）。真漏答可获有界
+零工具补写，不靠降 optional 或假增证据数量；已交代缺口不触发空转修复。
+前置同时修了题内案例弱分区吞题、验收采集 followup 错开会话/误收旧答。
+证据仅为离线反例与定向回归，详见 `docs/handoffs/2026-09-16-e2-delivery-p4.md`。
+
 **本阶段不是材料题全链完成**：`local_only` 仅已审定 runner 的局部路径，未覆盖所有
 本地工具。D4 四组九类注入路径已逐条对账收口（矩阵与定性判断见
 [P3 注入面核查](handoffs/2026-09-15-e2-p3-injection-surface-audit.md)，payload 卫生
 钉测试锁现状）；判读基线/题型规则等方法文案留在 material_only 输入里，定性为
 「非事实、无 IO」不越 P3 红线，答案质量影响归 P4/P6 再议。引擎 B 内部仍无合同
 意识，不得绕过 P3h 两道门直接调用；注入式 registry_factory 内部读取不可撤销
-（P3c 声明）。local_only 原题号槽、逐题最终交付、可信跨轮继承、
+（P3c 声明）。local_only 原题号槽、材料题真实模型交付、可信跨轮继承五格全链、
 纯度与材料锚点待后续阶段；普通上下文不是按来源过滤后的安全输入。
 不得把局部短路当成真实入口已经零外呼，也不得运行正式 T2→T3/Knevo 对照。Grok CLI 已做过回顾性语义判卷试跑，但有效返回来自关闭系统沙箱的配置（不再沿用），且输入未含完整原题/材料，结果仅作试跑证据，不是隔离验收或正式评分；Knevo 有已登录浏览器的 CDP 回贴入口，但本轮未发新题、没有未揭盲成对答案，故没有正式 PK；详细状态见 [判官/Knevo 记录](verification/e2-boundary-closeout/llm-judge-knevo-status-20260915.md)。设计与阶段证据见
 [设计 v10](learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md)

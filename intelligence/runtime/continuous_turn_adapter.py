@@ -36,6 +36,7 @@ from intelligence.services.episode_semantic_verifier import (
     SemanticEpisodeOutcome,
     draft_sentence_count,
     numeric_condition_unsupported,
+    recheck_material_public_delivery,
 )
 from intelligence.services.rejudge_pending import append_pending_from_artifact
 from intelligence.services.episode_tools import (
@@ -1105,6 +1106,18 @@ class ContinuousTurnAdapter:
         for notice in public_notices:
             if notice not in answer:
                 answer = "\n\n".join(part for part in (answer, notice) if part)
+        from intelligence.services.material_delivery import material_question_outputs
+
+        if material_question_outputs(context.contract):
+            semantic = recheck_material_public_delivery(semantic, public_answer=answer)
+            final_outcome = semantic.verified.outcome
+            answer = semantic.public_answer
+            fulfilled_output_ids = _fulfilled_output_ids(
+                semantic.verified, excluded_output_ids=frozenset(semantic.gap_output_ids),
+            )
+            citations = _public_citation_projection(final_outcome, private_tokens, allowed_output_ids=fulfilled_output_ids)
+            if status == "completed" and semantic.status != "completed":
+                status = "partial"
         _phase_note(
             phase_recorder,
             status,
@@ -1216,6 +1229,7 @@ class ContinuousTurnAdapter:
                     (*_open_gap_labels(
                         context.contract,
                         fulfilled_output_ids=fulfilled_output_ids,
+                        disclosed_gaps={item.output_id: item.gap for item in semantic.verified.completion.outputs if item.status == "legal_gap"},
                     ), *public_notices)
                 )
             ),
@@ -1242,7 +1256,12 @@ class ContinuousTurnAdapter:
         candidate = verify(**kwargs)
         if not isinstance(candidate, SemanticEpisodeOutcome):
             raise TypeError("semantic verifier must return SemanticEpisodeOutcome")
-        return candidate
+        # Check the adapter's own sanitizer before deciding whether to resume.
+        # A previously disclosed gap cannot hide a deletion at the final seam.
+        return recheck_material_public_delivery(
+            candidate,
+            public_answer=_safe_public_text(candidate.public_answer, private_tokens=_private_tokens(candidate.verified.outcome)),
+        )
 
     def _resume_for_gap(
         self,
@@ -1508,8 +1527,14 @@ def _with_track_contract_gaps(
 ) -> VerifiedEpisodeOutcome:
     """Merge track / ranking expression-contract gaps into missing_outputs only.
 
-    Do not touch ``issues``: the #224 release gate matches issue prefixes.
+    Do not touch ``issues``: release policy is owned by Issue.code.
     """
+    from intelligence.services.material_delivery import material_question_outputs
+
+    # 原题逐题交付替代旧题型模板；不能把一个已交代的排序缺口再次投影
+    # 成矩阵/TTL/下一期关注等用户没要求的必填项。
+    if material_question_outputs(context.contract):
+        return structural
     merged = merge_track_missing_outputs(
         structural.missing_outputs,
         structural.outcome.draft,
@@ -1548,6 +1573,7 @@ def _repair_snapshot(
         information_cutoff=context.information_cutoff.as_of_date,
     )
     missing = set(structural.missing_outputs)
+    legal_gaps = {item.output_id for item in structural.completion.outputs if item.status == "legal_gap"}
     targets_by_hash: dict[str, list[str]] = {}
     for binding in outcome.bindings:
         if binding.gap or not binding.evidence_hashes:
@@ -1562,6 +1588,10 @@ def _repair_snapshot(
             continue
         if required.output_id in missing:
             ledger.open_gap(required.output_id)
+            continue
+        if required.output_id in legal_gaps:
+            # 结清交代义务，不伪造证据覆盖；这条仍出现在公开未决项中。
+            ledger.close_gap(required.output_id)
             continue
         flattened = tuple(
             content_hash
@@ -1894,6 +1924,7 @@ def _open_gap_labels(
     *,
     fulfilled_output_ids: frozenset[str],
     limit: int = 3,
+    disclosed_gaps: dict[str, str] | None = None,
 ) -> tuple[str, ...]:
     """未满足必需输出的描述文案——与公开缺口声明同一套口径。
 
@@ -1903,7 +1934,7 @@ def _open_gap_labels(
     if contract is None:
         return ()
     return tuple(
-        item.description.strip()
+        (disclosed_gaps or {}).get(item.output_id) or item.description.strip()
         for item in contract.required_outputs
         if item.required
         and item.output_id not in fulfilled_output_ids

@@ -837,7 +837,8 @@ class RequiredOutput:
 @dataclass(frozen=True)
 class OutputStatus:
     output_id: str
-    status: Literal["fulfilled", "gap", "missing"]
+    # fulfilled is D5's answered projection; legal_gap is disclosed, not answered.
+    status: Literal["fulfilled", "legal_gap", "gap", "missing"]
     evidence_ids: tuple[str, ...] = ()
     gap: str = ""
 
@@ -912,6 +913,10 @@ class ResearchTaskContract:
                 raise ResearchContractError("material_only 不允许读能力或材料外证据计划")
             if any(output.evidence_types for output in self.required_outputs):
                 raise ResearchContractError("material_only 输出槽不能要求材料外工具证据")
+            for question in self.material_contract.questions:
+                matches = tuple(item for item in self.required_outputs if item.output_id == f"answer_{question.question_id}")
+                if len(matches) != 1 or not matches[0].required:
+                    raise ResearchContractError("material_only 每题须保留唯一必需输出槽：" + question.question_id)
         if self.material_contract is not None and self.material_contract.data_scope == "local_only":
             if restrict_read_capabilities(tuple(self.allowed_capabilities), "local_only") != tuple(self.allowed_capabilities):
                 raise ResearchContractError("local_only 含未审定的读取能力")
