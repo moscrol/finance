@@ -501,6 +501,8 @@ def review_patch(
         value = str(patch.get("value") or "").strip()
         if field not in ALLOWED_PATCH_FIELDS or not value:
             raise ValueError(f"patch 内容非法（field={field!r}），不可写入画像")
+        # 副作用前重读：批量脚本若拿着更早的薄画像循环 _save_profile，会抹掉人工 HOW。
+        profile = perspective_lab.load_profile(us, pid)
         applied = not _profile_has_value(profile, field, value)
         if applied:
             profile.setdefault(field, []).append(value)

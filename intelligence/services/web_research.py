@@ -107,6 +107,21 @@ def fetch_web_search(
     )
 
 
+# Bing 结果页分两步到达（2026-09-03 经 CDP 代理逐 0.15s 采样实测）：``/new`` 返回时页面已
+# ``readyState=complete`` 且有 10 条 ``li.b_algo``，但那是 ``_G.JCache=1`` 的实体缓存壳——
+# 新题时是官网/百科导航页（「拼多多 2024 营收」回「拼」字词典，「中国平安 年报」回
+# 「中华人民共和国_百度百科」）；约 1–2.5s 后页面自行跳到 ``…&rdr=1&rdrig=…``，真正的
+# 有机结果只在跳转后的页面上。原实现「首批非空即收」拿走的一直是壳，且 ``status=success``。
+# 判据只认 href 里的 ``rdr=1``（``JCache`` 跳转前后都是 1，不能用）；没观察到跳转时，
+# 结果连续稳定 ``_BING_SETTLE_SECONDS`` 才收，防 Bing 以后不再跳转导致永远超时。
+_BING_RDR_MARKER = "rdr=1"
+_BING_SETTLE_SECONDS = 3.0
+_BING_POLL_SECONDS = 0.3
+_BING_DETAIL_SETTLED_RDR = "settled after rdr redirect"
+_BING_DETAIL_SETTLED_STABLE = "no rdr redirect; results stable"
+_BING_DETAIL_UNSETTLED = "unsettled: rdr redirect not observed before deadline"
+
+
 def _fetch_web_search_uncached(
     query: str,
     *,
@@ -150,6 +165,9 @@ def _fetch_web_search_uncached(
                 detail="CDP proxy health check failed",
             ),
         )
+    raw_items: list[object] = []
+    settle_detail = _BING_DETAIL_UNSETTLED
+    payload_malformed = False
     try:
         search_url = "https://www.bing.com/search?q=" + urllib.parse.quote(keyword)
         with urllib.request.urlopen(
@@ -160,15 +178,9 @@ def _fetch_web_search_uncached(
         target_id = str(opened.get("targetId") or opened.get("id") or "")
         if not target_id:
             raise OSError("missing target id")
-        script = (
-            "JSON.stringify(Array.from(document.querySelectorAll('li.b_algo'))"
-            f".slice(0,{max(1, int(limit))}).map(x=>({{"
-            "title:x.querySelector('h2 a')?.textContent?.trim()||'',"
-            "url:x.querySelector('h2 a')?.href||'',"
-            "snippet:x.querySelector('p')?.textContent?.trim()||''"
-            "})))"
-        )
-        evaluated: dict[str, object] = {"value": "[]"}
+        script = _bing_page_state_script(limit)
+        stable_since: float | None = None
+        stable_key: str | None = None
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             request = urllib.request.Request(
@@ -182,12 +194,29 @@ def _fetch_web_search_uncached(
                 timeout=max(1.0, min(5.0, remaining)),
             ) as response:
                 evaluated = json.loads(response.read())
-            if str(evaluated.get("value") or "[]") != "[]":
+            page = _parse_bing_page_state(evaluated.get("value"))
+            if page is None:
+                payload_malformed = True
                 break
+            href, ready, items_now = page
+            if items_now:
+                raw_items = items_now
+                if _BING_RDR_MARKER in href and ready == "complete":
+                    settle_detail = _BING_DETAIL_SETTLED_RDR
+                    break
+                key = json.dumps(items_now, ensure_ascii=False, sort_keys=True)
+                now = time.monotonic()
+                if key != stable_key:
+                    stable_key, stable_since = key, now
+                elif stable_since is not None and now - stable_since >= _BING_SETTLE_SECONDS:
+                    settle_detail = _BING_DETAIL_SETTLED_STABLE
+                    break
+            else:
+                stable_key, stable_since = None, None
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 break
-            time.sleep(min(1.0, remaining))
+            time.sleep(min(_BING_POLL_SECONDS, remaining))
     except json.JSONDecodeError:
         return WebSearchResult(
             (),
@@ -217,9 +246,7 @@ def _fetch_web_search_uncached(
                 ).close()
             except Exception:  # noqa: BLE001
                 pass
-    try:
-        raw_items = json.loads(str(evaluated.get("value") or "[]"))
-    except (json.JSONDecodeError, TypeError):
+    if payload_malformed:
         return WebSearchResult(
             (),
             ProviderTrace(
@@ -246,9 +273,44 @@ def _fetch_web_search_uncached(
             provider=PROVIDER_BING_WEB,
             capability="general_web_search",
             status="success" if items else "empty",
-            detail="Bing web results via CDP proxy",
+            detail=f"Bing web results via CDP proxy; {settle_detail}",
             result_count=len(items),
         ),
+    )
+
+
+def _bing_page_state_script(limit: int) -> str:
+    """``/eval`` 用的页面状态脚本：href / readyState / 前 ``limit`` 条有机结果一次带回。
+
+    字符串拼接的 JS 少一个括号就是代理 4xx → ``request_error``，单测桩掉代理看不见；
+    ``test_web_research`` 对这段做括号配平检查。
+    """
+
+    return (
+        "JSON.stringify({href:location.href,ready:document.readyState,"
+        "items:Array.from(document.querySelectorAll('li.b_algo'))"
+        f".slice(0,{max(1, int(limit))}).map(x=>({{"
+        "title:x.querySelector('h2 a')?.textContent?.trim()||'',"
+        "url:x.querySelector('h2 a')?.href||'',"
+        "snippet:x.querySelector('p')?.textContent?.trim()||''"
+        "}))})"
+    )
+
+
+def _parse_bing_page_state(value: object) -> tuple[str, str, list[object]] | None:
+    """把 ``/eval`` 回来的页面状态解成 ``(href, readyState, items)``；不是预期形状返回 None。"""
+
+    try:
+        page = json.loads(str(value or "{}"))
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(page, dict):
+        return None
+    items = page.get("items")
+    return (
+        str(page.get("href") or ""),
+        str(page.get("ready") or ""),
+        list(items) if isinstance(items, list) else [],
     )
 
 

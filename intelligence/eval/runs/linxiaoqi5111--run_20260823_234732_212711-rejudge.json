@@ -1,0 +1,23 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "linxiaoqi5111--run_20260823_234732_212711",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "e7c233bab8dc0c24b9b000e9f783162496e171f26c7411c74313d5b096db8bc6",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      5
+    ],
+    "issues": [
+      "第5句把双红个数表述为双红个股家数，但E18给出的是按板块成交额、涨幅和边际量口径统计的双红个数，主体口径被偷换。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

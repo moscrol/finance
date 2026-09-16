@@ -97,6 +97,72 @@ describe("DailyReportView", () => {
     );
   });
 
+  it("renders canonical review tables, folding wide matrices by default", () => {
+    const reviewProjection: DailyReportProjection = {
+      ...projection,
+      report_type: "daily_review",
+      title: "2026-09-02 每日市场复盘",
+      sections: [
+        {
+          title: "个股载体",
+          items: [
+            {
+              title: "3板及以上个股",
+              summary: "3板及以上个股 6 只，最高连板 4 板。",
+              badges: ["§11"],
+            },
+          ],
+          tables: [
+            {
+              title: "3板及以上个股",
+              columns: ["股票", "连板数", "首板日期"],
+              rows: [["国芳集团", 4, "2026-08-28"]],
+            },
+            {
+              title: "涨停题材 · 电子",
+              columns: [
+                "题材",
+                "08-13",
+                "08-14",
+                "08-17",
+                "08-18",
+                "08-19",
+                "08-20",
+                "08-21",
+                "08-24",
+                "09-02",
+              ],
+              rows: [["芯片", 9, 21, 23, 10, 1, 4, 14, 5, 11]],
+            },
+          ],
+        },
+        {
+          title: "数据覆盖",
+          items: [],
+          tables: [
+            {
+              title: "数据覆盖检查",
+              columns: ["表", "状态"],
+              rows: [["fact_market_daily", "OK"]],
+            },
+          ],
+        },
+      ],
+    };
+    render(<DailyReportView projection={reviewProjection} />);
+
+    const stockTables = screen.getByTestId("daily-tables-个股载体");
+    expect(stockTables).toHaveTextContent("国芳集团");
+    expect(stockTables).toHaveTextContent("2026-08-28");
+    const compact = screen.getByText("3板及以上个股", { selector: "summary span" }).closest("details");
+    const matrix = screen.getByText("涨停题材 · 电子").closest("details");
+    expect(compact).toHaveAttribute("open");
+    expect(matrix).not.toHaveAttribute("open");
+    expect(matrix).toHaveTextContent("1 行 · 10 列");
+    // 只有表、没有条目的分组也要显示
+    expect(screen.getByTestId("daily-tables-数据覆盖")).toHaveTextContent("fact_market_daily");
+  });
+
   it("surfaces the legacy compatibility warning", () => {
     const legacyProjection: DailyReportProjection = {
       ...projection,

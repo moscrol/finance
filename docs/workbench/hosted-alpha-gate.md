@@ -1,6 +1,7 @@
 # Hosted Alpha 身份门与配额：部署 Runbook
 
-- 日期：2026-08-27；2026-09-03 增补 §1.4 并发守卫、§2 第 5 步 Bypass、§6 备份与拨测、§7 接线顺序
+- 日期：2026-08-27；2026-09-03 增补 §1.4 并发守卫、§2 第 5 步 Bypass、§6 备份与拨测、§7 接线顺序；
+  同日下午重写 §2（实测拓扑：专用 token 隧道已在，旧「加进 a77-exec config.yml」的做法作废）、增 §3.1 探针 401 影响面
 - 代码：`intelligence/api/auth.py`（认证 + 身份改写）、`intelligence/api/quota.py`（日配额）、
   `intelligence/api/app.py` `RunSupervisor`（准入与排队）、`scripts/install_workbench_backup.py`、`scripts/probe_workbench_health.sh`
 - 上游决策：`docs/superpowers/specs/2026-07-11-workbench-self-use-to-invite-beta-design.md` §10.2
@@ -65,8 +66,8 @@ export WORKBENCH_AUTH_USER_MAP=$HOME/.local/share/finance-workbench/beta-users.j
 export WORKBENCH_DAILY_RUN_QUOTA=20
 export WORKBENCH_QUOTA_EXEMPT_USERS=linxiaoqi5111
 
-# 内测用户没有本机 Chrome CDP，web_search 必须关闭（或换 server-side API 后再开）：
-export FINANCE_WEB_SEARCH=0
+# web_search 是否对内测关闭——待拍板，alpha.env 刻意没写这一行（见下方说明）：
+# export FINANCE_WEB_SEARCH=0
 
 # 方法论端点门（防蒸馏第二道闸）：非名单用户访问 run trace / run context /
 # 学习面板一律 403。未设置 = 不限制：
@@ -80,6 +81,16 @@ export WORKBENCH_MAX_QUEUED_RUNS=4             # worker 全忙后最多排 4 个
 
 配置不完整（cf_access 缺团队域/AUD/名单）**启动即抛**，不带病上线。
 依赖：`PyJWT[crypto]>=2.8`（已在 `intelligence/api/requirements.txt`，venv 已含）。
+
+`FINANCE_WEB_SEARCH` 待拍板：`web_search` 走的是这台 Mac 上的 CDP 代理（`web_research.py`，server-side），
+内测用户的 run 同样用得上，「用户没有本机 Chrome」不成立；真正的取舍是 owner 的 Chrome 会话被共用，以及
+#537（09-03 已上 8792）刚给 `company_financial_evidence` 帧放开 `web_search` 授权——这个 env 是全局开关，
+关了 owner 一起关，等于静默撤回 #537 的 live 行为。所以 `alpha.env` 不写它，开内测前单独决定。
+
+**接线方式必须是 `source alpha.env`，不要把这些值改写成启动器里的 `export` 行**：8796 能力开关 sidecar
+（`start-finance-workbench-capability-sidecar`）用 `grep '^export '` 整段继承 8792 启动器，`export` 形式会让
+sidecar 一起开认证，本机对 8796 的消融/对照臂全部 401。`if [[ -f alpha.env ]]; then set -a; source …; set +a; fi`
+这一段没有 `^export` 行，sidecar 不受影响。
 
 ### 1.4 并发守卫：三条规则与用户会看到什么
 
@@ -110,7 +121,7 @@ export WORKBENCH_MAX_QUEUED_RUNS=4             # worker 全忙后最多排 4 个
 `/api/health`、`/api/health/live`、`/api/readiness`、`/api/health/ready`。
 非 `/api/` 路径（前端静态 bundle）不拦，边缘层已有 Access。
 
-## 2. Cloudflare 侧（一次性，约 20 分钟）
+## 2. Cloudflare 侧（一次性）
 
 人工步骤已收成向导（**不改 8792 启动器、不 kickstart**；配完的 env 落
 `~/.local/share/finance-workbench/alpha.env`，接上启动器需你确认）：
@@ -119,36 +130,49 @@ export WORKBENCH_MAX_QUEUED_RUNS=4             # worker 全忙后最多排 4 个
 bash scripts/hosted-alpha-wizard.sh
 ```
 
-前提：Cloudflare 账号 + 一个托管在 Cloudflare 的域名（免费计划够用）。现有隧道
-`a77-exec` 已服务 `*.industry7view.com`，向导默认建议在同一条隧道加
-`beta.industry7view.com → 127.0.0.1:8792`，而不是再开一条（两条 cloudflared 抢同一份 cert 会互相踩）。
+### 2.1 这台 Mac 的真实拓扑（2026-09-03 实测，与旧版本文/向导的假设不同）
 
-**顺序：先建 Access 应用（下面第 1–5 条），再加 DNS 与 ingress。** 主机名一旦回源到 8792 而 Access
-还没建，8792 就是无认证公网可达——后端 auth 此刻仍是 `off`。Access 按主机名配置，DNS 不存在时也能先建。
+旧版写的是「在现有隧道 `a77-exec` 的 `config.yml` 里加 beta 主机名」。**不要这么做**——账号里
+早已有一条专用隧道，且就在这台 Mac 上跑着：
 
-Zero Trust 控制台 → Access → Applications → Add：
-1. 类型 Self-hosted，域名填 `beta.<你的域名>`；
-2. Policy：Allow，Include = Emails（逐个填邀请邮箱）——与后端名单**双层白名单**；
-3. 登录方式默认 One-time PIN（邮箱验证码），无需接 IdP；
-4. 建好后复制 **Application Audience (AUD) tag** → `WORKBENCH_CF_ACCESS_AUD`；
-   团队域在 Zero Trust → Settings → Custom Pages 可见（`<team>.cloudflareaccess.com`）。
-5. **再建一个** Self-hosted 应用，域名 `beta.<你的域名>`、路径 `api/health`，Policy 选 **Bypass**、
-   Include = Everyone。这是给 VPS 外部拨测（§6.2）放行的：后端本来就豁免 `/api/health*`
-   （`auth.py` `_EXEMPT_PATHS`，且剥掉 `user` 参数只暴露默认身份的健康信息），差的只是边缘层这一道。
-   不配这条，拨测拿到的永远是 302 登录页。
+| 隧道 | ID | 管理方式 | launchd 标签 | 服务的主机名 |
+|---|---|---|---|---|
+| `finance-workbench-beta` | `74b5fce7-…` | **token 远程托管**（ingress 在 Zero Trust 后台，本机无 config） | `com.cloudflare.cloudflared` | `beta.industry7view.com → http://127.0.0.1:8792`（连接器日志 08-26 18:28Z 收到该 ingress） |
+| `a77-exec` | `c4fa1cd5-…` | 本机 `~/.cloudflared/config.yml` | `com.industry7view.exec-tunnel`（+ 每分钟看门狗 `…exec-tunnel-watchdog`） | archlume / poison-a77 / exec-a77 / api-a77 |
 
-Access 建好之后，再开门（在现有隧道上，不新建 tunnel）：
+- 两条隧道自 08-26 起并行运行（`cloudflared tunnel list` 各 2 条连接）。旧版「两条 cloudflared 抢同一份
+  cert」的顾虑对 token 隧道不成立——它不读 `cert.pem`。
+- 往 `a77-exec` 的 `config.yml` 加 beta 会变成**两条隧道同争一个主机名**，而 DNS CNAME 只指向 beta 隧道；
+  `cloudflared tunnel route dns a77-exec beta…` 还会把 CNAME 改指错隧道。
+- 要改 beta 的回源（换端口、加路径），去 Zero Trust → Networks → Tunnels → `finance-workbench-beta` →
+  Public Hostname；改完连接器自动收到新配置，不用重启。真要重启：`launchctl kickstart -k gui/$(id -u)/com.cloudflare.cloudflared`
+  （用户域；`a77-exec` 是另一个标签，别踢错）。
+- DNS 已解析（`dig @1.1.1.1 beta.industry7view.com` → Cloudflare anycast）；`https://beta.industry7view.com/api/health`
+  返回 **302 → `holy-wood-89ce.cloudflareaccess.com/cdn-cgi/access/login/…`**，即 **Access 应用已存在**，
+  团队域 = `holy-wood-89ce.cloudflareaccess.com`，登录 URL 的 `kid` 参数（= meta 令牌 `aud`）
+  = `93fc197ac859098d7d8c758c1087d13939ab8d8f902201c5baf002849787f2eb`，这就是该应用的 AUD tag。
+  两值已预填进 `alpha.env`；后台应用页若显示不同，以后台为准（错的 AUD 只会让所有人 401，不会放行）。
+
+从本机复核这些事实的命令（都是只读）：
 
 ```bash
-cp ~/.cloudflared/config.yml ~/.cloudflared/config.yml.bak.$(date +%Y%m%d%H%M%S)
-# 在 ~/.cloudflared/config.yml 的 ingress: 列表最前面插入两行：
-#   - hostname: beta.<你的域名>
-#     service: http://127.0.0.1:8792
-cloudflared tunnel ingress validate
-cloudflared tunnel ingress rule https://beta.<你的域名>/     # 应命中 8792 那条
-cloudflared tunnel route dns a77-exec beta.<你的域名>
-launchctl kickstart -k gui/$(id -u)/com.cloudflare.cloudflared   # 挂在用户域，不要 sudo/system
+cloudflared tunnel list                                   # 三条隧道；beta 与 a77-exec 各有 CONNECTIONS
+rg -n 'Updated to new configuration' ~/Library/Logs/com.cloudflare.cloudflared.err.log | tail -1   # beta 的远程 ingress
+dig @1.1.1.1 +short beta.industry7view.com
+curl -sS -o /dev/null -w '%{http_code} %{redirect_url}\n' https://beta.industry7view.com/api/health   # 302 + 团队域登录页 = Access 在
 ```
+
+### 2.2 后台里还差什么（Zero Trust 控制台 → Access → Applications）
+
+1. **核对**现有 `beta.industry7view.com` 应用：Policy = Allow、Include = Emails，邮箱与后端 `beta-users.json`
+   **双层白名单**一致；登录方式 One-time PIN；应用页的 Application Audience (AUD) tag 与 `alpha.env` 一致。
+2. **新建** Self-hosted 应用：域名 `beta.industry7view.com`、路径 `api/health`，Policy **Bypass**、Include = Everyone。
+   给 VPS 外部拨测（§6.2）放行：后端本来就豁免 `/api/health*`（`auth.py` `_EXEMPT_PATHS`，且剥掉 `user`
+   参数只暴露默认身份的健康信息），差的只是边缘层这一道。**09-03 实测该路径仍 302，即这条还没建**；
+   不配，拨测拿到的永远是登录页。
+
+**顺序原则不变：Access 先于回源。** 这台机器上 Access 与回源都已就位，顺序问题已不存在；将来换主机名时仍按
+「先建 Access、再在隧道加 Public Hostname」做，否则主机名生效到 Access 建好之间 8792 是无认证公网可达。
 
 ## 3. 验收清单（改完必跑）
 
@@ -172,6 +196,30 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8792/api/conversations
 自动化：`intelligence/tests/test_api_auth.py`（21 例）、`test_api_quota.py`（10 例）、
 `test_api_run_admission.py`（8 例）覆盖验签/冒充/豁免/回归/并发不超卖/准入与排队，
 `tests/test_install_workbench_backup.py`、`tests/test_probe_workbench_health.py` 覆盖备份快照与拨测状态机。
+
+**第 1、2 条已在干跑上过了一遍（2026-09-03）**：用生产快照 `c88c81da5120` + 预填的 `alpha.env` 在 8899 起一个
+隔离实例（`FORESIGHT_USERS_DIR` 指临时目录、`RAG_WORKER_ENABLED=0`、`FINANCE_DEPLOY_LEDGER` 指 /tmp），
+启动不抛；`/api/health?user=…` 与 `/api/readiness` 200、`auth_mode=cf_access`；`/api/conversations` GET 与
+`/api/runs` POST 无 JWT 均 401「缺少访问凭证」；带真实 `kid` 但签名伪造的 JWT 401「无效的访问凭证」（**不是 503**，
+即服务进程能拉到 `holy-wood-89ce` 的 JWKS）；未知 `kid` 401；trace/学习面板路径 401；`/` 静态 200。
+生产 8792 全程未动。第 3–9 条需要真人（浏览器 + 邮箱验证码 + VPS）。
+
+### 3.1 认证一开，本机探针工具全部 401——这是第 2 条的另一面
+
+`scripts/workbench_probe.py`、`intelligence/eval/live_probe.py`、`scripts/smoke_workbench_self_use.py`、
+`scripts/run_probe_battery.py`、`run_agent_episode_ab.py` 等都默认直打 `127.0.0.1:8792` 并自报 `user=`。
+`cf_access` 下它们对 8792 一律 401（`auth.py` 无回环豁免，这是设计：任何能到回环口的进程都能伪造明文头）。
+后果是**切流三项验证里的「长电 grounded 探针」在 8792 上跑不了了**，owner 在浏览器里直开 `127.0.0.1:8792`
+也会 API 全 401（页面能开、数据加载不出来）——owner 自此也从 `https://beta.industry7view.com` 登录。开认证前选一条：
+
+1. 探针改打 `https://beta.industry7view.com`，带 owner 登录后浏览器里的 `CF_Authorization` cookie 值作
+   `Cf-Access-Jwt-Assertion` 头（有效期 = Access 应用的 Session Duration，手工续；零代码）；
+2. `auth.py` 加 service token 支持——Access service token 换来的 JWT 只有 `common_name` 无 `email`，
+   现在一律 401（§4.6）；加一张 `common_name → user_id` 的映射后探针用 `CF-Access-Client-Id/Secret`
+   头走边缘（要改代码 + 测试，另开 PR）；
+3. 代码级冒烟改打 8796 sidecar（auth off）——但它不是生产实例，只能替代「代码没坏」这一半。
+
+没选之前不要开认证：开了之后第一次切流就会发现探针全红，然后有人会去加回环豁免——那正是本设计要堵的洞。
 
 ## 3.5 防蒸馏立场（为什么是这三道闸）
 
@@ -242,6 +290,11 @@ ssh vps 'ls -la /srv/backup/finance-workbench; cat /srv/backup/finance-workbench
 日志 `~/Library/Logs/com.a77.finance-workbench-backup.log`；退出码 2 = 预检失败（源目录空 / ssh 不通），1 = rsync 失败。
 安装器会先跑一遍预检，跑不通就拒绝挂载——不把一个注定失败的任务塞进 launchd。
 
+VPS 地址线索与限制（2026-09-03）：`~/.ssh/config` 无 Host 条目；`~/.ssh/known_hosts` 里唯一的公网条目是
+`[154.29.155.87]:21259`（07-26 写入），从 agent 沙箱壳对它与 `github.com:22` 的 ssh **都连接超时**
+（`github.com` 被解析成 Shadowrocket Fake-IP `198.18.x`）——agent 壳出不去 ssh，07-29 的交接也记过同一现象。
+所以 `install` 的预检与 `run` 要在**你自己的终端**跑，或由你先 `ssh -o BatchMode=yes <user@host> true` 确认免密可达。
+
 **恢复流程（备份没演练过等于没有）**：
 ```bash
 # 还原某个用户到某天的状态（先停 8792，避免边写边还原）
@@ -268,15 +321,32 @@ ssh vps 'chmod +x /opt/finance/probe_workbench_health.sh'
 
 ## 7. 接线顺序（人工步骤，一次性）
 
-> 进度 2026-09-03：第 1 步已完成——8792 = `c88c81da5120`（PR #547，链切五步，回滚锚 `cutover-20260903d-rollback-8792.txt`），
+> 进度 2026-09-03 13:05：第 1 步已完成——8792 = `c88c81da5120`（PR #547，链切五步，回滚锚 `cutover-20260903d-rollback-8792.txt`），
 > 启动器已带 §1.2 的四条并发守卫 env（`RUN_WORKERS=4 / PER_USER=1 / QUEUED=4 / EXEMPT=linxiaoqi5111`），准入 429 已在生产实测。
-> **auth 仍 `off`**，第 2–6 步待真人。
+>
+> 进度 2026-09-03 14:00：第 2 步**大半早已就位**（§2.1：beta 隧道、DNS、Access 应用 08-26 起就在，此前没人从公网探过一次）。
+> `alpha.env` 与 `beta-users.json`（候选邮箱 `linxiaoqi5111@gmail.com`，取自 git 作者邮箱——登录邮箱若不是它，改这一行即可）
+> 已预填，8899 干跑八项通过（§3）。**auth 仍 `off`**，启动器未 source。真人还差：后台建 `api/health` Bypass 应用 +
+> 核对 AUD / 名单邮箱（§2.2）；拍板 §3.1 探针路线与 §1.2 `FINANCE_WEB_SEARCH`；第 3–6 步。
 
 1. 部署运行快照：按 `docs/workflows/acceptance-workflow.md` §4 链切五步（新建 detached 快照 + 切软链）；
    `scripts/deploy_workbench_runtime.sh` 是 rsync 进现有快照的旧形态。合并 ≠ 生产跑上了。
-2. `bash scripts/hosted-alpha-wizard.sh` 走完六步（隧道路由、Access 应用、AUD、名单）；§2 第 5 步的 Bypass 应用一并建。
-3. 把 `alpha.env` 的内容加进 `~/.local/bin/start-finance-workbench`（含 §1.2 的三条并发守卫），
-   `launchctl kickstart -k gui/$(id -u)/com.a77.finance-workbench`。
-4. 跑 §3 验收九条。第 2 条（无 JWT 直打 → 401）不过，其余全部作废。
+2. `bash scripts/hosted-alpha-wizard.sh` 走完六步——现在是核对式：向导会自己探 DNS / 302 / 隧道连接，
+   预填值按 Enter 保留；§2.2 的 Bypass 应用在 Stage 2 建。
+3. 把下面这段加进 `~/.local/bin/start-finance-workbench`（并发守卫四行之后），然后
+   `launchctl kickstart -k gui/$(id -u)/com.a77.finance-workbench`：
+
+   ```bash
+   # Hosted Alpha（docs/workbench/hosted-alpha-gate.md §7；只能 source，不要展开成 export 行——8796 sidecar 会继承）
+   if [[ -f "$HOME/.local/share/finance-workbench/alpha.env" ]]; then
+     set -a
+     source "$HOME/.local/share/finance-workbench/alpha.env"
+     set +a
+   fi
+   ```
+
+   先 `cp ~/.local/bin/start-finance-workbench ~/.local/bin/start-finance-workbench.bak-$(date +%Y%m%d)-alpha` 留锚。
+4. 跑 §3 验收九条。第 2 条（无 JWT 直打 → 401）不过，其余全部作废。第 3 条过不了先怀疑 AUD（后台应用页对一下）
+   再怀疑名单邮箱（403 会把邮箱打在 detail 里）。
 5. §6.1 装备份并立刻 `run` 一次、演练一次恢复；§6.2 装拨测并制造一次 down 看通知到不到。
 6. 把 §4 已知边界原样发给内测用户，再加人（改 `beta-users.json` 即可，热重载不重启）。

@@ -1,0 +1,23 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "linxiaoqi5111--run_20260828_170910_375000",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "2af62afa9eda5e13a026ac5ff1de61ccb389031d6db1ad38a016c0317aa0a4a0",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      1
+    ],
+    "issues": [
+      "第1句把长电科技称为A股半导体封测龙头，但唯一证据E1仅登记其与1.6T CPO的related/L1关联，不能核验该外部事实。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

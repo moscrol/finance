@@ -1,0 +1,25 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "fsr2-r1--run_20260828_182345_960428",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "cdb29487e7a2a536dbbce1543d1f347e0010fca2b6050ae595709989bb79f6cd",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      3,
+      7
+    ],
+    "issues": [
+      "第3句声称约224个概念板块的全集口径，但证据注册表只直接给出前三名记录，未支持该板块总数与全集范围。",
+      "第7句关于板块成分股重叠及非互斥行业分类的说明没有直接证据支持。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

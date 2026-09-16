@@ -1,0 +1,27 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "probe-v6-0821--run_20260822_033024_671077",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "dfb8a4534404ba01b78a8f5ae0fd55d6c3a366d49cb728e0e5ecaa45f04952e9",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      10,
+      11,
+      12
+    ],
+    "issues": [
+      "第10句把隆基绿能称为研发储备技术扩大为头部晶硅厂商尚未押注，主体范围和语义均超出E2直接证据。",
+      "第11句将放量且涨停稀少归因为资金借政策利好出货而非建仓，证据仅支持盘面现象，不支持该资金动机和政策因果。",
+      "第12句断言钙钛矿尚未规模商业化并据此判断实际减负有限，注册证据未直接支持这一行业状态及因果结论。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

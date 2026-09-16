@@ -169,7 +169,7 @@ class ExamSuiteTests(unittest.TestCase):
             us = _us(tmp)
             profile = _seed_blogger(us)
             profile["risk_triggers"] = ["别的信号"]
-            perspective_lab._save_profile(us, profile)
+            perspective_lab._save_profile(us, profile, allow_regression=True)
             _complete_exam(us)
             result = perspective_exam.run_exam(us, "blogger_x")
         self.assertFalse(result["passed"])
@@ -182,7 +182,7 @@ class ExamSuiteTests(unittest.TestCase):
             us = _us(tmp)
             profile = _seed_blogger(us)
             profile["risk_triggers"] = ["产能过剩后建议加仓"]
-            perspective_lab._save_profile(us, profile)
+            perspective_lab._save_profile(us, profile, allow_regression=True)
             perspective_exam.add_case(
                 us,
                 "blogger_x",
@@ -206,7 +206,7 @@ class ExamSuiteTests(unittest.TestCase):
             us = _us(tmp)
             profile = _seed_blogger(us)
             profile["honest_boundaries"] = []
-            perspective_lab._save_profile(us, profile)
+            perspective_lab._save_profile(us, profile, allow_regression=True)
             _complete_exam(us)
             result = perspective_exam.run_exam(us, "blogger_x")
         self.assertFalse(result["passed"])

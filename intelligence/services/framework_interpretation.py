@@ -78,6 +78,96 @@ def extract_facts_digest(daily_review_md: str) -> str:
     return "\n".join(out).strip()
 
 
+# 台账 JSON facts 里进硬事实底座的键：都是画像信号词常引用的口径
+# （价日/量日/双量日切换口径、MA5 波峰波谷、多周期共振、连板高度）。
+_FACT_KEYS: tuple[tuple[str, str], ...] = (
+    ("nature", "市场性质"),
+    ("market_stage", "市场阶段"),
+    ("price_day", "价日"),
+    ("volume_day", "量日"),
+    ("double_volume_day", "双量日"),
+    ("ma5_position", "涨家数MA5位置"),
+    ("ma5_trend", "涨家数MA5趋势"),
+    ("concentration_state", "成交集中度"),
+    ("strength_status", "强度状态"),
+    ("strength_status_prev", "昨日强度状态"),
+    ("multi_period_themes", "多周期共振题材"),
+    ("full_period_themes", "全周期共振题材"),
+    ("limit_advance_count", "3板及以上个股数"),
+    ("max_boards", "最高连板"),
+)
+
+
+def _fact_text(value: Any) -> str:
+    if isinstance(value, bool):
+        return "是" if value else "否"
+    if value is None:
+        return "-"
+    if isinstance(value, list):
+        parts = []
+        for item in value:
+            if isinstance(item, list) and len(item) == 2:
+                parts.append(f"{item[0]}({item[1]}次)")
+            else:
+                parts.append(str(item))
+        return "、".join(parts) or "无"
+    return str(value)
+
+
+def extract_facts_digest_from_json(report: dict[str, Any]) -> str:
+    """从台账 JSON 真本源抽硬事实：核心看板 + 每节结论 + 关键口径字段。
+
+    仍是逐字摘录（结论句就是台账里的那句），不做推断；比只读 md 两节多出
+    MA5 波段、共振题材、连板等信号词真正会落在的地方——此前解读步长期
+    「无信号命中」，不是没有信号，是没把这些数据递过去。
+    """
+    out: list[str] = ["## 核心看板"]
+    for row in report.get("core_board") or []:
+        if isinstance(row, dict):
+            out.append(f"| {row.get('dimension')} | {row.get('conclusion')} |")
+    facts = report.get("facts") or {}
+    if isinstance(facts, dict):
+        out.append("## 关键口径")
+        for key, label in _FACT_KEYS:
+            if key in facts:
+                out.append(f"- {label}：{_fact_text(facts.get(key))}")
+    out.append("## 分节结论")
+    for section in report.get("sections") or []:
+        if not isinstance(section, dict):
+            continue
+        title = str(section.get("title") or "")
+        for block in section.get("blocks") or []:
+            if not isinstance(block, dict):
+                continue
+            kind = block.get("kind")
+            text = str(block.get("text") or "").strip()
+            if not text:
+                continue
+            if kind == "conclusion":
+                out.append(f"- {title}：{text}")
+            elif kind == "note" and text.startswith("**MA5位置**"):
+                out.append(f"- {title}：{text}")
+    assessment = str(report.get("assessment") or "").strip()
+    if assessment:
+        out += ["## 市场环境总评", f"> {assessment}"]
+    return "\n".join(out).strip()
+
+
+def load_facts_digest(daily_review_md_path: Path) -> str:
+    """优先读同名 JSON 真本源，没有（老日期）再退回 md 两节。"""
+    json_path = daily_review_md_path.with_suffix(".json")
+    if json_path.is_file():
+        try:
+            report = json.loads(json_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            report = None
+        if isinstance(report, dict) and report.get("core_board"):
+            return extract_facts_digest_from_json(report)
+    if not daily_review_md_path.is_file():
+        return ""
+    return extract_facts_digest(daily_review_md_path.read_text(encoding="utf-8"))
+
+
 _MIN_FRAGMENT_LEN = 4
 
 
@@ -218,9 +308,9 @@ def run(
         return {"status": "skipped", "reason": "user_framework profile 不存在（perspective init 后手工编辑或用问卷 candidate 编译）"}
 
     md_path = Path(daily_review_md_path).expanduser()
-    if not md_path.exists():
+    if not md_path.exists() and not md_path.with_suffix(".json").exists():
         return {"status": "skipped", "reason": f"daily-review md 不存在：{md_path}"}
-    facts = extract_facts_digest(md_path.read_text(encoding="utf-8"))
+    facts = load_facts_digest(md_path)
     if not facts:
         return {"status": "skipped", "reason": "daily-review md 中未抽到硬事实摘要节"}
 

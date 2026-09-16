@@ -1,0 +1,21 @@
+{
+  "rule_id": "diff_ratio_turn_up_5d",
+  "version": 1,
+  "title": "边际量拐点（diff_ratio 由 ≤0 转 >0）的板块，后 5 日上涨",
+  "notes": "拐点定义只用当日与前一交易日，前一日缺行 / 缺值 / 为 data_gap 日不打标。",
+  "scope": {"entity_type": "sector", "universe": "published_snapshot"},
+  "condition": {"all": [
+    {"label": "diff_ratio_turn_up", "op": "==", "value": true, "lag": 0}
+  ]},
+  "outcome": {
+    "target": "pct_chg",
+    "horizons": [3, 5, 7, 10],
+    "metrics": ["fwd_return", "max_return", "days_to_peak", "drawdown_after_peak"],
+    "success": {"metric": "fwd_return", "horizon": 5, "op": ">", "value": 0}
+  },
+  "baseline": {"kind": "same_universe_all_days"},
+  "min_n": 20,
+  "sharing": "shared",
+  "owner": "system",
+  "source_perspective": "系统内置：strategy1-matrix / detect_turning_points 口径"
+}

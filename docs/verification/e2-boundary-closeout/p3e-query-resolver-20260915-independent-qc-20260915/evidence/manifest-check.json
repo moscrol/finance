@@ -1,0 +1,207 @@
+[
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/after-io.json",
+    "match": true,
+    "actual": "15e0e17490084a17413eb5e1789cd283db8c3e0d54e3094e557a15fc96e699fe"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/after-pytest.exit",
+    "match": true,
+    "actual": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/after-shell.exit",
+    "match": true,
+    "actual": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/after.log.txt",
+    "match": true,
+    "actual": "12f9f8689618f10190cfeeb23d4e3804f49b5ac3e92ac0e1b9044628c9bf6ff8"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/application.diff",
+    "match": true,
+    "actual": "bc869d162f51e7d3be5648aa7171bef17b40e75de69221ec85110b828f237bd2"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/before-io.json",
+    "match": true,
+    "actual": "15d549022307161a4390e9e8153ceaa21064457bdfce25fd137908034ba411af"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/before-pytest.exit",
+    "match": true,
+    "actual": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/before-shell.exit",
+    "match": true,
+    "actual": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/before.log.txt",
+    "match": true,
+    "actual": "34cf165125a3f25006d6783ad70f41e40928144a0b07ed23fd1846aea8ac5e6d"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/launcher-v1.py.txt",
+    "match": true,
+    "actual": "87c7afd5614252759c216b89b9810722f86ff2b45ce385ef782893f78f7a5ec7"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/launcher-v2.py.txt",
+    "match": true,
+    "actual": "050b178345a1b52e94ba57657b886fefdbfb4dfd4ff7a371b7e1ee38ba69320b"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/launcher-v3.py.txt",
+    "match": true,
+    "actual": "25142654a17cd2d7f088d986d4a213bc18cdb438793a967cdafa43cc869049ac"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/mutated-application.diff",
+    "match": true,
+    "actual": "a9ab95f38c959a8b72969509415f84324d232e26e49691f22b2642317c8266e4"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/mutation-io.json",
+    "match": true,
+    "actual": "15d549022307161a4390e9e8153ceaa21064457bdfce25fd137908034ba411af"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/mutation-pytest.exit",
+    "match": true,
+    "actual": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/mutation-shell.exit",
+    "match": true,
+    "actual": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/mutation.log.txt",
+    "match": true,
+    "actual": "595150e9fabc44113764a35f608d0758ec6206918d583bc43482eeb683e7c6f3"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/normal-pytest.exit",
+    "match": true,
+    "actual": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/normal-pytest.log.txt",
+    "match": true,
+    "actual": "e2cbe5e5935bb35095648b8ea8fea11f2953bec75ffe6b9dea54edb337672db1"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/parent-io.json",
+    "match": true,
+    "actual": "15d549022307161a4390e9e8153ceaa21064457bdfce25fd137908034ba411af"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/parent-pytest.exit",
+    "match": true,
+    "actual": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/parent-query-resolution.py.txt",
+    "match": true,
+    "actual": "14392b7f5d6b65116807ec3aefc56d31119f2c343352331fab7e38f15a3f3fbd"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/parent-shell.exit",
+    "match": true,
+    "actual": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/parent.log.txt",
+    "match": true,
+    "actual": "3d3d9a460ad66c0feaa8a2fe9b0770d2480b1c1c7c225fbd629a934ab4990b09"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/related-io.json",
+    "match": true,
+    "actual": "d3630999f75d189d336233ce476ec2dd731859189e8c0ff83a7aa087866f9511"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/related-pytest.exit",
+    "match": true,
+    "actual": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/related-shell.exit",
+    "match": true,
+    "actual": "1121cfccd5913f0a63fec40a6ffd44ea64f9dc135c66634ba001d10bcf4302a2"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/related-traced-io.json",
+    "match": true,
+    "actual": "f5d84f94b7f70f7f840c9eaabf88c255734ec1beb104d1237907e95914871123"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/related-traced-pytest.exit",
+    "match": true,
+    "actual": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/related-traced-shell.exit",
+    "match": true,
+    "actual": "1121cfccd5913f0a63fec40a6ffd44ea64f9dc135c66634ba001d10bcf4302a2"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/related-traced.log.txt",
+    "match": true,
+    "actual": "859c8002c9b05576df24d51cac3c42e3505b57e9ba3fa88117c521fcbe457af6"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/related.log.txt",
+    "match": true,
+    "actual": "d76be533a2d39d5a97fc3b32974bbaa45f833c3f148d6dd3f6f89d5073aa698b"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/ruff.exit",
+    "match": true,
+    "actual": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/ruff.log.txt",
+    "match": true,
+    "actual": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/service-regression-io.json",
+    "match": true,
+    "actual": "15e0e17490084a17413eb5e1789cd283db8c3e0d54e3094e557a15fc96e699fe"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/service-regression-pytest.exit",
+    "match": true,
+    "actual": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/service-regression-shell.exit",
+    "match": true,
+    "actual": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/service-regression.log.txt",
+    "match": true,
+    "actual": "ade5bc9f37f907cb5c53f4802c9437be8c2e889d5ee81cd07742fa4814c7f3c2"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/e2-p3e-precontroller-probe.py.txt",
+    "match": true,
+    "actual": "9d8bfd91013cb7d2ee9f49f6cf76218e64ea45d8952df91571a9da87df1de372"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/intelligence/services/query_resolution.py",
+    "match": true,
+    "actual": "57f75020e845c67fcce90e5f20644066b0a555dc80862c61c473b9777b9842fe"
+  },
+  {
+    "file": "/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py",
+    "match": true,
+    "actual": "5cd25d4652387500d0b48f4ec6f4816b947400c226b71344fec27db456471d30"
+  }
+]

@@ -7,6 +7,8 @@ from dataclasses import asdict, dataclass, replace
 from typing import Literal, TypeAlias, cast
 
 from intelligence.services import ask_clarify, llm_refine
+from intelligence.services.conversation_materials import ConversationMaterials
+from intelligence.services.material_contract import compile_material_contract
 from intelligence.services.query_resolution import (
     QueryResolution,
     QueryResolver,
@@ -31,7 +33,9 @@ from intelligence.services.market_timeseries import parse_single_metric_intent
 from intelligence.services.route_table import (
     ROUTE_TABLE,
     RouteRow,
+    fine_grained_route_length_ok,
     is_quick_fact_query,
+    quick_fact_route_ok,
     render_route_table_prompt,
     research_lane_for_dated_quick_fact,
     route_by_id,
@@ -390,7 +394,10 @@ def _deterministic_decision(
             confidence=0.95,
             reason="指定日期的单一白名单指标取值，走精确查询而非日报工作流",
         )
-    if is_dated_market_review(cleaned, envelope):
+    if is_dated_market_review(cleaned, envelope) and envelope.question_type not in {
+        "comparison_analog",
+        "theme_analysis",
+    }:
         return _decision(
             "workflow",
             envelope=envelope,
@@ -569,24 +576,66 @@ def _deterministic_decision(
     return None
 
 
+# 细粒度词面路由只认短问句。ROUTE_TABLE 里这六条路由自带的 examples 全部 8–21 字
+# （去空白），它们的判据是「几个提示词同时出现」且**不要求彼此相邻**——去空白后对全文
+# 做无锚点子串匹配。短问句里三词共现说明的是同一个诉求；贴进来一大段材料时，三个词
+# 分散在互不相干的段落里也照样 AND 成立。
+#
+# 2026-09-12 实测（生产 2efdff46 与当时 main 均复现）：一道 821 字的纯材料推理题
+# （【行业材料】/客户 R 公告…/「需要经过哪些环节」）命中 disclosure_scan，置信度 0.98：
+#   行业@64（小节标题） + 公告@72（材料正文） + 哪些@437（第 1 题题干）
+# 后果不是「答得差」而是**根本没答**：router_skipped → 检索 2ms/0 引用 →
+# answer_synthesis 的 diagnostic.state="not_requested" → 正文被
+# disclosure_scan_pack.render() 覆写成 183 字节扫描存根，而 answer_status/status
+# 全报 complete、warnings 为空、llm.used=false。静默成功，仪表上看不出来。
+#
+# 用长度闸而不是「三词必须相邻」：同样的无锚点弱点这六条路由都有，不是 disclosure_scan
+# 一条的毛病，闸放在家族入口才一次盖住。同文件的 meta 路由早就是这个 idiom
+# （`len(cleaned) <= 64 and _META_PATTERN.search(...)`）。
+#
+# 失败方向是安全的：超长问句只是退回正常 lane 由模型自己判，仍然会被完整回答；
+# 而漏判的代价是上面那个静默存根。真有超长的扫描类请求被退回，损失是少一次模板化
+# 名单渲染，不是拿不到答案。
+#
+# 阈值 160：实测语料里真实的短意图问句最长 ~69 字（`test_quick_fact_routing.py`
+# 的「皇氏集团最近两周（…）的走势复盘」58 字一类），160 留了一倍以上余量，而贴材料
+# 的题面是几百到上千字，两者之间没有重叠区。常量与判定 helper 的 SSOT 在
+# `route_table.FINE_GRAINED_ROUTE_MAX_CHARS` / `fine_grained_route_length_ok`。
+#
+# 闸必须下在每个调用点：`is_disclosure_scan_query` 还被
+# `query_understanding.understand_query` 直接调用（产出 0.98 的 disclosure_scan
+# envelope）。第一版修复只闸了本函数，decide_turn 端到端仍经下方
+# `_deterministic_decision` 的 envelope 兜底（「明确金融研究对象或决策目标」）
+# 判成 disclosure_scan——所以回归锁钉在端到端层，见
+# `intelligence/tests/test_fine_grained_route_length_gate.py`。
 def _fine_grained_route_row(query: str) -> RouteRow | None:
-    route_id: str | None = None
-    if is_disclosure_scan_query(query):
-        route_id = "disclosure_scan"
-    elif _TRADE_ADVICE_ROUTE_PATTERN.search(query):
-        route_id = "trade_advice"
-    elif _KOL_REVIEW_ROUTE_PATTERN.search(query):
-        route_id = "kol_review"
-    elif (
-        parse_analog_intent(query)
-        or parse_regime_intent(query)
-        or _COMPARISON_ANALOG_ROUTE_PATTERN.search(query)
-    ):
-        route_id = "comparison_analog"
-    elif _THEME_TRACK_ROUTE_PATTERN.search(query):
-        route_id = "theme_track"
-    elif is_quick_fact_query(query):
-        route_id = "quick_fact"
+    if not fine_grained_route_length_ok(query):
+        # 超长：五条词面共现路由一律退回（无锚点共现在长文里必然凑巧命中）；
+        # 只有 quick_fact 有独立入场券（route_table.quick_fact_route_ok）——它按
+        # 窄意图判（要一个确定的值），长但无材料正文的纯取值问句照常归位，且
+        # 必须与 answer_orchestrator 的判定同一策略（2026-09-13 QC N1：闸只下在
+        # 本函数时，192 字取值题在 decide_turn 与 plan_answer_question 两入口分叉）。
+        if not quick_fact_route_ok(query):
+            return None
+        route_id: str | None = "quick_fact"
+    else:
+        route_id = None
+        if is_disclosure_scan_query(query):
+            route_id = "disclosure_scan"
+        elif _TRADE_ADVICE_ROUTE_PATTERN.search(query):
+            route_id = "trade_advice"
+        elif _KOL_REVIEW_ROUTE_PATTERN.search(query):
+            route_id = "kol_review"
+        elif (
+            parse_analog_intent(query)
+            or parse_regime_intent(query)
+            or _COMPARISON_ANALOG_ROUTE_PATTERN.search(query)
+        ):
+            route_id = "comparison_analog"
+        elif _THEME_TRACK_ROUTE_PATTERN.search(query):
+            route_id = "theme_track"
+        elif is_quick_fact_query(query):
+            route_id = "quick_fact"
     row = route_by_id(route_id) if route_id is not None else None
     row = research_lane_for_dated_quick_fact(row, query)
     if (
@@ -624,6 +673,8 @@ def _controller_messages(
     context: str,
     task_frame: TaskFrame,
 ) -> list[dict[str, str]]:
+    if task_frame.material_contract and task_frame.material_contract.data_scope == "material_only":
+        context = task_frame.conversation_materials.to_prompt_block() if task_frame.conversation_materials else ""
     return [
         {
             "role": "system",
@@ -991,6 +1042,58 @@ def _rebase_frame_for_decision(
     )
 
 
+def _question_carries_its_own_foothold(
+    query: str,
+    resolution: QueryResolution,
+    task_frame: TaskFrame,
+) -> bool:
+    """题面自身是否已经给出一个可研究的落点（主体 / 实体锚 / 明确日期）。
+
+    为什么需要它：``classify_reference`` 的正则只看词面、不看有没有前文。
+    「……并用 2026 年中报数据说明**这条链**目前兑现到了哪一层」里的「这条链」回指的是
+    同一句话刚建立的那条链，可它照样被判成跨轮追问；无前文时这类题整体落 clarify 车道，
+    引擎 A 一次都不接手（run 里连 ``continuous-episode.json`` 都不会有）。深题读数于是
+    量到「被门挡住」而不是研究能力。
+
+    判据必须落在**题面文本**上，不能只看 ``task_frame.subject`` 有没有值：解析器会把
+    上一轮的主体注入进来（``test_legacy_context_dependent_clarification_resumes_same_forecast_frame``
+    的夹具就是这个形状——「这个反弹还能持续多久」拿到注入的主体「A股市场」）。那是真回指、
+    该反问，而主体字段非空。所以要求主体 / 实体锚的字面出现在问句里，日期走
+    ``latest_explicit_query_date``（它只读题面，不推断）。
+    """
+
+    text = str(query or "")
+    if not text:
+        return False
+    subject = str(task_frame.subject or "").strip()
+    if subject and subject in text:
+        return True
+    entity = str(getattr(resolution.anchor, "entity", "") or "").strip()
+    if entity and entity in text:
+        return True
+    # 延迟 import：market_news 会把取数面拖进 controller 的模块级依赖图。
+    from intelligence.services.market_news import (  # noqa: PLC0415
+        latest_explicit_query_date,
+    )
+
+    return latest_explicit_query_date(text) is not None
+
+
+def _pending_material_clarification(previous_intent: TurnIntent | None) -> TaskFrame | None:
+    """The pending frame iff the previous turn froze a material contract that
+    still needs clarification. Structural check on the contract state — never
+    on the clarification wording, which is free to change."""
+
+    if previous_intent is None or previous_intent.clarification_rounds < 1:
+        return None
+    if not previous_intent.pending_task_frame:
+        return None
+    pending = TaskFrame.from_dict(previous_intent.pending_task_frame)
+    if pending is None or pending.material_contract is None:
+        return None
+    return pending if pending.material_contract.needs_clarification else None
+
+
 def decide_turn(
     query: str,
     *,
@@ -1001,7 +1104,54 @@ def decide_turn(
     previous_intent: TurnIntent | None = None,
     previous_turn_id: str | None = None,
     resolver: QueryResolver | None = None,
+    conversation_materials: ConversationMaterials | None = None,
 ) -> TurnDecision:
+    # Source-aware material turns are resolved before pending-frame recovery,
+    # lexicons and generic routing. An old research intent is not a permission.
+    # Exception: a pending material-contract clarification means this message
+    # answers the interview — recovery merges it via the same compiler instead
+    # of treating the pasted body as a fresh material turn (question slots and
+    # the frozen contract would be dropped otherwise).
+    if conversation_materials is not None and _pending_material_clarification(previous_intent) is None:
+        from intelligence.services.user_task import split_user_message
+
+        parts = split_user_message(query)
+        material = compile_material_contract(
+            parts.regions, source_turn=conversation_materials.source_turn,
+            inherited_contract=conversation_materials.base_contract,
+        ) if parts.regions else None
+        if material and (material.data_scope == "material_only" or material.needs_clarification):
+            envelope = QueryEnvelope(
+                "general_finance_qa", "unknown", None,
+                "逐题依据用户材料回答，分开事实前提、推导与缺口", None, "explicit", 1.0,
+            )
+            frame = build_task_frame(query, envelope, conversation_materials=conversation_materials)
+            if material.needs_clarification:
+                question = (
+                    "无法恢复上一轮的可信条件，请补充原材料和本轮允许的数据范围。"
+                    if material.classification == "state_unavailable"
+                    else "材料与指令边界不明确，请将本轮限制和材料正文分开提供。"
+                )
+                frame = replace(frame, clarification_question=question,
+                                ambiguities=(*frame.ambiguities, *material.uncertain_reasons))
+            intent = build_turn_intent(query, envelope, task_frame=frame)
+            if frame.clarification_question:
+                # The answer must come back through pending-frame recovery, not
+                # generic routing: without the pending snapshot the interview
+                # result (materials, scope declaration) is silently discarded.
+                intent = replace(
+                    intent,
+                    pending_task_frame=frame.to_dict(),
+                    clarification_rounds=1,
+                )
+            return _attach_turn_intent(
+                _decision(
+                    "clarify" if frame.clarification_question else "research", envelope=envelope,
+                    needs_retrieval=False, needs_memory=False, needs_template=False,
+                    reason="可信材料合同在读取与旧任务恢复前冻结",
+                    clarification_questions=(frame.clarification_question,) if frame.clarification_question else (),
+                ), intent, task_frame=frame,
+            )
     pending_frame = (
         TaskFrame.from_dict(previous_intent.pending_task_frame)
         if previous_intent is not None
@@ -1042,9 +1192,23 @@ def decide_turn(
         decision = deterministic or _safe_fallback(task_frame.raw_question, envelope)
         return _attach_turn_intent(decision, intent, task_frame=task_frame)
 
+    from intelligence.services.historical_research.intent import history_research_cancelled
+    history_cancelled = history_research_cancelled(query)
+    resolution_query = query
+    if history_cancelled and re.search(r"[，,；;]", query):
+        resolution_query = re.split(r"[，,；;]", query, maxsplit=1)[1]
     resolution = _canonicalize_head_resolution(
         query,
-        (resolver or QueryResolver()).resolve(query),
+        (resolver or QueryResolver()).resolve(resolution_query),
+    )
+    from intelligence.services.historical_research.intent import (
+        inherit_history_followup,
+        infer_history_intent,
+        named_wave_subject,
+    )
+
+    history_followup = inherit_history_followup(
+        query, previous_intent.history_intent if previous_intent is not None else None
     )
     inherit_subject = bool(
         previous_intent is not None
@@ -1055,6 +1219,14 @@ def decide_turn(
             resolution=resolution,
         )
     )
+    inherit_subject = inherit_subject or history_followup is not None
+    explicit_comparison = bool(resolution.comparison_entities)
+    explicit_resolved_history = bool(
+        infer_history_intent(query) is not None
+        and (resolution.anchor is not None or resolution.envelope.subject is not None)
+    )
+    if history_cancelled or explicit_comparison or explicit_resolved_history:
+        inherit_subject = False
     task_frame = build_task_frame(
         query,
         resolution.envelope,
@@ -1063,6 +1235,27 @@ def decide_turn(
             if inherit_subject and previous_intent is not None
             else None
         ),
+        # B05-1：对话块已知才传；空串是「调用方没给」（旧语义 = 未知，不追问）。
+        # 真实入口的空历史块带「（无历史消息）」字样，非空，走「已知为空」车道。
+        conversation_context=context if context else None,
+        conversation_materials=conversation_materials,
+    )
+    if task_frame.history_intent is None and history_followup is not None:
+        task_frame = replace(
+            task_frame,
+            history_intent=history_followup,
+            question_type="comparison_analog"
+            if history_followup.purpose == "historical_comparison"
+            else "theme_analysis",
+            evidence_policy="comparable_multi_source_evidence"
+            if history_followup.purpose == "historical_comparison"
+            else "theme_multi_layer_evidence",
+            required_outputs=("direct_assessment", "counterpoint", "evidence_boundary"),
+        )
+    explicit_history_context = explicit_comparison or explicit_resolved_history or bool(
+        task_frame.history_intent is not None
+        and task_frame.subject is not None
+        and named_wave_subject(query) is not None
     )
     envelope = project_task_frame(task_frame, resolution.envelope)
     resolution = replace(resolution, envelope=envelope)
@@ -1090,7 +1283,16 @@ def decide_turn(
             intent,
             task_frame=task_frame,
         )
-    if resolution.context_dependent and previous_intent is None:
+    self_contained = _question_carries_its_own_foothold(query, resolution, task_frame)
+    if (
+        resolution.context_dependent
+        and previous_intent is None
+        and not self_contained
+        and not (
+            task_frame.history_intent is not None
+            and (task_frame.subject is not None or explicit_comparison)
+        )
+    ):
         intent = replace(
             build_turn_intent(
                 query,
@@ -1109,9 +1311,7 @@ def decide_turn(
                 envelope=envelope,
                 confidence=1.0,
                 reason="追问包含指代或省略，但当前对话没有可继承的研究主体",
-                clarification_questions=(
-                    "你指的是哪家公司、题材或上一条研究逻辑？",
-                ),
+                clarification_questions=("你指的是哪家公司、题材或上一条研究逻辑？",),
             ),
             intent,
             task_frame=task_frame,
@@ -1119,15 +1319,36 @@ def decide_turn(
     intent = build_turn_intent(
         query,
         envelope,
-        previous_intent=previous_intent,
+        previous_intent=None if explicit_history_context else previous_intent,
         previous_turn_id=previous_turn_id,
         resolution=resolution,
         task_frame=task_frame,
     )
+    if explicit_comparison:
+        intent = replace(
+            intent,
+            primary_subject=task_frame.subject,
+            comparison_entities=resolution.comparison_entities,
+            inherited_from_turn=None,
+        )
+    if history_cancelled:
+        intent = replace(intent, inherited_from_turn=None, history_intent=None,
+                         primary_subject=task_frame.subject)
+    if history_followup is not None and previous_intent is not None and not explicit_history_context:
+        intent = replace(
+            intent,
+            inherited_from_turn=previous_turn_id,
+            primary_subject=task_frame.subject or previous_intent.primary_subject,
+        )
     if intent.inherited_from_turn is not None:
+        if task_frame.history_intent is None and previous_intent is not None:
+            task_frame = replace(
+                task_frame, history_intent=previous_intent.history_intent
+            )
         inherited_kind = (
             "company"
-            if intent.answer_owner in {
+            if intent.answer_owner
+            in {
                 "stock-deep-dive",
                 "financial-analysis",
                 "news-impact",
@@ -1276,9 +1497,9 @@ def decide_turn(
             effective_query,
             envelope,
             llm_failure_reason="unparsable_response",
-            llm_failure_detail=(
-                f"重试一次仍不可解析；首次输出：{content}"
-            )[:_FAILURE_DETAIL_LIMIT],
+            llm_failure_detail=(f"重试一次仍不可解析；首次输出：{content}")[
+                :_FAILURE_DETAIL_LIMIT
+            ],
         )
     )
     task_frame = _rebase_frame_for_decision(task_frame, decision)
@@ -1301,6 +1522,7 @@ def _attach_turn_intent(
             timeframe=task_frame.timeframe,
             required_outputs=task_frame.required_outputs,
             task_frame_hash=task_frame.task_frame_hash,
+            history_intent=task_frame.history_intent,
         )
     inherited_research_intent = (
         intent.answer_owner is not None
@@ -1313,11 +1535,9 @@ def _attach_turn_intent(
     if (
         intent.inherited_from_turn is not None
         and inherited_research_intent
-        and (
-            task_frame is None
-            or task_frame.clarification_question is None
-        )
-        and decision.lane in {
+        and (task_frame is None or task_frame.clarification_question is None)
+        and decision.lane
+        in {
             "chat",
             "clarify",
             "knowledge",

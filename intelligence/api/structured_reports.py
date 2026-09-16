@@ -7,12 +7,16 @@ Markdown remains an input source, never the primary Workbench artifact.
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from intelligence.api.daily_reports import project_daily_review_markdown
+from intelligence.api.daily_reports import (
+    project_daily_review_json,
+    project_daily_review_markdown,
+)
 from intelligence.services.ask import AskResult, SUBHEAD
 from intelligence.services.ask_types import CONTROL_PLANE_SECTIONS
 from intelligence.services.market_moneyflow import MoneyflowSnapshot
@@ -44,6 +48,20 @@ def _signed_change(value: str, *, unit: str = "%") -> str:
     number = float(value)
     direction = "增加" if number >= 0 else "减少"
     return f"{direction}{abs(number):.2f}{unit}"
+
+
+# fact_market_daily.strength_status 的取值域：沸点 / 强势 / 正常 / 冰点。
+_HEAT_PHRASES = {
+    "沸点": "短线情绪偏热",
+    "强势": "短线热度偏强",
+    "正常": "短线热度正常",
+    "冰点": "短线情绪冰点",
+}
+
+
+def _heat_phrase(status: str) -> str:
+    status = status.strip()
+    return _HEAT_PHRASES.get(status, f"短线热度为{status}")
 
 
 def _humanize_daily_text(value: object) -> object:
@@ -91,13 +109,13 @@ def _humanize_daily_text(value: object) -> object:
             f"较昨日{_signed_change(change, unit='个百分点')}"
         )
     strength_match = re.fullmatch(
-        r"沸点，强度加权涨幅\s*([\d.]+)%，强度成交占比\s*([\d.]+)%",
+        r"(\S+?)，强度加权涨幅\s*([\d.]+)%，强度成交占比\s*([\d.]+)%",
         text,
     )
     if strength_match:
-        change, ratio = strength_match.groups()
+        status, change, ratio = strength_match.groups()
         return (
-            f"短线情绪偏热；强势股平均上涨 {float(change):.2f}%，"
+            f"{_heat_phrase(status)}；强势股平均上涨 {float(change):.2f}%，"
             f"相关成交占全市场 {float(ratio):.2f}%"
         )
     environment_match = re.fullmatch(
@@ -118,11 +136,7 @@ def _humanize_daily_text(value: object) -> object:
             directions,
             heat,
         ) = environment_match.groups()
-        heat_text = (
-            "短线情绪偏热"
-            if heat.strip() == "沸点"
-            else f"短线热度为{heat.strip()}"
-        )
+        heat_text = _heat_phrase(heat)
         return (
             f"{date} 为{market_type.strip()}，市场处于{stage.strip()}。"
             f"成交额 {float(amount):.2f} 亿元，较昨日{_signed_change(amount_change)}；"
@@ -156,8 +170,11 @@ def _humanize_daily_text(value: object) -> object:
     text = text.replace("核心涨停题材：", "涨停较集中的方向：")
     text = text.replace("偏离度", "距离短期均线")
     text = text.replace("MA5", "近5日平均")
-    text = re.sub(r"强度状态为\s*沸点", "短线情绪偏热", text)
-    text = re.sub(r"短线热度为\s*沸点", "短线情绪偏热", text)
+    text = re.sub(
+        r"(?:强度状态为|短线热度为)\s*(沸点|强势|正常|冰点)",
+        lambda match: _heat_phrase(match.group(1)),
+        text,
+    )
     text = text.replace("强度状态为", "短线热度为")
     text = text.replace("主线集中在", "资金主要集中在")
     text = text.replace("fact_sw_l1_daily", "一级行业行情数据")
@@ -216,6 +233,28 @@ def upsert_report_module(
     return report
 
 
+_DAILY_REVIEW_SUFFIXES = ("-daily-review.json", "-daily-review.md")
+
+
+def _daily_review_source(exports: Path, date_text: str) -> Path | None:
+    """同一天优先 JSON 真本源，其次 Markdown 渲染物（老日期只有 md）。"""
+    for suffix in _DAILY_REVIEW_SUFFIXES:
+        candidate = exports / f"{date_text}{suffix}"
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _latest_daily_review_date(exports: Path) -> str | None:
+    dates = {
+        path.name.removesuffix(suffix)
+        for suffix in _DAILY_REVIEW_SUFFIXES
+        for path in exports.glob(f"*{suffix}")
+        if re.fullmatch(r"20\d{2}-\d{2}-\d{2}", path.name.removesuffix(suffix))
+    }
+    return max(dates) if dates else None
+
+
 def daily_projection_modules(
     repo_root: Path,
     requested_date: str | None = None,
@@ -224,26 +263,34 @@ def daily_projection_modules(
     if requested_date:
         if re.fullmatch(r"20\d{2}-\d{2}-\d{2}", requested_date) is None:
             return None, [], ["指定的复盘日期格式无效。"]
-        source_path = exports / f"{requested_date}-daily-review.md"
-        if not source_path.exists():
+        source_path = _daily_review_source(exports, requested_date)
+        if source_path is None:
             return (
                 None,
                 [],
                 [f"未找到 {requested_date} 的本地复盘报告；日报基础模块缺失。"],
             )
+        date_text = requested_date
     else:
-        candidates = sorted(exports.glob("*-daily-review.md"), reverse=True)
-        if not candidates:
+        latest = _latest_daily_review_date(exports)
+        source_path = _daily_review_source(exports, latest) if latest else None
+        if latest is None or source_path is None:
             return None, [], ["未找到本地复盘报告；日报基础模块缺失。"]
-        source_path = candidates[0]
-    if not source_path.is_file():
-        return None, [], ["未找到本地复盘报告；日报基础模块缺失。"]
-    date_text = source_path.name.removesuffix("-daily-review.md")
-    projection = project_daily_review_markdown(
-        source_path.read_text(encoding="utf-8"),
-        source_path=str(source_path.relative_to(repo_root)),
-        date=date_text,
-    )
+        date_text = latest
+    relative_source = str(source_path.relative_to(repo_root))
+    if source_path.suffix == ".json":
+        payload = json.loads(source_path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("Daily Review canonical JSON 必须是对象")
+        projection = project_daily_review_json(
+            payload, source_path=relative_source, date=date_text
+        )
+    else:
+        projection = project_daily_review_markdown(
+            source_path.read_text(encoding="utf-8"),
+            source_path=relative_source,
+            date=date_text,
+        )
     warnings = [
         str(_humanize_daily_text(warning))
         for warning in projection.get("provenance", {}).get("warnings", [])
@@ -303,7 +350,14 @@ def daily_projection_modules(
             },
         }
     ]
-    for index, section in enumerate(projection.get("sections", []), start=1):
+    # 表格留给产物库的复盘页；聊天模块只带每节结论，进模型上下文要有预算。
+    # 只有表没有条目的节（如数据覆盖）对聊天没有增量，跳过。
+    sections_with_items = [
+        section
+        for section in projection.get("sections", [])
+        if any(isinstance(item, dict) for item in section.get("items", []))
+    ]
+    for index, section in enumerate(sections_with_items, start=1):
         modules.append(
             {
                 "module_id": f"daily_section_{index}",
@@ -394,6 +448,14 @@ def render_daily_review_answer(
         core = "指数与个股表现分化"
     if volume_expanded:
         core += "，成交明显放大"
+    heat_hot = any(word in heat_text for word in ("偏热", "偏强", "沸点", "强势"))
+    heat_cold = any(word in heat_text for word in ("冰点", "弱势"))
+    if heat_hot:
+        heat_line = "短线热度偏高，持续性要看下一交易日的成交和扩散情况。"
+    elif heat_cold:
+        heat_line = "短线热度低迷，先等赚钱效应的边际改善。"
+    else:
+        heat_line = "短线热度一般，持续性要看下一交易日的成交和扩散情况。"
 
     display_date = date_text or "最新交易日"
     date_match = re.fullmatch(r"\d{4}-(\d{2})-(\d{2})", display_date)
@@ -405,7 +467,7 @@ def render_daily_review_answer(
         "",
         f"**一句话结论：** 这是一个{core}的交易日。"
         + (f"{stage}。" if stage else "")
-        + "短线机会不少，但持续性仍要看下一交易日的成交和扩散情况。",
+        + heat_line,
         "",
         "### 市场发生了什么",
     ]
@@ -443,7 +505,10 @@ def render_daily_review_answer(
     if stage or notes:
         lines.extend(["", "### 风险与数据说明"])
         if stage:
-            lines.append("- 市场仍处于横盘阶段；短线热度较高后，次日容易出现分化。")
+            stage_line = f"- {stage.rstrip('。')}"
+            if heat_hot:
+                stage_line += "；短线热度较高后，次日容易出现分化"
+            lines.append(stage_line + "。")
         lines.extend(
             f"- {note.rstrip('。.!')}。" for note in dict.fromkeys(notes)
         )

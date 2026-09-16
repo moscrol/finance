@@ -27,9 +27,24 @@ from intelligence.services.track_contract import is_contract_rewrite_only
 
 @dataclass(frozen=True)
 class CoverageDelta:
+    """上一轮修复带来了什么：内容进展三个读数 + 来源独立性一个读数。
+
+    ``new_evidence`` / ``narrowed_gaps`` / ``newly_supported_outputs`` 是**内容
+    进展**——多了哪些真正指向未覆盖输出的证据身份、关了几个缺口、多支持了几个
+    输出。``new_source_families`` 是**来源独立性**——新证据里带来了几个上一轮
+    没有的来源家族，供交叉验证维度记账，**不参与** ``progressed``。
+
+    两个量分开算是 2026-09-09「判官修复 01」第二刀：旧实现把新证据数等同于新来源
+    家族数（`effective_new_evidence` 只数 ``family not in before_families``），
+    于是同一交易所的第二份公告补上了财务锚、同一知识库的新页关掉了缺口，都被
+    记成「零新证据」而拒绝再修一轮；把来源家族换一个名字就放行。内容进展该看
+    解决了什么问题，来源独立性另作一维。
+    """
+
     new_evidence: int
     narrowed_gaps: int
     newly_supported_outputs: int
+    new_source_families: int = 0
 
     @property
     def progressed(self) -> bool:
@@ -53,29 +68,64 @@ class ProgressSnapshot:
     after_evidence_targets: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
     @property
+    def new_evidence_ids(self) -> tuple[str, ...]:
+        """内容进展的原子：上一轮没有、且指向此前未覆盖输出的证据身份。
+
+        - 重复抓同一页：content_hash 相同，id 已在 ``before`` → 不算。
+        - 新页只重复支持已覆盖的输出（转载旧闻）：targets ⊆ 已覆盖 → 不算。
+        - 同源新页补上一个此前未覆盖的输出：算。来源家族不在此判断，
+          独立性见 ``new_source_families``。
+        - 没有 targets 账（旧调用方 / 空账）：fail-closed 记 0——不知道证据
+          指向哪里，就不能说它推进了什么。
+
+        识别不到「只换标点的同页重抓」：那会换 hash。但它只重复支持已覆盖
+        输出，仍被第二条挡住；要它冒充进展，得同时把它绑到新输出上。
+        """
+
+        after_targets = dict(self.after_evidence_targets)
+        if not after_targets:
+            return ()
+        before_ids = set(self.before_evidence_ids)
+        before_outputs = set(self.before_covered_outputs)
+        return tuple(
+            evidence_id
+            for evidence_id in dict.fromkeys(self.after_evidence_ids)
+            if evidence_id not in before_ids
+            and any(
+                target not in before_outputs
+                for target in after_targets.get(evidence_id, ())
+            )
+        )
+
+    @property
     def effective_new_evidence(self) -> int:
+        return len(self.new_evidence_ids)
+
+    @property
+    def new_source_families(self) -> int:
+        """来源独立性：本轮新增、且绑到了某个输出的证据里，上一轮没有的来源家族数。
+
+        与 ``new_evidence_ids`` 不同，这里**不要求**指向未覆盖输出：新网站转载
+        旧闻对内容零增量，但作为第二个独立来源佐证了已覆盖的输出，这正是交叉
+        验证要记的量。没绑到任何输出的证据两边都不算。
+        """
+
+        after_targets = dict(self.after_evidence_targets)
+        if not after_targets:
+            return 0
         before_ids = set(self.before_evidence_ids)
         before_families = {
             family for _, family in self.before_evidence_source_families
         }
-        after_pairs = tuple(self.after_evidence_source_families)
-        after_targets = dict(self.after_evidence_targets)
-        if not after_pairs or not after_targets:
-            return 0
-        before_outputs = set(self.before_covered_outputs)
-        families = {
-            family
-            for evidence_id, family in after_pairs
-            if evidence_id not in before_ids
-            and family not in before_families
-            and (
-                any(
-                    target not in before_outputs
-                    for target in after_targets.get(evidence_id, ())
-                )
-            )
-        }
-        return len(families)
+        return len(
+            {
+                family
+                for evidence_id, family in self.after_evidence_source_families
+                if evidence_id not in before_ids
+                and after_targets.get(evidence_id)
+                and family not in before_families
+            }
+        )
 
     @property
     def coverage_delta(self) -> CoverageDelta:
@@ -87,6 +137,7 @@ class ProgressSnapshot:
             newly_supported_outputs=len(
                 set(self.after_covered_outputs) - set(self.before_covered_outputs)
             ),
+            new_source_families=self.new_source_families,
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -113,10 +164,12 @@ class ProgressSnapshot:
                 [evidence_id, list(targets)]
                 for evidence_id, targets in self.after_evidence_targets
             ],
+            "new_evidence_ids": list(self.new_evidence_ids),
             "coverage_delta": {
                 "new_evidence": delta.new_evidence,
                 "narrowed_gaps": delta.narrowed_gaps,
                 "newly_supported_outputs": delta.newly_supported_outputs,
+                "new_source_families": delta.new_source_families,
             },
         }
 
@@ -159,6 +212,7 @@ class RepairGoal:
                 "new_evidence": self.evidence_progress.new_evidence,
                 "narrowed_gaps": self.evidence_progress.narrowed_gaps,
                 "newly_supported_outputs": self.evidence_progress.newly_supported_outputs,
+                "new_source_families": self.evidence_progress.new_source_families,
             },
             "remaining_calls": self.remaining_calls,
             "remaining_seconds": self.remaining_seconds,
@@ -277,7 +331,7 @@ def unreachable_repair_goal(
 
 def max_repair_cycles_for_tier(research_tier: str) -> int:
     tier = str(research_tier or "").strip().lower()
-    if tier == "deep":
+    if tier in {"deep", "max"}:
         return 3
     if tier in {"quick", "standard"}:
         return 1
@@ -292,10 +346,12 @@ def cycle_within_tier(cycle: int, *, research_tier: str) -> bool:
 
 @dataclass(frozen=True)
 class RepairWarrant:
-    """领域对「还配不配再来一轮」的判定：tier 容忍度 × 上一轮进展。不看预算。
+    """领域对「还配不配再来一轮」的判定：tier 容忍度 × 上一轮内容进展。不看预算。
 
     两个事实分开摆：进度修复要两者都成立（``warranted``）；交付修复只看
     ``cycle_allowed``——它修的是「有证据没写出稿」，不要求上一轮有新证据。
+    「进展」按 ``CoverageDelta.progressed`` 的内容口径算：新证据身份指向了未
+    覆盖输出且关了缺口 / 多支持了输出；来源家族是否独立不在此裁决。
     """
 
     cycle_allowed: bool
@@ -312,7 +368,7 @@ def warrant_repair(
     cycle: int,
     research_tier: str,
 ) -> RepairWarrant:
-    """这个 tier 还容忍这一轮吗；上一轮真有独立证据进展吗。
+    """这个 tier 还容忍这一轮吗；上一轮真有内容进展吗。
 
     不看预算——付不付得起是底座 ``can_afford_repair`` 的事。
     """
@@ -368,7 +424,8 @@ class RepairFailureShape:
 
     - ``delivery``：有证据、有结构缺口，但没写出稿或没绑定——tool-closed 交付修复。
     - ``cold_restart``：零证据饿死（窗烧穿 / 主路径模型不可用）——重开工具一发。
-    - ``contract_rewrite``：缺的全是跟踪契约表达槽——从既有证据重写，不开工具。
+    - ``contract_rewrite``：缺的全是契约表达槽——从已有证据/材料补写，不开工具。
+    - ``input_only_rewrite``：材料逐题交付的显式许可；不伪造证据计数。
 
     不看预算、不看 cycle 状态（「交付修复只许一次」是底座的账，由调用方叠）。
     """
@@ -376,6 +433,9 @@ class RepairFailureShape:
     delivery: bool
     cold_restart: bool
     contract_rewrite: bool
+    # Domain authorization to repair delivery from the input itself (D5), not
+    # a synthetic evidence count. The budget layer may grant zero tool calls.
+    input_only_rewrite: bool = False
 
 
 def classify_repair_failure(
@@ -388,7 +448,20 @@ def classify_repair_failure(
 ) -> RepairFailureShape:
     """领域失败分类。``missing_outputs`` 是结构缺口 ∪ 语义缺口（调用方已合并）。"""
 
+    from intelligence.services.episode_issues import IssueCode
+    from intelligence.services.material_delivery import material_question_outputs
+
     has_evidence = bool(outcome.evidence)
+    material_ids = {item.output_id for item in material_question_outputs(structural.contract)} if structural.contract else set()
+    material_rewrite = bool(
+        missing_outputs and set(missing_outputs) <= material_ids
+        and not rejected_claims and not structural.mandatory_missing_capabilities
+        and all(item.code in {
+            IssueCode.MISSING_REQUIRED_OUTPUT,
+            IssueCode.REQUIRED_OUTPUT_NO_SUBSTANCE,
+            IssueCode.REQUIRED_OUTPUT_GAP,
+        } for item in structural.issue_items)
+    )
     return RepairFailureShape(
         delivery=bool(
             outcome.stop_reason in DELIVERY_REPAIR_STOP_REASONS
@@ -399,11 +472,12 @@ def classify_repair_failure(
         cold_restart=(
             outcome.stop_reason in COLD_RESTART_STOP_REASONS and not has_evidence
         ),
-        contract_rewrite=is_contract_rewrite_only(
+        contract_rewrite=material_rewrite or is_contract_rewrite_only(
             missing_outputs,
             rejected_claims=rejected_claims,
             semantic_gap_outputs=semantic_gap_outputs,
         ),
+        input_only_rewrite=material_rewrite,
     )
 
 

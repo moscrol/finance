@@ -1,0 +1,25 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "fsr2-r2--run_20260828_182503_258570",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "7ffa504e7e19beacbc2ea3527f51b0641144c1479a87f2fa82ea8e76a80eefec",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      3,
+      4
+    ],
+    "issues": [
+      "第3句声称证据是人工智能概念板块当日全集并按成交额取前五，但注册证据仅列出五条个股记录，未直接证明全集覆盖与排序过程。",
+      "第4句断言即使板块成分口径有出入首位仍不变，属于现有证据无法保证的外推。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}
