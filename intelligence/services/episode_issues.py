@@ -86,6 +86,8 @@ RELEASE_POLICY: dict[IssueCode, ReleaseAction] = {
     IssueCode.PATH_TREND_MISMATCH: ReleaseAction.BLOCK,
     IssueCode.MARKER_LOSS: ReleaseAction.BLOCK,
     IssueCode.UNRESOLVED_EVIDENCE_ORDINAL: ReleaseAction.BLOCK,
+    # #55：与 weekday / path 同一档——机械删句后由 preflight 修复，修不好就 BLOCK。
+    IssueCode.EVIDENCE_DATE_MISMATCH: ReleaseAction.BLOCK,
 }
 
 _PARTIAL_RELEASE_ACTIONS = frozenset(
