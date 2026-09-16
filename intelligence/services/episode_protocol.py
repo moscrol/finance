@@ -376,6 +376,9 @@ def build_episode_instructions(
         "或风险点写成列表项；核心判断用 **加粗** 标出。\n"
         "\n"
         "【终局 JSON】\n"
+        "若本轮 material_grounding 提供 finish_format，使用其中 wire_template 的字段骨架："
+        "保留顶层 render_from_claims=true 和 draft=空字符串，正文只写 binding.claims。"
+        "basis 逐项原样保留，不能把所有输出改成 user_premise。未提供 finish_format 时使用下面的旧格式。\n"
         "只输出一个 JSON 对象：\n"
         '{"status":"completed|partial","draft":"自然语言回答",'
         '"gaps":["..."],"bindings":[{"output_id":"...",'

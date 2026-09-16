@@ -6,7 +6,7 @@ import pytest
 
 from intelligence.runtime.agent_episode import ContinuousAgentEpisode
 from intelligence.services.agent_runtime import ModelTurn
-from intelligence.services.episode_protocol import validate_episode_finish
+from intelligence.services.episode_protocol import build_episode_input, build_episode_instructions, validate_episode_finish
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.tests.test_e2_material_grounding import FACT, finish, outcome, setup
 
@@ -18,6 +18,22 @@ def claim_finish(context):
         "text": "结论仅在用户材料前提内成立。", "kind": "premise_declaration",
     }]
     return payload
+
+
+def test_writer_receives_parseable_claim_template_with_exact_frozen_basis():
+    frame, context = setup()
+    registry = ResearchToolRegistry(())
+    prompt = json.loads(build_episode_input(frame, context, registry))
+    template = json.loads(prompt["material_grounding"]["finish_format"]["wire_template"])
+    assert template["draft"] == "" and template["render_from_claims"] is True
+    assert {b["output_id"]: b["basis"] for b in template["bindings"]} == {
+        spec.output_id: spec.grounding_mode for spec in context.contract.required_outputs if spec.required
+    }
+    claims = {b["output_id"]: b["claims"] for b in claim_finish(context)["bindings"]}
+    for binding in template["bindings"]:
+        binding["claims"] = claims[binding["output_id"]]
+    assert validate_episode_finish(template, context=context, evidence=()).draft
+    assert "wire_template" in build_episode_instructions(frame, context, registry)
 
 
 def test_claim_first_finish_renders_exact_sentences_and_retains_sources():

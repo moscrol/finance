@@ -7,6 +7,7 @@ Assistant prose is a separate catalogue and can never become a material anchor.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import json
 import re
 from typing import TYPE_CHECKING, Mapping
 
@@ -248,7 +249,14 @@ def material_grounding_payload(contract: ResearchTaskContract) -> dict[str, obje
         "premise_marks": [asdict(mark) for mark in contract.material_contract.premise_marks],
         **({"finish_format": {
             "render_from_claims": True,
-            "rule": "本轮推荐终局顶层 render_from_claims=true、draft=空字符串，只在各 binding.claims 写一次逐句正文。"
+            "wire_template": json.dumps({
+                "status": "completed", "render_from_claims": True, "draft": "", "gaps": [],
+                "bindings": [{"output_id": spec.output_id, "basis": spec.grounding_mode,
+                              "evidence_hashes": [], "gap": "", "claims": []}
+                             for spec in contract.required_outputs if spec.required],
+            }, ensure_ascii=False),
+            "rule": "按 wire_template 的结构填写答案，保留顶层 render_from_claims=true、draft=空字符串，"
+                    "逐项保留 output_id 与 basis，只在各 binding.claims 填入逐句正文（模板空 claims 不可直接提交）。"
                     "系统按 bindings 顺序排版，自动添加题号与证据边界标题；每条 claim 只含一句，不自写标题。"
                     "无法回答时 claims=[]，原样写 binding.gap；有答案的 gap=空字符串。"
                     "每个必需 output 都须提供，basis 逐项复制 required_outputs 的 grounding_mode，不按材料真实性猜。"
