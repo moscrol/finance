@@ -1,3 +1,5 @@
+> **2026-09-16 已合 main**（PR #751 → `ec241975`）。下一步不变：创始人逐格「对 / 改 / 删」，先拍 Q3 / Q13。
+
 # docs/teaching-card-judgment-draft
 
 ## 这个分支做什么
