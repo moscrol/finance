@@ -361,6 +361,32 @@ export function getResearchEvolution(
   );
 }
 
+export async function postResearchEvolutionEvents(
+  conversationId: string,
+  events: ReadonlyArray<Record<string, unknown>>,
+  user?: string,
+): Promise<void> {
+  const result = await request<{
+    accepted: string[];
+    duplicates: string[];
+    rejected: Array<{ message: string }>;
+  }>(
+    withUser(`/api/conversations/${encodeURIComponent(conversationId)}/research-evolution/events`, user),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ events, user }),
+      keepalive: true,
+    },
+  );
+  if (result.rejected.length > 0) {
+    throw new Error(result.rejected.map((item) => item.message).join("；"));
+  }
+  if (result.accepted.length + result.duplicates.length !== events.length) {
+    throw new Error("计时记录未全部确认保存");
+  }
+}
+
 export function postResearchEvolutionAction(
   conversationId: string,
   body: Record<string, unknown>,
