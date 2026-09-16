@@ -459,6 +459,10 @@ CREATE INDEX IF NOT EXISTS idx_fact_mainline_stock_date ON fact_mainline_stock_d
 CREATE INDEX IF NOT EXISTS idx_fact_mainline_stock_theme ON fact_mainline_stock_daily(theme_code);
 CREATE INDEX IF NOT EXISTS idx_fact_mainline_stock_stock ON fact_mainline_stock_daily(stock_ts_code);
 
+-- 题材资金面板。stock_count = 实际贡献资金的成分数（保证 total_fund = 这么多只相加），
+-- member_count = 篮子全量成分，fund_coverage = 前者/后者。fund_caliber 标口径：
+-- fupanhui-native（供应商自有）/ em-main-net（东财主力净额=超大单+大单）——
+-- 两者同股同日实测差很远，跨 2026-09-02/03 边界做序列对比必须按它分段。
 CREATE TABLE IF NOT EXISTS fact_theme_flow_daily (
     trade_date    DATE,
     theme_code    TEXT,
@@ -466,6 +470,12 @@ CREATE TABLE IF NOT EXISTS fact_theme_flow_daily (
     total_fund    DOUBLE,
     total_amount  DOUBLE,
     stock_count   INTEGER,
+    member_count  INTEGER,
+    fund_coverage DOUBLE,
+    fund_caliber  TEXT,
+    -- 本行面板实际用的成分版本。同名题材换了成分，资金和就不是同一个东西，
+    -- 跨日比较必须带上它；成分版本不唯一（如编辑部人工篮子）时写 NULL = 明确未知。
+    universe_snapshot_id TEXT,
     source        TEXT,
     updated_at    TIMESTAMP,
     PRIMARY KEY (trade_date, theme_code)
@@ -489,6 +499,16 @@ CREATE TABLE IF NOT EXISTS fact_polymarket_macro_odds_daily (
     PRIMARY KEY (trade_date, market_id, outcome)
 );
 CREATE INDEX IF NOT EXISTS idx_fact_polymarket_macro_odds_date ON fact_polymarket_macro_odds_daily(trade_date);
+-- 5 日资金窗口结构性不足的留痕：上市不满 5 天的个股，在那一天永远算不出 5 日值，
+-- 且不会随时间自愈。留痕后该 (日, 股) 退出待补集，避免每轮无谓重拉；
+-- 与「暂时缺数」区分开——后者不留痕，下次继续补。
+CREATE TABLE IF NOT EXISTS ops_fund_flow_5d_gap (
+    trade_date    DATE,
+    stock_ts_code TEXT,
+    reason        TEXT,
+    recorded_at   TIMESTAMP,
+    PRIMARY KEY (trade_date, stock_ts_code)
+);
 
 CREATE TABLE IF NOT EXISTS fact_mainline_sector_daily (
     trade_date              DATE,
