@@ -58,7 +58,7 @@ generic_research_owner、ask ……）。每处都自己判一次，就会各自
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
 from intelligence.services.research_tool_registry import (
@@ -232,8 +232,8 @@ class EpisodeScope:
     # 本次实际发生过调用的工具名——可达性四段里的最后一段靠它填。
     #
     # 这是一个**可变**集合，而 Scope 本身是 frozen：frozen 只挡重新绑定属性，
-    # 不挡改它指向的对象。这个区别是有意的——Scope 的**身份**（episode、契约、
-    # 注册表）在一次 Episode 内不可变，而「哪些工具真的跑过」是运行中累积的事实，
+    # 不挡改它指向的对象。这个区别是有意的——每份 Scope 的 episode/契约/注册表
+    # 不可变；修复重绑生成新视图，而「哪些工具真的跑过」是同一 Episode 累积的事实，
     # 只能边跑边记。compare=False：两个 Scope 是否相同不取决于跑到哪一步了。
     invoked_tools: set[str] = field(default_factory=set, compare=False)
     # sink 发射失败的事件种类，按发生顺序。与 invoked_tools 同理是可变的。
@@ -252,6 +252,22 @@ class EpisodeScope:
             raise ValueError("episode scope 必须携带 episode_id")
         if not isinstance(self.invoked_tools, set):
             object.__setattr__(self, "invoked_tools", set(self.invoked_tools))
+        object.__setattr__(self, "registry", self.registry.for_context(self.context))
+
+    def for_execution(
+        self, *, context: ResearchRunContext, registry: ResearchToolRegistry
+    ) -> "EpisodeScope":
+        """Rebind a same-episode view to the actual runner set, retaining audit history.
+
+        A repair may replace tools/contracts, but may not relax the existing registry
+        ceiling. Copies share invocation and diagnostic accumulators; old views stay
+        immutable rather than silently changing what a previous round authorized.
+        """
+        if context.contract.task_id != self.context.contract.task_id:
+            raise ValueError("cannot rebind scope to a different episode task")
+        if self.registry.read_scope != "full":
+            registry = registry.with_read_scope(self.registry.read_scope)
+        return replace(self, context=context, registry=registry)
 
     # ── 运行中登记 ────────────────────────────────────────────────────
 
@@ -378,8 +394,7 @@ class EpisodeScope:
         """判定单个工具是否被本次 contract 授权。
 
         与 ``registry.execute`` 内联那次判定的差别只在**形态**（返回值 vs 抛异常），
-        判据完全一致：``spec.capability in contract.allowed_capabilities``。
-        第 3 步接线时由这里取代内联判定，语义不变。
+        判据共用 registry.authorization_denial：能力授权与实际 IO 上限都必须满足。
         """
 
         try:
@@ -394,12 +409,13 @@ class EpisodeScope:
                 capability=None,
                 reason="工具未注册",
             )
-        if spec.capability not in self.allowed_capabilities:
+        denial = self.registry.authorization_denial(spec, self.context)
+        if denial:
             return Authorization(
                 allowed=False,
                 tool=spec.name,
                 capability=spec.capability,
-                reason=f"能力未授权：{spec.capability}",
+                reason=denial,
             )
         return Authorization(allowed=True, tool=spec.name, capability=spec.capability)
 

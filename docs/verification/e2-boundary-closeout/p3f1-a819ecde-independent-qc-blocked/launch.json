@@ -1,0 +1,11 @@
+{
+  "pid": 24766,
+  "one_review_attempt_only": true,
+  "provider": "dcprwo",
+  "model": "gpt-6-astra",
+  "target": "a819ecde6529784da06401e59152a476343f9011",
+  "parent": "418f2bc910c673820d0accdec42b46be5aaa5528",
+  "prompt_sha256": "7c697a44a1e6866a1e5fa56f9af986692e79e21abdbe918a3fea32f50eb52a65",
+  "runner_sha256": "1c11fc86a6d58e1134a525c5d18556bb5fb2f807f3cca8ca80016eb2c517b086",
+  "verdict": "pending; launch is not completion"
+}

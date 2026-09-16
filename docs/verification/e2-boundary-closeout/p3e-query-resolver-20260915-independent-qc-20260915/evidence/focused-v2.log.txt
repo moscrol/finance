@@ -1,0 +1,7 @@
+....................................不读取材料外数据。 restricted= True last_counts= {}
+.仅根据以下材料回答。 restricted= True last_counts= {}
+.不要联网。 restricted= False last_counts= {'stat': 4}
+.可以查真实数据。 restricted= False last_counts= {'stat': 4}
+. restricted= False last_counts= {'stat': 4}
+.
+41 passed in 0.47s

@@ -1,0 +1,29 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-e2-boundary-closeout",
+  "revision": "418f2bc910c673820d0accdec42b46be5aaa5528",
+  "branch": "fix/e2-boundary-closeout",
+  "dirty": true,
+  "dirty_paths": [
+    "intelligence/runtime/conversation_orchestrator.py",
+    "intelligence/services/conversation_materials.py",
+    "intelligence/services/task_frame.py",
+    "intelligence/services/turn_controller.py",
+    "intelligence/tests/test_conversation_materials.py",
+    "intelligence/tests/test_e2_material_source_binding.py"
+  ],
+  "worktree_dirty_total": 7,
+  "dependency_gate_bypassed": false,
+  "target": "intelligence/tests/test_e2_material_source_binding.py intelligence/tests/test_conversation_materials.py intelligence/tests/test_e2_controller_material_history.py intelligence/tests/test_e2_turn_prior_reads.py intelligence/tests/test_e2_query_resolver_reads.py intelligence/tests/test_turn_controller.py intelligence/tests/test_task_frame.py intelligence/tests/test_user_task.py",
+  "counts": {
+    "passed": 249,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-15T03:56:31+00:00"
+}

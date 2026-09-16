@@ -30,6 +30,154 @@
 
 编码任务「仓库里有没有现成实现」走 `python3 scripts/code_map.py query "<问题>"`，不是本页，也不是问答门。空图不得写成架构结论。
 
+### 材料题边界（E2，分阶段接线中）
+
+D1 分类器已独立复核；P2 把完整题组/原题号、前提真实性与数据范围接入
+`TaskFrame.material_contract`，随任务序列化和哈希保存。无新语义的普通问题不增加该字段。
+虚构前提标注与旧 `user_premises` 分开；仅范围声明槽使用前提资格，不能替事实背书。
+续轮基底未接入前载体明确 `state_unavailable`，不从助手旧答猜权限。
+P2 不将此未就绪状态接成全局澄清闸；普通研究追问仍走原路由。
+预取前澄清必须与 P3 权限及可信基底恢复一同接线，不能据此阶段宣称安全执行。
+
+P3a 已接明确 `material_only` 的 Episode 装配：同一冻结合同生成空读取授权、空证据计划、
+原题号 `answer_q{i}` 槽；恢复/替换合同不得重新加读权限。注册表在根路径、市场日期、实体
+与开场预取之前短路；现有 dispatch 拒绝并记事件。工厂不读静态 KB，丢弃未分型的历史、
+视角、stance 与检索阶段背景。这是装配层局部约束，不是整个入口的零读取保证。
+
+P3b 在 Episode 装配层接入 `local_only` 的实际 IO（输入/输出行为）上限：
+`material_permissions` 收窄能力、全部证据要求及输出工具类型；已审定的 DuckDB 查询、
+主线、JSON 证据索引及已解析身份的用户记忆保留。工具实现由装配点声明 `io_effect`，
+未知/混合 runner 不凭 cost/freshness 放行；菜单与执行授权共用上限，注册表副本只能
+继续收窄。受限注册表不带预取/计算恢复加载器，工厂跳过未按能力分类的静态 KB 预检，
+不装默认外呼工具、不为它们做全局实体解析；未审定历史附加工具暂不挂，普通本地
+finance_query 的历史窗口约束保留。此处是可信装配声明与回归测试，不是操作系统网络沙箱。
+
+P3c 将同一读取上限绑定到运行器实际持有的注册表，而不只约束 EpisodeScope 内的副本：
+Episode 车道在消费预取做升档判断、可满足性预检、配置快照、提示词与证据账本播种前收窄；
+批工具菜单/定义/执行和内存修复续轮也重新绑定，原始 full 注册表不被修改。
+这防止外部预取先进入模型、未知 IO 工具先被列出后才在 dispatch 拒绝；不是清洗历史消息，
+也不能撤销注入式 registry_factory 内部已经发生的读取。独立反例指出修复续轮同名工具替换后
+Scope 可能仍授权旧实现；返修让批菜单/执行及续轮重绑 Scope 视图，保留调用/诊断历史与
+既有更严读取上限，拒绝事件使用当前 runner 的判据。P3b 与 P3c+返修已在固定 `301dcd9e`
+获同型号独立上下文复核通过，均仅限本片；[完整报告与原失败证据](verification/e2-boundary-closeout/qc-301dcd9e/README.md)
+已归档。晚结果唯一红针判为测试二次进入过期适配器，修正保留原断言与超时；不是产品修改。
+
+P3d 小片在 `TurnOrchestrator` 拿到本轮 TaskFrame 后，对明确 `material_only` 停止读取
+旧答案产物、stance pack、研究项目先验及视角提示；使用同一 material_contract 的数据范围，
+不等这些生产者读取之后才在 Episode 工厂丢弃字段。full/local_only/普通问题保持原路径。
+固定 `1f6ebc5d` 已获独立复核通过，但仅限 controller 之后、Episode 之前这四个生产者：
+独立探针16P，material_only四类禁止尝试0/0/0/0，正例各实际读取1，项目先验异常验证了先计数后吞错。
+报告与日志见 [P3d 独立归档](verification/e2-boundary-closeout/p3d-1f6ebc5d-independent-qc-20260915/)。
+不声明 controller 历史输入、确定性/legacy 回落或交付阶段已经安全。
+
+P3e 候选在 `QueryResolver.resolve` 的词典读取前复用 D1/D2 材料合同编译；明确
+`material_only` 时仅走既有文本理解，不访问实体/题材词典、证券名单或其缓存，也不注入
+词典验证出的锚点/候选/比较实体。普通、full、local_only 保持原解析；不新造禁令词表，
+不把未知边界或“继续”一律澄清。作者36针通过，撤闸恢复23F/13P，服务层452P/1项排除，
+均不能替代独立QC；独立审查已在固定 `0b83e14f` 通过（focused 41P、相关347P，修正版禁止尝试0；首次启动器误拒41次的失败证据保留），仅限本片词典早读闸门。
+[本片收据与覆盖限制](verification/e2-boundary-closeout/p3e-query-resolver-20260915/README.md)。
+仍未关闭静态路由配置/日历先验、controller历史、可信继承、注入式resolver和其他旁路；
+本片不宣称整个 `understand_query` 零IO或完整入口安全。
+
+P3f 的“明确 material_only 就清空 controller 历史/旧 intent”候选已被作者反证并撤回：
+它会丢掉上轮用户材料，也把已知缺材料误当未知上下文（候选两条正例2F，恢复原代码2P）。
+当前应用未增加这道闸，新增正例只锁住兼容行为；不是历史来源过滤或可信续轮已经完成。
+[候选原件、反例与撤回对照](verification/e2-boundary-closeout/p3f-rejected-history-clear-20260915/README.md)。
+
+P3f1 改为**只绑定历史材料来源**：当前轮明确 `material_only` 时，从真实 completed
+用户消息、材料内容身份与 message_id 构建不可变投影；只取既有上下文窗口内完整消息，
+不解析正文角色字样、标题或 summary 来授予来源身份。投影经默认 controller 到 TaskFrame，
+已知空投影不回退猜测；旧注入 controller 签名兼容，legacy frame 重建使用同一投影。
+普通/full/local_only 等其他路径保留旧行为。这不是 controller 模型提示词过滤，
+pending恢复/旧frame重验、跨轮权限及 Episode 历史正文交付尚未覆盖。
+作者最终回归249P、禁止尝试0；三种撤线分别6F/27P、2F/31P、2F/31P。
+相邻测试110P但100次禁止尝试、启动器exit3的失败保留；无审计复跑不能洗掉它。
+**尚无独立 QC，不代表 P3/E2 完成**；[范围与完整作者证据](verification/e2-boundary-closeout/p3f1-source-binding-20260915/README.md)。
+独立复核固定a819ecde的首次启动被服务并发限制中断，未运行测试/无报告，CLI exit0不算通过；
+[中断原件](verification/e2-boundary-closeout/p3f1-a819ecde-independent-qc-blocked/README.md)保留，未自动重试。
+用户授权后的第二次全新有界复核也被服务过载阻塞：工具调用0、测试未执行、无报告，
+禁止IO次数未测而非0；自动重试关闭，未再次启动或换模型。
+[第二次原件与终态](verification/e2-boundary-closeout/p3f1-a819ecde-independent-qc2-blocked/README.md)单独归档。
+用户再授权的[第三次有界复核](verification/e2-boundary-closeout/p3f1-a819ecde-independent-qc3-blocked/README.md)
+同样首响应过载、0工具/无测试/无报告，未自动重试；仍无独立裁定。
+**用户随后纠正：独立审查可关闭，本轮关闭该可选步骤，不作为后续开发前置。**
+撤销93ad74a8及历史中断归档中“先等服务恢复”的后续要求；归档原件不改写。
+下一步直接冻结历史提示词/正文送达小片，保留作者验证要求；关闭不等于审查通过，
+也不取消下述未完成项、合入测试门禁或用户合并/部署授权。
+
+P3f2 接通已知缺失基底的前置澄清与续轮材料链保持：TaskFrame 已判「缺失且不可恢复」时，
+运行时不再丢弃该状态让续轮落回普通解析器/模型路径，而是送达默认 controller，在
+resolver/模型之前发起澄清；旧注入 controller 按签名探测兼容，不加必需参数。材料链只在
+「带来新材料、或不指代材料的新问题」时重置，「这篇」式指代续问与 material_only 轮保留
+既有链；material_only/待澄清轮同时跳过昵称解析与日历先验注入（D4 同源过滤补齐）。
+这是把既有缺失状态送达 controller，不是 controller 历史提示词过滤/改写，也不新增
+运行时澄清文案生成器。7 个真实入口反例（run_turn→真实 decide_turn→Episode 装配）
+覆盖注入旧 frame、基底缺失五态与材料链续问，先红（7F/16P）后绿；作者回归：聚焦三文件
+×10 连跑 50/50，e2+改动模块选集 683P/4S，审计启动器 50P/禁止尝试 0，Ruff 通过。
+间歇性 `root budget already exists` 判为测试侧固定 task_id 撞 WeakValueDictionary
+注册表（GC 时机依赖），修为每用例唯一 id，不改产品弱引用语义。独立审查按用户决定
+保持关闭，本片为作者自验；提交 `e1fc53a7`，决策留痕
+`docs/handoffs/2026-09-15-e2-p3f2-frame-delivery-and-material-chain.md`。
+未覆盖：歧义（非缺失）的预取前澄清、D7 跨轮权限继承、最终答案质量（P4/P6）
+与全仓合入门禁；pending 恢复重验由 P3g 接续收口（见下段）。
+
+P3g 收口材料类澄清挂起的恢复重验——「用户回答了 P3f2 那句澄清之后」的四个真实入口
+bug：material clarify 决策未挂 pending_task_frame（回答绕过恢复走普通路由，材料被丢、
+权限声明被当主体名）；顶部材料分支抢在恢复前重建 frame（题组丢）；
+`resolve_task_frame_clarification` 无材料合同分支（needs_clarification 合同残留仍放行
+research）；装配层只按 data_scope==material_only 收窄（state_unavailable 轴 None 被当
+full 执行 8 能力）。修复三层：clarify 挂 pending 快照；材料类澄清挂起时顶部分支让路
+（结构化判定合同状态，不比文案）；恢复用同一 D1/D2 编译器重编译回答——显式声明成为
+新合同（D7.2），裸材料并入且合同如实保留待澄清、由装配层 `_material_restricted`
+（material_only 或 needs_clarification）按最严收窄执行与提示，不猜 full、不二次采访。
+6 个真实入口反例先红后绿（含两轮 run_turn 全链）；文件×10=290/290，选集 689P/4S 零
+破坏；变异验证三层各有独立承重针（6/6、3/6、3/6）。提交 `f05d0681`，决策留痕
+`docs/handoffs/2026-09-15-e2-p3g-pending-clarification-recovery.md`。旧类型澄清
+（entity tristate、主体归一）走原路径未动；歧义（非缺失）预取前澄清与 D7 继承仍未盖。
+
+P3h 收口确定性旁路——约束轮禁入无材料合同意识的执行面。三个掉落口实测可达：
+adapter 对五个确定性 owner 题型（external_market/dated_market_review/market_watch/
+watchlist_digest/disclosure_scan）主动让路给引擎 B；`ASK_CONTINUOUS_RUNTIME` 缺省
+off 时全部 research 轮掉入引擎 B；knowledge lane 的 fallback 检索直调 answer_query。
+引擎 B（skill 路由+Ask 管线）对 material_contract 零引用，约束轮进入即整体失效
+（实测「只用本地数据，美股隔夜表现如何」编出 local_only+external_market 被让路进
+外盘 owner）。修复为两道正交防线共用一个谓词：adapter 对约束轮不让路（留在 Episode
+收窄执行）；orchestrator 掉落总闸在 skill 路由/Ask 管线之前 fail-closed（诚实降级+
+degrade+trace，零外呼）。分界：material_only/local_only 恒拦，boundary_uncertain
+恒拦，state_unavailable 仅带材料语境（题组/材料/可信历史）时拦——「继续检索」类
+日常追问声明的是基底未知而非受限边界，保持既有引擎 B 行为（全量回归实测过误伤后
+收回）。20 个 adapter 反例（4 合同×5 题型）+3 个 run_turn 全链反例先红后绿；
+813P/4S 零破坏；变异撤防线1→20红、撤防线2→2红，完全正交。提交 `50687c0b`，
+决策留痕 `docs/handoffs/2026-09-15-e2-p3h-contract-blind-pipeline-gate.md`。
+本片不给引擎 B 内部加合同意识（被挡在门外≠免疫），fictional×full 的前提标注
+送达仍属 P4/P6 纯度范围。
+
+P4（D5）在 `fix/e2-delivery-closeout` 补齐 `material_only` 逐题交付：原题号保持
+`answer_qN` 唯一必需槽；已回答沿用 `fulfilled`，公开交代具体缺项才是 `legal_gap`，
+遗漏/重复/空壳/超长仍是 `missing`。合法缺口只能 `partial`，全缺口加顶部说明；
+它只证明结构已交代，不证明材料真缺失，仍实际送判。判官拒绝会重开原题，普通
+元陈述豁免不能洗白；公开稿删句/脱敏后重验，题号不重新编号。判官不可用保持
+`unavailable/pending_rejudge`，不伪造成功，也不为暂扣稿再烧补写轮。
+备忘录只由明确题意触发，与该题共用一个槽；T3 q8 上限200字（保守计入正文
+所有非空白字符和标点/Markdown，不含题标题，引用不可藏超长）。真漏答可获有界
+零工具补写，不靠降 optional 或假增证据数量；已交代缺口不触发空转修复。
+前置同时修了题内案例弱分区吞题、验收采集 followup 错开会话/误收旧答。
+公开稿的两处再出口（投影后复验、判官拒绝重开）只经 `session_projection.view()`
+并已登记，不另开拼串路径。证据：离线反例与定向回归（`docs/handoffs/2026-09-16-e2-delivery-p4.md`）；
+精确提交上的四叶等价 CI 与删保护变异（`docs/handoffs/2026-09-16-e2-delivery-p4-verification.md`）。
+
+**本阶段不是材料题全链完成**：`local_only` 仅已审定 runner 的局部路径，未覆盖所有
+本地工具。D4 四组九类注入路径已逐条对账收口（矩阵与定性判断见
+[P3 注入面核查](handoffs/2026-09-15-e2-p3-injection-surface-audit.md)，payload 卫生
+钉测试锁现状）；判读基线/题型规则等方法文案留在 material_only 输入里，定性为
+「非事实、无 IO」不越 P3 红线，答案质量影响归 P4/P6 再议。引擎 B 内部仍无合同
+意识，不得绕过 P3h 两道门直接调用；注入式 registry_factory 内部读取不可撤销
+（P3c 声明）。local_only 原题号槽、材料题真实模型交付、可信跨轮继承五格全链、
+纯度与材料锚点待后续阶段；普通上下文不是按来源过滤后的安全输入。
+不得把局部短路当成真实入口已经零外呼，也不得运行正式 T2→T3/Knevo 对照。Grok CLI 已做过回顾性语义判卷试跑，但有效返回来自关闭系统沙箱的配置（不再沿用），且输入未含完整原题/材料，结果仅作试跑证据，不是隔离验收或正式评分；Knevo 有已登录浏览器的 CDP 回贴入口，但本轮未发新题、没有未揭盲成对答案，故没有正式 PK；详细状态见 [判官/Knevo 记录](verification/e2-boundary-closeout/llm-judge-knevo-status-20260915.md)。设计与阶段证据见
+[设计 v10](learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md)
+及 `docs/handoffs/inflight/fix-e2-boundary-closeout.md`；是否部署看实际服务 revision。
+
 ### 历史发现研究
 
 入口仍是 Workbench 对话，例如「这一波农业怎么走出来的，找出值得检验的特征」→「以前有没有类似，失败案例也看看」→「把观察窗口改成……」。`TaskFrame.history_intent` 区分事后发现与历史比较，随 `TurnIntent` 跨轮传递；普通概念解释与明确取消历史研究不会继承该权限。用户明确限定日期时，历史计算、普通结构化查询与原件读取共用范围门。
