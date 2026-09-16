@@ -1348,7 +1348,14 @@ def cmd_sector_stocks(args) -> int:
     from .query import sector_stocks
 
     res = sector_stocks(args.sector, trade_date=args.trade_date, top=args.top, order_by=args.order_by)
+    resolution = res.get("resolution") or {}
+    resolved = resolution.get("resolved_sector_ts_code")
     print(f"{res['sector']} 成分股 @{res['trade_date']} (按{args.order_by}排序, Top{args.top})")
+    if resolved and resolved != res["sector"]:
+        print(f"  解析: {res['sector']} -> {resolved} (按 {resolution.get('matched_by')} 命中)")
+    if resolution.get("ambiguous"):
+        others = [c for c in resolution.get("codes", []) if c != resolved]
+        print(f"  ⚠ 同名歧义: 还有 {', '.join(others)} 也叫这个名, 本次只取 {resolved}")
     for s in res["stocks"]:
         print(f"  {s['stock_name']:<8} {s['stock_ts_code']:<11} 涨{s['pct_chg']} 额{s['amount']}亿 "
               f"5日{s['pct_chg_5d']} {s['sw_industry']} 资金1d{s['fund_flow_1d']}")
@@ -1367,6 +1374,102 @@ def cmd_stock_sectors(args) -> int:
     if not res["sectors"]:
         print("  (无数据, 检查个股名/代码或先同步该日成分股)")
     return 0
+
+
+def cmd_sector_alias(args) -> int:
+    """板块维度一致化: plan 只读预览 / apply 写映射 / resolve 排查解析结果。"""
+    from . import sector_alias
+
+    action = args.action
+    if action == "plan":
+        con = connect(read_only=True)
+        try:
+            summary = sector_alias.plan_provider_migration(con).summary()
+        finally:
+            con.close()
+        if args.json:
+            print(json.dumps(summary, ensure_ascii=False, indent=2))
+            return 0
+        print(f"退役码→现行码 同名唯一匹配: {summary['mapped']} 条可写")
+        print(f"无同名现行码 (待人工): {summary['unmapped']} 条")
+        for line in summary["unmapped_codes"]:
+            print(f"    - {line}")
+        print(f"同名多个现行码 (歧义, 不写): {summary['ambiguous']} 条")
+        for line in summary["ambiguous_codes"]:
+            print(f"    - {line}")
+        return 0
+
+    if action == "resolve":
+        if not args.sector:
+            print("resolve 需要给板块名或码")
+            return 2
+        con = connect(read_only=True)
+        try:
+            res = sector_alias.resolve_sector_codes(con, args.sector)
+            payload = res.to_dict()
+            if args.trade_date and res.codes:
+                payload["picked_for_date"] = sector_alias.pick_code_with_rows(
+                    con, "fact_sector_daily", args.trade_date, res.codes
+                )
+        finally:
+            con.close()
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+
+    if action == "apply":
+        if args.staged:
+            result = sector_alias.apply_provider_migration_staged()
+            print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+            return 0 if result.get("swapped") else 2
+        refused = _refuse_production_write(bool(args.direct))
+        if refused is not None:
+            print("  或者加 --staged: 克隆到 staging 应用后原子换名, 不占生产库写锁。")
+            return refused
+        con = connect()
+        try:
+            result = sector_alias.apply_provider_migration(
+                con, plan_name="direct-prod" if args.direct else "direct"
+            )
+        finally:
+            con.close()
+        if args.direct:
+            from .write_path import write_direct_receipt
+
+            receipt = write_direct_receipt(
+                trade_date=None, command="sector-alias apply --direct", ok=True,
+                extra={"written": result["written"]},
+            )
+            print(f"direct 收据: {receipt}")
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
+
+    print(f"未知动作: {action}")
+    return 2
+
+
+def cmd_maintenance(args) -> int:
+    """库级维护: 成分股表空壳行清除 (装 CHECK) + 整库压缩; 默认只读 dry-run。"""
+    from . import maintenance
+
+    if not args.staged:
+        report = maintenance.dry_run_report()
+        shell = report["shell"]
+        f = report["file"]
+        print(f"目标库: {report['target']}")
+        print(f"  {shell['table']}: 共 {shell['rows_total']:,} 行, 空壳 {shell['rows_shell']:,} 行 "
+              f"({100.0 * shell['rows_shell'] / max(shell['rows_total'], 1):.1f}%), 保留 {shell['rows_keep']:,}")
+        for item in shell["shell_by_source"]:
+            print(f"    - source={item['source']}: {item['rows']:,} 行 {item['first']}~{item['last']}")
+        print(f"  CHECK(至少一个行情值) 已装: {'是' if shell['has_quote_check'] else '否'}")
+        print(f"  文件 {f['bytes'] / 1e9:.2f} GB, 在用 {f['used_bytes'] / 1e9:.2f} GB, 空闲块 {f['free_bytes'] / 1e9:.2f} GB")
+        print(f"  对象: 表 {report['shape']['tables']} / 视图 {report['shape']['views']} / "
+              f"索引 {report['shape']['indexes']} / 约束 {report['shape']['constraints']}")
+        print("  (这是 dry-run; 加 --staged 才会克隆→重建→压缩→换名)")
+        return 0
+
+    result = maintenance.run_maintenance_staged(purge=not args.no_purge, compact=not args.no_compact)
+    print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+    return 0 if result.get("swapped") else 2
 
 
 def _fmt_num(value, digits=2):
@@ -2157,6 +2260,31 @@ def build_parser() -> argparse.ArgumentParser:
     p_q2.add_argument("stock", help="个股代码或名称, 如 300620.SZ 或 寒武纪")
     p_q2.add_argument("--trade-date", default=None, help="交易日, 留空取最新")
     p_q2.set_defaults(func=cmd_stock_sectors)
+
+    p_sa = sub.add_parser(
+        "sector-alias",
+        help="板块维度一致化: 退役码(.TI)→现行码(.FP) 映射的预览/写入, 及名/码解析排查",
+    )
+    p_sa.add_argument("action", choices=["plan", "apply", "resolve"],
+                      help="plan=只读预览映射; apply=写 config_sector_alias(+建视图); resolve=看某名/码怎么解析")
+    p_sa.add_argument("sector", nargs="?", default=None, help="resolve 用: 板块名或码")
+    p_sa.add_argument("--trade-date", default=None, help="resolve 用: 看该日会落到哪个码")
+    p_sa.add_argument("--json", action="store_true", help="plan 输出 JSON")
+    p_sa.add_argument("--staged", action="store_true",
+                      help="apply 用: 克隆生产库到 staging 应用后原子换名 (生产库正门)")
+    p_sa.add_argument("--direct", action="store_true",
+                      help="apply 用: 急救直写生产库 (短暂持写锁, 落 direct 收据)")
+    p_sa.set_defaults(func=cmd_sector_alias)
+
+    p_mt = sub.add_parser(
+        "maintenance",
+        help="库级维护: 成分股表空壳行清除(装 CHECK) + 整库压缩; 默认 dry-run, --staged 才动库",
+    )
+    p_mt.add_argument("--staged", action="store_true",
+                      help="克隆生产库到 staging → 重建+压缩 → 校验 → 原子换名 (唯一会改库的模式)")
+    p_mt.add_argument("--no-purge", action="store_true", help="跳过空壳行清除/CHECK 重建, 只压缩")
+    p_mt.add_argument("--no-compact", action="store_true", help="跳过压缩, 只重建")
+    p_mt.set_defaults(func=cmd_maintenance)
 
     p_qh = sub.add_parser("query-stock-high", help="按一级行业回溯查询某日新高个股")
     p_qh.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
