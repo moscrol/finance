@@ -56,6 +56,7 @@ from intelligence.services.episode_history_compaction import (
     history_compaction_enabled,
     history_keep_batches,
 )
+from intelligence.services.material_grounding import claim_finish_format
 from intelligence.services.mode_governor import ModeDecision
 from intelligence.services.provider_observability import (
     ProviderTrace,
@@ -2254,6 +2255,7 @@ class ContinuousAgentEpisode:
             content=self._harness.repair_goal_message(
                 prompt_goal,
                 tools_open=research_tools_open,
+                finish_format=claim_finish_format(downgraded_contract),
             ),
             source="repair_goal",
         )

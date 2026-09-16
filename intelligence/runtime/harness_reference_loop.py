@@ -76,6 +76,7 @@ from intelligence.services.episode_messages import (
     unreported_invalid_finish,
     user_message,
 )
+from intelligence.services.material_grounding import claim_finish_format
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_harness import (
@@ -547,7 +548,11 @@ class HarnessReferenceLoop:
         append_model_input(
             messages,
             ledger,
-            content=harness.repair_goal_message(downgrade.goal, tools_open=tools_open),
+            content=harness.repair_goal_message(
+                downgrade.goal,
+                tools_open=tools_open,
+                finish_format=claim_finish_format(downgrade.contract),
+            ),
             source="repair_goal",
         )
 

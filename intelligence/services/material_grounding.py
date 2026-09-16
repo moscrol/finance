@@ -268,29 +268,43 @@ def render_material_claims(contract: ResearchTaskContract, raw_bindings: object)
     return "\n\n".join(blocks)
 
 
+def claim_finish_format(contract: ResearchTaskContract) -> dict[str, object] | None:
+    """material_only 那份冻结的成稿形状；没有就返回 None。
+
+    开场和修复轮共用这一个来源：修复轮是最后一次机会，作者手上必须有它仍然要求的
+    wire 形状（run_20260917_004950_254515 就是内容改对了、格式在修复稿里失手直接终局）。
+    两处各写一份迟早会漂移，所以只留这一个构造点。
+    """
+    material = contract.material_contract
+    if material is None or material.data_scope != "material_only" or material.needs_clarification:
+        return None
+    return {
+        "render_from_claims": True,
+        "wire_template": json.dumps({
+            "status": "completed", "render_from_claims": True, "draft": "", "gaps": [],
+            "bindings": [{"output_id": spec.output_id, "basis": spec.grounding_mode,
+                          "evidence_hashes": [], "gap": "", "claims": []}
+                         for spec in contract.required_outputs if spec.required],
+        }, ensure_ascii=False),
+        "rule": "按 wire_template 的结构填写答案，保留顶层 render_from_claims=true、draft=空字符串，"
+                "逐项保留 output_id 与 basis，只在各 binding.claims 填入逐句正文（模板空 claims 不可直接提交）。"
+                "系统按 bindings 顺序排版，自动添加题号与证据边界标题；每条 claim 只含一句，不自写标题。"
+                "无法回答时 claims=[]，原样写 binding.gap；有答案的 gap=空字符串。"
+                "每个必需 output 都须提供，basis 逐项复制 required_outputs 的 grounding_mode，不按材料真实性猜。"
+                "不得同时提交另一份 draft。旧格式 render_from_claims=false 时仍须严格逐句复制正文。",
+    }
+
+
 def material_grounding_payload(contract: ResearchTaskContract) -> dict[str, object] | None:
     if contract.material_contract is None:
         return None
     catalogue = contract.material_grounding
+    finish_format = claim_finish_format(contract)
     return {
         "data_scope": grounding_scope(contract),
         "authenticity": contract.material_contract.authenticity,
         "premise_marks": [asdict(mark) for mark in contract.material_contract.premise_marks],
-        **({"finish_format": {
-            "render_from_claims": True,
-            "wire_template": json.dumps({
-                "status": "completed", "render_from_claims": True, "draft": "", "gaps": [],
-                "bindings": [{"output_id": spec.output_id, "basis": spec.grounding_mode,
-                              "evidence_hashes": [], "gap": "", "claims": []}
-                             for spec in contract.required_outputs if spec.required],
-            }, ensure_ascii=False),
-            "rule": "按 wire_template 的结构填写答案，保留顶层 render_from_claims=true、draft=空字符串，"
-                    "逐项保留 output_id 与 basis，只在各 binding.claims 填入逐句正文（模板空 claims 不可直接提交）。"
-                    "系统按 bindings 顺序排版，自动添加题号与证据边界标题；每条 claim 只含一句，不自写标题。"
-                    "无法回答时 claims=[]，原样写 binding.gap；有答案的 gap=空字符串。"
-                    "每个必需 output 都须提供，basis 逐项复制 required_outputs 的 grounding_mode，不按材料真实性猜。"
-                    "不得同时提交另一份 draft。旧格式 render_from_claims=false 时仍须严格逐句复制正文。",
-        }} if contract.material_contract.data_scope == "material_only" and not contract.material_contract.needs_clarification else {}),
+        **({"finish_format": finish_format} if finish_format else {}),
         **(catalogue.to_dict() if catalogue else {}),
         "rule": (
             "纯度由 data_scope 决定，不由真实性决定：material_only 的每个市场事实/计算结果必须在对应 binding.claims 中"

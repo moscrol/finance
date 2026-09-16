@@ -223,6 +223,48 @@ def test_last_format_error_reaches_repair_writer_without_extra_attempt(reference
     assert result.usage.tool_calls == 0
 
 
+@pytest.mark.parametrize("reference_loop", [False, True])
+def test_repair_round_restates_the_frozen_wire_format_it_still_demands(reference_loop):
+    """修复轮是最后一次机会，成稿格式必须随修复目标一起给到作者。
+
+    真实 run_20260917_004950_254515：判官理由送达了，作者改对了内容，却在修复稿里
+    把两句塞进一条 claim，`invalid_repair_finish` 直接终局。修复轮消息此前只讲缺什么，
+    不重述它仍然要求的 wire 形状。
+    """
+    from copy import deepcopy
+    from intelligence.runtime.harness_reference_loop import HarnessReferenceLoop
+    from intelligence.services.repair_coordinator import CoverageDelta, RepairGoal
+
+    frame, context = setup()
+    opening = json.loads(build_episode_input(frame, context, ResearchToolRegistry(())))
+    frozen = opening["material_grounding"]["finish_format"]
+    calls = []
+
+    class Writer:
+        def complete(self, *, messages, tools, timeout):
+            calls.append(deepcopy(messages))
+            payload = claim_finish(context)
+            if len(calls) == 1:
+                payload["bindings"][1]["claims"] = []
+                payload["bindings"][1]["gap"] = "材料未给日期。"
+                payload["status"] = "partial"
+            return ModelTurn(json.dumps(payload, ensure_ascii=False), (), "offline", "")
+
+    loop = HarnessReferenceLoop(Writer()) if reference_loop else ContinuousAgentEpisode(Writer())
+    states = []
+    first = loop.run(task_frame=frame, context=context, registry=ResearchToolRegistry(()), _continuation_sink=states)
+    goal = RepairGoal(context.contract.task_id, "repair-format-context", 1, ("evidence_boundary",),
+                      (), (), (), CoverageDelta(0, 0, 0), 0, 20)
+    result = loop.resume(states[0], first, goal)
+    assert result.status == "completed" and len(calls) == 2
+    repair = [event.payload["content"] for event in result.events
+              if event.kind == "model_input" and event.payload.get("source") == "repair_goal"]
+    assert len(repair) == 1
+    restated = json.loads(repair[0]).get("finish_format")
+    # 同一份冻结模板，逐字节相同：修复轮不得另起一套说法。
+    assert restated == frozen
+
+
 def test_claim_rendering_keeps_wrong_quote_as_terminal_integrity_rejection():
     _, context = setup()
     payload = claim_finish(context)
