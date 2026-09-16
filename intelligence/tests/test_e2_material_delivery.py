@@ -525,8 +525,7 @@ def test_judge_rejection_revokes_a_structurally_legal_gap(meta_prefix):
     def judge(request):
         indexes = [row["index"] for row in request["sentences"] if "缺少乙" in row["text"]]
         assert len(indexes) == 1
-        return {"passed": False, "rejected_sentence_indexes": indexes,
-                "issues": [f"第{indexes[0]}句：缺失声明与材料不符。"]}
+        return material_judge_report(request, rejected=indexes, issues=[f"第{indexes[0]}句：缺失声明与材料不符。"])
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(60),
     )
@@ -548,8 +547,7 @@ def test_gap_rejection_mapping_uses_position_not_same_text_in_another_question()
     def judge(request):
         indexes = [row["index"] for row in request["sentences"] if row["text"] == "补充说明。"]
         assert len(indexes) == 2
-        return {"passed": False, "rejected_sentence_indexes": [indexes[1]],
-                "issues": [f"第{indexes[1]}句：缺项判断无依据。"]}
+        return material_judge_report(request, rejected=[indexes[1]], issues=[f"第{indexes[1]}句：缺项判断无依据。"])
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=frame, structurally_verified=verify_episode_outcome(context.contract, original), deadline=ResearchDeadline.from_timeout(60),
     )
@@ -561,7 +559,7 @@ def test_material_rejection_does_not_renumber_peer_question_paragraphs():
     frame, context = setup_delivery()
     original = outcome_for(context, all_gap=True, draft=f"1.\n{GAP1}\n2.\n{GAP2}{BOUNDARY}")
     def judge(request):
-        return {"passed": False, "rejected_sentence_indexes": [1], "issues": ["第1句：该题标题不当。"]}
+        return material_judge_report(request, rejected=[1], issues=["第1句：该题标题不当。"])
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=frame, structurally_verified=verify_episode_outcome(context.contract, original), deadline=ResearchDeadline.from_timeout(60),
     )
@@ -671,8 +669,7 @@ def test_judge_rejected_gap_can_rewrite_without_tools_or_stale_revocation():
     def judge(request):
         requests.append(request)
         rejected = [row["index"] for row in request["sentences"] if bad_gap in row["text"]]
-        return {"passed": not rejected, "rejected_sentence_indexes": rejected,
-                "issues": [f"第{index}句：材料已经给了金额。" for index in rejected]}
+        return material_judge_report(request, rejected=rejected, issues=[f"第{index}句：材料已经给了金额。" for index in rejected])
     result = ContinuousTurnAdapter(
         runtime=Runtime(), runtime_name="continuous_glm", mode="on",
         context_factory=lambda *_args, **_kwargs: context,

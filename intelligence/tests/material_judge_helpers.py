@@ -17,4 +17,11 @@ def material_judge_report(request, *, rejected=(), issues=()):
              "anchor_indexes": ([] if row["sentence_index"] in rejected else list(range(1, len(row.get("material_anchors", ())) + 1)))}
             for row in request["material_claims"]
         ]
+    if request.get("material_outputs"):
+        payload["material_output_checks"] = [
+            {"output_id": row["output_id"], "answered": row["state"] == "fulfilled",
+             "answer_sentence_indexes": [s["index"] for s in row["candidate_sentences"]] if row["state"] == "fulfilled" else [],
+             "reason": "离线夹具假定候选句已回答该题，不能代签真实完整性。"}
+            for row in request["material_outputs"]
+        ]
     return payload

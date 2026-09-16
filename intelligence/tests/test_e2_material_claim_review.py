@@ -117,8 +117,8 @@ def test_material_review_payload_reaches_all_supported_judge_callback_styles(sty
         seen.append(request)
         return reviewed(request)
 
-    def named(*, material_claims, material_grounding, sentences):
-        request = {"material_claims": material_claims, "material_grounding": material_grounding, "sentences": sentences}
+    def named(*, material_claims, material_grounding, material_outputs, sentences):
+        request = {"material_claims": material_claims, "material_grounding": material_grounding, "material_outputs": material_outputs, "sentences": sentences}
         seen.append(request)
         return reviewed(request)
 
@@ -127,15 +127,18 @@ def test_material_review_payload_reaches_all_supported_judge_callback_styles(sty
     assert seen[0]["material_grounding"]["data_scope"] == "material_only"
 
 
-@pytest.mark.parametrize("case_index", range(4))
+@pytest.mark.parametrize("case_index", range(7))
 def test_control_probe_cases_are_validated_and_require_specific_verdict(case_index):
     from scripts.material_claim_support_probe import CASES, probe_case
 
     case = CASES[case_index]
 
     def judge(request):
-        rejected = () if case[3] else tuple(row["sentence_index"] for row in request["material_claims"] if row["output_id"] == "evidence_boundary")
-        return reviewed(request, rejected=rejected)
+        rejected = () if case[3] or case[0] == "facts_only" else tuple(row["sentence_index"] for row in request["material_claims"] if row["output_id"] == "evidence_boundary")
+        payload = reviewed(request, rejected=rejected)
+        if case[0] == "facts_only" and request.get("material_outputs"):
+            payload["material_output_checks"][0].update(answered=False, answer_sentence_indexes=[])
+        return payload
 
     assert probe_case(case, judge)["expectation_matched"]
     if not case[3]:
