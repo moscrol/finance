@@ -532,3 +532,11 @@
 1. **`from __future__ import annotations` 的模块加 pydantic 字段，类型名必须真导入**：`ContinuationRequest` 加 `dict[str, Any]` 时模块只导了 `Literal`——future 注解懒解析，直到 FastAPI 建 TypeAdapter 才炸 `class-not-fully-defined`，`py_compile` 与 ruff 全看不出来。教训：改 pydantic 模型后跑一个真请求路径的测试，编译通过不等于可用。
 2. **跨时区口径比较会定时炸弹**：01 校验 `baseline_cutoff(上海日) > created_at[:10](UTC 日)`，上海 00:00–08:00 UTC 还在昨天 → 真实绑定每天这八小时必被拒。所有「日期 vs 时刻」的比较先对齐时区基准再比。fake clock 的测试时间（下午）永远踩不到这个窗口——合同测试里值得有「边界时刻」用例。
 3. **playwright 多 webServer + future 证据链**：放行条件要「真浏览器→真 API→真投影」时，给第二台隔离服务独立端口 + 独立用户态 + bootstrap 现造夹具库（schema.sql + published 快照 + 真实服务写的会话/判断），比往主服务器塞环境变量安全——主 spec 的既有断言零风险。另外 `test.beforeEach` 首参必须是对象解构，`({} )` 撞 eslint no-empty-pattern、`_` 撞 playwright 校验——直接在 test 回调里 `test.skip(project.name !== ...)`。
+
+- **[2026-09-16] 封存别人的未提交改动时只 `git add -u`（tracked），把 cli 新命令 import 的两个新模块、两份测试和 L2 管线 5 个脚本全漏在分支外——单独 checkout 那条 salvage 分支会 ImportError。**
+  做法：封存前 `git status -uall` 列全未跟踪件，逐个对主干分类（`git cat-file -e gitea/main:<path>` + `cmp`），源码 / 文档缺的、不同的全封，只跳草稿垃圾与别人当日在途件；封完对每个新 import 目标 `git ls-tree <tip> -- <path>` 证明在。用临时索引（`GIT_INDEX_FILE` + `read-tree / add / write-tree / commit-tree / update-ref`）追加，不碰共用主树的索引与工作区。
+  **可迁移原则：备份的完整性要按「依赖闭包」验，不按「git 认识的文件」验。**
+
+- **[2026-09-16] 主检出树里 65 个「无主」脏文件差点被当成垃圾处理——其中 `scripts/moneyflow/` 是每晚 20:40 真在跑的生产代码：装机启动器被手改成从 `$DATA_ROOT`（= 主树）执行 L2，`ops_pipeline_run_daily.source` 从 09-10 起全是 `baidu-share:xianyu-l2-7z`，而主干里根本没有这份代码。**
+  做法：动任何共用树的脏文件前三查：`plutil -p` 各 launchd plist 的 ProgramArguments / 代码根变量；`grep DATA_ROOT/scripts` 装机脚本副本；生产表按 `source` 取最新几行——代码只存在于哪棵树，就是谁在生产。处置是把代码搬进主干（PR），不是回退树。
+  **可迁移原则：日志里打印的 `code=...` 是自述，执行了哪条路径要看子进程真实路径或数据的来源标签。**
