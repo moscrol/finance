@@ -191,7 +191,8 @@ P4（D5）在 `fix/e2-delivery-closeout` 补齐 `material_only` 逐题交付：�
 这是过程投影，不是 `session_projection.view()` 的金融答案出口，也不是新的权限表。
 无菜单记录的旧 run 不反推授权。覆盖两条 loop 与公开边界的测试在
 `intelligence/tests/test_tool_menu_progress.py`、`test_harness_reference_loop.py`；
-本段接线尚待本分支合入/部署，线上是否已有仍看运行 revision。
+本段接线已合入 main `0758a423`（PR #760，2026-09-16）；线上是否已有仍看运行 revision，
+切 8792 的记录在 `docs/handoffs/2026-09-16-8792-switch-0758a423.md`。
 
 ### 历史发现研究
 

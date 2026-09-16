@@ -149,7 +149,8 @@
 ### 9.4 同日审计补漏（13:56 复核 main 仍为 `32bff514`）
 
 #758 已合入，不能继续报「收尾分支未合」；以上待裁决项不因文档合并而自动获批。
-E-008 的本地工具菜单投影改动在 `fix/audit-followup-0916`：读取实际 `tool_menu.visible`，
+E-008 的工具菜单投影改动已合入 main `0758a423`（PR #760，同日 15 时后；部署见
+`docs/handoffs/2026-09-16-8792-switch-0758a423.md`）：读取实际 `tool_menu.visible`，
 不复制授权表、不挤进金融答案。模型不可用时仍保留请求前菜单，但不声称已调用成功；
 不是 `provider_status` 或网关修复。详情在 E-008 §5-1 与
 `docs/handoffs/2026-09-16-audit-followup-tool-menu.md`。本次没有新 Knevo 对照或生产模型回归。
