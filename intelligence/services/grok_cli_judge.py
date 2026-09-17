@@ -120,6 +120,7 @@ def build_grok_judge_argv(
     system_prompt: str,
     effort: str = DEFAULT_EFFORT,
     sandbox: str = DEFAULT_SANDBOX,
+    response_schema: dict | None = None,
 ) -> list[str]:
     argv = [
         binary,
@@ -132,7 +133,8 @@ def build_grok_judge_argv(
         "--output-format",
         "json",
         "--json-schema",
-        json.dumps(JUDGE_JSON_SCHEMA, ensure_ascii=False, separators=(",", ":")),
+        json.dumps(response_schema if response_schema is not None else JUDGE_JSON_SCHEMA,
+                   ensure_ascii=False, separators=(",", ":")),
         "--disable-web-search",
         "--no-subagents",
         "--no-plan",
@@ -189,6 +191,9 @@ class GrokCliText(str):
     input_tokens: int | None
     output_tokens: int | None
     usage_source: str | None
+    reported_model: str | None
+    request_id: str | None
+    response_id: str | None
 
     def __new__(
         cls,
@@ -196,6 +201,7 @@ class GrokCliText(str):
         *,
         input_tokens: int | None = None,
         output_tokens: int | None = None,
+        metadata: object = None,
     ) -> "GrokCliText":
         instance = super().__new__(cls, text)
         instance.input_tokens = input_tokens
@@ -205,6 +211,10 @@ class GrokCliText(str):
             if input_tokens is not None or output_tokens is not None
             else None
         )
+        metadata = metadata if isinstance(metadata, dict) else {}
+        for target, source in (("reported_model", "model"), ("request_id", "request_id"), ("response_id", "id")):
+            field = metadata.get(source)
+            setattr(instance, target, field.strip() or None if isinstance(field, str) else None)
         return instance
 
 
@@ -213,7 +223,7 @@ def _extract_payload(stdout: str) -> tuple[str, object]:
 
     正文规则与改动前逐字节一致：``text`` 字段 → 去围栏；顶层直接是判官对象 →
     原样 dumps；其他 → 整段原文。payload 只供 ``cli_payload_token_usage`` 读用量，
-    不外泄 ``thought`` / ``sessionId`` 之类的载荷。
+    另保留结构化模型名与请求/响应 ID，不外泄 ``thought`` / ``sessionId`` 等载荷。
     """
 
     raw = stdout.strip()
@@ -242,7 +252,7 @@ def _extract_text(stdout: str) -> str:
 def _extract_with_usage(stdout: str) -> GrokCliText:
     text, payload = _extract_payload(stdout)
     input_tokens, output_tokens = cli_payload_token_usage(payload)
-    return GrokCliText(text, input_tokens=input_tokens, output_tokens=output_tokens)
+    return GrokCliText(text, input_tokens=input_tokens, output_tokens=output_tokens, metadata=payload)
 
 
 def complete_grok_cli(
@@ -281,6 +291,7 @@ def complete_grok_cli(
             cwd=cwd,
             prompt_file=prompt_path,
             model=model,
+            response_schema=getattr(provider, "response_schema", None),
             system_prompt=system or "You are a JSON judge. Output only the schema.",
             effort=effort,
             sandbox=sandbox,

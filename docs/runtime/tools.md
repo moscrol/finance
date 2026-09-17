@@ -13,8 +13,8 @@
 | `evidence_lookup` | evidence_lookup | local | stable | query | — | `query` | supporting_evidence | 本地证据索引 |
 | `evidence_search` | evidence_search | external | current | query | 30.0 | `query` | counterpoint, supporting_evidence | 对本地知识证据执行窄口径、宽口径和反方闭环检索 |
 | `finance_query` | finance_query | external | current | query | — | `query` | data_date, market_change, risk_signals, supporting_evidence | 按语义数据集、指标、维度、筛选和时间范围查询本地结构化金融数据 |
-| `financial_data` | financial_data | external | current | episode | — | `report_period`, `subjects` | financial_assessment, metric_evidence, supporting_evidence | 结构化逐季财务指标（每行带机器可读观察值；可一次取多家公司） |
-| `graph_lookup` | graph_lookup | local | stable | query | — | `query` | chain_mapping, company_mapping, relation_map | 知识图谱实体与关系 |
+| `financial_data` | financial_data | external | current | episode | — | `report_period`, `subjects` | financial_assessment, metric_evidence, supporting_evidence | 结构化逐季财务指标（每行带机器可读观察值；可一次取多家公司；实际财报不等于一致预期，缺值不是零） |
+| `graph_lookup` | graph_lookup | local | stable | query | — | `query` | chain_mapping, company_mapping, relation_map | 知识图谱实体与关系（关系是检索线索，不自动证明因果或受益强度；空结果不代表不存在关联） |
 | `history_query` | finance_query | external | historical | query | — | `query` | — | 可复算历史行情与完整样本比较 |
 | `kb_search` | kb_search | local | stable | query | 20.0 | `query` | direct_answer, direct_definition, direct_explanation, supporting_evidence | 本地知识库检索 |
 | `l3_lookup` | l3_lookup | external | current | query | — | `query` | fact_value, supporting_evidence | 官方公告与互动证据 |
@@ -26,7 +26,7 @@
 | `save_history_research` | finance_query | external | historical | query | — | `query` | — | 保存版本化研究假设与反例 |
 | `sub_research` | sub_research | external | current | query | 60.0 | `goals` | supporting_evidence | 把 1–3 个可独立取证的子问题并行交给子研究分支，各支带自己的工具预算跑到终态后一次返回证据 |
 | `web_fetch` | web_fetch | external | current | query | 5.0 | `url` | event_facts, supporting_evidence | 按 URL 取网页正文全文（取页，不是检索；URL 先由 web_search / news_search 给出） |
-| `web_search` | web_search | external | current | query | 5.0 | `query` | event_facts, impact_transmission, supporting_evidence | 全网网页检索 |
+| `web_search` | web_search | external | current | query | 5.0 | `query` | event_facts, impact_transmission, supporting_evidence | 全网网页检索（摘要是线索；核对原文时用已授权的 web_fetch，未取到正文须披露） |
 
 ## 说明书（`ToolSpec.contract`）
 

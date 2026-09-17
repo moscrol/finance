@@ -119,7 +119,7 @@
 ### 夜间 launchd 定时运维（2026-07 踩坑沉淀）
 
 夜间自动复盘走 `nightly_full_review.sh`（launchd），**已拆成两个 job**——因为
-**L2 逐笔资金流数据 ~20:30 才入 ClickHouse，18:30 跑必空**（连续两天因此 fail、需手动补跑）：
+**L2 闲鱼日包收盘后才上分享，18:30 跑必空**（ClickHouse 已退役，夜跑走 `scripts/moneyflow/run_l2_pipeline.sh` 文件源；曾连续两天因早跑 fail、需手动补跑）：
 
 | job | 时间 | 命令 | 跑什么 |
 |---|---|---|---|
@@ -142,8 +142,8 @@ L2 排在同步守卫**之前**是刻意的：L2 读逐笔日包，不依赖同�
 
 近期踩坑（调度/脚本层已修，记此防复发）：
 
-- **L2 18:30 必空**：逐笔数据 ~20:30 才到，早跑 `empty_count=全量` → 资金流段 fail。
-  这就是拆 sync/finalize 的根因。**手动补跑 L2 也要等 20:30 之后**（之前踩过：18:40 跑全空，过零点再跑才有数据）。
+- **L2 18:30 必空**：闲鱼日包收盘后才上分享，早跑 `empty_count=全量` → 资金流段 fail。
+  这就是拆 sync/finalize 的根因。**手动补跑 L2 也要等日包上架之后**（ClickHouse 时代踩过：18:40 跑全空，过零点再跑才有数据）。
   注：全空时 scan 会 raise，**空结果不进缓存**，重跑会真扫（无需 force-rescan）。
 - **preflight `wrong-host` = fupanhui 标签页没就绪**：sync 段 preflight 要挂载一个**已登录的 fupanhui.com 标签页**。
   Mac 睡眠唤醒后 launchd 补跑，常因 debug Chrome 里没有 fupanhui 标签页而 fail（proxy `/health` 显示 `managedTabs:0`）。

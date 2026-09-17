@@ -369,6 +369,8 @@ def test_l2_gate_reports_stale_tables(tmp_path, monkeypatch):
 
 
 def _load_l2_writer(monkeypatch, db_path):
+    # Legacy server scans can confirm empty ticks; file-source coverage has separate tests.
+    monkeypatch.setenv("L2_SOURCE", "clickhouse:test")
     moneyflow_dir = ROOT / "scripts" / "moneyflow"
     monkeypatch.syspath_prepend(str(moneyflow_dir))
     monkeypatch.delitem(sys.modules, "config", raising=False)

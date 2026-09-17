@@ -66,6 +66,11 @@ ALLOWED = frozenset(
         # GET /api/conversations/{id}/research-project 出仓，读者是 webapp
         # ResearchProjectPanel（TS），本脚本只扫 Python 看不见。
         "next_questions",
+        # 标准库协议属性：http.client.HTTPConnection.request() 内部读 self.sock，
+        # 预先塞入已建好的 TLS socket 就跳过它自己的 connect()。
+        # sync_eastmoney_fund_flow 用它把东财域名解析 / 连接超时握在自己手里；
+        # 读取点在 stdlib 里，本脚本只扫仓内 Python 看不见。
+        "sock",
     }
 )
 

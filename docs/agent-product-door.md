@@ -31,6 +31,15 @@
 
 编码任务「仓库里有没有现成实现」走 `python3 scripts/code_map.py query "<问题>"`，不是本页，也不是问答门。空图不得写成架构结论。
 
+### 专项研究纪律（Knevo 增量，2026-09-17 已合 main）
+
+`research_workflow_guidance.workflow_guidance` 给财报、事件推演、观点审查、事实核对、历史类比
+五类既有题型补分析纪律；连续 Episode 的动态规则与 ask 合成共用，不增加产品门、工具或权限。
+旧 ask 保留信封已识别的专项意图，显式 override 优先；不代表所有自然语言路由已经准确。
+默认开，`FINANCE_RESEARCH_WORKFLOW_GUIDANCE=0` 可关。它是生成指令，不是新增语义审稿器；
+权限、材料范围、证据绑定与写侧门保持原合同。代码/对账与效果状态见
+[逐项吸收记录](learning/knevo-distill/workflow-absorption-2026-09-16.md)，未据此宣称部署或质量增益。PR #774 已于 2026-09-17 合入 main（`c67413c7`），部署状态仍以运行服务 `/api/health` 的 revision 为准。
+
 ### 材料题边界（E2，分阶段接线中）
 
 D1 分类器已独立复核；P2 把完整题组/原题号、前提真实性与数据范围接入
@@ -243,6 +252,20 @@ material_outputs 清单，工具定义同步限制 ID 与数量，解析仍严�
 当前结果均是探索研究：相似案例不等于独立验证，重叠窗口不当作独立样本；不支持的组合定义明确返回缺口。L2、晚间卖方与晨汇未同步目标范围为 `pending_sync`，没有安排同步。严格时点认证、样本独立性与正式方法晋升继续消费基础评价器合同；本工具不颁发认证。
 
 实现和分期验收见 [历史发现 spec](superpowers/specs/2026-09-09-historical-discovery-research-design.md) 与 [执行计划](superpowers/plans/2026-09-09-historical-discovery.md)。部署状态以运行服务 `/api/health` 的 revision 为准，仓内存在代码不等于线上已更新。
+
+### 质量消融评测：结论只覆盖 legacy CLI ask
+
+`scripts/run_quality_ablation.py` 与 `scripts/rejudge_quality_ablation.py` **不是产品门**，是评测工装。它们经 `run_ask` 调 `python3 -m intelligence.cli ask --compose`，走的是引擎 B 的 legacy CLI 问答路径；**跑出来的分差只覆盖该入口，不代表 Workbench Episode（引擎 A）**。拿消融读数论证「Agent 质量」之前先问这一句。
+
+出实验结论的**唯一资格门**是 `intelligence/eval/judge_validity.py::validate_judging_batch`（纯函数、无 IO）。`aggregate_components` 每次调用都重新验证原始记录与 manifest，不采信传入的 `valid=True` 或旧 `decision`——补评、完整重评与主评共用这一扇门。资格不成立时保留描述性分差与覆盖率，但组件决定降为 `no_call`。
+
+三条容易被读反的边界：
+
+- `decision=callable` 只表示**越过当次判官的噪声门**，不是合并授权，也不证明跨任务或未来效果；`baseline_absolute` 只是该批次的描述性统计，配置同名不能证明跨批次可比。
+- 分母以 `run_quality_ablation.batch_coverage` 为唯一来源（人读报告与 JSON 收据共用）：登记数取**事前冻结的题臂数**而非 `len(answers)`，产品未交付的样本留在分母里，不能靠身份门重归因成「实验条件失效」。
+- 判官身份来自本次响应的结构化字段。CLI 没有该字段就记 unknown，**不从自然语言自述或当前环境配置补齐**；响应自报身份只支持「按对端声明相同/不同」的审计强度，不等于已认证真实模型。
+
+方案与验收矩阵见 [判官身份与校准有效性 plan](superpowers/plans/2026-09-14-judge-calibration-validity.md)，取舍见 [handoff](handoffs/2026-09-14-judge-calibration-plan.md)。
 
 ## 两条引擎（调度器后面）
 

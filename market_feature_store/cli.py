@@ -400,6 +400,103 @@ def cmd_sync_mainline_daily(args) -> int:
     return 0 if s["status"] in {"complete", "degraded"} else 2
 
 
+def cmd_sync_fund_flow(args) -> int:
+    """东财主力净额补 local:stitch 行资金流 + 板块篮子聚合题材资金面板。
+
+    与其他写库命令同规: 默认拒绝直写 canonical 生产库（须 --direct 且落审计收据），
+    正常路径由 daily-full 的 staging 子进程调用——先写副本、校验后换库。
+    """
+    from datetime import datetime as _dt
+
+    from .sync.sync_eastmoney_fund_flow import sync, sync_history
+    from .write_path import write_direct_receipt
+
+    direct = bool(getattr(args, "direct", False))
+    refused = _refuse_production_write(direct)
+    if refused is not None:
+        return refused
+    started = _dt.now()
+
+    def _receipt(td: str | None, ok: bool, extra: dict | None = None) -> None:
+        if direct:
+            write_direct_receipt(trade_date=td, command="sync-fund-flow", ok=ok,
+                                 started_at=started, extra=extra)
+
+    if args.start_date and args.end_date:
+        con = connect(read_only=True)
+        try:
+            rows = con.execute(
+                "SELECT DISTINCT trade_date FROM fact_sector_stock_daily_generation "
+                "WHERE trade_date BETWEEN ? AND ? ORDER BY 1",
+                [args.start_date, args.end_date],
+            ).fetchall()
+        finally:
+            con.close()
+        dates = [str(r[0]) for r in rows]
+        if not dates:
+            print(f"{args.start_date}~{args.end_date} 无成分行, 无可回补日")
+            return 0
+        try:
+            s = sync_history(dates, concurrency=args.concurrency, limit=args.limit)
+        except Exception as exc:  # noqa: BLE001 — 失败必须留痕后再抛
+            _receipt(dates[-1], False, {"reason": f"{type(exc).__name__}: {exc}"})
+            raise
+        print(
+            f"回补 {len(s['days'])} 日 | 拉取 {s['fetched']}/{s['codes']} 只 "
+            f"fail={s['failed']} empty={s.get('empty', 0)}"
+        )
+        if s["codes"] and not s["fetched"]:
+            print("上游全部失败(0 成功), 未写入任何资金流", file=sys.stderr)
+            _receipt(dates[-1], False, {"reason": "upstream_all_failed"})
+            return 2
+        _receipt(dates[-1], True, {"days": len(s["days"]), "fetched": s["fetched"]})
+        return 0
+
+    td = args.trade_date
+    if not td:
+        con = connect(read_only=True)
+        try:
+            row = con.execute("SELECT MAX(trade_date) FROM fact_market_daily").fetchone()
+        finally:
+            con.close()
+        td = str(row[0]) if row and row[0] is not None else None
+    if not td:
+        print("无法确定交易日")
+        return 2
+    try:
+        s = sync(td, mode=args.mode, concurrency=args.concurrency, limit=args.limit)
+    except Exception as exc:  # noqa: BLE001 — 聚合等步骤抛错时也必须落失败收据
+        _receipt(td, False, {"reason": f"{type(exc).__name__}: {exc}"})
+        raise
+    if s.get("days"):
+        d = s["days"][0]
+        print(
+            f"交易日: {td} | mode={s['mode']} 填充 {d['filled_rows']} 行 "
+            f"panels={d['panels']} coverage={d['coverage']} "
+            f"5日覆盖={d.get('coverage_5d', '')} "
+            f"拉取={s['fetched']}/{s['codes']} fail={s['failed']} empty={s.get('empty', 0)}"
+        )
+        # 全部拉取失败 ≠ 无事可做: 不能让网络断伐静默成功。
+        if s["codes"] and not s["fetched"]:
+            print("上游全部失败(0 成功), 未写入任何资金流", file=sys.stderr)
+            _receipt(td, False, {"reason": "upstream_all_failed"})
+            return 2
+    else:
+        print(
+            f"交易日: {td} | mode={s['mode']} 填充 {s.get('filled_rows', 0)} 行 "
+            f"panels={s.get('panels', 0)} coverage={s.get('coverage', '')}"
+            + (f" 5日覆盖={s['coverage_5d']}" if s.get("coverage_5d") else "")
+        )
+        if s.get("written") is False:
+            # 盘中/条数不足: 已存证未写库, 必须让调用方看见并可重试, 不能算成功
+            print(f"快照不合格({s.get('archive_status')}), 未写库: {s.get('note','')}",
+                  file=sys.stderr)
+            _receipt(td, False, {"reason": f"archive_{s.get('archive_status')}"})
+            return 2
+    _receipt(td, True, {"coverage": s.get("coverage")})
+    return 0
+
+
 def cmd_sync_theme_flow_daily(args) -> int:
     from .sync.sync_fupanhui_theme_flow_daily import sync as sync_theme_flow_daily
 
@@ -412,7 +509,12 @@ def cmd_sync_theme_flow_daily(args) -> int:
             con.close()
         td = str(row[0]) if row and row[0] is not None else None
     s = sync_theme_flow_daily(td)
-    print(f"交易日: {td} | 题材资金面板: {s['panels']}")
+    print(
+        f"交易日: {td} | 题材资金面板: {s['panels']} "
+        f"source={s.get('source', '')}"
+    )
+    if s.get("fupanhui_error"):
+        print(f"复盘会面板: {s['fupanhui_error']}")
     return 0
 
 
@@ -2024,6 +2126,23 @@ def build_parser() -> argparse.ArgumentParser:
     p_pm = sub.add_parser("sync-polymarket-macro-odds", help="同步 Polymarket 宏观/地缘/加密类市场概率到 fact_polymarket_macro_odds_daily")
     p_pm.add_argument("--trade-date", default=None, help="快照标注日 YYYY-MM-DD, 留空取今天（该接口本身只有当前快照，无历史参数）")
     p_pm.set_defaults(func=cmd_sync_polymarket_macro_odds)
+    p_ff = sub.add_parser(
+        "sync-fund-flow",
+        help="东财主力净额补 local:stitch 成分行 fund_flow_1d/5d, 并按板块篮子聚合 fact_theme_flow_daily",
+    )
+    p_ff.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
+    p_ff.add_argument("--mode", choices=("auto", "snapshot", "history"), default="auto",
+                      help="auto=当天盘后走快照, 历史日走逐股 daykline 回补")
+    p_ff.add_argument("--start-date", default=None, help="范围回补起始日 (与 --end-date 同用)")
+    p_ff.add_argument("--end-date", default=None, help="范围回补结束日")
+    p_ff.add_argument("--concurrency", type=int, default=4, help="history 模式并发, 默认4")
+    p_ff.add_argument("--limit", type=int, default=None, help="只拉前 N 只 (调试/试跑)")
+    p_ff.add_argument(
+        "--direct",
+        action="store_true",
+        help="允许直写 canonical 生产库（默认拒绝）。会写 ops_sync_run / state/direct-write-*.json",
+    )
+    p_ff.set_defaults(func=cmd_sync_fund_flow)
 
     p_pa = sub.add_parser(
         "sync-fupanhui-public-assets",

@@ -66,16 +66,16 @@ def _db(*, snapshot_id: str = SNAP, captured_at: str | None = "2026-08-20 18:30:
     con.execute(
         "CREATE TABLE fact_sector_stock_daily (trade_date DATE, sector_ts_code VARCHAR,"
         " fund_flow_1d DOUBLE, fund_flow_5d DOUBLE, amount DOUBLE, updated_at TIMESTAMP,"
-        " sector_universe_snapshot_id VARCHAR)"
+        " sector_universe_snapshot_id VARCHAR, source VARCHAR)"
     )
     con.execute(
         f"INSERT INTO fact_sector_stock_daily VALUES (DATE '{AS_OF}','{EID}',1.0,2.0,10.0,"
-        f"TIMESTAMP '{updated_at}','{snapshot_id}')"
+        f"TIMESTAMP '{updated_at}','{snapshot_id}','local:stitch')"
     )
     con.execute(
         "CREATE TABLE fact_theme_flow_daily (trade_date DATE, theme_code VARCHAR,"
         " theme_name VARCHAR, total_fund DOUBLE, total_amount DOUBLE, stock_count INT,"
-        " updated_at TIMESTAMP)"
+        " source VARCHAR, updated_at TIMESTAMP)"
     )
     if with_ledger:
         con.execute(
@@ -122,7 +122,8 @@ class TestRevisedRowIsNotStrict:
         con = _db()
         result = _capital_track(con, AS_OF, EID, ENAME)
         assert not isinstance(result, Gap)
-        agg = next(o for o in result if o.ref.endswith(":agg"))
+        # ref 带口径后缀（同板块两种口径是两个对象，ref 不能撞车）
+        agg = next(o for o in result if ":agg:" in o.ref)
         assert agg.recorded_at is not None and agg.recorded_at[:10] == "2026-08-27"
 
     def test_honest_row_is_still_strict(self) -> None:

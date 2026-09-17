@@ -127,6 +127,17 @@ FEATURES: tuple[FeatureSpec, ...] = (
 )
 
 FEATURE_NAMES: tuple[str, ...] = tuple(f.name for f in FEATURES)
+
+# ── 资金维暂停参与比较 ───────────────────────────────────────
+# theme_net_flow 跨 2026-09-02/03 换了口径（复盘会自有 → 东财主力净额）。只拦「跨口径
+# 两窗直接比较」不够：standardize_vectors 的均值/方差是拿**全体日行**算的，新口径数据
+# 一进基准，两个同口径旧窗口的 z 值就跟着变——实测距离从 20 掉到 0.001206，两簇并成一簇。
+# 在标准化语义（按口径分组标准化 / 拆成两个特征）定下来之前，该维整体退出比较：
+# 仍照常采集、仍在 daily 行与 raw_means 里如实展示，但不进 z、不进签名、不进距离。
+SUSPENDED_FEATURES: frozenset[str] = frozenset({"theme_net_flow"})
+COMPARABLE_FEATURE_NAMES: tuple[str, ...] = tuple(
+    n for n in FEATURE_NAMES if n not in SUSPENDED_FEATURES
+)
 BY_NAME: dict[str, FeatureSpec] = {f.name: f for f in FEATURES}
 
 
@@ -141,6 +152,9 @@ class WindowFeatures:
     raw_means: dict[str, float | None]
     coverage: dict[str, float]  # 每维在窗口内的非空占比
     dropped_dims: tuple[str, ...]  # 覆盖率不足、整维退出签名的
+    # 本窗口 theme_net_flow 的口径；mixed:* = 窗口内换过源，该维已置空。
+    # 跨窗口比较时口径不同的两个窗口，这一维不具可比性。
+    flow_caliber: str | None = None
     label: str = ""
 
     @property
@@ -169,6 +183,7 @@ class WindowFeatures:
             "dims": sorted(self.signature.stats),
             "tracks_present": sorted(self.tracks_present),
             "dropped_dims": list(self.dropped_dims),
+            "flow_caliber": self.flow_caliber,
             "coverage": {k: round(v, 3) for k, v in sorted(self.coverage.items())},
             "raw_means": {k: (None if v is None else round(v, 3)) for k, v in sorted(self.raw_means.items())},
             "provenance": self.provenance,
@@ -237,15 +252,37 @@ def build_daily_vectors(
         ).fetchall()
         top1 = {d: v for d, v, _ in heat_rows}
         heat_upd = {d: u for d, _, u in heat_rows}
-        flow_rows = con.execute(
+        # 按 source 分组再汇总：该表跨 2026-09-02/03 同时存着复盘会面板与本地篮子面板
+        # 两种口径，无差别 SUM 会把它们接成一条「连续」序列，而拐点是换源造成的
+        # 假信号。一天只有单一口径才给值；混口径给 None + 标记，宁缺值不编数。
+        # 知识截止 C 的过滤照旧：C 之后才写入的行当时并不存在。
+        _flow_rows = con.execute(
             """
-            SELECT CAST(trade_date AS DATE), SUM(CAST(total_fund AS DECIMAL(18,4))), MAX(updated_at)
-            FROM fact_theme_flow_daily WHERE CAST(trade_date AS DATE) <= CAST(? AS DATE) GROUP BY 1
+            SELECT CAST(trade_date AS DATE) AS d,
+                   COALESCE(source, 'unknown') AS src,
+                   SUM(CAST(total_fund AS DECIMAL(18,4))) AS v,
+                   MAX(updated_at) AS upd
+            FROM fact_theme_flow_daily WHERE CAST(trade_date AS DATE) <= CAST(? AS DATE) GROUP BY 1, 2
             """,
             [cutoff],
         ).fetchall()
-        flow = {d: (None if v is None else float(v)) for d, v, _ in flow_rows}
-        flow_upd = {d: u for d, _, u in flow_rows}
+        _by_day: dict[Any, list[tuple[str, Any]]] = {}
+        flow_upd: dict[Any, Any] = {}
+        for _d, _src, _v, _upd in _flow_rows:
+            _by_day.setdefault(_d, []).append((_src, _v))
+            # 整份日值要等最后一条口径行落地才算可知：记录时刻取该日各口径里最晚的。
+            _prev = flow_upd.get(_d)
+            flow_upd[_d] = _upd if _prev is None else (_prev if _upd is None else max(_prev, _upd))
+        flow: dict[Any, float | None] = {}
+        flow_caliber: dict[Any, str] = {}
+        for _d, items in _by_day.items():
+            if len(items) == 1:
+                _src, _v = items[0]
+                flow[_d] = None if _v is None else float(_v)
+                flow_caliber[_d] = _src
+            else:
+                flow[_d] = None
+                flow_caliber[_d] = "mixed:" + "|".join(sorted(s for s, _ in items))
         # 舆论轨用 created_at（唯一有真记录时刻的表，见 river._opinion_track）；记录时刻 > C 的研报当时还不存在。
         reports = con.execute(
             """
@@ -304,6 +341,7 @@ def build_daily_vectors(
                 "double_red_count": double_red.get(d),
                 "top1_limit_share": top1.get(d),
                 "theme_net_flow": flow.get(d),
+                "theme_net_flow_caliber": flow_caliber.get(d),
                 "report_count_30d": _rolling_count(report_days, d, 30),
                 "checkpoints_registered": checkpoints.get(str(d)) if checkpoints is not None else None,
                 "knowledge_cutoff": cutoff,
@@ -358,14 +396,29 @@ def window_features(
     标准化会让距离失去可比性（每个窗口的 z 都以自己为中心）。
     """
     if z_rows is None:
-        z_rows, _ = standardize_vectors(daily, FEATURE_NAMES)
+        z_rows, _ = standardize_vectors(daily, COMPARABLE_FEATURE_NAMES)
     idx = [i for i, row in enumerate(daily) if start <= row["trade_date"] <= end]
     if not idx:
         return None
     sub_raw = [daily[i] for i in idx]
     sub_z = [z_rows[i] for i in idx]
 
-    sig = window_signature(sub_z, FEATURE_NAMES)
+    # 资金维在窗口内换过口径就不可求均值：前三天复盘会 2、后三天东财 200，
+    # 直接平均会得到覆盖率 100%、均值 101 这种既不属于旧口径也不属于新口径的数，
+    # 换源跳变就这样进了趋势和聚类。混口径时整维置空，宁可让它退出签名。
+    _cals = {
+        r.get("theme_net_flow_caliber")
+        for r in sub_raw
+        if r.get("theme_net_flow") is not None
+    }
+    if len(_cals) > 1:
+        flow_caliber = "mixed:" + "|".join(sorted(str(c) for c in _cals))
+        sub_raw = [{**r, "theme_net_flow": None} for r in sub_raw]
+        sub_z = [{**r, "theme_net_flow": None} for r in sub_z]
+    else:
+        flow_caliber = next(iter(_cals), None)
+
+    sig = window_signature(sub_z, COMPARABLE_FEATURE_NAMES)
     coverage = {
         name: sum(1 for r in sub_raw if r.get(name) is not None) / len(sub_raw)
         for name in FEATURE_NAMES
@@ -383,6 +436,7 @@ def window_features(
         raw_means=raw_means,
         coverage=coverage,
         dropped_dims=dropped,
+        flow_caliber=flow_caliber,
         label=label or f"{start}~{end}",
     )
 
@@ -401,7 +455,7 @@ def windows_around(
     的窗口，让距离比较变成在比窗口长度。
     """
     if z_rows is None:
-        z_rows, _ = standardize_vectors(daily, FEATURE_NAMES)
+        z_rows, _ = standardize_vectors(daily, COMPARABLE_FEATURE_NAMES)
     pos = {row["trade_date"]: i for i, row in enumerate(daily)}
     out: list[WindowFeatures] = []
     for anchor in sorted(set(anchors)):
@@ -439,23 +493,42 @@ class Cluster:
 
 
 def _cluster_means(members: list[WindowFeatures]) -> dict[str, float | None]:
+    """簇内各维均值。资金维遇簇内口径不一致时给 None——不跨口径求均。"""
+    mixed_flow = len({m.flow_caliber for m in members}) > 1
     out: dict[str, float | None] = {}
     for name in FEATURE_NAMES:
+        if name == "theme_net_flow" and mixed_flow:
+            out[name] = None
+            continue
         vals = [m.raw_means[name] for m in members if m.raw_means.get(name) is not None]
         out[name] = round(sum(vals) / len(vals), 3) if vals else None  # type: ignore[arg-type]
     return out
 
 
+def _drop_flow_dim(sig: RegimeSignature) -> RegimeSignature:
+    """去掉资金维后的签名副本（不改原对象）。"""
+    return RegimeSignature(
+        stats={k: v for k, v in sig.stats.items() if k != "theme_net_flow"}
+    )
+
+
 def distance_matrix(windows: list[WindowFeatures]) -> list[list[float | None]]:
-    """两两距离。``None`` 表示无共有维——不可比，不是「距离很远」。"""
-    total = len(FEATURE_NAMES)
+    """两两距离。``None`` 表示无共有维——不可比，不是「距离很远」。
+
+    **口径不同的两个窗口，资金维不参与比较**：复盘会值与东财主力净额同股同日
+    实测差很远，把它们当同一维做 L1 会把「换了数据源」读成「体制相似/不似」。
+    去掉该维后若无共有维，则如实返回 None（cluster_windows 会当不可比单列）。
+    """
+    total = len(COMPARABLE_FEATURE_NAMES)
     n = len(windows)
     m: list[list[float | None]] = [[None] * n for _ in range(n)]
     for i in range(n):
         m[i][i] = 0.0
         for j in range(i + 1, n):
-            d = signature_distance(windows[i].signature, windows[j].signature, total)
-            m[i][j] = m[j][i] = d
+            si, sj = windows[i].signature, windows[j].signature
+            if windows[i].flow_caliber != windows[j].flow_caliber:
+                si, sj = _drop_flow_dim(si), _drop_flow_dim(sj)
+            m[i][j] = m[j][i] = signature_distance(si, sj, total)
     return m
 
 
@@ -558,7 +631,7 @@ def main() -> int:
             anchors.append(token)
 
     daily = build_daily_vectors(knowledge_cutoff=args.cutoff, checkpoints_path=args.checkpoints)
-    z_rows, dropped_global = standardize_vectors(daily, FEATURE_NAMES)
+    z_rows, dropped_global = standardize_vectors(daily, COMPARABLE_FEATURE_NAMES)
     windows = windows_around(daily, anchors, before=args.before, after=args.after, z_rows=z_rows)
     clusters, orphan = cluster_windows(windows, threshold=args.threshold)
     if args.json:
