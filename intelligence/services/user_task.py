@@ -1015,15 +1015,15 @@ _MATERIAL_REFERENCE_RE = re.compile(
 _LONG_SINGLE_LINE_MIN = 160
 _MATERIAL_MIN_CHARS = 40
 _QUESTION_MAX_CHARS = 120
-# 带背景交代的研究问题充其量写到这个量级；再长就当材料看（见 _reads_like_document）。
-_QUESTION_HEAD_MAX_CHARS = 400
-# 只有排版结构才能证明「这是一份文档」：标题方括号、来源/作者字段、行首章节编号。
-# 与 _MATERIAL_MARKER_RE 的区别：那一个含「研报/公告/摘要」等普通名词，用在这里会把
-# 提问误判为材料（「请使用实际可获取的公告」）。
-_STRUCTURAL_MATERIAL_MARKER_RE = re.compile(
-    r"(?:【|】|来源[:：]|作者[:：]|^[一二三四五六七八九十]+[、.．]|^\d+[、.．]|"
-    r"^第[一二三四五六七八九十]+[章节部分])",
-    re.MULTILINE,
+# 请求语气与文档来源分开认：编号/方括号只是排版，不能自行把整段问题变成材料。
+_REQUEST_HEAD_RE = re.compile(r"^(?:请|帮我|麻烦|烦请|看看|分析一下|判断一下|解读一下|研究一下)")
+_LAYOUT_PREFIX_RE = re.compile(r"^(?:#{1,6}\s*|(?:\d+|[一二三四五六七八九十]+)[、.．)）]\s*)")
+_INSTRUCTION_HEADING_RE = re.compile(
+    r"^(?:【(?:输出|回答|研究|格式|任务)(?:要求|格式|问题)?】\s*"
+    r"|(?:输出|回答|研究|格式|任务)(?:要求|格式|问题|任务)[:：]?$)"
+)
+_DOCUMENT_START_RE = re.compile(
+    r"^(?:【[^】]*(?:摘要|研报|纪要|公告|报告|原文)[^】]*】|(?:来源|作者)[:：])"
 )
 
 
@@ -1109,29 +1109,36 @@ def _looks_like_question(text: str) -> bool:
     return bool(compact) and len(compact) <= _QUESTION_MAX_CHARS and _QUESTION_MARKER_RE.search(compact) is not None
 
 
+def _request_line(text: str) -> str:
+    """仅去布局前缀供角色识别；question/material 保存的原文不作改写。"""
+    return _INSTRUCTION_HEADING_RE.sub("", _LAYOUT_PREFIX_RE.sub("", text.strip()))
+
+
+def _first_role_line(text: str) -> str:
+    # 只含「【输出要求】」的行是标签，身份由其后的正文决定。
+    return next((_request_line(line) for line in text.splitlines() if _request_line(line)), "")
+
+
+def _starts_with_request(text: str) -> bool:
+    return _REQUEST_HEAD_RE.match(_first_role_line(text)) is not None
+
+
 def _reads_like_document(head: str) -> bool:
-    """「末行是短问句 → 前面是材料」这条规则的前提：前面真的得像份文档。
+    """先看区域起点的角色，不以长度或格式标记证明「用户贴了材料」。
 
-    原先只看「头部是不是短问句」，而 _looks_like_question 有 120 字上限，于是一句
-    较长的研究问题（带主体、口径、截止日、问号）只因为「太长」就被当成粘贴材料，
-    只剩末尾那句格式要求（「请按……组织」）当问题交给路由。R-20260916-05 两臂就是
-    这么跑成 kind=pasted_text，一臂落到 stock_deep_dive、另一臂落到 kol_review（材料
-    评审），subject 直接丢成 null——同一道题因为排版差异被当成两类任务。
-
-    判据只认**结构性**材料标记（【】、来源：、作者：、行首的「一、」/「1.」/「第二节」），
-    不认「研报/公告/摘要/要点」这类**词**——用户在提问里天然会说「请使用可获取的
-    公告、财务数据」，词面命中就判它是材料，恰恰是 R-20260916-05 踩的那个坑。
-    没有结构标记时，头部带问句标记（？/是否/吗/如何……）且不过长 → 这是提问。
-    长度上限是故意留的：真粘一篇无标题长文、正文里带问号时，仍按材料走。
+    明确请求开头没有 120/400 字材料化上限；从来源/文档标题开头的正文则不因
+    内部出现「请」或问号升级成用户指令。原无标记短问句语义保持兼容。
     """
-
-    body = str(head or "")
-    if _STRUCTURAL_MATERIAL_MARKER_RE.search(body):
+    body = str(head or "").strip()
+    first = _first_role_line(body)
+    if _DOCUMENT_START_RE.search(first):
         return True
-    compact = re.sub(r"\s+", "", body)
-    if len(compact) > _QUESTION_HEAD_MAX_CHARS:
+    if _starts_with_request(body):
+        return False
+    # 对明确叙述/章节起点仍保留材料身份；不扫描后面的输出要求反推整块身份。
+    if _MATERIAL_MARKER_RE.search(first) and not _QUESTION_MARKER_RE.search(_request_line(first)):
         return True
-    return _QUESTION_MARKER_RE.search(compact) is None
+    return _QUESTION_MARKER_RE.search(_request_line(first)) is None
 
 
 def split_user_message(text: str) -> MessageParts:
@@ -1153,6 +1160,10 @@ def split_user_message(text: str) -> MessageParts:
                 line = lines[span.line_index]
                 lines[span.line_index] = line[:span.start_offset] + line[span.end_offset:]
         residual = "\n".join(line for line in lines if line.strip(" 。！？；，,\t"))
+        # 编号输出要求也可能被题组扫描识别；若前文是完整用户请求而非材料，
+        # 不准扣掉主体再把余文塞成 material。真正的材料+题组仍走原合同。
+        if residual.strip() and not parts.materials and not _reads_like_document(residual):
+            return replace(parts, regions=regions)
         material = material_from_text(residual)
         parts = MessageParts(
             question="\n\n".join(f"{qid[1:]}. {body}" for qid, body in zip(regions.question_ids, regions.sub_questions, strict=True)),
@@ -1222,6 +1233,25 @@ def _split_user_message_core(text: str) -> MessageParts:
     remaining_lines = [line for index, line in enumerate(lines) if index not in consumed]
     rest = "\n".join(remaining_lines).strip()
 
+    # 明确请求后接独立文档标题：分开角色，不能因请求很长把后面的真材料吞进问题，
+    # 也不能因材料里有「请」将其升级。仅来源字段可能是输出字段，不能单独触发这里。
+    rest_lines = rest.splitlines()
+    for index, line in enumerate(rest_lines):
+        if index == 0 or not line.strip().startswith("【") or not _DOCUMENT_START_RE.match(line.strip()):
+            continue
+        prefix = "\n".join(rest_lines[:index]).strip()
+        if _reads_like_document(prefix):
+            break
+        suffix = _split_user_message_core("\n".join(rest_lines[index:]))
+        if suffix.materials:
+            for ref, body in zip(suffix.materials, suffix.material_texts, strict=True):
+                add(body, ref.kind)
+            return MessageParts(
+                question="\n\n".join(p for p in (prefix, suffix.question) if p),
+                materials=tuple(materials), material_texts=tuple(texts),
+            )
+        break
+
     # 2. 段落：空行分块；首/末短问句是问题，其余长文是材料。
     blocks = [block.strip() for block in re.split(r"\n\s*\n", rest) if block.strip()]
     question = rest
@@ -1272,7 +1302,11 @@ def _split_user_message_core(text: str) -> MessageParts:
         elif "\n" not in block and len(block) >= _LONG_SINGLE_LINE_MIN:
             # 单行长文 + 句尾短问句。
             sentences = [part for part in re.split(r"(?<=[。！？!?])", block) if part.strip()]
-            if len(sentences) >= 2 and _looks_like_question(sentences[-1]) and len("".join(sentences[:-1])) >= 100:
+            if (
+                len(sentences) >= 2 and _looks_like_question(sentences[-1])
+                and len("".join(sentences[:-1])) >= 100
+                and _reads_like_document("".join(sentences[:-1]))
+            ):
                 question = sentences[-1].strip()
                 add("".join(sentences[:-1]), "pasted_text")
             else:

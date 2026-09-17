@@ -4516,17 +4516,49 @@ def _evidence_by_ordinal(outcome: AgentOutcome) -> dict[str, object]:
     }
 
 
+# 只识别来源/公告的发布日期断言，不把同句的计划、投产日、预测时点等与 source_date 比。
+# 这是有意收窄的机械门，不是通用日期语义判官：没有可比较的字段/关系就不删句。
+_SOURCE_DATE_SUBJECT = r"(?:该|这[份条篇则]?|上述)?(?:公告|报告|研报|材料|证据|新闻)"
+_SOURCE_DATE_PREDICATE = re.compile(
+    rf"(?:{_SOURCE_DATE_SUBJECT}(?:的)?(?:发布|披露)(?:日期|时间)?"
+    r"|(?<![\w\u4e00-\u9fff])发布日期|来源日期|source_date)"
+    r"(?:为|是|于|：|:)?$"
+)
+_SOURCE_DATE_INVERTED = re.compile(rf"{_SOURCE_DATE_SUBJECT}(?:已)?于$")
+_DATE_NONASSERTION = re.compile(
+    r"[？?]|是否|能否|会否|如果|假如|假设|若|计划|预计|预期|拟|可能|待(?:核|查|补)"
+    r"|(?:并非|不是|并不|没有|尚未|未曾|不曾|不)(?:在|于)?(?:发布|披露|是|为)?"
+)
+
+
+def _asserted_source_dates(text: str) -> frozenset[date]:
+    dates: set[date] = set()
+    # 计划与事实可在同一句中并列，按小句判断，不因出现一个「计划」就豁免整句。
+    for clause in re.split(r"[，,；;。！!\n]", text):
+        compact = re.sub(r"\s+", "", clause)
+        if _DATE_NONASSERTION.search(compact):
+            continue
+        for pattern in (_FULL_ISO_DATE_RE, _FULL_CHINESE_DATE_RE):
+            for match in pattern.finditer(compact):
+                before, after = compact[:match.start()], compact[match.end():]
+                if not (
+                    _SOURCE_DATE_PREDICATE.search(before)
+                    or (_SOURCE_DATE_INVERTED.search(before) and re.match(r"(?:发布|披露)", after))
+                ):
+                    continue
+                dates.update(_full_dates_in(match.group(0)))
+    return frozenset(dates)
+
+
 def _mismatched_evidence_date_indexes(
     sentences: list[dict[str, object]],
     verified: VerifiedEpisodeOutcome,
 ) -> tuple[int, ...]:
-    """Reject a sentence whose full dates all contradict its only cited evidence.
+    """Reject explicit source/publication date claims that contradict source_date.
 
-    #55：判官反复抓到的形状——「第 12 句把 E104 的日期写成 2026-08-21，证据登记的
-    source_date 是 2026-09-11」。机械版刻意保守，只在四个条件同时成立时删句：
-    句子恰好引用**一条** E 且能反解；句内含完整日期；该证据语料（title / detail /
-    source / source_date）也含完整日期；句内**没有任何一个**日期出现在证据语料里。
-    双引、无日期、证据无日期、日期吻合都放过——「只会少算不会多算」。
+    单引 E 且能反解、明确的来源日期事实关系、唯一可解析的 source_date 才判。
+    计划/假设/否定/疑问不作事实断言；其他日期共现既不能定罪，也不能替错误发布日期
+    背书。双引或字段缺失时不猜。这不是日期事实的完备检测器。
     """
 
     by_ordinal = _evidence_by_ordinal(verified.outcome)
@@ -4539,13 +4571,13 @@ def _mismatched_evidence_date_indexes(
         cited = tuple(dict.fromkeys(cited_evidence_ordinals(text)))
         if len(cited) != 1 or cited[0] not in by_ordinal:
             continue
-        stated = _full_dates_in(text)
+        stated = _asserted_source_dates(text)
         if not stated:
             continue
-        known = _full_dates_in(_evidence_corpus(by_ordinal[cited[0]]))
-        if not known:
+        known = _full_dates_in(str(getattr(by_ordinal[cited[0]], "source_date", "") or ""))
+        if len(known) != 1:
             continue
-        if stated.isdisjoint(known):
+        if stated - known:
             rejected.append(index)
     return tuple(rejected)
 

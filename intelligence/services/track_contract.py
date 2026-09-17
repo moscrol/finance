@@ -53,14 +53,50 @@ _OPT_OUT_NEGATION = (
     r"不(?=[登记录建入存写纳做作列设]))"
 )
 _OPT_OUT_VERB = r"(?:登记|记录|记进|建档|建立|入库|存档|写入|写进|加进|纳入|列为|设为|做|作为)"
-_OPT_OUT_OBJECT = r"(?:长期|持续)?(?:跟踪|追踪|回检|复核|观察项|关注清单|checkpoint)"
-# 间隔里不许出现「忘 / 漏 / 遗 / 只」：「别忘了登记跟踪」「请勿遗漏登记」是双重否定 = 要登记，
-# 「不要只登记跟踪」是补充要求。这些字一出现，整句就不再是退出声明。
-_GAP = r"(?:(?![忘漏遗只])[^，,。；;!！?？\n]){0,8}?"
-_OPT_OUT_RE = re.compile(
-    rf"{_OPT_OUT_NEGATION}{_GAP}"
-    rf"(?:{_OPT_OUT_VERB}{_GAP}{_OPT_OUT_OBJECT}|{_OPT_OUT_OBJECT}{_GAP}{_OPT_OUT_VERB})"
+_OPT_OUT_OBJECT = (
+    r"(?:长期|持续)?(?:跟踪|追踪|回检|复核|观察项|关注清单|checkpoint)"
+    r"(?:观察项|清单|记录|任务)?"
 )
+# 按小句扫描词元，不用多个无限 GAP 做回溯：长宾语不能截断，重复「登记」也不能
+# 让一次漏判变成二次方扫描。换行是边界；「只」作量词不等于「不要只……」。
+_OPT_OUT_TOKENS = re.compile(
+    rf"(?P<negation>{_OPT_OUT_NEGATION})|(?P<verb>{_OPT_OUT_VERB})"
+    rf"|(?P<object>{_OPT_OUT_OBJECT})"
+    r"|(?P<qualifier>[忘漏遗仅]|(?<![这那一二两三四五六七八九十几每哪\d])只)"
+)
+_PREPOSED_OBJECT_TAIL = re.compile(r"(?:项|观察项|清单|记录|任务)?(?:本次|这次|此次)?")
+
+
+def _opt_out_spans(text: str) -> tuple[tuple[int, int], ...]:
+    spans: list[tuple[int, int]] = []
+    for clause in re.finditer(r"[^，,。；;!！?？\r\n]+", text):
+        body = clause.group()
+        start: int | None = None
+        has_verb = has_object = False
+        previous_object: re.Match[str] | None = None
+        for token in _OPT_OUT_TOKENS.finditer(body):
+            kind = token.lastgroup
+            if kind == "negation":
+                # 「长期跟踪不用登记」的前置对象只认紧邻形态，不能吞掉前面的
+                # 「跟踪一下中际旭创但……」正面研究诉求。
+                has_object = bool(previous_object and _PREPOSED_OBJECT_TAIL.fullmatch(
+                    body[previous_object.end():token.start()]
+                ))
+                start = previous_object.start() if has_object else token.start()
+                has_verb = False
+            elif kind == "qualifier":
+                start = None  # 别忘/请勿遗漏/不要只：不是退出持久化
+                previous_object = None
+            elif kind == "object":
+                previous_object = token
+                has_object = True
+            elif kind == "verb":
+                has_verb = True
+            if start is not None and has_verb and has_object:
+                spans.append((clause.start() + start, clause.start() + token.end()))
+                start = None
+                previous_object = None
+    return tuple(spans)
 
 
 def persistence_opt_out(query: str) -> bool:
@@ -72,10 +108,10 @@ def persistence_opt_out(query: str) -> bool:
     调用方在写之前判断，所以判据取**用户问题**，不取模型答案（模型说了不算）。
     """
 
-    text = re.sub(r"\s+", "", str(query or ""))
+    text = re.sub(r"[^\S\r\n]+", "", str(query or ""))
     if not text:
         return False
-    return _OPT_OUT_RE.search(text) is not None
+    return bool(_opt_out_spans(text))
 
 
 def parse_track_intent(query: str, question_type: str | None = None) -> bool:
@@ -88,10 +124,17 @@ def parse_track_intent(query: str, question_type: str | None = None) -> bool:
     """
     if question_type == "theme_track":
         return True
-    text = re.sub(r"\s+", "", str(query or ""))
+    text = re.sub(r"[^\S\r\n]+", "", str(query or ""))
     if not text:
         return False
-    scrubbed = _OPT_OUT_RE.sub("", text)
+    spans = _opt_out_spans(text)
+    kept: list[str] = []
+    cursor = 0
+    for start, end in spans:
+        kept.append(text[cursor:start])
+        cursor = end
+    kept.append(text[cursor:])
+    scrubbed = "".join(kept)
     return any(term in scrubbed for term in _TRACK_TERMS)
 
 
