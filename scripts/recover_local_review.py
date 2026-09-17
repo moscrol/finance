@@ -44,7 +44,7 @@ def validate_inputs(history_day: str, snapshot_day: str, history: Path, snapshot
     codes = [r.get("stock_ts_code") for r in rows]
     if len(codes) != len(set(codes)):
         raise ValueError("duplicate historical stocks")
-    if any(r.get("source") != "sina:stock_zh_a_daily" for r in rows):
+    if any(r.get("source") not in ("sina:stock_zh_a_daily", "sina:stock_zh_a_cdr_daily") for r in rows):
         raise ValueError("historical provenance mismatch")
     for r in rows:
         if any(not isinstance(r.get(k), (int, float)) or not math.isfinite(r[k])

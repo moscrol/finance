@@ -47,6 +47,12 @@ def test_rejects_unproven_or_invalid_history(captured_inputs, changes):
         validate(captured_inputs)
 
 
+def test_accepts_explicit_sina_cdr_provenance(captured_inputs):
+    history, _, row = captured_inputs
+    history.write_text(json.dumps(row | {'source': 'sina:stock_zh_a_cdr_daily', 'turnover': None}) + '\n')
+    assert validate(captured_inputs)[1][0]['source'] == 'sina:stock_zh_a_cdr_daily'
+
+
 def test_rejects_duplicate_history(captured_inputs):
     history, _, row = captured_inputs
     history.write_text((json.dumps(row) + '\n') * 2)

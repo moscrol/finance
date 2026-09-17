@@ -38,6 +38,8 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
 SOURCE = "sina:stock_zh_a_daily"
+CDR_SOURCE = "sina:stock_zh_a_cdr_daily"
+SOURCES = (SOURCE, CDR_SOURCE)
 _PREFIX = {"SH": "sh", "SZ": "sz", "BJ": "bj"}
 
 
@@ -101,7 +103,7 @@ def cmd_fetch(args) -> int:
     snapshot_path = getattr(args, 'universe_snapshot', None)
     if snapshot_path:
         from market_feature_store.sync.sync_eastmoney_stock_snapshot import (
-            A_SHARE_PREFIXES, _ts_code, snapshot_trade_date,
+            A_SHARE_PREFIXES, _num, _ts_code, snapshot_trade_date,
         )
         raw = json.loads(Path(snapshot_path).read_text(encoding='utf-8'))
         snapshot_day = snapshot_trade_date(raw)
@@ -110,7 +112,10 @@ def cmd_fetch(args) -> int:
         universe = dict(uni)
         for item in raw:
             code = str(item.get('f12') or '')
-            if code.startswith(A_SHARE_PREFIXES):
+            price = _num(item.get('f2'))
+            # Raw clist also contains retired/unlisted placeholders; these are not
+            # extra active identities. This price is only a filter, never history.
+            if code.startswith(A_SHARE_PREFIXES) and price is not None and math.isfinite(price) and price > 0:
                 universe.setdefault(_ts_code(code), str(item.get('f14') or ''))
         uni = sorted(universe.items())
     resume = getattr(args, 'resume', False)
@@ -120,7 +125,7 @@ def cmd_fetch(args) -> int:
             if not line.strip():
                 continue
             row = json.loads(line)
-            if row.get('trade_date') != args.trade_date or row.get('source') != SOURCE:
+            if row.get('trade_date') != args.trade_date or row.get('source') not in SOURCES:
                 raise ValueError('resume input date/source mismatch')
             existing.add(row['stock_ts_code'])
         uni = [(c, n) for c, n in uni if c not in existing]
@@ -135,8 +140,11 @@ def cmd_fetch(args) -> int:
         for i, (code, name) in enumerate(uni, start=1):
             num, ex = code.split(".")
             try:
-                df = ak.stock_zh_a_daily(symbol=_PREFIX[ex] + num, start_date=win_start,
-                                         end_date=win_end, adjust="")
+                is_cdr = ex == 'SH' and num.startswith('689')
+                fetch = ak.stock_zh_a_cdr_daily if is_cdr else ak.stock_zh_a_daily
+                kwargs = {} if is_cdr else {'adjust': ''}
+                df = fetch(symbol=_PREFIX[ex] + num, start_date=win_start,
+                           end_date=win_end, **kwargs)
                 recs = df.to_dict("records") if df is not None else []
                 target = prev_close = None
                 for j, r in enumerate(recs):
@@ -160,8 +168,8 @@ def cmd_fetch(args) -> int:
                     "pre_close": round(prev_close, 3) if prev_close else None,
                     "pct_chg": round((close / prev_close - 1) * 100, 4) if prev_close else None,
                     "amount": round(float(target["amount"]) / 1e8, 4),
-                    "turnover": round(float(target["turnover"]) * 100, 4),
-                    "source": SOURCE,
+                    "turnover": round(float(target["turnover"]) * 100, 4) if not is_cdr else None,
+                    "source": CDR_SOURCE if is_cdr else SOURCE,
                     "open": round(float(target["open"]), 3),
                     "high": round(float(target["high"]), 3),
                     "low": round(float(target["low"]), 3),

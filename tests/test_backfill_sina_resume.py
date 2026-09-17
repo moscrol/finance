@@ -92,6 +92,35 @@ def test_ipo_capture_retains_reference_and_exclusion_name(capture):
     assert row['ipo_reference']['pre_close_source'] == 'sina:stock_ipo_info'
 
 
+def test_resume_does_not_fetch_retired_snapshot_placeholders(capture):
+    module, api, out, snapshot, args = capture
+    raw = json.loads(snapshot.read_text())
+    raw.extend({'f12': f'00000{i}', 'f14': '占位', 'f297': 20260917, 'f2': price}
+               for i, price in enumerate(('-', None, 0, float('nan')), start=2))
+    snapshot.write_text(json.dumps(raw))
+    assert module.cmd_fetch(args) == 0
+    assert api.call_count == 1
+    assert len(out.read_text().splitlines()) == 2
+
+
+def test_cdr_uses_dedicated_dated_source_without_fabricating_turnover(capture):
+    module, api, out, snapshot, args = capture
+    snapshot.write_text(json.dumps([{'f12': '689009', 'f14': '九号公司', 'f297': 20260917, 'f2': 999.0}]))
+    cdr = Mock(return_value=api.return_value.drop(columns=['turnover']))
+    sys.modules['akshare'].stock_zh_a_cdr_daily = cdr
+    assert module.cmd_fetch(args) == 0
+    row = json.loads(out.read_text().splitlines()[-1])
+    assert row['source'] == module.CDR_SOURCE
+    assert row['turnover'] is None
+    assert row['close'] == 11.0
+    assert row['volume'] == 100000.0
+    assert row['amount'] == 1.0
+    assert cdr.call_args.kwargs == {'symbol': 'sh689009', 'start_date': '20260906', 'end_date': '20260916'}
+    api.assert_not_called()
+    assert module.cmd_fetch(args) == 0
+    assert cdr.call_count == 1  # Correct provenance is also accepted by resume.
+
+
 def test_resume_rejects_unverified_snapshot(capture):
     module, api, out, snapshot, args = capture
     snapshot.write_text('[{"f12":"600001"}]')

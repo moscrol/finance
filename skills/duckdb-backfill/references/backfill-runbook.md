@@ -140,6 +140,9 @@ python3 $S validate --trade-date 2026-09-08   # 四条只读对账，必须 PASS
 python3 $S write    --trade-date 2026-09-08   # 单次短事务 upsert + 回读
 ```
 
+- 断点续抓：`fetch --resume --universe-snapshot <已核验后日原始快照>`，只借有效行情行的代码/名字；空价退市占位不扩宇宙，行情仍按历史日期取。先等旧进程结束，避免两进程追加同一 JSONL。
+- 首日无前收：仅当新浪发行资料的上市日恰等于目标日、发行价为正有限数，才以发行价计算首日收益，保存 `ipo_reference` 原始字段并标 N 名；无前一根不自动等于 IPO。
+- `689*.SH` 存托凭证用新浪 `stock_zh_a_cdr_daily`，普通 `stock_zh_a_daily` 会在复权处理报 JSON 错；保留独立 source，缺失的 turnover 留 NULL。09-17 补 09-16 时实测九号公司历史 OHLCV/amount 可用。
 - 覆盖北交所：`bj{code}` 前缀可用，解掉了 mootdx「北交所只回 ~150/340 只」的老缺口（09-08 实得 343 只）。
 - 量纲（三方对账定的，勿凭记忆改）：`amount` 元 ÷1e8→亿元；`volume` 股 ÷100→手；`turnover` 小数 ×100→%。
 - `pre_close` 是**裸价前收**（与 mootdx 同基，非东财的除息调整基）→ 次日锚天然有 0.1~0.3% 的除息股对不上，属坑③同类差异，`validate` 的门槛设在 2%。
