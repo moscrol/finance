@@ -63,6 +63,35 @@ def test_resume_rejects_wrong_source_before_network_or_write(capture):
     assert out.read_bytes() == before
 
 
+def test_ipo_reference_requires_exact_listing_day_and_positive_price(capture):
+    module, _, _, _, _ = capture
+    api = SimpleNamespace(stock_ipo_info=Mock(return_value=pd.DataFrame([
+        {'item': '上市日期', 'value': '2026-09-16'},
+        {'item': '发行价(元)', 'value': '27.60'},
+    ])))
+    assert module._ipo_reference(api, '688837.SH', '2026-09-16')['issue_price'] == 27.60
+    with pytest.raises(ValueError, match='listing day'):
+        module._ipo_reference(api, '688837.SH', '2026-09-15')
+    api.stock_ipo_info.return_value.loc[1, 'value'] = 'nan'
+    with pytest.raises(ValueError, match='issue price'):
+        module._ipo_reference(api, '688837.SH', '2026-09-16')
+
+
+def test_ipo_capture_retains_reference_and_exclusion_name(capture):
+    module, api, out, _, args = capture
+    api.return_value = api.return_value.iloc[1:]
+    sys.modules['akshare'].stock_ipo_info = Mock(return_value=pd.DataFrame([
+        {'item': '上市日期', 'value': '2026-09-16'},
+        {'item': '发行价(元)', 'value': '5.00'},
+    ]))
+    assert module.cmd_fetch(args) == 0
+    row = json.loads(out.read_text().splitlines()[-1])
+    assert row['pre_close'] == 5.0
+    assert row['pct_chg'] == 120.0
+    assert row['stock_name'] == 'N新身份'
+    assert row['ipo_reference']['pre_close_source'] == 'sina:stock_ipo_info'
+
+
 def test_resume_rejects_unverified_snapshot(capture):
     module, api, out, snapshot, args = capture
     snapshot.write_text('[{"f12":"600001"}]')

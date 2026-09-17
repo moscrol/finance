@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 import time
 from datetime import date, datetime, timedelta
@@ -59,6 +60,19 @@ def _neighbours(con, d: date) -> tuple[str, str]:
         "SELECT min(trade_date) FROM fact_stock_daily WHERE trade_date > ?", [d]
     ).fetchone()[0]
     return str(prev), str(nxt) if nxt else str(prev)
+
+
+def _ipo_reference(ak, code: str, trade_date: str) -> dict:
+    """No prior bar is not proof of IPO: require the provider's exact listing day."""
+    info = ak.stock_ipo_info(stock=code.split('.')[0])
+    values = {str(r['item']): str(r['value']) for r in info.to_dict('records')}
+    if values.get('上市日期') != trade_date:
+        raise ValueError(f'{code}: missing previous close and listing day is not {trade_date}')
+    price = float(values.get('发行价(元)', 'nan'))
+    if not math.isfinite(price) or price <= 0:
+        raise ValueError(f'{code}: missing verified issue price')
+    return {'pre_close_source': 'sina:stock_ipo_info', 'listing_date': trade_date,
+            'issue_price': price, 'provider_fields': values}
 
 
 def cmd_fetch(args) -> int:
@@ -133,6 +147,12 @@ def cmd_fetch(args) -> int:
                 if target is None:
                     suspended += 1
                     continue
+                reference = {}
+                if prev_close is None:
+                    reference = _ipo_reference(ak, code, args.trade_date)
+                    prev_close = reference['issue_price']
+                    # IPO exclusion downstream uses N/C names; a later-day identity may have lost N.
+                    name = 'N' + str(name).removeprefix('N').removeprefix('C')
                 close = float(target["close"])
                 fh.write(json.dumps({
                     "trade_date": args.trade_date, "stock_ts_code": code, "stock_name": name,
@@ -146,6 +166,7 @@ def cmd_fetch(args) -> int:
                     "high": round(float(target["high"]), 3),
                     "low": round(float(target["low"]), 3),
                     "volume": round(float(target["volume"]) / 100, 1),
+                    **({'ipo_reference': reference} if reference else {}),
                 }, ensure_ascii=False) + "\n")
                 ok += 1
             except Exception as e:  # noqa: BLE001
