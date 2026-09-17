@@ -1,10 +1,10 @@
 # 8792 独立质检
 
 ## 这个分支做什么
-核验 #781/#779/#782 与测试准入，另按用户授权清理磁盘；业务逻辑不改。裁决见 `docs/handoffs/2026-09-17-8792-readiness-qc.md`；清盘收据见 `docs/handoffs/2026-09-17-disk-cleanup.md`。
+核验 #781/#779/#782 与测试准入，另按授权清盘；业务逻辑不改。裁决 `docs/handoffs/2026-09-17-8792-readiness-qc.md`；最新清盘 `docs/handoffs/2026-09-17-system-disk-cleanup.md`。
 
 ## 当前状态
-质检完成、三类缺陷待修；main=0a1cb8c4，8792=bf662e9310ff，仅四文档差异。授权清盘已完成：删9旧测试根/4中间Gitea包/4同哈希备份；可用5.4→28.3GiB，8792健康。未切开关、重启、写生产或删工作树。
+质检完成、三类缺陷待修；main=0a1cb8c4，8792=bf662e9310ff，仅四文档差异。两轮清盘完成：5.4→28.3→36.7GiB；第二轮清缓存/安装包/闲置Docker构建产物及29棵已合无脏临时树，留恢复映射。8792与原容器状态不变；未重启/写生产/删聊天。
 不能签「全部落地」；可准备隔离小规模测试，不宜直接批量效果比较。
 
 ## 决策与被否方案
@@ -31,4 +31,4 @@ main干净源码 Ruff0、pytest11435P/0F/81S/2xfail；收据20260917T105500Z-0a1
 结果：`docs/verification/2026-09-17-8792-readiness/results.json`。原始证据：`~/.finance-runtime/reviews/qc-8792-readiness-0917-0a1cb8c4/`。
 
 ## 踩过的坑
-同SHA的10:50收据是零用例；空代码地图不作证据。探针exit2=加载错、exit1=行为拒收，须正式收编回归。APFS副本大小≠回收量；删去备份的恢复映射在 `~/.finance-runtime/reviews/disk-cleanup-20260917/`，计划保留proposed历史状态，实际看execution-receipt。
+同SHA的10:50收据是零用例；空地图不作证据。探针exit2=加载错、exit1=拒收，须收编回归。APFS大小≠回收量；恢复映射：`~/.finance-runtime/reviews/disk-cleanup{,-system}-20260917/`。第二轮工作树看receipt-v2；首版是0删除跳过。不得盲跑一次性清理器。
