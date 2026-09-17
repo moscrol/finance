@@ -2,6 +2,11 @@
 
 ### 关键防坑点（顺/坑 速查）
 
+- **档位要验运行态三件套**：仓内模板、`~/Library/LaunchAgents/` 装机 plist、`launchctl print`
+  生效环境逐个对照。2026-09-15 有会话根据旧数据树误判 `local` 不存在，将装机值改成 `auto`，
+  导致 09-16/17 仍去探复盘会；模板正确不能证明机器正确。恢复时只改目标键并保留现有 L2 代码根。
+  `local` 的子模块请求边界另见 `skills/duckdb-backfill/references/backfill-runbook.md` 坑⑧。
+
 - **limit-heat 被 PIPE 吞进度 = 看起来挂死**：通过子脚本 `backfill_review_hot_data.py`
   跑时 stdout 被 PIPE 缓冲，看不到 chunk 进度会误判挂起。**直跑 `sync-limit-heat`
   继承 stdout** 就能看到 `detail chunk i/N`，2026-06-16 验证 25 个 chunk 顺利跑完。

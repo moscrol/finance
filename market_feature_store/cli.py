@@ -230,6 +230,7 @@ def cmd_sync_index_daily(args) -> int:
         start_date=args.start_date,
         end_date=args.end_date,
         symbol=args.symbol,
+        allow_fupanhui_fallback=not args.no_fupanhui_fallback,
     )
     print(f"指数: {stats['symbol']} | 写入: {stats['rows_written']} 行")
     print(f"指数点位覆盖: {stats['close_count']} 行 ({stats['date_min']} ~ {stats['date_max']})")
@@ -2042,6 +2043,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_idx.add_argument("--start-date", default=None, help="起始日期 YYYY-MM-DD")
     p_idx.add_argument("--end-date", default=None, help="结束日期 YYYY-MM-DD；留空取 fact_market_daily 最新日")
     p_idx.add_argument("--symbol", default="sh000001", help="AkShare 指数代码, 默认 sh000001")
+    p_idx.add_argument("--no-fupanhui-fallback", action="store_true", help="主源失败时拒绝请求复盘会（local 计划必带）")
     p_idx.set_defaults(func=cmd_sync_index_daily)
 
     p_sw = sub.add_parser("sync-sw-l1-daily", help="同步申万一级行业指数涨跌幅与复盘会成交占比")
