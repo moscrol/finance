@@ -612,6 +612,7 @@ def cmd_stitch_sector_stocks(args) -> int:
         args.trade_date,
         fetch_caps=not args.no_caps,
         dry_run=args.dry_run,
+        include_completed=getattr(args, 'include_completed', False),
         **kwargs,
     )
     print(f"交易日: {s['trade_date']} | snapshot={s['snapshot_id'][:12]} | {s['identity']}")
@@ -2179,6 +2180,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_st.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD（需已 sync-sectors 且 stock-daily 为东财源）")
     p_st.add_argument("--no-caps", action="store_true", help="不拉腾讯市值现值，按基线缩放")
     p_st.add_argument("--dry-run", action="store_true", help="只算不写")
+    p_st.add_argument("--include-completed", action="store_true",
+                      help="底行情修正后重建已完成板块；恢复任务仅在 staging 中使用")
     p_st.add_argument("--max-baseline-age-days", type=int, default=None,
                       help="identity 基线最多多旧（日历日），默认 10；名单冻结（fupanhui 停抓）时放宽到 120+")
     p_st.set_defaults(func=cmd_stitch_sector_stocks)

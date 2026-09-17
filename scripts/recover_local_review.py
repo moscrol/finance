@@ -70,6 +70,16 @@ def nightly_lock():
         lock.rmdir()
 
 
+def recovery_stitch_command(sync, day: str, history_day: str) -> list[str]:
+    # Recovery replaces base facts: an old success receipt is not proof that
+    # materialized member rows still match those facts.
+    command = sync.CLI + ['stitch-sector-stocks', '--trade-date', day,
+                          '--max-baseline-age-days', '180', '--include-completed']
+    if day == history_day:
+        command.append('--no-caps')
+    return command
+
+
 def child(args) -> int:
     from market_feature_store import db
     from market_feature_store.sync import sync_eastmoney_stock_snapshot as snapshot_module
@@ -107,9 +117,8 @@ def child(args) -> int:
         for name, action in plan:
             if name in {'db-lock', 'stock-daily'}:
                 continue  # Already verified local capture inputs, not live snapshot.
-            if name == 'stitch-sector-stocks' and day == args.history_day:
-                result = sync.run_step(name, sync.CLI + [name, '--trade-date', day,
-                    '--max-baseline-age-days', '180', '--no-caps'], 600)
+            if name == 'stitch-sector-stocks':
+                result = sync.run_step(name, recovery_stitch_command(sync, day, args.history_day), 600)
             else:
                 result = action()
             results.append({'date': day, **result})

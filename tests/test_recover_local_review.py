@@ -99,6 +99,18 @@ def test_parent_uses_guarded_publisher_and_backup(captured_inputs, monkeypatch, 
     assert not (tmp_path / 'state/locks/daily-full-review.lock').exists()
 
 
+@pytest.mark.parametrize('day', ['2026-09-16', '2026-09-17'])
+def test_recovery_refreshes_successful_members_and_never_uses_live_caps_for_history(day):
+    sync = Mock(CLI=['python', '-m', 'market_feature_store.cli'])
+    command = recovery.recovery_stitch_command(sync, day, '2026-09-16')
+    assert '--include-completed' in command
+    assert ('--no-caps' in command) == (day == '2026-09-16')
+    from market_feature_store.cli import build_parser
+    args = build_parser().parse_args(command[3:])
+    assert args.include_completed is True
+    assert args.trade_date == day
+
+
 def test_existing_nightly_lock_is_not_removed(monkeypatch, tmp_path):
     monkeypatch.setenv('FINANCE_WS', str(tmp_path))
     lock = tmp_path / 'state/locks/daily-full-review.lock'
