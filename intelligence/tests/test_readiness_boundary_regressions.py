@@ -105,6 +105,29 @@ def test_qualifiers_questions_and_clause_boundaries_are_not_opt_outs(query):
     assert parse_track_intent(query)
 
 
+def test_qualifier_link_is_scanned_once_per_negation(monkeypatch):
+    from intelligence.services import track_contract
+
+    pattern = track_contract._QUALIFIER_LINK
+    scans = []
+
+    class CountedPattern:
+        def match(self, *args):
+            scans.append("match")
+            return pattern.match(*args)
+
+        def fullmatch(self, *args):
+            scans.append("fullmatch")
+            return pattern.fullmatch(*args)
+
+    monkeypatch.setattr(track_contract, "_QUALIFIER_LINK", CountedPattern())
+    # A timing cap varies with host load. Count repeated prefix scans instead:
+    # each qualifier must not rescan the same long adverb prefix.
+    query = "不要" + "再" * 100 + "这只" * 100 + "股票登记为长期跟踪"
+    assert persistence_opt_out(query)
+    assert len(scans) == 1
+
+
 @pytest.mark.parametrize("writer", [ingest_next_watch, ingest_flip_conditions])
 def test_positive_registration_still_writes(tmp_path: Path, writer):
     answer = _TRACK_ANSWER if writer is ingest_next_watch else RANKING_ANSWER

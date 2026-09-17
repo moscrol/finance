@@ -78,7 +78,7 @@ def _opt_out_spans(text: str) -> tuple[tuple[int, int], ...]:
     for clause in re.finditer(r"[^，,。；;!！?？\r\n]+", text):
         body = clause.group()
         start: int | None = None
-        negation_end = 0
+        qualifier_position = -1
         has_verb = has_object = False
         previous_object: re.Match[str] | None = None
         for token in _OPT_OUT_TOKENS.finditer(body):
@@ -90,10 +90,13 @@ def _opt_out_spans(text: str) -> tuple[tuple[int, int], ...]:
                     body[previous_object.end():token.start()]
                 ))
                 start = previous_object.start() if has_object else token.start()
-                negation_end = token.end()
+                # 每个否定只扫一次副词前缀。若对每个「只」重扫长串「再……」，
+                # 正确的量词判定也会退化为重复的二次方工作。
+                link = _QUALIFIER_LINK.match(body, token.end())
+                qualifier_position = link.end() if link is not None else token.end()
                 has_verb = False
             elif kind == "qualifier":
-                modifies_negation = _QUALIFIER_LINK.fullmatch(body, negation_end, token.start())
+                modifies_negation = token.start() == qualifier_position
                 modifies_action = (
                     token.group() not in {"仅仅", "仅", "只"}
                     and _REMINDER_BEFORE_ACTION.match(body, token.end())
