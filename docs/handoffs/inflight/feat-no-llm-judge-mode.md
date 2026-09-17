@@ -1,6 +1,15 @@
 # feat/no-llm-judge-mode
 
-工单 **#55**（`docs/superpowers/specs/2026-09-17-no-llm-judge-deterministic-gate-workorder.md`）：用户 09-17 决策「不用 LLM 判官」。树 `/Users/a77/fwp-wt-no-llm-judge`，代码尖 `89e8066e`，**PR #781 open，未合、未部署、启动器未改**。
+工单 **#55**（`docs/superpowers/specs/2026-09-17-no-llm-judge-deterministic-gate-workorder.md`）：用户 09-17 决策「不用 LLM 判官」。代码尖 `89e8066e`，**PR #781 已合入 main（合并提交 `4d19dc6a`，2026-09-17 13:13 CST），8792 已切 `bf662e9310ff`（含 #781 + #779），但启动器未改——`ASK_SEMANTIC_JUDGE` 未设，生产仍跑 `llm` 模式**。开关翻到 `off` 是工单 §5 第 10 步，需用户另行确认（见下「未做 / 边界」）。原工作树 `/Users/a77/fwp-wt-no-llm-judge` 与分支均已在合并后删除。
+
+## 合并与部署读数（2026-09-17，独立复算）
+
+合并预演树 `b094abf9`（= `gitea/main@18859d37` + #781 + #779，与合并后 main 的树 `239907a4` 逐字节相同）四叶全绿：
+pytest **11435 passed / 0 failed / 81 skipped / 2 xfailed**（收据 `20260917T044627Z-b094abf9.json`，
+`check_test_receipt.py --expect-revision b094abf9 --base-drift-max 5` 八项全过）、ruff 0、
+前端 lint/typecheck/vitest 107/build（`intelligence/api/static` 产物与已跟踪文件零 diff）、
+e2e 34 passed / 2 skipped（端口族 `WORKBENCH_E2E_PORT=8793` + `RE06_E2E_PORT=RE06_E2E_URL=8795`）、registry 五项 exit 0。
+8792 切换收据 `~/.finance-runtime/cutover-20260917b-bf662e93-8792.md`，回滚锚 `cutover-20260917b-rollback-8792.txt`。
 
 ## 已落
 
@@ -16,7 +25,8 @@
 
 ## 未做 / 边界
 
-- 合入等用户确认。合入后按工单 §5 第 10 步：备份启动器 → `export ASK_SEMANTIC_JUDGE="off"`、`ASK_EVIDENCE_JUDGE="auto"→"off"` → 链切五步 → 探针 run 的 `continuous-episode.json.semantic_verifier.judge_mode == "deterministic"`。回滚 = 还原启动器 + kickstart。
+- **开关未翻，等用户确认**（代码已在生产，行为零变化）。工单 §5 第 10 步：备份启动器 → `export ASK_SEMANTIC_JUDGE="off"`、`ASK_EVIDENCE_JUDGE="auto"→"off"` → `launchctl kickstart -k gui/$UID/com.a77.finance-workbench`（代码快照不换，不需要链切五步）→ 探针 run 的 `continuous-episode.json.semantic_verifier.judge_mode == "deterministic"`。回滚 = 还原启动器备份 + kickstart。
+  09-17 14:0x 切 `bf662e93` 后的探针实读 `judge_mode=llm`、`judge_status=repaired`，确认默认值仍是 `llm`、本次部署没有改变判官行为。
 - 结构守卫的 `judge_status=unavailable` 标签未改（工单非目标四，finding）。
 - 默认翻转 + 判官专属路径退役 = #56（占位），等上线满 5 个交易日。
 
