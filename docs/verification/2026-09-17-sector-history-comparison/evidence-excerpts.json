@@ -1,0 +1,943 @@
+{
+  "projection": "Selected evidence and diagnostic metadata; full private episode is in the manifest.",
+  "evidence": [
+    {
+      "evidence_id": "E1",
+      "tool": "market_data",
+      "title": "市场情绪环境类比 [D10]",
+      "detail": "## 市场情绪环境类比块 [D10]\n- 判读[SPT-A11]：类比的是结构与节点（所处阶段、量价形态、演化位置），不是标的本身；不得因历史窗口相似就推断本次会有相同结果。\n- 口径：把最近 20 个交易日的市场情绪向量（成交额/涨家数/涨停/跌停/偏离度/指数涨跌/连板高度/双红题材数/题材集中度/新高家数，逐特征对全历史 z 标准化）压成窗口签名，在全历史滑窗中取加权距离最近的窗口，及其后续 5/10/20 日实际走法；本地 DuckDB 逐日行计算，非 LLM 生成。\n\n### 当前情绪环境（近 20 日均值）：成交额19351.1亿 · 涨停59家 · 最高连板5板 · 双红题材18个 · 偏离度-0.2%\n| 历史相似窗口 | 距离 | 窗口内环境（均值） | 后续5日 | 后续10日 | 后续20日 |\n|---|---|---|---|---|---|\n| 2025-09-02~2025-09-29 | 0.313 | 成交额23816.2亿 · 涨停59家 · 最高连板5板 · 双红题材14个 · 偏离度-0.0% | 指数0.07%/日均涨停58家/最高7板/日均双红22.6个 | 指数1.39%/日均涨停59家/最高7板/日均双红21.0个 | 指数2.53%/日均涨停57家/最高8板/日均双红22.1个 |\n| 2025-11-26~2025-12-23 | 0.37 | 成交额17804.2亿 · 涨停59家 · 最高连板5板 · 双红题材18个 · 偏离度0.2% | 指数1.15%/日均涨停73家/最高12板/日均双红17.0个 | 指数4.16%/日均涨停82家/最高12板/日均双红26.2个 | 指数5.17%/日均涨停84家/最高12板/日均双红29.5个 |\n| 2025-10-29~2025-11-25 | 0.395 | 成交额19915.1亿 · 涨停60家 · 最高连板7板 · 双红题材13个 · 偏离度-0.3% | 指数0.72%/日均涨停60家/最高7板/日均双红13.4个 | 指数1.02%/日均涨停59家/最高7板/日均双红18.8个 | 指数1.29%/日均涨停59家/最高8板/日均双红18.1个 |\n\n- 使用要求：历史类比是**小样本历史事实，不是概率预测**。只能表述为「历史上 X 段相似情绪窗口中，后续 N 日实际为…」，禁止把样本频率说成概率、禁止在样本外编情景；相似度只基于盘面情绪结构（z 标准化后的相对水平），不含基本面/政策/外部事件差异，须提示读者自行核对当时背景。",
+      "source": "本地 DuckDB · D10",
+      "internal_locator": "",
+      "source_date": "2026-09-15",
+      "evidence_tier": "L4_structured",
+      "supports": [],
+      "contradicts": [],
+      "independent_key": "",
+      "freshness": "unknown",
+      "content_hash": "44ca2b4a83d1b081",
+      "observations": [],
+      "derived_from": [],
+      "reexcerpted": null,
+      "pointer_dropped": null,
+      "structural_neighbor_demoted": null,
+      "deep_read": false,
+      "publisher_kind": "",
+      "document_type": ""
+    },
+    {
+      "evidence_id": "E3",
+      "tool": "finance_query",
+      "title": "题材涨停热度日频（2026-09-15）",
+      "detail": "交易日=2026-09-15；板块名称=锂电池概念；涨停家数=10；市场占比=31.25；热度排名=1",
+      "source": "本地结构化数据 · 题材涨停热度日频",
+      "internal_locator": "finance-query:656e7efba1b3c4fd:1",
+      "source_date": "2026-09-15",
+      "evidence_tier": "L4_structured",
+      "supports": [],
+      "contradicts": [],
+      "independent_key": "duckdb:theme_limit_heat_daily:2026-09-15",
+      "freshness": "current",
+      "content_hash": "428f46bf792d6ff5",
+      "observations": [],
+      "derived_from": [],
+      "reexcerpted": null,
+      "pointer_dropped": null,
+      "structural_neighbor_demoted": null,
+      "deep_read": false,
+      "publisher_kind": "",
+      "document_type": ""
+    },
+    {
+      "evidence_id": "E4",
+      "tool": "finance_query",
+      "title": "题材涨停热度日频（2026-09-15）",
+      "detail": "交易日=2026-09-15；板块名称=储能；涨停家数=9；市场占比=28.12；热度排名=2",
+      "source": "本地结构化数据 · 题材涨停热度日频",
+      "internal_locator": "finance-query:656e7efba1b3c4fd:2",
+      "source_date": "2026-09-15",
+      "evidence_tier": "L4_structured",
+      "supports": [],
+      "contradicts": [],
+      "independent_key": "duckdb:theme_limit_heat_daily:2026-09-15",
+      "freshness": "current",
+      "content_hash": "31dfa64ad15a01cc",
+      "observations": [],
+      "derived_from": [],
+      "reexcerpted": null,
+      "pointer_dropped": null,
+      "structural_neighbor_demoted": null,
+      "deep_read": false,
+      "publisher_kind": "",
+      "document_type": ""
+    },
+    {
+      "evidence_id": "E26",
+      "tool": "mainline_context",
+      "title": "判读[FY-A01]：方向锚（板块方向股）与高度锚（连板高标）同时恶化，且最后一龙冲高回落，才构",
+      "detail": "判读[FY-A01]：方向锚（板块方向股）与高度锚（连板高标）同时恶化，且最后一龙冲高回落，才构成全板块逆转信号；单锚恶化不成立。",
+      "source": "本地 DuckDB · D4 同日主线结构",
+      "internal_locator": "",
+      "source_date": "2026-09-15",
+      "evidence_tier": "L4_structured",
+      "supports": [],
+      "contradicts": [],
+      "independent_key": "",
+      "freshness": "unknown",
+      "content_hash": "eac60d515ae598ab",
+      "observations": [],
+      "derived_from": [],
+      "reexcerpted": null,
+      "pointer_dropped": null,
+      "structural_neighbor_demoted": null,
+      "deep_read": false,
+      "publisher_kind": "",
+      "document_type": ""
+    },
+    {
+      "evidence_id": "E30",
+      "tool": "mainline_context",
+      "title": "判读[SPT-A09]：卖方年度策略取交集当地图使用；一致性拥挤度作为反向指标——周末被一致吹爆",
+      "detail": "判读[SPT-A09]：卖方年度策略取交集当地图使用；一致性拥挤度作为反向指标——周末被一致吹爆的题材，周一大概率被兑现。",
+      "source": "本地 DuckDB · D4 同日主线结构",
+      "internal_locator": "",
+      "source_date": "2026-09-15",
+      "evidence_tier": "L4_structured",
+      "supports": [],
+      "contradicts": [],
+      "independent_key": "",
+      "freshness": "unknown",
+      "content_hash": "11c416fec0a9c837",
+      "observations": [],
+      "derived_from": [],
+      "reexcerpted": null,
+      "pointer_dropped": null,
+      "structural_neighbor_demoted": null,
+      "deep_read": false,
+      "publisher_kind": "",
+      "document_type": ""
+    },
+    {
+      "evidence_id": "E36",
+      "tool": "finance_query",
+      "title": "题材涨停热度日频（2026-09-09）",
+      "detail": "交易日=2026-09-09；板块名称=储能；涨停家数=6；热度排名=7；市场占比=12.5",
+      "source": "本地结构化数据 · 题材涨停热度日频",
+      "internal_locator": "finance-query:fe9a8e806ac72573:1",
+      "source_date": "2026-09-09",
+      "evidence_tier": "L4_structured",
+      "supports": [],
+      "contradicts": [],
+      "independent_key": "duckdb:theme_limit_heat_daily:2026-09-09",
+      "freshness": "current",
+      "content_hash": "24c89a412b4b59ed",
+      "observations": [],
+      "derived_from": [],
+      "reexcerpted": null,
+      "pointer_dropped": null,
+      "structural_neighbor_demoted": null,
+      "deep_read": false,
+      "publisher_kind": "",
+      "document_type": ""
+    },
+    {
+      "evidence_id": "E40",
+      "tool": "finance_query",
+      "title": "题材涨停热度日频（2026-09-10）",
+      "detail": "交易日=2026-09-10；板块名称=储能；涨停家数=5；热度排名=5；市场占比=14.29",
+      "source": "本地结构化数据 · 题材涨停热度日频",
+      "internal_locator": "finance-query:fe9a8e806ac72573:5",
+      "source_date": "2026-09-10",
+      "evidence_tier": "L4_structured",
+      "supports": [],
+      "contradicts": [],
+      "independent_key": "duckdb:theme_limit_heat_daily:2026-09-10",
+      "freshness": "current",
+      "content_hash": "e286881f039c9087",
+      "observations": [],
+      "derived_from": [],
+      "reexcerpted": null,
+      "pointer_dropped": null,
+      "structural_neighbor_demoted": null,
+      "deep_read": false,
+      "publisher_kind": "",
+      "document_type": ""
+    },
+    {
+      "evidence_id": "E46",
+      "tool": "finance_query",
+      "title": "题材涨停热度日频（2026-09-11）",
+      "detail": "交易日=2026-09-11；板块名称=储能；涨停家数=11；热度排名=4；市场占比=27.5",
+      "source": "本地结构化数据 · 题材涨停热度日频",
+      "internal_locator": "finance-query:fe9a8e806ac72573:11",
+      "source_date": "2026-09-11",
+      "evidence_tier": "L4_structured",
+      "supports": [],
+      "contradicts": [],
+      "independent_key": "duckdb:theme_limit_heat_daily:2026-09-11",
+      "freshness": "current",
+      "content_hash": "62708e4659c9c09e",
+      "observations": [],
+      "derived_from": [],
+      "reexcerpted": null,
+      "pointer_dropped": null,
+      "structural_neighbor_demoted": null,
+      "deep_read": false,
+      "publisher_kind": "",
+      "document_type": ""
+    },
+    {
+      "evidence_id": "E50",
+      "tool": "finance_query",
+      "title": "题材涨停热度日频（2026-09-14）",
+      "detail": "交易日=2026-09-14；板块名称=储能；涨停家数=11；热度排名=4；市场占比=20",
+      "source": "本地结构化数据 · 题材涨停热度日频",
+      "internal_locator": "finance-query:fe9a8e806ac72573:15",
+      "source_date": "2026-09-14",
+      "evidence_tier": "L4_structured",
+      "supports": [],
+      "contradicts": [],
+      "independent_key": "duckdb:theme_limit_heat_daily:2026-09-14",
+      "freshness": "current",
+      "content_hash": "b9cdcdabde24a280",
+      "observations": [],
+      "derived_from": [],
+      "reexcerpted": null,
+      "pointer_dropped": null,
+      "structural_neighbor_demoted": null,
+      "deep_read": false,
+      "publisher_kind": "",
+      "document_type": ""
+    },
+    {
+      "evidence_id": "E56",
+      "tool": "finance_query",
+      "title": "题材涨停热度日频（2026-09-15）",
+      "detail": "交易日=2026-09-15；板块名称=储能；涨停家数=9；热度排名=2；市场占比=28.12",
+      "source": "本地结构化数据 · 题材涨停热度日频",
+      "internal_locator": "finance-query:fe9a8e806ac72573:21",
+      "source_date": "2026-09-15",
+      "evidence_tier": "L4_structured",
+      "supports": [],
+      "contradicts": [],
+      "independent_key": "duckdb:theme_limit_heat_daily:2026-09-15",
+      "freshness": "current",
+      "content_hash": "df2c84b165e3ca52",
+      "observations": [],
+      "derived_from": [],
+      "reexcerpted": null,
+      "pointer_dropped": null,
+      "structural_neighbor_demoted": null,
+      "deep_read": false,
+      "publisher_kind": "",
+      "document_type": ""
+    },
+    {
+      "evidence_id": "E58",
+      "tool": "finance_query",
+      "title": "题材涨停热度日频（2026-09-15）",
+      "detail": "交易日=2026-09-15；板块名称=固态电池；涨停家数=7；热度排名=5；市场占比=21.88",
+      "source": "本地结构化数据 · 题材涨停热度日频",
+      "internal_locator": "finance-query:fe9a8e806ac72573:23",
+      "source_date": "2026-09-15",
+      "evidence_tier": "L4_structured",
+      "supports": [],
+      "contradicts": [],
+      "independent_key": "duckdb:theme_limit_heat_daily:2026-09-15",
+      "freshness": "current",
+      "content_hash": "e399679ceccead9d",
+      "observations": [],
+      "derived_from": [],
+      "reexcerpted": null,
+      "pointer_dropped": null,
+      "structural_neighbor_demoted": null,
+      "deep_read": false,
+      "publisher_kind": "",
+      "document_type": ""
+    },
+    {
+      "evidence_id": "E63",
+      "tool": "finance_query",
+      "title": "板块日频行情（2026-09-15）",
+      "detail": "交易日=2026-09-15；板块名称=PCB概念；板块代码=990027.FP；涨跌幅=0.575；成交额亿=2577.0197；边际量=11.9183；强度=未知",
+      "source": "本地结构化数据 · 板块日频行情",
+      "internal_locator": "finance-query:f28929197fbce423:3",
+      "source_date": "2026-09-15",
+      "evidence_tier": "L4_structured",
+      "supports": [],
+      "contradicts": [],
+      "independent_key": "duckdb:sector_daily:2026-09-15",
+      "freshness": "current",
+      "content_hash": "9e0d316d7f40c316",
+      "observations": [
+        {
+          "subject": "PCB概念",
+          "as_of": "2026-09-15",
+          "metric": "pct_chg",
+          "value": 0.575
+        },
+        {
+          "subject": "PCB概念",
+          "as_of": "2026-09-15",
+          "metric": "amount",
+          "value": 2577.0197
+        },
+        {
+          "subject": "PCB概念",
+          "as_of": "2026-09-15",
+          "metric": "diff_ratio",
+          "value": 11.9183
+        }
+      ],
+      "derived_from": [],
+      "reexcerpted": null,
+      "pointer_dropped": null,
+      "structural_neighbor_demoted": null,
+      "deep_read": false,
+      "publisher_kind": "",
+      "document_type": ""
+    },
+    {
+      "evidence_id": "E64",
+      "tool": "finance_query",
+      "title": "板块日频行情（2026-09-15）",
+      "detail": "交易日=2026-09-15；板块名称=固态电池；板块代码=990140.FP；涨跌幅=-0.0162；成交额亿=1533.665；边际量=15.0673；强度=未知",
+      "source": "本地结构化数据 · 板块日频行情",
+      "internal_locator": "finance-query:f28929197fbce423:4",
+      "source_date": "2026-09-15",
+      "evidence_tier": "L4_structured",
+      "supports": [],
+      "contradicts": [],
+      "independent_key": "duckdb:sector_daily:2026-09-15",
+      "freshness": "current",
+      "content_hash": "48d08f04ef33d7ee",
+      "observations": [
+        {
+          "subject": "固态电池",
+          "as_of": "2026-09-15",
+          "metric": "pct_chg",
+          "value": -0.0162
+        },
+        {
+          "subject": "固态电池",
+          "as_of": "2026-09-15",
+          "metric": "amount",
+          "value": 1533.665
+        },
+        {
+          "subject": "固态电池",
+          "as_of": "2026-09-15",
+          "metric": "diff_ratio",
+          "value": 15.0673
+        }
+      ],
+      "derived_from": [],
+      "reexcerpted": null,
+      "pointer_dropped": null,
+      "structural_neighbor_demoted": null,
+      "deep_read": false,
+      "publisher_kind": "",
+      "document_type": ""
+    },
+    {
+      "evidence_id": "E65",
+      "tool": "finance_query",
+      "title": "板块日频行情（2026-09-15）",
+      "detail": "交易日=2026-09-15；板块名称=数据中心；板块代码=990192.FP；涨跌幅=-0.9334；成交额亿=4184.8548；边际量=-2.7732；强度=未知",
+      "source": "本地结构化数据 · 板块日频行情",
+      "internal_locator": "finance-query:f28929197fbce423:5",
+      "source_date": "2026-09-15",
+      "evidence_tier": "L4_structured",
+      "supports": [],
+      "contradicts": [],
+      "independent_key": "duckdb:sector_daily:2026-09-15",
+      "freshness": "current",
+      "content_hash": "9aa3faa9e21a9bbb",
+      "observations": [
+        {
+          "subject": "数据中心",
+          "as_of": "2026-09-15",
+          "metric": "pct_chg",
+          "value": -0.9334
+        },
+        {
+          "subject": "数据中心",
+          "as_of": "2026-09-15",
+          "metric": "amount",
+          "value": 4184.8548
+        },
+        {
+          "subject": "数据中心",
+          "as_of": "2026-09-15",
+          "metric": "diff_ratio",
+          "value": -2.7732
+        }
+      ],
+      "derived_from": [],
+      "reexcerpted": null,
+      "pointer_dropped": null,
+      "structural_neighbor_demoted": null,
+      "deep_read": false,
+      "publisher_kind": "",
+      "document_type": ""
+    },
+    {
+      "evidence_id": "E66",
+      "tool": "finance_query",
+      "title": "板块日频行情（2026-09-15）",
+      "detail": "交易日=2026-09-15；板块名称=储能；板块代码=990064.FP；涨跌幅=-1.0658；成交额亿=3303.1304；边际量=4.0002；强度=未知",
+      "source": "本地结构化数据 · 板块日频行情",
+      "internal_locator": "finance-query:f28929197fbce423:6",
+      "source_date": "2026-09-15",
+      "evidence_tier": "L4_structured",
+      "supports": [],
+      "contradicts": [],
+      "independent_key": "duckdb:sector_daily:2026-09-15",
+      "freshness": "current",
+      "content_hash": "a757fdc55eef717d",
+      "observations": [
+        {
+          "subject": "储能",
+          "as_of": "2026-09-15",
+          "metric": "pct_chg",
+          "value": -1.0658
+        },
+        {
+          "subject": "储能",
+          "as_of": "2026-09-15",
+          "metric": "amount",
+          "value": 3303.1304
+        },
+        {
+          "subject": "储能",
+          "as_of": "2026-09-15",
+          "metric": "diff_ratio",
+          "value": 4.0002
+        }
+      ],
+      "derived_from": [],
+      "reexcerpted": null,
+      "pointer_dropped": null,
+      "structural_neighbor_demoted": null,
+      "deep_read": false,
+      "publisher_kind": "",
+      "document_type": ""
+    }
+  ],
+  "tool_requests": [
+    {
+      "sequence": 14,
+      "kind": "tool_request",
+      "payload": {
+        "call_id": "call_50fdeb0204aa41debbec475f",
+        "name": "finance_query",
+        "arguments": {
+          "dataset": "theme_limit_heat_daily",
+          "dimensions": [
+            "trade_date",
+            "sector_name"
+          ],
+          "limit": 15,
+          "metrics": [
+            "limit_up_count",
+            "market_share",
+            "rank"
+          ],
+          "order_by": [
+            {
+              "direction": "desc",
+              "field": "limit_up_count"
+            }
+          ],
+          "time_range": {
+            "end": "2026-09-15",
+            "start": "2026-09-15"
+          }
+        },
+        "batch_grant_asked": 540.0,
+        "stage_timeout_granted": 517.7332220829558,
+        "episode_remaining_at_dispatch": 577.7332202079706,
+        "remaining_slots_at_dispatch": 40,
+        "turn_elapsed_at_dispatch": 6.611016000038944,
+        "replay": "safe",
+        "task_frame_hash": "3e8817315d24cf422d01ecc79f993642c62039b1dae49e2308882cc515e9fa37",
+        "at": "2026-09-17T20:32:52.388+08:00"
+      }
+    },
+    {
+      "sequence": 15,
+      "kind": "tool_request",
+      "payload": {
+        "call_id": "call_7261b858f1174f91b9918471",
+        "name": "market_data",
+        "arguments": {},
+        "batch_grant_asked": 540.0,
+        "stage_timeout_granted": 517.7332220829558,
+        "episode_remaining_at_dispatch": 577.7332202079706,
+        "remaining_slots_at_dispatch": 40,
+        "turn_elapsed_at_dispatch": 6.611016000038944,
+        "replay": "safe",
+        "task_frame_hash": "3e8817315d24cf422d01ecc79f993642c62039b1dae49e2308882cc515e9fa37",
+        "at": "2026-09-17T20:32:52.394+08:00"
+      }
+    },
+    {
+      "sequence": 16,
+      "kind": "tool_request",
+      "payload": {
+        "call_id": "call_b042133087474b57b484b045",
+        "name": "mainline_context",
+        "arguments": {},
+        "batch_grant_asked": 540.0,
+        "stage_timeout_granted": 517.7332220829558,
+        "episode_remaining_at_dispatch": 577.7332202079706,
+        "remaining_slots_at_dispatch": 40,
+        "turn_elapsed_at_dispatch": 6.611016000038944,
+        "replay": "safe",
+        "task_frame_hash": "3e8817315d24cf422d01ecc79f993642c62039b1dae49e2308882cc515e9fa37",
+        "at": "2026-09-17T20:32:52.399+08:00"
+      }
+    },
+    {
+      "sequence": 24,
+      "kind": "tool_request",
+      "payload": {
+        "call_id": "call_e44d1ac61b28471b8e8edfd0",
+        "name": "finance_query",
+        "arguments": {
+          "dataset": "sector_period_rank_daily",
+          "dimensions": [
+            "trade_date",
+            "period_type",
+            "rank",
+            "sector_name",
+            "sector_code",
+            "change_pct",
+            "limit_up_count",
+            "badge"
+          ],
+          "filters": [
+            {
+              "field": "period_type",
+              "op": "in",
+              "value": [
+                "day5",
+                "day3"
+              ]
+            }
+          ],
+          "limit": 25,
+          "metrics": [
+            "rank"
+          ],
+          "order_by": [
+            {
+              "direction": "asc",
+              "field": "rank"
+            }
+          ],
+          "time_range": {
+            "end": "2026-09-15",
+            "start": "2026-09-14"
+          }
+        },
+        "batch_grant_asked": 540.0,
+        "stage_timeout_granted": 501.50324591691606,
+        "episode_remaining_at_dispatch": 561.503243416897,
+        "remaining_slots_at_dispatch": 37,
+        "turn_elapsed_at_dispatch": 16.085315375006758,
+        "replay": "safe",
+        "task_frame_hash": "3e8817315d24cf422d01ecc79f993642c62039b1dae49e2308882cc515e9fa37",
+        "at": "2026-09-17T20:33:08.618+08:00"
+      }
+    },
+    {
+      "sequence": 25,
+      "kind": "tool_request",
+      "payload": {
+        "call_id": "call_3a07b703ed6c4e95aa7b671a",
+        "name": "finance_query",
+        "arguments": {
+          "dataset": "theme_limit_heat_daily",
+          "dimensions": [
+            "trade_date",
+            "sector_name"
+          ],
+          "filters": [
+            {
+              "field": "sector_name",
+              "op": "in",
+              "value": [
+                "锂电池概念",
+                "储能",
+                "固态电池",
+                "芯片",
+                "PCB概念",
+                "数据中心"
+              ]
+            }
+          ],
+          "limit": 25,
+          "metrics": [
+            "limit_up_count",
+            "rank",
+            "market_share"
+          ],
+          "order_by": [
+            {
+              "direction": "asc",
+              "field": "trade_date"
+            }
+          ],
+          "time_range": {
+            "end": "2026-09-15",
+            "start": "2026-09-08"
+          }
+        },
+        "batch_grant_asked": 540.0,
+        "stage_timeout_granted": 501.50324591691606,
+        "episode_remaining_at_dispatch": 561.503243416897,
+        "remaining_slots_at_dispatch": 37,
+        "turn_elapsed_at_dispatch": 16.085315375006758,
+        "replay": "safe",
+        "task_frame_hash": "3e8817315d24cf422d01ecc79f993642c62039b1dae49e2308882cc515e9fa37",
+        "at": "2026-09-17T20:33:08.625+08:00"
+      }
+    },
+    {
+      "sequence": 32,
+      "kind": "tool_request",
+      "payload": {
+        "call_id": "call_bef4876c66be416c888e4a59",
+        "name": "finance_query",
+        "arguments": {
+          "dataset": "sector_daily",
+          "dimensions": [
+            "trade_date",
+            "sector_name",
+            "sector_code"
+          ],
+          "filters": [
+            {
+              "field": "sector_name",
+              "op": "in",
+              "value": [
+                "锂电池概念",
+                "储能",
+                "固态电池",
+                "芯片",
+                "PCB概念",
+                "数据中心"
+              ]
+            }
+          ],
+          "limit": 25,
+          "metrics": [
+            "return_pct",
+            "amount",
+            "marginal_volume_pct",
+            "strength"
+          ],
+          "order_by": [
+            {
+              "direction": "desc",
+              "field": "trade_date"
+            }
+          ],
+          "time_range": {
+            "end": "2026-09-15",
+            "start": "2026-09-11"
+          }
+        },
+        "batch_grant_asked": 540.0,
+        "stage_timeout_granted": 479.21464799996465,
+        "episode_remaining_at_dispatch": 539.2146454169415,
+        "remaining_slots_at_dispatch": 35,
+        "turn_elapsed_at_dispatch": 22.22457012499217,
+        "replay": "safe",
+        "task_frame_hash": "3e8817315d24cf422d01ecc79f993642c62039b1dae49e2308882cc515e9fa37",
+        "at": "2026-09-17T20:33:30.906+08:00"
+      }
+    },
+    {
+      "sequence": 38,
+      "kind": "tool_request",
+      "payload": {
+        "call_id": "call_ba70ff36c3ec40178678e485",
+        "name": "history_query",
+        "arguments": {
+          "end": "2025-12-23",
+          "entity_codes": [
+            "990064.FP"
+          ],
+          "entity_kind": "sector",
+          "features": [
+            "return_pct",
+            "max_double_red_streak"
+          ],
+          "operation": "compute_history",
+          "start": "2025-11-26"
+        },
+        "batch_grant_asked": 540.0,
+        "stage_timeout_granted": 466.7088586249156,
+        "episode_remaining_at_dispatch": 526.7088571249042,
+        "remaining_slots_at_dispatch": 34,
+        "turn_elapsed_at_dispatch": 12.415263874921948,
+        "replay": "safe",
+        "task_frame_hash": "3e8817315d24cf422d01ecc79f993642c62039b1dae49e2308882cc515e9fa37",
+        "at": "2026-09-17T20:33:43.412+08:00"
+      }
+    },
+    {
+      "sequence": 44,
+      "kind": "tool_request",
+      "payload": {
+        "call_id": "call_b047ffacbf994abbbdf857c4",
+        "name": "evidence_search",
+        "arguments": {
+          "query": "储能 锂电池 板块 高位 分歧 风险"
+        },
+        "batch_grant_asked": 540.0,
+        "stage_timeout_granted": 460.185624082922,
+        "episode_remaining_at_dispatch": 520.1856200000038,
+        "remaining_slots_at_dispatch": 33,
+        "turn_elapsed_at_dispatch": 6.462581040919758,
+        "replay": "safe",
+        "task_frame_hash": "3e8817315d24cf422d01ecc79f993642c62039b1dae49e2308882cc515e9fa37",
+        "at": "2026-09-17T20:33:49.935+08:00"
+      }
+    }
+  ],
+  "failure_and_coverage_results": [
+    {
+      "sequence": 26,
+      "kind": "tool_result",
+      "payload": {
+        "tool": "finance_query",
+        "ok": true,
+        "observation": "结构化查询参数无效：not a dimension: change_pct；重试提示：当前 dataset=sector_period_rank_daily；字段归属：change_pct→sector_period_rank_daily.metric；一次查询只能使用一个 dataset；所需字段跨 dataset 时请拆成多个查询，逐次观察结果后再汇总",
+        "gaps": [
+          "结构化查询条件无效；请改写 dataset、字段、筛选或日期范围后重试"
+        ],
+        "call_id": "call_e44d1ac61b28471b8e8edfd0"
+      }
+    },
+    {
+      "sequence": 27,
+      "kind": "tool_result",
+      "payload": {
+        "tool": "finance_query",
+        "ok": true,
+        "observation": "查询结果已按 Agent 上下文预算截断至 25 条；未覆盖的日期请收窄 time_range 再查，不要靠调大 limit；实际覆盖 2026-09-09..2026-09-15；请求窗口 2026-09-08..2026-09-15；窗口前端未覆盖（请求从 2026-09-08 起，实际从 2026-09-09 起）；交易日=2026-09-09；板块名称=储能；涨停家数=6；热度排名=7；市场占比=12.5；交易日=2026-09-09；板块名称=数据中心；涨停家数=2；热度排名=69；市场占比=4.17；交易日=2026-09-10；板块名称=PCB概念；涨停家数=2；热度排名=35；市场占比=5.71；交易日=2026-09-10；板块名称=芯片；涨停家数=5；热度排名=8；市场占比=14.29；交易日=2026-09-10；板块名称=储能；涨停家数=5；热度排名=5；市场占比=14.29；交易日=2026-09-10；板块名称=数据中心；涨停家数=4；热度排名=13；市场占比=11.43；交易日=2026-09-10；板块名称=锂电池概念；涨停家数=1；热度排名=148；市场占比=2.86；交易日=2026-09-11；板块名称=固态电池；涨停家数=1；热度排名=133；市场占比=2.5；交易日=2026-09-11；板块名称=PCB概念；涨停家数=7；热度排名=13；市场占比=17.5；交易日=2026-09-11；板块名称=芯片；涨停家数=10；热度排名=6；市场占比=25；交易日=2026-09-11；板块名称=储能；涨停家数=11；热度排名=4；市场占比=27.5；交易日=2026-09-11；板块名称=数据中心；涨停家数=9；热度排名=8；市场占比=22.5；交易日=2026-09-11；板块名称=锂电池概念；涨停家数=4；热度排名=41；市场占比=10；交易日=2026-09-14；板块名称=固态电池；涨停家数=1；热度排名=165；市场占比=1.82；交易日=2026-09-14；板块名称=储能；涨停家数=11；热度排名=4；市场占比=20；交易日=2026-09-14；板块名称=芯片；涨停家数=9；热度排名=12；市场占比=16.36；交易日=2026-09-14；板块名称=数据中心；涨停家数=14；热度排名=2；市场占比=25.45；交易日=2026-09-14；板块名称=PCB概念；涨停家数=8；热度排名=14；市场占比=14.55；交易日=2026-09-14；板块名称=锂电池概念；涨停家数=10；热度排名=8；市场占比=18.18；交易日=2026-09-15；板块名称=PCB概念；涨停家数=6；热度排名=8；市场占比=18.75；交易日=2026-09-15；板块名称=储能；涨停家数=9；热度排名=2；市场占比=28.12；交易日=2026-09-15；板块名称=芯片；涨停家数=7；热度排名=6；市场占比=21.88；交易日=2026-09-15；板块名称=固态电池；涨停家数=7；热度排名=5；市场占比=21.88；交易日=2026-09-15；板块名称=锂电池概念；涨停家数=10；热度排名=1；市场占比=31.25；交易日=2026-09-15；板块名称=数据中心；涨停家数=6；热度排名=9；市场占比=18.75",
+        "gaps": [],
+        "call_id": "call_3a07b703ed6c4e95aa7b671a"
+      }
+    }
+  ],
+  "structural_completion": {
+    "status": "partial",
+    "business_status": "partial",
+    "factual_grounding": "fulfilled",
+    "causal_adequacy": "unknown",
+    "task_coverage": "fulfilled",
+    "outputs": [
+      {
+        "output_id": "direct_assessment",
+        "status": "fulfilled",
+        "evidence_ids": [
+          "428f46bf792d6ff5",
+          "31dfa64ad15a01cc",
+          "e399679ceccead9d",
+          "31a1b31a34833234",
+          "882ac430ae277c0d",
+          "3d08f46e3d0ad615",
+          "0da04513fa40ad28",
+          "54d38d5f7c7d9069",
+          "62708e4659c9c09e",
+          "b9cdcdabde24a280",
+          "df2c84b165e3ca52",
+          "7f2527f63709143c",
+          "ad379212a368444f",
+          "9e0d316d7f40c316",
+          "9aa3faa9e21a9bbb",
+          "a757fdc55eef717d",
+          "48d08f04ef33d7ee",
+          "02a365db052e785f",
+          "8cbe6740fc977005",
+          "52c101e6be4b6752",
+          "44ca2b4a83d1b081",
+          "261fe88f30259584",
+          "64947f565b3665c9",
+          "275a70e9c57b5eb7",
+          "5385ca064d274d9d",
+          "57c17ff753680ba1",
+          "c6db81cf6198e423",
+          "2570b1d78977393b",
+          "43ff89546eb3c568",
+          "72b4b87d45153558",
+          "dde2b8eee0f392c3",
+          "0139c868f316243c",
+          "7c19acf7be34e505",
+          "26802cc700f07dae",
+          "4e47739eef1736b0",
+          "9bf72f4350c964dd",
+          "70393d5a5ad3cd08",
+          "5257c8cd4b8c5a2a",
+          "16fcd131b2635408",
+          "2769b540131fc89b",
+          "b581d352f376f85f",
+          "97878b6c6f7c519b",
+          "e286881f039c9087",
+          "a1fc89c27b4c6168",
+          "5851a834e68337ff",
+          "e9bfa8fc587d3581",
+          "bd398b1712cac99a",
+          "3d280b346e9de510",
+          "f9ae3339b05032c9",
+          "11b7812fc838ef74",
+          "fba8c036c0a55d21",
+          "d23a8ace8f6566fd",
+          "1c8cc21dfeaa3ad7",
+          "b8ab54949fd2306d"
+        ],
+        "gap": ""
+      },
+      {
+        "output_id": "counterpoint",
+        "status": "fulfilled",
+        "evidence_ids": [
+          "eac60d515ae598ab",
+          "1cb9f4bca8db6be7",
+          "2a8873e9195610ba879a956ead48a5c448a62a50",
+          "3f0fb9c286f72a186fce4f086b917a5482395389",
+          "a7357d9ce241cef7d7a68a18fb018ce58d548023",
+          "11c416fec0a9c837",
+          "35a43de84f9f2b14",
+          "5ed55f915bba9377",
+          "e45382af6a3ec741",
+          "f568601e65940e22",
+          "bf74b7b591bcea0a",
+          "0146f92ae363e4d0",
+          "0f244598f6659ef9"
+        ],
+        "gap": ""
+      },
+      {
+        "output_id": "evidence_boundary",
+        "status": "fulfilled",
+        "evidence_ids": [
+          "9c98682f42af8330",
+          "a37612c4c689ec1c",
+          "1c8cc21dfeaa3ad7",
+          "b8ab54949fd2306d",
+          "9e0d316d7f40c316",
+          "48d08f04ef33d7ee",
+          "9aa3faa9e21a9bbb",
+          "a757fdc55eef717d"
+        ],
+        "gap": ""
+      }
+    ]
+  },
+  "semantic_receipt": {
+    "status": "completed",
+    "judge_status": "repaired",
+    "issues": [
+      "code=numeric_unsupported subject=numeric_condition :: unsupported numeric condition without bound evidence",
+      "第8句称'储能近5个交易日连续在榜'，但证据（E40、E46、E50、E56）只覆盖 2026-09-10、09-11、09-14、09-15 共 4 个交易日，'5个交易日连续'缺少第5个交易日的直接证据支持；其热度序列 5→11→11→9 本身与证据相符，仅'5日'口径超出已核验范围。"
+    ],
+    "sentence_verdicts": [
+      {
+        "stage": "preflight",
+        "judge_round": null,
+        "sentence_index": 20,
+        "sentence": "- 储能链收跌但涨停家数高，是「涨停集中但板块指数走弱」的分歧组合，若后续出现利多不涨+连板高标走坏，按抱团踩踏前兆判读应降级（E27）；",
+        "decision": "deleted",
+        "reasons": [
+          "novel_numeric_condition"
+        ],
+        "judge_issues": [],
+        "cited_evidence_ordinals": [
+          "E27"
+        ],
+        "unresolved_evidence_ordinals": [],
+        "bound_evidence_hashes": [
+          "1cb9f4bca8db6be7"
+        ],
+        "source_tiers": [
+          "L4_structured"
+        ]
+      },
+      {
+        "stage": "preflight",
+        "judge_round": null,
+        "sentence_index": 24,
+        "sentence": "**跟踪与失效**：升级条件=储能/锂电池连续两日边际量为正且板块指数收涨、市场量能回升（量比回到 100% 附近）；",
+        "decision": "deleted",
+        "reasons": [
+          "novel_numeric_condition"
+        ],
+        "judge_issues": [],
+        "cited_evidence_ordinals": [],
+        "unresolved_evidence_ordinals": [],
+        "bound_evidence_hashes": [],
+        "source_tiers": []
+      },
+      {
+        "stage": "preflight",
+        "judge_round": null,
+        "sentence_index": 25,
+        "sentence": "降级/放弃条件=涨停家数从 10 家级快速收缩、数据中心式「热度见顶回落」在储能重演、或指数跌破缩量箱体。",
+        "decision": "deleted",
+        "reasons": [
+          "novel_numeric_condition"
+        ],
+        "judge_issues": [],
+        "cited_evidence_ordinals": [],
+        "unresolved_evidence_ordinals": [],
+        "bound_evidence_hashes": [],
+        "source_tiers": []
+      },
+      {
+        "stage": "judge",
+        "judge_round": 1,
+        "sentence_index": 8,
+        "sentence": "- 热度持续性：储能近 5 个交易日连续在榜且家数 5→11→11→9，是唯一持续高位扩散的题材；",
+        "decision": "demoted_to_issue",
+        "reasons": [
+          "judge"
+        ],
+        "judge_issues": [
+          "第8句称'储能近5个交易日连续在榜'，但证据（E40、E46、E50、E56）只覆盖 2026-09-10、09-11、09-14、09-15 共 4 个交易日，'5个交易日连续'缺少第5个交易日的直接证据支持；其热度序列 5→11→11→9 本身与证据相符，仅'5日'口径超出已核验范围。"
+        ],
+        "cited_evidence_ordinals": [],
+        "unresolved_evidence_ordinals": [],
+        "bound_evidence_hashes": [],
+        "source_tiers": []
+      }
+    ],
+    "v11_triggered": true,
+    "v11_query": "这里的行情哪个板块更有机会，历史上有相似的阶段 - 热度持续性：储能近 5 个交易日连续在榜且家数 5→11→11→9，是唯一持 但证据 只覆盖 缺少第 个交易",
+    "v11_outcome": "still_annotated",
+    "v11_new_hit_count": 16
+  },
+  "publication_assessment": {
+    "max_status": "partial",
+    "required_public_notices": [
+      "已有历史观察，但尚未完成声明条件全集的历史比较；单案例和相似列表不能作为规律验证。"
+    ]
+  },
+  "ranking_contract": {
+    "check": "ranking_contract",
+    "ranking_intent": false,
+    "scenario_update_intent": false,
+    "missing_outputs": [],
+    "matrix_rows": 0,
+    "flip_rows": 0,
+    "competing_explanations": 0,
+    "next_actions": 0,
+    "as_of": "2026-09-17",
+    "artifact": null,
+    "prior_rerank": null,
+    "rerank_consistent": null
+  }
+}
