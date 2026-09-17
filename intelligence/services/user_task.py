@@ -1015,6 +1015,16 @@ _MATERIAL_REFERENCE_RE = re.compile(
 _LONG_SINGLE_LINE_MIN = 160
 _MATERIAL_MIN_CHARS = 40
 _QUESTION_MAX_CHARS = 120
+# 带背景交代的研究问题充其量写到这个量级；再长就当材料看（见 _reads_like_document）。
+_QUESTION_HEAD_MAX_CHARS = 400
+# 只有排版结构才能证明「这是一份文档」：标题方括号、来源/作者字段、行首章节编号。
+# 与 _MATERIAL_MARKER_RE 的区别：那一个含「研报/公告/摘要」等普通名词，用在这里会把
+# 提问误判为材料（「请使用实际可获取的公告」）。
+_STRUCTURAL_MATERIAL_MARKER_RE = re.compile(
+    r"(?:【|】|来源[:：]|作者[:：]|^[一二三四五六七八九十]+[、.．]|^\d+[、.．]|"
+    r"^第[一二三四五六七八九十]+[章节部分])",
+    re.MULTILINE,
+)
 
 
 def material_id_for(text: str) -> str:
@@ -1097,6 +1107,31 @@ def _looks_like_question(text: str) -> bool:
         return False
     compact = re.sub(r"\s+", "", text)
     return bool(compact) and len(compact) <= _QUESTION_MAX_CHARS and _QUESTION_MARKER_RE.search(compact) is not None
+
+
+def _reads_like_document(head: str) -> bool:
+    """「末行是短问句 → 前面是材料」这条规则的前提：前面真的得像份文档。
+
+    原先只看「头部是不是短问句」，而 _looks_like_question 有 120 字上限，于是一句
+    较长的研究问题（带主体、口径、截止日、问号）只因为「太长」就被当成粘贴材料，
+    只剩末尾那句格式要求（「请按……组织」）当问题交给路由。R-20260916-05 两臂就是
+    这么跑成 kind=pasted_text，一臂落到 stock_deep_dive、另一臂落到 kol_review（材料
+    评审），subject 直接丢成 null——同一道题因为排版差异被当成两类任务。
+
+    判据只认**结构性**材料标记（【】、来源：、作者：、行首的「一、」/「1.」/「第二节」），
+    不认「研报/公告/摘要/要点」这类**词**——用户在提问里天然会说「请使用可获取的
+    公告、财务数据」，词面命中就判它是材料，恰恰是 R-20260916-05 踩的那个坑。
+    没有结构标记时，头部带问句标记（？/是否/吗/如何……）且不过长 → 这是提问。
+    长度上限是故意留的：真粘一篇无标题长文、正文里带问号时，仍按材料走。
+    """
+
+    body = str(head or "")
+    if _STRUCTURAL_MATERIAL_MARKER_RE.search(body):
+        return True
+    compact = re.sub(r"\s+", "", body)
+    if len(compact) > _QUESTION_HEAD_MAX_CHARS:
+        return True
+    return _QUESTION_MARKER_RE.search(compact) is None
 
 
 def split_user_message(text: str) -> MessageParts:
@@ -1197,7 +1232,13 @@ def _split_user_message_core(text: str) -> MessageParts:
             question, body = blocks[0], "\n\n".join(blocks[1:])
         else:
             question, body = "", rest
-        if body and (len(body) >= _MATERIAL_MIN_CHARS or _MATERIAL_MARKER_RE.search(body)):
+        # 「其余段落读起来像文档」是这条规则的前提（见 _reads_like_document）：一句带问号的
+        # 长研究问题，只因用空行隔开了末行排版指令，题面本身不该沦为材料。
+        if (
+            body
+            and _reads_like_document(body)
+            and (len(body) >= _MATERIAL_MIN_CHARS or _MATERIAL_MARKER_RE.search(body))
+        ):
             add(body, "pasted_text")
         else:
             question = rest
@@ -1208,10 +1249,22 @@ def _split_user_message_core(text: str) -> MessageParts:
         elif "\n" in block and len(block) >= _MATERIAL_MIN_CHARS:
             # 多行但无空行：末行是短问句 → 前面是材料；整块像文档且没有问句 → 全是材料。
             block_lines = [line.strip() for line in block.split("\n") if line.strip()]
-            if len(block_lines) >= 2 and _looks_like_question(block_lines[-1]) and not _looks_like_question("\n".join(block_lines[:-1])):
+            head = "\n".join(block_lines[:-1])
+            if (
+                len(block_lines) >= 2
+                and _looks_like_question(block_lines[-1])
+                and not _looks_like_question(head)
+                and _reads_like_document(head)
+            ):
                 question = block_lines[-1]
-                add("\n".join(block_lines[:-1]), "pasted_text")
-            elif _MATERIAL_MARKER_RE.search(block) and not _looks_like_question(block_lines[-1]):
+                add(head, "pasted_text")
+            elif (
+                _MATERIAL_MARKER_RE.search(block)
+                and not _looks_like_question(block_lines[-1])
+                and _reads_like_document(block)
+            ):
+                # 同一个前提：词面命中「公告 / 研报」不等于这是份文档。末行不是问句的研究题
+                # 原本会整段变材料、问题变空串。
                 question = ""
                 add(block, "pasted_text")
             else:
