@@ -58,13 +58,19 @@ _OPT_OUT_OBJECT = (
     r"(?:观察项|清单|记录|任务)?"
 )
 # 按小句扫描词元，不用多个无限 GAP 做回溯：长宾语不能截断，重复「登记」也不能
-# 让一次漏判变成二次方扫描。换行是边界；「只」作量词不等于「不要只……」。
+# 让一次漏判变成二次方扫描。换行是边界。限定语必须修饰否定/登记动作，不能因
+# 宾语里有「一百只」「遗漏指标」「仅供参考」就把明确的拒绝登记取消。
 _OPT_OUT_TOKENS = re.compile(
     rf"(?P<negation>{_OPT_OUT_NEGATION})|(?P<verb>{_OPT_OUT_VERB})"
     rf"|(?P<object>{_OPT_OUT_OBJECT})"
-    r"|(?P<qualifier>[忘漏遗仅]|(?<![这那一二两三四五六七八九十几每哪\d])只)"
+    r"|(?P<qualifier>忘记|忘了|遗忘|遗漏|漏掉|忘|漏|仅仅|仅|只)"
 )
 _PREPOSED_OBJECT_TAIL = re.compile(r"(?:项|观察项|清单|记录|任务)?(?:本次|这次|此次)?")
+_QUALIFIER_LINK = re.compile(r"(?:再三|再|又|也|还|千万)*")
+_REMINDER_BEFORE_ACTION = re.compile(rf"(?:了)?{_OPT_OUT_VERB}")
+_POSTPOSED_REMINDER = re.compile(
+    r"(?:的时候|时|过程中)(?:再|又|也)?(?:忘记|忘了|遗忘|遗漏|漏掉|忘|漏)"
+)
 
 
 def _opt_out_spans(text: str) -> tuple[tuple[int, int], ...]:
@@ -72,6 +78,7 @@ def _opt_out_spans(text: str) -> tuple[tuple[int, int], ...]:
     for clause in re.finditer(r"[^，,。；;!！?？\r\n]+", text):
         body = clause.group()
         start: int | None = None
+        negation_end = 0
         has_verb = has_object = False
         previous_object: re.Match[str] | None = None
         for token in _OPT_OUT_TOKENS.finditer(body):
@@ -83,17 +90,26 @@ def _opt_out_spans(text: str) -> tuple[tuple[int, int], ...]:
                     body[previous_object.end():token.start()]
                 ))
                 start = previous_object.start() if has_object else token.start()
+                negation_end = token.end()
                 has_verb = False
             elif kind == "qualifier":
-                start = None  # 别忘/请勿遗漏/不要只：不是退出持久化
-                previous_object = None
+                modifies_negation = _QUALIFIER_LINK.fullmatch(body, negation_end, token.start())
+                modifies_action = (
+                    token.group() not in {"仅仅", "仅", "只"}
+                    and _REMINDER_BEFORE_ACTION.match(body, token.end())
+                )
+                if start is not None and (modifies_negation or modifies_action):
+                    start = None  # 别忘/请勿遗漏/不要只：不是退出持久化
+                    previous_object = None
             elif kind == "object":
                 previous_object = token
                 has_object = True
             elif kind == "verb":
                 has_verb = True
             if start is not None and has_verb and has_object:
-                spans.append((clause.start() + start, clause.start() + token.end()))
+                # 「不要登记为跟踪时漏掉到期日」是在提醒登记细节，不是取消登记。
+                if not _POSTPOSED_REMINDER.match(body, token.end()):
+                    spans.append((clause.start() + start, clause.start() + token.end()))
                 start = None
                 previous_object = None
     return tuple(spans)

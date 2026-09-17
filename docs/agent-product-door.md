@@ -191,8 +191,9 @@ P4（D5）在 `fix/e2-delivery-closeout` 补齐 `material_only` 逐题交付：�
 ### 输入与确定性边界（8792 独立 QC 返修）
 
 `track_contract.persistence_opt_out` 在两个 checkpoint 写口与编排层写入前执行：
-同一小句的明确否定、登记动作、跟踪对象按词元顺序识别；量词「这只股票」与长宾语
-不再漏判，换行不跨越，「别忘/不要只/需不需要」不算退出。研究跟踪与持久化分开：
+同一小句的明确否定、登记动作、跟踪对象按词元顺序识别；量词「这只/一百只」与长宾语
+不再漏判。限定语只在修饰否定或登记动作时生效，宾语中的「遗漏指标/仅供参考」不取消
+拒绝；换行不跨越，「别忘/不要只/需不需要」与登记时别漏细节不算退出。研究跟踪与持久化分开：
 「跟踪一下，但不要登记」仍可研究、不落长期记录。它是有边界的中文判据，不是任意
 自然语言同意解析器。
 
@@ -202,8 +203,10 @@ P4（D5）在 `fix/e2-delivery-closeout` 补齐 `material_only` 逐题交付：�
 URL/引用仍走既有输入身份与权限合同，不改变 E2 的约束分类。
 
 正式回归：`intelligence/tests/test_readiness_boundary_regressions.py`，覆盖真实写口、
-编排层、路由主体及两种判官模式。日期门的范围见下节。候选修复的合入/部署状态看
-`docs/handoffs/inflight/fix-8792-readiness-boundaries.md` 与线上 revision，不据本文推定已上线。
+编排层、路由主体及两种判官模式；`test_boundary_gate_integration.py` 覆盖日期门与
+引用数字隔离的组合交付，保留错误日期、真实阈值及未知引用保护。日期门的范围见下节。
+候选修复的合入/部署状态看 `docs/handoffs/inflight/fix-8792-boundary-integration.md`
+与线上 revision，不据本文推定已上线。
 
 ### 研究过程中的实际工具菜单
 
