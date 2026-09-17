@@ -157,3 +157,64 @@ E2「只依据材料」这条线上，前几版把**写作合同**（单份 clai
 收据 `20260916T171208Z-d8ba0fb2.json`，`--expect-revision d8ba0fb2` 七项全过；ruff 通过。
 前端未重跑（本次改动不碰 webapp，上一份对 `8f6e6eaa` 的前端/E2E 结果仍成立）。
 固定十例未重跑：本次不改判官侧，9/10 结论仍挂在 `8f6e6eaa`。
+
+---
+
+# 追加：`04d3c397` —— QC 复核发现扫描器过桥两处错，按 code 置位、把补发通道计入清零
+
+## QC 怎么发现的（先有复现再改码）
+
+对 `8f6e6eaa` 新增的 `unreported_invalid_finish` 做纯函数四向探测（`PYTHONPATH=. python -c …`，不起服务、不调模型）：
+
+| 方向 | 事件序列 | 修前返回 | 应为 |
+|---|---|---|---|
+| 一次失败已回灌 | invalid_action → steering_invalid_finish | 空 | 空 |
+| 第二次失败未回灌 | … → invalid_action(Y) | Y | Y |
+| **自己送达后进下一轮** | … → invalid_action(Y) → repair_last_rejection → repair_goal → finish | **Y** | 空 |
+| **计划错误已走别的通道** | invalid_action(PLAN_ERR) → steering_invalid_plan | **PLAN_ERR** | 空 |
+
+第三行可达：这次探针合同 `research_tier=max`，`max_repair_cycles_for_tier` 给三轮，
+`continuous_turn_adapter` 的 while 循环只要还有 `gap_output_ids` / `missing_outputs` 就带累积账本再进 `resume()`。
+第四行意味着作者会读到「上一条终止输出无效」而实际错的是计划。
+
+两条 loop 的六个 finish 驳回点（`admit_finish` 两处、修复轮驳回四处）都在 `invalid_action` 里写了 `code`（rejection_code）；
+计划错误（`agent_episode.py:1704` / `harness_reference_loop.py:350`）与终局阶段调工具（`:1720` / `:366`）不带 `code`。
+扫描器此前只读 `reason`。
+
+## 改了什么（`04d3c397`，emit 点与两条 loop 零改动）
+
+- 置位集合：只收带 `code` 的 `invalid_action`；`code` 缺失一律不欠（宁少发不误发）。
+- 清零集合：`_INVALID_FINISH_DELIVERY_SOURCES = {steering_invalid_finish, repair_last_rejection}`，把补发通道自己算进去。
+- 回归：`test_episode_messages.py` 纯函数七向（含 `own_delivery_clears_before_next_cycle`、`plan_error_steered_on_its_own_channel`、
+  `new_rejection_after_own_delivery_is_owed`）；`test_e2_material_claim_rendering.py`
+  `test_second_repair_cycle_does_not_resend_the_rejection_it_already_delivered[False|True]`：两条 loop 连续两次 `resume()`，
+  `repair_last_rejection` 恰一次、第二轮开场历史里该错误只有一份。
+- 修前六条全红（own_delivery `'Y' != ''`、plan `'PLAN_ERR' != ''`、两 loop `carried 2 != 1`），修后五个相关测试文件 235P。
+
+## 被否掉的替代方案
+
+- **给 `repair_last_rejection` 之后的 `invalid_action` 也清零**：清零只能由送达事件触发，不能由下一次失败触发，否则新失败会被吞。
+- **在 emit 点新增「是否终局拒收」布尔字段**：`code` 已是结构化的终局拒收标记，再加一个字段是第二事实源。
+- **把 hrl:650（修复轮调工具，`disposition=invalid_repair_finish`，无 `code`）补上 code**：它与 agent_episode 的 `repair_tool_during_finish`
+  不对称，但该分支终局停机、不会再有修复轮读它；留作已知不对称，不在本 PR 扩面。
+
+## QC 同时核过的其它事（全部 [实测]）
+
+- 真实 run `011813` 的修复轮消息里 `finish_format` 与开场提示那份规范化后逐字节相同；`repair_last_rejection` 135 字正文
+  即 harness `invalid_finish` 文案。修前 `004950` 的修复轮消息 776 字、无 `finish_format`。
+- 十例 `expectation_matched` 9/10，十行全钉在 `8f6e6eaa` 干净树；8f6e6eaa 三次自然会话 completed + judge passed；
+  c6151407 三次 failed / unavailable / rejected。
+- 判官「returned an invalid tool call」在 21 次探针 run 里出现 3 次，跨 8636a2a2 / c6151407 / d8ba0fb2，且都是 `correlated_judge=true`：
+  不是偶发，是这条线第二大交付杀手，未修。
+- 8826 无监听；8792 healthy、`ce009718`、`source_dirty=false`，本轮未碰。
+- 上一版 inflight 在推送前写成「HEAD d8ba0fb2、d8ba0fb2 待推」，与实际（7e3da7ba 已推）不符，本版已改为可实读的表述。
+
+## `df74042c` 收据（`04d3c397` + forward-merge `gitea/main@18859d37`，干净树）
+
+- python：`11586 passed / 0 failed / 0 error / 83 skipped / 2 xfailed`（530.58s），收据 `20260917T021523Z-df74042c.json`，
+  `check_test_receipt.py --expect-revision df74042c --base-drift-max 5` 八项全过、基座漂移 0；ruff 通过。
+- 前端：lint / typecheck / vitest 107P / build 通过，build 后 porcelain 为空（`intelligence/api/static` 三个已跟踪产物逐字节不变）。
+- E2E：`34 passed / 2 skipped`（1.0m，`WORKBENCH_PYTHON` 指主树 venv-workbench）。
+- registry：`build_registry.py check` / `check-parseability`（61 个 SKILL.md）/ `generate-views --check` / `check_path_literals.py` 全过。
+- 日志：`~/.finance-runtime/e2-material-closeout-df74042c/{python-gate.log,frontend-gate.log,frontend-e2e.log,python-gate.receipt}`。
+- 未重跑：固定十例与真实自然会话（不改判官侧、不改 emit 点；修正的分支只在第二轮修复与计划错误路径上可达，离线回归已钉两条 loop）。
