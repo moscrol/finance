@@ -1,0 +1,535 @@
+{
+  "reviewed_main": "0a1cb8c44aaf2d19ae5f5809bf27119b709b8442",
+  "deployed": "bf662e9310ff751a4c31763815ee78fb7d6d5122",
+  "raw_evidence": "/Users/a77/.finance-runtime/reviews/qc-8792-readiness-0917-0a1cb8c4",
+  "scope": "independent offline QC; no new live model call, no production write, frontend/E2E prior receipts only",
+  "pytest_receipt": {
+    "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "python_version": "3.12.13",
+    "dependency_fingerprint": "3328bed61f3e21ea",
+    "tree": "/Users/a77/fwp-wt-qc-8792-readiness-0917",
+    "revision": "0a1cb8c44aaf2d19ae5f5809bf27119b709b8442",
+    "branch": "docs/qc-8792-readiness-0917",
+    "dirty": false,
+    "dirty_paths": [],
+    "worktree_dirty_total": 0,
+    "dependency_gate_bypassed": false,
+    "target": "/Users/a77/fwp-wt-qc-8792-readiness-0917",
+    "counts": {
+      "passed": 11435,
+      "failed": 0,
+      "error": 0,
+      "skipped": 81
+    },
+    "failed_ids": [],
+    "exit_status": 0,
+    "finished_at": "2026-09-17T10:55:00+00:00"
+  },
+  "boundary_main": {
+    "repo": "/Users/a77/fwp-wt-qc-8792-readiness-0917",
+    "revision": "0a1cb8c44aaf2d19ae5f5809bf27119b709b8442",
+    "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "source_status": "",
+    "sources_sha256": {
+      "intelligence/services/track_contract.py": "e9b00ad79220930a1c1ad20136a65cff6a29670f7765118487a97714b687edd1",
+      "intelligence/services/ranking_contract.py": "553bc52f446d8ce80b5f7a3687b52a4a1c034ae1dd397db1022e98328a89bce8",
+      "intelligence/services/user_task.py": "33c8ce77a7c3297a8bc2870064baa322444c7b636d049f61b7fac3f89d3fa235",
+      "intelligence/services/query_understanding.py": "6642887bfc9e3004b43667496651204952be67140a5abe7c433fe855ea1eaf34",
+      "intelligence/services/episode_semantic_verifier.py": "f0ede0588a48f9368003b3bd28e7bb6c9df79ab85b7362bebc842ef4827b6059",
+      "intelligence/runtime/conversation_orchestrator.py": "6c6d6b9a9a6411dbb2e9350e608517dc390522f322009134cbefc9ba29e65427",
+      "intelligence/tests/test_research_intent_boundaries.py": "aa59097b88fc9309fda01691fb03b824ebe015e2691f65433457c189ba3b932c",
+      "intelligence/tests/test_episode_semantic_verifier.py": "68f090bf247a36886b4546930b948263beeec53f661f6d658fff81eb6ee53bff"
+    },
+    "runner_sha256": "d0d9c11913275633072bd4fd425a2a18b0852d2aa2d82dd28919ba975c715c7b",
+    "tests_run": 15,
+    "failed": [
+      "__main__.suite.<locals>.BoundaryTests.test_bracketed_output_format_keeps_route_and_subject",
+      "__main__.suite.<locals>.BoundaryTests.test_bracketed_output_requirements_are_not_material",
+      "__main__.suite.<locals>.BoundaryTests.test_demonstrative_stock_opt_out_does_not_write",
+      "__main__.suite.<locals>.BoundaryTests.test_future_plan_is_preserved_llm",
+      "__main__.suite.<locals>.BoundaryTests.test_future_plan_is_preserved_off",
+      "__main__.suite.<locals>.BoundaryTests.test_long_but_explicit_opt_out",
+      "__main__.suite.<locals>.BoundaryTests.test_numbered_output_format_keeps_route_and_subject",
+      "__main__.suite.<locals>.BoundaryTests.test_numbered_output_requirements_are_not_material",
+      "__main__.suite.<locals>.BoundaryTests.test_orchestrator_opt_out_does_not_write"
+    ],
+    "errors": [],
+    "skipped": []
+  },
+  "boundary_deployed": {
+    "repo": "/Users/a77/.finance-runtime/finance-workspace-bf662e9310ff",
+    "revision": "bf662e9310ff751a4c31763815ee78fb7d6d5122",
+    "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "source_status": "",
+    "sources_sha256": {
+      "intelligence/services/track_contract.py": "e9b00ad79220930a1c1ad20136a65cff6a29670f7765118487a97714b687edd1",
+      "intelligence/services/ranking_contract.py": "553bc52f446d8ce80b5f7a3687b52a4a1c034ae1dd397db1022e98328a89bce8",
+      "intelligence/services/user_task.py": "33c8ce77a7c3297a8bc2870064baa322444c7b636d049f61b7fac3f89d3fa235",
+      "intelligence/services/query_understanding.py": "6642887bfc9e3004b43667496651204952be67140a5abe7c433fe855ea1eaf34",
+      "intelligence/services/episode_semantic_verifier.py": "f0ede0588a48f9368003b3bd28e7bb6c9df79ab85b7362bebc842ef4827b6059",
+      "intelligence/runtime/conversation_orchestrator.py": "6c6d6b9a9a6411dbb2e9350e608517dc390522f322009134cbefc9ba29e65427",
+      "intelligence/tests/test_research_intent_boundaries.py": "aa59097b88fc9309fda01691fb03b824ebe015e2691f65433457c189ba3b932c",
+      "intelligence/tests/test_episode_semantic_verifier.py": "68f090bf247a36886b4546930b948263beeec53f661f6d658fff81eb6ee53bff"
+    },
+    "runner_sha256": "d0d9c11913275633072bd4fd425a2a18b0852d2aa2d82dd28919ba975c715c7b",
+    "tests_run": 15,
+    "failed": [
+      "__main__.suite.<locals>.BoundaryTests.test_bracketed_output_format_keeps_route_and_subject",
+      "__main__.suite.<locals>.BoundaryTests.test_bracketed_output_requirements_are_not_material",
+      "__main__.suite.<locals>.BoundaryTests.test_demonstrative_stock_opt_out_does_not_write",
+      "__main__.suite.<locals>.BoundaryTests.test_future_plan_is_preserved_llm",
+      "__main__.suite.<locals>.BoundaryTests.test_future_plan_is_preserved_off",
+      "__main__.suite.<locals>.BoundaryTests.test_long_but_explicit_opt_out",
+      "__main__.suite.<locals>.BoundaryTests.test_numbered_output_format_keeps_route_and_subject",
+      "__main__.suite.<locals>.BoundaryTests.test_numbered_output_requirements_are_not_material",
+      "__main__.suite.<locals>.BoundaryTests.test_orchestrator_opt_out_does_not_write"
+    ],
+    "errors": [],
+    "skipped": []
+  },
+  "source_fingerprints_match": true,
+  "runtime_checks": {
+    "health": {
+      "status": "healthy",
+      "timestamp": "2026-09-17T19:10:16+08:00",
+      "dependencies": {
+        "repo_root": true,
+        "knowledge_wiki": true,
+        "relations": true,
+        "vector_index": true,
+        "rag_runtime": true,
+        "market_snapshot": true,
+        "frontend_built": true
+      },
+      "runtime": {
+        "source_revision": "bf662e9310ff751a4c31763815ee78fb7d6d5122",
+        "source_dirty": false,
+        "code_root": "/Users/a77/.finance-runtime/finance-workspace-bf662e9310ff",
+        "loaded_code_root": "/Users/a77/.finance-runtime/finance-workspace-bf662e9310ff/intelligence",
+        "loaded_tree_fingerprint": "e5a2f94c4638392ace619606e1aa279ab81e3692e4e6d0a420a5f24fcfeb59e8",
+        "loaded_module_count": 1098,
+        "repo_tree_fingerprint": "e5a2f94c4638392ace619606e1aa279ab81e3692e4e6d0a420a5f24fcfeb59e8",
+        "repo_module_count": 1098,
+        "code_matches_repo": true,
+        "python_executable": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
+        "python_version": "3.12.13",
+        "python_prefix": "/Users/a77/finance-workspace-private/.venv-workbench",
+        "dependency_fingerprint": "5806597184587c866b1bc17fcd6bb01492cab03727d32ab9197f85a182ad2bb6",
+        "dependencies": {
+          "fastapi": "0.139.0",
+          "pydantic": "2.13.4",
+          "httpx": "0.25.2",
+          "duckdb": "1.5.4",
+          "pytest": "8.3.5"
+        },
+        "finance_root": "/Users/a77/finance-workspace-private",
+        "continuous_agent": {
+          "mode": "on",
+          "canary_id": "",
+          "source_revision": "bf662e9310ff751a4c31763815ee78fb7d6d5122"
+        },
+        "auth_mode": "off",
+        "credits": {
+          "enabled": false,
+          "signup_gift": 0,
+          "pricing_source": "builtin-default",
+          "hold_points": 100
+        },
+        "agent_runtime": {
+          "backend": "continuous_glm",
+          "ready": true,
+          "reason": "ready",
+          "model": "glm-5.3-flash",
+          "credential_available": true,
+          "benchmark_only": false
+        },
+        "users_dir": "/Users/a77/.local/share/finance-workbench/users"
+      }
+    },
+    "readiness": {
+      "status": "ready",
+      "timestamp": "2026-09-17T18:45:42+08:00",
+      "checks": {
+        "repo_root": true,
+        "knowledge_wiki": true,
+        "relations": true,
+        "vector_index": true,
+        "rag_runtime": true,
+        "market_snapshot": true,
+        "frontend_built": true,
+        "rag_query_protocol": true,
+        "rag_worker": true,
+        "run_store_writable": true,
+        "market_snapshot_contract": true,
+        "market_data_consistency": true,
+        "code_snapshot_matches_repo": true
+      },
+      "critical": {
+        "repo_root": true,
+        "run_store_writable": true,
+        "knowledge_wiki": true,
+        "relations": true,
+        "vector_index": true,
+        "rag_query_protocol": true,
+        "rag_worker": true,
+        "market_snapshot": true,
+        "market_data_consistency": true
+      },
+      "missing_critical": [],
+      "rag": {
+        "available": true,
+        "query_protocol_compatible": true,
+        "supported_options": [
+          "--json",
+          "--k",
+          "--mode",
+          "--evidence-chars"
+        ],
+        "missing_required_options": [],
+        "missing_optional_options": [
+          "--evidence-layer",
+          "--fact-hardness",
+          "--source-type"
+        ],
+        "warning": "RAG CLI 使用 legacy query 协议"
+      },
+      "market_snapshot": {
+        "status": "PASS",
+        "ready": true,
+        "date": "2026-09-15",
+        "requested_date": "2026-09-17",
+        "provider": "duckdb_latest",
+        "source": "duckdb:market_feature_store",
+        "summary": {
+          "theme_count": 4,
+          "strong_stock_count": 66,
+          "market_stage": "下跌阶段",
+          "latest_trade_date": "2026-09-15",
+          "requested_trade_date": "2026-09-17",
+          "served_trade_date": "2026-09-15",
+          "provider": "duckdb_latest",
+          "source": "duckdb:market_feature_store",
+          "source_updated_at": "2026-09-15T18:34:52.697993",
+          "quality": "complete",
+          "freshness": "historical"
+        },
+        "errors": [],
+        "warnings": []
+      },
+      "market_database": {
+        "date": "2026-09-15",
+        "snapshot_date": "2026-09-15",
+        "consistent_with_snapshot": true,
+        "required_by_continuous_runtime": true
+      },
+      "workers": {
+        "active": 0,
+        "queued": 0,
+        "capacity": 4,
+        "max_active_per_user": 1,
+        "max_queued": 4,
+        "timeout_sec": 900,
+        "rag": {
+          "enabled": true,
+          "state": "ready",
+          "active": 1,
+          "configured_workers": 1,
+          "model_load_count": 1,
+          "prewarm_latency_ms": 9351,
+          "last_error_type": null,
+          "lifecycle": "startup_prewarm",
+          "counters": {
+            "queries_served": 5,
+            "timeouts_abandoned_kept_warm": 0,
+            "timeouts_killed": 0,
+            "stale_responses_drained": 0,
+            "recoveries": 0,
+            "keepalive_sent": 0,
+            "keepalive_timeouts": 0,
+            "keepalive_skipped_busy": 0
+          },
+          "abandoned_in_flight": 0,
+          "rss_bytes": 10698752,
+          "idle_seconds": 6620.8,
+          "keepalive_interval_seconds": 0.0
+        }
+      },
+      "recovered_runs": 0,
+      "open_episodes": {
+        "count": 0,
+        "episode_ids": [],
+        "truncated": false
+      }
+    }
+  },
+  "data_freshness": [
+    {
+      "table": "fact_auction_hithink",
+      "min": "2026-01-05",
+      "max": "2026-09-08",
+      "rows": 6554
+    },
+    {
+      "table": "fact_auction_stock_daily",
+      "min": "2026-01-16",
+      "max": "2026-09-02",
+      "rows": 10008
+    },
+    {
+      "table": "fact_core_leader_daily",
+      "min": "2026-09-03",
+      "max": "2026-09-15",
+      "rows": 180
+    },
+    {
+      "table": "fact_core_stock_daily",
+      "min": "2025-01-02",
+      "max": "2026-09-15",
+      "rows": 20700
+    },
+    {
+      "table": "fact_dragon_hot_money_hithink",
+      "min": "2025-09-08",
+      "max": "2026-09-08",
+      "rows": 15699
+    },
+    {
+      "table": "fact_dragon_seat_daily",
+      "min": "2025-01-02",
+      "max": "2026-09-02",
+      "rows": 172837
+    },
+    {
+      "table": "fact_dragon_summary_daily",
+      "min": "2025-01-02",
+      "max": "2026-09-02",
+      "rows": 405
+    },
+    {
+      "table": "fact_dragon_tiger_daily",
+      "min": "2025-01-02",
+      "max": "2026-09-02",
+      "rows": 28499
+    },
+    {
+      "table": "fact_dragon_tiger_hithink",
+      "min": "2025-09-08",
+      "max": "2026-09-08",
+      "rows": 17614
+    },
+    {
+      "table": "fact_global_index_daily",
+      "min": "2025-01-02",
+      "max": "2026-09-02",
+      "rows": 2025
+    },
+    {
+      "table": "fact_global_stock_daily",
+      "min": "2025-01-02",
+      "max": "2026-09-02",
+      "rows": 78570
+    },
+    {
+      "table": "fact_hot_stock_rank_hithink",
+      "min": "2025-09-08",
+      "max": "2026-09-08",
+      "rows": 7260
+    },
+    {
+      "table": "fact_leader_height_daily",
+      "min": "2024-07-09",
+      "max": "2026-09-15",
+      "rows": 533
+    },
+    {
+      "table": "fact_limit_advance_daily",
+      "min": "2025-01-02",
+      "max": "2026-09-15",
+      "rows": 4997
+    },
+    {
+      "table": "fact_limit_advance_presence",
+      "min": "2025-01-02",
+      "max": "2026-09-02",
+      "rows": 5538
+    },
+    {
+      "table": "fact_limit_pool_hithink",
+      "min": "2020-07-01",
+      "max": "2026-09-08",
+      "rows": 97388
+    },
+    {
+      "table": "fact_mainline_sector_daily",
+      "min": "2026-04-01",
+      "max": "2026-09-15",
+      "rows": 1771
+    },
+    {
+      "table": "fact_mainline_stock_daily",
+      "min": "2026-06-22",
+      "max": "2026-09-15",
+      "rows": 5164
+    },
+    {
+      "table": "fact_mainline_theme_daily",
+      "min": "2026-06-22",
+      "max": "2026-09-15",
+      "rows": 254
+    },
+    {
+      "table": "fact_market_daily",
+      "min": "2024-12-20",
+      "max": "2026-09-15",
+      "rows": 422
+    },
+    {
+      "table": "fact_polymarket_macro_odds_daily",
+      "min": "None",
+      "max": "None",
+      "rows": 0
+    },
+    {
+      "table": "fact_sector_daily",
+      "min": "2024-12-25",
+      "max": "2026-09-15",
+      "rows": 109507
+    },
+    {
+      "table": "fact_sector_daily_generation",
+      "min": "2024-12-25",
+      "max": "2026-09-15",
+      "rows": 110973
+    },
+    {
+      "table": "fact_sector_kline_daily",
+      "min": "2022-08-02",
+      "max": "2026-09-08",
+      "rows": 816297
+    },
+    {
+      "table": "fact_sector_period_rank_daily",
+      "min": "2026-05-06",
+      "max": "2026-09-15",
+      "rows": 2240
+    },
+    {
+      "table": "fact_sector_stock_daily",
+      "min": "2025-01-02",
+      "max": "2026-09-15",
+      "rows": 4361951
+    },
+    {
+      "table": "fact_sector_stock_daily_generation",
+      "min": "2025-01-02",
+      "max": "2026-09-15",
+      "rows": 4431299
+    },
+    {
+      "table": "fact_sector_universe_daily",
+      "min": "2026-07-27",
+      "max": "2026-09-15",
+      "rows": 14911
+    },
+    {
+      "table": "fact_stock_daily",
+      "min": "2023-09-01",
+      "max": "2026-09-15",
+      "rows": 3766088
+    },
+    {
+      "table": "fact_stock_daily_hithink",
+      "min": "2016-09-08",
+      "max": "2026-09-08",
+      "rows": 10271528
+    },
+    {
+      "table": "fact_stock_high_daily",
+      "min": "2025-01-02",
+      "max": "2026-09-15",
+      "rows": 255811
+    },
+    {
+      "table": "fact_stock_technical_snapshot",
+      "min": "None",
+      "max": "None",
+      "rows": 0
+    },
+    {
+      "table": "fact_sw_l1_daily",
+      "min": "2024-12-30",
+      "max": "2026-09-15",
+      "rows": 4879
+    },
+    {
+      "table": "fact_theme_flow_daily",
+      "min": "2026-06-23",
+      "max": "2026-09-15",
+      "rows": 4615
+    },
+    {
+      "table": "fact_theme_limit_heat_daily",
+      "min": "2025-01-02",
+      "max": "2026-09-15",
+      "rows": 48570
+    },
+    {
+      "table": "fact_theme_limit_stock_daily",
+      "min": "2025-01-02",
+      "max": "2026-09-15",
+      "rows": 154387
+    },
+    {
+      "table": "feature_l2_capital_flow_daily",
+      "min": "2026-06-15",
+      "max": "2026-09-16",
+      "rows": 11711
+    },
+    {
+      "table": "feature_l2_quant_orders_daily",
+      "min": "2026-06-15",
+      "max": "2026-09-15",
+      "rows": 3910
+    }
+  ],
+  "raw_sha256": {
+    "pytest.log": "08400781e6994142b60951fafae3564c073c0f0c1990eb240a673db7a6da6653",
+    "boundary-main.log": "ae51e54f3f822e56856c84174613cf156019468bbad3063c039b4857c70b338f",
+    "boundary-deployed.log": "2987a8c0a8adcb06ec119ac02967966b305c16c9d87996901b00c01c2c6d3a70",
+    "ruff.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "boundary-main.exit": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+    "question-routing.json": "1501a3d2ade13f9c06b1336ca45e6f80955074588d2129b84dd9a85246520590",
+    "adversarial-probes.json": "61c20b66223814505baf8e9e4b9c33778e347ce65907b370fc50a02de0fc6fc2",
+    "views.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "boundary-main.json": "ddba12c991e489473d6f9a5ffa5bc9c8429d7aee9a337129c87a744e30ba5b69",
+    "crosswalk.log": "0d0e0cc58517ba2efb0368513446c83b4b2adece51cfa24e6dc968f4af37f522",
+    "registry.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "initial-boundary-main.log": "6020acd1bccef9b0ae470f3612ea51319c9460dae09b5a732e4cd4aebd14adf1",
+    "code-map.json": "f3e75b37f5ef6a7974aee1dd15fda12387dbb76ec75b61698ad8fe5e6182a572",
+    "health.json": "b4bb53aab079ef6f5c284392425482fee317bbcc30e34dc0834199479104bdca",
+    "initial-boundary-deployed.exit": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+    "deploy-homes.json": "1d0223231fba95f0c00ff38349a6c424bb13ce63be1e5e37520ea9420fb52ed9",
+    "tables.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "20260917T105500Z-0a1cb8c4.json": "460f9a648878e2aa2a6378c98d5d0b5a94df5509598771ec5c7b65ccfe2ba537",
+    "initial-boundary-deployed.json": "a0c0b627640ab51b78aee73a06242af1ddb775700ae47eb171a66ecb551f55b5",
+    "registry.log": "5a5c6d79243e8ad379891433a872cbb3dbfb95d8d3949ff37f844cd2475d2192",
+    "readiness.json": "305a3fc93495b7206f72d56c68ebbe5b3245927acbae85bcd4f523aa450804b0",
+    "health-final.json": "4b0e92aab95afbdaa2bc6e3581c345718e60f764d4e6e7b59e8b25bb8814b7c7",
+    "prior-preview_e2e.log": "ba59adb7b2e73ddfeee90e049b8d2eac913601707e467cd205579d6f9a073831",
+    "initial-boundary-main.json": "278ed521b06a310be341c97ad1a6a09ea485a3e4619a34cf3a30994cb76bbf1f",
+    "ruff.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "paths.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "initial-boundary-main.exit": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+    "crosswalk.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "parseability.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "deploy-check.json": "672b1ebbf90283931635f60de6fa88ba2476acd04bb55211b4527c057e3b89a7",
+    "pytest.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "prior-preview_frontend.log": "2bf0975886d4cbaf746617da13e9c8eb6ff8b80d409d182000dcfa67d15cda49",
+    "initial-boundary-deployed.log": "6020acd1bccef9b0ae470f3612ea51319c9460dae09b5a732e4cd4aebd14adf1",
+    "receipt-validation.log": "afd35dc5839099ff63d96711f5162160c66cb0663719f1a622b6a8f7a4fb5159",
+    "data-freshness.json": "bca7d97bdb7718e94d2946ba0fdd6d197f25a95fa5fde5ccf3044e89b0b8f6c7",
+    "boundary-deployed.exit": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+    "boundary-deployed.json": "10d8f06e5441d3da9c9a3eb4a28637fb0ee1f77e126d77bce2d6230525daa85e",
+    "production-episode-audit.json": "36a1ab73b24f79b6d92cb6b9d2c9a0cf353a903ced791bc96d962397eacf9d09"
+  }
+}
