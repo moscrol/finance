@@ -1,11 +1,20 @@
 # 研究意图边界修补（分支 `fix/research-intent-boundaries`）
 
 一句话：**R-20260916-05 实锤的三类「运行时听错用户」缺陷已修完；2026-09-17 独立 QC 补了三族
-同形漏洞 + 第三道闸独立断言，并在本树 sidecar 上真跑一臂复测通过；已推送并开 PR **#779**
-（`http://127.0.0.1:3300/a77/finance-workspace-private/pulls/779`），对 `gitea/main` 与兄弟 PR #770
-`merge-tree` 均 0 冲突；未合并、未部署 8792，合入等用户确认。**
+同形漏洞 + 第三道闸独立断言，并在本树 sidecar 上真跑一臂复测通过；PR #779 已合入 main
+（合并提交 `bf662e93`，2026-09-17 13:59 CST），8792 已切 `bf662e9310ff`（与 #781 同批）。**
 
-- 树 `/Users/a77/fwp-wt-research-intent-boundaries`，base `gitea/main@d433b907`，2026-09-17 已前向合并
+## 合并与部署读数（2026-09-17，独立复算）
+
+合并预演树 `b094abf9`（= `gitea/main@18859d37` + #781 + #779，与合并后 main 的树 `239907a4` 逐字节相同）四叶全绿：
+pytest **11435 passed / 0 failed / 81 skipped / 2 xfailed**（收据 `20260917T044627Z-b094abf9.json`，
+`check_test_receipt.py --expect-revision b094abf9 --base-drift-max 5` 八项全过）、ruff 0、
+前端 lint/typecheck/vitest 107/build、e2e 34 passed / 2 skipped、registry 五项 exit 0。
+8792 三项验证：readiness 13 项全 true、health 三读（`source_revision=bf662e9310ff`、`source_dirty=false`、
+`code_matches_repo=true`）、grounded 探针 `run_20260917_140155_334420` 193s completed。
+切换收据 `~/.finance-runtime/cutover-20260917b-bf662e93-8792.md`。原工作树与分支已在合并后删除。
+
+- 原树 `/Users/a77/fwp-wt-research-intent-boundaries`（已删），base `gitea/main@d433b907`，2026-09-17 已前向合并
   `gitea/main@ce009718`（0 冲突，无同文件重叠）；
   权威说明 `docs/verification/2026-09-16-research-intent-boundaries.md`（QC 复核节 + 真实会话复测节）；
   解释器 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`
@@ -28,7 +37,7 @@
 - 真实会话：sidecar 8824（本树、隔离用户、RAG worker 关）summary 臂 214s completed，答案含改判条件表，
   `checkpoints.jsonl` **未创建**；frame `financial_analysis`/中际旭创/materials=0。
   原件 `~/.finance-runtime/intent-boundaries-qc/R-20260917-QC/`。
-- **没做**：未部署 8792；mechanism 臂只有离线重放（与 summary 臂 frame 逐字段相同）；未盲评。
+- **没做**：mechanism 臂只有离线重放（与 summary 臂 frame 逐字段相同）；未盲评。切 8792 后未再单独复跑本单的两臂真实会话（批次探针走的是长电题，见上「合并与部署读数」）。
 
 ## 被否掉的方案（别再走一遍）
 
@@ -39,6 +48,7 @@
 
 ## 下一步
 
-1. PR #779 已就绪；合入用 `scripts/gitea_pr.py merge 779 --yes`（用户确认后），合前重探
-   `conflict-check` 与 `check_test_receipt.py --expect-revision <尖> --base-drift-max 5`。
+1. ~~PR #779 合入~~ 已完成（`bf662e93`，已部署 8792）。
 2. 未修项见验证文档「明确没有修的」与「仍然知道但没动的边界」，先攒误杀样本集再动门禁。
+3. 本单三条规则的线上效果尚无生产读数：切后只跑了一发长电探针，未复现 R05 那类「退出登记声明」题面。
+   下次真实会话命中时核 `checkpoints.jsonl` 是否仍被创建。
