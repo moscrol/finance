@@ -7,6 +7,10 @@
   导致 09-16/17 仍去探复盘会；模板正确不能证明机器正确。恢复时只改目标键并保留现有 L2 代码根。
   `local` 的子模块请求边界另见 `skills/duckdb-backfill/references/backfill-runbook.md` 坑⑧。
 
+- **补跑收尾分层验收**（2026-09-17）：数据/报告/L2 过门且快照达到目标日，才说明复盘主链恢复；方法飞轮 `daily` 即使 rc=0，也要读 `capture.status`（旧协议 v3 对新标签 v6 可被拒绝），不能宣称已登记前向观察。协议迁移另走登记/切换，不改旧协议或回拨时钟。
+- **首次生成的研究队列可留过期预览警告**：`agent-daily` 读取整轮 summary 时，summary 尚未落盘。先核对仅缺该文件且整轮已 PASS，再经同一固定代码根从 `--from-step agent-daily` 刷新队列及后续驾驶台，另存补跑 summary、保留原全流程收据；不手删警告。
+- **L3 的 `--date` 不冻结外部查询日期**：现有 lookup 只有滚动 `--days` 窗口，历史补跑不能冒充当时证据；当日 dry-run 后逐条看原文。只有投资者问题、没有公司回答的关键词命中不是公司事实；不要 apply。
+
 - **limit-heat 被 PIPE 吞进度 = 看起来挂死**：通过子脚本 `backfill_review_hot_data.py`
   跑时 stdout 被 PIPE 缓冲，看不到 chunk 进度会误判挂起。**直跑 `sync-limit-heat`
   继承 stdout** 就能看到 `detail chunk i/N`，2026-06-16 验证 25 个 chunk 顺利跑完。
