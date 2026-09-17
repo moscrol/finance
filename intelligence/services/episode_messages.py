@@ -597,6 +597,14 @@ def derive_messages(events: Iterable[EpisodeEvent]) -> list[EpisodeMessage]:
     return messages
 
 
+# 终局拒收「已送达作者」的两条通道：首次失败的即时回灌，与修复轮开场的补发。
+# 清零集合必须包含补发通道自己——否则 max 档三轮修复里，第二轮会把第一轮已送达、
+# 作者也已改对的那条再发一遍（2026-09-17 QC 四向探测复现）。
+_INVALID_FINISH_DELIVERY_SOURCES: frozenset[str] = frozenset(
+    {"steering_invalid_finish", "repair_last_rejection"}
+)
+
+
 def unreported_invalid_finish(events: Iterable[EpisodeEvent]) -> str:
     """上一集里作者**没听过**的那次终局拒收原因。
 
@@ -607,16 +615,28 @@ def unreported_invalid_finish(events: Iterable[EpisodeEvent]) -> str:
 
     这里不改回灌次数、不多花一次模型调用：只是把账上尚未送达的那一条取出来，
     由调用方在修复轮开场一并交给作者。已回灌过的不再重复。
+
+    扫账本找欠账是两个集合的问题：
+
+    - **置位集合**只收终局拒收——两条 loop 的六个 finish 驳回点（``admit_finish`` 与
+      修复轮驳回）都写 ``code``（rejection_code）；计划错误、终局阶段调工具等
+      ``invalid_action`` 不带 ``code``，各有自己的回灌与处置，套进 invalid_finish 文案
+      只会误导作者。``code`` 缺失一律不欠：宁少发不误发。
+    - **清零集合**是 ``_INVALID_FINISH_DELIVERY_SOURCES``：包含本通道自己的补发。
     """
 
     pending = ""
     for event in events:
+        payload = _payload_dict(event)
         if event.kind == "invalid_action":
-            reason = _payload_dict(event).get("reason")
+            code = payload.get("code")
+            if not isinstance(code, str) or not code.strip():
+                continue
+            reason = payload.get("reason")
             pending = reason.strip() if isinstance(reason, str) else ""
         elif (
             event.kind == "model_input"
-            and _payload_dict(event).get("source") == "steering_invalid_finish"
+            and payload.get("source") in _INVALID_FINISH_DELIVERY_SOURCES
         ):
             pending = ""
     return pending

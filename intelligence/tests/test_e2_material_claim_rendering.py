@@ -224,6 +224,49 @@ def test_last_format_error_reaches_repair_writer_without_extra_attempt(reference
 
 
 @pytest.mark.parametrize("reference_loop", [False, True])
+def test_second_repair_cycle_does_not_resend_the_rejection_it_already_delivered(reference_loop):
+    """尾次拒收只补发一次：第一轮修复已用 repair_last_rejection 送达，第二轮不得再发。
+
+    research_tier=max 允许三轮修复，adapter 带累积账本再进 resume()；此前扫描器只认
+    steering_invalid_finish 为送达，第二轮会把作者早已改对的那条格式错误再发一遍。
+    """
+    from copy import deepcopy
+    from intelligence.runtime.harness_reference_loop import HarnessReferenceLoop
+    from intelligence.services.repair_coordinator import CoverageDelta, RepairGoal
+
+    frame, context = setup()
+    good = claim_finish(context)
+    bad = deepcopy(good)
+    bad["bindings"][1]["claims"][0]["text"] = "计算采用订单除收入；材料未说明日期。"
+    calls = []
+
+    class Writer:
+        def complete(self, *, messages, tools, timeout):
+            calls.append(deepcopy(messages))
+            text = "not JSON" if len(calls) == 1 else json.dumps(bad if len(calls) == 2 else good, ensure_ascii=False)
+            return ModelTurn(text, (), "offline", "")
+
+    def goal(cycle):
+        return RepairGoal(context.contract.task_id, f"repair-format-cycle-{cycle}", cycle,
+                          ("answer_q1", "evidence_boundary"), (), (), (), CoverageDelta(0, 0, 0), 0, 20)
+
+    loop = HarnessReferenceLoop(Writer()) if reference_loop else ContinuousAgentEpisode(Writer())
+    states = []
+    first = loop.run(task_frame=frame, context=context, registry=ResearchToolRegistry(()), _continuation_sink=states)
+    assert first.status == "partial" and len(calls) == 2
+    second = loop.resume(states[0], first, goal(1))
+    assert second.status == "completed" and len(calls) == 3
+    third = loop.resume(states[0], second, goal(2))
+    assert len(calls) == 4
+    carried = [event for event in third.events
+               if event.kind == "model_input" and event.payload.get("source") == "repair_last_rejection"]
+    assert len(carried) == 1
+    # 第二轮开场作者读到的历史里，那条格式错误仍只有第一轮送达的那一份。
+    heard = [message["content"] for message in calls[3] if message["role"] == "user" and "one sentence" in message["content"]]
+    assert len(heard) == 1
+
+
+@pytest.mark.parametrize("reference_loop", [False, True])
 def test_repair_round_restates_the_frozen_wire_format_it_still_demands(reference_loop):
     """修复轮是最后一次机会，成稿格式必须随修复目标一起给到作者。
 
