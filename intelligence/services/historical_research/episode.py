@@ -233,11 +233,16 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
         add("历史比较宇宙与窗口", {}, [
             {key: value} for key, value in universe.items() if key != "entity_codes"
         ] + [{"entity_count": len(universe.get("entity_codes", []))}])
+    for key in ("analysis_definition",):
+        if isinstance(payload.get(key), dict):
+            add("行情过程的规则与边界", {}, [{name: value} for name, value in payload[key].items()])
+    if payload.get("independence_policy"):
+        add("样本独立性限制", {}, [{"independence_policy": payload["independence_policy"]}])
     if payload.get("matching_use"):
         add("历史相似召回用途", {}, [{"matching_use": payload["matching_use"]}])
     for name, definition in payload.get("feature_definitions", {}).items():
         add("历史特征严格定义", {"feature": name}, [
-            {key: definition[key]} for key in ("rule", "unit", "version") if key in definition
+            {key: definition[key]} for key in ("rule", "unit", "version", "input_mapping") if key in definition
         ])
 
     names: dict[str, set[str]] = {}
@@ -258,7 +263,7 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
         identity = {"sample": index, "entity_code": row.get("entity_code")}
         if isinstance(reference, dict):
             identity["role"] = "reference" if index == "reference" else "candidate"
-        for key in ("trade_date", "start", "end"):
+        for key in ("trade_date", "start", "end", "record_kind"):
             if key in row:
                 identity[key] = row[key]
         atoms = []
@@ -288,6 +293,29 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
         for key in ("distance", "feature_cutoff", "first_date", "last_date", "observed_dates", "dates"):
             if key in row:
                 atoms.append({key: row[key]})
+        for key in (
+            "overlap_cluster", "signal_date", "signal_known_as_of", "signal_status", "path_status",
+            "peak_date", "peak_status", "peak_known_as_of", "peak_gain_pct", "days_to_peak",
+            "confirmation_date", "confirmation_known_as_of", "end_drawdown_from_peak_pct", "path_anchor", "path_end",
+            "parent_sector", "membership_date", "membership_snapshot_id", "membership_status", "sector_snapshot_id",
+            "rank", "selection_mode", "population_count", "source_sector", "anchor_peak_date",
+            "source_peak_status", "source_peak_confirmation_date", "target_signal_date", "lag_trading_days",
+            "succession_status", "succession_known_as_of", "causal_status", "stage_semantics", "market_units",
+        ):
+            if key in row:
+                atoms.append({key: row[key]})
+        atoms.extend({"succession_evidence": {key: value}} for key, value in row.get("evidence", {}).items())
+        path = row.get("path", [])
+        if path:
+            # Keep a bounded shape sketch plus exact anchor dates. Full daily path
+            # remains in artifact; inspect_history exposes any omitted date.
+            indexes = {round(i * (len(path) - 1) / 7) for i in range(8)}
+            indexes.update(i for i, point in enumerate(path) if point["trade_date"] in
+                           (row.get("peak_date"), row.get("confirmation_date")))
+            atoms.append({"path_points_total": len(path), "path_points_shown": len(indexes),
+                          "path_projection": "sampled_NAV_only; inspect_history for omitted daily price/amount"})
+            atoms.extend({"path_sample": {str(path[i]["trade_date"]): path[i]["nav"]}}
+                         for i in sorted(indexes))
         # Large members/events/coverage remain in the original. These counts
         # distinguish an empty collection from a hidden detailed collection.
         atoms.extend({f"{key}_count": len(row[key])} for key in (
@@ -295,7 +323,13 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
         ) if isinstance(row.get(key), list))
         if "market" in row:
             atoms.append({"market_status": "missing_or_ambiguous" if row["market"] is None else "observed"})
-        date_value = str(row.get("trade_date", row.get("end", ""))) or None
+            if isinstance(row["market"], dict):
+                atoms.extend({"market": {key: row["market"][key]}} for key in (
+                    "sh_index_pct_chg", "sh_index_close", "sh_deviation_pct", "total_amount",
+                    "advancers", "limit_up", "limit_down", "market_stage", "market_stage_source", "market_stage_confidence", "cycle_stage", "stage_day", "sh_week_ma", "sh_week_ma_source", "amount_ma20", "volume_ratio",
+                    "cycle_stage_source", "cycle_stage_updated_at", "volume_state", "concentration_state", "source",
+                ) if key in row["market"])
+        date_value = str(row.get("succession_known_as_of", row.get("trade_date", row.get("path_end", row.get("end", ""))))) or None
         sample_scope = " ".join(str(value) for key, value in identity.items() if key != "sample")
         add(f"历史观察样本 {sample_scope}", identity, atoms, date_value)
     return projected
@@ -325,6 +359,7 @@ def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query")
             "independence_policy",
             "spec",
             "feature_definitions",
+            "analysis_definition",
         )
         if key in payload
     }
@@ -507,7 +542,7 @@ def history_tool_specs(
     query_parameters["properties"]["features"]["description"] = (
         f"版本{FEATURE_VERSION}；不得凭名称改定义。null为未知或不可计算，见status，非0。"
         + "；".join(
-            f"{name}[{definition['unit']}]={definition['rule']}"
+            f"{name}@{definition.get('version', FEATURE_VERSION)}[{definition['unit']}]={definition['rule']}"
             for name, definition in FEATURES.items()
         )
     )
@@ -515,7 +550,7 @@ def history_tool_specs(
         ToolSpec(
             name="history_query",
             capability="finance_query",
-            description="重建历史行情、计算时间特征、召回相似案例及完整条件样本比较。先查询实体候选核对精确代码；不确定窗口可先提出候选窗口并注明。",
+            description="重建历史行情、市场环境类比、启动到顶部日线路径与板块候选接力。市场阶段先inspect_history(entity_kind=market,000001.SH)，类比用find_analogues显式历史范围，当时谁强用rank_history短窗排名（未指定代码=窗口内已观测全集），行情解剖用trace_history；先inspect核对板块/股票精确代码，同名不同供应商不混接。共同启动特征比较launch_signal行，验证还须compare_cases含失败样本。trace仅日线描述代理，不冒充SPT/风远完整方法或当时可知顶部。不确定窗口先提出并注明，缺数不补零。",
             contract=_TOOL_CONTRACTS["history_query"],
             cost="local",
             freshness="historical",
@@ -701,7 +736,7 @@ def history_tool_specs(
             str(item["result_ref"])
             for item in context.history_results
             if item.get("result_ref") and item.get("operation") in {
-                "inspect_history", "compute_history", "find_analogues", "compare_cases"
+                "inspect_history", "compute_history", "find_analogues", "compare_cases", "trace_history", "rank_history"
             }
         )
         payload = dict(draft, exposed_sample_refs=sorted(exposed))

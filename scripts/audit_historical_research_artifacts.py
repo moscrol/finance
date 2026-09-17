@@ -435,8 +435,11 @@ def audit_artifact(path: Path | str) -> dict:
             }
         )
         kind = doc["spec"]["entity_kind"]
+        if kind == "market":
+            audit.skip("market_arithmetic_not_yet_supported", entity_kind=kind)
+            return audit.finish()
         if kind not in {"stock", "sector"}:
-            raise ValueError("entity_kind must be stock or sector")
+            raise ValueError("entity_kind must be stock, sector or market")
         operation = doc["spec"]["operation"]
         audit.receipt.update(operation=operation, rows=len(doc["rows"]))
         if operation not in {

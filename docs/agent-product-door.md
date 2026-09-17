@@ -215,6 +215,12 @@ P4（D5）在 `fix/e2-delivery-closeout` 补齐 `material_only` 逐题交付：�
 
 `historical_research` 是引擎 A 上的领域应用：有类型 `history_query` 负责精确代码的日轴、受支持的时间特征、类比及声明窗口全集比较；`read_history_result` 读取原件；`save_history_research` 保存候选、失败与修订。它们复用 `finance_query` capability，预算、工具循环与取消仍由 Episode 管理。完整分母与模型预览分离，原件只经 RunStore 写入；案例修订与普通取消/产物写入均有并发保护。
 
+**市场—板块—个股过程研究（`feat/history-market-anatomy` 候选，未部署）**：仍用上述 `history_query`，增加 `entity_kind=market`（`000001.SH` 的价格 + 全市场成交/涨跌家数）、`rank_history`（窗口内已观测代码的事后强弱排名）、`trace_history`（启动信号、累计收益路径、窗口峰值/回撤确认、启动日成员排名及声明板块集内的候选接力）。不新增门或事实库。市场阶段原样列 `market_stage`/`cycle_stage` 与各自专属来源，不混授课 `index_stage` 或题材七段；行级 source 不证明标签字段血缘，`market_stage_confidence` 不是校准正确率。
+
+过程规则为版本化**日线研究代理**：窗口内预热5日；板块首次严格双红，个股首次日涨≥7%且成交额/前5日均额≥1.5；窗口峰值后回撤≥10%才列确认日；与所选窗口峰值的关联要到窗口结束才可陈述。固定规则不是SPT/风远完整方法，更不是交易有效性证明。未触发与缺数分开，路径缺日不补值；接力只检验声明代码间峰后5交易日的先后与收益，不证明资金来源。排名不预删缺数成员，preview不改变分母；完整原件保留每日路径，模型看有标记的采样点。共同启动特征用既有版本化特征比较，但筛选条件自带的共性不算发现，验证须继续 `compare_cases`。
+
+候选验证与限制见 [本轮记录](handoffs/2026-09-17-history-market-anatomy.md)：真库只读计算、真实注册表/模型投影与受控 `run_turn` 路由探针，不等于已完成生产真实模型多轮验收。旧独立原件验算器对 market/trace/rank 明确报 unsupported，而非伪造算术验收通过。
+
 修订优先提交 `previous_result_ref + patch`：模型只传变更项，服务端保留未提及假设及旧来源、失败、反证、已暴露样本，并自动递增版本。案例摘要按假设分页，完整原件不因摘要预算被改写。重复保存幂等；未知引用、过期父版本和跨会话读取仍被拒绝。
 
 `FinanceResearchHarness.assess_publication` 给出领域完成度上限和必须公开的缺口，通用 adapter 机械执行；语义润色不能把未完成的历史比较升级为完成。异常恢复仍走既有 EpisodeFinalizer，领域仅提供已有证据的优先序；恢复保持原引用编号与条数上限，并说明“投影省略不等于源数据缺失”。独立数值核对用 `scripts/audit_historical_research_artifacts.py` 读取研究原件，输出已核验、跳过和错误项；它不读取主库、不调用原计算引擎，也不颁发统计认证。
