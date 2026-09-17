@@ -82,14 +82,42 @@ def cmd_fetch(args) -> int:
         ).fetchall()
     finally:
         con.close()
-    print(f"[fetch] 宇宙取自 {prev} ∪ {nxt}，待抓 {len(uni)} 只", file=sys.stderr, flush=True)
+    # 恢复断档时库里还没有 next day，允许用日期已核验的原始快照扩展股票身份，
+    # 只借代码/名称；价格仍逐只从历史日线取，绝不把快照行情贴到历史日。
+    snapshot_path = getattr(args, 'universe_snapshot', None)
+    if snapshot_path:
+        from market_feature_store.sync.sync_eastmoney_stock_snapshot import (
+            A_SHARE_PREFIXES, _ts_code, snapshot_trade_date,
+        )
+        raw = json.loads(Path(snapshot_path).read_text(encoding='utf-8'))
+        snapshot_day = snapshot_trade_date(raw)
+        if snapshot_day is None or date.fromisoformat(snapshot_day) <= d:
+            raise ValueError('universe snapshot must have a verified later trade date')
+        universe = dict(uni)
+        for item in raw:
+            code = str(item.get('f12') or '')
+            if code.startswith(A_SHARE_PREFIXES):
+                universe.setdefault(_ts_code(code), str(item.get('f14') or ''))
+        uni = sorted(universe.items())
+    resume = getattr(args, 'resume', False)
+    existing = set()
+    if resume and out.exists():
+        for line in out.read_text(encoding='utf-8').splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            if row.get('trade_date') != args.trade_date or row.get('source') != SOURCE:
+                raise ValueError('resume input date/source mismatch')
+            existing.add(row['stock_ts_code'])
+        uni = [(c, n) for c, n in uni if c not in existing]
+    print(f"[fetch] 宇宙取自 {prev} ∪ {nxt}，已有 {len(existing)}，待抓 {len(uni)} 只", file=sys.stderr, flush=True)
 
     win_start = (d - timedelta(days=10)).strftime("%Y%m%d")
     win_end = d.strftime("%Y%m%d")
     ok = suspended = 0
     fails: list[tuple[str, str]] = []
     t0 = time.time()
-    with out.open("w", encoding="utf-8") as fh:
+    with out.open("a" if resume else "w", encoding="utf-8") as fh:
         for i, (code, name) in enumerate(uni, start=1):
             num, ex = code.split(".")
             try:
@@ -233,6 +261,9 @@ def main() -> int:
         sp.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
         sp.add_argument("--rows" if name != "fetch" else "--out", default=None,
                         help="JSONL 路径，默认 /tmp/backfill-sina-<D>.jsonl")
+        if name == 'fetch':
+            sp.add_argument('--resume', action='store_true', help='验证现有 JSONL 日期/出处后只补缺失代码')
+            sp.add_argument('--universe-snapshot', default=None, help='已核验的后日东财原始 JSON，仅扩展代码/名字，行情仍抓历史')
         sp.set_defaults(func=fn)
     args = p.parse_args()
     return args.func(args)
