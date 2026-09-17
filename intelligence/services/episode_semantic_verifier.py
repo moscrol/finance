@@ -88,6 +88,12 @@ from intelligence.services.judge_degrade import (
     classify_degrade_counts,
     degrade_class_for_status,
 )
+from intelligence.services.judge_mode import (
+    JUDGE_MODE_LLM,
+    JUDGE_MODE_OFF,
+    judge_mode_label,
+    semantic_judge_mode,
+)
 from intelligence.services.judge_source_recheck import recheck_draft, recheck_enabled
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
@@ -221,6 +227,12 @@ VERDICT_REASON_NUMERIC = "novel_numeric_condition"
 VERDICT_REASON_WEEKDAY = "calendar_weekday"
 VERDICT_REASON_PATH = "path_trend"
 VERDICT_REASON_ORDINAL = "unresolved_evidence_ordinal"
+VERDICT_REASON_EVIDENCE_DATE = "evidence_date_mismatch"
+# #55 census：引用了槽绑定之外的 E 只记账不删句（R-20260821-06 的既定裁决）。
+# stage / decision / reason 三个都是新值，读侧按 stage 过滤即可把它与拒句账分开。
+VERDICT_STAGE_CENSUS = "census"
+VERDICT_KEPT = "kept"
+VERDICT_REASON_OUTSIDE_SLOT = "cited_outside_slot_binding"
 _CONDITION_TRIGGER_RE = re.compile(
     r"(?:若|如果|失效|降级|跌破|站稳|至少|"
     r"阈值|支撑|才算成立|才成立)"
@@ -297,6 +309,11 @@ _UNRESOLVED_EVIDENCE_ISSUE = Issue(
     IssueCode.UNRESOLVED_EVIDENCE_ORDINAL,
     "unresolved_evidence_ordinal",
     "cited evidence ordinal is not in this episode's evidence table",
+)
+_EVIDENCE_DATE_ISSUE = Issue(
+    IssueCode.EVIDENCE_DATE_MISMATCH,
+    "evidence_date",
+    "sentence dates contradict every date carried by its only cited evidence",
 )
 SEMANTIC_QUALITY_DOUBT_MARK = "【质检存疑】"
 _FULL_ISO_DATE_RE = re.compile(
@@ -522,6 +539,12 @@ class SemanticEpisodeOutcome:
     judge_status: JudgeStatus
     issues: tuple[str, ...] = ()
     correlated_judge: bool = False
+    # #55：谁在判——"llm" 是第二模型判官，"deterministic" 是只有确定性门。与
+    # judge_status 正交：passed / repaired 在两种模式下都表示「过了门 / 门删了句
+    # 并修好」，JudgeStatus 闭集不扩（六个消费点按闭集分类）。
+    judge_mode: str = JUDGE_MODE_LLM
+    # #55 census：引用了槽绑定之外的 E 的句子数。只记账，不进任何删除决定。
+    cited_outside_slot_count: int = 0
     gap_output_ids: tuple[str, ...] = ()
     rejected_claim_indexes: tuple[int, ...] = ()
     repair_output_ids: tuple[str, ...] = ()
@@ -595,6 +618,7 @@ class SemanticEpisodeOutcome:
             "judge_status": self.judge_status,
             "issues": list(self.issues),
             "correlated_judge": self.correlated_judge,
+            "judge_mode": self.judge_mode,
             "gap_output_ids": list(self.gap_output_ids),
             "rejected_claim_indexes": list(self.rejected_claim_indexes),
             "repair_output_ids": list(self.repair_output_ids),
@@ -631,10 +655,15 @@ class SemanticEpisodeOutcome:
             "projection_ordinal_mismatch_count": telemetry.ordinal_mismatch_count,
             "evidence_alias_offset": telemetry.alias_offset,
             "projection_cited_unbound_count": telemetry.cited_unbound_count,
+            "cited_outside_slot_count": self.cited_outside_slot_count,
             "degrade_class": degrade_class,
             "judge_unavailable_count": judge_count,
             "content_degraded_count": content_count,
-            "pending_rejudge": self.judge_status == "unavailable",
+            # 没有第二模型就没有「等它回来重判」这件事；结构守卫留下的 unavailable
+            # 标签在 deterministic 模式下不再挂起复判。
+            "pending_rejudge": (
+                self.judge_status == "unavailable" and self.judge_mode == JUDGE_MODE_LLM
+            ),
             "verified": self.verified.to_dict(),
         }
         if self.judge_request is not None:
@@ -961,6 +990,9 @@ class SemanticEpisodeVerifier:
         self._semantic_reject_issues: tuple[str, ...] = ()
         self._sentence_verdicts: list[dict[str, object]] = []
         self._judge_round = 0
+        # #55：每次 verify() 重读环境，测试可按用例切模式；生产由启动器一次定死。
+        self._judge_mode = semantic_judge_mode()
+        self._census_count = 0
         # V11：本轮 verify 的回检索账 + 跨轮配额。配额按 task_frame_hash 记（一个 episode
         # 一枪）：gap-repair 之后同帧再 verify 直接 already_used；实例若被复用给别的
         # episode，换帧即重置。
@@ -1136,6 +1168,8 @@ class SemanticEpisodeVerifier:
 
         self._sentence_verdicts = []
         self._judge_round = 0
+        self._judge_mode = semantic_judge_mode()
+        self._census_count = 0
         self._guided_retrieve_fn = retrieve_fn
         self._guided_result = GuidedRetrievalTelemetry()
         if frame.task_frame_hash != self._guided_frame_hash:
@@ -1151,6 +1185,13 @@ class SemanticEpisodeVerifier:
         ):
             outcome = replace(outcome, guided_retrieval=self._guided_result)
         outcome = recheck_material_public_delivery(outcome)
+        # #55：模式与 census 计数在唯一出口盖章——内层十几条提前返回路径不用各写一遍。
+        # llm 模式下两个值都是默认值，dataclass 相等性与历史夹具不受影响。
+        outcome = replace(
+            outcome,
+            judge_mode=judge_mode_label(self._judge_mode),
+            cited_outside_slot_count=self._census_count,
+        )
         if not self._sentence_verdicts or outcome.sentence_verdicts:
             return outcome
         return replace(outcome, sentence_verdicts=tuple(self._sentence_verdicts))
@@ -1175,6 +1216,9 @@ class SemanticEpisodeVerifier:
         def skipped(reason: str) -> GuidedRetrievalTelemetry:
             return GuidedRetrievalTelemetry(skip_reason=reason)
 
+        if self._judge_mode == JUDGE_MODE_OFF:
+            # #55：回检索的意义是让判官再看一眼；没有判官就没有这一枪。
+            return skipped("judge_off")
         if not guided_retrieve_enabled():
             return skipped("disabled")
         retrieve = self._guided_retrieve_fn
@@ -1431,6 +1475,10 @@ class SemanticEpisodeVerifier:
             sentences,
             structural,
         )
+        evidence_date_rejected = _mismatched_evidence_date_indexes(
+            sentences,
+            structural,
+        )
         preflight_rejected = tuple(
             sorted(
                 set(
@@ -1438,6 +1486,7 @@ class SemanticEpisodeVerifier:
                         *numeric_rejected,
                         *weekday_rejected,
                         *path_rejected,
+                        *evidence_date_rejected,
                     )
                 )
             )
@@ -1453,6 +1502,7 @@ class SemanticEpisodeVerifier:
                     numeric=numeric_rejected,
                     weekday=weekday_rejected,
                     path=path_rejected,
+                    evidence_date=evidence_date_rejected,
                 ),
             )
             before_repair = structural.outcome.draft
@@ -1482,6 +1532,7 @@ class SemanticEpisodeVerifier:
                     (numeric_rejected, _NUMERIC_CONDITION_ISSUE),
                     (weekday_rejected, _CALENDAR_WEEKDAY_ISSUE),
                     (path_rejected, _PATH_TREND_ISSUE),
+                    (evidence_date_rejected, _EVIDENCE_DATE_ISSUE),
                 )
                 if indexes
             )
@@ -1522,6 +1573,18 @@ class SemanticEpisodeVerifier:
             issues=claim_issues,
         )
         sentences = _numbered_sentences(structural.outcome.draft)
+        # #55 census：槽级引用越界只记账。放在送判前的最终句序上，两种模式同一口径。
+        census = _cited_outside_slot_binding_indexes(sentences, structural)
+        if census:
+            self._census_count = len(census)
+            self._record_sentence_verdicts(
+                stage=VERDICT_STAGE_CENSUS,
+                indexes=census,
+                sentences=sentences,
+                verified=structural,
+                decision_for={index: VERDICT_KEPT for index in census},
+                reasons_for={index: (VERDICT_REASON_OUTSIDE_SLOT,) for index in census},
+            )
         request = self._judge_request(frame, structural, sentences)
         first = replace(self._run_judge(request, deadline), request=request)
         if deadline.expired:
@@ -2379,6 +2442,16 @@ class SemanticEpisodeVerifier:
         request: dict[str, object],
         deadline: ResearchDeadline,
     ) -> _JudgeCall:
+        if self._judge_mode == JUDGE_MODE_OFF:
+            # #55：没有第二模型。合成一份全过报告，让判后机械门（数值 / 材料缺口 /
+            # 元陈述 / 表外 E）与 `_repair` 环照常跑；首判、复判、第三判都经这一缝。
+            # correlated=False（没人判就谈不上相关）、unavailable=False（不是掉线，
+            # 不得触发「判官不可用即扣稿」）。
+            return _JudgeCall(
+                report=answer_model.GroundingJudgeReport(passed=True),
+                unavailable=False,
+                correlated=False,
+            )
         policy = self._active_policy
         attempt_cap = self._judge_attempt_cap()
         total_window = semantic_total_judge_window(
@@ -3689,6 +3762,7 @@ def _mechanical_reasons_by_index(
     weekday: tuple[int, ...] = (),
     path: tuple[int, ...] = (),
     ordinal: tuple[int, ...] = (),
+    evidence_date: tuple[int, ...] = (),
 ) -> dict[int, tuple[str, ...]]:
     """每个索引被哪些机械探测器点名（同一句可被多个探测器同时点）。"""
 
@@ -3698,6 +3772,7 @@ def _mechanical_reasons_by_index(
         (VERDICT_REASON_WEEKDAY, weekday),
         (VERDICT_REASON_PATH, path),
         (VERDICT_REASON_ORDINAL, ordinal),
+        (VERDICT_REASON_EVIDENCE_DATE, evidence_date),
     ):
         for index in indexes:
             reasons.setdefault(int(index), []).append(code)
@@ -3866,6 +3941,7 @@ def _mechanical_sentence_indexes(
             *_mismatched_weekday_indexes(sentences, verified),
             *_mismatched_path_trend_indexes(sentences, verified),
             *_unresolved_evidence_ordinal_indexes(sentences, verified),
+            *_mismatched_evidence_date_indexes(sentences, verified),
         )
     )
 
@@ -4381,6 +4457,38 @@ def _bound_turnover_series(outcome: AgentOutcome) -> tuple[tuple[date, float], .
     return tuple(sorted(observations.items()))
 
 
+def _full_dates_in(text: str) -> frozenset[date]:
+    """Every parseable ISO / 中文 full date in ``text`` (invalid calendar dates skipped)."""
+
+    parsed: set[date] = set()
+    for pattern in (_FULL_ISO_DATE_RE, _FULL_CHINESE_DATE_RE):
+        for match in pattern.finditer(str(text or "")):
+            try:
+                parsed.add(
+                    date(
+                        int(match.group("year")),
+                        int(match.group("month")),
+                        int(match.group("day")),
+                    )
+                )
+            except ValueError:
+                continue
+    return frozenset(parsed)
+
+
+def _evidence_corpus(item: object) -> str:
+    """Same text the weekday gate reads: title / detail / source / source_date."""
+
+    return " ".join(
+        (
+            str(getattr(item, "title", "") or ""),
+            str(getattr(item, "detail", "") or ""),
+            str(getattr(item, "source", "") or ""),
+            str(getattr(item, "source_date", "") or ""),
+        )
+    )
+
+
 def _bound_evidence_dates(outcome: AgentOutcome) -> frozenset[date]:
     bound_hashes = {
         content_hash
@@ -4391,27 +4499,114 @@ def _bound_evidence_dates(outcome: AgentOutcome) -> frozenset[date]:
     for item in outcome.evidence:
         if item.content_hash not in bound_hashes:
             continue
-        corpus = " ".join(
-            (
-                item.title,
-                item.detail,
-                item.source,
-                str(item.source_date or ""),
-            )
-        )
-        for pattern in (_FULL_ISO_DATE_RE, _FULL_CHINESE_DATE_RE):
-            for match in pattern.finditer(corpus):
-                try:
-                    parsed.add(
-                        date(
-                            int(match.group("year")),
-                            int(match.group("month")),
-                            int(match.group("day")),
-                        )
-                    )
-                except ValueError:
-                    continue
+        parsed.update(_full_dates_in(_evidence_corpus(item)))
     return frozenset(parsed)
+
+
+def _evidence_by_ordinal(outcome: AgentOutcome) -> dict[str, object]:
+    """``E<n>`` → evidence card, via the episode ordinal table (the only id issuer)."""
+
+    by_hash = {
+        str(item.content_hash): item for item in outcome.evidence if item.content_hash
+    }
+    return {
+        ordinal: by_hash[digest]
+        for digest, ordinal in evidence_ordinal_table(outcome.evidence).items()
+        if digest in by_hash
+    }
+
+
+def _mismatched_evidence_date_indexes(
+    sentences: list[dict[str, object]],
+    verified: VerifiedEpisodeOutcome,
+) -> tuple[int, ...]:
+    """Reject a sentence whose full dates all contradict its only cited evidence.
+
+    #55：判官反复抓到的形状——「第 12 句把 E104 的日期写成 2026-08-21，证据登记的
+    source_date 是 2026-09-11」。机械版刻意保守，只在四个条件同时成立时删句：
+    句子恰好引用**一条** E 且能反解；句内含完整日期；该证据语料（title / detail /
+    source / source_date）也含完整日期；句内**没有任何一个**日期出现在证据语料里。
+    双引、无日期、证据无日期、日期吻合都放过——「只会少算不会多算」。
+    """
+
+    by_ordinal = _evidence_by_ordinal(verified.outcome)
+    rejected: list[int] = []
+    for item in sentences:
+        index = item.get("index")
+        text = str(item.get("text") or "")
+        if not isinstance(index, int):
+            continue
+        cited = tuple(dict.fromkeys(cited_evidence_ordinals(text)))
+        if len(cited) != 1 or cited[0] not in by_ordinal:
+            continue
+        stated = _full_dates_in(text)
+        if not stated:
+            continue
+        known = _full_dates_in(_evidence_corpus(by_ordinal[cited[0]]))
+        if not known:
+            continue
+        if stated.isdisjoint(known):
+            rejected.append(index)
+    return tuple(rejected)
+
+
+_CENSUS_HEADING_RE = re.compile(
+    r"^(?:#{1,6}\s*|【|(?:\d+|[一二三四五六七八九十]+)[、.．）)]\s*)"
+)
+
+
+def _cited_outside_slot_binding_indexes(
+    sentences: list[dict[str, object]],
+    verified: VerifiedEpisodeOutcome,
+) -> tuple[int, ...]:
+    """Census only: sentences citing evidence that is bound to a *different* slot.
+
+    #55 把「第 19 句引用 E14、E23，不在 counterpoint 的 evidence_ids 里」这类判官
+    发现改成记账。R-20260821-06 已裁决：绑定数组可能漏记，不能因此否证真实证据——
+    所以这里**不删句、不进 issues**，只数出来给以后决定。
+
+    槽的归属按标题式句子切换：一句只命中一个必需输出的标记、且长得像标题（`#`/
+    `【`/序号开头，或「标签：」形式且标签 ≤ 12 字）。没有任何槽标题的稿子不记。
+    只统计**已绑到别的槽**的 E；未绑定但被引用的卡另有 ``projection_cited_unbound_count``。
+    """
+
+    outcome = verified.outcome
+    contract = verified.contract
+    if contract is None:
+        return ()
+    ordinals = evidence_ordinal_table(outcome.evidence)
+    bound_by_output: dict[str, set[str]] = {}
+    for binding in outcome.bindings:
+        bound_by_output.setdefault(str(binding.output_id), set()).update(
+            ordinals[digest] for digest in binding.evidence_hashes if digest in ordinals
+        )
+    if not bound_by_output:
+        return ()
+    bound_anywhere: set[str] = set().union(*bound_by_output.values())
+    output_ids = [str(item.output_id) for item in contract.required_outputs]
+    current: str | None = None
+    flagged: list[int] = []
+    for item in sentences:
+        index = item.get("index")
+        text = str(item.get("text") or "")
+        if not isinstance(index, int):
+            continue
+        label = re.split(r"[：:]", text, maxsplit=1)[0]
+        heading_like = bool(_CENSUS_HEADING_RE.match(text)) or (
+            len(label) <= 12 and label != text
+        )
+        if heading_like:
+            probe = label if label != text else text
+            markers = [oid for oid in output_ids if answer_has_output_marker(oid, probe)]
+            if len(markers) == 1:
+                current = markers[0]
+        if current is None:
+            continue
+        allowed = bound_by_output.get(current, set())
+        cited = set(cited_evidence_ordinals(text))
+        if any(token in bound_anywhere and token not in allowed for token in cited):
+            flagged.append(index)
+    return tuple(flagged)
 
 
 def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:

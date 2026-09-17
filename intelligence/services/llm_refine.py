@@ -372,6 +372,11 @@ def stable_llm_fallback_reason(reason: str) -> str:
     放宽一次严格层。要改先补 judge 侧的测试。
     """
     normalized = str(reason or "").casefold()
+    # #55：judge 被 ASK_SEMANTIC_JUDGE=off 关掉，既不是「供应商不可用」也不是任何
+    # 瞬时故障——原样透传成独立码。它**不在** ``_TRANSIENT_JUDGE_REASONS`` 里，
+    # 而且 off 路径在走到掉线放行之前就已返回，所以这条不放宽严格层。
+    if normalized == "judge_off":
+        return "judge_off"
     if "未配置" in normalized:
         return "provider_unavailable"
     # 本轮调用预算耗尽（``LlmCallLedger.rejection_reason``）。原先落进

@@ -253,6 +253,15 @@ P4（D5）在 `fix/e2-delivery-closeout` 补齐 `material_only` 逐题交付：�
 
 A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结构门、修复轮**只在 A**；B 有 `gate_receipt` / `CompletionReport` / `evidence_judge` / 输出质检。差的成因是分层——判官在 `runtime/`，B 在 `services/`，不得反向 import。现状与并轨计划见 `docs/superpowers/specs/2026-08-30-engine-b-into-a-strangler-design.md` §1.3。
 
+### 判官模式：`ASK_SEMANTIC_JUDGE=llm|off`（工单 #55）
+
+用户 2026-09-12 撤掉独立 Grok 判官（改 kimi-k3 自审）、2026-09-17 进一步决定**不用 LLM 判官**。一个共享开关（`intelligence/services/judge_mode.py::semantic_judge_mode`）同时管两条引擎：
+
+- **`llm`（代码默认，行为与此前一致）**：A 的终稿判官 `_run_judge` 调第二模型（无 `LLM_JUDGE_*` 时落回写手自审，`correlated_judge=true`）；B 的合成判官走 `synthesize_messages`；判官不可用时 A 扣稿（`judge_status=unavailable`）、B 走带告示的瞬时放行。
+- **`off`（生产启动器取值）**：A 的 `_run_judge` 返回合成的全过报告，**零模型调用**，判后机械门（数值 / 材料缺口 / 元陈述 / 表外 E）与删句修复照常跑，V11 引导回检索记 `skip_reason=judge_off`；B 的判官段不发调用、`GroundedComposerShadow.status=deterministic_only`、不带掉线告示；检索侧证据判官另由既有 `ASK_EVIDENCE_JUDGE=off` 关。
+
+读收据别读反：`judge_status` 闭集不变（`passed / repaired / rejected / unavailable`），两种模式下都表示「过了门 / 门删了句并修好 / 修不好 / 结构守卫未放行」；**谁在判**看私有块 `semantic_verifier.judge_mode`（`llm` | `deterministic`，落在 `continuous-episode.json`），公开 `gate_receipt` 键集未动（`RECEIPT_KEYS` 是被钉死的 schema v1 合同）。判官此前抓到的两类绑定错误的去向：句内日期与所引证据日期全不符 → 机械探测器 `evidence_date_mismatch` 删句（两种模式都生效）；引用了别的槽绑定的 E → 只记 `sentence_verdicts[stage=census]` 与 `cited_outside_slot_count`，不删（R-20260821-06）。B 侧健康度多一桶 `deterministic_only`，不冒充 `full_pass`。默认翻转与判官专属路径退役见工单 #56。
+
 不要把 `ask.answer_query` 写成「金融 Agent 的唯一深模块」。它是引擎 B。也不要为「少学零件」再加 `answer_door` / `EpisodeBuilder`：组装已经在 `GLMAgentRuntime` 和 `episode_factory`。
 
 ### 生产里谁在拼 `AskOptions`（为什么不加 `answer_door`）
