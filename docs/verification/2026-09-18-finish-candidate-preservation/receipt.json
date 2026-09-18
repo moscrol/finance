@@ -1,0 +1,106 @@
+{
+  "schema": "finish-candidate-preservation-author-receipt/v1",
+  "created_at": "2026-09-18T11:05:17.799412+00:00",
+  "code_revision": "35ee8a5c05aa1a25498ab9c32cc548d0166bb5a7",
+  "engineering_checks": "passed_with_explicit_skips_and_warnings",
+  "python": {
+    "passed": 11664,
+    "failed": 0,
+    "error": 0,
+    "skipped": 81,
+    "xfailed": 2,
+    "warnings": 17,
+    "seconds": 662.25,
+    "receipt": "checks/20260918T101211Z-35ee8a5c.json",
+    "dirty": false
+  },
+  "frontend": {
+    "passed": 107,
+    "lint": "passed",
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "e2e": {
+    "passed": 34,
+    "skipped": 2,
+    "failed": 0,
+    "real_llm": false,
+    "first_attempt": {
+      "passed": 33,
+      "failed": 1,
+      "skipped": 2,
+      "reason": "missing RE06_E2E_URL in invocation"
+    }
+  },
+  "registry": "four_checks_passed",
+  "ledger_crosswalk_reverse_warnings": 98,
+  "static": "ruff_diff_layer_path_unread_reachability_runtime_catalog_passed",
+  "offline_replay": {
+    "receipt": "original-replay.json",
+    "checks": "passed",
+    "scope": "frozen candidate boundary, not full original execution"
+  },
+  "counterchecks": {
+    "receipt": "mutations-v2/receipt.json",
+    "kinds_caught": 8,
+    "unmodified_passed": 68,
+    "file_mutations": 0
+  },
+  "source_live_acceptance": "not_passed",
+  "new_product_submissions": 0,
+  "new_live_acceptance": "not_run",
+  "financial_certification": false,
+  "independent_review": "not_run",
+  "cross_process_candidate_restore": "not_implemented",
+  "legacy_real_llm_preservation_run": "not_run",
+  "main_merge": false,
+  "production_deployment": false,
+  "production_health_rechecked": false,
+  "push": false,
+  "new_pr": false,
+  "promotion_eligible": false,
+  "frozen_local_main": "0a1cb8c44aaf2d19ae5f5809bf27119b709b8442",
+  "remote_fetched": false,
+  "environment": "environment.json",
+  "previous_bundles_integrity": "previous-bundles-integrity.json",
+  "archive": {
+    "root": "/Users/a77/.finance-runtime/reviews/research-candidate-preservation-20260918",
+    "file_count": 90,
+    "total_bytes": 445767,
+    "manifest": {
+      "bytes": 14467,
+      "sha256": "e42627f3bbdd527690e1b02616037fecc083c73703fa9f9e4147985066c7c96a"
+    },
+    "key_artifacts": {
+      "original-replay.json": {
+        "bytes": 2041,
+        "sha256": "c4a46218d1b64c8969381ada40f3331a989ccfe97d1c22224b06b3fea5e2a160"
+      },
+      "acceptance-summary.json": {
+        "bytes": 1932,
+        "sha256": "ca33fb5136f58154310cb0d3b3023ba215aad5ca765c27d78810f76b1f456481"
+      },
+      "mutations-v2/receipt.json": {
+        "bytes": 2315,
+        "sha256": "ce11d408e654015d64795827e40a7df4fd165efde780aaf7f400e7dc071c5d52"
+      },
+      "secret-scan.json": {
+        "bytes": 29274,
+        "sha256": "dce2b0af46df46f69d3415cdadecda60bacce3bf869ce475091fc9284e91267b"
+      },
+      "environment.json": {
+        "bytes": 1299,
+        "sha256": "0d4928898c7132763dd7e24eae20cd459d8640c5a43cb343554bc909ebca95b4"
+      },
+      "previous-bundles-integrity.json": {
+        "bytes": 616,
+        "sha256": "166755435b747e53a0ed33bbdb42feb27e8540879ac64ada5bae0cf8aa0d0033"
+      }
+    }
+  },
+  "scan": {
+    "raw_file_marker_hits": 10,
+    "unresolved_hits": 0,
+    "whole_bundle_zero_hits": false
+  }
+}

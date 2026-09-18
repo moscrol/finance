@@ -1,0 +1,370 @@
+{
+  "schema": "finish-candidate-preservation-evidence/v1",
+  "revision": "35ee8a5c05aa1a25498ab9c32cc548d0166bb5a7",
+  "scope": "author offline repair evidence; excludes index itself, caches and later closeout/",
+  "root": "/Users/a77/.finance-runtime/reviews/research-candidate-preservation-20260918",
+  "file_count": 90,
+  "total_bytes": 445767,
+  "files": {
+    "acceptance-summary.json": {
+      "bytes": 1932,
+      "sha256": "ca33fb5136f58154310cb0d3b3023ba215aad5ca765c27d78810f76b1f456481"
+    },
+    "checks/20260918T095609Z-af9500ec.json": {
+      "bytes": 1986,
+      "sha256": "3d874273b27bf32e21a372ba46a5fb4042233ae95f7e0c063f882084f3def935"
+    },
+    "checks/20260918T095816Z-af9500ec.json": {
+      "bytes": 2368,
+      "sha256": "f2af0da84d439a608313b4ed7db162c5dbaf23be83a394946b49100f69603d40"
+    },
+    "checks/20260918T101211Z-35ee8a5c.json": {
+      "bytes": 677,
+      "sha256": "00cc96cdb682e58c7b693bbb6500576e1ca45e10aa45da3fa7690c5b02db899c"
+    },
+    "checks/clean-static30.txt": {
+      "bytes": 3022,
+      "sha256": "0779aecd30d48f2cb8ac9527e5557bb81a8adc956ac40c63e362c642d48cd07e"
+    },
+    "checks/research-freedom-backends13.txt": {
+      "bytes": 18171,
+      "sha256": "1fdc21ab7925a2ab1477551e45ca4a58684c7aca535f75852fe93278dc1970ff"
+    },
+    "checks/research-freedom-backends14.txt": {
+      "bytes": 278,
+      "sha256": "5b72e1bba09ba99ee5e803480cac4934354ca658ae20fab9955ee78d05cd7c4f"
+    },
+    "checks/research-freedom-boundaries10.txt": {
+      "bytes": 747,
+      "sha256": "acb981064655acc448c20f464c87da842fd9270ac07ce81fdaec3dbcf949c97e"
+    },
+    "checks/research-freedom-boundaries9.txt": {
+      "bytes": 194,
+      "sha256": "a9c047f55fa1a31f29ca85f6e0bf4fda9dd6c2213ef7ab60a8c210169a2097e0"
+    },
+    "checks/research-freedom-cancel-red17.txt": {
+      "bytes": 14901,
+      "sha256": "5337a4b2d90c90802ab870c8c7bff0db148f05922877d56f6740e1c20204b86e"
+    },
+    "checks/research-freedom-clean24.exit": {
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "checks/research-freedom-clean24.txt": {
+      "bytes": 17258,
+      "sha256": "9167a146d8ff5bfb32f76600307e218a40a3406b22f8a9e3eed8eb4129b44690"
+    },
+    "checks/research-freedom-codemap-resume.txt": {
+      "bytes": 2463,
+      "sha256": "7b2b8bc707dfa076f1bdd66e5d2915790a552c5f5776de2a4dbb52b90ebd14cc"
+    },
+    "checks/research-freedom-codemap.txt": {
+      "bytes": 547,
+      "sha256": "999153c5bcee9bc5e05a6d1a02a8f247c5b4597535f8e7baa7101076c9e5e254"
+    },
+    "checks/research-freedom-codemap15.txt": {
+      "bytes": 3345,
+      "sha256": "ea5757835ae35057198e1a6d16a682a418440ee33c08346fde55054fff0784fa"
+    },
+    "checks/research-freedom-codemap27.txt": {
+      "bytes": 1516,
+      "sha256": "16b2ab9d0f54f621825bc2e6c1241d40a641281cab71d059ad4ced7a7d335330"
+    },
+    "checks/research-freedom-commit23.txt": {
+      "bytes": 6004,
+      "sha256": "557396d4edcdbe8fd6ddb10039f2f8d98336ce3453449cb2636388a358757479"
+    },
+    "checks/research-freedom-crosswalk24.txt": {
+      "bytes": 2018,
+      "sha256": "d852d00319d40b9e52c0e589787fdcdb1d97f088de2528a6014ce8358fe7b88b"
+    },
+    "checks/research-freedom-e2e25.exit": {
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    "checks/research-freedom-e2e25.txt": {
+      "bytes": 15111,
+      "sha256": "74af6471065d4561414bf6044fc9a44827f8c77bf352a246426d816e5519e595"
+    },
+    "checks/research-freedom-e2e26.exit": {
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "checks/research-freedom-e2e26.txt": {
+      "bytes": 12760,
+      "sha256": "5c0c1c043f6371aad9ce0a032865648d778efd9617d0a8a2196b3eb0fef02579"
+    },
+    "checks/research-freedom-evidence-red8.txt": {
+      "bytes": 1912,
+      "sha256": "183554ce30906aec4d9582be0c196113e58ea54ba53e714d29e4410db59245ca"
+    },
+    "checks/research-freedom-focused19.txt": {
+      "bytes": 2670,
+      "sha256": "dfcee16282b1d34a6c2557acde6b83d3e76e2b74406f0ccf6587f17f28f3eb85"
+    },
+    "checks/research-freedom-focused21.txt": {
+      "bytes": 999,
+      "sha256": "2e4087e5466e3bcafc09e56fa1b974a81a4209a069491e5d1e3bcbdeeb9ed10b"
+    },
+    "checks/research-freedom-focused3.txt": {
+      "bytes": 14786,
+      "sha256": "c69d5e58868dd321ea9c2e2fe6cd297bc226ebe51d4abf60344378d00012ad16"
+    },
+    "checks/research-freedom-focused4.txt": {
+      "bytes": 202,
+      "sha256": "b22456e3b6aa7bdfeb213a0229a77c831a5d01483c7ce011c3961419281bfc73"
+    },
+    "checks/research-freedom-focused5.txt": {
+      "bytes": 3161,
+      "sha256": "3cc32d75c58400c8c7b415abfc119322495a6d9aa9a07be1e303aa4446566db4"
+    },
+    "checks/research-freedom-focused7.txt": {
+      "bytes": 3703,
+      "sha256": "f606d9e153ab85bab9f1243d4ba57bcb27c18e5cb68747132687f04b419e0aae"
+    },
+    "checks/research-freedom-frontend24.exit": {
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "checks/research-freedom-frontend24.txt": {
+      "bytes": 1924,
+      "sha256": "766321ddfeeb1f8023f5141cc51e05958cc15d764a726e93a043e64a94186038"
+    },
+    "checks/research-freedom-full20.exit": {
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    "checks/research-freedom-full20.txt": {
+      "bytes": 22665,
+      "sha256": "57a6f4889a8634791a8366c93ed1b0384ca4b2704bb001cdaad2b53ebd1fd1da"
+    },
+    "checks/research-freedom-green2.txt": {
+      "bytes": 3357,
+      "sha256": "792d6ed62fece5362549126772121e75f56f3c7fe5721fa2070ace4c655a8a27"
+    },
+    "checks/research-freedom-layer17.txt": {
+      "bytes": 616,
+      "sha256": "fde009af8f662799d4da0705f4c26ef83d9a5bf68f5074b9932ad533ee9a85a7"
+    },
+    "checks/research-freedom-mutations28.txt": {
+      "bytes": 222,
+      "sha256": "7e156f92db03404664950e35fefaa1581c1e77d0eb99cb020db85aae161bfb1c"
+    },
+    "checks/research-freedom-mutations29.txt": {
+      "bytes": 222,
+      "sha256": "7e156f92db03404664950e35fefaa1581c1e77d0eb99cb020db85aae161bfb1c"
+    },
+    "checks/research-freedom-original-inspect.txt": {
+      "bytes": 7230,
+      "sha256": "2efba494efd7ba939387b2c1176281dc37cddf3cd97f03a817f25580032edaac"
+    },
+    "checks/research-freedom-original-replay16.txt": {
+      "bytes": 1062,
+      "sha256": "8ece3aa66094103d197918963fde2514b2a9cf0cd6558123356bd3869c07bd02"
+    },
+    "checks/research-freedom-original-replay17.json": {
+      "bytes": 3094,
+      "sha256": "f4841fe0ba532459740f5e685808fa0d66ff3e86cb538a76498d518e5ecc7c3a"
+    },
+    "checks/research-freedom-original-replay17.txt": {
+      "bytes": 3094,
+      "sha256": "f4841fe0ba532459740f5e685808fa0d66ff3e86cb538a76498d518e5ecc7c3a"
+    },
+    "checks/research-freedom-original-replay22.json": {
+      "bytes": 3245,
+      "sha256": "725439b41f474c0aa36bb4fe49d333434b8795dbd945ba3849ce9ee2587a00fc"
+    },
+    "checks/research-freedom-original-replay22.txt": {
+      "bytes": 3245,
+      "sha256": "725439b41f474c0aa36bb4fe49d333434b8795dbd945ba3849ce9ee2587a00fc"
+    },
+    "checks/research-freedom-original-replay24.json": {
+      "bytes": 2041,
+      "sha256": "c4a46218d1b64c8969381ada40f3331a989ccfe97d1c22224b06b3fea5e2a160"
+    },
+    "checks/research-freedom-original-replay24.txt": {
+      "bytes": 2041,
+      "sha256": "c4a46218d1b64c8969381ada40f3331a989ccfe97d1c22224b06b3fea5e2a160"
+    },
+    "checks/research-freedom-receipt25.txt": {
+      "bytes": 755,
+      "sha256": "f9c0f1a731084eb46fc0014b4c0a0068b10bf59420c71f46b50215fe77ec9b9a"
+    },
+    "checks/research-freedom-red1.txt": {
+      "bytes": 18737,
+      "sha256": "2f338c10ff9ff2f65e9d28f66476f4977f3ede8fa54e76bf291ad02a81ec1b59"
+    },
+    "checks/research-freedom-red6.txt": {
+      "bytes": 25212,
+      "sha256": "48091d77e225d14159fbfb7b58c85b0daf7f43f419d6db8bfeccba29c7813b1a"
+    },
+    "checks/research-freedom-registry24.txt": {
+      "bytes": 448,
+      "sha256": "2bddf7518a630030089a8eb06c07d011b06ae1e75706e20904e27423dd1c0d78"
+    },
+    "checks/research-freedom-ruff13.txt": {
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "checks/research-freedom-ruff24.txt": {
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "checks/research-freedom-runtime-audit15.diff": {
+      "bytes": 20229,
+      "sha256": "d0acabd1f5a3851092d67ab076d69bf524ace66ab65a266570c25163fbddf679"
+    },
+    "checks/research-freedom-runtime11.txt": {
+      "bytes": 5412,
+      "sha256": "baf28dec49a07bb5f58a2052599a67a7a95ef147414f0923dcac2c5cedabc8c3"
+    },
+    "checks/research-freedom-runtime18.txt": {
+      "bytes": 2610,
+      "sha256": "7f9d37c5bdbf71ffe2a6e1eabfd36fe5ef1775244c1b39305645476f4b6bf982"
+    },
+    "checks/research-freedom-sanitize12.txt": {
+      "bytes": 507,
+      "sha256": "caf43d89863436ee1870d1e2eaf475e1f586031785868f8cd74df07683b18276"
+    },
+    "checks/research-freedom-session-resume.txt": {
+      "bytes": 3114,
+      "sha256": "dcff8b7f2b40bad4de6c63cd07cc9038a3403aa9ab9a983febb58fa7bd742f0e"
+    },
+    "checks/research-freedom-session.txt": {
+      "bytes": 3382,
+      "sha256": "f44b77800a566238f7fac32fc9fd167abbe8bf3ced41dc12cc3976b3d01d2b3e"
+    },
+    "checks/research-freedom-session15.txt": {
+      "bytes": 3114,
+      "sha256": "44d4fac91abeaed07aafdbece787579a2b29a82b80121a7c5eb5d27b179d59ba"
+    },
+    "checks/research-freedom-session27.txt": {
+      "bytes": 3380,
+      "sha256": "c0de9d2b6c933e7c9b98fc7f08078c9f33b19cf0bfc1626604c5ab35b00f9abe"
+    },
+    "checks/research-freedom-static24.exit": {
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "checks/research-freedom-worktrees27.txt": {
+      "bytes": 49444,
+      "sha256": "0a785de845cac7d58dc52abd1dcc460c13eb2a87857b57220b62f6ab53a6e085"
+    },
+    "code-change-stat.txt": {
+      "bytes": 1521,
+      "sha256": "bf6b8a331d045a832b9a3f42f873c1cb3c9a35830c0abf35df2152831f30f445"
+    },
+    "e2e-first-failure/trace.zip": {
+      "bytes": 8022,
+      "sha256": "c43b679998b7d8c474465528e82a805bfddf0d5a6a8d89fe8638162da42993fe"
+    },
+    "environment.json": {
+      "bytes": 1299,
+      "sha256": "0d4928898c7132763dd7e24eae20cd459d8640c5a43cb343554bc909ebca95b4"
+    },
+    "mutation_checks-v1.py": {
+      "bytes": 7143,
+      "sha256": "21c4f1433b94a8d932251ba6b6d0990261068ad35a0f1fd06e80917efc9fc2e7"
+    },
+    "mutation_checks.py": {
+      "bytes": 7109,
+      "sha256": "790c39ba2fba85cea3b31b00ac83a0f22a94e7503bd6bd67f4c6f9c3226ac3df"
+    },
+    "mutations/cancel_returned_draft_dropped.log": {
+      "bytes": 1082,
+      "sha256": "97b2db6e03039d3702d8cc5eab2a58cd1a8eb68b78a50babcb31bf1e27e184a4"
+    },
+    "mutations/candidate_sanitizer_bypassed.log": {
+      "bytes": 2029,
+      "sha256": "896c3dbce5437c8fe701c73942d887af0aeab2722c4356eda9fa4da690356995"
+    },
+    "mutations/evidence_semantics_unchecked.log": {
+      "bytes": 1105,
+      "sha256": "1c39518e2d38ee568fdb1bdff49b7c49eed5044895f708d07f7ee9634eebbe4f"
+    },
+    "mutations/ordinals_unchecked.log": {
+      "bytes": 1983,
+      "sha256": "9d84f74c550ad409359f3a147946472fb22fd5a1a2a6591c303bdbf5f54cf93c"
+    },
+    "mutations/presence_replaced_by_nonempty.log": {
+      "bytes": 15190,
+      "sha256": "fd6011695d81574d208a17c3cda09356c0606a6c440fc41c512b916c40686656"
+    },
+    "mutations/receipt.json": {
+      "bytes": 2315,
+      "sha256": "ce11d408e654015d64795827e40a7df4fd165efde780aaf7f400e7dc071c5d52"
+    },
+    "mutations/recovery_dependencies_compacted.log": {
+      "bytes": 697,
+      "sha256": "9f9eee91afce5c37e63a2a31f1eaf596c24baa3c50f0ce0a2d5eb17f74642390"
+    },
+    "mutations/retention_removed.log": {
+      "bytes": 2568,
+      "sha256": "0b040284261a6f84acbd70fd3b6d433ff6a0e620d77c7eee7726a89b2312d294"
+    },
+    "mutations/review_debt_erased.log": {
+      "bytes": 690,
+      "sha256": "c4b0d4751763c77d9f23252839543de9167d785ffed38dd360607c308efc1fab"
+    },
+    "mutations/unmodified-regressions.log": {
+      "bytes": 99,
+      "sha256": "5354ef02bdae3da6ac3c16fa7ab04a3b9474501a8f6f57f06820e8dc55dc6095"
+    },
+    "mutations-v2/cancel_returned_draft_dropped.log": {
+      "bytes": 1082,
+      "sha256": "97b2db6e03039d3702d8cc5eab2a58cd1a8eb68b78a50babcb31bf1e27e184a4"
+    },
+    "mutations-v2/candidate_sanitizer_bypassed.log": {
+      "bytes": 2029,
+      "sha256": "896c3dbce5437c8fe701c73942d887af0aeab2722c4356eda9fa4da690356995"
+    },
+    "mutations-v2/evidence_semantics_unchecked.log": {
+      "bytes": 1105,
+      "sha256": "700df3b20885e24cfbd4760c2e0e1aab6930fd421b214220d1f05406bab2d63b"
+    },
+    "mutations-v2/ordinals_unchecked.log": {
+      "bytes": 1983,
+      "sha256": "9c0d8cf1357e2c611f31befe5b03b963a8b78936524c0f2ed4e8484e474a5d5b"
+    },
+    "mutations-v2/presence_replaced_by_nonempty.log": {
+      "bytes": 15190,
+      "sha256": "94d173aded52522348150980c3d355940de5fecb832561d9606ceb578d634525"
+    },
+    "mutations-v2/receipt.json": {
+      "bytes": 2315,
+      "sha256": "ce11d408e654015d64795827e40a7df4fd165efde780aaf7f400e7dc071c5d52"
+    },
+    "mutations-v2/recovery_dependencies_compacted.log": {
+      "bytes": 1074,
+      "sha256": "30c53f26f887fc8dc707fa04f91ce2738f8173e62bef12065f6dc8585988700f"
+    },
+    "mutations-v2/retention_removed.log": {
+      "bytes": 2568,
+      "sha256": "0b040284261a6f84acbd70fd3b6d433ff6a0e620d77c7eee7726a89b2312d294"
+    },
+    "mutations-v2/review_debt_erased.log": {
+      "bytes": 690,
+      "sha256": "1c2fa960cd934f1a275178bf63a09067fbb8a728526d520c6c9a966612250c90"
+    },
+    "mutations-v2/unmodified-regressions.log": {
+      "bytes": 99,
+      "sha256": "84eb8fbc13fa271074834cd9bebefb326ed9ba82ad93630e56faa2bb6ee742e3"
+    },
+    "original-replay.json": {
+      "bytes": 2041,
+      "sha256": "c4a46218d1b64c8969381ada40f3331a989ccfe97d1c22224b06b3fea5e2a160"
+    },
+    "previous-bundles-integrity.json": {
+      "bytes": 616,
+      "sha256": "166755435b747e53a0ed33bbdb42feb27e8540879ac64ada5bae0cf8aa0d0033"
+    },
+    "seal_evidence.py": {
+      "bytes": 9666,
+      "sha256": "fae43e895672a55bc522b24fc8d9491614d99bbd4c1d2003551604ec9ed2a7e2"
+    },
+    "secret-scan.json": {
+      "bytes": 29274,
+      "sha256": "dce2b0af46df46f69d3415cdadecda60bacce3bf869ce475091fc9284e91267b"
+    }
+  }
+}

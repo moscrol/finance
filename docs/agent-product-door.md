@@ -71,6 +71,9 @@ Episode 修订组合检查 E 编号是否改指、同 hash 证据语义元数据
 `not_json_object` / `history_missing_comparison` 拒收后被恢复稿替换，早先分析未保留。
 因此端到端保留验收未过，不是全面完成或 8792 已上线；
 [原件、测试收据及未验边界](verification/2026-09-18-research-answer-preservation/README.md)。
+准入前续片 `35ee8a5c` 的固定原件回放现保留四部分原文，仍 partial/unavailable；
+[新工程收据与回放范围](verification/2026-09-18-finish-candidate-preservation/README.md)
+不改原真实会话判定，也不表示跨进程恢复或新版真模型交付已验。
 
 ### 材料题边界（E2，分阶段接线中）
 

@@ -233,6 +233,11 @@
 
 ## Agent Runtime / 预算诊断（2026-08-08）
 
+- **[2026-09-18] 隔离 E2E 只改 `RE06_E2E_PORT`，浏览器仍打默认8794。**
+  服务启动端口与 `research-evolution-binding.spec.ts` 的 `RE06_E2E_URL` 是两个消费点；漏传后出现1F/33P/2S的连接拒绝，不是绑定业务退化。
+  保留失败日志/trace，同步URL到8847后34P/2S，未改判据或启动默认端口。以后换隔离地址同时核启动者与访问者，不能仅据端口空闲推定配置生效。
+  收据见 `docs/verification/2026-09-18-finish-candidate-preservation/README.md`。
+
 - **[2026-08-08] 按 handoff 的诊断（"档位表按更快的 provider 标定，重标定它"）准备动手，差一步就改错了地方。**
   根因：诊断只看了 `ResearchPolicy` 档位表（quick 30 / standard 90 / deep 240），没算实际生效值。真实链路是
   `effective_timeout = min(tier_total, turn − verification_reserve) = min(tier_total, 80)`——`80` 恒为较小者，
