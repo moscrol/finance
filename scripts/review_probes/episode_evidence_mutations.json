@@ -94,7 +94,7 @@
     "id": "evidence_restore_no_legacy_bypass",
     "path": "intelligence/services/episode_restore.py",
     "old": "    if state.evidence_snapshot is None:\n        raise RestoreUnavailable(f\"{episode_id}: recovery evidence snapshot is required\")",
-    "new": "    if state.evidence_snapshot is None:\n        return result(\"resumable\", synth=None, plan=ResumePlan(action=\"model_turn\", phase=\"planning\"), outcome=None, state_after=state)",
+    "new": "    if state.evidence_snapshot is None:\n        return result(\"resumable\", synth=None, plan=ResumePlan(action=\"model_turn\", phase=\"planning\", reason=\"missing-evidence-bypass\"), outcome=None, state_after=state)",
     "targets": ["test_nonterminal_restore_refuses_missing_snapshot_or_cutoff_drift_without_writes"]
   },
   {
