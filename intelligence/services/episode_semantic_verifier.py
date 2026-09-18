@@ -67,6 +67,7 @@ from intelligence.services.episode_answer_hygiene import (
 from intelligence.services.episode_protocol import (
     cited_evidence_ordinals,
     evidence_ordinal_table,
+    strip_evidence_ordinals,
 )
 from intelligence.services.episode_issues import (
     Issue,
@@ -236,6 +237,19 @@ VERDICT_REASON_OUTSIDE_SLOT = "cited_outside_slot_binding"
 _CONDITION_TRIGGER_RE = re.compile(
     r"(?:若|如果|失效|降级|跌破|站稳|至少|"
     r"阈值|支撑|才算成立|才成立)"
+)
+# Equivalent conditions need not say 「若」: table cells and discriminating
+# variables are still threshold claims. Match comparison operators only when
+# followed by a quantity, not Markdown/HTML delimiters or an arrow alone.
+_NUMERIC_COMPARATOR_RE = re.compile(
+    r"(?:[<>≤≥≦≧]=?|不低于|不高于|大于等于|小于等于|低于|高于|超过|大于|小于)\s*[+-]?\d"
+)
+_CONDITION_LABEL_RE = re.compile(
+    r"^(?:区分变量|判断标准|改判条件(?:表)?|证伪条件|触发条件|失效条件|"
+    r"失效信号|降级信号|条件)\s*(?:\d+|[一二三四五六七八九十]+)?\s*[：:=]"
+)
+_CONDITION_HEADING_RE = re.compile(
+    r"(?:区分变量|判断标准|改判条件(?:表)?|证伪条件|触发条件|失效条件|失效信号|降级信号|条件)"
 )
 _LEADING_CONDITION_LABEL_RE = re.compile(
     r"^\s*(?:[-*]\s*)?"
@@ -4204,20 +4218,69 @@ def _novel_numeric_condition_indexes(
 
     rejected: set[int] = set()
     evidence_quantities = _bound_evidence_quantities(verified.outcome)
+    condition_section = False
+    condition_columns: tuple[int, ...] = ()
     for item in sentences:
         index = item.get("index")
         text = str(item.get("text") or "")
         if not isinstance(index, int):
             continue
-        candidate = _DATE_TOKEN_RE.sub("", text)
+        # References remain in the draft for citation validation, but their
+        # ordinals must not trigger a numeric backfill or sentence deletion.
+        candidate = _DATE_TOKEN_RE.sub("", strip_evidence_ordinals(text))
+        # Heading context stops at the next heading; ordinary facts in another
+        # section must not inherit a condition label. Formatting is analysis-only.
+        heading = re.match(
+            r"^(?:#{1,6}\s+([^：:。；;\n]+)(?:[：:]|$)|"
+            r"\*\*(.+?)\*\*(?:\s*[：:]|$)|__(.+?)__(?:\s*[：:]|$))", candidate,
+        )
+        plain_heading = _CONDITION_HEADING_RE.fullmatch(candidate.strip(" ：:"))
+        if heading or plain_heading:
+            title = (
+                next(group for group in heading.groups() if group).strip(" ：:")
+                if heading else plain_heading.group()
+            )
+            condition_section = _CONDITION_HEADING_RE.fullmatch(title) is not None
+            condition_columns = ()
+            candidate = candidate[heading.end():].strip() if heading else ""
+            if not candidate:
+                # A layout heading can itself make a claim. It is not exempt
+                # merely because the author moved the threshold into bold text.
+                candidate = title
         candidate = _LEADING_SECTION_RE.sub("", candidate)
         candidate = _LEADING_LIST_LABEL_RE.sub("", candidate)
+        candidate = candidate.replace("**", "").replace("__", "").lstrip("-* ")
+        labelled = _CONDITION_LABEL_RE.match(candidate) is not None
+        # In a condition matrix check its condition cells, not an unrelated
+        # company code or numeric priority column. Header detection is exact.
+        if candidate.startswith("|") and candidate.endswith("|"):
+            cells = [cell.strip() for cell in candidate.strip("|").split("|")]
+            columns = tuple(i for i, cell in enumerate(cells) if cell in {
+                "变化", "条件", "触发条件", "改判条件", "证伪条件", "失效信号", "区分变量",
+            })
+            if columns and not re.search(r"\d", candidate):
+                condition_columns = columns
+                continue
+            if condition_section and condition_columns:
+                candidate = " | ".join(
+                    cell for i, cell in enumerate(cells)
+                    if i in condition_columns or _CONDITION_TRIGGER_RE.search(cell)
+                    or _NUMERIC_COMPARATOR_RE.search(cell)
+                )
+        else:
+            condition_columns = ()
         candidate = _LEADING_CONDITION_LABEL_RE.sub("", candidate)
         trigger = _CONDITION_TRIGGER_RE.search(candidate)
-        if trigger is None:
+        if not (trigger or labelled or condition_section or _NUMERIC_COMPARATOR_RE.search(candidate)):
             continue
-        if trigger.group(0) in {"若", "如果"}:
-            candidate = candidate[trigger.start() :]
+        if trigger and trigger.group(0) in {"若", "如果"}:
+            # Retain a preceding threshold (「净现比≥0.5，若达到…」), but do
+            # not rope unrelated factual quantities before the condition into it.
+            prefix_comparator = _NUMERIC_COMPARATOR_RE.search(candidate[:trigger.start()])
+            start = prefix_comparator.start() if prefix_comparator else trigger.start()
+            if labelled or condition_section:
+                start = 0
+            candidate = candidate[start:]
         quantities = (
             *_ARABIC_QUANTITY_RE.findall(candidate),
             *_CHINESE_QUANTITY_RE.findall(candidate),
@@ -4516,17 +4579,49 @@ def _evidence_by_ordinal(outcome: AgentOutcome) -> dict[str, object]:
     }
 
 
+# 只识别来源/公告的发布日期断言，不把同句的计划、投产日、预测时点等与 source_date 比。
+# 这是有意收窄的机械门，不是通用日期语义判官：没有可比较的字段/关系就不删句。
+_SOURCE_DATE_SUBJECT = r"(?:该|这[份条篇则]?|上述)?(?:公告|报告|研报|材料|证据|新闻)"
+_SOURCE_DATE_PREDICATE = re.compile(
+    rf"(?:{_SOURCE_DATE_SUBJECT}(?:的)?(?:发布|披露)(?:日期|时间)?"
+    r"|(?<![\w\u4e00-\u9fff])发布日期|来源日期|source_date)"
+    r"(?:为|是|于|：|:)?$"
+)
+_SOURCE_DATE_INVERTED = re.compile(rf"{_SOURCE_DATE_SUBJECT}(?:已)?于$")
+_DATE_NONASSERTION = re.compile(
+    r"[？?]|是否|能否|会否|如果|假如|假设|若|计划|预计|预期|拟|可能|待(?:核|查|补)"
+    r"|(?:并非|不是|并不|没有|尚未|未曾|不曾|不)(?:在|于)?(?:发布|披露|是|为)?"
+)
+
+
+def _asserted_source_dates(text: str) -> frozenset[date]:
+    dates: set[date] = set()
+    # 计划与事实可在同一句中并列，按小句判断，不因出现一个「计划」就豁免整句。
+    for clause in re.split(r"[，,；;。！!\n]", text):
+        compact = re.sub(r"\s+", "", clause)
+        if _DATE_NONASSERTION.search(compact):
+            continue
+        for pattern in (_FULL_ISO_DATE_RE, _FULL_CHINESE_DATE_RE):
+            for match in pattern.finditer(compact):
+                before, after = compact[:match.start()], compact[match.end():]
+                if not (
+                    _SOURCE_DATE_PREDICATE.search(before)
+                    or (_SOURCE_DATE_INVERTED.search(before) and re.match(r"(?:发布|披露)", after))
+                ):
+                    continue
+                dates.update(_full_dates_in(match.group(0)))
+    return frozenset(dates)
+
+
 def _mismatched_evidence_date_indexes(
     sentences: list[dict[str, object]],
     verified: VerifiedEpisodeOutcome,
 ) -> tuple[int, ...]:
-    """Reject a sentence whose full dates all contradict its only cited evidence.
+    """Reject explicit source/publication date claims that contradict source_date.
 
-    #55：判官反复抓到的形状——「第 12 句把 E104 的日期写成 2026-08-21，证据登记的
-    source_date 是 2026-09-11」。机械版刻意保守，只在四个条件同时成立时删句：
-    句子恰好引用**一条** E 且能反解；句内含完整日期；该证据语料（title / detail /
-    source / source_date）也含完整日期；句内**没有任何一个**日期出现在证据语料里。
-    双引、无日期、证据无日期、日期吻合都放过——「只会少算不会多算」。
+    单引 E 且能反解、明确的来源日期事实关系、唯一可解析的 source_date 才判。
+    计划/假设/否定/疑问不作事实断言；其他日期共现既不能定罪，也不能替错误发布日期
+    背书。双引或字段缺失时不猜。这不是日期事实的完备检测器。
     """
 
     by_ordinal = _evidence_by_ordinal(verified.outcome)
@@ -4539,13 +4634,13 @@ def _mismatched_evidence_date_indexes(
         cited = tuple(dict.fromkeys(cited_evidence_ordinals(text)))
         if len(cited) != 1 or cited[0] not in by_ordinal:
             continue
-        stated = _full_dates_in(text)
+        stated = _asserted_source_dates(text)
         if not stated:
             continue
-        known = _full_dates_in(_evidence_corpus(by_ordinal[cited[0]]))
-        if not known:
+        known = _full_dates_in(str(getattr(by_ordinal[cited[0]], "source_date", "") or ""))
+        if len(known) != 1:
             continue
-        if stated.isdisjoint(known):
+        if stated - known:
             rejected.append(index)
     return tuple(rejected)
 
@@ -4627,7 +4722,9 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
                 str(item.source_date or ""),
             )
         )
-    corpus = " ".join(fields)
+    # Evidence prose can cite other cards too: E27 must not authorize a real
+    # threshold of 27 in the answer. Match the answer-side quantity view.
+    corpus = strip_evidence_ordinals(" ".join(fields))
     quantities = {
         _normalize_quantity(quantity)
         for quantity in (

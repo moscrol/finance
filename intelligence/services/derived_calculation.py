@@ -498,7 +498,14 @@ def error_observation(error: CalculationError) -> str:
     if error.code == ERROR_BASE_CALC_NOT_FOUND:
         hint = "检查 inputs_from_calc 的计算编号（回答正文与产物文件名 calc-<id> 里那 16 位），或改为重新取数再算。"
     elif error.retryable_by_rewriting:
-        hint = "改脚本后可重试。"
+        hint = "在本轮剩余预算内改脚本后可重试；未修好时保留独立可信事实并列明计算缺口。"
+        if "table()" in error.detail:
+            hint += (
+                "接口为 table(name, columns, rows, *, unit=None, note=None)："
+                "name/columns/rows 必填，表名用 name，不接受 title。"
+            )
+        elif "chart()" in error.detail:
+            hint += "接口为 chart(name, kind, x, series_by_label, *, unit=None, y_label=None)。"
     else:
         hint = "先用取证工具拿到证据再来计算。"
     return (
@@ -529,6 +536,11 @@ def to_tool_result(outcome: DerivedCalculation | CalculationError) -> ToolRunRes
                 )[:400],
                 result_count=0,
             ),
+            gaps=(error_observation(outcome),),
+            telemetry={"calculation_error": {
+                "code": outcome.code, "detail": outcome.detail,
+                "retryable_by_rewriting": outcome.retryable_by_rewriting,
+            }},
         )
     return ToolRunResult(
         evidence=(derived_evidence(outcome),),
@@ -625,6 +637,10 @@ def bind_derived_calculation_tool(
     """
 
     loader = calc_loader or load_calculation_record
+    # Run artifacts are written only when the turn closes. Keep successful
+    # products in this episode's binding, so inputs_from_calc can work *before*
+    # then. No global/user cache, no new fetch, no change to the granted budget.
+    records: dict[str, dict[str, object]] = {}
 
     def runner(args_json: str, tool_context: AgentToolContext) -> ToolRunResult:
         args = json.loads(args_json)
@@ -636,12 +652,14 @@ def bind_derived_calculation_tool(
         prior_inputs: Sequence[Mapping[str, object]] = ()
         base_calc_id = str(args.get("inputs_from_calc") or "").strip() or None
         if base_calc_id:
-            record = loader(base_calc_id)
+            record = records.get(base_calc_id)
+            if record is None:
+                record = loader(base_calc_id)
             if record is None:
                 return to_tool_result(
                     CalculationError(
                         ERROR_BASE_CALC_NOT_FOUND,
-                        f"找不到计算编号 {base_calc_id} 的记录（只有已完成回合落盘的计算能沿用）",
+                        f"找不到计算编号 {base_calc_id} 的记录（本研究会话成功产物及本用户已落盘计算均未命中）",
                     )
                 )
             if not script:
@@ -668,6 +686,8 @@ def bind_derived_calculation_tool(
             base_calc_id=base_calc_id,
         )
         tool_context.check_cancelled()
+        if isinstance(outcome, DerivedCalculation):
+            records[outcome.calc_id] = calculation_record(outcome)
         return to_tool_result(outcome)
 
     return derived_calculation_tool_spec(runner)
