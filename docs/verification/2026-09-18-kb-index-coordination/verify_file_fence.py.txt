@@ -1,0 +1,52 @@
+"""Read-only production-fence checks; write-intent open does NOT truncate.
+
+Actual destructive operations are only tested in probe_file_fence.py fixtures.
+The production probe opens existing files with O_WRONLY (no O_TRUNC/O_CREAT),
+then closes any unexpectedly obtained descriptor without writing and fails.
+"""
+import datetime as dt
+import errno
+import hashlib
+import json
+import os
+from pathlib import Path
+import stat
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+journal = json.loads((ROOT / 'evidence/production-file-fence.json').read_text())
+assert journal['status'] == 'fenced'
+checks = []
+for item in journal['entries']:
+    path = Path(item['path'])
+    info = path.stat()
+    assert (info.st_dev, info.st_ino) == (item['device'], item['inode'])
+    assert info.st_flags == (item['flags'] | stat.UF_IMMUTABLE)
+    if item['sha256'] is None:
+        continue
+    with path.open('rb') as stream:
+        assert hashlib.file_digest(stream, 'sha256').hexdigest() == item['sha256']
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_NOFOLLOW)
+    except OSError as exc:
+        assert exc.errno in (errno.EPERM, errno.EACCES)
+        checks.append({'path': item['path'], 'write_open_blocked': True, 'errno': exc.errno})
+    else:
+        os.close(fd)
+        raise AssertionError(f'write open not blocked: {path}')
+health = subprocess.check_output(['curl', '-fsS', '--max-time', '10',
+                                 'http://127.0.0.1:8792/api/health'], text=True)
+payload = json.loads(health)
+assert payload['runtime']['source_revision'] == 'bf662e9310ff751a4c31763815ee78fb7d6d5122'
+assert payload['runtime']['code_matches_repo'] and not payload['runtime']['source_dirty']
+(ROOT / 'evidence/health-with-file-fence.json').write_text(health)
+report = {'observed_at': dt.datetime.now(dt.timezone.utc).isoformat(),
+          'status': 'pass', 'existing_file_bytes_unchanged': len(checks),
+          'write_open_checks': checks, 'service_revision': payload['runtime']['source_revision'],
+          'api_health': payload['status'],
+          'scope': 'local indexed files, not remote publish or knowledge source content'}
+output = ROOT / 'evidence' / (sys.argv[1] if len(sys.argv) > 1 else 'file-fence-verification.json')
+assert output.parent == ROOT / 'evidence'
+output.write_text(json.dumps(report, indent=2, ensure_ascii=False))
+print(json.dumps({k: v for k, v in report.items() if k != 'write_open_checks'}, ensure_ascii=False))

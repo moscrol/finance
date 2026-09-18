@@ -1,0 +1,30 @@
+{
+  "finished_at": "2026-09-18T14:20:05.969703+00:00",
+  "status": "pass",
+  "code": "/Users/a77/knowledge-base-private/scripts/rag_index.py",
+  "mode": "bm25",
+  "only_override": "access log path",
+  "results": [
+    {
+      "index": ".rag_index",
+      "exit_code": 0,
+      "hits": 3,
+      "index_freshness": [
+        "fresh",
+        "fresh",
+        "fresh"
+      ]
+    },
+    {
+      "index": ".rag_index_full",
+      "exit_code": 0,
+      "hits": 3,
+      "index_freshness": [
+        "fresh",
+        "fresh",
+        "fresh"
+      ]
+    }
+  ],
+  "claim": "fence permits installed query reads; not migrated quality"
+}

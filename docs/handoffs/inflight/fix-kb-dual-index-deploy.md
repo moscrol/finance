@@ -1,29 +1,31 @@
-# KB双索引部署 · 2026-09-18 21:40 · 并发写者阻断
+# KB双索引部署 · 2026-09-18 22:23 · 写者已协调、验收未过
 
 ## 这个分支做什么
-从已验main接手双索引迁移/8792部署；代码与资料根分离，先验副本再切消费者。
+隔离双索引迁移+8792部署接线；不碰共享脏正文。
 
 ## 当前状态
-代码c0fa49cf+d95d4921已提交，未push/合/部署。8792仍bf662e9310ff。
-**停在用户协调**：另一Cursor进程41455在主KB直跑publish_rag_index.py --build --clobber，生产两索引hash已变化。未杀对方、未覆盖其产物。共享脏正文/冲突未动。
-本轮已安装3个post-*维护暂停包装（原钩子备份），但direct build/publish不受它们保护。当前不会自动恢复钩子。
+代码c0fa49cf/d95d4921、旧交接ac75a374已提交；未push/合/部署。8792仍bf662e9310ff。
+用户授权本会话协调。原发布41455实际来自Grok Bot父22475，非Cursor；22:04已正常完成退出，无进程被杀。“待用户关Cursor”撤销并已落纠偏。
+两个生产索引目录+24文件已加macOS uchg防写；三post-*仍skip。Grok Bot/8792未停；staging后台仍运行。
 
 ## 决策与被否方案
-- 冻结KB91725ea9b代码+资料副本+双索引副本；不拉共享脏树、不原地热部署。
-- 新KB_RAG_CODE_ROOT及worker资料参数接prewarm/probe/CLI；KB_RAG_FULL_INDEX_DIR防新旧索引混用。
-- 冲突页继续隔离；不为health绿删marker。不擅自终止另一个发布会话。
-- 详情：`docs/handoffs/2026-09-18-kb-dual-index-deploy-blocked.md`。
+- 不杀整个应用、不覆盖对方已发布产物；临时文件防写保护本机目标，读取不变。
+- 不把新防写窗口基线代替旧基线；原production-hash失败保留。
+- 正文冲突继续隔离，不删除marker洗白。
+- 本轮更正/回退：`docs/handoffs/2026-09-18-kb-index-writer-coordination.md`。
 
 ## 已验证
-真实钩子6次调用窗口18份索引hash不变（仅该窗口）。普通副本：168861向量复用/0重嵌/774移除，metadata v1，14434入库+14隔离=14448应选，无缺口，全部向量非零归一。health仍degraded（隔离债务）。旧代码新回归4红；候选定向81P、原pre-commit绿。
+固定d95d后端11486P/73S/2xf，收据check严格匹配；前端107P、lint/typecheck/build、Ruff/registry绿。
+**E2E31P/3F/2S，all.exit=1，禁止上线**：desktop/mobile报告按钮缺失，tablet追问消息未显示。
+普通副本168861向量、14434页+14隔离=14448，无缺口。fence临时6类写拒绝；生产24文件O_WRONLY拒绝、字节未变；原CLI双索引各3 fresh命中，8792健康不换版。
 
 ## 未验证 / 已知边界
-普通验收脚本最终production-hash断言失败，整体exit1，不能报整条通过。全文真实BGE仍运行；固定d95d完整门禁也在跑，尚无全量结论。无新消费者BGE/8792真入口验收，不代表答案质量改善。
+全文迁移尚未完；未验新消费者真实BGE/8792。uchg是同用户可主动解除的本地防误写，不封Gitea发布或资料编辑，不是全系统互斥。新代码未合，历史14页冲突未解。
 
 ## 下一步
-1. 用户协调direct publisher交接，核全写入口保护；不要自动恢复旧hook。
-2. 现场根`~/.finance-runtime/kb-dual-index-20260918/`：migration.pid(40354)、gate.pid(47887)，先核进程身份。两后台均仅副本/测试，无自动提升。看evidence/migration-results.json、rag_index_full-update.log和gate-receipts/{runner.log,all.exit}。
-3. 核双索引覆盖/字段/隔离、源码与资料新鲜度，完整门禁并获用户合并确认后才准备切8792。保留旧服务/索引，不代解14页。
+1. 现场OP=`~/.finance-runtime/kb-dual-index-20260918`。migration.pid父40354/子41233（先核身份）；evidence/rag_index_full-update.log、migration-results.json。没有自动提升。
+2. 查E2E3红，原件gate-receipts/e2e.txt与gate/.../webapp/test-results。门禁已结束，不再是后台待跑。
+3. 双索引覆盖/新鲜度/隔离与消费者验过、用户确认合并后才准备切换。
 
 ## 踩过的坑
-hook锁不是全写者锁。source哈希清单含dirty事实，git SHA不能代替。c0fa第一轮全量为补full接线主动中断，不算通过。三钩子原件见现场evidence/post-*.before；切换前必须重新核生产基线。
+进程身份查父链，不读模板标记猜应用。防写原flags/哈希见OP/evidence/production-file-fence.json；解除仅走fence_production_indexes.py --restore-original-flags <日记>（未执行）。不要递归清uchg或恢复旧hook；共享.git/kb-index-maintenance.json有通知。正常双索引维护入口仍待部署。
