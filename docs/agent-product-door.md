@@ -114,6 +114,10 @@ Episode 修订组合检查 E 编号是否改指、同 hash 证据语义元数据
 `SemanticEpisodeVerifier` 保留全文、公开具体批注、私有产物记 `evidence_claim_findings`；
 已有同会话修订入口收到原句＋原因，沿既有预算决定是否执行，不新授额度。
 老稿仍在且存疑时不因补稿或判官通过自动升格；修复证明与自然金融质量另验。
+`cdcbc5a8`的干净完整工程及11项撤保护通过；同一封存原件离线保留2096字/122证据，
+终稿8条发现覆盖7类，仍partial/rejected。诊断不把后续窗口与窗口内均值混比，
+子集/未知格式不强判。本轮新live=0，旧not_passed不改，未部署；
+[离线返修收据与覆盖边界](verification/2026-09-19-draft-claim-repair/README.md)。
 
 ### 材料题边界（E2，分阶段接线中）
 

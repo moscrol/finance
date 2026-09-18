@@ -1,0 +1,497 @@
+{
+  "schema": "layout-and-claim-repair-acceptance/v1",
+  "at": "2026-09-18T18:16:25.986391+00:00",
+  "revision": "cdcbc5a82b37e0cecc0640f3c8da77d3a6f64881",
+  "engineering_all_green": true,
+  "engineering": {
+    "revision": "cdcbc5a82b37e0cecc0640f3c8da77d3a6f64881",
+    "revision_after": "cdcbc5a82b37e0cecc0640f3c8da77d3a6f64881",
+    "dirty_after": "",
+    "leaves": {
+      "python": {
+        "ruff": {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "-m",
+            "ruff",
+            "check",
+            "."
+          ],
+          "cwd": "/Users/a77/fwp-wt-research-answer-preservation",
+          "started_at": "2026-09-18T17:50:51.693064+00:00",
+          "finished_at": "2026-09-18T17:50:51.776061+00:00",
+          "exit": 0,
+          "log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        "pytest": {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "-m",
+            "pytest",
+            "-q"
+          ],
+          "cwd": "/Users/a77/fwp-wt-research-answer-preservation",
+          "started_at": "2026-09-18T17:50:51.776415+00:00",
+          "finished_at": "2026-09-18T18:09:57.593041+00:00",
+          "exit": 0,
+          "log_sha256": "9dca3e8c79b9f12524bace5d9f05f4d5460b04b25d699a5f8934394c01d50d3e"
+        },
+        "receipt_check": {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "scripts/check_test_receipt.py",
+            "/Users/a77/.finance-runtime/test-receipts/20260918T180956Z-cdcbc5a8.json",
+            "--expect-revision",
+            "cdcbc5a82b37e0cecc0640f3c8da77d3a6f64881"
+          ],
+          "cwd": "/Users/a77/fwp-wt-research-answer-preservation",
+          "started_at": "2026-09-18T18:09:57.594116+00:00",
+          "finished_at": "2026-09-18T18:09:57.789506+00:00",
+          "exit": 0,
+          "log_sha256": "96e3b39f79f5dc85ffb12cf8a670e2b9e9b1c61242f2b27ee9b95d7b108ca51c"
+        }
+      },
+      "frontend": {
+        "lint": {
+          "command": [
+            "pnpm",
+            "lint"
+          ],
+          "cwd": "/Users/a77/fwp-wt-research-answer-preservation/intelligence/webapp",
+          "started_at": "2026-09-18T17:50:51.693377+00:00",
+          "finished_at": "2026-09-18T17:50:54.519118+00:00",
+          "exit": 0,
+          "log_sha256": "885e1db4f6394cc50f7be24fdf4f5589de86ddd06495477d2f678039af79a0e9"
+        },
+        "typecheck": {
+          "command": [
+            "pnpm",
+            "typecheck"
+          ],
+          "cwd": "/Users/a77/fwp-wt-research-answer-preservation/intelligence/webapp",
+          "started_at": "2026-09-18T17:50:54.519418+00:00",
+          "finished_at": "2026-09-18T17:50:58.447372+00:00",
+          "exit": 0,
+          "log_sha256": "c4cbb0b66f5f351dd222c0f17d01ec292d8284c9b9d4f1bfd742459d47adb8ea"
+        },
+        "test": {
+          "command": [
+            "pnpm",
+            "test"
+          ],
+          "cwd": "/Users/a77/fwp-wt-research-answer-preservation/intelligence/webapp",
+          "started_at": "2026-09-18T17:50:58.447751+00:00",
+          "finished_at": "2026-09-18T17:51:05.725718+00:00",
+          "exit": 0,
+          "log_sha256": "baf0398c671448678008a10cafe78827b6956f1fd633becc416e3c94592bd321"
+        },
+        "build": {
+          "command": [
+            "pnpm",
+            "build"
+          ],
+          "cwd": "/Users/a77/fwp-wt-research-answer-preservation/intelligence/webapp",
+          "started_at": "2026-09-18T17:51:05.726108+00:00",
+          "finished_at": "2026-09-18T17:51:12.733933+00:00",
+          "exit": 0,
+          "log_sha256": "30b40f93f92fec00a8924688bc174ab42b987674ffa6c892ab7b6158a0edddfc"
+        },
+        "e2e": {
+          "command": [
+            "pnpm",
+            "test:e2e"
+          ],
+          "cwd": "/Users/a77/fwp-wt-research-answer-preservation/intelligence/webapp",
+          "started_at": "2026-09-18T17:51:12.734373+00:00",
+          "finished_at": "2026-09-18T17:53:47.363172+00:00",
+          "exit": 0,
+          "log_sha256": "0e6eca48e6bd39ca3c587248562dc57f555aed614ee280171f80b94afff5c8be"
+        }
+      },
+      "registry": {
+        "check-parseability": {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "scripts/build_registry.py",
+            "check-parseability"
+          ],
+          "cwd": "/Users/a77/fwp-wt-research-answer-preservation",
+          "started_at": "2026-09-18T17:50:51.694637+00:00",
+          "finished_at": "2026-09-18T17:50:51.835876+00:00",
+          "exit": 0,
+          "log_sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+        },
+        "check": {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "scripts/build_registry.py",
+            "check"
+          ],
+          "cwd": "/Users/a77/fwp-wt-research-answer-preservation",
+          "started_at": "2026-09-18T17:50:51.836282+00:00",
+          "finished_at": "2026-09-18T17:50:51.984062+00:00",
+          "exit": 0,
+          "log_sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+        },
+        "backfill-tables": {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "scripts/build_registry.py",
+            "backfill-tables",
+            "--check"
+          ],
+          "cwd": "/Users/a77/fwp-wt-research-answer-preservation",
+          "started_at": "2026-09-18T17:50:51.984464+00:00",
+          "finished_at": "2026-09-18T17:50:52.120746+00:00",
+          "exit": 0,
+          "log_sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+        },
+        "generate-views": {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "scripts/build_registry.py",
+            "generate-views",
+            "--check"
+          ],
+          "cwd": "/Users/a77/fwp-wt-research-answer-preservation",
+          "started_at": "2026-09-18T17:50:52.121070+00:00",
+          "finished_at": "2026-09-18T17:50:52.202701+00:00",
+          "exit": 0,
+          "log_sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+        }
+      }
+    },
+    "all_green": true
+  },
+  "pytest_receipt": {
+    "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "python_version": "3.12.13",
+    "dependency_fingerprint": "3328bed61f3e21ea",
+    "tree": "/Users/a77/fwp-wt-research-answer-preservation",
+    "revision": "cdcbc5a82b37e0cecc0640f3c8da77d3a6f64881",
+    "branch": "feat/research-answer-preservation",
+    "dirty": false,
+    "dirty_paths": [],
+    "worktree_dirty_total": 0,
+    "dependency_gate_bypassed": false,
+    "target": "/Users/a77/fwp-wt-research-answer-preservation",
+    "counts": {
+      "passed": 11769,
+      "failed": 0,
+      "error": 0,
+      "skipped": 81
+    },
+    "failed_ids": [],
+    "exit_status": 0,
+    "finished_at": "2026-09-18T18:09:56+00:00"
+  },
+  "engineering_counts": {
+    "pytest": {
+      "passed": 11769,
+      "skipped": 81,
+      "xfailed": 2
+    },
+    "frontend_passed": 115,
+    "e2e": {
+      "passed": 34,
+      "skipped": 2
+    }
+  },
+  "engineering_log_hashes_verified": true,
+  "interrupted_prior": {
+    "revision": "4d541a907e1207d9c72979ac909563bfba756e7c",
+    "reason": "author counterexample: forward-horizon minimum compared against in-window minimum; stop before new edits",
+    "signal": "SIGINT ignored by background child; SIGTERM stopped owned pytest PID 11173",
+    "full_receipt": false,
+    "engineering_all_green": false
+  },
+  "offline": {
+    "source": {
+      "bytes": 2139937,
+      "sha256": "02f536171512cb2c7fb0bf30e86f1243ba22f50c5ac1e566d3035b153e5dbd68"
+    },
+    "first_draft_chars": 2096,
+    "retained_count": 1,
+    "evidence_count": 122,
+    "findings": [
+      {
+        "sentence_index": 1,
+        "code": "uncalibrated_win_rate",
+        "message": "胜率判断未给分母、条件和验证方法；请提供校准依据，或改为明确的主观倾向，不以小样本类比代替胜率。",
+        "evidence_ids": []
+      },
+      {
+        "sentence_index": 15,
+        "code": "entity_metric_mismatch",
+        "message": "所写PCB的-1.19%在本轮所引数据中属于PCB概念；请区分板块全名、日期和来源，不自动合并同名或近名板块。",
+        "evidence_ids": [
+          "E18"
+        ]
+      },
+      {
+        "sentence_index": 24,
+        "code": "endpoint_not_path",
+        "message": "相似窗口表只给期末收益，未给区间价格路径或最大回撤；不能据此断言期间没有下跌。",
+        "evidence_ids": [
+          "E1"
+        ]
+      },
+      {
+        "sentence_index": 24,
+        "code": "historical_contraction",
+        "message": "2025-08-26~2025-09-22窗口涨停均值62家，随后窗口日均有54家；“涨停不收缩”不符合该表，不能用连板高度代替涨停家数。",
+        "evidence_ids": [
+          "E1"
+        ]
+      },
+      {
+        "sentence_index": 36,
+        "code": "source_caliber_conflict",
+        "message": "PCB与PCB概念不能直接视为同一实体；后者不同来源涨停数为0、3，需分别注明来源口径。",
+        "evidence_ids": [
+          "E18",
+          "E94"
+        ]
+      },
+      {
+        "sentence_index": 36,
+        "code": "uncalibrated_watch_threshold",
+        "message": "观察阈值未说明校准依据；若是主观设定，请在该条件旁标为待验证观察假设，不能因相同数字出现在行情卡上就称阈值已验证。",
+        "evidence_ids": []
+      },
+      {
+        "sentence_index": 38,
+        "code": "uncalibrated_watch_threshold",
+        "message": "观察阈值未说明校准依据；若是主观设定，请在该条件旁标为待验证观察假设，不能因相同数字出现在行情卡上就称阈值已验证。",
+        "evidence_ids": []
+      },
+      {
+        "sentence_index": 39,
+        "code": "historical_window_minimum",
+        "message": "该相似窗口表的双红题材均值下限为8个，不是12个；仅限表内3段窗口，不能外推总体下限。",
+        "evidence_ids": [
+          "E1"
+        ]
+      }
+    ],
+    "crossed_expectations": [
+      {
+        "name": "old-missing",
+        "expected_exit": 0,
+        "exit": 0
+      },
+      {
+        "name": "old-repaired",
+        "expected_exit": 1,
+        "exit": 1
+      },
+      {
+        "name": "new-repaired",
+        "expected_exit": 0,
+        "exit": 0
+      },
+      {
+        "name": "new-missing",
+        "expected_exit": 1,
+        "exit": 1
+      }
+    ],
+    "prior_seams": [
+      {
+        "name": "historical-progress",
+        "exit": 0
+      },
+      {
+        "name": "prior-preservation",
+        "exit": 0
+      },
+      {
+        "name": "rag-framing",
+        "exit": 0
+      }
+    ]
+  },
+  "mutations": {
+    "revision": "cdcbc5a82b37e0cecc0640f3c8da77d3a6f64881",
+    "mutations": [
+      {
+        "name": "confuse-forward-window",
+        "selection": "correct_or_explicitly",
+        "exit": 1,
+        "log_sha256": "2660fd616802d38797e3ea5daf42e29f35297947d15e1fa25b1114b45674a55e"
+      },
+      {
+        "name": "no-layout-retention",
+        "selection": "retain_layout_only",
+        "exit": 1,
+        "log_sha256": "a5fa7b1a5ae9706669aa1f3fc745ed17eb4a9eeeca768e43f6e2a894f6c016bf"
+      },
+      {
+        "name": "relax-all-values",
+        "selection": "salvage",
+        "exit": 1,
+        "log_sha256": "40a76f5f2dc2429f3448a02e03d44b30c974f105a48aefb643bfba27bc82a29b"
+      },
+      {
+        "name": "skip-candidate-identity",
+        "selection": "salvage",
+        "exit": 1,
+        "log_sha256": "69578ad42b0a3f416a494c3100c27927dcbb3f2c29fcdf5f3bda4be3b6c2f235"
+      },
+      {
+        "name": "no-claim-review",
+        "selection": "specific_findings",
+        "exit": 1,
+        "log_sha256": "c33d6713c1d6b430a3b85321dba538bf00a4fd6b352d5994be0e3c85200ac238"
+      },
+      {
+        "name": "judge-overrides-findings",
+        "selection": "specific_findings",
+        "exit": 1,
+        "log_sha256": "4fe017de34fc024af84bc5ab0f1c89da2901a2913cb2661a257b19d0f6ad8b4d"
+      },
+      {
+        "name": "no-repair-signal",
+        "selection": "adapter_sends",
+        "exit": 1,
+        "log_sha256": "36ca7ff53022efcd86b8f9f73a32d5a57c1fe374014e31fcf122aaa34b2f601f"
+      },
+      {
+        "name": "drop-feedback-reason",
+        "selection": "adapter_sends",
+        "exit": 1,
+        "log_sha256": "905695e9f13da3b120844c7ef4cc130b005e8fd8f07f4a8fe5d4b74dc8330be4"
+      },
+      {
+        "name": "hardcode-window-minimum",
+        "selection": "changed_values",
+        "exit": 1,
+        "log_sha256": "ca22dddfaffe2047784ac0a3856673590fc751f1aca3f3ff9cd652c794d537bb"
+      },
+      {
+        "name": "uncited-value-washes-identity",
+        "selection": "respects_cited",
+        "exit": 1,
+        "log_sha256": "b7f244c7800e5f944d886e286ee9ca810425811799ea2d91c1c100076d04f0da"
+      },
+      {
+        "name": "no-source-shape-check",
+        "selection": "uninterpretable",
+        "exit": 1,
+        "log_sha256": "34e681363c3c1a54b48b812581d50be59e4267179858f9349dcfe48c5d07e361"
+      }
+    ],
+    "all_mutations_killed": true,
+    "restored_exit": 0,
+    "dirty_after": "",
+    "independent_qc": false,
+    "live_calls": 0
+  },
+  "previous_bundles": [
+    {
+      "folder": "research-answer-preservation-20260918",
+      "files": 214,
+      "manifest_sha256": "e948a9a3a466d316a026a6b6e75e79a2319fc42fb166aba863e7a060b7355a7f",
+      "unchanged": true
+    },
+    {
+      "folder": "research-components-react-20260918",
+      "files": 44,
+      "manifest_sha256": "c659c462796b2c540de8edc6e4780c4bb608f341adf6b7a6ebf638ba4a861329",
+      "unchanged": true
+    },
+    {
+      "folder": "research-candidate-preservation-20260918",
+      "files": 90,
+      "manifest_sha256": "e42627f3bbdd527690e1b02616037fecc083c73703fa9f9e4147985066c7c96a",
+      "unchanged": true
+    },
+    {
+      "folder": "research-candidate-live-20260918",
+      "files": 6,
+      "manifest_sha256": "f70d225f83af608238c9220b2ec6f953eba6de44e15b81b89cadca5d1de7d31f",
+      "unchanged": true
+    },
+    {
+      "folder": "research-candidate-glm-live-20260918",
+      "files": 82,
+      "manifest_sha256": "ac3fcf713460f2363ac96b3c9efb597ce3c34b81ed042db98a28db7f1b00f855",
+      "unchanged": true
+    },
+    {
+      "folder": "research-progress-repair-20260918",
+      "files": 296,
+      "manifest_sha256": "d46b8db3c5c9cb3548d2a70ed7e869338c1d3e9e56b46fc808738afe41b4a9b2",
+      "unchanged": true
+    },
+    {
+      "folder": "research-publication-repair-20260918",
+      "files": 338,
+      "manifest_sha256": "d4a7d5fdeda06bafc702c22dbd93969d70468ac3b5709ae11bd1ae810ddf828d",
+      "unchanged": true
+    },
+    {
+      "folder": "research-publication-live-20260918",
+      "files": 341,
+      "manifest_sha256": "8ed34ffe865a5c3c7eae2b2d1939ecc6eed923cc7ce5c3d682a3b3f12bfd03b1",
+      "unchanged": true
+    },
+    {
+      "folder": "research-rag-framing-repair-20260919",
+      "files": 423,
+      "manifest_sha256": "877af81dfbabec17eba778faa14f364aca22a801bdd958a614dbd7c6afe6b720",
+      "unchanged": true
+    }
+  ],
+  "closure": {
+    "at": "2026-09-18T18:16:25.986101+00:00",
+    "production_identity_vs_prior": {
+      "source_revision": true,
+      "source_dirty": true,
+      "loaded_code_root": true,
+      "loaded_tree_fingerprint": true,
+      "code_matches_repo": true,
+      "users_dir": true,
+      "agent_runtime": true
+    },
+    "launcher_unchanged": true,
+    "ports_listening": {
+      "8849": false,
+      "8851": false,
+      "8852": false
+    },
+    "live_lock_absent": true,
+    "production_revision": "bf662e9310ff751a4c31763815ee78fb7d6d5122",
+    "new_live_submissions": 0,
+    "credential_reads": 0,
+    "model_calls": 0,
+    "production_writes": false,
+    "scope": "read-only health and launcher digest; E2E isolated paths; no full OS sandbox or global filesystem immutability claim"
+  },
+  "new_live": {
+    "submissions": 0,
+    "resubmissions": 0,
+    "followups": 0,
+    "acceptance": "not_run",
+    "reason": "this scope implements and validates offline repair; natural correction and quality unproven"
+  },
+  "old_live_verdicts": "all remain not_passed; no replay rewrites source verdicts",
+  "independent_qc": false,
+  "push": false,
+  "merge": false,
+  "deployment": false,
+  "limits": [
+    "diagnostics cover specific observed local projection formats, not arbitrary financial prose",
+    "unknown layouts, scoped/named/forward-window minima and explicit calibration claims remain semantic review tasks",
+    "candidate retention remains in-process; complete strict identity validation is still required",
+    "original erroneous claims stay flagged even after an appended correction; no automatic quality promotion"
+  ],
+  "archive": {
+    "root": "/Users/a77/.finance-runtime/reviews/research-draft-claim-repair-20260919",
+    "manifest": "/Users/a77/.finance-runtime/reviews/research-draft-claim-repair-20260919/artifact-index.json",
+    "manifest_bytes": 142036,
+    "manifest_sha256": "bd265e79206fb4d6de028c1e94f86e3337423fe592b9b84e7d25c8ba7f9a14c4",
+    "files": 748,
+    "total_bytes": 21659513
+  }
+}

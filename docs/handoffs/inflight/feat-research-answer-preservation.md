@@ -1,31 +1,30 @@
-# 研究答案保留｜2026-09-19
+# 研究答案保留｜2026-09-19离线返修收口
 
 ## 这个分支做什么
-同任务安全分析不因普通格式/质量问题整段删除；保留、准入、核验与交付分账。
+同任务安全分析不因格式/质量问题整段删除；保留、准入、核验、交付分账。
 
 ## 决策与被否方案
-- Mapping只在JSON投影边界复制；终态claim与publication分离，不挪claim/不sleep。
-- RAG用非阻塞字节读＋显式换行缓冲；不加timeout，不用诊断逐字节reader。半行首次放弃保留，新进程清状态。
-- 自然重写不算系统保稿，同源judge通过不代签金融质量。
-详见`docs/handoffs/2026-09-19-rag-framing-and-glm-live.md`。
+- 仅顶层draft恢复LF/CR/TAB；否全局strict=False/猜引号，正式finish仍严格拒收。
+- 已绑定D10/D4/finance_query做有限诊断；原文＋批注＋原会话修订，不删稿，不额外授预算。
+- 判官passed不能盖过机械发现，补稿不能洗白仍在的错误原文。
+详见`docs/handoffs/2026-09-19-draft-claim-offline-repair.md`。
 
 ## 当前状态
-修复20939b18已提交，**干净完整工程全绿**。隔离8849新GLM首发1/重发0/续问0已结束：run=`run_20260919_002806_645542`，completed/published，2137字公开答案、报告partial。但**整体not_passed**：系统保稿未证明，正文存在可核对质量问题。
-R=`~/.finance-runtime/reviews/research-rag-framing-repair-20260919/`，423文件封存。服务PID34684已停，8849/8851/8852不监听、无锁；生产bf662e9310ff/启动器/行情未变。未push/合main/部署。
+4d541a90实现、cdcbc5a8收窄统计范围均已提交；**cdcbc精确干净完整工程全绿**。本轮离线返修已收尾，新live0，无后台检查/服务待收取。旧三个实际样本仍not_passed。
+R=`~/.finance-runtime/reviews/research-draft-claim-repair-20260919/`，748文件封存；根层含4d中止轮，final/才是cdcbc最终轮。8792仍bf662e9310ff、启动器不变；8849/8851/8852无监听、无锁。未push/合main/部署。
 
 ## 未验证 / 已知边界
-- turn13含未转义换行的JSON→not_json_object，candidate=None/retained=0；turn14模型自行改格式，draft2096→2094字仅两替换、绑定/refs不变。不能称机制保稿成功。
-- 作者审查：E1双红均值12/13/8却写下限12；终点正收益外推区间无下跌；PCB/PCB概念与D4/题材热度口径未解释；未校准阈值。产品judge passed是同源自审。
-- 缺entity_codes后补全有compute结果，但4次find_analogues窗口错误没修好。原缺end未触发；主Episode无kb_search，RAG双响应只离线压到。
-- 候选/发布跨进程恢复未实现，旧失败用量/durable未修。KB/web在线未冻结，非严格A/B。旧两live仍not_passed。
+- 仅证明保稿/七类有限发现/修订反馈通路；未证明真实模型自然改对，无独立金融QC。
+- 未知投影、明确校准声明的真实性仍靠语义核验；子集/前瞻窗口不强套全表均值下限。
+- 历史find_analogues参考窗口纠参未修；候选/发布跨进程恢复、旧用量/durable不一致未修。
+- 上轮209 live是published/partial但质量未过；该轮retained0事实不变，本轮retained1仅离线。
 
 ## 下一步
-1. 用封存turn13单独设计畸形格式候选保留，安全/身份门不撤；不要把诊断strict=False或任意截JSON直接放进准入。
-2. 历史窗口纠参、统计外推、同名多口径分开修，不删全文掩盖问题。
-3. 再有修复需新精确门禁＋新的有界live授权；本样本不重发。合main/部署仍另确认。
+本轮无需再跑/封存。若继续产品验收，先明确新的有界live授权与验收范围、新建证据根；不重发旧样本。合流/上线另确认，当前收据不覆盖后续revision。共享harness的BUILD.md他人在途，KIT/TOOLKIT登记暂缓，勿覆盖。
 
 ## 已验证
-20939b18：11703P/81S/2X，前端115P、E2E34P/2S，ruff/registry绿，收据20260918T162610Z-20939b18。69项定向、六撤保护均承重，旧44证据与保稿回放过。真模型14轮、16工具=11结果+5错误，97旧证据hash保留至122条。公开7产物hash/身份匹配。
+cdcbc：11769P/81S/2X，前端115P、E2E34P/2S，ruff/registry/收据校验绿；收据20260918T180956Z-cdcbc5a8。11撤保护各exit1，恢复66P。
+封存原件2096字provider失败后仍保留、retained1/122证据不变，正式finish仍not_json_object；终稿8条发现覆盖7类、原稿不删且partial/rejected。旧新代码交叉期待承重；原Mapping/早期保稿/RAG回放过；9旧包逐文件不变。
 
 ## 踩过的坑
-首次审查误把私有episode要求进公开列表，exit1保留后纠正；扫描14词形核销未决0≠全包零命中。旧全量/旧live失败不翻案，工程收据不移绑文档tip。
+4d把后续5日与窗口内均值混比，主动中止pytest=-15/无完整收据，不拼绿；两次-k空选择exit5不算反例，正确3F后才修。扫描18模块词形精确核销≠全包零命中。工程绿/离线机制启用≠自然金融质量通过，收据不移绑文档tip。
