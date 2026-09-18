@@ -368,6 +368,14 @@ def restore_episode(
     if state.terminal or any(e.kind == "finish" for e in events):
         return result("already_terminal", synth=None, plan=None, outcome=None, state_after=state)
 
+    # P1a stores linked episodes, but no driver yet restores their shared budget,
+    # branch delivery/ownership and in-flight effects together. Refuse BEFORE
+    # synthesizing events; a standalone retry would mint a second child tree.
+    if state.contract_snapshot.get("branch_parent") or any(
+        event.kind == "branch_started" for event in events
+    ):
+        raise RestoreUnavailable(f"{episode_id}: linked episode recovery requires child reconciliation")
+
     synth = _Synthesizer(
         episode_id=episode_id,
         store=store,

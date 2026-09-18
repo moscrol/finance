@@ -27,7 +27,7 @@ dsh 追加式 ``SessionEvent`` 日志。搬的是不变量，不搬 SQLite 事�
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 import hashlib
@@ -50,6 +50,8 @@ __all__ = [
     "EpisodePhase",
     "EpisodeState",
     "EpisodeStore",
+    "FencedEpisodeStore",
+    "EpisodeStoreFailed",
     "INTENT_KINDS",
     "JsonlEpisodeStore",
     "MemoryEpisodeStore",
@@ -72,7 +74,7 @@ EPISODE_PHASES: frozenset[str] = frozenset(
 
 # 意图类事件：外部效果（模型请求 / 工具执行 / 兜底合成）之前落下的那一条。append 后 fsync。
 INTENT_KINDS: frozenset[str] = frozenset(
-    {"model_intent", "tool_request", "finalization_recovery_started"}
+    {"model_intent", "tool_request", "finalization_recovery_started", "branch_started"}
 )
 
 EPISODE_STORE_ENV = "FORESIGHT_EPISODE_STORE"
@@ -210,6 +212,80 @@ class EpisodeStore(Protocol):
     def load(self, episode_id: str) -> tuple[tuple[EpisodeEvent, ...], EpisodeState | None]: ...
 
     def list_open(self) -> tuple[str, ...]: ...
+
+
+class EpisodeStoreFailed(RuntimeError):
+    """A related episode lost write acknowledgement; no more writes are safe."""
+
+
+class FencedEpisodeStore:
+    """One live parent/child tree shares a fail-closed write boundary.
+
+    The lock serializes only storage operations, never model/tool IO. Failure
+    callbacks run after releasing it and must not acquire episode-ledger locks.
+    Reads remain available for diagnosis. This is not a cross-process lease or
+    a durable failure receipt: acknowledgement loss remains uncertain on disk.
+    """
+
+    def __init__(self, store: EpisodeStore) -> None:
+        self._store = store
+        self._lock = threading.RLock()
+        self._failure = ""
+        self._callbacks: list[Callable[[], None]] = []
+
+    def __getattr__(self, name: str) -> object:
+        # Forward just this optional capability, including late-bound test stores.
+        # A memory store still has no episode_dir and cannot acquire a disk spool.
+        if name == "episode_dir":
+            return getattr(self._store, name)
+        raise AttributeError(name)
+
+    @property
+    def failure(self) -> str:
+        with self._lock:
+            return self._failure
+
+    def on_failure(self, callback: Callable[[], None]) -> None:
+        with self._lock:
+            self._callbacks.append(callback)
+            failed = bool(self._failure)
+        if failed:
+            callback()
+
+    def _write(self, episode_id: str, boundary: str, write: Callable[[], None]) -> None:
+        callbacks: tuple[Callable[[], None], ...] = ()
+        try:
+            with self._lock:
+                if self._failure:
+                    raise EpisodeStoreFailed(self._failure)
+                try:
+                    write()
+                except Exception as exc:
+                    self._failure = f"{episode_id}:{boundary}:{type(exc).__name__}"
+                    callbacks = tuple(self._callbacks)
+                    raise
+        finally:
+            for callback in callbacks:
+                try:
+                    callback()
+                except Exception:
+                    # The shared failure bit owns the fence. A broken observer
+                    # cannot hide the original error or starve other signals.
+                    continue
+
+    def append(
+        self, episode_id: str, events: Sequence[EpisodeEvent], *, sync: bool = False
+    ) -> None:
+        self._write(episode_id, "append", lambda: self._store.append(episode_id, events, sync=sync))
+
+    def put_state(self, episode_id: str, state: EpisodeState) -> None:
+        self._write(episode_id, f"state:{state.phase}", lambda: self._store.put_state(episode_id, state))
+
+    def load(self, episode_id: str) -> tuple[tuple[EpisodeEvent, ...], EpisodeState | None]:
+        return self._store.load(episode_id)
+
+    def list_open(self) -> tuple[str, ...]:
+        return self._store.list_open()
 
 
 def require_known_kinds(events: Iterable[EpisodeEvent]) -> None:

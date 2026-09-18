@@ -16,6 +16,10 @@
   - [x] 适配器（流式/非流式共用信封）、直接 ModelTurn、最终合成回归；参数合法仍拒绝。
   - [x] 固定提交变异与全量回归（不借旧收据）。
 - [ ] **P1a 恢复 driver / 子研究存储**：P0 合同通过后接 ResumePlan，预算/意图/未决消息/父子身份不重置；已确认工作不重做，未知写效果先对账；只在临时目录做进程中断验收，不动生产。
+  - [x] **子存储前置切片代码**：唯一 invocation/child ID，PLAN/工具启动前可靠记录、父子双向引用、子完整日志与私有草稿；共享失败 fence、窗内费用结算与窗外父账交付隔离；不修改共享客户端的 sink。
+  - [x] **局部回归**：481P/3S/1X（dirty，`20260918T105445Z-26dea412.json`），含真实 runtime/JSONL、排队/在飞兄弟、父保存失败、写后确认丢失、迟到交付和旧 conformance。
+  - [ ] **该切片冻结验收**：独立 mutation worktree + 四叶工程门禁；不能借 P0 收据。定义 `scripts/review_probes/sub_research_persistence_mutations.json`，沿用原 runner。
+  - [ ] **恢复 driver**：当前仅存够子历史；`restore_episode` 对非终态关联树拒绝且不改日志，`sub_research` 不盲重放。完整预算/证据/消息恢复、临时目录真实进程中断验证仍待做。
 - [ ] **P1b 压缩原文回读**：重复读取返回保存原件或受预算约束的 E 号回读；保留防重复外呼，不教模型改 query 绕过；压缩开关不擅自翻转。
 - [ ] **P1c Workbench 插话**：next_step / next_turn 接真实入口与回执；隔离会话、取消/关闭/重复投递行为可测；wakeup 若开放必须真有驱动。
 - [ ] **P2 工具执行属性**：逐工具声明 replay/并行安全与独占；未知扩展保守默认；不扩大授权、不引入任意 shell/写库。

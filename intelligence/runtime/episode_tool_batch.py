@@ -19,6 +19,7 @@ from threading import Lock
 from time import monotonic
 from typing import Literal, cast
 
+from intelligence.runtime.tool_result_scope import ToolResultScope, tool_result_scope
 from intelligence.services import query_ledger
 from intelligence.services.agent_runtime import ModelToolCall
 from intelligence.services.episode_scope import TOOL_ERROR, EpisodeScope
@@ -309,8 +310,9 @@ class _Candidate:
 def _run_with_publish_guard(
     guard: query_ledger.QueryPublishGuard,
     operation: Callable[[], ToolObservation],
+    results: ToolResultScope,
 ) -> ToolObservation:
-    with query_ledger.query_publish_guard_scope(guard):
+    with query_ledger.query_publish_guard_scope(guard), tool_result_scope(results):
         return operation()
 
 
@@ -756,6 +758,7 @@ class EpisodeToolBatchSession:
         is_cancelled: Callable[[], bool],
     ) -> int:
         publish_cutoff = monotonic() + timeout
+        results = ToolResultScope(publish_cutoff, monotonic)
         publish_guard = query_ledger.QueryPublishGuard(
             publish_cutoff=publish_cutoff,
             monotonic=monotonic,
@@ -791,6 +794,7 @@ class EpisodeToolBatchSession:
                     _run_with_publish_guard,
                     publish_guard,
                     operation,
+                    results,
                 )
                 timing = _ToolTiming(submitted_at=monotonic())
                 timings[candidate.index] = timing
@@ -820,13 +824,26 @@ class EpisodeToolBatchSession:
             publish_guard.close(rollback=cancelled_during_wait)
             storage_failed = self.execution_failed()
             if cancelled_during_wait and storage_failed:
-                # Keep the already-received snapshot for private failure evidence.
-                # Never wait indefinitely or let late threads mutate this outcome.
+                # The synchronous branch coordinator owns child result/usage settlement.
+                # Let it drain inside the already-granted batch window, never a new
+                # timeout. Otherwise its just-received usage is lost to this parent.
+                # Ordinary tools keep P0's immediate uncertain-inflight behavior.
+                draining = tuple(
+                    f for f in unfinished
+                    if future_candidates[f].call.name == "sub_research" and not f.done()
+                )
+                if draining:
+                    drained, _ = wait(draining, timeout=max(0.0, publish_cutoff - monotonic()))
+                    completed.update(drained)
+                # Keep only received results; no late mutation of the returned outcome.
                 completed.update(f for f in unfinished if f.done() and not f.cancelled())
                 unfinished.difference_update(completed)
             elif cancelled_during_wait:
                 unfinished.update(completed)
                 completed.clear()
+            # A worker may outlive this wait. Close its parent callback/evidence
+            # boundary before returning, independently of cache publication.
+            results.close()
             for future in unfinished:
                 future.cancel()
                 candidate = future_candidates[future]
@@ -889,6 +906,7 @@ class EpisodeToolBatchSession:
                     elapsed_ms=timing.elapsed_ms,
                 )
         finally:
+            results.close()
             publish_guard.close()
         return len(future_candidates)
 

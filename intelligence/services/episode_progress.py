@@ -228,7 +228,15 @@ def project_episode_progress(event: EpisodeEvent) -> EpisodeProgress | None:
             message=_tool_menu_message(event.payload.get("visible")),
             status="completed",
         )
-    projection = _EVENT_PROJECTIONS.get(event.kind)
+    projection_kind = event.kind
+    if event.kind == "branch_failed" and (
+        event.payload.get("persistence") == "failed"
+        or event.payload.get("error") == "storage_failed"
+        or event.payload.get("reason") == "storage_failed"
+    ):
+        # This is not an isolated missing source: the whole tree is fenced.
+        projection_kind = "persistence_failed"
+    projection = _EVENT_PROJECTIONS.get(projection_kind)
     if projection is None:
         return None
     stage, message, status = projection

@@ -19,6 +19,7 @@ from intelligence.services.agent_runtime import (
     is_transient_model_error,
 )
 from intelligence.runtime.continuous_sub_research import ContinuousSubResearchWorker
+from intelligence.runtime.model_output_scope import draft_publication_allowed
 from intelligence.runtime.episode_finalizer import EpisodeFinalizer
 from intelligence.services.cancel_signal import CancelSignal
 from intelligence.services.episode_store import EpisodeStore
@@ -141,7 +142,11 @@ class GLMModelClient:
         tools: list[dict[str, object]],
         timeout: float,
     ) -> ModelTurn:
-        sink = _DraftSink(self._on_draft_delta) if self._on_draft_delta else None
+        sink = (
+            _DraftSink(self._on_draft_delta)
+            if self._on_draft_delta and draft_publication_allowed()
+            else None
+        )
         try:
             if self._providers is not None:
                 return self._complete_provider_chain(

@@ -1823,6 +1823,9 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
                 else parse_query_arguments
             ),
             produces=produces,
+            # A nested research run can have paid/settled children even if the
+            # parent tool result was lost. Reconcile those refs, never rerun it.
+            replay="never" if name == "sub_research" else "safe",
         )
         for name, (capability, description, freshness, produces) in _DEFAULT_TOOL_METADATA.items()
         if name in tools

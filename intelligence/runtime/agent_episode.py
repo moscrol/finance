@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Callable, Generator, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 import hashlib
@@ -107,6 +107,7 @@ from intelligence.services.episode_store import (
     EpisodePhase,
     EpisodeState,
     EpisodeStore,
+    FencedEpisodeStore,
     now_iso,
 )
 from intelligence.services.research_harness import (
@@ -124,6 +125,7 @@ from intelligence.runtime.sub_research_tool import (
     branch_telemetry,
 )
 from intelligence.runtime.sub_research import (
+    BranchRun,
     SubResearchCoordinator,
     SubResearchResult,
 )
@@ -179,7 +181,7 @@ def _token_usage_from_events(
     input_observed = False
     output_observed = False
     for event in events:
-        if event.kind not in {"model_turn", "branch_completed"}:
+        if event.kind not in {"model_turn", "branch_completed", "branch_failed"}:
             continue
         input_value = event.payload.get("input_tokens")
         output_value = event.payload.get("output_tokens")
@@ -209,6 +211,20 @@ def _agent_usage(
         invalid_actions=invalid_actions,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
+    )
+
+
+def _tool_branch_usage(events: Sequence[EpisodeEvent]) -> tuple[int, int]:
+    """Count newly settled branches, never telemetry re-served from query cache.
+
+    PLAN branches settle separately. A result beyond the parent delivery window
+    has no terminal branch event here and remains uncertain, not a known zero.
+    """
+    settlements = [e for e in events if e.kind in {"branch_completed", "branch_failed"}
+                   and e.payload.get("origin") == "tool"]
+    return (
+        sum(int(e.payload.get("llm_calls") or 0) for e in settlements),
+        sum(int(e.payload.get("tool_calls") or 0) for e in settlements),
     )
 
 
@@ -297,7 +313,8 @@ class _EpisodeLedger:
         # OPT-08：可靠存储与进度通知是两份合同。关键写失败后停止新效果，
         # 仅内存继续收集已发生的结果；不能静默退化为正常完成的临时模式。
         self.persistence_mode = "durable" if store is not None else "ephemeral"
-        self.store_failures: list[str] = []
+        self._local_store_failures: list[str] = []
+        self._store_fence = store if isinstance(store, FencedEpisodeStore) else None
         # 已落意图、等结算的工具调用；``consume`` 对它们不再补事后 ``tool_request``。
         self.intended_call_ids: set[str] = set()
         self.contract_snapshot: Mapping[str, object] = dict(configure or {})
@@ -327,7 +344,17 @@ class _EpisodeLedger:
 
     # ── durable：意图 / 状态 ─────────────────────────────────────────────
 
+    @property
+    def store_failures(self) -> list[str]:
+        # Read shared health without callbacks into other ledger locks (no ABBA).
+        failures = list(self._local_store_failures)
+        if not failures and self._store_fence is not None and self._store_fence.failure:
+            failures.append(f"episode_tree:{self._store_fence.failure}")
+        return failures
+
     def _persist(self, event: EpisodeEvent) -> None:
+        if self.store_failures:
+            self._store = None
         store = self._store
         if store is None:
             return
@@ -342,7 +369,7 @@ class _EpisodeLedger:
             self._fail_store(f"append#{event.sequence}:{type(exc).__name__}")
 
     def _fail_store(self, detail: str) -> None:
-        self.store_failures.append(detail)
+        self._local_store_failures.append(detail)
         self._store = None
         if self._on_store_failure is not None:
             self._on_store_failure()
@@ -419,7 +446,7 @@ class _EpisodeLedger:
                 updated_at=now_iso(),
             )
             self.state = state
-            store = self._store
+            store = self._store if not self.store_failures else None
             if store is not None:
                 try:
                     store.put_state(self.episode_id, state)
@@ -1023,7 +1050,11 @@ class ContinuousAgentEpisode:
         # P2：durable store（INV-R2 / R3）。None = 只在内存记账，事件流形状仍与落盘时相同。
         # ``runtime_config`` 是装配根（GLMAgentRuntime）知道、Episode 不知道的配置
         # （模型名 / provider 链），只进 ``configure`` 快照，不参与任何判断。
-        self._store = store
+        self._store = (
+            FencedEpisodeStore(store)
+            if store is not None and not isinstance(store, FencedEpisodeStore)
+            else store
+        )
         self._runtime_config: dict[str, object] = dict(runtime_config or {})
         # 领域门（prompt / 批后停机 / 取证面 / 终局准入 / 深度裁决）由 harness 回答，
         # loop 只调。默认金融 harness 是对既有函数的纯委托；传别的实现进来就是换领域。
@@ -1051,6 +1082,8 @@ class ContinuousAgentEpisode:
         # ``_is_cancelled`` 仍是可调用的——所有既有检查点零改动，多出来的是 ``.cause``。
         self._cancel = CancelSignal.coerce(is_cancelled)
         self._is_cancelled: Callable[[], bool] = self._cancel
+        if isinstance(self._store, FencedEpisodeStore):
+            self._store.on_failure(lambda: self._cancel.request("hook", "storage_failed"))
         self._sub_research_coordinator = sub_research_coordinator
         self._event_sink = event_sink
         # P3：当前在跑的 episode 的收件箱（INV-R5）。``steer()`` 从这里递话；run() 进门时换新。
@@ -1818,6 +1851,7 @@ class ContinuousAgentEpisode:
                 # P4 步点③：工具批次将派发（意图 tool_request 在 _dispatch 前由 ledger 落）。
                 yield StepPoint("before_tool_dispatch", llm_calls, tool_calls, turn_id=turn_id)
                 batch_started = monotonic()
+                branch_event_offset = len(ledger.events)
                 batch = tool_session.execute(
                     turn.tool_calls,
                     registry=registry,
@@ -1830,7 +1864,9 @@ class ContinuousAgentEpisode:
                     turn_elapsed_at_dispatch=model_elapsed,
                 )
                 batch_elapsed = max(0.0, monotonic() - batch_started)
-                tool_calls += batch.executed_count
+                branch_llm_calls, branch_tool_calls = _tool_branch_usage(ledger.events[branch_event_offset:])
+                llm_calls += branch_llm_calls
+                tool_calls += batch.executed_count + branch_tool_calls
                 invalid_actions += accumulator.consume(batch, context)
                 # P4 步点④：这一批的结算（tool_result / tool_error）全部落账。
                 yield StepPoint("tools_settled", llm_calls, tool_calls, turn_id=turn_id)
@@ -2440,6 +2476,7 @@ class ContinuousAgentEpisode:
             )
         if turn.tool_calls:
             batch_started = monotonic()
+            branch_event_offset = len(ledger.events)
             batch = tool_session.execute(
                 turn.tool_calls,
                 registry=registry,
@@ -2458,7 +2495,9 @@ class ContinuousAgentEpisode:
                 is_cancelled=self._is_cancelled,
             )
             batch_elapsed = max(0.0, monotonic() - batch_started)
-            tool_calls += batch.executed_count
+            branch_llm_calls, branch_tool_calls = _tool_branch_usage(ledger.events[branch_event_offset:])
+            llm_calls += branch_llm_calls
+            tool_calls += batch.executed_count + branch_tool_calls
             performed_tool_action = batch.executed_count > 0
             invalid_actions += accumulator.consume(batch, repair_context)
             # 修复轮的工具结算全部落下，程序计数器回到 repair。
@@ -2875,16 +2914,14 @@ class ContinuousAgentEpisode:
             or not plan.branch_goals
         ):
             return None
-        for index, goal in enumerate(plan.branch_goals, start=1):
-            ledger.add(
-                "branch_started",
-                {"branch_id": f"branch-{index}", "goal": goal},
-            )
+        branch_run = BranchRun(ledger.episode_id, "plan")
+        self._record_branch_starts(ledger, plan.branch_goals, branch_run)
         if ledger.store_failures:
             for index, goal in enumerate(plan.branch_goals, start=1):
                 ledger.add("branch_failed", {
                     "branch_id": f"branch-{index}", "goal": goal,
                     "status": "failed", "error": "storage_failed",
+                    "episode_ref": branch_run.reference(f"branch-{index}").to_dict(),
                 })
             return None
         result = coordinator.run(
@@ -2893,6 +2930,8 @@ class ContinuousAgentEpisode:
             context=context,
             registry=registry,
             evidence_sink_factory=evidence_ledger.branch_sink,
+            branch_run=branch_run,
+            episode_store=self._store,
         )
         completed_ids: set[str] = set()
         for branch in result.branches:
@@ -2908,7 +2947,10 @@ class ContinuousAgentEpisode:
                     if branch.status in {"completed", "partial"}
                     else "branch_failed"
                 ),
-                branch_telemetry(branch),
+                {
+                    **branch_telemetry(branch),
+                    "episode_ref": branch_run.reference(branch.branch_id).to_dict(),
+                },
             )
         for index, goal in enumerate(plan.branch_goals, start=1):
             branch_id = f"branch-{index}"
@@ -2920,6 +2962,7 @@ class ContinuousAgentEpisode:
                         "goal": goal,
                         "status": "failed",
                         "reason": result.refused_reason or "branch_not_executed",
+                        "episode_ref": branch_run.reference(branch_id).to_dict(),
                     },
                 )
         return result
@@ -2960,10 +3003,14 @@ class ContinuousAgentEpisode:
         if coordinator is None:
             return registry
 
-        def record(goals: tuple[str, ...], result: SubResearchResult) -> None:
+        def start(goals: tuple[str, ...], branch_run: BranchRun) -> bool:
+            self._record_branch_starts(ledger, goals, branch_run)
+            return not ledger.store_failures
+
+        def record(goals: tuple[str, ...], result: SubResearchResult, branch_run: BranchRun) -> None:
             # 与 PLAN 路径同一组 durable 事件（branch_started / completed / failed），
             # 事件流的消费者不必区分分支是模型点的还是 PLAN 批的。
-            self._record_branch_events(ledger, goals=goals, result=result)
+            self._record_branch_events(ledger, goals=goals, result=result, branch_run=branch_run)
             if progress is not None:
                 # 分支状态进研究进展账（工具路径的证据本身经 tool_result 进 consume）。
                 progress.record_branches(
@@ -2976,9 +3023,22 @@ class ContinuousAgentEpisode:
             current_context=context_ref,
             base_registry=registry,
             evidence_ledger=evidence_ledger,
+            on_start=start,
             on_result=record,
+            episode_store=self._store,
         )
         return registry.with_specs(spec)
+
+    @staticmethod
+    def _record_branch_starts(
+        ledger: _EpisodeLedger, goals: tuple[str, ...], branch_run: BranchRun,
+    ) -> None:
+        for index, goal in enumerate(goals, start=1):
+            branch_id = f"branch-{index}"
+            ledger.add("branch_started", {
+                "branch_id": branch_id, "goal": goal, "origin": branch_run.origin,
+                "episode_ref": branch_run.reference(branch_id).to_dict(),
+            })
 
     @staticmethod
     def _record_branch_events(
@@ -2986,12 +3046,8 @@ class ContinuousAgentEpisode:
         *,
         goals: tuple[str, ...],
         result: SubResearchResult,
+        branch_run: BranchRun,
     ) -> None:
-        for index, goal in enumerate(goals, start=1):
-            ledger.add(
-                "branch_started",
-                {"branch_id": f"branch-{index}", "goal": goal, "origin": "tool"},
-            )
         completed_ids: set[str] = set()
         for branch in result.branches:
             completed_ids.add(branch.branch_id)
@@ -3001,7 +3057,10 @@ class ContinuousAgentEpisode:
                     if branch.status in {"completed", "partial"}
                     else "branch_failed"
                 ),
-                {**branch_telemetry(branch), "origin": "tool"},
+                {
+                    **branch_telemetry(branch), "origin": "tool",
+                    "episode_ref": branch_run.reference(branch.branch_id).to_dict(),
+                },
             )
         for index, goal in enumerate(goals, start=1):
             branch_id = f"branch-{index}"
@@ -3014,6 +3073,7 @@ class ContinuousAgentEpisode:
                         "status": "failed",
                         "reason": result.refused_reason or "branch_not_executed",
                         "origin": "tool",
+                        "episode_ref": branch_run.reference(branch_id).to_dict(),
                     },
                 )
 
