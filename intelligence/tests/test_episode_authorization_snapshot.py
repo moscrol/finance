@@ -476,6 +476,60 @@ def test_promoted_authority_is_confirmed_before_plan_child_effects(tmp_path, mon
         assert observed == ["deep", "deep"] and len(executed) == 1
 
 
+@pytest.mark.parametrize("with_tools", [False, True])
+def test_promotion_checkpoint_preserves_the_settled_turn_recovery_position(tmp_path, with_tools):
+    from intelligence.services.mode_governor import ModeSignals
+    from intelligence.services.research_harness import FinanceResearchHarness
+    from intelligence.tests.test_tier_promotion import (
+        _ScriptedModel, _loop_context, _frame, _deep_plan_turn, _tool_turn, _finish_turn, _registry,
+    )
+
+    context = _loop_context(f"authorization-pc-{uuid4().hex}")
+    captured, continuation = [], []
+
+    class PromotionStore(JsonlEpisodeStore):
+        def put_state(self, episode_id, state):
+            previous = self.load(episode_id)[1]
+            super().put_state(episode_id, state)
+            if (previous is not None and previous.authorization_snapshot["policy"]["tier"] == "standard"
+                    and state.authorization_snapshot["policy"]["tier"] == "deep"):
+                captured.append((previous, self.load(episode_id)))
+
+    store = PromotionStore(tmp_path / "live")
+    registry = _registry()
+    plan = _deep_plan_turn()
+    turns = ([replace(plan, tool_calls=_tool_turn().tool_calls), _finish_turn()] if with_tools
+             else [plan, _tool_turn(), _finish_turn()])
+    model = _ScriptedModel(turns)
+    outcome = ContinuousAgentEpisode(model, store=store, harness=FinanceResearchHarness(
+        mode_signals=lambda *_: ModeSignals(evidence_domains=("盘面", "新闻")),
+    )).run(task_frame=_frame(), context=context, registry=registry, _continuation_sink=continuation)
+    assert outcome.persistence == "durable" and len(captured) == 1
+    previous, (events, checkpoint) = captured[0]
+    assert previous.phase == "model_pending" and previous.reserved_ids == ("turn-1",)
+    assert not any(event.kind == "tool_request" for event in events)
+    assert checkpoint.authorization_snapshot["policy"]["tier"] == "deep"
+    assert checkpoint.budget_snapshot["hard_calls_cap"] == 24
+    assert checkpoint.last_sequence >= next(event.sequence for event in events if event.kind == "mode_decision")
+
+    # A real prefix, copied only after the live run has finished. No live writer
+    # competes with recovery; current authority comes from the retained context,
+    # not by decoding the saved authorization and granting it to itself.
+    crash = JsonlEpisodeStore(tmp_path / "crash")
+    crash.append(context.contract.task_id, events, sync=True)
+    crash.put_state(context.contract.task_id, checkpoint)
+    result = restore_episode(context.contract.task_id, crash, context=continuation[0].context,
+                             registry=registry,
+                             now=datetime.fromisoformat(checkpoint.deadline_at) - timedelta(seconds=1))
+    assert result.plan.action == ("dispatch_tools" if with_tools else "interpret_turn")
+    assert result.plan.turn_id == "turn-1"
+    assert result.plan.call_ids == (("call-1",) if with_tools else ())
+    assert checkpoint.phase == previous.phase
+    assert checkpoint.reserved_ids == previous.reserved_ids
+    assert checkpoint.retry == previous.retry
+    assert checkpoint.cancel == previous.cancel
+
+
 def test_required_registry_cannot_silently_fall_back_to_an_old_checkpoint(tmp_path):
     from intelligence.runtime.agent_episode import _EpisodeLedger
     from intelligence.services.episode_store import FencedEpisodeStore

@@ -100,9 +100,16 @@
   {
     "id": "authorization_promotion_before_child",
     "path": "intelligence/runtime/agent_episode.py",
-    "old": "            ledger.put_state(phase=\"planning\", context=promoted)",
+    "old": "            ledger.put_state(\n                phase=position.phase, reserved_ids=position.reserved_ids,\n                retry=position.retry, cancel=position.cancel, context=promoted,\n            )",
     "new": "            pass",
     "targets": ["test_promoted_authority_is_confirmed_before_plan_child_effects"]
+  },
+  {
+    "id": "authorization_promotion_preserves_position",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "            ledger.put_state(\n                phase=position.phase, reserved_ids=position.reserved_ids,\n                retry=position.retry, cancel=position.cancel, context=promoted,\n            )",
+    "new": "            ledger.put_state(phase=\"planning\", context=promoted)",
+    "targets": ["test_promotion_checkpoint_preserves_the_settled_turn_recovery_position"]
   },
   {
     "id": "authorization_restore_no_legacy_bypass",

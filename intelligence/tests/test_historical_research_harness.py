@@ -96,7 +96,7 @@ def _registry(*, history_tool: bool = True) -> ResearchToolRegistry:
                 cost="local",
                 freshness="historical",
                 runner=lambda query, context: None,
-                query_scope="turn",
+                query_scope="query",
             ),
         )
     )

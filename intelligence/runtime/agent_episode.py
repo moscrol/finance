@@ -2955,8 +2955,15 @@ class ContinuousAgentEpisode:
         ledger.active_context = promoted
         if promoted is not context:
             # PLAN branches can start before the next parent model/tool intent.
-            # Confirm the new authority/budget BEFORE those child effects too.
-            ledger.put_state(phase="planning", context=promoted)
+            # Confirm the new authority/budget BEFORE those child effects too,
+            # without erasing the settled turn or its still-undispatched tools.
+            position = ledger.state
+            if position is None:
+                raise RuntimeError("mode promotion requires an episode checkpoint")
+            ledger.put_state(
+                phase=position.phase, reserved_ids=position.reserved_ids,
+                retry=position.retry, cancel=position.cancel, context=promoted,
+            )
         return promoted, governance
 
     def _run_sub_research(
