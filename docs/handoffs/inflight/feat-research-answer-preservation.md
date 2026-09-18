@@ -13,8 +13,8 @@
 展开：`docs/handoffs/2026-09-18-finish-candidate-preservation.md`。
 
 ## 当前状态
-代码已提交35ee8a5c（前片5f3b5b59、原live文档af9500ec），本轮收尾为文档。未push/开PR/合main/部署，未动8792；本轮未重新核生产health。
-原live整体仍not_passed；新固定原件离线回放保住四段原文，不是新产品提交。新证据根R=`~/.finance-runtime/reviews/research-candidate-preservation-20260918/`；原214/44文件包逐个hash未变。
+代码35ee8a5c、工程收尾baf10987。用户授权新版live；2026-09-18 20:03+08凭据前置blocked：当前Keychain搜索范围未找到指定gpt-5.6-sol记录。新题/模型调用/服务启动均0，未换GLM；未push/合main/部署/动8792。
+原live仍not_passed，新live not_run。阻塞详情 `docs/handoffs/2026-09-18-finish-candidate-live-preflight.md`；新本地根 `~/.finance-runtime/reviews/research-candidate-live-20260918/`，旧214/44/90文件包未改。
 
 ## 已验证
 干净35ee：Python11664P/81S/2X/17warnings；前端107P与lint/typecheck/build、E2E34P/2S、静态/registry通过，crosswalk98warnings保留。收据 `~/.finance-runtime/test-receipts/20260918T101211Z-35ee8a5c.json`，不移绑文档SHA。
@@ -22,10 +22,10 @@
 
 ## 未验证 / 已知边界
 候选账仅同进程；未接EpisodeState跨进程恢复，terminal restore仍可能空稿。旧helper/eval动态链未全审，旧answer_query真模型、新Workbench真模型交付及独立QC未跑。
-普通工具900/240预览、进度、板块比较覆盖、按E扩读及原金融问题另线。Mac/Node26/DuckDB1.5.4非CI镜像；基座0a1cb8c4是本地冻结ref，本轮未fetch。
+普通工具900/240预览、进度、板块比较覆盖、按E扩读及原金融问题另线。Mac/Node26/DuckDB1.5.4非CI镜像。本地main现d32b8966、底落后4；本轮未fetch，旧漂移0不代表当前。
 
 ## 下一步
-先读本轮verification。要扩跨进程恢复，单列候选持久化/身份/崩溃点合同，不从任意model_turn猜稿。新版live或A/B另冻结模型/数据/预算和一次提交协议并确认；不能覆盖旧not_passed。合main/部署仍等用户确认。
+等用户恢复Keychain连接或指出授权凭据位置，不在聊天贴密钥；再冻模型/数据/预算与一次首题零重发协议（目前尚未冻结）。凭据前置不是额度/端点测试。跨进程恢复须另立持久化/身份/崩溃合同，不从model_turn猜稿。合main/部署仍等确认。
 
 ## 踩过的坑
 后稿精确包含旧稿也不能清复核债务；同hash须核语义，旧未知E号不能复活。恢复需正文引用卡，不只binding。模型返回后取消仍failed/cancelled，资源照结算。E2E改RE06端口须同步RE06_E2E_URL；首败1F/33P保留，不能隐去。源码点号/测试假秘密命中扫描须分类，不能称整包零命中。

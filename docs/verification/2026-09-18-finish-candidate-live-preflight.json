@@ -1,0 +1,59 @@
+{
+  "schema": "finish-candidate-live-preflight/v1",
+  "checked_at": "2026-09-18T12:03:14.052235+00:00",
+  "revision": "baf1098754c534888e58fc52d7dc88a7ef7bcd0f",
+  "code_revision": "35ee8a5c05aa1a25498ab9c32cc548d0166bb5a7",
+  "tree": "/Users/a77/fwp-wt-research-answer-preservation",
+  "branch": "feat/research-answer-preservation",
+  "dirty": false,
+  "code_unchanged_since_tested_revision": true,
+  "frozen_local_main_at_preflight": "d32b8966237e1b8241dd5377e9a9a659423e212b",
+  "remote_fetched_by_this_attempt": false,
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "credential_check": {
+    "service": "com.foresight.workbench.llm",
+    "account": "linxiaoqi5111",
+    "native_load": "not_found",
+    "error_type": null,
+    "service_metadata_lookup_exit": 44,
+    "metadata_item_not_found": true,
+    "user_keychain_search_exit": 0,
+    "user_keychain_search_paths": [
+      "    \"/Users/a77/Library/Keychains/login.keychain-db\""
+    ],
+    "provider": null,
+    "scope": "current macOS user/session search list; not proof about all keychains or accounts",
+    "secrets_printed_or_saved": false,
+    "credential_mutations": 0
+  },
+  "status": "blocked_before_submission",
+  "blocker": "required_saved_provider_unavailable_or_mismatch",
+  "planned_not_yet_frozen": {
+    "question": "这里的行情哪个板块更有机会，历史上有相似的阶段吗",
+    "question_sha256": "bc858ee2478b8ccd037efacb5c0b8ec899155d4aae79cc67476dd009f6b76a37",
+    "model": "gpt-5.6-sol",
+    "backend": "continuous_glm",
+    "initial_submission_limit": 1,
+    "resubmission_limit": 0,
+    "followup_limit": 0,
+    "data_snapshot": "not_prepared",
+    "budget_protocol": "not_frozen"
+  },
+  "actual": {
+    "new_product_submissions": 0,
+    "new_model_calls": 0,
+    "provider_endpoint_requests": 0,
+    "candidate_service_starts": 0,
+    "new_data_snapshots": 0,
+    "production_health_requests": 0,
+    "production_reconfigured": false,
+    "model_substitutions": 0,
+    "main_merge": false,
+    "deployment": false,
+    "push": false
+  },
+  "source_live_acceptance": "not_passed",
+  "new_live_acceptance": "not_run",
+  "financial_certification": false,
+  "promotion_eligible": false
+}
