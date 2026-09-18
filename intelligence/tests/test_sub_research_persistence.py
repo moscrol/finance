@@ -597,30 +597,47 @@ def test_plan_branches_share_the_same_store_and_start_ack_fence(tmp_path, fail_s
         assert model.child_calls == 2 and len(executed) == 1
 
 
-def test_linked_nonterminal_restore_refuses_without_mutating_logs(tmp_path):
+@pytest.mark.parametrize("ref_key", ["parent_episode_id", "episode_id"])
+def test_linked_nonterminal_restore_refuses_without_mutating_logs(tmp_path, monkeypatch, ref_key):
+    from datetime import datetime, timedelta
+    from intelligence.runtime.agent_episode import _EpisodeLedger
+    from intelligence.services.episode_authorization import validate_current_authorization
     from intelligence.services.episode_restore import RestoreUnavailable, restore_episode
+
     prefixes = {}
+    store = ObservedStore(tmp_path)
+    put_state = _EpisodeLedger.put_state
 
-    class PrefixStore(ObservedStore):
-        def put_state(self, episode_id, state):
-            super().put_state(episode_id, state)
-            if not state.terminal:
-                prefixes[episode_id] = self.load(episode_id)
+    def capture(ledger, **kwargs):
+        state = put_state(ledger, **kwargs)
+        if not state.terminal:
+            # Retain the live caller inputs separately. Never self-authorize by
+            # reconstructing context/registry from the saved declaration.
+            current = kwargs.get("context") or ledger.active_context
+            prefixes[ledger.episode_id] = (store.load(ledger.episode_id), current, ledger.active_registry)
+        return state
 
-    store = PrefixStore(tmp_path)
+    monkeypatch.setattr(_EpisodeLedger, "put_state", capture)
     outcome, _model, _executed, _spent, _runtime = run_tree(store)
+    assert outcome.persistence == "durable"
     ref = dict(next(e for e in outcome.events if e.kind == "branch_started").payload["episode_ref"])
-    for episode_id in (ref["parent_episode_id"], ref["episode_id"]):
-        # Use an actual checkpoint prefix, not today's balance on yesterday's
-        # truncated log. A snapshot must not point past its event prefix.
-        prefix, state = prefixes[episode_id]
-        snapshot = MemoryEpisodeStore()
-        snapshot.append(episode_id, prefix)
-        snapshot.put_state(episode_id, state)
-        before = snapshot.load(episode_id)
-        with pytest.raises(RestoreUnavailable, match="child reconciliation"):
-            restore_episode(episode_id, snapshot)
-        assert snapshot.load(episode_id) == before
+    episode_id = ref[ref_key]
+    # Actual checkpoint prefix and separately retained authority. Otherwise the
+    # later authorization gate masks removal of the linked-tree protection.
+    (prefix, state), context, bound_registry = prefixes[episode_id]
+    assert context is not None and bound_registry is not None
+    assert len(prefix) == state.last_sequence
+    validate_current_authorization(state.authorization_snapshot, context=context, registry=bound_registry)
+    snapshot = MemoryEpisodeStore()
+    snapshot.append(episode_id, prefix)
+    snapshot.put_state(episode_id, state)
+    before = snapshot.load(episode_id)
+    with pytest.raises(RestoreUnavailable, match="child reconciliation"):
+        restore_episode(
+            episode_id, snapshot, context=context, registry=bound_registry,
+            now=datetime.fromisoformat(state.deadline_at) - timedelta(seconds=1),
+        )
+    assert snapshot.load(episode_id) == before
 
 
 def test_sub_research_is_not_blindly_replayable_after_an_interruption(tmp_path):
