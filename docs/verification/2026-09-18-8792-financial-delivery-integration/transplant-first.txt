@@ -1,0 +1,49 @@
+........................................................................ [ 24%]
+............................................................FF.......... [ 48%]
+........................................................................ [ 72%]
+........................................................................ [ 96%]
+..........                                                               [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T153228Z-53f433b6.json
+
+=================================== FAILURES ===================================
+_ test_unrelated_or_empty_calculation_cannot_discharge_requested_ratio[\u5176\u4ed6\u8ba1\u7b97] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109c9d6a0>
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2701/test_unrelated_or_empty_calcul0')
+purpose = '其他计算'
+
+    @pytest.mark.parametrize("purpose", ["其他计算", "净现比"])
+    def test_unrelated_or_empty_calculation_cannot_discharge_requested_ratio(monkeypatch, tmp_path, purpose):
+        query = QUESTION + "请计算净现比。"
+        result, context = _tool_result(monkeypatch, tmp_path, query=query)
+        outcome = _outcome(context, result.evidence, kept_periods={"2026-06-30", "2026-03-31"})
+        for script in ["emit_result(summary={'other': 2})", "emit_result(summary={})"]:
+            calc = dc.run_derived_calculation(script=script, purpose=purpose, evidence=result.evidence)
+>           assert isinstance(calc, dc.DerivedCalculation)
+E           AssertionError: assert False
+E            +  where False = isinstance(CalculationError(code='invalid_result_contract', detail='no_renderable_result；summary 只接标量；逐期数据请用 tables=[table(name, columns, rows)]，每行与列对应、缺值用 None；不能把嵌套对象塞入 summary。', enforcement='seatbelt+process', stderr_tail=''), <class 'intelligence.services.derived_calculation.DerivedCalculation'>)
+E            +    where <class 'intelligence.services.derived_calculation.DerivedCalculation'> = dc.DerivedCalculation
+
+intelligence/tests/test_financial_contracts_r5.py:320: AssertionError
+_ test_unrelated_or_empty_calculation_cannot_discharge_requested_ratio[\u51c0\u73b0\u6bd4] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a7b6300>
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2701/test_unrelated_or_empty_calcul1')
+purpose = '净现比'
+
+    @pytest.mark.parametrize("purpose", ["其他计算", "净现比"])
+    def test_unrelated_or_empty_calculation_cannot_discharge_requested_ratio(monkeypatch, tmp_path, purpose):
+        query = QUESTION + "请计算净现比。"
+        result, context = _tool_result(monkeypatch, tmp_path, query=query)
+        outcome = _outcome(context, result.evidence, kept_periods={"2026-06-30", "2026-03-31"})
+        for script in ["emit_result(summary={'other': 2})", "emit_result(summary={})"]:
+            calc = dc.run_derived_calculation(script=script, purpose=purpose, evidence=result.evidence)
+>           assert isinstance(calc, dc.DerivedCalculation)
+E           AssertionError: assert False
+E            +  where False = isinstance(CalculationError(code='invalid_result_contract', detail='no_renderable_result；summary 只接标量；逐期数据请用 tables=[table(name, columns, rows)]，每行与列对应、缺值用 None；不能把嵌套对象塞入 summary。', enforcement='seatbelt+process', stderr_tail=''), <class 'intelligence.services.derived_calculation.DerivedCalculation'>)
+E            +    where <class 'intelligence.services.derived_calculation.DerivedCalculation'> = dc.DerivedCalculation
+
+intelligence/tests/test_financial_contracts_r5.py:320: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_financial_contracts_r5.py::test_unrelated_or_empty_calculation_cannot_discharge_requested_ratio[\u5176\u4ed6\u8ba1\u7b97]
+FAILED intelligence/tests/test_financial_contracts_r5.py::test_unrelated_or_empty_calculation_cannot_discharge_requested_ratio[\u51c0\u73b0\u6bd4]
+2 failed, 296 passed in 12.70s
