@@ -1,0 +1,304 @@
+..........................FF....FF..FF....FF............................ [ 80%]
+..................                                                       [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T140526Z-87b854e2.json
+
+=================================== FAILURES ===================================
+_ test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u7d2f\u8ba1\u7ecf\u8425\u73b0\u91d1\u6d4118\u4ebf\u5143\uff0c\u4e00\u5b63\u62a5\u4e3a33.68\u4ebf\u5143\uff0c\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41\u4e3a\u51c0\u6d41\u51fa\u7ea615.66\u4ebf\u5143\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a884dd0>
+claim = '2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。', mode = 'off'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+        assert claim not in result.public_answer
+        assert any("financial_claim_mismatch" in row["reasons"] for row in result.sentence_verdicts)
+        assert result.status == "partial"
+>       assert result.gap_output_ids == ("metric_evidence",)
+E       AssertionError: assert ('financial_a...ric_evidence') == ('metric_evidence',)
+E
+E         At index 0 diff: 'financial_assessment' != 'metric_evidence'
+E         Left contains one more item: 'metric_evidence'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_r6_regressions.py:156: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[off-\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41=18\u221233.68=\u221215.66\u4ebf\u5143\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a839040>
+claim = '二季度单季经营现金流=18−33.68=−15.66亿元。', mode = 'off'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+        assert claim not in result.public_answer
+        assert any("financial_claim_mismatch" in row["reasons"] for row in result.sentence_verdicts)
+        assert result.status == "partial"
+>       assert result.gap_output_ids == ("metric_evidence",)
+E       AssertionError: assert ('financial_a...ric_evidence') == ('metric_evidence',)
+E
+E         At index 0 diff: 'financial_assessment' != 'metric_evidence'
+E         Left contains one more item: 'metric_evidence'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_r6_regressions.py:156: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[off-\u82e5\u4e09\u5b63\u62a5\u7d2f\u8ba1\u7ecf\u8425\u73b0\u91d1\u6d41\u5bf9\u5f52\u6bcd\u51c0\u5229\u7684\u8986\u76d6\u7387\u8f83\u4e2d\u62a5\u76840.132\u660e\u663e\u56de\u5347\uff0c\u5219\u6539\u53d8\u5224\u65ad\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a7cdee0>
+claim = '若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。', mode = 'off'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+        assert claim not in result.public_answer
+        assert any("financial_claim_mismatch" in row["reasons"] for row in result.sentence_verdicts)
+        assert result.status == "partial"
+>       assert result.gap_output_ids == ("metric_evidence",)
+E       AssertionError: assert ('financial_a...ric_evidence') == ('metric_evidence',)
+E
+E         At index 0 diff: 'financial_assessment' != 'metric_evidence'
+E         Left contains one more item: 'metric_evidence'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_r6_regressions.py:156: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u7d2f\u8ba1\u7ecf\u8425\u73b0\u91d1\u6d4118\u4ebf\u5143\uff0c\u4e00\u5b63\u62a533.68\u4ebf\u5143\uff08\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41\u4e3a\u51c0\u6d41\u51fa\u7ea615.66\u4ebf\u5143\uff09\uff0cOCF/\u51c0\u5229\u4ece2025\u5e74\u62a5\u76841.009\u964d\u81f30.132\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b3e1cd0>
+claim = '2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。'
+mode = 'off'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+        assert claim not in result.public_answer
+        assert any("financial_claim_mismatch" in row["reasons"] for row in result.sentence_verdicts)
+        assert result.status == "partial"
+>       assert result.gap_output_ids == ("metric_evidence",)
+E       AssertionError: assert ('financial_a...ric_evidence') == ('metric_evidence',)
+E
+E         At index 0 diff: 'financial_assessment' != 'metric_evidence'
+E         Left contains one more item: 'metric_evidence'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_r6_regressions.py:156: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u7d2f\u8ba1\u7ecf\u8425\u73b0\u91d1\u6d4118\u4ebf\u5143\uff0c\u4e00\u5b63\u62a5\u4e3a33.68\u4ebf\u5143\uff0c\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41\u4e3a\u51c0\u6d41\u51fa\u7ea615.66\u4ebf\u5143\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b3e0920>
+claim = '2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。', mode = 'llm'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+        assert claim not in result.public_answer
+        assert any("financial_claim_mismatch" in row["reasons"] for row in result.sentence_verdicts)
+        assert result.status == "partial"
+>       assert result.gap_output_ids == ("metric_evidence",)
+E       AssertionError: assert ('financial_a...ric_evidence') == ('metric_evidence',)
+E
+E         At index 0 diff: 'financial_assessment' != 'metric_evidence'
+E         Left contains one more item: 'metric_evidence'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_r6_regressions.py:156: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[llm-\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41=18\u221233.68=\u221215.66\u4ebf\u5143\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b4e7950>
+claim = '二季度单季经营现金流=18−33.68=−15.66亿元。', mode = 'llm'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+        assert claim not in result.public_answer
+        assert any("financial_claim_mismatch" in row["reasons"] for row in result.sentence_verdicts)
+        assert result.status == "partial"
+>       assert result.gap_output_ids == ("metric_evidence",)
+E       AssertionError: assert ('financial_a...ric_evidence') == ('metric_evidence',)
+E
+E         At index 0 diff: 'financial_assessment' != 'metric_evidence'
+E         Left contains one more item: 'metric_evidence'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_r6_regressions.py:156: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[llm-\u82e5\u4e09\u5b63\u62a5\u7d2f\u8ba1\u7ecf\u8425\u73b0\u91d1\u6d41\u5bf9\u5f52\u6bcd\u51c0\u5229\u7684\u8986\u76d6\u7387\u8f83\u4e2d\u62a5\u76840.132\u660e\u663e\u56de\u5347\uff0c\u5219\u6539\u53d8\u5224\u65ad\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b4e5af0>
+claim = '若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。', mode = 'llm'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+        assert claim not in result.public_answer
+        assert any("financial_claim_mismatch" in row["reasons"] for row in result.sentence_verdicts)
+        assert result.status == "partial"
+>       assert result.gap_output_ids == ("metric_evidence",)
+E       AssertionError: assert ('financial_a...ric_evidence') == ('metric_evidence',)
+E
+E         At index 0 diff: 'financial_assessment' != 'metric_evidence'
+E         Left contains one more item: 'metric_evidence'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_r6_regressions.py:156: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u7d2f\u8ba1\u7ecf\u8425\u73b0\u91d1\u6d4118\u4ebf\u5143\uff0c\u4e00\u5b63\u62a533.68\u4ebf\u5143\uff08\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41\u4e3a\u51c0\u6d41\u51fa\u7ea615.66\u4ebf\u5143\uff09\uff0cOCF/\u51c0\u5229\u4ece2025\u5e74\u62a5\u76841.009\u964d\u81f30.132\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b4eac90>
+claim = '2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。'
+mode = 'llm'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+        assert claim not in result.public_answer
+        assert any("financial_claim_mismatch" in row["reasons"] for row in result.sentence_verdicts)
+        assert result.status == "partial"
+>       assert result.gap_output_ids == ("metric_evidence",)
+E       AssertionError: assert ('financial_a...ric_evidence') == ('metric_evidence',)
+E
+E         At index 0 diff: 'financial_assessment' != 'metric_evidence'
+E         Left contains one more item: 'metric_evidence'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_r6_regressions.py:156: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u7d2f\u8ba1\u7ecf\u8425\u73b0\u91d1\u6d4118\u4ebf\u5143\uff0c\u4e00\u5b63\u62a5\u4e3a33.68\u4ebf\u5143\uff0c\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41\u4e3a\u51c0\u6d41\u51fa\u7ea615.66\u4ebf\u5143\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[off-\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41=18\u221233.68=\u221215.66\u4ebf\u5143\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[off-\u82e5\u4e09\u5b63\u62a5\u7d2f\u8ba1\u7ecf\u8425\u73b0\u91d1\u6d41\u5bf9\u5f52\u6bcd\u51c0\u5229\u7684\u8986\u76d6\u7387\u8f83\u4e2d\u62a5\u76840.132\u660e\u663e\u56de\u5347\uff0c\u5219\u6539\u53d8\u5224\u65ad\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u7d2f\u8ba1\u7ecf\u8425\u73b0\u91d1\u6d4118\u4ebf\u5143\uff0c\u4e00\u5b63\u62a533.68\u4ebf\u5143\uff08\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41\u4e3a\u51c0\u6d41\u51fa\u7ea615.66\u4ebf\u5143\uff09\uff0cOCF/\u51c0\u5229\u4ece2025\u5e74\u62a5\u76841.009\u964d\u81f30.132\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u7d2f\u8ba1\u7ecf\u8425\u73b0\u91d1\u6d4118\u4ebf\u5143\uff0c\u4e00\u5b63\u62a5\u4e3a33.68\u4ebf\u5143\uff0c\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41\u4e3a\u51c0\u6d41\u51fa\u7ea615.66\u4ebf\u5143\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[llm-\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41=18\u221233.68=\u221215.66\u4ebf\u5143\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[llm-\u82e5\u4e09\u5b63\u62a5\u7d2f\u8ba1\u7ecf\u8425\u73b0\u91d1\u6d41\u5bf9\u5f52\u6bcd\u51c0\u5229\u7684\u8986\u76d6\u7387\u8f83\u4e2d\u62a5\u76840.132\u660e\u663e\u56de\u5347\uff0c\u5219\u6539\u53d8\u5224\u65ad\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u7d2f\u8ba1\u7ecf\u8425\u73b0\u91d1\u6d4118\u4ebf\u5143\uff0c\u4e00\u5b63\u62a533.68\u4ebf\u5143\uff08\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41\u4e3a\u51c0\u6d41\u51fa\u7ea615.66\u4ebf\u5143\uff09\uff0cOCF/\u51c0\u5229\u4ece2025\u5e74\u62a5\u76841.009\u964d\u81f30.132\u3002]
+8 failed, 82 passed in 0.80s
