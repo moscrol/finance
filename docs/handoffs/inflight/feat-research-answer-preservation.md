@@ -4,27 +4,28 @@
 同任务安全分析遇普通质量/格式问题仍保留；展示不等于核验通过。
 
 ## 决策与被否方案
-- 候选与准入分账；不放松身份/历史/证据门，保稿不授予完成。
-- 原稿＋必要证据完整承接，修订追加；不短稿覆盖、不无限重试。
-- 新live一次首发零重发；不因失败换版本/模型刷绿。GLM已实际响应，不等GPT钥匙串。
-- 本轮只验与诊断；复用邻枝Mapping投影修复，不全局解冻/default=str、不猜缺失日期。
-展开：`docs/handoffs/2026-09-18-finish-candidate-glm-live.md`；保稿设计见同日`finish-candidate-preservation.md`。
+- Mapping只在JSON边界投影，不全局解冻/default=str，不猜缺end。
+- 终态claim管完成/取消归属，publication管消息/产物完整；不挪claim、不sleep刷绿。
+- 精确run/conversation/message发布事件后重读产物，UI/SSE/probe再收口；不猜跨进程稿。
+展开：`docs/handoffs/2026-09-18-publication-repair-blocked.md`。
 
 ## 当前状态
-业务代码仍35ee8a5c；工程文档baf10987、模型纠偏69c056f6。新run=`run_20260918_213933_397262`：独立8849首发1/重发0/续问0，3轮glm-5.3-flash响应，failed/blocked，无答案。**新旧live均not_passed，保稿路径未触发**。
-根R=`~/.finance-runtime/reviews/research-candidate-glm-live-20260918/`，82文件封存。8849已停、锁已释放，8792仍bf662身份/启动器未变；未push/合main/部署/整合邻枝。仅新增原件重放量具与文档。
+Mapping已纳入365627fd；发布修复49fd8d72＋静态产物7a9380bd已提交。新量具18c7c7fc。
+**干净7a9380bd全量1红，修复版GLM首发0/重发0/续问0**。没有prepare/新协议/数据复制/服务启动。旧5f与35ee两次live均not_passed不改判。
+R=`~/.finance-runtime/reviews/research-publication-live-20260918/`，341文件封存；目录名live不是已发题。8792身份/启动器未变，8849/8851/8852不监听、无锁；未push/合main/部署。
 
 ## 未验证 / 已知边界
-history_query缺end→参数正确拒绝→进展记账mappingproxy JSON崩溃；不是模型凭据失败。候选账仍仅同进程；自然保稿/跨进程恢复/独立QC未验。失败report used=false/tool_calls=0不等于零消费；durable state仍tools_pending，未尝试resume。KB/web等在线输入没冻结，非严格A/B。
+新阻塞：`test_rag_worker.py::test_warm_worker_survives_first_timeout_and_drains_the_late_response`。真消费者＋OS管道确定复现：旧响应丢弃后，新响应留在TextIO预读缓冲，select只看空内核管道→误超时/杀进程。RAG生产代码未修；不把诊断逐字节reader直接上线。
+自然纠参/拒收候选保留/金融质量/独立QC未验。候选仅同进程；旧失败用量与durable tools_pending不一致未补，未resume。在线KB/web非冻结，非严格A/B。
 
 ## 下一步
-1. 将已有a969d30a的research_progress Mapping投影小片纳入下一候选，保留未知对象拒绝/loop回归；不盲合整包邻枝。原件量具` scripts/review_probes/replay_history_progress_failure.py`。
-2. 新精确revision工程验证后，再冻结/确认新live额度；本次样本不重发、不改判。失败用量与durable终态缺口另行处理。
-3. 合main、部署、切8792仍等确认。跨进程恢复需另建持久化/身份/崩溃合同。
+1. 单独修RAG按行读取，覆盖合并/半行/UTF-8/EOF/旧ID排除/绝对deadline与连续超时；勿只加时限。
+2. 新精确干净revision四叶通过，再更新/审查R内未执行control.py，冻结一次GLM协议。旧样本不重发。
+3. 合main/部署/切8792仍另等确认。
 
 ## 已验证
-本轮：35ee既有全量收据条件校验exit0（未重跑）；原请求在35ee复现stack、邻枝干净068e2a46生成正确纠参反馈，44证据不变；邻枝相关24P。量具两正确方向exit0/交换期待各exit1/覆写exit2，0网络/模型/DB调用。旧214/44/90/6包逐文件hash一致，行情/导出未改。
-旧35ee收据：11664P/81S/2X、前端107P、E2E34P/2S；不移绑文档/量具SHA。
+7a9380bd：11686P/1F/81S/2X，前端115P，E2E34P/2S，ruff/registry绿，all_green=false；收据`20260918T153933Z-7a9380bd.json`校验exit0只证环境版本。原件44证据/参数不变，保稿回放过；四撤保护各红→恢复绿。18c7干净RAG量具exit0表示缺陷复现，不是修好。
+旧365627fd全量11674P但E2E33P/1F/2S；49fd构建弄脏树后Python主动中止，不当全绿。旧214/44/90/6/82及296/338包逐项hash一致。
 
 ## 踩过的坑
-protocol起初读CLI90s，首发前另写amendment纠正为Workbench max600s/40步；原件保留。环境LLM_TIMEOUT300s不等于实际Episode75s。扫描首封exit1的6词形为代码，精确核销未决0，不称全包零命中。后稿包含原稿也不能清复核债，附注不能撑空稿。
+前端构建改受跟踪static，要提交后再验；收据校验绿不等于pytest绿。首扫词形命中精确核销未决0，不能称零命中。probe保留原失败不改判；GLM已授权，不再等GPT钥匙串。

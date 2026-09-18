@@ -1,0 +1,168 @@
+{
+  "schema": "publication-repair-blocked-acceptance/v1",
+  "at": "2026-09-18T15:46:56.842863+00:00",
+  "revisions": {
+    "mapping": "365627fd1350d87a9e9858cf0fb2fbc9d036daae",
+    "publication": "49fd8d726176a1e97eb43ed028bda93edc64f657",
+    "built_candidate": "7a9380bd0656916d46b7d2f1f136808649e618c2",
+    "diagnosis_probe": "18c7c7fcaeba8e1a7c6c1a71696bcc729deffb2f"
+  },
+  "mapping_repair_integrated": true,
+  "publication_repair_integrated": true,
+  "engineering": {
+    "revision": "7a9380bd0656916d46b7d2f1f136808649e618c2",
+    "clean": true,
+    "pytest": {
+      "exit": 1,
+      "passed": 11686,
+      "failed": 1,
+      "skipped": 81,
+      "xfailed": 2
+    },
+    "failed_test": "intelligence/tests/test_rag_worker.py::test_warm_worker_survives_first_timeout_and_drains_the_late_response",
+    "frontend": {
+      "tests_passed": 115,
+      "lint": 0,
+      "typecheck": 0,
+      "build": 0
+    },
+    "e2e": {
+      "passed": 34,
+      "skipped": 2,
+      "exit": 0
+    },
+    "registry": "all four checks exit 0",
+    "receipt_check": "exit 0 validates revision/environment, not a green test outcome",
+    "all_green": false
+  },
+  "offline": {
+    "history_rejection": "invalid_arguments: end requires ISO date",
+    "prior_evidence": 44,
+    "prior_evidence_arguments_source_unchanged": true,
+    "model_network_database_calls": 0,
+    "old_preservation_replay": "passed, old live remains not_passed",
+    "publication_mutations_killed": 4,
+    "restored_selection": "passed on clean disposable worktree"
+  },
+  "new_blocker": {
+    "diagnostic_revision": "18c7c7fcaeba8e1a7c6c1a71696bcc729deffb2f",
+    "consumer_unchanged_since_candidate": true,
+    "failure": "select waits on empty kernel pipe while matching current reply is in TextIO read-ahead buffer",
+    "evidence": "rag-buffered-confirmed.json: old response drained, current response stranded, timeout_killed=1",
+    "control": "diagnostic-only byte-wise reader gets same current response without timeout",
+    "limits": "deterministic failure in real consumer with synthetic process/OS pipe; full-run exact buffer contents were not instrumented",
+    "production_fix_applied": false
+  },
+  "new_live": {
+    "initial_submissions": 0,
+    "resubmissions": 0,
+    "followups": 0,
+    "state": "not_run_engineering_gate_blocked",
+    "preparation": "scripts only; no frozen protocol/data/credential import/service start"
+  },
+  "old_live_acceptance": "both not_passed; no retry or resume",
+  "natural_correction": "unverified",
+  "natural_candidate_preservation": "unverified",
+  "financial_quality": "unverified",
+  "independent_qc": false,
+  "production_changed": false,
+  "push": false,
+  "merge": false,
+  "deploy": false,
+  "prior_evidence": [
+    {
+      "manifest": "/Users/a77/.finance-runtime/reviews/research-answer-preservation-20260918/evidence-index.json",
+      "digest": {
+        "bytes": 35130,
+        "sha256": "e948a9a3a466d316a026a6b6e75e79a2319fc42fb166aba863e7a060b7355a7f"
+      },
+      "files_verified": 214,
+      "unchanged": true
+    },
+    {
+      "manifest": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/artifact-index.json",
+      "digest": {
+        "bytes": 7906,
+        "sha256": "c659c462796b2c540de8edc6e4780c4bb608f341adf6b7a6ebf638ba4a861329"
+      },
+      "files_verified": 44,
+      "unchanged": true
+    },
+    {
+      "manifest": "/Users/a77/.finance-runtime/reviews/research-candidate-preservation-20260918/artifact-index.json",
+      "digest": {
+        "bytes": 14467,
+        "sha256": "e42627f3bbdd527690e1b02616037fecc083c73703fa9f9e4147985066c7c96a"
+      },
+      "files_verified": 90,
+      "unchanged": true
+    },
+    {
+      "manifest": "/Users/a77/.finance-runtime/reviews/research-candidate-live-20260918/artifact-index.json",
+      "digest": {
+        "bytes": 938,
+        "sha256": "f70d225f83af608238c9220b2ec6f953eba6de44e15b81b89cadca5d1de7d31f"
+      },
+      "files_verified": 6,
+      "unchanged": true
+    },
+    {
+      "manifest": "/Users/a77/.finance-runtime/reviews/research-candidate-glm-live-20260918/artifact-index.json",
+      "digest": {
+        "bytes": 12910,
+        "sha256": "ac3fcf713460f2363ac96b3c9efb597ce3c34b81ed042db98a28db7f1b00f855"
+      },
+      "files_verified": 82,
+      "unchanged": true
+    },
+    {
+      "manifest": "/Users/a77/.finance-runtime/reviews/research-progress-repair-20260918/artifact-index.json",
+      "digest": {
+        "bytes": 59273,
+        "sha256": "d46b8db3c5c9cb3548d2a70ed7e869338c1d3e9e56b46fc808738afe41b4a9b2"
+      },
+      "files_verified": 296,
+      "unchanged": true
+    },
+    {
+      "manifest": "/Users/a77/.finance-runtime/reviews/research-publication-repair-20260918/artifact-index.json",
+      "digest": {
+        "bytes": 64973,
+        "sha256": "d4a7d5fdeda06bafc702c22dbd93969d70468ac3b5709ae11bd1ae810ddf828d"
+      },
+      "files_verified": 338,
+      "unchanged": true
+    }
+  ],
+  "next": "separately repair RAG framed reading with partial/coalesced/late-reply/deadline regressions; new clean revision full gate then one GLM sample",
+  "archive": {
+    "root": "/Users/a77/.finance-runtime/reviews/research-publication-live-20260918",
+    "files": 341,
+    "bytes": 10754779,
+    "manifest_sha256": "8ed34ffe865a5c3c7eae2b2d1939ecc6eed923cc7ce5c3d682a3b3f12bfd03b1"
+  },
+  "closure": {
+    "comparison": "last archived R1 closure, no new R4 launch",
+    "production_identity_unchanged": {
+      "source_revision": true,
+      "source_dirty": true,
+      "loaded_code_root": true,
+      "loaded_tree_fingerprint": true,
+      "code_matches_repo": true,
+      "users_dir": true,
+      "agent_runtime": true
+    },
+    "launcher_unchanged": true,
+    "ports_listening": {
+      "8849": false,
+      "8851": false,
+      "8852": false
+    },
+    "live_submissions": 0,
+    "new_user_root_exists": false,
+    "data_snapshot_created": false,
+    "protocol_created": false,
+    "lock_exists": false,
+    "scope": "declared roots and service identities, not OS sandbox proof"
+  }
+}
