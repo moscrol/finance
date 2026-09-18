@@ -7,7 +7,9 @@ then stranded in Python despite being fully received. A byte-wise diagnostic
 reader controls for this buffering difference. It is NOT a production fix.
 
 No child process, socket, database, timing retry, or production configuration.
-Output must be new. This does not relabel a full-suite failure as passed.
+Output must be new. --expect failure (default) checks the old failure shape;
+--expect repaired requires both inputs to return the current response. Neither
+mode relabels an older full-suite or live failure as passed.
 """
 from __future__ import annotations
 
@@ -108,6 +110,7 @@ def _observe(read_ahead: bool) -> dict[str, object]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--expect", choices=("failure", "repaired"), default="failure")
     args = parser.parse_args()
     if args.output.exists():
         parser.error("output must be a new file")
@@ -119,21 +122,29 @@ def main() -> None:
         and control["result"] == "response" and control["stdout"] == "current"
         and control["stale_drained"] == 1 and not control["stop_requested"]
     )
+    repaired = all(
+        item["result"] == "response" and item["stdout"] == "current"
+        and item["stale_drained"] == 1 and item["timeouts_killed"] == 0
+        and not item["stop_requested"] for item in (buffered, control)
+    )
+    expectation_met = observed if args.expect == "failure" else repaired
     root = Path(__file__).resolve().parents[2]
     payload = {
-        "schema": "rag-buffered-reply-diagnosis/v1",
+        "schema": "rag-buffered-reply-diagnosis/v2",
+        "expected": args.expect, "expectation_met": expectation_met,
+        "repaired_behavior_observed": repaired,
         "revision": subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip(),
         "dirty_paths": subprocess.check_output(["git", "-C", str(root), "status", "--porcelain"], text=True).splitlines(),
         "consumer_sha256": hashlib.sha256((root / "intelligence/services/rag_worker.py").read_bytes()).hexdigest(),
         "probe_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "buffered": buffered, "diagnostic_control": control, "failure_reproduced": observed,
         "scope": "real query consumer, synthetic process/pipe, no query/provider/network/database",
-        "production_fix_applied": False, "full_suite_reclassified": False,
+        "production_deployment_performed": False, "full_suite_reclassified": False,
     }
     with args.output.open("x", encoding="utf-8") as f:
         f.write(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
     print(json.dumps(payload, ensure_ascii=False))
-    raise SystemExit(0 if observed else 1)
+    raise SystemExit(0 if expectation_met else 1)
 
 
 if __name__ == "__main__":
