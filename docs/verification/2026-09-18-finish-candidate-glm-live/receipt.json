@@ -1,0 +1,67 @@
+{
+  "schema": "candidate-glm-live-public-receipt/v1",
+  "code_revision": "35ee8a5c05aa1a25498ab9c32cc548d0166bb5a7",
+  "run_id": "run_20260918_213933_397262",
+  "assistant_message_id": "msg_18e9ac951cd44153addc360fa573d2be",
+  "live_acceptance": "not_passed",
+  "old_live_acceptance": "not_passed",
+  "submissions": 1,
+  "resubmissions": 0,
+  "followups": 0,
+  "episode_models": {
+    "glm-5.3-flash": 3
+  },
+  "candidate_preservation_path": "unexercised",
+  "failure": {
+    "type": "TypeError",
+    "message": "Object of type mappingproxy is not JSON serializable"
+  },
+  "offline_replay": {
+    "call_id": "call_9e87768b10cd4c45bb1d4aa1",
+    "parser_rejection": {
+      "code": "invalid_arguments",
+      "detail": "end requires ISO date"
+    },
+    "baseline_revision": "35ee8a5c05aa1a25498ab9c32cc548d0166bb5a7",
+    "baseline_result": "crash",
+    "existing_repair_revision": "068e2a4652d7b8e0250c9d046272e7889b15c5b9",
+    "repair_result": "feedback",
+    "repair_origin_commit": "a969d30a6fb54eac2cea37ce7bf1da6188e1bc32",
+    "repair_file": "intelligence/runtime/research_progress.py",
+    "prior_evidence_count": 44,
+    "network_calls": 0,
+    "model_calls": 0,
+    "database_queries": 0,
+    "focused_tests": {
+      "passed": 24,
+      "scope": "existing repair, not integrated candidate/full suite"
+    },
+    "counterchecks": {
+      "false_feedback": 1,
+      "false_crash": 1,
+      "overwrite": 2
+    },
+    "boundary": "parser and error consumer, not full original loop replay or live recovery"
+  },
+  "runtime_patch_applied": false,
+  "production_deployment": false,
+  "archive": {
+    "root": "/Users/a77/.finance-runtime/reviews/research-candidate-glm-live-20260918",
+    "files": 82,
+    "bytes": 623321,
+    "manifest_sha256": "ac3fcf713460f2363ac96b3c9efb597ce3c34b81ed042db98a28db7f1b00f855"
+  },
+  "closure": "closure.json; launcher-unchanged.json",
+  "scanning": {
+    "raw_file_marker_hits": 5,
+    "unresolved_hits": 0,
+    "first_seal_exit": 1,
+    "whole_bundle_zero_hits": false
+  },
+  "limits": [
+    "single sample; not A/B attribution",
+    "market snapshot frozen, online inputs not frozen",
+    "not browser-click or cross-process restore acceptance",
+    "not financial quality certification"
+  ]
+}

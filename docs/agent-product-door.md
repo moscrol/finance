@@ -65,7 +65,7 @@ Episode 修订组合检查 E 编号是否改指、同 hash 证据语义元数据
 无关观察的紧急兜底投影，普通工具900/240预览未改。SDK不自建隐藏重试池，headless仍只
 允许一次禁工具恢复，隔离失败不借保留绕过。
 边界：候选保存在同进程账本；尚未接入 `EpisodeState` 的跨进程正文恢复。旧 helper
-动态兼容链未全审，也不是任意模型消息都可发布。无新真实产品会话或独立金融认证。
+动态兼容链未全审，也不是任意模型消息都可发布。独立金融认证未完成。
 2026-09-18 固定 `5f3b5b59` 的一次隔离真会话证实：已准入的 979 字终稿完整保留，
 数字疑点以批注追加，核验仍 rejected、报告仍 partial；但此前两次 finish 因
 `not_json_object` / `history_missing_comparison` 拒收后被恢复稿替换，早先分析未保留。
@@ -74,6 +74,10 @@ Episode 修订组合检查 E 编号是否改指、同 hash 证据语义元数据
 准入前续片 `35ee8a5c` 的固定原件回放现保留四部分原文，仍 partial/unavailable；
 [新工程收据与回放范围](verification/2026-09-18-finish-candidate-preservation/README.md)
 不改原真实会话判定，也不表示跨进程恢复或新版真模型交付已验。
+随后 `35ee8a5c` 的GLM隔离首发（1次、零重发）在历史查询缺结束日期被拒后，因进展
+记账的只读Mapping JSON异常中断；已有3轮模型响应，但尚未到finish，保稿路径未触发。
+新旧live均未通过，不能将凭据可用或邻枝局部离线修复通过当成交付认证；
+[新真实失败、原形状诊断与关闭收据](verification/2026-09-18-finish-candidate-glm-live/README.md)。
 
 ### 材料题边界（E2，分阶段接线中）
 

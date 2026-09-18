@@ -1,31 +1,30 @@
 # 研究答案保留｜2026-09-18
 
 ## 这个分支做什么
-同任务安全分析遇普通质量/格式问题仍保留，疑点与修订追加；展示不等于核验通过。
+同任务安全分析遇普通质量/格式问题仍保留；展示不等于核验通过。
 
 ## 决策与被否方案
-| 选了 | 否了 | 原因 |
-|---|---|---|
-| 候选与准入分账 | 放宽身份/历史门 | 保稿不能授予完成 |
-| 格式修结构、缺口继续研究 | 共用一次纠正后重写 | 不无故丢研究能力 |
-| 原稿＋必要证据完整承接 | 短稿覆盖/无限重试 | 保上下文，根预算不变 |
-| 清洗→判正文→附注 | notice撑空稿 | 存在性不由派生说明证明 |
-展开：`docs/handoffs/2026-09-18-finish-candidate-preservation.md`；模型纠偏见 `docs/handoffs/2026-09-18-live-model-selection-correction.md`。
+- 候选与准入分账；不放松身份/历史/证据门，保稿不授予完成。
+- 原稿＋必要证据完整承接，修订追加；不短稿覆盖、不无限重试。
+- 新live一次首发零重发；不因失败换版本/模型刷绿。GLM已实际响应，不等GPT钥匙串。
+- 本轮只验与诊断；复用邻枝Mapping投影修复，不全局解冻/default=str、不猜缺失日期。
+展开：`docs/handoffs/2026-09-18-finish-candidate-glm-live.md`；保稿设计见同日`finish-candidate-preservation.md`。
 
 ## 当前状态
-代码35ee8a5c、工程收尾baf10987。8a00a7c6的GPT凭据检查事实保留，但“必须等GPT”已纠正：用户09-18确认可用GLM，09-16已有授权且原run实际用glm-5.3-flash。当前8792 health同模型ready，非新模型调用。新题/模型调用/服务启动仍0；未push/合main/部署/动8792。
-原live仍not_passed，新live not_run。原session=`01a0af55-1bfb-738d-8a3a-90805a51b1b2`。新根 `~/.finance-runtime/reviews/research-candidate-live-20260918/`；旧214/44/90文件包未改。
-
-## 已验证
-干净35ee：Python11664P/81S/2X/17warnings；前端107P与lint/typecheck/build、E2E34P/2S、静态/registry通过，crosswalk98warnings保留。收据 `~/.finance-runtime/test-receipts/20260918T101211Z-35ee8a5c.json`，不移绑文档SHA。
-原件继续/恢复两路径：3512字合稿、3722字公开，原两拒收码不变，partial/unavailable，0真模型/工具。八类内存撤保护均红，原代码专项68P。
+业务代码仍35ee8a5c；工程文档baf10987、模型纠偏69c056f6。新run=`run_20260918_213933_397262`：独立8849首发1/重发0/续问0，3轮glm-5.3-flash响应，failed/blocked，无答案。**新旧live均not_passed，保稿路径未触发**。
+根R=`~/.finance-runtime/reviews/research-candidate-glm-live-20260918/`，82文件封存。8849已停、锁已释放，8792仍bf662身份/启动器未变；未push/合main/部署/整合邻枝。仅新增原件重放量具与文档。
 
 ## 未验证 / 已知边界
-候选账仅同进程；未接EpisodeState跨进程恢复，terminal restore仍可能空稿。旧helper/eval动态链未全审，旧answer_query真模型、新Workbench真模型交付及独立QC未跑。
-普通工具900/240预览、进度、板块比较覆盖、按E扩读及原金融问题另线。Mac/Node26/DuckDB1.5.4非CI镜像。本地main现d32b8966、底落后4；本轮未fetch，旧漂移0不代表当前。
+history_query缺end→参数正确拒绝→进展记账mappingproxy JSON崩溃；不是模型凭据失败。候选账仍仅同进程；自然保稿/跨进程恢复/独立QC未验。失败report used=false/tool_calls=0不等于零消费；durable state仍tools_pending，未尝试resume。KB/web等在线输入没冻结，非严格A/B。
 
 ## 下一步
-沿已授权GLM路线准备隔离live，不再等待GPT Keychain；首题前冻结实际模型/兜底/判官、数据、预算与一次首题零重发协议。不得把health ready当调用成功；凭据仅安全传递。跨进程恢复另立持久化/身份/崩溃合同，不从model_turn猜稿。合main/部署仍等确认。
+1. 将已有a969d30a的research_progress Mapping投影小片纳入下一候选，保留未知对象拒绝/loop回归；不盲合整包邻枝。原件量具` scripts/review_probes/replay_history_progress_failure.py`。
+2. 新精确revision工程验证后，再冻结/确认新live额度；本次样本不重发、不改判。失败用量与durable终态缺口另行处理。
+3. 合main、部署、切8792仍等确认。跨进程恢复需另建持久化/身份/崩溃合同。
+
+## 已验证
+本轮：35ee既有全量收据条件校验exit0（未重跑）；原请求在35ee复现stack、邻枝干净068e2a46生成正确纠参反馈，44证据不变；邻枝相关24P。量具两正确方向exit0/交换期待各exit1/覆写exit2，0网络/模型/DB调用。旧214/44/90/6包逐文件hash一致，行情/导出未改。
+旧35ee收据：11664P/81S/2X、前端107P、E2E34P/2S；不移绑文档/量具SHA。
 
 ## 踩过的坑
-后稿精确包含旧稿也不能清复核债务；同hash须核语义，旧未知E号不能复活。恢复需正文引用卡，不只binding。模型返回后取消仍failed/cancelled，资源照结算。E2E改RE06端口须同步RE06_E2E_URL；首败1F/33P保留，不能隐去。源码点号/测试假秘密命中扫描须分类，不能称整包零命中。
+protocol起初读CLI90s，首发前另写amendment纠正为Workbench max600s/40步；原件保留。环境LLM_TIMEOUT300s不等于实际Episode75s。扫描首封exit1的6词形为代码，精确核销未决0，不称全包零命中。后稿包含原稿也不能清复核债，附注不能撑空稿。
