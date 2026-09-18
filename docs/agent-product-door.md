@@ -31,6 +31,19 @@
 
 编码任务「仓库里有没有现成实现」走 `python3 scripts/code_map.py query "<问题>"`，不是本页，也不是问答门。空图不得写成架构结论。
 
+### Workbench 终态与发布边界（当前分支候选，未部署）
+
+`run.status` 是完成/失败/取消竞争的归属，不是全部产物已发布。公开 Run 新增
+`publication={status: pending|published|not_applicable, message_id}`：只有本用户会话中
+该 run 的助手终稿及匹配的 `message.complete`/`message.error` 落盘才是 published；
+看到提交事件后重读产物列表，避免给此前的半成品快照贴完成标记。无助手消息的旧
+`/api/runs`（包括任意 session 标签）为 not_applicable，不冒充 Workbench 会话。
+前端轮询与 SSE 终态均等精确 run/conversation/message 的发布证明，再加载最终消息与
+产物、停止刷新；发布中刷新页面继续连接。SSE 沿原总时限等待，超时不伪造完成。
+失败/取消不要求 report.json。`workbench_probe.py` 消费新标记；旧服务无此字段时仅沿旧
+message_id 取货合同，不证明产物完整。此改动不移动终态 claim，不修复跨进程发布崩溃；
+永远缺少发布事件会保持 pending，不猜稿或静默标成功。
+
 ### 专项研究纪律（Knevo 增量，2026-09-17 已合 main）
 
 `research_workflow_guidance.workflow_guidance` 给财报、事件推演、观点审查、事实核对、历史类比
