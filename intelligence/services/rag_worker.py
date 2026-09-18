@@ -94,10 +94,13 @@ def _process_rss_bytes(pid: int | None) -> int | None:
 
 
 class PersistentRagWorker:
-    def __init__(self, python: str, kb_root: Path, index_dir: Path) -> None:
+    def __init__(
+        self, python: str, kb_root: Path, index_dir: Path, kb_wiki: Path | None = None,
+    ) -> None:
         self.python = python
         self.kb_root = kb_root
         self.index_dir = index_dir
+        self.kb_wiki = kb_wiki.resolve() if kb_wiki is not None else None
         self._process: subprocess.Popen[str] | None = None
         self._code_identity = ""
         self._pycache: TemporaryDirectory | None = None
@@ -313,6 +316,9 @@ class PersistentRagWorker:
         # 会被 redirect_stderr 收进 payload，让「stderr 非空」这个信号永远为真。
         # 这里用 setdefault，外部显式设置仍然优先。
         env = dict(os.environ)
+        if self.kb_wiki is not None:
+            # Bind the actual data argument, not an unrelated ambient KB_VAULT.
+            env["KB_VAULT"] = str(self.kb_wiki)
         for key, value in (
             ("HF_HUB_OFFLINE", "1"),
             ("TRANSFORMERS_OFFLINE", "1"),
@@ -496,7 +502,7 @@ class PersistentRagWorker:
             pycache.cleanup()
 
 
-_WORKERS: dict[tuple[str, str, str], PersistentRagWorker] = {}
+_WORKERS: dict[tuple[str, str, str, str], PersistentRagWorker] = {}
 _WORKERS_LOCK = threading.Lock()
 _STARTUP_FAILURE_TYPE: str | None = None
 
@@ -514,12 +520,14 @@ def _worker_for(
     python: str,
     kb_root: Path,
     index_dir: Path,
+    kb_wiki: Path | None = None,
 ) -> PersistentRagWorker:
-    key = (python, str(kb_root.resolve()), str(index_dir.resolve()))
+    key = (python, str(kb_root.resolve()), str(index_dir.resolve()),
+           str(kb_wiki.resolve()) if kb_wiki is not None else "")
     with _WORKERS_LOCK:
         worker = _WORKERS.get(key)
         if worker is None:
-            worker = PersistentRagWorker(python, kb_root, index_dir)
+            worker = PersistentRagWorker(python, kb_root, index_dir, kb_wiki)
             _WORKERS[key] = worker
     return worker
 
@@ -531,8 +539,9 @@ def query(
     index_dir: Path,
     argv: list[str],
     timeout: float,
+    kb_wiki: Path | None = None,
 ) -> WorkerResponse:
-    return _worker_for(python, kb_root, index_dir).query(argv, timeout)
+    return _worker_for(python, kb_root, index_dir, kb_wiki).query(argv, timeout)
 
 
 def prewarm(
@@ -542,12 +551,13 @@ def prewarm(
     index_dir: Path,
     argv: list[str],
     timeout: float,
+    kb_wiki: Path | None = None,
 ) -> WorkerResponse:
     global _STARTUP_FAILURE_TYPE
     with _WORKERS_LOCK:
         _STARTUP_FAILURE_TYPE = None
     try:
-        return _worker_for(python, kb_root, index_dir).prewarm(argv, timeout)
+        return _worker_for(python, kb_root, index_dir, kb_wiki).prewarm(argv, timeout)
     except Exception as exc:
         record_startup_failure(exc)
         raise

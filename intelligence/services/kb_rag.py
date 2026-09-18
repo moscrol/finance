@@ -532,6 +532,16 @@ def kb_root(kb_wiki: str | Path) -> Path:
     return Path(kb_wiki).expanduser().resolve().parent
 
 
+def _resolve_code_root(root: Path, explicit: str | Path | None = None) -> Path:
+    """Resolve executable KB code independently of live wiki/index data.
+
+    Explicit fixtures override deployment configuration. An invalid configured root
+    must remain invalid: falling back to the data tree would silently run old code.
+    """
+    configured = explicit if explicit is not None else os.environ.get("KB_RAG_CODE_ROOT")
+    return Path(configured).expanduser().resolve() if configured else root
+
+
 def _resolve_index_dir(root: Path) -> Path:
     env = os.environ.get("VECTOR_INDEX_DIR") or os.environ.get("RAG_INDEX_DIR")
     if env:
@@ -640,7 +650,8 @@ def prewarm(
     if not kb_wiki:
         raise ValueError("knowledge wiki is required for RAG prewarm")
     root = kb_root(kb_wiki)
-    script = root / RAG_SCRIPT_REL
+    runtime_root = _resolve_code_root(root)
+    script = runtime_root / RAG_SCRIPT_REL
     index_dir = _resolve_index_dir(root)
     if not script.is_file():
         raise FileNotFoundError(script)
@@ -663,9 +674,10 @@ def prewarm(
         prewarm_argv.extend(["--stale-policy", _STALE_POLICY])
     prewarm_argv.append("--json")
     rag_worker.prewarm(
-        python=_resolve_rag_python(root),
-        kb_root=root,
+        python=_resolve_rag_python(runtime_root),
+        kb_root=runtime_root,
         index_dir=index_dir,
+        kb_wiki=Path(kb_wiki).expanduser().resolve(),
         argv=prewarm_argv,
         timeout=timeout,
     )
@@ -683,7 +695,7 @@ def probe_rag_cli(
             query_protocol_compatible=False,
             warning="未配置知识库 wiki 路径",
         )
-    root = kb_root(kb_wiki)
+    root = _resolve_code_root(kb_root(kb_wiki))
     script = root / RAG_SCRIPT_REL
     if not script.is_file():
         return RagCliProbe(
@@ -1481,11 +1493,7 @@ def retrieve(
         return res
     wiki_root = Path(kb_wiki).expanduser().resolve()
     root = kb_root(wiki_root)
-    runtime_root = (
-        Path(code_root).expanduser().resolve()
-        if code_root is not None
-        else root
-    )
+    runtime_root = _resolve_code_root(root, code_root)
     script = runtime_root / RAG_SCRIPT_REL
     if not script.exists():
         res.warning = f"wiki-rag 未接入：找不到 {script}"
@@ -1675,6 +1683,7 @@ def retrieve(
                 python=rag_python,
                 kb_root=runtime_root,
                 index_dir=chosen,
+                kb_wiki=wiki_root,
                 argv=cmd[2:],
                 timeout=float(timeout),
             )
@@ -1792,6 +1801,7 @@ def retrieve(
                     python=rag_python,
                     kb_root=runtime_root,
                     index_dir=chosen,
+                    kb_wiki=wiki_root,
                     argv=cmd[2:],
                     timeout=remaining,
                 )

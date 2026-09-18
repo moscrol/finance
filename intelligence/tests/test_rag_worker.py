@@ -776,6 +776,7 @@ def test_kb_rag_prewarm_uses_production_runtime_without_business_cache(
         "python": sys.executable,
         "kb_root": tmp_path,
         "index_dir": index,
+        "kb_wiki": wiki,
         "argv": [
             "query",
             "Workbench RAG 预热",
