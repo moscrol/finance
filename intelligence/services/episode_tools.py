@@ -139,6 +139,7 @@ def attach_financial_observations(
     mapping = bundle.observations_by_line()
     if not mapping:
         return list(evidence)
+    period_names = {row.report_date: row.report_name for row in bundle.rows}
     out: list[agent_research.AgentEvidence] = []
     for item in evidence:
         found = mapping.get(item.detail)
@@ -149,10 +150,12 @@ def attach_financial_observations(
             f"{market_financials.METRIC_GLOSSARY[obs.metric]}={obs.value}"
             for obs in found
         )
+        # 保留原报告期名称（如 2024年报），只把裸数字列替换为带口径的指标。
+        period = f"{period_names[found[0].as_of]}（{found[0].as_of}）"
         labeled = replace(
             item,
             title=f"{bundle.name}（{found[0].subject}）报告期 {found[0].as_of}",
-            detail=f"报告期 {found[0].as_of}；{values}",
+            detail=f"| {period} | {values} |",
             observations=tuple(
                 agent_research.StructuredObservation(
                     subject=obs.subject,
