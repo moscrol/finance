@@ -278,7 +278,7 @@ A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结
 
 问金融问题走上一节 CLI `ask`；问「仓库里有没有现成实现」走 `python3 scripts/code_map.py query`。仓库里没有第四套 Python `answer_door`。真浅的若还要收，是删掉 `AskWorkflowOptions` 那次字段拷贝，不是再加转发。
 
-### 知识库证据过滤（分支候选：`fix/kb-filter-receipt`）
+### 知识库证据过滤（2026-09-18 已合 main，未部署）
 
 `kb_rag.retrieve` 消费知识库 query 的 `--receipt`（实际执行条件回执）。请求了等级、
 硬度、来源或 `as_of` 时，必须核对封套、逐条元数据与可得日；缺回执/旧 CLI 不支持即
@@ -290,7 +290,8 @@ A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结
 负能力缓存与 worker 都绑定 CLI/RAG 包的内容指纹；代码变更先结束旧进程，响应再核对
 加载身份，查询中途变化则丢弃结果。发布仍需不可变检出与服务重启，不支持逐文件热部署。
 这只是检索积木的协议：未给所有产品问句自动加截至日期，也不代表生产索引已迁移。
-跨仓验证见 `docs/handoffs/2026-09-18-kb-filter-receipt.md`；合并/部署另行确认。
+跨仓合同见 `docs/handoffs/2026-09-18-kb-filter-receipt.md`；金融 #784 / KB #151 已合入，
+合并验收与生产边界见 `docs/handoffs/2026-09-18-kb-retrieval-merge-acceptance.md`。部署与索引迁移另行。
 
 ## 积木（常见误判）
 
