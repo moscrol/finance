@@ -1,34 +1,34 @@
-# A 股研究数据链候选 · 2026-09-18
+# A股研究交付候选 · 2026-09-18
 
 ## 这个分支做什么
-复用既有行情/财报/估值/公告/资金链，修空错混淆与Episode证据消费，不造事实写链。
+复用数据链，修计算不可展示/终稿错数、查询空错推成无公告；不造第二取数或事实写链。
 
 ## 当前状态
-树 `~/fwp-wt-research-data-readiness`；业务a93b→a9a7→**d77383ac**已提交；量具另`778679b3`。工程通过，**整体回答质量未过**；未push/PR/合main/部署。8907七run终态，PID33891已停；8792未动。
-正文：`docs/handoffs/2026-09-18-research-data-readiness.md`；manifest：`docs/verification/2026-09-18-research-data-readiness/manifest.json`。
-原件：`~/.finance-runtime/research-data-readiness-20260918/`（OUT）。
+树 `~/fwp-wt-research-data-readiness`；业务 **a31b572f** 已提交，后续收口仅文档。工程通过，**自然回答质量仍not_passed**；finance未push/PR/合main/部署，8792未动，8907保持停服。
+详情：`docs/handoffs/2026-09-18-research-delivery-guards.md`；新manifest：`docs/verification/2026-09-18-research-delivery/manifest.json`。
+原件 `~/.finance-runtime/research-delivery-20260918/`（DELIVERY）。旧readiness快照/194件封印保留，不代表新状态。
 
 ## 决策与被否方案
-- 旧ask/Episode共用capital_bundle；否第二取数链，状态/截止/预算只有一份。
-- 历史解禁无披露时点即留缺口；否当前日程回填历史。
-- 固定枚举公开缺口，否抄异常/草稿；标签避菜单分隔符，不放宽过滤。
-- 财报同批真行+指标词典，否表头占额度/模型猜列；保留报告期、限定语、哈希链。
+- 新结果成功前验格式；否改旧归一化器漂白失败，格式不证公式。
+- 公开正文局部拒错/错格待核；否删整答或静默替模型改数。
+- 同会话原证据/权限/预算续修，错因进原请求；否缺口即增资源、耗尽即取消必答。
+- 只保原绑定且仍引用的可信卡，最终投影再验；否复活已拒槽或借草稿凭据。
+- 首次核验前总期限到期即核验未完成；否把未验稿当可信前稿。
 
 ## 未验证 / 已知边界
-- 公告源仍cninfo403/互动易字段错。a93b真实`run_20260918_121115_094979`进度诚实，但成功终稿仍把不完整查询推成“无新增官方信息差”：未通过。
-- a9a7财报`run_20260918_124033_015953`四次脚本错后产物exit0，JSON比率1.588却答1.587；嵌套summary被渲染器忽略、表格为空。文件存在不等于可用产物；模型抄数字而非读series。
-- a9a7 ISO历史run `run_20260918_123911_710065`原因正确，不外呼滚动解禁；仍夹带“大概率无重大解禁”弱先验，非严格核事实通过。
-- 最终d773只补报告期名，未新跑模型会话；无真人视觉/独立QC/全股覆盖/稳定日更结论。
-- 相对历史题路由多余研究未修。08-12已定位为event_daily筛选子集日期，非读错根；股票仍09-17，笼统过期提示未改。
+- 本轮0新自然模型/0新取数。旧公告与计算真实失败不翻案；SDK替身37例、冻结沙箱/展示重放不代签自然修复与整篇正确。
+- guard仅单公司、显式期别/绝对现金流净利比率及有限公告推断；多公司/隐含期别/来源/公式/任意脚本消费另验，跳过非认证。
+- cninfo403/互动易字段错未恢复；历史解禁缺披露时点，不能当前回填。弱先验/扩题、event_daily过宽新鲜度提示未修。
+- 未整合R5选期/缓存等；独立QC、真人视觉、合流版验收未跑，旧预算碰撞/溯源偶发根因未定。
 
 ## 下一步
-1. 对齐并行`fix/8792-financial-contracts-r5@dfd7b4ff`后修计算交付；只读量具`scripts/review_probes/inspect_calculation_delivery.py`，不重取原件。
-2. 公告成功答卷也约束负面推断，保留部分可信结果；不因单源故障删整答。
-3. 再固定版本复验真实题集/独立检查，用户确认后才合并与上线。
+1. 审边界/对齐并行已提交版本，不复制WIP。
+2. 授权后固定题集/revision/模型/壳/预算，走真实conversations首发；核gpt-5.6-sol与Keychain，别沿用旧GLM launcher或重采样挑绿。
+3. 合流SHA另跑批次门，用户确认才合并/部署。自然调度/方法协议/KB apply继续分案。
 
 ## 已验证
-d773 clean全量**11522P/83S/2x**，Ruff/前端lint/typecheck/build全过，组件107P、E2E34P/2S、registry四项+crosswalk绿。收据`20260918T072734Z-d77383ac.json`；OUT/candidate-d77383ac/result.json。
-撤保护5F/1F/1F，正常115P。最终真财报12行、6期现金流进沙箱，六比率独立复算一致；served08-15非抓取日。量具另6P，不累加。
+a31 clean全量 **11635P/83S/2x**、Ruff、前端lint/typecheck/build绿；前端107P、E2E34P/2S、registry四项/crosswalk绿。收据 `20260918T122214Z-a31b572f.json`；DELIVERY/candidate-a31b572f/result.json。
+新13组拆保护均真实断言红、还原绿，基线/恢复107P。默认extraction35组兼容复跑，恢复165P（含变异运行异常，不全称断言红）。338件新封印，旧194件hash不变。
 
 ## 踩过的坑
-主树.venv-workbench；净环境/umask022。旧调用溯源偶发红根因未定，后续未重现。a9a7全量4F保留，恢复期名才全绿。日历子集/表/全库日期分开；取到/可算/展示/答对分开。
+主树.venv-workbench、净环境/umask022。工具关窗≠root到期≠额度耗尽；回调内assert可能被吞，外部再验载荷。代码目录由源码生成。图谱PENDING/代码地图missing不证明无能力或已上线。
