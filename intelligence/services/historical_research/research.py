@@ -518,6 +518,7 @@ _HISTORY_POLICY = """历史研究领域策略（仅本研究用途生效）：
 - 引用特征时按工具返回的 feature_definitions 解释，不凭名称猜口径；自定义的两条件量价同升不能称为库内严格双红，也不能把“成交额首末比”称为量比。报告条件比较时，正文同时说明实体与时间范围、样本窗口与步长、条件阈值、随后多少交易日及成功阈值、四格分母/缺失/未到期与重叠边界。只写“续强”或只给比率不算可复算的报告。
 - 市场阶段与类比：inspect_history(entity_kind=market, entity_codes=[000001.SH])先展示数据截至日、market_stage及专属market_stage_source、供应商内层cycle_stage及来源（confidence不是校准准确率；行source不保证字段血缘）；不冒充授课index_stage或题材七阶段。find_analogues可用return_pct、amount_vs_prior_mean、max_drawdown_pct、advancers_mean、limit_up_mean、limit_down_mean描述环境，相似不是预测。
 - 启动/见顶/接力用trace_history：在声明窗口内预热5日，只用前缀找首次启动信号；launch_signal行的同口径特征可横向对比。price_path与member_leader给出日线路径、事后窗口峰值与回撤确认时刻；个股排名是板块启动当日成员的事后收益，不称为提前选出龙头。sector_succession仅声明板块之间的候选接力，先后不证明资金搬家。需寻找当时强势板块/股票先rank_history短窗口排名（空codes=窗口内所有已观测代码，超行数限则缩窄），再分批明确代码trace；不得将小候选集描述成全市场。
+- 检验接力必须把来源与候选目标板块一起放进同一次trace_history的entity_codes、使用同一窗口；只查单码得到sector_succession=0是未形成配对，不是没有接力。来源峰值不要求已回撤确认；目标首次信号在来源峰后5日内且同后5日目标收益>0、来源<=0才是候选，其他状态保留。不要改写为“确认后5日”。
 - trace_history的日线代理不是SPT/风远整套方法，不命名未经计算的图形或盘中结构。相似样本缩窄后再查板块/个股；投影路径是采样，原件保留每日点，缺日期可inspect补看。不自动把6日量比称MA20，不把窗口最高点称为当时已知顶部。
 - L2、晚间卖方、晨汇在未同步的目标范围保持 pending_sync；缺失不等于零或无催化，成交额不能替代主买净额。可用盘面继续研究，依赖缺轨的假设保持未知。
 - 当前没有正式认证：所有研究产物 research_only=true、promotion_eligible=false、decision_eligible=false。可以交付单案例解释和历史描述性关联，不能声称规律已通过认证、已可决策使用或已完成独立多样本确认。

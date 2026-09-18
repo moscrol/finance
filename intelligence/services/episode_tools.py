@@ -1464,7 +1464,7 @@ def build_episode_registry(
         if spec.name in {"mainline_context", "evidence_lookup"} else spec
         for spec in base_registry.authorized_specs()
     ]
-    if frame.history_intent is not None and not local_only:
+    if frame.history_intent is not None:
         from intelligence.services.historical_research.episode import history_tool_specs
 
         specs.extend(

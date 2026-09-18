@@ -1240,10 +1240,23 @@ def decide_turn(
         conversation_context=context if context else None,
         conversation_materials=conversation_materials,
     )
-    if task_frame.history_intent is None and history_followup is not None:
+    if history_followup is not None and (
+        task_frame.history_intent is None
+        or ((not task_frame.history_intent.requested_start
+             or (history_followup.strict_window and not task_frame.history_intent.strict_window))
+            and not task_frame.history_intent.window_error)
+    ):
+        # An explicit history noun in a continuation must not erase the previous
+        # user-owned date restriction with a newly inferred, unbounded intent.
         task_frame = replace(
             task_frame,
-            history_intent=history_followup,
+            history_intent=replace(
+                history_followup,
+                information_cutoff=(task_frame.history_intent.information_cutoff
+                                    if task_frame.history_intent is not None
+                                    and task_frame.history_intent.information_cutoff
+                                    else history_followup.information_cutoff),
+            ),
             question_type="comparison_analog"
             if history_followup.purpose == "historical_comparison"
             else "theme_analysis",
@@ -1252,6 +1265,11 @@ def decide_turn(
             else "theme_multi_layer_evidence",
             required_outputs=("direct_assessment", "counterpoint", "evidence_boundary"),
         )
+    if (history_followup is not None and task_frame.history_intent is not None
+            and task_frame.history_intent.information_cutoff is None):
+        task_frame = replace(task_frame, history_intent=replace(
+            task_frame.history_intent, information_cutoff=history_followup.information_cutoff,
+        ))
     explicit_history_context = explicit_comparison or explicit_resolved_history or bool(
         task_frame.history_intent is not None
         and task_frame.subject is not None

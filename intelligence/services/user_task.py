@@ -486,6 +486,12 @@ _B_LOCAL_ONLY_PHRASES: tuple[str, ...] = (
 _B_RELAX_PHRASES: tuple[str, ...] = ("可以查真实数据", "结合最新行情", "结合当前行情")
 # ② 基底继承（续轮声明）：
 _CONTINUATION_HEAD_PHRASES: tuple[str, ...] = ("继续", "接着", "同上")
+# Explicit retention of a prior permission is a continuation, not fresh full
+# access. This detector sees the existing quote/material-masked instructions.
+_SCOPE_CONTINUATION_RE = re.compile(
+    r"(?:沿用|遵守)上一轮.{0,24}(?:范围|截止)|"
+    r"(?:范围|截止日).{0,12}(?:继续)?不变|之前授权的(?:日期|研究)?范围内"
+)
 # 切句与句首归一化共用前缀，避免礼貌用语令第二个状态操作漏检。
 _STATE_PREFIX_ATOM = r"(?:请|麻烦|烦请|本轮|这次|此次)\s*"
 
@@ -506,7 +512,13 @@ _FICTIONAL_SENT_RE = re.compile(
 )
 # A8 的「假设 X，结合当前行情」不要求额外的「成立」。是否顶层由区域复核决定，
 # 而不是把明确假设漏成无约束；材料内同形态仍走 uncertain，强保护内不可见。
-_HYPOTHESIS_STRONG_RE = re.compile(r"^(?:假设|如果)\s*\S.{1,}")
+_HYPOTHESIS_STRONG_RE = re.compile(
+    r"^(?:假设|如果)\s*"
+    # Conditions on research procedure are not fabricated market premises.
+    r"(?!(?:当前)?(?:分析|观察|研究)?窗(?:口)?(?:太短|不足)|"
+    r"(?:要|需要|想)(?:说|声称|证明|验证)|(?:无法|不能|做不到)(?:验证|计算|比较))"
+    r"\S.{1,}"
+)
 # 题内假设：句首 假设/如果 即算（题上下文消歧，scope=q{n}）。
 _HYPOTHESIS_IN_QUESTION_RE = re.compile(r"^(?:假设|如果)\s*\S.{1,}")
 
@@ -571,7 +583,7 @@ def _state_op_in_sentence(sent: str) -> str | None:
     head = _state_head(s)
     if head.startswith(_B_MATERIAL_ONLY_PHRASES + _B_LOCAL_ONLY_PHRASES + _B_RELAX_PHRASES):
         return "constraint_b"
-    if head.startswith(_CONTINUATION_HEAD_PHRASES) or "其余条件不变" in s:
+    if head.startswith(_CONTINUATION_HEAD_PHRASES) or "其余条件不变" in s or _SCOPE_CONTINUATION_RE.search(s):
         return "continuation"
     if _FICTIONAL_SENT_RE.search(s):
         return "premise_declaration"

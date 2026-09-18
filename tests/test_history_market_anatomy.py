@@ -629,7 +629,7 @@ def test_probe_script_preserves_original_and_labels_projection_limit(anatomy_db,
         main(["--db", str(anatomy_db), "--recipe", str(recipe), "--output", str(output)])
 
 
-def test_new_artifacts_audit_is_explicitly_unsupported_not_format_error(
+def test_new_artifacts_have_independent_arithmetic(
     anatomy_db, tmp_path
 ):
     from scripts.audit_historical_research_artifacts import audit_artifact
@@ -644,5 +644,6 @@ def test_new_artifacts_audit_is_explicitly_unsupported_not_format_error(
         path = tmp_path / f"{kind}.json"
         path.write_text(json.dumps(payload), encoding="utf-8")
         receipt = audit_artifact(path)
-        assert receipt["result"] == "unsupported"
         assert receipt["errors"] == []
+        assert receipt["result"] in {"checked", "partial"}
+        assert receipt["calculation_checks"]

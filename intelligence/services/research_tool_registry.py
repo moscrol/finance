@@ -1296,6 +1296,22 @@ class ResearchToolRegistry:
                     if parsed_trade_date is not None
                     else None
                 )
+            history = effective_context.history_intent
+            if history is not None and history.strict_window and spec.name not in {
+                "history_query", "read_history_result", "save_history_research",
+            }:
+                # History originals have their own recursive scope gate, including
+                # undated formula metadata. Other tools may not launder unknown or
+                # pre-authorisation dates through a prose observation.
+                kept = [item for item in evidence if (
+                    (d := closed_loop_retrieval.parse_source_date(item.source_date)) is not None
+                    and (not history.requested_start or d.isoformat() >= history.requested_start)
+                    and (not history.requested_end or d.isoformat() <= history.requested_end)
+                )]
+                if not evidence or len(kept) != len(evidence):
+                    gaps = (*gaps, "未取得历史授权范围内可交付的有日期材料；越界或日期未知内容未交付")
+                    evidence = kept
+                    observation = "；".join(f"{item.title}：{item.detail}" for item in kept) or gaps[-1]
             evidence, rejected = closed_loop_retrieval.filter_future_dated(
                 evidence,
                 information_cutoff=effective_context.information_cutoff,
@@ -1313,6 +1329,12 @@ class ResearchToolRegistry:
             ):
                 rejected.extend(evidence)
                 evidence = []
+            if (
+                history is not None and not evidence and trace_trade_date is not None
+                and trace_trade_date > effective_context.information_cutoff.as_of_date
+            ):
+                observation = "源已检索但日期晚于信息截止日，未交付内容；不是源里没有。"
+                gaps = (*gaps, observation)
             remaining_after_cutoff_filter = list(evidence)
             if rejected:
                 cutoff_iso = effective_context.information_cutoff.as_of_date.isoformat()
@@ -1324,6 +1346,11 @@ class ResearchToolRegistry:
                         )
                         or observation
                     )
+                elif history is not None:
+                    # Explicit history research is not a latest-news request.
+                    # A warning label cannot grant permission to consume future facts.
+                    observation = "已取得材料但全部晚于信息截止日，未交付内容；不是源里没有。"
+                    gaps = (*gaps, observation)
                 else:
                     # T2-a：全滤时空手会让模型以为「源里没有」。把越界条目标注后交还。
                     evidence = [

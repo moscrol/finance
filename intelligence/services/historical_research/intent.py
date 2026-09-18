@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, replace
 from datetime import date
 import re
 
@@ -21,6 +21,10 @@ _COMPARISON = re.compile(
     r"不同板块.{0,35}(?:共同|共性|可计算特征)"
 )
 _DATE = re.compile(r"(?<!\d)(20\d{2})[-/年](\d{1,2})[-/月](\d{1,2})日?(?!\d)")
+_EXPLICIT_INFORMATION_CUTOFF_RE = re.compile(
+    r"(?:以\s*)?(?P<before>20\d{2}-\d{2}-\d{2}|20\d{2}年\d{1,2}月\d{1,2}日)\s*(?:为|作为)?\s*信息截止日"
+    r"|信息截止日\s*(?:为|是|[:：])?\s*(?P<after>20\d{2}-\d{2}-\d{2}|20\d{2}年\d{1,2}月\d{1,2}日)"
+)
 _SHORT_RANGE_END = re.compile(
     r"\s*(?:到|至|~|～|—|-)\s*"
     r"(?:(?P<month>\d{1,2})[月/-](?P<day>\d{1,2})日?|(?P<same_month_day>\d{1,2})日)"
@@ -36,6 +40,7 @@ class HistoryIntent:
     scope: str = "historical_research"
     strict_window: bool = False
     window_error: str | None = None
+    information_cutoff: str | None = None
 
     def __post_init__(self):
         if self.purpose not in {"retrospective_discovery", "historical_comparison"}:
@@ -44,7 +49,7 @@ class HistoryIntent:
             raise ValueError("invalid historical scope")
         if type(self.strict_window) is not bool:
             raise ValueError("invalid strict window flag")
-        for value in (self.requested_start, self.requested_end):
+        for value in (self.requested_start, self.requested_end, self.information_cutoff):
             if value is not None:
                 date.fromisoformat(value)
         if (
@@ -68,12 +73,40 @@ class HistoryIntent:
             "scope",
             "strict_window",
             "window_error",
+            "information_cutoff",
         }:
             raise ValueError("invalid history intent")
         return cls(**value)
 
 
+def explicit_information_cutoff(question: str) -> date | None:
+    """An explicitly named information date, never an observation range start.
+
+    Shared by history intent recovery and Episode cutoff assembly. Invalid or
+    conflicting dates raise so a history task cannot silently become unbounded.
+    """
+    values = set()
+    for match in _EXPLICIT_INFORMATION_CUTOFF_RE.finditer(question):
+        anchor = _DATE.fullmatch(match["before"] or match["after"])
+        assert anchor is not None
+        values.add(date(*(int(v) for v in anchor.groups())))
+    if len(values) > 1:
+        raise ValueError("存在多个信息截止日，请明确唯一日期")
+    return next(iter(values), None)
+
+
 def infer_history_intent(question: str) -> HistoryIntent | None:
+    intent = _infer_history_window(question)
+    if intent is None:
+        return None
+    try:
+        cutoff = explicit_information_cutoff(question)
+    except ValueError:
+        return replace(intent, window_error="信息截止日无效或不唯一，请明确有效日期")
+    return replace(intent, information_cutoff=cutoff.isoformat() if cutoff else None)
+
+
+def _infer_history_window(question: str) -> HistoryIntent | None:
     if history_research_cancelled(question):
         return None
     purpose = (
@@ -85,6 +118,15 @@ def infer_history_intent(question: str) -> HistoryIntent | None:
     )
     if purpose is None:
         return None
+    # A reference window, search window and explicit permission can coexist.
+    # Parse the user's limiting clause, not the first date (often the cutoff).
+    scope_cues = list(re.finditer(r"只(?:研究|看|查|分析|使用|用)|仅(?:研究|限|看|使用|用)|限定|范围限制", question))
+    strict = bool(scope_cues)
+    if len(scope_cues) > 1:
+        return HistoryIntent(purpose, strict_window=True,
+                             window_error="存在多个范围限定，请明确唯一的研究授权起止日期")
+    if scope_cues:
+        question = re.split(r"[。；;！!?？]", question[scope_cues[0].end():], maxsplit=1)[0]
     dates = []
     invalid_date = False
     matches = []
@@ -96,9 +138,6 @@ def infer_history_intent(question: str) -> HistoryIntent | None:
             invalid_date = True
             continue
     # Multiple anchors are not necessarily a range: September compared with August.
-    strict = bool(
-        re.search(r"只(?:研究|看|查|分析)|仅(?:研究|限|看)|限定|范围限制", question)
-    )
     if invalid_date:
         return HistoryIntent(
             purpose,
@@ -188,7 +227,9 @@ def inherit_history_followup(
     if re.search(
         r"(?:以前|之前|过去|历史).{0,12}(?:类似|相似|呢|情况)|(?:失败案例|反例)", text
     ):
-        return HistoryIntent("historical_comparison")
+        return replace(previous, purpose="historical_comparison")
+    if re.search(r"(?:沿用|继续不变|不变).{0,12}(?:范围|截止)|(?:范围|截止日).{0,12}(?:不变|沿用|继续)|上一轮.{0,12}(?:范围|截止)", text):
+        return previous
     if re.search(r"(?:那|这些|它们|接着|继续).{0,20}(?:走强|启动|见顶|接力|形态|共同特征)", text):
         return previous
     if re.search(r"(?:继续|接着)(?:做)?(?:复盘|研究|比较)", text):
@@ -206,6 +247,7 @@ def inherit_history_followup(
                 parsed.requested_end,
                 strict_window=parsed.strict_window,
                 window_error=parsed.window_error,
+                information_cutoff=parsed.information_cutoff or previous.information_cutoff,
             )
         return previous
     return None

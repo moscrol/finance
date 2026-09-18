@@ -800,9 +800,7 @@ def build_episode_context(
         task_frame_hash=frame.task_frame_hash,
         material_contract=material,
     )
-    if frame.history_intent is not None and "finance_query" in capability_tuple and not (
-        material is not None and material.data_scope == "local_only"
-    ):
+    if frame.history_intent is not None and "finance_query" in capability_tuple:
         # Capability authorizes execution; evidence_types admits the actual
         # producer names. Keep historical provenance and narrow output contracts
         # (for example memory/news/financial anchors) intact.
@@ -834,6 +832,11 @@ def build_episode_context(
             latest_data_date=latest_data_date,
         )
     )
+    if frame.history_intent is not None and frame.history_intent.information_cutoff:
+        cutoff = InformationCutoff(
+            min(cutoff.as_of_date, date.fromisoformat(frame.history_intent.information_cutoff)),
+            "requested",
+        )
     if frame.history_intent is not None and frame.history_intent.strict_window and frame.history_intent.requested_end:
         cutoff = InformationCutoff(
             min(cutoff.as_of_date, date.fromisoformat(frame.history_intent.requested_end)),

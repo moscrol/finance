@@ -351,12 +351,17 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         population="single",
         coverage=(
             "全市场每天 1 行的总量口径。涨停家数在这里是**全市合计**，不按板块拆——要板块分布用 "
-            "theme_limit_heat_daily。"
+            "theme_limit_heat_daily。market_stage 与 cycle_stage 是不同标签族，分别核对专属 *_source；"
+            "来源未查/空值不能称为供应商标签，行级 source 不代替字段血缘；confidence 非校准准确率。"
+            "volume_ratio 为 total_amount/amount_ma20*100 的百分数，不是倍数。"
         ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
             "market_stage": _dimension("market_stage", "市场阶段"),
+            "market_stage_source": _dimension("market_stage_source", "市场阶段来源"),
+            "cycle_stage": _dimension("cycle_stage", "供应商内层周期阶段"),
+            "cycle_stage_source": _dimension("cycle_stage_source", "内层周期阶段来源"),
             "stage_day": _dimension("stage_day", "阶段天数", "integer"),
             "volume_state": _dimension("volume_state", "量能状态"),
             "concentration_state": _dimension("concentration_state", "行业集中状态"),
@@ -365,6 +370,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "leading_industry_3": _dimension("industry_3", "成交第三行业"),
         },
         metrics={
+            "market_stage_confidence": _metric("market_stage_confidence", "阶段模型置信分数(非正确率)"),
             "index_close": _metric("sh_index_close", "上证收盘"),
             "index_return_pct": _metric("sh_index_pct_chg", "上证涨跌幅"),
             "total_amount": _metric("total_amount", "市场成交额亿"),

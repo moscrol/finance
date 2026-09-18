@@ -20,7 +20,7 @@ from intelligence.services.route_table import owner_skills_from_route_table
 from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRequirement
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.material_contract import MaterialContract
-from intelligence.services.material_permissions import restrict_read_capabilities
+from intelligence.services.material_permissions import LOCAL_EVIDENCE_PRODUCERS, restrict_read_capabilities
 from intelligence.services.historical_research.intent import HistoryIntent
 
 AnswerOwner: TypeAlias = Literal[
@@ -922,7 +922,8 @@ class ResearchTaskContract:
                 raise ResearchContractError("local_only 含未审定的读取能力")
             if any(item.capability not in self.allowed_capabilities for item in self.evidence_plan.requirements):
                 raise ResearchContractError("local_only 证据计划超出冻结读取授权")
-            if any(cap not in self.allowed_capabilities for output in self.required_outputs for cap in output.evidence_types):
+            if any(LOCAL_EVIDENCE_PRODUCERS.get(cap, cap) not in self.allowed_capabilities
+                   for output in self.required_outputs for cap in output.evidence_types):
                 raise ResearchContractError("local_only 输出工具证据超出冻结读取授权")
         mandatory = set(self.evidence_plan.mandatory_capabilities)
         if not mandatory.issubset(set(self.allowed_capabilities)):

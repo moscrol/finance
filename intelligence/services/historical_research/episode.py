@@ -555,6 +555,9 @@ def history_tool_specs(
             cost="local",
             freshness="historical",
             runner=run,
+            # Read-only DuckDB; saving this run's observation is not a data read.
+            # No vendor fetch, model, subprocess or knowledge-store fallback.
+            io_effect="local_read",
             parameters=query_parameters,
             parse_arguments=parse,
         )
@@ -643,6 +646,8 @@ def history_tool_specs(
             cost="local",
             freshness="historical",
             runner=read,
+            # Same-user/conversation RunStore originals, scope checked above.
+            io_effect="local_read",
             parse_arguments=parse_read,
             parameters={
                 "type": "object",
