@@ -1,0 +1,673 @@
+{
+  "method": "Pytest JUnit has no failure.type here. Classify explicit exception prefix in message; pytest assert-form messages are assertion failures. Unknown shapes fail closed. The earlier type-attribute-only draft is retained separately as invalid, not a product result.",
+  "suites": {
+    "publication": {
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "groups": 8,
+      "assertion_bearing_groups": 8,
+      "exception_only_groups": [],
+      "baseline": {
+        "label": "baseline",
+        "exit": 0,
+        "executed": 150,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "restored": {
+        "label": "restored-full",
+        "exit": 0,
+        "executed": 150,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "details": [
+        {
+          "id": "publication-requires-commit-event",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 7
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "publication-requires-matching-message",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 3
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "publication-requires-matching-conversation",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 3
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "publication-reloads-artifact-snapshot",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "sse-waits-for-publication",
+          "failure_types": {
+            "ValueError": 1,
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "sse-drains-between-read-commit",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "probe-waits-for-publication",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 4
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "publication-is-not-financial-completeness",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 4
+          },
+          "assertion_bearing": true
+        }
+      ]
+    },
+    "financial-delivery": {
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "groups": 6,
+      "assertion_bearing_groups": 6,
+      "exception_only_groups": [],
+      "baseline": {
+        "label": "baseline",
+        "exit": 0,
+        "executed": 20,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "restored": {
+        "label": "restored-full",
+        "exit": 0,
+        "executed": 20,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "details": [
+        {
+          "id": "financial-final-text-check",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 11
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "financial-debt-retained-citations",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "financial-concrete-repair-note",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "recovery-final-projection-check",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 3
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "recovery-retained-cards",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "delivery-keeps-earlier-verdict-ledger",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        }
+      ]
+    },
+    "financial-r6": {
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "groups": 13,
+      "assertion_bearing_groups": 13,
+      "exception_only_groups": [],
+      "baseline": {
+        "label": "baseline",
+        "exit": 0,
+        "executed": 91,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "restored": {
+        "label": "restored-full",
+        "exit": 0,
+        "executed": 91,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "details": [
+        {
+          "id": "watch_disclaimer_not_removed",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 6
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "new_watch_swallowed_by_previous",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "question_threshold_shape_removed",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 6
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "financial_semantic_wiring_removed",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 20
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "arithmetic_comparison_disabled",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 11
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "single_quarter_anchor_removed",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "inventory_duration_disabled",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "cumulative_length_disabled",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 8
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "deleted_claims_pretend_complete",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 21
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "product_crosscheck_unwired",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "document_delivery_unwired",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "foreign_document_accepted",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "conflicting_inputs_cherry_picked",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        }
+      ]
+    },
+    "research-delivery": {
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "groups": 13,
+      "assertion_bearing_groups": 13,
+      "exception_only_groups": [],
+      "baseline": {
+        "label": "baseline",
+        "exit": 0,
+        "executed": 107,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "restored": {
+        "label": "restored-full",
+        "exit": 0,
+        "executed": 107,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "details": [
+        {
+          "id": "result-success-admission",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "strict-table-width",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "domain-error-status",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "harness-status-delivery",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "public-disclosure-check",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 10
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "public-calculation-check",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 4
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "period-not-bag-of-numbers",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 3
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "metric-column-not-table-purpose",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 3
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "cell-local-preservation",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 3
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "same-turn-repair-note",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 12
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "nonmaterial-final-projection",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "retained-bound-citations",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 13
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "missing-product-not-certified",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 3
+          },
+          "assertion_bearing": true
+        }
+      ]
+    },
+    "extraction": {
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "groups": 35,
+      "assertion_bearing_groups": 28,
+      "exception_only_groups": [
+        "M7",
+        "M14",
+        "M23",
+        "M30",
+        "M31",
+        "M34",
+        "M35"
+      ],
+      "baseline": {
+        "label": "baseline",
+        "exit": 0,
+        "executed": 165,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "restored": {
+        "label": "restored-full",
+        "exit": 0,
+        "executed": 165,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "details": [
+        {
+          "id": "M1",
+          "failure_types": {
+            "KeyError": 2,
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M2",
+          "failure_types": {
+            "KeyError": 1,
+            "AssertionError (explicit or pytest assert representation)": 4
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M3",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M4",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M5",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M6",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1,
+            "KeyError": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M7",
+          "failure_types": {
+            "KeyError": 1
+          },
+          "assertion_bearing": false
+        },
+        {
+          "id": "M8",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M9",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M10",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M11",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M12",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M13",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M14",
+          "failure_types": {
+            "UnicodeDecodeError": 3
+          },
+          "assertion_bearing": false
+        },
+        {
+          "id": "M15",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M16",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M17",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2,
+            "KeyError": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M18",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M19",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M20",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M21",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M22",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M23",
+          "failure_types": {
+            "UnicodeDecodeError": 1
+          },
+          "assertion_bearing": false
+        },
+        {
+          "id": "M24",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M25",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M26",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M27",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M28",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M29",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 6
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M30",
+          "failure_types": {
+            "KeyError": 3
+          },
+          "assertion_bearing": false
+        },
+        {
+          "id": "M31",
+          "failure_types": {
+            "KeyError": 2
+          },
+          "assertion_bearing": false
+        },
+        {
+          "id": "M32",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M33",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M34",
+          "failure_types": {
+            "KeyError": 5
+          },
+          "assertion_bearing": false
+        },
+        {
+          "id": "M35",
+          "failure_types": {
+            "KeyError": 2
+          },
+          "assertion_bearing": false
+        }
+      ]
+    }
+  }
+}

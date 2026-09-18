@@ -1,30 +1,31 @@
-# R6×交付组合｜2026-09-18（19日归档）
+# R6×发布组合｜2026-09-19
 
 ## 这个分支做什么
-R6有限拒错与交付保护接到最终公开/异常恢复，保安全正文、合格引用与补修责任。
+把R6财务拒错、交付保护接到精确发布边界，保安全正文、引用与partial补修债。
 
 ## 决策与被否方案
-- 只移a31b572f交付片，否整枝扩大范围；非资金/历史/答案保留/runtime全合流。
-- 后置拼接后复查、合并拒句账，否删错即完成；新稿完整核验才清旧债。
-- 引用保本轮重开前合法资格，否复活原未绑定/已缺口卡；公开仍走view。
-展开：`../2026-09-18-8792-financial-delivery-integration.md`。
+- 仅接49fd发布片，a31交付片此前已在；否整枝保稿/RAG/runtime合流。
+- 终态claim不挪、不sleep；精确最终事件后重读产物，SSE排空后收口。
+- published只证可见性，不升级金融partial；保view出口、合法引用与前后拒句账。
+理由：`../2026-09-19-8792-financial-publication-integration.md`。
 
 ## 当前状态
-树`~/fwp-wt-8792-financial-r6-repair`，业务已提交`d9657215`（父53f433b6，旧业务15527aad）。作者工程条件化通过，旧R6/R3仍0/4 not_passed。无新真实模型/独立QC，未push/合main/部署/切8792。
-新包`docs/verification/2026-09-18-8792-financial-delivery-integration/`；原始根`~/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/`。文档提交不迁绑业务收据。
+树`~/fwp-wt-8792-financial-r6-repair`，业务`d06dc1e8`已提交（父文档0b16bc03，旧业务d9657215）。作者工程仅固定依赖条件下通过；旧R6/R3仍0/4 not_passed。无本候选新live/独立QC，未push/合main/部署/切8792。
+收据包`docs/verification/2026-09-19-8792-financial-publication-integration/`；原件`~/.finance-runtime/reviews/8792-financial-publication-integration-20260919/`。文档tip不迁绑业务成绩。
 
 ## 未验证 / 已知边界
-- F2真实报告取回未修；有限单主体/显式期别门非任意公式、因果或来源真实性认证。
-- 原件机械回放非完整Episode/最终公开稿；自然补修、根预算全链、跨进程恢复未签。
-- 宿主旧KB registry仍红、engineering.all_passed=false不改；固定同金融SHA＋KB91725ea9＋site9f60bef五项全0。不scan倒退登记。
-- 并行仅只读：答案保留68e0c8dc记录RAG缓冲读取红，有他人WIP；runtime文档e20f5c1d/业务6b70e540，非恢复driver。均未整合，需重核最新提交。
+- F2报告真实取回未修；有限门不认证因果/来源真实性。自然补查复算、根预算全链与跨进程恢复未签；永久缺最终事件仍pending。
+- 正常/可信稿恢复的存储/API接缝已验，恢复用已核验稿直接调用，非自然异常续修。原件回放非新完整Episode。
+- 宿主registry红及all_passed=false保留；同金融SHA＋KB91725ea9＋site9f60bef五项0。不scan倒退登记。
+- 邻枝只读：答案保留ad459ad0/业务20939b18记录RAG已修、新GLM仍not_passed；不借成绩。runtime封存时89f8d727干净但新片未审，旧收据只签6b70。
 
 ## 下一步
-1. 按已提交最小片审答案保留/最终发布与runtime接缝，不搬WIP；新组合重新固定SHA验全套，不拼枝成绩。
-2. 四套SUITES、合法引用、前后拒句账及view出口必须保留。新live/独立QC/合main/发布分别确认；不重发旧题刷绿。
+1. 审邻枝最新已提交最小片，保稿/RAG/runtime各验接缝，不搬WIP、不重复接49fd/a31。
+2. 扩组合另冻新SHA及跨仓输入，重验五套SUITES/view/引用/拒句账/债务，不拼旧绿。
+3. 新live、独立QC、push、合main、发布分别确认；旧样本不重发挑绿，8792不切。
 
 ## 踩过的坑
-初接缝16F有2夹具错误；误填测试路径exit4是零执行。默认35组中7组仅KeyError/解码异常，非全部断言红，旧15527aad同文案由新包勘误。原日志不可清理，展示副本记录双hash与转换。跨午夜vault年龄警告加一天不等新发现。
+同SHA可有0执行收据，按pytest.log精确指针选；本轮收据名首输错exit2非测试失败。JUnit无type属性要读message，默认35组有7组仅异常型。初4F漏skill_mode是夹具；前端首红命令实际跑整套。原日志不清理，展示转换双hash。
 
 ## 已验证
-d9657215干净：Python12180P/86S/2X，Ruff0；前端107P，E2E34P/2S。接缝/R6/交付6/13/13组各断言红→绿，默认35组测试体失败→绿，分母不加。收据20260918T155728Z-d9657215八项过。四原件目标错检出/正确产物未误判，12输入hash不变、连接0、临时登记0/0/0/1。8931/8934已停，临时finance/site树已移除。工具包aa87df5未合；vault自动同步db683c32，lint仍20E/17W非通过。
+d06干净同SHA：Python12198P/86S/2X、Ruff0，前端115P、E2E34P/2S；收据20260918T170550Z-d06dc1e8八项过。发布8/接缝6/R6及交付各13组有断言红→绿；默认35组测试体红→绿，不加分母。原件12hash不变/连接0/登记0/0/0/1。8931/8934无listener、临时finance/site已移除。工具包78ec622未合；vault自动同步7457f945/86eb21ba，lint仍20E/17W、图谱0非质量认证。

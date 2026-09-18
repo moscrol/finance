@@ -1,0 +1,161 @@
+{
+  "before": {
+    "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+    "status": ""
+  },
+  "after": {
+    "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+    "status": ""
+  },
+  "candidate_unchanged": true,
+  "finished_at": "2026-09-18T17:05:52.369044+00:00",
+  "checks": [
+    {
+      "name": "ruff",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "exit_code": 0,
+      "seconds": 0.08,
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "finished_at": "2026-09-18T16:53:32.565969+00:00"
+    },
+    {
+      "name": "pytest",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "--tb=short",
+        "--basetemp",
+        "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/pytest-tmp"
+      ],
+      "exit_code": 0,
+      "seconds": 739.75,
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "finished_at": "2026-09-18T17:05:52.311689+00:00"
+    },
+    {
+      "name": "frontend-lint",
+      "command": [
+        "pnpm",
+        "lint"
+      ],
+      "exit_code": 0,
+      "seconds": 1.05,
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "finished_at": "2026-09-18T16:53:33.539936+00:00"
+    },
+    {
+      "name": "frontend-typecheck",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "exit_code": 0,
+      "seconds": 1.77,
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "finished_at": "2026-09-18T16:53:35.313251+00:00"
+    },
+    {
+      "name": "frontend-test",
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "exit_code": 0,
+      "seconds": 3.54,
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "finished_at": "2026-09-18T16:53:38.853960+00:00"
+    },
+    {
+      "name": "frontend-build",
+      "command": [
+        "pnpm",
+        "build"
+      ],
+      "exit_code": 0,
+      "seconds": 2.8,
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "finished_at": "2026-09-18T16:53:41.654271+00:00"
+    },
+    {
+      "name": "e2e",
+      "command": [
+        "pnpm",
+        "test:e2e"
+      ],
+      "exit_code": 0,
+      "seconds": 65.62,
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "finished_at": "2026-09-18T16:54:47.277264+00:00"
+    },
+    {
+      "name": "parseability",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "exit_code": 0,
+      "seconds": 0.07,
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "finished_at": "2026-09-18T16:53:32.563765+00:00"
+    },
+    {
+      "name": "registry",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "exit_code": 1,
+      "seconds": 0.08,
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "finished_at": "2026-09-18T16:53:32.641268+00:00"
+    },
+    {
+      "name": "tables",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.07,
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "finished_at": "2026-09-18T16:53:32.716346+00:00"
+    },
+    {
+      "name": "views",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.04,
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "finished_at": "2026-09-18T16:53:32.756431+00:00"
+    },
+    {
+      "name": "ledger-crosswalk",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.13,
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "finished_at": "2026-09-18T16:53:32.887831+00:00"
+    }
+  ],
+  "all_passed": false
+}
