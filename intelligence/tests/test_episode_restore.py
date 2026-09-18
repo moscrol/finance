@@ -22,6 +22,8 @@ from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.agent_runtime import EpisodeEvent
 from intelligence.services.episode_messages import derive_messages
+from intelligence.services.episode_authorization import capture_authorization_snapshot
+from dataclasses import replace
 from intelligence.services.episode_restore import (
     RestoreUnavailable,
     restore_episode,
@@ -78,11 +80,11 @@ def _run_uninterrupted(
     runtime = GLMAgentRuntime(
         client=ScriptedModelClient(list(scenario), probe), episode_store=store
     )
-    outcome = runtime.run(
-        task_frame=frame,
-        context=context,
-        registry=registry if registry is not None else make_registry(probe),
-    )
+    # Current authorization comes from fixture inputs, never decoded from the
+    # saved snapshot (that would validate saved authority against itself).
+    store.context = context
+    store.registry = registry if registry is not None else make_registry(probe)
+    outcome = runtime.run(task_frame=frame, context=context, registry=store.registry)
     assert outcome.stop_reason == "model_finish"
     events, state = store.load(task_id)
     assert state is not None and state.phase == "done"
@@ -181,7 +183,7 @@ def test_every_crash_prefix_restores_to_what_actually_happened_next() -> None:
                 restore_episode(EPISODE_ID, crash_store, now=SOON)
             assert crash_store.load(EPISODE_ID) == before
             continue
-        result = restore_episode(EPISODE_ID, crash_store, now=SOON)
+        result = restore_episode(EPISODE_ID, crash_store, now=SOON, context=store.context, registry=store.registry)
         if state.phase == "done":
             assert result.disposition == "already_terminal", (length, state.phase)
             continue
@@ -209,8 +211,8 @@ def test_memory_and_jsonl_restore_byte_identical(tmp_path: Path) -> None:
         memory_store, _ = _store_at(events, store.states, length)
         jsonl_store, _ = _store_at(events, store.states, length, jsonl_root=tmp_path / f"p{index}")
         for now in (SOON, MUCH_LATER):
-            left = restore_episode(EPISODE_ID, memory_store, now=now)
-            right = restore_episode(EPISODE_ID, jsonl_store, now=now)
+            left = restore_episode(EPISODE_ID, memory_store, now=now, context=store.context, registry=store.registry)
+            right = restore_episode(EPISODE_ID, jsonl_store, now=now, context=store.context, registry=store.registry)
             strip = lambda d: json.dumps(  # noqa: E731
                 {**d, "synthesized": [{k: v for k, v in e.items() if k != "payload"} | {"payload": {k: v for k, v in e["payload"].items() if k != "at"}} for e in d["synthesized"]]},
                 sort_keys=True,
@@ -228,7 +230,7 @@ def test_deadline_passed_closes_dangling_model_intent_with_interrupted_error() -
     crash_store, state = _store_at(events, store.states, first_intent.sequence)
     assert state.phase == "model_pending" and state.reserved_ids == (first_intent.payload["turn_id"],)
 
-    result = restore_episode(EPISODE_ID, crash_store, now=MUCH_LATER)
+    result = restore_episode(EPISODE_ID, crash_store, now=MUCH_LATER, context=store.context, registry=store.registry)
 
     assert result.disposition == "closed" and result.outcome is not None
     kinds = [e.kind for e in result.synthesized]
@@ -262,7 +264,7 @@ def test_deadline_passed_closes_dangling_tool_intents_and_derivation_still_holds
         e.payload["call_id"] for e in requests
     }
 
-    result = restore_episode(EPISODE_ID, crash_store, now=MUCH_LATER)
+    result = restore_episode(EPISODE_ID, crash_store, now=MUCH_LATER, context=store.context, registry=store.registry)
 
     assert result.disposition == "closed" and result.outcome is not None
     assert [e.kind for e in result.synthesized] == ["tool_error", "tool_error", "finish"]
@@ -296,10 +298,11 @@ def _crashed_fallback_episode(*, after_kind: str):
     store = RecordingStore()
     frame = _theme_frame()
     context = _theme_context(frame)
+    registry = _finance_registry(_empty_then_amount_runner([]))
     outcome = ContinuousAgentEpisode(
         _ScriptedModel([_empty_sector_turn(), _finish_turn(hashes=("amount-1",))]),
         store=store,
-    ).run(task_frame=frame, context=context, registry=_finance_registry(_empty_then_amount_runner([])))
+    ).run(task_frame=frame, context=context, registry=registry)
     assert outcome.status == "completed"
     episode_id = context.contract.task_id
     events, _ = store.load(episode_id)
@@ -312,7 +315,7 @@ def _crashed_fallback_episode(*, after_kind: str):
     crash_store = MemoryEpisodeStore()
     crash_store.append(episode_id, events[:cut])
     crash_store.put_state(episode_id, state)
-    return episode_id, crash_store, FALLBACK_CALL_ID
+    return episode_id, crash_store, FALLBACK_CALL_ID, context, registry
 
 
 def test_application_declaration_without_dispatch_is_settled_so_no_tool_call_dangles() -> None:
@@ -321,9 +324,9 @@ def test_application_declaration_without_dispatch_is_settled_so_no_tool_call_dan
 
     from intelligence.services.episode_messages import undeclared_tool_call_ids
 
-    episode_id, crash_store, fallback_id = _crashed_fallback_episode(after_kind="application_tool_call")
+    episode_id, crash_store, fallback_id, context, registry = _crashed_fallback_episode(after_kind="application_tool_call")
 
-    result = restore_episode(episode_id, crash_store, now=SOON)
+    result = restore_episode(episode_id, crash_store, now=SOON, context=context, registry=registry)
 
     assert result.disposition == "resumable" and result.plan is not None
     assert result.plan.action == "model_turn"
@@ -346,9 +349,9 @@ def test_application_declaration_without_dispatch_is_settled_so_no_tool_call_dan
 def test_application_declaration_with_dangling_intent_replays_the_same_call() -> None:
     """声明与意图都落了、结算没落：走既有的 replay=safe 路径重跑同一 call_id，不再声明第二次。"""
 
-    episode_id, crash_store, fallback_id = _crashed_fallback_episode(after_kind="tool_request")
+    episode_id, crash_store, fallback_id, context, registry = _crashed_fallback_episode(after_kind="tool_request")
 
-    result = restore_episode(episode_id, crash_store, now=SOON)
+    result = restore_episode(episode_id, crash_store, now=SOON, context=context, registry=registry)
 
     assert result.disposition == "resumable" and result.plan is not None
     assert result.plan.action == "replay_tools" and result.plan.call_ids == (fallback_id,)
@@ -398,7 +401,7 @@ def test_replay_never_tool_is_settled_as_interrupted_not_replayed() -> None:
     assert intent.payload["replay"] == "never"
     crash_store, _ = _store_at(events, store.states, intent.sequence)
 
-    result = restore_episode(EPISODE_ID, crash_store, registry=registry, now=SOON)
+    result = restore_episode(EPISODE_ID, crash_store, registry=registry, now=SOON, context=store.context)
 
     # 截止未过也不重跑：合成 interrupted 结算，然后回模型让它看到这条错误。
     assert result.disposition == "resumable" and result.plan is not None
@@ -428,13 +431,10 @@ def test_current_declaration_flipping_to_never_blocks_replay() -> None:
             for spec in make_registry(probe).authorized_specs(("market_data", "news_search"))
         )
     )
-    result = restore_episode(EPISODE_ID, crash_store, registry=flipped, now=SOON)
-    assert result.plan is not None and result.plan.action == "model_turn"
-    assert [e.kind for e in result.synthesized] == ["tool_error", "tool_error"]
-    assert all(
-        e.payload["detail"].endswith("is no longer declared replay=safe") for e in result.synthesized
-    )
-    assert result.state_after.reserved_ids == ()
+    before = crash_store.load(EPISODE_ID)
+    with pytest.raises(RestoreUnavailable, match="authorization"):
+        restore_episode(EPISODE_ID, crash_store, registry=flipped, now=SOON, context=store.context)
+    assert crash_store.load(EPISODE_ID) == before  # refuse before synthesis; do not "fix" drift
 
 
 def test_partial_intents_dispatch_the_rest_after_settling_the_landed_one() -> None:
@@ -445,7 +445,7 @@ def test_partial_intents_dispatch_the_rest_after_settling_the_landed_one() -> No
     crash_store, state = _store_at(events, store.states, requests[0].sequence)
     assert state.phase == "model_pending"  # tools_pending 那份状态在第二条意图之后才写
 
-    result = restore_episode(EPISODE_ID, crash_store, now=SOON)
+    result = restore_episode(EPISODE_ID, crash_store, now=SOON, context=store.context, registry=store.registry)
     # 截止未过、safe：一次 restore 只给**一个**下一动作——先重跑落了意图的那条（reserved 只留它）。
     # 驾驶方按 restore → 动作 → restore 迭代：那条结算后再来，模型结算里的 call-2 仍无意图，
     # 下一动作就是 dispatch_tools(call-2)。单步给、可迭代收敛，不在一份 plan 里塞两种语义。
@@ -455,7 +455,7 @@ def test_partial_intents_dispatch_the_rest_after_settling_the_landed_one() -> No
 
     # 截止已过：落了的合成 interrupted，整个 episode 闭合——没落的那条从未发生、不合成。
     crash_store2, _ = _store_at(events, store.states, requests[0].sequence)
-    closed = restore_episode(EPISODE_ID, crash_store2, now=MUCH_LATER)
+    closed = restore_episode(EPISODE_ID, crash_store2, now=MUCH_LATER, context=store.context, registry=store.registry)
     assert closed.disposition == "closed"
     assert [e.kind for e in closed.synthesized] == ["tool_error", "finish"]
 
@@ -472,7 +472,7 @@ def test_durable_cancel_closes_with_typed_cause_after_settling_intents() -> None
     )
     crash_store.put_state(EPISODE_ID, cancelled)
 
-    result = restore_episode(EPISODE_ID, crash_store, now=SOON)
+    result = restore_episode(EPISODE_ID, crash_store, now=SOON, context=store.context, registry=store.registry)
 
     assert result.disposition == "closed" and result.outcome is not None
     assert result.outcome.stop_reason == "cancelled"
@@ -481,6 +481,12 @@ def test_durable_cancel_closes_with_typed_cause_after_settling_intents() -> None
     finish = result.synthesized[-1]
     assert finish.payload["cancel_cause"] == "user"
     assert finish.payload["cancel_detail"] == "cancel_requested"
+
+
+def _control_authority():
+    context = make_context(make_frame(), task_id=EPISODE_ID)
+    context = replace(context, contract=replace(context.contract, task_frame_hash="tf"))
+    return {"context": context, "registry": make_registry(ScenarioProbe())}
 
 
 def test_finalization_recovery_dangling_closes_interrupted() -> None:
@@ -501,9 +507,10 @@ def test_finalization_recovery_dangling_closes_interrupted() -> None:
             reserved_ids=("finalization_recovery",),
             deadline_at=MUCH_LATER.isoformat(),
             last_sequence=3,
+            authorization_snapshot=capture_authorization_snapshot(**_control_authority()),
         ),
     )
-    result = restore_episode(EPISODE_ID, store, now=SOON)
+    result = restore_episode(EPISODE_ID, store, now=SOON, **_control_authority())
     assert result.disposition == "closed"
     assert [e.kind for e in result.synthesized] == ["finalization_recovery_outcome", "finish"]
     assert result.synthesized[0].payload["reason"] == "interrupted"
@@ -537,9 +544,10 @@ def test_refuses_without_state_version_mismatch_unknown_kind_or_lagging_log() ->
     )
     store2.put_state(
         EPISODE_ID,
-        EpisodeState(episode_id=EPISODE_ID, phase="planning", last_sequence=2, deadline_at=MUCH_LATER.isoformat()),
+        EpisodeState(episode_id=EPISODE_ID, phase="planning", last_sequence=2, deadline_at=MUCH_LATER.isoformat(),
+                     authorization_snapshot=capture_authorization_snapshot(**_control_authority())),
     )
-    assert restore_episode(EPISODE_ID, store2, now=SOON).plan.action == "model_turn"
+    assert restore_episode(EPISODE_ID, store2, now=SOON, **_control_authority()).plan.action == "model_turn"
 
 
 def test_reserved_id_without_intent_in_log_is_refused_not_inferred() -> None:
@@ -547,10 +555,11 @@ def test_reserved_id_without_intent_in_log_is_refused_not_inferred() -> None:
     store.append(EPISODE_ID, (EpisodeEvent(1, "task", {"task_frame_hash": "tf"}),))
     store.put_state(
         EPISODE_ID,
-        EpisodeState(episode_id=EPISODE_ID, phase="model_pending", reserved_ids=("turn-9",), last_sequence=1),
+        EpisodeState(episode_id=EPISODE_ID, phase="model_pending", reserved_ids=("turn-9",), last_sequence=1,
+                     authorization_snapshot=capture_authorization_snapshot(**_control_authority())),
     )
     with pytest.raises(RestoreUnavailable, match="没有该意图"):
-        restore_episode(EPISODE_ID, store)
+        restore_episode(EPISODE_ID, store, **_control_authority())
 
 
 def test_episode_entry_point_delegates() -> None:

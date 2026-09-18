@@ -70,8 +70,9 @@ def test_order_a_store_fails_on_an_intent_append() -> None:
     rig, store, outcome = _run("race-store-a", fail_on="model_intent")
     _assert_prefix_and_receipt(rig, store, outcome)
 
-    # store 里连意图都没有：恢复从上一份完整状态出发，下一步是向模型开口，不是重试。
-    result = ContinuousAgentEpisode.restore(rig.task_id, store)
+    # Current authority comes from the fixture, not the saved snapshot.
+    # An absent intent still does not prove zero cost or authorize execution.
+    result = ContinuousAgentEpisode.restore(rig.task_id, store, context=rig.context, registry=rig.registry)
     assert result.disposition == "resumable"
     assert result.plan is not None and result.plan.action == "model_turn"
     assert result.synthesized == ()
@@ -82,10 +83,10 @@ def test_order_b_store_fails_on_a_settlement_append() -> None:
     rig, store, outcome = _run("race-store-b", fail_on="model_turn")
     _assert_prefix_and_receipt(rig, store, outcome)
 
-    # store 最后一条是意图、结算丢了：恢复只给 retry_model（请求只读、可再问一次）。
+    # store 最后一条是意图、结算丢了：只给 retry_model 判定，不保证前次未计费或可安全重试。
     stored = rig.stored_events()
     assert stored[-1].kind == "model_intent"
-    result = ContinuousAgentEpisode.restore(rig.task_id, store)
+    result = ContinuousAgentEpisode.restore(rig.task_id, store, context=rig.context, registry=rig.registry)
     assert result.disposition == "resumable"
     assert result.plan is not None and result.plan.action == "retry_model"
     assert result.plan.turn_id == stored[-1].payload["turn_id"]

@@ -101,6 +101,7 @@ from intelligence.services.episode_messages import (
     user_message,
 )
 from intelligence.services.episode_restore import RestoreResult, restore_episode
+from intelligence.services.episode_authorization import capture_authorization_snapshot
 from intelligence.services.episode_scope import EpisodeScope
 from intelligence.services.episode_store import (
     EPISODE_LOG_VERSION,
@@ -333,6 +334,7 @@ class _EpisodeLedger:
         self.state: EpisodeState | None = None
         # 状态写入要算「截止还剩多久」；loop 在换 context（深度裁决 / 修复轮）时更新它。
         self.active_context: ResearchRunContext | None = None
+        self.active_registry: ResearchToolRegistry | None = None
         # ── P3 收件箱（INV-R5）────────────────────────────────────────────
         # run() 建好账本后挂上；``finish`` 落账前由 add() 统一清箱（收口 / 取消各一个 reason），
         # 与 ``done`` 挂在同一个出口——十个 return 点没有一个能漏掉箱里的话。
@@ -479,6 +481,22 @@ class _EpisodeLedger:
                     if self._store_fence is not None:
                         self._store_fence.fail(self.episode_id, f"state:{phase}:budget", exc)
                     self._fail_store(f"state:{phase}:budget:{type(exc).__name__}")
+            if not self.store_failures:
+                try:
+                    authorization = previous.authorization_snapshot if previous is not None else None
+                    if source is not None:
+                        if self.active_registry is None:
+                            raise ValueError("episode omitted its required authorization registry")
+                        authorization = capture_authorization_snapshot(source, self.active_registry)
+                        if authorization is None:
+                            raise ValueError("episode omitted its required authorization snapshot")
+                    state = replace(state, authorization_snapshot=authorization)
+                except Exception as exc:
+                    if self.persistence_mode != "durable":
+                        raise
+                    if self._store_fence is not None:
+                        self._store_fence.fail(self.episode_id, f"state:{phase}:authorization", exc)
+                    self._fail_store(f"state:{phase}:authorization:{type(exc).__name__}")
             self.state = state
             store = self._store if not self.store_failures else None
             if store is not None:
@@ -1182,6 +1200,7 @@ class ContinuousAgentEpisode:
         registry: ResearchToolRegistry | None = None,
         harness: ResearchHarness | None = None,
         now: datetime | None = None,
+        context: ResearchRunContext | None = None,
     ) -> RestoreResult:
         """崩溃后恢复（INV-R3）：读 ``EpisodeState``、按预留 id 点查结算、给下一动作或直接闭合。
 
@@ -1190,7 +1209,7 @@ class ContinuousAgentEpisode:
         """
 
         return restore_episode(
-            episode_id, store, registry=registry, harness=harness, now=now
+            episode_id, store, registry=registry, harness=harness, now=now, context=context,
         )
 
     def run(
@@ -1309,6 +1328,9 @@ class ContinuousAgentEpisode:
             ledger=ledger,
             progress=progress,
         )
+        # Dynamic tools are now bound; configure intentionally predates them.
+        # Recovery authority must describe this actual registry, not its summary.
+        ledger.active_registry = registry
         episode_scope = EpisodeScope(
             episode_id=context.contract.task_id,
             # 用户身份不在本层：memory 身份是装配期输入（build_episode_registry
@@ -2394,6 +2416,7 @@ class ContinuousAgentEpisode:
         )
         # 程序计数器进修复阶段；此后 deadline_at 按修复窗算。
         ledger.active_context = repair_context
+        ledger.active_registry = registry
         ledger.put_state(phase="repair", context=repair_context)
         llm_calls = previous.usage.llm_calls
         tool_calls = previous.usage.tool_calls
@@ -2930,6 +2953,10 @@ class ContinuousAgentEpisode:
             context_ref.value = promoted
         # 程序计数器之后按新 context 的截止算 deadline_at。
         ledger.active_context = promoted
+        if promoted is not context:
+            # PLAN branches can start before the next parent model/tool intent.
+            # Confirm the new authority/budget BEFORE those child effects too.
+            ledger.put_state(phase="planning", context=promoted)
         return promoted, governance
 
     def _run_sub_research(

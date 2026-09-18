@@ -8,11 +8,21 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from intelligence.services.agent_runtime import EpisodeEvent
+from intelligence.services.episode_authorization import capture_authorization_snapshot
+from intelligence.tests.conformance.fixtures import ScenarioProbe, make_frame, make_context, make_registry
 from intelligence.services.episode_restore import RestoreUnavailable, restore_episode
 from intelligence.services.episode_store import EpisodeState, JsonlEpisodeStore, MemoryEpisodeStore
 
 EPISODE_ID = "restore-write-confirmation"
 NOW = datetime(2026, 9, 18, tzinfo=timezone.utc)
+
+
+def _authority():
+    # Independently recreate the authorized inputs; never decode saved authority
+    # to authorize itself. These control-path fixtures use a short task hash.
+    context = make_context(make_frame(), task_id=EPISODE_ID)
+    context = replace(context, contract=replace(context.contract, task_frame_hash="tf"))
+    return {"context": context, "registry": make_registry(ScenarioProbe())}
 
 
 def _crashed(store):
@@ -28,6 +38,7 @@ def _crashed(store):
         deadline_at=(NOW + timedelta(minutes=2)).isoformat(),
         retry={"remaining": 0},
         last_sequence=len(events),
+        authorization_snapshot=capture_authorization_snapshot(**_authority()),
     )
     store.append(EPISODE_ID, events, sync=True)
     store.put_state(EPISODE_ID, state)
@@ -60,7 +71,7 @@ def test_restore_confirms_settlements_before_returning_plan_or_closed(expired):
     store.checkpoints.clear()
 
     result = restore_episode(
-        EPISODE_ID, store, now=NOW + timedelta(hours=1) if expired else NOW,
+        EPISODE_ID, store, now=NOW + timedelta(hours=1) if expired else NOW, **_authority(),
     )
 
     assert result.disposition == ("closed" if expired else "resumable")
@@ -109,7 +120,7 @@ def test_restore_ack_failure_propagates_without_advertising_next_action(tmp_path
     store.armed = True
 
     with pytest.raises(OSError, match="restore acknowledgement lost"):
-        restore_episode(EPISODE_ID, store, now=NOW + timedelta(hours=1) if expired else NOW)
+        restore_episode(EPISODE_ID, store, now=NOW + timedelta(hours=1) if expired else NOW, **_authority())
 
     assert store.writes_after_failure == 0
     assert store.attempted_states == (1 if boundary == "state" else 0)
@@ -148,7 +159,7 @@ def test_restore_refuses_unconfirmed_terminal_without_writes(shape):
     writes = tuple(store.append_log)
 
     with pytest.raises(RestoreUnavailable, match="terminal|finish"):
-        restore_episode(EPISODE_ID, store, now=NOW)
+        restore_episode(EPISODE_ID, store, now=NOW, **_authority())
 
     assert store.load(EPISODE_ID) == before
     assert tuple(store.append_log) == writes
@@ -168,10 +179,11 @@ def test_old_finish_does_not_hide_the_active_repair_checkpoint():
         episode_id=EPISODE_ID, phase="model_pending", turn_index=2,
         reserved_ids=("turn-2",), retry={"remaining": 1},
         last_sequence=8, deadline_at=(NOW + timedelta(minutes=2)).isoformat(),
+        authorization_snapshot=capture_authorization_snapshot(**_authority()),
     ))
     before = store.load(EPISODE_ID)
 
-    result = restore_episode(EPISODE_ID, store, now=NOW)
+    result = restore_episode(EPISODE_ID, store, now=NOW, **_authority())
 
     assert result.disposition == "resumable" and not result.terminal
     assert result.plan.action == "retry_model"
@@ -220,7 +232,7 @@ def test_real_runtime_repair_prefix_is_not_mistaken_for_previous_completion(tmp_
     before = crash.load(context.contract.task_id)
 
     result = restore_episode(
-        context.contract.task_id, crash,
+        context.contract.task_id, crash, context=context, registry=_market_registry(_successful_runner),
         now=datetime.fromisoformat(state.deadline_at) - timedelta(seconds=1),
     )
 

@@ -186,8 +186,14 @@ def test_real_loop_checkpoints_current_budget_not_just_initial_configuration(tmp
 
 @pytest.mark.parametrize("expired", [False, True])
 def test_restore_synthesis_preserves_snapshot_without_registering_or_resetting_budget(tmp_path, expired):
+    from intelligence.services.episode_authorization import capture_authorization_snapshot
+    from intelligence.tests.conformance.fixtures import ScenarioProbe, make_context, make_frame, make_registry
+
     episode = f"snapshot-synthesis-{uuid4().hex}"
     root, _ = _funded(episode)
+    context = make_context(make_frame(), task_id=episode)
+    context = replace(context, contract=replace(context.contract, task_frame_hash="tf"), root_budget=root)
+    registry = make_registry(ScenarioProbe())
     now = datetime(2026, 9, 18, tzinfo=timezone.utc)
     store = JsonlEpisodeStore(tmp_path)
     events = (
@@ -199,9 +205,11 @@ def test_restore_synthesis_preserves_snapshot_without_registering_or_resetting_b
         episode_id=episode, phase="model_pending", reserved_ids=("turn-1",),
         deadline_at=(now + timedelta(minutes=2)).isoformat(), retry={"remaining": 0},
         last_sequence=2, budget_snapshot=root.to_snapshot(), budget_snapshot_sequence=2,
+        authorization_snapshot=capture_authorization_snapshot(context, registry),
     )
     store.put_state(episode, state)
-    result = restore_episode(episode, store, now=now + timedelta(hours=1) if expired else now)
+    result = restore_episode(episode, store, now=now + timedelta(hours=1) if expired else now,
+                             context=context, registry=registry)
     assert result.disposition == ("closed" if expired else "resumable")
     assert result.state_after.budget_snapshot == state.budget_snapshot
     assert result.state_after.budget_snapshot_sequence == 2 < result.state_after.last_sequence

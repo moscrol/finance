@@ -40,6 +40,7 @@ from types import MappingProxyType
 from typing import Literal, Protocol
 
 from intelligence.services.agent_runtime import EpisodeEvent, _json_copy, _json_freeze
+from intelligence.services.episode_authorization import EpisodeAuthorizationSnapshot
 from intelligence.services.episode_event_lanes import DURABLE_EVENT_KINDS
 from intelligence.services.research_contract import InMemoryRootBudgetLedger
 
@@ -122,6 +123,8 @@ class EpisodeState:
       未支持的预算类型，不能从policy猜余额；有快照也不代表其后的未知效果已对账。
     - ``budget_snapshot_sequence``：捕获预算时的事件前缀位置。恢复仅合成结算时保留旧位置，
       不把旧余额伪装成已对账到新的 ``last_sequence``。
+    - ``authorization_snapshot``：完整任务合同、当前策略/信息截止与实际工具声明；不是授权
+      来源。None仍可load诊断，但非终态restore必须拒绝，不能降级为只信configure。
     """
 
     episode_id: str
@@ -138,6 +141,9 @@ class EpisodeState:
     updated_at: str = ""
     budget_snapshot: Mapping[str, object] | None = None
     budget_snapshot_sequence: int | None = None
+    # Full recovery authority, not configure's diagnostic hashes. Missing on old
+    # logs: never derive permissions/default policy from that absence.
+    authorization_snapshot: Mapping[str, object] | None = None
 
     def __post_init__(self) -> None:
         episode_id = str(self.episode_id or "").strip()
@@ -178,6 +184,9 @@ class EpisodeState:
             # Validation must not register a live root or allocate any budget.
             InMemoryRootBudgetLedger.from_snapshot(copied, episode_id=episode_id)
             object.__setattr__(self, "budget_snapshot", _json_freeze(copied, path="budget_snapshot"))
+        if self.authorization_snapshot is not None:
+            validated = EpisodeAuthorizationSnapshot.from_dict(self.authorization_snapshot, episode_id=episode_id)
+            object.__setattr__(self, "authorization_snapshot", _json_freeze(validated.to_dict(), path="authorization_snapshot"))
 
     @property
     def terminal(self) -> bool:
@@ -199,6 +208,7 @@ class EpisodeState:
             "updated_at": self.updated_at,
             "budget_snapshot": _json_copy(self.budget_snapshot, path="budget_snapshot"),
             "budget_snapshot_sequence": self.budget_snapshot_sequence,
+            "authorization_snapshot": _json_copy(self.authorization_snapshot, path="authorization_snapshot"),
         }
 
     @classmethod
@@ -221,6 +231,7 @@ class EpisodeState:
             updated_at=str(payload.get("updated_at") or ""),
             budget_snapshot=payload.get("budget_snapshot"),  # type: ignore[arg-type]
             budget_snapshot_sequence=payload.get("budget_snapshot_sequence"),  # type: ignore[arg-type]
+            authorization_snapshot=payload.get("authorization_snapshot"),  # type: ignore[arg-type]
         )
 
 

@@ -36,6 +36,8 @@ import json
 from typing import Literal
 
 from intelligence.services.agent_runtime import AgentOutcome, AgentUsage, EpisodeEvent
+from intelligence.services.episode_authorization import validate_current_authorization
+from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.episode_store import (
     EPISODE_LOG_VERSION,
     EpisodePhase,
@@ -324,11 +326,13 @@ def restore_episode(
     registry: ResearchToolRegistry | None = None,
     harness: ResearchHarness | None = None,
     now: datetime | None = None,
+    context: ResearchRunContext | None = None,
 ) -> RestoreResult:
     """读状态 → 点查 → switch。返回下一动作（``plan``）或已闭合的终局（``outcome``）。
 
-    ``registry`` 给出**当前**的 replay 声明（「当前声明仍 safe」那半边）；不传就只信意图里
-    记的声明。``now`` 可注入，Tier A 套件用它把「截止已过 / 未过」两格都跑到。
+    非终态必须有完整授权快照及调用方重新提供的 ``context`` / ``registry``，精确匹配后
+    才能合成日志/给计划；旧日志可 load 诊断，但不猜权限给恢复计划。确认完成态只读返回。
+    ``now`` 可注入，Tier A 套件用它把「截止已过 / 未过」两格都跑到。仍不是续跑许可。
     """
 
     domain = harness if harness is not None else FinanceResearchHarness()
@@ -399,6 +403,21 @@ def restore_episode(
     ):
         raise RestoreUnavailable(f"{episode_id}: linked episode recovery requires child reconciliation")
 
+    # Saved authority is not a grant. The owning entry point must reauthorize;
+    # validate BEFORE any synthetic event/checkpoint, including expired closure.
+    # Absence cannot distinguish legacy data from a damaged new checkpoint.
+    # Both stay loadable for diagnosis, but neither may bypass this gate.
+    if state.authorization_snapshot is None or context is None or registry is None:
+        raise RestoreUnavailable(f"{episode_id}: recovery authorization requires snapshot, current context and registry")
+    if context.contract.task_id != episode_id or (
+        context.contract.task_frame_hash and context.contract.task_frame_hash != task_frame_hash
+    ):
+        raise RestoreUnavailable(f"{episode_id}: recovery authorization task identity mismatch")
+    try:
+        validate_current_authorization(state.authorization_snapshot, context=context, registry=registry)
+    except (TypeError, ValueError) as exc:
+        raise RestoreUnavailable(f"{episode_id}: recovery authorization mismatch") from exc
+
     synth = _Synthesizer(
         episode_id=episode_id,
         store=store,
@@ -425,6 +444,7 @@ def restore_episode(
             updated_at=now_iso(),
             budget_snapshot=state.budget_snapshot,
             budget_snapshot_sequence=state.budget_snapshot_sequence,
+            authorization_snapshot=state.authorization_snapshot,
         )
         store.put_state(episode_id, done)
         outcome = _terminal_outcome(events, task_frame_hash=task_frame_hash, finish=finish)
@@ -447,6 +467,7 @@ def restore_episode(
                 updated_at=now_iso(),
                 budget_snapshot=state.budget_snapshot,
                 budget_snapshot_sequence=state.budget_snapshot_sequence,
+                authorization_snapshot=state.authorization_snapshot,
             )
             store.put_state(episode_id, state_after)
         return result("resumable", synth=synth, plan=plan, outcome=None, state_after=state_after)
