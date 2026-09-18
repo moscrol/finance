@@ -1,0 +1,128 @@
+[
+  {
+    "id": "evidence_atom_required_fields",
+    "path": "intelligence/services/episode_evidence.py",
+    "old": "    atom = _object(raw, _ATOM_FIELDS, \"atom\")",
+    "new": "    atom = dict(raw)\n    atom.setdefault(\"internal_locator\", \"\")\n    atom.setdefault(\"derived_from\", [])\n    atom.setdefault(\"observations\", [])\n    atom.setdefault(\"source_date\", None)",
+    "targets": ["test_missing_fields_are_not_filled_from_public_projection_or_defaults"]
+  },
+  {
+    "id": "evidence_full_atom_digest",
+    "path": "intelligence/services/episode_evidence.py",
+    "old": "            raise ValueError(\"evidence snapshot digest mismatch\")",
+    "new": "            pass",
+    "targets": ["test_digest_binds_body_not_just_provider_content_hash_and_rejects_duplicate_atoms"]
+  },
+  {
+    "id": "evidence_strict_finite_values",
+    "path": "intelligence/services/episode_evidence.py",
+    "old": "        if not finite:\n            raise ValueError(\"evidence observation value must be a finite number\")",
+    "new": "        if not finite:\n            pass",
+    "targets": ["test_semantically_invalid_snapshot_is_rejected_even_with_recomputed_digest", "test_structured_observation_numbers_must_be_finite_and_never_coerced"]
+  },
+  {
+    "id": "evidence_cutoff_semantics",
+    "path": "intelligence/services/episode_evidence.py",
+    "old": "            if status is None or status != entry[\"cutoff_status\"]:\n                raise ValueError(\"evidence source date/cutoff status mismatch\")",
+    "new": "            if status is None or status != entry[\"cutoff_status\"]:\n                status = entry[\"cutoff_status\"]",
+    "targets": ["test_semantically_invalid_snapshot_is_rejected_even_with_recomputed_digest"]
+  },
+  {
+    "id": "evidence_citation_order_not_arrival_order",
+    "path": "intelligence/services/episode_evidence.py",
+    "old": "        return tuple(by_hash[digest] for digest in self.presented_hashes)",
+    "new": "        return tuple(by_hash.values())",
+    "targets": ["test_full_private_roundtrip_keeps_atoms_coverage_owners_and_distinct_citation_order", "test_unpresented_child_atom_has_no_citation_ordinal_until_parent_accepts_it"]
+  },
+  {
+    "id": "evidence_restore_owners",
+    "path": "intelligence/services/evidence_ledger.py",
+    "old": "                ledger._branch_owners[identity] = entry.branch_owner",
+    "new": "                pass",
+    "targets": ["test_full_private_roundtrip_keeps_atoms_coverage_owners_and_distinct_citation_order", "test_restored_ledger_keeps_cutoff_gate_and_duplicate_owner_first_writer"]
+  },
+  {
+    "id": "evidence_restore_coverage",
+    "path": "intelligence/services/evidence_ledger.py",
+    "old": "        ledger._covered_outputs = set(snapshot.covered_outputs)\n        ledger._open_gaps = set(snapshot.open_gaps)",
+    "new": "        ledger._covered_outputs = set()\n        ledger._open_gaps = set()",
+    "targets": ["test_full_private_roundtrip_keeps_atoms_coverage_owners_and_distinct_citation_order"]
+  },
+  {
+    "id": "evidence_presented_atom_identity",
+    "path": "intelligence/services/evidence_ledger.py",
+    "old": "                    raise ValueError(\"presented evidence differs from its admitted original\")",
+    "new": "                    pass",
+    "targets": ["test_capture_refuses_hash_collision_or_unadmitted_presented_atom"]
+  },
+  {
+    "id": "evidence_checkpoint_deep_freeze",
+    "path": "intelligence/services/episode_store.py",
+    "old": "            object.__setattr__(self, \"evidence_snapshot\", _json_freeze(validated.to_dict(), path=\"evidence_snapshot\"))",
+    "new": "            object.__setattr__(self, \"evidence_snapshot\", validated.to_dict())",
+    "targets": ["test_checkpoint_is_deeply_frozen_detached_and_keeps_capture_prefix"]
+  },
+  {
+    "id": "evidence_capture_prefix_validation",
+    "path": "intelligence/services/episode_store.py",
+    "old": "                raise ValueError(\"evidence snapshot sequence must be within the checkpoint prefix\")",
+    "new": "                pass",
+    "targets": ["test_snapshot_capture_position_must_belong_to_checkpoint_prefix"]
+  },
+  {
+    "id": "evidence_live_presentation_wiring",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "        ledger.presented_evidence = accumulator.evidence",
+    "new": "        ledger.presented_evidence = list(accumulator.evidence)",
+    "targets": ["test_loop_checkpoints_capture_received_full_atoms_not_the_public_event_projection", "test_opening_prefetch_is_in_the_first_confirmed_checkpoint_before_model_dispatch", "test_repair_saves_fresh_evidence_while_retaining_old_citation_numbers"]
+  },
+  {
+    "id": "evidence_encoding_tree_fence",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "                        self._store_fence.fail(self.episode_id, f\"state:{phase}:evidence\", exc)",
+    "new": "                        pass",
+    "targets": ["test_required_evidence_encoding_failure_fences_tree_and_retains_received_results"]
+  },
+  {
+    "id": "evidence_required_capture_cannot_disappear",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "                        if evidence is None:\n                            raise ValueError(\"episode omitted its required evidence snapshot\")\n                        evidence_sequence = len(self.events)",
+    "new": "                        evidence_sequence = len(self.events) if evidence is not None else None",
+    "targets": ["test_required_evidence_encoding_failure_fences_tree_and_retains_received_results"]
+  },
+  {
+    "id": "evidence_restore_no_legacy_bypass",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "    if state.evidence_snapshot is None:\n        raise RestoreUnavailable(f\"{episode_id}: recovery evidence snapshot is required\")",
+    "new": "    if state.evidence_snapshot is None:\n        return result(\"resumable\", synth=None, plan=ResumePlan(action=\"model_turn\", phase=\"planning\"), outcome=None, state_after=state)",
+    "targets": ["test_nonterminal_restore_refuses_missing_snapshot_or_cutoff_drift_without_writes"]
+  },
+  {
+    "id": "evidence_restore_current_cutoff",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "        raise RestoreUnavailable(f\"{episode_id}: recovery evidence cutoff mismatch\")",
+    "new": "        pass",
+    "targets": ["test_nonterminal_restore_refuses_missing_snapshot_or_cutoff_drift_without_writes"]
+  },
+  {
+    "id": "evidence_preserved_in_restore_close",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "            evidence_snapshot=state.evidence_snapshot,\n            evidence_snapshot_sequence=state.evidence_snapshot_sequence,",
+    "new": "            evidence_snapshot=None,\n            evidence_snapshot_sequence=None,",
+    "targets": ["test_restore_keeps_original_capture_position_when_synthesizing_settlements"]
+  },
+  {
+    "id": "evidence_preserved_in_restore_plan",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "                evidence_snapshot=state.evidence_snapshot,\n                evidence_snapshot_sequence=state.evidence_snapshot_sequence,",
+    "new": "                evidence_snapshot=None,\n                evidence_snapshot_sequence=None,",
+    "targets": ["test_restore_keeps_original_capture_position_when_synthesizing_settlements"]
+  },
+  {
+    "id": "evidence_synthetic_suffix_not_recapture",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "                evidence_snapshot_sequence=state.evidence_snapshot_sequence,",
+    "new": "                evidence_snapshot_sequence=len(events),",
+    "targets": ["test_restore_keeps_original_capture_position_when_synthesizing_settlements"]
+  }
+]

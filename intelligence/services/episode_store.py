@@ -42,6 +42,7 @@ from typing import Literal, Protocol
 from intelligence.services.agent_runtime import EpisodeEvent, _json_copy, _json_freeze
 from intelligence.services.episode_authorization import EpisodeAuthorizationSnapshot
 from intelligence.services.episode_event_lanes import DURABLE_EVENT_KINDS
+from intelligence.services.episode_evidence import EpisodeEvidenceSnapshot
 from intelligence.services.research_contract import InMemoryRootBudgetLedger
 
 __all__ = [
@@ -125,6 +126,8 @@ class EpisodeState:
       不把旧余额伪装成已对账到新的 ``last_sequence``。
     - ``authorization_snapshot``：完整任务合同、当前策略/信息截止与实际工具声明；不是授权
       来源。None仍可load诊断，但非终态restore必须拒绝，不能降级为只信configure。
+    - ``evidence_snapshot`` / ``evidence_snapshot_sequence``：完整私有证据账及独立模型引用顺序、
+      捕获前缀；不等于完整执行现场，也不证明前缀后收到的工具原件/费用已经归齐。
     """
 
     episode_id: str
@@ -144,6 +147,10 @@ class EpisodeState:
     # Full recovery authority, not configure's diagnostic hashes. Missing on old
     # logs: never derive permissions/default policy from that absence.
     authorization_snapshot: Mapping[str, object] | None = None
+    # Private original atoms, coverage/owners and the distinct model-visible
+    # citation order. Capture position is not an effects reconciliation mark.
+    evidence_snapshot: Mapping[str, object] | None = None
+    evidence_snapshot_sequence: int | None = None
 
     def __post_init__(self) -> None:
         episode_id = str(self.episode_id or "").strip()
@@ -188,6 +195,16 @@ class EpisodeState:
             validated = EpisodeAuthorizationSnapshot.from_dict(self.authorization_snapshot, episode_id=episode_id)
             object.__setattr__(self, "authorization_snapshot", _json_freeze(validated.to_dict(), path="authorization_snapshot"))
 
+        if self.evidence_snapshot is None:
+            if self.evidence_snapshot_sequence is not None:
+                raise ValueError("evidence snapshot sequence requires a snapshot")
+        else:
+            if (type(self.evidence_snapshot_sequence) is not int
+                    or not 0 <= self.evidence_snapshot_sequence <= self.last_sequence):
+                raise ValueError("evidence snapshot sequence must be within the checkpoint prefix")
+            validated = EpisodeEvidenceSnapshot.from_dict(self.evidence_snapshot, episode_id=episode_id)
+            object.__setattr__(self, "evidence_snapshot", _json_freeze(validated.to_dict(), path="evidence_snapshot"))
+
     @property
     def terminal(self) -> bool:
         return self.phase == "done"
@@ -209,6 +226,8 @@ class EpisodeState:
             "budget_snapshot": _json_copy(self.budget_snapshot, path="budget_snapshot"),
             "budget_snapshot_sequence": self.budget_snapshot_sequence,
             "authorization_snapshot": _json_copy(self.authorization_snapshot, path="authorization_snapshot"),
+            "evidence_snapshot": _json_copy(self.evidence_snapshot, path="evidence_snapshot"),
+            "evidence_snapshot_sequence": self.evidence_snapshot_sequence,
         }
 
     @classmethod
@@ -232,6 +251,8 @@ class EpisodeState:
             budget_snapshot=payload.get("budget_snapshot"),  # type: ignore[arg-type]
             budget_snapshot_sequence=payload.get("budget_snapshot_sequence"),  # type: ignore[arg-type]
             authorization_snapshot=payload.get("authorization_snapshot"),  # type: ignore[arg-type]
+            evidence_snapshot=payload.get("evidence_snapshot"),  # type: ignore[arg-type]
+            evidence_snapshot_sequence=payload.get("evidence_snapshot_sequence"),  # type: ignore[arg-type]
         )
 
 

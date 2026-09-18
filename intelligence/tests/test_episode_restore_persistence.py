@@ -9,6 +9,7 @@ import pytest
 
 from intelligence.services.agent_runtime import EpisodeEvent
 from intelligence.services.episode_authorization import capture_authorization_snapshot
+from intelligence.services.evidence_ledger import EvidenceLedger
 from intelligence.tests.conformance.fixtures import ScenarioProbe, make_frame, make_context, make_registry
 from intelligence.services.episode_restore import RestoreUnavailable, restore_episode
 from intelligence.services.episode_store import EpisodeState, JsonlEpisodeStore, MemoryEpisodeStore
@@ -25,6 +26,12 @@ def _authority():
     return {"context": context, "registry": make_registry(ScenarioProbe())}
 
 
+def _evidence_snapshot():
+    return EvidenceLedger(information_cutoff=_authority()["context"].information_cutoff.as_of_date).to_recovery_snapshot(
+        episode_id=EPISODE_ID, presented_evidence=(),
+    )
+
+
 def _crashed(store):
     events = (
         EpisodeEvent(1, "task", {"task_frame_hash": "tf", "question": "q"}),
@@ -39,6 +46,7 @@ def _crashed(store):
         retry={"remaining": 0},
         last_sequence=len(events),
         authorization_snapshot=capture_authorization_snapshot(**_authority()),
+        evidence_snapshot=_evidence_snapshot(), evidence_snapshot_sequence=len(events),
     )
     store.append(EPISODE_ID, events, sync=True)
     store.put_state(EPISODE_ID, state)
@@ -180,6 +188,7 @@ def test_old_finish_does_not_hide_the_active_repair_checkpoint():
         reserved_ids=("turn-2",), retry={"remaining": 1},
         last_sequence=8, deadline_at=(NOW + timedelta(minutes=2)).isoformat(),
         authorization_snapshot=capture_authorization_snapshot(**_authority()),
+        evidence_snapshot=_evidence_snapshot(), evidence_snapshot_sequence=8,
     ))
     before = store.load(EPISODE_ID)
 

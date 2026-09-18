@@ -102,6 +102,7 @@ from intelligence.services.episode_messages import (
 )
 from intelligence.services.episode_restore import RestoreResult, restore_episode
 from intelligence.services.episode_authorization import capture_authorization_snapshot
+from intelligence.services.episode_evidence import capture_evidence_snapshot
 from intelligence.services.episode_scope import EpisodeScope
 from intelligence.services.episode_store import (
     EPISODE_LOG_VERSION,
@@ -335,6 +336,8 @@ class _EpisodeLedger:
         # 状态写入要算「截止还剩多久」；loop 在换 context（深度裁决 / 修复轮）时更新它。
         self.active_context: ResearchRunContext | None = None
         self.active_registry: ResearchToolRegistry | None = None
+        self.active_evidence_ledger: EvidenceLedger | None = None
+        self.presented_evidence: list[AgentEvidence] | None = None
         # ── P3 收件箱（INV-R5）────────────────────────────────────────────
         # run() 建好账本后挂上；``finish`` 落账前由 add() 统一清箱（收口 / 取消各一个 reason），
         # 与 ``done`` 挂在同一个出口——十个 return 点没有一个能漏掉箱里的话。
@@ -497,6 +500,29 @@ class _EpisodeLedger:
                     if self._store_fence is not None:
                         self._store_fence.fail(self.episode_id, f"state:{phase}:authorization", exc)
                     self._fail_store(f"state:{phase}:authorization:{type(exc).__name__}")
+            if not self.store_failures:
+                try:
+                    evidence = previous.evidence_snapshot if previous is not None else None
+                    evidence_sequence = previous.evidence_snapshot_sequence if previous is not None else None
+                    if source is not None:
+                        if self.active_evidence_ledger is None or self.presented_evidence is None:
+                            raise ValueError("episode omitted its required evidence source")
+                        if self.active_evidence_ledger.information_cutoff != source.information_cutoff.as_of_date:
+                            raise ValueError("episode evidence cutoff differs from current context")
+                        evidence = capture_evidence_snapshot(
+                            episode_id=self.episode_id, ledger=self.active_evidence_ledger,
+                            presented_evidence=tuple(self.presented_evidence),
+                        )
+                        if evidence is None:
+                            raise ValueError("episode omitted its required evidence snapshot")
+                        evidence_sequence = len(self.events)
+                    state = replace(state, evidence_snapshot=evidence, evidence_snapshot_sequence=evidence_sequence)
+                except Exception as exc:
+                    if self.persistence_mode != "durable":
+                        raise
+                    if self._store_fence is not None:
+                        self._store_fence.fail(self.episode_id, f"state:{phase}:evidence", exc)
+                    self._fail_store(f"state:{phase}:evidence:{type(exc).__name__}")
             self.state = state
             store = self._store if not self.store_failures else None
             if store is not None:
@@ -1369,8 +1395,6 @@ class ContinuousAgentEpisode:
         _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
         # 模型可见即已落账：system 与首轮 user 先进 durable 事件，再进 messages。
         record_prompt_assembled(ledger, system=system, user=user)
-        # 程序计数器第一份：prompt 已落、还没向模型开口。
-        ledger.put_state(phase="planning", context=context)
         messages: list[EpisodeMessage] = [system_message(system), user_message(user)]
         initial_evidence_snapshot = evidence_ledger.snapshot()
         accumulator = _EpisodeToolAccumulator(
@@ -1380,7 +1404,11 @@ class ContinuousAgentEpisode:
             harness=self._harness,
             progress=progress,
         )
+        ledger.active_evidence_ledger = evidence_ledger
+        ledger.presented_evidence = accumulator.evidence
         _seed_opening_prefetch(accumulator, messages, registry)
+        # First checkpoint includes opening evidence before any model effect.
+        ledger.put_state(phase="planning", context=context)
         continuation_state: _EpisodeContinuationState | None = None
         if _continuation_sink is not None:
             continuation_state = _EpisodeContinuationState(

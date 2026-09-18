@@ -418,6 +418,13 @@ def restore_episode(
     except (TypeError, ValueError) as exc:
         raise RestoreUnavailable(f"{episode_id}: recovery authorization mismatch") from exc
 
+    # A public tool_result is lossy (no private locator/structured values), so
+    # absent evidence cannot be reconstructed from it or treated as empty.
+    if state.evidence_snapshot is None:
+        raise RestoreUnavailable(f"{episode_id}: recovery evidence snapshot is required")
+    if state.evidence_snapshot["information_cutoff"] != context.information_cutoff.as_of_date.isoformat():
+        raise RestoreUnavailable(f"{episode_id}: recovery evidence cutoff mismatch")
+
     synth = _Synthesizer(
         episode_id=episode_id,
         store=store,
@@ -445,6 +452,8 @@ def restore_episode(
             budget_snapshot=state.budget_snapshot,
             budget_snapshot_sequence=state.budget_snapshot_sequence,
             authorization_snapshot=state.authorization_snapshot,
+            evidence_snapshot=state.evidence_snapshot,
+            evidence_snapshot_sequence=state.evidence_snapshot_sequence,
         )
         store.put_state(episode_id, done)
         outcome = _terminal_outcome(events, task_frame_hash=task_frame_hash, finish=finish)
@@ -468,6 +477,8 @@ def restore_episode(
                 budget_snapshot=state.budget_snapshot,
                 budget_snapshot_sequence=state.budget_snapshot_sequence,
                 authorization_snapshot=state.authorization_snapshot,
+                evidence_snapshot=state.evidence_snapshot,
+                evidence_snapshot_sequence=state.evidence_snapshot_sequence,
             )
             store.put_state(episode_id, state_after)
         return result("resumable", synth=synth, plan=plan, outcome=None, state_after=state_after)

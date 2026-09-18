@@ -23,6 +23,7 @@ from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.agent_runtime import EpisodeEvent
 from intelligence.services.episode_messages import derive_messages
 from intelligence.services.episode_authorization import capture_authorization_snapshot
+from intelligence.services.evidence_ledger import EvidenceLedger
 from dataclasses import replace
 from intelligence.services.episode_restore import (
     RestoreUnavailable,
@@ -489,6 +490,12 @@ def _control_authority():
     return {"context": context, "registry": make_registry(ScenarioProbe())}
 
 
+def _control_evidence():
+    return EvidenceLedger(information_cutoff=_control_authority()["context"].information_cutoff.as_of_date).to_recovery_snapshot(
+        episode_id=EPISODE_ID, presented_evidence=(),
+    )
+
+
 def test_finalization_recovery_dangling_closes_interrupted() -> None:
     """兜底合成在飞：``finalization_recovery_started`` 之后无 outcome → 合成 failed + finish。"""
 
@@ -508,6 +515,7 @@ def test_finalization_recovery_dangling_closes_interrupted() -> None:
             deadline_at=MUCH_LATER.isoformat(),
             last_sequence=3,
             authorization_snapshot=capture_authorization_snapshot(**_control_authority()),
+            evidence_snapshot=_control_evidence(), evidence_snapshot_sequence=3,
         ),
     )
     result = restore_episode(EPISODE_ID, store, now=SOON, **_control_authority())
@@ -545,7 +553,8 @@ def test_refuses_without_state_version_mismatch_unknown_kind_or_lagging_log() ->
     store2.put_state(
         EPISODE_ID,
         EpisodeState(episode_id=EPISODE_ID, phase="planning", last_sequence=2, deadline_at=MUCH_LATER.isoformat(),
-                     authorization_snapshot=capture_authorization_snapshot(**_control_authority())),
+                     authorization_snapshot=capture_authorization_snapshot(**_control_authority()),
+                     evidence_snapshot=_control_evidence(), evidence_snapshot_sequence=2),
     )
     assert restore_episode(EPISODE_ID, store2, now=SOON, **_control_authority()).plan.action == "model_turn"
 
@@ -556,7 +565,8 @@ def test_reserved_id_without_intent_in_log_is_refused_not_inferred() -> None:
     store.put_state(
         EPISODE_ID,
         EpisodeState(episode_id=EPISODE_ID, phase="model_pending", reserved_ids=("turn-9",), last_sequence=1,
-                     authorization_snapshot=capture_authorization_snapshot(**_control_authority())),
+                     authorization_snapshot=capture_authorization_snapshot(**_control_authority()),
+                     evidence_snapshot=_control_evidence(), evidence_snapshot_sequence=1),
     )
     with pytest.raises(RestoreUnavailable, match="没有该意图"):
         restore_episode(EPISODE_ID, store, **_control_authority())

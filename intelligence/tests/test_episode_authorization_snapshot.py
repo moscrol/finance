@@ -538,8 +538,12 @@ def test_required_registry_cannot_silently_fall_back_to_an_old_checkpoint(tmp_pa
     raw = JsonlEpisodeStore(tmp_path)
     fence = FencedEpisodeStore(raw)
     ledger = _EpisodeLedger(rig.frame, episode_id=rig.task_id, store=fence)
+    from intelligence.services.evidence_ledger import EvidenceLedger
     ledger.active_context, ledger.active_registry = rig.context, rig.registry
+    ledger.active_evidence_ledger = EvidenceLedger(information_cutoff=rig.context.information_cutoff.as_of_date)
+    ledger.presented_evidence = []
     ledger.put_state(phase="planning")
+    assert not ledger.store_failures
     before = raw.load(rig.task_id)
     ledger.active_registry = None
     ledger.put_state(phase="planning")

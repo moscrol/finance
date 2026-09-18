@@ -194,6 +194,10 @@ def test_restore_synthesis_preserves_snapshot_without_registering_or_resetting_b
     context = make_context(make_frame(), task_id=episode)
     context = replace(context, contract=replace(context.contract, task_frame_hash="tf"), root_budget=root)
     registry = make_registry(ScenarioProbe())
+    from intelligence.services.evidence_ledger import EvidenceLedger
+    evidence = EvidenceLedger(information_cutoff=context.information_cutoff.as_of_date).to_recovery_snapshot(
+        episode_id=episode, presented_evidence=(),
+    )
     now = datetime(2026, 9, 18, tzinfo=timezone.utc)
     store = JsonlEpisodeStore(tmp_path)
     events = (
@@ -206,6 +210,7 @@ def test_restore_synthesis_preserves_snapshot_without_registering_or_resetting_b
         deadline_at=(now + timedelta(minutes=2)).isoformat(), retry={"remaining": 0},
         last_sequence=2, budget_snapshot=root.to_snapshot(), budget_snapshot_sequence=2,
         authorization_snapshot=capture_authorization_snapshot(context, registry),
+        evidence_snapshot=evidence, evidence_snapshot_sequence=2,
     )
     store.put_state(episode, state)
     result = restore_episode(episode, store, now=now + timedelta(hours=1) if expired else now,
