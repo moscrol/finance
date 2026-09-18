@@ -53,7 +53,9 @@ def test_invalid_configured_root_does_not_fall_back_to_old_data_code(roots, monk
     old.parent.mkdir()
     old.write_text("# old but present\n")
     monkeypatch.setenv("KB_RAG_CODE_ROOT", str(code / "missing"))
-    with mock.patch.object(kb_rag.subprocess, "run") as run:
+    with mock.patch.object(kb_rag.subprocess, "run", return_value=mock.Mock(
+        returncode=0, stdout=" ".join(kb_rag.REQUIRED_QUERY_OPTIONS), stderr="",
+    )) as run:
         assert not kb_rag.probe_rag_cli(wiki).available
         result = kb_rag.retrieve("alpha", wiki)
         assert not result.ok and result.telemetry.status == "skipped"
@@ -61,6 +63,32 @@ def test_invalid_configured_root_does_not_fall_back_to_old_data_code(roots, monk
             kb_rag.prewarm(wiki)
     run.assert_not_called()
     assert kb_rag._resolve_code_root(wiki.parent, code) == code
+
+
+def test_full_mode_uses_deployed_pair_and_never_falls_back_on_bad_override(roots, monkeypatch):
+    code, wiki, _ = roots
+    full = code / "indexes/.rag_index_full"
+    full.mkdir(parents=True)
+    monkeypatch.setenv("KB_RAG_FULL_INDEX_DIR", str(full))
+    with mock.patch.object(kb_rag.subprocess, "run", return_value=mock.Mock(
+        returncode=0, stdout="[]", stderr="",
+    )) as run:
+        result = kb_rag.retrieve("alpha", wiki, mode="bm25", worker_enabled=False,
+                                 index_dir=kb_rag.FULL_INDEX_DIRNAME)
+        assert result.index_dir == str(full)
+        assert run.call_args.kwargs["env"]["RAG_INDEX_DIR"] == str(full)
+        explicit = wiki.parent / "custom-index"
+        explicit.mkdir()
+        kb_rag.retrieve("alpha", wiki, mode="bm25", worker_enabled=False, index_dir=explicit)
+        assert run.call_args.kwargs["env"]["RAG_INDEX_DIR"] == str(explicit)
+        run.reset_mock()
+        full.rmdir()
+        # Even an old full index next to the data may not mask failed deployment.
+        (wiki.parent / kb_rag.FULL_INDEX_DIRNAME).mkdir()
+        result = kb_rag.retrieve("alpha", wiki, mode="bm25", worker_enabled=False,
+                                 index_dir=kb_rag.FULL_INDEX_DIRNAME)
+        assert not result.ok and result.telemetry.status == "error"
+        run.assert_not_called()
 
 
 def test_worker_data_binding_overrides_environment_and_partitions_pool(roots):

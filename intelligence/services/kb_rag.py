@@ -1508,6 +1508,21 @@ def retrieve(
     requested: Path | None = None
     if index_dir is not None:
         cand = Path(index_dir).expanduser()
+        # Full-mode profiles use this canonical relative name. A deployed pair
+        # may live outside the editable data checkout; never mix its new default
+        # index with that checkout's old full index. Other explicit paths retain
+        # their existing meaning, and a broken deployment override fails closed.
+        full_override = (
+            os.environ.get("KB_RAG_FULL_INDEX_DIR")
+            if cand == Path(FULL_INDEX_DIRNAME) else None
+        )
+        if full_override:
+            cand = Path(full_override).expanduser().resolve()
+            if not cand.is_dir():
+                res.warning = f"wiki-rag 已配置的全文索引不存在：{cand}；拒绝回退旧索引"
+                tel.status, tel.warning = "error", res.warning
+                tel.requested_index_dir = str(cand)
+                return res
         if not cand.is_absolute():
             cand = root / cand
         requested = cand

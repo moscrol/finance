@@ -290,7 +290,9 @@ A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结
 负能力缓存与 worker 都绑定 CLI/RAG 包的内容指纹；代码变更先结束旧进程，响应再核对
 加载身份，查询中途变化则丢弃结果。发布仍需不可变检出与服务重启，不支持逐文件热部署。
 部署可用 `KB_RAG_CODE_ROOT` 将预热、能力探测、CLI 与常驻 worker 统一绑定到冻结的 KB
-代码检出；资料仍由 `kb_wiki` / `KNOWLEDGE_WIKI` 决定，索引仍由现有索引参数决定。
+代码检出；资料仍由 `kb_wiki` / `KNOWLEDGE_WIKI` 决定。普通索引走原 `RAG_INDEX_DIR` /
+`VECTOR_INDEX_DIR`，全文模式的 `.rag_index_full` 可由 `KB_RAG_FULL_INDEX_DIR` 绑定到同代
+全文索引；配置目录不存在就拒绝，不回退资料树中的旧全文索引。其他显式索引路径保持原意。
 显式 `retrieve(code_root=...)` 优先于环境配置；指定代码根失效就拒绝，不回退旧资料树代码。
 worker 的资料根按调用参数传递且纳入进程复用键，不继承无关的 `KB_VAULT`；未配置代码根
 保持原目录约定。这是候选部署接线，不代表生产已经切换。
