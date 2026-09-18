@@ -1053,7 +1053,9 @@ class FinanceResearchHarness:
             hints: list[str] = []
             if track_slots:
                 hints.append(
-                    "track_ttl → 一行「复核期限：YYYY-MM-DD」；track_next_watch → 一段「下期关注：…」；"
+                    "track_ttl → 一行「复核期限：YYYY-MM-DD」；"
+                    "track_next_watch → 「下期关注」每项须含指标/事件、时间节点与可证伪触发条件；"
+                    "只用现有证据支持的条件，不编造数字阈值；无法补齐时保留可信正文并明确缺口；"
                     "track_quad_or_baseline → 四态对照或「无上期基线」声明"
                 )
             if ranking_slots:

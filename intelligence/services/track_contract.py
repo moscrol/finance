@@ -229,14 +229,14 @@ def episode_track_rule(query: str, question_type: str | None = None) -> str:
 # 不覆盖模型已写的正文——与 ensure_forecast_scenarios_visible 同一形状。
 _QUAD_MARKERS = ("削弱", "无变化", "信息不足", "四态")
 _TTL_MARKERS = ("复核期限", "valid_until")
-_WATCH_MARKERS = ("下期关注",)
 _BASELINE_MARKERS = ("无上期基线",)
 CONTRACT_STUB_HEADING = "## 跟踪契约补全（模型未按强制结构输出的段落）"
 
 
 def missing_contract_elements(answer: str) -> tuple[str, ...]:
     """扫描回答里缺了契约的哪几件。非跟踪题的调用方应先自己判断是否要查。"""
-    text = str(answer or "")
+    # 补全提示是在报告缺件，不是缺件已被模型补好；不能让它自己满足契约。
+    text = str(answer or "").split(CONTRACT_STUB_HEADING, 1)[0]
     missing: list[str] = []
     has_baseline_decl = any(m in text for m in _BASELINE_MARKERS)
     has_quad = any(m in text for m in _QUAD_MARKERS) or ("支持 /" in text) or ("判定：支持" in text)
@@ -244,7 +244,8 @@ def missing_contract_elements(answer: str) -> tuple[str, ...]:
         missing.append("quad_or_baseline")
     if not any(m in text for m in _TTL_MARKERS):
         missing.append("ttl")
-    if not any(m in text for m in _WATCH_MARKERS):
+    claims = _split_watch_claims(_watch_section_body(text))
+    if not claims or not all(_is_registerable_watch(claim) for claim in claims):
         missing.append("next_watch")
     return tuple(missing)
 
@@ -273,6 +274,9 @@ def append_contract_stub(answer: str, missing: tuple[str, ...]) -> str:
     lines.extend(_STUB_LINES[key] for key in missing if key in _STUB_LINES)
     stub = "\n".join(lines)
     body = str(answer or "").rstrip()
+    if CONTRACT_STUB_HEADING in body:
+        # 重复投影不叠加；旧提示也不参与 missing_contract_elements 的完成度核对。
+        return body
     if not body:
         return stub
     disclaimer = "（非投资建议）"
@@ -466,11 +470,20 @@ _BULLET_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)、）])\s+(.+)$")
 # live 模型常写成「下期关注清单：1）…。2）…」或标题行内联若干「若/则」。
 # lookbehind 定长：行首 / 句号 / 分号之后的项目符号或 1. 1) 1、1）
 _ITEM_START = re.compile(
-    r"(?:(?<=^)|(?<=[\n。；;]))\s*(?:[-*•]|\d+[.)、）])\s*"
+    r"(?:(?<=^)|(?<=[\n。；;]))\s*(?:[-•]|\*(?!\*)|\d+[.)、）])\s*"
 )
-_WATCH_HEADINGS = ("## 下期关注清单", "## 下期关注", "下期关注清单", "下期关注")
-_SECTION_STOP_PREFIXES = ("证据边界",)
-_FALSIFIABLE_MARKERS = ("若", "则", "低于", "高于", "<", ">", "跌破", "突破", "到期")
+_WATCH_HEADING_RE = re.compile(
+    r"(?:#{1,6}\s+)?(?:\*\*|__)?下期关注(?:清单)?"
+    r"(?:[（(][^）)\n]*[）)])?(?:\*\*|__)?[：: \t]*(?:\*\*|__)?"
+)
+_SECTION_STOP_PREFIXES = (
+    "证据边界", "缺口", "证据缺口", "数据缺口", "信息缺口", "风险提示",
+    "补充说明", "来源", "资料来源", "参考来源", "免责声明",
+)
+# 日期/到期只说明「何时看」，不说明「看到什么才改判」。这里只查条件形状，
+# 不代替数字/引用/事实核验。中报/周度等可沿用既有隐式时间节点与默认到期日。
+_FALSIFIABLE_MARKERS = ("若", "如果", "则", "低于", "高于", "<", ">", "跌破", "突破")
+_WATCH_FIELD_RE = re.compile(r"^(?:指标|事件|时间节点|时间|触发条件|条件)\s*[：:=]")
 _VAGUE_WATCH = ("持续关注市场情绪", "持续关注", "继续观察")
 
 
@@ -545,44 +558,34 @@ def _is_registerable_watch(line: str) -> bool:
         return False
     if any(vague in text and "则" not in text for vague in _VAGUE_WATCH):
         return False
-    return any(marker in text for marker in _FALSIFIABLE_MARKERS) or bool(
-        _DATE_RE.search(text)
+    return any(marker in text for marker in _FALSIFIABLE_MARKERS)
+
+
+def _watch_section_end(line: str) -> bool:
+    stripped = line.strip()
+    if re.match(r"^#{1,6}\s", stripped) or re.fullmatch(r"(?:[-*_]\s*){3,}", stripped):
+        return True
+    plain = stripped.replace("**", "").replace("__", "")
+    if any(
+        re.match(rf"^{re.escape(prefix)}(?:\s*[：:]|\s*$)", plain)
+        for prefix in _SECTION_STOP_PREFIXES
+    ):
+        return True
+    # 无 # 的独立粗体标题也是章节边界；指标/时间/条件等项内字段不是。
+    return bool(
+        re.match(r"^(?:\*\*|__)[^\n：:。；;!?！？]+?(?:\*\*|__)(?:\s*[：:]|\s*$)", stripped)
+        and not _WATCH_FIELD_RE.match(plain)
     )
 
 
-def _strip_watch_heading(line: str) -> str:
-    text = str(line or "")
-    for marker in _WATCH_HEADINGS:
-        found = text.find(marker)
-        if found >= 0:
-            return text[found + len(marker) :].lstrip("：: \t")
-    return text
-
-
 def _watch_section_body(answer: str) -> str:
-    text = str(answer or "")
-    if CONTRACT_STUB_HEADING in text:
-        text = text.split(CONTRACT_STUB_HEADING, 1)[0]
-    start = -1
-    for marker in _WATCH_HEADINGS:
-        found = text.find(marker)
-        if found >= 0:
-            start = found
-            break
-    if start < 0:
+    text = str(answer or "").split(CONTRACT_STUB_HEADING, 1)[0]
+    heading = _WATCH_HEADING_RE.search(text)
+    if heading is None:
         return ""
-    lines = text[start:].splitlines()
     kept: list[str] = []
-    for index, line in enumerate(lines):
-        if index == 0:
-            rest = _strip_watch_heading(line).strip()
-            if rest:
-                kept.append(rest)
-            continue
-        stripped = line.strip()
-        if line.startswith("## ") and "下期关注" not in line:
-            break
-        if any(stripped.startswith(prefix) for prefix in _SECTION_STOP_PREFIXES):
+    for line in text[heading.end():].splitlines():
+        if _watch_section_end(line):
             break
         kept.append(line)
     return "\n".join(kept)
@@ -593,6 +596,13 @@ def _split_watch_claims(body: str) -> tuple[str, ...]:
     for raw_line in str(body or "").splitlines():
         line = raw_line.strip()
         if not line:
+            continue
+        plain = line.replace("**", "").replace("__", "")
+        if chunks and not _ITEM_START.match(line) and (
+            raw_line[:1].isspace() or _WATCH_FIELD_RE.match(plain)
+            or (not _is_registerable_watch(chunks[-1]) and _is_registerable_watch(line))
+        ):
+            chunks[-1] += " " + line
             continue
         parts = [part.strip(" \t；;") for part in _ITEM_START.split(line)]
         parts = [part.strip(" 。；;") for part in parts if part.strip(" 。；;")]
