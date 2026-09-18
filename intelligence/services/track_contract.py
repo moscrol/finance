@@ -483,7 +483,14 @@ _SECTION_STOP_PREFIXES = (
 # 日期/到期只说明「何时看」，不说明「看到什么才改判」。这里只查条件形状，
 # 不代替数字/引用/事实核验。中报/周度等可沿用既有隐式时间节点与默认到期日。
 _FALSIFIABLE_MARKERS = ("若", "如果", "则", "低于", "高于", "<", ">", "≤", "≥", "≦", "≧", "跌破", "突破")
-_WATCH_FIELD_RE = re.compile(r"^(?:指标(?:/事件)?|事项|事件|时间节点|时间|触发条件|条件)\s*[：:=]")
+_WATCH_FIELD_RE = re.compile(r"^(?:指标(?:/事件)?|事项|事件|时间节点|时间|触发条件|可证伪触发条件|条件)\s*(?:[：:=]|——)")
+_WATCH_NEW_SUBJECT_RE = re.compile(r"^(?:指标(?:/事件)?|事项|事件)\s*(?:[：:=]|——)")
+# Only whole metadata sentences are ignored, never a prefix carrying real fields.
+_WATCH_DISCLAIMER_RE = re.compile(
+    r"(?:单季口径为推算值[，,]非官方披露|"
+    r"(?:以上为跟踪分析[，,])?不构成(?:买卖|投资)建议(?:[，,]本次研究不登记为长期跟踪、不写入投资观点)?)"
+    r"[。]?"
+)
 _VAGUE_WATCH = ("持续关注市场情绪", "持续关注", "继续观察")
 # A standalone receipt describes a side effect, not an additional watch item.
 # Match the whole sentence only: a receipt prefix cannot excuse missing fields.
@@ -646,7 +653,11 @@ def _split_watch_claims(body: str) -> tuple[str, ...]:
     chunks: list[str] = []
     explicit_list = False
     for raw_line in str(body or "").splitlines():
-        line = _WATCH_RECEIPT_RE.sub("", raw_line.strip()).strip()
+        line = "".join(
+            part for part in re.split(r"(?<=。)", raw_line.strip())
+            if not _WATCH_DISCLAIMER_RE.fullmatch(part.strip().strip("（）()"))
+        )
+        line = _WATCH_RECEIPT_RE.sub("", line).strip()
         if not line:
             continue
         plain = line.replace("**", "").replace("__", "")
@@ -662,8 +673,9 @@ def _split_watch_claims(body: str) -> tuple[str, ...]:
             # prose's wording or let its own 「若」 turn it into a checkpoint.
             break
         explicit_list = explicit_list or starts_item
-        if chunks and not _ITEM_START.match(line) and (
-            raw_line[:1].isspace() or _WATCH_FIELD_RE.match(plain)
+        new_subject = _WATCH_NEW_SUBJECT_RE.match(plain) is not None
+        if chunks and not starts_item and not new_subject and (
+            raw_line[:1].isspace() or is_field
             or (not _is_registerable_watch(chunks[-1]) and _is_registerable_watch(line))
         ):
             chunks[-1] += " " + line

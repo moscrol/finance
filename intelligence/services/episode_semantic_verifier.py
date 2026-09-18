@@ -229,6 +229,11 @@ VERDICT_REASON_WEEKDAY = "calendar_weekday"
 VERDICT_REASON_PATH = "path_trend"
 VERDICT_REASON_ORDINAL = "unresolved_evidence_ordinal"
 VERDICT_REASON_EVIDENCE_DATE = "evidence_date_mismatch"
+VERDICT_REASON_FINANCIAL = "financial_claim_mismatch"
+_FINANCIAL_CLAIM_ISSUE = Issue(
+    IssueCode.NUMERIC_UNSUPPORTED, "financial_claim",
+    "financial claim contradicts bound arithmetic, period or source kind",
+)
 # #55 census：引用了槽绑定之外的 E 只记账不删句（R-20260821-06 的既定裁决）。
 # stage / decision / reason 三个都是新值，读侧按 stage 过滤即可把它与拒句账分开。
 VERDICT_STAGE_CENSUS = "census"
@@ -236,7 +241,9 @@ VERDICT_KEPT = "kept"
 VERDICT_REASON_OUTSIDE_SLOT = "cited_outside_slot_binding"
 _CONDITION_TRIGGER_RE = re.compile(
     r"(?:若|如果|失效|降级|跌破|站稳|至少|"
-    r"阈值|支撑|才算成立|才成立)"
+    r"阈值|支撑|才算成立|才成立|"
+    r"(?:是否|能否|能不能|可否)(?:回到|恢复至|回升到|达到)|"
+    r"[+-]?\d+(?:\.\d+)?(?:%|倍|成)?(?:以上|以下))"
 )
 # Equivalent conditions need not say 「若」: table cells and discriminating
 # variables are still threshold claims. Match comparison operators only when
@@ -245,7 +252,7 @@ _NUMERIC_COMPARATOR_RE = re.compile(
     r"(?:[<>≤≥≦≧]=?|不低于|不高于|大于等于|小于等于|低于|高于|超过|大于|小于)\s*[+-]?\d"
 )
 _CONDITION_LABEL_RE = re.compile(
-    r"^(?:区分变量|判断标准|改判条件(?:表)?|证伪条件|触发条件|失效条件|"
+    r"^(?:区分变量|判断标准|检验条件|改判条件(?:表)?|证伪条件|触发条件|失效条件|"
     r"失效信号|降级信号|条件)\s*(?:\d+|[一二三四五六七八九十]+)?\s*[：:=]"
 )
 _CONDITION_HEADING_RE = re.compile(
@@ -1119,6 +1126,7 @@ class SemanticEpisodeVerifier:
             weekday=_mismatched_weekday_indexes(sentences, verified),
             path=_mismatched_path_trend_indexes(sentences, verified),
             ordinal=_unresolved_evidence_ordinal_indexes(sentences, verified),
+            financial=_financial_claim_mismatch_indexes(sentences, verified),
         )
         for index in decision_for:
             # 语义拒句的理由就是判官本身；v8 降级关掉时机械集为全集，也可能有
@@ -1198,6 +1206,7 @@ class SemanticEpisodeVerifier:
             outcome.guided_retrieval == GuidedRetrievalTelemetry()
         ):
             outcome = replace(outcome, guided_retrieval=self._guided_result)
+        outcome = _with_financial_repair_debt(outcome, self._sentence_verdicts)
         outcome = recheck_material_public_delivery(outcome)
         # #55：模式与 census 计数在唯一出口盖章——内层十几条提前返回路径不用各写一遍。
         # llm 模式下两个值都是默认值，dataclass 相等性与历史夹具不受影响。
@@ -1481,6 +1490,7 @@ class SemanticEpisodeVerifier:
             sentences,
             structural,
         )
+        financial_rejected = _financial_claim_mismatch_indexes(sentences, structural)
         weekday_rejected = _mismatched_weekday_indexes(
             sentences,
             structural,
@@ -1501,11 +1511,23 @@ class SemanticEpisodeVerifier:
                         *weekday_rejected,
                         *path_rejected,
                         *evidence_date_rejected,
+                        *financial_rejected,
                     )
                 )
             )
         )
         if preflight_rejected:
+            preflight_issues = tuple(
+                issue.serialize()
+                for indexes, issue in (
+                    (numeric_rejected, _NUMERIC_CONDITION_ISSUE),
+                    (weekday_rejected, _CALENDAR_WEEKDAY_ISSUE),
+                    (path_rejected, _PATH_TREND_ISSUE),
+                    (evidence_date_rejected, _EVIDENCE_DATE_ISSUE),
+                    (financial_rejected, _FINANCIAL_CLAIM_ISSUE),
+                )
+                if indexes
+            )
             self._record_sentence_verdicts(
                 stage=VERDICT_STAGE_PREFLIGHT,
                 indexes=preflight_rejected,
@@ -1517,6 +1539,7 @@ class SemanticEpisodeVerifier:
                     weekday=weekday_rejected,
                     path=path_rejected,
                     evidence_date=evidence_date_rejected,
+                    financial=financial_rejected,
                 ),
             )
             before_repair = structural.outcome.draft
@@ -1534,22 +1557,12 @@ class SemanticEpisodeVerifier:
                     judge_status="rejected",
                     issues=tuple(
                         dict.fromkeys(
-                            (*structural.issues, _NUMERIC_CONDITION_ISSUE.serialize())
+                            (*structural.issues, *preflight_issues)
                         )
                     ),
                     correlated_judge=False,
                 )
             structural, _preflight_frame = preflight
-            preflight_issues = tuple(
-                issue.serialize()
-                for indexes, issue in (
-                    (numeric_rejected, _NUMERIC_CONDITION_ISSUE),
-                    (weekday_rejected, _CALENDAR_WEEKDAY_ISSUE),
-                    (path_rejected, _PATH_TREND_ISSUE),
-                    (evidence_date_rejected, _EVIDENCE_DATE_ISSUE),
-                )
-                if indexes
-            )
             marker_loss = _lost_grounded_output_substance(
                 contract,
                 before_repair,
@@ -3777,6 +3790,7 @@ def _mechanical_reasons_by_index(
     path: tuple[int, ...] = (),
     ordinal: tuple[int, ...] = (),
     evidence_date: tuple[int, ...] = (),
+    financial: tuple[int, ...] = (),
 ) -> dict[int, tuple[str, ...]]:
     """每个索引被哪些机械探测器点名（同一句可被多个探测器同时点）。"""
 
@@ -3787,6 +3801,7 @@ def _mechanical_reasons_by_index(
         (VERDICT_REASON_PATH, path),
         (VERDICT_REASON_ORDINAL, ordinal),
         (VERDICT_REASON_EVIDENCE_DATE, evidence_date),
+        (VERDICT_REASON_FINANCIAL, financial),
     ):
         for index in indexes:
             reasons.setdefault(int(index), []).append(code)
@@ -3905,10 +3920,16 @@ def _apply_numeric_condition_gate(
     if report is None:
         return call
     rejected = set(report.rejected_sentence_indexes)
-    rejected.update(_novel_numeric_condition_indexes(sentences, verified))
+    numeric = _novel_numeric_condition_indexes(sentences, verified)
+    financial = _financial_claim_mismatch_indexes(sentences, verified)
+    rejected.update((*numeric, *financial))
     if rejected == set(report.rejected_sentence_indexes):
         return call
-    issues = tuple(dict.fromkeys((*report.issues, _NUMERIC_CONDITION_ISSUE.message)))
+    issues = tuple(dict.fromkeys((
+        *report.issues,
+        *(_NUMERIC_CONDITION_ISSUE.message for _ in [0] if numeric),
+        *(_FINANCIAL_CLAIM_ISSUE.message for _ in [0] if financial),
+    )))
     return replace(
         call,
         report=answer_model.GroundingJudgeReport(
@@ -3956,6 +3977,7 @@ def _mechanical_sentence_indexes(
             *_mismatched_path_trend_indexes(sentences, verified),
             *_unresolved_evidence_ordinal_indexes(sentences, verified),
             *_mismatched_evidence_date_indexes(sentences, verified),
+            *_financial_claim_mismatch_indexes(sentences, verified),
         )
     )
 
@@ -4174,6 +4196,71 @@ def _optional_rejudge_allows_monotonic_release(call: _JudgeCall) -> bool:
             or call.transient_provider_failure
         )
     )
+
+
+def _with_financial_repair_debt(
+    outcome: SemanticEpisodeOutcome, verdicts: Sequence[Mapping[str, object]],
+) -> SemanticEpisodeOutcome:
+    """Deleting a contradiction is not completion of the requested analysis.
+
+    Reopen only its metric obligation, using existing bounded repair fields.
+    Keep the original evidence/bindings; neither a deletion nor this notice
+    supplies a corrected result. A fresh verify of a corrected draft has a new
+    verdict ledger and therefore does not inherit stale repair debt.
+    """
+    if not any(VERDICT_REASON_FINANCIAL in row.get("reasons", ()) for row in verdicts):
+        return outcome
+    verified = outcome.verified
+    contract = verified.contract
+    if contract is None:
+        return outcome
+    eligible = tuple(item.output_id for item in contract.required_outputs
+                     if item.required and item.grounding_mode == "evidence")
+    targets = tuple(i for i in eligible if i == "metric_evidence") or eligible[:1]
+    if not targets:
+        return outcome
+    notice = "部分财务差值、期间或报告来源断言未通过核对；已保留其他内容，相关分析仍需补齐。"
+    outputs = tuple(replace(item, status="missing", gap=item.gap or notice)
+                    if item.output_id in targets else item for item in verified.completion.outputs)
+    issues = tuple(Issue(IssueCode.REQUIRED_OUTPUT_GAP, target, notice) for target in targets)
+    verified = replace(
+        verified,
+        verified_status="partial" if verified.verified_status == "completed" else verified.verified_status,
+        missing_outputs=tuple(dict.fromkeys((*verified.missing_outputs, *targets))),
+        completion=replace(verified.completion, outputs=outputs, status="partial",
+                           task_coverage="partial", business_status="partial"),
+        issue_items=tuple(dict.fromkeys((*verified.issue_items, *issues))),
+    )
+    public = outcome.public_answer
+    if public and notice not in public:
+        public = view(TerminalFacts(cause=CAUSE_VERIFIED, public=public + "\n\n" + notice))
+    return replace(
+        outcome, verified=verified, public_answer=public,
+        status="partial" if outcome.status == "completed" else outcome.status,
+        gap_output_ids=tuple(dict.fromkeys((*outcome.gap_output_ids, *targets))),
+        repair_output_ids=tuple(dict.fromkeys((*outcome.repair_output_ids, *targets))),
+        issues=tuple(dict.fromkeys((*outcome.issues, *verified.issues))),
+    )
+
+
+def _financial_claim_mismatch_indexes(
+    sentences: list[dict[str, object]], verified: VerifiedEpisodeOutcome,
+) -> tuple[int, ...]:
+    contract = verified.contract
+    if contract is None or contract.question_type != "financial_analysis":
+        return ()
+    from intelligence.services.financial_claim_checks import financial_claim_mismatches
+    from intelligence.services.financial_report_contract import report_document_claim_mismatches
+
+    bound = tuple(dict.fromkeys(h for b in verified.outcome.bindings for h in b.evidence_hashes))
+    return tuple(sorted(set((
+        *financial_claim_mismatches(
+            sentences, verified.outcome.evidence, bound, subject=contract.subject,
+        ),
+        *report_document_claim_mismatches(
+            sentences, verified.outcome.evidence, bound, subject=contract.subject,
+        ),
+    ))))
 
 
 def _novel_numeric_condition_indexes(

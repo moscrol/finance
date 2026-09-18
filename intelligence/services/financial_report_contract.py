@@ -231,6 +231,58 @@ def _requests_ratio(question: str) -> bool:
 
 
 _CALC_REFERENCE = re.compile(r"计算编号\s*([0-9a-f]{16})(?![0-9a-f])")
+_DOCUMENT_REQUEST = re.compile(
+    r"(?:选用|使用|引用|检索|查阅|获取|取得|查找).{0,70}(?:公告|定期报告|半年报|年报).{0,12}(?:原文|文档)|"
+    r"(?:选用|使用|引用).{0,25}(?:确实|实际|真实).{0,55}(?:公告|定期报告)|"
+    r"(?:检索|查阅|获取|取得|查找).{0,20}(?:公告|定期报告).{0,10}(?:发布日期|披露日期)"
+)
+_DOCUMENT_CLAIM = re.compile(
+    r"(?:本次|已经|已)?(?:实际|确实)?取得(?:并引用)?的?(?:报告|公告)|"
+    r"(?:已|实际)(?:获取|检索到|查阅).{0,20}(?:原文|文档)"
+)
+
+
+def _bound_report_documents(evidence, bound_hashes, *, subject: str | None):
+    hashes = set(bound_hashes)
+    # Search listings / structured financial rows are not fetched documents.
+    # Old L3 records lack typed body/date provenance; keep them as useful
+    # evidence, but do not silently promote them to this stronger delivery.
+    return tuple(item for item in evidence if (
+        item.content_hash in hashes and item.tool == "web_fetch"
+        and item.document_type in {"periodic_report", "announcement"}
+        and _date(item.source_date) is not None and item.detail.strip()
+        and item.source.startswith(("https://", "http://"))
+        and (not subject or _subject_key(subject) in item.title or _subject_key(subject) in item.detail)
+    ))
+
+
+def report_document_binding_gaps(
+    question: str, evidence: Sequence[AgentEvidence], bound_hashes: Sequence[str],
+    *, subject: str | None,
+) -> tuple[str, ...]:
+    clauses = re.split(r"[。；;\n]", question)
+    requested = any(_DOCUMENT_REQUEST.search(clause) and not re.search(
+        r"不(?:用|必|要|需要)|无需", clause,
+    ) for clause in clauses)
+    if not requested:
+        return ()
+    documents = _bound_report_documents(evidence, bound_hashes, subject=subject)
+    if documents:
+        return ()
+    return ("尚未绑定所要求的公告/报告文档及明确发布日期；结构化财务行不能替代文档交付",)
+
+
+def report_document_claim_mismatches(
+    sentences: Sequence[Mapping[str, object]], evidence: Sequence[AgentEvidence],
+    bound_hashes: Sequence[str], *, subject: str | None,
+) -> tuple[int, ...]:
+    if _bound_report_documents(evidence, bound_hashes, subject=subject):
+        return ()
+    return tuple(int(row["index"]) for row in sentences if (
+        isinstance(row.get("index"), int)
+        and _DOCUMENT_CLAIM.search(str(row.get("text") or ""))
+        and not re.search(r"未(?:能)?取得|未获取|未检索到|没有取得", str(row.get("text") or ""))
+    ))
 
 
 def calculation_binding_gaps(

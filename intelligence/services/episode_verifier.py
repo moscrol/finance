@@ -328,8 +328,9 @@ def verify_episode_outcome(
             valid and contract.question_type == "financial_analysis"
             and required.output_id == "metric_evidence"
         ):
+            from intelligence.services.financial_claim_checks import calculation_ratio_gaps
             from intelligence.services.financial_report_contract import (
-                calculation_binding_gaps, report_binding_gaps,
+                calculation_binding_gaps, report_binding_gaps, report_document_binding_gaps,
             )
 
             selections = []
@@ -350,6 +351,10 @@ def verify_episode_outcome(
                 *calculation_binding_gaps(
                     contract.question, outcome.draft, outcome.evidence, kept_hashes,
                 ),
+                *report_document_binding_gaps(
+                    contract.question, outcome.evidence, kept_hashes, subject=contract.subject,
+                ),
+                *calculation_ratio_gaps(outcome.evidence, kept_hashes, subject=contract.subject),
             )
         if financial_gaps:
             gap = "；".join(financial_gaps)
