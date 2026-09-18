@@ -168,6 +168,12 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
             }
         ),
     ),
+    "capital_data": (
+        "capital_data",
+        "个股两融、大宗交易、未来90天解禁日程（东财按需只读取数；不是大单资金流、龙虎榜或股东名单）",
+        "current",
+        frozenset({"supporting_evidence", "metric_evidence"}),
+    ),
     "financial_data": (
         "financial_data",
         "结构化逐季财务指标（每行带机器可读观察值；可一次取多家公司；实际财报不等于一致预期，缺值不是零）",
@@ -304,6 +310,12 @@ FINANCIAL_DATA_PARAMETERS: dict[str, object] = {
 # ch4 §工具描述的艺术：「清晰列出工具的边界条件——做不到什么、不接受什么输入
 # ——往往比描述能力本身更重要」。
 _QUERY_PARAM_HINTS: dict[str, str] = {
+    "capital_data": (
+        "单只 A 股全名或六位代码 + 两融/大宗/解禁，可一次写多个切片；"
+        "例如：600519 两融和大宗、300750 解禁。比较多家公司请分别调用。"
+        "默认两融最近5日、大宗最近5条、解禁未来90天（至多20条）。"
+        "历史截止日写 YYYY-MM-DD；历史解禁快照不支持，不能用当前滚动日程冒充。"
+    ),
     "evidence_lookup": (
         "**必须是索引里登记的实体或概念名本身**，单个词，"
         "按精确字符串匹配——多加一个词就会零命中。"
@@ -1481,6 +1493,17 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "（费半/英伟达/美光/海力士/闪迪）；引用涨跌幅以该块为准，"
         "新闻标题里的数字不作为精确行情。"
     ),
+    "capital_data": (
+        "只接受单只A股及两融/大宗/解禁切片；未解析标的或切片就不外查。"
+        "来源是东财汇总数据，不是公司公告。两融默认最近5个交易记录，大宗最近5条，"
+        "按交易日期标记而非抓取日，不代表全历史、当日全量或当时已披露。"
+        "解禁只提供本次抓取的未来90天日程，最多20条并提示截断；"
+        "证据日期是抓取日，正文另列未来解禁日，不是已经发生、减持承诺或涨跌预测。"
+        "历史解禁因缺披露时点拒绝查询，不能冒充历史已知快照。"
+        "request_error/parse_error/not_attempted是缺口；empty只表示该来源本次未返回记录，"
+        "不能据此断言没有解禁/大宗/两融。部分成功保留已取行，并交代失败的切片。"
+        "不提供大单净流入、龙虎榜、十大股东或北向净流入；这些不得用两融余额替代。"
+    ),
     "l3_lookup": (
         "查询成功不等于查到了证据：实测存在「company 查询成功但没有解析到可用证据」"
         "的情况。返回为空时只能说明本次没检索到，不能据此断言该公司没有相关公告，"
@@ -1813,6 +1836,7 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
                 else parse_query_arguments
             ),
             produces=produces,
+            io_effect="external_or_mixed" if name == "capital_data" else "unknown",
         )
         for name, (capability, description, freshness, produces) in _DEFAULT_TOOL_METADATA.items()
         if name in tools

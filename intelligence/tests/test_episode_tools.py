@@ -466,6 +466,27 @@ def test_financial_data_takes_several_subjects_and_attaches_structured_observati
     assert all(item.content_hash == evidence_content_hash(item) for item in observation.evidence)
 
 
+def test_financial_six_periods_keep_quality_rows_not_headers(tmp_path, monkeypatch) -> None:
+    mf = episode_tools.market_financials
+    periods = ("2026-06-30", "2026-03-31", "2025-12-31", "2025-09-30", "2025-06-30", "2025-03-31")
+    rows = tuple(mf.QuarterFinancials(day, day, 100, 1, 20, 2, 40, 20, ocf_yi=30) for day in periods)
+    bundle = mf.FinancialsBundle("600519.SH", "贵州茅台", rows, None,
+                                mf.build_financials_block("贵州茅台", "600519.SH", list(rows)))
+    monkeypatch.setattr(episode_tools.ask_blocks, "_financials_bundle_for_llm", lambda *a, **k: bundle)
+    frame = _valuation_frame()
+    context = build_episode_context(frame, task_id="financial-six-periods-quality-rows",
+                                    capabilities=("financial_data",), timeout=30.0)
+    registry = build_episode_registry(frame, context, finance_root=tmp_path / "finance",
+                                      knowledge_wiki=tmp_path / "wiki", l3_runner=None)
+    observation = registry.execute("financial_data", {"subjects": ["600519"]},
+                                    context=context, step_id="quality-rows:1")
+    assert len(observation.evidence) == 12  # 六期 × 主要财务行/含金量行，不算表头
+    assert all(item.observations for item in observation.evidence)
+    assert {obs.as_of for item in observation.evidence for obs in item.observations
+            if obs.metric == "ocf_cum_yi"} == set(periods)
+    assert observation.trace.result_count == 12
+
+
 def test_parse_financial_data_request_reads_both_runner_input_shapes() -> None:
     assert episode_tools.parse_financial_data_request("2024年报") == ("2024年报", ())
     assert episode_tools.parse_financial_data_request("") == ("", ())

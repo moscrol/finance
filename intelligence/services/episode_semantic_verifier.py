@@ -36,6 +36,7 @@ from intelligence.services.agent_research import (
     describe_lost_observation,
     grounded_values_in_text,
 )
+from intelligence.services.provider_observability import provider_gap_messages
 from intelligence.services.degraded_fallback import (
     gap_transparency,
     is_model_service_unavailable,
@@ -3454,7 +3455,8 @@ class SemanticEpisodeVerifier:
             if status_by_id.get(item.output_id) == "fulfilled"
             and bound_counts.get(item.output_id)
         )
-        parts: list[str] = []
+        provider_gaps = provider_gap_messages(verified.outcome.traces)
+        parts: list[str] = list(provider_gaps)
         if cause != CAUSE_VERIFICATION_INCOMPLETE and labels:
             parts.append("仍需核验：" + "、".join(labels[:3]) + "。")
         if kept:
@@ -3465,7 +3467,7 @@ class SemanticEpisodeVerifier:
                 )
                 + "。"
             )
-        elif verified.outcome.evidence:
+        elif verified.outcome.evidence and not provider_gaps:
             # LLM 超时 / deadline 打断时常见的形状：检索已完成、证据在手，
             # 但没走到 FINAL_JSON，一条都没绑定（08-12 A5 实测：25 条证据、
             # repair_model_unavailable、草稿空）。条数是结构性事实，说出来
@@ -3475,7 +3477,14 @@ class SemanticEpisodeVerifier:
                 f"本轮已取得 {len(verified.outcome.evidence)} 条证据，"
                 "但未完成核验绑定，暂不能引用；可直接重试。"
             )
-        window = _latest_evidence_date(verified.outcome.evidence)
+        # 明确数据失败时，无关检索材料的日期不能冒充本题已核验的截止日。
+        dated_evidence = verified.outcome.evidence
+        if provider_gaps:
+            kept_ids = {item.output_id for item in required if status_by_id.get(item.output_id) == "fulfilled"}
+            kept_hashes = {digest for binding in verified.outcome.bindings if binding.output_id in kept_ids
+                           for digest in binding.evidence_hashes}
+            dated_evidence = tuple(item for item in dated_evidence if item.content_hash in kept_hashes)
+        window = _latest_evidence_date(dated_evidence)
         if window:
             parts.append(f"证据数据截至 {window}；缺口补齐后可复验。")
         # ASK_DEGRADED_FALLBACK（默认 off）：knevo q13 七项里的「尝试过什么 /

@@ -2113,14 +2113,16 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         trace = ProviderTrace(
             provider="agent:l3_lookup",
             capability="agent_loop",
-            status="success" if evidence else "empty",
-            detail=agent_query[:120],
+            status=bundle.status if not bundle.items or evidence else "empty",
+            detail="；".join(bundle.warnings) or agent_query[:120],
             result_count=len(evidence),
         )
         observation = (
             "；".join(f"{item.title}：{item.detail[:100]}" for item in evidence)
-            or "官方证据无命中"
+            or "本次未取得匹配的官方证据，不能据此断言没有公告或尚未兑现"
         )
+        if bundle.warnings:
+            observation += "；" + "；".join(bundle.warnings)
         return evidence, observation, trace
 
     if "l3_lookup" in contract.allowed_capabilities:
@@ -3455,18 +3457,20 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             ]
             observation = (
                 "；".join(f"{item.title}：{item.detail[:80]}" for item in l3_items)
-                or "官方证据无命中"
+                or "本次未取得官方证据，不能据此断言没有公告或尚未兑现"
                 + (
                     f"（缺口：{'、'.join(gap.reason for gap in bundle.gaps[:3])}）"
                     if bundle.gaps
                     else ""
                 )
             )
+            if bundle.warnings:
+                observation += "；" + "；".join(bundle.warnings)
             trace = ProviderTrace(
                 provider="agent:l3_lookup",
                 capability="agent_loop",
-                status="success" if l3_items else "empty",
-                detail=agent_query[:120],
+                status=bundle.status,
+                detail="；".join(bundle.warnings) or agent_query[:120],
                 result_count=len(l3_items),
             )
             return l3_items, observation, trace

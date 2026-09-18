@@ -210,7 +210,7 @@ def build_valuation_block(
             f"{p.name} PE {p.pe_ttm if p.pe_ttm is not None else '缺'}/PB {p.pb if p.pb is not None else '缺'}"
             for p in peers
         )
-        lines.append(f"- 可比公司快照（同题材成交前排，共 {len(peers)} 家）：{peer_desc}。")
+        lines.append(f"- 可比候选快照（同细分行业、同快照日，成交额前排共 {len(peers)} 家；业务和成长差异仍需核验）：{peer_desc}。")
         if pe_band:
             if target.pe_ttm is not None and target.pe_ttm <= 0:
                 pos = "（目标 PE 为负/亏损，不宜用 PE 横截面分位，优先看 PB/PS 与市值）"
@@ -250,7 +250,7 @@ def build_valuation_block(
         if not pe_band and not pb_band:
             lines.append("- ⚠可比集有效估值不足 2 家，估值带按缺口处理。")
     else:
-        lines.append("- ⚠缺可比集：未取到同题材可比公司快照，可比估值带按缺口处理。")
+        lines.append("- ⚠缺可比集：未取到身份唯一、同细分行业且同快照日的候选；不拿同概念板块凑数，可比估值带按缺口处理。")
     lines.append("- ⚠缺历史分位：当前数据源无历史 PE/PS 序列，历史分位按缺口处理，不得编造。")
     lines.append(
         "- 使用要求：估值现状/可比带只引用本块硬数据；隐含预期与情景推演须条件化表述，禁止输出单点目标价。"
