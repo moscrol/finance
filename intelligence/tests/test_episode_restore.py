@@ -173,8 +173,16 @@ def test_every_crash_prefix_restores_to_what_actually_happened_next() -> None:
     checked: set[tuple[str, str]] = set()
     for length in _all_prefixes(events, store.states):
         crash_store, state = _store_at(events, store.states, length)
+        if state.phase != "done" and any(e.kind == "finish" for e in events[:length]):
+            # Finish bytes may land before the completed checkpoint. Do not
+            # turn lost acknowledgement into a claim of reliable completion.
+            before = crash_store.load(EPISODE_ID)
+            with pytest.raises(RestoreUnavailable, match="finish.*checkpoint"):
+                restore_episode(EPISODE_ID, crash_store, now=SOON)
+            assert crash_store.load(EPISODE_ID) == before
+            continue
         result = restore_episode(EPISODE_ID, crash_store, now=SOON)
-        if state.phase == "done" or any(e.kind == "finish" for e in events[:length]):
+        if state.phase == "done":
             assert result.disposition == "already_terminal", (length, state.phase)
             continue
         expected_action, expected_calls = _expected_next(events, length, state)

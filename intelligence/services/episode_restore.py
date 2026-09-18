@@ -21,7 +21,8 @@
    的事（§12 第 3 题：重启后只登记、人工触发）。能闭合的（取消 / 截止已过）在这里直接闭合成
    ``AgentOutcome``，让 ``list_open()`` 不再列它。
 
-合成事件写回 store（结算不 fsync；``finish`` 之后 ``put_state(done)``），sequence 仍追加取号
+合成事件逐条同步写回 store（恢复是低频控制路径；确认之后才能更新 checkpoint / 返回下一动作），
+``finish`` 与 ``put_state(done)`` 都确认后才闭合。sequence 仍追加取号
 （本仓日志按序号连续、不预留空洞；预留的是关联 id——工单 #29 §0 第 2 条），并带 ``intent_sequence``
 指回意图、``synthesized=True`` 标明来源。
 """
@@ -224,10 +225,12 @@ class _Synthesizer:
                 "restored_from_phase": self._phase,
             },
         )
+        # A recovery plan/checkpoint must not get ahead of the settlements it
+        # relies on. Unlike the hot loop, recovery has no guaranteed next intent
+        # to flush them. ACK loss propagates: no plan/outcome, no rollback/retry.
+        self._store.append(self._episode_id, (event,), sync=True)
         self.events.append(event)
         self.synthesized.append(event)
-        # 合成的是结算 / 终局，不是意图：不 fsync（与 loop 同口径）。
-        self._store.append(self._episode_id, (event,), sync=False)
         return event
 
 
@@ -307,6 +310,7 @@ def _terminal_outcome(
         bindings=(),
         usage=AgentUsage(llm_calls=llm_calls, tool_calls=tool_calls, invalid_actions=0),
         plan=None,
+        persistence="durable",
     )
 
 
@@ -365,8 +369,27 @@ def restore_episode(
             pending_inbox=pending_inbox_messages(loaded_events),
         )
 
-    if state.terminal or any(e.kind == "finish" for e in events):
+    latest_finish = next((e for e in reversed(events) if e.kind == "finish"), None)
+    if state.terminal:
+        # A visible finish alone does not prove the done checkpoint was ACKed.
+        # Nor may an old done checkpoint hide a later repair or failure suffix.
+        if (
+            latest_finish is None
+            or latest_finish.sequence != state.last_sequence
+            or state.last_sequence != len(events)
+        ):
+            raise RestoreUnavailable(f"{episode_id}: terminal checkpoint does not match the finish prefix")
         return result("already_terminal", synth=None, plan=None, outcome=None, state_after=state)
+    if latest_finish is not None:
+        repair_checkpointed = any(
+            e.kind == "repair_reentry"
+            and latest_finish.sequence < e.sequence <= state.last_sequence
+            for e in events
+        )
+        if not repair_checkpointed:
+            raise RestoreUnavailable(f"{episode_id}: finish has no confirmed completion or repair checkpoint")
+        # Same-process repair can legally continue after a prior finish. Its
+        # newer checkpoint, not a historical finish, owns the recovery position.
 
     # P1a stores linked episodes, but no driver yet restores their shared budget,
     # branch delivery/ownership and in-flight effects together. Refuse BEFORE
