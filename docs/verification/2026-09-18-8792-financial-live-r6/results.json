@@ -1,0 +1,582 @@
+{
+  "schema": "financial-live-r6-results/v1",
+  "code_revision": "dfd7b4ff6c52f76f342b2abeecc24c9045589d79",
+  "docs_base_revision": "1fe2ead277a22509d53f06157993b8d016368991",
+  "entrypoint": "scripts/workbench_probe.py, POST /api/conversations and POST messages; exact user/run/assistant IDs",
+  "model": {
+    "backend": "continuous_glm",
+    "ready": true,
+    "reason": "ready",
+    "model": "glm-5.3-flash",
+    "credential_available": true,
+    "benchmark_only": false
+  },
+  "first_submissions": 4,
+  "resubmissions": 0,
+  "clarification_replies": 0,
+  "verdict": "not_passed",
+  "passed": 0,
+  "promotion_eligible": false,
+  "prior_r3": {
+    "initial_submissions": 4,
+    "resubmissions": 0,
+    "passed": 0,
+    "verdict": "not_passed",
+    "unchanged": true
+  },
+  "cases": [
+    {
+      "id": "f1-opt-out",
+      "run_id": "run_20260918_192028_523324",
+      "assistant_message_id": "msg_f9863ae497564f4296999fe1c34d15f3",
+      "conversation_id": "conv_f5d5eaa27f0b46b5bb2d5ea0463ddd14",
+      "user": "financial-r6-f1-20260918",
+      "probe_exit": 0,
+      "probe_seconds": 125.803,
+      "run_status": "completed",
+      "report_status": "partial",
+      "verdict": "not_passed",
+      "checkpoint_count": 0,
+      "judgment_count": 0,
+      "answer_sha256": "329505bc60d2eb58de93efbe2d247834dcc585d2bfad702ed4eb39709e56e69c",
+      "evidence": "cases/f1-opt-out/inspection.json"
+    },
+    {
+      "id": "f3-calculated-financial",
+      "run_id": "run_20260918_192234_472714",
+      "assistant_message_id": "msg_bd242f911bc74406a530bbae54915412",
+      "conversation_id": "conv_139683e3671844e6b90618eadce3731c",
+      "user": "financial-r6-f3-20260918",
+      "probe_exit": 0,
+      "probe_seconds": 160.562,
+      "run_status": "completed",
+      "report_status": "partial",
+      "verdict": "not_passed",
+      "checkpoint_count": 0,
+      "judgment_count": 0,
+      "answer_sha256": "876157f0e50f6a012777352e1f25e1431d7c4f6f286e15c0ac2e659df18ad66d",
+      "evidence": "cases/f3-calculated-financial/inspection.json"
+    },
+    {
+      "id": "f2-dated-citation-plan",
+      "run_id": "run_20260918_192515_167746",
+      "assistant_message_id": "msg_c79db4a58cdb43bfa3b76cd822dfbade",
+      "conversation_id": "conv_a164571bd2b446b383007a7c48dc20e3",
+      "user": "financial-r6-f2-20260918",
+      "probe_exit": 0,
+      "probe_seconds": 105.408,
+      "run_status": "completed",
+      "report_status": "completed",
+      "verdict": "not_passed",
+      "checkpoint_count": 0,
+      "judgment_count": 0,
+      "answer_sha256": "bf11d6be3f09f47481586172913cd5e747be0e4a865175bd3148915dd45c81c0",
+      "evidence": "cases/f2-dated-citation-plan/inspection.json"
+    },
+    {
+      "id": "positive-persistence",
+      "run_id": "run_20260918_192700_589553",
+      "assistant_message_id": "msg_f30bbfaffe02435fac7d48425891dd60",
+      "conversation_id": "conv_9ac79efb4ab74a60a8f2fa9abfb2fd2f",
+      "user": "financial-r6-positive-20260918",
+      "probe_exit": 0,
+      "probe_seconds": 140.391,
+      "run_status": "completed",
+      "report_status": "completed",
+      "verdict": "not_passed",
+      "checkpoint_count": 1,
+      "judgment_count": 0,
+      "answer_sha256": "7b2631575d4ca831b79b436b3af3b68c1d16df0a1f153eaebf7732fb2f1211c5",
+      "evidence": "cases/positive-persistence/inspection.json"
+    }
+  ],
+  "quality_review": {
+    "schema": "financial-live-r6-quality/v1",
+    "code_revision": "dfd7b4ff6c52f76f342b2abeecc24c9045589d79",
+    "protocol": "protocol.json",
+    "review_method": "Agent read-only review of final public messages, bound raw observations, independently recomputed Decimal ratios, actual JSON/CSV products, durable events and actual isolated user records; no additional model or judge calls",
+    "initial_submissions": 4,
+    "resubmissions": 0,
+    "clarification_replies": 0,
+    "passed": 0,
+    "verdict": "not_passed",
+    "promotion_eligible": false,
+    "prior_r3": {
+      "initial_submissions": 4,
+      "resubmissions": 0,
+      "passed": 0,
+      "verdict": "not_passed",
+      "unchanged": true
+    },
+    "runs": [
+      {
+        "case": "f1-opt-out",
+        "verdict": "not_passed",
+        "api_status": "completed",
+        "report_status": "partial",
+        "passes": [
+          "Requested 2026-09-17 cutoff reached research_context with source=requested.",
+          "Selected and publicly described 2026-06-30 and 2026-03-31, not FY2025 as the recent pair; all three requested metric values match obtained finite raw observations.",
+          "Actual ratio product 6dd9cb7b8fd66e2d exists; three JSON/CSV rows agree with independent Decimal division to three decimals. Public H1/Q1 ratios 0.132/0.587 match.",
+          "Useful financial analysis retained; no baseline invented; no checkpoint or judgment written.",
+          "Expression repair remaining_calls=0 and reopen_tools=false dispatched zero tools."
+        ],
+        "failures": [
+          {
+            "claim": "正文未给出「指标 + 时间节点 + 触发条件」",
+            "evidence": "Final answer contains one complete watch item and parse_next_watch_items extracts it with due=2026-10-22. _split_watch_claims then treats the following derived-value disclaimer and no-write/investment disclaimer as additional incomplete watch items, so a contradictory missing-item stub is published after bounded expression repair.",
+            "scope": "False incompleteness notice is not honest partial; one legitimate extracted item does not imply every chunk is a watch item."
+          },
+          {
+            "claim": "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升",
+            "evidence": "Watch comparison uses nine-month cumulative ratio against a six-month baseline without a comparable-period adjustment, despite user's comparability requirement. Ratio arithmetic alone does not establish an appropriate change-of-view baseline.",
+            "scope": "Not a claim that all existing facts or ratios are wrong."
+          }
+        ],
+        "notes": [
+          "Final public answer names generic structured data rather than per-item E citations; raw values are bound internally, so missing public ordinals is not proof the evidence pool lacks support."
+        ]
+      },
+      {
+        "case": "f3-calculated-financial",
+        "verdict": "not_passed",
+        "api_status": "completed",
+        "report_status": "partial",
+        "passes": [
+          "Financial-analysis route, zero materials, requested cutoff 2026-09-16.",
+          "Correct recent pair and actual product 0c64ed377ce5fd02. Three JSON/CSV rows and public H1/Q1/FY2025 ratios independently agree at shown precision.",
+          "Receivables missingness explicit, no checkpoint/judgment writes, zero-tool expression repair did not dispatch tools.",
+          "Two unsupported threshold sentences were deterministically removed without deleting the useful financial remainder."
+        ],
+        "failures": [
+          {
+            "claim": "同累计长度对照2025全年净现比1.009",
+            "evidence": "2026H1 has six months, FY2025 twelve. First judge correctly raised this duration mismatch, but guided rejudge marked it lifted; final public sentence remains false. A later judge pass cannot change duration."
+          },
+          {
+            "claim": "存货半年内增加约41.5亿元（156.72→198.26亿元）",
+            "evidence": "Those endpoints are 2026-03-31 and 2026-06-30 (three months); difference 41.54 rounds to 41.5. True six-month change from 2025-12-31 is 198.26-126.81=71.45. Amount and interval are distinct checks."
+          },
+          {
+            "claim": "三季报净现比是否回到0.6以上",
+            "evidence": "No obtained or derived value establishes 0.6 as a normal benchmark; 0.587 is the shown Q1 value, not an authorized 0.6 standard. The equivalent numeric threshold survived in the next-step question after table/conditional variants were removed. Archived deterministic numeric recheck also returns no rejects; its finite phrase coverage does not certify semantic validity."
+          },
+          {
+            "claim": "存货增速快于营收",
+            "evidence": "No common interval is stated. For the obtained H1 year-on-year values, inventory grew about 116.25%, below reported revenue growth 182.49%; therefore the unqualified comparison is not supported by that natural comparable baseline."
+          },
+          {
+            "claim": "主要结构性原因是存货…",
+            "evidence": "End-balance movement alone does not establish the principal cause of cash-flow change; receivables and cash-flow explanation remain explicitly missing. Causal strength exceeds the obtained support."
+          }
+        ]
+      },
+      {
+        "case": "f2-dated-citation-plan",
+        "verdict": "not_passed",
+        "api_status": "completed",
+        "report_status": "completed",
+        "passes": [
+          "No false missing-user-attachment clarification; a real Episode researched the question using requested cutoff 2026-09-17.",
+          "Known bound E1/E2 with source_date=2026-08-22 are preserved in the future 2026-10-22 review sentence; personal review and disclosure dates are not conflated.",
+          "Useful structured financial evidence retained and missing official original disclosed; checkpoint/judgment counts remain zero."
+        ],
+        "failures": [
+          {
+            "claim": "本次实际取得并引用的报告：《中际旭创2026年半年度报告》",
+            "evidence": "The run obtained structured financial rows, not an announcement/report document with publication provenance. l3_lookup returned no evidence; final answer itself acknowledges the original report body was not obtained. Required retrieved report was not delivered and must not be certified completed using structured rows as the document."
+          }
+        ],
+        "notes": [
+          "This does not deny the report exists or say the structured disclosure date is necessarily wrong.",
+          "track_contract.track_intent=false: the inspector's unconditional missing-watch list is not applicable and is not a failure basis.",
+          "The preflight deleted the sentence combining a supported 18 with '净现比低于1'; final prefetch restored the supported raw fact as a machine-style footer. No new calculator call was forced for this direct-fact task."
+        ]
+      },
+      {
+        "case": "positive-persistence",
+        "verdict": "not_passed",
+        "api_status": "completed",
+        "report_status": "completed",
+        "passes": [
+          "Requested cutoff 2026-09-17 and correct H1/Q1 pair; all requested raw financial values match.",
+          "Natural calculation error is exposed to model and audit as ok=false/script_error; same episode progresses to empty table then successful six-row product 98df5f9738cdaa83. All six JSON/CSV ratios match independent division, including evidenced Q3 baseline 0.765.",
+          "Exactly one real checkpoint ck-2026-09-18-1706a4 was written to isolated user financial-r6-positive-20260918, source=track_next_watch, due=2026-10-22, session_id=run_20260918_192700_589553. No judgment written.",
+          "Persisted condition uses actual prior Q3 same-period ratio, not a nonexistent baseline. Personal review date is not confused with report period 2026-09-30."
+        ],
+        "failures": [
+          {
+            "claim": "二季度单季经营现金流为净流出约15.66亿元",
+            "evidence": "The cited cumulative values are 18.00 and 33.68. Independent subtraction gives -15.68, not -15.66. Six correct calculator ratio rows do not sign the different subtraction in final prose."
+          },
+          {
+            "claim": "OCF/净利从2025年报的1.009降至0.132",
+            "evidence": "This uses full-year versus half-year cumulative ratios as the deterioration comparison without a common-duration adjustment, despite the requested comparable basis and available H1 prior-year ratio 0.806."
+          }
+        ],
+        "notes": [
+          "overall valid_until=2026-10-17 differs from personal checkpoint due=2026-10-22; the answer explicitly distinguishes these roles, so difference alone is not used as an incorrect-date verdict. Global TTL suitability remains unverified.",
+          "A true write proves the persistence subcheck, not the truth of every financial sentence."
+        ]
+      }
+    ],
+    "cross_case_observations": {
+      "cutoff_context_pass": "4/4 requested dates, not runtime_default",
+      "recent_pair_pass": "3/3 applicable cases, among obtained eligible candidates only; official universe not certified",
+      "ratio_products": "3 cases, 12 nonempty JSON/CSV rows independently checked; one separate empty table has zero rows and is not calculation success for the task",
+      "opt_out_write_checks": "3/3, checkpoint=0 and judgment=0",
+      "positive_write_check": "1/1 actual checkpoint, correct isolated identity/run/due/source; whole case still failed",
+      "tool_calls": {
+        "durable_tool_requests": 14,
+        "durable_tool_results": 14,
+        "episode_metrics_tool_calls": 12,
+        "difference": "F2 and positive each have one finance_query during bounded backfill absent from the narrower metric count; do not mix denominators"
+      },
+      "natural_repair": "Positive KeyError failure -> empty table -> valid six-row product; same durable episode. Both pure expression repair goals (F1/F3) dispatched zero tools. F2/positive goals advertise remaining_calls=1,reopen_tools=false while reentry says research_tools_open=true and dispatch finance_query; record actual behavior, do not call them zero-tool expression repair.",
+      "unexercised": [
+        "inputs_from_calc same-session cache reuse",
+        "illegal URL/mappingproxy recovery",
+        "verified-old-draft exception recovery",
+        "budget exhaustion with unmet mandatory metric"
+      ],
+      "budget_scope": "No harness-added budget, new researcher or resend. Existing max configuration fixed; full root-budget accounting is not certified solely from observed small call counts.",
+      "judge_contract": "Calculator identifier is explicitly required by the tool; recurring semantic-judge internal-identifier complaint is not sufficient proof of disclosure. V8 deletion policy unchanged; real period/numeric issues still require correction.",
+      "known_count_limit": "No statistical quality, speed, reliability or SLO claim from four single samples."
+    },
+    "usage": {
+      "writer_input_tokens": 611778,
+      "writer_output_tokens": 12205,
+      "writer_model_turns_with_usage": 22,
+      "served_writer_models": [
+        "glm-5.3-flash"
+      ],
+      "episode_metrics_provider_attempts": 33,
+      "judge_calls": 7,
+      "judge_input_tokens": null,
+      "judge_output_tokens": null,
+      "invoice_cost": null,
+      "scope": "writer durable events, provider-attempt metrics and judge call counts are distinct denominators"
+    },
+    "next_action": "Keep not_passed; hand off exact failure specimens to concurrent delivery/numeric/runtime owners before any authorized targeted repair. No automatic merge, deployment, budget increase or new live round.",
+    "pushed": false,
+    "merged": false,
+    "deployed": false,
+    "judge_switches_changed": false
+  },
+  "criterion_review": [
+    {
+      "case": "f1-opt-out",
+      "criteria": [
+        {
+          "criterion": "usable_financial_research",
+          "status": "partial",
+          "reason": "Useful factual research retained, but final answer/contract stub contradict one another."
+        },
+        {
+          "criterion": "requested_cutoff_in_context",
+          "status": "pass",
+          "reason": "research_context information_cutoff=2026-09-17/source=requested"
+        },
+        {
+          "criterion": "latest_two_eligible_report_periods_and_all_three_metrics",
+          "status": "pass",
+          "reason": "Obtained eligible pair H1/Q1, all three requested values displayed."
+        },
+        {
+          "criterion": "periods_and_numbers_match_sources",
+          "status": "pass",
+          "reason": "Displayed raw values and ratio tables match obtained observations; not certification of official universe."
+        },
+        {
+          "criterion": "comparability_and_baseline_honesty",
+          "status": "fail",
+          "reason": "Q3 cumulative ratio compared against H1 baseline without a common duration; no invented prior verdict."
+        },
+        {
+          "criterion": "complete_single_watch_item_or_explicit_partial",
+          "status": "fail",
+          "reason": "One item is extracted, but final false missing-item notice treats disclaimer chunks as required items."
+        },
+        {
+          "criterion": "zero_checkpoints_and_judgments",
+          "status": "pass",
+          "reason": "Actual isolated checkpoints/judgments both zero."
+        }
+      ],
+      "global_assertion_rules": "All cases also evaluated under protocol decision_rules.source/arithmetic/date/case_pass; a criterion pass does not waive wrong prose.",
+      "verdict": "not_passed"
+    },
+    {
+      "case": "f3-calculated-financial",
+      "criteria": [
+        {
+          "criterion": "financial_analysis_route_not_material_request",
+          "status": "pass",
+          "reason": "financial_analysis route, no user material required"
+        },
+        {
+          "criterion": "requested_cutoff_in_context",
+          "status": "pass",
+          "reason": "cutoff2026-09-16/source=requested"
+        },
+        {
+          "criterion": "latest_two_eligible_report_periods_and_all_three_metrics",
+          "status": "pass",
+          "reason": "Obtained latest H1/Q1 both displayed with three metrics."
+        },
+        {
+          "criterion": "actual_calculation_products_for_both_periods",
+          "status": "pass",
+          "reason": "0c64ed377ce5fd02 actual table has both periods."
+        },
+        {
+          "criterion": "independent_recalculation_matches_public_numbers",
+          "status": "pass",
+          "reason": "Both requested ratios and third FY row match Decimal to shown 3 decimals; other final prose still fails independently."
+        },
+        {
+          "criterion": "receivables_inventory_evidenced_or_explicit_gaps",
+          "status": "fail",
+          "reason": "Receivables gap honest; inventory interval, causal strength and inventory-vs-revenue comparison unsupported."
+        },
+        {
+          "criterion": "zero_checkpoints_and_judgments",
+          "status": "pass",
+          "reason": "No actual checkpoint/judgment writes."
+        },
+        {
+          "criterion": "local_failure_feedback_and_bounded_repair_only_if_naturally_exercised",
+          "status": "unexercised",
+          "reason": "No natural calculation failure in this case; format basis mismatch repaired within same episode, not a calculation error test."
+        }
+      ],
+      "global_assertion_rules": "All cases also evaluated under protocol decision_rules.source/arithmetic/date/case_pass; a criterion pass does not waive wrong prose.",
+      "verdict": "not_passed"
+    },
+    {
+      "case": "f2-dated-citation-plan",
+      "criteria": [
+        {
+          "criterion": "retrieved_source_not_missing_user_attachment",
+          "status": "partial",
+          "reason": "Did research rather than ask user for attachment; only structured financial rows, required report document not obtained."
+        },
+        {
+          "criterion": "usable_financial_analysis",
+          "status": "partial",
+          "reason": "Useful financial facts; missing required original source and misleading obtained-report title."
+        },
+        {
+          "criterion": "requested_cutoff_in_context",
+          "status": "pass",
+          "reason": "cutoff2026-09-17/source=requested"
+        },
+        {
+          "criterion": "genuine_dated_source_and_correct_report_period",
+          "status": "fail",
+          "reason": "Dated structured rows E1/E2 are genuine but not the requested actually retrieved announcement/report document; l3 evidence empty."
+        },
+        {
+          "criterion": "future_plan_with_known_bound_citation_retained",
+          "status": "pass",
+          "reason": "Future review sentence with known/bound E1/E2 retained; date not claimed to be disclosure."
+        },
+        {
+          "criterion": "zero_checkpoints_and_judgments",
+          "status": "pass",
+          "reason": "Actual isolated checkpoints/judgments zero."
+        }
+      ],
+      "global_assertion_rules": "All cases also evaluated under protocol decision_rules.source/arithmetic/date/case_pass; a criterion pass does not waive wrong prose.",
+      "verdict": "not_passed"
+    },
+    {
+      "case": "positive-persistence",
+      "criteria": [
+        {
+          "criterion": "usable_financial_research",
+          "status": "partial",
+          "reason": "Useful research and actual write, but public subtraction and cross-duration comparison wrong."
+        },
+        {
+          "criterion": "requested_cutoff_in_context",
+          "status": "pass",
+          "reason": "cutoff2026-09-17/source=requested"
+        },
+        {
+          "criterion": "latest_two_eligible_report_periods_and_all_three_metrics",
+          "status": "pass",
+          "reason": "H1/Q1 three metrics displayed and match."
+        },
+        {
+          "criterion": "complete_single_watch_item_with_evidenced_executable_condition",
+          "status": "pass",
+          "reason": "Single manually evaluated condition uses evidenced same-Q3 0.765 baseline, inventory, and review node; qualitative not an automated quantitative resolver."
+        },
+        {
+          "criterion": "exactly_one_real_track_next_watch_checkpoint",
+          "status": "pass",
+          "reason": "Exactly one checkpoint, source track_next_watch."
+        },
+        {
+          "criterion": "checkpoint_same_user_run_and_due_2026-10-22",
+          "status": "pass",
+          "reason": "Actual isolated user path/run/due2026-10-22 verified."
+        },
+        {
+          "criterion": "zero_judgments",
+          "status": "pass",
+          "reason": "No judgment write."
+        }
+      ],
+      "global_assertion_rules": "All cases also evaluated under protocol decision_rules.source/arithmetic/date/case_pass; a criterion pass does not waive wrong prose.",
+      "verdict": "not_passed"
+    }
+  ],
+  "usage": {
+    "writer_input_tokens": 611778,
+    "writer_output_tokens": 12205,
+    "writer_model_turns_with_usage": 22,
+    "served_writer_models": [
+      "glm-5.3-flash"
+    ],
+    "episode_metrics_provider_attempts": 33,
+    "judge_calls": 7,
+    "judge_input_tokens": null,
+    "judge_output_tokens": null,
+    "invoice_cost": null,
+    "scope": "writer durable events, provider-attempt metrics and judge call counts are distinct denominators"
+  },
+  "closure": {
+    "service_closed": true,
+    "lock_removed": true,
+    "production_identity_unchanged_at_close": {
+      "source_revision": true,
+      "source_dirty": true,
+      "code_matches_repo": true,
+      "loaded_tree_fingerprint": true,
+      "users_dir": true,
+      "agent_runtime": true
+    },
+    "shared_named_sinks_unchanged_at_close": {
+      "/Users/a77/.finance-runtime/rejudge-pending/index.jsonl": true,
+      "/Users/a77/finhot/finhot/disclosure_lookup/.cache/disclosure_cache.sqlite": true,
+      "/Users/a77/finhot/finhot/disclosure_lookup/.cache/sse_uids.json": true
+    },
+    "db_hash": "2d192a78205d94a1f7bcef9d90f82ed2d9ecee8b1e7a9d1e30dfe23da0eb6b89",
+    "source_clean": true
+  },
+  "engineering": {
+    "new_suite_run": false,
+    "receipt_revision": "dfd7b4ff6c52f76f342b2abeecc24c9045589d79",
+    "receipt": "/Users/a77/.finance-runtime/test-receipts/20260918T094440Z-dfd7b4ff.json",
+    "receipt_sha256": "168d9d9473914b799100ec16a80bac2ac935be4454439962160eece6de198860",
+    "inherited_scope": "R5 clean business revision 11929P/0F/0E/81S/2xfail; frontend107P/E2E34P2S, not fresh R6 document HEAD or integration receipt"
+  },
+  "offline_checks": {
+    "inspection_exit": 0,
+    "independent_reconciliation_exit": 0,
+    "ratio_rows_checked": 12,
+    "public_projection_audit": {
+      "scope": "four saved public run/messages/trace/report projections; finite baseline patterns plus named prompt/credential keys; not internal durable artifacts or all possible leak forms",
+      "regex_source_sha256": "71b2523d47953dd16f65ba3c293b00a649b6e52ce3f5514cd8b4c1fe15dad88f",
+      "network_attempts": 0,
+      "cases": [
+        {
+          "case": "f1-opt-out",
+          "source": "cases/f1-opt-out/public-projections.json",
+          "source_sha256": "3c786f6c60601e36e89886c532fde9ff7a4ed7e5c29864bb95a1fe35fab5b26f",
+          "strings_checked": 281,
+          "hits": [],
+          "forbidden_field_hits": []
+        },
+        {
+          "case": "f3-calculated-financial",
+          "source": "cases/f3-calculated-financial/public-projections.json",
+          "source_sha256": "9a8de843855ca969533a3fc0488d49145a56ee9a1523f7022d76301f70c5b435",
+          "strings_checked": 300,
+          "hits": [],
+          "forbidden_field_hits": []
+        },
+        {
+          "case": "f2-dated-citation-plan",
+          "source": "cases/f2-dated-citation-plan/public-projections.json",
+          "source_sha256": "6f782d0e3cf2cd124465af4393c14bc64a98894c32e5075934a94c7b54705901",
+          "strings_checked": 307,
+          "hits": [],
+          "forbidden_field_hits": []
+        },
+        {
+          "case": "positive-persistence",
+          "source": "cases/positive-persistence/public-projections.json",
+          "source_sha256": "ea7931d628b78cdfd27a28fbfdac197334414aad30fa8ef47abe34839e54cb0d",
+          "strings_checked": 365,
+          "hits": [],
+          "forbidden_field_hits": []
+        }
+      ],
+      "unresolved": 0,
+      "manual_reviews": [
+        {
+          "item": "calc-<id> / calculation identifier in three answers",
+          "verdict": "intended user product reference, not proven secret disclosure",
+          "authority": "fixed derived_calculation tool requires calculation ID and artifact presentation; semantic judge objection not enough"
+        },
+        {
+          "item": "F2 prefetch footer ocf_cum_yi=18",
+          "verdict": "machine-style financial metric label; quality/readability issue, not a credential, hidden prompt or host path",
+          "limit": "does not cure the missing original-report requirement"
+        },
+        {
+          "item": "public report.task_frame / turn_intent / gate_receipt metadata",
+          "verdict": "structured observability of this user task; not raw writer/judge prompts"
+        }
+      ]
+    },
+    "credential_scan_initial": {
+      "file": "secret-scan-initial.json",
+      "text_files": 210,
+      "hits": 6,
+      "unresolved": 0,
+      "binary_not_scanned": 5
+    },
+    "final_scan": "secret-scan-final.json created after documents/commit; exact scope/counts in external receipt, do not equate initial scan with final"
+  },
+  "evidence_root": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918",
+  "evidence_seal": "evidence-index.json plus post-seal-index.json; seal performed after documentation commit, no recursive self hash",
+  "named_receipt_sha256": {
+    "protocol.json": "73840ad3984d1a734516dbb3b0bd4dd1f350208e725766293c9743a51ea7e219",
+    "inspection.json": "dfce51082bf9003d8e8ef5d08c653584180744df9858392851f2eaca9b0f779e",
+    "quality-review.json": "1b65a02059a239284805829200dcd8815c8482ae32c3412c759b7e92dffa86ab",
+    "criteria-review.json": "d7f9b85423dd2b7de2ef0d1f339d54bf5d4f1bcc6c6ecc4fedd7500fe53e73b5",
+    "independent-reconciliation.json": "9a6f00ffb9a324daa76dfc49ec06f0f7f6800bd993d14fc16555af28ba267e7f",
+    "closure.json": "a5fb05ce398c2d37056c1e749c623e18c7c0578bd3b67b6a94590ca3fceac196",
+    "public-projection-audit.json": "eba712bdd830ef7b34b8916efa4b318ec05f82359d62381f7b7d14fbffb83b19",
+    "secret-scan-initial.json": "8c69ebb633cab337b19743cf44ea80553ca694f11724ed5dee8b10f8ad70a4fd"
+  },
+  "memory": {
+    "named_files": [
+      "20_projects/finance-workspace-private.md",
+      "10_knowledge/contract-vs-delivery-mismatch.md",
+      "10_knowledge/finance-agent-capability-graph.md"
+    ],
+    "vault_before_after": "20E/17W; no diagnostic additions, shared baseline not green",
+    "graph": "before/after exit0; no new capability symbols, R5 status prose updated"
+  },
+  "limitations": [
+    "four single samples do not estimate reliability, improvement, speed or SLO",
+    "frozen market is not frozen F10/web/KB; not a paired performance trial",
+    "HTTP Workbench session entry, not browser-click usability",
+    "external disclosure package working bytes may be dirty; exact snapshot provenance recorded",
+    "writer/judge tokens and invoice completeness separately audited; unknown cost stays null",
+    "no main merge, push, production deploy or judge-switch authorization",
+    "inputs_from_calc same-session cache reuse",
+    "illegal URL/mappingproxy recovery",
+    "verified-old-draft exception recovery",
+    "budget exhaustion with unmet mandatory metric"
+  ],
+  "pushed": false,
+  "merged": false,
+  "deployed": false,
+  "new_product_code": false
+}
