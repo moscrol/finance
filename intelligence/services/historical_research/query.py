@@ -148,6 +148,13 @@ class HistoryQuerySpec:
             )
         ):
             raise HistoryQueryError("entity_codes requires at most 20 exact codes")
+        if entity_kind != "market" and "000001.SH" in codes:
+            raise HistoryQueryError(
+                "entity_kind/code mismatch: 000001.SH is the market environment anchor; "
+                "retry with entity_kind='market' and entity_codes=['000001.SH'] "
+                "for market research, or supply exact codes for the declared sector/stock. "
+                "Omitted entity_kind defaults to sector; no automatic kind conversion."
+            )
         if entity_kind == "market" and codes and tuple(codes) != ("000001.SH",):
             raise HistoryQueryError("market requires entity_codes=['000001.SH']; price=Shanghai, counts/amount=whole market")
         if operation == "trace_history" and entity_kind == "market":
@@ -167,7 +174,12 @@ class HistoryQuerySpec:
         if operation == "rank_history" and entity_kind == "market":
             raise HistoryQueryError("rank_history requires sector or stock")
         if operation not in {"inspect_history", "rank_history"} and not codes:
-            raise HistoryQueryError("exact entity_codes required for computation")
+            raise HistoryQueryError(
+                "exact entity_codes required for computation; declare entity_kind explicitly "
+                "(omitted defaults to sector). For market environment use "
+                "entity_kind='market', entity_codes=['000001.SH']; "
+                "for sector/stock inspect exact codes first. No name-based inference."
+            )
         search_start = (
             _date(arguments["search_start"], "search_start")
             if arguments.get("search_start") is not None
@@ -247,7 +259,13 @@ class HistoryQuerySpec:
         )
         allowed = _MARKET_FEATURES if entity_kind == "market" else _STOCK_FEATURES if entity_kind == "stock" else set(FEATURES) - _MARKET_ONLY
         if selected_features - allowed:
-            raise HistoryQueryError("unsupported_definition: features do not apply to entity_kind")
+            raise HistoryQueryError(
+                "unsupported_definition: features do not apply to entity_kind="
+                f"{entity_kind}; incompatible={','.join(sorted(selected_features - allowed))}; "
+                f"supported={','.join(sorted(allowed))}. "
+                "advancers_mean/limit_up_mean/limit_down_mean require entity_kind='market'; "
+                "check the declared kind, not global tool availability."
+            )
         return cls(
             operation=str(operation),
             start=start,

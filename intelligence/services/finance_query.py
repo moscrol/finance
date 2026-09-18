@@ -13,6 +13,7 @@ from datetime import date, datetime
 import hashlib
 import json
 from pathlib import Path
+import re
 from threading import Event, Thread
 import time
 from typing import Any, Literal
@@ -1780,6 +1781,37 @@ def dataset_physical_table(dataset: str) -> str:
     return definition.table if definition else ""
 
 
+def _diagnostic_identifier(value: str) -> str:
+    # These are model-supplied schema identifiers, not source text. Do not echo
+    # arbitrary prose (possibly dated facts) into a trusted diagnostic channel.
+    return value if re.fullmatch(r"[a-z][a-z0-9_]{0,63}", value) else "[invalid identifier omitted]"
+
+
+def validation_diagnostic(spec: FinanceQuerySpec, error: FinanceQueryValidationError) -> str:
+    """Render only known validator messages and schema metadata, never raw IO errors."""
+    message = str(error)
+    safe_message = "查询参数未通过校验"
+    for prefix in (
+        "unknown dataset: ", "unknown field: ", "not a dimension: ",
+        "not a metric: ", "metric cannot be grouped: ", "order field must be selected: ",
+        "unsupported operator: ",
+    ):
+        if message.startswith(prefix):
+            safe_message = prefix + _diagnostic_identifier(message.removeprefix(prefix))
+            break
+    else:
+        if message in {
+            "date filters must use time_range", "selected fields must be unique",
+            "group_by fields must be unique", "group_by fields must be selected dimensions",
+            "all selected dimensions must appear in group_by", "time range conflicts with information cutoff",
+            "time range start exceeds end", "dataset has no time dimension",
+            "in filter requires an array", "in filter cannot be empty",
+            "contains filter requires a text field and string value",
+        }:
+            safe_message = message
+    return f"结构化查询参数无效：{safe_message}；重试提示：{validation_retry_hint(spec, error)}"
+
+
 def validation_retry_hint(
     spec: FinanceQuerySpec,
     error: FinanceQueryValidationError,
@@ -1825,12 +1857,12 @@ def validation_retry_hint(
             if field in definition.metrics:
                 owners.append(f"{dataset_name}.metric")
         if owners:
-            locations.append(f"{field}→{'/'.join(owners)}")
+            locations.append(f"{_diagnostic_identifier(field)}→{'/'.join(owners)}")
         else:
-            locations.append(f"{field}→未注册")
+            locations.append(f"{_diagnostic_identifier(field)}→未注册")
             unsupported = True
 
-    parts = [f"当前 dataset={spec.dataset}"]
+    parts = [f"当前 dataset={_diagnostic_identifier(spec.dataset)}"]
     if locations:
         parts.append("字段归属：" + "，".join(locations))
         parts.append(
@@ -2796,5 +2828,6 @@ __all__ = [
     "QueryFilter",
     "TimeRange",
     "dataset_field_hint",
+    "validation_diagnostic",
     "validation_retry_hint",
 ]
