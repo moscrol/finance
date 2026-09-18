@@ -1,7 +1,8 @@
 """Falsify history delivery repairs without source edits or production DB access.
 
 Default suite: diagnostics. --suite succession challenges status/qualifier
-co-delivery, observation clocks and recovery using the same isolated runner.
+co-delivery, observation clocks and recovery. --suite expression challenges
+historical intent across prompt, repair, receipt and checkpoint consumers.
 
 Each fresh child changes one imported function in memory, then runs a narrow
 regression against temporary fixtures. Exit 0 means every mutation was caught
@@ -102,7 +103,64 @@ MUTATIONS.update({
         "test": f"{PAIR_TEST}::test_actual_recovery_retains_all_six_saved_pair_states_before_nav_and_members",
     },
 })
-SUITES = {"diagnostics": DIAGNOSTIC_NAMES, "succession": tuple(name for name in MUTATIONS if name not in DIAGNOSTIC_NAMES)}
+SUCCESSION_NAMES = tuple(name for name in MUTATIONS if name not in DIAGNOSTIC_NAMES)
+EXPRESSION_TEST = "tests/test_history_expression_contract_boundary.py"
+EXPRESSION_MUTATIONS = {
+    "drop_history_track_prompt": {
+        "module": "intelligence.services.episode_protocol",
+        "owner": None, "function": "_question_type_rules",
+        "old": "task_frame.question_type,\n        history_intent=context.history_intent,",
+        "new": "task_frame.question_type,\n        history_intent=None,",
+        "test": f"{EXPRESSION_TEST}::test_original_four_turn_prompts_use_history_not_forward_contracts",
+    },
+    "drop_history_ranking_prompt": {
+        "module": "intelligence.services.episode_protocol",
+        "owner": None, "function": "_question_type_rules",
+        "old": "conversation_context=context.conversation_context,\n        history_intent=context.history_intent,",
+        "new": "conversation_context=context.conversation_context,\n        history_intent=None,",
+        "test": f"{EXPRESSION_TEST}::test_original_four_turn_prompts_use_history_not_forward_contracts",
+    },
+    "drop_history_repair_scope": {
+        "module": "intelligence.runtime.continuous_turn_adapter",
+        "owner": None, "function": "_with_track_contract_gaps",
+        "old": "    merged = merge_track_missing_outputs(",
+        "new": "    context = replace(context, history_intent=None)\n    merged = merge_track_missing_outputs(",
+        "test": f"{EXPRESSION_TEST}::test_repair_does_not_replace_history_evidence_gaps_with_forward_slots",
+    },
+    "drop_history_receipt_scope": {
+        "module": "intelligence.runtime.continuous_turn_adapter",
+        "owner": "ContinuousTurnAdapter", "function": "_run_episode",
+        "old": "    artifact = {\n",
+        "new": "    context = replace(context, history_intent=None)\n    artifact = {\n",
+        "test": f"{EXPRESSION_TEST}::test_actual_adapter_receipts_and_repair_keep_history_missing",
+    },
+    "drop_history_checkpoint_context": {
+        "module": "intelligence.runtime.conversation_orchestrator",
+        "owner": "TurnOrchestrator", "function": "_complete_continuous_turn",
+        "old": "history_intent=task_frame.history_intent,", "new": "history_intent=None,",
+        "test": f"{EXPRESSION_TEST}::test_real_run_turn_passes_inherited_history_to_checkpoint_boundary",
+    },
+    "erase_history_checkpoint_gate": {
+        "module": "intelligence.runtime.conversation_orchestrator",
+        "owner": "TurnOrchestrator", "function": "_ingest_track_next_watch",
+        "old": "if history_intent is not None:", "new": "if False:",
+        "test": f"{EXPRESSION_TEST}::test_orchestrator_blocks_history_before_resolving_user_path_or_calling_writers",
+    },
+    "erase_history_track_boundary": {
+        "module": "intelligence.services.track_contract",
+        "owner": None, "function": "parse_track_intent",
+        "old": "if history_intent is not None:", "new": "if False:",
+        "test": f"{EXPRESSION_TEST}::test_both_checkpoint_writers_reject_history_even_with_registerable_answer[ingest_next_watch]",
+    },
+    "erase_history_ranking_boundary": {
+        "module": "intelligence.services.ranking_contract",
+        "owner": None, "function": "parse_ranking_intent",
+        "old": "if history_intent is not None:", "new": "if False:",
+        "test": f"{EXPRESSION_TEST}::test_both_checkpoint_writers_reject_history_even_with_registerable_answer[ingest_flip_conditions]",
+    },
+}
+MUTATIONS.update(EXPRESSION_MUTATIONS)
+SUITES = {"diagnostics": DIAGNOSTIC_NAMES, "succession": SUCCESSION_NAMES, "expression": tuple(EXPRESSION_MUTATIONS)}
 
 
 def _child(name: str) -> int:
@@ -141,6 +199,11 @@ def main() -> int:
     if args.suite == "succession":
         source_paths |= {ROOT / PAIR_TEST, ROOT / "scripts/history_anatomy_arithmetic.py",
                          ROOT / "tests/test_history_market_anatomy.py", ROOT / "tests/test_history_model_projection.py"}
+    if args.suite == "expression":
+        source_paths |= {ROOT / EXPRESSION_TEST, ROOT / "tests/test_history_live_seams.py",
+                         ROOT / "intelligence/tests/test_ranking_contract.py",
+                         ROOT / "intelligence/tests/test_research_intent_boundaries.py",
+                         ROOT / "intelligence/tests/test_conversation_orchestrator.py"}
     source_hashes = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(source_paths)}
     results = []
     for name, mutation in mutations.items():
