@@ -1,0 +1,22 @@
+{
+  ".rag_index": {
+    "eligible_L3": 0,
+    "matching_postings": 0,
+    "query_tokens": [
+      "冷",
+      "液",
+      "液冷"
+    ],
+    "eligible_positive_chunks": 4
+  },
+  ".rag_index_full": {
+    "eligible_L3": 551,
+    "matching_postings": 22,
+    "query_tokens": [
+      "冷",
+      "液",
+      "液冷"
+    ],
+    "eligible_positive_chunks": 4
+  }
+}

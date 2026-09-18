@@ -1,0 +1,3 @@
+From http://127.0.0.1:3300/a77/knowledge-base-private
+ * branch                main       -> FETCH_HEAD
+   91725ea9b..c141a424a  main       -> gitea/main
