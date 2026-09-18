@@ -317,12 +317,21 @@ def test_unrelated_or_empty_calculation_cannot_discharge_requested_ratio(monkeyp
     outcome = _outcome(context, result.evidence, kept_periods={"2026-06-30", "2026-03-31"})
     for script in ["emit_result(summary={'other': 2})", "emit_result(summary={})"]:
         calc = dc.run_derived_calculation(script=script, purpose=purpose, evidence=result.evidence)
-        assert isinstance(calc, dc.DerivedCalculation)
-        item = dc.derived_evidence(calc)
-        item = replace(item, content_hash=evidence_content_hash(item))
-        candidate = replace(outcome, evidence=(*outcome.evidence, item), bindings=tuple(
-            replace(b, evidence_hashes=(*b.evidence_hashes, item.content_hash)) for b in outcome.bindings
-        ))
+        if script == "emit_result(summary={})":
+            # New result admission now rejects the empty product even earlier;
+            # keep the original obligation assertion, not a forged success.
+            assert isinstance(calc, dc.CalculationError)
+            assert calc.code == dc.ERROR_INVALID_RESULT
+            failed = dc.to_tool_result(calc)
+            assert not failed.evidence and failed.gaps
+            candidate = outcome
+        else:
+            assert isinstance(calc, dc.DerivedCalculation)
+            item = dc.derived_evidence(calc)
+            item = replace(item, content_hash=evidence_content_hash(item))
+            candidate = replace(outcome, evidence=(*outcome.evidence, item), bindings=tuple(
+                replace(b, evidence_hashes=(*b.evidence_hashes, item.content_hash)) for b in outcome.bindings
+            ))
         verified = verify_episode_outcome(context.contract, candidate)
         assert verified.missing_outputs == ("metric_evidence",)
         assert not any("empty_hash" in issue for issue in verified.issues)

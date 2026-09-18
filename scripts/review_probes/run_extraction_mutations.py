@@ -9,6 +9,7 @@
     python scripts/review_probes/run_extraction_mutations.py --output <新证据目录>
     python scripts/review_probes/run_extraction_mutations.py --revision <sha> --output <目录>
     python scripts/review_probes/run_extraction_mutations.py --suite financial-r6 --output <新目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite research-delivery --output <新目录>
 
 只测试已提交 revision；未提交源码或定义不会被悄悄混进证据。证据目录必须新建。
 临时 worktree 在成功后移除；失败则保留还原后的树用于诊断，路径写入 results.json。
@@ -37,6 +38,15 @@ SUITES = {
     "financial-r6": ([
         "intelligence/tests/test_financial_r6_regressions.py",
     ], "scripts/review_probes/financial_r6_mutations.json"),
+    "financial-delivery": ([
+        "intelligence/tests/test_financial_delivery_integration.py",
+    ], "scripts/review_probes/financial_delivery_mutations.json"),
+    "research-delivery": ([
+        "intelligence/tests/test_calculation_result_delivery.py",
+        "intelligence/tests/test_research_delivery_checks.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_frozen_research_delivery.py",
+    ], "scripts/review_probes/research_delivery_mutations.json"),
 }
 
 

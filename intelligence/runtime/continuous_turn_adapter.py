@@ -836,9 +836,9 @@ class ContinuousTurnAdapter:
                     previous_snapshot=previous_snapshot,
                     current_snapshot=current_snapshot,
                     cycle=repair_attempts,
-                    rejected_claims=tuple(
-                        f"claim_index:{index}"
-                        for index in semantic.rejected_claim_indexes
+                    rejected_claims=(
+                        *(f"claim_index:{index}" for index in semantic.rejected_claim_indexes),
+                        *semantic.delivery_repair_notes,
                     ),
                     semantic_gap_outputs=semantic.gap_output_ids,
                     allow_delivery_repair=not delivery_repair_attempted,
@@ -1089,6 +1089,7 @@ class ContinuousTurnAdapter:
             final_outcome,
             private_tokens,
             allowed_output_ids=fulfilled_output_ids,
+            retained_hashes=frozenset(semantic.delivery_retained_evidence_hashes),
         )
         if semantic.status == "completed" and answer:
             status: ContinuousTurnStatus = "completed"
@@ -1118,18 +1119,18 @@ class ContinuousTurnAdapter:
         for notice in public_notices:
             if notice not in answer:
                 answer = "\n\n".join(part for part in (answer, notice) if part)
-        from intelligence.services.material_delivery import material_question_outputs
-
-        if material_question_outputs(context.contract):
-            semantic = recheck_material_public_delivery(semantic, projected=answer)
-            final_outcome = semantic.verified.outcome
-            answer = semantic.public_answer
-            fulfilled_output_ids = _fulfilled_output_ids(
-                semantic.verified, excluded_output_ids=frozenset(semantic.gap_output_ids),
-            )
-            citations = _public_citation_projection(final_outcome, private_tokens, allowed_output_ids=fulfilled_output_ids)
-            if status == "completed" and semantic.status != "completed":
-                status = "partial"
+        semantic = recheck_material_public_delivery(semantic, projected=answer)
+        final_outcome = semantic.verified.outcome
+        answer = semantic.public_answer
+        fulfilled_output_ids = _fulfilled_output_ids(
+            semantic.verified, excluded_output_ids=frozenset(semantic.gap_output_ids),
+        )
+        citations = _public_citation_projection(
+            final_outcome, private_tokens, allowed_output_ids=fulfilled_output_ids,
+            retained_hashes=frozenset(semantic.delivery_retained_evidence_hashes),
+        )
+        if status == "completed" and semantic.status != "completed":
+            status = "partial"
         semantic = _with_semantic_contract_gaps(semantic, context, projected=answer)
         answer, track_notices, track_receipt = _track_public_delivery(answer, context)
         if track_notices and status == "completed":
@@ -1305,6 +1306,18 @@ class ContinuousTurnAdapter:
         )))
         answer = _with_calendar_disclosure(answer, frame)
         answer = "\n\n".join((answer, *(item for item in notices if item and item not in answer)))
+        # Recovery is another delivery exit: check AFTER all public projections,
+        # not only the trusted draft that existed before calendar/domain notices.
+        semantic = recheck_material_public_delivery(
+            semantic, projected=answer,
+        )
+        answer = semantic.public_answer
+        semantic = _with_semantic_contract_gaps(semantic, context, projected=answer)
+        answer, final_track_notices, receipt = _track_public_delivery(answer, context)
+        notices = tuple(dict.fromkeys((*notices, *final_track_notices)))
+        fulfilled = _fulfilled_output_ids(
+            semantic.verified, excluded_output_ids=frozenset(semantic.gap_output_ids),
+        )
         artifact.update({
             "contract": context.contract.to_dict(),
             "semantic_verifier": semantic.to_dict(),
@@ -1320,7 +1333,10 @@ class ContinuousTurnAdapter:
             handled=True, status="partial",
             answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=answer)),
             as_of=_episode_as_of(trusted, context, allowed_output_ids=fulfilled),
-            citations=_public_citation_projection(trusted, private_tokens, allowed_output_ids=fulfilled),
+            citations=_public_citation_projection(
+                trusted, private_tokens, allowed_output_ids=fulfilled,
+                retained_hashes=frozenset(semantic.delivery_retained_evidence_hashes),
+            ),
             warnings=(notice,), events=self._terminal_events(status="partial"),
             private_artifact=cast(dict[str, object], _redact_private(artifact)),
             llm_provider=_episode_llm_provider(trusted, runtime_name=self._runtime_name),
@@ -2371,6 +2387,7 @@ def _public_citation_projection(
     private_tokens: frozenset[str],
     *,
     allowed_output_ids: frozenset[str],
+    retained_hashes: frozenset[str] = frozenset(),
 ) -> tuple[dict[str, object], ...]:
     bound_hashes = {
         content_hash
@@ -2378,6 +2395,10 @@ def _public_citation_projection(
         if binding.output_id in allowed_output_ids
         for content_hash in binding.evidence_hashes
     }
+    bound_hashes.update(
+        h for binding in outcome.bindings for h in binding.evidence_hashes
+        if h in retained_hashes
+    )
     citations: list[dict[str, object]] = []
     seen: set[tuple[str, str, str]] = set()
     for item in outcome.evidence:

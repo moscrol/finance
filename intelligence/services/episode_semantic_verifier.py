@@ -237,6 +237,8 @@ _FINANCIAL_CLAIM_ISSUE = Issue(
 # #55 census：引用了槽绑定之外的 E 只记账不删句（R-20260821-06 的既定裁决）。
 # stage / decision / reason 三个都是新值，读侧按 stage 过滤即可把它与拒句账分开。
 VERDICT_STAGE_CENSUS = "census"
+# Final projection/recovery uses the same finite checks on newly delivered text.
+VERDICT_STAGE_DELIVERY = "delivery"
 VERDICT_KEPT = "kept"
 VERDICT_REASON_OUTSIDE_SLOT = "cited_outside_slot_binding"
 _CONDITION_TRIGGER_RE = re.compile(
@@ -569,6 +571,10 @@ class SemanticEpisodeOutcome:
     gap_output_ids: tuple[str, ...] = ()
     rejected_claim_indexes: tuple[int, ...] = ()
     repair_output_ids: tuple[str, ...] = ()
+    # Local delivery repair is partial within a slot. These hashes preserve only
+    # already-bound citations still present in retained public text, NOT slot success.
+    delivery_retained_evidence_hashes: tuple[str, ...] = ()
+    delivery_repair_notes: tuple[str, ...] = ()
     timeout_asked: float | None = None
     timeout_configured: float | None = None
     remaining_seconds_at_entry: float | None = None
@@ -643,6 +649,8 @@ class SemanticEpisodeOutcome:
             "gap_output_ids": list(self.gap_output_ids),
             "rejected_claim_indexes": list(self.rejected_claim_indexes),
             "repair_output_ids": list(self.repair_output_ids),
+            "delivery_retained_evidence_hashes": list(self.delivery_retained_evidence_hashes),
+            "delivery_repair_notes": list(self.delivery_repair_notes),
             "timeout_asked": self.timeout_asked,
             "timeout_configured": self.timeout_configured,
             "remaining_seconds_at_entry": self.remaining_seconds_at_entry,
@@ -692,6 +700,112 @@ class SemanticEpisodeOutcome:
         return payload
 
 
+def _retained_delivery_hashes(outcome: SemanticEpisodeOutcome, public: str) -> tuple[str, ...]:
+    """Keep cited, previously eligible bindings, never revive a prior gap's cards."""
+    before = outcome.verified
+    eligible_slots = {
+        item.output_id for item in before.completion.outputs
+        if item.status == "fulfilled" and item.output_id not in outcome.gap_output_ids
+    }
+    bound = {
+        h for binding in before.outcome.bindings if binding.output_id in eligible_slots
+        for h in binding.evidence_hashes
+    }
+    cited = set(cited_evidence_ordinals(public))
+    ordinals = evidence_ordinal_table(before.outcome.evidence)
+    retained = tuple(h for h, ordinal in ordinals.items() if h in bound and ordinal in cited)
+    prior = tuple(h for h in outcome.delivery_retained_evidence_hashes if ordinals.get(h) in cited)
+    return tuple(dict.fromkeys((*prior, *retained)))
+
+
+def _recheck_research_delivery(outcome: SemanticEpisodeOutcome, public: str) -> SemanticEpisodeOutcome:
+    """Final local checks also cover judge-off, rollback and retained answers.
+
+    Keep independently verified neighbors; feed local gaps to the EXISTING
+    bounded repair loop. This is not a second model, source or budget.
+    """
+    from intelligence.services.research_delivery_checks import (
+        calculation_copy_findings, disclosure_absence_findings, remove_findings,
+    )
+
+    before = outcome.verified
+    contract = before.contract
+    if contract is None:
+        return outcome
+    # Projections and trusted-draft recovery may change text AFTER verify().
+    # Reuse R6's finite checker, not a new judge or a receipt for an older draft.
+    sentences = _numbered_sentences(public)
+    rejected = _financial_claim_mismatch_indexes(sentences, before)
+    if rejected:
+        verdicts = tuple(
+            _sentence_verdict_record(
+                stage=VERDICT_STAGE_DELIVERY, judge_round=None, index=int(item["index"]),
+                sentence=str(item["text"]), decision=VERDICT_DELETED,
+                reasons=(VERDICT_REASON_FINANCIAL,), issues=(), verified=before,
+            )
+            for item in sentences if item["index"] in rejected
+        )
+        public = _drop_rejected_sentences(public, rejected)
+        outcome = _with_financial_repair_debt(replace(
+            outcome,
+            public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),
+            sentence_verdicts=(*outcome.sentence_verdicts, *verdicts),
+        ), verdicts)
+        public = outcome.public_answer
+        before = outcome.verified
+    findings = (
+        *disclosure_absence_findings(public, before.outcome.traces),
+        *calculation_copy_findings(
+            public, before.outcome.evidence,
+            calculation_required=bool(re.search(r"(?:用|使用|通过).{0,8}(?:计算工具|计算器|沙箱)", contract.question)),
+        ),
+    )
+    if not findings:
+        return outcome
+    codes = tuple(dict.fromkeys(f.code for f in findings))
+    target_ids: set[str] = set()
+    if any(code.startswith("calculation_value_") for code in codes):
+        target_ids.update(("metric_evidence", "supporting_evidence"))
+    if "disclosure_absence_inference" in codes:
+        target_ids.update(("event_facts", "fact_value", "supporting_evidence"))
+    evidence_ids = tuple(
+        item.output_id for item in contract.required_outputs
+        if item.required and item.grounding_mode == "evidence"
+    )
+    gap_ids = tuple(i for i in evidence_ids if i in target_ids)
+    if not gap_ids:
+        gap_ids = evidence_ids[:1]  # custom one-slot contracts; not every slot
+    # No model draft/provider diagnostics in these notices.
+    notices: list[str] = []
+    repair_notes: list[str] = []
+    if "disclosure_absence_inference" in codes:
+        notices.append("公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。")
+        repair_notes.append("查询失败或空白不能推出没有公告、无新增信息或尚未兑现；删除此推断，保留已核实事实并说明覆盖缺口。")
+    if "calculation_value_mismatch" in codes:
+        notices.append("部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。")
+        repair_notes.append("按报告期及比率列重新对账本次计算产物，修正抄数错误；保留同一行原始数据，不借其他期别数字充证。")
+    if "calculation_value_unverified" in codes:
+        notices.append("部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。")
+        repair_notes.append("所称计算结果缺少或冲突，不得声称已核算；按原权限补齐或明确留缺口，不手填结果。")
+    repaired = remove_findings(public, findings)
+    repaired = "\n\n".join((repaired, *notices)).strip()
+    retained = _retained_delivery_hashes(outcome, repaired)
+    issues = tuple(f"code={code} :: delivered research claim failed local check" for code in codes)
+    # Do not replace archived draft/evidence or mark the whole slot's facts as
+    # false. Public text + gap IDs carry the repair need, and status cannot rise.
+    return replace(
+        outcome,
+        public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=repaired)),
+        status="partial" if outcome.status == "completed" else outcome.status,
+        judge_status="repaired" if outcome.judge_status == "passed" else outcome.judge_status,
+        issues=tuple(dict.fromkeys((*outcome.issues, *issues))),
+        gap_output_ids=tuple(dict.fromkeys((*outcome.gap_output_ids, *gap_ids))),
+        repair_output_ids=tuple(dict.fromkeys((*outcome.repair_output_ids, *gap_ids))),
+        delivery_retained_evidence_hashes=retained,
+        delivery_repair_notes=tuple(dict.fromkeys((*outcome.delivery_repair_notes, *repair_notes))),
+    )
+
+
 def recheck_material_public_delivery(
     outcome: SemanticEpisodeOutcome,
     *,
@@ -709,11 +823,27 @@ def recheck_material_public_delivery(
     """
     from intelligence.services.material_delivery import material_question_outputs, with_all_material_gaps_notice
 
+    public = outcome.public_answer if projected is None else projected
+    checked = _recheck_research_delivery(outcome, public)
+    # If the local check changed public text, don't restore the rejected caller
+    # projection below. Otherwise preserve the material sanitizer's input.
+    if checked is not outcome:
+        public = checked.public_answer
+    outcome = checked
     before = outcome.verified
     contract = before.contract
     if contract is None or not material_question_outputs(contract):
-        return outcome
-    public = outcome.public_answer if projected is None else projected
+        if public == outcome.public_answer:
+            return outcome
+        ordinals = evidence_ordinal_table(before.outcome.evidence)
+        cited = set(cited_evidence_ordinals(public))
+        return replace(
+            outcome,
+            public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),
+            delivery_retained_evidence_hashes=tuple(
+                h for h in outcome.delivery_retained_evidence_hashes if ordinals.get(h) in cited
+            ),
+        )
     if outcome.judge_status == "unavailable":
         # A review outage/structural early exit deliberately withholds the draft.
         # That is not a writer omission: preserve its existing repair targets,
@@ -1215,9 +1345,13 @@ class SemanticEpisodeVerifier:
             judge_mode=judge_mode_label(self._judge_mode),
             cited_outside_slot_count=self._census_count,
         )
-        if not self._sentence_verdicts or outcome.sentence_verdicts:
+        # Final delivery may add verdicts after the preflight/judge ledger.
+        # Preserve both stages rather than letting the newer tuple mask history.
+        verdicts = list(self._sentence_verdicts)
+        verdicts.extend(row for row in outcome.sentence_verdicts if row not in verdicts)
+        if tuple(verdicts) == outcome.sentence_verdicts:
             return outcome
-        return replace(outcome, sentence_verdicts=tuple(self._sentence_verdicts))
+        return replace(outcome, sentence_verdicts=tuple(verdicts))
 
     def _guided_retrieve_and_rejudge(
         self,
@@ -4220,6 +4354,10 @@ def _with_financial_repair_debt(
     if not targets:
         return outcome
     notice = "部分财务差值、期间或报告来源断言未通过核对；已保留其他内容，相关分析仍需补齐。"
+    # Capture eligible citations BEFORE opening this local repair debt. A prior
+    # unrelated gap remains ineligible; kept cards are not completion evidence.
+    retained = _retained_delivery_hashes(outcome, outcome.public_answer)
+    repair_note = "按已绑定输入核对财务差值、报告期间及报告文档来源；修正矛盾或明确留缺口，保留已核实邻项，不增加取数权限。"
     outputs = tuple(replace(item, status="missing", gap=item.gap or notice)
                     if item.output_id in targets else item for item in verified.completion.outputs)
     issues = tuple(Issue(IssueCode.REQUIRED_OUTPUT_GAP, target, notice) for target in targets)
@@ -4240,6 +4378,8 @@ def _with_financial_repair_debt(
         gap_output_ids=tuple(dict.fromkeys((*outcome.gap_output_ids, *targets))),
         repair_output_ids=tuple(dict.fromkeys((*outcome.repair_output_ids, *targets))),
         issues=tuple(dict.fromkeys((*outcome.issues, *verified.issues))),
+        delivery_retained_evidence_hashes=retained,
+        delivery_repair_notes=tuple(dict.fromkeys((*outcome.delivery_repair_notes, repair_note))),
     )
 
 
