@@ -31,6 +31,25 @@
 
 编码任务「仓库里有没有现成实现」走 `python3 scripts/code_map.py query "<问题>"`，不是本页，也不是问答门。空图不得写成架构结论。
 
+### 连续运行保存与截断边界（OPT-08，候选分支）
+
+`fix/runtime-contracts-0918` 的 P0 区分普通进度通知与必需恢复记录：后者写失败后
+停止新模型/工具/修复派发，Workbench 交付 `failed/storage_failed`，原稿及已收到的
+结果/费用只保留在私有工件，不作为完整学习样本。开始时无 store 的临时运行标
+`ephemeral`；写到一半失败标 `failed`，不能静默降为临时模式。`finish` 冲刷日志与
+`done` 检查点均确认后才广播完成；收件箱确认前冲刷 inserted，失败不删投递副本。
+在途线程不强杀：已收到结果保留，未决调用标结果不确定，旧查询缓存发布守卫仍生效。
+生产装配共享执行取消信号，但不把内部保存失败伪装成用户取消。
+
+供应商明确 `length/max_tokens/content_filter` 时，即使工具参数或 FINAL_JSON
+可解析也不得执行；停止原因和 usage 保留，不暗中切 provider 重跑。缺失停止元数据
+保留兼容，不补造 `stop`。其他 SDK 后端不能据此声明同等保存合同。
+
+这是活进程故障隔离，不是崩溃续跑：写后确认丢失仍不确定，磁盘可能留已完成前缀；
+自动恢复 driver、子研究完整存储、压缩原文回读及 Workbench 插话仍待 P1。
+进度 SSE 也会补发两次读取之间新到的终态事件，再关闭连接。验证与当前阶段见
+[执行计划](superpowers/plans/2026-09-18-runtime-contracts.md)；未合并、未部署，无质量胜出声明。
+
 ### 专项研究纪律（Knevo 增量，2026-09-17 已合 main）
 
 `research_workflow_guidance.workflow_guidance` 给财报、事件推演、观点审查、事实核对、历史类比

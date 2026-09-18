@@ -82,6 +82,7 @@ from intelligence.runtime.conversation_orchestrator import (
 from intelligence.runtime.continuous_turn_adapter import (
     ContinuousTurnAdapter,
 )
+from intelligence.services.cancel_signal import CancelSignal
 from intelligence.services.conversation_store import (
     ConversationDataIntegrityError,
     ConversationStore,
@@ -493,9 +494,17 @@ def _build_continuous_turn_adapter(
         )
 
     selection = resolve_runtime_backend()
+    # Execution-local failure must reach the injected client as well as the loop.
+    # Do not replace the orchestrator's user-cancel predicate: storage failure is
+    # delivered as failed/storage_failed, not swallowed as a user cancellation.
+    execution_cancel = (
+        CancelSignal.coerce(is_cancelled)
+        if selection.name == "continuous_glm"
+        else is_cancelled
+    )
     client = GLMModelClient(
         providers=providers,
-        is_cancelled=is_cancelled,
+        is_cancelled=execution_cancel,
         # 只在 continuous_glm 上接：sdk_glm 走 OpenAIAgentsRuntime，
         # 它自己的流式语义还没对齐，这里不假装它也能流。
         on_draft_delta=(
@@ -512,7 +521,7 @@ def _build_continuous_turn_adapter(
         runtime = GLMAgentRuntime(
             client=client,
             finalizer=finalizer,
-            is_cancelled=is_cancelled,
+            is_cancelled=execution_cancel,
             event_sink=(
                 publish_episode_event if progress_publisher is not None else None
             ),
@@ -3297,9 +3306,14 @@ def create_app(
                     rs.STATUS_FAILED,
                     rs.STATUS_CANCELLED,
                 ):
+                    terminal_snapshot = store.load_stream_events(run_id)
+                    if any(event["seq"] > current_cursor for event in terminal_snapshot):
+                        # A terminal message may arrive between the first read and
+                        # this check. Seeing it on disk is not delivering it to SSE.
+                        continue
                     terminal_message_missing = run.session_id and not any(
                         event["event_type"] in {"message.complete", "message.error"}
-                        for event in store.load_stream_events(run_id)
+                        for event in terminal_snapshot
                     )
                     if terminal_message_missing:
                         terminal_event_deadline = (

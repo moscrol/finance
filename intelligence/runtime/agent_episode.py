@@ -270,7 +270,9 @@ class _EpisodeLedger:
         store: EpisodeStore | None = None,
         episode_id: str = "",
         configure: Mapping[str, object] | None = None,
+        on_store_failure: Callable[[], None] | None = None,
     ) -> None:
+        self._on_store_failure = on_store_failure
         self._task_frame_hash = task_frame.task_frame_hash
         self._event_sink = event_sink
         # 见 add() 里的临界区注释：序号是「读长度 → 追加」两步，不锁就会重号。
@@ -292,8 +294,9 @@ class _EpisodeLedger:
         # 多出来的只有 ``configure`` 首条与 ``model_intent``，它们与 store 无关。
         self._store = store
         self.episode_id = str(episode_id or "").strip() or task_frame.task_frame_hash
-        # 落盘失败不拥有执行（与 event_sink_failures / derive_mismatch 同族）；但失败一次后
-        # 不再写：半份日志会让恢复读出一个自信的错答案，比「没有日志」更坏。
+        # OPT-08：可靠存储与进度通知是两份合同。关键写失败后停止新效果，
+        # 仅内存继续收集已发生的结果；不能静默退化为正常完成的临时模式。
+        self.persistence_mode = "durable" if store is not None else "ephemeral"
         self.store_failures: list[str] = []
         # 已落意图、等结算的工具调用；``consume`` 对它们不再补事后 ``tool_request``。
         self.intended_call_ids: set[str] = set()
@@ -329,10 +332,49 @@ class _EpisodeLedger:
         if store is None:
             return
         try:
-            store.append(self.episode_id, (event,), sync=event.kind in INTENT_KINDS)
-        except Exception as exc:  # noqa: BLE001 - 落盘失败进收据，不拥有执行
-            self.store_failures.append(f"append#{event.sequence}:{type(exc).__name__}")
-            self._store = None
+            store.append(
+                self.episode_id, (event,),
+                sync=event.kind in INTENT_KINDS or event.kind in {
+                    "finish", "inbox_inserted", "inbox_claimed", "inbox_discarded",
+                },
+            )
+        except Exception as exc:  # noqa: BLE001 - 熔断新派发，保留内存结果
+            self._fail_store(f"append#{event.sequence}:{type(exc).__name__}")
+
+    def _fail_store(self, detail: str) -> None:
+        self.store_failures.append(detail)
+        self._store = None
+        if self._on_store_failure is not None:
+            self._on_store_failure()
+
+    def model_complete(self, model: AgentModelClient, **kwargs: object) -> ModelTurn:
+        """Every model entry (including repair) must pass the durable fence."""
+        if self.store_failures:
+            return ModelTurn("", (), error="storage_failed", provider_attempts=0)
+        return model.complete(**kwargs)
+
+    def outcome(self, **kwargs: object) -> AgentOutcome:
+        """Only advertise completion AFTER finish append and done checkpoint succeed.
+
+        A finish already appended cannot be rewritten when the done checkpoint fails.
+        The extra in-memory failure receipt supersedes it without corrupting the prefix.
+        """
+        persistence = self.persistence_mode
+        if self.store_failures:
+            persistence = "failed"
+            gap = "关键恢复记录保存失败；已停止新派发，保留的草稿不可视为可靠完成或自动续跑依据。"
+            if not any(e.kind == "persistence_failed" for e in self.events):
+                self.add("persistence_failed", {
+                    "status": "failed", "stop_reason": "storage_failed",
+                    "store_failures": list(self.store_failures),
+                    "recovery": "uncertain", "learning_eligible": False,
+                })
+            kwargs.update(
+                status="failed", stop_reason="storage_failed",
+                gaps=tuple(dict.fromkeys((*kwargs.get("gaps", ()), gap))),
+            )
+        kwargs.update(events=tuple(self.events), persistence=persistence)
+        return AgentOutcome(**kwargs)
 
     def put_state(
         self,
@@ -382,8 +424,7 @@ class _EpisodeLedger:
                 try:
                     store.put_state(self.episode_id, state)
                 except Exception as exc:  # noqa: BLE001 - 同 _persist
-                    self.store_failures.append(f"state:{phase}:{type(exc).__name__}")
-                    self._store = None
+                    self._fail_store(f"state:{phase}:{type(exc).__name__}")
         return state
 
     def record_model_intent(
@@ -420,13 +461,15 @@ class _EpisodeLedger:
         )
         return turn_id
 
-    def record_dispatch_intent(self, intent: DispatchIntent) -> None:
+    def record_dispatch_intent(self, intent: DispatchIntent) -> bool:
         """工具派发前的意图：这一批真要进线程池的每个调用各一条 ``tool_request``。
 
         payload 与事后写法同形（``call.to_dict()`` + dispatch clock + 空池回退标记），多一个
         ``replay``——恢复时决定「同参数重跑」还是「合成 interrupted」的依据。
         """
 
+        if self.store_failures:
+            return False
         clock = intent.clock.to_payload()
         for call in intent.calls:
             payload: dict[str, object] = {
@@ -444,6 +487,7 @@ class _EpisodeLedger:
             phase="tools_pending",
             reserved_ids=tuple(call.call_id for call in intent.calls),
         )
+        return not self.store_failures
 
     def settle_tool_request(self, call_id: str) -> bool:
         """结算到达：该调用若有在飞意图则销掉并返回 True（调用方不再补事后 tool_request）。"""
@@ -491,10 +535,9 @@ class _EpisodeLedger:
                     "chars_saved": self.history_compaction_saved,
                 },
             )
-            # P4 竞态目录「store.append 失败 vs 内存 ledger」：落盘失败不拥有执行，但要有收据。
-            # 收据只能落在内存 / 产物这一侧——store 已经写不进了；读产物的人由此知道
-            # durable 副本从哪一条序号起是不完整的（空列表 = 全部落盘）。
             event_payload.setdefault("store_failures", list(self.store_failures))
+            if self.store_failures:
+                event_payload.update(status="failed", stop_reason="storage_failed")
         # 事件发生的挂钟时刻。相邻两条事件的时间差就是上一步的耗时——所以不需要
         # 给每一步单独开 span，就能算出「哪一步吃掉了时钟」。
         #
@@ -517,20 +560,19 @@ class _EpisodeLedger:
             # 抢着写会让 JSONL 乱序（读回时按「1..N 连续」判损坏）。意图类 fsync，
             # 结算类不 fsync——见 episode_store 文首。
             self._persist(event)
+        if kind == "finish":
+            # done 写成功之前不向 UI 广告完成；finish fsync 同时冲刷前序结算。
+            self.put_state(phase="done")
         # sink 调用**留在锁外**：它是外部回调（UI/进度），持锁调外部代码是经典死锁
         # 源，且慢 sink 会把研究主路径一起卡住。代价是并发时 sink 的到达顺序可能与
         # sequence 不一致——消费者按 sequence 排序，别按到达顺序。
-        if self._event_sink is not None:
+        if self._event_sink is not None and not (kind == "finish" and self.store_failures):
             try:
                 self._event_sink(event)
             except Exception:
                 # Progress is observability, never an alternate execution
                 # owner. A broken UI sink must not abort financial research.
                 pass
-        if kind == "finish":
-            # 终局只有一个出口种类（finish 事件），所以 ``done`` 挂在这里而不是十个
-            # return 点上：任何停机路径都不可能漏掉程序计数器的终态。
-            self.put_state(phase="done")
         return event
 
     def record_plan(self, plan: ResearchPlan) -> EpisodeEvent:
@@ -1176,6 +1218,7 @@ class ContinuousAgentEpisode:
             store=self._store,
             episode_id=context.contract.task_id,
             configure=self._configure_snapshot(context=context, registry=registry),
+            on_store_failure=lambda: self._cancel.request("hook", "storage_failed"),
         )
         ledger.active_context = context
         # INV-R5：收件箱在账本之后、任何模型请求之前建好——从此外部输入只有这一扇门。
@@ -1185,6 +1228,7 @@ class ContinuousAgentEpisode:
             ledger,
             admit=self._harness.admit_inbox_message,
             spool=spool_dir_for(self._store, ledger.episode_id),
+            persistence_failed=lambda: bool(ledger.store_failures),
         )
         ledger.inbox = inbox
         self._active_inbox = inbox
@@ -1215,6 +1259,7 @@ class ContinuousAgentEpisode:
         # INV-R2：工具意图出口。批次执行器在 ``_dispatch`` 之前把真要跑的调用整批交给它，
         # ledger 落 ``tool_request{replay}`` 并把程序计数器推到 ``tools_pending``。
         tool_session.on_dispatch = ledger.record_dispatch_intent
+        tool_session.execution_failed = lambda: bool(ledger.store_failures)
         # INV-R1 对账失败落进 Scope 收据（dump()["derive_mismatches"]）。
         ledger.derive_mismatch_sink = episode_scope.record_derive_mismatch
         if (
@@ -1271,6 +1316,14 @@ class ContinuousAgentEpisode:
             1,
             MAX_EPISODE_TOOL_CALLS + MAX_PLAN_TURNS + 2,
         ):
+            if ledger.store_failures:
+                return self._stopped_outcome(
+                    task_frame=task_frame, status="failed", stop_reason="storage_failed",
+                    gap="恢复记录保存失败", ledger=ledger,
+                    evidence=accumulator.evidence, traces=accumulator.traces,
+                    gaps=accumulator.gaps, llm_calls=llm_calls, tool_calls=tool_calls,
+                    invalid_actions=invalid_actions,
+                )
             if self._is_cancelled():
                 return self._cancelled_outcome(
                     task_frame=task_frame,
@@ -1374,7 +1427,8 @@ class ContinuousAgentEpisode:
             model_started = monotonic()
             try:
                 # 线格式只在这里出现：loop 全程 EpisodeMessage，边界一次转换。
-                turn = self._model.complete(
+                turn = ledger.model_complete(
+                    self._model,
                     messages=to_provider(messages),
                     tools=[] if finalization_started else definitions,
                     timeout=timeout,
@@ -1483,6 +1537,21 @@ class ContinuousAgentEpisode:
                 )
             # P4 步点②：模型结算刚落，下一件外部效果（派发 / 收口）还没开始。
             yield StepPoint("model_settled", llm_calls, tool_calls, turn_id=turn_id)
+            if ledger.store_failures:
+                if not _consume_root_seconds(context, model_elapsed) and context.root_budget is not None:
+                    context.root_budget.settle_seconds(seconds=model_elapsed)
+                carried = self._carry_just_written_finish(
+                    turn=turn, context=context, evidence=tuple(accumulator.evidence), registry=registry,
+                )
+                return self._stopped_outcome(
+                    task_frame=task_frame, status="failed", stop_reason="storage_failed",
+                    gap="恢复记录保存失败", ledger=ledger,
+                    evidence=accumulator.evidence, traces=accumulator.traces,
+                    gaps=accumulator.gaps, llm_calls=llm_calls, tool_calls=tool_calls,
+                    invalid_actions=invalid_actions,
+                    carried_draft=carried.draft if carried is not None else "",
+                    carried_bindings=carried.bindings if carried is not None else (),
+                )
             if not _consume_root_seconds(context, model_elapsed):
                 if context.root_budget is not None:
                     context.root_budget.settle_seconds(seconds=model_elapsed)
@@ -1976,7 +2045,7 @@ class ContinuousAgentEpisode:
                     **admission.rejection,
                 },
             )
-            return AgentOutcome(
+            return ledger.outcome(
                 task_frame_hash=task_frame.task_frame_hash,
                 status=status,
                 draft=draft,
@@ -2060,7 +2129,8 @@ class ContinuousAgentEpisode:
             )
             model_started = monotonic()
             try:
-                turn = self._model.complete(
+                turn = ledger.model_complete(
+                    self._model,
                     messages=to_provider(messages),
                     tools=tools,
                     timeout=timeout,
@@ -2077,6 +2147,10 @@ class ContinuousAgentEpisode:
             llm_calls += turn.provider_attempts
             ledger.add("model_turn", {"phase": phase, "turn_id": turn_id, **turn.to_dict()})
             budget_alive = _consume_root_seconds(repair_context, model_elapsed)
+            if ledger.store_failures:
+                if not budget_alive and repair_context.root_budget is not None:
+                    repair_context.root_budget.settle_seconds(seconds=model_elapsed)
+                return (turn, llm_calls, False, repair_deadline, repair_context, transient_retries_left)
             if (
                 turn.error
                 and transient_retries_left > 0
@@ -2150,6 +2224,8 @@ class ContinuousAgentEpisode:
     ) -> AgentOutcome:
         """Continue one captured provider history for a verifier repair goal."""
 
+        if state.ledger.store_failures:
+            return previous
         context = state.context
         if state.context_ref is not None:
             state.context_ref.value = context
@@ -2549,7 +2625,7 @@ class ContinuousAgentEpisode:
                 **admission.rejection,
             },
         )
-        return AgentOutcome(
+        return ledger.outcome(
             task_frame_hash=task_frame.task_frame_hash,
             status=verdict.status,
             draft=admission.draft,
@@ -2583,7 +2659,7 @@ class ContinuousAgentEpisode:
             context=context,
             tool_calls=tool_calls,
         )
-        if remaining <= 0:
+        if remaining <= 0 or accumulator.ledger.store_failures:
             return None
         # 底座只递自己拥有的事实：本批结果、此刻真能派的工具、事件流、阶段。
         # 该不该补、补什么是领域的事（harness），付不付得起（上面的剩余槛）是这里的事。
@@ -2804,6 +2880,13 @@ class ContinuousAgentEpisode:
                 "branch_started",
                 {"branch_id": f"branch-{index}", "goal": goal},
             )
+        if ledger.store_failures:
+            for index, goal in enumerate(plan.branch_goals, start=1):
+                ledger.add("branch_failed", {
+                    "branch_id": f"branch-{index}", "goal": goal,
+                    "status": "failed", "error": "storage_failed",
+                })
+            return None
         result = coordinator.run(
             goals=plan.branch_goals,
             task_frame=task_frame,
@@ -3172,6 +3255,7 @@ class ContinuousAgentEpisode:
         return {
             **self._runtime_config,
             "log_version": EPISODE_LOG_VERSION,
+            "persistence_mode": "durable" if self._store is not None else "ephemeral",
             "task_id": contract.task_id,
             "research_tier": contract.research_tier,
             "allowed_capabilities": list(contract.allowed_capabilities),
@@ -3240,6 +3324,18 @@ class ContinuousAgentEpisode:
             reserved_ids=("finalization_recovery",),
             context=context,
         )
+        if ledger.store_failures:
+            return self._failed_recovery_outcome(
+                task_frame=task_frame, ledger=ledger, accumulator=accumulator,
+                reason="storage_failed", public_gap="恢复记录保存失败",
+                llm_calls=llm_calls, tool_calls=tool_calls, invalid_actions=invalid_actions,
+            )
+
+        def record_recovery_prompt(system: str, user: str) -> None:
+            record_prompt_assembled(ledger, system=system, user=user, source=PROMPT_SOURCE_FINALIZER)
+            if ledger.store_failures:
+                raise RuntimeError("storage_failed")
+
         recovery_started = monotonic()
         try:
             recovery_options = {}
@@ -3256,9 +3352,7 @@ class ContinuousAgentEpisode:
                 failure_reason=failure_reason,
                 # 兜底合成那段独立 prompt 也是模型可见内容：落账（source=finalizer），
                 # 但不进 episode 的消息历史，派生器对它跳过。
-                on_prompt=lambda system, user: record_prompt_assembled(
-                    ledger, system=system, user=user, source=PROMPT_SOURCE_FINALIZER
-                ),
+                on_prompt=record_recovery_prompt,
                 **recovery_options,
             )
         except Exception as exc:
@@ -3401,7 +3495,7 @@ class ContinuousAgentEpisode:
                 **admission.rejection,
             },
         )
-        return AgentOutcome(
+        return ledger.outcome(
             task_frame_hash=task_frame.task_frame_hash,
             status=status,
             draft=draft,
@@ -3671,7 +3765,7 @@ class ContinuousAgentEpisode:
                 **dict(finish_extra or {}),
             },
         )
-        return AgentOutcome(
+        return ledger.outcome(
             task_frame_hash=task_frame.task_frame_hash,
             status=status,
             draft=carried_draft,

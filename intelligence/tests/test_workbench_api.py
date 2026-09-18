@@ -622,9 +622,9 @@ def test_production_continuous_adapter_shares_provider_client_across_gates(
     assert semantic._primary_judge is episode._model
     assert semantic._finalizer is episode._finalizer
     assert episode._model._providers == providers
-    assert episode._model._is_cancelled is is_cancelled
-    # 工单 #28：Episode 持有的是包住同一个谓词的 CancelSignal（类型化原因），
-    # 「几处接缝看同一份事实」的判据从对象同一变成 upstream 同一。
+    # OPT-08: local storage failure must reach the injected model client, not
+    # merely the loop. Adapter/orchestrator still own the user-cancel predicate.
+    assert episode._model._is_cancelled is episode._is_cancelled
     assert episode._is_cancelled.upstream is is_cancelled
     assert adapter._is_cancelled is is_cancelled
     assert adapter._deadline_expires_at == deadline_expires_at
@@ -2934,6 +2934,32 @@ def test_sse_canonical_cursor_and_terminal_replay(client: TestClient) -> None:
         f"/api/runs/{run_id}/events", headers={"Last-Event-ID": str(module["seq"])}
     ).text
     assert "report:module:new" not in numeric
+
+
+def test_sse_emits_terminal_message_arriving_between_reads(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = RunStore()
+    run = store.create_run("terminal race", "ask", session_id="conversation-race")
+    store.finish_run(run.run_id, rs.STATUS_FAILED)
+    load = RunStore.load_stream_events
+    first_read = True
+
+    def load_then_append(self, run_id, *args, **kwargs):
+        nonlocal first_read
+        snapshot = load(self, run_id, *args, **kwargs)
+        if run_id == run.run_id and first_read:
+            first_read = False
+            self.append_stream_event(
+                run_id, event_id="message:error:race", event_type="message.error",
+                payload={"message": {"status": "failed", "content": "保存失败"}},
+            )
+        return snapshot
+
+    monkeypatch.setattr(RunStore, "load_stream_events", load_then_append)
+    body = client.get(f"/api/runs/{run.run_id}/events").text
+    assert body.count("event: message.error") == 1
+    assert body.index("event: message.error") < body.index("event: run\n")
 
 
 def test_sse_rejects_negative_after(client: TestClient) -> None:

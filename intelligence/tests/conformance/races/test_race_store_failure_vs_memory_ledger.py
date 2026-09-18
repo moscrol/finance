@@ -1,11 +1,9 @@
 """竞态⑦：store.append 失败 vs 内存 ledger（INV-R6 / INV-R2 / INV-R3）。
 
-既有契约（``test_inv_r2_write_order::test_store_failure_does_not_own_execution_but_is_receipted``）：
-落盘失败不拥有执行，失败一次后不再写——半份日志比没有更会骗恢复。本条把它写成两序的
-合法历史：store 在写**意图**时失败（A）或在写**结算**时失败（B）。两序都要求：内存账本
-完整、episode 照常完成、store 只留失败前的严格前缀且此后零写入、finish 收据带失败序号；
-且 durable 副本对 ``restore`` 仍自洽——B 序里 store 最后一条是意图，恢复读到「意图有、
-结算无」给 ``retry_model``，不做任何别的猜测。
+OPT-08 改变旧合同：必需保存失败停止新效果，不再按 completed 返回。
+store 在意图（A）或结算（B）写入失败：内存保留已发生结果，durable 留严格前缀，
+后续零写入、零新派发。B 序最后只有意图，restore 仍可能建议 retry_model——这是
+磁盘无法保存故障时不可消除的不确定性，尚未授权自动恢复驱动，不得视为免费重试。
 """
 
 from __future__ import annotations
@@ -49,7 +47,11 @@ def _run(task_id: str, fail_on: str):
 
 
 def _assert_prefix_and_receipt(rig, store: FailOnKindStore, outcome) -> None:
-    assert outcome.status == "completed", "落盘失败不拥有执行"
+    assert outcome.status == "failed"
+    assert outcome.stop_reason == "storage_failed"
+    assert outcome.persistence == "failed"
+    assert rig.model.calls == (0 if store.fail_on == "model_intent" else 1)
+    assert outcome.usage.tool_calls == 0
     assert store.failed_sequence is not None
     assert store.appends_after_failure == 0, "失败后不得再写：半份日志会骗恢复"
     stored = rig.stored_events()

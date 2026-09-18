@@ -133,8 +133,8 @@ def test_every_external_effect_is_sandwiched_by_durable_intent_and_settlement() 
     assert oracle.list_open() == ()
 
 
-def test_store_failure_does_not_own_execution_but_is_receipted() -> None:
-    """落盘失败进收据、不炸研究；失败后不再写（半份日志比没有更会骗恢复）。"""
+def test_store_failure_fences_execution_and_is_receipted() -> None:
+    """OPT-08：首条保存失败不派发；只停止新效果，不销毁内存收据。"""
 
     class BrokenStore(WriteOrderOracle):
         def __init__(self) -> None:
@@ -153,7 +153,9 @@ def test_store_failure_does_not_own_execution_but_is_receipted() -> None:
         client=ScriptedModelClient(list(_SCENARIO), probe), episode_store=store
     )
     outcome = runtime.run(task_frame=frame, context=context, registry=make_registry(probe))
-    assert outcome.status == "completed"
+    assert outcome.status == "failed"
+    assert outcome.stop_reason == "storage_failed"
+    assert outcome.usage.llm_calls == outcome.usage.tool_calls == 0
     assert store.attempts == 1, "第一次失败后就该停写，而不是每条都再撞一次"
 
 

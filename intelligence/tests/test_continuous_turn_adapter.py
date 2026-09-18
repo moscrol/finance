@@ -5498,8 +5498,9 @@ def test_numeric_unsupported_triggers_one_narrow_backfill_turn() -> None:
     assert "3870点" in result.answer
 
 
-def test_backfill_turn_rejects_candidate_that_adds_sentences() -> None:
-    """回填只许补证据或改写被阻断句，新增句子 fail closed。"""
+@pytest.mark.parametrize("persistence_failed", [False, True])
+def test_backfill_turn_rejects_candidate_that_adds_sentences(persistence_failed) -> None:
+    """回填只许补证据；即便候选被长度门拒绝，保存失败也必须传到产品终态。"""
 
     frame = _frame()
     control = _control(frame, capabilities=("market_data",))
@@ -5541,6 +5542,8 @@ def test_backfill_turn_rejects_candidate_that_adds_sentences() -> None:
     bloated = replace(
         initial,
         draft=draft + "另外再给一个新结论。",
+        status="failed" if persistence_failed else initial.status,
+        persistence="failed" if persistence_failed else initial.persistence,
         events=(
             *initial_events,
             EpisodeEvent(3, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
@@ -5584,9 +5587,14 @@ def test_backfill_turn_rejects_candidate_that_adds_sentences() -> None:
         repair_seconds_cap=30.0,
     ).handle(frame=frame, control=control)
 
-    assert result.private_artifact["backfill_turns"] == 1
+    if persistence_failed:
+        assert result.status == "failed"
+        assert result.private_artifact["failure"]["type"] == "storage_failed"
+        assert result.private_artifact["outcome"]["draft"] == bloated.draft
+    else:
+        assert result.private_artifact["backfill_turns"] == 1
+        assert result.private_artifact["outcome"]["draft"] == draft
     assert "另外再给一个新结论" not in result.answer
-    assert result.private_artifact["outcome"]["draft"] == draft
 
 
 def _company_numeric_frame() -> TaskFrame:
