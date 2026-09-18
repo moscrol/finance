@@ -8,6 +8,7 @@ public presentation.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
@@ -322,7 +323,42 @@ def verify_episode_outcome(
             and not basis_mismatch
             and len(evidence_items) == len(binding.evidence_hashes)
         )
-        if valid:
+        financial_gaps: tuple[str, ...] = ()
+        if (
+            valid and contract.question_type == "financial_analysis"
+            and required.output_id == "metric_evidence"
+        ):
+            from intelligence.services.financial_report_contract import (
+                calculation_binding_gaps, report_binding_gaps,
+            )
+
+            selections = []
+            for event in outcome.events:
+                if event.kind != "tool_result" or event.payload.get("tool") != "financial_data":
+                    continue
+                telemetry = event.payload.get("telemetry")
+                if isinstance(telemetry, Mapping):
+                    selections.extend(
+                        item for item in telemetry.get("financial_report_selection", ())
+                        if isinstance(item, Mapping)
+                    )
+            financial_gaps = (
+                *report_binding_gaps(
+                    contract.question, outcome.evidence, kept_hashes, draft=outcome.draft,
+                    subject=contract.subject, selections=selections,
+                ),
+                *calculation_binding_gaps(
+                    contract.question, outcome.draft, outcome.evidence, kept_hashes,
+                ),
+            )
+        if financial_gaps:
+            gap = "；".join(financial_gaps)
+            statuses.append(OutputStatus(
+                required.output_id, "missing" if required.required else "gap", kept_hashes, gap,
+            ))
+            if required.required:
+                issues.append(Issue(IssueCode.REQUIRED_OUTPUT_GAP, required.output_id, gap))
+        elif valid:
             statuses.append(
                 OutputStatus(
                     required.output_id,
