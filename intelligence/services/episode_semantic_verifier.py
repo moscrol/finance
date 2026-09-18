@@ -4233,9 +4233,9 @@ def _with_financial_repair_debt(
     )
     public = outcome.public_answer
     if public and notice not in public:
-        public = view(TerminalFacts(cause=CAUSE_VERIFIED, public=public + "\n\n" + notice))
+        public = public + "\n\n" + notice
     return replace(
-        outcome, verified=verified, public_answer=public,
+        outcome, verified=verified, public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),
         status="partial" if outcome.status == "completed" else outcome.status,
         gap_output_ids=tuple(dict.fromkeys((*outcome.gap_output_ids, *targets))),
         repair_output_ids=tuple(dict.fromkeys((*outcome.repair_output_ids, *targets))),
