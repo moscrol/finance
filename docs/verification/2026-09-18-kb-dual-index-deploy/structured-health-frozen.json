@@ -1,0 +1,68 @@
+{
+  "status": "degraded",
+  "indexes": [
+    {
+      "index_dir": "/Users/a77/.finance-runtime/kb-dual-index-20260918/staging/.rag_index",
+      "status": "degraded",
+      "issues": [
+        "conflict pages quarantined; source review required"
+      ],
+      "freshness": "fresh",
+      "built_at": "2026-09-18T13:23:57Z",
+      "include_raw": false,
+      "num_chunks": 168861,
+      "indexed_files": 14434,
+      "selected_files": 14448,
+      "missing_files_count": 0,
+      "missing_files_sample": [],
+      "source_conflicts_count": 14,
+      "source_conflicts_sample": [
+        "wiki/concepts/CPU.md",
+        "wiki/concepts/MLCC.md",
+        "wiki/concepts/光纤光缆.md",
+        "wiki/concepts/光芯片.md",
+        "wiki/concepts/光通信.md",
+        "wiki/concepts/商业航天.md",
+        "wiki/concepts/固态电池.md",
+        "wiki/concepts/存储芯片.md",
+        "wiki/concepts/电子布.md",
+        "wiki/concepts/磷化铟.md",
+        "wiki/concepts/算力租赁.md",
+        "wiki/concepts/铜箔.md",
+        "wiki/entities/内蒙一机.md",
+        "wiki/sources/晚卖研汇_20260620.md"
+      ],
+      "indexed_conflicts_count": 0,
+      "indexed_conflicts_sample": [],
+      "unreadable_files_count": 0,
+      "metadata_version": 1,
+      "evidence_field_counts": {
+        "evidence_layer": 17567,
+        "fact_hardness": 17608,
+        "source_type": 18444,
+        "source_quality": 20470,
+        "publish_time": 78134,
+        "available_time": 78206,
+        "review_required": 487
+      },
+      "raw_coverage": {
+        "raw/": {
+          "selected_files": 0,
+          "indexed_files": 0
+        },
+        "wiki/raw/disclosures/": {
+          "selected_files": 0,
+          "indexed_files": 0
+        },
+        "wiki/raw/sellside/": {
+          "selected_files": 0,
+          "indexed_files": 0
+        },
+        "wiki/raw/briefings/": {
+          "selected_files": 0,
+          "indexed_files": 0
+        }
+      }
+    }
+  ]
+}
