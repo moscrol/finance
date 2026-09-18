@@ -33,6 +33,11 @@ from pathlib import Path
 from threading import Lock
 
 from intelligence.services import rag_worker
+from intelligence.services.kb_filter_receipt import (
+    FILTER_OPTIONS,
+    parse_receipt,
+    requested_filters,
+)
 from intelligence.services.kb_index_hygiene import fetch_k, sanitize_hits
 from intelligence.services.kb_slot_rerank import allocate_topk_slots
 from intelligence.services.kb_window_reexcerpt import (
@@ -147,6 +152,8 @@ OPTIONAL_QUERY_OPTIONS = (
     "--evidence-layer",
     "--fact-hardness",
     "--source-type",
+    "--as-of",
+    "--receipt",
 )
 
 CITATION_PREFIX = "W"
@@ -186,14 +193,12 @@ def _stderr_reason(stderr: str | None) -> str:
 
 
 _LEGACY_QUERY_OPTIONS: dict[str, frozenset[str]] = {}
-# CLI 拒收时可以安全丢弃并重试的查询选项。丢掉它们只降低精度（过滤失效、
-# 证据文本预算变短），不会让召回结果变错；因此宁可退化也不要返回空集。
+# 只可降级显示预算/新鲜度协议；证据等级、硬度、来源、截止日是约束，不能删除。
+# --receipt 仅在无过滤查询时可省略；有过滤必须凭回执验证实际执行。
 _DROPPABLE_QUERY_OPTIONS: tuple[str, ...] = (
     "--evidence-chars",
-    "--evidence-layer",
-    "--fact-hardness",
-    "--source-type",
     "--stale-policy",
+    "--receipt",
 )
 # 索引过期时的策略。CLI 默认是 fail（退出码 3、零结果），那是**代码仓**的假设：
 # 提交之间工作区是干净的。知识库是**内容仓**，用户每天 ingest 概念和实体，
@@ -294,6 +299,14 @@ class WikiHit:
     source_type: str = ""
     via_neighbor: bool = False
     source_date: str = ""
+    source_quality: str = ""
+    publish_time: str = ""
+    available_time: str = ""
+    review_required: str = ""
+    source_refs: tuple[str, ...] = ()
+    content_validity: str = ""
+    # 有过滤回执的证据只绑定已验证的索引文本；本地重摘录/深读不能继承旧等级与日期。
+    evidence_scope_bound: bool = False
     reexcerpted: bool = False
     # 深读（02）：命中所在整节按 ``DEEP_READ_ITEM_CHARS`` 切成的段；表格切片各自带表头。
     # ``deep_read_blocks`` 是 (节面包屑, 段落) 对——命中节之外还可能多读一节「问句词更多」的
@@ -382,7 +395,13 @@ class RetrievalTelemetry:
     requested_index_dir: str = ""  # 调用方请求的索引目录（与 index_dir 不同即发生降级）
     degraded: bool = False  # 是否发生索引降级（如全文索引缺失回退结构版）
     k: int = 0  # 请求的候选数
-    filters: dict[str, str] = field(default_factory=dict)  # 层级 / 硬度 / 来源过滤
+    filters: dict[str, str] = field(default_factory=dict)  # 兼容字段：请求过滤，非执行证明
+    applied_filters: dict[str, str] = field(default_factory=dict)
+    filter_verification: str = "not_requested"  # not_requested / unverified / verified
+    receipt_received: bool = False
+    filter_policy: str = ""
+    metadata_version: int | None = None
+    metadata_update_required: bool | None = None
     # 召回结果与质量
     status: str = "pending"  # ok / empty / skipped / error / timeout
     hit_count: int = 0
@@ -434,7 +453,13 @@ class RetrievalTelemetry:
         if self.fallback_reason:
             parts.append(f"降级原因={self.fallback_reason}")
         if self.filters:
-            parts.append("过滤=" + ",".join(f"{k}={v}" for k, v in self.filters.items()))
+            parts.append("请求过滤=" + ",".join(f"{k}={v}" for k, v in self.filters.items()))
+            parts.append("实际过滤=" + (
+                ",".join(f"{k}={v}" for k, v in self.applied_filters.items()) or "未验证"
+            ))
+            parts.append(f"过滤核验={self.filter_verification}")
+        if self.metadata_update_required:
+            parts.append("证据元数据待迁移")
         parts.append(f"命中={self.hit_count}")
         if self.neighbor_hits:
             parts.append(f"其中邻居扩展={self.neighbor_hits}")
@@ -562,6 +587,9 @@ def _cache_put(
     key: tuple[object, ...],
     result: WikiRagResult,
 ) -> WikiRagResult:
+    # receipt 依赖当次 live-source 隔离；结果缓存没有源文件有效性戳，不能跳过重验。
+    if result.telemetry.receipt_received or result.telemetry.filters:
+        return result
     if result.telemetry.status not in {"ok", "empty"}:
         return result
     with _RESULT_CACHE_LOCK:
@@ -576,6 +604,17 @@ def clear_result_cache() -> None:
     with _RESULT_CACHE_LOCK:
         _RESULT_CACHE.clear()
     _DENSE_UNAVAILABLE_UNTIL.clear()
+    _LEGACY_QUERY_OPTIONS.clear()
+
+
+def _cli_protocol_key(script: Path, python: str) -> str:
+    """负能力缓存绑定执行器版本，而不是永久绑定路径；升级后重新尝试回执。"""
+    try:
+        revision = rag_worker.code_identity(script.parent.parent)
+    except OSError:
+        # 未知身份不能共用负能力/结果缓存键。
+        revision = f"unreadable:{time.monotonic_ns()}"
+    return f"{python}:{script}:{revision}"
 
 
 def _resolve_rag_python(root: Path) -> str:
@@ -707,13 +746,14 @@ def _without_option(cmd: list[str], option: str) -> list[str]:
     if option not in updated:
         return updated
     index = updated.index(option)
-    del updated[index : index + 2]
+    del updated[index : index + (1 if option == "--receipt" else 2)]
     return updated
 
 
 def _unsupported_option(stderr: str, option: str) -> bool:
     compact = re.sub(r"\s+", " ", stderr or "").strip()
-    return "unrecognized arguments:" in compact and option in compact
+    rejected = compact.partition("unrecognized arguments:")[2]
+    return bool(re.search(r"(?<!\S)" + re.escape(option) + r"(?:=|\s|$)", rejected))
 
 
 def _compact_text(value: object, max_chars: int | None = None) -> str:
@@ -1201,7 +1241,7 @@ def deep_read_hits(
     root = Path(wiki_root)
     base_terms = deep_read_query_terms(query)
     remaining = total
-    targets = list(hits)[: max(1, int(max_pages))]
+    targets = [hit for hit in hits if not hit.evidence_scope_bound][: max(1, int(max_pages))]
     # 先按页数均分一个保底，再让排前的页拿剩余——第一页读得多，但不会独占。
     floor = max(item_chars, total // max(len(targets), 1))
     for position, hit in enumerate(targets):
@@ -1335,6 +1375,8 @@ def recover_stale_hits(
     root = Path(wiki_root)
     base_terms = deep_read_query_terms(query)
     for hit in hits:
+        if hit.evidence_scope_bound:
+            continue
         if hit.index_freshness not in {"stale", "unknown"}:
             continue
         sections = _read_page_sections(root, hit.file_path)
@@ -1390,6 +1432,7 @@ def retrieve(
     worker_enabled: bool | None = None,
     require_fresh: bool = True,
     cache_scope: str | None = None,
+    as_of: str | None = None,
 ) -> WikiRagResult:
     """Run the KB hybrid retriever for ``query`` and return candidate wiki pages.
 
@@ -1405,6 +1448,17 @@ def retrieve(
     """
     res = WikiRagResult()
     tel = res.telemetry
+    try:
+        tel.filters = requested_filters(
+            evidence_layer=evidence_layer, fact_hardness=fact_hardness,
+            source_type=source_type, as_of=as_of,
+        )
+    except ValueError as exc:
+        res.warning = f"wiki-rag 过滤条件非法：{exc}"
+        tel.status, tel.warning = "error", res.warning
+        tel.filter_verification = "unverified"
+        return res
+    tel.filter_verification = "unverified" if tel.filters else "not_requested"
     requested_mode = str(mode)
     tel.requested_mode = requested_mode
     planned_mode, budget_reason = select_mode_for_remaining(
@@ -1492,10 +1546,11 @@ def retrieve(
         max(int(llm_evidence_chars), int(llm_evidence_chars * 1.25)),
         2000,
     )
+    protocol_key = _cli_protocol_key(script, rag_python)
     cache_key = (
         cache_scope,
         str(root),
-        str(script),
+        protocol_key,
         str(chosen),
         tel.index_fingerprint,
         query,
@@ -1508,13 +1563,24 @@ def retrieve(
         evidence_layer or "",
         fact_hardness or "",
         source_type or "",
+        as_of or "",
         bool(require_fresh),
     )
-    if cache_scope:
+    if cache_scope and not tel.filters:
         cached = _cache_get(cache_key, require_fresh=require_fresh)
         if cached is not None:
             return cached
-    legacy_options = _LEGACY_QUERY_OPTIONS.get(str(script), frozenset())
+    legacy_options = _LEGACY_QUERY_OPTIONS.get(protocol_key, frozenset())
+    constraint_options = {option for option, key in FILTER_OPTIONS.items() if key in tel.filters}
+    if tel.filters:
+        constraint_options.add("--receipt")
+    unsupported_constraints = constraint_options.intersection(legacy_options)
+    if unsupported_constraints:
+        tel.unsupported_options = tuple(sorted(unsupported_constraints))
+        tel.degraded = True
+        res.warning = "wiki-rag CLI 不支持所需过滤回执/约束；请升级知识库检索器，不降级成未过滤证据"
+        tel.status, tel.warning = "error", res.warning
+        return res
     effective_mode = planned_mode
     dense_disabled_until = _DENSE_UNAVAILABLE_UNTIL.get(str(script), 0.0)
     if (
@@ -1544,23 +1610,16 @@ def retrieve(
     if _STALE_POLICY and "--stale-policy" not in legacy_options:
         cmd.extend(["--stale-policy", _STALE_POLICY])
     cmd.append("--json")
-    # 已知被 CLI 拒收的过滤选项不再下发：否则每轮都要先失败一次才降级，
-    # 白烧一次查询预算。tel.filters 仍记录请求过什么，便于对账"要过滤但没过滤"。
-    filters = []
-    for option, value in (
-        ("--evidence-layer", evidence_layer),
-        ("--fact-hardness", fact_hardness),
-        ("--source-type", source_type),
-    ):
-        if not value:
-            continue
-        key = option.lstrip("-").replace("-", "_")
-        tel.filters[key] = value
-        if option in legacy_options:
-            continue
-        cmd.extend([option, value])
-        filters.append(f"{key}={value}")
-    filter_note = f" filters={','.join(filters)}" if filters else ""
+    if "--receipt" not in legacy_options:
+        cmd.append("--receipt")
+    for option, key in FILTER_OPTIONS.items():
+        if key in tel.filters:
+            cmd.extend([option, tel.filters[key]])
+    # 命令回显标的是请求，不在核验前声称实际执行。
+    filter_note = (
+        " requested_filters=" + ",".join(f"{key}={value}" for key, value in tel.filters.items())
+        if tel.filters else ""
+    )
     evidence_chars_note = (
         f" --evidence-chars {generation_evidence_chars}"
         if "--evidence-chars" in cmd
@@ -1572,7 +1631,7 @@ def retrieve(
     )
     res.citation_source = (
         "knowledge-base · rag_index.py query "
-        f"--mode {effective_mode}{filter_note}（匹配 chunk 证据）"
+        f"--mode {effective_mode}（匹配 chunk 证据）"
     )
     env = dict(os.environ)
     env["RAG_INDEX_DIR"] = str(chosen)
@@ -1595,10 +1654,12 @@ def retrieve(
     if legacy_options:
         tel.query_protocol = "legacy"
         tel.unsupported_options = tuple(sorted(legacy_options))
-        tel.fallback_reason = "legacy_cli_missing_evidence_chars"
+        tel.fallback_reason = "legacy_cli_missing_" + "_".join(
+            option.lstrip("-").replace("-", "_") for option in sorted(legacy_options)
+        )
         tel.degraded = True
         fallback_warnings.append(
-            "wiki-rag CLI 不支持 --evidence-chars，已使用 legacy query 协议"
+            f"wiki-rag CLI 不支持 {'/'.join(sorted(legacy_options))}，已使用 legacy query 协议"
         )
     _t0 = time.monotonic()
     if worker_enabled is None:
@@ -1609,7 +1670,7 @@ def retrieve(
             "no",
         }
     try:
-        if worker_enabled and not filters:
+        if worker_enabled and not tel.filters:
             proc = rag_worker.query(
                 python=rag_python,
                 kb_root=runtime_root,
@@ -1687,20 +1748,21 @@ def retrieve(
         tel.warning = res.warning
         return res
 
-    # CLI 不支持的选项一律走同一条降级路径：丢掉该选项后重试一次。
-    #
-    # 原先只硬编码了 --evidence-chars。实测知识库的 rag_index.py query 只支持
-    # --model/--include-raw/--k/--mode/--reranker/--json/--evidence-chars/
-    # --stale-policy，并不支持工作台一直在下发的三个过滤参数，于是每一次分层
-    # 证据检索都以 "unrecognized arguments" rc=2 收场、返回空集，表面上只留一句
-    # "检索器返回告警"。改 KB 的 CLI 属跨仓改动（未获授权），所以在工作台侧
-    # 泛化这条既有降级路径：分层过滤退化为未过滤召回并如实记账，而不是什么都拿不到。
+    # 兼容只准删非约束选项；已知/首次发现不支持过滤回执时均在交付证据前短路。
     unsupported = tuple(
         option
-        for option in _DROPPABLE_QUERY_OPTIONS
+        for option in (*_DROPPABLE_QUERY_OPTIONS, *FILTER_OPTIONS)
         if option in cmd and _unsupported_option(proc.stderr, option)
     )
     if proc.returncode != 0 and unsupported:
+        _LEGACY_QUERY_OPTIONS[protocol_key] = legacy_options.union(unsupported)
+        tel.unsupported_options = tuple(sorted(_LEGACY_QUERY_OPTIONS[protocol_key]))
+        if constraint_options.intersection(unsupported):
+            tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+            tel.degraded = True
+            res.warning = "wiki-rag CLI 不支持所需过滤回执/约束；请升级知识库检索器，不降级成未过滤证据"
+            tel.status, tel.warning = "error", res.warning
+            return res
         remaining = float(timeout) - (time.monotonic() - _t0)
         listed = "/".join(unsupported)
         if remaining < 1:
@@ -1713,22 +1775,19 @@ def retrieve(
             return res
         for option in unsupported:
             cmd = _without_option(cmd, option)
-        _LEGACY_QUERY_OPTIONS[str(script)] = frozenset(unsupported)
         tel.query_protocol = "legacy"
-        tel.unsupported_options = unsupported
         tel.fallback_reason = "legacy_cli_missing_" + "_".join(
             option.lstrip("-").replace("-", "_") for option in unsupported
         )
         tel.degraded = True
         fallback_warnings.append(
-            f"wiki-rag CLI 不支持 {listed}，已丢弃该选项后重试；"
-            "分层过滤未生效，本轮召回为未过滤结果"
+            f"wiki-rag CLI 不支持 {listed}，已使用 legacy query 协议；仅省略非约束选项"
         )
         res.command = (
             f"rag_index.py query <q> --k {query_k} --mode {mode}{filter_note} --json"
         )
         try:
-            if worker_enabled and not filters:
+            if worker_enabled and not tel.filters:
                 proc = rag_worker.query(
                     python=rag_python,
                     kb_root=runtime_root,
@@ -1758,9 +1817,6 @@ def retrieve(
             tel.status = "error"
             tel.warning = res.warning
             return res
-        fallback_warnings.append(
-            "wiki-rag CLI 不支持 --evidence-chars，已使用 legacy query 协议"
-        )
 
     if (
         proc.returncode != 0
@@ -1792,7 +1848,7 @@ def retrieve(
             f"{filter_note} --json"
         )
         res.citation_source = (
-            f"knowledge-base · rag_index.py query --mode bm25{filter_note}"
+            "knowledge-base · rag_index.py query --mode bm25"
             "（匹配 chunk 证据；dense 不可用时回退）"
         )
         try:
@@ -1855,11 +1911,27 @@ def retrieve(
         tel.status = "error"
         tel.warning = res.warning
         return res
-    if not isinstance(raw, list):
-        res.warning = "wiki-rag 输出格式异常（期望 PageHit 列表）"
-        tel.status = "error"
-        tel.warning = res.warning
+    try:
+        receipt = parse_receipt(raw, tel.filters)
+    except ValueError as exc:
+        res.warning = f"wiki-rag {exc}"
+        tel.status, tel.warning = "error", res.warning
+        tel.degraded = True
         return res
+    raw = receipt.hits
+    tel.receipt_received = receipt.received
+    tel.applied_filters = receipt.applied_filters
+    tel.filter_verification = "verified" if tel.filters else "not_requested"
+    tel.filter_policy = receipt.filter_policy
+    tel.metadata_version = receipt.metadata_version
+    tel.metadata_update_required = receipt.metadata_update_required
+    if receipt.metadata_update_required:
+        tel.degraded = True
+        warnings.append("wiki-rag 证据元数据待迁移；过滤空命中不代表库中没有该事实，请受控更新索引")
+    if tel.applied_filters:
+        res.citation_source += " applied_filters=" + ",".join(
+            f"{key}={value}" for key, value in tel.applied_filters.items()
+        )
 
     hits: list[WikiHit] = []
     rejected_hits = 0
@@ -1911,6 +1983,13 @@ def retrieve(
                 source_type=str(item.get("source_type") or ""),
                 via_neighbor=bool(item.get("via_neighbor")),
                 source_date=str(item.get("source_date") or item.get("date") or ""),
+                source_quality=str(item.get("source_quality") or ""),
+                publish_time=str(item.get("publish_time") or ""),
+                available_time=str(item.get("available_time") or ""),
+                review_required=str(item.get("review_required") or ""),
+                source_refs=_tuple_of_strings(item.get("source_refs")),
+                content_validity=str(item.get("content_validity") or ""),
+                evidence_scope_bound=bool(tel.applied_filters),
             )
         )
     if rejected_hits:
