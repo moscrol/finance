@@ -90,7 +90,7 @@
 
 - **[2026-06-28] 内置 git_create_pr 对 linxiaoqi5111-del 仓返回 404 Not Found。**
   根因：内置 git 工具走会话默认账号（noah-smith439374），无该私有仓权限。
-  做法：PR 用 `GITHUB_PAT_LINXIAOQI5111` 走 GitHub REST API（`POST /repos/.../pulls`）创建。
+  做法：PR 用 `[REDACTED]` 走 GitHub REST API（`POST /repos/.../pulls`）创建。
 
 ## [kb] 年报 baseline 入库
 

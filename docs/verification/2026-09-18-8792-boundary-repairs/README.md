@@ -80,5 +80,6 @@ env -i PATH="$PATH" HOME="$HOME" "$PY" scripts/review_probes/replay_boundary_fai
 - 最近两期报告跳过 Q1、用户截止日未传到 information_cutoff、失败用量丢失与五次判官 token 未知仍待独立修核；费用 unknown。
 - 本轮真实 CLI 用户纠偏已写入 canonical 用户台账；未核下次 prompt 实际注入。不能复述成“所有生产用户文件零改动”。
 - 生产只读 health 从 `runtime` 嵌套块核得 bf662e9310ff / dirty=false / code_matches_repo=true；最初错读顶层得到 null 的记录保留，后以 `production-health-runtime-corrected.json` 修正，不当部署事故。
-- 敏感扫描覆盖 130 个 R2 文本/完整改动源码文件，21 个文件/规则命中、103 个具体词形皆逐项核为 Python import/属性表达式。首次漏识两个长 import 的前缀，失败记录保留；`sensitive-scan-reviewed.json` 未决 0。不是全文件豁免或全系统安全证明。
-- 新真实验收须先确认预算、revision、首题分母和所有条件写口；不得重发挑绿、擅改模型/判官、合 main 或切 8792。#770、RE06/#53、#56 与数据修复另线。
+- 原敏感扫描覆盖 130 个 R2 文本/完整改动源码文件，21 个文件/规则命中、103 个具体词形皆逐项核为 Python import/属性表达式。首次漏识两个长 import 的前缀，失败记录保留；`sensitive-scan-reviewed.json` 未决 0，只对原范围成立。
+- 后续将文档提交也纳入扫描（152 文件）时，`.claude/lessons_learned.md` 一条旧记录命中疑似凭证字串；它已存在于 9655，不是本轮新增，仍不能按“历史已有”豁免。当前文件做单点脱敏，扫描记录只存 hash/位置、不存原值，见 R2 `post-seal-scan-initial.json`、`legacy-secret-redaction.json`。没有验证凭证或改 Git 历史；若为真实凭证，所有者仍需撤销/轮换，旧 Git 对象风险未消除。不把后续扫描问题藏回原131份封印。
+- 新真实验收须先确认预算、revision、首题分母和所有条件写口；不得重发挑绿、擅改模型/判官、合 main 或切 8792。#770、RE06/#53、#56 与数据修复另线。共享记忆随后新增 `feat/research-answer-preservation` 在途工作，本轮未整合、不借其结论。
