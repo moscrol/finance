@@ -131,11 +131,16 @@ def parse_capital_intent(query: str) -> bool:
     return bool(parse_capital_slices(query))
 
 
-_UNRESOLVED_HISTORY = re.compile(
-    r"昨天|昨日|前天|前日|上(?:个|一)?(?:周|星期|月|季度|年|交易日)|去年|前年|"
-    r"当时|彼时|那时|历史|回测|回看|站在|"
-    r"(?:截至|截止|截止到|截至到).{0,8}(?:以前|之前)|"
+# 「当前日程/目前日程」中的前日不是相对日期；指代词「当时」可由显式日期锚定。
+# 真正的相对日期仍保守拒绝，即使句中另有 ISO 日期，也不能据此抹掉原边界。
+_RELATIVE_HISTORY = re.compile(
+    r"昨天|昨日|前天|(?<![当目])前日|"
+    r"上(?:个|一)?(?:周|星期|月|季度|年|交易日)|去年|前年|"
     r"\d+\s*(?:天|周|月|年|个交易日)前|yesterday|last\s+(?:week|month|year)", re.I,
+)
+_UNRESOLVED_HISTORY = re.compile(
+    _RELATIVE_HISTORY.pattern + r"|当时|彼时|那时|历史|回测|回看|站在|"
+    r"(?:截至|截止|截止到|截至到).{0,8}(?:以前|之前)", re.I,
 )
 
 
@@ -148,7 +153,7 @@ def capital_query_cutoff(query: str, *, upper_bound: str | date) -> date:
     text = str(query or "")
     bound = upper_bound if isinstance(upper_bound, date) else date.fromisoformat(upper_bound)
     explicit = market_news.latest_explicit_query_date(text, reference_date=bound)
-    relative = re.search(r"昨天|昨日|前天|前日|上(?:个|一)?(?:周|星期|月|季度|年|交易日)|去年|前年|当时|彼时|那时|yesterday|last\s+(?:week|month|year)", text, re.I)
+    relative = _RELATIVE_HISTORY.search(text)
     unresolved = _UNRESOLVED_HISTORY.search(text) or re.search(r"(?<!\d)20\d{2}(?!\d)", text)
     if relative or (explicit is None and unresolved):
         raise ValueError("历史日期边界未明确，请给出 YYYY-MM-DD 截止日；未请求当前滚动数据")

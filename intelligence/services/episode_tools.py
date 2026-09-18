@@ -130,10 +130,10 @@ def attach_financial_observations(
     evidence: list[agent_research.AgentEvidence],
     bundle: market_financials.FinancialsBundle,
 ) -> list[agent_research.AgentEvidence]:
-    """给 D7 数据行证据挂结构化观察值：按行文本查表，不解析单元格。
+    """同批 D7 数据行投影为机器观察值与自解释文本，不解析单元格。
 
-    键是 ``market_financials.observations_by_line`` 渲染的行（与 ``block_lines_to_evidence``
-    剥掉 ``- `` 后的 detail 逐字节相同）。``observations`` 不进内容哈希，证据身份不变。
+    先按规范行匹配，再补主体/指标/单位；模型视图不含 observations，不能只交裸单元格。
+    文本使用同一指标词典，补完后重算身份；observations 本身仍不参与内容哈希。
     """
 
     mapping = bundle.observations_by_line()
@@ -145,20 +145,25 @@ def attach_financial_observations(
         if not found:
             out.append(item)
             continue
-        out.append(
-            replace(
-                item,
-                observations=tuple(
-                    agent_research.StructuredObservation(
-                        subject=obs.subject,
-                        as_of=obs.as_of,
-                        metric=obs.metric,
-                        value=obs.value,
-                    )
-                    for obs in found
-                ),
-            )
+        values = "；".join(
+            f"{market_financials.METRIC_GLOSSARY[obs.metric]}={obs.value}"
+            for obs in found
         )
+        labeled = replace(
+            item,
+            title=f"{bundle.name}（{found[0].subject}）报告期 {found[0].as_of}",
+            detail=f"报告期 {found[0].as_of}；{values}",
+            observations=tuple(
+                agent_research.StructuredObservation(
+                    subject=obs.subject,
+                    as_of=obs.as_of,
+                    metric=obs.metric,
+                    value=obs.value,
+                )
+                for obs in found
+            ),
+        )
+        out.append(replace(labeled, content_hash=agent_research.evidence_content_hash(labeled)))
     return out
 
 

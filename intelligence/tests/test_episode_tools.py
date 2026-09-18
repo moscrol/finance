@@ -485,6 +485,16 @@ def test_financial_six_periods_keep_quality_rows_not_headers(tmp_path, monkeypat
     assert {obs.as_of for item in observation.evidence for obs in item.observations
             if obs.metric == "ocf_cum_yi"} == set(periods)
     assert observation.trace.result_count == 12
+    # 下游模型不接收 observations：去掉表头后每条数字仍须自带主体/指标/单位。
+    from intelligence.services.agent_runtime import public_agent_evidence
+    from intelligence.services.tool_result_budget import budget_tool_observation
+    for item in observation.evidence:
+        public = budget_tool_observation({"evidence": [public_agent_evidence(item)]})["evidence"][0]
+        assert "observations" not in public
+        assert "600519.SH" in public["title"]
+        for obs in item.observations:
+            assert f"{mf.METRIC_GLOSSARY[obs.metric]}={obs.value}" in public["detail"]
+    assert "缺失季度按缺口处理" in observation.observation
 
 
 def test_parse_financial_data_request_reads_both_runner_input_shapes() -> None:

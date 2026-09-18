@@ -107,6 +107,35 @@ def test_future_schedule_date_is_not_information_date(setup, monkeypatch):
     assert "非披露日" in result.evidence[0].detail
 
 
+@pytest.mark.parametrize("suffix", [
+    "当时已知的解禁情况", "的解禁安排，不要用当前日程回填",
+    "彼时的解禁安排，而非目前日程",
+])
+def test_explicit_history_is_not_unresolved_by_reference_words(setup, monkeypatch, suffix):
+    def forbidden(*args, **kwargs):
+        pytest.fail("historical unlock must not fetch current schedule")
+    monkeypatch.setattr(capital, "fetch_unlock_rows", forbidden)
+    registry, ctx = setup(frame(f"截至2025-08-01贵州茅台{suffix}"))
+    result = registry.execute("capital_data", {"query": "600519 截至2025-08-01 解禁"},
+                              context=ctx, step_id="explicit-history")
+    assert result.trace.status == "not_attempted"
+    assert result.trace.reason_code == "historical_snapshot_unavailable"
+    assert "YYYY-MM-DD" not in result.observation
+    assert not result.evidence
+
+
+@pytest.mark.parametrize("relative", ["昨天", "前日", "上周", "去年", "3天前"])
+def test_relative_date_with_unrelated_iso_date_still_refuses(setup, monkeypatch, relative):
+    def forbidden(*args, **kwargs):
+        pytest.fail("an unrelated explicit date may not erase a relative boundary")
+    monkeypatch.setattr(capital, "fetch_unlock_rows", forbidden)
+    registry, ctx = setup(frame(f"截至{relative}贵州茅台解禁安排，比较2025-08-01的情况"))
+    result = registry.execute("capital_data", {"query": "600519 解禁"},
+                              context=ctx, step_id="unresolved-relative")
+    assert result.trace.reason_code == "historical_date_unresolved"
+    assert not result.evidence
+
+
 def test_historical_question_cannot_be_relaxed_by_current_tool_query(setup, monkeypatch):
     def forbidden(*args, **kwargs):
         pytest.fail("historical unlock must not fetch current schedule")
