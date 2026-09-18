@@ -1325,11 +1325,86 @@ def _split_user_message_core(text: str) -> MessageParts:
     )
 
 
-def references_material(text: str) -> bool:
-    """「这篇 / 这份材料 / 上面这段 / 附件」——题面引用了一份材料。"""
+_SOURCE_NOUN_RE = re.compile(r"定期报告|年度报告|半年度报告|报告|年报|半年报|季报|公告|研报|纪要|文章|证据|来源")
+_SOURCE_ACQUIRE_RE = re.compile(r"检索|查找|查阅|搜索")
+_SUPPLIED_OWNER_RE = re.compile(r"(?:我|用户)(?:刚|已|所)?(?:上传|提供|提交|贴|发|给)|附件|刚(?:贴|发|给)|上传的")
+_REFERENCE_OBJECT_RE = re.compile(
+    r"^(?:这[篇份段]?|这个|该)(?:你(?:确实|实际|自行)?(?:检索|查找|查阅|搜索)到的?)?"
+    r"(?:真实|本次|刚刚|检索到的?|找到的?)*(?P<noun>"
+    + _SOURCE_NOUN_RE.pattern + r"|研究|分析|回答|答复)"
+)
 
-    compact = re.sub(r"\s+", "", str(text or ""))
-    return bool(compact) and _MATERIAL_REFERENCE_RE.search(compact) is not None
+
+def _source_family(noun: str) -> str:
+    return "报告" if noun.endswith("报告") or noun in {"年报", "半年报", "季报"} else noun
+
+
+def _requested_source_families(text: str) -> dict[str, int]:
+    """First acquisition position per source family, scanned once per question.
+
+    Quoted instructions have already been masked. An unrelated search anywhere
+    in the question must not cancel a missing attachment or a different document.
+    """
+    families: dict[str, int] = {}
+    for span in re.finditer(r"[^。！？!?；;\n，,]+", text):
+        clause = span.group()
+        if not re.match(r"^(?:请|帮我|麻烦|选用|选择|使用|采用|先|再|并|同时|自行|你)", clause):
+            continue
+        for acquisition in _SOURCE_ACQUIRE_RE.finditer(clause):
+            if re.search(r"不要|不用|无需|禁止|不必|别|勿", clause[:acquisition.start()]):
+                continue
+            target = clause[acquisition.end():]
+            # 「检索这份报告里的错误」要求已有文档，不是在请求发现一份来源。
+            if _MATERIAL_REFERENCE_RE.search(target):
+                continue
+            for noun in _SOURCE_NOUN_RE.finditer(target):
+                position = span.start() + acquisition.end() + noun.end()
+                families.setdefault(_source_family(noun.group()), position)
+    return families
+
+
+def references_material(text: str) -> bool:
+    """Whether a reference needs user-supplied material, not a future research output.
+
+    Resolve each reference independently: explicit user/attachment references
+    remain binding requests; an acquired source can resolve a subsequent same-
+    kind reference. This is bounded syntax, not general pronoun resolution.
+    """
+    compact = re.sub(r"[^\S\r\n]+", "", str(text or ""))
+    visible = "\n".join(_visible_lines(compact.split("\n"))[0])
+    requested = _requested_source_families(visible)
+    # Index clause boundaries once rather than rescanning the complete prefix
+    # for every pronoun in a long multi-part request.
+    clauses = list(re.finditer(r"[^，,。；;\n]+", compact))
+    clause_index = 0
+    for reference in _MATERIAL_REFERENCE_RE.finditer(compact):
+        while clause_index < len(clauses) - 1 and clauses[clause_index].end() <= reference.start():
+            clause_index += 1
+        clause = clauses[clause_index]
+        tail = compact[reference.start():clause.end()]
+        prefix = compact[clause.start():reference.start()]
+        if reference.group().startswith(("附件", "刚", "上面")) or _SUPPLIED_OWNER_RE.search(prefix + tail):
+            return True
+        obj = _REFERENCE_OBJECT_RE.match(tail)
+        if obj is None:
+            return True
+        noun = obj.group("noun")
+        if noun in {"研究", "分析", "回答", "答复"}:
+            # 「给这份研究列缺口」is an output instruction; 「解读这份研究」
+            # still needs the research text. A noun alone is not proof of origin.
+            if re.search(r"(?:给|为|在|对)$", prefix) and re.match(
+                r"(?:列|写|附|标注|补充|给出|整理)", tail[obj.end():],
+            ):
+                continue
+            return True
+        # Explicit future provenance (「这份你检索到的报告」) is local to this noun.
+        if _SOURCE_ACQUIRE_RE.search(obj.group()):
+            continue
+        families = {family for family, end in requested.items() if end <= reference.start()}
+        if _source_family(noun) in families or (families and noun in {"证据", "来源"}):
+            continue
+        return True
+    return False
 
 
 _PROMPT_BLOCK_ROLE_RE = re.compile(r"^(user|assistant|system)[:：]\s?", re.MULTILINE)

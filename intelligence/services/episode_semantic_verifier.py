@@ -238,6 +238,19 @@ _CONDITION_TRIGGER_RE = re.compile(
     r"(?:若|如果|失效|降级|跌破|站稳|至少|"
     r"阈值|支撑|才算成立|才成立)"
 )
+# Equivalent conditions need not say 「若」: table cells and discriminating
+# variables are still threshold claims. Match comparison operators only when
+# followed by a quantity, not Markdown/HTML delimiters or an arrow alone.
+_NUMERIC_COMPARATOR_RE = re.compile(
+    r"(?:[<>≤≥≦≧]=?|不低于|不高于|大于等于|小于等于|低于|高于|超过|大于|小于)\s*[+-]?\d"
+)
+_CONDITION_LABEL_RE = re.compile(
+    r"^(?:区分变量|判断标准|改判条件(?:表)?|证伪条件|触发条件|失效条件|"
+    r"失效信号|降级信号|条件)\s*(?:\d+|[一二三四五六七八九十]+)?\s*[：:=]"
+)
+_CONDITION_HEADING_RE = re.compile(
+    r"(?:区分变量|判断标准|改判条件(?:表)?|证伪条件|触发条件|失效条件|失效信号|降级信号|条件)"
+)
 _LEADING_CONDITION_LABEL_RE = re.compile(
     r"^\s*(?:[-*]\s*)?"
     r"(?:条件|失效信号|降级信号|触发条件)\s*"
@@ -4205,6 +4218,8 @@ def _novel_numeric_condition_indexes(
 
     rejected: set[int] = set()
     evidence_quantities = _bound_evidence_quantities(verified.outcome)
+    condition_section = False
+    condition_columns: tuple[int, ...] = ()
     for item in sentences:
         index = item.get("index")
         text = str(item.get("text") or "")
@@ -4213,14 +4228,59 @@ def _novel_numeric_condition_indexes(
         # References remain in the draft for citation validation, but their
         # ordinals must not trigger a numeric backfill or sentence deletion.
         candidate = _DATE_TOKEN_RE.sub("", strip_evidence_ordinals(text))
+        # Heading context stops at the next heading; ordinary facts in another
+        # section must not inherit a condition label. Formatting is analysis-only.
+        heading = re.match(
+            r"^(?:#{1,6}\s+([^：:。；;\n]+)(?:[：:]|$)|"
+            r"\*\*(.+?)\*\*(?:\s*[：:]|$)|__(.+?)__(?:\s*[：:]|$))", candidate,
+        )
+        plain_heading = _CONDITION_HEADING_RE.fullmatch(candidate.strip(" ：:"))
+        if heading or plain_heading:
+            title = (
+                next(group for group in heading.groups() if group).strip(" ：:")
+                if heading else plain_heading.group()
+            )
+            condition_section = _CONDITION_HEADING_RE.fullmatch(title) is not None
+            condition_columns = ()
+            candidate = candidate[heading.end():].strip() if heading else ""
+            if not candidate:
+                # A layout heading can itself make a claim. It is not exempt
+                # merely because the author moved the threshold into bold text.
+                candidate = title
         candidate = _LEADING_SECTION_RE.sub("", candidate)
         candidate = _LEADING_LIST_LABEL_RE.sub("", candidate)
+        candidate = candidate.replace("**", "").replace("__", "").lstrip("-* ")
+        labelled = _CONDITION_LABEL_RE.match(candidate) is not None
+        # In a condition matrix check its condition cells, not an unrelated
+        # company code or numeric priority column. Header detection is exact.
+        if candidate.startswith("|") and candidate.endswith("|"):
+            cells = [cell.strip() for cell in candidate.strip("|").split("|")]
+            columns = tuple(i for i, cell in enumerate(cells) if cell in {
+                "变化", "条件", "触发条件", "改判条件", "证伪条件", "失效信号", "区分变量",
+            })
+            if columns and not re.search(r"\d", candidate):
+                condition_columns = columns
+                continue
+            if condition_section and condition_columns:
+                candidate = " | ".join(
+                    cell for i, cell in enumerate(cells)
+                    if i in condition_columns or _CONDITION_TRIGGER_RE.search(cell)
+                    or _NUMERIC_COMPARATOR_RE.search(cell)
+                )
+        else:
+            condition_columns = ()
         candidate = _LEADING_CONDITION_LABEL_RE.sub("", candidate)
         trigger = _CONDITION_TRIGGER_RE.search(candidate)
-        if trigger is None:
+        if not (trigger or labelled or condition_section or _NUMERIC_COMPARATOR_RE.search(candidate)):
             continue
-        if trigger.group(0) in {"若", "如果"}:
-            candidate = candidate[trigger.start() :]
+        if trigger and trigger.group(0) in {"若", "如果"}:
+            # Retain a preceding threshold (「净现比≥0.5，若达到…」), but do
+            # not rope unrelated factual quantities before the condition into it.
+            prefix_comparator = _NUMERIC_COMPARATOR_RE.search(candidate[:trigger.start()])
+            start = prefix_comparator.start() if prefix_comparator else trigger.start()
+            if labelled or condition_section:
+                start = 0
+            candidate = candidate[start:]
         quantities = (
             *_ARABIC_QUANTITY_RE.findall(candidate),
             *_CHINESE_QUANTITY_RE.findall(candidate),

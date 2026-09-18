@@ -482,9 +482,34 @@ _SECTION_STOP_PREFIXES = (
 )
 # 日期/到期只说明「何时看」，不说明「看到什么才改判」。这里只查条件形状，
 # 不代替数字/引用/事实核验。中报/周度等可沿用既有隐式时间节点与默认到期日。
-_FALSIFIABLE_MARKERS = ("若", "如果", "则", "低于", "高于", "<", ">", "跌破", "突破")
-_WATCH_FIELD_RE = re.compile(r"^(?:指标|事件|时间节点|时间|触发条件|条件)\s*[：:=]")
+_FALSIFIABLE_MARKERS = ("若", "如果", "则", "低于", "高于", "<", ">", "≤", "≥", "≦", "≧", "跌破", "突破")
+_WATCH_FIELD_RE = re.compile(r"^(?:指标(?:/事件)?|事项|事件|时间节点|时间|触发条件|条件)\s*[：:=]")
 _VAGUE_WATCH = ("持续关注市场情绪", "持续关注", "继续观察")
+# A standalone receipt describes a side effect, not an additional watch item.
+# Match the whole sentence only: a receipt prefix cannot excuse missing fields.
+_WATCH_RECEIPT_RE = re.compile(
+    r"(?:^|(?<=。))\s*[（(]?(?:本条|本项|该事项|上述事项|本次研究|本次)"
+    r"(?:已|已经|未|不)(?:登记|纳入|写入)(?:为)?(?:长期|持续)?(?:跟踪|关注清单)"
+    r"(?:。[）)]?|[）)]。?|。?)\s*$"
+)
+_WATCH_TTL_METADATA_RE = re.compile(
+    r"[（(]?\s*(?:复核期限|valid_until)\s*[：:=]\s*20\d{2}-\d{2}-\d{2}\s*[）)]?[。]?"
+)
+_ARROW_CONDITION_RE = re.compile(
+    r"(?:上升|下降|走平|增长|减少|恶化|改善|不及预期|未达预期)[^。；;→]*→\s*[^。；;\s]+"
+)
+# Date roles precede date order. A report period or a publication deadline must
+# not win merely because it occurs before the user's review appointment.
+_DUE_TOKEN = r"(?:20\d{2}-\d{2}-\d{2}|20\d{2}年\d{1,2}月\d{1,2}日)"
+_REVIEW_DATE_RE = re.compile(
+    r"(?:复查|复核|回检|核查)(?:日期|时间|日|期限)?\s*(?:[：:=]|为|定于|安排在)?\s*(?P<before>"
+    + _DUE_TOKEN + r")|(?P<after>" + _DUE_TOKEN + r")\s*(?:前|后)?(?:复查|复核|回检|核查)"
+)
+_WATCH_TIME_FIELD_RE = re.compile(r"(?:^|[；;。\n])\s*(?:时间节点|时间)\s*[：:=]([^；;。\n]*)")
+_REPORT_PERIOD_DATE_RE = re.compile(
+    r"(?:截至|报告期(?:为|截至)?\s*[：:=]?)\s*" + _DUE_TOKEN
+    + r"|" + _DUE_TOKEN + r"(?=\s*报告期)"
+)
 
 
 @dataclass(frozen=True)
@@ -535,21 +560,44 @@ def chinese_full_date(text: str) -> str | None:
         return None
 
 
-def _item_due(line: str, as_of: str | None) -> str:
-    found = _DATE_RE.search(line)
+def _due_in_text(text: str, as_of: str | None) -> str | None:
+    found = _DATE_RE.search(text)
     if found:
-        return found.group(1)
-    cn_due = chinese_full_date(line)
+        try:
+            return date.fromisoformat(found.group(1)).isoformat()
+        except ValueError:
+            return None
+    cn_due = chinese_full_date(text)
     if cn_due:
         return cn_due
-    month_due = calendar_month_due(line)
+    month_due = calendar_month_due(text)
     if month_due:
         return month_due
-    base = _as_of_date(as_of)
-    days = _DAYS_RE.search(line)
+    days = _DAYS_RE.search(text)
     if days:
-        return (base + timedelta(days=int(days.group(1)))).isoformat()
-    return (base + timedelta(days=30)).isoformat()
+        return (_as_of_date(as_of) + timedelta(days=int(days.group(1)))).isoformat()
+    return None
+
+
+def _review_dates(line: str) -> tuple[str | None, ...]:
+    plain = str(line).replace("**", "").replace("__", "")
+    return tuple(
+        _due_in_text(match.group("before") or match.group("after"), None)
+        for match in _REVIEW_DATE_RE.finditer(plain)
+    )
+
+
+def _item_due(line: str, as_of: str | None) -> str:
+    plain = str(line).replace("**", "").replace("__", "")
+    # Strongest role: a named review date, including a date after a disclosure
+    # deadline within the same time field. Never rewrite the preserved claim.
+    reviews = _review_dates(plain)
+    if reviews and len(set(reviews)) == 1 and reviews[0] is not None:
+        return reviews[0]
+    time_field = _WATCH_TIME_FIELD_RE.search(plain)
+    candidate = time_field.group(1) if time_field else plain
+    candidate = _REPORT_PERIOD_DATE_RE.sub("", candidate)
+    return _due_in_text(candidate, as_of) or (_as_of_date(as_of) + timedelta(days=30)).isoformat()
 
 
 def _is_registerable_watch(line: str) -> bool:
@@ -558,7 +606,10 @@ def _is_registerable_watch(line: str) -> bool:
         return False
     if any(vague in text and "则" not in text for vague in _VAGUE_WATCH):
         return False
-    return any(marker in text for marker in _FALSIFIABLE_MARKERS)
+    reviews = _review_dates(text)
+    if reviews and (None in reviews or len(set(reviews)) != 1):
+        return False
+    return any(marker in text for marker in _FALSIFIABLE_MARKERS) or bool(_ARROW_CONDITION_RE.search(text))
 
 
 def _watch_section_end(line: str) -> bool:
@@ -593,11 +644,24 @@ def _watch_section_body(answer: str) -> str:
 
 def _split_watch_claims(body: str) -> tuple[str, ...]:
     chunks: list[str] = []
+    explicit_list = False
     for raw_line in str(body or "").splitlines():
-        line = raw_line.strip()
+        line = _WATCH_RECEIPT_RE.sub("", raw_line.strip()).strip()
         if not line:
             continue
         plain = line.replace("**", "").replace("__", "")
+        if _WATCH_TTL_METADATA_RE.fullmatch(plain):
+            continue
+        starts_item = _ITEM_START.match(line) is not None
+        is_field = _WATCH_FIELD_RE.match(plain) is not None
+        if (
+            explicit_list and not starts_item and not is_field
+            and not raw_line[:1].isspace()
+        ):
+            # A marked list ends before unindented prose. Don't whitelist the
+            # prose's wording or let its own 「若」 turn it into a checkpoint.
+            break
+        explicit_list = explicit_list or starts_item
         if chunks and not _ITEM_START.match(line) and (
             raw_line[:1].isspace() or _WATCH_FIELD_RE.match(plain)
             or (not _is_registerable_watch(chunks[-1]) and _is_registerable_watch(line))
