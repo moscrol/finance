@@ -1,5 +1,11 @@
 # history-market-anatomy 验证收据
 
+## 当前节点：fbd8f2a6（2026-09-18）
+
+[固定代码复验与真实四题裁决](fbd8f2a6/acceptance.md)：工程四叶通过（Python 11501P / 81S / 2X）；第二实现独立算术复核已支持rank/trace/新特征，仍保留partial/unsupported。**真模型同会话四题已执行，整组失败，未合并、未部署。** 原答、调用/引用manifest、原件哈希和新收据在 `fbd8f2a6/`，不覆盖旧失败或旧读数；这是作者侧验证，不是独立人员QC/真实浏览器验收/方法认证。最新决策见 [09-18快照](../../handoffs/2026-09-18-history-market-anatomy-live.md)。
+
+## 初版历史收据：506e1e23（以下段落仅描述该节点）
+
 被测代码：`506e1e237ad0c8f7a61d2a94b4df9ff40c7d0b49`，基线 `0a1cb8c4`。这是**作者侧验证**，不是独立QC、方法认证或生产真实模型验收。决策与被否方案见 [日期快照](../../handoffs/2026-09-17-history-market-anatomy.md)。
 
 ## 文件
@@ -33,7 +39,7 @@ OUT="$HOME/.finance-runtime/history-anatomy-replay-$(date +%Y%m%dT%H%M%S)"
 
 `tests/test_history_market_anatomy.py` 覆盖手算、字段来源实际投影、未来数据不改变前缀信号/类比、名单时点、缺失分母、越界/取消/只读/行数上限、原件分页和研究finish。真实Episode用的是脚本模型；Workbench run_turn探针主动停在controller；既有Playwright用隔离夹具和空模型密钥。三者都**不能替代生产真模型整组问答**。
 
-独立原件验算器对market/trace/rank明确unsupported，没有把格式/哈希正确当成算术通过。所有结果保持研究用途，不能证明策略可用、因果资金迁移或完整SPT/风远方法。
+在506e1e23节点，独立原件验算器对market/trace/rank明确unsupported，没有把格式/哈希正确当成算术通过。09-18扩展后的实际支持/跳过与复算读数见上方新节点，不用旧说明描述当前实现。所有结果仍保持研究用途，不能证明策略可用、因果资金迁移或完整SPT/风远方法。
 
 ## 四叶复验方式
 
