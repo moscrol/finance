@@ -5,7 +5,7 @@
 
 loop 只在这些方法上调领域 harness（`research_harness.ResearchHarness`）。签名与首段 docstring 直接取自 Protocol 源码，顺序即源码顺序。改接缝先改 Protocol，本表随之再生成；接缝的取舍见 `docs/superpowers/specs/2026-09-02-research-harness-loop-decouple-design.md` §4。
 
-19 个方法
+20 个方法
 
 ## `assemble_prompt`
 
@@ -54,6 +54,14 @@ def project_tool_result(self, observation: 'ToolObservation', *, evidence_so_far
 ```
 
 一次成功观察：审计留什么、模型看什么。
+
+## `acknowledge_tool_result`
+
+```python
+def acknowledge_tool_result(self, observation: 'ToolObservation', projection: 'ToolResultProjection', *, context: 'ResearchRunContext') -> 'None'
+```
+
+底座已追加工具消息后确认交付；计算完成不等于模型消息可见。
 
 ## `project_tool_error`
 

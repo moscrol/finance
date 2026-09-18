@@ -221,6 +221,18 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
         "null": "未知或不可计算，非0；具体原因见每项status；not_observed表示该窗口未观察到触发。",
     }])
     spec = payload.get("spec", {})
+    add("历史计算声明观察窗", {}, [{"observation_window": {
+        key: spec.get(key) for key in ("operation", "start", "end")
+    }}])
+    if isinstance(payload.get("window_binding"), dict):
+        binding = payload["window_binding"]
+        add("历史参照窗绑定", {}, [{key: binding[key] for key in (
+            "relation", "source_start", "source_end", "start", "end",
+        )}])
+        add("历史排名区间", {}, [{key: binding[key] for key in ("ranking_start", "ranking_end")}])
+        add("历史参照窗原件", {}, [
+            {key: value} for key, value in binding.get("source_reference", {}).items()
+        ] + [{key: binding.get(key)} for key in ("version", "source_query_id", "root_query_id", "root_sample_id")])
     comparison = payload.get("comparison")
     if isinstance(comparison, dict):
         add("历史条件比较定义", {}, [
@@ -301,7 +313,7 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
                 atoms.extend({kind: {key: values[key]}} for key in (
                     "pct_chg", "amount", "diff_ratio", "price", "close", "turnover_rate"
                 ) if key in values)
-        for key in ("distance", "feature_cutoff", "first_date", "last_date", "observed_dates", "dates"):
+        for key in ("sample_id", "distance", "feature_cutoff", "first_date", "last_date", "observed_dates", "dates"):
             if key in row:
                 atoms.append({key: row[key]})
         for key in (
@@ -371,6 +383,7 @@ def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query")
             "spec",
             "feature_definitions",
             "analysis_definition",
+            "window_binding",
         )
         if key in payload
     }
@@ -412,7 +425,7 @@ def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query")
                     "projected_evidence_count": len(projection)})
         + "样本以完整JSON语义块展示，同sample属于同一原件行；特征定义卡给出真实rule/unit/version。"
         "大成员、覆盖明细和超长字段仅在完整artifact；需更多日期用read_history_result分页。"
-        "需未展示字段请缩窄日期/实体/特征查询，仍不足就明确缺口或由用户查看原件，不把null当0。",
+        "需未展示行请用read_history_result分页；补查字段可明确实体/特征但保持所选窗口，仍不足就说明缺口或由用户查看原件，不把null当0。",
         trace=ProviderTrace(
             provider="duckdb_history_query",
             capability="finance_query",
@@ -427,6 +440,50 @@ def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query")
         payload_sha256=query_id,
         telemetry=metadata,
     )
+
+
+def record_history_delivery(observation, model_content: str, *, context) -> None:
+    """Acknowledge a successful result only after its model message was appended.
+
+    Worker completion and artifact reads are not delivery. In particular, a
+    concurrent sibling cannot use an unread candidate from the same tool batch.
+    No new store: this annotates the Episode's existing execution metadata.
+    """
+    if observation.tool not in {"history_query", "read_history_result"}:
+        return
+    metadata = observation.telemetry or {}
+    ref, query_id = metadata.get("result_ref"), metadata.get("query_id")
+    if not ref or not query_id or observation.trace.status != "success":
+        return
+    try:
+        payload = json.loads(model_content)
+        if payload.get("ok") is not True:
+            return
+        blocks = [json.loads(item["detail"]) for item in payload.get("evidence", ())]
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return  # Unknown/custom projections cannot attest delivery.
+    if not any(isinstance(b, dict) and b.get("result_ref") == ref for b in blocks):
+        return
+    source_spec = metadata.get("spec", {})
+    if not any(isinstance(b, dict) and b.get("observation_window") == {
+        key: source_spec.get(key) for key in ("operation", "start", "end")
+    } for b in blocks):
+        return
+    samples = sorted({b["sample_id"] for b in blocks
+                      if isinstance(b, dict) and isinstance(b.get("sample_id"), str)})
+    binding = metadata.get("window_binding")
+    binding_delivered = isinstance(binding, dict) and any(
+        isinstance(b, dict) and all(b.get(key) == binding[key] for key in (
+            "relation", "source_start", "source_end", "start", "end",
+        )) for b in blocks
+    )
+    for item in context.history_results:
+        if (item.get("result_ref") == ref and item.get("query_id") == query_id
+                and item.get("execution_status") == "success"):
+            item["delivery_status"] = "model_message"
+            visible = set(item.get("visible_sample_ids", ()))
+            item["visible_sample_ids"] = sorted(visible.union(samples))
+            item["binding_delivered"] = bool(item.get("binding_delivered") or binding_delivered)
 
 
 def history_tool_specs(
@@ -446,8 +503,13 @@ def history_tool_specs(
     )
     from intelligence.services.research_tool_registry import _TOOL_CONTRACTS
     from intelligence.services.historical_research.intent import assert_history_window
+    from intelligence.services.historical_research.window_binding import (
+        ANALYSIS_OPERATIONS, WindowSelection, resolve_window_binding, validate_saved_window_binding,
+    )
 
-    def assert_dependency_scope(draft, aliases, *, visited=None):
+    selection = WindowSelection()
+
+    def assert_dependency_scope(draft, aliases, *, visited=None, check=None):
         """A draft's declared window cannot narrow its actual source material."""
         visited = set() if visited is None else visited
 
@@ -472,9 +534,13 @@ def history_tool_specs(
             if ref in visited:
                 continue
             visited.add(ref)
-            assert_read_scope(session.read(ref), visited=visited)
+            if check is not None:
+                check()
+            assert_read_scope(session.read(ref), visited=visited, check=check)
 
-    def assert_read_scope(payload, *, visited=None):
+    def assert_read_scope(payload, *, visited=None, window_chain=(), check=None):
+        if check is not None:
+            check()
         cutoff = context.information_cutoff.as_of_date.isoformat()
         learned_at = payload.get("knowledge_cutoff")
         if learned_at and learned_at > cutoff:
@@ -492,10 +558,22 @@ def history_tool_specs(
         for rows in payload.get("inputs", {}).values():
             if any((row.get("trade_date") or row.get("event_date") or "") > cutoff for row in rows):
                 raise ValueError("historical_artifact_after_information_cutoff")
+        dependency = spec.get("window_ref")
+        if payload.get("window_binding") is not None and not isinstance(dependency, dict):
+            raise ValueError("history_window_binding_invalid: saved binding has no source reference")
+        if isinstance(dependency, dict):
+            ref = dependency.get("result_ref")
+            if ref in window_chain or len(window_chain) >= 64:
+                raise ValueError("history_window_dependency_cycle_or_depth_limit")
+            source = session.read(ref)
+            assert_read_scope(source, visited=visited, window_chain=(*window_chain, ref), check=check)
+            validate_saved_window_binding(payload, source)
         if "draft" in payload:
             aliases = dict(session.query_aliases)
             aliases.update(payload.get("query_aliases", {}))
-            assert_dependency_scope(payload["draft"], aliases, visited=visited)
+            assert_dependency_scope(payload["draft"], aliases, visited=visited, check=check)
+        if check is not None:
+            check()
 
     def parse(arguments):
         spec = HistoryQuerySpec.from_arguments(arguments)
@@ -503,7 +581,7 @@ def history_tool_specs(
             raise ValueError("history preview limit must be 1..25")
         return spec, _compact(asdict(spec))
 
-    def run(spec, tool_context):
+    def execute_query(spec, tool_context, binding):
         tool_context.remaining()
         assert_history_window(frame.history_intent, spec.start, spec.end)
         if spec.search_start is not None:
@@ -513,6 +591,7 @@ def history_tool_specs(
             information_cutoff=context.information_cutoff,
             deadline=tool_context.deadline,
             is_cancelled=tool_context.is_cancelled,
+            **({"window_binding": binding} if binding is not None else {}),
         )
         payload["operation"] = spec.operation
         payload["purpose"] = frame.history_intent.purpose
@@ -543,8 +622,36 @@ def history_tool_specs(
         }
         metadata["result_ref"] = ref
         metadata["execution_status"] = "success"
+        result = _result(payload, result_ref=ref)
+        if binding is not None:
+            metadata["window_binding"] = binding
         context.history_results.append(metadata)
-        return _result(payload, result_ref=ref)
+        return result
+
+    def run(spec, tool_context):
+        tool_context.remaining()
+        binding = None
+        if (spec.operation in ANALYSIS_OPERATIONS
+                and frame.history_intent.analysis_window_source != "none"
+                and spec.window_ref is None):
+            raise ValueError("history_window_reference_required: first read_history_result, then use window_ref; do not replace the requested historical reference with recent dates")
+        if spec.window_ref is not None:
+            if session is None:
+                raise ValueError("history_window_session_required")
+            source_ref = spec.window_ref["result_ref"]
+            source = session.read(source_ref)
+            assert_read_scope(source, check=tool_context.remaining)
+            delivered = [item for item in context.history_results
+                         if item.get("result_ref") == source_ref
+                         and item.get("query_id") == source.get("query_id")
+                         and item.get("execution_status") == "success"
+                         and item.get("delivery_status") == "model_message"]
+            binding = resolve_window_binding(spec, frame.history_intent, source, delivered)
+        with selection.reserve(
+            binding if frame.history_intent.analysis_window_source != "none" else None,
+            observation=spec.operation == "trace_history",
+        ):
+            return execute_query(spec, tool_context, binding)
 
     query_parameters = history_query_parameters()
     query_parameters["properties"]["preview_limit"]["maximum"] = 25
@@ -561,7 +668,7 @@ def history_tool_specs(
         ToolSpec(
             name="history_query",
             capability="finance_query",
-            description="重建历史行情、市场环境类比、启动到顶部日线路径与板块候选接力。市场阶段先inspect_history(entity_kind=market,000001.SH)，类比用find_analogues显式历史范围，当时谁强用rank_history短窗排名（未指定代码=窗口内已观测全集），行情解剖用trace_history；先inspect核对板块/股票精确代码，同名不同供应商不混接。共同启动特征比较launch_signal行，验证还须compare_cases含失败样本。trace仅日线描述代理，不冒充SPT/风远完整方法或当时可知顶部。不确定窗口先提出并注明，缺数不补零。",
+            description="重建历史行情、市场环境类比、启动到顶部日线路径与板块候选接力。市场阶段先inspect_history(entity_kind=market,000001.SH)，类比用find_analogues显式历史范围，当时谁强用rank_history声明窗排名（未指定代码=窗口内已观测全集；超限报缺口，不偷偷缩窗），行情解剖用trace_history；先inspect核对板块/股票精确代码，同名不同供应商不混接。共同启动特征比较launch_signal行，验证还须compare_cases含失败样本。trace仅日线描述代理，不冒充SPT/风远完整方法或当时可知顶部。续问按可信用途先read_history_result，再用window_ref绑定类比候选sample_id或已有分析观察窗，不按旧助手答案猜日期。不确定窗口先提出并注明，缺数不补零。",
             contract=_TOOL_CONTRACTS["history_query"],
             cost="local",
             freshness="historical",
@@ -595,7 +702,7 @@ def history_tool_specs(
         tool_context.remaining()
         ref, offset, limit = value
         payload = session.read(ref)
-        assert_read_scope(payload)
+        assert_read_scope(payload, check=tool_context.remaining)
         session.remember(ref, payload)
         if "/history-case-" in ref:
             # 经 scope 校验读到的 case 是本轮合法的研究产物引用：落一条独立的
@@ -643,10 +750,12 @@ def history_tool_specs(
                 "definition_refs",
             )
         }
+        result = _result(payload, result_ref=ref, tool="read_history_result")
         context.history_results.append(
-            dict(metadata, result_ref=ref, execution_status="success")
+            dict(metadata, result_ref=ref, execution_status="success",
+                 **({"window_binding": payload["window_binding"]} if "window_binding" in payload else {}))
         )
-        return _result(payload, result_ref=ref, tool="read_history_result")
+        return result
 
     specs.append(
         ToolSpec(
@@ -729,7 +838,7 @@ def history_tool_specs(
             if "/history-case-" not in previous_ref:
                 raise ValueError("previous_result_ref must name a research case")
             original = session.read(previous_ref)
-            assert_read_scope(original)
+            assert_read_scope(original, check=tool_context.remaining)
             session.remember(previous_ref, original)
             previous = ResearchCase.from_dict(original["draft"])
         identity = (
@@ -767,7 +876,7 @@ def history_tool_specs(
                 dict(payload, case_id=identity), available_result_refs=allowed,
                 previous=previous, available_definition_refs=definitions,
             )
-        assert_dependency_scope(prepared.to_dict(), session.query_aliases)
+        assert_dependency_scope(prepared.to_dict(), session.query_aliases, check=tool_context.remaining)
         existing = []
         for known_ref in tuple(session.refs):
             if "/history-case-" not in known_ref:

@@ -117,9 +117,13 @@ class HistoryQuerySpec:
     outcome: dict[str, Any] | None = None
     preview_limit: int = 25
     reference_code: str | None = None
+    window_ref: dict[str, str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return _json(asdict(self))
+        result = _json(asdict(self))
+        if self.window_ref is None:
+            result.pop("window_ref")  # Unbound requests retain their existing query identity.
+        return result
 
     @classmethod
     def from_arguments(cls, arguments: Mapping[str, object]) -> HistoryQuerySpec:
@@ -266,6 +270,22 @@ class HistoryQuerySpec:
                 "advancers_mean/limit_up_mean/limit_down_mean require entity_kind='market'; "
                 "check the declared kind, not global tool availability."
             )
+        window_ref = arguments.get("window_ref")
+        if window_ref is not None:
+            if (
+                operation not in {"rank_history", "trace_history", "compute_history"}
+                or not isinstance(window_ref, Mapping)
+                or set(window_ref) - {"result_ref", "sample_id"}
+                or not isinstance(window_ref.get("result_ref"), str)
+                or not 1 <= len(window_ref["result_ref"]) <= 300
+                or ("sample_id" in window_ref and (
+                    not isinstance(window_ref["sample_id"], str)
+                    or len(window_ref["sample_id"]) != 64
+                    or any(c not in "0123456789abcdef" for c in window_ref["sample_id"])
+                ))
+            ):
+                raise HistoryQueryError("invalid window_ref: use result_ref and optional candidate sample_id")
+            window_ref = dict(window_ref)
         return cls(
             operation=str(operation),
             start=start,
@@ -284,6 +304,7 @@ class HistoryQuerySpec:
             condition=condition,
             outcome=outcome,
             reference_code=reference,
+            window_ref=window_ref,
             preview_limit=_integer(
                 arguments.get("preview_limit", 25), "preview_limit", 1, 100
             ),
@@ -317,7 +338,15 @@ def history_query_parameters() -> dict[str, Any]:
                 "type": "array",
                 "items": {"type": "string"},
                 "maxItems": 20,
-                "description": "Exact codes, never joined by name. Omit for inspect catalog or rank_history's ALL observed entities in the declared window (posthoc winners; 100000 input-row cap, narrow dates on overflow). Other computations require fixed exact codes.",
+                "description": "Exact codes, never joined by name. Omit for inspect catalog or rank_history's ALL observed entities in the declared window (posthoc winners; 100000 input-row cap; overflow is a gap, not permission to shorten the chosen window or replace the population with winners). Other computations require fixed exact codes.",
+            },
+            "window_ref": {
+                "type": "object", "additionalProperties": False, "required": ["result_ref"],
+                "properties": {
+                    "result_ref": {"type": "string", "maxLength": 300},
+                    "sample_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                },
+                "description": "For rank/trace/compute: bind to a scope-checked original read this turn. Analogue source requires its candidate sample_id (not reference or preview ordinal); prior rank/trace/compute uses its declared observation window. start/end must match. Only user-authorized trace observation may extend end; never shorten dates or rerank on another window after overflow.",
             },
             "query": {"type": "string", "maxLength": 200},
             "features": {
@@ -577,7 +606,7 @@ class _Reader:
             self.input_rows += len(batch)
             if self.input_rows > MAX_INPUT_ROWS:
                 raise HistoryQueryError(
-                    "input row limit exceeded; narrow the explicit scope"
+                    "input row limit exceeded; requested population not computed. Report the gap; do not shorten the chosen window or replace all-market with winners"
                 )
             for row in batch:
                 data = dict(zip(fields, row))
@@ -622,6 +651,7 @@ class HistoryQuery:
         information_cutoff: InformationCutoff,
         deadline: ResearchDeadline,
         is_cancelled: Callable[[], bool] | None = None,
+        window_binding: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         cancelled = is_cancelled or (lambda: False)
         expires = time.monotonic() + deadline.stage_timeout(30.0)
@@ -634,6 +664,13 @@ class HistoryQuery:
 
         check()
         spec = HistoryQuerySpec.from_arguments(spec.to_dict())
+        if spec.window_ref is not None and (
+            window_binding is None
+            or window_binding.get("source_reference") != spec.window_ref
+            or window_binding.get("start") != spec.start.isoformat()
+            or window_binding.get("end") != spec.end.isoformat()
+        ):
+            raise HistoryQueryError("history_window_unresolved: resolve window_ref through the authorized Episode session")
         if max(spec.end, spec.search_end or spec.end) > information_cutoff.as_of_date:
             raise HistoryQueryError("window exceeds information cutoff")
         if not self.db_path.is_file():
@@ -758,6 +795,7 @@ class HistoryQuery:
                 "feature_definitions": definitions,
                 "gaps": list(dict.fromkeys(reader.gaps)),
                 **extra,
+                **({"window_binding": dict(window_binding)} if window_binding is not None else {}),
             }
         )
         check()

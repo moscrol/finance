@@ -3,6 +3,7 @@
 Default suite: diagnostics. --suite succession challenges status/qualifier
 co-delivery, observation clocks and recovery. --suite expression challenges
 historical intent across prompt, repair, receipt and checkpoint consumers.
+--suite window challenges saved-reference selection, delivery and date binding.
 
 Each fresh child changes one imported function in memory, then runs a narrow
 regression against temporary fixtures. Exit 0 means every mutation was caught
@@ -160,7 +161,101 @@ EXPRESSION_MUTATIONS = {
     },
 }
 MUTATIONS.update(EXPRESSION_MUTATIONS)
-SUITES = {"diagnostics": DIAGNOSTIC_NAMES, "succession": SUCCESSION_NAMES, "expression": tuple(EXPRESSION_MUTATIONS)}
+WINDOW_TEST = "tests/test_history_window_binding.py"
+WINDOW_MUTATIONS = {
+    "drop_window_reference_requirement": {
+        "module": "intelligence.services.historical_research.episode",
+        "owner": None, "function": "history_tool_specs",
+        "old": 'and frame.history_intent.analysis_window_source != "none"',
+        "new": 'and False',
+        "test": f"{WINDOW_TEST}::test_analogue_followup_cannot_silently_rank_the_recent_window",
+    },
+    "drop_source_consumption": {
+        "module": "intelligence.services.historical_research.window_binding",
+        "owner": None, "function": "resolve_window_binding",
+        "old": 'if not delivered:', "new": 'if False:',
+        "test": f"{WINDOW_TEST}::test_source_must_be_consumed_and_sample_must_be_from_saved_candidates",
+    },
+    "accept_different_window": {
+        "module": "intelligence.services.historical_research.window_binding",
+        "owner": None, "function": "resolve_window_binding",
+        "old": 'if requested != (start, end):', "new": 'if False:',
+        "test": f"{WINDOW_TEST}::test_changed_window_is_rejected_before_db_and_not_silently_rewritten",
+    },
+    "grant_unrequested_extension": {
+        "module": "intelligence.services.historical_research.window_binding",
+        "owner": None, "function": "resolve_window_binding",
+        "old": 'if (intent.allow_window_extension and spec.operation == "trace_history"',
+        "new": 'if (spec.operation == "trace_history"',
+        "test": f"{WINDOW_TEST}::test_explicit_extension_is_not_implied_by_authorized_end_or_cutoff",
+    },
+    "drop_parallel_selection_reservation": {
+        "module": "intelligence.services.historical_research.window_binding",
+        "owner": "WindowSelection", "function": "reserve",
+        "old": 'if self._key is not None and self._key != key:', "new": 'if False:',
+        "test": f"{WINDOW_TEST}::test_concurrent_incompatible_selection_is_rejected_before_second_db_read",
+    },
+    "drop_saved_lineage_check": {
+        "module": "intelligence.services.historical_research.window_binding",
+        "owner": None, "function": "validate_saved_window_binding",
+        "old": 'if expected != binding:', "new": 'if False:',
+        "test": f"{WINDOW_TEST}::test_immutable_original_recovery_checks_dependencies_and_lineage_without_live_db",
+    },
+    "drop_ancestor_scope_check": {
+        "module": "intelligence.services.historical_research.episode",
+        "owner": None, "function": "history_tool_specs",
+        "old": 'assert_read_scope(source, visited=visited, window_chain=(*window_chain, ref), check=check)', "new": 'pass',
+        "test": f"{WINDOW_TEST}::test_bound_original_cannot_hide_wider_ancestor_scope",
+    },
+    "drop_candidate_identity_projection": {
+        "module": "intelligence.services.historical_research.episode",
+        "owner": None, "function": "_model_projection",
+        "old": 'for key in ("sample_id", "distance",', "new": 'for key in ("distance",',
+        "test": f"{WINDOW_TEST}::test_actual_projection_keeps_candidate_identity_and_window_relation_whole",
+    },
+    "drop_same_observation_endpoint": {
+        "module": "intelligence.services.historical_research.window_binding",
+        "owner": "WindowSelection", "function": "reserve",
+        "old": 'if observation and self._observation_end not in (None, binding["end"]):',
+        "new": 'if False:',
+        "test": f"{WINDOW_TEST}::test_explicit_extension_is_not_implied_by_authorized_end_or_cutoff",
+    },
+    "drop_delivered_source_gate": {
+        "module": "intelligence.services.historical_research.episode",
+        "owner": None, "function": "history_tool_specs",
+        "old": 'and item.get("delivery_status") == "model_message"', "new": '',
+        "test": f"{WINDOW_TEST}::test_worker_completion_or_projection_without_message_does_not_attest_consumption",
+    },
+    "drop_episode_delivery_ack": {
+        "module": "intelligence.runtime.agent_episode",
+        "owner": "_EpisodeToolAccumulator", "function": "consume",
+        "old": 'acknowledge(observation, projection, context=context)', "new": 'pass',
+        "test": f"{WINDOW_TEST}::test_scripted_episode_reads_original_and_repairs_mismatched_window[episode]",
+    },
+    "drop_reference_loop_delivery_ack": {
+        "module": "intelligence.runtime.harness_reference_loop",
+        "owner": "HarnessReferenceLoop", "function": "_ingest_batch",
+        "old": 'acknowledge(observation, projection, context=state.context)', "new": 'pass',
+        "test": f"{WINDOW_TEST}::test_scripted_episode_reads_original_and_repairs_mismatched_window[reference]",
+    },
+    "allow_extended_trace_to_rerank": {
+        "module": "intelligence.services.historical_research.window_binding",
+        "owner": None, "function": "resolve_window_binding",
+        "old": 'if spec.operation == "rank_history" and requested != (ranking_start, ranking_end):',
+        "new": 'if False:',
+        "test": f"{WINDOW_TEST}::test_extended_trace_cannot_launder_new_rank_interval_in_later_turn",
+    },
+    "drop_window_completion_gap": {
+        "module": "intelligence.services.historical_research.research",
+        "owner": None, "function": "assess_history_finish",
+        "old": 'window_missing = intent.analysis_window_source != "none" and not any(',
+        "new": 'window_missing = False and not any(',
+        "test": f"{WINDOW_TEST}::test_reading_only_analogue_does_not_complete_a_same_window_request",
+    },
+}
+MUTATIONS.update(WINDOW_MUTATIONS)
+SUITES = {"diagnostics": DIAGNOSTIC_NAMES, "succession": SUCCESSION_NAMES,
+          "expression": tuple(EXPRESSION_MUTATIONS), "window": tuple(WINDOW_MUTATIONS)}
 
 
 def _child(name: str) -> int:
@@ -204,6 +299,13 @@ def main() -> int:
                          ROOT / "intelligence/tests/test_ranking_contract.py",
                          ROOT / "intelligence/tests/test_research_intent_boundaries.py",
                          ROOT / "intelligence/tests/test_conversation_orchestrator.py"}
+    if args.suite == "window":
+        source_paths |= {ROOT / WINDOW_TEST, ROOT / "tests/test_history_live_seams.py",
+                         ROOT / "tests/test_history_market_anatomy.py",
+                         ROOT / "intelligence/services/historical_research/intent.py",
+                         ROOT / "intelligence/services/historical_research/query.py",
+                         ROOT / "intelligence/services/turn_controller.py",
+                         ROOT / "intelligence/services/research_harness.py"}
     source_hashes = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(source_paths)}
     results = []
     for name, mutation in mutations.items():

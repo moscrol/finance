@@ -230,11 +230,13 @@ def test_real_run_turn_passes_inherited_history_to_checkpoint_boundary(tmp_path,
     run_id, message_id = _prepare_turn(store, runs, conv.conversation_id, FOLLOWUPS[0])
     captured = []
     writes = []
+    frames = []
+    expected_intent = replace(first.task_frame.history_intent, analysis_window_source="analogue")
     original_ingest = co.TurnOrchestrator._ingest_track_next_watch
 
     class Adapter:
         def handle(self, *, frame, control):
-            assert frame.history_intent == first.task_frame.history_intent
+            frames.append(frame)
             return ContinuousTurnResult(
                 handled=True, status="partial", answer=RANKING_ANSWER + _TRACK_ANSWER,
                 as_of="2026-09-15", citations=(), warnings=(), private_artifact=None, events=(),
@@ -266,7 +268,8 @@ def test_real_run_turn_passes_inherited_history_to_checkpoint_boundary(tmp_path,
     )
     assert result.status == "completed"  # Transport completed, not business acceptance.
     assert len(captured) == 1
-    assert captured[0]["history_intent"] == first.task_frame.history_intent
+    assert len(frames) == 1 and frames[0].history_intent == expected_intent
+    assert captured[0]["history_intent"] == expected_intent
     assert writes == []
     assert not list((tmp_path / "users").rglob("checkpoints.jsonl"))
 

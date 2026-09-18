@@ -517,7 +517,7 @@ _HISTORY_POLICY = """历史研究领域策略（仅本研究用途生效）：
 - 对每个解释保留支持/反对/未知、来源与定义版本、失败样本和待查问题。未支持的计算定义记录 unresolved_definitions / unsupported_definition，不简化成另一条规则，不宣称已执行。
 - 引用特征时按工具返回的 feature_definitions 解释，不凭名称猜口径；自定义的两条件量价同升不能称为库内严格双红，也不能把“成交额首末比”称为量比。报告条件比较时，正文同时说明实体与时间范围、样本窗口与步长、条件阈值、随后多少交易日及成功阈值、四格分母/缺失/未到期与重叠边界。只写“续强”或只给比率不算可复算的报告。
 - 市场阶段与类比：inspect_history(entity_kind=market, entity_codes=[000001.SH])先展示数据截至日、market_stage及专属market_stage_source、供应商内层cycle_stage及来源（confidence不是校准准确率；行source不保证字段血缘）；不冒充授课index_stage或题材七阶段。find_analogues可用return_pct、amount_vs_prior_mean、max_drawdown_pct、advancers_mean、limit_up_mean、limit_down_mean描述环境，相似不是预测。
-- 启动/见顶/接力用trace_history：在声明窗口内预热5日，只用前缀找首次启动信号；launch_signal行的同口径特征可横向对比。price_path与member_leader给出日线路径、事后窗口峰值与回撤确认时刻；个股排名是板块启动当日成员的事后收益，不称为提前选出龙头。sector_succession仅声明板块之间的候选接力，先后不证明资金搬家。需寻找当时强势板块/股票先rank_history短窗口排名（空codes=窗口内所有已观测代码，超行数限则缩窄），再分批明确代码trace；不得将小候选集描述成全市场。
+- 启动/见顶/接力用trace_history：在声明窗口内预热5日，只用前缀找首次启动信号；launch_signal行的同口径特征可横向对比。price_path与member_leader给出日线路径、事后窗口峰值与回撤确认时刻；个股排名是板块启动当日成员的事后收益，不称为提前选出龙头。sector_succession仅声明板块之间的候选接力，先后不证明资金搬家。需寻找当时强势板块/股票先rank_history声明窗口排名（空codes=窗口内所有已观测代码），再分批明确代码trace；不得将小候选集描述成全市场。超行数限要报告该窗全市场排名未完成，不偷偷缩短日期或只取赢家凑结果。
 - 检验接力必须把来源与候选目标板块一起放进同一次trace_history的entity_codes、使用同一窗口；只查单码得到sector_succession=0是未形成配对，不是没有接力。来源峰值不要求已回撤确认；目标首次信号在来源峰后5日内且同后5日目标收益>0、来源<=0才是候选，其他状态保留。不要改写为“确认后5日”。
 - trace_history的日线代理不是SPT/风远整套方法，不命名未经计算的图形或盘中结构。相似样本缩窄后再查板块/个股；投影路径是采样，原件保留每日点，缺日期可inspect补看。不自动把6日量比称MA20，不把窗口最高点称为当时已知顶部。
 - L2、晚间卖方、晨汇在未同步的目标范围保持 pending_sync；缺失不等于零或无催化，成交额不能替代主买净额。可用盘面继续研究，依赖缺轨的假设保持未知。
@@ -544,6 +544,15 @@ def history_research_prompt(
     if "read_history_result" in tools:
         policy += "\n追问时先用 read_history_result 读取相关已存 case/query，再续查或修订，避免遗忘原假设和失败样本。case 中的候选解释是研究草稿，不能当成新增事实证据。"
         policy += "\ncase读取返回完整紧凑JSON摘要和假设分页；statement_truncated是明确摘要标志，next_offset非空时可按offset续读全部hypothesis_id。完整旧记录留在原件，由patch服务端合并保留。"
+    if intent.analysis_window_source != "none":
+        policy += (
+            "\n本轮必须绑定历史参照窗：先read_history_result读取相关原件；rank_history/trace_history/compute_history"
+            "传window_ref={result_ref,可选sample_id}。类比用候选sample_id而不是reference行或预览序号；"
+            "已有分析用其spec.start/end而不是成员收益窗或启动特征窗。板块与全市场个股同窗，成员排名另标板块启动到峰值子窗。"
+            "没有成功来源时报告未完成，不换近期窗口。读取过原件不等于其中任意页均已送达。"
+        )
+        if intent.allow_window_extension:
+            policy += "\n用户本轮允许延长trace观察终点（不移动起点）；仍受授权范围/截止限制。延长不授权改换rank收益区间。"
     summaries = [
         {
             key: result[key]
@@ -556,6 +565,7 @@ def history_research_prompt(
                 "purpose",
                 "total_matched",
                 "returned_count",
+                "window_binding",
             )
             if key in result
         }
@@ -637,12 +647,19 @@ def assess_history_finish(
         and not any(result.get("operation") == "compare_cases" for result in successful)
     )
     comparison_gap = "已有历史观察，但尚未完成声明条件全集的历史比较；单案例和相似列表不能作为规律验证。"
+    window_missing = intent.analysis_window_source != "none" and not any(
+        result.get("window_binding") and result.get("binding_delivered") for result in successful
+    )
+    completion_gap = "；".join(gap for gap in (
+        comparison_gap if comparison_missing else "",
+        "尚未完成绑定原件参照窗的分析；读取类比列表或无绑定排名，不证明已按同窗交付。" if window_missing else "",
+    ) if gap)
     raw = decoded.get("history_research")
     if raw is None:
         if successful:
             return HistoryFinishAssessment(
-                "single_case", gap=comparison_gap if comparison_missing else "",
-                force_partial=comparison_missing,
+                "single_case", gap=completion_gap,
+                force_partial=comparison_missing or window_missing,
             )
         return HistoryFinishAssessment(
             "insufficient_evidence",
@@ -717,6 +734,6 @@ def assess_history_finish(
         claimed_refs,
         gap="历史证据不足，尚不能形成完整样本比较。"
         if level == "insufficient_evidence"
-        else comparison_gap if comparison_missing else "",
-        force_partial=level == "insufficient_evidence" or comparison_missing,
+        else completion_gap,
+        force_partial=level == "insufficient_evidence" or comparison_missing or window_missing,
     )

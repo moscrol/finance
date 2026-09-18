@@ -41,6 +41,8 @@ class HistoryIntent:
     strict_window: bool = False
     window_error: str | None = None
     information_cutoff: str | None = None
+    analysis_window_source: str = "none"
+    allow_window_extension: bool = False
 
     def __post_init__(self):
         if self.purpose not in {"retrospective_discovery", "historical_comparison"}:
@@ -49,6 +51,12 @@ class HistoryIntent:
             raise ValueError("invalid historical scope")
         if type(self.strict_window) is not bool:
             raise ValueError("invalid strict window flag")
+        if self.analysis_window_source not in {"none", "analogue", "prior_analysis"}:
+            raise ValueError("invalid analysis window source")
+        if type(self.allow_window_extension) is not bool:
+            raise ValueError("invalid window extension flag")
+        if self.allow_window_extension and self.analysis_window_source != "prior_analysis":
+            raise ValueError("window extension requires a prior analysis")
         for value in (self.requested_start, self.requested_end, self.information_cutoff):
             if value is not None:
                 date.fromisoformat(value)
@@ -74,9 +82,41 @@ class HistoryIntent:
             "strict_window",
             "window_error",
             "information_cutoff",
+            "analysis_window_source",
+            "allow_window_extension",
         }:
             raise ValueError("invalid history intent")
         return cls(**value)
+
+
+def with_analysis_window_policy(
+    intent: HistoryIntent, question: str, *, continuing: bool = False,
+) -> HistoryIntent:
+    """Per-turn user requirement, not permission inferred from a tool or old answer.
+
+    Reset on each turn: permission to extend an observation is not a standing
+    grant. The dates themselves must still come from a scope-checked original.
+    """
+    from intelligence.services.user_task import _visible_lines
+
+    # Reuse the source-aware input boundary, including short quotes/fences.
+    visible, uncertain = _visible_lines(question.splitlines())
+    question = "\n".join(visible) if not uncertain else ""
+    source = "none"
+    if re.search(r"(?:从|沿用|选|选择).{0,35}(?:相似|类似|类比).{0,12}(?:窗口|阶段)", question):
+        source = "analogue"
+    elif continuing and re.search(
+        r"同一(?:个)?(?:时间|观察|分析)?窗|"
+        r"(?:这些|上述|不同|各).{0,16}板块.{0,12}启动|"
+        r"(?:沿用|继续).{0,12}(?:上一轮|刚才).{0,12}(?:观察窗|分析窗)", question
+    ):
+        source = "prior_analysis"
+    extension_denied = bool(re.search(r"(?:不|不能|不许|不要|禁止).{0,6}(?:延长|扩展|继续观察)", question))
+    extend = source == "prior_analysis" and not extension_denied and bool(re.search(
+        r"(?:如果|若).{0,20}窗.{0,12}太短.{0,60}(?:继续观察|延长)|"
+        r"(?:允许|可以).{0,8}(?:延长|扩展).{0,8}(?:观察|分析)", question
+    ))
+    return replace(intent, analysis_window_source=source, allow_window_extension=extend)
 
 
 def explicit_information_cutoff(question: str) -> date | None:

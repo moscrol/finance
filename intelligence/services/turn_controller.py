@@ -1270,6 +1270,16 @@ def decide_turn(
         task_frame = replace(task_frame, history_intent=replace(
             task_frame.history_intent, information_cutoff=history_followup.information_cutoff,
         ))
+    if task_frame.history_intent is not None:
+        from intelligence.services.historical_research.intent import with_analysis_window_policy
+        from intelligence.services.user_task import split_user_message
+
+        # Only current user controls set this turn's analysis dependency. Never
+        # infer it from conversation prose, an old answer, or model tool args.
+        parts = split_user_message(query)
+        task_frame = replace(task_frame, history_intent=with_analysis_window_policy(
+            task_frame.history_intent, parts.question or "", continuing=history_followup is not None,
+        ))
     explicit_history_context = explicit_comparison or explicit_resolved_history or bool(
         task_frame.history_intent is not None
         and task_frame.subject is not None
