@@ -349,6 +349,51 @@ def test_timeout_terminates_worker_and_next_query_restarts(tmp_path: Path) -> No
     assert recovered.model_load_count == 1
 
 
+@pytest.mark.parametrize("query", ["recovered", "slow"])
+@pytest.mark.parametrize("restart", ["crash", "code-change"])
+def test_new_process_discards_old_partial_bytes_and_timeout_state(tmp_path, query, restart):
+    """Framing state and code identity must turn over together, including private pycache."""
+    _write_fake_rag(tmp_path)
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    worker = PersistentRagWorker(sys.executable, tmp_path, index)
+    try:
+        worker.prewarm(["query", "warmup", "--json"], timeout=2)
+        process = worker._process
+        assert process is not None
+        old_pycache = Path(worker._pycache.name)
+        worker._response_buffer.extend(b'{"id":"old-partial')
+        worker._abandoned.add("old")
+        worker._consecutive_timeouts = 1
+        if restart == "crash":
+            process.kill()
+            process.wait(timeout=2)
+        else:
+            source = tmp_path / "scripts/rag_freshness.py"
+            source.write_text(source.read_text().replace("scripts", "updated"))
+        worker._recovery_argv = None
+        if query == "slow":
+            with pytest.raises(TimeoutError) as error:
+                worker.query(["query", query, "--json"], timeout=0.02)
+            assert not isinstance(error.value, rag_worker.WorkerRequestAbandoned)
+            assert worker.counters["timeouts_killed"] == 1
+            assert worker.model_load_count == 0, "cold successor cannot inherit warm state"
+        else:
+            response = worker.query(["query", query], timeout=2)
+            assert '"query": "recovered"' in response.stdout
+            if restart == "code-change":
+                assert "knowledge-base-updated" in response.stdout
+            assert worker._process is not process
+            assert worker.model_load_count == 1
+        assert process.poll() is not None
+        assert not old_pycache.exists()
+        assert worker._response_buffer == b""
+        assert worker._abandoned == set()
+        assert worker._consecutive_timeouts == 0
+    finally:
+        worker.close()
+
+
 def test_prewarm_marks_worker_ready_and_reuses_model(tmp_path: Path) -> None:
     _write_fake_rag(tmp_path)
     index = tmp_path / ".rag_index"

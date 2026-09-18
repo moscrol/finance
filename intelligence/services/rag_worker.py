@@ -99,6 +99,10 @@ class PersistentRagWorker:
         self.kb_root = kb_root
         self.index_dir = index_dir
         self._process: subprocess.Popen[str] | None = None
+        # stdout has exactly one reader: nonblocking os.read + explicit line framing.
+        # Keep partial bytes across an abandoned request, but never across processes.
+        self._response_process: subprocess.Popen[str] | None = None
+        self._response_buffer = bytearray()
         self._code_identity = ""
         self._pycache: TemporaryDirectory | None = None
         self._lock = threading.Lock()
@@ -353,6 +357,12 @@ class PersistentRagWorker:
         request_id = uuid.uuid4().hex
         assert process.stdin is not None
         assert process.stdout is not None
+        if self._response_process is not process:
+            os.set_blocking(process.stdout.fileno(), False)
+            self._response_process = process
+            self._response_buffer = bytearray()
+        # Local reference: close() may retire the process from another thread.
+        buffer = self._response_buffer
         process.stdin.write(
             json.dumps({"id": request_id, "argv": argv}, ensure_ascii=False)
             + "\n"
@@ -363,15 +373,33 @@ class PersistentRagWorker:
         selector = selectors.DefaultSelector()
         selector.register(process.stdout, selectors.EVENT_READ)
         try:
+            search_from = 0
             while True:
                 remaining = deadline - time.monotonic()
-                if remaining <= 0 or not selector.select(max(0.001, remaining)):
+                if remaining <= 0:
                     self._on_query_timeout(request_id, allow_abandon=allow_abandon)
-                line = process.stdout.readline()
-                if not line:
-                    self._stop_process()
-                    raise RuntimeError("rag worker exited without response")
-                payload = json.loads(line)
+                # Drain complete buffered lines before asking the kernel for more.
+                # TextIO.readline() can prefetch a second reply behind select's back;
+                # it can also block past the deadline on a partial first line.
+                newline = buffer.find(b"\n", search_from)
+                if newline < 0:
+                    search_from = len(buffer)
+                    if not selector.select(remaining):
+                        self._on_query_timeout(request_id, allow_abandon=allow_abandon)
+                    try:
+                        chunk = os.read(process.stdout.fileno(), 65536)
+                    except BlockingIOError:
+                        continue
+                    if not chunk:
+                        self._stop_process()
+                        raise RuntimeError("rag worker exited without response")
+                    buffer.extend(chunk)
+                    continue
+                line = bytes(buffer[:newline])
+                del buffer[:newline + 1]
+                search_from = 0
+                # Decode only a whole frame: a read may split a UTF-8 character.
+                payload = json.loads(line.decode("utf-8"))
                 response_id = payload.get("id")
                 if response_id in self._abandoned:
                     # 上一条被放弃请求的迟到响应：排掉，继续等自己的。
@@ -484,6 +512,10 @@ class PersistentRagWorker:
     def _stop_process(self) -> None:
         process = self._process
         self._process = None
+        self._response_process = None
+        self._response_buffer = bytearray()
+        self._abandoned.clear()
+        self._consecutive_timeouts = 0
         if process is not None and process.poll() is None:
             process.terminate()
             try:

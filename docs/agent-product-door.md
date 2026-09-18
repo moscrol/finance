@@ -50,6 +50,18 @@
 核验结果，不是新自然模型或跨进程验收。旧 R6/R3 整题 0/4 不变。
 撤保护入口为 `run_extraction_mutations.py --suite publication`，不替代前端检查。
 
+### RAG 响应读取与代码换代（本地金融候选，未部署）
+
+只移入答案保留枝 `20939b18` 的读取片：`PersistentRagWorker` 用非阻塞字节读取、
+显式换行缓冲，先消费完整行再等内核可读；整行才解码，旧响应/半行不续绝对截止时间。
+首次暖查询放弃保留半行，下一请求按精确ID排掉旧回复；冷启动或连续第二次超时仍杀进程。
+保留本金融基座的检索代码身份、私有字节码缓存隔离与换代策略：当前帧即使已在缓冲中也须
+核响应身份及磁盘代码身份；代码变化/崩溃后，旧半行、放弃ID、连续超时和暖计数不授给新进程。
+真实 `kb_rag.retrieve` 与管道消费者的离线接缝验证“半行放弃→只取当前命中、不另起CLI”，
+不是在线KB效果或自然研究验收。排锁/请求写入预算、消息大小策略、整枝保稿及runtime恢复不在本片。
+回归见 `test_rag_worker_transport.py`；撤保护复用 `run_extraction_mutations.py --suite rag-transport`。
+既有金融partial/引用/拒句账与最终发布门保持，不把检索修复等同整题质量通过。
+
 ### 专项研究纪律（Knevo 增量，2026-09-17 已合 main）
 
 `research_workflow_guidance.workflow_guidance` 给财报、事件推演、观点审查、事实核对、历史类比
