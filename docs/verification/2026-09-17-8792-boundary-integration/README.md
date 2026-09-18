@@ -1,5 +1,7 @@
 # 8792 边界组合候选：证据与复现
 
+> 后续状态（2026-09-18）：同一 `3faf64fb` 已完成四次隔离真实会话，3 次交付、1 次运行失败；边界局部有效，整体验收未通过。见[独立 live 索引](../2026-09-18-8792-boundary-live/README.md)。下文保留 09-17 工程验收原口径，不把后续失败抹掉或改发旧收据。
+
 - 被验代码：`3faf64fbadcfe45fdd0b306acd223d9e78c56525`，分支 `fix/8792-boundary-integration`。
 - 基线：`0a1cb8c4`。组合来源：`c57633bb`（readiness）+ `3c5f485a`（citation），本地合流`51894716`，补限定语`ef9e1c19`、补前缀重复扫描`3faf64fb`。
 - 树：`/Users/a77/fwp-wt-8792-boundary-integration`。

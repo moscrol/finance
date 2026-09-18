@@ -1,37 +1,33 @@
 # 8792 边界组合候选
 
 ## 这个分支做什么
-组合readiness三类边界与引用数字隔离，再补限定语归属/重复扫描；不是#770整合或生产切流。
+组合登记退出/请求身份/日期关系与引用数字隔离；本轮固定3faf64fb验真实会话，不是#770整合或切流。
 
 ## 当前状态
-树`~/fwp-wt-8792-boundary-integration`；代码已提交`3faf64fb`，基线`gitea/main@0a1cb8c4`。
-来源`c57633bb`+`3c5f485a`，合流`51894716`，补功能`ef9e1c19`、补扫描`3faf64fb`。
-未push/开PR/合main/部署。只读8792仍`bf662e9310ff` healthy、dirty=false、matches=true；semantic默认llm/evidence=auto未改。
+树`~/fwp-wt-8792-boundary-integration`；代码`3faf64fb`，原文档e857d594，基线gitea/main@0a1cb8c4。本轮仅新增验收文档。
+四次首题提交、零重发：3次completed有正文、1次failed；**整体验收未通过**。8828已停、自己的锁已移除；8792仍bf662e9310ff healthy，模型/判官未改。未push/PR/合main/部署。
 
 ## 未验证 / 已知边界
-- 未用修复版真实模型从Workbench会话入口验证拒登记、格式化财务问题及带日期引用的复查计划；替身与fixture E2E不代签金融答案质量/成本/稳定性。
-- #770跨轮材料/local_only/判官拒收反馈、RE06/#53真人验证未组合；判官off观察期未开始。
-- 冻结样本只修第20句引用误删；81%与去重并集46.875%差异、区间查询invalid_query、manual mappingproxy故障仍在，重放exit0不等于答案合格。
-- 中文判据有限，不是通用自然语言同意解析器；行情/真人台账/生产配置未改。
+- F3保住中际旭创/financial_analysis，但mappingproxy转JSON中断；末请求web_fetch，无stack，未定根因。
+- F1退出不写入成立，但无依据阈值被删后清单缺触发条件；同答案离线允许写会误收后续“缺口”段/历史due。live阳性只写1条。
+- F2未来日期+E45/E43计划保留；report partial，不代签金融质量。最近两期选年报+中报却跳过Q1；上下文cutoff默认09-18与提问09-16/17未对齐，均待核。
+- 失败用量丢失、5次判官tokens未知，不报价；四题不证稳定性/时延。市场快照固定，财务F10/知识库/网页仍在线。
+- #770、RE06/#53、#56观察未签；旧sector口径/invalid_query另线。
 
 ## 下一步
-1. 读[决策快照](../2026-09-17-8792-boundary-integration.md)与[验证索引](../../verification/2026-09-17-8792-boundary-integration/README.md)。
-2. 用户确认后才交付远端/合main/切8792。upstream是gitea/main，推本分支必须显式目标。
-3. 获授权后在隔离真实Workbench入口验三类任务；若纳入新main/#770，重验最终整合revision，不搬旧收据。
+1. 读[本轮决策/失败史](../2026-09-18-8792-boundary-live-acceptance.md)和[索引](../../verification/2026-09-18-8792-boundary-live/README.md)。原件R=`~/.finance-runtime/reviews/8792-boundary-live-20260918/`；acceptance-summary、closure与cases逐题定位。
+2. 优先用失败原件离线复现F3序列化；再补清单结束边界、删坏条件后的必需输出。新代码新revision重验，勿改写旧失败。
+3. 新模型预算/远端交付/合main/部署分别确认；upstream是gitea/main，推枝须显式目标。
 
 ## 决策与被否方案
-- 两门验最终交付；否分别拿旧绿拼签，因串接仍会误删计划。
-- 限定语只修饰否定/登记动作；否量词字表与全句忘漏扫描，宾语也含这些词。
-- 每否定扫一次前缀+计数回归；否秒数上限作为唯一门，主机负载会抖。
-- 原QC/冻结重放复用脚本；反例进入pytest，变异片段入验证文档，不另造框架。
+- 最终交付+实际写口验组合，否旧绿拼签；每题一次，否反复重采样。
+- 保留坏事实门，否关判官修绿；只读谓词对照与live分开标。
+- R下独立资源，否生产试写；条件rejudge索引遗漏后停两题终态再隔离重启，不重发。
 
 ## 已验证
-精确代码3faf64fb：Python11612P/81S/2x/17warnings，Ruff；前端lint/typecheck/107P/build；E2E34P2S；registry五项+catalog通过。
-边界114例+组合26例；七类反证均exit1；原QC15/15；冻结拒绝索引[20,24,25]→[24,25]。
-收据`~/.finance-runtime/test-receipts/20260917T152129Z-3faf64fb.json`八项通过、base drift0；原件根`~/.finance-runtime/reviews/8792-boundary-integration-20260917/`。
+3faf原工程：Python11612P/81S/2x，前端107P，E2E34P2S，Ruff/registry通过；精确收据`20260917T152129Z-3faf64fb.json`，非本轮重跑。
+live F1拒写/F2计划保留/live阳性1条；F3路由正确但交付红。真证据离线6门对照通过、connect尝试0。快照hash/生产身份前后不变；敏感扫描词形误报逐条核销，不是全系统无泄漏证明。
 
 ## 踩过的坑
-- docs-only头不冒充精确代码收据；最近收据会被变异覆盖，指定上述文件。
-- QueryEnvelope无question；排序写口不看question_type放行。先核实际契约/阳性，避免空测。
-- ef9e1c19虽四叶绿，长副词前缀仍重复扫描；3faf64fb已另跑全量，不迁移旧11611P。
-- 共享记忆lint前后均19errors/17warnings，非本轮代码门禁红；不顺手修其他笔记或脏harness。
+completed不等于report完整；失败存根非空不是成功。通用probe打印的默认路径不是R/users实际路径。
+E99999不属E1..E999协议；首次离线红保留，改夹具E999才命中未知引用门。finalizer exit0只代表归档完成，业务not_passed。
