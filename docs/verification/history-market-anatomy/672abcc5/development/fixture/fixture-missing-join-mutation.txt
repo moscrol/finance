@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "<string>", line 7, in <module>
+  File "<missing-fixture-join>", line 1, in <module>
+NameError: name 'TestClient' is not defined

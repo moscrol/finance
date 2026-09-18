@@ -1,0 +1,253 @@
+{
+  "schema": "history-expression-offline-consumers-v1",
+  "revision": "672abcc504b3466a2ddd24dfa450c55703265c70",
+  "questions_sha256": "ddbedc2fcc9959ee29c7672dae64c703755ee5ada218759fdf1894007d208340",
+  "scope": "real controller/user-chain and Harness assembly; empty registry and scripted unfulfilled draft, no model or market DB",
+  "not_proven": [
+    "same-window rankings",
+    "startup feature/control groups",
+    "live answer quality",
+    "autonomous saved-artifact reads"
+  ],
+  "turns": [
+    {
+      "turn": 1,
+      "question": "以2026年9月15日为信息截止日，先判断当时市场处于什么阶段，分清标签来源、量价和涨跌家数证据；再把9月1日至9月15日作为观察窗，在2026年1月1日至8月31日中寻找多维度比较接近的历史窗口。说明比较口径、缺失和重叠窗口，不要把相似程度当预测胜率。本组研究只使用2026年1月1日至9月15日的本地历史数据，不联网补数。",
+      "task_frame_hash": "3d41fb9239ed7ba79631e9f6c26f2f20cfc4033940beaa69f87c839dbc10d057",
+      "history_intent": {
+        "purpose": "historical_comparison",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-15"
+      },
+      "cutoff": "2026-09-15",
+      "data_scope": "local_only",
+      "question_type_rules": "\n\n\n\n\n【专项研究纪律】\n仅在本轮材料范围和已授权工具内执行；缺失资料明确降级，不能扩大读取权限。下面是分析纪律，不是已有事实或审查通过证明；仍按本轮输出槽和证据绑定契约交付。\n联想与类比：从当前问题出发，按相关性检查产业链、竞对、宏观因素、事件传导、不同主体观点、历史模式；不相关的维度不强凑，已有结论不重复。\n每条线索说明为什么相关、来源、传导假设、验证办法及失效边界；图谱里的关系只证明登记过关联，不自动证明因果、采购份额或受益强度。\n历史类比同时列相似点与关键差异，比较供需结构、估值位置、政策/资金环境及时间尺度；历史后验表现不当作当时已知信息，案例不能代替完整样本的规律验证。\n不同机构/KOL 的观点保留归属和日期，不把重复转述算独立证据；推断明确标注，暂无有价值关联时如实说明。输出是待验证线索，不自动升为投资结论。\n",
+      "user_prompt_sha256": "d84bff75f3e9de3e0cfbb297524b9b4e7bb9776a859311d1351c63d9586e7d1b",
+      "system_prompt_sha256": "d7d003d4bab3df5bfed96efe11bc25cb3d4c1f0b1193e8c56e526f936a2215ed",
+      "forward_contract_headings": [],
+      "structural_missing_outputs": [
+        "direct_assessment",
+        "counterpoint",
+        "evidence_boundary"
+      ],
+      "after_expression_check": [
+        "direct_assessment",
+        "counterpoint",
+        "evidence_boundary"
+      ],
+      "counterfactual_without_history_intent": [
+        "direct_assessment",
+        "counterpoint",
+        "evidence_boundary"
+      ],
+      "track_contract": {
+        "check": "track_contract",
+        "track_intent": false,
+        "missing_outputs": [],
+        "prior_verdict_check": null,
+        "valid_until": null,
+        "ttl_status": "missing",
+        "baseline_declared": false
+      },
+      "ranking_contract": {
+        "check": "ranking_contract",
+        "ranking_intent": false,
+        "scenario_update_intent": false,
+        "missing_outputs": [],
+        "matrix_rows": 0,
+        "flip_rows": 0,
+        "competing_explanations": 0,
+        "next_actions": 0,
+        "as_of": null,
+        "artifact": null,
+        "prior_rerank": null,
+        "rerank_consistent": null
+      }
+    },
+    {
+      "turn": 2,
+      "question": "继续：从你刚才找到的相似历史窗口里选一个证据最完整的，看看当时强势的板块和个股分别有哪些。区分全市场排名与板块成员排名，再追踪有明确启动信号的代表：从启动到窗口内峰值经过了什么过程、量价怎么变、后来是否得到回撤确认？没触发、缺数据或窗口太短的请保留，不要只报赢家。仍沿用上一轮信息截止和研究范围。",
+      "task_frame_hash": "bf0ef16d6bd01db070a5ba6b3ddc23afcf0a5126f9924597e9555a8bd9d4b18d",
+      "history_intent": {
+        "purpose": "historical_comparison",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-15"
+      },
+      "cutoff": "2026-09-15",
+      "data_scope": "local_only",
+      "question_type_rules": "\n\n\n\n\n【专项研究纪律】\n仅在本轮材料范围和已授权工具内执行；缺失资料明确降级，不能扩大读取权限。下面是分析纪律，不是已有事实或审查通过证明；仍按本轮输出槽和证据绑定契约交付。\n联想与类比：从当前问题出发，按相关性检查产业链、竞对、宏观因素、事件传导、不同主体观点、历史模式；不相关的维度不强凑，已有结论不重复。\n每条线索说明为什么相关、来源、传导假设、验证办法及失效边界；图谱里的关系只证明登记过关联，不自动证明因果、采购份额或受益强度。\n历史类比同时列相似点与关键差异，比较供需结构、估值位置、政策/资金环境及时间尺度；历史后验表现不当作当时已知信息，案例不能代替完整样本的规律验证。\n不同机构/KOL 的观点保留归属和日期，不把重复转述算独立证据；推断明确标注，暂无有价值关联时如实说明。输出是待验证线索，不自动升为投资结论。\n",
+      "user_prompt_sha256": "9541d812ba5a7e445776b310f0e49a53144157c0fff2e7fea13ab96b168486de",
+      "system_prompt_sha256": "d7d003d4bab3df5bfed96efe11bc25cb3d4c1f0b1193e8c56e526f936a2215ed",
+      "forward_contract_headings": [],
+      "structural_missing_outputs": [
+        "direct_assessment",
+        "counterpoint",
+        "evidence_boundary"
+      ],
+      "after_expression_check": [
+        "direct_assessment",
+        "counterpoint",
+        "evidence_boundary"
+      ],
+      "counterfactual_without_history_intent": [
+        "direct_assessment",
+        "counterpoint",
+        "evidence_boundary",
+        "track_quad_or_baseline",
+        "track_ttl",
+        "track_next_watch",
+        "ranking_matrix",
+        "ranking_flip_conditions",
+        "ranking_competing_explanations",
+        "ranking_next_actions"
+      ],
+      "track_contract": {
+        "check": "track_contract",
+        "track_intent": false,
+        "missing_outputs": [],
+        "prior_verdict_check": null,
+        "valid_until": null,
+        "ttl_status": "missing",
+        "baseline_declared": false
+      },
+      "ranking_contract": {
+        "check": "ranking_contract",
+        "ranking_intent": false,
+        "scenario_update_intent": false,
+        "missing_outputs": [],
+        "matrix_rows": 0,
+        "flip_rows": 0,
+        "competing_explanations": 0,
+        "next_actions": 0,
+        "as_of": null,
+        "artifact": null,
+        "prior_rerank": null,
+        "rerank_consistent": null
+      }
+    },
+    {
+      "turn": 3,
+      "question": "那在这些代表板块见到窗口峰值后，有没有别的板块接上来？请用同一时间窗验证强弱切换；如果当前分析窗太短，只能在之前授权的日期范围内继续观察。日线先后是否足以说资金转移了？把未确认、没接上和缺数据的情况也说清。",
+      "task_frame_hash": "f141807c599b97d05d1ff9e028b54c50fd5ffc90dad487644968cf46258e9b9d",
+      "history_intent": {
+        "purpose": "historical_comparison",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-15"
+      },
+      "cutoff": "2026-09-15",
+      "data_scope": "local_only",
+      "question_type_rules": "\n\n\n\n\n【专项研究纪律】\n仅在本轮材料范围和已授权工具内执行；缺失资料明确降级，不能扩大读取权限。下面是分析纪律，不是已有事实或审查通过证明；仍按本轮输出槽和证据绑定契约交付。\n联想与类比：从当前问题出发，按相关性检查产业链、竞对、宏观因素、事件传导、不同主体观点、历史模式；不相关的维度不强凑，已有结论不重复。\n每条线索说明为什么相关、来源、传导假设、验证办法及失效边界；图谱里的关系只证明登记过关联，不自动证明因果、采购份额或受益强度。\n历史类比同时列相似点与关键差异，比较供需结构、估值位置、政策/资金环境及时间尺度；历史后验表现不当作当时已知信息，案例不能代替完整样本的规律验证。\n不同机构/KOL 的观点保留归属和日期，不把重复转述算独立证据；推断明确标注，暂无有价值关联时如实说明。输出是待验证线索，不自动升为投资结论。\n",
+      "user_prompt_sha256": "a4fff446603c5d8425adabf39805bf6f3ccfaad042a79f86b619dd0014b460bf",
+      "system_prompt_sha256": "d7d003d4bab3df5bfed96efe11bc25cb3d4c1f0b1193e8c56e526f936a2215ed",
+      "forward_contract_headings": [],
+      "structural_missing_outputs": [
+        "direct_assessment",
+        "counterpoint",
+        "evidence_boundary"
+      ],
+      "after_expression_check": [
+        "direct_assessment",
+        "counterpoint",
+        "evidence_boundary"
+      ],
+      "counterfactual_without_history_intent": [
+        "direct_assessment",
+        "counterpoint",
+        "evidence_boundary"
+      ],
+      "track_contract": {
+        "check": "track_contract",
+        "track_intent": false,
+        "missing_outputs": [],
+        "prior_verdict_check": null,
+        "valid_until": null,
+        "ttl_status": "missing",
+        "baseline_declared": false
+      },
+      "ranking_contract": {
+        "check": "ranking_contract",
+        "ranking_intent": false,
+        "scenario_update_intent": false,
+        "missing_outputs": [],
+        "matrix_rows": 0,
+        "flip_rows": 0,
+        "competing_explanations": 0,
+        "next_actions": 0,
+        "as_of": null,
+        "artifact": null,
+        "prior_rerank": null,
+        "rerank_consistent": null
+      }
+    },
+    {
+      "turn": 4,
+      "question": "最后把不同板块启动时的可计算特征放在同一口径下对照：哪些只是你用来筛选启动的条件，哪些才可能是额外共同特征？如果要说有后续收益规律，请把未启动或失败样本、缺数和未成熟样本也纳入比较。做不到的部分明确降级为研究假设，不要说已验证SPT或风远方法。范围与截止日继续不变。",
+      "task_frame_hash": "02dc152f8b151040bea601013cc6e7b148921e2b1e68690cb3ccc5a75a148e3d",
+      "history_intent": {
+        "purpose": "historical_comparison",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-15"
+      },
+      "cutoff": "2026-09-15",
+      "data_scope": "local_only",
+      "question_type_rules": "\n\n\n\n\n【专项研究纪律】\n仅在本轮材料范围和已授权工具内执行；缺失资料明确降级，不能扩大读取权限。下面是分析纪律，不是已有事实或审查通过证明；仍按本轮输出槽和证据绑定契约交付。\n联想与类比：从当前问题出发，按相关性检查产业链、竞对、宏观因素、事件传导、不同主体观点、历史模式；不相关的维度不强凑，已有结论不重复。\n每条线索说明为什么相关、来源、传导假设、验证办法及失效边界；图谱里的关系只证明登记过关联，不自动证明因果、采购份额或受益强度。\n历史类比同时列相似点与关键差异，比较供需结构、估值位置、政策/资金环境及时间尺度；历史后验表现不当作当时已知信息，案例不能代替完整样本的规律验证。\n不同机构/KOL 的观点保留归属和日期，不把重复转述算独立证据；推断明确标注，暂无有价值关联时如实说明。输出是待验证线索，不自动升为投资结论。\n",
+      "user_prompt_sha256": "5a301c09ae2bb263edf8d67e330cdfb987e7f33bb7901b7f68310e7ffd2a423f",
+      "system_prompt_sha256": "d7d003d4bab3df5bfed96efe11bc25cb3d4c1f0b1193e8c56e526f936a2215ed",
+      "forward_contract_headings": [],
+      "structural_missing_outputs": [
+        "direct_assessment",
+        "counterpoint",
+        "evidence_boundary"
+      ],
+      "after_expression_check": [
+        "direct_assessment",
+        "counterpoint",
+        "evidence_boundary"
+      ],
+      "counterfactual_without_history_intent": [
+        "direct_assessment",
+        "counterpoint",
+        "evidence_boundary"
+      ],
+      "track_contract": {
+        "check": "track_contract",
+        "track_intent": false,
+        "missing_outputs": [],
+        "prior_verdict_check": null,
+        "valid_until": null,
+        "ttl_status": "missing",
+        "baseline_declared": false
+      },
+      "ranking_contract": {
+        "check": "ranking_contract",
+        "ranking_intent": false,
+        "scenario_update_intent": false,
+        "missing_outputs": [],
+        "matrix_rows": 0,
+        "flip_rows": 0,
+        "competing_explanations": 0,
+        "next_actions": 0,
+        "as_of": null,
+        "artifact": null,
+        "prior_rerank": null,
+        "rerank_consistent": null
+      }
+    }
+  ]
+}

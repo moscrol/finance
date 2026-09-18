@@ -1,0 +1,10 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_legacy_calendar_absence_is_unknown_not_zero_and_later_dates_do_not_expand_window _
+tests/test_history_succession_projection.py:95: in test_legacy_calendar_absence_is_unknown_not_zero_and_later_dates_do_not_expand_window
+    assert all(r["observed_days"] is None for r in pairs if "succession_status" in r)
+E   assert False
+E    +  where False = all(<generator object test_legacy_calendar_absence_is_unknown_not_zero_and_later_dates_do_not_expand_window.<locals>.<genexpr> at 0x108bf6740>)
+=========================== short test summary info ============================
+FAILED tests/test_history_succession_projection.py::test_legacy_calendar_absence_is_unknown_not_zero_and_later_dates_do_not_expand_window
+1 failed in 0.41s

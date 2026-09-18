@@ -1,0 +1,80 @@
+{
+  "suite": "succession",
+  "scope": "author-side in-memory mutation tests; no product source edits, independent QC or live-model claim",
+  "revision": "672abcc504b3466a2ddd24dfa450c55703265c70",
+  "dirty_paths": [],
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "source_sha256": {
+    "intelligence/services/episode_tools.py": "7abfaec10ecc6976267b82fc420bfd3e753953eb9688f0acb47f0b4064b68e9b",
+    "intelligence/services/historical_research/anatomy.py": "513c171e56ec66bcea30a38cc0c9cc5cd437bef1b488b92723fd3fb21b9dfb75",
+    "intelligence/services/historical_research/episode.py": "2c308601cca51ed717901705fe34403dea27fee358f6db0d4847f0b1e827202f",
+    "intelligence/services/historical_research/recovery.py": "ef4b4b894531dfac2d47913699f853b1ef7969b51dabc35621a99033aa7072d7",
+    "intelligence/services/historical_research/succession_projection.py": "01811f53289f0eb48d660f5d44c6d6fa2394a320a6a2eca86b8c513400c153ae",
+    "scripts/history_anatomy_arithmetic.py": "7f7fe7f4b52585cae72dca6191c29996fbedd02d9aa4772df3fa877592f6310b",
+    "scripts/review_probes/history_diagnostic_mutations.py": "7f976c016e674541cb63b2c25abb45819245f2178c1701944056acc268cd47a0",
+    "tests/test_history_argument_repair.py": "7febd49bdb1331be757dfcf812854d2afa438e49328dea4a502a8c735ed5db08",
+    "tests/test_history_market_anatomy.py": "bc80b3fd61196778c393603765b304183f86b3cf76374e992a7b11e2f2dbef0e",
+    "tests/test_history_model_projection.py": "02b0e60ca17ea1932b444206da40fc99c39c53328086cf16bf293e038ba3a2f1",
+    "tests/test_history_succession_projection.py": "18b871d67301c6b06164a970da961aa1eed22b6fb9f8b282e488d9a7275dda22",
+    "tests/test_history_tool_diagnostics.py": "48f32dc4a8b2be312310d4a5d139aef95463222cda68a6205d5b24f96212d022"
+  },
+  "source_unchanged": true,
+  "mutations": [
+    {
+      "mutation": "erase_pair_projection",
+      "test": "tests/test_history_succession_projection.py::test_saved_live_pairs_deliver_atomic_status_reason_and_actual_observation_dates",
+      "exit_code": 1,
+      "caught": true,
+      "log": "erase_pair_projection.txt",
+      "sha256": "a7e02a99b808be83b826af45e8dec3c0124b8b5a3ffbed7a20581f8cc4eceb77"
+    },
+    {
+      "mutation": "immature_means_failed",
+      "test": "tests/test_history_succession_projection.py::test_citing_only_pair_status_delivers_reason_to_actual_semantic_review_projection",
+      "exit_code": 1,
+      "caught": true,
+      "log": "immature_means_failed.txt",
+      "sha256": "88487667510893ef77dcdd356ad39b4f0d06031d73836c5064acc1def9c56701"
+    },
+    {
+      "mutation": "require_peak_confirmation",
+      "test": "tests/test_history_succession_projection.py::test_calculator_records_same_peak_next5_dates_without_confirmation_prerequisite",
+      "exit_code": 1,
+      "caught": true,
+      "log": "require_peak_confirmation.txt",
+      "sha256": "8a2bd77febbea9f99787a8a25cd5b9b134d64896f5ee4edc064c45813ee0b7e5"
+    },
+    {
+      "mutation": "include_source_peak_in_returns",
+      "test": "tests/test_history_succession_projection.py::test_target_signal_window_excludes_peak_includes_fifth_but_not_sixth_date",
+      "exit_code": 1,
+      "caught": true,
+      "log": "include_source_peak_in_returns.txt",
+      "sha256": "1cb92c4ccc91c4d629901851dc10ce808096ffb5e35410b5ef79db9b37a8cc35"
+    },
+    {
+      "mutation": "target_signal_anchors_returns",
+      "test": "tests/test_history_succession_projection.py::test_calculator_records_same_peak_next5_dates_without_confirmation_prerequisite",
+      "exit_code": 1,
+      "caught": true,
+      "log": "target_signal_anchors_returns.txt",
+      "sha256": "97d9c7d44b17f12cfb1e9ad24fded8263b9ba5a05202bf1633309d4435c2c187"
+    },
+    {
+      "mutation": "missing_calendar_becomes_zero",
+      "test": "tests/test_history_succession_projection.py::test_legacy_calendar_absence_is_unknown_not_zero_and_later_dates_do_not_expand_window",
+      "exit_code": 1,
+      "caught": true,
+      "log": "missing_calendar_becomes_zero.txt",
+      "sha256": "754a30762169cc3ee14b0304f54d8909a3ca8d454bc2bd5773bf8b9589fdb8f2"
+    },
+    {
+      "mutation": "erase_pair_recovery_priority",
+      "test": "tests/test_history_succession_projection.py::test_actual_recovery_retains_all_six_saved_pair_states_before_nav_and_members",
+      "exit_code": 1,
+      "caught": true,
+      "log": "erase_pair_recovery_priority.txt",
+      "sha256": "a767a37704c263a86ed04b7eca90fc71d95803772b8b82e7226633040280b112"
+    }
+  ]
+}
