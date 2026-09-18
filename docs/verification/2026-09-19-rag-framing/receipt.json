@@ -1,0 +1,295 @@
+{
+  "at": "2026-09-18T16:40:37.983209+00:00",
+  "revision": "20939b18bcb4a00f1eec9098dc52887ab1f71c02",
+  "code_root": "/Users/a77/.finance-runtime/reviews/research-rag-framing-repair-20260919/code",
+  "engineering_all_green": true,
+  "engineering": {
+    "pytest": {
+      "passed": 11703,
+      "skipped": 81,
+      "xfailed": 2,
+      "exit": 0
+    },
+    "frontend_tests_passed": 115,
+    "e2e": {
+      "passed": 34,
+      "skipped": 2,
+      "exit": 0
+    },
+    "registry": "four checks exit 0",
+    "dirty_before_and_after": false
+  },
+  "engineering_receipt": {
+    "bytes": 677,
+    "sha256": "de0361034f04064f8a974e4c6e623c9ed72dc499ba118b8428aa945390acd50f"
+  },
+  "readiness": "ready before submission; not acceptance",
+  "new_live": {
+    "schema": "rag-repair-live-review/v1",
+    "at": "2026-09-18T16:39:04.464529+00:00",
+    "revision": "20939b18bcb4a00f1eec9098dc52887ab1f71c02",
+    "run_id": "run_20260919_002806_645542",
+    "conversation_id": "conv_b1cf0368ed3f4a66ad0bb5f437f27f0a",
+    "assistant_message_id": "msg_04f66e8b950242888b8703babe3317b6",
+    "initial_submissions": 1,
+    "resubmissions": 0,
+    "followups": 0,
+    "engineering": "passed_on_20939b18",
+    "public_delivery": "observed_pass",
+    "run_status": "completed",
+    "publication": {
+      "status": "published",
+      "message_id": "msg_04f66e8b950242888b8703babe3317b6"
+    },
+    "report_status": "partial",
+    "public_chars": 2137,
+    "artifacts": [
+      "history-query-5c1082499b9b2df5825b1ba7d9a6a52cda22422b7ba407c25ff77e25c235f7b4.json",
+      "history-query-0d2f38973bd80b938020e64fc8daf85f1d2ce137cb2828b65120a74cde635040.json",
+      "history-query-1634b27ae00b9b1280183390846554b1af573a703f65403c83c7c5096e4896bf.json",
+      "history-query-1632286227f8b70776fcd373263a0b9c91dadda9887012a28de2e63f93acbc73.json",
+      "answer.md",
+      "report.json",
+      "followups.json"
+    ],
+    "actual_root_models": {
+      "glm-5.3-flash": 14
+    },
+    "tool_requests": 16,
+    "tool_results": 11,
+    "tool_errors": 5,
+    "all_call_ids_settled": true,
+    "mapping_failure": "absent; invalid arguments and runtime errors returned without crashing",
+    "natural_parameter_correction": {
+      "missing_entity_codes": "subsequent calls supply exact code, compute_history later returns results",
+      "find_analogues_reference_window": "four attempts failed; not solved, no successful sector analogues",
+      "missing_end_original_shape": "not triggered in this sample",
+      "prior_evidence_hashes_preserved": 97,
+      "final_evidence_count": 122
+    },
+    "natural_format_repair": {
+      "rejected_turn": "turn-13",
+      "accepted_turn": "turn-14",
+      "rejection": "not_json_object",
+      "strict_json_failure": {
+        "type": "JSONDecodeError",
+        "message": "Invalid control character at",
+        "line": 1,
+        "column": 171
+      },
+      "first_draft_chars_diagnostic_only": 2096,
+      "accepted_draft_chars": 2094,
+      "diagnostic_extraction": "json.loads(strict=False) of this inspected envelope only; not product repair or admission",
+      "draft_edits": [
+        {
+          "kind": "replace",
+          "before": "今",
+          "after": "当"
+        },
+        {
+          "kind": "replace",
+          "before": "FY-A01",
+          "after": "判读规则"
+        }
+      ],
+      "bindings_and_history_refs_identical": true,
+      "accepted_draft_is_public_prefix": true
+    },
+    "system_candidate_preservation": {
+      "verdict": "not_proven_on_this_live_shape",
+      "candidate_parser_returned": null,
+      "retained_candidate_count": 0,
+      "reason": "literal newlines inside JSON string plus prefix fail complete-envelope parsing",
+      "natural_rewrite_does_not_prove_retention": true,
+      "old_original_replay": "passed separately, old live not reclassified"
+    },
+    "rag_framing": "deterministic pipe regressions and six mutations passed; live readiness prewarm succeeded, no root kb_search request",
+    "author_financial_review": {
+      "verdict": "not_passed",
+      "independent_qc": false,
+      "positive": [
+        "sector alternatives, observed historical windows, data date, limitations, and research-only/partial notice present"
+      ],
+      "issues": [
+        {
+          "id": "Q1",
+          "claim": "相似窗口最低12个",
+          "evidence": "E1: three window means are 12, 13, 8",
+          "finding": "wrong lower bound; no recalculation needed"
+        },
+        {
+          "id": "Q2",
+          "claim": "没有一段在随后5-20日出现系统性下跌，主线环境（涨停/连板/双红数）不收缩",
+          "evidence": "E1 reports endpoint returns, not intraperiod drawdown; first window limit-ups 62 -> 54/56/57, second 60 -> 60/59/59",
+          "finding": "endpoint return overextended to path; non-contraction not true for all listed measures"
+        },
+        {
+          "id": "Q3",
+          "claim": "PCB -1.19% vs -2.42%; limit-ups 3 vs current 0",
+          "evidence": "E18 PCB概念 vs E19/E100 PCB; E94 theme heat 3 vs D4 projection 0",
+          "finding": "different entity/source denominators not explained; not authority to choose one silently"
+        },
+        {
+          "id": "Q4",
+          "claim": "胜率中等、需>=3-5家、汽车持续>=10家",
+          "evidence": "no calibrated probability or tested threshold derivation in this run",
+          "finding": "if proposed watch hypotheses, must label them as such rather than validated levels"
+        }
+      ]
+    },
+    "product_judge": {
+      "status": "passed",
+      "correlated": true,
+      "not_independent_certification": true
+    },
+    "overall_acceptance": "not_passed",
+    "promotion_eligible": false,
+    "old_live_acceptance": "both not_passed unchanged",
+    "production_changed": false,
+    "source_digests": {
+      "episode": {
+        "bytes": 2139937,
+        "sha256": "02f536171512cb2c7fb0bf30e86f1243ba22f50c5ac1e566d3035b153e5dbd68"
+      },
+      "events": {
+        "bytes": 399914,
+        "sha256": "b02b6693d22819fd1b24cb1ff973b2941d8da4dc1858fbd6f1e5702d25af9665"
+      },
+      "public_answer": {
+        "bytes": 4729,
+        "sha256": "84a74bbceed2dd95d4ac128824fd2b26fe20025ce54ced1fbaf072d3a45d6ebc"
+      }
+    },
+    "scope": "author source/evidence review, read-only archived run; no model rerun, tool reexecution, or financial recalculation"
+  },
+  "closure": {
+    "at": "2026-09-18T16:34:31.498106+00:00",
+    "server_stopped": true,
+    "owned_lock_removed": true,
+    "production_identity_unchanged": {
+      "source_revision": true,
+      "source_dirty": true,
+      "loaded_code_root": true,
+      "loaded_tree_fingerprint": true,
+      "code_matches_repo": true,
+      "users_dir": true,
+      "agent_runtime": true
+    },
+    "launcher_unchanged": true,
+    "market_snapshot_unchanged": true,
+    "exports_unchanged": {
+      "market_feature_store/exports": true,
+      "market_snapshot": true
+    },
+    "previous_manifest_unchanged": {
+      "/Users/a77/.finance-runtime/reviews/research-answer-preservation-20260918/evidence-index.json": true,
+      "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/artifact-index.json": true,
+      "/Users/a77/.finance-runtime/reviews/research-candidate-preservation-20260918/artifact-index.json": true,
+      "/Users/a77/.finance-runtime/reviews/research-candidate-live-20260918/artifact-index.json": true,
+      "/Users/a77/.finance-runtime/reviews/research-candidate-glm-live-20260918/artifact-index.json": true,
+      "/Users/a77/.finance-runtime/reviews/research-progress-repair-20260918/artifact-index.json": true,
+      "/Users/a77/.finance-runtime/reviews/research-publication-repair-20260918/artifact-index.json": true,
+      "/Users/a77/.finance-runtime/reviews/research-publication-live-20260918/artifact-index.json": true
+    },
+    "test_user_in_shared_roots": {
+      "/Users/a77/.local/share/finance-workbench/users": false,
+      "/Users/a77/agent-memory/.foresight": false
+    },
+    "code_clean": true,
+    "scope": "declared roots checked; not OS sandbox or proof of every external cache"
+  },
+  "isolated_ports_listening": {
+    "8849": false,
+    "8851": false,
+    "8852": false
+  },
+  "previous_bundles": {
+    "at": "2026-09-18T16:39:43.263635+00:00",
+    "verified": [
+      {
+        "manifest": "/Users/a77/.finance-runtime/reviews/research-answer-preservation-20260918/evidence-index.json",
+        "digest": {
+          "bytes": 35130,
+          "sha256": "e948a9a3a466d316a026a6b6e75e79a2319fc42fb166aba863e7a060b7355a7f"
+        },
+        "files_verified": 214,
+        "unchanged": true
+      },
+      {
+        "manifest": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/artifact-index.json",
+        "digest": {
+          "bytes": 7906,
+          "sha256": "c659c462796b2c540de8edc6e4780c4bb608f341adf6b7a6ebf638ba4a861329"
+        },
+        "files_verified": 44,
+        "unchanged": true
+      },
+      {
+        "manifest": "/Users/a77/.finance-runtime/reviews/research-candidate-preservation-20260918/artifact-index.json",
+        "digest": {
+          "bytes": 14467,
+          "sha256": "e42627f3bbdd527690e1b02616037fecc083c73703fa9f9e4147985066c7c96a"
+        },
+        "files_verified": 90,
+        "unchanged": true
+      },
+      {
+        "manifest": "/Users/a77/.finance-runtime/reviews/research-candidate-live-20260918/artifact-index.json",
+        "digest": {
+          "bytes": 938,
+          "sha256": "f70d225f83af608238c9220b2ec6f953eba6de44e15b81b89cadca5d1de7d31f"
+        },
+        "files_verified": 6,
+        "unchanged": true
+      },
+      {
+        "manifest": "/Users/a77/.finance-runtime/reviews/research-candidate-glm-live-20260918/artifact-index.json",
+        "digest": {
+          "bytes": 12910,
+          "sha256": "ac3fcf713460f2363ac96b3c9efb597ce3c34b81ed042db98a28db7f1b00f855"
+        },
+        "files_verified": 82,
+        "unchanged": true
+      },
+      {
+        "manifest": "/Users/a77/.finance-runtime/reviews/research-progress-repair-20260918/artifact-index.json",
+        "digest": {
+          "bytes": 59273,
+          "sha256": "d46b8db3c5c9cb3548d2a70ed7e869338c1d3e9e56b46fc808738afe41b4a9b2"
+        },
+        "files_verified": 296,
+        "unchanged": true
+      },
+      {
+        "manifest": "/Users/a77/.finance-runtime/reviews/research-publication-repair-20260918/artifact-index.json",
+        "digest": {
+          "bytes": 64973,
+          "sha256": "d4a7d5fdeda06bafc702c22dbd93969d70468ac3b5709ae11bd1ae810ddf828d"
+        },
+        "files_verified": 338,
+        "unchanged": true
+      },
+      {
+        "manifest": "/Users/a77/.finance-runtime/reviews/research-publication-live-20260918/artifact-index.json",
+        "digest": {
+          "bytes": 65570,
+          "sha256": "8ed34ffe865a5c3c7eae2b2d1939ecc6eed923cc7ce5c3d682a3b3f12bfd03b1"
+        },
+        "files_verified": 341,
+        "unchanged": true
+      }
+    ]
+  },
+  "archive_limits": "only listed files; no OS sandbox claim; KB/web/financial inputs were not frozen",
+  "inspection_correction": "first inspector incorrectly required private continuous-episode in public list; assertion exit1 retained, corrected to exact private run path and public answer/report hashes",
+  "push": false,
+  "merge": false,
+  "deployment": false,
+  "next": "separate rejected malformed-envelope retention from safe identity validation, and fix evidence/caliber reasoning before any further authorized live sample; do not rerun this sample",
+  "archive": {
+    "root": "/Users/a77/.finance-runtime/reviews/research-rag-framing-repair-20260919",
+    "files": 423,
+    "bytes": 17991204,
+    "manifest_sha256": "877af81dfbabec17eba778faa14f364aca22a801bdd958a614dbd7c6afe6b720"
+  }
+}
