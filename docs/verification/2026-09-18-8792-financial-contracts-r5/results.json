@@ -1,0 +1,82 @@
+{
+  "schema": "financial-contract-offline-repair/v1",
+  "code_revision": "dfd7b4ff6c52f76f342b2abeecc24c9045589d79",
+  "parent_revision": "068e2a4652d7b8e0250c9d046272e7889b15c5b9",
+  "base_revision": "0a1cb8c44aaf2d19ae5f5809bf27119b709b8442",
+  "engineering": "passed",
+  "live_acceptance": "not_retested",
+  "promotion_eligible": false,
+  "pytest": {
+    "passed": 11929,
+    "failed": 0,
+    "error": 0,
+    "skipped": 81,
+    "xfailed": 2,
+    "warnings": 17,
+    "seconds": 672.08,
+    "dirty": false,
+    "receipt": "20260918T094440Z-dfd7b4ff.json",
+    "receipt_sha256": "168d9d9473914b799100ec16a80bac2ac935be4454439962160eece6de198860"
+  },
+  "frontend": {
+    "passed": 107,
+    "lint": "passed",
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "e2e": {
+    "passed": 34,
+    "skipped": 2,
+    "failed": 0,
+    "fixture_only": true,
+    "ports": [
+      8893,
+      8895
+    ]
+  },
+  "ruff": "passed",
+  "registry_commands_passed": 6,
+  "registry_crosswalk_warnings": 98,
+  "targeted_dirty_passed": 599,
+  "new_regression_cases": 77,
+  "mutation_groups": 14,
+  "legacy_mutation_groups": 16,
+  "behavioral_failures_required": true,
+  "qc": {
+    "tests_run": 15,
+    "failures": 0,
+    "errors": 0
+  },
+  "archived_checks": {
+    "source_unchanged": true,
+    "scope": "pure parsers/projections; not complete Episode or finance semantic certification"
+  },
+  "prior_r3": {
+    "verdict": "not_passed",
+    "passed": 0,
+    "initial_submissions": 4,
+    "resubmissions": 0,
+    "clarification_replies": 0
+  },
+  "new_live_submissions": 0,
+  "new_live_cost": null,
+  "pushed": false,
+  "merged": false,
+  "deployed": false,
+  "judge_switches_changed": false,
+  "borrowed_committed_sources": [
+    "a93b50c2ee69022e2b0106f825e6d6079a707afb",
+    "a9a7ce9228661156da3054d67fd7ea33b83adf45",
+    "d77383acce048e58b1f8cce87ed0b5f5452282e4"
+  ],
+  "limits": [
+    "report candidate universe incomplete",
+    "period mention does not prove per-period financial analysis",
+    "numeric product and dependencies do not prove formula or claim semantics",
+    "historical provider window not expanded by cutoff alone",
+    "multi-subject contract inference not certified",
+    "baseline/global TTL/semantic calculation-ID disputes remain",
+    "no natural model repair acceptance",
+    "full suite is not a whole-machine network/write audit"
+  ]
+}
