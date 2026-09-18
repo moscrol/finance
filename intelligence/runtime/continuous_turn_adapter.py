@@ -34,6 +34,7 @@ from intelligence.services.episode_store import EPISODE_LOG_VERSION
 from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     SemanticEpisodeOutcome,
+    semantic_repair_feedback,
     numeric_condition_unsupported,
     recheck_material_public_delivery,
 )
@@ -836,10 +837,7 @@ class ContinuousTurnAdapter:
                     previous_snapshot=previous_snapshot,
                     current_snapshot=current_snapshot,
                     cycle=repair_attempts,
-                    rejected_claims=tuple(
-                        f"claim_index:{index}"
-                        for index in semantic.rejected_claim_indexes
-                    ),
+                    rejected_claims=semantic_repair_feedback(semantic),
                     semantic_gap_outputs=semantic.gap_output_ids,
                     allow_delivery_repair=not delivery_repair_attempted,
                 )

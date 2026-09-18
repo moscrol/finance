@@ -2,7 +2,8 @@
 
 No model calls, no inferred bindings, no permissive substring JSON recovery.
 Only a complete envelope (optionally preceded by prose on separate lines) can
-supply a candidate. Public delivery still runs the normal safety and QC gates.
+supply a candidate. Literal layout controls in the top-level draft string may
+be escaped for retention only. Public delivery still runs normal safety/QC.
 """
 from __future__ import annotations
 
@@ -36,6 +37,70 @@ class FinishCandidate:
     review_pending: bool = True
 
 
+def _draft_string(text: str, start: int) -> tuple[str, int]:
+    """Decode one quoted draft, escaping only literal LF/CR/TAB, never quotes.
+
+    An unescaped quote ends the string; the caller must then see a comma or
+    closing brace. No guessing where prose ends and control fields begin.
+    """
+    if text[start:start + 1] != '"':
+        raise ValueError("draft must be a string")
+    escaped = ['"']
+    offset = start + 1
+    layout = {"\n": "\\n", "\r": "\\r", "\t": "\\t"}
+    while offset < len(text):
+        char = text[offset]
+        offset += 1
+        if char == '"':
+            escaped.append(char)
+            return json.loads("".join(escaped)), offset
+        if char == "\\":
+            # Leave escape validity to the strict JSON string decoder.
+            escaped.append(text[offset - 1:offset + 1])
+            offset += 1
+        else:
+            escaped.append(layout.get(char, char))
+    raise ValueError("unterminated draft")
+
+
+def _layout_candidate(text: str) -> dict[str, object]:
+    """Parse ONE whole object; all values except top-level draft stay strict.
+
+    This is a candidate-only parser, not finish admission. Duplicate keys at
+    every depth still fail, including alternate escaped spellings of draft.
+    """
+    decoder = json.JSONDecoder(object_pairs_hook=_unique_json_keys)
+    offset = 1
+    pairs = []
+    while True:
+        offset = _json_space_end(text, offset)
+        key, offset = decoder.raw_decode(text, offset)
+        if not isinstance(key, str):
+            raise ValueError("object key must be a string")
+        offset = _json_space_end(text, offset)
+        if text[offset:offset + 1] != ':':
+            raise ValueError("missing colon")
+        offset = _json_space_end(text, offset + 1)
+        value, offset = (_draft_string(text, offset) if key == "draft"
+                         else decoder.raw_decode(text, offset))
+        pairs.append((key, value))
+        offset = _json_space_end(text, offset)
+        delimiter = text[offset:offset + 1]
+        if delimiter == '}':
+            if text[offset + 1:].strip():
+                raise ValueError("trailing content")
+            return _unique_json_keys(pairs)
+        if delimiter != ',':
+            raise ValueError("missing object delimiter")
+        offset += 1
+
+
+def _json_space_end(text: str, offset: int) -> int:
+    while offset < len(text) and text[offset] in " \t\r\n":
+        offset += 1
+    return offset
+
+
 def _candidate_object(content: object) -> tuple[str, dict[str, object]] | None:
     if isinstance(content, Mapping):
         return "", dict(content)
@@ -55,7 +120,10 @@ def _candidate_object(content: object) -> tuple[str, dict[str, object]] | None:
         try:
             value, end = decoder.raw_decode(raw, offset)
         except (ValueError, RecursionError):
-            continue
+            try:
+                value, end = _layout_candidate(raw[offset:]), len(raw)
+            except (ValueError, RecursionError):
+                continue
         if isinstance(value, dict) and {"status", "draft", "gaps", "bindings"} <= value.keys():
             found.append((offset, end, value))
     if len(found) != 1:

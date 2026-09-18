@@ -107,6 +107,7 @@ from intelligence.services.research_contract import (
     policy_for_env,
 )
 from intelligence.services.task_frame import TaskFrame, last_explicit_iso_date
+from intelligence.services.evidence_claim_review import ClaimFinding, review_evidence_claims
 from intelligence.services.research_annotations import annotate_research_answer
 from intelligence.services.research_public_prose import has_public_analysis, sanitize_public_analysis
 from intelligence.services.task_fulfillment import answer_has_output_marker
@@ -535,6 +536,7 @@ class SemanticEpisodeOutcome:
     # Delivery and review are orthogonal. Preserved prose is not a quality pass.
     delivery_mode: str = "reviewed"
     review_notes: tuple[str, ...] = ()
+    evidence_claim_findings: tuple[ClaimFinding, ...] = ()
     issues: tuple[str, ...] = ()
     correlated_judge: bool = False
     # #55：谁在判——"llm" 是第二模型判官，"deterministic" 是只有确定性门。与
@@ -616,6 +618,7 @@ class SemanticEpisodeOutcome:
             "judge_status": self.judge_status,
             "delivery_mode": self.delivery_mode,
             "review_notes": list(self.review_notes),
+            "evidence_claim_findings": [item.to_dict() for item in self.evidence_claim_findings],
             "issues": list(self.issues),
             "correlated_judge": self.correlated_judge,
             "judge_mode": self.judge_mode,
@@ -669,6 +672,22 @@ class SemanticEpisodeOutcome:
         if self.judge_request is not None:
             payload["judge_request"] = self.judge_request
         return payload
+
+
+def semantic_repair_feedback(outcome: SemanticEpisodeOutcome) -> tuple[str, ...]:
+    """Give the existing repair loop an actionable claim, not only an index.
+
+    Numbering is private diagnostic metadata. Do not inject whole source cards
+    or start another repair budget; the session already owns its evidence.
+    """
+    sentences = {int(row['index']): str(row['text']) for row in _numbered_sentences(outcome.verified.outcome.draft)}
+    return tuple(
+        (f"claim_index:{index} 原句：{sentences.get(index, '')} "
+         + "；".join(f"{f.code}: {f.message}" for f in outcome.evidence_claim_findings if f.sentence_index == index))
+        if any(f.sentence_index == index for f in outcome.evidence_claim_findings)
+        else f"claim_index:{index}"
+        for index in outcome.rejected_claim_indexes
+    )
 
 
 def recheck_material_public_delivery(
@@ -1435,6 +1454,14 @@ class SemanticEpisodeVerifier:
                 delivery_mode="no_public_analysis",
             )
         sentences = _numbered_sentences(draft)
+        claim_findings = review_evidence_claims(sentences, structural.outcome)
+        claim_indexes = tuple(sorted({f.sentence_index for f in claim_findings}))
+        self._record_sentence_verdicts(
+            stage=VERDICT_STAGE_PREFLIGHT, indexes=claim_indexes,
+            sentences=sentences, verified=structural,
+            decision_for={i: VERDICT_DEMOTED for i in claim_indexes},
+            reasons_for={i: tuple(f.code for f in claim_findings if f.sentence_index == i) for i in claim_indexes},
+        )
         reasons = _mechanical_reasons_by_index(
             numeric=_novel_numeric_condition_indexes(sentences, structural),
             weekday=_mismatched_weekday_indexes(sentences, structural),
@@ -1455,7 +1482,8 @@ class SemanticEpisodeVerifier:
             VERDICT_REASON_ORDINAL: "引用编号未能对应到本轮证据，不能作为出处",
             VERDICT_REASON_EVIDENCE_DATE: "所述日期与引用证据日期不一致，需要更正",
         }
-        notes: list[str] = []
+        notes: list[str] = [f"原稿第{f.sentence_index}句：{f.message}" for f in claim_findings]
+        issues.extend(f"code={f.code} sentence={f.sentence_index} :: {f.message}" for f in claim_findings)
         from intelligence.services.finish_candidate import CANDIDATE_REVIEW_NOTICE
         if CANDIDATE_REVIEW_NOTICE in structural.outcome.gaps:
             notes.append(CANDIDATE_REVIEW_NOTICE)
@@ -1555,7 +1583,7 @@ class SemanticEpisodeVerifier:
                     + (f"复核意见：{detail}" if detail else "")
                 )
             issues.extend(self._semantic_reject_issues)
-            if reasons or self._semantic_reject_texts or rejected_delivery is not None:
+            if reasons or claim_findings or self._semantic_reject_texts or rejected_delivery is not None:
                 judge_status = "rejected"
             elif rejected or (call.report and not call.report.passed):
                 judge_status = "repaired"
@@ -1571,6 +1599,8 @@ class SemanticEpisodeVerifier:
             correlated_judge=call.correlated,
             delivery_mode="preserved_analysis" if notes else "reviewed",
             review_notes=safe_notes,
+            evidence_claim_findings=claim_findings,
+            rejected_claim_indexes=claim_indexes,
             unattempted_claim_count=hygiene.unattempted_claim_count, asked_date_coverage=hygiene.asked_date_coverage,
         )
         return _attach_judge_clock(outcome, call)
