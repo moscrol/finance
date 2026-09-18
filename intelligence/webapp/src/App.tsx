@@ -100,6 +100,18 @@ interface StreamIdentity {
   runId: string;
 }
 
+function isPublishedTerminalRun(
+  run: Run, identity: StreamIdentity,
+): run is Run & { status: "completed" | "failed" | "cancelled" } {
+  return (
+    run.run_id === identity.runId &&
+    run.session_id === identity.conversationId &&
+    ["completed", "failed", "cancelled"].includes(run.status) &&
+    run.publication?.status === "published" &&
+    run.publication.message_id === identity.messageId
+  );
+}
+
 export default function App() {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [credits, setCredits] = useState<CreditsSummary | null>(null);
@@ -212,7 +224,7 @@ export default function App() {
   );
 
   const loadConversationData = useCallback(
-    async (conversationId: string): Promise<ChatMessage[]> => {
+    async (conversationId: string) => {
       const generation = ++conversationGeneration.current;
       const nextMessages = await getConversationMessages(conversationId, user);
       const runIds = [
@@ -241,22 +253,20 @@ export default function App() {
           .then((value) => value ?? null)
           .catch(() => null),
       ]);
-      if (
-        activeConversationRef.current === conversationId &&
-        conversationGeneration.current === generation
-      ) {
+      const nextBundles = Object.fromEntries(
+        bundles.filter(
+          (item): item is readonly [string, RunBundle] => item !== null,
+        ),
+      );
+      const applied = activeConversationRef.current === conversationId &&
+        conversationGeneration.current === generation;
+      if (applied) {
         setMessages(nextMessages);
-        setRunBundles(
-          Object.fromEntries(
-            bundles.filter(
-              (item): item is readonly [string, RunBundle] => item !== null,
-            ),
-          ),
-        );
+        setRunBundles(nextBundles);
         setResearchProject(project);
         setResearchEvolution(evolution);
       }
-      return nextMessages;
+      return { messages: nextMessages, bundles: nextBundles, applied };
     },
     [fetchRunBundle, user],
   );
@@ -272,33 +282,33 @@ export default function App() {
   const finalizeRun = useCallback(
     async (
       identity: StreamIdentity,
-      status: "completed" | "failed" | "cancelled",
       events: EventSource,
     ) => {
       if (eventSourceRef.current !== events) return;
       if (finalizingRunRef.current === identity.runId) return;
       finalizingRunRef.current = identity.runId;
-      setLiveMessages((current) => {
-        const state = current[identity.messageId];
-        return state?.runId === identity.runId
-          ? {
-              ...current,
-              [identity.messageId]: {
-                ...state,
-                status,
-                connection: "connected",
-              },
-            }
-          : current;
-      });
-      clearRunPolling();
-      events.close();
-      eventSourceRef.current = null;
       try {
-        await Promise.all([
-          loadConversationData(identity.conversationId),
-          listConversations(user).then(setConversations),
-        ]);
+        const loaded = await loadConversationData(identity.conversationId);
+        if (!loaded.applied || eventSourceRef.current !== events) return;
+        const bundle = loaded.bundles[identity.runId];
+        const message = loaded.messages.find((item) =>
+          item.role === "assistant" && item.message_id === identity.messageId &&
+          item.run_id === identity.runId && item.conversation_id === identity.conversationId,
+        );
+        if (!bundle || !isPublishedTerminalRun(bundle.run, identity) ||
+            !message || message.status !== bundle.run.status) return;
+        const status = bundle.run.status;
+        clearRunPolling();
+        events.close();
+        eventSourceRef.current = null;
+        setLiveMessages((current) => {
+          const state = current[identity.messageId];
+          return state?.runId === identity.runId
+            ? { ...current, [identity.messageId]: { ...state,
+                status, connection: "connected" } }
+            : current;
+        });
+        setConversations(await listConversations(user));
         // 结算发生在 worker 返回之后、SSE 收口之后几毫秒；等两次往返回来再读余额，读到的是结算后的数。
         refreshCredits();
         setLiveMessages((current) => {
@@ -384,12 +394,8 @@ export default function App() {
         try {
           const run = await getRun(identity.runId, user);
           if (eventSourceRef.current !== events) return;
-          if (["completed", "failed", "cancelled"].includes(run.status)) {
-            await finalizeRun(
-              identity,
-              run.status as "completed" | "failed" | "cancelled",
-              events,
-            );
+          if (isPublishedTerminalRun(run, identity)) {
+            await finalizeRun(identity, events);
           }
         } catch {
           if (eventSourceRef.current !== events) return;
@@ -435,12 +441,8 @@ export default function App() {
             (rawEvent as MessageEvent<string>).data,
           ) as Run;
           if (nextRun.run_id !== identity.runId) return;
-          if (["completed", "failed", "cancelled"].includes(nextRun.status)) {
-            void finalizeRun(
-              identity,
-              nextRun.status as "completed" | "failed" | "cancelled",
-              events,
-            );
+          if (isPublishedTerminalRun(nextRun, identity)) {
+            void finalizeRun(identity, events);
           }
         } catch {
           setError("运行结束事件格式无效");
@@ -473,8 +475,9 @@ export default function App() {
       }
       setLoading(true);
       try {
-        const nextMessages = await loadConversationData(conversationId);
-        if (activeConversationRef.current !== conversationId) return;
+        const loaded = await loadConversationData(conversationId);
+        if (!loaded.applied) return;
+        const nextMessages = loaded.messages;
         const lastUserMessage = [...nextMessages]
           .reverse()
           .find((message) => message.role === "user");
@@ -489,8 +492,9 @@ export default function App() {
           .find(
             (message) =>
               message.role === "assistant" &&
-              message.status === "pending" &&
-              message.run_id,
+              message.run_id &&
+              (message.status === "pending" ||
+                loaded.bundles[message.run_id]?.run.publication?.status === "pending"),
           );
         if (
           pending?.run_id &&

@@ -17,6 +17,12 @@ export interface Run {
   question: string;
   task_type: string;
   status: RunStatus;
+  // Claiming terminal ownership is not yet message/artifact publication.
+  // Optional for old stored payloads; live completion requires positive proof.
+  publication?: {
+    status: "pending" | "published" | "not_applicable";
+    message_id: string | null;
+  };
   schema_version: number;
   session_id: string | null;
   parent_run_id: string | null;

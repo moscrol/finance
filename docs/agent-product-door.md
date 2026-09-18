@@ -31,6 +31,25 @@
 
 编码任务「仓库里有没有现成实现」走 `python3 scripts/code_map.py query "<问题>"`，不是本页，也不是问答门。空图不得写成架构结论。
 
+### Workbench 终态与发布边界（本地金融候选，未部署）
+
+移入答案保留枝 `49fd8d72` 的发布片，不代表整枝合流。`run.status` 是完成/失败/取消
+竞争的归属，不是全部产物已发布。公开 Run 新增
+`publication={status: pending|published|not_applicable, message_id}`：本用户会话中该 run
+的助手终稿与精确匹配的 `message.complete`/`message.error` 都落盘才是 published；
+观察到事件后重读 run，不能给旧的半成品产物列表贴完成标记。无助手消息的旧
+`/api/runs`（含任意 session 标签）为 not_applicable，不冒充 Workbench 会话。
+前端轮询与 SSE 终态等精确 run/conversation/message 的发布证明，再加载最终消息与
+产物、停止刷新；发布中刷新页面继续连接。SSE 沿原总时限等待，超时不伪造完成。
+失败/取消不要求 report.json；已存在 report.json 也不能代替最终发布事件。
+`workbench_probe.py` 消费新标记；旧服务无字段时只沿旧 message_id 合同，不证明产物完整。
+这不移动终态 claim、不修跨进程发布崩溃；永久缺事件仍 pending，不猜稿或标成功。
+金融删错的安全正文、引用与补修债经过真实消息/报告落盘；published 仍可对应
+`business_status=partial`，不等于金融完整或质量通过。离线组合测试见
+`test_financial_publication_integration.py`，含正常及可信稿恢复投影；恢复使用脚本化
+核验结果，不是新自然模型或跨进程验收。旧 R6/R3 整题 0/4 不变。
+撤保护入口为 `run_extraction_mutations.py --suite publication`，不替代前端检查。
+
 ### 专项研究纪律（Knevo 增量，2026-09-17 已合 main）
 
 `research_workflow_guidance.workflow_guidance` 给财报、事件推演、观点审查、事实核对、历史类比
