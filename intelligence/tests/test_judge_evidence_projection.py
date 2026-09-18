@@ -219,7 +219,7 @@ def test_projection_reports_zero_dropped_chars() -> None:
     assert payload["projection_cited_unbound_count"] == 0
 
 
-def test_repair_refuses_to_wipe_every_required_output() -> None:
+def test_review_preserves_required_outputs_without_fabricating_citation_support() -> None:
     frame = TaskFrame(
         raw_question="电网设备这波是怎么发酵的？",
         user_goal="回溯发酵链路",
@@ -288,8 +288,15 @@ def test_repair_refuses_to_wipe_every_required_output() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
     blob = " ".join(result.issues)
-    assert "repair_wiped_all_outputs" in blob
-    assert result.to_dict().get("repair_withheld") is True
+    assert "unresolved_evidence_ordinal" in blob
+    assert "repair_wiped_all_outputs" not in blob
+    assert result.to_dict()["repair_withheld"] is False
+    assert result.status == "partial" and result.judge_status == "rejected"
+    assert result.delivery_mode == "preserved_analysis"
+    assert draft in result.public_answer
+    assert result.verified.outcome == outcome
+    assert "核验批注" in result.public_answer
+    assert all(row["decision"] != "deleted" for row in result.sentence_verdicts)
     assert "当前判断" in result.public_answer
     assert "产业链" in result.public_answer
     assert result.gap_output_ids == ()
@@ -298,7 +305,7 @@ def test_repair_refuses_to_wipe_every_required_output() -> None:
         for item in result.verified.completion.outputs
         if item.status == "missing"
     ]
-    assert missing != ["direct_assessment", "chain_mapping", "counterpoint"]
+    assert missing == []
 
 
 def test_projection_includes_prose_cited_unbound_evidence() -> None:

@@ -134,6 +134,67 @@ def question_section_spans(answer: str) -> tuple[tuple[str, int, int], ...]:
     return tuple((s.question_id, s.start, s.end) for s in _read_question_sections(answer))
 
 
+def append_material_supplement(
+    contract: ResearchTaskContract, original: str, supplement: str,
+) -> str:
+    """Append within unambiguous question sections, never last-write-wins.
+
+    Whole-answer supplements often repeat q1 while adding q2. Blindly appending
+    them creates duplicate identities and makes a previously answered q1 fail.
+    Use the existing parser's exact spans, not fuzzy sentence matching; genuine
+    duplicate sections in either input still fail ordinary delivery validation.
+    Original body text is never removed, including a disputed gap. Memo limits
+    continue to count both the original and its additions.
+    """
+    from intelligence.services.research_annotations import append_research_supplement
+
+    fallback = append_research_supplement(original, supplement)
+    if not original.strip() or not supplement.strip() or supplement.startswith(original):
+        return fallback
+    if not material_question_outputs(contract):
+        return fallback
+    before = question_section_spans(original)
+    after = question_section_spans(supplement)
+    if any(len(spans) != len({qid for qid, _, _ in spans}) for spans in (before, after)):
+        return fallback
+    old = {qid: (start, end) for qid, start, end in before}
+    insertions: dict[int, str] = {}
+    remaining: list[str] = []
+    cursor = 0
+    for qid, start, end in after:
+        remaining.append(supplement[cursor:start])
+        cursor = end
+        block = supplement[start:end]
+        if qid not in old:
+            remaining.append(block)
+            continue
+        old_start, old_end = old[qid]
+        if original[old_start:old_end].strip() == block.strip():
+            continue
+        # Keep the candidate's heading words, but nest them as a supplement,
+        # not a second qN identity. Nested headings count toward memo length.
+        lines = block.splitlines(keepends=True)
+        heading = lines[0].strip().lstrip("#").strip()
+        old_header = original[old_start:old_end].splitlines()[0]
+        level_match = re.match(r"^\s*(#{1,6})", old_header)
+        level = len(level_match.group(1)) if level_match else 0
+        candidate_heading = re.match(r"^\s*(#{1,6})", lines[0])
+        # A change of heading depth could turn a nested paragraph into a peer
+        # outside the question, hiding it from the memo-length check.
+        if not level or level >= 6 or candidate_heading is None or len(candidate_heading.group(1)) != level:
+            return fallback
+        insertions[old_end] = (
+            "\n\n" + "#" * (level + 1) + " 补充与修订：" + heading + "\n"
+            + "".join(lines[1:]) + "\n\n"
+        )
+    remaining.append(supplement[cursor:])
+    combined = original
+    for position in sorted(insertions, reverse=True):
+        combined = combined[:position] + insertions[position] + combined[position:]
+    extra = "".join(remaining)
+    return append_research_supplement(combined, extra)
+
+
 def _normalized(text: str) -> str:
     return re.sub(r"[\W_]+", "", text, flags=re.UNICODE).casefold()
 

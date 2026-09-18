@@ -1042,7 +1042,7 @@ class PresenterAndLLMGateTests(unittest.TestCase):
             )
         )
 
-    def test_llm_gate_validates_claim_and_atom_ids_then_renders_registry_claim(
+    def test_llm_gate_validates_bindings_without_overwriting_model_prose(
         self,
     ) -> None:
         spec = self._answer()
@@ -1061,8 +1061,8 @@ class PresenterAndLLMGateTests(unittest.TestCase):
 
         self.assertEqual(validate_llm_answer(answer, spec), ())
         rendered = present_llm_answer(answer, spec)
-        self.assertIn(claim.text, rendered)
-        self.assertNotIn("模型不能借此注入", rendered)
+        self.assertNotIn(claim.text, rendered)
+        self.assertIn("模型不能借此注入任意新事实。", rendered)
         self.assertNotIn("claim_id=", rendered)
 
     def test_evidence_ref_provenance_survives_atom_derivation(self) -> None:
@@ -1196,7 +1196,7 @@ class PresenterAndLLMGateTests(unittest.TestCase):
 
         self.assertIn("grounded_composer_promoted_certainty", codes)
 
-    def test_shadow_sentence_repair_keeps_valid_prose_and_replaces_only_bad_line(
+    def test_shadow_sentence_review_keeps_prose_and_marks_numeric_doubt(
         self,
     ) -> None:
         spec = self._answer()
@@ -1222,12 +1222,14 @@ class PresenterAndLLMGateTests(unittest.TestCase):
         self.assertIsNotNone(repaired)
         assert repaired is not None
         self.assertIn("量价同步改善，说明关注度不只是缩量推动", repaired)
-        self.assertNotIn("99%", repaired)
-        self.assertIn("涨幅2.61%", repaired)
+        self.assertIn("99%", repaired)
+        self.assertNotIn("涨幅2.61%", repaired)
+        self.assertIn("不能当作已证实结论", repaired)
+        self.assertTrue(validate_grounded_composer_answer(answer, spec))
         presented = present_grounded_composer_answer(repaired)
         self.assertNotIn("claim_ids=", presented)
 
-    def test_shadow_semantic_judge_repair_replaces_only_rejected_sentence(
+    def test_shadow_semantic_judge_annotates_rejected_sentence(
         self,
     ) -> None:
         spec = self._answer()
@@ -1257,8 +1259,9 @@ class PresenterAndLLMGateTests(unittest.TestCase):
         self.assertIsNotNone(repaired)
         assert repaired is not None
         self.assertIn("量价同步改善，关注度得到成交支持", repaired)
-        self.assertNotIn("盘面改善改变了短期判断", repaired)
-        self.assertIn(claim.text, repaired)
+        self.assertIn("盘面改善改变了短期判断", repaired)
+        self.assertNotIn(claim.text, repaired)
+        self.assertIn("原稿第2句提出疑点", repaired)
 
     def test_decision_brief_requires_registry_claim_ids(self) -> None:
         spec = self._answer()
@@ -1374,7 +1377,9 @@ class PresenterAndLLMGateTests(unittest.TestCase):
         assert repaired is not None
         presented = present_grounded_composer_answer(repaired)
         self.assertIn("产业定义与盘面信号共同构成当前判断。", presented)
-        self.assertNotIn("这一句绑定了无效证据。", presented)
+        self.assertIn("这一句绑定了无效证据。", presented)
+        self.assertIn("核验批注", presented)
+        self.assertNotIn("unknown-claim", presented)
 
     def test_grounding_judge_report_rejects_invalid_sentence_index(
         self,
@@ -1549,7 +1554,9 @@ class PresenterAndLLMGateTests(unittest.TestCase):
                 if issue.code == "llm_invalid_claim_id"
             )
         )
-        self.assertNotIn("任意内容", present_llm_answer(answer, spec))
+        self.assertIn("任意内容", present_llm_answer(answer, spec))
+        self.assertIn("引用未核验", present_llm_answer(answer, spec))
+        self.assertNotIn("claim-does-not-exist", present_llm_answer(answer, spec))
 
     def test_llm_gate_rejects_invalid_evidence_atom_id(self) -> None:
         spec = self._answer()

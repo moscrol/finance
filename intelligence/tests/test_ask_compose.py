@@ -1198,12 +1198,7 @@ class StyleLooseningTests(unittest.TestCase):
 
 
 class ReviseSynthesisOnWarnTests(unittest.TestCase):
-    """WARN 回灌修订：修订版覆盖初稿的前提是它展示后还剩东西。
-
-    绑定/术语闸是 warning，拦不住展示层把修订版抠成空串。这里两条测试互为
-    对偶：删掉守卫则「空则保留初稿」变红，守卫写成无条件 return 则「非空才
-    覆盖」变红。
-    """
+    """WARN 回灌只补充、不覆盖；空补充仍保留原稿与核验说明。"""
 
     def _result_and_options(self):
         from intelligence.services import output_review
@@ -1271,7 +1266,8 @@ class ReviseSynthesisOnWarnTests(unittest.TestCase):
     def test_emptied_revision_keeps_the_draft(self) -> None:
         result = self._run("  \n\n ")
 
-        self.assertEqual(result.synthesis, "初稿全文")
+        self.assertTrue(result.synthesis.startswith("初稿全文"))
+        self.assertIn("输出检查仍有疑点", result.synthesis)
         self.assertEqual(len(result.synthesis_messages), 2)
         self.assertTrue(
             any("保留初稿" in warning for warning in result.warnings)
@@ -1301,11 +1297,13 @@ class ReviseSynthesisOnWarnTests(unittest.TestCase):
         self.assertEqual(result.synthesis, "初稿全文")
         self.assertEqual(len(result.synthesis_messages), 2)
 
-    def test_nonempty_revision_replaces_the_draft(self) -> None:
+    def test_nonempty_revision_supplements_the_draft(self) -> None:
         result = self._run("修订后的结论。")
 
-        self.assertEqual(result.synthesis, "修订后的结论。")
+        self.assertTrue(result.synthesis.startswith("初稿全文"))
+        self.assertIn("修订后的结论。", result.synthesis)
+        self.assertIn("补充修订也存在事实或引用疑点", result.synthesis)
         self.assertEqual(len(result.synthesis_messages), 4)
         self.assertTrue(
-            any("已回灌定向修订" in warning for warning in result.warnings)
+            any("已回灌补充修订" in warning for warning in result.warnings)
         )

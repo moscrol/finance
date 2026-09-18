@@ -127,15 +127,20 @@ def test_history_finish_gap_survives_semantic_completion_and_publication(
             contract_required=True,
         ),
     )
-    assert result.status == ("completed" if has_history_result else "partial")
+    assert result.status == ("completed" if has_history_result and not repair else "partial")
     notice = "尚无可核验的历史计算原件，未完成历史样本检验。"
     assert (notice in result.answer) is not has_history_result
     assert (notice in result.open_gaps) is not has_history_result
     assert "农业样本存在共同上涨的现象" in result.answer
     assert result.citations
+    assert draft in result.answer
     assert result.private_artifact["semantic_verifier"]["judge_status"] == (
-        "repaired" if repair else "passed"
+        "rejected" if repair else "passed"
     )
+    assert len(judge_calls) == 1
+    if repair:
+        assert "核验批注" in result.answer
+        assert result.private_artifact["semantic_verifier"]["delivery_mode"] == "preserved_analysis"
 
 
 def _history_episode(tmp_path):

@@ -10,7 +10,9 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
-from intelligence.services import answer_model, ask, llm_refine
+import pytest
+
+from intelligence.services import answer_model, ask, ask_synthesis, llm_refine
 from intelligence.services.run_store import RunStore
 from intelligence.workbench_skills.contracts import SkillExecutionContext
 from intelligence.workbench_skills.daily_agent import (
@@ -390,6 +392,64 @@ class TestGroundedPresenterPromotion:
         assert result.synthesis is not None
         assert any("已降级为可核验短答" in warning for warning in result.warnings)
 
+    @pytest.mark.parametrize("review", ["off", "timeout", "invalid", "passed", "rejected", "skipped"])
+    @pytest.mark.parametrize("has_body", [False, True])
+    def test_review_notes_cannot_resurrect_a_secret_only_composition(
+        self, monkeypatch, review: str, has_body: bool,
+    ) -> None:
+        result = _result_with_spec()
+        spec = result.answer_spec
+        assert spec is not None
+        claim_id = "daily-agent:theme:old_logic_wakeup:氢能源"
+        atom_id = next(
+            atom.atom_id for atom in answer_model.evidence_atoms_from_answer_spec(spec)
+            if atom.provenance.get("claim_id") == claim_id
+        )
+        prose = "热度先于证据，仍需核验持续性。"
+        raw = (prose if has_body else "") + "Bearer sk-test-only-credential" + (
+            f"<!-- claim_ids={claim_id}; evidence_atom_ids={atom_id}; claim_type=fact -->"
+        )
+        calls = []
+
+        def model(messages, **kwargs):
+            calls.append(messages)
+            if len(calls) == 1:
+                return llm_refine.SynthesisResult(
+                    answer=raw, provider="fake", model="fake-model", finish_reason="length",
+                ), ""
+            assert len(calls) == 2, "preservation must not add calls"
+            if review == "timeout":
+                return None, "provider 读取超时"
+            answer = "not-json" if review == "invalid" else json.dumps({
+                "passed": review == "passed",
+                "rejected_sentence_indexes": [] if review == "passed" else [1],
+                "issues": [] if review == "passed" else ["第1句支持不足"],
+            })
+            return llm_refine.SynthesisResult(answer=answer, provider="fake", model="fake-model"), ""
+
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off" if review == "off" else "llm")
+        monkeypatch.setattr(llm_refine, "synthesize_messages", model)
+        monkeypatch.setattr(ask_synthesis, "_phase_slice_collapsed", lambda *args: review == "skipped")
+        options = ask.AskOptions(query=result.query, daily_agent_grounded_presenter=True)
+        assert ask.promote_daily_agent_grounded_answer(options, result)
+        shadow = result.grounded_composer_shadow
+        assert shadow is not None and shadow.raw_answer == raw
+        assert result.synthesis and "credential" not in result.synthesis
+        if has_body:
+            assert shadow.presented_answer and prose in shadow.presented_answer
+            assert "核验批注" in shadow.presented_answer
+            assert prose in result.synthesis
+            assert not result.grounded_fallback_used
+            assert result.synthesis_diagnostic.state == "released_unverified"
+            assert len(calls) == (1 if review in {"off", "skipped"} else 2)
+        else:
+            assert shadow.status == "no_public_analysis"
+            assert not shadow.presented_answer
+            assert result.grounded_fallback_used
+            assert result.synthesis_diagnostic.state == "rejected"
+            assert "核验批注" not in result.synthesis
+            assert len(calls) == 1, "no public body means no judge work"
+
     def test_flag_off_keeps_legacy_path(self, monkeypatch) -> None:
         result = _result_with_spec()
 
@@ -427,7 +487,7 @@ class TestGroundedPresenterPromotion:
         assert brief is not None
         assert brief.supports == (theme_claim_id,)
 
-    def test_repair_drops_unbound_lines_instead_of_failing(self) -> None:
+    def test_repair_annotates_unbound_lines_instead_of_failing(self) -> None:
         spec = _contract().answer_spec
         theme_claim_id = "daily-agent:theme:old_logic_wakeup:氢能源"
         atoms = answer_model.evidence_atoms_from_answer_spec(spec)
@@ -444,7 +504,9 @@ class TestGroundedPresenterPromotion:
         )
         repaired = answer_model.repair_grounded_composer_answer(answer, spec)
         assert repaired is not None
-        assert "凭空多出的一句" not in repaired
+        assert "凭空多出的一句" in repaired
+        assert "核验批注" in repaired
+        assert answer_model.validate_grounded_composer_answer(answer, spec)
         assert "氢能源" in repaired
 
     def test_brief_filters_hallucinated_ids_keeps_valid_supports(self) -> None:
@@ -495,11 +557,12 @@ class TestGroundedPresenterPromotion:
         )
         assert repaired is not None
         assert "热度先于证据" in repaired
-        assert "99 只" not in repaired
+        assert "99 只" in repaired
+        assert "不能当作已证实结论" in repaired
         registry_texts = [claim.text for claim in spec.verified_facts]
         assert not any(text in repaired for text in registry_texts)
 
-    def test_repair_drop_invalid_fails_when_nothing_survives(self) -> None:
+    def test_repair_drop_invalid_keeps_even_a_fully_disputed_draft(self) -> None:
         spec = _contract().answer_spec
         theme_claim_id = "daily-agent:theme:old_logic_wakeup:氢能源"
         bad = (
@@ -507,14 +570,11 @@ class TestGroundedPresenterPromotion:
             f"<!-- claim_ids={theme_claim_id}; "
             "evidence_atom_ids=无; claim_type=fact -->"
         )
-        assert (
-            answer_model.repair_grounded_composer_answer(
-                bad,
-                spec,
-                drop_invalid=True,
-            )
-            is None
-        )
+        reviewed = answer_model.repair_grounded_composer_answer(bad, spec, drop_invalid=True)
+        assert reviewed is not None
+        assert reviewed.startswith(bad)
+        assert "核验批注" in reviewed
+        assert answer_model.validate_grounded_composer_answer(bad, spec)
 
     def test_strip_empty_sections_and_min_body_guard(self) -> None:
         stripped = ask._strip_empty_grounded_sections(

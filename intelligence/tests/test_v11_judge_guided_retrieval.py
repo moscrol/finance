@@ -111,8 +111,9 @@ def test_empty_retrieval_keeps_annotation_and_does_not_rejudge() -> None:
     assert telemetry.still_doubted_count == 1
     assert telemetry.reserved_seconds is not None and telemetry.reserved_seconds >= 15.0
     assert telemetry.effective_mode == "hybrid"
-    assert result.status == "completed" and result.judge_status == "repaired"
+    assert result.status == "partial" and result.judge_status == "rejected"
     assert CAUSAL_SENTENCE in result.public_answer
+    assert "核验批注" in result.public_answer
     payload = result.to_dict()
     assert payload["v11_outcome"] == "retrieved_empty"
     assert payload["v11_triggered"] is True
@@ -126,7 +127,8 @@ def test_retriever_failure_is_retrieved_empty_not_an_episode_failure() -> None:
 
     assert len(judge.calls) == 1
     assert result.guided_retrieval.outcome == "retrieved_empty"
-    assert result.status == "completed"
+    assert result.status == "partial"
+    assert result.judge_status == "rejected"
     assert CAUSAL_SENTENCE in result.public_answer
 
 
@@ -182,8 +184,9 @@ def test_hit_but_rejudge_still_rejects_keeps_annotation() -> None:
     assert telemetry.outcome == "still_annotated"
     assert telemetry.lifted_count == 0 and telemetry.still_doubted_count == 1
     assert telemetry.support_evidence == ()
-    assert result.status == "completed" and result.judge_status == "repaired"
+    assert result.status == "partial" and result.judge_status == "rejected"
     assert CAUSAL_SENTENCE in result.public_answer
+    assert "核验批注" in result.public_answer
     assert not [v for v in result.sentence_verdicts if v["decision"] == VERDICT_LIFTED]
 
 
@@ -212,7 +215,7 @@ def test_budget_below_hybrid_floor_never_retrieves(seconds: float) -> None:
 
 
 def test_mechanical_out_of_table_citation_never_retrieves() -> None:
-    """表外 E 号是机械句：走 _repair 删句再审，V11 只记 mechanical_pending。"""
+    """表外 E 号直接标疑，不删除、不浪费检索和重判额度。"""
 
     judge = _judge(True)
     retriever = _Retriever((_kb_card(),))
@@ -223,7 +226,9 @@ def test_mechanical_out_of_table_citation_never_retrieves() -> None:
     assert retriever.calls == []
     assert result.guided_retrieval.skip_reason == "mechanical_pending"
     assert result.guided_retrieval.triggered is False
-    assert "E9" not in result.public_answer
+    assert "E9" in result.public_answer
+    assert "不能作为出处" in result.public_answer
+    assert result.judge_status == "rejected"
 
 
 def test_first_judge_pass_records_passed_skip() -> None:
@@ -271,8 +276,15 @@ def test_rejudge_new_rejections_never_delete() -> None:
     assert result.verified.outcome.draft == structural.outcome.draft
     assert result.guided_retrieval.outcome == "lifted"
     assert result.guided_retrieval.lifted_count == 1
+    assert result.guided_retrieval.still_doubted_count == 1
     assert "量能处于修复中段" in result.public_answer
     assert CAUSAL_SENTENCE in result.public_answer
+    assert result.judge_status == "rejected"
+    assert result.status == "partial"
+    assert "原稿第1句" in result.public_answer
+    assert "原稿第2句" not in result.public_answer
+    assert any(v["sentence_index"] == 1 and v["decision"] == "demoted_to_issue"
+               for v in result.sentence_verdicts)
 
 
 # ---------------------------------------------------------------------------
@@ -300,8 +312,9 @@ def test_no_retriever_is_a_skip_and_matches_pre_v11_shape() -> None:
     )
 
     assert result.guided_retrieval.skip_reason == "no_retriever"
-    assert result.status == "completed" and result.judge_status == "repaired"
+    assert result.status == "partial" and result.judge_status == "rejected"
     assert CAUSAL_SENTENCE in result.public_answer
+    assert "核验批注" in result.public_answer
     payload = result.to_dict()
     assert payload["v11_outcome"] == "skipped"
     assert payload["v11_skip_reason"] == "no_retriever"

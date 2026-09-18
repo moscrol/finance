@@ -1,6 +1,6 @@
 """T-B：公开答案只经一条同步 view()，成因当输入参数。
 
-同一份终局事实，三类成因必须走出不同首句。任意两类合并（同一首句）即红。
+无正文时成因必须走出不同首句；已有正文时必须保留，成因说明仍须可区分。
 这是 dsh ``ctx.sessionProjections`` 的形状：冻结事实进、整段公开文本出，无 IO。
 """
 
@@ -56,7 +56,10 @@ def _facts(cause: str) -> TerminalFacts:
 def test_three_causes_emit_distinct_first_sentences() -> None:
     """同一份终局事实，各类成因各自产出不同的首句。"""
 
-    rendered = {cause: view(_facts(cause)) for cause in DEGRADED_CAUSES}
+    rendered = {
+        cause: view(TerminalFacts(cause=cause, question=_QUESTION))
+        for cause in DEGRADED_CAUSES
+    }
     firsts = {cause: _first_sentence(text) for cause, text in rendered.items()}
 
     assert firsts[CAUSE_TRANSIENT_VERIFIER_OUTAGE] == (
@@ -83,9 +86,12 @@ def test_three_causes_emit_distinct_first_sentences() -> None:
     ids=[f"{left}×{right}" for left, right in combinations(DEGRADED_CAUSES, 2)],
 )
 def test_merging_any_two_causes_must_go_red(left: str, right: str) -> None:
-    """变异：任意两类共用首句即红——合并出口会先在这里爆。"""
+    """成因不能丢失；保留正文不要求用不同开场白替代用户的分析。"""
 
-    assert _first_sentence(view(_facts(left))) != _first_sentence(view(_facts(right)))
+    assert view(_facts(left)) != view(_facts(right))
+    assert _PUBLIC in view(_facts(left))
+    assert _PUBLIC in view(_facts(right))
+    assert opening_for(left, _QUESTION) != opening_for(right, _QUESTION)
 
 
 def test_transient_keeps_candidate_after_corrected_opening() -> None:
@@ -103,7 +109,7 @@ def test_verified_pass_through_is_byte_identical() -> None:
 def test_evidence_gap_with_remainder_does_not_replace_public() -> None:
     """view() 仍能「剩余 + 缺口行」；W1 的 marker_loss 不再走这条成因。"""
 
-    gap = "证据缺口：直接判断中的未核验表述已删除，需补充直接证据后再判断。"
+    gap = "证据缺口：直接判断仍需补充直接证据核验。"
     text = view(
         TerminalFacts(
             cause=CAUSE_EVIDENCE_GAP,
@@ -112,8 +118,10 @@ def test_evidence_gap_with_remainder_does_not_replace_public() -> None:
             gap_body=gap,
         )
     )
-    assert text == f"{_PUBLIC}\n{gap}"
-    assert "现有证据不足" not in text
+    assert text.startswith(_PUBLIC)
+    assert text.endswith(gap)
+    assert "证据尚不完整" in text
+    assert "暂不能可靠回答" not in text
 
 
 def test_unknown_cause_is_rejected() -> None:
@@ -207,6 +215,7 @@ def test_gap_helpers_themselves_call_view() -> None:
 _VIEW_CALLERS = frozenset(
     {
         "services/ask_synthesis.py::_judge_outage_release",
+        "services/episode_semantic_verifier.py::_review_preserving_analysis",
         "services/episode_semantic_verifier.py::_transient_failure_candidate",
         "services/episode_semantic_verifier.py::_completed_public",
         "services/episode_semantic_verifier.py::_emit_withheld_repair",

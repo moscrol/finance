@@ -126,7 +126,7 @@ class HeadingSmuggleTests(unittest.TestCase):
             )
         )
 
-    def test_grounded_repair_drops_disallowed_heading(self) -> None:
+    def test_grounded_repair_annotates_unverified_heading(self) -> None:
         spec = _spec()
         answer = "## 招商银行今年利润已翻倍\n" + _fact_marker_line(spec, grounded=True)
 
@@ -134,9 +134,12 @@ class HeadingSmuggleTests(unittest.TestCase):
 
         self.assertIsNotNone(repaired)
         assert repaired is not None
-        self.assertNotIn("招商银行", repaired)
+        self.assertIn("## 招商银行今年利润已翻倍", repaired)
+        self.assertIn("核验批注", repaired)
+        self.assertTrue(any(issue.code == "grounded_composer_unverified_heading" for issue in validate_grounded_composer_answer(answer, spec)))
         presented = present_grounded_composer_answer(repaired, spec)
-        self.assertNotIn("招商银行", presented)
+        self.assertIn("## 招商银行今年利润已翻倍", presented)
+        self.assertIn("核验批注", presented)
         self.assertIn("量能同步放大", presented)
 
     def test_allowed_headings_survive(self) -> None:
@@ -172,7 +175,7 @@ class HeadingSmuggleTests(unittest.TestCase):
             )
         )
 
-    def test_structured_presenter_drops_disallowed_heading(self) -> None:
+    def test_structured_presenter_preserves_heading_for_review(self) -> None:
         spec = _spec()
         answer = "## 招商银行今年利润已翻倍\n" + _fact_marker_line(
             spec, grounded=False
@@ -192,7 +195,7 @@ class HeadingSmuggleTests(unittest.TestCase):
             any(issue.severity == "error" for issue in issues),
             msg=str(issues),
         )
-        self.assertNotIn("招商银行", presented)
+        self.assertIn("## 招商银行今年利润已翻倍", presented)
         self.assertIn("量能同步放大", presented)
 
     def test_prose_without_markers_keeps_headings(self) -> None:
@@ -362,7 +365,7 @@ class DeadlineClampTests(unittest.TestCase):
 class MarketReviewProseContractTests(unittest.TestCase):
     """市场复盘也必须服从 AnswerSpec 事实边界。"""
 
-    def test_market_review_prose_with_unsupported_fact_is_rejected(self) -> None:
+    def test_market_review_prose_with_unsupported_fact_is_retained_unverified(self) -> None:
         result = AskResult(
             query="复盘今天的A股",
             trade_date="2026-07-17",
@@ -403,7 +406,9 @@ class MarketReviewProseContractTests(unittest.TestCase):
                 PreparedAnswer(options=options, result=result)
             )
 
-        self.assertEqual(result.synthesis, prose)
+        self.assertTrue(result.synthesis.startswith(prose))
+        self.assertIn("核验批注", result.synthesis)
+        self.assertEqual(result.synthesis_diagnostic.state, "released_unverified")
         self.assertIsNone(result.llm_fallback_reason)
         self.assertTrue(
             any(

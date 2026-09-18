@@ -10,7 +10,6 @@ from __future__ import annotations
 from dataclasses import replace
 
 from intelligence.services.episode_semantic_verifier import (
-    VERDICT_DELETED,
     VERDICT_DEMOTED,
     VERDICT_REASON_JUDGE,
     VERDICT_REASON_NUMERIC,
@@ -31,7 +30,7 @@ def _verify(structural, frame, judge):
     )
 
 
-def test_mechanical_reject_in_judge_round_is_recorded_as_deleted_with_unresolved_ordinal() -> None:
+def test_unresolved_ordinal_is_preserved_and_both_review_stages_record_doubt() -> None:
     frame, structural = _structural("市场下跌。据E99显示下跌。")
     judge = _judge(
         False,
@@ -41,23 +40,28 @@ def test_mechanical_reject_in_judge_round_is_recorded_as_deleted_with_unresolved
 
     result = _verify(structural, frame, judge)
 
-    assert "E99" not in result.verified.outcome.draft
-    assert len(result.sentence_verdicts) == 1
-    verdict = result.sentence_verdicts[0]
+    assert result.verified.outcome == structural.outcome
+    assert structural.outcome.draft in result.public_answer
+    assert result.status == "partial" and result.judge_status == "rejected"
+    assert len(result.sentence_verdicts) == 2
+    stages = {v["stage"]: v for v in result.sentence_verdicts}
+    assert stages.keys() == {VERDICT_STAGE_PREFLIGHT, VERDICT_STAGE_JUDGE}
+    assert stages[VERDICT_STAGE_PREFLIGHT]["decision"] == VERDICT_DEMOTED
+    verdict = stages[VERDICT_STAGE_JUDGE]
     assert verdict["stage"] == VERDICT_STAGE_JUDGE
     assert verdict["judge_round"] == 1
     assert verdict["sentence_index"] == 2
     assert verdict["sentence"] == "据E99显示下跌。"
-    assert verdict["decision"] == VERDICT_DELETED
+    assert verdict["decision"] == VERDICT_DEMOTED
     assert VERDICT_REASON_ORDINAL in verdict["reasons"]
     assert verdict["cited_evidence_ordinals"] == ["E99"]
     assert verdict["unresolved_evidence_ordinals"] == ["E99"]
     assert verdict["bound_evidence_hashes"] == []
     assert verdict["source_tiers"] == []
     assert verdict["judge_issues"] and "第2句" in verdict["judge_issues"][0]
-    # 复判那一轮判官放行，不再追加账目。
-    assert len(judge.calls) == 2  # type: ignore[attr-defined]
-    assert result.to_dict()["sentence_verdicts"] == [dict(verdict)]
+    # 没有删稿，不启动「删后复判」；两条记录是同一句的不同检查阶段。
+    assert len(judge.calls) == 1  # type: ignore[attr-defined]
+    assert result.to_dict()["sentence_verdicts"] == [dict(v) for v in result.sentence_verdicts]
 
 
 def test_semantic_reject_inside_required_block_is_recorded_as_demoted_not_deleted() -> None:
@@ -94,12 +98,15 @@ def test_preflight_numeric_condition_is_recorded_before_any_judge_call() -> None
 
     result = _verify(structural, frame, judge)
 
-    assert "3870点" not in result.verified.outcome.draft
+    assert result.verified.outcome == structural.outcome
+    assert structural.outcome.draft in result.public_answer
+    assert result.status == "partial" and result.judge_status == "rejected"
+    assert len(judge.calls) == 1  # type: ignore[attr-defined]
     preflight = [v for v in result.sentence_verdicts if v["stage"] == VERDICT_STAGE_PREFLIGHT]
     assert len(preflight) == 1
     verdict = preflight[0]
     assert verdict["judge_round"] is None
-    assert verdict["decision"] == VERDICT_DELETED
+    assert verdict["decision"] == VERDICT_DEMOTED
     assert verdict["reasons"] == [VERDICT_REASON_NUMERIC]
     assert "3870点" in verdict["sentence"]
 
@@ -167,12 +174,14 @@ def test_offline_census_reads_verdicts_and_reports_historic_runs_as_unjudgeable(
 
     assert report["runs_with_field"] == 1
     assert report["runs_without_field"] == 1
-    assert report["verdict_count"] == 2
-    assert report["by_decision"] == {VERDICT_DEMOTED: 1, VERDICT_DELETED: 1}
-    # 第 3 句只引了表外 E99 → 机械删除、无出处；第 2 句引 E1（public_web）→ 语义、降级。
-    assert report["deleted"]["count"] == 1
+    # 两句疑点、三个阶段记录：第3句同时经过机械预检与判官拒绝，均未删除。
+    assert report["verdict_count"] == 3
+    assert report["by_decision"] == {VERDICT_DEMOTED: 3}
+    assert report["by_stage"] == {VERDICT_STAGE_PREFLIGHT: 1, VERDICT_STAGE_JUDGE: 2}
+    assert report["deleted"]["count"] == 0
     assert report["deleted"]["with_source_count"] == 0
-    assert report["deleted"]["unresolved_ordinal_only_count"] == 1
+    assert report["deleted"]["with_source_share"] is None
+    assert report["deleted"]["unresolved_ordinal_only_count"] == 0
     assert report["demoted"]["source_tiers"] == {"public_web": 1}
     assert report["verdict"].startswith("可判")
     assert "不可判" in module.census(module._iter_episode_files(old_run), since=None)["verdict"]

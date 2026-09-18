@@ -72,7 +72,6 @@ from intelligence.services.ask import (
     synthesize_shadow_grounded_answer,
 )
 from intelligence.services.disclosure_scan_pack import (
-    ResidualGateResult,
     disclosure_scan_degrade_codes,
     gate_disclosure_residual,
     merge_disclosure_into_public_answer,
@@ -145,7 +144,7 @@ from intelligence.services.research_contract import (
     contextualize_intent_query,
     is_contextual_follow_up,
 )
-from intelligence.services.run_store import RunStore, redact, redact_value
+from intelligence.services.run_store import RunStore, redact, redact_public_prose, redact_value
 from intelligence.paths import default_paths
 from intelligence.runtime.turn_control_core import (
     TurnControlResult,
@@ -199,7 +198,7 @@ class RunTerminalClaimLost(RuntimeError):
 
 
 def _sanitize_market_cause_answer_text(text: str, query: str) -> str:
-    """原因归因题不夹带用户未询问的交易策略段。"""
+    """保留原因归因稿；对夹带的交易策略说明其不是归因证据。"""
     if not re.search(
         r"(?:本周|这一周|这周|近一周|过去一周).{0,20}(?:行情|大盘|市场).{0,20}"
         r"(?:下跌|走弱).{0,20}(?:原因|为什么|驱动|归因)",
@@ -214,14 +213,11 @@ def _sanitize_market_cause_answer_text(text: str, query: str) -> str:
         "防御和观察",
         "宜以防御",
         "博弈单边反转",
-        "非投资建议",
     )
-    lines = [
-        line
-        for line in text.splitlines()
-        if not any(term in line for term in forbidden)
-    ]
-    return "\n".join(lines).strip()
+    from intelligence.services.research_annotations import annotate_research_answer
+
+    notes = ("原因分析夹带了未被请求的交易策略；相关表述保留作待核验设想，不是行情归因证据。",) if any(term in text for term in forbidden) else ()
+    return annotate_research_answer(text, notes)
 
 
 def _build_generic_research_contract(
@@ -1384,6 +1380,16 @@ def _sanitize_citation_list(
 
 
 def sanitize_user_visible_artifact_text(text: str) -> str:
+    # Never replace the whole research report because one paragraph carries
+    # an internal diagnostic. Security filtering stays local to that span.
+    parts = re.split(r"(\n|(?<=[。！？]))", redact_public_prose(text))
+    return "".join(
+        part if part == "\n" or not part else _sanitize_user_visible_span(part)
+        for part in parts
+    )
+
+
+def _sanitize_user_visible_span(text: str) -> str:
     cleaned = redact(text)
     cleaned = re.sub(
         r"(?:LLM\s*合成未采用[:：]\s*)?provider_timeout",
@@ -1520,7 +1526,10 @@ def _continuous_review_notes(result: ContinuousTurnResult) -> tuple[str, ...]:
 
 
 def sanitize_conversation_answer(text: str) -> str:
-    cleaned = _JSON_BLOCK_PATTERN.sub("", text)
+    cleaned = _JSON_BLOCK_PATTERN.sub("", redact_public_prose(text))
+    # Protect adjacent financial sentences even when the model placed a
+    # diagnostic on the same line. No policy decision is inferred from it.
+    cleaned = re.sub(r"(?<=[。！？])(?=[^\n])", "\n", cleaned) if _INTERNAL_RETRIEVAL_DIAGNOSTIC_PATTERN.search(cleaned) else cleaned
     cleaned = re.sub(
         r"(?m)^.*(?:Fetching\s+\d+\s+files:|Loading weights:|"
         r"检索方式=hybrid|BM25|BGE-m3|RRF|"
@@ -3413,20 +3422,11 @@ class TurnOrchestrator:
                 and ask_options.disclosure_scan_pack is not None
                 and result.synthesis
             ):
-                if result.synthesis_diagnostic.state == "rejected":
-                    # 有据呈现器拒收时 synthesis 里装的是确定性兜底（spec 骨架），
-                    # 对披露题它比 P0 纯包更差（套话 + 重复名单行）——live 实测
-                    # run_20260825_200157_247884。按丢弃处理，回纯包正文。
-                    residual_gate = ResidualGateResult(
-                        "", dropped=True, reason="grounded_rejected"
-                    )
-                else:
-                    residual_gate = gate_disclosure_residual(
-                        result.synthesis, ask_options.disclosure_scan_pack
-                    )
-                # 活性事件：零丢也留痕，让「闸跑了没丢」与「闸没跑」在
-                # telemetry 里可区分（R-20260825-08 先例）。degrade 通道仍
-                # 只在真丢时占用。
+                residual_gate = gate_disclosure_residual(
+                    result.synthesis, ask_options.disclosure_scan_pack
+                )
+                # Quality findings annotate prose, never replace it with a roster.
+                # Record both liveness and findings even when no text was dropped.
                 self._trace(
                     run_id,
                     assistant_message_id,
@@ -3438,19 +3438,14 @@ class TurnOrchestrator:
                         "dropped": residual_gate.dropped,
                         "reason": residual_gate.reason,
                         "detail": residual_gate.detail,
+                        "annotated": residual_gate.annotated,
                     },
                 )
-                if residual_gate.dropped:
-                    gate_code = (
-                        f"disclosure_residual_dropped:{residual_gate.reason}"
-                    )
+                if residual_gate.annotated:
+                    gate_code = f"disclosure_residual_annotated:{residual_gate.reason}"
                     warnings.append(gate_code)
                     self.run_store.add_degrade(run_id, gate_code)
-                    # 回 P0 纯包形状；merge 幂等（渲染已在正文则跳过），
-                    # 不会出双名单。
-                    result.synthesis = ask_options.disclosure_scan_pack.render()
-                else:
-                    result.synthesis = residual_gate.text
+                result.synthesis = residual_gate.text
             self._check_cancelled()
             self._trace(
                 run_id,
@@ -3493,18 +3488,17 @@ class TurnOrchestrator:
                 grid_text=pack.render() if pack is not None else "",
             )
             if watch_gate.applied:
-                # 活性事件：零删也留痕，让「闸跑了没删」与「闸没跑」在
-                # telemetry 里可区分（R-20260825-08）。degrade 通道仍只在
-                # 真删句时占用。
+                # Zero findings still emit liveness; findings, not deletion,
+                # determine whether the quality warning is recorded.
                 self._trace(
                     run_id,
                     assistant_message_id,
                     conversation_id,
                     "deliver",
                     "market_watch_delivery_gate",
-                    {"applied": True, "dropped": watch_gate.dropped},
+                    {"applied": True, "dropped": watch_gate.dropped, "annotated": watch_gate.annotated},
                 )
-            if watch_gate.applied and watch_gate.dropped:
+            if watch_gate.applied and (watch_gate.annotated or watch_gate.dropped):
                 watch_warning = "market_watch_delivery_gate"
                 warnings.append(watch_warning)
                 self.run_store.add_degrade(run_id, watch_warning)
@@ -3569,7 +3563,7 @@ class TurnOrchestrator:
                     result.fulfillment_report,
                 )
                 if fulfillment.status != "complete":
-                    # 先把具体缺口回灌给模型补一轮，再决定是否 fail-closed。
+                    # 先把具体缺口回灌给模型补一轮；失败仍保留原分析并说明缺口。
                     # 官方做法是把拒绝**作为 tool result** 交回模型让它换方法，
                     # 而不是整轮作废；ch04「分层错误级联」是它的通用形式。
                     # 补写只用 registry 已有事实、且必须重新过门禁——两条都在
@@ -3594,7 +3588,8 @@ class TurnOrchestrator:
                         result.fulfillment_report["task_frame_hash"] = (
                             task_frame.task_frame_hash
                         )
-                        result.fulfillment_report["repaired"] = True
+                        result.fulfillment_report["supplement_added"] = True
+                        result.fulfillment_report["repaired"] = fulfillment.status == "complete"
                         report["task_fulfillment"] = result.fulfillment_report
                         self._trace(
                             run_id,
@@ -3605,17 +3600,17 @@ class TurnOrchestrator:
                             result.fulfillment_report,
                         )
                 if fulfillment.status != "complete":
-                    # 只标 status 不够：result.synthesis 会优先于 AnswerSpec
-                    # 渲染，仍可能把答非所问草稿发给用户。切到现有
-                    # evidence-gap renderer，保留缺口而不是重写成另一份��板。
-                    result.synthesis = None
+                    from intelligence.services.research_annotations import annotate_research_answer
+
+                    # Coverage is not a publication permission. Keep the actual
+                    # analysis and the original evidence model; do not render a
+                    # replacement gap template just to hide an incomplete task.
+                    answer_text = sanitize_conversation_answer(annotate_research_answer(answer_text, (
+                        "任务尚未完整回答，已有分析保留；以下部分仍需补充或核验。",
+                        *task_fulfillment.public_fulfillment_notes(fulfillment),
+                    )))
+                    result.synthesis = answer_text
                     llm_failure_brief = _llm_failure_brief()
-                    result.answer_spec = task_fulfillment.fail_closed_answer_spec(
-                        result.answer_spec,
-                        fulfillment,
-                        llm_failure_summary=llm_failure_brief,
-                    )
-                    answer_text = render_conversation_answer(result)
                     if llm_failure_brief:
                         llm_warn = "llm_all_calls_failed"
                         if llm_warn not in warnings:
@@ -3775,6 +3770,9 @@ class TurnOrchestrator:
             should_run_shadow = (
                 prepared.options.shadow_grounded_composer
                 and not reused_existing
+                # Keeping an incomplete answer's spec must not start a new
+                # observational model run that the former fallback skipped.
+                and result.answer_status == "complete"
                 and result.answer_spec is not None
                 and result.answer_spec.presentation_kind
                 not in {"market_technical", "evidence_gap"}
@@ -3981,13 +3979,14 @@ class TurnOrchestrator:
                     title="Grounded Composer 影子实验",
                 )
                 if (
-                    result.grounded_composer_shadow.status in {"accepted", "repaired"}
-                    and result.grounded_composer_shadow.presented_answer is not None
+                    result.grounded_composer_shadow.presented_answer is not None
                 ):
                     self.run_store.add_artifact(
                         run_id,
                         "grounded_composer_shadow.md",
-                        redact(result.grounded_composer_shadow.presented_answer),
+                        sanitize_user_visible_artifact_text(
+                            result.grounded_composer_shadow.presented_answer
+                        ),
                         renderer="markdown",
                         title="Grounded Composer 影子答案",
                     )
@@ -4422,7 +4421,13 @@ class TurnOrchestrator:
             evidence=citations,
         )
         answer_text = gated.text
-        if gated.applied and gated.dropped:
+        if gated.applied:
+            self._trace(
+                run_id, assistant_message_id, conversation_id,
+                "deliver", "outlook_delivery_gate",
+                {"applied": True, "dropped": gated.dropped, "annotated": gated.annotated},
+            )
+        if gated.applied and (gated.annotated or gated.dropped):
             warning = "outlook_delivery_gate"
             warnings.append(warning)
             self.run_store.add_degrade(run_id, warning)
@@ -4441,9 +4446,9 @@ class TurnOrchestrator:
                 conversation_id,
                 "deliver",
                 "market_watch_delivery_gate",
-                {"applied": True, "dropped": episode_watch_gate.dropped},
+                {"applied": True, "dropped": episode_watch_gate.dropped, "annotated": episode_watch_gate.annotated},
             )
-        if episode_watch_gate.applied and episode_watch_gate.dropped:
+        if episode_watch_gate.applied and (episode_watch_gate.annotated or episode_watch_gate.dropped):
             watch_warning = "market_watch_delivery_gate"
             warnings.append(watch_warning)
             self.run_store.add_degrade(run_id, watch_warning)

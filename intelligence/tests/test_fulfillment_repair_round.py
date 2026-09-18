@@ -1,4 +1,4 @@
-"""门禁判缺 → 定向补写一轮 → 重新过门禁 → 仍不过才 fail-closed。
+"""门禁判缺 → 定向补写一轮 → 重新过门禁；原分析保留，未完成仍如实标记。
 
 原先的形状是二值的：一个必需输出判缺，整份答案换成缺口模板。
 
@@ -73,13 +73,10 @@ def _repair(**overrides):
 class TestRegateIsMandatory:
     """约束 3：补写后必须重新过门禁。"""
 
-    def test_revision_that_still_fails_is_discarded(
+    def test_revision_that_still_fails_is_preserved_with_incomplete_verdict(
         self, monkeypatch: pytest.MonkeyPatch, stub_registry: None
     ) -> None:
-        """模型交回了东西，但仍不满足契约 → 必须返回 None（走 fail-closed）。
-
-        这是最容易写错的一条：跑过修复轮不是放行的理由。
-        """
+        """模型交回了东西，但仍不满足契约：保留内容，不能伪造完成判定。"""
         monkeypatch.setattr(
             llm_refine,
             "synthesize_messages",
@@ -94,7 +91,11 @@ class TestRegateIsMandatory:
             lambda **k: _verdict("invalidation"),
         )
 
-        assert _repair() is None
+        text, verdict = _repair()
+        assert "上一版正文。" in text
+        assert "补写后的正文" in text
+        assert verdict.status == "missing"
+        assert verdict.missing_required[0].output_id == "invalidation"
 
     def test_revision_that_passes_is_returned_with_the_new_verdict(
         self, monkeypatch: pytest.MonkeyPatch, stub_registry: None
@@ -118,13 +119,14 @@ class TestRegateIsMandatory:
 
         assert result is not None
         text, verdict = result
-        assert text == "补齐了失效条件的正文"
+        assert text.startswith("上一版正文。")
+        assert "补齐了失效条件的正文" in text
         assert verdict is passed
 
-    def test_the_recheck_runs_on_the_revised_text_not_the_original(
+    def test_the_recheck_runs_on_the_combined_body_not_just_the_revision(
         self, monkeypatch: pytest.MonkeyPatch, stub_registry: None
     ) -> None:
-        """重判必须喂新正文——喂旧正文等于没重判。"""
+        """重判必须看实际交付的原文加补充；既不能只看旧文，也不能只看新文。"""
         seen: dict[str, object] = {}
         monkeypatch.setattr(
             llm_refine,
@@ -144,7 +146,8 @@ class TestRegateIsMandatory:
         )
         _repair(answer_text="旧正文")
 
-        assert seen["answer_text"] == "新正文"
+        assert "旧正文" in seen["answer_text"]
+        assert "新正文" in seen["answer_text"]
 
 
 class TestOnlyOneRound:

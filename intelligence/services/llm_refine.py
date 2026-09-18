@@ -367,36 +367,27 @@ def stable_llm_fallback_reason(reason: str) -> str:
     看不到解析器，于是前者的超时至今被归进 ``provider_unavailable``。
 
     已知未覆盖：``LLM 调用失败（TimeoutError）`` / ``LLM 预算不足`` 都会落进
-    ``provider_unavailable``。**不要顺手补规则**——本函数同时是 judge 的
-    fail-closed 闸门（``_TRANSIENT_JUDGE_REASONS``），多认一个瞬时原因就等于
-    放宽一次严格层。要改先补 judge 侧的测试。
+    ``provider_unavailable``。不要顺手补规则：分类仍用于诊断与重试策略，
+    要改先补 judge 侧测试。它不再是原稿展示白名单；保留分析不等于核验通过，
+    也不授权额外调用或突破截止时间。
     """
     normalized = str(reason or "").casefold()
     # #55：judge 被 ASK_SEMANTIC_JUDGE=off 关掉，既不是「供应商不可用」也不是任何
-    # 瞬时故障——原样透传成独立码。它**不在** ``_TRANSIENT_JUDGE_REASONS`` 里，
-    # 而且 off 路径在走到掉线放行之前就已返回，所以这条不放宽严格层。
+    # 瞬时故障——原样透传成独立码，不能把主动关闭记成复核服务故障。
     if normalized == "judge_off":
         return "judge_off"
     if "未配置" in normalized:
         return "provider_unavailable"
-    # 本轮调用预算耗尽（``LlmCallLedger.rejection_reason``）。原先落进
-    # provider_unavailable，跟「没配 key」混成一类——但两者的处置完全相反：
-    # 没配 key 是配置问题该 fail-closed，预算耗尽时被审对象是无辜的。
+    # 本轮调用预算耗尽（LlmCallLedger.rejection_reason）不是缺少配置；
+    # 两者都可能保留安全原稿，但故障分类与是否允许再调用必须各自如实记账。
     if "预算耗尽" in normalized:
         return "call_budget_exhausted"
-    # 「共享截止时间」是**我们自己**的 deadline 走完了，不是对方慢。原先跟 provider
-    # 侧超时塌成一个 ``timeout``，而 ``timeout`` 在 judge 的瞬时故障白名单里——于是
-    # 自家预算饥饿被当成「供应商瞬时故障」放行，答案带一句「服务瞬时问题」发出去。
-    #
-    # 分界线跟本函数里 HTTP 那条一样，问的是「被审对象是不是无辜的」：供应商抖一下
-    # 是例外，放行合理；自家 deadline 不够是常态（2026-08-02 那批 23 轮里 15 轮命中），
-    # 放行就从例外变成常态——按注释里既有的判据，这类必须 fail-closed。
+    # 自己的共享截止时间耗尽，不是供应商慢。不能写成服务瞬时故障，
+    # 也不能因为原稿仍可展示，就让后续判官越过根截止时间。
     if "截止时间" in normalized:
         return "deadline_exhausted_local"
     # 预算不够所以**没发**这次调用（准入检查拦下），跟「发了但超时」不是一回事：
-    # 前者一秒没浪费，后者把剩余预算烧完才降级。加这条不放宽 judge 闸门——它不在
-    # 瞬时故障白名单里，仍然 fail-closed；加它只是为了不让这类事件塌进
-    # ``provider_unavailable``，那才是又一次「把自家限额记成供应商挂了」。
+    # 前者没发请求，后者已经消耗预算；本地限额不能记成供应商不可用。
     if "剩余预算不足" in normalized:
         return "insufficient_budget"
     if "超时" in normalized:
@@ -407,10 +398,8 @@ def stable_llm_fallback_reason(reason: str) -> str:
         return "truncated_response"
     if "未正常停止" in normalized or "stalled" in normalized:
         return "provider_stalled"
-    # HTTP 按状态码分类，不要塌成一类。产生点（``LLM 合成 HTTP {code}`` /
-    # ``LLM 调用 HTTP {code}``）本来就知道是 400 还是 529，而这两者的处置相反：
-    # 429/5xx 是「那边出了事」，被审对象无辜；4xx 其余是「我们这次请求本身有问题」，
-    # 重试和放行都不对。塌成一类的后果是 HTTP 400 也会走瞬时故障放行。
+    # HTTP 状态码区分请求错误、限流与服务过载。保留原稿不抹平诊断，
+    # 特别是请求错误不能被误当成瞬时故障而获得重试。
     http_code = re.search(r"http\s*(\d{3})", normalized)
     if http_code is not None:
         code = int(http_code.group(1))
@@ -423,15 +412,8 @@ def stable_llm_fallback_reason(reason: str) -> str:
         return "provider_http_error"
     if "空内容" in normalized:
         return "empty_response"
-    # CLI judge 退出码 0 却没吐内容 —— 字面就是一次空响应，而 ``empty_response``
-    # 早就在 ``_TRANSIENT_JUDGE_REASONS`` 里。**这不是新增例外，是让空响应被认成
-    # 空响应**：此前它以裸 ``RuntimeError`` 的面目落进 ``provider_unavailable``，
-    # 于是「CLI 抽了一下」和「根本没配 judge」被处置成同一件事——整篇扣住。
-    #
-    # 刻意只放这一种：``GrokCliInvalidJson`` / ``GrokCliExit`` 仍走
-    # ``provider_unavailable``（硬扣）。它们「吐了东西但不对」，不等价于空响应，
-    # 按本函数既有判据（问「被审对象是不是无辜的」）没有同等把握，不放宽。
-    # 那两种仍可被 ``_stable_semantic_judge_error`` 重试，两道闸门本就各判各的。
+    # CLI 退出码 0 但无正文仍是空响应，不是未配置。非法 JSON / 异常退出
+    # 保留既有 provider_unavailable 分类；这里只分类，不决定原稿展示或重试次数。
     if "grokcliemptyresponse" in normalized:
         return "empty_response"
     return "provider_unavailable"
@@ -2414,12 +2396,12 @@ def synthesize_messages_stream(
     )
 
 
-# 质检闸门 WARN 回灌修订（修订版在前契约）：把 output_review 的 WARN 意见送回同一段
-# 对话做一轮定向修订，用户拿到的是可直接引用的修订版全文，审查意见退居附录。
+# 回灌仍是一轮；程序保留原文，模型只提供可追溯的补充与纠正。
 _GATE_REVISION_PROMPT = (
-    "输出质检闸门对上一条回答给出以下 WARN 意见，请针对性修订：\n{notes}\n"
-    "要求：只修意见相关的问题，不改动无关内容；仍只能使用已给证据，证据不足处显式写缺口而不是补写内容；"
-    "只输出修订后的最终回答正文，不输出修订说明，结尾仍以「（非投资建议）」收尾。"
+    "输出质检对上一条回答给出以下 WARN 意见，请补充核验说明：\n{notes}\n"
+    "要求：只针对意见补充或纠正，不要重写整篇答案；仍只能使用已给证据。"
+    "逐项说明原判断哪里存疑、建议如何更正；证据不足时明确写尚未核验。"
+    "只输出补充与修订正文，系统会把它附在原分析后，不会覆盖原分析。"
 )
 
 
@@ -2439,8 +2421,8 @@ def claim_binding_revision_user_content(
         f"{_registry_document(registry_block)}"
         "上一版未通过结构化事实门禁。不要增加 registry 外事实；"
         "保留原有自然措辞，只修复门禁错误指出的 claim/EvidenceAtom 绑定或越界句。\n"
-        "标题可自由组织；事实和推断正文必须保留合法 marker，允许删去无法修复的单句，"
-        "但不要为满足格式而重写整篇答案。\n"
+        "事实和推断正文必须保留合法 marker；无法修复的句子说明疑点，不能静默删除。"
+        "只输出相关句子的补充或纠正，系统会保留原分析，不要重写整篇答案。\n"
         f"门禁错误：\n{joined}"
     )
 
@@ -2496,7 +2478,7 @@ def fulfillment_revision_user_content(
         "</previous_answer>\n\n"
         f"{perspective_section}"
         "上一版没有覆盖全部必需输出。保留已经写好的部分和原有措辞，"
-        "只针对下面点名的输出补写，不要重写整篇答案。\n"
+        "只针对下面点名的输出补写，不要重写整篇答案。只返回补充内容，系统会追加到原分析之后。\n"
         "只能用 claim registry 里的事实来覆盖；registry 里没有支撑的那一条，"
         "写成明确的缺口或边界，不要为了凑齐而编。\n"
         f"未覆盖的输出及原因：\n{items}"

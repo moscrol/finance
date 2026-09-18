@@ -1,8 +1,6 @@
-"""market_watch 公开稿未注册阈值删句（R-20260824-04，盘面包 spec §7.4 #10）。
+"""market_watch 未注册阈值保留为存疑设想，检测、告警和批注不可缺席。
 
-残差/正文分句里出现 MA20、110–120% 带、「旗型蓄能」这类未进本轮证据册的
-方法阈值时整句删除、不留质检条；包渲染（grid）里真实在场的同类语言不删。
-探针行与锁格来自包渲染、在闸之外，永不受删。
+已注册阈值及探针行保持原样；普通质量发现不能授予删句权。
 """
 
 from __future__ import annotations
@@ -37,7 +35,7 @@ BAND_CLAUSE = "量能需要回到110-120%区间才升级。"
 FLAG_CLAUSE = "形态上更像旗型蓄能，等待方向选择。"
 
 
-def test_drops_unregistered_method_clauses_for_market_watch() -> None:
+def test_annotates_unregistered_method_clauses_for_market_watch() -> None:
     text = CLEAN + MA20_CLAUSE + BAND_CLAUSE + FLAG_CLAUSE
     receipt = apply_market_watch_delivery_gate(
         text,
@@ -45,12 +43,11 @@ def test_drops_unregistered_method_clauses_for_market_watch() -> None:
         grid_text="总量袋 served_date=2026-07-23：21949.97 亿。",
     )
     assert receipt.applied
-    assert receipt.dropped == 3
-    assert receipt.text == CLEAN
-    assert "MA20" not in receipt.text
-    assert "旗型蓄能" not in receipt.text
-    # 删句不留质检条。
-    assert "质检" not in receipt.text
+    assert receipt.dropped == 0
+    assert receipt.annotated == 3
+    assert receipt.text.startswith(text)
+    assert "核验批注" in receipt.text
+    assert "未登记" in receipt.text
 
 
 def test_keeps_method_language_registered_in_grid() -> None:
@@ -204,8 +201,8 @@ def _gate_trace_payloads(run_store, run_id: str) -> list[dict]:
     ]
 
 
-def test_orchestrator_strips_owner_prose_threshold_clauses(tmp_path: Path) -> None:
-    """接线测试：owner 正文里的未注册阈值句在公开稿被删，锁格与干净句保留。"""
+def test_orchestrator_annotates_owner_prose_threshold_clauses(tmp_path: Path) -> None:
+    """接线测试：原稿、锁格与批注均交付，同时质量告警必须落账。"""
 
     result, run_store, run_id = _run_owner_watch_turn(
         tmp_path,
@@ -219,20 +216,19 @@ def test_orchestrator_strips_owner_prose_threshold_clauses(tmp_path: Path) -> No
     assert "21949.97" in result.content
     assert "电力设备" in result.content
     assert "日报正文：结构以电为主" in result.content
-    # 未注册阈值句被整句删除，且不留质检条。
-    assert "MA20" not in result.content
-    assert "110-120%" not in result.content
-    assert "旗型蓄能" not in result.content
-    assert "质检" not in result.content
-    # 删句以 degrade 收据入账，不进正文。
+    assert "MA20" in result.content
+    assert "110-120%" in result.content
+    assert "旗型蓄能" in result.content
+    assert "核验批注" in result.content
+    # 保留正文不抹掉质量发现。
     run = run_store.load_run(run_id)
     assert "market_watch_delivery_gate" in list(run.degrades)
-    # 活性事件带删句数（R-20260825-08）。owner 渲染会把 summary 复现多处，
-    # 每处各删一遍——锁下限不锁精确值（渲染重复次数是细节不是契约）。
+    # owner 可能复现 summary 多次，锁发现数下限，不锁渲染次数。
     payloads = _gate_trace_payloads(run_store, run_id)
     assert payloads
     assert payloads[-1]["applied"] is True
-    assert payloads[-1]["dropped"] >= 3
+    assert payloads[-1]["dropped"] == 0
+    assert payloads[-1]["annotated"] >= 3
 
 
 def test_gate_liveness_signal_on_zero_drop(tmp_path: Path) -> None:

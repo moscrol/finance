@@ -31,6 +31,7 @@ from intelligence.services.research_contract import (
     ResearchTaskContract,
 )
 from intelligence.tests.test_episode_semantic_verifier import (
+    _assert_preserved_doubt,
     _frame,
     _judge,
     _structural,
@@ -94,7 +95,7 @@ def _verify(frame, structural, judge):
 
 
 def test_partial_mechanical_delete_keeps_remainder_and_degrades() -> None:
-    """① 块内 N 句、合法删 1 句 → 残块保留 + missing + 质检 + 块级标注。"""
+    """① 问题句和其他句均保留，数字检测与 partial/rejected 仍承重。"""
 
     draft = (
         "【直接判断】若指数跌破99999点则主线成立。"
@@ -109,15 +110,10 @@ def test_partial_mechanical_delete_keeps_remainder_and_degrades() -> None:
 
     assert "成交额 530.96" in result.public_answer
     assert "【证据边界】" in result.public_answer
-    assert "99999" not in result.public_answer
-    assert "【直接判断】若指数跌破99999点则主线成立" not in result.public_answer
-    assert result.gap_output_ids == ("direct_assessment",)
-    lost = next(
-        item
-        for item in result.verified.completion.outputs
-        if item.output_id == "direct_assessment"
-    )
-    assert lost.status == "missing"
+    _assert_preserved_doubt(result, structural.outcome, reason="novel_numeric_condition")
+    assert "不能当作已验证阈值" in result.public_answer
+    assert result.gap_output_ids == ()
+    assert result.verified.completion == structural.completion
     assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
     for banner in _APOLOGY_MARKERS:
         assert banner not in result.public_answer
@@ -130,7 +126,7 @@ def test_partial_mechanical_delete_keeps_remainder_and_degrades() -> None:
 
 
 def test_numeric_unsupported_sentence_is_still_deleted() -> None:
-    """② 白名单：numeric_unsupported 句仍被删。"""
+    """② 数字疑点仍检出，但没有删句权。"""
 
     draft = (
         "【当前判断】市场偏弱。"
@@ -141,13 +137,14 @@ def test_numeric_unsupported_sentence_is_still_deleted() -> None:
 
     result = _verify(frame, structural, _judge(True))
 
-    assert "99999点" not in result.public_answer
+    _assert_preserved_doubt(result, structural.outcome, reason="novel_numeric_condition")
+    assert "原稿第2句" in result.public_answer
     assert "【当前判断】市场偏弱" in result.public_answer
     assert "【证据边界】" in result.public_answer
 
 
 def test_empty_remainder_of_lost_slot_has_no_apology_banner() -> None:
-    """③ 残块为空（块仅一句且该句被合法删除）→ 无该块、不挂道歉横幅。"""
+    """③ 块只有一句存疑判断时也保留，不能缩成只剩证据边界。"""
 
     draft = (
         "【直接判断】若指数跌破99999点则主线成立。"
@@ -157,10 +154,10 @@ def test_empty_remainder_of_lost_slot_has_no_apology_banner() -> None:
 
     result = _verify(frame, structural, _judge(True))
 
-    assert "99999点" not in result.public_answer
-    assert "【直接判断】" not in result.public_answer
+    _assert_preserved_doubt(result, structural.outcome, reason="novel_numeric_condition")
+    assert "【直接判断】" in result.public_answer
     assert "【证据边界】" in result.public_answer
-    assert result.gap_output_ids == ("direct_assessment",)
+    assert result.gap_output_ids == ()
     for banner in _APOLOGY_MARKERS:
         assert banner not in result.public_answer
 
@@ -187,7 +184,7 @@ def test_sanitized_empty_remainder_has_no_apology_banner() -> None:
 
 
 def test_full_wipe_still_keeps_c3_banner() -> None:
-    """④ 全灭 → 横幅保留（C3 回归钉）。"""
+    """④ 全文引用存疑也不扣稿，更不能把保留稿判成已经修好。"""
 
     frame, structural = _structural(
         "【当前判断】据E90，市场下跌。据E99显示下跌。据E98显示流入。据E97显示反转。"
@@ -206,8 +203,10 @@ def test_full_wipe_still_keeps_c3_banner() -> None:
 
     result = _verify(frame, structural, judge)
 
-    assert result.repair_withheld is True
-    assert "repair_wiped_all_outputs" in " ".join(result.issues)
+    _assert_preserved_doubt(result, structural.outcome, reason="unresolved_evidence_ordinal")
+    assert calls == 1
+    assert result.repair_withheld is False
+    assert "repair_wiped_all_outputs" not in " ".join(result.issues)
     assert "【当前判断】据E90，市场下跌" in result.public_answer
     assert result.gap_output_ids == ()
     assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
@@ -346,7 +345,9 @@ def test_semantic_quality_reject_keeps_required_block_remainder() -> None:
     assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
     assert "【直接判断】当日主线仍是电网设备" in result.public_answer
     assert "成交额 530.96" in result.public_answer
+    _assert_preserved_doubt(result, structural.outcome, reason="judge")
     assert "质量不够" in " ".join(result.issues)
+    assert "原稿第3句" in result.public_answer
     for banner in _APOLOGY_MARKERS:
         assert banner not in result.public_answer
 

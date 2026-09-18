@@ -15,7 +15,6 @@ from intelligence.services.disclosure_scan_pack import (
     APPENDIX_KEYWORDS,
     DISCLOSURE_RESIDUAL_CONTRACT,
     MAX_PAGES,
-    RESIDUAL_TRUNCATION_NOTICE,
     classify_title,
     disclosure_scan_degrade_codes,
     gate_disclosure_residual,
@@ -523,30 +522,38 @@ def test_residual_gate_shapes(tmp_path: Path) -> None:
     assert clean.dropped is False
     assert clean.text
     unknown = gate_disclosure_residual("建议关注贵州茅台（600519）的机会。", pack)
-    assert unknown.dropped is True
+    assert unknown.dropped is False
+    assert unknown.annotated is True
     assert unknown.reason == "unknown_code"
     assert unknown.detail == "600519"
-    assert unknown.text == ""
+    assert unknown.text.startswith("建议关注贵州茅台（600519）的机会。")
+    assert "核验批注" in unknown.text
     roster = gate_disclosure_residual(
         "600276 【注册获批】恒瑞医药 2026-08-21 关于获得药品注册批准的公告",
         pack,
     )
-    assert roster.dropped is True
+    assert roster.dropped is False
+    assert roster.annotated is True
     assert roster.reason == "roster_line"
+    assert "600276 【注册获批】恒瑞医药" in roster.text
     embedded = gate_disclosure_residual(
         "公告编号 1225497236 对应的行属注册获批档，无需另查。", pack
     )
     assert embedded.dropped is False
     long = gate_disclosure_residual("这一段解读反复展开。" * 400, pack)
     assert long.dropped is False
-    assert long.reason == "truncated"
-    assert long.text.endswith(RESIDUAL_TRUNCATION_NOTICE)
+    assert long.reason == "over_length"
+    assert long.annotated is True
+    assert long.text.startswith("这一段解读反复展开。" * 400)
+    assert "核验批注" in long.text
     renarration = gate_disclosure_residual(
         "600276、002693、000756、300687、300504、600812、603296、000938、601089 "
         "本轮均有披露，逐一说明如下。",
         pack,
     )
-    assert renarration.dropped is True
+    assert renarration.dropped is False
+    assert renarration.annotated is True
+    assert "本轮均有披露，逐一说明如下。" in renarration.text
     assert renarration.reason == "roster_renarration"
     assert renarration.detail == "9"
 
@@ -811,11 +818,11 @@ def test_orchestrator_gates_residual_after_synthesis() -> None:
     synth_at = src.index("synthesize_prepared_answer(")
     gate_at = src.index("gate_disclosure_residual(")
     assert synth_at < gate_at
-    assert "disclosure_residual_dropped:" in src
-    # 有据呈现器拒收（synthesis=确定性兜底骨架）必须按丢弃处理回纯包，
-    # 不得把 spec 骨架当残差交付——live run_20260825_200157_247884 实锤。
-    assert 'synthesis_diagnostic.state == "rejected"' in src
-    assert "grounded_rejected" in src
+    assert "disclosure_residual_annotated:" in src
+    # 核验问题必须记账、保留批注后的残差，不能借 rejected 状态换回纯包。
+    assert "if residual_gate.annotated:" in src
+    assert "result.synthesis = residual_gate.text" in src
+    assert "grounded_rejected" not in src
 
 
 def test_unsupported_without_sector_does_not_scan_all_a_shares(tmp_path: Path) -> None:

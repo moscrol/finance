@@ -101,6 +101,28 @@ class FulfillmentVerdict:
         }
 
 
+def public_fulfillment_notes(verdict: FulfillmentVerdict) -> tuple[str, ...]:
+    """Explain missing coverage without exposing registry diagnostics or IDs.
+
+    Labels come only from the canonical vocabulary. Descriptions/gap strings
+    can contain private instructions; they remain available in ``to_dict``.
+    """
+    from intelligence.services.episode_factory import public_output_label
+
+    reasons = {
+        "no_candidate_claim": "尚未形成对应的可核验回答",
+        "text_absent": "已取得相关线索，但正文尚未回答这一部分",
+        "evidence_unbound": "正文已有相关分析，但支持证据尚未核对对应",
+        "marker_absent": "正文尚未清楚说明这一部分",
+    }
+    return tuple(
+        f"{public_output_label(item.output_id) or f'本题第{index}项要求'}："
+        f"{reasons.get(item.reason_code, '仍需核对回答是否完整')}。"
+        for index, item in enumerate(verdict.items, start=1)
+        if item.status != "fulfilled"
+    )
+
+
 def _reason_code_counts(items: tuple[FulfillmentItem, ...]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for item in items:

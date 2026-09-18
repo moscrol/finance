@@ -3,7 +3,7 @@
 三件事各自有阳性对照：
 - 模式变了而夹具不变 → 同一份 structural 在 llm 模式下 judge_status=unavailable；
 - 注入一个「拒绝所有句子」的判官 → off 模式下它一次都没被调用；
-- 机械门（表外 E、日期错配）在 off 模式下照常删句并记账。
+- 机械检查（表外 E、日期错配）在 off 模式下照常标疑并记账，不删除分析。
 """
 
 from __future__ import annotations
@@ -112,7 +112,9 @@ def test_off_mode_completes_without_a_judge_and_llm_mode_is_the_control(
     control = _verify(SemanticEpisodeVerifier(), _structural(DRAFT))
     assert control.judge_status == "unavailable"
     assert control.judge_mode == "llm"
-    assert "基准判断是反弹仍有数日窗口" not in control.public_answer
+    assert "基准判断是反弹仍有数日窗口" in control.public_answer
+    assert "未完成独立复核" in control.public_answer
+    assert control.status == "partial"
     assert control.to_dict()["pending_rejudge"] is True
     assert "judge_mode" in control.to_dict()
 
@@ -130,8 +132,10 @@ def test_off_mode_never_calls_an_injected_judge_even_across_a_repair_round(
 
     assert judge.calls == []
     assert result.judge_mode == "deterministic"
-    assert result.judge_status == "repaired"
-    assert "不存在的" not in result.public_answer
+    assert result.judge_status == "rejected"
+    assert result.status == "partial"
+    assert "不存在的" in result.public_answer
+    assert "不能作为出处" in result.public_answer
     assert "成交额缩量" in result.public_answer
     reasons = {reason for verdict in result.sentence_verdicts for reason in verdict["reasons"]}
     assert "unresolved_evidence_ordinal" in reasons
@@ -163,7 +167,7 @@ def test_off_mode_skips_guided_retrieval_by_reason(monkeypatch, no_env_judge):
 
 
 @pytest.mark.parametrize("mode", ["off", "llm"])
-def test_evidence_date_mismatch_is_deleted_mechanically_in_both_modes(
+def test_evidence_date_mismatch_is_annotated_mechanically_in_both_modes(
     monkeypatch, no_env_judge, mode
 ):
     monkeypatch.setenv(ENV_SEMANTIC_JUDGE, mode)
@@ -175,8 +179,10 @@ def test_evidence_date_mismatch_is_deleted_mechanically_in_both_modes(
     )
     result = _verify(verifier, _structural(draft))
 
-    assert result.judge_status == "repaired"
-    assert "2026-08-21" not in result.public_answer
+    assert result.judge_status == "rejected"
+    assert result.status == "partial"
+    assert "2026-08-21" in result.public_answer
+    assert "日期与引用证据日期不一致" in result.public_answer
     assert "基准判断" in result.public_answer
     verdict = next(
         item
@@ -184,7 +190,7 @@ def test_evidence_date_mismatch_is_deleted_mechanically_in_both_modes(
         if VERDICT_REASON_EVIDENCE_DATE in item["reasons"]
     )
     assert verdict["stage"] == "preflight"
-    assert verdict["decision"] == "deleted"
+    assert verdict["decision"] == "demoted_to_issue"
     assert any("evidence_date_mismatch" in issue for issue in result.issues)
 
 

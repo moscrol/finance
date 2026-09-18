@@ -472,18 +472,18 @@ class TestAdmissionControl:
             == "insufficient_budget"
         )
 
-    def test_skipped_judge_still_fails_closed(self) -> None:
-        """judge 因自家预算被跳过时不得放行——跟 deadline 那条同一个判据。"""
+    def test_skipped_judge_retains_prose_without_claiming_provider_failure(self) -> None:
+        """预算不足不冒充服务故障；已有分析只能以未复核状态保留。"""
         assert (
             "insufficient_budget"
             not in ask_synthesis._TRANSIENT_JUDGE_REASONS
         )
-        assert (
-            ask_synthesis._judge_outage_release(
-                "正文", object(), ask_synthesis._INSUFFICIENT_BUDGET_REASON
-            )
-            is None
+        public = ask_synthesis._judge_outage_release(
+            "正文", object(), ask_synthesis._INSUFFICIENT_BUDGET_REASON
         )
+        assert public is not None and "正文" in public
+        assert "未完成独立复核" in public
+        assert "服务超时" not in public
 
     def test_insufficient_budget_is_a_public_enum(self) -> None:
         from intelligence.api import app

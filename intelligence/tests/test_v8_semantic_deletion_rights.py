@@ -25,7 +25,9 @@ from intelligence.tests.test_ceiling_required_block_degrade import (
     test_semantic_quality_reject_keeps_required_block_remainder,
 )
 from intelligence.tests.test_ceiling_required_block_degrade import _two_slot_structural
-from intelligence.tests.test_episode_semantic_verifier import _judge, _structural
+from intelligence.tests.test_episode_semantic_verifier import (
+    _assert_preserved_doubt, _judge, _structural,
+)
 
 
 def _verify(frame, structural, judge):
@@ -72,30 +74,32 @@ def test_semantic_quality_reject_keeps_required_sentence_and_marks(
     assert "## 输出质检" in appendix
     assert "质量不够" in appendix
     assert appendix.index("据此判断延续观察") < appendix.index("## 输出质检")
-    assert all(3 not in indexes for indexes in seen)
-    assert result.judge_status == "repaired"
+    assert seen == []
+    _assert_preserved_doubt(result, structural.outcome, reason="judge")
+    assert "原稿第3句" in result.public_answer
 
 
 def test_numeric_unsupported_sentence_still_deleted_under_v8() -> None:
-    """② W1 ② 回归：无据阈值句仍消失。"""
+    """② W1 ② 回归：无据阈值原句保留且批注。"""
 
     test_numeric_unsupported_sentence_is_still_deleted()
 
 
 def test_unresolved_evidence_ordinal_is_deleted_by_code_gate() -> None:
-    """③ 表外 E 号句仍消失；句号由代码产，不靠 LLM 文案。"""
+    """③ 表外 E 号仍由确定性检测标疑，保留不等于给它伪造出处。"""
 
     draft = "市场下跌。据E99显示外部资金将持续流入。"
     frame, structural = _structural(draft)
     result = _verify(frame, structural, _judge(True))
 
-    assert "E99" not in result.public_answer
+    _assert_preserved_doubt(result, structural.outcome, reason="unresolved_evidence_ordinal")
+    assert "原稿第2句" in result.public_answer
     assert "市场下跌" in result.public_answer
     assert "unresolved_evidence_ordinal" in " ".join(result.issues)
 
 
 def test_c_cluster_mechanical_trigger_keeps_rejudge_safety_net() -> None:
-    """④ C 簇抽检：机械扳机下 calls 与稿变短原断言仍绿。"""
+    """④ 机械疑点不再触发删句重审，原证据与缺口均保留。"""
 
     frame, structural = _structural(
         "市场下跌。据E99显示下跌。",
@@ -115,12 +119,10 @@ def test_c_cluster_mechanical_trigger_keeps_rejudge_safety_net() -> None:
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
     )
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert len(judge.calls) == 2  # type: ignore[attr-defined]
+    _assert_preserved_doubt(result, original, reason="unresolved_evidence_ordinal")
+    assert len(judge.calls) == 1  # type: ignore[attr-defined]
     repaired = result.verified.outcome
-    assert repaired.draft == "市场下跌。"
-    assert result.public_answer == "市场下跌。"
+    assert repaired.draft == original.draft
     assert repaired.evidence == original.evidence
     assert repaired.gaps == original.gaps
 

@@ -138,8 +138,8 @@ def test_a_located_issue_must_not_swallow_an_unlocatable_one() -> None:
     assert resolve_judge_sentence_indexes(report, DISCLOSURE_SENTENCES) == (2, 3)
 
 
-def test_the_unlocatable_rejection_actually_leaves_the_answer() -> None:
-    """后果验证：修复后那句真的被删掉，而不是只删掉能定位的那一句。"""
+def test_the_unlocatable_rejection_is_still_annotated() -> None:
+    """后果验证：两条驳回都须批注，不能因引文定位失败漏掉一条。"""
     from intelligence.services import answer_model as am
 
     claim = am.make_claim(
@@ -186,14 +186,14 @@ def test_the_unlocatable_rejection_actually_leaves_the_answer() -> None:
     )
 
     assert repaired is not None
-    assert "可直接对应产品上市资格" not in repaired
-    # 修复前正是这一句漏网上了公开稿
-    assert "含恒瑞同日的多条批件" not in repaired
+    assert "可直接对应产品上市资格" in repaired
+    assert "含恒瑞同日的多条批件" in repaired
+    assert "原稿第2、3句提出疑点" in repaired
     assert "完整主名单已由扫描包原样置顶" in repaired
 
 
-def test_repair_drops_the_sentences_the_judge_actually_meant() -> None:
-    """后果验证：按序号修会删掉无辜的第 5 句，越界的第 1、4 句留在正文里。"""
+def test_review_annotates_the_sentences_the_judge_actually_meant() -> None:
+    """批注应定位真实的第1、4句，不误标第5句；正文全部保留。"""
     from intelligence.services import answer_model as am
 
     claim = am.make_claim(
@@ -237,8 +237,9 @@ def test_repair_drops_the_sentences_the_judge_actually_meant() -> None:
     )
 
     assert repaired is not None
-    # 两条真正越界的被删掉
-    assert "外围强势可能对A股相关板块形成情绪传导" not in repaired
-    assert "能否扭转弱势取决于增量资金" not in repaired
+    assert "外围强势可能对A股相关板块形成情绪传导" in repaired
+    assert "能否扭转弱势取决于增量资金" in repaired
+    assert "原稿第1、4句提出疑点" in repaired
+    assert "原稿第5句" not in repaired
     # 被 judge 错报的那一句是无辜的，必须留下
     assert "当前市场的核心矛盾在于" in repaired

@@ -227,8 +227,10 @@ def test_unattempted_news_claim_without_any_trace() -> None:
     )
     result = _verify(frame, structural, _judge(True))
     assert result.to_dict()["unattempted_claim_count"] >= 1
-    assert "未返回" not in result.public_answer
-    assert "本次未查询 directional_news" in result.public_answer
+    assert draft in result.public_answer
+    assert "本轮未查询资讯" in result.public_answer
+    assert "directional_news" not in result.public_answer
+    assert result.status == "partial"
     assert any("unattempted_claim" in item for item in result.issues)
 
 
@@ -287,9 +289,12 @@ def test_repair_withholds_collapsed_stub() -> None:
         _judge(False, rejected=(1, 2, 3, 4), issues=("超证",)),
     )
     payload = result.to_dict()
-    assert result.repair_withheld is True
-    assert payload["repair_collapsed_to_stub"] is True
-    assert result.judge_status == "repaired"
+    assert result.repair_withheld is False
+    assert payload["repair_collapsed_to_stub"] is False
+    assert result.judge_status == "rejected"
+    assert result.status == "partial"
+    assert draft in result.public_answer
+    assert "核验批注" in result.public_answer
 
 
 def test_rollback_subtracts_judge_flagged_sentences() -> None:
@@ -346,9 +351,12 @@ def test_rollback_falls_back_to_whole_draft_when_still_stub() -> None:
             issues=("第1句越界", "第2句发明", "第3句前瞻"),
         ),
     )
-    assert result.repair_withheld is True
-    assert result.to_dict()["repair_rollback_mode"] == "whole_pre_repair"
-    assert any("未通过判官的表述" in item for item in result.issues)
+    assert result.repair_withheld is False
+    assert result.to_dict()["repair_rollback_mode"] is None
+    assert result.judge_status == "rejected"
+    assert draft in result.public_answer
+    for index in (1, 2, 3):
+        assert f"原稿第{index}句" in result.public_answer
 
 
 def test_repair_keeps_trimmed_but_usable_draft() -> None:
@@ -368,5 +376,7 @@ def test_repair_keeps_trimmed_but_usable_draft() -> None:
     )
     assert result.repair_withheld is False
     assert result.to_dict()["repair_collapsed_to_stub"] is False
-    assert result.judge_status == "repaired"
-    assert sentence_count(result.public_answer) >= 3
+    assert result.judge_status == "rejected"
+    assert result.status == "partial"
+    assert draft in result.public_answer
+    assert "原稿第2句" in result.public_answer

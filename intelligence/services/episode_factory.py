@@ -165,6 +165,16 @@ _OUTPUT_DESCRIPTIONS: dict[str, str] = {
 }
 
 
+def public_output_label(output_id: str) -> str:
+    """Project a registered slot into user language, never an arbitrary ID.
+
+    Reuse the contract vocabulary, but omit the trailing model instructions.
+    Unknown extensions return an empty label for a caller-owned ordinal fallback.
+    """
+    description = _OUTPUT_DESCRIPTIONS.get(output_id, "")
+    return re.split(r"[；，;,]", description, maxsplit=1)[0].strip()
+
+
 def _require_output_description(output_id: str) -> str:
     """Fail loud when a required slot has no human description.
 

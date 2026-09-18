@@ -34,7 +34,6 @@ from intelligence.services.episode_store import EPISODE_LOG_VERSION
 from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     SemanticEpisodeOutcome,
-    draft_sentence_count,
     numeric_condition_unsupported,
     recheck_material_public_delivery,
 )
@@ -61,13 +60,16 @@ from intelligence.services.research_harness import (
     FinanceResearchHarness,
     ResearchHarness,
 )
-from intelligence.services.research_contract import ResearchDeadline, ResearchRunContext
+from intelligence.services.research_contract import (
+    ResearchDeadline, ResearchRunContext, ResearchTaskContract,
+)
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     SatisfiabilityCheck,
     check_satisfiability,
 )
-from intelligence.services.run_store import redact, redact_value
+from intelligence.services.run_store import redact, redact_public_prose, redact_value
+from intelligence.services.research_annotations import annotate_research_answer
 from intelligence.services.task_frame import TaskFrame, frame_blocks_contract_blind_pipelines
 from intelligence.services.judgment_delta import judgment_delta_receipt
 from intelligence.services.pricing_split import pricing_split_receipt
@@ -400,11 +402,9 @@ class ContinuousTurnAdapter:
 
         raw_answer = str(raw.get("answer") or "")
         raw_status = str(raw.get("status") or "partial")
-        answer = (
-            _safe_public_text(raw_answer)
-            if raw_status == "completed"
-            else (_technical_gap_answer(frame) if raw_answer else "")
-        )
+        answer = _safe_public_text(raw_answer)
+        if answer and raw_status != "completed":
+            answer = annotate_research_answer(answer, ("行情计算未完整完成，以上结果保留为待核验分析。",))
         if not answer and raw_answer:
             answer = _technical_gap_answer(frame)
         status: ContinuousTurnStatus
@@ -956,7 +956,7 @@ class ContinuousTurnAdapter:
                 repair_attempts=repair_attempts,
             )
             degraded_delivery = bool(
-                outcome is not None and outcome.evidence and context is not None
+                outcome is not None and (outcome.draft.strip() or outcome.evidence) and context is not None
             )
             _phase_note(
                 phase_recorder,
@@ -968,7 +968,7 @@ class ContinuousTurnAdapter:
                 repair_attempts=repair_attempts,
             )
             partial_artifact["phase_trace"] = _phase_trace_payload(phase_recorder)
-            if outcome is not None and outcome.evidence and context is not None:
+            if outcome is not None and (outcome.draft.strip() or outcome.evidence) and context is not None:
                 partial_artifact["contract"] = context.contract.to_dict()
                 trusted_structural = (
                     structural
@@ -999,11 +999,7 @@ class ContinuousTurnAdapter:
                     handled=True,
                     status="degraded",
                     answer=_with_calendar_disclosure(
-                        _verification_failure_gap_answer(
-                            frame,
-                            context,
-                            trusted_structural,
-                        ),
+                        _verification_failure_answer(frame, context, trusted_structural, outcome),
                         frame,
                     ),
                     as_of=(
@@ -1082,7 +1078,7 @@ class ContinuousTurnAdapter:
             status: ContinuousTurnStatus = "completed"
         elif (
             semantic.status == "partial"
-            and semantic.judge_status in {"passed", "repaired"}
+            and (semantic.judge_status in {"passed", "repaired"} or semantic.delivery_mode == "preserved_analysis")
             and answer
         ):
             status = "partial"
@@ -1256,6 +1252,16 @@ class ContinuousTurnAdapter:
         candidate = verify(**kwargs)
         if not isinstance(candidate, SemanticEpisodeOutcome):
             raise TypeError("semantic verifier must return SemanticEpisodeOutcome")
+        contract = candidate.verified.contract
+        if (
+            contract is None
+            or not frame.task_frame_hash
+            or contract.task_frame_hash != frame.task_frame_hash
+            or candidate.verified.outcome.task_frame_hash != frame.task_frame_hash
+        ):
+            # Never project a foreign draft OR its citations through an injected
+            # verifier. The exception path may retain only the current task.
+            raise ValueError("semantic verifier task identity mismatch")
         # Check the adapter's own sanitizer before deciding whether to resume.
         # A previously disclosed gap cannot hide a deletion at the final seam.
         return recheck_material_public_delivery(
@@ -1340,22 +1346,11 @@ class ContinuousTurnAdapter:
         candidate = resume(admission.goal)
         if not isinstance(candidate, AgentOutcome):
             raise TypeError("episode session resume must return AgentOutcome")
-        # 修复不得倒退：修复轮死在 provider 上时，上一轮那份答案并没有因此失效。
-        #
-        # 下面那行 ``outcome, structural, _ = repaired`` 是无条件替换，所以一个空
-        # 草稿的候选会把「partial 但有答案」变成「什么都没有」——2026-08-10 生产线
-        # 四个 case 的 ``draft_chars=0`` 就是这么来的。``agent_episode`` 已在源头
-        # 结转，但 ``openai_agents_runtime`` / ``codex_headless_runtime`` 各自还有
-        # 一个 ``draft=""`` 的失败出口；这里是所有 runtime 的共同下游，放一道就够。
-        #
-        # 只补草稿与绑定，status/stop_reason/gaps 一律用候选的——失败必须留痕，
-        # 不能因为保住了答案就把这一轮伪装成成功。
-        if outcome.draft.strip() and not candidate.draft.strip():
-            candidate = replace(
-                candidate,
-                draft=outcome.draft,
-                bindings=candidate.bindings or outcome.bindings,
-            )
+        candidate = _preserve_repair_analysis(
+            outcome, candidate, task_frame_hash=context.contract.task_frame_hash,
+            contract=verify_contract,
+        )
+        # Verify the delivered combination, never just the latest supplement.
         verified = self._structural_verifier(verify_contract, candidate)
         if not isinstance(verified, VerifiedEpisodeOutcome):
             raise TypeError("structural verifier must return VerifiedEpisodeOutcome")
@@ -1420,18 +1415,96 @@ class ContinuousTurnAdapter:
         candidate = resume(admission.goal)
         if not isinstance(candidate, AgentOutcome):
             raise TypeError("episode session resume must return AgentOutcome")
-        if outcome.draft.strip() and not candidate.draft.strip():
-            candidate = replace(
-                candidate,
-                draft=outcome.draft,
-                bindings=candidate.bindings or outcome.bindings,
-            )
-        if draft_sentence_count(candidate.draft) > draft_sentence_count(outcome.draft):
-            return None
+        candidate = _preserve_repair_analysis(
+            outcome, candidate, task_frame_hash=context.contract.task_frame_hash,
+            contract=context.contract,
+        )
+        # A longer supplement is not permission to spend another research turn,
+        # nor a reason to delete it. The existing admission budget is unchanged;
+        # structural and semantic review inspect the entire delivered body.
         verified = self._structural_verifier(context.contract, candidate)
         if not isinstance(verified, VerifiedEpisodeOutcome):
             raise TypeError("structural verifier must return VerifiedEpisodeOutcome")
         return candidate, verified
+
+
+def _preserve_repair_analysis(
+    previous: AgentOutcome,
+    candidate: AgentOutcome,
+    *,
+    task_frame_hash: str,
+    contract: ResearchTaskContract | None = None,
+) -> AgentOutcome:
+    """Keep same-task drafts, without rebinding their citation ordinals.
+
+    This is an internal composition, not a public release. The caller must run
+    structural/semantic review and public sanitization on the combined outcome.
+    An inconsistent evidence identity is an integrity failure, not a quality
+    opinion: the adapter exception path can then deliver only the prior draft.
+    """
+    from intelligence.services.episode_protocol import (
+        cited_evidence_ordinals, evidence_ordinal_table,
+    )
+    from intelligence.services.research_annotations import append_research_supplement
+
+    if (
+        not task_frame_hash
+        or any(item.task_frame_hash != task_frame_hash for item in (previous, candidate))
+        or (contract is not None and contract.task_frame_hash != task_frame_hash)
+    ):
+        raise ValueError("repair task identity mismatch")
+    for item in (previous, candidate):
+        hashes = [card.content_hash for card in item.evidence if card.content_hash]
+        # AgentOutcome already rejects duplicate bindings. Evidence duplicates
+        # survive until structural review, so do not collapse them here first.
+        if len(hashes) != len(set(hashes)):
+            raise ValueError("repair duplicate evidence identity")
+    if not previous.draft.strip():
+        return candidate
+    # Candidate ordering owns its E ordinals. Add missing prior cards only if
+    # neither draft's explicit references (including unresolved ones) change.
+    evidence = list(candidate.evidence)
+    by_hash = {item.content_hash: item for item in evidence if item.content_hash}
+    for item in previous.evidence:
+        existing = by_hash.get(item.content_hash) if item.content_hash else None
+        if existing is not None:
+            # Same content hash does not guarantee the date, source tier,
+            # structured quantities or derivation chain stayed unchanged.
+            # Only observational telemetry may differ; all other fields must
+            # agree before one card may stand behind both drafts.
+            comparable = replace(
+                existing, reexcerpted=item.reexcerpted,
+                pointer_dropped=item.pointer_dropped,
+                structural_neighbor_demoted=item.structural_neighbor_demoted,
+                deep_read=item.deep_read,
+            )
+            if comparable != item:
+                raise ValueError("repair evidence identity changed")
+        elif item not in evidence:
+            evidence.append(item)
+            if item.content_hash:
+                by_hash[item.content_hash] = item
+    merged = tuple(evidence)
+    merged_by_id = {eid: digest for digest, eid in evidence_ordinal_table(merged).items()}
+    for item in (previous, candidate):
+        before_by_id = {eid: digest for digest, eid in evidence_ordinal_table(item.evidence).items()}
+        if any(before_by_id.get(eid) != merged_by_id.get(eid) for eid in cited_evidence_ordinals(item.draft)):
+            raise ValueError("repair evidence ordinal identity changed")
+    bindings = {item.output_id: item for item in candidate.bindings}
+    for prior in previous.bindings:
+        current = bindings.get(prior.output_id)
+        if current is None:
+            bindings[prior.output_id] = prior
+        elif current.basis == prior.basis and not current.gap and not prior.gap:
+            bindings[prior.output_id] = replace(
+                current, evidence_hashes=tuple(dict.fromkeys((*current.evidence_hashes, *prior.evidence_hashes))),
+            )
+    if contract is not None:
+        from intelligence.services.material_delivery import append_material_supplement
+        draft = append_material_supplement(contract, previous.draft, candidate.draft)
+    else:
+        draft = append_research_supplement(previous.draft, candidate.draft)
+    return replace(candidate, draft=draft, evidence=merged, bindings=tuple(bindings.values()))
 
 
 def _issue_backfill_plan(
@@ -1933,12 +2006,21 @@ def _safe_public_text(
     *,
     private_tokens: frozenset[str] = frozenset(),
 ) -> str:
-    lines = []
-    for raw in str(value or "").splitlines():
-        line = raw.strip()
-        if line and not _contains_public_control(line, private_tokens):
-            lines.append(redact(line))
-    return "\n".join(lines).strip()
+    # Redact sensitive spans before checking controls, so a credential cannot
+    # take adjacent analytical prose with it. Provider errors are status text,
+    # not evidence that no answer can be given.
+    text = redact_public_prose(str(value or ""))
+    text = re.sub(r"\bprovider_unsupported\b", "当前数据源不支持该请求", text)
+    kept: list[str] = []
+    for raw in text.splitlines():
+        if raw.strip() == "[REDACTED]":
+            continue
+        if not raw.strip() or not _contains_public_control(raw, private_tokens):
+            kept.append(raw)
+            continue
+        parts = re.split(r"(?<=[。！？；])", raw)
+        kept.append("".join(part for part in parts if not _contains_public_control(part, private_tokens)))
+    return "\n".join(kept).strip()
 
 
 def _fast_path_as_of(raw: dict[str, object]) -> str | None:
@@ -2031,6 +2113,29 @@ def _episode_gap_answer(
         f"关于{subject}，现有证据不足，暂不能给出可靠结论。{suffix}",
         frame=frame,
     )
+
+
+def _verification_failure_answer(
+    frame: TaskFrame,
+    context: ResearchRunContext,
+    structural: VerifiedEpisodeOutcome | None,
+    outcome: AgentOutcome,
+) -> str:
+    # Quality review may crash after generation, even with an empty evidence
+    # pool. Identity is still checked before preserving any candidate text.
+    if structural is not None and not _verified_boundary_matches(structural, frame=frame, context=context):
+        structural = None
+    if frame.task_frame_hash == context.contract.task_frame_hash == outcome.task_frame_hash:
+        candidate = structural.outcome if structural is not None else outcome
+        public = _safe_public_text(candidate.draft, private_tokens=_private_tokens(candidate))
+        if public:
+            fulfilled = _fulfilled_output_ids(structural) if structural is not None else frozenset()
+            labels = _open_gap_labels(context.contract, fulfilled_output_ids=fulfilled)
+            notes = ("本轮核验未完成；已有分析保留，证据与结论仍需核对。",)
+            if labels:
+                notes += ("仍需核验：" + "、".join(labels) + "。",)
+            return annotate_research_answer(public, notes)
+    return _verification_failure_gap_answer(frame, context, structural)
 
 
 def _verification_failure_gap_answer(

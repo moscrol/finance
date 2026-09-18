@@ -161,10 +161,14 @@ def test_capability_name_without_kb_provider_is_unverified() -> None:
     assert "未查证" in rewritten
 
 
-def test_public_answer_zero_kb_has_unverified_qualifier() -> None:
+def test_public_answer_zero_kb_preserves_claim_with_query_status_correction() -> None:
     result = _verify(_ANNOUNCEMENT_GAP, ())
-    assert "未查证" in result.public_answer
-    assert find_unverified_kb_gap_claims(result.public_answer, ()) == ()
+    assert _ANNOUNCEMENT_GAP in result.public_answer
+    assert "查询状态更正：本轮未查证知识库" in result.public_answer
+    assert "不能据此声称库内没有相关证据" in result.public_answer
+    assert find_unverified_kb_gap_claims(result.public_answer, ()) == (_ANNOUNCEMENT_GAP,)
+    assert result.status == "partial"
+    assert result.delivery_mode == "preserved_analysis"
 
 
 def test_public_answer_kb_miss_keeps_absent() -> None:

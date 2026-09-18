@@ -8,10 +8,10 @@ judge 是「后台请求」——用户不在等它的结果。官方 Claude Cod
 我们这里 judge 就是分类器。它因超时/预算/HTTP 故障没能给出判定时，原先的行为是
 整份答案被换成缺口模板——一个通过了确定性绑定校验的答案，因为审稿人缺席而被丢弃。
 
-放行有三条硬约束（照抄 episode 侧 `_transient_failure_candidate`）：
-1. 只放行**瞬时故障**；配置问题和 judge 自己产出有问题的，继续 fail-closed
-2. 正文必须**已经过确定性层**——数字/公司/日期是否有出处一条没放宽
-3. 放行后状态不冒充 accepted，正文自带警示
+保留有三条约束：
+1. 复核故障只影响核验状态，不论瞬时故障、配置问题还是复核输出不合法，都不抹掉已有正文
+2. 公开安全清洗继续执行，清洗后为空不能拿警示语冒充答案
+3. 状态不冒充 accepted，正文带批注；本地预算和供应商故障仍分别归因
 """
 from __future__ import annotations
 
@@ -66,7 +66,9 @@ def test_released_text_carries_the_warning() -> None:
     )
 
     assert released is not None
-    assert released.startswith(ask_synthesis._JUDGE_OUTAGE_NOTICE)
+    assert released.startswith("上证指数收跌 0.62%。")
+    assert "核验批注" in released and "未完成独立复核" in released
+    assert "绑定已通过校验" not in released
 
 
 @pytest.mark.usefixtures("presented")
@@ -78,13 +80,12 @@ def test_released_text_carries_the_warning() -> None:
         pytest.param("响应被截断", id="truncated"),
     ],
 )
-def test_non_transient_failures_still_fail_closed(reason: str) -> None:
-    """配置问题和 judge 自己产出有问题的，不在放行白名单里。
-
-    episode 侧 `_transient_failure_candidate` 的注释写得很明白：
-    configuration、malformed-output、contract 三类继续走 fail-closed。
-    """
-    assert ask_synthesis._judge_outage_release("正文", _Spec(), reason) is None
+def test_non_transient_review_failures_preserve_body_without_claiming_success(reason: str) -> None:
+    released = ask_synthesis._judge_outage_release("正文", _Spec(), reason)
+    assert released and released.startswith("正文")
+    assert "未完成独立复核" in released
+    assert "绑定已通过校验" not in released
+    assert reason not in released
 
 
 @pytest.mark.usefixtures("presented")
@@ -94,16 +95,7 @@ def test_empty_body_is_not_released() -> None:
 
 
 class TestHttpStatusIsNotCollapsed:
-    """HTTP 不能塌成一类——429 和 400 的处置相反。
-
-    产生点 ``llm_refine`` 写的是 ``LLM 合成 HTTP {code}``，它本来就知道是哪个码；
-    分类器原先只判 ``"http" in normalized`` 就返回 provider_http_error，
-    于是 **HTTP 400（我们自己请求构造错了）也会被当瞬时故障放行**。
-
-    注意这条分界线跟 ch06b 的 ``shouldRetry`` 不同，因为问的不是同一个问题：
-    它问「该不该重试」（401 该重试，可能是别的进程刷新了 token）；
-    我们问「被审对象是不是无辜的」（401 之后每次都会失败，放行会变成常态）。
-    """
+    """保留正文不合并故障归因：请求错误、限速、过载仍是不同原因。"""
 
     @pytest.mark.parametrize("code", [429, 500, 502, 503, 529])
     def test_their_fault_is_releasable(self, code: int) -> None:
@@ -114,7 +106,7 @@ class TestHttpStatusIsNotCollapsed:
         assert cls in ask_synthesis._TRANSIENT_JUDGE_REASONS
 
     @pytest.mark.parametrize("code", [400, 401, 403, 404, 413, 422])
-    def test_our_fault_still_fails_closed(self, code: int) -> None:
+    def test_request_errors_are_not_classified_as_transient(self, code: int) -> None:
         cls = ask_synthesis._stable_llm_fallback_reason(
             f"LLM 合成 HTTP {code}，已降级为模板"
         )
@@ -133,7 +125,7 @@ class TestHttpStatusIsNotCollapsed:
 
 
 def test_budget_exhaustion_is_no_longer_mislabelled_as_provider_down() -> None:
-    """预算耗尽是我们自己的限额，不是供应商挂了——两者处置相反。"""
+    """预算耗尽是自己的限额，不是供应商挂了，不能混记原因。"""
     assert (
         ask_synthesis._stable_llm_fallback_reason(
             "LLM 调用预算耗尽（本轮上限 6 次尝试），已拒发新调用并降级"
@@ -147,17 +139,9 @@ def test_budget_exhaustion_is_no_longer_mislabelled_as_provider_down() -> None:
 
 
 class TestOurOwnDeadlineIsNotTheirOutage:
-    """自家共享 deadline 走完 ≠ 供应商抖了一下。前者必须 fail-closed。
+    """本地共享期限耗尽不归咎供应商；原稿保留也不谎称复核完成。"""
 
-    这条分界线跟上面 HTTP 那组问的是同一个问题——「被审对象是不是无辜的」，
-    但答案由**频率**决定：供应商抖动是例外，放行合理；自家预算不够是常态
-    （2026-08-02 那批 23 轮里 15 轮撞的就是它），放行会从例外变成常态。
-
-    真实代价：可见降级率会上升。那不是新增故障，是把原先静默放行的未核验答案
-    换成显式降级——信息量没少，少的是假的确信。
-    """
-
-    def test_shared_deadline_exhaustion_fails_closed(self) -> None:
+    def test_shared_deadline_exhaustion_retains_body_and_local_reason(self) -> None:
         reason = "LLM 合成超过共享截止时间，已降级为模板"
 
         assert (
@@ -168,7 +152,10 @@ class TestOurOwnDeadlineIsNotTheirOutage:
             "deadline_exhausted_local"
             not in ask_synthesis._TRANSIENT_JUDGE_REASONS
         )
-        assert ask_synthesis._judge_outage_release("正文", _Spec(), reason) is None
+        released = ask_synthesis._judge_outage_release("正文", _Spec(), reason)
+        assert released and released.startswith("正文")
+        assert "未完成独立复核" in released
+        assert "复核服务超时" not in released
 
     def test_streaming_variant_classifies_the_same(self) -> None:
         """流式和非流式产出两句不同的串，别只堵一句。"""
@@ -180,7 +167,7 @@ class TestOurOwnDeadlineIsNotTheirOutage:
         )
 
     def test_provider_timeout_is_still_releasable(self) -> None:
-        """收紧的只是自家 deadline 这一类，供应商侧超时仍按瞬时故障处理。"""
+        """供应商超时仍独立归因，不因原稿保留而改变原因分类。"""
         assert (
             ask_synthesis._stable_llm_fallback_reason("provider 读取超时")
             == "timeout"
@@ -195,11 +182,7 @@ class TestOurOwnDeadlineIsNotTheirOutage:
         )
 
     def test_call_budget_exhaustion_is_deliberately_unchanged(self) -> None:
-        """次数预算（LlmCallLedger）没跟着改——本轮没有证据说它也变成了常态。
-
-        写成断言而不是注释：改动范围要能被读出来，下一个人想扩到这里得先删掉
-        这条测试，那一刻他会看到上面这句话。
-        """
+        """保留既有诊断分组；展示策略不再由瞬时原因白名单决定。"""
         assert (
             "call_budget_exhausted" in ask_synthesis._TRANSIENT_JUDGE_REASONS
         )

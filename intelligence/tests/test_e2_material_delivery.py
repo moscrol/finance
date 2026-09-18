@@ -57,6 +57,58 @@ def outcome_for(context, *, all_gap=False, draft=None, status="partial"):
     )
 
 
+def test_supplement_merges_question_sections_without_losing_either_body():
+    from intelligence.services.material_delivery import append_material_supplement, question_sections
+    _, context = setup_delivery()
+    original = f"## q1\n甲的原分析。\n\n## q2\n{GAP2}{BOUNDARY}"
+    supplement = "## q1\n甲的补充分析。\n\n## q2\n乙的补充分析。"
+    combined = append_material_supplement(context.contract, original, supplement)
+    sections = question_sections(combined)
+    assert set(sections) == {"q1", "q2"}
+    assert all(len(bodies) == 1 for bodies in sections.values())
+    assert "甲的原分析。" in sections["q1"][0]
+    assert "甲的补充分析。" in sections["q1"][0]
+    assert GAP2 in sections["q2"][0] and "乙的补充分析。" in sections["q2"][0]
+    assert BOUNDARY in combined
+
+
+def test_material_supplement_counts_both_versions_toward_memo_limit():
+    from intelligence.services.material_delivery import append_material_supplement, material_question_outputs, question_body
+    _, context = setup_delivery(memo=True)
+    spec = next(item for item in material_question_outputs(context.contract) if item.question_id == "q2")
+    original = "## q2\n" + "甲" * 120
+    supplement = "## q2\n" + "乙" * 120
+    assert question_body(spec, original) and question_body(spec, supplement)
+    combined = append_material_supplement(context.contract, original, supplement)
+    assert "甲" * 120 in combined and "乙" * 120 in combined
+    assert question_body(spec, combined) == ""
+
+
+@pytest.mark.parametrize("supplement", [
+    "## q1\n补充甲。\n## q1\n补充乙。",
+    "# q1\n补充甲。\n## 子标题\n补充乙。",
+    "q1: 补充甲。",
+])
+def test_ambiguous_material_supplement_never_silently_merges_or_drops_content(supplement):
+    from intelligence.services.material_delivery import append_material_supplement
+    from intelligence.services.research_annotations import append_research_supplement
+    _, context = setup_delivery()
+    original = "## q1\n甲的原分析。"
+    combined = append_material_supplement(context.contract, original, supplement)
+    assert combined == append_research_supplement(original, supplement)
+
+
+def test_material_supplement_does_not_drop_equal_words_outside_question_scope():
+    from intelligence.services.material_delivery import append_material_supplement
+    _, context = setup_delivery()
+    # Same words in q1 and outside q1 have different scope, not duplicate identity.
+    original = "## q1\n适用全部问题。\n甲的原分析。"
+    supplement = "适用全部问题。\n## q1\n甲的补充分析。"
+    combined = append_material_supplement(context.contract, original, supplement)
+    assert combined.count("适用全部问题。") == 2
+    assert "甲的原分析。" in combined and "甲的补充分析。" in combined
+
+
 def repair_need(verified):
     return classify_repair_need(verified.outcome, verified, rejected_claims=(), semantic_gap_outputs=())
 
@@ -335,10 +387,11 @@ def test_deletion_rechecks_a_previously_legal_gap_even_when_section_heading_rema
         frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(60),
     )
     assert not calls
-    # Withholding an unjudged draft is not a writer omission. It must keep
-    # q2's existing obligation, not invent a rewrite of q1 while awaiting review.
+    # Retention cannot fill q2 or invent a rewrite of q1 while awaiting review.
     assert result.repair_output_ids == ("answer_q2",)
-    assert GAP1 not in result.public_answer
+    assert GAP1 in result.public_answer
+    assert result.judge_status == "unavailable"
+    assert "核验批注" in result.public_answer
 
 
 def test_material_partial_never_fabricates_a_successful_judge_on_outage():
@@ -521,10 +574,11 @@ def test_judge_rejection_revokes_a_structurally_legal_gap(meta_prefix):
     assert result.repair_output_ids == ("answer_q2",)
     assert result.verified.missing_outputs == ("answer_q2",)
     assert {s.output_id: s.status for s in result.verified.completion.outputs}["answer_q2"] == "missing"
-    assert gap not in result.public_answer
+    assert gap in result.public_answer
     assert GAP1 in result.public_answer
+    assert "材料缺口说明仍有疑点" in result.public_answer
     assert not result.public_answer.startswith("仅凭本轮材料，以下各题均暂不能得出结论")
-    assert result.sentence_verdicts[0]["decision"] == "deleted"
+    assert result.sentence_verdicts[0]["decision"] == "demoted_to_issue"
     assert repair_need(result.verified).shape.input_only_rewrite
 
 
@@ -634,10 +688,13 @@ def test_judge_outage_does_not_turn_settled_questions_into_rewrite_work():
     assert len(requests) == 1 and resumes == [], result.private_artifact
     assert result.private_artifact["semantic_verifier"]["pending_rejudge"] is True
     assert result.private_artifact["semantic_verifier"]["repair_output_ids"] == []
-    assert result.status not in {"completed", "partial"}
+    assert result.status == "partial"
+    assert result.private_artifact["semantic_verifier"]["judge_status"] == "unavailable"
+    assert GAP1 in result.answer and GAP2 in result.answer
+    assert "未完成独立复核" in result.answer
 
 
-def test_judge_rejected_gap_can_rewrite_without_tools_or_stale_revocation():
+def test_judge_rejected_gap_is_preserved_and_supplement_does_not_launder_it():
     from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
     from intelligence.runtime.turn_control_core import TurnControlResult
     from intelligence.services.episode_session import CallbackEpisodeSession
@@ -671,7 +728,10 @@ def test_judge_rejected_gap_can_rewrite_without_tools_or_stale_revocation():
     ))
     assert len(resumes) == 1 and len(requests) == 2, result.private_artifact
     assert result.status == "partial" and GAP2 in result.answer
-    assert result.private_artifact["semantic_verifier"]["repair_output_ids"] == []
+    assert bad_gap in result.answer
+    assert result.private_artifact["semantic_verifier"]["judge_status"] == "rejected"
+    assert result.private_artifact["semantic_verifier"]["repair_output_ids"] == ["answer_q2"]
+    assert "材料缺口说明仍有疑点" in result.answer
 
 
 def test_dynamic_model_input_delivers_question_identity_gap_and_explicit_memo_rules():

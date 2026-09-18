@@ -1,10 +1,12 @@
-"""Public-answer scans for outlook packs. Fail closed: drop the clause."""
+"""Public-answer quality scans: retain analysis and disclose doubtful clauses."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 import re
 from typing import Any, Sequence
+
+from intelligence.services.research_annotations import annotate_research_answer
 
 _VERIFY_RE = re.compile(r"(已给部分验证|已经验证|已验证|已兑现|证明剧本|证明了剧本)")
 _ANALOG_AS_LIVE_RE = re.compile(r"原文判断|本周剧本")
@@ -28,6 +30,7 @@ class OutlookGateReceipt:
     text: str
     dropped: int
     applied: bool
+    annotated: int = 0
 
 
 def apply_outlook_delivery_gate(
@@ -36,14 +39,16 @@ def apply_outlook_delivery_gate(
     question_type: str,
     evidence: Sequence[Any] = (),
 ) -> OutlookGateReceipt:
-    """拦输出的最后一道：只对 market_forecast 删违规分句。主题题不扩权。"""
+    """Only forecast answers receive outlook-specific quality annotations."""
 
     if question_type != "market_forecast":
         return OutlookGateReceipt(text=text, dropped=0, applied=False)
     context = _context_from_evidence(evidence)
-    cleaned = strip_outlook_violations(text, **context)
-    dropped = max(0, len(_clauses(text)) - len(_clauses(cleaned)))
-    return OutlookGateReceipt(text=cleaned, dropped=dropped, applied=True)
+    violations = _outlook_violations(text, **context)
+    return OutlookGateReceipt(
+        text=_annotate_outlook(text, violations), dropped=0, applied=True,
+        annotated=len(violations),
+    )
 
 
 def apply_market_watch_delivery_gate(
@@ -52,30 +57,21 @@ def apply_market_watch_delivery_gate(
     question_type: str,
     grid_text: str = "",
 ) -> OutlookGateReceipt:
-    """盘面题公开稿的未注册方法语言删句（R-20260824-04，spec §7.4 #10）。
-
-    只对 ``market_watch`` 生效，其他题型不扩权。分句里出现 MA20、110–120%
-    带、「旗型蓄能」这类方法阈值时整句删除、不留质检条；同类语言若真实
-    出现在网格（包渲染 / 证据）里则视为已注册，不删。探针行与锁格来自
-    包渲染、在本闸之外，永不受删。
-    """
+    """Unregistered method thresholds stay visible as unverified proposals."""
 
     if question_type != "market_watch":
         return OutlookGateReceipt(text=text, dropped=0, applied=False)
     grid = str(grid_text or "")
     parts = _clauses(text)
-    kept = [
-        part
-        for part in parts
-        if not any(
-            pattern.search(part) and not pattern.search(grid)
-            for pattern in _WATCH_METHOD_RES
-        )
+    doubtful = [
+        part for part in parts
+        if any(pattern.search(part) and not pattern.search(grid) for pattern in _WATCH_METHOD_RES)
     ]
     return OutlookGateReceipt(
-        text="".join(kept),
-        dropped=max(0, len(parts) - len(kept)),
-        applied=True,
+        text=annotate_research_answer(text, (
+            "盘面分析含本轮证据未登记的方法或阈值；相关条件保留为待验证设想，不代表已验证规律。",
+        ) if doubtful else ()),
+        dropped=0, applied=True, annotated=len(doubtful),
     )
 
 
@@ -85,7 +81,18 @@ def evidence_grid_text(evidence: Sequence[Any]) -> str:
     return str(_context_from_evidence(evidence)["grid_text"])
 
 
-def strip_outlook_violations(
+def strip_outlook_violations(text: str, **context: Any) -> str:
+    """Compatibility name; findings no longer have deletion rights."""
+    return _annotate_outlook(text, _outlook_violations(text, **context))
+
+
+def _annotate_outlook(text: str, violations: tuple[str, ...]) -> str:
+    return annotate_research_answer(text, (
+        "前瞻分析含未经支持的验证、时点或阈值表述；相关分析保留，不能当作当期观察或已经兑现的结论。",
+    ) if violations else ())
+
+
+def _outlook_violations(
     text: str,
     *,
     live_date: str | None = None,
@@ -93,7 +100,7 @@ def strip_outlook_violations(
     last_mainline_names: tuple[str, ...] = (),
     analog_issue_ids: tuple[str, ...] = (),
     grid_text: str = "",
-) -> str:
+) -> tuple[str, ...]:
     kept: list[str] = []
     grid = f"{live_excerpt} {grid_text}"
     for part in _clauses(text):
@@ -117,7 +124,7 @@ def strip_outlook_violations(
         if _UNGROUNDED_BAND_RE.search(part) and not _UNGROUNDED_BAND_RE.search(grid):
             continue
         kept.append(part)
-    return "".join(kept)
+    return tuple(part for part in _clauses(text) if part not in kept)
 
 
 def _context_from_evidence(evidence: Sequence[Any]) -> dict[str, Any]:

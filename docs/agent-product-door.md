@@ -40,6 +40,24 @@
 权限、材料范围、证据绑定与写侧门保持原合同。代码/对账与效果状态见
 [逐项吸收记录](learning/knevo-distill/workflow-absorption-2026-09-16.md)，未据此宣称部署或质量增益。PR #774 已于 2026-09-17 合入 main（`c67413c7`），部署状态仍以运行服务 `/api/health` 的 revision 为准。
 
+### 研究答案保留（当前分支候选，未部署）
+
+两条引擎将普通质量诊断与内容交付分开：已生成的同任务安全分析保留，数值、日期、
+引用、语义和完成度疑点追加「核验批注」，修订与补写追加到原稿，不以新稿覆盖旧稿。
+`delivery_mode=preserved_analysis` 不是 `judge_status=passed`，展示成功也不代表任务完整。
+证据身份、授权、跨任务隔离与公开脱敏仍独立承重；安全清洗后只剩凭据占位符不算答案。
+先判可公开正文，再加核验/来源批注；纯密钥或纯引用标记不能被程序附注重新撑成正文。
+B 的 Grounded 合成遇此情况记 `no_public_analysis`、不调用判官，沿用确定性短答出口。
+
+Episode 修订组合检查 E 编号是否改指、同 hash 证据语义元数据是否变化、输入是否重复；
+完整性冲突不得硬拼。材料题按可无歧义解析的原题段嵌套补充，旧疑点仍须重判，
+两版内容均计入备忘录字数。原调用额度与绝对截止时间不变，保留 AnswerSpec 不增开影子调用。
+终局恢复已返回合法正文但结算超时，可保留该正文，仍标 partial/恢复失败，不追加调用。
+
+边界尚未收口：finish 协议准入前的内容不足/格式拒收及旧 helper 兼容路径仍需逐一审计；
+不是任意模型消息都会当作正文发布。生成前的恢复提示/证据投影上限也未撤销。
+本段是候选代码行为，不是 8792 已上线或真实会话验收结论。
+
 ### 材料题边界（E2，分阶段接线中）
 
 D1 分类器已独立复核；P2 把完整题组/原题号、前提真实性与数据范围接入
@@ -166,8 +184,9 @@ P4（D5）在 `fix/e2-delivery-closeout` 补齐 `material_only` 逐题交付：�
 `answer_qN` 唯一必需槽；已回答沿用 `fulfilled`，公开交代具体缺项才是 `legal_gap`，
 遗漏/重复/空壳/超长仍是 `missing`。合法缺口只能 `partial`，全缺口加顶部说明；
 它只证明结构已交代，不证明材料真缺失，仍实际送判。判官拒绝会重开原题，普通
-元陈述豁免不能洗白；公开稿删句/脱敏后重验，题号不重新编号。判官不可用保持
-`unavailable/pending_rejudge`，不伪造成功，也不为暂扣稿再烧补写轮。
+元陈述豁免不能洗白；公开投影/脱敏后重验，题号不重新编号。当前答案保留候选不再
+因普通质量疑点删句；判官不可用保持 `unavailable/pending_rejudge`，不伪造成功，
+也不因复核故障再烧补写轮。
 备忘录只由明确题意触发，与该题共用一个槽；T3 q8 上限200字（保守计入正文
 所有非空白字符和标点/Markdown，不含题标题，引用不可藏超长）。真漏答可获有界
 零工具补写，不靠降 optional 或假增证据数量；已交代缺口不触发空转修复。
@@ -257,10 +276,16 @@ A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结
 
 用户 2026-09-12 撤掉独立 Grok 判官（改 kimi-k3 自审）、2026-09-17 进一步决定**不用 LLM 判官**。一个共享开关（`intelligence/services/judge_mode.py::semantic_judge_mode`）同时管两条引擎：
 
-- **`llm`（代码默认，行为与此前一致）**：A 的终稿判官 `_run_judge` 调第二模型（无 `LLM_JUDGE_*` 时落回写手自审，`correlated_judge=true`）；B 的合成判官走 `synthesize_messages`；判官不可用时 A 扣稿（`judge_status=unavailable`）、B 走带告示的瞬时放行。
-- **`off`（生产启动器取值）**：A 的 `_run_judge` 返回合成的全过报告，**零模型调用**，判后机械门（数值 / 材料缺口 / 元陈述 / 表外 E）与删句修复照常跑，V11 引导回检索记 `skip_reason=judge_off`；B 的判官段不发调用、`GroundedComposerShadow.status=deterministic_only`、不带掉线告示；检索侧证据判官另由既有 `ASK_EVIDENCE_JUDGE=off` 关。
+- **`llm`（代码默认）**：A 的终稿判官 `_run_judge` 调第二模型（无 `LLM_JUDGE_*` 时落回写手自审，`correlated_judge=true`）；B 的合成判官走 `synthesize_messages`。当前候选在判官不可用时保留安全正文并说明未核验，不将故障改记通过。
+- **`off`（生产启动器记录值，部署仍看 revision）**：A 的 `_run_judge` 返回合成的全过报告，**零模型调用**；机械检测（数值 / 材料缺口 / 元陈述 / 表外 E）仍运行，当前候选改为记疑点和批注而不是删句。V11 引导回检索记 `skip_reason=judge_off`；B 的判官段不发调用，`deterministic_only` 不冒充 LLM 独立审稿；检索侧证据判官另由 `ASK_EVIDENCE_JUDGE=off` 关。
 
-读收据别读反：`judge_status` 闭集不变（`passed / repaired / rejected / unavailable`），两种模式下都表示「过了门 / 门删了句并修好 / 修不好 / 结构守卫未放行」；**谁在判**看私有块 `semantic_verifier.judge_mode`（`llm` | `deterministic`，落在 `continuous-episode.json`），公开 `gate_receipt` 键集未动（`RECEIPT_KEYS` 是被钉死的 schema v1 合同）。判官此前抓到的两类绑定错误的去向：句内日期与所引证据日期全不符 → 机械探测器 `evidence_date_mismatch` 删句（两种模式都生效）；引用了别的槽绑定的 E → 只记 `sentence_verdicts[stage=census]` 与 `cited_outside_slot_count`，不删（R-20260821-06）。B 侧健康度多一桶 `deterministic_only`，不冒充 `full_pass`。默认翻转与判官专属路径退役见工单 #56。
+读收据别读反：`judge_status` 闭集仍为 `passed / repaired / rejected / unavailable`；
+历史 `repaired` 可能来自删句后复判，当前候选的原文保留使用独立 `delivery_mode`，不伪造 repaired。
+**谁在判**看私有块 `semantic_verifier.judge_mode`（`llm` | `deterministic`，在 `continuous-episode.json`），
+公开 `gate_receipt` 键集不变。句内日期与所引证据日期全不符仍由 `evidence_date_mismatch`
+检出，记 `demoted_to_issue` 并追加批注；引用别槽的 E 仍记 census，不自动删除。
+同句可有预检和判官两条记录，记录数不等于拒句数，更不等于删除数。
+B 侧 `analysis_preserved/released_unverified` 与 `accepted` 分开。模式默认翻转和旧判官路径退役仍见工单 #56。
 
 不要把 `ask.answer_query` 写成「金融 Agent 的唯一深模块」。它是引擎 B。也不要为「少学零件」再加 `answer_door` / `EpisodeBuilder`：组装已经在 `GLMAgentRuntime` 和 `episode_factory`。
 

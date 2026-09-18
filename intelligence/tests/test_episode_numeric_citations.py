@@ -87,9 +87,12 @@ def test_real_novel_threshold_remains_rejected_beside_valid_citation(condition):
     assert numeric_condition_unsupported(structural) is True
     result = _verify(frame, structural)
 
-    assert result.judge_status == "repaired"
-    assert result.public_answer == safe
-    assert unsupported not in result.verified.outcome.draft
+    assert result.judge_status == "rejected"
+    assert result.status == "partial"
+    assert result.public_answer.startswith(safe + unsupported)
+    assert result.verified.outcome.draft == safe + unsupported
+    assert "核验批注" in result.public_answer
+    assert result.sentence_verdicts[0]["decision"] == "demoted_to_issue"
     assert "numeric_condition" in " ".join(result.issues)
 
 
@@ -112,7 +115,9 @@ def test_unknown_citation_still_rejected_by_ordinal_gate_not_numeric_gate():
     assert numeric_condition_unsupported(structural) is False
     result = _verify(frame, structural)
 
-    assert result.public_answer == safe
+    assert result.public_answer.startswith(safe + unresolved)
+    assert result.judge_status == "rejected"
+    assert "不能作为出处" in result.public_answer
     assert "unresolved_evidence_ordinal" in " ".join(result.issues)
     assert "numeric_condition" not in " ".join(result.issues)
 
@@ -128,7 +133,10 @@ def test_evidence_citation_cannot_authorize_a_real_threshold(field, citation):
     assert numeric_condition_unsupported(structural) is True
     result = _verify(frame, structural)
 
-    assert result.public_answer == "市场仍需观察。"
+    assert result.public_answer.startswith(structural.outcome.draft)
+    assert result.judge_status == "rejected"
+    assert "numeric_condition" in " ".join(result.issues)
+    assert "不能当作已验证阈值" in result.public_answer
 
 
 @pytest.mark.parametrize("token", ["PE10", "1.5E8", "CE4", "E0", "E027", "E1000"])

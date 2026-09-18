@@ -4016,7 +4016,8 @@ def test_compact_recovery_is_not_called_with_less_than_one_second_left() -> None
     )
 
 
-def test_late_recovery_turn_is_rejected_after_deadline_closes() -> None:
+@pytest.mark.parametrize("valid_finish", [True, False])
+def test_late_recovery_preserves_valid_draft_without_claiming_success(valid_finish) -> None:
     frame = _frame()
     base_context = _context(frame)
     context = ResearchRunContext(
@@ -4027,11 +4028,12 @@ def test_late_recovery_turn_is_rejected_after_deadline_closes() -> None:
         today=base_context.today,
         latest_data_date=base_context.latest_data_date,
     )
+    draft = "市场已有修复，但持续性仍需核验。"
     model = ScriptedModel(
         [
             _tool_turn("A股 最新行情"),
             ModelTurn("", (), "glm", "provider unavailable"),
-            _finish_turn(),
+            _finish_turn(draft=draft, hashes=("evidence-1" if valid_finish else "invented-hash",)),
         ]
     )
 
@@ -4050,8 +4052,12 @@ def test_late_recovery_turn_is_rejected_after_deadline_closes() -> None:
 
     assert outcome.status == "partial"
     assert outcome.stop_reason == "finalization_recovery_failed"
-    assert outcome.draft == ""
+    assert outcome.draft == (draft if valid_finish else "")
+    assert bool(outcome.bindings) is valid_finish
+    finish = next(event for event in reversed(outcome.events) if event.kind == "finish")
+    assert finish.payload["carried_draft_chars"] == (len(draft) if valid_finish else 0)
     assert len(model.calls) == 3
+    assert model.calls[-1]["tools"] == []
     recovery_outcome = next(
         event
         for event in outcome.events
@@ -4068,6 +4074,51 @@ def test_late_recovery_turn_is_rejected_after_deadline_closes() -> None:
         "status": "failed",
         "reason": "finalization_recovery_deadline_exhausted",
     }
+
+
+@pytest.mark.parametrize("invalid", ["", "forged_hash", "tool_call", "provider_error"])
+def test_recovery_root_overdraft_keeps_only_valid_body_and_no_extra_call(monkeypatch, invalid):
+    frame = _frame()
+    base = _context(frame, max_steps=1)
+    root = InMemoryRootBudgetLedger(
+        # The root ledger, not policy.max_steps, owns remaining tool slots.
+        # Exhaust it after one tool so the next failure enters the finalizer.
+        episode_id=base.contract.task_id, initial_calls=1, hard_calls_cap=1,
+        initial_seconds=30.0, hard_seconds_cap=30.0,
+    )
+    context = replace(base, root_budget=root)
+    draft = "恢复稿已有盘面分析，仍待核验。"
+    turn = _finish_turn(draft=draft, hashes=("invented-hash" if invalid == "forged_hash" else "evidence-1",))
+    if invalid == "tool_call":
+        turn = replace(turn, tool_calls=_tool_turn("禁止执行").tool_calls)
+    elif invalid == "provider_error":
+        turn = replace(turn, error="provider unavailable")
+    clock = [0.0]
+    monkeypatch.setattr(agent_episode_module, "monotonic", lambda: clock[0])
+    class SlowRecoveryModel(ScriptedModel):
+        def complete(self, **kwargs):
+            result = super().complete(**kwargs)
+            if len(self.calls) == 3:
+                clock[0] += 31.0  # Real consume fails; production settlement must clamp.
+            return result
+    model = SlowRecoveryModel([
+        _tool_turn("A股 最新行情"), ModelTurn("", (), "glm", "provider unavailable"), turn,
+    ])
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame, context=context, registry=_market_registry(_successful_runner),
+    )
+    assert outcome.status == "partial"
+    assert outcome.stop_reason == "finalization_recovery_failed"
+    assert outcome.draft == ("" if invalid else draft)
+    assert bool(outcome.bindings) is (not invalid)
+    assert root.remaining_seconds == 0
+    assert len(model.calls) == outcome.usage.llm_calls == 3
+    assert outcome.usage.tool_calls == 1
+    assert model.calls[-1]["tools"] == []
+    assert any(
+        event.kind == "finalization_recovery_outcome" and event.payload["status"] == "failed"
+        for event in outcome.events
+    )
 
 
 def test_recovery_usage_counts_returned_provider_attempts() -> None:

@@ -314,7 +314,7 @@ def test_neutral_skips_live_but_keeps_week_pack(tmp_path: Path) -> None:
     assert not any(is_live_weekly_evidence(item) for item in evidence)
 
 
-def test_delivery_gate_drops_verification_and_old_issue() -> None:
+def test_delivery_gate_annotates_verification_and_old_issue() -> None:
     text = (
         "新闻层已给部分验证。SPT 原文判断（2026.23）认为箱体还在。"
         "医药老主线继续兑现。结构类比 analog 可以提 2026.23。"
@@ -326,20 +326,20 @@ def test_delivery_gate_drops_verification_and_old_issue() -> None:
         last_mainline_names=("医药", "有色"),
         analog_issue_ids=("2026.23",),
     )
-    assert "已给部分验证" not in cleaned
-    assert "原文判断（2026.23）" not in cleaned
-    assert "医药老主线" not in cleaned
-    assert "结构类比" in cleaned
+    assert cleaned.startswith(text)
+    assert "核验批注" in cleaned
+    assert "不能当作当期观察" in cleaned
 
 
-def test_delivery_gate_drops_ungrounded_ma20_band() -> None:
+def test_delivery_gate_annotates_ungrounded_ma20_band() -> None:
     from intelligence.services.outlook_delivery_gate import apply_outlook_delivery_gate
 
     text = "量能还在 MA20 的 110–120%。药仍是主线。"
     dropped = apply_outlook_delivery_gate(text, question_type="market_forecast")
-    assert "110–120%" not in dropped.text
-    assert "药仍是主线" in dropped.text
-    assert dropped.dropped >= 1
+    assert dropped.text.startswith(text)
+    assert dropped.dropped == 0
+    assert dropped.annotated >= 1
+    assert "核验批注" in dropped.text
 
     kept = strip_outlook_violations(
         text,
@@ -422,6 +422,7 @@ def test_apply_gate_only_on_market_forecast() -> None:
         text, question_type="market_forecast", evidence=evidence
     )
     assert gated.applied is True
-    assert gated.dropped >= 1
-    assert "已给部分验证" not in gated.text
-    assert "主线仍在" in gated.text
+    assert gated.dropped == 0
+    assert gated.annotated >= 1
+    assert gated.text.startswith(text)
+    assert "核验批注" in gated.text

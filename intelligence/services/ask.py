@@ -3000,11 +3000,7 @@ def _exposure_coverage_summary(exposures: dict[str, Any]) -> dict[str, Any] | No
 
 
 def _revise_synthesis_on_warn(result: AskResult, options: AskOptions) -> None:
-    """WARN 意见回灌同一段对话做一轮定向修订（修订版在前契约）。
-
-    用户拿到可直接引用的修订版全文，审查意见退居「输出质检」附录；修订失败、被
-    门禁拒绝、或修订版经展示层剔除后为空时，一律**保留初稿**并记录原因。
-    """
+    """WARN 回灌一轮，补充修订而不覆盖初稿；未解决的疑点继续公开。"""
 
     if not (
         options.compose_revise_on_warn
@@ -3020,6 +3016,15 @@ def _revise_synthesis_on_warn(result: AskResult, options: AskOptions) -> None:
         for c in result.review_gate.checks
         if c.status == output_review.WARN and not c.advisory_only
     ]
+    if not warn_notes:
+        return
+    from intelligence.services.research_annotations import (
+        annotate_research_answer, append_research_supplement,
+    )
+
+    original = result.synthesis
+    review_notes = ["输出检查仍有疑点，原分析保留；相关判断需要继续核验。"]
+    result.synthesis = annotate_research_answer(original, review_notes)
     revision_user = {"role": "user", "content": llm_refine.gate_revision_user_content(warn_notes)}
     revised, rev_reason = llm_refine.synthesize_messages(
         result.synthesis_messages + [revision_user],
@@ -3037,36 +3042,31 @@ def _revise_synthesis_on_warn(result: AskResult, options: AskOptions) -> None:
         proposed_revision,
         result.answer_spec,
     )
-    if any(issue.severity == "error" for issue in revision_issues):
+    if revision_issues:
         result.warnings.extend(
-            f"LLM 修订被 AnswerSpec 门禁拒绝：{issue.message}"
+            f"LLM 补充修订仍需核验：{issue.message}"
             for issue in revision_issues
-            if issue.severity == "error"
         )
-        return
+        review_notes.append("补充修订也存在事实或引用疑点，不能视为已完成纠正。")
     presented_revision = answer_model.present_llm_answer(
         proposed_revision,
         result.answer_spec,
     )
-    # 绑定/术语闸是 warning，拦不住展示层把修订版抠成空串（无效 claim ID 行、含
-    # 内部术语的行都会被丢掉）。这里覆盖的是**已经成型的初稿**，抠空就覆盖等于
-    # 用空白顶掉一篇好答卷——空则保留初稿。
+    # 没有可安全展示的补充时，只保留原稿和核验状态；不拿空补充代替分析。
     if not presented_revision.strip():
         result.warnings.append(
             "质检 WARN 回灌修订版经展示层剔除后为空，保留初稿。"
         )
         return
-    result.synthesis = (
-        f"{result.data_notice}\n\n{presented_revision}"
-        if result.data_notice
-        else presented_revision
+    result.synthesis = annotate_research_answer(
+        append_research_supplement(original, presented_revision), review_notes,
     )
     result.synthesis_messages = result.synthesis_messages + [
         revision_user,
         {"role": "assistant", "content": result.synthesis},
     ]
     result.warnings.append(
-        f"输出质检 {len(warn_notes)} 条 WARN 已回灌定向修订（正文为修订版，审查意见见「输出质检」附录）"
+        f"输出质检 {len(warn_notes)} 条 WARN 已回灌补充修订；原分析保留，不代表独立复核通过。"
     )
 
 

@@ -97,13 +97,15 @@ def view(facts: TerminalFacts) -> str:
         if facts.public:
             return f"{opening}\n\n{facts.public}"
         return opening
-    if facts.cause == CAUSE_JUDGE_UNAVAILABLE_HELD:
-        return opening_for(facts.cause, facts.question) + facts.gap_body
-    if facts.cause == CAUSE_EVIDENCE_GAP:
-        if facts.public and facts.gap_body:
-            return f"{facts.public}\n{facts.gap_body}"
-        return opening_for(facts.cause, facts.question) + facts.gap_body
-    if facts.cause == CAUSE_MODEL_UNAVAILABLE:
+    if facts.cause in {CAUSE_JUDGE_UNAVAILABLE_HELD, CAUSE_EVIDENCE_GAP, CAUSE_MODEL_UNAVAILABLE}:
+        if facts.public:
+            # A quality/outage cause cannot erase an already-sanitized analysis.
+            notice = {
+                CAUSE_JUDGE_UNAVAILABLE_HELD: "独立复核未完成，已有分析保留供核验。",
+                CAUSE_EVIDENCE_GAP: "证据尚不完整，已有分析保留为待核验判断。",
+                CAUSE_MODEL_UNAVAILABLE: "模型服务未完成后续处理，已有分析保留。",
+            }[facts.cause]
+            return "\n\n".join(part for part in (facts.public, notice, facts.gap_body) if part)
         return opening_for(facts.cause, facts.question) + facts.gap_body
     if facts.cause == CAUSE_VERIFICATION_INCOMPLETE:
         chunks = [opening_for(facts.cause, facts.question)]

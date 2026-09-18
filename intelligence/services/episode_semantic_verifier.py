@@ -60,6 +60,7 @@ from intelligence.services.episode_answer_hygiene import (
     choose_repair_rollback,
     classify_asked_date_coverage,
     find_unattempted_claims,
+    find_unverified_kb_gap_claims,
     repair_collapsed_to_stub,
     rewrite_unattempted_claims,
     rewrite_unverified_kb_gap_claims,
@@ -106,6 +107,8 @@ from intelligence.services.research_contract import (
     policy_for_env,
 )
 from intelligence.services.task_frame import TaskFrame, last_explicit_iso_date
+from intelligence.services.research_annotations import annotate_research_answer
+from intelligence.services.run_store import redact_public_prose
 from intelligence.services.task_fulfillment import answer_has_output_marker
 from intelligence.services.tool_result_budget import MAX_EVIDENCE_TITLE_CHARS
 
@@ -538,6 +541,9 @@ class SemanticEpisodeOutcome:
     status: SemanticStatus
     public_answer: str
     judge_status: JudgeStatus
+    # Delivery and review are orthogonal. Preserved prose is not a quality pass.
+    delivery_mode: str = "reviewed"
+    review_notes: tuple[str, ...] = ()
     issues: tuple[str, ...] = ()
     correlated_judge: bool = False
     # #55：谁在判——"llm" 是第二模型判官，"deterministic" 是只有确定性门。与
@@ -617,6 +623,8 @@ class SemanticEpisodeOutcome:
             "status": self.status,
             "public_answer": self.public_answer,
             "judge_status": self.judge_status,
+            "delivery_mode": self.delivery_mode,
+            "review_notes": list(self.review_notes),
             "issues": list(self.issues),
             "correlated_judge": self.correlated_judge,
             "judge_mode": self.judge_mode,
@@ -695,14 +703,18 @@ def recheck_material_public_delivery(
         return outcome
     public = outcome.public_answer if projected is None else projected
     if outcome.judge_status == "unavailable":
-        # A review outage/structural early exit deliberately withholds the draft.
-        # That is not a writer omission: preserve its existing repair targets,
-        # retain pending_rejudge, and do not spend a rewrite to fix an outage.
+        # Review unavailability is not a writer omission. The safe draft may
+        # remain visible; preserve existing repair targets and pending_rejudge,
+        # without spending a rewrite merely to fix an outage.
         return replace(
             outcome,
             public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),
         )
-    verified = verify_episode_outcome(contract, replace(before.outcome, draft=public))
+    from intelligence.services.research_annotations import research_body_for_validation
+
+    # Review comments must not fill a missing answer or lengthen a memo.
+    body = research_body_for_validation(public, outcome.review_notes)
+    verified = verify_episode_outcome(contract, replace(before.outcome, draft=body))
     prior_missing = frozenset((*before.missing_outputs, *outcome.gap_output_ids))
     prior_by_id = {item.output_id: item for item in before.completion.outputs}
     outputs = tuple(
@@ -1157,7 +1169,7 @@ class SemanticEpisodeVerifier:
         deadline: ResearchDeadline,
         retrieve_fn: GuidedRetrieveFn | None = None,
     ) -> SemanticEpisodeOutcome:
-        """Run structural-first verification with bounded deletion-only repair.
+        """Review research without deleting analytical content.
 
         拒句账（``sentence_verdicts``）在这一层统一挂到返回值上：内层有十几条
         提前返回路径，逐条挂会漏；账本为空时不动返回值（历史夹具逐字节不变）。
@@ -1176,7 +1188,7 @@ class SemanticEpisodeVerifier:
         if frame.task_frame_hash != self._guided_frame_hash:
             self._guided_frame_hash = frame.task_frame_hash
             self._guided_used = False
-        outcome = self._verify_inner(
+        outcome = self._review_preserving_analysis(
             frame=frame,
             structurally_verified=structurally_verified,
             deadline=deadline,
@@ -1328,7 +1340,8 @@ class SemanticEpisodeVerifier:
             registry_rows.append(row)
         request["evidence_registry"] = registry_rows
         second = self._run_judge(request, deadline)
-        if second.report is None:
+        if second.report is None or deadline.expired:
+            # Late evidence/review cannot lift an earlier doubt after the root deadline.
             return replace(fired, rejudge_called=True, outcome="retrieved_no_rejudge")
         self._judge_round += 1
         text_by_index = {int(item["index"]): str(item["text"]) for item in sentences}
@@ -1356,7 +1369,18 @@ class SemanticEpisodeVerifier:
                 issues=tuple(second.report.issues),
                 judge_round=self._judge_round,
             )
-        # 重判若点了新的机械句号：不删、不进 _repair（V11 §5.4），当 still_annotated 记。
+        # New rejections are annotations too. Lifting an old doubt is not a
+        # blanket approval of the draft; retain every newly identified doubt.
+        new_rejected = tuple(sorted(still_rejected - set(first_rejected)))
+        for index in new_rejected:
+            self._note_semantic_reject(text_by_index.get(index, ""), second.report.issues)
+        self._record_sentence_verdicts(
+            stage=VERDICT_STAGE_GUIDED_REJUDGE,
+            indexes=new_rejected, sentences=sentences, verified=structural,
+            decision_for={index: VERDICT_DEMOTED for index in new_rejected},
+            reasons_for={index: (VERDICT_REASON_JUDGE,) for index in new_rejected},
+            issues=second.report.issues, judge_round=self._judge_round,
+        )
         return replace(
             fired,
             rejudge_called=True,
@@ -1373,823 +1397,190 @@ class SemanticEpisodeVerifier:
             ),
         )
 
-    def _verify_inner(
+    def _review_preserving_analysis(
         self,
         *,
         frame: TaskFrame,
         structurally_verified: VerifiedEpisodeOutcome,
         deadline: ResearchDeadline,
     ) -> SemanticEpisodeOutcome:
-        self._semantic_reject_texts = ()
-        self._semantic_reject_issues = ()
+        """Review the original draft once; quality findings have no deletion right.
+
+        Frame identity is still a hard isolation boundary. Missing evidence,
+        invalid references, contradictory numbers and unavailable review are
+        diagnostics, not permission failures. No bindings are invented here.
+        """
         structural = structurally_verified
         contract = structural.contract
+        self._active_hygiene = None
+        self._semantic_reject_texts = ()
+        self._semantic_reject_issues = ()
         self._active_policy = policy_for_contract(contract)
-        guard_status: SemanticStatus = (
-            "failed" if structural.verified_status == "failed" else "partial"
-        )
-        if contract is None:
-            return SemanticEpisodeOutcome(
-                verified=structural,
-                status=guard_status,
-                public_answer=self._generic_gap_answer(frame),
-                judge_status="unavailable",
-                issues=tuple(
-                    dict.fromkeys((*structural.issues, "semantic contract missing"))
-                ),
-                correlated_judge=False,
-            )
-        frame_hash = frame.task_frame_hash
-        if (
-            not contract.task_frame_hash
-            or frame_hash != structural.outcome.task_frame_hash
-            or frame_hash != contract.task_frame_hash
+        if contract is None or not contract.task_frame_hash or (
+            frame.task_frame_hash != contract.task_frame_hash
+            or frame.task_frame_hash != structural.outcome.task_frame_hash
         ):
+            issue = "semantic contract missing" if contract is None else "semantic frame/contract hash mismatch"
             return SemanticEpisodeOutcome(
                 verified=structural,
-                status=guard_status,
-                public_answer=self._generic_gap_answer(frame),
+                status="failed" if structural.verified_status == "failed" else "partial",
                 judge_status="unavailable",
-                issues=tuple(
-                    dict.fromkeys(
-                        (*structural.issues, "semantic frame/contract hash mismatch")
-                    )
-                ),
-                correlated_judge=False,
+                public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public="任务身份校验未通过，未展示该任务的内容。")),
+                issues=(*structural.issues, issue),
+                delivery_mode="security_withheld",
             )
-        if (
-            structural.verified_status != "completed"
-            and not _can_semantically_release_partial(structural)
-        ):
-            # Mixed/blocked structural partials are not promoted.  Avoid even
-            # calling the judge when no useful required output survived or the
-            # partial was caused by anything outside the release allowlist
-            # (explicit evidence gap / missing mandatory capability / evidence
-            # type whitelist).  A mixed fulfilled/gap result may still be
-            # judged and released as partial.  Honest runtime-partial with
-            # every slot fulfilled is the exception: see
-            # ``_contract_slots_all_fulfilled``.
-            status: SemanticStatus = (
-                "failed" if structural.verified_status == "failed" else "partial"
-            )
-            return SemanticEpisodeOutcome(
-                verified=structural,
-                status=status,
-                public_answer=self._gap_answer(frame, structural),
-                judge_status="unavailable",
-                issues=structural.issues,
-                correlated_judge=False,
-            )
-
         draft = structural.outcome.draft
         if contract_has_model_reasoning_judgment(contract):
+            # Add inference labels; never remove an analytical sentence.
             labeled = label_unlabelled_analytical_inferences(draft)
-            if labeled != draft:
-                structural = replace(
-                    structural,
-                    outcome=replace(structural.outcome, draft=labeled),
-                )
-                draft = labeled
-        sentences = _numbered_sentences(draft)
-        if not sentences:
+            structural = replace(structural, outcome=replace(structural.outcome, draft=labeled))
+            draft = labeled
+        public = _sanitize_public_answer(draft, structural.outcome.evidence, structural.outcome.traces)
+        if not public:
             return SemanticEpisodeOutcome(
-                verified=structural,
-                status="partial",
+                verified=structural, status="partial", judge_status="unavailable",
                 public_answer=self._gap_answer(frame, structural),
-                judge_status="unavailable",
-                issues=("empty public draft",),
-                correlated_judge=False,
+                issues=(*structural.issues, "empty public draft"),
+                delivery_mode="no_public_analysis",
             )
-
-        preflight_issues: tuple[str, ...] = ()
-        marker_loss_outputs: tuple[str, ...] = ()
-        preflight_source = structural
-        numeric_rejected = _novel_numeric_condition_indexes(
-            sentences,
-            structural,
+        sentences = _numbered_sentences(draft)
+        reasons = _mechanical_reasons_by_index(
+            numeric=_novel_numeric_condition_indexes(sentences, structural),
+            weekday=_mismatched_weekday_indexes(sentences, structural),
+            path=_mismatched_path_trend_indexes(sentences, structural),
+            ordinal=_unresolved_evidence_ordinal_indexes(sentences, structural),
+            evidence_date=_mismatched_evidence_date_indexes(sentences, structural),
         )
-        weekday_rejected = _mismatched_weekday_indexes(
-            sentences,
-            structural,
+        self._record_sentence_verdicts(
+            stage=VERDICT_STAGE_PREFLIGHT, indexes=tuple(sorted(reasons)),
+            sentences=sentences, verified=structural,
+            decision_for={index: VERDICT_DEMOTED for index in reasons}, reasons_for=reasons,
         )
-        path_rejected = _mismatched_path_trend_indexes(
-            sentences,
-            structural,
+        issues = list(structural.issues)
+        reason_labels = {
+            VERDICT_REASON_NUMERIC: "数值条件缺少对应证据，不能当作已验证阈值",
+            VERDICT_REASON_WEEKDAY: "日期与星期不一致，需要更正",
+            VERDICT_REASON_PATH: "走势描述与已取得的量价路径不一致，需要更正",
+            VERDICT_REASON_ORDINAL: "引用编号未能对应到本轮证据，不能作为出处",
+            VERDICT_REASON_EVIDENCE_DATE: "所述日期与引用证据日期不一致，需要更正",
+        }
+        notes: list[str] = []
+        for row in sentences:
+            index = int(row["index"])
+            if index not in reasons:
+                continue
+            labels = "；".join(reason_labels[code] for code in reasons[index])
+            snippet = _sanitize_public_answer(str(row["text"]), structural.outcome.evidence, structural.outcome.traces)
+            notes.append(f"原稿第{index}句「{snippet}」：{labels}。")
+            issue_by_reason = {
+                VERDICT_REASON_NUMERIC: _NUMERIC_CONDITION_ISSUE,
+                VERDICT_REASON_WEEKDAY: _CALENDAR_WEEKDAY_ISSUE,
+                VERDICT_REASON_PATH: _PATH_TREND_ISSUE,
+                VERDICT_REASON_ORDINAL: _UNRESOLVED_EVIDENCE_ISSUE,
+                VERDICT_REASON_EVIDENCE_DATE: _EVIDENCE_DATE_ISSUE,
+            }
+            issues.extend(issue_by_reason[code].serialize() for code in reasons[index])
+        coverage_incomplete = bool(structural.missing_outputs) or any(
+            item.code not in {IssueCode.EXTRA_OUTPUT_BINDING, IssueCode.EVIDENCE_TYPE_STRIPPED}
+            for item in structural.issue_items
         )
-        evidence_date_rejected = _mismatched_evidence_date_indexes(
-            sentences,
-            structural,
+        if coverage_incomplete:
+            missing = set(structural.missing_outputs)
+            labels = [_gap_label(item) for item in contract.required_outputs if item.output_id in missing]
+            notes.append("证据或任务覆盖尚未完成核验" + ("：" + "、".join(labels) if labels else "") + "；上述分析保留为待核验判断。")
+        claims = find_unattempted_claims(draft, structural.outcome.traces, asked_date=last_explicit_iso_date(frame.raw_question))
+        for claim in claims:
+            label = {"directional_news": "资讯", "finance_query": "对应日期行情", "research": "所述资料"}.get(claim.capability, "对应资料")
+            notes.append(f"查询状态更正：本轮未查询{label}，不能据此声称没有资料或没有催化。")
+        if find_unverified_kb_gap_claims(draft, structural.outcome.traces):
+            notes.append("查询状态更正：本轮未查证知识库，不能据此声称库内没有相关证据。")
+        hygiene = _HygieneSnapshot(
+            unattempted_claim_count=len(claims),
+            asked_date_coverage=classify_asked_date_coverage(frame.raw_question, frame.question_type, structural.outcome.traces),
+            issues=tuple(f"code=unattempted_claim :: 本次未查询 {claim.capability}" for claim in claims),
         )
-        preflight_rejected = tuple(
-            sorted(
-                set(
-                    (
-                        *numeric_rejected,
-                        *weekday_rejected,
-                        *path_rejected,
-                        *evidence_date_rejected,
-                    )
-                )
-            )
-        )
-        if preflight_rejected:
-            self._record_sentence_verdicts(
-                stage=VERDICT_STAGE_PREFLIGHT,
-                indexes=preflight_rejected,
-                sentences=sentences,
-                verified=structural,
-                decision_for={index: VERDICT_DELETED for index in preflight_rejected},
-                reasons_for=_mechanical_reasons_by_index(
-                    numeric=numeric_rejected,
-                    weekday=weekday_rejected,
-                    path=path_rejected,
-                    evidence_date=evidence_date_rejected,
-                ),
-            )
-            before_repair = structural.outcome.draft
-            preflight_source = structural
-            preflight = self._repair(
-                frame=frame,
-                structural=structural,
-                rejected_sentence_indexes=preflight_rejected,
-            )
-            if preflight is None:
-                return SemanticEpisodeOutcome(
-                    verified=structural,
-                    status="partial",
-                    public_answer=self._gap_answer(frame, structural),
-                    judge_status="rejected",
-                    issues=tuple(
-                        dict.fromkeys(
-                            (*structural.issues, _NUMERIC_CONDITION_ISSUE.serialize())
-                        )
-                    ),
-                    correlated_judge=False,
-                )
-            structural, _preflight_frame = preflight
-            preflight_issues = tuple(
-                issue.serialize()
-                for indexes, issue in (
-                    (numeric_rejected, _NUMERIC_CONDITION_ISSUE),
-                    (weekday_rejected, _CALENDAR_WEEKDAY_ISSUE),
-                    (path_rejected, _PATH_TREND_ISSUE),
-                    (evidence_date_rejected, _EVIDENCE_DATE_ISSUE),
-                )
-                if indexes
-            )
-            marker_loss = _lost_grounded_output_substance(
-                contract,
-                before_repair,
-                structural.outcome.draft,
-            )
-            if marker_loss:
-                marker_loss_outputs = marker_loss
-            if (
-                structural.verified_status != "completed"
-                and not _can_semantically_release_partial(structural)
-            ):
-                return SemanticEpisodeOutcome(
-                    verified=structural,
-                    status="partial",
-                    public_answer=self._gap_answer(frame, structural),
-                    judge_status="rejected",
-                    issues=tuple(
-                        dict.fromkeys((*structural.issues, *preflight_issues))
-                    ),
-                    correlated_judge=False,
-                )
-            sentences = _numbered_sentences(structural.outcome.draft)
-
-        structural, claim_issues, claim_count = self._apply_unattempted_claim_rewrite(
-            frame, structural
-        )
-        structural = self._apply_kb_gap_proof_rewrite(structural)
-        self._active_hygiene = _HygieneSnapshot(
-            unattempted_claim_count=claim_count,
-            asked_date_coverage=classify_asked_date_coverage(
-                frame.raw_question,
-                frame.question_type,
-                structural.outcome.traces,
-            ),
-            issues=claim_issues,
-        )
-        sentences = _numbered_sentences(structural.outcome.draft)
-        # #55 census：槽级引用越界只记账。放在送判前的最终句序上，两种模式同一口径。
+        self._active_hygiene = hygiene
         census = _cited_outside_slot_binding_indexes(sentences, structural)
-        if census:
-            self._census_count = len(census)
+        self._census_count = len(census)
+        self._record_sentence_verdicts(
+            stage=VERDICT_STAGE_CENSUS, indexes=census, sentences=sentences, verified=structural,
+            decision_for={index: VERDICT_KEPT for index in census},
+            reasons_for={index: (VERDICT_REASON_OUTSIDE_SLOT,) for index in census},
+        )
+        # A malformed binding may be displayed as unverified analysis, but may
+        # not be fed to the judge as a trusted evidence relationship.
+        review_eligible = structural.verified_status == "completed" or _can_semantically_release_partial(structural)
+        if review_eligible:
+            request = self._judge_request(frame, structural, sentences)
+            call = replace(self._run_judge(request, deadline), request=request)
+            if self._judge_mode != JUDGE_MODE_OFF and deadline.expired:
+                call = replace(call, report=None, unavailable=True, issue=ROOT_DEADLINE_EXHAUSTED_ISSUE)
+        else:
+            call = _JudgeCall(None, True, False, "structural verification incomplete")
+        if call.report is None:
+            issues.append(call.issue or "semantic judge unavailable")
+            notes.append("本轮未完成独立复核；这是核验状态，不代表上述分析错误或证据不存在。")
+            judge_status: JudgeStatus = "unavailable"
+        else:
+            rejected_delivery = self._reject_material_gaps(structural, sentences, call)
+            if rejected_delivery is not None:
+                structural = rejected_delivery.verified
+                notes.append("材料缺口说明仍有疑点，相关问题尚未完成核验；说明与分析均保留。")
+            else:
+                call = _apply_meta_disclosure_exemption(call, sentences)
+            report = call.report
+            assert report is not None
+            issues.extend(report.issues)
+            rejected = report.rejected_sentence_indexes
             self._record_sentence_verdicts(
-                stage=VERDICT_STAGE_CENSUS,
-                indexes=census,
-                sentences=sentences,
-                verified=structural,
-                decision_for={index: VERDICT_KEPT for index in census},
-                reasons_for={index: (VERDICT_REASON_OUTSIDE_SLOT,) for index in census},
+                stage=VERDICT_STAGE_JUDGE, indexes=rejected, sentences=sentences, verified=structural,
+                decision_for={index: VERDICT_DEMOTED for index in rejected},
+                reasons_for={index: reasons.get(index, (VERDICT_REASON_JUDGE,)) for index in rejected},
+                issues=report.issues, judge_round=1,
             )
-        request = self._judge_request(frame, structural, sentences)
-        first = replace(self._run_judge(request, deadline), request=request)
-        if deadline.expired:
-            deadline_release_safe = (
-                first.report is None
-                and (
-                    first.monotonic_release_safe
-                    or "deadline" in first.issue.casefold()
+            for row in sentences:
+                if row["index"] in rejected and row["index"] not in reasons:
+                    self._note_semantic_reject(str(row["text"]), report.issues)
+            if self._semantic_reject_texts and not reasons:
+                self._guided_result = self._guided_retrieve_and_rejudge(
+                    frame=frame, structural=structural, sentences=sentences, first=call, deadline=deadline,
                 )
-            )
-            first = replace(
-                first,
-                report=None,
-                unavailable=True,
-                issue=ROOT_DEADLINE_EXHAUSTED_ISSUE,
-                root_deadline_exhausted=True,
-                monotonic_release_safe=deadline_release_safe,
-            )
-        if first.report is None:
-            issue = first.issue or "semantic judge unavailable"
-            # 窗被前一发吃光与根期限到点走同一条瞬态候选路：拆标签只为归因，
-            # 不改这里的放行判定。
-            if first.monotonic_release_safe and issue in {
-                ROOT_DEADLINE_EXHAUSTED_ISSUE,
-                WINDOW_EXHAUSTED_ISSUE,
-                "semantic judge transient provider error",
-                LEFTOVER_WINDOW_ISSUE,
-            }:
-                candidate = self._transient_failure_candidate(
-                    frame,
-                    structural,
-                    issues=tuple(
-                        dict.fromkeys(
-                            (*structural.issues, *preflight_issues, issue)
-                        )
-                    ),
-                    correlated_judge=first.correlated,
+            else:
+                self._guided_result = GuidedRetrievalTelemetry(skip_reason="mechanical_pending" if reasons else "passed")
+            for row in sentences:
+                if str(row["text"]).strip() not in self._semantic_reject_texts:
+                    continue
+                snippet = _sanitize_public_answer(str(row["text"]), structural.outcome.evidence, structural.outcome.traces)
+                index = int(row["index"])
+                detail = _sanitize_public_answer(
+                    "；".join(_issues_naming_sentence(self._semantic_reject_issues, index)),
+                    structural.outcome.evidence, structural.outcome.traces,
                 )
-                if candidate is not None:
-                    return self._finalize_outcome(candidate, first)
-            return self._finalize_outcome(
-                SemanticEpisodeOutcome(
-                    verified=structural,
-                    status="partial",
-                    public_answer=self._gap_answer(
-                        frame,
-                        structural,
-                        judge_unavailable=True,
-                    ),
-                    judge_status="unavailable",
-                    issues=tuple(
-                        dict.fromkeys((*structural.issues, *preflight_issues, issue))
-                    ),
-                    correlated_judge=first.correlated,
-                ),
-                first,
-            )
+                notes.append(
+                    f"原稿第{index}句「{snippet}」：复核认为证据支持不足，属于存疑判断，不是已证实事实。"
+                    + (f"复核意见：{detail}" if detail else "")
+                )
+            issues.extend(self._semantic_reject_issues)
+            if reasons or self._semantic_reject_texts or rejected_delivery is not None:
+                judge_status = "rejected"
+            elif rejected or (call.report and not call.report.passed):
+                judge_status = "repaired"
+            else:
+                judge_status = "passed"
+        # Do not pipe provider error messages / private issue receipts into public text.
+        safe_notes = tuple(_sanitize_public_answer(note, structural.outcome.evidence, structural.outcome.traces) for note in notes)
+        public = annotate_research_answer(public, safe_notes)
+        status: SemanticStatus = "completed" if not notes and (structural.verified_status == "completed" or _contract_slots_all_fulfilled(structural)) and judge_status in {"passed", "repaired"} else "partial"
+        outcome = SemanticEpisodeOutcome(
+            verified=structural, status=status, public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),
+            judge_status=judge_status, issues=tuple(dict.fromkeys((*issues, *hygiene.issues))),
+            correlated_judge=call.correlated,
+            delivery_mode="preserved_analysis" if notes else "reviewed",
+            review_notes=safe_notes,
+            unattempted_claim_count=hygiene.unattempted_claim_count, asked_date_coverage=hygiene.asked_date_coverage,
+        )
+        return _attach_judge_clock(outcome, call)
 
-        first = _apply_numeric_condition_gate(first, sentences, structural)
-        rejected_delivery = self._reject_material_gaps(structural, sentences, first)
-        if rejected_delivery is not None:
-            return rejected_delivery
-        first = _apply_meta_disclosure_exemption(first, sentences)
-        first = _apply_unresolved_evidence_ordinal_gate(first, sentences, structural)
-        assert first.report is not None
-        if first.report.passed:
-            self._guided_result = GuidedRetrievalTelemetry(skip_reason="passed")
-            if marker_loss_outputs:
-                return self._marker_loss_or_withhold(
-                    frame,
-                    source=preflight_source,
-                    wiped=structural,
-                    marker_loss=marker_loss_outputs,
-                    judge_issues=tuple(
-                        dict.fromkeys(
-                            (
-                                *structural.issues,
-                                *preflight_issues,
-                                *first.report.issues,
-                                *_marker_loss_issues(marker_loss_outputs),
-                            )
-                        )
-                    ),
-                    correlated_judge=first.correlated,
-                    call=first,
-                    issue_code="preflight_wiped_all_outputs",
-                    issue_message="preflight repair removed every required output",
-                    rejected_sentence_indexes=preflight_rejected,
-                )
-            return self._completed_public(
-                frame,
-                structural,
-                judge_status=("repaired" if preflight_issues else "passed"),
-                judge_issues=tuple(
-                    dict.fromkeys(
-                        (
-                            *structural.issues,
-                            *preflight_issues,
-                                *first.report.issues,
-                        )
-                    )
-                ),
-                correlated_judge=first.correlated,
-                call=first,
-            )
-
-        first_repair_indexes = self._plan_repair_indexes(
-            first.report.rejected_sentence_indexes,
-            sentences,
-            structural,
-            first.report.issues,
-        )
-        if not first_repair_indexes:
-            # ★ V11 唯一入口：纯语义早退。开火与否都不改下面这条返回路径。
-            self._guided_result = self._guided_retrieve_and_rejudge(
-                frame=frame,
-                structural=structural,
-                sentences=sentences,
-                first=first,
-                deadline=deadline,
-            )
-            return self._completed_public(
-                frame,
-                structural,
-                judge_status="repaired",
-                judge_issues=tuple(
-                    dict.fromkeys(
-                        (
-                            *structural.issues,
-                            *preflight_issues,
-                            *first.report.issues,
-                        )
-                    )
-                ),
-                correlated_judge=first.correlated,
-                call=first,
-            )
-
-        # 混合案 / 机械删句路径：V11 永不开火（§3.2），只记 skip 原因。
-        self._guided_result = GuidedRetrievalTelemetry(skip_reason="mechanical_pending")
-        repaired = self._repair(
-            frame=frame,
-            structural=structural,
-            rejected_sentence_indexes=first_repair_indexes,
-        )
-        if repaired is None:
-            issues = tuple(
-                dict.fromkeys(
-                    (
-                        *structural.issues,
-                        *preflight_issues,
-                        *first.report.issues,
-                        "semantic repair unavailable",
-                    )
-                )
-            )
-            return self._finalize_outcome(
-                SemanticEpisodeOutcome(
-                    verified=structural,
-                    status="partial",
-                    public_answer=self._gap_answer(frame, structural),
-                    judge_status="rejected",
-                    issues=issues,
-                    correlated_judge=first.correlated,
-                ),
-                first,
-            )
-
-        repaired_verified, _repaired_frame = repaired
-        marker_loss = _lost_grounded_output_substance(
-            contract,
-            structural.outcome.draft,
-            repaired_verified.outcome.draft,
-        )
-        marker_loss = tuple(
-            dict.fromkeys((*marker_loss_outputs, *marker_loss))
-        )
-        first_issues = tuple(
-            dict.fromkeys(
-                (
-                    *repaired_verified.issues,
-                    *preflight_issues,
-                    *first.report.issues,
-                    *_marker_loss_issues(marker_loss),
-                )
-            )
-        )
-        withheld = self._maybe_withhold_after_repair(
-            frame,
-            source=structural,
-            wiped=repaired_verified,
-            rejected_sentence_indexes=first_repair_indexes,
-            marker_loss=marker_loss,
-            judge_issues=first_issues,
-            correlated_judge=first.correlated,
-            call=first,
-            issue_code="repair_wiped_all_outputs",
-            issue_message=(
-                "semantic repair removed every required output; "
-                "judge verdict treated as suspect"
-            ),
-        )
-        if withheld is not None:
-            return withheld
-        if (
-            repaired_verified.verified_status != "completed"
-            and not _can_semantically_release_partial(repaired_verified)
-        ):
-            issues = tuple(
-                dict.fromkeys(
-                    (
-                        *repaired_verified.issues,
-                        *preflight_issues,
-                        *first.report.issues,
-                        "semantic repair remained structurally partial",
-                    )
-                )
-            )
-            return self._finalize_outcome(
-                SemanticEpisodeOutcome(
-                    verified=repaired_verified,
-                    status="partial",
-                    public_answer=self._gap_answer(frame, repaired_verified),
-                    judge_status="rejected",
-                    issues=issues,
-                    correlated_judge=first.correlated,
-                ),
-                first,
-            )
-
-        # The re-judge sees the repaired draft but exactly the same evidence.
-        repaired_sentences = _numbered_sentences(repaired_verified.outcome.draft)
-        second_request = self._judge_request(
-            frame, repaired_verified, repaired_sentences
-        )
-        second = replace(
-            self._run_judge(second_request, deadline),
-            request=second_request,
-        )
-        second = _apply_optional_rejudge_deadline(second, deadline)
-        second = _apply_numeric_condition_gate(
-            second,
-            repaired_sentences,
-            repaired_verified,
-        )
-        rejected_delivery = self._reject_material_gaps(repaired_verified, repaired_sentences, second)
-        if rejected_delivery is not None:
-            return rejected_delivery
-        second = _apply_meta_disclosure_exemption(second, repaired_sentences)
-        second = _apply_unresolved_evidence_ordinal_gate(
-            second,
-            repaired_sentences,
-            repaired_verified,
-        )
-        correlated = first.correlated or second.correlated
-        if second.report is not None and second.report.passed:
-            return self._completed_public(
-                frame,
-                repaired_verified,
-                judge_status="repaired",
-                judge_issues=tuple(
-                    dict.fromkeys(
-                        (
-                            *repaired_verified.issues,
-                            *preflight_issues,
-                            *first.report.issues,
-                            *second.report.issues,
-                        )
-                    )
-                ),
-                correlated_judge=correlated,
-                call=second,
-            )
-
-        if _optional_rejudge_allows_monotonic_release(second):
-            # The first completed report reviewed the entire original draft
-            # and named the only spans it rejected. Removing those spans is a
-            # monotonic operation: it cannot add a claim or evidence. A
-            # best-effort rejudge may catch omissions, but root-budget expiry
-            # or an explicitly transient provider outage must not erase the
-            # already-reviewed remainder. Invalid/malformed responses are not
-            # transient and remain fail closed.
-            second_issue = second.issue or "semantic rejudge unavailable"
-            return self._completed_public(
-                frame,
-                repaired_verified,
-                judge_status="repaired",
-                judge_issues=tuple(
-                    dict.fromkeys(
-                        (
-                            *repaired_verified.issues,
-                            *preflight_issues,
-                            *first.report.issues,
-                            second_issue,
-                        )
-                    )
-                ),
-                correlated_judge=correlated,
-                call=second,
-            )
-
-        if (
-            second.report is not None
-            and second.report.rejected_sentence_indexes
-        ):
-            second_repair_indexes = self._plan_repair_indexes(
-                second.report.rejected_sentence_indexes,
-                repaired_sentences,
-                repaired_verified,
-                second.report.issues,
-            )
-            if not second_repair_indexes:
-                return self._completed_public(
-                    frame,
-                    repaired_verified,
-                    judge_status="repaired",
-                    judge_issues=tuple(
-                        dict.fromkeys(
-                            (
-                                *repaired_verified.issues,
-                                *preflight_issues,
-                                *first.report.issues,
-                                *second.report.issues,
-                            )
-                        )
-                    ),
-                    correlated_judge=correlated,
-                    call=second,
-                )
-            repaired_twice = self._repair(
-                frame=frame,
-                structural=repaired_verified,
-                rejected_sentence_indexes=second_repair_indexes,
-            )
-            if repaired_twice is not None:
-                twice_verified, _twice_frame = repaired_twice
-                second_marker_loss = _lost_grounded_output_substance(
-                    contract,
-                    repaired_verified.outcome.draft,
-                    twice_verified.outcome.draft,
-                )
-                second_issues = tuple(
-                    dict.fromkeys(
-                        (
-                            *twice_verified.issues,
-                            *preflight_issues,
-                            *first.report.issues,
-                            *second.report.issues,
-                            *_marker_loss_issues(second_marker_loss),
-                        )
-                    )
-                )
-                withheld = self._maybe_withhold_after_repair(
-                    frame,
-                    source=repaired_verified,
-                    wiped=twice_verified,
-                    rejected_sentence_indexes=second_repair_indexes,
-                    marker_loss=second_marker_loss,
-                    judge_issues=second_issues,
-                    correlated_judge=correlated,
-                    call=second,
-                    issue_code="repair_wiped_all_outputs",
-                    issue_message=(
-                        "semantic repair removed every required output; "
-                        "judge verdict treated as suspect"
-                    ),
-                )
-                if withheld is not None:
-                    return withheld
-                if (
-                    twice_verified.verified_status == "completed"
-                    or _can_semantically_release_partial(twice_verified)
-                ):
-                    twice_sentences = _numbered_sentences(
-                        twice_verified.outcome.draft
-                    )
-                    third_request = self._judge_request(
-                        frame,
-                        twice_verified,
-                        twice_sentences,
-                    )
-                    third = replace(
-                        self._run_judge(third_request, deadline),
-                        request=third_request,
-                    )
-                    third = _apply_optional_rejudge_deadline(third, deadline)
-                    third = _apply_numeric_condition_gate(
-                        third,
-                        twice_sentences,
-                        twice_verified,
-                    )
-                    third = _apply_unresolved_evidence_ordinal_gate(
-                        third,
-                        twice_sentences,
-                        twice_verified,
-                    )
-                    correlated = correlated or third.correlated
-                    if third.report is not None and third.report.passed:
-                        return self._completed_public(
-                            frame,
-                            twice_verified,
-                            judge_status="repaired",
-                            judge_issues=tuple(
-                                dict.fromkeys(
-                                    (
-                                        *twice_verified.issues,
-                                        *preflight_issues,
-                                        *first.report.issues,
-                                        *second.report.issues,
-                                        *third.report.issues,
-                                    )
-                                )
-                            ),
-                            correlated_judge=correlated,
-                            call=third,
-                        )
-                    if _optional_rejudge_allows_monotonic_release(third):
-                        # The second completed report reviewed the once-
-                        # repaired draft. Its exact rejected spans have now
-                        # been removed, so an optional final rejudge timeout
-                        # or transient provider outage cannot erase that
-                        # twice-reviewed remainder.
-                        third_issue = (
-                            third.issue or "semantic final rejudge unavailable"
-                        )
-                        return self._completed_public(
-                            frame,
-                            twice_verified,
-                            judge_status="repaired",
-                            judge_issues=tuple(
-                                dict.fromkeys(
-                                    (
-                                        *twice_verified.issues,
-                                        *preflight_issues,
-                                        *first.report.issues,
-                                        *second.report.issues,
-                                        third_issue,
-                                    )
-                                )
-                            ),
-                            correlated_judge=correlated,
-                            call=third,
-                        )
-                    if (
-                        third.report is not None
-                        and third.report.rejected_sentence_indexes
-                    ):
-                        # The last report has already reviewed every remaining
-                        # sentence.  Removing exactly its rejected indexes is a
-                        # monotonic safety operation, so no fourth model call is
-                        # needed; structural coverage and marker preservation
-                        # still have to pass below.
-                        third_repair_indexes = self._plan_repair_indexes(
-                            third.report.rejected_sentence_indexes,
-                            twice_sentences,
-                            twice_verified,
-                            third.report.issues,
-                        )
-                        if not third_repair_indexes:
-                            return self._completed_public(
-                                frame,
-                                twice_verified,
-                                judge_status="repaired",
-                                judge_issues=tuple(
-                                    dict.fromkeys(
-                                        (
-                                            *twice_verified.issues,
-                                            *preflight_issues,
-                                            *first.report.issues,
-                                            *second.report.issues,
-                                            *third.report.issues,
-                                        )
-                                    )
-                                ),
-                                correlated_judge=correlated,
-                                call=third,
-                            )
-                        terminal_repair = self._repair(
-                            frame=frame,
-                            structural=twice_verified,
-                            rejected_sentence_indexes=third_repair_indexes,
-                        )
-                        if terminal_repair is not None:
-                            terminal_verified, _terminal_frame = terminal_repair
-                            terminal_marker_loss = _lost_grounded_output_substance(
-                                contract,
-                                twice_verified.outcome.draft,
-                                terminal_verified.outcome.draft,
-                            )
-                            terminal_issues = tuple(
-                                dict.fromkeys(
-                                    (
-                                        *terminal_verified.issues,
-                                        *preflight_issues,
-                                        *first.report.issues,
-                                        *second.report.issues,
-                                        *third.report.issues,
-                                        *_marker_loss_issues(
-                                            terminal_marker_loss
-                                        ),
-                                    )
-                                )
-                            )
-                            withheld = self._maybe_withhold_after_repair(
-                                frame,
-                                source=twice_verified,
-                                wiped=terminal_verified,
-                                rejected_sentence_indexes=third_repair_indexes,
-                                marker_loss=terminal_marker_loss,
-                                judge_issues=terminal_issues,
-                                correlated_judge=correlated,
-                                call=third,
-                                issue_code="repair_wiped_all_outputs",
-                                issue_message=(
-                                    "semantic repair removed every required output; "
-                                    "judge verdict treated as suspect"
-                                ),
-                            )
-                            if withheld is not None:
-                                return withheld
-                            if (
-                                terminal_verified.verified_status == "completed"
-                                or _can_semantically_release_partial(
-                                    terminal_verified
-                                )
-                            ):
-                                return self._completed_public(
-                                    frame,
-                                    terminal_verified,
-                                    judge_status="repaired",
-                                    judge_issues=tuple(
-                                        dict.fromkeys(
-                                            (
-                                                *terminal_verified.issues,
-                                                *preflight_issues,
-                                                *first.report.issues,
-                                                *second.report.issues,
-                                                *third.report.issues,
-                                            )
-                                        )
-                                    ),
-                                    correlated_judge=correlated,
-                                    call=third,
-                                )
-                    third_issue = (
-                        third.issue
-                        if third.report is None
-                        else "; ".join(third.report.issues)
-                        or "semantic judge rejected twice-repaired draft"
-                    )
-                    issues = tuple(
-                        dict.fromkeys(
-                            (
-                                *twice_verified.issues,
-                                *preflight_issues,
-                                *first.report.issues,
-                                *second.report.issues,
-                                third_issue,
-                            )
-                        )
-                    )
-                    return self._finalize_outcome(
-                        SemanticEpisodeOutcome(
-                            verified=twice_verified,
-                            status="partial",
-                            public_answer=self._gap_answer(frame, twice_verified),
-                            judge_status=(
-                                "unavailable"
-                                if third.report is None
-                                else "rejected"
-                            ),
-                            issues=issues,
-                            correlated_judge=correlated,
-                        ),
-                        third,
-                    )
-
-        final_issue = (
-            second.issue
-            if second.report is None
-            else "; ".join(second.report.issues)
-            or "semantic judge rejected repaired draft"
-        )
-        issues = tuple(
-            dict.fromkeys(
-                (
-                    *repaired_verified.issues,
-                    *preflight_issues,
-                    *first.report.issues,
-                    final_issue,
-                )
-            )
-        )
-        return self._finalize_outcome(
-            SemanticEpisodeOutcome(
-                verified=repaired_verified,
-                status="partial",
-                public_answer=self._gap_answer(frame, repaired_verified),
-                judge_status=("unavailable" if second.report is None else "rejected"),
-                issues=issues,
-                correlated_judge=correlated,
-            ),
-            second,
-        )
 
     def _transient_failure_candidate(
         self,
@@ -2282,12 +1673,12 @@ class SemanticEpisodeVerifier:
         self._record_sentence_verdicts(
             stage=VERDICT_STAGE_JUDGE, indexes=report.rejected_sentence_indexes,
             sentences=sentences, verified=verified,
-            decision_for={index: VERDICT_DELETED for index in rejected},
+            decision_for={index: VERDICT_DEMOTED for index in rejected},
             reasons_for={index: (VERDICT_REASON_JUDGE,) for index in rejected},
             issues=report.issues, judge_round=self._judge_round,
         )
         public = _sanitize_public_answer(
-            _drop_rejected_sentences(verified.outcome.draft, report.rejected_sentence_indexes, preserve_numbering=True),
+            verified.outcome.draft,
             verified.outcome.evidence, verified.outcome.traces,
         )
         outputs = tuple(
@@ -2304,12 +1695,12 @@ class SemanticEpisodeVerifier:
                 for output_id in missing
             )))),
         )
-        return self._finalize_outcome(SemanticEpisodeOutcome(
+        return SemanticEpisodeOutcome(
             verified=verified, status="partial",
             public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),
             judge_status="rejected", issues=tuple(dict.fromkeys((*verified.issues, *report.issues))),
             correlated_judge=call.correlated, gap_output_ids=missing,
-        ), call)
+        )
 
     def _judge_request(
         self,
@@ -2444,8 +1835,8 @@ class SemanticEpisodeVerifier:
         deadline: ResearchDeadline,
     ) -> _JudgeCall:
         if self._judge_mode == JUDGE_MODE_OFF:
-            # #55：没有第二模型。合成一份全过报告，让判后机械门（数值 / 材料缺口 /
-            # 元陈述 / 表外 E）与 `_repair` 环照常跑；首判、复判、第三判都经这一缝。
+            # No second model: mechanical findings still produce annotations.
+            # judge_mode=deterministic distinguishes this from an LLM review.
             # correlated=False（没人判就谈不上相关）、unavailable=False（不是掉线，
             # 不得触发「判官不可用即扣稿」）。
             return _JudgeCall(
@@ -5791,14 +5182,21 @@ def _sanitize_public_answer(
 ) -> str:
     private_tokens = _private_tokens(evidence, traces)
     kept: list[str] = []
-    for raw in str(draft or "").splitlines():
+    safe = redact_public_prose(str(draft or ""))
+    # Tool names and provider receipt capabilities are different identifiers.
+    # Translate the status noun without changing empty/not-attempted semantics.
+    safe = re.sub(r"(?<![A-Za-z0-9_])(?:news_search|directional_news)(?![A-Za-z0-9_])", "资讯检索", safe, flags=re.IGNORECASE)
+    for raw in safe.splitlines():
         line = raw.strip()
+        if line == "[REDACTED]":
+            continue
         if not line:
+            kept.append(raw)
             continue
         if line.startswith("{") and line.endswith("}"):
             continue
         if not _contains_private_token(line, private_tokens):
-            kept.append(line)
+            kept.append(raw)
             continue
         for item in _numbered_sentences(line):
             sentence = str(item.get("text") or "").strip()
@@ -5819,6 +5217,7 @@ def _private_tokens(
         for token in (
             *(item.tool for item in evidence),
             *(item.content_hash for item in evidence),
+            *(item.internal_locator for item in evidence),
             *(trace.capability for trace in traces),
         )
         if token

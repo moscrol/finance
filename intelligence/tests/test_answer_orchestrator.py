@@ -77,7 +77,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
         ]
         return PreparedAnswer(options=options, result=result)
 
-    def test_model_chunks_stay_private_when_quality_gate_rejects(self) -> None:
+    def test_model_chunks_stay_private_until_review_notes_are_attached(self) -> None:
         public_deltas: list[str] = []
         prepared = self._prepared_answer(public_deltas=public_deltas)
         issue = mock.Mock(
@@ -114,10 +114,10 @@ class AnswerOrchestratorTests(unittest.TestCase):
         ):
             result = synthesize_prepared_answer(prepared)
 
-        self.assertIsNone(result.synthesis)
-        self.assertEqual(result.llm_fallback_reason, "quality_gate_rejected")
-        self.assertEqual(result.synthesis_diagnostic.state, "rejected")
-        self.assertEqual(public_deltas, [])
+        self.assertIn("越界公司 999亿元", result.synthesis)
+        self.assertIn("核验批注", result.synthesis)
+        self.assertEqual(result.synthesis_diagnostic.state, "released_unverified")
+        self.assertEqual(public_deltas, [result.synthesis])
         self.assertEqual(result.llm_stream_telemetry["chunk_count"], 2)
         self.assertNotIn("越界公司", str(result.llm_stream_telemetry))
         self.assertNotIn("999亿元", str(result.llm_stream_telemetry))
@@ -167,10 +167,11 @@ class AnswerOrchestratorTests(unittest.TestCase):
         ):
             result = synthesize_prepared_answer(prepared)
 
-        self.assertEqual(result.synthesis, "展示后的结论。")
+        self.assertTrue(result.synthesis.startswith("展示后的结论。"))
+        self.assertIn("核验批注", result.synthesis)
         self.assertIsNone(result.llm_fallback_reason)
-        self.assertEqual(result.synthesis_diagnostic.state, "accepted")
-        self.assertEqual(public_deltas, ["展示后的结论。"])
+        self.assertEqual(result.synthesis_diagnostic.state, "released_unverified")
+        self.assertEqual(public_deltas, [result.synthesis])
         self.assertTrue(
             any("缺少 claim 绑定" in warning for warning in result.warnings)
         )
@@ -344,7 +345,9 @@ class AnswerOrchestratorTests(unittest.TestCase):
 
         result = self._revision_run(corrected_issues=())
 
-        self.assertEqual(result.synthesis, "修订稿")
+        self.assertTrue(result.synthesis.startswith("未绑定初稿"))
+        self.assertIn("修订稿", result.synthesis)
+        self.assertEqual(result.synthesis_diagnostic.state, "released_unverified")
         self.assertEqual(
             result.llm_stream_telemetry["claim_binding_revision_trigger"],
             "warning",
@@ -354,12 +357,8 @@ class AnswerOrchestratorTests(unittest.TestCase):
             True,
         )
 
-    def test_revision_that_did_not_improve_is_discarded(self) -> None:
-        """对偶：修订版没把绑定问题改少就不许顶掉初稿。
-
-        warning 触发这轮时初稿本来就能发，采纳门槛必须是「真的变好」，
-        否则一次没改动的重写会白白替换掉能发的稿子。
-        """
+    def test_revision_that_did_not_improve_cannot_claim_accepted(self) -> None:
+        """没有改进的补充也可展示，但不能覆盖初稿或伪造修复成功。"""
 
         still_unbound = mock.Mock(
             code="llm_missing_claim_binding",
@@ -368,7 +367,10 @@ class AnswerOrchestratorTests(unittest.TestCase):
         )
         result = self._revision_run(corrected_issues=(still_unbound,))
 
-        self.assertEqual(result.synthesis, "未绑定初稿")
+        self.assertTrue(result.synthesis.startswith("未绑定初稿"))
+        self.assertIn("修订稿", result.synthesis)
+        self.assertIn("核验批注", result.synthesis)
+        self.assertEqual(result.synthesis_diagnostic.state, "released_unverified")
         self.assertIs(
             result.llm_stream_telemetry["claim_binding_revision_accepted"],
             False,
@@ -426,7 +428,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
             any("展示层剔除后为空" in warning for warning in result.warnings)
         )
 
-    def test_quality_issues_fail_closed_without_sentence_deletion(self) -> None:
+    def test_quality_issues_annotate_without_sentence_deletion(self) -> None:
         public_deltas: list[str] = []
         prepared = self._prepared_answer(public_deltas=public_deltas)
         issue = mock.Mock(
@@ -462,11 +464,12 @@ class AnswerOrchestratorTests(unittest.TestCase):
         ):
             result = synthesize_prepared_answer(prepared)
 
-        self.assertIsNone(result.synthesis)
-        self.assertEqual(public_deltas, [])
-        self.assertEqual(result.llm_fallback_reason, "quality_gate_rejected")
+        self.assertIn("安全结论。越界数字 999亿元。", result.synthesis)
+        self.assertIn("核验批注", result.synthesis)
+        self.assertEqual(public_deltas, [result.synthesis])
+        self.assertEqual(result.synthesis_diagnostic.state, "released_unverified")
         self.assertTrue(
-            any("门禁拒绝" in warning for warning in result.warnings)
+            any("待核验" in warning for warning in result.warnings)
         )
 
     def test_claim_binding_revision_can_recover_with_valid_ids(self) -> None:

@@ -101,7 +101,7 @@ def test_sentence_without_a_connective_is_untouched() -> None:
 
 
 def test_repair_does_not_leave_the_survivor_dangling() -> None:
-    """判掉第 1 句后，第 2 句不能以「反之」开头出现在正文里。"""
+    """第 1 句保留并批注，第 2 句的指代不再被破坏。"""
     spec = _spec()
     rejected_first = _line("若次日跌停收缩，则可能形成有参与价值的反弹。")
     kept_second = _line("反之，如果仅仅依靠权重股拉升指数，那只能界定为弱反抽。")
@@ -114,9 +114,9 @@ def test_repair_does_not_leave_the_survivor_dangling() -> None:
     )
 
     assert repaired is not None
-    assert "有参与价值" not in repaired
-    assert "如果仅仅依靠权重股拉升指数" in repaired
-    assert "反之" not in repaired
+    assert repaired.startswith(f"{rejected_first}\n{kept_second}")
+    assert "原稿第1句" in repaired
+    assert "核验批注" in repaired
 
 
 def test_repair_keeps_the_connective_when_its_antecedent_survives() -> None:
@@ -135,8 +135,8 @@ def test_repair_keeps_the_connective_when_its_antecedent_survives() -> None:
     assert "反之" in repaired
 
 
-def test_repair_strips_across_an_intervening_heading() -> None:
-    """删掉的句子和幸存句之间插一个小标题，悬空关系照样存在。"""
+def test_repair_preserves_connective_across_an_intervening_heading() -> None:
+    """中间插小标题也不能截掉原句或改坏前后指代。"""
     spec = _spec()
     rejected_first = _line("若次日跌停收缩，则可能形成有参与价值的反弹。")
     kept_second = _line("反之，如果仅仅依靠权重股拉升指数，那只能界定为弱反抽。")
@@ -149,12 +149,14 @@ def test_repair_strips_across_an_intervening_heading() -> None:
     )
 
     assert repaired is not None
-    assert "反之" not in repaired
+    assert rejected_first in repaired
+    assert kept_second in repaired
+    assert "原稿第1句" in repaired
     assert "## 反弹情景的条件与验证框架" in repaired
 
 
 def test_repair_does_not_cascade_into_dropping_the_second_sentence() -> None:
-    """一次 judge 拒绝只应该吃掉一句话。"""
+    """一次 judge 拒绝不能吞掉任何分析句。"""
     spec = _spec()
     rejected_first = _line("若次日跌停收缩，则可能形成有参与价值的反弹。")
     kept_second = _line("反之，如果仅仅依靠权重股拉升指数，那只能界定为弱反抽。")
@@ -167,4 +169,7 @@ def test_repair_does_not_cascade_into_dropping_the_second_sentence() -> None:
     )
 
     assert repaired is not None
-    assert "弱反抽" in repaired
+    assert rejected_first in repaired
+    assert kept_second in repaired
+    assert "原稿第1句" in repaired
+    assert "原稿第2句" not in repaired

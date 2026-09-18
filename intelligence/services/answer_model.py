@@ -148,11 +148,14 @@ def _drop_engineering_leak_lines(
     )
     if not leaked:
         return answer
-    return "\n".join(
-        line
-        for line in answer.splitlines()
-        if not any(term in line for term in leaked)
-    )
+    # Engineering labels are presentation metadata, not a reason to delete
+    # the financial analysis on the same line. Credentials remain a separate
+    # security concern handled by redact_public_prose().
+    from intelligence.services.run_store import redact_public_prose
+
+    for term in sorted(leaked, key=len, reverse=True):
+        answer = answer.replace(term, "（内部标记已隐藏）")
+    return redact_public_prose(answer)
 
 
 _STRUCTURED_CLAIM_MARKER_RE = re.compile(
@@ -545,6 +548,8 @@ class GroundedComposerShadow:
     # 「judge 判否了，但被否的句子还在稿里」。2026-08-26 那次 fail-open 正是靠拿
     # 归档件逐段重放才定位到——这个字段把那件事变成读一行 trace。
     judge_applied_sentence_indexes: tuple[int, ...] = ()
+    # Review-only policy: rejected sentences are annotated, never deleted.
+    judge_annotation_sentence_indexes: tuple[int, ...] = ()
     provider: str | None = None
     model: str | None = None
     # provider/model 记的是 **composer** 的。judge 走独立 provider 时（
@@ -583,6 +588,7 @@ class GroundedComposerShadow:
             "judge_applied_sentence_indexes": list(
                 self.judge_applied_sentence_indexes
             ),
+            "judge_annotation_sentence_indexes": list(self.judge_annotation_sentence_indexes),
             "provider": self.provider,
             "model": self.model,
             "judge_provider": self.judge_provider,
@@ -3597,11 +3603,8 @@ def present_grounded_composer_answer(
     answer: str,
     answer_spec: AnswerSpec | None = None,
 ) -> str:
-    # 展示边界兜底：违规标题在此确定性剔除（validate/repair 之外的最后一道）。
-    cleaned = _drop_disallowed_headings(
-        _merge_orphan_grounded_markers(answer),
-        answer_spec,
-    )
+    # Quality review annotates unsupported headings; it cannot erase them.
+    cleaned = _merge_orphan_grounded_markers(answer)
     # 先整文剥完整标注，再剥残片，最后才逐行 rstrip。原先只做逐行剥离：
     # 标注正则的字符类本可以跨行匹配，但按行切开后「跨两行的标注」两半都
     # 认不出来，残片原样进公开正文（08-01 验收 C4 泄漏 `claim_type=candidate -->`
@@ -3613,8 +3616,10 @@ def present_grounded_composer_answer(
     stripped = "\n".join(
         line.rstrip() for line in without_markers.splitlines()
     ).strip()
+    from intelligence.services.run_store import redact_public_prose
+
     return _drop_engineering_leak_lines(
-        stripped,
+        redact_public_prose(stripped),
         answer_spec,
         allowed_profiles=frozenset({"methodology", "review"}),
         allowed_terms=frozenset(
@@ -3638,111 +3643,22 @@ def repair_grounded_composer_answer(
     rejected_sentence_indexes: tuple[int, ...] = (),
     drop_invalid: bool = False,
 ) -> str | None:
-    atoms = evidence_atoms_from_answer_spec(answer_spec)
-    claim_registry = {
-        claim.claim_id: claim for claim in _all_answer_claims(answer_spec)
-    }
-    rejected = set(rejected_sentence_indexes)
-    heading_subjects = _allowed_heading_subjects(answer_spec)
-    heading_text_corpus, heading_numbers = _heading_fact_corpus(answer_spec)
-    repaired_lines: list[str] = []
-    sentence_index = 0
-    # 上一句正文是否被丢弃。丢句会让下一句的「反之/但/因此」失去前件，正文读起来
-    # 就是从半截开始的。标题行不清除这个标记：删掉的句子和幸存句之间插一个小标题，
-    # 悬空关系照样存在。
-    previous_sentence_dropped = False
-    for raw_line in _merge_orphan_grounded_markers(answer).splitlines():
-        line = raw_line.strip()
-        if not line or _is_nonclaim_line(line):
-            heading = _heading_line_text(line)
-            if (
-                heading is not None
-                and _is_disallowed_heading(heading, heading_subjects)
-                and _heading_requires_fact_binding(
-                    heading,
-                    allowed_text=heading_text_corpus,
-                    allowed_numbers=heading_numbers,
-                )
-            ):
-                continue
-            repaired_lines.append(raw_line)
-            continue
-        marker = _GROUNDED_CLAIM_MARKER_RE.search(raw_line)
-        if marker is None:
-            previous_sentence_dropped = True
-            continue
-        sentence_index += 1
-        claim_ids = tuple(
-            item.strip()
-            for item in re.split(r"[,，、\s]+", marker.group("claim_ids"))
-            if item.strip()
-        )
-        source_claim = next(
-            (
-                claim_registry[claim_id]
-                for claim_id in claim_ids
-                if claim_id in claim_registry
-            ),
-            None,
-        )
-        if source_claim is None:
-            atom_owner = {
-                atom.atom_id: str(atom.provenance.get("claim_id", ""))
-                for atom in atoms
-            }
-            source_claim = next(
-                (
-                    claim_registry[atom_owner[claim_id]]
-                    for claim_id in claim_ids
-                    if atom_owner.get(claim_id, "") in claim_registry
-                ),
-                None,
-            )
-        if source_claim is None:
-            previous_sentence_dropped = True
-            continue
-        line_issues = validate_grounded_composer_answer(
-            raw_line,
-            answer_spec,
-        )
-        if not line_issues and sentence_index not in rejected:
-            if previous_sentence_dropped:
-                raw_line = _strip_backref_connective(raw_line)
-                if not raw_line.strip():
-                    continue
-            repaired_lines.append(raw_line)
-            previous_sentence_dropped = False
-            continue
-        if drop_invalid:
-            previous_sentence_dropped = True
-            continue
-        atom_ids = _atom_ids_for_claim(source_claim, atoms)
-        claim_type = _grounded_claim_type(source_claim)
-        if claim_type == "fact" and not atom_ids:
-            return None
-        prefix, _text = _line_prefix_and_text(
-            _GROUNDED_CLAIM_MARKER_RE.sub("", raw_line)
-        )
-        repaired_lines.append(
-            f"{prefix}{humanize(source_claim.text)} "
-            f"<!-- claim_ids={source_claim.claim_id}; "
-            f"evidence_atom_ids={','.join(atom_ids)}; "
-            f"claim_type={claim_type} -->"
-        )
-        # 用 claim 原文顶替，句子没有消失，后一句的前件仍在。
-        previous_sentence_dropped = False
-    repaired = "\n".join(repaired_lines).strip()
-    if drop_invalid and not _GROUNDED_CLAIM_MARKER_RE.search(repaired):
+    """Compatibility entry: quality repair now means additive annotation.
+
+    ``drop_invalid`` no longer grants deletion rights. Keep original prose and
+    bindings for audit; the presenter strips private markup, not sentences.
+    """
+    from intelligence.services.research_annotations import annotate_research_answer
+
+    if not answer.strip():
         return None
-    if any(
-        issue.severity == "error"
-        for issue in validate_grounded_composer_answer(
-            repaired,
-            answer_spec,
-        )
-    ):
-        return None
-    return repaired
+    issues = validate_grounded_composer_answer(answer, answer_spec)
+    notes = []
+    if issues:
+        notes.append("证据绑定或事实核验存在疑点，原分析保留，不能当作已证实结论。")
+    if rejected_sentence_indexes:
+        notes.append("复核对原稿第" + "、".join(map(str, rejected_sentence_indexes)) + "句提出疑点；相关判断保留待核验。")
+    return annotate_research_answer(answer, notes)
 
 
 def parse_grounding_judge_report(
@@ -3911,44 +3827,44 @@ def parse_structured_claims(
 
 
 def present_llm_answer(answer: str, answer_spec: AnswerSpec) -> str:
+    from intelligence.services.run_store import redact_public_prose
+
     claim_registry = {
         claim.claim_id: claim for claim in _all_answer_claims(answer_spec)
     }
-    # claim 契约答案（含 marker）里的标题不是自由文本：违规标题在展示边界剔除。
-    # 无 marker 的纯散文契约（如市场复盘）不在此约束内，由各自的合成契约治理。
-    if _STRUCTURED_CLAIM_MARKER_RE.search(answer):
-        answer = _drop_disallowed_headings(answer, answer_spec)
+    # Keep analytical wording and headings. Only private binding markup is removed.
     # 只绑了已取代/已证伪证据的事实：不退稿，但降桶——在正文里标出来，
     # 让读答案的人看见它是待核验线索而不是当前结论。
     stale_claim_ids = stale_evidence_claim_ids(answer, answer_spec)
+    # Mask whole multiline secrets before splitting. Then test each marked
+    # claim without its private markup, BEFORE source/status notes are added.
+    # A note must not resurrect an empty claim, even beside another valid one.
+    protected = redact_public_prose(answer)
     rendered_lines: list[str] = []
-    for raw_line in answer.splitlines():
+    for raw_line in protected.splitlines():
         marker = _STRUCTURED_CLAIM_MARKER_RE.search(raw_line)
         if marker is None:
             rendered_lines.append(raw_line)
             continue
+        body = redact_public_prose(_GROUNDED_MARKER_RESIDUE_RE.sub(
+            "", _STRUCTURED_CLAIM_MARKER_RE.sub("", raw_line),
+        )).rstrip()
+        if not body.strip():
+            continue
         claim_id = marker.group("claim_id").strip()
         source_claim = claim_registry.get(claim_id)
-        if source_claim is None:
-            continue
-        prefix = ""
-        stripped = raw_line.strip()
-        if stripped.startswith("- "):
-            prefix = "- "
-        else:
-            numbered = re.match(r"(\d+[.)]\s+)", stripped)
-            if numbered is not None:
-                prefix = numbered.group(1)
         tier_note = (
             STALE_EVIDENCE_TIER_NOTE if claim_id in stale_claim_ids else ""
         )
+        if source_claim is None:
+            tier_note += "（引用未核验）"
         rendered_lines.append(
-            f"{prefix}{humanize(source_claim.text)}{tier_note}"
-            f"{_single_source_note(source_claim)}"
+            body + tier_note
+            + (_single_source_note(source_claim) if source_claim is not None else "")
         )
-    rendered = "\n".join(rendered_lines).strip()
+    rendered = _GROUNDED_MARKER_RESIDUE_RE.sub("", "\n".join(rendered_lines)).strip()
     return _drop_engineering_leak_lines(
-        rendered,
+        redact_public_prose(rendered),
         answer_spec,
         allowed_profiles=frozenset({"methodology", "review", "general", "causal"}),
     )

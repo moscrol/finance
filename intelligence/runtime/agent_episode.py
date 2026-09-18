@@ -3298,31 +3298,43 @@ class ContinuousAgentEpisode:
             {"phase": "finalization_recovery", **turn.to_dict()},
         )
         if not _consume_root_seconds(context, recovery_elapsed):
+            if context.root_budget is not None:
+                context.root_budget.settle_seconds(seconds=recovery_elapsed)
             reason = "finalization_recovery_deadline_exhausted"
             return self._failed_recovery_outcome(
                 task_frame=task_frame,
                 ledger=ledger,
                 accumulator=accumulator,
                 reason=reason,
-                public_gap="终局恢复超出截止时间，无法生成可验证回答",
+                public_gap="终局恢复超出截止时间，本轮核验未完成",
                 llm_calls=llm_calls,
                 tool_calls=tool_calls,
                 invalid_actions=invalid_actions,
+                carried=self._carry_just_written_finish(
+                    turn=turn, context=context,
+                    evidence=tuple(accumulator.evidence), registry=registry,
+                ),
             )
         if (
             context.deadline.synthesis_timeout(self._llm_timeout)
             < MIN_FINALIZATION_RECOVERY_SECONDS
         ):
+            # The response already exists. Carry a structurally valid draft,
+            # but keep the timeout/partial result; no new call or late pass.
             reason = "finalization_recovery_deadline_exhausted"
             return self._failed_recovery_outcome(
                 task_frame=task_frame,
                 ledger=ledger,
                 accumulator=accumulator,
                 reason=reason,
-                public_gap="终局恢复超出截止时间，无法生成可验证回答",
+                public_gap="终局恢复超出截止时间，本轮核验未完成",
                 llm_calls=llm_calls,
                 tool_calls=tool_calls,
                 invalid_actions=invalid_actions,
+                carried=self._carry_just_written_finish(
+                    turn=turn, context=context,
+                    evidence=tuple(accumulator.evidence), registry=registry,
+                ),
             )
         if turn.error:
             ledger.add("model_error", {"reason": turn.error})
@@ -3467,6 +3479,7 @@ class ContinuousAgentEpisode:
         llm_calls: int,
         tool_calls: int,
         invalid_actions: int,
+        carried: FinishAdmission | None = None,
         rejection_code: str = "none",
         rejection_reason: str = "",
     ) -> AgentOutcome:
@@ -3482,10 +3495,12 @@ class ContinuousAgentEpisode:
             ledger=ledger,
             evidence=accumulator.evidence,
             traces=accumulator.traces,
-            gaps=accumulator.gaps,
+            gaps=list(dict.fromkeys((*accumulator.gaps, *(carried.gaps if carried else ())))),
             llm_calls=llm_calls,
             tool_calls=tool_calls,
             invalid_actions=invalid_actions,
+            carried_draft=carried.draft if carried else "",
+            carried_bindings=carried.bindings if carried else (),
             rejection_code=rejection_code,
             rejection_reason=rejection_reason,
         )

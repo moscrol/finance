@@ -30,6 +30,7 @@ from intelligence.services import (
 )
 from intelligence.services.session_projection import (
     CAUSE_TRANSIENT_VERIFIER_OUTAGE,
+    CAUSE_VERIFIED,
     TerminalFacts,
     opening_for,
     view,
@@ -60,6 +61,9 @@ from intelligence.services.ask_types import (
 from intelligence.services.judge_mode import JUDGE_MODE_OFF, semantic_judge_mode
 from intelligence.services.task_fulfillment import answer_has_output_marker
 from intelligence.services.research_policy import grounded_deep
+from intelligence.services.research_annotations import (
+    annotate_research_answer, append_research_supplement,
+)
 
 
 # few-shot 锚：高分样板目录。文件名前缀按问题类型路由（deep-dive-* / forecast-*），
@@ -1227,25 +1231,9 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             ),
         )
         return result
-    if composed.finish_reason is not None and composed.finish_reason != "stop":
-        reason = (
-            "LLM 合成响应被截断，已降级为模板"
-            if composed.finish_reason == "length"
-            else "LLM 合成未正常停止，已降级为模板"
-        )
-        result.warnings.append(reason)
-        result.llm_fallback_reason = _stable_llm_fallback_reason(reason)
-        result.llm_stream_telemetry = telemetry(
-            composed=composed,
-            fallback_reason=result.llm_fallback_reason,
-        )
-        _set_synthesis_diagnostic(
-            result,
-            state="failed",
-            reason_code=result.llm_fallback_reason or "provider_incomplete",
-            detail="synthesis provider response did not finish cleanly",
-        )
-        return result
+    incomplete = composed.finish_reason not in {None, "stop"}
+    if incomplete:
+        result.warnings.append("模型输出未完整结束，保留已有分析并标明未完成。")
     result.llm_fallback_reason = composed.fallback_reason
     result.llm_stream_telemetry = telemetry(
         composed=composed,
@@ -1286,6 +1274,8 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         blocking_issues = [
             issue for issue in gate_issues if issue.severity == "error"
         ]
+    initial_gate_issues = tuple(gate_issues)
+    correction_answer = ""
     binding_warnings = [
         issue
         for issue in gate_issues
@@ -1297,7 +1287,7 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     # 纠正成功率越高），而不是二选一地扔或放。
     #
     # claim-binding 修订轮只适用于 registry 契约：散文契约（市场复盘）没有
-    # registry 可复制，泄漏即直接退稿，不浪费一次错误契约的修订调用。
+    # registry 可复制，安全清洗和核验批注在展示侧处理，不空跑修订调用。
     revision_trigger = "error" if blocking_issues else (
         "warning" if binding_warnings else None
     )
@@ -1345,6 +1335,7 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             correction_reason or None
         )
         if correction is not None:
+            correction_answer = correction.answer
             corrected_synthesis = correction.answer
             corrected_issues = answer_model.validate_llm_answer(
                 corrected_synthesis,
@@ -1384,10 +1375,9 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
                 blocking_issues = corrected_blocking
                 gate_issues = corrected_issues
             elif corrected_blocking:
-                # warning 触发的修订把稿子改出了 error：丢掉修订版、保留初稿，
-                # 不能让「本来能发」因为一次没要求的重写变成退稿。
+                # 修订未达到接受门槛：仍可作为安全补充展示，但不能冒充已修复。
                 result.warnings.append(
-                    "claim 绑定修订版反而触发了硬门禁，已保留初稿。"
+                    "claim 绑定修订仍有疑点，初稿与安全补充均保留待核验。"
                 )
     structured_claims, unbound_claim_lines = (
         answer_model.parse_structured_claims(proposed_synthesis)
@@ -1412,34 +1402,30 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     )
     if blocking_issues:
         result.warnings.extend(
-            f"LLM 输出被 AnswerSpec 门禁拒绝：{issue.message}"
-            for issue in blocking_issues
+            f"分析保留，待核验：{issue.message}" for issue in blocking_issues
         )
-        result.llm_fallback_reason = "quality_gate_rejected"
-        result.llm_stream_telemetry["fallback_reason"] = result.llm_fallback_reason
-        diagnostic_reason, diagnostic_detail = _quality_gate_diagnostic_reason(
-            blocking_issues
-        )
-        _set_synthesis_diagnostic(
-            result,
-            state="rejected",
-            reason_code=diagnostic_reason,
-            detail=diagnostic_detail,
-        )
-        return result
     result.warnings.extend(
         f"LLM 输出未过 {issue.code}：{issue.message}"
         for issue in gate_issues
         if issue.severity != "error"
     )
+    # A better second draft cannot silently erase an earlier analysis. Keep
+    # both safely presented texts; the correction's acceptance is audit-only.
     presented_synthesis = answer_model.present_llm_answer(
-        proposed_synthesis,
-        result.answer_spec,
+        initial_synthesis, result.answer_spec,
     )
-    # 绑定/术语闸降为 warning 之后，退稿的决定权移交给了展示层——它会丢掉无效
-    # claim ID 行和含内部术语的行。「marker 全无效」或「唯一那段含内部词」的答卷
-    # 会被抠成空串：那不是宽容，是发一张盖着 validated 章的空白答卷，比整答退稿
-    # 更差（退稿至少还落确定性答卷）。抠空即退稿，走既有 quality_gate 那条出口。
+    if correction_answer and correction_answer != initial_synthesis:
+        presented_synthesis = append_research_supplement(
+            presented_synthesis,
+            answer_model.present_llm_answer(correction_answer, result.answer_spec),
+        )
+    notes = []
+    if initial_gate_issues or gate_issues:
+        notes.append("事实或引用核验尚有疑点，原分析保留为待核验判断。")
+    if incomplete:
+        notes.append("模型输出未完整结束，尾部可能不完整；保留已生成的分析。")
+    # Only truly empty / security-redacted output may require a fallback.
+    # Review text itself must not make an empty draft count as an answer.
     presented_line_count = _nonblank_line_count(presented_synthesis)
     result.llm_stream_telemetry["presented_lines_dropped"] = max(
         0,
@@ -1458,26 +1444,19 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             detail="presentation layer dropped every line of the synthesis candidate",
         )
         return result
-    # sections 遥测：降级/修订从“静默”变“可观测”。kept/dropped 对比合成稿与
-    # 展示稿的小节集合；revised 统计修订轮改动过正文的小节数。
+    presented_synthesis = annotate_research_answer(presented_synthesis, notes)
+    # The original sections remain; a follow-up is an addition, not a rewrite.
     proposed_titles = _section_titles(proposed_synthesis)
     presented_titles = set(_section_titles(presented_synthesis))
-    initial_bodies = _section_bodies(initial_synthesis)
-    final_bodies = _section_bodies(proposed_synthesis)
     result.llm_stream_telemetry["sections_kept"] = sum(
         1 for title in proposed_titles if title in presented_titles
     )
     result.llm_stream_telemetry["sections_dropped"] = sum(
         1 for title in proposed_titles if title not in presented_titles
     )
-    result.llm_stream_telemetry["sections_revised"] = (
-        sum(
-            1
-            for title, body in final_bodies.items()
-            if initial_bodies.get(title) != body
-        )
-        if proposed_synthesis is not initial_synthesis
-        else 0
+    result.llm_stream_telemetry["sections_revised"] = 0
+    result.llm_stream_telemetry["supplement_added"] = bool(
+        correction_answer and correction_answer != initial_synthesis
     )
     result.synthesis = (
         f"{result.data_notice}\n\n{presented_synthesis}"
@@ -1496,9 +1475,9 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         result.warnings.append(reason)
     _set_synthesis_diagnostic(
         result,
-        state="accepted",
-        reason_code="validated",
-        detail="synthesis passed deterministic quality gates",
+        state="released_unverified" if notes else "accepted",
+        reason_code="analysis_preserved" if notes else "validated",
+        detail="analysis preserved with review findings" if notes else "synthesis passed deterministic quality gates",
     )
     return result
 
@@ -1541,7 +1520,7 @@ def _grounded_body_line_count(text: str) -> int:
 # ``deterministic_only``（#55）是 ASK_SEMANTIC_JUDGE=off 下的常态：按设计没有第二模型
 # 审，正文只过确定性层，不带掉线告示（判官没有掉线，是被关掉的）。
 _PROMOTABLE_SHADOW_STATUSES = frozenset(
-    {"accepted", "repaired", "judge_outage_released", "deterministic_only"}
+    {"accepted", "repaired", "judge_outage_released", "deterministic_only", "analysis_preserved"}
 )
 
 
@@ -1582,14 +1561,14 @@ def promote_grounded_answer(
     )
     shadow = result.grounded_composer_shadow
     presented = (
-        _strip_empty_grounded_sections(shadow.presented_answer)
+        shadow.presented_answer
         if shadow is not None and shadow.presented_answer
         else ""
     )
     if (
         shadow is None
         or shadow.status not in _PROMOTABLE_SHADOW_STATUSES
-        or _grounded_body_line_count(presented) < 2
+        or not presented.strip()
     ):
         if shadow is not None:
             reason = shadow.failure_reason or (
@@ -1649,15 +1628,12 @@ def promote_grounded_answer(
     # 原先这里无条件写 accepted/validated，于是 2026-08-02 那批 7 个 accepted 里
     # 有 6 个的语义审根本没跑——正文自带「语义复核未完成」的告示，诊断却说 passed。
     # 台账按 state 聚合，读出来的健康度就是假的。
-    if shadow.status == "judge_outage_released":
+    if shadow.status in {"judge_outage_released", "analysis_preserved"}:
         _set_synthesis_diagnostic(
             result,
             state="released_unverified",
-            reason_code="judge_outage_released",
-            detail=(
-                "deterministic binding passed; semantic judge absent, "
-                "released with an explicit notice"
-            ),
+            reason_code=shadow.status,
+            detail="analysis preserved with review findings; not a verified quality pass",
         )
     elif shadow.status == "deterministic_only":
         # #55：不是「没人审但放行」也不是「过了语义审」——是设计上只有确定性门。
@@ -1845,7 +1821,7 @@ def repair_unfulfilled_answer(
     timeout: int,
     options: "AskOptions | None" = None,
 ) -> tuple[str, object] | None:
-    """门禁判缺时补写一轮；仍不过则返回 None，由调用方 fail-closed。
+    """门禁判缺时补写一轮；原分析不被覆盖，完成度按实际正文重新检查。
 
     这是官方 Claude Code「拒绝作为反馈回灌」的对应物：工具被拒时模型收到的是
     一条拒绝消息**作为 tool result**，然后换方法或说明无法继续，而不是整轮作废。
@@ -1861,8 +1837,8 @@ def repair_unfulfilled_answer(
        所以**不需要第二个计数器**。
     2. **补写只能用 registry 里已有的事实**——见
        ``fulfillment_revision_user_content`` 的来源约束。
-    3. **补写后必须重新过门禁**——重判在下面，只有新判定为 complete 才返回。
-       这一条做成结构性的：调用方拿不到「跑过修复轮」这个理由来放行。
+    3. **补写后必须重新过门禁**——按原文加补充重判，不把附注当成已完成。
+       仍不完整时返回真实判定，调用方必须保留缺口说明。
 
     ``options``：传入本轮 AskOptions 时，视角模式（single/compare）的补写轮
     会带上与首轮 composer 相同的视角约束——门控逻辑收口在
@@ -1910,15 +1886,17 @@ def repair_unfulfilled_answer(
     )
     if revised is None or not revised.answer.strip():
         return None
+    supplement = answer_model.present_grounded_composer_answer(revised.answer)
+    if not supplement.strip():
+        return None
+    combined = append_research_supplement(answer_text, supplement)
     recheck = task_fulfillment.evaluate_answer_spec_fulfillment(
         question=question,
         required_outputs=required_outputs,
-        answer_text=revised.answer,
+        answer_text=combined,
         answer_spec=answer_spec,
     )
-    if recheck.status != "complete":
-        return None
-    return revised.answer, recheck
+    return combined, recheck
 
 
 def _shadow_phase_timeout(
@@ -1953,19 +1931,9 @@ def _phase_slice_collapsed(
     return deadline.remaining() * share < 1.0
 
 
-# judge 是「后台请求」——用户不在等它的结果，它挂了不代表被审对象有问题。
-# 官方 Claude Code 对这类请求的处理是减载而不是重试（`FOREGROUND_529_RETRY_SOURCES`
-# 只放前台请求，摘要/标题/分类器一律立即放弃），理由是过载时每次重试对网关是 3-10 倍
-# 放大，而「用户根本看不到这些失败」。我们这里的对应动作是：judge 因瞬时故障没能给出
-# 判定时，放行已经通过确定性绑定校验的候选正文，而不是把整份答案换成缺口模板。
-#
-# 白名单只收「provider 那边出了事」，不收「judge 自己产出有问题」和配置问题——
-# 这跟 episode 侧 `_transient_failure_candidate` 的取舍一致（那里的注释写得很明白：
-# configuration、malformed-output、contract 三类继续走 fail-closed）。
-# 注意 4xx 的取舍跟 ch06b 的 `shouldRetry` 不一样，这是**两个不同的问题**：
-# 它问「这次调用该不该重试」（401 要重试，因为可能是另一个进程刷新了 token）；
-# 我们问「被审对象是不是无辜的」。401/403 意味着后续每次调用都会失败，
-# 放行会从例外变成常态——所以跟配置问题一样 fail-closed。别照抄。
+# 兼容既有故障分组；它不再是正文展示白名单。配置错误、本地预算耗尽、
+# 复核输出异常同样保留安全原稿，但原因码仍分别记账，不统称供应商超时。
+# 本组也不授予额外重试或调用预算。
 _TRANSIENT_JUDGE_REASONS = frozenset(
     {
         "timeout",
@@ -1978,10 +1946,8 @@ _TRANSIENT_JUDGE_REASONS = frozenset(
     }
 )
 _INSUFFICIENT_BUDGET_REASON = "本轮剩余预算不足，未发起该段合成"
-# 刻意不在上面：``deadline_exhausted_local`` 与 ``insufficient_budget``。那是我们自己的共享 deadline 用完了，
-# 按本文件上方的判据（放行会不会从例外变成常态）属于必须 fail-closed 的一类——
-# 2026-08-02 那批 23 轮里 15 轮撞的就是它，放行等于把「多数答案没过语义审」写成常态。
-# 代价是可见降级率上升；这是把静默的未核验答案换成显式降级，不是新增故障。
+# 本地 deadline_exhausted_local / insufficient_budget 刻意不放进瞬时故障组。
+# 可以展示正文，不等于这些核验失败已解决，更不等于允许越过根预算。
 
 _JUDGE_OUTAGE_NOTICE = opening_for(CAUSE_TRANSIENT_VERIFIER_OUTAGE)
 
@@ -1990,17 +1956,15 @@ def _judge_outage_release(
     candidate_answer: str,
     answer_spec: answer_model.AnswerSpec,
     judge_reason: str,
+    *,
+    review_notes: tuple[str, ...] = (),
 ) -> str | None:
-    """judge 因瞬时故障缺席时，把候选正文带警示放行；否则返回 None。
+    """复核未完成时保留安全原稿，不把故障误作证据缺口。
 
-    三条约束照抄 episode 侧的 ``_transient_failure_candidate``：
-    只放行瞬时故障、正文必须已经过确定性层、放行后的文本自带警示。
-    这里**不放宽任何领域判据**——数字/公司/日期是否有出处仍由确定性层把关，
-    跳过的只是语义复核这一道通用层的第二意见。
+    原因由调用方单独记录；这里不把自由文本故障细节公开，也不改变核验状态。
+    没有可安全展示的正文才返回 None，批注不能充当答案。
     """
 
-    if _stable_llm_fallback_reason(judge_reason) not in _TRANSIENT_JUDGE_REASONS:
-        return None
     presented = answer_model.present_grounded_composer_answer(
         candidate_answer,
         answer_spec,
@@ -2009,8 +1973,8 @@ def _judge_outage_release(
         return None
     return view(
         TerminalFacts(
-            cause=CAUSE_TRANSIENT_VERIFIER_OUTAGE,
-            public=presented,
+            cause=CAUSE_VERIFIED,
+            public=annotate_research_answer(presented, (*review_notes, "本轮未完成独立复核，已有分析保留供核验；不能据此声称证据不足或结论已获验证。")),
         )
     )
 
@@ -2170,34 +2134,30 @@ def synthesize_shadow_grounded_answer(
     )
     candidate_answer = raw_answer
     repaired = False
-    if any(
-        issue.severity == "error" for issue in deterministic_issues
-    ):
-        deterministic_repair = (
-            answer_model.repair_grounded_composer_answer(
-                raw_answer,
-                result.answer_spec,
-                drop_invalid=repair_drop_invalid,
-            )
+    review_notes: list[str] = []
+    if deterministic_issues:
+        review_notes.append("事实或证据绑定仍有疑点，原分析保留，不能当作已证实结论。")
+    if composed.finish_reason not in {None, "stop"}:
+        review_notes.append("模型输出未完整结束；已保留生成的分析，尾部可能不完整。")
+    # Test the actual public body BEFORE adding notes or deterministic sections.
+    # Otherwise a redacted-only response can be resurrected by our own warning.
+    public_body = answer_model.present_grounded_composer_answer(
+        candidate_answer, result.answer_spec,
+    )
+    if not _strip_empty_grounded_sections(public_body).strip():
+        _record_synthesis_phase(
+            result, name="judge", status="skipped",
+            remaining_ms_at_entry=deadline.remaining() * 1000,
+            timeout_s=0, started=time.monotonic(), reason="no_public_analysis",
         )
-        if deterministic_repair is None:
-            result.grounded_composer_shadow = (
-                answer_model.GroundedComposerShadow(
-                    status="deterministic_gate_rejected",
-                    decision_brief=decision_brief,
-                    raw_answer=raw_answer,
-                    deterministic_issues=deterministic_issues,
-                    provider=composed.provider,
-                    model=composed.model,
-                    failure_reason="deterministic_repair_failed",
-                    elapsed_ms=round(
-                        (time.monotonic() - started) * 1000
-                    ),
-                )
-            )
-            return result
-        candidate_answer = deterministic_repair
-        repaired = True
+        result.grounded_composer_shadow = answer_model.GroundedComposerShadow(
+            status="no_public_analysis", decision_brief=decision_brief,
+            raw_answer=raw_answer, deterministic_issues=deterministic_issues,
+            provider=composed.provider, model=composed.model,
+            failure_reason="no_public_analysis",
+            elapsed_ms=round((time.monotonic() - started) * 1000),
+        )
+        return result
     sentences, _unbound = answer_model.parse_grounded_sentences(
         candidate_answer
     )
@@ -2230,8 +2190,7 @@ def synthesize_shadow_grounded_answer(
     if judge_disabled:
         judged, judge_reason = None, "judge_off"
     elif judge_skipped:
-        # 不发这次调用，但**不放行**：跳过的原因是我们自己的预算，
-        # ``insufficient_budget`` 不在瞬时故障白名单里，下面照常 fail-closed。
+        # 不发这次调用；安全原稿可展示，但保留本地预算不足的原因，不能记通过。
         judged, judge_reason = None, _INSUFFICIENT_BUDGET_REASON
     elif judge_override is not None:
         with llm_refine.provider_override(judge_override):
@@ -2274,15 +2233,15 @@ def synthesize_shadow_grounded_answer(
         )
         result.grounded_composer_shadow = (
             answer_model.GroundedComposerShadow(
-                status="deterministic_only",
+                status="analysis_preserved" if review_notes else "deterministic_only",
                 decision_brief=decision_brief,
                 raw_answer=raw_answer,
                 repaired_answer=candidate_answer if repaired else None,
                 presented_answer=(
-                    answer_model.present_grounded_composer_answer(
+                    annotate_research_answer(answer_model.present_grounded_composer_answer(
                         candidate_answer,
                         result.answer_spec,
-                    )
+                    ), review_notes)
                 ),
                 deterministic_issues=deterministic_issues,
                 provider=composed.provider,
@@ -2293,9 +2252,8 @@ def synthesize_shadow_grounded_answer(
         return result
     if judged is None:
         released = _judge_outage_release(
-            candidate_answer,
-            result.answer_spec,
-            judge_reason,
+            candidate_answer, result.answer_spec, judge_reason,
+            review_notes=tuple(review_notes),
         )
         result.grounded_composer_shadow = (
             answer_model.GroundedComposerShadow(
@@ -2326,11 +2284,16 @@ def synthesize_shadow_grounded_answer(
         sentence_count=len(sentences),
     )
     if judge_report is None:
+        released = _judge_outage_release(
+            candidate_answer, result.answer_spec, "judge_output_invalid",
+            review_notes=tuple(review_notes),
+        )
         result.grounded_composer_shadow = (
             answer_model.GroundedComposerShadow(
-                status="judge_rejected",
+                status="judge_outage_released" if released else "judge_unavailable",
                 decision_brief=decision_brief,
                 raw_answer=raw_answer,
+                presented_answer=released,
                 repaired_answer=(
                     candidate_answer if repaired else None
                 ),
@@ -2354,37 +2317,7 @@ def synthesize_shadow_grounded_answer(
             judge_report,
             sentences,
         )
-        semantic_repair = answer_model.repair_grounded_composer_answer(
-            candidate_answer,
-            result.answer_spec,
-            rejected_sentence_indexes=judge_applied_indexes,
-            drop_invalid=repair_drop_invalid,
-        )
-        if semantic_repair is None:
-            result.grounded_composer_shadow = (
-                answer_model.GroundedComposerShadow(
-                    status="semantic_gate_rejected",
-                    decision_brief=decision_brief,
-                    raw_answer=raw_answer,
-                    repaired_answer=(
-                        candidate_answer if repaired else None
-                    ),
-                    deterministic_issues=deterministic_issues,
-                    judge_report=judge_report,
-                    judge_applied_sentence_indexes=judge_applied_indexes,
-                    provider=composed.provider,
-                    model=composed.model,
-                    judge_provider=judge_provider_name,
-                    judge_model=judge_model_name,
-                    failure_reason="semantic_repair_failed",
-                    elapsed_ms=round(
-                        (time.monotonic() - started) * 1000
-                    ),
-                )
-            )
-            return result
-        candidate_answer = semantic_repair
-        repaired = True
+        review_notes.append("复核对原稿第" + "、".join(map(str, judge_applied_indexes)) + "句提出疑点；相关判断保留，证据支持尚待核验。")
     # brief 点名了产业链映射而正文没写时，确定性补一节。必需输出不能依赖模型遵从：
     # 实测 composer 拿到含 12 家公司的 chain_mapping、系统提示词也明确要求逐个写出，
     # 它仍然一家都不提，于是 chain_mapping 判缺、整份 919 字答案被 fail-closed 丢弃。
@@ -2395,19 +2328,19 @@ def synthesize_shadow_grounded_answer(
     )
     result.grounded_composer_shadow = (
         answer_model.GroundedComposerShadow(
-            status="repaired" if repaired else "accepted",
+            status="analysis_preserved" if review_notes else "accepted",
             decision_brief=decision_brief,
             raw_answer=raw_answer,
             repaired_answer=candidate_answer if repaired else None,
             presented_answer=(
-                answer_model.present_grounded_composer_answer(
+                annotate_research_answer(answer_model.present_grounded_composer_answer(
                     candidate_answer,
                     result.answer_spec,
-                )
+                ), review_notes)
             ),
             deterministic_issues=deterministic_issues,
             judge_report=judge_report,
-            judge_applied_sentence_indexes=judge_applied_indexes,
+            judge_annotation_sentence_indexes=judge_applied_indexes,
             provider=composed.provider,
             model=composed.model,
             judge_provider=judge_provider_name,

@@ -1611,7 +1611,9 @@ def test_sdk_semantic_repair_uses_root_reserve_after_research_deadline(
     ).handle(frame=frame, control=control)
 
     assert result.status == "completed"
-    assert result.answer == "当前更像缩量下跌后的修复，持续性仍取决于量能。"
+    assert "本轮反弹可以持续，因为风险偏好已经全面回升。" in result.answer
+    assert "当前更像缩量下跌后的修复，持续性仍取决于量能。" in result.answer
+    assert "补充与修订" in result.answer
     assert len(runner_calls) == 2
     assert semantic.calls == 2
     assert result.private_artifact["repair_cycles"] == 1
@@ -3380,7 +3382,8 @@ def test_market_technical_gap_hides_provider_diagnostic() -> None:
 
     assert result.status == "degraded"
     assert "provider" not in result.answer.casefold()
-    assert "暂不能可靠给出支撑位或压力位" in result.answer
+    assert "当前数据源不支持该请求" in result.answer
+    assert "行情计算未完整完成" in result.answer
 
 
 def test_market_technical_as_of_uses_only_valid_iso_dates() -> None:
@@ -3859,8 +3862,8 @@ def test_structural_verifier_failure_degrades_from_bound_runtime_evidence() -> N
     ).handle(frame=frame, control=control)
 
     assert result.status == "degraded"
-    assert result.answer
-    assert "A股市场" in result.answer
+    assert outcome.draft in result.answer
+    assert "本轮核验未完成" in result.answer
     assert "直接回答用户问题" in result.answer
     assert result.as_of is None
     assert result.citations == ()
@@ -3929,8 +3932,9 @@ def test_semantic_verifier_failure_reuses_structural_contract_and_evidence() -> 
     ).handle(frame=frame, control=control)
 
     assert result.status == "degraded"
-    assert "A股市场" in result.answer
-    assert "直接回答用户问题" in result.answer
+    assert outcome.draft in result.answer
+    assert "本轮核验未完成" in result.answer
+    assert "仍需核验：直接回答用户问题" not in result.answer
     assert result.as_of == "2026-07-21"
     assert result.citations == (
         {
@@ -4012,7 +4016,8 @@ def test_transient_semantic_judge_failure_preserves_structural_candidate(
     assert result.status == "partial"
     assert result.judge_status == "unavailable"
     assert "成交收缩导致承接减弱" in result.public_answer
-    assert "本次未完成独立复核（复核服务超时）" in result.public_answer
+    assert "本轮未完成独立复核" in result.public_answer
+    assert result.delivery_mode == "preserved_analysis"
     assert result.verified.outcome.evidence == (evidence,)
 
 
@@ -5498,8 +5503,8 @@ def test_numeric_unsupported_triggers_one_narrow_backfill_turn() -> None:
     assert "3870点" in result.answer
 
 
-def test_backfill_turn_rejects_candidate_that_adds_sentences() -> None:
-    """回填只许补证据或改写被阻断句，新增句子 fail closed。"""
+def test_backfill_turn_reviews_added_analysis_without_silently_discarding_it() -> None:
+    """同一预算内的补充保留，必须把组合正文送审而非只审初稿。"""
 
     frame = _frame()
     control = _control(frame, capabilities=("market_data",))
@@ -5585,8 +5590,10 @@ def test_backfill_turn_rejects_candidate_that_adds_sentences() -> None:
     ).handle(frame=frame, control=control)
 
     assert result.private_artifact["backfill_turns"] == 1
-    assert "另外再给一个新结论" not in result.answer
-    assert result.private_artifact["outcome"]["draft"] == draft
+    assert result.answer.startswith(draft)
+    assert "另外再给一个新结论" in result.answer
+    assert result.private_artifact["outcome"]["draft"] == bloated.draft
+    assert result.private_artifact["semantic_verifier"]["verified"]["outcome"]["draft"] == bloated.draft
 
 
 def _company_numeric_frame() -> TaskFrame:

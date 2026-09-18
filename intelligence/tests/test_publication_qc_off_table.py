@@ -1,8 +1,4 @@
-"""公开稿不上质检章。核验结果只进 issues / 控制面。
-
-现场：run_20260824_125037_303405、run_20260824_125258_079058
-模型草稿没有【质检】，核验器往 public_answer 盖「存疑/降级」。
-"""
+"""不改原稿、不盖行内质检章；核验结果以独立附录公开，私有审计仍保留。"""
 
 from __future__ import annotations
 
@@ -41,4 +37,8 @@ def test_public_answer_has_no_qc_stamps_when_required_sentence_is_doubted() -> N
     assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
     assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
     assert "质量不够" in " ".join(result.issues)
-    assert result.judge_status == "repaired"
+    assert draft in result.public_answer
+    assert "核验批注" in result.public_answer
+    assert result.status == "partial"
+    assert result.judge_status == "rejected"
+    assert result.delivery_mode == "preserved_analysis"

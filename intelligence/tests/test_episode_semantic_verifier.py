@@ -227,6 +227,20 @@ def _judge(
     return run
 
 
+def _assert_preserved_doubt(result, original=None, *, reason=None):
+    assert result.status == "partial"
+    assert result.judge_status == "rejected"
+    assert result.delivery_mode == "preserved_analysis"
+    assert "核验批注" in result.public_answer
+    assert result.sentence_verdicts
+    assert all(row["decision"] != "deleted" for row in result.sentence_verdicts)
+    if original is not None:
+        assert original.draft in result.public_answer
+        assert result.verified.outcome == original
+    if reason is not None:
+        assert any(reason in row["reasons"] for row in result.sentence_verdicts)
+
+
 class _RecordingJudgeModel:
     def __init__(self) -> None:
         self.calls: list[dict[str, object]] = []
@@ -486,8 +500,8 @@ def test_user_premise_repair_does_not_require_evidence_style_markers() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert calls == 2
-    assert result.status == "completed"
+    assert calls == 1
+    _assert_preserved_doubt(result, premise.outcome, reason="judge")
     assert result.gap_output_ids == ()
     assert "替代判断" in result.public_answer
     assert "证据缺口" not in result.public_answer
@@ -760,7 +774,7 @@ def test_semantic_pass_promotes_deadline_partial_when_contract_is_fulfilled() ->
     assert result.verified.outcome.gaps == ("研究截止时间已到，仍有必需输出未覆盖",)
 
 
-def test_unsupported_causality_is_removed_before_public_completion() -> None:
+def test_unsupported_causality_is_preserved_without_claiming_completion() -> None:
     frame, structural = _structural("市场下跌。政策变化导致了下跌。")
     judge = _judge(False, rejected=(2,), issues=("因果证据不足",))
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
@@ -769,10 +783,8 @@ def test_unsupported_causality_is_removed_before_public_completion() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert "政策变化导致了下跌" in result.public_answer
-    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
+    _assert_preserved_doubt(result, structural.outcome, reason="judge")
+    assert "原稿第2句" in result.public_answer
 
 
 def test_semantic_repair_cannot_remove_a_visible_required_output_marker() -> None:
@@ -835,22 +847,14 @@ def test_semantic_repair_cannot_remove_a_visible_required_output_marker() -> Non
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "partial"
-    assert result.judge_status == "repaired"
-    assert "【当前判断】市场处于反弹修复" in result.public_answer
-    assert "99999亿元" not in result.public_answer
+    _assert_preserved_doubt(result, outcome, reason="novel_numeric_condition")
+    assert "【继续成立的条件】成交额达到99999亿元才成立" in result.public_answer
+    assert "不能当作已验证阈值" in result.public_answer
     assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
-    assert "结构缺口" not in result.public_answer
-    assert "现有证据不足" not in result.public_answer
-    assert "需补充直接证据" not in result.public_answer
-    assert "详见「输出质检」" not in result.public_answer
-    assert "继续成立条件" not in result.public_answer
-    assert result.gap_output_ids == ("continuation_conditions",)
-    assert result.to_dict()["gap_output_ids"] == ["continuation_conditions"]
-    assert any(
-        "semantic repair removed required output: continuation_conditions" in issue
-        for issue in result.issues
-    )
+    # 内容没有消失；结构仍完整，不伪造一个删句缺口，也不把研究判完整。
+    assert result.gap_output_ids == ()
+    assert result.verified.completion == structural.completion
+    assert not any("semantic repair removed required output" in issue for issue in result.issues)
 
 
 @pytest.mark.parametrize(
@@ -1009,7 +1013,7 @@ def test_valuation_repair_cannot_leave_an_empty_scenario_table_completed() -> No
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.judge_status == "repaired"
+    _assert_preserved_doubt(result, structural.outcome, reason="judge")
     assert "| 保守" in result.public_answer
     assert "| 中性" in result.public_answer
     assert "| 乐观" in result.public_answer
@@ -1067,8 +1071,7 @@ def test_shared_hash_semantics_are_rejected_only_by_semantic_judge() -> None:
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
     )
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
+    _assert_preserved_doubt(result, outcome, reason="judge")
     assert "现有证据已完整覆盖判断边界" in result.public_answer
     assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
 
@@ -1091,13 +1094,11 @@ def test_semantic_rejection_downgrades_subject_time_and_number_claims(
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
     )
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert draft in result.public_answer
-    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
+    _assert_preserved_doubt(result, structural.outcome, reason="judge")
+    assert "原稿第1句" in result.public_answer
 
 
-def test_rejected_sentence_redaction_preserves_truth_state_and_rejudges() -> None:
+def test_rejected_sentence_annotation_preserves_truth_state_without_delete_rejudge() -> None:
     frame, structural = _structural(
         "市场下跌。据E99显示下跌。",
         gaps=("外围催化仍待核验",),
@@ -1116,12 +1117,11 @@ def test_rejected_sentence_redaction_preserves_truth_state_and_rejudges() -> Non
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
     )
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
+    _assert_preserved_doubt(result, original, reason="unresolved_evidence_ordinal")
     assert result.correlated_judge is True
-    assert len(judge.calls) == 2  # type: ignore[attr-defined]
+    assert len(judge.calls) == 1  # type: ignore[attr-defined]
     repaired = result.verified.outcome
-    assert repaired.draft == "市场下跌。"
+    assert repaired.draft == original.draft
     assert repaired.evidence == original.evidence
     assert repaired.bindings == original.bindings
     assert repaired.gaps == original.gaps
@@ -1158,8 +1158,10 @@ def test_judge_issue_sentence_numbers_cannot_escape_targeted_redaction() -> None
     )
 
     assert calls == 1
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
+    _assert_preserved_doubt(result, structural.outcome, reason="judge")
+    assert "原稿第2句" in result.public_answer
+    assert "原稿第3句" in result.public_answer
+    assert "原稿第1句" not in result.public_answer
     assert "市场广度已经改善" in result.public_answer
     assert "CPO状态缺少绑定证据" in result.public_answer
     assert "创新药涨幅缺少绑定证据" in result.public_answer
@@ -1192,8 +1194,7 @@ def test_long_draft_redacts_rejected_sentences_without_model_rewrite() -> None:
     )
 
     assert calls == 1
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
+    _assert_preserved_doubt(result, structural.outcome, reason="judge")
     assert rejected_sentence in result.verified.outcome.draft
     assert rejected_sentence in result.public_answer
     assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
@@ -1212,17 +1213,16 @@ def test_local_gate_redacts_novel_numeric_conditions_missed_by_model_judge() -> 
     )
 
     assert len(judge.calls) == 1  # type: ignore[attr-defined]
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
+    _assert_preserved_doubt(result, structural.outcome, reason="novel_numeric_condition")
     assert "2至5个交易日" in result.public_answer
-    assert "3870点" not in result.public_answer
-    assert "3870点" not in result.verified.outcome.draft
+    assert "原稿第2句" in result.public_answer
+    assert "原稿第1句" not in result.public_answer
     first_sentences = [
         str(item["text"])
         for item in judge.calls[0]["sentences"]  # type: ignore[attr-defined]
     ]
     assert any("2至5个交易日" in item for item in first_sentences)
-    assert all("3870点" not in item for item in first_sentences)
+    assert any("3870点" in item for item in first_sentences)
 
 
 def test_local_gate_redacts_all_novel_numeric_conditions_in_one_pass() -> None:
@@ -1242,12 +1242,11 @@ def test_local_gate_redacts_all_novel_numeric_conditions_in_one_pass() -> None:
     )
 
     assert len(judge.calls) == 1  # type: ignore[attr-defined]
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert result.public_answer == "截至2026年7月23日，市场处于反弹阶段。"
-    assert judge.calls[0]["sentences"] == [  # type: ignore[attr-defined]
-        {"index": 1, "text": "截至2026年7月23日，市场处于反弹阶段。"}
-    ]
+    _assert_preserved_doubt(result, structural.outcome, reason="novel_numeric_condition")
+    assert len(judge.calls[0]["sentences"]) == 5  # type: ignore[attr-defined]
+    for index in (2, 3, 4, 5):
+        assert f"原稿第{index}句" in result.public_answer
+    assert "原稿第1句" not in result.public_answer
 
 
 def test_meta_disclosure_rejection_is_exempted_and_sentence_survives() -> None:
@@ -1274,7 +1273,7 @@ def test_meta_disclosure_rejection_is_exempted_and_sentence_survives() -> None:
 
 
 def test_meta_disclosure_with_value_claim_is_not_exempted() -> None:
-    # 披露句夹带行情断言（涨停）时不豁免：照常拒绝并修复删除。
+    # 披露句夹带行情断言（涨停）时不豁免：保留且明确记为存疑。
     draft = "市场处于反弹阶段。原文未覆盖该股，但其已连续涨停，本段映射为推理层。"
     judge = _judge(
         False,
@@ -1289,9 +1288,9 @@ def test_meta_disclosure_with_value_claim_is_not_exempted() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
+    _assert_preserved_doubt(result, structural.outcome, reason="judge")
     assert "涨停" in result.public_answer
-    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
-    assert result.judge_status == "repaired"
+    assert "原稿第2句" in result.public_answer
 
 
 def test_local_gate_allows_dates_and_numeric_conditions_present_in_bound_evidence() -> (
@@ -1378,10 +1377,9 @@ def test_local_gate_still_redacts_when_condition_slot_is_evidence_bound() -> Non
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    # 砍掉唯一的失效句后，evidence 签约的必需槽被清空 → partial。
-    # 这正是修复前前瞻题的生产病灶形状；guard 保证 evidence 槽不吃豁免。
-    assert result.status == "partial"
-    assert "3870点" not in result.public_answer
+    # evidence 槽不吃推理豁免：内容保留，但数值疑点仍检出、仍不能 completed。
+    _assert_preserved_doubt(result, structural.outcome, reason="novel_numeric_condition")
+    assert "不能当作已验证阈值" in result.public_answer
 
 
 def test_numeric_condition_unsupported_is_detectable_before_judge() -> None:
@@ -1413,10 +1411,8 @@ def test_local_gate_removes_calendar_weekday_mismatch() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert "直接判断：本周整体上涨" in result.public_answer
-    assert "周四" not in result.public_answer
+    _assert_preserved_doubt(result, structural.outcome, reason="calendar_weekday")
+    assert "日期与星期不一致" in result.public_answer
     assert any("weekday mismatch" in issue for issue in result.issues)
 
 
@@ -1441,10 +1437,8 @@ def test_local_gate_removes_false_monotonic_turnover_path_claim() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert "直接判断：反弹仍处于短周期窗口" in result.public_answer
-    assert "一路滑落" not in result.public_answer
+    _assert_preserved_doubt(result, structural.outcome, reason="path_trend")
+    assert "走势描述与已取得的量价路径不一致" in result.public_answer
     assert any("path trend mismatch" in issue for issue in result.issues)
 
 
@@ -1469,10 +1463,8 @@ def test_local_gate_removes_false_persistent_turnover_path_claim() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert "直接判断：反弹仍处于短周期窗口" in result.public_answer
-    assert "成交持续萎缩" not in result.public_answer
+    _assert_preserved_doubt(result, structural.outcome, reason="path_trend")
+    assert "走势描述与已取得的量价路径不一致" in result.public_answer
     assert any("path trend mismatch" in issue for issue in result.issues)
 
 
@@ -1564,9 +1556,8 @@ def test_local_path_gate_binds_scope_to_nearest_turnover_subject(
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert false_claim.rstrip("。") not in result.public_answer
+    _assert_preserved_doubt(result, structural.outcome, reason="path_trend")
+    assert false_claim in result.public_answer
     assert any("path trend mismatch" in issue for issue in result.issues)
 
 
@@ -1589,9 +1580,8 @@ def test_local_path_gate_removes_false_amount_proxy_path_claim() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert "量能持续萎缩" not in result.public_answer
+    _assert_preserved_doubt(result, structural.outcome, reason="path_trend")
+    assert "量能持续萎缩" in result.public_answer
     assert any("path trend mismatch" in issue for issue in result.issues)
 
 
@@ -1615,9 +1605,8 @@ def test_local_path_gate_removes_false_inverted_amount_path_claim() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert "持续萎缩的量能" not in result.public_answer
+    _assert_preserved_doubt(result, structural.outcome, reason="path_trend")
+    assert "持续萎缩的量能" in result.public_answer
     assert any("path trend mismatch" in issue for issue in result.issues)
 
 
@@ -1638,10 +1627,10 @@ def test_local_gate_allows_rounded_bound_observation_but_rejects_new_threshold()
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
+    _assert_preserved_doubt(result, structural.outcome, reason="novel_numeric_condition")
     assert "缩约17%" in result.public_answer
-    assert "3800点" not in result.public_answer
+    assert "原稿第2句" in result.public_answer
+    assert "原稿第1句" not in result.public_answer
 
 
 @pytest.mark.parametrize(
@@ -1782,11 +1771,10 @@ def test_semantic_repair_renumbers_remaining_ordered_list_items() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "completed"
-    assert "99999点" not in result.public_answer
+    _assert_preserved_doubt(result, structural.outcome, reason="novel_numeric_condition")
     assert "1）量能企稳" in result.public_answer
-    assert "2）上涨广度维持" in result.public_answer
-    assert "3）上涨广度维持" not in result.public_answer
+    assert "2）若指数跌破99999点" in result.public_answer
+    assert "3）上涨广度维持" in result.public_answer
 
 
 def test_semantic_repair_reconciles_explicit_list_count() -> None:
@@ -1804,10 +1792,9 @@ def test_semantic_repair_reconciles_explicit_list_count() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "completed"
-    assert "依据有二点" in result.public_answer
-    assert "依据有三点" not in result.public_answer
-    assert "99999点" not in result.public_answer
+    _assert_preserved_doubt(result, structural.outcome, reason="novel_numeric_condition")
+    assert "依据有三点" in result.public_answer
+    assert "依据有二点" not in result.public_answer
 
 
 def test_semantic_repair_renumbers_parenthesized_items_and_layer_count() -> None:
@@ -1824,13 +1811,10 @@ def test_semantic_repair_renumbers_parenthesized_items_and_layer_count() -> None
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "completed"
-    assert "三层共振框架" in result.public_answer
-    assert "四层共振框架" not in result.public_answer
-    assert "（1）量能企稳" in result.public_answer
-    assert "（2）核心股承接" in result.public_answer
-    assert "（3）产业链扩散" in result.public_answer
-    assert "（4）产业链扩散" not in result.public_answer
+    _assert_preserved_doubt(result, structural.outcome, reason="novel_numeric_condition")
+    assert "四层共振框架" in result.public_answer
+    assert "（3）核心股承接" in result.public_answer
+    assert "（4）产业链扩散" in result.public_answer
 
 
 def test_semantic_repair_renumbers_remaining_circled_list_items() -> None:
@@ -1848,11 +1832,9 @@ def test_semantic_repair_renumbers_remaining_circled_list_items() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "completed"
-    assert "99999点" not in result.public_answer
-    assert "继续成立的条件：①量能企稳；②上涨广度维持" in result.public_answer
+    _assert_preserved_doubt(result, structural.outcome, reason="novel_numeric_condition")
     assert "失效条件：①量能萎缩；②主线退潮" in result.public_answer
-    assert "③上涨广度维持" not in result.public_answer
+    assert "③上涨广度维持" in result.public_answer
 
 
 def test_local_gate_matches_bound_numeric_anchors_as_exact_quantities() -> None:
@@ -1868,10 +1850,9 @@ def test_local_gate_matches_bound_numeric_anchors_as_exact_quantities() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "partial"
-    assert result.judge_status == "rejected"
-    assert len(judge.calls) == 0  # type: ignore[attr-defined]
-    assert "3870点" not in result.public_answer
+    _assert_preserved_doubt(result, structural.outcome, reason="novel_numeric_condition")
+    assert len(judge.calls) == 1  # type: ignore[attr-defined]
+    assert "3870点" in result.public_answer
 
 
 def test_rejected_sentence_redaction_preserves_markdown_layout() -> None:
@@ -1895,8 +1876,7 @@ def test_rejected_sentence_redaction_preserves_markdown_layout() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
+    _assert_preserved_doubt(result, structural.outcome, reason="judge")
     assert result.verified.outcome.draft == expected
     assert "政策变化导致了下跌" in result.public_answer
     assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
@@ -1942,10 +1922,11 @@ def test_second_targeted_repair_handles_claim_missed_by_first_scan() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert calls == 3
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert missed_claim not in result.public_answer
+    assert calls == 1
+    _assert_preserved_doubt(result, structural.outcome, reason="unresolved_evidence_ordinal")
+    assert "原稿第2句" in result.public_answer
+    assert "原稿第3句" in result.public_answer
+    assert missed_claim in result.public_answer
 
 
 def test_terminal_redaction_releases_remaining_verified_sentences_without_fourth_judge() -> (
@@ -1972,10 +1953,10 @@ def test_terminal_redaction_releases_remaining_verified_sentences_without_fourth
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert calls == 3
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert result.public_answer == "市场下跌。"
+    assert calls == 1
+    _assert_preserved_doubt(result, structural.outcome, reason="unresolved_evidence_ordinal")
+    for index in (2, 3, 4):
+        assert f"原稿第{index}句" in result.public_answer
 
 
 def test_terminal_redaction_withholds_when_last_required_slot_would_vanish() -> None:
@@ -2007,11 +1988,10 @@ def test_terminal_redaction_withholds_when_last_required_slot_would_vanish() -> 
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert calls == 3
-    assert result.status == "partial"
-    assert result.judge_status == "repaired"
-    assert result.repair_withheld is True
-    assert "repair_wiped_all_outputs" in " ".join(result.issues)
+    assert calls == 1
+    _assert_preserved_doubt(result, structural.outcome, reason="unresolved_evidence_ordinal")
+    assert result.repair_withheld is False
+    assert "repair_wiped_all_outputs" not in " ".join(result.issues)
     assert "【当前判断】据E90，市场下跌" in result.public_answer
     assert "据E97显示反转" in result.public_answer
     assert result.gap_output_ids == ()
@@ -2210,7 +2190,7 @@ def test_outlook_repair_that_leaves_only_boundary_is_partial_with_gap() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.judge_status == "repaired"
+    _assert_preserved_doubt(result, structural.outcome, reason="judge")
     assert "基准判断" in result.public_answer
     assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
     assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
@@ -2784,10 +2764,11 @@ def test_unclassified_runtimeerror_holds_draft_without_evidence_lie(
     assert result.judge_status == "unavailable"
     assert payload["pending_rejudge"] is True
     assert "semantic judge provider error" in result.issues
-    assert "复核服务不可用" in public
+    assert "本轮未完成独立复核" in public
     assert "现有证据不足" not in public
     assert "未完成核验绑定" not in public
-    assert "科技延续强于医药" not in public
+    assert structural.outcome.draft in public
+    assert result.delivery_mode == "preserved_analysis"
 
 
 def test_judge_outage_is_partial_and_never_exposes_raw_draft() -> None:
@@ -2831,7 +2812,9 @@ def test_independent_judge_outage_keeps_uncorrelated_audit_flag(monkeypatch) -> 
     assert result.status == "partial"
     assert result.judge_status == "unavailable"
     assert result.correlated_judge is False
-    assert "本次未完成独立复核（复核服务超时）" in result.public_answer
+    assert "本轮未完成独立复核" in result.public_answer
+    assert structural.outcome.draft in result.public_answer
+    assert "semantic judge transient provider error" in result.issues
 
 
 def test_independent_judge_timeout_records_asked_triplet_and_exc_class(
@@ -3250,11 +3233,9 @@ def test_late_rejudge_preserves_prior_judged_monotonic_redaction() -> None:
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(0.02),
     )
-    assert calls == 2
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert result.public_answer == "市场下跌。"
-    assert any("deadline" in issue for issue in result.issues)
+    assert calls == 1
+    _assert_preserved_doubt(result, structural.outcome, reason="unresolved_evidence_ordinal")
+    assert not any("deadline" in issue for issue in result.issues)
 
 
 def test_transient_optional_rejudge_preserves_prior_monotonic_redaction(
@@ -3297,11 +3278,9 @@ def test_transient_optional_rejudge_preserves_prior_monotonic_redaction(
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert model.calls == 4
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert result.public_answer == "市场下跌。"
-    assert "semantic judge transient provider error" in result.issues
+    assert model.calls == 1
+    _assert_preserved_doubt(result, structural.outcome, reason="unresolved_evidence_ordinal")
+    assert "semantic judge transient provider error" not in result.issues
 
 
 @pytest.mark.parametrize(
@@ -3352,10 +3331,8 @@ def test_mixed_optional_rejudge_failures_cannot_unlock_monotonic_release(
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert model.calls == 3
-    assert result.status == "partial"
-    assert result.judge_status == "unavailable"
-    assert result.public_answer != "市场下跌。"
+    assert model.calls == 1
+    _assert_preserved_doubt(result, structural.outcome, reason="unresolved_evidence_ordinal")
 
 
 def test_weak_optional_failure_then_retry_deadline_cannot_unlock_release(
@@ -3411,11 +3388,10 @@ def test_weak_optional_failure_then_retry_deadline_cannot_unlock_release(
         deadline=deadline,  # type: ignore[arg-type]
     )
 
-    assert model.calls == 2
-    assert result.status == "partial"
-    assert result.judge_status == "unavailable"
-    assert result.public_answer != "市场下跌。"
-    assert any("deadline" in issue for issue in result.issues)
+    assert model.calls == 1
+    _assert_preserved_doubt(result, structural.outcome, reason="unresolved_evidence_ordinal")
+    assert not deadline.expired
+    assert not any("deadline" in issue for issue in result.issues)
 
 
 def test_release_grade_optional_failure_then_retry_deadline_allows_release(
@@ -3471,11 +3447,10 @@ def test_release_grade_optional_failure_then_retry_deadline_allows_release(
         deadline=deadline,  # type: ignore[arg-type]
     )
 
-    assert model.calls == 2
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert result.public_answer == "市场下跌。"
-    assert any("deadline" in issue for issue in result.issues)
+    assert model.calls == 1
+    _assert_preserved_doubt(result, structural.outcome, reason="unresolved_evidence_ordinal")
+    assert not deadline.expired
+    assert not any("deadline" in issue for issue in result.issues)
 
 
 def test_initial_transient_judge_still_fails_closed(monkeypatch) -> None:
@@ -3649,10 +3624,9 @@ def test_optional_rejudge_unapproved_error_cannot_masquerade_as_release_grade(
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert model.calls == expected_calls
-    assert result.status == "partial"
-    assert result.judge_status == "unavailable"
-    assert result.public_answer != "市场下跌。"
+    assert model.calls == 1 < expected_calls
+    _assert_preserved_doubt(result, structural.outcome, reason="unresolved_evidence_ordinal")
+    assert "provider error" not in " ".join(result.issues)
 
 
 def test_malformed_rejudge_cannot_release_prior_redaction() -> None:
@@ -3680,10 +3654,8 @@ def test_malformed_rejudge_cannot_release_prior_redaction() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert calls == 2
-    assert result.status == "partial"
-    assert result.judge_status == "unavailable"
-    assert result.public_answer != "市场下跌。"
+    assert calls == 1
+    _assert_preserved_doubt(result, structural.outcome, reason="unresolved_evidence_ordinal")
 
 
 def test_late_malformed_rejudge_cannot_masquerade_as_deadline_recovery() -> None:
@@ -3714,9 +3686,8 @@ def test_late_malformed_rejudge_cannot_masquerade_as_deadline_recovery() -> None
         deadline=ResearchDeadline.from_timeout(0.02),
     )
 
-    assert calls == 2
-    assert result.status == "partial"
-    assert result.judge_status == "unavailable"
+    assert calls == 1
+    _assert_preserved_doubt(result, structural.outcome, reason="unresolved_evidence_ordinal")
 
 
 def test_late_rejudge_rejection_is_redacted_before_release() -> None:
@@ -3755,11 +3726,10 @@ def test_late_rejudge_rejection_is_redacted_before_release() -> None:
         deadline=ResearchDeadline.from_timeout(0.02),
     )
 
-    assert calls == 2
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert result.public_answer == "市场下跌。"
-    assert "据E98显示资金变化。" not in result.public_answer
+    assert calls == 1
+    _assert_preserved_doubt(result, structural.outcome, reason="unresolved_evidence_ordinal")
+    assert "原稿第2句" in result.public_answer
+    assert "原稿第3句" in result.public_answer
 
 
 def test_late_final_rejudge_preserves_twice_judged_monotonic_redaction() -> None:
@@ -3792,11 +3762,9 @@ def test_late_final_rejudge_preserves_twice_judged_monotonic_redaction() -> None
         deadline=ResearchDeadline.from_timeout(0.02),
     )
 
-    assert calls == 3
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert result.public_answer == "市场下跌。"
-    assert any("deadline" in issue for issue in result.issues)
+    assert calls == 1
+    _assert_preserved_doubt(result, structural.outcome, reason="unresolved_evidence_ordinal")
+    assert not any("deadline" in issue for issue in result.issues)
 
 
 def test_transient_final_rejudge_preserves_twice_judged_monotonic_redaction(
@@ -3842,11 +3810,9 @@ def test_transient_final_rejudge_preserves_twice_judged_monotonic_redaction(
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert model.calls == 5
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert result.public_answer == "市场下跌。"
-    assert "semantic judge transient provider error" in result.issues
+    assert model.calls == 1
+    _assert_preserved_doubt(result, structural.outcome, reason="unresolved_evidence_ordinal")
+    assert "semantic judge transient provider error" not in result.issues
 
 
 def test_late_malformed_final_rejudge_remains_fail_closed() -> None:
@@ -3879,9 +3845,8 @@ def test_late_malformed_final_rejudge_remains_fail_closed() -> None:
         deadline=ResearchDeadline.from_timeout(0.02),
     )
 
-    assert calls == 3
-    assert result.status == "partial"
-    assert result.judge_status == "unavailable"
+    assert calls == 1
+    _assert_preserved_doubt(result, structural.outcome, reason="unresolved_evidence_ordinal")
 
 
 @pytest.mark.parametrize(
@@ -3955,16 +3920,21 @@ def test_clean_strict_json_report_is_accepted() -> None:
     assert result.status == "completed"
 
 
-def test_empty_public_projection_preserves_passed_judge_status() -> None:
+def test_empty_public_projection_does_not_spend_review_or_claim_a_pass() -> None:
     frame, structural = _structural("provider=OpenAI。")
-    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+    judge = _judge(True)
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=frame,
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
     )
     assert result.status == "partial"
-    assert result.judge_status == "passed"
-    assert "public projection empty" in result.issues
+    assert result.judge_status == "unavailable"
+    assert judge.calls == []
+    assert "empty public draft" in result.issues
+    assert result.delivery_mode == "no_public_analysis"
+    assert "provider" not in result.public_answer
+    assert "核验批注" not in result.public_answer
 
 
 def test_redaction_that_empties_draft_fails_closed() -> None:
@@ -3975,10 +3945,8 @@ def test_redaction_that_empties_draft_fails_closed() -> None:
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
     )
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-    assert "政策变化导致了下跌" in result.public_answer
-    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
+    _assert_preserved_doubt(result, structural.outcome, reason="judge")
+    assert "原稿第1句" in result.public_answer
     assert "semantic repair unavailable" not in result.issues
 
 
@@ -4019,7 +3987,8 @@ def test_public_projection_drops_only_contaminated_sentence_in_single_line() -> 
         traces=(
             ProviderTrace(
                 provider="private:news",
-                capability="news_search",
+                # The receipt capability, not the tool's invocation name.
+                capability="directional_news",
                 status="empty",
                 result_count=0,
             ),
@@ -4036,6 +4005,8 @@ def test_public_projection_drops_only_contaminated_sentence_in_single_line() -> 
     assert "本周上证指数实际上涨2.99%" in result.public_answer
     assert "7月17日单日下跌约3.05%" in result.public_answer
     assert "news_search" not in result.public_answer
+    assert "资讯检索未返回对齐资讯" in result.public_answer
+    assert "本轮未查询" not in result.public_answer
 
 
 def test_public_projection_filters_empty_trace_capability_but_keeps_natural_status() -> (
@@ -4204,7 +4175,8 @@ def test_public_gap_never_projects_adversarial_outcome_gap(judge_mode: str) -> N
     assert "PRIVATE_GAP_SENTINEL" not in result.public_answer
     if judge_mode == "unavailable":
         assert result.status == "partial"
-        assert "复核服务不可用" in result.public_answer
+        assert "本轮未完成独立复核" in result.public_answer
+        assert structural.outcome.draft in result.public_answer
         assert "现有证据不足" not in result.public_answer
         assert "未完成核验绑定" not in result.public_answer
     else:
@@ -4576,7 +4548,10 @@ def test_financial_floor_issue_still_fails_closed_without_judge() -> None:
     assert calls == []
     assert result.status == "partial"
     assert result.judge_status == "unavailable"
-    assert "现有证据不足" in result.public_answer
+    assert partial.outcome.draft in result.public_answer
+    assert "财务或业务硬数据锚点" in result.public_answer
+    assert "证据或任务覆盖尚未完成核验" in result.public_answer
+    assert result.verified.completion == partial.completion
 
 
 def test_missing_structural_contract_fails_closed_without_judge() -> None:
@@ -4592,7 +4567,9 @@ def test_missing_structural_contract_fails_closed_without_judge() -> None:
     assert result.status == "partial"
     assert result.judge_status == "unavailable"
     assert calls == []
-    assert "当前市场怎么看" in result.public_answer
+    assert result.public_answer == "任务身份校验未通过，未展示该任务的内容。"
+    assert structural.outcome.draft not in result.public_answer
+    assert result.delivery_mode == "security_withheld"
     assert any("contract" in issue for issue in result.issues)
 
 
@@ -4617,9 +4594,9 @@ def test_missing_contract_never_promotes_structural_failed_status() -> None:
     assert result.status == "failed"
     assert result.judge_status == "unavailable"
     assert calls == []
-    assert result.public_answer == (
-        "关于“当前市场怎么看？”，现有证据不足，暂不能可靠回答。"
-    )
+    assert result.public_answer == "任务身份校验未通过，未展示该任务的内容。"
+    assert failed.outcome.draft not in result.public_answer
+    assert result.delivery_mode == "security_withheld"
     assert any("contract" in issue for issue in result.issues)
 
 
@@ -4643,7 +4620,8 @@ def test_cross_turn_frame_hash_mismatch_never_reuses_a_share_outcome() -> None:
     assert result.status == "partial"
     assert result.judge_status == "unavailable"
     assert calls == []
-    assert "瑞华泰怎么看" in result.public_answer
+    assert result.public_answer == "任务身份校验未通过，未展示该任务的内容。"
+    assert result.delivery_mode == "security_withheld"
     assert "A股市场当前偏弱" not in result.public_answer
     assert any("hash mismatch" in issue for issue in result.issues)
 
@@ -4676,9 +4654,9 @@ def test_cross_frame_guard_never_promotes_structural_failed_status() -> None:
     assert result.status == "failed"
     assert result.judge_status == "unavailable"
     assert calls == []
-    assert result.public_answer == (
-        "关于“瑞华泰怎么看？”，现有证据不足，暂不能可靠回答。"
-    )
+    assert result.public_answer == "任务身份校验未通过，未展示该任务的内容。"
+    assert failed.outcome.draft not in result.public_answer
+    assert result.delivery_mode == "security_withheld"
     assert any("hash mismatch" in issue for issue in result.issues)
 
 
@@ -5044,4 +5022,6 @@ def test_forged_extra_binding_still_fails_closed_before_the_judge() -> None:
     assert judge.calls == []
     assert result.status == "partial"
     assert result.judge_status == "unavailable"
-    assert "量能处于修复中段" not in result.public_answer
+    assert forged.outcome.draft in result.public_answer
+    assert "证据或任务覆盖尚未完成核验" in result.public_answer
+    assert result.delivery_mode == "preserved_analysis"

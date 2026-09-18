@@ -152,6 +152,49 @@ def redact(text: str) -> str:
     return out
 
 
+def redact_public_prose(text: str) -> str:
+    """Redact secrets without consuming later Chinese research sentences.
+
+    The audit redactor remains line-conservative. At the prose boundary, mask
+    quoted assignments in full BEFORE splitting: punctuation inside a quoted
+    secret must never expose its suffix. Unquoted/complex authorization values
+    still consume their entire sentence, not just the first whitespace token.
+    """
+    quoted = re.compile(
+        rf"""(?isx)["']?\b{_SECRET_FIELD_NAME}["']?\s*[=:]\s*
+        (?:"(?:\\.|[^"\\])*(?:"|$)|'(?:\\.|[^'\\])*(?:'|$))"""
+    )
+    protected = quoted.sub("[REDACTED]", str(text or ""))
+    # Already-redacted assignments can arrive through another public boundary.
+    # Consume the whole placeholder before the audit pattern stops at its ']'.
+    protected = re.sub(
+        rf"""(?ix)["']?\b{_SECRET_FIELD_NAME}["']?\s*[=:]\s*\[REDACTED\]""",
+        "[REDACTED]", protected,
+    )
+    # Mask the authentication scheme together with its credential. Leaving
+    # "Bearer [REDACTED]" would turn a secret-only response into a fake body.
+    protected = re.sub(
+        r"(?i)\bbearer[ \t]+(?:\[REDACTED\]|[A-Za-z0-9._~+/-]+=*)",
+        "[REDACTED]", protected,
+    )
+    parts = re.split(r"([。！？])", protected)
+    public = "".join(redact(part) for part in parts)
+    # Markup-only residue is not research prose, even inside a fenced block.
+    # Check a copy, not the actual answer: don't destroy a real table separator
+    # or a code block merely because a neighbouring line contained a secret.
+    without_markers = public.replace("[REDACTED]", "")
+    without_fences = re.sub(r"(?m)^\s*(?:`{3,}|~{3,})[^\n]*$", "", without_markers)
+    if "[REDACTED]" in public and not re.search(r"[^\W_]", without_fences):
+        return ""
+    return "\n".join(
+        line for line in public.splitlines()
+        if not (
+            "[REDACTED]" in line
+            and not re.search(r"[^\W_]", line.replace("[REDACTED]", ""))
+        )
+    )
+
+
 def redact_value(value: Any) -> Any:
     """Recursively sanitize strings and exact secret-valued mapping keys."""
 

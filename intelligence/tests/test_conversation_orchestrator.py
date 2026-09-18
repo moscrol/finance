@@ -1147,7 +1147,7 @@ def test_complete_continuous_turn_puts_review_after_revised_body(
     assert "## 输出质检" not in snapshots[-1]["text"]
 
 
-def test_complete_continuous_turn_strips_outlook_verification(tmp_path, monkeypatch) -> None:
+def test_complete_continuous_turn_annotates_outlook_verification(tmp_path, monkeypatch) -> None:
     query = "写一下本周行情的展望"
     (
         conversation_store,
@@ -1195,8 +1195,8 @@ def test_complete_continuous_turn_strips_outlook_verification(tmp_path, monkeypa
         skill_mode="auto",
         selected_skill_ids=[],
     )
-    assert "已给部分验证" not in result.content
-    assert "主线仍在医药" in result.content
+    assert leaked in result.content
+    assert "不能当作当期观察或已经兑现的结论" in result.content
     assert "outlook_delivery_gate" in run_store.load_run(run_id).degrades
 
 
@@ -2644,9 +2644,10 @@ def test_long_tail_e2e_trace_keeps_route_budget_completion_and_grounding(
     assert result.status == "completed"
     assert result.selected_skill_ids == ()
     assert result.invoked_skill_ids == ()
-    assert "本轮尚未完成问题所需的直接回答" in result.content
-    assert "缺少的数据/证据" in result.content
-    assert "请补充数据源或稍后重试" in result.content
+    assert "当前应把它当作待验证假设，不是现成结论" in result.content
+    assert "任务尚未完整回答" in result.content
+    assert "支持证据尚未核对对应" in result.content
+    assert "registry" not in result.content and "claim" not in result.content
     assert "研究雷达" not in result.content
     assert "每日市场复盘" not in result.content
 
@@ -2733,9 +2734,9 @@ def test_long_tail_real_owner_chain_reaches_completion_and_grounded_fallback(
     assert result.status == "completed"
     assert result.selected_skill_ids == ()
     assert result.invoked_skill_ids == ()
-    assert "本轮尚未完成问题所需的直接回答" in result.content
-    assert "缺少的数据/证据" in result.content
-    assert "请补充数据源或稍后重试" in result.content
+    assert "本轮没有收集到可回查来源，不能形成可靠定性" in result.content
+    assert "任务尚未完整回答" in result.content
+    assert "registry" not in result.content and "claim" not in result.content
     assert "研究雷达" not in result.content
     trace = {step["name"]: step for step in run_store.load_trace(run_id)}
     route_output = json.loads(trace["route_skills"]["output_summary"])
@@ -3384,17 +3385,17 @@ def test_final_task_gate_marks_candidate_list_partial_even_when_research_complet
         if item["output_id"] == "direct_assessment"
     )
     assert direct["status"] == "missing"
-    assert "本轮尚未完成问题所需的直接回答" in result.content
-    assert "候选来源" not in result.content
+    assert "任务尚未完整回答" in result.content
+    assert "本轮只展示候选来源，仍缺少针对用户问题的直接判断" in result.content
 
 
-def test_market_cause_removes_generic_investment_disclaimer() -> None:
+def test_market_cause_preserves_disclaimer_without_mislabeling_it_as_strategy() -> None:
     answer = _sanitize_market_cause_answer_text(
         "主要原因是风险偏好收缩。\n\n（非投资建议）",
         "这一周行情下跌的主要原因是什么",
     )
 
-    assert answer == "主要原因是风险偏好收缩。"
+    assert answer == "主要原因是风险偏好收缩。\n\n（非投资建议）"
 
 
 def test_market_cause_contract_requires_time_aligned_external_evidence() -> None:
@@ -3945,7 +3946,7 @@ def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None
         "capacity_industry=True；来源=knowledge_evidence"
     )
 
-    assert no_llm == "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
+    assert no_llm.startswith("自然语言综合暂时不可用；已保留可核验数据与结构化产物。")
     assert "API_KEY" not in no_llm
     assert "TOKEN" not in no_llm
     assert "wiki-rag" not in internal
@@ -4177,7 +4178,7 @@ def test_grounded_presenter_and_shadow_env_run_one_provider_chain(
     assert payload["reused_existing"] is True
 
 
-def test_shadow_composer_non_presentable_status_keeps_diagnostics_only(
+def test_shadow_composer_unreviewed_status_keeps_analysis_and_diagnostics(
     tmp_path,
     monkeypatch,
 ) -> None:
@@ -4228,7 +4229,7 @@ def test_shadow_composer_non_presentable_status_keeps_diagnostics_only(
         prepared.result.grounded_composer_shadow = answer_model.GroundedComposerShadow(
             status="judge_unavailable",
             raw_answer="影子原文",
-            presented_answer="不应落盘的影子答案",
+            presented_answer="尚未复核的影子分析",
             provider="fixture",
             model="fixture-model",
             failure_reason="timeout",
@@ -4263,7 +4264,9 @@ def test_shadow_composer_non_presentable_status_keeps_diagnostics_only(
     run_dir = run_store.run_dir(run_id)
     assert "生产答案保持不变" in result.content
     assert (run_dir / "grounded_composer_shadow.json").is_file()
-    assert not (run_dir / "grounded_composer_shadow.md").exists()
+    assert "尚未复核的影子分析" in (run_dir / "grounded_composer_shadow.md").read_text(encoding="utf-8")
+    shadow = json.loads((run_dir / "grounded_composer_shadow.json").read_text(encoding="utf-8"))
+    assert shadow["status"] == "judge_unavailable"
 
 
 def test_primary_grounded_presenter_shadow_is_traced_without_the_experiment_flag(
@@ -5149,7 +5152,11 @@ def test_specialized_owner_uses_same_task_frame_fulfillment_gate(tmp_path) -> No
     assert "llm_invented_output" not in {
         item["output_id"] for item in report["task_fulfillment"]["items"]
     }
-    assert "本轮尚未完成问题所需的直接回答" in result.content
+    assert "任务尚未完整回答" in result.content
+    assert "未取得英维克客户或订单公告" in result.content
+    assert "给出客户或订单侧的可核验证据" in result.content
+    for internal in ("TaskFrame", "customer_validation", "supporting_evidence", "registry", "claim"):
+        assert internal not in result.content
 
 
 def test_cancellation_after_draft_keeps_last_safe_snapshot(

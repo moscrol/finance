@@ -380,6 +380,7 @@ class ResidualGateResult:
     dropped: bool
     reason: str | None = None
     detail: str | None = None
+    annotated: bool = False
 
 
 def disclosure_residual_allowed(pack: DisclosureScanPack | None) -> bool:
@@ -391,13 +392,16 @@ def disclosure_residual_allowed(pack: DisclosureScanPack | None) -> bool:
 def gate_disclosure_residual(
     body: str, pack: DisclosureScanPack
 ) -> ResidualGateResult:
-    """出稿闸：包外码 / 名单行形状 → 整段丢弃（fail-closed），超预算 → 声明式截断。
+    """Diagnose list/scope/length problems without erasing generated analysis."""
+    from intelligence.services.research_annotations import annotate_research_answer
 
-    为什么整丢不逐句删：逐句删会留下指代断裂的残句，而残差整段的价值密度
-    不足以值得句级修复；回 P0 纯包形状是已验证的安全态。
-    """
+    text = body or ""
 
-    text = (body or "").strip()
+    def annotated(reason: str, note: str, detail: str | None = None) -> ResidualGateResult:
+        return ResidualGateResult(
+            annotate_research_answer(text, (note,)), dropped=False,
+            reason=reason, detail=detail, annotated=True,
+        )
     if not text:
         return ResidualGateResult("", dropped=False)
     allowed = {
@@ -406,24 +410,13 @@ def gate_disclosure_residual(
     mentioned = set(_RESIDUAL_CODE_RE.findall(text))
     unknown = sorted(mentioned - allowed)
     if unknown:
-        return ResidualGateResult(
-            "", dropped=True, reason="unknown_code", detail=unknown[0]
-        )
+        return annotated("unknown_code", "解读提到扫描名单以外的股票，名单外判断未经本轮披露扫描核验。", unknown[0])
     if _RESIDUAL_ROSTER_LINE_RE.search(text):
-        return ResidualGateResult("", dropped=True, reason="roster_line")
+        return annotated("roster_line", "下列解读重复了名单行；以原始扫描名单为准，不把重复表述算作新增证据。")
     if len(mentioned) > RESIDUAL_MAX_DISTINCT_CODES:
-        return ResidualGateResult(
-            "",
-            dropped=True,
-            reason="roster_renarration",
-            detail=str(len(mentioned)),
-        )
+        return annotated("roster_renarration", "解读罗列的个股过多，尚未完成优先级提炼；原分析保留。", str(len(mentioned)))
     if len(text) > RESIDUAL_MAX_CHARS:
-        return ResidualGateResult(
-            text[:RESIDUAL_MAX_CHARS].rstrip() + "\n" + RESIDUAL_TRUNCATION_NOTICE,
-            dropped=False,
-            reason="truncated",
-        )
+        return annotated("over_length", "解读超过约定篇幅，已保留全文，未截去后续分析。")
     return ResidualGateResult(text, dropped=False)
 
 
