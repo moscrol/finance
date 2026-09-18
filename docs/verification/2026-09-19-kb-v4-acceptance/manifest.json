@@ -1,0 +1,15 @@
+{
+  "finance_candidate": "99fb9304ae9611178274293de30a117d5d504566",
+  "kb_candidate": "23b4f5e4e1ace932fcc741197bf4892c272bf541",
+  "operation_root": "/Users/a77/.finance-runtime/kb-dual-index-20260918",
+  "gate_exit": 0,
+  "consumer_status": "pass",
+  "source_manifest_sha256": "db479e9a54689007a52aef52a0d96534f68038cb59e46dd143086f9ed99bb96d",
+  "production_switched": false,
+  "limits": [
+    "14 conflict pages remain quarantined",
+    "not answer-quality acceptance",
+    "guarded maintenance not implemented",
+    "not merge authorization"
+  ]
+}

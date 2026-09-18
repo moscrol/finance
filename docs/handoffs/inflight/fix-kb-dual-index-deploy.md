@@ -1,31 +1,31 @@
-# KB双索引部署 · 2026-09-18 22:23 · 写者已协调、验收未过
+# KB双索引部署 · 2026-09-19 · 隔离验收通过、生产未切
 
 ## 这个分支做什么
-隔离双索引迁移+8792部署接线；不碰共享脏正文。
+固定代码/资料/双索引接线，修交付竞态并验证迁移；不碰共享脏正文。
 
 ## 当前状态
-代码c0fa49cf/d95d4921、旧交接ac75a374已提交；未push/合/部署。8792仍bf662e9310ff。
-用户授权本会话协调。原发布41455实际来自Grok Bot父22475，非Cursor；22:04已正常完成退出，无进程被杀。“待用户关Cursor”撤销并已落纠偏。
-两个生产索引目录+24文件已加macOS uchg防写；三post-*仍skip。Grok Bot/8792未停；staging后台仍运行。
+金融代码候选99fb9304（含e9交付、058静态产物及复用672的test-only回收）；KB23b4f5e4为解析v4。未push/合/部署，8792仍bf662e93。
+迁移/消费者/门禁均已结束，无自动提升或解锁。两生产目录+24文件uchg防写、三post-* skip保留；不再等用户关Cursor，旧写者Grok Bot已正常完成。
+详证：`docs/handoffs/2026-09-19-kb-v4-delivery-acceptance.md`；维护方案：`2026-09-18-kb-guarded-maintenance-plan.md`。
 
 ## 决策与被否方案
-- 不杀整个应用、不覆盖对方已发布产物；临时文件防写保护本机目标，读取不变。
-- 不把新防写窗口基线代替旧基线；原production-hash失败保留。
-- 正文冲突继续隔离，不删除marker洗白。
-- 本轮更正/回退：`docs/handoffs/2026-09-18-kb-index-writer-coordination.md`。
-
-## 已验证
-固定d95d后端11486P/73S/2xf，收据check严格匹配；前端107P、lint/typecheck/build、Ruff/registry绿。
-**E2E31P/3F/2S，all.exit=1，禁止上线**：desktop/mobile报告按钮缺失，tablet追问消息未显示。
-普通副本168861向量、14434页+14隔离=14448，无缺口。fence临时6类写拒绝；生产24文件O_WRONLY拒绝、字节未变；原CLI双索引各3 fresh命中，8792健康不换版。
+- 保raw修parser并升v4 / 不缩覆盖分母 / 零块不等于应忽略。
+- 单进程交付投影+同会话代际 / 不后移取消仲裁或加超时 / 封两类竞态。
+- 源码和静态构建物一起验 / 不借脏e9收据 / 058失败亦保留。
+- 正负例先核资格与分词 / 不放宽过滤凑命中 / 接线不等于相关性。
 
 ## 未验证 / 已知边界
-全文迁移尚未完；未验新消费者真实BGE/8792。uchg是同用户可主动解除的本地防误写，不封Gitea发布或资料编辑，不是全系统互斥。新代码未合，历史14页冲突未解。
+长期受保护维护入口**未实现**，需覆盖hook/ingest/手动build/update/fetch/publish及故障回滚；不是等合并就能上线。未获新代码合并确认。
+14页冲突仍隔离，health=fresh+degraded；未验答案质量/rerank/生产时延或8792实际新消费者。交付协议仅单进程。
 
 ## 下一步
-1. 现场OP=`~/.finance-runtime/kb-dual-index-20260918`。migration.pid父40354/子41233（先核身份）；evidence/rag_index_full-update.log、migration-results.json。没有自动提升。
-2. 查E2E3红，原件gate-receipts/e2e.txt与gate/.../webapp/test-results。门禁已结束，不再是后台待跑。
-3. 双索引覆盖/新鲜度/隔离与消费者验过、用户确认合并后才准备切换。
+1. OP=`~/.finance-runtime/kb-dual-index-20260918`；当前不需等待旧PID。归档281份哈希文件在`docs/verification/2026-09-19-kb-v4-acceptance/`。
+2. 实现/压测维护计划，获用户合并确认后验最终main，重新核源新鲜度再准备切换/反向回滚。99收据只签99，不替文档新HEAD代签。
+3. 解除防写仅OP日记绑定恢复器；不要递归清flags或恢复旧无保护hook。
 
 ## 踩过的坑
-进程身份查父链，不读模板标记猜应用。防写原flags/哈希见OP/evidence/production-file-fence.json；解除仅走fence_production_indexes.py --restore-original-flags <日记>（未执行）。不要递归清uchg或恢复旧hook；共享.git/kb-index-maintenance.json有通知。正常双索引维护入口仍待部署。
+原生产漂移、v3四页缺失、d95 E2E3F、e9脏构建、058全量1F、探针R1/R2/R3错误判据原件均保留。普通L3全待复核；全文“液冷”可能只匹配“液”，不签相关性。
+
+## 已验证
+固定99干净：11491P/73S/2xf，前端110P，E2E34P/2S，KB837P，Ruff/registry/质量守卫全绿，all.exit=0；严格收据`20260918T161257Z-99fb9304.json`通过。
+v4普通14434/14448、全文17974/17988入库，各14隔离、缺口0；四raw SHA不变恢复。最终真BGE14例+原文CLI通过，双热worker身份/计数/关闭、索引字节不变已验。16:05Z生产防写/旧health复核通过。

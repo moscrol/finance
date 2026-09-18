@@ -1,0 +1,79 @@
+"""Take a NEW read-only source/fence/8792 window; never overwrite prior receipts.
+
+A write-intent open uses neither O_TRUNC nor O_CREAT; an unexpected descriptor is
+closed without writing, then fails the check. Production flags are not cleared.
+This operation-bound script is not a general writer/lock/deployment service.
+"""
+import datetime as dt
+import errno
+import hashlib
+import json
+import os
+from pathlib import Path
+import stat
+import subprocess
+
+ROOT = Path.home() / '.finance-runtime/kb-dual-index-20260918'
+OUT = ROOT / 'evidence/final-readonly-99'
+OUT.mkdir(exist_ok=False)
+
+
+def digest(path):
+    with path.open('rb') as handle:
+        return hashlib.file_digest(handle, 'sha256').hexdigest()
+
+
+def save(name, payload):
+    with (OUT / name).open('x', encoding='utf-8') as handle:
+        json.dump(payload, handle, ensure_ascii=False, indent=2)
+
+
+journal_path = ROOT / 'evidence/production-file-fence.json'
+journal = json.loads(journal_path.read_text())
+assert journal['status'] == 'fenced'
+checks = []
+for item in journal['entries']:
+    path = Path(item['path'])
+    info = path.stat()
+    assert (info.st_dev, info.st_ino) == (item['device'], item['inode'])
+    assert info.st_flags == (item['flags'] | stat.UF_IMMUTABLE)
+    if item['sha256'] is None:
+        continue
+    assert digest(path) == item['sha256']
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_NOFOLLOW)
+    except OSError as exc:
+        assert exc.errno in (errno.EPERM, errno.EACCES)
+        checks.append({'path': item['path'], 'sha256': item['sha256'], 'write_open_blocked': True})
+    else:
+        os.close(fd)
+        raise AssertionError(f'write open not blocked: {path}')
+save('fence.json', {'observed_at': dt.datetime.now(dt.timezone.utc).isoformat(),
+                    'journal_sha256': digest(journal_path), 'status': 'pass',
+                    'protected_entries': len(journal['entries']), 'files': checks})
+
+health = subprocess.check_output(['curl', '-fsS', '--max-time', '10',
+                                 'http://127.0.0.1:8792/api/health'], text=True)
+payload = json.loads(health)
+save('health.json', payload)
+assert payload['runtime']['source_revision'] == 'bf662e9310ff751a4c31763815ee78fb7d6d5122'
+assert payload['runtime']['code_matches_repo'] and not payload['runtime']['source_dirty']
+
+before = json.loads((ROOT / 'evidence/source-files.json').read_text())
+comparisons = {}
+for label, root in [('frozen', ROOT / 'source'), ('live', Path.home() / 'knowledge-base-private')]:
+    now = {path.relative_to(root).as_posix(): digest(path) for name in ('wiki', 'raw')
+           for path in sorted((root / name).rglob('*')) if path.is_file()}
+    comparisons[label] = {'observed_at': dt.datetime.now(dt.timezone.utc).isoformat(),
+                          'file_count': len(now), 'added': sorted(now.keys() - before.keys()),
+                          'removed': sorted(before.keys() - now.keys()),
+                          'changed': sorted(p for p in now.keys() & before.keys() if now[p] != before[p])}
+    save(f'{label}-source-comparison.json', comparisons[label])
+    if label == 'frozen':
+        assert now == before, 'frozen source drift'
+save('summary.json', {'observed_at': dt.datetime.now(dt.timezone.utc).isoformat(),
+                      'status': 'pass_readonly_observation', 'production_switched': False,
+                      'fenced_regular_files': len(checks), 'frozen_source_unchanged': True,
+                      'live_source_changes': comparisons['live'],
+                      'limits': 'Not a long-term writer guard or production retrieval/answer acceptance'})
+print(json.dumps({'status': 'pass', 'files_fenced': len(checks), 'source': comparisons}, ensure_ascii=False))

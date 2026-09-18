@@ -1,0 +1,16 @@
+{
+  "observed_at": "2026-09-18T15:41:36.749095+00:00",
+  "finance_revision": "058f76a3bb7eb19ec2b0d67127aa698bc8b23518",
+  "kb_revision": "23b4f5e4e1ace932fcc741197bf4892c272bf541",
+  "status": "pass",
+  "service_query_cases": 7,
+  "index_bytes_unchanged": true,
+  "scope": "Full-index complement to R3 structured results; exact filters; negatives; no answer-quality/rerank/8792/maintenance claim",
+  "prior_failed_probe_runs_retained": [
+    "consumer-v4",
+    "consumer-v4-r2",
+    "consumer-v4-r3"
+  ],
+  "known_relevance_limit": "liquid-cooling L3 matches the single character liquid; not accepted as relevant evidence",
+  "production_switched": false
+}

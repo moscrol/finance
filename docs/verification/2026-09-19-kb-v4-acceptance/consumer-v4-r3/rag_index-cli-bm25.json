@@ -1,0 +1,263 @@
+{
+  "ok": true,
+  "command": "rag_index.py query <q> --k 19 --mode bm25 --evidence-chars 1500 --json",
+  "citation_source": "knowledge-base · rag_index.py query --mode bm25（匹配 chunk 证据）",
+  "index_dir": "/Users/a77/.finance-runtime/kb-dual-index-20260918/staging-v4/.rag_index",
+  "hits": [
+    {
+      "page_id": "concepts/冷板式液冷",
+      "file_path": "wiki/concepts/冷板式液冷.md",
+      "title": "冷板式液冷",
+      "score": 20.547205,
+      "excerpt": "冷板式液冷是让冷却液在冷板内部流动，通过冷板与芯片或发热器件接触带走热量的液冷路线，是当前AI服务器和数据中心液冷中工程化程度较高的主流方案。",
+      "llm_evidence": "冷板式液冷是让冷却液在冷板内部流动，通过冷板与芯片或发热器件接触带走热量的液冷路线，是当前AI服务器和数据中心液冷中工程化程度较高的主流方案。",
+      "display_excerpt": "冷板式液冷是让冷却液在冷板内部流动，通过冷板与芯片或发热器件接触带走热量的液冷路线，是当前AI服务器和数据中心液冷中工程化程度较高的主流方案。",
+      "best_chunk_id": "wiki/concepts/冷板式液冷.md::5",
+      "evidence_chunk_ids": [
+        "wiki/concepts/冷板式液冷.md::5",
+        "wiki/concepts/冷板式液冷.md::4"
+      ],
+      "evidence_query_terms": [
+        "液冷"
+      ],
+      "evidence_char_budget": 1200,
+      "section": "冷板式液冷 > 相关概念",
+      "content_hash": "94bf024172fdbcec0ae3d408939f2476e98c3f2e",
+      "index_built_at": "2026-09-18T14:59:45Z",
+      "index_source_revision": "manifest:v1:c060681e80a8e2f97c02cb1851d974fe18a208a6dc98e04e90a0028385dfab5f",
+      "index_freshness": "fresh",
+      "evidence_layer": "",
+      "fact_hardness": "",
+      "source_type": "",
+      "via_neighbor": false,
+      "source_date": "",
+      "source_quality": "",
+      "publish_time": "",
+      "available_time": "",
+      "review_required": "",
+      "source_refs": [
+        "[[ConceptQualityUpgrade_P0_20260602]]"
+      ],
+      "content_validity": "valid",
+      "evidence_scope_bound": false,
+      "reexcerpted": true,
+      "deep_read_section": "冷板式液冷 > 相关概念",
+      "deep_read_sections": [
+        "冷板式液冷 > 相关概念"
+      ],
+      "deep_read_blocks": [
+        [
+          "冷板式液冷 > 相关概念",
+          "[[液冷]] · [[数据中心液冷]] · [[AI散热]] · [[GPU散热]] · [[液冷服务器]] · [[微泵液冷]] · [[AI芯片散热]]"
+        ]
+      ],
+      "deep_read_paragraphs": [
+        "[[液冷]] · [[数据中心液冷]] · [[AI散热]] · [[GPU散热]] · [[液冷服务器]] · [[微泵液冷]] · [[AI芯片散热]]"
+      ],
+      "deep_read_truncated": false,
+      "deep_read_omitted_chars": 0,
+      "page_outline": [
+        "冷板式液冷",
+        "冷板式液冷 > 所属主干",
+        "冷板式液冷 > 产业链位置",
+        "冷板式液冷 > 为什么重要",
+        "冷板式液冷 > 相关公司/实体",
+        "冷板式液冷 > 后续验证",
+        "冷板式液冷 > 边界说明",
+        "冷板式液冷 > 来源"
+      ],
+      "section_latest_date": "",
+      "recovered_from_source": false
+    },
+    {
+      "page_id": "concepts/数据中心液冷",
+      "file_path": "wiki/concepts/数据中心液冷.md",
+      "title": "数据中心液冷",
+      "score": 20.166378,
+      "excerpt": "数据中心液冷是用液体介质替代或增强空气散热的数据中心热管理方案，主要包括冷板式、浸没式和喷淋式等路线，用于支撑高功率密度AI机柜和低PUE运行。",
+      "llm_evidence": "数据中心液冷是用液体介质替代或增强空气散热的数据中心热管理方案，主要包括冷板式、浸没式和喷淋式等路线，用于支撑高功率密度AI机柜和低PUE运行。",
+      "display_excerpt": "数据中心液冷是用液体介质替代或增强空气散热的数据中心热管理方案，主要包括冷板式、浸没式和喷淋式等路线，用于支撑高功率密度AI机柜和低PUE运行。",
+      "best_chunk_id": "wiki/concepts/数据中心液冷.md::5",
+      "evidence_chunk_ids": [
+        "wiki/concepts/数据中心液冷.md::5",
+        "wiki/concepts/数据中心液冷.md::4"
+      ],
+      "evidence_query_terms": [
+        "液冷"
+      ],
+      "evidence_char_budget": 1200,
+      "section": "数据中心液冷 > 相关概念",
+      "content_hash": "ee9c5e27936e3868f5e4e220baefef60183a65c7",
+      "index_built_at": "2026-09-18T14:59:45Z",
+      "index_source_revision": "manifest:v1:c060681e80a8e2f97c02cb1851d974fe18a208a6dc98e04e90a0028385dfab5f",
+      "index_freshness": "fresh",
+      "evidence_layer": "",
+      "fact_hardness": "",
+      "source_type": "",
+      "via_neighbor": false,
+      "source_date": "",
+      "source_quality": "",
+      "publish_time": "",
+      "available_time": "",
+      "review_required": "",
+      "source_refs": [
+        "[[ConceptQualityUpgrade_P0_20260602]]"
+      ],
+      "content_validity": "valid",
+      "evidence_scope_bound": false,
+      "reexcerpted": true,
+      "deep_read_section": "数据中心液冷 > 相关概念",
+      "deep_read_sections": [
+        "数据中心液冷 > 相关概念"
+      ],
+      "deep_read_blocks": [
+        [
+          "数据中心液冷 > 相关概念",
+          "[[液冷]] · [[液冷服务器]] · [[冷板式液冷]] · [[浸没式液冷]] · [[AI散热]] · [[GPU服务器]] · [[算力网络]]"
+        ]
+      ],
+      "deep_read_paragraphs": [
+        "[[液冷]] · [[液冷服务器]] · [[冷板式液冷]] · [[浸没式液冷]] · [[AI散热]] · [[GPU服务器]] · [[算力网络]]"
+      ],
+      "deep_read_truncated": false,
+      "deep_read_omitted_chars": 0,
+      "page_outline": [
+        "数据中心液冷",
+        "数据中心液冷 > 所属主干",
+        "数据中心液冷 > 产业链位置",
+        "数据中心液冷 > 为什么重要",
+        "数据中心液冷 > 相关公司/实体",
+        "数据中心液冷 > 后续验证",
+        "数据中心液冷 > 边界说明",
+        "数据中心液冷 > 来源"
+      ],
+      "section_latest_date": "",
+      "recovered_from_source": false
+    },
+    {
+      "page_id": "entities/曙光数创",
+      "file_path": "wiki/entities/曙光数创.md",
+      "title": "曙光数创（872808）",
+      "score": 20.034397,
+      "excerpt": "…产业链层级 | 强度 | 置信度 | 证据层 | 更新类型 | 依据 | |---|---|---|---|---|---|---|---| | [[数据中心液冷]] | 数据中心液冷基础设施整体方案供应商 | 上游设备 | core | high | L2 | baseline | 中科曙光控股，浸没/冷板液冷数据…",
+      "llm_evidence": "命中块 wiki/entities/曙光数创.md::7: | 概念 | 角色 | 产业链层级 | 强度 | 置信度 | 证据层 | 更新类型 | 依据 | |---|---|---|---|---|---|---|---| | [[数据中心液冷]] | 数据中心液冷基础设施整体方案供应商 | 上游设备 | core | high | L2 | baseline | 中科曙光控股，浸没/冷板液冷数据中心基础设施，营收8.82亿元(+74.29%) | | [[液冷]] | 液冷技术路线先行者 | 上游设备 | core | high | L2 | baseline | 2015年首款量产冷板液冷、2019年浸没相变液冷落地 | | [[浸没式液冷]] | 浸没相变液冷产品（C8000 等） | 上游设备 | related | medium | L2 | baseline | 浸没相变液冷数据中心基础设施解决方案 | | [[冷板式液冷]] | 冷板液冷产品 | 上游设备 | related | medium | L2 | baseline | 冷板液冷数据中心基础设施产品 | 相邻块 wiki/entities/曙光数创.md::6: | 维度 | 内容 | |---|---| | 所属行业 | 证监会行业：计算机、通信和其他电子设备制造业；申万二级：通信/数据中心 | | 主营业务 | 主营业务为：浸没液冷数据中心基础设施产品、<br>冷板液冷数据中心基础设施产品及模块化数据中心产品的研究、<br>开发、生产及销售，以及围绕上述产品提供系统集成和技术服务。 | | 主营产品/能力 | 浸没液冷数据中心基础设施产品、冷板液冷数据中心基础设施产品、模块化数据中心产品 | | 相关概念 | [[液冷]] · [[冷板式液冷]] · [[浸没式液冷]] · [[数据中心液冷]] · [[数据中心]] | | 主要客户/生态 | 待补充 | | 主要竞争对手 | 待补充 | | baseline来源 | 巨潮资讯 / 2025年年度报告（用户提供 PDF） |",
+      "display_excerpt": "…产业链层级 | 强度 | 置信度 | 证据层 | 更新类型 | 依据 | |---|---|---|---|---|---|---|---| | [[数据中心液冷]] | 数据中心液冷基础设施整体方案供应商 | 上游设备 | core | high | L2 | baseline | 中科曙光控股，浸没/冷板液冷数据…",
+      "best_chunk_id": "wiki/entities/曙光数创.md::7",
+      "evidence_chunk_ids": [
+        "wiki/entities/曙光数创.md::7",
+        "wiki/entities/曙光数创.md::6"
+      ],
+      "evidence_query_terms": [
+        "液冷"
+      ],
+      "evidence_char_budget": 1200,
+      "section": "曙光数创（872808） > Baseline 产业链暴露",
+      "content_hash": "918950efb80edf0bd623467b2bd79cee5937b7fa",
+      "index_built_at": "2026-09-18T14:59:45Z",
+      "index_source_revision": "manifest:v1:c060681e80a8e2f97c02cb1851d974fe18a208a6dc98e04e90a0028385dfab5f",
+      "index_freshness": "fresh",
+      "evidence_layer": "",
+      "fact_hardness": "",
+      "source_type": "",
+      "via_neighbor": false,
+      "source_date": "",
+      "source_quality": "",
+      "publish_time": "",
+      "available_time": "",
+      "review_required": "",
+      "source_refs": [
+        "[[液冷服务器产业新变化与新格局全面分析报告]]",
+        "[[算力租赁产业新变化与新格局研究分析报告]]",
+        "[[曙光数创 2025年年度报告 baseline 2026-04-14]]",
+        "raw/液冷服务器-研究报告.md",
+        "raw/液冷服务器产业新变化与新格局全面分析报告-full.md",
+        "raw/算力租赁产业新变化与新格局研究分析报告-full.md",
+        "raw/a-stock-baseline/曙光数创.json",
+        "raw/cninfo-baseline/曙光数创.json"
+      ],
+      "content_validity": "valid",
+      "evidence_scope_bound": false,
+      "reexcerpted": false,
+      "deep_read_section": "曙光数创（872808） > Baseline 产业链暴露",
+      "deep_read_sections": [
+        "曙光数创（872808） > Baseline 产业链暴露"
+      ],
+      "deep_read_blocks": [
+        [
+          "曙光数创（872808） > Baseline 产业链暴露",
+          "|概念|角色|产业链层级|强度|置信度|证据层|更新类型|依据|\n|---|---|---|---|---|---|---|---|\n|[[数据中心液冷]]|数据中心液冷基础设施整体方案供应商|上游设备|core|high|L2|baseline|中科曙光控股，浸没/冷板液冷数据中心基础设施，营收8.82亿元(+74.29%)|\n|[[液冷]]|液冷技术路线先行者|上游设备|core|high|L2|baseline|2015年首款量产冷板液冷、2019年浸没相变液冷落地|"
+        ],
+        [
+          "曙光数创（872808） > Baseline 产业链暴露",
+          "|概念|角色|产业链层级|强度|置信度|证据层|更新类型|依据|\n|---|---|---|---|---|---|---|---|\n|[[浸没式液冷]]|浸没相变液冷产品（C8000 等）|上游设备|related|medium|L2|baseline|浸没相变液冷数据中心基础设施解决方案|\n|[[冷板式液冷]]|冷板液冷产品|上游设备|related|medium|L2|baseline|冷板液冷数据中心基础设施产品|"
+        ]
+      ],
+      "deep_read_paragraphs": [
+        "|概念|角色|产业链层级|强度|置信度|证据层|更新类型|依据|\n|---|---|---|---|---|---|---|---|\n|[[数据中心液冷]]|数据中心液冷基础设施整体方案供应商|上游设备|core|high|L2|baseline|中科曙光控股，浸没/冷板液冷数据中心基础设施，营收8.82亿元(+74.29%)|\n|[[液冷]]|液冷技术路线先行者|上游设备|core|high|L2|baseline|2015年首款量产冷板液冷、2019年浸没相变液冷落地|",
+        "|概念|角色|产业链层级|强度|置信度|证据层|更新类型|依据|\n|---|---|---|---|---|---|---|---|\n|[[浸没式液冷]]|浸没相变液冷产品（C8000 等）|上游设备|related|medium|L2|baseline|浸没相变液冷数据中心基础设施解决方案|\n|[[冷板式液冷]]|冷板液冷产品|上游设备|related|medium|L2|baseline|冷板液冷数据中心基础设施产品|"
+      ],
+      "deep_read_truncated": false,
+      "deep_read_omitted_chars": 0,
+      "page_outline": [
+        "曙光数创（872808）",
+        "曙光数创（872808） > 在赛道中的角色",
+        "曙光数创（872808） > 高信度研究线索 > 2026-01-29｜算力租赁产业新变化与新格局研究分析报告",
+        "曙光数创（872808） > 高信度研究线索 > 2026-01-29｜液冷服务器产业新变化与新格局全面分析报告",
+        "曙光数创（872808） > Baseline 基础画像",
+        "曙光数创（872808） > Baseline 关键数据",
+        "曙光数创（872808） > Baseline 风险与反证",
+        "曙光数创（872808） > Baseline 待核实问题"
+      ],
+      "section_latest_date": "",
+      "recovered_from_source": false
+    }
+  ],
+  "warning": "",
+  "telemetry": {
+    "mode": "bm25",
+    "requested_mode": "bm25",
+    "effective_mode": "bm25",
+    "fallback_reason": "",
+    "recall_desc": "BM25 关键词",
+    "index_kind": "structured",
+    "index_dir": "/Users/a77/.finance-runtime/kb-dual-index-20260918/staging-v4/.rag_index",
+    "requested_index_dir": "",
+    "degraded": false,
+    "k": 3,
+    "filters": {},
+    "applied_filters": {},
+    "filter_verification": "not_requested",
+    "receipt_received": true,
+    "filter_policy": "explicit_chunk_metadata; unknown_excluded; as_of=available_time",
+    "metadata_version": 1,
+    "metadata_update_required": false,
+    "status": "ok",
+    "hit_count": 3,
+    "neighbor_hits": 0,
+    "score_max": 20.547205,
+    "score_min": 20.034397,
+    "score_mean": 20.249326666666665,
+    "latency_ms": 5663,
+    "index_built_at": "2026-09-18T14:59:45Z",
+    "index_source_revision": "manifest:v1:c060681e80a8e2f97c02cb1851d974fe18a208a6dc98e04e90a0028385dfab5f",
+    "index_freshness": "fresh",
+    "warning": "",
+    "display_excerpt_chars": 200,
+    "llm_evidence_chars": 1200,
+    "llm_evidence_total_chars": 4800,
+    "query_protocol": "current",
+    "unsupported_options": [],
+    "cache_hit": false,
+    "cache_age_ms": null,
+    "index_fingerprint": "meta.json:1070:1789743588670674791|chunks.jsonl:258904693:1789743588278498999|bm25.pkl.gz:42620819:1781848756390447616|dense.npy:345829504:1789743588669419999",
+    "model_loaded": true,
+    "pointer_dropped": 0,
+    "structural_neighbor_demoted": 0,
+    "deep_read_pages": 3,
+    "deep_read_paragraphs": 4,
+    "deep_read_chars": 607,
+    "stale_recovered": 0,
+    "stale_unrecoverable": 0,
+    "material_scope": "general"
+  }
+}
