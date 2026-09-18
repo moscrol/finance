@@ -1,0 +1,1187 @@
+{
+  "schema": "research-data-readiness-local-evidence-v1",
+  "sealed_at": "2026-09-18T10:29:35.932239+00:00",
+  "branch": "feat/research-data-readiness",
+  "full_candidate_revision": "d77383acce048e58b1f8cce87ed0b5f5452282e4",
+  "inspection_code_revision": "778679b348c416cbf3ca2be8af582d95a68cdaf0",
+  "application_changed_after_full_candidate": false,
+  "engineering": "passed_at_full_candidate_only",
+  "live_answer_quality": "not_passed",
+  "merged_or_deployed": false,
+  "runtime_root": "/Users/a77/.finance-runtime/research-data-readiness-20260918",
+  "limitations": [
+    "External local files are hashed, not embedded or uploaded; verification requires access to those files.",
+    "Full tests belong to d77383ac; inspector 778679b3 has six focused tests, not a new full suite.",
+    "Model live cases belong to dirty baseline, a93b50c2, or a9a7ce92, never silently relabeled d77383ac.",
+    "Current d77383ac has a real no-model financial/sandbox consumer check, not a new live answer.",
+    "Mutation tests intentionally fail in modified memory and do not alter the on-disk candidate.",
+    "No file count, hash, zero exit, completed run, or generated artifact certifies financial correctness."
+  ],
+  "file_count": 194,
+  "files": [
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/ask-order-regression.log",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 1239,
+      "sha256": "a778a41bad0972b8bd0e71b5b329b51925de09e86a5808ea6dcf22e09184cb6d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/baseline-block.json",
+      "scope": "provider capture; revision/dirty/error within record are authoritative",
+      "bytes": 3542,
+      "sha256": "d007a05572ac69ccbfec6865655330d77f17089d62f31cfc83044ef2d57e4008"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/baseline-margin.json",
+      "scope": "provider capture; revision/dirty/error within record are authoritative",
+      "bytes": 3356,
+      "sha256": "1c862e925ffff7f2b600155f4ec82fe45ab627091e292a7e1575174ec961f5bd"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/baseline-unlock.json",
+      "scope": "provider capture; revision/dirty/error within record are authoritative",
+      "bytes": 458,
+      "sha256": "5e75f0b22379f67bb41aa2557e9c3af535e1d27fbbed4ca99d6801d740fb7978"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/calculation-inspector-fixed-tests.log",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 98,
+      "sha256": "d5be81bbe49b412357ba177be7fae47b32ba70b563d2a01ec6ee15df362cc215"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/calculation-inspector-tests.log",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 98,
+      "sha256": "a4ce3c4d2d126cf54794b588fe0568dcf174b80e68913316f73e0da7b9f1c64b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/disclosure-health.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 1982,
+      "sha256": "bb5a93714374147d4e93625e38a4abbcf40e5ef4ff8ff6d491b045348fedec9b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/disclosure-live.log",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 2172,
+      "sha256": "2e4a97b89db5a276d431e1b6f37a7c4e87ad93d45a3d975f91cf34a037dde35e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/disclosure-public-message.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 5782,
+      "sha256": "fd34f83668ba29374d3e18690ff0a3abfde1a431132881e39c9a1e956ee4f8a5"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/disclosure-public-run.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 1155,
+      "sha256": "b6fb6eaac4181fc6bc846c233fae0a81b9f5b430e0c4db583c65be668b147d70"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/disclosure-public-trace.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 14631,
+      "sha256": "4da253c6589062e919b37761f637bda7cb3b0c75e863e52583623b8303f26540"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/e2e-result.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 215,
+      "sha256": "f1a3ae77f65c541cdc66d09357d9d8faad94b9dc1d1c53029db6c17fb80ed4e7"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/e2e.log",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 12748,
+      "sha256": "b791cb874bbab679bef2e9c9c74a9e3646c8ceb8694b175506e22070b6a7ef88"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/financial-live.log",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 3000,
+      "sha256": "73ae094043d8b0baa00f45d3854b4e99f2de252f715820479ca480f7fc82afbc"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/frontend-build-result.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 222,
+      "sha256": "57ce9fbfe9604d281786e4cc6d07565a422b779ba29950d486445261db3547da"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/frontend-build.log",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 715,
+      "sha256": "b44f07622092e62903b5b3eca59f8ed0cf653b8c28b7fd7c9c4bbf35d56b812b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/frontend-lint-result.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 220,
+      "sha256": "c297dc11f1b456663fb6751a9a13b7489773c09fc302e6ed7b0dd69c0c930dbc"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/frontend-lint.log",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 118,
+      "sha256": "a632bb402bf766f6aadfbe8b74a13754dfad82806ecb1437fb65082fca002cc8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/frontend-test-result.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 220,
+      "sha256": "b4450c4ca82d87d226eacc8a27a2d23a0a63f094f0e6204ecbbfc86c5e65a417"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/frontend-test.log",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 845,
+      "sha256": "cc1e0297732a2c731248860952a8a7ce311fed0b90ba1916adda68a1289497ab"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/frontend-typecheck-result.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 230,
+      "sha256": "5f54d55a1ac3892f7541aeb531546ba9d13795bda03d2c4aa155abc825dd9b13"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/frontend-typecheck.log",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 216,
+      "sha256": "7bb04397199c3e47513c4f88d5cd2fa0bdce35f1214d378d3801239d05cd3357"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/historical-iso-health.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 1982,
+      "sha256": "d50c92187db11f711c97835c4749a10026328299edc8f31f510fb3a77e255e12"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/historical-iso-live.log",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 883,
+      "sha256": "bb3a2617a97696ca377d84944428ad7aea380d6a78c391e2c9fec7a0cefcccd2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/historical-iso-public-message.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 4545,
+      "sha256": "db6dc4c84aceb39218910e7f92a5f4bd42db1825ac46a97f0a6faaf698921a22"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/historical-iso-public-run.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 1904,
+      "sha256": "94a103c54945fe9cd809b848b7738b4f0604b4fc39814aedaf25a106b7f693b8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/historical-iso-public-trace.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 6297,
+      "sha256": "2a17c108e2bdb4c8783b7ffb161ef4b9c8d9474cd1d7c10fa2e44cd1e96aff87"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/ledger-crosswalk-result.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 316,
+      "sha256": "31b9c9c587c6f2198e846a696b0d74c80b2f7aa05708f8c84bf76b996815cd8d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/ledger-crosswalk.log",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 2013,
+      "sha256": "57dc9081442b69c47ba49db74bcbe1f69295b5d1637062cce50d329cb526c997"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/live-results.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 1123,
+      "sha256": "261e707a9e14f77ebad4ca2d8c6a27a730029b22658b0f04b2a5ed3de5781e6a"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/parseability-result.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 325,
+      "sha256": "70ec9fff2fdedbe6d4ca9ff0717f74ce1799a4c0616516acda41caf70b565ebe"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/parseability.log",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/pytest-result.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 314,
+      "sha256": "c975fa988a402db8aff36f00673b213557f19065f0be8784c52974292be531b6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/pytest.log",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 17043,
+      "sha256": "7b97f0f8e14bfdef74fabb5c7cf178b086ec44aea893add8ec56c865cb273742"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/registry-result.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 308,
+      "sha256": "eb079eff9959abb92fa76dfa3797027baa3d6bac54a60eabb4b5c0c4d98869ac"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/registry.log",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/result.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 4249,
+      "sha256": "b85c915f504012b112c4452d36b804d02c2097c9d557a269493a781b30647f88"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/ruff-result.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 302,
+      "sha256": "4055285dd7ba1a2a09816948e93ab708bc261d579d34c275630e2f6ce5412d6d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/ruff.log",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/started.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 128,
+      "sha256": "0cee1b6e55ea6599aab8473510867bce19053b92e7c43cbf15b6321e3b237a3e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/tables-result.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 331,
+      "sha256": "359656829decf4718c7b029f44b3e90af5a8a94c46c48308562c689931d400e3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/tables.log",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/views-result.json",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 329,
+      "sha256": "4eee9e41caf8742bb18d19a5798d038436b07e9bd334b84a492ad305473802dc"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a93b50c2/views.log",
+      "scope": "candidate-a93b50c2; use per-file scope (fixture/live/mutation)",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/e2e-result.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 215,
+      "sha256": "64de9da59b8556e89c34a67ed4eec7083e724c4c4592f394f205bae956c2bc9b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/e2e.log",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 12748,
+      "sha256": "ed97d3bc9cbcbfe6a88e00c04ddab5b3c34c81c6b8e30b663799f5896781c8b3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/financial-calc-health.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 1982,
+      "sha256": "26b16c50689d8e20b093835aff11436658cb48821d1f31e7b54c7652824df87d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/financial-calc-live.log",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 2308,
+      "sha256": "a298baaaa8a2396c98cc3b29683524543d10e9139b393c5af992eaf1cdfe631e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/financial-calc-public-message.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 5829,
+      "sha256": "cf9cf16aab4d80519c2bd50027730706b3259eda2cf8703c1331121cedeb34a5"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/financial-calc-public-run.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 2803,
+      "sha256": "444884936fbcc4be39704cfc83562d8b84cd72f3eec4b41c24c4720038de1323"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/financial-calc-public-trace.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 11859,
+      "sha256": "dd9bee56e506f9ff710907cc5dc09b29db64074dc69476b93953d7184d971808"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/financial-consumer-verified.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 8973,
+      "sha256": "3a218047336716a3e63b7ff285825c93a44aa0bf3362e3107cb503a56963ed22"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/financial-consumer.log",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 14196,
+      "sha256": "65656eae1e1fe22e74a871e7f07cfe375a5e06c6ecab1902fa18d8412ee84bba"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/frontend-build-result.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 222,
+      "sha256": "b0e63d392670cf1255f4cdba748fa5cd16041cae3468a33ed20d648833c1cc41"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/frontend-build.log",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 715,
+      "sha256": "04220d18bc49850daed8e15ff3bd8acc8b91c333f64b5e6ff3004e56d01d8f04"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/frontend-lint-result.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 220,
+      "sha256": "d048c05fd6be7a7c3bd0807fe358a7337c0b295835ec81051bf7207d14656cae"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/frontend-lint.log",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 118,
+      "sha256": "a632bb402bf766f6aadfbe8b74a13754dfad82806ecb1437fb65082fca002cc8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/frontend-test-result.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 220,
+      "sha256": "b8134099ac7c79335910b14ef7bf8444637e38331295e4eafadb395645703595"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/frontend-test.log",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 845,
+      "sha256": "87ee1f24c88f03e65a349a7495dd2b02c3b31ecdb32a2142c4321d9c690469ab"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/frontend-typecheck-result.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 230,
+      "sha256": "c2741be1ea0ce1447b3f98a7a54614523e077b6aa857fff9a66cb7bc3f7a3503"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/frontend-typecheck.log",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 216,
+      "sha256": "7bb04397199c3e47513c4f88d5cd2fa0bdce35f1214d378d3801239d05cd3357"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/historical-iso-health.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 1982,
+      "sha256": "9835ac08c87eb89f3aaf25c827f8fc633bc33c3a940a832bc314f27441824127"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/historical-iso-live.log",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 1813,
+      "sha256": "13e77da0c6feff337addf8caf1b35e4cf153bed0a564b80198906bba9bbbb991"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/historical-iso-public-message.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 4976,
+      "sha256": "c13eaa2a2e5d90e649e5db7195b58eca21002cae745b9df71b09a581c3809614"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/historical-iso-public-run.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 1837,
+      "sha256": "edf547e6a560059931134eed73764a894ff2109561f1f82b62a5a4345866c2d3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/historical-iso-public-trace.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 7690,
+      "sha256": "77786c552c33b27b6e6d85ff94453d5c0c988ceadb56b01024e9f2949aa0565a"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/ledger-crosswalk-result.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 316,
+      "sha256": "f2b7ec10e4d61f013ef0f16c497cf8293a49bcae822f7093394dc46ce9b945e0"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/ledger-crosswalk.log",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 2013,
+      "sha256": "c7fce271c03f7602bce2fdba81c34f09a6d2c4f9a2474be5621b32d20d103f6e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/live-results.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 1223,
+      "sha256": "0a664d5ec1c3a8977bfd0e8f6b4541eb47fad5be35e1a8cf9860b48e8fa646cc"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/parseability-result.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 325,
+      "sha256": "ed753d06d32dbb425938322d98c2422b971d2f655c56f00c1c2bf23ba7a28fd7"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/parseability.log",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/pytest-result.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 314,
+      "sha256": "dbb5864497e0e37b21797d88871dcfe76c821a7c898af8a8e9df9bf64cfa7a94"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/pytest.log",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 20486,
+      "sha256": "6c7568b9096426b7bb7f0a7c8326eb2d8735e94504da64b6c14979e21c2a61d9"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/registry-result.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 308,
+      "sha256": "1f1d2e0a0f16d43e75bdd8780ac8e4e6a5c406f8ad0f432c09952f3ef5c6493f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/registry.log",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/result.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 4250,
+      "sha256": "f3a7beae6805943a72f84075336a4865968c97cfb7cce9b26dcea023d113e070"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/ruff-result.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 302,
+      "sha256": "4090c3d8fa26a8065df929126d237d35a98c7eb86eae3a154b25029c7250dfd4"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/ruff.log",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/started.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 128,
+      "sha256": "3f19cabe3e8e53f3d4435c3f07f0649e44063faa15a2d418338c464654947bff"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/tables-result.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 331,
+      "sha256": "5b73ed350193ecee64949ad6f49434dc455ffda6c4ebfcc46f5f9f1f7b40807a"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/tables.log",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/views-result.json",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 329,
+      "sha256": "02e9a80f643844569d0f73774b11eaa596dcaf08831c86cbe36c27553fc6ff54"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-a9a7ce92/views.log",
+      "scope": "candidate-a9a7ce92; use per-file scope (fixture/live/mutation)",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/after-mutations-regression.log",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 267,
+      "sha256": "627fd5c32d4542e71f5efd344fbfa57b701ddc2385c71bde7819560338c9f2ea"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/e2e-result.json",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 215,
+      "sha256": "11239e6cfd7c179bd6dd7fc2784b8c156b52174aa560d926346d48950e39c378"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/e2e.log",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 12747,
+      "sha256": "00d6ee2f5d4bbe5aa00b13a3d06c71f30c2ff795c30c0ead56e0c94d7fd44d32"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/financial-consumer.log",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 21500,
+      "sha256": "af36af79f9815060cc825bb7f30ca29b9de0ad128aec1cc5540213698665b4ec"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/frontend-build-result.json",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 222,
+      "sha256": "0c30cf3b65aa709bff260e676efbc1b5a2c8fdaa4986460aa6f1ba41c463c730"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/frontend-build.log",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 715,
+      "sha256": "d95690e9236d96a3e2522d54926cf5f521bbc3cc939502972009a0c0991bd780"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/frontend-lint-result.json",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 220,
+      "sha256": "8bf38debbedc1de49b4f1f02569f5ef65438d8ecf5bf52dc990aeac76d748fab"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/frontend-lint.log",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 118,
+      "sha256": "a632bb402bf766f6aadfbe8b74a13754dfad82806ecb1437fb65082fca002cc8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/frontend-test-result.json",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 220,
+      "sha256": "61b0b24b2f8070eae3c757f69267998441885c76944d25382482a44e03ed3941"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/frontend-test.log",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 845,
+      "sha256": "445b3aab7c81d707b61090c8d331340a73d79d8ec796c679d2030cf5e2c987f2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/frontend-typecheck-result.json",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 230,
+      "sha256": "c380142d2e590bda95454785326cc50a44061d2fdbf6975fbe5dc691730adeca"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/frontend-typecheck.log",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 216,
+      "sha256": "7bb04397199c3e47513c4f88d5cd2fa0bdce35f1214d378d3801239d05cd3357"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/ledger-crosswalk-result.json",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 316,
+      "sha256": "b00e198264487efa1c32fa5b688eb11cb2d43e2c6af3e2e155a512469aca08cb"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/ledger-crosswalk.log",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 2013,
+      "sha256": "6edbbf569248b390fcaae01bd947acc6ec29c08ae980d756b250d7ef30acbb56"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/mutation-financial-label-delivery.log",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 868,
+      "sha256": "8d5160bd2408e6ed58a0f9bb20162690c878a35e84488df9ab5a4bb528dd8a60"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/mutation-financial-row-cap.log",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 1616,
+      "sha256": "1c1d202d54e6c0fe3bc1bb3a100e4c5b0ae2f71e969e5626c4da71b91ea3a52d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/mutation-relative-date-guard.log",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 3168,
+      "sha256": "ba1d39fa2586564f72a58effab4b63036df94f43b906431e6536eaee8d120ff3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/mutations.json",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 1333,
+      "sha256": "f52ea818b0bc195e02e002676e7a2dd66e7b7d80e2b50deec9e17a7f55ed3ae6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/parseability-result.json",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 325,
+      "sha256": "3c36d65adeb7b8a4c324ae6bebfd45414256605b6525d95d119ea33568128fc8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/parseability.log",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/pytest-result.json",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 314,
+      "sha256": "090b4b6e6e68618928fb52b222c74646d4457c6de5511befe393ae5271f627e4"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/pytest.log",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 17043,
+      "sha256": "6c5593d031d32843ba5aec65560aff12e270690fbc062a6719dfb4e28ebbef93"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/registry-result.json",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 308,
+      "sha256": "4fd741721b53bec453efc087dd183c4146034cc4686b54e0210080dc7bd835a2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/registry.log",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/result.json",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 4249,
+      "sha256": "5460323b3498d79fba9574245aa01d0fdbaae2f80664f7a1bc95a6f2b73fb945"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/ruff-result.json",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 302,
+      "sha256": "7c54f0954e279cb8061ed0f8bcd9673b5b7109c536f75dfd2e9da5e2d2bc4aa6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/ruff.log",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/started.json",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 128,
+      "sha256": "cdb19a05b971d625316a51921ad96b6b2951fbe36a63622f4779191bdece6e07"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/tables-result.json",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 331,
+      "sha256": "16f14ff5613b5a6c0d0e8f6c812a208dce82fe92453f1d78217fb6cdca808d50"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/tables.log",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/views-result.json",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 329,
+      "sha256": "491e4741b53a662b05f572d59bc6abfbbc1fbda475346fdb112d7e98758c737d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/candidate-d77383ac/views.log",
+      "scope": "candidate-d77383ac; use per-file scope (fixture/live/mutation)",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/code-map-d77383ac-build.log",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 208,
+      "sha256": "f6a5586f151e7651dbaf51edb1bd02af5cdb5a7110179bfb117934d8a58def83"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/code-map-d77383ac-query.log",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 513,
+      "sha256": "58e7725f1adf0089286a826a76499471a8a11281a21693f77163bc69388e6cec"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/data-gap-before.log",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 8001,
+      "sha256": "1796b4ae18cf49cbee3f6886c84dc0c0a89885a6a38a2103c3ad31de311069cf"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/date-and-financial-label-after.log",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 347,
+      "sha256": "4ae034ba74bd08cfc82cbaed62838f533e6706a16896b75920b11e479aa4ec33"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/date-and-financial-label-before.log",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 2874,
+      "sha256": "9bde5ae46ecf9d298be8116734581dffdaccac4986d8451b611f21a672f38245"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/diagnostic-menu-before.log",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 3544,
+      "sha256": "44f28ae663bd57787aaa7f89736656b3a8fe988aa355e3d60a90e05ab908cd39"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/disclosure-raw.err",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/disclosure-raw.json",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 247,
+      "sha256": "553d96e62a222265624aab84153f7f0bc948d5b6e466088340bdf5a111ddff76"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/financial-delivery-inspection.json",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 2488,
+      "sha256": "d67e455c273671b7590cfa6b612e2081fd8a2301963aebf8814a0b29eeeee698"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/financial-quality-before.log",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 861,
+      "sha256": "a19b39d37a35f1a3d72c96ee615960f2cd90284a68c056d364d40b59d5a147d3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/followup-precommit-tests.log",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 266,
+      "sha256": "19b0b3147b34e0e18d0733ca5184e85dafb03389909a3cfec5d2a8c4126f5188"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/graph-audit-final.log",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 34298,
+      "sha256": "a1f94def2895e85821151614dd72d3302b24164ff0566019b814380dcff7b0a1"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/label-budget-regression.log",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 347,
+      "sha256": "0138aa3708d0474cac76f75bff2243c61ab67ac04f667d3983fc792ee1840ea6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/live-capital-105506.json",
+      "scope": "provider capture; revision/dirty/error within record are authoritative",
+      "bytes": 15993,
+      "sha256": "d85ee510df21e47c59e0a09c8fb7a5689cef8cda12225834b3f1e37610db07a1"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/live-capital.json",
+      "scope": "provider capture; revision/dirty/error within record are authoritative",
+      "bytes": 15993,
+      "sha256": "07819ab15368c8cbc0362f9e282ad6f345a9430085706489aeb7b46f4e9001fc"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/live-disclosure-105517.json",
+      "scope": "provider capture; revision/dirty/error within record are authoritative",
+      "bytes": 2903,
+      "sha256": "ee20c2768a8998bc83ade3ebe18083e2f9072caeb0c0300727d7fad5901dc5a1"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/live-disclosure.json",
+      "scope": "provider capture; revision/dirty/error within record are authoritative",
+      "bytes": 2112,
+      "sha256": "394e6ee76a8592e7b5cb5bc48bac74616d7950b6322394bf13e32e0b90ec581e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/live-financial-121016.json",
+      "scope": "provider capture; revision/dirty/error within record are authoritative",
+      "bytes": 21591,
+      "sha256": "67b4338ebc893f4cc8aeb0d2cf1688c435b096aec4719a2aa6e359182d17ff3e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/live-financial-124110.json",
+      "scope": "provider capture; revision/dirty/error within record are authoritative",
+      "bytes": 40675,
+      "sha256": "e3d02efed8d662c1535bf14fed1dddb7aed46507e2a8f422451daced12ad8dca"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/live-financial-153508.json",
+      "scope": "provider capture; revision/dirty/error within record are authoritative",
+      "bytes": 49419,
+      "sha256": "f0563899ac1638e6ec0b03e6cf33a665a5a8e185b1c38233c1dbadd17cb92e45"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/live-financial.json",
+      "scope": "provider capture; revision/dirty/error within record are authoritative",
+      "bytes": 17810,
+      "sha256": "c58244443f49ab1ebc236adb45757b33ac59919e44c8082628f9a7c6c3e2cb96"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/live-news.json",
+      "scope": "provider capture; revision/dirty/error within record are authoritative",
+      "bytes": 6860,
+      "sha256": "7a08487d1692fff015f87e77ec3f19bbed33a7d11b034925e579af90448c00b2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/live-quote-100808.json",
+      "scope": "provider capture; revision/dirty/error within record are authoritative",
+      "bytes": 2775,
+      "sha256": "21b453485308cd39876264af1c9b6a28be090bcceb5f765f2fff12d4fc59e1de"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/live-quote.json",
+      "scope": "provider capture; revision/dirty/error within record are authoritative",
+      "bytes": 2062,
+      "sha256": "a1cae0081ee7c285a70d76e19233374ea0ac7ffcdede589b05120de086e4a93d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/live-valuation-100808.json",
+      "scope": "provider capture; revision/dirty/error within record are authoritative",
+      "bytes": 7735,
+      "sha256": "a7510c30f26c4e95f72f991827cc2c9609b067e476b19564369fcaeef202fc82"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/live-valuation.json",
+      "scope": "provider capture; revision/dirty/error within record are authoritative",
+      "bytes": 7607,
+      "sha256": "a13b11a549fabbc8460913084509d8def97c9f3c93e3f3c8f24afd10ad2c2922"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/mutate_candidate_guards.py",
+      "scope": "one-off orchestration source at seal time; earlier edits not reconstructed",
+      "bytes": 2499,
+      "sha256": "14f2bcc6ea00276b8b778bc5415e9b6a01e0ff48e0dc0f9cba00c35beb0e11b3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/probe-health-a93b50c2.json",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 1982,
+      "sha256": "264f83770defe7aa65c5d333c697d24ad307757064e1dd6f0dabf5a05e5645de"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/probe-health-a9a7ce92.json",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 1982,
+      "sha256": "4d3f7fb9816c4140d96445b3bd44906e919efbf27a4cc4d52213b14881bb2467"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/probe-stopped.json",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 445,
+      "sha256": "d5ba9f82b9d26fd2b0f4cb4e6d56825095f564d100eb10acc0bd4a700a4d2443"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/probe_candidate_live.py",
+      "scope": "one-off orchestration source at seal time; earlier edits not reconstructed",
+      "bytes": 3074,
+      "sha256": "818da0580b1d37fc8b0db2681fbfd980a5a446a746604ff3e9cb76a83843238f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/probe_readside.py",
+      "scope": "one-off orchestration source at seal time; earlier edits not reconstructed",
+      "bytes": 5671,
+      "sha256": "db07584eec9b1f823f63a5fc2b0f4a4effe55df486ef7ab8bdb302be5b8b0eb7"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/pytest-full-rerun.log",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 19313,
+      "sha256": "c51f3df4465b2c48ef8d6d7217e25b9ba1d4c5cc3413a53b88134f8e0abe6b88"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/pytest-full-result.json",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 105,
+      "sha256": "26ce331143876c23c6223c567fddf00ecab149013a2abd20571ad0675fe42ffa"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/read-root-dataset-reconciliation.json",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 1647,
+      "sha256": "7b2d5bddc715dfe864ccd6435e0d589733c2342da712c256332f35f52fe68f74"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/reconcile_query_dates.py",
+      "scope": "one-off orchestration source at seal time; earlier edits not reconstructed",
+      "bytes": 2008,
+      "sha256": "9475a68dc8266ff57c8d98206ea114eece62852fe57dc7eaba0f9df10c11cd00"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/report-period-label-regression.log",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 427,
+      "sha256": "0f244f9d31a3273fadd33df88f064e5d377b8a8d10ee4bcba2e7d90a66b4ed92"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/run_candidate_checks.py",
+      "scope": "one-off orchestration source at seal time; earlier edits not reconstructed",
+      "bytes": 3452,
+      "sha256": "4e725c0ee180cfc7a8e30dba38e1569ae4c503805d03b24ce9d4d1eb125e8161"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/seal_manifest.py",
+      "scope": "one-off orchestration source at seal time; earlier edits not reconstructed",
+      "bytes": 5602,
+      "sha256": "85c6f95494d2361f06f84825651ee9404b7bf9adc98731cbab35f034d8cb045d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_110219_144100/answer.md",
+      "scope": "live run run_20260918_110219_144100; completed is not quality acceptance",
+      "bytes": 1806,
+      "sha256": "e13830b4cccf012d446c9e7f1375a6991ab7a357af3777ed84427995a2f58c70"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_110219_144100/continuous-episode.json",
+      "scope": "live run run_20260918_110219_144100; completed is not quality acceptance",
+      "bytes": 390709,
+      "sha256": "eb78297a77d96ef02b380d48ca9519d170496cda61443b2a502ec73ed8e944b7"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_110219_144100/report.json",
+      "scope": "live run run_20260918_110219_144100; completed is not quality acceptance",
+      "bytes": 4017,
+      "sha256": "f20fa765cb0d64450f815d3d9d6810e01cb41477c4ea4bb61271a44ddda193e1"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_110219_144100/run.json",
+      "scope": "live run run_20260918_110219_144100; completed is not quality acceptance",
+      "bytes": 2307,
+      "sha256": "68f9fdeb7fb01c6aaef54bcc93acf93ec282daf6c1954c4e1e9c2eec18aa7082"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_110343_330120/answer.md",
+      "scope": "live run run_20260918_110343_330120; completed is not quality acceptance",
+      "bytes": 464,
+      "sha256": "47a3d45b7e9908e846b3f4c5f4f83ae4ca9061308129e8f128cc346cab199c52"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_110343_330120/continuous-episode.json",
+      "scope": "live run run_20260918_110343_330120; completed is not quality acceptance",
+      "bytes": 520713,
+      "sha256": "b1a9e5484faf2d9972b5b8672725dd94530a284ee946fcc5b1dedada9850927b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_110343_330120/report.json",
+      "scope": "live run run_20260918_110343_330120; completed is not quality acceptance",
+      "bytes": 4315,
+      "sha256": "3236828b52a11008220a5a598273016bd6bb8bef69c3e1b2b491ab6a775f8072"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_110343_330120/run.json",
+      "scope": "live run run_20260918_110343_330120; completed is not quality acceptance",
+      "bytes": 2234,
+      "sha256": "321c1223ab37f339d19397460e7df19ea841f96046117ae3f4bded276e15d1dc"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_113750_934678/answer.md",
+      "scope": "live run run_20260918_113750_934678; completed is not quality acceptance",
+      "bytes": 364,
+      "sha256": "975281e54fe5c55cc4c1c07263be9fc324e98d43d7c7b2bcf8271dd4eb4dfabc"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_113750_934678/continuous-episode.json",
+      "scope": "live run run_20260918_113750_934678; completed is not quality acceptance",
+      "bytes": 891861,
+      "sha256": "6f8a7631c8a51cc9793ff67a66f362366f02eb93ee4733cc822a62e4a7147aaf"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_113750_934678/report.json",
+      "scope": "live run run_20260918_113750_934678; completed is not quality acceptance",
+      "bytes": 3699,
+      "sha256": "404def634d136b72886802777ee8ab17188e42f4b90f390726fd1cd50c2d5ef4"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_113750_934678/run.json",
+      "scope": "live run run_20260918_113750_934678; completed is not quality acceptance",
+      "bytes": 2234,
+      "sha256": "7f700f5feeed58a46c20e5b7b8d55d9f50eb8184ea8dff8e4bad7f5013c88d16"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_121014_835381/answer.md",
+      "scope": "live run run_20260918_121014_835381; completed is not quality acceptance",
+      "bytes": 552,
+      "sha256": "fb120469750c68045554db00fad6a124b282658191f751b8aa98eec52b8df0b7"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_121014_835381/continuous-episode.json",
+      "scope": "live run run_20260918_121014_835381; completed is not quality acceptance",
+      "bytes": 277526,
+      "sha256": "b9f9b5ec7e6702c3e6d0209c3411bee41bc4bc0fb98fce63d366c10e300bc993"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_121014_835381/report.json",
+      "scope": "live run run_20260918_121014_835381; completed is not quality acceptance",
+      "bytes": 4864,
+      "sha256": "ff7c3dd82c69a19b98ef293d5ac7b407e607e37b39f75e76e619d094ecee96f4"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_121014_835381/run.json",
+      "scope": "live run run_20260918_121014_835381; completed is not quality acceptance",
+      "bytes": 2280,
+      "sha256": "d02475aeb7a8b8df7e82b5ec0dbfc16f7ceb5848774304631de56d6fe3cbe26d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_121115_094979/answer.md",
+      "scope": "live run run_20260918_121115_094979; completed is not quality acceptance",
+      "bytes": 1841,
+      "sha256": "3f7f0f083f4eb82277e76e3de0639c3270733968c4a265391b0aa841d53925ef"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_121115_094979/continuous-episode.json",
+      "scope": "live run run_20260918_121115_094979; completed is not quality acceptance",
+      "bytes": 1526579,
+      "sha256": "1e93f99e05eb4d901d1e232cd0fc3e74572bbb6078450e0869d5494b68069ef8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_121115_094979/report.json",
+      "scope": "live run run_20260918_121115_094979; completed is not quality acceptance",
+      "bytes": 3618,
+      "sha256": "f91372b407761d22e541c5ddf64199c56ecc0e0a7f58b6f4f2878408465c0540"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_121115_094979/run.json",
+      "scope": "live run run_20260918_121115_094979; completed is not quality acceptance",
+      "bytes": 2226,
+      "sha256": "9ea728ed2f3fd23652b213538cfe5ed080d19613a0e935ce17ae39046539af2d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_123911_710065/answer.md",
+      "scope": "live run run_20260918_123911_710065; completed is not quality acceptance",
+      "bytes": 1482,
+      "sha256": "157373a29687efbd7a461db69a45acc49969b8a2f7c3d31d679621405a6f666d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_123911_710065/continuous-episode.json",
+      "scope": "live run run_20260918_123911_710065; completed is not quality acceptance",
+      "bytes": 322130,
+      "sha256": "72d8f3c25f88f4c563a3d485ce92b444a8f20b8fcae6e88c668a8db7a606fd3d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_123911_710065/report.json",
+      "scope": "live run run_20260918_123911_710065; completed is not quality acceptance",
+      "bytes": 4260,
+      "sha256": "55861dce6d567fac39b78888713e4b4da7c21b5f6ebd7c8c9c727594a077c503"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_123911_710065/run.json",
+      "scope": "live run run_20260918_123911_710065; completed is not quality acceptance",
+      "bytes": 2213,
+      "sha256": "d4971ff24540fdbe36f20768a3c802813c4728cd742cbf6df2d5a682b2eb9d13"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_124033_015953/answer.md",
+      "scope": "live run run_20260918_124033_015953; completed is not quality acceptance",
+      "bytes": 1977,
+      "sha256": "53551ee8c60b841e75e24954498d12601830660cb26a383bb97d77b5da918abb"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_124033_015953/calc-e2d4544cb8e50188.html",
+      "scope": "calculation output from run_20260918_124033_015953; existence is not correctness",
+      "bytes": 4083,
+      "sha256": "3a075b52cda1e388f5ce6084f4b84cd5eb2bfad2853b9f81d4d19a8ad7f63593"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_124033_015953/calc-e2d4544cb8e50188.json",
+      "scope": "calculation output from run_20260918_124033_015953; existence is not correctness",
+      "bytes": 15271,
+      "sha256": "79cdec16d03c0aee514a4e5875903d58ff2b11f92c2b32151a2030ea9c47e941"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_124033_015953/continuous-episode.json",
+      "scope": "live run run_20260918_124033_015953; completed is not quality acceptance",
+      "bytes": 756599,
+      "sha256": "d36a33edc8cb5443990716e1a01211df398a8f0568ffb63d994a989154411247"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_124033_015953/report.json",
+      "scope": "live run run_20260918_124033_015953; completed is not quality acceptance",
+      "bytes": 4583,
+      "sha256": "f8694f9ebed3b53cc39cbafcbebfe77702dcfdd0a6c477212e5c682b87b5e8a6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/users/probe-data-readiness-0918/runs/run_20260918_124033_015953/run.json",
+      "scope": "live run run_20260918_124033_015953; completed is not quality acceptance",
+      "bytes": 3179,
+      "sha256": "cbeee10583309b11eb31dea687ab736383b511256c6890d680d33c8281c843d3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/workbench-capital-live.log",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 2137,
+      "sha256": "ddc2324e22b73d6b82f54b09fe9db3b92839506586ddcd25bc8207a8e84a14a0"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/workbench-historical-live.log",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 795,
+      "sha256": "aaa1b002efe8498f2d3b3f28cd8c6cc4f96bd2ced4e9db2e10db56b8c1650d9a"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/workbench-historical-retest-public-run.json",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 1858,
+      "sha256": "275b4a5b178bed9bfb1ad7ff8843bb4900dafe0f7056453fb973de1e87023168"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/workbench-historical-retest-public-trace.json",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 9225,
+      "sha256": "53a292836083d80224984187bb54007660654fb3bad6d5894fcdfe275433b439"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-data-readiness-20260918/workbench-historical-retest.log",
+      "scope": "retained diagnostic or boundary evidence; not universal PASS",
+      "bytes": 695,
+      "sha256": "b1dbdae854d200e3d34f869aa1da0e47ef7587f0ba3e4c7610cc46a2d51562bf"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T041543Z-a93b50c2.json",
+      "scope": "test receipt; revision/dirty/target within record are authoritative",
+      "bytes": 662,
+      "sha256": "3ef801b2165bb0c56dbb7c802974b5607ac939b53b9f4ab2a1e145398c3c8f45"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T044725Z-a9a7ce92.json",
+      "scope": "test receipt; revision/dirty/target within record are authoritative",
+      "bytes": 1203,
+      "sha256": "5a6e99cef3a409cf00e26b6215d388eca394cf395eef463e675412f91636c170"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T061743Z-a9a7ce92.json",
+      "scope": "test receipt; revision/dirty/target within record are authoritative",
+      "bytes": 1086,
+      "sha256": "97d9dc4dc874989c54d1acc19cbd5d56da5d222dba17b68ba0a1809cb01a9038"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T072734Z-d77383ac.json",
+      "scope": "test receipt; revision/dirty/target within record are authoritative",
+      "bytes": 662,
+      "sha256": "84d8a785c228dd988aa9211e9f4e67e041fbac7f479d883bf54e8bfc9a163a74"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T082215Z-d77383ac.json",
+      "scope": "test receipt; revision/dirty/target within record are authoritative",
+      "bytes": 761,
+      "sha256": "4bf4fd365c68e91ece6f66ef2fd849b339a1211516399d2a5136dfb4c9f5d27b"
+    }
+  ]
+}
