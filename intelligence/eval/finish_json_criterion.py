@@ -25,7 +25,12 @@ def legal_json(content: str) -> bool:
 def extracted_draft(content: str) -> str:
     """生效解析器取出的 draft；捞不出则空串。"""
 
-    parsed = parse_finish_json(content)
+    try:
+        parsed = parse_finish_json(content)
+    except ValueError:
+        # Duplicate object keys are ambiguous, not last-write-wins evidence
+        # of an answer. Keep batch evaluation total without relaxing admission.
+        return ""
     if isinstance(parsed, dict) and isinstance(parsed.get("draft"), str):
         return parsed["draft"]
     return ""

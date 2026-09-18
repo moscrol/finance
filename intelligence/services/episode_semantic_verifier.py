@@ -108,7 +108,7 @@ from intelligence.services.research_contract import (
 )
 from intelligence.services.task_frame import TaskFrame, last_explicit_iso_date
 from intelligence.services.research_annotations import annotate_research_answer
-from intelligence.services.run_store import redact_public_prose
+from intelligence.services.research_public_prose import has_public_analysis, sanitize_public_analysis
 from intelligence.services.task_fulfillment import answer_has_output_marker
 from intelligence.services.tool_result_budget import MAX_EVIDENCE_TITLE_CHARS
 
@@ -196,15 +196,6 @@ class _FinalizerJudgeProvider(Protocol):
     _model: AgentModelClient
 
 _SENTENCE_RE = re.compile(r"(?<=[。！？!?；;])|\n+")
-_CONTROL_FIELD_RE = re.compile(
-    r"(?:\b(?:content[_ ]?hash|evidence[_ ]?hash|internal[_ ]?locator|"
-    r"system[_ ]?prompt|tool[_ ]?calls?)\b\s*[:=]?|"
-    r"\bhash\b\s*[:=]|\bprovider(?:[_ ]?name)?\b\s*[:=]|"
-    r"\b_?provider_(?:attempts?|trace)\b\s*[:=]?|"
-    r"\bendpoint\b\s*[:=]|"
-    r"证据哈希|内容哈希|内部定位|系统提示|工具调用)",
-    re.IGNORECASE,
-)
 _STRICT_JSON_FENCE_RE = re.compile(
     r"\A```(?:json)?[ \t]*\r?\n(?P<body>\{.*\})\r?\n```[ \t]*\Z",
     re.DOTALL | re.IGNORECASE,
@@ -1436,7 +1427,7 @@ class SemanticEpisodeVerifier:
             structural = replace(structural, outcome=replace(structural.outcome, draft=labeled))
             draft = labeled
         public = _sanitize_public_answer(draft, structural.outcome.evidence, structural.outcome.traces)
-        if not public:
+        if not has_public_analysis(public):
             return SemanticEpisodeOutcome(
                 verified=structural, status="partial", judge_status="unavailable",
                 public_answer=self._gap_answer(frame, structural),
@@ -1465,6 +1456,9 @@ class SemanticEpisodeVerifier:
             VERDICT_REASON_EVIDENCE_DATE: "所述日期与引用证据日期不一致，需要更正",
         }
         notes: list[str] = []
+        from intelligence.services.finish_candidate import CANDIDATE_REVIEW_NOTICE
+        if CANDIDATE_REVIEW_NOTICE in structural.outcome.gaps:
+            notes.append(CANDIDATE_REVIEW_NOTICE)
         for row in sentences:
             index = int(row["index"])
             if index not in reasons:
@@ -5180,58 +5174,9 @@ def _sanitize_public_answer(
     evidence: tuple[AgentEvidence, ...],
     traces: tuple[ProviderTrace, ...],
 ) -> str:
-    private_tokens = _private_tokens(evidence, traces)
-    kept: list[str] = []
-    safe = redact_public_prose(str(draft or ""))
-    # Tool names and provider receipt capabilities are different identifiers.
-    # Translate the status noun without changing empty/not-attempted semantics.
-    safe = re.sub(r"(?<![A-Za-z0-9_])(?:news_search|directional_news)(?![A-Za-z0-9_])", "资讯检索", safe, flags=re.IGNORECASE)
-    for raw in safe.splitlines():
-        line = raw.strip()
-        if line == "[REDACTED]":
-            continue
-        if not line:
-            kept.append(raw)
-            continue
-        if line.startswith("{") and line.endswith("}"):
-            continue
-        if not _contains_private_token(line, private_tokens):
-            kept.append(raw)
-            continue
-        for item in _numbered_sentences(line):
-            sentence = str(item.get("text") or "").strip()
-            if not sentence or _contains_private_token(sentence, private_tokens):
-                continue
-            if sentence.startswith("{") and sentence.endswith("}"):
-                continue
-            kept.append(sentence)
-    return "\n".join(kept).strip()
-
-
-def _private_tokens(
-    evidence: tuple[AgentEvidence, ...],
-    traces: tuple[ProviderTrace, ...] = (),
-) -> frozenset[str]:
-    return frozenset(
-        token.casefold()
-        for token in (
-            *(item.tool for item in evidence),
-            *(item.content_hash for item in evidence),
-            *(item.internal_locator for item in evidence),
-            *(trace.capability for trace in traces),
-        )
-        if token
-    )
-
-
-def _contains_private_token(value: object, private_tokens: frozenset[str]) -> bool:
-    text = str(value or "")
-    if not text:
-        return False
-    if _CONTROL_FIELD_RE.search(text):
-        return True
-    folded = text.casefold()
-    return any(token in folded for token in private_tokens)
+    # Compatibility seam for existing callers; the pure security boundary is
+    # also used before rejected prose enters the candidate ledger.
+    return sanitize_public_analysis(draft, evidence, traces)
 
 
 __all__ = [

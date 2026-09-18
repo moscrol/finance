@@ -242,7 +242,7 @@ def test_harness_admit_finish_walks_through_the_same_gate() -> None:
 
 
 def test_episode_reinjects_the_rewrite_hint_and_accepts_the_second_script_shaped_draft() -> None:
-    """有牙的一对：第一稿领涨判断被拒并回灌改写提示，第二稿剧本形状通过；事件里留下病因。"""
+    """原稿仍被拒、修订仍准入；两稿保留，整体不能因后稿合规就洗掉原稿疑点。"""
 
     model = ScriptedModel(
         [
@@ -254,8 +254,14 @@ def test_episode_reinjects_the_rewrite_hint_and_accepts_the_second_script_shaped
     outcome = ContinuousAgentEpisode(model).run(
         task_frame=_frame(D9_QUESTION), context=_context(D9_QUESTION), registry=_market_registry(_successful_runner)
     )
-    assert outcome.status == "completed", outcome.stop_reason
-    assert outcome.draft.startswith("明天要看的变量")
+    from intelligence.services.research_annotations import CANDIDATE_REVIEW_NOTICE
+    assert outcome.status == "partial", outcome.stop_reason
+    assert outcome.draft.startswith(D9_DRAFT)
+    assert SCRIPT_DRAFT in outcome.draft and CANDIDATE_REVIEW_NOTICE in outcome.gaps
+    assert FinanceResearchHarness().admit_finish(
+        _finish(SCRIPT_DRAFT), context=_context(D9_QUESTION), evidence=_evidence(),
+        registry=_market_registry(_successful_runner),
+    ).accepted
     invalid = [e for e in outcome.events if e.kind == "invalid_action"]
     assert len(invalid) == 1 and invalid[0].payload["code"] == "forward_direction_call"
     assert invalid[0].payload["kind"] == "substance"

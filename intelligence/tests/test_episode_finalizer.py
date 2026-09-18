@@ -201,7 +201,8 @@ def test_recovery_compacts_large_evidence_round_robin_without_minting_hashes() -
     assert all(str(item.get("evidence_id") or "").startswith("E") for item in projected)
     assert all(len(item["detail"]) <= 360 for item in projected)
     assert len(json.dumps(projected, ensure_ascii=False)) < 9_000
-    assert "不超过1200字" in model.calls[0]["messages"][0]["content"]
+    assert "不设统一字数上限" in model.calls[0]["messages"][0]["content"]
+    assert "1200字" not in model.calls[0]["messages"][0]["content"]
 
 
 def test_recovery_uses_only_remaining_synthesis_time() -> None:

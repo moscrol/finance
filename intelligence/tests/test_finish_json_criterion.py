@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from intelligence.eval.finish_json_criterion import (
     extracted_draft,
     legal_json,
@@ -59,6 +61,18 @@ def test_seq14_both_counters_pass() -> None:
     parsed = parse_finish_json(content)
     assert parsed is not None
     assert len(parsed["draft"]) == 732
+
+
+@pytest.mark.parametrize("content", [
+    '{"status":"partial","draft":"first","draft":"second","gaps":[],"bindings":[]}',
+    '{"status":"partial","draft":"answer","gaps":[],"bindings":[{"output_id":"a","output_id":"b"}]}',
+])
+def test_ambiguous_envelopes_do_not_crash_the_batch_ruler(content: str) -> None:
+    assert legal_json(content)  # syntactic JSON is not unambiguous admission
+    with pytest.raises(ValueError, match="duplicate JSON object key"):
+        parse_finish_json(content)
+    assert extracted_draft(content) == ""
+    assert not wrote_answer(content)
 
 
 def test_seq19_goes_red_if_wrote_answer_reverts_to_json_loads() -> None:

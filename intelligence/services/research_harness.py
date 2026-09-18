@@ -116,6 +116,7 @@ from intelligence.services.episode_protocol import (
     strip_hashes_for_model,
     validate_episode_finish,
 )
+from intelligence.services.finish_candidate import FinishCandidate, retain_finish_candidate
 from intelligence.services.forecast_residual_budget import (
     forecast_residual_halt_reason,
 )
@@ -258,7 +259,7 @@ def default_mode_signals(task_frame: TaskFrame, plan: ResearchPlan) -> ModeSigna
 # 跑完什么时候收口），**内容**是领域的事；一个方法一个枚举，时点和内容的边界
 # 正好落在参数上。``repair_finalize`` 没有 detail，传空串。
 SteeringKind = Literal[
-    "invalid_plan", "invalid_finish", "begin_finalization", "repair_finalize"
+    "invalid_plan", "invalid_finish", "incomplete_research", "begin_finalization", "repair_finalize"
 ]
 
 
@@ -297,6 +298,7 @@ class FinishAdmission:
     reason: str = ""
     kind: str = ""
     response: RejectionResponse | None = None
+    candidate: FinishCandidate | None = None
 
     def __post_init__(self) -> None:
         if self.accepted:
@@ -648,9 +650,17 @@ class FinanceResearchHarness:
             )
         if kind == "invalid_finish":
             return (
-                "上一条终止输出无效。请保留当前任务和全部观察，"
-                "不要重启研究；修复后只输出 FINAL_JSON。"
+                "上一条终止输出无效。请保留当前任务、已有分析和全部观察，"
+                "不要重启研究；只修正结构，不压缩或丢弃正文，完成时输出 FINAL_JSON。"
                 f"错误：{detail}"
+            )
+        if kind == "incomplete_research":
+            return (
+                "上一条终止输出仍有研究缺口，已有分析保留，不代表已完成核验。"
+                "可在同一任务、原授权和剩余预算内继续调用工具补查；不要重启或重复已做查询。"
+                "若数据不可得或无法补齐，请如实降低声明、返回 partial，保留已有分析并写明缺口；"
+                "不要为了过门编造证据。"
+                f"未满足项：{detail}"
             )
         if kind == "begin_finalization":
             return (
@@ -665,8 +675,8 @@ class FinanceResearchHarness:
                 "output binding；不得用同一次工具返回的另一条证据代替。"
                 "原因归因若没有同一时间窗口的 news_search 证据，不得用普通 "
                 "web_search 摘要补成已核验因果，应保留盘面事实并把原因写 gap。"
-                "为保证 FINAL_JSON 完整，draft 控制在 1000 汉字以内；这是传输预算，"
-                "不要求固定标题、段数或措辞。"
+                "不设统一字数上限：先给结论，再按问题展开依据、比较、反证与边界；"
+                "保留已有分析，仅追加必要修订。遵守用户明确的篇幅要求与剩余资源预算。"
                 f"关闭原因：{detail}"
             )
         if kind == "repair_finalize":
@@ -927,6 +937,11 @@ class FinanceResearchHarness:
                 reason=str(exc),
                 kind=getattr(getattr(exc, "kind", None), "value", "unclassified"),
                 response=rejection_response(exc),
+                candidate=(
+                    retain_finish_candidate(content, context=context, evidence=evidence)
+                    if getattr(getattr(exc, "kind", None), "value", "") != "integrity"
+                    else None
+                ),
             )
         bindings = expand_episode_snapshot_bindings(
             bindings=finish.bindings,

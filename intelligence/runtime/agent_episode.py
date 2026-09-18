@@ -56,6 +56,9 @@ from intelligence.services.episode_history_compaction import (
     history_compaction_enabled,
     history_keep_batches,
 )
+from intelligence.services.finish_candidate import (
+    CANDIDATE_REVIEW_NOTICE, FinishCandidate, merge_finish_candidates,
+)
 from intelligence.services.mode_governor import ModeDecision
 from intelligence.services.provider_observability import (
     ProviderTrace,
@@ -278,6 +281,7 @@ class _EpisodeLedger:
         self._lock = RLock()
         self.events: list[EpisodeEvent] = []
         self.plan: ResearchPlan | None = None
+        self.finish_candidates: list[FinishCandidate] = []
         self.time_budget_injected = False
         # INV-R1 对账失败的落账点。run() 在 Scope 建好后把它接到
         # ``EpisodeScope.record_derive_mismatch``；接线前（或没有 Scope 的调用方）
@@ -315,6 +319,22 @@ class _EpisodeLedger:
                 "question": task_frame.raw_question,
                 "task_frame": task_frame.to_dict(),
             },
+        )
+
+    def retain_candidate(self, admission: FinishAdmission) -> None:
+        candidate = admission.candidate
+        if candidate is not None and candidate.task_frame_hash == self._task_frame_hash:
+            if candidate not in self.finish_candidates:
+                self.finish_candidates.append(candidate)
+
+    def compose_candidates(
+        self, draft: str, bindings: tuple[OutputEvidenceBinding, ...],
+        evidence: tuple[AgentEvidence, ...],
+    ) -> tuple[str, tuple[OutputEvidenceBinding, ...], int]:
+        return merge_finish_candidates(
+            tuple(self.finish_candidates), task_frame_hash=self._task_frame_hash,
+            evidence=evidence, draft=draft, bindings=bindings,
+            contract=self.active_context.contract if self.active_context else None,
         )
 
     def note_derive_mismatch(self, detail: str) -> None:
@@ -1226,7 +1246,9 @@ class ContinuousAgentEpisode:
         llm_calls = 0
         tool_calls = 0
         invalid_actions = 0
-        finish_failures = 0
+        # Different failure families do not consume one another's correction.
+        # The original root deadline/model-round budget still bounds the loop.
+        finish_failures: dict[str, int] = {}
         plan_failures = 0
         plan_turns = 0
         system, user = self._harness.assemble_prompt(task_frame, context, registry)
@@ -1483,14 +1505,22 @@ class ContinuousAgentEpisode:
                 )
             # P4 步点②：模型结算刚落，下一件外部效果（派发 / 收口）还没开始。
             yield StepPoint("model_settled", llm_calls, tool_calls, turn_id=turn_id)
-            if not _consume_root_seconds(context, model_elapsed):
-                if context.root_budget is not None:
-                    context.root_budget.settle_seconds(seconds=model_elapsed)
+            budget_alive = _consume_root_seconds(context, model_elapsed)
+            if not budget_alive and context.root_budget is not None:
+                context.root_budget.settle_seconds(seconds=model_elapsed)
+            if self._is_cancelled():
+                return self._cancelled_after_model(
+                    turn=turn, context=context, registry=registry, task_frame=task_frame,
+                    ledger=ledger, accumulator=accumulator, llm_calls=llm_calls,
+                    tool_calls=tool_calls, invalid_actions=invalid_actions,
+                )
+            if not budget_alive:
                 carried = self._carry_just_written_finish(
                     turn=turn,
                     context=context,
                     evidence=tuple(accumulator.evidence),
                     registry=registry,
+                    ledger=ledger,
                 )
                 carried_draft = carried.draft if carried is not None else ""
                 carried_bindings = carried.bindings if carried is not None else ()
@@ -1544,15 +1574,6 @@ class ContinuousAgentEpisode:
                     invalid_actions=invalid_actions,
                     carried_draft=carried_draft,
                     carried_bindings=carried_bindings,
-                )
-            if self._is_cancelled():
-                return self._cancelled_outcome(
-                    task_frame=task_frame,
-                    ledger=ledger,
-                    accumulator=accumulator,
-                    llm_calls=llm_calls,
-                    tool_calls=tool_calls,
-                    invalid_actions=invalid_actions,
                 )
             if turn.error:
                 ledger.add("model_error", {"reason": turn.error, "turn_id": turn_id})
@@ -1897,7 +1918,9 @@ class ContinuousAgentEpisode:
                 registry=registry,
             )
             if not admission.accepted:
-                finish_failures += 1
+                ledger.retain_candidate(admission)
+                failure_key = admission.rejection["rejection_code"]
+                finish_failures[failure_key] = finish_failures.get(failure_key, 0) + 1
                 invalid_actions += 1
                 reason = admission.reason
                 response = admission.response
@@ -1916,14 +1939,15 @@ class ContinuousAgentEpisode:
                 )
                 if (
                     response.reinject
-                    and finish_failures == 1
+                    and (admission.kind == "substance" or finish_failures[failure_key] == 1)
                     and not finalization_started
                 ):
                     append_model_input(
                         messages,
                         ledger,
                         content=self._harness.steering_message(
-                            "invalid_finish", detail=reason
+                            "incomplete_research" if admission.kind == "substance" else "invalid_finish",
+                            detail=reason,
                         ),
                         source="steering_invalid_finish",
                     )
@@ -1961,6 +1985,10 @@ class ContinuousAgentEpisode:
             assert admission.status is not None
             status, draft = admission.status, admission.draft
             bindings, current_gaps = admission.bindings, admission.gaps
+            draft, bindings, retained = ledger.compose_candidates(draft, bindings, tuple(accumulator.evidence))
+            if retained:
+                status = "partial"
+                current_gaps = tuple(dict.fromkeys((*current_gaps, CANDIDATE_REVIEW_NOTICE)))
             # P4 步点⑤：终局已获准入、finish 事件将落（其它停机路径经 _stopped_outcome /
             # _cancelled_outcome / _recover_finalization 直接返回，不设步点）。
             yield StepPoint("before_finish", llm_calls, tool_calls, turn_id=turn_id)
@@ -1970,6 +1998,7 @@ class ContinuousAgentEpisode:
                 {
                     "status": status,
                     "stop_reason": "model_finish",
+                    "retained_candidate_count": retained,
                     "bindings": [item.to_dict() for item in bindings],
                     "gaps": list(current_gaps),
                     "caveat_slips": admission.caveat_slips,
@@ -2154,6 +2183,13 @@ class ContinuousAgentEpisode:
         if state.context_ref is not None:
             state.context_ref.value = context
         ledger = state.ledger
+        # Preserve the last delivered aggregate before appending this repair.
+        # Accepted prose adds no new review debt; rejected history keeps its notice.
+        if previous.draft.strip():
+            ledger.finish_candidates[:] = [FinishCandidate(
+                previous.task_frame_hash, previous.draft, previous.bindings, previous.evidence,
+                review_pending=CANDIDATE_REVIEW_NOTICE in previous.gaps,
+            )]
         # INV-R5：上一轮 finish 已清箱并关箱；修复轮 episode 又活了，外部输入面随之重开。
         if ledger.inbox is not None:
             ledger.inbox.reopen()
@@ -2322,6 +2358,12 @@ class ContinuousAgentEpisode:
                 ),
             )
         performed_tool_action = False
+        if self._is_cancelled():
+            return self._cancelled_after_model(
+                turn=turn, context=context, registry=registry, task_frame=task_frame,
+                ledger=ledger, accumulator=accumulator, llm_calls=llm_calls,
+                tool_calls=tool_calls, invalid_actions=invalid_actions,
+            )
         if not budget_alive:
             carried_draft, carried_bindings = self._carry_repair_finish(
                 turn=turn,
@@ -2329,6 +2371,7 @@ class ContinuousAgentEpisode:
                 context=context,
                 evidence=tuple(accumulator.evidence),
                 registry=registry,
+                ledger=ledger,
             )
             return self._stopped_outcome(
                 task_frame=task_frame,
@@ -2441,6 +2484,12 @@ class ContinuousAgentEpisode:
                 transient_retries_left=transient_retries_left,
             )
             messages.append(self._assistant_message(turn))
+            if self._is_cancelled():
+                return self._cancelled_after_model(
+                    turn=turn, context=context, registry=registry, task_frame=task_frame,
+                    ledger=ledger, accumulator=accumulator, llm_calls=llm_calls,
+                    tool_calls=tool_calls, invalid_actions=invalid_actions,
+                )
             if not budget_alive:
                 carried_draft, carried_bindings = self._carry_repair_finish(
                     turn=turn,
@@ -2448,6 +2497,7 @@ class ContinuousAgentEpisode:
                     context=context,
                     evidence=tuple(accumulator.evidence),
                     registry=registry,
+                    ledger=ledger,
                 )
                 return self._stopped_outcome(
                     task_frame=task_frame,
@@ -2503,6 +2553,7 @@ class ContinuousAgentEpisode:
             registry=registry,
         )
         if not admission.accepted:
+            ledger.retain_candidate(admission)
             invalid_actions += 1
             rejection = admission.rejection
             ledger.add(
@@ -2537,25 +2588,33 @@ class ContinuousAgentEpisode:
             performed_tool_action=performed_tool_action,
         )
         stop_reason = "repair_model_finish" if verdict.progressed else "repair_model_stop"
+        draft, bindings, retained = ledger.compose_candidates(
+            admission.draft, bindings, tuple(accumulator.evidence),
+        )
+        status, gaps = verdict.status, verdict.gaps
+        if retained:
+            status = "partial"
+            gaps = tuple(dict.fromkeys((*gaps, CANDIDATE_REVIEW_NOTICE)))
         ledger.record_runtime_result()
         ledger.add(
             "finish",
             {
-                "status": verdict.status,
+                "status": status,
                 "stop_reason": stop_reason,
+                "retained_candidate_count": retained,
                 "bindings": [item.to_dict() for item in bindings],
-                "gaps": list(verdict.gaps),
+                "gaps": list(gaps),
                 "caveat_slips": admission.caveat_slips,
                 **admission.rejection,
             },
         )
         return AgentOutcome(
             task_frame_hash=task_frame.task_frame_hash,
-            status=verdict.status,
-            draft=admission.draft,
+            status=status,
+            draft=draft,
             evidence=tuple(accumulator.evidence),
             traces=tuple(accumulator.traces),
-            gaps=verdict.gaps,
+            gaps=gaps,
             stop_reason=stop_reason,
             events=tuple(ledger.events),
             bindings=bindings,
@@ -3243,11 +3302,18 @@ class ContinuousAgentEpisode:
         recovery_started = monotonic()
         try:
             recovery_options = {}
+            if ledger.finish_candidates:
+                retained_body, retained_bindings, retained_count = ledger.compose_candidates("", (), tuple(accumulator.evidence))
+                if retained_count:
+                    recovery_options["candidate_drafts"] = (retained_body,)
+                    recovery_options["evidence_priority"] = tuple(dict.fromkeys(
+                        digest for binding in retained_bindings for digest in binding.evidence_hashes
+                    ))
             priority_hook = getattr(self._harness, "recovery_evidence_priority", None)
             if callable(priority_hook):
                 priority = priority_hook(context=context, evidence=tuple(accumulator.evidence))
                 if isinstance(priority, tuple) and priority:
-                    recovery_options["evidence_priority"] = priority
+                    recovery_options["evidence_priority"] = tuple(dict.fromkeys((*recovery_options.get("evidence_priority", ()), *priority)))
             turn = self._finalizer.recover(
                 task_frame=task_frame,
                 context=context,
@@ -3292,14 +3358,25 @@ class ContinuousAgentEpisode:
             )
 
         recovery_elapsed = max(0.0, monotonic() - recovery_started)
+        if not turn.error and not turn.tool_calls:
+            ledger.retain_candidate(self._harness.admit_finish(
+                turn.content, context=context, evidence=tuple(accumulator.evidence), registry=registry,
+            ))
         llm_calls += turn.provider_attempts
         ledger.add(
             "model_turn",
             {"phase": "finalization_recovery", **turn.to_dict()},
         )
-        if not _consume_root_seconds(context, recovery_elapsed):
-            if context.root_budget is not None:
-                context.root_budget.settle_seconds(seconds=recovery_elapsed)
+        budget_alive = _consume_root_seconds(context, recovery_elapsed)
+        if not budget_alive and context.root_budget is not None:
+            context.root_budget.settle_seconds(seconds=recovery_elapsed)
+        if self._is_cancelled():
+            return self._cancelled_after_model(
+                turn=turn, context=context, registry=registry, task_frame=task_frame,
+                ledger=ledger, accumulator=accumulator, llm_calls=llm_calls,
+                tool_calls=tool_calls, invalid_actions=invalid_actions,
+            )
+        if not budget_alive:
             reason = "finalization_recovery_deadline_exhausted"
             return self._failed_recovery_outcome(
                 task_frame=task_frame,
@@ -3371,6 +3448,7 @@ class ContinuousAgentEpisode:
             registry=registry,
         )
         if not admission.accepted:
+            ledger.retain_candidate(admission)
             invalid_actions += 1
             reason = admission.reason
             rejection = admission.rejection
@@ -3397,6 +3475,10 @@ class ContinuousAgentEpisode:
         assert admission.status is not None
         status, draft = admission.status, admission.draft
         bindings, current_gaps = admission.bindings, admission.gaps
+        draft, bindings, retained = ledger.compose_candidates(draft, bindings, tuple(accumulator.evidence))
+        if retained:
+            status = "partial"
+            current_gaps = tuple(dict.fromkeys((*current_gaps, CANDIDATE_REVIEW_NOTICE)))
         ledger.add(
             "finalization_recovery_outcome",
             {"status": "recovered", "answer_status": status},
@@ -3407,6 +3489,7 @@ class ContinuousAgentEpisode:
             {
                 "status": status,
                 "stop_reason": "finalization_recovered",
+                "retained_candidate_count": retained,
                 "bindings": [item.to_dict() for item in bindings],
                 "gaps": list(current_gaps),
                 "caveat_slips": admission.caveat_slips,
@@ -3430,6 +3513,31 @@ class ContinuousAgentEpisode:
                 invalid_actions=invalid_actions,
             ),
             plan=ledger.plan,
+        )
+
+    def _cancelled_after_model(
+        self, *, turn: ModelTurn, context: ResearchRunContext,
+        registry: ResearchToolRegistry, task_frame: TaskFrame, ledger: _EpisodeLedger,
+        accumulator: _EpisodeToolAccumulator, llm_calls: int, tool_calls: int,
+        invalid_actions: int,
+    ) -> AgentOutcome:
+        """Keep a safely returned draft; cancellation still wins over completion.
+
+        Caller has already recorded the response and settled its resource use.
+        No tool action or additional model invocation is authorized here.
+        """
+        carried = self._carry_just_written_finish(
+            turn=turn, context=context, evidence=tuple(accumulator.evidence),
+            registry=registry, ledger=ledger,
+        )
+        if carried is not None and carried.draft:
+            ledger.finish_candidates.append(FinishCandidate(
+                task_frame.task_frame_hash, carried.draft, carried.bindings,
+                tuple(accumulator.evidence), review_pending=False,
+            ))
+        return self._cancelled_outcome(
+            task_frame=task_frame, ledger=ledger, accumulator=accumulator,
+            llm_calls=llm_calls, tool_calls=tool_calls, invalid_actions=invalid_actions,
         )
 
     def _cancelled_outcome(
@@ -3580,6 +3688,7 @@ class ContinuousAgentEpisode:
         context: ResearchRunContext,
         evidence: tuple[AgentEvidence, ...],
         registry: ResearchToolRegistry,
+        ledger: _EpisodeLedger | None = None,
     ) -> FinishAdmission | None:
         """Salvage a just-written FINAL_JSON when the root clock is already dead.
 
@@ -3597,6 +3706,8 @@ class ContinuousAgentEpisode:
             registry=registry,
         )
         if not admission.accepted:
+            if ledger is not None:
+                ledger.retain_candidate(admission)
             return None
         return admission
 
@@ -3608,6 +3719,7 @@ class ContinuousAgentEpisode:
         context: ResearchRunContext,
         evidence: tuple[AgentEvidence, ...],
         registry: ResearchToolRegistry,
+        ledger: _EpisodeLedger | None = None,
     ) -> tuple[str, tuple[OutputEvidenceBinding, ...]]:
         """Prefer the repair turn's own FINAL_JSON, else keep the previous answer.
 
@@ -3627,9 +3739,18 @@ class ContinuousAgentEpisode:
             context=context,
             evidence=evidence,
             registry=registry,
+            ledger=ledger,
         )
         if carried is not None and carried.draft:
-            return carried.draft, carried.bindings
+            draft, bindings, _ = merge_finish_candidates(
+                (FinishCandidate(
+                    previous.task_frame_hash, previous.draft, previous.bindings, previous.evidence,
+                    review_pending=CANDIDATE_REVIEW_NOTICE in previous.gaps,
+                ),),
+                task_frame_hash=context.contract.task_frame_hash, evidence=evidence,
+                draft=carried.draft, bindings=carried.bindings, contract=context.contract,
+            )
+            return draft, bindings
         return previous.draft, previous.bindings
 
     @staticmethod
@@ -3666,8 +3787,15 @@ class ContinuousAgentEpisode:
         （trajectory 里 ``finalization -> finish`` 明明走过）。
         """
 
+        carried_draft, carried_bindings, retained = ledger.compose_candidates(
+            carried_draft, carried_bindings, tuple(evidence),
+        )
         final_gaps = list(gaps)
         ContinuousAgentEpisode._extend_unique(final_gaps, (gap,))
+        if retained:
+            ContinuousAgentEpisode._extend_unique(final_gaps, (CANDIDATE_REVIEW_NOTICE,))
+            if stop_reason != "cancelled":
+                status = "partial"
         ledger.record_runtime_result()
         ledger.add(
             "finish",
@@ -3678,6 +3806,7 @@ class ContinuousAgentEpisode:
                 # 留档结转了多长的草稿：收据里的 draft_chars 取的是最终 outcome，
                 # 没有这一行就分不清「从没生成过」和「生成了但修复轮丢了」。
                 "carried_draft_chars": len(carried_draft),
+                "retained_candidate_count": retained,
                 # 未走过 validate 的停机路径：没有搬运，计数为 0 且字段在场。
                 "caveat_slips": 0,
                 "rejection_code": rejection_code,

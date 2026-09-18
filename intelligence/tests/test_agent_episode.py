@@ -639,7 +639,12 @@ def test_glm_resume_uses_existing_evidence_after_research_deadline(
 
     assert updated.status == "completed"
     assert updated.stop_reason == "repair_model_finish"
-    assert updated.draft == "当前更像阶段性修复，持续性仍取决于量能。"
+    # A wording repair supplements prior analysis; public verification reviews
+    # the real aggregate rather than silently erasing the original claim.
+    assert updated.draft == (
+        "本轮反弹可以持续，因为风险偏好已经全面回升。\n\n"
+        "### 补充与修订（原分析保留）\n当前更像阶段性修复，持续性仍取决于量能。"
+    )
     assert model.calls[-1]["tools"] == []
     assert updated.usage.tool_calls == 1
 
@@ -2491,8 +2496,10 @@ def test_model_contract_keeps_compact_reasoning_and_public_boundary_rules() -> N
     assert "公开网页中的预测或观点" in system_prompt
     assert "news_search 未返回同一时间窗口证据" in system_prompt
     assert "不得用普通 web_search 摘要补成已核验因果" in system_prompt
-    assert "不得为了耗尽步数调用非必需工具" in system_prompt
-    assert "1000 汉字以内" in system_prompt
+    assert "不为耗尽步数而调用工具" in system_prompt
+    assert "必需输出是覆盖下限，不是研究上限" in system_prompt
+    assert "不设统一字数上限" in system_prompt
+    assert "1000 汉字" not in system_prompt
 
 
 def test_valuation_model_contract_explains_scenario_and_financial_bindings() -> None:
@@ -2569,7 +2576,8 @@ def test_finalization_reminder_prefers_decisive_evidence_without_new_thresholds(
     assert "一个明确标注的主观基准区间" in reminder
     assert "每个保留的精确数字" in reminder
     assert "每条被正文使用的观察事实" in reminder
-    assert "1000 汉字以内" in reminder
+    assert "不设统一字数上限" in reminder
+    assert "1000 汉字" not in reminder
 
 
 def test_finish_parser_accepts_one_stray_quote_after_strict_json_fence() -> None:

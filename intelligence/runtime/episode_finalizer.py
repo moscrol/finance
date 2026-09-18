@@ -13,6 +13,7 @@ from intelligence.services.agent_runtime import (
 )
 from intelligence.services.episode_protocol import (
     attach_evidence_ordinals,
+    cited_evidence_ordinals,
     evidence_ordinal_table,
     strip_hashes_for_model,
 )
@@ -51,7 +52,10 @@ _RECOVERY_SYSTEM_PROMPT = (
     "解释、工具调用或 JSON 之外的文本。"
     "原因归因缺少同一时间窗口的新闻证据时，不得用普通网页摘要补成已核验因果，"
     "只能保留盘面事实并把网页内容标为外部观点候选。"
-    "draft 先直接回答用户问题、只保留决定性依据且不超过1200字。"
+    "draft 先直接回答用户问题，再按需要展开依据、比较、反证与边界，不设统一字数上限。"
+    "candidate_drafts 是本任务已写出的待核验分析，不是新增证据。保留其有用内容，"
+    "针对失败原因局部补修；不能把没有准入当成原稿不存在，也不能把保留当作核验通过。"
+    "遵守用户明确的篇幅要求和剩余资源预算。"
     "若 required_outputs 包含 scenario_range，必须给出保守、中性、乐观三种"
     "条件化情景中的实际估值倍数或市值区间；不能把当前单一 PB、标题或空表当作"
     "情景区间。若包含 financial_business_anchor，其 binding 必须至少包含一个 "
@@ -114,6 +118,7 @@ class EpisodeFinalizer:
         failure_reason: str,
         on_prompt: Callable[[str, str], None] | None = None,
         evidence_priority: tuple[str, ...] = (),
+        candidate_drafts: tuple[str, ...] = (),
     ) -> ModelTurn:
         """Return the provider turn unchanged after one no-tools recovery call.
 
@@ -129,6 +134,7 @@ class EpisodeFinalizer:
             gaps=gaps,
             failure_reason=failure_reason,
             evidence_priority=evidence_priority,
+            candidate_drafts=candidate_drafts,
         )
         return self._complete(
             system_prompt=_RECOVERY_SYSTEM_PROMPT,
@@ -175,8 +181,23 @@ class EpisodeFinalizer:
         gaps: tuple[str, ...],
         failure_reason: str,
         evidence_priority: tuple[str, ...] = (),
+        candidate_drafts: tuple[str, ...] = (),
     ) -> dict[str, object]:
         selected = _compact_evidence(evidence, evidence_priority=evidence_priority)
+        if candidate_drafts:
+            # Emergency fallback remains bounded for unrelated observations,
+            # but it must not hide sources needed to repair the retained draft.
+            required = set(evidence_priority)
+            ordinals = evidence_ordinal_table(evidence)
+            cited = set(cited_evidence_ordinals("\n".join(candidate_drafts)))
+            required.update(digest for digest, eid in ordinals.items() if eid in cited)
+            # Every bound/cited card is complete and comes first, with its
+            # original E-number. Only unrelated fallback observations are small.
+            full = [public_agent_evidence(card) for card in evidence if card.content_hash in required]
+            facing = strip_hashes_for_model({"evidence": attach_evidence_ordinals(full, ordinals)})
+            used = list(facing["evidence"])
+            used_ids = {item["evidence_id"] for item in used}
+            selected = used + [item for item in selected if item["evidence_id"] not in used_ids]
         payload = {
             "task_frame": task_frame.to_dict(),
             "required_outputs": [
@@ -195,6 +216,8 @@ class EpisodeFinalizer:
             "latest_data_date": context.latest_data_date,
             "failure_reason": _stable_failure_reason(failure_reason),
         }
+        if candidate_drafts:
+            payload["candidate_drafts"] = list(candidate_drafts)
         if len(selected) < len(evidence):
             tools = dict.fromkeys(item.tool for item in evidence)
             payload["evidence_selection"] = {

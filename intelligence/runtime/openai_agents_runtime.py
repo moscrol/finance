@@ -47,6 +47,9 @@ from intelligence.services.research_tool_registry import (
     copy_tool_parameters,
 )
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.finish_candidate import (
+    CANDIDATE_REVIEW_NOTICE, FinishCandidate, merge_finish_candidates,
+)
 
 
 SdkBackend = Literal["sdk_glm", "sdk_gpt"]
@@ -1209,6 +1212,15 @@ class OpenAIAgentsRuntime:
             evidence=snapshot.evidence,
             registry=registry,
         )
+        if self._is_cancelled():
+            return self._failure_from_snapshot(
+                task_frame=task_frame, snapshot=snapshot, stop_reason="cancelled",
+                gap="本轮执行已取消", llm_calls=max(1, result.llm_calls), result=result,
+                candidate=(FinishCandidate(
+                    task_frame.task_frame_hash, admission.draft, admission.bindings,
+                    snapshot.evidence, review_pending=False,
+                ) if admission.accepted else admission.candidate),
+            )
         if not admission.accepted:
             # Invalid delivery is a verifier gap, not a private SDK retry.  The
             # adapter owns the one shared RepairGoal cycle pool for every gap.
@@ -1219,6 +1231,7 @@ class OpenAIAgentsRuntime:
                 gap="sdk_invalid_finish",
                 llm_calls=max(1, result.llm_calls),
                 result=result,
+                candidate=admission.candidate,
             )
         assert admission.status is not None
 
@@ -1473,6 +1486,18 @@ class OpenAIAgentsRuntime:
             gaps = tuple(dict.fromkeys((*previous.gaps, stop_reason)))
             draft = previous.draft
             bindings = previous.bindings
+            if admission.candidate is not None:
+                draft, bindings, retained = merge_finish_candidates(
+                    (FinishCandidate(
+                        previous.task_frame_hash, previous.draft, previous.bindings, previous.evidence,
+                        review_pending=CANDIDATE_REVIEW_NOTICE in previous.gaps,
+                    ), admission.candidate), task_frame_hash=previous.task_frame_hash,
+                    evidence=snapshot.evidence, draft="", bindings=bindings,
+                    contract=repair_context.contract,
+                )
+                if retained:
+                    status = "partial"
+                    gaps = tuple(dict.fromkeys((*gaps, CANDIDATE_REVIEW_NOTICE)))
             invalid_actions = previous.usage.invalid_actions + 1
         else:
             assert admission.status is not None
@@ -1495,9 +1520,21 @@ class OpenAIAgentsRuntime:
                     (*previous.gaps, *snapshot.gaps, *admission.declared_gaps)
                 )
             )
-            draft = admission.draft
-            bindings = admission.bindings
+            draft, bindings, retained = merge_finish_candidates(
+                (FinishCandidate(
+                    previous.task_frame_hash, previous.draft, previous.bindings, previous.evidence,
+                    review_pending=CANDIDATE_REVIEW_NOTICE in previous.gaps,
+                ),), task_frame_hash=previous.task_frame_hash,
+                evidence=snapshot.evidence, draft=admission.draft, bindings=admission.bindings,
+                contract=repair_context.contract,
+            )
+            if retained:
+                status = "partial"
+                gaps = tuple(dict.fromkeys((*gaps, CANDIDATE_REVIEW_NOTICE)))
             invalid_actions = previous.usage.invalid_actions
+        if self._is_cancelled():
+            status, stop_reason = "failed", "cancelled"
+            gaps = tuple(dict.fromkeys((*gaps, "本轮执行已取消")))
         appended.extend(
             self._continuation_terminal_events(
                 sequence=len(prefix) + len(appended) + 1,
@@ -1619,9 +1656,17 @@ class OpenAIAgentsRuntime:
         gap: str,
         llm_calls: int,
         result: AgentsSdkResult | None,
+        candidate: FinishCandidate | None = None,
     ) -> AgentOutcome:
-        gaps = tuple(dict.fromkeys((*snapshot.gaps, gap)))
-        status = "partial" if snapshot.evidence else "failed"
+        draft, bindings, retained = merge_finish_candidates(
+            (candidate,) if candidate else (), task_frame_hash=task_frame.task_frame_hash,
+            evidence=snapshot.evidence, draft="", bindings=(),
+        )
+        gaps = tuple(dict.fromkeys((*snapshot.gaps, gap, *((CANDIDATE_REVIEW_NOTICE,) if retained else ()))))
+        status = "partial" if snapshot.evidence or retained else "failed"
+        if self._is_cancelled():
+            status, stop_reason = "failed", "cancelled"
+            gaps = tuple(dict.fromkeys((*gaps, "本轮执行已取消")))
         events = self._events(
             task_frame=task_frame,
             snapshot=snapshot,
@@ -1633,13 +1678,13 @@ class OpenAIAgentsRuntime:
         return AgentOutcome(
             task_frame_hash=task_frame.task_frame_hash,
             status=status,
-            draft="",
+            draft=draft,
             evidence=snapshot.evidence,
             traces=snapshot.traces,
             gaps=gaps,
             stop_reason=stop_reason,
             events=events,
-            bindings=(),
+            bindings=bindings,
             usage=AgentUsage(
                 llm_calls=llm_calls,
                 tool_calls=snapshot.executed_count,

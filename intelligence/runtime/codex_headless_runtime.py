@@ -30,6 +30,8 @@ from intelligence.services.agent_runtime import (
 )
 from intelligence.services.episode_protocol import (
     SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
+    attach_evidence_ordinals,
+    evidence_ordinal_table,
     finish_json_schema,
 )
 from intelligence.services.research_harness import (
@@ -46,6 +48,9 @@ from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.finish_candidate import (
+    CANDIDATE_REVIEW_NOTICE, FinishCandidate, merge_finish_candidates,
+)
 
 
 _EXTERNAL_ACTION_ITEM_TYPES = frozenset(
@@ -689,6 +694,19 @@ class CodexHeadlessRuntime:
                     process.stdout,
                     authorized_wrapper=gateway.wrapper_path,
                 )
+                candidates: list[FinishCandidate] = []
+                if not parsed.issues and not process.timed_out and process.returncode == 0:
+                    admission = self._harness.admit_finish(
+                        parsed.final_text, context=context, evidence=snapshot.evidence, registry=registry,
+                    )
+                    retained = admission.candidate
+                    if admission.accepted and self._is_cancelled():
+                        retained = FinishCandidate(
+                            task_frame.task_frame_hash, admission.draft, admission.bindings,
+                            snapshot.evidence, review_pending=False,
+                        )
+                    if retained is not None:
+                        candidates.append(retained)
                 recovered = False
                 llm_calls = 1
                 finish_issue = _finish_issue(
@@ -702,6 +720,7 @@ class CodexHeadlessRuntime:
                 if (
                     finish_issue in {"headless_invalid_finish", "headless_no_finish"}
                     and snapshot.evidence
+                    and not self._is_cancelled()
                     and context.deadline.stage_timeout(
                         context.deadline.remaining()
                     )
@@ -717,6 +736,7 @@ class CodexHeadlessRuntime:
                         schema_path=schema_path,
                         run_dir=run_dir,
                         failure_reason=finish_issue,
+                        candidate_drafts=tuple(item.draft for item in candidates),
                     )
                     llm_calls += 1
                     repair_process = self._command_runner(repair_command)
@@ -745,6 +765,21 @@ class CodexHeadlessRuntime:
                         registry=registry,
                         harness=self._harness,
                     )
+                    # A command/transport/isolation violation cannot authorize
+                    # recovery prose. Previously checked candidates remain separate.
+                    if not repair_parsed.issues and not repair_process.timed_out and repair_process.returncode == 0:
+                        admission = self._harness.admit_finish(
+                            repair_parsed.final_text, context=context,
+                            evidence=repair_snapshot.evidence, registry=registry,
+                        )
+                        retained = admission.candidate
+                        if admission.accepted and self._is_cancelled():
+                            retained = FinishCandidate(
+                                task_frame.task_frame_hash, admission.draft, admission.bindings,
+                                repair_snapshot.evidence, review_pending=False,
+                            )
+                        if retained is not None:
+                            candidates.append(retained)
                     parsed = _merge_parsed_usage(parsed, repair_parsed)
                     process = repair_process
                     snapshot = repair_snapshot
@@ -764,6 +799,7 @@ class CodexHeadlessRuntime:
             snapshot=snapshot,
             recovered=recovered,
             llm_calls=llm_calls,
+            candidates=tuple(candidates),
         )
 
     def _build_command(
@@ -806,20 +842,26 @@ class CodexHeadlessRuntime:
         schema_path: Path,
         run_dir: Path,
         failure_reason: str,
+        candidate_drafts: tuple[str, ...] = (),
     ) -> HeadlessCommand:
-        evidence = [public_agent_evidence(item) for item in snapshot.evidence]
+        evidence = attach_evidence_ordinals(
+            [public_agent_evidence(item) for item in snapshot.evidence],
+            evidence_ordinal_table(snapshot.evidence),
+        )
         # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: repair prompt is per-turn user JSON.
         _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
         _system, task_user = self._harness.assemble_prompt(task_frame, context, registry)
         prompt = (
             "研究阶段已经关闭，禁止调用任何工具或运行命令。"
             "上一份终止输出未通过固定 JSON 协议；只修复终止 envelope，"
-            "不得增加新事实。只能使用下面列出的证据哈希，缺失输出必须写 gap。"
+            "不得增加新事实。只能使用下面列出的证据编号或哈希，编号沿用原回合，缺失输出必须写 gap。"
             "只输出符合给定 schema 的 JSON 对象。\n"
             f"失败原因：{failure_reason}\n"
             f"任务：{task_user}\n"
             f"证据：{json.dumps(evidence, ensure_ascii=False)}\n"
-            f"现有缺口：{json.dumps(list(snapshot.gaps), ensure_ascii=False)}"
+            f"现有缺口：{json.dumps(list(snapshot.gaps), ensure_ascii=False)}\n"
+            "下列候选是待核验分析，不是新证据；保留正文，仅补修，不得据此声称核验通过。\n"
+            f"candidate_drafts：{json.dumps(list(candidate_drafts), ensure_ascii=False)}"
         )
         return self._command_from_prompt(
             prompt=prompt,
@@ -933,6 +975,7 @@ class CodexHeadlessRuntime:
         snapshot: HeadlessGatewaySnapshot,
         recovered: bool,
         llm_calls: int,
+        candidates: tuple[FinishCandidate, ...] = (),
     ) -> AgentOutcome:
         issues = list(parsed.issues)
         if process.timed_out:
@@ -1054,6 +1097,16 @@ class CodexHeadlessRuntime:
             draft = ""
             stop_reason = _stop_reason(unique_issues)
 
+        draft, bindings, retained = merge_finish_candidates(
+            candidates, task_frame_hash=task_frame.task_frame_hash, evidence=snapshot.evidence,
+            draft=draft, bindings=bindings, contract=context.contract,
+        )
+        if retained:
+            if stop_reason != "cancelled":
+                status = "partial"
+            gaps.append(CANDIDATE_REVIEW_NOTICE)
+        if stop_reason == "cancelled":
+            status = "failed"
         events.append(
             EpisodeEvent(
                 len(events) + 1,
@@ -1062,6 +1115,7 @@ class CodexHeadlessRuntime:
                     "status": status,
                     "stop_reason": stop_reason,
                     "gaps": gaps,
+                    "retained_candidate_count": retained,
                     "timestamp": _utc_timestamp(),
                 },
             )

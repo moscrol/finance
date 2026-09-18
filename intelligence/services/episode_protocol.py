@@ -339,11 +339,11 @@ def build_episode_instructions(
         "不得用同一次工具返回的相邻证据代替，也不得正文使用后漏绑。\n"
         "\n"
         "【何时停止】\n"
-        "必需输出"
-        "已有足够直接证据时应停止研究，不得为了耗尽步数调用非必需工具。\n"
-        "不要套固定标题、行数或段落模板。终止时不要调用工具，"
-        "为保证结构化终止完整，draft 控制在 1000 汉字以内，优先保留直接"
-        "判断、决定性依据、继续条件和失效条件；这不要求固定标题或段数。\n"
+        "原问题已得到充分回答，或现有授权、数据与预算无法支持继续研究时停止；"
+        "必需输出是覆盖下限，不是研究上限，不为耗尽步数而调用工具。\n"
+        "不要套固定标题、行数或段落模板。终止时不要调用工具。"
+        "draft 不设统一字数上限：先给直接结论，再按问题展开比较、依据、反证与边界；"
+        "不要为缩短输出删掉已形成的有用分析。用户明确的字数要求与本轮资源预算仍须遵守。\n"
         "\n"
         "【排版】\n"
         "上面禁止的是「按固定小标题填空」，不是禁止排版：用哪些结构由内容"
@@ -531,6 +531,8 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
     "forward_direction_call": RejectionKind.SUBSTANCE,
     # 地基破坏 → 硬拒
     "unknown_output": RejectionKind.INTEGRITY,
+    "finish_identity_mismatch": RejectionKind.INTEGRITY,
+    "ambiguous_json": RejectionKind.INTEGRITY,
     "forged_hash": RejectionKind.INTEGRITY,
     # 派生计算证据没有输入哈希链：算出来的数指不回它算的证据，与伪造哈希同一族——
     # 证据体系的地基问题，不是写法问题（spec capability-amplification §3.4）。
@@ -834,7 +836,6 @@ def validate_episode_finish(
     evidence_by_hash = {
         item.content_hash: item for item in evidence if item.content_hash
     }
-    evidence_hashes = set(evidence_by_hash)
     decoded = _finish_object(value)
     if decoded is None:
         raise _reject("not_json_object", "finish must be one JSON object")
@@ -860,6 +861,49 @@ def validate_episode_finish(
     ):
         raise _reject("bad_gaps", "finish gaps must be a string list")
     gaps = tuple(dict.fromkeys(item.strip() for item in raw_gaps if item.strip()))
+    bindings = list(validate_finish_bindings(decoded, context=context, evidence=evidence))
+    for binding in bindings:
+        bound_tools = tuple(
+            evidence_by_hash[evidence_hash].tool
+            for evidence_hash in binding.evidence_hashes
+        )
+        missing_floor = tuple(
+            tool
+            for tool in required_output_evidence_floor(binding.output_id)
+            if tool not in bound_tools
+        )
+        if binding.evidence_hashes and missing_floor:
+            raise _reject(
+                "evidence_type_floor",
+                f"required output lacks evidence type {binding.output_id}: "
+                + ",".join(missing_floor),
+            )
+
+    return _validate_finish_substance(
+        context=context, status=cast(EpisodeStatus, status), draft=draft,
+        gaps=gaps, bindings=bindings,
+    )
+
+
+def validate_finish_bindings(
+    decoded: Mapping[str, object], *, context: ResearchRunContext,
+    evidence: tuple[AgentEvidence, ...],
+) -> tuple[OutputEvidenceBinding, ...]:
+    """Check evidence identity independently of prose/coverage/finish status.
+
+    Candidate retention must run the *whole* identity check: an early format
+    error must not hide a later forged hash. No bindings are inferred here.
+    """
+    for key, expected in (("task_frame_hash", context.contract.task_frame_hash),
+                          ("task_id", context.contract.task_id)):
+        if key in decoded and decoded[key] != expected:
+            raise _reject("finish_identity_mismatch", "finish task identity mismatch")
+    if any(key in decoded for key in ("tool_calls", "function_call", "kind", "messages")):
+        raise _reject("finish_identity_mismatch", "finish contains another action envelope")
+    evidence_by_hash = {item.content_hash: item for item in evidence if item.content_hash}
+    if len(evidence_by_hash) != sum(bool(item.content_hash) for item in evidence):
+        raise _reject("finish_identity_mismatch", "duplicate evidence identity")
+    evidence_hashes = set(evidence_by_hash)
     raw_bindings = decoded.get("bindings")
     if not isinstance(raw_bindings, list):
         raise _reject("bindings_not_list", "finish bindings must be a list")
@@ -934,21 +978,6 @@ def validate_episode_finish(
     if len({item.output_id for item in bindings}) != len(bindings):
         raise _reject("duplicate_binding", "duplicate output binding")
     for binding in bindings:
-        bound_tools = tuple(
-            evidence_by_hash[evidence_hash].tool
-            for evidence_hash in binding.evidence_hashes
-        )
-        missing_floor = tuple(
-            tool
-            for tool in required_output_evidence_floor(binding.output_id)
-            if tool not in bound_tools
-        )
-        if binding.evidence_hashes and missing_floor:
-            raise _reject(
-                "evidence_type_floor",
-                f"required output lacks evidence type {binding.output_id}: "
-                + ",".join(missing_floor),
-            )
         # 派生计算产物没有输入哈希链就不是证据（spec capability-amplification §3.4 / §5 第 16 条）：
         # 一段算出来的数如果说不清算的是哪几条证据，既不可复现也无法与 provider 数对账。
         derived_without_inputs = tuple(
@@ -965,6 +994,13 @@ def validate_episode_finish(
                 + "；派生数必须能指回它算的那几条证据",
             )
 
+    return tuple(bindings)
+
+
+def _validate_finish_substance(
+    *, context: ResearchRunContext, status: EpisodeStatus, draft: str,
+    gaps: tuple[str, ...], bindings: list[OutputEvidenceBinding],
+) -> EpisodeFinish:
     binding_map = {item.output_id: item for item in bindings}
     empty_outputs = tuple(
         output_id
@@ -1197,10 +1233,19 @@ def _decode_finish_json(text: str) -> dict[str, object] | None:
     if not candidate.startswith("{") or not candidate.endswith("}"):
         return None
     try:
-        value = json.loads(candidate)
+        value = json.loads(candidate, object_pairs_hook=_unique_json_keys)
     except json.JSONDecodeError:
         value = _recover_finish_with_raw_draft(candidate)
     return value if isinstance(value, dict) else None
+
+
+def _unique_json_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise _reject("ambiguous_json", "duplicate JSON object key")
+        result[key] = value
+    return result
 
 
 def _looks_like_finish_envelope(value: dict[str, object]) -> bool:
@@ -1230,7 +1275,7 @@ def _recover_finish_with_raw_draft(text: str) -> dict[str, object] | None:
     if separator.start() < prefix.end():
         return None
     try:
-        tail = json.loads("{" + text[separator.end() :])
+        tail = json.loads("{" + text[separator.end() :], object_pairs_hook=_unique_json_keys)
     except json.JSONDecodeError:
         return None
     if not isinstance(tail, dict) or set(tail) != {"gaps", "bindings"}:

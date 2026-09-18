@@ -442,14 +442,15 @@ def test_default_steering_messages_are_the_loop_texts_verbatim() -> None:
         "错误：E"
     )
     assert harness.steering_message("invalid_finish", detail="E") == (
-        "上一条终止输出无效。请保留当前任务和全部观察，"
-        "不要重启研究；修复后只输出 FINAL_JSON。"
+        "上一条终止输出无效。请保留当前任务、已有分析和全部观察，"
+        "不要重启研究；只修正结构，不压缩或丢弃正文，完成时输出 FINAL_JSON。"
         "错误：E"
     )
     finalization = harness.steering_message("begin_finalization", detail="R")
     assert finalization.startswith("研究阶段已关闭，不得再调用工具。")
     assert finalization.endswith("关闭原因：R")
-    assert "draft 控制在 1000 汉字以内" in finalization
+    assert "不设统一字数上限" in finalization
+    assert "1000 汉字" not in finalization
     with pytest.raises(ValueError):
         harness.steering_message("nope", detail="")  # type: ignore[arg-type]
 

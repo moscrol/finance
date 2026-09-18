@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 RESEARCH_REVIEW_HEADING = "### 核验批注（分析保留，不代表已证实）"
+CANDIDATE_REVIEW_NOTICE = "先前因格式或研究完整性问题未获准入的分析已保留；相关判断与修订须结合阅读，展示不代表完成核验。"
 
 
 def annotate_research_answer(body: str, notes: Iterable[str] = ()) -> str:

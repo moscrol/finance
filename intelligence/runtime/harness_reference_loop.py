@@ -89,6 +89,9 @@ from intelligence.services.research_plan import (
 )
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.finish_candidate import (
+    CANDIDATE_REVIEW_NOTICE, FinishCandidate, merge_finish_candidates,
+)
 
 DEFAULT_LLM_TIMEOUT = 20.0
 # 与 agent_episode.MAX_PLAN_TURNS 同值。刻意不 import：本类的独立性就是它的全部价值，
@@ -101,6 +104,7 @@ __all__ = ["HarnessReferenceLoop", "ReferenceLoopState"]
 class _Ledger:
     def __init__(self) -> None:
         self.events: list[EpisodeEvent] = []
+        self.candidates: list[FinishCandidate] = []
         # INV-R1 对账失败的落账点（本 loop 没有 EpisodeScope，账就在这里）。
         self.derive_mismatches: list[str] = []
 
@@ -203,7 +207,7 @@ class HarnessReferenceLoop:
         plan: ResearchPlan | None = None
         plan_turns = 0
         plan_failures = 0
-        finish_failures = 0
+        finish_failures: dict[str, int] = {}
         llm_calls = 0
         tool_calls = 0
         invalid_actions = 0
@@ -214,7 +218,15 @@ class HarnessReferenceLoop:
         def stop(
             status: EpisodeStatus, stop_reason: str, gap: str
         ) -> AgentOutcome:
+            draft, bindings, retained = merge_finish_candidates(
+                tuple(ledger.candidates), task_frame_hash=task_frame.task_frame_hash,
+                evidence=tuple(evidence), draft="", bindings=(), contract=context.contract,
+            )
             final_gaps = list(gaps)
+            if retained:
+                final_gaps.append(CANDIDATE_REVIEW_NOTICE)
+                if stop_reason != "cancelled":
+                    status = "partial"
             if gap and gap not in final_gaps:
                 final_gaps.append(gap)
             payload: dict[str, object] = {
@@ -231,13 +243,13 @@ class HarnessReferenceLoop:
             return AgentOutcome(
                 task_frame_hash=task_frame.task_frame_hash,
                 status=status,
-                draft="",
+                draft=draft,
                 evidence=tuple(evidence),
                 traces=tuple(state.traces),
                 gaps=tuple(final_gaps),
                 stop_reason=stop_reason,
                 events=tuple(ledger.events),
-                bindings=(),
+                bindings=bindings,
                 usage=AgentUsage(
                     llm_calls=llm_calls,
                     tool_calls=tool_calls,
@@ -435,7 +447,10 @@ class HarnessReferenceLoop:
                 registry=registry,
             )
             if not admission.accepted:
-                finish_failures += 1
+                if admission.candidate is not None:
+                    ledger.candidates.append(admission.candidate)
+                code = admission.rejection["rejection_code"]
+                finish_failures[code] = finish_failures.get(code, 0) + 1
                 invalid_actions += 1
                 response = admission.response
                 assert response is not None
@@ -450,14 +465,15 @@ class HarnessReferenceLoop:
                 )
                 if (
                     response.reinject
-                    and finish_failures == 1
+                    and (admission.kind == "substance" or finish_failures[code] == 1)
                     and not finalization_started
                 ):
                     append_model_input(
                         messages,
                         ledger,
                         content=harness.steering_message(
-                            "invalid_finish", detail=admission.reason
+                            "incomplete_research" if admission.kind == "substance" else "invalid_finish",
+                            detail=admission.reason
                         ),
                         source="steering_invalid_finish",
                     )
@@ -466,27 +482,34 @@ class HarnessReferenceLoop:
                     "partial", response.stop_reason, "模型未能返回可验证的结构化终止结果"
                 )
             assert admission.status is not None
+            draft, bindings, retained = merge_finish_candidates(
+                tuple(ledger.candidates), task_frame_hash=task_frame.task_frame_hash,
+                evidence=tuple(evidence), draft=admission.draft, bindings=admission.bindings,
+                contract=context.contract,
+            )
+            status = "partial" if retained else admission.status
+            final_gaps = tuple(dict.fromkeys((*admission.gaps, *((CANDIDATE_REVIEW_NOTICE,) if retained else ()))))
             ledger.add(
                 "finish",
                 {
-                    "status": admission.status,
+                    "status": status,
                     "stop_reason": "model_finish",
-                    "bindings": [item.to_dict() for item in admission.bindings],
-                    "gaps": list(admission.gaps),
+                    "bindings": [item.to_dict() for item in bindings],
+                    "gaps": list(final_gaps),
                     "caveat_slips": admission.caveat_slips,
                     **admission.rejection,
                 },
             )
             return AgentOutcome(
                 task_frame_hash=task_frame.task_frame_hash,
-                status=admission.status,
-                draft=admission.draft,
+                status=status,
+                draft=draft,
                 evidence=tuple(evidence),
                 traces=tuple(state.traces),
-                gaps=admission.gaps,
+                gaps=final_gaps,
                 stop_reason="model_finish",
                 events=tuple(ledger.events),
-                bindings=admission.bindings,
+                bindings=bindings,
                 usage=AgentUsage(
                     llm_calls=llm_calls,
                     tool_calls=tool_calls,
@@ -522,6 +545,10 @@ class HarnessReferenceLoop:
         tool_calls = previous.usage.tool_calls
         invalid_actions = previous.usage.invalid_actions
 
+        ledger.candidates[:] = [FinishCandidate(
+            previous.task_frame_hash, previous.draft, previous.bindings, previous.evidence,
+            review_pending=CANDIDATE_REVIEW_NOTICE in previous.gaps,
+        )]
         goal_payload = goal.to_dict()
         downgrade = harness.downgrade_unreachable(goal, contract=context.contract)
         if downgrade.unreachable:
@@ -548,7 +575,14 @@ class HarnessReferenceLoop:
             bindings: tuple[OutputEvidenceBinding, ...] = (),
             **extra: object,
         ) -> AgentOutcome:
+            draft, bindings, retained = merge_finish_candidates(
+                tuple(ledger.candidates), task_frame_hash=task_frame.task_frame_hash,
+                evidence=tuple(evidence), draft=draft or previous.draft,
+                bindings=bindings or previous.bindings, contract=context.contract,
+            )
             final_gaps = list(state.gaps)
+            if retained:
+                final_gaps.append(CANDIDATE_REVIEW_NOTICE)
             if gap and gap not in final_gaps:
                 final_gaps.append(gap)
             status: EpisodeStatus = "partial" if evidence else "failed"
@@ -643,6 +677,8 @@ class HarnessReferenceLoop:
             turn.content, context=context, evidence=tuple(evidence), registry=registry
         )
         if not admission.accepted:
+            if admission.candidate is not None:
+                ledger.candidates.append(admission.candidate)
             invalid_actions += 1
             ledger.add(
                 "invalid_action",
@@ -663,27 +699,34 @@ class HarnessReferenceLoop:
             performed_tool_action=performed_tool_action,
         )
         stop_reason = "repair_model_finish" if verdict.progressed else "repair_model_stop"
+        draft, bindings, retained = merge_finish_candidates(
+            tuple(ledger.candidates), task_frame_hash=task_frame.task_frame_hash,
+            evidence=tuple(evidence), draft=admission.draft, bindings=admission.bindings,
+            contract=context.contract,
+        )
+        status = "partial" if retained else verdict.status
+        final_gaps = tuple(dict.fromkeys((*verdict.gaps, *((CANDIDATE_REVIEW_NOTICE,) if retained else ()))))
         ledger.add(
             "finish",
             {
-                "status": verdict.status,
+                "status": status,
                 "stop_reason": stop_reason,
-                "bindings": [item.to_dict() for item in admission.bindings],
-                "gaps": list(verdict.gaps),
+                "bindings": [item.to_dict() for item in bindings],
+                "gaps": list(final_gaps),
                 "caveat_slips": admission.caveat_slips,
                 **admission.rejection,
             },
         )
         return AgentOutcome(
             task_frame_hash=task_frame.task_frame_hash,
-            status=verdict.status,
-            draft=admission.draft,
+            status=status,
+            draft=draft,
             evidence=tuple(evidence),
             traces=tuple(state.traces),
-            gaps=verdict.gaps,
+            gaps=final_gaps,
             stop_reason=stop_reason,
             events=tuple(ledger.events),
-            bindings=admission.bindings,
+            bindings=bindings,
             usage=AgentUsage(
                 llm_calls=llm_calls,
                 tool_calls=tool_calls,

@@ -283,7 +283,9 @@ def test_sdk_progress_sink_suppresses_events_after_cancellation() -> None:
         registry=_registry([]),
     )
 
-    assert outcome.status == "completed"
+    # Returned analysis survives cancellation, but cancellation is not completion.
+    assert outcome.status == "failed" and outcome.stop_reason == "cancelled"
+    assert outcome.draft == "截至2026-07-24，医药是韧性核心。"
     assert [event.kind for event in observed] == [
         "task",
         "tool_request",
