@@ -8,6 +8,7 @@
 用法（在仓根，用 test-environment.json 指定的 Python）：
     python scripts/review_probes/run_extraction_mutations.py --output <新证据目录>
     python scripts/review_probes/run_extraction_mutations.py --revision <sha> --output <目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite research-delivery --output <新目录>
 
 只测试已提交 revision；未提交源码或定义不会被悄悄混进证据。证据目录必须新建。
 临时 worktree 在成功后移除；失败则保留还原后的树用于诊断，路径写入 results.json。
@@ -31,6 +32,15 @@ TESTS = [
     "intelligence/tests/test_extraction_closeout.py",
 ]
 DEFINITIONS = "scripts/review_probes/extraction_mutations.json"
+SUITES = {
+    "extraction": (TESTS, DEFINITIONS),
+    "research-delivery": ([
+        "intelligence/tests/test_calculation_result_delivery.py",
+        "intelligence/tests/test_research_delivery_checks.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_frozen_research_delivery.py",
+    ], "scripts/review_probes/research_delivery_mutations.json"),
+}
 
 
 def git(root: Path, *args: str) -> str:
@@ -54,6 +64,8 @@ def run_tests(root: Path, out: Path, label: str, targets: list[str] | None = Non
         "PYTHONDONTWRITEBYTECODE": "1",
         "FWP_TEST_RECEIPT": "0",
         "FORESIGHT_USERS_DIR": str(out / "isolated-users"),
+        "FORESIGHT_LLM_KEYCHAIN": "0",
+        **{k: os.environ[k] for k in ("LANG", "TMPDIR", "KNOWLEDGE_WIKI") if k in os.environ},
     }
     proc = subprocess.run(cmd, cwd=root, env=env, text=True, capture_output=True, timeout=180)
     (out / f"{label}.log").write_text(
@@ -85,10 +97,14 @@ def check_result(result: dict, *, red: bool = False) -> None:
 
 
 def main() -> int:
+    global TESTS, DEFINITIONS
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--revision", default="HEAD")
+    parser.add_argument("--suite", choices=tuple(SUITES), default="extraction")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    TESTS, DEFINITIONS = SUITES[args.suite]
+    os.umask(0o022)
     repo = Path(git(Path.cwd(), "rev-parse", "--show-toplevel"))
     revision = git(repo, "rev-parse", f"{args.revision}^{{commit}}")
     out = args.output.expanduser().resolve()
@@ -96,7 +112,7 @@ def main() -> int:
     parent = Path(tempfile.mkdtemp(prefix="extraction-closeout-mutations-")).resolve()
     root = parent / "tree"
     subprocess.run(["git", "-C", str(repo), "worktree", "add", "--detach", str(root), revision], check=True)
-    report = {"revision": revision, "tree": str(root), "python": sys.executable,
+    report = {"revision": revision, "suite": args.suite, "tree": str(root), "python": sys.executable,
               "complete": False, "runs": [], "mutations": []}
     try:
         assert git(root, "status", "--porcelain") == ""

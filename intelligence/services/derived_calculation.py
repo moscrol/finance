@@ -77,6 +77,7 @@ ERROR_SANDBOX_TIMEOUT = "sandbox_timeout"
 ERROR_SANDBOX_VIOLATION = "sandbox_violation"
 ERROR_SCRIPT_ERROR = "script_error"
 ERROR_NO_RESULT = "no_result_emitted"
+ERROR_INVALID_RESULT = "invalid_result_contract"
 ERROR_SANDBOX_UNAVAILABLE = "sandbox_unavailable"
 ERROR_BASE_CALC_NOT_FOUND = "base_calc_not_found"
 
@@ -156,6 +157,7 @@ class CalculationError:
             ERROR_SANDBOX_VIOLATION,
             ERROR_SCRIPT_ERROR,
             ERROR_NO_RESULT,
+            ERROR_INVALID_RESULT,
         }
 
 
@@ -391,6 +393,16 @@ def run_derived_calculation(
             enforcement=run.enforcement,
             stderr_tail=run.stderr_tail,
         )
+    result_errors = artifacts.result_contract_errors(run.result)
+    if result_errors:
+        return CalculationError(
+            ERROR_INVALID_RESULT,
+            "; ".join(result_errors)
+            + "；summary 只接标量；逐期数据请用 tables=[table(name, columns, rows)]，"
+            "每行与列对应、缺值用 None；不能把嵌套对象塞入 summary。",
+            enforcement=run.enforcement,
+            stderr_tail=run.stderr_tail,
+        )
     return DerivedCalculation(
         calc_id=compute_calc_id(
             script, hashes, db_fingerprint_value=fingerprint, params_json=params_json
@@ -529,6 +541,13 @@ def to_tool_result(outcome: DerivedCalculation | CalculationError) -> ToolRunRes
                 )[:400],
                 result_count=0,
             ),
+            # Adopt the committed R5 failure projection (dfd7b4ff), not its
+            # unrelated report-selection/runtime changes. Model + audit see it.
+            gaps=(error_observation(outcome),),
+            telemetry={"calculation_error": {
+                "code": outcome.code, "detail": outcome.detail,
+                "retryable_by_rewriting": outcome.retryable_by_rewriting,
+            }},
         )
     return ToolRunResult(
         evidence=(derived_evidence(outcome),),

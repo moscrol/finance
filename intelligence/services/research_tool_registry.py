@@ -496,7 +496,10 @@ DERIVED_CALCULATION_PARAMETERS: dict[str, object] = {
                 "财务助手 fincalc 已内置：series(subject, metric) 取某公司某指标按报告期升序的序列；"
                 "to_single_quarter(累计序列) 累计→单季（缺上一期就 None 并写 note）；yoy / qoq / "
                 "ratio_series / safe_div / pct / pct_change / to_yi(值, 单位) / growth_path / "
-                "scenario_table / sensitivity_grid / table / chart。"
+                "scenario_table / sensitivity_grid。"
+                "表的签名 table(name, columns, rows, *, unit=None, note=None)，前三项必填；"
+                "name 是表名，不接受 title；rows 行长须与 columns 一致。"
+                "图的签名 chart(name, kind, x, series_by_label, *, unit=None, y_label=None)。"
                 "结果用 emit_result(summary={标量}, tables=[table(...)], charts=[chart(...)], "
                 "formulas=[...], notes=[...]) 输出（表格会成为可下载 CSV / HTML 产物）；"
                 "简单结果也可 emit({...})。不 emit 视为没有结果。可 import 标准库与 numpy / pandas；"
@@ -891,6 +894,19 @@ class ToolObservation:
     payload_field_names: tuple[str, ...] = ()
     payload_sha256: str = ""
     telemetry: dict[str, object] = field(default_factory=dict)
+
+    def result_status_fields(self) -> dict[str, object]:
+        """R5/dfd7b4ff: domain failure is not transport success; empty is distinct."""
+        error = self.telemetry.get("calculation_error")
+        if self.tool == "derived_calculation" and isinstance(error, Mapping):
+            return {"ok": False, "error": str(error["code"]), "status": self.trace.status}
+        failed = self.trace.status in {
+            "error", "timeout", "request_error", "parse_error", "proxy_unavailable",
+            "fallback_failed", "disabled", "not_attempted",
+        }
+        if failed:
+            return {"ok": False, "error": self.trace.status, "status": self.trace.status}
+        return {"ok": True}
 
 
 @dataclass(frozen=True)
@@ -1707,6 +1723,8 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "财务数用 financial_data 每行 observations 里的结构化值算（metric 名带口径与单位，如 "
         "revenue_cum_yi 是累计亿元），不要解析表格文本；累计口径转单季必须用 to_single_quarter，"
         "不要把中报 / 三季报的累计数当单季数。"
+        "summary 仅接标量，不接逐期嵌套字典；逐期结果用 tables=[table(name, columns, rows)]。"
+        "格式错误或无可展示结果会返回 invalid_result_contract，不是成功计算。"
         "结果用 emit_result(summary, tables, charts, params, formulas, notes) 组织：表格里的每个数都会"
         "进这条派生证据的 observations，正文引用它们时逐字照抄（不四舍五入成别的数）；"
         "表格 / 图表 / 完整记录会作为本次回答的产物落盘为 calc-<计算编号>.csv / .html / .json，"

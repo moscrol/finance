@@ -781,7 +781,7 @@ class FinanceResearchHarness:
         # 逐字搬自 _EpisodeToolAccumulator.consume 的成功分支。
         ordinals = evidence_ordinal_table(tuple(evidence_so_far))
         audit: dict[str, object] = {
-            "ok": True,
+            **observation.result_status_fields(),
             "tool": observation.tool,
             "query": observation.query,
             "observation": observation.observation,

@@ -549,6 +549,10 @@ class SemanticEpisodeOutcome:
     gap_output_ids: tuple[str, ...] = ()
     rejected_claim_indexes: tuple[int, ...] = ()
     repair_output_ids: tuple[str, ...] = ()
+    # Local delivery repair is partial within a slot. These hashes preserve only
+    # already-bound citations still present in retained public text, NOT slot success.
+    delivery_retained_evidence_hashes: tuple[str, ...] = ()
+    delivery_repair_notes: tuple[str, ...] = ()
     timeout_asked: float | None = None
     timeout_configured: float | None = None
     remaining_seconds_at_entry: float | None = None
@@ -623,6 +627,8 @@ class SemanticEpisodeOutcome:
             "gap_output_ids": list(self.gap_output_ids),
             "rejected_claim_indexes": list(self.rejected_claim_indexes),
             "repair_output_ids": list(self.repair_output_ids),
+            "delivery_retained_evidence_hashes": list(self.delivery_retained_evidence_hashes),
+            "delivery_repair_notes": list(self.delivery_repair_notes),
             "timeout_asked": self.timeout_asked,
             "timeout_configured": self.timeout_configured,
             "remaining_seconds_at_entry": self.remaining_seconds_at_entry,
@@ -672,6 +678,85 @@ class SemanticEpisodeOutcome:
         return payload
 
 
+def _recheck_research_delivery(outcome: SemanticEpisodeOutcome, public: str) -> SemanticEpisodeOutcome:
+    """Final local checks also cover judge-off, rollback and retained answers.
+
+    Keep independently verified neighbors; feed local gaps to the EXISTING
+    bounded repair loop. This is not a second model, source or budget.
+    """
+    from intelligence.services.research_delivery_checks import (
+        calculation_copy_findings, disclosure_absence_findings, remove_findings,
+    )
+
+    before = outcome.verified
+    contract = before.contract
+    if contract is None:
+        return outcome
+    findings = (
+        *disclosure_absence_findings(public, before.outcome.traces),
+        *calculation_copy_findings(
+            public, before.outcome.evidence,
+            calculation_required=bool(re.search(r"(?:用|使用|通过).{0,8}(?:计算工具|计算器|沙箱)", contract.question)),
+        ),
+    )
+    if not findings:
+        return outcome
+    codes = tuple(dict.fromkeys(f.code for f in findings))
+    target_ids: set[str] = set()
+    if any(code.startswith("calculation_value_") for code in codes):
+        target_ids.update(("metric_evidence", "supporting_evidence"))
+    if "disclosure_absence_inference" in codes:
+        target_ids.update(("event_facts", "fact_value", "supporting_evidence"))
+    evidence_ids = tuple(
+        item.output_id for item in contract.required_outputs
+        if item.required and item.grounding_mode == "evidence"
+    )
+    gap_ids = tuple(i for i in evidence_ids if i in target_ids)
+    if not gap_ids:
+        gap_ids = evidence_ids[:1]  # custom one-slot contracts; not every slot
+    # No model draft/provider diagnostics in these notices.
+    notices: list[str] = []
+    repair_notes: list[str] = []
+    if "disclosure_absence_inference" in codes:
+        notices.append("公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。")
+        repair_notes.append("查询失败或空白不能推出没有公告、无新增信息或尚未兑现；删除此推断，保留已核实事实并说明覆盖缺口。")
+    if "calculation_value_mismatch" in codes:
+        notices.append("部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。")
+        repair_notes.append("按报告期及比率列重新对账本次计算产物，修正抄数错误；保留同一行原始数据，不借其他期别数字充证。")
+    if "calculation_value_unverified" in codes:
+        notices.append("部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。")
+        repair_notes.append("所称计算结果缺少或冲突，不得声称已核算；按原权限补齐或明确留缺口，不手填结果。")
+    repaired = remove_findings(public, findings)
+    repaired = "\n\n".join((repaired, *notices)).strip()
+    # Do not resurrect citations from earlier rejected slots. Only the slots
+    # newly gapped here may keep their bound, still explicitly cited evidence.
+    eligible_slots = {
+        item.output_id for item in before.completion.outputs
+        if item.status == "fulfilled" and item.output_id not in outcome.gap_output_ids
+    }
+    bound = {
+        h for binding in before.outcome.bindings if binding.output_id in eligible_slots
+        for h in binding.evidence_hashes
+    }
+    cited = set(cited_evidence_ordinals(repaired))
+    ordinals = evidence_ordinal_table(before.outcome.evidence)
+    retained = tuple(h for h, ordinal in ordinals.items() if h in bound and ordinal in cited)
+    issues = tuple(f"code={code} :: delivered research claim failed local check" for code in codes)
+    # Do not replace archived draft/evidence or mark the whole slot's facts as
+    # false. Public text + gap IDs carry the repair need, and status cannot rise.
+    return replace(
+        outcome,
+        public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=repaired)),
+        status="partial" if outcome.status == "completed" else outcome.status,
+        judge_status="repaired" if outcome.judge_status == "passed" else outcome.judge_status,
+        issues=tuple(dict.fromkeys((*outcome.issues, *issues))),
+        gap_output_ids=tuple(dict.fromkeys((*outcome.gap_output_ids, *gap_ids))),
+        repair_output_ids=tuple(dict.fromkeys((*outcome.repair_output_ids, *gap_ids))),
+        delivery_retained_evidence_hashes=tuple(dict.fromkeys((*outcome.delivery_retained_evidence_hashes, *retained))),
+        delivery_repair_notes=tuple(dict.fromkeys((*outcome.delivery_repair_notes, *repair_notes))),
+    )
+
+
 def recheck_material_public_delivery(
     outcome: SemanticEpisodeOutcome,
     *,
@@ -689,11 +774,27 @@ def recheck_material_public_delivery(
     """
     from intelligence.services.material_delivery import material_question_outputs, with_all_material_gaps_notice
 
+    public = outcome.public_answer if projected is None else projected
+    checked = _recheck_research_delivery(outcome, public)
+    # If the local check changed public text, don't restore the rejected caller
+    # projection below. Otherwise preserve the material sanitizer's input.
+    if checked is not outcome:
+        public = checked.public_answer
+    outcome = checked
     before = outcome.verified
     contract = before.contract
     if contract is None or not material_question_outputs(contract):
-        return outcome
-    public = outcome.public_answer if projected is None else projected
+        if public == outcome.public_answer:
+            return outcome
+        ordinals = evidence_ordinal_table(before.outcome.evidence)
+        cited = set(cited_evidence_ordinals(public))
+        return replace(
+            outcome,
+            public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),
+            delivery_retained_evidence_hashes=tuple(
+                h for h in outcome.delivery_retained_evidence_hashes if ordinals.get(h) in cited
+            ),
+        )
     if outcome.judge_status == "unavailable":
         # A review outage/structural early exit deliberately withholds the draft.
         # That is not a writer omission: preserve its existing repair targets,
