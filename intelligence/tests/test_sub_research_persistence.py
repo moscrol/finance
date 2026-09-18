@@ -599,15 +599,24 @@ def test_plan_branches_share_the_same_store_and_start_ack_fence(tmp_path, fail_s
 
 def test_linked_nonterminal_restore_refuses_without_mutating_logs(tmp_path):
     from intelligence.services.episode_restore import RestoreUnavailable, restore_episode
-    store = ObservedStore(tmp_path)
+    prefixes = {}
+
+    class PrefixStore(ObservedStore):
+        def put_state(self, episode_id, state):
+            super().put_state(episode_id, state)
+            if not state.terminal:
+                prefixes[episode_id] = self.load(episode_id)
+
+    store = PrefixStore(tmp_path)
     outcome, _model, _executed, _spent, _runtime = run_tree(store)
     ref = dict(next(e for e in outcome.events if e.kind == "branch_started").payload["episode_ref"])
     for episode_id in (ref["parent_episode_id"], ref["episode_id"]):
-        events, state = store.load(episode_id)
-        prefix = tuple(e for e in events if e.kind != "finish")
+        # Use an actual checkpoint prefix, not today's balance on yesterday's
+        # truncated log. A snapshot must not point past its event prefix.
+        prefix, state = prefixes[episode_id]
         snapshot = MemoryEpisodeStore()
         snapshot.append(episode_id, prefix)
-        snapshot.put_state(episode_id, replace(state, phase="planning", last_sequence=len(prefix)))
+        snapshot.put_state(episode_id, state)
         before = snapshot.load(episode_id)
         with pytest.raises(RestoreUnavailable, match="child reconciliation"):
             restore_episode(episode_id, snapshot)

@@ -423,6 +423,8 @@ def restore_episode(
             cancel=cancel,
             last_sequence=len(events),
             updated_at=now_iso(),
+            budget_snapshot=state.budget_snapshot,
+            budget_snapshot_sequence=state.budget_snapshot_sequence,
         )
         store.put_state(episode_id, done)
         outcome = _terminal_outcome(events, task_frame_hash=task_frame_hash, finish=finish)
@@ -443,6 +445,8 @@ def restore_episode(
                 cancel=cancel,
                 last_sequence=len(events),
                 updated_at=now_iso(),
+                budget_snapshot=state.budget_snapshot,
+                budget_snapshot_sequence=state.budget_snapshot_sequence,
             )
             store.put_state(episode_id, state_after)
         return result("resumable", synth=synth, plan=plan, outcome=None, state_after=state_after)

@@ -68,6 +68,7 @@ from intelligence.services.provider_latency import (
 from intelligence.services.repair_coordinator import BudgetGrant, RepairGoal
 from intelligence.services.research_contract import (
     PRODUCT_MAX_TOOL_CALLS,
+    InMemoryRootBudgetLedger,
     ResearchDeadline,
     ResearchRunContext,
 )
@@ -254,7 +255,8 @@ def _settle_batch_calls(
     异常逃出 episode 主循环，run 直接 failed——没有 stopped_outcome、没有
     修复轮、冷启动也够不着（adapter 拿到的是异常不是 AgentOutcome）。
 
-    账本烧穿时降级为 ``settle_seconds``（能扣多少扣多少，绝不抛）；
+    秒账本烧穿时降级为 ``consume_call_slot`` + ``settle_seconds``：已执行的调用
+    仍扣槽，时间能扣多少扣多少，不因超时退款；次数已空则不再扣成负数。
     call 槽位随 ``remaining_calls`` 归零自然反映到 ``_remaining_tool_slots``，
     下一轮进入 ``tool_budget_exhausted`` finalization，模型还能带着
     已取得的证据交卷。这与 #297 在重试闸门确立的原则同源：
@@ -268,7 +270,17 @@ def _settle_batch_calls(
         try:
             root_budget.consume_call(seconds=seconds_per_call)
         except ValueError:
+            # consume_call rejected both debits. Time overrun does not refund
+            # an already executed call (including a child's parent call slot).
+            consume_slot = getattr(root_budget, "consume_call_slot", None)
+            if callable(consume_slot):
+                try:
+                    consume_slot()
+                except ValueError:
+                    pass  # no slots remain; never invent a negative balance
             root_budget.settle_seconds(seconds=seconds_per_call)
+
+
 def _wall_clock_after(seconds: float) -> str:
     """把 ``ResearchDeadline`` 的单调钟余量换成恢复时能读的挂钟时刻。"""
 
@@ -445,6 +457,28 @@ class _EpisodeLedger:
                 last_sequence=len(self.events),
                 updated_at=now_iso(),
             )
+            if not self.store_failures:
+                try:
+                    budget_snapshot = previous.budget_snapshot if previous is not None else None
+                    budget_sequence = previous.budget_snapshot_sequence if previous is not None else None
+                    if source is not None:
+                        # A child view is NOT an independent root allocation.
+                        root = source.root_budget
+                        budget_snapshot = root.to_snapshot() if isinstance(root, InMemoryRootBudgetLedger) else None
+                        if isinstance(root, InMemoryRootBudgetLedger) and budget_snapshot is None:
+                            raise ValueError("root budget omitted its required snapshot")
+                        budget_sequence = len(self.events) if budget_snapshot is not None else None
+                    state = replace(
+                        state, budget_snapshot=budget_snapshot, budget_snapshot_sequence=budget_sequence,
+                    )
+                except Exception as exc:
+                    # Encoding is part of required persistence. Do not write a
+                    # valid-looking state with its required budget omitted.
+                    if self.persistence_mode != "durable":
+                        raise
+                    if self._store_fence is not None:
+                        self._store_fence.fail(self.episode_id, f"state:{phase}:budget", exc)
+                    self._fail_store(f"state:{phase}:budget:{type(exc).__name__}")
             self.state = state
             store = self._store if not self.store_failures else None
             if store is not None:
@@ -1868,6 +1902,14 @@ class ContinuousAgentEpisode:
                 llm_calls += branch_llm_calls
                 tool_calls += batch.executed_count + branch_tool_calls
                 invalid_actions += accumulator.consume(batch, context)
+                # Debit received work before exposing a settled step or writing
+                # any finalizing checkpoint. Unknown in-flight work is still
+                # not refundable/replayable merely because a snapshot exists.
+                _settle_batch_calls(
+                    context.root_budget,
+                    executed_count=batch.executed_count,
+                    batch_elapsed=batch_elapsed,
+                )
                 # P4 步点④：这一批的结算（tool_result / tool_error）全部落账。
                 yield StepPoint("tools_settled", llm_calls, tool_calls, turn_id=turn_id)
                 halt = self._harness.halt_after_tool_batch(
@@ -1881,11 +1923,6 @@ class ContinuousAgentEpisode:
                         ledger=ledger,
                         reason=halt,
                     )
-                _settle_batch_calls(
-                    context.root_budget,
-                    executed_count=batch.executed_count,
-                    batch_elapsed=batch_elapsed,
-                )
                 fallback = self._maybe_execute_empty_pool_fallback(
                     batch=batch,
                     tool_session=tool_session,
@@ -2500,13 +2537,13 @@ class ContinuousAgentEpisode:
             tool_calls += batch.executed_count + branch_tool_calls
             performed_tool_action = batch.executed_count > 0
             invalid_actions += accumulator.consume(batch, repair_context)
-            # 修复轮的工具结算全部落下，程序计数器回到 repair。
-            ledger.put_state(phase="repair", context=repair_context)
             _settle_batch_calls(
                 repair_context.root_budget,
                 executed_count=batch.executed_count,
                 batch_elapsed=batch_elapsed,
             )
+            # 修复轮的结果与预算均结算后，才把程序计数器移回 repair。
+            ledger.put_state(phase="repair", context=repair_context)
             append_model_input(
                 messages,
                 ledger,

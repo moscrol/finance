@@ -39,8 +39,9 @@ import threading
 from types import MappingProxyType
 from typing import Literal, Protocol
 
-from intelligence.services.agent_runtime import EpisodeEvent, _json_copy
+from intelligence.services.agent_runtime import EpisodeEvent, _json_copy, _json_freeze
 from intelligence.services.episode_event_lanes import DURABLE_EVENT_KINDS
+from intelligence.services.research_contract import InMemoryRootBudgetLedger
 
 __all__ = [
     "EPISODE_LOG_VERSION",
@@ -117,6 +118,10 @@ class EpisodeState:
       几次。写在状态里而不是恢复时现算：策略是当时的决定，不该被以后的代码改写。
     - ``contract_snapshot``：``configure`` 事件同源的快照（哈希与标量，不抄文本）。
     - ``cancel``：``CancelSignal.snapshot()``；非空即「取消已 durable」（INV-R4 的存储侧）。
+    - ``budget_snapshot``：当前检查点的根预算余额与授予/升档去重记录。None表示旧日志或
+      未支持的预算类型，不能从policy猜余额；有快照也不代表其后的未知效果已对账。
+    - ``budget_snapshot_sequence``：捕获预算时的事件前缀位置。恢复仅合成结算时保留旧位置，
+      不把旧余额伪装成已对账到新的 ``last_sequence``。
     """
 
     episode_id: str
@@ -131,6 +136,8 @@ class EpisodeState:
     log_version: int = EPISODE_LOG_VERSION
     last_sequence: int = 0
     updated_at: str = ""
+    budget_snapshot: Mapping[str, object] | None = None
+    budget_snapshot_sequence: int | None = None
 
     def __post_init__(self) -> None:
         episode_id = str(self.episode_id or "").strip()
@@ -158,6 +165,19 @@ class EpisodeState:
         )
         if self.cancel is not None:
             object.__setattr__(self, "cancel", _frozen_mapping(self.cancel, path="cancel"))
+        if self.budget_snapshot is None:
+            if self.budget_snapshot_sequence is not None:
+                raise ValueError("budget snapshot sequence requires a snapshot")
+        else:
+            if (
+                type(self.budget_snapshot_sequence) is not int
+                or not 0 <= self.budget_snapshot_sequence <= self.last_sequence
+            ):
+                raise ValueError("budget snapshot sequence must be within the checkpoint prefix")
+            copied = _json_copy(self.budget_snapshot, path="budget_snapshot")
+            # Validation must not register a live root or allocate any budget.
+            InMemoryRootBudgetLedger.from_snapshot(copied, episode_id=episode_id)
+            object.__setattr__(self, "budget_snapshot", _json_freeze(copied, path="budget_snapshot"))
 
     @property
     def terminal(self) -> bool:
@@ -177,6 +197,8 @@ class EpisodeState:
             "log_version": self.log_version,
             "last_sequence": self.last_sequence,
             "updated_at": self.updated_at,
+            "budget_snapshot": _json_copy(self.budget_snapshot, path="budget_snapshot"),
+            "budget_snapshot_sequence": self.budget_snapshot_sequence,
         }
 
     @classmethod
@@ -197,6 +219,8 @@ class EpisodeState:
             log_version=int(payload.get("log_version") or 0),
             last_sequence=int(payload.get("last_sequence") or 0),
             updated_at=str(payload.get("updated_at") or ""),
+            budget_snapshot=payload.get("budget_snapshot"),  # type: ignore[arg-type]
+            budget_snapshot_sequence=payload.get("budget_snapshot_sequence"),  # type: ignore[arg-type]
         )
 
 
@@ -252,6 +276,29 @@ class FencedEpisodeStore:
         if failed:
             callback()
 
+    @staticmethod
+    def _notify_failure(callbacks: Sequence[Callable[[], None]]) -> None:
+        for callback in callbacks:
+            try:
+                callback()
+            except Exception:
+                # A broken observer cannot hide failure or starve other signals.
+                continue
+
+    def fail(self, episode_id: str, boundary: str, error: Exception) -> None:
+        """Latch a required checkpoint's encoding failure, before storage IO.
+
+        Invalid snapshots must fence siblings too, not silently become a valid
+        checkpoint without a budget. Notifications use the same lock discipline
+        as an append/put_state failure.
+        """
+        with self._lock:
+            if self._failure:
+                return
+            self._failure = f"{episode_id}:{boundary}:{type(error).__name__}"
+            callbacks = tuple(self._callbacks)
+        self._notify_failure(callbacks)
+
     def _write(self, episode_id: str, boundary: str, write: Callable[[], None]) -> None:
         callbacks: tuple[Callable[[], None], ...] = ()
         try:
@@ -265,13 +312,7 @@ class FencedEpisodeStore:
                     callbacks = tuple(self._callbacks)
                     raise
         finally:
-            for callback in callbacks:
-                try:
-                    callback()
-                except Exception:
-                    # The shared failure bit owns the fence. A broken observer
-                    # cannot hide the original error or starve other signals.
-                    continue
+            self._notify_failure(callbacks)
 
     def append(
         self, episode_id: str, events: Sequence[EpisodeEvent], *, sync: bool = False
