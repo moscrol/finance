@@ -31,6 +31,15 @@
 
 编码任务「仓库里有没有现成实现」走 `python3 scripts/code_map.py query "<问题>"`，不是本页，也不是问答门。空图不得写成架构结论。
 
+### Workbench 终态与交付
+
+`Run.status` 是终态仲裁结果，不保证随后写入的报告已齐。单进程执行器在
+`GET /api/runs` / `GET /api/runs/{id}` 投影 `delivery_pending`：已 completed
+但执行器仍在收尾时为 true；UI 继续轮询/接收 SSE（服务器推送事件），恢复会话亦然。
+执行器退出后再取 run 快照，SSE 排空尾部事件才发最终 `run`。取消/失败不等待
+不合作的 worker。它不修改持久化状态机，不是跨进程交付协议；多 worker 前须替换。
+同会话新消息也使旧加载代际失效，迟到的上一轮快照不得抹掉新追问。
+
 ### 专项研究纪律（Knevo 增量，2026-09-17 已合 main）
 
 `research_workflow_guidance.workflow_guidance` 给财报、事件推演、观点审查、事实核对、历史类比

@@ -2936,6 +2936,99 @@ def test_sse_canonical_cursor_and_terminal_replay(client: TestClient) -> None:
     assert "report:module:new" not in numeric
 
 
+def test_completed_run_waits_for_artifact_delivery_without_blocking_cancel(
+    client: TestClient,
+) -> None:
+    store = RunStore()
+    supervisor = client.app.state.supervisor
+    claimed = threading.Event()
+    release = threading.Event()
+    run = store.create_run("delayed delivery", "ask")
+
+    def runner(_signal) -> None:
+        store.finish_run(run.run_id, rs.STATUS_COMPLETED)
+        claimed.set()
+        assert release.wait(5), "test did not release artifact writer"
+        store.add_artifact(
+            run.run_id, "report.json", '{}',
+            renderer="structured_report", title="结构化对话报告",
+        )
+        store.append_stream_event(
+            run.run_id, event_id="report:complete", event_type="report.complete",
+            payload={"report": {"status": "completed"}},
+        )
+
+    supervisor._submit(store, run.run_id, runner)
+    with supervisor._lock:
+        future = supervisor._futures[(store.user_id, run.run_id)]
+    try:
+        assert claimed.wait(5)
+        pending = client.get(f"/api/runs/{run.run_id}").json()
+        assert pending["status"] == "completed"
+        assert pending.get("delivery_pending") is True
+        assert pending["artifacts"] == []
+        # No other user's/run's delivery flag may leak into this run.
+        other = store.create_run("already done", "ask")
+        store.finish_run(other.run_id, rs.STATUS_COMPLETED)
+        assert client.get(f"/api/runs/{other.run_id}").json()["delivery_pending"] is False
+    finally:
+        release.set()
+        future.result(timeout=5)
+    ready = client.get(f"/api/runs/{run.run_id}").json()
+    assert ready["delivery_pending"] is False
+    assert [a["path"] for a in ready["artifacts"]] == ["report.json"]
+
+    cancelled = store.create_run("cancel while worker blocked", "ask")
+    started = threading.Event()
+    unblock = threading.Event()
+
+    def blocked(_signal) -> None:
+        started.set()
+        assert unblock.wait(5)
+
+    supervisor._submit(store, cancelled.run_id, blocked)
+    with supervisor._lock:
+        future = supervisor._futures[(store.user_id, cancelled.run_id)]
+    try:
+        assert started.wait(5)
+        supervisor.cancel(store, cancelled.run_id)
+        payload = client.get(f"/api/runs/{cancelled.run_id}").json()
+        assert payload["status"] == "cancelled"
+        assert payload["delivery_pending"] is False
+    finally:
+        unblock.set()
+        future.result(timeout=5)
+
+
+def test_sse_drains_delivery_events_before_terminal_run(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = RunStore()
+    run = store.create_run("delivery crossing poll boundary", "ask")
+    store.finish_run(run.run_id, rs.STATUS_COMPLETED)
+    original = RunStore.load_stream_events
+    calls = 0
+
+    def events_then_publish(self, run_id, *, after=0):
+        nonlocal calls
+        events = original(self, run_id, after=after)
+        if run_id == run.run_id:
+            calls += 1
+            if calls == 1:
+                # Writer finishes AFTER this poll's event snapshot, BEFORE load_run.
+                self.append_stream_event(
+                    run_id, event_id="report:complete", event_type="report.complete",
+                    payload={"report": {"status": "completed"}},
+                )
+        return events
+
+    monkeypatch.setattr(RunStore, "load_stream_events", events_then_publish)
+    body = client.get(f"/api/runs/{run.run_id}/events").text
+    assert "event: report.complete" in body
+    assert body.index("event: report.complete") < body.index("event: run\n")
+    assert body.count("event: run\n") == 1
+
+
 def test_sse_rejects_negative_after(client: TestClient) -> None:
     run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
     assert (

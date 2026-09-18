@@ -2163,6 +2163,96 @@ describe("Workbench navigation reliability", () => {
     ).toBeVisible();
   });
 
+  it("keeps polling while terminal ownership precedes report delivery", async () => {
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getConversationMessages.mockResolvedValue([]);
+    let pending = true;
+    apiMocks.getRun.mockImplementation(async () => ({
+      ...bundle.run,
+      run_id: "run_created",
+      status: "completed",
+      delivery_pending: pending,
+      artifacts: pending ? [] : [{
+        artifact_id: "report", path: "report.json", renderer: "structured_report",
+        title: "结构化对话报告", sha256: "test", bytes: 2,
+        previewable: true, downloadable: true,
+      }],
+    }));
+    apiMocks.listArtifacts.mockResolvedValue([]);
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "问答" }));
+    await user.type(screen.getByLabelText("输入研究问题"), "等报告交付");
+    await user.click(screen.getByRole("button", { name: "发送研究问题" }));
+    const events = mockEventSources.at(-1);
+    await waitFor(() => expect(apiMocks.getRun).toHaveBeenCalled());
+    await act(async () => events?.fail());
+    expect(events?.close).not.toHaveBeenCalled();
+    expect(screen.getAllByLabelText("研究助手消息")).toHaveLength(1);
+
+    pending = false;
+    apiMocks.getConversationMessages.mockResolvedValue([{
+      ...assistantMessage, message_id: "msg_assistant_new",
+      run_id: "run_created", content: "报告已交付",
+    }]);
+    await act(async () => events?.fail());
+    expect(await screen.findByText("报告已交付")).toBeVisible();
+    await user.click(screen.getByText("运行详情", { exact: true }));
+    expect(screen.getByRole("button", { name: "结构化对话报告" })).toBeVisible();
+    expect(events?.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("reconnects a restored completed message whose artifacts are still being delivered", async () => {
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getConversationMessages.mockResolvedValue([assistantMessage]);
+    apiMocks.getRun.mockResolvedValue({
+      ...bundle.run, run_id: assistantMessage.run_id,
+      status: "completed", delivery_pending: true, artifacts: [],
+    });
+    apiMocks.listArtifacts.mockResolvedValue([]);
+    render(<App />);
+    await waitFor(() => expect(mockEventSources).toHaveLength(1));
+    await act(async () => mockEventSources[0]?.fail());
+    expect(mockEventSources[0]?.close).not.toHaveBeenCalled();
+  });
+
+  it("does not let an old finalization snapshot erase the next submitted turn", async () => {
+    const oldMessage: ChatMessage = {
+      ...assistantMessage, run_id: "run_old", content: "上一轮已完成",
+    };
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getConversationMessages.mockResolvedValue([{
+      ...oldMessage, status: "pending",
+    }]);
+    const delayedTrace = deferred<RunBundle["trace"]>();
+    let finishing = false;
+    apiMocks.getTrace.mockImplementation(async (runId: string) =>
+      runId === "run_old" && finishing ? delayedTrace.promise : [],
+    );
+    apiMocks.getRun.mockImplementation(async (runId: string) => ({
+      ...bundle.run, run_id: runId, status: "running", artifacts: [],
+    }));
+    apiMocks.listArtifacts.mockResolvedValue([]);
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "问答" }));
+    await screen.findByText("上一轮已完成");
+    const oldEvents = mockEventSources.at(-1);
+    finishing = true;
+    apiMocks.getConversationMessages.mockResolvedValue([oldMessage]);
+    await act(async () => oldEvents?.emit("run", {
+      ...bundle.run, run_id: "run_old", status: "completed",
+    }));
+    await waitFor(() => expect(apiMocks.getTrace).toHaveBeenCalledTimes(2));
+    await user.type(screen.getByLabelText("输入研究问题"), "紧接着追问");
+    await user.click(screen.getByRole("button", { name: "发送研究问题" }));
+    expect(screen.getAllByLabelText("研究助手消息")).toHaveLength(2);
+    await act(async () => delayedTrace.resolve([]));
+    expect(screen.getAllByLabelText("研究助手消息")).toHaveLength(2);
+    expect(screen.getByText("紧接着追问")).toBeVisible();
+    expect(mockEventSources.at(-1)?.close).not.toHaveBeenCalled();
+  });
+
   it("keeps cancel pending until polling confirms the cancelled state", async () => {
     const cancelledMessage: ChatMessage = {
       ...assistantMessage,

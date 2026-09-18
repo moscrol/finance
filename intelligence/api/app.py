@@ -1425,6 +1425,16 @@ class RunSupervisor:
         with self._lock:
             return sum(not future.done() for future in self._futures.values())
 
+    def is_active(self, user_id: str, run_id: str) -> bool:
+        """Per-run executor liveness, including writes after a terminal claim.
+
+        This is a single-process delivery barrier, not a new terminal state.
+        Cancellation/failure must not wait for an uncooperative worker to exit.
+        """
+        with self._lock:
+            future = self._futures.get((user_id, run_id))
+            return future is not None and not future.done()
+
     def queued_count(self) -> int:
         with self._lock:
             return sum(
@@ -3202,16 +3212,28 @@ def create_app(
         user_id = store_for(user).user_id
         return perspective_lab.list_profiles(userspace.user_space(user_id))
 
+    def delivered_run_payload(store: RunStore, run_id: str) -> dict[str, object]:
+        # Observe the writer BEFORE reading artifacts. The inverse order could
+        # pair an old run snapshot with a newly-finished future and claim ready.
+        active = supervisor.is_active(store.user_id, run_id)
+        run = store.load_run(run_id)
+        return {
+            **_public_run_payload(run),
+            "delivery_pending": active and run.status == rs.STATUS_COMPLETED,
+        }
+
     @app.get("/api/runs")
     def list_runs(user: str | None = None) -> list[dict[str, object]]:
+        store = store_for(user)
         return [
-            _public_run_payload(run) for run in reversed(store_for(user).list_runs())
+            delivered_run_payload(store, run.run_id)
+            for run in reversed(store.list_runs())
         ]
 
     @app.get("/api/runs/{run_id}")
     def get_run(run_id: str, user: str | None = None) -> dict[str, object]:
         try:
-            return _public_run_payload(store_for(user).load_run(run_id))
+            return delivered_run_payload(store_for(user), run_id)
         except (FileNotFoundError, ValueError) as exc:
             raise HTTPException(404, f"run 不存在：{run_id}") from exc
 
@@ -3279,6 +3301,7 @@ def create_app(
             deadline = time.monotonic() + _SSE_MAX_SECONDS
             terminal_event_deadline: float | None = None
             while True:
+                run_payload = delivered_run_payload(store, run_id)
                 report_events = store.load_stream_events(run_id, after=current_cursor)
                 for event in report_events:
                     current_cursor = event["seq"]
@@ -3291,13 +3314,16 @@ def create_app(
                         f"event: {public_event['event_type']}\n"
                         f"data: {data}\n\n"
                     )
-                run = store.load_run(run_id)
-                if run.status in (
+                if not run_payload["delivery_pending"] and run_payload["status"] in (
                     rs.STATUS_COMPLETED,
                     rs.STATUS_FAILED,
                     rs.STATUS_CANCELLED,
                 ):
-                    terminal_message_missing = run.session_id and not any(
+                    # A writer may have finished between this iteration's event
+                    # snapshot and terminal check. Drain that tail before closing.
+                    if store.load_stream_events(run_id, after=current_cursor):
+                        continue
+                    terminal_message_missing = run_payload["session_id"] and not any(
                         event["event_type"] in {"message.complete", "message.error"}
                         for event in store.load_stream_events(run_id)
                     )
@@ -3314,7 +3340,7 @@ def create_app(
                         continue
                     yield (
                         "event: run\n"
-                        f"data: {json.dumps(_public_run_payload(run), ensure_ascii=False)}\n\n"
+                        f"data: {json.dumps(run_payload, ensure_ascii=False)}\n\n"
                     )
                     return
                 if time.monotonic() > deadline:
