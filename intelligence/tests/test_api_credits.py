@@ -34,6 +34,7 @@ from intelligence.api.credits import (  # noqa: E402
 from intelligence.api.quota import RunQuota  # noqa: E402
 from intelligence.services import run_store as rs  # noqa: E402
 from intelligence.services.run_store import RunStore  # noqa: E402
+from intelligence.tests.fixtures.run_supervisor import drain_test_client  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLI = REPO_ROOT / "scripts" / "workbench_credits.py"
@@ -678,9 +679,11 @@ def api(tmp_path, monkeypatch):
         return client
 
     build.usage_per_run = usage_per_run  # type: ignore[attr-defined]
-    yield build
-    for client in clients:
-        client.app.state.supervisor.shutdown()
+    try:
+        yield build
+    finally:
+        for client in clients:
+            drain_test_client(client)
 
 
 def _post_run(client: TestClient, user: str):
