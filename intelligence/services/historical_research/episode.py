@@ -260,6 +260,17 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
     for index, row in records:
         if not isinstance(row, dict):
             continue
+        if row.get("record_kind") == "sector_succession":
+            from .succession_projection import succession_atoms
+
+            # Pair identity on EVERY card; status/reason/counts are one atom.
+            # Do not pack status beside null confirmation/lag as unrelated keys.
+            identity = {"sample": index, "record_kind": "sector_succession",
+                        "source_sector": row.get("source_sector"), "entity_code": row.get("entity_code")}
+            for atom in succession_atoms(row, payload):
+                add(f"历史接力配对 {row.get('source_sector')}→{row.get('entity_code')}",
+                    identity, [atom], row.get("succession_known_as_of"))
+            continue
         identity = {"sample": index, "entity_code": row.get("entity_code")}
         if isinstance(reference, dict):
             identity["role"] = "reference" if index == "reference" else "candidate"

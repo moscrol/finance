@@ -168,8 +168,9 @@ def test_signal_boundary_and_missing_path_have_independent_oracles():
     assert _path(days[5:], "A", facts)["peak_status"] == "unverifiable"
 
 
+@pytest.mark.parametrize("modern", [False, True])
 @pytest.mark.parametrize("state", ["observed", "not_observed", "missing", "immature", "outside", "not_supported"])
-def test_succession_pair_oracles_keep_nonwinners_and_unconfirmed_peak(tmp_path, state):
+def test_succession_pair_oracles_keep_nonwinners_and_unconfirmed_peak(tmp_path, state, modern):
     days = [str(i) for i in range(7 if state == "immature" else 8)]
     signals = {"A": ("1", "observed"), "B": (None, state) if state in {"not_observed", "missing"} else ("1" if state == "outside" else "3", "observed")}
     paths = {"A": dict(peak_date="1", peak_status="window_peak_unconfirmed", confirmation_date=None)}
@@ -186,9 +187,20 @@ def test_succession_pair_oracles_keep_nonwinners_and_unconfirmed_peak(tmp_path, 
                succession_status=expected_status, causal_status="not_established",
                evidence=dict(source_return_pct=(5.10100501 if state == "not_supported" else -4.90099501) if has_returns else None,
                              target_return_pct=5.10100501 if has_returns else None, target_relative_return_pct=5.10100501 if has_returns else None))
+    if modern:
+        # Hand-written dates, not a call to the product or the auditor's slicing.
+        row.update(outcome_dates=["4", "5", "6"] if state == "immature" else ["2", "3", "4", "5", "6"],
+                   outcome_required_days=5, target_signal_status=signals["B"][1])
     audit = _Audit(tmp_path)
-    _audit_pairs(days, ["A", "B"], facts, markets, signals, paths, [row], _calculate, audit)
+    _audit_pairs(days, ["A", "B"], facts, markets, signals, paths, [row], _calculate, audit, require_observation=modern)
     assert not audit.receipt["errors"]
+    if modern:
+        for field in ("outcome_dates", "outcome_required_days", "target_signal_status"):
+            mutated = deepcopy(row)
+            del mutated[field]
+            check = _Audit(tmp_path)
+            _audit_pairs(days, ["A", "B"], facts, markets, signals, paths, [mutated], _calculate, check, require_observation=True)
+            assert "succession." + field in {e["field"] for e in check.receipt["errors"]}
     bad = _Audit(tmp_path)
     _audit_pairs(days, ["A", "B"], facts, markets, signals, paths, [], _calculate, bad)
     assert "succession_population" in {e["field"] for e in bad.receipt["errors"]}

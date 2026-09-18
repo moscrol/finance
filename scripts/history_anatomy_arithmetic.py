@@ -32,6 +32,15 @@ TRACE_DEFINITION = {
 }
 
 
+# A separately frozen definition, not imported from the product. v1 originals
+# remain auditable byte-for-byte; v1.1 must also carry the observation fields.
+TRACE_DEFINITION_V1_1 = dict(TRACE_DEFINITION, **{
+    "version": "history-anatomy-v1.1",
+    "succession": "Target first signal in (source peak, peak+5 trading dates]; BOTH returns use those same source-peak-next5 dates: target>0, source<=0. No peak-confirmation prerequisite; not causal.",
+    "succession_observation": "outcome_dates are the first <=5 saved calendar dates strictly after source peak. Fewer than 5 => immature, NOT failed; calendar maturity does not certify nonmissing prices. target_signal_status is separate.",
+})
+
+
 def finite(value):
     return type(value) in (int, float) and math.isfinite(value)
 
@@ -137,10 +146,11 @@ def _check_path(observed, expected, audit, label):
 def audit_trace(doc, days, facts, markets, calculate, audit):
     """Reconstruct signal dates, paths, basket population/ranks and ordered pairs."""
     spec, rows = doc["spec"], doc["rows"]
-    if doc["feature_definitions"].get("trace_history") != TRACE_DEFINITION:
+    definition = doc["feature_definitions"].get("trace_history")
+    if definition not in (TRACE_DEFINITION, TRACE_DEFINITION_V1_1):
         audit.skip("unsupported_anatomy_definition")
         return False
-    audit.check("analysis_definition", doc.get("analysis_definition"), TRACE_DEFINITION)
+    audit.check("analysis_definition", doc.get("analysis_definition"), definition)
     days = [d for d in days if spec["start"] <= d <= spec["end"]]
     codes = spec["entity_codes"]
     groups = defaultdict(list)
@@ -180,7 +190,8 @@ def audit_trace(doc, days, facts, markets, calculate, audit):
     audit.check("trace_record_counts", doc["universe"]["record_counts"], {k: len(groups[k]) for k in ("launch_signal", "price_path", "member_leader", "sector_succession")})
     if spec["entity_kind"] == "sector":
         _audit_members(doc, days, facts, signals, paths, groups["member_leader"], calculate, audit)
-        _audit_pairs(days, codes, facts, markets, signals, paths, groups["sector_succession"], calculate, audit)
+        _audit_pairs(days, codes, facts, markets, signals, paths, groups["sector_succession"], calculate, audit,
+                     require_observation=definition == TRACE_DEFINITION_V1_1)
     else:
         audit.check("stock_trace_no_members", groups["member_leader"], [])
         audit.check("stock_trace_no_succession", groups["sector_succession"], [])
@@ -227,7 +238,7 @@ def _audit_members(doc, days, sectors, signals, paths, rows, calculate, audit):
     audit.check("launch_member_population", sorted((r["parent_sector"], r["entity_code"]) for r in rows), sorted(expected_keys), calculation=True)
 
 
-def _audit_pairs(days, codes, facts, markets, signals, paths, rows, calculate, audit):
+def _audit_pairs(days, codes, facts, markets, signals, paths, rows, calculate, audit, *, require_observation=False):
     keys = []
     for source in codes:
         before = paths.get(source)
@@ -263,6 +274,8 @@ def _audit_pairs(days, codes, facts, markets, signals, paths, rows, calculate, a
                             end=win[-1] if win else before["peak_date"], source_peak_status=before["peak_status"],
                             source_peak_confirmation_date=before["confirmation_date"], succession_known_as_of=days[-1],
                             target_signal_date=target_day, lag_trading_days=lag, succession_status=status, causal_status="not_established")
+            if require_observation:
+                expected.update(outcome_dates=win, outcome_required_days=5, target_signal_status=target_status)
             for k, v in expected.items():
                 audit.check("succession."+k, row.get(k), v, row=f"{source}:{target}", calculation=True)
             for k, v in dict(source_return_pct=a, target_return_pct=b, target_relative_return_pct=rel).items():

@@ -1,4 +1,7 @@
-"""Falsify history diagnostic repairs without source edits or production DB access.
+"""Falsify history delivery repairs without source edits or production DB access.
+
+Default suite: diagnostics. --suite succession challenges status/qualifier
+co-delivery, observation clocks and recovery using the same isolated runner.
 
 Each fresh child changes one imported function in memory, then runs a narrow
 regression against temporary fixtures. Exit 0 means every mutation was caught
@@ -49,6 +52,57 @@ MUTATIONS = {
         "test": f"{KIND_TEST}::test_omitted_kind_is_not_silently_inferred_from_code_or_features",
     },
 }
+DIAGNOSTIC_NAMES = tuple(MUTATIONS)
+PAIR_TEST = "tests/test_history_succession_projection.py"
+MUTATIONS.update({
+    "erase_pair_projection": {
+        "module": "intelligence.services.historical_research.episode",
+        "owner": None, "function": "_model_projection",
+        "old": 'if row.get("record_kind") == "sector_succession":', "new": "if False:",
+        "test": f"{PAIR_TEST}::test_saved_live_pairs_deliver_atomic_status_reason_and_actual_observation_dates",
+    },
+    "immature_means_failed": {
+        "module": "intelligence.services.historical_research.succession_projection",
+        "owner": None, "function": "succession_atoms",
+        "old": '_MEANINGS.get(status, "未知状态，不能判定成败；请核对原件。")',
+        "new": '"接力失败，必须先回撤确认"',
+        "test": f"{PAIR_TEST}::test_citing_only_pair_status_delivers_reason_to_actual_semantic_review_projection",
+    },
+    "require_peak_confirmation": {
+        "module": "intelligence.services.historical_research.anatomy",
+        "owner": None, "function": "_succession",
+        "old": "if len(outcome_days) != 5:",
+        "new": 'if len(outcome_days) != 5 or before["confirmation_date"] is None:',
+        "test": f"{PAIR_TEST}::test_calculator_records_same_peak_next5_dates_without_confirmation_prerequisite",
+    },
+    "include_source_peak_in_returns": {
+        "module": "intelligence.services.historical_research.anatomy",
+        "owner": None, "function": "_succession",
+        "old": "outcome_days = days[peak_i + 1 : peak_i + 6]", "new": "outcome_days = days[peak_i : peak_i + 5]",
+        "test": f"{PAIR_TEST}::test_target_signal_window_excludes_peak_includes_fifth_but_not_sixth_date",
+    },
+    "target_signal_anchors_returns": {
+        "module": "intelligence.services.historical_research.anatomy",
+        "owner": None, "function": "_succession",
+        "old": "                        outcome_days,\n                        [r for r in grouped[code] if r[\"trade_date\"] in outcome_days],\n                        market=[r for r in market if r[\"trade_date\"] in outcome_days],",
+        "new": "                        days[days.index(after[\"signal_date\"]):days.index(after[\"signal_date\"]) + 5],\n                        [r for r in grouped[code] if r[\"trade_date\"] in days[days.index(after[\"signal_date\"]):days.index(after[\"signal_date\"]) + 5]],\n                        market=[r for r in market if r[\"trade_date\"] in days[days.index(after[\"signal_date\"]):days.index(after[\"signal_date\"]) + 5]],",
+        "test": f"{PAIR_TEST}::test_calculator_records_same_peak_next5_dates_without_confirmation_prerequisite",
+    },
+    "missing_calendar_becomes_zero": {
+        "module": "intelligence.services.historical_research.succession_projection",
+        "owner": None, "function": "_saved_outcome_dates",
+        "old": 'if not calendar or not all(isinstance(value, str) for value in (start, end, peak)):\n        return None',
+        "new": 'if not calendar or not all(isinstance(value, str) for value in (start, end, peak)):\n        return []',
+        "test": f"{PAIR_TEST}::test_legacy_calendar_absence_is_unknown_not_zero_and_later_dates_do_not_expand_window",
+    },
+    "erase_pair_recovery_priority": {
+        "module": "intelligence.services.historical_research.recovery",
+        "owner": None, "function": "recovery_evidence_priority",
+        "old": "if pairs:", "new": "if False:",
+        "test": f"{PAIR_TEST}::test_actual_recovery_retains_all_six_saved_pair_states_before_nav_and_members",
+    },
+})
+SUITES = {"diagnostics": DIAGNOSTIC_NAMES, "succession": tuple(name for name in MUTATIONS if name not in DIAGNOSTIC_NAMES)}
 
 
 def _child(name: str) -> int:
@@ -71,6 +125,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, help="New directory; existing evidence is never overwritten")
     parser.add_argument("--child", choices=tuple(MUTATIONS), help=argparse.SUPPRESS)
+    parser.add_argument("--suite", choices=tuple(SUITES), default="diagnostics")
     args = parser.parse_args()
     sys.path.insert(0, str(ROOT))
     if args.child:
@@ -78,13 +133,17 @@ def main() -> int:
     if args.output is None:
         parser.error("--output is required")
     args.output.mkdir(parents=True, exist_ok=False)
+    mutations = {name: MUTATIONS[name] for name in SUITES[args.suite]}
     source_paths = {
         ROOT / (mutation["module"].replace(".", "/") + ".py")
-        for mutation in MUTATIONS.values()
+        for mutation in mutations.values()
     } | {ROOT / "intelligence/services/episode_tools.py", ROOT / TEST, ROOT / KIND_TEST, Path(__file__).resolve()}
+    if args.suite == "succession":
+        source_paths |= {ROOT / PAIR_TEST, ROOT / "scripts/history_anatomy_arithmetic.py",
+                         ROOT / "tests/test_history_market_anatomy.py", ROOT / "tests/test_history_model_projection.py"}
     source_hashes = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(source_paths)}
     results = []
-    for name, mutation in MUTATIONS.items():
+    for name, mutation in mutations.items():
         run = subprocess.run(
             [sys.executable, str(Path(__file__).resolve()), "--child", name],
             cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -99,6 +158,7 @@ def main() -> int:
         print(name, "caught" if caught else "NOT CAUGHT / INVALID", flush=True)
     unchanged = all(hashlib.sha256((ROOT / name).read_bytes()).hexdigest() == digest for name, digest in source_hashes.items())
     report = dict(
+        suite=args.suite,
         scope="author-side in-memory mutation tests; no product source edits, independent QC or live-model claim",
         revision=subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
         dirty_paths=subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).splitlines(),

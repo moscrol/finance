@@ -12,7 +12,8 @@ from typing import Any
 from market_feature_store.signals import is_double_red
 from .features import compute_features, finite
 
-ANATOMY_VERSION = "history-anatomy-v1"
+# v1.1 adds explicit observation dates/status; the v1 arithmetic is unchanged.
+ANATOMY_VERSION = "history-anatomy-v1.1"
 WARMUP = 5
 DRAWDOWN_CONFIRM_PCT = 10
 TRACE_FEATURES = (
@@ -32,7 +33,8 @@ ANATOMY_DEFINITION = {
     "rule": "5 warmup dates inside start..end. First signal: sector=strict double red; stock=pct>=7 & amount/prior5_mean>=1.5. No lookback expansion.",
     "peak": "Last maximum return-NAV since signal. Confirmation date=first later >=10% drawdown; link to chosen peak is known only at window end. Not intraday/predicted top.",
     "leaders": "Signal-date members ranked by return through sector peak; posthoc, not a forecast or whole-market winners. Ties by code; incomplete unranked.",
-    "succession": "Declared codes: target first signal in (source peak, peak+5]; target next5 return>0, source<=0. Missing/immature/failed pairs retained; not fund-transfer evidence.",
+    "succession": "Target first signal in (source peak, peak+5 trading dates]; BOTH returns use those same source-peak-next5 dates: target>0, source<=0. No peak-confirmation prerequisite; not causal.",
+    "succession_observation": "outcome_dates are the first <=5 saved calendar dates strictly after source peak. Fewer than 5 => immature, NOT failed; calendar maturity does not certify nonmissing prices. target_signal_status is separate.",
     "path": "NAV=1 before signal, compounds daily pct_chg; missing/duplicate/invalid return => unverifiable. Descriptive, not adjusted candle shapes.",
 }
 
@@ -458,6 +460,9 @@ def _succession(codes, summaries, signal_statuses, grouped, days, market, check)
                     "source_peak_confirmation_date": before["confirmation_date"],
                     "succession_known_as_of": before["peak_known_as_of"],
                     "target_signal_date": after["signal_date"] if after else None,
+                    "target_signal_status": signal_statuses[target],
+                    "outcome_dates": outcome_days,
+                    "outcome_required_days": 5,
                     "lag_trading_days": lag,
                     "succession_status": status,
                     "evidence": evidence,
