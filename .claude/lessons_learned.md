@@ -233,6 +233,12 @@
 
 ## Agent Runtime / 预算诊断（2026-08-08）
 
+- **[2026-09-18] 拒绝错误调用本身正确，却在失败记账层崩溃；删掉坏断言本身正确，却把缺条件的答案标成完成。**
+  F3 durable事件最后`file:///nonexistent`应拒绝；真正栈在进展账`json.dumps(mappingproxy)`，只修JSON投影、不解冻合同或放开文件读取。
+  F1删无依据阈值后清单失去触发条件，标题/日期不是完成凭据。按核验后公开稿重算表达缺件，同session有界修复；不能补则保留可信正文并partial。
+  恢复旧核验稿也必须走统一`session_projection.view()`：首轮全量a969被架构门抓1F，接回后9655新全量11677P；不能用定向绿绕全量或改测试豁免。
+  工程/原文机械重放不代签真实模型，旧四题not_passed保留。见`docs/handoffs/2026-09-18-8792-local-failure-repairs.md`。
+
 - **[2026-08-08] 按 handoff 的诊断（"档位表按更快的 provider 标定，重标定它"）准备动手，差一步就改错了地方。**
   根因：诊断只看了 `ResearchPolicy` 档位表（quick 30 / standard 90 / deep 240），没算实际生效值。真实链路是
   `effective_timeout = min(tier_total, turn − verification_reserve) = min(tier_total, 80)`——`80` 恒为较小者，

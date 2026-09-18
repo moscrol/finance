@@ -1,33 +1,31 @@
 # 8792 边界组合候选
 
 ## 这个分支做什么
-组合登记退出/请求身份/日期关系与引用数字隔离；本轮固定3faf64fb验真实会话，不是#770整合或切流。
+登记退出/请求身份/日期引用边界；live后修局部失败连坐，保留可信答案但不放宽事实门。
 
 ## 当前状态
-树`~/fwp-wt-8792-boundary-integration`；代码`3faf64fb`，原文档e857d594，基线gitea/main@0a1cb8c4。本轮仅新增验收文档。
-四次首题提交、零重发：3次completed有正文、1次failed；**整体验收未通过**。8828已停、自己的锁已移除；8792仍bf662e9310ff healthy，模型/判官未改。未push/PR/合main/部署。
+树`~/fwp-wt-8792-boundary-integration`；业务`9655b16d`（a969修复＋公开出口续修），基线gitea/main=0a1cb8c4。代码已提交，本交接随文档收口；未push/PR/合main/部署。8792只读核仍bf662 healthy；8828及测试8793/8795已停。
+旧3faf四次首题3 completed/1 failed、零重发，**not_passed不变**；本轮新模型调用0。
 
 ## 未验证 / 已知边界
-- F3保住中际旭创/financial_analysis，但mappingproxy转JSON中断；末请求web_fetch，无stack，未定根因。
-- F1退出不写入成立，但无依据阈值被删后清单缺触发条件；同答案离线允许写会误收后续“缺口”段/历史due。live阳性只写1条。
-- F2未来日期+E45/E43计划保留；report partial，不代签金融质量。最近两期选年报+中报却跳过Q1；上下文cutoff默认09-18与提问09-16/17未对齐，均待核。
-- 失败用量丢失、5次判官tokens未知，不报价；四题不证稳定性/时延。市场快照固定，财务F10/知识库/网页仍在线。
-- #770、RE06/#53、#56观察未签；旧sector口径/invalid_query另线。
+- 本轮工程修复未在真实GLM新任务复验；脚本化判官/repair不证明金融质量、稳定性或费用。
+- 最近两期跳过Q1、用户截止日未透传information_cutoff、失败用量/判官tokens未知仍待核；旧manual mappingproxy同源未证。
+- 清单只查结构形状，不是任意中文/Markdown语义解析器；隐式时间节点沿用默认due，不代签证据支持。
+- #770、RE06/#53、#56观察另线；未扩清理/数据写入。真实用户纠偏已CLI落盘，未核下次prompt注入。
 
 ## 下一步
-1. 读[本轮决策/失败史](../2026-09-18-8792-boundary-live-acceptance.md)和[索引](../../verification/2026-09-18-8792-boundary-live/README.md)。原件R=`~/.finance-runtime/reviews/8792-boundary-live-20260918/`；acceptance-summary、closure与cases逐题定位。
-2. 优先用失败原件离线复现F3序列化；再补清单结束边界、删坏条件后的必需输出。新代码新revision重验，勿改写旧失败。
-3. 新模型预算/远端交付/合main/部署分别确认；upstream是gitea/main，推枝须显式目标。
+1. 读[修复决策](../2026-09-18-8792-local-failure-repairs.md)与[验证索引](../../verification/2026-09-18-8792-boundary-repairs/README.md)，独立复核后再定新live预算/协议。
+2. 新真实验收用精确revision、新身份、全写口隔离；每题一次，失败留分母；不得重启旧一次性launcher/重发挑绿。
+3. push须显式目标枝（upstream是main）；远端交付/合main/部署/改判官分别确认。并入别枝须验最终整合树。
 
 ## 决策与被否方案
-- 最终交付+实际写口验组合，否旧绿拼签；每题一次，否反复重采样。
-- 保留坏事实门，否关判官修绿；只读谓词对照与live分开标。
-- R下独立资源，否生产试写；条件rejudge索引遗漏后停两题终态再隔离重启，不重发。
+- 冻结实参仅JSON边界复制Mapping，否全局解冻/default=str；file URL仍拒绝。
+- 删句后重算公开稿缺件，同session有界修复；否关门/全拒答/编阈值。
+- 补全失败只恢复本轮旧核验稿并partial，否发布未核验新稿；无可信稿仍fail closed。
 
 ## 已验证
-3faf原工程：Python11612P/81S/2x，前端107P，E2E34P2S，Ruff/registry通过；精确收据`20260917T152129Z-3faf64fb.json`，非本轮重跑。
-live F1拒写/F2计划保留/live阳性1条；F3路由正确但交付红。真证据离线6门对照通过、connect尝试0。快照hash/生产身份前后不变；敏感扫描词形误报逐条核销，不是全系统无泄漏证明。
+9655干净全量11677P/81S/2x/17warnings；Ruff、前端107P/build、E2E34P2S、registry通过；精确收据`20260918T034028Z-9655b16d.json`八项过、base drift0。原QC15/15；8类撤保护均业务exit1。原F1不登记、原阳性仍1条due10-21；F3原file URL拒绝后进展JSON可记账。原219封印不变。
+R2=`~/.finance-runtime/reviews/8792-boundary-repairs-20260918/`；旧R=`../8792-boundary-live-20260918/`。
 
 ## 踩过的坑
-completed不等于report完整；失败存根非空不是成功。通用probe打印的默认路径不是R/users实际路径。
-E99999不属E1..E999协议；首次离线红保留，改夹具E999才命中未知引用门。finalizer exit0只代表归档完成，业务not_passed。
+a969首轮全量1F：恢复稿绕过view；接回统一出口后新revision重跑，不借红收据。guard夹具构造错误与health顶层null已留史纠正。completed不代签任务完整；语法/原件hash/扫描未决0各有证明边界。

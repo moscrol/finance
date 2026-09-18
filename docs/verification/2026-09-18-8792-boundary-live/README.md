@@ -2,6 +2,8 @@
 
 **结论：整体验收未通过，禁止据此推进部署。** 四次预注册首条消息、零重发：3 次 completed 有正文，1 次 failed。边界局部有效不等于完整研究任务合格。
 
+后续返修已在 `9655b16d` 完成独立工程检查，见[局部失败返修索引](../2026-09-18-8792-boundary-repairs/README.md)；没有新增真实模型验收，不改变本页四题判决或原件封印。
+
 - 被验代码：`3faf64fbadcfe45fdd0b306acd223d9e78c56525`；独立 detached 树、端口 8828。
 - 原件 **R**：`~/.finance-runtime/reviews/8792-boundary-live-20260918/`，含四个独立测试用户，金融原文/私有上下文不提交 Git。
 - 本轮走真正的建会话→发消息→run→指定 assistant 消息 HTTP 合同；不是浏览器点击或 CLI ask 验收。
