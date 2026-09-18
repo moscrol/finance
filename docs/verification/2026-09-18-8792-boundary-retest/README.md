@@ -8,6 +8,8 @@ API 运行状态四题均 `completed`，不等于四份合格研究：实际为�
 - [机器摘要](results.json) · [决策与限制](../../handoffs/2026-09-18-8792-boundary-retest.md) · [在途交接](../../handoffs/inflight/fix-8792-boundary-integration.md)。
 - [前轮工程修复](../2026-09-18-8792-boundary-repairs/README.md)；工程全量收据只签 `9655b16d`，不冒称本次再次全量。
 
+后续：[R4 离线返修与新revision工程收据](../2026-09-18-8792-boundary-r4/README.md)。它不改本页四首题失败结论，也没有追加真实模型重答。
+
 ## 四题实况
 
 | 案例（执行顺序） | run / report | 观察到的有效行为 | 未通过原因 | 客户端观察秒数 |
