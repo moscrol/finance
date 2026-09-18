@@ -80,7 +80,7 @@ def _history_findings(index: int, text: str, cards: dict[str, AgentEvidence]) ->
     if re.search(r'\d{4}-\d{2}-\d{2}|第[一二三四五六七八九十\d]+|前[两一二三四五六七八九十\d]+段|部分窗口|其中', text):
         return []
     findings = []
-    if '相似窗口' in text and '双红' in text:
+    if '相似窗口' in text and '双红' in text and not re.search(r'后续|随后|未来|之后', text):
         stated = _MINIMUM.search(text)
         values = [_single_quantity(row[2], '双红题材', '个') for row in rows]
         if stated and all(v is not None for v in values):
@@ -88,14 +88,14 @@ def _history_findings(index: int, text: str, cards: dict[str, AgentEvidence]) ->
             if Decimal(stated[1]) != minimum:
                 findings.append(ClaimFinding(index, 'historical_window_minimum',
                     f'该相似窗口表的双红题材均值下限为{minimum}个，不是{stated[1]}个；仅限表内{len(rows)}段窗口，不能外推总体下限。', (eid,)))
-    if ('窗口' in text or '历史' in text) and _PATH.search(text):
+    if '窗口' in text and _PATH.search(text):
         # The D10 contract contains forward endpoints, NOT intra-period prices.
         # Other path-bearing observations require semantic review, not this rule.
         has_path = any(any(o.metric in {'max_drawdown', 'drawdown', 'daily_close'} for o in c.observations) for c in cards.values())
         if not has_path:
             findings.append(ClaimFinding(index, 'endpoint_not_path',
                 '相似窗口表只给期末收益，未给区间价格路径或最大回撤；不能据此断言期间没有下跌。', (eid,)))
-    if ('窗口' in text or '历史' in text) and '涨停' in text and re.search(r'不(?:曾)?收缩|均未减少|没有减少', text):
+    if '窗口' in text and '涨停' in text and re.search(r'不(?:曾)?收缩|均未减少|没有减少', text):
         for row in rows:
             baseline = _single_quantity(row[2], '涨停', '家')
             future = [_single_quantity(cell, '日均涨停', '家') for cell in row[3:]]
