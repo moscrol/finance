@@ -25,7 +25,7 @@
     "path": "intelligence/runtime/agent_episode.py",
     "old": "        if not failures and self._store_fence is not None and self._store_fence.failure:",
     "new": "        if False:",
-    "targets": ["test_child_storage_failure_fences_parent_and_keeps_received_usage"]
+    "targets": ["test_sibling_failure_between_parent_intent_and_model_dispatch_stops_model"]
   },
   {
     "id": "failed_branches_still_cost_tokens",

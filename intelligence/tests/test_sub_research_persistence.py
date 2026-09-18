@@ -195,6 +195,38 @@ def test_child_storage_failure_fences_parent_and_keeps_received_usage(tmp_path, 
     assert "主研究继续" not in project_episode_progress(failed).message
 
 
+def test_sibling_failure_between_parent_intent_and_model_dispatch_stops_model(tmp_path):
+    from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+    from intelligence.services.agent_runtime import EpisodeEvent
+
+    class Model:
+        calls = 0
+
+        def complete(self, **kwargs):
+            self.calls += 1
+            return ModelTurn(json.dumps({"status": "partial", "draft": "不应调用", "gaps": ["待查"], "bindings": []}), ())
+
+    context = _context("max", allowed=("market_data",))
+    store = FencedEpisodeStore(ObservedStore(tmp_path, fail_kind="task"))
+    model = Model()
+    episode = ContinuousAgentEpisode(model, store=store)
+    try:
+        drive = episode.manual_drive(task_frame=_frame(), context=context, registry=registry([]))
+        assert drive.run_until("model_pending").phase == "model_pending"
+        parent_prefix = store.load(context.contract.task_id)
+        with pytest.raises(OSError):
+            store.append("branches-sibling", (EpisodeEvent(1, "task", {}),))
+        # Parent has not attempted another write. Its health must still reflect
+        # the child's failure before dispatch, not only after a store rejection.
+        assert store.load(context.contract.task_id) == parent_prefix
+        outcome = drive.run_to_end()
+        assert model.calls == 0 and outcome.usage.llm_calls == 0
+        assert outcome.persistence == "failed"
+        assert store.load(context.contract.task_id) == parent_prefix
+    finally:
+        release_root_budget(context.contract.task_id)
+
+
 def test_parent_branch_start_ack_failure_starts_no_child(tmp_path):
     store = ObservedStore(tmp_path, fail_kind="branch_started", fail_child=False, fail_after_write=True)
     outcome, model, executed, _spent, _runtime = run_tree(store)
