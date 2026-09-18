@@ -69,6 +69,7 @@ from intelligence.services.research_tool_registry import (
     check_satisfiability,
 )
 from intelligence.services.run_store import redact, redact_value
+from intelligence.services.session_projection import CAUSE_VERIFIED, TerminalFacts, view
 from intelligence.services.task_frame import TaskFrame, frame_blocks_contract_blind_pipelines
 from intelligence.services.judgment_delta import judgment_delta_receipt
 from intelligence.services.pricing_split import pricing_split_receipt
@@ -1276,7 +1277,8 @@ class ContinuousTurnAdapter:
         if not answer:
             return None
         semantic = recheck_material_public_delivery(
-            replace(semantic, public_answer=answer), projected=answer,
+            replace(semantic, public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=answer))),
+            projected=answer,
         )
         if (
             semantic.verified.verified_status == "failed"
@@ -1315,7 +1317,8 @@ class ContinuousTurnAdapter:
             },
         })
         return ContinuousTurnResult(
-            handled=True, status="partial", answer=answer,
+            handled=True, status="partial",
+            answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=answer)),
             as_of=_episode_as_of(trusted, context, allowed_output_ids=fulfilled),
             citations=_public_citation_projection(trusted, private_tokens, allowed_output_ids=fulfilled),
             warnings=(notice,), events=self._terminal_events(status="partial"),
