@@ -1,0 +1,8 @@
+{
+  "review_id": "ARL-0005",
+  "commit": "d46c2c3b10221483c811426e99ad379314289871",
+  "adapter_exit": 124,
+  "seconds": 735.772,
+  "dispatch": "explicit operations target; original queue not modified",
+  "status": "REVIEWER_INACTIVE"
+}

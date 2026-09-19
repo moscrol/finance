@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index e3d5a090..8ecf322b 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -56,7 +56,7 @@ def _rejected_assertion_spans(raw: str) -> tuple[tuple[int, int], ...]:
+                 for value in values]
+     # An invalid premise cannot leave an uncited/re-cited restatement or a
+     # dependent recommendation behind. A citation alone isn't independence.
+-    has_rejected_premise = any(rejected)
++    has_rejected_premise = False
+     prior_rejection = False
+     for index, value in enumerate(values):
+         if rejected[index]:

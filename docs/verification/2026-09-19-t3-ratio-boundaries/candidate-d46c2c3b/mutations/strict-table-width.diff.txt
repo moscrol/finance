@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/derived_calculation_artifacts.py b/intelligence/services/derived_calculation_artifacts.py
+index e028e008..ca0e35b2 100644
+--- a/intelligence/services/derived_calculation_artifacts.py
++++ b/intelligence/services/derived_calculation_artifacts.py
+@@ -214,7 +214,7 @@ def result_contract_errors(result: Mapping[str, object]) -> tuple[str, ...]:
+                     errors.append("table_row_keys")
+                 cells = tuple(row.values())
+             elif isinstance(row, (list, tuple)):
+-                if len(row) != len(columns):
++                if False and len(row) != len(columns):
+                     errors.append("table_row_width")
+                 cells = row
+             else:

@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index e3d5a090..76e1f9c3 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -444,7 +444,7 @@ def calculation_copy_findings(
+                             # This finite preface doesn't authorize arbitrary
+                             # later numbers (revenue or another report period).
+                             preface = re.match(r"\s*(?:创)?\d+(?:年|个?季|个?月)(?:新高|新低|高点|低点)[,，]\s*(?:实际|本期|比率)为", remainder)
+-                            if preface:
++                            if False and preface:
+                                 slot_start += preface.end()
+                         numbers, consumed_end = _ratio_value_slots(value, slot_start, scope_end)
+                         residual = value[consumed_end:scope_end]

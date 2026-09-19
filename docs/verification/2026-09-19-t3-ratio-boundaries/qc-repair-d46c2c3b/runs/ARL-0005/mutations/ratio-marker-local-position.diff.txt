@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index e3d5a090..b2500442 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -346,7 +346,7 @@ def _has_unlocated_ratio_number(residual: str) -> bool:
+ 
+ def _unlocated_ratio_finding(raw: str, period_start: int, *, offset: int) -> DeliveryFinding:
+     positions = [i for i, char in enumerate(raw) if char not in "*`"]
+-    insertion = positions[period_start]
++    insertion = 0
+     wrapper = re.search(r"[*`]+$", raw[:insertion])
+     if wrapper:
+         insertion -= len(wrapper.group())

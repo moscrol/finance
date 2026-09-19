@@ -1,0 +1,48 @@
+"""New exclusive state; immutable chain copied, never amend the invalid verdict."""
+from pathlib import Path
+import hashlib
+import json
+import shutil
+import subprocess
+import sys
+
+ROOT = Path('/Users/a77/fwp-q-research-data-readiness')
+BASE = Path('/Users/a77/.finance-runtime/convergence-20260919/retention-repair')
+STATE = BASE / 'qc-repair-d46c2c3b'
+PRIOR = BASE / 'qc-retry-746b716f-01'
+STATE.mkdir(exist_ok=False)
+rows = []
+for folder in ('requests', 'claims', 'verdicts'):
+    (STATE / folder).mkdir()
+    for source in sorted((PRIOR / folder).glob('ARL-*.json')):
+        dest = STATE / folder / source.name
+        shutil.copyfile(source, dest)
+        assert dest.read_bytes() == source.read_bytes()
+        rows.append({'source': str(source), 'copy': str(dest), 'sha256': hashlib.sha256(dest.read_bytes()).hexdigest()})
+for name in ('invalid-verdict.json', 'invocation-result.json'):
+    source = PRIOR / 'runs/ARL-0004' / name
+    dest = STATE / 'prior-invalid' / name
+    dest.parent.mkdir(exist_ok=True)
+    shutil.copyfile(source, dest)
+    rows.append({'source': str(source), 'copy': str(dest), 'sha256': hashlib.sha256(dest.read_bytes()).hexdigest()})
+(STATE / 'inherited-chain.json').write_text(json.dumps(rows, ensure_ascii=False, indent=2)+'\n')
+# Contains only auth-helper path/model routing, not an inline key.
+shutil.copyfile(PRIOR / 'cli-auth-settings.json', STATE / 'cli-auth-settings.json')
+sys.path.insert(0, str(ROOT))
+from scripts.agent_review.submit import submit_request
+root_request = json.loads((STATE / 'requests/ARL-0001.json').read_text())
+artifacts = subprocess.check_output(['git', 'diff', '--name-only', root_request['parent_commit']+'..HEAD'], cwd=ROOT, text=True).splitlines()
+request = submit_request(repo=ROOT, state_root=STATE,
+    scope='Cumulative T3 repair: original six ARL-0004 role/unit/genitive/semicolon boundary cases, independent fact retention, slots and original bounded repair. ARL-0004 remains invalid, not an approval.',
+    artifacts=artifacts, required_checks=(
+        'repair:ARL-0004',
+        'scripts/review_probes/check_ratio_scope_boundaries.py:16-unchanged-cases',
+        'independent_ordinals_grouped_amounts_and_genitive_periods_retained',
+        'explicit_compound_units_and_points_dimension_checked',
+        'semicolon_continuation_and_markdown_preserve_narrow_scope',
+        'all_prior_valid_findings_and_invalid_verdict_leads_engaged',
+    ), intensity='milestone', depends_on=('ARL-0004',), supersedes='ARL-0004')
+claim = json.loads((STATE / 'claims' / (request.review_id+'.json')).read_text())
+print(json.dumps({'review_id':request.review_id,'commit':request.commit,'parent':request.parent_commit,
+    'artifacts':len(request.artifacts),'unique_tests':len({t for ts in request.artifact_tests.values() for t in ts}),
+    'request_sha256':claim['request_sha256']},indent=2))

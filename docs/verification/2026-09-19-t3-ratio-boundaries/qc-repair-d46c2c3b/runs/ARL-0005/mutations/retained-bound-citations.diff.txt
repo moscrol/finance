@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/episode_semantic_verifier.py b/intelligence/services/episode_semantic_verifier.py
+index acc81c39..cbd49dc9 100644
+--- a/intelligence/services/episode_semantic_verifier.py
++++ b/intelligence/services/episode_semantic_verifier.py
+@@ -743,7 +743,7 @@ def _recheck_research_delivery(outcome: SemanticEpisodeOutcome, public: str) ->
+     }
+     cited = set(cited_evidence_ordinals(repaired))
+     ordinals = evidence_ordinal_table(before.outcome.evidence)
+-    retained = tuple(h for h, ordinal in ordinals.items() if h in bound and ordinal in cited)
++    retained = ()
+     issues = tuple(f"code={code} :: delivered research claim failed local check" for code in codes)
+     # Do not replace archived draft/evidence or mark the whole slot's facts as
+     # false. Public text + gap IDs carry the repair need, and status cannot rise.

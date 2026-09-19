@@ -1,0 +1,68 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-d46c2c3b/runs/ARL-0005/mutations/ratio-semicolon-value-not-just-unknown-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_ratio_boundaries.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_explicit_continuation_checks_each_slot_across_punctuation or test_original_boundary_cases_through_public_exit"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-2rfxbfv4/tree", "revision": "d46c2c3b10221483c811426e99ad379314289871"}
+.....F.....F..FF..FF..FF                                                 [100%]
+=================================== FAILURES ===================================
+_ test_original_boundary_cases_through_public_exit[off-\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u5f85\u6838\u5bf9\uff1b\u5b9e\u9645\u4e3a1.587\u3002-1.587] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:48: in test_original_boundary_cases_through_public_exit
+    assert wrong not in result.public_answer
+E   AssertionError: assert '1.587' not in '收入可核[E1]，〔比...已保留原文并标明待核对。'
+E     
+E     '1.587' is contained here:
+E       收入可核[E1]，〔比率对应关系待核对〕2026中报含金量待核对；实际为1.587。
+E     ?                                     +++++
+E       
+E       部分比率的报告期与数值对应关系尚未核对，不能视为已核算结论；已保留原文并标明待核对。
+_ test_original_boundary_cases_through_public_exit[llm-\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u5f85\u6838\u5bf9\uff1b\u5b9e\u9645\u4e3a1.587\u3002-1.587] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:48: in test_original_boundary_cases_through_public_exit
+    assert wrong not in result.public_answer
+E   AssertionError: assert '1.587' not in '收入可核[E1]，〔比...已保留原文并标明待核对。'
+E     
+E     '1.587' is contained here:
+E       收入可核[E1]，〔比率对应关系待核对〕2026中报含金量待核对；实际为1.587。
+E     ?                                     +++++
+E       
+E       部分比率的报告期与数值对应关系尚未核对，不能视为已核算结论；已保留原文并标明待核对。
+_ test_explicit_continuation_checks_each_slot_across_punctuation[\u5f85\u6838\u5bf9-\uff1b] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:106: in test_explicit_continuation_checks_each_slot_across_punctuation
+    assert len(findings) == 2 and {f.code for f in findings} == {"calculation_value_mismatch"}
+E   AssertionError: assert (1 == 2)
+E    +  where 1 = len((DeliveryFinding(start=9, end=9, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+_ test_explicit_continuation_checks_each_slot_across_punctuation[\u5f85\u6838\u5bf9-;] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:106: in test_explicit_continuation_checks_each_slot_across_punctuation
+    assert len(findings) == 2 and {f.code for f in findings} == {"calculation_value_mismatch"}
+E   AssertionError: assert (1 == 2)
+E    +  where 1 = len((DeliveryFinding(start=9, end=9, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+_ test_explicit_continuation_checks_each_slot_across_punctuation[\u4e3a**\u5f85\u6838\u5bf9**-\uff1b] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:106: in test_explicit_continuation_checks_each_slot_across_punctuation
+    assert len(findings) == 2 and {f.code for f in findings} == {"calculation_value_mismatch"}
+E   AssertionError: assert (1 == 2)
+E    +  where 1 = len((DeliveryFinding(start=9, end=9, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+_ test_explicit_continuation_checks_each_slot_across_punctuation[\u4e3a**\u5f85\u6838\u5bf9**-;] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:106: in test_explicit_continuation_checks_each_slot_across_punctuation
+    assert len(findings) == 2 and {f.code for f in findings} == {"calculation_value_mismatch"}
+E   AssertionError: assert (1 == 2)
+E    +  where 1 = len((DeliveryFinding(start=9, end=9, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+_ test_explicit_continuation_checks_each_slot_across_punctuation[\u4e3a1.588-\uff1b] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:106: in test_explicit_continuation_checks_each_slot_across_punctuation
+    assert len(findings) == 2 and {f.code for f in findings} == {"calculation_value_mismatch"}
+E   AssertionError: assert (1 == 2)
+E    +  where 1 = len((DeliveryFinding(start=9, end=9, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+_ test_explicit_continuation_checks_each_slot_across_punctuation[\u4e3a1.588-;] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:106: in test_explicit_continuation_checks_each_slot_across_punctuation
+    assert len(findings) == 2 and {f.code for f in findings} == {"calculation_value_mismatch"}
+E   AssertionError: assert (1 == 2)
+E    +  where 1 = len((DeliveryFinding(start=9, end=9, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-d46c2c3b/runs/ARL-0005/mutations/ratio-semicolon-value-not-just-unknown-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_original_boundary_cases_through_public_exit[off-\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u5f85\u6838\u5bf9\uff1b\u5b9e\u9645\u4e3a1.587\u3002-1.587]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_original_boundary_cases_through_public_exit[llm-\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u5f85\u6838\u5bf9\uff1b\u5b9e\u9645\u4e3a1.587\u3002-1.587]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_explicit_continuation_checks_each_slot_across_punctuation[\u5f85\u6838\u5bf9-\uff1b]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_explicit_continuation_checks_each_slot_across_punctuation[\u5f85\u6838\u5bf9-;]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_explicit_continuation_checks_each_slot_across_punctuation[\u4e3a**\u5f85\u6838\u5bf9**-\uff1b]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_explicit_continuation_checks_each_slot_across_punctuation[\u4e3a**\u5f85\u6838\u5bf9**-;]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_explicit_continuation_checks_each_slot_across_punctuation[\u4e3a1.588-\uff1b]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_explicit_continuation_checks_each_slot_across_punctuation[\u4e3a1.588-;]
+8 failed, 16 passed, 577 deselected in 1.14s
+
+STDERR:
+
+EXIT=1
