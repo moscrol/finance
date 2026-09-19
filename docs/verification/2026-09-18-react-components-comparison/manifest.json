@@ -1,0 +1,300 @@
+{
+  "created_at": "2026-09-19T17:15:57.029130+00:00",
+  "scope": "Second-round comparison (2026-09-18): the pi assistant's own component-driven ReAct answer vs the Workbench public answer from isolated candidate 8848 running feat/research-answer-preservation@af9500ec (business 5f3b5b59); same read-only market snapshot to 2026-09-17. Not production 8792, not blind, budget not matched, no financial certification.",
+  "question": "这里的行情哪个板块更有机会，历史上有相似的阶段吗",
+  "as_of": "2026-09-17",
+  "code_revision": "af9500ecad84b06f39d960c1eaa57561ff2c6485",
+  "business_code_revision": "5f3b5b593183aae86a93372149efe6611a92ebc8",
+  "product_run": "run_20260918_113122_450933",
+  "product_endpoint": "isolated candidate 8848 (already stopped)",
+  "blind": false,
+  "budget_matched": false,
+  "raw_bytes_preserved": true,
+  "suffix_rule": ".py/.log copied byte-identical with an added .txt suffix",
+  "files": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/artifact-index.json",
+      "archive": "artifact-index.json",
+      "bytes": 7906,
+      "sha256": "c659c462796b2c540de8edc6e4780c4bb608f341adf6b7a6ebf638ba4a861329"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/candidate-last-two-days.json",
+      "archive": "candidate-last-two-days.json",
+      "bytes": 39793,
+      "sha256": "ed4e71dbb45b5cabc26aa0f931e2a695d34169054c4a8bf17357572f47169a5f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/candidate-latest-breadth.json",
+      "archive": "candidate-latest-breadth.json",
+      "bytes": 29286,
+      "sha256": "8eeec5225ec5246a749eb71c312facb23851777eb0ea50937c91ce5a6c8ecef5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/candidate-ten-day-features.json",
+      "archive": "candidate-ten-day-features.json",
+      "bytes": 68633,
+      "sha256": "96b4bb49e35bd126a89b70628f9571a1fb5fa2c1cd2339982238b647b9d9a55d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/capacity-sectors.json",
+      "archive": "capacity-sectors.json",
+      "bytes": 40981,
+      "sha256": "64d49d3b011c924e98a38faf451597391216c94f579b8cfbcf99250b1c2c2a33"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/comparable-all-outcome-five.json",
+      "archive": "comparable-all-outcome-five.json",
+      "bytes": 60720,
+      "sha256": "f59143265d9b6623e60cbbcf7f58821baecd317c7de6ad92e9e58c40846d2ab9"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/comparable-all-outcome-five.log",
+      "archive": "comparable-all-outcome-five.log.txt",
+      "bytes": 7832,
+      "sha256": "9961032b95acfdeb2cca0a9f124bd2c0b1d32cede9467c7d2dbeabce05019423"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/comparable-all-outcome-ten.json",
+      "archive": "comparable-all-outcome-ten.json",
+      "bytes": 60724,
+      "sha256": "46297a7bc2cf743c43a3ae12fb76ddfb4fb967aa32297f8a1ed5710a955a54c9"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/comparable-all-outcome-ten.log",
+      "archive": "comparable-all-outcome-ten.log.txt",
+      "bytes": 7831,
+      "sha256": "f009096919ed5082128956dd590f1a43cb7e7ae2078c8b922a211eb57ad75183"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/comparison-receipt.json",
+      "archive": "comparison-receipt.json",
+      "bytes": 3354,
+      "sha256": "8af7b01149a6f81eee19b0cd059e7d382971b7780ed72df3aa72a54a4930f331"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/comparison.md",
+      "archive": "comparison.md",
+      "bytes": 4692,
+      "sha256": "b86ff42eaf003023887e88c6af50c8036c063e6f402df211b50c2b337a68f190"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/component-answer.md",
+      "archive": "component-answer.md",
+      "bytes": 6782,
+      "sha256": "4ec32b401f10a8832dfd27ffeab8e626817531c3994471b514a24e5a2f80ecd4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/components.py",
+      "archive": "components.py.txt",
+      "bytes": 8345,
+      "sha256": "75cf9656fab53b02fde91f0265b5350c19533d7f408a63ca862d80c4431b8883"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/context-and-analogues.json",
+      "archive": "context-and-analogues.json",
+      "bytes": 16052,
+      "sha256": "b61d452a7cc15348a3d5c6fa699b0af132a63a0a9bee376a057851cd032958d0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/derived-history-summary.json",
+      "archive": "derived-history-summary.json",
+      "bytes": 18234,
+      "sha256": "6dde3bd5a887244125e5993ff4a9ebd306d377b02a5afd8637498d83c3df5dc8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/ev-analogues.json",
+      "archive": "ev-analogues.json",
+      "bytes": 55284,
+      "sha256": "9ba59dda63a0114c58cb6d412ab5c10ad2fcbcf08aa67f85e62afd28a66e5898"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/fiber-analogues.json",
+      "archive": "fiber-analogues.json",
+      "bytes": 67373,
+      "sha256": "ba0948843a0870ad8f83a614e8a354d8a52511b2bd750da02a6d964b209eee9e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/fiber-catalyst-search.json",
+      "archive": "fiber-catalyst-search.json",
+      "bytes": 32516,
+      "sha256": "62ddf81cff97c9c94f65a9a2996a8f92687e6d6c3828a1d8c54e24c65858c45f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/fiber-members.json",
+      "archive": "fiber-members.json",
+      "bytes": 18214,
+      "sha256": "ab5dd7128f1f30c0c94fdf81baf56debe8bf44362737dd3a970a3b2ae08c3924"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/history-followup-plan.json",
+      "archive": "history-followup-plan.json",
+      "bytes": 1104,
+      "sha256": "9340ce7023806a2cdb22b4040717a80397d5fe5256bd4378b26871c8c9470ad0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/leading-lines-five-days.json",
+      "archive": "leading-lines-five-days.json",
+      "bytes": 33008,
+      "sha256": "9ae6afbd7bd660a39c005c83cc7b8e0c77f52b734389af13d0c2d477342763a1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/limit-heat.json",
+      "archive": "limit-heat.json",
+      "bytes": 26038,
+      "sha256": "cdaca6a24b3d1a6898bf110d3797560a8caa5c063bc168ca6ffd009da49f110d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/market-emotion-analogues.json",
+      "archive": "market-emotion-analogues.json",
+      "bytes": 8632,
+      "sha256": "ab995ccc04b5cad775b620406b4af2cd7dd298cc53f837a30c14530056f42597"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/market-window.json",
+      "archive": "market-window.json",
+      "bytes": 19454,
+      "sha256": "441c64413b3b642dd6888d64c520e2007551a68cf89ff51bf532d0897afd64ba"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/opening-prefetch.json",
+      "archive": "opening-prefetch.json",
+      "bytes": 3130,
+      "sha256": "3df4fadd5605c87a881f9f3909ae6b81354870d4432ea5d465cfe47047277811"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/other-candidates-ten-day.json",
+      "archive": "other-candidates-ten-day.json",
+      "bytes": 48040,
+      "sha256": "0e6d24872e14c956044db7ffa5cac9c82165614e2c288d9b1c3dde738c325c91"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/pcb-analogues.json",
+      "archive": "pcb-analogues.json",
+      "bytes": 67314,
+      "sha256": "1a22d395740dce289a9b75ba4aab2c1aa2d7ad45de9a2d1344fd06da9d210986"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/period-ranks.json",
+      "archive": "period-ranks.json",
+      "bytes": 26469,
+      "sha256": "b12d8254d91704ff69d4bb55a1e56bef0a475a0f978befe88fbda8f453b71665"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/protocol.json",
+      "archive": "protocol.json",
+      "bytes": 1613,
+      "sha256": "79183491c07a057843a87db6e9d9c2d458fb881e5c58d94e0c3eaf84626249cd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/run-id.txt",
+      "archive": "run-id.txt",
+      "bytes": 27,
+      "sha256": "fafca540915b6f885d992b55dd835680fce990ed98132102718b2efce8d0fed6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/runs/run_20260918_124822_549113/history-query-01dfb57b0b92b175669e80c7047ff05a645ab10e9e4ad2eaf7fcc11e355818e6.json",
+      "archive": "runs/run_20260918_124822_549113/history-query-01dfb57b0b92b175669e80c7047ff05a645ab10e9e4ad2eaf7fcc11e355818e6.json",
+      "bytes": 445782,
+      "sha256": "01dfb57b0b92b175669e80c7047ff05a645ab10e9e4ad2eaf7fcc11e355818e6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/runs/run_20260918_124822_549113/history-query-4fddd6e6725b93e2972e53577f539fc28f26aed754e399dbbe749885c868a75b.json",
+      "archive": "runs/run_20260918_124822_549113/history-query-4fddd6e6725b93e2972e53577f539fc28f26aed754e399dbbe749885c868a75b.json",
+      "bytes": 445831,
+      "sha256": "4fddd6e6725b93e2972e53577f539fc28f26aed754e399dbbe749885c868a75b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/runs/run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+      "archive": "runs/run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+      "bytes": 641277,
+      "sha256": "95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/runs/run_20260918_124822_549113/history-query-a4e34211bd57a564004c1e9fef42c0f9aaeb57c217aacf7b10a0bf74858c40d4.json",
+      "archive": "runs/run_20260918_124822_549113/history-query-a4e34211bd57a564004c1e9fef42c0f9aaeb57c217aacf7b10a0bf74858c40d4.json",
+      "bytes": 131816,
+      "sha256": "a4e34211bd57a564004c1e9fef42c0f9aaeb57c217aacf7b10a0bf74858c40d4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/runs/run_20260918_124822_549113/history-query-ce442ee276bcb8aae18869db27415324d85ba5c086bc76816f9459b356942fe4.json",
+      "archive": "runs/run_20260918_124822_549113/history-query-ce442ee276bcb8aae18869db27415324d85ba5c086bc76816f9459b356942fe4.json",
+      "bytes": 132367,
+      "sha256": "ce442ee276bcb8aae18869db27415324d85ba5c086bc76816f9459b356942fe4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/runs/run_20260918_124822_549113/history-query-ecc51de5a231c1e34ca5c2b64581dedde8689a6c8f72b374c8d156c44ffedf9f.json",
+      "archive": "runs/run_20260918_124822_549113/history-query-ecc51de5a231c1e34ca5c2b64581dedde8689a6c8f72b374c8d156c44ffedf9f.json",
+      "bytes": 130434,
+      "sha256": "ecc51de5a231c1e34ca5c2b64581dedde8689a6c8f72b374c8d156c44ffedf9f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/runs/run_20260918_124822_549113/run.json",
+      "archive": "runs/run_20260918_124822_549113/run.json",
+      "bytes": 4488,
+      "sha256": "af3be136dad36ea49d2c2fccc920f705fabfccc948fc6ec42357d02a689e1376"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/strict-double-red-today.json",
+      "archive": "strict-double-red-today.json",
+      "bytes": 17555,
+      "sha256": "1ed31a21bdde720f2900d02ffd055179719cfa2925672145281b0422dfd3a65d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/trace.jsonl",
+      "archive": "trace.jsonl",
+      "bytes": 11496,
+      "sha256": "eae612cd8bd6dc365945bbedbd6f5ca8433bfb5e5d7881c076055660f6bb2502"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/verify_and_freeze.py",
+      "archive": "verify_and_freeze.py.txt",
+      "bytes": 9832,
+      "sha256": "4057d1dd966d0b7a89ef9ce28bfb26ffaac52bfa2a24e7f3aecbe1ed22838b42"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/workbench-answer.md",
+      "archive": "workbench-answer.md",
+      "bytes": 2813,
+      "sha256": "7a598a19d592b35c4cd32434aa5dd340f4a5270cbb116988126f7d97d1922eb5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/worktree-salvage-20260920/archive_react_components.py",
+      "archive": "archive_react_components.py.txt",
+      "bytes": 3622,
+      "sha256": "8b23b752dc6283d574c59f0f812c8c80ef0ea60602663639725b4fdbe05b6496"
+    }
+  ],
+  "not_archived_recorded_only": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/__pycache__/components.cpython-312.pyc",
+      "bytes": 13019,
+      "sha256": "4cd967d407000b7a4e451ae12333d311d47b168998080c7d68c8a42cb6de715a",
+      "reason": "binary/cache/lock type not permitted in Git"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/runs/run_20260918_124822_549113/.run-state.lock",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "reason": "binary/cache/lock type not permitted in Git"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/runs/run_20260918_124822_549113/history-query-7535ebf4a8dae42078b5f4fe770f3f0bd2f801b0a2f4328a05d6bbe301418f13.json",
+      "bytes": 6742461,
+      "sha256": "7535ebf4a8dae42078b5f4fe770f3f0bd2f801b0a2f4328a05d6bbe301418f13",
+      "reason": "exceeds 5120 KiB Git file limit"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/runs/run_20260918_124822_549113/history-query-9a1f75766cd2520123f6190b780a349599170526b532f9321a8c28064f85aeb3.json",
+      "bytes": 7386838,
+      "sha256": "9a1f75766cd2520123f6190b780a349599170526b532f9321a8c28064f85aeb3",
+      "reason": "exceeds 5120 KiB Git file limit"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-components-react-20260918/runs/workbench.sqlite3",
+      "bytes": 53248,
+      "sha256": "ba3e34b74f73a069fec9bbffb31e75ada557fb24f14dedd9be5c4da4db800838",
+      "reason": "binary/cache/lock type not permitted in Git"
+    }
+  ]
+}

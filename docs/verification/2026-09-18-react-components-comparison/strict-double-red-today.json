@@ -1,0 +1,505 @@
+{
+  "tool": "finance_query",
+  "arguments": {
+    "dataset": "sector_daily",
+    "dimensions": [
+      "trade_date",
+      "sector_code",
+      "sector_name"
+    ],
+    "metrics": [
+      "return_pct",
+      "amount",
+      "marginal_volume_pct"
+    ],
+    "time_range": {
+      "start": "2026-09-17",
+      "end": "2026-09-17"
+    },
+    "filters": [
+      {
+        "field": "return_pct",
+        "op": "gt",
+        "value": 0
+      },
+      {
+        "field": "marginal_volume_pct",
+        "op": "gt",
+        "value": 10
+      },
+      {
+        "field": "amount",
+        "op": "gt",
+        "value": 500
+      }
+    ],
+    "order_by": [
+      {
+        "field": "amount",
+        "direction": "desc"
+      }
+    ],
+    "limit": 25
+  },
+  "code_revision": "af9500ecad84b06f39d960c1eaa57561ff2c6485",
+  "elapsed_s": 0.05507704196497798,
+  "captured_at": "2026-09-18T04:49:42.473795+00:00",
+  "result": {
+    "tool": "finance_query",
+    "query": "sector_daily:trade_date,sector_code,sector_name,return_pct,amount,marginal_volume_pct",
+    "evidence": [
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990119.FP；板块名称=医药医疗；涨跌幅=0.9121；成交额亿=880.8013；边际量=13.1623",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:f2d518b8b7731016:1",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "278e8b5e42de3f48",
+        "observations": [
+          {
+            "subject": "医药医疗",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 0.9121
+          },
+          {
+            "subject": "医药医疗",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 880.8013
+          },
+          {
+            "subject": "医药医疗",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": 13.1623
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990211.FP；板块名称=智能医疗；涨跌幅=0.0983；成交额亿=737.7783；边际量=14.1609",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:f2d518b8b7731016:2",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "2afc13129a794722",
+        "observations": [
+          {
+            "subject": "智能医疗",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 0.0983
+          },
+          {
+            "subject": "智能医疗",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 737.7783
+          },
+          {
+            "subject": "智能医疗",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": 14.1609
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990200.FP；板块名称=新零售；涨跌幅=0.8284；成交额亿=684.7324；边际量=20.2823",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:f2d518b8b7731016:3",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "3b0be351cf336719",
+        "observations": [
+          {
+            "subject": "新零售",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 0.8284
+          },
+          {
+            "subject": "新零售",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 684.7324
+          },
+          {
+            "subject": "新零售",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": 20.2823
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990118.FP；板块名称=医药；涨跌幅=1.121；成交额亿=643.3476；边际量=14.6567",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:f2d518b8b7731016:4",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "bd0e914df7a5daff",
+        "observations": [
+          {
+            "subject": "医药",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 1.121
+          },
+          {
+            "subject": "医药",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 643.3476
+          },
+          {
+            "subject": "医药",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": 14.6567
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990098.FP；板块名称=创新药；涨跌幅=0.9011；成交额亿=621.327；边际量=11.3173",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:f2d518b8b7731016:5",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "0835f2cacda91c04",
+        "observations": [
+          {
+            "subject": "创新药",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 0.9011
+          },
+          {
+            "subject": "创新药",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 621.327
+          },
+          {
+            "subject": "创新药",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": 11.3173
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；涨跌幅=0.5318；成交额亿=572.8206；边际量=27.7275",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:f2d518b8b7731016:6",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "581c163b07986756",
+        "observations": [
+          {
+            "subject": "光纤光缆",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 0.5318
+          },
+          {
+            "subject": "光纤光缆",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 572.8206
+          },
+          {
+            "subject": "光纤光缆",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": 27.7275
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990360.FP；板块名称=通用设备；涨跌幅=0.2742；成交额亿=566.0181；边际量=11.8406",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:f2d518b8b7731016:7",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "200ef345fc2ff764",
+        "observations": [
+          {
+            "subject": "通用设备",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 0.2742
+          },
+          {
+            "subject": "通用设备",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 566.0181
+          },
+          {
+            "subject": "通用设备",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": 11.8406
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990239.FP；板块名称=汽车；涨跌幅=1.3971；成交额亿=560.1152；边际量=20.6617",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:f2d518b8b7731016:8",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "d77a1fe3bddb8495",
+        "observations": [
+          {
+            "subject": "汽车",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 1.3971
+          },
+          {
+            "subject": "汽车",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 560.1152
+          },
+          {
+            "subject": "汽车",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": 20.6617
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990076.FP；板块名称=光学光电；涨跌幅=0.7187；成交额亿=525.7964；边际量=28.2251",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:f2d518b8b7731016:9",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "b648e6ce65fa540d",
+        "observations": [
+          {
+            "subject": "光学光电",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 0.7187
+          },
+          {
+            "subject": "光学光电",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 525.7964
+          },
+          {
+            "subject": "光学光电",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": 28.2251
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990179.FP；板块名称=建材；涨跌幅=0.2644；成交额亿=512.5138；边际量=28.7864",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:f2d518b8b7731016:10",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "0fbd6c8891f62096",
+        "observations": [
+          {
+            "subject": "建材",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 0.2644
+          },
+          {
+            "subject": "建材",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 512.5138
+          },
+          {
+            "subject": "建材",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": 28.7864
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      }
+    ],
+    "observation": "交易日=2026-09-17；板块代码=990119.FP；板块名称=医药医疗；涨跌幅=0.9121；成交额亿=880.8013；边际量=13.1623；交易日=2026-09-17；板块代码=990211.FP；板块名称=智能医疗；涨跌幅=0.0983；成交额亿=737.7783；边际量=14.1609；交易日=2026-09-17；板块代码=990200.FP；板块名称=新零售；涨跌幅=0.8284；成交额亿=684.7324；边际量=20.2823；交易日=2026-09-17；板块代码=990118.FP；板块名称=医药；涨跌幅=1.121；成交额亿=643.3476；边际量=14.6567；交易日=2026-09-17；板块代码=990098.FP；板块名称=创新药；涨跌幅=0.9011；成交额亿=621.327；边际量=11.3173；交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；涨跌幅=0.5318；成交额亿=572.8206；边际量=27.7275；交易日=2026-09-17；板块代码=990360.FP；板块名称=通用设备；涨跌幅=0.2742；成交额亿=566.0181；边际量=11.8406；交易日=2026-09-17；板块代码=990239.FP；板块名称=汽车；涨跌幅=1.3971；成交额亿=560.1152；边际量=20.6617；交易日=2026-09-17；板块代码=990076.FP；板块名称=光学光电；涨跌幅=0.7187；成交额亿=525.7964；边际量=28.2251；交易日=2026-09-17；板块代码=990179.FP；板块名称=建材；涨跌幅=0.2644；成交额亿=512.5138；边际量=28.7864",
+    "trace": {
+      "provider": "duckdb_semantic_query",
+      "capability": "finance_query",
+      "status": "success",
+      "detail": "dataset=sector_daily; rows=10; fingerprint=f2d518b8b7731016",
+      "source_trade_date": "2026-09-17",
+      "result_count": 10,
+      "parent_id": "assistant-component-react:1789706981975854000",
+      "step_id": "strict-double-red-today",
+      "requested_date": "2026-09-18",
+      "served_date": "2026-09-17",
+      "requested_time_range": [
+        "2026-09-17",
+        "2026-09-17"
+      ]
+    },
+    "gaps": [],
+    "evidence_hashes": [
+      "278e8b5e42de3f48",
+      "2afc13129a794722",
+      "3b0be351cf336719",
+      "bd0e914df7a5daff",
+      "0835f2cacda91c04",
+      "581c163b07986756",
+      "200ef345fc2ff764",
+      "d77a1fe3bddb8495",
+      "b648e6ce65fa540d",
+      "0fbd6c8891f62096"
+    ],
+    "dataset": "sector_daily",
+    "caliber": "fact_sector_daily",
+    "payload_field_names": [
+      "trade_date",
+      "sector_code",
+      "sector_name",
+      "return_pct",
+      "amount",
+      "marginal_volume_pct"
+    ],
+    "payload_sha256": "0acaac47b3b9785b3772c90fa0c7aa75a8ca0c3ff8009d07a178c9cc3caf54a5",
+    "telemetry": {}
+  }
+}

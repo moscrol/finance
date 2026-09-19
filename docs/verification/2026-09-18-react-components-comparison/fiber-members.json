@@ -1,0 +1,473 @@
+{
+  "tool": "finance_query",
+  "arguments": {
+    "dataset": "sector_stock_daily",
+    "dimensions": [
+      "trade_date",
+      "sector_code",
+      "sector_name",
+      "stock_code",
+      "stock_name"
+    ],
+    "metrics": [
+      "return_pct",
+      "amount"
+    ],
+    "time_range": {
+      "start": "2026-09-17",
+      "end": "2026-09-17"
+    },
+    "filters": [
+      {
+        "field": "sector_code",
+        "op": "eq",
+        "value": "990078.FP"
+      }
+    ],
+    "order_by": [
+      {
+        "field": "amount",
+        "direction": "desc"
+      }
+    ],
+    "limit": 25
+  },
+  "code_revision": "af9500ecad84b06f39d960c1eaa57561ff2c6485",
+  "elapsed_s": 0.03285208297893405,
+  "captured_at": "2026-09-18T04:53:51.469602+00:00",
+  "result": {
+    "tool": "finance_query",
+    "query": "sector_stock_daily:trade_date,sector_code,sector_name,stock_code,stock_name,return_pct,amount",
+    "evidence": [
+      {
+        "tool": "finance_query",
+        "title": "板块成分股日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=600487.SH；股票名称=亨通光电；涨跌幅=4.72；成交额亿=158.9143",
+        "source": "本地结构化数据 · 板块成分股日频行情",
+        "internal_locator": "finance-query:5272f5c89ef6005d:1",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_stock_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "f0dcfcf80417e1ad",
+        "observations": [
+          {
+            "subject": "亨通光电",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 4.72
+          },
+          {
+            "subject": "亨通光电",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 158.9143
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块成分股日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=600522.SH；股票名称=中天科技；涨跌幅=3.41；成交额亿=111.5027",
+        "source": "本地结构化数据 · 板块成分股日频行情",
+        "internal_locator": "finance-query:5272f5c89ef6005d:2",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_stock_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "9cef72f825b59805",
+        "observations": [
+          {
+            "subject": "中天科技",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 3.41
+          },
+          {
+            "subject": "中天科技",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 111.5027
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块成分股日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=600105.SH；股票名称=永鼎股份；涨跌幅=-0.18；成交额亿=105.8518",
+        "source": "本地结构化数据 · 板块成分股日频行情",
+        "internal_locator": "finance-query:5272f5c89ef6005d:3",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_stock_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "be950febe4d85917",
+        "observations": [
+          {
+            "subject": "永鼎股份",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": -0.18
+          },
+          {
+            "subject": "永鼎股份",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 105.8518
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块成分股日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=002491.SZ；股票名称=通鼎互联；涨跌幅=-3.19；成交额亿=63.6062",
+        "source": "本地结构化数据 · 板块成分股日频行情",
+        "internal_locator": "finance-query:5272f5c89ef6005d:4",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_stock_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "d0c7e06e736b31cc",
+        "observations": [
+          {
+            "subject": "通鼎互联",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": -3.19
+          },
+          {
+            "subject": "通鼎互联",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 63.6062
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块成分股日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=601869.SH；股票名称=长飞光纤；涨跌幅=1.31；成交额亿=60.4111",
+        "source": "本地结构化数据 · 板块成分股日频行情",
+        "internal_locator": "finance-query:5272f5c89ef6005d:5",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_stock_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "ad487d9d2f49ea80",
+        "observations": [
+          {
+            "subject": "长飞光纤",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 1.31
+          },
+          {
+            "subject": "长飞光纤",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 60.4111
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块成分股日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=688143.SH；股票名称=长盈通；涨跌幅=1.46；成交额亿=24.2815",
+        "source": "本地结构化数据 · 板块成分股日频行情",
+        "internal_locator": "finance-query:5272f5c89ef6005d:6",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_stock_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "26bacfaee072d45a",
+        "observations": [
+          {
+            "subject": "长盈通",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 1.46
+          },
+          {
+            "subject": "长盈通",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 24.2815
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块成分股日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=000070.SZ；股票名称=特发信息；涨跌幅=4.35；成交额亿=21.4437",
+        "source": "本地结构化数据 · 板块成分股日频行情",
+        "internal_locator": "finance-query:5272f5c89ef6005d:7",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_stock_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "51bae008b6ccfbb0",
+        "observations": [
+          {
+            "subject": "特发信息",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 4.35
+          },
+          {
+            "subject": "特发信息",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 21.4437
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块成分股日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=603042.SH；股票名称=华脉科技；涨跌幅=3.09；成交额亿=12.2682",
+        "source": "本地结构化数据 · 板块成分股日频行情",
+        "internal_locator": "finance-query:5272f5c89ef6005d:8",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_stock_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "b72a6cc8abe355a3",
+        "observations": [
+          {
+            "subject": "华脉科技",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 3.09
+          },
+          {
+            "subject": "华脉科技",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 12.2682
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块成分股日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=300913.SZ；股票名称=兆龙互连；涨跌幅=-2.81；成交额亿=10.5958",
+        "source": "本地结构化数据 · 板块成分股日频行情",
+        "internal_locator": "finance-query:5272f5c89ef6005d:9",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_stock_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "26ee207bf76e8727",
+        "observations": [
+          {
+            "subject": "兆龙互连",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": -2.81
+          },
+          {
+            "subject": "兆龙互连",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 10.5958
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块成分股日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=300563.SZ；股票名称=神宇股份；涨跌幅=-3.65；成交额亿=2.8672",
+        "source": "本地结构化数据 · 板块成分股日频行情",
+        "internal_locator": "finance-query:5272f5c89ef6005d:10",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_stock_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "855205ebcddb044b",
+        "observations": [
+          {
+            "subject": "神宇股份",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": -3.65
+          },
+          {
+            "subject": "神宇股份",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 2.8672
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块成分股日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=000586.SZ；股票名称=汇源通信；涨跌幅=-2.66；成交额亿=1.0781",
+        "source": "本地结构化数据 · 板块成分股日频行情",
+        "internal_locator": "finance-query:5272f5c89ef6005d:11",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_stock_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "16fac59c21118d39",
+        "observations": [
+          {
+            "subject": "汇源通信",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": -2.66
+          },
+          {
+            "subject": "汇源通信",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 1.0781
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      }
+    ],
+    "observation": "交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=600487.SH；股票名称=亨通光电；涨跌幅=4.72；成交额亿=158.9143；交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=600522.SH；股票名称=中天科技；涨跌幅=3.41；成交额亿=111.5027；交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=600105.SH；股票名称=永鼎股份；涨跌幅=-0.18；成交额亿=105.8518；交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=002491.SZ；股票名称=通鼎互联；涨跌幅=-3.19；成交额亿=63.6062；交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=601869.SH；股票名称=长飞光纤；涨跌幅=1.31；成交额亿=60.4111；交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=688143.SH；股票名称=长盈通；涨跌幅=1.46；成交额亿=24.2815；交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=000070.SZ；股票名称=特发信息；涨跌幅=4.35；成交额亿=21.4437；交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=603042.SH；股票名称=华脉科技；涨跌幅=3.09；成交额亿=12.2682；交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=300913.SZ；股票名称=兆龙互连；涨跌幅=-2.81；成交额亿=10.5958；交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=300563.SZ；股票名称=神宇股份；涨跌幅=-3.65；成交额亿=2.8672；交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；股票代码=000586.SZ；股票名称=汇源通信；涨跌幅=-2.66；成交额亿=1.0781",
+    "trace": {
+      "provider": "duckdb_semantic_query",
+      "capability": "finance_query",
+      "status": "success",
+      "detail": "dataset=sector_stock_daily; rows=11; fingerprint=5272f5c89ef6005d",
+      "source_trade_date": "2026-09-17",
+      "result_count": 11,
+      "parent_id": "assistant-component-react:1789707231053152000",
+      "step_id": "fiber-members",
+      "requested_date": "2026-09-18",
+      "served_date": "2026-09-17",
+      "requested_time_range": [
+        "2026-09-17",
+        "2026-09-17"
+      ]
+    },
+    "gaps": [],
+    "evidence_hashes": [
+      "f0dcfcf80417e1ad",
+      "9cef72f825b59805",
+      "be950febe4d85917",
+      "d0c7e06e736b31cc",
+      "ad487d9d2f49ea80",
+      "26bacfaee072d45a",
+      "51bae008b6ccfbb0",
+      "b72a6cc8abe355a3",
+      "26ee207bf76e8727",
+      "855205ebcddb044b",
+      "16fac59c21118d39"
+    ],
+    "dataset": "sector_stock_daily",
+    "caliber": "fact_sector_stock_daily",
+    "payload_field_names": [
+      "trade_date",
+      "sector_code",
+      "sector_name",
+      "stock_code",
+      "stock_name",
+      "return_pct",
+      "amount"
+    ],
+    "payload_sha256": "7ac5dc0c87c5dad661199d6ed242e4d19c28a0b9ff446ee1467d39b36093fae6",
+    "telemetry": {}
+  }
+}

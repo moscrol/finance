@@ -1,0 +1,163 @@
+"""One-off user-requested assistant ReAct arm, not another product model run.
+
+Uses production component assembly on the earlier read-only market snapshot.
+The assistant has already seen the Workbench output: this is not blind or a
+budget-matched A/B experiment. Each tool invocation has a fresh bounded budget;
+raw results/arguments are archived independently of the sealed product run.
+"""
+from __future__ import annotations
+
+import argparse
+from collections.abc import Mapping
+from dataclasses import fields, is_dataclass, replace
+from datetime import date, datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+
+CODE = Path('/Users/a77/fwp-wt-research-answer-preservation')
+ROOT = Path(__file__).resolve().parent
+SOURCE = Path('/Users/a77/.finance-runtime/reviews/research-answer-preservation-20260918')
+DATA = SOURCE / 'data'
+DB = DATA / 'db/market_feature_store.duckdb'
+QUESTION = '这里的行情哪个板块更有机会，历史上有相似的阶段吗'
+sys.path.insert(0, str(CODE))
+for key, value in {
+    'WORKBENCH_REPO_ROOT': CODE,
+    'FINANCE_WS': DATA,
+    'FINANCE_ROOT': DATA,
+    'MARKET_FEATURE_STORE_DB': DB,
+    'MARKET_SNAPSHOT_DIR': DATA / 'market_snapshot',
+    'FORESIGHT_USERS_DIR': ROOT / 'users',
+    'FORESIGHT_USER': 'component-react-20260918',
+    'FORESIGHT_EPISODE_STORE': ROOT / 'episodes',
+    'FINANCE_DEPLOY_LEDGER': ROOT / 'deploy-ledger.jsonl',
+    'FINANCE_REJUDGE_PENDING_INDEX': ROOT / 'pending/index.jsonl',
+    'FINANCE_L3_CACHE_DIR': ROOT / 'l3-cache',
+    'SUBCONSCIOUS_VAULT': ROOT / 'vault',
+    'AGENT_MEMORY_VAULT': ROOT / 'vault',
+}.items():
+    os.environ[key] = str(value)
+
+from intelligence.services.task_frame import TaskFrame
+from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.episode_tools import build_episode_registry
+from intelligence.services.research_tool_registry import DEFAULT_RESEARCH_CAPABILITIES
+from intelligence.services.research_contract import ResearchDeadline, release_root_budget
+from intelligence.services.historical_research.episode import HistorySession
+from intelligence.services.run_store import RunStore
+from intelligence.services.finance_query import dataset_field_hint
+
+
+def plain(value):
+    if is_dataclass(value):
+        return {f.name: plain(getattr(value, f.name)) for f in fields(value)}
+    if isinstance(value, Mapping):
+        return {str(k): plain(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return [plain(v) for v in value]
+    if isinstance(value, (datetime, date, Path)):
+        return str(value)
+    return value
+
+
+def save(path, value):
+    with path.open('x') as f:
+        json.dump(plain(value), f, ensure_ascii=False, indent=2)
+        f.write('\n')
+
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(CODE), *args], text=True).strip()
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('tool')
+    parser.add_argument('arguments', nargs='?', default='{}')
+    parser.add_argument('--label')
+    args = parser.parse_args()
+    if args.tool == 'fields':
+        print(dataset_field_hint(args.arguments if args.arguments != '{}' else None))
+        return
+    if args.tool == 'init':
+        import duckdb
+        assert not DB.is_symlink() and DB.stat().st_mode & 0o222 == 0
+        expected = json.loads((SOURCE / 'market-snapshot.json').read_text())['sha256']
+        actual = hashlib.file_digest(DB.open('rb'), 'sha256').hexdigest()
+        assert actual == expected
+        with duckdb.connect(str(DB), read_only=True) as con:
+            freshness = {}
+            for table in ('fact_market_daily', 'fact_sector_daily', 'fact_sector_stock_daily', 'fact_stock_daily', 'fact_sector_period_rank_daily', 'fact_theme_limit_heat_daily'):
+                freshness[table] = con.execute(f'SELECT count(*), min(trade_date), max(trade_date) FROM {table}').fetchone()
+        save(ROOT / 'protocol.json', {
+            'question': QUESTION, 'as_of': '2026-09-17', 'author': 'current pi assistant; own tool selection and synthesis',
+            'code_revision': git('rev-parse', 'HEAD'), 'business_code_revision': '5f3b5b593183aae86a93372149efe6611a92ebc8',
+            'code_dirty': bool(git('status', '--porcelain')), 'market_snapshot': str(DB), 'market_sha256': actual,
+            'freshness': freshness, 'started_at': datetime.now(timezone.utc).isoformat(),
+            'product_run': 'run_20260918_113122_450933', 'new_product_submissions': 0,
+            'already_exposed_to_product_answer': True, 'blind': False, 'budget_matched': False,
+            'budget_note': 'each tool invocation independent 120s; no full product root-budget parity; prime calibration was read from current user',
+            'financial_certification': False, 'source': 'same market snapshot, no claim that every retrieval input is frozen',
+        })
+        print(json.dumps(plain(freshness), ensure_ascii=False, indent=2))
+        return
+    source_episode = SOURCE / 'users/probe-preservation-20260918/runs/run_20260918_113122_450933/continuous-episode.json'
+    episode = json.loads(source_episode.read_text())
+    frame = TaskFrame.from_dict(episode['task_frame'])
+    assert frame.raw_question == QUESTION
+    task_id = 'assistant-component-react:' + str(time.time_ns())
+    context = build_episode_context(frame, task_id=task_id, capabilities=DEFAULT_RESEARCH_CAPABILITIES,
+                                    tier='deep', timeout=180, today='2026-09-18', latest_data_date='2026-09-17')
+    store = RunStore('component-react-20260918', root=ROOT / 'runs')
+    run_file = ROOT / 'run-id.txt'
+    if run_file.exists():
+        run_id = run_file.read_text().strip()
+    else:
+        run = store.create_run(frame.raw_question, frame.question_type, session_id='component-react-20260918',
+                               source_date='2026-09-17', duckdb_cutoff='2026-09-17')
+        run_id = run.run_id
+        with run_file.open('x') as f:
+            f.write(run_id + '\n')
+    try:
+        registry = build_episode_registry(frame, context, finance_root=DATA,
+                                          history_session=HistorySession(store, run_id, 'component-react-20260918'),
+                                          evidence_search_judge=None)
+        if args.tool == 'schema':
+            definitions = registry.tool_definitions(context.contract.allowed_capabilities)
+            if args.arguments != '{}':
+                definitions = [d for d in definitions if d.get('function', {}).get('name') == args.arguments]
+            print(json.dumps(plain(definitions), ensure_ascii=False, indent=2))
+            return
+        arguments = json.loads(args.arguments)
+        label = args.label or f'{args.tool}-{time.time_ns()}'
+        path = ROOT / (label + '.json')
+        if path.exists():
+            raise FileExistsError(path)
+        context = replace(context, deadline=ResearchDeadline.from_timeout(120))
+        started = time.monotonic()
+        observation = registry.execute(args.tool, arguments, context=context, step_id=label)
+        result = {'tool': args.tool, 'arguments': arguments, 'code_revision': git('rev-parse', 'HEAD'),
+                  'elapsed_s': time.monotonic()-started, 'captured_at': datetime.now(timezone.utc).isoformat(),
+                  'result': plain(observation)}
+        save(path, result)
+        with (ROOT / 'trace.jsonl').open('a') as f:
+            f.write(json.dumps({'label': label, 'tool': args.tool, 'arguments': arguments,
+                                'result_file': str(path), 'elapsed_s': result['elapsed_s'],
+                                'status': observation.trace.status, 'evidence_count': len(observation.evidence)}, ensure_ascii=False) + '\n')
+        print('ARTIFACT:', path)
+        print('STATUS:', observation.trace.status, 'SECONDS:', round(result['elapsed_s'], 3))
+        print('OBSERVATION:', observation.observation[:1500])
+        for i, e in enumerate(observation.evidence):
+            print(json.dumps({'index': i, 'title': e.title, 'detail': e.detail, 'hash': e.content_hash}, ensure_ascii=False))
+        print('GAPS:', json.dumps(plain(observation.gaps), ensure_ascii=False))
+    finally:
+        release_root_budget(task_id)
+
+
+if __name__ == '__main__':
+    main()

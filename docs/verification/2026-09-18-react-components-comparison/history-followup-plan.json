@@ -1,0 +1,13 @@
+{
+  "purpose": "在读取后续收益之前冻结要跟踪的案例，避免只挑延续上涨的例子",
+  "selection": "各板块使用return_pct、amount_ratio、market_relative_return_pct三特征距离最小的前两项；已看到其特征但尚未读取该组后续收益。作者早已看过产品稿，不是盲评。",
+  "selected": {
+    "990078.FP": [["2026-08-11", "2026-08-24"], ["2026-07-28", "2026-08-10"]],
+    "990026.FP": [["2026-08-04", "2026-08-17"], ["2026-07-28", "2026-08-10"]],
+    "990199.FP": [["2026-08-11", "2026-08-24"], ["2026-08-18", "2026-08-31"]]
+  },
+  "comparison_universe": {"search_start": "2025-09-17", "search_end": "2026-09-03", "window_days": 10, "step_days": 5},
+  "condition": {"feature": "market_relative_return_pct", "op": "gte", "value": 0},
+  "outcomes": [{"horizon_days": 5, "threshold_pct": 0}, {"horizon_days": 10, "threshold_pct": 0}],
+  "qualification": "只是本轮提出的简单探索条件，不是已经验证的交易规则。窗口相互重叠、源数据有缺口，不把窗口数当独立样本数。不追加调参挑好看的结果。"
+}

@@ -1,0 +1,730 @@
+{
+  "fiber-analogues": {
+    "universe": {
+      "end": "2026-09-03",
+      "entity_codes": [
+        "990078.FP"
+      ],
+      "entity_kind": "sector",
+      "enumerated": 45,
+      "start": "2025-09-17",
+      "step_days": 5,
+      "window_days": 10
+    },
+    "gaps": [],
+    "status": "research_only",
+    "total_matched": 9,
+    "returned_count": 5,
+    "excluded_by_reason": {
+      "no_comparable_features": 36
+    }
+  },
+  "pcb-analogues": {
+    "universe": {
+      "end": "2026-09-03",
+      "entity_codes": [
+        "990026.FP"
+      ],
+      "entity_kind": "sector",
+      "enumerated": 45,
+      "start": "2025-09-17",
+      "step_days": 5,
+      "window_days": 10
+    },
+    "gaps": [],
+    "status": "research_only",
+    "total_matched": 9,
+    "returned_count": 5,
+    "excluded_by_reason": {
+      "no_comparable_features": 36
+    }
+  },
+  "ev-analogues": {
+    "universe": {
+      "end": "2026-09-03",
+      "entity_codes": [
+        "990199.FP"
+      ],
+      "entity_kind": "sector",
+      "enumerated": 45,
+      "start": "2025-09-17",
+      "step_days": 5,
+      "window_days": 10
+    },
+    "gaps": [],
+    "status": "research_only",
+    "total_matched": 9,
+    "returned_count": 3,
+    "excluded_by_reason": {
+      "no_comparable_features": 36
+    }
+  },
+  "comparable-all-outcome-five": {
+    "universe": {
+      "end": "2026-09-03",
+      "entity_codes": [
+        "990078.FP",
+        "990026.FP",
+        "990199.FP"
+      ],
+      "entity_kind": "sector",
+      "excluded_prefix_days": 9,
+      "start": "2025-09-17",
+      "step_days": 5,
+      "unit": "each fixed-length observed-trading-calendar window at declared stride per exact code",
+      "window_days": 10
+    },
+    "comparison": {
+      "certification_eligible": false,
+      "enumerated": 135,
+      "four_cells": {
+        "x_false_y_false": 11,
+        "x_false_y_true": 7,
+        "x_true_y_false": 4,
+        "x_true_y_true": 5
+      },
+      "immature": 0,
+      "independence_status": "not_established",
+      "missing": 108,
+      "overlap_clusters": 1
+    },
+    "gaps": [
+      "feature:return_pct:missing",
+      "feature:amount_ratio:missing",
+      "feature:market_relative_return_pct:missing",
+      "comparison:missing_feature"
+    ],
+    "status": "research_only",
+    "total_matched": 135,
+    "returned_count": 3,
+    "states": {
+      "missing_feature": 108,
+      "observed": 27
+    },
+    "selected": [
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-07-28",
+        "end": "2026-08-10",
+        "comparison_state": "observed",
+        "forward_return_pct": 10.802458273111593,
+        "outcome_end": "2026-08-17",
+        "x": true,
+        "y": true
+      },
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-08-11",
+        "end": "2026-08-24",
+        "comparison_state": "observed",
+        "forward_return_pct": 9.25645358896574,
+        "outcome_end": "2026-08-31",
+        "x": true,
+        "y": true
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-07-28",
+        "end": "2026-08-10",
+        "comparison_state": "observed",
+        "forward_return_pct": 5.2245456316702965,
+        "outcome_end": "2026-08-17",
+        "x": true,
+        "y": true
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-08-04",
+        "end": "2026-08-17",
+        "comparison_state": "observed",
+        "forward_return_pct": -10.823818059824053,
+        "outcome_end": "2026-08-24",
+        "x": true,
+        "y": false
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-08-11",
+        "end": "2026-08-24",
+        "comparison_state": "observed",
+        "forward_return_pct": 4.327461545439348,
+        "outcome_end": "2026-08-31",
+        "x": false,
+        "y": true
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-08-18",
+        "end": "2026-08-31",
+        "comparison_state": "observed",
+        "forward_return_pct": -0.2108033434449097,
+        "outcome_end": "2026-09-07",
+        "x": false,
+        "y": false
+      }
+    ],
+    "observed_dates": [
+      "2026-06-23",
+      "2026-08-31"
+    ],
+    "all_observed": [
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-06-23",
+        "end": "2026-07-06",
+        "forward_return_pct": -14.53268206076974,
+        "x": false,
+        "y": false
+      },
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-06-30",
+        "end": "2026-07-13",
+        "forward_return_pct": -14.453462997929112,
+        "x": false,
+        "y": false
+      },
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-07-07",
+        "end": "2026-07-20",
+        "forward_return_pct": -3.8575726181310666,
+        "x": false,
+        "y": false
+      },
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-07-14",
+        "end": "2026-07-27",
+        "forward_return_pct": -15.390759164935508,
+        "x": false,
+        "y": false
+      },
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-07-21",
+        "end": "2026-08-03",
+        "forward_return_pct": 23.031064801792866,
+        "x": false,
+        "y": true
+      },
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-07-28",
+        "end": "2026-08-10",
+        "forward_return_pct": 10.802458273111593,
+        "x": true,
+        "y": true
+      },
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-08-04",
+        "end": "2026-08-17",
+        "forward_return_pct": -5.227529818556176,
+        "x": true,
+        "y": false
+      },
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-08-11",
+        "end": "2026-08-24",
+        "forward_return_pct": 9.25645358896574,
+        "x": true,
+        "y": true
+      },
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-08-18",
+        "end": "2026-08-31",
+        "forward_return_pct": -2.8036923492210652,
+        "x": true,
+        "y": false
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-06-23",
+        "end": "2026-07-06",
+        "forward_return_pct": -7.184058679202021,
+        "x": false,
+        "y": false
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-06-30",
+        "end": "2026-07-13",
+        "forward_return_pct": -12.199829734045743,
+        "x": false,
+        "y": false
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-07-07",
+        "end": "2026-07-20",
+        "forward_return_pct": 3.5490656067276527,
+        "x": false,
+        "y": true
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-07-14",
+        "end": "2026-07-27",
+        "forward_return_pct": -16.574806557468015,
+        "x": false,
+        "y": false
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-07-21",
+        "end": "2026-08-03",
+        "forward_return_pct": 28.49090803749561,
+        "x": false,
+        "y": true
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-07-28",
+        "end": "2026-08-10",
+        "forward_return_pct": 5.2245456316702965,
+        "x": true,
+        "y": true
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-08-04",
+        "end": "2026-08-17",
+        "forward_return_pct": -10.823818059824053,
+        "x": true,
+        "y": false
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-08-11",
+        "end": "2026-08-24",
+        "forward_return_pct": 9.358571050812392,
+        "x": false,
+        "y": true
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-08-18",
+        "end": "2026-08-31",
+        "forward_return_pct": -0.5647028923279951,
+        "x": false,
+        "y": false
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-06-23",
+        "end": "2026-07-06",
+        "forward_return_pct": -10.004420204652165,
+        "x": false,
+        "y": false
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-06-30",
+        "end": "2026-07-13",
+        "forward_return_pct": -9.933808849314286,
+        "x": false,
+        "y": false
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-07-07",
+        "end": "2026-07-20",
+        "forward_return_pct": 4.35474435733576,
+        "x": false,
+        "y": true
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-07-14",
+        "end": "2026-07-27",
+        "forward_return_pct": 1.0073848049642509,
+        "x": false,
+        "y": true
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-07-21",
+        "end": "2026-08-03",
+        "forward_return_pct": 7.688554703440498,
+        "x": true,
+        "y": true
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-07-28",
+        "end": "2026-08-10",
+        "forward_return_pct": 2.769264806565519,
+        "x": true,
+        "y": true
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-08-04",
+        "end": "2026-08-17",
+        "forward_return_pct": -5.014064512960004,
+        "x": true,
+        "y": false
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-08-11",
+        "end": "2026-08-24",
+        "forward_return_pct": 4.327461545439348,
+        "x": false,
+        "y": true
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-08-18",
+        "end": "2026-08-31",
+        "forward_return_pct": -0.2108033434449097,
+        "x": false,
+        "y": false
+      }
+    ]
+  },
+  "comparable-all-outcome-ten": {
+    "universe": {
+      "end": "2026-09-03",
+      "entity_codes": [
+        "990078.FP",
+        "990026.FP",
+        "990199.FP"
+      ],
+      "entity_kind": "sector",
+      "excluded_prefix_days": 9,
+      "start": "2025-09-17",
+      "step_days": 5,
+      "unit": "each fixed-length observed-trading-calendar window at declared stride per exact code",
+      "window_days": 10
+    },
+    "comparison": {
+      "certification_eligible": false,
+      "enumerated": 135,
+      "four_cells": {
+        "x_false_y_false": 9,
+        "x_false_y_true": 9,
+        "x_true_y_false": 4,
+        "x_true_y_true": 5
+      },
+      "immature": 0,
+      "independence_status": "not_established",
+      "missing": 108,
+      "overlap_clusters": 1
+    },
+    "gaps": [
+      "feature:return_pct:missing",
+      "feature:amount_ratio:missing",
+      "feature:market_relative_return_pct:missing",
+      "comparison:missing_feature"
+    ],
+    "status": "research_only",
+    "total_matched": 135,
+    "returned_count": 3,
+    "states": {
+      "missing_feature": 108,
+      "observed": 27
+    },
+    "selected": [
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-07-28",
+        "end": "2026-08-10",
+        "comparison_state": "observed",
+        "forward_return_pct": 5.010226727191425,
+        "outcome_end": "2026-08-24",
+        "x": true,
+        "y": true
+      },
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-08-11",
+        "end": "2026-08-24",
+        "comparison_state": "observed",
+        "forward_return_pct": 6.1932387586616455,
+        "outcome_end": "2026-09-07",
+        "x": true,
+        "y": true
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-07-28",
+        "end": "2026-08-10",
+        "comparison_state": "observed",
+        "forward_return_pct": -6.164767741778232,
+        "outcome_end": "2026-08-24",
+        "x": true,
+        "y": false
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-08-04",
+        "end": "2026-08-17",
+        "comparison_state": "observed",
+        "forward_return_pct": -2.4782017125509648,
+        "outcome_end": "2026-08-31",
+        "x": true,
+        "y": false
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-08-11",
+        "end": "2026-08-24",
+        "comparison_state": "observed",
+        "forward_return_pct": 4.107535768370374,
+        "outcome_end": "2026-09-07",
+        "x": false,
+        "y": true
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-08-18",
+        "end": "2026-08-31",
+        "comparison_state": "observed",
+        "forward_return_pct": -2.7433076288743474,
+        "outcome_end": "2026-09-14",
+        "x": false,
+        "y": false
+      }
+    ],
+    "observed_dates": [
+      "2026-06-23",
+      "2026-08-31"
+    ],
+    "all_observed": [
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-06-23",
+        "end": "2026-07-06",
+        "forward_return_pct": -26.885669234438815,
+        "x": false,
+        "y": false
+      },
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-06-30",
+        "end": "2026-07-13",
+        "forward_return_pct": -17.753482785080344,
+        "x": false,
+        "y": false
+      },
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-07-07",
+        "end": "2026-07-20",
+        "forward_return_pct": -18.654622071797522,
+        "x": false,
+        "y": false
+      },
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-07-14",
+        "end": "2026-07-27",
+        "forward_return_pct": 4.0956499200931695,
+        "x": false,
+        "y": true
+      },
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-07-21",
+        "end": "2026-08-03",
+        "forward_return_pct": 36.321444239971434,
+        "x": false,
+        "y": true
+      },
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-07-28",
+        "end": "2026-08-10",
+        "forward_return_pct": 5.010226727191425,
+        "x": true,
+        "y": true
+      },
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-08-04",
+        "end": "2026-08-17",
+        "forward_return_pct": 3.5450398989055776,
+        "x": true,
+        "y": true
+      },
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-08-11",
+        "end": "2026-08-24",
+        "forward_return_pct": 6.1932387586616455,
+        "x": true,
+        "y": true
+      },
+      {
+        "entity_code": "990078.FP",
+        "start": "2026-08-18",
+        "end": "2026-08-31",
+        "forward_return_pct": 4.992295910115718,
+        "x": true,
+        "y": true
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-06-23",
+        "end": "2026-07-06",
+        "forward_return_pct": -18.507445486391195,
+        "x": false,
+        "y": false
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-06-30",
+        "end": "2026-07-13",
+        "forward_return_pct": -9.083744088488432,
+        "x": false,
+        "y": false
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-07-07",
+        "end": "2026-07-20",
+        "forward_return_pct": -13.613991709653106,
+        "x": false,
+        "y": false
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-07-14",
+        "end": "2026-07-27",
+        "forward_return_pct": 7.193788586346606,
+        "x": false,
+        "y": true
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-07-21",
+        "end": "2026-08-03",
+        "forward_return_pct": 35.2039741604621,
+        "x": false,
+        "y": true
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-07-28",
+        "end": "2026-08-10",
+        "forward_return_pct": -6.164767741778232,
+        "x": true,
+        "y": false
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-08-04",
+        "end": "2026-08-17",
+        "forward_return_pct": -2.4782017125509648,
+        "x": true,
+        "y": false
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-08-11",
+        "end": "2026-08-24",
+        "forward_return_pct": 8.741020037079883,
+        "x": false,
+        "y": true
+      },
+      {
+        "entity_code": "990026.FP",
+        "start": "2026-08-18",
+        "end": "2026-08-31",
+        "forward_return_pct": 11.354534124288485,
+        "x": false,
+        "y": true
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-06-23",
+        "end": "2026-07-06",
+        "forward_return_pct": -18.94440907435414,
+        "x": false,
+        "y": false
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-06-30",
+        "end": "2026-07-13",
+        "forward_return_pct": -6.011656472312554,
+        "x": false,
+        "y": false
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-07-07",
+        "end": "2026-07-20",
+        "forward_return_pct": 5.405998195250827,
+        "x": false,
+        "y": true
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-07-14",
+        "end": "2026-07-27",
+        "forward_return_pct": 8.77339284020855,
+        "x": false,
+        "y": true
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-07-21",
+        "end": "2026-08-03",
+        "forward_return_pct": 10.67073594954191,
+        "x": true,
+        "y": true
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-07-28",
+        "end": "2026-08-10",
+        "forward_return_pct": -2.383652430330374,
+        "x": true,
+        "y": false
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-08-04",
+        "end": "2026-08-17",
+        "forward_return_pct": -0.9035846811825454,
+        "x": true,
+        "y": false
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-08-11",
+        "end": "2026-08-24",
+        "forward_return_pct": 4.107535768370374,
+        "x": false,
+        "y": true
+      },
+      {
+        "entity_code": "990199.FP",
+        "start": "2026-08-18",
+        "end": "2026-08-31",
+        "forward_return_pct": -2.7433076288743474,
+        "x": false,
+        "y": false
+      }
+    ]
+  },
+  "calls": {
+    "registry_execute": 19,
+    "by_tool": {
+      "finance_query": 8,
+      "mainline_context": 1,
+      "market_data": 1,
+      "history_query": 8,
+      "evidence_search": 1
+    },
+    "separate_prefetch": 1,
+    "status": {
+      "success": 19
+    }
+  }
+}

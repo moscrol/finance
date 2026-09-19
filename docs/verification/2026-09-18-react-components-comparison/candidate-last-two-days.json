@@ -1,0 +1,1100 @@
+{
+  "tool": "finance_query",
+  "arguments": {
+    "dataset": "sector_daily",
+    "dimensions": [
+      "trade_date",
+      "sector_code",
+      "sector_name"
+    ],
+    "metrics": [
+      "return_pct",
+      "amount",
+      "marginal_volume_pct"
+    ],
+    "time_range": {
+      "start": "2026-09-16",
+      "end": "2026-09-17"
+    },
+    "filters": [
+      {
+        "field": "sector_code",
+        "op": "in",
+        "value": [
+          "990026.FP",
+          "990078.FP",
+          "990124.FP",
+          "990125.FP",
+          "990123.FP",
+          "990395.FP",
+          "990396.FP",
+          "990239.FP",
+          "990244.FP",
+          "990199.FP",
+          "990065.FP",
+          "990270.FP"
+        ]
+      }
+    ],
+    "order_by": [
+      {
+        "field": "sector_code",
+        "direction": "asc"
+      },
+      {
+        "field": "trade_date",
+        "direction": "asc"
+      }
+    ],
+    "limit": 25
+  },
+  "code_revision": "af9500ecad84b06f39d960c1eaa57561ff2c6485",
+  "elapsed_s": 0.03934570902492851,
+  "captured_at": "2026-09-18T04:49:10.240225+00:00",
+  "result": {
+    "tool": "finance_query",
+    "query": "sector_daily:trade_date,sector_code,sector_name,return_pct,amount,marginal_volume_pct",
+    "evidence": [
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-16）",
+        "detail": "交易日=2026-09-16；板块代码=990026.FP；板块名称=PCB；涨跌幅=3.7358；成交额亿=1098.2663；边际量=-0.1939",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:1",
+        "source_date": "2026-09-16",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-16",
+        "freshness": "current",
+        "content_hash": "d57c905a0dc204ae",
+        "observations": [
+          {
+            "subject": "PCB",
+            "as_of": "2026-09-16",
+            "metric": "pct_chg",
+            "value": 3.7358
+          },
+          {
+            "subject": "PCB",
+            "as_of": "2026-09-16",
+            "metric": "amount",
+            "value": 1098.2663
+          },
+          {
+            "subject": "PCB",
+            "as_of": "2026-09-16",
+            "metric": "diff_ratio",
+            "value": -0.1939
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990026.FP；板块名称=PCB；涨跌幅=-2.4188；成交额亿=1055.6085；边际量=-3.8841",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:2",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "631881f45cbd6d2e",
+        "observations": [
+          {
+            "subject": "PCB",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": -2.4188
+          },
+          {
+            "subject": "PCB",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 1055.6085
+          },
+          {
+            "subject": "PCB",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": -3.8841
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-16）",
+        "detail": "交易日=2026-09-16；板块代码=990065.FP；板块名称=元器件；涨跌幅=3.2687；成交额亿=1370.3498；边际量=-0.8178",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:3",
+        "source_date": "2026-09-16",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-16",
+        "freshness": "current",
+        "content_hash": "fe1f9f7a61c7eb3f",
+        "observations": [
+          {
+            "subject": "元器件",
+            "as_of": "2026-09-16",
+            "metric": "pct_chg",
+            "value": 3.2687
+          },
+          {
+            "subject": "元器件",
+            "as_of": "2026-09-16",
+            "metric": "amount",
+            "value": 1370.3498
+          },
+          {
+            "subject": "元器件",
+            "as_of": "2026-09-16",
+            "metric": "diff_ratio",
+            "value": -0.8178
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990065.FP；板块名称=元器件；涨跌幅=-2.2709；成交额亿=1295.1784；边际量=-5.4856",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:4",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "b73f55741decb962",
+        "observations": [
+          {
+            "subject": "元器件",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": -2.2709
+          },
+          {
+            "subject": "元器件",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 1295.1784
+          },
+          {
+            "subject": "元器件",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": -5.4856
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-16）",
+        "detail": "交易日=2026-09-16；板块代码=990078.FP；板块名称=光纤光缆；涨跌幅=3.9387；成交额亿=448.471；边际量=20.8816",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:5",
+        "source_date": "2026-09-16",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-16",
+        "freshness": "current",
+        "content_hash": "db53763a0f065e98",
+        "observations": [
+          {
+            "subject": "光纤光缆",
+            "as_of": "2026-09-16",
+            "metric": "pct_chg",
+            "value": 3.9387
+          },
+          {
+            "subject": "光纤光缆",
+            "as_of": "2026-09-16",
+            "metric": "amount",
+            "value": 448.471
+          },
+          {
+            "subject": "光纤光缆",
+            "as_of": "2026-09-16",
+            "metric": "diff_ratio",
+            "value": 20.8816
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；涨跌幅=0.5318；成交额亿=572.8206；边际量=27.7275",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:6",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "581c163b07986756",
+        "observations": [
+          {
+            "subject": "光纤光缆",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 0.5318
+          },
+          {
+            "subject": "光纤光缆",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 572.8206
+          },
+          {
+            "subject": "光纤光缆",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": 27.7275
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-16）",
+        "detail": "交易日=2026-09-16；板块代码=990123.FP；板块名称=半导体封测；涨跌幅=4.6381；成交额亿=290.2171；边际量=44.3696",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:7",
+        "source_date": "2026-09-16",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-16",
+        "freshness": "current",
+        "content_hash": "3ba513c1b4e2476d",
+        "observations": [
+          {
+            "subject": "半导体封测",
+            "as_of": "2026-09-16",
+            "metric": "pct_chg",
+            "value": 4.6381
+          },
+          {
+            "subject": "半导体封测",
+            "as_of": "2026-09-16",
+            "metric": "amount",
+            "value": 290.2171
+          },
+          {
+            "subject": "半导体封测",
+            "as_of": "2026-09-16",
+            "metric": "diff_ratio",
+            "value": 44.3696
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990123.FP；板块名称=半导体封测；涨跌幅=-1.3407；成交额亿=238.1559；边际量=-17.9387",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:8",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "19705ef1672445bd",
+        "observations": [
+          {
+            "subject": "半导体封测",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": -1.3407
+          },
+          {
+            "subject": "半导体封测",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 238.1559
+          },
+          {
+            "subject": "半导体封测",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": -17.9387
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-16）",
+        "detail": "交易日=2026-09-16；板块代码=990124.FP；板块名称=半导体材料；涨跌幅=5.6387；成交额亿=315.3905；边际量=35.9014",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:9",
+        "source_date": "2026-09-16",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-16",
+        "freshness": "current",
+        "content_hash": "025e9c088f4a6f10",
+        "observations": [
+          {
+            "subject": "半导体材料",
+            "as_of": "2026-09-16",
+            "metric": "pct_chg",
+            "value": 5.6387
+          },
+          {
+            "subject": "半导体材料",
+            "as_of": "2026-09-16",
+            "metric": "amount",
+            "value": 315.3905
+          },
+          {
+            "subject": "半导体材料",
+            "as_of": "2026-09-16",
+            "metric": "diff_ratio",
+            "value": 35.9014
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990124.FP；板块名称=半导体材料；涨跌幅=-0.1796；成交额亿=310.7649；边际量=-1.4666",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:10",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "40ea8deba339942d",
+        "observations": [
+          {
+            "subject": "半导体材料",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": -0.1796
+          },
+          {
+            "subject": "半导体材料",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 310.7649
+          },
+          {
+            "subject": "半导体材料",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": -1.4666
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-16）",
+        "detail": "交易日=2026-09-16；板块代码=990125.FP；板块名称=半导体设备；涨跌幅=4.987；成交额亿=480.0246；边际量=31.4155",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:11",
+        "source_date": "2026-09-16",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-16",
+        "freshness": "current",
+        "content_hash": "81bf3e0059f08f75",
+        "observations": [
+          {
+            "subject": "半导体设备",
+            "as_of": "2026-09-16",
+            "metric": "pct_chg",
+            "value": 4.987
+          },
+          {
+            "subject": "半导体设备",
+            "as_of": "2026-09-16",
+            "metric": "amount",
+            "value": 480.0246
+          },
+          {
+            "subject": "半导体设备",
+            "as_of": "2026-09-16",
+            "metric": "diff_ratio",
+            "value": 31.4155
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990125.FP；板块名称=半导体设备；涨跌幅=0.3308；成交额亿=378.1021；边际量=-21.2328",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:12",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "741a304ed8a570d6",
+        "observations": [
+          {
+            "subject": "半导体设备",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 0.3308
+          },
+          {
+            "subject": "半导体设备",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 378.1021
+          },
+          {
+            "subject": "半导体设备",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": -21.2328
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-16）",
+        "detail": "交易日=2026-09-16；板块代码=990199.FP；板块名称=新能源车；涨跌幅=1.6542；成交额亿=4702.6837；边际量=12.1889",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:13",
+        "source_date": "2026-09-16",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-16",
+        "freshness": "current",
+        "content_hash": "dcab8ef717779b05",
+        "observations": [
+          {
+            "subject": "新能源车",
+            "as_of": "2026-09-16",
+            "metric": "pct_chg",
+            "value": 1.6542
+          },
+          {
+            "subject": "新能源车",
+            "as_of": "2026-09-16",
+            "metric": "amount",
+            "value": 4702.6837
+          },
+          {
+            "subject": "新能源车",
+            "as_of": "2026-09-16",
+            "metric": "diff_ratio",
+            "value": 12.1889
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990199.FP；板块名称=新能源车；涨跌幅=0.2368；成交额亿=4597.0901；边际量=-2.2454",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:14",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "901eec6497fae8df",
+        "observations": [
+          {
+            "subject": "新能源车",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 0.2368
+          },
+          {
+            "subject": "新能源车",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 4597.0901
+          },
+          {
+            "subject": "新能源车",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": -2.2454
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-16）",
+        "detail": "交易日=2026-09-16；板块代码=990239.FP；板块名称=汽车；涨跌幅=0.5495；成交额亿=464.203；边际量=-7.6002",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:15",
+        "source_date": "2026-09-16",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-16",
+        "freshness": "current",
+        "content_hash": "11ed5b68c23983a0",
+        "observations": [
+          {
+            "subject": "汽车",
+            "as_of": "2026-09-16",
+            "metric": "pct_chg",
+            "value": 0.5495
+          },
+          {
+            "subject": "汽车",
+            "as_of": "2026-09-16",
+            "metric": "amount",
+            "value": 464.203
+          },
+          {
+            "subject": "汽车",
+            "as_of": "2026-09-16",
+            "metric": "diff_ratio",
+            "value": -7.6002
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990239.FP；板块名称=汽车；涨跌幅=1.3971；成交额亿=560.1152；边际量=20.6617",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:16",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "d77a1fe3bddb8495",
+        "observations": [
+          {
+            "subject": "汽车",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 1.3971
+          },
+          {
+            "subject": "汽车",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 560.1152
+          },
+          {
+            "subject": "汽车",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": 20.6617
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-16）",
+        "detail": "交易日=2026-09-16；板块代码=990244.FP；板块名称=汽车零部件；涨跌幅=0.7344；成交额亿=351.4706；边际量=-3.5543",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:17",
+        "source_date": "2026-09-16",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-16",
+        "freshness": "current",
+        "content_hash": "3aba35c92f71c3a0",
+        "observations": [
+          {
+            "subject": "汽车零部件",
+            "as_of": "2026-09-16",
+            "metric": "pct_chg",
+            "value": 0.7344
+          },
+          {
+            "subject": "汽车零部件",
+            "as_of": "2026-09-16",
+            "metric": "amount",
+            "value": 351.4706
+          },
+          {
+            "subject": "汽车零部件",
+            "as_of": "2026-09-16",
+            "metric": "diff_ratio",
+            "value": -3.5543
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990244.FP；板块名称=汽车零部件；涨跌幅=1.4023；成交额亿=444.7406；边际量=26.5371",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:18",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "254132db886089cd",
+        "observations": [
+          {
+            "subject": "汽车零部件",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 1.4023
+          },
+          {
+            "subject": "汽车零部件",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 444.7406
+          },
+          {
+            "subject": "汽车零部件",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": 26.5371
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-16）",
+        "detail": "交易日=2026-09-16；板块代码=990270.FP；板块名称=玻璃玻纤；涨跌幅=0.3662；成交额亿=336.5276；边际量=-9.8079",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:19",
+        "source_date": "2026-09-16",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-16",
+        "freshness": "current",
+        "content_hash": "4c8fb8f7f9172dd4",
+        "observations": [
+          {
+            "subject": "玻璃玻纤",
+            "as_of": "2026-09-16",
+            "metric": "pct_chg",
+            "value": 0.3662
+          },
+          {
+            "subject": "玻璃玻纤",
+            "as_of": "2026-09-16",
+            "metric": "amount",
+            "value": 336.5276
+          },
+          {
+            "subject": "玻璃玻纤",
+            "as_of": "2026-09-16",
+            "metric": "diff_ratio",
+            "value": -9.8079
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990270.FP；板块名称=玻璃玻纤；涨跌幅=1.2412；成交额亿=455.9033；边际量=35.4728",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:20",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "dd42914b4b93b6a9",
+        "observations": [
+          {
+            "subject": "玻璃玻纤",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 1.2412
+          },
+          {
+            "subject": "玻璃玻纤",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 455.9033
+          },
+          {
+            "subject": "玻璃玻纤",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": 35.4728
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-16）",
+        "detail": "交易日=2026-09-16；板块代码=990395.FP；板块名称=风电设备；涨跌幅=-0.1724；成交额亿=173.756；边际量=20.6392",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:21",
+        "source_date": "2026-09-16",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-16",
+        "freshness": "current",
+        "content_hash": "73b18ac812da7397",
+        "observations": [
+          {
+            "subject": "风电设备",
+            "as_of": "2026-09-16",
+            "metric": "pct_chg",
+            "value": -0.1724
+          },
+          {
+            "subject": "风电设备",
+            "as_of": "2026-09-16",
+            "metric": "amount",
+            "value": 173.756
+          },
+          {
+            "subject": "风电设备",
+            "as_of": "2026-09-16",
+            "metric": "diff_ratio",
+            "value": 20.6392
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990395.FP；板块名称=风电设备；涨跌幅=1.4762；成交额亿=178.6866；边际量=2.8377",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:22",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "1eca5002412d8d0c",
+        "observations": [
+          {
+            "subject": "风电设备",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 1.4762
+          },
+          {
+            "subject": "风电设备",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 178.6866
+          },
+          {
+            "subject": "风电设备",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": 2.8377
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-16）",
+        "detail": "交易日=2026-09-16；板块代码=990396.FP；板块名称=风电零部件；涨跌幅=0.1362；成交额亿=137.0038；边际量=34.3072",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:23",
+        "source_date": "2026-09-16",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-16",
+        "freshness": "current",
+        "content_hash": "326775a92a040719",
+        "observations": [
+          {
+            "subject": "风电零部件",
+            "as_of": "2026-09-16",
+            "metric": "pct_chg",
+            "value": 0.1362
+          },
+          {
+            "subject": "风电零部件",
+            "as_of": "2026-09-16",
+            "metric": "amount",
+            "value": 137.0038
+          },
+          {
+            "subject": "风电零部件",
+            "as_of": "2026-09-16",
+            "metric": "diff_ratio",
+            "value": 34.3072
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "finance_query",
+        "title": "板块日频行情（2026-09-17）",
+        "detail": "交易日=2026-09-17；板块代码=990396.FP；板块名称=风电零部件；涨跌幅=1.7159；成交额亿=141.4159；边际量=3.2204",
+        "source": "本地结构化数据 · 板块日频行情",
+        "internal_locator": "finance-query:93c8dc2f79fbedbe:24",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_structured",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "duckdb:sector_daily:2026-09-17",
+        "freshness": "current",
+        "content_hash": "8eb3a622a2f4e980",
+        "observations": [
+          {
+            "subject": "风电零部件",
+            "as_of": "2026-09-17",
+            "metric": "pct_chg",
+            "value": 1.7159
+          },
+          {
+            "subject": "风电零部件",
+            "as_of": "2026-09-17",
+            "metric": "amount",
+            "value": 141.4159
+          },
+          {
+            "subject": "风电零部件",
+            "as_of": "2026-09-17",
+            "metric": "diff_ratio",
+            "value": 3.2204
+          }
+        ],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      }
+    ],
+    "observation": "交易日=2026-09-16；板块代码=990026.FP；板块名称=PCB；涨跌幅=3.7358；成交额亿=1098.2663；边际量=-0.1939；交易日=2026-09-17；板块代码=990026.FP；板块名称=PCB；涨跌幅=-2.4188；成交额亿=1055.6085；边际量=-3.8841；交易日=2026-09-16；板块代码=990065.FP；板块名称=元器件；涨跌幅=3.2687；成交额亿=1370.3498；边际量=-0.8178；交易日=2026-09-17；板块代码=990065.FP；板块名称=元器件；涨跌幅=-2.2709；成交额亿=1295.1784；边际量=-5.4856；交易日=2026-09-16；板块代码=990078.FP；板块名称=光纤光缆；涨跌幅=3.9387；成交额亿=448.471；边际量=20.8816；交易日=2026-09-17；板块代码=990078.FP；板块名称=光纤光缆；涨跌幅=0.5318；成交额亿=572.8206；边际量=27.7275；交易日=2026-09-16；板块代码=990123.FP；板块名称=半导体封测；涨跌幅=4.6381；成交额亿=290.2171；边际量=44.3696；交易日=2026-09-17；板块代码=990123.FP；板块名称=半导体封测；涨跌幅=-1.3407；成交额亿=238.1559；边际量=-17.9387；交易日=2026-09-16；板块代码=990124.FP；板块名称=半导体材料；涨跌幅=5.6387；成交额亿=315.3905；边际量=35.9014；交易日=2026-09-17；板块代码=990124.FP；板块名称=半导体材料；涨跌幅=-0.1796；成交额亿=310.7649；边际量=-1.4666；交易日=2026-09-16；板块代码=990125.FP；板块名称=半导体设备；涨跌幅=4.987；成交额亿=480.0246；边际量=31.4155；交易日=2026-09-17；板块代码=990125.FP；板块名称=半导体设备；涨跌幅=0.3308；成交额亿=378.1021；边际量=-21.2328；交易日=2026-09-16；板块代码=990199.FP；板块名称=新能源车；涨跌幅=1.6542；成交额亿=4702.6837；边际量=12.1889；交易日=2026-09-17；板块代码=990199.FP；板块名称=新能源车；涨跌幅=0.2368；成交额亿=4597.0901；边际量=-2.2454；交易日=2026-09-16；板块代码=990239.FP；板块名称=汽车；涨跌幅=0.5495；成交额亿=464.203；边际量=-7.6002；交易日=2026-09-17；板块代码=990239.FP；板块名称=汽车；涨跌幅=1.3971；成交额亿=560.1152；边际量=20.6617；交易日=2026-09-16；板块代码=990244.FP；板块名称=汽车零部件；涨跌幅=0.7344；成交额亿=351.4706；边际量=-3.5543；交易日=2026-09-17；板块代码=990244.FP；板块名称=汽车零部件；涨跌幅=1.4023；成交额亿=444.7406；边际量=26.5371；交易日=2026-09-16；板块代码=990270.FP；板块名称=玻璃玻纤；涨跌幅=0.3662；成交额亿=336.5276；边际量=-9.8079；交易日=2026-09-17；板块代码=990270.FP；板块名称=玻璃玻纤；涨跌幅=1.2412；成交额亿=455.9033；边际量=35.4728；交易日=2026-09-16；板块代码=990395.FP；板块名称=风电设备；涨跌幅=-0.1724；成交额亿=173.756；边际量=20.6392；交易日=2026-09-17；板块代码=990395.FP；板块名称=风电设备；涨跌幅=1.4762；成交额亿=178.6866；边际量=2.8377；交易日=2026-09-16；板块代码=990396.FP；板块名称=风电零部件；涨跌幅=0.1362；成交额亿=137.0038；边际量=34.3072；交易日=2026-09-17；板块代码=990396.FP；板块名称=风电零部件；涨跌幅=1.7159；成交额亿=141.4159；边际量=3.2204",
+    "trace": {
+      "provider": "duckdb_semantic_query",
+      "capability": "finance_query",
+      "status": "success",
+      "detail": "dataset=sector_daily; rows=24; fingerprint=93c8dc2f79fbedbe",
+      "source_trade_date": "2026-09-17",
+      "result_count": 24,
+      "parent_id": "assistant-component-react:1789706949798761000",
+      "step_id": "candidate-last-two-days",
+      "requested_date": "2026-09-18",
+      "served_date": "2026-09-17",
+      "requested_time_range": [
+        "2026-09-16",
+        "2026-09-17"
+      ]
+    },
+    "gaps": [],
+    "evidence_hashes": [
+      "d57c905a0dc204ae",
+      "631881f45cbd6d2e",
+      "fe1f9f7a61c7eb3f",
+      "b73f55741decb962",
+      "db53763a0f065e98",
+      "581c163b07986756",
+      "3ba513c1b4e2476d",
+      "19705ef1672445bd",
+      "025e9c088f4a6f10",
+      "40ea8deba339942d",
+      "81bf3e0059f08f75",
+      "741a304ed8a570d6",
+      "dcab8ef717779b05",
+      "901eec6497fae8df",
+      "11ed5b68c23983a0",
+      "d77a1fe3bddb8495",
+      "3aba35c92f71c3a0",
+      "254132db886089cd",
+      "4c8fb8f7f9172dd4",
+      "dd42914b4b93b6a9",
+      "73b18ac812da7397",
+      "1eca5002412d8d0c",
+      "326775a92a040719",
+      "8eb3a622a2f4e980"
+    ],
+    "dataset": "sector_daily",
+    "caliber": "fact_sector_daily",
+    "payload_field_names": [
+      "trade_date",
+      "sector_code",
+      "sector_name",
+      "return_pct",
+      "amount",
+      "marginal_volume_pct"
+    ],
+    "payload_sha256": "0acaac47b3b9785b3772c90fa0c7aa75a8ca0c3ff8009d07a178c9cc3caf54a5",
+    "telemetry": {}
+  }
+}

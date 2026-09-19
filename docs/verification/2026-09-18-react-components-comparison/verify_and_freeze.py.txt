@@ -1,0 +1,184 @@
+"""One-off readback checks; not a financial or independent quality certification."""
+from collections import Counter
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+SOURCE = Path('/Users/a77/.finance-runtime/reviews/research-answer-preservation-20260918')
+CODE = Path('/Users/a77/fwp-wt-research-answer-preservation')
+sys.path.insert(0, str(CODE))
+from scripts.smoke_workbench_self_use import SecretScanner
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+def save(path, value):
+    with path.open('x') as f:
+        json.dump(value, f, ensure_ascii=False, indent=2)
+        f.write('\n')
+
+
+def digest(path):
+    with path.open('rb') as f:
+        return hashlib.file_digest(f, 'sha256').hexdigest()
+
+
+def history(label):
+    details = [json.loads(e['detail']) for e in load(ROOT / f'{label}.json')['result']['evidence']]
+    ref = next(d['result_ref'] for d in details if 'result_ref' in d)
+    return load(ROOT / 'runs' / ref)
+
+
+def prose_rows(label):
+    rows = []
+    for evidence in load(ROOT / f'{label}.json')['result']['evidence']:
+        rows.append(dict(part.split('=', 1) for part in evidence['detail'].split('；') if '=' in part))
+    return rows
+
+
+def main():
+    protocol = load(ROOT / 'protocol.json')
+    db = Path(protocol['market_snapshot'])
+    assert digest(db) == protocol['market_sha256']
+    assert not db.is_symlink() and db.stat().st_mode & 0o222 == 0
+    git = lambda *args: subprocess.check_output(['git', '-C', str(CODE), *args], text=True).strip()
+    assert git('rev-parse', 'HEAD') == protocol['code_revision']
+    assert not git('status', '--porcelain')
+    product = SOURCE / 'public-answer.md'
+    original = SOURCE / 'users/probe-preservation-20260918/runs/run_20260918_113122_450933/answer.md'
+    assert product.read_bytes() == original.read_bytes()
+    assert digest(product) == '7a598a19d592b35c4cd32434aa5dd340f4a5270cbb116988126f7d97d1922eb5'
+    assert load(SOURCE / 'acceptance-summary.json')['overall_preservation_acceptance'] == 'not_passed'
+    with (ROOT / 'workbench-answer.md').open('xb') as f:
+        f.write(product.read_bytes())
+
+    trace = [json.loads(line) for line in (ROOT / 'trace.jsonl').read_text().splitlines()]
+    assert len(trace) == 19
+    assert Counter(t['tool'] for t in trace) == {
+        'finance_query': 8, 'history_query': 8, 'mainline_context': 1,
+        'market_data': 1, 'evidence_search': 1,
+    }
+    assert all(t['status'] == 'success' for t in trace)
+    assert len({t['label'] for t in trace}) == len(trace)
+    for t in trace:
+        result = load(Path(t['result_file']))
+        assert result['arguments'] == t['arguments']
+        assert result['tool'] == t['tool']
+        assert result['code_revision'] == protocol['code_revision']
+
+    current = {row['entity_code']: row['features'] for row in history('candidate-ten-day-features')['rows']}
+    others = {row['entity_code']: row['features'] for row in history('other-candidates-ten-day')['rows']}
+    assert len(current.keys() | others.keys()) == 18
+    breadth = {row['entity_code']: row['features']['advancer_share'] for row in history('candidate-latest-breadth')['rows']}
+    recent = {row['板块代码']: row for row in prose_rows('candidate-last-two-days') if row['交易日'] == '2026-09-17'}
+    table = [
+        ('光纤光缆', '990078.FP', 12.96, 0.53, 27.73, 54.5),
+        ('PCB', '990026.FP', 19.44, -2.42, -3.88, 22.4),
+        ('玻璃玻纤', '990270.FP', 8.32, 1.24, 35.47, 64.7),
+        ('汽车', '990239.FP', -3.34, 1.40, 20.66, 72.3),
+        ('新能源车', '990199.FP', -1.46, 0.24, -2.25, 47.8),
+    ]
+    answer = (ROOT / 'component-answer.md').read_text()
+    for name, code, ret, day, vol, share in table:
+        assert round(current[code]['return_pct'], 2) == ret
+        assert round(float(recent[code]['涨跌幅']), 2) == day
+        assert round(float(recent[code]['边际量']), 2) == vol
+        assert round(breadth[code] * 100, 1) == share
+        assert f'| {name} | {ret:+.2f}% | {day:+.2f}% | {vol:+.2f}% | {share:.1f}% |' in answer
+    market = {row['交易日']: row for row in prose_rows('market-window')}
+    assert [int(market['2026-09-16'][k]) for k in ('上涨家数', '涨停家数')] == [4164, 89]
+    assert [int(market['2026-09-17'][k]) for k in ('上涨家数', '涨停家数', '跌停家数')] == [2576, 47, 1]
+    assert int(market['2026-09-15']['跌停家数']) == 28
+    assert round(current['990026.FP']['return_pct'] - current['990026.FP']['market_relative_return_pct'], 2) == -1.69
+    members = prose_rows('fiber-members')
+    assert len(members) == 11 and sum(float(m['涨跌幅']) > 0 for m in members) == 6
+    heat = next(r for r in prose_rows('limit-heat') if r['板块代码'] == '990199.FP')
+    assert float(heat['涨停家数']) == 13
+
+    plan = load(ROOT / 'history-followup-plan.json')
+    for label, code in [('fiber-analogues', '990078.FP'), ('pcb-analogues', '990026.FP'), ('ev-analogues', '990199.FP')]:
+        data = history(label)
+        assert data['universe']['enumerated'] == 45
+        assert len(data['rows']) == 9
+        assert Counter(x['reason'] for x in data['excluded_candidates']) == {'no_comparable_features': 36}
+        assert [[r['start'], r['end']] for r in data['rows'][:2]] == plan['selected'][code]
+    outcomes = []
+    for label in ['comparable-all-outcome-five', 'comparable-all-outcome-ten']:
+        data = history(label)
+        assert data['comparison']['enumerated'] == 135
+        assert data['comparison']['missing'] == 108
+        assert data['comparison']['certification_eligible'] is False
+        assert data['comparison']['independence_status'] == 'not_established'
+        assert data['decision_eligible'] is False
+        assert Counter(r['comparison_state'] for r in data['rows']) == {'missing_feature': 108, 'observed': 27}
+        outcomes.append({(r['entity_code'], r['start'], r['end']): r for r in data['rows']})
+    expected = [
+        ('990078.FP', '2026-08-11', '2026-08-24', 9.26, 6.19),
+        ('990078.FP', '2026-07-28', '2026-08-10', 10.80, 5.01),
+        ('990026.FP', '2026-08-04', '2026-08-17', -10.82, -2.48),
+        ('990026.FP', '2026-07-28', '2026-08-10', 5.22, -6.16),
+        ('990199.FP', '2026-08-11', '2026-08-24', 4.33, 4.11),
+        ('990199.FP', '2026-08-18', '2026-08-31', -0.21, -2.74),
+    ]
+    for code, start, end, five, ten in expected:
+        assert round(outcomes[0][code, start, end]['forward_return_pct'], 2) == five
+        assert round(outcomes[1][code, start, end]['forward_return_pct'], 2) == ten
+        assert f'| {five:+.2f}% | {ten:+.2f}% |' in answer
+    hits = [r for r in outcomes[0].values() if r.get('x') is True and r['comparison_state'] == 'observed']
+    assert len(hits) == 9 and sum(r['forward_return_pct'] > 0 for r in hits) == 5
+    assert sum(r['forward_return_pct'] < 0 for r in hits) == 4
+    for ref in re.findall(r'`([^`]+\.(?:json|md))`', answer):
+        assert (ROOT / ref).is_file(), ref
+
+    scanner = SecretScanner()
+    scan_files = []
+    for path in sorted(ROOT.rglob('*')):
+        if not path.is_file() or '__pycache__' in path.parts or path.suffix not in {'.json', '.jsonl', '.md', '.log', '.txt'}:
+            continue
+        value = load(path) if path.suffix == '.json' else path.read_text()
+        if path.suffix == '.jsonl':
+            value = [json.loads(line) for line in value.splitlines()]
+        scanner.scan(value, str(path.relative_to(ROOT)))
+        scan_files.append(str(path.relative_to(ROOT)))
+    assert not scanner.hits, scanner.hits
+    receipt = {
+        'checked_at': datetime.now(timezone.utc).isoformat(),
+        'code_revision': protocol['code_revision'], 'worktree_clean': True,
+        'source_market_sha256_unchanged': True,
+        'product_run': protocol['product_run'], 'product_endpoint': 'isolated candidate 8848 (already stopped)',
+        'product_answer_copy_sha256': digest(ROOT / 'workbench-answer.md'),
+        'component_answer_sha256': digest(ROOT / 'component-answer.md'),
+        'registry_calls': len(trace), 'calls_by_tool': dict(Counter(t['tool'] for t in trace)),
+        'separate_opening_prefetch_calls': 1,
+        'success_receipts_do_not_imply_complete_data': True,
+        'comparison_data_observed': 27, 'comparison_data_missing': 108,
+        'numeric_checks': 'headline market values, 5-row current comparison, 6 forward-outcome rows, breadth and sample selection identity',
+        'scope': 'author readback of local archived component results; no vendor or independent financial certification',
+        'secret_scan_files': scan_files, 'secret_scan_strings': scanner.scanned_string_count,
+        'secret_scan_hits': scanner.hits,
+        'blind': False, 'budget_matched': False, 'full_input_freeze': False,
+        'new_product_submissions': 0, 'production_deployment': False,
+        'financial_certification': False, 'original_preservation_acceptance': 'not_passed',
+    }
+    save(ROOT / 'comparison-receipt.json', receipt)
+    files = []
+    for path in sorted(ROOT.rglob('*')):
+        if path.is_file() and '__pycache__' not in path.parts and path.name != 'artifact-index.json':
+            files.append({'path': str(path.relative_to(ROOT)), 'bytes': path.stat().st_size, 'sha256': digest(path)})
+    save(ROOT / 'artifact-index.json', {
+        'scope': 'assistant component research; separate from original sealed 214-file product bundle',
+        'file_count': len(files), 'total_bytes': sum(f['bytes'] for f in files), 'files': files,
+    })
+    print(json.dumps({'checks': 'passed', 'files': len(files), 'secret_scan_hits': 0,
+                      'financial_certification': False, 'source_acceptance': 'not_passed'}, ensure_ascii=False))
+
+
+if __name__ == '__main__':
+    main()

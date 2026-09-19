@@ -1,0 +1,49 @@
+"""Archive the 2026-09-18 ReAct-components vs Workbench comparison package.
+
+Only Git-permitted types are copied (json/jsonl/md/txt; .py/.log get a .txt
+suffix, bytes unchanged). SQLite, .pyc, locks stay in the runtime directory
+and are recorded in the manifest by path, size and SHA-256. No cleaning.
+"""
+from datetime import datetime, timezone
+from pathlib import Path
+import hashlib, json, re
+SRC = Path.home() / '.finance-runtime/reviews/research-components-react-20260918'
+REPO = Path('/Users/a77/fwp-wt-react-comparison-archive')
+DEST = REPO / 'docs/verification/2026-09-18-react-components-comparison'
+SKIP_DIRS = {'__pycache__', 'locks', '.pytest_cache'}
+SKIP_SUFFIX = re.compile(r'\.(pyc|sqlite\d*|db|lock|wal|shm)$', re.I)
+SECRET = re.compile(r'(?:sk-[A-Za-z0-9_-]{20,}|-----BEGIN (?:RSA |OPENSSH )?PRIVATE KEY-----|Authorization:\s*Bearer\s+[A-Za-z0-9_-]{16,}|["\'](?:ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN|api_key|access_token)["\']\s*:\s*["\'][A-Za-z0-9_+/=-]{16,})')
+rows, external = [], []
+for path in sorted(p for p in SRC.rglob('*') if p.is_file()):
+    rel = path.relative_to(SRC)
+    data = path.read_bytes()
+    sha = hashlib.sha256(data).hexdigest()
+    if SKIP_DIRS.intersection(rel.parts) or SKIP_SUFFIX.search(path.name) or len(data) > 5120 * 1024:
+        reason = 'exceeds 5120 KiB Git file limit' if len(data) > 5120 * 1024 else 'binary/cache/lock type not permitted in Git'
+        external.append({'source': str(path), 'bytes': len(data), 'sha256': sha, 'reason': reason})
+        continue
+    text = data.decode('utf-8')
+    assert '\x00' not in text and not SECRET.search(text), f'binary or secret-like content in {path}'
+    out = rel.with_name(rel.name + '.txt') if path.suffix in {'.py', '.log'} else rel
+    target = DEST / out
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    rows.append({'source': str(path), 'archive': str(out), 'bytes': len(data), 'sha256': sha})
+own = Path(__file__).read_bytes()
+(DEST / 'archive_react_components.py.txt').write_bytes(own)
+rows.append({'source': str(Path(__file__)), 'archive': 'archive_react_components.py.txt', 'bytes': len(own), 'sha256': hashlib.sha256(own).hexdigest()})
+protocol = json.loads((SRC / 'protocol.json').read_text())
+manifest = {
+    'created_at': datetime.now(timezone.utc).isoformat(),
+    'scope': 'Second-round comparison (2026-09-18): the pi assistant\'s own component-driven ReAct answer vs the Workbench public answer from isolated candidate 8848 running feat/research-answer-preservation@af9500ec (business 5f3b5b59); same read-only market snapshot to 2026-09-17. Not production 8792, not blind, budget not matched, no financial certification.',
+    'question': protocol['question'], 'as_of': protocol['as_of'], 'code_revision': protocol['code_revision'],
+    'business_code_revision': protocol['business_code_revision'], 'product_run': protocol['product_run'],
+    'product_endpoint': 'isolated candidate 8848 (already stopped)', 'blind': protocol['blind'], 'budget_matched': protocol['budget_matched'],
+    'raw_bytes_preserved': True, 'suffix_rule': '.py/.log copied byte-identical with an added .txt suffix',
+    'files': rows, 'not_archived_recorded_only': external,
+}
+(DEST / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+for r in rows:
+    d = (DEST / r['archive']).read_bytes()
+    assert hashlib.sha256(d).hexdigest() == r['sha256'] and len(d) == r['bytes']
+print(json.dumps({'archived': len(rows), 'bytes': sum(r['bytes'] for r in rows), 'external': [(e['source'].split('/')[-1], e['bytes']) for e in external]}, ensure_ascii=False))

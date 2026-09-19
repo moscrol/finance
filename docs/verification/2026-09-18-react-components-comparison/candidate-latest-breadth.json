@@ -1,0 +1,706 @@
+{
+  "tool": "history_query",
+  "arguments": {
+    "operation": "compute_history",
+    "entity_kind": "sector",
+    "entity_codes": [
+      "990078.FP",
+      "990026.FP",
+      "990199.FP",
+      "990239.FP",
+      "990244.FP",
+      "990270.FP"
+    ],
+    "start": "2026-09-17",
+    "end": "2026-09-17",
+    "features": [
+      "return_pct",
+      "advancer_share"
+    ],
+    "preview_limit": 10
+  },
+  "code_revision": "af9500ecad84b06f39d960c1eaa57561ff2c6485",
+  "elapsed_s": 0.06570862501394004,
+  "captured_at": "2026-09-18T04:53:51.502472+00:00",
+  "result": {
+    "tool": "history_query",
+    "query": "{\"condition\":null,\"end\":\"2026-09-17\",\"entity_codes\":[\"990078.FP\",\"990026.FP\",\"990199.FP\",\"990239.FP\",\"990244.FP\",\"990270.FP\"],\"entity_kind\":\"sector\",\"features\":[\"return_pct\",\"advancer_share\"],\"match_mode\":\"full_path\",\"operation\":\"compute_history\",\"outcome\":null,\"preview_limit\":10,\"query\":\"\",\"reference_code\":null,\"search_end\":null,\"search_start\":null,\"start\":\"2026-09-17\",\"step_days\":5,\"window_days\":20}",
+    "evidence": [
+      {
+        "tool": "history_query",
+        "title": "历史研究范围与完整分母｜729b0f92·1｜990078.FP,990026.FP 2026-09-17 2026-09-17",
+        "detail": "{\"operation\":\"compute_history\",\"status\":\"research_only\",\"total_matched\":6,\"returned_count\":6,\"truncated\":false,\"research_only\":true,\"decision_eligible\":false,\"promotion_eligible\":false}",
+        "source": "本地历史研究 · 可复算原件",
+        "internal_locator": "run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+        "source_date": null,
+        "evidence_tier": "L4_market_signal",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+        "freshness": "historical",
+        "content_hash": "df1ed41a5a9bff4a",
+        "observations": [],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "history_query",
+        "title": "历史研究原件引用｜729b0f92·2｜990078.FP,990026.FP 2026-09-17 2026-09-17",
+        "detail": "{\"result_ref\":\"run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json\"}",
+        "source": "本地历史研究 · 可复算原件",
+        "internal_locator": "run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+        "source_date": null,
+        "evidence_tier": "L4_market_signal",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+        "freshness": "historical",
+        "content_hash": "e533a1403854bc71",
+        "observations": [],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "history_query",
+        "title": "历史研究使用边界｜729b0f92·3｜990078.FP,990026.FP 2026-09-17 2026-09-17",
+        "detail": "{\"pit_grade\":\"hindsight_reconstruction\",\"null\":\"未知或不可计算，非0；具体原因见每项status；not_observed表示该窗口未观察到触发。\"}",
+        "source": "本地历史研究 · 可复算原件",
+        "internal_locator": "run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+        "source_date": null,
+        "evidence_tier": "L4_market_signal",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+        "freshness": "historical",
+        "content_hash": "66de804f4d15cafb",
+        "observations": [],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "history_query",
+        "title": "历史特征严格定义｜729b0f92·4｜990078.FP,990026.FP 2026-09-17 2026-09-17",
+        "detail": "{\"feature\":\"return_pct\",\"rule\":\"compound every daily percentage in the declared window\",\"unit\":\"percent\",\"version\":\"history-features-v1\"}",
+        "source": "本地历史研究 · 可复算原件",
+        "internal_locator": "run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+        "source_date": null,
+        "evidence_tier": "L4_market_signal",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+        "freshness": "historical",
+        "content_hash": "30e920419ee97414",
+        "observations": [],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "history_query",
+        "title": "历史特征严格定义｜729b0f92·5｜990078.FP,990026.FP 2026-09-17 2026-09-17",
+        "detail": "{\"feature\":\"advancer_share\",\"rule\":\"mean daily positive-return member share; denominator is unique observed membership each day\",\"unit\":\"ratio\",\"version\":\"history-features-v1\"}",
+        "source": "本地历史研究 · 可复算原件",
+        "internal_locator": "run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+        "source_date": null,
+        "evidence_tier": "L4_market_signal",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+        "freshness": "historical",
+        "content_hash": "d039941f38f7ced2",
+        "observations": [],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "history_query",
+        "title": "历史观察样本 990078.FP 2026-09-17 2026-09-17｜729b0f92·6｜990078.FP,990026.FP 2026-09-17 2026-09-17",
+        "detail": "{\"sample\":0,\"entity_code\":\"990078.FP\",\"start\":\"2026-09-17\",\"end\":\"2026-09-17\",\"entity_name\":\"光纤光缆\",\"features\":{\"return_pct\":0.5317999999999934},\"status\":{\"return_pct\":\"complete\"}}",
+        "source": "本地历史研究 · 可复算原件",
+        "internal_locator": "run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_market_signal",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+        "freshness": "historical",
+        "content_hash": "3e1fa084aa021832",
+        "observations": [],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "history_query",
+        "title": "历史观察样本 990078.FP 2026-09-17 2026-09-17｜729b0f92·7｜990078.FP,990026.FP 2026-09-17 2026-09-17",
+        "detail": "{\"sample\":0,\"entity_code\":\"990078.FP\",\"start\":\"2026-09-17\",\"end\":\"2026-09-17\",\"features\":{\"advancer_share\":0.5454545454545454},\"status\":{\"advancer_share\":\"complete\"}}",
+        "source": "本地历史研究 · 可复算原件",
+        "internal_locator": "run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_market_signal",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+        "freshness": "historical",
+        "content_hash": "1827555c941186c1",
+        "observations": [],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "history_query",
+        "title": "历史观察样本 990026.FP 2026-09-17 2026-09-17｜729b0f92·8｜990078.FP,990026.FP 2026-09-17 2026-09-17",
+        "detail": "{\"sample\":1,\"entity_code\":\"990026.FP\",\"start\":\"2026-09-17\",\"end\":\"2026-09-17\",\"entity_name\":\"PCB\",\"features\":{\"return_pct\":-2.4187999999999987},\"status\":{\"return_pct\":\"complete\"}}",
+        "source": "本地历史研究 · 可复算原件",
+        "internal_locator": "run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_market_signal",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+        "freshness": "historical",
+        "content_hash": "63b9849a7c6e088f",
+        "observations": [],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "history_query",
+        "title": "历史观察样本 990026.FP 2026-09-17 2026-09-17｜729b0f92·9｜990078.FP,990026.FP 2026-09-17 2026-09-17",
+        "detail": "{\"sample\":1,\"entity_code\":\"990026.FP\",\"start\":\"2026-09-17\",\"end\":\"2026-09-17\",\"features\":{\"advancer_share\":0.22448979591836735},\"status\":{\"advancer_share\":\"complete\"}}",
+        "source": "本地历史研究 · 可复算原件",
+        "internal_locator": "run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_market_signal",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+        "freshness": "historical",
+        "content_hash": "bec7d836d94ebec2",
+        "observations": [],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "history_query",
+        "title": "历史观察样本 990199.FP 2026-09-17 2026-09-17｜729b0f92·10｜990078.FP,990026.FP 2026-09-17 2026-09-17",
+        "detail": "{\"sample\":2,\"entity_code\":\"990199.FP\",\"start\":\"2026-09-17\",\"end\":\"2026-09-17\",\"entity_name\":\"新能源车\",\"features\":{\"return_pct\":0.23679999999999257},\"status\":{\"return_pct\":\"complete\"}}",
+        "source": "本地历史研究 · 可复算原件",
+        "internal_locator": "run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_market_signal",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+        "freshness": "historical",
+        "content_hash": "3420e623d83a5505",
+        "observations": [],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "history_query",
+        "title": "历史观察样本 990199.FP 2026-09-17 2026-09-17｜729b0f92·11｜990078.FP,990026.FP 2026-09-17 2026-09-17",
+        "detail": "{\"sample\":2,\"entity_code\":\"990199.FP\",\"start\":\"2026-09-17\",\"end\":\"2026-09-17\",\"features\":{\"advancer_share\":0.47842401500938087},\"status\":{\"advancer_share\":\"complete\"}}",
+        "source": "本地历史研究 · 可复算原件",
+        "internal_locator": "run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_market_signal",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+        "freshness": "historical",
+        "content_hash": "b7bb4082763d2e85",
+        "observations": [],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "history_query",
+        "title": "历史观察样本 990239.FP 2026-09-17 2026-09-17｜729b0f92·12｜990078.FP,990026.FP 2026-09-17 2026-09-17",
+        "detail": "{\"sample\":3,\"entity_code\":\"990239.FP\",\"start\":\"2026-09-17\",\"end\":\"2026-09-17\",\"entity_name\":\"汽车\",\"features\":{\"return_pct\":1.3970999999999956},\"status\":{\"return_pct\":\"complete\"}}",
+        "source": "本地历史研究 · 可复算原件",
+        "internal_locator": "run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_market_signal",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+        "freshness": "historical",
+        "content_hash": "40eeb1559a4b3fa7",
+        "observations": [],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "history_query",
+        "title": "历史观察样本 990239.FP 2026-09-17 2026-09-17｜729b0f92·13｜990078.FP,990026.FP 2026-09-17 2026-09-17",
+        "detail": "{\"sample\":3,\"entity_code\":\"990239.FP\",\"start\":\"2026-09-17\",\"end\":\"2026-09-17\",\"features\":{\"advancer_share\":0.7234726688102894},\"status\":{\"advancer_share\":\"complete\"}}",
+        "source": "本地历史研究 · 可复算原件",
+        "internal_locator": "run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_market_signal",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+        "freshness": "historical",
+        "content_hash": "f579182479755094",
+        "observations": [],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "history_query",
+        "title": "历史观察样本 990244.FP 2026-09-17 2026-09-17｜729b0f92·14｜990078.FP,990026.FP 2026-09-17 2026-09-17",
+        "detail": "{\"sample\":4,\"entity_code\":\"990244.FP\",\"start\":\"2026-09-17\",\"end\":\"2026-09-17\",\"entity_name\":\"汽车零部件\",\"features\":{\"return_pct\":1.4022999999999897},\"status\":{\"return_pct\":\"complete\"}}",
+        "source": "本地历史研究 · 可复算原件",
+        "internal_locator": "run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_market_signal",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+        "freshness": "historical",
+        "content_hash": "23c3e9bcfb540b1e",
+        "observations": [],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "history_query",
+        "title": "历史观察样本 990244.FP 2026-09-17 2026-09-17｜729b0f92·15｜990078.FP,990026.FP 2026-09-17 2026-09-17",
+        "detail": "{\"sample\":4,\"entity_code\":\"990244.FP\",\"start\":\"2026-09-17\",\"end\":\"2026-09-17\",\"features\":{\"advancer_share\":0.7159090909090909},\"status\":{\"advancer_share\":\"complete\"}}",
+        "source": "本地历史研究 · 可复算原件",
+        "internal_locator": "run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_market_signal",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+        "freshness": "historical",
+        "content_hash": "b576aebb61373762",
+        "observations": [],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "history_query",
+        "title": "历史观察样本 990270.FP 2026-09-17 2026-09-17｜729b0f92·16｜990078.FP,990026.FP 2026-09-17 2026-09-17",
+        "detail": "{\"sample\":5,\"entity_code\":\"990270.FP\",\"start\":\"2026-09-17\",\"end\":\"2026-09-17\",\"entity_name\":\"玻璃玻纤\",\"features\":{\"return_pct\":1.241200000000009},\"status\":{\"return_pct\":\"complete\"}}",
+        "source": "本地历史研究 · 可复算原件",
+        "internal_locator": "run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_market_signal",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+        "freshness": "historical",
+        "content_hash": "987e852cc3d0e1b4",
+        "observations": [],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      },
+      {
+        "tool": "history_query",
+        "title": "历史观察样本 990270.FP 2026-09-17 2026-09-17｜729b0f92·17｜990078.FP,990026.FP 2026-09-17 2026-09-17",
+        "detail": "{\"sample\":5,\"entity_code\":\"990270.FP\",\"start\":\"2026-09-17\",\"end\":\"2026-09-17\",\"features\":{\"advancer_share\":0.6470588235294118},\"status\":{\"advancer_share\":\"complete\"}}",
+        "source": "本地历史研究 · 可复算原件",
+        "internal_locator": "run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+        "source_date": "2026-09-17",
+        "evidence_tier": "L4_market_signal",
+        "supports": [],
+        "contradicts": [],
+        "independent_key": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+        "freshness": "historical",
+        "content_hash": "9ec72521d0a87190",
+        "observations": [],
+        "derived_from": [],
+        "reexcerpted": null,
+        "pointer_dropped": null,
+        "structural_neighbor_demoted": null,
+        "deep_read": false,
+        "publisher_kind": "",
+        "document_type": ""
+      }
+    ],
+    "observation": "探索结果，未认证规律；完整分母独立于投影条数。{\"projected_evidence_count\":17,\"query_id\":\"729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500\",\"result_ref\":\"run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json\",\"returned_count\":6,\"total_matched\":6,\"truncated\":false}样本以完整JSON语义块展示，同sample属于同一原件行；特征定义卡给出真实rule/unit/version。大成员、覆盖明细和超长字段仅在完整artifact；需更多日期用read_history_result分页。需未展示字段请缩窄日期/实体/特征查询，仍不足就明确缺口或由用户查看原件，不把null当0。",
+    "trace": {
+      "provider": "duckdb_history_query",
+      "capability": "finance_query",
+      "status": "success",
+      "detail": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+      "source_trade_date": null,
+      "result_count": 17,
+      "parent_id": "assistant-component-react:1789707231053350000",
+      "step_id": "candidate-latest-breadth",
+      "requested_date": "2026-09-18",
+      "served_date": "2026-09-17",
+      "requested_time_range": null
+    },
+    "gaps": [],
+    "evidence_hashes": [
+      "df1ed41a5a9bff4a",
+      "e533a1403854bc71",
+      "66de804f4d15cafb",
+      "30e920419ee97414",
+      "d039941f38f7ced2",
+      "3e1fa084aa021832",
+      "1827555c941186c1",
+      "63b9849a7c6e088f",
+      "bec7d836d94ebec2",
+      "3420e623d83a5505",
+      "b7bb4082763d2e85",
+      "40eeb1559a4b3fa7",
+      "f579182479755094",
+      "23c3e9bcfb540b1e",
+      "b576aebb61373762",
+      "987e852cc3d0e1b4",
+      "9ec72521d0a87190"
+    ],
+    "dataset": "historical_research",
+    "caliber": "retrospective_research_only",
+    "payload_field_names": [
+      "authorized_scope",
+      "calendar_inputs",
+      "coverage",
+      "decision_eligible",
+      "definition_refs",
+      "entity_kind",
+      "feature_definitions",
+      "gaps",
+      "input_fingerprint",
+      "inputs",
+      "knowledge_cutoff",
+      "operation",
+      "pending_sources",
+      "pit_grade",
+      "preview",
+      "promotion_eligible",
+      "purpose",
+      "query_id",
+      "research_only",
+      "returned_count",
+      "rows",
+      "schema_version",
+      "source_refs",
+      "spec",
+      "status",
+      "total_matched",
+      "truncated"
+    ],
+    "payload_sha256": "a318e5255e8ff44099a4c3b7c14f3a5665142d5ba17ef769640a330dba586f38",
+    "telemetry": {
+      "query_id": "729b0f922f063c377e2147477df71d64ed7036253987d9ace1bffca393b9e500",
+      "operation": "compute_history",
+      "purpose": "historical_comparison",
+      "status": "research_only",
+      "total_matched": 6,
+      "returned_count": 6,
+      "truncated": false,
+      "coverage": {
+        "fact_sector_daily": {
+          "rows": 6,
+          "fields": {
+            "trade_date": {
+              "nonnull": 6,
+              "missing": 0
+            },
+            "sector_ts_code": {
+              "nonnull": 6,
+              "missing": 0
+            },
+            "sector_name": {
+              "nonnull": 6,
+              "missing": 0
+            },
+            "pct_chg": {
+              "nonnull": 6,
+              "missing": 0
+            },
+            "amount": {
+              "nonnull": 6,
+              "missing": 0
+            },
+            "diff_ratio": {
+              "nonnull": 6,
+              "missing": 0
+            },
+            "source": {
+              "nonnull": 6,
+              "missing": 0
+            },
+            "updated_at": {
+              "nonnull": 6,
+              "missing": 0
+            },
+            "sector_universe_snapshot_id": {
+              "nonnull": 6,
+              "missing": 0
+            }
+          }
+        },
+        "fact_market_daily": {
+          "rows": 1,
+          "fields": {
+            "trade_date": {
+              "nonnull": 1,
+              "missing": 0
+            },
+            "total_amount": {
+              "nonnull": 1,
+              "missing": 0
+            },
+            "advancers": {
+              "nonnull": 1,
+              "missing": 0
+            },
+            "limit_up": {
+              "nonnull": 1,
+              "missing": 0
+            },
+            "limit_down": {
+              "nonnull": 1,
+              "missing": 0
+            },
+            "sh_index_pct_chg": {
+              "nonnull": 1,
+              "missing": 0
+            },
+            "sh_index_close": {
+              "nonnull": 1,
+              "missing": 0
+            },
+            "market_stage": {
+              "nonnull": 1,
+              "missing": 0
+            },
+            "volume_state": {
+              "nonnull": 1,
+              "missing": 0
+            },
+            "concentration_state": {
+              "nonnull": 1,
+              "missing": 0
+            },
+            "source": {
+              "nonnull": 1,
+              "missing": 0
+            },
+            "updated_at": {
+              "nonnull": 1,
+              "missing": 0
+            }
+          }
+        },
+        "fact_sector_stock_daily": {
+          "rows": 1718,
+          "fields": {
+            "trade_date": {
+              "nonnull": 1718,
+              "missing": 0
+            },
+            "sector_ts_code": {
+              "nonnull": 1718,
+              "missing": 0
+            },
+            "stock_ts_code": {
+              "nonnull": 1718,
+              "missing": 0
+            },
+            "stock_name": {
+              "nonnull": 1718,
+              "missing": 0
+            },
+            "price": {
+              "nonnull": 1718,
+              "missing": 0
+            },
+            "pct_chg": {
+              "nonnull": 1718,
+              "missing": 0
+            },
+            "amount": {
+              "nonnull": 1718,
+              "missing": 0
+            },
+            "float_mcap_yi": {
+              "nonnull": 1718,
+              "missing": 0
+            },
+            "role_tags_json": {
+              "nonnull": 1718,
+              "missing": 0
+            },
+            "source": {
+              "nonnull": 1718,
+              "missing": 0
+            },
+            "updated_at": {
+              "nonnull": 1718,
+              "missing": 0
+            },
+            "sector_universe_snapshot_id": {
+              "nonnull": 1718,
+              "missing": 0
+            }
+          }
+        },
+        "calendar": {
+          "basis": "union of canonical stock and market fact dates; not inferred from selected sector",
+          "reads": [
+            {
+              "table": "fact_stock_daily",
+              "projection": "DISTINCT trade_date",
+              "start": "2026-09-17",
+              "end": "2026-09-17",
+              "stock_dates": [
+                "2026-09-17"
+              ],
+              "market_dates": [
+                "2026-09-17"
+              ]
+            }
+          ]
+        }
+      },
+      "definition_refs": [
+        "historical-research-v1",
+        "history-features-v1",
+        "return_pct@history-features-v1",
+        "advancer_share@history-features-v1"
+      ],
+      "gaps": [],
+      "spec": {
+        "operation": "compute_history",
+        "start": "2026-09-17",
+        "end": "2026-09-17",
+        "entity_kind": "sector",
+        "entity_codes": [
+          "990078.FP",
+          "990026.FP",
+          "990199.FP",
+          "990239.FP",
+          "990244.FP",
+          "990270.FP"
+        ],
+        "query": "",
+        "features": [
+          "return_pct",
+          "advancer_share"
+        ],
+        "search_start": null,
+        "search_end": null,
+        "window_days": 20,
+        "step_days": 5,
+        "match_mode": "full_path",
+        "condition": null,
+        "outcome": null,
+        "preview_limit": 10,
+        "reference_code": null
+      },
+      "feature_definitions": {
+        "return_pct": {
+          "fields": [
+            "pct_chg"
+          ],
+          "unit": "percent",
+          "rule": "compound every daily percentage in the declared window",
+          "version": "history-features-v1",
+          "entity_kind": "sector"
+        },
+        "advancer_share": {
+          "fields": [
+            "members.pct_chg"
+          ],
+          "unit": "ratio",
+          "rule": "mean daily positive-return member share; denominator is unique observed membership each day",
+          "version": "history-features-v1",
+          "entity_kind": "sector"
+        }
+      },
+      "result_ref": "run_20260918_124822_549113/history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+      "research_only": true,
+      "decision_eligible": false,
+      "promotion_eligible": false,
+      "projected_evidence_count": 17
+    }
+  }
+}

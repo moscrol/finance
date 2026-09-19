@@ -1,0 +1,111 @@
+{
+  "run_id": "run_20260918_124822_549113",
+  "user": "component-react-20260918",
+  "question": "这里的行情哪个板块更有机会，历史上有相似的阶段吗",
+  "task_type": "comparison_analog",
+  "status": "running",
+  "schema_version": 1,
+  "session_id": "component-react-20260918",
+  "parent_run_id": null,
+  "created_at": "2026-09-18T12:48:22+08:00",
+  "finished_at": null,
+  "source_date": "2026-09-17",
+  "duckdb_cutoff": "2026-09-17",
+  "kb_commit": null,
+  "kb_index_built_at": null,
+  "kb_index_freshness": null,
+  "manifest_ref": null,
+  "degrades": [],
+  "error": null,
+  "artifacts": [
+    {
+      "artifact_id": "artifact_history-query-7535ebf4a8dae42078b5f4fe770f3f0bd2f801b0a2f4328a05d6bbe301418f13_json",
+      "path": "history-query-7535ebf4a8dae42078b5f4fe770f3f0bd2f801b0a2f4328a05d6bbe301418f13.json",
+      "renderer": "json",
+      "title": "History query",
+      "sha256": "7535ebf4a8dae42078b5f4fe770f3f0bd2f801b0a2f4328a05d6bbe301418f13",
+      "bytes": 6742461,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    },
+    {
+      "artifact_id": "artifact_history-query-a4e34211bd57a564004c1e9fef42c0f9aaeb57c217aacf7b10a0bf74858c40d4_json",
+      "path": "history-query-a4e34211bd57a564004c1e9fef42c0f9aaeb57c217aacf7b10a0bf74858c40d4.json",
+      "renderer": "json",
+      "title": "History query",
+      "sha256": "a4e34211bd57a564004c1e9fef42c0f9aaeb57c217aacf7b10a0bf74858c40d4",
+      "bytes": 131816,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    },
+    {
+      "artifact_id": "artifact_history-query-ce442ee276bcb8aae18869db27415324d85ba5c086bc76816f9459b356942fe4_json",
+      "path": "history-query-ce442ee276bcb8aae18869db27415324d85ba5c086bc76816f9459b356942fe4.json",
+      "renderer": "json",
+      "title": "History query",
+      "sha256": "ce442ee276bcb8aae18869db27415324d85ba5c086bc76816f9459b356942fe4",
+      "bytes": 132367,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    },
+    {
+      "artifact_id": "artifact_history-query-9a1f75766cd2520123f6190b780a349599170526b532f9321a8c28064f85aeb3_json",
+      "path": "history-query-9a1f75766cd2520123f6190b780a349599170526b532f9321a8c28064f85aeb3.json",
+      "renderer": "json",
+      "title": "History query",
+      "sha256": "9a1f75766cd2520123f6190b780a349599170526b532f9321a8c28064f85aeb3",
+      "bytes": 7386838,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    },
+    {
+      "artifact_id": "artifact_history-query-ecc51de5a231c1e34ca5c2b64581dedde8689a6c8f72b374c8d156c44ffedf9f_json",
+      "path": "history-query-ecc51de5a231c1e34ca5c2b64581dedde8689a6c8f72b374c8d156c44ffedf9f.json",
+      "renderer": "json",
+      "title": "History query",
+      "sha256": "ecc51de5a231c1e34ca5c2b64581dedde8689a6c8f72b374c8d156c44ffedf9f",
+      "bytes": 130434,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    },
+    {
+      "artifact_id": "artifact_history-query-4fddd6e6725b93e2972e53577f539fc28f26aed754e399dbbe749885c868a75b_json",
+      "path": "history-query-4fddd6e6725b93e2972e53577f539fc28f26aed754e399dbbe749885c868a75b.json",
+      "renderer": "json",
+      "title": "History query",
+      "sha256": "4fddd6e6725b93e2972e53577f539fc28f26aed754e399dbbe749885c868a75b",
+      "bytes": 445831,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    },
+    {
+      "artifact_id": "artifact_history-query-01dfb57b0b92b175669e80c7047ff05a645ab10e9e4ad2eaf7fcc11e355818e6_json",
+      "path": "history-query-01dfb57b0b92b175669e80c7047ff05a645ab10e9e4ad2eaf7fcc11e355818e6.json",
+      "renderer": "json",
+      "title": "History query",
+      "sha256": "01dfb57b0b92b175669e80c7047ff05a645ab10e9e4ad2eaf7fcc11e355818e6",
+      "bytes": 445782,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    },
+    {
+      "artifact_id": "artifact_history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30_json",
+      "path": "history-query-95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30.json",
+      "renderer": "json",
+      "title": "History query",
+      "sha256": "95e9b8d56b7ab9678327b6969d0aa532952293eec4d3aec8b4876bc119d71d30",
+      "bytes": 641277,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    }
+  ],
+  "maintenance_launch": null
+}

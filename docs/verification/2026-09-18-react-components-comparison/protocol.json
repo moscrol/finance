@@ -1,0 +1,51 @@
+{
+  "question": "这里的行情哪个板块更有机会，历史上有相似的阶段吗",
+  "as_of": "2026-09-17",
+  "author": "current pi assistant; own tool selection and synthesis",
+  "code_revision": "af9500ecad84b06f39d960c1eaa57561ff2c6485",
+  "business_code_revision": "5f3b5b593183aae86a93372149efe6611a92ebc8",
+  "code_dirty": false,
+  "market_snapshot": "/Users/a77/.finance-runtime/reviews/research-answer-preservation-20260918/data/db/market_feature_store.duckdb",
+  "market_sha256": "2d192a78205d94a1f7bcef9d90f82ed2d9ecee8b1e7a9d1e30dfe23da0eb6b89",
+  "freshness": {
+    "fact_market_daily": [
+      424,
+      "2024-12-20",
+      "2026-09-17"
+    ],
+    "fact_sector_daily": [
+      110313,
+      "2024-12-25",
+      "2026-09-17"
+    ],
+    "fact_sector_stock_daily": [
+      4467468,
+      "2025-01-02",
+      "2026-09-17"
+    ],
+    "fact_stock_daily": [
+      3777190,
+      "2023-09-01",
+      "2026-09-17"
+    ],
+    "fact_sector_period_rank_daily": [
+      2320,
+      "2026-05-06",
+      "2026-09-17"
+    ],
+    "fact_theme_limit_heat_daily": [
+      48973,
+      "2025-01-02",
+      "2026-09-17"
+    ]
+  },
+  "started_at": "2026-09-18T04:48:09.625117+00:00",
+  "product_run": "run_20260918_113122_450933",
+  "new_product_submissions": 0,
+  "already_exposed_to_product_answer": true,
+  "blind": false,
+  "budget_matched": false,
+  "budget_note": "each tool invocation independent 120s; no full product root-budget parity; prime calibration was read from current user",
+  "financial_certification": false,
+  "source": "same market snapshot, no claim that every retrieval input is frozen"
+}
