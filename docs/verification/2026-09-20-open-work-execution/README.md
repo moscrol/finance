@@ -30,6 +30,12 @@
 - 研究站 `9f60bef` 校验后推入其 Gitea main，真实公众号 `00_preflight.sh` 通过；金融 main 快进单独记作工作区维护，不把两个仓混为一因。
 - 研究深度五单见 `research-depth-issues.json`（#790–#794）。旧工单 #23/#24/#25 已实现进入 main，不重复立单；七条 vault 陈旧行标 superseded，旧文字仍在。
 
+## KB 维护链候选
+
+KB [#155](http://127.0.0.1:3300/a77/knowledge-base-private/pulls/155) 已实现并推送最终文档提交 `3a210103`，受审代码 `7e07addb`；未合 KB main、未部署。两次固定身份均 911P/0F/0skip，词表/体积/质量门全 exit 0；质量仍有历史债务，词表仍有两条警告。最终收据、完整门禁日志、各轮独立报告和首红均在 `kb-maintenance/`。
+
+独立动态 Spec 只签 `1bd5e1dc` 及更早；后续成功控制写入缺口修复由作者正式回归 80P 和最终全量验证，最终 Spec 增量/Quality 是独立静态复核。平台曾中断 Quality 动态审查，原中断留证，原动态未在最终 SHA 重跑。`success-control-boundaries-green.log` 实际为历史 1F77P；最终80P是 `success-control-final-focused.log`，不能凭文件名判绿。实际远端资产上传、生产索引构建/解防写和整机重启未执行。
+
 ## 证据和运行边界
 
 合源码没有更新生产 8792、生成快照或索引防写标志。完整入口探针在两棵临时根都使用新通知器；装机 L2 根 `d433b90788c0` 仍带旧版，正式部署必须单独核验通知器版本并保留 L2 业务代码，不能外推为生产已修复。

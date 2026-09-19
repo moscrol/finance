@@ -1,0 +1,58 @@
+[
+  {
+    "case": "unapproved-generation",
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-37437e1a-evidence/boundary-probes/case/generations-root/generations/one/code/scripts/rag_index.py",
+      "query",
+      "alpha",
+      "--mode",
+      "bm25",
+      "--json"
+    ],
+    "selected_index": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-37437e1a-evidence/boundary-probes/case/generations-root/generations/one/standard",
+    "returncode": 0,
+    "expected": "reject managed generation without approved manifest binding",
+    "rejected": false,
+    "hits": 1,
+    "manifest_env_present": false
+  },
+  {
+    "case": "retired-generation",
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-37437e1a-evidence/boundary-probes/case/generations-root/generations/one/code/scripts/rag_index.py",
+      "query",
+      "alpha",
+      "--mode",
+      "bm25",
+      "--json"
+    ],
+    "selected_index": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-37437e1a-evidence/boundary-probes/case/generations-root/generations/one/standard",
+    "returncode": 0,
+    "expected": "reject managed generation without approved manifest binding",
+    "rejected": false,
+    "hits": 1,
+    "manifest_env_present": false
+  },
+  {
+    "case": "library-implicit-old-tree",
+    "explicit_target": false,
+    "saved": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-37437e1a-evidence/boundary-probes/legacy-default-code-root/.rag_index",
+    "created": true,
+    "files": [
+      "bm25_csc.data.npy",
+      "bm25_csc.indices.npy",
+      "bm25_csc.indptr.npy",
+      "bm25_csc.meta.json",
+      "bm25_csc.term_offsets.npy",
+      "bm25_csc.terms.bin",
+      "bm25_tokens.jsonl.gz",
+      "chunks.jsonl",
+      "dense.npy",
+      "file_stat_cache.jsonl",
+      "meta.json"
+    ],
+    "expected": "reject absent explicit write target"
+  }
+]

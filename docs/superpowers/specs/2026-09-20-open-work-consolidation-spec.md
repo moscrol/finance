@@ -1,9 +1,12 @@
 # 在途工作总盘点与收尾规格（2026-09-20）
 
 > 日期：2026-09-20 00:10 CST
-> 状态：**已按审阅修正，用户已授权执行**。本文保留原盘点快照；本轮动作与验收结果见 `../../handoffs/2026-09-20-open-work-execution.md`。执行授权不解除各分支的质量门和逐树清理认领条件。
+> 状态：**修正与本轮授权执行已完成，条件未解除的工作保留**。本文保留原盘点快照；本轮动作与验收结果见 `../../handoffs/2026-09-20-open-work-execution.md`。执行授权不解除各分支的质量门和逐树清理认领条件。
 > 数据源（全部 [实测]，可复跑）：`scripts/worktree_board.py --json`（基线 `gitea/main=b22ddf8b0285`，313 棵树，按 `git cherry` 判合入）；Gitea API 全部 786 张 PR；每棵未合树的 `docs/handoffs/inflight/<分支>.md`；`git merge-tree --write-tree` 冲突预演；`~/.finance-runtime/deploy-ledger.jsonl`；`launchctl list`；DuckDB 各 `fact_*` 的 `max(trade_date)`；vault 项目笔记任务看板；`docs/superpowers/specs/2026-09-01-workorders-INDEX.md`。
 > 读法：§1 一页结论 → §2 生产与运行面 → §3 未合分支逐条 → §4 冲突矩阵与合并顺序 → §5 需要用户裁决 → §6 姊妹仓 → §7 卫生 → §8 执行顺序。每条「下一步」抄自该分支自己的 inflight，不替作者改口径。
+
+
+> 本轮执行结果：保全/显式推送/归档及研究站预检修复完成；#788、#795、#796 代码进入金融 main `4ace5ec2`，各自固定门禁通过；KB 新维护链交付 #155（911P、独立最终静态复核，待合）。五个研究切片已立单，旧工单去重/看板更新完成。q/#783/#770 未合，生产未切，未认领工作树全部保留。以下表格继续作为原盘点快照，当前证据以执行交接和 manifest 为准。
 
 ## 1. 一页结论
 
