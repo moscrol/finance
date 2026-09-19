@@ -567,3 +567,7 @@
 - **[2026-09-16] 主检出树里 65 个「无主」脏文件差点被当成垃圾处理——其中 `scripts/moneyflow/` 是每晚 20:40 真在跑的生产代码：装机启动器被手改成从 `$DATA_ROOT`（= 主树）执行 L2，`ops_pipeline_run_daily.source` 从 09-10 起全是 `baidu-share:xianyu-l2-7z`，而主干里根本没有这份代码。**
   做法：动任何共用树的脏文件前三查：`plutil -p` 各 launchd plist 的 ProgramArguments / 代码根变量；`grep DATA_ROOT/scripts` 装机脚本副本；生产表按 `source` 取最新几行——代码只存在于哪棵树，就是谁在生产。处置是把代码搬进主干（PR），不是回退树。
   **可迁移原则：日志里打印的 `code=...` 是自述，执行了哪条路径要看子进程真实路径或数据的来源标签。**
+
+- **[2026-09-17] 修生成根不能整份部署生成分支的旧 nightly wrapper：它含已退役 L2 暂停分支，会回退现役 L2。**
+  做法：现役 wrapper 最小接线，用独立 `FINANCE_GENERATION_CODE_ROOT` 仅覆盖生成子进程；正式回归同时验生成收到新根、前后质检及 L2 保留旧根。删子进程赋值变异被抓；模板/装机/launchctl 环境逐键对齐后，真实 kickstart19步PASS。详见 `docs/handoffs/2026-09-17-nightly-generation-deployment.md`。
+  **边界：主动触发不证明下次时钟触发；方法日步rc=0仍可包含capture refused，不能合写成「全部成功」。**

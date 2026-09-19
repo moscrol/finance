@@ -29,6 +29,8 @@ else
 fi
 
 CODE_ROOT="${FINANCE_CODE_ROOT:-/Users/a77/finance-workspace-runtime}"
+# 生成段可独立部署；L2/质检/方法验证仍使用 CODE_ROOT，不能整树回退它们。
+GENERATION_CODE_ROOT="${FINANCE_GENERATION_CODE_ROOT:-$CODE_ROOT}"
 DATA_ROOT="${FINANCE_DATA_ROOT:-/Users/a77/finance-workspace-private}"
 WORKSPACE="$DATA_ROOT"
 
@@ -200,7 +202,7 @@ if [ "$dow" -gt 5 ]; then
   exit 0
 fi
 
-# 运维步骤保持数据 cwd；生成启动器独立钉住代码根和数据配置，不改变 L2 的环境。
+# 运维步骤保持数据 cwd；生成 launcher 独立校验代码/写入根，不污染 L2 环境。
 cd "$WORKSPACE" || exit 1
 REV=$(git -C "$CODE_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 WORKSPACE_REV=$(git -C "$WORKSPACE" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
@@ -251,22 +253,25 @@ run_l2_branch() {
 
 # 生成段 + 收尾（KB 时效 / 最终硬门）。前置：sync 与 L2 均已通过。
 run_generation_and_finalize() {
-  local generation_launcher="$CODE_ROOT/scripts/run_daily_generation.py"
+  local generation_launcher="$GENERATION_CODE_ROOT/scripts/run_daily_generation.py"
   if [ ! -f "$generation_launcher" ]; then
     echo "[$(date '+%F %T')] 生成段代码根无效：缺少 $generation_launcher；拒绝回退到 WORKSPACE=$WORKSPACE" >&2
-    notify "❌ 全量复盘 $D 生成段代码根校验失败；未生成报告"
     return 2
   fi
-  # 启动器在实际 daily 进程里验 import、输出根；子进程同样固定代码与解释器。
-  # 环境仅作用于生成段，不把 Python 搜索路径的变化扩散给独立 L2 分支。
-  PYTHONPATH="$CODE_ROOT" PYTHONSAFEPATH=1 PYTHONDONTWRITEBYTECODE=1 \
+  local generation_rev
+  generation_rev=$(git -C "$GENERATION_CODE_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
+  echo "[$(date '+%F %T')] generation_code=$GENERATION_CODE_ROOT generation_rev=$generation_rev l2_code=$CODE_ROOT"
+  # 仅此子进程切代码根：launcher 与所有生成子步骤固定同一解释器/代码，数据仍在 DATA_ROOT。
+  FINANCE_CODE_ROOT="$GENERATION_CODE_ROOT" PYTHONPATH="$GENERATION_CODE_ROOT" \
+    PYTHONSAFEPATH=1 PYTHONDONTWRITEBYTECODE=1 \
     "$OPS_PYTHON" -P "$generation_launcher" --date "$D" --skip-sync --from-step daily-review \
+    --plan "$REVIEW_SYNC_PLAN" \
     --summary-json "$DATA_ROOT/market_feature_store/exports/$D-daily-workflow-summary.json"
   local rc=$?
 
   # 幂等兜底：20:05 fidelity 或 daily 步已写出的 kb-ingest-queue 归档进 wiki/raw。
   # 只 receive，不 apply。daily 计划里也有同一步；重复跑按 payload hash 去重。
-  local RECEIVE_SH="$CODE_ROOT/skills/daily-full-review/scripts/receive_kb_ingest_queue.sh"
+  local RECEIVE_SH="$GENERATION_CODE_ROOT/skills/daily-full-review/scripts/receive_kb_ingest_queue.sh"
   if [ -f "$RECEIVE_SH" ]; then
     /bin/zsh "$RECEIVE_SH" "$D" "$WORKSPACE" "$KNOWLEDGE_WIKI" \
       || echo "[$(date '+%F %T')] kb ingest receive 失败（不阻断）"
@@ -283,7 +288,7 @@ run_generation_and_finalize() {
 
   # 知识库证据断更监控（超 7 天未 ingest 新批次则告警；不阻断收尾）
   local kb_msg
-  kb_msg=$("$OPS_PYTHON" "$CODE_ROOT/scripts/check_kb_freshness.py" --max-age 7)
+  kb_msg=$("$OPS_PYTHON" "$GENERATION_CODE_ROOT/scripts/check_kb_freshness.py" --max-age 7)
   if [ $? -eq 2 ]; then
     notify "$kb_msg——研报证据需要补 ingest（PDF 批次）"
   fi

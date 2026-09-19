@@ -18,8 +18,11 @@
   <string>/Users/a77/finance-workspace-private</string>
   <key>EnvironmentVariables</key>
   <dict>
+    <!-- L2 / 质检 / 方法保持现行快照；生成单独冻结，禁止用旧生成整树覆盖 L2。 -->
     <key>FINANCE_CODE_ROOT</key>
-    <string>/Users/a77/finance-workspace-runtime</string>
+    <string>/Users/a77/.finance-runtime/finance-l2-d433b90788c0</string>
+    <key>FINANCE_GENERATION_CODE_ROOT</key>
+    <string>/Users/a77/.finance-runtime/finance-generation-387028b846a2</string>
     <key>FINANCE_DATA_ROOT</key>
     <string>/Users/a77/finance-workspace-private</string>
     <key>FINANCE_WS</key>
@@ -45,8 +48,7 @@
          与 sync 源保持同值，改档两份一起改。 -->
     <key>REVIEW_SYNC_PLAN</key>
     <string>local</string>
-    <!-- 手动 `nightly_full_review.sh sync|all` 的同步编排器也从这棵树取，
-         与 sync plist 同值；不设会退到 CODE_ROOT，那是部分 rsync 的运行快照。 -->
+    <!-- 与独立 S7 同步任务保持记录一致；finalize 不调用 sync / all。 -->
     <key>FINANCE_SYNC_CODE_ROOT</key>
     <string>/Users/a77/finance-workspace-sync</string>
   </dict>

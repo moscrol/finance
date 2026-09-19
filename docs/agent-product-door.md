@@ -29,6 +29,11 @@
 | 复盘写入（另一条面） | `python3 -m market_feature_store.cli daily-full` | 飞书 Bitable 写入已退役 |
 | 飞书 IM（已退役，不是门） | `python3 -m intelligence.cli feishu-bot` | exit 2，不连 WebSocket。与 Bitable 写入退役是两件事 |
 
+夜跑收尾的运维入口仍是 `nightly_full_review.sh finalize`，不新增问答门或事实写入链。
+生成段从 `FINANCE_GENERATION_CODE_ROOT` 的双根 launcher 调用原 `intelligence.cli daily --skip-sync`；
+L2、外层质检与方法验证保留 `FINANCE_CODE_ROOT`，数据与外置用户态不迁移。
+部署/回滚及验收边界见 [09-17 生成接线](handoffs/2026-09-17-nightly-generation-deployment.md)。
+
 编码任务「仓库里有没有现成实现」走 `python3 scripts/code_map.py query "<问题>"`，不是本页，也不是问答门。空图不得写成架构结论。
 
 ### 夜跑日报生成（代码与数据分根）
