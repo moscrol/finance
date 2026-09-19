@@ -1,0 +1,360 @@
+{
+  "kind": "execution-evidence",
+  "files": [
+    {
+      "path": "old-salvage-check.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/old-salvage-check.json",
+      "bytes": 8791,
+      "sha256": "5dafffed8675eb313ca6ae84afd3a3b11585c5498c0361a768774a0f3cf69467"
+    },
+    {
+      "path": "salvage-summary.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage-summary.json",
+      "bytes": 92392,
+      "sha256": "0675a4bc64a416b0b58393152e1e0276ee6e3004c1c157dc5d383e3286b0c1d0"
+    },
+    {
+      "path": "push-manifest.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/push-manifest.json",
+      "bytes": 6396,
+      "sha256": "d46b36216dd5eeaecba2933df0a26596ec53cff7babaf6919f22ec72839cd4ea"
+    },
+    {
+      "path": "push-results.jsonl",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/push-results.jsonl",
+      "bytes": 32116,
+      "sha256": "9746b8d7ddac409005905baa0cf8fef2bcde24eef8652c5ddc0b8ba7edc54c56"
+    },
+    {
+      "path": "harness-salvage/push-results.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/harness-salvage/push-results.json",
+      "bytes": 2601,
+      "sha256": "da79b1c0b821217406a7bc256332d001990e837e05de7e0a6a3c4b44da947c5a"
+    },
+    {
+      "path": "site-validate.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/site-validate.log.txt",
+      "bytes": 3108,
+      "sha256": "9017d1b242847c4d4992b09ad666b9b9c5bdfd3875a883a39d9363fcb879901a"
+    },
+    {
+      "path": "site-lint.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/site-lint.log.txt",
+      "bytes": 3115,
+      "sha256": "065983e3825cd4f5cbe2d468c297ddd298458f42b617be2cc86032b824223dde"
+    },
+    {
+      "path": "site-push.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/site-push.log.txt",
+      "bytes": 125,
+      "sha256": "d7947b20d1621e8ad41964d8a5f1e7e9e98ddf6e0d6959dbe527bb560bd4fbd8"
+    },
+    {
+      "path": "site-preflight.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/site-preflight.log.txt",
+      "bytes": 86,
+      "sha256": "7ec2be9c3ba5d2371795c79f9203b7d27e84bc22c79b34b4759d5d223583d31e"
+    },
+    {
+      "path": "research-depth-issues.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/research-depth-issues.json",
+      "bytes": 871,
+      "sha256": "2615953b884ae49104a00796cf89c091058cb847c8b47b805645c8b29f2721eb"
+    },
+    {
+      "path": "generation-spec.md",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec.md",
+      "bytes": 7750,
+      "sha256": "d1a0e6f3027d621c9768dab31508a74c59306b418cb0b04932d88d16d30025ad"
+    },
+    {
+      "path": "generation-standards.md",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-standards.md",
+      "bytes": 2299,
+      "sha256": "7346f0efa20b5365179e63d7a24d96561b1d046528111bf87fd18da028336b56"
+    },
+    {
+      "path": "generation-spec-final.md",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec-final.md",
+      "bytes": 7929,
+      "sha256": "c5d2c6875d32f8df328c45923faf5a80f57e58a36379bebe93bf10c2eeccf5ef"
+    },
+    {
+      "path": "generation-standards-final.md",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-standards-final.md",
+      "bytes": 2758,
+      "sha256": "229e9dda23fc4c6261cfae2e1644231516c36e36a89aa6a227fd27e72b917d23"
+    },
+    {
+      "path": "generation-spec-dca1bd6e.md",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec-dca1bd6e.md",
+      "bytes": 6309,
+      "sha256": "650c212d484c40aa4d283bfd48b14ddcecaf32cc0f0c781bfde5297e49d10987"
+    },
+    {
+      "path": "generation-standards-dca1bd6e.md",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-standards-dca1bd6e.md",
+      "bytes": 2534,
+      "sha256": "3cf81ac3cce3c709c28726b4224edb251dfbfbad1df310d8006e47fc0eb24d9d"
+    },
+    {
+      "path": "generation-alert-before.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-alert-before.log.txt",
+      "bytes": 27335,
+      "sha256": "4489efec14ec2b79178880fc0eb550c1b2e45d868e712ec6d11fc6d4400a6019"
+    },
+    {
+      "path": "generation-alert-after.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-alert-after.log.txt",
+      "bytes": 191,
+      "sha256": "1f6739f3d7b11df52c26bcf962fb0245fccd4d191b683644050873427be4b714"
+    },
+    {
+      "path": "generation-integrated-targeted.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-integrated-targeted.log.txt",
+      "bytes": 8462,
+      "sha256": "f73138b9fbb37fec5cf57f90047985aecf62071869695d36ff4b5c5578429ee7"
+    },
+    {
+      "path": "generation-wrapper-before.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-wrapper-before.log.txt",
+      "bytes": 15052,
+      "sha256": "819264025d6a843e2ac1f5b47f6e6adaad2b4117e6e5ebeec08d8b52cb7e1818"
+    },
+    {
+      "path": "generation-wrapper-after.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-wrapper-after.log.txt",
+      "bytes": 179,
+      "sha256": "6494e609a329bc04dc8c412e895e2eecbd0826d029058c8a5190b25b3bb7b150"
+    },
+    {
+      "path": "generation-spec-final/f234-entry-probe/entry-boundaries.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec-final/f234-entry-probe/entry-boundaries.json",
+      "bytes": 3588,
+      "sha256": "c27db9bf2fde38c2369d8216d18d505d83914bdde79d3fda212758e1abe849dc"
+    },
+    {
+      "path": "generation-spec-dca1bd6e/original-probe.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec-dca1bd6e/original-probe.json",
+      "bytes": 1825,
+      "sha256": "1d8a90d805364e5ce640c893a15bc41cb81794540e5337dd2c47c9b0b78a4846"
+    },
+    {
+      "path": "generation-spec-dca1bd6e/alert-boundary.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec-dca1bd6e/alert-boundary.json",
+      "bytes": 1699,
+      "sha256": "eb3c04a1e855e27e64ca705f75e38f1d6a17dc1b29abc66dd603abc33c4ba1ec"
+    },
+    {
+      "path": "generation-spec-dca1bd6e/entry-probe/entry-boundaries.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec-dca1bd6e/entry-probe/entry-boundaries.json",
+      "bytes": 2837,
+      "sha256": "4376f2378b74cc75e92f037fadf093aa197635b68538ea486676d71cac260799"
+    },
+    {
+      "path": "generation-final-entry-4ace5ec2/entry-boundaries.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-final-entry-4ace5ec2/entry-boundaries.json",
+      "bytes": 2817,
+      "sha256": "c0b5b9bac0ac3e6c52cd5dafac641e0092b9e619046d2b22e5aa859c8b000665"
+    },
+    {
+      "path": "gate-generation/interruption.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation/interruption.json",
+      "bytes": 453,
+      "sha256": "93603bc00e7e4ffc6d648ec1893aac0149ab8e61c8424ce74f2837167b7cbeec"
+    },
+    {
+      "path": "gate-generation/registry.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation/registry.json",
+      "bytes": 1922,
+      "sha256": "cf81c503ac60db551fd6daca04b2f09984d55de4c02121634146e806036bd8e7"
+    },
+    {
+      "path": "gate-hithink/merge-verified.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-hithink/merge-verified.json",
+      "bytes": 164,
+      "sha256": "61eeda210e2295fb9ed77d74f66bd188e5b14bb0f6a8b27c52d57f0bcdf24e1f"
+    },
+    {
+      "path": "gate-788/python.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788/python.json",
+      "bytes": 928,
+      "sha256": "976fe7f6d17a31d20ece2af499cd66ac3b32ffbd50ffb81edda7bf859ee1c966"
+    },
+    {
+      "path": "gate-788/frontend.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788/frontend.json",
+      "bytes": 1606,
+      "sha256": "3b7399e1847fa9f944233869893c82d4e2d68f007898d044784f737fa65a205c"
+    },
+    {
+      "path": "gate-788/registry.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788/registry.json",
+      "bytes": 1880,
+      "sha256": "2ca7abf49ac4c7bd71d8a09a0eeb4280e0bebedabfe5d0cecb8b78ea8840943b"
+    },
+    {
+      "path": "gate-788/receipts/latest.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788/receipts/latest.json",
+      "bytes": 738,
+      "sha256": "7e88064e3e621dc9b3daeef24f6f9bd65b18346a8b942cde20aad907eafcaabc"
+    },
+    {
+      "path": "gate-788/receipt-check.exit",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788/receipt-check.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "gate-hithink/python.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-hithink/python.json",
+      "bytes": 940,
+      "sha256": "e3986014b12d0052dca47df1a05380f56de26a1049bcdd71c64eda6dae55037c"
+    },
+    {
+      "path": "gate-hithink/frontend.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-hithink/frontend.json",
+      "bytes": 1566,
+      "sha256": "4cdcff0518ca922631745b02d563d37c7c945c9e05c142d1de61752cb4e7c6ae"
+    },
+    {
+      "path": "gate-hithink/registry.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-hithink/registry.json",
+      "bytes": 1904,
+      "sha256": "52ace66751848b2f916204ee4ebd36a4e2659dc162e0547390625bbbc62f400f"
+    },
+    {
+      "path": "gate-hithink/receipts/latest.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-hithink/receipts/latest.json",
+      "bytes": 746,
+      "sha256": "5b8820851349fd3c55e2921e17df029165eb876d6da1fa3f0f236784cacaf4d6"
+    },
+    {
+      "path": "gate-hithink/receipt-check.exit",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-hithink/receipt-check.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "gate-788/e2e-corrected-environment.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788/e2e-corrected-environment.json",
+      "bytes": 218,
+      "sha256": "9163094732dd7572ae20455fa1d9f1728c957c616a9b0a88bb28e7069a60a6e1"
+    },
+    {
+      "path": "replay-sources/preserve_and_push.py.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/preserve_and_push.py",
+      "bytes": 5594,
+      "sha256": "277b793d2e177a815b3a9c13519d66cc9c213a17e50ff111738414196ba5ab50"
+    },
+    {
+      "path": "replay-sources/cleanup_inventory.py.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/cleanup_inventory.py",
+      "bytes": 7340,
+      "sha256": "ac8b391cb40510eb2f5187341db1646f3ab3b3a70b0547674468c3de8aea7504"
+    },
+    {
+      "path": "replay-sources/gate_leaf.py.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate_leaf.py",
+      "bytes": 2342,
+      "sha256": "563249eb40e1f257df1e6d569d7f23d4d78103caee652a9e7221d3778c43a9c9"
+    },
+    {
+      "path": "replay-sources/receipt_redirect.py.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/receipt_redirect.py",
+      "bytes": 645,
+      "sha256": "4de4eee99c27b40e43eeac9e663524f5199bbcb0e11156411906885fdf413ad3"
+    },
+    {
+      "path": "replay-sources/merge_hithink.py.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/merge_hithink.py",
+      "bytes": 2654,
+      "sha256": "cc2290d015abd8c57da70ef5e60fc6de8f369e275dabff18890ba7d42c815e6e"
+    },
+    {
+      "path": "gate-788/e2e-corrected-environment.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788/e2e-corrected-environment.log.txt",
+      "bytes": 12815,
+      "sha256": "e0cf4209b6f1656dc30b88005aca6a135de49ba0cfa2e115df87473e13146834"
+    },
+    {
+      "path": "gate-788/frontend-final-verdict.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788/frontend-final-verdict.json",
+      "bytes": 555,
+      "sha256": "4ad7e5066b06d1a5e9a38e1dfcab2a56400ec0eea61886605e877aebcebb1729"
+    },
+    {
+      "path": "kb-preservation/push-result.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-preservation/push-result.json",
+      "bytes": 333,
+      "sha256": "1cfebb9ee276752a0ab65395e935cc21ef2eae1fcefaceabd0da66e51efd045a"
+    },
+    {
+      "path": "gate-generation-final/python.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/python.json",
+      "bytes": 967,
+      "sha256": "cfeac872df5bff8fbc5c777d424f76a6dee51f880db159bfa85cfd49a094db19"
+    },
+    {
+      "path": "gate-generation-final/frontend.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/frontend.json",
+      "bytes": 1629,
+      "sha256": "cda5fd6b66a3425e2c55827fcab729a60c64a02a3c054a48b1096601a1f7f37d"
+    },
+    {
+      "path": "gate-generation-final/registry.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/registry.json",
+      "bytes": 1958,
+      "sha256": "6a215deee8ac469affd55ecae72c88e2b4baae264845adf076594367b0b977ce"
+    },
+    {
+      "path": "gate-generation-final/receipts/latest.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/receipts/latest.json",
+      "bytes": 764,
+      "sha256": "b2b44b9d62d5b4889c15428a831b5fcaeddae868e30ce5e888fe0c83fc58aeeb"
+    },
+    {
+      "path": "gate-generation-final/receipt-check.exit",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/receipt-check.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "replay-sources/preserve_and_push.py.277b793d2e17.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/preserve_and_push.py",
+      "bytes": 5594,
+      "sha256": "277b793d2e177a815b3a9c13519d66cc9c213a17e50ff111738414196ba5ab50"
+    },
+    {
+      "path": "replay-sources/cleanup_inventory.py.dc821f510671.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/cleanup_inventory.py",
+      "bytes": 7679,
+      "sha256": "dc821f51067193db04c335a1221bda607509f62cf67b5c04bd1e23d6260306d5"
+    },
+    {
+      "path": "replay-sources/gate_leaf.py.563249eb40e1.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate_leaf.py",
+      "bytes": 2342,
+      "sha256": "563249eb40e1f257df1e6d569d7f23d4d78103caee652a9e7221d3778c43a9c9"
+    },
+    {
+      "path": "replay-sources/receipt_redirect.py.4de4eee99c27.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/receipt_redirect.py",
+      "bytes": 645,
+      "sha256": "4de4eee99c27b40e43eeac9e663524f5199bbcb0e11156411906885fdf413ad3"
+    },
+    {
+      "path": "replay-sources/merge_hithink.py.cc2290d015ab.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/merge_hithink.py",
+      "bytes": 2654,
+      "sha256": "cc2290d015abd8c57da70ef5e60fc6de8f369e275dabff18890ba7d42c815e6e"
+    },
+    {
+      "path": "gate-generation-final/merge-verified.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/merge-verified.json",
+      "bytes": 239,
+      "sha256": "c516070a61419cbd682db5ac2ebab3bbff5c7d5ead335622745a525bcf097795"
+    }
+  ],
+  "external_originals": "Dirty-tree binary diffs, untracked copies, browser traces and large ReAct originals remain in runtime; this bundle does not authorize deletion."
+}

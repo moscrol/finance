@@ -1,0 +1,22 @@
+from pathlib import Path
+import json,os,subprocess,sys,time
+ROOT=Path('/Users/a77/.finance-runtime/open-work-execution-20260920')
+PY='/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+leaf,label,tree=sys.argv[1:];tree=Path(tree);out=ROOT/label;out.mkdir(parents=True,exist_ok=True)
+os.umask(0o022)
+env={'PATH':os.environ['PATH'],'HOME':os.environ['HOME'],'LANG':'en_US.UTF-8','PYTHONPATH':str(tree)+os.pathsep+str(ROOT),'PYTHONDONTWRITEBYTECODE':'1','FWP_GATE_TREE':str(tree),'FWP_TEST_RECEIPT_DIR':str(out/'receipts'),'WORKBENCH_PYTHON':PY,'WORKBENCH_E2E_PORT':'18981','RE06_E2E_PORT':'18984','RE06_E2E_URL':'http://127.0.0.1:18984','CI':'1'}
+rev=subprocess.check_output(['git','-C',str(tree),'rev-parse','HEAD'],text=True).strip()
+commands={'python':[[PY,'-m','ruff','check','.'],[PY,'-m','pytest','-p','receipt_redirect','-q','-p','no:cacheprovider']], 'registry':[[PY,'scripts/build_registry.py',*args] for args in [['check-parseability'],['check'],['backfill-tables','--check'],['generate-views','--check']]]+[[PY,'scripts/audit_ledger_spec_crosswalk.py']], 'frontend':[['pnpm','install','--frozen-lockfile'],['pnpm','lint'],['pnpm','typecheck'],['pnpm','test'],['pnpm','build'],['pnpm','test:e2e']]}[leaf]
+results=[]
+for i,cmd in enumerate(commands):
+    start=time.time();log=out/f'{leaf}-{i}.log.txt'
+    with log.open('wb') as stream:p=subprocess.run(cmd,cwd=tree/'intelligence/webapp' if leaf=='frontend' else tree,env=env,stdout=stream,stderr=subprocess.STDOUT)
+    row={'command':cmd,'exit_code':p.returncode,'elapsed_seconds':round(time.time()-start,2),'log':str(log)};results.append(row)
+    (out/f'{leaf}.json').write_text(json.dumps({'revision':rev,'tree':str(tree),'complete':i==len(commands)-1,'checks':results},indent=2)+'\n')
+    print(json.dumps(row),flush=True)
+    if leaf=='frontend' and i==0 and p.returncode:break
+if leaf=='python' and (out/'receipts/latest.json').exists():
+    check=[PY,'scripts/check_test_receipt.py',str(out/'receipts/latest.json'),'--expect-revision',rev,'--base-drift-max','0']
+    with (out/'receipt-check.log.txt').open('wb') as stream:r=subprocess.run(check,cwd=tree,env=env,stdout=stream,stderr=subprocess.STDOUT)
+    (out/'receipt-check.exit').write_text(str(r.returncode)+'\n')
+sys.exit(0 if all(r['exit_code']==0 for r in results) and len(results)==len(commands) else 1)

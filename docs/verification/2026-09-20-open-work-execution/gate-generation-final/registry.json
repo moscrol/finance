@@ -1,0 +1,58 @@
+{
+  "revision": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+  "tree": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/finance-workspace-private",
+  "complete": true,
+  "checks": [
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.05,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/registry-0.log.txt"
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.05,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/registry-1.log.txt"
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.05,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/registry-2.log.txt"
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.03,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/registry-3.log.txt"
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.07,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/registry-4.log.txt"
+    }
+  ]
+}

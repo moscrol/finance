@@ -1,0 +1,62 @@
+{
+  "revision": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+  "tree": "/Users/a77/fwp-wt-generation-alert-guard-0920",
+  "complete": true,
+  "checks": [
+    {
+      "command": [
+        "pnpm",
+        "install",
+        "--frozen-lockfile"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.32,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/frontend-0.log.txt"
+    },
+    {
+      "command": [
+        "pnpm",
+        "lint"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.23,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/frontend-1.log.txt"
+    },
+    {
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.07,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/frontend-2.log.txt"
+    },
+    {
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 3.62,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/frontend-3.log.txt"
+    },
+    {
+      "command": [
+        "pnpm",
+        "build"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 3.19,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/frontend-4.log.txt"
+    },
+    {
+      "command": [
+        "pnpm",
+        "test:e2e"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 64.09,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/frontend-5.log.txt"
+    }
+  ]
+}

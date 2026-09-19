@@ -1,20 +1,22 @@
 # 在途工作总盘点与收尾规格（2026-09-20）
 
 > 日期：2026-09-20 00:10 CST
-> 状态：**盘点 + 收尾规格，待用户审**。本文只列事实、缺口、裁决点与执行顺序，不动代码、不合并、不部署。
+> 状态：**已按审阅修正，用户已授权执行**。本文保留原盘点快照；本轮动作与验收结果见 `../../handoffs/2026-09-20-open-work-execution.md`。执行授权不解除各分支的质量门和逐树清理认领条件。
 > 数据源（全部 [实测]，可复跑）：`scripts/worktree_board.py --json`（基线 `gitea/main=b22ddf8b0285`，313 棵树，按 `git cherry` 判合入）；Gitea API 全部 786 张 PR；每棵未合树的 `docs/handoffs/inflight/<分支>.md`；`git merge-tree --write-tree` 冲突预演；`~/.finance-runtime/deploy-ledger.jsonl`；`launchctl list`；DuckDB 各 `fact_*` 的 `max(trade_date)`；vault 项目笔记任务看板；`docs/superpowers/specs/2026-09-01-workorders-INDEX.md`。
 > 读法：§1 一页结论 → §2 生产与运行面 → §3 未合分支逐条 → §4 冲突矩阵与合并顺序 → §5 需要用户裁决 → §6 姊妹仓 → §7 卫生 → §8 执行顺序。每条「下一步」抄自该分支自己的 inflight，不替作者改口径。
 
 ## 1. 一页结论
 
+**快照数字只描述采样时刻，不代表当前状态，不能据此批量删除。** 原盘点为 00:10 的 313 棵；执行起点实测 315 棵，新增的是规格与归档树。后续隔离验收还会增加树数，现值按 §9 脚本重算。带权限 Gitea 查询在执行起点核实本仓 4 张打开 PR；此前 3 张是 #789 创建前的读数。
+
 | 项 | 读数 |
 |---|---|
-| 注册工作树 | 313 棵：37 棵生产快照、133 棵已合入且干净（可删）、35 棵已合入但脏（需认领或丢弃）、57 条**未合入的工作分支**、51 棵未合工作的运行时冻结副本 |
-| 打开的 PR | 本仓 3 张：#788 收据守卫、#783 历史表达 WIP、#770 E2 材料 WIP；harness-reference #13；知识库 #94 / #26 / #129 / #148 / #149；finance-research-site #2 |
+| 注册工作树 | 313 棵：37 棵生产快照、133 棵已合入且干净（需查引用与认领）、35 棵已合入但脏（先保全并认领）、57 条**未合入的工作分支**、51 棵未合工作的运行时冻结副本 |
+| 打开的 PR | 本仓 4 张：#789 本规格、#788 收据守卫、#783 历史表达 WIP、#770 E2 材料 WIP；harness-reference #13；知识库 #94 / #26 / #129 / #148 / #149；finance-research-site #2 |
 | 未推送到 Gitea 的分支 | 约 30 条，含 6 条核心代码线（保稿 18 提交、财务 R6 返修 24、runtime 合同 16、边界组合 15、R5 合同 17、R6 基线 18） |
 | 生产 8792 | `bf662e9310ff`，09-17 06:00Z 切入；`/api/health` healthy、`/api/readiness` ready（09-20 00:03 实测） |
 | 数据 | 六张核心 `fact_*` 均到 2026-09-18；09-19 周末夜跑正常跳过 |
-| 运行面告警 | 公众号 `publish-daily` 连续 4 次预检失败：本地 `main` 引用落后 `gitea/main` 449 提交；夜间生成根跑的是**未合入** `387028b8` |
+| 运行面告警 | 公众号 `publish-daily` 连续 4 次预检失败：**研究站**本地 main 领先 gitea/main 1 提交（`9f60bef`）；金融仓 main 落后 449 是另一件事；夜间生成根跑的是**未合入** `387028b8` |
 
 三条主线都停在同一个位置：**工程绿、真实模型质量未过、等有效独立裁决或用户授权**。合并顺序必须串行，因为六条分支同时改 `episode_semantic_verifier.py` / `continuous_turn_adapter.py`。
 
@@ -26,8 +28,8 @@
 | 8796 能力边车 | 监听中，launchd 上次退出 -15（被 kill 后重启） | 无 | 观察 |
 | KB 双索引 | 代码已合（金融 #786/#787、KB #153/#154）；生产 `.rag_index_full` 仍 `uchg` 防写；`health=fresh+degraded` | **长期受保护维护入口未实现**（hook/ingest/build/update/fetch/publish/回滚） | 先实现维护计划 `2026-09-18-kb-guarded-maintenance-plan.md`，再切换并解防写 |
 | 夜跑主链 daily-full | 09-17/18 已恢复两日；周末跳过 | sync/finalize 档位 local 化、L2 独立根保留（`d433b907` 已合） | 按 `docs/l2-deploy-0916` 交接执行「补 09-16 → 过门 → 重跑 finalize」 |
-| 夜间生成根 | launchd `daily-full-review-finalize` → `~/.local/bin/nightly_full_review.sh finalize` → 生成根 `~/.finance-runtime/finance-generation-387028b846a2`，09-17 23:44 真实触发 exit 0 | **源码 `fix/generation-root-boundary-guards@387028b8` 未合 main**（09-20 复核仍不在 main），生产跑的是分支代码 | 二选一：合入（先独立复核 + 四叶）或回滚到 main 代码根；不能长期悬空 |
-| 公众号 publish-daily | 21:00 任务连续 4 天 `FAIL 本地 main 与 gitea/main 不同步` | 本地 `main` 引用 `1fef3d27`，落后 449；`main` 检出在 `~/fwp-wt-main-docs`（干净，09-14 后无人动），主检出树是 detached | 在 `~/fwp-wt-main-docs` 里 `git merge --ff-only gitea/main`（纯本地快进，不涉及推送） |
+| 夜间生成根 | launchd `daily-full-review-finalize` → `~/.local/bin/nightly_full_review.sh finalize` → 生成根 `~/.finance-runtime/finance-generation-387028b846a2`，09-17 23:44 真实触发 exit 0 | **源码 `fix/generation-root-boundary-guards@387028b8` 未合 main**（09-20 复核仍不在 main），生产跑的是分支代码 | 先独立复核 `387028b8`，守卫线为唯一候选源码线；部署接线随后合流。已有成功触发证据，不能未经缺陷与替代方案评估就回退到缺守卫的 main |
+| 公众号 publish-daily | 21:00 任务连续 4 天 `FAIL 本地 main 与 gitea/main 不同步` | `~/公众号/pipeline/steps/00_preflight.sh` 先 `cd "$SITE"`，SITE=`~/finance-research-site`；该仓 main=`9f60bef`，领先远端 1 提交（模拟芯片适配稿），并非落后 | 校验研究站该提交后显式推送 `9f60bef:refs/heads/main`，再单跑真实 `00_preflight.sh`；不靠修改预检掩盖分歧。金融仓的本地快进只是卫生 |
 | 数据源 | `fact_market_daily` 425 行到 09-18；`fact_sector_daily` 110716 行 | 无 | — |
 | 判官 | 生产 LLM 判官自 09-12 关闭（K3 自审），#781 确定性门模式已合 | 独立判官链未决 | 用户裁决，不在工程线内偷改 |
 
@@ -70,14 +72,14 @@
 
 | 分支 | 树 | 尖 / 未推 | 冲突 | 状态 | 下一步 |
 |---|---|---|---|---|---|
-| `fix/nightly-generation-deploy-0917` | `~/fwp-wt-nightly-generation-deploy-0917` | `f7337bf0` / 3 未推 | 0 | **装机已部署、真实触发 exit 0，源码未合** | 观察下一夜；源码合 main 须固定候选四叶 + 用户确认 |
-| `fix/generation-root-boundary-guards` | `~/fwp-wt-generation-root-guards` | `ada20cc8` / 7 未推 | 3 | 生成根边界守卫 `387028b8`，作者验收过，待独立复核 | 新人独立复核 → 授权 → 合并；生产正在跑它 |
-| `fix/generation-stage-code-root` | `~/fwp-wt-generation-stage-code-root` | `6e8c5a2a` / 6 未推 | — | `0f6c2810` 含 local-plan | 独立复核 → push → 合并 → 完整快照部署 |
+| `fix/nightly-generation-deploy-0917` | `~/fwp-wt-nightly-generation-deploy-0917` | `f7337bf0` / 3 未推 | 0 | **装机已部署、真实触发 exit 0，源码未合** | 先跟在守卫源码候选之后合流；它仅含部署接线，不当成另一套生成业务实现。固定候选四叶后才能合 |
+| `fix/generation-root-boundary-guards` | `~/fwp-wt-generation-root-guards` | `ada20cc8` / 7 未推 | 3 | 生成根边界守卫 `387028b8`，作者验收过，待独立复核 | 先独立复核 `387028b8` → 修复发现 → 固定合流候选四叶；生产正在跑它。不得机械连合 stage 与 guards 两条线 |
+| `fix/generation-stage-code-root` | `~/fwp-wt-generation-stage-code-root` | `6e8c5a2a` / 6 未推 | — | **superseded：源码已由守卫线接替**。含 `0f6c2810`，不含 `387028b8`；两枝互非祖先，stage 独有两提交仅交接文档 | 保全并推送；代码只走 `fix/generation-root-boundary-guards`，独有文档按需归档，不再独立合代码 |
 | `fix/nightly-review-0917` | `~/fwp-wt-nightly-review-0917` | `6356ffd5` / 7 未推，树脏 2（产物） | 1 | 两日主链已恢复；plan 已 local | 合并另跑固定 revision 四叶 |
 | `docs/l2-deploy-0916` | `~/fwp-wt-l2-deploy-0916` | 已推 | 0 | L2 文件源部署已生效，09-16 业务日线缺失 | 补 09-16 经 daily-full 正门；跨日须显式指定日期 |
 | `fix/l2-file-source-qc` | `~/fwp-wt-l2-file-source-qc` | 已推 | 0 | 代码已经 #773 进 main，此枝只余文档 | 归档文档；生产切换另授权 |
 | `fix/backfill-302132-scoped` | `~/fwp-wt-backfill-302132` | `3736d5bf` / 12 未推 | 0 | 回填 302132 v6 | 第七轮复审 → 合并 → 授权后干净检出执行 |
-| `fix/hithink-review-wiring` | `~/fwp-wt-hithink-review-wiring` | `d4d0ee26` / 已推 | 1（`UBIQUITOUS_LANGUAGE.md`） | 作者验收 + k3 独立 QC + P3 修复闭环全部完成 | **只等用户裁决合并** |
+| `fix/hithink-review-wiring` | `~/fwp-wt-hithink-review-wiring` | `d4d0ee26` / 已推 | 1（`UBIQUITOUS_LANGUAGE.md`） | 作者验收 + k3 独立 QC + P3 修复闭环全部完成 | 用户已批准进队；09-15 `728ecf82` 收据已随 main 漂移失效，先前向合流、按节保留双方术语，再重跑 Python/frontend/E2E/registry |
 | `data-source/broad-index-delta` | `~/fwp-wt-broad-index` | `f450f4bb` / 已推，**树脏 3 含代码未提交** | — | `sync_hithink_sector_kline.py` + 测试 9 passed 未提交 | 用户确认后 pathspec 提交；补 `899050.BJ` 无指数码到 #685 spec |
 | `feat/finance-query-technical-daily` | `~/fwp-wt-technical-daily` | `6b6d9f36` / 1 未推（PR #396 已合） | — | 第五步已提交未推，树脏 2 | 用户确认后推；摸底后三步不在本 PR |
 | `fix/fupanhui-session-hygiene` | `~/fwp-wt-fupanhui-session-hygiene` | `c06a66f3` / 1 未推，无 inflight | — | 09-04 小修 | 判定合并或丢弃 |
@@ -143,33 +145,34 @@
 | 边界组合 × q 线 / runtime / E2 | 各 1（`continuous_turn_adapter.py` 或验证器） |
 | 历史表达 #783 × 保稿 / 边界组合 / 财务 R6 | 3–5（`research_progress.py` 与其测试） |
 
-### 4.3 建议顺序（每合一张，下一张先 rebase 再重冻收据）
+### 4.3 修订后的顺序（每合一张，下一张前向合流并重新冻结收据）
 
-1. `fix/receipt-zero-count-guard` #788（干净、独立）。
-2. `fix/hithink-review-wiring`（已完成全部验收，仅一处术语表冲突按节合）。
+0. **生成根先独立复核**：`387028b8` → 守卫线唯一候选 → 部署接线。stage 线只保全、标 superseded；发现缺陷先返修，保持当前生产，不无条件回退 main。
+1. `fix/receipt-zero-count-guard` #788（用户已批准，固定 revision 重跑四叶）。
+2. `fix/hithink-review-wiring`（用户已批准；编辑术语表逐节合并双方内容，pathspec 仅控制暂存/提交范围，不解决语义冲突；前向合流后重跑四叶）。
 3. `q/research-data-readiness`（干净；前提是用户对外审窗口作出决定，或明示接受工程绿合入）。
 4. `fix/8792-boundary-integration`（干净；与 q 线只有 `continuous_turn_adapter.py` 一处）。
-5. `feat/history-market-anatomy` #783（干净，但作者自评 WIP，真实四题未过；合与不合是产品判断）。
-6. `fix/e2-material-closeout` #770（验证器冲突，需在 3、4 之后 rebase）。
+5. `feat/history-market-anatomy` #783（继续候选，真实四题未过，当前不批准按工程绿合入）。
+6. `fix/e2-material-closeout` #770（继续候选，真实材料/判官未闭环，当前不批准按工程绿合入；达到准入后才解验证器冲突）。
 7. `feat/research-answer-preservation`（rebase 掉 9 处机械冲突，再解与 3、4、6 的验证器冲突；合前必须一次真正触发保稿机制的 live）。
 8. `fix/8792-financial-r6-repair`、R5 合同、R6 基线（依赖 7；先归因 180s 首超时）。
 9. `fix/runtime-contracts-0918`（3 处冲突；P1 未完，可作为独立底座线合）。
-10. 数据链三条：`generation-root-boundary-guards`（生产已在跑它，优先补独立复核）、`nightly-generation-deploy-0917`、`nightly-review-0917`、`backfill-302132-scoped`。
+10. 其余数据链：`nightly-review-0917`、`backfill-302132-scoped` 按各自验收另排；生成根已前置到第 0 项，不在此机械连续合两条代码线。
 
 红线：任一叶子红不合；合入后旧收据不移签；`.claude/lessons_learned.md` 与门页的冲突一律「取双方」。
 
 ## 5. 需要用户裁决
 
 1. **T3 外审窗口**：期限、预算、独占根；请求覆盖到 `6fb37a6e` 的累计 diff。或明示「接受工程绿 + 后置真实会话」直接合并 q 线。
-2. **合并批准**：#788；hithink-review-wiring；theme-stage-vocab（#745 需重开）；q 线（见 1）。
+2. **合并批准**：#788 与 hithink-review-wiring 已获用户批准，仍须当前固定候选四叶；theme-stage-vocab 另核去留；q 线不能从工程绿推导批准（见 1）。
 3. **KB 双索引切换**：是否先实现维护计划再切 8792；解防写只随维护链上线。
-4. **夜间生成根**：生产正在跑未合入的 `387028b8`。合入（先独立复核）还是回滚到 main 代码根。
-5. **公众号 publish-daily**：批准在 `~/fwp-wt-main-docs` 上 `git merge --ff-only gitea/main` 快进本地 `main`；或改该脚本的预检口径（它读的是本仓的本地 `main`，而本仓日常只动 `gitea/main`，这条预检本身就与工作流不匹配）。
+4. **夜间生成根**：先独立复核 `387028b8`，以守卫线为唯一候选，部署随后。无实证缺陷不回滚；若有缺陷，先评估返修及替代版本，不默认选择缺守卫的 main。
+5. **公众号 publish-daily**：预检绑定 finance-research-site；实测 main 领先 1 提交 `9f60bef`。修法是经校验后把该既有提交推送到该仓 Gitea main，再复跑真实预检。用户本轮执行指令覆盖该明确动作；金融仓 main 的 ff-only 另记卫生，不宣称它修复发布。
 6. **保稿线的 live 授权**：新有界窗口，用封存的第 13 轮格式拒收原件先做离线反例，再一次真实触发。
 7. **研究深度切片立单**：首轮诊断的 P0b 查询报错闭环、P0c 集合/排序忠实、P1a 方法论卡与观测卡分离、P1b 板块比较合同、预览按需展开。这五项才是「Workbench 比助手浅」的主体，目前无人认领。
 8. **看板陈旧行处置**（vault 任务看板 9 doing / 10 blocked 中至少 7 行已失真）：`28 题产品验收台`×2（08-01，分支只剩远端）、`Adaptive Runtime Phase A/B`（分支已无）、`delta package #179`（GitHub 时代）、`codex sidecar 池 fenno`（配置已移除）、`待办 K 夜跑到 08-04`（数据已到 09-18）、`kb_search hits=0 两张 PR`（已被 KB v4 合并覆盖）。建议标 closed 或 superseded，并写指针。
-9. **工单 INDEX 待派**：#23 判官 token 记账、#24 checkpoint rule_id 偏差目录、#25 历史重放引擎；#20 预算授予 P1 挂起。
-10. **清理授权**：133 棵已合入干净树、35 棵已合入脏树（多为 `.claude/hooks`、`lessons_learned`、L2 skill 软链的同一组脏文件）、51 棵运行时副本（各线合入后随之删除；`candidate-*/registry-pinned` 不在任何 manifest 内）。
+9. **工单 INDEX 先去重核实**：#23 判官 token 记账、#24 checkpoint rule_id 偏差目录、#25 历史重放引擎均已有实现进入 main：分别见 #593、#592（收口 #747）、#597 的接替指针评论 4609。不得重开同一实现任务；#23 尚缺生产新 run 观察，其他剩余工作沿原单查验，不能把旧实施记录中的“待合”当现状。#20 预算授予 P1 挂起。
+10. **清理先出清单再认领**：逐树查 launchctl 实际代码根、deploy-ledger、PR/分支、收据/manifest/verification 与复跑命令中的路径、生产快照与回滚目标。干净 detached 且 SHA 在 Gitea 可达只是可重建的必要条件。SHA 未在 Gitea 或引用/所有者未明，一律保留；不得按 133/35/51 批量 rm 或强制 remove。`candidate-*/registry-pinned` 也有交接路径引用，不能断言无引用。
 
 ## 6. 姊妹仓
 
@@ -193,25 +196,26 @@
 ## 8. 执行顺序
 
 **P0（先做，无需合并）**
-1. 把所有未推分支原样推到 Gitea（不合并）：保稿 18、财务 R6 返修 24、R6 基线 18、R5 合同 17、边界组合 15、runtime 合同 16、k3nj 31、river 13、backfill 12、生成根系 7+6+5、其余零散；ReAct 对照包 46 文件归档进 `docs/verification/`。丢的风险大于任何一条工程红。
-2. 快进本地 `main` 引用，恢复 publish-daily 预检。
-3. 用户对 §5.1、§5.4 拍板。
+1. **先保全，再推送**：旧 52 棵脏树的 status、staged/unstaged `diff --binary`、未跟踪清单/允许原件已在 `~/.finance-runtime/worktree-salvage-20260920/`；执行前核验并补采漂移。固定显式分支名单与 SHA，逐条正常推送，不用通配符、不强推。若用 shell，写 `"refs/heads/${b}:refs/heads/${b}"`，不能写会被 zsh 当 `:r` 修饰符的 `"$b:refs/..."`；本轮采用 Python 参数数组。push 不保存未提交改动。
+2. ReAct 归档仅入允许文件；SQLite、pyc、缓存、锁和 **大于 5120 KiB 的 JSON** 都只记原路径/大小/SHA-256，原件保留外部；不拆大 JSON 或改字节绕门。manifest 与入仓/外部集合逐一闭合。
+3. 在干净 `~/fwp-wt-main-docs` 快进金融仓本地 main；另校验并显式推送研究站 `9f60bef`，复跑真实发布预检。两项结果分开记录。
+4. 生成根独立复核；q 线新外审必须先定期限/预算/独占根，不继承旧失效 PASS。
 
 **P1（合并队列，按 §4.3）**
-4. #788 → hithink → q 线 → 边界组合 → #783 → #770 → 保稿 → 财务族 → runtime 合同 → 数据链。每步：rebase、四叶、`check_test_receipt.py --expect-revision`、`merge-tree` 复探。
-5. KB 维护链实现 → 生产切换 8792 → 解防写。
+5. 生成根按 §4.3 第 0 项处置；#788 → hithink 为当前批准队列。其余各线的外审/真实质量/授权前提仍须满足，顺序到达不等于可合。每步：前向合流、四叶、`check_test_receipt.py --expect-revision`、`merge-tree` 复探。
+6. KB 维护链先按既有维护方案落实统一入口、单写者、双索引代际 manifest、故障恢复及消费者重启验收；通过之前不解防写、不切 8792，远端资产发布另守授权边界。
 
 **P2（清理与立单）**
-6. 删 133 棵已合干净树；认领或丢弃 35 棵已合脏树；合入后删 51 棵副本；归档 inflight。
-7. 立单研究深度五切片（§5.7）与 INDEX #23/#24/#25；看板陈旧行收口。
-8. 姊妹仓：KB 晨汇三张 PR、harness 五条未推分支、agent-memory prune。
+7. 逐树生成可审查清理清单并取得认领结果，SHA 不在 Gitea 的一律不动。核 launchctl/台账/PR/文档与回滚引用后再决定具体删除；本轮不按历史数量批量清理。
+8. 研究深度五切片按 §5.7 顺序去重立单；#23/#24/#25 沿已有单补剩余验收。陈旧看板标 superseded 并保留替代指针，不静默删行。
+9. 姊妹仓逐仓复核，KB 晨汇合并另依本仓验收；harness 未推分支按显式名单保全；prune/remove 同样需核引用，不当作盘点动作顺带执行。
 
 ## 9. 复跑
 
 ```bash
 PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python
 git fetch -q gitea
-$PY scripts/worktree_board.py --json --timeout 20 > /tmp/wt-board.json      # 313 trees @ gitea/main
+$PY scripts/worktree_board.py --json --timeout 20 > /tmp/wt-board.json      # 动态快照；不要依赖本文旧树数
 $PY -c "import json;b=json.load(open('/tmp/wt-board.json'));t=b['trees'];print(len(t),sum(1 for r in t if not r['in_main']),sum(1 for r in t if r['in_main'] and not r['dirty']))"
 git merge-tree --write-tree --name-only gitea/main <branch>                   # 逐条冲突预演
 curl -s http://127.0.0.1:8792/api/health | head -c 200                       # 生产身份

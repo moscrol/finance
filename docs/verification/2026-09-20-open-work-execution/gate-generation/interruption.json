@@ -1,0 +1,7 @@
+{
+  "revision": "dca1bd6e73f443ca09d08ef0a6c8b9b2bb0018a9",
+  "action": "interrupted Python gate with SIGINT; retained exit 2 receipt",
+  "reason": "registry check exposed outdated daily-full-review computedHash after wrapper edit",
+  "resolution": "regenerated registry using frozen KB/site siblings; only generated_at and ws/daily-full-review computedHash changed; all gates rerun at 4ace5ec2 in gate-generation-final",
+  "original_registry_exit": 1
+}
