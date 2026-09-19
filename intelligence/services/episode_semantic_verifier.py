@@ -723,11 +723,14 @@ def _recheck_research_delivery(outcome: SemanticEpisodeOutcome, public: str) -> 
     if "calculation_value_mismatch" in codes:
         notices.append("部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。")
         repair_notes.append("按报告期及比率列重新对账本次计算产物，修正抄数错误；保留同一行原始数据，不借其他期别数字充证。")
+    if "calculation_value_unlocated" in codes:
+        notices.append("部分比率的报告期与数值对应关系尚未核对，不能视为已核算结论；已保留原文并标明待核对。")
+        repair_notes.append("按报告期及比率列重新对账本次计算产物，明确报告期与数值对应关系；不得把年数或比较倍数当本期比率，无法对应则明确留缺口。")
     if "calculation_value_unverified" in codes:
         notices.append("部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。")
         repair_notes.append("所称计算结果缺少或冲突，不得声称已核算；按原权限补齐或明确留缺口，不手填结果。")
     repaired = remove_findings(public, findings)
-    repaired = "\n\n".join((repaired, *notices)).strip()
+    repaired = "\n\n".join((repaired, *(notice for notice in notices if notice not in repaired))).strip()
     # Do not resurrect citations from earlier rejected slots. Only the slots
     # newly gapped here may keep their bound, still explicitly cited evidence.
     eligible_slots = {

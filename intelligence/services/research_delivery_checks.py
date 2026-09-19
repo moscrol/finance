@@ -36,9 +36,9 @@ _INFERENCE = re.compile(r"因此|所以|说明|表明|证明|坐实|意味着|�
 _UNKNOWN = re.compile(r"不能|无法|不足以|不代表|不等于|不意味着|不说明|不得|不可|未能|尚不能|不成立|无依据|错误推断")
 _CLAUSE = re.compile(r"[^。！？；;\n]+[。！？；;]?")
 # Keep raw offsets: deleting formatting before locating edits corrupts spans.
-_ASSERTION_SEPARATOR = r"[,，、—]+|--+|但是|然而|不过|但|而|(?<=\])[ \t]+(?=(?:查询|检索|搜索|接口|窗口))"
+_ASSERTION_SEPARATOR = r"[,，、—]+|--+|但是|然而|不过|但|(?<=\])而|(?<=\])[ \t]+"
 _ASSERTION_PART = re.compile(rf"(?:^|{_ASSERTION_SEPARATOR})(?P<claim>(?:(?!{_ASSERTION_SEPARATOR}).)+)")
-_ATTRIBUTED = re.compile(r"(?:官方公告|公告原文|公司原文)(?:称|明确说明|说明)")
+_ATTRIBUTED = re.compile(r"(?:官方公告|公告原文|公司原文|交易所披露平台)(?:称|明确说明|说明|显示)")
 _HYPOTHESIS = re.compile(r"^(?:若|如果|假设)")
 _DEPENDENT = re.compile(r"^(?:即|也就是说|换言之|据此|因此|由此)")
 
@@ -57,10 +57,10 @@ def _rejected_assertion_spans(raw: str) -> tuple[tuple[int, int], ...]:
     # An invalid premise cannot leave an uncited/re-cited restatement or a
     # dependent recommendation behind. A citation alone isn't independence.
     has_rejected_premise = any(rejected)
-    dependent_run = False
+    prior_rejection = False
     for index, value in enumerate(values):
         if rejected[index]:
-            dependent_run = True
+            prior_rejection = True
         elif has_rejected_premise:
             independent = bool(
                 _UNKNOWN.search(value) or _HYPOTHESIS.search(value)
@@ -69,9 +69,9 @@ def _rejected_assertion_spans(raw: str) -> tuple[tuple[int, int], ...]:
                     or (index > 0 and _ATTRIBUTED.search(values[index - 1]) and not rejected[index - 1])
                 ))
             )
-            residue = bool(_ABSENCE.search(value) or (dependent_run and _DEPENDENT.match(value)))
+            residue = bool(_ABSENCE.search(value) or (prior_rejection and _DEPENDENT.match(value)))
             rejected[index] = residue and not independent
-            dependent_run = rejected[index]
+            prior_rejection = prior_rejection or rejected[index]
     spans = []
     i = 0
     while i < len(parts):
@@ -227,6 +227,7 @@ def _prose_value_finding(
 
 _PROSE_NUMBER = re.compile(rf"\s*(?:实际为|分别为|为|是|=|：|:)?\s*({_NUMBER})\s*(%|倍)?")
 _NON_RATIO_SUFFIX = re.compile(r"\s*(?:年|中报|年报|季|半年|H1|Q[1-4]|月|日|天|亿|万|元|家|人|名|位|次|项|个|百分点|bp)", re.I)
+_UNLOCATED_RATIO_MARK = "〔比率对应关系待核对〕"
 
 
 def _prose_number(value: str, start: int) -> tuple[int, int, str, str] | None:
@@ -236,10 +237,12 @@ def _prose_number(value: str, start: int) -> tuple[int, int, str, str] | None:
         return None
     if _NON_RATIO_SUFFIX.match(value, number.end(1)) or _PERIOD.match(value, number.start(1)):
         return None
+    if number[2] == "倍" and re.match(r"\s*(?:于|高于|低于|多于|少于)", value[number.end():]):
+        return None
     return number.start(1), number.end(2 if number[2] else 1), number[1], number[2] or ""
 
 
-def _parallel_ratio_values(value: str, periods: list[re.Match]) -> dict[int, tuple[int, int, str, str]]:
+def _parallel_ratio_values(value: str, periods: list[re.Match]) -> dict[int, tuple[int, int, str, str] | None]:
     """Only an explicit ordered 'periods 分别为 values' binds adjacent period labels."""
     if len(periods) < 2:
         return {}
@@ -256,11 +259,16 @@ def _parallel_ratio_values(value: str, periods: list[re.Match]) -> dict[int, tup
             if separator is None:
                 return {}
             cursor += separator.end()
+        gap = re.match(r"\s*待核对", value[cursor:])
         number = _prose_number(value, cursor)
-        if number is None:
+        if gap:
+            result[period_match.start()] = None
+            cursor += gap.end()
+        elif number:
+            result[period_match.start()] = number
+            cursor = number[1]
+        else:
             return {}
-        result[period_match.start()] = number
-        cursor = number[1]
     return result
 
 
@@ -324,6 +332,7 @@ def calculation_copy_findings(
                 value = re.sub(r"[*`]+", "", clause.group())
                 periods = list(_PERIOD.finditer(value))
                 parallel_values = _parallel_ratio_values(value, periods)
+                unlocated = False
                 for period_match in periods:
                     tail = value[period_match.end():]
                     ratio = _RATIO_NAME.match(tail.lstrip())
@@ -338,7 +347,14 @@ def calculation_copy_findings(
                         remainder = tail
                     else:
                         continue
-                    number = parallel_values.get(period_match.start()) or _prose_number(value, remainder_start)
+                    if period_match.start() in parallel_values:
+                        number = parallel_values[period_match.start()]
+                        if number is None:
+                            continue  # an already-withheld cell, not a value
+                    elif re.match(r"\s*(?:为|是|=|：|:)?\s*待核对(?:[,，。；;]|\s+vs\s+|$)", remainder):
+                        continue
+                    else:
+                        number = _prose_number(value, remainder_start)
                     if number is None and ratio is not None:
                         # Finite ranking preface: '3年新高，实际为1.587'. Don't
                         # search arbitrary later numbers (revenue/another period).
@@ -346,12 +362,28 @@ def calculation_copy_findings(
                         if preface:
                             number = _prose_number(value, remainder_start + preface.end())
                     values = products.get(_period(period_match.group()) or "", set())
+                    if number is None and (values or require_product):
+                        # Ambiguous numeric relation is UNKNOWN, not checked or
+                        # disproved. Preserve text, expose the doubt and reopen
+                        # the existing repair loop rather than erasing a clause.
+                        residual = _PERIOD.sub("", remainder)
+                        residual = re.sub(r"\[E\d+\]", "", residual)
+                        residual = re.sub(r"(?:创)?\d+(?:年|个?季|个?月)(?:新高|新低|高点|低点|最高|最低)", "", residual)
+                        unresolved_numbers = [n for n in re.finditer(_NUMBER, residual)
+                                              if not _NON_RATIO_SUFFIX.match(residual, n.end())]
+                        unlocated = unlocated or bool(unresolved_numbers)
                     code = failure_code(values, number[2], number[3]) if number else ""
                     if code:
                         findings.append(_prose_value_finding(
                             clause.group(), number[0], number[1],
                             offset=offset + clause.start(), code=code,
                         ))
+                if unlocated:
+                    insertion = offset + clause.start()
+                    # Existing marker remains a finding so a user-supplied marker
+                    # can't suppress partial/repair; only insertion is idempotent.
+                    replacement = "" if _UNLOCATED_RATIO_MARK in value else _UNLOCATED_RATIO_MARK
+                    findings.append(DeliveryFinding(insertion, insertion, "calculation_value_unlocated", replacement))
         offset += len(line)
     return tuple(findings)
 

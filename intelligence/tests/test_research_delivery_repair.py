@@ -30,7 +30,7 @@ from intelligence.tests.test_research_delivery_checks import TABLE, _financial_e
 @pytest.mark.parametrize("window", ["reserved", "exhausted", "root_expired"])
 @pytest.mark.parametrize("case", [
     "disclosure", "disclosure_comma", "disclosure_residue", "disclosure_dash",
-    "calculation", "calculation_prose", "calculation_ranking", "calculation_periods",
+    "calculation", "calculation_prose", "calculation_ranking", "calculation_periods", "calculation_unlocated",
 ])
 def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
     monkeypatch, mode, repair_result, window, case
@@ -116,6 +116,10 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
         bad = "已核实中报收入[E1]，含金量对照：2026中报 2025中报分别为1.587与0.289。"
         good = bad.replace("1.587", "1.588")
 
+    if case == "calculation_unlocated":
+        bad = "已核实中报收入[E1]，2026中报含金量3年最高，为1.587，2025中报含金量为0.289。"
+        good = "已核实中报收入[E1]，2026中报含金量为1.588，2025中报含金量为0.289。"
+
     def run(request):
         requests.append(request)
         if len(requests) == 1:
@@ -193,7 +197,12 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
     assert "因此公司没有公告" not in result.answer
     assert "因此没有新公告" not in result.answer
     assert "即公司无新增公告" not in result.answer
-    assert "1.587" not in result.answer
+    if case == "calculation_unlocated" and not (can_repair and repair_result == "corrected") and window != "root_expired":
+        assert "〔比率对应关系待核对〕" in result.answer
+        assert "不能视为已核算结论" in result.answer
+        assert "1.587" in result.answer  # retained as explicitly unverified, not replaced by a guess
+    else:
+        assert "1.587" not in result.answer
     if window == "root_expired":
         # The root expires BEFORE any semantic verification. No trusted answer
         # exists yet; do not silently authenticate the unverified first draft.

@@ -177,3 +177,75 @@ def test_review_ratio_preface_does_not_hide_bad_value(draft):
     kept = remove_findings(draft, calculation_copy_findings(draft, _financial_evidence()))
     assert "1.587" not in kept
     assert "2026中报" in kept and "待核对" in kept
+
+
+AMBIGUOUS_RATIOS = [
+    "2026中报含金量3年最高，为1.587。",
+    "2026中报含金量3年新高，该值为1.587。",
+    "2026中报含金量为2025中报的1.2倍。",
+    "2026中报含金量2倍于同业，实际为1.587。",
+]
+
+
+@pytest.mark.parametrize("ratio", AMBIGUOUS_RATIOS)
+def test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed(ratio):
+    draft = "收入可核[E1]，" + ratio
+    findings = calculation_copy_findings(draft, _financial_evidence())
+    assert findings and {f.code for f in findings} == {"calculation_value_unlocated"}
+    marked = remove_findings(draft, findings)
+    assert marked.replace("〔比率对应关系待核对〕", "") == draft
+    assert marked.count("〔比率对应关系待核对〕") == 1
+    assert remove_findings(marked, calculation_copy_findings(marked, _financial_evidence())) == marked
+
+
+@pytest.mark.parametrize("mode", ["off", "llm"])
+@pytest.mark.parametrize("ratio", AMBIGUOUS_RATIOS)
+def test_review_unlocated_ratio_reopens_existing_repair_without_erasure(monkeypatch, mode, ratio):
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+    draft = "收入可核[E1]，" + ratio
+    frame, structural = _structural(draft, detail="收入可核。")
+    structural = replace(structural, outcome=replace(
+        structural.outcome, evidence=(*structural.outcome.evidence, *_financial_evidence()),
+    ))
+    result = SemanticEpisodeVerifier(judge_fn=lambda request: {
+        "passed": True, "rejected_sentence_indexes": [], "issues": [],
+    }).verify(frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(10))
+    assert result.status == "partial" and result.repair_output_ids
+    assert "收入可核[E1]" in result.public_answer
+    assert "〔比率对应关系待核对〕" in result.public_answer
+    assert "不能视为已核算结论" in result.public_answer
+    assert any("数值对应关系" in note for note in result.delivery_repair_notes)
+    assert result.delivery_retained_evidence_hashes == (structural.outcome.evidence[0].content_hash,)
+    assert result.verified.outcome.draft == draft
+    assert result.verified.outcome.evidence == structural.outcome.evidence
+    assert recheck_material_public_delivery(result) == result
+
+
+@pytest.mark.parametrize("draft,good,bad", [
+    (
+        "收入可核[E1]，查询空白因此没有公告，交易所披露平台显示公司本期无新增公告[E2]。",
+        "交易所披露平台显示公司本期无新增公告[E2]", "因此没有公告",
+    ),
+    (
+        "收入可核[E1]，查询空白因此没有公告，利润可核[E2]，据此建议观望。",
+        "利润可核[E2]", "据此建议观望",
+    ),
+    (
+        "收入可核[E1] 查询空白进而可以认定没有公告。",
+        "收入可核[E1]", "查询空白进",
+    ),
+    (
+        "收入可核[E1] 公告检索接口返回空白因此没有公告。",
+        "收入可核[E1]", "因此没有公告",
+    ),
+    (
+        "收入可核[E1]，查询返回空白，因此可以认定没有公告，即本期为零披露。",
+        "收入可核[E1]", "零披露",
+    ),
+])
+def test_review_second_round_disclosure_controls(draft, good, bad):
+    findings = disclosure_absence_findings(draft, (TRACE,))
+    assert findings
+    kept = remove_findings(draft, findings)
+    assert good in kept and bad not in kept
+    assert disclosure_absence_findings(kept, (TRACE,)) == ()

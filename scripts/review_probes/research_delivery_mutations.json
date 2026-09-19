@@ -173,5 +173,26 @@
     "old": "    if internal and (left != internal + right or re.search(r\"[*`]+[\\d.]\", raw[raw_start:raw_end])):",
     "new": "    if False:",
     "targets": ["test_review_ratio_locates_value_not_year_or_period"]
+  },
+  {
+    "id": "ratio-unlocated-is-not-validated",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "                if unlocated:",
+    "new": "                if False and unlocated:",
+    "targets": ["test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed", "test_review_unlocated_ratio_reopens_existing_repair_without_erasure"]
+  },
+  {
+    "id": "ratio-unlocated-repair-notice",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "    if \"calculation_value_unlocated\" in codes:",
+    "new": "    if False and \"calculation_value_unlocated\" in codes:",
+    "targets": ["test_review_unlocated_ratio_reopens_existing_repair_without_erasure"]
+  },
+  {
+    "id": "disclosure-nonadjacent-dependent",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "            prior_rejection = prior_rejection or rejected[index]",
+    "new": "            prior_rejection = rejected[index]",
+    "targets": ["test_review_second_round_disclosure_controls"]
   }
 ]
