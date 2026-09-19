@@ -31,6 +31,7 @@ from intelligence.tests.test_research_delivery_checks import TABLE, _financial_e
 @pytest.mark.parametrize("case", [
     "disclosure", "disclosure_comma", "disclosure_residue", "disclosure_dash",
     "calculation", "calculation_prose", "calculation_ranking", "calculation_periods", "calculation_unlocated",
+    "calculation_hedge", "calculation_hedge_copula",
 ])
 def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
     monkeypatch, mode, repair_result, window, case
@@ -119,6 +120,10 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
     if case == "calculation_unlocated":
         bad = "已核实中报收入[E1]，2026中报含金量3年最高，为1.587，2025中报含金量为0.289。"
         good = "已核实中报收入[E1]，2026中报含金量为1.588，2025中报含金量为0.289。"
+    elif case in {"calculation_hedge", "calculation_hedge_copula"}:
+        hedge = "为待核对" if case == "calculation_hedge_copula" else "待核对"
+        bad = f"已核实中报收入[E1]，2026中报含金量{hedge}，实际为1.587，2025中报含金量为0.289。"
+        good = bad.replace("1.587", "1.588")
 
     def run(request):
         requests.append(request)

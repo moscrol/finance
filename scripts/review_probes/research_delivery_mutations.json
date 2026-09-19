@@ -156,8 +156,8 @@
   {
     "id": "ratio-ordered-period-binding",
     "path": "intelligence/services/research_delivery_checks.py",
-    "old": "                parallel_values = _parallel_ratio_values(value, periods)",
-    "new": "                parallel_values = {}",
+    "old": "                parallel_values, parallel_end = _parallel_ratio_values(value, periods)",
+    "new": "                parallel_values, parallel_end = {}, 0",
     "targets": ["test_review_ratio_locates_value_not_year_or_period"]
   },
   {
@@ -193,6 +193,62 @@
     "path": "intelligence/services/research_delivery_checks.py",
     "old": "            prior_rejection = prior_rejection or rejected[index]",
     "new": "            prior_rejection = rejected[index]",
+    "targets": ["test_review_second_round_disclosure_controls"]
+  },
+  {
+    "id": "ratio-withheld-only-one-slot",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "        if gap:\n            cursor = gap.end()",
+    "new": "        if gap:\n            return numbers, end",
+    "targets": ["test_withheld_slot_does_not_exempt_later_ratio", "test_hedge_failure_reaches_real_verifier_and_repair"]
+  },
+  {
+    "id": "ratio-no-neighbor-period-residual",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "                    scope_end = _ratio_scope_end(value, periods, period_index)",
+    "new": "                    scope_end = len(value)",
+    "targets": ["test_ratio_scope_preserves_withheld_and_nonvalue_controls", "test_unlocated_marker_scopes_to_ratio_not_independent_fact"]
+  },
+  {
+    "id": "ratio-marker-local-position",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    insertion = positions[period_start]",
+    "new": "    insertion = 0",
+    "targets": ["test_unlocated_marker_scopes_to_ratio_not_independent_fact", "test_each_unlocated_period_gets_its_own_marker"]
+  },
+  {
+    "id": "ratio-located-value-not-blanket-waiver",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "unlocated = marked or bool((values or require_product) and _has_unlocated_ratio_number(residual))",
+    "new": "unlocated = marked or bool(not numbers and (values or require_product) and _has_unlocated_ratio_number(residual))",
+    "targets": ["test_located_or_parallel_value_does_not_exempt_residual_numbers"]
+  },
+  {
+    "id": "ratio-marker-still-needs-review",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "marked = value[:period_match.start()].rstrip().endswith(_UNLOCATED_RATIO_MARK)",
+    "new": "marked = False",
+    "targets": ["test_resolved_value_does_not_silently_discard_existing_uncertainty_marker"]
+  },
+  {
+    "id": "ratio-parallel-binding-survives-marker",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "value[a.end():b.start()].replace(_UNLOCATED_RATIO_MARK, \"\")",
+    "new": "value[a.end():b.start()]",
+    "targets": ["test_parallel_list_binding_survives_a_local_uncertainty_marker", "test_located_or_parallel_value_does_not_exempt_residual_numbers"]
+  },
+  {
+    "id": "disclosure-connective-free-residue",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "公告|零披露|(?:新增)?官方信息差",
+    "new": "公告|(?:新增)?官方信息差",
+    "targets": ["test_review_second_round_disclosure_controls"]
+  },
+  {
+    "id": "disclosure-explicit-venue-retention",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "|交易所披露平台|巨潮资讯网)",
+    "new": "|交易所披露平台)",
     "targets": ["test_review_second_round_disclosure_controls"]
   }
 ]

@@ -31,14 +31,14 @@ _SEARCH_GAP = re.compile(
     r"(?:查询|检索|搜索|接口|返回|清单|列表|抓取).{0,32}"
     r"(?:失败|空白|为空|无结果|无记录|未返回|不完整|空集|未找到|查不到|没有结果)"
 )
-_ABSENCE = re.compile(r"(?:没有|并无|不存在|无|零|未发布)(?:新增|新的|新)?公告|(?:新增)?官方信息差|尚未兑现|没有兑现")
+_ABSENCE = re.compile(r"(?:没有|并无|不存在|无|零|未发布)(?:新增|新的|新)?公告|零披露|(?:新增)?官方信息差|尚未兑现|没有兑现")
 _INFERENCE = re.compile(r"因此|所以|说明|表明|证明|坐实|意味着|可判定|可以认定|即可|即无")
 _UNKNOWN = re.compile(r"不能|无法|不足以|不代表|不等于|不意味着|不说明|不得|不可|未能|尚不能|不成立|无依据|错误推断")
 _CLAUSE = re.compile(r"[^。！？；;\n]+[。！？；;]?")
 # Keep raw offsets: deleting formatting before locating edits corrupts spans.
 _ASSERTION_SEPARATOR = r"[,，、—]+|--+|但是|然而|不过|但|(?<=\])而|(?<=\])[ \t]+"
 _ASSERTION_PART = re.compile(rf"(?:^|{_ASSERTION_SEPARATOR})(?P<claim>(?:(?!{_ASSERTION_SEPARATOR}).)+)")
-_ATTRIBUTED = re.compile(r"(?:官方公告|公告原文|公司原文|交易所披露平台)(?:称|明确说明|说明|显示)")
+_ATTRIBUTED = re.compile(r"(?:官方公告|公告原文|公司原文|交易所披露平台|巨潮资讯网)(?:称|明确说明|说明|显示)")
 _HYPOTHESIS = re.compile(r"^(?:若|如果|假设)")
 _DEPENDENT = re.compile(r"^(?:即|也就是说|换言之|据此|因此|由此)")
 
@@ -225,7 +225,10 @@ def _prose_value_finding(
     return DeliveryFinding(offset + raw_start, offset + raw_end, code, "待核对" + marks)
 
 
-_PROSE_NUMBER = re.compile(rf"\s*(?:实际为|分别为|为|是|=|：|:)?\s*({_NUMBER})\s*(%|倍)?")
+_VALUE_PREFIX = r"\s*(?:实际为|该值为|本期为|比率为|分别为|为|是|=|：|:)?\s*"
+_PROSE_NUMBER = re.compile(rf"{_VALUE_PREFIX}({_NUMBER})\s*(%|倍)?")
+_WITHHELD_SLOT = re.compile(rf"{_VALUE_PREFIX}待核对")
+_VALUE_CONTINUATION = re.compile(r"\s*[,，]\s*(?=(?:实际|该值|本期|比率)为)")
 _NON_RATIO_SUFFIX = re.compile(r"\s*(?:年|中报|年报|季|半年|H1|Q[1-4]|月|日|天|亿|万|元|家|人|名|位|次|项|个|百分点|bp)", re.I)
 _UNLOCATED_RATIO_MARK = "〔比率对应关系待核对〕"
 
@@ -242,22 +245,23 @@ def _prose_number(value: str, start: int) -> tuple[int, int, str, str] | None:
     return number.start(1), number.end(2 if number[2] else 1), number[1], number[2] or ""
 
 
-def _parallel_ratio_values(value: str, periods: list[re.Match]) -> dict[int, tuple[int, int, str, str] | None]:
+def _parallel_ratio_values(value: str, periods: list[re.Match]) -> tuple[dict[int, tuple[int, int, str, str] | None], int]:
     """Only an explicit ordered 'periods 分别为 values' binds adjacent period labels."""
     if len(periods) < 2:
-        return {}
-    if any(not re.fullmatch(r"[\s、，,和与及/]*", value[a.end():b.start()]) for a, b in zip(periods, periods[1:])):
-        return {}
+        return {}, 0
+    if any(not re.fullmatch(r"[\s、，,和与及/]*", value[a.end():b.start()].replace(_UNLOCATED_RATIO_MARK, ""))
+           for a, b in zip(periods, periods[1:])):
+        return {}, 0
     marker = re.match(r"\s*分别为", value[periods[-1].end():])
     if marker is None:
-        return {}
+        return {}, 0
     cursor = periods[-1].end() + marker.end()
     result = {}
     for index, period_match in enumerate(periods):
         if index:
             separator = re.match(r"\s*(?:与|和|及|、|，|,|vs)\s*", value[cursor:])
             if separator is None:
-                return {}
+                return {}, 0
             cursor += separator.end()
         gap = re.match(r"\s*待核对", value[cursor:])
         number = _prose_number(value, cursor)
@@ -268,8 +272,61 @@ def _parallel_ratio_values(value: str, periods: list[re.Match]) -> dict[int, tup
             result[period_match.start()] = number
             cursor = number[1]
         else:
-            return {}
-    return result
+            return {}, 0
+    return result, cursor
+
+
+def _ratio_scope_end(value: str, periods: list[re.Match], index: int) -> int:
+    """Stop at the next period claim, not a referenced '2025中报的1.2倍'."""
+    for following in periods[index + 1:]:
+        if not re.match(r"\s*的", value[following.end():]):
+            return following.start()
+    return len(value)
+
+
+def _ratio_value_slots(value: str, start: int, end: int) -> tuple[list[tuple[int, int, str, str]], int]:
+    """Consume exact value slots, not the rest of a period after a withheld slot.
+
+    Explicit same-ratio continuations are checked individually. Any unconsumed
+    numeric residue is still UNKNOWN; finding one valid value isn't a waiver.
+    """
+    numbers = []
+    cursor = start
+    while cursor < end:
+        gap = _WITHHELD_SLOT.match(value, cursor, end)
+        number = _prose_number(value[:end], cursor)
+        if gap:
+            cursor = gap.end()
+        elif number:
+            numbers.append(number)
+            cursor = number[1]
+        else:
+            break
+        continuation = _VALUE_CONTINUATION.match(value, cursor, end)
+        if continuation is None:
+            break
+        cursor = continuation.end()
+    return numbers, cursor
+
+
+def _has_unlocated_ratio_number(residual: str) -> bool:
+    residual = _PERIOD.sub("", residual)
+    residual = re.sub(r"\[E\d+\]", "", residual)
+    residual = re.sub(r"(?:创)?\d+(?:年|个?季|个?月)(?:新高|新低|高点|低点|最高|最低)", "", residual)
+    residual = re.sub(r"(?:附注|注释|注)\s*[（(]?\d+[）)]?", "", residual)
+    return any(not _NON_RATIO_SUFFIX.match(residual, n.end()) for n in re.finditer(_NUMBER, residual))
+
+
+def _unlocated_ratio_finding(raw: str, period_start: int, *, offset: int) -> DeliveryFinding:
+    positions = [i for i, char in enumerate(raw) if char not in "*`"]
+    insertion = positions[period_start]
+    wrapper = re.search(r"[*`]+$", raw[:insertion])
+    if wrapper:
+        insertion -= len(wrapper.group())
+    # The marker belongs to this period only, never to all the clause's facts.
+    marked = raw[:insertion].rstrip().endswith(_UNLOCATED_RATIO_MARK)
+    return DeliveryFinding(offset + insertion, offset + insertion, "calculation_value_unlocated",
+                           "" if marked else _UNLOCATED_RATIO_MARK)
 
 
 def calculation_copy_findings(
@@ -331,14 +388,14 @@ def calculation_copy_findings(
             for clause in _CLAUSE.finditer(line):
                 value = re.sub(r"[*`]+", "", clause.group())
                 periods = list(_PERIOD.finditer(value))
-                parallel_values = _parallel_ratio_values(value, periods)
-                unlocated = False
-                for period_match in periods:
-                    tail = value[period_match.end():]
+                parallel_values, parallel_end = _parallel_ratio_values(value, periods)
+                for period_index, period_match in enumerate(periods):
+                    scope_end = _ratio_scope_end(value, periods, period_index)
+                    tail = value[period_match.end():scope_end]
                     ratio = _RATIO_NAME.match(tail.lstrip())
                     if ratio is not None:
                         remainder_start = period_match.end() + len(tail) - len(tail.lstrip()) + ratio.end()
-                        remainder = value[remainder_start:]
+                        remainder = value[remainder_start:scope_end]
                     elif (re.search(r"(?:比率|净现比|含金量)[^。；;]*[:：]", value[:period_match.start()])
                           and not re.search(r"同比|环比|增速|变化|变动|差额|增量", value[:period_match.start()])):
                         # Explicitly labeled same-clause comparison, e.g.
@@ -349,41 +406,36 @@ def calculation_copy_findings(
                         continue
                     if period_match.start() in parallel_values:
                         number = parallel_values[period_match.start()]
-                        if number is None:
-                            continue  # an already-withheld cell, not a value
-                    elif re.match(r"\s*(?:为|是|=|：|:)?\s*待核对(?:[,，。；;]|\s+vs\s+|$)", remainder):
-                        continue
+                        numbers = [number] if number else []
+                        # The ordered list owns only its slots. Extra numbers
+                        # after the final slot are not assigned a guessed period.
+                        residual = value[parallel_end:] if period_index == len(periods) - 1 else ""
                     else:
-                        number = _prose_number(value, remainder_start)
-                    if number is None and ratio is not None:
-                        # Finite ranking preface: '3年新高，实际为1.587'. Don't
-                        # search arbitrary later numbers (revenue/another period).
-                        preface = re.match(r"\s*(?:创)?\d+(?:年|个?季|个?月)(?:新高|新低|高点|低点)[,，]\s*(?:实际|本期|比率)为", remainder)
-                        if preface:
-                            number = _prose_number(value, remainder_start + preface.end())
+                        slot_start = remainder_start
+                        if ratio is not None:
+                            # This finite preface doesn't authorize arbitrary
+                            # later numbers (revenue or another report period).
+                            preface = re.match(r"\s*(?:创)?\d+(?:年|个?季|个?月)(?:新高|新低|高点|低点)[,，]\s*(?:实际|本期|比率)为", remainder)
+                            if preface:
+                                slot_start += preface.end()
+                        numbers, consumed_end = _ratio_value_slots(value, slot_start, scope_end)
+                        residual = value[consumed_end:scope_end]
                     values = products.get(_period(period_match.group()) or "", set())
-                    if number is None and (values or require_product):
-                        # Ambiguous numeric relation is UNKNOWN, not checked or
-                        # disproved. Preserve text, expose the doubt and reopen
-                        # the existing repair loop rather than erasing a clause.
-                        residual = _PERIOD.sub("", remainder)
-                        residual = re.sub(r"\[E\d+\]", "", residual)
-                        residual = re.sub(r"(?:创)?\d+(?:年|个?季|个?月)(?:新高|新低|高点|低点|最高|最低)", "", residual)
-                        unresolved_numbers = [n for n in re.finditer(_NUMBER, residual)
-                                              if not _NON_RATIO_SUFFIX.match(residual, n.end())]
-                        unlocated = unlocated or bool(unresolved_numbers)
-                    code = failure_code(values, number[2], number[3]) if number else ""
-                    if code:
-                        findings.append(_prose_value_finding(
-                            clause.group(), number[0], number[1],
-                            offset=offset + clause.start(), code=code,
+                    marked = value[:period_match.start()].rstrip().endswith(_UNLOCATED_RATIO_MARK)
+                    unlocated = marked or bool((values or require_product) and _has_unlocated_ratio_number(residual))
+                    for number in numbers:
+                        code = failure_code(values, number[2], number[3])
+                        if code:
+                            findings.append(_prose_value_finding(
+                                clause.group(), number[0], number[1],
+                                offset=offset + clause.start(), code=code,
+                            ))
+                    if unlocated:
+                        # A pre-existing marker is still uncertainty until the
+                        # writer resolves it; it never suppresses gap/repair.
+                        findings.append(_unlocated_ratio_finding(
+                            clause.group(), period_match.start(), offset=offset + clause.start(),
                         ))
-                if unlocated:
-                    insertion = offset + clause.start()
-                    # Existing marker remains a finding so a user-supplied marker
-                    # can't suppress partial/repair; only insertion is idempotent.
-                    replacement = "" if _UNLOCATED_RATIO_MARK in value else _UNLOCATED_RATIO_MARK
-                    findings.append(DeliveryFinding(insertion, insertion, "calculation_value_unlocated", replacement))
         offset += len(line)
     return tuple(findings)
 

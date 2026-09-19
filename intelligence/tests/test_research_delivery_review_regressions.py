@@ -242,6 +242,14 @@ def test_review_unlocated_ratio_reopens_existing_repair_without_erasure(monkeypa
         "收入可核[E1]，查询返回空白，因此可以认定没有公告，即本期为零披露。",
         "收入可核[E1]", "零披露",
     ),
+    (
+        "收入可核[E1]，查询返回空白，因此可以认定没有公告，本期为零披露。",
+        "收入可核[E1]", "零披露",
+    ),
+    (
+        "收入可核[E1]，查询返回空白，因此可以认定没有公告，巨潮资讯网显示公司本期无新增公告[E2]。",
+        "巨潮资讯网显示公司本期无新增公告[E2]", "因此可以认定没有公告",
+    ),
 ])
 def test_review_second_round_disclosure_controls(draft, good, bad):
     findings = disclosure_absence_findings(draft, (TRACE,))
