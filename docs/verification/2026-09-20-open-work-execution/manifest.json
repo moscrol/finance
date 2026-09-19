@@ -354,6 +354,50 @@
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/merge-verified.json",
       "bytes": 239,
       "sha256": "c516070a61419cbd682db5ac2ebab3bbff5c7d5ead335622745a525bcf097795"
+    },
+    {
+      "path": "cleanup-review.md",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/cleanup-review.md",
+      "bytes": 38820,
+      "sha256": "58826298f7737f58854c41bcdcd46c2162ee801397d835a16d184256b356bc16"
+    },
+    {
+      "path": "cleanup-ignored-artifacts.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/cleanup-ignored-artifacts.json",
+      "bytes": 13878,
+      "sha256": "8c892e9067384b5200bcd350ad11ab0e639abf0d7bf508b5205c357231d882c9"
+    },
+    {
+      "path": "production-observation.json",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/production-observation.json",
+      "bytes": 1327,
+      "sha256": "5a40ac29bb0a2f6a756113407b222b9e8381603beec508f1364741021789c457"
+    },
+    {
+      "path": "cleanup-owner-review.md",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/cleanup-owner-review.md",
+      "bytes": 3674,
+      "sha256": "36fb48a30aa70ba275289f2cf6c54f751878a9d92e7501d679dccffb78d1688f"
+    },
+    {
+      "path": "replay-sources/merge_generation.py.6705ee29184c.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/merge_generation.py",
+      "bytes": 4713,
+      "sha256": "6705ee29184c40e2233b8c70c62f3ef68d0b6f1e0012adf66e773bf42da5b1b3"
+    },
+    {
+      "path": "replay-sources/check_cleanup_ignored.py.8ed636c7d69e.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/check_cleanup_ignored.py",
+      "bytes": 2098,
+      "sha256": "8ed636c7d69e4f29e09f91bff7e558d9262b8f34c75f5772eb12d2e135c630d8"
+    }
+  ],
+  "external_files": [
+    {
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/cleanup-manifest.json",
+      "bytes": 15764399,
+      "sha256": "d1ecc3ed5a140b7a6c8b92c3a540e4d22b0fe064cf8589d60b3fdf4ddda1ca97",
+      "reason": "larger than 5120 KiB; original retained externally, not split to bypass the file-size gate"
     }
   ],
   "external_originals": "Dirty-tree binary diffs, untracked copies, browser traces and large ReAct originals remain in runtime; this bundle does not authorize deletion."
