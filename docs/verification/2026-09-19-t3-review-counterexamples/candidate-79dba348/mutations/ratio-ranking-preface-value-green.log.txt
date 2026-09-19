@@ -1,0 +1,8 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-79dba348/mutations/ratio-ranking-preface-value-green.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_review_ratio_preface_does_not_hide_bad_value"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-l4qkfpz8/tree", "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe"}
+....                                                                     [100%]
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-79dba348/mutations/ratio-ranking-preface-value-green.xml -
+4 passed, 336 deselected in 1.03s
+
+STDERR:
+
+EXIT=0
