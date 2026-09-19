@@ -31,7 +31,8 @@ from intelligence.tests.test_research_delivery_checks import TABLE, _financial_e
 @pytest.mark.parametrize("case", [
     "disclosure", "disclosure_comma", "disclosure_residue", "disclosure_dash",
     "calculation", "calculation_prose", "calculation_ranking", "calculation_periods", "calculation_unlocated",
-    "calculation_hedge", "calculation_hedge_copula",
+    "calculation_hedge", "calculation_hedge_copula", "calculation_currency_unit",
+    "calculation_points_unit", "calculation_semicolon", "calculation_boundary_neighbors",
 ])
 def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
     monkeypatch, mode, repair_result, window, case
@@ -123,6 +124,18 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
     elif case in {"calculation_hedge", "calculation_hedge_copula"}:
         hedge = "为待核对" if case == "calculation_hedge_copula" else "待核对"
         bad = f"已核实中报收入[E1]，2026中报含金量{hedge}，实际为1.587，2025中报含金量为0.289。"
+        good = bad.replace("1.587", "1.588")
+    elif case == "calculation_currency_unit":
+        bad = "已核实中报收入[E1]，2026中报含金量为1.587元/元，2025中报的含金量为0.289。"
+        good = bad.replace("1.587", "1.588")
+    elif case == "calculation_points_unit":
+        bad = "已核实中报收入[E1]，2026中报含金量实际为158.7个百分点，2025中报的含金量为0.289。"
+        good = bad.replace("158.7个百分点", "1.588")
+    elif case == "calculation_semicolon":
+        bad = "已核实中报收入[E1]，2026中报含金量待核对；实际为1.587，2025中报的含金量为0.289。"
+        good = bad.replace("1.587", "1.588")
+    elif case == "calculation_boundary_neighbors":
+        bad = "已核实中报收入[E1]，2026中报含金量为1.587，行业排名第3，同期经营现金流1,234.56亿元[E1]，2025中报的含金量为0.289。"
         good = bad.replace("1.587", "1.588")
 
     def run(request):
@@ -220,6 +233,9 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
     assert "[E1]" in result.answer
     assert {c["title"] for c in result.citations} == {evidence.title}
     if case.startswith("calculation"):
+        assert "158.7个百分点" not in result.answer
+        if case == "calculation_boundary_neighbors":
+            assert "行业排名第3" in result.answer and "1,234.56亿元[E1]" in result.answer
         if case == "calculation":
             assert "706.91" in result.answer and "445.17" in result.answer
         assert "0.289" in result.answer

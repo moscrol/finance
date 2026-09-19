@@ -137,8 +137,10 @@ _RATIO_NAME = re.compile(
     r"含金量|净现比|(?:OCF|经营(?:活动)?现金流(?:量)?(?:净额)?)[\s_/(（÷]*"
     r"(?:除以|对)?[\s_]*(?:归母)?(?:净利(?:润)?|net[_ ]?profit)", re.I,
 )
-_NUMBER = r"[-+]?\d+(?:\.\d+)?"
-_NUMBER_CELL = re.compile(rf"^\s*({_NUMBER})\s*(%|倍)?\s*$")
+# A grouped decimal is one token: don't scan the prefix of 1,234.56 as 1.
+_NUMBER = r"[-+]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?"
+_RATIO_UNIT = r"元\s*[/／]\s*元|个百分点|%|倍"
+_NUMBER_CELL = re.compile(rf"^\s*({_NUMBER})\s*({_RATIO_UNIT})?\s*$")
 
 
 def _absolute_ratio_label(value: str) -> bool:
@@ -160,8 +162,11 @@ def _period(value: str) -> str | None:
 
 def _display_matches(raw: str, value: float, unit: str = "") -> bool:
     """Only declared precision rounding; not a tolerance over arbitrary numbers."""
+    # Percentage points describe a difference, never an absolute OCF/profit ratio.
+    if unit == "个百分点":
+        return False
     try:
-        displayed = Decimal(raw)
+        displayed = Decimal(raw.replace(",", ""))
         expected = Decimal(str(value)) * (100 if unit == "%" else 1)
         return displayed == expected.quantize(Decimal(1).scaleb(displayed.as_tuple().exponent), rounding=ROUND_HALF_EVEN)
     except (InvalidOperation, ValueError):
@@ -226,9 +231,13 @@ def _prose_value_finding(
 
 
 _VALUE_PREFIX = r"\s*(?:实际为|该值为|本期为|比率为|分别为|为|是|=|：|:)?\s*"
-_PROSE_NUMBER = re.compile(rf"{_VALUE_PREFIX}({_NUMBER})\s*(%|倍)?")
+_PROSE_NUMBER = re.compile(rf"{_VALUE_PREFIX}({_NUMBER})\s*({_RATIO_UNIT})?")
 _WITHHELD_SLOT = re.compile(rf"{_VALUE_PREFIX}待核对")
-_VALUE_CONTINUATION = re.compile(r"\s*[,，]\s*(?=(?:实际|该值|本期|比率)为)")
+_CONTINUATION_LABEL = r"(?:实际|该值|本期|比率)为"
+_VALUE_CONTINUATION = re.compile(rf"\s*[,，；;]\s*(?={_CONTINUATION_LABEL})")
+# Only explicit same-ratio continuations inherit across a semicolon. Do not
+# widen disclosure detection or join independent sentences/paragraphs.
+_RATIO_CLAUSE = re.compile(rf"[^。！？；;\n]+(?:[；;]\s*(?=[*`]*{_CONTINUATION_LABEL})[^。！？；;\n]+)*[。！？；;]?")
 _NON_RATIO_SUFFIX = re.compile(r"\s*(?:年|中报|年报|季|半年|H1|Q[1-4]|月|日|天|亿|万|元|家|人|名|位|次|项|个|百分点|bp)", re.I)
 _UNLOCATED_RATIO_MARK = "〔比率对应关系待核对〕"
 
@@ -238,7 +247,7 @@ def _prose_number(value: str, start: int) -> tuple[int, int, str, str] | None:
     number = _PROSE_NUMBER.match(value, start)
     if number is None:
         return None
-    if _NON_RATIO_SUFFIX.match(value, number.end(1)) or _PERIOD.match(value, number.start(1)):
+    if (not number[2] and _NON_RATIO_SUFFIX.match(value, number.end(1))) or _PERIOD.match(value, number.start(1)):
         return None
     if number[2] == "倍" and re.match(r"\s*(?:于|高于|低于|多于|少于)", value[number.end():]):
         return None
@@ -279,7 +288,7 @@ def _parallel_ratio_values(value: str, periods: list[re.Match]) -> tuple[dict[in
 def _ratio_scope_end(value: str, periods: list[re.Match], index: int) -> int:
     """Stop at the next period claim, not a referenced '2025中报的1.2倍'."""
     for following in periods[index + 1:]:
-        if not re.match(r"\s*的", value[following.end():]):
+        if not re.match(rf"\s*的\s*{_NUMBER}\s*倍", value[following.end():]):
             return following.start()
     return len(value)
 
@@ -310,11 +319,29 @@ def _ratio_value_slots(value: str, start: int, end: int) -> tuple[list[tuple[int
 
 
 def _has_unlocated_ratio_number(residual: str) -> bool:
-    residual = _PERIOD.sub("", residual)
-    residual = re.sub(r"\[E\d+\]", "", residual)
-    residual = re.sub(r"(?:创)?\d+(?:年|个?季|个?月)(?:新高|新低|高点|低点|最高|最低)", "", residual)
-    residual = re.sub(r"(?:附注|注释|注)\s*[（(]?\d+[）)]?", "", residual)
-    return any(not _NON_RATIO_SUFFIX.match(residual, n.end()) for n in re.finditer(_NUMBER, residual))
+    # Mask roles, not individual digits. Keep separation so removing a period
+    # or citation cannot accidentally concatenate two unrelated numeric tokens.
+    residual = _PERIOD.sub(lambda m: " " * len(m.group()), residual)
+    for role in (
+        r"\[E\d+\]",
+        r"(?:创)?\d+(?:年|个?季|个?月)(?:新高|新低|高点|低点|最高|最低)",
+        r"(?:附注|注释|注)\s*[（(]?\d+[）)]?",
+        r"(?:排名第?|位列第?|第)\s*\d+(?!\d|[.,]\d)",
+    ):
+        residual = re.sub(role, lambda m: " " * len(m.group()), residual)
+    for number in re.finditer(_NUMBER, residual):
+        unit = re.match(rf"\s*({_RATIO_UNIT})", residual[number.end():])
+        if unit:
+            # A separately stated delta has its own dimension. Unattributed
+            # points/currency-ratio values must not hide behind the amount rule.
+            delta = re.search(r"(?:增加|增长|提升|下降|减少|变化|变动|差额|增量)\s*(?:了|为|是)?\s*$",
+                              residual[:number.start()])
+            if unit[1] == "个百分点" and delta:
+                continue
+            return True
+        if not _NON_RATIO_SUFFIX.match(residual, number.end()):
+            return True
+    return False
 
 
 def _unlocated_ratio_finding(raw: str, period_start: int, *, offset: int) -> DeliveryFinding:
@@ -359,7 +386,7 @@ def calculation_copy_findings(
     for line in text.splitlines(keepends=True):
         if line.lstrip().startswith("|"):
             cells = [re.sub(r"[*`]+", "", c.strip()) for c in line.strip().strip("|").split("|")]
-            headers = tuple((i, "%" if "%" in c or "百分比" in c else "")
+            headers = tuple((i, "个百分点" if "个百分点" in c else "%" if "%" in c or "百分比" in c else "")
                             for i, c in enumerate(cells) if _absolute_ratio_label(c))
             if headers:
                 ratio_columns = headers
@@ -385,16 +412,17 @@ def calculation_copy_findings(
             ratio_columns, period_column = (), None
             # Prose needs an explicit ratio label locally. Broader semantic
             # matching (e.g. ambiguous bare 1.588) stays with the existing judge.
-            for clause in _CLAUSE.finditer(line):
+            for clause in _RATIO_CLAUSE.finditer(line):
                 value = re.sub(r"[*`]+", "", clause.group())
                 periods = list(_PERIOD.finditer(value))
                 parallel_values, parallel_end = _parallel_ratio_values(value, periods)
                 for period_index, period_match in enumerate(periods):
                     scope_end = _ratio_scope_end(value, periods, period_index)
                     tail = value[period_match.end():scope_end]
-                    ratio = _RATIO_NAME.match(tail.lstrip())
+                    label_prefix = re.match(r"\s*(?:的\s*)?", tail).end()
+                    ratio = _RATIO_NAME.match(tail, label_prefix)
                     if ratio is not None:
-                        remainder_start = period_match.end() + len(tail) - len(tail.lstrip()) + ratio.end()
+                        remainder_start = period_match.end() + ratio.end()
                         remainder = value[remainder_start:scope_end]
                     elif (re.search(r"(?:比率|净现比|含金量)[^。；;]*[:：]", value[:period_match.start()])
                           and not re.search(r"同比|环比|增速|变化|变动|差额|增量", value[:period_match.start()])):
