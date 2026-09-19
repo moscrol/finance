@@ -1,0 +1,34 @@
+[
+  {
+    "path": "raw/毫米波雷达-演讲稿.md",
+    "bytes": 13200,
+    "sha256": "039bd9b63179d7b2749bfc2faefd1d811ce30d14aa5e09e4ee6278095ef2568d",
+    "v3_chunks": 0,
+    "v4_chunks": 24,
+    "original_unchanged": true
+  },
+  {
+    "path": "raw/海上风电-演讲稿.md",
+    "bytes": 12332,
+    "sha256": "9b65629be9e06998b055976d2af7a110b25a7b72c1e6c447a6b887875ffc790f",
+    "v3_chunks": 0,
+    "v4_chunks": 21,
+    "original_unchanged": true
+  },
+  {
+    "path": "raw/超级钻石-演讲稿.md",
+    "bytes": 12493,
+    "sha256": "20c852aaf9bba0a3d922b055be8948343487a45a918c8099c149774bfee56e28",
+    "v3_chunks": 0,
+    "v4_chunks": 20,
+    "original_unchanged": true
+  },
+  {
+    "path": "raw/超聚变-演讲稿.md",
+    "bytes": 14578,
+    "sha256": "730ba5c3591738d32574220f84ce0abe8be68b8b2fe9fa370e5de3d0c8e28e61",
+    "v3_chunks": 0,
+    "v4_chunks": 23,
+    "original_unchanged": true
+  }
+]

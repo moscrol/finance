@@ -1,0 +1,136 @@
+"""Fixed two-PR merge operation, not a deployment tool.
+
+Reuse the repository's Gitea credential/API implementation. This adds operation-
+specific full-SHA, base, receipt and green-leaf checks and requests fast-forward
+only. A non-FF race fails closed; no force, repository-setting change, manual
+merge marking, service change, hook restoration or index publication is allowed.
+"""
+import argparse
+import datetime as dt
+import importlib.util
+import json
+from pathlib import Path
+import re
+import subprocess
+
+ROOT = Path.home() / ".finance-runtime/kb-v4-merge-20260919"
+PY = Path.home() / "finance-workspace-private/.venv-workbench/bin/python"
+LEAVES = (
+    "finance-ruff", "registry-parseability", "registry-check", "registry-tables",
+    "registry-views", "registry-ledger", "frontend-install", "frontend-lint",
+    "frontend-typecheck", "frontend-test", "frontend-build", "e2e",
+    "finance-pytest", "kb-pytest", "kb-relations", "kb-sizes", "kb-quality",
+    "kb-log", "kb-index",
+)
+CANDIDATES = {
+    "kb": {
+        "repository": "knowledge-base-private", "pr": 153,
+        "revision": "c141a424a16faed2cc959c0839e6b0ea29ced481",
+        "base": "91725ea9ba0252a43665f9e3130142f946c289ae",
+        "branch": "fix/rag-frontmatter-body",
+    },
+    "finance": {
+        "repository": "finance-workspace-private", "pr": 786,
+        "revision": "2b4948a4015e53fd1fde5bb1e50147582abde2da",
+        "base": "d32b8966237e1b8241dd5377e9a9a659423e212b",
+        "branch": "fix/kb-dual-index-deploy",
+    },
+}
+
+
+def git(tree, *args):
+    return subprocess.check_output(["git", "-C", str(tree), *args], text=True).strip()
+
+
+def gate_check():
+    gate = ROOT / "pre-receipts"
+    assert (gate / "all.exit").read_text().strip() == "0", "pre gate is not green"
+    for leaf in LEAVES:
+        assert (gate / f"{leaf}.exit").read_text().strip() == "0", leaf
+    for name in ("status-after-build.txt", "status-after.txt", "kb-status-after.txt"):
+        assert not (gate / name).read_text().strip(), name
+    for spec in CANDIDATES.values():
+        tree = ROOT / "pre" / spec["repository"]
+        assert git(tree, "rev-parse", "HEAD") == spec["revision"]
+        assert not git(tree, "status", "--porcelain"), tree
+    text = (gate / "finance-pytest.txt").read_text()
+    matches = re.findall(r"读数收据: (\S+\.json)", text)
+    assert len(matches) == 1, matches
+    receipt = json.loads(Path(matches[0]).read_text())
+    assert receipt["exit_status"] == 0 and receipt["counts"]["failed"] == 0
+    assert receipt["counts"]["error"] == 0 and not receipt["dirty"]
+    assert not receipt["dependency_gate_bypassed"]
+    tree = ROOT / "pre/finance-workspace-private"
+    checked = subprocess.run([
+        str(PY), "scripts/check_test_receipt.py", matches[0], "--expect-revision",
+        CANDIDATES["finance"]["revision"], "--require-target", str(tree),
+    ], cwd=tree, text=True, capture_output=True)
+    assert checked.returncode == 0, checked.stdout + checked.stderr
+    frontend = re.search(r"Tests\s+(\d+) passed", (gate / "frontend-test.txt").read_text())
+    e2e = re.search(r"(\d+) passed \(", (gate / "e2e.txt").read_text())
+    kb = re.search(r"(\d+) passed", (gate / "kb-pytest.txt").read_text())
+    assert frontend and e2e and kb
+    return {"receipt": matches[0], "counts": receipt["counts"], "receipt_check": checked.stdout,
+            "frontend_passed": int(frontend[1]), "e2e_passed": int(e2e[1]), "kb_passed": int(kb[1])}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("repository", choices=CANDIDATES)
+    parser.add_argument("--yes", action="store_true")
+    args = parser.parse_args()
+    acceptance = gate_check()
+    spec = CANDIDATES[args.repository]
+    tree = ROOT / "pre" / spec["repository"]
+    module_path = ROOT / "pre/finance-workspace-private/scripts/gitea_pr.py"
+    module_spec = importlib.util.spec_from_file_location("existing_gitea_pr", module_path)
+    api = importlib.util.module_from_spec(module_spec)
+    module_spec.loader.exec_module(api)
+    original_git = api._git
+    api._git = lambda *argv, **_kwargs: original_git(*argv, cwd=tree)
+    pr = api._api("GET", f'/pulls/{spec["pr"]}')
+    remote = git(tree, "ls-remote", "gitea", "refs/heads/main").split()[0]
+    assert remote == spec["base"], ("base moved; reevaluate before merge", remote)
+    assert pr["head"]["sha"] == spec["revision"] and pr["head"]["ref"] == spec["branch"]
+    assert pr["base"]["ref"] == "main" and pr["state"] == "open" and not pr["merged"]
+    assert not pr.get("draft", False)
+    subprocess.run(["git", "-C", str(tree), "merge-base", "--is-ancestor", spec["base"], spec["revision"]], check=True)
+    merged_tree = git(tree, "merge-tree", "--write-tree", spec["base"], spec["revision"])
+    assert merged_tree == git(tree, "rev-parse", f'{spec["revision"]}^{{tree}}')
+    result = {"observed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+              "repository": args.repository, **spec, "acceptance": acceptance,
+              "strategy": "fast-forward-only", "production_switched": False}
+    if not args.yes:
+        print(json.dumps({**result, "dry_run": True}, ensure_ascii=False, indent=2))
+        return
+    attempt = ROOT / "evidence" / f'{args.repository}-merge-attempt.json'
+    with attempt.open("x") as handle:
+        json.dump(result, handle, ensure_ascii=False, indent=2)
+    body = (f'用户已允许合并验收。固定 {spec["revision"]} 的整批前置门禁通过：'
+            f'金融{acceptance["counts"]["passed"]}P/'
+            f'前端{acceptance["frontend_passed"]}P/E2E{acceptance["e2e_passed"]}P/'
+            f'KB{acceptance["kb_passed"]}P及Ruff/registry/质量守卫；'
+            f'精确收据 {Path(acceptance["receipt"]).name}。原件在 '
+            '`~/.finance-runtime/kb-v4-merge-20260919/pre-receipts/`；'
+            '树干净、构建零漂移、收据严格匹配。将仅以fast-forward-only合入；'
+            '合后另验main。8792/防写/旧hook暂停不变，维护链未实现，未认证答案质量。')
+    api._api("POST", f'/issues/{spec["pr"]}/comments', {"body": body})
+    error = None
+    try:
+        api._api("POST", f'/pulls/{spec["pr"]}/merge',
+                 {"Do": "fast-forward-only", "head_commit_id": spec["revision"]})
+    except (Exception, SystemExit) as exc:
+        error = str(exc)
+    after = api._api("GET", f'/pulls/{spec["pr"]}')
+    main_after = git(tree, "ls-remote", "gitea", "refs/heads/main").split()[0]
+    result.update(merged=bool(after["merged"]), state=after["state"],
+                  merge_commit_sha=after.get("merge_commit_sha"), main_after=main_after,
+                  api_error=error)
+    with (ROOT / "evidence" / f'{args.repository}-merge-result.json').open("x") as handle:
+        json.dump(result, handle, ensure_ascii=False, indent=2)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    assert after["merged"] and main_after == spec["revision"], "merge not confirmed; inspect before any retry"
+
+
+if __name__ == "__main__":
+    main()

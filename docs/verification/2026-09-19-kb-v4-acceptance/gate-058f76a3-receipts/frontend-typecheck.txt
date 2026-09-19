@@ -1,0 +1,4 @@
+
+> market-intelligence-workbench@0.1.0 typecheck /Users/a77/.finance-runtime/kb-dual-index-20260918/gate-058f76a3/finance-workspace-private/intelligence/webapp
+> tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false
+

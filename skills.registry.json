@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-09-16T12:57:01Z",
+  "generated_at": "2026-09-18T10:43:50Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -1335,19 +1335,17 @@
       "repo": "knowledge-base-private",
       "sourceType": "local",
       "skillPath": "skills/rag-query/SKILL.md",
-      "description": "知识库 RAG 检索的消费手册——会话 agent 查库时选 mode、读 trace coverage、决定是否 --subquery 补跳。触发词：查库、搜知识库、检索、rag query、库里有没有、帮我搜、深挖 raw。",
+      "description": "查库时的消费流程：先选研究范围，再检索、续读、核验来源；处理空命中、过期索引与证据过滤。触发词：查库、搜知识库、rag query、库里有没有、深挖 raw。",
       "triggers": [
         "查库",
         "搜知识库",
-        "检索",
         "rag query",
         "库里有没有",
-        "帮我搜",
         "深挖 raw"
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:193e78882fa8a0d1abcb9c69ae33dbf4cf467740e14a38da9acf7535d392b068",
+      "computedHash": "sha256:28246007ae3b3ed86588d96729660f384d02570adb7af69bf29615edd9db8038",
       "agentOnly": false,
       "views": [
         {

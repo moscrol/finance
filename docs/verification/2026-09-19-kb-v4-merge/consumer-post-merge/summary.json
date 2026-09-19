@@ -1,0 +1,19 @@
+{
+  "observed_at": "2026-09-18T17:26:04.988627+00:00",
+  "finance_revision": "2b4948a4015e53fd1fde5bb1e50147582abde2da",
+  "kb_revision": "c141a424a16faed2cc959c0839e6b0ea29ced481",
+  "status": "pass",
+  "service_query_cases": 14,
+  "index_bytes_unchanged": true,
+  "scope": "CLI/service/prewarm; exact filters; negatives; not answer-quality/rerank/8792/maintenance",
+  "known_relevance_limit": "Full L3 liquid-cooling query matches 液 alone; not accepted as relevant evidence",
+  "prior_failed_probe_runs_retained": [
+    "consumer-v4",
+    "consumer-v4-r2",
+    "consumer-v4-r3"
+  ],
+  "workers_closed": true,
+  "parent_interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "query_interpreter": "/Users/a77/knowledge-base-private/.rag_venv/bin/python",
+  "production_switched": false
+}

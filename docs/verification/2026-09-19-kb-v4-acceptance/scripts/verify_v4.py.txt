@@ -1,0 +1,49 @@
+"""V4 acceptance; original failed windows remain untouched."""
+import datetime as dt
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path.home() / '.finance-runtime/kb-dual-index-20260918'
+CODE = Path.home() / '.finance-runtime/kb-code-23b4f5e4e1ac'
+os.environ['KB_VERIFY_CODE_ROOT'] = str(CODE)
+from verify_indexes import digest, verify
+
+OUT = ROOT / 'evidence/v4-verification'
+OUT.mkdir(exist_ok=False)
+results = json.loads((ROOT / 'evidence/v4/migration-results.json').read_text())
+assert len(results) == 2 and all(r['exit_code'] == 0 for r in results)
+reports = []
+for name in ('.rag_index', '.rag_index_full'):
+    report = verify(name, staging=ROOT / 'staging-v4')
+    report['code_revision'] = '23b4f5e4e1ace932fcc741197bf4892c272bf541'
+    report['observed_at'] = dt.datetime.now(dt.timezone.utc).isoformat()
+    (OUT / f'{name[1:]}-verification.json').write_text(json.dumps(report, ensure_ascii=False, indent=2))
+    reports.append(report)
+    print(json.dumps({k: report[k] for k in ('index', 'selected_files', 'indexed_files', 'vector_rows_checked', 'unexplained_gaps')}, ensure_ascii=False), flush=True)
+
+before = json.loads((ROOT / 'evidence/source-files.json').read_text())
+checks = {}
+for label, root in [('frozen', ROOT / 'source'), ('live', Path.home() / 'knowledge-base-private')]:
+    now = {p.relative_to(root).as_posix(): digest(p) for name in ('wiki', 'raw')
+           for p in sorted((root / name).rglob('*')) if p.is_file()}
+    checks[label] = {'file_count': len(now), 'added': sorted(now.keys() - before.keys()),
+                     'removed': sorted(before.keys() - now.keys()),
+                     'changed': sorted(p for p in now.keys() & before.keys() if now[p] != before[p])}
+    if label == 'frozen':
+        assert now == before, 'frozen source drift'
+    (OUT / 'source-comparison.json').write_text(json.dumps(checks, ensure_ascii=False, indent=2))
+
+subprocess.run([sys.executable, str(ROOT / 'verify_file_fence.py'), 'file-fence-after-v4.json'], check=True)
+summary = {'observed_at': dt.datetime.now(dt.timezone.utc).isoformat(),
+           'staging_acceptance': 'pass_with_14_quarantined_source_pages',
+           'previous_v3_full_acceptance': 'FAILED: four nonempty source pages lost during parsing; original retained',
+           'original_production_window': 'FAILED: production drift; original retained',
+           'new_production_window': 'file fence checked; production not switched',
+           'frozen_source_unchanged': True,
+           'live_index_freshness': {r['index']: r['live_health']['freshness'] for r in reports},
+           'consumer_switched': False, 'production_deploy_ready': False}
+(OUT / 'summary.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2))
+print(json.dumps(summary, ensure_ascii=False), flush=True)

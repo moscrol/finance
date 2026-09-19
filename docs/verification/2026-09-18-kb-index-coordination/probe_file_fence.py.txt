@@ -1,0 +1,54 @@
+"""Prove macOS UF_IMMUTABLE rejects writer operations on disposable files.
+
+No production paths. Every probe uses a separate fixture, restores its exact
+original flags in finally, and retains the result as migration evidence.
+"""
+import errno
+import json
+import os
+from pathlib import Path
+import stat
+import tempfile
+
+ROOT = Path(__file__).resolve().parent
+results = []
+with tempfile.TemporaryDirectory(prefix='kb-fence-') as temporary:
+    parent = Path(temporary)
+    for operation in ('overwrite', 'append', 'create', 'replace', 'unlink', 'rename_directory'):
+        directory = parent / operation
+        directory.mkdir()
+        target = directory / 'meta.json'
+        target.write_text('original bytes\n')
+        replacement = parent / f'{operation}-replacement'
+        replacement.write_text('new bytes\n')
+        original_flags = {p: p.stat().st_flags for p in (directory, target)}
+        try:
+            for p, flags in original_flags.items():
+                os.chflags(p, flags | stat.UF_IMMUTABLE)
+            action = {
+                'overwrite': lambda: target.write_text('bad bytes'),
+                'append': lambda: target.open('ab'),
+                'create': lambda: (directory / 'chunks.tmp').write_text('bad bytes'),
+                'replace': lambda: os.replace(replacement, target),
+                'unlink': target.unlink,
+                'rename_directory': lambda: directory.rename(parent / 'moved'),
+            }[operation]
+            try:
+                handle = action()
+            except OSError as exc:
+                assert exc.errno in (errno.EPERM, errno.EACCES), (operation, exc)
+                results.append({'operation': operation, 'blocked': True, 'errno': exc.errno})
+            else:
+                if hasattr(handle, 'close'):
+                    handle.close()
+                raise AssertionError(f'{operation} unexpectedly allowed')
+            assert target.read_text() == 'original bytes\n'
+        finally:
+            for p, flags in original_flags.items():
+                if p.exists():
+                    os.chflags(p, flags)
+    target.write_text('write works after restoring flags\n')
+report = {'status': 'pass', 'mechanism': 'macOS UF_IMMUTABLE', 'checks': results,
+          'read_unchanged': True, 'write_restored_on_fixture': True}
+(ROOT / 'evidence/file-fence-probe.json').write_text(json.dumps(report, indent=2))
+print(json.dumps(report, indent=2))

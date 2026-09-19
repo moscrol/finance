@@ -1,0 +1,79 @@
+FF                                                                       [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T144708Z-b0aedc89.json
+
+=================================== FAILURES ===================================
+____ test_completed_run_waits_for_artifact_delivery_without_blocking_cancel ____
+
+client = <starlette.testclient.TestClient object at 0x10ce6d790>
+
+    def test_completed_run_waits_for_artifact_delivery_without_blocking_cancel(
+        client: TestClient,
+    ) -> None:
+        store = RunStore()
+        supervisor = client.app.state.supervisor
+        claimed = threading.Event()
+        release = threading.Event()
+        run = store.create_run("delayed delivery", "ask")
+    
+        def runner(_signal) -> None:
+            store.finish_run(run.run_id, rs.STATUS_COMPLETED)
+            claimed.set()
+            assert release.wait(5), "test did not release artifact writer"
+            store.add_artifact(
+                run.run_id, "report.json", '{}',
+                renderer="structured_report", title="结构化对话报告",
+            )
+            store.append_stream_event(
+                run.run_id, event_id="report:complete", event_type="report.complete",
+                payload={"report": {"status": "completed"}},
+            )
+    
+        supervisor._submit(store, run.run_id, runner)
+        with supervisor._lock:
+            future = supervisor._futures[(store.user_id, run.run_id)]
+        try:
+            assert claimed.wait(5)
+            pending = client.get(f"/api/runs/{run.run_id}").json()
+            assert pending["status"] == "completed"
+>           assert pending.get("delivery_pending") is True
+E           AssertionError: assert None is True
+E            +  where None = <built-in method get of dict object at 0x10ceb1800>('delivery_pending')
+E            +    where <built-in method get of dict object at 0x10ceb1800> = {'artifacts': [], 'created_at': '2026-09-18T22:47:07+08:00', 'degrades': [], 'duckdb_cutoff': None, ...}.get
+
+intelligence/tests/test_workbench_api.py:2968: AssertionError
+_____________ test_sse_drains_delivery_events_before_terminal_run ______________
+
+client = <starlette.testclient.TestClient object at 0x10d57fb00>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10cebbce0>
+
+    def test_sse_drains_delivery_events_before_terminal_run(
+        client: TestClient, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        store = RunStore()
+        run = store.create_run("delivery crossing poll boundary", "ask")
+        store.finish_run(run.run_id, rs.STATUS_COMPLETED)
+        original = RunStore.load_stream_events
+        calls = 0
+    
+        def events_then_publish(self, run_id, *, after=0):
+            nonlocal calls
+            events = original(self, run_id, after=after)
+            if run_id == run.run_id:
+                calls += 1
+                if calls == 1:
+                    # Writer finishes AFTER this poll's event snapshot, BEFORE load_run.
+                    self.append_stream_event(
+                        run_id, event_id="report:complete", event_type="report.complete",
+                        payload={"report": {"status": "completed"}},
+                    )
+            return events
+    
+        monkeypatch.setattr(RunStore, "load_stream_events", events_then_publish)
+        body = client.get(f"/api/runs/{run.run_id}/events").text
+>       assert "event: report.complete" in body
+E       assert 'event: report.complete' in 'event: run\ndata: {"run_id": "run_20260918_224707_890090", "user": "default", "question": "delivery crossing poll bou...reshness": null, "manifest_ref": null, "degrades": [], "error": null, "artifacts": [], "maintenance_launch": null}\n\n'
+
+intelligence/tests/test_workbench_api.py:3027: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_workbench_api.py::test_completed_run_waits_for_artifact_delivery_without_blocking_cancel
+FAILED intelligence/tests/test_workbench_api.py::test_sse_drains_delivery_events_before_terminal_run
+2 failed, 108 deselected in 5.42s

@@ -1,0 +1,4 @@
+[info] skipped 27 synthetic provenance sources (baseline/apply-batch/IMA/theme-radar/disc/info-pool/DeepDive)
+[warn] entity_exposures 有 28 条链接缺 evidence_layer（0.1%）
+[warn] entity_exposures 有 28 条链接缺 fact_hardness（0.1%）
+检查完成: 0 错误 / 2 告警 (vault=/Users/a77/.finance-runtime/kb-code-23b4f5e4e1ac/wiki)

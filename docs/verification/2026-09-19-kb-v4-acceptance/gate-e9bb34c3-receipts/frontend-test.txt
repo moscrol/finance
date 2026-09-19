@@ -1,0 +1,21 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/.finance-runtime/kb-dual-index-20260918/gate-e9bb34c3/finance-workspace-private/intelligence/webapp
+> vitest run
+
+
+ RUN  v3.2.4 /Users/a77/.finance-runtime/kb-dual-index-20260918/gate-e9bb34c3/finance-workspace-private/intelligence/webapp
+
+ ✓ src/researchActivity.test.ts (2 tests) 6ms
+ ✓ src/api.test.ts (3 tests) 11ms
+ ✓ src/streamEventRegistry.test.ts (2 tests) 7ms
+ ✓ src/components/ResearchActivityControl.test.tsx (5 tests) 221ms
+ ✓ src/components/ResearchProjectPanel.test.tsx (5 tests) 181ms
+ ✓ src/components/DailyReportView.test.tsx (4 tests) 239ms
+ ✓ src/components/ResearchEvolutionPanel.test.tsx (18 tests) 420ms
+ ✓ src/components/components.test.tsx (71 tests) 2011ms
+
+ Test Files  8 passed (8)
+      Tests  110 passed (110)
+   Start at  22:59:16
+   Duration  3.91s (transform 986ms, setup 2.65s, collect 2.19s, tests 3.09s, environment 4.33s, prepare 620ms)
+

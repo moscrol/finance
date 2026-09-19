@@ -1,0 +1,65 @@
+{
+  "observed_at": "2026-09-18T14:23:18.127220+00:00",
+  "user_authorized_coordination": true,
+  "prior_cursor_attribution": "incorrect; shell marker was insufficient",
+  "former_writer_parent_processes": [
+    "22475 30493 Thu Sep 17 13:31:38 2026     /Applications/Grok Bot.app/Contents/MacOS/Grok Bot /Applications/Grok Bot.app/Contents/Resources/app.asar/dist/local-exec-daemon/main.cjs",
+    "30493     1 Wed Sep 16 17:52:32 2026     /Applications/Grok Bot.app/Contents/MacOS/Grok Bot"
+  ],
+  "former_writer_pids": [
+    41444,
+    41453,
+    41455
+  ],
+  "former_writer_pids_now_present": [],
+  "completed_publish_logs": [
+    {
+      "path": "/Users/a77/knowledge-base-private/logs/rag-publish-day-20260918-212318.log",
+      "sha256": "c08f30c90231722d57f6cf1c46811821ec279a3a13e55710ed051e342fa19531",
+      "publication_receipt_lines": [
+        "[publish] OK a77/knowledge-base-private@rag-index-20260918 (rag-index-20260918.tar.gz, 531.1 MB)",
+        "http://localhost:3300/a77/knowledge-base-private/releases/tag/rag-index-20260918",
+        "=== END 2026-09-18 21:24:45 CST exit=0 ==="
+      ]
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/logs/rag-publish-full-20260918-212456.log",
+      "sha256": "dbe5a96920b0df5252fa6f52a0eb8aa736e2106584ebb840269e0acdcc9f746e",
+      "publication_receipt_lines": [
+        "[publish] OK a77/knowledge-base-private@rag-index-full-latest (rag-index-full-latest.tar.gz, 756.2 MB)",
+        "http://localhost:3300/a77/knowledge-base-private/releases/tag/rag-index-full-latest",
+        "=== END 2026-09-18 22:04:53 CST exit=0 ==="
+      ]
+    }
+  ],
+  "current_index_writer_processes": [
+    "41233 40354 Fri Sep 18 21:24:27 2026     /opt/homebrew/Cellar/python@3.14/3.14.5/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/a77/.finance-runtime/kb-code-91725ea9ba02/scripts/rag_index.py update"
+  ],
+  "processes_stopped_by_this_session": [],
+  "fence": "production-file-fence.json",
+  "protected_scope": "two local index directories and all 24 files; not Gitea assets",
+  "gate_revision": "d95d4921b0a774a2f0de3266e69d9bcd78e2cfc0",
+  "gate_exits": {
+    "all": 1,
+    "e2e": 1,
+    "finance-pytest": 0,
+    "finance-ruff": 0,
+    "frontend-build": 0,
+    "frontend-install": 0,
+    "frontend-lint": 0,
+    "frontend-test": 0,
+    "frontend-typecheck": 0,
+    "registry-check": 0,
+    "registry-ledger": 0,
+    "registry-parseability": 0,
+    "registry-tables": 0,
+    "registry-views": 0
+  },
+  "promotion_allowed": false,
+  "remaining_blockers": [
+    "full migration not finished",
+    "browser E2E 3 failed",
+    "new code unmerged",
+    "no migrated-index consumer acceptance"
+  ]
+}

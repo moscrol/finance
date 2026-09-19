@@ -31,6 +31,15 @@
 
 编码任务「仓库里有没有现成实现」走 `python3 scripts/code_map.py query "<问题>"`，不是本页，也不是问答门。空图不得写成架构结论。
 
+### Workbench 终态与交付
+
+`Run.status` 是终态仲裁结果，不保证随后写入的报告已齐。单进程执行器在
+`GET /api/runs` / `GET /api/runs/{id}` 投影 `delivery_pending`：已 completed
+但执行器仍在收尾时为 true；UI 继续轮询/接收 SSE（服务器推送事件），恢复会话亦然。
+执行器退出后再取 run 快照，SSE 排空尾部事件才发最终 `run`。取消/失败不等待
+不合作的 worker。它不修改持久化状态机，不是跨进程交付协议；多 worker 前须替换。
+同会话新消息也使旧加载代际失效，迟到的上一轮快照不得抹掉新追问。
+
 ### 专项研究纪律（Knevo 增量，2026-09-17 已合 main）
 
 `research_workflow_guidance.workflow_guidance` 给财报、事件推演、观点审查、事实核对、历史类比
@@ -307,6 +316,28 @@ A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结
 | Workbench `app.py` `_run_ask` | 直接 `AskOptions` + `answer_query`，走 run/store | 否，UI 合同 |
 
 问金融问题走上一节 CLI `ask`；问「仓库里有没有现成实现」走 `python3 scripts/code_map.py query`。仓库里没有第四套 Python `answer_door`。真浅的若还要收，是删掉 `AskWorkflowOptions` 那次字段拷贝，不是再加转发。
+
+### 知识库证据过滤（2026-09-18 已合 main，未部署）
+
+`kb_rag.retrieve` 消费知识库 query 的 `--receipt`（实际执行条件回执）。请求了等级、
+硬度、来源或 `as_of` 时，必须核对封套、逐条元数据与可得日；缺回执/旧 CLI 不支持即
+不交付该次 W 证据，不删除约束后冒充成功。`filters` 保留请求值，`applied_filters` 与
+`filter_verification` 才表示已核验执行；旧索引元数据待迁移的空命中不等于没有事实。
+有过滤的块不再被金融端原页重摘录、整节深读或 stale 恢复替换，避免新正文继承旧等级。
+无过滤查询保留旧列表兼容与现有深读；本次不宣称该路径的等级/时点已核验。
+回执结果不复用未绑定源文件状态的结果缓存（模型/索引常驻缓存仍保留）。
+负能力缓存与 worker 都绑定 CLI/RAG 包的内容指纹；代码变更先结束旧进程，响应再核对
+加载身份，查询中途变化则丢弃结果。发布仍需不可变检出与服务重启，不支持逐文件热部署。
+部署可用 `KB_RAG_CODE_ROOT` 将预热、能力探测、CLI 与常驻 worker 统一绑定到冻结的 KB
+代码检出；资料仍由 `kb_wiki` / `KNOWLEDGE_WIKI` 决定。普通索引走原 `RAG_INDEX_DIR` /
+`VECTOR_INDEX_DIR`，全文模式的 `.rag_index_full` 可由 `KB_RAG_FULL_INDEX_DIR` 绑定到同代
+全文索引；配置目录不存在就拒绝，不回退资料树中的旧全文索引。其他显式索引路径保持原意。
+显式 `retrieve(code_root=...)` 优先于环境配置；指定代码根失效就拒绝，不回退旧资料树代码。
+worker 的资料根按调用参数传递且纳入进程复用键，不继承无关的 `KB_VAULT`；未配置代码根
+保持原目录约定。这是候选部署接线，不代表生产已经切换。
+这只是检索积木的协议：未给所有产品问句自动加截至日期，也不代表生产索引已迁移。
+跨仓合同见 `docs/handoffs/2026-09-18-kb-filter-receipt.md`；金融 #784 / KB #151 已合入，
+合并验收与生产边界见 `docs/handoffs/2026-09-18-kb-retrieval-merge-acceptance.md`。部署与索引迁移另行。
 
 ## 积木（常见误判）
 

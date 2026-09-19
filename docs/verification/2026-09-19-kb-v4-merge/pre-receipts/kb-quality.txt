@@ -1,0 +1,91 @@
+
+QUALITY GATE: NO REGRESSION（仍有历史债务；不得表述为质量良好）
+{
+  "generated": "2026-09-19",
+  "passed": true,
+  "quality_status": "no_regression_with_debt",
+  "quality_claim": "无回归（仍有历史债务）",
+  "baseline_policy": "no_regression",
+  "historical_debt": {
+    "missing_provenance": 3135,
+    "unknown_enum": 5622,
+    "core_l1_graph_only": 6,
+    "overlimit_raw": 7,
+    "missing_wikilinks": 3326,
+    "annual_fragment_claims": 109
+  },
+  "config_error": false,
+  "missing_baseline_keys": [],
+  "metrics": {
+    "missing_provenance": 3135,
+    "unknown_enum": 5622,
+    "core_l1_graph_only": 6,
+    "overlimit_raw": 7,
+    "missing_wikilinks": 3326,
+    "annual_fragment_claims": 109,
+    "annual_risk_boilerplate_claims": 0,
+    "annual_metric_misattr_pages": 0
+  },
+  "baseline": {
+    "missing_provenance": 3135,
+    "unknown_enum": 5622,
+    "core_l1_graph_only": 6,
+    "overlimit_raw": 7,
+    "missing_wikilinks": 3326,
+    "annual_fragment_claims": 109,
+    "annual_risk_boilerplate_claims": 0,
+    "annual_metric_misattr_pages": 0
+  },
+  "results": {
+    "missing_provenance": {
+      "current": 3135,
+      "baseline": 3135,
+      "status": "unchanged"
+    },
+    "unknown_enum": {
+      "current": 5622,
+      "baseline": 5622,
+      "status": "unchanged"
+    },
+    "core_l1_graph_only": {
+      "current": 6,
+      "baseline": 6,
+      "status": "unchanged"
+    },
+    "overlimit_raw": {
+      "current": 7,
+      "baseline": 7,
+      "status": "unchanged"
+    },
+    "missing_wikilinks": {
+      "current": 3326,
+      "baseline": 3326,
+      "status": "unchanged"
+    },
+    "annual_fragment_claims": {
+      "current": 109,
+      "baseline": 109,
+      "status": "unchanged"
+    },
+    "annual_risk_boilerplate_claims": {
+      "current": 0,
+      "baseline": 0,
+      "status": "unchanged"
+    },
+    "annual_metric_misattr_pages": {
+      "current": 0,
+      "baseline": 0,
+      "status": "unchanged"
+    }
+  },
+  "gated_metrics": [
+    "missing_provenance",
+    "unknown_enum",
+    "core_l1_graph_only",
+    "overlimit_raw",
+    "missing_wikilinks",
+    "annual_fragment_claims",
+    "annual_risk_boilerplate_claims",
+    "annual_metric_misattr_pages"
+  ]
+}
