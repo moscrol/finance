@@ -1,0 +1,9 @@
+tree=/Users/a77/fwp-q-research-data-readiness revision=d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b started=2026-09-19 10:44:39
+ruff_exit=0
+pytest_exit=0
+finished=2026-09-19 10:52:07
+  /Users/a77/fwp-q-research-data-readiness/market_feature_store/sync/sync_fupanhui_mainline_sector_daily.py:121: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+11681 passed, 85 skipped, 2 xfailed, 17 warnings in 446.29s (0:07:26)

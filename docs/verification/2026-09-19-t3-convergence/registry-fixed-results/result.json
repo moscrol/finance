@@ -1,0 +1,58 @@
+{
+  "root": "/Users/a77/.finance-runtime/convergence-20260919/registry-pinned/finance-workspace-private",
+  "pins": "../registry-pins.json",
+  "checks": [
+    {
+      "name": "parseability",
+      "exit_code": 0,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ]
+    },
+    {
+      "name": "check",
+      "exit_code": 0,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ]
+    },
+    {
+      "name": "tables",
+      "exit_code": 0,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ]
+    },
+    {
+      "name": "views",
+      "exit_code": 0,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ]
+    },
+    {
+      "name": "ledger",
+      "exit_code": 0,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ]
+    }
+  ],
+  "status_after": {
+    "finance-workspace-private": "",
+    "knowledge-base-private": "",
+    "finance-research-site": ""
+  },
+  "passed": true
+}
