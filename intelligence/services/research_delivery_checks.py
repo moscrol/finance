@@ -139,7 +139,10 @@ _RATIO_NAME = re.compile(
 )
 # A grouped decimal is one token: don't scan the prefix of 1,234.56 as 1.
 _NUMBER = r"[-+]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?"
-_RATIO_UNIT = r"元\s*[/／]\s*元|个百分点|%|倍"
+# Basis points are an explicit unit of the value slot: recognize them so a
+# wrong "158.7bp" is compared, not silently skipped as an unknown suffix.
+_RATIO_UNIT = r"元\s*[/／]\s*元|个百分点|[bB][pP]|基点|%|倍"
+_BASIS_POINTS = re.compile(r"[bB][pP]|基点")
 _NUMBER_CELL = re.compile(rf"^\s*({_NUMBER})\s*({_RATIO_UNIT})?\s*$")
 
 
@@ -164,6 +167,9 @@ def _display_matches(raw: str, value: float, unit: str = "") -> bool:
     """Only declared precision rounding; not a tolerance over arbitrary numbers."""
     # Percentage points describe a difference, never an absolute OCF/profit ratio.
     if unit == "个百分点":
+        return False
+    # Basis points quote a spread or a change; no scalar in them is the level.
+    if _BASIS_POINTS.fullmatch(unit):
         return False
     try:
         displayed = Decimal(raw.replace(",", ""))
@@ -230,15 +236,22 @@ def _prose_value_finding(
     return DeliveryFinding(offset + raw_start, offset + raw_end, code, "待核对" + marks)
 
 
-_VALUE_PREFIX = r"\s*(?:实际为|该值为|本期为|比率为|分别为|为|是|=|：|:)?\s*"
+# One finite list of same-ratio continuation labels; the value prefix and the
+# clause joiner derive from it so "该比率为" cannot be joined but not consumed.
+_CONTINUATION_LABEL = r"(?:实际|该值|本期|该比率|比率)为"
+_VALUE_PREFIX = rf"\s*(?:{_CONTINUATION_LABEL}|分别为|为|是|=|：|:)?\s*"
 _PROSE_NUMBER = re.compile(rf"{_VALUE_PREFIX}({_NUMBER})\s*({_RATIO_UNIT})?")
 _WITHHELD_SLOT = re.compile(rf"{_VALUE_PREFIX}待核对")
-_CONTINUATION_LABEL = r"(?:实际|该值|本期|比率)为"
 _VALUE_CONTINUATION = re.compile(rf"\s*[,，；;]\s*(?={_CONTINUATION_LABEL})")
 # Only explicit same-ratio continuations inherit across a semicolon. Do not
 # widen disclosure detection or join independent sentences/paragraphs.
 _RATIO_CLAUSE = re.compile(rf"[^。！？；;\n]+(?:[；;]\s*(?=[*`]*{_CONTINUATION_LABEL})[^。！？；;\n]+)*[。！？；;]?")
-_NON_RATIO_SUFFIX = re.compile(r"\s*(?:年|中报|年报|季|半年|H1|Q[1-4]|月|日|天|亿|万|元|家|人|名|位|次|项|个|百分点|bp)", re.I)
+_NON_RATIO_SUFFIX = re.compile(r"\s*(?:年|中报|年报|季|半年|H1|Q[1-4]|月|日|天|亿|万|元|家|人|名|位|次|项|个|百分点)", re.I)
+# An explicitly labeled sample/count is its own fact, not an unlocated ratio.
+_COUNT_LABEL = re.compile(
+    r"(?:样本量|样本数|样本容量|数量|家数|只数|个数|次数|人数|笔数|条数|户数|份数|期数|天数|数目)"
+    r"\s*[Nn]?\s*(?:为|是|约|达|=|：|:)?\s*$"
+)
 _UNLOCATED_RATIO_MARK = "〔比率对应关系待核对〕"
 
 
@@ -338,7 +351,12 @@ def _has_unlocated_ratio_number(residual: str) -> bool:
                               residual[:number.start()])
             if unit[1] == "个百分点" and delta:
                 continue
+            # "同比增长12%" / "同比增加15bp" state a change rate, not the level.
+            if delta and (unit[1] == "%" or _BASIS_POINTS.fullmatch(unit[1])):
+                continue
             return True
+        if _COUNT_LABEL.search(residual[:number.start()]):
+            continue
         if not _NON_RATIO_SUFFIX.match(residual, number.end()):
             return True
     return False
@@ -351,7 +369,8 @@ def _unlocated_ratio_finding(raw: str, period_start: int, *, offset: int) -> Del
     if wrapper:
         insertion -= len(wrapper.group())
     # The marker belongs to this period only, never to all the clause's facts.
-    marked = raw[:insertion].rstrip().endswith(_UNLOCATED_RATIO_MARK)
+    # A Markdown-wrapped marker is still the marker: never insert a second one.
+    marked = re.sub(r"[*`]+", "", raw[:insertion]).rstrip().endswith(_UNLOCATED_RATIO_MARK)
     return DeliveryFinding(offset + insertion, offset + insertion, "calculation_value_unlocated",
                            "" if marked else _UNLOCATED_RATIO_MARK)
 

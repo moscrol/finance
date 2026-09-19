@@ -320,5 +320,47 @@
     "old": "            if unit[1] == \"个百分点\" and delta:",
     "new": "            if False and unit[1] == \"个百分点\" and delta:",
     "targets": ["test_independent_numeric_roles_survive_without_waiving_ratio"]
+  },
+  {
+    "id": "ratio-percent-delta-is-growth-rate",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "            if delta and (unit[1] == \"%\" or _BASIS_POINTS.fullmatch(unit[1])):",
+    "new": "            if False and delta and (unit[1] == \"%\" or _BASIS_POINTS.fullmatch(unit[1])):",
+    "targets": ["test_labeled_change_rates_are_not_ratio_levels", "test_review_lead_cases_through_public_exit"]
+  },
+  {
+    "id": "ratio-count-label-not-value",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "        if _COUNT_LABEL.search(residual[:number.start()]):",
+    "new": "        if False and _COUNT_LABEL.search(residual[:number.start()]):",
+    "targets": ["test_labeled_counts_are_not_ratio_levels", "test_review_lead_cases_through_public_exit"]
+  },
+  {
+    "id": "ratio-basis-points-not-absolute",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    if _BASIS_POINTS.fullmatch(unit):",
+    "new": "    if False and _BASIS_POINTS.fullmatch(unit):",
+    "targets": ["test_basis_points_cannot_certify_absolute_ratio", "test_table_units_use_the_same_dimension_contract"]
+  },
+  {
+    "id": "ratio-basis-points-are-a-unit",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "_RATIO_UNIT = r\"元\\s*[/／]\\s*元|个百分点|[bB][pP]|基点|%|倍\"",
+    "new": "_RATIO_UNIT = r\"元\\s*[/／]\\s*元|个百分点|%|倍\"",
+    "targets": ["test_basis_points_cannot_certify_absolute_ratio", "test_labeled_change_rates_are_not_ratio_levels", "test_table_units_use_the_same_dimension_contract"]
+  },
+  {
+    "id": "ratio-anaphoric-continuation-label",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "_CONTINUATION_LABEL = r\"(?:实际|该值|本期|该比率|比率)为\"",
+    "new": "_CONTINUATION_LABEL = r\"(?:实际|该值|本期|比率)为\"",
+    "targets": ["test_anaphoric_ratio_continuation_checks_its_value", "test_review_lead_cases_through_public_exit"]
+  },
+  {
+    "id": "ratio-marker-recognized-through-markup",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    marked = re.sub(r\"[*`]+\", \"\", raw[:insertion]).rstrip().endswith(_UNLOCATED_RATIO_MARK)",
+    "new": "    marked = raw[:insertion].rstrip().endswith(_UNLOCATED_RATIO_MARK)",
+    "targets": ["test_formatted_marker_still_unverified_but_not_duplicated", "test_formatted_marker_wrong_value_withheld_with_one_marker"]
   }
 ]
