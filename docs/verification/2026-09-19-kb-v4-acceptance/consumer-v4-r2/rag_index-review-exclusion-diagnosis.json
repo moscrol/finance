@@ -1,0 +1,117 @@
+{
+  "counts": {
+    "L2_asof_eligible": 17412
+  },
+  "rejected_L3_Haiou": [
+    {
+      "id": "wiki/sources/海鸥股份_L3官方证据_20260901.md::0",
+      "evidence_layer": "L3",
+      "fact_hardness": "hard_fact_candidate",
+      "review_required": "true",
+      "available_time": "2026-09-01"
+    },
+    {
+      "id": "wiki/sources/海鸥股份_L3官方证据_20260901.md::1",
+      "evidence_layer": "L3",
+      "fact_hardness": "hard_fact_candidate",
+      "review_required": "true",
+      "available_time": "2026-09-01"
+    },
+    {
+      "id": "wiki/sources/海鸥股份_L3官方证据_20260901.md::2",
+      "evidence_layer": "L3",
+      "fact_hardness": "hard_fact_candidate",
+      "review_required": "true",
+      "available_time": "2026-09-01"
+    },
+    {
+      "id": "wiki/sources/海鸥股份_L3官方证据_20260901.md::3",
+      "evidence_layer": "L3",
+      "fact_hardness": "hard_fact_candidate",
+      "review_required": "true",
+      "available_time": "2026-09-01"
+    }
+  ],
+  "alternative_positive_samples": [
+    {
+      "id": "wiki/sources/GQY视讯 2025年年度报告 baseline 2026-04-29.md::0",
+      "title": "GQY视讯 2025年年度报告 baseline 2026-04-29",
+      "section": "GQY视讯 2025年年度报告 baseline 2026-04-29",
+      "evidence_layer": "L2",
+      "fact_hardness": "baseline",
+      "review_required": "",
+      "available_time": "2026-07-02",
+      "publish_time": "2026-04-29"
+    },
+    {
+      "id": "wiki/sources/GQY视讯 2025年年度报告 baseline 2026-04-29.md::1",
+      "title": "GQY视讯 2025年年度报告 baseline 2026-04-29",
+      "section": "GQY视讯 2025年年度报告 baseline 2026-04-29 > Source 分类",
+      "evidence_layer": "L2",
+      "fact_hardness": "baseline",
+      "review_required": "",
+      "available_time": "2026-07-02",
+      "publish_time": "2026-04-29"
+    },
+    {
+      "id": "wiki/sources/GQY视讯 2025年年度报告 baseline 2026-04-29.md::2",
+      "title": "GQY视讯 2025年年度报告 baseline 2026-04-29",
+      "section": "GQY视讯 2025年年度报告 baseline 2026-04-29 > Raw / Manifest Trace",
+      "evidence_layer": "L2",
+      "fact_hardness": "baseline",
+      "review_required": "",
+      "available_time": "2026-07-02",
+      "publish_time": "2026-04-29"
+    },
+    {
+      "id": "wiki/sources/GQY视讯 2025年年度报告 baseline 2026-04-29.md::3",
+      "title": "GQY视讯 2025年年度报告 baseline 2026-04-29",
+      "section": "GQY视讯 2025年年度报告 baseline 2026-04-29 > 使用口径",
+      "evidence_layer": "L2",
+      "fact_hardness": "baseline",
+      "review_required": "",
+      "available_time": "2026-07-02",
+      "publish_time": "2026-04-29"
+    },
+    {
+      "id": "wiki/sources/TCL中环 2025年度报告 baseline 2026-03-25.md::0",
+      "title": "TCL中环 2025年度报告 baseline 2026-03-25",
+      "section": "TCL中环 2025年度报告 baseline 2026-03-25",
+      "evidence_layer": "L2",
+      "fact_hardness": "baseline",
+      "review_required": "",
+      "available_time": "2026-03-25",
+      "publish_time": "2026-03-25"
+    },
+    {
+      "id": "wiki/sources/TCL中环 2025年度报告 baseline 2026-03-25.md::1",
+      "title": "TCL中环 2025年度报告 baseline 2026-03-25",
+      "section": "TCL中环 2025年度报告 baseline 2026-03-25 > Source 分类",
+      "evidence_layer": "L2",
+      "fact_hardness": "baseline",
+      "review_required": "",
+      "available_time": "2026-03-25",
+      "publish_time": "2026-03-25"
+    },
+    {
+      "id": "wiki/sources/TCL中环 2025年度报告 baseline 2026-03-25.md::2",
+      "title": "TCL中环 2025年度报告 baseline 2026-03-25",
+      "section": "TCL中环 2025年度报告 baseline 2026-03-25 > Raw / Manifest Trace",
+      "evidence_layer": "L2",
+      "fact_hardness": "baseline",
+      "review_required": "",
+      "available_time": "2026-03-25",
+      "publish_time": "2026-03-25"
+    },
+    {
+      "id": "wiki/sources/TCL中环 2025年度报告 baseline 2026-03-25.md::3",
+      "title": "TCL中环 2025年度报告 baseline 2026-03-25",
+      "section": "TCL中环 2025年度报告 baseline 2026-03-25 > 使用口径",
+      "evidence_layer": "L2",
+      "fact_hardness": "baseline",
+      "review_required": "",
+      "available_time": "2026-03-25",
+      "publish_time": "2026-03-25"
+    }
+  ]
+}

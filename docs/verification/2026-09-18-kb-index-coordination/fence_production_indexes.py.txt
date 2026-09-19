@@ -1,0 +1,144 @@
+"""One-window macOS write fence for this deployment's two local index targets.
+
+Preserves exact flags/inodes and bytes in a durable journal BEFORE applying.
+Does not replace indexes, alter source files, stop services, or publish releases.
+Restoring requires the specific journal path, plus --restore-original-flags.
+The flag is reversible by the owner: this is an accidental-writer fence, not a
+security boundary against a writer that deliberately clears UF_IMMUTABLE.
+"""
+import argparse
+import datetime as dt
+import hashlib
+import json
+import os
+from pathlib import Path
+import stat
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+KB = Path.home() / 'knowledge-base-private'
+TARGETS = [KB / '.rag_index', KB / '.rag_index_full']
+JOURNAL = ROOT / 'evidence/production-file-fence.json'
+
+
+def now():
+    return dt.datetime.now(dt.timezone.utc).isoformat()
+
+
+def digest(path):
+    with path.open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def write_journal(data):
+    temporary = JOURNAL.with_suffix('.tmp')
+    with temporary.open('w') as stream:
+        json.dump(data, stream, indent=2, ensure_ascii=False)
+        stream.write('\n')
+        stream.flush()
+        os.fsync(stream.fileno())
+    temporary.replace(JOURNAL)
+
+
+def paths():
+    result = []
+    for target in TARGETS:
+        assert target.is_dir() and not target.is_symlink(), target
+        result.append(target)
+        for p in sorted(target.iterdir()):
+            assert p.is_file() and not p.is_symlink(), p
+            assert not p.name.endswith('.tmp'), f'incomplete writer: {p}'
+            result.append(p)
+    return result
+
+
+def snapshot():
+    entries = []
+    for p in paths():
+        info = p.stat()
+        entries.append({'path': str(p), 'flags': info.st_flags,
+                        'device': info.st_dev, 'inode': info.st_ino,
+                        'size': info.st_size, 'mtime_ns': info.st_mtime_ns,
+                        'sha256': digest(p) if p.is_file() else None})
+    return entries
+
+
+def verify_identity(item):
+    p = Path(item['path'])
+    assert p in paths(), f'not an allowed target: {p}'
+    info = p.stat()
+    assert (info.st_dev, info.st_ino) == (item['device'], item['inode']), f'replaced: {p}'
+    assert info.st_size == item['size'] and info.st_mtime_ns == item['mtime_ns'], f'changed: {p}'
+    return p, info
+
+
+def apply():
+    assert not JOURNAL.exists(), 'journal already exists; inspect, never overwrite'
+    probe = json.loads((ROOT / 'evidence/file-fence-probe.json').read_text())
+    assert probe['status'] == 'pass'
+    # Directory recursion is cheap here (12 regular files in each, no symlinks).
+    opened = subprocess.run(['lsof', '-nP', '+D', str(TARGETS[0]), '+D', str(TARGETS[1])],
+                            capture_output=True, text=True, timeout=30)
+    assert not opened.stderr.strip(), opened.stderr
+    assert opened.returncode in (0, 1), opened
+    # Refuse an active writer; readers and read-only mmap entries are fine.
+    open_lines = opened.stdout.splitlines()
+    writers = [line for line in open_lines[1:]
+               if len(line.split()) >= 4 and line.split()[3].endswith(('w', 'u'))]
+    assert not writers, writers
+    entries = snapshot()
+    data = {'started_at': now(), 'status': 'prepared', 'mechanism': 'UF_IMMUTABLE',
+            'scope': 'two local index directories and their files; not remote releases',
+            'entries': entries, 'open_file_snapshot': open_lines, 'applied': []}
+    write_journal(data)
+    try:
+        # Freeze directory entries first, then their already-openable file bytes.
+        # The final fingerprint validation catches any last in-flight writer.
+        for item in entries:
+            p, info = verify_identity(item)
+            assert info.st_flags == item['flags'], f'flags changed: {p}'
+            os.chflags(p, info.st_flags | stat.UF_IMMUTABLE)
+            data['applied'].append(str(p))
+            write_journal(data)
+        for item in entries:
+            p, info = verify_identity(item)
+            assert info.st_flags == item['flags'] | stat.UF_IMMUTABLE
+            if item['sha256']:
+                assert digest(p) == item['sha256'], f'concurrent content changed: {p}'
+        data.update(status='fenced', completed_at=now(), files=sum(bool(i['sha256']) for i in entries))
+        write_journal(data)
+    except BaseException as exc:
+        data.update(status='incomplete_inspect_before_restore', error=str(exc))
+        write_journal(data)
+        raise
+    print(json.dumps({k: data[k] for k in ('status', 'scope', 'files', 'completed_at')}))
+
+
+def restore(journal):
+    assert Path(journal).resolve() == JOURNAL.resolve(), 'wrong journal'
+    data = json.loads(JOURNAL.read_text())
+    assert data['status'] in ('fenced', 'incomplete_inspect_before_restore')
+    # Preflight every identity before changing anything.
+    items = [i for i in data['entries'] if i['path'] in data['applied']]
+    for item in items:
+        p, info = verify_identity(item)
+        assert info.st_flags == item['flags'] | stat.UF_IMMUTABLE
+        if item['sha256']:
+            assert digest(p) == item['sha256']
+    for item in reversed(items):
+        os.chflags(item['path'], item['flags'])
+    data.update(status='restored', restored_at=now())
+    write_journal(data)
+    print('Original flags restored. Post-* maintenance hooks are still paused.')
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--apply', action='store_true')
+    parser.add_argument('--restore-original-flags', metavar='JOURNAL')
+    args = parser.parse_args()
+    assert bool(args.apply) != bool(args.restore_original_flags), 'select exactly one action'
+    if args.apply:
+        apply()
+    else:
+        restore(args.restore_original_flags)

@@ -11,6 +11,9 @@ import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from intelligence.services.kb_code_identity import code_identity
 
 
 @dataclass(frozen=True)
@@ -91,11 +94,16 @@ def _process_rss_bytes(pid: int | None) -> int | None:
 
 
 class PersistentRagWorker:
-    def __init__(self, python: str, kb_root: Path, index_dir: Path) -> None:
+    def __init__(
+        self, python: str, kb_root: Path, index_dir: Path, kb_wiki: Path | None = None,
+    ) -> None:
         self.python = python
         self.kb_root = kb_root
         self.index_dir = index_dir
+        self.kb_wiki = kb_wiki.resolve() if kb_wiki is not None else None
         self._process: subprocess.Popen[str] | None = None
+        self._code_identity = ""
+        self._pycache: TemporaryDirectory | None = None
         self._lock = threading.Lock()
         self.model_load_count = 0
         self._state = "cold"
@@ -292,14 +300,25 @@ class PersistentRagWorker:
                 continue
 
     def _ensure_process(self) -> subprocess.Popen[str]:
-        if self._process is not None and self._process.poll() is None:
+        identity = code_identity(self.kb_root)
+        if self.healthy() and self._code_identity == identity:
             return self._process
+        # 每个 worker 自己持锁换代，不在全局注册表锁里杀进程/加载模型。
+        self._stop_process()
+        self.model_load_count = 0
+        self._abandoned.clear()
+        self._consecutive_timeouts = 0
+        self._state = "cold"
+        self._code_identity = identity
         script = Path(__file__).resolve().parents[2] / "scripts" / "rag_query_worker.py"
         # 与 kb_rag 直跑 subprocess 的 env 保持一致：模型已缓存时离线加载（省掉
         # 一次零收益的 HF Hub 往返），并静音 391 分片的 tqdm 进度条——否则进度条
         # 会被 redirect_stderr 收进 payload，让「stderr 非空」这个信号永远为真。
         # 这里用 setdefault，外部显式设置仍然优先。
         env = dict(os.environ)
+        if self.kb_wiki is not None:
+            # Bind the actual data argument, not an unrelated ambient KB_VAULT.
+            env["KB_VAULT"] = str(self.kb_wiki)
         for key, value in (
             ("HF_HUB_OFFLINE", "1"),
             ("TRANSFORMERS_OFFLINE", "1"),
@@ -308,6 +327,11 @@ class PersistentRagWorker:
             ("TQDM_DISABLE", "1"),
         ):
             env.setdefault(key, value)
+        # CPython 的旧 pyc 可仅按 mtime+size 命中；内容变了也可能继续加载旧字节码。
+        # 私有空前缀 + 不写字节码保证新进程读源文件，不删除共享仓的缓存。
+        self._pycache = TemporaryDirectory(prefix="rag-worker-pycache-")
+        env["PYTHONPYCACHEPREFIX"] = self._pycache.name
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
         self._process = subprocess.Popen(
             [
                 self.python,
@@ -363,6 +387,10 @@ class PersistentRagWorker:
                 if response_id != request_id:
                     self._stop_process()
                     raise RuntimeError("rag worker response id mismatch")
+                if (payload.get("code_identity") != self._code_identity
+                        or code_identity(self.kb_root) != self._code_identity):
+                    self._stop_process()
+                    raise RuntimeError("rag worker code changed; discard response and restart")
                 break
         finally:
             selector.close()
@@ -462,17 +490,19 @@ class PersistentRagWorker:
     def _stop_process(self) -> None:
         process = self._process
         self._process = None
-        if process is None or process.poll() is not None:
-            return
-        process.terminate()
-        try:
-            process.wait(timeout=2)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=2)
+        if process is not None and process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=2)
+        pycache, self._pycache = self._pycache, None
+        if pycache is not None:
+            pycache.cleanup()
 
 
-_WORKERS: dict[tuple[str, str, str], PersistentRagWorker] = {}
+_WORKERS: dict[tuple[str, str, str, str], PersistentRagWorker] = {}
 _WORKERS_LOCK = threading.Lock()
 _STARTUP_FAILURE_TYPE: str | None = None
 
@@ -490,12 +520,14 @@ def _worker_for(
     python: str,
     kb_root: Path,
     index_dir: Path,
+    kb_wiki: Path | None = None,
 ) -> PersistentRagWorker:
-    key = (python, str(kb_root.resolve()), str(index_dir.resolve()))
+    key = (python, str(kb_root.resolve()), str(index_dir.resolve()),
+           str(kb_wiki.resolve()) if kb_wiki is not None else "")
     with _WORKERS_LOCK:
         worker = _WORKERS.get(key)
         if worker is None:
-            worker = PersistentRagWorker(python, kb_root, index_dir)
+            worker = PersistentRagWorker(python, kb_root, index_dir, kb_wiki)
             _WORKERS[key] = worker
     return worker
 
@@ -507,8 +539,9 @@ def query(
     index_dir: Path,
     argv: list[str],
     timeout: float,
+    kb_wiki: Path | None = None,
 ) -> WorkerResponse:
-    return _worker_for(python, kb_root, index_dir).query(argv, timeout)
+    return _worker_for(python, kb_root, index_dir, kb_wiki).query(argv, timeout)
 
 
 def prewarm(
@@ -518,12 +551,13 @@ def prewarm(
     index_dir: Path,
     argv: list[str],
     timeout: float,
+    kb_wiki: Path | None = None,
 ) -> WorkerResponse:
     global _STARTUP_FAILURE_TYPE
     with _WORKERS_LOCK:
         _STARTUP_FAILURE_TYPE = None
     try:
-        return _worker_for(python, kb_root, index_dir).prewarm(argv, timeout)
+        return _worker_for(python, kb_root, index_dir, kb_wiki).prewarm(argv, timeout)
     except Exception as exc:
         record_startup_failure(exc)
         raise

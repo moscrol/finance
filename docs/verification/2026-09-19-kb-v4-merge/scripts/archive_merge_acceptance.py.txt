@@ -1,0 +1,91 @@
+"""Archive pre/post code-main acceptance only after both complete.
+
+The archive is an immutable, byte-for-byte evidence sample, not a maintenance
+service. It preserves logs (including whitespace) and never copies source
+corpora, indexes, secrets, model cache, or access telemetry into Git.
+"""
+import datetime as dt
+import hashlib
+import json
+from pathlib import Path
+import re
+
+ROOT = Path.home() / '.finance-runtime/kb-v4-merge-20260919'
+DEST = ROOT / 'closeout/finance-workspace-private/docs/verification/2026-09-19-kb-v4-merge'
+EVIDENCE = ROOT / 'evidence'
+for phase in ('pre', 'post'):
+    assert (ROOT / f'{phase}-receipts/all.exit').read_text().strip() == '0'
+    assert (ROOT / f'{phase}-receipts/receipt-check.exit').read_text().strip() == '0'
+assert (EVIDENCE / 'consumer-post-merge.exit').read_text().strip() == '0'
+assert (EVIDENCE / 'readonly-after-merge.exit').read_text().strip() == '0'
+consumer = json.loads((EVIDENCE / 'consumer-post-merge/summary.json').read_text())
+assert consumer['status'] == 'pass' and consumer['workers_closed']
+DEST.mkdir(exist_ok=False)
+
+
+def copy(source, relative):
+    assert source.is_file() and not source.is_symlink(), source
+    target = DEST / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    data = source.read_bytes()
+    with target.open('xb') as handle:
+        handle.write(data)
+    assert target.read_bytes() == data
+
+
+receipts = {}
+for phase in ('pre', 'post'):
+    gate = ROOT / f'{phase}-receipts'
+    for source in sorted(gate.iterdir()):
+        if source.is_file() and source.suffix in ('.txt', '.exit', '.log'):
+            name = source.stem + '.txt' if source.suffix == '.log' else source.name
+            copy(source, f'{phase}-receipts/{name}')
+    matches = re.findall(r'读数收据: (\S+\.json)', (gate / 'finance-pytest.txt').read_text())
+    assert len(matches) == 1
+    receipt_path = Path(matches[0])
+    copy(receipt_path, f'{phase}-receipts/python-receipt.json')
+    receipts[phase] = str(receipt_path)
+for name in ('finance-pr.json', 'kb-pr.json', 'gitea-before.json',
+             'finance-merge-attempt.json', 'kb-merge-attempt.json',
+             'finance-merge-result.json', 'kb-merge-result.json',
+             'finance-merge-console.txt', 'kb-merge-console.txt',
+             'finance-merge-console.exit', 'kb-merge-console.exit',
+             'finance-push.txt', 'kb-push.txt',
+             'finance-fetch-after-merge.txt', 'kb-fetch-after-merge.txt',
+             'consumer-post-merge-runner.txt', 'consumer-post-merge.exit',
+             'readonly-after-merge.txt', 'readonly-after-merge.exit',
+             'code-main-acceptance.json'):
+    copy(EVIDENCE / name, f'operations/{name}')
+for folder in ('consumer-post-merge', 'readonly-after-merge'):
+    for source in sorted((EVIDENCE / folder).iterdir()):
+        if source.is_file() and source.suffix in ('.json', '.txt'):
+            copy(source, f'{folder}/{source.name}')
+for name in ('authorization.json', 'finance-pr.md', 'kb-pr.md'):
+    copy(ROOT / name, f'operations/{name}')
+for name in ('run-gates.sh', 'gitea_merge.py', 'probe_consumers.py', 'readonly_after_merge.py',
+             'check_code_main_acceptance.py', 'archive_merge_acceptance.py'):
+    copy(ROOT / name, f'scripts/{name}.txt')
+manifest = {
+    'archived_at': dt.datetime.now(dt.timezone.utc).isoformat(),
+    'operation_root': str(ROOT),
+    'finance_main': '2b4948a4015e53fd1fde5bb1e50147582abde2da',
+    'kb_main': 'c141a424a16faed2cc959c0839e6b0ea29ced481',
+    'finance_pr': 786, 'kb_pr': 153,
+    'merge_strategy': 'fast-forward-only',
+    'pre_gate_exit': 0, 'post_gate_exit': 0,
+    'exact_receipts': receipts,
+    'consumer_status': consumer['status'],
+    'source_manifest_sha256': hashlib.sha256((Path.home() / '.finance-runtime/kb-dual-index-20260918/evidence/source-files.json').read_bytes()).hexdigest(),
+    'production_switched': False,
+    'limits': ['not an independent agent/model QC', '14 source conflict pages remain quarantined',
+               'not relevance/answer-quality/rerank/performance acceptance',
+               'guarded maintenance not implemented; no deployment authorization',
+               'receipts sign the stated code-main SHAs, not this subsequent docs commit'],
+}
+with (DEST / 'manifest.json').open('x') as handle:
+    json.dump(manifest, handle, ensure_ascii=False, indent=2)
+files = sorted(path for path in DEST.rglob('*') if path.is_file())
+with (DEST / 'SHA256SUMS').open('x') as handle:
+    for path in files:
+        handle.write(hashlib.sha256(path.read_bytes()).hexdigest() + '  ' + path.relative_to(DEST).as_posix() + '\n')
+print(json.dumps({'files_hashed': len(files), 'root': str(DEST), **manifest}, ensure_ascii=False))

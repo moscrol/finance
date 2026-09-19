@@ -1,5 +1,7 @@
 # 在途交接 · main
 
+更新：2026-09-17 14:10 CST（**#781 + #779 合入 + 0917b 切流**）。main `18859d37 → 4d19dc6a → bf662e93`；8792 `ce0097185443 → bf662e9310ff`（链切五步，回滚锚 `~/.finance-runtime/cutover-20260917b-rollback-8792.txt`）。门禁跑在合并预演树 `b094abf9`（`merge-tree`+`commit-tree` 造，未动分支），**其树 `239907a4` 与合并后 main 逐字节相同**：pytest 11435P/0F/81S/2xf（收据 `20260917T044627Z-b094abf9.json`，`--expect-revision` + `--base-drift-max 5` 八项全过）、ruff 0、vitest 107 + lint/typecheck/build 0（static 产物零 diff）、e2e 34P/2S（端口族 8793/8795 整套改）、registry 五项 0。health 三读 `bf662e9310ff`/`dirty=false`/`code_matches_repo=true`，readiness 13 项全 true，账本 `check`+`homes` 双 exit 0，grounded 探针 `run_20260917_140155_334420` 193s completed（judge repaired 删一句证据外行情断言、degrade 0、secret/public scan 0、caliber 见 `fact_*`、as_of 2026-09-15 == 库内最新）。**#55 判官开关未翻**：`ASK_SEMANTIC_JUDGE` 未设、探针实读 `judge_mode=llm`，代码在生产但行为零变化，翻 `off` 等用户确认（工单 §5 第 10 步，只改启动器 + kickstart）。**两个可复用坑**：① Gitea 合并 API 在慢推送下返回 500 但 main 已前进（#781 即是，靠临时 `allow_manual_merge` 补标为 `manually-merged`）——先看 `git ls-remote` 再决定重试还是补标；② `launchctl bootout` 后立刻 `bootstrap` 撞 `Input/output error 5`，sleep 3 重试即过。⚠️ 打完 gitea 备份后磁盘剩 6.6 GiB / 99%，下次切换前先清 `~/backups/` 的旧 2.8 GB 件。全文 `~/.finance-runtime/cutover-20260917b-bf662e93-8792.md`。#770 仍 WIP 未合。
+
 更新：2026-09-09 21:40 CST（**质检收尾补记**，纯文档）。两日质检（42 张 PR）唯一漏收口项补齐：#692 方法飞轮 15:53 合入后无人归档，交接 `feat-cap07-method-flywheel.md` 已按「合入即归档」搬入 `inflight-archive-2026-09-08/`（INDEX 追加三，合计 105 份；顺带把「追加二」标题从「1 份」改为实际的两行 2 份）；`progress/07.md` 补「已合 main」终态。其余 41 张的 INDEX / 工单 / spec / 归档回写经逐项复核已在 main（#686 质检回写 + #687–#701 各收尾单）。inflight 余 10 份全是未合分支的活交接，无漏。
 
 更新：2026-09-09 20:45 CST（**#705 合入**，能力包 09 连续研究真实验收收尾）。main `f2489173`：P2 农业 / P3 创新药同日各四轮在 8847 sidecar（main 快照 `adcd4830`，偏差：8090 重试代理→8080/gpt-5.6、判官 1.0.24+sandbox off）补跑完成——三项目合计 14 轮，判卷点 ①差量明示 ②不重贴背景 ③卡片种类≥2 推进不同问题 ④投影字段全真实 全部 [实测]；P2-3 曾因上游 502 窗落知识兜底稿（llm.used=false），P2-4/P3-4 复跑后计分；验收沙盒内两处正文修补已声明（生产不做）。09 真实验收至此收口：P1/P2/P3 完成，剩 B5 真实自然日隔日（明日续跑）与 B8 直答车道先验块覆盖面（→06/05）。读数 `docs/superpowers/plans/2026-09-09-capability-upgrade/progress/09.md` §3.3；8792 未切。
@@ -42,8 +44,9 @@
 ## 未验证 / 已知边界
 
 - Cloudflare Access 未建，隧道未开前 8792 不对外。SSE 每连接占一线程（≤10 人可接受）。
-- `kb_search` 66% 超时是切前生产形状；探针首发作废只采复跑。
-- `would_grant<1s` 时无地板工具照旧可见：09-03 三次 live 3/3「web_search 授 0 秒白烧一轮」；`kb_search` 刚预热首查超时 3/3。两项待用户拍（能力放大线 inflight）。
+- `kb_search` 66% 超时**根因已查清并有修**（#566：except 子句顺序让两个超时处置器成了死代码，超时被判 worker 不可用→回退 CLI 重载 4.3G 模型；已合 09-04）。收据 `docs/verification/2026-09-03-kb-search-timeout-root-cause.md`。**「预热后首查仍慢」那条推断已撤回**：修后同机实测 11.93s/13.58s。（0903f 回写，随 PR #569 落）
+- ~~KB 索引 stale，需重建索引，另立单~~ —— **该判断已更正，重建索引救不回来**。#566 修完 `kb_search` 不再超时，但 24 条命中被 `require_fresh` 全丢、`hits=0`。真因是两个独立缺陷：①**门的粒度**——`index_freshness` 是整库结论，manifest 一个指纹，一页变了整库判 stale（实测 14412 个入索引文件只有 37 个受影响 = 0.26%，99.74% 逐字节没变的页被连坐）；②**常驻 worker 把整库 verdict 在预热时算一次就冻住**，`rag update` 跑完不重启 worker 也不会变。另 ③ post-commit 自动重建 08-22 起五次没跑完、09-01 起被残留锁卡死（已清），当时告警里「post-commit 会自动重建」这句是假话。修在 KB 仓 `fix/rag-page-level-freshness` + 本仓 `fix/rag-worker-page-freshness`。收据同上。
+- `would_grant<1s` 时无地板工具照旧可见：09-03 三次 live 3/3「web_search 授 0 秒白烧一轮」→ #567 已给 web/news/fetch 补 5s 地板（用户已拍，09-11 已合，INDEX #39）；「`kb_search` 刚预热首查超时」推断已撤回（见上一条）。
 - 消融壳走 legacy `cli ask` 不经 episode 链，弃权效果须会话链重跑。
 
 ## 下一步（待用户）

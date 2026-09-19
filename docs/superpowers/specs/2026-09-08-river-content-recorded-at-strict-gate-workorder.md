@@ -1,7 +1,7 @@
 # 工单 #43：时间长河 strict 止血——名单快照 `captured_at` 不再为行情内容作证（OPT-01 第一刀）
 
 > 日期：2026-09-08
-> 上游：`2026-09-08-research-foundation-optimization-design.md` **OPT-01**（PR #680；「名单快照 `captured_at` 只能证明名单版本，不能给后补行情、资金值或新成员关系提供更早的可知时间」「先阻断错误的 strict 宣称，再选择与现有写入合同兼容的内容版本存储方式」）与 §1.3「时间事实」行的最小反例；`2026-09-05-river-recorded-at-workorder.md`（写一次不更新的内容 `recorded_at`，是本单之后恢复覆盖面的正路）。
+> 上游：`2026-09-08-research-foundation-optimization-design.md` **OPT-01**（PR #680；「名单快照 `captured_at` 只能证明名单版本，不能给后补行情、资金值或新成员关系提供更早的可知时间」「先阻断错误的 strict 宣称，再选择与现有写入合同兼容的内容版本存储方式」）与 §1.3「时间事实」行的最小反例。**2026-09-14 订正后续指针**：[工单 #47](2026-09-11-river-frozen-content-versions-workorder.md) 通过冻结内容版本取回当时值；原指向的 #27 只保持时间戳、仍覆盖内容，不能满足该合同，其原始设计保留作历史记录。
 > 优先级：**P0**——当前代码路径能把 T+7 修订后的值标成「T 日 strict 可知」，回放与校准的无前视承诺在这条路径上是假的。
 > 分支：`feat/river-pit-strict-gate`，树 `~/fwp-wt-opt01-river-strict`（基线 `gitea/main@f90af450`）。
 
@@ -26,7 +26,7 @@
 2. `updated_at` 是内容当前版本「至迟何时已知」的上界：`updated_at <= C` 是「C 时已知」的充分证据；`> C` 时**降档而不猜**。这与模块开头「只会少算不会多算」的保守原则一致，本单只是把不满足它的那一支去掉。
 3. `scripts/river_pit_audit.py` 同步：不再连台账、注释改口；仍从 river 取规则（测试 `test_audit_uses_the_same_rule` 守住）。
 4. `tests/test_river_recorded_at.py` 重写：最小反例转回归（修订后的行在 `C=T` 下不是 strict；`require_strict` 路径把它滤成 `Gap(pit_filtered)`），保留 legacy / 无台账表 / 不变量三条。
-5. 模块注释里「1 天 → 16 天」「47 天 → 20 天」的收益记录改写为：那段收益建立在不成立的假设上，本单主动放弃；恢复靠内容级 `recorded_at`（`2026-09-05-river-recorded-at-workorder.md`）。
+5. 模块注释里「1 天 → 16 天」「47 天 → 20 天」的收益记录改写为：那段收益建立在不成立的假设上，本单主动放弃；恢复需要冻结具体内容版本及其记录时刻，后续见 [工单 #47](2026-09-11-river-frozen-content-versions-workorder.md)，单独保持首次 `recorded_at` 不充分。
 
 ## 3. 验收
 
@@ -40,7 +40,7 @@
 
 ## 4. 非目标 / 红线
 
-- 不做内容版本存储（hash / 有效期 / 替代关系 / `published_at`）——那是 OPT-01 的第二刀，落在 `river-recorded-at` 工单的写入合同上。
+- 本单不做内容版本取回（hash / 有效期 / 替代关系 / `published_at`）；OPT-01 第二刀见 [工单 #47](2026-09-11-river-frozen-content-versions-workorder.md)，复用已有冻结快照。
 - 不改 `pit_grade` 的日频语义、不改 `require_strict` / `hindsight` 逻辑。
 - 不改 `intelligence/eval/pit_snapshot.py`（它按 `updated_at <= snapshot_captured_at` 冻结整表，与本表达式无关）。
 - 不动 sync writer；不回填任何 `updated_at`。

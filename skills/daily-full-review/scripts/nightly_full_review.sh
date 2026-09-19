@@ -4,7 +4,7 @@
 # 同步段**不在本脚本里**：它要做 staging 克隆 / 过闸 / 原子换名，只有 S7 入口走得到。
 # 周末直接跳过；非交易日由质检闸门拦截。
 #
-# 定时拆分（L2 逐笔数据 ~20:30 才到，18:30 跑必空）：
+# 定时拆分（L2 闲鱼日包收盘后才上分享，18:30 跑必空）：
 #   nightly-full-review-s7.sh <date>       → 仅同步段（@18:30，走 staging）
 #   nightly_full_review.sh finalize <date> → L2 + 生成段 + 方法飞轮（@20:40）
 # 两条分开跑、都要跑，别用 && 串：同步失败时 finalize 不启动，L2 会跟着一起丢，
@@ -222,17 +222,11 @@ run_moneyflow() {
 
 # L2 是独立 DAG 分支：同步段即使失败也会尝试，避免 SW-L1/复盘会故障截断资金流。
 # 返回 moneyflow_rc / l2_rc 两个全局变量。
-# L2 挂账暂停：state/l2-paused.flag 存在 → 不抓取、L2 门放行（check 脚本读 L2_PAUSED=1
-# 会跳过并留痕）。删除 flag 文件即恢复；欠账日期用 run_l2_pipeline.sh 按日回补。
-L2_PAUSED_FLAG="$WORKSPACE/state/l2-paused.flag"
+# L2 源是闲鱼日包（百度分享，见 scripts/moneyflow/run_l2_pipeline.sh），不打 ClickHouse，
+# 也不再认 state/l2-paused.flag——那是 ClickHouse 断供时代的挂账开关，文件源没有对应的
+# 故障形状；check 脚本仍认环境变量 L2_PAUSED=1 作应急开关，需要时手动 export，不靠 flag
+# 文件静默放行。L2 代码走 CODE_ROOT（冻结快照），状态 / 库走 DATA_ROOT（工单 #51）。
 run_l2_branch() {
-  if [ -f "$L2_PAUSED_FLAG" ]; then
-    export L2_PAUSED=1
-    echo "[$(date '+%F %T')] L2 已挂账暂停（存在 $L2_PAUSED_FLAG），跳过资金流段与 L2 质量门"
-    moneyflow_rc=0
-    l2_rc=0
-    return 0
-  fi
   run_moneyflow
   moneyflow_rc=$?
   if [ "$moneyflow_rc" -ne 0 ]; then

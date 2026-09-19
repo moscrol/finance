@@ -1,0 +1,577 @@
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+import type { ResearchEvolutionView } from "../types";
+import { ResearchEvolutionPanel } from "./ResearchEvolutionPanel";
+
+function makeView(overrides: Partial<ResearchEvolutionView> = {}): ResearchEvolutionView {
+  return {
+    schema_version: "research-evolution-view/v1",
+    owner_user_id: "default",
+    conversation_id: "conv_1",
+    view_version: "test",
+    view_digest: "d0",
+    generated_at: "2026-09-14T08:00:00+00:00",
+    maintenance: {
+      id: "jm-1",
+      as_of: "2026-09-14",
+      knowledge_cutoff: "2026-09-14",
+      pit_grade: "strict",
+      hindsight: false,
+      gaps: [],
+      counts: { items_open: 1 },
+      items: [
+        {
+          id: "jmi-1",
+          item_version: "v1",
+          object_ref: {
+            kind: "judgment",
+            id: "j1",
+            namespace: "judgments",
+            version_or_hash: "content_sha256:abc",
+            ref: "judgments.jsonl:j1",
+            scope: {},
+          },
+          before: [{ ref: "fact_sector_daily:2026-09-01", source_hash: "h1", recorded_at: null, derivation: "deterministic" }],
+          current: [{ ref: "fact_sector_daily:2026-09-01", source_hash: "h2", recorded_at: null, derivation: "deterministic" }],
+          change_type: "content_changed",
+          reason_code: "hash_changed",
+          epistemic_state: "requires_review",
+          condition_result: null,
+          condition_role: null,
+          as_of: "2026-09-14",
+          knowledge_cutoff: "2026-09-14",
+          pit_grade: "strict",
+          gaps: [],
+          action: "review_evidence",
+          status: "open",
+          management_revision: 0,
+          management: {},
+        },
+      ],
+    },
+    priority: null,
+    diagnostics: null,
+    receipt_refs: { validation: [], product_value: [] },
+    module_status: {
+      maintenance: { status: "ok", reason: null, synthetic: false },
+      priority: { status: "unknown", reason: "no_sources", synthetic: false },
+      diagnostics: { status: "unknown", reason: "policy_not_registered", synthetic: false },
+      validation_receipts: { status: "unknown", reason: "no_study_frozen", synthetic: false },
+      product_value_receipts: { status: "unknown", reason: "no_measurement_yet", synthetic: false },
+    },
+    gaps: [],
+    inputs: {
+      as_of: "2026-09-14",
+      knowledge_cutoff: "2026-09-14",
+      budget_minutes: null,
+      bindings: 1,
+      trackable_objects: [],
+    },
+    ...overrides,
+  };
+}
+
+describe("ResearchEvolutionPanel", () => {
+  it("哈希变化显示为需复核，不出现已证伪", () => {
+    render(<ResearchEvolutionPanel view={makeView()} />);
+    const list = screen.getByLabelText("待复核");
+    expect(within(list).getByText("依据变了")).toBeInTheDocument();
+    expect(within(list).getByText("需复核")).toBeInTheDocument();
+    expect(within(list).getByText("同一份来源换了新版本")).toBeInTheDocument();
+    expect(screen.queryByText(/已证伪/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/refuted/i)).not.toBeInTheDocument();
+  });
+
+  it("哈希与内部版本只在详情里出现，不上主屏", () => {
+    render(<ResearchEvolutionPanel view={makeView()} />);
+    expect(screen.queryByText(/h2/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "详情" }));
+    const detail = screen.getByLabelText("内部版本详情");
+    expect(within(detail).getByText(/fact_sector_daily:2026-09-01@h2/)).toBeInTheDocument();
+    expect(within(detail).getByText(/v1 · 管理修订 0/)).toBeInTheDocument();
+  });
+
+  it("动作带上当前项版本与管理修订，幂等键随之变化", () => {
+    const onAction = vi.fn();
+    render(<ResearchEvolutionPanel view={makeView()} onAction={onAction} />);
+    fireEvent.click(screen.getByRole("button", { name: "开始复核" }));
+    expect(onAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "claim",
+        item_id: "jmi-1",
+        expected_item_version: "v1",
+        expected_management_revision: 0,
+        idempotency_key: "claim:jmi-1:v1:0",
+      }),
+    );
+  });
+
+  it("条件项没有可核对的来源版本时，「核对后判断未变」不可点", () => {
+    const view = makeView();
+    view.maintenance!.items[0] = {
+      ...view.maintenance!.items[0],
+      change_type: "condition_evaluated",
+      reason_code: "condition_true",
+      current: [],
+      before: [],
+    };
+    render(<ResearchEvolutionPanel view={view} />);
+    expect(screen.getByRole("button", { name: "核对后判断未变" })).toBeDisabled();
+  });
+
+  it("缺输入显示为「还判不了」，不显示成 0 条或空白", () => {
+    render(<ResearchEvolutionPanel view={makeView()} />);
+    const status = screen.getByLabelText("模块状态");
+    expect(within(status).getByText(/下一步研究：缺输入，还判不了/)).toBeInTheDocument();
+    expect(within(status).getByText(/我的复盘：缺输入，还判不了/)).toBeInTheDocument();
+    expect(screen.getByText(/暂无法诊断：还没有登记生产诊断策略/)).toBeInTheDocument();
+  });
+
+  it("还没有绑定依据时，说清楚是「尚不能比较变化」而不是「没有问题」", () => {
+    const view = makeView({
+      maintenance: null,
+      module_status: {
+        ...makeView().module_status,
+        maintenance: { status: "unknown", reason: "no_bindings", synthetic: false },
+      },
+    });
+    render(<ResearchEvolutionPanel view={view} />);
+    expect(screen.getByText(/原记录没有完整依据，尚不能比较变化/)).toBeInTheDocument();
+  });
+
+  it("未入选的关键项要点名，不能只显示入选的三条", () => {
+    const view = makeView({
+      priority: {
+        report_id: "rp_1",
+        policy_version: "research-priority-policy/v1",
+        summary: {},
+        selected: [
+          {
+            task_id: "rt_1",
+            标题: "复核放弃条件",
+            动作类型: "复核放弃/降级条件",
+            组: "第 1 组｜明确登记的放弃或降级条件已触发",
+            耗时: "600 秒（estimated）",
+            可执行状态: "今天可做",
+            为什么在前: ["条件已触发"],
+            还缺什么: [],
+            click_payload: { task_id: "rt_1" },
+          },
+        ],
+        deferred: [],
+        blocked: [],
+        critical_not_selected_ids: ["rt_9", "rt_10"],
+        gaps: [],
+        limitations: ["合成输入，不代表真实优先级"],
+        synthetic: true,
+        hindsight: false,
+      },
+      module_status: {
+        ...makeView().module_status,
+        priority: { status: "ok", reason: null, synthetic: false },
+      },
+    });
+    render(<ResearchEvolutionPanel view={view} />);
+    expect(screen.getByText(/未入选的关键项 2 条/)).toBeInTheDocument();
+    expect(screen.getByText(/合成输入，不代表真实优先级/)).toBeInTheDocument();
+  });
+
+  it("面板上不出现概率承诺或「方法已验证」徽章", () => {
+    const { container } = render(<ResearchEvolutionPanel view={makeView()} />);
+    const text = container.textContent ?? "";
+    for (const banned of ["方法已验证", "Brier", "胜率", "概率优势"]) {
+      expect(text).not.toContain(banned);
+    }
+  });
+
+  it("R9：当前来源读不动时如实说「判不了」，不显示成「没有需要复核的变化」", () => {
+    const view = makeView();
+    view.maintenance = { ...view.maintenance!, items: [] };
+    view.module_status = {
+      ...view.module_status,
+      maintenance: { status: "unknown", reason: "current_source_unreadable", synthetic: false },
+    };
+    render(<ResearchEvolutionPanel view={view} />);
+    expect(screen.getByText(/判不了有没有变化/)).toBeInTheDocument();
+    expect(screen.queryByText(/当前没有需要复核的变化/)).not.toBeInTheDocument();
+  });
+
+  it("R4：未绑定记录可以「从现在开始跟踪」，从受控目录勾选证据后提交绑定", async () => {
+    const view = makeView({
+      maintenance: null,
+      inputs: {
+        as_of: "2026-09-14",
+        knowledge_cutoff: "2026-09-14",
+        budget_minutes: null,
+        bindings: 0,
+        trackable_objects: [
+          {
+            object_ref: {
+              kind: "judgment",
+              id: "j1",
+              namespace: "judgments",
+              version_or_hash: "content_sha256:abc",
+              ref: "judgments.jsonl:j1",
+              scope: {},
+            },
+            kind: "judgment",
+            title: "三代制冷剂配额",
+            recorded_at: "2026-09-01T10:00:00+08:00",
+            bound: false,
+            binding_id: null,
+            gaps: [],
+            candidate_refs: [],
+          },
+        ],
+      },
+    });
+    const onBind = vi.fn();
+    const onFetchCatalog = vi.fn().mockResolvedValue({
+      entity: "制冷剂",
+      as_of: "2026-09-14",
+      knowledge_cutoff: "2026-09-14",
+      available: true,
+      reason: null,
+      pit_grade: "strict",
+      versions: [
+        { ref: "fact_sector_daily:制冷剂@2026-09-14#h1", recorded_at: "2026-09-14T09:00:00+08:00" },
+        { ref: "sector_index:制冷剂@2026-09-14#h2", recorded_at: null },
+      ],
+      labels: [],
+      gaps: [],
+    });
+    render(
+      <ResearchEvolutionPanel view={view} onBind={onBind} onFetchCatalog={onFetchCatalog} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "从现在开始跟踪" }));
+    fireEvent.change(screen.getByPlaceholderText("例：制冷剂"), { target: { value: "制冷剂" } });
+    fireEvent.click(screen.getByRole("button", { name: "拉取可用证据" }));
+    const submit = await screen.findByRole("button", { name: "开始跟踪" });
+    expect(onFetchCatalog).toHaveBeenCalledWith("制冷剂", "2026-09-14");
+    fireEvent.click(submit);
+    expect(onBind).toHaveBeenCalledWith({
+      object_ref: {
+        kind: "judgment",
+        id: "j1",
+        namespace: "judgments",
+        version_or_hash: "content_sha256:abc",
+        ref: "judgments.jsonl:j1",
+        scope: {},
+      },
+      entity: "制冷剂",
+      as_of: "2026-09-14",
+      evidence_refs: [
+        "fact_sector_daily:制冷剂@2026-09-14#h1",
+        "sector_index:制冷剂@2026-09-14#h2",
+      ],
+    });
+  });
+
+  it("R5：练习先作答再评分，收据可以查看原件", async () => {
+    const view = makeView({
+      diagnostics: {
+        id: "dg-1",
+        policy_id: "pol-1",
+        findings: [],
+        exercise: {
+          id: "hx-1",
+          prompt: "到站立日应完成哪个动作？",
+          visible_evidence_refs: ["case:001:checkpoint"],
+          exercise_status: "ready",
+          limitation: "只练一件事",
+        },
+      },
+      module_status: {
+        ...makeView().module_status,
+        diagnostics: { status: "ok", reason: null, synthetic: false },
+      },
+      receipt_refs: {
+        validation: [
+          { kind: "method_validation_receipt", study_id: "study-1", receipt_id: "rcpt-1", empirical_status: "frozen" },
+        ],
+        product_value: [],
+      },
+    });
+    const runAction = vi.fn().mockResolvedValue({
+      replayed: false,
+      status: "correct",
+      receipt: { receipt_id: "rcpt-1", rows: [] },
+    });
+    render(<ResearchEvolutionPanel view={view} runAction={runAction} />);
+    // 练习：提交作答走 submit_exercise，幂等键随尝试次数变化
+    fireEvent.change(screen.getByPlaceholderText(/写下你会怎么做/), {
+      target: { value: "我会先核对原依据" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "提交作答" }));
+    await screen.findByLabelText("评分反馈");
+    expect(runAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "submit_exercise",
+        exercise_id: "hx-1",
+        idempotency_key: "submit_exercise:hx-1:1",
+        rationale: "我会先核对原依据",
+      }),
+    );
+    // 收据：查看原件走 read_receipt
+    fireEvent.click(screen.getByText(/原件收据（1）/));
+    fireEvent.click(screen.getByRole("button", { name: "查看原件" }));
+    expect(runAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "read_receipt",
+        receipt_kind: "method_validation_receipt",
+        receipt_id: "rcpt-1",
+        study_id: "study-1",
+      }),
+    );
+  });
+});
+
+// --------------------------------------------------------------------------- //
+// 第二轮（复审 ba10747d Q1/Q4/Q8）：UI 必须发送/渲染真实嵌套结构
+// --------------------------------------------------------------------------- //
+describe("ResearchEvolutionPanel · 第二轮复审合同", () => {
+  it("Q8：pilot_summary 查看原件带 summary_id 作为内容 id（API 按内容寻址）", async () => {
+    const view = makeView({
+      receipt_refs: { validation: [], product_value: [{ kind: "pilot_summary", summary_id: "summary-real-id" }] },
+    });
+    const runAction = vi.fn().mockResolvedValue({ receipt: { summary_id: "summary-real-id" } });
+    render(<ResearchEvolutionPanel view={view} runAction={runAction} />);
+    fireEvent.click(screen.getByText(/原件收据（1）/));
+    fireEvent.click(screen.getByRole("button", { name: "查看原件" }));
+    expect(runAction).toHaveBeenCalledWith(
+      expect.objectContaining({ receipt_kind: "pilot_summary", receipt_id: "summary-real-id", summary_id: "summary-real-id" }),
+    );
+    expect(await screen.findByText(/summary-real-id/)).toBeInTheDocument();
+  });
+
+  it("Q4：揭示答案必须渲染嵌套 answer_key 的正确选项与正确引用", async () => {
+    const view = makeView({
+      diagnostics: {
+        id: "d",
+        policy_id: "p",
+        findings: [],
+        exercise: {
+          id: "hx",
+          prompt: "选择动作 A/B，并引用证据",
+          visible_evidence_refs: ["visible-evidence"],
+          exercise_status: "ready",
+          limitation: "synthetic",
+        },
+      },
+    });
+    const runAction = vi.fn().mockResolvedValue({
+      exercise_id: "hx",
+      exposure_id: "expo",
+      answer_key_ref: "answer-key-ref",
+      answer_key: {
+        ref: "answer-key-ref",
+        expected_choices: ["CORRECT_ACTION_SENTINEL"],
+        expected_refs: ["CORRECT_EVIDENCE_SENTINEL"],
+        explanation_ref: "EXPLANATION_SENTINEL",
+      },
+      limitation: "synthetic",
+    });
+    render(<ResearchEvolutionPanel view={view} runAction={runAction} />);
+    fireEvent.click(screen.getByRole("button", { name: "揭示答案" }));
+    const answer = await screen.findByLabelText("答案");
+    expect(answer).toHaveTextContent("CORRECT_ACTION_SENTINEL");
+    expect(answer).toHaveTextContent("CORRECT_EVIDENCE_SENTINEL");
+    expect(answer).toHaveTextContent("EXPLANATION_SENTINEL");
+  });
+
+  it("Q4：提交作答必须渲染嵌套 checks 与 missing_evidence_refs，并把勾选/选择发出去", async () => {
+    const view = makeView({
+      diagnostics: {
+        id: "d",
+        policy_id: "p",
+        findings: [],
+        exercise: {
+          id: "hx",
+          prompt: "选择动作 A/B，并引用证据",
+          visible_evidence_refs: ["visible-evidence"],
+          exercise_status: "ready",
+          limitation: "synthetic",
+        },
+      },
+    });
+    const runAction = vi.fn().mockResolvedValue({
+      exercise_id: "hx",
+      exposure_id: "expo",
+      counts_toward_method_statistics: false,
+      feedback: {
+        exercise_id: "hx",
+        status: "checked",
+        checks: [{ name: "choices_match", passed: false, expected: ["CORRECT_ACTION_SENTINEL"], got: ["c1"] }],
+        missing_evidence_refs: ["CORRECT_EVIDENCE_SENTINEL"],
+        explanation_ref: "explanation-ref",
+      },
+    });
+    render(<ResearchEvolutionPanel view={view} runAction={runAction} />);
+    // 结构化作答：选项 id + 勾选依据材料。
+    fireEvent.change(screen.getByPlaceholderText("例如 c1, c2"), { target: { value: "c1" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: /visible-evidence/ }));
+    fireEvent.click(screen.getByRole("button", { name: "提交作答" }));
+    await screen.findByLabelText("评分反馈");
+    expect(runAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "submit_exercise",
+        selected_choices: ["c1"],
+        cited_refs: ["visible-evidence"],
+      }),
+    );
+    const feedback = screen.getByLabelText("评分反馈");
+    expect(feedback).toHaveTextContent("CORRECT_ACTION_SENTINEL");
+    expect(feedback).toHaveTextContent("CORRECT_EVIDENCE_SENTINEL");
+    expect(feedback).toHaveTextContent("choices_match");
+  });
+});
+
+describe("ResearchEvolutionPanel 确认成果入口（QC V3/V4）", () => {
+  it("待复核中的项可点名本轮已完成 run 与成果判断", () => {
+    const view = makeView();
+    const item = view.maintenance!.items[0];
+    item.status = "rejudgment_requested";
+    item.management = { rejudgment: { request_event_id: "evt-1" } };
+    view.maintenance!.run_links = [
+      {
+        item_id: item.id,
+        run_id: "run-1",
+        conversation_id: "conv_1",
+        request_event_id: "evt-1",
+        registered_at: "2026-09-14T08:01:00+00:00",
+        run_status: "completed",
+      },
+    ];
+    view.inputs.trackable_objects = [
+      {
+        object_ref: {
+          kind: "judgment",
+          id: "j9",
+          namespace: "judgments",
+          version_or_hash: "content_sha256:x",
+          ref: "judgments.jsonl:j9",
+          scope: {},
+        },
+        kind: "judgment",
+        title: "新判断：制冷剂",
+        recorded_at: "2026-09-14",
+        bound: false,
+        binding_id: null,
+        gaps: [],
+        candidate_refs: [],
+      },
+    ];
+    const onAction = vi.fn();
+    render(<ResearchEvolutionPanel view={view} onAction={onAction} />);
+    fireEvent.click(screen.getByRole("button", { name: "确认成果" }));
+    const form = screen.getByLabelText("确认成果");
+    fireEvent.change(within(form).getByLabelText(/成果判断/), {
+      target: { value: "judgments.jsonl:j9" },
+    });
+    fireEvent.click(
+      within(form).getByRole("button", { name: "确认这条判断是本轮成果" }),
+    );
+    expect(onAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "link_run",
+        item_id: item.id,
+        run_id: "run-1",
+        new_judgment_ref: "judgments.jsonl:j9",
+      }),
+    );
+  });
+
+  it("没有已完成的核查 run 时给提示而不是表单", () => {
+    const view = makeView();
+    const item = view.maintenance!.items[0];
+    item.status = "rejudgment_requested";
+    item.management = { rejudgment: { request_event_id: "evt-1" } };
+    render(<ResearchEvolutionPanel view={view} onAction={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "确认成果" }));
+    expect(screen.getByText(/还没有已完成的核查 run/)).toBeInTheDocument();
+  });
+});
+
+describe("ResearchEvolutionPanel 确认成果状态转换（QC 第六轮 P2）", () => {
+  const judgmentTrackable = {
+    object_ref: {
+      kind: "judgment",
+      id: "j9",
+      namespace: "judgments",
+      version_or_hash: "content_sha256:x",
+      ref: "judgments.jsonl:j9",
+      scope: {},
+    },
+    kind: "judgment",
+    title: "新判断：制冷剂",
+    recorded_at: "2026-09-14",
+    bound: false,
+    binding_id: null,
+    gaps: [],
+    candidate_refs: [],
+  };
+
+  function requestedView(runStatus: string): ResearchEvolutionView {
+    const view = makeView();
+    const item = view.maintenance!.items[0];
+    item.status = "rejudgment_requested";
+    item.management = { rejudgment: { request_event_id: "evt-1" } };
+    view.maintenance!.run_links = [
+      {
+        item_id: item.id,
+        run_id: "run-1",
+        conversation_id: "conv_1",
+        request_event_id: "evt-1",
+        registered_at: "2026-09-14T08:01:00+00:00",
+        run_status: runStatus,
+      },
+    ];
+    view.inputs.trackable_objects = [judgmentTrackable];
+    return view;
+  }
+
+  it("表单打开时 run 还在跑，完成后投影刷新即可提交（不收起重开）", () => {
+    const onAction = vi.fn();
+    const { rerender } = render(
+      <ResearchEvolutionPanel view={requestedView("running")} onAction={onAction} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "确认成果" }));
+    expect(screen.getByText(/还没有已完成的核查 run/)).toBeInTheDocument();
+
+    // run 完成，投影刷新——表单保持打开，候选出现。
+    rerender(
+      <ResearchEvolutionPanel view={requestedView("completed")} onAction={onAction} />,
+    );
+    const form = screen.getByLabelText("确认成果");
+    fireEvent.change(within(form).getByLabelText(/成果判断/), {
+      target: { value: "judgments.jsonl:j9" },
+    });
+    const submit = within(form).getByRole("button", { name: "确认这条判断是本轮成果" });
+    expect(submit).toBeEnabled();
+    fireEvent.click(submit);
+    expect(onAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "link_run",
+        run_id: "run-1",
+        new_judgment_ref: "judgments.jsonl:j9",
+      }),
+    );
+  });
+
+  it("代际更换后旧选择失效，不会拿陈旧 run 提交", () => {
+    const onAction = vi.fn();
+    const view = requestedView("completed");
+    const { rerender } = render(
+      <ResearchEvolutionPanel view={view} onAction={onAction} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "确认成果" }));
+    // 取消旧代、发起新代：run_links 换成新一代（尚无已完成 run）。
+    const next = requestedView("running");
+    next.maintenance!.items[0].management = { rejudgment: { request_event_id: "evt-2" } };
+    next.maintenance!.run_links = [];
+    rerender(<ResearchEvolutionPanel view={next} onAction={onAction} />);
+    expect(screen.getByText(/还没有已完成的核查 run/)).toBeInTheDocument();
+    expect(onAction).not.toHaveBeenCalled();
+  });
+});

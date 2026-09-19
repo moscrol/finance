@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextvars
+import inspect
 import json
 import os
 import re
@@ -151,7 +152,16 @@ from intelligence.runtime.turn_control_core import (
     project_turn_decision,
 )
 from intelligence.services.turn_controller import TurnDecision, decide_turn
-from intelligence.services.task_frame import TaskFrame, build_task_frame
+from intelligence.services.task_frame import (
+    TaskFrame,
+    build_task_frame,
+    frame_blocks_contract_blind_pipelines,
+)
+from intelligence.services.conversation_materials import (
+    ConversationMaterials, collect_conversation_materials, collect_material_turn_history,
+)
+from intelligence.services.material_contract import compile_material_contract
+from intelligence.services.user_task import split_user_message
 from intelligence import userspace
 from intelligence.workbench_skills.contracts import (
     SkillExecutionContext,
@@ -1104,6 +1114,10 @@ def _llm_failure_brief() -> str | None:
 class ConversationContext:
     summary: str
     recent_messages: tuple[Message, ...]
+    # Complete records only, within the existing text window. None means a
+    # legacy context whose source records were not supplied (not known empty).
+    material_messages: tuple[Message, ...] | None = None
+    material_history_unavailable: bool = False
 
     def to_prompt_block(self) -> str:
         recent = "\n".join(
@@ -1314,14 +1328,18 @@ def _summarize_messages(messages: Sequence[Message]) -> str:
 
     lines = [f"{message.role}: {message.content}" for message in messages]
     text = "\n".join(lines)
-    if len(text) <= SUMMARY_CHAR_LIMIT:
+    dropped = _summary_tail_start(text, len(messages))
+    if not dropped:
         return text
-    marker = f"（前 {{dropped}} 字符已省略，共 {len(messages)} 条较早消息）\n"
-    # 先按标记的最终长度扣预算，再切——否则加上标记就超预算了。
-    reserve = len(marker.format(dropped=len(text)))
-    kept = max(0, SUMMARY_CHAR_LIMIT - reserve)
-    dropped = len(text) - kept
-    return marker.format(dropped=dropped) + text[-kept:]
+    return f"（前 {dropped} 字符已省略，共 {len(messages)} 条较早消息）\n" + text[dropped:]
+
+
+def _summary_tail_start(text: str, message_count: int) -> int:
+    """One window budget for prompt rendering and complete-record selection."""
+    if len(text) <= SUMMARY_CHAR_LIMIT:
+        return 0
+    marker = f"（前 {len(text)} 字符已省略，共 {message_count} 条较早消息）\n"
+    return len(text) - max(0, SUMMARY_CHAR_LIMIT - len(marker))
 
 
 def _redact_object(value: object) -> object:
@@ -1639,7 +1657,23 @@ def build_conversation_context(
     recent = tuple(history[-RECENT_MESSAGE_LIMIT:])
     older = history[:-RECENT_MESSAGE_LIMIT]
     summary = _summarize_messages(older) if older else conversation.summary
-    return ConversationContext(summary=summary, recent_messages=recent)
+    # P3f1: select complete older records using the very same tail budget as
+    # the prompt. Never recover roles/materials from summary text, and never
+    # mint a new material identity from the surviving tail of a partial row.
+    older_text = "\n".join(f"{message.role}: {message.content}" for message in older)
+    cutoff = _summary_tail_start(older_text, len(older))
+    complete_older = []
+    start = 0
+    for message in older:
+        if start >= cutoff:
+            complete_older.append(message)
+        start += len(f"{message.role}: {message.content}") + 1
+    return ConversationContext(
+        summary=summary,
+        recent_messages=recent,
+        material_messages=(*complete_older, *recent),
+        material_history_unavailable=bool(cutoff or (not older and conversation.summary)),
+    )
 
 
 def contextualize_follow_up_query(
@@ -1706,6 +1740,7 @@ class TurnOrchestrator:
         self.skill_registry = skill_registry or builtin_skill_registry()
         self.llm_model = llm_model
         self.turn_controller = turn_controller_fn or decide_turn
+        self._uses_default_turn_controller = turn_controller_fn is None
         self.generate_lane_answer = lane_answer_fn or generate_lane_answer
         self.research_policy = research_policy or ResearchExecutionPolicy()
         self.is_cancelled = is_cancelled or (lambda: False)
@@ -1907,14 +1942,74 @@ class TurnOrchestrator:
                     "inherited_turn_id": inherited_turn_id,
                 },
             )
+            # Recover state only from complete persisted user messages in the
+            # same bounded window; summary/assistant prose is never authority.
+            parts = split_user_message(str(query or "").strip())
+            material_contract = compile_material_contract(parts.regions) if parts.regions else None
+            material_history = None
+            if material_contract and material_contract.continuation_requested:
+                material_history = collect_material_turn_history(
+                    context.material_messages or (),
+                    unavailable=context.material_history_unavailable,
+                )
+                material_contract = compile_material_contract(
+                    parts.regions, source_turn=material_history.source_turn,
+                    inherited_contract=material_history.base_contract,
+                )
+            elif material_contract and material_contract.data_scope == "material_only":
+                material_history = (
+                    ConversationMaterials()
+                    if parts.materials else collect_conversation_materials(
+                        context.material_messages or (),
+                        unavailable=context.material_history_unavailable,
+                    )
+                )
+            elif material_contract and material_contract.needs_clarification:
+                material_history = ConversationMaterials(unavailable=True)
+            # Known absence must reach the default controller: dropping it
+            # would reopen resolver/model and pending-frame recovery. Legacy
+            # injected controllers keep their pre-existing keyword contract.
+            if not material_contract or (
+                material_contract.data_scope != "material_only"
+                and not self._uses_default_turn_controller
+            ):
+                material_history = None
+            restricted_history = bool(
+                material_contract
+                and material_history is not None
+                and (material_contract.data_scope == "material_only" or material_contract.needs_clarification)
+            )
+            # Keep the established controller context contract byte-compatible.
+            # The typed projection is an additional authority input; the model
+            # controller itself replaces untyped context at its own prompt seam.
+            controller_context = context.to_prompt_block()
+            accepts_materials = self._uses_default_turn_controller
+            if material_history is not None and not accepts_materials:
+                try:
+                    parameters = inspect.signature(self.turn_controller).parameters.values()
+                except (TypeError, ValueError):
+                    parameters = ()
+                accepts_materials = any(
+                    item.kind is inspect.Parameter.VAR_KEYWORD
+                    or (item.name == "conversation_materials" and item.kind in {
+                        inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY,
+                    })
+                    for item in parameters
+                )
+            controller_options = (
+                {"conversation_materials": material_history}
+                if accepts_materials and material_history is not None
+                else {}
+            )
             controller_started = time.monotonic()
             decision = self.turn_controller(
                 query,
-                context=context.to_prompt_block(),
+                context=controller_context,
                 skill_mode=skill_mode,
                 selected_skill_ids=selected_skill_ids,
                 previous_intent=inherited_intent,
                 previous_turn_id=inherited_turn_id,
+                **controller_options,
             )
             controller_question_type_supplied = decision.question_type is not None
             task_frame = decision.task_frame
@@ -1932,6 +2027,7 @@ class TurnOrchestrator:
                 task_frame = build_task_frame(
                     query,
                     legacy_envelope,
+                    conversation_materials=material_history,
                     inherited_subject=(
                         inherited_intent.primary_subject
                         if inherited_intent is not None
@@ -1945,6 +2041,13 @@ class TurnOrchestrator:
                 )
                 raw_envelope = project_task_frame(task_frame, legacy_envelope)
             else:
+                raw_envelope = envelope_from_task_frame(task_frame)
+            if restricted_history and not self._uses_default_turn_controller:
+                # Injected controllers may supply stale/full frames. Recompile
+                # the source-aware contract, not just replace its permission bit.
+                decision = decide_turn(query, conversation_materials=material_history)
+                task_frame = decision.task_frame
+                assert task_frame is not None
                 raw_envelope = envelope_from_task_frame(task_frame)
             turn_intent = decision.turn_intent or build_turn_intent(
                 query,
@@ -1975,10 +2078,23 @@ class TurnOrchestrator:
                     task_frame=task_frame,
                 )
             contextual_query = contextualize_intent_query(query, turn_intent)
+            # P3d: use the same frozen material scope as Episode assembly, but
+            # stop untyped fact priors before their producers perform reads.
+            # This does not filter history already supplied to the controller.
+            material_only = bool(
+                task_frame.material_contract is not None
+                and (task_frame.material_contract.data_scope == "material_only"
+                     or task_frame.material_contract.needs_clarification)
+            )
+            # P3h: engine B (skill routing + the Ask pipeline) has no material
+            # contract awareness at all. Same predicate as the adapter's
+            # yield rule — the two sides must never drift apart.
+            engine_b_restricted = frame_blocks_contract_blind_pipelines(task_frame)
             inherited_answer_spec = (
                 self._load_answer_spec(inherited_message.run_id)
                 if (
-                    inherited_message is not None
+                    not material_only
+                    and inherited_message is not None
                     and turn_intent.inherited_from_turn is not None
                 )
                 else None
@@ -2048,7 +2164,7 @@ class TurnOrchestrator:
             )
             self._check_cancelled()
             stance_pack = None
-            if should_run_stance_pack(
+            if not material_only and should_run_stance_pack(
                 lane=decision.lane,
                 question_type=task_frame.question_type or decision.question_type,
                 query=query,
@@ -2065,7 +2181,7 @@ class TurnOrchestrator:
             # 没有先验（首轮 / 换题）时逐字节不变；投影失败只记 degrade，不拖死主答案。
             project_prior_block = ""
             project_prior_status: str | None = None
-            if decision.lane == "research" and canned is None:
+            if not material_only and decision.lane == "research" and canned is None:
                 try:
                     project_prior_block, project_prior_status = (
                         research_project.prior_for_turn(
@@ -2105,20 +2221,22 @@ class TurnOrchestrator:
                     # 递进 episode（trace 里那份与模型看到的不再可能漂移）。
                     retrieval_stages=research_plan.retrieval_stages,
                     conversation_context=(
-                        f"{context.to_prompt_block()}\n\n{project_prior_block}"
+                        f"{controller_context}\n\n{project_prior_block}"
                         if project_prior_block
-                        else context.to_prompt_block()
+                        else controller_context
                     ),
                     # 视角约束在这里进入 continuous 引擎。此前只有 legacy 合成
                     # 路径注入（ask_synthesis._active_perspective_prompt），
                     # 生产 continuous 主路径上视角只在 API 层验证与存储，模型
                     # prompt 永远看不到（2026-08-14 生产 smoke 实测）。
                     # neutral 时该原语返回空串，episode 输入逐字节不变。
-                    perspective_context=perspective_lab.active_runtime_prompt(
-                        userspace.user_space(self.run_store.user_id),
-                        mode=perspective_mode,
-                        perspective_ids=tuple(selected_perspective_ids),
-                        query=query,
+                    perspective_context=(
+                        "" if material_only else perspective_lab.active_runtime_prompt(
+                            userspace.user_space(self.run_store.user_id),
+                            mode=perspective_mode,
+                            perspective_ids=tuple(selected_perspective_ids),
+                            query=query,
+                        )
                     ),
                 )
                 if stance_pack is not None:
@@ -2170,6 +2288,8 @@ class TurnOrchestrator:
                     decision.lane == "knowledge"
                     and lane_answer.fallback_reason
                     and decision.question_type != QUESTION_METHODOLOGY
+                    # P3h: the fallback retrieval below is contract-blind.
+                    and not engine_b_restricted
                 ):
                     retrieval_attempted = True
                     fallback_started = time.monotonic()
@@ -2302,6 +2422,57 @@ class TurnOrchestrator:
                     citations=lane_citations,
                     warnings=lane_warnings,
                     as_of=lane_as_of,
+                )
+            if engine_b_restricted:
+                # P3h 兜底总闸：continuous 引擎未接管（模式关闭 / 让路 / 未配置）
+                # 时，约束轮（material_only / local_only / 待澄清）不得进入无
+                # 材料合同意识的 skill 路由与 Ask 检索管线——那会让 P3 的读取
+                # 收窄整体失效。fail closed：不外呼、不路由、如实降级。
+                scope_label = str(
+                    (task_frame.material_contract.data_scope if task_frame.material_contract else None)
+                    or "待澄清"
+                )
+                degraded_warning = f"material_scope_engine_unavailable:{scope_label}"
+                self.run_store.add_degrade(run_id, degraded_warning)
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "material_gate",
+                    "engine_b_material_gate",
+                    {
+                        "data_scope": scope_label,
+                        "needs_clarification": bool(
+                            task_frame.material_contract is not None
+                            and task_frame.material_contract.needs_clarification
+                        ),
+                        "question_type": str(task_frame.question_type or ""),
+                        "lane": decision.lane,
+                    },
+                )
+                return self._complete_lane_turn(
+                    conversation_id=conversation_id,
+                    run_id=run_id,
+                    assistant_message_id=assistant_message_id,
+                    query=query,
+                    report=report,
+                    answer=LaneAnswer(
+                        answer=(
+                            "本轮声明了数据边界（"
+                            + scope_label
+                            + "），但当前运行模式下没有可执行该边界的研究引擎；"
+                            "为不越权检索，本轮未调用任何外部数据管线。"
+                            "请在支持材料边界的连续研究模式下重试，"
+                            "或去掉边界声明后重新提问。"
+                        ),
+                        fallback_reason="material_scope_engine_unavailable",
+                    ),
+                    selected_skill_ids=manual_selected,
+                    turn_intent=turn_intent,
+                    research_plan=research_plan,
+                    citations=[],
+                    warnings=[degraded_warning],
+                    as_of=None,
                 )
             route_started = time.monotonic()
             relation_guard_requested = bool(
@@ -5294,6 +5465,12 @@ class TurnOrchestrator:
             return
         user_id = self.run_store.user_id
         if not user_id or user_id in {"golden-test", "tester", "default"}:
+            return
+        from intelligence.services.track_contract import persistence_opt_out
+
+        if persistence_opt_out(query):
+            # 用户明确说了「不登记长期跟踪」。两个 ingest 内部也各自挡了一道；
+            # 这里再挡是因为写入是**不可撤销的外部副作用**，多一道早退比事后清理便宜。
             return
         checkpoints_path = userspace.user_space(user_id).checkpoints_path
         try:

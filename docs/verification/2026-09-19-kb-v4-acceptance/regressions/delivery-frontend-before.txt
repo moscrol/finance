@@ -1,0 +1,148 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/fwp-wt-kb-dual-index-deploy/intelligence/webapp
+> vitest run -- src/components/components.test.tsx -t 'terminal ownership precedes|old finalization snapshot'
+
+
+ RUN  v3.2.4 /Users/a77/fwp-wt-kb-dual-index-deploy/intelligence/webapp
+
+ ✓ src/researchActivity.test.ts (2 tests) 6ms
+ ✓ src/api.test.ts (3 tests) 12ms
+ ✓ src/streamEventRegistry.test.ts (2 tests) 7ms
+ ✓ src/components/ResearchActivityControl.test.tsx (5 tests) 305ms
+ ✓ src/components/ResearchProjectPanel.test.tsx (5 tests) 203ms
+ ✓ src/components/DailyReportView.test.tsx (4 tests) 385ms
+ ✓ src/components/ResearchEvolutionPanel.test.tsx (18 tests) 650ms
+ ❯ src/components/components.test.tsx (70 tests | 2 failed) 3019ms
+   ✓ Workbench components > starts a workflow preset and submits from the unified composer 146ms
+   ✓ Workbench components > keeps degraded state, evidence and followups visible 41ms
+   ✓ Workbench components > translates internal failures and stages into user-facing language 2ms
+   ✓ Workbench components > counts only evidence records bound to verifiable citations 14ms
+   ✓ Workbench components > keeps structured modules behind the explicit run inspector 48ms
+   ✓ Workbench components > sanitizes markdown before rendering an artifact 14ms
+   ✓ Workbench components > shows a readable artifact date and source before technical metadata 23ms
+   ✓ Workbench components > keeps workflow summaries in their native JSON viewer 8ms
+   ✓ Workbench components > filters the artifact registry by date 52ms
+   ✓ Workbench components > keeps internal tool names out of the user-facing trace 50ms
+   ✓ Workbench components > shows the structured report inside the explicit run inspector 41ms
+   ✓ Workbench components > shows report degradation warnings and the bound KB snapshot 21ms
+   ✓ Workbench components > shows only allowlisted provider and model metadata 3ms
+   ✓ Workbench components > hides credential-shaped provider and model metadata 3ms
+   ✓ Workbench components > shows aggregate self-use maturity without private event details 14ms
+   ✓ Workbench components > does not start final self-use judgement during the demo stage 8ms
+   ✓ Chat-first conversation components > restores, switches and archives conversations in the mobile drawer 70ms
+   ✓ Chat-first conversation components > filters conversation history without changing the active conversation 52ms
+   ✓ Chat-first conversation components > starts a guided research workflow from the empty conversation 20ms
+   ✓ Chat-first conversation components > selects and removes product skills while keeping hybrid as default 52ms
+   ✓ Chat-first conversation components > switches from data neutral to a selected KOL perspective 33ms
+   ✓ Chat-first conversation components > distinguishes manual skills from automatically invoked skills 2ms
+   ✓ Chat-first conversation components > offers stop while a message is running 12ms
+   ✓ Chat-first conversation components > marks template answers and regenerates without hiding the old answer 28ms
+   ✓ Chat-first conversation components > warns when a completed ask answer has no verifiable evidence 8ms
+   ✓ Chat-first conversation components > warns when a completed research answer has no verifiable evidence 8ms
+   ✓ Chat-first conversation components > warns when a completed workflow answer has no verifiable evidence 8ms
+   ✓ Chat-first conversation components > does not show the company evidence warning for an index technical answer 8ms
+   ✓ Chat-first conversation components > does not show the company evidence warning for chat answers 9ms
+   ✓ Chat-first conversation components > does not show the company evidence warning for meta answers 6ms
+   ✓ Chat-first conversation components > does not show the company evidence warning for clarify answers 6ms
+   ✓ Chat-first conversation components > does not show the company evidence warning for static knowledge answers 7ms
+   ✓ Chat-first conversation components > does not show the company evidence warning for fresh knowledge answers 6ms
+   ✓ Chat-first conversation components > replaces loading with a persistent cancelled message 4ms
+   ✓ Chat-first conversation components > shows the latest real Episode progress while the answer is pending 5ms
+   ✓ Chat-first conversation components > shows every episode milestone, not only the newest one 7ms
+   ✓ Chat-first conversation components > shows the actual tool menu before any call, including on a failed run 6ms
+   ✓ Chat-first conversation components > keeps the timeline available after the answer lands 7ms
+   ✓ Chat-first conversation components > replays and upserts public trace steps in live message state 1ms
+   ✓ Chat-first conversation components > applies identity-checked deltas, module upserts and replay deduplication 0ms
+   ✓ Chat-first conversation components > applies answer snapshots with monotonic overwrite semantics 1ms
+   ✓ Chat-first conversation components > shows the verified_draft answer phase 8ms
+   ✓ Chat-first conversation components > shows the validated_synthesis answer phase 8ms
+   ✓ Chat-first conversation components > shows the verified_fallback answer phase 11ms
+   ✓ Chat-first conversation components > shows the decision_brief_fallback answer phase 8ms
+   ✓ Chat-first conversation components > shows the evidence_gap_fallback answer phase 8ms
+   ✓ Chat-first conversation components > loads and displays the selected owner workflow 4ms
+   ✓ Chat-first conversation components > tracks skill results and ends loading on complete or cancel 0ms
+   ✓ Workbench navigation reliability > opens on today and navigates across the five product surfaces 262ms
+   ✓ Workbench navigation reliability > restores the latest conversation and submits in hybrid mode 167ms
+   ✓ Workbench navigation reliability > seeds the credits line from bootstrap and refreshes it once a question is accepted 147ms
+   ✓ Workbench navigation reliability > submits an explicit KOL perspective without mixing other profiles 183ms
+   ✓ Workbench navigation reliability > restores the perspective picker from the latest user message 53ms
+   ✓ Workbench navigation reliability > regenerates with the original user message perspective 59ms
+   ✓ Workbench navigation reliability > recovers a persisted terminal run after the stream disconnects 136ms
+   × Workbench navigation reliability > keeps polling while terminal ownership precedes report delivery 98ms
+     → expected "spy" to not be called at all, but actually been called 1 times[90m
+
+Received: 
+
+[1m  1st spy call:
+
+[22m    Array []
+[39m[90m
+
+Number of calls: [1m1[22m
+[39m
+   × Workbench navigation reliability > does not let an old finalization snapshot erase the next submitted turn 183ms
+     → expected [ <article …(2)>…(2)</article> ] to have a length of 2 but got 1
+   ✓ Workbench navigation reliability > keeps cancel pending until polling confirms the cancelled state 196ms
+   ✓ Workbench navigation reliability > closes the event stream and polling timer when unmounted 109ms
+   ✓ Workbench navigation reliability > configures session-only BYOK without exposing the key 136ms
+   ✓ Workbench navigation reliability > persists BYOK only after opt-in and can explicitly forget it 138ms
+   ✓ Workbench navigation reliability > regenerates as a new message without replacing the old answer 60ms
+   ✓ Workbench navigation reliability > upserts replayed report modules by module_id 0ms
+   ✓ Workbench navigation reliability > does not let a late conversation response replace the current thread 51ms
+   ✓ Workbench navigation reliability > does not let a late artifact response replace the current selection 94ms
+   ✓ Workbench navigation reliability > upserts replayed trace steps by step_id 13ms
+   ✓ DigestSnapshotView（P1b 证据快照页） > exposes the snapshot as a clickable read-only evidence page 13ms
+   ✓ DigestSnapshotView（P1b 证据快照页） > stays absent when the report has no digest snapshot 3ms
+   ✓ DigestSnapshotView（P1b 证据快照页） > fails closed when only the redacted path string key is present 2ms
+   ✓ DigestSnapshotView（P1b 证据快照页） > shows remaining credits only for metered users and warns at zero 13ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/components.test.tsx > Workbench navigation reliability > keeps polling while terminal ownership precedes report delivery
+AssertionError: expected "spy" to not be called at all, but actually been called 1 times[90m
+
+Received: 
+
+[1m  1st spy call:
+
+[22m    Array []
+[39m[90m
+
+Number of calls: [1m1[22m
+[39m
+ ❯ src/components/components.test.tsx:2190:31
+    2188|     await waitFor(() => expect(apiMocks.getRun).toHaveBeenCalled());
+    2189|     await act(async () => events?.fail());
+    2190|     expect(events?.close).not.toHaveBeenCalled();
+       |                               ^
+    2191|     expect(screen.getAllByLabelText("研究助手消息")).toHaveLength(1);
+    2192| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/components/components.test.tsx > Workbench navigation reliability > does not let an old finalization snapshot erase the next submitted turn
+AssertionError: expected [ <article …(2)>…(2)</article> ] to have a length of 2 but got 1
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 2[39m
+[31m+ 1[39m
+
+ ❯ src/components/components.test.tsx:2237:48
+    2235|     expect(screen.getAllByLabelText("研究助手消息")).toHaveLength(2);
+    2236|     await act(async () => delayedTrace.resolve([]));
+    2237|     expect(screen.getAllByLabelText("研究助手消息")).toHaveLength(2);
+       |                                                ^
+    2238|     expect(screen.getByText("紧接着追问")).toBeVisible();
+    2239|     expect(mockEventSources.at(-1)?.close).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 7 passed (8)
+      Tests  2 failed | 107 passed (109)
+   Start at  22:47:05
+   Duration  5.58s (transform 881ms, setup 3.00s, collect 2.76s, tests 4.59s, environment 5.78s, prepare 1.10s)
+
+ ELIFECYCLE  Test failed. See above for more details.

@@ -1,0 +1,14 @@
+{
+  "original_assert_count": 7,
+  "corrected_assert_count": 18,
+  "missing_original_asserts": [],
+  "original_asserts": [
+    "count['runner'] == 1",
+    "results == [execution_scope] and current is not execution_scope",
+    "execution_scope.context is short and current.context is fresh",
+    "current.invoked_tools is old.invoked_tools",
+    "timed.items[0].observation is None and (not current.allowed_tools())",
+    "release.wait(3)",
+    "entered.is_set() and timed.items[0].status == 'timeout'"
+  ]
+}

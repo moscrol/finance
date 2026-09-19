@@ -220,6 +220,9 @@ def reexcerpt_hits(
     changed = 0
     blacklist = STRUCTURAL_SECTIONS
     for hit in items:
+        if getattr(hit, "evidence_scope_bound", False):
+            kept.append(hit)
+            continue
         page = resolve_wiki_page(root, str(getattr(hit, "file_path", "") or ""))
         if page is None:
             kept.append(_assign(hit, reexcerpted=False))

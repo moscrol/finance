@@ -1,0 +1,408 @@
+# Page snapshot
+
+```yaml
+- complementary "会话列表":
+  - text: F
+  - strong: Foresight
+  - text: Research Agent 工作区
+  - strong: 市场研究
+  - navigation "工作台一级导航":
+    - button "今日"
+    - button "主题"
+    - button "信号"
+    - button "验证"
+    - button "问答"
+  - button "新对话"
+  - text: 搜索会话
+  - searchbox "搜索会话"
+  - heading "研究线程" [level=2]
+  - text: "17"
+  - button "请个股深挖英维克的液冷业务 2026/9/18":
+    - strong: 请个股深挖英维克的液冷业务
+    - text: 2026/9/18
+  - button "归档请个股深挖英维克的液冷业务"
+  - button "E2E-tablet-1789740043513 请复盘 2026/9/18":
+    - strong: E2E-tablet-1789740043513 请复盘
+    - text: 2026/9/18
+  - button "归档E2E-tablet-1789740043513 请复盘"
+  - button "未命名研究 2026/9/18":
+    - strong: 未命名研究
+    - text: 2026/9/18
+  - button "归档未命名研究"
+  - button "R8 针 2026/9/18":
+    - strong: R8 针
+    - text: 2026/9/18
+  - button "归档R8 针"
+  - button "R1 针 2026/9/18":
+    - strong: R1 针
+    - text: 2026/9/18
+  - button "归档R1 针"
+  - button "本人的 2026/9/18":
+    - strong: 本人的
+    - text: 2026/9/18
+  - button "归档本人的"
+  - button "制冷剂配额 2026/9/18":
+    - strong: 制冷剂配额
+    - text: 2026/9/18
+  - button "归档制冷剂配额"
+  - button "I14计时 2026/9/18":
+    - strong: I14计时
+    - text: 2026/9/18
+  - button "归档I14计时"
+  - button "E2E-cancel-desktop 请完整分析今天研究 2026/9/18":
+    - strong: E2E-cancel-desktop 请完整分析今天研究
+    - text: 2026/9/18
+  - button "归档E2E-cancel-desktop 请完整分析今天研究"
+  - button "请个股深挖英维克的液冷业务 2026/9/18":
+    - strong: 请个股深挖英维克的液冷业务
+    - text: 2026/9/18
+  - button "归档请个股深挖英维克的液冷业务"
+  - button "E2E-desktop-1789739986290 请复 2026/9/18":
+    - strong: E2E-desktop-1789739986290 请复
+    - text: 2026/9/18
+  - button "归档E2E-desktop-1789739986290 请复"
+  - button "未命名研究 2026/9/18":
+    - strong: 未命名研究
+    - text: 2026/9/18
+  - button "归档未命名研究"
+  - button "R8 针 2026/9/18":
+    - strong: R8 针
+    - text: 2026/9/18
+  - button "归档R8 针"
+  - button "R1 针 2026/9/18":
+    - strong: R1 针
+    - text: 2026/9/18
+  - button "归档R1 针"
+  - button "本人的 2026/9/18":
+    - strong: 本人的
+    - text: 2026/9/18
+  - button "归档本人的"
+  - button "制冷剂配额 2026/9/18":
+    - strong: 制冷剂配额
+    - text: 2026/9/18
+  - button "归档制冷剂配额"
+  - button "I14计时 2026/9/18":
+    - strong: I14计时
+    - text: 2026/9/18
+  - button "归档I14计时"
+  - button "产物库": 研究产物
+  - text: 本地执行 · 私有数据
+- main:
+  - text: 研究线程
+  - strong: 请个股深挖英维克的液冷业务
+  - text: 每轮重新检索当前证据
+  - button "配置模型": 默认模型
+  - status: 空闲
+  - text: 私有 Demo · 非计分 · Day 1 未开始
+  - button "打开研究检查器"
+  - region "消息记录":
+    - article "你的消息":
+      - paragraph: 请个股深挖英维克的液冷业务
+    - article "研究助手消息":
+      - strong: Foresight
+      - text: 已保留可核验版本 已指定工具 · 个股深挖
+      - status: 工作流已加载 · 个股深挖 · 5 个阶段
+      - group: 研究过程（11 步）
+      - paragraph: 当前视角：数据中立 来源范围：数据提供方、公开来源与本轮检索证据
+      - paragraph:
+        - strong: 数据说明：本轮没有连接本地市场数据，也没有可用的历史盘面快照。
+        - text: 本轮无法完成最新交易日复盘。
+      - paragraph:
+        - strong: 数据说明：本轮没有连接本地市场数据，也没有可用的历史盘面快照。
+        - text: 本轮无法完成最新交易日复盘。
+      - heading "个股深挖" [level=1]
+      - heading "核心判断" [level=2]
+      - paragraph:
+        - strong: 题材是什么：
+        - text: 液冷的研究范围是：围绕 AI 服务器和数据中心散热，从冷板、CDU、快接、泵阀、冷源到系统集成与交付的研究方向。
+      - paragraph:
+        - strong: 盘面判断：
+        - text: 盘面数据本轮不足，暂时无法判断资金是否已经形成持续共识。
+      - paragraph:
+        - strong: 公司判断：
+        - text: 公司层面已找到可回查的公开材料，覆盖英维克；是否属于核心受益者，仍需结合业务直接性和收入贡献判断。
+      - heading "题材怎么理解" [level=2]
+      - paragraph: 这条产业链可以按“冷却液、泵阀、快接、冷板与换热器 → CDU、冷源、液冷机柜与系统集成 → 服务器、数据中心建设与运维”来拆。区分零部件、设备、系统集成、客户验证、订单交付和收入贡献，不把汽车热管理或泛制冷概念直接等同于数据中心液冷。
+      - heading "为什么这样判断" [level=2]
+      - paragraph: 本轮可回查的数据主要给出以下信号：
+      - list:
+        - listitem: 英维克与液冷存在公司级映射。
+      - heading "公司本体" [level=2]
+      - list:
+        - listitem: 主体：英维克（002837.SZ）；数据截止：待核验。
+      - heading "公司级证据块" [level=2]
+      - list:
+        - listitem: 英维克与液冷存在公司级映射。
+        - listitem: 英维克：公司公告披露其液冷相关产品已应用于数据中心温控场景。（公司公告, 2026-07-10, 质量较高 ｜周期待判）
+      - heading "财务传导" [level=2]
+      - list:
+        - listitem: 公司层面已找到可回查的公开材料，覆盖英维克；是否属于核心受益者，仍需结合业务直接性和收入贡献判断。
+        - listitem: 客户验证转订单
+        - listitem: 液冷收入和利润开始兑现
+      - heading "市场选择" [level=2]
+      - list:
+        - listitem: 盘面数据本轮不足，暂时无法判断资金是否已经形成持续共识。
+      - heading "反证与证伪" [level=2]
+      - list:
+        - listitem: 事实与盘面同向时最大的反证是拥挤度：若成交占比过高且靠旧主线资金切换，属兑现风险而非增量扩散
+        - listitem: 当前的事实边界是：题材定义和产业链属于研究口径；公司结论必须满足：公告、年报或官网产品资料、客户验证、订单、交付或量产证据、液冷收入、毛利和回款贡献。
+        - listitem: 英维克证据 2026-07-10，距今超过 45 天且本轮取不到题材盘面历史，需人工判断处于唤醒还是衰退
+        - listitem: 未检索到反方证据
+      - heading "升级、降级与证伪条件" [level=2]
+      - paragraph:
+        - strong: 升级条件：
+        - text: 补齐公告、订单、经营兑现或连续盘面验证后再上调。
+        - strong: 降级/证伪条件：
+        - text: 关键事实长期缺席或公开信息否定当前映射。
+      - heading "公司证据" [level=2]
+      - paragraph: 本轮有 1 家公司达到核心分层，其余公司仍需按公开披露逐项核对。
+      - heading "核心公司" [level=3]
+      - table:
+        - rowgroup:
+          - row "公司 产业链位置 直接性 分层 证据状态":
+            - cell "公司"
+            - cell "产业链位置"
+            - cell "直接性"
+            - cell "分层"
+            - cell "证据状态"
+        - rowgroup:
+          - row "英维克（002837.SZ） 温控设备与液冷系统 直接 核心 已绑定公司级硬证据":
+            - cell "英维克（002837.SZ）"
+            - cell "温控设备与液冷系统"
+            - cell "直接"
+            - cell "核心"
+            - cell "已绑定公司级硬证据"
+      - heading "反证与缺口" [level=2]
+      - paragraph: 目前最需要警惕的是以下反证和证据缺口：
+      - list:
+        - listitem: 风险：事实与盘面同向时最大的反证是拥挤度：若成交占比过高且靠旧主线资金切换，属兑现风险而非增量扩散
+        - listitem: 还缺：当前的事实边界是：题材定义和产业链属于研究口径；公司结论必须满足：公告、年报或官网产品资料、客户验证、订单、交付或量产证据、液冷收入、毛利和回款贡献。
+        - listitem: 还缺：英维克证据 2026-07-10，距今超过 45 天且本轮取不到题材盘面历史，需人工判断处于唤醒还是衰退
+        - listitem: 还缺：未检索到反方证据
+        - listitem: 召回自评：反方证据 0 条
+        - listitem: 召回自评：产业链关系 0 条
+        - listitem: 召回自评：最近 30 天证据 0 条
+        - listitem: 召回自评：独立来源不足 3 个
+      - heading "下一步如何验证" [level=2]
+      - paragraph:
+        - strong: 判断升级需要：
+        - text: 客户验证转订单；机柜或 CDU 交付放量；液冷收入和利润开始兑现。
+        - strong: 复核时间：建议 30 天内复查；过期引用本结论须先经当下盘面复核。
+        - text: 建议按下面的顺序核验；已有公司级材料仍需持续复核业务贡献和兑现节奏：
+      - list:
+        - listitem: 核对产品和客户原文
+        - listitem: 区分送样、定点、订单和交付
+        - listitem: 比较公司证据硬度与盘面相对强弱
+        - listitem: 候选研究任务（人工复核）：补多来源交叉核验基础资料：年报/定期报告/iFinD/AKShare 的主营与行业分类（人工复核后入库）
+      - group: 展开来源和数据说明
+      - group: 运行详情 已完成 已降级
+    - article "你的消息":
+      - paragraph: 那它的主要风险和下一步验证是什么？
+    - article "研究助手消息":
+      - strong: Foresight
+      - text: 已保留可核验版本 已指定工具 · 个股深挖
+      - status: 工作流已加载 · 个股深挖 · 5 个阶段
+      - group: 研究过程（11 步）
+      - paragraph: 当前视角：数据中立 来源范围：数据提供方、公开来源与本轮检索证据
+      - paragraph:
+        - strong: 数据说明：本轮没有连接本地市场数据，也没有可用的历史盘面快照。
+        - text: 本轮无法完成最新交易日复盘。
+      - paragraph:
+        - strong: 数据说明：本轮没有连接本地市场数据，也没有可用的历史盘面快照。
+        - text: 本轮无法完成最新交易日复盘。
+      - heading "个股深挖" [level=1]
+      - heading "核心判断" [level=2]
+      - paragraph:
+        - strong: 题材是什么：
+        - text: 英维克的研究范围是：先界定题材解决的问题、技术或商业边界，不把概念关联直接等同于公司受益。
+      - paragraph:
+        - strong: 盘面判断：
+        - text: 盘面数据本轮不足，暂时无法判断资金是否已经形成持续共识。
+      - paragraph:
+        - strong: 公司判断：
+        - text: 公司层面已找到可回查的公开材料，覆盖英维克；是否属于核心受益者，仍需结合业务直接性和收入贡献判断。
+      - heading "题材怎么理解" [level=2]
+      - paragraph: 这条产业链可以按“上游供给与基础设施 → 中游产品与系统集成 → 下游客户与应用场景”来拆。逐家公司说明产业链位置、直接性、证据状态和证据缺口。
+      - heading "为什么这样判断" [level=2]
+      - paragraph: 本轮可回查的数据主要给出以下信号：
+      - list:
+        - listitem: 英维克与液冷存在公司级映射。
+      - heading "公司本体" [level=2]
+      - list:
+        - listitem: 主体：英维克（002837.SZ）；数据截止：待核验。
+      - heading "公司级证据块" [level=2]
+      - list:
+        - listitem: 英维克与液冷存在公司级映射。
+        - listitem: 英维克：公司公告披露其液冷相关产品已应用于数据中心温控场景。（公司公告, 2026-07-10, 质量较高 ｜周期待判）
+      - heading "财务传导" [level=2]
+      - list:
+        - listitem: 公司层面已找到可回查的公开材料，覆盖英维克；是否属于核心受益者，仍需结合业务直接性和收入贡献判断。
+        - listitem: 客户验证转订单
+        - listitem: 液冷收入和利润开始兑现
+      - heading "市场选择" [level=2]
+      - list:
+        - listitem: 盘面数据本轮不足，暂时无法判断资金是否已经形成持续共识。
+      - heading "反证与证伪" [level=2]
+      - list:
+        - listitem: 事实与盘面同向时最大的反证是拥挤度：若成交占比过高且靠旧主线资金切换，属兑现风险而非增量扩散
+        - listitem: 当前的事实边界是：题材定义和产业链属于研究口径；公司结论必须满足：公告、年报或官网产品资料、客户验证、订单、交付或量产证据、液冷收入、毛利和回款贡献。
+        - listitem: 英维克证据 2026-07-10，距今超过 45 天且本轮取不到题材盘面历史，需人工判断处于唤醒还是衰退
+        - listitem: 未检索到反方证据
+      - heading "公司本体" [level=2]
+      - list:
+        - listitem: 主体：英维克（002837.SZ）；数据截止：待核验。
+      - heading "公司级证据块" [level=2]
+      - list:
+        - listitem: 英维克与液冷存在公司级映射。
+        - listitem: 英维克：公司公告披露其液冷相关产品已应用于数据中心温控场景。（公司公告, 2026-07-10, 质量较高 ｜周期待判）
+      - heading "财务传导" [level=2]
+      - list:
+        - listitem: 公司层面已找到可回查的公开材料，覆盖英维克；是否属于核心受益者，仍需结合业务直接性和收入贡献判断。
+      - heading "市场选择" [level=2]
+      - list:
+        - listitem: 盘面数据本轮不足，暂时无法判断资金是否已经形成持续共识。
+        - listitem: 盘面量价与扩散同步验证
+      - heading "反证与证伪" [level=2]
+      - list:
+        - listitem: 事实与盘面同向时最大的反证是拥挤度：若成交占比过高且靠旧主线资金切换，属兑现风险而非增量扩散
+        - listitem: 当前的事实边界是：题材定义和产业链属于研究口径；公司结论必须满足：公告或定期报告、官网产品与客户资料、订单、认证、量产或收入贡献。
+        - listitem: 英维克证据 2026-07-10，距今超过 45 天且本轮取不到题材盘面历史，需人工判断处于唤醒还是衰退
+        - listitem: 未检索到反方证据
+      - heading "升级、降级与证伪条件" [level=2]
+      - paragraph:
+        - strong: 升级条件：
+        - text: 补齐公告、订单、经营兑现或连续盘面验证后再上调。
+        - strong: 降级/证伪条件：
+        - text: 关键事实长期缺席或公开信息否定当前映射。
+      - heading "公司证据" [level=2]
+      - paragraph: 本轮有 1 家公司达到核心分层，其余公司仍需按公开披露逐项核对。
+      - heading "核心公司" [level=3]
+      - table:
+        - rowgroup:
+          - row "公司 产业链位置 直接性 分层 证据状态":
+            - cell "公司"
+            - cell "产业链位置"
+            - cell "直接性"
+            - cell "分层"
+            - cell "证据状态"
+        - rowgroup:
+          - row "英维克（002837.SZ） 温控设备与液冷系统 直接 核心 已绑定公司级硬证据":
+            - cell "英维克（002837.SZ）"
+            - cell "温控设备与液冷系统"
+            - cell "直接"
+            - cell "核心"
+            - cell "已绑定公司级硬证据"
+      - heading "反证与缺口" [level=2]
+      - paragraph: 目前最需要警惕的是以下反证和证据缺口：
+      - list:
+        - listitem: 风险：事实与盘面同向时最大的反证是拥挤度：若成交占比过高且靠旧主线资金切换，属兑现风险而非增量扩散
+        - listitem: 还缺：当前的事实边界是：题材定义和产业链属于研究口径；公司结论必须满足：公告或定期报告、官网产品与客户资料、订单、认证、量产或收入贡献。
+        - listitem: 还缺：英维克证据 2026-07-10，距今超过 45 天且本轮取不到题材盘面历史，需人工判断处于唤醒还是衰退
+        - listitem: 还缺：未检索到反方证据
+        - listitem: 召回自评：反方证据 0 条
+        - listitem: 召回自评：产业链关系 0 条
+        - listitem: 召回自评：最近 30 天证据 0 条
+        - listitem: 召回自评：独立来源不足 3 个
+      - heading "下一步如何验证" [level=2]
+      - paragraph:
+        - strong: 判断升级需要：
+        - text: 公司级硬证据升级；产业需求或政策边界变化；盘面量价与扩散同步验证。
+        - strong: 复核时间：建议 30 天内复查；过期引用本结论须先经当下盘面复核。
+        - text: 建议按下面的顺序核验；已有公司级材料仍需持续复核业务贡献和兑现节奏：
+      - list:
+        - listitem: 核对公告、年报和官网
+        - listitem: 确认产品、客户、订单和收入贡献
+        - listitem: 跟踪反证与触发条件
+        - listitem: 候选研究任务（人工复核）：从年报分业务收入表提取题材相关业务占比与毛利率（生成候选，不自动写实体）
+      - group: 展开来源和数据说明
+      - group: 运行详情 已完成 已降级
+      - button "重新生成回答": 重新生成
+  - form "研究提问":
+    - text: 输入研究问题
+    - textbox "输入研究问题"
+    - button "选择研究工具": 手动指定研究工具 · 1
+    - text: 研究工具选择方式
+    - combobox "研究工具选择方式":
+      - option "自动选择并补充指定工具"
+      - option "手动指定研究工具" [selected]
+      - option "自动选择研究工具"
+    - text: 个股深挖
+    - button "移除 个股深挖"
+    - button "选择分析视角": 数据中立
+    - text: Enter 发送 · Shift + Enter 换行
+    - button "发送研究问题" [disabled]
+- complementary "研究检查器":
+  - text: 研究状态
+  - strong: 研究上下文
+  - button "关闭检查器"
+  - tablist "检查器视图":
+    - tab "证据" [selected]
+    - tab "项目"
+    - tab "维护"
+    - tab "运行"
+    - tab "记忆"
+    - tab "回检"
+  - region "当前任务摘要":
+    - text: 当前任务
+    - strong: 已完成
+    - term: 步骤
+    - definition: "11"
+    - term: 证据
+    - definition: "6"
+    - term: 产物
+    - definition: "7"
+  - group "自用成熟度预览": 自用成熟度预览（Demo 非计分）
+  - region "使用计时":
+    - paragraph: 仅记录本次会话的应用内可见区间和隐藏区间，不记录输入内容。可见不等于一直在操作；隐藏不扣端到端耗时，不推断外部查阅时间。关闭页面或切会话会停止，异常退出可能缺测。自用记录不计入配对任务效果。
+    - button "同意并开始本次计时"
+    - status: 使用计时已关闭；研究功能不受影响
+  - region "证据与边界":
+    - heading "证据与边界" [level=2]
+    - strong: knowledge-base · wiki/relations/entity_exposures.json
+    - paragraph: 实体解析 matched_by=name
+    - text: 可验证引用
+    - strong: knowledge-base · wiki/relations/entity_exposures.json
+    - paragraph: 已记录引用
+    - text: 可验证引用
+    - strong: knowledge-base · wiki/relations/evidence_index.json
+    - paragraph: target=英维克 source=公司公告
+    - text: 可验证引用
+    - strong: theme-radar · radar.py --mode brief（产业维·速览）
+    - paragraph: radar.py --mode brief --term 英维克 液冷 --vault <kb-wiki> | --term 英维克 液冷
+    - text: 可验证引用
+    - strong: 本地证据链客户硬度数据块
+    - paragraph: 客户/订单/量产/送样/验证证据按硬度分层
+    - text: 可验证引用
+    - strong: 本地市场数据 + 证据链二阶导研究队列数据块
+    - paragraph: 强势替代表达/目标股再升级/产业瓶颈补盲
+    - text: 可验证引用
+    - strong: D 类证据
+    - paragraph: 2 条引用
+    - text: 引用汇总
+    - strong: 图谱证据
+    - paragraph: 3 条引用
+    - text: 引用汇总
+    - strong: 事实证据
+    - paragraph: 1 条引用
+    - text: 引用汇总
+    - strong: 数据缺口或降级
+    - paragraph: no theme-candidates export found
+    - strong: 数据缺口或降级
+    - paragraph: 本轮没有连接本地市场数据，也没有可用的历史盘面快照。
+    - strong: 数据缺口或降级
+    - paragraph: 知识库检索暂不可用；本轮未使用知识库语义证据。
+    - strong: 数据缺口或降级
+    - paragraph: 知识库检索暂不可用；本轮未使用知识库语义证据。
+    - strong: 数据缺口或降级
+    - paragraph: 知识库检索暂不可用；本轮未使用知识库语义证据。
+    - strong: 数据缺口或降级
+    - paragraph: 知识库检索暂不可用；本轮未使用知识库语义证据。
+    - strong: 数据缺口或降级
+    - paragraph: 某项本地研究数据暂不可用；相关证据未纳入本轮结论。
+    - strong: 数据缺口或降级
+    - paragraph: 输出质检：本地数据新鲜度——未拿到本地交易日：回答未挂到任何盘面数据日期
+    - strong: 数据缺口或降级
+    - paragraph: 自然语言综合暂时不可用；已保留可核验数据与结构化产物。
+    - strong: 数据缺口或降级
+    - paragraph: 自然语言综合暂时不可用；已保留可核验数据与结构化产物。
+```

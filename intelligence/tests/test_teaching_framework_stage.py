@@ -230,8 +230,8 @@ def test_bands_and_catalog_follow_the_parameter_file():
     assert bands["主流主升"] == {"amount_vs_ma20_pct": (115.0, 135.0), "stock_ma10_deviation_median": (1.4, 2.5)}
     assert stage_bands(None) == {stage: {} for stage in STAGES}
     catalog = stage_predicates(BANDS)
-    assert catalog["共建主线"] == ("E:breakout_volume_within_window", "H:in_band:amount_vs_ma20_pct", "H:in_band:stock_ma10_deviation_median")
-    assert catalog["缩量右底"] == ("E:retest_cross_below", "H:shrink_after_retest", "H:in_band:amount_vs_ma20_pct", "H:in_band:stock_ma10_deviation_median")
+    assert catalog["共建主线"] == ("E:breakout_volume_within_window", "H:macd_bottom_div", "H:in_band:amount_vs_ma20_pct", "H:in_band:stock_ma10_deviation_median")
+    assert catalog["缩量右底"] == ("E:retest_cross_below", "H:shrink_after_retest", "H:macd_bottom_div", "H:in_band:amount_vs_ma20_pct", "H:in_band:stock_ma10_deviation_median")
     assert stage_predicates(None) == {stage: ENTRY_PREDICATES[stage] + CONTINUING_PREDICATES.get(stage, ()) for stage in STAGES}
     assert {view for view, _ in BAND_VIEWS} >= {"amount_vs_ma20_pct", "stock_ma10_deviation_median", "stock_up_ratio_ma5_pct", "src.sh_deviation_pct"}
 
@@ -307,6 +307,8 @@ def test_every_catalogued_predicate_can_fire_and_nothing_else_does():
         "amount_vs_ma20_pct": 95.0, "stock_ma10_deviation_median": 0.5,
     }, BANDS))
     seen.update(predicate_hits({"mainline_share_trend_up": True, "volume_trend_up": True}, BANDS, origin="共建主线"))
+    # 第二十三段：底背离观察日给缩量右底（周均线下方）与共建主线各一分。
+    seen.update(predicate_hits({"macd_bottom_div_observe": True, "above_week_ma": False}, BANDS))
     catalog = {(stage, pid) for stage, pids in stage_predicates(BANDS).items() for pid in pids}
     assert seen == catalog
     assert confidence("ambiguous", {s: 0 for s in STAGES}, [], BANDS) is None
@@ -408,7 +410,7 @@ def test_stage_evidence_is_structured_json_and_uses_band_membership():
     assert records[1]["stage_coarse"] == "共建主线" and evidence["resolution"] == "entry"
     assert evidence["from"] == "左底向下" and evidence["entered"] == ["共建主线"] and "共建主线" in evidence["eligible"]
     assert evidence["inputs"]["amount_vs_ma20_pct"] == round(98 / 90 * 100, 6)
-    assert records[1]["confidence"] == {"stage": "共建主线", "hits": 3, "possible": 3, "missing": [], "margin": 1}
+    assert records[1]["confidence"] == {"stage": "共建主线", "hits": 3, "possible": 4, "missing": ["H:macd_bottom_div"], "margin": 1}
 
 
 def test_gap_day_writes_no_labels_and_breaks_the_stage_chain():
@@ -595,3 +597,31 @@ def test_二次探底_is_fine_inside_缩量右底():
     assert stage_fine("缩量右底", {"cross_below_kind": "retest"}) == "二次探底"
     assert stage_fine("缩量右底", {"cross_below_kind": "first"}) == "缩量右底"
     assert stage_fine("缩量右底", {}) == "缩量右底"
+
+
+def test_触碰周均_is_fine_inside_左底向上_only_above_the_weekly_ma():
+    """第二十四段：左底向上里站在周均线上方、还没放量突破的日子 fine = 触碰周均；下方反弹的日子仍是左底向上。"""
+    from intelligence.services.teaching_framework.stage_rules import stage_fine
+    assert stage_fine("左底向上", {"above_week_ma": True}) == "触碰周均"
+    assert stage_fine("左底向上", {"above_week_ma": False}) == "左底向上"
+    assert stage_fine("左底向上", {}) == "左底向上"
+    assert stage_fine("共建主线", {"above_week_ma": True}) == "共建主线"
+
+
+def test_stage_fine_exits_counts_where_each_sub_state_resolves():
+    from intelligence.services.teaching_framework.index_stage import stage_fine_exits
+    usable = [
+        {"stage_coarse": "左底向上", "stage_fine": "触碰周均"},
+        {"stage_coarse": "ambiguous", "stage_fine": "unassigned"},       # 未决日跳过
+        {"stage_coarse": "左底向上", "stage_fine": "触碰周均"},
+        {"stage_coarse": "左底向下", "stage_fine": "左底向下"},          # 两天都回落到这里
+        {"stage_coarse": "缩量右底", "stage_fine": "二次探底"},
+        {"stage_coarse": "缩量右底", "stage_fine": "缩量右底"},          # fine == coarse，不计
+        {"stage_coarse": "共建主线", "stage_fine": "共建主线"},
+        {"stage_coarse": "高位震荡", "stage_fine": "见顶"},              # 之后没有换段 → still_same
+    ]
+    assert stage_fine_exits(usable) == {
+        "二次探底": {"共建主线": 1},
+        "见顶": {"still_same": 1},
+        "触碰周均": {"左底向下": 2},
+    }

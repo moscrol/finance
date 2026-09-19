@@ -1,0 +1,104 @@
+"""One-run read-only acceptance of isolated migrated indexes (no embedding/network).
+
+Use the accepted KB selector/chunker for the denominator; inspect actual fields and
+vectors, not just the advertised version. Known quarantines remain degraded.
+"""
+import collections
+import hashlib
+import json
+import os
+from pathlib import Path
+import sys
+
+import numpy as np
+
+HOME = Path.home()
+ROOT = HOME / '.finance-runtime/kb-dual-index-20260918'
+CODE = Path(os.environ.get('KB_VERIFY_CODE_ROOT', str(HOME / '.finance-runtime/kb-code-91725ea9ba02')))
+sys.path.insert(0, str(CODE / 'skills/lib'))
+from rag.chunking import iter_vault_files
+from rag.evidence import FIELDS, METADATA_VERSION, has_conflict
+from rag.health import index_health
+from rag.store import RagStore
+
+
+def digest(path):
+    h = hashlib.sha256()
+    with path.open('rb') as fh:
+        for block in iter(lambda: fh.read(1024 * 1024), b''):
+            h.update(block)
+    return h.hexdigest()
+
+
+def verify(name, *, staging=None):
+    index = (staging or ROOT / 'staging') / name
+    vault = ROOT / 'source/wiki'
+    store = RagStore.load(index)
+    full = name == '.rag_index_full'
+    assert store.meta['model'] == 'bge-m3'
+    assert store.meta['include_raw'] is full
+    assert store.meta['max_files'] == 0
+    assert store.meta['evidence_metadata_version'] == METADATA_VERSION
+    assert store.dense.shape == (store.num_chunks, 1024)
+    for start in range(0, store.num_chunks, 4096):
+        mat = np.asarray(store.dense[start:start+4096], dtype=np.float32)
+        assert np.isfinite(mat).all(), 'nonfinite vectors'
+        norms = np.linalg.norm(mat, axis=1)
+        assert np.all((norms > 0.99) & (norms < 1.01)), 'empty or unnormalized vectors'
+    selected = {p.relative_to(vault.parent).as_posix(): p
+                for p in iter_vault_files(vault, include_raw=full, max_files=0)}
+    conflicts = {p for p, source in selected.items() if has_conflict(source.read_text())}
+    indexed = set()
+    fields = collections.Counter()
+    layers = collections.Counter()
+    raw_bad = set()
+    combinations = collections.Counter()
+    for chunk in store.chunks:
+        path = chunk['file_path']
+        indexed.add(path)
+        assert path in selected, f'outside source allowlist: {path}'
+        assert path not in conflicts, f'conflict page leaked: {path}'
+        assert not has_conflict(chunk['text'])
+        fields.update(key for key in FIELDS if chunk.get(key))
+        layers.update([chunk.get('evidence_layer') or '<unknown>'])
+        if chunk.get('evidence_layer') and chunk.get('fact_hardness') and chunk.get('available_time'):
+            combinations.update([(chunk['evidence_layer'], chunk['fact_hardness'])])
+        if path.startswith('wiki/raw/') and any(token in path for token in ('/review-queue/', '/batches/', '/README')):
+            raw_bad.add(path)
+    assert not raw_bad
+    gaps = set(selected) - indexed - conflicts
+    assert not gaps, f'unexplained coverage gaps: {len(gaps)}'
+    assert all(fields[key] > 0 for key in FIELDS), 'metadata advertised but empty'
+    assert len(indexed & conflicts) == 0
+    frozen = index_health(index, vault, expected_raw=full)
+    live = index_health(index, HOME / 'knowledge-base-private/wiki', expected_raw=full)
+    assert frozen['freshness'] == 'fresh'
+    assert frozen['indexed_conflicts_count'] == 0
+    assert frozen['missing_files_count'] == 0
+    assert frozen['issues'] == ['conflict pages quarantined; source review required']
+    return {'index': name, 'frozen_health': frozen, 'live_health': live,
+            'metadata_counts': dict(fields), 'layer_counts': dict(layers),
+            'layer_hardness_with_available_time': {str(k): v for k, v in combinations.items()},
+            'selected_files': len(selected), 'indexed_files': len(indexed),
+            'quarantined_files': sorted(conflicts), 'unexplained_gaps': sorted(gaps),
+            'vector_rows_checked': store.num_chunks,
+            'file_hashes': {p.name: digest(p) for p in sorted(index.iterdir()) if p.is_file()}}
+
+
+def main():
+    names = sys.argv[1:] or ['.rag_index', '.rag_index_full']
+    for name in names:
+        assert name in {'.rag_index', '.rag_index_full'}
+        report = verify(name)
+        output = ROOT / 'evidence' / f'{name[1:]}-verification.json'
+        output.write_text(json.dumps(report, ensure_ascii=False, indent=2))
+        print(json.dumps({k: v for k, v in report.items() if k in ('index', 'selected_files', 'indexed_files', 'unexplained_gaps', 'vector_rows_checked')}, ensure_ascii=False))
+    # Original command still fails against the ORIGINAL window's baseline.
+    kb = HOME / 'knowledge-base-private'
+    before = json.loads((ROOT / 'evidence/production-index-before.json').read_text())
+    assert all(digest(kb / path) == sha for path, sha in before.items()), 'production indexes changed'
+    print('production index bytes unchanged; no consumer switched')
+
+
+if __name__ == '__main__':
+    main()

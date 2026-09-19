@@ -1,0 +1,535 @@
+diff --git a/docs/agent-product-door.md b/docs/agent-product-door.md
+index 07e05590..721600a2 100644
+--- a/docs/agent-product-door.md
++++ b/docs/agent-product-door.md
+@@ -52,6 +52,12 @@ P3b 在 Episode 装配层接入 `local_only` 的实际 IO（输入/输出行为
+ 不装默认外呼工具、不为它们做全局实体解析；未审定历史附加工具暂不挂，普通本地
+ finance_query 的历史窗口约束保留。此处是可信装配声明与回归测试，不是操作系统网络沙箱。
+ 
++P3c 将同一读取上限绑定到运行器实际持有的注册表，而不只约束 EpisodeScope 内的副本：
++Episode 车道在消费预取做升档判断、可满足性预检、配置快照、提示词与证据账本播种前收窄；
++批工具菜单/定义/执行和内存修复续轮也重新绑定，原始 full 注册表不被修改。
++这防止外部预取先进入模型、未知 IO 工具先被列出后才在 dispatch 拒绝；不是清洗历史消息，
++也不能撤销注入式 registry_factory 内部已经发生的读取。P3b/P3c 尚待有效独立复核。
++
+ **本阶段不是材料题全链完成**：`local_only` 仅已审定 runner 的局部路径，未覆盖所有
+ 本地工具；歧义/基底不可恢复的预取前澄清、controller 前缀/默认摘要/压缩/恢复/子研究等
+ 全部注入路径、确定性旁路仍待 P3 收口。local_only 原题号槽、逐题最终交付、可信跨轮继承、
+diff --git a/intelligence/runtime/agent_episode.py b/intelligence/runtime/agent_episode.py
+index efb73721..52e1701f 100644
+--- a/intelligence/runtime/agent_episode.py
++++ b/intelligence/runtime/agent_episode.py
+@@ -1156,6 +1156,9 @@ class ContinuousAgentEpisode:
+         # 只在真有下游 sink 时才挂：否则 ``dump()`` 的 ``event_sink_attached``
+         # 会在没人接收时报 True——收据不说谎优先于形式上"接线了"。
+         #
++        # Scope 内的副本不能约束还持有原 registry 的消费者；先绑定本地引用，
++        # 再生成配置快照、绑 episode 工具、拼提示词与播种账本。
++        registry = registry.for_context(context)
+         # 证据账本要在绑 sub_research 之前建：分支证据经它的 branch_sink 进父账本。
+         # 建得早不改任何事件——它只依赖 context。
+         evidence_ledger = EvidenceLedger(
+@@ -2142,7 +2145,8 @@ class ContinuousAgentEpisode:
+         accumulator = state.accumulator
+         messages = state.messages
+         tool_session = state.tool_session
+-        registry = state.registry
++        registry = state.registry.for_context(context)
++        state.registry = registry
+         task_frame = state.task_frame
+         repair_seconds = max(0.0, float(goal.remaining_seconds))
+         if context.root_budget is not None:
+diff --git a/intelligence/runtime/continuous_turn_adapter.py b/intelligence/runtime/continuous_turn_adapter.py
+index cda2052e..79fb4295 100644
+--- a/intelligence/runtime/continuous_turn_adapter.py
++++ b/intelligence/runtime/continuous_turn_adapter.py
+@@ -539,6 +539,11 @@ class ContinuousTurnAdapter:
+                 ResearchToolRegistry,
+                 self._registry_factory(frame, context),
+             )
++            material = context.contract.material_contract
++            if material is not None and material.data_scope in {"local_only", "material_only"}:
++                # 受限轮必须拿得到同一注册表合同；full 的旧鸭子类型注入点不变。
++                # 不支持绑定就由现有失败出口收口，不能先预取后才发现没授权。
++                registry = registry.for_context(context)
+             # 展望座位升 deep：判定在领域，落账在底座（runtime/tier_promotion）。
+             context = maybe_promote_forecast_residual(
+                 context,
+diff --git a/intelligence/runtime/episode_tool_batch.py b/intelligence/runtime/episode_tool_batch.py
+index c622eb16..38701e8f 100644
+--- a/intelligence/runtime/episode_tool_batch.py
++++ b/intelligence/runtime/episode_tool_batch.py
+@@ -283,6 +283,7 @@ def tool_definitions_for_menu(
+ ) -> list[dict[str, object]]:
+     """把菜单落成模型 API 的 tool definitions；两条 loop 共用，菜单只算一次。"""
+ 
++    registry = registry.for_context(context)
+     visible = set(menu.visible)
+     return [
+         definition
+@@ -364,6 +365,7 @@ class EpisodeToolBatchSession:
+         此刻必超时的工具。领域只申报 ``min_window_seconds``，装不装得下由这里判。
+         """
+ 
++        registry = registry.for_context(context)
+         would_grant = context.deadline.stage_timeout(
+             tool_batch_timeout_seconds(context.policy)
+         )
+@@ -405,6 +407,7 @@ class EpisodeToolBatchSession:
+         turn_elapsed_at_dispatch: float | None = None,
+         request_extras: Mapping[str, Mapping[str, object]] | None = None,
+     ) -> ToolBatchResult:
++        registry = registry.for_context(context)
+         with self._lock:
+             return self._execute_locked(
+                 calls,
+diff --git a/intelligence/services/episode_scope.py b/intelligence/services/episode_scope.py
+index 215e41d7..7c94c12b 100644
+--- a/intelligence/services/episode_scope.py
++++ b/intelligence/services/episode_scope.py
+@@ -252,9 +252,7 @@ class EpisodeScope:
+             raise ValueError("episode scope 必须携带 episode_id")
+         if not isinstance(self.invoked_tools, set):
+             object.__setattr__(self, "invoked_tools", set(self.invoked_tools))
+-        material = self.context.contract.material_contract
+-        if material is not None and material.data_scope in {"local_only", "material_only"}:
+-            object.__setattr__(self, "registry", self.registry.with_read_scope(material.data_scope))
++        object.__setattr__(self, "registry", self.registry.for_context(self.context))
+ 
+     # ── 运行中登记 ────────────────────────────────────────────────────
+ 
+diff --git a/intelligence/services/research_tool_registry.py b/intelligence/services/research_tool_registry.py
+index 561217de..15248f41 100644
+--- a/intelligence/services/research_tool_registry.py
++++ b/intelligence/services/research_tool_registry.py
+@@ -1009,6 +1009,14 @@ class ResearchToolRegistry:
+             read_scope=effective,
+         )
+ 
++    def for_context(self, context: ResearchRunContext) -> "ResearchToolRegistry":
++        """Bind once before any menu/prompt/prefetch consumer, not only dispatch."""
++        material = context.contract.material_contract
++        if material is not None and material.data_scope in {"local_only", "material_only"}:
++            return self.with_read_scope(material.data_scope)
++        # 未决语义的预取前澄清仍由入口负责；这里不猜测/复位已有上限。
++        return self
++
+     def authorization_denial(self, spec: ToolSpec, context: ResearchRunContext) -> str:
+         """One decision shared by dispatch and EpisodeScope; no side effects."""
+         if spec.capability not in context.contract.allowed_capabilities:
+diff --git a/intelligence/tests/test_e2_runtime_ceiling.py b/intelligence/tests/test_e2_runtime_ceiling.py
+new file mode 100644
+index 00000000..51149156
+--- /dev/null
++++ b/intelligence/tests/test_e2_runtime_ceiling.py
+@@ -0,0 +1,410 @@
++"""P3c: bind read ceilings before runtime consumers, not full input/restore acceptance."""
++
++from copy import deepcopy
++from dataclasses import replace
++import json
++from threading import Event
++from uuid import uuid4
++
++import pytest
++
++from intelligence.runtime.agent_episode import ContinuousAgentEpisode
++from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
++from intelligence.runtime.episode_tool_batch import (
++    EpisodeToolBatchSession,
++    ToolMenu,
++    tool_definitions_for_menu,
++)
++from intelligence.runtime.turn_control_core import TurnControlResult
++from intelligence.services.agent_research import AgentEvidence
++from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
++from intelligence.services.episode_factory import build_episode_context
++from intelligence.services.episode_scope import EpisodeScope, TOOL_ERROR
++from intelligence.services.query_understanding import understand_query
++from intelligence.services.provider_observability import ProviderTrace
++from intelligence.services.repair_coordinator import CoverageDelta, RepairGoal
++from intelligence.services.research_tool_registry import ResearchToolRegistry, ToolSpec
++
++
++def _fixture(scope):
++    question = {
++        "full": "今天市场怎么样？",
++        "local_only": "不要联网。今天市场怎么样？",
++        "material_only": "只依据以下材料回答。\n\n「甲收入100，订单20。」\n\n1. 甲订单占收入多少？",
++    }[scope]
++    # Pin this test to the Episode lane, not the still-unwired deterministic route.
++    frame = replace(
++        understand_query(question).task_frame, question_type="general_finance_qa"
++    )
++    context = build_episode_context(
++        frame,
++        task_id=f"runtime-ceiling-{uuid4().hex}",
++        capabilities=("finance_query",),
++        today="2026-07-24",
++        latest_data_date="2026-07-24",
++        timeout=30,
++        synthesis_reserve=0,
++    )
++    return frame, context
++
++
++def _registry(attempts=None):
++    def forbidden(*args, **kwargs):
++        if attempts is not None:
++            attempts.append((args, kwargs))
++        raise AssertionError("uncertified runner/parser/loader reached")
++
++    return ResearchToolRegistry(
++        (
++            ToolSpec(
++                name="uncertified_read",
++                capability="finance_query",
++                description="UNCERTIFIED_TOOL_SENTINEL",
++                cost="local",
++                freshness="stable",
++                runner=forbidden,
++                parse_arguments=forbidden,
++            ),
++            ToolSpec(
++                name="certified_read",
++                capability="finance_query",
++                description="CERTIFIED_TOOL_SENTINEL",
++                cost="local",
++                freshness="stable",
++                runner=forbidden,
++                io_effect="local_read",
++            ),
++        ),
++        opening_prefetch=(
++            AgentEvidence(
++                tool="web_search",
++                title="old external",
++                detail="PREFETCH_SENTINEL",
++                source="web",
++                source_date="2026-07-24",
++            ),
++        ),
++        calc_loader=forbidden,
++    )
++
++
++@pytest.mark.parametrize("scope", ["local_only", "material_only"])
++def test_episode_binds_original_registry_before_prompt_seed_and_continuation(scope):
++    frame, context = _fixture(scope)
++    registry = _registry()
++    calls, states = [], []
++    cancelled = Event()
++
++    class Model:
++        def complete(self, *, messages, tools, timeout):
++            calls.append(deepcopy({"messages": messages, "tools": tools}))
++            cancelled.set()
++            return ModelTurn("", (), "scripted", "")
++
++    outcome = ContinuousAgentEpisode(Model(), is_cancelled=cancelled.is_set).run(
++        task_frame=frame,
++        context=context,
++        registry=registry,
++        _continuation_sink=states,
++    )
++    assert len(calls) == len(states) == 1
++    wire = json.dumps(calls, ensure_ascii=False)
++    assert "PREFETCH_SENTINEL" not in wire
++    assert "UNCERTIFIED_TOOL_SENTINEL" not in wire
++    assert "uncertified_read" not in wire
++    assert ("certified_read" in wire) == (scope == "local_only")
++    assert outcome.evidence == ()
++    state = states[0]
++    assert state.registry.read_scope == scope
++    assert state.registry.opening_prefetch == () and state.registry.calc_loader is None
++    assert state.episode_scope.registry.read_scope == scope
++    assert not state.evidence_ledger.snapshot().evidence_ids
++    configure = next(
++        event.payload for event in outcome.events if event.kind == "configure"
++    )
++    assert tuple(configure["authorized_tools"]) == (
++        ("certified_read",) if scope == "local_only" else ()
++    )
++    assert not any(event.kind == "tool_result" for event in outcome.events)
++    # Caller-owned registry remains untouched; every consumer uses the bound copy.
++    assert registry.read_scope == "full" and registry.opening_prefetch
++
++
++@pytest.mark.parametrize("scope", ["local_only", "material_only"])
++def test_adapter_binds_registry_before_promotion_precheck_and_runtime(
++    scope, monkeypatch
++):
++    from intelligence.runtime import continuous_turn_adapter as adapter_module
++
++    frame, context = _fixture(scope)
++    registry, observed = _registry(), []
++
++    def promotion(candidate, **kwargs):
++        observed.append(("promotion", kwargs["opening_prefetch"]))
++        return candidate
++
++    def precheck(candidate, run_context):
++        observed.append(("precheck", candidate.read_scope, candidate.opening_prefetch))
++        return ()
++
++    class Runtime:
++        def run(self, *, task_frame, context, registry):
++            observed.append(
++                (
++                    "runtime",
++                    registry.read_scope,
++                    registry.opening_prefetch,
++                    registry.calc_loader,
++                )
++            )
++            raise RuntimeError("intentional stop after boundary capture")
++
++    class Semantic:
++        def verify(self, **kwargs):
++            raise AssertionError("runtime failed; no semantic call")
++
++    monkeypatch.setattr(adapter_module, "maybe_promote_forecast_residual", promotion)
++    monkeypatch.setattr(adapter_module, "_precheck_satisfiability", precheck)
++    control = TurnControlResult(
++        task_frame=frame,
++        execution_route=frame.question_type,
++        terminal_kind="research",
++        needs_retrieval=True,
++        capabilities=("finance_query",),
++        contract_required=True,
++    )
++    ContinuousTurnAdapter(
++        runtime=Runtime(),
++        semantic_verifier=Semantic(),
++        mode="on",
++        context_factory=lambda *a, **k: context,
++        registry_factory=lambda *a, **k: registry,
++    ).handle(frame=frame, control=control)
++    assert observed == [
++        ("promotion", ()),
++        ("precheck", scope, ()),
++        ("runtime", scope, (), None),
++    ]
++    assert registry.read_scope == "full" and registry.opening_prefetch
++
++
++@pytest.mark.parametrize("scope", ["local_only", "material_only"])
++def test_restricted_adapter_fails_before_consuming_incompatible_registry(scope):
++    frame, context = _fixture(scope)
++    attempts = []
++
++    class IncompatibleRegistry:
++        @property
++        def opening_prefetch(self):
++            attempts.append("prefetch")
++            raise AssertionError("must bind before touching prefetch")
++
++    class Runtime:
++        def run(self, **kwargs):
++            attempts.append("runtime")
++            raise AssertionError("incompatible restricted assembly")
++
++    class Semantic:
++        def verify(self, **kwargs):
++            attempts.append("semantic")
++            raise AssertionError("failed assembly cannot reach verifier")
++
++    control = TurnControlResult(
++        task_frame=frame,
++        execution_route=frame.question_type,
++        terminal_kind="research",
++        needs_retrieval=True,
++        capabilities=("finance_query",),
++        contract_required=True,
++    )
++    result = ContinuousTurnAdapter(
++        runtime=Runtime(),
++        semantic_verifier=Semantic(),
++        mode="on",
++        context_factory=lambda *a, **k: context,
++        registry_factory=lambda *a, **k: IncompatibleRegistry(),
++    ).handle(frame=frame, control=control)
++    assert attempts == []
++    assert result.handled and result.status == "failed"
++    assert result.private_artifact["failure"]["type"] == "AttributeError"
++
++
++@pytest.mark.parametrize("with_scope", [False, True])
++@pytest.mark.parametrize("read_scope", ["local_only", "material_only"])
++def test_batch_entry_hides_and_rejects_unknown_io_before_parsing_or_dispatch(
++    read_scope, with_scope
++):
++    _, context = _fixture(read_scope)
++    attempts = []
++    registry = _registry(attempts)
++    events, dispatches = [], []
++
++    class Sink:
++        def emit(self, kind, payload):
++            events.append((kind, dict(payload)))
++
++    scope = (
++        EpisodeScope(
++            episode_id=context.contract.task_id,
++            user_id="fixture",
++            context=context,
++            registry=registry,
++            event_sink=Sink(),
++        )
++        if with_scope
++        else None
++    )
++    batch = EpisodeToolBatchSession(scope=scope)
++    batch.on_dispatch = dispatches.append
++    menu = batch.menu(registry=registry, context=context)
++    assert "uncertified_read" not in menu.visible
++    assert ("certified_read" in menu.visible) == (read_scope == "local_only")
++    # Even a stale caller-supplied menu must not advertise the uncertified tool.
++    stale_menu = ToolMenu(("certified_read", "uncertified_read"), (), menu.would_grant)
++    definitions = tool_definitions_for_menu(
++        stale_menu, registry=registry, context=context
++    )
++    assert {d["function"]["name"] for d in definitions} == set(menu.visible)
++    result = batch.execute(
++        (ModelToolCall("forbidden", "uncertified_read", {}),),
++        registry=registry,
++        context=context,
++        remaining_slots=1,
++    )
++    assert result.executed_count == 0
++    assert dispatches == []
++    assert attempts == []  # parser/runner failures could otherwise be swallowed.
++    assert result.items[0].error == "unknown_or_unauthorized_tool"
++    if with_scope:
++        assert any(
++            kind == TOOL_ERROR and payload["stage"] == "authorize" and payload["reason"]
++            for kind, payload in events
++        )
++
++
++@pytest.mark.parametrize("scope", ["local_only", "material_only"])
++def test_repair_reentry_rebinds_registry_and_cannot_readd_unknown_tool(scope):
++    frame, context = _fixture(scope)
++    calls, states = [], []
++
++    class Model:
++        def complete(self, *, messages, tools, timeout):
++            calls.append(deepcopy({"messages": messages, "tools": tools}))
++            return ModelTurn(
++                json.dumps(
++                    {
++                        "status": "partial",
++                        "draft": "现有证据不足。",
++                        "gaps": ["缺少证据"],
++                        "bindings": [
++                            {
++                                "output_id": output.output_id,
++                                "evidence_hashes": [],
++                                "gap": "缺少证据",
++                            }
++                            for output in context.contract.required_outputs
++                            if output.required
++                        ],
++                    },
++                    ensure_ascii=False,
++                ),
++                (),
++                "scripted",
++                "",
++            )
++
++    episode = ContinuousAgentEpisode(Model())
++    previous = episode.run(
++        task_frame=frame,
++        context=context,
++        registry=_registry(),
++        _continuation_sink=states,
++    )
++    state = states[0]
++    # Emulate an older in-memory caller replacing its registry between repair rounds.
++    state.registry = _registry()
++    goal = RepairGoal(
++        episode_id=context.contract.task_id,
++        repair_goal_id="local-repair",
++        cycle=1,
++        missing_answer_elements=(),
++        unsupported_claims=(),
++        missing_evidence_modes=(),
++        attempted_actions=(),
++        evidence_progress=CoverageDelta(0, 0, 0),
++        remaining_calls=1,
++        remaining_seconds=8.0,
++        reopen_tools=True,
++    )
++    before_repair = len(calls)
++    episode.resume(state, previous, goal)
++    assert len(calls) == before_repair + 1
++    assert state.registry.read_scope == scope
++    assert state.registry.calc_loader is None and state.registry.opening_prefetch == ()
++    assert "uncertified_read" not in json.dumps(calls[-1], ensure_ascii=False)
++    assert "PREFETCH_SENTINEL" not in json.dumps(calls[-1], ensure_ascii=False)
++
++
++def test_batch_still_executes_certified_local_runner_with_real_observation():
++    _, context = _fixture("local_only")
++    calls = []
++
++    def runner(query, tool_context):
++        calls.append(query)
++        return (
++            [
++                AgentEvidence(
++                    tool="local_probe",
++                    title="local",
++                    detail="临时本地观察",
++                    source="local",
++                    source_date="2026-07-24",
++                )
++            ],
++            "临时本地观察",
++            ProviderTrace(
++                provider="fixture", capability="finance_query", status="success"
++            ),
++        )
++
++    registry = ResearchToolRegistry(
++        (
++            ToolSpec(
++                name="local_probe",
++                capability="finance_query",
++                description="test",
++                cost="local",
++                freshness="stable",
++                runner=runner,
++                io_effect="local_read",
++            ),
++        )
++    )
++    batch = EpisodeToolBatchSession()
++    result = batch.execute(
++        (ModelToolCall("local", "local_probe", {"query": "probe"}),),
++        registry=registry,
++        context=context,
++        remaining_slots=1,
++    )
++    assert calls == ["probe"]
++    assert result.executed_count == 1
++    assert result.items[0].observation.evidence[0].detail == "临时本地观察"
++
++
++def test_rebinding_strips_late_prefetch_injection_without_relaxing_existing_ceiling():
++    _, context = _fixture("local_only")
++    registry = _registry().with_read_scope("material_only")
++    registry.opening_prefetch = _registry().opening_prefetch
++    registry.calc_loader = _registry().calc_loader
++    bound = registry.for_context(context)
++    assert bound.read_scope == "material_only"
++    assert bound.opening_prefetch == () and bound.calc_loader is None
++    assert bound.authorized_specs(context.contract.allowed_capabilities) == ()
++
++
++def test_full_context_binding_preserves_original_registry_identity_and_prefetch():
++    _, context = _fixture("full")
++    registry = _registry()
++    assert registry.for_context(context) is registry
++    assert len(registry.tool_definitions(context.contract.allowed_capabilities)) == 2

@@ -212,8 +212,10 @@ class BuildDailyVectorsPitTests(unittest.TestCase):
                             return [(date(2026, 9, 1), 0.1, datetime(2026, 9, 1, 18)),
                                     (date(2026, 9, 2), 0.2, datetime(2026, 9, 2, 18))]
                         if "fact_theme_flow_daily" in sql:
-                            return [(date(2026, 9, 1), 1.0, datetime(2026, 9, 1, 18)),
-                                    (date(2026, 9, 2), 2.0, datetime(2026, 9, 2, 18))]
+                            # 查询按 (日, source) 分组：多一列口径来源；单一口径日照常出值
+                            src = "fupanhui:public-api/data/theme/panels"
+                            return [(date(2026, 9, 1), src, 1.0, datetime(2026, 9, 1, 18)),
+                                    (date(2026, 9, 2), src, 2.0, datetime(2026, 9, 2, 18))]
                         if "fact_research_report_catalog" in sql:
                             return []
                         return []

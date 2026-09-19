@@ -68,20 +68,18 @@ HIGH_PERIODS = [
 
 
 DEGRADED_LEGACY_COPY = "degraded_legacy_copy"
+# 2026-09-03: store 侧的 copy_legacy_member_generation 已一律拒绝 (成分股表不再收无报价行),
+# 本函数不再有任何能写成功的分支。
+REFUSED_LEGACY_COPY_RETIRED = "refused_legacy_copy_retired"
 
 
 def fast_sector_stocks(con, trade_date: str, prev_date: str | None = None):
-    """Copy the previous session's membership forward — legacy historical dates only.
+    """(已退役) 曾把前一交易日的成分身份前推到 legacy 历史日, 行情列全空。
 
-    This never produces an exact universe: it carries yesterday's identities
-    into today with NULL prices. Once a date has a published universe header
-    the copy is refused outright, because a fabricated membership would satisfy
-    the coverage query while silently contradicting the provider's declaration
-    — the exact failure Task 5 exists to remove.
-
-    Returns ``(rows, status)``. ``status`` is ``degraded_legacy_copy`` whenever
-    rows were carried forward; the caller must not treat it as a success
-    receipt, and no member receipt is written.
+    两道拒绝, 都不写任何行: 有已发布宇宙的日期 → ``refused_published_universe``
+    (凭空成分会满足覆盖率却与声明矛盾); 其余日期 → ``refused_legacy_copy_retired``
+    (store 不再接受无报价的归属行——它们正是 2026-06-22 日报全「暂无」的成因)。
+    返回 ``(rows, status)``; rows 恒为 0 或既有行数。
     """
     from market_feature_store.sector_universe import (
         SectorUniverseStore,
@@ -122,12 +120,10 @@ def fast_sector_stocks(con, trade_date: str, prev_date: str | None = None):
             target_date=trade_date, source_date=prev_date
         )
     except SectorUniverseValidationError as exc:
-        print(
-            f"  REFUSED: {exc}; "
-            "run the receipt-driven member sync instead of copying forward"
-        )
-        return 0, "refused_published_universe"
+        print(f"  REFUSED: {exc}")
+        return 0, REFUSED_LEGACY_COPY_RETIRED
 
+    # 不可达: store 已一律拒绝。留着是为了万一有人恢复 store 侧实现, 这里的语义不会静默变成成功。
     print(
         f"  Done: {inserted:,} rows in {time.time()-t0:.1f}s "
         f"(source={prev_date}, status={DEGRADED_LEGACY_COPY})"

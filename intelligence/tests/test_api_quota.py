@@ -14,6 +14,7 @@ from intelligence.api import app as app_module  # noqa: E402
 from intelligence.api.quota import RunQuota  # noqa: E402
 from intelligence.services import run_store as rs  # noqa: E402
 from intelligence.services.run_store import RunStore  # noqa: E402
+from intelligence.tests.fixtures.run_supervisor import drain_test_client  # noqa: E402
 
 
 @pytest.fixture()
@@ -119,12 +120,16 @@ def quota_client(tmp_path, monkeypatch):
         store.finish_run(run_id, rs.STATUS_COMPLETED)
 
     monkeypatch.setattr(app_module, "_run_ask", fake_run_ask)
-    return TestClient(
+    client = TestClient(
         app_module.create_app(
             repo_root=repo_root,
             run_quota=RunQuota(daily_limit=1, exempt_users=frozenset({"owner"})),
         )
     )
+    try:
+        yield client
+    finally:
+        drain_test_client(client)
 
 
 def test_endpoint_denies_with_429_after_limit(quota_client):

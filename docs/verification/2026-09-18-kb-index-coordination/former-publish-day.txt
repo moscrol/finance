@@ -1,0 +1,16 @@
+=== START 2026-09-18 21:23:18 CST ===
+[publish] backend=gitea repo=a77/knowledge-base-private
+[publish] building index (incremental) -> /Users/a77/knowledge-base-private/.rag_index ...
+[full] vault=/Users/a77/knowledge-base-private/wiki index=/Users/a77/knowledge-base-private/.rag_index model=bge-m3 slice=1500 priority_pages=134
+[full] 169635 chunks（优先页 4018 块排最前）
+[full] 复用已存 169635 块（断点续）
+[full] 全部向量可复用，跳过加载 bge-m3 模型
+[full] bm25-only: built /Users/a77/knowledge-base-private/.rag_index/bm25_tokens.jsonl.gz (+ bm25_csc.* 281MB)
+[full] 已是最新，无需嵌入：169635/169635（已建 BM25）
+[publish] index OK model=bge-m3 chunks=169635 dim=1024 progress=169635/169635 complete=True
+[publish] packing /Users/a77/knowledge-base-private/.rag_index -> rag-index-20260918.tar.gz ...
+[publish] tarball 531.1 MB sha256=bd139f2add51004163938ef0a140574ecdf760349c861d0ab33e16c08097b3d5
+[publish] creating/updating Gitea Release a77/knowledge-base-private@rag-index-20260918 (prerelease=False) ...
+[publish] OK a77/knowledge-base-private@rag-index-20260918 (rag-index-20260918.tar.gz, 531.1 MB)
+http://localhost:3300/a77/knowledge-base-private/releases/tag/rag-index-20260918
+=== END 2026-09-18 21:24:45 CST exit=0 ===

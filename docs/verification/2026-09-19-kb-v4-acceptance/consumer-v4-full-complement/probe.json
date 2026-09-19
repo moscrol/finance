@@ -1,0 +1,18 @@
+{
+  "available": true,
+  "query_protocol_compatible": true,
+  "supported_options": [
+    "--json",
+    "--k",
+    "--mode",
+    "--evidence-chars",
+    "--evidence-layer",
+    "--fact-hardness",
+    "--source-type",
+    "--as-of",
+    "--receipt"
+  ],
+  "missing_required_options": [],
+  "missing_optional_options": [],
+  "warning": ""
+}
