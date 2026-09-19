@@ -70,6 +70,11 @@ def validate_generation_paths(
     plan, _ = filter_plan(base_plan, options)
     names = {step.name for step in plan}
 
+    if options.alerts_enabled:
+        from scripts.notify_ops import ALERT_LOG
+
+        _outside_code(ALERT_LOG, code=code, data=data)
+
     targets = [paths.market_exports, paths.review_daily_root / options.date,
                paths.review_workbench.parent, userspace.user_space(options.user).root,
                # Children use the environment's user unless they have their own --user.

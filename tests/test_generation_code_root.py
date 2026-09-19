@@ -104,6 +104,47 @@ def launch(rig, *args, cwd=None):
                           cwd=cwd or elsewhere, env=env, text=True, capture_output=True, timeout=45)
 
 
+@pytest.mark.parametrize("destination", ["file-link", "directory-link", "home-in-code", "external", "disabled"])
+def test_failure_alert_respects_generation_code_boundary(rig, destination):
+    code, data, elsewhere, env = rig
+    env["TEST_GATE_RC"] = "3"
+    bindir = data / "notification-stub"
+    bindir.mkdir()
+    stub = bindir / "osascript"
+    stub.write_text("#!/bin/sh\nexit 0\n")
+    stub.chmod(0o755)
+    env["PATH"] = str(bindir) + os.pathsep + env.get("PATH", "")
+    if destination == "home-in-code":
+        env["HOME"] = str(code / "home")
+    alert = Path(env["HOME"]) / ".finance-runtime/alerts.log"
+    if destination in {"file-link", "disabled"}:
+        alert.parent.mkdir(parents=True)
+        alert.symlink_to(code / "alert.log")
+    elif destination == "directory-link":
+        target = code / "alert-dir"
+        target.mkdir()
+        alert.parent.parent.mkdir(parents=True)
+        alert.parent.symlink_to(target, target_is_directory=True)
+    before = inventory(code)
+    command = [sys.executable, "-P", str(code / "scripts/run_daily_generation.py"),
+               "--date", DAY, "--plan", "local", "--skip-sync", "--only-step", "daily-review"]
+    if destination == "disabled":
+        command.append("--no-alert")
+    result = subprocess.run(command, cwd=elsewhere, env=env, text=True,
+                            capture_output=True, timeout=45)
+    assert inventory(code) == before, result.stdout + result.stderr
+    if destination in {"external", "disabled"}:
+        assert result.returncode == 1
+        assert "generation code/data root invalid" not in result.stderr
+        assert alert.exists() is (destination == "external")
+        if destination == "external":
+            assert "FAIL" in alert.read_text()
+    else:
+        assert result.returncode == 2
+        assert "CODE_ROOT" in result.stderr
+        assert not alert.exists()
+
+
 @pytest.mark.parametrize("cwd_name", ["data", "elsewhere"])
 def test_real_cli_is_cwd_independent_and_keeps_code_tree_unchanged(rig, cwd_name):
     code, data, elsewhere, _ = rig
