@@ -1,0 +1,325 @@
+{
+  "schema_version": 2,
+  "review_id": "ARL-0005",
+  "commit": "d46c2c3b10221483c811426e99ad379314289871",
+  "request_sha256": "5fa3e7b7215bc83243e5f4a3e429cbca7770c791579cdce5d27d7a9cd13169d6",
+  "status": "CHANGES_REQUIRED",
+  "reviewer": "claude:independent-reviewer",
+  "reviewer_class": "external",
+  "authority": "external",
+  "reviewed_at": "2026-09-19T12:11:42.102490+00:00",
+  "findings": [
+    {
+      "severity": "medium",
+      "file": "intelligence/services/research_delivery_checks.py",
+      "line": 268,
+      "title": "Residual-digit scan still false-fires on independent neighbouring facts outside the finite role mask (introduced in range)",
+      "evidence": "In _has_unlocated_ratio_number the delta exemption is gated on the unit token: `if unit[1] == \"个百分点\" and delta: continue`. For the input `2026中报含金量为1.588，同比增长12%。` the neighbouring independent fact `12%` matches _RATIO_UNIT `%`, the delta regex `(?:增加|增长|…)\\s*(?:了|为|是)?\\s*$` matches `同比增长`, but because the unit is `%` and not `个百分点` the branch falls through to `return True`. A correct, fully located answer is therefore downgraded to partial with a false `calculation_value_unlocated`, an unnecessary `〔比率对应关系待核对〕` marker is inserted and the single same-turn repair budget is consumed. The same happens for a bare trailing count that is not in _NON_RATIO_SUFFIX, e.g. `…含金量为1.588，样本量120。`. The residual scan and its points-only exemption are new in d38dab3f..d46c2c3b, so this is an introduced false positive, not pre-existing.",
+      "recommendation": "Pin an explicit residual policy: either extend the delta/comparison exemption to every unit in _RATIO_UNIT (and to unit-less counts preceded by a quantity noun), or restrict the residual trigger to numbers inside the already-bound ratio clause scope, and pin both the positive and negative cases in test_research_delivery_ratio_boundaries.py."
+    },
+    {
+      "severity": "medium",
+      "file": "intelligence/services/research_delivery_checks.py",
+      "line": 52,
+      "title": "Dimension-bearing suffixes outside _RATIO_UNIT make a wrong ratio invisible rather than unlocated",
+      "evidence": "`bp` appears in _NON_RATIO_SUFFIX but not in _RATIO_UNIT. For `2026中报含金量实际为158.7bp。` _prose_number returns None (the suffix veto fires because number[2] is empty) and _has_unlocated_ratio_number also skips the token via `if not _NON_RATIO_SUFFIX.match(...)`, so no finding of any kind is produced and the implausible value is delivered silently. This is exactly the class the commit closed for `元/元` and `个百分点`; the `bp` hole is pre-existing at d38dab3f and survives the change.",
+      "recommendation": "Treat dimension-bearing suffixes that cannot carry a ratio (bp, 个, 家, 亿元 when the slot is a ratio) as located-with-implausible-unit, emitting calculation_value_mismatch or calculation_value_unverified instead of silence, and add the bp case as a pinned counterexample."
+    },
+    {
+      "severity": "medium",
+      "file": "intelligence/services/research_delivery_checks.py",
+      "line": 57,
+      "title": "Semicolon continuation is copula-keyed, so a paraphrased continuation still delivers a wrong value with no marker, notice or partial",
+      "evidence": "_RATIO_CLAUSE joins across `；` only through the lookahead `(?=[*`]*(?:实际|该值|本期|比率)为)`. For `收入可核[E1]，2026中报含金量待核对；该比率为1.587。` the continuation label is `该比率为`, which is outside the four-copula lexicon, so the clause is cut, the withheld slot is not bound to 1.587 and no finding is raised; the same holds for a full-stop separator. Pre-existing at baseline, but docs/agent-product-door.md retains the unqualified sentence `已识别比率语境但数值对应不明时，不静默放行`, so the documented contract is broader than the implemented finite lexicon.",
+      "recommendation": "Either generalise the continuation rule (label-agnostic copula plus ratio noun) or amend the door text to state the finite copula list explicitly, and pin the `该比率为` / full-stop separators as known-out-of-scope negatives so future reviewers can distinguish design from gap."
+    },
+    {
+      "severity": "low",
+      "file": "intelligence/services/episode_semantic_verifier.py",
+      "line": 411,
+      "title": "ARL-0004 lead 5 unengaged: repair note never asks for marker removal and raw/stripped marker detection disagree under markup",
+      "evidence": "The calculation_value_unlocated repair note instructs the writer to resolve the correspondence but never instructs deletion of the stale `〔比率对应关系待核对〕`, although the door requires `修复者须解决对应关系并移除旧标记`. In addition _unlocated_ratio_finding tests `raw[:insertion].rstrip().endswith(_UNLOCATED_RATIO_MARK)` on RAW bytes while calculation_copy_findings tests the STRIPPED value, so for an already-marked `〔比率对应关系**待核对**〕` the two disagree and one extra plain marker is appended on the first pass (idempotent only from the second pass onward).",
+      "recommendation": "Add explicit marker-removal wording to the unlocated repair note and normalise inline markup before the endswith comparison on both sides, with a first-pass idempotence assertion over a bold-marked marker."
+    },
+    {
+      "severity": "low",
+      "file": "intelligence/services/research_delivery_checks.py",
+      "line": 180,
+      "title": "Off-lexicon venue/absence phrasings unchanged",
+      "evidence": "`深交所互动易显示…[E2]` is still deleted together with its citation by the attribution lexicon, and `本期无任何披露文件` still survives the disclosure_absence_inference check. Pre-existing and outside the ratio-boundary scope of this commit, but it keeps the retention contract narrower than the door wording.",
+      "recommendation": "Record an explicit scope note for the venue/absence lexicons or extend them in a separate, separately reviewed change."
+    },
+    {
+      "severity": "low",
+      "file": "docs/handoffs/inflight/q-research-data-readiness.md",
+      "line": 24,
+      "title": "Inflight handoff still names the superseded commit and the stale probe ratio",
+      "evidence": "The handoff states 业务746b716f and 新边界探针4P/12F as current, while the head under review is d46c2c3b and the preflight boundary probe is reported 16P/0F. A reader resuming from the inflight document would start from a superseded state.",
+      "recommendation": "Refresh the inflight handoff to d46c2c3b with the current probe results before the next submission."
+    },
+    {
+      "severity": "info",
+      "file": "scripts/review_probes/check_ratio_scope_boundaries.py",
+      "line": 1,
+      "title": "Probe byte-identity inferred, not proven, and judge=llm remains a deterministic stub",
+      "evidence": "The supplied boundary-probe tail prints no probe_sha256/target_unchanged pair, so identity binding for that probe is inferred from the verbatim case strings rather than proven (the ARL-0003 hedge probe does print a stable probe_sha256 a967a1a9…). Separately, all judge=llm paths in the repair matrix use a deterministic success stub, so no natural model-answer quality is demonstrated by any count in this delivery.",
+      "recommendation": "Emit probe_sha256/target_unchanged from the boundary probe as the hedge probe already does, and keep the stub caveat stated in any downstream readiness claim."
+    }
+  ],
+  "checks": {
+    "repair:ARL-0004": {
+      "status": "PASS",
+      "evidence": "All six ARL-0004 counterexample drafts are pinned verbatim in ORIGINAL_CASES of intelligence/tests/test_research_delivery_ratio_boundaries.py and the preflight boundary probe moved from 4P/12F at 746b716f/d402a563 to 16P/0F at d46c2c3b; the producing code paths (grouped-decimal single token, ordinal/附注/ranking/citation role masking, genitive 的 N 倍 discrimination in _ratio_scope_end, 元/元 compound unit, 个百分点 rejection in _display_matches) are all present in current source. ARL-0004 itself remains a quarantined INVALID_VERDICT with no authority and is used only as leads; lead 5 is filed as a separate residual finding, not as a reproduction failure."
+    },
+    "probe:check_ratio_scope_boundaries": {
+      "status": "PASS",
+      "evidence": "Read-only probe carrying the six original drafts plus two controls; preflight reports 16P/0F and the probe file itself states the findings are reproduction leads, not independent approval. Absence of a printed probe_sha256 is recorded as an info finding, not a failure."
+    },
+    "probe:check_ratio_hedge_scope": {
+      "status": "PASS",
+      "evidence": "ARL-0003 hedge pair reproduced 4P/0F with byte-identical probe_sha256 a967a1a9… and target_unchanged true, so the earlier valid hedge finding stays closed under the new scope logic."
+    },
+    "probe:check_fact_retention": {
+      "status": "PASS",
+      "evidence": "Fact-retention probe 6P/0F; retention assertions for 行业排名第3 and 1,234.56亿元[E1] are additionally pinned in test_research_delivery_repair.py."
+    },
+    "mutations:research-delivery": {
+      "status": "PASS",
+      "evidence": "run_extraction_mutations.py --suite research-delivery exits 0 with visible genuine red logs before green and restored-full 601 executed; research_delivery_mutations.json is append-only with 12 new entries covering grouped tokens, ordinal roles, genitive claims, compound units, points, semicolon context and the residual-unit waiver."
+    },
+    "withheld_slot_not_period_waiver": {
+      "status": "PASS",
+      "evidence": "_ratio_scope_end returns the next period boundary unless that period is immediately consumed by `的 N 倍`, so a later period cannot silently absorb or waive an earlier withheld slot; pinned by the per-slot continuation and genitive neighbour tests."
+    },
+    "ordered_binding_and_recheck_idempotence": {
+      "status": "PASS",
+      "evidence": "Notice de-duplication `\"\\n\\n\".join((repaired, *(notice for notice in notices if notice not in repaired)))` plus recheck idempotence assertions keep ordered binding stable across repeated passes; the single first-pass divergence under bold markup is reported under period_local_marker_and_residual_scope."
+    },
+    "keep_raw_markdown_coordinates_and_ratio_neighbors": {
+      "status": "PASS",
+      "evidence": "Insertion uses raw offsets rather than stripped text, so Markdown coordinates and citations survive; the table-unit contract and neighbour-binding cases pin that adjacent independent cells are untouched."
+    },
+    "same_turn_repair_and_final_projection": {
+      "status": "PASS",
+      "evidence": "The repair matrix (15 cases × repair_result × window × mode) preserves tools==(), allocated_calls==1, allocated_seconds<=hard cap and root_expired→degraded, and asserts the final projection never contains 158.7个百分点."
+    },
+    "review_counterexamples_reproduced_and_resolved": {
+      "status": "PASS",
+      "evidence": "Every counterexample from the three valid prior reviews (ARL-0001/0002/0003) and the six quarantined ARL-0004 leads is reproduced in a probe or pinned test; twelve of twelve previously failing boundary cases now pass. Newly traced counterexamples from this review are filed as findings rather than as unreproduced prior items."
+    },
+    "immutable_archives_preserved": {
+      "status": "PASS",
+      "evidence": "1702 archive files byte-verified against their manifests; all-path diff --check is nonzero only on preserved raw archive bytes, scoped diff --check on fresh paths and archive README/manifests is clean, and no raw-byte cleaning was performed or authorized."
+    },
+    "independent_ordinals_grouped_amounts_and_genitive_periods_retained": {
+      "status": "PARTIAL",
+      "evidence": "Ordinals (排名第3), grouped amounts (1,234.56亿元[E1]) and genitive 的 N 倍 references are correctly retained and masked. However neighbouring independent facts outside the finite mask are not: `2026中报含金量为1.588，同比增长12%。` still raises a false calculation_value_unlocated because the delta exemption is keyed on 个百分点 only, and a bare trailing count (`样本量120`) does the same. Retention of independent facts is therefore not established in general."
+    },
+    "explicit_compound_units_and_points_dimension_checked": {
+      "status": "PARTIAL",
+      "evidence": "元/元 is handled as a compound unit and 个百分点 is rejected outright in _display_matches, both pinned. But `2026中报含金量实际为158.7bp。` produces no finding at all, because bp is in _NON_RATIO_SUFFIX and absent from _RATIO_UNIT, so a dimension-bearing implausible ratio is delivered silently — the same class the commit closed for the two handled units."
+    },
+    "semicolon_continuation_and_markdown_preserve_narrow_scope": {
+      "status": "PARTIAL",
+      "evidence": "Continuation across ，,；; is correctly narrow for the four pinned copulas, and the cross-sentence non-capture case is asserted to yield no findings. But the lookahead lexicon is closed: `收入可核[E1]，2026中报含金量待核对；该比率为1.587。` is not joined and the wrong value ships with no marker, notice, partial or repair, while the door still asserts 不静默放行 without qualification."
+    },
+    "all_prior_valid_findings_and_invalid_verdict_leads_engaged": {
+      "status": "PARTIAL",
+      "evidence": "ARL-0001/0002/0003 findings are closed with reproducing probes, and five of the six quarantined ARL-0004 leads are engaged. Lead 5 is not: the unlocated repair note never instructs removal of the stale 〔比率对应关系待核对〕 marker although the door mandates it, and raw-vs-stripped marker detection still disagree under inline markup."
+    },
+    "period_local_marker_and_residual_scope": {
+      "status": "PARTIAL",
+      "evidence": "The zero-width per-period marker is inserted at raw offsets and de-duplicated across rechecks, but (a) the residual scope over-triggers on independent neighbouring numbers as described above, and (b) `〔比率对应关系**待核对**〕` is not recognised by the raw-side endswith test, so one extra plain marker is appended on the first pass."
+    },
+    "reject_false_inference_and_retain_independent_fact": {
+      "status": "PARTIAL",
+      "evidence": "disclosure_absence_inference and the attribution lexicon correctly reject invented absence and unsourced attribution for the pinned phrasings, but off-lexicon cases remain wrong in both directions: `深交所互动易显示…[E2]` is still deleted with its citation, `本期无任何披露文件` still survives, and the residual scan now falsely flags correct answers carrying an independent 同比增长12%."
+    },
+    "no_gate_weakening_no_natural_quality_overclaim": {
+      "status": "PARTIAL",
+      "evidence": "No queue or validator code is modified, no verdict is fabricated for ARL-0004, mutation gates are append-only and red-then-green, and no threshold is lowered. But judge=llm remains a deterministic success stub throughout, and docs/agent-product-door.md still carries the unqualified 不静默放行 claim that the finite copula lexicon does not deliver, so the documented gate currently overstates the implemented guarantee."
+    },
+    "no_count_or_period_substitution_no_false_residue": {
+      "status": "PARTIAL",
+      "evidence": "Counts, ordinals and period tokens are no longer substituted into ratio slots (ordinal/period masking and the _PERIOD veto verified). False residue is not eliminated: the residual scan reports calculation_value_unlocated for answers whose only unlocated digits are independent neighbouring facts (12%, 样本量120)."
+    },
+    "unlocated_ratio_is_explicit_unknown_not_pass": {
+      "status": "PARTIAL",
+      "evidence": "Where the clause binds, an unlocated ratio is surfaced as an explicit calculation_value_unlocated with marker and notice rather than a silent pass. But two paths still pass silently — the bp-style dimension-bearing suffix and the off-lexicon semicolon continuation — so the contract holds only inside the finite lexicon, not as stated."
+    },
+    "git_diff_check": {
+      "status": "PASS",
+      "evidence": "Scoped diff --check on the fresh paths of d38dab3f..d46c2c3b and on archive README/manifests is clean; all-path exit 2 is attributable solely to the preserved trailing whitespace in verified archive files, which is explicitly unauthorized to clean."
+    },
+    "artifact_hygiene": {
+      "status": "PASS",
+      "evidence": "changed_paths_equal_request_artifacts=true and forbidden_paths empty; the mutation catalogue is append-only, probes are read-only and identity-bound, and no queue/validator/archive bytes are modified."
+    },
+    "canonical_safety": {
+      "status": "PASS",
+      "evidence": "No merge, deployment, new finance model conversation, market fetch or budget change appears in the diff; changes are confined to intelligence/services, intelligence/tests, scripts/review_probes and docs, consistent with a finite research delivery repair rather than general NLP or review-loop redesign."
+    },
+    "intelligence/tests/test_research_delivery_ratio_boundaries.py": {
+      "status": "PASS",
+      "evidence": "New file pinning the six ARL-0004 originals plus controls; covered by the preflight's single pytest run reported as 1301 passed with no reported failure."
+    },
+    "intelligence/tests/test_research_delivery_ratio_scope.py": {
+      "status": "PASS",
+      "evidence": "Earlier-round scope regressions carried in the cumulative diff; passing in the same preflight run."
+    },
+    "intelligence/tests/test_research_delivery_retention.py": {
+      "status": "PASS",
+      "evidence": "Fact-retention regressions passing in the same preflight run; independently corroborated by the retention probe 6P/0F."
+    },
+    "intelligence/tests/test_research_delivery_review_regressions.py": {
+      "status": "PASS",
+      "evidence": "Prior-review regression pins passing in the same preflight run."
+    },
+    "intelligence/tests/test_research_delivery_repair.py": {
+      "status": "PASS",
+      "evidence": "15-case repair matrix × repair_result × window × mode, including the negative assertion on 158.7个百分点 and the retention assertions; passing in the same preflight run."
+    },
+    "intelligence/tests/test_research_delivery_checks.py": {
+      "status": "PASS",
+      "evidence": "Core check-module unit tests passing in the same preflight run."
+    },
+    "intelligence/tests/test_episode_semantic_verifier.py": {
+      "status": "PASS",
+      "evidence": "Notice/repair-note pairing and de-duplication exercised and passing; the missing marker-removal instruction is a contract gap filed as a finding, not a test failure."
+    },
+    "test_ratio_grouped_decimal_is_single_token": {
+      "status": "PASS",
+      "evidence": "Grouped-decimal tokenisation pinned; corresponding mutation ratio-grouped-number-is-one-token is red-then-green."
+    },
+    "test_ratio_ordinal_role_is_not_value": {
+      "status": "PASS",
+      "evidence": "Ordinal role masking pinned; mutation ratio-ordinal-role-not-value red-then-green."
+    },
+    "test_ratio_annotation_role_is_not_value": {
+      "status": "PASS",
+      "evidence": "附注/注释 role masking pinned in the boundary suite."
+    },
+    "test_ratio_citation_role_is_not_value": {
+      "status": "PASS",
+      "evidence": "[E\\d+] citation masking pinned; retention of the citation verified by the repair matrix."
+    },
+    "test_ratio_period_role_is_not_value": {
+      "status": "PASS",
+      "evidence": "The _PERIOD veto is pinned; no period token is substituted into a ratio slot."
+    },
+    "test_ratio_genitive_claim_is_not_reference": {
+      "status": "PASS",
+      "evidence": "的 N 倍 discrimination in _ratio_scope_end pinned; mutation ratio-genitive-claim-not-reference red-then-green."
+    },
+    "test_ratio_genitive_label_is_checked": {
+      "status": "PASS",
+      "evidence": "label_prefix acceptance of the genitive 的 pinned; mutation ratio-genitive-label-is-checked red-then-green."
+    },
+    "test_ratio_compound_unit_is_not_amount": {
+      "status": "PASS",
+      "evidence": "元/元 handled as a ratio dimension rather than an amount; mutation ratio-compound-unit-not-amount red-then-green."
+    },
+    "test_ratio_points_cannot_certify": {
+      "status": "PASS",
+      "evidence": "_display_matches returns False for 个百分点; mutation ratio-points-are-not-absolute red-then-green."
+    },
+    "test_ratio_points_delta_is_independent": {
+      "status": "PASS",
+      "evidence": "The delta exemption for 个百分点 is pinned; its non-generalisation to other units is filed as a finding rather than a failing test."
+    },
+    "test_ratio_semicolon_continuation_binds_slot": {
+      "status": "PASS",
+      "evidence": "Per-slot continuation across ，,；; for the four copulas pinned; mutation ratio-semicolon-context-not-cut red-then-green."
+    },
+    "test_ratio_semicolon_does_not_capture_next_sentence": {
+      "status": "PASS",
+      "evidence": "`2026中报含金量待核对。实际为1.587。` asserted to yield no findings, documenting the cross-sentence non-attribution boundary."
+    },
+    "test_ratio_semicolon_value_not_just_unknown": {
+      "status": "PASS",
+      "evidence": "Mutation ratio-semicolon-value-not-just-unknown red-then-green; a bound continuation value is checked, not merely marked unknown."
+    },
+    "test_ratio_residual_unit_not_blind_waiver": {
+      "status": "PASS",
+      "evidence": "Mutation ratio-residual-unit-not-blind-waiver red-then-green; the residual scan cannot be trivially disabled. Its over-triggering is a separate finding."
+    },
+    "test_ratio_independent_delta_not_absolute": {
+      "status": "PASS",
+      "evidence": "Mutation ratio-independent-delta-not-absolute red-then-green."
+    },
+    "test_ratio_ambiguous_residue_is_reported": {
+      "status": "PASS",
+      "evidence": "The ambiguous-residue case yields an explicit calculation_value_unlocated rather than a silent pass."
+    },
+    "test_ratio_table_unit_contract": {
+      "status": "PASS",
+      "evidence": "Table unit contract case pinned; adjacent independent cells untouched."
+    },
+    "test_ratio_marker_is_period_local": {
+      "status": "PASS",
+      "evidence": "Marker inserted at the raw offset of the owning period; neighbouring periods unmarked."
+    },
+    "test_ratio_marker_recheck_is_idempotent": {
+      "status": "PASS",
+      "evidence": "Repeated recheck does not duplicate the plain marker; the bold-markup first-pass divergence is filed as a finding."
+    },
+    "test_ratio_notice_is_deduplicated": {
+      "status": "PASS",
+      "evidence": "Notice de-duplication expression verified in episode_semantic_verifier.py and pinned by test."
+    },
+    "test_calculation_value_mismatch_is_reported": {
+      "status": "PASS",
+      "evidence": "Located-but-wrong values still produce calculation_value_mismatch."
+    },
+    "test_calculation_value_unlocated_is_reported": {
+      "status": "PASS",
+      "evidence": "An unlocated ratio produces an explicit finding, marker and notice inside the finite lexicon."
+    },
+    "test_calculation_value_unverified_is_reported": {
+      "status": "PASS",
+      "evidence": "Unverifiable values produce calculation_value_unverified rather than silent acceptance."
+    },
+    "test_disclosure_absence_inference_is_rejected": {
+      "status": "PASS",
+      "evidence": "Invented absence claims are rejected for the pinned lexicon; off-lexicon phrasings are filed as a finding."
+    },
+    "test_independent_fact_is_retained": {
+      "status": "PASS",
+      "evidence": "行业排名第3 and 1,234.56亿元[E1] are retained through repair; corroborated by the retention probe."
+    },
+    "test_markdown_coordinates_preserved": {
+      "status": "PASS",
+      "evidence": "Raw-offset insertion leaves Markdown structure and citations intact."
+    },
+    "test_repair_matrix_tools_and_budget": {
+      "status": "PASS",
+      "evidence": "tools==(), allocated_calls==1 and allocated_seconds<=hard cap are asserted across the matrix."
+    },
+    "test_repair_matrix_root_expired_degraded": {
+      "status": "PASS",
+      "evidence": "root_expired maps to degraded in every mode of the matrix."
+    },
+    "test_repair_matrix_judge_modes": {
+      "status": "PASS",
+      "evidence": "Both judge modes are exercised; judge=llm uses a deterministic success stub and is not counted as natural quality."
+    },
+    "test_final_projection_excludes_points_value": {
+      "status": "PASS",
+      "evidence": "assert \"158.7个百分点\" not in result.answer holds across the matrix."
+    },
+    "test_hedge_scope_is_not_bypassed": {
+      "status": "PASS",
+      "evidence": "The ARL-0003 hedge pair is reproduced 4P/0F under the byte-identical probe."
+    },
+    "scripts/review_probes/check_ratio_scope_boundaries.py": {
+      "status": "PASS",
+      "evidence": "Read-only, non-mutating probe; preflight 16P/0F. Missing probe_sha256 output recorded as an info finding."
+    },
+    "scripts/review_probes/research_delivery_mutations.json": {
+      "status": "PASS",
+      "evidence": "Append-only catalogue; 12 new entries this round, suite exits 0 with genuine red logs and restored-full 601 executed."
+    }
+  },
+  "summary": "External falsification review of d46c2c3b (cumulative d38dab3f..d46c2c3b), reasoned from the diff and current source; the mechanical preflight was run by an isolated detached worker, not by me. The commit genuinely closes all six ARL-0004 leads' reproduction cases (boundary probe 4P/12F → 16P/0F), keeps the ARL-0003 hedge pair closed under a byte-identical probe (4P/0F, probe_sha256 a967a1a9…), keeps fact retention at 6P/0F, exits mutations 0 with visible red-then-green and restored-full 601, modifies no queue/validator code, fabricates no verdict for the quarantined ARL-0004 (which remains INVALID_VERDICT with no authority and is treated here only as leads), and preserves the 1702 byte-verified archive files with no raw-byte cleaning. Four substantive semantic gaps remain, so nine required checks cannot be certified. (1) Introduced in range: the residual-digit scan false-fires on independent neighbouring facts because the delta exemption is keyed to 个百分点 alone — `2026中报含金量为1.588，同比增长12%。` is wrongly downgraded to calculation_value_unlocated, marked, and consumes the single same-turn repair. (2) Pre-existing: a dimension-bearing suffix outside _RATIO_UNIT makes a wrong ratio invisible — `2026中报含金量实际为158.7bp。` yields no finding at all, the same class the commit fixed for 元/元 and 个百分点. (3) Pre-existing: semicolon continuation is keyed to four copulas, so `收入可核[E1]，2026中报含金量待核对；该比率为1.587。` ships the wrong value silently while the door still asserts 不静默放行 unqualified. (4) ARL-0004 lead 5 is unengaged: the unlocated repair note never asks the writer to delete the stale 〔比率对应关系待核对〕 despite the door requiring it, and raw-vs-stripped marker detection disagree under `〔比率对应关系**待核对**〕`, appending one extra plain marker on the first pass. Lower-severity residue: off-lexicon attribution/absence handling unchanged, and the inflight handoff still names 746b716f/4P12F as current. Informational: judge=llm is a deterministic success stub everywhere, so no natural model-answer quality is demonstrated, and the boundary probe prints no probe_sha256, so its byte-identity is inferred from the verbatim case strings rather than proven. No high-severity finding and no architecture conflict, so this is ordinary CHANGES_REQUIRED rather than BLOCKED; PASS is unavailable because nine required checks are PARTIAL on evidence, not on labels.",
+  "next_action": "Producer fixes forward on the same branch, then resubmits a NEW external review request (this verdict is not an approval, not a worker --once selection, and not a development-gate or T3 natural-answer acceptance; no merge, cutover, deployment, market fetch, or budget change is authorized): (a) pin an explicit residual-digit policy — extend the delta/comparison exemption beyond 个百分点 to every _RATIO_UNIT token and to unit-less counts preceded by a quantity noun, or restrict the residual trigger to the bound ratio scope — and pin `2026中报含金量为1.588，同比增长12%。` plus a 样本量120 variant as negatives; (b) classify dimension-bearing suffixes that cannot carry a ratio (bp and peers) as located-with-implausible-unit emitting mismatch/unverified instead of silence, pinning `158.7bp`; (c) either generalise the semicolon continuation beyond the four copulas (covering `该比率为`) or amend docs/agent-product-door.md so the 不静默放行 sentence states its finite lexicon, and pin the out-of-scope separators as known negatives; (d) add marker-removal wording to the calculation_value_unlocated repair note and normalise inline markup on both the raw and stripped marker tests, asserting first-pass idempotence over `〔比率对应关系**待核对**〕`; (e) refresh docs/handoffs/inflight/q-research-data-readiness.md from 746b716f/4P12F to d46c2c3b with current probe results; (f) decide and record the off-lexicon venue/absence independence rule, or scope-note it explicitly; (g) emit probe_sha256/target_unchanged from check_ratio_scope_boundaries.py as the hedge probe already does. Keep the mutation catalogue append-only, leave archive bytes and queue/validator code untouched, and carry ARL-0001/0002/0003 plus the six ARL-0004 leads forward as still-binding context in the next request."
+}

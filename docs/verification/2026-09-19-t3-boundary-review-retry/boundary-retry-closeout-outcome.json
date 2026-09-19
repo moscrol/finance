@@ -1,0 +1,286 @@
+{
+  "created_at": "2026-09-19T13:02:41.124617+00:00",
+  "status": "hold_invalid_review_and_reproduced_residue",
+  "scope": "One user-authorized bounded manual continuation after the 600s timeout; no third same-request call, no business implementation change.",
+  "business_revision": "d46c2c3b10221483c811426e99ad379314289871",
+  "pre_review_documentation_tip": "b78dbe3be97b846ea2bd8093ae16f5d0bbfc73a8",
+  "new_read_only_probe_tip": "52f6dee7e197d005442bda1da58f9f94f813c8a8",
+  "review_id": "ARL-0005",
+  "request_sha256": "5fa3e7b7215bc83243e5f4a3e429cbca7770c791579cdce5d27d7a9cd13169d6",
+  "review_state_root": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01",
+  "old_state_root_preserved": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-d46c2c3b",
+  "request_claim_and_21_inherited_files_unchanged": true,
+  "invocation": {
+    "requested_alias": "sonnet",
+    "configured_model": "claude-opus-5",
+    "max_budget_usd": 6,
+    "timeout_seconds": 1200,
+    "automatic_fallback": false,
+    "cli_attempt": 2,
+    "prior_attempts_same_request": 1,
+    "prior_attempts_previous_requests": 6,
+    "provider_request_count": null,
+    "tools": [],
+    "bare": true,
+    "setting_sources": [],
+    "prompt_sha256": "a087adcb9b0920c9951d5e15039ca840e73e2b84f19e5a9078923a6a0207f5c7",
+    "started_at": "2026-09-19T12:11:42.354474+00:00",
+    "cli_exit": 0,
+    "timed_out": false,
+    "elapsed_seconds": 1189.272,
+    "finished_at": "2026-09-19T12:31:31.626764+00:00"
+  },
+  "dispatch": {
+    "review_id": "ARL-0005",
+    "commit": "d46c2c3b10221483c811426e99ad379314289871",
+    "adapter_exit": 0,
+    "seconds": 1312.493,
+    "dispatch": "explicit operations target; original queue not modified",
+    "status": "INVALID_VERDICT",
+    "errors": [
+      "check_manifest"
+    ],
+    "authority": "none"
+  },
+  "validation": {
+    "valid": false,
+    "authority": "none",
+    "errors": [
+      "check_manifest"
+    ],
+    "status": "CHANGES_REQUIRED",
+    "review_id": "ARL-0005",
+    "commit": "d46c2c3b10221483c811426e99ad379314289871"
+  },
+  "model_receipt": {
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 1189068,
+    "duration_api_ms": 1189018,
+    "num_turns": 4,
+    "total_cost_usd": 1.5541615000000002,
+    "usage": {
+      "input_tokens": 4,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 32976,
+      "output_tokens": 25610,
+      "output_tokens_details": {
+        "thinking_tokens": 2051
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-5": {
+        "inputTokens": 2000,
+        "outputTokens": 52755,
+        "cacheReadInputTokens": 450573,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 1.5541615000000002,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000,
+        "thinkingTokens": 2051,
+        "canonicalModel": "claude-opus-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "stop_reason": "tool_use",
+    "terminal_reason": "completed",
+    "permission_denials": [],
+    "assistant_message_models": [
+      "claude-opus-5"
+    ],
+    "event_counts": [
+      {
+        "type": "system",
+        "subtype": "init",
+        "count": 1
+      },
+      {
+        "type": "system",
+        "subtype": "thinking_tokens",
+        "count": 472
+      },
+      {
+        "type": "assistant",
+        "subtype": null,
+        "count": 5
+      },
+      {
+        "type": "system",
+        "subtype": "status",
+        "count": 13
+      },
+      {
+        "type": "system",
+        "subtype": "compact_boundary",
+        "count": 1
+      },
+      {
+        "type": "user",
+        "subtype": null,
+        "count": 3
+      },
+      {
+        "type": "result",
+        "subtype": "success",
+        "count": 1
+      }
+    ],
+    "stream_external_tool_use_blocks": [
+      "StructuredOutput",
+      "StructuredOutput"
+    ],
+    "scope": "One CLI invocation this window; reported num_turns is not provider request count. CLI costBasis=list, not billing. Financial conversations and market fetches remain zero."
+  },
+  "review_authority": "none",
+  "valid_prior_changes_required": [
+    "ARL-0001",
+    "ARL-0002",
+    "ARL-0003"
+  ],
+  "previous_invalid_pass_and_timeout_not_overwritten": true,
+  "published_new_verdict": false,
+  "aggregate_gate_invoked": false,
+  "normal_queue_note": "Explicit operations target; normal worker still sees unresolved ARL-0004. No worker/validator change.",
+  "manifest_diagnosis": {
+    "required": 61,
+    "returned": 63,
+    "exact_present": 26,
+    "missing": 35,
+    "missing_test_paths": 31,
+    "missing_named_probes": 4,
+    "extra": 37,
+    "all_missing_names_present_in_original_prompt": true
+  },
+  "mechanical_preflight": {
+    "test_files": 38,
+    "passed": 1301,
+    "mutations": 46,
+    "baseline_and_restored_passed_each": 601,
+    "not_a_model_tool_run": true,
+    "not_new_full_engineering_receipt": true
+  },
+  "original_probes": [
+    {
+      "path": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/retention.json",
+      "sha256": "5c2f321e1c46b1fbefa45dc5eef5cf5dd78a997af8e5f5226a28771b79ba30d0",
+      "revision": "d46c2c3b10221483c811426e99ad379314289871",
+      "passed": 6,
+      "failed": 0,
+      "probe_sha256": "743f0c3d19463df4aa61e78cf2d3580331b5e8c7bf7f9a46156e9bbf2ded7b4d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/hedge.json",
+      "sha256": "5c8504d193620af106d1829d89d9e4f4f0511f03789b131b9017e674c7d7196b",
+      "revision": "d46c2c3b10221483c811426e99ad379314289871",
+      "passed": 4,
+      "failed": 0,
+      "probe_sha256": "a967a1a96438c19e6a23d4b056bdcf80255930a672d224127b1e7c78b5703c9c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/boundaries.json",
+      "sha256": "8d2a649afff77a3692cbab8961e3d571c28e0ad637508988f2f19961b3d830f0",
+      "revision": "d46c2c3b10221483c811426e99ad379314289871",
+      "passed": 16,
+      "failed": 0,
+      "probe_sha256": "f35b59a53ce1d58ac4509a84b51894619a44d82e7a704dbfb0e470181549db4a"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/probe-tip-retention.json",
+      "sha256": "90cac15578585f721ea08e760e72b6cc49dbaad578c12813ee904467a3d3bc29",
+      "revision": "52f6dee7e197d005442bda1da58f9f94f813c8a8",
+      "passed": 6,
+      "failed": 0,
+      "probe_sha256": "743f0c3d19463df4aa61e78cf2d3580331b5e8c7bf7f9a46156e9bbf2ded7b4d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/probe-tip-hedge.json",
+      "sha256": "d58bc979e1eedbe88c311cc3a51bd640c510b1f946bd896d84168790457a76f1",
+      "revision": "52f6dee7e197d005442bda1da58f9f94f813c8a8",
+      "passed": 4,
+      "failed": 0,
+      "probe_sha256": "a967a1a96438c19e6a23d4b056bdcf80255930a672d224127b1e7c78b5703c9c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/probe-tip-boundaries.json",
+      "sha256": "fb3a7376c6db3c370b95d7b0abb1a73a8008cce26cb53ca8a8dfdfde6f012c5c",
+      "revision": "52f6dee7e197d005442bda1da58f9f94f813c8a8",
+      "passed": 16,
+      "failed": 0,
+      "probe_sha256": "f35b59a53ce1d58ac4509a84b51894619a44d82e7a704dbfb0e470181549db4a"
+    }
+  ],
+  "new_residue_probe": [
+    {
+      "path": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/residue-d46c2c3b.json",
+      "sha256": "99e451755c5b76f2b3515034fd59f767be6652437c3aa160490a9728a29e7387",
+      "revision": "d46c2c3b10221483c811426e99ad379314289871",
+      "passed": 4,
+      "failed": 10,
+      "probe_sha256": "34ea6608e4f19305befd1b428c3ac9cfdf326a6bb0622fc2e221eb35ff01b736"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/residue-746b716f.json",
+      "sha256": "4358092defb91bb620159a19ef632fcca5394762b82416d7ceab25567ae51569",
+      "revision": "746b716ff95d40898697628e197fd266a9473bf6",
+      "passed": 2,
+      "failed": 12,
+      "probe_sha256": "34ea6608e4f19305befd1b428c3ac9cfdf326a6bb0622fc2e221eb35ff01b736"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/residue-79dba348.json",
+      "sha256": "5fd28dfea5661a429f7a5e4a44946614f6400d214d97206b60e4b1152f4080f0",
+      "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "passed": 6,
+      "failed": 8,
+      "probe_sha256": "34ea6608e4f19305befd1b428c3ac9cfdf326a6bb0622fc2e221eb35ff01b736"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/probe-tip-residue.json",
+      "sha256": "91b827743ed7586b79f816aa76eb8705f23f6257b45b966e32022fe311b07379",
+      "revision": "52f6dee7e197d005442bda1da58f9f94f813c8a8",
+      "passed": 4,
+      "failed": 10,
+      "probe_sha256": "34ea6608e4f19305befd1b428c3ac9cfdf326a6bb0622fc2e221eb35ff01b736"
+    }
+  ],
+  "residue_scope": "Five lead cases (three verbatim sentences, one expanded count prefix, one completed formatted-marker fragment) plus two controls, each judge off/success stub. No formula/script-consumption or natural-model guarantee.",
+  "supplemental_disclosure": {
+    "passed": 4,
+    "failed": 4,
+    "scope": "Producer-completed venue/absence fragments plus controls, not verbatim external inputs or part of the 4P10F ratio denominator."
+  },
+  "review_misreadings": [
+    "Boundary probe already emits probe_sha256/target_unchanged; displayed 5000-character tail omitted them.",
+    "Frozen d46 inflight is historical; b78 already updated handoff before this call."
+  ],
+  "full_engineering_receipt_scope": "Existing d46 receipt 20260919T105730Z-d46c2c3b.json only; no new full receipt for probe/docs tips.",
+  "natural_finance_conversations": 0,
+  "market_fetches": 0,
+  "additional_model_calls_after_return": 0,
+  "business_code_changed": false,
+  "merge": false,
+  "deployment": false,
+  "production_modified": false,
+  "temporary_review_tree_removed": true,
+  "recorded_task_pids": [
+    56354,
+    68093,
+    69004
+  ],
+  "active_recorded_processes": [],
+  "follow_up": "Keep hold; reproduce/fix confirmed local gaps on original q branch with positive/negative controls, then freeze new business revision and revalidate. A future external window requires an explicit bounded decision; never patch the invalid verdict or retry to green. Natural conversations remain separate."
+}
