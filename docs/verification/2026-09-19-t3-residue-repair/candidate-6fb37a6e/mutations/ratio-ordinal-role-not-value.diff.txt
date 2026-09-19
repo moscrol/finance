@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 9709e54a..3387e1ae 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -339,7 +339,7 @@ def _has_unlocated_ratio_number(residual: str) -> bool:
+         r"\[E\d+\]",
+         r"(?:创)?\d+(?:年|个?季|个?月)(?:新高|新低|高点|低点|最高|最低)",
+         r"(?:附注|注释|注)\s*[（(]?\d+[）)]?",
+-        r"(?:排名第?|位列第?|第)\s*\d+(?!\d|[.,]\d)",
++        r"(?!)",
+     ):
+         residual = re.sub(role, lambda m: " " * len(m.group()), residual)
+     for number in re.finditer(_NUMBER, residual):

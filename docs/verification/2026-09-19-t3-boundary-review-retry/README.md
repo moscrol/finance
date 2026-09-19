@@ -7,6 +7,7 @@
 - 业务 `d46c2c3b10221483c811426e99ad379314289871`；开窗文档tip `b78dbe3b`；新只读量具提交 `52f6dee7e197d005442bda1da58f9f94f813c8a8`。
 - 请求SHA-256 `5fa3e7b7215bc83243e5f4a3e429cbca7770c791579cdce5d27d7a9cd13169d6`，request/claim不变，21份继承文件逐字节保留。
 - 本窗1次CLI、1200秒/$6上限；CLI1189.272秒，exit0，非超时；显式operations靶向0005，不是常规队列选择或聚合gate批准。
+- 请求SHA不变，但提示SHA由首次的 `a002a150…` 变为本次的 `a087adcb…`（嵌入超时回执与重试政策、600→1200秒）；适配器两版SHA见 `qc-retry-d46c2c3b-01/adapter-provenance.json`。「同一请求」不指提示字节相同。
 - sonnet别名→claude-opus-5；CLI list报价$1.5541615，非结算。`num_turns=4`不等于provider请求数，后者未知；StructuredOutput协议调用不等于模型执行测试。
 - 61个精确必需名称只覆盖26，漏35项（31测试路径＋4探针/变异名）、多37个替代名。总返回63项不证明完整。
 - 机械预检1301P、46撤保护/首尾601P与原三探针6/4/16P通过，不代外部批准或自然回答。

@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="19" skipped="0" tests="33" time="1.146" timestamp="2026-09-19T22:50:19.855434+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.588-\u540c\u6bd4\u589e\u957f12%]" time="0.001" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.588-\u540c\u6bd4\u589e\u957f12%[E1]]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.588-\u73af\u6bd4\u4e0b\u964d3.5%]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.588-\u540c\u6bd4\u63d0\u5347158.8%]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.588-\u540c\u6bd4\u589e\u52a015bp[E1]]" time="0.000"><failure message="AssertionError: assert True == ('为1.588' == '为1.587'&#10; +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))&#10;  &#10;  - 为1.587&#10;  ?      ^&#10;  + 为1.588&#10;  ?      ^)">intelligence/tests/test_research_delivery_ratio_boundaries.py:127: in test_labeled_change_rates_are_not_ratio_levels
+    assert bool(findings) == (slot == "为1.587")
+E   AssertionError: assert True == ('为1.588' == '为1.587'
+E    +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+E     
+E     - 为1.587
+E     ?      ^
+E     + 为1.588
+E     ?      ^)</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.588-\u540c\u6bd4\u4e0b\u964d15\u57fa\u70b9]" time="0.000"><failure message="AssertionError: assert True == ('为1.588' == '为1.587'&#10; +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))&#10;  &#10;  - 为1.587&#10;  ?      ^&#10;  + 为1.588&#10;  ?      ^)">intelligence/tests/test_research_delivery_ratio_boundaries.py:127: in test_labeled_change_rates_are_not_ratio_levels
+    assert bool(findings) == (slot == "为1.587")
+E   AssertionError: assert True == ('为1.588' == '为1.587'
+E    +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+E     
+E     - 为1.587
+E     ?      ^
+E     + 为1.588
+E     ?      ^)</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_labeled_change_rates_are_not_ratio_levels[\u4e3a\u5f85\u6838\u5bf9-\u540c\u6bd4\u589e\u957f12%]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_labeled_change_rates_are_not_ratio_levels[\u4e3a\u5f85\u6838\u5bf9-\u540c\u6bd4\u589e\u957f12%[E1]]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_labeled_change_rates_are_not_ratio_levels[\u4e3a\u5f85\u6838\u5bf9-\u73af\u6bd4\u4e0b\u964d3.5%]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_labeled_change_rates_are_not_ratio_levels[\u4e3a\u5f85\u6838\u5bf9-\u540c\u6bd4\u63d0\u5347158.8%]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_labeled_change_rates_are_not_ratio_levels[\u4e3a\u5f85\u6838\u5bf9-\u540c\u6bd4\u589e\u52a015bp[E1]]" time="0.000"><failure message="AssertionError: assert True == ('为待核对' == '为1.587'&#10; +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))&#10;  &#10;  - 为1.587&#10;  + 为待核对)">intelligence/tests/test_research_delivery_ratio_boundaries.py:127: in test_labeled_change_rates_are_not_ratio_levels
+    assert bool(findings) == (slot == "为1.587")
+E   AssertionError: assert True == ('为待核对' == '为1.587'
+E    +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+E     
+E     - 为1.587
+E     + 为待核对)</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_labeled_change_rates_are_not_ratio_levels[\u4e3a\u5f85\u6838\u5bf9-\u540c\u6bd4\u4e0b\u964d15\u57fa\u70b9]" time="0.000"><failure message="AssertionError: assert True == ('为待核对' == '为1.587'&#10; +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))&#10;  &#10;  - 为1.587&#10;  + 为待核对)">intelligence/tests/test_research_delivery_ratio_boundaries.py:127: in test_labeled_change_rates_are_not_ratio_levels
+    assert bool(findings) == (slot == "为1.587")
+E   AssertionError: assert True == ('为待核对' == '为1.587'
+E    +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+E     
+E     - 为1.587
+E     + 为待核对)</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.587-\u540c\u6bd4\u589e\u957f12%]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.587-\u540c\u6bd4\u589e\u957f12%[E1]]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.587-\u73af\u6bd4\u4e0b\u964d3.5%]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.587-\u540c\u6bd4\u63d0\u5347158.8%]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.587-\u540c\u6bd4\u589e\u52a015bp[E1]]" time="0.000"><failure message="AssertionError: assert '〔比率对应关系待核对〕2...同比增加15bp[E1]。' == '2026中报含金量为待核对，同比增加15bp[E1]。'&#10;  &#10;  - 2026中报含金量为待核对，同比增加15bp[E1]。&#10;  + 〔比率对应关系待核对〕2026中报含金量为待核对，同比增加15bp[E1]。&#10;  ? +++++++++++">intelligence/tests/test_research_delivery_ratio_boundaries.py:129: in test_labeled_change_rates_are_not_ratio_levels
+    assert kept == draft.replace("为1.587", "为待核对")
+E   AssertionError: assert '〔比率对应关系待核对〕2...同比增加15bp[E1]。' == '2026中报含金量为待核对，同比增加15bp[E1]。'
+E     
+E     - 2026中报含金量为待核对，同比增加15bp[E1]。
+E     + 〔比率对应关系待核对〕2026中报含金量为待核对，同比增加15bp[E1]。
+E     ? +++++++++++</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.587-\u540c\u6bd4\u4e0b\u964d15\u57fa\u70b9]" time="0.000"><failure message="AssertionError: assert '〔比率对应关系待核对〕2...待核对，同比下降15基点。' == '2026中报含金量为待核对，同比下降15基点。'&#10;  &#10;  - 2026中报含金量为待核对，同比下降15基点。&#10;  + 〔比率对应关系待核对〕2026中报含金量为待核对，同比下降15基点。&#10;  ? +++++++++++">intelligence/tests/test_research_delivery_ratio_boundaries.py:129: in test_labeled_change_rates_are_not_ratio_levels
+    assert kept == draft.replace("为1.587", "为待核对")
+E   AssertionError: assert '〔比率对应关系待核对〕2...待核对，同比下降15基点。' == '2026中报含金量为待核对，同比下降15基点。'
+E     
+E     - 2026中报含金量为待核对，同比下降15基点。
+E     + 〔比率对应关系待核对〕2026中报含金量为待核对，同比下降15基点。
+E     ? +++++++++++</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_basis_points_cannot_certify_absolute_ratio[1.588-bp]" time="0.000"><failure message="assert (())">intelligence/tests/test_research_delivery_ratio_boundaries.py:157: in test_basis_points_cannot_certify_absolute_ratio
+    assert findings and all(f.code == "calculation_value_mismatch" for f in findings)
+E   assert (())</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_basis_points_cannot_certify_absolute_ratio[1.588-BP]" time="0.000"><failure message="assert (())">intelligence/tests/test_research_delivery_ratio_boundaries.py:157: in test_basis_points_cannot_certify_absolute_ratio
+    assert findings and all(f.code == "calculation_value_mismatch" for f in findings)
+E   assert (())</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_basis_points_cannot_certify_absolute_ratio[1.588-\u57fa\u70b9]" time="0.000"><failure message="assert (())">intelligence/tests/test_research_delivery_ratio_boundaries.py:157: in test_basis_points_cannot_certify_absolute_ratio
+    assert findings and all(f.code == "calculation_value_mismatch" for f in findings)
+E   assert (())</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_basis_points_cannot_certify_absolute_ratio[158.8-bp]" time="0.000"><failure message="AssertionError: assert '2026中报含金量实际为...，利润123亿元[E1]。' == '2026中报含金量实际为待核对，利润123亿元[E1]。'&#10;  &#10;  - 2026中报含金量实际为待核对，利润123亿元[E1]。&#10;  + 2026中报含金量实际为待核对bp，利润123亿元[E1]。&#10;  ?                ++">intelligence/tests/test_research_delivery_ratio_boundaries.py:158: in test_basis_points_cannot_certify_absolute_ratio
+    assert remove_findings(draft, findings) == "2026中报含金量实际为待核对，利润123亿元[E1]。"
+E   AssertionError: assert '2026中报含金量实际为...，利润123亿元[E1]。' == '2026中报含金量实际为待核对，利润123亿元[E1]。'
+E     
+E     - 2026中报含金量实际为待核对，利润123亿元[E1]。
+E     + 2026中报含金量实际为待核对bp，利润123亿元[E1]。
+E     ?                ++</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_basis_points_cannot_certify_absolute_ratio[158.8-BP]" time="0.000"><failure message="AssertionError: assert '2026中报含金量实际为...，利润123亿元[E1]。' == '2026中报含金量实际为待核对，利润123亿元[E1]。'&#10;  &#10;  - 2026中报含金量实际为待核对，利润123亿元[E1]。&#10;  + 2026中报含金量实际为待核对BP，利润123亿元[E1]。&#10;  ?                ++">intelligence/tests/test_research_delivery_ratio_boundaries.py:158: in test_basis_points_cannot_certify_absolute_ratio
+    assert remove_findings(draft, findings) == "2026中报含金量实际为待核对，利润123亿元[E1]。"
+E   AssertionError: assert '2026中报含金量实际为...，利润123亿元[E1]。' == '2026中报含金量实际为待核对，利润123亿元[E1]。'
+E     
+E     - 2026中报含金量实际为待核对，利润123亿元[E1]。
+E     + 2026中报含金量实际为待核对BP，利润123亿元[E1]。
+E     ?                ++</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_basis_points_cannot_certify_absolute_ratio[158.8-\u57fa\u70b9]" time="0.000"><failure message="AssertionError: assert '2026中报含金量实际为...，利润123亿元[E1]。' == '2026中报含金量实际为待核对，利润123亿元[E1]。'&#10;  &#10;  - 2026中报含金量实际为待核对，利润123亿元[E1]。&#10;  + 2026中报含金量实际为待核对基点，利润123亿元[E1]。&#10;  ?                ++">intelligence/tests/test_research_delivery_ratio_boundaries.py:158: in test_basis_points_cannot_certify_absolute_ratio
+    assert remove_findings(draft, findings) == "2026中报含金量实际为待核对，利润123亿元[E1]。"
+E   AssertionError: assert '2026中报含金量实际为...，利润123亿元[E1]。' == '2026中报含金量实际为待核对，利润123亿元[E1]。'
+E     
+E     - 2026中报含金量实际为待核对，利润123亿元[E1]。
+E     + 2026中报含金量实际为待核对基点，利润123亿元[E1]。
+E     ?                ++</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_basis_points_cannot_certify_absolute_ratio[15880-bp]" time="0.000"><failure message="AssertionError: assert '2026中报含金量实际为...，利润123亿元[E1]。' == '2026中报含金量实际为待核对，利润123亿元[E1]。'&#10;  &#10;  - 2026中报含金量实际为待核对，利润123亿元[E1]。&#10;  + 2026中报含金量实际为待核对bp，利润123亿元[E1]。&#10;  ?                ++">intelligence/tests/test_research_delivery_ratio_boundaries.py:158: in test_basis_points_cannot_certify_absolute_ratio
+    assert remove_findings(draft, findings) == "2026中报含金量实际为待核对，利润123亿元[E1]。"
+E   AssertionError: assert '2026中报含金量实际为...，利润123亿元[E1]。' == '2026中报含金量实际为待核对，利润123亿元[E1]。'
+E     
+E     - 2026中报含金量实际为待核对，利润123亿元[E1]。
+E     + 2026中报含金量实际为待核对bp，利润123亿元[E1]。
+E     ?                ++</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_basis_points_cannot_certify_absolute_ratio[15880-BP]" time="0.000"><failure message="AssertionError: assert '2026中报含金量实际为...，利润123亿元[E1]。' == '2026中报含金量实际为待核对，利润123亿元[E1]。'&#10;  &#10;  - 2026中报含金量实际为待核对，利润123亿元[E1]。&#10;  + 2026中报含金量实际为待核对BP，利润123亿元[E1]。&#10;  ?                ++">intelligence/tests/test_research_delivery_ratio_boundaries.py:158: in test_basis_points_cannot_certify_absolute_ratio
+    assert remove_findings(draft, findings) == "2026中报含金量实际为待核对，利润123亿元[E1]。"
+E   AssertionError: assert '2026中报含金量实际为...，利润123亿元[E1]。' == '2026中报含金量实际为待核对，利润123亿元[E1]。'
+E     
+E     - 2026中报含金量实际为待核对，利润123亿元[E1]。
+E     + 2026中报含金量实际为待核对BP，利润123亿元[E1]。
+E     ?                ++</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_basis_points_cannot_certify_absolute_ratio[15880-\u57fa\u70b9]" time="0.000"><failure message="AssertionError: assert '2026中报含金量实际为...，利润123亿元[E1]。' == '2026中报含金量实际为待核对，利润123亿元[E1]。'&#10;  &#10;  - 2026中报含金量实际为待核对，利润123亿元[E1]。&#10;  + 2026中报含金量实际为待核对基点，利润123亿元[E1]。&#10;  ?                ++">intelligence/tests/test_research_delivery_ratio_boundaries.py:158: in test_basis_points_cannot_certify_absolute_ratio
+    assert remove_findings(draft, findings) == "2026中报含金量实际为待核对，利润123亿元[E1]。"
+E   AssertionError: assert '2026中报含金量实际为...，利润123亿元[E1]。' == '2026中报含金量实际为待核对，利润123亿元[E1]。'
+E     
+E     - 2026中报含金量实际为待核对，利润123亿元[E1]。
+E     + 2026中报含金量实际为待核对基点，利润123亿元[E1]。
+E     ?                ++</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_basis_points_cannot_certify_absolute_ratio[158.7-bp]" time="0.000"><failure message="AssertionError: assert '2026中报含金量实际为...，利润123亿元[E1]。' == '2026中报含金量实际为待核对，利润123亿元[E1]。'&#10;  &#10;  - 2026中报含金量实际为待核对，利润123亿元[E1]。&#10;  + 2026中报含金量实际为待核对bp，利润123亿元[E1]。&#10;  ?                ++">intelligence/tests/test_research_delivery_ratio_boundaries.py:158: in test_basis_points_cannot_certify_absolute_ratio
+    assert remove_findings(draft, findings) == "2026中报含金量实际为待核对，利润123亿元[E1]。"
+E   AssertionError: assert '2026中报含金量实际为...，利润123亿元[E1]。' == '2026中报含金量实际为待核对，利润123亿元[E1]。'
+E     
+E     - 2026中报含金量实际为待核对，利润123亿元[E1]。
+E     + 2026中报含金量实际为待核对bp，利润123亿元[E1]。
+E     ?                ++</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_basis_points_cannot_certify_absolute_ratio[158.7-BP]" time="0.000"><failure message="AssertionError: assert '2026中报含金量实际为...，利润123亿元[E1]。' == '2026中报含金量实际为待核对，利润123亿元[E1]。'&#10;  &#10;  - 2026中报含金量实际为待核对，利润123亿元[E1]。&#10;  + 2026中报含金量实际为待核对BP，利润123亿元[E1]。&#10;  ?                ++">intelligence/tests/test_research_delivery_ratio_boundaries.py:158: in test_basis_points_cannot_certify_absolute_ratio
+    assert remove_findings(draft, findings) == "2026中报含金量实际为待核对，利润123亿元[E1]。"
+E   AssertionError: assert '2026中报含金量实际为...，利润123亿元[E1]。' == '2026中报含金量实际为待核对，利润123亿元[E1]。'
+E     
+E     - 2026中报含金量实际为待核对，利润123亿元[E1]。
+E     + 2026中报含金量实际为待核对BP，利润123亿元[E1]。
+E     ?                ++</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_basis_points_cannot_certify_absolute_ratio[158.7-\u57fa\u70b9]" time="0.000"><failure message="AssertionError: assert '2026中报含金量实际为...，利润123亿元[E1]。' == '2026中报含金量实际为待核对，利润123亿元[E1]。'&#10;  &#10;  - 2026中报含金量实际为待核对，利润123亿元[E1]。&#10;  + 2026中报含金量实际为待核对基点，利润123亿元[E1]。&#10;  ?                ++">intelligence/tests/test_research_delivery_ratio_boundaries.py:158: in test_basis_points_cannot_certify_absolute_ratio
+    assert remove_findings(draft, findings) == "2026中报含金量实际为待核对，利润123亿元[E1]。"
+E   AssertionError: assert '2026中报含金量实际为...，利润123亿元[E1]。' == '2026中报含金量实际为待核对，利润123亿元[E1]。'
+E     
+E     - 2026中报含金量实际为待核对，利润123亿元[E1]。
+E     + 2026中报含金量实际为待核对基点，利润123亿元[E1]。
+E     ?                ++</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_table_units_use_the_same_dimension_contract[\u5143/\u5143]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_table_units_use_the_same_dimension_contract[\u4e2a\u767e\u5206\u70b9]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_table_units_use_the_same_dimension_contract[bp]" time="0.000"><failure message="AssertionError: assert False == ('bp' != '元/元')&#10; +  where False = bool(())">intelligence/tests/test_research_delivery_ratio_boundaries.py:253: in test_table_units_use_the_same_dimension_contract
+    assert bool(findings) == (unit != "元/元")
+E   AssertionError: assert False == ('bp' != '元/元')
+E    +  where False = bool(())</failure></testcase></testsuite></testsuites>

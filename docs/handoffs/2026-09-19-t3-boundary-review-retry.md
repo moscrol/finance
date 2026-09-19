@@ -124,6 +124,13 @@ env -i HOME="$HOME" PATH="$PATH" LANG=en_US.UTF-8 FORESIGHT_LLM_KEYCHAIN=0 \
 
 本次派发、自建审查树已退出/移除，三个记录PID核对均不在，无后台续审。归档提交后的检查日志另留runtime，不冒称预先包含在331件中。
 
+## 补记（2026-09-19 晚 质检核对）
+
+- 「同一请求」指请求对象不变（SHA `5fa3e7b7…`），不指提示字节：第二次调用的提示 SHA 为 `a087adcb…`，首次 600 秒超时那次为 `a002a150…`。差别只有窗口段落措辞、嵌入 `prior-timeout/invocation-result.json` 与 `retry-policy.json`、600→1200 秒与尝试计数；适配器 `qc_repair_once.py` 因此从 `793012a0…` 变为 `b3a8431e…`（`adapter-provenance.json` 已记两版 SHA）。验证器、请求、claim、必需项、业务范围未变。
+- 「12173P/87S/2x」中的 2x 只见于 pytest 日志行「2 xfailed」；收据 `counts` 只有 passed/failed/error/skipped，无法从收据本身核出。
+- 收据目录另有 `20260919T105310Z-d46c2c3b.json`：0 passed / 0 failed / exit 0 的空读数（疑为 collect-only），本交接从未引用；`check_test_receipt.py` 目前不拒绝零计数收据，列为后续守卫，不在本分支改。
+- 本窗五类线索的修复见 [残余反例修复交接](2026-09-19-t3-residue-repair.md)（业务 `6fb37a6e`）。
+
 ## 下一步与禁止事项
 
 1. 保持hold。沿原q线先以新量具固定五个输入，配对“错值被拦／独立事实不误伤”，决定明确续值及单位语义；公告新片段单列，不偷偷扩成通用解析。
