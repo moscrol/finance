@@ -216,6 +216,25 @@ def check_base_drift(
     return True, f"基座漂移 {drift} ≤ {max_merges}"
 
 
+def check_executed_counts(counts: dict | None) -> tuple[bool, str]:
+    """passed+failed+error 为 0 的收据不是读数 → 拒绝。
+
+    治的形状（2026-09-19 实测 `20260919T105310Z-d46c2c3b.json`）：collect-only 或
+    一次什么都没选中的 `-k` 也会经 sessionfinish 写收据，counts 全 0、exit 0、
+    干净树、revision 全等——每道既有门都过，却什么都没跑。有 failed/error 的
+    红读数仍是读数，按名字逐条对待，不在这里拒。
+    """
+
+    counts = counts or {}
+    executed = sum(int(counts.get(key) or 0) for key in ("passed", "failed", "error"))
+    if executed <= 0:
+        return False, (
+            "零执行读数——passed/failed/error 全为 0，这张收据没有跑过任何用例"
+            "（collect-only 或空选择），exit 0 也不能采信"
+        )
+    return True, f"执行读数 {executed} 条（passed+failed+error）"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])
     ap.add_argument(
@@ -281,6 +300,11 @@ def main() -> int:
     )
 
     blockers: list[str] = []
+
+    executed_ok, executed_message = check_executed_counts(receipt.get("counts"))
+    print(f"  {'✓' if executed_ok else '✗'} {executed_message}")
+    if not executed_ok:
+        blockers.append("零执行读数")
 
     def compare(field: str, label: str) -> None:
         theirs, mine = receipt.get(field), here[field]
