@@ -117,5 +117,61 @@
     "old": "    raw_start, raw_end = positions[start], positions[end - 1] + 1",
     "new": "    raw_start, raw_end = start, end",
     "targets": ["test_ratio_prose_replaces_only_bad_value_not_its_neighbors"]
+  },
+  {
+    "id": "disclosure-no-residual-conclusion",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    has_rejected_premise = any(rejected)",
+    "new": "    has_rejected_premise = False",
+    "targets": ["test_review_disclosure_residue_is_not_republished", "test_review_counterexamples_reach_real_public_exit"]
+  },
+  {
+    "id": "disclosure-extra-joiners",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "_ASSERTION_PART = re.compile(rf\"(?:^|{_ASSERTION_SEPARATOR})(?P<claim>(?:(?!{_ASSERTION_SEPARATOR}).)+)\")",
+    "new": "_ASSERTION_PART = re.compile(r\"(?:^|[,，]|但是|但)(?P<claim>(?:(?!但是|但)[^,，])+)\")",
+    "targets": ["test_review_more_joiners_preserve_raw_fact"]
+  },
+  {
+    "id": "disclosure-stranded-connective",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "            if connective:",
+    "new": "            if False and connective:",
+    "targets": ["test_review_disclosure_residue_is_not_republished"]
+  },
+  {
+    "id": "disclosure-new-announcement-wording",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "(?:没有|并无|不存在|无|零|未发布)(?:新增|新的|新)?公告",
+    "new": "(?:没有|并无|不存在|无(?:新增|新的|新)?|零|未发布(?:新)?)公告",
+    "targets": ["test_review_disclosure_residue_is_not_republished"]
+  },
+  {
+    "id": "ratio-no-period-or-count-as-value",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    if _NON_RATIO_SUFFIX.match(value, number.end(1)) or _PERIOD.match(value, number.start(1)):",
+    "new": "    if False:",
+    "targets": ["test_review_ratio_does_not_revoke_qualifiers_or_other_metrics", "test_review_ratio_locates_value_not_year_or_period"]
+  },
+  {
+    "id": "ratio-ordered-period-binding",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "                parallel_values = _parallel_ratio_values(value, periods)",
+    "new": "                parallel_values = {}",
+    "targets": ["test_review_ratio_locates_value_not_year_or_period"]
+  },
+  {
+    "id": "ratio-ranking-preface-value",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "                        if preface:",
+    "new": "                        if False and preface:",
+    "targets": ["test_review_ratio_preface_does_not_hide_bad_value"]
+  },
+  {
+    "id": "ratio-partial-token-markup",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    if internal and (left != internal + right or re.search(r\"[*`]+[\\d.]\", raw[raw_start:raw_end])):",
+    "new": "    if False:",
+    "targets": ["test_review_ratio_locates_value_not_year_or_period"]
   }
 ]

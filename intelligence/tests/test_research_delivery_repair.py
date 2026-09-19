@@ -28,7 +28,10 @@ from intelligence.tests.test_research_delivery_checks import TABLE, _financial_e
 @pytest.mark.parametrize("mode", ["off", "llm"])
 @pytest.mark.parametrize("repair_result", ["unchanged", "corrected", "timeout"])
 @pytest.mark.parametrize("window", ["reserved", "exhausted", "root_expired"])
-@pytest.mark.parametrize("case", ["disclosure", "disclosure_comma", "calculation", "calculation_prose"])
+@pytest.mark.parametrize("case", [
+    "disclosure", "disclosure_comma", "disclosure_residue", "disclosure_dash",
+    "calculation", "calculation_prose", "calculation_ranking", "calculation_periods",
+])
 def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
     monkeypatch, mode, repair_result, window, case
 ):
@@ -96,11 +99,21 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
     good = "已核实中报收入。[E1]。公告来源仅部分返回，不能据此断言公司没有公告。"
     if case == "disclosure_comma":
         bad = "已核实中报收入[E1]，但查询返回空白，因此公司没有公告。"
+    elif case == "disclosure_residue":
+        bad = "已核实中报收入[E1]，查询返回空白，因此没有新公告，即公司无新增公告。"
+    elif case == "disclosure_dash":
+        bad = "已核实中报收入[E1]——查询返回空白因此公司没有公告。"
     elif case == "calculation":
         bad = "已核实中报收入。[E1]。\n" + TABLE
         good = bad.replace("1.587", "1.588")
     elif case == "calculation_prose":
         bad = "已核实中报收入[E1]，2026中报含金量为1.587，2025中报含金量为0.289。"
+        good = bad.replace("1.587", "1.588")
+    elif case == "calculation_ranking":
+        bad = "已核实中报收入[E1]，2026中报含金量3年新高，实际为1.587，2025中报含金量为0.289。"
+        good = bad.replace("1.587", "1.588")
+    elif case == "calculation_periods":
+        bad = "已核实中报收入[E1]，含金量对照：2026中报 2025中报分别为1.587与0.289。"
         good = bad.replace("1.587", "1.588")
 
     def run(request):
@@ -178,6 +191,8 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
     assert budget.allocated_seconds <= budget.hard_seconds_cap
     assert "窗口内无新公告即" not in result.answer
     assert "因此公司没有公告" not in result.answer
+    assert "因此没有新公告" not in result.answer
+    assert "即公司无新增公告" not in result.answer
     assert "1.587" not in result.answer
     if window == "root_expired":
         # The root expires BEFORE any semantic verification. No trusted answer
@@ -194,6 +209,10 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
         if case == "calculation":
             assert "706.91" in result.answer and "445.17" in result.answer
         assert "0.289" in result.answer
+        if case in {"calculation_ranking", "calculation_periods"}:
+            assert "2026中报" in result.answer and "2025中报" in result.answer
+        if case == "calculation_ranking":
+            assert "3年新高" in result.answer
         assert (
             "1.588" if can_repair and repair_result == "corrected" else "待核对"
         ) in result.answer
@@ -206,7 +225,7 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
     assert "scripted repair failure" not in result.answer
 
 
-@pytest.mark.parametrize("separator", ["。", "，", "但"])
+@pytest.mark.parametrize("separator", ["。", "，", "但", "——", " "])
 def test_adapter_rechecks_nonmaterial_final_projection(monkeypatch, separator):
     from intelligence.runtime import continuous_turn_adapter as adapter
     from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome

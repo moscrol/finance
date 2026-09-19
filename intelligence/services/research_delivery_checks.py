@@ -31,12 +31,16 @@ _SEARCH_GAP = re.compile(
     r"(?:查询|检索|搜索|接口|返回|清单|列表|抓取).{0,32}"
     r"(?:失败|空白|为空|无结果|无记录|未返回|不完整|空集|未找到|查不到|没有结果)"
 )
-_ABSENCE = re.compile(r"(?:没有|并无|不存在|无(?:新增|新的|新)?|零|未发布(?:新)?)公告|(?:新增)?官方信息差|尚未兑现|没有兑现")
+_ABSENCE = re.compile(r"(?:没有|并无|不存在|无|零|未发布)(?:新增|新的|新)?公告|(?:新增)?官方信息差|尚未兑现|没有兑现")
 _INFERENCE = re.compile(r"因此|所以|说明|表明|证明|坐实|意味着|可判定|可以认定|即可|即无")
 _UNKNOWN = re.compile(r"不能|无法|不足以|不代表|不等于|不意味着|不说明|不得|不可|未能|尚不能|不成立|无依据|错误推断")
 _CLAUSE = re.compile(r"[^。！？；;\n]+[。！？；;]?")
 # Keep raw offsets: deleting formatting before locating edits corrupts spans.
-_ASSERTION_PART = re.compile(r"(?:^|[,，]|但是|但)(?P<claim>(?:(?!但是|但)[^,，])+)")
+_ASSERTION_SEPARATOR = r"[,，、—]+|--+|但是|然而|不过|但|而|(?<=\])[ \t]+(?=(?:查询|检索|搜索|接口|窗口))"
+_ASSERTION_PART = re.compile(rf"(?:^|{_ASSERTION_SEPARATOR})(?P<claim>(?:(?!{_ASSERTION_SEPARATOR}).)+)")
+_ATTRIBUTED = re.compile(r"(?:官方公告|公告原文|公司原文)(?:称|明确说明|说明)")
+_HYPOTHESIS = re.compile(r"^(?:若|如果|假设)")
+_DEPENDENT = re.compile(r"^(?:即|也就是说|换言之|据此|因此|由此)")
 
 
 def _rejected_assertion_spans(raw: str) -> tuple[tuple[int, int], ...]:
@@ -47,12 +51,27 @@ def _rejected_assertion_spans(raw: str) -> tuple[tuple[int, int], ...]:
     Formatting/citations in a surviving part are never reconstructed.
     """
     parts = list(_ASSERTION_PART.finditer(raw))
-    rejected = []
-    for part in parts:
-        value = re.sub(r"[*_`]+", "", part.group("claim"))
-        rejected.append(bool(
-            _ABSENCE.search(value) and _INFERENCE.search(value) and not _UNKNOWN.search(value)
-        ))
+    values = [re.sub(r"[*_`]+", "", part.group("claim")).strip() for part in parts]
+    rejected = [bool(_ABSENCE.search(value) and _INFERENCE.search(value) and not _UNKNOWN.search(value))
+                for value in values]
+    # An invalid premise cannot leave an uncited/re-cited restatement or a
+    # dependent recommendation behind. A citation alone isn't independence.
+    has_rejected_premise = any(rejected)
+    dependent_run = False
+    for index, value in enumerate(values):
+        if rejected[index]:
+            dependent_run = True
+        elif has_rejected_premise:
+            independent = bool(
+                _UNKNOWN.search(value) or _HYPOTHESIS.search(value)
+                or (re.search(r"\[E\d+\]", value) and (
+                    _ATTRIBUTED.search(value)
+                    or (index > 0 and _ATTRIBUTED.search(values[index - 1]) and not rejected[index - 1])
+                ))
+            )
+            residue = bool(_ABSENCE.search(value) or (dependent_run and _DEPENDENT.match(value)))
+            rejected[index] = residue and not independent
+            dependent_run = rejected[index]
     spans = []
     i = 0
     while i < len(parts):
@@ -63,6 +82,11 @@ def _rejected_assertion_spans(raw: str) -> tuple[tuple[int, int], ...]:
         while i + 1 < len(parts) and rejected[i + 1]:
             i += 1
         start, end = parts[first].start("claim"), parts[i].end("claim")
+        if first:
+            separator = raw[parts[first - 1].end("claim"):start]
+            connective = re.search(r"但是|然而|不过|但|而", separator)
+            if connective:
+                start = parts[first - 1].end("claim") + connective.start()
         if i + 1 < len(parts):
             end = parts[i + 1].start("claim")  # also remove the following separator
         elif first:
@@ -185,8 +209,59 @@ def _prose_value_finding(
     """
     positions = [i for i, char in enumerate(raw) if char not in "*`"]
     raw_start, raw_end = positions[start], positions[end - 1] + 1
-    marks = "".join(char for char in raw[raw_start:raw_end] if char in "*`")
+    # Keep a balanced wrapper around the whole value, but discard formatting
+    # that starts/ends inside a numeric token (1.**587**, **1.5**87).
+    prefix = re.search(r"[*`]+$", raw[:raw_start])
+    suffix = re.match(r"[*`]+", raw[raw_end:])
+    left = prefix.group() if prefix else ""
+    right = suffix.group() if suffix else ""
+    internal = re.sub(r"[^*`]", "", raw[raw_start:raw_end])
+    if internal and (left != internal + right or re.search(r"[*`]+[\d.]", raw[raw_start:raw_end])):
+        raw_start -= len(left)
+        raw_end += len(right)
+        marks = ""
+    else:
+        marks = internal
     return DeliveryFinding(offset + raw_start, offset + raw_end, code, "待核对" + marks)
+
+
+_PROSE_NUMBER = re.compile(rf"\s*(?:实际为|分别为|为|是|=|：|:)?\s*({_NUMBER})\s*(%|倍)?")
+_NON_RATIO_SUFFIX = re.compile(r"\s*(?:年|中报|年报|季|半年|H1|Q[1-4]|月|日|天|亿|万|元|家|人|名|位|次|项|个|百分点|bp)", re.I)
+
+
+def _prose_number(value: str, start: int) -> tuple[int, int, str, str] | None:
+    """A period/ranking count isn't a ratio value; never match its numeric prefix."""
+    number = _PROSE_NUMBER.match(value, start)
+    if number is None:
+        return None
+    if _NON_RATIO_SUFFIX.match(value, number.end(1)) or _PERIOD.match(value, number.start(1)):
+        return None
+    return number.start(1), number.end(2 if number[2] else 1), number[1], number[2] or ""
+
+
+def _parallel_ratio_values(value: str, periods: list[re.Match]) -> dict[int, tuple[int, int, str, str]]:
+    """Only an explicit ordered 'periods 分别为 values' binds adjacent period labels."""
+    if len(periods) < 2:
+        return {}
+    if any(not re.fullmatch(r"[\s、，,和与及/]*", value[a.end():b.start()]) for a, b in zip(periods, periods[1:])):
+        return {}
+    marker = re.match(r"\s*分别为", value[periods[-1].end():])
+    if marker is None:
+        return {}
+    cursor = periods[-1].end() + marker.end()
+    result = {}
+    for index, period_match in enumerate(periods):
+        if index:
+            separator = re.match(r"\s*(?:与|和|及|、|，|,|vs)\s*", value[cursor:])
+            if separator is None:
+                return {}
+            cursor += separator.end()
+        number = _prose_number(value, cursor)
+        if number is None:
+            return {}
+        result[period_match.start()] = number
+        cursor = number[1]
+    return result
 
 
 def calculation_copy_findings(
@@ -247,7 +322,9 @@ def calculation_copy_findings(
             # matching (e.g. ambiguous bare 1.588) stays with the existing judge.
             for clause in _CLAUSE.finditer(line):
                 value = re.sub(r"[*`]+", "", clause.group())
-                for period_match in _PERIOD.finditer(value):
+                periods = list(_PERIOD.finditer(value))
+                parallel_values = _parallel_ratio_values(value, periods)
+                for period_match in periods:
                     tail = value[period_match.end():]
                     ratio = _RATIO_NAME.match(tail.lstrip())
                     if ratio is not None:
@@ -261,13 +338,18 @@ def calculation_copy_findings(
                         remainder = tail
                     else:
                         continue
-                    number = re.match(rf"\s*(?:为|是|=|：|:)?\s*({_NUMBER})\s*(%|倍)?", remainder)
+                    number = parallel_values.get(period_match.start()) or _prose_number(value, remainder_start)
+                    if number is None and ratio is not None:
+                        # Finite ranking preface: '3年新高，实际为1.587'. Don't
+                        # search arbitrary later numbers (revenue/another period).
+                        preface = re.match(r"\s*(?:创)?\d+(?:年|个?季|个?月)(?:新高|新低|高点|低点)[,，]\s*(?:实际|本期|比率)为", remainder)
+                        if preface:
+                            number = _prose_number(value, remainder_start + preface.end())
                     values = products.get(_period(period_match.group()) or "", set())
-                    code = failure_code(values, number[1], number[2] or "") if number else ""
+                    code = failure_code(values, number[2], number[3]) if number else ""
                     if code:
                         findings.append(_prose_value_finding(
-                            clause.group(), remainder_start + number.start(1),
-                            remainder_start + number.end(2 if number[2] else 1),
+                            clause.group(), number[0], number[1],
                             offset=offset + clause.start(), code=code,
                         ))
         offset += len(line)
