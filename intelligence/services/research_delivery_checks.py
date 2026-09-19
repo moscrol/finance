@@ -35,6 +35,45 @@ _ABSENCE = re.compile(r"(?:没有|并无|不存在|无(?:新增|新的|新)?|零
 _INFERENCE = re.compile(r"因此|所以|说明|表明|证明|坐实|意味着|可判定|可以认定|即可|即无")
 _UNKNOWN = re.compile(r"不能|无法|不足以|不代表|不等于|不意味着|不说明|不得|不可|未能|尚不能|不成立|无依据|错误推断")
 _CLAUSE = re.compile(r"[^。！？；;\n]+[。！？；;]?")
+# Keep raw offsets: deleting formatting before locating edits corrupts spans.
+_ASSERTION_PART = re.compile(r"(?:^|[,，]|但是|但)(?P<claim>(?:(?!但是|但)[^,，])+)")
+
+
+def _rejected_assertion_spans(raw: str) -> tuple[tuple[int, int], ...]:
+    """Sentence context establishes the inference; only its bad parts are removed.
+
+    Merge adjacent rejected parts before choosing one separator to remove. Keep
+    the separator between surviving parts and the original sentence terminator.
+    Formatting/citations in a surviving part are never reconstructed.
+    """
+    parts = list(_ASSERTION_PART.finditer(raw))
+    rejected = []
+    for part in parts:
+        value = re.sub(r"[*_`]+", "", part.group("claim"))
+        rejected.append(bool(
+            _ABSENCE.search(value) and _INFERENCE.search(value) and not _UNKNOWN.search(value)
+        ))
+    spans = []
+    i = 0
+    while i < len(parts):
+        if not rejected[i]:
+            i += 1
+            continue
+        first = i
+        while i + 1 < len(parts) and rejected[i + 1]:
+            i += 1
+        start, end = parts[first].start("claim"), parts[i].end("claim")
+        if i + 1 < len(parts):
+            end = parts[i + 1].start("claim")  # also remove the following separator
+        elif first:
+            start = parts[first - 1].end("claim")  # final run: remove preceding separator
+            if raw[-1:] in {"。", "！", "？", "；", ";"}:
+                end -= 1
+        if first == 0:
+            start = 0  # include any leading conjunction of the rejected run
+        spans.append((start, end))
+        i += 1
+    return tuple(spans)
 
 
 def disclosure_absence_findings(text: str, traces: Sequence[ProviderTrace]) -> tuple[DeliveryFinding, ...]:
@@ -54,16 +93,15 @@ def disclosure_absence_findings(text: str, traces: Sequence[ProviderTrace]) -> t
         value = re.sub(r"[*_`]+", "", clause.group())
         if not _ABSENCE.search(value) or not _INFERENCE.search(value):
             continue
-        # Scope disclaimers to their own comma clause, not the whole sentence.
-        # '不能查全，但无公告即...' must not inherit the first clause's exemption.
-        tails = re.split(r"[,，]|但是|但", value)
-        assertions = [p for p in tails if _ABSENCE.search(p) and _INFERENCE.search(p)]
-        if not assertions or all(_UNKNOWN.search(p) for p in assertions):
-            continue
+        # Search context may live in a different comma part. Do not split the
+        # detection window, but don't revoke independent neighbors when editing.
         search_claim = bool(_SEARCH_GAP.search(value))
         collapsed_gap = incomplete and bool(re.search(r"(?:窗口|期间|期内|本期).*无.*公告.*即无", value))
         if search_claim or collapsed_gap:
-            findings.append(DeliveryFinding(clause.start(), clause.end(), "disclosure_absence_inference"))
+            findings.extend(
+                DeliveryFinding(clause.start() + start, clause.start() + end, "disclosure_absence_inference")
+                for start, end in _rejected_assertion_spans(clause.group())
+            )
     return tuple(findings)
 
 
@@ -137,6 +175,20 @@ def _ratio_products(evidence: Sequence[AgentEvidence]) -> dict[str, set[float]]:
     return products
 
 
+def _prose_value_finding(
+    raw: str, start: int, end: int, *, offset: int, code: str,
+) -> DeliveryFinding:
+    """Map an unformatted numeric token back to raw text, retaining Markdown.
+
+    Exclude a trailing percent/multiple unit too. Formatting that wraps the
+    value (possibly inside the unit) is preserved, not rebuilt from plain text.
+    """
+    positions = [i for i, char in enumerate(raw) if char not in "*`"]
+    raw_start, raw_end = positions[start], positions[end - 1] + 1
+    marks = "".join(char for char in raw[raw_start:raw_end] if char in "*`")
+    return DeliveryFinding(offset + raw_start, offset + raw_end, code, "待核对" + marks)
+
+
 def calculation_copy_findings(
     text: str, evidence: Sequence[AgentEvidence], *, calculation_required: bool = False,
 ) -> tuple[DeliveryFinding, ...]:
@@ -199,11 +251,13 @@ def calculation_copy_findings(
                     tail = value[period_match.end():]
                     ratio = _RATIO_NAME.match(tail.lstrip())
                     if ratio is not None:
-                        remainder = tail.lstrip()[ratio.end():]
+                        remainder_start = period_match.end() + len(tail) - len(tail.lstrip()) + ratio.end()
+                        remainder = value[remainder_start:]
                     elif (re.search(r"(?:比率|净现比|含金量)[^。；;]*[:：]", value[:period_match.start()])
                           and not re.search(r"同比|环比|增速|变化|变动|差额|增量", value[:period_match.start()])):
                         # Explicitly labeled same-clause comparison, e.g.
                         # '比率同期对照：2026中报1.588 vs 2025中报0.289'.
+                        remainder_start = period_match.end()
                         remainder = tail
                     else:
                         continue
@@ -211,8 +265,11 @@ def calculation_copy_findings(
                     values = products.get(_period(period_match.group()) or "", set())
                     code = failure_code(values, number[1], number[2] or "") if number else ""
                     if code:
-                        findings.append(DeliveryFinding(offset + clause.start(), offset + clause.end(), code))
-                        break
+                        findings.append(_prose_value_finding(
+                            clause.group(), remainder_start + number.start(1),
+                            remainder_start + number.end(2 if number[2] else 1),
+                            offset=offset + clause.start(), code=code,
+                        ))
         offset += len(line)
     return tuple(findings)
 

@@ -89,5 +89,33 @@
     "old": "    require_product = calculation_required or bool(re.search(r\"计算编号\\s*[0-9a-f]{16}\", text))",
     "new": "    require_product = False",
     "targets": ["test_missing_and_conflicting_products_are_not_certified_by_numeric_presence", "test_old_empty_product_cannot_support_claimed_calculator_ratios"]
+  },
+  {
+    "id": "disclosure-narrow-edit-span",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "DeliveryFinding(clause.start() + start, clause.start() + end, \"disclosure_absence_inference\")",
+    "new": "DeliveryFinding(clause.start(), clause.end(), \"disclosure_absence_inference\")",
+    "targets": ["test_disclosure_edit_spans_preserve_unrelated_raw_text", "test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation"]
+  },
+  {
+    "id": "disclosure-keep-sentence-context",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "        search_claim = bool(_SEARCH_GAP.search(value))",
+    "new": "        search_claim = bool(_SEARCH_GAP.search(re.split(r'[,，]', value)[-1]))",
+    "targets": ["test_disclosure_edit_spans_preserve_unrelated_raw_text"]
+  },
+  {
+    "id": "ratio-prose-local-value",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "return DeliveryFinding(offset + raw_start, offset + raw_end, code, \"待核对\" + marks)",
+    "new": "return DeliveryFinding(offset, offset + len(raw), code)",
+    "targets": ["test_ratio_prose_replaces_only_bad_value_not_its_neighbors", "test_ratio_prose_retention_reaches_verifier_exit"]
+  },
+  {
+    "id": "ratio-prose-raw-coordinates",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    raw_start, raw_end = positions[start], positions[end - 1] + 1",
+    "new": "    raw_start, raw_end = start, end",
+    "targets": ["test_ratio_prose_replaces_only_bad_value_not_its_neighbors"]
   }
 ]

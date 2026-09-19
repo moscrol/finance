@@ -37,6 +37,7 @@ SUITES = {
     "research-delivery": ([
         "intelligence/tests/test_calculation_result_delivery.py",
         "intelligence/tests/test_research_delivery_checks.py",
+        "intelligence/tests/test_research_delivery_retention.py",
         "intelligence/tests/test_research_delivery_repair.py",
         "intelligence/tests/test_frozen_research_delivery.py",
     ], "scripts/review_probes/research_delivery_mutations.json"),
