@@ -1,0 +1,13 @@
+{
+  "author_only": true,
+  "runtime_base": "6f490f734b8c46dbbd7da912fa263bbd7d4ff986",
+  "archive_fix_revision": "e5fab4150b33a479f88974f295dd37f113bbd5d2",
+  "runtime_and_p3d_restored_to_base": true,
+  "files": {
+    "intelligence/runtime/conversation_orchestrator.py": "c1d8854936a133705292f283adc23c888b6d33220276fb3039510d41d71c706a",
+    "intelligence/tests/test_e2_turn_prior_reads.py": "dfa1f98de49ce7e610f352e7d50bdfd9d671360788c87298446833c56c59c06c",
+    "intelligence/tests/test_e2_controller_material_history.py": "346125826764988041d20bc745767f13d6cb307cb28f1e05e5482c7ed116e73f",
+    "scripts/check_evidence_archive.py": "73a371a16bb35dc0debb61fa784736eed18d11c391ce55830eb0bdad97bfe349",
+    "tests/test_evidence_archive.py": "00d3c2f728413362341a17c7f8dcbe8627a8d1aa968f2485c8ec850c38a72481"
+  }
+}

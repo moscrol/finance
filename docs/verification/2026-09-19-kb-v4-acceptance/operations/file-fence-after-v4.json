@@ -1,0 +1,130 @@
+{
+  "observed_at": "2026-09-18T15:07:57.477143+00:00",
+  "status": "pass",
+  "existing_file_bytes_unchanged": 24,
+  "write_open_checks": [
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/bm25.pkl.gz",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/bm25_csc.data.npy",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/bm25_csc.indices.npy",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/bm25_csc.indptr.npy",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/bm25_csc.meta.json",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/bm25_csc.term_offsets.npy",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/bm25_csc.terms.bin",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/bm25_tokens.jsonl.gz",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/chunks.jsonl",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/dense.npy",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/file_stat_cache.jsonl",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/meta.json",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/bm25.pkl.gz",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/bm25_csc.data.npy",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/bm25_csc.indices.npy",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/bm25_csc.indptr.npy",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/bm25_csc.meta.json",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/bm25_csc.term_offsets.npy",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/bm25_csc.terms.bin",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/bm25_tokens.jsonl.gz",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/chunks.jsonl",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/dense.npy",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/file_stat_cache.jsonl",
+      "write_open_blocked": true,
+      "errno": 1
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/meta.json",
+      "write_open_blocked": true,
+      "errno": 1
+    }
+  ],
+  "service_revision": "bf662e9310ff751a4c31763815ee78fb7d6d5122",
+  "api_health": "healthy",
+  "scope": "local indexed files, not remote publish or knowledge source content"
+}

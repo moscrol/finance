@@ -309,6 +309,39 @@ button {
   box-shadow: 0 0 0 3px rgba(77, 147, 109, 0.12);
 }
 
+.credits-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 9px 8px 0;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.credits-line + .private-workspace-status {
+  border-top: none;
+  padding-top: 4px;
+}
+
+.credits-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber-soft);
+}
+
+.credits-line.empty {
+  color: var(--amber);
+}
+
+.credits-line.empty .credits-dot {
+  background: #c65d4a;
+  box-shadow: 0 0 0 3px rgba(198, 93, 74, 0.16);
+}
+
 .main-surface {
   position: relative;
   min-width: 0;

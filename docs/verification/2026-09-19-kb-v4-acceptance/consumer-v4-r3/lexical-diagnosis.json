@@ -1,0 +1,44 @@
+{
+  "reason": "Chinese unigram + bigram tokenization; no literal substring is not a no-posting proof. Relevance NOT accepted.",
+  "hits": [
+    {
+      "chunk": "wiki/raw/disclosures/2026-06-26/cninfo_002326_1225388184_关于全资子公司签订_电解液原材料合作协议_的公告.md::1",
+      "query_tokens": [
+        "冷",
+        "液",
+        "液冷"
+      ],
+      "shared_tokens": [
+        "液"
+      ],
+      "literal_query_in_text": false,
+      "filter": "L3"
+    },
+    {
+      "chunk": "wiki/raw/disclosures/2026-09-03/cninfo_300723_1225545496_关于全资子公司获得盐酸舍曲林口服溶液注册证书的公告.md::1",
+      "query_tokens": [
+        "冷",
+        "液",
+        "液冷"
+      ],
+      "shared_tokens": [
+        "液"
+      ],
+      "literal_query_in_text": false,
+      "filter": "L3"
+    },
+    {
+      "chunk": "wiki/raw/disclosures/2026-09-11/cninfo_300957_1225560502_关于注射用透明质酸钠溶液取得医疗器械注册证的公告.md::1",
+      "query_tokens": [
+        "冷",
+        "液",
+        "液冷"
+      ],
+      "shared_tokens": [
+        "液"
+      ],
+      "literal_query_in_text": false,
+      "filter": "L3"
+    }
+  ]
+}

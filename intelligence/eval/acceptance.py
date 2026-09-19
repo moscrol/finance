@@ -152,6 +152,9 @@ class TurnTrace:
     # 恒为空。本字段唯一真源是 episode 产物 events 里的 tool_request；
     # 产物取不到时留 None 不猜，观察生成器把该轴记成「跳过」而不是 0 次。
     episode_tools_called: list[str] | None = None
+    # 采集身份：同一 case 续问同一会话，只认 POST 返回的本轮消息/run 配对。
+    conversation_id: str | None = None
+    assistant_message_id: str | None = None
 
 
 @dataclass
@@ -847,44 +850,85 @@ def _capture_fulfillment(steps: list[Any]) -> dict[str, Any]:
     return {}
 
 
-def ask_once(base: str, user: str, question: str, timeout: float) -> TurnTrace:
-    """真实提问一次并轮询到终态。返回可复核的轨迹。"""
-    trace = TurnTrace(question=question)
+def ask_once(
+    base: str, user: str, question: str, timeout: float,
+    *, conversation_id: str | None = None,
+) -> TurnTrace:
+    """采集一个真实轮次；续问复用会话，并等本轮消息而非旧轮迟到答案。"""
+    trace = TurnTrace(question=question, conversation_id=conversation_id)
     started = time.monotonic()
+    deadline = started + timeout
+
+    def remaining() -> float:
+        seconds = deadline - time.monotonic()
+        if seconds <= 0:
+            raise TimeoutError(f"超过 {timeout}s 未取得本轮终稿")
+        return min(30.0, seconds)
+
     try:
-        conv = _post(f"{base}/api/conversations", {"title": "acceptance", "user": user})
-        conv_id = conv.get("conversation_id") or conv.get("id")
-        if not conv_id:
-            trace.status = "error"
-            trace.error = f"未拿到 conversation_id: {conv}"
-            return trace
-        _post(
-            f"{base}/api/conversations/{conv_id}/messages",
+        if trace.conversation_id is None:
+            conv = _post(
+                f"{base}/api/conversations", {"title": "acceptance", "user": user},
+                timeout=remaining(),
+            )
+            trace.conversation_id = conv.get("conversation_id") or conv.get("id")
+        if not isinstance(trace.conversation_id, str) or not trace.conversation_id.strip():
+            raise ValueError("未拿到 conversation_id")
+        posted = _post(
+            f"{base}/api/conversations/{trace.conversation_id}/messages",
             {"content": question, "skill_mode": "auto", "user": user},
+            timeout=remaining(),
         )
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            time.sleep(2.0)
-            msgs = _get(f"{base}/api/conversations/{conv_id}/messages?user={user}")
+        trace.run_id = posted.get("run_id")
+        trace.assistant_message_id = posted.get("assistant_message_id")
+        if any(not isinstance(value, str) or not value.strip() for value in (
+            trace.run_id, trace.assistant_message_id,
+        )):
+            raise ValueError("提交响应缺少本轮 run_id/assistant_message_id")
+        while True:
+            time.sleep(min(2.0, remaining()))
+            run = _get(f"{base}/api/runs/{trace.run_id}?user={user}", timeout=remaining())
+            run_status = run.get("status")
+            if run_status in {"failed", "cancelled", "aborted", "interrupted", "rejected"}:
+                trace.status = run_status
+                trace.error = str(run.get("error") or run_status)
+                break
+            if run_status != "completed":
+                continue
+            msgs = _get(
+                f"{base}/api/conversations/{trace.conversation_id}/messages?user={user}",
+                timeout=remaining(),
+            )
             items = msgs if isinstance(msgs, list) else msgs.get("messages", [])
-            assistant = [m for m in items if m.get("role") == "assistant"]
-            if not assistant:
+            matches = [m for m in items if m.get("message_id") == trace.assistant_message_id]
+            if not matches:
                 continue
-            last = assistant[-1]
-            if last.get("status") in {"pending", "running", None}:
+            if len(matches) != 1 or matches[0].get("role") != "assistant":
+                raise ValueError("本轮 assistant_message_id 身份不唯一或角色错误")
+            message = matches[0]
+            if message.get("run_id") != trace.run_id:
+                raise ValueError("本轮 assistant_message_id/run_id 配对不匹配")
+            if message.get("status") in {"pending", "running", None}:
+                continue  # run claim 先于消息 revise；不能把 claim 当终稿可见。
+            status = message.get("status")
+            if status not in {"completed", "partial", "clarification"}:
+                trace.status = "error"
+                trace.error = f"本轮消息非成功终态: {status}"
+                break
+            content = message.get("content")
+            if not isinstance(content, str) or not content.strip():
                 continue
-            trace.answer = last.get("content")
-            trace.status = last.get("status") or "unknown"
-            trace.run_id = last.get("run_id")
-            trace.invoked_skill_ids = list(last.get("invoked_skill_ids") or [])
-            trace.citations = list(last.get("citations") or [])
-            trace.degrades = list(last.get("degrades") or [])
+            trace.answer = content
+            trace.status = status
+            trace.invoked_skill_ids = list(message.get("invoked_skill_ids") or [])
+            trace.citations = list(message.get("citations") or [])
+            trace.degrades = list(message.get("degrades") or [])
             _fill_run_detail(base, trace, user=user)
             break
-        else:
-            trace.status = "timeout"
-            trace.error = f"超过 {timeout}s 未返回终态"
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+    except TimeoutError as exc:
+        trace.status = "timeout"
+        trace.error = str(exc)
+    except (urllib.error.URLError, OSError, ValueError) as exc:
         trace.status = "error"
         trace.error = str(exc)
     trace.elapsed_s = round(time.monotonic() - started, 1)
@@ -923,13 +967,21 @@ def cmd_run(args: argparse.Namespace) -> int:
         questions = [effective_query(case), *case.get("followups", [])]
         for q in questions:
             try:
-                t = ask_once(args.base, args.user, q, args.timeout)
+                if not cr.turns:
+                    t = ask_once(args.base, args.user, q, args.timeout)
+                elif not cr.turns[0].conversation_id:
+                    t = TurnTrace(question=q, status="error", error="续问缺少首轮 conversation_id")
+                else:
+                    t = ask_once(
+                        args.base, args.user, q, args.timeout,
+                        conversation_id=cr.turns[0].conversation_id,
+                    )
             except UsersDirMismatch as exc:
                 print(f"❌ {exc}")
                 print("   拒绝落盘「看起来正常」的五态——这是 users 目录错配。")
                 return 2
             cr.turns.append(t)
-            if t.status in {"error", "timeout"}:
+            if t.status not in {"completed", "partial", "clarification"}:
                 break
         head = cr.turns[0] if cr.turns else None
         degraded = " ⚠降级" if head and head.degrades else ""

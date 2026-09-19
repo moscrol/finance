@@ -1,0 +1,2 @@
+{"index": ".rag_index", "exit_code": 0, "elapsed_seconds": 87.719, "finished_at": "2026-09-18T15:00:33.521979+00:00", "code_revision": "23b4f5e4e1ace932fcc741197bf4892c272bf541"}
+{"index": ".rag_index_full", "exit_code": 0, "elapsed_seconds": 182.239, "finished_at": "2026-09-18T15:03:35.761859+00:00", "code_revision": "23b4f5e4e1ace932fcc741197bf4892c272bf541"}

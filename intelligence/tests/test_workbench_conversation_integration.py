@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -79,7 +80,10 @@ def _send(
     )
     response.raise_for_status()
     created = response.json()
-    return created, _wait_terminal(client, created["run_id"])
+    run = _wait_terminal(client, created["run_id"])
+    # 下一轮会读取上一轮消息；run 终态不代表消息终稿已经落盘。
+    _wait_message_terminal(client, conversation_id)
+    return created, run
 
 
 def _wait_message_terminal(
@@ -97,10 +101,12 @@ def _wait_message_terminal(
     """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        messages = client.get(
+        response = client.get(
             f"/api/conversations/{conversation_id}/messages",
             params={"user": "alice"},
-        ).json()
+        )
+        response.raise_for_status()
+        messages = response.json()
         if messages and messages[-1]["status"] in {
             "completed",
             "failed",
@@ -604,6 +610,75 @@ class _FastSkill:
             as_of=None,
             raw_result_ref=None,
         )
+
+
+def test_send_waits_for_message_after_run_terminal_claim(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """用事件屏障固定 run 已终态、消息仍 pending 的窗口，不靠 sleep 碰运气。"""
+    repo_root = Path(__file__).parent / "fixtures" / "chat_workbench_repo"
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    monkeypatch.setenv("FINANCE_WS", str(repo_root))
+    monkeypatch.setenv("KB_VAULT", str(repo_root / "wiki"))
+
+    class CompleteAdapter:
+        def handle(self, **_kwargs: object) -> ContinuousTurnResult:
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer="消息终稿已落盘。",
+                as_of="2026-07-24",
+                citations=(),
+                warnings=(),
+                private_artifact={"runtime_backend": "test_episode"},
+                events=(),
+            )
+
+    monkeypatch.setattr(
+        app_module,
+        "_build_continuous_turn_adapter",
+        lambda **_kwargs: CompleteAdapter(),
+    )
+    claimed = threading.Event()
+    pending_observed = threading.Event()
+    release = threading.Event()
+    original_claim = RunStore.claim_terminal_run
+    original_get = TestClient.get
+
+    def pause_after_claim(self, *args, **kwargs):
+        result = original_claim(self, *args, **kwargs)
+        if result[1]:
+            claimed.set()
+            assert release.wait(10.0), "读取消息前未释放终稿写入屏障"
+        return result
+
+    monkeypatch.setattr(RunStore, "claim_terminal_run", pause_after_claim)
+    with TestClient(create_app(repo_root=repo_root)) as client:
+        conversation_id = client.post(
+            "/api/conversations",
+            json={"title": "消息可见性屏障", "user": "alice"},
+        ).json()["conversation_id"]
+        messages_url = f"/api/conversations/{conversation_id}/messages"
+
+        def release_after_pending_read(self, url, *args, **kwargs):
+            response = original_get(self, url, *args, **kwargs)
+            if url == messages_url and claimed.is_set() and not release.is_set():
+                response.raise_for_status()
+                assert response.json()[-1]["status"] == "pending"
+                pending_observed.set()
+                release.set()
+            return response
+
+        monkeypatch.setattr(TestClient, "get", release_after_pending_read)
+        try:
+            _, run = _send(client, conversation_id, "液冷题材怎么看")
+            assert run["status"] == "completed"
+            assert claimed.is_set()
+            assert pending_observed.is_set(), "_send 仅等 run，未等消息终稿"
+            messages = client.get(messages_url, params={"user": "alice"}).json()
+            assert messages[-1]["status"] == "completed"
+        finally:
+            release.set()
 
 
 def test_skill_timeout_degrades_one_module_and_continues(

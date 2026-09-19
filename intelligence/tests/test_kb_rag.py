@@ -46,8 +46,19 @@ class KbRagRetrieveFilterTests(unittest.TestCase):
                     "evidence_layer": "L0_concept",
                     "fact_hardness": "structured_mapping",
                     "source_type": "concept_page",
+                    "content_validity": "valid",
+                    "applied_filters": {
+                        "evidence_layer": "L0_concept", "fact_hardness": "structured_mapping",
+                        "source_type": "concept_page",
+                    },
                 }
             ]
+            payload = {
+                "hits": payload, "status": "success",
+                "applied_filters": payload[0]["applied_filters"],
+                "filter_policy": "explicit_chunk_metadata; unknown_excluded; as_of=available_time",
+                "metadata_version": 1, "metadata_update_required": False,
+            }
             proc = mock.Mock(returncode=0, stdout=json.dumps(payload, ensure_ascii=False), stderr="")
 
             with mock.patch.dict("os.environ", {"KB_RAG_PYTHON": "/tmp/rag-python"}, clear=False):

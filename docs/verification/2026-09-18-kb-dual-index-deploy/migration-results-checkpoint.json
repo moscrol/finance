@@ -1,0 +1,68 @@
+[
+  {
+    "index": ".rag_index",
+    "exit_code": 0,
+    "elapsed_seconds": 59.338,
+    "finished_at": "2026-09-18T13:24:27.448699+00:00",
+    "before": {
+      "model": "bge-m3",
+      "tokenizer_version": "rag-tokenizer-v1",
+      "chunking_version": "rag-chunking-v3",
+      "chunk_profile": {
+        "chunking_version": "rag-chunking-v3",
+        "max_tokens": 448,
+        "target_tokens": 336,
+        "overlap_ratio": 0.15,
+        "embed_max_length": 512
+      },
+      "built_at": "2026-09-18T07:47:01Z",
+      "include_raw": false,
+      "max_files": 0,
+      "source_revision": "manifest:v1:c060681e80a8e2f97c02cb1851d974fe18a208a6dc98e04e90a0028385dfab5f",
+      "format_version": 2,
+      "source_git_revision": "8a413cde59cd0d6a7757c845243024a3016b50bc",
+      "source_dirty": true,
+      "source_fingerprint": "e03bf11144dfd0d49fd55b0c71226b1e298bb7211af3504826c59550a07c83dd",
+      "source_hash_algorithm": "sha256(chunk_id\\0content_sha1)",
+      "source_file_count": 14448,
+      "num_chunks": 169635,
+      "dim": 1024
+    },
+    "after": {
+      "model": "bge-m3",
+      "tokenizer_version": "rag-tokenizer-v1",
+      "chunking_version": "rag-chunking-v3",
+      "chunk_profile": {
+        "chunking_version": "rag-chunking-v3",
+        "max_tokens": 448,
+        "target_tokens": 336,
+        "overlap_ratio": 0.15,
+        "embed_max_length": 512
+      },
+      "built_at": "2026-09-18T13:23:57Z",
+      "include_raw": false,
+      "max_files": 0,
+      "source_revision": "manifest:v1:c060681e80a8e2f97c02cb1851d974fe18a208a6dc98e04e90a0028385dfab5f",
+      "format_version": 2,
+      "evidence_metadata_version": 1,
+      "evidence_field_counts": {
+        "evidence_layer": 17567,
+        "fact_hardness": 17608,
+        "source_type": 18444,
+        "source_quality": 20470,
+        "publish_time": 78134,
+        "available_time": 78206,
+        "review_required": 487
+      },
+      "raw_wiki_dirs": [],
+      "raw_wiki_globs": {},
+      "source_git_revision": "",
+      "source_dirty": null,
+      "source_fingerprint": "50be734f05c508ba24ce452036cc200197417155c9a7c516bbfaee95057af0ba",
+      "source_hash_algorithm": "sha256(chunk_id\\0content_sha1)",
+      "source_file_count": 14434,
+      "num_chunks": 168861,
+      "dim": 1024
+    }
+  }
+]

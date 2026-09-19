@@ -242,6 +242,13 @@ CREATE INDEX IF NOT EXISTS idx_fact_sw_l1_daily_date ON fact_sw_l1_daily(trade_d
 CREATE INDEX IF NOT EXISTS idx_fact_sw_l1_daily_sw ON fact_sw_l1_daily(sw_l1);
 
 -- 同 fact_sector_daily：写 *_generation，读同名 VIEW（只暴露 published 快照）。
+-- 写入规则 (2026-09-03): 一行必须至少带一个行情值 (price / pct_chg / amount), 见表尾
+-- CHECK。历史上 fast_daily_sync「拷昨日成分、改日期」与 copy_legacy_member_generation
+-- 写过 810 万行三者全 NULL 的**归属行**——只回答「谁在这个板块」, 不回答「涨了多少」,
+-- COUNT(*) 覆盖率对它们恒真, 日报却全是「暂无」(2026-06-22)。三层拦截: ① 正门
+-- SectorUniverseStore.record_member_result 丢弃无报价行、整板块无报价记 error 回执;
+-- ② 本 CHECK 兜住任何绕过 store 的裸 INSERT; ③ quality.check_daily 的空壳板块检查
+-- 让漏网之鱼在跨日质检上 FAIL。已有库加约束要重建表: cli maintenance --staged。
 CREATE TABLE IF NOT EXISTS fact_sector_stock_daily_generation (
     trade_date        DATE,
     sector_universe_snapshot_id TEXT,
@@ -273,7 +280,8 @@ CREATE TABLE IF NOT EXISTS fact_sector_stock_daily_generation (
     mcap_source       TEXT,
     source            TEXT,
     updated_at        TIMESTAMP,
-    PRIMARY KEY (trade_date, sector_universe_snapshot_id, sector_ts_code, stock_ts_code)
+    PRIMARY KEY (trade_date, sector_universe_snapshot_id, sector_ts_code, stock_ts_code),
+    CHECK (price IS NOT NULL OR pct_chg IS NOT NULL OR amount IS NOT NULL)
 );
 CREATE INDEX IF NOT EXISTS idx_fact_sector_stock_gen_date
     ON fact_sector_stock_daily_generation(trade_date);
@@ -451,6 +459,10 @@ CREATE INDEX IF NOT EXISTS idx_fact_mainline_stock_date ON fact_mainline_stock_d
 CREATE INDEX IF NOT EXISTS idx_fact_mainline_stock_theme ON fact_mainline_stock_daily(theme_code);
 CREATE INDEX IF NOT EXISTS idx_fact_mainline_stock_stock ON fact_mainline_stock_daily(stock_ts_code);
 
+-- 题材资金面板。stock_count = 实际贡献资金的成分数（保证 total_fund = 这么多只相加），
+-- member_count = 篮子全量成分，fund_coverage = 前者/后者。fund_caliber 标口径：
+-- fupanhui-native（供应商自有）/ em-main-net（东财主力净额=超大单+大单）——
+-- 两者同股同日实测差很远，跨 2026-09-02/03 边界做序列对比必须按它分段。
 CREATE TABLE IF NOT EXISTS fact_theme_flow_daily (
     trade_date    DATE,
     theme_code    TEXT,
@@ -458,6 +470,12 @@ CREATE TABLE IF NOT EXISTS fact_theme_flow_daily (
     total_fund    DOUBLE,
     total_amount  DOUBLE,
     stock_count   INTEGER,
+    member_count  INTEGER,
+    fund_coverage DOUBLE,
+    fund_caliber  TEXT,
+    -- 本行面板实际用的成分版本。同名题材换了成分，资金和就不是同一个东西，
+    -- 跨日比较必须带上它；成分版本不唯一（如编辑部人工篮子）时写 NULL = 明确未知。
+    universe_snapshot_id TEXT,
     source        TEXT,
     updated_at    TIMESTAMP,
     PRIMARY KEY (trade_date, theme_code)
@@ -481,6 +499,16 @@ CREATE TABLE IF NOT EXISTS fact_polymarket_macro_odds_daily (
     PRIMARY KEY (trade_date, market_id, outcome)
 );
 CREATE INDEX IF NOT EXISTS idx_fact_polymarket_macro_odds_date ON fact_polymarket_macro_odds_daily(trade_date);
+-- 5 日资金窗口结构性不足的留痕：上市不满 5 天的个股，在那一天永远算不出 5 日值，
+-- 且不会随时间自愈。留痕后该 (日, 股) 退出待补集，避免每轮无谓重拉；
+-- 与「暂时缺数」区分开——后者不留痕，下次继续补。
+CREATE TABLE IF NOT EXISTS ops_fund_flow_5d_gap (
+    trade_date    DATE,
+    stock_ts_code TEXT,
+    reason        TEXT,
+    recorded_at   TIMESTAMP,
+    PRIMARY KEY (trade_date, stock_ts_code)
+);
 
 CREATE TABLE IF NOT EXISTS fact_mainline_sector_daily (
     trade_date              DATE,
@@ -869,6 +897,8 @@ CREATE INDEX IF NOT EXISTS idx_fact_sts_date ON fact_stock_technical_snapshot(tr
 -- 配置层: 人工维护
 -- ============================================================
 
+-- alias → 复盘会板块码。除人工别名外, 也承载「旧供应商码 → 现行码」的迁移映射
+-- (sector_alias.plan_provider_migration 生成, 同名唯一匹配才写, 歧义留给人)。
 CREATE TABLE IF NOT EXISTS config_sector_alias (
     alias           TEXT,
     sector_ts_code  TEXT,
@@ -878,6 +908,49 @@ CREATE TABLE IF NOT EXISTS config_sector_alias (
     updated_at      TIMESTAMP,
     PRIMARY KEY (alias, sector_ts_code)
 );
+
+-- 板块维度一致化 (conformed dimension)。供应商换过码系: `.TI` 码 2024-12-25 起、
+-- 2026-07-24 停更; `.FP` 码 2025-10-09 起至今, 两套并存 124 个交易日, 同名板块
+-- 各算一套、数值不同 (是两种定义, 不是重复行)。另有 53 个码历史上改过名。
+-- 所以 sector_name 不是键: 按名字 GROUP BY 会双计, 按名字 WHERE 会混排两个供应商
+-- 的成分股。本视图把每个码解析到 canonical 码 (走 config_sector_alias), 并给出
+-- 该码在事实表里的真实起止日 (dim_sector.first_seen_date 是维表建行日, 不是事实
+-- 起点)。名字解析走 sector_alias.resolve_sector_codes, 不要拿 sector_name 当键。
+-- 同一 alias 若登记了多条映射, 取 confidence 最高的一条, 保证一码一行。
+-- 依赖 config_sector_alias 与 fact_sector_daily_generation, 必须排在两者之后。
+CREATE OR REPLACE VIEW dim_sector_canonical AS
+WITH alias_pick AS (
+    SELECT alias, sector_ts_code, confidence,
+           ROW_NUMBER() OVER (
+               PARTITION BY alias
+               ORDER BY confidence DESC NULLS LAST, sector_ts_code
+           ) AS rn
+    FROM config_sector_alias
+),
+span AS (
+    SELECT sector_ts_code,
+           MIN(trade_date) AS fact_first_trade_date,
+           MAX(trade_date) AS fact_last_trade_date
+    FROM fact_sector_daily_generation
+    GROUP BY sector_ts_code
+)
+SELECT d.sector_ts_code,
+       d.sector_name,
+       d.sw_l1,
+       d.is_active,
+       CASE
+           WHEN d.sector_ts_code LIKE '%.TI' THEN 'TI'
+           WHEN d.sector_ts_code LIKE '%.FP' THEN 'FP'
+           ELSE 'other'
+       END AS provider,
+       COALESCE(a.sector_ts_code, d.sector_ts_code) AS canonical_sector_ts_code,
+       a.sector_ts_code IS NOT NULL AS is_alias,
+       a.confidence AS alias_confidence,
+       s.fact_first_trade_date,
+       s.fact_last_trade_date
+FROM dim_sector AS d
+LEFT JOIN alias_pick AS a ON a.alias = d.sector_ts_code AND a.rn = 1
+LEFT JOIN span AS s ON s.sector_ts_code = d.sector_ts_code;
 
 CREATE TABLE IF NOT EXISTS config_theme_sector_link (
     theme           TEXT,

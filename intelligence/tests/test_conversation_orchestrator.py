@@ -5619,7 +5619,9 @@ def test_recovered_turn_prefixes_event_ids_to_avoid_replay_collisions(
     assert all(event["event_id"].startswith("recovery:2:") for event in events)
 
 
-def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
+def test_completed_stream_persists_human_readable_answer(tmp_path, monkeypatch) -> None:
+    # 展示契约只用本例 answer_spy；不能由外部 FINANCE_WS 读到真实最新交易日后注入盘面包。
+    monkeypatch.setenv("FINANCE_WS", str(tmp_path))
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
     conversation = conversation_store.create_conversation()

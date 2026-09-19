@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+from calendar import monthrange
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
@@ -42,14 +43,56 @@ _TRACK_TERMS = (
 )
 
 
+# 明确拒绝登记的表述。要同时满足三件事才算数：否定词 + 登记类动词 + 跟踪类宾语。
+# 只认「不」+「跟踪」会把「排产不及预期，跟踪一下」误判成退出；三件套是为了高精度，
+# 宁可漏一句奇怪写法，也不能把用户真正想要的跟踪静默关掉。
+# 逗号不进间隔字符集：否定词和登记动词必须在同一个小句里，跨句不算。
+# 否定词前面不能是「要 / 需 / 用」：「要不要登记」「需不需要纳入」是提问，不是拒绝。
+_OPT_OUT_NEGATION = (
+    r"(?<![要需用])(?:不需要|不要|不用|无需|无须|不必|不得|请勿|禁止|别|勿|"
+    r"不(?=[登记录建入存写纳做作列设]))"
+)
+_OPT_OUT_VERB = r"(?:登记|记录|记进|建档|建立|入库|存档|写入|写进|加进|纳入|列为|设为|做|作为)"
+_OPT_OUT_OBJECT = r"(?:长期|持续)?(?:跟踪|追踪|回检|复核|观察项|关注清单|checkpoint)"
+# 间隔里不许出现「忘 / 漏 / 遗 / 只」：「别忘了登记跟踪」「请勿遗漏登记」是双重否定 = 要登记，
+# 「不要只登记跟踪」是补充要求。这些字一出现，整句就不再是退出声明。
+_GAP = r"(?:(?![忘漏遗只])[^，,。；;!！?？\n]){0,8}?"
+_OPT_OUT_RE = re.compile(
+    rf"{_OPT_OUT_NEGATION}{_GAP}"
+    rf"(?:{_OPT_OUT_VERB}{_GAP}{_OPT_OUT_OBJECT}|{_OPT_OUT_OBJECT}{_GAP}{_OPT_OUT_VERB})"
+)
+
+
+def persistence_opt_out(query: str) -> bool:
+    """用户是否明确说了「本次不要登记为长期跟踪」。
+
+    这是**写入前**的闸门，不是答案里的口头承诺。R-20260916-05 的真实会话里，
+    题面写明「不登记长期跟踪」、答案也照抄了这句，运行时仍往用户目录写了 4 条
+    checkpoint——因为承诺在文本层，写入在运行时层，两层根本没连上。边界只能由
+    调用方在写之前判断，所以判据取**用户问题**，不取模型答案（模型说了不算）。
+    """
+
+    text = re.sub(r"\s+", "", str(query or ""))
+    if not text:
+        return False
+    return _OPT_OUT_RE.search(text) is not None
+
+
 def parse_track_intent(query: str, question_type: str | None = None) -> bool:
-    """问题类型为 theme_track，或命中跟踪/增量词面即触发。"""
+    """问题类型为 theme_track，或命中跟踪/增量词面即触发。
+
+    否定句里的「跟踪」不算跟踪意图：「不登记长期跟踪」整句被抠掉后再匹配词面，
+    避免一句明确的退出声明反而把跟踪契约打开（词面匹配的经典反噬）。句子里另有
+    正面跟踪诉求时（「跟踪一下液冷，但别登记为长期跟踪」）仍然路由，只是后面
+    不落盘——表达纪律和持久化是两件事，别合成一个开关。
+    """
     if question_type == "theme_track":
         return True
     text = re.sub(r"\s+", "", str(query or ""))
     if not text:
         return False
-    return any(term in text for term in _TRACK_TERMS)
+    scrubbed = _OPT_OUT_RE.sub("", text)
+    return any(term in scrubbed for term in _TRACK_TERMS)
 
 
 def build_track_guidance() -> str:
@@ -349,7 +392,14 @@ def contract_receipt(
 NEXT_WATCH_SOURCE = "track_next_watch"
 NEXT_WATCH_CATEGORY = "下期关注"
 _DATE_RE = re.compile(r"(20\d{2}-\d{2}-\d{2})")
+_CN_DATE_RE = re.compile(r"(20\d{2})年(\d{1,2})月(\d{1,2})日")
 _DAYS_RE = re.compile(r"(\d+)\s*天")
+# 日历月（时点），与「N 个月」（时长）互斥；见 calendar_month_due 的说明。
+# 「年」写法必须带「月」且后面不能再跟数字：「2026年10月15日」是日期、「2026年10亿元」不是月份；
+# 「-」「/」写法后面不能再接分隔符或数字：「2026-10-15」「2026/10/15」是日期。
+_YEAR_MONTH_RE = re.compile(
+    r"(20\d{2})(?:\s*年\s*(\d{1,2})\s*月(?!\s*\d)|\s*[-/]\s*(\d{1,2})(?!\s*[-/\d]))"
+)
 _BULLET_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)、）])\s+(.+)$")
 # live 模型常写成「下期关注清单：1）…。2）…」或标题行内联若干「若/则」。
 # lookbehind 定长：行首 / 句号 / 分号之后的项目符号或 1. 1) 1、1）
@@ -376,10 +426,50 @@ def _as_of_date(as_of: str | None) -> date:
         return date.today()
 
 
+def calendar_month_due(text: str) -> str | None:
+    """「2026-10 月底」「2026年10月」这类**日历月**对应的到期日（当月最后一天）。
+
+    日历月是时点，不是时长。不先把它认出来，下游按「\\d+ 个月」解析会把
+    「2026-10月底」读成「10 个月后」——R-20260916-05 真实写进用户目录的
+    due=2027-07-13 就是这么来的（正确答案是 2026-10-31）。取月末而非月初，
+    是因为「约 X 月底披露」给上界更安全：早到期会让回检提前判空。
+    """
+
+    match = _YEAR_MONTH_RE.search(str(text or ""))
+    if match is None:
+        return None
+    year, month = int(match.group(1)), int(match.group(2) or match.group(3))
+    if not 1 <= month <= 12:
+        return None
+    return date(year, month, monthrange(year, month)[1]).isoformat()
+
+
+def chinese_full_date(text: str) -> str | None:
+    """「2026年10月15日」→ ISO 日期；年月日拼不成合法日期时返回 None，不把「13 月」拼成字符串。
+
+    track_contract 与 ranking_contract 两条写入链共用这一个推导：同一句观察项在两本
+    contract 里算出不同 due，回检就对不上号。
+    """
+
+    match = _CN_DATE_RE.search(str(text or ""))
+    if match is None:
+        return None
+    try:
+        return date(int(match.group(1)), int(match.group(2)), int(match.group(3))).isoformat()
+    except ValueError:
+        return None
+
+
 def _item_due(line: str, as_of: str | None) -> str:
     found = _DATE_RE.search(line)
     if found:
         return found.group(1)
+    cn_due = chinese_full_date(line)
+    if cn_due:
+        return cn_due
+    month_due = calendar_month_due(line)
+    if month_due:
+        return month_due
     base = _as_of_date(as_of)
     days = _DAYS_RE.search(line)
     if days:
@@ -490,6 +580,10 @@ def ingest_next_watch(
         register_checkpoint,
     )
 
+    if persistence_opt_out(query):
+        # 用户说了不登记就一条都不写。放在最前面：意图判定、条目解析都还没跑，
+        # 没有任何「先算出来再决定要不要写」的中间态可以被后面某一层重新用上。
+        return []
     if not parse_track_intent(query, question_type):
         return []
     items = parse_next_watch_items(answer, as_of=as_of)

@@ -1,0 +1,32 @@
+{
+  "_comment": "synthetic · 工程验收夹具，不代表任何真实市场事实。calendar / forward_start / evaluation_end 由测试按日历生成后填入。",
+  "lineage_id": "lineage-forward-synthetic",
+  "question": "在指定板块事件日盘后给出 D+5 上涨概率，两种信息配置谁的 Brier 更低？（synthetic）",
+  "mode": "forward",
+  "event_spec": {"kind": "manual", "description": "人工圈定的板块事件日（synthetic）"},
+  "universe_ref": "sector:published_snapshot@synthetic",
+  "universe_members": ["S1", "S2", "S3", "S4"],
+  "outcome_spec": {"metric": "fwd_return", "horizon": 5, "op": ">", "value": 0},
+  "discovery_window": {"start": "2026-09-01", "end": "2026-09-10"},
+  "arms": [
+    {"arm_id": "base", "role": "base", "allowed_fields": []},
+    {"arm_id": "full", "role": "full", "allowed_fields": []}
+  ],
+  "baseline_spec": {
+    "kind": "discovery_event_days",
+    "p_baseline": 0.55,
+    "n_dates": 30,
+    "n_rows": 400,
+    "n_unknown": 3,
+    "n_purged": 20,
+    "source_hash": "0000000000000000000000000000000000000000000000000000000000000001",
+    "recipe_hash": "0000000000000000000000000000000000000000000000000000000000000002"
+  },
+  "comparisons": [
+    {"comparison_id": "primary", "base_arm_id": "base", "candidate_arm_id": "full", "claim_kind": "paired_date_win_rate", "confirmatory": true}
+  ],
+  "primary_comparison_id": "primary",
+  "analysis_policy": {"exposure_ledger_complete": true},
+  "version_hashes": {"label_version": "synthetic-v1"},
+  "tags": ["synthetic"]
+}

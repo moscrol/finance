@@ -1526,25 +1526,45 @@ def _format_market_value_rows(rows: list[tuple[Any, Any]], latest_close: float |
     ]
 
 
+def _sector_scope(
+    con: Any, latest_date: Any, sector: str, *, table: str = "fact_sector_stock_daily"
+) -> tuple[str, str]:
+    """把板块名解析成事实表的单个码, 返回 (键列名, 键值)。
+
+    板块名不是键: `国防军工` 至今是两个 .FP 码同名, 两套供应商码系并存期同名两套成分。
+    按名字分区算排名会把两个板块的成分股混进同一个分母。解析器不可用 (视图未建/名字
+    查不到) 时整段退回旧行为——键列就是 sector_name, 连分区列也不假设有 sector_ts_code
+    (旧夹具/旧库可能没有这一列), 不静默吞掉结果。
+    """
+    from market_feature_store.sector_alias import pick_code_with_rows, resolve_sector_codes
+
+    res = resolve_sector_codes(con, sector)
+    if res.codes:
+        code = pick_code_with_rows(con, table, latest_date, res.codes) or res.codes[0]
+        return "sector_ts_code", code
+    return "sector_name", sector
+
+
 def _format_stock_rank_lines(con: Any, latest_date: Any, stock_code: str, sector_names: list[str]) -> list[str]:
     if not sector_names:
         return []
     out: list[str] = []
     for sector in sector_names[:5]:
+        key, value = _sector_scope(con, latest_date, sector)
         row = con.execute(
-            """
+            f"""
             with base as (
-              select sector_name, stock_ts_code, stock_name, pct_chg, amount,
-                     rank() over(partition by sector_name order by amount desc nulls last) as amount_rank,
-                     rank() over(partition by sector_name order by pct_chg desc nulls last) as pct_rank,
-                     count(*) over(partition by sector_name) as n
+              select {key}, stock_ts_code, stock_name, pct_chg, amount,
+                     rank() over(partition by {key} order by amount desc nulls last) as amount_rank,
+                     rank() over(partition by {key} order by pct_chg desc nulls last) as pct_rank,
+                     count(*) over(partition by {key}) as n
               from fact_sector_stock_daily
-              where trade_date=? and sector_name=?
+              where trade_date=? and {key}=?
             )
             select amount_rank, pct_rank, n, pct_chg, amount
             from base where stock_ts_code=?
             """,
-            [latest_date, sector, stock_code],
+            [latest_date, value, stock_code],
         ).fetchone()
         if row:
             out.append(f"{sector}成交排名{row[0]}/{row[2]}、涨幅排名{row[1]}/{row[2]}、涨跌幅{row[3]}%、成交{row[4]}亿")
@@ -1556,14 +1576,16 @@ def _format_sector_state_lines(con: Any, latest_date: Any, sector_names: list[st
         return []
     out: list[str] = []
     for sector in sector_names:
+        # 同名双码时 `limit 1` 会随机落到哪一套; 先解析到码 (现行码优先, 当日无行退回退役码)。
+        key, value = _sector_scope(con, latest_date, sector, table="fact_sector_daily")
         row = con.execute(
-            """
+            f"""
             select pct_chg, amount, diff_ratio
             from fact_sector_daily
-            where trade_date=? and sector_name=?
+            where trade_date=? and {key}=?
             limit 1
             """,
-            [latest_date, sector],
+            [latest_date, value],
         ).fetchone()
         if row:
             proxy = "双红代理" if (row[0] or 0) > 0 and (row[2] or 0) > 0 else "非双红代理"

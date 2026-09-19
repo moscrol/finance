@@ -27,6 +27,7 @@ from intelligence.services.research_contract import (
     ResearchRunContext,
 )
 from intelligence.services.research_tool_registry import ResearchToolRegistry
+from intelligence.services.research_workflow_guidance import workflow_guidance
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.degraded_fallback import (
     episode_rule as degraded_episode_rule,
@@ -180,6 +181,7 @@ def _question_type_rules(
         task_frame.raw_question,
         task_frame.question_type,
     )
+    track_rule += workflow_guidance(task_frame.question_type)
     longtail_rule = episode_rule(task_frame)
     # ASK_DEGRADED_FALLBACK（默认 off）：降级回答章法，off 时空串。
     degraded_rule = degraded_episode_rule(task_frame)
@@ -401,6 +403,10 @@ def build_episode_input(
         ),
         "question_type_rules": _question_type_rules(task_frame, context),
     }
+    from intelligence.services.material_delivery import material_delivery_payload, material_question_outputs
+
+    if material_question_outputs(context.contract):
+        payload["material_delivery"] = material_delivery_payload(context.contract)
     # 市场态题型（market_watch）不注入：三轮消融实测该题型上判读基线稳定负贡献
     # （主线题七读数全 ≤0），与 Engine B 合成侧共用 knowledge_injection_policy 门控。
     baseline = knowledge_injection_policy.reading_guidance_for(task_frame.question_type)
@@ -994,6 +1000,18 @@ def validate_episode_finish(
     if relocated_gaps:
         gaps = tuple(dict.fromkeys((*gaps, *relocated_gaps)))
     binding_map = {item.output_id: item for item in bindings}
+    from intelligence.services.material_delivery import (
+        material_delivery_missing_outputs,
+        with_all_material_gaps_notice,
+    )
+
+    material_missing = material_delivery_missing_outputs(context.contract, draft, tuple(bindings))
+    if material_missing:
+        raise _reject(
+            "no_substantive_answer",
+            "material question missing, repeated, over length, or gap not disclosed: "
+            + ",".join(material_missing),
+        )
     if status == "completed":
         missing = []
         for required in context.contract.required_outputs:
@@ -1013,6 +1031,7 @@ def validate_episode_finish(
                 "missing_evidence",
                 "required output lacks evidence: " + ",".join(missing),
             )
+    draft = with_all_material_gaps_notice(context.contract, draft, tuple(bindings))
     return EpisodeFinish(
         status=cast(EpisodeStatus, status),
         draft=draft,

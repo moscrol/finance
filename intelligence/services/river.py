@@ -39,6 +39,9 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Literal
 
+# 口径映射单一来源，避免两处定义漂移。
+from market_feature_store.sync.sync_theme_capital_from_baskets import FUND_CALIBERS
+
 DEFAULT_DB = "db/market_feature_store.duckdb"
 
 # 六个维度 = 终局 §3 + §13.2 F9 钦定的六条轨。**不要私自增删或改名**：
@@ -256,6 +259,15 @@ def sector_recorded_at_sql(alias: str = "v") -> str:
     return f"CAST({alias}.updated_at AS TIMESTAMP)"
 
 
+def _existing_columns(con: Any, table: str, wanted: tuple[str, ...]) -> list[str]:
+    """返回 wanted 中该表真实拥有的列（保序）。用于新增列尚未迁移的存量库降级。"""
+    try:
+        have = {r[1] for r in con.execute(f"PRAGMA table_info('{table}')").fetchall()}
+    except Exception:  # noqa: BLE001 — 表不存在等于没有这些列
+        return []
+    return [c for c in wanted if c in have]
+
+
 def _rows(con: Any, sql: str, params: list[Any]) -> list[dict[str, Any]]:
     cur = con.execute(sql, params)
     cols = [d[0] for d in cur.description]
@@ -372,8 +384,87 @@ def _market_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
     return out
 
 
-def _theme_track(con: Any, as_of: str, eid: str, _ename: str) -> TrackResult:
-    """题材轨：该板块当日的涨停个股与它们挂的题材名（叙事在市场上的落点）。"""
+def theme_lifecycle_stage_object(con: Any, as_of: str, eid: str, ename: str) -> RiverObject | None:
+    """题材生命周期七段的当日读数（工单 #21 剩余 / G-04）——与旁路库 ``lifecycle_stage`` 同一台状态机、同一份原料。
+
+    行取到 ``as_of`` 为止（有效时间），状态机跑完取当天所在段；落在段外（首个盘面信号之前 / 段间空档）
+    返回 None——那是 gap 不是「酝酿」（酝酿要消息面证据，这里不读知识库）。``recorded_at`` 取所用板块行里
+    最晚的记录时刻（行自身 ``updated_at``；「与台账取较早」已被 #43/07857c80 撤销，前向合并时同步改）。
+    """
+    from intelligence.services import theme_lifecycle_timeline as _tl
+    from intelligence.services.theme_stage_vocab import GAP, MAPPING_VERSION
+
+    base = _rows(
+        con,
+        f"""
+        SELECT CAST(v.trade_date AS DATE) AS d, v.pct_chg, v.diff_ratio, v.amount, v.sector_name,
+               {sector_recorded_at_sql("v")} AS recorded_at
+        FROM fact_sector_daily v
+        WHERE v.sector_ts_code = ? AND CAST(v.trade_date AS DATE) <= CAST(? AS DATE)
+        ORDER BY d
+        """,
+        [eid, as_of],
+    )
+    if not base:
+        return None
+    names = {str(r["sector_name"]) for r in base if r.get("sector_name")}
+    heat: dict[str, Any] = {}
+    if names:
+        placeholders = ",".join("?" for _ in names)
+        for r in _rows(
+            con,
+            f"""
+            SELECT CAST(trade_date AS DATE) AS d, MAX(limit_up_count) AS lu
+            FROM fact_theme_limit_heat_daily
+            WHERE sector_name IN ({placeholders}) AND CAST(trade_date AS DATE) <= CAST(? AS DATE)
+            GROUP BY 1
+            """,  # noqa: S608 - 占位符数量来自集合大小，值走参数
+            [*sorted(names), as_of],
+        ):
+            heat[str(r["d"])] = r["lu"]
+    series = [
+        {
+            "trade_date": str(r["d"]),
+            "pct_chg": r["pct_chg"],
+            "diff_ratio": r["diff_ratio"],
+            "amount": r["amount"],
+            "limit_up_count": heat.get(str(r["d"])),
+            "market_share": None,
+            "max_boards": None,
+            "first_board_count": None,
+        }
+        for r in base
+    ]
+    daily: dict[str, str] = {}
+    segments, gaps = _tl.derive_stages(series, daily=daily)
+    # 站在当天的读数（与旁路库 lifecycle_stage 同一口径）；段落表只用来给出触发说明。
+    stage = daily.get(as_of, GAP)
+    if stage == GAP:
+        return None
+    seg = next((s for s in segments if str(s.start_date)[:10] <= as_of <= str(s.end_date)[:10]), None)
+    recorded = [r["recorded_at"] for r in base if r.get("recorded_at") is not None]
+    payload = {
+        "stage": stage,
+        # 段落表是事后视角（起点回溯 / 短段合并），只作说明；它的段名可能与站在当天的 stage 不同，两者都给。
+        "segment_hindsight": None if seg is None else {"stage": seg.stage, "start": str(seg.start_date)[:10], "end": str(seg.end_date)[:10], "trigger": seg.trigger},
+        "gaps_declared": list(gaps),
+        "mapping_version": MAPPING_VERSION,
+        "derivation_rule": {"name": "theme_lifecycle_timeline.derive_stages[daily]", "version": MAPPING_VERSION},
+    }
+    return RiverObject(
+        track="theme",
+        entity_id=eid,
+        object_type="stage",
+        ref=f"lifecycle_stage:{eid}:{as_of}",
+        source_hash=_hash({"stage": stage, "as_of": as_of, "rows": len(series)}),
+        valid_from=as_of,
+        recorded_at=_ts(max(recorded)) if recorded else None,
+        payload=payload,
+    )
+
+
+def _theme_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
+    """题材轨：该板块当日的涨停个股与它们挂的题材名（叙事在市场上的落点）+ 生命周期七段读数。"""
     rows = _rows(
         con,
         """
@@ -390,9 +481,12 @@ def _theme_track(con: Any, as_of: str, eid: str, _ename: str) -> TrackResult:
         """,
         [as_of, eid, NODE_LIMIT],
     )
-    if not rows:
-        return Gap("theme", "no_data", f"fact_theme_limit_stock_daily 无 {as_of} 的 {eid}（当日无涨停成分）")
+    stage_obj = theme_lifecycle_stage_object(con, as_of, eid, ename)
+    if not rows and stage_obj is None:
+        return Gap("theme", "no_data", f"fact_theme_limit_stock_daily 无 {as_of} 的 {eid}（当日无涨停成分），且生命周期状态机在段外")
     out: list[RiverObject] = []
+    if stage_obj is not None:
+        out.append(stage_obj)
     for r in rows:
         upd = r.pop("updated_at")
         out.append(
@@ -628,29 +722,41 @@ def _capital_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
     # 三个 SUM 先转 DECIMAL 再加：DuckDB 并行 SUM(DOUBLE) 的求和顺序不定，同一入参两次调用
     # amount_sum 会在最后一位上翻（实测 2026-01-12 算力租赁 2413.130000000001 vs 2413.1299999999997），
     # 连带 source_hash 变——破的是本模块「两次调用逐字段相同」的硬约束。
+    # 按成分行的 source 分组求和：同一板块里可能同时躺着复盘会值和东财值，直接
+    # SUM 会把两种口径加成一个数（东财 3 + 复盘会 -1 = 2，看着合理却无意义）。
+    # 分组后每种口径各出一个对象，并在 payload 里写明 fund_caliber。
     agg = _rows(
         con,
         f"""
-        SELECT COUNT(*) AS n_stocks,
+        SELECT v.source AS member_source,
+               COUNT(*) AS n_stocks,
                CAST(SUM(CAST(v.fund_flow_1d AS DECIMAL(24, 6))) AS DOUBLE) AS fund_flow_1d_sum,
                CAST(SUM(CAST(v.fund_flow_5d AS DECIMAL(24, 6))) AS DOUBLE) AS fund_flow_5d_sum,
                CAST(SUM(CAST(v.amount AS DECIMAL(24, 6))) AS DOUBLE) AS amount_sum,
+               COUNT(v.fund_flow_1d) AS n_with_fund,
                MAX({sector_recorded_at_sql("v")}) AS recorded_at
         FROM fact_sector_stock_daily v
         WHERE CAST(v.trade_date AS DATE) = CAST(? AS DATE) AND v.sector_ts_code = ?
+        GROUP BY v.source
+        ORDER BY v.source
         """,
         [as_of, eid],
     )
     out: list[RiverObject] = []
-    if agg and agg[0]["n_stocks"]:
-        r = dict(agg[0])
+    for row in agg:
+        if not row["n_stocks"]:
+            continue
+        r = dict(row)
         upd = r.pop("recorded_at")
+        member_source = r.get("member_source")
+        r["fund_caliber"] = FUND_CALIBERS.get(member_source, f"unknown:{member_source}")
         out.append(
             RiverObject(
                 track="capital",
                 entity_id=eid,
                 object_type="label",
-                ref=f"fact_sector_stock_daily:{as_of}:{eid}:agg",
+                # ref 带上口径: 同一板块两种口径是两个对象, ref 不能撞车。
+                ref=f"fact_sector_stock_daily:{as_of}:{eid}:agg:{r['fund_caliber']}",
                 source_hash=_hash(r),
                 valid_from=as_of,
                 recorded_at=_ts(upd),
@@ -659,10 +765,19 @@ def _capital_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
         )
 
     # theme 表走另一套命名空间，只做精确同名匹配——桥接表 config_theme_sector_link 实测 0 行。
+    # 必须带出 source：这列里共存两种口径（复盘会自有 vs 东财主力净额），不带口径
+    # 就会被下游拼成一条连续序列。member_count/fund_coverage/fund_caliber 是新增列，
+    # 存量库未 ALTER 前不存在——按实际列降级，避免代码与迁移硬绑定。
+    theme_cols = ["theme_code", "theme_name", "total_fund", "total_amount",
+                  "stock_count", "source"]
+    theme_cols += _existing_columns(
+        con, "fact_theme_flow_daily",
+        ("member_count", "fund_coverage", "fund_caliber", "universe_snapshot_id"),
+    )
     theme = _rows(
         con,
-        """
-        SELECT theme_code, theme_name, total_fund, total_amount, stock_count, updated_at
+        f"""
+        SELECT {', '.join(theme_cols)}, updated_at
         FROM fact_theme_flow_daily
         WHERE CAST(trade_date AS DATE) = CAST(? AS DATE) AND theme_name = ?
         """,

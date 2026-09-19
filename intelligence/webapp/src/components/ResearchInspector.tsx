@@ -5,6 +5,7 @@ import {
   History,
   ListTree,
   PanelRightClose,
+  RefreshCcw,
   Route,
   ShieldCheck,
   X,
@@ -22,14 +23,25 @@ import type {
   ArtifactDescriptor,
   Bootstrap,
   FollowupContinuation,
+  ResearchEvolutionActionResult,
+  ResearchEvolutionView,
+  EvidenceCatalogView,
   ResearchProject,
   RunBundle,
   TraceStep,
 } from "../types";
+import { ResearchEvolutionPanel } from "./ResearchEvolutionPanel";
+import { ResearchActivityControl } from "./ResearchActivityControl";
 import { ResearchProjectPanel } from "./ResearchProjectPanel";
 import { StructuredReportView } from "./StructuredReportView";
 
-type InspectorTab = "evidence" | "trace" | "memory" | "review" | "project";
+type InspectorTab =
+  | "evidence"
+  | "trace"
+  | "memory"
+  | "review"
+  | "project"
+  | "evolution";
 
 interface ResearchInspectorProps {
   bootstrap: Bootstrap | null;
@@ -40,11 +52,22 @@ interface ResearchInspectorProps {
   /** 09 连续研究：会话级研究项目状态；缺省 null 时「项目」页只显示空态。 */
   project?: ResearchProject | null;
   onFollowup?: (question: string, continuation?: FollowupContinuation) => void;
+  /** 研究进化：01/02/04 的会话级投影；缺省 null 时「维护」页只显示空态。 */
+  evolution?: ResearchEvolutionView | null;
+  onEvolutionAction?: (body: Record<string, unknown>) => void;
+  /** 「从现在开始跟踪」建绑定。 */
+  onEvolutionBind?: (body: Record<string, unknown>) => void;
+  /** 受控证据目录：建绑定表单选版本时调。 */
+  onFetchEvolutionCatalog?: (entity: string, asOf: string) => Promise<EvidenceCatalogView>;
+  /** 面板需要读回包的动作（练习作答 / 收据原件）。 */
+  runEvolutionAction?: (body: Record<string, unknown>) => Promise<ResearchEvolutionActionResult>;
+  evolutionBusy?: boolean;
 }
 
 const tabs: Array<{ id: InspectorTab; label: string; icon: typeof Database }> = [
   { id: "evidence", label: "证据", icon: Database },
   { id: "project", label: "项目", icon: Route },
+  { id: "evolution", label: "维护", icon: RefreshCcw },
   { id: "trace", label: "运行", icon: ListTree },
   { id: "memory", label: "记忆", icon: BrainCircuit },
   { id: "review", label: "回检", icon: History },
@@ -93,6 +116,12 @@ export function ResearchInspector({
   onClose,
   project = null,
   onFollowup,
+  evolution = null,
+  onEvolutionAction,
+  onEvolutionBind,
+  onFetchEvolutionCatalog,
+  runEvolutionAction,
+  evolutionBusy = false,
 }: ResearchInspectorProps) {
   const [tab, setTab] = useState<InspectorTab>("evidence");
   const context = bundle?.context;
@@ -186,7 +215,27 @@ export function ResearchInspector({
           </details>
         )}
 
+        {evolution && (
+          <ResearchActivityControl
+            key={`${evolution.owner_user_id}:${evolution.conversation_id}`}
+            conversationId={evolution.conversation_id}
+            user={evolution.owner_user_id}
+          />
+        )}
         <div className="inspector-body">
+          {tab === "evolution" && (
+            <section aria-labelledby="inspector-evolution-heading">
+              <h2 id="inspector-evolution-heading">待复核与下一步研究</h2>
+              <ResearchEvolutionPanel
+                view={evolution ?? null}
+                onAction={onEvolutionAction}
+                onBind={onEvolutionBind}
+                onFetchCatalog={onFetchEvolutionCatalog}
+                runAction={runEvolutionAction}
+                busy={evolutionBusy}
+              />
+            </section>
+          )}
           {tab === "project" && (
             <section aria-labelledby="inspector-project-heading">
               <h2 id="inspector-project-heading">研究项目</h2>

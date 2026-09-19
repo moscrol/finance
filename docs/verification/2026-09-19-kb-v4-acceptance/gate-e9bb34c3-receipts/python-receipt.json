@@ -1,0 +1,26 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/.finance-runtime/kb-dual-index-20260918/gate-e9bb34c3/finance-workspace-private",
+  "revision": "e9bb34c37101a21b0dfab80393bda1d5b8b4f548",
+  "branch": "HEAD",
+  "dirty": true,
+  "dirty_paths": [
+    "intelligence/api/static/assets/index-DH207EFA.js",
+    "intelligence/api/static/assets/index-DWf9m4Ox.js",
+    "intelligence/api/static/index.html"
+  ],
+  "worktree_dirty_total": 3,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/.finance-runtime/kb-dual-index-20260918/gate-e9bb34c3/finance-workspace-private",
+  "counts": {
+    "passed": 11488,
+    "failed": 0,
+    "error": 0,
+    "skipped": 73
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-18T15:12:58+00:00"
+}

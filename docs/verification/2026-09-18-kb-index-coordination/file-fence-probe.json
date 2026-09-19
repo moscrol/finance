@@ -1,0 +1,38 @@
+{
+  "status": "pass",
+  "mechanism": "macOS UF_IMMUTABLE",
+  "checks": [
+    {
+      "operation": "overwrite",
+      "blocked": true,
+      "errno": 1
+    },
+    {
+      "operation": "append",
+      "blocked": true,
+      "errno": 1
+    },
+    {
+      "operation": "create",
+      "blocked": true,
+      "errno": 1
+    },
+    {
+      "operation": "replace",
+      "blocked": true,
+      "errno": 1
+    },
+    {
+      "operation": "unlink",
+      "blocked": true,
+      "errno": 1
+    },
+    {
+      "operation": "rename_directory",
+      "blocked": true,
+      "errno": 1
+    }
+  ],
+  "read_unchanged": true,
+  "write_restored_on_fixture": true
+}

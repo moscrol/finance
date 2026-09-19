@@ -1,0 +1,827 @@
+{
+  "executor": "independent pi reviewer",
+  "forbidden_attempts": 41,
+  "events": [
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch0/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch1/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch2/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch3/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch4/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch5/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch6/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch7/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch8/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch9/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch10/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch11/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch12/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch13/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch14/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch15/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch16/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch17/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch18/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch19/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real0/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real1/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real2/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real3/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real4/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real5/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real6/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real7/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real8/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_only_top_level_effective_0/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_only_top_level_effective_1/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_only_top_level_effective_2/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_restricted_then_full_then0/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_real_controller_uses_guar0/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_real_controller_uses_guar1/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_plain_continuation_keeps_0/securities.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 514, in setup\n    col.setup()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1630, in setup\n    self._request._fillfixtures()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 697, in _fillfixtures\n    item.funcargs[argname] = self.getfixturevalue(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 532, in getfixturevalue\n    fixturedef = self._get_active_fixturedef(argname)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 617, in _get_active_fixturedef\n    fixturedef.execute(request=subrequest)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1091, in execute\n    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 1140, in pytest_fixture_setup\n    result = call_fixture_func(fixturefunc, request, kwargs)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py\", line 891, in call_fixture_func\n    fixture_result = next(generator)\n",
+        "  File \"/private/tmp/e2-p3e-qc-0b83e14f/intelligence/tests/test_e2_query_resolver_reads.py\", line 36, in lexicons\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_independent_scope__u4e0d_0/stock.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 341, in from_call\n    result: TResult | None = func()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 242, in <lambda>\n    lambda: runtest_hook(item=item, **kwds), when=when, reraise=reraise\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 174, in pytest_runtest_call\n    item.runtest()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1627, in runtest\n    self.ihook.pytest_pyfunc_call(pyfuncitem=self)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 159, in pytest_pyfunc_call\n    result = testfunction(**testargs)\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/test_independent.py\", line 24, in test_independent_scope\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_independent_scope__u4ec5_0/stock.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 341, in from_call\n    result: TResult | None = func()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 242, in <lambda>\n    lambda: runtest_hook(item=item, **kwds), when=when, reraise=reraise\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 174, in pytest_runtest_call\n    item.runtest()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1627, in runtest\n    self.ihook.pytest_pyfunc_call(pyfuncitem=self)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 159, in pytest_pyfunc_call\n    result = testfunction(**testargs)\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/test_independent.py\", line 24, in test_independent_scope\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_independent_scope__u4e0d_1/stock.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 341, in from_call\n    result: TResult | None = func()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 242, in <lambda>\n    lambda: runtest_hook(item=item, **kwds), when=when, reraise=reraise\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 174, in pytest_runtest_call\n    item.runtest()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1627, in runtest\n    self.ihook.pytest_pyfunc_call(pyfuncitem=self)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 159, in pytest_pyfunc_call\n    result = testfunction(**testargs)\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/test_independent.py\", line 24, in test_independent_scope\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_independent_scope__u53ef_0/stock.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 341, in from_call\n    result: TResult | None = func()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 242, in <lambda>\n    lambda: runtest_hook(item=item, **kwds), when=when, reraise=reraise\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 174, in pytest_runtest_call\n    item.runtest()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1627, in runtest\n    self.ihook.pytest_pyfunc_call(pyfuncitem=self)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 159, in pytest_pyfunc_call\n    result = testfunction(**testargs)\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/test_independent.py\", line 24, in test_independent_scope\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    },
+    {
+      "event": "duckdb.connect",
+      "details": "/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_independent_scope__False_0/stock.duckdb",
+      "stack": [
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 341, in from_call\n    result: TResult | None = func()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 242, in <lambda>\n    lambda: runtest_hook(item=item, **kwds), when=when, reraise=reraise\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py\", line 174, in pytest_runtest_call\n    item.runtest()\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 1627, in runtest\n    self.ihook.pytest_pyfunc_call(pyfuncitem=self)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n",
+        "  File \"/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py\", line 159, in pytest_pyfunc_call\n    result = testfunction(**testargs)\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/test_independent.py\", line 24, in test_independent_scope\n    with duckdb.connect(str(db)) as con:\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 60, in guarded_connect\n    deny('duckdb.connect', str(database))\n",
+        "  File \"/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py\", line 34, in deny\n    violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})\n"
+      ]
+    }
+  ],
+  "pytest_exit": 1
+}

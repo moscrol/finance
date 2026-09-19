@@ -1,0 +1,48 @@
+"""Create a NEW pair from completed staging; never modify earlier evidence or production."""
+import datetime as dt
+import json
+import os
+from pathlib import Path
+import subprocess
+import time
+
+HOME = Path.home()
+ROOT = HOME / '.finance-runtime/kb-dual-index-20260918'
+CODE = HOME / '.finance-runtime/kb-code-23b4f5e4e1ac'
+PYTHON = HOME / 'knowledge-base-private/.rag_venv/bin/python'
+OUT = ROOT / 'evidence/v4'
+STAGE = ROOT / 'staging-v4'
+assert subprocess.check_output(['git', '-C', str(CODE), 'rev-parse', 'HEAD'], text=True).strip() == '23b4f5e4e1ace932fcc741197bf4892c272bf541'
+assert not subprocess.check_output(['git', '-C', str(CODE), 'status', '--porcelain'], text=True).strip()
+OUT.mkdir(exist_ok=False)
+STAGE.mkdir(exist_ok=False)
+for name in ('.rag_index', '.rag_index_full'):
+    subprocess.run(['cp', '-cR', str(ROOT / 'staging' / name), str(STAGE / name)], check=True)
+env = {key: os.environ[key] for key in ('HOME', 'PATH', 'TMPDIR') if key in os.environ}
+env.update(KB_VAULT=str(ROOT / 'source/wiki'), HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1',
+           PYTHONDONTWRITEBYTECODE='1', RAG_AUTO_UPDATE='0', PYTHONUNBUFFERED='1',
+           KB_ACCESS_LOG_PATH=str(OUT / 'access.jsonl'))
+results = []
+for name in ('.rag_index', '.rag_index_full'):
+    index = STAGE / name
+    before = json.loads((index / 'meta.json').read_text())
+    assert before['model'] == 'bge-m3' and before['max_files'] == 0
+    assert before['include_raw'] is (name == '.rag_index_full')
+    env['RAG_INDEX_DIR'] = str(index)
+    start = time.monotonic()
+    with (OUT / f'{name[1:]}-update.log').open('x') as log:
+        proc = subprocess.run([str(PYTHON), str(CODE / 'scripts/rag_index.py'), 'update'],
+                              cwd=CODE, env=env, stdout=log, stderr=subprocess.STDOUT)
+    after = json.loads((index / 'meta.json').read_text())
+    if proc.returncode == 0:
+        for key in ('model', 'include_raw', 'max_files', 'evidence_metadata_version'):
+            assert before[key] == after[key]
+        assert after['chunking_version'] == 'rag-chunking-v4'
+    results.append({'index': name, 'exit_code': proc.returncode,
+                    'elapsed_seconds': round(time.monotonic() - start, 3),
+                    'finished_at': dt.datetime.now(dt.timezone.utc).isoformat(),
+                    'code_revision': '23b4f5e4e1ace932fcc741197bf4892c272bf541',
+                    'before': before, 'after': after})
+    (OUT / 'migration-results.json').write_text(json.dumps(results, ensure_ascii=False, indent=2))
+    print(json.dumps({k: v for k, v in results[-1].items() if k not in ('before', 'after')}), flush=True)
+raise SystemExit(1 if any(r['exit_code'] for r in results) else 0)
