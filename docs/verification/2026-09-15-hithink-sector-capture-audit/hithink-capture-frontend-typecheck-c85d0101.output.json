@@ -1,0 +1,11 @@
+{
+  "original_path": "/tmp/hithink-capture-frontend-typecheck-c85d0101.log",
+  "raw_sha256": "7c3af0d22717ecc1acdcbedfbb40b43bbc60a0af1d08f8354ae50069ca8ac1d0",
+  "encoding": "utf-8",
+  "lines": [
+    "\n",
+    "> market-intelligence-workbench@0.1.0 typecheck /Users/a77/fwp-wt-hithink-review-wiring/intelligence/webapp\n",
+    "> tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false\n",
+    "\n"
+  ]
+}

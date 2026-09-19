@@ -78,6 +78,19 @@ def closed_dates(year: int) -> frozenset[date] | None:
     return _SSE_CLOSURES.get(year)
 
 
+def previous_scheduled_trading_day(value: date) -> date | None:
+    """最近计划交易日；复盘计算与用户日期语义共用，不以行情是否到货代理日历。"""
+    candidate = value - timedelta(days=1)
+    for _ in range(20):
+        closures = closed_dates(candidate.year)
+        if closures is None:
+            return None
+        if candidate.weekday() < 5 and candidate not in closures:
+            return candidate
+        candidate -= timedelta(days=1)
+    return None
+
+
 @dataclass(frozen=True)
 class TradingDayVerdict:
     """交易日判定结果。`source` 记判据，便于日志/台账复核为什么这么判。"""

@@ -1,0 +1,24 @@
+{
+ "original_path": "/tmp/p3-sector-fallback.json",
+ "raw_sha256": "ea5b6e4f8a4af7ad85d830af76226c62cf55196163b0e70dea7697106d8adc19",
+ "encoding": "utf-8",
+ "lines": [
+  "{\n",
+  "  \"calculation_ready\": false,\n",
+  "  \"capture_id\": null,\n",
+  "  \"contract_version\": \"hithink-sector-preview-v1\",\n",
+  "  \"double_red_codes\": [],\n",
+  "  \"gaps\": [\n",
+  "    {\n",
+  "      \"reason\": \"database-unavailable-or-schema-mismatch\"\n",
+  "    }\n",
+  "  ],\n",
+  "  \"member_date\": \"2026-09-12\",\n",
+  "  \"production_ready\": false,\n",
+  "  \"provider_completeness\": \"unverified\",\n",
+  "  \"request_complete\": null,\n",
+  "  \"rows\": [],\n",
+  "  \"trade_date\": \"2026-09-12\"\n",
+  "}\n"
+ ]
+}

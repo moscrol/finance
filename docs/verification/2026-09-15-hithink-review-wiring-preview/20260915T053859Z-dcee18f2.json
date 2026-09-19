@@ -1,0 +1,27 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-hithink-preview-mutation-dcee18f2",
+  "revision": "dcee18f2a23673dc482401013eea61f619ff1b25",
+  "branch": "HEAD",
+  "dirty": true,
+  "dirty_paths": [
+    "market_feature_store/sync/sync_hithink_sector_kline.py"
+  ],
+  "worktree_dirty_total": 1,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_hithink_sector_kline.py",
+  "counts": {
+    "passed": 17,
+    "failed": 2,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [
+    "tests/test_hithink_sector_kline.py::test_constituent_flush_rollback_preserves_previous_snapshot",
+    "tests/test_hithink_sector_kline.py::test_constituent_flush_rolls_back_if_directory_update_fails"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-15T05:38:59+00:00"
+}

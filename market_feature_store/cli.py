@@ -134,6 +134,77 @@ def cmd_sector_universe_preview(args) -> int:
     return 0
 
 
+def cmd_hithink_sector_preview(args) -> int:
+    """只读换池验算；exit 0 仅代表 calculation_ready，不授予生产发布资格。"""
+    import duckdb
+
+    from .hithink_sector_capture import CaptureNotReadyError
+    from .hithink_sector_preview import CONTRACT_VERSION, preview_sector_calculation
+
+    # 失败路径也带合同版本，下游才能对 fallback 报告做版本核对；
+    # 范围/输入指纹不补——失败时范围未验证、输入未读到，伪造指纹即冒充「验证过」。
+    report: dict[str, object] = {
+        "contract_version": CONTRACT_VERSION,
+        "trade_date": args.trade_date,
+        "member_date": args.member_date,
+        "capture_id": args.capture_id,
+        "request_complete": None,
+        "provider_completeness": "unverified",
+        "calculation_ready": False,
+        "production_ready": False,
+        "rows": [],
+        "double_red_codes": [],
+    }
+    try:
+        con = connect(read_only=True)
+        try:
+            report = preview_sector_calculation(
+                con, args.trade_date, member_date=args.member_date,
+                category=args.category, pct_basis=args.pct_basis,
+                max_member_age_days=args.max_member_age_days, capture_id=args.capture_id,
+            )
+        finally:
+            con.close()
+    except CaptureNotReadyError as exc:
+        report["request_complete"] = exc.audit["request_complete"]
+        report["capture_audit"] = exc.audit
+        report["gaps"] = [{"reason": "capture-not-ready"}]
+    except ValueError as exc:
+        report["gaps"] = [{"reason": "invalid-preview-options", "detail": str(exc)}]
+    except duckdb.Error:
+        # 不自动 init、不落 sidecar；拒绝猜测缺表/缺库意味着「今日无板块」。
+        report["gaps"] = [{"reason": "database-unavailable-or-schema-mismatch"}]
+    print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False))
+    return 0 if report["calculation_ready"] else 2
+
+
+def cmd_hithink_stock_preview(args) -> int:
+    """个股标准化只读预演，显式股票分母；不建库、不取 key、不写 canonical。"""
+    import duckdb
+
+    from .hithink_stock_preview import CONTRACT_VERSION, preview_stock_calculation
+
+    report = {
+        "contract_version": CONTRACT_VERSION,
+        "trade_date": args.trade_date, "stock_codes": args.stock_code,
+        "calculation_ready": False, "production_ready": False,
+        "request_complete": None, "provider_completeness": "unverified",
+        "adjustment_coverage": "unverified", "rows": [],
+    }
+    try:
+        con = connect(read_only=True)
+        try:
+            report = preview_stock_calculation(con, args.trade_date, stock_codes=args.stock_code)
+        finally:
+            con.close()
+    except ValueError as exc:
+        report["gaps"] = [{"reason": "invalid-preview-options", "detail": str(exc)}]
+    except duckdb.Error:
+        report["gaps"] = [{"reason": "database-unavailable-or-schema-mismatch"}]
+    print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False))
+    return 0 if report["calculation_ready"] else 2
+
+
 def cmd_sync_sectors(args) -> int:
     from .sync.sync_fupanhui_sectors import sync_dim_sector
 
@@ -1087,7 +1158,13 @@ def cmd_sync_hithink_sector_kline(args) -> int:
     if stats.get("sidecar"):
         print("wrote sidecar (production db locked)")
     print(f"fingerprint={stats['fingerprint']}")
-    return 0
+    audit = stats["capture_audit"]
+    print(
+        f"capture_id={audit['capture_id']} status={audit['status']} scope={audit['scope']} "
+        f"request_complete={str(audit['request_complete']).lower()} "
+        f"provider_completeness={audit['provider_completeness']}"
+    )
+    return 0 if audit["request_complete"] else 2
 
 
 def cmd_sync_hithink_limit_pools(args) -> int:
@@ -1990,6 +2067,40 @@ def build_parser() -> argparse.ArgumentParser:
         "--trade-date", default=None, help="目标交易日 YYYY-MM-DD, 留空取最新已发布代际"
     )
     p_preview.set_defaults(func=cmd_sector_universe_preview)
+
+    from .hithink_sector_preview import CATALOG_TAGS, PCT_BASES
+
+    p_ht_preview = sub.add_parser(
+        "hithink-sector-preview",
+        help="只读验算同花顺名单的成交额/边际量/双红，不外呼、不写库、不代表生产就绪",
+    )
+    p_ht_preview.add_argument("--trade-date", required=True, help="目标交易日 YYYY-MM-DD")
+    p_ht_preview.add_argument("--member-date", required=True, help="真实名单采集日 YYYY-MM-DD")
+    p_ht_preview.add_argument("--category", required=True, choices=CATALOG_TAGS)
+    p_ht_preview.add_argument(
+        "--capture-id", default=None,
+        help="显式选不可覆盖的目录/成员采集批；缺批/不完整拒绝，不回退最新名单",
+    )
+    p_ht_preview.add_argument(
+        "--pct-basis", required=True, choices=PCT_BASES,
+        help="member_equal_weight=成员等权；index_close_return=官方指数收盘收益，不相互兜底",
+    )
+    p_ht_preview.add_argument(
+        "--max-member-age-days", type=int, default=0,
+        help="允许的名单/目录最大年龄（自然日），默认只认当日；承接旧名单必须显式给值",
+    )
+    p_ht_preview.set_defaults(func=cmd_hithink_sector_preview)
+
+    p_ht_stock = sub.add_parser(
+        "hithink-stock-preview",
+        help="只读预演同花顺个股元/股换算和参考涨幅；不是日更或生产发布器",
+    )
+    p_ht_stock.add_argument("--trade-date", required=True, help="目标交易日 YYYY-MM-DD")
+    p_ht_stock.add_argument(
+        "--stock-code", required=True, action="append",
+        help="显式待验 A 股代码，可重复传不同股票；缺行情不缩小分母",
+    )
+    p_ht_stock.set_defaults(func=cmd_hithink_stock_preview)
 
     p_sectors = sub.add_parser("sync-sectors", help="同步复盘会板块清单到 dim_sector")
     p_sectors.add_argument("--trade-date", default=None, help="交易日期 YYYY-MM-DD, 留空取最新")

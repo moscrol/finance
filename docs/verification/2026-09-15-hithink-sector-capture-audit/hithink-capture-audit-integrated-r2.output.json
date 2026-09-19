@@ -1,0 +1,11 @@
+{
+  "original_path": "/tmp/hithink-capture-audit-integrated-r2.log",
+  "raw_sha256": "1889f984b89fc36a67bc2b830c607c144d2f383411ff2a1c5d1278b24d17b4f1",
+  "encoding": "utf-8",
+  "lines": [
+    "........................................................................ [ 69%]\n",
+    "................................                                         [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260915T063602Z-fdbe5dad.json\n",
+    "\n",
+    "104 passed in 2.09s\n"
+  ]
+}

@@ -10,20 +10,30 @@ from __future__ import annotations
 
 import hashlib
 import tempfile
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable
+from zoneinfo import ZoneInfo
 
 import duckdb
 
 from ..db import DB_PATH, init_db, is_lock_conflict
 from ..hithink_client import get_json, has_api_key, ms_to_shanghai_date, shanghai_midnight_ms
+from ..hithink_sector_contract import (
+    CATALOG_TAGS,
+    SOURCE_CATALOG,
+    SOURCE_CONSTITUENT,
+    SOURCE_KLINE,
+    HithinkSectorSyncError,
+    normalize_catalog_items,
+    normalize_constituent_items,
+    snapshot_items,
+)
 
 TRADE_DATE_SQL = (
     "CAST(to_timestamp(date_ms/1000) AT TIME ZONE 'UTC' + INTERVAL 8 HOUR AS DATE)"
 )
 
-CATALOG_TAGS = ("cn_concept", "industry", "region", "tszs")
 INDEX_CODES = (
     "000001.SH",
     "399001.SZ",
@@ -38,10 +48,6 @@ FULL_WINDOW_DAYS = 1499
 INCR_WINDOW_DAYS = 5
 BC_BATTERY_CODE = "886053.TI"
 BC_BATTERY_START = date(2023, 9, 6)
-
-SOURCE_CATALOG = "hithink:ths-index-list"
-SOURCE_KLINE = "hithink:index-historical"
-SOURCE_CONSTITUENT = "hithink:ths-stock-list"
 
 CATALOG_FIELDS = ("thscode", "name")
 HISTORICAL_BAR_FIELDS = (
@@ -58,8 +64,9 @@ CONSTITUENT_FIELDS = ("thscode", "ticker", "name")
 GetJson = Callable[..., dict[str, Any]]
 
 
-class HithinkSectorSyncError(RuntimeError):
-    """板块同步失败。消息里不得带 key。"""
+def _shanghai_now() -> datetime:
+    """表列为无时区 TIMESTAMP，统一存上海墙钟，不能依赖宿主/DB 时区。"""
+    return datetime.now(ZoneInfo("Asia/Shanghai")).replace(tzinfo=None)
 
 
 def skip_reason_if_no_key() -> str | None:
@@ -116,14 +123,7 @@ def window_ms(end_day: date, days: int) -> tuple[int, int]:
 
 def fetch_catalog(tag: str, getter: GetJson) -> list[dict[str, Any]]:
     payload = getter("/api/a-share-index/catalog/ths-index-list", params={"tag": tag})
-    rows = []
-    for item in _items(payload):
-        # 请求了就必须接住
-        thscode = item.get("thscode")
-        name = item.get("name")
-        if thscode:
-            rows.append({"thscode": str(thscode), "name": name, "category": tag})
-    return rows
+    return normalize_catalog_items(snapshot_items(payload), tag)
 
 
 def fetch_historical(
@@ -152,14 +152,7 @@ def fetch_constituents(thscode: str, getter: GetJson) -> list[dict[str, Any]]:
         "/api/a-share-index/constituents/ths-stock-list",
         params={"thscode": thscode},
     )
-    rows = []
-    for item in _items(payload):
-        code = item.get("thscode")
-        ticker = item.get("ticker")
-        _name = item.get("name")  # 接住但不落库：产品面不出个股名
-        if code:
-            rows.append({"thscode": str(code), "ticker": ticker, "name": _name})
-    return rows
+    return normalize_constituent_items(snapshot_items(payload))
 
 
 def _upsert_dim(con: duckdb.DuckDBPyConnection, rows: list[dict[str, Any]]) -> int:
@@ -169,15 +162,15 @@ def _upsert_dim(con: duckdb.DuckDBPyConnection, rows: list[dict[str, Any]]) -> i
         """
         INSERT INTO dim_sector_hithink
             (sector_ts_code, sector_name, category, source, updated_at)
-        VALUES (?, ?, ?, ?, now())
+        VALUES (?, ?, ?, ?, ?)
         ON CONFLICT (sector_ts_code) DO UPDATE SET
             sector_name = excluded.sector_name,
             category = excluded.category,
             source = excluded.source,
-            updated_at = now()
+            updated_at = excluded.updated_at
         """,
         [
-            (row["thscode"], row.get("name"), row["category"], SOURCE_CATALOG)
+            (row["thscode"], row.get("name"), row["category"], SOURCE_CATALOG, _shanghai_now())
             for row in rows
         ],
     )
@@ -255,25 +248,52 @@ def _flush_kline(con: duckdb.DuckDBPyConnection, rows: list[tuple], dest: Path) 
 def _flush_constituents(
     con: duckdb.DuckDBPyConnection, rows: list[tuple], dest: Path
 ) -> int:
-    return _flush_parquet(
-        con,
-        create_sql="""
+    """按 (真实采集日, 板块) 整批替换；普通 upsert 会留下已退出的成员。
+
+    每个板块响应完整后才进批；失败批删除/插入/目录计数同回滚。空响应在抓取层
+    拒绝，不拿旧批次冒充本次成功。captured_at 为日期、updated_at 为响应接收时刻。
+    """
+    if not rows:
+        return 0
+    mem = duckdb.connect(":memory:")
+    try:
+        mem.execute("""
             CREATE TABLE t (
                 captured_at DATE, sector_ts_code TEXT, stock_ts_code TEXT,
-                ticker TEXT, source TEXT
+                ticker TEXT, source TEXT, updated_at TIMESTAMP
             )
-        """,
-        insert_mem_sql="INSERT INTO t VALUES (?,?,?,?,?)",
-        copy_into_sql="""
-            INSERT OR REPLACE INTO fact_sector_constituent_hithink
-                (captured_at, sector_ts_code, stock_ts_code, ticker, in_index,
-                 source, updated_at)
-            SELECT captured_at, sector_ts_code, stock_ts_code, ticker, 1, source, now()
+        """)
+        mem.executemany("INSERT INTO t VALUES (?,?,?,?,?,?)", rows)
+        mem.execute(f"COPY t TO '{dest}' (FORMAT PARQUET)")
+    finally:
+        mem.close()
+    con.execute("BEGIN TRANSACTION")
+    try:
+        con.execute("""
+            DELETE FROM fact_sector_constituent_hithink m
+            USING read_parquet(?) n
+            WHERE m.captured_at=n.captured_at AND m.sector_ts_code=n.sector_ts_code
+        """, [str(dest)])
+        con.execute("""
+            INSERT INTO fact_sector_constituent_hithink
+                (captured_at, sector_ts_code, stock_ts_code, ticker, in_index, source, updated_at)
+            SELECT captured_at, sector_ts_code, stock_ts_code, ticker, 1, source, updated_at
             FROM read_parquet(?)
-        """,
-        rows=rows,
-        parquet_path=dest,
-    )
+        """, [str(dest)])
+        con.execute("""
+            UPDATE dim_sector_hithink d
+            SET constituent_count=s.n, constituents_captured_at=s.captured
+            FROM (
+                SELECT sector_ts_code, COUNT(*) n, MAX(updated_at) captured
+                FROM read_parquet(?) GROUP BY sector_ts_code
+            ) s
+            WHERE d.sector_ts_code=s.sector_ts_code
+        """, [str(dest)])
+        con.execute("COMMIT")
+    except Exception:
+        con.execute("ROLLBACK")
+        raise
+    return len(rows)
 
 
 def _codes_already_fresh(
@@ -541,19 +561,31 @@ def sync_hithink_sector_kline(
     end_day = end_date or date.today()
     start_ms, end_ms = window_ms(end_day, days)
 
+    from ..hithink_sector_capture import SectorCapture
+
     con, sidecar = _open_writable(db_path)
+    capture = None
+    capture_sealed = False
     try:
         init_db(con)
+        capture = SectorCapture.start(
+            con, requested_end_date=end_day, include_members=not skip_constituents,
+            member_limit=limit, clock=_shanghai_now,
+        )
+        print(f"capture_id={capture.capture_id} status=running", flush=True)
         catalog_rows: list[dict[str, Any]] = []
         for tag in CATALOG_TAGS:
-            catalog_rows.extend(fetch_catalog(tag, getter))
+            rows, _ = capture.request("catalog", tag, lambda tag=tag: fetch_catalog(tag, getter))
+            catalog_rows.extend(rows)
+        # 所有目录齐全后冻结成员请求分母；K线失败也保留尚未执行的请求计划。
+        member_codes = capture.plan_members() if not skip_constituents else []
         for code in INDEX_CODES:
             catalog_rows.append(
                 {"thscode": code, "name": None, "category": "index"}
             )
         dim_n = _upsert_dim(con, catalog_rows)
 
-        codes = [row["thscode"] for row in catalog_rows]
+        codes = list(dict.fromkeys(row["thscode"] for row in catalog_rows))
         if resume:
             fresh = _codes_already_fresh(con, end_day)
             codes = [c for c in codes if c not in fresh]
@@ -582,24 +614,24 @@ def sync_hithink_sector_kline(
                     )
 
             constituent_n = 0
+            constituent_capture_dates: set[str] = set()
             if not skip_constituents:
-                member_codes = [
-                    row["thscode"]
-                    for row in catalog_rows
-                    if row["category"] != "index"
-                ]
-                if limit is not None:
-                    member_codes = member_codes[:limit]
+                # 目录标签可重叠；成员计划按唯一代码排序，每个响应保留不可覆盖版本。
                 const_buf: list[tuple] = []
                 for i, code in enumerate(member_codes, start=1):
-                    members = fetch_constituents(code, getter)
+                    members, received = capture.request(
+                        "members", code, lambda code=code: fetch_constituents(code, getter),
+                    )
+                    captured = received.replace(tzinfo=None)  # 已是上海时间，不取 end_day
+                    constituent_capture_dates.add(captured.date().isoformat())
                     const_buf.extend(
                         (
-                            end_day,
+                            captured.date(),
                             code,
                             row["thscode"],
                             row.get("ticker"),
                             SOURCE_CONSTITUENT,
+                            captured,
                         )
                         for row in members
                     )
@@ -614,22 +646,6 @@ def sync_hithink_sector_kline(
                             f"constituents {i}/{len(member_codes)} rows={constituent_n}",
                             flush=True,
                         )
-                con.execute(
-                    """
-                    UPDATE dim_sector_hithink d
-                    SET constituent_count = s.n,
-                        constituents_captured_at = s.captured,
-                        updated_at = now()
-                    FROM (
-                        SELECT sector_ts_code, captured_at AS captured, COUNT(*) AS n
-                        FROM fact_sector_constituent_hithink
-                        WHERE captured_at = ?
-                        GROUP BY 1, 2
-                    ) s
-                    WHERE d.sector_ts_code = s.sector_ts_code
-                    """,
-                    [end_day],
-                )
 
         stats = kline_stats(con)
         result: dict[str, Any] = {
@@ -642,6 +658,7 @@ def sync_hithink_sector_kline(
             "bars_written": written,
             "empty_codes": empty,
             "constituent_rows": constituent_n,
+            "constituent_capture_dates": sorted(constituent_capture_dates),
             "fingerprint": table_fingerprint(con),
             "old_ti": coverage_old_ti(con, end_day),
         }
@@ -674,6 +691,23 @@ def sync_hithink_sector_kline(
                     render_fp_mapping(mapping), encoding="utf-8"
                 )
                 result["mapping_path"] = Path(mapping_path).name
+        audit = capture.finish()
+        capture_sealed = True
+        if not audit["request_complete"] and limit is None:
+            raise HithinkSectorSyncError(f"capture {capture.capture_id}: 请求审计未通过")
+        result["capture_audit"] = {
+            key: audit[key] for key in (
+                "capture_id", "status", "scope", "request_complete", "provider_completeness", "gaps",
+            )
+        }
         return result
+    except Exception:
+        if capture is not None and not capture_sealed:
+            # 留痕失败不能替换首个异常；留 running/requesting 也比假封为成功更诚实。
+            try:
+                capture.fail()
+            except Exception:
+                print(f"capture {capture.capture_id}: audit-finalization-failed", flush=True)
+        raise
     finally:
         con.close()

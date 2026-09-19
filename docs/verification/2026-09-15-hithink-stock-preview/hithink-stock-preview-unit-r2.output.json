@@ -1,0 +1,11 @@
+{
+  "original_path": "/tmp/hithink-stock-preview-unit-r2.log",
+  "raw_sha256": "016337c26a785f4dbfbd44a80d3c65e16a4a8d152862a686eff5ee6d090d8479",
+  "encoding": "utf-8",
+  "lines": [
+    "........................................................................ [ 91%]\n",
+    ".......                                                                  [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260915T091033Z-3bba5b4e.json\n",
+    "\n",
+    "79 passed in 1.49s\n"
+  ]
+}

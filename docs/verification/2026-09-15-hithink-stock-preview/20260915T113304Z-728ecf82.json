@@ -1,0 +1,27 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-hithink-review-wiring",
+  "revision": "728ecf824c283a5bde7f0f3bf7b7d251148e36f6",
+  "branch": "fix/hithink-review-wiring",
+  "dirty": true,
+  "dirty_paths": [
+    "market_feature_store/cli.py"
+  ],
+  "worktree_dirty_total": 1,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_hithink_stock_preview.py",
+  "counts": {
+    "passed": 0,
+    "failed": 2,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [
+    "tests/test_hithink_stock_preview.py::test_cli_missing_action_table_and_invalid_scope_are_structural",
+    "tests/test_hithink_stock_preview.py::test_cli_missing_database_never_initializes_it"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-15T11:33:04+00:00"
+}

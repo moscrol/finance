@@ -1,0 +1,16 @@
+{
+  "original_path": "/Users/a77/.finance-runtime/reviews/hithink-dcee18f2-qc-20260915/request.md",
+  "raw_sha256": "6c3f24fcd61ae65180eaae508575cbbfc1f0ad7a347e7cee587aca42831f4e9a",
+  "encoding": "utf-8",
+  "lines": [
+    "请作为与作者隔离的独立代码复核者验收同花顺 local 接线和只读预览，中文报告。固定工作树 /Users/a77/.finance-runtime/reviews/hithink-dcee18f2-qc-20260915/tree ，revision dcee18f2a23673dc482401013eea61f619ff1b25，基线 1fef3d276d0e。只审这两个提交的组合增量，不能把作者正在另一个树开发的采集审计第三片算进来。\n",
+    "\n",
+    "业务目标：允许用同花顺板块和成员，不要求复制复盘会名单或最终双红集合；必须可追溯、公式/单位/参数/窗口等口径明确。当前仅并跑及只读预览，不是生产切源。\n",
+    "\n",
+    "请先自行阅读 diff 和直接消费者，不把作者测试绿灯当结论，独立构造边界反例并实际运行。重点：四步日期/staging 继承、原始缺 key 与失败后 skip、依赖日历原位重试/失败阻断；当前成员真实时间/跨午夜/同日退出者/事务失败回滚；显式等权和指数算法/禁止缺口兜底/前一计划交易日/同篮子分母/严格阈值；CLI 真只读/缺库不创建/部分池禁发完整候选/production_ready false。可报告计数自洽仍不等于供应商完整，但不得把未承诺的生产发布要求误当已交付的功能。\n",
+    "\n",
+    "禁止登录复盘会、取供应商 key、访问真实行情/生产数据库或运行 daily-full。只用合成数据、临时 DuckDB。不得改作者树、共享记忆、其他 worktree、分支引用；不 push/merge/部署，不提交。自己的探针可以放当前隔离树或 /tmp，需报告 dirty 条件与路径。复核报告写 /Users/a77/.finance-runtime/reviews/hithink-dcee18f2-qc-20260915/report.md，注明固定 revision、环境、每个 finding 的文件/行号/严重度/可复现命令/实际输出、测试证据和未验证范围。没有可复现问题也明确说未发现，不等于生产就绪。可读导览 docs/handoffs/inflight/fix-hithink-review-wiring.md （该固定 SHA 文档可能尚未更新），权威判据以 diff/测试/业务目标为准。\n",
+    "\n",
+    "pytest/ruff 必须 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m ...，测试 env -i PATH=\"$PATH\" HOME=\"$HOME\" KNOWLEDGE_WIKI=\"$KNOWLEDGE_WIKI\"、umask 022。本次只要求相关定向测试和独立反例，不必全量/前端/E2E。勿把另开 worktree 本身算作独立复核证据：你的独立推理、探针及日志才是。本提示不提供作者测试数字。\n"
+  ]
+}

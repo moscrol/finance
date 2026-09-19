@@ -8,7 +8,7 @@ import sys
 import time
 import urllib.request
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 import duckdb
@@ -108,7 +108,7 @@ def _run_step(name, func, *args, **kwargs):
         }
 
 
-def run_hithink_sector_kline_step() -> dict:
+def run_hithink_sector_kline_step(trade_date: str | None = None) -> dict:
     """个股 dump 之后并跑板块 / 指数近 5 日。没 key 算 skip。日更不拉成分。"""
 
     from .sync_hithink_sector_kline import skip_reason_if_no_key, sync_hithink_sector_kline
@@ -116,10 +116,13 @@ def run_hithink_sector_kline_step() -> dict:
     reason = skip_reason_if_no_key()
     if reason:
         return {"skipped": True, "reason": reason}
-    return sync_hithink_sector_kline(mode="incremental", skip_constituents=True)
+    return sync_hithink_sector_kline(
+        mode="incremental", skip_constituents=True,
+        end_date=date.fromisoformat(trade_date) if trade_date else None,
+    )
 
 
-def run_hithink_limit_pools_step() -> dict:
+def run_hithink_limit_pools_step(trade_date: str | None = None) -> dict:
     """板块日 K 之后并跑涨停 / 跌停 / 炸板近 3 个交易日。没 key 算 skip。"""
 
     from .sync_hithink_limit_pools import skip_reason_if_no_key, sync_hithink_limit_pools
@@ -127,10 +130,12 @@ def run_hithink_limit_pools_step() -> dict:
     reason = skip_reason_if_no_key()
     if reason:
         return {"skipped": True, "reason": reason}
-    return sync_hithink_limit_pools(mode="incremental")
+    return sync_hithink_limit_pools(
+        mode="incremental", end_date=date.fromisoformat(trade_date) if trade_date else None,
+    )
 
 
-def run_hithink_dragon_auction_step() -> dict:
+def run_hithink_dragon_auction_step(trade_date: str | None = None) -> dict:
     """涨停池之后并跑龙虎榜 / 热榜近 3 日 + 竞价终态。没 key 算 skip。"""
 
     from .sync_hithink_dragon_auction import (
@@ -141,7 +146,9 @@ def run_hithink_dragon_auction_step() -> dict:
     reason = skip_reason_if_no_key()
     if reason:
         return {"skipped": True, "reason": reason}
-    return sync_hithink_dragon_auction(mode="incremental")
+    return sync_hithink_dragon_auction(
+        mode="incremental", end_date=date.fromisoformat(trade_date) if trade_date else None,
+    )
 
 
 def run_hithink_stock_daily_step() -> dict:
@@ -267,9 +274,9 @@ def run_daily_update(
         steps.append(_run_step("sync-stock-daily", sync_fact_stock_daily_snapshot, trade_date=td))
     # 同花顺官方 dump 并跑，不改 fact_stock_daily。缺 key 跳过，不让整条 daily-full 红。
     steps.append(_run_step("sync-hithink-stock-daily", run_hithink_stock_daily_step))
-    steps.append(_run_step("sync-hithink-sector-kline", run_hithink_sector_kline_step))
-    steps.append(_run_step("sync-hithink-limit-pools", run_hithink_limit_pools_step))
-    steps.append(_run_step("sync-hithink-dragon-auction", run_hithink_dragon_auction_step))
+    steps.append(_run_step("sync-hithink-sector-kline", run_hithink_sector_kline_step, td))
+    steps.append(_run_step("sync-hithink-limit-pools", run_hithink_limit_pools_step, td))
+    steps.append(_run_step("sync-hithink-dragon-auction", run_hithink_dragon_auction_step, td))
     steps.append(_run_step("sync-mainline-daily", sync_mainline_daily, td))
     steps.append(_run_step("sync-theme-flow-daily", sync_theme_flow_daily, td))
     steps.append(_run_step("sync-mainline-sector-daily", sync_mainline_sector_daily, td))
