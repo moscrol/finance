@@ -43,6 +43,8 @@ L2、外层质检与方法验证保留 `FINANCE_CODE_ROOT`，数据与外置用�
 `FINANCE_CODE_ROOT`），验证实际 import 位置后调用现有
 `intelligence.cli daily`。子步骤继承同一解释器与固定代码搜索路径，脚本用代码根绝对路径；
 工作目录、DuckDB、exports 和复盘 HTML 留在数据根。缺代码根/包、写入位置落进代码根时拒绝生成。
+生成启动器失败后外层立即返回，KB 接收只在成功后运行；拒绝后的提示使用现有进程输出与桌面通知。
+运维告警写入前会解析最终日志路径，拒绝写入配置的 L2 代码根和生成代码根（含文件、父目录软链接）。
 
 已配置的 `FORESIGHT_USERS_DIR` / `FORESIGHT_EPISODE_STORE` / 数据库覆盖保持原位，不迁移存量；
 相对覆盖统一按 `FINANCE_DATA_ROOT` 解析。生成启动器不改变独立 L2 分支的环境或同步守卫。

@@ -11,6 +11,8 @@
 from __future__ import annotations
 
 import importlib.util
+import os
+import subprocess
 import sys
 from pathlib import Path
 from unittest import mock
@@ -85,3 +87,35 @@ def test_empty_message_is_refused(notify_ops):
         assert notify_ops.send_alert("   ") is False
     popup.assert_not_called()
     assert not notify_ops.ALERT_LOG.exists()
+
+
+@pytest.mark.parametrize("root_env", ["FINANCE_CODE_ROOT", "FINANCE_GENERATION_CODE_ROOT"])
+@pytest.mark.parametrize("layout", ["file-link", "directory-link", "home-in-code", "external"])
+def test_real_cli_log_respects_both_code_roots(tmp_path, root_env, layout):
+    code = tmp_path / "code"
+    code.mkdir()
+    home = code if layout == "home-in-code" else tmp_path / "home"
+    home.mkdir(exist_ok=True)
+    log = home / ".finance-runtime" / "alerts.log"
+    if layout == "directory-link":
+        log.parent.symlink_to(code, target_is_directory=True)
+    else:
+        log.parent.mkdir()
+        if layout == "file-link":
+            log.symlink_to(code / "alert-target.log")
+    before = sorted(str(p.relative_to(code)) for p in code.rglob("*"))
+    env = {k: v for k, v in os.environ.items()
+           if k not in {"FINANCE_CODE_ROOT", "FINANCE_GENERATION_CODE_ROOT"}}
+    env.update(HOME=str(home), **{root_env: str(code)})
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--no-desktop", "isolated boundary probe"],
+        env=env, capture_output=True, text=True, check=False,
+    )
+    if layout == "external":
+        assert result.returncode == 0, result.stderr
+        assert "isolated boundary probe" in log.read_text()
+    else:
+        assert result.returncode == 1
+        assert root_env in result.stderr
+        assert not log.exists()
+    assert sorted(str(p.relative_to(code)) for p in code.rglob("*")) == before

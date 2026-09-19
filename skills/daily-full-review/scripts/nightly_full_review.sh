@@ -210,8 +210,11 @@ echo "[$(date '+%F %T')] === 全量复盘开始 phase=$PHASE date=$D l2_code=$CO
 
 # 失败告警两条腿：内联 osascript 弹窗（零依赖、必达本机）+ notify_ops.py 落盘
 # ~/.finance-runtime/alerts.log（--no-desktop 免得重复弹）；告警自身失败不影响退出码
-notify() {
+notify_desktop() {
   osascript -e "display notification \"$1\" with title \"全量复盘告警\" sound name \"Basso\"" 2>/dev/null || true
+}
+notify() {
+  notify_desktop "$1"
   "$OPS_PYTHON" "$CODE_ROOT/scripts/notify_ops.py" --no-desktop "$1" 2>/dev/null || true
 }
 
@@ -269,18 +272,19 @@ run_generation_and_finalize() {
     --summary-json "$DATA_ROOT/market_feature_store/exports/$D-daily-workflow-summary.json"
   local rc=$?
 
+  # launcher 拒绝的代码/写入根不能被外层接线重新执行；失败只走现有 stdout/桌面。
+  if [ "$rc" -ne 0 ]; then
+    echo "[$(date '+%F %T')] 生成段失败 rc=$rc"
+    notify_desktop "⚠️ 全量复盘 $D 生成段失败 rc=$rc；日志 logs/daily-full-review.out.log"
+    return "$rc"
+  fi
+
   # 幂等兜底：20:05 fidelity 或 daily 步已写出的 kb-ingest-queue 归档进 wiki/raw。
   # 只 receive，不 apply。daily 计划里也有同一步；重复跑按 payload hash 去重。
   local RECEIVE_SH="$GENERATION_CODE_ROOT/skills/daily-full-review/scripts/receive_kb_ingest_queue.sh"
   if [ -f "$RECEIVE_SH" ]; then
     /bin/zsh "$RECEIVE_SH" "$D" "$WORKSPACE" "$KNOWLEDGE_WIKI" \
       || echo "[$(date '+%F %T')] kb ingest receive 失败（不阻断）"
-  fi
-
-  if [ "$rc" -ne 0 ]; then
-    echo "[$(date '+%F %T')] 生成段失败 rc=$rc"
-    notify "⚠️ 全量复盘 $D 生成段失败 rc=$rc（同步已完成，可手动重跑 intelligence.cli daily --skip-sync）；日志 logs/daily-full-review.out.log"
-    return "$rc"
   fi
 
   # 双盲答卷回检已退役（2026-08-20）：不再随 finalize 跑 recheck / auto_verdict。

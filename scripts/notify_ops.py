@@ -21,6 +21,7 @@ True/False，CLI 退出码 0=已记录 1=失败，方便 shell 里 `|| true` 兜
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -31,6 +32,11 @@ ALERT_LOG = Path.home() / ".finance-runtime" / "alerts.log"
 
 def _append_log(text: str) -> bool:
     try:
+        target = ALERT_LOG.resolve()
+        for name in ("FINANCE_CODE_ROOT", "FINANCE_GENERATION_CODE_ROOT"):
+            raw = os.environ.get(name, "").strip()
+            if raw and target.is_relative_to(Path(raw).expanduser().resolve()):
+                raise ValueError(f"alert log resolves inside {name}: {target}")
         ALERT_LOG.parent.mkdir(parents=True, exist_ok=True)
         with ALERT_LOG.open("a", encoding="utf-8") as fh:
             fh.write(f"{datetime.now().isoformat(timespec='seconds')}\t{text}\n")

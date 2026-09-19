@@ -167,9 +167,16 @@ def quality_db():
     con.execute("INSERT INTO fact_market_daily VALUES (?, 12000, 3000, 60, 10, 1.0, 3500, 0.5)", [DAY])
     local = tables_for_plan(load_registry(), "local")
     for table in set(quality.GAP_TABLES + quality.ROW_ANOMALY_TABLES):
-        con.execute(f"CREATE TABLE {table} (trade_date DATE)")
+        # 当前跨日质量门还会检查成分行情全空，夹具提供该查询的真实列。
+        columns = "trade_date DATE"
+        if table == "fact_sector_stock_daily":
+            columns += ", sector_ts_code VARCHAR, sector_name VARCHAR, price DOUBLE, pct_chg DOUBLE, amount DOUBLE"
+        con.execute(f"CREATE TABLE {table} ({columns})")
         if table in local:
-            con.execute(f"INSERT INTO {table} VALUES (?)", [DAY])
+            if table == "fact_sector_stock_daily":
+                con.execute(f"INSERT INTO {table} VALUES (?, 'sector', 'sector', 10, 1, 100)", [DAY])
+            else:
+                con.execute(f"INSERT INTO {table} VALUES (?)", [DAY])
     yield con
     con.close()
 
@@ -193,6 +200,13 @@ def test_local_cross_day_still_rejects_missing_required_data_and_bad_values(monk
     assert not result["ok"]
     assert "fact_stock_daily" in {g["table"] for g in result["gaps"]}
     assert "total_amount" in {v["field"] for v in result["range_violations"]}
+
+
+def test_local_plan_still_rejects_present_but_quoteless_sector(quality_db):
+    quality_db.execute("UPDATE fact_sector_stock_daily SET price=NULL, pct_chg=NULL, amount=NULL")
+    result = quality.check_daily(DAY, con=quality_db, plan="local")
+    assert not result["ok"]
+    assert result["quoteless_sectors"][0]["sector_ts_code"] == "sector"
 
 
 def test_cross_day_auto_uses_db_latest_day_not_wall_clock(monkeypatch, quality_db):

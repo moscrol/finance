@@ -89,6 +89,7 @@ def _run_nightly_finalize(
     generation_rc: int = 0,
     separate_generation: bool = True,
     missing_launcher: bool = False,
+    receive: bool = False,
     script_text: str | None = None,
 ) -> tuple[subprocess.CompletedProcess[str], str, str]:
     """真启动 `nightly_full_review.sh finalize`，外呼与写库全换成假执行器。
@@ -130,6 +131,10 @@ def _run_nightly_finalize(
     (generation_root / "scripts").mkdir(parents=True, exist_ok=True)
     if not missing_launcher:
         (generation_root / "scripts/run_daily_generation.py").touch()
+    if receive:
+        receiver = generation_root / "skills/daily-full-review/scripts/receive_kb_ingest_queue.sh"
+        receiver.parent.mkdir(parents=True, exist_ok=True)
+        receiver.write_text('#!/bin/sh\nprintf "receive-marker\\n" >> "$CALL_LOG"\n')
     # 数据树有同名入口也不得回退。
     (data_root / "scripts").mkdir()
     (data_root / "scripts/run_daily_generation.py").touch()
@@ -173,6 +178,20 @@ def _run_nightly_finalize(
         check=False,
     )
     return proc, call_log.read_text(encoding="utf-8"), proc.stderr
+
+
+@pytest.mark.parametrize("generation_rc", [0, 2])
+def test_generation_failure_stops_receive_and_fallback_log(tmp_path, generation_rc):
+    proc, calls, _ = _run_nightly_finalize(
+        tmp_path, generation_rc=generation_rc, receive=True,
+    )
+    assert proc.returncode == generation_rc, proc.stderr
+    if generation_rc:
+        assert "生成段失败 rc=2" in proc.stdout + proc.stderr
+        assert "receive-marker" not in calls
+        assert "notify_ops.py" not in calls
+    else:
+        assert "receive-marker" in calls
 
 
 def test_ops_python_helper_exists() -> None:
