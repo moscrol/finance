@@ -1,0 +1,30 @@
+{
+  "purpose": "byte-exact archival only; never merge this salvage branch into main or deploy it",
+  "source_root": "/Users/a77/finance-workspace-private",
+  "source_head": "b4a35fa2c143d152f4a87162f5fc044325d566a8",
+  "base": "b22ddf8b0285a952de1e6e18c04db0f4abe448e7",
+  "captured_at": "2026-09-19T11:20:06.602466+08:00",
+  "files": [
+    {
+      "original_path": "intelligence/workflows/daily_review.py",
+      "archive_path": "docs/verification/2026-09-19-opc-shims/files/intelligence/workflows/daily_review.py.txt",
+      "bytes": 19807,
+      "sha256": "fa0e770d0142e3b12b654e8af6d7ca8947d69a8d3db5dafe773080d9df6e282c",
+      "git_blob": "b68e58ecaf3c2e0ecdf86ccd0e066212d100cb5e"
+    },
+    {
+      "original_path": "scripts/check_daily_review_data.py",
+      "archive_path": "docs/verification/2026-09-19-opc-shims/files/scripts/check_daily_review_data.py.txt",
+      "bytes": 1074,
+      "sha256": "2312001f77b2beaa9d1ab4d3333652d74fe6c82771aa57dd610c9960dcd82aa4",
+      "git_blob": "deaa035949a10b7b21e36c5abd974ccf70668c7e"
+    },
+    {
+      "original_path": "scripts/check_daily_plan_local.py",
+      "archive_path": "docs/verification/2026-09-19-opc-shims/files/scripts/check_daily_plan_local.py.txt",
+      "bytes": 1105,
+      "sha256": "8388ebe58b17b8aea2bf9f4ad57df0b0662f8332e3962cb9ca0c09fe18dd63b9",
+      "git_blob": "8e542d99eb61fa6dba9433a7e3831d17623a2484"
+    }
+  ]
+}
