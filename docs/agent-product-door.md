@@ -39,7 +39,8 @@ L2、外层质检与方法验证保留 `FINANCE_CODE_ROOT`，数据与外置用�
 ### 夜跑日报生成（代码与数据分根）
 
 收尾仍走 `nightly_full_review.sh finalize`，不是另一条数据写入链。其内部以绝对路径启动
-`$FINANCE_CODE_ROOT/scripts/run_daily_generation.py`，验证实际 import 位置后调用现有
+`$FINANCE_GENERATION_CODE_ROOT/scripts/run_daily_generation.py`（未配置生成根时回退
+`FINANCE_CODE_ROOT`），验证实际 import 位置后调用现有
 `intelligence.cli daily`。子步骤继承同一解释器与固定代码搜索路径，脚本用代码根绝对路径；
 工作目录、DuckDB、exports 和复盘 HTML 留在数据根。缺代码根/包、写入位置落进代码根时拒绝生成。
 
