@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="16" skipped="0" tests="16" time="0.992" timestamp="2026-09-19T16:53:04.486931+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a1.587-\u5f85\u6838\u5bf9]" time="0.001"><failure message="assert ()">intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a1.587-\u4e3a\u5f85\u6838\u5bf9]" time="0.000"><failure message="assert ()">intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a1.587-\u4e3a**\u5f85\u6838\u5bf9**]" time="0.000"><failure message="assert ()">intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a1.587-\u662f`\u5f85\u6838\u5bf9`]" time="0.000"><failure message="assert ()">intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u8be5\u503c\u4e3a1.587-\u5f85\u6838\u5bf9]" time="0.000"><failure message="assert ()">intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u8be5\u503c\u4e3a1.587-\u4e3a\u5f85\u6838\u5bf9]" time="0.000"><failure message="assert ()">intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u8be5\u503c\u4e3a1.587-\u4e3a**\u5f85\u6838\u5bf9**]" time="0.000"><failure message="assert ()">intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u8be5\u503c\u4e3a1.587-\u662f`\u5f85\u6838\u5bf9`]" time="0.000"><failure message="assert ()">intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587-\u5f85\u6838\u5bf9]" time="0.000"><failure message="assert ()">intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587-\u4e3a\u5f85\u6838\u5bf9]" time="0.000"><failure message="assert ()">intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587-\u4e3a**\u5f85\u6838\u5bf9**]" time="0.000"><failure message="assert ()">intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587-\u662f`\u5f85\u6838\u5bf9`]" time="0.000"><failure message="assert ()">intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_hedge_failure_reaches_real_verifier_and_repair[off-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587\u3002]" time="0.001"><failure message="AssertionError: assert ('completed' == 'partial'&#10;  &#10;  - partial&#10;  + completed)">intelligence/tests/test_research_delivery_ratio_scope.py:42: in test_hedge_failure_reaches_real_verifier_and_repair
+    assert result.status == "partial" and result.gap_output_ids and result.repair_output_ids
+E   AssertionError: assert ('completed' == 'partial'
+E     
+E     - partial
+E     + completed)</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_hedge_failure_reaches_real_verifier_and_repair[off-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587\u3002]" time="0.000"><failure message="AssertionError: assert ('completed' == 'partial'&#10;  &#10;  - partial&#10;  + completed)">intelligence/tests/test_research_delivery_ratio_scope.py:42: in test_hedge_failure_reaches_real_verifier_and_repair
+    assert result.status == "partial" and result.gap_output_ids and result.repair_output_ids
+E   AssertionError: assert ('completed' == 'partial'
+E     
+E     - partial
+E     + completed)</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_hedge_failure_reaches_real_verifier_and_repair[llm-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587\u3002]" time="0.002"><failure message="AssertionError: assert ('completed' == 'partial'&#10;  &#10;  - partial&#10;  + completed)">intelligence/tests/test_research_delivery_ratio_scope.py:42: in test_hedge_failure_reaches_real_verifier_and_repair
+    assert result.status == "partial" and result.gap_output_ids and result.repair_output_ids
+E   AssertionError: assert ('completed' == 'partial'
+E     
+E     - partial
+E     + completed)</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_hedge_failure_reaches_real_verifier_and_repair[llm-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587\u3002]" time="0.001"><failure message="AssertionError: assert ('completed' == 'partial'&#10;  &#10;  - partial&#10;  + completed)">intelligence/tests/test_research_delivery_ratio_scope.py:42: in test_hedge_failure_reaches_real_verifier_and_repair
+    assert result.status == "partial" and result.gap_output_ids and result.repair_output_ids
+E   AssertionError: assert ('completed' == 'partial'
+E     
+E     - partial
+E     + completed)</failure></testcase></testsuite></testsuites>

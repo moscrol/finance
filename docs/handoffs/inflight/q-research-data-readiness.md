@@ -1,33 +1,33 @@
-# T3 外审返修 · 2026-09-19
+# T3 值槽续检 · 2026-09-19
 
 ## 这个分支做什么
-接续原q整合线修可信正文/引用误删，不开热点平行实现线。工程、外审、自然答案分账。
+沿原q线修可信正文/引用误删与数值核验，不开热点平行线；工程、外审、自然答案分账。
 
 ## 当前状态
-业务79dba348bb2f4e76aa6be0d692a34baae1b6ddbe已提交推Gitea；**三轮有效外审均CHANGES_REQUIRED，仍阻合**，不是旧“超时无裁决”。未开PR/合main/部署，main末核b22ddf8b。
-新阻塞原样探针`check_ratio_hedge_delivery.py`：两句×judge off/成功替身，0P/4F，公开仍completed、无缺口/续修。没有第三轮业务返修或后台审查。
-展开：`docs/handoffs/2026-09-19-t3-review-counterexamples.md`；同名verification目录796件原件/manifest，旧档案不改。
+业务746b716ff95d40898697628e197fd266a9473bf6已推Gitea。原占位四例已4P，但新边界探针4P/12F，仍停合。
+ARL-0004首调用本地Prompt too long无裁决；独占根补试返回PASS却有5项必需检查PARTIAL，被原门禁隔离为INVALID_VERDICT/failed_check_for_pass、authority none。不是外审通过，也不冒充第四份有效CR；旧三份CR未被有效覆盖。无后台续试。
+未开PR/合main/部署；main末核b22ddf8b。见`docs/handoffs/2026-09-19-t3-ratio-scope-review.md`及`docs/verification/2026-09-19-t3-ratio-scope/`。
 
 ## 决策与被否方案
-- 检测上下文可宽，编辑范围须窄；否删整句、拿净文本坐标切Markdown。
-- 先判数字角色/期别；不能定位则显式unknown+partial+原回合续修，否静默通过/猜正确数/加预算。
-- 每轮独占review根，保首红/超时；否覆盖日志、用工程绿或Producer自评代外审。
-- 幂等占位只能约束对应值，不能豁免后续数字：现实现违反此项，留红不刷绿。
+- 占位只消费自身值槽，后续/残余数字仍查；否整期continue、猜数或整句删除。
+- 标记锚定期别，保原文坐标/Markdown；并列绑定对标记透明但不免检，必须重验第二次解析。
+- 否手改外审PASS/PARTIAL或再试到绿；无效裁决只作反例线索，原样复现另记账。
+- 正确但陌生措辞可保守unknown；不能把所有独立数字都当未知比率，当前仍有新误报。
 
 ## 未验证 / 已知边界
-`收入可核[E1]，2026中报含金量待核对，实际为1.587。`及“为待核对”变体绕过检查（对应产物1.588）。当前未修。
-未知标记作用整句、残余扫描跨邻期，正确但未识别措辞也可能误标；有限归属/否定词表仍有连坐或残留。不是通用语义认证。
-本轮金融自然会话0、新取数0；旧not_passed不翻案。三次审查CLI另计，sonnet别名映射/响应claude-opus-5，不是零模型；更早超时信息不回填。
-8792、夜跑、KB防写、他人主树/shim封存未动；T5/T4/T2/T1未推进。
+新回归：正确比率后接“行业排名第3”、金额“1,234.56亿元”或“2025中报的含金量为0.289”，均误降partial。
+既有漏检：错值“1.587元/元”“158.7个百分点”、占位后分号“；实际为1.587”仍completed无缺口/续修。六类×off/成功替身12F，未继续修。
+本轮自然金融会话0/取数0；旧not_passed不翻案。外审两次CLI另计：首次本地0API/token，补试opus-5报价$2.15684非结算，provider次数未知。
+格式化旧标记/续修提示移除标记及任意归属词表仍待验。8792、夜跑、KB防写、他人树/shim及其他T线未动。
 
 ## 下一步
-1. 用主树venv原样复跑新四例（业务79应exit1），接入既有续修矩阵；修占位短路，保合法占位/邻期控制；标记与扫描限定对应比率段。
-2. 新冻SHA验旧六例+新四例、变异、全量/前端/E2E/固定三仓registry，再独立审查。原件根`~/.finance-runtime/convergence-20260919/retention-repair/`，最新review在`qc-repair-79dba348`的ARL-0003；不是全局队列。
-3. 固定题/证据/GLM flash及5.3兜底/预算验真实conversations。未来待合tip须另出精确收据；生产切换另授权。
+1. 主树venv原样跑`check_ratio_scope_boundaries.py`，精确746应4P12F；旧保真6P/逗号占位4P。红针非绿CI。
+2. 六类接入既有出口/续修矩阵，成对保独立数字/单位/邻期；新冻SHA验全套+变异，再新独占根外审，保旧CR及invalid意见。
+3. 原件根`~/.finance-runtime/convergence-20260919/retention-repair/`；本次review根`qc-repair-746b716f`和`qc-retry-746b716f-01`，不是全局同号队列。
+4. 固定题/证据/GLM flash+5.3兜底/预算另验conversations。未来待合tip另出精确收据；切生产另授权。
 
 ## 已验证
-64984b33全量11877P；79dba348全量11912P/0F/0E/87S/2x。两版Ruff及前端lint/typecheck/build0、110P、E2E34P2S、固定三仓五项0、原样六例6P；变异25/28组真检出且还原绿。
-精确79全量收据`20260919T072906Z-79dba348.json`；完整门只签业务SHA，不签后续留证tip。ARL-0003预检1040P不是PASS。新四例反证门有洞，不能称整体通过。
+746全量11988P/0F/0E/87S/2x，收据`20260919T085036Z-746b716f.json`；Ruff0，前端110P/lint/typecheck/build0，E2E34P2S，固定三仓五项0；36撤保护真检出/还原绿、首尾416P。外审机械预检1116P不是准入。
 
 ## 踩过的坑
-“待核对”后的continue跳过整期；私有证据在≠公开数值可信。latest可被定向覆盖；registry须钉三仓；原件空白不清洗、新文档另验。
+正确值也不免检≠所有后续数字属于它。外审总PASS与必需项PARTIAL矛盾即无效。后置gate120秒无输出超时，无决策；直接裁决验证已明确invalid。原件不清洗，收据不移签。

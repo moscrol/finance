@@ -1,0 +1,614 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-746b716f/mutations/retained-bound-citations-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_retained_citations_do_not_resurrect_unbound_or_already_gapped_evidence or test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-porli7ba/tree", "revision": "746b716ff95d40898697628e197fd266a9473bf6"}
+F......FFFFFF............FFFFFF............FFFFFF............FFFFFF..... [ 36%]
+.......FFFFFF............FFFFFF............FFFFFF............FFFFFF..... [ 72%]
+.......FFFFFF............FFFFFF............FFFFFF......                  [100%]
+=================================== FAILURES ===================================
+_ test_retained_citations_do_not_resurrect_unbound_or_already_gapped_evidence __
+intelligence/tests/test_research_delivery_checks.py:318: in test_retained_citations_do_not_resurrect_unbound_or_already_gapped_evidence
+    assert checked.delivery_retained_evidence_hashes == (
+E   AssertionError: assert () == ('HASH_PRIVATE_SENTINEL',)
+E     
+E     Right contains one more item: 'HASH_PRIVATE_SENTINEL'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-exhausted-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-exhausted-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-exhausted-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-exhausted-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-exhausted-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-exhausted-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-exhausted-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-exhausted-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-exhausted-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-exhausted-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-exhausted-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-exhausted-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-exhausted-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-exhausted-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-exhausted-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-exhausted-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-exhausted-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-exhausted-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-exhausted-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-exhausted-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-exhausted-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-exhausted-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-exhausted-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-exhausted-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-exhausted-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-exhausted-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-exhausted-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-exhausted-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-exhausted-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-exhausted-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-exhausted-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-exhausted-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-exhausted-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-exhausted-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-exhausted-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-exhausted-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-exhausted-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-exhausted-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-exhausted-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-exhausted-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-exhausted-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-exhausted-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-exhausted-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-exhausted-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-exhausted-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-exhausted-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-exhausted-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-exhausted-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-exhausted-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-exhausted-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-exhausted-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-exhausted-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-exhausted-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-exhausted-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-exhausted-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-exhausted-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-exhausted-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-exhausted-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-exhausted-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-exhausted-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-exhausted-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-exhausted-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-exhausted-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-exhausted-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-exhausted-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-exhausted-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:221: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert {c["title"] for c in result.citations} == {evidence.title}
+E   AssertionError: assert set() == {'已取得的独立事实'}
+E     
+E     Extra items in the right set:
+E     '已取得的独立事实'
+E     Use -v to get more diff
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-746b716f/mutations/retained-bound-citations-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_checks.py::test_retained_citations_do_not_resurrect_unbound_or_already_gapped_evidence
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-exhausted-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-exhausted-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-exhausted-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-exhausted-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-exhausted-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-exhausted-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-exhausted-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-exhausted-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-exhausted-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-exhausted-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-exhausted-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-exhausted-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-exhausted-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-exhausted-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-exhausted-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-exhausted-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-exhausted-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-exhausted-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-exhausted-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-exhausted-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-exhausted-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-exhausted-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-exhausted-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-exhausted-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-exhausted-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-exhausted-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-exhausted-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-exhausted-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-exhausted-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-exhausted-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-exhausted-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-exhausted-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-exhausted-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-exhausted-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-exhausted-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-exhausted-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-exhausted-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-exhausted-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-exhausted-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-exhausted-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-exhausted-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-exhausted-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-exhausted-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-exhausted-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-exhausted-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-exhausted-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-exhausted-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-exhausted-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-exhausted-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-exhausted-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-exhausted-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-exhausted-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-exhausted-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-exhausted-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-exhausted-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-exhausted-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-exhausted-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-exhausted-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-exhausted-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-exhausted-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-exhausted-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-exhausted-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-exhausted-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-exhausted-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-exhausted-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-exhausted-timeout-llm]
+67 failed, 132 passed, 217 deselected in 2.06s
+
+STDERR:
+
+EXIT=1
