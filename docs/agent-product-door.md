@@ -329,6 +329,12 @@ A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结
 显式 `retrieve(code_root=...)` 优先于环境配置；指定代码根失效就拒绝，不回退旧资料树代码。
 worker 的资料根按调用参数传递且纳入进程复用键，不继承无关的 `KB_VAULT`；未配置代码根
 保持原目录约定。这是候选部署接线，不代表生产已经切换。
+受管代际由 `KB_RAG_GENERATION`（manifest SHA）、`RAG_GENERATION_MANIFEST` 与
+`RAG_GENERATIONS_ROOT` 三个核心键识别；worker 创建时固定代码、资料、普通/全文索引和
+解释器身份，进程池键也包含这份固定绑定。readiness 的 `status` 只读固定 manifest、
+`current.json`、marker 与目录身份：同一 root 切代、路径缺失/损坏/替换时立即非 ready，
+不启动/终止进程或安排恢复；另一独立 root 的合法环境不会给旧实例改名。退役身份使用专用
+错误停在消费者边界，不回退旧 CLI；普通进程/协议故障仍保留原 CLI 回退。
 这只是检索积木的协议：未给所有产品问句自动加截至日期，也不代表生产索引已迁移。
 跨仓合同见 `docs/handoffs/2026-09-18-kb-filter-receipt.md`；金融 #784 / KB #151 已合入，
 合并验收与生产边界见 `docs/handoffs/2026-09-18-kb-retrieval-merge-acceptance.md`。部署与索引迁移另行。
