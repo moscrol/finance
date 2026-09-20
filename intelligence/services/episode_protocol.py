@@ -403,6 +403,14 @@ def build_episode_input(
         ),
         "question_type_rules": _question_type_rules(task_frame, context),
     }
+    if task_frame.material_contract and task_frame.material_contract.premise_calculation:
+        payload["premise_calculation_rule"] = (
+            "本轮是按用户题设计算，不是核实真实公司的财务事实。"
+            "用户本轮及明确沿用的历史用户原文中的数字可作为条件，历史助手答案不能替代输入。"
+            "按题设列公式、单位和结果，百分比与百分点分开；缺少输入须明确指出，不能猜补。"
+            "这些条件及其计算结果使用 user_premise，不要求工具证据序号；"
+            "不能把题设、情景结果写成真实行情、盈利预测或已核实事实。"
+        )
     from intelligence.services.material_delivery import material_delivery_payload, material_question_outputs
 
     if material_question_outputs(context.contract):

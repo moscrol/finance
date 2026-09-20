@@ -315,6 +315,7 @@ def build_task_frame(
     ) if parts.regions else None
     restricted_material = bool(material_contract and (
         material_contract.data_scope == "material_only" or material_contract.needs_clarification
+        or material_contract.premise_calculation
     ))
     materials = parts.materials
     core = parts.question or question
@@ -1137,6 +1138,8 @@ def _is_financial_task(question_type: str, question: str) -> bool:
 def task_frame_requires_retrieval(frame: TaskFrame) -> bool:
     """Return whether an execution route may safely omit evidence retrieval."""
 
+    if frame.material_contract and frame.material_contract.premise_calculation:
+        return False
     if frame.evidence_policy in {"stable_knowledge", "model_reasoning"}:
         return False
     if frame.evidence_policy == "general_finance_evidence":

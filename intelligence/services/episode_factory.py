@@ -346,6 +346,8 @@ def _references_prior_judgement(frame: TaskFrame) -> bool:
 
 
 def _required_output_ids(frame: TaskFrame) -> tuple[str, ...]:
+    if frame.material_contract and frame.material_contract.premise_calculation:
+        return ("direct_answer", "evidence_boundary")
     outputs = frame.required_outputs
     if frame.question_type == "valuation_estimate":
         outputs = tuple(dict.fromkeys((*outputs, *_VALUATION_REQUIRED_OUTPUTS)))
@@ -469,7 +471,7 @@ def _required_output_evidence_types(
         )
     if output_id == "prime_quote":
         return tuple(
-            capability for capability in ("market_data",)
+            capability for capability in ("market_data", "finance_query")
             if capability in capabilities
         )
     if output_id == "prime_news":
@@ -526,6 +528,8 @@ def _material_restricted(contract: object | None) -> bool:
 def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
     """Project question semantics into the output grounding contract."""
 
+    if frame.material_contract and frame.material_contract.premise_calculation:
+        return "user_premise"
     if output_id == "evidence_boundary" and frame.material_contract is not None:
         if frame.material_contract.authenticity == "fictional" or frame.material_contract.data_scope == "material_only":
             # 只给范围声明前提资格；其它事实槽仍需证据，A轴不能取消B轴检索。
@@ -571,6 +575,8 @@ def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
 
 
 def _is_evidence_free_task(frame: TaskFrame) -> bool:
+    if frame.material_contract and frame.material_contract.premise_calculation:
+        return True
     if frame.material_contract is not None and frame.material_contract.data_scope_declared:
         # 两轴独立：显式fictional×full仍要真实检索；材料权限在P3统一冻结，
         # 不借旧evidence_free快捷通道把前提标签当授权。

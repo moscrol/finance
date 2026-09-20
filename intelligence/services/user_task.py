@@ -485,7 +485,7 @@ _B_LOCAL_ONLY_PHRASES: tuple[str, ...] = (
 )
 _B_RELAX_PHRASES: tuple[str, ...] = ("可以查真实数据", "结合最新行情", "结合当前行情")
 # ② 基底继承（续轮声明）：
-_CONTINUATION_HEAD_PHRASES: tuple[str, ...] = ("继续", "接着", "同上")
+_CONTINUATION_HEAD_PHRASES: tuple[str, ...] = ("继续", "接着", "同上", "沿用上一轮", "沿用上轮")
 # 切句与句首归一化共用前缀，避免礼貌用语令第二个状态操作漏检。
 _STATE_PREFIX_ATOM = r"(?:请|麻烦|烦请|本轮|这次|此次)\s*"
 
@@ -509,6 +509,16 @@ _FICTIONAL_SENT_RE = re.compile(
 _HYPOTHESIS_STRONG_RE = re.compile(r"^(?:假设|如果)\s*\S.{1,}")
 # 题内假设：句首 假设/如果 即算（题上下文消歧，scope=q{n}）。
 _HYPOTHESIS_IN_QUESTION_RE = re.compile(r"^(?:假设|如果)\s*\S.{1,}")
+# A calculation declaration describes the answer's basis, not permission to read.
+# The same protected-region scanner handles declarations and explicit fact requests.
+_PREMISE_CALCULATION_RE = re.compile(
+    r"^(?:(?:这|以下|本题|本轮)(?:是|为))?(?:独立的|一个|一道|纯)?"
+    r"(?:虚构的?(?:财务|金融)?(?:算例|计算题)|情景计算|按给定(?:数据|条件)计算)"
+)
+_WORLD_FACT_REQUEST_RE = re.compile(
+    r"^(?:再|同时|另外)?(?:查询|查证|核实|检索|查|结合|使用|参考)"
+    r"[^。；\n]*(?:真实|实际|最新|当前|今日|行情|财报|公告)"
+)
 
 _FENCE_RE = re.compile(r"^\s*(```|~~~)")
 _QUOTE_PAIRS: tuple[tuple[str, str], ...] = (
@@ -563,7 +573,7 @@ def _sentence_spans(text: str) -> list[tuple[int, int, str]]:
 def _state_op_in_sentence(sent: str) -> str | None:
     """句级状态操作识别（内容复核与指令识别共用的唯一入口，退修 R3）。
 
-    返回 "constraint_b" | "premise_declaration" | "continuation" | None。
+    返回顶层状态操作种类；引用和材料正文不能发出这些操作。
     """
     s = sent.strip()
     if not s:
@@ -573,6 +583,10 @@ def _state_op_in_sentence(sent: str) -> str | None:
         return "constraint_b"
     if head.startswith(_CONTINUATION_HEAD_PHRASES) or "其余条件不变" in s:
         return "continuation"
+    if _PREMISE_CALCULATION_RE.match(head):
+        return "premise_calculation"
+    if _WORLD_FACT_REQUEST_RE.match(head):
+        return "world_fact_request"
     if _FICTIONAL_SENT_RE.search(s):
         return "premise_declaration"
     if _HYPOTHESIS_STRONG_RE.match(s):
@@ -690,7 +704,7 @@ class InstructionSpan:
     scope="message" 为消息级；题内检出的状态操作 scope="q{用户原编号}"（退修 R6）。
     """
 
-    kind: str  # "constraint_b" | "premise_declaration" | "continuation"
+    kind: str  # constraint_b, premise_declaration, continuation, premise_calculation, world_fact_request
     text: str
     line_index: int
     scope: str = "message"
