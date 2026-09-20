@@ -99,7 +99,7 @@ def resolve_base(cwd: str, timeout: float) -> str:
         code, _ = _git(["rev-parse", "--verify", "--quiet", candidate], cwd=cwd, timeout=timeout)
         if code == 0:
             return candidate
-    return "HEAD"
+    return ""
 
 
 def parse_worktree_porcelain(text: str) -> list[dict[str, str]]:
@@ -187,7 +187,7 @@ def unique_subjects(head: str, base: str, *, cwd: str, timeout: float, limit: in
 
 
 def _count(args: list[str], *, cwd: str, timeout: float) -> int:
-    """``rev-list --count`` 的安全读法：非数字一律当 0。
+    """``rev-list --count`` 的安全读法：失败或非数字用 -1 表示未知。
 
     直接 ``int(out or 0)`` 会在 git 把话写到 stdout 时抛 ValueError。本脚本
     喂的是 SessionStart，抛出去就是 hook 静默不输出——等于没装（见模块头）。
@@ -195,7 +195,7 @@ def _count(args: list[str], *, cwd: str, timeout: float) -> int:
 
     code, out = _git(args, cwd=cwd, timeout=timeout)
     if code != 0 or not out.isdigit():
-        return 0
+        return -1
     return int(out)
 
 
@@ -230,8 +230,12 @@ def classify_worktree(
     )
     if plus < 0:
         error = error or "git cherry failed; merge status unknown"
-    ahead = _count(["rev-list", "--count", f"{base}..{head}"], cwd=path, timeout=timeout)
-    behind = behind_count(head, base, cwd=path, timeout=timeout)
+    ahead = behind = -1
+    if not error:
+        ahead = _count(["rev-list", "--count", f"{base}..{head}"], cwd=path, timeout=timeout)
+        behind = behind_count(head, base, cwd=path, timeout=timeout)
+        if ahead < 0 or behind < 0:
+            error = "git rev-list failed; ahead/behind unknown"
     status_code, status = (
         (1, "") if error
         else _git(["status", "--porcelain"], cwd=path, timeout=timeout)
@@ -432,7 +436,7 @@ def format_board(rows: list[TreeRow], *, base: str, base_sha: str) -> str:
         lines.append(f"      {display_path(row.path)}")
         for subject in row.subjects:
             lines.append(f"      · {subject}")
-    lines += ["", "【补丁已在基线 — 树可拆，本脚本不拆】"]
+    lines += ["", "【补丁已在基线且 Git 干净 — 不是删除许可，本脚本不拆】"]
     if not prune:
         lines.append("  （无）")
     for row in sorted(prune, key=lambda item: item.branch):
@@ -441,7 +445,7 @@ def format_board(rows: list[TreeRow], *, base: str, base_sha: str) -> str:
             f"  {row.head[:12]}  {row.branch}{extra}  {display_path(row.path)}"
         )
     if leftover_dirty:
-        lines += ["", "【补丁已在基线，但还有未提交文件 — 先认领再拆】"]
+        lines += ["", "【补丁已在基线，但还有未提交文件 — 先认领并保全】"]
         for row in leftover_dirty:
             lines.append(
                 f"  {row.head[:12]}  {row.branch}  {display_path(row.path)}"
@@ -452,14 +456,15 @@ def format_board(rows: list[TreeRow], *, base: str, base_sha: str) -> str:
             reason = "; ".join(filter(None, (row.error, row.locked, row.prunable)))
             lines.append(f"  {row.head[:12]}  {row.branch}  {display_path(row.path)}")
             lines.append(f"      {reason}")
-    lines += ["", "【生产快照】只留当前 8792 + 一个回滚锚；本脚本不拆"]
+    lines += ["", "【生产快照】生产快照保留策略需另行核实；本脚本不拆"]
     for row in snapshots:
         lines.append(
             f"  {row.head[:12]}  dirty={str(row.dirty).lower()}  {display_path(row.path)}"
         )
     lines += [
         "",
-        "拆树（需你确认）：git worktree remove <path>",
+        "删除前另查 ignored 文件、reflog、活跃进程/定时任务与部署引用，并取得用户确认。",
+        "cherry 只比较补丁等价，不证明业务接替或合并提交里的独有改动已吸收。",
         "合入状态不要写进 inflight/main.md 或项目笔记交接记录，下次跑本脚本。",
     ]
     return "\n".join(lines) + "\n"
@@ -476,8 +481,9 @@ def this_tree_lines(
     code, head = _git(["rev-parse", "HEAD"], cwd=cwd, timeout=timeout)
     if code != 0 or not head:
         return []
-    plus, minus, in_main = cherry_counts(head, base, cwd=cwd, timeout=timeout)
-    behind = behind_count(head, base, cwd=cwd, timeout=timeout)
+    pinned_base = base_sha or base
+    plus, minus, in_main = cherry_counts(head, pinned_base, cwd=cwd, timeout=timeout)
+    behind = behind_count(head, pinned_base, cwd=cwd, timeout=timeout)
     if plus < 0:
         merge = f"合入: 未知（git cherry 查询失败，基准 {base}={base_sha[:12]}）"
     elif in_main:
@@ -488,7 +494,9 @@ def this_tree_lines(
         )
     # 追加在同一行而不是新起一行：SessionStart 有 2000 字符预算，实测已在截断
     # 后省略三十余条，多一行就是挤掉另一条事实。落后量始终打印，⚠ 只在过阈值时加。
-    if behind > 0:
+    if behind < 0:
+        merge += "；底落后量未知（git rev-list 查询失败）"
+    elif behind > 0:
         merge += f"；底落后 {behind} 提交"
         if behind >= STALE_BASE_WARN:
             merge += (
@@ -521,14 +529,20 @@ def this_tree_lines(
 
 def collect_rows(*, cwd: str, timeout: float) -> tuple[str, str, str, list[TreeRow]]:
     base = resolve_base(cwd, timeout)
-    _, base_sha = _git(["rev-parse", base], cwd=cwd, timeout=timeout)
-    _, common = _git(
+    code, base_sha = _git(["rev-parse", base], cwd=cwd, timeout=timeout)
+    if not base or code != 0 or not base_sha:
+        raise RuntimeError("main baseline unavailable; merge status unknown")
+    code, common = _git(
         ["rev-parse", "--path-format=absolute", "--git-common-dir"],
         cwd=cwd,
         timeout=timeout,
     )
-    main_checkout = str(Path(common).resolve().parent) if common else cwd
-    _, porcelain = _git(["worktree", "list", "--porcelain"], cwd=cwd, timeout=timeout)
+    if code != 0 or not common:
+        raise RuntimeError("git common-dir unavailable; worktree inventory unknown")
+    main_checkout = str(Path(common).resolve().parent)
+    code, porcelain = _git(["worktree", "list", "--porcelain"], cwd=cwd, timeout=timeout)
+    if code != 0 or not porcelain:
+        raise RuntimeError("git worktree list failed; worktree inventory unknown")
     rows: list[TreeRow] = []
     for spec in parse_worktree_porcelain(porcelain):
         row = classify_worktree(
@@ -560,7 +574,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.this:
         timeout = min(timeout, 8.0)
         base = resolve_base(cwd, timeout)
-        _, base_sha = _git(["rev-parse", base], cwd=cwd, timeout=timeout)
+        code, base_sha = _git(["rev-parse", base], cwd=cwd, timeout=timeout)
+        if not base or code != 0 or not base_sha:
+            print("合入: 未知（main 基准无法读取，不回退 HEAD 自证）")
+            return 1
         for line in this_tree_lines(
             cwd=cwd,
             base=base,
@@ -570,7 +587,14 @@ def main(argv: list[str] | None = None) -> int:
         ):
             print(line)
         return 0
-    base, base_sha, _main_checkout, rows = collect_rows(cwd=cwd, timeout=timeout)
+    try:
+        base, base_sha, _main_checkout, rows = collect_rows(cwd=cwd, timeout=timeout)
+    except RuntimeError as exc:
+        if args.json:
+            print(json.dumps({"error": str(exc), "trees": None}))
+        else:
+            print(f"看板: 未知（{exc}）", file=sys.stderr)
+        return 1
     if args.json:
         payload = {
             "base": base,
