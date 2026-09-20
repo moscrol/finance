@@ -6,8 +6,8 @@ presentation order. Neither digest authenticates a user or an external source.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from datetime import date
+from dataclasses import asdict, dataclass, replace
+from datetime import date, datetime
 import hashlib
 import json
 import math
@@ -20,15 +20,19 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from intelligence.services.evidence_ledger import EvidenceLedger
 
-_FIELDS = frozenset({
+_COMMON_FIELDS = frozenset({
     "schema_version", "kind", "episode_id", "information_cutoff", "entries",
-    "presented_hashes", "covered_outputs", "open_gaps", "sha256",
+    "covered_outputs", "open_gaps", "sha256",
 })
+_FIELDS_BY_VERSION = {
+    1: _COMMON_FIELDS | {"presented_hashes"},
+    2: _COMMON_FIELDS | {"presentations"},
+}
 _STRING_FIELDS = (
     "tool", "title", "detail", "source", "internal_locator", "evidence_tier",
     "independent_key", "freshness", "content_hash", "publisher_kind", "document_type",
 )
-# Explicit v1 schema: a new AgentEvidence field must make capture fail closed
+# Explicit atom schema: a new AgentEvidence field must make capture fail closed
 # until its persistence/validation semantics have been deliberately chosen.
 _ATOM_FIELDS = frozenset((*_STRING_FIELDS,
     "source_date", "supports", "contradicts", "derived_from", "observations",
@@ -114,35 +118,82 @@ class EvidenceCheckpointEntry:
 
 
 @dataclass(frozen=True)
+class EvidencePresentation:
+    atom: AgentEvidence
+    classification: str
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "atom": _json_copy(asdict(self.atom), path="presentation.atom"),
+            "classification": self.classification,
+        }
+
+
+def classify_presentation(
+    item: AgentEvidence, original: AgentEvidence | None, cutoff: date | None,
+) -> str:
+    """Request links may vary; every other admitted field still belongs to the first writer."""
+    if original is not None:
+        if replace(item, supports=original.supports, contradicts=original.contradicts) != original:
+            raise ValueError("presented evidence differs from its admitted original")
+        return "admitted"
+    # The registry can expose future-only results as a dated notice. This is a
+    # presentation, never a fact admission or an inferred coverage target. Parse
+    # the complete date value: a title or a valid prefix plus junk grants nothing.
+    if cutoff is not None and isinstance(item.source_date, str):
+        try:
+            source_day = date.fromisoformat(item.source_date)
+        except ValueError:
+            try:
+                source_day = datetime.fromisoformat(item.source_date).date()
+            except ValueError:
+                source_day = None
+        if source_day is not None and source_day > cutoff:
+            return "future_of_cutoff"
+    raise ValueError("presented evidence is absent from the ledger and is not valid future material")
+
+
+@dataclass(frozen=True)
 class EpisodeEvidenceSnapshot:
     episode_id: str
     information_cutoff: date | None
     entries: tuple[EvidenceCheckpointEntry, ...]
-    presented_hashes: tuple[str, ...]
+    presentations: tuple[EvidencePresentation, ...]
     covered_outputs: tuple[str, ...]
     open_gaps: tuple[str, ...]
+    schema_version: int = 2
+
+    @property
+    def presented_hashes(self) -> tuple[str, ...]:
+        return tuple(item.atom.content_hash for item in self.presentations)
 
     @property
     def presented_evidence(self) -> tuple[AgentEvidence, ...]:
-        by_hash = {entry.atom.content_hash: entry.atom for entry in self.entries}
-        return tuple(by_hash[digest] for digest in self.presented_hashes)
+        return tuple(item.atom for item in self.presentations)
 
     def to_dict(self) -> dict[str, object]:
         body = {
-            "schema_version": 1, "kind": "episode_evidence", "episode_id": self.episode_id,
+            "schema_version": self.schema_version, "kind": "episode_evidence", "episode_id": self.episode_id,
             "information_cutoff": self.information_cutoff.isoformat() if self.information_cutoff else None,
             "entries": [entry.to_dict() for entry in self.entries],
-            "presented_hashes": list(self.presented_hashes),
             "covered_outputs": list(self.covered_outputs), "open_gaps": list(self.open_gaps),
         }
+        if self.schema_version == 1:
+            body["presented_hashes"] = list(self.presented_hashes)
+        else:
+            body["presentations"] = [item.to_dict() for item in self.presentations]
         return {**body, "sha256": _digest(body)}
 
     @classmethod
     def from_dict(cls, payload: object, *, episode_id: str) -> EpisodeEvidenceSnapshot:
         from intelligence.services.evidence_ledger import _clean, _cutoff_status
 
-        raw = _object(_json_copy(payload, path="evidence_snapshot"), _FIELDS, "snapshot")
-        if type(raw["schema_version"]) is not int or raw["schema_version"] != 1 or raw["kind"] != "episode_evidence":
+        raw = _json_copy(payload, path="evidence_snapshot")
+        if not isinstance(raw, dict) or type(raw.get("schema_version")) is not int or raw["schema_version"] not in _FIELDS_BY_VERSION:
+            raise ValueError("unsupported evidence snapshot version/kind")
+        version = raw["schema_version"]
+        raw = _object(raw, _FIELDS_BY_VERSION[version], "snapshot")
+        if raw["kind"] != "episode_evidence":
             raise ValueError("unsupported evidence snapshot version/kind")
         if not isinstance(raw["episode_id"], str) or raw["episode_id"] != episode_id or not episode_id or episode_id != episode_id.strip():
             raise ValueError("evidence snapshot episode identity mismatch")
@@ -179,14 +230,32 @@ class EpisodeEvidenceSnapshot:
             if status is None or status != entry["cutoff_status"]:
                 raise ValueError("evidence source date/cutoff status mismatch")
             entries.append(EvidenceCheckpointEntry(atom, targets, owner, status))
-        presented = _strings(raw["presented_hashes"], canonical=True)
-        if not set(presented).issubset(identities):
-            raise ValueError("presented evidence is absent from the ledger")
+        by_hash = {entry.atom.content_hash: entry.atom for entry in entries}
+        if version == 1:
+            presented = _strings(raw["presented_hashes"], canonical=True)
+            if not set(presented).issubset(identities):
+                raise ValueError("presented evidence is absent from the ledger")
+            presentations = [EvidencePresentation(by_hash[identity], "admitted") for identity in presented]
+        else:
+            if not isinstance(raw["presentations"], list):
+                raise ValueError("evidence presentations must be a list")
+            presentations = []
+            presented_ids: set[str] = set()
+            for record in raw["presentations"]:
+                presentation = _object(record, frozenset({"atom", "classification"}), "presentation")
+                atom = _atom(presentation["atom"])
+                if atom.content_hash in presented_ids:
+                    raise ValueError("duplicate presented evidence identity")
+                presented_ids.add(atom.content_hash)
+                classification = classify_presentation(atom, by_hash.get(atom.content_hash), cutoff)
+                if presentation["classification"] != classification:
+                    raise ValueError("evidence presentation classification mismatch")
+                presentations.append(EvidencePresentation(atom, classification))
         covered = _strings(raw["covered_outputs"], canonical=True)
         gaps = _strings(raw["open_gaps"], canonical=True)
         if list(covered) != sorted(covered) or list(gaps) != sorted(gaps) or not set(covered).issubset(all_targets):
             raise ValueError("evidence coverage/gaps do not reconcile with targets")
-        return cls(episode_id, cutoff, tuple(entries), presented, covered, gaps)
+        return cls(episode_id, cutoff, tuple(entries), tuple(presentations), covered, gaps, version)
 
 
 def capture_evidence_snapshot(

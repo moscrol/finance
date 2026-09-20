@@ -222,14 +222,12 @@ class EvidenceLedger:
         the ledger without acquiring an E-number.
         """
         from intelligence.services.episode_evidence import (
-            EpisodeEvidenceSnapshot, EvidenceCheckpointEntry,
+            EpisodeEvidenceSnapshot, EvidenceCheckpointEntry, EvidencePresentation,
+            classify_presentation,
         )
 
         presented = tuple(presented_evidence)
         with self._lock:
-            for item in presented:
-                if self._items.get(item.content_hash) != item:
-                    raise ValueError("presented evidence differs from its admitted original")
             snapshot = EpisodeEvidenceSnapshot(
                 episode_id=episode_id, information_cutoff=self._cutoff,
                 entries=tuple(EvidenceCheckpointEntry(
@@ -237,7 +235,10 @@ class EvidenceLedger:
                     branch_owner=self._branch_owners.get(identity),
                     cutoff_status=_cutoff_status(item, self._cutoff),
                 ) for identity, item in self._items.items()),
-                presented_hashes=tuple(item.content_hash for item in presented),
+                presentations=tuple(EvidencePresentation(
+                    atom=item,
+                    classification=classify_presentation(item, self._items.get(item.content_hash), self._cutoff),
+                ) for item in presented),
                 covered_outputs=tuple(sorted(self._covered_outputs)),
                 open_gaps=tuple(sorted(self._open_gaps)),
             )

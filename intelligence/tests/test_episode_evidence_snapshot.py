@@ -95,7 +95,7 @@ def test_restored_ledger_keeps_cutoff_gate_and_duplicate_owner_first_writer():
 
 
 @pytest.mark.parametrize(("path", "value"), [
-    (("schema_version",), True), (("schema_version",), 2), (("kind",), "public_evidence"),
+    (("schema_version",), True), (("schema_version",), 3), (("kind",), "public_evidence"),
     (("episode_id",), "other"), (("information_cutoff",), "2026-99-99"),
     (("entries", 0, "atom", "source_date"), "2026-07-25"),
     (("entries", 0, "atom", "source_date"), "unknown"),
@@ -112,7 +112,8 @@ def test_restored_ledger_keeps_cutoff_gate_and_duplicate_owner_first_writer():
     (("entries", 0, "targets"), ["direct", "direct"]),
     (("entries", 0, "branch_owner"), ""),
     (("entries", 0, "cutoff_status"), "verified"),
-    (("presented_hashes",), ["missing"]), (("presented_hashes",), ["first", "first"]),
+    (("presentations", 0, "atom", "content_hash"), "missing"),
+    (("presentations", 1, "atom", "content_hash"), "first"),
     (("covered_outputs",), ["not-targeted"]), (("open_gaps",), [" duplicate "]),
     (("unexpected",), True),
 ])
@@ -128,7 +129,7 @@ def test_semantically_invalid_snapshot_is_rejected_even_with_recomputed_digest(p
 
 
 @pytest.mark.parametrize("path", [
-    ("entries",), ("presented_hashes",), ("information_cutoff",),
+    ("entries",), ("presentations",), ("information_cutoff",),
     ("entries", 0, "branch_owner"), ("entries", 0, "cutoff_status"),
     ("entries", 0, "atom", "observations"), ("entries", 0, "atom", "source_date"),
     ("entries", 0, "atom", "derived_from"), ("entries", 0, "atom", "internal_locator"),
@@ -241,7 +242,8 @@ def test_loop_checkpoints_capture_received_full_atoms_not_the_public_event_proje
 
 
 @pytest.mark.parametrize("expired", [False, True])
-def test_restore_keeps_original_capture_position_when_synthesizing_settlements(tmp_path, expired):
+@pytest.mark.parametrize("version", [1, 2])
+def test_restore_keeps_original_capture_position_when_synthesizing_settlements(tmp_path, expired, version):
     from datetime import datetime, timedelta
     from intelligence.runtime.agent_episode import ContinuousAgentEpisode
     from intelligence.services.episode_restore import restore_episode
@@ -255,7 +257,13 @@ def test_restore_keeps_original_capture_position_when_synthesizing_settlements(t
     rig.run_until("tools_settled")
     rig.run_until("model_pending")
     events, checkpoint = live.load(rig.task_id)
-    assert checkpoint.evidence_snapshot["presented_hashes"]
+    assert checkpoint.evidence_snapshot["presentations"]
+    if version == 1:
+        payload = checkpoint.to_dict()["evidence_snapshot"]
+        payload["presented_hashes"] = [item["atom"]["content_hash"] for item in payload.pop("presentations")]
+        payload["schema_version"] = 1
+        _resign(payload)
+        checkpoint = replace(checkpoint, evidence_snapshot=payload)
     # Retry=0 exercises synthetic model_error -> finalizing, not just a readonly plan.
     checkpoint = replace(checkpoint, retry={"remaining": 0})
     rig.finish()
