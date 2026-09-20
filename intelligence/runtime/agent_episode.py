@@ -829,6 +829,52 @@ class _EpisodeToolAccumulator:
                 self.evidence.append(item)
 
 
+def _seed_prior_evidence(
+    accumulator: _EpisodeToolAccumulator,
+    messages: list[EpisodeMessage],
+    context: ResearchRunContext,
+) -> None:
+    snapshot = context.prior_evidence
+    if snapshot is None:
+        return
+    from intelligence.services.derived_calculation import evidence_payload
+    from intelligence.services.episode_protocol import evidence_ordinal_table
+
+    material = context.contract.material_contract
+    if material is None or material.data_scope != "material_only" or context.contract.allowed_capabilities:
+        raise ValueError("frozen prior inputs cannot authorize a new-read episode")
+    evidence = snapshot.admitted(
+        task_frame_hash=context.contract.task_frame_hash,
+        cutoff=context.information_cutoff.as_of_date,
+    )
+    if not evidence:
+        raise ValueError("no prior evidence within the current cutoff")
+    accumulator.evidence_ledger.append(evidence)
+    accumulator.evidence.extend(evidence)
+    accumulator.evidence_hashes.update(item.content_hash for item in evidence)
+    ordinals = evidence_ordinal_table(tuple(accumulator.evidence))
+    receipt = snapshot.receipt()
+    receipt["bindings"] = [
+        {"old_ref": ref, "new_ref": ordinals[item.content_hash], "content_hash": item.content_hash}
+        for ref, item in snapshot.entries if item.content_hash in ordinals
+    ]
+    append_model_input(
+        messages, accumulator.ledger,
+        content=json.dumps({
+            "kind": "prior_tool_evidence", "receipt": receipt,
+            "evidence": evidence_payload(evidence),
+            "rule": (
+                "以下是经同用户同会话原件校验的旧工具输入，不是重新查询。日期与口径仍属于原轮，"
+                "不能当作当前行情或其他日期的观测；仅用于复核原问题，不扩大研究范围。"
+                "只使用此处新编号，旧答编号不得直接复用。旧结论、覆盖状态和完成判定均未继承。"
+                "历史助手陈述仍只是待审判断；原件没有的资金行为等信息继续未知，"
+                "不得用待撤回的旧说法反过来证明自己。"
+            ),
+        }, ensure_ascii=False),
+        source="prior_tool_evidence",
+    )
+
+
 def _seed_opening_prefetch(
     accumulator: _EpisodeToolAccumulator,
     messages: list[EpisodeMessage],
@@ -1247,6 +1293,7 @@ class ContinuousAgentEpisode:
             harness=self._harness,
             progress=progress,
         )
+        _seed_prior_evidence(accumulator, messages, context)
         _seed_opening_prefetch(accumulator, messages, registry)
         continuation_state: _EpisodeContinuationState | None = None
         if _continuation_sink is not None:

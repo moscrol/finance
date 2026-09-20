@@ -91,9 +91,17 @@ ask 的 AnswerSpec 合成、旧复盘合成及 `prepare_existing_answer` 回退�
 明确允许重查的普通续问保留日期锚点。`只用已取得的数据` 比 local_only 更窄，
 编为 material_only，不能再查本地库；引用行不能声明权限。旧 E 编号仍仅限原轮，
 新提示不授予旧回答事实资格。这些修复不是开关 off 时的字节级回滚范围。
-材料前提绑定、旧工具证据快照继承仍未完成；真实旧材料复核还会被 non_research
-投影挡到材料兜底，不能把零工具当作交付成功。详见
-[输入边界复验](verification/2026-09-21-reasoning-input-boundaries.md)。未合、未部署。
+零检索与研究交付已拆开：明确材料任务走 research、needs_retrieval=false，读取能力仍为空。
+同会话明确要求“复核刚才解释、仍只用已取得数据”时，`prior_evidence` 可从上一轮已完成的
+local_only 原始 Episode 恢复输入。RunStore 校验用户、会话、登记工件路径/大小/SHA256；
+恢复器核对原问、消息、TaskFrame/contract/outcome 身份及日期，拒绝未知 schema、重复身份，
+排除非白名单本地工具、缺日期、越截止日及派生计算证据。本轮重新编 E 号，保留原 run/hash 映射；
+旧答案、覆盖/完成状态及权限不继承。仅复用已登记私有原件，不查 DuckDB 或外部资料。
+当前只支持有完整可信历史、无新显式日期/转题的单跳复核；不做跨会话、多层复核链或任意窗口重筛。
+虚构材料的前提绑定仍未解决。V3 真实复核恢复14条、零新工具且能撤回部分断言，
+但原答仍过强归因、复核仍把成交占比写成增量集中，不能宣称求证质量已验收。
+历次原件见 [输入边界复验](verification/2026-09-21-reasoning-input-boundaries.md) 和
+[旧证据复核 V3](verification/2026-09-21-prior-evidence-review.md)。未合、未部署。
 
 ### 材料题边界（E2，分阶段接线中）
 

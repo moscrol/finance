@@ -610,6 +610,17 @@ def requests_previous_answer_review(text: str) -> bool:
     )
 
 
+def requests_previous_evidence_only(text: str) -> bool:
+    """Only an explicit final, top-level frozen-input instruction authorizes reuse."""
+    regions = classify_top_level_regions(text)
+    constraints = [span for span in regions.instructions
+                   if span.scope == "message" and span.kind == "constraint_b"]
+    return bool(
+        regions.classification != "boundary_uncertain" and constraints
+        and _B_PREVIOUS_EVIDENCE_ONLY_RE.match(_state_head(constraints[-1].visible_text))
+    )
+
+
 def find_state_ops(text: str) -> tuple[tuple[str, str], ...]:
     """对一段（已按强保护掩码的）文本做句级状态操作扫描，返回 (kind, 原句) 列表。"""
     out: list[tuple[str, str]] = []

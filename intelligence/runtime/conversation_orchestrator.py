@@ -2243,6 +2243,23 @@ class TurnOrchestrator:
                     continuous_control = replace(
                         continuous_control, stance_pack=stance_pack
                     )
+                if material_only and continuous_control.terminal_kind == "research":
+                    from intelligence.services.prior_evidence import load_previous_evidence
+
+                    try:
+                        prior_evidence = load_previous_evidence(
+                            task_frame, messages=context.material_messages or (),
+                            store=self.run_store, conversation_id=conversation_id,
+                            current_run_id=run_id,
+                            history_unavailable=context.material_history_unavailable,
+                        )
+                    except (OSError, ValueError, TypeError, OverflowError) as exc:
+                        # Missing originals never authorize a fresh query or old-answer evidence.
+                        warning = f"prior_evidence_unavailable:{type(exc).__name__}"
+                        warnings.append(warning)
+                        self.run_store.add_degrade(run_id, warning)
+                    else:
+                        continuous_control = replace(continuous_control, prior_evidence=prior_evidence)
                 with bind_run_hunger(
                     self.run_store.run_dir(run_id), run_id=run_id
                 ):

@@ -159,6 +159,33 @@ def test_authorized_reread_retains_date_and_scope_through_controller_and_seriali
         resolve_evidence_refs(["E1"], ())
 
 
+@pytest.mark.parametrize("question", [SUPPLY, REVIEW])
+def test_material_delivery_is_research_without_retrieval_even_with_legacy_capabilities(question):
+    from intelligence.runtime.turn_control_core import project_turn_decision
+
+    history = collect_material_turn_history([
+        message(LOCAL), message("[E1] 抛压衰竭。", "assistant", "old-answer"),
+    ])
+    decision = decide_turn(question, conversation_materials=history, llm_complete=no_llm)
+    decision = replace(decision, needs_retrieval=True, capabilities=("web_search", "memory"))
+    control = project_turn_decision(decision, task_frame=decision.task_frame)
+    assert control.terminal_kind == "research"
+    assert control.contract_required
+    assert not control.needs_retrieval
+    assert control.capabilities == ()
+    assert control.task_frame.task_frame_hash == decision.task_frame.task_frame_hash
+
+
+def test_material_review_without_history_still_clarifies_before_research():
+    from intelligence.runtime.turn_control_core import project_turn_decision
+
+    decision = decide_turn(REVIEW, conversation_materials=ConversationMaterials(), llm_complete=no_llm)
+    control = project_turn_decision(decision, task_frame=decision.task_frame)
+    assert control.terminal_kind == "clarification"
+    assert not control.needs_retrieval
+    assert control.capabilities == ()
+
+
 def test_original_review_disallows_even_local_reread():
     history = collect_material_turn_history([
         message(LOCAL), message("[E1] 抛压衰竭。", "assistant", "old-answer"),
