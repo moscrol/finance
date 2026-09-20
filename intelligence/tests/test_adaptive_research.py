@@ -17,6 +17,7 @@ from intelligence.services.adaptive_research import (
 )
 from intelligence.services.agent_runtime import ModelTurn
 from intelligence.services.episode_protocol import build_episode_input, build_episode_instructions
+from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_plan import parse_research_plan, plan_to_public_dict, validate_plan_revision
 from intelligence.tests.test_agent_episode_progress import (
     ScriptedModel, _budget_blocks, _context, _evidence_for, _finish_turn, _frame, _registry, _run, _runner, _tool_turn,
@@ -152,6 +153,8 @@ def test_real_loop_updates_perspectives_in_the_same_tool_round(monkeypatch):
     first = blocks[0]["research_progress"]["adaptive_research"]
     second = blocks[1]["research_progress"]["adaptive_research"]
     assert first["plan_revision"] == 1 and first["unresolved_perspective_ids"] == ["sustainability"]
+    assert first["plan_revision_constraints"]["preserve_perspective_ids"] == ["sustainability"]
+    assert second["plan_revision_constraints"]["preserve_perspective_ids"] == ["sustainability", "alternative"]
     assert second["plan_revision"] == 2 and second["plan_recorded_after_batch"] == 1
     assert second["unknown_evidence_ids_at_submission"] == []
     assert second["unresolved_perspective_ids"] == ["alternative"]
@@ -184,7 +187,7 @@ def test_no_plan_is_visible_as_missing_not_complete_and_budget_still_closes(monk
     assert [event.payload["reason"] for event in outcome.events if event.kind == "finalization"] == ["tool_budget_exhausted"]
 
 
-def _run_deep(model, *, max_steps=8):
+def _run_deep(model, *, max_steps=8, runner=None):
     frame = _frame()
     context = _context(frame, max_steps=max_steps)
     context = replace(
@@ -192,7 +195,7 @@ def _run_deep(model, *, max_steps=8):
         contract=replace(context.contract, research_tier="deep"),
         policy=replace(context.policy, tier="deep"),
     )
-    return ContinuousAgentEpisode(model).run(task_frame=frame, context=context, registry=_registry(_runner))
+    return ContinuousAgentEpisode(model).run(task_frame=frame, context=context, registry=_registry(_runner if runner is None else runner))
 
 
 def test_deep_research_gets_one_checkpoint_after_first_observation(monkeypatch):
@@ -269,13 +272,14 @@ def _revision_contract_plan(*, revision=4, perspectives=()):
 
 
 def test_checkpoint_exposes_the_actual_accepted_plan_constraints():
-    plan = _revision_contract_plan(perspectives=[_perspective()])
+    # Existing perspectives skip the checkpoint; only regular feedback retains their IDs.
+    plan = _revision_contract_plan()
     message = json.loads(perspective_checkpoint_message(plan))
     assert message["plan_revision_constraints"] == {
         "minimum_revision": 5,
         "preserve_answer_elements": list(plan.answer_elements),
         "preserve_branch_goals": list(plan.branch_goals),
-        "preserve_perspective_ids": ["sustainability"],
+        "preserve_perspective_ids": [],
     }
     assert "branch_goals" in message["instruction"]
     assert "answer_elements" in message["instruction"]
@@ -314,6 +318,7 @@ def test_real_checkpoint_carries_the_accepted_plan_and_keeps_revision_admission(
     assert checkpoint["plan_revision_constraints"]["preserve_answer_elements"] == list(first.answer_elements)
     assert checkpoint["plan_revision_constraints"]["preserve_branch_goals"] == list(first.branch_goals)
     assert checkpoint["plan_revision_constraints"]["minimum_revision"] == 2
+    assert checkpoint["plan_revision_constraints"]["preserve_perspective_ids"] == []
     assert outcome.plan == second
     assert outcome.usage.invalid_actions == 0
     assert outcome.usage.llm_calls == 3 and outcome.usage.tool_calls == 1
@@ -329,3 +334,59 @@ def test_single_fact_can_finish_in_the_checkpoint_without_an_extra_round(monkeyp
     assert outcome.usage.invalid_actions == 0
     assert outcome.usage.llm_calls == 2 and outcome.usage.tool_calls == 1
     assert model.calls[1]["tools"] == []
+
+
+@pytest.mark.parametrize("changed,reason", [
+    ({"answer_elements": ["Comparison"]}, "cannot remove answer elements"),
+    ({"branch_goals": ["Verify first alternative"]}, "cannot remove branch goals"),
+    ({"revision": 1}, "revision"),
+])
+def test_checkpoint_still_rejects_invalid_revisions(monkeypatch, changed, reason):
+    monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", "on")
+    monkeypatch.setenv("FORESIGHT_STRICT_DERIVATION", "1")
+    first = _revision_contract_plan(revision=1)
+    payload = {"kind": "PLAN", **plan_to_public_dict(first), "revision": 2, **changed}
+    model = ScriptedModel([
+        replace(_tool_turn("first", "c1"), content=json.dumps({"kind": "PLAN", **plan_to_public_dict(first)})),
+        ModelTurn(json.dumps(payload), (), "scripted", ""),
+        _finish_turn(("hash-first",)),
+    ])
+    outcome = _run_deep(model)
+    assert outcome.plan == first
+    assert outcome.usage.invalid_actions == 1
+    assert any(reason in str(event.payload.get("reason")) for event in outcome.events if event.kind == "invalid_action")
+    assert outcome.usage.tool_calls == 1 and outcome.usage.llm_calls == 3
+    assert model.calls[1]["tools"] == []
+
+
+def test_checkpoint_accepts_reordering_preserved_items(monkeypatch):
+    monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", "on")
+    first = _revision_contract_plan(revision=1)
+    second = replace(first, revision=2, answer_elements=first.answer_elements[::-1], branch_goals=first.branch_goals[::-1])
+    model = ScriptedModel([
+        replace(_tool_turn("first", "c1"), content=json.dumps({"kind": "PLAN", **plan_to_public_dict(first)})),
+        ModelTurn(json.dumps({"kind": "PLAN", **plan_to_public_dict(second)}), (), "scripted", ""),
+        _finish_turn(("hash-first",)),
+    ])
+    outcome = _run_deep(model)
+    assert outcome.plan == second and outcome.usage.invalid_actions == 0
+
+
+def test_empty_evidence_checkpoint_cannot_claim_completed(monkeypatch):
+    monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", "on")
+    monkeypatch.setenv("FORESIGHT_STRICT_DERIVATION", "1")
+
+    def empty_runner(query, context):
+        return [], "No local evidence", ProviderTrace(provider="test:empty", capability="market_data", status="success", result_count=0)
+
+    partial = ModelTurn(json.dumps({
+        "status": "partial", "draft": "Insufficient evidence to assess.",
+        "gaps": ["No local evidence"],
+        "bindings": [{"output_id": "direct_assessment", "evidence_hashes": [], "gap": "No local evidence"}],
+    }), (), "scripted", "")
+    model = ScriptedModel([_tool_turn("first", "c1"), _finish_turn(()), partial])
+    outcome = _run_deep(model, runner=empty_runner)
+    assert outcome.status == "partial"
+    assert outcome.usage.invalid_actions == 1
+    assert model.calls[1]["tools"] == []
+    assert outcome.usage.tool_calls == 1 and outcome.usage.llm_calls == 3
