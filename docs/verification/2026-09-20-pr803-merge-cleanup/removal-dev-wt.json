@@ -1,0 +1,720 @@
+{
+  "kind": "dev-wt",
+  "base": "e51c5157c9ea9aa86491c486663700e7d7696a6f",
+  "audit_sha256": "bea49c83986959380ca06c81a49f2b36d1f086ffd5702451572dfe36b73f64f1",
+  "status": "completed",
+  "free_before": 24125235200,
+  "planned_count": 29,
+  "removed": [
+    {
+      "path": "/Users/a77/fwp-wt-adaptive-research-06-base",
+      "head": "5eb2451513efb6f482fae16eb4fe16cf1326a397",
+      "branch": "(detached)",
+      "reflog_commits": [
+        "5eb2451513efb6f482fae16eb4fe16cf1326a397"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/7cc0ca83054e0fea.tar.gz",
+      "metadata_sha256": "25c5833ae86adc66f105b35b84f93778207ac07da9508e6a6f76a05f9446f05e",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/7cc0ca83054e0fea-tracked.json",
+      "tracked_manifest_sha256": "c8f2ab717ac63c8cfa0b8022bb4a7fb8ee88e76a77de294929c094bfe69c2006",
+      "tracked_count": 3661,
+      "ignored_caches": 216,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-adaptive-research-06-base",
+        "5eb2451513efb6f482fae16eb4fe16cf1326a397"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-backfill-0908",
+      "head": "4baa6516511901f48345b8b8d92d481d5423ce1c",
+      "branch": "fix/preflight-plan-local",
+      "reflog_commits": [
+        "4baa6516511901f48345b8b8d92d481d5423ce1c",
+        "fd1d47c081860b2db6c18c4475059a0d1dc4d308"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/dc8dd2a37d590c09.tar.gz",
+      "metadata_sha256": "cd273fac0a3a60a480949e5e806daffc893060c2c6de8e69483d8bbcec689ae2",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/dc8dd2a37d590c09-tracked.json",
+      "tracked_manifest_sha256": "9f28198db2732cb4a4585a6b1334d0906e5dca944387f474a24ffac43e6b3985",
+      "tracked_count": 3725,
+      "ignored_caches": 153,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-backfill-0908",
+        "4baa6516511901f48345b8b8d92d481d5423ce1c"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-bm0904-review-docs",
+      "head": "2512cb93eafbb849b2f4650dd102fccbac4c769f",
+      "branch": "docs/budget-matrix-0904-review",
+      "reflog_commits": [
+        "2512cb93eafbb849b2f4650dd102fccbac4c769f",
+        "286055da2ced268d3ea714c909956241a3451610",
+        "2d8eaea5bdf8b2f686f6738ef1b49ee0851e0d2d"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/6f6ac65de2b9fcd3.tar.gz",
+      "metadata_sha256": "9efc0a2a1f6722dfacd491c9538c4a0515ce29f2376a1e7c3fe5ebeb9a5103a4",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/6f6ac65de2b9fcd3-tracked.json",
+      "tracked_manifest_sha256": "c1e37c5ca3cbe2c0d1270f5477de7c4cc074b438146b30d08dbc5d0c4ed4f7d6",
+      "tracked_count": 3455,
+      "ignored_caches": 134,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-bm0904-review-docs",
+        "2512cb93eafbb849b2f4650dd102fccbac4c769f"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-capability-integration-spec",
+      "head": "a06deea7ff15822f24cf05df2442aef17de2bd16",
+      "branch": "codex/docs-capability-integration-spec",
+      "reflog_commits": [
+        "a06deea7ff15822f24cf05df2442aef17de2bd16",
+        "b952439a1bb9d8a78ac3b013c22257a678453d71",
+        "d1128c34ab1dd6f390fdb8f31b68b912c55a5d69"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/8b47b12d30abb304.tar.gz",
+      "metadata_sha256": "7634c6dbe0d4497e0a7185668e70ef0ef5fae97401d3bff4254e9c1ad2d3a8b6",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/8b47b12d30abb304-tracked.json",
+      "tracked_manifest_sha256": "896c7b73061b57dcb17dda62c7b02d8689fa7bb9d9e853b806119b9802432d9c",
+      "tracked_count": 3727,
+      "ignored_caches": 147,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-capability-integration-spec",
+        "a06deea7ff15822f24cf05df2442aef17de2bd16"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-closeout-workorders",
+      "head": "9a7c803825a3ab51e3aa4093db0e950497209463",
+      "branch": "docs/closeout-workorders-0908",
+      "reflog_commits": [
+        "217245bbef5c9086e1703ac6d54f1055e82a3d57",
+        "77f9184aa71f3e6b5be9a713197b5842b24c2d48",
+        "7877ae7298571e07cf3b5fcfdd83326c2ae5488d",
+        "8e452e727202b3ee3bd9710c1712ec1463fb4b44",
+        "92768f78189e8761c5a337b8569657dabe915876",
+        "9a7c803825a3ab51e3aa4093db0e950497209463"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/2b6cbbe1db4c59fc.tar.gz",
+      "metadata_sha256": "9bcefccd7a6f17f107f8731760f8f1d173d6c97149010de1f1c82547d9889dfd",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/2b6cbbe1db4c59fc-tracked.json",
+      "tracked_manifest_sha256": "397e095a5e26b1bb702963ba87c035993a86d069ed47540b13bccb6f1f2cbe19",
+      "tracked_count": 3636,
+      "ignored_caches": 134,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-closeout-workorders",
+        "9a7c803825a3ab51e3aa4093db0e950497209463"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-dream-mine-fix",
+      "head": "085a801e705a19fb4013c89223857145e7d7323e",
+      "branch": "fix/dream-mine-now-passthrough",
+      "reflog_commits": [
+        "085a801e705a19fb4013c89223857145e7d7323e",
+        "aa3d87e4e40282b1b7ee018b9861f1cb5966f7cc"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/accdfcd0f87cd5ee.tar.gz",
+      "metadata_sha256": "19f3f7d9bf89d5447ea0948f884a5f87c4c15af43b057d272ea5a4e6e6ead4f6",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/accdfcd0f87cd5ee-tracked.json",
+      "tracked_manifest_sha256": "5bca6e89c0b5fda847c58097355443106ddbfc9c5ffe3475592fffba8ce81faf",
+      "tracked_count": 3452,
+      "ignored_caches": 150,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-dream-mine-fix",
+        "085a801e705a19fb4013c89223857145e7d7323e"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-fill-gate",
+      "head": "6c6581376ec00a8fc44656880c451290cac58b20",
+      "branch": "docs/workorder-33-market-history-backfill",
+      "reflog_commits": [
+        "6c6581376ec00a8fc44656880c451290cac58b20",
+        "895929308ba9b48cb34cd62e96b264d1e0e96847",
+        "8e452e727202b3ee3bd9710c1712ec1463fb4b44"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/359ffb7d0488a9dc.tar.gz",
+      "metadata_sha256": "13af0ba18973319b67da5087e181ea09362d0c4d66258af2a3f0c187a4720f26",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/359ffb7d0488a9dc-tracked.json",
+      "tracked_manifest_sha256": "55bdbce9d09ccb0ac7230c4976ded13a62c5eca9e7abe9d5adc92cd142732cbb",
+      "tracked_count": 3621,
+      "ignored_caches": 168,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-fill-gate",
+        "6c6581376ec00a8fc44656880c451290cac58b20"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-gagent-audit",
+      "head": "8e452e727202b3ee3bd9710c1712ec1463fb4b44",
+      "branch": "docs/gagent-skill-workflow-audit",
+      "reflog_commits": [
+        "8e452e727202b3ee3bd9710c1712ec1463fb4b44"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/cf6421c1f453f277.tar.gz",
+      "metadata_sha256": "611113e594882f02d382aa0aeb644cbdd66f8338b3a837b1e045a42ff8e184bf",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/cf6421c1f453f277-tracked.json",
+      "tracked_manifest_sha256": "0a14c52ecdc6c0cd2cf2ff8133e43bba2e45b0f6b44115d270d6d9862e588988",
+      "tracked_count": 3620,
+      "ignored_caches": 0,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-gagent-audit",
+        "8e452e727202b3ee3bd9710c1712ec1463fb4b44"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-gatemain-tmp",
+      "head": "c703e068685a682f463815070283a0f4e1c34ec5",
+      "branch": "(detached)",
+      "reflog_commits": [
+        "c703e068685a682f463815070283a0f4e1c34ec5"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/95c0f2105bc0c269.tar.gz",
+      "metadata_sha256": "376b00c470f6e82442ed9562d38937517bbe372df165eee49339f7676003aed3",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/95c0f2105bc0c269-tracked.json",
+      "tracked_manifest_sha256": "416e8f1219e1bf3e8eb9fc40ebef5e0cdef966f9c2501d2fcd359687e2bc2554",
+      "tracked_count": 3956,
+      "ignored_caches": 0,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-gatemain-tmp",
+        "c703e068685a682f463815070283a0f4e1c34ec5"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-historical-discovery-baseline",
+      "head": "f90af450b1be1fe80d5ad1515973503c646e15d0",
+      "branch": "(detached)",
+      "reflog_commits": [
+        "f90af450b1be1fe80d5ad1515973503c646e15d0"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/276bbf9a57589b2d.tar.gz",
+      "metadata_sha256": "9458762874b9ffae8532794dcfe2f0b8e2c7edc2b4506d59ec07d4516d0f87fa",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/276bbf9a57589b2d-tracked.json",
+      "tracked_manifest_sha256": "2e9dea57eec95bb05397bd2ce1d8cbf10ab1973998e18b07480037d548281f09",
+      "tracked_count": 3659,
+      "ignored_caches": 212,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-historical-discovery-baseline",
+        "f90af450b1be1fe80d5ad1515973503c646e15d0"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-hithink-capture-mutation-c85d0101",
+      "head": "c85d01017fa239aa3b2101b1585e8f5c07e005b3",
+      "branch": "(detached)",
+      "reflog_commits": [
+        "c85d01017fa239aa3b2101b1585e8f5c07e005b3"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/725d8e9d11b6c14c.tar.gz",
+      "metadata_sha256": "5e3ed4138ea05a159c68b1503e2e405608f160674ef9ca5e680e83732ab267b8",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/725d8e9d11b6c14c-tracked.json",
+      "tracked_manifest_sha256": "846ec2201b944c3845aa1ffff393953ced77a24304999a924bb09429920bb02e",
+      "tracked_count": 4037,
+      "ignored_caches": 39,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-hithink-capture-mutation-c85d0101",
+        "c85d01017fa239aa3b2101b1585e8f5c07e005b3"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-hithink-preview-mutation-dcee18f2",
+      "head": "dcee18f2a23673dc482401013eea61f619ff1b25",
+      "branch": "(detached)",
+      "reflog_commits": [
+        "dcee18f2a23673dc482401013eea61f619ff1b25"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/10999de08354d56e.tar.gz",
+      "metadata_sha256": "463ee7d15f40cf4a0fb1918ef2a6458aa3539fcc9ad2442737e788ec7b5d7742",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/10999de08354d56e-tracked.json",
+      "tracked_manifest_sha256": "4986b5f3f17ab73081d7e159ed9b772310d7b09c874fd6cb512a359fef6982bc",
+      "tracked_count": 4006,
+      "ignored_caches": 28,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-hithink-preview-mutation-dcee18f2",
+        "dcee18f2a23673dc482401013eea61f619ff1b25"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-hithink-wiring-mutation-9621128a",
+      "head": "9621128a9982586f55883156415d3129df404fe2",
+      "branch": "(detached)",
+      "reflog_commits": [
+        "9621128a9982586f55883156415d3129df404fe2"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/9736b05200ee7ff0.tar.gz",
+      "metadata_sha256": "e1d21517861178bbe446321aa4b7d54caa2977dccb16c58bc4b3bf9722a3df8b",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/9736b05200ee7ff0-tracked.json",
+      "tracked_manifest_sha256": "81bf280699029550e5e9a07533caac9f4c584d3dbf3f71f20106ea6d8c324870",
+      "tracked_count": 4004,
+      "ignored_caches": 19,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-hithink-wiring-mutation-9621128a",
+        "9621128a9982586f55883156415d3129df404fe2"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-judge01-base",
+      "head": "5eb2451513efb6f482fae16eb4fe16cf1326a397",
+      "branch": "(detached)",
+      "reflog_commits": [
+        "5eb2451513efb6f482fae16eb4fe16cf1326a397"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/49f8d8e446ff7580.tar.gz",
+      "metadata_sha256": "82bc8b0751666af09191ec8d79d6444f708ba927bb6aaa646c07abbb2f6654a5",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/49f8d8e446ff7580-tracked.json",
+      "tracked_manifest_sha256": "5cc312a055c5ae2dc2e5a817fa9f1587e24eba8555bc766233f295a136caab74",
+      "tracked_count": 3661,
+      "ignored_caches": 211,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-judge01-base",
+        "5eb2451513efb6f482fae16eb4fe16cf1326a397"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-market-daily-cycle-stage",
+      "head": "843aa7bf11c7713f69939b67c7855dec270e1428",
+      "branch": "feat/market-daily-cycle-stage",
+      "reflog_commits": [
+        "842fd25a134f1a212ce54695b65324272110fe89",
+        "843aa7bf11c7713f69939b67c7855dec270e1428",
+        "8e452e727202b3ee3bd9710c1712ec1463fb4b44"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/0ea1adb21dc6402c.tar.gz",
+      "metadata_sha256": "040d73d6e67af0d2e14c09d2bee03fd5acda17e7d53d87a9fcb9fe0785c04bd4",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/0ea1adb21dc6402c-tracked.json",
+      "tracked_manifest_sha256": "1fe87cf9597c6d004df5c24b2d0a28dfaacda08349c30536aa8ee3b4a55d7a4d",
+      "tracked_count": 3620,
+      "ignored_caches": 171,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-market-daily-cycle-stage",
+        "843aa7bf11c7713f69939b67c7855dec270e1428"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-merge-06",
+      "head": "2f44810decf21def723b2df7a2c479936b087167",
+      "branch": "feat/cap06-merge-prep",
+      "reflog_commits": [
+        "2f44810decf21def723b2df7a2c479936b087167",
+        "45363ab4a22b93c1c8db3c771934e2ee161b87d3"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/92557471a2879a41.tar.gz",
+      "metadata_sha256": "2aad5f7c114f296bc003c6e8a7763e43e36de29ce10572a4e3f4908b1264b2a1",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/92557471a2879a41-tracked.json",
+      "tracked_manifest_sha256": "f21faad5c3e39d3311a7aef89bb26a8265ce9004fe1fdee996669762c2fade15",
+      "tracked_count": 3734,
+      "ignored_caches": 104,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-merge-06",
+        "2f44810decf21def723b2df7a2c479936b087167"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-nightly-generation-deploy-0917",
+      "head": "f7337bf0e15dfb4ed5f5b2ebabad0b2a6d2b8ed8",
+      "branch": "fix/nightly-generation-deploy-0917",
+      "reflog_commits": [
+        "0a1cb8c44aaf2d19ae5f5809bf27119b709b8442",
+        "2fa28a4f8c1d51d40fdd499ec82df2f0e024e7c9",
+        "73cd22f60fb078be105d33dddd20902ff4c86dd2",
+        "f7337bf0e15dfb4ed5f5b2ebabad0b2a6d2b8ed8"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/450caf7d1d51687f.tar.gz",
+      "metadata_sha256": "706697cc041786c4faaf28fd13ed1ab24bd6ba82e74bc150bc3ad43e6051a036",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/450caf7d1d51687f-tracked.json",
+      "tracked_manifest_sha256": "3aeeaeed2d2dd6629404e0b700cd53aa7f19cb8878baeccc2a4e5d79533e04ba",
+      "tracked_count": 4773,
+      "ignored_caches": 285,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-nightly-generation-deploy-0917",
+        "f7337bf0e15dfb4ed5f5b2ebabad0b2a6d2b8ed8"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-opt03-sync-status-gate",
+      "head": "f90af450b1be1fe80d5ad1515973503c646e15d0",
+      "branch": "feat/sync-status-gate",
+      "reflog_commits": [
+        "f90af450b1be1fe80d5ad1515973503c646e15d0"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/41599c1a8b6eef35.tar.gz",
+      "metadata_sha256": "6284354fe90bc0076824d0f6cbeeebdb0dbc70ea3aeaf742978d36d6f3dfe2a6",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/41599c1a8b6eef35-tracked.json",
+      "tracked_manifest_sha256": "586e43d38146684df8bdd6f4d359adbc2f0c2e765426b9a0a0d746ed984d71a6",
+      "tracked_count": 3659,
+      "ignored_caches": 0,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-opt03-sync-status-gate",
+        "f90af450b1be1fe80d5ad1515973503c646e15d0"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-qc-ef9e61d2",
+      "head": "ef9e61d256f45ec755d4118bf2994f227853fac5",
+      "branch": "(detached)",
+      "reflog_commits": [
+        "ef9e61d256f45ec755d4118bf2994f227853fac5"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/962c4df0be790ed1.tar.gz",
+      "metadata_sha256": "8007fbb457f8e18e91cbb2469f6b97bb90ef68a9276b000440857b01e4cd0a2e",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/962c4df0be790ed1-tracked.json",
+      "tracked_manifest_sha256": "9eb090e5860ff552fd0b4c7b047b4c3cd97a7f31851b6b2178f2d9f8338b5ed1",
+      "tracked_count": 3952,
+      "ignored_caches": 39,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-qc-ef9e61d2",
+        "ef9e61d256f45ec755d4118bf2994f227853fac5"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-rag-mem-docs",
+      "head": "7f89ef6abb9a16c946d2f2dfeb0b19bb3c523305",
+      "branch": "docs/rag-worker-memory-profile",
+      "reflog_commits": [
+        "7f89ef6abb9a16c946d2f2dfeb0b19bb3c523305",
+        "9bec1f4992f527ea0f53a0dd91196efd473258eb"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/66fb7c56e83c8187.tar.gz",
+      "metadata_sha256": "ba5e640607a64ac909af23b57cb7be14433b8a0210c224238968f77509967f6a",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/66fb7c56e83c8187-tracked.json",
+      "tracked_manifest_sha256": "87c044869d811a35bcbd35204113995d0b17d0f6dafd8d3bb612618ab61532b7",
+      "tracked_count": 3479,
+      "ignored_caches": 134,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-rag-mem-docs",
+        "7f89ef6abb9a16c946d2f2dfeb0b19bb3c523305"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-rag-slimming-closeout",
+      "head": "c5ecf3e3fef4a7c951e9ebcd11820d2cd83053f5",
+      "branch": "docs/rag-slimming-closeout",
+      "reflog_commits": [
+        "87d731f74bb91079f8baf5f51403df7432bc211f",
+        "c5ecf3e3fef4a7c951e9ebcd11820d2cd83053f5"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/768653efb20ce981.tar.gz",
+      "metadata_sha256": "1e0f5ef0f265d3b6fe5f9f0307c16d0a3d0d69fcbb3c264af5a717a88ba1670f",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/768653efb20ce981-tracked.json",
+      "tracked_manifest_sha256": "3497636956d7f8d2cc2ef3ad89c432a357a35ca3a14648470afa9a102fb86bbb",
+      "tracked_count": 3500,
+      "ignored_caches": 228,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-rag-slimming-closeout",
+        "c5ecf3e3fef4a7c951e9ebcd11820d2cd83053f5"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-ranking-baseline-10",
+      "head": "5eb2451513efb6f482fae16eb4fe16cf1326a397",
+      "branch": "(detached)",
+      "reflog_commits": [
+        "5eb2451513efb6f482fae16eb4fe16cf1326a397"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/2e41159803fa0b4f.tar.gz",
+      "metadata_sha256": "c9bf44e6f713282018434702b0091fc32e1fdceff0eb907f37a8c94dfe93c744",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/2e41159803fa0b4f-tracked.json",
+      "tracked_manifest_sha256": "6eb38ec351172535fd015137bb0f45047189e8eee0ba3455575d3e3470b63fff",
+      "tracked_count": 3661,
+      "ignored_caches": 212,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-ranking-baseline-10",
+        "5eb2451513efb6f482fae16eb4fe16cf1326a397"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-receipt-zero-count",
+      "head": "becb68c0dd3105abbbcc1f92a917dbde224de24b",
+      "branch": "fix/receipt-zero-count-guard",
+      "reflog_commits": [
+        "b22ddf8b0285a952de1e6e18c04db0f4abe448e7",
+        "becb68c0dd3105abbbcc1f92a917dbde224de24b"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/94b7e21105d4579c.tar.gz",
+      "metadata_sha256": "35c7f19c7b2284f662e3eb17d593fadd37c855cd398ee2770a9d9f8e9f0c9009",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/94b7e21105d4579c-tracked.json",
+      "tracked_manifest_sha256": "1a66638b51b87665c84cdb80ce708303821e92d79b3a8fc3c3f855250cafb78c",
+      "tracked_count": 5320,
+      "ignored_caches": 192,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-receipt-zero-count",
+        "becb68c0dd3105abbbcc1f92a917dbde224de24b"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-research-foundation-spec",
+      "head": "5b821d4a025df2266d3c42cca4cdd0930687ec2b",
+      "branch": "docs/research-foundation-optimization",
+      "reflog_commits": [
+        "5b821d4a025df2266d3c42cca4cdd0930687ec2b",
+        "6e4adee8b9b1c148c603893b7eb6c36837bbed5c",
+        "f90af450b1be1fe80d5ad1515973503c646e15d0",
+        "fcd6b1d2a8db5464964cb0a916ed844423a70b78"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/0eb39818cdad4695.tar.gz",
+      "metadata_sha256": "5be06726ea93d9a859570f18a2617c12f2d453fd4f78b82d7313706d51e53482",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/0eb39818cdad4695-tracked.json",
+      "tracked_manifest_sha256": "bdb4a6ec2e9ee3192b4b1a0dfe3e07c24880690dccbc4887d5b6810809eb4108",
+      "tracked_count": 3661,
+      "ignored_caches": 135,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-research-foundation-spec",
+        "5b821d4a025df2266d3c42cca4cdd0930687ec2b"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-review-620-624-0907",
+      "head": "3d964c91aceb7bb6d3e5d381fef9ce20692264b9",
+      "branch": "(detached)",
+      "reflog_commits": [
+        "3d964c91aceb7bb6d3e5d381fef9ce20692264b9"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/fb8cbfd093db32b2.tar.gz",
+      "metadata_sha256": "90cdfd5886d55e728e222f81acb3b8f962cbfb9a5e55b6b45ea3d3bb4d7a01f6",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/fb8cbfd093db32b2-tracked.json",
+      "tracked_manifest_sha256": "bb9489b312e2a68060be6578fbecaf357f92c336beedaf80da495fafd4374e2f",
+      "tracked_count": 3566,
+      "ignored_caches": 0,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-review-620-624-0907",
+        "3d964c91aceb7bb6d3e5d381fef9ce20692264b9"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-review-compaction-0907",
+      "head": "812f1cc64d024e0f115a00f1026ee7a8a8a1007c",
+      "branch": "(detached)",
+      "reflog_commits": [
+        "812f1cc64d024e0f115a00f1026ee7a8a8a1007c"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/ea24f95609326a9d.tar.gz",
+      "metadata_sha256": "43e678d01f17e0dcf1ed9ef7299406b34e7040ecb8a23e0f105d72a8051678f9",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/ea24f95609326a9d-tracked.json",
+      "tracked_manifest_sha256": "3b5825fd0066884dc5d7cb4bc929649db6b2ebf6197057517d3264cd512e55f1",
+      "tracked_count": 3584,
+      "ignored_caches": 0,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-review-compaction-0907",
+        "812f1cc64d024e0f115a00f1026ee7a8a8a1007c"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-river-next-specs-0913",
+      "head": "288045054341403338a2e6d6fe2fa652d9d9f6ff",
+      "branch": "docs/river-next-specs",
+      "reflog_commits": [
+        "194241dd46c8abbca7de6825f096721be141840d",
+        "288045054341403338a2e6d6fe2fa652d9d9f6ff",
+        "5fb13a8c26986e6a0a24eb2687a2635131426694"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/4bb64bf534e9cd0b.tar.gz",
+      "metadata_sha256": "13000ae195ceace4fb241235aee956d7c2d4bfb54b17f25d21b29153d96b0129",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/4bb64bf534e9cd0b-tracked.json",
+      "tracked_manifest_sha256": "83d350773a8c24946d3d0dd467fc3e536427fcbc387e343cedd61682ffc6e833",
+      "tracked_count": 3994,
+      "ignored_caches": 206,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-river-next-specs-0913",
+        "288045054341403338a2e6d6fe2fa652d9d9f6ff"
+      ]
+    },
+    {
+      "path": "/Users/a77/fwp-wt-writer-cost-design",
+      "head": "f48d2e9fc0451df8e4a72d60594a5bab888fb489",
+      "branch": "spec/writer-cost-budget-coordination",
+      "reflog_commits": [
+        "2542f0ad05d5b36f55511b5a1c2c12adc2238dd3",
+        "f48d2e9fc0451df8e4a72d60594a5bab888fb489"
+      ],
+      "metadata": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/177ebe028a86aa5f.tar.gz",
+      "metadata_sha256": "b8b0c5491641c871503b1584c9568faa2110beed5073948ae1080f5a11e17fc8",
+      "tracked_manifest": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/177ebe028a86aa5f-tracked.json",
+      "tracked_manifest_sha256": "8202bd14b2704c645d507fc84d1917e387ef3252a680682a36c870021a875b7e",
+      "tracked_count": 3617,
+      "ignored_caches": 134,
+      "restore_command": [
+        "git",
+        "-C",
+        "/Users/a77/finance-workspace-private",
+        "worktree",
+        "add",
+        "--detach",
+        "/Users/a77/fwp-wt-writer-cost-design",
+        "f48d2e9fc0451df8e4a72d60594a5bab888fb489"
+      ]
+    }
+  ],
+  "skipped": [
+    {
+      "path": "/Users/a77/fwp-wt-acceptance-tests",
+      "reason": "command failed rc=1: ['git', 'merge-base', '--is-ancestor']"
+    }
+  ],
+  "started_at": "2026-09-20T10:21:26.365564+00:00",
+  "refs_unchanged": true,
+  "free_after": 28479086592,
+  "finished_at": "2026-09-20T10:22:21.147670+00:00"
+}
