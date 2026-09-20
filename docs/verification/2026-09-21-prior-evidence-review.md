@@ -11,7 +11,7 @@
 
 ## 版本与自动收据
 
-候选树：`/Users/a77/fwp-wt-research-reasoning-awareness`，分支 `feat/research-reasoning-awareness`，当前 `2cfa9d0d7e0c5ab2cec4007528d3e7b10c41e103`，`git status --porcelain` 为空。
+候选树：`/Users/a77/fwp-wt-research-reasoning-awareness`，分支 `feat/research-reasoning-awareness`；被测代码 revision 为 `2cfa9d0d7e0c5ab2cec4007528d3e7b10c41e103`。本轮仅补外部重放收据和文档，代码文件未改；文档提交不继承代码测试收据。
 
 - 全仓 pytest：`12049 passed, 87 skipped, 2 xfailed, 0 failed`，677.26 秒，收据 `~/.finance-runtime/test-receipts/20260920T195644Z-2cfa9d0d.json`；收据确认解释器 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`、revision 一致、dirty=false。
 - 全仓 Ruff：`All checks passed!`。
@@ -38,7 +38,9 @@
 
 四臂均 `material_only`、能力为空、0工具；同源 judge 的 passed/repaired 只作运行记录，不能当独立语义复核。旧 on2 仍是失败原件，不能被新代码收据覆盖。
 
-日期修复后的真实入口已在当前候选 `2cfa9d0d` 的隔离 sidecar 重跑：新用户/新目录、连续会话首答后续问，原题 run `run_20260921_041342_926997`，复核 run `run_20260921_041850_129136`，均 `completed`，复核 `invoked_tools=[]`。复核原件保留了绑定 E27、E28–E36 的 `9-11` 证据句，并明确撤回“存量资金腾挪放大换手”和“不依赖新增资金”，保留“成交额不足以证明新增资金”的边界。该结果只证明本次程序不再误删该句，不能证明模型答案已经通过独立语义审核；manifest 在外部目录 `v4/date-fix-rerun/MANIFEST.json`。
+日期修复后的真实入口已在代码验证 revision `2cfa9d0d` 的隔离 sidecar 重跑：新用户/新目录、连续会话首答后续问，原题 run `run_20260921_041342_926997`，复核 run `run_20260921_041850_129136`，均 `completed`，复核 `invoked_tools=[]`。复核原件保留了绑定 E27、E28–E36 的 `9-11` 证据句，并明确撤回“存量资金腾挪放大换手”和“不依赖新增资金”，保留“成交额不足以证明新增资金”的边界。注意：新答案使用的是“9月11日”全日期，没有实际命中旧 on2 被误删的句首短日期 `9-11 ...` 路径；因此不能据此证明该特定故障已在真实入口复现并修复。首答仍有“跌停21>涨停40”等错误，复核仍不是独立语义通过。manifest 在外部目录 `v4/date-fix-rerun/MANIFEST.json`。
+
+旧 on2 原件另做只读离线重放：结构重放仍为 `completed` 且与存证无差异；当前 verifier 的确定性预检四类索引均为空，目标句被送入判官请求。该探针使用 stub judge，只证明“未被数量门提前删除并到达判官”，不证明真实模型接受整篇答案。收据 `/Users/a77/.finance-runtime/reasoning-boundaries-20260921/v4/on2/semantic-replay-2cfa.json`，源原件 SHA256 `8e9117…b230cc660`。
 
 虚构供需题的 V4 重跑仍拒答（0工具、结构性终止失败），不能把材料前提整体改成 `user_premise` 以绕过 grounding。E2 owner 的逐句材料绑定仍未合入本候选。
 
@@ -49,7 +51,11 @@
 - Spec：报告 `spec-k3/REPORT.md`，SHA256 `63e2358ddce1065a06f59b3b2cff9a2fa78968d8fba1e9310bc0028924f739a3`，结论 `PASS`。独立跑相关测试 `56 + 180 + 117`，AST/边界探针33项全过；确认准入、零读取、重编号、日期双条件和 fail-closed 边界。
 - Quality：报告 `quality-k3/REPORT.md`，SHA256 `f2ae5448498f94d97218196d2c21c3d272ed873cde4df468144b870d712a7155`，结论 `PASS`。独立跑新日期22项及相关331项，Ruff/diff 通过；外部副本两次撤保护分别使标题形状保护 `8` 项失败、绑定限制 `1` 项失败。
 - K3 限制：共享 refs 和 `~/agent-memory` 指纹在审核期间发生环境漂移，收据为 `shared_refs_unchanged=false`、`vault_unchanged=false`；候选 HEAD/status 与作者树首尾不变。故 K3 结论仅采信报告中对候选源码的固定 revision 审核，不把全局隔离指纹说成完整通过。
-- K3 不是模型行为盲审；没有拿到独立语义判官对 V4 四答卷的质量结论。Grok 沙箱故障与 Codex host/额度失败原件仍保留，未关闭保护、未购买外审。
+- K3 Spec/Quality 不是模型行为盲审；另有独立语义盲审报告，但结果为负向观察而非验收。Grok 沙箱故障与 Codex host/额度失败原件仍保留，未关闭保护、未购买外审。
+
+## 独立语义盲审
+
+外部 `semantic-k3-independent-3/REPORT.md` 封存了一次无工具、`/tmp` cwd、匿名候选输入的 `mirasim-kimi/kimi-k3` 盲审。执行收据为 exit 0、未超时；候选 `HEAD=33d3505` 与工作树首尾未变，但共享 refs 指纹漂移，不能称完整隔离。模型返回 `passed=false`，拒绝候选 `[1,2,3,5]`，保留 `[4,6]`。核心发现是 E4 的 2026-09-09 上证涨跌幅为 `+0.278%`，候选 1–3 错把它保留为“9-09/9-10 连跌”，候选 5 又把正号写成下跌。该结果是独立负向观察，不替代行为验收，也不抹去真实入口首答的其他错误。
 
 ## 非显然决策与否案
 
@@ -60,7 +66,7 @@
 
 ## 下一步与禁做
 
-下一步：与 E2 owner 对齐材料逐句来源；补未见题和新增开发反例的真实答卷；再做可用的独立语义审核或封存阻塞证据；按归属处理前端/E2E/registry。日期修复重跑原件与 manifest 已封存，不覆盖旧 on2。
+下一步：与 E2 owner 对齐材料逐句来源；补未见题和新增开发反例的真实答卷；对旧 on2 的短日期路径保留离线重放并另行取得真实入口证据；按归属处理前端/E2E/registry。日期修复重跑原件、离线重放和 manifest 已封存，不覆盖旧 on2。
 
 禁止：不把 K3 PASS 写成业务质量通过；不把同源 judge/零工具/completed 当行为通过；不合 main、部署、重启8792、购买外审额度或删生产原件；不宣称支持跨会话、多层、混合联网、任意日期重筛或崩溃 checkpoint 恢复。
 
