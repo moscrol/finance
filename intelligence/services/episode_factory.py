@@ -825,7 +825,7 @@ def build_episode_context(
                         )
                     ),
                 )
-                if "finance_query" in output.evidence_types
+                if "finance_query" in output.evidence_types and output.output_id != "prime_quote"
                 else output
                 for output in contract.required_outputs
             ),

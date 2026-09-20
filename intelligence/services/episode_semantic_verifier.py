@@ -1207,11 +1207,16 @@ class SemanticEpisodeVerifier:
                 # independently rebuilt table, and never upgrade partial status.
                 outcome = replace(
                     outcome, status="partial", judge_status="rejected",
-                    public_answer=calculation.table + "\n\n本轮定性解释未通过核验；以上仅为题设计算，不能据此判断股票便宜。",
+                    public_answer=view(TerminalFacts(
+                        cause=CAUSE_VERIFICATION_INCOMPLETE,
+                        question=frame.raw_question,
+                        public=calculation.table,
+                        gap_body="本轮定性解释未通过核验；以上仅为题设计算，不能据此判断股票便宜。",
+                    )),
                     issues=tuple(dict.fromkeys((*outcome.issues, "premise_calculation_mismatch: " + error))),
                 )
             elif public != outcome.public_answer:
-                outcome = replace(outcome, public_answer=public)
+                outcome = replace(outcome, public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)))
         # #55：模式与 census 计数在唯一出口盖章——内层十几条提前返回路径不用各写一遍。
         # llm 模式下两个值都是默认值，dataclass 相等性与历史夹具不受影响。
         outcome = replace(
