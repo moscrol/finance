@@ -1,6 +1,6 @@
 # 未闭环设计与补验收原件
 
-本目录是 2026-09-20 继续推进时的固定原件副本，来源及 SHA-256 在 `manifest.json`。根协调方案见 `docs/superpowers/specs/2026-09-20-research-closeout-design-review.md`。探针以 `.py.txt` 保存原始字节；其中绝对路径记录当时受测对象，重跑需复制到新独占目录并显式指定对象，不要覆盖旧结果。
+本目录是 2026-09-20 继续推进时的固定原件副本，来源及 SHA-256 在 `manifest.json`。根协调方案见 `docs/superpowers/specs/2026-09-20-research-closeout-design-review.md`。探针以 `.py.txt`、原日志以 `.log.txt` 保存原始字节；其中绝对路径记录当时受测对象，重跑需复制到新独占目录并显式指定对象，不要覆盖旧结果。
 
 | 路线 | 固定受测对象 | 本轮已得到的证据 | 尚不能据此证明 |
 |---|---|---|---|

@@ -1,0 +1,363 @@
+FFFFFFFFFFFFFF                                                           [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260920T034835Z-d8d6196b.json
+
+=================================== FAILURES ===================================
+_ test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf(bp)-1.588-off] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a3ae000>
+mode = 'off', header = '含金量(bp)', cell = '1.588'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588倍"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量", "1.588bp"),
+    ])
+    def test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it(monkeypatch, mode, header, cell):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        table = f"|报告期|OCF累计|归母净利累计|{header}|\n|---|---|---|---|\n|2026中报|706.91|445.17|{cell}|"
+        draft = SAFE + "[E1]。\n" + table
+        frame, verified = _ratio_delivery(draft)
+        assert verified.verified_status == "completed"
+        verifier = SemanticEpisodeVerifier(judge_fn=_judge(True))
+        result = verifier.verify(frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5))
+>       assert "|2026中报|706.91|445.17| 待核对 |" in result.public_answer
+E       AssertionError: assert '|2026中报|706.91|445.17| 待核对 |' in '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量(bp)|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588|'
+E        +  where '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量(bp)|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588|' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='196707ad7aae78cc2bd5a68c8...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+
+intelligence/tests/test_financial_delivery_integration.py:80: AssertionError
+_ test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf(bp)-1.588-llm] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a3d81a0>
+mode = 'llm', header = '含金量(bp)', cell = '1.588'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588倍"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量", "1.588bp"),
+    ])
+    def test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it(monkeypatch, mode, header, cell):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        table = f"|报告期|OCF累计|归母净利累计|{header}|\n|---|---|---|---|\n|2026中报|706.91|445.17|{cell}|"
+        draft = SAFE + "[E1]。\n" + table
+        frame, verified = _ratio_delivery(draft)
+        assert verified.verified_status == "completed"
+        verifier = SemanticEpisodeVerifier(judge_fn=_judge(True))
+        result = verifier.verify(frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5))
+>       assert "|2026中报|706.91|445.17| 待核对 |" in result.public_answer
+E       AssertionError: assert '|2026中报|706.91|445.17| 待核对 |' in '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量(bp)|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588|'
+E        +  where '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量(bp)|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588|' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='196707ad7aae78cc2bd5a68c8...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+
+intelligence/tests/test_financial_delivery_integration.py:80: AssertionError
+_ test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf(BP)-1.588\u500d-off] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a3aeba0>
+mode = 'off', header = '含金量(BP)', cell = '1.588倍'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588倍"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量", "1.588bp"),
+    ])
+    def test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it(monkeypatch, mode, header, cell):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        table = f"|报告期|OCF累计|归母净利累计|{header}|\n|---|---|---|---|\n|2026中报|706.91|445.17|{cell}|"
+        draft = SAFE + "[E1]。\n" + table
+        frame, verified = _ratio_delivery(draft)
+        assert verified.verified_status == "completed"
+        verifier = SemanticEpisodeVerifier(judge_fn=_judge(True))
+        result = verifier.verify(frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5))
+>       assert "|2026中报|706.91|445.17| 待核对 |" in result.public_answer
+E       AssertionError: assert '|2026中报|706.91|445.17| 待核对 |' in '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量(BP)|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588倍|'
+E        +  where '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量(BP)|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588倍|' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='196707ad7aae78cc2bd5a68c8...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+
+intelligence/tests/test_financial_delivery_integration.py:80: AssertionError
+_ test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf(BP)-1.588\u500d-llm] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a3c1280>
+mode = 'llm', header = '含金量(BP)', cell = '1.588倍'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588倍"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量", "1.588bp"),
+    ])
+    def test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it(monkeypatch, mode, header, cell):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        table = f"|报告期|OCF累计|归母净利累计|{header}|\n|---|---|---|---|\n|2026中报|706.91|445.17|{cell}|"
+        draft = SAFE + "[E1]。\n" + table
+        frame, verified = _ratio_delivery(draft)
+        assert verified.verified_status == "completed"
+        verifier = SemanticEpisodeVerifier(judge_fn=_judge(True))
+        result = verifier.verify(frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5))
+>       assert "|2026中报|706.91|445.17| 待核对 |" in result.public_answer
+E       AssertionError: assert '|2026中报|706.91|445.17| 待核对 |' in '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量(BP)|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588倍|'
+E        +  where '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量(BP)|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588倍|' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='196707ad7aae78cc2bd5a68c8...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+
+intelligence/tests/test_financial_delivery_integration.py:80: AssertionError
+_ test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf\uff08\u57fa\u70b9\uff09-1.588-off] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a3c31d0>
+mode = 'off', header = '含金量（基点）', cell = '1.588'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588倍"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量", "1.588bp"),
+    ])
+    def test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it(monkeypatch, mode, header, cell):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        table = f"|报告期|OCF累计|归母净利累计|{header}|\n|---|---|---|---|\n|2026中报|706.91|445.17|{cell}|"
+        draft = SAFE + "[E1]。\n" + table
+        frame, verified = _ratio_delivery(draft)
+        assert verified.verified_status == "completed"
+        verifier = SemanticEpisodeVerifier(judge_fn=_judge(True))
+        result = verifier.verify(frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5))
+>       assert "|2026中报|706.91|445.17| 待核对 |" in result.public_answer
+E       AssertionError: assert '|2026中报|706.91|445.17| 待核对 |' in '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量（基点）|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588|'
+E        +  where '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量（基点）|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588|' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='196707ad7aae78cc2bd5a68c8...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+
+intelligence/tests/test_financial_delivery_integration.py:80: AssertionError
+_ test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf\uff08\u57fa\u70b9\uff09-1.588-llm] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a42ecc0>
+mode = 'llm', header = '含金量（基点）', cell = '1.588'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588倍"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量", "1.588bp"),
+    ])
+    def test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it(monkeypatch, mode, header, cell):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        table = f"|报告期|OCF累计|归母净利累计|{header}|\n|---|---|---|---|\n|2026中报|706.91|445.17|{cell}|"
+        draft = SAFE + "[E1]。\n" + table
+        frame, verified = _ratio_delivery(draft)
+        assert verified.verified_status == "completed"
+        verifier = SemanticEpisodeVerifier(judge_fn=_judge(True))
+        result = verifier.verify(frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5))
+>       assert "|2026中报|706.91|445.17| 待核对 |" in result.public_answer
+E       AssertionError: assert '|2026中报|706.91|445.17| 待核对 |' in '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量（基点）|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588|'
+E        +  where '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量（基点）|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588|' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='196707ad7aae78cc2bd5a68c8...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+
+intelligence/tests/test_financial_delivery_integration.py:80: AssertionError
+_ test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf(\u767e\u5206\u70b9)-1.588-off] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a42cce0>
+mode = 'off', header = '含金量(百分点)', cell = '1.588'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588倍"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量", "1.588bp"),
+    ])
+    def test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it(monkeypatch, mode, header, cell):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        table = f"|报告期|OCF累计|归母净利累计|{header}|\n|---|---|---|---|\n|2026中报|706.91|445.17|{cell}|"
+        draft = SAFE + "[E1]。\n" + table
+        frame, verified = _ratio_delivery(draft)
+        assert verified.verified_status == "completed"
+        verifier = SemanticEpisodeVerifier(judge_fn=_judge(True))
+        result = verifier.verify(frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5))
+>       assert "|2026中报|706.91|445.17| 待核对 |" in result.public_answer
+E       AssertionError: assert '|2026中报|706.91|445.17| 待核对 |' in '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量(百分点)|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588|'
+E        +  where '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量(百分点)|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588|' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='196707ad7aae78cc2bd5a68c8...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+
+intelligence/tests/test_financial_delivery_integration.py:80: AssertionError
+_ test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf(\u767e\u5206\u70b9)-1.588-llm] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a3d8890>
+mode = 'llm', header = '含金量(百分点)', cell = '1.588'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588倍"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量", "1.588bp"),
+    ])
+    def test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it(monkeypatch, mode, header, cell):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        table = f"|报告期|OCF累计|归母净利累计|{header}|\n|---|---|---|---|\n|2026中报|706.91|445.17|{cell}|"
+        draft = SAFE + "[E1]。\n" + table
+        frame, verified = _ratio_delivery(draft)
+        assert verified.verified_status == "completed"
+        verifier = SemanticEpisodeVerifier(judge_fn=_judge(True))
+        result = verifier.verify(frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5))
+>       assert "|2026中报|706.91|445.17| 待核对 |" in result.public_answer
+E       AssertionError: assert '|2026中报|706.91|445.17| 待核对 |' in '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量(百分点)|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588|'
+E        +  where '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量(百分点)|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588|' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='196707ad7aae78cc2bd5a68c8...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+
+intelligence/tests/test_financial_delivery_integration.py:80: AssertionError
+_ test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf-1.588bp-off] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a409580>
+mode = 'off', header = '含金量', cell = '1.588bp'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588倍"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量", "1.588bp"),
+    ])
+    def test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it(monkeypatch, mode, header, cell):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        table = f"|报告期|OCF累计|归母净利累计|{header}|\n|---|---|---|---|\n|2026中报|706.91|445.17|{cell}|"
+        draft = SAFE + "[E1]。\n" + table
+        frame, verified = _ratio_delivery(draft)
+        assert verified.verified_status == "completed"
+        verifier = SemanticEpisodeVerifier(judge_fn=_judge(True))
+        result = verifier.verify(frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5))
+>       assert "|2026中报|706.91|445.17| 待核对 |" in result.public_answer
+E       AssertionError: assert '|2026中报|706.91|445.17| 待核对 |' in '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588bp|'
+E        +  where '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588bp|' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='196707ad7aae78cc2bd5a68c8...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+
+intelligence/tests/test_financial_delivery_integration.py:80: AssertionError
+_ test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf-1.588bp-llm] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a40ab70>
+mode = 'llm', header = '含金量', cell = '1.588bp'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588倍"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量", "1.588bp"),
+    ])
+    def test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it(monkeypatch, mode, header, cell):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        table = f"|报告期|OCF累计|归母净利累计|{header}|\n|---|---|---|---|\n|2026中报|706.91|445.17|{cell}|"
+        draft = SAFE + "[E1]。\n" + table
+        frame, verified = _ratio_delivery(draft)
+        assert verified.verified_status == "completed"
+        verifier = SemanticEpisodeVerifier(judge_fn=_judge(True))
+        result = verifier.verify(frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5))
+>       assert "|2026中报|706.91|445.17| 待核对 |" in result.public_answer
+E       AssertionError: assert '|2026中报|706.91|445.17| 待核对 |' in '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588bp|'
+E        +  where '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n|报告期|OCF累计|归母净利累计|含金量|\n|---|---|---|---|\n|2026中报|706.91|445.17|1.588bp|' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='196707ad7aae78cc2bd5a68c8...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+
+intelligence/tests/test_financial_delivery_integration.py:80: AssertionError
+_ test_ratio_product_gap_survives_the_real_financial_exit[9.999--\u590d\u7b97\u4e0d\u4e00\u81f4-off] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a3c2ea0>
+mode = 'off', product_value = 9.999, product_unit = '', gap_note = '复算不一致'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("product_value,product_unit,gap_note", [
+        (9.999, "", "复算不一致"),
+        (1.588, "(bp)", "差值单位"),
+    ])
+    def test_ratio_product_gap_survives_the_real_financial_exit(monkeypatch, mode, product_value, product_unit, gap_note):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = SAFE + "[E1]。\n|报告期|含金量|\n|---|---|\n|2026中报|1.588|"
+        frame, verified = _ratio_delivery(draft, product_value=product_value, product_unit=product_unit)
+>       assert verified.missing_outputs == ("metric_evidence",)
+E       AssertionError: assert () == ('metric_evidence',)
+E         
+E         Right contains one more item: 'metric_evidence'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_delivery_integration.py:104: AssertionError
+_ test_ratio_product_gap_survives_the_real_financial_exit[9.999--\u590d\u7b97\u4e0d\u4e00\u81f4-llm] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a4a4410>
+mode = 'llm', product_value = 9.999, product_unit = '', gap_note = '复算不一致'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("product_value,product_unit,gap_note", [
+        (9.999, "", "复算不一致"),
+        (1.588, "(bp)", "差值单位"),
+    ])
+    def test_ratio_product_gap_survives_the_real_financial_exit(monkeypatch, mode, product_value, product_unit, gap_note):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = SAFE + "[E1]。\n|报告期|含金量|\n|---|---|\n|2026中报|1.588|"
+        frame, verified = _ratio_delivery(draft, product_value=product_value, product_unit=product_unit)
+>       assert verified.missing_outputs == ("metric_evidence",)
+E       AssertionError: assert () == ('metric_evidence',)
+E         
+E         Right contains one more item: 'metric_evidence'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_delivery_integration.py:104: AssertionError
+_ test_ratio_product_gap_survives_the_real_financial_exit[1.588-(bp)-\u5dee\u503c\u5355\u4f4d-off] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a4a56a0>
+mode = 'off', product_value = 1.588, product_unit = '(bp)', gap_note = '差值单位'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("product_value,product_unit,gap_note", [
+        (9.999, "", "复算不一致"),
+        (1.588, "(bp)", "差值单位"),
+    ])
+    def test_ratio_product_gap_survives_the_real_financial_exit(monkeypatch, mode, product_value, product_unit, gap_note):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = SAFE + "[E1]。\n|报告期|含金量|\n|---|---|\n|2026中报|1.588|"
+        frame, verified = _ratio_delivery(draft, product_value=product_value, product_unit=product_unit)
+>       assert verified.missing_outputs == ("metric_evidence",)
+E       AssertionError: assert () == ('metric_evidence',)
+E         
+E         Right contains one more item: 'metric_evidence'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_delivery_integration.py:104: AssertionError
+_ test_ratio_product_gap_survives_the_real_financial_exit[1.588-(bp)-\u5dee\u503c\u5355\u4f4d-llm] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a4a6c00>
+mode = 'llm', product_value = 1.588, product_unit = '(bp)', gap_note = '差值单位'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("product_value,product_unit,gap_note", [
+        (9.999, "", "复算不一致"),
+        (1.588, "(bp)", "差值单位"),
+    ])
+    def test_ratio_product_gap_survives_the_real_financial_exit(monkeypatch, mode, product_value, product_unit, gap_note):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = SAFE + "[E1]。\n|报告期|含金量|\n|---|---|\n|2026中报|1.588|"
+        frame, verified = _ratio_delivery(draft, product_value=product_value, product_unit=product_unit)
+>       assert verified.missing_outputs == ("metric_evidence",)
+E       AssertionError: assert () == ('metric_evidence',)
+E         
+E         Right contains one more item: 'metric_evidence'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_delivery_integration.py:104: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf(bp)-1.588-off]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf(bp)-1.588-llm]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf(BP)-1.588\u500d-off]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf(BP)-1.588\u500d-llm]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf\uff08\u57fa\u70b9\uff09-1.588-off]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf\uff08\u57fa\u70b9\uff09-1.588-llm]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf(\u767e\u5206\u70b9)-1.588-off]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf(\u767e\u5206\u70b9)-1.588-llm]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf-1.588bp-off]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it[\u542b\u91d1\u91cf-1.588bp-llm]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_product_gap_survives_the_real_financial_exit[9.999--\u590d\u7b97\u4e0d\u4e00\u81f4-off]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_product_gap_survives_the_real_financial_exit[9.999--\u590d\u7b97\u4e0d\u4e00\u81f4-llm]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_product_gap_survives_the_real_financial_exit[1.588-(bp)-\u5dee\u503c\u5355\u4f4d-off]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_product_gap_survives_the_real_financial_exit[1.588-(bp)-\u5dee\u503c\u5355\u4f4d-llm]
+14 failed, 20 deselected in 0.40s

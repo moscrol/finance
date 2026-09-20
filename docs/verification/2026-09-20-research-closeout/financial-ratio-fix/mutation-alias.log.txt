@@ -1,0 +1,57 @@
+F..F.....                                                                [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260920T034834Z-d8d6196b.json
+
+=================================== FAILURES ===================================
+_ test_wrong_product_reopens_metric_slot_not_the_whole_research[\u542b\u91d1\u91cf] _
+
+ratio_name = '含金量'
+
+    @pytest.mark.parametrize("ratio_name", ["含金量", "净现比", "OCF/净利润"])
+    def test_wrong_product_reopens_metric_slot_not_the_whole_research(ratio_name):
+        _, verified = _financial(SAFE)
+        inputs = verified.outcome.evidence
+        calc = AgentEvidence(
+            "derived_calculation", "净现比计算", "计算结果", "sandbox:0000000000000001", content_hash="calc",
+            derived_from=tuple(item.content_hash for item in inputs),
+            observations=(StructuredObservation("计算任务", "2025-04-21", f"{ratio_name}[2026中报]", 0.133),),
+        )
+        contract = replace(verified.contract, required_outputs=tuple(
+            replace(required, evidence_types=(*required.evidence_types, "derived_calculation"))
+            for required in verified.contract.required_outputs
+        ))
+        outcome = replace(verified.outcome, evidence=(*inputs, calc), bindings=tuple(
+            replace(binding, evidence_hashes=(*binding.evidence_hashes, "calc"))
+            for binding in verified.outcome.bindings
+        ))
+        checked = verify_episode_outcome(contract, outcome)
+>       assert checked.missing_outputs == ("metric_evidence",)
+E       AssertionError: assert () == ('metric_evidence',)
+E         
+E         Right contains one more item: 'metric_evidence'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_r6_regressions.py:365: AssertionError
+_ test_ratio_alias_recomputation_uses_the_same_bound_input_chain[9.999-True-\u542b\u91d1\u91cf] _
+
+ratio_name = '含金量', value = 9.999, rejected = True
+
+    @pytest.mark.parametrize("ratio_name", ["含金量", "净现比", "OCF/净利润"])
+    @pytest.mark.parametrize("value,rejected", [(9.999, True), (1.588, False)])
+    def test_ratio_alias_recomputation_uses_the_same_bound_input_chain(ratio_name, value, rejected):
+        from intelligence.services.financial_claim_checks import calculation_ratio_gaps
+        from intelligence.tests.test_research_delivery_checks import _financial_evidence
+    
+        source, calc = _financial_evidence()
+        calc = replace(calc, observations=(replace(
+            calc.observations[0], metric=f"现金流比率.{ratio_name}[2026中报]", value=value,
+        ),))
+        evidence = (source, calc)
+>       assert bool(calculation_ratio_gaps(evidence, (calc.content_hash,), subject="600519.SH")) == rejected
+E       AssertionError: assert False == True
+E        +  where False = bool(())
+E        +    where () = <function calculation_ratio_gaps at 0x109f3bd80>((AgentEvidence(tool='financial_data', title='财报', detail='财报输入', source='F10', internal_locator='', source_date=None, ...ed=None, pointer_dropped=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='')), ('calc-hash',), subject='600519.SH')
+
+intelligence/tests/test_financial_r6_regressions.py:383: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_wrong_product_reopens_metric_slot_not_the_whole_research[\u542b\u91d1\u91cf]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_ratio_alias_recomputation_uses_the_same_bound_input_chain[9.999-True-\u542b\u91d1\u91cf]
+2 failed, 7 passed, 112 deselected in 0.29s

@@ -1,0 +1,967 @@
+FFFFFFFFFFFFFFFFFFFFFF......F......FFFF...........FFFF.............FFFF. [ 94%]
+....                                                                     [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260920T034436Z-d8d6196b.json
+
+=================================== FAILURES ===================================
+_ test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf(bp)-1.588] _
+
+header = '含金量(bp)', cell = '1.588'
+
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量(bp)", "1.588倍"),
+        ("含金量(%)", "158.8bp"),
+        ("含金量", "1.588bp"),
+        ("含金量", "1.588基点"),
+        ("含金量", "1.588个百分点"),
+    ])
+    def test_ratio_delta_units_are_unverified_at_either_table_location(header, cell):
+        draft = f"| 报告期 | OCF累计 | 含金量占位 |\n|---|---|---|\n|2026中报|706.91|{cell}|"
+        draft = draft.replace("含金量占位", header)
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:162: AssertionError
+_ test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf(BP)-1.588] _
+
+header = '含金量(BP)', cell = '1.588'
+
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量(bp)", "1.588倍"),
+        ("含金量(%)", "158.8bp"),
+        ("含金量", "1.588bp"),
+        ("含金量", "1.588基点"),
+        ("含金量", "1.588个百分点"),
+    ])
+    def test_ratio_delta_units_are_unverified_at_either_table_location(header, cell):
+        draft = f"| 报告期 | OCF累计 | 含金量占位 |\n|---|---|---|\n|2026中报|706.91|{cell}|"
+        draft = draft.replace("含金量占位", header)
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:162: AssertionError
+_ test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf\uff08\u57fa\u70b9\uff09-1.588] _
+
+header = '含金量（基点）', cell = '1.588'
+
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量(bp)", "1.588倍"),
+        ("含金量(%)", "158.8bp"),
+        ("含金量", "1.588bp"),
+        ("含金量", "1.588基点"),
+        ("含金量", "1.588个百分点"),
+    ])
+    def test_ratio_delta_units_are_unverified_at_either_table_location(header, cell):
+        draft = f"| 报告期 | OCF累计 | 含金量占位 |\n|---|---|---|\n|2026中报|706.91|{cell}|"
+        draft = draft.replace("含金量占位", header)
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:162: AssertionError
+_ test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf(\u767e\u5206\u70b9)-1.588] _
+
+header = '含金量(百分点)', cell = '1.588'
+
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量(bp)", "1.588倍"),
+        ("含金量(%)", "158.8bp"),
+        ("含金量", "1.588bp"),
+        ("含金量", "1.588基点"),
+        ("含金量", "1.588个百分点"),
+    ])
+    def test_ratio_delta_units_are_unverified_at_either_table_location(header, cell):
+        draft = f"| 报告期 | OCF累计 | 含金量占位 |\n|---|---|---|\n|2026中报|706.91|{cell}|"
+        draft = draft.replace("含金量占位", header)
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:162: AssertionError
+_ test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf(bp)-1.588\u500d] _
+
+header = '含金量(bp)', cell = '1.588倍'
+
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量(bp)", "1.588倍"),
+        ("含金量(%)", "158.8bp"),
+        ("含金量", "1.588bp"),
+        ("含金量", "1.588基点"),
+        ("含金量", "1.588个百分点"),
+    ])
+    def test_ratio_delta_units_are_unverified_at_either_table_location(header, cell):
+        draft = f"| 报告期 | OCF累计 | 含金量占位 |\n|---|---|---|\n|2026中报|706.91|{cell}|"
+        draft = draft.replace("含金量占位", header)
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:162: AssertionError
+_ test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf(%)-158.8bp] _
+
+header = '含金量(%)', cell = '158.8bp'
+
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量(bp)", "1.588倍"),
+        ("含金量(%)", "158.8bp"),
+        ("含金量", "1.588bp"),
+        ("含金量", "1.588基点"),
+        ("含金量", "1.588个百分点"),
+    ])
+    def test_ratio_delta_units_are_unverified_at_either_table_location(header, cell):
+        draft = f"| 报告期 | OCF累计 | 含金量占位 |\n|---|---|---|\n|2026中报|706.91|{cell}|"
+        draft = draft.replace("含金量占位", header)
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:162: AssertionError
+_ test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf-1.588bp] _
+
+header = '含金量', cell = '1.588bp'
+
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量(bp)", "1.588倍"),
+        ("含金量(%)", "158.8bp"),
+        ("含金量", "1.588bp"),
+        ("含金量", "1.588基点"),
+        ("含金量", "1.588个百分点"),
+    ])
+    def test_ratio_delta_units_are_unverified_at_either_table_location(header, cell):
+        draft = f"| 报告期 | OCF累计 | 含金量占位 |\n|---|---|---|\n|2026中报|706.91|{cell}|"
+        draft = draft.replace("含金量占位", header)
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:162: AssertionError
+_ test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf-1.588\u57fa\u70b9] _
+
+header = '含金量', cell = '1.588基点'
+
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量(bp)", "1.588倍"),
+        ("含金量(%)", "158.8bp"),
+        ("含金量", "1.588bp"),
+        ("含金量", "1.588基点"),
+        ("含金量", "1.588个百分点"),
+    ])
+    def test_ratio_delta_units_are_unverified_at_either_table_location(header, cell):
+        draft = f"| 报告期 | OCF累计 | 含金量占位 |\n|---|---|---|\n|2026中报|706.91|{cell}|"
+        draft = draft.replace("含金量占位", header)
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:162: AssertionError
+_ test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf-1.588\u4e2a\u767e\u5206\u70b9] _
+
+header = '含金量', cell = '1.588个百分点'
+
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量(bp)", "1.588倍"),
+        ("含金量(%)", "158.8bp"),
+        ("含金量", "1.588bp"),
+        ("含金量", "1.588基点"),
+        ("含金量", "1.588个百分点"),
+    ])
+    def test_ratio_delta_units_are_unverified_at_either_table_location(header, cell):
+        draft = f"| 报告期 | OCF累计 | 含金量占位 |\n|---|---|---|\n|2026中报|706.91|{cell}|"
+        draft = draft.replace("含金量占位", header)
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:162: AssertionError
+_ test_explicit_ratio_prose_does_not_drop_a_delta_unit[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.588bp\u3002] _
+
+claim = '2026中报含金量为1.588bp。'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报含金量为1.588bp。",
+        "2026中报含金量为1.588基点。",
+        "2026中报含金量为1.588百分点。",
+        "2026中报含金量为1.588个百分点。",
+        "2026中报含金量(bp)为1.588倍。",
+    ])
+    def test_explicit_ratio_prose_does_not_drop_a_delta_unit(claim):
+        findings = calculation_copy_findings(claim, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:177: AssertionError
+_ test_explicit_ratio_prose_does_not_drop_a_delta_unit[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.588\u57fa\u70b9\u3002] _
+
+claim = '2026中报含金量为1.588基点。'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报含金量为1.588bp。",
+        "2026中报含金量为1.588基点。",
+        "2026中报含金量为1.588百分点。",
+        "2026中报含金量为1.588个百分点。",
+        "2026中报含金量(bp)为1.588倍。",
+    ])
+    def test_explicit_ratio_prose_does_not_drop_a_delta_unit(claim):
+        findings = calculation_copy_findings(claim, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:177: AssertionError
+_ test_explicit_ratio_prose_does_not_drop_a_delta_unit[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.588\u767e\u5206\u70b9\u3002] _
+
+claim = '2026中报含金量为1.588百分点。'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报含金量为1.588bp。",
+        "2026中报含金量为1.588基点。",
+        "2026中报含金量为1.588百分点。",
+        "2026中报含金量为1.588个百分点。",
+        "2026中报含金量(bp)为1.588倍。",
+    ])
+    def test_explicit_ratio_prose_does_not_drop_a_delta_unit(claim):
+        findings = calculation_copy_findings(claim, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:177: AssertionError
+_ test_explicit_ratio_prose_does_not_drop_a_delta_unit[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.588\u4e2a\u767e\u5206\u70b9\u3002] _
+
+claim = '2026中报含金量为1.588个百分点。'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报含金量为1.588bp。",
+        "2026中报含金量为1.588基点。",
+        "2026中报含金量为1.588百分点。",
+        "2026中报含金量为1.588个百分点。",
+        "2026中报含金量(bp)为1.588倍。",
+    ])
+    def test_explicit_ratio_prose_does_not_drop_a_delta_unit(claim):
+        findings = calculation_copy_findings(claim, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:177: AssertionError
+_ test_explicit_ratio_prose_does_not_drop_a_delta_unit[2026\u4e2d\u62a5\u542b\u91d1\u91cf(bp)\u4e3a1.588\u500d\u3002] _
+
+claim = '2026中报含金量(bp)为1.588倍。'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报含金量为1.588bp。",
+        "2026中报含金量为1.588基点。",
+        "2026中报含金量为1.588百分点。",
+        "2026中报含金量为1.588个百分点。",
+        "2026中报含金量(bp)为1.588倍。",
+    ])
+    def test_explicit_ratio_prose_does_not_drop_a_delta_unit(claim):
+        findings = calculation_copy_findings(claim, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:177: AssertionError
+___________ test_delta_unit_product_cannot_certify_a_level[False-bp] ___________
+
+unit = 'bp', with_valid_product = False
+
+    @pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
+    @pytest.mark.parametrize("with_valid_product", [False, True])
+    def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
+        source, calc = _financial_evidence()
+        invalid = replace(calc, content_hash="delta-calc", observations=(replace(
+            calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
+        ),))
+        evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
+        findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:189: AssertionError
+___________ test_delta_unit_product_cannot_certify_a_level[False-BP] ___________
+
+unit = 'BP', with_valid_product = False
+
+    @pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
+    @pytest.mark.parametrize("with_valid_product", [False, True])
+    def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
+        source, calc = _financial_evidence()
+        invalid = replace(calc, content_hash="delta-calc", observations=(replace(
+            calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
+        ),))
+        evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
+        findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:189: AssertionError
+______ test_delta_unit_product_cannot_certify_a_level[False-\u57fa\u70b9] ______
+
+unit = '基点', with_valid_product = False
+
+    @pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
+    @pytest.mark.parametrize("with_valid_product", [False, True])
+    def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
+        source, calc = _financial_evidence()
+        invalid = replace(calc, content_hash="delta-calc", observations=(replace(
+            calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
+        ),))
+        evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
+        findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:189: AssertionError
+___ test_delta_unit_product_cannot_certify_a_level[False-\u767e\u5206\u70b9] ___
+
+unit = '百分点', with_valid_product = False
+
+    @pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
+    @pytest.mark.parametrize("with_valid_product", [False, True])
+    def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
+        source, calc = _financial_evidence()
+        invalid = replace(calc, content_hash="delta-calc", observations=(replace(
+            calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
+        ),))
+        evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
+        findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:189: AssertionError
+___________ test_delta_unit_product_cannot_certify_a_level[True-bp] ____________
+
+unit = 'bp', with_valid_product = True
+
+    @pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
+    @pytest.mark.parametrize("with_valid_product", [False, True])
+    def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
+        source, calc = _financial_evidence()
+        invalid = replace(calc, content_hash="delta-calc", observations=(replace(
+            calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
+        ),))
+        evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
+        findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:189: AssertionError
+___________ test_delta_unit_product_cannot_certify_a_level[True-BP] ____________
+
+unit = 'BP', with_valid_product = True
+
+    @pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
+    @pytest.mark.parametrize("with_valid_product", [False, True])
+    def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
+        source, calc = _financial_evidence()
+        invalid = replace(calc, content_hash="delta-calc", observations=(replace(
+            calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
+        ),))
+        evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
+        findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:189: AssertionError
+______ test_delta_unit_product_cannot_certify_a_level[True-\u57fa\u70b9] _______
+
+unit = '基点', with_valid_product = True
+
+    @pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
+    @pytest.mark.parametrize("with_valid_product", [False, True])
+    def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
+        source, calc = _financial_evidence()
+        invalid = replace(calc, content_hash="delta-calc", observations=(replace(
+            calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
+        ),))
+        evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
+        findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:189: AssertionError
+___ test_delta_unit_product_cannot_certify_a_level[True-\u767e\u5206\u70b9] ____
+
+unit = '百分点', with_valid_product = True
+
+    @pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
+    @pytest.mark.parametrize("with_valid_product", [False, True])
+    def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
+        source, calc = _financial_evidence()
+        invalid = replace(calc, content_hash="delta-calc", observations=(replace(
+            calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
+        ),))
+        evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
+        findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:189: AssertionError
+_ test_ratio_units_preserve_absolute_values_and_excluded_column_roles[\u542b\u91d1\u91cf\u589e\u957f(bp)-9.999] _
+
+header = '含金量增长(bp)', cell = '9.999'
+
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量", "1.588"),
+        ("含金量(倍)", "1.588"),
+        ("含金量", "1.588倍"),
+        ("含金量(%)", "158.8"),
+        ("含金量", "158.8%"),
+        ("含金量同比增长(bp)", "9.999"),
+        ("含金量增长(bp)", "9.999"),
+        ("含金量环比变化(基点)", "9.999"),
+        ("收入(亿元)", "9.999"),
+    ])
+    def test_ratio_units_preserve_absolute_values_and_excluded_column_roles(header, cell):
+        draft = f"|报告期|{header}|\n|---|---|\n|2026中报|{cell}|"
+>       assert calculation_copy_findings(draft, _financial_evidence()) == ()
+E       AssertionError: assert (DeliveryFind...ent=' 待核对 '),) == ()
+E         
+E         Left contains one more item: DeliveryFinding(start=34, end=39, code='calculation_value_mismatch', replacement=' 待核对 ')
+E         Use -v to get more diff
+
+intelligence/tests/test_research_delivery_checks.py:205: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a0.132bp\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107c56450>
+claim = '2026中报含金量为0.132bp。', mode = 'off'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报含金量为0.133。",
+        "2026中报含金量为0.132bp。",
+        "2026中报含金量为0.132基点。",
+        "2026中报含金量为0.132个百分点。",
+        "2026中报含金量(bp)为0.132倍。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报含金量为0.132bp。' not in '应收账款明细尚未取得，...含金量为0.132bp。'
+E         
+E         '2026中报含金量为0.132bp。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报含金量为0.132bp。
+
+intelligence/tests/test_financial_r6_regressions.py:158: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a0.132\u57fa\u70b9\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107b44170>
+claim = '2026中报含金量为0.132基点。', mode = 'off'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报含金量为0.133。",
+        "2026中报含金量为0.132bp。",
+        "2026中报含金量为0.132基点。",
+        "2026中报含金量为0.132个百分点。",
+        "2026中报含金量(bp)为0.132倍。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报含金量为0.132基点。' not in '应收账款明细尚未取得，...含金量为0.132基点。'
+E         
+E         '2026中报含金量为0.132基点。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报含金量为0.132基点。
+
+intelligence/tests/test_financial_r6_regressions.py:158: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a0.132\u4e2a\u767e\u5206\u70b9\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107b46c90>
+claim = '2026中报含金量为0.132个百分点。', mode = 'off'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报含金量为0.133。",
+        "2026中报含金量为0.132bp。",
+        "2026中报含金量为0.132基点。",
+        "2026中报含金量为0.132个百分点。",
+        "2026中报含金量(bp)为0.132倍。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报含金量为0.132个百分点。' not in '应收账款明细尚未取得，...量为0.132个百分点。'
+E         
+E         '2026中报含金量为0.132个百分点。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报含金量为0.132个百分点。
+
+intelligence/tests/test_financial_r6_regressions.py:158: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u542b\u91d1\u91cf(bp)\u4e3a0.132\u500d\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107b40380>
+claim = '2026中报含金量(bp)为0.132倍。', mode = 'off'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报含金量为0.133。",
+        "2026中报含金量为0.132bp。",
+        "2026中报含金量为0.132基点。",
+        "2026中报含金量为0.132个百分点。",
+        "2026中报含金量(bp)为0.132倍。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报含金量(bp)为0.132倍。' not in '应收账款明细尚未取得，...(bp)为0.132倍。'
+E         
+E         '2026中报含金量(bp)为0.132倍。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报含金量(bp)为0.132倍。
+
+intelligence/tests/test_financial_r6_regressions.py:158: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a0.132bp\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107b42ae0>
+claim = '2026中报含金量为0.132bp。', mode = 'llm'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报含金量为0.133。",
+        "2026中报含金量为0.132bp。",
+        "2026中报含金量为0.132基点。",
+        "2026中报含金量为0.132个百分点。",
+        "2026中报含金量(bp)为0.132倍。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报含金量为0.132bp。' not in '应收账款明细尚未取得，...含金量为0.132bp。'
+E         
+E         '2026中报含金量为0.132bp。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报含金量为0.132bp。
+
+intelligence/tests/test_financial_r6_regressions.py:158: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a0.132\u57fa\u70b9\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107b50fb0>
+claim = '2026中报含金量为0.132基点。', mode = 'llm'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报含金量为0.133。",
+        "2026中报含金量为0.132bp。",
+        "2026中报含金量为0.132基点。",
+        "2026中报含金量为0.132个百分点。",
+        "2026中报含金量(bp)为0.132倍。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报含金量为0.132基点。' not in '应收账款明细尚未取得，...含金量为0.132基点。'
+E         
+E         '2026中报含金量为0.132基点。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报含金量为0.132基点。
+
+intelligence/tests/test_financial_r6_regressions.py:158: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a0.132\u4e2a\u767e\u5206\u70b9\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107b52960>
+claim = '2026中报含金量为0.132个百分点。', mode = 'llm'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报含金量为0.133。",
+        "2026中报含金量为0.132bp。",
+        "2026中报含金量为0.132基点。",
+        "2026中报含金量为0.132个百分点。",
+        "2026中报含金量(bp)为0.132倍。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报含金量为0.132个百分点。' not in '应收账款明细尚未取得，...量为0.132个百分点。'
+E         
+E         '2026中报含金量为0.132个百分点。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报含金量为0.132个百分点。
+
+intelligence/tests/test_financial_r6_regressions.py:158: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u542b\u91d1\u91cf(bp)\u4e3a0.132\u500d\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107b67e90>
+claim = '2026中报含金量(bp)为0.132倍。', mode = 'llm'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报含金量为0.133。",
+        "2026中报含金量为0.132bp。",
+        "2026中报含金量为0.132基点。",
+        "2026中报含金量为0.132个百分点。",
+        "2026中报含金量(bp)为0.132倍。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报含金量(bp)为0.132倍。' not in '应收账款明细尚未取得，...(bp)为0.132倍。'
+E         
+E         '2026中报含金量(bp)为0.132倍。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报含金量(bp)为0.132倍。
+
+intelligence/tests/test_financial_r6_regressions.py:158: AssertionError
+_ test_result_ratio_is_recomputed_only_from_its_own_inputs[\u73b0\u91d1\u6d41.\u542b\u91d1\u91cf(bp)[2026\u4e2d\u62a5]-0.132-True] _
+
+metric = '现金流.含金量(bp)[2026中报]', value = 0.132, rejected = True
+
+    @pytest.mark.parametrize("metric,value,rejected", [
+        ("净现比.净现比[2026中报]", 0.132, False),
+        ("净现比.净现比[2026中报]", 0.133, True),
+        ("2025年报汇总.净现比[2026中报]", 0.132, False),
+        ("净现比.净现比%[2026中报]", 13.2, False),
+        ("净现比.营收[2026中报]", 417.78, False),
+        ("净现比.净现比同比增长[2026中报]", 13.2, False),
+        ("现金流.含金量(bp)[2026中报]", 0.132, True),
+        ("现金流.净现比(BP)[2026中报]", 0.132, True),
+        ("现金流.OCF/净利润（基点）[2026中报]", 0.132, True),
+        ("现金流.含金量(百分点)[2026中报]", 0.132, True),
+        ("现金流.含金量(倍)[2026中报]", 0.132, False),
+        ("现金流.含金量增长(bp)[2026中报]", 9.999, False),
+        ("现金流.含金量环比变化(基点)[2026中报]", 9.999, False),
+        ("现金流.含金量[2024中报]", 9.999, False),
+        ("净现比.净现比[2026中报]", float("nan"), True),
+    ])
+    def test_result_ratio_is_recomputed_only_from_its_own_inputs(metric, value, rejected):
+        from intelligence.services.financial_claim_checks import calculation_ratio_gaps
+        _, verified = _financial(SAFE)
+        inputs = verified.outcome.evidence
+        calc = AgentEvidence(
+            "derived_calculation", "净现比计算", "计算结果", "sandbox:0000000000000001", content_hash="calc",
+            derived_from=tuple(item.content_hash for item in inputs),
+            observations=(StructuredObservation("计算任务", "2025-04-21", metric, value),),
+        )
+        evidence = (*inputs, calc)
+>       assert bool(calculation_ratio_gaps(evidence, ("calc",), subject="300308")) == rejected
+E       AssertionError: assert False == True
+E        +  where False = bool(())
+E        +    where () = <function calculation_ratio_gaps at 0x107c40900>((AgentEvidence(tool='financial_data', title='300308 2026-06-30', detail='2026-06-30累计经营现金流18.0亿元，归母净利136.51亿元，存货198.26...ed=None, pointer_dropped=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='')), ('calc',), subject='300308')
+
+intelligence/tests/test_financial_r6_regressions.py:337: AssertionError
+_ test_result_ratio_is_recomputed_only_from_its_own_inputs[\u73b0\u91d1\u6d41.\u51c0\u73b0\u6bd4(BP)[2026\u4e2d\u62a5]-0.132-True] _
+
+metric = '现金流.净现比(BP)[2026中报]', value = 0.132, rejected = True
+
+    @pytest.mark.parametrize("metric,value,rejected", [
+        ("净现比.净现比[2026中报]", 0.132, False),
+        ("净现比.净现比[2026中报]", 0.133, True),
+        ("2025年报汇总.净现比[2026中报]", 0.132, False),
+        ("净现比.净现比%[2026中报]", 13.2, False),
+        ("净现比.营收[2026中报]", 417.78, False),
+        ("净现比.净现比同比增长[2026中报]", 13.2, False),
+        ("现金流.含金量(bp)[2026中报]", 0.132, True),
+        ("现金流.净现比(BP)[2026中报]", 0.132, True),
+        ("现金流.OCF/净利润（基点）[2026中报]", 0.132, True),
+        ("现金流.含金量(百分点)[2026中报]", 0.132, True),
+        ("现金流.含金量(倍)[2026中报]", 0.132, False),
+        ("现金流.含金量增长(bp)[2026中报]", 9.999, False),
+        ("现金流.含金量环比变化(基点)[2026中报]", 9.999, False),
+        ("现金流.含金量[2024中报]", 9.999, False),
+        ("净现比.净现比[2026中报]", float("nan"), True),
+    ])
+    def test_result_ratio_is_recomputed_only_from_its_own_inputs(metric, value, rejected):
+        from intelligence.services.financial_claim_checks import calculation_ratio_gaps
+        _, verified = _financial(SAFE)
+        inputs = verified.outcome.evidence
+        calc = AgentEvidence(
+            "derived_calculation", "净现比计算", "计算结果", "sandbox:0000000000000001", content_hash="calc",
+            derived_from=tuple(item.content_hash for item in inputs),
+            observations=(StructuredObservation("计算任务", "2025-04-21", metric, value),),
+        )
+        evidence = (*inputs, calc)
+>       assert bool(calculation_ratio_gaps(evidence, ("calc",), subject="300308")) == rejected
+E       AssertionError: assert False == True
+E        +  where False = bool(())
+E        +    where () = <function calculation_ratio_gaps at 0x107c40900>((AgentEvidence(tool='financial_data', title='300308 2026-06-30', detail='2026-06-30累计经营现金流18.0亿元，归母净利136.51亿元，存货198.26...ed=None, pointer_dropped=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='')), ('calc',), subject='300308')
+
+intelligence/tests/test_financial_r6_regressions.py:337: AssertionError
+_ test_result_ratio_is_recomputed_only_from_its_own_inputs[\u73b0\u91d1\u6d41.OCF/\u51c0\u5229\u6da6\uff08\u57fa\u70b9\uff09[2026\u4e2d\u62a5]-0.132-True] _
+
+metric = '现金流.OCF/净利润（基点）[2026中报]', value = 0.132, rejected = True
+
+    @pytest.mark.parametrize("metric,value,rejected", [
+        ("净现比.净现比[2026中报]", 0.132, False),
+        ("净现比.净现比[2026中报]", 0.133, True),
+        ("2025年报汇总.净现比[2026中报]", 0.132, False),
+        ("净现比.净现比%[2026中报]", 13.2, False),
+        ("净现比.营收[2026中报]", 417.78, False),
+        ("净现比.净现比同比增长[2026中报]", 13.2, False),
+        ("现金流.含金量(bp)[2026中报]", 0.132, True),
+        ("现金流.净现比(BP)[2026中报]", 0.132, True),
+        ("现金流.OCF/净利润（基点）[2026中报]", 0.132, True),
+        ("现金流.含金量(百分点)[2026中报]", 0.132, True),
+        ("现金流.含金量(倍)[2026中报]", 0.132, False),
+        ("现金流.含金量增长(bp)[2026中报]", 9.999, False),
+        ("现金流.含金量环比变化(基点)[2026中报]", 9.999, False),
+        ("现金流.含金量[2024中报]", 9.999, False),
+        ("净现比.净现比[2026中报]", float("nan"), True),
+    ])
+    def test_result_ratio_is_recomputed_only_from_its_own_inputs(metric, value, rejected):
+        from intelligence.services.financial_claim_checks import calculation_ratio_gaps
+        _, verified = _financial(SAFE)
+        inputs = verified.outcome.evidence
+        calc = AgentEvidence(
+            "derived_calculation", "净现比计算", "计算结果", "sandbox:0000000000000001", content_hash="calc",
+            derived_from=tuple(item.content_hash for item in inputs),
+            observations=(StructuredObservation("计算任务", "2025-04-21", metric, value),),
+        )
+        evidence = (*inputs, calc)
+>       assert bool(calculation_ratio_gaps(evidence, ("calc",), subject="300308")) == rejected
+E       AssertionError: assert False == True
+E        +  where False = bool(())
+E        +    where () = <function calculation_ratio_gaps at 0x107c40900>((AgentEvidence(tool='financial_data', title='300308 2026-06-30', detail='2026-06-30累计经营现金流18.0亿元，归母净利136.51亿元，存货198.26...ed=None, pointer_dropped=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='')), ('calc',), subject='300308')
+
+intelligence/tests/test_financial_r6_regressions.py:337: AssertionError
+_ test_result_ratio_is_recomputed_only_from_its_own_inputs[\u73b0\u91d1\u6d41.\u542b\u91d1\u91cf(\u767e\u5206\u70b9)[2026\u4e2d\u62a5]-0.132-True] _
+
+metric = '现金流.含金量(百分点)[2026中报]', value = 0.132, rejected = True
+
+    @pytest.mark.parametrize("metric,value,rejected", [
+        ("净现比.净现比[2026中报]", 0.132, False),
+        ("净现比.净现比[2026中报]", 0.133, True),
+        ("2025年报汇总.净现比[2026中报]", 0.132, False),
+        ("净现比.净现比%[2026中报]", 13.2, False),
+        ("净现比.营收[2026中报]", 417.78, False),
+        ("净现比.净现比同比增长[2026中报]", 13.2, False),
+        ("现金流.含金量(bp)[2026中报]", 0.132, True),
+        ("现金流.净现比(BP)[2026中报]", 0.132, True),
+        ("现金流.OCF/净利润（基点）[2026中报]", 0.132, True),
+        ("现金流.含金量(百分点)[2026中报]", 0.132, True),
+        ("现金流.含金量(倍)[2026中报]", 0.132, False),
+        ("现金流.含金量增长(bp)[2026中报]", 9.999, False),
+        ("现金流.含金量环比变化(基点)[2026中报]", 9.999, False),
+        ("现金流.含金量[2024中报]", 9.999, False),
+        ("净现比.净现比[2026中报]", float("nan"), True),
+    ])
+    def test_result_ratio_is_recomputed_only_from_its_own_inputs(metric, value, rejected):
+        from intelligence.services.financial_claim_checks import calculation_ratio_gaps
+        _, verified = _financial(SAFE)
+        inputs = verified.outcome.evidence
+        calc = AgentEvidence(
+            "derived_calculation", "净现比计算", "计算结果", "sandbox:0000000000000001", content_hash="calc",
+            derived_from=tuple(item.content_hash for item in inputs),
+            observations=(StructuredObservation("计算任务", "2025-04-21", metric, value),),
+        )
+        evidence = (*inputs, calc)
+>       assert bool(calculation_ratio_gaps(evidence, ("calc",), subject="300308")) == rejected
+E       AssertionError: assert False == True
+E        +  where False = bool(())
+E        +    where () = <function calculation_ratio_gaps at 0x107c40900>((AgentEvidence(tool='financial_data', title='300308 2026-06-30', detail='2026-06-30累计经营现金流18.0亿元，归母净利136.51亿元，存货198.26...ed=None, pointer_dropped=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='')), ('calc',), subject='300308')
+
+intelligence/tests/test_financial_r6_regressions.py:337: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf(bp)-1.588]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf(BP)-1.588]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf\uff08\u57fa\u70b9\uff09-1.588]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf(\u767e\u5206\u70b9)-1.588]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf(bp)-1.588\u500d]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf(%)-158.8bp]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf-1.588bp]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf-1.588\u57fa\u70b9]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf-1.588\u4e2a\u767e\u5206\u70b9]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_explicit_ratio_prose_does_not_drop_a_delta_unit[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.588bp\u3002]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_explicit_ratio_prose_does_not_drop_a_delta_unit[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.588\u57fa\u70b9\u3002]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_explicit_ratio_prose_does_not_drop_a_delta_unit[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.588\u767e\u5206\u70b9\u3002]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_explicit_ratio_prose_does_not_drop_a_delta_unit[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.588\u4e2a\u767e\u5206\u70b9\u3002]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_explicit_ratio_prose_does_not_drop_a_delta_unit[2026\u4e2d\u62a5\u542b\u91d1\u91cf(bp)\u4e3a1.588\u500d\u3002]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_delta_unit_product_cannot_certify_a_level[False-bp]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_delta_unit_product_cannot_certify_a_level[False-BP]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_delta_unit_product_cannot_certify_a_level[False-\u57fa\u70b9]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_delta_unit_product_cannot_certify_a_level[False-\u767e\u5206\u70b9]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_delta_unit_product_cannot_certify_a_level[True-bp]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_delta_unit_product_cannot_certify_a_level[True-BP]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_delta_unit_product_cannot_certify_a_level[True-\u57fa\u70b9]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_delta_unit_product_cannot_certify_a_level[True-\u767e\u5206\u70b9]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_units_preserve_absolute_values_and_excluded_column_roles[\u542b\u91d1\u91cf\u589e\u957f(bp)-9.999]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a0.132bp\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a0.132\u57fa\u70b9\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a0.132\u4e2a\u767e\u5206\u70b9\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u542b\u91d1\u91cf(bp)\u4e3a0.132\u500d\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a0.132bp\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a0.132\u57fa\u70b9\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a0.132\u4e2a\u767e\u5206\u70b9\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u542b\u91d1\u91cf(bp)\u4e3a0.132\u500d\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_result_ratio_is_recomputed_only_from_its_own_inputs[\u73b0\u91d1\u6d41.\u542b\u91d1\u91cf(bp)[2026\u4e2d\u62a5]-0.132-True]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_result_ratio_is_recomputed_only_from_its_own_inputs[\u73b0\u91d1\u6d41.\u51c0\u73b0\u6bd4(BP)[2026\u4e2d\u62a5]-0.132-True]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_result_ratio_is_recomputed_only_from_its_own_inputs[\u73b0\u91d1\u6d41.OCF/\u51c0\u5229\u6da6\uff08\u57fa\u70b9\uff09[2026\u4e2d\u62a5]-0.132-True]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_result_ratio_is_recomputed_only_from_its_own_inputs[\u73b0\u91d1\u6d41.\u542b\u91d1\u91cf(\u767e\u5206\u70b9)[2026\u4e2d\u62a5]-0.132-True]
+35 failed, 41 passed, 116 deselected in 0.45s

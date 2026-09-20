@@ -350,31 +350,31 @@
       "sha256": "7019626630becb7317f92aeaebcffaaf6b1aee4dfe8807ab45dd199d0d3b3fe3"
     },
     {
-      "path": "financial-ratio-fix/alias-green.log",
+      "path": "financial-ratio-fix/alias-green.log.txt",
       "bytes": 201,
       "sha256": "18b4605b953dd2abb52210edd454a92043efa86b98e479b58d3b69e804df59db",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/alias-green.log"
     },
     {
-      "path": "financial-ratio-fix/alias-red.log",
+      "path": "financial-ratio-fix/alias-red.log.txt",
       "bytes": 8541,
       "sha256": "d33517a4a3e434efe8dfa9adf4e2698c9b0306293310abd996d35370fb1a95ec",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/alias-red.log"
     },
     {
-      "path": "financial-ratio-fix/exit-baseline-red.log",
+      "path": "financial-ratio-fix/exit-baseline-red.log.txt",
       "bytes": 27883,
       "sha256": "9e418d51339cb096b244ed6b9de58f52cc3e90d7731ddd5b254f07a041c3c73b",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/exit-baseline-red.log"
     },
     {
-      "path": "financial-ratio-fix/exit-green.log",
+      "path": "financial-ratio-fix/exit-green.log.txt",
       "bytes": 201,
       "sha256": "1dce5ce45ef3024b59dbad4c7652b4bbbef891f11b12cf47926fe08ef41d2e59",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/exit-green.log"
     },
     {
-      "path": "financial-ratio-fix/fixed-targeted-green.log",
+      "path": "financial-ratio-fix/fixed-targeted-green.log.txt",
       "bytes": 507,
       "sha256": "cf153456238d5c74bbac34a742ca5c67eaea765ecfdde443aa194a465bce217b",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/fixed-targeted-green.log"
@@ -386,19 +386,19 @@
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/manifest.json"
     },
     {
-      "path": "financial-ratio-fix/mutation-alias.log",
+      "path": "financial-ratio-fix/mutation-alias.log.txt",
       "bytes": 3687,
       "sha256": "6a408822bed967f3730f042fd3890355d7a01a67b1e76236cedfb7e468ef2109",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/mutation-alias.log"
     },
     {
-      "path": "financial-ratio-fix/mutation-header.log",
+      "path": "financial-ratio-fix/mutation-header.log.txt",
       "bytes": 6659,
       "sha256": "ee041c39ecc5cbaca2ed9e1ed981019802ea4b37fe23089b35cd5be38d8f7539",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/mutation-header.log"
     },
     {
-      "path": "financial-ratio-fix/mutation-product.log",
+      "path": "financial-ratio-fix/mutation-product.log.txt",
       "bytes": 9116,
       "sha256": "d4c94004a92c50dd1efcbe8425c4723afb6836681e0b3e18c0ae8c8bbf6a4496",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/mutation-product.log"
@@ -416,31 +416,31 @@
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/original-probe-after.json"
     },
     {
-      "path": "financial-ratio-fix/ruff.log",
+      "path": "financial-ratio-fix/ruff.log.txt",
       "bytes": 19,
       "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/ruff.log"
     },
     {
-      "path": "financial-ratio-fix/targeted-green.log",
+      "path": "financial-ratio-fix/targeted-green.log.txt",
       "bytes": 507,
       "sha256": "50c9ee08051ef921ec2a64f80ed467b1a815f3b2622d6e247363cbad9b401c01",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/targeted-green.log"
     },
     {
-      "path": "financial-ratio-fix/units-green.log",
+      "path": "financial-ratio-fix/units-green.log.txt",
       "bytes": 282,
       "sha256": "027cb2e44375cbafd89b9a33e82853f18c7d08b0dfedcb8f544bbadd88097f57",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/units-green.log"
     },
     {
-      "path": "financial-ratio-fix/units-red.log",
+      "path": "financial-ratio-fix/units-red.log.txt",
       "bytes": 59058,
       "sha256": "836ac6f1faf14c9fcb5e392e3fc531c979ba5f2109189921e98fb279ff65910a",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/units-red.log"
     },
     {
-      "path": "financial-ratio-fix/prefix-unit-repair/fixed-related-green.log",
+      "path": "financial-ratio-fix/prefix-unit-repair/fixed-related-green.log.txt",
       "bytes": 267,
       "sha256": "b7ff80b9d1d6dfbc5b64831c08e1f1aaebd57bab438af2947aa0aef65d99d6e6",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/prefix-unit-repair/fixed-related-green.log"
@@ -458,7 +458,7 @@
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/prefix-unit-repair/manifest.json"
     },
     {
-      "path": "financial-ratio-fix/prefix-unit-repair/mutation-prefix-unit.log",
+      "path": "financial-ratio-fix/prefix-unit-repair/mutation-prefix-unit.log.txt",
       "bytes": 26892,
       "sha256": "955d9420b99d946fc9d219e0ba603aead64537fe5c594b8ddd7df03611cc4ee0",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/prefix-unit-repair/mutation-prefix-unit.log"
@@ -470,25 +470,25 @@
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/prefix-unit-repair/mutation-results.json"
     },
     {
-      "path": "financial-ratio-fix/prefix-unit-repair/prefix-green.log",
+      "path": "financial-ratio-fix/prefix-unit-repair/prefix-green.log.txt",
       "bytes": 202,
       "sha256": "e056b75d5a3c21a09182e6320f8c56703efac9dc9225e5c9f8d660124b726737",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/prefix-unit-repair/prefix-green.log"
     },
     {
-      "path": "financial-ratio-fix/prefix-unit-repair/prefix-red.log",
+      "path": "financial-ratio-fix/prefix-unit-repair/prefix-red.log.txt",
       "bytes": 26892,
       "sha256": "0085508d88e6a1c60a0cfa85e53e42e65855a69a025ec3017f81d311c7729f24",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/prefix-unit-repair/prefix-red.log"
     },
     {
-      "path": "financial-ratio-fix/prefix-unit-repair/related-green.log",
+      "path": "financial-ratio-fix/prefix-unit-repair/related-green.log.txt",
       "bytes": 267,
       "sha256": "130a3115f7d4b86cb95b0a61c9eba32a221b6a28afddc541ace2cb2949cfb0ce",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/prefix-unit-repair/related-green.log"
     },
     {
-      "path": "financial-ratio-fix/prefix-unit-repair/ruff.log",
+      "path": "financial-ratio-fix/prefix-unit-repair/ruff.log.txt",
       "bytes": 19,
       "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/prefix-unit-repair/ruff.log"
@@ -536,7 +536,7 @@
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-review/spec/review-manifest.json"
     },
     {
-      "path": "financial-ratio-review/spec/selected-pytest.log",
+      "path": "financial-ratio-review/spec/selected-pytest.log.txt",
       "bytes": 195,
       "sha256": "d403f343c6f61c39ad35deff262de7037482637eba499e9d896ade14d3f6ce5f",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-review/spec/selected-pytest.log"
@@ -566,7 +566,7 @@
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-review/spec-recheck/label-scope-result.json"
     },
     {
-      "path": "financial-ratio-review/spec-recheck/prefix-pytest.log",
+      "path": "financial-ratio-review/spec-recheck/prefix-pytest.log.txt",
       "bytes": 115,
       "sha256": "19bf69e204fa193e5b7948064d996612f75ac03b99335196832028c8f5b2a7ea",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-review/spec-recheck/prefix-pytest.log"
@@ -602,13 +602,13 @@
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-review/quality/review-manifest.json"
     },
     {
-      "path": "financial-ratio-review/quality/ruff.log",
+      "path": "financial-ratio-review/quality/ruff.log.txt",
       "bytes": 19,
       "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-review/quality/ruff.log"
     },
     {
-      "path": "runtime-evidence-review/spec/api-timer-candidate.log",
+      "path": "runtime-evidence-review/spec/api-timer-candidate.log.txt",
       "bytes": 421,
       "sha256": "ba5f2abedca5261ef88beb1ae72abd9079a503ac6ad4294787fc81e74778bedb",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-review/spec/api-timer-candidate.log"
@@ -620,19 +620,19 @@
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-review/spec/base-identity.json"
     },
     {
-      "path": "runtime-evidence-review/spec/future-evidence-base.log",
+      "path": "runtime-evidence-review/spec/future-evidence-base.log.txt",
       "bytes": 1380,
       "sha256": "b87c8b71c56921df0a80fd1e041d757e902ed710b84caa1f5baebbd2c55ed9d3",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-review/spec/future-evidence-base.log"
     },
     {
-      "path": "runtime-evidence-review/spec/future-evidence-candidate.log",
+      "path": "runtime-evidence-review/spec/future-evidence-candidate.log.txt",
       "bytes": 1403,
       "sha256": "2edea54765b4c51564b8e21085f4510f483cc1bebd1796aaf073817cbb3369db",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-review/spec/future-evidence-candidate.log"
     },
     {
-      "path": "runtime-evidence-review/spec/old-python-receipt-check.log",
+      "path": "runtime-evidence-review/spec/old-python-receipt-check.log.txt",
       "bytes": 722,
       "sha256": "e2379ffa33e6c2828ccbbc3f08bc05405bc517d835256f85eb41c6a863811123",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-review/spec/old-python-receipt-check.log"
@@ -644,7 +644,7 @@
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-review/spec/old-receipt-verification.json"
     },
     {
-      "path": "runtime-evidence-review/spec/old-receipt-verification.log",
+      "path": "runtime-evidence-review/spec/old-receipt-verification.log.txt",
       "bytes": 1953,
       "sha256": "1bb73e4e16e896d39a5b899110b6f28544277850139c80457514c367d77deee0",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-review/spec/old-receipt-verification.log"
@@ -674,7 +674,7 @@
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-review/spec/review-identity.json"
     },
     {
-      "path": "runtime-evidence-review/spec/selected.log",
+      "path": "runtime-evidence-review/spec/selected.log.txt",
       "bytes": 308,
       "sha256": "87934c86411395aa0cc5aaab105a00e90102c1cbb9abb397da8b496c1eefd289",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-review/spec/selected.log"
@@ -752,7 +752,7 @@
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-review/standards/targeted-receipt.json"
     },
     {
-      "path": "runtime-evidence-review/standards/targeted.log",
+      "path": "runtime-evidence-review/standards/targeted.log.txt",
       "bytes": 179,
       "sha256": "4d769ecc109ab90d93ab2341ad6c21c626409c1e40070ba88a0382cf89421969",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-review/standards/targeted.log"
