@@ -657,10 +657,12 @@ def compile_calculation(
         if static_only:
             conflicting_metrics = current_requested_phrases
             if conflicting_metrics:
-                issues.append(
+                conflict = (
                     "同轮同时要求仅静态估值与其他指标，需明确计算范围："
                     + "、".join(conflicting_metrics)
                 )
+                if conflict not in issues:
+                    issues.append(conflict)
             requested_phrases.clear()
         else:
             requested_phrases.update(current_requested_phrases)

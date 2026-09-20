@@ -82,3 +82,12 @@ def test_cross_sentence_current_scope_conflict_is_not_silent():
     )
     assert any("其他指标" in issue for issue in calc.issues)
     assert calc.admit(CALCULATION_MARKER, status="completed")[1]
+
+
+def test_repeated_scope_conflicts_are_deduplicated():
+    calc = compile_case(
+        "沿用上一轮。请给出收入同比。这次只计算静态市盈率。",
+        (*HISTORY, PremiseSource("third", "只计算静态市盈率，还要收入同比。")),
+    )
+    conflicts = [issue for issue in calc.issues if "其他指标" in issue]
+    assert len(conflicts) == 1
