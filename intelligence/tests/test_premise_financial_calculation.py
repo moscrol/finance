@@ -188,13 +188,48 @@ def test_correct_metric_bound_restatements_are_not_false_rejections(statement):
         "2024年归母净利率9%，2025年归母净利率10%。",
         "2024年静态市盈率20倍。",
         "经营现金流/归母净利润约66.7%，高于100%。",
-        "静态市盈率20倍，低于100倍，便宜。",
         "静态市盈率180/8=22.5倍。",
     ],
 )
 def test_known_numbers_cannot_be_bound_to_wrong_metric_or_period(statement):
     calc = compile_case()
     assert calc.admit(CALCULATION_MARKER + "\n" + statement, status="completed")[1]
+
+
+def test_unparsed_numeric_prose_is_recorded_not_certified_or_false_rejected():
+    calc = compile_case()
+    statement = "归母净利率由10%降至9%，不是1%的相对降幅。"
+    review = calc.review_prose(statement)
+    assert not review["conflicts"]
+    assert review["unverified_numeric_fragments"] == [statement.rstrip("。")]
+    assert review["scope"] == "owned_table_and_recognized_result_restatements_only"
+    assert not calc.admit(CALCULATION_MARKER + "\n" + statement, status="completed")[1]
+    assert calc.review_prose("静态市盈率20倍，低于100倍，便宜。")[
+        "unverified_numeric_fragments"
+    ]
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "2024/2025年归母净利率10%/9%。",
+        "若静态市盈率10倍，对应的股价需要另算。",
+        "总市值原来180亿元。",
+    ],
+)
+def test_paired_or_hypothetical_values_are_unverified_not_current_scalar_conflicts(
+    statement,
+):
+    calc = compile_case(FOLLOWUP, (PremiseSource("first", ARITHMETIC),))
+    review = calc.review_prose(statement)
+    assert not review["conflicts"]
+    assert review["unverified_numeric_fragments"]
+
+
+def test_wrong_static_pe_is_rejected_even_with_a_correct_owned_table():
+    calc = compile_case()
+    for statement in ("静态市盈率22.5倍。", "静态市盈率180/8=22.5倍。"):
+        assert calc.admit(calc.table + "\n" + statement, status="completed")[1]
 
 
 def test_source_record_is_immutable():
@@ -290,6 +325,9 @@ def test_public_gate_cannot_be_overruled_by_passing_judge(wrong):
     assert "22.5倍" not in result.public_answer
     assert context.contract.premise_calculation.table in result.public_answer
     assert result.status == ("partial" if wrong else "completed")
+    review = result.to_dict()["premise_calculation_review"]
+    assert review["owned_table_matches"] is not wrong
+    assert review["scope"] == "owned_table_and_recognized_result_restatements_only"
     if wrong:
         assert result.judge_status == "rejected"
         assert result.verified.outcome.draft == draft  # failed original is retained

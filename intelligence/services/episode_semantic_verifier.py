@@ -564,6 +564,7 @@ class SemanticEpisodeOutcome:
     asked_date_coverage: str = "not_applicable"
     repair_collapsed_to_stub: bool = False
     repair_rollback_mode: str | None = None
+    premise_calculation_review: dict[str, object] | None = None
     # P2 第一步（spec 2026-09-02 §3.3「先量后改」）：判官每条拒句的结构化账——
     # 删了还是降成 issue、机械还是语义、句子引了哪些 E / 绑到哪些哈希 / 来源档。
     # 只记不改任何判据；读侧 ``scripts/offline_judge_verdict_census.py``。
@@ -672,6 +673,8 @@ class SemanticEpisodeOutcome:
         }
         if self.judge_request is not None:
             payload["judge_request"] = self.judge_request
+        if self.premise_calculation_review is not None:
+            payload["premise_calculation_review"] = dict(self.premise_calculation_review)
         return payload
 
 
@@ -1192,7 +1195,12 @@ class SemanticEpisodeVerifier:
         contract = structurally_verified.contract
         calculation = contract.premise_calculation if contract else None
         if calculation is not None:
+            review = calculation.review_prose(outcome.public_answer)
             public, error = calculation.admit(outcome.public_answer, status=outcome.status)
+            outcome = replace(outcome, premise_calculation_review={
+                **review, "owned_table_matches": calculation.table in outcome.public_answer,
+                "admission_error": error,
+            })
             if error:
                 # A correlated judge cannot certify changed calculation bytes.
                 # Preserve the rejected draft in the outcome, publish only the

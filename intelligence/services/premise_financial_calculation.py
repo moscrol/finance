@@ -184,11 +184,9 @@ class PremiseCalculation:
                 draft,
                 "计算表缺失或被改写；请在 draft 中原样保留一次 " + CALCULATION_MARKER,
             )
-        if self._unbound_numbers(outside):
-            return (
-                draft,
-                "表外数字无法绑定到同指标、年度、方向和单位的计算结果；保留计算表，修正或删除该数字复述，不另写公式",
-            )
+        review = self.review_prose(outside)
+        if review["conflicts"]:
+            return draft, "表外数字与题设计算冲突：" + "；".join(review["conflicts"])
         by_metric = {row.metric: row.value for row in self.rows}
         if (
             (by_metric.get("profit_yoy") or 0) > 0
@@ -198,8 +196,9 @@ class PremiseCalculation:
             return draft, "收入和利润同比均增长，不能写成增收不增利"
         return rendered, ""
 
-    def _unbound_numbers(self, text: str) -> bool:
-        """Allow checked result restatements, never a bag-of-known-numbers test."""
+    def review_prose(self, text: str) -> dict[str, object]:
+        """Proven contradictions block; unparsed prose is not a mechanical pass."""
+        text = text.replace(self.table, "").replace(CALCULATION_MARKER, "")
         aliases = {
             "revenue_yoy": r"收入(?:同比增速|同比增长率|同比)",
             "profit_yoy": r"(?:归母)?净利润(?:同比增速|同比增长率|同比)",
@@ -211,6 +210,7 @@ class PremiseCalculation:
             "scenario_profit": r"(?:下一年|次年|假设)(?:的)?归母净利润",
         }
         covered: set[int] = set()
+        conflicts: list[str] = []
         latest_margin = max(
             (
                 row.metric
@@ -238,41 +238,119 @@ class PremiseCalculation:
                 r"(?P<value>" + _NUMBER + r")\s*(?:\*\*)?" + re.escape(row.unit)
             )
             for match in pattern.finditer(text):
+                # Transitions, paired lists and qualified alternatives are not
+                # scalar assertions about the current result.
+                clause_prefix = re.split(r"[。；;，,\n]", text[: match.start()])[-1]
+                if (
+                    re.search(
+                        r"由|从|至|不是|并非|不等于|高于|低于|原来|过去|此前|上轮",
+                        match["link"],
+                    )
+                    or re.search(
+                        r"假设|如果|若|此前|上轮|\d{4}\s*[/、]\s*$", clause_prefix
+                    )
+                    or re.match(r"\s*[/、]\s*\d", text[match.end() :])
+                ):
+                    continue
+                expected = row.value
+                preceding_year = re.search(r"(\d{4})年(?:的)?$", text[: match.start()])
+                expected_years = {
+                    item.period
+                    for item in self.inputs
+                    if item.ref in row.input_refs and item.period is not None
+                }
+                if preceding_year and year and preceding_year[1] != year[1]:
+                    continue
+                if preceding_year and int(preceding_year[1]) not in expected_years:
+                    conflicts.append(preceding_year[0] + match[0])
+                    continue
                 number = float(match["value"])
                 falling = bool(re.search(r"下降|降低|减少|下滑", match["link"]))
                 rising = bool(re.search(r"上升|提高|增加|增长", match["link"]))
                 is_change = row.metric.endswith("_yoy") or row.metric == "margin_change"
                 if (falling or rising) and not is_change:
-                    continue
+                    previous = next(
+                        (
+                            item
+                            for item in self.rows
+                            if year and item.metric == f"margin_{int(year[1]) - 1}"
+                        ),
+                        None,
+                    )
+                    if (
+                        row.metric != latest_margin
+                        or previous is None
+                        or previous.value in {None, 0}
+                    ):
+                        continue
+                    expected = pct_change(row.value, previous.value, digits=None)
                 if falling:
                     if number < 0:
+                        conflicts.append(match[0])
                         continue
                     number = -number
                 if rising and number < 0:
+                    conflicts.append(match[0])
                     continue
                 decimals = len(match["value"].partition(".")[2])
                 tolerance = 0.5 * 10**-decimals + 1e-9
-                if not math.isclose(number, row.value, rel_tol=0, abs_tol=tolerance):
+                if not math.isclose(number, expected, rel_tol=0, abs_tol=tolerance):
+                    conflicts.append(match[0])
                     continue
                 covered.update(range(match.start(), match.end()))
                 if row.metric == "cash_profit_ratio":
                     comparison = re.match(
                         r"[，,\s]*(低于|高于|等于)100%", text[match.end() :]
                     )
-                    if (
-                        comparison
-                        and {
+                    if comparison:
+                        if not {
                             "低于": row.value < 100,
                             "高于": row.value > 100,
                             "等于": row.value == 100,
-                        }[comparison[1]]
-                    ):
-                        covered.update(
-                            range(match.end(), match.end() + comparison.end())
-                        )
-        return any(
-            char.isdigit() and index not in covered for index, char in enumerate(text)
-        )
+                        }[comparison[1]]:
+                            conflicts.append(match[0] + comparison[0])
+                        else:
+                            covered.update(
+                                range(match.end(), match.end() + comparison.end())
+                            )
+        by_metric = {row.metric: row for row in self.rows}
+        pe, cap = by_metric.get("static_pe"), by_metric.get("market_cap")
+        if pe and cap and pe.value is not None:
+            profit = next(
+                item
+                for item in self.inputs
+                if item.ref in pe.input_refs and item.metric == "profit"
+            )
+            formula = re.compile(
+                r"静态市盈率\s*[:：=为]*\s*("
+                + _NUMBER
+                + r")\s*/\s*("
+                + _NUMBER
+                + r")\s*=\s*("
+                + _NUMBER
+                + r")倍"
+            )
+            for match in formula.finditer(text):
+                actual = tuple(float(match[index]) for index in (1, 2, 3))
+                if actual[:2] != (cap.value, profit.value) or not math.isclose(
+                    actual[2], pe.value, rel_tol=0, abs_tol=0.0001
+                ):
+                    conflicts.append(match[0])
+                else:
+                    covered.update(range(match.start(), match.end()))
+        unverified = [
+            match[0].strip()
+            for match in re.finditer(r"[^。！？\n]+", text)
+            if any(
+                text[index].isdigit() and index not in covered
+                for index in range(match.start(), match.end())
+            )
+        ]
+        return {
+            "conflicts": list(dict.fromkeys(conflicts)),
+            "unverified_numeric_fragments": list(dict.fromkeys(unverified)),
+            "scope": "owned_table_and_recognized_result_restatements_only",
+        }
 
 
 def _visible(text: str) -> str:
