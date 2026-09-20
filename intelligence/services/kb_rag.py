@@ -1737,6 +1737,16 @@ def retrieve(
         tel.status = "timeout"
         tel.warning = res.warning
         return res
+    except rag_worker.RagGenerationUnavailable as exc:
+        # 受管 generation 已退役/损坏时，旧 CLI 指向的仍是同一份旧身份。
+        # 回退只会绕过代际护栏重新加载旧索引，因此必须停在身份边界。
+        res.warning = f"wiki-rag 常驻 worker 代际身份不可用（{exc.reason}）"
+        tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+        tel.status = "error"
+        tel.degraded = True
+        tel.fallback_reason = "persistent_worker_generation_unavailable"
+        tel.warning = res.warning
+        return res
     except (RuntimeError, OSError, json.JSONDecodeError) as exc:
         # 真正的「worker 不可用」：进程没了/协议错乱/响应不可解析。这些回退 CLI
         # 是对的——没有热进程可保，CLI 是唯一还能出结果的路。
