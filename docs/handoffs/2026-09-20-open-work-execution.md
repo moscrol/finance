@@ -22,6 +22,8 @@ ReAct 归档枝 `docs/react-components-comparison-0918@87c719f8` 已提交推送
 
 守卫枝包含共同基础 `0f6c2810` 和生产守卫 `387028b8`；stage 枝与它互不为祖先，独有两提交只是交接文档。因此只采用守卫源码线，stage 标 superseded，部署枝随后接入。
 
+#796 的授权依据是用户在 2026-09-20 提交修正附件并明确回复「你来执行」；附件执行顺序第 5 项为「独立复核 387028b8，决定生成根合入还是回滚」。执行者据此在复核、修复及固定候选门禁通过后决定源码合入。该附条件授权不包含生产切换；原授权摘录及来源身份见 [质检落实证据](../verification/2026-09-20-open-work-execution/qc-followup/authorization.json)。
+
 原七项探针通过，独立审查仍发现 `ALERT_LOG` 软链可把告警写进代码根。修复启动器后，合流部署代码的真实 shell 又暴露另一层：子进程拒绝后，父 shell 继续调用 receiver 或补发告警，仍能写入代码根。完整入口四例在 `f2342fda` 为 1P/3F，修复后为 4P/0F；合法外置告警对照仍通过。原失败报告与输入完整保留。
 
 最终修复在通知器 mkdir/open 前检查两个代码根，并让 nightly 父 shell 在启动器非零时立即结束后续接收/告警写入。回归入口 `scripts/review_probes/check_generation_finalize_boundaries.py` 已进入正式代码；它使用临时小根和固定代入步骤，不写真实生产库。
@@ -34,11 +36,15 @@ ReAct 归档枝 `docs/react-components-comparison-0918@87c719f8` 已提交推送
 | [#795 同花顺](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/795) | `ec92b31b5300bbbb4abc64e41f96854f1438aea0` | 11707P / 0F / 85S，另 2 xfail | 同上 |
 | [#796 生成根及部署接线](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/796) | `4ace5ec2e9b7735d90eb15bc2351fa193c1120b8` | 11815P / 0F / 85S，另 2 xfail | 同上；完整入口额外 4/4 |
 
-全部来自独立、无生产库、干净的固定检出，收据 revision 与基座漂移校验通过。同花顺术语冲突逐节保留双方有效内容，pathspec 只约束提交范围。跨仓 registry 固定 KB `1254224be` 和研究站 `f606583`，没有借用当时会变动的姊妹仓工作树。
+三份 Python 全量收据来自独立、无生产库、干净的固定检出，收据 revision 与基座漂移校验通过。原 #795/#796 前端在各自命名工作树执行，原 JSON 未记录测试首尾 dirty；两份合并脚本均在合并前检查 HEAD 和空 Git 状态，#796 完整入口探针另记录 `target_status=""`。这些检查不能代替前端测试首尾的独立身份记录，后续复验另存新收据，不回填历史字段。同花顺术语冲突逐节保留双方有效内容，pathspec 只约束提交范围。跨仓 registry 固定 KB `1254224be` 和研究站 `f606583`，没有借用当时会变动的姊妹仓工作树。
 
 #788 首次 E2E 因只改端口、漏改配套 URL 而失败；仅修外部测试环境后重跑整片通过，`frontend.json` 中的原 exit 1 没有改写，最终组合结论单独留档。代码正常快进进入 main 后 Gitea 没有自动标 merged，仓库也禁用 manually-merged；留下替代提交和收据指针后关闭 PR，没有改仓库选项。#795/#796 均为 API fast-forward-only 且远端 SHA 回读一致。
 
 生成合流曾有质量夹具缺行情列，补夹具并增加真实全 NULL 拒绝例，生产规则未放松。`dca1bd6e` 的注册表指纹未刷新，第一次 Python 全量主动中断 exit 2；修正注册表后在最终 `4ace5ec2` 完整重跑，未将中断结果算绿。
+
+2026-09-20 后续质检落实新增正式入口 `scripts/run_frontend_gate.py`（`30ad71a8`）：测试首尾采集提交号与全树 dirty，身份变化即使命令全 0 也不通过。定向 10P，撤掉末尾保护后两反例 2F；原 #795/#796 的独立固定检出各重跑前端 110P、E2E 34P/2S，六命令均 0，首尾同 SHA 且 dirty=false。新观测、日志及解释器入口见 [补验说明](../verification/2026-09-20-open-work-execution/qc-followup/README.md)。本轮没有重跑 Python 全量或生产验收。
+
+收尾按 Git 跟踪状态核清单时，另发现原 24 份 KB `.log` 虽在本机且哈希正确，却未入 Git。本轮补了同字节 `.log.txt` 文本证据，清单记录新路径及原路径映射，所有旧原件内容哈希不变；本机旧副本保留。这一项是原质检未覆盖的归档缺口。
 
 ## KB 维护链
 
@@ -55,13 +61,13 @@ ReAct 归档枝 `docs/react-components-comparison-0918@87c719f8` 已提交推送
 - Quality 首次确认 activate 在根/锁身份变化后仍写 current。平台随后以可能网络安全风险中断该独立审查；中断记录保留、未记绿。后续只读源码/既有证据复核，作者补正式 pytest 回归及各成功控制写入前的身份检查。原独立动态探针没有在最终新 SHA 重跑。
 - 原失败未覆盖：37437 的未绑定消费/默认保存，ea7 的控制清单软链、失锁异常写与上传中改标签；成功控制写入首红 8F2P、首修 1F77P。名称带 `green` 的历史日志仍是 1F77P，真正最终定向 80P 见 `success-control-final-focused.log`。
 
-[KB 日期交接](/Users/a77/kb-wt-guarded-maintenance-0920/docs/handoffs/2026-09-20-kb-guarded-maintenance-acceptance.md) 和本包 `kb-maintenance/acceptance-3a21010323eababb54ce8519093fd60dbacb9451.json` 保存源码/文档身份、四命令退出码、日志哈希及审查范围。没有新建真实大索引、解除 uchg、恢复已安装旧 hook 或重启 8792；整个 Workbench Episode、结果缓存清退、真实 BGE 检索相关性及回答质量仍需生产切换阶段单独验收。
+[KB 日期交接](http://127.0.0.1:3300/a77/knowledge-base-private/src/commit/3a21010323eababb54ce8519093fd60dbacb9451/docs/handoffs/2026-09-20-kb-guarded-maintenance-acceptance.md) 和本包 `kb-maintenance/acceptance-3a21010323eababb54ce8519093fd60dbacb9451.json` 保存源码/文档身份、四命令退出码、日志哈希及审查范围。没有新建真实大索引、解除 uchg、恢复已安装旧 hook 或重启 8792；整个 Workbench Episode、结果缓存清退、真实 BGE 检索相关性及回答质量仍需生产切换阶段单独验收。
 
 ## 研究工单与陈旧看板
 
 五个研究深度切片已按优先级建立：[查询报错闭环 #790](http://127.0.0.1:3300/a77/finance-workspace-private/issues/790)、[集合与排序忠实 #791](http://127.0.0.1:3300/a77/finance-workspace-private/issues/791)、[方法论/观测卡 #792](http://127.0.0.1:3300/a77/finance-workspace-private/issues/792)、[板块比较合同 #793](http://127.0.0.1:3300/a77/finance-workspace-private/issues/793)、[预览按需展开 #794](http://127.0.0.1:3300/a77/finance-workspace-private/issues/794)。各单有范围和验收条件。
 
-#23 判官 token 记账、#24 checkpoint rule_id、#25 历史重放实际已有实现，不重复立单。#25 原 PR #597 留下 main 替代指针后关闭；#23 的生产样本和成本观察边界仍保留。vault 的七条陈旧记录逐行标 superseded，并保留旧文字和替代指针。
+#23 判官 token 记账、#24 checkpoint rule_id、#25 历史重放实际已有实现，不重复立单。#25 原 PR #597 于 2026-09-12 00:28:38 +08:00 已合并关闭（`c208cbaf`），09-16 10:29:38 +08:00 追加 main 接替说明；本轮仅核实既有状态，没有再次关闭。Gitea 时间字段及评论分别见 [精简原始记录](../verification/2026-09-20-open-work-execution/qc-followup/pr597.json)。#23 的生产样本和成本观察边界仍保留。vault 的七条陈旧记录逐行标 superseded，并保留旧文字和替代指针。
 
 ## 清理结论与剩余授权边界
 

@@ -404,58 +404,67 @@
       "sha256": "066270d7143abfa5101f3da474db8ffc37470b45e73daa4f6a8e440a48210b96"
     },
     {
-      "path": "kb-maintenance/focused-initial.log",
+      "path": "kb-maintenance/focused-initial.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/focused-initial.log",
       "bytes": 45090,
-      "sha256": "f8e1544d0036cf3cf001f9908dcef0301fa8aa30fcd000c2c33d1cb709741ceb"
+      "sha256": "f8e1544d0036cf3cf001f9908dcef0301fa8aa30fcd000c2c33d1cb709741ceb",
+      "original_archive_path": "kb-maintenance/focused-initial.log"
     },
     {
-      "path": "kb-maintenance/full-before-review.log",
+      "path": "kb-maintenance/full-before-review.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/full-before-review.log",
       "bytes": 92771,
-      "sha256": "c2f32e26a84570b32189cbc7e23f7d44d3483fbaa59b430b6267cf84a374bca6"
+      "sha256": "c2f32e26a84570b32189cbc7e23f7d44d3483fbaa59b430b6267cf84a374bca6",
+      "original_archive_path": "kb-maintenance/full-before-review.log"
     },
     {
-      "path": "kb-maintenance/full-second.log",
+      "path": "kb-maintenance/full-second.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/full-second.log",
       "bytes": 1496,
-      "sha256": "893dfe7369b9623ef10cff4ddd9533ca697144cbc056bdee69687edce7459073"
+      "sha256": "893dfe7369b9623ef10cff4ddd9533ca697144cbc056bdee69687edce7459073",
+      "original_archive_path": "kb-maintenance/full-second.log"
     },
     {
-      "path": "kb-maintenance/root-overlap-red.log",
+      "path": "kb-maintenance/root-overlap-red.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/root-overlap-red.log",
       "bytes": 28709,
-      "sha256": "22e3fb049f862f784e4a46d655d7790af3079ed7bcacd78a35affd4dad7dbd15"
+      "sha256": "22e3fb049f862f784e4a46d655d7790af3079ed7bcacd78a35affd4dad7dbd15",
+      "original_archive_path": "kb-maintenance/root-overlap-red.log"
     },
     {
-      "path": "kb-maintenance/spec-boundaries-red.log",
+      "path": "kb-maintenance/spec-boundaries-red.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-boundaries-red.log",
       "bytes": 14733,
-      "sha256": "341c895cb1130e7ea0730328441f7fea682fc73dfed51df1ecb3327442489fa3"
+      "sha256": "341c895cb1130e7ea0730328441f7fea682fc73dfed51df1ecb3327442489fa3",
+      "original_archive_path": "kb-maintenance/spec-boundaries-red.log"
     },
     {
-      "path": "kb-maintenance/full-ea7e113e9.log",
+      "path": "kb-maintenance/full-ea7e113e9.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/full-ea7e113e9.log",
       "bytes": 1061,
-      "sha256": "da9cb806e3ce63312f1869556a0c0ffe9efbfd8f0618a91a7471a2469b8443d2"
+      "sha256": "da9cb806e3ce63312f1869556a0c0ffe9efbfd8f0618a91a7471a2469b8443d2",
+      "original_archive_path": "kb-maintenance/full-ea7e113e9.log"
     },
     {
-      "path": "kb-maintenance/strict-vocab-ea7e113e9.log",
+      "path": "kb-maintenance/strict-vocab-ea7e113e9.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/strict-vocab-ea7e113e9.log",
       "bytes": 336,
-      "sha256": "1c684cbb1bb972a3a5ceadbdff9549a0687edb1ec607c8547cd12fe127eff2b4"
+      "sha256": "1c684cbb1bb972a3a5ceadbdff9549a0687edb1ec607c8547cd12fe127eff2b4",
+      "original_archive_path": "kb-maintenance/strict-vocab-ea7e113e9.log"
     },
     {
-      "path": "kb-maintenance/file-sizes-ea7e113e9.log",
+      "path": "kb-maintenance/file-sizes-ea7e113e9.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/file-sizes-ea7e113e9.log",
       "bytes": 100,
-      "sha256": "f561c5a84ba66c7b89b0d67eaf795e79cba1af026eef84487c5e048df769250f"
+      "sha256": "f561c5a84ba66c7b89b0d67eaf795e79cba1af026eef84487c5e048df769250f",
+      "original_archive_path": "kb-maintenance/file-sizes-ea7e113e9.log"
     },
     {
-      "path": "kb-maintenance/quality-gate-ea7e113e9.log",
+      "path": "kb-maintenance/quality-gate-ea7e113e9.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/quality-gate-ea7e113e9.log",
       "bytes": 2217,
-      "sha256": "d1a3153ddefa5634198fb6d226b860f2d9b889877f2c1e8bd9adf2a0e31fae5e"
+      "sha256": "d1a3153ddefa5634198fb6d226b860f2d9b889877f2c1e8bd9adf2a0e31fae5e",
+      "original_archive_path": "kb-maintenance/quality-gate-ea7e113e9.log"
     },
     {
       "path": "kb-maintenance/spec-37437e1a-evidence/boundary-probes/results.json",
@@ -500,28 +509,32 @@
       "sha256": "ef6514dc64bedf4a4f97491c8de8c6b4f01e99528a0b9b1d30f123a23350b423"
     },
     {
-      "path": "kb-maintenance/full-1bd5e1dc8.log",
+      "path": "kb-maintenance/full-1bd5e1dc8.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/full-1bd5e1dc8.log",
       "bytes": 1061,
-      "sha256": "f72f2eff4b0700ba80c95c2e860f95ecd51dc32230aaece7780ccb2c3809f653"
+      "sha256": "f72f2eff4b0700ba80c95c2e860f95ecd51dc32230aaece7780ccb2c3809f653",
+      "original_archive_path": "kb-maintenance/full-1bd5e1dc8.log"
     },
     {
-      "path": "kb-maintenance/strict-vocab-1bd5e1dc8.log",
+      "path": "kb-maintenance/strict-vocab-1bd5e1dc8.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/strict-vocab-1bd5e1dc8.log",
       "bytes": 336,
-      "sha256": "1c684cbb1bb972a3a5ceadbdff9549a0687edb1ec607c8547cd12fe127eff2b4"
+      "sha256": "1c684cbb1bb972a3a5ceadbdff9549a0687edb1ec607c8547cd12fe127eff2b4",
+      "original_archive_path": "kb-maintenance/strict-vocab-1bd5e1dc8.log"
     },
     {
-      "path": "kb-maintenance/file-sizes-1bd5e1dc8.log",
+      "path": "kb-maintenance/file-sizes-1bd5e1dc8.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/file-sizes-1bd5e1dc8.log",
       "bytes": 100,
-      "sha256": "f561c5a84ba66c7b89b0d67eaf795e79cba1af026eef84487c5e048df769250f"
+      "sha256": "f561c5a84ba66c7b89b0d67eaf795e79cba1af026eef84487c5e048df769250f",
+      "original_archive_path": "kb-maintenance/file-sizes-1bd5e1dc8.log"
     },
     {
-      "path": "kb-maintenance/quality-gate-1bd5e1dc8.log",
+      "path": "kb-maintenance/quality-gate-1bd5e1dc8.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/quality-gate-1bd5e1dc8.log",
       "bytes": 2217,
-      "sha256": "d1a3153ddefa5634198fb6d226b860f2d9b889877f2c1e8bd9adf2a0e31fae5e"
+      "sha256": "d1a3153ddefa5634198fb6d226b860f2d9b889877f2c1e8bd9adf2a0e31fae5e",
+      "original_archive_path": "kb-maintenance/quality-gate-1bd5e1dc8.log"
     },
     {
       "path": "kb-maintenance/spec-review-1bd5e1dc.md",
@@ -566,46 +579,53 @@
       "sha256": "d1e78c5d184c2a24668356463c7c75d71475b74a690d61ff198811eec09ce3ba"
     },
     {
-      "path": "kb-maintenance/full-7e07addb4.log",
+      "path": "kb-maintenance/full-7e07addb4.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/full-7e07addb4.log",
       "bytes": 1061,
-      "sha256": "0295b7cfd3741bd7eb32bd82eb5e057f8611c7767ffba9675aa49a4467591998"
+      "sha256": "0295b7cfd3741bd7eb32bd82eb5e057f8611c7767ffba9675aa49a4467591998",
+      "original_archive_path": "kb-maintenance/full-7e07addb4.log"
     },
     {
-      "path": "kb-maintenance/strict-vocab-7e07addb4.log",
+      "path": "kb-maintenance/strict-vocab-7e07addb4.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/strict-vocab-7e07addb4.log",
       "bytes": 336,
-      "sha256": "1c684cbb1bb972a3a5ceadbdff9549a0687edb1ec607c8547cd12fe127eff2b4"
+      "sha256": "1c684cbb1bb972a3a5ceadbdff9549a0687edb1ec607c8547cd12fe127eff2b4",
+      "original_archive_path": "kb-maintenance/strict-vocab-7e07addb4.log"
     },
     {
-      "path": "kb-maintenance/file-sizes-7e07addb4.log",
+      "path": "kb-maintenance/file-sizes-7e07addb4.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/file-sizes-7e07addb4.log",
       "bytes": 100,
-      "sha256": "f561c5a84ba66c7b89b0d67eaf795e79cba1af026eef84487c5e048df769250f"
+      "sha256": "f561c5a84ba66c7b89b0d67eaf795e79cba1af026eef84487c5e048df769250f",
+      "original_archive_path": "kb-maintenance/file-sizes-7e07addb4.log"
     },
     {
-      "path": "kb-maintenance/quality-gate-7e07addb4.log",
+      "path": "kb-maintenance/quality-gate-7e07addb4.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/quality-gate-7e07addb4.log",
       "bytes": 2217,
-      "sha256": "d1a3153ddefa5634198fb6d226b860f2d9b889877f2c1e8bd9adf2a0e31fae5e"
+      "sha256": "d1a3153ddefa5634198fb6d226b860f2d9b889877f2c1e8bd9adf2a0e31fae5e",
+      "original_archive_path": "kb-maintenance/quality-gate-7e07addb4.log"
     },
     {
-      "path": "kb-maintenance/success-control-boundaries-red.log",
+      "path": "kb-maintenance/success-control-boundaries-red.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/success-control-boundaries-red.log",
       "bytes": 21929,
-      "sha256": "aca476cc129d3c37e0248235afc2ace981be1b386647bbf89e3c09167b3d3863"
+      "sha256": "aca476cc129d3c37e0248235afc2ace981be1b386647bbf89e3c09167b3d3863",
+      "original_archive_path": "kb-maintenance/success-control-boundaries-red.log"
     },
     {
-      "path": "kb-maintenance/success-control-boundaries-green.log",
+      "path": "kb-maintenance/success-control-boundaries-green.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/success-control-boundaries-green.log",
       "bytes": 3998,
-      "sha256": "d35e86353e709d6da13c0b91886e218f3c93ea87f439d025cbc9b9068761f20b"
+      "sha256": "d35e86353e709d6da13c0b91886e218f3c93ea87f439d025cbc9b9068761f20b",
+      "original_archive_path": "kb-maintenance/success-control-boundaries-green.log"
     },
     {
-      "path": "kb-maintenance/success-control-final-focused.log",
+      "path": "kb-maintenance/success-control-final-focused.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/success-control-final-focused.log",
       "bytes": 180,
-      "sha256": "2befa3056fdbd92899e414638a1e4565b228ee610c580f74e8ed86962bd0a1a7"
+      "sha256": "2befa3056fdbd92899e414638a1e4565b228ee610c580f74e8ed86962bd0a1a7",
+      "original_archive_path": "kb-maintenance/success-control-final-focused.log"
     },
     {
       "path": "kb-maintenance/spec-review-7e07addb.md",
@@ -632,34 +652,188 @@
       "sha256": "d59a66f5a140ef60c295131e9dbe027c678b24cdfc8f905be337e0641b93b6f1"
     },
     {
-      "path": "kb-maintenance/full-3a2101032.log",
+      "path": "kb-maintenance/full-3a2101032.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/full-3a2101032.log",
       "bytes": 1061,
-      "sha256": "3404bca4ff01ed2d3e1fb3e373ba95aead8e6ef38ef65103a9d10268ed8e4c23"
+      "sha256": "3404bca4ff01ed2d3e1fb3e373ba95aead8e6ef38ef65103a9d10268ed8e4c23",
+      "original_archive_path": "kb-maintenance/full-3a2101032.log"
     },
     {
-      "path": "kb-maintenance/strict-vocab-3a2101032.log",
+      "path": "kb-maintenance/strict-vocab-3a2101032.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/strict-vocab-3a2101032.log",
       "bytes": 336,
-      "sha256": "1c684cbb1bb972a3a5ceadbdff9549a0687edb1ec607c8547cd12fe127eff2b4"
+      "sha256": "1c684cbb1bb972a3a5ceadbdff9549a0687edb1ec607c8547cd12fe127eff2b4",
+      "original_archive_path": "kb-maintenance/strict-vocab-3a2101032.log"
     },
     {
-      "path": "kb-maintenance/file-sizes-3a2101032.log",
+      "path": "kb-maintenance/file-sizes-3a2101032.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/file-sizes-3a2101032.log",
       "bytes": 100,
-      "sha256": "82cd8c7ca5e160adf643affbfa8b5a213a2fdea26c6945d245d355685b5fadf4"
+      "sha256": "82cd8c7ca5e160adf643affbfa8b5a213a2fdea26c6945d245d355685b5fadf4",
+      "original_archive_path": "kb-maintenance/file-sizes-3a2101032.log"
     },
     {
-      "path": "kb-maintenance/quality-gate-3a2101032.log",
+      "path": "kb-maintenance/quality-gate-3a2101032.log.txt",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/quality-gate-3a2101032.log",
       "bytes": 2217,
-      "sha256": "d1a3153ddefa5634198fb6d226b860f2d9b889877f2c1e8bd9adf2a0e31fae5e"
+      "sha256": "d1a3153ddefa5634198fb6d226b860f2d9b889877f2c1e8bd9adf2a0e31fae5e",
+      "original_archive_path": "kb-maintenance/quality-gate-3a2101032.log"
     },
     {
       "path": "kb-maintenance/pull-request-final.json",
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/pull-request-final.json",
       "bytes": 337,
       "sha256": "4a06fced1cb382949093ab1f69833a624f4979c5b85fd333d0d1be6b1d487e49"
+    },
+    {
+      "path": "qc-followup/authorization.json",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/authorization.json",
+      "bytes": 550,
+      "sha256": "3f39240aa4861e49289a9f0c52f943571971cb4c0cfd7b1926dedb896a2285e7"
+    },
+    {
+      "path": "qc-followup/frontend-795/frontend-0.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/frontend-795/frontend-0.log.txt",
+      "bytes": 1758,
+      "sha256": "ce9c693df8a0de353c8d51715a9ab54f857f1fed647d83b794c46abcb642fb54"
+    },
+    {
+      "path": "qc-followup/frontend-795/frontend-1.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/frontend-795/frontend-1.log.txt",
+      "bytes": 172,
+      "sha256": "2bef0b7ed4fcf7aa2dd73d65ad7fced3d250d20741e02b60336c3ee56baaaa29"
+    },
+    {
+      "path": "qc-followup/frontend-795/frontend-2.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/frontend-795/frontend-2.log.txt",
+      "bytes": 270,
+      "sha256": "1ea6265aef4728fd51f9471c5897bf5b9c01acec2c3ab31ae709f00f5b97fedc"
+    },
+    {
+      "path": "qc-followup/frontend-795/frontend-3.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/frontend-795/frontend-3.log.txt",
+      "bytes": 1542,
+      "sha256": "421ef7560febea66aa8c55c79ce925cd187269c7458f5a6f523c30faf3907812"
+    },
+    {
+      "path": "qc-followup/frontend-795/frontend-4.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/frontend-795/frontend-4.log.txt",
+      "bytes": 1031,
+      "sha256": "2d6ea9c9cf6870a69ce5665e9d7b506fa75e96ad5e1715b70dcb50cf83c74516"
+    },
+    {
+      "path": "qc-followup/frontend-795/frontend-5.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/frontend-795/frontend-5.log.txt",
+      "bytes": 12804,
+      "sha256": "8bf5714a45ca9478318b845b42a95ed4c06745fcba0519005fc6d4330630e08a"
+    },
+    {
+      "path": "qc-followup/frontend-795/frontend.json",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/frontend-795/frontend.json",
+      "bytes": 2557,
+      "sha256": "94742bc2b50d92da86817c0d7e05532438912d8f6892c14a2e594221f1181a7d"
+    },
+    {
+      "path": "qc-followup/frontend-796/frontend-0.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/frontend-796/frontend-0.log.txt",
+      "bytes": 1756,
+      "sha256": "a327b98e9c7d05778ec03ad9bf4fba13655d7fcbd6f532fb8de70edf770be4a4"
+    },
+    {
+      "path": "qc-followup/frontend-796/frontend-1.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/frontend-796/frontend-1.log.txt",
+      "bytes": 181,
+      "sha256": "0402c729915258ff6c95b1f3a0f65b380be32b72d054394916f5a95a4d5a8527"
+    },
+    {
+      "path": "qc-followup/frontend-796/frontend-2.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/frontend-796/frontend-2.log.txt",
+      "bytes": 279,
+      "sha256": "5f505c6b202299fbeef9af5fad1b738e97f40c4753a4eee8e90a5d63fc5803a3"
+    },
+    {
+      "path": "qc-followup/frontend-796/frontend-3.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/frontend-796/frontend-3.log.txt",
+      "bytes": 1561,
+      "sha256": "d0f90cfb44097b4626f29a3b34d97ca722b2927908a32b5337a72e4d368e6b2d"
+    },
+    {
+      "path": "qc-followup/frontend-796/frontend-4.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/frontend-796/frontend-4.log.txt",
+      "bytes": 1049,
+      "sha256": "61e419ee2306654846a9c5ea1bd3804148ffdd7a24e9e59a9e70c6003da2fc81"
+    },
+    {
+      "path": "qc-followup/frontend-796/frontend-5.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/frontend-796/frontend-5.log.txt",
+      "bytes": 12815,
+      "sha256": "21795d60b0866ed7d6385411913017b18e42cdecc2653c513c13955a6633eb49"
+    },
+    {
+      "path": "qc-followup/frontend-796/frontend.json",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/frontend-796/frontend.json",
+      "bytes": 2566,
+      "sha256": "92770a9e6771306fb8ac5647519b66d8c0b7ba917f6cb72abd71a014861f5242"
+    },
+    {
+      "path": "qc-followup/historical-log-paths.json",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/historical-log-paths.json",
+      "bytes": 6704,
+      "sha256": "abafd4f54788e5ae0299c24bf4d0f52147d8ef1a162df2d5b31cd6e95c0ed1c9"
+    },
+    {
+      "path": "qc-followup/memory-provenance.json",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/memory-provenance.json",
+      "bytes": 297,
+      "sha256": "84bcd2ee2c2936bfa1f0b4ef43c0db02306102f3ad68549406450ff73d164e2d"
+    },
+    {
+      "path": "qc-followup/mutation-end-identity.json",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/mutation-end-identity.json",
+      "bytes": 171,
+      "sha256": "06ffacfc594fa37bb8747a52a01d87dbdda989b980490775927fc2b35c900d0e"
+    },
+    {
+      "path": "qc-followup/mutation-end-identity.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/mutation-end-identity.log.txt",
+      "bytes": 3428,
+      "sha256": "996b1967b06cadb88f557bb1d495315aa00f2b11833d066147da710cb85d3fb7"
+    },
+    {
+      "path": "qc-followup/pr597.json",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/pr597.json",
+      "bytes": 1034,
+      "sha256": "75a140a5a86dcf392192bbfecbfede8862a25b764476d1e4e2025319069f71ba"
+    },
+    {
+      "path": "qc-followup/preservation-content-recheck.json",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/preservation-content-recheck.json",
+      "bytes": 13993,
+      "sha256": "172c8f13096b597bf0ef72630c3bc4b1d8ccf9570bc300d78198f23d942f7bab"
+    },
+    {
+      "path": "qc-followup/runner-checks.json",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/runner-checks.json",
+      "bytes": 723,
+      "sha256": "16b81c963f916c1f072388ab196e469ca328fd57b09d23ba86bfc27316013e4c"
+    },
+    {
+      "path": "qc-followup/runner-ruff.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/runner-ruff.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "qc-followup/runner-source.json",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/runner-source.json",
+      "bytes": 282,
+      "sha256": "4053d2398489851b27b43dd966d13c0fd5130f8a83fdb2196c24ed054950126d"
+    },
+    {
+      "path": "qc-followup/runner-tests.log.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-qc-followup-20260920/runner-tests.log.txt",
+      "bytes": 99,
+      "sha256": "cccc105c4729c139d57bf78fe1feaa9dc85e80781b7367e611405d8054556e25"
     }
   ],
   "external_files": [

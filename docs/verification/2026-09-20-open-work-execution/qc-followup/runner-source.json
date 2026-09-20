@@ -1,0 +1,6 @@
+{
+  "commit": "30ad71a8671453d14d094f5c1c95c83ae5ed62f0",
+  "path": "scripts/run_frontend_gate.py",
+  "sha256": "4fa9fd9a8e40507eb7a26e90f46928ac066551225cd6abb91d84370d3c427f32",
+  "scope": "tests and receipts use this exact runner; no Python full-suite rerun in this follow-up"
+}

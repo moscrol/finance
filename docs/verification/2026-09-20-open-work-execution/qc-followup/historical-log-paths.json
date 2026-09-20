@@ -1,0 +1,150 @@
+{
+  "reason": "24 .log copies existed locally but were Git-ignored; archive identical text as .log.txt without deleting originals",
+  "before_manifest_revision": "7bae41a4a3f5fa4406cf78a2f2e318aff2cb13a3",
+  "files": [
+    {
+      "original_archive_path": "kb-maintenance/focused-initial.log",
+      "committed_archive_path": "kb-maintenance/focused-initial.log.txt",
+      "sha256": "f8e1544d0036cf3cf001f9908dcef0301fa8aa30fcd000c2c33d1cb709741ceb",
+      "bytes": 45090
+    },
+    {
+      "original_archive_path": "kb-maintenance/full-before-review.log",
+      "committed_archive_path": "kb-maintenance/full-before-review.log.txt",
+      "sha256": "c2f32e26a84570b32189cbc7e23f7d44d3483fbaa59b430b6267cf84a374bca6",
+      "bytes": 92771
+    },
+    {
+      "original_archive_path": "kb-maintenance/full-second.log",
+      "committed_archive_path": "kb-maintenance/full-second.log.txt",
+      "sha256": "893dfe7369b9623ef10cff4ddd9533ca697144cbc056bdee69687edce7459073",
+      "bytes": 1496
+    },
+    {
+      "original_archive_path": "kb-maintenance/root-overlap-red.log",
+      "committed_archive_path": "kb-maintenance/root-overlap-red.log.txt",
+      "sha256": "22e3fb049f862f784e4a46d655d7790af3079ed7bcacd78a35affd4dad7dbd15",
+      "bytes": 28709
+    },
+    {
+      "original_archive_path": "kb-maintenance/spec-boundaries-red.log",
+      "committed_archive_path": "kb-maintenance/spec-boundaries-red.log.txt",
+      "sha256": "341c895cb1130e7ea0730328441f7fea682fc73dfed51df1ecb3327442489fa3",
+      "bytes": 14733
+    },
+    {
+      "original_archive_path": "kb-maintenance/full-ea7e113e9.log",
+      "committed_archive_path": "kb-maintenance/full-ea7e113e9.log.txt",
+      "sha256": "da9cb806e3ce63312f1869556a0c0ffe9efbfd8f0618a91a7471a2469b8443d2",
+      "bytes": 1061
+    },
+    {
+      "original_archive_path": "kb-maintenance/strict-vocab-ea7e113e9.log",
+      "committed_archive_path": "kb-maintenance/strict-vocab-ea7e113e9.log.txt",
+      "sha256": "1c684cbb1bb972a3a5ceadbdff9549a0687edb1ec607c8547cd12fe127eff2b4",
+      "bytes": 336
+    },
+    {
+      "original_archive_path": "kb-maintenance/file-sizes-ea7e113e9.log",
+      "committed_archive_path": "kb-maintenance/file-sizes-ea7e113e9.log.txt",
+      "sha256": "f561c5a84ba66c7b89b0d67eaf795e79cba1af026eef84487c5e048df769250f",
+      "bytes": 100
+    },
+    {
+      "original_archive_path": "kb-maintenance/quality-gate-ea7e113e9.log",
+      "committed_archive_path": "kb-maintenance/quality-gate-ea7e113e9.log.txt",
+      "sha256": "d1a3153ddefa5634198fb6d226b860f2d9b889877f2c1e8bd9adf2a0e31fae5e",
+      "bytes": 2217
+    },
+    {
+      "original_archive_path": "kb-maintenance/full-1bd5e1dc8.log",
+      "committed_archive_path": "kb-maintenance/full-1bd5e1dc8.log.txt",
+      "sha256": "f72f2eff4b0700ba80c95c2e860f95ecd51dc32230aaece7780ccb2c3809f653",
+      "bytes": 1061
+    },
+    {
+      "original_archive_path": "kb-maintenance/strict-vocab-1bd5e1dc8.log",
+      "committed_archive_path": "kb-maintenance/strict-vocab-1bd5e1dc8.log.txt",
+      "sha256": "1c684cbb1bb972a3a5ceadbdff9549a0687edb1ec607c8547cd12fe127eff2b4",
+      "bytes": 336
+    },
+    {
+      "original_archive_path": "kb-maintenance/file-sizes-1bd5e1dc8.log",
+      "committed_archive_path": "kb-maintenance/file-sizes-1bd5e1dc8.log.txt",
+      "sha256": "f561c5a84ba66c7b89b0d67eaf795e79cba1af026eef84487c5e048df769250f",
+      "bytes": 100
+    },
+    {
+      "original_archive_path": "kb-maintenance/quality-gate-1bd5e1dc8.log",
+      "committed_archive_path": "kb-maintenance/quality-gate-1bd5e1dc8.log.txt",
+      "sha256": "d1a3153ddefa5634198fb6d226b860f2d9b889877f2c1e8bd9adf2a0e31fae5e",
+      "bytes": 2217
+    },
+    {
+      "original_archive_path": "kb-maintenance/full-7e07addb4.log",
+      "committed_archive_path": "kb-maintenance/full-7e07addb4.log.txt",
+      "sha256": "0295b7cfd3741bd7eb32bd82eb5e057f8611c7767ffba9675aa49a4467591998",
+      "bytes": 1061
+    },
+    {
+      "original_archive_path": "kb-maintenance/strict-vocab-7e07addb4.log",
+      "committed_archive_path": "kb-maintenance/strict-vocab-7e07addb4.log.txt",
+      "sha256": "1c684cbb1bb972a3a5ceadbdff9549a0687edb1ec607c8547cd12fe127eff2b4",
+      "bytes": 336
+    },
+    {
+      "original_archive_path": "kb-maintenance/file-sizes-7e07addb4.log",
+      "committed_archive_path": "kb-maintenance/file-sizes-7e07addb4.log.txt",
+      "sha256": "f561c5a84ba66c7b89b0d67eaf795e79cba1af026eef84487c5e048df769250f",
+      "bytes": 100
+    },
+    {
+      "original_archive_path": "kb-maintenance/quality-gate-7e07addb4.log",
+      "committed_archive_path": "kb-maintenance/quality-gate-7e07addb4.log.txt",
+      "sha256": "d1a3153ddefa5634198fb6d226b860f2d9b889877f2c1e8bd9adf2a0e31fae5e",
+      "bytes": 2217
+    },
+    {
+      "original_archive_path": "kb-maintenance/success-control-boundaries-red.log",
+      "committed_archive_path": "kb-maintenance/success-control-boundaries-red.log.txt",
+      "sha256": "aca476cc129d3c37e0248235afc2ace981be1b386647bbf89e3c09167b3d3863",
+      "bytes": 21929
+    },
+    {
+      "original_archive_path": "kb-maintenance/success-control-boundaries-green.log",
+      "committed_archive_path": "kb-maintenance/success-control-boundaries-green.log.txt",
+      "sha256": "d35e86353e709d6da13c0b91886e218f3c93ea87f439d025cbc9b9068761f20b",
+      "bytes": 3998
+    },
+    {
+      "original_archive_path": "kb-maintenance/success-control-final-focused.log",
+      "committed_archive_path": "kb-maintenance/success-control-final-focused.log.txt",
+      "sha256": "2befa3056fdbd92899e414638a1e4565b228ee610c580f74e8ed86962bd0a1a7",
+      "bytes": 180
+    },
+    {
+      "original_archive_path": "kb-maintenance/full-3a2101032.log",
+      "committed_archive_path": "kb-maintenance/full-3a2101032.log.txt",
+      "sha256": "3404bca4ff01ed2d3e1fb3e373ba95aead8e6ef38ef65103a9d10268ed8e4c23",
+      "bytes": 1061
+    },
+    {
+      "original_archive_path": "kb-maintenance/strict-vocab-3a2101032.log",
+      "committed_archive_path": "kb-maintenance/strict-vocab-3a2101032.log.txt",
+      "sha256": "1c684cbb1bb972a3a5ceadbdff9549a0687edb1ec607c8547cd12fe127eff2b4",
+      "bytes": 336
+    },
+    {
+      "original_archive_path": "kb-maintenance/file-sizes-3a2101032.log",
+      "committed_archive_path": "kb-maintenance/file-sizes-3a2101032.log.txt",
+      "sha256": "82cd8c7ca5e160adf643affbfa8b5a213a2fdea26c6945d245d355685b5fadf4",
+      "bytes": 100
+    },
+    {
+      "original_archive_path": "kb-maintenance/quality-gate-3a2101032.log",
+      "committed_archive_path": "kb-maintenance/quality-gate-3a2101032.log.txt",
+      "sha256": "d1a3153ddefa5634198fb6d226b860f2d9b889877f2c1e8bd9adf2a0e31fae5e",
+      "bytes": 2217
+    }
+  ]
+}

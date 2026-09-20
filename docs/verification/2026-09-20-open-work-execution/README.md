@@ -2,6 +2,10 @@
 
 这些是 2026-09-20 本轮执行的原件小包。`manifest.json` 记录每个归档文件的原路径、字节数和 SHA-256；原始失败与修复后结果分开保留。运行根为 `~/.finance-runtime/open-work-execution-20260920/`。完整清理 JSON 含逐树全部文档引用，超过 5120 KiB，只在 manifest 的 external_files 记哈希、保留外部原件；可读清理表与忽略产物清单入仓。
 
+清单范围为明确列出的证据原件和审计脚本副本。本文、后续说明及 `manifest.json` 自身由 Git 提交固定版本，不参与该清单的自哈希；未列说明文件不表示原件丢失。质检后的新观测放 `qc-followup/`，追加清单，历史文件保持原字节。
+
+[质检意见落实](qc-followup/README.md)：新增正式前端门禁及 #795/#796 两次固定 SHA 复验，各 110P + E2E 34P/2S，首尾身份明确；补 #796 授权、纠正 #597 时间及 KB 持久链接。收尾另查出原 24 份 `.log` 只在本机、未入 Git，已按 `qc-followup/historical-log-paths.json` 补同字节 `.log.txt` 副本，清单保留原路径映射与内容哈希。
+
 ## 已完成的源码合并
 
 | 分支 / 合并记录 | 被测且进入 main 的提交 | Python 全量 | 前端 / E2E / registry |
