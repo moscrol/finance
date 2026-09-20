@@ -7,11 +7,11 @@ import re
 
 from intelligence.services.user_task import (
     TopLevelRegions,
-    _B_LOCAL_ONLY_PHRASES,
     _B_MATERIAL_ONLY_PHRASES,
     _B_RELAX_PHRASES,
     _FICTIONAL_SENT_RE,
     _HYPOTHESIS_STRONG_RE,
+    _is_local_only_head,
     _state_head,
 )
 
@@ -169,7 +169,7 @@ def compile_material_contract(
             data_scope, data_scope_declared = "material_only", True
         elif head.startswith(_B_RELAX_PHRASES):
             data_scope, data_scope_declared = "full", True
-        elif head.startswith(_B_LOCAL_ONLY_PHRASES):
+        elif _is_local_only_head(head):
             data_scope_declared = True
             if data_scope == "full":
                 data_scope = "local_only"
