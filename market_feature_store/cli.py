@@ -699,6 +699,14 @@ def cmd_stitch_sector_stocks(args) -> int:
     if s.get("audit"):
         print(f"完成度审计: {s['audit']}")
     print(brief(s))
+    if getattr(args, "include_completed", False):
+        if args.dry_run:
+            print("刷新预览：未写入，不认证本轮刷新完成")
+        elif s.get("refresh_complete") is not True:
+            print("刷新未完成：本轮候选未全部写入、仍有待补或审计不完整；旧成功记录不能替代本轮刷新")
+            return 2
+        else:
+            print(f"刷新完成：本轮写入 {s['stitched']} 个板块，无待补且审计完整")
     return 0
 
 

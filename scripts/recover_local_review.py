@@ -122,7 +122,11 @@ def child(args) -> int:
             else:
                 result = action()
             results.append({'date': day, **result})
-            if result['status'] != 'ok':
+            # Only the local plan's declared optional parallel source may skip.
+            # Keep its original skip receipt; required work and failed Hithink
+            # requests must still stop before any success status is written.
+            optional_skip = name in sync.HITHINK_STEPS and result['status'] == 'skip'
+            if result['status'] != 'ok' and not optional_skip:
                 raise RuntimeError(f'{day} {name} failed; no publish')
     # Cross-day gate sees BOTH dates fully derived; no partially-created calendar row.
     for day in (args.history_day, args.snapshot_day):

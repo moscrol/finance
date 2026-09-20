@@ -377,6 +377,8 @@ def stitch_sector_members(
 
     ``dry_run`` 只算不写，摘要里带 ``rows``（按板块）供对账；``include_completed``
     连已 success 的板块也算（历史回测，或 staging 恢复中底行情修正后的重建；日更默认不用）。
+    ``refresh_complete`` 只证明本轮显式刷新已写完且审计完整；普通日更为 None，
+    dry-run 即使算出了所有行也为 False，旧 success 不能替未完成的刷新作证。
     """
     td = _as_date(trade_date)
     own = con is None
@@ -477,6 +479,15 @@ def stitch_sector_members(
         "caps_fetched": len(caps),
         "audit": audit.brief() if audit is not None else None,
         "audit_complete": bool(audit.complete) if audit is not None else None,
+        "refresh_complete": (
+            not dry_run
+            and len(stitched) == len(candidates)
+            and not skipped_count
+            and not failed
+            and pending_for_provider == 0
+            and audit is not None
+            and bool(audit.complete)
+        ) if include_completed else None,
         "dry_run": dry_run,
     }
     if dry_run:
