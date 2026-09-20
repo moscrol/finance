@@ -1,0 +1,76 @@
+{
+  "leaf": "registry",
+  "revision": "e1b63b1a5b7c066b7377bbd2d005051863331001",
+  "pid": 69239,
+  "started": 1789936415.481993,
+  "identity_before": {
+    "revision": "e1b63b1a5b7c066b7377bbd2d005051863331001",
+    "status": "",
+    "main": "728f327160bbd2485cb635e7ef09d040d718d7b5"
+  },
+  "checks": [
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-c",
+        "from pathlib import Path; import scripts.build_registry as r; r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())",
+        "check-parseability"
+      ],
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/registry/0.log",
+      "sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe"
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-c",
+        "from pathlib import Path; import scripts.build_registry as r; r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())",
+        "check"
+      ],
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/registry/1.log",
+      "sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a"
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-c",
+        "from pathlib import Path; import scripts.build_registry as r; r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())",
+        "backfill-tables",
+        "--check"
+      ],
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/registry/2.log",
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-c",
+        "from pathlib import Path; import scripts.build_registry as r; r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())",
+        "generate-views",
+        "--check"
+      ],
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/registry/3.log",
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/registry/4.log",
+      "sha256": "ae00c6859a67a6b809b4a5407566a230e42920d1651cfa6a8abf2898e51576ae"
+    }
+  ],
+  "complete": true,
+  "identity_after": {
+    "revision": "e1b63b1a5b7c066b7377bbd2d005051863331001",
+    "status": "",
+    "main": "728f327160bbd2485cb635e7ef09d040d718d7b5"
+  },
+  "finished": 1789936416.478414,
+  "exit_code": 0
+}

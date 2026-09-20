@@ -1,0 +1,193 @@
+{
+  "revision": "321712b68732eef3512da80a4aaedfecd2a9c950",
+  "base": "728f327160bbd2485cb635e7ef09d040d718d7b5",
+  "tree": "/Users/a77/fwp-wt-ownership-gates-0921",
+  "leaf_exits": {
+    "python": 1,
+    "frontend": 0,
+    "registry": 0
+  },
+  "gate_passed": false,
+  "files": [
+    {
+      "path": "README.md",
+      "source": "/Users/a77/fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-followup/README.md",
+      "sha256": "ab8ae27ea758e71bdc27d710970afec4b412783abb0903a2e51655881a1e33cc",
+      "bytes": 2439
+    },
+    {
+      "path": "author/fwp-backfill-parent-after-0921.log.txt",
+      "source": "/tmp/fwp-backfill-parent-after-0921.log",
+      "sha256": "b63e72c3de6e8482f0505de81c14fc117453189475b284da3a807c12a7c615a3",
+      "bytes": 268
+    },
+    {
+      "path": "author/fwp-backfill-parent-before-0921.log.txt",
+      "source": "/tmp/fwp-backfill-parent-before-0921.log",
+      "sha256": "211a574362ddbd8fac661f5a226020078f92d040ad28cf68ac0e5bc2b1d85a7f",
+      "bytes": 2499
+    },
+    {
+      "path": "author/fwp-board-followup-before-0921.log.txt",
+      "source": "/tmp/fwp-board-followup-before-0921.log",
+      "sha256": "cded7976435f2067d50413915259cb71ad9254e351ce39c8717398b16f610e75",
+      "bytes": 5148
+    },
+    {
+      "path": "author/fwp-board-followup-final-0921.log.txt",
+      "source": "/tmp/fwp-board-followup-final-0921.log",
+      "sha256": "10783ee680c913822a7663496bc42278570fe934cf0a25f8e67e2e8d50211cd4",
+      "bytes": 186
+    },
+    {
+      "path": "author/fwp-gate-identity-before-0921.log.txt",
+      "source": "/tmp/fwp-gate-identity-before-0921.log",
+      "sha256": "5ed1a8ef9fb623c63fdc177b57a57ddcd462a8b696890730a1e9cdb35f2025f2",
+      "bytes": 34609
+    },
+    {
+      "path": "author/fwp-gate-identity-final-0921.log.txt",
+      "source": "/tmp/fwp-gate-identity-final-0921.log",
+      "sha256": "7b72a9df313581a301685f6d1f9de87cde12382120219b73824af518f74f0673",
+      "bytes": 200
+    },
+    {
+      "path": "frontend/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/frontend/0.log",
+      "sha256": "f2c4c08108c830dc46ac51ced7cc8fd0fc9923fdf7b4e156ed72c8c096b1482f",
+      "bytes": 433
+    },
+    {
+      "path": "frontend/gate/frontend-0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/frontend/gate/frontend-0.log.txt",
+      "sha256": "13746bf1a4494eebe06ad57e7038d245fc7d86ba4ffacb6ed60a8b392cdaa1b7",
+      "bytes": 1877
+    },
+    {
+      "path": "frontend/gate/frontend-1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/frontend/gate/frontend-1.log.txt",
+      "sha256": "156a5f1c2f51dbec9ea09ae8e257c650655a6ef0b5b5f1fc4411474b816b7ee3",
+      "bytes": 115
+    },
+    {
+      "path": "frontend/gate/frontend-2.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/frontend/gate/frontend-2.log.txt",
+      "sha256": "1e8a6e7e4eaedf12060c146487e4ec1d1132d9c53cb1eb75f96c6ef13f716764",
+      "bytes": 213
+    },
+    {
+      "path": "frontend/gate/frontend-3.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/frontend/gate/frontend-3.log.txt",
+      "sha256": "25ae1a11577fa8545a2847d9f0237f735d310ccd922b70321cce054821e28a54",
+      "bytes": 1431
+    },
+    {
+      "path": "frontend/gate/frontend-4.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/frontend/gate/frontend-4.log.txt",
+      "sha256": "95e421d4498574b79145355d1b53a434da580982a73ca21277582ca726184bc2",
+      "bytes": 917
+    },
+    {
+      "path": "frontend/gate/frontend-5.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/frontend/gate/frontend-5.log.txt",
+      "sha256": "a0ee5860e203348436434fff59e088b92b24dd6b208f827a6836442e097b2fbb",
+      "bytes": 12754
+    },
+    {
+      "path": "frontend/gate/frontend.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/frontend/gate/frontend.json",
+      "sha256": "4aa877ac11cf242612773d5bdffe9eb70544b0f85767966d09bb086852bc3abb",
+      "bytes": 2498
+    },
+    {
+      "path": "frontend/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/frontend/run.json",
+      "sha256": "27f189ede7890dd0f22740be48ca8287d6eb40459ca7ade9992e30e84d25e7fd",
+      "bytes": 1238
+    },
+    {
+      "path": "gate-pr.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/gate-pr.md",
+      "sha256": "61ecb9380c9ebc1f16377fcfbf8778d042412dd323ae43e6a620d9d26f3584e6",
+      "bytes": 1631
+    },
+    {
+      "path": "python/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/python/0.log",
+      "sha256": "a2f5147df77c5240ec086b4bf45a94983ffff559568a8da66258d14d1e6ca99d",
+      "bytes": 1846
+    },
+    {
+      "path": "python/receipts/gate-Sm54tmrK/pytest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/python/receipts/gate-Sm54tmrK/pytest.json",
+      "sha256": "0ee4633de96b6226d4173e3c01ae69faf772ef9b6c4c8e745dd72e339588c099",
+      "bytes": 652
+    },
+    {
+      "path": "python/receipts/latest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/python/receipts/latest.json",
+      "sha256": "0ee4633de96b6226d4173e3c01ae69faf772ef9b6c4c8e745dd72e339588c099",
+      "bytes": 652
+    },
+    {
+      "path": "python/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/python/run.json",
+      "sha256": "40fdee3935fee715ac76408f044ef3ff22fe782771182ae8aab67bbd9e1e30b3",
+      "bytes": 829
+    },
+    {
+      "path": "registry/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/registry/0.log",
+      "sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe",
+      "bytes": 95
+    },
+    {
+      "path": "registry/1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/registry/1.log",
+      "sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a",
+      "bytes": 121
+    },
+    {
+      "path": "registry/2.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/registry/2.log",
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+      "bytes": 116
+    },
+    {
+      "path": "registry/3.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/registry/3.log",
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+      "bytes": 68
+    },
+    {
+      "path": "registry/4.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/registry/4.log",
+      "sha256": "40a857ff4bb86b4f093ce71c4d5d274a53776b6bdcb6f5dcf64de949102184bf",
+      "bytes": 2010
+    },
+    {
+      "path": "registry/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/registry/run.json",
+      "sha256": "14b165fc13110df9679877c1b5770621f071716fe324f63d6d80f24c42172bf3",
+      "bytes": 2959
+    },
+    {
+      "path": "review-request.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/review-request.md",
+      "sha256": "250a1ee357af7e16e2e0bcee47edcae6f7ef702c66591ef9e4f609b2675f3543",
+      "bytes": 3535
+    },
+    {
+      "path": "run_leaf.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/run_leaf.py",
+      "sha256": "e4e537dc0c15a6e81e39995d4f4c3fda6daef13285e96a2ecc65986a584cf53a",
+      "bytes": 2823
+    },
+    {
+      "path": "seal_evidence.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/seal_evidence.py",
+      "sha256": "c6ff114b727c573b726fd661005abdf5ef2210ace99bb7fdc75de6d995c9699f",
+      "bytes": 3008
+    }
+  ]
+}
