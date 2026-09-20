@@ -71,6 +71,9 @@ ALLOWED = frozenset(
         # sync_eastmoney_fund_flow 用它把东财域名解析 / 连接超时握在自己手里；
         # 读取点在 stdlib 里，本脚本只扫仓内 Python 看不见。
         "sock",
+        # sqlite3 consumes Connection.row_factory when constructing fetched rows.
+        # Its reader is in the standard library, outside this repository scan.
+        "row_factory",
     }
 )
 
