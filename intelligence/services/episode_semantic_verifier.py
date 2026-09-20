@@ -743,12 +743,41 @@ def semantic_repair_feedback(outcome: SemanticEpisodeOutcome) -> tuple[str, ...]
     )))
 
 
+def _unresolved_publication_feedback(
+    outcome: SemanticEpisodeOutcome,
+) -> tuple[str, ...]:
+    feedback = semantic_repair_feedback(outcome)
+    if outcome.judge_status != "repaired":
+        return feedback
+    # A semantic verifier may delete a rejected sentence and pass the shorter
+    # draft on a later judge call. That is resolved internally. Keep mechanical
+    # or preflight findings visible to the adapter, but do not cap a genuinely
+    # rejudged semantic deletion as if it were an unfinished same-episode repair.
+    unresolved: list[str] = []
+    for item in feedback:
+        if not item.startswith("{"):
+            unresolved.append(item)
+            continue
+        try:
+            record = json.loads(item)
+        except (TypeError, ValueError):
+            unresolved.append(item)
+            continue
+        if (
+            record.get("stage") == VERDICT_STAGE_JUDGE
+            and record.get("reasons") == [VERDICT_REASON_JUDGE]
+        ):
+            continue
+        unresolved.append(item)
+    return tuple(unresolved)
+
+
 def with_unresolved_review_publication(
     publication: PublicationAssessment,
     outcome: SemanticEpisodeOutcome,
 ) -> PublicationAssessment:
-    """Cap final delivery using the last review, without exposing its diagnostics."""
-    if not semantic_repair_feedback(outcome):
+    """Cap final delivery using unresolved review feedback, not private details."""
+    if not _unresolved_publication_feedback(outcome):
         return publication
     notice = "部分表述未通过核验，本轮未完成相关修订；当前保留内容不能视为完整结论。"
     return replace(

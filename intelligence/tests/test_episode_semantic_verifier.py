@@ -247,7 +247,7 @@ def test_final_publication_uses_pending_review_without_mutating_review_or_privat
         records = ()
     review = module.SemanticEpisodeOutcome(
         verified=structural, status="completed", public_answer="保留的市场观察。",
-        judge_status="repaired", sentence_verdicts=records,
+        judge_status=("rejected" if finding == "demoted" else "repaired"), sentence_verdicts=records,
         rejected_claim_indexes=(1,) if finding == "legacy" else (),
     )
     before = review.to_dict()
