@@ -837,7 +837,10 @@ class ContinuousTurnAdapter:
                     previous_snapshot=previous_snapshot,
                     current_snapshot=current_snapshot,
                     cycle=repair_attempts,
-                    rejected_claims=semantic_repair_feedback(semantic),
+                    rejected_claims=tuple(
+                        f"claim_index:{index}" for index in semantic.rejected_claim_indexes
+                    ),
+                    review_feedback=semantic_repair_feedback(semantic),
                     semantic_gap_outputs=semantic.gap_output_ids,
                     allow_delivery_repair=not delivery_repair_attempted,
                 )
@@ -1274,6 +1277,7 @@ class ContinuousTurnAdapter:
         cycle: int,
         rejected_claims: tuple[str, ...],
         semantic_gap_outputs: tuple[str, ...] = (),
+        review_feedback: tuple[str, ...] = (),
         allow_delivery_repair: bool = True,
     ) -> tuple[AgentOutcome, VerifiedEpisodeOutcome, bool] | None:
         root_budget = context.root_budget
@@ -1306,6 +1310,9 @@ class ContinuousTurnAdapter:
             rejected_claims=rejected_claims,
             semantic_gap_outputs=semantic_gap_outputs,
         )
+        # Diagnostics enrich the repair goal, not the domain's budget classification.
+        if review_feedback:
+            need = replace(need, rejected_claims=review_feedback)
         warrant = self._harness.warrant_repair(
             progress=progress,
             cycle=cycle,
