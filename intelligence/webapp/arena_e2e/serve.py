@@ -21,9 +21,9 @@ def main() -> None:
         for i, answer in enumerate(fixture["answers"]):
             answer["participant"] = {"id": f"fixture-{i}", "name": f"E2E Fixture {i}", "version": "test-v1", "kind": "agent"}
         match = Match.model_validate(fixture)
-        store.finish_run(run_id, {"fixture_only": True, "match_digest": digest(canonical(fixture))})
-        store.add_match(match)
-        store.publish(match.id)
+        payload = {"fixture_only": True, "match_digest": digest(canonical(fixture))}
+        store.complete_run_with_match(run_id, payload, match)
+        store.publish(match.id, actor="e2e-fixture", review_attested=True)
         app = create_app(store)
 
         @app.post("/__fixture__/invite")

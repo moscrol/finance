@@ -51,11 +51,15 @@ $PY -m intelligence.arena runs
 $PY -m intelligence.arena publish --match run-RUN_ID --reviewed-for-identity-and-data-rights
 $PY -m intelligence.arena reports
 $PY -m intelligence.arena invalidate --match run-RUN_ID --reason '发现身份泄露，撤销本场并保留回执'
+# 宿主中止后，先确认远端已停止，再只把本地运行标记为失败；不会自动重试
+$PY -m intelligence.arena recover-run --run RUN_ID --reason '已确认远端取消或不再运行'
 ```
+
+`publish` 的人工确认会写入不可覆盖的本地审计事件；操作者标识来自 `ARENA_OPERATOR`，未设置时使用本机登录用户。`invalidate` 和 `recover-run` 也写入审计事件。审计记录只证明本地操作声明，不替代身份、授权或数据治理系统。
 
 自建题目省略 `--question-id`。用户队列题的 `question` 与 `category` 必须完全匹配；运行预占在外部调用前提交，已执行题目不允许重复发起以挑选结果。状态为 `pending -> running -> review -> published`，失败为 `failed`，撤销为 `withdrawn`。失败重试需新的明确运营决策及新的任务记录；没有自动重试。
 
-`run` 并行调用两个参赛版本，成功与失败都留记录。终端输出运行编号不代表成功，须用 `runs` 核查状态。输出未经运营审核不可见。`publish` 自动检测正文中的登记名称，但只能作为辅助检查：别名、自报供应商、引用网址、题目和材料泄露仍须人工审核。运营还需确认材料、模型输出和产品评测的授权。
+`run` 并行调用两个参赛版本，成功与失败都留记录。成功运行和候选 Match 在同一数据库事务中提交；若宿主在外部调用期间中止，运行可能停在 `running`，运营必须确认远端状态后用 `recover-run` 标记失败，不能静默重跑。终端输出运行编号不代表成功，须用 `runs` 核查状态。输出未经运营审核不可见。`publish` 自动检测正文中的登记名称，但只能作为辅助检查：别名、自报供应商、引用网址、题目和材料泄露仍须人工审核。运营还需确认材料、模型输出和产品评测的授权。
 
 ### 参赛配置
 

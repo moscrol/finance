@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
@@ -47,10 +48,9 @@ def live_match(store, suffix="1", publish=True):
         answer["participant"] = record["participants"][index]
     match = Match.model_validate(original)
     record["match_digest"] = digest(canonical(match.model_dump(mode="json")))
-    store.finish_run(run_id, record)
-    store.add_match(match)
+    store.complete_run_with_match(run_id, record, match)
     if publish:
-        store.publish(match.id)
+        store.publish(match.id, actor="test-fixture", review_attested=True)
     return match
 
 
@@ -189,7 +189,7 @@ def test_invalidation_excludes_votes_keeps_receipts(client, store):
     assert not r["vote"]["counted"] and r["receipt"]
     assert r["invalid_reason"] == "Identity leakage"
     with pytest.raises(ArenaError):
-        store.publish(match.id)
+        store.publish(match.id, actor="test", review_attested=True)
 
 
 def test_manual_live_match_without_run_is_rejected(store):
@@ -315,7 +315,7 @@ def test_leaderboard_reads_one_snapshot_during_publication(store, monkeypatch):
             return
         inserted.append(True)
         try:
-            store.publish(second.id)
+            store.publish(second.id, actor="snapshot-test", review_attested=True)
             new_assignment = store.assign(session["id"], "live", None)
             store.vote(session["id"], new_assignment["id"], "right", [])
         except Exception as exc:
@@ -352,8 +352,47 @@ def test_runner_records_success_and_requires_publication(store, monkeypatch):
     task = Task(question="What explains the company's cash flow?", category="financial", as_of="2025-01-01")
     run_id = asyncio.run(run_pair(store, task, agents))
     assert store.summary()["live_cases"] == 0
-    store.publish("run-" + run_id)
+    store.publish("run-" + run_id, actor="test", review_attested=True)
     assert store.summary()["live_cases"] == 1
+
+
+def test_successful_run_finalization_is_atomic_and_recoverable(store, monkeypatch):
+    agents = [AgentEndpoint(participant={"id": f"agent-{i}", "name": f"Atomic {i}", "version": "v1", "kind": "agent"}, protocol="arena-v1", endpoint="https://example.com") for i in range(2)]
+    async def fake(agent, *_args, **_kwargs):
+        return Answer(participant=agent.participant, content="A sufficiently detailed answer from a controlled atomicity fixture.", duration_seconds=.1)
+    monkeypatch.setattr("intelligence.arena.runner.call_agent", fake)
+    task = Task(question="What explains the company cash flow?", category="financial", as_of="2025-01-01")
+    session, _ = store.session(None)
+    question_id = store.question(session["id"], task.question, task.category)
+    with store.connect(write=True) as con:
+        con.execute("""CREATE TRIGGER reject_arena_match BEFORE INSERT ON matches
+            BEGIN SELECT RAISE(ABORT, 'forced match insert failure'); END;""")
+    with pytest.raises(sqlite3.IntegrityError, match="forced match insert failure"):
+        asyncio.run(run_pair(store, task, agents, question_id=question_id))
+    with store.connect() as con:
+        run = con.execute("SELECT id,status FROM runs").fetchone()
+        question = con.execute("SELECT status FROM questions WHERE id=?", (question_id,)).fetchone()
+        assert con.execute("SELECT COUNT(*) FROM matches").fetchone()[0] == 0
+    assert run["status"] == "running"
+    assert question["status"] == "running"
+    store.recover_run(run["id"], "confirmed upstream cancellation", actor="test-operator")
+    with store.connect() as con:
+        assert con.execute("SELECT status FROM runs WHERE id=?", (run["id"],)).fetchone()[0] == "failed"
+        assert con.execute("SELECT status FROM questions WHERE id=?", (question_id,)).fetchone()[0] == "failed"
+        event = con.execute("SELECT action,actor,reason FROM audit_events WHERE run_id=?", (run["id"],)).fetchone()
+    assert tuple(event) == ("recover-run", "test-operator", "confirmed upstream cancellation")
+
+
+def test_publish_requires_attestation_and_records_audit(store):
+    match = live_match(store, publish=False)
+    with pytest.raises(ArenaError, match="明确确认"):
+        store.publish(match.id, actor="reviewer-1", review_attested=False)
+    store.publish(match.id, actor="reviewer-1", review_attested=True)
+    store.invalidate(match.id, "post-publication review", actor="operator-2")
+    with store.connect() as con:
+        events = con.execute("SELECT action,actor,reason,digest FROM audit_events WHERE match_id=? ORDER BY id", (match.id,)).fetchall()
+    assert [(r["action"], r["actor"], r["reason"]) for r in events] == [("publish", "reviewer-1", None), ("invalidate", "operator-2", "post-publication review")]
+    assert all(row["digest"] == digest(canonical(match.model_dump(mode="json"))) for row in events)
 
 
 def test_runner_failure_is_retained_not_retried(store, monkeypatch):
@@ -385,14 +424,14 @@ def test_question_runs_once_and_can_be_evaluated_after_publication(client, store
     assert client.get("/api/arena/history").json()["questions"][0]["status"] == "review"
     with pytest.raises(ArenaError):
         asyncio.run(run_pair(store, task, agents, question_id=q))
-    store.publish("run-" + run_id)
+    store.publish("run-" + run_id, actor="test", review_attested=True)
     assert client.get("/api/arena/history").json()["questions"][0]["status"] == "published"
     response = post(client, "assignments", {"mode": "live", "question_id": q})
     assert response.status_code == 200 and response.json()["assignment"]["question"] == question
     assert post(client, "assignments", {"mode": "live", "question_id": q}).json() == response.json()
     with TestClient(create_app(store)) as other:
         assert post(other, "assignments", {"mode": "live", "question_id": q}).status_code == 404
-    store.invalidate("run-" + run_id, "fixture withdrawal")
+    store.invalidate("run-" + run_id, "fixture withdrawal", actor="test")
     assert client.get("/api/arena/history").json()["questions"][0]["status"] == "withdrawn"
 
 
@@ -463,7 +502,7 @@ def test_remote_mismatch_fails_run_without_publishable_match(store, monkeypatch)
     assert store.history(session["id"])["questions"][0]["status"] == "failed"
     assert len(requests) == 4
     with pytest.raises(ArenaError, match="不存在"):
-        store.publish("run-" + run_id)
+        store.publish("run-" + run_id, actor="test", review_attested=True)
     with pytest.raises(ArenaError, match="重复"):
         asyncio.run(run_pair(store, task, agents, question_id=question_id))
     assert len(requests) == 4

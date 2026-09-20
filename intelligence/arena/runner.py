@@ -143,6 +143,5 @@ async def run_pair(store: ArenaStore, task: Task, agents: list[AgentEndpoint], *
         return run_id
     match = Match(id=f"run-{run_id}", category=task.category, question=task.question, as_of=task.as_of, evidence=task.evidence, answers=results, provenance="platform_run", run_id=run_id)
     record["match_digest"] = digest(canonical(match.model_dump(mode="json")))
-    store.finish_run(run_id, record)
-    store.add_match(match)
+    store.complete_run_with_match(run_id, record, match)
     return run_id

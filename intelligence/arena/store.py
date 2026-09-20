@@ -61,6 +61,12 @@ CREATE TABLE IF NOT EXISTS strategies (
  id TEXT PRIMARY KEY, payload TEXT NOT NULL, digest TEXT NOT NULL,
  registered REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS audit_events (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT NOT NULL,
+ match_id TEXT, run_id TEXT, actor TEXT NOT NULL,
+ reason TEXT, details TEXT NOT NULL, digest TEXT NOT NULL,
+ created REAL NOT NULL
+);
 CREATE INDEX IF NOT EXISTS assignments_session ON assignments(session_id, created);
 CREATE INDEX IF NOT EXISTS matches_public ON matches(published, provenance, category);
 """
@@ -146,21 +152,38 @@ class ArenaStore:
             con.execute("UPDATE sessions SET reviewer=?,invite_id=? WHERE id=?", (reviewer, digest(code), session_id))
             return reviewer
 
-    def add_match(self, match: Match, *, published: bool = False) -> None:
+    def _insert_match(self, con: sqlite3.Connection, match: Match, *, published: bool = False) -> None:
         raw = canonical(match.model_dump(mode="json"))
-        with self.connect(write=True) as con:
-            old = con.execute("SELECT digest FROM matches WHERE id=?", (match.id,)).fetchone()
-            if old:
-                if old[0] != digest(raw):
-                    raise ArenaError("已有对战不可改写；请创建新版本。", 409)
-                return
-            if match.provenance == "platform_run":
-                run = con.execute("SELECT status,payload FROM runs WHERE id=?", (match.run_id,)).fetchone()
-                if not run or run["status"] != "completed" or json.loads(run["payload"]).get("match_digest") != digest(raw):
-                    raise ArenaError("正式对战必须与平台完成的原始运行一致。", 409)
-            con.execute("INSERT INTO matches VALUES (?,?,?,?,?,?,NULL,?)", (match.id, raw, digest(raw), match.provenance, match.category, int(published), time.time()))
+        old = con.execute("SELECT digest FROM matches WHERE id=?", (match.id,)).fetchone()
+        if old:
+            if old[0] != digest(raw):
+                raise ArenaError("已有对战不可改写；请创建新版本。", 409)
+            return
+        if match.provenance == "platform_run":
+            run = con.execute("SELECT status,payload FROM runs WHERE id=?", (match.run_id,)).fetchone()
+            if not run or run["status"] != "completed" or json.loads(run["payload"]).get("match_digest") != digest(raw):
+                raise ArenaError("正式对战必须与平台完成的原始运行一致。", 409)
+        con.execute("INSERT INTO matches VALUES (?,?,?,?,?,?,NULL,?)", (match.id, raw, digest(raw), match.provenance, match.category, int(published), time.time()))
 
-    def publish(self, match_id: str) -> None:
+    def add_match(self, match: Match, *, published: bool = False) -> None:
+        with self.connect(write=True) as con:
+            self._insert_match(con, match, published=published)
+
+    def complete_run_with_match(self, identifier: str, payload: dict, match: Match) -> None:
+        """Commit a successful run and its publishable candidate as one state transition."""
+        with self.connect(write=True) as con:
+            result = con.execute("UPDATE runs SET status='completed',payload=?,error=NULL WHERE id=? AND status='running'", (canonical(payload), identifier))
+            if not result.rowcount:
+                raise ArenaError("运行已结束或不存在，不能完成。", 409)
+            self._insert_match(con, match)
+            con.execute("UPDATE questions SET status='review' WHERE run_id=?", (identifier,))
+
+    def publish(self, match_id: str, *, actor: str, review_attested: bool) -> None:
+        if not review_attested:
+            raise ArenaError("发布必须明确确认身份和数据授权审核。", 403)
+        actor = actor.strip()
+        if not actor or len(actor) > 120:
+            raise ArenaError("发布操作者标识无效。", 400)
         with self.connect(write=True) as con:
             row = con.execute("SELECT * FROM matches WHERE id=?", (match_id,)).fetchone()
             if not row:
@@ -175,15 +198,22 @@ class ArenaStore:
             con.execute("UPDATE matches SET published=1 WHERE id=?", (match_id,))
             if match.run_id:
                 con.execute("UPDATE questions SET status='published' WHERE run_id=?", (match.run_id,))
+            con.execute("INSERT INTO audit_events(action,match_id,run_id,actor,reason,details,digest,created) VALUES (?,?,?,?,?,?,?,?)", ("publish", match_id, match.run_id, actor, None, canonical({"reviewed_for": "identity-and-data-rights"}), row["digest"], time.time()))
 
-    def invalidate(self, match_id: str, reason: str) -> None:
+    def invalidate(self, match_id: str, reason: str, *, actor: str = "local-operator") -> None:
         if not reason.strip():
             raise ArenaError("撤销必须提供原因。")
+        actor = actor.strip()
+        if not actor or len(actor) > 120:
+            raise ArenaError("撤销操作者标识无效。", 400)
         with self.connect(write=True) as con:
+            row = con.execute("SELECT * FROM matches WHERE id=?", (match_id,)).fetchone()
             result = con.execute("UPDATE matches SET published=0,invalid_reason=? WHERE id=? AND invalid_reason IS NULL", (reason, match_id))
             if not result.rowcount:
                 raise ArenaError("对战不存在或已经撤销。", 409)
-            con.execute("UPDATE questions SET status='withdrawn' WHERE run_id=(SELECT json_extract(payload,'$.run_id') FROM matches WHERE id=?)", (match_id,))
+            match = Match.model_validate_json(row["payload"])
+            con.execute("UPDATE questions SET status='withdrawn' WHERE run_id=?", (match.run_id,))
+            con.execute("INSERT INTO audit_events(action,match_id,run_id,actor,reason,details,digest,created) VALUES (?,?,?,?,?,?,?,?)", ("invalidate", match_id, match.run_id, actor, reason, canonical({}), row["digest"], time.time()))
 
     def assign(self, session_id: str, mode: str, category: str | None, *, question_id: str | None = None) -> dict | None:
         provenance = "demo" if mode == "demo" else "platform_run"
@@ -352,11 +382,32 @@ class ArenaStore:
         return identifier
 
     def finish_run(self, identifier: str, payload: dict, error: str | None = None) -> None:
+        if error is None:
+            raise ArenaError("成功运行必须通过 complete_run_with_match() 提交。", 409)
         with self.connect(write=True) as con:
             result = con.execute("UPDATE runs SET status=?,payload=?,error=? WHERE id=? AND status='running'", ("failed" if error else "completed", canonical(payload), error, identifier))
             if not result.rowcount:
                 raise ArenaError("运行已结束或不存在，不能覆盖。", 409)
             con.execute("UPDATE questions SET status=? WHERE run_id=?", ("failed" if error else "review", identifier))
+
+    def recover_run(self, identifier: str, reason: str, *, actor: str = "local-operator") -> None:
+        if not reason.strip():
+            raise ArenaError("恢复运行必须提供原因。")
+        actor = actor.strip()
+        if not actor or len(actor) > 120:
+            raise ArenaError("恢复操作者标识无效。", 400)
+        with self.connect(write=True) as con:
+            row = con.execute("SELECT status,payload FROM runs WHERE id=?", (identifier,)).fetchone()
+            if not row:
+                raise ArenaError("运行不存在。", 404)
+            if row["status"] != "running":
+                raise ArenaError("只有 running 运行可以人工恢复为失败。", 409)
+            payload = json.loads(row["payload"])
+            payload["recovery"] = {"action": "mark-failed", "reason": reason, "actor": actor, "at": iso(time.time())}
+            error = f"Operator recovery: {reason}"
+            con.execute("UPDATE runs SET status='failed',payload=?,error=? WHERE id=? AND status='running'", (canonical(payload), error, identifier))
+            con.execute("UPDATE questions SET status='failed' WHERE run_id=?", (identifier,))
+            con.execute("INSERT INTO audit_events(action,run_id,actor,reason,details,digest,created) VALUES (?,?,?,?,?,?,?)", ("recover-run", identifier, actor, reason, canonical({"status": "failed"}), digest(canonical(payload)), time.time()))
 
     def add_strategy(self, strategy: Strategy) -> None:
         if strategy.starts_at <= datetime.now(timezone.utc):

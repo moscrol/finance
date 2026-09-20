@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import getpass
 import json
+import os
 from pathlib import Path
 
 from .app import data_path
@@ -30,6 +32,9 @@ def main() -> None:
     revoke = commands.add_parser("invalidate")
     revoke.add_argument("--match", required=True)
     revoke.add_argument("--reason", required=True)
+    recover = commands.add_parser("recover-run", help="确认远端已停止后，将遗留 running 运行标记为失败")
+    recover.add_argument("--run", required=True)
+    recover.add_argument("--reason", required=True)
     strategy = commands.add_parser("register-strategy")
     strategy.add_argument("--file", type=Path, required=True)
     commands.add_parser("queue")
@@ -42,11 +47,17 @@ def main() -> None:
     elif args.command == "run":
         print(asyncio.run(run_pair(store, Task.model_validate_json(args.task.read_text()), load_agents(args.agents), timeout=args.timeout, allow_local=args.allow_local_endpoints, question_id=args.question_id)))
     elif args.command == "publish":
-        store.publish(args.match)
+        actor = os.environ.get("ARENA_OPERATOR", getpass.getuser())
+        store.publish(args.match, actor=actor, review_attested=args.reviewed_for_identity_and_data_rights)
         print("Published:", args.match)
     elif args.command == "invalidate":
-        store.invalidate(args.match, args.reason)
+        actor = os.environ.get("ARENA_OPERATOR", getpass.getuser())
+        store.invalidate(args.match, args.reason, actor=actor)
         print("Invalidated:", args.match)
+    elif args.command == "recover-run":
+        actor = os.environ.get("ARENA_OPERATOR", getpass.getuser())
+        store.recover_run(args.run, args.reason, actor=actor)
+        print("Recovered as failed:", args.run)
     elif args.command == "register-strategy":
         store.add_strategy(Strategy.model_validate_json(args.file.read_text()))
         print("Registered; no performance asserted")
