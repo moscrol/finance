@@ -223,20 +223,25 @@ def test_semantic_repair_feedback_lift_does_not_clear_mechanical_finding() -> No
 
 
 @pytest.mark.parametrize("existing_ceiling", ["completed", "partial"])
-@pytest.mark.parametrize("finding", ["deleted", "demoted", "lifted", "mechanical_lift", "census", "legacy", "clean"])
+@pytest.mark.parametrize("finding", ["deleted", "unresolved_deleted", "resolved_deleted", "demoted", "lifted", "mechanical_lift", "census", "legacy", "clean"])
 def test_final_publication_uses_pending_review_without_mutating_review_or_private_copy(existing_ceiling, finding):
     from intelligence.services import episode_semantic_verifier as module
     from intelligence.services.research_harness import PublicationAssessment
 
-    _, structural = _structural("保留的市场观察。", gaps=("私有估值缺口",))
+    _, structural = _structural(
+        "私有被拒原句。" if finding == "unresolved_deleted" else "保留的市场观察。",
+        gaps=("私有估值缺口",),
+    )
     row = {
         "stage": "judge", "sentence_index": 1, "sentence": "私有被拒原句。",
         "decision": "demoted_to_issue", "reasons": ["judge"],
         "judge_issues": ["私有诊断详情"],
     }
     records = (row,)
-    if finding == "deleted":
+    if finding in {"deleted", "unresolved_deleted"}:
         records = ({**row, "stage": "preflight", "decision": "deleted"},)
+    elif finding == "resolved_deleted":
+        records = ({**row, "stage": "judge", "decision": "deleted"},)
     elif finding in {"lifted", "mechanical_lift"}:
         if finding == "mechanical_lift":
             row = {**row, "reasons": ["novel_numeric_condition"]}
@@ -256,7 +261,7 @@ def test_final_publication_uses_pending_review_without_mutating_review_or_privat
         max_status=existing_ceiling, required_public_notices=(other_notice,),
     )
     result = module.with_unresolved_review_publication(publication, review)
-    pending = finding in {"deleted", "demoted", "mechanical_lift", "legacy"}
+    pending = finding in {"deleted", "unresolved_deleted", "demoted", "mechanical_lift", "legacy"}
     if pending:
         assert result.max_status == "partial"
         assert result.required_public_notices == (

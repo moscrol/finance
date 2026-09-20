@@ -749,10 +749,11 @@ def _unresolved_publication_feedback(
     feedback = semantic_repair_feedback(outcome)
     if outcome.judge_status != "repaired":
         return feedback
-    # A semantic verifier may delete a rejected sentence and pass the shorter
-    # draft on a later judge call. That is resolved internally. Keep mechanical
-    # or preflight findings visible to the adapter, but do not cap a genuinely
-    # rejudged semantic deletion as if it were an unfinished same-episode repair.
+    # A semantic judge finding is resolved when the verifier has completed its
+    # allowed action: a rejected sentence may be deleted, or a required-block
+    # sentence may be demoted to an issue. Keep mechanical/preflight findings
+    # visible to the adapter, but do not cap an internally completed semantic
+    # review as if it were an unfinished same-episode repair.
     unresolved: list[str] = []
     for item in feedback:
         if not item.startswith("{"):
@@ -767,6 +768,9 @@ def _unresolved_publication_feedback(
             record.get("stage") == VERDICT_STAGE_JUDGE
             and record.get("reasons") == [VERDICT_REASON_JUDGE]
         ):
+            # The semantic verifier has completed its allowed action for this
+            # finding: delete the sentence or demote it into an issue. The
+            # ledger remains private audit/context, not unfinished work.
             continue
         unresolved.append(item)
     return tuple(unresolved)
