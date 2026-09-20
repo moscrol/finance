@@ -10,7 +10,7 @@
 - 不搬 E2 WIP、不把材料全改 `user_premise`：材料资格与推断正确性是两层合同。
 
 ## 当前状态
-分支 `feat/research-reasoning-awareness`；业务代码 `2cfa9d0d7`，文档 tip `e512c6369`。本轮仅新增外部 v5 manifest、更新三份文档，文档改动待提交；开关默认 off，未 push/PR/合 main/部署。8798 PID `13106` 已停，8792 PID `32544` 未动。
+分支 `feat/research-reasoning-awareness`；业务代码 `2cfa9d0d7`，最新文档提交 `9ba261747`。本轮仅新增外部 v5 manifest、更新三份文档；开关默认 off，未 push/PR/合 main/部署。8798 PID `13106` 已停，8792 PID `32544` 未动。
 
 ## 已验证
 - 全仓 pytest `12049P/87S/2X/0F`、Ruff 绿；全仓收据 `~/.finance-runtime/test-receipts/20260920T195644Z-2cfa9d0d.json`。
