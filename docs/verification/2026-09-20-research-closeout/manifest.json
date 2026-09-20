@@ -174,6 +174,180 @@
       "path": "gate-789/receipt-check.log.txt",
       "exit_code": 1,
       "sha256": "9e9cbe3fecd3baed637bd7ffb360f88149a4a678fb9a991addcf074aa7ef0d35"
+    },
+    {
+      "path": "gate-789-integrated/target.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/target.json",
+      "bytes": 237,
+      "sha256": "5343ffd14a4f60532d09aa5ce8ea195ddf87ddf07b82176f7dc7da0f1a227191"
+    },
+    {
+      "path": "gate-789-integrated/verdict.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/verdict.json",
+      "bytes": 415,
+      "sha256": "f752676cba0aacf39f24e7d8d9075c9f064ea866a2fe8877ac88866c2e2df98a"
+    },
+    {
+      "path": "gate-789-integrated/registry-views.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/registry-views.log.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "path": "gate-789-integrated/pytest.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/pytest.log.txt",
+      "bytes": 18150,
+      "sha256": "ba2fa3aeb48e4089ceef7cbaf714cf9e0184e107fe018b038a84166ec20476a6"
+    },
+    {
+      "path": "gate-789-integrated/registry-tables.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/registry-tables.log.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "path": "gate-789-integrated/registry-check.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/registry-check.log.txt",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "path": "gate-789-integrated/python-registry.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/python-registry.json",
+      "bytes": 3917,
+      "sha256": "48768543d02cb7cd5ce9f9fc48aad1372c7241567f2057afaacc22a4888d58c3"
+    },
+    {
+      "path": "gate-789-integrated/ledger-crosswalk.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/ledger-crosswalk.log.txt",
+      "bytes": 2080,
+      "sha256": "93ef01302e20135a85ed5fd3b3956edbb38f86aef3929fd266e36732d11b065e"
+    },
+    {
+      "path": "gate-789-integrated/receipt-check.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/receipt-check.log.txt",
+      "bytes": 921,
+      "sha256": "1daf7dbfc4619cca76adbe9aa5f974a0cc750ccf402e19765380fb8716822510"
+    },
+    {
+      "path": "gate-789-integrated/ruff.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/ruff.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "gate-789-integrated/registry-parse.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/registry-parse.log.txt",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "path": "gate-789-integrated/frontend/frontend-2.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/frontend/frontend-2.log.txt",
+      "bytes": 283,
+      "sha256": "a911a6d002e77fbba482d26c34c02768c14fe611f0545733a94b1574aae60205"
+    },
+    {
+      "path": "gate-789-integrated/frontend/frontend-3.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/frontend/frontend-3.log.txt",
+      "bytes": 1569,
+      "sha256": "dbbd04f5948ef596a0e18607115d6a5b8ba969bc83b3663567ff0c240ec36939"
+    },
+    {
+      "path": "gate-789-integrated/frontend/frontend-1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/frontend/frontend-1.log.txt",
+      "bytes": 185,
+      "sha256": "0c6837533539368c3a3eac91eaca98ba4f2842cb6824e611542fe63078cba290"
+    },
+    {
+      "path": "gate-789-integrated/frontend/frontend.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/frontend/frontend.json",
+      "bytes": 2567,
+      "sha256": "14d203fe0e8110b1e1a7b6c43b59875fd763fee8a7f7328ce9f4ab9a4a4ae297"
+    },
+    {
+      "path": "gate-789-integrated/frontend/frontend-0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/frontend/frontend-0.log.txt",
+      "bytes": 1758,
+      "sha256": "ce9c693df8a0de353c8d51715a9ab54f857f1fed647d83b794c46abcb642fb54"
+    },
+    {
+      "path": "gate-789-integrated/frontend/frontend-5.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/frontend/frontend-5.log.txt",
+      "bytes": 12818,
+      "sha256": "9494342f8d567b51694d9d540d408b46b910a446c583fca69b6ec27b4f2a1846"
+    },
+    {
+      "path": "gate-789-integrated/frontend/frontend-4.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/frontend/frontend-4.log.txt",
+      "bytes": 1057,
+      "sha256": "4f60066dd3533dd1a55bc7384042189bdba4240652899ab9a79e2e68c0ab645a"
+    },
+    {
+      "path": "gate-789-integrated/receipts/20260920T040052Z-62bbc4ec.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/receipts/20260920T040052Z-62bbc4ec.json",
+      "bytes": 772,
+      "sha256": "a2304f3d4e5fe4794dfcdc098d52eca41576af2e6ca3c4230605db858da2ccc6"
+    },
+    {
+      "path": "gate789-review/spec.md",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec.md",
+      "bytes": 7209,
+      "sha256": "436cf5fc904ed54d9b97e4f468a9763552918e0acb27dfa8f2e1f3df079a737e"
+    },
+    {
+      "path": "gate789-review/standards.md",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/standards.md",
+      "bytes": 739,
+      "sha256": "db59bb3dc1b5b944f4f08a39c52ef7e1f0305144fa26ea19e9de465d977ea174"
+    },
+    {
+      "path": "gate789-review/spec-integrated.md",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec-integrated.md",
+      "bytes": 3407,
+      "sha256": "5afc0a1dc32949c21b74a9ad3be4ceac121e37267d0301dda5ac74a12032ddac"
+    },
+    {
+      "path": "gate789-review/standards-details.md",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/standards-details.md",
+      "bytes": 4589,
+      "sha256": "a0cd70f387107725f8492309cb66a7ec61808720944e8d0b7246b4acfd2e0c88"
+    },
+    {
+      "path": "gate789-review/spec-evidence-results.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec-evidence-results.json",
+      "bytes": 3229,
+      "sha256": "d61179db9498894252586356758069e5eceec14bc0a83332f730dbd3eaaf9ab4"
+    },
+    {
+      "path": "gate789-review/spec-followup-results.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec-followup-results.json",
+      "bytes": 724,
+      "sha256": "2d7c23b6660cfb7347ccf706b9f4336ec5570e24d48ff5437878a3b0eeb7a150"
+    },
+    {
+      "path": "gate789-review/standards-probes/boundary-results.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/standards-probes/boundary-results.json",
+      "bytes": 1090,
+      "sha256": "514f0fa3b401ada763359c56f6419778c8f5098eaa0f3955824fa5db21067781"
+    },
+    {
+      "path": "gate_python_registry.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate_python_registry.py",
+      "bytes": 3585,
+      "sha256": "455557343edd2147a885d646dd4b1888cdd3283ca1360556590c946e02d2da74"
+    },
+    {
+      "path": "issue790-existing/receipt.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/issue790-existing/receipt.json",
+      "bytes": 683,
+      "sha256": "5a4969c34ade20929b25a5a79f9ba6b6df78577c31d5497beb59cce083bbbd67"
+    },
+    {
+      "path": "issue790-existing/pytest.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/issue790-existing/pytest.log.txt",
+      "bytes": 234,
+      "sha256": "7019626630becb7317f92aeaebcffaaf6b1aee4dfe8807ab45dd199d0d3b3fe3"
     }
   ]
 }
