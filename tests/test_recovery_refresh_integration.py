@@ -6,6 +6,7 @@ other data leaves are deterministic stubs. This is not a full production replay.
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import json
 from pathlib import Path
 
@@ -110,8 +111,30 @@ def test_successful_leaves_write_current_run_only(child_runner):
     assert run() == 0
     status = json.loads(Path(str(target) + ".status.json").read_text())
     assert status["ok"] is True and status["run_id"] == "refresh-current-run"
-    assert all(r["status"] == "ok" for r in status["steps"])
-    assert sum(label in sync.HITHINK_STEPS for label, _ in calls) == 8
+    historical_steps = set(sync.HITHINK_STEPS) - {"hithink-research"}
+    assert all(r["status"] == "ok" for r in status["steps"] if r["label"] != "hithink-research")
+    assert Counter(label for label, _ in calls if label in sync.HITHINK_STEPS) == {
+        label: 2 for label in historical_steps
+    }
+
+
+@pytest.mark.parametrize("key", [True, False])
+def test_recovery_never_invokes_latest_only_research(child_runner, monkeypatch, key):
+    run, target, sync, calls = child_runner
+    original = sync.sync_hithink_step
+
+    def dated_step(label, day, timeout):
+        assert label != "hithink-research", "historical recovery must not invoke latest-only research"
+        return original(label, day, timeout)
+
+    monkeypatch.setattr(sync, "sync_hithink_step", dated_step)
+    assert run(key=key) == 0
+    status = json.loads(Path(str(target) + ".status.json").read_text())
+    excluded = [r for r in status["steps"] if r["label"] == "hithink-research"]
+    assert [r["date"] for r in excluded] == ["2026-09-16", "2026-09-17"]
+    assert all(r["status"] == "skip" and r["code"] is None for r in excluded)
+    assert all("latest-only" in r["note"] and "未更新" in r["note"] for r in excluded)
+    assert not any(label == "hithink-research" for label, _ in calls)
 
 
 @pytest.mark.parametrize("leaf,status", [

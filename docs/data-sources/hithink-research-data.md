@@ -43,6 +43,8 @@ MARKET_FEATURE_STORE_DB=/tmp/hithink-research-demo.duckdb \
 
 热度历史模式可用 `--history-only --end-date YYYY-MM-DD`，只调用可回溯端点；一年窗外拒绝。历史异动和估值不补造。生产事实仍走既有 staging 发布门，不照示例改成主库路径。
 
+`recover_local_review.py` 重放已采集的历史行情，不执行 `hithink-research`，即使已有key也仅记录 `skip / latest-only excluded / 未更新`。它不会因复用local计划而请求当天异动/估值，也不顺带扩大热度回补范围；需要热度历史数据时另用上面的显式模式。正常当日日更仍执行第五步。
+
 ## 停更诊断与部署前提
 
 2026-09-21 只读核对：
