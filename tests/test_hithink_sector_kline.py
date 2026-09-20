@@ -8,7 +8,7 @@ from datetime import date, datetime
 import duckdb
 import pytest
 
-from market_feature_store.hithink_client import shanghai_midnight_ms
+from market_feature_store.hithink_client import HithinkAPIError, shanghai_midnight_ms
 from market_feature_store.sync import sync_daily_full
 from market_feature_store.sync import sync_hithink_sector_kline as htb
 
@@ -132,6 +132,63 @@ def _getter(end: date):
         raise AssertionError(path)
 
     return get_json
+
+
+@pytest.mark.parametrize("mode", ["full", "incremental"])
+def test_broad_indices_are_requested_named_and_written(db_path, monkeypatch, mode):
+    monkeypatch.setattr(htb, "init_db", lambda con: None)
+    end = date(2026, 9, 8)
+    expected = {"000688.SH": "科创50", "000016.SH": "上证50"}
+    seen = []
+    base_getter = _getter(end)
+
+    def getter(path, params=None, **kwargs):
+        params = params or {}
+        if path.endswith("/historical"):
+            seen.append(params["thscode"])
+            if params["thscode"] in expected:
+                return {"code": 0, "data": {"item": [_bar(end, 1234.5)]}}
+        return base_getter(path, params=params, **kwargs)
+
+    htb.sync_hithink_sector_kline(
+        mode=mode, db_path=db_path, end_date=end,
+        get_json_fn=getter, skip_constituents=True,
+    )
+    assert set(expected) <= set(seen)
+    assert "899050.BJ" not in seen
+    assert len(seen) == len(set(seen))
+    with duckdb.connect(str(db_path), read_only=True) as con:
+        for code, name in expected.items():
+            assert con.execute(
+                "SELECT sector_name FROM dim_sector_hithink WHERE sector_ts_code = ?",
+                [code],
+            ).fetchone() == (name,)
+            assert con.execute(
+                "SELECT trade_date, close, volume, turnover FROM fact_sector_kline_daily "
+                "WHERE sector_ts_code = ?", [code],
+            ).fetchone() == (end, 1234.5, 1000.0, 1.0e7)
+
+
+@pytest.mark.parametrize("incoming, expected", [(None, "原名称"), ("新名称", "新名称")])
+def test_dimension_refresh_preserves_name_only_when_missing(db_path, incoming, expected):
+    with duckdb.connect(str(db_path)) as con:
+        htb._upsert_dim(con, [{"thscode": "000688.SH", "name": "原名称", "category": "index"}])
+        htb._upsert_dim(con, [{"thscode": "000688.SH", "name": incoming, "category": "index"}])
+        assert con.execute(
+            "SELECT sector_name FROM dim_sector_hithink WHERE sector_ts_code = '000688.SH'"
+        ).fetchone() == (expected,)
+
+
+@pytest.mark.parametrize("message", ["Unknown thscode: 899050.BJ", "http=429", "http=401"])
+def test_historical_provider_error_is_not_empty_success(message):
+    error = HithinkAPIError(message)
+
+    def getter(*args, **kwargs):
+        raise error
+
+    with pytest.raises(HithinkAPIError) as raised:
+        htb.fetch_historical("899050.BJ", 1, 2, getter)
+    assert raised.value is error
 
 
 def test_window_rejects_1500_days() -> None:
