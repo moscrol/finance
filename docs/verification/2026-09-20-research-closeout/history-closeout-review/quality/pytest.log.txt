@@ -1,0 +1,23 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-8.3.5, pluggy-1.6.0 -- /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+cachedir: /Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/quality/.pytest_cache
+解释器: /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+树: /Users/a77/fwp-wt-history-closeout-0920  fix/history-closeout-0920 @ e0f2a5c7
+rootdir: /Users/a77/fwp-wt-history-closeout-0920
+plugins: anyio-4.14.1
+collecting ... collected 7 items
+
+::test_review_uses_candidate_modules_and_dependency_gate <- ../.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/quality/test_quality_boundaries.py {"interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "gate": "/Users/a77/fwp-wt-history-closeout-0920/conftest.py", "window_module": "/Users/a77/fwp-wt-history-closeout-0920/intelligence/services/historical_research/window_binding.py", "map_module": "/Users/a77/fwp-wt-history-closeout-0920/scripts/code_map.py"}
+PASSED
+::test_mixed_parent_completion_keeps_only_successful_reservations[False-False] <- ../.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/quality/test_quality_boundaries.py PASSED
+::test_mixed_parent_completion_keeps_only_successful_reservations[False-True] <- ../.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/quality/test_quality_boundaries.py PASSED
+::test_mixed_parent_completion_keeps_only_successful_reservations[True-False] <- ../.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/quality/test_quality_boundaries.py PASSED
+::test_failed_observation_releases_endpoint_without_losing_rank_root <- ../.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/quality/test_quality_boundaries.py PASSED
+::test_partial_alias_failure_is_visible_without_losing_literal_evidence <- ../.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/quality/test_quality_boundaries.py {"partial_failure_reason": "search_failed", "literal_hits_preserved": true}
+{"partial_failure_reason": "empty_response", "literal_hits_preserved": true}
+{"partial_failure_reason": "invalid_response", "literal_hits_preserved": true}
+{"partial_failure_reason": "uvx_missing", "literal_hits_preserved": true}
+PASSED
+tests/test_history_window_binding.py::test_cancel_and_deadline_leave_no_binding_or_saved_calculation PASSED
+
+============================== 7 passed in 0.72s ===============================
