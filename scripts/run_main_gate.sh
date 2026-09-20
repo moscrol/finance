@@ -68,7 +68,7 @@ else
   # Preserve the existing whitespace-separated --pytest-args contract; never eval it.
   # shellcheck disable=SC2086
   FWP_TEST_RECEIPT_DIR="$RECEIPT_DIR" FWP_TEST_RECEIPT_PATH="$LATEST" \
-    "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
+    FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
   PYTEST_EXIT="${PIPESTATUS[0]}"
   CHECK_ARGS+=(--pytest-exit "$PYTEST_EXIT")
 fi

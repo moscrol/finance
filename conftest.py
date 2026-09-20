@@ -183,6 +183,10 @@ def _revision() -> str:
 def pytest_configure(config: pytest.Config) -> None:
     """收集之前先判解释器。用 UsageError 而非 assert：前者输出干净且退出码明确。"""
 
+    # A nested pytest inherits the output path, but must not claim the parent's file.
+    if os.environ.get("FWP_TEST_RECEIPT_PATH") and not os.environ.get("FWP_TEST_RECEIPT_OWNER_PID"):
+        os.environ["FWP_TEST_RECEIPT_OWNER_PID"] = str(os.getpid())
+
     missing = _missing()
     if not missing:
         return
@@ -301,6 +305,9 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     """
 
     if os.environ.get(_RECEIPT_ENV) == "0":
+        return
+    owner_pid = os.environ.get("FWP_TEST_RECEIPT_OWNER_PID")
+    if os.environ.get("FWP_TEST_RECEIPT_PATH") and owner_pid != str(os.getpid()):
         return
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
     if reporter is None:
