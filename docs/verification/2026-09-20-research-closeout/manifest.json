@@ -762,6 +762,12 @@
       "bytes": 3493,
       "sha256": "9616fff71c819e1ec84510ec9c751cb85ab342769d4f5a4b92ff189a81b1caf6",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-existing-gates/historical-identity-audit.json"
+    },
+    {
+      "path": "README.md",
+      "bytes": 2581,
+      "sha256": "974cff1a8c58a856a3e8c432fa7d21e100c754bbd3802a84d344b070d0a394ae",
+      "source": "repository index maintained with this manifest"
     }
   ]
 }
