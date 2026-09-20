@@ -601,14 +601,25 @@ def test_structured_result_puts_every_table_number_into_observations_and_telemet
     assert all("detail" not in entry and entry["observations"] for entry in record["inputs"])
 
 
-def test_two_argument_table_reaches_sandbox_evidence_and_downloadable_artifacts() -> None:
+@pytest.mark.parametrize(
+    "row_source",
+    [
+        "rows = ({'source': r['ref'], 'profit': r['value']} for r in observations())\n",
+        "def iter_rows():\n"
+        "    row = {}\n"
+        "    for r in observations():\n"
+        "        row.update(source=r['ref'], profit=r['value'])\n"
+        "        yield row\n"
+        "rows = iter_rows()\n",
+    ],
+    ids=["fresh_rows", "reused_row"],
+)
+def test_two_argument_table_reaches_sandbox_evidence_and_downloadable_artifacts(row_source) -> None:
     calc = _run(
-        "import fincalc\n"
-        "rows = ({'source': r['ref'], 'profit': r['value']} for r in observations())\n"
-        "emit_result(tables=[fincalc.table('profits', rows, unit='yi')])\n"
+        "import fincalc\n" + row_source + "emit_result(tables=[fincalc.table('profits', rows, unit='yi')])\n"
     )
     assert isinstance(calc, dc.DerivedCalculation), calc
-    assert calc.runtime["prelude_version"] == "4"
+    assert calc.runtime["prelude_version"] == "5"
     assert calc.result["tables"][0]["columns"] == ["source", "profit"]
     assert calc.result["tables"][0]["rows"] == [["E1", 1741.44], ["E2", 1740.0]]
     assert set(calc.input_evidence_hashes) == {item.content_hash for item in _inputs()}
@@ -625,9 +636,9 @@ def test_two_argument_table_reaches_sandbox_evidence_and_downloadable_artifacts(
     assert json.loads(files[f"calc-{calc.calc_id}.json"])["result"] == calc.result
 
 
-@pytest.mark.parametrize("old_version", ["2", "3"])
-def test_table_environment_has_distinct_calc_identity_from_main_and_legacy_branch(monkeypatch, old_version) -> None:
-    assert dc.calculation_sandbox.PRELUDE_VERSION == "4"
+@pytest.mark.parametrize("old_version", ["2", "3", "4"])
+def test_table_environment_has_distinct_calc_identity_from_prior_versions(monkeypatch, old_version) -> None:
+    assert dc.calculation_sandbox.PRELUDE_VERSION == "5"
     current = dc.compute_calc_id(STRUCTURED_SCRIPT, ("input-hash",))
     monkeypatch.setattr(dc.calculation_sandbox, "PRELUDE_VERSION", old_version)
     assert dc.compute_calc_id(STRUCTURED_SCRIPT, ("input-hash",)) != current

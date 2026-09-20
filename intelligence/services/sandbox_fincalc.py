@@ -505,12 +505,19 @@ _ROWS_UNSET = object()
 
 
 def _infer_table_columns(rows):
-    # 只消费一次外层迭代器，否则生成器在推断列名之后就没有数据了。
-    row_list = list(rows)
+    # 逐行保存当时的键和值；仅收集引用会让复用行缓冲区的生成器覆盖历史行。
+    row_list = []
+    for row in rows:
+        if isinstance(row, dict):
+            if any(not isinstance(key, str) for key in row):
+                raise TypeError("table(name, rows): dict keys must be strings")
+            row_list.append({key: _json_safe(value) for key, value in row.items()})
+        elif isinstance(row, (list, tuple)):
+            row_list.append([_json_safe(cell) for cell in row])
+        else:
+            raise TypeError("table(name, rows): use only dict rows or only list/tuple rows")
     if all(isinstance(row, dict) for row in row_list):
         columns = list(dict.fromkeys(key for row in row_list for key in row))
-        if any(not isinstance(key, str) for key in columns):
-            raise TypeError("table(name, rows): dict keys must be strings")
         return columns, row_list
     if not all(isinstance(row, (list, tuple)) for row in row_list):
         raise TypeError("table(name, rows): use only dict rows or only list/tuple rows")
@@ -526,7 +533,8 @@ def table(name, columns, rows=_ROWS_UNSET, *, unit=None, note=None):
     列序按 columns 对齐）。别把列名行塞进 rows。
 
     ``table(name, rows)`` 可省略列名：dict 行按字符串键首次出现顺序取并集；列表 / 元组行
-    按最大宽度生成「第N列」，短行补 None。两种行不能混用；显式列名的三参形式行为不变。
+    按最大宽度生成「第N列」，短行补 None。外层迭代器只消费一次，每次保存当时的行值。
+    两种行不能混用；显式列名的三参形式行为不变。
     """
 
     if rows is _ROWS_UNSET:

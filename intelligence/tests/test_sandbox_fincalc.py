@@ -142,6 +142,67 @@ def test_table_infers_sequence_width_and_pads_missing_cells_without_filling_zero
     assert rows[0] == ("2025Q1", 0) and rows[2] == []
 
 
+@pytest.mark.parametrize("row_kind", ["dict", "list"])
+def test_table_snapshots_reused_scalar_rows(row_kind) -> None:
+    def rows():
+        row = {"value": None} if row_kind == "dict" else [None]
+        for value in (11, 22, 33):
+            row["value" if row_kind == "dict" else 0] = value
+            yield row
+
+    inferred = fc.table("reused", rows())
+    explicit = fc.table("reused", ["value"], rows())
+    assert inferred["rows"] == explicit["rows"] == [[11], [22], [33]]
+
+
+@pytest.mark.parametrize("row_kind", ["dict", "list", "tuple"])
+def test_table_snapshots_nested_cells_from_reused_rows_once(row_kind) -> None:
+    class ReusedRows:
+        iterations = 0
+
+        def __iter__(self):
+            self.iterations += 1
+            assert self.iterations == 1
+            cell = {"values": [None]}
+            row = {"cell": cell} if row_kind == "dict" else [cell] if row_kind == "list" else (cell,)
+            for value in (11, 22, 33):
+                cell["values"][0] = value
+                yield row
+
+    rows = ReusedRows()
+    inferred = fc.table("reused", rows)
+    explicit = fc.table("reused", ["cell"], ReusedRows())
+    assert inferred["rows"] == explicit["rows"] == [
+        [{"values": [11]}], [{"values": [22]}], [{"values": [33]}]
+    ]
+    assert rows.iterations == 1
+
+
+def test_table_snapshots_reused_dict_keys_before_the_next_yield() -> None:
+    def rows():
+        row = {}
+        for key, value in (("alpha", 11), ("beta", 22)):
+            row.clear()
+            row[key] = value
+            yield row
+
+    result = fc.table("reused", rows())
+    assert result["columns"] == ["alpha", "beta"]
+    assert result["rows"] == [[11, None], [None, 22]]
+
+
+def test_table_snapshots_reused_sequence_width_before_the_next_yield() -> None:
+    def rows():
+        row = []
+        for values in ([11], [22, 33]):
+            row[:] = values
+            yield row
+
+    result = fc.table("reused", rows())
+    assert result["columns"] == ["第1列", "第2列"]
+    assert result["rows"] == [[11, None], [22, 33]]
+
+
 @pytest.mark.parametrize("rows, expected", [([], []), (iter(()), []), ([{}], [[]]), ([[], ()], [[], []])])
 def test_table_infers_empty_columns_without_inventing_data(rows, expected) -> None:
     result = fc.table("empty", rows)
