@@ -554,10 +554,12 @@ def test_cli_child_receipt_binds_revision_and_run_id(tmp_path, monkeypatch):
     # 身份断言（不是存在性断言）：revision 必须等于运行时 HEAD，dirty 必须如实
     import subprocess
     head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(mod.PROJECT_DIR),
-                          capture_output=True, text=True, check=True).stdout.strip()
+                          capture_output=True, text=True, check=True,
+                          env=_subprocess_env()).stdout.strip()
     dirty = bool(subprocess.run(["git", "status", "--porcelain"],
                                 cwd=str(mod.PROJECT_DIR), capture_output=True,
-                                text=True, check=True).stdout.strip())
+                                text=True, check=True,
+                                env=_subprocess_env()).stdout.strip())
     assert report["code_revision"] == head
     assert report["code_dirty"] is dirty
     assert report["parquet_sha256"] and report["parallel_source_md5"]
@@ -704,7 +706,7 @@ def test_acceptance_script_rejects_hardlink_alias(tmp_path):
          "--expected-revision", "0" * 40,
          "--expected-production-sha256", "0" * 64,
          "--output", str(out)],
-        capture_output=True, text=True, timeout=120)
+        capture_output=True, text=True, timeout=120, env=_subprocess_env())
     assert res.returncode == 2
     verdict = json.loads(out.read_text())
     assert verdict["verdict"] == "FAIL"
@@ -762,7 +764,7 @@ def test_acceptance_script_receipt_schema_mutation_fails(tmp_path):
          "--expected-revision", "f" * 40,
          "--expected-production-sha256", prod_sha,
          "--output", str(out)],
-        capture_output=True, text=True, timeout=120)
+        capture_output=True, text=True, timeout=120, env=_subprocess_env())
     assert res.returncode == 2
     verdict = json.loads(out.read_text())
     assert verdict["verdict"] == "FAIL"
@@ -778,16 +780,32 @@ def test_acceptance_script_receipt_schema_mutation_fails(tmp_path):
 # 策略：好产物必绿（真实形状两轮产物 E2E PASS）+ 坏产物必红（逐字段单因素变异，
 # 父收据与独立子报告同步修改，与审查探针 qc_302132_round6_probes.py 同构）。
 import copy  # noqa: E402
+import os  # noqa: E402
 import shutil  # noqa: E402
 import subprocess  # noqa: E402
 import sys  # noqa: E402
 from dataclasses import asdict, replace  # noqa: E402
 from unittest import mock  # noqa: E402
 
+import scripts.verify_302132_backfill_acceptance as verify_acceptance  # noqa: E402
+
 E2E_REV = "f" * 40
 APPLY_RUN = "run-apply-001"
 VERIFY_RUN = "run-verify-001"
 SCHEMA_BOTH = ("receipt_apply_schema", "receipt_verify_schema")
+
+
+def _subprocess_env() -> dict[str, str]:
+    """子进程只接收测试所需白名单，避免宿主凭据进入失败输出。"""
+    return {
+        "HOME": os.environ.get("HOME", str(Path.home())),
+        "PATH": os.environ.get("PATH", os.defpath),
+        "LANG": os.environ.get("LANG", "C.UTF-8"),
+        "TMPDIR": os.environ.get("TMPDIR", "/tmp"),
+        "FWP_TEST_RECEIPT": "0",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONPATH": str(mod.PROJECT_DIR),
+    }
 
 
 def _build_e2e_artifacts(root: Path) -> dict:
@@ -853,7 +871,7 @@ def _run_acceptance(clone: Path, art: dict, out: Path,
          "--expected-revision", expected_revision,
          "--expected-production-sha256", art["base_sha"],
          "--output", str(out)],
-        capture_output=True, text=True, timeout=120)
+        capture_output=True, text=True, timeout=120, env=_subprocess_env())
 
 
 def _install(tmp_path: Path, art: dict, mutate) -> Path:
@@ -949,6 +967,12 @@ RECEIPT_MUTATIONS = [
     ("pinned_technical_nan",
      lambda m, r: r["spec"]["pinned_technical_0911"].update(
          ma26=float("nan"))),
+    ("pinned_stock_huge_int",
+     lambda m, r: r["spec"]["pinned_0911"].update(close=10**400)),
+    ("pinned_technical_huge_int",
+     lambda m, r: r["spec"]["pinned_technical_0911"].update(ma26=10**400)),
+    ("pinned_window_huge_int",
+     lambda m, r: r["spec"]["pinned_windows_0911"][0].__setitem__(1, 10**400)),
     ("pinned_windows_member_short",
      lambda m, r: r["spec"].update(pinned_windows_0911=[["2026-08-28", 5.7]])),
     ("pinned_windows_empty",
@@ -1017,6 +1041,54 @@ def test_acceptance_receipt_mutation_fails(e2e_art, tmp_path, case, mutate):
     out = tmp_path / "out.json"
     res = _run_acceptance(clone, e2e_art, out)
     _assert_structured_fail(res, out, must_fail=SCHEMA_BOTH)
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (True, False),
+        (False, False),
+        (float("nan"), False),
+        (float("inf"), False),
+        (float("-inf"), False),
+        (10**400, False),
+        (-(10**400), False),
+        (7, True),
+        (-2.5, True),
+    ],
+)
+def test_acceptance_is_num_is_total_for_json_numbers(value, expected):
+    """JSON 数值判定对布尔、非有限数和超大整数都返回 bool，不得抛异常。"""
+    assert verify_acceptance._is_num(value) is expected
+
+
+@pytest.mark.parametrize(
+    "wrong_modes,must_fail,must_pass",
+    [
+        (("apply",),
+         ("receipt_apply_schema", "spec_alignment_apply_verify"),
+         ("receipt_verify_schema",)),
+        (("verify",),
+         ("receipt_verify_schema", "spec_alignment_apply_verify"),
+         ("receipt_apply_schema",)),
+        (("apply", "verify"),
+         SCHEMA_BOTH,
+         ("spec_alignment_apply_verify",)),
+    ],
+    ids=("apply-only", "verify-only", "both-rounds"),
+)
+def test_acceptance_rejects_spec_code_not_bound_to_sql_target(
+        e2e_art, tmp_path, wrong_modes, must_fail, must_pass):
+    """每轮 spec/嵌入 child/外部 child 即使同步伪造，也不能改变 SQL 授权对象。"""
+    def mutate(mode, receipt):
+        if mode in wrong_modes:
+            receipt["spec"]["code"] = OTHER
+            receipt["child_report"]["code"] = OTHER
+
+    clone = _install(tmp_path, e2e_art, mutate)
+    out = tmp_path / "out.json"
+    res = _run_acceptance(clone, e2e_art, out)
+    _assert_structured_fail(res, out, must_fail=must_fail, must_pass=must_pass)
 
 
 def test_acceptance_malformed_revision_fails(e2e_art, tmp_path):

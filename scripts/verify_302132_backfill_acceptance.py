@@ -29,7 +29,7 @@
   spec.window_end)/parent{swapped==True, rc==0(严格 int), run_id 一致}/
   backup{backup_path 非空, backup_sha256 64hex, run_id 一致}/
   child_report_error 键存在且为 null/child_report_path 非空；
-- spec：code(股票代码格式)/name 非空/四个日期 ISO 真日期且 window_start <
+- spec：code(股票代码格式且 == CODE 授权对象)/name 非空/四个日期 ISO 真日期且 window_start <
   main_fill_end < window_end、shell_date 界内/spec_version(302132-backfill-
   前缀且前缀后非空)/parquet_sha256(64hex)/gap_parallel、gap_parquet(非空、
   成员全 ISO 真日期、无重复、互不交、界内、不含 shell_date)/
@@ -128,8 +128,12 @@ def _is_date(v) -> bool:
 
 def _is_num(v) -> bool:
     """有限数值（JSON 可携带 NaN/Inf；bool 不是数值）。"""
-    return isinstance(v, (int, float)) and not isinstance(v, bool) \
-        and math.isfinite(v)
+    if not isinstance(v, (int, float)) or isinstance(v, bool):
+        return False
+    try:
+        return math.isfinite(v)
+    except OverflowError:
+        return False
 
 
 def _is_int(v) -> bool:
@@ -184,7 +188,8 @@ def _validate_receipt(tag: str, r: dict, want_run: str, exp_rev: str) -> list:
     req(isinstance(spec, dict), "spec")
     if isinstance(spec, dict):
         req(isinstance(spec.get("code"), str)
-            and bool(_CODE_RE.fullmatch(spec["code"])), "spec.code")
+            and bool(_CODE_RE.fullmatch(spec["code"]))
+            and spec["code"] == CODE, "spec.code")
         req(isinstance(spec.get("name"), str) and bool(spec["name"]),
             "spec.name")
         for k in ("window_start", "window_end", "main_fill_end", "shell_date"):
