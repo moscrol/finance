@@ -11,6 +11,7 @@ from datetime import date, datetime
 import hashlib
 import json
 import math
+import re
 from typing import TYPE_CHECKING
 
 from intelligence.services.agent_research import AgentEvidence, StructuredObservation
@@ -129,6 +130,24 @@ class EvidencePresentation:
         }
 
 
+def _presentation_source_day(value: str) -> date | None:
+    """Normalize complete calendar expressions, without searching surrounding text."""
+    normalized = value.strip()
+    match = re.fullmatch(r"([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})([Tt ].+)?", normalized)
+    if match is not None:
+        year, month, day, clock = match.groups()
+        normalized = f"{year}-{int(month):02d}-{int(day):02d}{clock or ''}"
+    elif re.fullmatch(r"[0-9]{8}(?:[Tt ].+)?", normalized) is None:
+        return None
+    try:
+        return date.fromisoformat(normalized)
+    except ValueError:
+        try:
+            return datetime.fromisoformat(normalized).date()
+        except ValueError:
+            return None
+
+
 def classify_presentation(
     item: AgentEvidence, original: AgentEvidence | None, cutoff: date | None,
 ) -> str:
@@ -141,13 +160,7 @@ def classify_presentation(
     # presentation, never a fact admission or an inferred coverage target. Parse
     # the complete date value: a title or a valid prefix plus junk grants nothing.
     if cutoff is not None and isinstance(item.source_date, str):
-        try:
-            source_day = date.fromisoformat(item.source_date)
-        except ValueError:
-            try:
-                source_day = datetime.fromisoformat(item.source_date).date()
-            except ValueError:
-                source_day = None
+        source_day = _presentation_source_day(item.source_date)
         if source_day is not None and source_day > cutoff:
             return "future_of_cutoff"
     raise ValueError("presented evidence is absent from the ledger and is not valid future material")

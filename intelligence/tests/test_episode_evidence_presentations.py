@@ -48,7 +48,10 @@ def test_same_hash_presentations_may_not_replace_any_fact(changes):
         )
 
 
-@pytest.mark.parametrize("source_date", ["2026-07-25", "2026-07-25T09:30:00+08:00"])
+@pytest.mark.parametrize("source_date", [
+    "2026-07-25", "20260725", "2026-07-25T09:30:00+08:00",
+    "2026-7-25", "2026-7-25 09:30:00", " 2026-07-25 ",
+])
 def test_future_presentation_restores_exact_notice_but_cannot_cover_output(source_date):
     ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
     future = _atom("future", source_date=source_date, title="原日期提示", supports=("future-output",))
@@ -68,6 +71,10 @@ def test_future_presentation_restores_exact_notice_but_cannot_cover_output(sourc
     (None, "2026-07-25"), (date(2026, 7, 24), None),
     (date(2026, 7, 24), "2026-07-24"), (date(2026, 7, 24), "unknown"),
     (date(2026, 7, 24), "2026-99-99"), (date(2026, 7, 24), "2026-07-25garbage"),
+    (None, "2026-7-25"), (date(2026, 7, 24), "2026-7-24"),
+    (date(2026, 7, 24), "2026-7-25garbage"), (date(2026, 7, 24), "正文2026-7-25"),
+    (date(2026, 7, 24), "/tmp/2026-7-25"), (date(2026, 7, 24), "2026-7-25 09:30:00+08:00garbage"),
+    (date(2026, 7, 24), "2026-W30-6"), (date(2026, 7, 24), "2026W306"),
 ])
 def test_unadmitted_presentations_require_real_future_date_not_title(cutoff, source_date):
     ledger = EvidenceLedger(information_cutoff=cutoff)
@@ -117,6 +124,9 @@ def test_v1_reader_retains_strict_legacy_validation(mutation):
 @pytest.mark.parametrize(("cutoff", "source_date"), [
     (None, "2026-07-25"), ("2026-07-24", None), ("2026-07-24", "2026-07-24"),
     ("2026-07-24", "unknown"), ("2026-07-24", "2026-07-25garbage"),
+    ("2026-07-24", "2026-7-25garbage"), ("2026-07-24", "正文2026-7-25"),
+    ("2026-07-24", "/tmp/2026-7-25"), ("2026-07-24", "2026-7-25 09:30:00+08:00garbage"),
+    ("2026-07-24", "2026-W30-6"),
 ])
 def test_v2_reader_rechecks_future_classification_even_with_recomputed_digest(cutoff, source_date):
     ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
