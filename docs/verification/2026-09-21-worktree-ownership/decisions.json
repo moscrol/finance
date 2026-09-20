@@ -1,0 +1,141 @@
+{
+  "schema": 1,
+  "sample": "2026-09-21T03:02:00+08:00",
+  "base": "728f327160bbd2485cb635e7ef09d040d718d7b5",
+  "meaning": "Historical ownership triage, not a merge/delete authorization. Active means recent execution was observed, not exclusive ownership. Predecessors remain preserved until absorption is proved.",
+  "groups": [
+    {
+      "id": "backfill-takeover",
+      "disposition": "taken_over_offline",
+      "branches": ["fix/backfill-302132-scoped", "fix/backfill-acceptance-closeout-0920", "fix/backfill-main-ready-0921"],
+      "evidence": "Source 1fd34dc7 / be3f2930; independent current-main candidate 400d02dd; original trees preserved.",
+      "next": "Finish candidate gates and independent review. Production execution requires separate authorization."
+    },
+    {
+      "id": "premise-market",
+      "disposition": "active_lane_and_related_predecessors",
+      "branches": ["fix/8792-premise-market-contracts", "fix/8792-calculation-finalization", "fix/8792-financial-contracts-r5", "baseline/8792-financial-r6", "fix/8792-financial-r6-repair", "fix/financial-ratio-units-0920", "fix/citation-numeric-gate-0917", "feat/research-data-readiness", "q/research-data-readiness"],
+      "evidence": "Recent premise-market session and running pytest in /Users/a77/fwp-wt-8792-premise-market; PR797 remains based on R6, not main.",
+      "next": "Do not modify these trees. Active author must reconcile R6, q text and ratio safeguards; no assumption that every predecessor is absorbed."
+    },
+    {
+      "id": "answer-preservation",
+      "disposition": "active_lane_and_related_predecessors",
+      "branches": ["feat/research-answer-preservation", "feat/e2-material-contract-impl", "feat/e2-p6-conditioned-input", "fix/e2-material-closeout", "feat/e2-material-contract-design", "fix/8792-boundary-integration", "fix/8792-readiness-boundaries"],
+      "evidence": "Recent preservation session and preserved ce673a9f source; several original E2 trees are dirty. Overlap is not ancestry proof.",
+      "next": "Do not cherry-pick old E2 or boundary trees over active work; require final publication/claim-repair integration evidence."
+    },
+    {
+      "id": "adaptive-research",
+      "disposition": "active_do_not_take_over",
+      "branches": ["feat/adaptive-research-loop"],
+      "evidence": "Pi session 01a0bebf-0404-763c-afb1-db54a09bf89c; recent commands in /Users/a77/finance-worktrees/adaptive-research-loop, HEAD progressed to affe6bdd during this audit.",
+      "next": "Leave active implementation and its mutation checkout unchanged."
+    },
+    {
+      "id": "reasoning-awareness",
+      "disposition": "active_do_not_take_over",
+      "branches": ["feat/research-reasoning-awareness"],
+      "evidence": "Recent reasoning-awareness session and reasoning-boundaries-20260921 verification artifacts.",
+      "next": "Leave ongoing verification to its author."
+    },
+    {
+      "id": "hithink-research",
+      "disposition": "active_do_not_take_over",
+      "branches": ["feat/hithink-research-data"],
+      "evidence": "Recent session, e98e8791 fixed verification checkouts and PR810.",
+      "next": "Do not repeat the active frontend/Python review."
+    },
+    {
+      "id": "stale-closeout",
+      "disposition": "active_lane_and_related_predecessors",
+      "branches": ["fix/react-trace-closeout-0921", "fix/react-trace-runtime-0921", "fix/fincalc-table-closeout-0921", "fix/fincalc-row-snapshot-0921", "fix/broad-index-closeout-0920", "fix/generation-degrade-closeout-0920", "baseline/stale-closeout-integration-0921", "docs/stale-closeout-gates-0920", "data-source/broad-index-delta", "fix/capability-wiring-closeout", "eval/k3nj-compat-payload", "perf/wiki-hybrid-25s"],
+      "evidence": "Recent stale-work session; PR805/806/807/808/809 and fixed review checkouts. Source branches are not automatically current candidates.",
+      "next": "Use the author's current candidates and exact-SHA receipts; do not duplicate old patches."
+    },
+    {
+      "id": "runtime-followup",
+      "disposition": "preserved_followup_conflicts",
+      "branches": ["fix/runtime-authority-pc-0918", "fix/runtime-contracts-0918", "fix/runtime-evidence-probe-0918", "fix/runtime-evidence-closeout-0920", "fix/runtime-child-fence-tests-0918", "baseline/runtime-absorption-audit-0918"],
+      "evidence": "PR798 and fix/research-closeout-0920 handoff; main merge-tree has eight conflicts.",
+      "next": "Coordinate with existing research-closeout author before creating a current-main candidate. Do not label conflicts as absorbed."
+    },
+    {
+      "id": "history-followup",
+      "disposition": "preserved_followup_needs_integration",
+      "branches": ["feat/history-market-anatomy", "fix/history-closeout-0920", "fix/research-closeout-0920"],
+      "evidence": "PR800; original c9bd82ff is an ancestor of fix/history-closeout-0920; main merge-tree succeeds but full integration and natural-question acceptance are absent.",
+      "next": "Keep the source and PR800; coordinate a separate current-main gate. A conflict-free merge is not acceptance."
+    },
+    {
+      "id": "technical-daily",
+      "disposition": "superseded_code_preserve_originals",
+      "branches": ["feat/finance-query-technical-daily"],
+      "evidence": "Technical-daily PR396 and regulation/historical mapping 92686a9c / PR399; current finance_query has the datasets. Original tree remains dirty.",
+      "next": "Do not replay 6b6d9f36; preserve uncommitted originals and historical notes."
+    },
+    {
+      "id": "old-board",
+      "disposition": "superseded_code_preserve_originals",
+      "branches": ["fix/board-unattributed-switch"],
+      "evidence": "Old PR572 is superseded by 138f6c59 / PR743; current board handles unattributed switches.",
+      "next": "Only forward the newly found unavailable/dirty-tree fixes from ops/worktree-ownership-closeout-0921."
+    },
+    {
+      "id": "judge-calibration",
+      "disposition": "superseded_code_preserve_originals",
+      "branches": ["feat/judge-calibration-validity"],
+      "evidence": "Calibration 0ab15e9b / PR775 and archive PR776 are in main; replaying the original branch causes five conflicts.",
+      "next": "Keep provenance, do not merge the stale branch."
+    },
+    {
+      "id": "stage-vocabulary",
+      "disposition": "superseded_code_preserve_originals",
+      "branches": ["feat/theme-stage-vocab-g04"],
+      "evidence": "G-04 forward absorption 064a172a; original branch is historical input.",
+      "next": "Use current vocabulary contract; any claimed residual needs a file-level comparison."
+    },
+    {
+      "id": "hooks-registry",
+      "disposition": "superseded_code_preserve_originals",
+      "branches": ["fix/agent-docs-audit-registry", "feat/instruction-migration-agents-md"],
+      "evidence": "Instruction migration 10db26b5, repository-root binding 39faa2fe, stable project identity 23019bbd; main has knowledge-backfill-rules.md. Old registry hashes are not reusable.",
+      "next": "Do not restore old common-dir identity or overwrite current registry; preserve any dirty skill originals."
+    },
+    {
+      "id": "fupanhui-safety",
+      "disposition": "unowned_increment_preserved_policy_hold",
+      "branches": ["fix/fupanhui-session-hygiene"],
+      "evidence": "c06a66f3 is a real unabsorbed patch: main source and both sync modules equal its parent. Whole-branch merge conflicts with current instructions and nightly plists.",
+      "next": "Offline forward review only: rate-limit latch and batch paths need re-audit. No real access, no job re-enable, no declaration of absorption."
+    },
+    {
+      "id": "finance-arena",
+      "disposition": "unowned_increment_remotely_preserved",
+      "branches": ["feat/finance-arena"],
+      "evidence": "7162a6cb contains real new functionality. This audit pushed that fixed commit to gitea/feat/finance-arena; original worktree was clean. Port 8816 is a preview, not author activity.",
+      "next": "Independent current-main integration, full gates, then explicit live participant/publication authorization. Keep private Workbench and public arena isolated."
+    },
+    {
+      "id": "workbench-ui",
+      "disposition": "unowned_increment_preserved_needs_design_rebase",
+      "branches": ["feat/workbench-tech-premium", "codex/feat-workbench-research-journey"],
+      "evidence": "717d243b and 094daed1 are on Gitea; research-journey is dirty. Port 8899 alone is not evidence of an active author. Whole-file replacement would remove newer main features.",
+      "next": "Keep originals; isolate still-wanted UI deltas on current main and verify desktop/mobile. Do not replace the current Workbench wholesale."
+    },
+    {
+      "id": "capability-evaluation",
+      "disposition": "unowned_increment_preserved_needs_contract_review",
+      "branches": ["baseline/capability-benchmark-00", "feat/i1-availability-attribution", "feat/continuous-research-09-live"],
+      "evidence": "Remaining source/test deltas exist; benchmark and cross-day natural acceptance are not proved by branch ancestry or prior local passes.",
+      "next": "Review residuals against current runtime and active research work first; live model quotas and acceptance contracts are separate from local code preservation."
+    },
+    {
+      "id": "review-evidence",
+      "disposition": "review_evidence_preserved_not_a_feature_queue",
+      "branches": ["docs/qc-8792-readiness-0917", "codex/qc-extraction-caba87c7", "docs/8792-sector-history-diag-0917", "docs/qc-route-gate-600f2aa9", "docs/knevo-intake-20260917", "docs/qc-research-evolution-06-0913", "docs/bp-v1.3-roadshow-align", "docs/react-components-comparison-0918", "docs/l2-deploy-0916", "codex/docs-historical-discovery-spec", "docs/workorder-41-hithink-ingest", "codex/qc-extraction-first-p0-b42dc9bf", "docs/qc-research-evolution-repair-0913", "docs/qc-method-29b07912", "fix/l2-file-source-qc", "fix/generation-stage-code-root"],
+      "evidence": "Review reports, review probes, deployment history and design archives; some contain executable probes or dirty notes, so not disposable documentation.",
+      "next": "Preserve as provenance. Archive selectively with successor pointers; do not merge probes or historical deployment instructions as product features."
+    }
+  ]
+}
