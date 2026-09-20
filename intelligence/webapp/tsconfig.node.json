@@ -7,5 +7,5 @@
     "moduleResolution": "Bundler",
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "playwright.config.ts"]
+  "include": ["vite.config.ts", "playwright.config.ts", "vite.arena.config.ts", "playwright.arena.config.ts"]
 }

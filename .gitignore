@@ -43,8 +43,9 @@ __pycache__/
 .venv-*/
 venv/
 
-# Node
-node_modules/
+# Node (also ignore worktree dependency symlinks)
+node_modules
+intelligence/webapp/dist-arena/
 
 # 观测台生成物（只读幂等，不入库）
 var/observatory/
