@@ -67,6 +67,7 @@ from intelligence.services.episode_answer_hygiene import (
 from intelligence.services.episode_protocol import (
     cited_evidence_ordinals,
     evidence_ordinal_table,
+    strip_evidence_ordinals,
 )
 from intelligence.services.episode_issues import (
     Issue,
@@ -4209,7 +4210,9 @@ def _novel_numeric_condition_indexes(
         text = str(item.get("text") or "")
         if not isinstance(index, int):
             continue
-        candidate = _DATE_TOKEN_RE.sub("", text)
+        # References remain in the draft for citation validation, but their
+        # ordinals must not trigger a numeric backfill or sentence deletion.
+        candidate = _DATE_TOKEN_RE.sub("", strip_evidence_ordinals(text))
         candidate = _LEADING_SECTION_RE.sub("", candidate)
         candidate = _LEADING_LIST_LABEL_RE.sub("", candidate)
         candidate = _LEADING_CONDITION_LABEL_RE.sub("", candidate)
@@ -4627,7 +4630,9 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
                 str(item.source_date or ""),
             )
         )
-    corpus = " ".join(fields)
+    # Evidence prose can cite other cards too: E27 must not authorize a real
+    # threshold of 27 in the answer. Match the answer-side quantity view.
+    corpus = strip_evidence_ordinals(" ".join(fields))
     quantities = {
         _normalize_quantity(quantity)
         for quantity in (
