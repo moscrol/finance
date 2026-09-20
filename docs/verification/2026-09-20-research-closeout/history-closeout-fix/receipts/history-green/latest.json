@@ -1,0 +1,25 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-history-closeout-0920",
+  "revision": "c9bd82ff2e25fe2727347329706f7aeb98444ee8",
+  "branch": "fix/history-closeout-0920",
+  "dirty": true,
+  "dirty_paths": [
+    "intelligence/services/historical_research/window_binding.py",
+    "tests/test_history_window_binding.py"
+  ],
+  "worktree_dirty_total": 2,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_history_window_binding.py",
+  "counts": {
+    "passed": 3,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-20T05:01:30+00:00"
+}

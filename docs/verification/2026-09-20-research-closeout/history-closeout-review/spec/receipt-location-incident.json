@@ -1,0 +1,30 @@
+[
+  {
+    "original_path": "/Users/a77/.finance-runtime/test-receipts/20260920T051450Z-e0f2a5c7.json",
+    "copy_path": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/receipts/collected-original-locations/20260920T051450Z-e0f2a5c7.json",
+    "sha256": "1c6c490ef0438b96a6fed6066d2bb178bb813a2e088d54199913ea63e9770424",
+    "counts": {
+      "passed": 1,
+      "failed": 0,
+      "error": 8,
+      "skipped": 0
+    },
+    "revision": "e0f2a5c77e5b7d41eb4dcfe4d964d01b826b17e7",
+    "dirty": false,
+    "dependency_gate_bypassed": false
+  },
+  {
+    "original_path": "/Users/a77/.finance-runtime/test-receipts/20260920T051806Z-e0f2a5c7.json",
+    "copy_path": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/receipts/collected-original-locations/20260920T051806Z-e0f2a5c7.json",
+    "sha256": "4615f9fbaa56329f9063439811a6753c1860b1198e9bd23fec4b9606ca260b74",
+    "counts": {
+      "passed": 9,
+      "failed": 0,
+      "error": 0,
+      "skipped": 0
+    },
+    "revision": "e0f2a5c77e5b7d41eb4dcfe4d964d01b826b17e7",
+    "dirty": false,
+    "dependency_gate_bypassed": false
+  }
+]

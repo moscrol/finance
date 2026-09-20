@@ -1,0 +1,30 @@
+[
+  {
+    "label": "main",
+    "base": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+    "command": [
+      "git",
+      "merge-tree",
+      "--write-tree",
+      "e0f2a5c77e5b7d41eb4dcfe4d964d01b826b17e7",
+      "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8"
+    ],
+    "returncode": 0,
+    "tree": "54578b1e9c00a799b7fe92005dc1f2bc744e2b54",
+    "conflicts": []
+  },
+  {
+    "label": "candidate789",
+    "base": "62bbc4ecf1e1d57bad6497fe60911ce6e3b6d717",
+    "command": [
+      "git",
+      "merge-tree",
+      "--write-tree",
+      "e0f2a5c77e5b7d41eb4dcfe4d964d01b826b17e7",
+      "62bbc4ecf1e1d57bad6497fe60911ce6e3b6d717"
+    ],
+    "returncode": 0,
+    "tree": "38f361944116e405a40b6601b30b69b0540e1748",
+    "conflicts": []
+  }
+]

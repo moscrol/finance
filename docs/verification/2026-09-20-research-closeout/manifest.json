@@ -766,8 +766,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 2840,
-      "sha256": "2b57a525a1f7fdba0eb91494d600b33234906210c4a6fab450812bc50610176c",
+      "bytes": 3335,
+      "sha256": "dc2f53648f47658b757e1ca91f3349e7392cbe714e587a3746b4de7c20fed692",
       "source": "repository index maintained with this manifest"
     },
     {
@@ -1357,6 +1357,570 @@
       "bytes": 4340,
       "sha256": "a0dd72955ed4fbaec300ba5adba7267e3919298deee5182597c01386058f828a",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-recheck/quality/test_quality_edges.py"
+    },
+    {
+      "path": "history-closeout-fix/code-map-actual-query.json",
+      "bytes": 17593,
+      "sha256": "08197a53bf8cc99ff83212293ee00948826f49666a1c66a1f4e7363aab247211",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/code-map-actual-query.json"
+    },
+    {
+      "path": "history-closeout-fix/code-map-actual-structure-probe.log.txt",
+      "bytes": 252,
+      "sha256": "9674be665f37f07b92e18627c0f1d2ac7667aad108fb9463ce59b101e97e644a",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/code-map-actual-structure-probe.log"
+    },
+    {
+      "path": "history-closeout-fix/code-map-tests-green.log.txt",
+      "bytes": 266,
+      "sha256": "168aa0de2d951102a1d967786031cf2f9fe71dc99cc0cb32ace844d7d88c0f22",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/code-map-tests-green.log"
+    },
+    {
+      "path": "history-closeout-fix/code-map-tests-red.log.txt",
+      "bytes": 5227,
+      "sha256": "48cd1a1b4f44d98bab1963cc8a4cbb9e276d6f76ec15198e5564eda55f279e65",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/code-map-tests-red.log"
+    },
+    {
+      "path": "history-closeout-fix/history-mutation-red.log.txt",
+      "bytes": 10669,
+      "sha256": "73f2a175674750a255b4469dee29ec02f2f3443fceae831a019ee195683bb3d9",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/history-mutation-red.log"
+    },
+    {
+      "path": "history-closeout-fix/history-tests-green.log.txt",
+      "bytes": 265,
+      "sha256": "1d70af0e76bc71d29e0d87000885de7b849d2f9f0be7aef17b3324044c4e1ea6",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/history-tests-green.log"
+    },
+    {
+      "path": "history-closeout-fix/history-tests-red.log.txt",
+      "bytes": 12545,
+      "sha256": "4bdbddcdb5417b083e7091f572d3db833b5faf8e36e3764b23c000e34b88c553",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/history-tests-red.log"
+    },
+    {
+      "path": "history-closeout-fix/probe-after-fix.log.txt",
+      "bytes": 3627,
+      "sha256": "a20be04602089a2afbb90a08de753bce5959f18fa75f2ed4fa2bc42a49517888",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/probe-after-fix.log"
+    },
+    {
+      "path": "history-closeout-fix/probe-baseline-red.log.txt",
+      "bytes": 3750,
+      "sha256": "3e2b62408c09fe3f3ec9d63057ba5bbe9bf6db186ba121f65900accb54b0b132",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/probe-baseline-red.log"
+    },
+    {
+      "path": "history-closeout-fix/probe-copy-hashes.txt",
+      "bytes": 405,
+      "sha256": "0fbf0b6e689a135692f33e68952630f1d605b46a86a1cb4ccf261b2cdcde6c2c",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/probe-copy-hashes.txt"
+    },
+    {
+      "path": "history-closeout-fix/probe-results.json",
+      "bytes": 3627,
+      "sha256": "a20be04602089a2afbb90a08de753bce5959f18fa75f2ed4fa2bc42a49517888",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/probe-results.json"
+    },
+    {
+      "path": "history-closeout-fix/probe_history_design.py.txt",
+      "bytes": 3928,
+      "sha256": "0e8fc367a1105e26352dcba24f690523103f9f67d1ec505f4e1a665f6b0ff735",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/probe_history_design.py"
+    },
+    {
+      "path": "history-closeout-fix/receipts/code-map-actual/20260920T050744Z-7e5f2ccd.json",
+      "bytes": 666,
+      "sha256": "66088b639676dbb7a5ea8b265a20ce6622d60c924710985c47f88e4c8a617449",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/code-map-actual/20260920T050744Z-7e5f2ccd.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/code-map-actual/latest.json",
+      "bytes": 666,
+      "sha256": "66088b639676dbb7a5ea8b265a20ce6622d60c924710985c47f88e4c8a617449",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/code-map-actual/latest.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/code-map-full/20260920T050626Z-dca7c27e.json",
+      "bytes": 692,
+      "sha256": "a49260aaf117cb8dd947fe82589c9c83de2c7bf1380b5cf3dc23f8383c6ce0fd",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/code-map-full/20260920T050626Z-dca7c27e.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/code-map-full/latest.json",
+      "bytes": 692,
+      "sha256": "a49260aaf117cb8dd947fe82589c9c83de2c7bf1380b5cf3dc23f8383c6ce0fd",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/code-map-full/latest.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/code-map-green/20260920T050608Z-dca7c27e.json",
+      "bytes": 691,
+      "sha256": "9f2713b9ea394aa1b832d3cce5befac2d39c677cd57975571942b2822f7ab30a",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/code-map-green/20260920T050608Z-dca7c27e.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/code-map-green/latest.json",
+      "bytes": 691,
+      "sha256": "9f2713b9ea394aa1b832d3cce5befac2d39c677cd57975571942b2822f7ab30a",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/code-map-green/latest.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/code-map-red/20260920T050509Z-dca7c27e.json",
+      "bytes": 1028,
+      "sha256": "749baef3cefa8f38ba91dc4026ba8d2c112e4cc00500d1fbfa84d887788455c1",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/code-map-red/20260920T050509Z-dca7c27e.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/code-map-red/latest.json",
+      "bytes": 1028,
+      "sha256": "749baef3cefa8f38ba91dc4026ba8d2c112e4cc00500d1fbfa84d887788455c1",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/code-map-red/latest.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/final-code-map/20260920T050831Z-7e5f2ccd.json",
+      "bytes": 634,
+      "sha256": "dfdf2ac122a8d9e5978c6f6d05cfd82ba4d77226411700eb459c3487a0ad8506",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/final-code-map/20260920T050831Z-7e5f2ccd.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/final-code-map/latest.json",
+      "bytes": 634,
+      "sha256": "dfdf2ac122a8d9e5978c6f6d05cfd82ba4d77226411700eb459c3487a0ad8506",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/final-code-map/latest.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/final-history/20260920T050817Z-7e5f2ccd.json",
+      "bytes": 718,
+      "sha256": "39dd2ae0cf57333a66ee16243b377b537cdb90f90706d19dc3d7c4644c6dc24d",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/final-history/20260920T050817Z-7e5f2ccd.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/final-history/latest.json",
+      "bytes": 718,
+      "sha256": "39dd2ae0cf57333a66ee16243b377b537cdb90f90706d19dc3d7c4644c6dc24d",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/final-history/latest.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/history-adjacent/20260920T050218Z-c9bd82ff.json",
+      "bytes": 830,
+      "sha256": "7f85b62ac16b8fea2e4d89b52c5f931c4bff91e80eef681323ce78b13dea39d6",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/history-adjacent/20260920T050218Z-c9bd82ff.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/history-adjacent/latest.json",
+      "bytes": 830,
+      "sha256": "7f85b62ac16b8fea2e4d89b52c5f931c4bff91e80eef681323ce78b13dea39d6",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/history-adjacent/latest.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/history-green/20260920T050130Z-c9bd82ff.json",
+      "bytes": 759,
+      "sha256": "935c6fc7a93a2ee5ed2d550c593d75309d05dbff4367acb69d681e135d36bc20",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/history-green/20260920T050130Z-c9bd82ff.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/history-green/latest.json",
+      "bytes": 759,
+      "sha256": "935c6fc7a93a2ee5ed2d550c593d75309d05dbff4367acb69d681e135d36bc20",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/history-green/latest.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/history-mutation-red/20260920T050150Z-c9bd82ff.json",
+      "bytes": 1107,
+      "sha256": "b3f4267e18cbf62e579ef001aee7914b85ce8bd286c0f31e346a64cd6536b94e",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/history-mutation-red/20260920T050150Z-c9bd82ff.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/history-mutation-red/latest.json",
+      "bytes": 1107,
+      "sha256": "b3f4267e18cbf62e579ef001aee7914b85ce8bd286c0f31e346a64cd6536b94e",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/history-mutation-red/latest.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/history-red/20260920T050102Z-c9bd82ff.json",
+      "bytes": 1040,
+      "sha256": "236dfb29962dbaf020e4e6537130456c15fa7f300b866d4c68afa571176d906f",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/history-red/20260920T050102Z-c9bd82ff.json"
+    },
+    {
+      "path": "history-closeout-fix/receipts/history-red/latest.json",
+      "bytes": 1040,
+      "sha256": "236dfb29962dbaf020e4e6537130456c15fa7f300b866d4c68afa571176d906f",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/history-red/latest.json"
+    },
+    {
+      "path": "history-closeout-review/spec/CALIBRATION.md",
+      "bytes": 2749,
+      "sha256": "1ae7867da89a2392a5a3523cc0fa5ea1e9481473b0a60338a32a74445e839f1d",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/CALIBRATION.md"
+    },
+    {
+      "path": "history-closeout-review/spec/REPORT.md",
+      "bytes": 2485,
+      "sha256": "5621b1f0e37e71cfa238392ec7506e64e0c401137e5b2d0680e8f4953eef85af",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/REPORT.md"
+    },
+    {
+      "path": "history-closeout-review/spec/SCOPE.md",
+      "bytes": 1286,
+      "sha256": "d260d533637e405c001420408b43bc6a72eac05951b154f56e2eea3402525354",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/SCOPE.md"
+    },
+    {
+      "path": "history-closeout-review/spec/SHA256SUMS.json",
+      "bytes": 5292,
+      "sha256": "f83e0eec2fc4640efc4606eeedf7379c3c95839a35ff8bfa924f07e2ae63da06",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/SHA256SUMS.json"
+    },
+    {
+      "path": "history-closeout-review/spec/actual-code-map.log.txt",
+      "bytes": 17593,
+      "sha256": "08197a53bf8cc99ff83212293ee00948826f49666a1c66a1f4e7363aab247211",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/actual-code-map.log"
+    },
+    {
+      "path": "history-closeout-review/spec/actual-code-map.receipt.json",
+      "bytes": 1640,
+      "sha256": "13ad1df031e4c954e6575ecf0fd83a3969c118d677ea02d95a6956dd10268cf3",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/actual-code-map.receipt.json"
+    },
+    {
+      "path": "history-closeout-review/spec/candidate-and-window.junit.xml",
+      "bytes": 697,
+      "sha256": "68f89a795a675690dede5a7a72c1dea7a4bcb232d190671b4ad89a8750ee903b",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/candidate-and-window.junit.xml"
+    },
+    {
+      "path": "history-closeout-review/spec/candidate-and-window.log.txt",
+      "bytes": 935,
+      "sha256": "4542425f74728f3af5a818c2c91c16ec232c643525d4f98f0df378fb0e835d02",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/candidate-and-window.log"
+    },
+    {
+      "path": "history-closeout-review/spec/candidate-and-window.receipt.json",
+      "bytes": 1952,
+      "sha256": "38b5891d8f124180dcd3a260d6c92009aa523106dd78f477409973aeb1daf1fa",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/candidate-and-window.receipt.json"
+    },
+    {
+      "path": "history-closeout-review/spec/candidate.diff",
+      "bytes": 27116,
+      "sha256": "58649dc3a36c8f13548a4815559a0ae3c8a28676f60a1f286f986d3af539f011",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/candidate.diff"
+    },
+    {
+      "path": "history-closeout-review/spec/commands.jsonl",
+      "bytes": 13816,
+      "sha256": "b76540d6451b6415ac1612c667c3aa9ab6a63527ca6f70165fe42956baa55546",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/commands.jsonl"
+    },
+    {
+      "path": "history-closeout-review/spec/existing-boundaries-fixed-harness.junit.xml",
+      "bytes": 1521,
+      "sha256": "fa379a6c41b16773567494c1b7c19840e64bd237b52fc2cc8e73646816d7ef75",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/existing-boundaries-fixed-harness.junit.xml"
+    },
+    {
+      "path": "history-closeout-review/spec/existing-boundaries-fixed-harness.log.txt",
+      "bytes": 1494,
+      "sha256": "7b634ae1e0f14c4ae9772b1ba1ff4c223b765d14751e731409c6a2711e34cf24",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/existing-boundaries-fixed-harness.log"
+    },
+    {
+      "path": "history-closeout-review/spec/existing-boundaries-fixed-harness.receipt.json",
+      "bytes": 2723,
+      "sha256": "4abf7d0c163ce8f51855870138702a64f6fd4414db7fe4d44ad349b1d4d4ea51",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/existing-boundaries-fixed-harness.receipt.json"
+    },
+    {
+      "path": "history-closeout-review/spec/existing-boundaries.junit.xml",
+      "bytes": 9129,
+      "sha256": "5386df5050473eaa001b6bb78e39d0356ec3b99fc1c886c2e44485c9ed89289a",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/existing-boundaries.junit.xml"
+    },
+    {
+      "path": "history-closeout-review/spec/existing-boundaries.log.txt",
+      "bytes": 7933,
+      "sha256": "9754d37992c9bc1c6ccf828e69f9ac4c7637d190c8fba451b5f9894755415803",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/existing-boundaries.log"
+    },
+    {
+      "path": "history-closeout-review/spec/existing-boundaries.receipt.json",
+      "bytes": 2709,
+      "sha256": "c5d81caa2c039c7acfe9e9806900f3a9d52cfdab5097c4ea8c5a3b4fd3a954a8",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/existing-boundaries.receipt.json"
+    },
+    {
+      "path": "history-closeout-review/spec/identity-end.json",
+      "bytes": 648,
+      "sha256": "e541d69baed1a4513746316cf4256f5559986b1110bb2848a206cf44845f5be2",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/identity-end.json"
+    },
+    {
+      "path": "history-closeout-review/spec/identity-start.json",
+      "bytes": 55394,
+      "sha256": "ddf692239c8a661fef0ffb200163886f9543376c86b968e49ae1bca46c021761",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/identity-start.json"
+    },
+    {
+      "path": "history-closeout-review/spec/independent-probes-calibrated.log.txt",
+      "bytes": 7008,
+      "sha256": "ffc1ef33f9e998dc647254c85d9c30abdab586009282ebe84581b6cc17584906",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/independent-probes-calibrated.log"
+    },
+    {
+      "path": "history-closeout-review/spec/independent-probes-calibrated.receipt.json",
+      "bytes": 1697,
+      "sha256": "d7d5fb932b6c196a6c25c8e83639681911c923e0c743451b9dd2e075b7ce3f83",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/independent-probes-calibrated.receipt.json"
+    },
+    {
+      "path": "history-closeout-review/spec/independent-probes-final.log.txt",
+      "bytes": 7413,
+      "sha256": "3d93108358dd226b46bcb4d5c1b42a73fed5a512c9b61b90f2e2ae0509b07caa",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/independent-probes-final.log"
+    },
+    {
+      "path": "history-closeout-review/spec/independent-probes-final.receipt.json",
+      "bytes": 1697,
+      "sha256": "4c3a02d176e677ae1e9633aa0ab5d4ff0cf6fcb3b348a0e5a9c35b4dabd4751b",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/independent-probes-final.receipt.json"
+    },
+    {
+      "path": "history-closeout-review/spec/independent-probes.log.txt",
+      "bytes": 3716,
+      "sha256": "46dc81dc0a454ca46975509bee11f2c9c61a541398e8f84d4565608297f2d3ef",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/independent-probes.log"
+    },
+    {
+      "path": "history-closeout-review/spec/independent-probes.receipt.json",
+      "bytes": 1697,
+      "sha256": "254cbef3380c8ec0c5517b8039f230c4811f4d7019442cffcd9e31d9e1ef07d2",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/independent-probes.receipt.json"
+    },
+    {
+      "path": "history-closeout-review/spec/independent-results.initial.json",
+      "bytes": 3716,
+      "sha256": "46dc81dc0a454ca46975509bee11f2c9c61a541398e8f84d4565608297f2d3ef",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/independent-results.initial.json"
+    },
+    {
+      "path": "history-closeout-review/spec/independent-results.json",
+      "bytes": 7008,
+      "sha256": "ffc1ef33f9e998dc647254c85d9c30abdab586009282ebe84581b6cc17584906",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/independent-results.json"
+    },
+    {
+      "path": "history-closeout-review/spec/independent-results.root-intent-invalid.json",
+      "bytes": 7413,
+      "sha256": "3d93108358dd226b46bcb4d5c1b42a73fed5a512c9b61b90f2e2ae0509b07caa",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/independent-results.root-intent-invalid.json"
+    },
+    {
+      "path": "history-closeout-review/spec/probe_review.initial.py.txt",
+      "bytes": 12758,
+      "sha256": "cdff0001624f20a694a0a7ca653b67bf46fb02b94bb85c15629b4fcd6cbad4bc",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/probe_review.initial.py"
+    },
+    {
+      "path": "history-closeout-review/spec/probe_review.py.txt",
+      "bytes": 14946,
+      "sha256": "95649b8ba75319e86f93a7436e9537657b103689243658482e676b6d9109d69d",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/probe_review.py"
+    },
+    {
+      "path": "history-closeout-review/spec/probe_review.root-intent-invalid.py.txt",
+      "bytes": 14916,
+      "sha256": "48391d57c985f3e85898b802e17af706e96b400aa02462d66531d6a7343fc76a",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/probe_review.root-intent-invalid.py"
+    },
+    {
+      "path": "history-closeout-review/spec/receipt-location-incident.json",
+      "bytes": 1173,
+      "sha256": "1c92de7d7f956a53e73e80c0614eaa6fdfbb78d0e1275cd14b3eef78a2881399",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/receipt-location-incident.json"
+    },
+    {
+      "path": "history-closeout-review/spec/run_logged.py.txt",
+      "bytes": 2185,
+      "sha256": "acaf48344e5ac112cac70d175cf69f906a171be23245d6fdd16ab06b330660dd",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/run_logged.py"
+    },
+    {
+      "path": "history-closeout-review/spec/run_pytest.after-parent-fix.py.txt",
+      "bytes": 703,
+      "sha256": "94cc5d3feb033f12cd6d61517b4f7cc1573aa23b74c91cfa7ed677f1a19c7c8a",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/run_pytest.after-parent-fix.py"
+    },
+    {
+      "path": "history-closeout-review/spec/run_pytest.initial.py.txt",
+      "bytes": 588,
+      "sha256": "73caa500772720441ab5153dd87d052f5cda3f057808fe3e2b589697d17a9703",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/run_pytest.initial.py"
+    },
+    {
+      "path": "history-closeout-review/spec/run_pytest.py.txt",
+      "bytes": 1118,
+      "sha256": "9328666f2b568dd53ee230d692413692797c6502189c6e489650f73a4c3f423b",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/run_pytest.py"
+    },
+    {
+      "path": "history-main-integration/candidate789.txt",
+      "bytes": 41,
+      "sha256": "69604c960ad69a58e001af8f5b4b69a33263b24bcd35a3c4ac5ae8e75103c586",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-main-integration/candidate789.txt"
+    },
+    {
+      "path": "history-main-integration/main.txt",
+      "bytes": 41,
+      "sha256": "23eb9477c4383cac728b052adaf7686565c2dd2988c45fd1d8082f746b61fd15",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-main-integration/main.txt"
+    },
+    {
+      "path": "history-main-integration/preview.json",
+      "bytes": 733,
+      "sha256": "4d2e1c37b1b788159f04069ba909f6e22cb987829f6ed1741f466d5edd9c365f",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-main-integration/preview.json"
+    },
+    {
+      "path": "nightly-design/spec/EVIDENCE.md",
+      "bytes": 7394,
+      "sha256": "c614e37db33a2092d9be49f33eedb388a9b67235a173cd5d1c60b5f597913c7a",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/EVIDENCE.md"
+    },
+    {
+      "path": "nightly-design/spec/REPORT.md",
+      "bytes": 3208,
+      "sha256": "97e291665d368116298d7dbe705f65e593cdce310248d48c99e05970e2c44d9c",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/REPORT.md"
+    },
+    {
+      "path": "nightly-design/spec/artifact-manifest.json",
+      "bytes": 11644,
+      "sha256": "678402236e037bfb2a181506efcf8d323d94113f4cbf8d12b00ff3256424e17e",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/artifact-manifest.json"
+    },
+    {
+      "path": "nightly-design/spec/candidate.diff",
+      "bytes": 60894,
+      "sha256": "137ce73c302b18a60598647960586404daa0528979605bc2130db133a9a88874",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/candidate.diff"
+    },
+    {
+      "path": "nightly-design/spec/dated-replay-history.jsonl",
+      "bytes": 268,
+      "sha256": "d90bbd269c5090beacf276f5ed5a1fd5ca2e94506245177edadae3f029e663c7",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/dated-replay-history.jsonl"
+    },
+    {
+      "path": "nightly-design/spec/dated-replay-snapshot.json",
+      "bytes": 176,
+      "sha256": "e4d3e9a827620222a16362a1ba9fd5e70d1609d9a79a748ea6f71b7729b05733",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/dated-replay-snapshot.json"
+    },
+    {
+      "path": "nightly-design/spec/identity-after.json",
+      "bytes": 2924,
+      "sha256": "d2b40e14cd7c39213a95b2f468cefdede4a68c2b55925fbe8ebc4408890014ce",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/identity-after.json"
+    },
+    {
+      "path": "nightly-design/spec/identity-before.json",
+      "bytes": 70311,
+      "sha256": "7d2610b7a3cfdf91b153f64809357de2aa0952ebe7f4d06bd2ada5283f943760",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/identity-before.json"
+    },
+    {
+      "path": "nightly-design/spec/integration-plan-simulation.py.txt",
+      "bytes": 31263,
+      "sha256": "1130e5a26d6465b6b8d28ca462b27f696c3f37aec00bd8bd9a375f9979ae37b3",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/integration-plan-simulation.py.txt"
+    },
+    {
+      "path": "nightly-design/spec/main-run_review_sync.py.txt",
+      "bytes": 31237,
+      "sha256": "7700f9a0a11e847c80fc1eacb7dc28bef656efbcde33f4a2390b01f5152761de",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/main-run_review_sync.py.txt"
+    },
+    {
+      "path": "nightly-design/spec/probe-attempt1-probe-command.json",
+      "bytes": 441,
+      "sha256": "af571d4be014f79ba520dea4f59f053ddaf4ae12bdd5604fc42f3504c6bca130",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/probe-attempt1-probe-command.json"
+    },
+    {
+      "path": "nightly-design/spec/probe-attempt1-probe.log.txt",
+      "bytes": 5798,
+      "sha256": "6761d95502a8ffac7dbe96c99d228ba52876a5fdd2edb2c01d7b99b85f3ad46f",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/probe-attempt1-probe.log"
+    },
+    {
+      "path": "nightly-design/spec/probe-attempt2-probe-command.json",
+      "bytes": 440,
+      "sha256": "05a1b4060a9c7ca0ac9a1f6f9d009817eff2f7fc12aca7eb7ecbff68e17a4e6f",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/probe-attempt2-probe-command.json"
+    },
+    {
+      "path": "nightly-design/spec/probe-attempt2-probe.log.txt",
+      "bytes": 8050,
+      "sha256": "4336a953e36d9a1e4a22dc173956bee533353d8d4efc3b1228fed55543d4f309",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/probe-attempt2-probe.log"
+    },
+    {
+      "path": "nightly-design/spec/probe-command.json",
+      "bytes": 441,
+      "sha256": "bea95539a1e4410e4772be92b78750c2c583574a8e730ce7eab0cebe74950a20",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/probe-command.json"
+    },
+    {
+      "path": "nightly-design/spec/probe-results.json",
+      "bytes": 61297,
+      "sha256": "1d803137bf618adc7c7a7ca122100d38302bcebcda8a12af80d188a3f3e4a4f4",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/probe-results.json"
+    },
+    {
+      "path": "nightly-design/spec/probe.log.txt",
+      "bytes": 7339,
+      "sha256": "ab581efdb8aa4d3cdfb733e4c0047d002b4db90fdcd5f3c4211b40198a6d4caa",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/probe.log"
+    },
+    {
+      "path": "nightly-design/spec/probe_spec.py.txt",
+      "bytes": 13265,
+      "sha256": "9056eab34268727d93f39353be1760e1387bdb14586d8ea5bb919a0b1d99f0d4",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/probe_spec.py"
+    },
+    {
+      "path": "nightly-design/spec/pytest-receipts/20260920T051009Z-6356ffd5.json",
+      "bytes": 1496,
+      "sha256": "116def8982497cc1e1641bfefc66f82b51ef5272dfff6ca2a0a147fcdd2c1cee",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/pytest-receipts/20260920T051009Z-6356ffd5.json"
+    },
+    {
+      "path": "nightly-design/spec/pytest-receipts/latest.json",
+      "bytes": 1496,
+      "sha256": "116def8982497cc1e1641bfefc66f82b51ef5272dfff6ca2a0a147fcdd2c1cee",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/pytest-receipts/latest.json"
+    },
+    {
+      "path": "nightly-design/spec/related-tests-command.json",
+      "bytes": 1730,
+      "sha256": "d38fdc9b20e878fb94c59281131f32716bd421f143c131da933e74d256ac0e65",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/related-tests-command.json"
+    },
+    {
+      "path": "nightly-design/spec/related-tests.log.txt",
+      "bytes": 243,
+      "sha256": "674da6d1d44e39c2f788c1687930a038468394a758374e583337f913181e0da9",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/related-tests.log"
+    },
+    {
+      "path": "nightly-design/spec/spec_receipt_redirect.py.txt",
+      "bytes": 612,
+      "sha256": "2b8eedd6c964533094dc9f0edc1474cd2cd190551af734781eba46a0ec9a2f95",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/spec_receipt_redirect.py"
     }
   ]
 }
