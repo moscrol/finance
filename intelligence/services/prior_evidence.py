@@ -52,6 +52,21 @@ class PriorTurnEvidence:
         }
 
 
+def remap_evidence_bindings(
+    snapshot: PriorTurnEvidence,
+    evidence: tuple[AgentEvidence, ...],
+) -> list[dict[str, str]]:
+    """Build the private old-to-new citation map for a restored input block."""
+    from intelligence.services.episode_protocol import evidence_ordinal_table
+
+    ordinals = evidence_ordinal_table(evidence)
+    return [
+        {"old_ref": ref, "new_ref": ordinals[item.content_hash], "content_hash": item.content_hash}
+        for ref, item in snapshot.entries
+        if item.content_hash in ordinals
+    ]
+
+
 def _original_atom(raw: object) -> AgentEvidence:
     """Reconstruct the complete stored schema without coercing or dropping fields."""
     if not isinstance(raw, dict) or set(raw) != {field.name for field in fields(AgentEvidence)}:

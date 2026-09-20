@@ -46,6 +46,7 @@ from intelligence.runtime.episode_tool_batch import (
     tool_definitions_for_menu,
 )
 from intelligence.services.research_reasoning import observation_guidance
+from intelligence.services.prior_evidence import remap_evidence_bindings
 from intelligence.runtime.research_progress import (
     ResearchProgressTracker,
     ToolCallDigest,
@@ -838,7 +839,6 @@ def _seed_prior_evidence(
     if snapshot is None:
         return
     from intelligence.services.derived_calculation import evidence_payload
-    from intelligence.services.episode_protocol import evidence_ordinal_table
 
     material = context.contract.material_contract
     if material is None or material.data_scope != "material_only" or context.contract.allowed_capabilities:
@@ -852,12 +852,10 @@ def _seed_prior_evidence(
     accumulator.evidence_ledger.append(evidence)
     accumulator.evidence.extend(evidence)
     accumulator.evidence_hashes.update(item.content_hash for item in evidence)
-    ordinals = evidence_ordinal_table(tuple(accumulator.evidence))
     receipt = snapshot.receipt()
-    receipt["bindings"] = [
-        {"old_ref": ref, "new_ref": ordinals[item.content_hash], "content_hash": item.content_hash}
-        for ref, item in snapshot.entries if item.content_hash in ordinals
-    ]
+    receipt["bindings"] = remap_evidence_bindings(
+        snapshot, tuple(accumulator.evidence)
+    )
     append_model_input(
         messages, accumulator.ledger,
         content=json.dumps({
