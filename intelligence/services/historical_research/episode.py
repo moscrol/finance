@@ -213,7 +213,7 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
 
     add("历史研究范围与完整分母", {}, [
         {key: payload.get(key)}
-        for key in ("operation", "status", "total_matched", "returned_count", "truncated")
+        for key in ("operation", "status", "total_matched", "returned_count", "truncated", "offset", "next_offset")
     ] + [{"research_only": True, "decision_eligible": False, "promotion_eligible": False}])
     add("历史研究原件引用", {}, [{"result_ref": result_ref}])
     add("历史研究使用边界", {}, [{
@@ -248,7 +248,10 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
                 if code and name:
                     names.setdefault(code, set()).add(name)
     preview = payload.get("preview", [])
-    records = list(enumerate(preview[:25] if isinstance(preview, list) else []))
+    # A sample is a row in the immutable result, not a position within this page.
+    records = list(enumerate(
+        preview[:25] if isinstance(preview, list) else [], start=payload.get("offset", 0)
+    ))
     reference = payload.get("reference")
     if isinstance(reference, dict):
         records.insert(0, ("reference", reference))
@@ -301,7 +304,18 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
     return projected
 
 
-def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query"):
+def _result(
+    payload: dict, *, result_ref: str = "", tool: str = "history_query", offset: int = 0
+):
+    returned_count = payload.get("returned_count", 0)
+    page_end = offset + returned_count
+    payload = dict(
+        payload,
+        offset=offset,
+        next_offset=(
+            page_end if returned_count and page_end < payload.get("total_matched", 0) else None
+        ),
+    )
     metadata = {
         key: payload[key]
         for key in (
@@ -312,6 +326,8 @@ def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query")
             "total_matched",
             "returned_count",
             "truncated",
+            "offset",
+            "next_offset",
             "coverage",
             "definition_refs",
             "gaps",
@@ -363,9 +379,10 @@ def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query")
         + _compact({"result_ref": result_ref, "query_id": query_id,
                     "total_matched": payload.get("total_matched"), "returned_count": payload.get("returned_count"),
                     "truncated": payload.get("truncated"),
+                    "offset": offset, "next_offset": payload["next_offset"],
                     "projected_evidence_count": len(projection)})
-        + "样本以完整JSON语义块展示，同sample属于同一原件行；特征定义卡给出真实rule/unit/version。"
-        "大成员、覆盖明细和超长字段仅在完整artifact；需更多日期用read_history_result分页。"
+        + "样本以完整JSON语义块展示，同result_ref内sample是原件行号（从0起），跨页不重置；特征定义卡给出真实rule/unit/version。"
+        "大成员、覆盖明细和超长字段仅在完整artifact；需更多行用read_history_result按next_offset分页，null表示已到末页。"
         "需未展示字段请缩窄日期/实体/特征查询，仍不足就明确缺口或由用户查看原件，不把null当0。",
         trace=ProviderTrace(
             provider="duckdb_history_query",
@@ -576,11 +593,12 @@ def history_tool_specs(
             )
         rows = payload.get("rows", payload.get("cases", []))
         if isinstance(rows, list):
+            page = rows[offset : offset + limit]
             payload = dict(
                 payload,
-                preview=rows[offset : offset + limit],
-                returned_count=len(rows[offset : offset + limit]),
-                truncated=len(rows) > limit,
+                preview=page,
+                returned_count=len(page),
+                truncated=len(page) < len(rows),
             )
         metadata = {
             key: payload.get(key)
@@ -597,7 +615,7 @@ def history_tool_specs(
         context.history_results.append(
             dict(metadata, result_ref=ref, execution_status="success")
         )
-        return _result(payload, result_ref=ref, tool="read_history_result")
+        return _result(payload, result_ref=ref, tool="read_history_result", offset=offset)
 
     specs.append(
         ToolSpec(
