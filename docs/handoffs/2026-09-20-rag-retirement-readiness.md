@@ -26,9 +26,9 @@ KB 候选 `3a21010323eababb54ce8519093fd60dbacb9451` 已在每次查询前用固
 
 ## 验证与收据
 
-- 代码身份：`7b23e8f15a77270a36087047b8b1fa061c76d3d7`，基线 `4ace5ec2e9b7735d90eb15bc2351fa193c1120b8`。
-- 定向 pytest：93 passed、2 skipped、126 deselected；相关 Ruff 全绿。日志 `final-code-receipt-7b23e8f1.log.txt`。
-- 最终真探针：13 行阶段记录；alpha 初始两 worker ready；beta 激活后首次查询前二者 failed/retired；真实消费者 `persistent_worker_generation_unavailable` 且无 CLI fallback；旧注册存在时聚合红；close_all 后 beta 两 worker ready；回滚后 alpha 两 worker ready；8 个真实子进程全部关闭。结果 SHA256 `b4fc251a...8709`，探针 SHA256 `76850dc9...d498`。
+- 代码身份：`d6812e6220b46ff939dfbcf51ac6c6b93246d361`，基线 `4ace5ec2e9b7735d90eb15bc2351fa193c1120b8`。
+- 定向 pytest：94 passed、2 skipped、126 deselected；相关 Ruff 全绿。日志 `final-code-receipt-d6812e62.log.txt`。
+- 最终真探针：13 行阶段记录；alpha 初始两 worker ready；beta 激活后首次查询前二者 failed/retired；真实消费者 `persistent_worker_generation_unavailable` 且无 CLI fallback；旧注册存在时聚合红；close_all 后 beta 两 worker ready；回滚后 alpha 两 worker ready；8 个真实子进程全部关闭。结果 SHA256 `9641aab5...dfb9`，探针 SHA256 `83d9fc88...47a6`。
 - 承重变异：删除 current 比较 → 退役前状态断言红；启动改读 ambient → 固定旧绑定断言红。两份日志分别为 `mutation-remove-current-check.log.txt`、`mutation-ambient-relabel.log.txt`。
 - 真实探针首轮失败脚本已按字节恢复为 `probe_finance_worker.fixed-attempt1.py`，SHA256 `fbce13bd...d32c`，对应金融 SHA `3f5d0690...8a26` 与 `real-fixed.log.txt`；它证明 resolve venv 入口会让真实子进程无响应。
 

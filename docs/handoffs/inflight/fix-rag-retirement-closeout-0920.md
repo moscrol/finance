@@ -15,14 +15,14 @@
 
 ## 当前状态
 
-代码冻结在 `7b23e8f15a77270a36087047b8b1fa061c76d3d7`；门页已同步。待独立 Spec→Quality 双审；未建 PR、未合 main、未部署。
+代码冻结在 `d6812e6220b46ff939dfbcf51ac6c6b93246d361`；门页已同步。待独立 Spec→Quality 双审；未建 PR、未合 main、未部署。
 
 ## 已验证
 
-- 定向收据：93 passed / 2 skipped / 126 deselected；相关 Ruff 全绿。`FWP_TEST_RECEIPT=0`，解释器为主树 `.venv-workbench/bin/python`。
+- 定向收据：94 passed / 2 skipped / 126 deselected；相关 Ruff 全绿。`FWP_TEST_RECEIPT=0`，解释器为主树 `.venv-workbench/bin/python`。
 - 真 scratch：KB `3a210103`，hash/BM25，standard/full，alpha→beta→rollback；首次新查询前旧 worker 已 failed/retired，旧注册不能被新 ready 掩盖，close_all 后新代绿，真实消费者不回退 CLI，8/8 子进程关闭。
 - 变异：删 current 检查、启动改读 ambient 两项均抓红；另抓红并修复 venv 入口 resolve 缺陷与“不同 venv 同目标”误等价。
-- 证据根：`/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/`；最终真探针 `worker-fixed-7b23e8f1/results.json`。
+- 证据根：`/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/`；最终真探针 `worker-fixed-d6812e62/results.json`。
 
 ## 未验证 / 已知边界
 
