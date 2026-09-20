@@ -766,8 +766,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 4888,
-      "sha256": "5f9cfdd1413b422d0df7f44d727bae1fcc138a7f91e027ec6d2761754e1c06a0"
+      "bytes": 5001,
+      "sha256": "823f83a55c60c7a6a2a355cbaa8ae7b6e5eadeabe46d8ed2f6fa2aa32829af73"
     },
     {
       "path": "runtime-evidence-fix/M1-hash-only-green.log.txt",
@@ -2663,6 +2663,635 @@
       "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/receipt_redirect.py",
       "bytes": 645,
       "sha256": "4de4eee99c27b40e43eeac9e663524f5199bbcb0e11156411906885fdf413ad3"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/control/acceptance.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/control/acceptance.json",
+      "bytes": 5527,
+      "sha256": "621990387ffd42cbb27f6866ff4f7ef0882039731c4a750d7fd5e39be5c3b111"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/control/child-apply.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/control/child-apply.json",
+      "bytes": 694,
+      "sha256": "387a5cd3cec1d8af2b997fff056d72e921210106a83c22d837ec582f484659a2"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/control/child-verify.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/control/child-verify.json",
+      "bytes": 696,
+      "sha256": "383a6d45049bf308306b7555a0e65b05fd07244851cad429f18a29d9c4ee93d2"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/control/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/control/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 2840,
+      "sha256": "cc373298fa285555a77bd610b557849c1568aba743d6dd13d62bae1fcafd86e8"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/control/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/control/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 2846,
+      "sha256": "303b60e68b17709c8ad0e7b19b4ded5fa41995f062e2b23b9481a18f49659e0f"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/control/stderr.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/control/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/control/stdout.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/control/stdout.txt",
+      "bytes": 43,
+      "sha256": "ddb909ef7d149fc529a5d4685f3ed12d1df37e4409648e894d7adca7b99d0009"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/fixture/child-apply.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/fixture/child-apply.json",
+      "bytes": 694,
+      "sha256": "387a5cd3cec1d8af2b997fff056d72e921210106a83c22d837ec582f484659a2"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/fixture/child-verify.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/fixture/child-verify.json",
+      "bytes": 696,
+      "sha256": "383a6d45049bf308306b7555a0e65b05fd07244851cad429f18a29d9c4ee93d2"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/fixture/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/fixture/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 2840,
+      "sha256": "3aa6000045168cb3883bbd2114f50b33947fc33e142ccc9d0d155c70590fe8a9"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/fixture/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/fixture/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 2846,
+      "sha256": "207f05310fdcb09ea3d71f2966060ac86be063a7a101af1c5f4e7990dfda3e22"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/huge_numeric_pin/child-apply.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/huge_numeric_pin/child-apply.json",
+      "bytes": 694,
+      "sha256": "387a5cd3cec1d8af2b997fff056d72e921210106a83c22d837ec582f484659a2"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/huge_numeric_pin/child-verify.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/huge_numeric_pin/child-verify.json",
+      "bytes": 696,
+      "sha256": "383a6d45049bf308306b7555a0e65b05fd07244851cad429f18a29d9c4ee93d2"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/huge_numeric_pin/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/huge_numeric_pin/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 3245,
+      "sha256": "f18aed970fbdbe7a260b33696076eb3cd0fc0ca8ea41089602db72c6f8a16461"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/huge_numeric_pin/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/huge_numeric_pin/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 3251,
+      "sha256": "8678b7ff4365c03c13760f16f50f736ec1e6b80292d15adaa895550adfa1a9f2"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/huge_numeric_pin/stderr.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/huge_numeric_pin/stderr.txt",
+      "bytes": 925,
+      "sha256": "bc5fae5a8311e8b7ba915e0d545adff5a8e3d6be76542a5469bfc80592a233d0"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/huge_numeric_pin/stdout.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/huge_numeric_pin/stdout.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/identity-after-probe.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/identity-after-probe.json",
+      "bytes": 73,
+      "sha256": "e8d90b92a085572906de86fe9d8cf31c135df5b1ace46819118ca4d4b4111d38"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/identity-before.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/identity-before.json",
+      "bytes": 311,
+      "sha256": "15d3a6acfe4e96f1b127ef9dfbfb243ce5af869b8f25374cc04a408cba00642a"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/probe-results.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/probe-results.json",
+      "bytes": 1428,
+      "sha256": "b048784fec92d4426accc21fbc4d962f09e37b638abab4e1f8ec2dd248420611"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/spec_other_code/acceptance.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/spec_other_code/acceptance.json",
+      "bytes": 5535,
+      "sha256": "36ce2e5686bbb7f7770523a8b79b915fe80bd08f647827115e5853a5622331c6"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/spec_other_code/child-apply.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/spec_other_code/child-apply.json",
+      "bytes": 694,
+      "sha256": "5c41d5025bfeb023283079e6cb21150bafd5deb80b61740c1ef7b287784376db"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/spec_other_code/child-verify.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/spec_other_code/child-verify.json",
+      "bytes": 696,
+      "sha256": "4a0e2a78a99f242ab3eca2d25b26a31b39433529f36ac3af8094d43e1027740c"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/spec_other_code/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/spec_other_code/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 2848,
+      "sha256": "143ab6391ccad6948cb2398bcd6e30835f42df3e773abd479a177b1ab1b44851"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/spec_other_code/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/spec_other_code/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 2854,
+      "sha256": "e22cbf360a8c48587218d85d69b0463b5aacb34c567e4f507f3af7e5430a5bb0"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/spec_other_code/stderr.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/spec_other_code/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe/spec_other_code/stdout.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe/spec_other_code/stdout.txt",
+      "bytes": 43,
+      "sha256": "ddb909ef7d149fc529a5d4685f3ed12d1df37e4409648e894d7adca7b99d0009"
+    },
+    {
+      "path": "backfill-acceptance-fix/baseline-probe.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe.log.txt",
+      "bytes": 1327,
+      "sha256": "69ae6097921b5d8649ccdfc8b9c77bd93bb711f649ca7f26b7678049e807b50e"
+    },
+    {
+      "path": "backfill-acceptance-fix/commands.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/commands.txt",
+      "bytes": 7451,
+      "sha256": "1087ae37ec80157dfa86cfea9b1f02f456a73299929e246890d9dd932929ea93"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/control/acceptance.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/control/acceptance.json",
+      "bytes": 5521,
+      "sha256": "1a01398b6fb4e48793fe2a23855d78f4719ce5ebc11e162f25dc3aa3808f857d"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/control/child-apply.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/control/child-apply.json",
+      "bytes": 694,
+      "sha256": "387a5cd3cec1d8af2b997fff056d72e921210106a83c22d837ec582f484659a2"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/control/child-verify.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/control/child-verify.json",
+      "bytes": 696,
+      "sha256": "383a6d45049bf308306b7555a0e65b05fd07244851cad429f18a29d9c4ee93d2"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/control/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/control/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 2834,
+      "sha256": "c696b95b7f458b30bbb565abb12a5defb48c7df0457150fedcb49041cc982be7"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/control/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/control/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 2840,
+      "sha256": "95b4d1a34ba19883eb7f1be36e857ff5e06b06747db3811bd64f32d94df0154b"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/control/stderr.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/control/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/control/stdout.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/control/stdout.txt",
+      "bytes": 43,
+      "sha256": "ddb909ef7d149fc529a5d4685f3ed12d1df37e4409648e894d7adca7b99d0009"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/fixture/child-apply.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/fixture/child-apply.json",
+      "bytes": 694,
+      "sha256": "387a5cd3cec1d8af2b997fff056d72e921210106a83c22d837ec582f484659a2"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/fixture/child-verify.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/fixture/child-verify.json",
+      "bytes": 696,
+      "sha256": "383a6d45049bf308306b7555a0e65b05fd07244851cad429f18a29d9c4ee93d2"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/fixture/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/fixture/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 2834,
+      "sha256": "7a6231ea99506b4b1b4f618482078116ea9904361c1d1394e27f9ab6bcc288a9"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/fixture/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/fixture/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 2840,
+      "sha256": "a09c1db5750799c70f8de7b0e61a0d82b9b2fe62b722de0c8f0e88cc5b946b6c"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/huge_numeric_pin/acceptance.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/huge_numeric_pin/acceptance.json",
+      "bytes": 3673,
+      "sha256": "9f37e93beb32875970b1df960a603cbc68a2af519885aca5ae2fabb02fbe1e6d"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/huge_numeric_pin/child-apply.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/huge_numeric_pin/child-apply.json",
+      "bytes": 694,
+      "sha256": "387a5cd3cec1d8af2b997fff056d72e921210106a83c22d837ec582f484659a2"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/huge_numeric_pin/child-verify.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/huge_numeric_pin/child-verify.json",
+      "bytes": 696,
+      "sha256": "383a6d45049bf308306b7555a0e65b05fd07244851cad429f18a29d9c4ee93d2"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/huge_numeric_pin/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/huge_numeric_pin/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 3239,
+      "sha256": "f99ac05f4b477da88b4a729a93edc7a49a955849b8d7198186a8b30d1da40f9e"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/huge_numeric_pin/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/huge_numeric_pin/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 3245,
+      "sha256": "fac034c9aabe1b6c6cad91051ae4cbc94a84ddf0c2b803b5b39a2bc62b0f8500"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/huge_numeric_pin/stderr.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/huge_numeric_pin/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/huge_numeric_pin/stdout.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/huge_numeric_pin/stdout.txt",
+      "bytes": 114,
+      "sha256": "e2f3f3b7d823e6622878a09a806cea2e16ac05475cfb34485079899c3b3c59d2"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/identity-after-probe.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/identity-after-probe.json",
+      "bytes": 167,
+      "sha256": "71bcf5451c3697dc834c35cd03880557e35c4fdf44b00195b123d78a7f7c9261"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/identity-before.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/identity-before.json",
+      "bytes": 405,
+      "sha256": "f942ef01acce6f95a042153002bcbbadbfa58c1c986d1b248e552402ef72910c"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/probe-results.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/probe-results.json",
+      "bytes": 669,
+      "sha256": "ff991e12660e361fae019c755921f7080321c7bf229f4515bafc36f94aa90d1b"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/spec_other_code/acceptance.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/spec_other_code/acceptance.json",
+      "bytes": 3628,
+      "sha256": "9a521b43f0c9f5eece5b7e6fbedf8d2f00b7bccfd2554c47780a18084fb49f9c"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/spec_other_code/child-apply.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/spec_other_code/child-apply.json",
+      "bytes": 694,
+      "sha256": "5c41d5025bfeb023283079e6cb21150bafd5deb80b61740c1ef7b287784376db"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/spec_other_code/child-verify.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/spec_other_code/child-verify.json",
+      "bytes": 696,
+      "sha256": "4a0e2a78a99f242ab3eca2d25b26a31b39433529f36ac3af8094d43e1027740c"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/spec_other_code/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/spec_other_code/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 2842,
+      "sha256": "89c50d3a9f5b84db76cbc04b0d13f21f552f8d364d9798db6efcba507cf0dc6b"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/spec_other_code/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/spec_other_code/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 2848,
+      "sha256": "1be39ac0da8fec24cc42bd35bcf46c9460dfd47dc7e979820a9a8746ad5850c2"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/spec_other_code/stderr.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/spec_other_code/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe/spec_other_code/stdout.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe/spec_other_code/stdout.txt",
+      "bytes": 114,
+      "sha256": "e2f3f3b7d823e6622878a09a806cea2e16ac05475cfb34485079899c3b3c59d2"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/control/acceptance.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/control/acceptance.json",
+      "bytes": 5545,
+      "sha256": "9791f7771d0f0e002c6d55467f138d8cc22d7d243e76f35b7e8d748f23efd4ae"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/control/child-apply.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/control/child-apply.json",
+      "bytes": 694,
+      "sha256": "387a5cd3cec1d8af2b997fff056d72e921210106a83c22d837ec582f484659a2"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/control/child-verify.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/control/child-verify.json",
+      "bytes": 696,
+      "sha256": "383a6d45049bf308306b7555a0e65b05fd07244851cad429f18a29d9c4ee93d2"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/control/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/control/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 2858,
+      "sha256": "20dcd12bf95d90d19206c640c5262e727434cb3cabf5abcdde108142b81832a5"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/control/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/control/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 2864,
+      "sha256": "3696dc4ed5b5c49713249ac718ff7123d03af0695b55511a46ba2ad84e4a4114"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/control/stderr.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/control/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/control/stdout.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/control/stdout.txt",
+      "bytes": 43,
+      "sha256": "ddb909ef7d149fc529a5d4685f3ed12d1df37e4409648e894d7adca7b99d0009"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/fixture/child-apply.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/fixture/child-apply.json",
+      "bytes": 694,
+      "sha256": "387a5cd3cec1d8af2b997fff056d72e921210106a83c22d837ec582f484659a2"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/fixture/child-verify.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/fixture/child-verify.json",
+      "bytes": 696,
+      "sha256": "383a6d45049bf308306b7555a0e65b05fd07244851cad429f18a29d9c4ee93d2"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/fixture/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/fixture/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 2858,
+      "sha256": "c7fdef8d65dce064b4cb1d0401b66f170675f0e7d40138a3470d9743857d8a48"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/fixture/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/fixture/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 2864,
+      "sha256": "e67c9afc5b64ee804ee4cb5ab4904cbab252505a2e2b49fba41cf2dfb9b4a1dd"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/huge_numeric_pin/acceptance.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/huge_numeric_pin/acceptance.json",
+      "bytes": 3697,
+      "sha256": "02d33af2895b0f2317ae91bace40e9b7e18b1e1da0d281fdc393b608cdd66c69"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/huge_numeric_pin/child-apply.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/huge_numeric_pin/child-apply.json",
+      "bytes": 694,
+      "sha256": "387a5cd3cec1d8af2b997fff056d72e921210106a83c22d837ec582f484659a2"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/huge_numeric_pin/child-verify.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/huge_numeric_pin/child-verify.json",
+      "bytes": 696,
+      "sha256": "383a6d45049bf308306b7555a0e65b05fd07244851cad429f18a29d9c4ee93d2"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/huge_numeric_pin/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/huge_numeric_pin/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 3263,
+      "sha256": "83ad22ca53f8742a65b9cd0e1f3520abc59bfb4e1bd5bff4d28af85fcbed2b79"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/huge_numeric_pin/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/huge_numeric_pin/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 3269,
+      "sha256": "bb5e9ecb17de74fd2affba2e0cc9024b1686647b8f92409a1da19a727073e210"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/huge_numeric_pin/stderr.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/huge_numeric_pin/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/huge_numeric_pin/stdout.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/huge_numeric_pin/stdout.txt",
+      "bytes": 114,
+      "sha256": "e2f3f3b7d823e6622878a09a806cea2e16ac05475cfb34485079899c3b3c59d2"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/identity-after-probe.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/identity-after-probe.json",
+      "bytes": 73,
+      "sha256": "037d9ddeac2d3d8064f8801930e9eca6fce9e72978d2182a1b4e6a26987e3a95"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/identity-before.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/identity-before.json",
+      "bytes": 311,
+      "sha256": "e329196c09c9fa7170da384a38da098e9be0f2806093607871377e39e4fb6542"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/probe-results.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/probe-results.json",
+      "bytes": 669,
+      "sha256": "ff991e12660e361fae019c755921f7080321c7bf229f4515bafc36f94aa90d1b"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/spec_other_code/acceptance.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/spec_other_code/acceptance.json",
+      "bytes": 3652,
+      "sha256": "14e2246c6ea275ffe17362857fd93e05ff20f022c51aee3849670e6aeed7c285"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/spec_other_code/child-apply.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/spec_other_code/child-apply.json",
+      "bytes": 694,
+      "sha256": "5c41d5025bfeb023283079e6cb21150bafd5deb80b61740c1ef7b287784376db"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/spec_other_code/child-verify.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/spec_other_code/child-verify.json",
+      "bytes": 696,
+      "sha256": "4a0e2a78a99f242ab3eca2d25b26a31b39433529f36ac3af8094d43e1027740c"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/spec_other_code/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/spec_other_code/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 2866,
+      "sha256": "5d0ae07599e7c1cd06100c1acff26d4282a745291e13e34712f356065095119e"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/spec_other_code/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/spec_other_code/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 2872,
+      "sha256": "0a027da385e4aea363fcf5421876b7db006aef960e361d50f284052242c827f1"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/spec_other_code/stderr.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/spec_other_code/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze/spec_other_code/stdout.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze/spec_other_code/stdout.txt",
+      "bytes": 114,
+      "sha256": "e2f3f3b7d823e6622878a09a806cea2e16ac05475cfb34485079899c3b3c59d2"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe-code-freeze.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze.log.txt",
+      "bytes": 520,
+      "sha256": "21dc5bcfaecc36f3afa042c2a3ac5778b9e35c8478090ac9d01b757367326d03"
+    },
+    {
+      "path": "backfill-acceptance-fix/fixed-probe.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe.log.txt",
+      "bytes": 520,
+      "sha256": "21dc5bcfaecc36f3afa042c2a3ac5778b9e35c8478090ac9d01b757367326d03"
+    },
+    {
+      "path": "backfill-acceptance-fix/focused-green.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/focused-green.log.txt",
+      "bytes": 313,
+      "sha256": "5a19de76922f4e58d09d373121beb4d1d1f5e446ac9b90d19ef2143537285ce4"
+    },
+    {
+      "path": "backfill-acceptance-fix/full-module-code-freeze.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/full-module-code-freeze.log.txt",
+      "bytes": 1173,
+      "sha256": "14333ea4cf7bfcdb429baab1f38e30824f49c746872b6d0bd6aad25a0599a180"
+    },
+    {
+      "path": "backfill-acceptance-fix/full-module.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/full-module.log.txt",
+      "bytes": 1173,
+      "sha256": "5cd625a0e028fd358c122183f1c406ad99d44d4e0b29b9ff92036ed439f5fb52"
+    },
+    {
+      "path": "backfill-acceptance-fix/mutation-code-guard-removed.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/mutation-code-guard-removed.log.txt",
+      "bytes": 10430,
+      "sha256": "b02f2850f00794594ea29fdc34f50770ba5552153ae1ae5de936ce6812952ed3"
+    },
+    {
+      "path": "backfill-acceptance-fix/mutation-overflow-guard-removed.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/mutation-overflow-guard-removed.log.txt",
+      "bytes": 13808,
+      "sha256": "914fc4ed46745379024c41492fc0116bb237b4383278f2d8d15fdfd3371ed3b1"
+    },
+    {
+      "path": "backfill-acceptance-fix/post-mutation-restored-green.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/post-mutation-restored-green.log.txt",
+      "bytes": 304,
+      "sha256": "175a39b72e349da5299521a72b172b5c1042f7749d73a452132ee29c78a6b095"
+    },
+    {
+      "path": "backfill-acceptance-fix/red-tests.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/red-tests.log.txt",
+      "bytes": 23819,
+      "sha256": "f0daf0469557eac11ff56086b7f5941068783c97974eb41d03e52035abe8f707"
+    },
+    {
+      "path": "backfill-acceptance-fix/ruff-code-freeze.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/ruff-code-freeze.log.txt",
+      "bytes": 24,
+      "sha256": "026f9b21fdb4bddfc8d62966afcc43236c291557bf5b4a5a6fdb9a2a6cd9574c"
+    },
+    {
+      "path": "backfill-acceptance-fix/ruff-targets.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/ruff-targets.log.txt",
+      "bytes": 24,
+      "sha256": "026f9b21fdb4bddfc8d62966afcc43236c291557bf5b4a5a6fdb9a2a6cd9574c"
+    },
+    {
+      "path": "backfill-acceptance-fix/manifest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/manifest.json",
+      "bytes": 23105,
+      "sha256": "0667c7c2bea8dafeac152b7d5b0edce649c91a5e3adccc7b36b87ba148065eef"
+    },
+    {
+      "path": "backfill-acceptance-fix/manifest.sha256",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/manifest.sha256",
+      "bytes": 80,
+      "sha256": "2d587e7fd5802316482573adbddfdbe42051894f7de3cfedd7c7906bb0c46c41"
+    },
+    {
+      "path": "backfill-acceptance-fix/ARCHIVE-NOTE.md",
+      "bytes": 432,
+      "sha256": "770cddcaad84b6024cdcc40d2485a2ab71ed22c60873b03d60e0c8f5a9b809d9"
+    },
+    {
+      "path": "merge-801/before.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/merge-801/before.json",
+      "bytes": 149,
+      "sha256": "75fba8c26ab926d31925224e5b556759ffff086246227347317ba6277592229f"
+    },
+    {
+      "path": "merge-801/verified.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/merge-801/verified.json",
+      "bytes": 239,
+      "sha256": "084a95eed95a3a32042c5a8c2f0d9e8f3a7021e21e33fed365a3d64dada9a39a"
+    },
+    {
+      "path": "merge-801/authorization.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/merge-801/authorization.json",
+      "bytes": 304,
+      "sha256": "a86c2f619d21d28df57f10c4a0f3b35178bcfbf0577d9f3467083281bad6b921"
+    },
+    {
+      "path": "merge-801/merge-response.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/merge-801/merge-response.json",
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    {
+      "path": "merge-801/pr789-closure.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/merge-801/pr789-closure.json",
+      "bytes": 633,
+      "sha256": "e56c9ef08e91ade3957797b257b4a285a4b52f705f034afa078fa294cd760489"
+    },
+    {
+      "path": "main-e51-integration-previews.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/main-e51-integration-previews.json",
+      "bytes": 2049,
+      "sha256": "5d0d81a43a1fc500f126559a5b91a14dc73ad0263c1915aff434b3b4f9a7ce8e"
     }
   ]
 }
