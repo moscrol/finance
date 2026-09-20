@@ -99,6 +99,7 @@ def _unavailable(reason: str, *, status: str = "invalid") -> RagGenerationUnavai
         "managed_index_without_binding": "managed index requires a complete generation binding",
         "managed_binding_mismatch": "managed generation binding does not match its manifest",
         "managed_binding_alias": "managed generation binding contains a symlink or alias",
+        "managed_identity_io_error": "managed generation identity could not be read",
         "manifest_missing": "managed generation manifest is missing",
         "manifest_changed": "managed generation manifest changed",
         "generation_root_replaced": "managed generation root was replaced",
@@ -233,7 +234,7 @@ class FrozenRagGeneration:
         return dict(self.launch_environment)
 
 
-def capture_generation(
+def _capture_generation_unchecked(
     python: str,
     kb_root: Path,
     index_dir: Path,
@@ -395,3 +396,29 @@ def capture_generation(
         paths=tuple(paths.items()),
         identities=tuple(identities.items()),
     )
+
+
+def capture_generation(
+    python: str,
+    kb_root: Path,
+    index_dir: Path,
+    kb_wiki: Path | None,
+    *,
+    environment: Mapping[str, str] | None = None,
+) -> FrozenRagGeneration:
+    env = dict(os.environ if environment is None else environment)
+    complete_managed_binding = all(env.get(key) for key in MANAGED_CORE_KEYS)
+    try:
+        return _capture_generation_unchecked(
+            python,
+            kb_root,
+            index_dir,
+            kb_wiki,
+            environment=env,
+        )
+    except RagGenerationUnavailable:
+        raise
+    except OSError as exc:
+        if complete_managed_binding:
+            raise _unavailable("managed_identity_io_error") from exc
+        raise

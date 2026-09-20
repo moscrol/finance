@@ -10,7 +10,7 @@ from unittest import mock
 
 import pytest
 
-from intelligence.services import kb_rag, rag_worker
+from intelligence.services import kb_rag, rag_generation_identity, rag_worker
 from intelligence.services.rag_worker import PersistentRagWorker, WorkerResponse
 from intelligence.tests.test_rag_worker import _write_fake_rag
 
@@ -490,6 +490,50 @@ def test_first_managed_capture_classifies_malformed_manifest_shapes(
         )
 
     assert excinfo.value.reason == "managed_binding_mismatch"
+
+
+def test_first_managed_capture_translates_residual_permission_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    binding = _managed_generation(tmp_path, "alpha")
+    _activate(binding)
+    _bind(monkeypatch, binding)
+
+    with mock.patch.object(
+        rag_generation_identity,
+        "_has_symlink_component",
+        side_effect=PermissionError("fixture denied"),
+    ):
+        with pytest.raises(rag_worker.RagGenerationUnavailable) as excinfo:
+            PersistentRagWorker(
+                binding["python"],
+                Path(binding["code"]),
+                Path(binding["standard"]),
+                Path(binding["wiki"]),
+            )
+
+    assert excinfo.value.reason == "managed_identity_io_error"
+
+
+def test_legacy_capture_does_not_reclassify_permission_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for key in rag_generation_identity.MANAGED_CORE_KEYS:
+        monkeypatch.delenv(key, raising=False)
+    code = tmp_path / "code"
+    index = tmp_path / "index"
+    _write_fake_rag(code)
+    index.mkdir()
+
+    with mock.patch.object(
+        rag_generation_identity,
+        "_managed_marker",
+        side_effect=PermissionError("legacy fixture denied"),
+    ):
+        with pytest.raises(PermissionError, match="legacy fixture denied"):
+            PersistentRagWorker(sys.executable, code, index)
 
 
 def test_retired_generation_does_not_fallback_to_legacy_cli(
