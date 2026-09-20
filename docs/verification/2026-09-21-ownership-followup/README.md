@@ -20,7 +20,7 @@
 
 ## 文件与完整性
 
-`manifest.json` 封存29个原件的源路径、字节数、SHA256，记录 `gate_passed:false`。`python/receipts/gate-Sm54tmrK/pytest.json` 是失败轮权威原件；同目录 latest 仅导航。`author/` 是三个代码改动提交前的原始红绿日志，不是干净源码尖全量收据。
+`manifest.json` 登记30个文件（29个原件及本说明）的源路径、字节数、SHA256，记录 `gate_passed:false`。`python/receipts/gate-Sm54tmrK/pytest.json` 是失败轮权威原件；同目录 latest 仅导航。`author/` 是三个代码改动提交前的原始红绿日志，不是干净源码尖全量收据。
 
 `run_leaf.py.txt` / `seal_evidence.py.txt` 是有限对象的编排与封存程序，不是已安装的通用调度器。`gate-pr.md` / `review-request.md` 是当时创建PR及未提交审查的输入快照，后续状态以PR追加评论和新版交接为准。没有发自动审查请求。
 

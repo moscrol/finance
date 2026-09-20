@@ -20,7 +20,7 @@
 
 ## 完整性
 
-`manifest.json` 保存29个原件的源路径、字节数和SHA256，封存前核各叶complete/退出0/前后身份及日志哈希，复制后逐字节比较。新嵌套反例的旧版2F与修后49P在 `author/`。第一轮29个失败原件及manifest在相邻 `2026-09-21-ownership-followup/`，仍为 `gate_passed:false`，没有覆盖或追认。
+`manifest.json` 登记30个文件（29个原件及本说明）的源路径、字节数和SHA256，封存前核各叶complete/退出0/前后身份及日志哈希，复制后逐字节比较。新嵌套反例的旧版2F与修后49P在 `author/`。第一轮29个原件及说明、manifest在相邻 `2026-09-21-ownership-followup/`，仍为 `gate_passed:false`，没有覆盖或追认。
 
 `worktree-board.json` 是本轮带固定base的333条快照：18条error、52条dirty、137条cherry_plus>0。这些集合有重叠，不能加总为待办数；Git无增量/干净也不是删除许可。`open-prs.json` 是本地Gitea接口快照，受接口limit50约束，不冒充全历史清单。
 
