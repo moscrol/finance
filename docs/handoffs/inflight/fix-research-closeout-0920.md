@@ -10,7 +10,7 @@
 - 历史：代码dca7c27e/7e5f2ccd，clean e0f2a5c7独立Spec四组行为/12P、Quality另7P通过。PR800以原history c9为底；与main预演无文本冲突，未跑合流全叶或原自然四题。文档归档PR799。
 
 ## 后续队列
-1. RAG首版bc43ece9（代码d6812e62）已推，独立94P/2S但另2F确认首次缺full/解释器仍回退CLI，Spec FAIL，作者正返修。之后Spec→Quality→冻结四叶。首版原件保留；含宿主环境的3份JUnit仅归档脱敏副本，见redaction-manifest与ARCHIVE-NOTE。
+1. RAG返修代码cb4bbf1c、文档c4f33c5b已推；原2例及generation29P，Spec PASS。作者补keepalive测试的发送/完成等待竞态，之后Quality；与#789建组合候选跑四叶，原树保留。3份含环境的旧JUnit仅归档脱敏副本，见redaction-manifest与ARCHIVE-NOTE。
 2. 302132：独立65P但同步换code仍PASS、巨大int无FAIL JSON；按CODE绑定并可靠失败，计划已写尚未实施。
 3. 夜跑6356：独立36P，但显式刷新跳过借旧success认证；先修此缺口。跨午夜涉及日期/即时市值，另定合同；main可选Hithink skip为集成条件。计划已写。
 运行恢复/财务后续仍需合流门禁；跨进程driver未开放。
