@@ -289,7 +289,7 @@ def capture_generation(
         data.get("root") != str(root)
         or any(env.get(key) != value for key, value in expected.items())
         or not _same_path(manifest, expected_manifest)
-        or not _same_path(python, expected["KB_RAG_PYTHON"])
+        or _absolute(python) != _absolute(expected["KB_RAG_PYTHON"])
         or not _same_path(kb_root, expected["KB_RAG_CODE_ROOT"])
         or not _same_path(index_dir, expected["RAG_INDEX_DIR"])
         and not _same_path(index_dir, expected["KB_RAG_FULL_INDEX_DIR"])

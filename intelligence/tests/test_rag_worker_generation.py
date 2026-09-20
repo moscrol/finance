@@ -346,6 +346,24 @@ def test_partial_managed_binding_is_rejected(
         PersistentRagWorker(sys.executable, code, index)
 
 
+def test_managed_binding_distinguishes_venv_entries_with_same_python_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    alpha = _managed_generation(tmp_path, "alpha")
+    _activate(alpha)
+    _bind(monkeypatch, alpha)
+    alternate = tmp_path / "other-venv-python"
+    alternate.symlink_to(Path(alpha["python"]).resolve())
+
+    with pytest.raises(rag_worker.RagGenerationUnavailable, match="does not match"):
+        PersistentRagWorker(
+            str(alternate),
+            Path(alpha["code"]),
+            Path(alpha["standard"]),
+            Path(alpha["wiki"]),
+        )
+
+
 def test_retired_generation_does_not_fallback_to_legacy_cli(
     tmp_path: Path,
 ) -> None:
