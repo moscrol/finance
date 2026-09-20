@@ -27,7 +27,7 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date
-from typing import Literal, Protocol, cast, runtime_checkable
+from typing import TYPE_CHECKING, Literal, Protocol, cast, runtime_checkable
 
 from intelligence.services import answer_model, llm_refine
 from intelligence.services.agent_research import (
@@ -109,6 +109,9 @@ from intelligence.services.research_contract import (
 from intelligence.services.task_frame import TaskFrame, last_explicit_iso_date
 from intelligence.services.task_fulfillment import answer_has_output_marker
 from intelligence.services.tool_result_budget import MAX_EVIDENCE_TITLE_CHARS
+
+if TYPE_CHECKING:
+    from intelligence.services.research_harness import PublicationAssessment
 
 
 SemanticStatus = Literal["completed", "partial", "failed"]
@@ -738,6 +741,23 @@ def semantic_repair_feedback(outcome: SemanticEpisodeOutcome) -> tuple[str, ...]
         *(json.dumps(item, ensure_ascii=False, separators=(",", ":")) for item in pending),
         *legacy_indexes,
     )))
+
+
+def with_unresolved_review_publication(
+    publication: PublicationAssessment,
+    outcome: SemanticEpisodeOutcome,
+) -> PublicationAssessment:
+    """Cap final delivery using the last review, without exposing its diagnostics."""
+    if not semantic_repair_feedback(outcome):
+        return publication
+    notice = "部分表述未通过核验，本轮未完成相关修订；当前保留内容不能视为完整结论。"
+    return replace(
+        publication,
+        max_status="partial",
+        required_public_notices=tuple(dict.fromkeys((
+            *publication.required_public_notices, notice,
+        ))),
+    )
 
 
 def recheck_material_public_delivery(

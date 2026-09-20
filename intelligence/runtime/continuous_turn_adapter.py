@@ -39,6 +39,7 @@ from intelligence.services.episode_semantic_verifier import (
     numeric_condition_repair_feedback,
     numeric_condition_unsupported,
     recheck_material_public_delivery,
+    with_unresolved_review_publication,
 )
 from intelligence.services.rejudge_pending import append_pending_from_artifact
 from intelligence.services.episode_tools import (
@@ -1092,7 +1093,9 @@ class ContinuousTurnAdapter:
             status = "degraded"
         else:
             status = "failed"
-        publication = self._harness.assess_publication(context=context)
+        publication = with_unresolved_review_publication(
+            self._harness.assess_publication(context=context), semantic,
+        )
         if status == "completed" and publication.max_status == "partial":
             status = "partial"
         if not answer and final_outcome.evidence:

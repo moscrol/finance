@@ -746,8 +746,9 @@ def test_deleted_claim_feedback_reenters_same_session_with_original_text(repair_
 @pytest.mark.parametrize("judge_mode", ["llm", "off"])
 @pytest.mark.parametrize("finding", ["weekday", "numeric"])
 @pytest.mark.parametrize("backend", ["glm", "sdk"])
+@pytest.mark.parametrize("repair_case", ["correct", "no_budget", "ignored"])
 def test_real_episode_receives_stage_anchored_review_in_same_history(
-    monkeypatch, judge_mode, finding, backend,
+    monkeypatch, judge_mode, finding, backend, repair_case,
 ) -> None:
     monkeypatch.setenv("ASK_SEMANTIC_JUDGE", judge_mode)
     frame = _frame()
@@ -757,7 +758,8 @@ def test_real_episode_receives_stage_anchored_review_in_same_history(
         timeout=120.0, latest_data_date="2026-07-26",
     )
     context = replace(context, root_budget=InMemoryRootBudgetLedger(
-        episode_id=context.contract.task_id, initial_calls=2, hard_calls_cap=3,
+        episode_id=context.contract.task_id, initial_calls=2,
+        hard_calls_cap=2 if repair_case == "no_budget" else 3,
         initial_seconds=60.0, hard_seconds_cap=120.0,
     ))
     evidence = AgentEvidence(
@@ -797,7 +799,7 @@ def test_real_episode_receives_stage_anchored_review_in_same_history(
                 check_goal(goals[0])
             assert len(self.calls) <= 3
             return ModelTurn(json.dumps({
-                "status": "completed", "draft": original if len(self.calls) == 2 else corrected,
+                "status": "completed", "draft": corrected if len(self.calls) == 3 and repair_case == "correct" else original,
                 "bindings": [{"output_id": "direct_assessment", "evidence_hashes": ["E1"], "gap": ""}],
                 "gaps": ["来源覆盖范围尚未核验"],
             }, ensure_ascii=False), (), "test", "")
@@ -814,7 +816,7 @@ def test_real_episode_receives_stage_anchored_review_in_same_history(
             assert request._continuation_input is continuation
             check_goal(json.loads(request.input))
         return AgentsSdkResult(json.dumps({
-            "status": "completed", "draft": original if len(sdk_requests) == 1 else corrected,
+            "status": "completed", "draft": corrected if len(sdk_requests) == 2 and repair_case == "correct" else original,
             "bindings": [{"output_id": "direct_assessment", "evidence_hashes": [evidence.content_hash], "gap": ""}],
             "gaps": ["来源覆盖范围尚未核验"],
         }, ensure_ascii=False), 2 if len(sdk_requests) == 1 else 1, continuation_input=continuation)
@@ -831,24 +833,45 @@ def test_real_episode_receives_stage_anchored_review_in_same_history(
     result = ContinuousTurnAdapter(
         runtime=runtime,
         semantic_verifier=SemanticEpisodeVerifier(judge_fn=judge),
-        runtime_name="continuous_glm", mode="on",
+        runtime_name="continuous_glm" if backend == "glm" else "sdk_glm", mode="on",
         context_factory=lambda *_args, **_kwargs: context,
         registry_factory=lambda *_args, **_kwargs: registry,
     ).handle(frame=frame, control=control)
-    assert len(model.calls) == (3 if backend == "glm" else 0)
-    assert len(sdk_requests) == (2 if backend == "sdk" else 0)
-    assert len(requests) == ((2 if finding == "weekday" else 1) if judge_mode == "llm" else 0)
-    assert result.answer == corrected
-    assert result.private_artifact["repair_cycles"] == int(finding == "weekday")
+    resumed = repair_case != "no_budget"
+    assert len(model.calls) == ((2 + int(resumed)) if backend == "glm" else 0)
+    assert len(sdk_requests) == ((1 + int(resumed)) if backend == "sdk" else 0)
+    terminal_repair = backend == "glm" and repair_case == "ignored" and finding == "weekday"
+    rejudged = finding == "weekday" and resumed and not terminal_repair
+    assert len(requests) == ((1 + int(rejudged)) if judge_mode == "llm" else 0)
+    if terminal_repair:
+        assert result.private_artifact["semantic_verifier_stale"] is True
+    notice = "部分表述未通过核验，本轮未完成相关修订；当前保留内容不能视为完整结论。"
+    publication = result.private_artifact["publication_assessment"]
+    if repair_case == "correct":
+        assert result.answer == corrected
+        assert notice not in result.open_gaps
+        assert publication["max_status"] == "completed"
+    else:
+        assert result.status == "partial"
+        assert result.answer == "但上涨家数仍待改善。\n\n" + notice
+        assert result.open_gaps == (notice,)
+        assert publication["max_status"] == "partial"
+        assert publication["required_public_notices"] == [notice]
+        assert "来源覆盖范围尚未核验" not in result.answer
+        assert rejected not in result.answer
+        assert "preflight" not in result.answer
+    expected_repair_cycles = int(finding == "weekday" and resumed and not terminal_repair)
+    assert result.private_artifact["repair_cycles"] == expected_repair_cycles
     assert result.private_artifact["backfill_turns"] == int(finding == "numeric")
     assert result.private_artifact["outcome"]["usage"]["tool_calls"] == 1
     assert result.private_artifact["outcome"]["usage"]["invalid_actions"] == 0
     assert len(result.private_artifact["outcome"]["evidence"]) == 1
     events = result.private_artifact["events"]
-    assert sum(event["kind"] == "repair_reentry" for event in events) == 1
+    assert sum(event["kind"] == "repair_reentry" for event in events) == int(resumed)
+    assert result.private_artifact["outcome"]["usage"]["llm_calls"] == 2 + int(resumed)
     if backend == "glm":
         assert any(original in str(event["payload"]) for event in events if event["kind"] == "model_turn")
-    else:
+    elif resumed:
         assert sdk_requests[1]._continuation_input is continuation
         check_goal(json.loads(sdk_requests[1].input))
 

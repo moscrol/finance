@@ -222,6 +222,54 @@ def test_semantic_repair_feedback_lift_does_not_clear_mechanical_finding() -> No
     )) == ()
 
 
+@pytest.mark.parametrize("existing_ceiling", ["completed", "partial"])
+@pytest.mark.parametrize("finding", ["deleted", "demoted", "lifted", "mechanical_lift", "census", "legacy", "clean"])
+def test_final_publication_uses_pending_review_without_mutating_review_or_private_copy(existing_ceiling, finding):
+    from intelligence.services import episode_semantic_verifier as module
+    from intelligence.services.research_harness import PublicationAssessment
+
+    _, structural = _structural("保留的市场观察。", gaps=("私有估值缺口",))
+    row = {
+        "stage": "judge", "sentence_index": 1, "sentence": "私有被拒原句。",
+        "decision": "demoted_to_issue", "reasons": ["judge"],
+        "judge_issues": ["私有诊断详情"],
+    }
+    records = (row,)
+    if finding == "deleted":
+        records = ({**row, "stage": "preflight", "decision": "deleted"},)
+    elif finding in {"lifted", "mechanical_lift"}:
+        if finding == "mechanical_lift":
+            row = {**row, "reasons": ["novel_numeric_condition"]}
+        records = (row, {**row, "stage": "guided_rejudge", "decision": "lifted"})
+    elif finding == "census":
+        records = ({**row, "stage": "census", "decision": "kept"},)
+    elif finding in {"legacy", "clean"}:
+        records = ()
+    review = module.SemanticEpisodeOutcome(
+        verified=structural, status="completed", public_answer="保留的市场观察。",
+        judge_status="repaired", sentence_verdicts=records,
+        rejected_claim_indexes=(1,) if finding == "legacy" else (),
+    )
+    before = review.to_dict()
+    other_notice = "另一项公开来源限制。"
+    publication = PublicationAssessment(
+        max_status=existing_ceiling, required_public_notices=(other_notice,),
+    )
+    result = module.with_unresolved_review_publication(publication, review)
+    pending = finding in {"deleted", "demoted", "mechanical_lift", "legacy"}
+    if pending:
+        assert result.max_status == "partial"
+        assert result.required_public_notices == (
+            other_notice,
+            "部分表述未通过核验，本轮未完成相关修订；当前保留内容不能视为完整结论。",
+        )
+        assert module.with_unresolved_review_publication(result, review) == result
+    else:
+        assert result is publication
+    assert review.to_dict() == before
+    assert publication.required_public_notices == (other_notice,)
+
+
 @pytest.mark.parametrize("mode", ["evidence", "model_reasoning", "user_premise"])
 def test_declared_gaps_reach_model_wire_as_unverified_review_context(monkeypatch, mode) -> None:
     from intelligence.services import episode_semantic_verifier as module
