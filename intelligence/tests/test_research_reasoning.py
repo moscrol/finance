@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from fractions import Fraction
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -159,5 +161,44 @@ def test_guidance_does_not_define_lenses_or_mandatory_reflection(monkeypatch):
         "单纯查数", "没有封闭视角菜单", "不默认从宏观或流动性开始",
         "不能单独证明因果", "不为凑数量编反方", "当时可知时间",
         "放弃解释", "保留未知", "合成阶段仅使用已提供材料", "不新增权限",
+        "统计对象、分组口径、分母、时间窗", "当前占比不能直接说明增量分布",
+        "行业分组不能替代市值分组", "不能唯一识别资金来源与买卖动机",
+        "订单不等于交付", "不把不确定扩大为全盘拒答",
     ):
         assert boundary in text
+
+
+def _behavior_cases():
+    path = Path(__file__).parents[1] / "eval/fixtures/research-reasoning-awareness.json"
+    fixture = json.loads(path.read_text(encoding="utf-8"))
+    cases = fixture["cases"]
+    assert len({case["id"] for case in cases}) == len(cases)
+    assert all(case["turns"] and case["criteria"] for case in cases)
+    return {case["id"]: case for case in cases}
+
+
+@pytest.mark.parametrize("case_id,shares,increment,contribution", [
+    ("share-up-amount-down", (Fraction(1, 5), Fraction(3, 10)), -20, Fraction(1, 20)),
+    ("increment-with-denominator", (Fraction(1, 10), Fraction(3, 20)), 80, Fraction(2, 5)),
+])
+def test_counterexample_fixture_arithmetic(case_id, shares, increment, contribution):
+    # Fixture consistency only, not an assertion about model behavior. A ratio
+    # of two negative changes is not a contribution to positive new turnover.
+    data = _behavior_cases()[case_id]["numbers"]
+    assert tuple(Fraction(data[f"sector_{period}"], data[f"market_{period}"]) for period in ("before", "after")) == shares
+    sector_change = data["sector_after"] - data["sector_before"]
+    market_change = data["market_after"] - data["market_before"]
+    assert sector_change == increment
+    assert Fraction(sector_change, market_change) == contribution
+
+
+def test_margin_counterexample_does_not_confuse_ratio_and_amount():
+    data = _behavior_cases()["margin-is-not-profit"]["numbers"]
+    gross_profits = []
+    margins = []
+    for period in ("before", "after"):
+        unit_profit = data[f"price_{period}"] - data[f"cost_{period}"]
+        gross_profits.append(data[f"quantity_{period}"] * unit_profit)
+        margins.append(Fraction(unit_profit, data[f"price_{period}"]))
+    assert gross_profits == [24, 24]
+    assert margins == [Fraction(1, 5), Fraction(3, 11)]

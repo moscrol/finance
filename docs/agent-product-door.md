@@ -81,7 +81,9 @@ L2、外层质检与方法验证保留 `FINANCE_CODE_ROOT`，数据与外置用�
 连续 Episode 先走动态题型规则，再通过已有 `tool_budget_state.runtime_budget.research_reasoning`
 在工具返回后送达短提醒，随原事件保存，不额外发起模型/工具调用，不依赖进展账开关。
 ask 的 AnswerSpec 合成、旧复盘合成及 `prepare_existing_answer` 回退共用初始规则，但不能改变已完成的检索。
-只增加生成指导，不证明模型执行了求证，不授予权限、证据资格或完成状态；原知识门控保持不变。
+v2 补统计对象/分母/时间窗/变化量对齐，以及“相同观察能否容许另一机制”的反例检查；
+区分成交与净入金、行业与市值、订单与交付、毛利率与利润总额，不把不确定扩大为全盘拒答。
+仍只增加生成指导，不证明模型执行了求证，不授予权限、证据资格或完成状态；原知识门控保持不变。
 未接入日报离线生成、未合 main/部署 8792，也不依赖未合入的 `feat/adaptive-research-loop`。
 测试场景和效果边界见 [研究求证意识验收](verification/2026-09-20-research-reasoning-awareness.md)。
 
