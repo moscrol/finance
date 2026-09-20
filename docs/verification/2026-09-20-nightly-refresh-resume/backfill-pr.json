@@ -1,0 +1,1 @@
+{"already_open": false, "number": 802, "state": "open", "merged": false, "head": "fix/backfill-acceptance-closeout-0920", "head_sha": "1fd34dc7ab06", "base": "fix/backfill-302132-scoped", "mergeable_claimed_by_gitea": true, "title": "fix(acceptance): bind backfill receipts to target and reject huge numerics", "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/802"}

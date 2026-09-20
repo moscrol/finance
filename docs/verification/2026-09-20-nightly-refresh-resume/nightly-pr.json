@@ -1,0 +1,1 @@
+{"already_open": false, "number": 803, "state": "open", "merged": false, "head": "fix/nightly-refresh-resume-0920", "head_sha": "d95b706edc6e", "base": "main", "mergeable_claimed_by_gitea": false, "title": "WIP: fix(review): require current refresh completion; independent review pending", "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/803"}

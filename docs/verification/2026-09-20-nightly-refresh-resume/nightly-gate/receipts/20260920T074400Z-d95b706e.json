@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-gate/finance-workspace-private",
+  "revision": "d95b706edc6e44f3dfa54d7b8837dfdd36b16cf2",
+  "branch": "HEAD",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-gate/finance-workspace-private",
+  "counts": {
+    "passed": 11913,
+    "failed": 0,
+    "error": 0,
+    "skipped": 85
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-20T07:44:00+00:00"
+}
