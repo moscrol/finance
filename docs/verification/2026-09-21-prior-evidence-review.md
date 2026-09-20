@@ -47,7 +47,8 @@
 
 ## 自动检查
 
-- 本轮相关17个测试文件：836 passed。恢复保护后的收据：`~/.finance-runtime/test-receipts/20260920T175101Z-84b9d851.json`。
+- pytest/ruff 解释器均为主树 `.venv-workbench/bin/python`。本轮相关17个测试文件：836 passed。恢复保护后的收据：`~/.finance-runtime/test-receipts/20260920T175101Z-84b9d851.json`。
+- 提交后干净 `7d0afaff` 同组836P、exit0、dirty=false；收据 `~/.finance-runtime/test-receipts/20260920T175433Z-7d0afaff.json`。
 - 全仓 Ruff、diff --check 通过。
 - 哈希门变异：撤掉 digest 比较后，等长且schema合法的3126→3127篡改测试失败，收据 `20260920T174821Z-84b9d851.json`。
 - 会话门变异：撤掉源run.session_id比较后，跨会话元数据测试失败，收据 `20260920T174845Z-84b9d851.json`。
