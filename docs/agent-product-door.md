@@ -64,6 +64,14 @@ L2、外层质检与方法验证保留 `FINANCE_CODE_ROOT`，数据与外置用�
 不合作的 worker。它不修改持久化状态机，不是跨进程交付协议；多 worker 前须替换。
 同会话新消息也使旧加载代际失效，迟到的上一轮快照不得抹掉新追问。
 
+### 工具局部失败与进展记账
+
+`research_progress.normalize_query` 在 JSON 投影边界兼容 `ModelToolCall` 的递归只读
+Mapping：仅复制为普通字典，不改变冻结参数；未知对象仍拒绝。工具参数被拒、执行失败或
+超时时，进展账可接收无 `query` 的结构化参数，错误反馈继续进入原 Episode，已有证据保留。
+这不是自动纠参或保证自然模型重试，也未修复整轮异常后的汇总用量与事件日志不一致。
+生产生效版本仍以 `/api/health` 为准。
+
 ### 专项研究纪律（Knevo 增量，2026-09-17 已合 main）
 
 `research_workflow_guidance.workflow_guidance` 给财报、事件推演、观点审查、事实核对、历史类比

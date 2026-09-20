@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import replace
 import json
 
 import pytest
@@ -25,7 +26,11 @@ from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
 )
-from intelligence.services.research_tool_registry import ResearchToolRegistry, ToolSpec
+from intelligence.services.historical_research.episode import history_tool_specs
+from intelligence.services.historical_research.intent import HistoryIntent
+from intelligence.services.research_tool_registry import (
+    ResearchToolRegistry, ToolSpec, URL_TOOL_PARAMETERS, parse_url_arguments,
+)
 from intelligence.services.task_frame import TaskFrame
 
 
@@ -300,6 +305,127 @@ def test_progress_off_switch_restores_previous_budget_payload(monkeypatch: pytes
     assert outcome.status == "completed"
     assert all("research_progress" not in block for block in _budget_blocks(model))
     assert [e for e in outcome.events if e.kind == "finalization"] == []
+
+
+@pytest.mark.parametrize("url,error,dispatched", [
+    ("file:///nonexistent", "invalid_query", False),
+    ("relative/path", "invalid_query", False),
+    ("https://example.org/report", "tool_exception", True),
+])
+def test_url_failure_keeps_prior_evidence_and_returns_feedback_to_same_episode(
+    monkeypatch: pytest.MonkeyPatch, url: str, error: str, dispatched: bool,
+) -> None:
+    def denied(*_args, **_kwargs):
+        raise AssertionError("offline regression must not connect")
+
+    monkeypatch.setattr("socket.socket.connect", denied)
+    monkeypatch.setattr("socket.create_connection", denied)
+    calls = []
+
+    def failing_fetch(value, _context):
+        calls.append(value)
+        raise RuntimeError("offline provider failure")
+
+    frame = _frame()
+    base = _context(frame)
+    context = replace(base, contract=replace(
+        base.contract, allowed_capabilities=("market_data", "web_fetch"),
+    ))
+    registry = ResearchToolRegistry((
+        _registry(_runner).resolve("market_data"),
+        ToolSpec(
+            name="web_fetch", capability="web_fetch", description="网页正文",
+            cost="remote", freshness="current", runner=failing_fetch,
+            parameters=URL_TOOL_PARAMETERS, parse_arguments=parse_url_arguments,
+        ),
+    ))
+    call = ModelToolCall("bad-url", "web_fetch", {"url": url})
+    model = ScriptedModel([
+        _tool_turn("q1", "c1"), ModelTurn("", (call,), "scripted"),
+        _finish_turn(("hash-q1",)),
+    ])
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame, context=context, registry=registry,
+    )
+    assert outcome.status == "completed" and outcome.stop_reason == "model_finish"
+    assert outcome.draft and [e.content_hash for e in outcome.evidence] == ["hash-q1"]
+    assert outcome.bindings[0].evidence_hashes == ("hash-q1",)
+    assert len(model.calls) == 3
+    assert calls == ([url] if dispatched else [])
+    assert outcome.usage.tool_calls == 1 + int(dispatched)
+    errors = [e for e in outcome.events if e.kind == "tool_error"]
+    assert len(errors) == 1 and errors[0].payload["error"] == error
+    feedback = next(
+        json.loads(m["content"]) for m in model.calls[-1]["messages"]
+        if m.get("role") == "tool" and m.get("tool_call_id") == "bad-url"
+    )
+    assert feedback["ok"] is False and feedback["error"] == error
+    assert feedback["detail"]
+    progress = _budget_blocks(model)[-1]["research_progress"]
+    assert progress["evidence_total"] == 1 and progress["stalled_batches"] == 1
+    assert progress["last_batch"][0]["result"] == ("error" if dispatched else "rejected")
+
+
+def test_missing_history_end_returns_feedback_without_losing_prior_evidence(
+    monkeypatch: pytest.MonkeyPatch, tmp_path,
+) -> None:
+    """真 parser + 真 loop；缺参仍拒绝，脚本模型可在同轮保留已有判断。"""
+    def denied(*_args, **_kwargs):
+        pytest.fail("invalid history arguments must not reach database or network")
+
+    monkeypatch.setattr("socket.socket.connect", denied)
+    monkeypatch.setattr("socket.create_connection", denied)
+    monkeypatch.setattr("intelligence.services.historical_research.query.HistoryQuery.run", denied)
+    monkeypatch.delenv("WORKBENCH_RESEARCH_PROGRESS", raising=False)
+    intent = HistoryIntent("historical_comparison")
+    frame = replace(_frame(), history_intent=intent)
+    base = _context(frame)
+    context = replace(base, history_intent=intent, contract=replace(
+        base.contract, allowed_capabilities=("market_data", "finance_query"),
+    ))
+    registry = ResearchToolRegistry((
+        _registry(_runner).resolve("market_data"),
+        *history_tool_specs(frame, context, tmp_path / "never-open.duckdb", None),
+    ))
+    # 2026-09-18 实际失败调用的参数形状：无 query、缺 end、嵌套 outcome。
+    call = ModelToolCall("history-missing-end", "history_query", {
+        "entity_codes": ["990089.FP"], "entity_kind": "sector",
+        "operation": "find_analogues", "outcome": {"horizon_days": 5, "threshold_pct": 3},
+        "search_start": "2025-03-01", "search_end": "2026-08-20",
+        "start": "2026-09-04", "window_days": 10,
+    })
+    before = call.to_dict()
+    finish = _finish_turn(("hash-q1",))
+    payload = json.loads(finish.content)
+    payload.update(status="partial", gaps=["历史查询缺结束日，尚未完成历史样本检验。"])
+    payload["history_research"] = {
+        "purpose": intent.purpose, "result_refs": [], "claim_level": "insufficient_evidence",
+        "research_only": True, "decision_eligible": False, "promotion_eligible": False,
+    }
+    model = ScriptedModel([
+        _tool_turn("q1", "c1"), ModelTurn("", (call,), "scripted"),
+        replace(finish, content=json.dumps(payload, ensure_ascii=False)),
+    ])
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame, context=context, registry=registry,
+    )
+    assert outcome.status == "partial" and outcome.stop_reason == "model_finish"
+    assert payload["draft"] in outcome.draft
+    assert [item.content_hash for item in outcome.evidence] == ["hash-q1"]
+    assert outcome.bindings[0].evidence_hashes == ("hash-q1",)
+    assert len(model.calls) == 3 and outcome.usage.tool_calls == 1
+    assert context.history_results == [] and call.to_dict() == before
+    errors = [e for e in outcome.events if e.kind == "tool_error"]
+    assert len(errors) == 1 and errors[0].payload["error"] == "invalid_arguments"
+    feedback = next(
+        json.loads(m["content"]) for m in model.calls[-1]["messages"]
+        if m.get("role") == "tool" and m.get("tool_call_id") == call.call_id
+    )
+    assert feedback["ok"] is False and feedback["error"] == "invalid_arguments"
+    assert feedback["detail"] == "end requires ISO date"
+    progress = _budget_blocks(model)[-1]["research_progress"]
+    assert progress["last_batch"][0]["result"] == "rejected"
+    assert progress["evidence_total"] == 1 and progress["stalled_batches"] == 1
 
 
 def test_tool_error_after_success_keeps_evidence_and_reports_error(monkeypatch: pytest.MonkeyPatch) -> None:
