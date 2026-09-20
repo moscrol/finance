@@ -156,7 +156,12 @@ class PremiseCalculation:
 
     @property
     def table(self) -> str:
-        lines = ["按题设计算：", "| 指标 | 公式与基数 | 结果 |", "| --- | --- | --- |"]
+        lines = [
+            "按题设计算：",
+            "",
+            "| 指标 | 公式与基数 | 结果 |",
+            "| --- | --- | --- |",
+        ]
         for row in self.rows:
             result = _fmt(row.value) + (row.unit if row.value is not None else "")
             lines.append(
@@ -165,10 +170,18 @@ class PremiseCalculation:
         if not self.rows:
             lines = ["题设计算暂缺可确认的完整输入。"]
         if any(row.metric.startswith("scenario_") for row in self.rows):
-            lines.append("情景结果仅表示假设成立时的计算，不是盈利预测。")
+            lines.extend(("", "情景结果仅表示假设成立时的计算，不是盈利预测。"))
         if self.issues:
-            lines.append("待明确：" + "；".join(self.issues) + "。")
+            lines.extend(("", "待明确：" + "；".join(self.issues) + "。"))
         return "\n".join(lines)
+
+    @property
+    def _table_pattern(self) -> re.Pattern[str]:
+        # Publication may collapse empty lines. Only that presentation change
+        # is tolerated: every nonempty line, formula and value remains literal.
+        return re.compile(
+            r"\n+".join(re.escape(line) for line in self.table.splitlines() if line)
+        )
 
     def model_payload(self) -> dict[str, object]:
         return {
@@ -188,17 +201,22 @@ class PremiseCalculation:
     def admit(self, draft: str, *, status: str) -> tuple[str, str]:
         if self.issues and status == "completed":
             return draft, "题设计算存在未明确输入：" + "；".join(self.issues)
-        if draft.count(CALCULATION_MARKER) == 1 and self.table not in draft:
-            outside = draft.replace(CALCULATION_MARKER, "")
-            rendered = draft.replace(CALCULATION_MARKER, self.table)
-        elif draft.count(self.table) == 1 and CALCULATION_MARKER not in draft:
-            outside = draft.replace(self.table, "")
-            rendered = draft
+        matches = list(self._table_pattern.finditer(draft))
+        if draft.count(CALCULATION_MARKER) == 1 and not matches:
+            before, after = draft.split(CALCULATION_MARKER)
+        elif len(matches) == 1 and CALCULATION_MARKER not in draft:
+            before, after = draft[: matches[0].start()], draft[matches[0].end() :]
         else:
             return (
                 draft,
                 "计算表缺失或被改写；请在 draft 中原样保留一次 " + CALCULATION_MARKER,
             )
+        outside = before + after
+        if "| 指标 | 公式与基数 | 结果 |" in outside:
+            return draft, "计算表重复或被改写；只保留一次程序计算占位符"
+        rendered = "\n\n".join(
+            part for part in (before.rstrip(), self.table, after.lstrip()) if part
+        )
         review = self.review_prose(outside)
         if review["conflicts"]:
             return draft, "表外数字与题设计算冲突：" + "；".join(review["conflicts"])
@@ -213,7 +231,7 @@ class PremiseCalculation:
 
     def review_prose(self, text: str) -> dict[str, object]:
         """Proven contradictions block; unparsed prose is not a mechanical pass."""
-        text = text.replace(self.table, "").replace(CALCULATION_MARKER, "")
+        text = self._table_pattern.sub("", text).replace(CALCULATION_MARKER, "")
         aliases = {
             "revenue_yoy": r"收入(?:同比增速|同比增长率|同比)",
             "profit_yoy": r"(?:归母)?净利润(?:同比增速|同比增长率|同比)",

@@ -226,6 +226,23 @@ def test_paired_or_hypothetical_values_are_unverified_not_current_scalar_conflic
     assert review["unverified_numeric_fragments"]
 
 
+def test_collapsed_blank_lines_are_restored_without_relaxing_table_values():
+    calc = compile_case()
+    collapsed = (
+        calc.table.replace("\n\n", "\n") + "\n**几点解读：**\n不能据此判断便宜。"
+    )
+    public, error = calc.admit(collapsed, status="completed")
+    assert not error
+    assert "按题设计算：\n\n| 指标" in public
+    assert "| 20倍 |\n\n**几点解读：**" in public
+    assert calc.admit(collapsed.replace("20倍", "22.5倍"), status="completed")[1]
+
+
+def test_scenario_caption_is_outside_markdown_table():
+    calc = compile_case(FOLLOWUP, (PremiseSource("first", ARITHMETIC),))
+    assert "| 33.3333倍 |\n\n情景结果" in calc.table
+
+
 def test_wrong_static_pe_is_rejected_even_with_a_correct_owned_table():
     calc = compile_case()
     for statement in ("静态市盈率22.5倍。", "静态市盈率180/8=22.5倍。"):

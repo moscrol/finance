@@ -1198,7 +1198,7 @@ class SemanticEpisodeVerifier:
             review = calculation.review_prose(outcome.public_answer)
             public, error = calculation.admit(outcome.public_answer, status=outcome.status)
             outcome = replace(outcome, premise_calculation_review={
-                **review, "owned_table_matches": calculation.table in outcome.public_answer,
+                **review, "owned_table_matches": not error and calculation.table in public,
                 "admission_error": error,
             })
             if error:
@@ -1210,7 +1210,7 @@ class SemanticEpisodeVerifier:
                     public_answer=view(TerminalFacts(
                         cause=CAUSE_VERIFICATION_INCOMPLETE,
                         question=frame.raw_question,
-                        public=calculation.table,
+                        public=calculation.table + "\n",
                         gap_body="本轮定性解释未通过核验；以上仅为题设计算，不能据此判断股票便宜。",
                     )),
                     issues=tuple(dict.fromkeys((*outcome.issues, "premise_calculation_mismatch: " + error))),
