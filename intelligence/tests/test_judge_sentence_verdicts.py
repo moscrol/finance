@@ -1,8 +1,8 @@
-"""P2 第一步：判官每条拒句进结构化账（``sentence_verdicts``），判据一字不改。
+"""判官每条拒句进结构化账（``sentence_verdicts``），账本与公开处置一致。
 
-spec 2026-09-02 §3.3「先量后改」：先记 deleted_sentence / reason / bound_evidence /
-source_tier，跑题集量「因来源档次被删的有出处真话」占比，够阈值才动判据。
-这里钉的是账本与真实处置一致：记「deleted」的句子确实不在稿里，记「demoted」的确实还在。
+带 E 引用且被判官拒绝的语义句必须删除；没有 E 引用的必答槽语义句仍可降级，
+避免把分析/情景表述误删。这里同时钉住两条路径：记「deleted」的句子确实不在稿里，
+记「demoted」的确实还在。
 """
 
 from __future__ import annotations
@@ -115,7 +115,8 @@ def test_cited_ordinal_resolves_to_evidence_hash_and_source_tier() -> None:
     verdicts = [v for v in result.sentence_verdicts if v["sentence_index"] == 2]
     assert len(verdicts) == 1
     verdict = verdicts[0]
-    assert verdict["decision"] == VERDICT_DEMOTED
+    assert verdict["decision"] == VERDICT_DELETED
+    assert "据E1显示成交额放大" not in result.public_answer
     assert verdict["cited_evidence_ordinals"] == ["E1"]
     assert verdict["unresolved_evidence_ordinals"] == []
     assert verdict["bound_evidence_hashes"] == ["HASH_PRIVATE_SENTINEL"]
@@ -168,12 +169,13 @@ def test_offline_census_reads_verdicts_and_reports_historic_runs_as_unjudgeable(
     assert report["runs_with_field"] == 1
     assert report["runs_without_field"] == 1
     assert report["verdict_count"] == 2
-    assert report["by_decision"] == {VERDICT_DEMOTED: 1, VERDICT_DELETED: 1}
-    # 第 3 句只引了表外 E99 → 机械删除、无出处；第 2 句引 E1（public_web）→ 语义、降级。
-    assert report["deleted"]["count"] == 1
-    assert report["deleted"]["with_source_count"] == 0
+    assert report["by_decision"] == {VERDICT_DELETED: 2}
+    # 第 3 句只引了表外 E99 → 机械删除、无出处；第 2 句引 E1（public_web）
+    # 且被语义判官拒绝 → 同样删除，不得把有出处但不支持的事实留在公开稿。
+    assert report["deleted"]["count"] == 2
+    assert report["deleted"]["with_source_count"] == 1
     assert report["deleted"]["unresolved_ordinal_only_count"] == 1
-    assert report["demoted"]["source_tiers"] == {"public_web": 1}
+    assert report["demoted"]["source_tiers"] == {}
     assert report["verdict"].startswith("可判")
     assert "不可判" in module.census(module._iter_episode_files(old_run), since=None)["verdict"]
     rendered = module.render_markdown(report)

@@ -1100,7 +1100,10 @@ class SemanticEpisodeVerifier:
         decision_for: dict[int, str] = {int(index): VERDICT_DELETED for index in mechanical}
         for index in semantic:
             text = text_by_index.get(int(index), "")
-            if _sentence_in_required_grounded_block(text, contract):
+            # 必答槽内、没有 E 引用的语义争议仍走原有降级保护：它可能只是
+            # 分析/情景表述，整句删除会误伤槽位。句子一旦明确引用证据，
+            # 判官拒绝就代表该公开事实与所引证据不相容，不能继续出门。
+            if _sentence_in_required_grounded_block(text, contract) and not cited_evidence_ordinals(text):
                 self._note_semantic_reject(text, issues)
                 decision_for[int(index)] = VERDICT_DEMOTED
             else:
@@ -1136,7 +1139,8 @@ class SemanticEpisodeVerifier:
         texts = self._semantic_reject_texts
         if not texts:
             return outcome
-        # 拒句与降级进 issues / judge_status，不进公开稿。质检条不上桌。
+        # 兼容仍可能由引导回检索产生的存疑账：已进入删除修复的拒句不应再
+        # 通过这个投影回到公开稿。这里仅保留控制面标记，公开文本不拼质检条。
         issues = tuple(
             dict.fromkeys((*outcome.issues, *self._semantic_reject_issues))
         )
