@@ -1,0 +1,21 @@
+{
+  "original_path": "/tmp/hithink-capture-mutation-time.patch",
+  "raw_sha256": "700a55f443f8d2dc49067aac7951278bc99ff2c787531bdddc264e5556c263cb",
+  "encoding": "utf-8",
+  "lines": [
+    "diff --git a/market_feature_store/hithink_sector_capture.py b/market_feature_store/hithink_sector_capture.py\n",
+    "index 1f07b0c9..c033dbaa 100644\n",
+    "--- a/market_feature_store/hithink_sector_capture.py\n",
+    "+++ b/market_feature_store/hithink_sector_capture.py\n",
+    "@@ -97,8 +97,7 @@ def _read_capture(con, capture_id: str) -> tuple[dict, dict]:\n",
+    "             normalized = _normalized(kind, key, rows)\n",
+    "             if rows != normalized or _hash(normalized) != fingerprint or n != len(normalized):\n",
+    "                 raise ValueError(\"response integrity\")\n",
+    "-            if (sent is None or received is None or not started <= sent <= received\n",
+    "-                    or (finished is not None and received > finished)):\n",
+    "+            if sent is None or received is None:\n",
+    "                 raise ValueError(\"response time\")\n",
+    "             decoded[identity] = normalized\n",
+    "         except (ValueError, TypeError, RuntimeError):\n"
+  ]
+}

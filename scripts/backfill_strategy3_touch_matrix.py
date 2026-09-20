@@ -26,8 +26,16 @@ from pathlib import Path
 
 import duckdb
 
-ROOT = Path(__file__).resolve().parents[1]
-DB = ROOT / "db/market_feature_store.duckdb"
+import sys
+
+CODE_ROOT = Path(__file__).resolve().parents[1]
+if str(CODE_ROOT) not in sys.path:
+    sys.path.insert(0, str(CODE_ROOT))
+
+from intelligence.paths import data_repo_root, default_market_db_path  # noqa: E402
+
+ROOT = data_repo_root()
+DB = default_market_db_path()
 MATRIX = ROOT / "复盘/matrices/strategy3-touch-up-rebound-matrix.html"
 
 

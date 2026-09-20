@@ -1,0 +1,25 @@
+{
+ "original_path": "/tmp/p3-stock-fallback.json",
+ "raw_sha256": "5a8974cc68a5895079c17e2e3bc8c9e5e26f5ad0f6a2eb9b48aec4b27671be87",
+ "encoding": "utf-8",
+ "lines": [
+  "{\n",
+  "  \"adjustment_coverage\": \"unverified\",\n",
+  "  \"calculation_ready\": false,\n",
+  "  \"contract_version\": \"hithink-stock-preview-v1\",\n",
+  "  \"gaps\": [\n",
+  "    {\n",
+  "      \"reason\": \"database-unavailable-or-schema-mismatch\"\n",
+  "    }\n",
+  "  ],\n",
+  "  \"production_ready\": false,\n",
+  "  \"provider_completeness\": \"unverified\",\n",
+  "  \"request_complete\": null,\n",
+  "  \"rows\": [],\n",
+  "  \"stock_codes\": [\n",
+  "    \"600001.SH\"\n",
+  "  ],\n",
+  "  \"trade_date\": \"2026-10-01\"\n",
+  "}\n"
+ ]
+}

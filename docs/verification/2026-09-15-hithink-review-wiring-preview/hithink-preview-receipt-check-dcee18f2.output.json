@@ -1,0 +1,24 @@
+{
+  "original_path": "/tmp/hithink-preview-receipt-check-dcee18f2.log",
+  "raw_sha256": "4da0b98f430257740dfe080e20014d24d18cb15c067f3b62e7203e51cddadf1d",
+  "encoding": "utf-8",
+  "lines": [
+    "========================================================================\n",
+    "读数收据校验 — 判「能不能采信」，不重跑测试\n",
+    "========================================================================\n",
+    "  收据     /Users/a77/.finance-runtime/test-receipts/20260915T053650Z-dcee18f2.json\n",
+    "  产生于   2026-09-15T05:36:50+00:00\n",
+    "  目标     /Users/a77/fwp-wt-hithink-review-wiring\n",
+    "  读数     passed=9684 failed=0 error=0 skipped=79\n",
+    "\n",
+    "  ✓ revision 一致\n",
+    "  ✓ 解释器一致\n",
+    "  ✓ python 版本一致\n",
+    "  ✓ 依赖指纹一致\n",
+    "  ✓ 收据来自干净树\n",
+    "  ✓ 依赖门禁未被绕过\n",
+    "  ✓ 收据 revision == dcee18f2a236\n",
+    "\n",
+    "✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。\n"
+  ]
+}

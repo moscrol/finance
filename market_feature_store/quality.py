@@ -265,17 +265,21 @@ def check_daily(
     """跨日质检总入口；返回 {trade_date, plan, gaps, row_anomalies, range_violations, quoteless_sectors, ok, brief}。
 
     plan=local 时期望表按 consumption_registry.tables_for_plan 裁剪（gaps、行数收缩与空壳检查都按裁剪后的表）。"""
+    from .consumption_registry import requested_plan, resolve_plan
+
+    plan = requested_plan(plan)  # 非法环境配置也要在连接数据库之前失败。
     owned = con is None
     con = con or _connect_ro()
-    # tables 显式给了就两处都用它（旧行为）；否则按计划分别裁剪断档表与恒定宇宙表
-    gap_tables = tables if tables is not None else tables_in_plan(plan, GAP_TABLES)
-    anomaly_tables = tables if tables is not None else tables_in_plan(plan, ROW_ANOMALY_TABLES)
     try:
         td = trade_date or latest_trade_date(con)
         if td is None:
-            return {"trade_date": None, "gaps": [], "row_anomalies": [], "range_violations": [],
+            return {"trade_date": None, "plan": plan, "gaps": [], "row_anomalies": [], "range_violations": [],
                     "quoteless_sectors": [],
                     "ok": False, "brief": "fact_market_daily 为空，库未初始化或从未同步"}
+        plan = resolve_plan(plan, str(td))
+        # tables 显式给了就两处都用它（旧行为）；否则按计划分别裁剪断档表与恒定宇宙表。
+        gap_tables = tables if tables is not None else tables_in_plan(plan, GAP_TABLES)
+        anomaly_tables = tables if tables is not None else tables_in_plan(plan, ROW_ANOMALY_TABLES)
         gaps = calendar_gaps(con, window=window, tables=gap_tables)
         anomalies = row_count_anomalies(td, con, window=window, tables=anomaly_tables)
         violations = value_range_violations(td, con)

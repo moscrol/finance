@@ -19,6 +19,7 @@ from market_feature_store.db import (  # noqa: E402
     staging_path,
 )
 from market_feature_store.trading_days import is_trading_day  # noqa: E402
+from market_feature_store.consumption_registry import PLAN_CHOICES, resolve_plan  # noqa: E402
 
 # 闸门没能执行（duckdb 写锁占用超出重试窗）≠ 数据不完整。
 # 专用退出码让 nightly_full_review.sh 等外层如实播报，而不是误报缺数。
@@ -219,6 +220,7 @@ def _print_staging_contrast(date: str, prod_counts: dict[str, int]) -> None:
 
 
 def check_data(date: str, plan: str | None = None) -> list[str]:
+    plan = resolve_plan(plan, date)
     missing: list[str] = []
     tables, market_fields = plan_scope(plan)
     con = _connect_read_only()
@@ -628,7 +630,9 @@ def update_fill_rate_baseline(con, path: Path = FILL_RATE_BASELINE_PATH, *, toda
 
 def check_report(date: str) -> list[str]:
     missing: list[str] = []
-    report = Path(f"market_feature_store/exports/{date}-daily-review.md")
+    from intelligence.paths import default_paths
+
+    report = default_paths().market_exports / f"{date}-daily-review.md"
     if not report.exists():
         missing.append(f"{report} 不存在")
     else:
@@ -749,14 +753,18 @@ def main(argv: list[str] | str | None = None, data_only: bool = False) -> int:
     parser.add_argument("date")
     parser.add_argument("--phase", choices=("data", "report", "l2", "all"), default="all")
     parser.add_argument(
-        "--plan", default=os.environ.get("REVIEW_SYNC_PLAN") or None,
-        help="计划档位（full/cheap/local）；local 按 registry 裁剪期望表与字段。默认读 REVIEW_SYNC_PLAN",
+        "--plan", choices=PLAN_CHOICES, default=None,
+        help="计划档位（full/cheap/local/auto）；local 按 registry 裁剪。默认读 REVIEW_SYNC_PLAN，未设则 full",
     )
     parser.add_argument(
         "--update-fill-rate-baseline", action="store_true",
         help="只做一件事：把真库现状写进 fill-rate-baseline.json（已有缺口的 reason 保留，新缺口标待查），然后退出",
     )
     args = parser.parse_args(argv)
+    try:
+        args.plan = resolve_plan(args.plan, args.date)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     missing: list[str] = []
     try:

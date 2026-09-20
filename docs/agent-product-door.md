@@ -29,7 +29,31 @@
 | 复盘写入（另一条面） | `python3 -m market_feature_store.cli daily-full` | 飞书 Bitable 写入已退役 |
 | 飞书 IM（已退役，不是门） | `python3 -m intelligence.cli feishu-bot` | exit 2，不连 WebSocket。与 Bitable 写入退役是两件事 |
 
+夜跑收尾的运维入口仍是 `nightly_full_review.sh finalize`，不新增问答门或事实写入链。
+生成段从 `FINANCE_GENERATION_CODE_ROOT` 的双根 launcher 调用原 `intelligence.cli daily --skip-sync`；
+L2、外层质检与方法验证保留 `FINANCE_CODE_ROOT`，数据与外置用户态不迁移。
+部署/回滚及验收边界见 [09-17 生成接线](handoffs/2026-09-17-nightly-generation-deployment.md)。
+
 编码任务「仓库里有没有现成实现」走 `python3 scripts/code_map.py query "<问题>"`，不是本页，也不是问答门。空图不得写成架构结论。
+
+### 夜跑日报生成（代码与数据分根）
+
+收尾仍走 `nightly_full_review.sh finalize`，不是另一条数据写入链。其内部以绝对路径启动
+`$FINANCE_GENERATION_CODE_ROOT/scripts/run_daily_generation.py`（未配置生成根时回退
+`FINANCE_CODE_ROOT`），验证实际 import 位置后调用现有
+`intelligence.cli daily`。子步骤继承同一解释器与固定代码搜索路径，脚本用代码根绝对路径；
+工作目录、DuckDB、exports 和复盘 HTML 留在数据根。缺代码根/包、写入位置落进代码根时拒绝生成。
+生成启动器失败后外层立即返回，KB 接收只在成功后运行；拒绝后的提示使用现有进程输出与桌面通知。
+运维告警写入前会解析最终日志路径，拒绝写入配置的 L2 代码根和生成代码根（含文件、父目录软链接）。
+
+已配置的 `FORESIGHT_USERS_DIR` / `FORESIGHT_EPISODE_STORE` / 数据库覆盖保持原位，不迁移存量；
+相对覆盖统一按 `FINANCE_DATA_ROOT` 解析。生成启动器不改变独立 L2 分支的环境或同步守卫。
+启动器在导入项目模块前核验代码面及嵌套脚本软链的真实归属；摘要等参数只由原 CLI 完整解析一次，
+校验与执行共享同一解析结果。运行前检查已启用告警的真实日志目标、用户实例、日期目录、质量状态、增量归档及具体输出文件，
+已有子目录/文件软链指入代码根也拒绝；合法外置用户态软链不迁移。目录检查只读元数据，不读文件正文。
+
+这层是启动前的静态路径校验，不是 OS 沙箱：不防运行期间恶意换链、不认证未枚举的新增写入或外部 KB
+接收器代码。它不保证当天数据齐全、模型网关可用或生产已经部署；不改变其他直接 daily 调用的合同。
 
 ### Workbench 终态与交付
 

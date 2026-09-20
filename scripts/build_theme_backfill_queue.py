@@ -7,7 +7,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
+import sys
+
+CODE_ROOT = Path(__file__).resolve().parents[1]
+if str(CODE_ROOT) not in sys.path:
+    sys.path.insert(0, str(CODE_ROOT))
+
+from intelligence.paths import data_repo_root  # noqa: E402
+
+ROOT = data_repo_root()
 EXPORT_DIR = ROOT / "market_feature_store" / "exports"
 PRIORITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 TIER_LABELS = {"deep": "Deep", "watch": "Watch", "long_tail": "Long Tail"}

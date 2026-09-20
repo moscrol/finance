@@ -1,0 +1,11 @@
+{
+  "original_path": "/Users/a77/.finance-runtime/reviews/hithink-stock-preview-40317d78-qc-20260915/author-tests-20260915T183552.txt",
+  "raw_sha256": "f6cced158cf5c0ac8ad1f34355546239b0eb680dd12e504af73eabaa0df2048b",
+  "encoding": "utf-8",
+  "lines": [
+    "........................................................................ [ 75%]\n",
+    ".......................                                                  [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260915T103556Z-40317d78.json\n",
+    "\n",
+    "95 passed in 4.35s\n"
+  ]
+}
