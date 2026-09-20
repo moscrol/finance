@@ -1,31 +1,29 @@
-# 同花顺研究数据第一批
+# 同花顺研究观察值候选
 
 ## 这个分支做什么
-`feat/hithink-research-data` / `~/fwp-wt-hithink-research-data`：当日异动、完整热度轨迹、估值观察值接既有采集和只读查询；诊断已有源停更。
-
-## 决策与被否方案
-- 复用客户端/DuckDB/staging/finance_query，否另起SDK和生产写入链。
-- 默认当天热榜30码，否全市场无界请求和旧榜回退。
-- 采集日参与截止；否给最新快照换历史日期。事实是最后观察值，非PIT版本库。
-- 财务三表/基金/期货延后，先核披露、单位、代码口径。
-- 详见 `docs/handoffs/2026-09-21-hithink-research-data.md`。
+`feat/hithink-research-data` / `~/fwp-wt-hithink-research-data`：异动、完整热度、当前估值接既有采集/只读查询，诊断停更。
 
 ## 当前状态
-代码已提交 `06047324`（基线728f3271）。未push/合main/部署/生产换库。主树他人改动未碰；本交接为随后文档提交。
-实际loaded launchd仍指 `finance-workspace-sync@6382c13b`、local计划，无同花顺步骤。该树有未提交指数修补，禁止覆盖/reset。只读主库相关表停09-08，09-18无行；不能称夜跑已恢复。
+代码`164b02e4`已推，PR #810保持WIP/open。用户暂停合main、部署、付费外审、删生产；不得沿用早先部署授权。作者复核不等于独立Spec/Quality，未借其他任务K3签字。本交接随后追加，完整收据只签代码SHA、不签文档tip。
+历史恢复误调用latest-only已由e98e8791修复；164b02e4修共用生产守卫的硬链接漏认及身份异常放行。
+
+## 决策与被否方案
+- 复用客户端/DuckDB/staging/finance_query；否第二写入链和Agent外呼。
+- 历史恢复skip研究步骤并记未更新；否把8改10洗绿、放宽日期门或自动扩大热度回补。
+- 文件身份比较识别硬链接，独立拷贝可用；身份权限错误不放行。
+- 保采集日截止与NULL；事实是最后观察值，非历史版本库。
+- 背景/原始失败/取舍：`docs/handoffs/2026-09-21-hithink-research-review.md`。
 
 ## 未验证 / 已知边界
-- 未跑本候选全量pytest、前端、E2E、独立QC，未验LLM问答质量和真实夜跑发布。
-- 真实异动凌晨为空，非空正文需盘后重验；空/partial不补零、不等于覆盖全。
-- 事实重采覆盖旧观察，不支持历史版本回放；日期截止只有日粒度。
-- 巡检只读plist/源码声明/行数，不证明loaded或值完整；本轮loaded另经launchctl核实。
+非空异动正文、自然Workbench问答、盘后staging正式发布、生产恢复和独立审查未验。真实异动为空，不能称正文通过；行数/ok不代表所有指标非空。
+loaded仍`finance-workspace-sync@6382c13b`、local、缺同花顺步骤；六表停09-08，09-18零行。旧树指数热补丁及运行产物未动，禁止reset/覆盖。8792/生成/L2/plist未改。
 
 ## 下一步
-审候选并跑完整合入检查；合并/部署须用户确认。先保留核对部署树指数热补丁，再准备批准版本部署根；当天盘后走daily-full staging，查请求收据、值覆盖和只读消费。历史缺口按duckdb-backfill，不回补latest-only接口。
+先独立审合同、代码和原件；收费评审仍暂停。未来获授权时按实际候选tip重验，不移签164b02e4收据；再核旧部署补丁与盘后发布。历史热度须显式history-only，异动/估值不回补；财务/基金/商品暂不扩。
 
 ## 踩过的坑
-只有配置里的步骤会执行，旧任务exit0不代表新源更新。Shanghai采集日单列，不能用UTC日期截断冒充。禁止子进程锁冲突退旁库。专用巡检已入scripts；harness-reference有他人脏BUILD.md未动。
+旧任务exit0不证明未排入步骤更新。e98首次补跑25分钟外层超时，原件保留；同SHA零执行收据已拒绝。RAG进度红点单跑未复现，另有假进程计时反例，只作诊断、不断言原根因；本PR未改RAG。部署草稿已封停，勿执行。
 
 ## 已验证
-干净06047324：445P/8S（8项旧contains测试缺工作树本地主库）；收据 `~/.finance-runtime/test-receipts/20260920T181549Z-06047324.json`，dirty=false。全仓Ruff、consumption/dataset注册、提交门禁通过。删热度采集截止后预期1F，恢复复验绿。
-真实两股隔离库 `/tmp/hithink-research-acceptance-20260921.duckdb`：估值2行、热度10点，真实FinanceQuery读回2/10；异动0行。全部生产数据只读。合同/请求ID见 `docs/data-sources/hithink-research-data.md`。
+固定干净164b02e4：Python11964P/85S/2X；前端110P、E2E34P/2S；Ruff/注册/台账及收据校验通过。证据根`~/.finance-runtime/hithink-research-guard-20260921/`；原件`~/.finance-runtime/test-receipts/20260920T195746Z-164b02e4.json`。
+历史恢复两针先红后97P；硬链接两针先红后相关153P，均有原日志。存档只读复算估值2行/热度10点/异动0行，无新外呼，提前截止不可见；同哈希样本副本在证据根`samples/`。前端临时检出/服务已清理，生产未写。通用文件身份教训已补agent-memory既有知识笔记。
