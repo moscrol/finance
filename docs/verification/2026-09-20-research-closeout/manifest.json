@@ -766,8 +766,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 4692,
-      "sha256": "44d9711d13d17b4e45795c75caf12445dd8980d948dd748edd51a7d0f0f613eb"
+      "bytes": 4888,
+      "sha256": "5f9cfdd1413b422d0df7f44d727bae1fcc138a7f91e027ec6d2761754e1c06a0"
     },
     {
       "path": "runtime-evidence-fix/M1-hash-only-green.log.txt",
@@ -2459,6 +2459,210 @@
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/quality-final/logs/original-quality-probe.log",
       "bytes": 652,
       "sha256": "18800fde8078a75f488d2cd37f40844ac10daf77402d0df9d80556d411f9832c"
+    },
+    {
+      "path": "gate-rag-retirement/preparation.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/preparation.json",
+      "bytes": 444,
+      "sha256": "3282c609b50865af4eaee0c715da5f9ea1ea5701e765f7d78679ef4397bb2b91"
+    },
+    {
+      "path": "gate-rag-retirement/target.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/target.json",
+      "bytes": 432,
+      "sha256": "4bf2aa8ddf8ccd277872ba4a6799e78641287069ca1a3e611489ce81dbd50af6"
+    },
+    {
+      "path": "gate-rag-retirement/receipt-check.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/receipt-check.json",
+      "bytes": 628,
+      "sha256": "009e2fa54a24c6a472e4b6a2ebb8d62ce5c0518419943c3582fbae79b946b30a"
+    },
+    {
+      "path": "gate-rag-retirement/receipt-check.exit",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/receipt-check.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "gate-rag-retirement/registry-views.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/registry-views.log.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "path": "gate-rag-retirement/pytest.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/pytest.log.txt",
+      "bytes": 18150,
+      "sha256": "5ebeb091eabe10c24c59019197710a13768d6d5eb45a2dcda87a88838506a96b"
+    },
+    {
+      "path": "gate-rag-retirement/registry-tables.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/registry-tables.log.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "path": "gate-rag-retirement/registry-check.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/registry-check.log.txt",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "path": "gate-rag-retirement/python-registry.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/python-registry.json",
+      "bytes": 3917,
+      "sha256": "03fe2297a2b9fd97e8f8f8f80e8e9b2205a052aaf7e9fc03bbc55b13d5bc4d40"
+    },
+    {
+      "path": "gate-rag-retirement/ledger-crosswalk.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/ledger-crosswalk.log.txt",
+      "bytes": 2080,
+      "sha256": "219e8950982da840abd3af6c28d0d58398cb6fbfea0b565f7bb52585fc7dd3b8"
+    },
+    {
+      "path": "gate-rag-retirement/receipt-check.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/receipt-check.log.txt",
+      "bytes": 921,
+      "sha256": "b2f59d7a932575ca390207e7a295897af7a0ea7908fb3e652c68141cbb578b21"
+    },
+    {
+      "path": "gate-rag-retirement/ruff.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/ruff.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "gate-rag-retirement/registry-parse.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/registry-parse.log.txt",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "path": "gate-rag-retirement/frontend/frontend-2.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/frontend/frontend-2.log.txt",
+      "bytes": 283,
+      "sha256": "af122b62519f1467d70730368a8b4b9df6754f49a67454bf6a8c03f3cf3931f4"
+    },
+    {
+      "path": "gate-rag-retirement/frontend/frontend-3.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/frontend/frontend-3.log.txt",
+      "bytes": 1569,
+      "sha256": "e5752d2ed7cb37e3f8cfe4d87ee9e1eef9ef52b29fe4d6b2e5de627f56b071bd"
+    },
+    {
+      "path": "gate-rag-retirement/frontend/frontend-1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/frontend/frontend-1.log.txt",
+      "bytes": 185,
+      "sha256": "ccdca32c0b951ba2b8d822afcad9d0bcb30c8ecd129e72b94196cfeb692748ab"
+    },
+    {
+      "path": "gate-rag-retirement/frontend/frontend.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/frontend/frontend.json",
+      "bytes": 2569,
+      "sha256": "8201cb804a95ca18a64d55b3c71c9fab8e77f5b5cfa9ec3ebdcb08bf5c502d3a"
+    },
+    {
+      "path": "gate-rag-retirement/frontend/frontend-0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/frontend/frontend-0.log.txt",
+      "bytes": 1758,
+      "sha256": "7d7cdd5735f16f033053db568a899b454e3169c2e530a3ab621eae6bb715d8aa"
+    },
+    {
+      "path": "gate-rag-retirement/frontend/frontend-5.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/frontend/frontend-5.log.txt",
+      "bytes": 12816,
+      "sha256": "659d823d8c077099d85c04e97466ca77c0c0a7fcb542c775fbcb94a875ab6775"
+    },
+    {
+      "path": "gate-rag-retirement/frontend/frontend-4.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/frontend/frontend-4.log.txt",
+      "bytes": 1057,
+      "sha256": "e3536d577a1543f9fc39194635fdbfcba9f8eac42b39ec89f48d5eb2f43f3893"
+    },
+    {
+      "path": "rag-combined-review/final-admission.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-combined-review/final-admission.json",
+      "bytes": 2910,
+      "sha256": "0102708735f4736f7b5831e4e43ef0bcbc1f49fd8656128d3960cd363318dd1e"
+    },
+    {
+      "path": "rag-combined-review/REPORT.md",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-combined-review/REPORT.md",
+      "bytes": 5135,
+      "sha256": "1e0eb64d94eb24f1d060645d509738eb04248dc02e230ef12b23a6699551cc8c"
+    },
+    {
+      "path": "rag-combined-review/manifest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-combined-review/manifest.json",
+      "bytes": 481,
+      "sha256": "eaac026d8f0160ca812578788fb6dd4a6b6b739c6c151f2394c3f7c89055e5d1"
+    },
+    {
+      "path": "rag-combined-review/frontend-and-sources.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-combined-review/frontend-and-sources.json",
+      "bytes": 3397,
+      "sha256": "73918b867eac433013871157a4e57048a3c1cf9d4547e80540b498e33734d3d5"
+    },
+    {
+      "path": "rag-combined-review/independent-receipt-check.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-combined-review/independent-receipt-check.log.txt",
+      "bytes": 921,
+      "sha256": "b2f59d7a932575ca390207e7a295897af7a0ea7908fb3e652c68141cbb578b21"
+    },
+    {
+      "path": "rag-combined-review/merge-provenance.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-combined-review/merge-provenance.json",
+      "bytes": 35107,
+      "sha256": "54a15e008ad76c4eefd040f1ea568ad1f51d4f46869a74e3903ba364f0091c88"
+    },
+    {
+      "path": "gate-rag-retirement/receipts/20260920T070122Z-e51c5157.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/receipts/20260920T070122Z-e51c5157.json",
+      "bytes": 802,
+      "sha256": "ad71141b43b8dc9edfa0cba7dba0b2c15fc1b6dabb1046f1a7cfd8da38c2dc29"
+    },
+    {
+      "path": "rag-combined-pr.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-combined-pr.json",
+      "bytes": 226,
+      "sha256": "b4aa95e4c8f86126d35eb780bca460239ea2add3c12e2526ff07a085e8a7bc7b"
+    },
+    {
+      "path": "rag-combined-pr.md",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-combined-pr.md",
+      "bytes": 1372,
+      "sha256": "26f59ca70928171fc69745902c0bdbc395b0504c09901b31901c8cadc18a7038"
+    },
+    {
+      "path": "capability-graph-closeout-audit.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/capability-graph-closeout-audit.log.txt",
+      "bytes": 45348,
+      "sha256": "fb9136c6c90619c9ca8a88c66dad3014e8d9ead8fcbe6def6e4017c7abd4c9dd"
+    },
+    {
+      "path": "memory-closeout-writeback.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/memory-closeout-writeback.json",
+      "bytes": 484,
+      "sha256": "ed9a98bac5f176e8d9c7526f7fee39ef358f3649de3b6488ba0ee3222ffe35ca"
+    },
+    {
+      "path": "gate-rag-retirement/runners/gate_python_registry.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate_python_registry.py",
+      "bytes": 3585,
+      "sha256": "455557343edd2147a885d646dd4b1888cdd3283ca1360556590c946e02d2da74"
+    },
+    {
+      "path": "gate-rag-retirement/runners/run_frontend_gate.py.txt",
+      "source": "/Users/a77/fwp-wt-open-work-spec/scripts/run_frontend_gate.py",
+      "bytes": 6356,
+      "sha256": "4fa9fd9a8e40507eb7a26e90f46928ac066551225cd6abb91d84370d3c427f32"
+    },
+    {
+      "path": "gate-rag-retirement/runners/receipt_redirect.py.txt",
+      "source": "/Users/a77/.finance-runtime/open-work-execution-20260920/receipt_redirect.py",
+      "bytes": 645,
+      "sha256": "4de4eee99c27b40e43eeac9e663524f5199bbcb0e11156411906885fdf413ad3"
     }
   ]
 }

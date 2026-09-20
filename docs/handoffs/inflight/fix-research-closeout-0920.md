@@ -10,7 +10,7 @@
 - 历史：代码dca7c27e/7e5f2ccd，clean e0f2a5c7独立Spec四组行为/12P、Quality另7P通过。PR800以原history c9为底；与main预演无文本冲突，未跑合流全叶或原自然四题。文档归档PR799。
 
 ## 后续队列
-1. RAG已双审：Spec在c4f33c5b通过；质量发现的运行中解释器链环及启动argv断言，b860ecc8修复，1931b3a3最终Quality通过。与#789已组合为e51c5157，独占gate-rag-retirement树四叶运行中，未合main。旧3份JUnit只收脱敏副本。
+1. RAG双审通过，b860ecc8补解释器链环/启动argv。PR801将1931b3a3与#789组合为e51c5157：Python11855P/85S/2X、前端110P、E2E34P/2S、Ruff/registry、严格base-drift0及独立合并复核均过，已推，待合main确认。旧3份JUnit只收脱敏副本。
 2. 302132：独立65P但同步换code仍PASS、巨大int无FAIL JSON；backfill_acceptance_impl已在独占新树实施CODE绑定和可靠失败，待双审。
 3. 夜跑6356：独立36P，但显式刷新跳过借旧success认证；先修此缺口。跨午夜涉及日期/即时市值，另定合同；main可选Hithink skip为集成条件。计划已写。
 运行恢复/财务后续仍需合流门禁；跨进程driver未开放。

@@ -1,0 +1,44 @@
+{
+  "revision": "e51c5157c9ea9aa86491c486663700e7d7696a6f",
+  "main_local_and_remote": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+  "head_end": "e51c5157c9ea9aa86491c486663700e7d7696a6f",
+  "status_end": "",
+  "python_registry_complete": true,
+  "all_command_exit_codes_zero": true,
+  "python_registry_logs_verified": 7,
+  "frontend_logs_reverified": 6,
+  "python_counts": {
+    "passed": 11855,
+    "failed": 0,
+    "error": 0,
+    "skipped": 85,
+    "xfailed_from_log": 2,
+    "total_reported_outcomes": 11942,
+    "warnings": 17
+  },
+  "pytest_summary": "11855 passed, 85 skipped, 2 xfailed, 17 warnings in 523.74s (0:08:43)",
+  "strict_checker_independent_exit": 0,
+  "strict_checker_command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "scripts/check_test_receipt.py",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/receipts/20260920T070122Z-e51c5157.json",
+    "--expect-revision",
+    "e51c5157c9ea9aa86491c486663700e7d7696a6f",
+    "--base-drift-max",
+    "0",
+    "--main-ref",
+    "gitea/main"
+  ],
+  "hashes": {
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/target.json": "4bf2aa8ddf8ccd277872ba4a6799e78641287069ca1a3e611489ce81dbd50af6",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/python-registry.json": "03fe2297a2b9fd97e8f8f8f80e8e9b2205a052aaf7e9fc03bbc55b13d5bc4d40",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/pytest.log.txt": "5ebeb091eabe10c24c59019197710a13768d6d5eb45a2dcda87a88838506a96b",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/receipt-check.json": "009e2fa54a24c6a472e4b6a2ebb8d62ce5c0518419943c3582fbae79b946b30a",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/receipt-check.log.txt": "b2f59d7a932575ca390207e7a295897af7a0ea7908fb3e652c68141cbb578b21",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/receipt-check.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/receipts/20260920T070122Z-e51c5157.json": "ad71141b43b8dc9edfa0cba7dba0b2c15fc1b6dabb1046f1a7cfd8da38c2dc29",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/receipts/latest.json": "ad71141b43b8dc9edfa0cba7dba0b2c15fc1b6dabb1046f1a7cfd8da38c2dc29",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/frontend/frontend.json": "8201cb804a95ca18a64d55b3c71c9fab8e77f5b5cfa9ec3ebdcb08bf5c502d3a",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-combined-review/independent-receipt-check.log.txt": "b2f59d7a932575ca390207e7a295897af7a0ea7908fb3e652c68141cbb578b21"
+  }
+}
