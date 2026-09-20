@@ -326,6 +326,8 @@ def test_judge_receives_output_grounding_modes() -> None:
     system_prompt = model.calls[0]["messages"][0]["content"]
     assert "用户明确给出的前提视为真的假设" in system_prompt
     assert "不能仅因缺少证据而拒绝" in system_prompt
+    assert "数字与文字解释的一致性" in system_prompt
+    assert "与题设或可复算结果矛盾" in system_prompt
 
 
 def test_mixed_answer_grounding_keeps_evidence_judge_prompt() -> None:
