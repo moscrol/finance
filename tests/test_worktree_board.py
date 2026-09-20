@@ -513,6 +513,18 @@ def test_worktree_metadata_prevents_cleanup_suggestion(tmp_path: Path, metadata)
     assert "待核实 1" in board.format_board([row], base="main", base_sha="a" * 40)
 
 
+def test_tracked_single_character_file_keeps_porcelain_status_columns(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    (repo / "x").write_text("base\n", encoding="utf-8")
+    _git(repo, "add", "x")
+    _git(repo, "commit", "-m", "short filename")
+    (repo / "x").write_text("uncommitted original\n", encoding="utf-8")
+    code, status = board._git(["status", "--porcelain"], cwd=str(repo), timeout=10)
+    assert code == 0 and status == " M x"
+    row = _classify(repo)
+    assert row.dirty and row.dirty_n == 1
+
+
 def test_document_only_dirt_is_not_safe_to_remove(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     wt = tmp_path / "fwp-wt-docs"

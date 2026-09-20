@@ -89,7 +89,7 @@ def _git(args: list[str], *, cwd: str | None, timeout: float) -> tuple[int, str]
         )
     except (OSError, subprocess.SubprocessError):
         return 1, ""
-    return completed.returncode, (completed.stdout or "").strip()
+    return completed.returncode, (completed.stdout or "").rstrip("\n")
 
 
 def resolve_base(cwd: str, timeout: float) -> str:
