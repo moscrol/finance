@@ -452,3 +452,202 @@ def test_scenario_price_cannot_override_current_price():
     calc = compile_case(ARITHMETIC + "如果下一年归母净利润下降20%，股价改为30元。")
     assert calc.issues
     assert values(calc)["market_cap"] == 180
+
+
+@pytest.mark.parametrize(
+    "question, cap",
+    [
+        ("继续，沿用上一轮，其余条件不变，请给出结果。", 240),
+        ("沿用上一轮。股价由24元改为30元，其余条件不变，请重新计算。", 300),
+    ],
+)
+def test_k3_q1_scenario_survives_another_continuation(question, cap):
+    prior = (PremiseSource("first", ARITHMETIC), PremiseSource("second", FOLLOWUP))
+    calc = compile_case(question, prior)
+    assert not calc.issues
+    assert values(calc)["scenario_profit"] == pytest.approx(7.2)
+    assert values(calc)["scenario_pe"] == pytest.approx(cap / 7.2)
+    scenario = next(item for item in calc.inputs if item.metric == "profit_change")
+    assert scenario.source_message_id == "second"
+    assert FOLLOWUP[scenario.start : scenario.end] == scenario.source_text
+    assert type(calc).from_dict(calc.to_dict()) == calc
+
+
+def test_k3_q1_current_scenario_definition_replaces_the_previous_one():
+    calc = compile_case(
+        "沿用上一轮。下一年归母净利润增长10%，重新计算情景市盈率。",
+        (PremiseSource("first", ARITHMETIC), PremiseSource("second", FOLLOWUP)),
+    )
+    assert not calc.issues
+    assert values(calc)["scenario_profit"] == pytest.approx(9.9)
+    assert values(calc)["scenario_pe"] == pytest.approx(240 / 9.9)
+    assert next(item for item in calc.inputs if item.metric == "profit_change").source_message_id == "current"
+
+
+def test_k3_q1_ambiguous_prior_scenarios_do_not_become_complete_on_continue():
+    calc = compile_case(
+        "继续，沿用上一轮，请给出结果。",
+        (
+            PremiseSource("first", ARITHMETIC),
+            PremiseSource("second", FOLLOWUP + "下一年归母净利润增长10%，也算一个情景。"),
+        ),
+    )
+    assert any("多个情景" in issue for issue in calc.issues)
+    assert calc.admit(CALCULATION_MARKER, status="completed")[1]
+
+
+def test_k3_q1_prior_requested_metric_stays_required_on_continue():
+    first = ARITHMETIC.replace("经营活动现金流量净额6亿元", "经营活动现金流量净额未提供")
+    assert compile_case(first).issues
+    calc = compile_case("继续，沿用上一轮，请给出结果。", (PremiseSource("first", first),))
+    assert calc.issues
+    assert "cash_profit_ratio" not in values(calc)
+    assert calc.admit(CALCULATION_MARKER, status="completed")[1]
+
+
+def test_k3_q1_explicit_static_only_scope_retires_the_scenario():
+    calc = compile_case(
+        "沿用上一轮。这次取消情景分析，只计算静态市盈率。",
+        (PremiseSource("first", ARITHMETIC), PremiseSource("second", FOLLOWUP)),
+    )
+    assert not calc.issues
+    assert values(calc)["static_pe"] == pytest.approx(240 / 9)
+    assert not any(row.metric.startswith("scenario_") for row in calc.rows)
+    assert not any(item.metric == "profit_change" for item in calc.inputs)
+
+
+def test_k3_q4_instruction_prefix_is_not_part_of_the_company_identity():
+    first = (
+        "假设A公司2024年收入100亿元、归母净利润10亿元。"
+        "当前股价24元、总股本5亿股。请按题设计算静态市盈率。"
+    )
+    calc = compile_case(
+        "沿用上一轮。A公司2025年收入120亿元、归母净利润12亿元。请更新静态市盈率。",
+        (PremiseSource("first", first),),
+    )
+    assert not calc.issues
+    assert {item.subject for item in calc.inputs} == {"A公司"}
+    assert values(calc)["static_pe"] == 10
+    assert values(calc)["profit_yoy"] == 20
+
+
+def test_k3_q4_substring_company_name_cannot_merge_distinct_subjects():
+    calc = compile_case(
+        "沿用上一轮。甲公司子公司2023年收入2亿元、归母净利润1亿元。请计算静态市盈率。",
+        (PremiseSource("first", ARITHMETIC),),
+    )
+    assert any("主体明确的单公司" in issue for issue in calc.issues)
+
+
+def test_k3_q1_scenario_reaches_third_turn_contract_and_recovery_materials():
+    from intelligence.services.conversation_materials import collect_material_turn_history
+    from intelligence.services.research_contract import ResearchTaskContract
+    from intelligence.services.research_harness import FinanceResearchHarness
+    from intelligence.tests.test_premise_calculation import context_for, frame_for, user_message
+
+    history = collect_material_turn_history((
+        replace(user_message(ARITHMETIC), message_id="first"),
+        replace(user_message(FOLLOWUP), message_id="second"),
+    ))
+    context = context_for(frame_for("继续，沿用上一轮，其余条件不变。", conversation_materials=history))
+    calc = context.contract.premise_calculation
+    assert not calc.issues
+    assert values(calc)["scenario_profit"] == pytest.approx(7.2)
+    assert values(calc)["scenario_pe"] == pytest.approx(100 / 3)
+    assert ResearchTaskContract.from_dict(context.contract.to_dict()) == context.contract
+    materials = FinanceResearchHarness().finalization_materials(context=context)
+    assert "情景市盈率" in str(materials)
+    assert "7.2" in str(materials)
+
+
+def test_k3_q1_static_only_cannot_silently_swallow_a_new_scenario_request():
+    calc = compile_case(
+        "沿用上一轮。只计算静态市盈率。下一年归母净利润增长10%，请计算情景市盈率。",
+        (PremiseSource("first", ARITHMETIC), PremiseSource("second", FOLLOWUP)),
+    )
+    assert calc.issues
+    assert calc.admit(CALCULATION_MARKER, status="completed")[1]
+
+
+def test_k3_q1_nonfinite_scenario_rate_is_not_an_input():
+    import math
+
+    calc = compile_case(ARITHMETIC + "下一年归母净利润增长" + "9" * 400 + "%")
+    assert calc.issues
+    assert all(math.isfinite(item.value) for item in calc.inputs)
+
+
+def test_k3_q1_current_definition_resolves_earlier_scenario_ambiguity():
+    calc = compile_case(
+        "沿用上一轮。下一年归母净利润增长10%，重新计算情景市盈率。",
+        (
+            PremiseSource("first", ARITHMETIC),
+            PremiseSource("second", FOLLOWUP + "下一年归母净利润增长30%，也算一个情景。"),
+        ),
+    )
+    assert not calc.issues
+    assert values(calc)["scenario_profit"] == pytest.approx(9.9)
+
+
+def test_k3_q2_premise_source_flag_is_not_program_calculation_certification():
+    from intelligence.services.research_harness import FinanceResearchHarness
+    from intelligence.tests.test_premise_calculation import context_for, frame_for
+
+    frame = frame_for(
+        "这是一道独立的虚构财务算例，按给定数据计算："
+        "假设A公司2024年收入100亿元，2025年增长20%，2025年收入是多少？"
+    )
+    context = context_for(frame)
+    assert frame.material_contract.premise_calculation
+    assert context.contract.premise_calculation is None
+    assert FinanceResearchHarness().finalization_materials(context=context) == {}
+
+
+def test_k3_q3_renormalizing_partial_public_text_preserves_status_and_gaps(monkeypatch):
+    from intelligence.services import episode_semantic_verifier as module
+    from intelligence.services.episode_verifier import verify_episode_outcome
+    from intelligence.services.session_projection import (
+        CAUSE_VERIFICATION_INCOMPLETE,
+        TerminalFacts,
+        view,
+    )
+    from intelligence.tests.test_premise_calculation import context_for, frame_for
+
+    frame = frame_for(ARITHMETIC.replace("经营活动现金流量净额6亿元", "经营活动现金流量净额未提供"))
+    context = context_for(frame)
+    calc = context.contract.premise_calculation
+    assert calc.issues
+    public = view(TerminalFacts(
+        cause=CAUSE_VERIFICATION_INCOMPLETE,
+        question=frame.raw_question,
+        public=calc.table.replace("\n\n", "\n"),
+        gap_body="经营现金流缺口仍待明确。",
+    ))
+    structural = verify_episode_outcome(
+        context.contract, replace(_outcome(frame, context, public), status="partial"),
+    )
+    before = module.SemanticEpisodeOutcome(
+        verified=structural, status="partial", public_answer=public,
+        judge_status="repaired", gap_output_ids=("direct_answer",),
+    )
+    verifier = module.SemanticEpisodeVerifier()
+    monkeypatch.setattr(verifier, "_verify_inner", lambda **_: before)
+    after = verifier.verify(frame=frame, structurally_verified=structural, deadline=context.deadline)
+    assert after.public_answer != before.public_answer
+    assert calc.table in after.public_answer
+    assert frame.raw_question in after.public_answer
+    assert "经营现金流缺口仍待明确。" in after.public_answer
+    assert "本轮核验未完成" in after.public_answer
+    assert after.status == "partial"
+    assert after.gap_output_ids == before.gap_output_ids
+
+
+def test_k3_q6_unknown_financial_metric_is_explicitly_not_program_certified():
+    calc = compile_case()
+    statement = "毛利率约为45%。"
+    review = calc.review_prose(statement)
+    assert review["conflicts"] == []
+    assert review["unverified_numeric_fragments"]
+    assert review["scope"] == "owned_table_and_recognized_result_restatements_only"
+    # This is a documented coverage limit; it remains the semantic judge's job.
+    assert not calc.admit(CALCULATION_MARKER + "\n" + statement, status="completed")[1]

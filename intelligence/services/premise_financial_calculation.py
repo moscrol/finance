@@ -53,6 +53,16 @@ _YEAR = re.compile(r"(?P<year>(?:19|20)\d{2})年")
 _SUBJECT = re.compile(
     r"(?:^|[。；;\n])\s*(?:更正[:：]\s*)?([^。；;\n，、：:]{1,24}公司)"
 )
+_SUBJECT_PREFIX = re.compile(
+    r"^(?:(?:假设|已知|对于|关于|针对|题设中的|"
+    r"(?:沿用|继续使用|基于)(?:上一轮|上轮|前文|上述)(?:的)?)\s*)+"
+)
+_STATIC_ONLY = re.compile(r"(?:只|仅)(?:需要|要)?(?:计算|算|保留)\s*静态市盈率")
+_CANCEL_SCENARIO = re.compile(
+    r"(?:^|[。；;，,\n])\s*(?:本轮|这次|现在)?(?:先)?"
+    r"(?:取消|去掉|不再(?:计算|保留|需要)?|不需要|不用|无需)"
+    r"(?:上一轮的?|原有的?|之前的?)?情景"
+)
 _REPLACEMENT = re.compile(r"改为|改成|更正|调整为|修改")
 _NATURE = re.compile(r"预测|预计|预期|假设|实际|已实现")
 _NON_ANNUAL = re.compile(r"上半年|下半年|半年|季度|单季|前三季|Q[1-4]|[一二三四]季")
@@ -425,12 +435,11 @@ def compile_calculation(
     for source in sources:
         visible = _visible(source.text)
         digest = hashlib.sha256(source.text.encode()).hexdigest()
-        declared = {match[1].strip() for match in _SUBJECT.finditer(visible)}
-        # A continuation may mention a known company in prose; it cannot rename it.
-        declared = {
-            name for name in declared if not any(old in name for old in subjects)
-        }
-        subjects.update(declared)
+        # Normalize instruction prefixes, never company-name substrings.
+        subjects.update(
+            _SUBJECT_PREFIX.sub("", match[1].strip())
+            for match in _SUBJECT.finditer(visible)
+        )
         if len(subjects) != 1:
             issues.append("只支持主体明确的单公司算例，请分开列明各公司输入")
             continue
@@ -582,8 +591,17 @@ def compile_calculation(
     current = {item.metric: item for item in inputs if item.nature == "current"}
     years = sorted({period for period, _ in actual if period is not None})
     latest = years[-1] if years else None
-    text = _visible(sources[-1].text) if sources else ""
     basis_year = latest
+    requested = {
+        "收入同比": "revenue_yoy",
+        "净利润同比": "profit_yoy",
+        "现金流/": "cash_profit_ratio",
+    }
+    requested_phrases: set[str] = set()
+    scenarios: list[re.Match[str]] = []
+    scenario_source: PremiseSource | None = None
+    scenario_requested = False
+    # Continuation replays both supplied values and the still-active request.
     for source in sources:
         instruction = _visible(source.text)
         selected = list(_EXPLICIT_BASIS.finditer(instruction))
@@ -591,6 +609,22 @@ def compile_calculation(
             basis_year = int(selected[-1][1])
         elif re.search(r"(?:改用|恢复|回到)(?:最近|最新)", instruction):
             basis_year = latest
+        static_only = bool(_STATIC_ONLY.search(instruction))
+        declared_scenarios = list(_SCENARIO.finditer(instruction))
+        if static_only and declared_scenarios:
+            issues.append("同轮同时要求仅静态估值与利润变化情景，需明确计算范围")
+        if static_only:
+            requested_phrases.clear()
+        else:
+            requested_phrases.update(phrase for phrase in requested if phrase in instruction)
+        if static_only or _CANCEL_SCENARIO.search(instruction):
+            scenarios, scenario_source, scenario_requested = [], None, False
+        else:
+            if declared_scenarios:
+                scenarios, scenario_source = declared_scenarios, source
+                scenario_requested = True
+            elif "情景市盈率" in instruction or "下一年归母净利润" in instruction:
+                scenario_requested = True
     profit = actual.get((basis_year, "profit"))
     price, shares = current.get("price"), current.get("shares")
     rows: list[CalculationRow] = []
@@ -692,14 +726,13 @@ def compile_calculation(
                 (price, shares, profit),
                 "利润非正，市盈率不适用" if pe is None else "",
             )
-            scenarios = list(_SCENARIO.finditer(text))
             if len(scenarios) > 1:
                 issues.append("多个情景需分别明确输入与适用范围")
             elif scenarios:
                 scenario = scenarios[0]
                 rate = float(scenario["rate"])
                 sign = -1 if scenario["direction"] in {"下降", "减少"} else 1
-                if rate < 0 or (sign < 0 and rate > 100):
+                if not math.isfinite(rate) or rate < 0 or (sign < 0 and rate > 100):
                     issues.append("情景利润变化比例不适用")
                 else:
                     # The scenario starts from the most recent actual profit, not
@@ -707,14 +740,15 @@ def compile_calculation(
                     base = actual.get((latest, "profit"))
                     if base:
                         projected = base.value * (1 + sign * rate / 100)
-                        digest = hashlib.sha256(sources[-1].text.encode()).hexdigest()
+                        assert scenario_source is not None
+                        digest = hashlib.sha256(scenario_source.text.encode()).hexdigest()
                         scenario_input = FinancialInput(
                             f"P:{digest}:{scenario.start()}:{scenario.end()}",
-                            sources[-1].source_message_id,
+                            scenario_source.source_message_id,
                             digest,
                             scenario.start(),
                             scenario.end(),
-                            sources[-1].text[scenario.start() : scenario.end()],
+                            scenario_source.text[scenario.start() : scenario.end()],
                             base.subject,
                             latest + 1,
                             "profit_change",
@@ -741,18 +775,11 @@ def compile_calculation(
                         )
     # Detect requested quantities the bounded parser could not supply. Do not
     # call a partial table a complete solution merely because PE was computable.
-    requested = {
-        "收入同比": "revenue_yoy",
-        "净利润同比": "profit_yoy",
-        "现金流/": "cash_profit_ratio",
-    }
     present = {row.metric for row in rows}
     for phrase, metric in requested.items():
-        if phrase in text and metric not in present:
+        if phrase in requested_phrases and metric not in present:
             issues.append(f"{phrase}缺少可比的实际年度输入")
-    if (
-        "情景市盈率" in text or "下一年归母净利润" in text
-    ) and "scenario_pe" not in present:
+    if scenario_requested and "scenario_pe" not in present:
         issues.append("情景缺少可确认的利润变动与基数")
     return PremiseCalculation(
         sources, reference_year, inputs, tuple(rows), tuple(dict.fromkeys(issues))
