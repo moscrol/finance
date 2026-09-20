@@ -1,5 +1,6 @@
 """User-supplied arithmetic is conditional reasoning, not a market fact lookup."""
 from dataclasses import replace
+import json
 from uuid import uuid4
 
 import pytest
@@ -62,6 +63,17 @@ def test_original_arithmetic_and_rebased_aligned_frame():
     assert_calculation(aligned)
     rebased = rebase_task_frame(aligned, question_type="valuation_estimate", subject="甲公司")
     assert_calculation(rebased)
+
+
+def test_calculation_prompt_preserves_historical_vs_forecast_basis():
+    from intelligence.services.episode_protocol import split_episode_prompt
+    from intelligence.services.research_tool_registry import ResearchToolRegistry
+
+    frame = frame_for(ARITHMETIC)
+    _, user = split_episode_prompt(frame, context_for(frame), ResearchToolRegistry(()))
+    rule = json.loads(user)["premise_calculation_rule"]
+    assert "最近已完成年度" in rule
+    assert "不能自行改称预测或动态口径" in rule
 
 
 def test_followup_inherits_only_persisted_user_contract():
