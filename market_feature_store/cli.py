@@ -1510,6 +1510,10 @@ def cmd_repair_backfill_302132(args) -> int:
     from .sync.repair_hithink_stock_day import RepairRefused
     from .sync.sync_daily_full import run_daily_full_staged
 
+    if args.db is not None and not args.child:
+        print("--db 仅供内部 --child 使用；父命令目标由 MARKET_FEATURE_STORE_DB 解析，拒绝忽略显式目标。")
+        return 2
+
     parquet = Path(args.parquet)
     if not parquet.exists():
         print(f"parquet 不存在: {parquet}")

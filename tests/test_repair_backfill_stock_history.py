@@ -511,6 +511,34 @@ def test_refused_cli_report_path_existing_file(tmp_path, monkeypatch):
     assert rc == 2 and existing.read_text() == "{}"
 
 
+def test_cli_parent_rejects_ignored_db_argument_before_side_effects(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from market_feature_store import cli
+    from market_feature_store.sync import sync_daily_full
+
+    pq = tmp_path / "source.parquet"
+    pq.write_bytes(b"no data access authorized")
+    witness = tmp_path / "default-production.duckdb"
+    witness.write_bytes(b"production witness")
+    called = []
+
+    def parent(**kwargs):
+        called.append(kwargs)
+        return {"swapped": False, "reason": "must not reach", "rc": 2}
+
+    monkeypatch.setattr(sync_daily_full, "run_daily_full_staged", parent)
+    monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(witness))
+    probe_calls = []
+    monkeypatch.setattr(mod, "_guarded_write_json", lambda *a, **kw: probe_calls.append(a))
+    args = SimpleNamespace(parquet=str(pq), child=False,
+                           db=str(tmp_path / "intended-clone.duckdb"), report_path=None)
+    assert cli.cmd_repair_backfill_302132(args) == 2
+    assert called == []
+    assert probe_calls == []
+    assert witness.read_bytes() == b"production witness"
+
+
 def test_cli_parent_preflight_blocks_unwritable_receipt_dir(tmp_path, monkeypatch):
     """收据目录不可写 → 换库前拦截（run_daily_full_staged 不得被调用）。"""
     from market_feature_store import cli
