@@ -1973,10 +1973,7 @@ def _finance_query_failure_result(
     if isinstance(error, finance_query.FinanceQueryValidationError):
         failure_code = "invalid_query"
         status = "parse_error"
-        observation = (
-            f"结构化查询参数无效：{str(error)[:160]}；重试提示："
-            f"{finance_query.validation_retry_hint(spec, error)}"
-        )
+        observation = finance_query.validation_diagnostic(spec, error)
         gap = "结构化查询条件无效；请改写 dataset、字段、筛选或日期范围后重试"
         from intelligence.services.tool_hunger import record_finance_query_rejected
 
