@@ -10,22 +10,22 @@
 - 热度是自然日样本，异动是供应商解读，估值是当前值；NULL不补零，行数/ok不代表字段完整。
 
 ## 当前状态
-PR #810仍WIP/open；测试提交`eebf4e895`已推，后续仅文档。运行时代码与164b02e4相同。合main/部署/生产写入/live sync/付费审查暂停。
+PR #810仍WIP/open，当前tip`c7024b5ce`；运行时代码与164b02e4相同。合main/部署/生产写入/live sync/付费审查暂停。
 
 ## 已验证
-- 固定`eebf4e895`：定向同花顺/守卫/恢复/编排/FinanceQuery测试250P/8S，Ruff通过；原生收据`~/.finance-runtime/test-receipts/20260920T211530Z-eebf4e89.json`绑定SHA、dirty=false。
+- 当前tip`c7024b5ce`：定向相关测试250P/8S，Ruff及收据校验通过；收据`~/.finance-runtime/hithink-independent-20260921-fNTsHb/targeted-current-c7024b5ce/targeted-receipt.json`。
 - 新增断言覆盖异动文本/关键词/request_id证据链、NULL不转0且不生成observations、重采历史热度不回放旧版本；三次内存变异均被捕获。探针日志在`~/.finance-runtime/hithink-independent-20260921-fNTsHb/`，不是生产证据。
-- 旧固定`164b02e4`全量Python11964P/85S/2X、前端门禁及48份证据清单仍只归属旧SHA，不移签到本提交。
+- `eebf4e895`收据是历史原件；旧固定`164b02e4`全量11964P/85S/2X、前端门禁及48份清单不移签到本提交。
 
 ## 未验证 / 已知边界
-- 已准用现有订阅，但Codex额度100%、credits=0；预计北京时间09-27 01:06恢复。零模型请求，Spec/Quality未执行。
+- 最近额度预检仍为100%、credits=0、ordinaryUsageAllowed=false；预计北京时间09-27 01:06恢复。零模型请求，Spec/Quality未执行。
 - 真实非空异动、自然Workbench回答、盘后staging发布、生产恢复未验；样本异动为空，测试正文合成。
 - 生产仍是旧同步根`finance-workspace-sync@6382c13b`、local且缺同花顺步骤；六表停09-08，旧exit0/配置声明不等于新源执行。
 - 财务/基金/商品语义未扩展；候选tip发布前须重跑完整测试及前端门禁。
 
 ## 下一步
 1. 等额度恢复或获非付费环境，从`164b02e4`固定树分别执行Spec/Quality，不读对方结论。
-2. 合入/部署前，对实际候选tip重跑完整Python、前端、Ruff、注册/台账、收据校验及生产只读审计。
+2. 合入/部署前，对候选tip重跑完整Python、前端、Ruff、注册/台账、收据校验及生产只读审计；当前仅定向收据。
 3. 保持WIP/open；不得live sync、切生产根、重载launchd或删生产数据。
 
 ## 踩过的坑
