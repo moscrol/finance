@@ -24,9 +24,9 @@
 | 前端 install/lint/typecheck/test/build/E2E | 六项 rc0；单测110P，E2E34P/2S | `frontend/frontend.json`、逐步日志 |
 | 合前严格收据 | revision/依赖/解释器一致，干净，base-drift=0，rc0 | `receipt-check-premerge.*` |
 | 合后严格收据 | 对新 fetch 的 gitea/main 完整SHA校验，base-drift=0，rc0 | `receipt-check-postmerge.*` |
-| 文档tip窄扫描 | 39个扫描型测试文件，927 passed，rc0；Ruff rc0 | `docs-scanner-tests.log.txt`、`docs-ruff.log.txt` |
+| 文档工作区窄扫描（提交前） | 39个扫描型测试文件，927 passed；Ruff通过 | `docs-scanner-command.json`、`docs-scanner-tests.log.txt`、`docs-ruff.log.txt` |
 
-前端端口19181/19184，不借生产8792。完整 pytest 510.07秒；17条警告保留。文档收尾另跑39个会扫描全树路径/AST/目录的测试文件，128.59秒、927 passed；它是文档tip的窄回归，不移签Python全量。原始 Python 收据为 `python/receipts/20260920T102128Z-728f3271.json`。后续文档分支不继承这份全量签字。
+前端端口19181/19184，不借生产8792。完整 pytest 510.07秒；17条警告保留。文档收尾提交前另跑39个会扫描全树路径/AST/目录的测试文件，128.59秒、927 passed；命令记录明确绑定待提交文档工作区，不是干净文档提交的完整门禁。原始 Python 收据为 `python/receipts/20260920T102128Z-728f3271.json`。后续文档分支不继承这份全量签字。
 
 ## 清理过程与保全
 
@@ -65,4 +65,6 @@
 
 R2跨午夜、原夜跑恢复全链、真实行情采集、无人值守下一夜、生产回填和自然模型回答质量均未因本次工程合入获认证。#802以及#797/#798/#800仍按各自合同推进。继续清理需先认领脏文件/忽略库、决定归档策略，不能直接复跑一次性删除器。
 
-本次文档封存属于新文档分支；其门禁与728f3271源码门禁分账。合入状态以PR和看板为准，不维护另一张分支已合清单。
+本次文档封存属于新文档分支；其门禁与728f3271源码门禁分账。封存提交 `d2a72bb688cacf8bc1d8ee9e2fbe685290d172e1` 已推gitea；文档 [PR #804](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/804) 保持待审，#803已补收尾评论 [5056](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/803#issuecomment-5056)。发布时再次只读查询 `/api/health`，生产身份仍与上述一致。
+
+提交钩子实际无失败，不适用项按配置跳过。首次提交因未提供`-m`而打开编辑器、超时未提交；确认无持锁进程后，仅清理本工作树遗留`index.lock`再提交成功。原始日志的结尾空行保留，不为了消除`diff --check`提示改写证据。合入状态以PR和看板为准，不维护另一张分支已合清单。
