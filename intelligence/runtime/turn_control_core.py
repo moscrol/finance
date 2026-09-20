@@ -91,6 +91,9 @@ def project_turn_decision(
 
     if decision.lane == "clarify" or clarification_questions:
         terminal_kind: TerminalKind = "clarification"
+    elif task_frame.material_contract and task_frame.material_contract.premise_calculation:
+        # A calculation needs the verified Episode delivery, but no fact retrieval.
+        terminal_kind = "research"
     elif not (decision.needs_retrieval or task_frame_requires_retrieval(task_frame)):
         terminal_kind = "non_research"
     else:
@@ -121,7 +124,10 @@ def project_turn_decision(
         task_frame=task_frame,
         execution_route=execution_route,
         terminal_kind=terminal_kind,
-        needs_retrieval=terminal_kind == "research",
+        needs_retrieval=(
+            terminal_kind == "research"
+            and not (task_frame.material_contract and task_frame.material_contract.premise_calculation)
+        ),
         capabilities=capabilities,
         contract_required=terminal_kind == "research",
         turn_intent=turn_intent if turn_intent is not None else decision.turn_intent,

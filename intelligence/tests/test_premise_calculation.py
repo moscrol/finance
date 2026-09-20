@@ -122,7 +122,12 @@ def test_controller_recognizes_calculation_before_resolver_or_alignment():
 
     decision = decide_turn(ARITHMETIC, conversation_materials=ConversationMaterials(),
                            resolver=NoResolver(), llm_complete=no_alignment)
+    from intelligence.runtime.turn_control_core import project_turn_decision
+
     assert decision.lane == "research"
+    projected = project_turn_decision(decision, task_frame=decision.task_frame)
+    assert projected.terminal_kind == "research"
+    assert not projected.needs_retrieval
     assert_calculation(decision.task_frame)
     assert blocks_contract_blind_pipelines(decision.task_frame.material_contract)
 
@@ -146,3 +151,13 @@ def test_correct_calculation_finish_survives_real_structural_verifier():
     assert verify_episode_outcome(context.contract, outcome).verified_status == "completed"
     wrong_basis = replace(outcome, bindings=tuple(replace(b, basis="model_reasoning") for b in outcome.bindings))
     assert verify_episode_outcome(context.contract, wrong_basis).verified_status != "completed"
+
+
+def test_missing_data_instruction_is_not_a_fictional_world_premise():
+    frame = frame_for(
+        "请复盘2026年9月18日A股市场。请列出当日上涨家数、下跌家数、涨停家数、跌停家数。"
+        "如果某项数据无法取得，就明确标记缺失，不得用其他日期或相似指标补齐。"
+    )
+    assert not (frame.material_contract and frame.material_contract.authenticity == "fictional")
+    required = [o for o in context_for(frame).contract.required_outputs if o.required]
+    assert all(o.grounding_mode == "evidence" for o in required)

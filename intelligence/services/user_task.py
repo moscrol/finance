@@ -502,13 +502,17 @@ _SENT_SPLIT_RE = re.compile(
 # 虚构前提声明：「以下是完全虚构的研究案例」「均为虚构」「纯属虚构」等（句中即算，
 # 这类措辞极少出现在叙述句里；出现在复核块里时走 boundary_uncertain 保守分支）。
 _FICTIONAL_SENT_RE = re.compile(
-    r"以下\s*[是为][^。；，]{0,12}虚构|均为虚构|纯属虚构|完全虚构|虚构案例|[是为]虚构的?"
+    r"以下\s*[是为][^。；，]{0,12}虚构|均为虚构|纯属虚构|完全虚构|虚构案例|(?<!不)[是为]虚构的?"
 )
 # A8 的「假设 X，结合当前行情」不要求额外的「成立」。是否顶层由区域复核决定，
 # 而不是把明确假设漏成无约束；材料内同形态仍走 uncertain，强保护内不可见。
-_HYPOTHESIS_STRONG_RE = re.compile(r"^(?:假设|如果)\s*\S.{1,}")
-# 题内假设：句首 假设/如果 即算（题上下文消歧，scope=q{n}）。
-_HYPOTHESIS_IN_QUESTION_RE = re.compile(r"^(?:假设|如果)\s*\S.{1,}")
+_HYPOTHESIS_STRONG_RE = re.compile(
+    r"^(?:假设|如果)\s*"
+    r"(?!(?:某项|某些|任何|所需|这项)?(?:数据|资料|证据|来源|信息|材料|输入)"
+    r"[^。；，]{0,24}(?:无法|不能|没有|缺失|不足|未|取不|找不))\S.{1,}"
+)
+# 题内使用同一识别器；数据缺失处理指令不是金融世界的反事实前提。
+_HYPOTHESIS_IN_QUESTION_RE = _HYPOTHESIS_STRONG_RE
 # A calculation declaration describes the answer's basis, not permission to read.
 # The same protected-region scanner handles declarations and explicit fact requests.
 _PREMISE_CALCULATION_RE = re.compile(
