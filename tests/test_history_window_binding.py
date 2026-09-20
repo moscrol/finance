@@ -229,10 +229,27 @@ def test_explicit_extension_is_not_implied_by_authorized_end_or_cutoff(tmp_path,
     args = _args(original, ref, operation="trace_history", entity_codes=["A.FP", "B.FP"],
                  window_ref={"result_ref": rank_ref}, end="2026-01-29")
     extended = _execute(next_tools, next_context, **args)
-    binding = next_session.read(extended.telemetry["result_ref"])["window_binding"]
+    trace_ref = extended.telemetry["result_ref"]
+    binding = next_session.read(trace_ref)["window_binding"]
     assert binding["relation"] == "extended_observation"
     assert binding["source_end"] == original["rows"][0]["end"]
     assert binding["end"] == "2026-01-29"
+    # The delivered extended trace is a valid direct parent for another analysis
+    # on the same root ranking window. Its source window is wider than the rank
+    # original, but that direct-edge detail must not look like a root-window swap.
+    # Read the saved trace original as the next direct parent, matching the
+    # cross-turn workflow even though this direct test also delivered its query.
+    _read(next_tools, next_context, trace_ref)
+    continued = _execute(next_tools, next_context, **dict(
+        args, entity_kind="stock", window_ref={"result_ref": trace_ref}))
+    continued_binding = next_session.read(continued.telemetry["result_ref"])["window_binding"]
+    assert continued_binding["root_query_id"] == binding["root_query_id"]
+    assert continued_binding["root_sample_id"] == binding["root_sample_id"]
+    assert (continued_binding["ranking_start"], continued_binding["ranking_end"]) == (
+        binding["ranking_start"], binding["ranking_end"])
+    assert continued_binding["source_query_id"] == next_session.read(trace_ref)["query_id"]
+    assert (continued_binding["source_start"], continued_binding["source_end"]) == (
+        binding["start"], binding["end"])
     with pytest.raises(ValueError, match="history_window_observation_conflict"):
         _execute(next_tools, next_context, **dict(args, end="2026-01-28"))
     # Observation extension leaves the original ranking interval available.
@@ -250,6 +267,66 @@ def test_explicit_extension_is_not_implied_by_authorized_end_or_cutoff(tmp_path,
     # Extension is for observation, not for silently reranking on a different period.
     with pytest.raises(ValueError, match="history_window_mismatch"):
         _execute(next_tools, next_context, **dict(args, operation="rank_history"))
+
+
+def test_window_selection_uses_root_ranking_identity_and_observation_endpoint():
+    from intelligence.services.historical_research.window_binding import WindowSelection
+
+    base = {
+        "root_query_id": "root-a", "root_sample_id": "sample-a",
+        "ranking_start": "2026-01-17", "ranking_end": "2026-01-22",
+        "source_start": "2026-01-17", "source_end": "2026-01-22",
+        "start": "2026-01-17", "end": "2026-01-29",
+    }
+    mixed_parent = dict(base, source_start="2026-01-17", source_end="2026-01-29")
+    selection = WindowSelection()
+    with selection.reserve(base, observation=True):
+        with selection.reserve(mixed_parent, observation=True):
+            pass
+    for changed in (
+        dict(mixed_parent, root_query_id="root-b"),
+        dict(mixed_parent, root_sample_id="sample-b"),
+        dict(mixed_parent, ranking_start="2026-01-18"),
+        dict(mixed_parent, ranking_end="2026-01-23"),
+    ):
+        with pytest.raises(ValueError, match="history_window_selection_conflict"):
+            with selection.reserve(changed, observation=True):
+                pass
+    with pytest.raises(ValueError, match="history_window_observation_conflict"):
+        with selection.reserve(dict(mixed_parent, end="2026-01-30"), observation=True):
+            pass
+
+
+def test_window_selection_allows_parallel_same_root_mixed_parent_siblings():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    from intelligence.services.historical_research.window_binding import WindowSelection
+
+    base = {
+        "root_query_id": "root-a", "root_sample_id": "sample-a",
+        "ranking_start": "2026-01-17", "ranking_end": "2026-01-22",
+        "source_start": "2026-01-17", "source_end": "2026-01-22",
+        "start": "2026-01-17", "end": "2026-01-29",
+    }
+    sibling = dict(base, source_end="2026-01-29")
+    entered, release = Event(), Event()
+    selection = WindowSelection()
+
+    def hold_first():
+        with selection.reserve(base, observation=True):
+            entered.set()
+            assert release.wait(5)
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        first = pool.submit(hold_first)
+        try:
+            assert entered.wait(3)
+            with selection.reserve(sibling, observation=True):
+                pass
+        finally:
+            release.set()
+        first.result(5)
 
 
 def test_source_identity_scope_and_cutoff_are_checked_before_query(tmp_path, anatomy_db, monkeypatch):

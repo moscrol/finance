@@ -113,9 +113,12 @@ class WindowSelection:
         if binding is None:
             yield
             return
-        # A user-authorized observation extension keeps the reference fixed;
-        # its explicitly labelled later endpoint is not a new ranking window.
-        key = tuple(binding.get(k) for k in ("root_query_id", "root_sample_id", "source_start", "source_end"))
+        # Direct parents may be a rank original or one of its extended trace
+        # descendants. The stable selection is the root candidate and original
+        # ranking interval; direct-edge source windows are validated separately.
+        key = tuple(binding.get(k) for k in (
+            "root_query_id", "root_sample_id", "ranking_start", "ranking_end",
+        ))
         with self._lock:
             if self._key is not None and self._key != key:
                 raise ValueError("history_window_selection_conflict: this turn already selected another reference/window; compare sector and stock on the same window")
