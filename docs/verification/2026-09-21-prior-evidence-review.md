@@ -57,7 +57,7 @@
 
 8798 sidecar PID `13106` 已停止且端口释放；生产 8792 仍由 PID `32544` 监听，未触碰。
 
-虚构供需题的 V4 重跑仍拒答（0工具、结构性终止失败），不能把材料前提整体改成 `user_premise` 以绕过 grounding。E2 owner 的逐句材料绑定仍未合入本候选。
+虚构供需题的 V4 重跑仍拒答（0工具、结构性终止失败），不能把材料前提整体改成 `user_premise` 以绕过 grounding。E2 状态要分开记录：P5 已随 PR #759 的 merge commit `db2963d4fbaa` 进入本候选祖先，但正式 P7 live 验收仍未完成；P6 实现 `6721470542a1` 仍在独立分支，不能把 owner 收据当作本候选行为证据。对当前候选与 P6 的只读 `git merge-tree` 预检以 exit 1 结束，唯一内容冲突是 `intelligence/services/episode_semantic_verifier.py`（日期/语义门与 `material_grounding`/删句撤 binding 的合同重叠）；预检未改工作树。收据及 SHA256 见外部 `p6-integration-preflight.json`（`9f31283909f15a5add70afb93df83777688aeb684ac6e44e61863b8a62a6d581`）。
 
 ## K3 独立复核
 
@@ -81,7 +81,7 @@
 
 ## 下一步与禁做
 
-下一步：与 E2/P5/P6 owner 对齐材料逐句来源；补未见题和新增开发反例的真实答卷；按归属处理前端/E2E/registry 与跨仓漂移。V5 短日期真实入口、旧 on2 离线重放和各自 manifest 已封存，不覆盖旧 on2。
+下一步：由 P6 owner 先在合并树上解决 `episode_semantic_verifier.py` 合同冲突，再重跑合并后的 Python/frontend/E2E/registry 检查和独立语义验收；由 P5 owner 补正式 P7 全新会话证据；同时补未见题和新增 fixture 反例，按归属处理跨仓漂移。V5 短日期真实入口、旧 on2 离线重放和各自 manifest 已封存，不覆盖旧 on2。
 
 禁止：不把 K3 PASS 写成业务质量通过；不把同源 judge/零工具/completed 当行为通过；不合 main、部署、重启8792、购买外审额度或删生产原件；不宣称支持跨会话、多层、混合联网、任意日期重筛或崩溃 checkpoint 恢复。
 

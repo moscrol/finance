@@ -7,10 +7,10 @@
 - 选 `prior_evidence` 封装 old/new E 号映射，否 runtime 直接投影：职责和回归都保留。
 - 选“句首短日期 + 绑定 source_date 月日”局部遮罩，否扩大正则/全局放行：数量门仍 fail-closed，judge 仍裁决。
 - 保留旧 V4 on2 原件，否用新运行覆盖：分开程序误删、模型语义和版本证据。
-- 不搬 E2 WIP、不把材料全改 `user_premise`：材料资格与推断正确性是两层合同。
+- 不搬 E2 WIP、不改全局 `user_premise`：材料资格与推断是两层合同；P5 在候选待 P7，P6 外置。
 
 ## 当前状态
-分支 `feat/research-reasoning-awareness`；业务代码 `2cfa9d0d7`，最新文档提交 `9ba261747`。本轮仅新增外部 v5 manifest、更新三份文档；开关默认 off，未 push/PR/合 main/部署。8798 PID `13106` 已停，8792 PID `32544` 未动。
+分支 `feat/research-reasoning-awareness`；代码 `2cfa9d0d7`；本轮仅文档/收据，off，未 push/PR/合 main/部署。8798 停，8792 PID `32544` 未动。
 
 ## 已验证
 - 全仓 pytest `12049P/87S/2X/0F`、Ruff 绿；全仓收据 `~/.finance-runtime/test-receipts/20260920T195644Z-2cfa9d0d.json`。
@@ -20,11 +20,11 @@
 - manifest：`/Users/a77/.finance-runtime/reasoning-boundaries-20260921/v5-short-date/MANIFEST.json`，SHA256 `8142bec5b5213693bc2c97d3354345fb7ae488877621d2443b9fa63d02b8a387`。
 
 ## 未验证 / 已知边界
-最新 run `completed/repaired`、`correlated_judge=true`，不等于语义通过；另一个含数字的候选句仍被 `novel_numeric_condition` 删除。总量证据不支持事实式“出逃/兑现”；独立语义盲审 `passed=false`，拒绝 `[1,2,3,5]`。V4 四臂 `n=2` 且 flag 未知；E2/P5/P6 binding、供需题、前端/E2E/registry、跨仓漂移未验。未证明跨会话、多层、混合联网、任意日期窗口或 checkpoint 恢复。
+最新 run `completed/repaired` 不等于语义通过；数字句仍被门删。总量证据不支持“出逃/兑现”；独立盲审 `passed=false`，拒绝 `[1,2,3,5]`。V4 `n=2` 且 flag 未知；P5 在候选待 P7，P6 binding 未入；供需题、前端/E2E/registry、跨仓漂移未验。当前候选与 P6 在 `episode_semantic_verifier.py` 冲突，收据外置（`p6-integration-preflight.json`，SHA256 `9f312839…a6d581`）。跨会话、多层、混合联网、任意日期窗口、checkpoint 未证明。
 
 ## 下一步
 1. 提交本轮三份文档，核对只包含 pathspec 指定文件。
-2. 让 E2/P5/P6 owner 补逐句来源，补未见题和新 fixture 反例；不把路径证据写成 PASS。
+2. P6 owner 先解 `episode_semantic_verifier.py` 冲突，合并树重跑四叶/独立语义验收；P5 owner 补 P7；继续补未见题和 fixture 反例，不把路径证据写成 PASS。
 3. 处理前端/E2E/registry 与 `kb/rag-query` 漂移；暂停合 main、部署、重启 8792、付费外审、删生产原件。
 
 ## 踩过的坑
