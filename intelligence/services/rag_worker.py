@@ -126,8 +126,6 @@ class PersistentRagWorker:
         self._generation = generation_binding or capture_generation(
             python, kb_root, index_dir, kb_wiki
         )
-        if self._generation.managed:
-            self.python = str(dict(self._generation.paths)["python"])
         self._process: subprocess.Popen[str] | None = None
         self._code_identity = ""
         self._pycache: TemporaryDirectory | None = None

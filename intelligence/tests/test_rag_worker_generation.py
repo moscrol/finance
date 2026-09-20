@@ -169,6 +169,7 @@ def test_managed_launch_uses_frozen_environment_despite_ambient_rewrite(
     worker = PersistentRagWorker(
         alpha["python"], Path(alpha["code"]), Path(alpha["standard"]), Path(alpha["wiki"])
     )
+    assert worker.python == alpha["python"], "venv 入口本身是解释器身份的一部分"
     _bind(monkeypatch, beta)
 
     payload = worker.status()
