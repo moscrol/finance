@@ -19,6 +19,7 @@ from intelligence.services.episode_output_substance import (
 )
 from intelligence.services.evidence_capabilities import collect_satisfied_plan_capabilities
 from intelligence.services.generic_research_owner import CompletionReport
+from intelligence.services.material_grounding import binding_source_errors, grounding_scope
 from intelligence.services.material_delivery import (
     has_disclosed_material_gap,
     material_question_outputs,
@@ -124,6 +125,11 @@ def verify_episode_outcome(
             for content_hash in binding.evidence_hashes
             if content_hash not in evidence_by_hash or content_hash in duplicate_hashes
         )
+        source_errors = binding_source_errors(contract, binding, outcome.draft, outcome.evidence)
+        if source_errors:
+            forged_extra_outputs.append(output_id)
+            issues.append(Issue(IssueCode.MATERIAL_SOURCE_VIOLATION, output_id, "; ".join(source_errors)))
+            continue
         if unverifiable:
             forged_extra_outputs.append(output_id)
             issues.append(
@@ -171,6 +177,9 @@ def verify_episode_outcome(
                 )
             continue
 
+        source_errors = binding_source_errors(contract, binding, outcome.draft, outcome.evidence)
+        if source_errors:
+            issues.append(Issue(IssueCode.MATERIAL_SOURCE_VIOLATION, required.output_id, "; ".join(source_errors)))
         basis_mismatch = binding.basis != required.grounding_mode
         if basis_mismatch:
             issues.append(
@@ -221,6 +230,8 @@ def verify_episode_outcome(
             legal_gap = bool(
                 spec is not None
                 and not basis_mismatch
+                and not source_errors
+                and not binding.claims
                 and not binding.evidence_hashes
                 and has_disclosed_material_gap(spec, outcome.draft, binding.gap)
             )
@@ -314,7 +325,9 @@ def verify_episode_outcome(
             (
                 required.grounding_mode != "evidence"
                 or bool(kept_hashes)
+                or (grounding_scope(contract) == "material_only" and bool(binding.claims))
             )
+            and not source_errors
             and not unknown_hashes
             and not collided_hashes
             and (not wrong_types or bool(kept_hashes))

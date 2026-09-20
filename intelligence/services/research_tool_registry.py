@@ -1271,7 +1271,9 @@ class ResearchToolRegistry:
                     effective_context.information_cutoff,
                 ),
             )
-            evidence = list(run_result.evidence)
+            # The runner cannot self-certify local provenance. Stamp the same
+            # trusted IO declaration used by authorization, before caching.
+            evidence = [replace(item, io_effect=spec.io_effect) for item in run_result.evidence]
             observation = run_result.observation
             # 代偿必须让模型看见：输入被改过而不说，模型下一轮还会照原样写，
             # 且它无法自行诊断为什么检索总是空手（ch4「参数传递的保真性」）。
