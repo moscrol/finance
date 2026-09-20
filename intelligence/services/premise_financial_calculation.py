@@ -648,12 +648,14 @@ def compile_calculation(
             basis_year = int(selected[-1][1])
         elif re.search(r"(?:改用|恢复|回到)(?:最近|最新)", instruction):
             basis_year = latest
-        static_only = bool(_STATIC_ONLY.search(instruction))
+        static_match = _STATIC_ONLY.search(instruction)
+        static_only = static_match is not None
         declared_scenarios = list(_SCENARIO.finditer(instruction))
+        current_requested_phrases = tuple(
+            phrase for phrase in requested if phrase in instruction
+        )
         if static_only:
-            conflicting_metrics = tuple(
-                phrase for phrase in requested if phrase in instruction
-            )
+            conflicting_metrics = current_requested_phrases
             if conflicting_metrics:
                 issues.append(
                     "同轮同时要求仅静态估值与其他指标，需明确计算范围："
@@ -661,7 +663,7 @@ def compile_calculation(
                 )
             requested_phrases.clear()
         else:
-            requested_phrases.update(phrase for phrase in requested if phrase in instruction)
+            requested_phrases.update(current_requested_phrases)
         if static_only or _CANCEL_SCENARIO.search(instruction):
             scenarios, scenario_source, scenario_requested = [], None, False
             scope_issue = (

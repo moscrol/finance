@@ -64,7 +64,21 @@ def test_additional_scenario_cannot_silently_replace_the_original():
 
 def test_static_only_conflict_cannot_silently_drop_requested_metrics():
     calc = compile_case(
-        ARITHMETIC + "这次只计算静态市盈率，还要给出收入同比。",
+        "这次只计算静态市盈率，还要给出收入同比。", HISTORY,
+    )
+    assert any("其他指标" in issue for issue in calc.issues)
+    assert calc.admit(CALCULATION_MARKER, status="completed")[1]
+
+
+def test_current_static_only_can_retire_metrics_from_prior_user_messages():
+    calc = compile_case("沿用上一轮。只计算静态市盈率。", HISTORY)
+    assert not calc.issues
+    assert values(calc)["static_pe"] == pytest.approx(240 / 9)
+
+
+def test_cross_sentence_current_scope_conflict_is_not_silent():
+    calc = compile_case(
+        "沿用上一轮。请给出收入同比。这次只计算静态市盈率。", HISTORY,
     )
     assert any("其他指标" in issue for issue in calc.issues)
     assert calc.admit(CALCULATION_MARKER, status="completed")[1]
