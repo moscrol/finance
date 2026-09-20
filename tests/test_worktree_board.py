@@ -393,14 +393,14 @@ def test_stale_base_warn_is_a_usable_threshold() -> None:
     assert 10 <= board.STALE_BASE_WARN <= 200
 
 
-def test_count_treats_non_numeric_output_as_zero(tmp_path: Path) -> None:
+def test_count_treats_non_numeric_output_as_unknown(tmp_path: Path) -> None:
     """git 把话写到 stdout 时不能抛 —— SessionStart 抛出去就是 hook 静默不输出。"""
 
     repo = _init_repo(tmp_path)
     assert (
-        board.behind_count("HEAD", "no/such/ref", cwd=str(repo), timeout=10) == 0
+        board.behind_count("HEAD", "no/such/ref", cwd=str(repo), timeout=10) == -1
     )
-    assert board._count(["rev-parse", "HEAD"], cwd=str(repo), timeout=10) == 0
+    assert board._count(["rev-parse", "HEAD"], cwd=str(repo), timeout=10) == -1
 
 
 def test_format_board_splits_unique_and_prunable() -> None:
@@ -438,5 +438,172 @@ def test_format_board_splits_unique_and_prunable() -> None:
     assert "feat/open" in text
     assert "feat/done" in text
     assert "还有补丁" in text
-    assert "树可拆" in text
-    assert "本脚本不拆" in text
+    assert "树可拆" not in text
+    assert "不是删除许可" in text
+    assert "ignored" in text
+    assert "reflog" in text
+    assert "生产快照保留策略需另行核实" in text
+
+
+def _classify(repo: Path, **metadata: str):
+    return board.classify_worktree(
+        {"path": str(repo), "head": _git(repo, "rev-parse", "HEAD"),
+         "branch": "main", **metadata},
+        base="main", main_checkout=str(repo.parent / "other"), timeout=10,
+    )
+
+
+def test_missing_worktree_is_visible_as_unknown(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    row = board.classify_worktree(
+        {"path": str(tmp_path / "fwp-wt-missing"),
+         "head": _git(repo, "rev-parse", "HEAD"), "branch": "topic"},
+        base="main", main_checkout=str(repo), timeout=10,
+    )
+    assert row.error
+    assert row.cherry_plus == -1
+    text = board.format_board([row], base="main", base_sha="a" * 40)
+    assert "待核实 1" in text
+    assert "fwp-wt-missing" in text
+    assert "干净 dev 树 0" in text
+
+
+def test_parent_repository_is_not_mistaken_for_missing_worktree(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    nested = repo / "fwp-wt-missing"
+    nested.mkdir()
+    row = _classify(repo, path=str(nested))
+    assert "root mismatch" in row.error
+    assert row.cherry_plus == -1 and not row.in_main
+    assert row.ahead == row.behind == -1
+    text = board.format_board([row], base="main", base_sha="a" * 40)
+    assert "待核实 1" in text
+    assert "干净 dev 树 0" in text
+
+
+def test_collect_rows_pins_baseline_for_entire_scan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = _init_repo(tmp_path)
+    expected = _git(repo, "rev-parse", "main")
+    seen = []
+
+    def classify(spec, **kwargs):
+        seen.append(kwargs["base"])
+        return None
+
+    monkeypatch.setattr(board, "classify_worktree", classify)
+    base, sha, _, rows = board.collect_rows(cwd=str(repo), timeout=10)
+    assert base == "main" and sha == expected
+    assert seen == [expected] and rows == []
+
+
+def test_status_failure_never_becomes_prunable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = _init_repo(tmp_path)
+    git = board._git
+
+    def fail_status(args, **kwargs):
+        return (1, "") if args[0] == "status" else git(args, **kwargs)
+
+    monkeypatch.setattr(board, "_git", fail_status)
+    row = _classify(repo)
+    assert "dirty state unknown" in row.error
+    assert "待核实 1" in board.format_board([row], base="main", base_sha="a" * 40)
+
+
+def test_failed_cherry_is_unknown_in_session_start(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    assert board.cherry_counts("HEAD", "missing", cwd=str(repo), timeout=10) == (-1, -1, False)
+    lines = board.this_tree_lines(
+        cwd=str(repo), base="missing", base_sha="", timeout=10, repo_root=repo,
+    )
+    assert "未知" in lines[0]
+    assert "cherry+0" not in lines[0]
+
+
+@pytest.mark.parametrize("metadata", [{"locked": "review"}, {"prunable": "missing gitdir"}])
+def test_worktree_metadata_prevents_cleanup_suggestion(tmp_path: Path, metadata) -> None:
+    repo = _init_repo(tmp_path)
+    text = "worktree " + str(repo) + "\nHEAD abc\n"
+    text += "\n".join(f"{key} {value}" for key, value in metadata.items())
+    spec = board.parse_worktree_porcelain(text)[0]
+    for key, value in metadata.items():
+        assert spec[key] == value
+    row = _classify(repo, **metadata)
+    assert "待核实 1" in board.format_board([row], base="main", base_sha="a" * 40)
+
+
+def test_tracked_single_character_file_keeps_porcelain_status_columns(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    (repo / "x").write_text("base\n", encoding="utf-8")
+    _git(repo, "add", "x")
+    _git(repo, "commit", "-m", "short filename")
+    (repo / "x").write_text("uncommitted original\n", encoding="utf-8")
+    code, status = board._git(["status", "--porcelain"], cwd=str(repo), timeout=10)
+    assert code == 0 and status == " M x"
+    row = _classify(repo)
+    assert row.dirty and row.dirty_n == 1
+
+
+def test_document_only_dirt_is_not_safe_to_remove(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    wt = tmp_path / "fwp-wt-docs"
+    _git(repo, "worktree", "add", "-b", "docs", str(wt))
+    (wt / "notes.md").write_text("uncommitted original\n", encoding="utf-8")
+    row = _classify(wt)
+    assert row.in_main and row.dirty and not row.code_dirty
+    text = board.format_board([row], base="main", base_sha="a" * 40)
+    assert "干净 dev 树 0" in text
+    assert "还有未提交文件" in text
+    assert str(wt) not in text.split("【补丁已在基线且 Git 干净")[1].split("【")[0]
+
+
+def test_ahead_query_failure_remains_unknown(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path)
+    git = board._git
+
+    def fail_count(args, **kwargs):
+        return (1, "") if args[0] == "rev-list" else git(args, **kwargs)
+
+    monkeypatch.setattr(board, "_git", fail_count)
+    row = _classify(repo)
+    assert row.ahead == row.behind == -1
+    assert row.error
+    assert "待核实 1" in board.format_board([row], base="main", base_sha="a" * 40)
+    assert "底落后量未知" in _this_lines(repo, monkeypatch)[0]
+
+
+def test_session_start_pins_baseline_sha(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path)
+    sha = _git(repo, "rev-parse", "HEAD")
+    # The ref has disappeared/moved after initial resolution; the frozen SHA is valid.
+    lines = board.this_tree_lines(cwd=str(repo), base="moved/ref", base_sha=sha,
+                                  timeout=10, repo_root=repo)
+    assert "cherry+0" in lines[0]
+    assert "未知" not in lines[0]
+
+
+@pytest.mark.parametrize("mode", ["no-main", "base-failed", "list-failed", "common-failed"])
+def test_global_scan_failure_is_not_empty_inventory(tmp_path, monkeypatch, capsys, mode):
+    repo = _init_repo(tmp_path)
+    monkeypatch.chdir(repo)
+    if mode == "no-main":
+        _git(repo, "branch", "-m", "topic")
+    git = board._git
+
+    def fail(args, **kwargs):
+        if ((mode == "base-failed" and args == ["rev-parse", "main"])
+                or (mode == "list-failed" and args[:2] == ["worktree", "list"])
+                or (mode == "common-failed" and "--git-common-dir" in args)):
+            return 1, ""
+        return git(args, **kwargs)
+
+    monkeypatch.setattr(board, "_git", fail)
+    assert board.main(["--json"]) == 1
+    data = json.loads(capsys.readouterr().out)
+    assert data["error"] and data["trees"] is None
+    if mode == "no-main":
+        assert board.main(["--this"]) == 1
+        assert "不回退 HEAD" in capsys.readouterr().out

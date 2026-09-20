@@ -1,0 +1,167 @@
+..................FFFFFFFFF                                              [100%]
+=================================== FAILURES ===================================
+_________________ test_missing_worktree_is_visible_as_unknown __________________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3118/test_missing_worktree_is_visib0')
+
+    def test_missing_worktree_is_visible_as_unknown(tmp_path: Path) -> None:
+        repo = _init_repo(tmp_path)
+        row = board.classify_worktree(
+            {"path": str(tmp_path / "fwp-wt-missing"),
+             "head": _git(repo, "rev-parse", "HEAD"), "branch": "topic"},
+            base="main", main_checkout=str(repo), timeout=10,
+        )
+>       assert row.error
+E       AttributeError: 'TreeRow' object has no attribute 'error'
+
+/tmp/fwp-board-before-final.Khlvn2/tests/test_worktree_board.py:460: AttributeError
+_________ test_parent_repository_is_not_mistaken_for_missing_worktree __________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3118/test_parent_repository_is_not_0')
+
+    def test_parent_repository_is_not_mistaken_for_missing_worktree(tmp_path: Path) -> None:
+        repo = _init_repo(tmp_path)
+        nested = repo / "fwp-wt-missing"
+        nested.mkdir()
+        row = _classify(repo, path=str(nested))
+>       assert "root mismatch" in row.error
+E       AttributeError: 'TreeRow' object has no attribute 'error'
+
+/tmp/fwp-board-before-final.Khlvn2/tests/test_worktree_board.py:473: AttributeError
+_______________ test_collect_rows_pins_baseline_for_entire_scan ________________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3118/test_collect_rows_pins_baselin0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108ca35f0>
+
+    def test_collect_rows_pins_baseline_for_entire_scan(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        repo = _init_repo(tmp_path)
+        expected = _git(repo, "rev-parse", "main")
+        seen = []
+    
+        def classify(spec, **kwargs):
+            seen.append(kwargs["base"])
+            return None
+    
+        monkeypatch.setattr(board, "classify_worktree", classify)
+        base, sha, _, rows = board.collect_rows(cwd=str(repo), timeout=10)
+        assert base == "main" and sha == expected
+>       assert seen == [expected] and rows == []
+E       AssertionError: assert (['main'] == ['7ae0aa19ac6...8aa230d4d1e6']
+E         
+E         At index 0 diff: 'main' != '7ae0aa19ac64b727d698748293238aa230d4d1e6'
+E         Use -v to get more diff)
+
+/tmp/fwp-board-before-final.Khlvn2/tests/test_worktree_board.py:494: AssertionError
+__________________ test_status_failure_never_becomes_prunable __________________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3118/test_status_failure_never_beco0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108ca2f30>
+
+    def test_status_failure_never_becomes_prunable(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        repo = _init_repo(tmp_path)
+        git = board._git
+    
+        def fail_status(args, **kwargs):
+            return (1, "") if args[0] == "status" else git(args, **kwargs)
+    
+        monkeypatch.setattr(board, "_git", fail_status)
+        row = _classify(repo)
+>       assert "dirty state unknown" in row.error
+E       AttributeError: 'TreeRow' object has no attribute 'error'
+
+/tmp/fwp-board-before-final.Khlvn2/tests/test_worktree_board.py:508: AttributeError
+________________ test_failed_cherry_is_unknown_in_session_start ________________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3118/test_failed_cherry_is_unknown_0')
+
+    def test_failed_cherry_is_unknown_in_session_start(tmp_path: Path) -> None:
+        repo = _init_repo(tmp_path)
+>       assert board.cherry_counts("HEAD", "missing", cwd=str(repo), timeout=10) == (-1, -1, False)
+E       assert (0, 0, False) == (-1, -1, False)
+E         
+E         At index 0 diff: 0 != -1
+E         Use -v to get more diff
+
+/tmp/fwp-board-before-final.Khlvn2/tests/test_worktree_board.py:514: AssertionError
+________ test_worktree_metadata_prevents_cleanup_suggestion[metadata0] _________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3118/test_worktree_metadata_prevent0')
+metadata = {'locked': 'review'}
+
+    @pytest.mark.parametrize("metadata", [{"locked": "review"}, {"prunable": "missing gitdir"}])
+    def test_worktree_metadata_prevents_cleanup_suggestion(tmp_path: Path, metadata) -> None:
+        repo = _init_repo(tmp_path)
+        text = "worktree " + str(repo) + "\nHEAD abc\n"
+        text += "\n".join(f"{key} {value}" for key, value in metadata.items())
+        spec = board.parse_worktree_porcelain(text)[0]
+        for key, value in metadata.items():
+>           assert spec[key] == value
+E           KeyError: 'locked'
+
+/tmp/fwp-board-before-final.Khlvn2/tests/test_worktree_board.py:529: KeyError
+________ test_worktree_metadata_prevents_cleanup_suggestion[metadata1] _________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3118/test_worktree_metadata_prevent1')
+metadata = {'prunable': 'missing gitdir'}
+
+    @pytest.mark.parametrize("metadata", [{"locked": "review"}, {"prunable": "missing gitdir"}])
+    def test_worktree_metadata_prevents_cleanup_suggestion(tmp_path: Path, metadata) -> None:
+        repo = _init_repo(tmp_path)
+        text = "worktree " + str(repo) + "\nHEAD abc\n"
+        text += "\n".join(f"{key} {value}" for key, value in metadata.items())
+        spec = board.parse_worktree_porcelain(text)[0]
+        for key, value in metadata.items():
+>           assert spec[key] == value
+E           KeyError: 'prunable'
+
+/tmp/fwp-board-before-final.Khlvn2/tests/test_worktree_board.py:529: KeyError
+______ test_tracked_single_character_file_keeps_porcelain_status_columns _______
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3118/test_tracked_single_character_0')
+
+    def test_tracked_single_character_file_keeps_porcelain_status_columns(tmp_path: Path) -> None:
+        repo = _init_repo(tmp_path)
+        (repo / "x").write_text("base\n", encoding="utf-8")
+        _git(repo, "add", "x")
+        _git(repo, "commit", "-m", "short filename")
+        (repo / "x").write_text("uncommitted original\n", encoding="utf-8")
+        code, status = board._git(["status", "--porcelain"], cwd=str(repo), timeout=10)
+>       assert code == 0 and status == " M x"
+E       AssertionError: assert (0 == 0 and 'M x' == ' M x'
+E         
+E         -  M x
+E         ? -
+E         + M x)
+
+/tmp/fwp-board-before-final.Khlvn2/tests/test_worktree_board.py:541: AssertionError
+________________ test_document_only_dirt_is_not_safe_to_remove _________________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3118/test_document_only_dirt_is_not0')
+
+    def test_document_only_dirt_is_not_safe_to_remove(tmp_path: Path) -> None:
+        repo = _init_repo(tmp_path)
+        wt = tmp_path / "fwp-wt-docs"
+        _git(repo, "worktree", "add", "-b", "docs", str(wt))
+        (wt / "notes.md").write_text("uncommitted original\n", encoding="utf-8")
+        row = _classify(wt)
+        assert row.in_main and row.dirty and not row.code_dirty
+        text = board.format_board([row], base="main", base_sha="a" * 40)
+>       assert "干净 dev 树 0" in text
+E       AssertionError: assert '干净 dev 树 0' in '基准 main=aaaaaaaaaaaa  （合入看 cherry+，不是 ahead 提交数）\n树 1 棵 · 还有补丁 0 · 补丁已在基线的 dev 树 1\n\n【还有补丁 — 真没合】\n  （无）\n\n【补丁已在基线 ...n\n【生产快照】只留当前 8792 + 一个回滚锚；本脚本不拆\n\n拆树（需你确认）：git worktree remove <path>\n合入状态不要写进 inflight/main.md 或项目笔记交接记录，下次跑本脚本。\n'
+
+/tmp/fwp-board-before-final.Khlvn2/tests/test_worktree_board.py:554: AssertionError
+=========================== short test summary info ============================
+FAILED ../../../tmp/fwp-board-before-final.Khlvn2/tests/test_worktree_board.py::test_missing_worktree_is_visible_as_unknown
+FAILED ../../../tmp/fwp-board-before-final.Khlvn2/tests/test_worktree_board.py::test_parent_repository_is_not_mistaken_for_missing_worktree
+FAILED ../../../tmp/fwp-board-before-final.Khlvn2/tests/test_worktree_board.py::test_collect_rows_pins_baseline_for_entire_scan
+FAILED ../../../tmp/fwp-board-before-final.Khlvn2/tests/test_worktree_board.py::test_status_failure_never_becomes_prunable
+FAILED ../../../tmp/fwp-board-before-final.Khlvn2/tests/test_worktree_board.py::test_failed_cherry_is_unknown_in_session_start
+FAILED ../../../tmp/fwp-board-before-final.Khlvn2/tests/test_worktree_board.py::test_worktree_metadata_prevents_cleanup_suggestion[metadata0]
+FAILED ../../../tmp/fwp-board-before-final.Khlvn2/tests/test_worktree_board.py::test_worktree_metadata_prevents_cleanup_suggestion[metadata1]
+FAILED ../../../tmp/fwp-board-before-final.Khlvn2/tests/test_worktree_board.py::test_tracked_single_character_file_keeps_porcelain_status_columns
+FAILED ../../../tmp/fwp-board-before-final.Khlvn2/tests/test_worktree_board.py::test_document_only_dirt_is_not_safe_to_remove
+9 failed, 18 passed in 5.63s

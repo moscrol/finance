@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-ownership-closeout-0921",
+  "revision": "6a9cb527ad246c1b34aa13a04760ff6f0a03cf9e",
+  "branch": "ops/worktree-ownership-closeout-0921",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_worktree_board.py tests/test_deploy_ledger_homes.py",
+  "counts": {
+    "passed": 32,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-20T19:13:54+00:00"
+}
