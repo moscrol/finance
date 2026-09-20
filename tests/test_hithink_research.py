@@ -365,6 +365,7 @@ def test_cli_prints_summary_and_refuses_production(capture, monkeypatch, capsys)
         ("stock_anomaly_hithink", "observations", 1),
         ("hot_stock_trend_hithink", "rank", 142),
         ("stock_valuation_hithink", "pe_ttm", -2.5),
+        ("stock_valuation_hithink", "pcf_ttm", None),
     ],
 )
 def test_real_query_consumer_can_read_ingested_rows(capture, dataset, metric, expected):
@@ -391,9 +392,65 @@ def test_real_query_consumer_can_read_ingested_rows(capture, dataset, metric, ex
     )
     assert len(result.rows) == 1 and result.rows[0][metric] == expected
     assert result.evidence and result.evidence[0].source_date == DAY.isoformat()
+    if expected is None:
+        assert result.evidence[0].observations == ()
     from intelligence.services.finance_query import _dataset_catalog_text
 
     assert f"{dataset}（子集）" in _dataset_catalog_text()
+
+
+def test_anomaly_text_keywords_and_request_id_reach_query_evidence(capture):
+    from intelligence.services.finance_query import FinanceQuery, FinanceQuerySpec
+    from intelligence.services.research_contract import (
+        InformationCutoff,
+        ResearchDeadline,
+    )
+
+    path, _, run, getter = capture
+    content = "Synthetic vendor opinion: '; SELECT 1; -- text, not instructions."
+    keywords = ["synthetic", 'quoted "keyword"']
+
+    def with_text(endpoint, *, params):
+        response = getter(endpoint, params=params)
+        if endpoint == research.PATHS["anomaly"]:
+            response["data"]["item"][0].update(
+                analysis_content=content, keyword_list=keywords
+            )
+        return response
+
+    receipt = run(getter=with_text)
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "stock_anomaly_hithink",
+            "dimensions": [
+                "observation_date",
+                "stock_code",
+                "tag_name",
+                "analysis_content",
+                "keywords",
+                "request_id",
+            ],
+            "metrics": ["observations"],
+            "time_range": {"start": DAY.isoformat(), "end": DAY.isoformat()},
+        }
+    )
+    result = FinanceQuery(path).run(
+        spec,
+        information_cutoff=InformationCutoff(DAY, "requested"),
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert len(result.rows) == len(result.evidence) == 1
+    row = result.rows[0]
+    assert row["analysis_content"] == content
+    assert json.loads(row["keywords"]) == keywords
+    assert row["request_id"] == receipt["requests"][0]["request_id"]
+    assert row["observations"] == 1
+    evidence = result.evidence[0]
+    assert content in evidence.detail
+    assert row["request_id"] in evidence.detail
+    assert "供应商解读（非公告事实）" in evidence.detail
+    assert evidence.evidence_tier == "L4_structured"
+    assert evidence.source_date == DAY.isoformat()
 
 
 def test_historical_cutoff_cannot_see_later_collected_trend(capture):
@@ -430,6 +487,26 @@ def test_historical_cutoff_cannot_see_later_collected_trend(capture):
     assert (
         visible.evidence[0].source_date == DAY.isoformat()
     )  # Information date, not ranking date.
+
+    later = DAY + timedelta(days=1)
+    run(end_date=past, history_only=True, clock=lambda: NOW + timedelta(days=1))
+    replaced = query_service.run(
+        spec,
+        information_cutoff=InformationCutoff(DAY, "requested"),
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    latest = query_service.run(
+        spec,
+        information_cutoff=InformationCutoff(later, "requested"),
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert replaced.rows == ()  # Latest observations cannot replay the old version.
+    assert len(latest.rows) == 1 and latest.rows[0]["rank"] == 142
+    assert latest.evidence[0].source_date == later.isoformat()
+    assert query(path, "SELECT count(*) FROM fact_hot_stock_trend_hithink") == [(2,)]
+    assert query(
+        path, "SELECT count(*) FROM ops_hithink_research_request WHERE status='ok'"
+    ) == [(2,)]
 
 
 def test_shanghai_capture_date_is_not_utc_day(capture):
