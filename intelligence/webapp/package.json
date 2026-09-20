@@ -10,7 +10,10 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "arena:dev": "vite --config vite.arena.config.ts --host 127.0.0.1",
+    "arena:build": "pnpm typecheck && vite build --config vite.arena.config.ts",
+    "arena:e2e": "playwright test --config playwright.arena.config.ts"
   },
   "dependencies": {
     "dompurify": "3.2.6",
