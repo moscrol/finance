@@ -16,7 +16,7 @@ from intelligence.tests.test_premise_calculation import context_for, frame_for
 from intelligence.tests.test_premise_financial_calculation import ARITHMETIC
 
 
-def finish(context, draft, *, hashes=()):
+def finish(context, draft, *, hashes=(), boundary_gap=""):
     return ModelTurn(
         json.dumps(
             {
@@ -28,7 +28,9 @@ def finish(context, draft, *, hashes=()):
                         "output_id": item.output_id,
                         "basis": item.grounding_mode,
                         "evidence_hashes": list(hashes),
-                        "gap": "",
+                        "gap": boundary_gap
+                        if item.output_id == "evidence_boundary"
+                        else "",
                     }
                     for item in context.contract.required_outputs
                 ],
@@ -41,17 +43,97 @@ def finish(context, draft, *, hashes=()):
     )
 
 
-def run_recovery(draft, *, hashes=()):
+def run_recovery(draft, *, hashes=(), boundary_gap=""):
     frame = frame_for(ARITHMETIC)
     context = context_for(frame)
     bad = ModelTurn("not a JSON object", (), "scripted", "")
-    model = ScriptedModel([bad, bad, finish(context, draft, hashes=hashes)])
+    model = ScriptedModel(
+        [bad, bad, finish(context, draft, hashes=hashes, boundary_gap=boundary_gap)]
+    )
     result = ContinuousAgentEpisode(model).run(
         task_frame=frame,
         context=context,
         registry=ResearchToolRegistry(()),
     )
     return context, model, result
+
+
+def test_owned_source_boundary_relocates_caveat_without_erasing_it():
+    caveat = "数据为虚构题设，无外部证据；缺行业估值基准与未来业绩假设"
+    context, model, result = run_recovery(
+        CALCULATION_MARKER + "\n不足以判断便宜。", boundary_gap=caveat
+    )
+    assert result.status == "completed"
+    assert result.stop_reason == "finalization_recovered"
+    assert len(model.calls) == 3
+    assert caveat in result.gaps
+    boundary = next(
+        item for item in result.bindings if item.output_id == "evidence_boundary"
+    )
+    assert boundary.gap == ""
+    assert boundary.basis == "user_premise"
+    assert boundary.evidence_hashes == ()
+    assert "输入未作外部事实核验" in result.draft
+    assert context.contract.premise_calculation.table in result.draft
+
+
+@pytest.mark.parametrize(
+    "guard",
+    [
+        "no_calculation",
+        "incomplete",
+        "fact_boundary",
+        "direct_gap",
+        "forged_hash",
+        "missing_boundary",
+    ],
+)
+def test_owned_boundary_exception_does_not_bypass_other_guards(guard):
+    from intelligence.services.episode_protocol import validate_episode_finish
+
+    question = (
+        ARITHMETIC.replace("10亿股", "10") if guard == "incomplete" else ARITHMETIC
+    )
+    context = context_for(frame_for(question))
+    draft = context.contract.premise_calculation.table
+    if guard == "no_calculation":
+        context = replace(
+            context, contract=replace(context.contract, premise_calculation=None)
+        )
+    if guard == "fact_boundary":
+        context = replace(
+            context,
+            contract=replace(
+                context.contract,
+                required_outputs=tuple(
+                    replace(item, grounding_mode="evidence")
+                    if item.output_id == "evidence_boundary"
+                    else item
+                    for item in context.contract.required_outputs
+                ),
+            ),
+        )
+    bindings = [
+        {
+            "output_id": item.output_id,
+            "basis": item.grounding_mode,
+            "evidence_hashes": [],
+            "gap": "输入未经核验" if item.output_id == "evidence_boundary" else "",
+        }
+        for item in context.contract.required_outputs
+        if not (guard == "missing_boundary" and item.output_id == "evidence_boundary")
+    ]
+    for binding in bindings:
+        if guard == "direct_gap" and binding["output_id"] == "direct_answer":
+            binding["gap"] = "无法回答题设问题"
+        if guard == "forged_hash" and binding["output_id"] == "evidence_boundary":
+            binding["evidence_hashes"] = ["E999"]
+    with pytest.raises(ValueError):
+        validate_episode_finish(
+            {"status": "completed", "draft": draft, "gaps": [], "bindings": bindings},
+            context=context,
+            evidence=(),
+        )
 
 
 def test_empty_evidence_calculation_recovers_once_with_owned_materials():
@@ -88,7 +170,9 @@ def test_empty_evidence_calculation_recovers_once_with_owned_materials():
     ],
 )
 def test_recovery_does_not_relax_calculation_or_evidence_admission(draft, hashes):
-    _, model, result = run_recovery(draft, hashes=hashes)
+    _, model, result = run_recovery(
+        draft, hashes=hashes, boundary_gap="输入未作事实核验"
+    )
     assert len(model.calls) == 3
     assert result.status != "completed"
     assert result.stop_reason != "finalization_recovered"

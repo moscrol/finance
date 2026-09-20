@@ -5816,11 +5816,42 @@ def _sanitize_public_answer(
     evidence: tuple[AgentEvidence, ...],
     traces: tuple[ProviderTrace, ...],
 ) -> str:
+    from intelligence.services.episode_progress import public_tool_label
+    from intelligence.services.run_store import redact
+
     private_tokens = _private_tokens(evidence, traces)
+    observed_names = {item.tool for item in evidence} | {
+        trace.capability for trace in traces
+    }
+    aliases = {
+        name.casefold(): label
+        for name in observed_names
+        if (label := public_tool_label(name))
+    }
+    opaque_tokens = private_tokens.difference(aliases)
+
+    def public_names(text: str) -> str:
+        # Localize known inline source names without obscuring an opaque secret
+        # or turning a standalone control-plane tool name into public prose.
+        if (
+            text.strip("`* []").casefold() in aliases
+            or _contains_private_token(text, opaque_tokens)
+            or redact(text) != text
+        ):
+            return text
+        for name, label in aliases.items():
+            text = re.sub(
+                r"(?<![A-Za-z0-9_])" + re.escape(name) + r"(?![A-Za-z0-9_])",
+                label, text, flags=re.IGNORECASE,
+            )
+        return text
+
     kept: list[str] = []
     for raw in str(draft or "").splitlines():
-        line = raw.strip()
+        line = public_names(raw.strip())
         if not line:
+            if kept and kept[-1]:
+                kept.append("")
             continue
         if line.startswith("{") and line.endswith("}"):
             continue
@@ -5828,7 +5859,7 @@ def _sanitize_public_answer(
             kept.append(line)
             continue
         for item in _numbered_sentences(line):
-            sentence = str(item.get("text") or "").strip()
+            sentence = public_names(str(item.get("text") or "").strip())
             if not sentence or _contains_private_token(sentence, private_tokens):
                 continue
             if sentence.startswith("{") and sentence.endswith("}"):

@@ -233,7 +233,7 @@ def test_collapsed_blank_lines_are_restored_without_relaxing_table_values():
     )
     public, error = calc.admit(collapsed, status="completed")
     assert not error
-    assert "按题设计算：\n\n| 指标" in public
+    assert "按题设计算（输入未作外部事实核验）：\n\n| 指标" in public
     assert "| 20倍 |\n\n**几点解读：**" in public
     assert calc.admit(collapsed.replace("20倍", "22.5倍"), status="completed")[1]
 

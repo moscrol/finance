@@ -157,7 +157,7 @@ class PremiseCalculation:
     @property
     def table(self) -> str:
         lines = [
-            "按题设计算：",
+            "按题设计算（输入未作外部事实核验）：",
             "",
             "| 指标 | 公式与基数 | 结果 |",
             "| --- | --- | --- |",

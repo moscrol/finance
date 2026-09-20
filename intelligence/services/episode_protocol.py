@@ -850,8 +850,9 @@ def validate_episode_finish(
     if not isinstance(draft, str):
         raise _reject("draft_not_string", "finish draft must be a string")
     draft = _normalize_natural_language_layout(draft)
-    if context.contract.premise_calculation is not None:
-        draft, calculation_error = context.contract.premise_calculation.admit(draft, status=status)
+    calculation = context.contract.premise_calculation
+    if calculation is not None:
+        draft, calculation_error = calculation.admit(draft, status=status)
         if calculation_error:
             raise _reject("premise_calculation_mismatch", calculation_error)
     if status == "completed" and not draft.strip():
@@ -1002,15 +1003,25 @@ def validate_episode_finish(
     # R5-A10 / R6-A10 的冻结形状。
     #
     # 本函数在此把「有哈希的附带限制」挪到顶层 ``gaps`` 并清空
-    # ``binding.gap``——执行已写明的契约，不改 verifier 判据：无哈希的 gap
-    # 仍是真缺口；若有人绕过本函数把 gap 留在 binding 里，verifier 仍会
+    # ``binding.gap``——执行已写明的契约，不改 verifier 判据：普通无哈希的 gap
+    # 仍是真缺口；程序拥有的题设来源声明由下方单独限定。若绕过本函数把 gap 留在 binding 里，verifier 仍会
     # 把那一格判 missing。
     relocated_gaps: list[str] = []
     normalized_bindings: list[OutputEvidenceBinding] = []
     caveat_slips = 0
     for binding in bindings:
         caveat = binding.gap.strip()
-        if binding.evidence_hashes and caveat:
+        # The admitted program table owns this explicit source disclaimer.
+        # It does not prove any other hash-free output or incomplete inputs.
+        owned_boundary = (
+            calculation is not None
+            and not calculation.issues
+            and bool(calculation.rows)
+            and binding.output_id == "evidence_boundary"
+            and binding.basis == "user_premise"
+            and calculation.table in draft
+        )
+        if caveat and (binding.evidence_hashes or owned_boundary):
             relocated_gaps.append(caveat)
             normalized_bindings.append(replace(binding, gap=""))
             caveat_slips += 1
