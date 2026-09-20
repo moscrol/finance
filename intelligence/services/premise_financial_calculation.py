@@ -43,6 +43,13 @@ _AMOUNT = re.compile(
     r"(?P<approx>约|大约|超过|不足)?(?P<value>" + _NUMBER + r")\s*"
     r"(?P<unit>亿美元|亿元|百万元|万元|千元|元|亿股|万股|股)"
 )
+_UNITLESS_UPDATE = re.compile(
+    r"(?P<metric>" + "|".join(_METRICS) + r")\s*"
+    r"(?:(?:由|从)(?P<old_value>" + _NUMBER
+    + r")(?:是)?(?P<old_unit>亿美元|亿元|百万元|万元|千元|元|亿股|万股|股)?\s*)?"
+    r"(?:改为|改成|更正为|调整为|为|是|[:：=])\s*"
+    r"(?P<value>" + _NUMBER + r")(?P<unit>亿美元|亿元|百万元|万元|千元|元|亿股|万股|股)?"
+)
 _QUANTITY = re.compile(
     r"(?P<value>"
     + _NUMBER
@@ -80,6 +87,11 @@ _SCENARIO = re.compile(
     r"(?:下一年|次年|明年)归母净利润(?P<direction>下降|减少|增长|增加)(?P<rate>"
     + _NUMBER
     + r")%"
+)
+_UNITLESS_SCENARIO = re.compile(
+    r"(?:下一年|次年|明年)归母净利润(?P<direction>下降|减少|增长|增加)(?P<rate>"
+    + _NUMBER
+    + r")(?![\d.%])"
 )
 
 
@@ -439,6 +451,8 @@ def compile_calculation(
     active: dict[tuple[str, int | None, str, str], FinancialInput] = {}
     issues: list[str] = []
     subjects: set[str] = set()
+    invalidated_keys: set[tuple[str, int | None, str, str]] = set()
+    malformed_scenario = False
     for source in sources:
         visible = _visible(source.text)
         digest = hashlib.sha256(source.text.encode()).hexdigest()
@@ -452,6 +466,20 @@ def compile_calculation(
             continue
         subject = next(iter(subjects))
         consumed = [(match.start(), match.end()) for match in _AMOUNT.finditer(visible)]
+        for malformed in _UNITLESS_UPDATE.finditer(visible):
+            if malformed["unit"] is None or (
+                malformed["old_value"] is not None and malformed["old_unit"] is None
+            ):
+                metric = _METRICS[malformed["metric"]]
+                prefix = visible[: malformed.start()]
+                years = list(_YEAR.finditer(prefix))
+                period = int(years[-1]["year"]) if years and metric not in {"price", "shares"} else None
+                nature = "actual" if period is not None else "current"
+                invalidated_keys.add((subject, period, metric, nature))
+                consumed.append((malformed.start(), malformed.end()))
+        for malformed in _UNITLESS_SCENARIO.finditer(visible):
+            malformed_scenario = True
+            consumed.append((malformed.start(), malformed.end()))
         consumed.extend(
             (match.start(), match.end()) for match in _SCENARIO.finditer(visible)
         )
@@ -562,6 +590,7 @@ def compile_calculation(
                     )
                     continue
                 active[key] = item
+                invalidated_keys.discard(key)
         for quantity in _QUANTITY.finditer(visible):
             if any(
                 start <= quantity.start() and quantity.end() <= end
@@ -587,7 +616,9 @@ def compile_calculation(
             for unit in _MONEY_UNIT.finditer(visible)
         ):
             issues.append("存在未解析的金额或单位，需明确为带单位的数值输入")
-    inputs = tuple(active.values())
+    inputs = tuple(
+        item for key, item in active.items() if key not in invalidated_keys
+    )
     if len(subjects) != 1:
         return PremiseCalculation(
             sources, reference_year, inputs, (), tuple(dict.fromkeys(issues))
@@ -630,6 +661,7 @@ def compile_calculation(
                 if declared_scenarios else None
             )
         elif declared_scenarios:
+            malformed_scenario = False
             if _MORE_SCENARIOS.search(instruction):
                 scenarios.extend(declared_scenarios)
             else:
@@ -637,8 +669,21 @@ def compile_calculation(
             scenario_source, scenario_requested = source, True
         elif "情景市盈率" in instruction or "下一年归母净利润" in instruction:
             scenario_requested = True
+        if _UNITLESS_SCENARIO.search(instruction):
+            malformed_scenario = True
     if scope_issue:
         issues.append(scope_issue)
+    if invalidated_keys:
+        labels = {
+            "revenue": "收入", "profit": "归母净利润", "cash_flow": "经营活动现金流量净额",
+            "price": "股价", "shares": "总股本",
+        }
+        issues.extend(
+            f"{labels[metric]}变更缺少单位，不能沿用历史值"
+            for _, _, metric, _ in sorted(invalidated_keys)
+        )
+    if malformed_scenario:
+        issues.append("利润变化情景缺少百分号，不能沿用历史比例")
     profit = actual.get((basis_year, "profit"))
     price, shares = current.get("price"), current.get("shares")
     rows: list[CalculationRow] = []

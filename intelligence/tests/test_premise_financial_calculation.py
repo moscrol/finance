@@ -600,6 +600,10 @@ def test_k3_q2_premise_source_flag_is_not_program_calculation_certification():
     context = context_for(frame)
     assert frame.material_contract.premise_calculation
     assert context.contract.premise_calculation is None
+    assert all(
+        output.grounding_mode != "user_premise"
+        for output in context.contract.required_outputs
+    )
     assert FinanceResearchHarness().finalization_materials(context=context) == {}
 
 

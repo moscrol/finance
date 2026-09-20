@@ -346,8 +346,14 @@ def _references_prior_judgement(frame: TaskFrame) -> bool:
     return bool(detect_stance_kinds(frame.raw_question))
 
 
+def _has_owned_premise_calculation(frame: TaskFrame) -> bool:
+    """Only the finite static-PE contract may open the evidence-free lane."""
+
+    return calculation_for_frame(frame) is not None
+
+
 def _required_output_ids(frame: TaskFrame) -> tuple[str, ...]:
-    if frame.material_contract and frame.material_contract.premise_calculation:
+    if _has_owned_premise_calculation(frame):
         return ("direct_answer", "evidence_boundary")
     outputs = frame.required_outputs
     if frame.question_type == "valuation_estimate":
@@ -529,7 +535,7 @@ def _material_restricted(contract: object | None) -> bool:
 def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
     """Project question semantics into the output grounding contract."""
 
-    if frame.material_contract and frame.material_contract.premise_calculation:
+    if _has_owned_premise_calculation(frame):
         return "user_premise"
     if output_id == "evidence_boundary" and frame.material_contract is not None:
         if frame.material_contract.authenticity == "fictional" or frame.material_contract.data_scope == "material_only":
@@ -576,7 +582,7 @@ def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
 
 
 def _is_evidence_free_task(frame: TaskFrame) -> bool:
-    if frame.material_contract and frame.material_contract.premise_calculation:
+    if _has_owned_premise_calculation(frame):
         return True
     if frame.material_contract is not None and frame.material_contract.data_scope_declared:
         # 两轴独立：显式fictional×full仍要真实检索；材料权限在P3统一冻结，
