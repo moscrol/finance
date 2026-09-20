@@ -15,14 +15,16 @@
 
 ## 当前状态
 
-代码冻结在 `d6812e6220b46ff939dfbcf51ac6c6b93246d361`；门页已同步。待独立 Spec→Quality 双审；未建 PR、未合 main、未部署。
+代码冻结在 `cb4bbf1ce6cd9b1af4b71dcbb13668877dbc54be`；门页已同步。首轮 Spec 在 `bc43ece9` 发现首次捕获缺失工件会泄漏普通文件系统异常并触发 CLI，已返修；待同一 Spec reviewer 复核后再做 Quality。未建 PR、未合 main、未部署。
 
 ## 已验证
 
-- 定向收据：94 passed / 2 skipped / 126 deselected；相关 Ruff 全绿。`FWP_TEST_RECEIPT=0`，解释器为主树 `.venv-workbench/bin/python`。
+- 最终定向收据：121 passed；相关 Ruff 全绿。首次同命令因 keepalive 异步计数时序为 1 failed / 119 passed，原样保留，原命令复跑通过。`FWP_TEST_RECEIPT=0`，解释器为主树 `.venv-workbench/bin/python`。
+- 首次受管捕获的 full/code/wiki/解释器缺失、残余 `PermissionError` 与解释器软链环都转为专用 generation 不可用；真实 `kb_rag.retrieve` 均不运行 CLI。legacy `PermissionError` 与普通协议故障仍保留原行为。
+- 脱敏外部消费者探针：修前 2 failed；撤回捕获保护变异 2 failed；最终 2 passed。证据在 `capture-repair/`。
 - 真 scratch：KB `3a210103`，hash/BM25，standard/full，alpha→beta→rollback；首次新查询前旧 worker 已 failed/retired，旧注册不能被新 ready 掩盖，close_all 后新代绿，真实消费者不回退 CLI，8/8 子进程关闭。
 - 变异：删 current 检查、启动改读 ambient 两项均抓红；另抓红并修复 venv 入口 resolve 缺陷与“不同 venv 同目标”误等价。
-- 证据根：`/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/`；最终真探针 `worker-fixed-d6812e62/results.json`。
+- 证据根：`/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/`；最终真探针 `worker-fixed-d6812e62/results.json`，返修清单 `capture-repair/MANIFEST.md`。
 
 ## 未验证 / 已知边界
 
@@ -32,7 +34,3 @@
 ## 下一步
 
 独立 reviewer 先审规格，再审质量；有问题回本分支修。通过后由协调侧决定集成，不直接合 main。
-
-## 踩过的坑
-
-`Path.resolve()` 对文件同一性有用，但不能代表 Python 虚拟环境身份；启动入口本身会影响 `sys.prefix` 与依赖解析。

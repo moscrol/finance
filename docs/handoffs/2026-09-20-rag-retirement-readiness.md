@@ -35,3 +35,9 @@ KB 候选 `3a21010323eababb54ce8519093fd60dbacb9451` 已在每次查询前用固
 ## 后续与禁区
 
 独立 Spec reviewer 通过后再做 Quality reviewer。此切片不做生产切换、父服务自动迁移、KB 仓修改、BGE/网络模型、生产索引读写、8792/launchd 操作。完整四叶门禁由协调侧在独占冻结检出执行。
+
+## 首轮 Spec 返修
+
+首轮 Spec 在候选 `bc43ece9fc0550663645c2e8c57d57d7618b8e0d` 发现：完整受管绑定首次创建时，full 索引或解释器入口缺失会从 `capture_generation` 泄漏普通 `FileNotFoundError`，于是 `kb_rag.retrieve` 误走 legacy CLI。最终代码 `cb4bbf1ce6cd9b1af4b71dcbb13668877dbc54be` 把已识别受管身份捕获内的有限文件系统失败统一转为 `RagGenerationUnavailable`；明确工件仍保留 code/source/index/interpreter 原因，其他受管身份 I/O 使用 `managed_identity_io_error`。解释器入口 `resolve(strict=True)` 的软链环 `RuntimeError` 只在该解析点映射为 `interpreter_replaced`；未在外层吞任意 `RuntimeError`。legacy 权限错误和普通 worker 协议故障仍沿原 fallback。
+
+外部脱敏消费者探针修前 2 failed，撤回捕获保护的变异同样 2 failed，恢复后 2 passed；所有运行仅带 HOME/PATH/LANG/TMPDIR 与三个测试变量。最终仓内定向选择 121 passed，相关 Ruff 通过；首次相同命令出现一次 keepalive 异步计数时序失败（1 failed / 119 passed），原样保留后复跑通过。证据清单为外部 `rag-retirement-fix/capture-repair/MANIFEST.md`。返修不改变子进程启动协议，因此没有重跑完整真实 scratch；先前 alpha→beta→rollback 与全部子进程关闭证据仍对应实际协议。
