@@ -57,11 +57,18 @@ _SUBJECT_PREFIX = re.compile(
     r"^(?:(?:假设|已知|对于|关于|针对|题设中的|"
     r"(?:沿用|继续使用|基于)(?:上一轮|上轮|前文|上述)(?:的)?)\s*)+"
 )
-_STATIC_ONLY = re.compile(r"(?:只|仅)(?:需要|要)?(?:计算|算|保留)\s*静态市盈率")
+_SCOPE_DIRECTIVE_PREFIX = r"(?:^|[。；;，,\n])\s*(?:请)?(?:本轮|这次|现在)?(?:请)?\s*"
+_STATIC_ONLY = re.compile(
+    _SCOPE_DIRECTIVE_PREFIX + r"(?:只|仅)(?:需要|要)?(?:计算|算|保留)\s*静态市盈率"
+)
 _CANCEL_SCENARIO = re.compile(
-    r"(?:^|[。；;，,\n])\s*(?:本轮|这次|现在)?(?:先)?"
+    _SCOPE_DIRECTIVE_PREFIX + r"(?:先)?"
     r"(?:取消|去掉|不再(?:计算|保留|需要)?|不需要|不用|无需)"
     r"(?:上一轮的?|原有的?|之前的?)?情景"
+)
+_MORE_SCENARIOS = re.compile(
+    _SCOPE_DIRECTIVE_PREFIX + r"(?:再加|新增|增加|另加|再分析|再计算)"
+    r"(?:一个|一种)?(?:纯假设)?情景"
 )
 _REPLACEMENT = re.compile(r"改为|改成|更正|调整为|修改")
 _NATURE = re.compile(r"预测|预计|预期|假设|实际|已实现")
@@ -601,6 +608,7 @@ def compile_calculation(
     scenarios: list[re.Match[str]] = []
     scenario_source: PremiseSource | None = None
     scenario_requested = False
+    scope_issue: str | None = None
     # Continuation replays both supplied values and the still-active request.
     for source in sources:
         instruction = _visible(source.text)
@@ -611,20 +619,26 @@ def compile_calculation(
             basis_year = latest
         static_only = bool(_STATIC_ONLY.search(instruction))
         declared_scenarios = list(_SCENARIO.finditer(instruction))
-        if static_only and declared_scenarios:
-            issues.append("同轮同时要求仅静态估值与利润变化情景，需明确计算范围")
         if static_only:
             requested_phrases.clear()
         else:
             requested_phrases.update(phrase for phrase in requested if phrase in instruction)
         if static_only or _CANCEL_SCENARIO.search(instruction):
             scenarios, scenario_source, scenario_requested = [], None, False
-        else:
-            if declared_scenarios:
-                scenarios, scenario_source = declared_scenarios, source
-                scenario_requested = True
-            elif "情景市盈率" in instruction or "下一年归母净利润" in instruction:
-                scenario_requested = True
+            scope_issue = (
+                "同轮混合退出指令和新的利润变化情景，需明确当前计算范围"
+                if declared_scenarios else None
+            )
+        elif declared_scenarios:
+            if _MORE_SCENARIOS.search(instruction):
+                scenarios.extend(declared_scenarios)
+            else:
+                scenarios, scope_issue = declared_scenarios, None
+            scenario_source, scenario_requested = source, True
+        elif "情景市盈率" in instruction or "下一年归母净利润" in instruction:
+            scenario_requested = True
+    if scope_issue:
+        issues.append(scope_issue)
     profit = actual.get((basis_year, "profit"))
     price, shares = current.get("price"), current.get("shares")
     rows: list[CalculationRow] = []
