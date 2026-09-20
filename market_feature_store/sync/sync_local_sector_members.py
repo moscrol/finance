@@ -376,7 +376,7 @@ def stitch_sector_members(
     """对 identity 未动且尚未完成的板块做本地拼接。返回可进 runlog 的摘要。
 
     ``dry_run`` 只算不写，摘要里带 ``rows``（按板块）供对账；``include_completed``
-    连已 success 的板块也算（仅供在历史快照上回测拼接精度，生产路径不用）。
+    连已 success 的板块也算（历史回测，或 staging 恢复中底行情修正后的重建；日更默认不用）。
     """
     td = _as_date(trade_date)
     own = con is None

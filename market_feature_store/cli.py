@@ -301,6 +301,7 @@ def cmd_sync_index_daily(args) -> int:
         start_date=args.start_date,
         end_date=args.end_date,
         symbol=args.symbol,
+        allow_fupanhui_fallback=not args.no_fupanhui_fallback,
     )
     print(f"指数: {stats['symbol']} | 写入: {stats['rows_written']} 行")
     print(f"指数点位覆盖: {stats['close_count']} 行 ({stats['date_min']} ~ {stats['date_max']})")
@@ -682,6 +683,7 @@ def cmd_stitch_sector_stocks(args) -> int:
         args.trade_date,
         fetch_caps=not args.no_caps,
         dry_run=args.dry_run,
+        include_completed=getattr(args, 'include_completed', False),
         **kwargs,
     )
     print(f"交易日: {s['trade_date']} | snapshot={s['snapshot_id'][:12]} | {s['identity']}")
@@ -2153,6 +2155,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_idx.add_argument("--start-date", default=None, help="起始日期 YYYY-MM-DD")
     p_idx.add_argument("--end-date", default=None, help="结束日期 YYYY-MM-DD；留空取 fact_market_daily 最新日")
     p_idx.add_argument("--symbol", default="sh000001", help="AkShare 指数代码, 默认 sh000001")
+    p_idx.add_argument("--no-fupanhui-fallback", action="store_true", help="主源失败时拒绝请求复盘会（local 计划必带）")
     p_idx.set_defaults(func=cmd_sync_index_daily)
 
     p_sw = sub.add_parser("sync-sw-l1-daily", help="同步申万一级行业指数涨跌幅与复盘会成交占比")
@@ -2288,6 +2291,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_st.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD（需已 sync-sectors 且 stock-daily 为东财源）")
     p_st.add_argument("--no-caps", action="store_true", help="不拉腾讯市值现值，按基线缩放")
     p_st.add_argument("--dry-run", action="store_true", help="只算不写")
+    p_st.add_argument("--include-completed", action="store_true",
+                      help="底行情修正后重建已完成板块；恢复任务仅在 staging 中使用")
     p_st.add_argument("--max-baseline-age-days", type=int, default=None,
                       help="identity 基线最多多旧（日历日），默认 10；名单冻结（fupanhui 停抓）时放宽到 120+")
     p_st.set_defaults(func=cmd_stitch_sector_stocks)

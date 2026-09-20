@@ -400,7 +400,7 @@ def build_local_plan(trade_date: str, timeout: int, heavy_timeout: int):
         ("db-lock", lambda: run_step("db-lock", [PY, "scripts/check_db_lock.py"], 120)),
         ("stock-daily", lambda: sync_stock_daily(trade_date, heavy_timeout)),
         *hithink,
-        ("index-daily", lambda: run_step("index-daily", CLI + ["sync-index-daily", "--trade-date", trade_date], timeout)),
+        ("index-daily", lambda: run_step("index-daily", CLI + ["sync-index-daily", "--trade-date", trade_date, "--no-fupanhui-fallback"], timeout)),
         ("sw-l1-daily", lambda: run_step("sw-l1-daily", CLI + ["sync-sw-l1-daily", "--trade-date", trade_date, "--days", "20"], heavy_timeout)),
         ("carry-forward-universe", lambda: run_step("carry-forward-universe", CLI + ["carry-forward-universe", "--trade-date", trade_date], timeout)),
         ("stitch-sector-stocks", lambda: run_step(
