@@ -10,10 +10,10 @@
 - 热度是自然日样本，异动是供应商解读，估值是当前值；NULL不补零，行数/ok不代表字段完整。
 
 ## 当前状态
-PR #810仍WIP/open，当前tip`c7024b5ce`；运行时代码与164b02e4相同。合main/部署/生产写入/live sync/付费审查暂停。
+PR #810仍WIP/open；当前分支HEAD为候选tip，运行时代码与164b02e4相同。合main/部署/生产写入/live sync/付费审查暂停。
 
 ## 已验证
-- 当前tip`c7024b5ce`：定向相关测试250P/8S，Ruff及收据校验通过；收据`~/.finance-runtime/hithink-independent-20260921-fNTsHb/targeted-current-c7024b5ce/targeted-receipt.json`。
+- 当前分支HEAD：定向相关测试250P/8S，Ruff及收据校验通过；最终收据放在`~/.finance-runtime/hithink-independent-20260921-fNTsHb/targeted-final/targeted-receipt.json`，须与HEAD同SHA校验。
 - 新增断言覆盖异动文本/关键词/request_id证据链、NULL不转0且不生成observations、重采历史热度不回放旧版本；三次内存变异均被捕获。探针日志在`~/.finance-runtime/hithink-independent-20260921-fNTsHb/`，不是生产证据。
 - `eebf4e895`收据是历史原件；旧固定`164b02e4`全量11964P/85S/2X、前端门禁及48份清单不移签到本提交。
 
