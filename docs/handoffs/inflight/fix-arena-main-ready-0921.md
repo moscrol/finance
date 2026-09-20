@@ -11,14 +11,12 @@
 - 组合只证明候选工程兼容；独立 Spec/Quality、main 合入、部署、真实参赛调用仍需授权。
 
 ## 当前状态
-代码提交 `371a08e8598e` 已推送 `fix/arena-main-ready-0921`；固定组合 `471f85a22613` 位于独占树 `/Users/a77/fwp-wt-ownership-arena-gates-0921`，树干净。原 PR #811 未改写；此候选待开 WIP 替代 PR。
+代码和交接已提交到 `fix/arena-main-ready-0921`；固定组合须以本候选最新提交重新建立，位于新的独占验收树，不能继续使用旧收据。原 PR #811 未改写；此候选待开 WIP 替代 PR。
 
 ## 已验证
 - Arena Python：43 passed；定向反例先在旧实现失败，修后通过。
-- 组合全仓 Python：12104 passed / 85 skipped / 2 xfailed，Ruff 通过；收据：`~/.finance-runtime/reviews/arena-main-ready-20260921/python/receipts/gate-pbwPTmDi/pytest.json`。
-- 前端通用门禁：install/lint/typecheck/test/build/E2E 全部 0，收据在 `~/.finance-runtime/reviews/arena-main-ready-20260921/frontend/frontend.json`。
-- Arena 专属：`arena:build`、桌面/手机 E2E 8 passed；七档 smoke 1920/1440/1024/768/390/360/320 均无溢出、缺图或页面错误。
-- Registry 五项全部 exit 0；固定组合与 `gitea/main` 无合并冲突。
+- 前一组合 `471f85a22613` 曾完成全仓 Python、前端、Arena 浏览器/smoke、registry 门禁，但其候选尖随后追加了交接文档，旧收据仅作历史证据，不能移签。
+- 最新候选须重建组合后重新取得：全仓 Python、前端、Arena 专属浏览器/smoke、registry 五项及合并树检查。
 
 ## 未验证 / 已知边界
 没有独立 Spec/Quality 签字；没有真实第二家 Agent、负载、身份恢复、容器隔离、公网治理或策略收益结算验收。8816 旧服务和正式库未切换、未写榜；组合验收不等于生产授权。
@@ -31,4 +29,4 @@
 - 前端收据不能交给 Python 收据校验器；两者 schema 不同，分别保留。
 - `latest.json` 不是权威证据；本轮全量收据和每个 Arena 叶子都用独立路径并绑定固定 SHA。
 
-展开决策和原件索引：`docs/handoffs/2026-09-21-arena-main-ready.md`。
+展开决策和历史原件索引：`docs/handoffs/2026-09-21-arena-main-ready.md`；最终组合收据以新验收树为准。

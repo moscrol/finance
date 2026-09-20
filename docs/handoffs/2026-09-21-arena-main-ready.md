@@ -9,17 +9,13 @@
 3. 旧榜单先查已发布比赛再查投票，两个查询可能看到不同提交点，发布并发时会出现投票找不到比赛。新增 SQLite trace 交错反例，旧实现暴露 `KeyError`；修复 `connect(write=False)` 显式 `BEGIN`，让榜单两条查询共享同一读快照，并保持 WAL 读写并行。
 
 ## 固定对象
-- Arena 候选提交：`371a08e8598efcf53ee4b870ad69a1877a5f5802`，分支 `fix/arena-main-ready-0921`，已推 `gitea`。
-- 组合：`e1b63b1a5b7c066b7377bbd2d005051863331001` + 候选，固定提交 `471f85a226134d441b801dd4e5a0dbe964e07aa2`。
-- 组合基准：`gitea/main@728f327160bbd2485cb635e7ef09d040d718d7b5`。独占树：`/Users/a77/fwp-wt-ownership-arena-gates-0921`。
+- Arena 候选分支：`fix/arena-main-ready-0921`；本记录提交后仍需以最新尖建立新的固定组合，不能复用下述历史组合收据。
+- 历史组合：`e1b63b1a5b7c066b7377bbd2d005051863331001` + 旧候选，`471f85a226134d441b801dd4e5a0dbe964e07aa2`；仅作不可移签的历史证据。
+- 组合基准：`gitea/main@728f327160bbd2485cb635e7ef09d040d718d7b5`。最终独占树和 SHA 由后续验收交接记录确定。
 
 ## 验证与收据
-- Arena 定向后端：43 passed，日志由 `arena-python/run.json` 绑定固定 SHA。
-- 全仓 Python：`12104 passed / 85 skipped / 2 xfailed`，17 warnings，637.86 秒；权威收据 `~/.finance-runtime/reviews/arena-main-ready-20260921/python/receipts/gate-pbwPTmDi/pytest.json`，revision 和 dirty 均核对。
-- 前端通用门禁：frozen install、lint、typecheck、test、build、test:e2e 全部 0，`frontend/frontend.json` 记录首尾身份稳定。
-- Arena 专属浏览器：build 0，桌面/手机 8 passed；七档 smoke 结果为无水平溢出、无超宽元素、无缺图、无 page error，截图保存在组合树 `intelligence/webapp/test-results/local-smoke/`，临时 18826 服务已停止。
-- Registry：parseability、check、backfill-tables、generate-views、ledger crosswalk 全部 exit 0。
-- `git merge-tree --write-tree gitea/main HEAD` exit 0；组合树最终干净。
+- 历史组合的 Arena 定向、全仓 Python、前端、专属浏览器/smoke、registry 收据均已封存，但候选尖追加了本交接后失效，不移签到新尖。
+- 最新组合必须重新取得并核对：Arena 定向后端、全仓 Python、前端通用门禁、Arena 专属浏览器/smoke、Registry 五项和 `git merge-tree`；所有收据都要绑定新固定 SHA。
 
 ## 边界和裁决
 这些是作者工程门禁与反例回归，不是独立 Spec/Quality 结论；没有发起付费外审。没有真实第二家 Agent 调用、公开部署、策略收益、身份恢复、容器隔离、负载或网络出口验收。不得把 8816 旧服务的状态、任何 live probe、旧 PR 文本或旧收据移签到 `471f85a2`。
