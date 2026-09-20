@@ -184,14 +184,17 @@ class FrozenRagGeneration:
             "python_entry": "interpreter_replaced",
         }
         for name, path in paths.items():
-            try:
-                if name == "python_entry":
+            if name == "python_entry":
+                try:
                     if (
                         _link_identity(path) != identities[name]
                         or path.resolve(strict=True) != paths["python"]
                     ):
                         return GenerationCheck(False, "invalid", reasons[name])
-                    continue
+                except (OSError, RuntimeError):
+                    return GenerationCheck(False, "invalid", reasons[name])
+                continue
+            try:
                 if _has_symlink_component(path) or _identity(path) != identities[name]:
                     return GenerationCheck(False, "invalid", reasons[name])
             except OSError:

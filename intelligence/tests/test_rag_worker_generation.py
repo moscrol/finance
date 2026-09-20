@@ -130,6 +130,23 @@ def _replace_managed_interpreter_with_symlink_loop(
     )
 
 
+def _replace_managed_interpreter_with_chain(
+    binding: dict[str, str], tmp_path: Path
+) -> tuple[Path, Path]:
+    entry = tmp_path / "managed-venv" / "bin" / "python"
+    middle = entry.with_name("python3")
+    entry.parent.mkdir(parents=True)
+    entry.symlink_to(middle)
+    middle.symlink_to(Path(sys.executable).resolve())
+    binding["python"] = str(entry)
+    manifest_path = Path(binding["manifest"])
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["runtime"]["executable"] = str(entry)
+    _write_json(manifest_path, manifest)
+    binding["sha"] = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    return entry, middle
+
+
 @pytest.fixture(autouse=True)
 def _clean_workers():
     rag_worker.close_all()
@@ -199,6 +216,7 @@ def test_managed_launch_uses_frozen_environment_despite_ambient_rewrite(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     alpha = _managed_generation(tmp_path, "alpha")
+    entry, _ = _replace_managed_interpreter_with_chain(alpha, tmp_path)
     beta = _managed_generation(tmp_path, "beta")
     _activate(alpha)
     _bind(monkeypatch, alpha)
@@ -216,10 +234,50 @@ def test_managed_launch_uses_frozen_environment_despite_ambient_rewrite(
         process.poll.return_value = 0
         spawn.return_value = process
         worker._ensure_process()
+    launched_argv = spawn.call_args.args[0]
+    assert launched_argv[0] == str(entry)
     launched = spawn.call_args.kwargs["env"]
     assert launched["KB_RAG_GENERATION"] == alpha["sha"]
     assert launched["RAG_GENERATION_MANIFEST"] == alpha["manifest"]
     assert launched["RAG_GENERATIONS_ROOT"] == alpha["root"]
+
+
+def test_post_capture_interpreter_chain_loop_is_unavailable_without_status_side_effects(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    alpha = _managed_generation(tmp_path, "alpha")
+    entry, middle = _replace_managed_interpreter_with_chain(alpha, tmp_path)
+    _activate(alpha)
+    _bind(monkeypatch, alpha)
+    worker = PersistentRagWorker(
+        alpha["python"], Path(alpha["code"]), Path(alpha["standard"]), Path(alpha["wiki"])
+    )
+    entry_identity = entry.lstat().st_ino
+    middle.unlink()
+    middle.symlink_to(middle)
+    assert entry.lstat().st_ino == entry_identity
+
+    with (
+        mock.patch.object(rag_worker.subprocess, "Popen") as spawn,
+        mock.patch.object(worker, "_stop_process") as stop,
+        mock.patch.object(worker, "_schedule_recovery") as recover,
+    ):
+        payload = worker.status()
+
+    assert payload["state"] == "failed"
+    assert payload["active"] is False
+    assert payload["generation_status"] == "invalid"
+    assert payload["generation_reason"] == "interpreter_replaced"
+    spawn.assert_not_called()
+    stop.assert_not_called()
+    recover.assert_not_called()
+
+    with pytest.raises(rag_worker.RagGenerationUnavailable) as query_error:
+        worker.query(["query", "after-interpreter-loop", "--json"], timeout=1)
+    assert query_error.value.reason == "interpreter_replaced"
+    with pytest.raises(rag_worker.RagGenerationUnavailable) as prewarm_error:
+        worker.prewarm(["query", "warmup", "--json"], timeout=1)
+    assert prewarm_error.value.reason == "interpreter_replaced"
 
 
 def test_pool_partitions_managed_bindings_and_old_registration_keeps_aggregate_red(
