@@ -17,6 +17,7 @@ from intelligence.tests.test_boundary_partial_delivery import _delivery
 from intelligence.tests.test_continuous_turn_adapter import _control
 from intelligence.tests.test_episode_semantic_verifier import _judge
 from intelligence.tests.test_financial_r6_regressions import SAFE, _financial
+from intelligence.tests.test_research_delivery_checks import _financial_evidence
 
 BAD = "二季度单季经营现金流=18−33.68=−15.66亿元。"
 GOOD = "二季度单季经营现金流=18−33.68=−15.68亿元。"
@@ -39,6 +40,75 @@ def _metric_only(draft):
         OutputEvidenceBinding("metric_evidence", tuple(e.content_hash for e in verified.outcome.evidence)),
     ))
     return frame, verify_episode_outcome(contract, outcome)
+
+
+def _ratio_delivery(draft, *, product_value=1.588, product_unit=""):
+    frame, verified = _metric_only(draft)
+    source, calc = _financial_evidence()
+    source = replace(source, observations=tuple(
+        replace(obs, subject=frame.subject) for obs in source.observations
+    ))
+    calc = replace(calc, observations=(replace(
+        calc.observations[0], metric=f"现金流比率.含金量{product_unit}[2026中报]", value=product_value,
+    ),))
+    contract = replace(verified.contract, required_outputs=tuple(
+        replace(required, evidence_types=(*required.evidence_types, "derived_calculation"))
+        for required in verified.contract.required_outputs
+    ))
+    outcome = replace(verified.outcome, evidence=(source, calc), bindings=(
+        OutputEvidenceBinding("metric_evidence", (source.content_hash, calc.content_hash)),
+    ))
+    return frame, verify_episode_outcome(contract, outcome)
+
+
+@pytest.mark.parametrize("mode", ["off", "llm"])
+@pytest.mark.parametrize("header,cell", [
+    ("含金量(bp)", "1.588"),
+    ("含金量(BP)", "1.588倍"),
+    ("含金量（基点）", "1.588"),
+    ("含金量(百分点)", "1.588"),
+    ("含金量", "1.588bp"),
+])
+def test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it(monkeypatch, mode, header, cell):
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+    table = f"|报告期|OCF累计|归母净利累计|{header}|\n|---|---|---|---|\n|2026中报|706.91|445.17|{cell}|"
+    draft = SAFE + "[E1]。\n" + table
+    frame, verified = _ratio_delivery(draft)
+    assert verified.verified_status == "completed"
+    verifier = SemanticEpisodeVerifier(judge_fn=_judge(True))
+    result = verifier.verify(frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5))
+    assert "|2026中报|706.91|445.17| 待核对 |" in result.public_answer
+    assert SAFE in result.public_answer and "[E1]" in result.public_answer
+    assert result.status == "partial"
+    assert result.gap_output_ids == result.repair_output_ids == ("metric_evidence",)
+    assert result.verified.outcome == verified.outcome
+    assert result.delivery_retained_evidence_hashes == (verified.outcome.evidence[0].content_hash,)
+    assert any("calculation_value_unverified" in issue for issue in result.issues)
+    assert recheck_material_public_delivery(result) == result
+    corrected_draft = SAFE + "[E1]。\n|报告期|含金量(%)|\n|---|---|\n|2026中报|158.8|"
+    clean = verify_episode_outcome(verified.contract, replace(verified.outcome, draft=corrected_draft))
+    corrected = verifier.verify(frame=frame, structurally_verified=clean, deadline=ResearchDeadline.from_timeout(5))
+    assert corrected.status == "completed" and "158.8" in corrected.public_answer
+    assert corrected.gap_output_ids == corrected.repair_output_ids == ()
+
+
+@pytest.mark.parametrize("mode", ["off", "llm"])
+@pytest.mark.parametrize("product_value,product_unit,gap_note", [
+    (9.999, "", "复算不一致"),
+    (1.588, "(bp)", "差值单位"),
+])
+def test_ratio_product_gap_survives_the_real_financial_exit(monkeypatch, mode, product_value, product_unit, gap_note):
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+    draft = SAFE + "[E1]。\n|报告期|含金量|\n|---|---|\n|2026中报|1.588|"
+    frame, verified = _ratio_delivery(draft, product_value=product_value, product_unit=product_unit)
+    assert verified.missing_outputs == ("metric_evidence",)
+    assert gap_note in verified.completion.outputs[0].gap
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert result.status == "partial" and result.repair_output_ids == ("metric_evidence",)
+    assert result.verified.outcome == verified.outcome
+    assert verified.outcome.draft == draft
 
 
 @pytest.mark.parametrize("bad", [BAD, "2026中报净现比0.133。", "本次实际取得并引用的报告为中际旭创2026年半年度报告。"])

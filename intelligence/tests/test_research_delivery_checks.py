@@ -144,6 +144,67 @@ def test_correct_rounding_percent_and_unrelated_numbers_not_rejected(draft):
     assert calculation_copy_findings(draft, _financial_evidence()) == ()
 
 
+@pytest.mark.parametrize("header,cell", [
+    ("含金量(bp)", "1.588"),
+    ("含金量(BP)", "1.588"),
+    ("含金量（基点）", "1.588"),
+    ("含金量(百分点)", "1.588"),
+    ("含金量(bp)", "1.588倍"),
+    ("含金量(%)", "158.8bp"),
+    ("含金量", "1.588bp"),
+    ("含金量", "1.588基点"),
+    ("含金量", "1.588个百分点"),
+])
+def test_ratio_delta_units_are_unverified_at_either_table_location(header, cell):
+    draft = f"| 报告期 | OCF累计 | 含金量占位 |\n|---|---|---|\n|2026中报|706.91|{cell}|"
+    draft = draft.replace("含金量占位", header)
+    findings = calculation_copy_findings(draft, _financial_evidence())
+    assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+    kept = remove_findings(draft, findings)
+    assert f"| 报告期 | OCF累计 | {header} |" in kept
+    assert "|2026中报|706.91| 待核对 |" in kept
+
+
+@pytest.mark.parametrize("claim", [
+    "2026中报含金量为1.588bp。",
+    "2026中报含金量为1.588基点。",
+    "2026中报含金量为1.588百分点。",
+    "2026中报含金量为1.588个百分点。",
+    "2026中报含金量(bp)为1.588倍。",
+])
+def test_explicit_ratio_prose_does_not_drop_a_delta_unit(claim):
+    findings = calculation_copy_findings(claim, _financial_evidence())
+    assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+
+
+@pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
+@pytest.mark.parametrize("with_valid_product", [False, True])
+def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
+    source, calc = _financial_evidence()
+    invalid = replace(calc, content_hash="delta-calc", observations=(replace(
+        calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
+    ),))
+    evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
+    findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
+    assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+
+
+@pytest.mark.parametrize("header,cell", [
+    ("含金量", "1.588"),
+    ("含金量(倍)", "1.588"),
+    ("含金量", "1.588倍"),
+    ("含金量(%)", "158.8"),
+    ("含金量", "158.8%"),
+    ("含金量同比增长(bp)", "9.999"),
+    ("含金量增长(bp)", "9.999"),
+    ("含金量环比变化(基点)", "9.999"),
+    ("收入(亿元)", "9.999"),
+])
+def test_ratio_units_preserve_absolute_values_and_excluded_column_roles(header, cell):
+    draft = f"|报告期|{header}|\n|---|---|\n|2026中报|{cell}|"
+    assert calculation_copy_findings(draft, _financial_evidence()) == ()
+
+
 @pytest.mark.parametrize("mode", ["off", "llm"])
 @pytest.mark.parametrize(
     "status", ["request_error", "partial", "empty", "not_attempted"]

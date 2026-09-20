@@ -25,9 +25,12 @@ _MONTH = {"一季报": 3, "一季度": 3, "Q1": 3, "中报": 6, "半年报": 6,
           "半年度": 6, "上半年": 6, "H1": 6, "Q2": 6, "三季报": 9,
           "前三季度": 9, "Q3": 9, "年报": 12, "年度": 12, "全年": 12, "FY": 12, "Q4": 12}
 _PERIOD_LABEL = re.compile("|".join(sorted(_MONTH, key=len, reverse=True)), re.I)
-_RATIO = r"(?:净现比|OCF\s*[/／÷]\s*(?:归母)?净利(?:润)?|经营现金流对归母净利的覆盖率)"
+_RATIO = r"(?:含金量|净现比|OCF\s*[/／÷]\s*(?:归母)?净利(?:润)?|经营现金流对归母净利的覆盖率)"
+_DELTA_UNIT = re.compile(r"百分点|基点|(?<![A-Za-z])bps?(?![A-Za-z])", re.I)
+_RATIO_UNIT = r"个百分点|百分点|基点|bps?|百分比|%|倍"
 _RATIO_VALUE = re.compile(
-    rf"{_RATIO}\s*(?:约为|为|约|是|[：:=])?\s*(?P<value>{_NUMBER})\s*(?P<unit>%|倍)?", re.I,
+    rf"{_RATIO}\s*(?:[（(]\s*(?P<label_unit>{_RATIO_UNIT})\s*[）)])?"
+    rf"\s*(?:约为|为|约|是|[：:=])?\s*(?P<value>{_NUMBER})\s*(?P<unit>{_RATIO_UNIT})?", re.I,
 )
 _COMPARISON = re.compile(r"同累计长度|同口径对照|降至|降到|回升|走弱|恶化|改善|较.+(?:升|降)")
 _COMPARISON_CAVEAT = re.compile(r"(?:不能|不可|不宜|不应|不直接).{0,8}比较|仅.{0,6}列示|不据此判断")
@@ -129,6 +132,9 @@ def calculation_ratio_gaps(
                 continue
             period = periods.pop()
             ocf, profit = values.get((period, "ocf_cum_yi")), values.get((period, "net_profit_cum_yi"))
+            if ocf is not None and profit and _DELTA_UNIT.search(column):
+                gaps.append(f"计算产物 {item.source.removeprefix('sandbox:')} 的 {obs.metric} 使用差值单位，不适用于绝对比例核验")
+                continue
             multiplier = 100 if "%" in column or "百分比" in column else 1
             if ocf is not None and profit and not _same_display(ocf / profit * multiplier, str(obs.value)):
                 gaps.append(f"计算产物 {item.source.removeprefix('sandbox:')} 的 {obs.metric} 与同报告期原始输入复算不一致")
@@ -164,7 +170,7 @@ def financial_claim_mismatches(
             # Do not use the requested company's inputs to disprove a peer.
             continue
         bad = False
-        financial = bool(re.search(r"现金流|净现比|OCF|存货|净利润", text, re.I))
+        financial = bool(re.search(r"现金流|OCF|存货|净利润", text, re.I) or re.search(_RATIO, text, re.I))
         if financial:
             for equation in _EQUATION.finditer(text):
                 a, b = _decimal(equation["a"]), _decimal(equation["b"])
@@ -183,8 +189,12 @@ def financial_claim_mismatches(
                 ocf = values.get((period, "ocf_cum_yi"))
                 profit = values.get((period, "net_profit_cum_yi"))
                 if ocf is not None and profit:
-                    multiplier = 100 if ratio["unit"] == "%" else 1
-                    bad |= not _same_display(ocf / profit * multiplier, ratio["value"])
+                    unit, label_unit = ratio["unit"] or "", ratio["label_unit"] or ""
+                    if _DELTA_UNIT.search(unit) or _DELTA_UNIT.search(label_unit):
+                        bad = True
+                    else:
+                        multiplier = 100 if (unit or label_unit) in {"%", "百分比"} else 1
+                        bad |= not _same_display(ocf / profit * multiplier, ratio["value"])
             for quarter in _SINGLE_OCF.finditer(text):
                 q = _CN_NUM.get(quarter["quarter"], int(quarter["quarter"]) if quarter["quarter"].isdigit() else 0)
                 end_month, start_month = q * 3, (q - 1) * 3

@@ -76,11 +76,27 @@ _RATIO_NAME = re.compile(
     r"(?:除以|对)?[\s_]*(?:归母)?(?:净利(?:润)?|net[_ ]?profit)", re.I,
 )
 _NUMBER = r"[-+]?\d+(?:\.\d+)?"
-_NUMBER_CELL = re.compile(rf"^\s*({_NUMBER})\s*(%|倍)?\s*$")
+_DELTA_UNIT = re.compile(r"百分点|基点|(?<![A-Za-z])bps?(?![A-Za-z])", re.I)
+_RATIO_UNIT = r"个百分点|百分点|基点|bps?|百分比|%|倍"
+_NUMBER_CELL = re.compile(rf"^\s*({_NUMBER})\s*({_RATIO_UNIT})?\s*$", re.I)
+_PROSE_VALUE = re.compile(
+    rf"\s*(?:[（(]\s*(?P<label_unit>{_RATIO_UNIT})\s*[）)])?"
+    rf"\s*(?:为|是|=|：|:)?\s*(?P<value>{_NUMBER})\s*(?P<unit>{_RATIO_UNIT})?", re.I,
+)
+
+
+def _ratio_unit(value: str) -> str:
+    # A difference unit cannot be hidden by a percent/multiple marker elsewhere
+    # in the same label. It is never converted into an absolute ratio level.
+    if delta := _DELTA_UNIT.search(value):
+        return delta.group().lower()
+    if "%" in value or "百分比" in value:
+        return "%"
+    return "倍" if "倍" in value else ""
 
 
 def _absolute_ratio_label(value: str) -> bool:
-    return bool(_RATIO_NAME.search(value)) and not re.search(r"同比|环比|增速|变化|变动|差额|增量", value)
+    return bool(_RATIO_NAME.search(value)) and not re.search(r"同比|环比|增长|增速|变化|变动|差额|增量", value)
 
 
 def _period(value: str) -> str | None:
@@ -115,6 +131,7 @@ def _ratio_products(evidence: Sequence[AgentEvidence]) -> dict[str, set[float]]:
     if len(subjects) != 1:
         return {}
     products: dict[str, set[float]] = {}
+    inapplicable_periods: set[str] = set()
     for item in evidence:
         if item.tool != "derived_calculation" or not item.derived_from:
             continue
@@ -131,9 +148,16 @@ def _ratio_products(evidence: Sequence[AgentEvidence]) -> dict[str, set[float]]:
             # A year in the table name must not override the row's report period.
             label = obs.metric.rsplit("[", 1)[-1].rstrip("]") if "[" in obs.metric else obs.metric
             period = _period(label)
+            if period and _DELTA_UNIT.search(column):
+                inapplicable_periods.add(period)
+                continue
             if period and Decimal(str(obs.value)).is_finite():
-                ratio = obs.value / 100 if "%" in column or "百分比" in column else obs.value
+                ratio = obs.value / 100 if _ratio_unit(column) == "%" else obs.value
                 products.setdefault(period, set()).add(ratio)
+    # An empty known period is an unverified product, distinct from no product.
+    # A second, valid-looking value cannot waive the first product's unit gap.
+    for period in inapplicable_periods:
+        products[period] = set()
     return products
 
 
@@ -155,9 +179,12 @@ def calculation_copy_findings(
     if not products and not require_product:
         return ()
 
-    def failure_code(values: set[float], raw: str, unit: str) -> str:
-        if len(values) != 1:
-            return "calculation_value_unverified" if require_product or values else ""
+    def failure_code(values: set[float] | None, raw: str, unit: str, label_unit: str = "") -> str:
+        if _DELTA_UNIT.search(unit) or _DELTA_UNIT.search(label_unit):
+            return "calculation_value_unverified"
+        if values is None or len(values) != 1:
+            return "calculation_value_unverified" if require_product or values is not None else ""
+        unit = _ratio_unit(unit or label_unit)
         return "" if _display_matches(raw, next(iter(values)), unit) else "calculation_value_mismatch"
 
     findings: list[DeliveryFinding] = []
@@ -167,17 +194,17 @@ def calculation_copy_findings(
     for line in text.splitlines(keepends=True):
         if line.lstrip().startswith("|"):
             cells = [re.sub(r"[*`]+", "", c.strip()) for c in line.strip().strip("|").split("|")]
-            headers = tuple((i, "%" if "%" in c or "百分比" in c else "")
+            headers = tuple((i, _ratio_unit(c))
                             for i, c in enumerate(cells) if _absolute_ratio_label(c))
             if headers:
                 ratio_columns = headers
                 period_column = next((i for i, c in enumerate(cells) if c in {"报告期", "期间", "期别"}), None)
             elif period_column is not None and period_column < len(cells):
                 period = _period(cells[period_column])
-                values = products.get(period or "", set())
+                values = products.get(period or "")
                 for index, header_unit in ratio_columns:
                     match = _NUMBER_CELL.fullmatch(cells[index]) if index < len(cells) else None
-                    code = failure_code(values, match[1], match[2] or header_unit) if match and period else ""
+                    code = failure_code(values, match[1], match[2] or "", header_unit) if match and period else ""
                     if code:
                         # Remove only the incorrect cell, not the independent
                         # OCF/profit facts in the same row. Never write a guessed
@@ -201,15 +228,17 @@ def calculation_copy_findings(
                     if ratio is not None:
                         remainder = tail.lstrip()[ratio.end():]
                     elif (re.search(r"(?:比率|净现比|含金量)[^。；;]*[:：]", value[:period_match.start()])
-                          and not re.search(r"同比|环比|增速|变化|变动|差额|增量", value[:period_match.start()])):
+                          and not re.search(r"同比|环比|增长|增速|变化|变动|差额|增量", value[:period_match.start()])):
                         # Explicitly labeled same-clause comparison, e.g.
                         # '比率同期对照：2026中报1.588 vs 2025中报0.289'.
                         remainder = tail
                     else:
                         continue
-                    number = re.match(rf"\s*(?:为|是|=|：|:)?\s*({_NUMBER})\s*(%|倍)?", remainder)
-                    values = products.get(_period(period_match.group()) or "", set())
-                    code = failure_code(values, number[1], number[2] or "") if number else ""
+                    number = _PROSE_VALUE.match(remainder)
+                    values = products.get(_period(period_match.group()) or "")
+                    code = failure_code(
+                        values, number["value"], number["unit"] or "", number["label_unit"] or "",
+                    ) if number else ""
                     if code:
                         findings.append(DeliveryFinding(offset + clause.start(), offset + clause.end(), code))
                         break

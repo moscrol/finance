@@ -134,6 +134,11 @@ def _financial(draft, *, question="请比较中际旭创的利润与回款，注
     "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
     "二季度单季经营现金流=18−33.68=−15.66亿元。",
     "2026中报净现比0.133。",
+    "2026中报含金量为0.133。",
+    "2026中报含金量为0.132bp。",
+    "2026中报含金量为0.132基点。",
+    "2026中报含金量为0.132个百分点。",
+    "2026中报含金量(bp)为0.132倍。",
     "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
     "2026中报OCF/净利从2025年报的1.009降至0.132。",
     "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
@@ -165,6 +170,10 @@ def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, 
     "二季度单季经营现金流=18−33.68=−15.68亿元。",
     "二季度单季经营现金流约-15.7亿元。",
     "2026中报净现比0.132。",
+    "2026中报含金量为0.132。",
+    "2026中报含金量为0.132倍。",
+    "2026中报含金量为13.2%。",
+    "2026中报含金量同比增长13.2%。",
     "2026中报和2025全年累计长度不同，不能直接比较净现比改善与否。",
     "2026中报净现比0.132，2025全年1.009；仅分别列示，不据此判断恶化。",
     "存货三个月内增加约41.5亿元（156.72→198.26亿元）。",
@@ -305,6 +314,14 @@ def test_document_claim_does_not_borrow_an_unrelated_company(monkeypatch, overri
     ("净现比.净现比%[2026中报]", 13.2, False),
     ("净现比.营收[2026中报]", 417.78, False),
     ("净现比.净现比同比增长[2026中报]", 13.2, False),
+    ("现金流.含金量(bp)[2026中报]", 0.132, True),
+    ("现金流.净现比(BP)[2026中报]", 0.132, True),
+    ("现金流.OCF/净利润（基点）[2026中报]", 0.132, True),
+    ("现金流.含金量(百分点)[2026中报]", 0.132, True),
+    ("现金流.含金量(倍)[2026中报]", 0.132, False),
+    ("现金流.含金量增长(bp)[2026中报]", 9.999, False),
+    ("现金流.含金量环比变化(基点)[2026中报]", 9.999, False),
+    ("现金流.含金量[2024中报]", 9.999, False),
     ("净现比.净现比[2026中报]", float("nan"), True),
 ])
 def test_result_ratio_is_recomputed_only_from_its_own_inputs(metric, value, rejected):
@@ -327,13 +344,14 @@ def test_result_ratio_is_recomputed_only_from_its_own_inputs(metric, value, reje
     assert calculation_ratio_gaps((*inputs, peer, mixed), ("calc",), subject="300308") == ()
 
 
-def test_wrong_product_reopens_metric_slot_not_the_whole_research():
+@pytest.mark.parametrize("ratio_name", ["含金量", "净现比", "OCF/净利润"])
+def test_wrong_product_reopens_metric_slot_not_the_whole_research(ratio_name):
     _, verified = _financial(SAFE)
     inputs = verified.outcome.evidence
     calc = AgentEvidence(
         "derived_calculation", "净现比计算", "计算结果", "sandbox:0000000000000001", content_hash="calc",
         derived_from=tuple(item.content_hash for item in inputs),
-        observations=(StructuredObservation("计算任务", "2025-04-21", "净现比[2026中报]", 0.133),),
+        observations=(StructuredObservation("计算任务", "2025-04-21", f"{ratio_name}[2026中报]", 0.133),),
     )
     contract = replace(verified.contract, required_outputs=tuple(
         replace(required, evidence_types=(*required.evidence_types, "derived_calculation"))
@@ -349,6 +367,22 @@ def test_wrong_product_reopens_metric_slot_not_the_whole_research():
     assert "复算不一致" in checked.completion.outputs[1].gap
     assert checked.outcome.draft == SAFE
     assert calc in checked.outcome.evidence
+
+
+@pytest.mark.parametrize("ratio_name", ["含金量", "净现比", "OCF/净利润"])
+@pytest.mark.parametrize("value,rejected", [(9.999, True), (1.588, False)])
+def test_ratio_alias_recomputation_uses_the_same_bound_input_chain(ratio_name, value, rejected):
+    from intelligence.services.financial_claim_checks import calculation_ratio_gaps
+    from intelligence.tests.test_research_delivery_checks import _financial_evidence
+
+    source, calc = _financial_evidence()
+    calc = replace(calc, observations=(replace(
+        calc.observations[0], metric=f"现金流比率.{ratio_name}[2026中报]", value=value,
+    ),))
+    evidence = (source, calc)
+    assert bool(calculation_ratio_gaps(evidence, (calc.content_hash,), subject="600519.SH")) == rejected
+    assert calculation_ratio_gaps(evidence, (), subject="600519.SH") == ()
+    assert calculation_ratio_gaps(evidence, (calc.content_hash,), subject="000858.SZ") == ()
 
 
 def test_conflicting_financial_inputs_are_not_cherry_picked():
