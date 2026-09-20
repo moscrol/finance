@@ -1,0 +1,85 @@
+{
+  "revision": "f2342fda0d0ae9fb842cbcd0bdd6ee4cf5069bd1",
+  "final_revision": "f2342fda0d0ae9fb842cbcd0bdd6ee4cf5069bd1",
+  "target_status": "",
+  "cases": [
+    {
+      "case": "safe_external_alert",
+      "returncode": 1,
+      "changed_generation_code_files": [],
+      "changed_ops_code_files": [],
+      "launcher_root_diagnostic": false,
+      "launcher_imported": true,
+      "receiver_executed": false,
+      "alert_written": true,
+      "alert_text": "2026-09-20T01:42:21\t[daily-review FAIL] date=2026-09-11 | failed=quality-gate | warn=- | error=command failed with returncode 3\n2026-09-20T01:42:21\t⚠️ 全量复盘 2026-09-11 生成段失败 rc=1（同步已完成，可手动重跑 intelligence.cli daily --skip-sync）；日志 logs/daily-full-review.out.log\n",
+      "passed": true,
+      "command": [
+        "/bin/zsh",
+        "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec-final/f234-entry-probe/safe_external_alert-de7a0e3t/code snapshot/skills/daily-full-review/scripts/nightly_full_review.sh",
+        "finalize",
+        "2026-09-11"
+      ]
+    },
+    {
+      "case": "generation_rejected_alert",
+      "returncode": 2,
+      "changed_generation_code_files": [
+        "qc-outer-alert.log"
+      ],
+      "changed_ops_code_files": [],
+      "launcher_root_diagnostic": true,
+      "launcher_imported": false,
+      "receiver_executed": false,
+      "alert_written": true,
+      "alert_text": "2026-09-20T01:42:22\t⚠️ 全量复盘 2026-09-11 生成段失败 rc=2（同步已完成，可手动重跑 intelligence.cli daily --skip-sync）；日志 logs/daily-full-review.out.log\n",
+      "passed": false,
+      "command": [
+        "/bin/zsh",
+        "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec-final/f234-entry-probe/generation_rejected_alert-z1crbzd_/code snapshot/skills/daily-full-review/scripts/nightly_full_review.sh",
+        "finalize",
+        "2026-09-11"
+      ]
+    },
+    {
+      "case": "l2_failed_alert",
+      "returncode": 1,
+      "changed_generation_code_files": [
+        "qc-outer-alert.log"
+      ],
+      "changed_ops_code_files": [],
+      "launcher_root_diagnostic": false,
+      "launcher_imported": false,
+      "receiver_executed": false,
+      "alert_written": true,
+      "alert_text": "2026-09-20T01:42:23\t❌ 全量复盘 2026-09-11 资金流段失败 rc=3；日志 logs/daily-full-review.out.log\n",
+      "passed": false,
+      "command": [
+        "/bin/zsh",
+        "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec-final/f234-entry-probe/l2_failed_alert-ph5etpcf/code snapshot/skills/daily-full-review/scripts/nightly_full_review.sh",
+        "finalize",
+        "2026-09-11"
+      ]
+    },
+    {
+      "case": "receive_escape",
+      "returncode": 2,
+      "changed_generation_code_files": [],
+      "changed_ops_code_files": [],
+      "launcher_root_diagnostic": true,
+      "launcher_imported": false,
+      "receiver_executed": true,
+      "alert_written": true,
+      "alert_text": "2026-09-20T01:42:24\t⚠️ 全量复盘 2026-09-11 生成段失败 rc=2（同步已完成，可手动重跑 intelligence.cli daily --skip-sync）；日志 logs/daily-full-review.out.log\n",
+      "passed": false,
+      "command": [
+        "/bin/zsh",
+        "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec-final/f234-entry-probe/receive_escape-a8ucvq9m/code snapshot/skills/daily-full-review/scripts/nightly_full_review.sh",
+        "finalize",
+        "2026-09-11"
+      ]
+    }
+  ],
+  "passed": 1,
+  "failed": 3
+}

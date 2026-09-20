@@ -1,0 +1,9 @@
+{
+  "number": 155,
+  "html_url": "http://127.0.0.1:3300/a77/knowledge-base-private/pulls/155",
+  "state": "open",
+  "merged": false,
+  "title": "WIP: feat(rag): guarded immutable dual-index maintenance",
+  "head_sha": "1bd5e1dc8d48f59461c79f35ea553e1cda71a6ec",
+  "base_sha": "1254224be89e2c4974350b7f3e985dbedb5dc043"
+}

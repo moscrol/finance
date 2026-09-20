@@ -1,0 +1,81 @@
+from pathlib import Path
+from datetime import datetime, timezone
+import hashlib, json, os, re, shutil, subprocess, sys
+ROOT=Path('/Users/a77/finance-workspace-private')
+OUT=Path('/Users/a77/.finance-runtime/open-work-execution-20260920')
+def git(*args,cwd=ROOT,check=True):
+    return subprocess.run(['git','-C',str(cwd),*args],capture_output=True,check=check)
+def dump(path,value):
+    path.write_text(json.dumps(value,ensure_ascii=False,indent=2)+'\n')
+def sha(data): return hashlib.sha256(data).hexdigest()
+mode=sys.argv[1]
+if mode=='preserve':
+    old=Path('/Users/a77/.finance-runtime/worktree-salvage-20260920')
+    checked=[]
+    for m in old.glob('*/manifest.json'):
+        info=json.loads(m.read_text())
+        for name,key in [('tracked-staged.diff','tracked_staged_diff_bytes'),('tracked-unstaged.diff','tracked_unstaged_diff_bytes')]:
+            p=m.parent/name
+            assert p.exists() and p.stat().st_size==info[key],str(p)
+        assert (m.parent/'status.txt').exists(),str(m)
+        checked.append({'tree':info['tree'],'manifest_sha256':sha(m.read_bytes())})
+    dump(OUT/'old-salvage-check.json',{'checked_at':datetime.now(timezone.utc).isoformat(),'trees':checked})
+    target=OUT/'salvage'; target.mkdir(mode=0o700,exist_ok=True)
+    records=[]; inaccessible=[]
+    for block in git('worktree','list','--porcelain').stdout.decode().strip().split('\n\n'):
+        fields=dict(line.split(' ',1) if ' ' in line else (line,True) for line in block.splitlines())
+        tree=Path(fields['worktree'])
+        if not tree.exists(): continue
+        probe=git('status','--porcelain=v1','-z','--untracked-files=all',cwd=tree,check=False)
+        if probe.returncode:
+            inaccessible.append({'tree':str(tree),'error':probe.stderr.decode(errors='replace'),'action':'retain; inspection required'})
+            continue
+        status=probe.stdout
+        if not status: continue
+        slug=sha(str(tree).encode())[:12]; dest=target/slug; dest.mkdir(mode=0o700,exist_ok=True)
+        (dest/'status.z').write_bytes(status)
+        files=[]
+        for name,args in [('tracked-unstaged.diff',['diff','--binary']),('tracked-staged.diff',['diff','--cached','--binary'])]:
+            data=git(*args,cwd=tree).stdout;(dest/name).write_bytes(data)
+            files.append({'path':name,'bytes':len(data),'sha256':sha(data)})
+        untracked=[]
+        for raw in git('ls-files','--others','--exclude-standard','-z',cwd=tree).stdout.split(b'\0'):
+            if not raw:continue
+            rel=os.fsdecode(raw); source=tree/rel
+            if source.is_symlink():
+                untracked.append({'path':rel,'type':'symlink','target':os.readlink(source)});continue
+            if not source.is_file():
+                untracked.append({'path':rel,'type':'nonregular','copied':False});continue
+            size=source.stat().st_size
+            h=hashlib.sha256()
+            with source.open('rb') as stream:
+                for chunk in iter(lambda:stream.read(1024*1024),b''):h.update(chunk)
+            denied=any(p.startswith('.env') or p in {'node_modules','.venv','venv','__pycache__','.git'} for p in Path(rel).parts) or bool(re.search(r'\.(db|sqlite\d*|duckdb|pyc|pdf|zip|pptx|pem|key)$',rel))
+            copied=not denied and size<=20*1024*1024
+            if copied:
+                copy=dest/'untracked'/rel;copy.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(source,copy)
+                assert sha(copy.read_bytes())==h.hexdigest(),rel
+            untracked.append({'path':rel,'bytes':size,'sha256':h.hexdigest(),'copied':copied,'reason':None if copied else 'forbidden-or-bulk-external-only'})
+        record={'tree':str(tree),'head':fields['HEAD'],'branch':fields.get('branch'),'captured_at':datetime.now(timezone.utc).isoformat(),'status_sha256':sha(status),'files':files,'untracked':untracked,'snapshot_dir':str(dest),'status_stable':git('status','--porcelain=v1','-z','--untracked-files=all',cwd=tree).stdout==status}
+        dump(dest/'manifest.json',record);records.append(record)
+    dump(OUT/'salvage-summary.json',{'old_verified_trees':len(checked),'trees':records,'inaccessible':inaccessible})
+    print(json.dumps({'old_verified':len(checked),'new_dirty_trees':len(records),'inaccessible':inaccessible,'unstable':[r['tree'] for r in records if not r['status_stable']],'copied_untracked':sum(sum(u.get('copied',False) for u in r['untracked']) for r in records)}),flush=True)
+elif mode=='push':
+    assert (OUT/'salvage-summary.json').is_file()
+    names=(OUT/'push-list.txt').read_text().splitlines()
+    assert len(names)==55 and len(set(names))==55 and 'main' not in names
+    fixed=[]
+    for name in names:
+        git('check-ref-format','--branch',name)
+        rev=git('rev-parse',f'refs/heads/{name}').stdout.decode().strip()
+        fixed.append({'branch':name,'revision':rev})
+    dump(OUT/'push-manifest.json',fixed)
+    with (OUT/'push-results.jsonl').open('a') as log:
+        for row in fixed:
+            name,rev=row['branch'],row['revision']
+            result=git('push','gitea',f'{rev}:refs/heads/{name}',check=False)
+            remote=git('ls-remote','gitea',f'refs/heads/{name}').stdout.decode().split()
+            record={**row,'exit_code':result.returncode,'remote_revision':remote[0] if remote else None,'verified':bool(remote and remote[0]==rev),'output':(result.stdout+result.stderr).decode(errors='replace')}
+            log.write(json.dumps(record,ensure_ascii=False)+'\n');log.flush()
+            print(f'{name}: exit={result.returncode} verified={record["verified"]}',flush=True)
+else:raise SystemExit(mode)

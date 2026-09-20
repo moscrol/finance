@@ -1,0 +1,54 @@
+"""只在固定候选四叶及原失败探针全部通过后创建并快进合并。"""
+from pathlib import Path
+import json, sys
+ROOT = Path('/Users/a77/.finance-runtime/open-work-execution-20260920')
+TREE = Path('/Users/a77/fwp-wt-generation-alert-guard-0920')
+sys.path.insert(0,str(TREE))
+from scripts import gitea_pr as g
+SHA = '4ace5ec2e9b7735d90eb15bc2351fa193c1120b8'
+BRANCH = 'codex/generation-alert-guard-0920'
+OUT = ROOT/'gate-generation-final'
+for leaf in ('python','frontend','registry'):
+    receipt = json.loads((OUT/f'{leaf}.json').read_text())
+    assert receipt['revision'] == SHA and receipt['complete']
+    assert all(row['exit_code'] == 0 for row in receipt['checks'])
+pytest = json.loads((OUT/'receipts/latest.json').read_text())
+assert pytest['revision'] == SHA and not pytest['dirty'] and pytest['counts']['failed'] == 0
+assert pytest['counts']['passed'] > 0 and pytest['exit_status'] == 0
+assert (OUT/'receipt-check.exit').read_text().strip() == '0'
+probe = json.loads((ROOT/'generation-final-entry-4ace5ec2/entry-boundaries.json').read_text())
+assert probe['revision'] == probe['final_revision'] == SHA and probe['passed'] == 4 and probe['failed'] == 0 and not probe['target_status']
+assert g._git('rev-parse','HEAD',cwd=TREE) == SHA
+assert not g._git('status','--porcelain',cwd=TREE)
+assert g._git('ls-remote','gitea',f'refs/heads/{BRANCH}',cwd=TREE).split()[0] == SHA
+assert g._git('ls-remote','gitea','refs/heads/main',cwd=TREE).split()[0] == 'ec92b31b5300bbbb4abc64e41f96854f1438aea0'
+body = f'''日报生成使用独立代码快照时，失败告警的软链接仍可能写回代码树；合入部署接线后，外层 finalize 还会在启动器拒绝后继续执行接收脚本或补发告警。本次以 generation-root-boundary-guards 为唯一源码候选，先合当前 main 与同花顺，再接部署线；stage-code-root 独有文档保留，不重复合源码。
+
+启动前校验实际告警落点，共同通知器在 mkdir/open 前排除 L2/生成两个代码根；启动器非零退出后父 shell 立即返回，KB 接收只在成功后执行。保留合法外置日志、成功接收、同花顺计划与空壳质量检查。产品入口文档随接线更新。
+
+独立 Standards/Spec 复审在 dca1bd6e 均通过：原七项 7/7；直接告警反例及正常对照通过；完整入口原4例从1P/3F转4P/0F。新增 CLI/shell 回归从7F/3P转通过。最终4ace5ec2相对dca仅更新生成器计算的注册表指纹；最终入仓完整入口探针再跑4/4，候选首尾干净。
+
+最终固定候选 `{SHA}` 的门禁：Python {pytest['counts']['passed']} passed / 0 failed / {pytest['counts']['skipped']} skipped，ruff 0，revision/dirty/基座漂移0收据门通过；前端 lint/typecheck/test/build 全0；E2E 34 passed/2 skipped；registry与crosswalk五项全0。跨仓固定KB1254224be、研究站f606583。原注册表红叶与中断Python收据保留，未改成绿；新提交完整重跑。
+
+完整收据与原始失败：`~/.finance-runtime/open-work-execution-20260920/`；执行记录归档到 #789。用户2026-09-20授权纠正后执行，使用fast-forward-only保留被测SHA，不删源分支。
+
+此次只合源码。生产8792和finance-generation-387028b846a2均未切换；现装机L2根d433b907仍带旧通知器，完整源码组合的通过不能外推为装机已修。正式部署须独立交付并核验通知器版本，同时保留L2业务代码及其独立根。
+'''
+(OUT/'pr-body.md').write_text(body)
+prs = g._api('GET','/pulls?state=open&limit=100')
+pr = next((p for p in prs if p['head']['ref'] == BRANCH),None)
+if pr is None:
+    pr = g._api('POST','/pulls',{'title':'fix(runtime): merge guarded generation root and close finalize bypasses','head':BRANCH,'base':'main','body':body})
+(OUT/'pr-created.json').write_text(json.dumps(pr,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps({'number':pr['number'],'url':pr['html_url'],'mergeable':pr.get('mergeable')}),flush=True)
+number = pr['number']
+pr = g._api('GET',f'/pulls/{number}')
+assert pr['head']['sha'] == SHA and pr['mergeable']
+response = g._api('POST',f'/pulls/{number}/merge',{'do':'fast-forward-only','head_commit_id':SHA,'delete_branch_after_merge':False})
+(OUT/'merge-response.json').write_text(json.dumps(response,indent=2)+'\n')
+pr = g._api('GET',f'/pulls/{number}')
+remote = g._git('ls-remote','gitea','refs/heads/main',cwd=TREE).split()[0]
+verified = {'number':number,'url':pr['html_url'],'merged':pr['merged'],'merge_commit_sha':pr.get('merge_commit_sha'),'remote_main':remote}
+(OUT/'merge-verified.json').write_text(json.dumps(verified,ensure_ascii=False,indent=2)+'\n')
+assert verified['merged'] and remote == SHA
+print(json.dumps(verified),flush=True)

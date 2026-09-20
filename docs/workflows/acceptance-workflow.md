@@ -58,6 +58,19 @@ exit 0 只对「命令里那个 `gitea/main` 解析出的 SHA」成立；报告�
 `--base-drift-max` 治「分支基座落后主干 N 张合并仍拿分支绿冒充合流绿」。
 收据不在 main tip 上 → 先在 main tip 重跑全量，不许拿旧收据凑数。
 
+前端四项及 E2E 用 `scripts/run_frontend_gate.py` 生成独立收据：
+
+```bash
+.venv-workbench/bin/python scripts/run_frontend_gate.py \
+  --tree <独占的固定检出根> --expect-revision <完整提交SHA> \
+  --output <树外的新运行目录> \
+  --workbench-port 18981 --re06-port 18984
+```
+
+该入口顺序执行依赖安装、lint、typecheck、test、build、test:e2e，使用当前 Python 解释器启动测试服务；端口与配套 URL 一起设置。收据保存每步退出码、日志哈希和首尾 Git 身份。只有 `exit_code=0`、`complete=true`、`identity_stable=true` 且 `dirty=false` 才可采信；首尾 revision 都必须等于要求的完整 SHA。Git 查询失败不能解释为干净。任一命令失败或身份变化均返回非零，已有输出目录拒绝覆盖。
+
+首尾采样不能证明期间没有发生又恢复的改动，因此仍要用独占检出。历史收据缺字段时保留原件，另起目录重跑；不得把今天的干净状态补写成过去的观测。`git status` 相同也不等于内容相同，复核既有脏树时还要比较二进制 diff 与未跟踪文件内容哈希。
+
 ## 4. 切 8792（链切五步）
 
 链切用下面五步。`scripts/deploy_workbench_runtime.sh` 面向的是「rsync 进现有快照」的旧形态，只在快照目录不换时用。

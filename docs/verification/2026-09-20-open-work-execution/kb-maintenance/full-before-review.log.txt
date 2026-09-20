@@ -1,0 +1,1331 @@
+........................................................................ [  8%]
+........................................................................ [ 16%]
+........................................................................ [ 25%]
+........................................................................ [ 33%]
+........................................................................ [ 41%]
+........................................................................ [ 50%]
+........................................................................ [ 58%]
+.....FFFF............................................................... [ 66%]
+........................................................................ [ 75%]
+.................FFFF....F..F....FFFF.F.FFF............................. [ 83%]
+........................................................................ [ 91%]
+........................................................................ [100%]
+=================================== FAILURES ===================================
+________________ SafeExtractallTests.test_extracts_safe_members ________________
+
+self = <tests.test_security_fixes.SafeExtractallTests testMethod=test_extracts_safe_members>
+
+    def test_extracts_safe_members(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tar_path = self._tar_with(tmp, "sub/ok.txt", data=b"hello")
+            dest = Path(tmp) / "dest"
+            dest.mkdir()
+            with tarfile.open(tar_path, "r:gz") as tf:
+>               fetch_rag_index._safe_extractall(tf, dest)
+E               AttributeError: module 'fetch_rag_index' has no attribute '_safe_extractall'
+
+tests/test_security_fixes.py:137: AttributeError
+________________ SafeExtractallTests.test_rejects_absolute_path ________________
+
+self = <tests.test_security_fixes.SafeExtractallTests testMethod=test_rejects_absolute_path>
+
+    def test_rejects_absolute_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+>           self._assert_rejected(tmp, self._tar_with(tmp, "/tmp/evil_abs.txt"))
+
+tests/test_security_fixes.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <tests.test_security_fixes.SafeExtractallTests testMethod=test_rejects_absolute_path>
+tmp = '/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmps54jg7u1'
+tar_path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmps54jg7u1/t.tar.gz')
+
+    def _assert_rejected(self, tmp, tar_path):
+        dest = Path(tmp) / "dest"
+        dest.mkdir()
+        with tarfile.open(tar_path, "r:gz") as tf:
+            with self.assertRaises(SystemExit):
+>               fetch_rag_index._safe_extractall(tf, dest)
+E               AttributeError: module 'fetch_rag_index' has no attribute '_safe_extractall'
+
+tests/test_security_fixes.py:115: AttributeError
+______________ SafeExtractallTests.test_rejects_parent_traversal _______________
+
+self = <tests.test_security_fixes.SafeExtractallTests testMethod=test_rejects_parent_traversal>
+
+    def test_rejects_parent_traversal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+>           self._assert_rejected(tmp, self._tar_with(tmp, "../evil.txt"))
+
+tests/test_security_fixes.py:120: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <tests.test_security_fixes.SafeExtractallTests testMethod=test_rejects_parent_traversal>
+tmp = '/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp0saqnhap'
+tar_path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp0saqnhap/t.tar.gz')
+
+    def _assert_rejected(self, tmp, tar_path):
+        dest = Path(tmp) / "dest"
+        dest.mkdir()
+        with tarfile.open(tar_path, "r:gz") as tf:
+            with self.assertRaises(SystemExit):
+>               fetch_rag_index._safe_extractall(tf, dest)
+E               AttributeError: module 'fetch_rag_index' has no attribute '_safe_extractall'
+
+tests/test_security_fixes.py:115: AttributeError
+_______________ SafeExtractallTests.test_rejects_symlink_member ________________
+
+self = <tests.test_security_fixes.SafeExtractallTests testMethod=test_rejects_symlink_member>
+
+    def test_rejects_symlink_member(self):
+        with tempfile.TemporaryDirectory() as tmp:
+>           self._assert_rejected(tmp, self._tar_with(tmp, "link", link=tarfile.SYMTYPE))
+
+tests/test_security_fixes.py:129: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <tests.test_security_fixes.SafeExtractallTests testMethod=test_rejects_symlink_member>
+tmp = '/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmplqzu33gm'
+tar_path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmplqzu33gm/t.tar.gz')
+
+    def _assert_rejected(self, tmp, tar_path):
+        dest = Path(tmp) / "dest"
+        dest.mkdir()
+        with tarfile.open(tar_path, "r:gz") as tf:
+            with self.assertRaises(SystemExit):
+>               fetch_rag_index._safe_extractall(tf, dest)
+E               AttributeError: module 'fetch_rag_index' has no attribute '_safe_extractall'
+
+tests/test_security_fixes.py:115: AttributeError
+_______ test_prepare_requires_explicit_approval_and_binds_real_consumer ________
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_prepare_re...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_prepare_requires_explicit0/legacy-standard'), ...}
+
+    def test_prepare_requires_explicit_approval_and_binds_real_consumer(case):
+>       manifest = ready(case)
+
+skills/lib/rag/tests/test_guarded_maintenance.py:82: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_guarded_maintenance.py:71: in ready
+    return maintenance.prepare(**case, generation=generation, **kw)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_prepare_requires_explicit0/generations-root')
+
+    def prepare(root: Path, *, generation: str, vault: Path, standard: Path, full: Path,
+                probes: dict, quarantine: dict[str, str] | None = None,
+                allowed_issues: dict[str, list[str]] | None = None) -> Path:
+        root = generation_root(root, create=True)
+        vault = canonical(vault)
+        inputs = {"standard": canonical(standard), "full": canonical(full)}
+        if inputs["standard"] == inputs["full"]:
+            raise MaintenanceError("two distinct source indexes required")
+        quarantine = quarantine or {}
+        allowed_issues = allowed_issues or {"standard": [], "full": []}
+        candidate = generation_path(root, generation)
+        with writer_lock(root):
+            if candidate.exists():
+                raise MaintenanceError("generation already exists; preserve it and choose a new id")
+            candidate.parent.mkdir(exist_ok=True)
+            candidate.mkdir()
+            atomic_json(candidate / MARKER, {"root": str(root), "generation": generation})
+            try:
+                requests = [p.stem for p in sorted((root / "requests").glob("*.json"))
+                            if read_json(p).get("wiki") == str(vault)]
+                contracts = {name: settings(path, name == "full") for name, path in inputs.items()}
+                input_hashes = {name: file_manifest(path) for name, path in inputs.items()}
+                runtime = runtime_identity()
+                code = _freeze_code(candidate / "code")
+                sources = freeze_sources(vault, candidate / "source", contracts)
+                conflicts = {rel: item["sha256"] for rel, item in sources["files"].items() if item["conflict"]}
+                if conflicts != quarantine:
+                    raise MaintenanceError("quarantine must exactly match all conflicting source paths and bytes")
+                frozen_vault = candidate / "source" / vault.name
+                indexes = {}
+                with candidate_writes(root, candidate):
+                    for name, source_index in inputs.items():
+                        assert_writer(root)
+                        target = candidate / name
+                        contract = contracts[name]
+                        store, stats = update(get_embedder(contract["model"]), frozen_vault,
+                                              RagStore.load(source_index),
+                                              include_raw=contract["include_raw"], max_files=contract["max_files"])
+                        # Check source/code/path changes before any index write, too.
+                        verify_source_snapshot(candidate / "source", sources)
+                        _verify_code_origin(code)
+                        store.save(target)
+                        validation = validate_index(target, frozen_vault, contract, sources, name,
+                                                    quarantine, allowed_issues.get(name, []))
+                        indexes[name] = {"path": str(target), "settings": contract, "update": stats,
+                                         "validation": validation, "files": file_manifest(target)}
+                if selected_sources(vault, contracts) != sources["files"]:
+                    raise MaintenanceError("source set changed while indexes were being built")
+                if any(file_manifest(path) != input_hashes[name] for name, path in inputs.items()):
+                    raise MaintenanceError("input index changed during maintenance")
+                _verify_code_origin(code)
+                assert_writer(root)
+                manifest = {"schema": 1, "state": "validated", "root": str(root), "generation": generation,
+                            "created_at": now(), "code": code, "runtime": runtime, "sources": sources,
+                            "original_wiki": str(vault), "indexes": indexes, "requests": requests,
+                            "build_environment": _build_environment(), "quarantine": quarantine,
+                            "path_identities": {name: list(identity(candidate / name)) for name in
+                                                (".", "code", "source", "standard", "full")}}
+                provisional = candidate / "candidate.json"
+                atomic_json(provisional, manifest)
+                atomic_json(candidate / "probes.json", probes)
+                env = {k: v for k, v in os.environ.items() if not k.startswith(("RAG_", "KB_RAG_"))
+                       and k not in {"KB_VAULT", "CONCEPT_VAULT", "ENTITY_VAULT", "PYTHONPATH"}}
+                env.update(manifest["build_environment"], PYTHONDONTWRITEBYTECODE="1")
+                run = subprocess.run([runtime["executable"], str(candidate / "code/scripts/rag_maintenance.py"),
+                                      "_probe", "--manifest", str(provisional), "--probes", str(candidate / "probes.json")],
+                                     env=env, text=True, capture_output=True, timeout=300)
+                atomic_json(candidate / "consumer-process.json", {"exit_code": run.returncode,
+                            "stdout": run.stdout, "stderr": run.stderr})
+                if run.returncode:
+>                   raise MaintenanceError(f"consumer subprocess failed ({run.returncode}): {run.stderr[-1000:]}")
+E                   rag.maintenance_io.MaintenanceError: consumer subprocess failed (1): [rag-maintenance] MaintenanceError: interpreter/dependency identity changed
+
+skills/lib/rag/maintenance.py:145: MaintenanceError
+____ test_second_index_failure_preserves_current_and_keeps_partial_evidence ____
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_second_ind...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_second_index_failure_pres0/legacy-standard'), ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a7562d0>
+
+    def test_second_index_failure_preserves_current_and_keeps_partial_evidence(case, monkeypatch):
+>       old = published(case)
+
+skills/lib/rag/tests/test_guarded_maintenance.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_guarded_maintenance.py:75: in published
+    manifest = ready(case, generation)
+skills/lib/rag/tests/test_guarded_maintenance.py:71: in ready
+    return maintenance.prepare(**case, generation=generation, **kw)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_second_index_failure_pres0/generations-root')
+
+    def prepare(root: Path, *, generation: str, vault: Path, standard: Path, full: Path,
+                probes: dict, quarantine: dict[str, str] | None = None,
+                allowed_issues: dict[str, list[str]] | None = None) -> Path:
+        root = generation_root(root, create=True)
+        vault = canonical(vault)
+        inputs = {"standard": canonical(standard), "full": canonical(full)}
+        if inputs["standard"] == inputs["full"]:
+            raise MaintenanceError("two distinct source indexes required")
+        quarantine = quarantine or {}
+        allowed_issues = allowed_issues or {"standard": [], "full": []}
+        candidate = generation_path(root, generation)
+        with writer_lock(root):
+            if candidate.exists():
+                raise MaintenanceError("generation already exists; preserve it and choose a new id")
+            candidate.parent.mkdir(exist_ok=True)
+            candidate.mkdir()
+            atomic_json(candidate / MARKER, {"root": str(root), "generation": generation})
+            try:
+                requests = [p.stem for p in sorted((root / "requests").glob("*.json"))
+                            if read_json(p).get("wiki") == str(vault)]
+                contracts = {name: settings(path, name == "full") for name, path in inputs.items()}
+                input_hashes = {name: file_manifest(path) for name, path in inputs.items()}
+                runtime = runtime_identity()
+                code = _freeze_code(candidate / "code")
+                sources = freeze_sources(vault, candidate / "source", contracts)
+                conflicts = {rel: item["sha256"] for rel, item in sources["files"].items() if item["conflict"]}
+                if conflicts != quarantine:
+                    raise MaintenanceError("quarantine must exactly match all conflicting source paths and bytes")
+                frozen_vault = candidate / "source" / vault.name
+                indexes = {}
+                with candidate_writes(root, candidate):
+                    for name, source_index in inputs.items():
+                        assert_writer(root)
+                        target = candidate / name
+                        contract = contracts[name]
+                        store, stats = update(get_embedder(contract["model"]), frozen_vault,
+                                              RagStore.load(source_index),
+                                              include_raw=contract["include_raw"], max_files=contract["max_files"])
+                        # Check source/code/path changes before any index write, too.
+                        verify_source_snapshot(candidate / "source", sources)
+                        _verify_code_origin(code)
+                        store.save(target)
+                        validation = validate_index(target, frozen_vault, contract, sources, name,
+                                                    quarantine, allowed_issues.get(name, []))
+                        indexes[name] = {"path": str(target), "settings": contract, "update": stats,
+                                         "validation": validation, "files": file_manifest(target)}
+                if selected_sources(vault, contracts) != sources["files"]:
+                    raise MaintenanceError("source set changed while indexes were being built")
+                if any(file_manifest(path) != input_hashes[name] for name, path in inputs.items()):
+                    raise MaintenanceError("input index changed during maintenance")
+                _verify_code_origin(code)
+                assert_writer(root)
+                manifest = {"schema": 1, "state": "validated", "root": str(root), "generation": generation,
+                            "created_at": now(), "code": code, "runtime": runtime, "sources": sources,
+                            "original_wiki": str(vault), "indexes": indexes, "requests": requests,
+                            "build_environment": _build_environment(), "quarantine": quarantine,
+                            "path_identities": {name: list(identity(candidate / name)) for name in
+                                                (".", "code", "source", "standard", "full")}}
+                provisional = candidate / "candidate.json"
+                atomic_json(provisional, manifest)
+                atomic_json(candidate / "probes.json", probes)
+                env = {k: v for k, v in os.environ.items() if not k.startswith(("RAG_", "KB_RAG_"))
+                       and k not in {"KB_VAULT", "CONCEPT_VAULT", "ENTITY_VAULT", "PYTHONPATH"}}
+                env.update(manifest["build_environment"], PYTHONDONTWRITEBYTECODE="1")
+                run = subprocess.run([runtime["executable"], str(candidate / "code/scripts/rag_maintenance.py"),
+                                      "_probe", "--manifest", str(provisional), "--probes", str(candidate / "probes.json")],
+                                     env=env, text=True, capture_output=True, timeout=300)
+                atomic_json(candidate / "consumer-process.json", {"exit_code": run.returncode,
+                            "stdout": run.stdout, "stderr": run.stderr})
+                if run.returncode:
+>                   raise MaintenanceError(f"consumer subprocess failed ({run.returncode}): {run.stderr[-1000:]}")
+E                   rag.maintenance_io.MaintenanceError: consumer subprocess failed (1): [rag-maintenance] MaintenanceError: interpreter/dependency identity changed
+
+skills/lib/rag/maintenance.py:145: MaintenanceError
+_________ test_old_worker_is_retired_and_old_generation_still_readable _________
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_old_worker...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_old_worker_is_retired_and0/legacy-standard'), ...}
+
+    def test_old_worker_is_retired_and_old_generation_still_readable(case):
+>       old = published(case)
+
+skills/lib/rag/tests/test_guarded_maintenance.py:123: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_guarded_maintenance.py:75: in published
+    manifest = ready(case, generation)
+skills/lib/rag/tests/test_guarded_maintenance.py:71: in ready
+    return maintenance.prepare(**case, generation=generation, **kw)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_old_worker_is_retired_and0/generations-root')
+
+    def prepare(root: Path, *, generation: str, vault: Path, standard: Path, full: Path,
+                probes: dict, quarantine: dict[str, str] | None = None,
+                allowed_issues: dict[str, list[str]] | None = None) -> Path:
+        root = generation_root(root, create=True)
+        vault = canonical(vault)
+        inputs = {"standard": canonical(standard), "full": canonical(full)}
+        if inputs["standard"] == inputs["full"]:
+            raise MaintenanceError("two distinct source indexes required")
+        quarantine = quarantine or {}
+        allowed_issues = allowed_issues or {"standard": [], "full": []}
+        candidate = generation_path(root, generation)
+        with writer_lock(root):
+            if candidate.exists():
+                raise MaintenanceError("generation already exists; preserve it and choose a new id")
+            candidate.parent.mkdir(exist_ok=True)
+            candidate.mkdir()
+            atomic_json(candidate / MARKER, {"root": str(root), "generation": generation})
+            try:
+                requests = [p.stem for p in sorted((root / "requests").glob("*.json"))
+                            if read_json(p).get("wiki") == str(vault)]
+                contracts = {name: settings(path, name == "full") for name, path in inputs.items()}
+                input_hashes = {name: file_manifest(path) for name, path in inputs.items()}
+                runtime = runtime_identity()
+                code = _freeze_code(candidate / "code")
+                sources = freeze_sources(vault, candidate / "source", contracts)
+                conflicts = {rel: item["sha256"] for rel, item in sources["files"].items() if item["conflict"]}
+                if conflicts != quarantine:
+                    raise MaintenanceError("quarantine must exactly match all conflicting source paths and bytes")
+                frozen_vault = candidate / "source" / vault.name
+                indexes = {}
+                with candidate_writes(root, candidate):
+                    for name, source_index in inputs.items():
+                        assert_writer(root)
+                        target = candidate / name
+                        contract = contracts[name]
+                        store, stats = update(get_embedder(contract["model"]), frozen_vault,
+                                              RagStore.load(source_index),
+                                              include_raw=contract["include_raw"], max_files=contract["max_files"])
+                        # Check source/code/path changes before any index write, too.
+                        verify_source_snapshot(candidate / "source", sources)
+                        _verify_code_origin(code)
+                        store.save(target)
+                        validation = validate_index(target, frozen_vault, contract, sources, name,
+                                                    quarantine, allowed_issues.get(name, []))
+                        indexes[name] = {"path": str(target), "settings": contract, "update": stats,
+                                         "validation": validation, "files": file_manifest(target)}
+                if selected_sources(vault, contracts) != sources["files"]:
+                    raise MaintenanceError("source set changed while indexes were being built")
+                if any(file_manifest(path) != input_hashes[name] for name, path in inputs.items()):
+                    raise MaintenanceError("input index changed during maintenance")
+                _verify_code_origin(code)
+                assert_writer(root)
+                manifest = {"schema": 1, "state": "validated", "root": str(root), "generation": generation,
+                            "created_at": now(), "code": code, "runtime": runtime, "sources": sources,
+                            "original_wiki": str(vault), "indexes": indexes, "requests": requests,
+                            "build_environment": _build_environment(), "quarantine": quarantine,
+                            "path_identities": {name: list(identity(candidate / name)) for name in
+                                                (".", "code", "source", "standard", "full")}}
+                provisional = candidate / "candidate.json"
+                atomic_json(provisional, manifest)
+                atomic_json(candidate / "probes.json", probes)
+                env = {k: v for k, v in os.environ.items() if not k.startswith(("RAG_", "KB_RAG_"))
+                       and k not in {"KB_VAULT", "CONCEPT_VAULT", "ENTITY_VAULT", "PYTHONPATH"}}
+                env.update(manifest["build_environment"], PYTHONDONTWRITEBYTECODE="1")
+                run = subprocess.run([runtime["executable"], str(candidate / "code/scripts/rag_maintenance.py"),
+                                      "_probe", "--manifest", str(provisional), "--probes", str(candidate / "probes.json")],
+                                     env=env, text=True, capture_output=True, timeout=300)
+                atomic_json(candidate / "consumer-process.json", {"exit_code": run.returncode,
+                            "stdout": run.stdout, "stderr": run.stderr})
+                if run.returncode:
+>                   raise MaintenanceError(f"consumer subprocess failed ({run.returncode}): {run.stderr[-1000:]}")
+E                   rag.maintenance_io.MaintenanceError: consumer subprocess failed (1): [rag-maintenance] MaintenanceError: interpreter/dependency identity changed
+
+skills/lib/rag/maintenance.py:145: MaintenanceError
+___________ test_immutable_store_and_bm25_entrypoints_reject_current ___________
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_immutable_...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_immutable_store_and_bm25_0/legacy-standard'), ...}
+
+    def test_immutable_store_and_bm25_entrypoints_reject_current(case):
+>       manifest = published(case)
+
+skills/lib/rag/tests/test_guarded_maintenance.py:157: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_guarded_maintenance.py:75: in published
+    manifest = ready(case, generation)
+skills/lib/rag/tests/test_guarded_maintenance.py:71: in ready
+    return maintenance.prepare(**case, generation=generation, **kw)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_immutable_store_and_bm25_0/generations-root')
+
+    def prepare(root: Path, *, generation: str, vault: Path, standard: Path, full: Path,
+                probes: dict, quarantine: dict[str, str] | None = None,
+                allowed_issues: dict[str, list[str]] | None = None) -> Path:
+        root = generation_root(root, create=True)
+        vault = canonical(vault)
+        inputs = {"standard": canonical(standard), "full": canonical(full)}
+        if inputs["standard"] == inputs["full"]:
+            raise MaintenanceError("two distinct source indexes required")
+        quarantine = quarantine or {}
+        allowed_issues = allowed_issues or {"standard": [], "full": []}
+        candidate = generation_path(root, generation)
+        with writer_lock(root):
+            if candidate.exists():
+                raise MaintenanceError("generation already exists; preserve it and choose a new id")
+            candidate.parent.mkdir(exist_ok=True)
+            candidate.mkdir()
+            atomic_json(candidate / MARKER, {"root": str(root), "generation": generation})
+            try:
+                requests = [p.stem for p in sorted((root / "requests").glob("*.json"))
+                            if read_json(p).get("wiki") == str(vault)]
+                contracts = {name: settings(path, name == "full") for name, path in inputs.items()}
+                input_hashes = {name: file_manifest(path) for name, path in inputs.items()}
+                runtime = runtime_identity()
+                code = _freeze_code(candidate / "code")
+                sources = freeze_sources(vault, candidate / "source", contracts)
+                conflicts = {rel: item["sha256"] for rel, item in sources["files"].items() if item["conflict"]}
+                if conflicts != quarantine:
+                    raise MaintenanceError("quarantine must exactly match all conflicting source paths and bytes")
+                frozen_vault = candidate / "source" / vault.name
+                indexes = {}
+                with candidate_writes(root, candidate):
+                    for name, source_index in inputs.items():
+                        assert_writer(root)
+                        target = candidate / name
+                        contract = contracts[name]
+                        store, stats = update(get_embedder(contract["model"]), frozen_vault,
+                                              RagStore.load(source_index),
+                                              include_raw=contract["include_raw"], max_files=contract["max_files"])
+                        # Check source/code/path changes before any index write, too.
+                        verify_source_snapshot(candidate / "source", sources)
+                        _verify_code_origin(code)
+                        store.save(target)
+                        validation = validate_index(target, frozen_vault, contract, sources, name,
+                                                    quarantine, allowed_issues.get(name, []))
+                        indexes[name] = {"path": str(target), "settings": contract, "update": stats,
+                                         "validation": validation, "files": file_manifest(target)}
+                if selected_sources(vault, contracts) != sources["files"]:
+                    raise MaintenanceError("source set changed while indexes were being built")
+                if any(file_manifest(path) != input_hashes[name] for name, path in inputs.items()):
+                    raise MaintenanceError("input index changed during maintenance")
+                _verify_code_origin(code)
+                assert_writer(root)
+                manifest = {"schema": 1, "state": "validated", "root": str(root), "generation": generation,
+                            "created_at": now(), "code": code, "runtime": runtime, "sources": sources,
+                            "original_wiki": str(vault), "indexes": indexes, "requests": requests,
+                            "build_environment": _build_environment(), "quarantine": quarantine,
+                            "path_identities": {name: list(identity(candidate / name)) for name in
+                                                (".", "code", "source", "standard", "full")}}
+                provisional = candidate / "candidate.json"
+                atomic_json(provisional, manifest)
+                atomic_json(candidate / "probes.json", probes)
+                env = {k: v for k, v in os.environ.items() if not k.startswith(("RAG_", "KB_RAG_"))
+                       and k not in {"KB_VAULT", "CONCEPT_VAULT", "ENTITY_VAULT", "PYTHONPATH"}}
+                env.update(manifest["build_environment"], PYTHONDONTWRITEBYTECODE="1")
+                run = subprocess.run([runtime["executable"], str(candidate / "code/scripts/rag_maintenance.py"),
+                                      "_probe", "--manifest", str(provisional), "--probes", str(candidate / "probes.json")],
+                                     env=env, text=True, capture_output=True, timeout=300)
+                atomic_json(candidate / "consumer-process.json", {"exit_code": run.returncode,
+                            "stdout": run.stdout, "stderr": run.stderr})
+                if run.returncode:
+>                   raise MaintenanceError(f"consumer subprocess failed ({run.returncode}): {run.stderr[-1000:]}")
+E                   rag.maintenance_io.MaintenanceError: consumer subprocess failed (1): [rag-maintenance] MaintenanceError: interpreter/dependency identity changed
+
+skills/lib/rag/maintenance.py:145: MaintenanceError
+_____________ test_exact_conflict_allowance_keeps_degraded_health ______________
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_exact_conf...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_exact_conflict_allowance_0/legacy-standard'), ...}
+
+    def test_exact_conflict_allowance_keeps_degraded_health(case):
+        path = case["vault"] / "sources/conflict.md"
+        write(path, "<<<<<<< HEAD\nalpha unresolved\n=======\nbeta\n>>>>>>> side\n")
+        with pytest.raises(MaintenanceError, match="quarantine must exactly match"):
+            ready(case, "unapproved")
+        quarantine = {"wiki/sources/conflict.md": digest(path.read_bytes())}
+        issues = {name: ["conflict pages quarantined; source review required"] for name in ("standard", "full")}
+>       manifest = ready(case, "allowed", quarantine=quarantine, allowed_issues=issues)
+
+skills/lib/rag/tests/test_guarded_maintenance.py:200: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_guarded_maintenance.py:71: in ready
+    return maintenance.prepare(**case, generation=generation, **kw)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_exact_conflict_allowance_0/generations-root')
+
+    def prepare(root: Path, *, generation: str, vault: Path, standard: Path, full: Path,
+                probes: dict, quarantine: dict[str, str] | None = None,
+                allowed_issues: dict[str, list[str]] | None = None) -> Path:
+        root = generation_root(root, create=True)
+        vault = canonical(vault)
+        inputs = {"standard": canonical(standard), "full": canonical(full)}
+        if inputs["standard"] == inputs["full"]:
+            raise MaintenanceError("two distinct source indexes required")
+        quarantine = quarantine or {}
+        allowed_issues = allowed_issues or {"standard": [], "full": []}
+        candidate = generation_path(root, generation)
+        with writer_lock(root):
+            if candidate.exists():
+                raise MaintenanceError("generation already exists; preserve it and choose a new id")
+            candidate.parent.mkdir(exist_ok=True)
+            candidate.mkdir()
+            atomic_json(candidate / MARKER, {"root": str(root), "generation": generation})
+            try:
+                requests = [p.stem for p in sorted((root / "requests").glob("*.json"))
+                            if read_json(p).get("wiki") == str(vault)]
+                contracts = {name: settings(path, name == "full") for name, path in inputs.items()}
+                input_hashes = {name: file_manifest(path) for name, path in inputs.items()}
+                runtime = runtime_identity()
+                code = _freeze_code(candidate / "code")
+                sources = freeze_sources(vault, candidate / "source", contracts)
+                conflicts = {rel: item["sha256"] for rel, item in sources["files"].items() if item["conflict"]}
+                if conflicts != quarantine:
+                    raise MaintenanceError("quarantine must exactly match all conflicting source paths and bytes")
+                frozen_vault = candidate / "source" / vault.name
+                indexes = {}
+                with candidate_writes(root, candidate):
+                    for name, source_index in inputs.items():
+                        assert_writer(root)
+                        target = candidate / name
+                        contract = contracts[name]
+                        store, stats = update(get_embedder(contract["model"]), frozen_vault,
+                                              RagStore.load(source_index),
+                                              include_raw=contract["include_raw"], max_files=contract["max_files"])
+                        # Check source/code/path changes before any index write, too.
+                        verify_source_snapshot(candidate / "source", sources)
+                        _verify_code_origin(code)
+                        store.save(target)
+                        validation = validate_index(target, frozen_vault, contract, sources, name,
+                                                    quarantine, allowed_issues.get(name, []))
+                        indexes[name] = {"path": str(target), "settings": contract, "update": stats,
+                                         "validation": validation, "files": file_manifest(target)}
+                if selected_sources(vault, contracts) != sources["files"]:
+                    raise MaintenanceError("source set changed while indexes were being built")
+                if any(file_manifest(path) != input_hashes[name] for name, path in inputs.items()):
+                    raise MaintenanceError("input index changed during maintenance")
+                _verify_code_origin(code)
+                assert_writer(root)
+                manifest = {"schema": 1, "state": "validated", "root": str(root), "generation": generation,
+                            "created_at": now(), "code": code, "runtime": runtime, "sources": sources,
+                            "original_wiki": str(vault), "indexes": indexes, "requests": requests,
+                            "build_environment": _build_environment(), "quarantine": quarantine,
+                            "path_identities": {name: list(identity(candidate / name)) for name in
+                                                (".", "code", "source", "standard", "full")}}
+                provisional = candidate / "candidate.json"
+                atomic_json(provisional, manifest)
+                atomic_json(candidate / "probes.json", probes)
+                env = {k: v for k, v in os.environ.items() if not k.startswith(("RAG_", "KB_RAG_"))
+                       and k not in {"KB_VAULT", "CONCEPT_VAULT", "ENTITY_VAULT", "PYTHONPATH"}}
+                env.update(manifest["build_environment"], PYTHONDONTWRITEBYTECODE="1")
+                run = subprocess.run([runtime["executable"], str(candidate / "code/scripts/rag_maintenance.py"),
+                                      "_probe", "--manifest", str(provisional), "--probes", str(candidate / "probes.json")],
+                                     env=env, text=True, capture_output=True, timeout=300)
+                atomic_json(candidate / "consumer-process.json", {"exit_code": run.returncode,
+                            "stdout": run.stdout, "stderr": run.stderr})
+                if run.returncode:
+>                   raise MaintenanceError(f"consumer subprocess failed ({run.returncode}): {run.stderr[-1000:]}")
+E                   rag.maintenance_io.MaintenanceError: consumer subprocess failed (1): [rag-maintenance] MaintenanceError: interpreter/dependency identity changed
+
+skills/lib/rag/maintenance.py:145: MaintenanceError
+____________ test_manifest_bytes_and_path_substitution_are_rejected ____________
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_manifest_b...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_manifest_bytes_and_path_s0/legacy-standard'), ...}
+
+    def test_manifest_bytes_and_path_substitution_are_rejected(case):
+>       manifest = published(case)
+
+skills/lib/rag/tests/test_guarded_maintenance.py:245: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_guarded_maintenance.py:75: in published
+    manifest = ready(case, generation)
+skills/lib/rag/tests/test_guarded_maintenance.py:71: in ready
+    return maintenance.prepare(**case, generation=generation, **kw)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_manifest_bytes_and_path_s0/generations-root')
+
+    def prepare(root: Path, *, generation: str, vault: Path, standard: Path, full: Path,
+                probes: dict, quarantine: dict[str, str] | None = None,
+                allowed_issues: dict[str, list[str]] | None = None) -> Path:
+        root = generation_root(root, create=True)
+        vault = canonical(vault)
+        inputs = {"standard": canonical(standard), "full": canonical(full)}
+        if inputs["standard"] == inputs["full"]:
+            raise MaintenanceError("two distinct source indexes required")
+        quarantine = quarantine or {}
+        allowed_issues = allowed_issues or {"standard": [], "full": []}
+        candidate = generation_path(root, generation)
+        with writer_lock(root):
+            if candidate.exists():
+                raise MaintenanceError("generation already exists; preserve it and choose a new id")
+            candidate.parent.mkdir(exist_ok=True)
+            candidate.mkdir()
+            atomic_json(candidate / MARKER, {"root": str(root), "generation": generation})
+            try:
+                requests = [p.stem for p in sorted((root / "requests").glob("*.json"))
+                            if read_json(p).get("wiki") == str(vault)]
+                contracts = {name: settings(path, name == "full") for name, path in inputs.items()}
+                input_hashes = {name: file_manifest(path) for name, path in inputs.items()}
+                runtime = runtime_identity()
+                code = _freeze_code(candidate / "code")
+                sources = freeze_sources(vault, candidate / "source", contracts)
+                conflicts = {rel: item["sha256"] for rel, item in sources["files"].items() if item["conflict"]}
+                if conflicts != quarantine:
+                    raise MaintenanceError("quarantine must exactly match all conflicting source paths and bytes")
+                frozen_vault = candidate / "source" / vault.name
+                indexes = {}
+                with candidate_writes(root, candidate):
+                    for name, source_index in inputs.items():
+                        assert_writer(root)
+                        target = candidate / name
+                        contract = contracts[name]
+                        store, stats = update(get_embedder(contract["model"]), frozen_vault,
+                                              RagStore.load(source_index),
+                                              include_raw=contract["include_raw"], max_files=contract["max_files"])
+                        # Check source/code/path changes before any index write, too.
+                        verify_source_snapshot(candidate / "source", sources)
+                        _verify_code_origin(code)
+                        store.save(target)
+                        validation = validate_index(target, frozen_vault, contract, sources, name,
+                                                    quarantine, allowed_issues.get(name, []))
+                        indexes[name] = {"path": str(target), "settings": contract, "update": stats,
+                                         "validation": validation, "files": file_manifest(target)}
+                if selected_sources(vault, contracts) != sources["files"]:
+                    raise MaintenanceError("source set changed while indexes were being built")
+                if any(file_manifest(path) != input_hashes[name] for name, path in inputs.items()):
+                    raise MaintenanceError("input index changed during maintenance")
+                _verify_code_origin(code)
+                assert_writer(root)
+                manifest = {"schema": 1, "state": "validated", "root": str(root), "generation": generation,
+                            "created_at": now(), "code": code, "runtime": runtime, "sources": sources,
+                            "original_wiki": str(vault), "indexes": indexes, "requests": requests,
+                            "build_environment": _build_environment(), "quarantine": quarantine,
+                            "path_identities": {name: list(identity(candidate / name)) for name in
+                                                (".", "code", "source", "standard", "full")}}
+                provisional = candidate / "candidate.json"
+                atomic_json(provisional, manifest)
+                atomic_json(candidate / "probes.json", probes)
+                env = {k: v for k, v in os.environ.items() if not k.startswith(("RAG_", "KB_RAG_"))
+                       and k not in {"KB_VAULT", "CONCEPT_VAULT", "ENTITY_VAULT", "PYTHONPATH"}}
+                env.update(manifest["build_environment"], PYTHONDONTWRITEBYTECODE="1")
+                run = subprocess.run([runtime["executable"], str(candidate / "code/scripts/rag_maintenance.py"),
+                                      "_probe", "--manifest", str(provisional), "--probes", str(candidate / "probes.json")],
+                                     env=env, text=True, capture_output=True, timeout=300)
+                atomic_json(candidate / "consumer-process.json", {"exit_code": run.returncode,
+                            "stdout": run.stdout, "stderr": run.stderr})
+                if run.returncode:
+>                   raise MaintenanceError(f"consumer subprocess failed ({run.returncode}): {run.stderr[-1000:]}")
+E                   rag.maintenance_io.MaintenanceError: consumer subprocess failed (1): [rag-maintenance] MaintenanceError: interpreter/dependency identity changed
+
+skills/lib/rag/maintenance.py:145: MaintenanceError
+___ test_launcher_resolves_once_clears_ambient_roots_and_execs_literal_argv ____
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_launcher_r...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_launcher_resolves_once_cl0/legacy-standard'), ...}
+
+    def test_launcher_resolves_once_clears_ambient_roots_and_execs_literal_argv(case):
+>       manifest = published(case)
+
+skills/lib/rag/tests/test_guarded_maintenance.py:324: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_guarded_maintenance.py:75: in published
+    manifest = ready(case, generation)
+skills/lib/rag/tests/test_guarded_maintenance.py:71: in ready
+    return maintenance.prepare(**case, generation=generation, **kw)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_launcher_resolves_once_cl0/generations-root')
+
+    def prepare(root: Path, *, generation: str, vault: Path, standard: Path, full: Path,
+                probes: dict, quarantine: dict[str, str] | None = None,
+                allowed_issues: dict[str, list[str]] | None = None) -> Path:
+        root = generation_root(root, create=True)
+        vault = canonical(vault)
+        inputs = {"standard": canonical(standard), "full": canonical(full)}
+        if inputs["standard"] == inputs["full"]:
+            raise MaintenanceError("two distinct source indexes required")
+        quarantine = quarantine or {}
+        allowed_issues = allowed_issues or {"standard": [], "full": []}
+        candidate = generation_path(root, generation)
+        with writer_lock(root):
+            if candidate.exists():
+                raise MaintenanceError("generation already exists; preserve it and choose a new id")
+            candidate.parent.mkdir(exist_ok=True)
+            candidate.mkdir()
+            atomic_json(candidate / MARKER, {"root": str(root), "generation": generation})
+            try:
+                requests = [p.stem for p in sorted((root / "requests").glob("*.json"))
+                            if read_json(p).get("wiki") == str(vault)]
+                contracts = {name: settings(path, name == "full") for name, path in inputs.items()}
+                input_hashes = {name: file_manifest(path) for name, path in inputs.items()}
+                runtime = runtime_identity()
+                code = _freeze_code(candidate / "code")
+                sources = freeze_sources(vault, candidate / "source", contracts)
+                conflicts = {rel: item["sha256"] for rel, item in sources["files"].items() if item["conflict"]}
+                if conflicts != quarantine:
+                    raise MaintenanceError("quarantine must exactly match all conflicting source paths and bytes")
+                frozen_vault = candidate / "source" / vault.name
+                indexes = {}
+                with candidate_writes(root, candidate):
+                    for name, source_index in inputs.items():
+                        assert_writer(root)
+                        target = candidate / name
+                        contract = contracts[name]
+                        store, stats = update(get_embedder(contract["model"]), frozen_vault,
+                                              RagStore.load(source_index),
+                                              include_raw=contract["include_raw"], max_files=contract["max_files"])
+                        # Check source/code/path changes before any index write, too.
+                        verify_source_snapshot(candidate / "source", sources)
+                        _verify_code_origin(code)
+                        store.save(target)
+                        validation = validate_index(target, frozen_vault, contract, sources, name,
+                                                    quarantine, allowed_issues.get(name, []))
+                        indexes[name] = {"path": str(target), "settings": contract, "update": stats,
+                                         "validation": validation, "files": file_manifest(target)}
+                if selected_sources(vault, contracts) != sources["files"]:
+                    raise MaintenanceError("source set changed while indexes were being built")
+                if any(file_manifest(path) != input_hashes[name] for name, path in inputs.items()):
+                    raise MaintenanceError("input index changed during maintenance")
+                _verify_code_origin(code)
+                assert_writer(root)
+                manifest = {"schema": 1, "state": "validated", "root": str(root), "generation": generation,
+                            "created_at": now(), "code": code, "runtime": runtime, "sources": sources,
+                            "original_wiki": str(vault), "indexes": indexes, "requests": requests,
+                            "build_environment": _build_environment(), "quarantine": quarantine,
+                            "path_identities": {name: list(identity(candidate / name)) for name in
+                                                (".", "code", "source", "standard", "full")}}
+                provisional = candidate / "candidate.json"
+                atomic_json(provisional, manifest)
+                atomic_json(candidate / "probes.json", probes)
+                env = {k: v for k, v in os.environ.items() if not k.startswith(("RAG_", "KB_RAG_"))
+                       and k not in {"KB_VAULT", "CONCEPT_VAULT", "ENTITY_VAULT", "PYTHONPATH"}}
+                env.update(manifest["build_environment"], PYTHONDONTWRITEBYTECODE="1")
+                run = subprocess.run([runtime["executable"], str(candidate / "code/scripts/rag_maintenance.py"),
+                                      "_probe", "--manifest", str(provisional), "--probes", str(candidate / "probes.json")],
+                                     env=env, text=True, capture_output=True, timeout=300)
+                atomic_json(candidate / "consumer-process.json", {"exit_code": run.returncode,
+                            "stdout": run.stdout, "stderr": run.stderr})
+                if run.returncode:
+>                   raise MaintenanceError(f"consumer subprocess failed ({run.returncode}): {run.stderr[-1000:]}")
+E                   rag.maintenance_io.MaintenanceError: consumer subprocess failed (1): [rag-maintenance] MaintenanceError: interpreter/dependency identity changed
+
+skills/lib/rag/maintenance.py:145: MaintenanceError
+_ test_direct_cli_refuses_managed_target_before_any_write[rag_index.py-args0] __
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_direct_cli...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_direct_cli_refuses_manage0/legacy-standard'), ...}
+entry = 'rag_index.py', args = ['build', '--model', 'hash']
+
+    @pytest.mark.parametrize("entry,args", [
+        ("rag_index.py", ["build", "--model", "hash"]),
+        ("rag_index.py", ["update", "--model", "hash"]),
+        ("rag_build_full.py", ["--model", "hash", "--bm25-only"]),
+    ])
+    def test_direct_cli_refuses_managed_target_before_any_write(case, entry, args):
+>       manifest = published(case)
+
+skills/lib/rag/tests/test_guarded_maintenance.py:343: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_guarded_maintenance.py:75: in published
+    manifest = ready(case, generation)
+skills/lib/rag/tests/test_guarded_maintenance.py:71: in ready
+    return maintenance.prepare(**case, generation=generation, **kw)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_direct_cli_refuses_manage0/generations-root')
+
+    def prepare(root: Path, *, generation: str, vault: Path, standard: Path, full: Path,
+                probes: dict, quarantine: dict[str, str] | None = None,
+                allowed_issues: dict[str, list[str]] | None = None) -> Path:
+        root = generation_root(root, create=True)
+        vault = canonical(vault)
+        inputs = {"standard": canonical(standard), "full": canonical(full)}
+        if inputs["standard"] == inputs["full"]:
+            raise MaintenanceError("two distinct source indexes required")
+        quarantine = quarantine or {}
+        allowed_issues = allowed_issues or {"standard": [], "full": []}
+        candidate = generation_path(root, generation)
+        with writer_lock(root):
+            if candidate.exists():
+                raise MaintenanceError("generation already exists; preserve it and choose a new id")
+            candidate.parent.mkdir(exist_ok=True)
+            candidate.mkdir()
+            atomic_json(candidate / MARKER, {"root": str(root), "generation": generation})
+            try:
+                requests = [p.stem for p in sorted((root / "requests").glob("*.json"))
+                            if read_json(p).get("wiki") == str(vault)]
+                contracts = {name: settings(path, name == "full") for name, path in inputs.items()}
+                input_hashes = {name: file_manifest(path) for name, path in inputs.items()}
+                runtime = runtime_identity()
+                code = _freeze_code(candidate / "code")
+                sources = freeze_sources(vault, candidate / "source", contracts)
+                conflicts = {rel: item["sha256"] for rel, item in sources["files"].items() if item["conflict"]}
+                if conflicts != quarantine:
+                    raise MaintenanceError("quarantine must exactly match all conflicting source paths and bytes")
+                frozen_vault = candidate / "source" / vault.name
+                indexes = {}
+                with candidate_writes(root, candidate):
+                    for name, source_index in inputs.items():
+                        assert_writer(root)
+                        target = candidate / name
+                        contract = contracts[name]
+                        store, stats = update(get_embedder(contract["model"]), frozen_vault,
+                                              RagStore.load(source_index),
+                                              include_raw=contract["include_raw"], max_files=contract["max_files"])
+                        # Check source/code/path changes before any index write, too.
+                        verify_source_snapshot(candidate / "source", sources)
+                        _verify_code_origin(code)
+                        store.save(target)
+                        validation = validate_index(target, frozen_vault, contract, sources, name,
+                                                    quarantine, allowed_issues.get(name, []))
+                        indexes[name] = {"path": str(target), "settings": contract, "update": stats,
+                                         "validation": validation, "files": file_manifest(target)}
+                if selected_sources(vault, contracts) != sources["files"]:
+                    raise MaintenanceError("source set changed while indexes were being built")
+                if any(file_manifest(path) != input_hashes[name] for name, path in inputs.items()):
+                    raise MaintenanceError("input index changed during maintenance")
+                _verify_code_origin(code)
+                assert_writer(root)
+                manifest = {"schema": 1, "state": "validated", "root": str(root), "generation": generation,
+                            "created_at": now(), "code": code, "runtime": runtime, "sources": sources,
+                            "original_wiki": str(vault), "indexes": indexes, "requests": requests,
+                            "build_environment": _build_environment(), "quarantine": quarantine,
+                            "path_identities": {name: list(identity(candidate / name)) for name in
+                                                (".", "code", "source", "standard", "full")}}
+                provisional = candidate / "candidate.json"
+                atomic_json(provisional, manifest)
+                atomic_json(candidate / "probes.json", probes)
+                env = {k: v for k, v in os.environ.items() if not k.startswith(("RAG_", "KB_RAG_"))
+                       and k not in {"KB_VAULT", "CONCEPT_VAULT", "ENTITY_VAULT", "PYTHONPATH"}}
+                env.update(manifest["build_environment"], PYTHONDONTWRITEBYTECODE="1")
+                run = subprocess.run([runtime["executable"], str(candidate / "code/scripts/rag_maintenance.py"),
+                                      "_probe", "--manifest", str(provisional), "--probes", str(candidate / "probes.json")],
+                                     env=env, text=True, capture_output=True, timeout=300)
+                atomic_json(candidate / "consumer-process.json", {"exit_code": run.returncode,
+                            "stdout": run.stdout, "stderr": run.stderr})
+                if run.returncode:
+>                   raise MaintenanceError(f"consumer subprocess failed ({run.returncode}): {run.stderr[-1000:]}")
+E                   rag.maintenance_io.MaintenanceError: consumer subprocess failed (1): [rag-maintenance] MaintenanceError: interpreter/dependency identity changed
+
+skills/lib/rag/maintenance.py:145: MaintenanceError
+_ test_direct_cli_refuses_managed_target_before_any_write[rag_index.py-args1] __
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_direct_cli...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_direct_cli_refuses_manage1/legacy-standard'), ...}
+entry = 'rag_index.py', args = ['update', '--model', 'hash']
+
+    @pytest.mark.parametrize("entry,args", [
+        ("rag_index.py", ["build", "--model", "hash"]),
+        ("rag_index.py", ["update", "--model", "hash"]),
+        ("rag_build_full.py", ["--model", "hash", "--bm25-only"]),
+    ])
+    def test_direct_cli_refuses_managed_target_before_any_write(case, entry, args):
+>       manifest = published(case)
+
+skills/lib/rag/tests/test_guarded_maintenance.py:343: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_guarded_maintenance.py:75: in published
+    manifest = ready(case, generation)
+skills/lib/rag/tests/test_guarded_maintenance.py:71: in ready
+    return maintenance.prepare(**case, generation=generation, **kw)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_direct_cli_refuses_manage1/generations-root')
+
+    def prepare(root: Path, *, generation: str, vault: Path, standard: Path, full: Path,
+                probes: dict, quarantine: dict[str, str] | None = None,
+                allowed_issues: dict[str, list[str]] | None = None) -> Path:
+        root = generation_root(root, create=True)
+        vault = canonical(vault)
+        inputs = {"standard": canonical(standard), "full": canonical(full)}
+        if inputs["standard"] == inputs["full"]:
+            raise MaintenanceError("two distinct source indexes required")
+        quarantine = quarantine or {}
+        allowed_issues = allowed_issues or {"standard": [], "full": []}
+        candidate = generation_path(root, generation)
+        with writer_lock(root):
+            if candidate.exists():
+                raise MaintenanceError("generation already exists; preserve it and choose a new id")
+            candidate.parent.mkdir(exist_ok=True)
+            candidate.mkdir()
+            atomic_json(candidate / MARKER, {"root": str(root), "generation": generation})
+            try:
+                requests = [p.stem for p in sorted((root / "requests").glob("*.json"))
+                            if read_json(p).get("wiki") == str(vault)]
+                contracts = {name: settings(path, name == "full") for name, path in inputs.items()}
+                input_hashes = {name: file_manifest(path) for name, path in inputs.items()}
+                runtime = runtime_identity()
+                code = _freeze_code(candidate / "code")
+                sources = freeze_sources(vault, candidate / "source", contracts)
+                conflicts = {rel: item["sha256"] for rel, item in sources["files"].items() if item["conflict"]}
+                if conflicts != quarantine:
+                    raise MaintenanceError("quarantine must exactly match all conflicting source paths and bytes")
+                frozen_vault = candidate / "source" / vault.name
+                indexes = {}
+                with candidate_writes(root, candidate):
+                    for name, source_index in inputs.items():
+                        assert_writer(root)
+                        target = candidate / name
+                        contract = contracts[name]
+                        store, stats = update(get_embedder(contract["model"]), frozen_vault,
+                                              RagStore.load(source_index),
+                                              include_raw=contract["include_raw"], max_files=contract["max_files"])
+                        # Check source/code/path changes before any index write, too.
+                        verify_source_snapshot(candidate / "source", sources)
+                        _verify_code_origin(code)
+                        store.save(target)
+                        validation = validate_index(target, frozen_vault, contract, sources, name,
+                                                    quarantine, allowed_issues.get(name, []))
+                        indexes[name] = {"path": str(target), "settings": contract, "update": stats,
+                                         "validation": validation, "files": file_manifest(target)}
+                if selected_sources(vault, contracts) != sources["files"]:
+                    raise MaintenanceError("source set changed while indexes were being built")
+                if any(file_manifest(path) != input_hashes[name] for name, path in inputs.items()):
+                    raise MaintenanceError("input index changed during maintenance")
+                _verify_code_origin(code)
+                assert_writer(root)
+                manifest = {"schema": 1, "state": "validated", "root": str(root), "generation": generation,
+                            "created_at": now(), "code": code, "runtime": runtime, "sources": sources,
+                            "original_wiki": str(vault), "indexes": indexes, "requests": requests,
+                            "build_environment": _build_environment(), "quarantine": quarantine,
+                            "path_identities": {name: list(identity(candidate / name)) for name in
+                                                (".", "code", "source", "standard", "full")}}
+                provisional = candidate / "candidate.json"
+                atomic_json(provisional, manifest)
+                atomic_json(candidate / "probes.json", probes)
+                env = {k: v for k, v in os.environ.items() if not k.startswith(("RAG_", "KB_RAG_"))
+                       and k not in {"KB_VAULT", "CONCEPT_VAULT", "ENTITY_VAULT", "PYTHONPATH"}}
+                env.update(manifest["build_environment"], PYTHONDONTWRITEBYTECODE="1")
+                run = subprocess.run([runtime["executable"], str(candidate / "code/scripts/rag_maintenance.py"),
+                                      "_probe", "--manifest", str(provisional), "--probes", str(candidate / "probes.json")],
+                                     env=env, text=True, capture_output=True, timeout=300)
+                atomic_json(candidate / "consumer-process.json", {"exit_code": run.returncode,
+                            "stdout": run.stdout, "stderr": run.stderr})
+                if run.returncode:
+>                   raise MaintenanceError(f"consumer subprocess failed ({run.returncode}): {run.stderr[-1000:]}")
+E                   rag.maintenance_io.MaintenanceError: consumer subprocess failed (1): [rag-maintenance] MaintenanceError: interpreter/dependency identity changed
+
+skills/lib/rag/maintenance.py:145: MaintenanceError
+_ test_direct_cli_refuses_managed_target_before_any_write[rag_build_full.py-args2] _
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_direct_cli...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_direct_cli_refuses_manage2/legacy-standard'), ...}
+entry = 'rag_build_full.py', args = ['--model', 'hash', '--bm25-only']
+
+    @pytest.mark.parametrize("entry,args", [
+        ("rag_index.py", ["build", "--model", "hash"]),
+        ("rag_index.py", ["update", "--model", "hash"]),
+        ("rag_build_full.py", ["--model", "hash", "--bm25-only"]),
+    ])
+    def test_direct_cli_refuses_managed_target_before_any_write(case, entry, args):
+>       manifest = published(case)
+
+skills/lib/rag/tests/test_guarded_maintenance.py:343: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_guarded_maintenance.py:75: in published
+    manifest = ready(case, generation)
+skills/lib/rag/tests/test_guarded_maintenance.py:71: in ready
+    return maintenance.prepare(**case, generation=generation, **kw)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_direct_cli_refuses_manage2/generations-root')
+
+    def prepare(root: Path, *, generation: str, vault: Path, standard: Path, full: Path,
+                probes: dict, quarantine: dict[str, str] | None = None,
+                allowed_issues: dict[str, list[str]] | None = None) -> Path:
+        root = generation_root(root, create=True)
+        vault = canonical(vault)
+        inputs = {"standard": canonical(standard), "full": canonical(full)}
+        if inputs["standard"] == inputs["full"]:
+            raise MaintenanceError("two distinct source indexes required")
+        quarantine = quarantine or {}
+        allowed_issues = allowed_issues or {"standard": [], "full": []}
+        candidate = generation_path(root, generation)
+        with writer_lock(root):
+            if candidate.exists():
+                raise MaintenanceError("generation already exists; preserve it and choose a new id")
+            candidate.parent.mkdir(exist_ok=True)
+            candidate.mkdir()
+            atomic_json(candidate / MARKER, {"root": str(root), "generation": generation})
+            try:
+                requests = [p.stem for p in sorted((root / "requests").glob("*.json"))
+                            if read_json(p).get("wiki") == str(vault)]
+                contracts = {name: settings(path, name == "full") for name, path in inputs.items()}
+                input_hashes = {name: file_manifest(path) for name, path in inputs.items()}
+                runtime = runtime_identity()
+                code = _freeze_code(candidate / "code")
+                sources = freeze_sources(vault, candidate / "source", contracts)
+                conflicts = {rel: item["sha256"] for rel, item in sources["files"].items() if item["conflict"]}
+                if conflicts != quarantine:
+                    raise MaintenanceError("quarantine must exactly match all conflicting source paths and bytes")
+                frozen_vault = candidate / "source" / vault.name
+                indexes = {}
+                with candidate_writes(root, candidate):
+                    for name, source_index in inputs.items():
+                        assert_writer(root)
+                        target = candidate / name
+                        contract = contracts[name]
+                        store, stats = update(get_embedder(contract["model"]), frozen_vault,
+                                              RagStore.load(source_index),
+                                              include_raw=contract["include_raw"], max_files=contract["max_files"])
+                        # Check source/code/path changes before any index write, too.
+                        verify_source_snapshot(candidate / "source", sources)
+                        _verify_code_origin(code)
+                        store.save(target)
+                        validation = validate_index(target, frozen_vault, contract, sources, name,
+                                                    quarantine, allowed_issues.get(name, []))
+                        indexes[name] = {"path": str(target), "settings": contract, "update": stats,
+                                         "validation": validation, "files": file_manifest(target)}
+                if selected_sources(vault, contracts) != sources["files"]:
+                    raise MaintenanceError("source set changed while indexes were being built")
+                if any(file_manifest(path) != input_hashes[name] for name, path in inputs.items()):
+                    raise MaintenanceError("input index changed during maintenance")
+                _verify_code_origin(code)
+                assert_writer(root)
+                manifest = {"schema": 1, "state": "validated", "root": str(root), "generation": generation,
+                            "created_at": now(), "code": code, "runtime": runtime, "sources": sources,
+                            "original_wiki": str(vault), "indexes": indexes, "requests": requests,
+                            "build_environment": _build_environment(), "quarantine": quarantine,
+                            "path_identities": {name: list(identity(candidate / name)) for name in
+                                                (".", "code", "source", "standard", "full")}}
+                provisional = candidate / "candidate.json"
+                atomic_json(provisional, manifest)
+                atomic_json(candidate / "probes.json", probes)
+                env = {k: v for k, v in os.environ.items() if not k.startswith(("RAG_", "KB_RAG_"))
+                       and k not in {"KB_VAULT", "CONCEPT_VAULT", "ENTITY_VAULT", "PYTHONPATH"}}
+                env.update(manifest["build_environment"], PYTHONDONTWRITEBYTECODE="1")
+                run = subprocess.run([runtime["executable"], str(candidate / "code/scripts/rag_maintenance.py"),
+                                      "_probe", "--manifest", str(provisional), "--probes", str(candidate / "probes.json")],
+                                     env=env, text=True, capture_output=True, timeout=300)
+                atomic_json(candidate / "consumer-process.json", {"exit_code": run.returncode,
+                            "stdout": run.stdout, "stderr": run.stderr})
+                if run.returncode:
+>                   raise MaintenanceError(f"consumer subprocess failed ({run.returncode}): {run.stderr[-1000:]}")
+E                   rag.maintenance_io.MaintenanceError: consumer subprocess failed (1): [rag-maintenance] MaintenanceError: interpreter/dependency identity changed
+
+skills/lib/rag/maintenance.py:145: MaintenanceError
+__ test_crash_after_first_index_retains_old_current_and_new_build_can_recover __
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_crash_afte...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_crash_after_first_index_r0/legacy-standard'), ...}
+
+    def test_crash_after_first_index_retains_old_current_and_new_build_can_recover(case):
+>       published(case)
+
+skills/lib/rag/tests/test_guarded_maintenance.py:360: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_guarded_maintenance.py:75: in published
+    manifest = ready(case, generation)
+skills/lib/rag/tests/test_guarded_maintenance.py:71: in ready
+    return maintenance.prepare(**case, generation=generation, **kw)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_crash_after_first_index_r0/generations-root')
+
+    def prepare(root: Path, *, generation: str, vault: Path, standard: Path, full: Path,
+                probes: dict, quarantine: dict[str, str] | None = None,
+                allowed_issues: dict[str, list[str]] | None = None) -> Path:
+        root = generation_root(root, create=True)
+        vault = canonical(vault)
+        inputs = {"standard": canonical(standard), "full": canonical(full)}
+        if inputs["standard"] == inputs["full"]:
+            raise MaintenanceError("two distinct source indexes required")
+        quarantine = quarantine or {}
+        allowed_issues = allowed_issues or {"standard": [], "full": []}
+        candidate = generation_path(root, generation)
+        with writer_lock(root):
+            if candidate.exists():
+                raise MaintenanceError("generation already exists; preserve it and choose a new id")
+            candidate.parent.mkdir(exist_ok=True)
+            candidate.mkdir()
+            atomic_json(candidate / MARKER, {"root": str(root), "generation": generation})
+            try:
+                requests = [p.stem for p in sorted((root / "requests").glob("*.json"))
+                            if read_json(p).get("wiki") == str(vault)]
+                contracts = {name: settings(path, name == "full") for name, path in inputs.items()}
+                input_hashes = {name: file_manifest(path) for name, path in inputs.items()}
+                runtime = runtime_identity()
+                code = _freeze_code(candidate / "code")
+                sources = freeze_sources(vault, candidate / "source", contracts)
+                conflicts = {rel: item["sha256"] for rel, item in sources["files"].items() if item["conflict"]}
+                if conflicts != quarantine:
+                    raise MaintenanceError("quarantine must exactly match all conflicting source paths and bytes")
+                frozen_vault = candidate / "source" / vault.name
+                indexes = {}
+                with candidate_writes(root, candidate):
+                    for name, source_index in inputs.items():
+                        assert_writer(root)
+                        target = candidate / name
+                        contract = contracts[name]
+                        store, stats = update(get_embedder(contract["model"]), frozen_vault,
+                                              RagStore.load(source_index),
+                                              include_raw=contract["include_raw"], max_files=contract["max_files"])
+                        # Check source/code/path changes before any index write, too.
+                        verify_source_snapshot(candidate / "source", sources)
+                        _verify_code_origin(code)
+                        store.save(target)
+                        validation = validate_index(target, frozen_vault, contract, sources, name,
+                                                    quarantine, allowed_issues.get(name, []))
+                        indexes[name] = {"path": str(target), "settings": contract, "update": stats,
+                                         "validation": validation, "files": file_manifest(target)}
+                if selected_sources(vault, contracts) != sources["files"]:
+                    raise MaintenanceError("source set changed while indexes were being built")
+                if any(file_manifest(path) != input_hashes[name] for name, path in inputs.items()):
+                    raise MaintenanceError("input index changed during maintenance")
+                _verify_code_origin(code)
+                assert_writer(root)
+                manifest = {"schema": 1, "state": "validated", "root": str(root), "generation": generation,
+                            "created_at": now(), "code": code, "runtime": runtime, "sources": sources,
+                            "original_wiki": str(vault), "indexes": indexes, "requests": requests,
+                            "build_environment": _build_environment(), "quarantine": quarantine,
+                            "path_identities": {name: list(identity(candidate / name)) for name in
+                                                (".", "code", "source", "standard", "full")}}
+                provisional = candidate / "candidate.json"
+                atomic_json(provisional, manifest)
+                atomic_json(candidate / "probes.json", probes)
+                env = {k: v for k, v in os.environ.items() if not k.startswith(("RAG_", "KB_RAG_"))
+                       and k not in {"KB_VAULT", "CONCEPT_VAULT", "ENTITY_VAULT", "PYTHONPATH"}}
+                env.update(manifest["build_environment"], PYTHONDONTWRITEBYTECODE="1")
+                run = subprocess.run([runtime["executable"], str(candidate / "code/scripts/rag_maintenance.py"),
+                                      "_probe", "--manifest", str(provisional), "--probes", str(candidate / "probes.json")],
+                                     env=env, text=True, capture_output=True, timeout=300)
+                atomic_json(candidate / "consumer-process.json", {"exit_code": run.returncode,
+                            "stdout": run.stdout, "stderr": run.stderr})
+                if run.returncode:
+>                   raise MaintenanceError(f"consumer subprocess failed ({run.returncode}): {run.stderr[-1000:]}")
+E                   rag.maintenance_io.MaintenanceError: consumer subprocess failed (1): [rag-maintenance] MaintenanceError: interpreter/dependency identity changed
+
+skills/lib/rag/maintenance.py:145: MaintenanceError
+___________ test_real_cli_prepare_approve_activate_resolve_and_pack ____________
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_real_cli_p...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_real_cli_prepare_approve_0/legacy-standard'), ...}
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_real_cli_prepare_approve_0')
+
+    def test_real_cli_prepare_approve_activate_resolve_and_pack(case, tmp_path):
+        probes = tmp_path / "probes.json"
+        probes.write_text(json.dumps(case["probes"]))
+        result = cli(["prepare", "--root", case["root"], "--generation", "cli",
+                      "--wiki", case["vault"], "--standard", case["standard"], "--full", case["full"], "--probes", probes])
+        assert result.returncode == 0, result.stderr
+        manifest = Path(json.loads(result.stdout)["manifest"])
+        for args in (["approve", "--manifest", manifest, "--approved-by", "offline test"],
+                     ["activate", "--manifest", manifest], ["resolve", "--root", case["root"]]):
+            result = cli(args)
+            assert result.returncode == 0, result.stderr
+>       packed = maintenance.pack(manifest, tmp_path / "bundle.tar.gz")
+
+skills/lib/rag/tests/test_guarded_maintenance.py:417: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/maintenance.py:170: in pack
+    data = verify_manifest(manifest)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_real_cli_prepare_approve_0/generations-root/generations/cli/manifest.json')
+
+    def verify_manifest(path: Path, *, approved: bool = True) -> dict:
+        path = canonical(path)
+        data = read_json(path)
+        if data.get("schema") != 1 or data.get("state") != "validated":
+            raise MaintenanceError("generation has not passed validation")
+        root = generation_root(data["root"])
+        candidate = generation_path(root, data["generation"])
+        if path.parent != candidate or path.name not in {"manifest.json", "candidate.json"}:
+            raise MaintenanceError("manifest is outside its bound generation")
+        if read_json(candidate / MARKER) != {"root": str(root), "generation": data["generation"]}:
+            raise MaintenanceError("generation marker changed")
+        for name, expected in data["path_identities"].items():
+            directory = canonical(candidate / name)
+            if list(identity(directory)) != expected:
+                raise MaintenanceError(f"generation directory replaced: {name}")
+        if file_manifest(candidate / "code") != data["code"]["files"]:
+            raise MaintenanceError("frozen code bytes changed")
+        verify_source_snapshot(candidate / "source", data["sources"])
+        for name in ("standard", "full"):
+            contract = data["indexes"][name]
+            if contract["path"] != str(candidate / name):
+                raise MaintenanceError("mixed generation index paths")
+            if file_manifest(candidate / name) != contract["files"]:
+                raise MaintenanceError(f"{name} index bytes changed")
+        if data["runtime"] != runtime_identity():
+>           raise MaintenanceError("interpreter/dependency identity changed")
+E           rag.maintenance_io.MaintenanceError: interpreter/dependency identity changed
+
+skills/lib/rag/generation.py:50: MaintenanceError
+____________ test_generation_target_cannot_be_written_through_alias ____________
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_generation...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_generation_target_cannot_0/legacy-standard'), ...}
+
+    def test_generation_target_cannot_be_written_through_alias(case):
+>       manifest = published(case)
+
+skills/lib/rag/tests/test_guarded_maintenance.py:426: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_guarded_maintenance.py:75: in published
+    manifest = ready(case, generation)
+skills/lib/rag/tests/test_guarded_maintenance.py:71: in ready
+    return maintenance.prepare(**case, generation=generation, **kw)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_generation_target_cannot_0/generations-root')
+
+    def prepare(root: Path, *, generation: str, vault: Path, standard: Path, full: Path,
+                probes: dict, quarantine: dict[str, str] | None = None,
+                allowed_issues: dict[str, list[str]] | None = None) -> Path:
+        root = generation_root(root, create=True)
+        vault = canonical(vault)
+        inputs = {"standard": canonical(standard), "full": canonical(full)}
+        if inputs["standard"] == inputs["full"]:
+            raise MaintenanceError("two distinct source indexes required")
+        quarantine = quarantine or {}
+        allowed_issues = allowed_issues or {"standard": [], "full": []}
+        candidate = generation_path(root, generation)
+        with writer_lock(root):
+            if candidate.exists():
+                raise MaintenanceError("generation already exists; preserve it and choose a new id")
+            candidate.parent.mkdir(exist_ok=True)
+            candidate.mkdir()
+            atomic_json(candidate / MARKER, {"root": str(root), "generation": generation})
+            try:
+                requests = [p.stem for p in sorted((root / "requests").glob("*.json"))
+                            if read_json(p).get("wiki") == str(vault)]
+                contracts = {name: settings(path, name == "full") for name, path in inputs.items()}
+                input_hashes = {name: file_manifest(path) for name, path in inputs.items()}
+                runtime = runtime_identity()
+                code = _freeze_code(candidate / "code")
+                sources = freeze_sources(vault, candidate / "source", contracts)
+                conflicts = {rel: item["sha256"] for rel, item in sources["files"].items() if item["conflict"]}
+                if conflicts != quarantine:
+                    raise MaintenanceError("quarantine must exactly match all conflicting source paths and bytes")
+                frozen_vault = candidate / "source" / vault.name
+                indexes = {}
+                with candidate_writes(root, candidate):
+                    for name, source_index in inputs.items():
+                        assert_writer(root)
+                        target = candidate / name
+                        contract = contracts[name]
+                        store, stats = update(get_embedder(contract["model"]), frozen_vault,
+                                              RagStore.load(source_index),
+                                              include_raw=contract["include_raw"], max_files=contract["max_files"])
+                        # Check source/code/path changes before any index write, too.
+                        verify_source_snapshot(candidate / "source", sources)
+                        _verify_code_origin(code)
+                        store.save(target)
+                        validation = validate_index(target, frozen_vault, contract, sources, name,
+                                                    quarantine, allowed_issues.get(name, []))
+                        indexes[name] = {"path": str(target), "settings": contract, "update": stats,
+                                         "validation": validation, "files": file_manifest(target)}
+                if selected_sources(vault, contracts) != sources["files"]:
+                    raise MaintenanceError("source set changed while indexes were being built")
+                if any(file_manifest(path) != input_hashes[name] for name, path in inputs.items()):
+                    raise MaintenanceError("input index changed during maintenance")
+                _verify_code_origin(code)
+                assert_writer(root)
+                manifest = {"schema": 1, "state": "validated", "root": str(root), "generation": generation,
+                            "created_at": now(), "code": code, "runtime": runtime, "sources": sources,
+                            "original_wiki": str(vault), "indexes": indexes, "requests": requests,
+                            "build_environment": _build_environment(), "quarantine": quarantine,
+                            "path_identities": {name: list(identity(candidate / name)) for name in
+                                                (".", "code", "source", "standard", "full")}}
+                provisional = candidate / "candidate.json"
+                atomic_json(provisional, manifest)
+                atomic_json(candidate / "probes.json", probes)
+                env = {k: v for k, v in os.environ.items() if not k.startswith(("RAG_", "KB_RAG_"))
+                       and k not in {"KB_VAULT", "CONCEPT_VAULT", "ENTITY_VAULT", "PYTHONPATH"}}
+                env.update(manifest["build_environment"], PYTHONDONTWRITEBYTECODE="1")
+                run = subprocess.run([runtime["executable"], str(candidate / "code/scripts/rag_maintenance.py"),
+                                      "_probe", "--manifest", str(provisional), "--probes", str(candidate / "probes.json")],
+                                     env=env, text=True, capture_output=True, timeout=300)
+                atomic_json(candidate / "consumer-process.json", {"exit_code": run.returncode,
+                            "stdout": run.stdout, "stderr": run.stderr})
+                if run.returncode:
+>                   raise MaintenanceError(f"consumer subprocess failed ({run.returncode}): {run.stderr[-1000:]}")
+E                   rag.maintenance_io.MaintenanceError: consumer subprocess failed (1): [rag-maintenance] MaintenanceError: interpreter/dependency identity changed
+
+skills/lib/rag/maintenance.py:145: MaintenanceError
+____ test_real_finance_persistent_worker_retires_and_restarts_both_indexes _____
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_real_finan...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2897/test_real_finance_persistent_w0/legacy-standard'), ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a796930>
+
+    def test_real_finance_persistent_worker_retires_and_restarts_both_indexes(case, monkeypatch):
+        """Optional cross-repo contract; set FINANCE_WS in the acceptance command."""
+        finance = os.environ.get("FINANCE_WS")
+        if not finance:
+            pytest.skip("cross-repo contract requires explicit FINANCE_WS")
+        path = Path(finance) / "intelligence/services/rag_worker.py"
+        assert path.is_file(), "FINANCE_WS must contain the real worker implementation"
+        spec = importlib.util.spec_from_file_location("finance_rag_worker_maintenance_test", path)
+        module = importlib.util.module_from_spec(spec)
+        monkeypatch.setitem(sys.modules, spec.name, module)
+>       spec.loader.exec_module(module)
+
+skills/lib/rag/tests/test_guarded_maintenance.py:443: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+<frozen importlib._bootstrap_external>:999: in exec_module
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    """Workbench 管理的常驻 RAG 子进程客户端。"""
+    
+    from __future__ import annotations
+    
+    import json
+    import os
+    import selectors
+    import subprocess
+    import threading
+    import time
+    import uuid
+    from dataclasses import dataclass
+    from pathlib import Path
+    from tempfile import TemporaryDirectory
+    
+>   from intelligence.services.kb_code_identity import code_identity
+E   ModuleNotFoundError: No module named 'intelligence'
+
+../.finance-runtime/open-work-execution-20260920/gate-generation-final/finance-workspace-private/intelligence/services/rag_worker.py:16: ModuleNotFoundError
+=========================== short test summary info ============================
+FAILED tests/test_security_fixes.py::SafeExtractallTests::test_extracts_safe_members
+FAILED tests/test_security_fixes.py::SafeExtractallTests::test_rejects_absolute_path
+FAILED tests/test_security_fixes.py::SafeExtractallTests::test_rejects_parent_traversal
+FAILED tests/test_security_fixes.py::SafeExtractallTests::test_rejects_symlink_member
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_prepare_requires_explicit_approval_and_binds_real_consumer
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_second_index_failure_preserves_current_and_keeps_partial_evidence
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_old_worker_is_retired_and_old_generation_still_readable
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_immutable_store_and_bm25_entrypoints_reject_current
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_exact_conflict_allowance_keeps_degraded_health
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_manifest_bytes_and_path_substitution_are_rejected
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_launcher_resolves_once_clears_ambient_roots_and_execs_literal_argv
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_direct_cli_refuses_managed_target_before_any_write[rag_index.py-args0]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_direct_cli_refuses_managed_target_before_any_write[rag_index.py-args1]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_direct_cli_refuses_managed_target_before_any_write[rag_build_full.py-args2]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_crash_after_first_index_retains_old_current_and_new_build_can_recover
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_real_cli_prepare_approve_activate_resolve_and_pack
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_generation_target_cannot_be_written_through_alias
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_real_finance_persistent_worker_retires_and_restarts_both_indexes
+18 failed, 846 passed in 40.49s
