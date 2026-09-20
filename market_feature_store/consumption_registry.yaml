@@ -93,7 +93,7 @@ plans:
   # （carry-forward-universe → stitch），加工层按公开规则自算（limit-stats-local / market-overview-local）。
   # 主线/新高/核心股已有 local 生产者；theme_flow 不以异口径资金代替。
   # 门禁按 tables_for_plan('local') 裁剪，不把本地篮子资金当复盘会题材面板。
-  # 同花顺四步：缺 key 明确 skip，有 key 执行失败阻断发布；并跑表成功≠复盘旧表已换源。
+  # 同花顺五步：缺 key 明确 skip，有 key 执行失败阻断发布；并跑表成功≠复盘旧表已换源。
   local:
     - db-lock
     - stock-daily
@@ -101,6 +101,7 @@ plans:
     - hithink-sector-kline
     - hithink-limit-pools
     - hithink-dragon-auction
+    - hithink-research
     - index-daily
     - sw-l1-daily
     - carry-forward-universe
@@ -269,6 +270,18 @@ datasets:
       policy: >-
         显式传目标交易日，更新近三日历史与当天竞价终态；目标日非今天时原同步器跳过当前快照。
         缺 key 明确 skip；成功只说明同步器完成，不代表目标日字段覆盖已验或旧表已切换。
+
+  - key: hithink_research
+    label: 同花顺研究观察值（供应商解读、注意力、估值）
+    tables: [ops_hithink_research_request, fact_stock_anomaly_hithink, fact_hot_stock_trend_hithink, fact_stock_valuation_hithink]
+    steps: {local: [hithink-research]}
+    refresh:
+      tier: C-daily
+      policy: >-
+        龙虎榜热榜步骤之后，目标日热榜前30为有界研究范围，显式CLI最多100码；无当日范围报错、不取旧榜。
+        异动全榜1请求+估值1请求+逐股近30自然日热度。缺key可见skip；空/缺值/缺码单独记请求收据。
+        异动与估值只允许上海当天，历史模式只调用热度。事实按最后观察值更新，原始响应追加留档。
+        热度包含非交易日，非历史PIT数据；异动是供应商解释而非公告级因果；估值日期是采集日，非统一行情时刻。
 
   - key: market_overview
     label: 市场总览（要拆开看）

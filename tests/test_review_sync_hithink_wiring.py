@@ -15,7 +15,7 @@ from market_feature_store.sync import sync_daily_full
 ROOT = Path(__file__).resolve().parents[1]
 STEPS = (
     "hithink-stock-daily", "hithink-sector-kline",
-    "hithink-limit-pools", "hithink-dragon-auction",
+    "hithink-limit-pools", "hithink-dragon-auction", "hithink-research",
 )
 TARGET = "2026-09-02"
 
@@ -34,7 +34,7 @@ def _result(label, status="ok"):
     return {"label": label, "status": status, "code": 0 if status == "ok" else 1, "elapsed": 0.0}
 
 
-def test_local_plan_invokes_four_real_cli_commands_in_order(review, monkeypatch):
+def test_local_plan_invokes_five_real_cli_commands_in_order(review, monkeypatch):
     recorded = []
 
     def fake_run(label, argv, timeout):
@@ -53,7 +53,11 @@ def test_local_plan_invokes_four_real_cli_commands_in_order(review, monkeypatch)
     for (label, argv, timeout), step in zip(recorded, STEPS):
         assert label == step
         assert argv[:4] == review.CLI + ["sync-" + step]
-        assert "--incremental" in argv and "--full" not in argv
+        if step == "hithink-research":
+            assert "--incremental" not in argv and "--history-only" not in argv
+            assert names.index(step) > names.index("hithink-dragon-auction")
+        else:
+            assert "--incremental" in argv and "--full" not in argv
         assert timeout == 99
         # 不显式传 db_path：子进程继承 MARKET_FEATURE_STORE_DB 的 staging，
         # 不启用独立 sidecar 写入兜底。
@@ -171,6 +175,15 @@ def test_registry_owns_parallel_tables_without_claiming_old_facts():
     assert "fact_sector_constituent_hithink" not in {
         table for ds in registry.datasets_for_step("hithink-sector-kline", "local") for table in ds.tables
     }
+
+
+def test_research_monolith_forwards_date(monkeypatch):
+    from market_feature_store.sync import sync_hithink_research as module
+
+    calls = []
+    monkeypatch.setattr(module, "sync_hithink_research", lambda **kw: calls.append(kw) or {"status": "ok"})
+    sync_daily_full.run_hithink_research_step(TARGET)
+    assert calls == [{"end_date": date(2026, 9, 2)}]
 
 
 @pytest.mark.parametrize("kind", ["sector_kline", "limit_pools", "dragon_auction"])
