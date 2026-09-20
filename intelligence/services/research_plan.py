@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import re
 from typing import Literal, cast
 
 
@@ -22,9 +23,74 @@ _REQUIRED_PLAN_FIELDS = frozenset(
         "revision",
     }
 )
-_PLAN_FIELDS = frozenset((*_REQUIRED_PLAN_FIELDS, "branch_goals"))
+_PLAN_FIELDS = frozenset((*_REQUIRED_PLAN_FIELDS, "branch_goals", "perspectives"))
 _MAX_SUMMARY_LENGTH = 500
 _MAX_ITEM_LENGTH = 300
+
+
+@dataclass(frozen=True)
+class ResearchPerspective:
+    perspective_id: str
+    question: str
+    status: Literal["open", "supported", "contested", "blocked", "not_relevant"]
+    supporting_evidence: tuple[str, ...] = ()
+    contradicting_evidence: tuple[str, ...] = ()
+    assessment: str = ""
+    next_check: str = ""
+
+    def __post_init__(self) -> None:
+        for name, maximum in (("perspective_id", 64), ("question", 300)):
+            object.__setattr__(self, name, _bounded_string(
+                getattr(self, name), field_name=name, max_length=maximum,
+            ))
+        if not isinstance(self.status, str) or self.status not in {"open", "supported", "contested", "blocked", "not_relevant"}:
+            raise ValueError("invalid perspective status")
+        for name in ("supporting_evidence", "contradicting_evidence"):
+            values = _bounded_items(getattr(self, name), field_name=name, minimum=0, maximum=8)
+            if any(re.fullmatch(r"E[1-9][0-9]{0,2}", item) is None for item in values):
+                raise ValueError(f"{name} must contain evidence ordinals such as E1")
+            object.__setattr__(self, name, values)
+        for name in ("assessment", "next_check"):
+            value = getattr(self, name)
+            if not isinstance(value, str) or len(value.strip()) > _MAX_ITEM_LENGTH:
+                raise ValueError(f"{name} must be a string of at most {_MAX_ITEM_LENGTH} characters")
+            object.__setattr__(self, name, value.strip())
+        if self.status == "supported" and not self.supporting_evidence:
+            raise ValueError("supported perspective requires supporting_evidence")
+        if self.status == "contested" and not self.contradicting_evidence:
+            raise ValueError("contested perspective requires contradicting_evidence")
+        if self.status in {"blocked", "not_relevant"} and not self.assessment:
+            raise ValueError("blocked/not_relevant perspective requires assessment")
+
+
+def perspective_to_dict(item: ResearchPerspective) -> dict[str, object]:
+    return {
+        "perspective_id": item.perspective_id,
+        "question": item.question,
+        "status": item.status,
+        "supporting_evidence": list(item.supporting_evidence),
+        "contradicting_evidence": list(item.contradicting_evidence),
+        "assessment": item.assessment,
+        "next_check": item.next_check,
+    }
+
+
+def _perspectives(value: object) -> tuple[ResearchPerspective, ...]:
+    if not isinstance(value, (list, tuple)) or len(value) > 8:
+        raise ValueError("perspectives must be an array of at most 8 items")
+    result = []
+    for item in value:
+        if not isinstance(item, ResearchPerspective):
+            if not isinstance(item, dict):
+                raise ValueError("perspective must be an object")
+            try:
+                item = ResearchPerspective(**item)
+            except TypeError as exc:
+                raise ValueError("invalid perspective fields") from exc
+        result.append(item)
+    if len({item.perspective_id for item in result}) != len(result):
+        raise ValueError("perspective_id must be unique")
+    return tuple(result)
 
 
 @dataclass(frozen=True)
@@ -38,6 +104,7 @@ class ResearchPlan:
     requested_mode: ResearchMode
     revision: int = 1
     branch_goals: tuple[str, ...] = ()
+    perspectives: tuple[ResearchPerspective, ...] = ()
 
     def __post_init__(self) -> None:
         requested_mode = self.requested_mode
@@ -80,6 +147,7 @@ class ResearchPlan:
             "branch_goals",
             _bounded_branch_goals(self.branch_goals),
         )
+        object.__setattr__(self, "perspectives", _perspectives(self.perspectives))
 
 
 @dataclass(frozen=True)
@@ -148,13 +216,34 @@ def _bounded_branch_goals(value: object) -> tuple[str, ...]:
     return result
 
 
+def _decode_plan(content: str) -> object:
+    fenced = re.fullmatch(
+        r"\s*```(?:json)?\s*(\{.*\})\s*```(.*)", content, re.DOTALL | re.IGNORECASE,
+    )
+    raw = fenced.group(1) if fenced else content.lstrip()
+    decoder = json.JSONDecoder()
+    payload, end = decoder.raw_decode(raw)
+    suffix = (raw[end:] + (fenced.group(2) if fenced else "")).strip()
+    # Accept ordinary commentary, never another structured value or code block.
+    if suffix:
+        if any(char in suffix for char in "{}[]`"):
+            raise json.JSONDecodeError("unexpected structured PLAN suffix", raw, end)
+        try:
+            decoder.raw_decode(suffix)
+        except json.JSONDecodeError:
+            pass
+        else:
+            raise json.JSONDecodeError("multiple PLAN values", raw, end)
+    return payload
+
+
 def parse_research_plan(content: str) -> ResearchPlan:
     """Parse one closed PLAN object without granting execution authority."""
 
     if not isinstance(content, str):
         raise ValueError("plan content must be a string")
     try:
-        payload = json.loads(content)
+        payload = _decode_plan(content)
     except json.JSONDecodeError as exc:
         raise ValueError("PLAN must be one valid JSON object") from exc
     if not isinstance(payload, dict):
@@ -178,6 +267,7 @@ def parse_research_plan(content: str) -> ResearchPlan:
         requested_mode=cast(ResearchMode, payload["requested_mode"]),
         revision=cast(int, payload["revision"]),
         branch_goals=cast(tuple[str, ...], payload.get("branch_goals", ())),
+        perspectives=_perspectives(payload.get("perspectives", ())),
     )
 
 
@@ -185,7 +275,7 @@ def parse_plan_candidate(content: str) -> PlanParseResult:
     """Recognize explicit PLAN output while leaving FINAL_JSON untouched."""
 
     try:
-        payload = json.loads(content)
+        payload = _decode_plan(content)
     except (TypeError, json.JSONDecodeError):
         if isinstance(content, str) and "PLAN" in content and "kind" in content:
             return PlanParseResult(None, "PLAN must be one valid JSON object")
@@ -226,6 +316,14 @@ def validate_plan_revision(
             "plan revision cannot remove branch goals: "
             + ",".join(removed_branches)
         )
+    removed_perspectives = {item.perspective_id for item in previous.perspectives} - {
+        item.perspective_id for item in current.perspectives
+    }
+    if removed_perspectives:
+        raise ValueError(
+            "plan revision cannot remove perspectives; retain as not_relevant with assessment: "
+            + ",".join(sorted(removed_perspectives))
+        )
 
 
 def plan_to_public_dict(plan: ResearchPlan) -> dict[str, object]:
@@ -239,6 +337,8 @@ def plan_to_public_dict(plan: ResearchPlan) -> dict[str, object]:
         "requested_mode": plan.requested_mode,
         "revision": plan.revision,
         "branch_goals": list(plan.branch_goals),
+        **({"perspectives": [perspective_to_dict(item) for item in plan.perspectives]}
+           if plan.perspectives else {}),
     }
 
 
@@ -246,6 +346,8 @@ __all__ = [
     "PlanParseResult",
     "ResearchMode",
     "ResearchPlan",
+    "ResearchPerspective",
+    "perspective_to_dict",
     "parse_plan_candidate",
     "parse_research_plan",
     "plan_to_public_dict",

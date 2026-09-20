@@ -27,6 +27,14 @@ import os
 import re
 from threading import RLock
 
+from intelligence.services.adaptive_research import (
+    adaptive_research_enabled,
+    perspective_diagnostics,
+    perspective_progress,
+)
+from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.research_plan import ResearchPlan
+
 PROGRESS_ENV = "WORKBENCH_RESEARCH_PROGRESS"
 STALL_FINALIZE_ENV = "WORKBENCH_RESEARCH_STALL_FINALIZE_BATCHES"
 DEFAULT_STALL_FINALIZE_BATCHES = 0
@@ -145,6 +153,10 @@ class ResearchProgressTracker:
         self._tool_empty_streak: dict[str, int] = {}
         self.stalled_batches = 0
         self.evidence_total = 0
+        self._adaptive = adaptive_research_enabled()
+        self._plan: ResearchPlan | None = None
+        self._plan_batch = 0
+        self._unknown_evidence_ids: tuple[str, ...] = ()
         self._finalize_after = (
             stall_finalize_batches
             if stall_finalize_batches is not None
@@ -152,6 +164,12 @@ class ResearchProgressTracker:
         )
 
     # ── 记账 ──────────────────────────────────────────────────────────────
+
+    def record_plan(self, plan: ResearchPlan, *, evidence: Iterable[AgentEvidence]) -> None:
+        with self._lock:
+            self._plan = plan
+            self._plan_batch = len(self.batches)
+            self._unknown_evidence_ids = perspective_diagnostics(plan, evidence=evidence)
 
     def record_call(self, digest: ToolCallDigest) -> None:
         with self._lock:
@@ -302,12 +320,20 @@ class ResearchProgressTracker:
             refused = self._refused_reason if self._branches_since_last_view else ""
             self._branches_since_last_view = False
             finalize_after = self._finalize_after
+            perspectives = perspective_progress(
+                self._plan,
+                batch=len(self.batches),
+                plan_batch=self._plan_batch,
+                unknown_evidence_ids=self._unknown_evidence_ids,
+            ) if self._adaptive else None
         view: dict[str, object] = {
             "batch": batch.index if batch is not None else 0,
             "new_evidence": batch.new_evidence if batch is not None else 0,
             "evidence_total": evidence_total,
             "stalled_batches": stalled,
         }
+        if perspectives is not None:
+            view["adaptive_research"] = perspectives
         if batch is not None:
             view["last_batch"] = [
                 {"tool": call.tool, "query": call.query, "result": call.result_label}

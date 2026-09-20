@@ -1,0 +1,254 @@
+"""Perspective protocol and real-loop transport, not a semantic quality score."""
+
+from __future__ import annotations
+
+from dataclasses import replace
+import json
+
+import pytest
+
+from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.runtime.research_progress import ResearchProgressTracker, ToolCallDigest
+from intelligence.services.adaptive_research import adaptive_research_enabled, perspective_diagnostics
+from intelligence.services.agent_runtime import ModelTurn
+from intelligence.services.episode_protocol import build_episode_input, build_episode_instructions
+from intelligence.services.research_plan import parse_research_plan, plan_to_public_dict, validate_plan_revision
+from intelligence.tests.test_agent_episode_progress import (
+    ScriptedModel, _budget_blocks, _context, _evidence_for, _finish_turn, _frame, _registry, _run, _runner, _tool_turn,
+)
+from intelligence.tests.test_research_plan import _plan_json
+
+
+def _perspective(**overrides):
+    return {
+        "perspective_id": "sustainability",
+        "question": "What evidence would overturn the initial explanation?",
+        "status": "open",
+        "supporting_evidence": [],
+        "contradicting_evidence": [],
+        "assessment": "Not yet investigated",
+        "next_check": "Independent evidence beyond the first source",
+        **overrides,
+    }
+
+
+def _plan(*perspectives, revision=1):
+    return parse_research_plan(_plan_json(perspectives=list(perspectives), revision=revision))
+
+
+@pytest.mark.parametrize("raw,expected", [(None, False), ("off", False), ("on", True), ("1", True), ("invalid", False)])
+def test_candidate_is_explicit_opt_in(monkeypatch, raw, expected):
+    monkeypatch.delenv("WORKBENCH_ADAPTIVE_RESEARCH", raising=False)
+    if raw is not None:
+        monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", raw)
+    assert adaptive_research_enabled() is expected
+
+
+def test_old_plan_wire_format_unchanged():
+    plan = parse_research_plan(_plan_json())
+    assert plan.perspectives == ()
+    assert "perspectives" not in plan_to_public_dict(plan)
+
+
+def test_perspectives_round_trip_and_retain_counterevidence():
+    plan = _plan(_perspective(status="contested", supporting_evidence=["E1"], contradicting_evidence=["E2"]))
+    payload = plan_to_public_dict(plan)
+    assert parse_research_plan(json.dumps({"kind": "PLAN", **payload})) == plan
+    assert perspective_diagnostics(plan, evidence=[_evidence_for("first"), _evidence_for("second")]) == ()
+    assert perspective_diagnostics(plan, evidence=[_evidence_for("first")]) == ("E2",)
+
+
+@pytest.mark.parametrize("value", [
+    None, {}, [_perspective()] * 2,
+    [_perspective(perspective_id=str(i)) for i in range(9)],
+    [_perspective(status="done")],
+    [_perspective(status=[])],
+    [_perspective(status="supported")],
+    [_perspective(status="contested")],
+    [_perspective(status="blocked", assessment="")],
+    [_perspective(status="not_relevant", assessment="")],
+    [_perspective(supporting_evidence=["made-up-hash"])],
+    [_perspective(supporting_evidence=["E0"])],
+    [_perspective(supporting_evidence=["E01"])],
+    [_perspective(supporting_evidence=["E\u00b2"])],
+    [_perspective(supporting_evidence=[f"E{i}" for i in range(1, 10)])],
+    [_perspective(question="x" * 301)],
+    [_perspective(assessment="x" * 301)],
+    [_perspective(next_check=None)],
+    [_perspective(budget=999)],
+])
+def test_malformed_perspectives_cannot_grant_authority(value):
+    with pytest.raises(ValueError):
+        parse_research_plan(_plan_json(perspectives=value))
+
+
+def test_revision_adds_viewpoints_but_cannot_silently_drop_them():
+    initial = _plan(_perspective())
+    expanded = _plan(_perspective(), _perspective(perspective_id="alternative"), revision=2)
+    validate_plan_revision(initial, expanded, original_task_id="t", current_task_id="t")
+    with pytest.raises(ValueError, match="cannot remove perspectives"):
+        validate_plan_revision(expanded, _plan(_perspective(), revision=3), original_task_id="t", current_task_id="t")
+    resolved = _plan(_perspective(), _perspective(perspective_id="alternative", status="not_relevant", assessment="Outside the question's horizon"), revision=3)
+    validate_plan_revision(expanded, resolved, original_task_id="t", current_task_id="t")
+
+
+def test_reference_validity_is_frozen_at_submission_not_laundered_by_later_evidence(monkeypatch):
+    monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", "on")
+    tracker = ResearchProgressTracker()
+    tracker.record_plan(_plan(_perspective(status="supported", supporting_evidence=["E1"])), evidence=[])
+    tracker.record_call(ToolCallDigest("market_data", "fresh", "new", new_evidence=1))
+    tracker.close_batch()
+    view = tracker.model_view()["adaptive_research"]
+    assert view["unknown_evidence_ids_at_submission"] == ["E1"]
+    assert view["batches_since_plan"] == 1
+    assert view["plan_recorded_after_batch"] == 0
+    # A genuine new revision may use the now-observed E1. It still is only a model claim.
+    tracker.record_plan(_plan(_perspective(status="supported", supporting_evidence=["E1"]), revision=2), evidence=[_evidence_for("first")])
+    updated = tracker.model_view()["adaptive_research"]
+    assert updated["unknown_evidence_ids_at_submission"] == []
+    assert updated["plan_recorded_after_batch"] == 1
+    assert "不是覆盖率评分" in updated["instruction"]
+    assert not tracker.should_finalize()
+
+
+def test_prompt_switch_changes_dynamic_input_only(monkeypatch):
+    frame = _frame()
+    context = _context(frame)
+    registry = _registry(_runner)
+    monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", "off")
+    original = json.loads(build_episode_input(frame, context, registry))
+    constitution = build_episode_instructions(frame, context, registry)
+    monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", "on")
+    candidate = json.loads(build_episode_input(frame, context, registry))
+    assert "不套固定股票池" in candidate.pop("adaptive_research")
+    assert candidate == original
+    assert build_episode_instructions(frame, context, registry) == constitution
+
+
+def _planned_tool_turn(query, call_id, *perspectives, revision=1):
+    return replace(_tool_turn(query, call_id), content=_plan_json(perspectives=list(perspectives), revision=revision))
+
+
+def test_real_loop_updates_perspectives_in_the_same_tool_round(monkeypatch):
+    monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", "on")
+    monkeypatch.setenv("WORKBENCH_RESEARCH_PROGRESS", "on")
+    monkeypatch.setenv("FORESIGHT_STRICT_DERIVATION", "1")
+    model = ScriptedModel([
+        _planned_tool_turn("first", "c1", _perspective()),
+        _planned_tool_turn("alternative", "c2", _perspective(status="supported", supporting_evidence=["E1"]), _perspective(perspective_id="alternative"), revision=2),
+        _finish_turn(("hash-first", "hash-alternative")),
+    ])
+    outcome = _run(model)
+    assert outcome.status == "completed"
+    assert len(model.calls) == 3
+    assert len([event for event in outcome.events if event.kind == "tool_request"]) == 2
+    assert len(outcome.plan.perspectives) == 2
+    blocks = _budget_blocks(model)
+    first = blocks[0]["research_progress"]["adaptive_research"]
+    second = blocks[1]["research_progress"]["adaptive_research"]
+    assert first["plan_revision"] == 1 and first["unresolved_perspective_ids"] == ["sustainability"]
+    assert second["plan_revision"] == 2 and second["plan_recorded_after_batch"] == 1
+    assert second["unknown_evidence_ids_at_submission"] == []
+    assert second["unresolved_perspective_ids"] == ["alternative"]
+    states = [event.payload for event in outcome.events if event.kind == "tool_budget_state"]
+    assert json.loads(states[-1]["model_content"])["runtime_budget"] == blocks[-1]
+    assert "perspectives" in [event.payload for event in outcome.events if event.kind == "plan"][-1]
+
+
+def test_plan_only_submission_uses_the_same_progress_channel(monkeypatch):
+    monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", "on")
+    model = ScriptedModel([
+        ModelTurn(_plan_json(perspectives=[_perspective()]), (), "scripted", ""),
+        _tool_turn("first", "c1"),
+        _finish_turn(("hash-first",)),
+    ])
+    outcome = _run(model)
+    assert outcome.status == "completed"
+    assert _budget_blocks(model)[-1]["research_progress"]["adaptive_research"]["plan_revision"] == 1
+
+
+def test_no_plan_is_visible_as_missing_not_complete_and_budget_still_closes(monkeypatch):
+    monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", "on")
+    model = ScriptedModel([_tool_turn("first", "c1"), _finish_turn(("hash-first",))])
+    outcome = _run(model, max_steps=1)
+    view = _budget_blocks(model)[0]["research_progress"]["adaptive_research"]
+    assert view["plan_revision"] is None
+    assert view["model_reported_perspectives"] == []
+    assert model.calls[-1]["tools"] == []
+    assert outcome.status == "completed"
+    assert [event.payload["reason"] for event in outcome.events if event.kind == "finalization"] == ["tool_budget_exhausted"]
+
+
+def _run_deep(model, *, max_steps=8):
+    frame = _frame()
+    context = _context(frame, max_steps=max_steps)
+    context = replace(
+        context,
+        contract=replace(context.contract, research_tier="deep"),
+        policy=replace(context.policy, tier="deep"),
+    )
+    return ContinuousAgentEpisode(model).run(task_frame=frame, context=context, registry=_registry(_runner))
+
+
+def test_deep_research_gets_one_checkpoint_after_first_observation(monkeypatch):
+    monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", "on")
+    monkeypatch.setenv("FORESIGHT_STRICT_DERIVATION", "1")
+    model = ScriptedModel([
+        _tool_turn("first", "c1"),
+        ModelTurn("```json\n" + _plan_json(perspectives=[_perspective(supporting_evidence=["E1"])]) + "\n```", (), "scripted", ""),
+        _tool_turn("counter", "c2"),
+        _finish_turn(("hash-first", "hash-counter")),
+    ])
+    outcome = _run_deep(model)
+    assert outcome.status == "completed"
+    assert outcome.usage.tool_calls == 2 and outcome.usage.llm_calls == 4
+    assert [bool(call["tools"]) for call in model.calls] == [True, False, True, True]
+    assert "首批取证后的研究复核" in model.calls[1]["messages"][-1]["content"]
+    assert outcome.plan.perspectives[0].supporting_evidence == ("E1",)
+    assert _budget_blocks(model)[-1]["research_progress"]["adaptive_research"]["plan_revision"] == 1
+
+
+def test_checkpoint_does_not_repeat_after_malformed_plan(monkeypatch):
+    monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", "on")
+    monkeypatch.setenv("FORESIGHT_STRICT_DERIVATION", "1")
+    model = ScriptedModel([
+        _tool_turn("first", "c1"),
+        ModelTurn('{"kind":"PLAN"}', (), "scripted", ""),
+        _tool_turn("counter", "c2"),
+        _finish_turn(("hash-first", "hash-counter")),
+    ])
+    outcome = _run_deep(model)
+    assert outcome.status == "completed"
+    assert [bool(call["tools"]) for call in model.calls] == [True, False, True, True]
+    assert outcome.usage.invalid_actions == 1
+
+
+def test_checkpoint_cannot_reopen_exhausted_tool_budget(monkeypatch):
+    monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", "on")
+    model = ScriptedModel([_tool_turn("first", "c1"), _finish_turn(("hash-first",))])
+    outcome = _run_deep(model, max_steps=1)
+    assert outcome.status == "completed"
+    assert len(model.calls) == 2 and not model.calls[-1]["tools"]
+    assert "首批取证后的研究复核" not in model.calls[-1]["messages"][-1]["content"]
+
+
+def test_existing_perspectives_skip_the_deep_checkpoint(monkeypatch):
+    monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", "on")
+    model = ScriptedModel([
+        _planned_tool_turn("first", "c1", _perspective()),
+        _finish_turn(("hash-first",)),
+    ])
+    outcome = _run_deep(model)
+    assert outcome.status == "completed"
+    assert len(model.calls) == 2 and model.calls[-1]["tools"]
+
+
+def test_disabled_feedback_is_byte_compatible(monkeypatch):
+    monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", "off")
+    tracker = ResearchProgressTracker()
+    tracker.record_call(ToolCallDigest("market_data", "first", "new", new_evidence=1))
+    tracker.close_batch()
+    before = tracker.model_view()
+    tracker.record_plan(_plan(_perspective()), evidence=[])
+    assert tracker.model_view() == before
+    assert "adaptive_research" not in before

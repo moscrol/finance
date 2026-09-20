@@ -403,6 +403,13 @@ def build_episode_input(
         ),
         "question_type_rules": _question_type_rules(task_frame, context),
     }
+    from intelligence.services.adaptive_research import (
+        adaptive_research_enabled,
+        adaptive_research_instructions,
+    )
+
+    if adaptive_research_enabled():
+        payload["adaptive_research"] = adaptive_research_instructions()
     from intelligence.services.material_delivery import material_delivery_payload, material_question_outputs
 
     if material_question_outputs(context.contract):

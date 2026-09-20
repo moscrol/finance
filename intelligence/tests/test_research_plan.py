@@ -5,6 +5,7 @@ import json
 import pytest
 
 from intelligence.services.research_plan import (
+    parse_plan_candidate,
     parse_research_plan,
     plan_to_public_dict,
     validate_plan_revision,
@@ -55,6 +56,46 @@ def test_parse_research_plan_returns_bounded_deduplicated_public_contract() -> N
         "revision": 1,
         "branch_goals": [],
     }
+
+
+@pytest.mark.parametrize("language", ["json", "JSON", ""])
+def test_plan_accepts_one_complete_json_code_fence(language: str) -> None:
+    raw = _plan_json()
+    fenced = f"```{language}\n{raw}\n```"
+    expected = parse_research_plan(raw)
+    assert parse_research_plan(fenced) == expected
+    assert parse_plan_candidate(fenced).plan == expected
+
+
+@pytest.mark.parametrize("wrap", [
+    "Explanation\\n```json\\n%s\\n```",
+    "```json\\n%s\\n```\\n```json\\n{}\\n```",
+    "```json\\n%s\\n",
+    "```python\\n%s\\n```",
+    "%s\\n{}",
+    "%s\\ntrue",
+    "%s\\n2",
+    "%s\\n\"second\"",
+])
+def test_plan_fence_support_does_not_extract_embedded_objects(wrap: str) -> None:
+    raw = (wrap % _plan_json()).replace("\\n", "\n")
+    result = parse_plan_candidate(raw)
+    assert result.plan is None and result.error
+    with pytest.raises(ValueError):
+        parse_research_plan(raw)
+
+
+@pytest.mark.parametrize("fenced", [False, True])
+def test_plan_allows_plain_suffix_without_changing_validated_payload(fenced: bool) -> None:
+    raw = _plan_json()
+    content = f"```json\n{raw}\n```" if fenced else raw
+    result = parse_plan_candidate(content + "\n\nPLAN repaired; continue collecting evidence.")
+    assert result.plan == parse_research_plan(raw) and not result.error
+
+
+def test_fenced_plan_still_rejects_authoritative_fields() -> None:
+    result = parse_plan_candidate("```json\n" + _plan_json(budget=999) + "\n```")
+    assert result.plan is None and "unknown plan fields" in result.error
 
 
 def test_research_plan_accepts_at_most_three_explicit_branch_goals() -> None:

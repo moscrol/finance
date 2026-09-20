@@ -126,6 +126,7 @@ ProviderDialect = Literal["openai"]
 ModelInputSource = Literal[
     "opening_prefetch",
     "steering_invalid_plan",
+    "adaptive_research_checkpoint",
     "steering_invalid_finish",
     "steering_repair_finalize",
     "begin_finalization",
@@ -137,6 +138,7 @@ MODEL_INPUT_SOURCES: frozenset[str] = frozenset(
     {
         "opening_prefetch",
         "steering_invalid_plan",
+        "adaptive_research_checkpoint",
         "steering_invalid_finish",
         "steering_repair_finalize",
         "begin_finalization",
