@@ -3194,7 +3194,9 @@ class ContinuousAgentEpisode:
         context: ResearchRunContext,
         evidence: list[AgentEvidence],
     ) -> bool:
-        return bool(evidence) and (
+        materials_hook = getattr(self._harness, "finalization_materials", None)
+        has_materials = bool(materials_hook(context=context)) if callable(materials_hook) else False
+        return (bool(evidence) or has_materials) and (
             context.deadline.synthesis_timeout(self._llm_timeout)
             >= MIN_FINALIZATION_RECOVERY_SECONDS
         )
@@ -3245,6 +3247,11 @@ class ContinuousAgentEpisode:
         recovery_started = monotonic()
         try:
             recovery_options = {}
+            materials_hook = getattr(self._harness, "finalization_materials", None)
+            if callable(materials_hook):
+                materials = materials_hook(context=context)
+                if materials:
+                    recovery_options["domain_materials"] = materials
             priority_hook = getattr(self._harness, "recovery_evidence_priority", None)
             if callable(priority_hook):
                 priority = priority_hook(

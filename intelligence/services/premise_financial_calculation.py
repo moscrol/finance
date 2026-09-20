@@ -170,6 +170,21 @@ class PremiseCalculation:
             lines.append("待明确：" + "；".join(self.issues) + "。")
         return "\n".join(lines)
 
+    def model_payload(self) -> dict[str, object]:
+        return {
+            "basis": "user_premise",
+            "table": self.table,
+            "issues": list(self.issues),
+            "rule": (
+                "这是程序从原始用户题设重算的结果，不是现实事实证据。"
+                "draft 必须原样保留一次 [[PREMISE_CALCULATION]]，程序将替换成计算表。"
+                "不要手写或改写公式表；表外以定性解释为主。复述数字时须保持同指标、年度、方向与单位，"
+                "不得换基数、另写公式或引入未给出的数字。"
+                "所有 user_premise 绑定使用空 evidence_hashes，不得编造 E 编号。"
+                "有 issues 时 status 必须为 partial，说明需明确的输入。"
+            ),
+        }
+
     def admit(self, draft: str, *, status: str) -> tuple[str, str]:
         if self.issues and status == "completed":
             return draft, "题设计算存在未明确输入：" + "；".join(self.issues)

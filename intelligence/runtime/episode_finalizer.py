@@ -47,7 +47,8 @@ _RECOVERY_SYSTEM_PROMPT = (
     '"gap":""}]}。'
     "binding.basis 必须与 required_outputs 的 grounding_mode 一致；"
     "model_reasoning 与 user_premise 可以不带证据序号，但不得把它们伪装成 evidence。"
-    "证据不能覆盖 required output 时必须返回 partial 并填写 gap；不要输出代码围栏、"
+    "domain_materials 是领域提供的程序结果与输出合同，按其中规则交付，不得把题设结果升为事实证据。"
+    "grounding_mode=evidence 的 required output 无证据覆盖时必须返回 partial 并填写 gap；不要输出代码围栏、"
     "解释、工具调用或 JSON 之外的文本。"
     "原因归因缺少同一时间窗口的新闻证据时，不得用普通网页摘要补成已核验因果，"
     "只能保留盘面事实并把网页内容标为外部观点候选。"
@@ -114,6 +115,7 @@ class EpisodeFinalizer:
         failure_reason: str,
         on_prompt: Callable[[str, str], None] | None = None,
         evidence_priority: tuple[str, ...] = (),
+        domain_materials: dict[str, object] | None = None,
     ) -> ModelTurn:
         """Return the provider turn unchanged after one no-tools recovery call.
 
@@ -129,6 +131,7 @@ class EpisodeFinalizer:
             gaps=gaps,
             failure_reason=failure_reason,
             evidence_priority=evidence_priority,
+            domain_materials=domain_materials,
         )
         return self._complete(
             system_prompt=_RECOVERY_SYSTEM_PROMPT,
@@ -175,6 +178,7 @@ class EpisodeFinalizer:
         gaps: tuple[str, ...],
         failure_reason: str,
         evidence_priority: tuple[str, ...] = (),
+        domain_materials: dict[str, object] | None = None,
     ) -> dict[str, object]:
         selected = _compact_evidence(evidence, evidence_priority=evidence_priority)
         payload = {
@@ -195,6 +199,8 @@ class EpisodeFinalizer:
             "latest_data_date": context.latest_data_date,
             "failure_reason": _stable_failure_reason(failure_reason),
         }
+        if domain_materials:
+            payload["domain_materials"] = domain_materials
         if len(selected) < len(evidence):
             tools = dict.fromkeys(item.tool for item in evidence)
             payload["evidence_selection"] = {

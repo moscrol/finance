@@ -540,6 +540,10 @@ class ResearchHarness(Protocol):
         """Final domain requirements after repairs and semantic verification."""
         ...
 
+    def finalization_materials(self, *, context: ResearchRunContext) -> dict[str, object]:
+        """Owned non-evidence inputs that can support bounded finish recovery."""
+        ...
+
     def recovery_evidence_priority(
         self,
         *,
@@ -966,6 +970,15 @@ class FinanceResearchHarness:
                 required_public_notices=(historical.gap,) if historical.gap else (),
             )
         return PublicationAssessment()
+
+    def finalization_materials(self, *, context: ResearchRunContext) -> dict[str, object]:
+        calculation = context.contract.premise_calculation
+        if (
+            calculation is None or calculation.issues or not calculation.rows
+            or any(item.grounding_mode != "user_premise" for item in context.contract.required_outputs if item.required)
+        ):
+            return {}
+        return {"calculation_delivery": calculation.model_payload()}
 
     def recovery_evidence_priority(
         self,
