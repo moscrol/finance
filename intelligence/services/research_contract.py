@@ -22,6 +22,7 @@ from intelligence.services.task_frame import TaskFrame
 from intelligence.services.material_contract import MaterialContract
 from intelligence.services.material_permissions import restrict_read_capabilities
 from intelligence.services.historical_research.intent import HistoryIntent
+from intelligence.services.user_task import requests_previous_answer_review
 
 AnswerOwner: TypeAlias = Literal[
     "stock-deep-dive",
@@ -1253,6 +1254,10 @@ def is_contextual_follow_up(
     if previous_intent is None:
         return False
     cleaned = query.strip()
+    if requests_previous_answer_review(cleaned):
+        return not _EXPLICIT_SWITCH_PATTERN.search(cleaned) and (
+            envelope.subject is None or envelope.subject == previous_intent.primary_subject
+        )
     if is_follow_up(cleaned) or (
         resolution is not None and resolution.context_dependent
     ):

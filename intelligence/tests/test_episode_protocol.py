@@ -210,9 +210,8 @@ def test_protocol_builds_task_bound_instructions_and_input() -> None:
     )
     assert "information_cutoff" in task_input["date_rule"]
     assert "基准判断是短周期修复" in task_input["conversation_context"]
-    assert task_input["conversation_context_rule"] == (
-        "历史对话仅用于消解指代和延续用户目标，不得当作事实证据"
-    )
+    assert "不得当作事实证据" in task_input["conversation_context_rule"]
+    assert "旧回答的编号不能跨轮引用" in task_input["conversation_context_rule"]
 
 
 def test_episode_input_carries_perspective_context_only_when_active() -> None:
