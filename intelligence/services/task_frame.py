@@ -145,6 +145,8 @@ class TaskFrame:
             payload.pop("material_contract", None)
         if self.conversation_materials is None:
             payload.pop("conversation_materials", None)
+        elif not self.conversation_materials.calculation_sources:
+            payload["conversation_materials"].pop("calculation_sources", None)
         return payload
 
     @property

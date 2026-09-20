@@ -20,6 +20,7 @@ from intelligence.services.route_table import owner_skills_from_route_table
 from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRequirement
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.material_contract import MaterialContract
+from intelligence.services.premise_financial_calculation import PremiseCalculation
 from intelligence.services.material_permissions import restrict_read_capabilities
 from intelligence.services.historical_research.intent import HistoryIntent
 
@@ -864,12 +865,20 @@ class ResearchTaskContract:
     contract_version: str = "1"
     task_frame_hash: str = ""
     material_contract: MaterialContract | None = None
+    premise_calculation: PremiseCalculation | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.material_contract, dict):
             object.__setattr__(self, "material_contract", MaterialContract.from_dict(self.material_contract))
         if self.material_contract is not None and not isinstance(self.material_contract, MaterialContract):
             raise ResearchContractError("material_contract 必须是 MaterialContract")
+        if isinstance(self.premise_calculation, dict):
+            object.__setattr__(self, "premise_calculation", PremiseCalculation.from_dict(self.premise_calculation))
+        if self.premise_calculation is not None and (
+            not isinstance(self.premise_calculation, PremiseCalculation)
+            or not self.material_contract or not self.material_contract.premise_calculation
+        ):
+            raise ResearchContractError("premise calculation requires the user premise contract")
         # Backwards compatibility for callers that expand ``to_dict()`` into
         # the constructor (older tests/integrations predate EvidencePlan).
         if isinstance(self.evidence_plan, dict):
@@ -947,6 +956,7 @@ class ResearchTaskContract:
             "contract_version": self.contract_version,
             "task_frame_hash": self.task_frame_hash,
             **({"material_contract": self.material_contract.to_dict()} if self.material_contract is not None else {}),
+            **({"premise_calculation": self.premise_calculation.to_dict()} if self.premise_calculation is not None else {}),
         }
 
     @classmethod
@@ -1025,6 +1035,7 @@ class ResearchTaskContract:
             contract_version=str(value.get("contract_version") or "1"),
             task_frame_hash=str(value.get("task_frame_hash") or ""),
             material_contract=(MaterialContract.from_dict(value["material_contract"]) if "material_contract" in value else None),
+            premise_calculation=(PremiseCalculation.from_dict(value["premise_calculation"]) if "premise_calculation" in value else None),
         )
 
 

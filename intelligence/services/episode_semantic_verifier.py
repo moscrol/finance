@@ -1189,6 +1189,21 @@ class SemanticEpisodeVerifier:
         ):
             outcome = replace(outcome, guided_retrieval=self._guided_result)
         outcome = recheck_material_public_delivery(outcome)
+        contract = structurally_verified.contract
+        calculation = contract.premise_calculation if contract else None
+        if calculation is not None:
+            public, error = calculation.admit(outcome.public_answer, status=outcome.status)
+            if error:
+                # A correlated judge cannot certify changed calculation bytes.
+                # Preserve the rejected draft in the outcome, publish only the
+                # independently rebuilt table, and never upgrade partial status.
+                outcome = replace(
+                    outcome, status="partial", judge_status="rejected",
+                    public_answer=calculation.table + "\n\n本轮定性解释未通过核验；以上仅为题设计算，不能据此判断股票便宜。",
+                    issues=tuple(dict.fromkeys((*outcome.issues, "premise_calculation_mismatch: " + error))),
+                )
+            elif public != outcome.public_answer:
+                outcome = replace(outcome, public_answer=public)
         # #55：模式与 census 计数在唯一出口盖章——内层十几条提前返回路径不用各写一遍。
         # llm 模式下两个值都是默认值，dataclass 相等性与历史夹具不受影响。
         outcome = replace(

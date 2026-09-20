@@ -415,6 +415,15 @@ def build_episode_input(
             "draft 只写自然语言‘按题设’，不得展示 user_premise、basis 等内部字段名；"
             "不能把题设、情景结果写成真实行情、盈利预测或已核实事实。"
         )
+    if context.contract.premise_calculation is not None:
+        calculation = context.contract.premise_calculation
+        payload["calculation_delivery"] = {
+            "table": calculation.table,
+            "issues": list(calculation.issues),
+            "rule": "公式表由程序从用户原文计算并插入。draft 中原样放置一次 [[PREMISE_CALCULATION]]，"
+                    "不要手写或改写公式表；表外只写定性解释，不重复数字、年份、编号或公式。"
+                    "有 issues 时 status 必须为 partial，说明需明确的输入。表内结果仍是题设计算，不是真实事实证据。",
+        }
     from intelligence.services.material_delivery import material_delivery_payload, material_question_outputs
 
     if material_question_outputs(context.contract):
@@ -539,6 +548,7 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
     "evidence_type_floor": RejectionKind.SUBSTANCE,
     "no_substantive_answer": RejectionKind.SUBSTANCE,
     "missing_evidence": RejectionKind.SUBSTANCE,
+    "premise_calculation_mismatch": RejectionKind.SUBSTANCE,
     # 结构合法、内容越产品红线（对「明天哪个方向」答成领涨判断）→ 回灌改写成观察剧本
     "forward_direction_call": RejectionKind.SUBSTANCE,
     # 地基破坏 → 硬拒
@@ -846,6 +856,10 @@ def validate_episode_finish(
     if not isinstance(draft, str):
         raise _reject("draft_not_string", "finish draft must be a string")
     draft = _normalize_natural_language_layout(draft)
+    if context.contract.premise_calculation is not None:
+        draft, calculation_error = context.contract.premise_calculation.admit(draft, status=status)
+        if calculation_error:
+            raise _reject("premise_calculation_mismatch", calculation_error)
     if status == "completed" and not draft.strip():
         raise _reject("empty_draft", "completed finish draft must be non-empty")
     forward_hits = forward_direction_call_hits(

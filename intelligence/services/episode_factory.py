@@ -38,6 +38,7 @@ from intelligence.services.research_tool_registry import (
 )
 from intelligence.services.material_permissions import restrict_read_capabilities
 from intelligence.services.task_frame import TaskFrame, task_frame_requires_retrieval
+from intelligence.services.premise_financial_calculation import calculation_for_frame
 from intelligence.services.user_task import (
     MaterialRef,
     MethodCandidate,
@@ -805,6 +806,7 @@ def build_episode_context(
         evidence_plan=evidence_plan,
         task_frame_hash=frame.task_frame_hash,
         material_contract=material,
+        premise_calculation=calculation_for_frame(frame, today=today),
     )
     if frame.history_intent is not None and "finance_query" in capability_tuple and not (
         material is not None and material.data_scope == "local_only"
