@@ -1,0 +1,155 @@
+{
+  "meaning": "Offline baseline reproduction; not a repaired-runtime pass receipt",
+  "runtime_revision": "bf662e9310ff751a4c31763815ee78fb7d6d5122",
+  "runtime_unchanged_during_probe": true,
+  "tool_calls": 8,
+  "tool_counts": {
+    "finance_query": 4,
+    "market_data": 1,
+    "mainline_context": 1,
+    "history_query": 1,
+    "evidence_search": 1
+  },
+  "metrics": {
+    "provider_attempts": 11,
+    "tool_calls": 8,
+    "duplicate_queries": 0,
+    "structural_status": "partial",
+    "semantic_status": "repaired",
+    "judge_usage": {
+      "calls": 2,
+      "input_tokens": null,
+      "output_tokens": null,
+      "usage_source": null
+    }
+  },
+  "membership_overlap": {
+    "per_theme_rows": {
+      "storage": 9,
+      "lithium": 10,
+      "solid": 7
+    },
+    "membership_rows": 26,
+    "unique_stocks": 15,
+    "market_limit_up_count": 32,
+    "unique_share_pct": 46.875,
+    "public_answer_claims_81_pct": true,
+    "boundary": "Tag membership union, not verified causal attribution"
+  },
+  "history_distance_order": [
+    {
+      "window": "2025-09-02~2025-09-29",
+      "distance": 0.313
+    },
+    {
+      "window": "2025-11-26~2025-12-23",
+      "distance": 0.37
+    },
+    {
+      "window": "2025-10-29~2025-11-25",
+      "distance": 0.395
+    }
+  ],
+  "ranking_contract": {
+    "receipt": {
+      "check": "ranking_contract",
+      "ranking_intent": false,
+      "scenario_update_intent": false,
+      "missing_outputs": [],
+      "matrix_rows": 0,
+      "flip_rows": 0,
+      "competing_explanations": 0,
+      "next_actions": 0,
+      "as_of": "2026-09-17",
+      "artifact": null,
+      "prior_rerank": null,
+      "rerank_consistent": null
+    },
+    "predicate_replay": false
+  },
+  "period_rank_query": {
+    "attempts": 1,
+    "arguments": [
+      {
+        "dataset": "sector_period_rank_daily",
+        "dimensions": [
+          "trade_date",
+          "period_type",
+          "rank",
+          "sector_name",
+          "sector_code",
+          "change_pct",
+          "limit_up_count",
+          "badge"
+        ],
+        "filters": [
+          {
+            "field": "period_type",
+            "op": "in",
+            "value": [
+              "day5",
+              "day3"
+            ]
+          }
+        ],
+        "limit": 25,
+        "metrics": [
+          "rank"
+        ],
+        "order_by": [
+          {
+            "direction": "asc",
+            "field": "rank"
+          }
+        ],
+        "time_range": {
+          "end": "2026-09-15",
+          "start": "2026-09-14"
+        }
+      }
+    ],
+    "traces": [
+      {
+        "provider": "duckdb_semantic_query",
+        "capability": "finance_query",
+        "status": "parse_error",
+        "detail": "dataset=sector_period_rank_daily; failure=invalid_query",
+        "source_trade_date": null,
+        "result_count": 0,
+        "parent_id": "run_20260917_203230_060027:msg_42913e1f7345488598d497ac7f764cf7",
+        "step_id": "run_20260917_203230_060027:msg_42913e1f7345488598d497ac7f764cf7:episode:tool:4",
+        "requested_date": "2026-09-17",
+        "served_date": null,
+        "requested_time_range": null
+      }
+    ]
+  },
+  "citation_number_false_positive": {
+    "sentence": "- 储能链收跌但涨停家数高，是「涨停集中但板块指数走弱」的分歧组合，若后续出现利多不涨+连板高标走坏，按抱团踩踏前兆判读应降级（E27）；",
+    "quantity_tokens": [
+      "27"
+    ],
+    "rejected_with_citation": [],
+    "rejected_without_citation": []
+  },
+  "manual_attempt": {
+    "metrics": {
+      "provider_attempts": 4,
+      "tool_calls": 0,
+      "duplicate_queries": 0,
+      "structural_status": "failed",
+      "semantic_status": "unavailable",
+      "judge_usage": {
+        "calls": 0,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_source": null
+      }
+    },
+    "failure": {
+      "type": "TypeError",
+      "message": "Object of type mappingproxy is not JSON serializable"
+    },
+    "boundary": "A different probe setting; no mode-level causality established"
+  }
+}

@@ -1,0 +1,4 @@
+candidate_write=denied
+shared_git_write=denied
+production_network=denied
+output_write=allowed

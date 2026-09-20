@@ -1,0 +1,11 @@
+S2 FAILS:
+diag evil dataset: leaked '/etc' -> 'unknown dataset: ../../etc/passwd'
+diag evil dataset: leaked '..' -> 'unknown dataset: ../../etc/passwd'
+diag evil dataset: leaked 'passwd' -> 'unknown dataset: ../../etc/passwd'
+evil dataset not masked: 'unknown dataset: ../../etc/passwd'
+diag prose: leaked '/tmp' -> 'duckdb.IOException: cannot open /tmp/prod/secret.duckdb; table fact_bar_daily missing'
+diag prose: leaked '.duckdb' -> 'duckdb.IOException: cannot open /tmp/prod/secret.duckdb; table fact_bar_daily missing'
+prose not fully masked: 'duckdb.IOException: cannot open /tmp/prod/secret.duckdb; table fact_bar_daily missing'
+diag near-miss: leaked 'DROP' -> 'time range start exceeds end; DROP TABLE x'
+near-miss leaked: 'time range start exceeds end; DROP TABLE x'
+validation error lost retry hint: 'unknown field: pe_ttm'

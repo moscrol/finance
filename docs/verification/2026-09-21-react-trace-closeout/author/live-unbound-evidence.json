@@ -1,0 +1,38 @@
+[
+  {
+    "title": "历史研究范围与完整分母｜94dd4eb6·1｜990013.FP,990001.FP 2026-09-05 2026-09-18",
+    "content_hash": "51c1110e64e0683e",
+    "bound": false,
+    "detail": "{\"operation\":\"find_analogues\",\"status\":\"research_only\",\"total_matched\":225,\"returned_count\":25,\"truncated\":true,\"research_only\":true,\"decision_eligible\":false,\"promotion_eligible\":false}"
+  },
+  {
+    "title": "历史观察样本 990006.FP candidate 2026-08-03 2026-08-14｜94dd4eb6·15｜990013.FP,990001.FP 2026-09-05 2026-09-18",
+    "content_hash": "16aa6f775f1ae94a",
+    "bound": false,
+    "detail": "{\"sample\":1,\"entity_code\":\"990006.FP\",\"role\":\"candidate\",\"start\":\"2026-08-03\",\"end\":\"2026-08-14\",\"entity_name\":\"AI手机PC\",\"features\":{\"return_pct\":12.647161736772915},\"status\":{\"return_pct\":\"complete\"}}"
+  },
+  {
+    "title": "历史观察样本 990024.FP candidate 2026-08-03 2026-08-14｜94dd4eb6·23｜990013.FP,990001.FP 2026-09-05 2026-09-18",
+    "content_hash": "f1991530db303dfb",
+    "bound": false,
+    "detail": "{\"sample\":3,\"entity_code\":\"990024.FP\",\"role\":\"candidate\",\"start\":\"2026-08-03\",\"end\":\"2026-08-14\",\"entity_name\":\"MiniLED\",\"features\":{\"return_pct\":16.50535395504771},\"status\":{\"return_pct\":\"complete\"}}"
+  },
+  {
+    "title": "历史观察样本 990024.FP candidate 2026-09-07 2026-09-18｜94dd4eb6·31｜990013.FP,990001.FP 2026-09-05 2026-09-18",
+    "content_hash": "96e56ff32e160d2b",
+    "bound": false,
+    "detail": "{\"sample\":5,\"entity_code\":\"990024.FP\",\"role\":\"candidate\",\"start\":\"2026-09-07\",\"end\":\"2026-09-18\",\"entity_name\":\"MiniLED\",\"features\":{\"return_pct\":8.482594132268794},\"status\":{\"return_pct\":\"complete\"}}"
+  },
+  {
+    "title": "历史观察样本 990024.FP candidate 2026-07-27 2026-08-07｜94dd4eb6·59｜990013.FP,990001.FP 2026-09-05 2026-09-18",
+    "content_hash": "483df50fbb7a56be",
+    "bound": false,
+    "detail": "{\"sample\":13,\"entity_code\":\"990024.FP\",\"role\":\"candidate\",\"start\":\"2026-07-27\",\"end\":\"2026-08-07\",\"entity_name\":\"MiniLED\",\"features\":{\"return_pct\":11.808835906385395},\"status\":{\"return_pct\":\"complete\"}}"
+  },
+  {
+    "title": "历史观察样本 990006.FP candidate 2026-07-27 2026-08-07｜94dd4eb6·69｜990013.FP,990001.FP 2026-09-05 2026-09-18",
+    "content_hash": "2808f3a67b793cf9",
+    "bound": false,
+    "detail": "{\"sample\":16,\"entity_code\":\"990006.FP\",\"role\":\"candidate\",\"start\":\"2026-07-27\",\"end\":\"2026-08-07\",\"entity_name\":\"AI手机PC\",\"features\":{\"return_pct\":8.748056460552167},\"status\":{\"return_pct\":\"complete\"}}"
+  }
+]

@@ -1,0 +1,71 @@
+# K3 probe S2: validation feedback carries only known messages / gated identifiers.
+import sys
+
+from intelligence.services import finance_query as fq
+from intelligence.services import episode_tools as et
+
+assert fq.__file__.startswith("/Users/a77/fwp-q-react-trace-0921/"), fq.__file__
+assert et.__file__.startswith("/Users/a77/fwp-q-react-trace-0921/"), et.__file__
+
+fails = []
+spec = fq.FinanceQuerySpec(dataset="evil../../etc/passwd", metrics=("m",), dimensions=())
+
+def check(label, text, banned=("/etc", "..", "passwd", "DROP", "/tmp", ".duckdb")):
+    for b in banned:
+        if b in text:
+            fails.append(f"{label}: leaked {b!r} -> {text!r}")
+
+# 1) malicious identifier in a known-prefix message -> gated
+d = fq.validation_diagnostic(spec, fq.FinanceQueryValidationError("unknown dataset: ../../etc/passwd"))
+check("diag evil dataset", d)
+if "[invalid identifier omitted]" not in d:
+    fails.append(f"evil dataset not masked: {d!r}")
+
+# 2) arbitrary prose / IO-style error text -> generic safe message only
+d2 = fq.validation_diagnostic(spec, fq.FinanceQueryValidationError(
+    "duckdb.IOException: cannot open /tmp/prod/secret.duckdb; table fact_bar_daily missing"))
+check("diag prose", d2)
+if "查询参数未通过校验" not in d2 or "IOException" in d2:
+    fails.append(f"prose not fully masked: {d2!r}")
+
+# 3) legitimate identifier passes through (not over-masking)
+d3 = fq.validation_diagnostic(spec, fq.FinanceQueryValidationError("unknown field: pe_ttm"))
+if "unknown field: pe_ttm" not in d3:
+    fails.append(f"legit field masked: {d3!r}")
+
+# 4) exact whitelisted message passes; near-miss does not
+d4 = fq.validation_diagnostic(spec, fq.FinanceQueryValidationError("time range start exceeds end"))
+if "time range start exceeds end" not in d4:
+    fails.append(f"whitelisted msg dropped: {d4!r}")
+d5 = fq.validation_diagnostic(spec, fq.FinanceQueryValidationError("time range start exceeds end; DROP TABLE x"))
+check("diag near-miss", d5)
+if "DROP" in d5:
+    fails.append(f"near-miss leaked: {d5!r}")
+
+# 5) retry_hint gates spec.dataset and field names
+h = fq.validation_retry_hint(spec, fq.FinanceQueryValidationError("unknown field: ../../etc/passwd"))
+check("hint", h)
+h2 = fq.validation_retry_hint(spec, fq.FinanceQueryValidationError("unknown dataset: x"))
+check("hint unknown dataset", h2, banned=("/etc", "..", "passwd"))
+
+# 6) failure taxonomy: execution/timeout/cancelled NOT disguised as correctable param error
+r_exec = et._finance_query_failure_result(spec, fq.FinanceQueryExecutionError("finance query execution failed: IOException"))
+if r_exec.observation is None or "暂不可用" not in r_exec.observation or "IOException" in r_exec.observation:
+    fails.append(f"exec error echoed or misclassified: {r_exec.observation!r}")
+if "重试提示" in (r_exec.observation or ""):
+    fails.append("exec error dressed as param-correctable")
+r_to = et._finance_query_failure_result(spec, fq.FinanceQueryTimedOut("finance query statement timeout"))
+if "超时" not in (r_to.observation or "") or "重试提示" in (r_to.observation or ""):
+    fails.append(f"timeout misclassified: {r_to.observation!r}")
+r_cancel = et._finance_query_failure_result(spec, fq.FinanceQueryCancelled("finance query cancelled"))
+if "取消" not in (r_cancel.observation or ""):
+    fails.append(f"cancel misclassified: {r_cancel.observation!r}")
+r_val = et._finance_query_failure_result(spec, fq.FinanceQueryValidationError("unknown field: pe_ttm"))
+if "重试提示" not in (r_val.observation or ""):
+    fails.append(f"validation error lost retry hint: {r_val.observation!r}")
+for r in (r_exec, r_to, r_cancel, r_val):
+    if r.evidence != ():
+        fails.append("failure result fabricated evidence")
+
+print("S2 FAILS:" if fails else "S2 ALL PASS", *fails, sep="\n")
+sys.exit(1 if fails else 0)

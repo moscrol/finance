@@ -1,0 +1,4 @@
+S1 FAILS:
+strip kept 'E27' in '见E27与e3，增长27%' -> '见E27与e3，增长27%'
+strip kept 'e3' in '见E27与e3，增长27%' -> '见E27与e3，增长27%'
+E27 leaked into bound quantities: ['+12.6%', '-01', '2026-09', '27']

@@ -1,0 +1,81 @@
+"""Single bounded PR809 K3 review using the existing subscription route.
+
+Adapted from the prior nightly run_spec_k3.py; adds OS read-only enforcement.
+This is a task execution record, not an application entry point or review verdict.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / "k3"
+TREE = Path("/Users/a77/fwp-q-react-trace-0921")
+AUTHOR = Path("/Users/a77/fwp-wt-react-trace-closeout-0921")
+REVISION = "dda5895aafc88e5fa20632cf4aaefea973940164"
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def git(tree, *args):
+    return subprocess.check_output(["git", "-C", str(tree), *args], text=True).strip()
+
+
+def identity():
+    return {
+        "revision": git(TREE, "rev-parse", "HEAD"),
+        "status": git(TREE, "status", "--porcelain"),
+        "shared_refs_sha256": hashlib.sha256(git(TREE, "for-each-ref", "--format=%(refname) %(objectname)").encode()).hexdigest(),
+        "author_revision": git(AUTHOR, "rev-parse", "HEAD"),
+        "author_status": git(AUTHOR, "status", "--porcelain"),
+    }
+
+
+before = identity()
+assert before["revision"] == REVISION and before["status"] == "", before
+command = ["/usr/bin/sandbox-exec", "-f", str(ROOT / "review.sb"),
+           "/opt/homebrew/bin/pi", "--offline", "--provider", "mirasim-kimi",
+           "--model", "kimi-k3", "--thinking", "xhigh", "--no-session",
+           "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-themes",
+           "--no-context-files", "--no-approve", "--tools", "read,bash,write",
+           "--mode", "json", "-p", "--", "@" + str(ROOT / "prompt.md")]
+env = {"HOME": "/Users/a77", "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+       "LANG": "C.UTF-8", "TMPDIR": str(OUT / "tmp"),
+       "PYTHONDONTWRITEBYTECODE": "1", "FWP_TEST_RECEIPT": "0",
+       "GIT_OPTIONAL_LOCKS": "0", "PI_OFFLINE": "1", "PI_TELEMETRY": "0"}
+receipt = {"command": command, "identity_before": before, "timeout_seconds": 900,
+           "prompt_sha256": digest(ROOT / "prompt.md"), "sandbox_sha256": digest(ROOT / "review.sb"),
+           "started_at": datetime.now(timezone.utc).isoformat(), "complete": False}
+receipt_path = OUT / "execution.json"
+assert not receipt_path.exists()
+receipt_path.write_text(json.dumps(receipt, indent=2) + "\n")
+with (OUT / "events.jsonl").open("xb") as stdout, (OUT / "stderr.log").open("xb") as stderr:
+    process = subprocess.Popen(command, cwd=TREE, env=env, stdin=subprocess.DEVNULL,
+                               stdout=stdout, stderr=stderr, start_new_session=True)
+    receipt["pid"] = process.pid
+    try:
+        process.communicate(timeout=900)
+        receipt["timed_out"] = False
+    except subprocess.TimeoutExpired:
+        receipt["timed_out"] = True
+        os.killpg(process.pid, signal.SIGTERM)
+        try:
+            process.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.communicate()
+    receipt["exit_code"] = process.returncode
+after = identity()
+receipt.update(identity_after=after, complete=True,
+               finished_at=datetime.now(timezone.utc).isoformat(),
+               candidate_untouched=after["revision"] == REVISION and after["status"] == "",
+               author_untouched=all(before[k] == after[k] for k in ("author_revision", "author_status")),
+               shared_refs_unchanged=before["shared_refs_sha256"] == after["shared_refs_sha256"])
+receipt["sha256"] = {p.name: digest(p) for p in (OUT / "events.jsonl", OUT / "stderr.log", OUT / "REPORT.md") if p.exists()}
+receipt_path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n")
+print(json.dumps(receipt, ensure_ascii=False), flush=True)
