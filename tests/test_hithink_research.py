@@ -173,6 +173,22 @@ def test_production_path_refused_before_credentials_or_database(capture, monkeyp
     assert not path.exists()
 
 
+def test_hardlinked_production_refused_before_credentials(capture, monkeypatch):
+    path, calls, run, _ = capture
+    production = path.with_name("production.duckdb")
+    sentinel = b"fake production sentinel"
+    production.write_bytes(sentinel)
+    path.hardlink_to(production)
+    monkeypatch.setenv("MARKET_FEATURE_STORE_PRODUCTION_DB", str(production))
+    monkeypatch.setattr(
+        research, "has_api_key", lambda: pytest.fail("credentials accessed")
+    )
+    with pytest.raises(research.HithinkResearchError, match="production"):
+        run(getter=None)
+    assert not calls
+    assert path.read_bytes() == production.read_bytes() == sentinel
+
+
 def test_empty_response_is_recorded_not_invented(capture):
     path, _, run, _ = capture
     run(
