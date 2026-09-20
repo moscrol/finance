@@ -1,0 +1,64 @@
+"""Focused diagnostics for existing label-before-period prose grammar and scope."""
+from __future__ import annotations
+
+import argparse
+from dataclasses import asdict
+import json
+import os
+from pathlib import Path
+import socket
+import subprocess
+import sys
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--root", required=True)
+args = parser.parse_args()
+root = Path(args.root).resolve()
+sys.path.insert(0, str(root))
+
+def no_network(*_args, **_kwargs):
+    raise AssertionError("Spec probe attempted network IO")
+
+socket.socket.connect = socket.socket.connect_ex = socket.create_connection = no_network
+
+from intelligence.services.research_delivery_checks import calculation_copy_findings
+from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier
+from intelligence.services.research_contract import ResearchDeadline
+from intelligence.tests.test_financial_delivery_integration import _ratio_delivery
+from intelligence.tests.test_research_delivery_checks import _financial_evidence
+
+cases = [
+    ("prefix_bp", "含金量(bp)：2026中报1.588。", True),
+    ("prefix_basis_point", "含金量（基点）：2026中报1.588。", True),
+    ("prefix_percentage_point", "含金量(百分点)：2026中报1.588。", True),
+    ("prefix_raw_control", "含金量：2026中报1.588。", False),
+    ("prefix_wrong_control", "含金量：2026中报9.999。", True),
+    ("suffix_bp_control", "2026中报含金量(bp)为1.588。", True),
+    ("other_period_bp_scope", "2024中报含金量为1.588bp。", None),
+    ("other_period_raw_scope", "2024中报含金量为9.999。", None),
+]
+rows = []
+for mode in ("off", "llm"):
+    os.environ["ASK_SEMANTIC_JUDGE"] = mode
+    for name, claim, expected_rejection in cases:
+        findings = calculation_copy_findings(claim, _financial_evidence())
+        frame, verified = _ratio_delivery("经营情况需继续跟踪[E1]。\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=lambda _request: {
+            "passed": True, "rejected_sentence_indexes": [], "issues": [],
+        }).verify(frame=frame, structurally_verified=verified,
+                  deadline=ResearchDeadline.from_timeout(5))
+        rejected = claim not in result.public_answer
+        rows.append({"name": name, "mode": mode, "claim": claim,
+                     "expected_rejection": expected_rejection, "rejected": rejected,
+                     "passes": None if expected_rejection is None else rejected == expected_rejection,
+                     "findings": [asdict(f) for f in findings],
+                     "status": result.status, "public": result.public_answer,
+                     "repair_output_ids": result.repair_output_ids,
+                     "original_unchanged": result.verified.outcome == verified.outcome})
+
+print(json.dumps({"root": str(root), "sha": subprocess.check_output(
+    ["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip(),
+    "summary": {"passed": sum(r["passes"] is True for r in rows),
+                "failed": sum(r["passes"] is False for r in rows),
+                "scope_diagnostics": sum(r["passes"] is None for r in rows)},
+    "cases": rows}, ensure_ascii=False, indent=2))

@@ -1,0 +1,1128 @@
+{
+  "root": "/Users/a77/fwp-wt-financial-ratio-units-0920",
+  "sha": "d2fc872b4a669685a1175ac4c49c004b5b92155e",
+  "summary": {
+    "total": 102,
+    "passed": 102,
+    "failed": 0
+  },
+  "cases": [
+    {
+      "name": "recompute:含金量:1.588",
+      "expected": false,
+      "actual": false,
+      "passes": true,
+      "gaps": []
+    },
+    {
+      "name": "financial_prose:含金量:1.588",
+      "expected": false,
+      "actual": false,
+      "passes": true
+    },
+    {
+      "name": "recompute:含金量:9.999",
+      "expected": true,
+      "actual": true,
+      "passes": true,
+      "gaps": [
+        "计算产物 0123456789abcdef 的 现金流比率.含金量[2026中报] 与同报告期原始输入复算不一致"
+      ]
+    },
+    {
+      "name": "financial_prose:含金量:9.999",
+      "expected": true,
+      "actual": true,
+      "passes": true
+    },
+    {
+      "name": "recompute:净现比:1.588",
+      "expected": false,
+      "actual": false,
+      "passes": true,
+      "gaps": []
+    },
+    {
+      "name": "financial_prose:净现比:1.588",
+      "expected": false,
+      "actual": false,
+      "passes": true
+    },
+    {
+      "name": "recompute:净现比:9.999",
+      "expected": true,
+      "actual": true,
+      "passes": true,
+      "gaps": [
+        "计算产物 0123456789abcdef 的 现金流比率.净现比[2026中报] 与同报告期原始输入复算不一致"
+      ]
+    },
+    {
+      "name": "financial_prose:净现比:9.999",
+      "expected": true,
+      "actual": true,
+      "passes": true
+    },
+    {
+      "name": "recompute:OCF/净利润:1.588",
+      "expected": false,
+      "actual": false,
+      "passes": true,
+      "gaps": []
+    },
+    {
+      "name": "financial_prose:OCF/净利润:1.588",
+      "expected": false,
+      "actual": false,
+      "passes": true
+    },
+    {
+      "name": "recompute:OCF/净利润:9.999",
+      "expected": true,
+      "actual": true,
+      "passes": true,
+      "gaps": [
+        "计算产物 0123456789abcdef 的 现金流比率.OCF/净利润[2026中报] 与同报告期原始输入复算不一致"
+      ]
+    },
+    {
+      "name": "financial_prose:OCF/净利润:9.999",
+      "expected": true,
+      "actual": true,
+      "passes": true
+    },
+    {
+      "name": "delta:bp:header",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量(bp)|\n|---|---|\n|2026中报|1.588|"
+    },
+    {
+      "name": "delta:bp:header_with_multiple_cell",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量(bp)|\n|---|---|\n|2026中报|1.588倍|"
+    },
+    {
+      "name": "delta:bp:cell",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量|\n|---|---|\n|2026中报|1.588bp|"
+    },
+    {
+      "name": "delta:bp:prose",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "2026中报含金量为1.588bp。"
+    },
+    {
+      "name": "delta:bp:prose_label",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "2026中报含金量(bp)为1.588倍。"
+    },
+    {
+      "name": "delta_product:bp:with_valid=False",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true
+    },
+    {
+      "name": "delta_product:bp:with_valid=True",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true
+    },
+    {
+      "name": "delta:BP:header",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量(BP)|\n|---|---|\n|2026中报|1.588|"
+    },
+    {
+      "name": "delta:BP:header_with_multiple_cell",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量(BP)|\n|---|---|\n|2026中报|1.588倍|"
+    },
+    {
+      "name": "delta:BP:cell",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量|\n|---|---|\n|2026中报|1.588BP|"
+    },
+    {
+      "name": "delta:BP:prose",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "2026中报含金量为1.588BP。"
+    },
+    {
+      "name": "delta:BP:prose_label",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "2026中报含金量(BP)为1.588倍。"
+    },
+    {
+      "name": "delta_product:BP:with_valid=False",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true
+    },
+    {
+      "name": "delta_product:BP:with_valid=True",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true
+    },
+    {
+      "name": "delta:bps:header",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量(bps)|\n|---|---|\n|2026中报|1.588|"
+    },
+    {
+      "name": "delta:bps:header_with_multiple_cell",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量(bps)|\n|---|---|\n|2026中报|1.588倍|"
+    },
+    {
+      "name": "delta:bps:cell",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量|\n|---|---|\n|2026中报|1.588bps|"
+    },
+    {
+      "name": "delta:bps:prose",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "2026中报含金量为1.588bps。"
+    },
+    {
+      "name": "delta:bps:prose_label",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "2026中报含金量(bps)为1.588倍。"
+    },
+    {
+      "name": "delta_product:bps:with_valid=False",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true
+    },
+    {
+      "name": "delta_product:bps:with_valid=True",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true
+    },
+    {
+      "name": "delta:BPs:header",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量(BPs)|\n|---|---|\n|2026中报|1.588|"
+    },
+    {
+      "name": "delta:BPs:header_with_multiple_cell",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量(BPs)|\n|---|---|\n|2026中报|1.588倍|"
+    },
+    {
+      "name": "delta:BPs:cell",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量|\n|---|---|\n|2026中报|1.588BPs|"
+    },
+    {
+      "name": "delta:BPs:prose",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "2026中报含金量为1.588BPs。"
+    },
+    {
+      "name": "delta:BPs:prose_label",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "2026中报含金量(BPs)为1.588倍。"
+    },
+    {
+      "name": "delta_product:BPs:with_valid=False",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true
+    },
+    {
+      "name": "delta_product:BPs:with_valid=True",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true
+    },
+    {
+      "name": "delta:基点:header",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量(基点)|\n|---|---|\n|2026中报|1.588|"
+    },
+    {
+      "name": "delta:基点:header_with_multiple_cell",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量(基点)|\n|---|---|\n|2026中报|1.588倍|"
+    },
+    {
+      "name": "delta:基点:cell",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量|\n|---|---|\n|2026中报|1.588基点|"
+    },
+    {
+      "name": "delta:基点:prose",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "2026中报含金量为1.588基点。"
+    },
+    {
+      "name": "delta:基点:prose_label",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "2026中报含金量(基点)为1.588倍。"
+    },
+    {
+      "name": "delta_product:基点:with_valid=False",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true
+    },
+    {
+      "name": "delta_product:基点:with_valid=True",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true
+    },
+    {
+      "name": "delta:百分点:header",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量(百分点)|\n|---|---|\n|2026中报|1.588|"
+    },
+    {
+      "name": "delta:百分点:header_with_multiple_cell",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量(百分点)|\n|---|---|\n|2026中报|1.588倍|"
+    },
+    {
+      "name": "delta:百分点:cell",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量|\n|---|---|\n|2026中报|1.588百分点|"
+    },
+    {
+      "name": "delta:百分点:prose",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "2026中报含金量为1.588百分点。"
+    },
+    {
+      "name": "delta:百分点:prose_label",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "2026中报含金量(百分点)为1.588倍。"
+    },
+    {
+      "name": "delta_product:百分点:with_valid=False",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true
+    },
+    {
+      "name": "delta_product:百分点:with_valid=True",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true
+    },
+    {
+      "name": "delta:个百分点:header",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量(个百分点)|\n|---|---|\n|2026中报|1.588|"
+    },
+    {
+      "name": "delta:个百分点:header_with_multiple_cell",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量(个百分点)|\n|---|---|\n|2026中报|1.588倍|"
+    },
+    {
+      "name": "delta:个百分点:cell",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "|报告期|含金量|\n|---|---|\n|2026中报|1.588个百分点|"
+    },
+    {
+      "name": "delta:个百分点:prose",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "2026中报含金量为1.588个百分点。"
+    },
+    {
+      "name": "delta:个百分点:prose_label",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true,
+      "draft": "2026中报含金量(个百分点)为1.588倍。"
+    },
+    {
+      "name": "delta_product:个百分点:with_valid=False",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true
+    },
+    {
+      "name": "delta_product:个百分点:with_valid=True",
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "passes": true
+    },
+    {
+      "name": "control:含金量:1.588",
+      "expected": [],
+      "actual": [],
+      "passes": true
+    },
+    {
+      "name": "control:含金量(倍):1.588",
+      "expected": [],
+      "actual": [],
+      "passes": true
+    },
+    {
+      "name": "control:含金量:1.588倍",
+      "expected": [],
+      "actual": [],
+      "passes": true
+    },
+    {
+      "name": "control:含金量(%):158.8",
+      "expected": [],
+      "actual": [],
+      "passes": true
+    },
+    {
+      "name": "control:含金量:158.8%",
+      "expected": [],
+      "actual": [],
+      "passes": true
+    },
+    {
+      "name": "control:含金量(百分比):158.8",
+      "expected": [],
+      "actual": [],
+      "passes": true
+    },
+    {
+      "name": "control:含金量同比增长(bp):9.999",
+      "expected": [],
+      "actual": [],
+      "passes": true
+    },
+    {
+      "name": "control:含金量环比变化(基点):9.999",
+      "expected": [],
+      "actual": [],
+      "passes": true
+    },
+    {
+      "name": "control:收入(亿元):9.999",
+      "expected": [],
+      "actual": [],
+      "passes": true
+    },
+    {
+      "name": "unbound_product",
+      "expected": [],
+      "actual": [],
+      "passes": true
+    },
+    {
+      "name": "foreign_subject",
+      "expected": [],
+      "actual": [],
+      "passes": true
+    },
+    {
+      "name": "missing_inputs",
+      "expected": [],
+      "actual": [],
+      "passes": true
+    },
+    {
+      "name": "other_report_period_product",
+      "expected": [],
+      "actual": [],
+      "passes": true
+    },
+    {
+      "name": "exit:off:wrong_product_and_prose",
+      "expected": false,
+      "actual": false,
+      "passes": true,
+      "structural_status": "partial",
+      "semantic_status": "partial",
+      "gap_output_ids": [],
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "public": "关于“请比较中际旭创的利润与回款，注明可比口径。”，现有证据不足，暂不能可靠回答。仍需核验：财务依据。本轮已取得 2 条证据，但未完成核验绑定，暂不能引用；可直接重试。",
+      "issues": [
+        "code=required_output_gap subject=metric_evidence :: 计算产物 0123456789abcdef 的 现金流比率.含金量[2026中报] 与同报告期原始输入复算不一致"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "correction:off:wrong_product_and_prose",
+      "expected": [
+        "completed",
+        [],
+        []
+      ],
+      "actual": [
+        "completed",
+        [],
+        []
+      ],
+      "passes": true
+    },
+    {
+      "name": "exit:off:wrong_product_and_table",
+      "expected": false,
+      "actual": false,
+      "passes": true,
+      "structural_status": "partial",
+      "semantic_status": "partial",
+      "gap_output_ids": [],
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "public": "关于“请比较中际旭创的利润与回款，注明可比口径。”，现有证据不足，暂不能可靠回答。仍需核验：财务依据。本轮已取得 2 条证据，但未完成核验绑定，暂不能引用；可直接重试。",
+      "issues": [
+        "code=required_output_gap subject=metric_evidence :: 计算产物 0123456789abcdef 的 现金流比率.含金量[2026中报] 与同报告期原始输入复算不一致"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "correction:off:wrong_product_and_table",
+      "expected": [
+        "completed",
+        [],
+        []
+      ],
+      "actual": [
+        "completed",
+        [],
+        []
+      ],
+      "passes": true
+    },
+    {
+      "name": "exit:off:wrong_product_and_multiple_table",
+      "expected": false,
+      "actual": false,
+      "passes": true,
+      "structural_status": "partial",
+      "semantic_status": "partial",
+      "gap_output_ids": [],
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "public": "关于“请比较中际旭创的利润与回款，注明可比口径。”，现有证据不足，暂不能可靠回答。仍需核验：财务依据。本轮已取得 2 条证据，但未完成核验绑定，暂不能引用；可直接重试。",
+      "issues": [
+        "code=required_output_gap subject=metric_evidence :: 计算产物 0123456789abcdef 的 现金流比率.含金量[2026中报] 与同报告期原始输入复算不一致"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "correction:off:wrong_product_and_multiple_table",
+      "expected": [
+        "completed",
+        [],
+        []
+      ],
+      "actual": [
+        "completed",
+        [],
+        []
+      ],
+      "passes": true
+    },
+    {
+      "name": "exit:off:wrong_product_and_percent_table",
+      "expected": false,
+      "actual": false,
+      "passes": true,
+      "structural_status": "partial",
+      "semantic_status": "partial",
+      "gap_output_ids": [],
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "public": "关于“请比较中际旭创的利润与回款，注明可比口径。”，现有证据不足，暂不能可靠回答。仍需核验：财务依据。本轮已取得 2 条证据，但未完成核验绑定，暂不能引用；可直接重试。",
+      "issues": [
+        "code=required_output_gap subject=metric_evidence :: 计算产物 0123456789abcdef 的 现金流比率.含金量[2026中报] 与同报告期原始输入复算不一致"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "correction:off:wrong_product_and_percent_table",
+      "expected": [
+        "completed",
+        [],
+        []
+      ],
+      "actual": [
+        "completed",
+        [],
+        []
+      ],
+      "passes": true
+    },
+    {
+      "name": "exit:off:correct_product_and_table",
+      "expected": true,
+      "actual": true,
+      "passes": true,
+      "structural_status": "completed",
+      "semantic_status": "completed",
+      "gap_output_ids": [],
+      "repair_output_ids": [],
+      "public": "经营情况需继续跟踪[E1]。\n|报告期|含金量|\n|---|---|\n|2026中报|1.588|",
+      "issues": [],
+      "original_unchanged": true
+    },
+    {
+      "name": "correction:off:correct_product_and_table",
+      "expected": [
+        "completed",
+        [],
+        []
+      ],
+      "actual": [
+        "completed",
+        [],
+        []
+      ],
+      "passes": true
+    },
+    {
+      "name": "exit:off:delta_product_and_table",
+      "expected": false,
+      "actual": false,
+      "passes": true,
+      "structural_status": "partial",
+      "semantic_status": "partial",
+      "gap_output_ids": [],
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "public": "关于“请比较中际旭创的利润与回款，注明可比口径。”，现有证据不足，暂不能可靠回答。仍需核验：财务依据。本轮已取得 2 条证据，但未完成核验绑定，暂不能引用；可直接重试。",
+      "issues": [
+        "code=required_output_gap subject=metric_evidence :: 计算产物 0123456789abcdef 的 现金流比率.含金量(bp)[2026中报] 使用差值单位，不适用于绝对比例核验"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "correction:off:delta_product_and_table",
+      "expected": [
+        "completed",
+        [],
+        []
+      ],
+      "actual": [
+        "completed",
+        [],
+        []
+      ],
+      "passes": true
+    },
+    {
+      "name": "exit:off:delta_header_good_cell",
+      "expected": false,
+      "actual": false,
+      "passes": true,
+      "structural_status": "completed",
+      "semantic_status": "partial",
+      "gap_output_ids": [
+        "metric_evidence"
+      ],
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "public": "经营情况需继续跟踪[E1]。\n|报告期|含金量(bp)|\n|---|---|\n|2026中报| 待核对 |\n\n部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。",
+      "issues": [
+        "code=calculation_value_unverified :: delivered research claim failed local check"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "correction:off:delta_header_good_cell",
+      "expected": [
+        "completed",
+        [],
+        []
+      ],
+      "actual": [
+        "completed",
+        [],
+        []
+      ],
+      "passes": true
+    },
+    {
+      "name": "exit:llm:wrong_product_and_prose",
+      "expected": false,
+      "actual": false,
+      "passes": true,
+      "structural_status": "partial",
+      "semantic_status": "partial",
+      "gap_output_ids": [],
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "public": "关于“请比较中际旭创的利润与回款，注明可比口径。”，现有证据不足，暂不能可靠回答。仍需核验：财务依据。本轮已取得 2 条证据，但未完成核验绑定，暂不能引用；可直接重试。",
+      "issues": [
+        "code=required_output_gap subject=metric_evidence :: 计算产物 0123456789abcdef 的 现金流比率.含金量[2026中报] 与同报告期原始输入复算不一致"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "correction:llm:wrong_product_and_prose",
+      "expected": [
+        "completed",
+        [],
+        []
+      ],
+      "actual": [
+        "completed",
+        [],
+        []
+      ],
+      "passes": true
+    },
+    {
+      "name": "exit:llm:wrong_product_and_table",
+      "expected": false,
+      "actual": false,
+      "passes": true,
+      "structural_status": "partial",
+      "semantic_status": "partial",
+      "gap_output_ids": [],
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "public": "关于“请比较中际旭创的利润与回款，注明可比口径。”，现有证据不足，暂不能可靠回答。仍需核验：财务依据。本轮已取得 2 条证据，但未完成核验绑定，暂不能引用；可直接重试。",
+      "issues": [
+        "code=required_output_gap subject=metric_evidence :: 计算产物 0123456789abcdef 的 现金流比率.含金量[2026中报] 与同报告期原始输入复算不一致"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "correction:llm:wrong_product_and_table",
+      "expected": [
+        "completed",
+        [],
+        []
+      ],
+      "actual": [
+        "completed",
+        [],
+        []
+      ],
+      "passes": true
+    },
+    {
+      "name": "exit:llm:wrong_product_and_multiple_table",
+      "expected": false,
+      "actual": false,
+      "passes": true,
+      "structural_status": "partial",
+      "semantic_status": "partial",
+      "gap_output_ids": [],
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "public": "关于“请比较中际旭创的利润与回款，注明可比口径。”，现有证据不足，暂不能可靠回答。仍需核验：财务依据。本轮已取得 2 条证据，但未完成核验绑定，暂不能引用；可直接重试。",
+      "issues": [
+        "code=required_output_gap subject=metric_evidence :: 计算产物 0123456789abcdef 的 现金流比率.含金量[2026中报] 与同报告期原始输入复算不一致"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "correction:llm:wrong_product_and_multiple_table",
+      "expected": [
+        "completed",
+        [],
+        []
+      ],
+      "actual": [
+        "completed",
+        [],
+        []
+      ],
+      "passes": true
+    },
+    {
+      "name": "exit:llm:wrong_product_and_percent_table",
+      "expected": false,
+      "actual": false,
+      "passes": true,
+      "structural_status": "partial",
+      "semantic_status": "partial",
+      "gap_output_ids": [],
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "public": "关于“请比较中际旭创的利润与回款，注明可比口径。”，现有证据不足，暂不能可靠回答。仍需核验：财务依据。本轮已取得 2 条证据，但未完成核验绑定，暂不能引用；可直接重试。",
+      "issues": [
+        "code=required_output_gap subject=metric_evidence :: 计算产物 0123456789abcdef 的 现金流比率.含金量[2026中报] 与同报告期原始输入复算不一致"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "correction:llm:wrong_product_and_percent_table",
+      "expected": [
+        "completed",
+        [],
+        []
+      ],
+      "actual": [
+        "completed",
+        [],
+        []
+      ],
+      "passes": true
+    },
+    {
+      "name": "exit:llm:correct_product_and_table",
+      "expected": true,
+      "actual": true,
+      "passes": true,
+      "structural_status": "completed",
+      "semantic_status": "completed",
+      "gap_output_ids": [],
+      "repair_output_ids": [],
+      "public": "经营情况需继续跟踪[E1]。\n|报告期|含金量|\n|---|---|\n|2026中报|1.588|",
+      "issues": [],
+      "original_unchanged": true
+    },
+    {
+      "name": "correction:llm:correct_product_and_table",
+      "expected": [
+        "completed",
+        [],
+        []
+      ],
+      "actual": [
+        "completed",
+        [],
+        []
+      ],
+      "passes": true
+    },
+    {
+      "name": "exit:llm:delta_product_and_table",
+      "expected": false,
+      "actual": false,
+      "passes": true,
+      "structural_status": "partial",
+      "semantic_status": "partial",
+      "gap_output_ids": [],
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "public": "关于“请比较中际旭创的利润与回款，注明可比口径。”，现有证据不足，暂不能可靠回答。仍需核验：财务依据。本轮已取得 2 条证据，但未完成核验绑定，暂不能引用；可直接重试。",
+      "issues": [
+        "code=required_output_gap subject=metric_evidence :: 计算产物 0123456789abcdef 的 现金流比率.含金量(bp)[2026中报] 使用差值单位，不适用于绝对比例核验"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "correction:llm:delta_product_and_table",
+      "expected": [
+        "completed",
+        [],
+        []
+      ],
+      "actual": [
+        "completed",
+        [],
+        []
+      ],
+      "passes": true
+    },
+    {
+      "name": "exit:llm:delta_header_good_cell",
+      "expected": false,
+      "actual": false,
+      "passes": true,
+      "structural_status": "completed",
+      "semantic_status": "partial",
+      "gap_output_ids": [
+        "metric_evidence"
+      ],
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "public": "经营情况需继续跟踪[E1]。\n|报告期|含金量(bp)|\n|---|---|\n|2026中报| 待核对 |\n\n部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。",
+      "issues": [
+        "code=calculation_value_unverified :: delivered research claim failed local check"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "correction:llm:delta_header_good_cell",
+      "expected": [
+        "completed",
+        [],
+        []
+      ],
+      "actual": [
+        "completed",
+        [],
+        []
+      ],
+      "passes": true
+    }
+  ]
+}

@@ -1,0 +1,327 @@
+{
+  "root": "/Users/a77/fwp-wt-financial-ratio-units-0920",
+  "sha": "7149e236576bdda5463407cf67f11095d7940dd2",
+  "summary": {
+    "passed": 12,
+    "failed": 0,
+    "scope_diagnostics": 4
+  },
+  "cases": [
+    {
+      "name": "prefix_bp",
+      "mode": "off",
+      "claim": "含金量(bp)：2026中报1.588。",
+      "expected_rejection": true,
+      "rejected": true,
+      "passes": true,
+      "findings": [
+        {
+          "start": 0,
+          "end": 20,
+          "code": "calculation_value_unverified",
+          "replacement": ""
+        }
+      ],
+      "status": "partial",
+      "public": "经营情况需继续跟踪[E1]。\n\n部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。",
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "prefix_basis_point",
+      "mode": "off",
+      "claim": "含金量（基点）：2026中报1.588。",
+      "expected_rejection": true,
+      "rejected": true,
+      "passes": true,
+      "findings": [
+        {
+          "start": 0,
+          "end": 20,
+          "code": "calculation_value_unverified",
+          "replacement": ""
+        }
+      ],
+      "status": "partial",
+      "public": "经营情况需继续跟踪[E1]。\n\n部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。",
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "prefix_percentage_point",
+      "mode": "off",
+      "claim": "含金量(百分点)：2026中报1.588。",
+      "expected_rejection": true,
+      "rejected": true,
+      "passes": true,
+      "findings": [
+        {
+          "start": 0,
+          "end": 21,
+          "code": "calculation_value_unverified",
+          "replacement": ""
+        }
+      ],
+      "status": "partial",
+      "public": "经营情况需继续跟踪[E1]。\n\n部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。",
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "prefix_raw_control",
+      "mode": "off",
+      "claim": "含金量：2026中报1.588。",
+      "expected_rejection": false,
+      "rejected": false,
+      "passes": true,
+      "findings": [],
+      "status": "completed",
+      "public": "经营情况需继续跟踪[E1]。\n含金量：2026中报1.588。",
+      "repair_output_ids": [],
+      "original_unchanged": true
+    },
+    {
+      "name": "prefix_wrong_control",
+      "mode": "off",
+      "claim": "含金量：2026中报9.999。",
+      "expected_rejection": true,
+      "rejected": true,
+      "passes": true,
+      "findings": [
+        {
+          "start": 0,
+          "end": 16,
+          "code": "calculation_value_mismatch",
+          "replacement": ""
+        }
+      ],
+      "status": "partial",
+      "public": "经营情况需继续跟踪[E1]。\n\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。",
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "suffix_bp_control",
+      "mode": "off",
+      "claim": "2026中报含金量(bp)为1.588。",
+      "expected_rejection": true,
+      "rejected": true,
+      "passes": true,
+      "findings": [
+        {
+          "start": 0,
+          "end": 20,
+          "code": "calculation_value_unverified",
+          "replacement": ""
+        }
+      ],
+      "status": "partial",
+      "public": "经营情况需继续跟踪[E1]。\n【预取事实】现金流 2025-04-30：现金流比率.含金量[2026中报]=1.588\n\n部分财务差值、期间或报告来源断言未通过核对；已保留其他内容，相关分析仍需补齐。",
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "original_unchanged": false
+    },
+    {
+      "name": "other_period_bp_scope",
+      "mode": "off",
+      "claim": "2024中报含金量为1.588bp。",
+      "expected_rejection": null,
+      "rejected": true,
+      "passes": null,
+      "findings": [
+        {
+          "start": 0,
+          "end": 18,
+          "code": "calculation_value_unverified",
+          "replacement": ""
+        }
+      ],
+      "status": "partial",
+      "public": "经营情况需继续跟踪[E1]。\n\n部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。",
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "other_period_raw_scope",
+      "mode": "off",
+      "claim": "2024中报含金量为9.999。",
+      "expected_rejection": null,
+      "rejected": false,
+      "passes": null,
+      "findings": [],
+      "status": "completed",
+      "public": "经营情况需继续跟踪[E1]。\n2024中报含金量为9.999。",
+      "repair_output_ids": [],
+      "original_unchanged": true
+    },
+    {
+      "name": "prefix_bp",
+      "mode": "llm",
+      "claim": "含金量(bp)：2026中报1.588。",
+      "expected_rejection": true,
+      "rejected": true,
+      "passes": true,
+      "findings": [
+        {
+          "start": 0,
+          "end": 20,
+          "code": "calculation_value_unverified",
+          "replacement": ""
+        }
+      ],
+      "status": "partial",
+      "public": "经营情况需继续跟踪[E1]。\n\n部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。",
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "prefix_basis_point",
+      "mode": "llm",
+      "claim": "含金量（基点）：2026中报1.588。",
+      "expected_rejection": true,
+      "rejected": true,
+      "passes": true,
+      "findings": [
+        {
+          "start": 0,
+          "end": 20,
+          "code": "calculation_value_unverified",
+          "replacement": ""
+        }
+      ],
+      "status": "partial",
+      "public": "经营情况需继续跟踪[E1]。\n\n部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。",
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "prefix_percentage_point",
+      "mode": "llm",
+      "claim": "含金量(百分点)：2026中报1.588。",
+      "expected_rejection": true,
+      "rejected": true,
+      "passes": true,
+      "findings": [
+        {
+          "start": 0,
+          "end": 21,
+          "code": "calculation_value_unverified",
+          "replacement": ""
+        }
+      ],
+      "status": "partial",
+      "public": "经营情况需继续跟踪[E1]。\n\n部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。",
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "prefix_raw_control",
+      "mode": "llm",
+      "claim": "含金量：2026中报1.588。",
+      "expected_rejection": false,
+      "rejected": false,
+      "passes": true,
+      "findings": [],
+      "status": "completed",
+      "public": "经营情况需继续跟踪[E1]。\n含金量：2026中报1.588。",
+      "repair_output_ids": [],
+      "original_unchanged": true
+    },
+    {
+      "name": "prefix_wrong_control",
+      "mode": "llm",
+      "claim": "含金量：2026中报9.999。",
+      "expected_rejection": true,
+      "rejected": true,
+      "passes": true,
+      "findings": [
+        {
+          "start": 0,
+          "end": 16,
+          "code": "calculation_value_mismatch",
+          "replacement": ""
+        }
+      ],
+      "status": "partial",
+      "public": "经营情况需继续跟踪[E1]。\n\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。",
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "suffix_bp_control",
+      "mode": "llm",
+      "claim": "2026中报含金量(bp)为1.588。",
+      "expected_rejection": true,
+      "rejected": true,
+      "passes": true,
+      "findings": [
+        {
+          "start": 0,
+          "end": 20,
+          "code": "calculation_value_unverified",
+          "replacement": ""
+        }
+      ],
+      "status": "partial",
+      "public": "经营情况需继续跟踪[E1]。\n【预取事实】现金流 2025-04-30：现金流比率.含金量[2026中报]=1.588\n\n部分财务差值、期间或报告来源断言未通过核对；已保留其他内容，相关分析仍需补齐。",
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "original_unchanged": false
+    },
+    {
+      "name": "other_period_bp_scope",
+      "mode": "llm",
+      "claim": "2024中报含金量为1.588bp。",
+      "expected_rejection": null,
+      "rejected": true,
+      "passes": null,
+      "findings": [
+        {
+          "start": 0,
+          "end": 18,
+          "code": "calculation_value_unverified",
+          "replacement": ""
+        }
+      ],
+      "status": "partial",
+      "public": "经营情况需继续跟踪[E1]。\n\n部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。",
+      "repair_output_ids": [
+        "metric_evidence"
+      ],
+      "original_unchanged": true
+    },
+    {
+      "name": "other_period_raw_scope",
+      "mode": "llm",
+      "claim": "2024中报含金量为9.999。",
+      "expected_rejection": null,
+      "rejected": false,
+      "passes": null,
+      "findings": [],
+      "status": "completed",
+      "public": "经营情况需继续跟踪[E1]。\n2024中报含金量为9.999。",
+      "repair_output_ids": [],
+      "original_unchanged": true
+    }
+  ]
+}

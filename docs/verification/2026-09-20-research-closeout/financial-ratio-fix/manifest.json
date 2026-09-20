@@ -1,0 +1,28 @@
+{
+  "base_sha": "d8d6196baebdb1108a81ae01466e9df6397dc4fc",
+  "code_sha": "8d281985fc3739832881f3cbab0d174a532caeb5",
+  "code_sha256": {
+    "intelligence/services/financial_claim_checks.py": "5289416592a4c2f318785de7da12bd0545de300348d5cf4634ee87b5e9a14682",
+    "intelligence/services/research_delivery_checks.py": "5f9f101b337ae11a7584d10a7fd6c38648fab7716574ad12ecf47e30302fb19c",
+    "intelligence/tests/test_financial_r6_regressions.py": "0b6f5a537d5e49d0e8b0fbfe2b360ae2790baed4f9cf9e4f508ef309c9b6413c",
+    "intelligence/tests/test_research_delivery_checks.py": "9c8696ccd9e29b0a2fc24e193662fec42c4729c3424e84f205c530e6ea735750",
+    "intelligence/tests/test_financial_delivery_integration.py": "b897567fd9c135099b9db938e54d0619af969043aed51c9f98fedbd3fe960829"
+  },
+  "fixed_targeted": {
+    "passed": 351,
+    "failed": 0,
+    "log": "fixed-targeted-green.log",
+    "receipt": "/Users/a77/.finance-runtime/test-receipts/20260920T034936Z-8d281985.json"
+  },
+  "full_suite_run": false,
+  "natural_model_run": false,
+  "production_changed": false,
+  "final_head": "7149e236576bdda5463407cf67f11095d7940dd2",
+  "final_status_porcelain": "",
+  "code_unchanged_after_docs": true,
+  "documentation_delta": [
+    "docs/handoffs/2026-09-20-financial-ratio-units.md",
+    "docs/handoffs/inflight/fix-financial-ratio-units-0920.md",
+    "docs/superpowers/plans/2026-09-20-financial-ratio-units.md"
+  ]
+}
