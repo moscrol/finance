@@ -11,7 +11,7 @@
 - 首片见 `docs/handoffs/2026-09-20-financial-ratio-units.md`，返修见 `docs/handoffs/2026-09-20-financial-ratio-prefix-unit-repair.md`。
 
 ## 当前状态
-代码 `26fadf33e8ef30a708b6fdd661283c8a5487d8cc` 已正常推送 `gitea/fix/financial-ratio-units-0920`。原7149独立Spec发现的报告期前标签单位遗漏已返修，等同轴复验再Quality。本交接随后仅追加文档提交；未合main、未部署。
+代码 `26fadf33e8ef30a708b6fdd661283c8a5487d8cc` 已推送；独立 Spec 与 Quality 均在干净 `d2fc872b` 通过。Spec 原12项与主矩阵102项通过；Quality另19行为探针与身份检查通过，分母不相加。本提交只更新交接；未合main、未部署。
 
 ## 未验证 / 已知边界
 - 未吸收 q 的局部保邻句/多值对应语法，旧 R6 对逗号邻句的删除行为仍在。
@@ -19,7 +19,7 @@
 - 此片无全量 Python、前端、E2E 收据；最新 main 合流与完整门禁由协调者串行处理。
 
 ## 下一步
-在最终文档 HEAD 上独立复核；通过后只迁入这片最小补丁，再与 q 等候选按合同合流。不要把 351P 外推到合并树或生产。
+以 R6 `fix/8792-financial-r6-repair` 为基座提供小范围 PR，再与 q 等候选按合同合流。main 直接合流仍有7处冲突，不能按本片通过宣称整合完成。独立报告在外部 `financial-ratio-review/spec-recheck/` 和 `quality/`。
 
 ## 踩过的坑
 正文 financial 前置词面也要识别含金量，否则内层别名修改被架空。交付产物映射空集合表示“该期产物不适用”，`None` 才是“无该期产物”；不能混用。
