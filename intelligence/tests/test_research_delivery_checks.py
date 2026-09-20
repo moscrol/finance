@@ -177,6 +177,17 @@ def test_explicit_ratio_prose_does_not_drop_a_delta_unit(claim):
     assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
 
 
+@pytest.mark.parametrize("draft", [
+    "含金量(%)：2026中报158.8，含金量(倍)：2025中报0.289。",
+    "含金量(倍)：2026中报1.588，含金量(%)：2025中报28.9。",
+    "含金量：2026中报1.588，2025中报0.289。",
+    "含金量(%)：2026中报158.8，2025中报28.9。",
+    "含金量(bp)需要另行核验。含金量：2026中报1.588。",
+])
+def test_ratio_prefix_unit_belongs_to_its_label_not_another_period_or_sentence(draft):
+    assert calculation_copy_findings(draft, _financial_evidence()) == ()
+
+
 @pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
 @pytest.mark.parametrize("with_valid_product", [False, True])
 def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):

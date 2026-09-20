@@ -111,6 +111,37 @@ def test_ratio_product_gap_survives_the_real_financial_exit(monkeypatch, mode, p
     assert verified.outcome.draft == draft
 
 
+@pytest.mark.parametrize("mode", ["off", "llm"])
+@pytest.mark.parametrize("claim,rejected", [
+    ("含金量(bp)：2026中报1.588。", True),
+    ("含金量（基点）：2026中报1.588。", True),
+    ("含金量(百分点)：2026中报1.588。", True),
+    ("含金量(bp)：2026中报1.588倍。", True),
+    ("含金量：2026中报1.588。", False),
+    ("含金量：2026中报9.999。", True),
+    ("含金量(倍)：2026中报1.588。", False),
+    ("含金量(%)：2026中报158.8。", False),
+    ("含金量同比增长(bp)：2026中报9.999。", False),
+    ("含金量环比变化(基点)：2026中报9.999。", False),
+    ("利差以bp计。含金量：2026中报1.588。", False),
+    ("含金量：2024中报9.999。", False),
+])
+def test_ratio_prefix_unit_reaches_real_exit_without_widening_scope(monkeypatch, mode, claim, rejected):
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+    draft = SAFE + "[E1]。\n" + claim
+    frame, verified = _ratio_delivery(draft)
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert (claim not in result.public_answer) == rejected
+    assert result.status == ("partial" if rejected else "completed")
+    expected_ids = ("metric_evidence",) if rejected else ()
+    assert result.gap_output_ids == result.repair_output_ids == expected_ids
+    assert SAFE in result.public_answer and "[E1]" in result.public_answer
+    assert result.verified.outcome == verified.outcome
+    assert verified.outcome.draft == draft
+
+
 @pytest.mark.parametrize("bad", [BAD, "2026中报净现比0.133。", "本次实际取得并引用的报告为中际旭创2026年半年度报告。"])
 @pytest.mark.parametrize("prior_status", ["completed", "partial", "degraded"])
 def test_changed_public_projection_rechecks_financial_claims_without_upgrading(bad, prior_status):

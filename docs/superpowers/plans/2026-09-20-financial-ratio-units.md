@@ -84,3 +84,34 @@ _RATIO_UNIT = r"个百分点|百分点|基点|bps?|百分比|%|倍"
 ## 自审
 
 三个预先确定的接缝覆盖设计中的复算、正文、公开交付。单位位置与覆盖优先关系均有行为反例，正常值与排除范围有对照；未加入网络、数据库、真实模型、预算、运行恢复或保稿政策修改。最终评审由协调者另派，本计划只含实施自审。
+
+### Task 4: 独立 Spec 发现的报告期前标签单位遗漏
+
+原 `7149e236` 已由协调者封存。只改 `research_delivery_checks.py` 的既有“标签：报告期数值”分支及两个既有测试文件；原独立探针与结果不改，新结果放外部 `financial-ratio-fix/prefix-unit-repair/`。
+
+- [x] 用真实 `SemanticEpisodeVerifier.verify` 补原三单位×off/passed stub的六个断言，要求原句不交付、partial、metric修复槽、草稿证据不变；补原比例/倍/百分比、错值、同比环比变化、另句单位、缺少对应报告期的对照。
+
+```python
+claim = "含金量(bp)：2026中报1.588。"
+frame, verified = _ratio_delivery(SAFE + "[E1]。\n" + claim)
+result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+    frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+)
+assert claim not in result.public_answer
+assert result.status == "partial"
+assert result.gap_output_ids == result.repair_output_ids == ("metric_evidence",)
+assert result.verified.outcome == verified.outcome
+```
+
+- [x] 跑上述新增断言留 `prefix-red.log`，确认失败来自前缀单位未传递。
+- [x] 同句报告期前仅选最近一个已支持的比例标签；标签匹配在冒号处截止，避免跨到另一报告期的标签。将其单位与 `_PROSE_VALUE` 的括号单位一起交给 `_ratio_unit`，保持差值单位优先。
+
+```python
+prefixes = tuple(re.finditer(r"(?:比率|净现比|含金量)[^。；;:：]*[:：]", value[:period_match.start()]))
+prefix_unit = _ratio_unit(prefixes[-1].group())
+label_unit = _ratio_unit(f"{prefix_unit} {number['label_unit'] or ''}")
+```
+
+- [x] 同断言转绿；仅运行 `test_research_delivery_checks.py` 与 `test_financial_delivery_integration.py`，不重复351P或整仓。
+- [x] 临时把 `prefix_unit` 赋值换为空串，原反例须再红，恢复并核对hash。原独立 `probe_ratio_label_scope.py --root <本树>`另存新输出，旧四条scope诊断保持原行为。
+- [ ] Ruff、diff检查、pathspec提交；更新本计划与两份交接，普通推送，返回最终干净SHA供同轴复核。

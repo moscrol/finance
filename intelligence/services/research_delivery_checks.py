@@ -225,19 +225,25 @@ def calculation_copy_findings(
                 for period_match in _PERIOD.finditer(value):
                     tail = value[period_match.end():]
                     ratio = _RATIO_NAME.match(tail.lstrip())
+                    prefix_unit = ""
                     if ratio is not None:
                         remainder = tail.lstrip()[ratio.end():]
-                    elif (re.search(r"(?:比率|净现比|含金量)[^。；;]*[:：]", value[:period_match.start()])
-                          and not re.search(r"同比|环比|增长|增速|变化|变动|差额|增量", value[:period_match.start()])):
+                    elif (prefixes := tuple(re.finditer(
+                        r"(?:比率|净现比|含金量)[^。；;:：]*[:：]", value[:period_match.start()],
+                    ))) and not re.search(r"同比|环比|增长|增速|变化|变动|差额|增量", value[:period_match.start()]):
                         # Explicitly labeled same-clause comparison, e.g.
                         # '比率同期对照：2026中报1.588 vs 2025中报0.289'.
+                        # Only the nearest label supplies a unit; a preceding
+                        # period's value or another sentence cannot supply it.
+                        prefix_unit = _ratio_unit(prefixes[-1].group())
                         remainder = tail
                     else:
                         continue
                     number = _PROSE_VALUE.match(remainder)
                     values = products.get(_period(period_match.group()) or "")
                     code = failure_code(
-                        values, number["value"], number["unit"] or "", number["label_unit"] or "",
+                        values, number["value"], number["unit"] or "",
+                        _ratio_unit(f"{prefix_unit} {number['label_unit'] or ''}"),
                     ) if number else ""
                     if code:
                         findings.append(DeliveryFinding(offset + clause.start(), offset + clause.end(), code))
