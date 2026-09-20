@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/generation-degrade/finance-workspace-private",
+  "revision": "4aa805400690d3d1b9f9a02eae765a85810d0db8",
+  "branch": "fix/generation-degrade-closeout-0920",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/generation-degrade/finance-workspace-private",
+  "counts": {
+    "passed": 11913,
+    "failed": 0,
+    "error": 0,
+    "skipped": 85
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-20T15:48:35+00:00"
+}
