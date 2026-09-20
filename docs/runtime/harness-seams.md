@@ -114,7 +114,7 @@ Final domain requirements after repairs and semantic verification.
 ## `recovery_evidence_priority`
 
 ```python
-def recovery_evidence_priority(self, *, context: 'ResearchRunContext', evidence: 'tuple[AgentEvidence, ...]') -> 'tuple[str, ...]'
+def recovery_evidence_priority(self, *, context: 'ResearchRunContext', evidence: 'tuple[AgentEvidence, ...]', candidate_content: 'str' = '') -> 'tuple[str, ...]'
 ```
 
 Existing evidence hashes to retain first in a bounded recovery view.

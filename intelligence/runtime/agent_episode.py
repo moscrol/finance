@@ -1942,6 +1942,7 @@ class ContinuousAgentEpisode:
                         llm_calls=llm_calls,
                         tool_calls=tool_calls,
                         invalid_actions=invalid_actions,
+                        candidate_content=turn.content,
                     )
                 return self._stopped_outcome(
                     task_frame=task_frame,
@@ -3217,6 +3218,7 @@ class ContinuousAgentEpisode:
         llm_calls: int,
         tool_calls: int,
         invalid_actions: int,
+        candidate_content: str = "",
     ) -> AgentOutcome:
         """Attempt exactly one compact recovery and always return a terminal outcome."""
 
@@ -3245,7 +3247,10 @@ class ContinuousAgentEpisode:
             recovery_options = {}
             priority_hook = getattr(self._harness, "recovery_evidence_priority", None)
             if callable(priority_hook):
-                priority = priority_hook(context=context, evidence=tuple(accumulator.evidence))
+                priority = priority_hook(
+                    context=context, evidence=tuple(accumulator.evidence),
+                    candidate_content=candidate_content,
+                )
                 if isinstance(priority, tuple) and priority:
                     recovery_options["evidence_priority"] = priority
             turn = self._finalizer.recover(
