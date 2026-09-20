@@ -73,6 +73,9 @@ class TreeRow:
     dirty_n: int
     kind: str
     subjects: tuple[str, ...] = field(default_factory=tuple)
+    error: str = ""
+    locked: str = ""
+    prunable: str = ""
 
 
 def _git(args: list[str], *, cwd: str | None, timeout: float) -> tuple[int, str]:
@@ -113,6 +116,10 @@ def parse_worktree_porcelain(text: str) -> list[dict[str, str]]:
             current["branch"] = raw.split(" ", 1)[1].removeprefix("refs/heads/")
         elif raw == "detached":
             current["branch"] = "(detached)"
+        elif raw == "locked" or raw.startswith("locked "):
+            current["locked"] = raw.partition(" ")[2] or "locked"
+        elif raw == "prunable" or raw.startswith("prunable "):
+            current["prunable"] = raw.partition(" ")[2] or "prunable"
     if current:
         rows.append(current)
     return rows
@@ -156,7 +163,8 @@ def cherry_counts(head: str, base: str, *, cwd: str, timeout: float) -> tuple[in
         return 0, 0, True
     code, out = _git(["cherry", base, head], cwd=cwd, timeout=timeout)
     if code != 0:
-        return 0, 0, False
+        # Unknown is not zero: keep failed queries visible in JSON and --this.
+        return -1, -1, False
     plus = minus = 0
     for line in out.splitlines():
         if line.startswith("+ "):
@@ -212,13 +220,21 @@ def classify_worktree(
     head = spec.get("head") or ""
     if not path or not head:
         return None
+    code, top = _git(["rev-parse", "--show-toplevel"], cwd=path, timeout=timeout)
+    error = ""
+    if code != 0 or not top or Path(top).resolve() != Path(path).resolve():
+        error = "worktree unavailable or repository root mismatch"
     plus, minus, in_main = cherry_counts(head, base, cwd=path, timeout=timeout)
+    if plus < 0:
+        error = error or "git cherry failed; merge status unknown"
     ahead = _count(["rev-list", "--count", f"{base}..{head}"], cwd=path, timeout=timeout)
     behind = behind_count(head, base, cwd=path, timeout=timeout)
-    _, status = _git(["status", "--porcelain"], cwd=path, timeout=timeout)
+    status_code, status = _git(["status", "--porcelain"], cwd=path, timeout=timeout)
+    if status_code != 0:
+        error = error or "git status failed; dirty state unknown"
     paths = _status_paths(status)
     subjects: tuple[str, ...] = ()
-    if plus:
+    if plus > 0:
         subjects = unique_subjects(head, base, cwd=path, timeout=timeout)
     return TreeRow(
         path=path,
@@ -234,6 +250,9 @@ def classify_worktree(
         dirty_n=len(paths),
         kind=tree_kind(path, main_checkout),
         subjects=subjects,
+        error=error,
+        locked=spec.get("locked", ""),
+        prunable=spec.get("prunable", ""),
     )
 
 
@@ -369,21 +388,23 @@ def display_path(path: str) -> str:
 
 
 def format_board(rows: list[TreeRow], *, base: str, base_sha: str) -> str:
-    unique = [row for row in rows if row.cherry_plus > 0]
+    uncertain = [row for row in rows if row.error or row.locked or row.prunable]
+    known = [row for row in rows if not (row.error or row.locked or row.prunable)]
+    unique = [row for row in known if row.cherry_plus > 0]
     prune = [
         row
-        for row in rows
-        if row.in_main and row.kind == "dev-wt" and not row.code_dirty
+        for row in known
+        if row.in_main and row.kind == "dev-wt" and not row.dirty
     ]
-    snapshots = [row for row in rows if row.kind == "prod-snapshot"]
+    snapshots = [row for row in known if row.kind == "prod-snapshot"]
     leftover_dirty = [
         row
-        for row in rows
-        if row.in_main and row.kind == "dev-wt" and row.code_dirty
+        for row in known
+        if row.in_main and row.kind == "dev-wt" and row.dirty
     ]
     lines = [
         f"基准 {base}={base_sha[:12]}  （合入看 cherry+，不是 ahead 提交数）",
-        f"树 {len(rows)} 棵 · 还有补丁 {len(unique)} · 补丁已在基线的 dev 树 {len(prune)}",
+        f"树 {len(rows)} 棵 · 还有补丁 {len(unique)} · 补丁已在基线的干净 dev 树 {len(prune)} · 待核实 {len(uncertain)}",
         "",
         "【还有补丁 — 真没合】",
     ]
@@ -414,11 +435,17 @@ def format_board(rows: list[TreeRow], *, base: str, base_sha: str) -> str:
             f"  {row.head[:12]}  {row.branch}{extra}  {display_path(row.path)}"
         )
     if leftover_dirty:
-        lines += ["", "【补丁已在基线，但还有代码脏文件 — 先认领再拆】"]
+        lines += ["", "【补丁已在基线，但还有未提交文件 — 先认领再拆】"]
         for row in leftover_dirty:
             lines.append(
                 f"  {row.head[:12]}  {row.branch}  {display_path(row.path)}"
             )
+    if uncertain:
+        lines += ["", "【待核实 — 查询失败、失效目录或锁定；不可据此拆树】"]
+        for row in uncertain:
+            reason = "; ".join(filter(None, (row.error, row.locked, row.prunable)))
+            lines.append(f"  {row.head[:12]}  {row.branch}  {display_path(row.path)}")
+            lines.append(f"      {reason}")
     lines += ["", "【生产快照】只留当前 8792 + 一个回滚锚；本脚本不拆"]
     for row in snapshots:
         lines.append(
@@ -445,7 +472,9 @@ def this_tree_lines(
         return []
     plus, minus, in_main = cherry_counts(head, base, cwd=cwd, timeout=timeout)
     behind = behind_count(head, base, cwd=cwd, timeout=timeout)
-    if in_main:
+    if plus < 0:
+        merge = f"合入: 未知（git cherry 查询失败，基准 {base}={base_sha[:12]}）"
+    elif in_main:
         merge = f"合入: 本枝补丁已在 {base}={base_sha[:12]}（cherry+0）"
     else:
         merge = (

@@ -440,3 +440,87 @@ def test_format_board_splits_unique_and_prunable() -> None:
     assert "还有补丁" in text
     assert "树可拆" in text
     assert "本脚本不拆" in text
+
+
+def _classify(repo: Path, **metadata: str):
+    return board.classify_worktree(
+        {"path": str(repo), "head": _git(repo, "rev-parse", "HEAD"),
+         "branch": "main", **metadata},
+        base="main", main_checkout=str(repo.parent / "other"), timeout=10,
+    )
+
+
+def test_missing_worktree_is_visible_as_unknown(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    row = board.classify_worktree(
+        {"path": str(tmp_path / "fwp-wt-missing"),
+         "head": _git(repo, "rev-parse", "HEAD"), "branch": "topic"},
+        base="main", main_checkout=str(repo), timeout=10,
+    )
+    assert row.error
+    assert row.cherry_plus == -1
+    text = board.format_board([row], base="main", base_sha="a" * 40)
+    assert "待核实 1" in text
+    assert "fwp-wt-missing" in text
+    assert "干净 dev 树 0" in text
+
+
+def test_parent_repository_is_not_mistaken_for_missing_worktree(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    nested = repo / "fwp-wt-missing"
+    nested.mkdir()
+    row = _classify(repo, path=str(nested))
+    assert "root mismatch" in row.error
+    text = board.format_board([row], base="main", base_sha="a" * 40)
+    assert "待核实 1" in text
+    assert "干净 dev 树 0" in text
+
+
+def test_status_failure_never_becomes_prunable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = _init_repo(tmp_path)
+    git = board._git
+
+    def fail_status(args, **kwargs):
+        return (1, "") if args[0] == "status" else git(args, **kwargs)
+
+    monkeypatch.setattr(board, "_git", fail_status)
+    row = _classify(repo)
+    assert "dirty state unknown" in row.error
+    assert "待核实 1" in board.format_board([row], base="main", base_sha="a" * 40)
+
+
+def test_failed_cherry_is_unknown_in_session_start(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    assert board.cherry_counts("HEAD", "missing", cwd=str(repo), timeout=10) == (-1, -1, False)
+    lines = board.this_tree_lines(
+        cwd=str(repo), base="missing", base_sha="", timeout=10, repo_root=repo,
+    )
+    assert "未知" in lines[0]
+    assert "cherry+0" not in lines[0]
+
+
+@pytest.mark.parametrize("metadata", [{"locked": "review"}, {"prunable": "missing gitdir"}])
+def test_worktree_metadata_prevents_cleanup_suggestion(tmp_path: Path, metadata) -> None:
+    repo = _init_repo(tmp_path)
+    text = "worktree " + str(repo) + "\nHEAD abc\n"
+    text += "\n".join(f"{key} {value}" for key, value in metadata.items())
+    spec = board.parse_worktree_porcelain(text)[0]
+    for key, value in metadata.items():
+        assert spec[key] == value
+    row = _classify(repo, **metadata)
+    assert "待核实 1" in board.format_board([row], base="main", base_sha="a" * 40)
+
+
+def test_document_only_dirt_is_not_safe_to_remove(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    wt = tmp_path / "fwp-wt-docs"
+    _git(repo, "worktree", "add", "-b", "docs", str(wt))
+    (wt / "notes.md").write_text("uncommitted original\n", encoding="utf-8")
+    row = _classify(wt)
+    assert row.in_main and row.dirty and not row.code_dirty
+    text = board.format_board([row], base="main", base_sha="a" * 40)
+    assert "干净 dev 树 0" in text
+    assert "还有未提交文件" in text
+    assert str(wt) not in text.split("【补丁已在基线 — 树可拆")[1].split("【")[0]
