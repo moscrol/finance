@@ -10,7 +10,7 @@
 - 历史：代码dca7c27e/7e5f2ccd，clean e0f2a5c7独立Spec四组行为/12P、Quality另7P通过。PR800以原history c9为底；与main预演无文本冲突，未跑合流全叶或原自然四题。文档归档PR799。
 
 ## 后续队列
-1. rag_retirement_impl在新fix/rag-retirement-closeout-0920实施：固定受管版本、首次新查询前退役状态、legacy/缺绑定/回滚及消费者不重载旧CLI，下一站Spec→Quality。
+1. RAG首版bc43ece9（代码d6812e62）已推且clean，作者94P/2S、真实双索引换版/回滚8进程关闭。独立Spec进行中，接Quality及冻结四叶；缺失绑定路径首次建实例能否绕回CLI须重点核查。首版原件另存不覆盖。
 2. 302132：独立65P但同步换code仍PASS、巨大int无FAIL JSON；按CODE绑定并可靠失败，计划已写尚未实施。
 3. 夜跑6356：独立36P，但显式刷新跳过借旧success认证；先修此缺口。跨午夜涉及日期/即时市值，另定合同；main可选Hithink skip为集成条件。计划已写。
 运行恢复/财务后续仍需合流门禁；跨进程driver未开放。

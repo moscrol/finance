@@ -766,8 +766,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 3330,
-      "sha256": "6785b34a114409d4b0e5f4c2df1d15fbfb92ccfeb9b88b4d79322d491b0b5522",
+      "bytes": 3567,
+      "sha256": "891cedf96badeb0fff19de3026f972912cd5d99f2effebca955df4462c1ba9c6",
       "source": "repository index maintained with this manifest"
     },
     {
@@ -1999,6 +1999,162 @@
       "bytes": 6382,
       "sha256": "fcac2b8acd456477f7b2129780519eefc7f80f217391a0f729849e597c8ab231",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/quality/test_quality_boundaries.py"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/MANIFEST.md",
+      "bytes": 2686,
+      "sha256": "3c223073628461121127568bbd5acf44d977a7491e5789f8b304dac3b41a6f22",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/MANIFEST.md"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/final-code-receipt-7b23e8f1.log.txt",
+      "bytes": 861,
+      "sha256": "29096806c11635374ab09e19201bbf6162bfee706541754b8afe0e8482a8f690",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/final-code-receipt-7b23e8f1.log.txt"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/final-code-receipt-d6812e62.log.txt",
+      "bytes": 861,
+      "sha256": "22110ecae3a0b882a3a7e82782c2df0b2087dcb4d0df78a983eb074208e6389e",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/final-code-receipt-d6812e62.log.txt"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/final-code-receipt-fb805b64.log.txt",
+      "bytes": 861,
+      "sha256": "162d51ab4828ddbd5d4205c9e0be6b7062e278208fc3ef82c5d4a88e74aebcea",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/final-code-receipt-fb805b64.log.txt"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/green-attempt-1.log.txt",
+      "bytes": 3121,
+      "sha256": "bd8191988ad4e7cd4048208894acd4eabcc6f47ef20c43a182eb658a1a6734b3",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/green-attempt-1.log.txt"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/green-unit-1.log.txt",
+      "bytes": 382,
+      "sha256": "9af5b10d523a8efbd90cc6ae174a7b449d5caf2edeb6b74c87222eca351fbca2",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/green-unit-1.log.txt"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/mutation-ambient-relabel.log.txt",
+      "bytes": 2265,
+      "sha256": "1685cd3669785e8e777f623f67f514eeede1852c1e4190d4744af73710a30221",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/mutation-ambient-relabel.log.txt"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/mutation-remove-current-check.log.txt",
+      "bytes": 1888,
+      "sha256": "1e38e693f7b1513300a4040e557de6c0d9bd4a0ceaf914a86266a2ec2dcc8542",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/mutation-remove-current-check.log.txt"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/post-mutation-green.log.txt",
+      "bytes": 462,
+      "sha256": "d39316c20e1f4f6ced0d9125a5c41555d6480d3aed2d995459d783d18f7233e9",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/post-mutation-green.log.txt"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/probe-hashes.txt",
+      "bytes": 1262,
+      "sha256": "c89b72d1b0337b1ed6cfb72f63b3fabef86af14ae75fee9e42e977f7bc2dda3b",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/probe-hashes.txt"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/probe_finance_worker.baseline.py.txt",
+      "bytes": 7359,
+      "sha256": "fdf194f4c0d6b129d015e1f97045b0ab98b31f1c09578fcb7994a27ebaf39efb",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/probe_finance_worker.baseline.py"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/probe_finance_worker.fixed-attempt1.py.txt",
+      "bytes": 9009,
+      "sha256": "fbce13bd78cc554ba2889c77e6c95c2f82cae844248f70fd093aa9e6f887d32c",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/probe_finance_worker.fixed-attempt1.py"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/probe_finance_worker.py.txt",
+      "bytes": 9098,
+      "sha256": "83d9fc88f820ba0ae36e00f38f81b9282e0a55536aeb16fc9418811461d347a6",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/probe_finance_worker.py"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/real-baseline.log.txt",
+      "bytes": 561,
+      "sha256": "334b68773c5938e37fc257aa51e30062c624a7f85183d5b592f773003f238fb8",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/real-baseline.log.txt"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/real-fixed-7b23e8f1.log.txt",
+      "bytes": 837,
+      "sha256": "964df5e1246433f54022ddaa19830be2541d64d60c32c377e94f8dea800747ab",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/real-fixed-7b23e8f1.log.txt"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/real-fixed-d6812e62.log.txt",
+      "bytes": 837,
+      "sha256": "9cbbeb271c8abc6205063da051bf99f9bb876eeee70d9d9e6e335cc3148bc4b2",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/real-fixed-d6812e62.log.txt"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/real-fixed-fb805b64-r2.log.txt",
+      "bytes": 843,
+      "sha256": "e95076d7fb52f0c2da13bb470f79d0d6e3dfcc09462ac73a190956bd04661006",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/real-fixed-fb805b64-r2.log.txt"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/real-fixed-fb805b64.log.txt",
+      "bytes": 983,
+      "sha256": "d6bfd8a84ea23f84e5a7e0a0fc2d8363a03639ccab504c83000769eab898ca19",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/real-fixed-fb805b64.log.txt"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/real-fixed.log.txt",
+      "bytes": 1623,
+      "sha256": "1f1b5f5eace9b22de3f8519f6d8605dcbd6d016aebbd641398626f6d5a497de5",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/real-fixed.log.txt"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/red-distinct-venv-entry.log.txt",
+      "bytes": 1540,
+      "sha256": "815714b83adec8fa1ba732bac25547d1ef6b85fc24f50ca720378c8c7105b866",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/red-distinct-venv-entry.log.txt"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/red-tests.log.txt",
+      "bytes": 16500,
+      "sha256": "b20ae96537d42858062565006a021ec393f7714f1ed8b03df1a98b09393258af",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/red-tests.log.txt"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/red-venv-entry.log.txt",
+      "bytes": 1876,
+      "sha256": "d27d8b35e4b4cba664f8d04bc9d690acec7437c50c19346de1b2f2d96d601a0e",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/red-venv-entry.log.txt"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/worker-baseline/results.json",
+      "bytes": 18574,
+      "sha256": "2130eba97ad0fe77a896693efa6bfc462db4cf5763fcdf66a353c16ebea2fd75",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/worker-baseline/results.json"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/worker-fixed-7b23e8f1/results.json",
+      "bytes": 24405,
+      "sha256": "b4fc251a807dcf412d0918ab200304ca585b029aaf7b914ad8bc220a1ca08709",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/worker-fixed-7b23e8f1/results.json"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/worker-fixed-d6812e62/results.json",
+      "bytes": 24405,
+      "sha256": "9641aab531ec9b100e0c9cc0728683dd59d2edd3b6a6002d60bafff3b5e6dfb9",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/worker-fixed-d6812e62/results.json"
+    },
+    {
+      "path": "rag-retirement-first-freeze-bc43ece9/worker-fixed-fb805b64-r2/results.json",
+      "bytes": 24405,
+      "sha256": "a7261f88693a7ff774c1d786a6a4064de424f42643a84b71f56ac8880ca23624",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/worker-fixed-fb805b64-r2/results.json"
     }
   ]
 }
