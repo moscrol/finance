@@ -126,6 +126,70 @@ def test_single_arm_inspection_does_not_claim_paired_controls(monkeypatch, tmp_p
     assert controls["same_initial_configuration"] is None
 
 
+def test_inspector_preserves_empty_results_failures_conditions_and_answer_stages():
+    events = [
+        {"sequence": 1, "kind": "tool_request", "payload": {
+            "call_id": "query-1", "name": "finance_query",
+            "arguments": {"dataset": "regulation_event_daily", "filters": {"stock_code": "300308"}},
+        }},
+        {"sequence": 2, "kind": "tool_result", "payload": {
+            "call_id": "query-1", "ok": True, "evidence": [],
+            "observation": "structured query returned no rows", "gaps": ["window has no result"],
+        }},
+        {"sequence": 3, "kind": "tool_request", "payload": {
+            "call_id": "query-2", "name": "financial_data", "arguments": {},
+        }},
+        {"sequence": 4, "kind": "tool_error", "payload": {
+            "call_id": "query-2", "stage": "authorize", "reason": "local_only",
+        }},
+    ]
+    episode = {
+        "outcome": {"draft": "before; however after", "gaps": ["not in public"]},
+        "semantic_verifier": {
+            "public_answer": "however after", "judge_status": "passed",
+            "verified": {"outcome": {"draft": "however after", "gaps": ["not in public"]}},
+            "sentence_verdicts": [{"verdict": "reject"}],
+        },
+    }
+    result = inspection.summarize(episode, events)
+    assert result["tool_events"] == events
+    assert result["answer_stages"] == {
+        "submitted_draft": "before; however after",
+        "verified_draft": "however after", "verified_gaps": ["not in public"],
+        "public_answer": "however after",
+        "judge_status": "passed", "sentence_verdicts": [{"verdict": "reject"}],
+    }
+    assert result["semantic_quality"].startswith("not_scored")
+    assert events[1]["payload"]["evidence"] == []
+
+
+def test_inspector_external_output_preserves_sealed_source_and_delivered_answer(monkeypatch, tmp_path):
+    source = tmp_path / "sealed"
+    fixtures = {
+        "protocol.json": {"arms": ["on"]},
+        "on/raw-run/continuous-episode.json": {"outcome": {}, "events": []},
+        "on/result.json": {"elapsed_seconds": 1},
+        "on/health.json": {"runtime": {"loaded_tree_fingerprint": "test"}},
+    }
+    for name, value in fixtures.items():
+        path = source / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(value))
+    (source / "on/answer.md").write_text("delivered, not just the internal draft")
+    before = {str(p.relative_to(source)): p.read_bytes() for p in source.rglob("*") if p.is_file()}
+    destination = tmp_path / "reinspection"
+    monkeypatch.setattr(inspection.sys, "argv", ["inspect", str(source), "--output", str(destination)])
+    assert inspection.main() == 0
+    result = json.loads((destination / "on.json").read_text())
+    assert result["delivered_answer"] == "delivered, not just the internal draft"
+    hashes = json.loads((destination / "sha256.json").read_text())
+    assert "on/answer.md" in hashes
+    assert str(destination / "on.json") in hashes
+    assert before == {str(p.relative_to(source)): p.read_bytes() for p in source.rglob("*") if p.is_file()}
+    with pytest.raises(FileExistsError):
+        inspection.main()
+
+
 def test_probe_accepts_explicit_single_arm(monkeypatch, tmp_path):
     destination = tmp_path / "single"
     monkeypatch.setenv("PROBE_TEST_KEY", "not-a-real-credential")

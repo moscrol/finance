@@ -2,6 +2,8 @@
 """Extract paired research traces without treating activity as semantic quality.
 
 Optionally archive the exact durable episodes from an explicitly supplied store.
+Includes private observations, failures and answer stages, not a public export.
+Use --output outside a sealed pair to reinspect without changing its archive.
 Never modifies source runs; refuses to overwrite an existing inspection.
 """
 
@@ -32,12 +34,16 @@ def dump(path: Path, value: object) -> None:
 def summarize(episode: dict, events: list[dict]) -> dict:
     rounds = []
     calls = []
+    tool_events = []
     plans = []
     feedback = []
     checkpoints = []
     configuration = {}
     for event in events:
         kind, payload = event["kind"], event["payload"]
+        # Keep empty/error observations and call IDs; an E-card list omits both.
+        if kind in {"tool_request", "tool_result", "tool_error"}:
+            tool_events.append({"sequence": event["sequence"], "kind": kind, "payload": payload})
         if kind == "configure":
             configuration = {key: payload.get(key) for key in (
                 "research_tier", "allowed_capabilities", "authorized_tools",
@@ -61,12 +67,23 @@ def summarize(episode: dict, events: list[dict]) -> dict:
             if "adaptive_research" in progress:
                 feedback.append({"sequence": event["sequence"], "batch": progress.get("batch"), **progress["adaptive_research"]})
     outcome = episode["outcome"]
+    semantic = episode.get("semantic_verifier", {})
+    verified = semantic.get("verified", {}).get("outcome", {})
     return {
         "configuration": configuration,
         "usage": outcome.get("usage"),
         "status": outcome.get("status"),
         "stop_reason": outcome.get("stop_reason"),
         "declared_gaps": outcome.get("gaps"),
+        "answer_stages": {
+            "submitted_draft": outcome.get("draft"),
+            "verified_draft": verified.get("draft"),
+            "verified_gaps": verified.get("gaps"),
+            "public_answer": semantic.get("public_answer"),
+            "judge_status": semantic.get("judge_status"),
+            "sentence_verdicts": semantic.get("sentence_verdicts"),
+        },
+        "tool_events": tool_events,
         "plan_count": len(plans),
         "checkpoint_count": len(checkpoints),
         "feedback_batches": len(feedback),
@@ -84,12 +101,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("pair", type=Path)
     parser.add_argument("--episode-store", type=Path)
+    parser.add_argument("--output", type=Path, help="new inspection directory, including outside the source pair")
     args = parser.parse_args()
+    args.pair = args.pair.resolve()
     arms = load(args.pair / "protocol.json")["arms"]
     if not arms or len(set(arms)) != len(arms) or set(arms) - {"off", "on"}:
         parser.error("invalid arms in protocol")
-    destination = args.pair / "inspection"
-    destination.mkdir(exist_ok=False)
+    destination = args.output.resolve() if args.output else args.pair / "inspection"
+    destination.mkdir(parents=True, exist_ok=False)
     summaries = {}
     fingerprints = {}
     for arm in arms:
@@ -105,6 +124,8 @@ def main() -> int:
                 shutil.copy2(original / name, archive / name)
             events = [json.loads(line) for line in (archive / store.EVENTS_NAME).read_text().splitlines() if line.strip()]
         summary = summarize(episode, events)
+        answer_path = source / "answer.md"
+        summary["delivered_answer"] = answer_path.read_text(encoding="utf-8") if answer_path.is_file() else None
         summary["elapsed_seconds"] = load(source / "result.json")["elapsed_seconds"]
         summaries[arm] = summary
         dump(destination / f"{arm}.json", summary)
@@ -120,8 +141,13 @@ def main() -> int:
     }
     dump(destination / "controls.json", controls)
     paths = [path for arm in arms for path in (args.pair / arm / "raw-run").rglob("*") if path.is_file()]
+    paths.extend(path for arm in arms for name in ("answer.md", "result.json", "health.json") if (path := args.pair / arm / name).is_file())
+    paths.append(args.pair / "protocol.json")
     paths.extend(path for path in destination.rglob("*") if path.is_file())
-    dump(destination / "sha256.json", {str(path.relative_to(args.pair)): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(paths)})
+    dump(destination / "sha256.json", {
+        str(path.relative_to(args.pair) if path.is_relative_to(args.pair) else path): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(paths)
+    })
     print(json.dumps({"controls": controls, **{arm: {key: row[key] for key in ("usage", "plan_count", "checkpoint_count", "feedback_batches", "elapsed_seconds")} for arm, row in summaries.items()}}, ensure_ascii=False, indent=2))
     return 0
 
