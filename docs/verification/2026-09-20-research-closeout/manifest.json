@@ -766,9 +766,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 4188,
-      "sha256": "674d1b62bffebac2b2c458b2e254ee68acd0524576ceae22a576ec012b925455",
-      "source": "repository index maintained with this manifest"
+      "bytes": 4692,
+      "sha256": "44d9711d13d17b4e45795c75caf12445dd8980d948dd748edd51a7d0f0f613eb"
     },
     {
       "path": "runtime-evidence-fix/M1-hash-only-green.log.txt",
@@ -2358,6 +2357,108 @@
       "bytes": 387,
       "sha256": "5ccfbe29315ce3b1b6526b3071f771cc645dc209bfd4a92daca52b1295ecaa18",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec-final/keepalive-known-race-single-run.junit.xml"
+    },
+    {
+      "path": "rag-retirement-fix/keepalive-test-sync/MANIFEST.md",
+      "bytes": 1632,
+      "sha256": "bc97be72143227684045f69a7e7e0dc81c3c565546f45cb9a09d9c9717071221",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/keepalive-test-sync/MANIFEST.md"
+    },
+    {
+      "path": "rag-retirement-fix/keepalive-test-sync/final-directed-292d78f3.log.txt",
+      "bytes": 813,
+      "sha256": "a423d439b34fc04d543cbc40d73486d9656a618c3873c9b0f1c833931243c402",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/keepalive-test-sync/final-directed-292d78f3.log.txt"
+    },
+    {
+      "path": "rag-retirement-review/quality/REPORT.md",
+      "bytes": 6423,
+      "sha256": "a8dc6cc9e796331355b137a41ff233a3962077dcf8d4c57529e01eb571d9b589",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/quality/REPORT.md"
+    },
+    {
+      "path": "rag-retirement-review/quality/probes/post_capture_interpreter_chain_loop.log.txt",
+      "bytes": 228,
+      "sha256": "adc8d1c0c96a206af86b253a70d5b797c6c9ed1bdbd83f19b8413b9b0200b967",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/quality/probes/post_capture_interpreter_chain_loop.log"
+    },
+    {
+      "path": "rag-retirement-review/quality/probes/post_capture_interpreter_chain_loop.py.txt",
+      "bytes": 2290,
+      "sha256": "d3e5016024b15407ade0f90546537e8b0ed91a15ab6630fc77812b0b1574da94",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/quality/probes/post_capture_interpreter_chain_loop.py"
+    },
+    {
+      "path": "rag-retirement-review/quality/pytest-rag-targeted.xml",
+      "bytes": 12471,
+      "sha256": "339a587b9a80e96fb10706d5e34485231dda67db609ff1b4315287d79b5e0437",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/quality/pytest-rag-targeted.xml"
+    },
+    {
+      "path": "rag-retirement-fix/runtime-loop-repair/post_capture_interpreter_chain_loop.original.py.txt",
+      "bytes": 2290,
+      "sha256": "d3e5016024b15407ade0f90546537e8b0ed91a15ab6630fc77812b0b1574da94",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/runtime-loop-repair/post_capture_interpreter_chain_loop.original.py"
+    },
+    {
+      "path": "rag-retirement-fix/runtime-loop-repair/post-mutation-launch-green.log.txt",
+      "bytes": 98,
+      "sha256": "e8c2ebdecc6c68bd31c948de0b0c1dd4c57dd47d093194a6c1d241c65727824d",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/runtime-loop-repair/post-mutation-launch-green.log.txt"
+    },
+    {
+      "path": "rag-retirement-fix/runtime-loop-repair/final-directed-b860ecc8.log.txt",
+      "bytes": 930,
+      "sha256": "e8f210e69fed63542929612c7d8e371e84b78355d2c683a9819fa58f411cec38",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/runtime-loop-repair/final-directed-b860ecc8.log.txt"
+    },
+    {
+      "path": "rag-retirement-fix/runtime-loop-repair/final-probe-b860ecc8.log.txt",
+      "bytes": 647,
+      "sha256": "3469c4c5b99b01c03d131a5593e53dff64ab266f48b0e654cfec6623b4a99baf",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/runtime-loop-repair/final-probe-b860ecc8.log.txt"
+    },
+    {
+      "path": "rag-retirement-fix/runtime-loop-repair/red-ad839d2e.log.txt",
+      "bytes": 134,
+      "sha256": "d728c60d0c206a929b804300f554d5b20243221a150ac2da1e4cdb42ebd6f1c2",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/runtime-loop-repair/red-ad839d2e.log.txt"
+    },
+    {
+      "path": "rag-retirement-fix/runtime-loop-repair/MANIFEST.md",
+      "bytes": 2503,
+      "sha256": "9572618a661dcdde6a07f8ee17e51120d7710a6de904d38ade65176bc904301b",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/runtime-loop-repair/MANIFEST.md"
+    },
+    {
+      "path": "rag-retirement-fix/runtime-loop-repair/green-working-tree.log.txt",
+      "bytes": 647,
+      "sha256": "3469c4c5b99b01c03d131a5593e53dff64ab266f48b0e654cfec6623b4a99baf",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/runtime-loop-repair/green-working-tree.log.txt"
+    },
+    {
+      "path": "rag-retirement-fix/runtime-loop-repair/mutation-resolved-launch.log.txt",
+      "bytes": 2154,
+      "sha256": "3a935e03de624b67013b6714267cd104c1bda71f94a34b8e39018e28dc43f33b",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/runtime-loop-repair/mutation-resolved-launch.log.txt"
+    },
+    {
+      "path": "rag-retirement-review/quality-final/REPORT.md",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/quality-final/REPORT.md",
+      "bytes": 5279,
+      "sha256": "f3da7ab5449cd669175ddc81aa33f3585af2f3ef9bd5791b89f6f91e8be9e311"
+    },
+    {
+      "path": "rag-retirement-review/quality-final/pytest-guards.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/quality-final/pytest-guards.xml",
+      "bytes": 1009,
+      "sha256": "b6acf73e3394afd9a673a2982d73dff3909134870299c02c19eb8757ee7631ce"
+    },
+    {
+      "path": "rag-retirement-review/quality-final/logs/original-quality-probe.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/quality-final/logs/original-quality-probe.log",
+      "bytes": 652,
+      "sha256": "18800fde8078a75f488d2cd37f40844ac10daf77402d0df9d80556d411f9832c"
     }
   ]
 }
