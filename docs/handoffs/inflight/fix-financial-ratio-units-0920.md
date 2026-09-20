@@ -7,10 +7,11 @@
 - 保持既有财务/交付检查接线；不新建判官或预算，不整文件覆盖 q。
 - 差值单位判未核验，不除以 10000 认证。表头差值单位不能被 cell 的“倍”覆盖。
 - 同报告期任一比例产物标差值单位，该期不认证；否掉择取另一个好值掩盖冲突。
-- 细节与边界见 `docs/handoffs/2026-09-20-financial-ratio-units.md`。
+- 前缀标签单位只传最近同句标签，按冒号截止；不借前一期数值或另句单位。
+- 首片见 `docs/handoffs/2026-09-20-financial-ratio-units.md`，返修见 `docs/handoffs/2026-09-20-financial-ratio-prefix-unit-repair.md`。
 
 ## 当前状态
-代码 `8d281985fc3739832881f3cbab0d174a532caeb5` 已正常推送 `gitea/fix/financial-ratio-units-0920`。本交接随后仅追加文档提交；未合 main、未部署。实施自审完成，等协调者安排独立 Spec→Quality。
+代码 `26fadf33e8ef30a708b6fdd661283c8a5487d8cc` 已正常推送 `gitea/fix/financial-ratio-units-0920`。原7149独立Spec发现的报告期前标签单位遗漏已返修，等同轴复验再Quality。本交接随后仅追加文档提交；未合main、未部署。
 
 ## 未验证 / 已知边界
 - 未吸收 q 的局部保邻句/多值对应语法，旧 R6 对逗号邻句的删除行为仍在。
@@ -26,5 +27,5 @@
 
 ## 已验证
 指定 venv；别名 4F/27P→31P；单位 35F/41P→76P。撤保护别名/表头/产物各2F/5F/8F；换回原 R6 两模块时新增真出口14F，恢复后14P，源码 hash 与变异前修复版本一致。
-代码提交干净定向7模块351P；收据 `20260920T034936Z-8d281985.json`。Ruff与提交门禁绿。off/passed stub 均验证局部缺口、修正清债、输入/邻句/引用与原件保留。
+首片代码8d281985干净定向7模块351P；不移签返修。26fadf33两相关模块134P（收据 `20260920T040521Z-26fadf33.json`）；新增前缀13F/16P→29P，撤前缀单位传递再13F；原Spec探针12P/0F，4条scope诊断逐条不变。Ruff与提交门禁绿。off/passed stub 均验证局部缺口、修正清债、输入/邻句/引用与原件保留。
 外部证据：`/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-fix/`。无真实模型/生产读写；无新增通用工具，承重断言直接留在原测试入口。

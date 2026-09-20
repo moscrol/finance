@@ -114,4 +114,4 @@ label_unit = _ratio_unit(f"{prefix_unit} {number['label_unit'] or ''}")
 
 - [x] 同断言转绿；仅运行 `test_research_delivery_checks.py` 与 `test_financial_delivery_integration.py`，不重复351P或整仓。
 - [x] 临时把 `prefix_unit` 赋值换为空串，原反例须再红，恢复并核对hash。原独立 `probe_ratio_label_scope.py --root <本树>`另存新输出，旧四条scope诊断保持原行为。
-- [ ] Ruff、diff检查、pathspec提交；更新本计划与两份交接，普通推送，返回最终干净SHA供同轴复核。
+- [x] Ruff、diff检查、pathspec提交；更新本计划与两份交接，普通推送，返回最终干净SHA供同轴复核。
