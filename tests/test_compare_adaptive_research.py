@@ -163,6 +163,36 @@ def test_inspector_preserves_empty_results_failures_conditions_and_answer_stages
     assert events[1]["payload"]["evidence"] == []
 
 
+def test_inspector_labels_current_projection_without_inventing_a_historical_request():
+    arguments = {
+        "dataset": "regulation_event_daily", "dimensions": ["stock_code"],
+        "filters": [{"field": "stock_code", "op": "eq", "value": "300308"}],
+        "time_range": {"start": "2026-08-01", "end": "2026-09-18"},
+    }
+    events = [
+        {"sequence": 9, "kind": "tool_request", "payload": {
+            "call_id": "q", "name": "finance_query", "arguments": arguments,
+        }},
+        {"sequence": 13, "kind": "tool_result", "payload": {
+            "call_id": "q", "tool": "finance_query", "ok": True, "evidence": [],
+        }},
+    ]
+    trace = {"provider": "private", "capability": "finance_query", "status": "empty", "result_count": 0}
+    episode = {"outcome": {"traces": []}, "semantic_verifier": {"verified": {"outcome": {"traces": [trace]}}}}
+    before = json.dumps([episode, events], sort_keys=True)
+    assert "current_code_tool_status_projection" not in inspection.summarize(episode, events)
+    summary = inspection.summarize(episode, events, project_current_judge_status=True)
+    projection = summary["current_code_tool_status_projection"]
+    assert projection["origin"] == "reconstructed_parent_events_and_traces; not_captured_judge_request"
+    assert projection["trace_source"] == "verified_outcome"
+    row, fallback = projection["rows"]
+    assert row["requested_query"] == arguments
+    assert row["delivered_evidence_count"] == 0
+    assert row["result_sequence"] == 13
+    assert fallback == {"capability": "finance_query", "status": "empty", "result_count": 0}
+    assert json.dumps([episode, events], sort_keys=True) == before
+
+
 def test_inspector_external_output_preserves_sealed_source_and_delivered_answer(monkeypatch, tmp_path):
     source = tmp_path / "sealed"
     fixtures = {
@@ -178,10 +208,11 @@ def test_inspector_external_output_preserves_sealed_source_and_delivered_answer(
     (source / "on/answer.md").write_text("delivered, not just the internal draft")
     before = {str(p.relative_to(source)): p.read_bytes() for p in source.rglob("*") if p.is_file()}
     destination = tmp_path / "reinspection"
-    monkeypatch.setattr(inspection.sys, "argv", ["inspect", str(source), "--output", str(destination)])
+    monkeypatch.setattr(inspection.sys, "argv", ["inspect", str(source), "--output", str(destination), "--project-current-judge-status"])
     assert inspection.main() == 0
     result = json.loads((destination / "on.json").read_text())
     assert result["delivered_answer"] == "delivered, not just the internal draft"
+    assert result["current_code_tool_status_projection"]["rows"] == []
     hashes = json.loads((destination / "sha256.json").read_text())
     assert "on/answer.md" in hashes
     assert str(destination / "on.json") in hashes

@@ -398,6 +398,63 @@ def test_tool_result_events_share_request_call_id_even_for_same_tool() -> None:
     assert sorted(result_ids) == ["call-a", "call-b"]
 
 
+def test_episode_empty_query_identities_reach_semantic_judge() -> None:
+    from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier
+    from intelligence.services.episode_verifier import verify_episode_outcome
+    from intelligence.services.finance_query import FinanceQuerySpec
+
+    def parse(arguments):
+        return FinanceQuerySpec.from_arguments(arguments), json.dumps(arguments, sort_keys=True)
+
+    def empty_runner(spec, _context):
+        assert isinstance(spec, FinanceQuerySpec)
+        return [], "没有交付证据，不能排除风险", ProviderTrace(
+            provider="private:query", capability="finance_query", status="empty",
+        )
+
+    queries = [
+        {"dataset": dataset, "dimensions": ["stock_code"],
+         "filters": [{"field": "stock_code", "op": "eq", "value": code}],
+         "time_range": {"start": "2026-07-01", "end": "2026-07-21"}}
+        for dataset, code in (("regulation_event_daily", "300308"), ("stock_daily", "300308.SZ"))
+    ]
+    frame = _frame()
+    context = _context(frame, max_steps=6, allowed_capabilities=("market_data", "finance_query"))
+    model = ScriptedModel([
+        ModelTurn("", (
+            ModelToolCall("regulation", "finance_query", queries[0]),
+            ModelToolCall("stock", "finance_query", queries[1]),
+            ModelToolCall("market", "market_data", {"query": "当前市场"}),
+        ), "scripted", ""),
+        _finish_turn(draft="上涨家数增加，成交保持活跃。"),
+    ])
+    registry = _market_registry(_successful_runner).with_specs(ToolSpec(
+        name="finance_query", capability="finance_query", description="本地结构化查询",
+        cost="local", freshness="current", runner=empty_runner, parse_arguments=parse,
+    ))
+    outcome = ContinuousAgentEpisode(model).run(task_frame=frame, context=context, registry=registry)
+    requests = []
+
+    def judge(request):
+        requests.append(request)
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame, structurally_verified=verify_episode_outcome(context.contract, outcome),
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert len(requests) == 1
+    calls = {row["call_id"]: row for row in requests[0]["tool_status_registry"] if row.get("call_id")}
+    assert set(calls) == {"regulation", "stock", "market"}
+    for call_id, query in zip(("regulation", "stock"), queries):
+        assert calls[call_id]["requested_query"] == query
+        assert calls[call_id]["delivered_evidence_count"] == 0
+    assert len(outcome.evidence) == len(requests[0]["evidence_registry"]) == 1
+    assert outcome.usage.tool_calls == 3
+    assert outcome.usage.llm_calls == 2
+    assert outcome.usage.invalid_actions == 0
+
+
 def test_tool_error_event_carries_request_call_id() -> None:
     """R-20260827-15 判据 1：error 事件同样带 call_id（异常路径）。"""
 

@@ -544,6 +544,180 @@ def test_judge_receives_sanitized_tool_status_for_empty_retrieval(
     assert "不能支持市场事实或因果结论" in system_prompt
 
 
+def _query_arguments(dataset="regulation_event_daily", code="300308", start="2026-08-01"):
+    return {
+        "dataset": dataset,
+        "dimensions": ["stock_code"],
+        "metrics": [],
+        "filters": [{"field": "stock_code", "op": "eq", "value": code}],
+        "time_range": {"start": start, "end": "2026-09-18"},
+    }
+
+
+def _query_event(kind, call_id, arguments=None, **extra):
+    payload = {"call_id": call_id}
+    if kind == "tool_request":
+        payload.update(name="finance_query", arguments=arguments or _query_arguments())
+    else:
+        payload.update(tool="finance_query", ok=kind == "tool_result")
+        if kind == "tool_result":
+            payload.update(evidence=[], dataset="regulation_event_daily")
+    return kind, {**payload, **extra}
+
+
+def _status_request(*records, traces=()):
+    frame, structural = _structural("本轮未获得相关记录，不能据此排除风险。", traces=traces)
+    events = structural.outcome.events + tuple(
+        EpisodeEvent(index, kind, payload)
+        for index, (kind, payload) in enumerate(records, start=2)
+    )
+    structural = replace(structural, outcome=replace(structural.outcome, events=events))
+    request = SemanticEpisodeVerifier()._judge_request(frame, structural, [])
+    return request, structural
+
+
+def test_judge_preserves_each_empty_query_identity_and_scope() -> None:
+    queries = (
+        _query_arguments(),
+        _query_arguments("stock_daily", start="2026-09-01"),
+        _query_arguments("core_stock_daily", code="300308.SZ", start="2026-09-01"),
+    )
+    records = [
+        _query_event("tool_request", f"query-{index}", arguments)
+        for index, arguments in enumerate(queries)
+    ]
+    # Completion order differs from dispatch order. Only call_id may join them.
+    records.extend(
+        _query_event("tool_result", f"query-{index}", dataset=queries[index]["dataset"])
+        for index in (2, 0, 1)
+    )
+    request, structural = _status_request(*records)
+    calls = {row["call_id"]: row for row in request.get("tool_status_registry", [])}
+    assert set(calls) == {"query-0", "query-1", "query-2"}
+    for index, arguments in enumerate(queries):
+        row = calls[f"query-{index}"]
+        assert row["requested_query"] == arguments
+        assert row["request_sequence"] == index + 2
+        assert row["execution_status"] == "returned"
+        assert row["delivered_evidence_count"] == 0
+        assert "result_count" not in row  # No inference about the source's total rows.
+    assert len(request["evidence_registry"]) == len(structural.outcome.evidence) == 1
+    assert all("evidence_id" not in row for row in calls.values())
+
+
+@pytest.mark.parametrize("broken_pair", ["legacy", "duplicate_request", "duplicate_result", "wrong_tool", "late_request"])
+def test_judge_does_not_guess_query_scope_for_unmatched_results(broken_pair) -> None:
+    request = _query_event("tool_request", "q")
+    result = _query_event("tool_result", "q")
+    records = {
+        "legacy": [request, _query_event("tool_result", "")],
+        "duplicate_request": [request, request, result],
+        "duplicate_result": [request, result, result],
+        "wrong_tool": [request, _query_event("tool_result", "q", tool="kb_search")],
+        "late_request": [result, request],
+    }[broken_pair]
+    payload, _ = _status_request(*records)
+    rows = payload.get("tool_status_registry", [])
+    assert rows
+    assert all("requested_query" not in row for row in rows)
+    assert all(row["query_identity"] == "unavailable" for row in rows)
+
+
+def test_judge_distinguishes_failed_and_unresolved_queries_without_private_diagnostics() -> None:
+    payload, _ = _status_request(
+        _query_event("tool_request", "failed"),
+        _query_event("tool_error", "failed", detail="PRIVATE_ERROR_SENTINEL", error="tool_exception"),
+        _query_event("tool_request", "pending"),
+    )
+    rows = {row["call_id"]: row for row in payload.get("tool_status_registry", [])}
+    assert rows["failed"]["execution_status"] == "error"
+    assert rows["failed"]["requested_query"] == _query_arguments()
+    assert rows["pending"]["execution_status"] == "unresolved"
+    assert "delivered_evidence_count" not in rows["failed"]
+    assert "delivered_evidence_count" not in rows["pending"]
+    assert "requested_query" not in rows["pending"]
+    assert "PRIVATE_ERROR_SENTINEL" not in dumps_judge_request(payload)
+
+
+@pytest.mark.parametrize("value", [None, "", False, 0, []])
+def test_judge_compaction_preserves_query_filter_values(value) -> None:
+    arguments = _query_arguments()
+    arguments["filters"][0]["value"] = value
+    arguments["time_range"]["start"] = None
+    request, _ = _status_request(
+        _query_event("tool_request", "q", arguments),
+        _query_event("tool_result", "q"),
+    )
+    wire = json.loads(dumps_judge_request(request))
+    assert wire["tool_status_registry"][0]["requested_query"] == arguments
+
+
+@pytest.mark.parametrize("arguments", [None, "not-an-object", {"dataset": "stock_daily"}, {**_query_arguments(), "private_path": "PRIVATE_ARGUMENT"}])
+def test_judge_invalid_query_scope_is_unknown_not_a_crash(arguments) -> None:
+    request, _ = _status_request(
+        ("tool_request", {"call_id": "q", "name": "finance_query", "arguments": arguments}),
+        _query_event("tool_error", "q"),
+    )
+    row = request["tool_status_registry"][0]
+    assert row["query_identity"] == "matched"
+    assert row["query_scope_unavailable"] is True
+    assert "requested_query" not in row
+    assert "PRIVATE_ARGUMENT" not in dumps_judge_request(request)
+
+
+def test_judge_same_query_repeated_with_distinct_ids_is_not_deduplicated() -> None:
+    request, _ = _status_request(
+        _query_event("tool_request", "first"),
+        _query_event("tool_result", "first"),
+        _query_event("tool_request", "retry"),
+        _query_event("tool_result", "retry"),
+    )
+    assert [row["call_id"] for row in request["tool_status_registry"]] == ["first", "retry"]
+
+
+def test_judge_query_identity_reaches_model_without_becoming_fact_evidence(monkeypatch) -> None:
+    request, structural = _status_request(
+        _query_event("tool_request", "q"),
+        _query_event("tool_result", "q", observation="PRIVATE_OBSERVATION", model_content="PRIVATE_MODEL_CONTENT"),
+    )
+    before = structural.outcome.to_dict()
+    model = _RecordingJudgeModel()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=_frame(), structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    sent = model.calls[0]
+    wire = json.loads(sent["messages"][1]["content"])
+    assert wire["tool_status_registry"] == request["tool_status_registry"]
+    assert wire["evidence_registry"] == request["evidence_registry"]
+    assert "PRIVATE_OBSERVATION" not in sent["messages"][1]["content"]
+    assert "PRIVATE_MODEL_CONTENT" not in sent["messages"][1]["content"]
+    assert "不证明源数据不存在或没有风险" in sent["messages"][0]["content"]
+    assert structural.outcome.to_dict() == before
+
+
+def test_judge_trace_fallback_keeps_dates_without_guessing_dataset_from_detail() -> None:
+    traces = tuple(
+        ProviderTrace(
+            provider="PRIVATE_PROVIDER", capability="finance_query", status="empty",
+            detail="dataset=regulation_event_daily; PRIVATE_DETAIL",
+            result_count=0, requested_date="2026-09-21", served_date="2026-09-18",
+            requested_time_range=(start, "2026-09-18"),
+        )
+        for start in ("2026-08-01", "2026-09-01")
+    )
+    request, _ = _status_request(traces=traces)
+    rows = request["tool_status_registry"]
+    assert len(rows) == 2
+    assert [row["requested_time_range"]["start"] for row in rows] == ["2026-08-01", "2026-09-01"]
+    assert all(row["requested_date"] == "2026-09-21" for row in rows)
+    assert all(row["served_date"] == "2026-09-18" for row in rows)
+    assert all("requested_query" not in row for row in rows)
+    assert "PRIVATE_" not in dumps_judge_request(request)
+    assert "regulation_event_daily" not in dumps_judge_request(request)
+
+
 def test_judge_request_omits_agent_loop_and_default_padding(monkeypatch) -> None:
     """Wire JSON must not pad grok with harness traces or duplicated policy.
 

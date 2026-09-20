@@ -53,6 +53,7 @@ from intelligence.services.session_projection import (
 from intelligence.services.agent_runtime import (
     AgentModelClient,
     AgentOutcome,
+    EpisodeEvent,
     ModelTurn,
     OutputEvidenceBinding,
 )
@@ -95,6 +96,7 @@ from intelligence.services.judge_mode import (
     semantic_judge_mode,
 )
 from intelligence.services.judge_source_recheck import recheck_draft, recheck_enabled
+from intelligence.services.finance_query import FinanceQuerySpec, FinanceQueryValidationError
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     FORWARD_HYPOTHESIS_OUTPUT_IDS,
@@ -427,7 +429,13 @@ _JUDGE_SYSTEM_PROMPT = (
     "空间、估值或其他预测时，允许"
     "给出带不确定性和条件的主观区间；但发明外部原因、支持性统计或任意触发阈值仍"
     "应拒绝。tool_status_registry 只支持检索过程状态，例如本轮是否命中；它不能支持"
-    "市场事实或因果结论。答案不得暴露 capability、工具、provider 或哈希等内部标识，"
+    "市场事实或因果结论。带 call_id 的行来自调用事件，requested_query 是请求范围，"
+    "不是已证实的覆盖范围；returned 只表示工具返回，delivered_evidence_count=0 只表示"
+    "没有交付证据，不证明源数据不存在或没有风险。error 是调用失败，unresolved 是"
+    "未见结算，均不是空结果。query_identity=unavailable 时不能猜测查询身份。"
+    "不带调用身份的 provider 状态不得按顺序或工具名与调用行配对，也不得将两种行相加"
+    "统计调用次数。不得把查询参数中的数字当作事实证据。答案不得暴露 capability、"
+    "call_id、工具、provider 或哈希等内部标识，"
     "只能用“本轮资讯检索未命中”等自然语言。"
     "verified_quantities 是**已由确定性核对确认**来自 evidence_registry 的数值清单"
     "（逐字节相等才入列）：其中出现的数**不得**判为“未注册数字”“无直接证据”"
@@ -501,6 +509,11 @@ def compact_judge_payload(value: object) -> object:
             if key == "required" and item is True:
                 continue
             if key == "claim_policy":
+                continue
+            if key == "requested_query":
+                # Null/blank filter values and empty arrays are query semantics,
+                # not presentation defaults. Preserve the source expression.
+                compacted[key] = item
                 continue
             nested = compact_judge_payload(item)
             if key == "tool_status_registry" and isinstance(nested, list):
@@ -2352,7 +2365,9 @@ class SemanticEpisodeVerifier:
             "verified_quantities": _verified_quantities_for_judge(verified.outcome),
             "tool_status_registry": [
                 row
-                for row in _semantic_tool_status_registry(verified.outcome.traces)
+                for row in _semantic_tool_status_registry(
+                    verified.outcome.traces, verified.outcome.events
+                )
                 if str(row.get("capability") or "")
                 not in _JUDGE_HIDDEN_STATUS_CAPABILITIES
             ],
@@ -5212,34 +5227,98 @@ def _marker_loss_issues(output_ids: tuple[str, ...]) -> tuple[str, ...]:
     )
 
 
+def _semantic_tool_call_statuses(
+    events: tuple[EpisodeEvent, ...],
+) -> list[dict[str, object]]:
+    """Join durable requests to settlements, never to provider prose or row order."""
+
+    requests: dict[str, list[EpisodeEvent]] = {}
+    settlements: dict[str, list[EpisodeEvent]] = {}
+    for event in events:
+        if event.kind not in {"tool_request", "tool_result", "tool_error"}:
+            continue
+        call_id = event.payload.get("call_id")
+        if isinstance(call_id, str) and call_id:
+            target = requests if event.kind == "tool_request" else settlements
+            target.setdefault(call_id, []).append(event)
+
+    rows: list[dict[str, object]] = []
+    for event in events:
+        if event.kind not in {"tool_request", "tool_result", "tool_error"}:
+            continue
+        payload = event.payload
+        call_id = payload.get("call_id")
+        call_id = call_id if isinstance(call_id, str) else ""
+        if event.kind == "tool_request" and settlements.get(call_id):
+            continue
+        tool = str(payload.get("name" if event.kind == "tool_request" else "tool") or "")
+        row: dict[str, object] = {
+            "capability": tool,
+            "call_id": call_id,
+            "query_identity": "unavailable",
+            "execution_status": (
+                "unresolved" if event.kind == "tool_request"
+                else "error" if event.kind == "tool_error"
+                else "returned" if payload.get("ok") is True
+                else "unverified_result"
+            ),
+        }
+        if event.kind == "tool_request":
+            row["request_sequence"] = event.sequence
+        else:
+            row["result_sequence"] = event.sequence
+        evidence = payload.get("evidence")
+        if row["execution_status"] == "returned" and isinstance(evidence, (list, tuple)):
+            row["delivered_evidence_count"] = len(evidence)
+        # Ambiguous IDs, legacy records and pending requests do not establish
+        # which query produced a result. Keep the record but withhold scope.
+        candidates = requests.get(call_id, [])
+        if len(candidates) == 1 and len(settlements.get(call_id, [])) == 1:
+            request = candidates[0]
+            if request.sequence < event.sequence and request.payload.get("name") == tool:
+                row["query_identity"] = "matched"
+                row["request_sequence"] = request.sequence
+                if tool == "finance_query":
+                    arguments = request.to_dict()["payload"].get("arguments")
+                    try:
+                        if not isinstance(arguments, Mapping):
+                            raise FinanceQueryValidationError("arguments must be an object")
+                        FinanceQuerySpec.from_arguments(arguments)
+                    except (FinanceQueryValidationError, TypeError, ValueError):
+                        row["query_scope_unavailable"] = True
+                    else:
+                        row["requested_query"] = arguments
+        rows.append(row)
+    return rows
+
+
 def _semantic_tool_status_registry(
     traces: tuple[ProviderTrace, ...],
+    events: tuple[EpisodeEvent, ...] = (),
 ) -> list[dict[str, object]]:
-    """Project process status without provider diagnostics or trace identity."""
+    """Project process records, without promoting them to evidence or guessing joins."""
 
-    statuses: list[dict[str, object]] = []
-    seen: set[tuple[str, str, int, str | None]] = set()
+    statuses = _semantic_tool_call_statuses(events)
+    # Provider traces may include prefetch/child calls without parent events.
+    # Keep their dates, but never infer a dataset from detail or a call from order.
     for trace in traces:
         capability = str(trace.capability or "").strip()
         if not capability:
             continue
-        key = (
-            capability,
-            trace.status,
-            trace.result_count,
-            trace.source_trade_date,
-        )
-        if key in seen:
-            continue
-        seen.add(key)
-        statuses.append(
-            {
-                "capability": capability,
-                "status": trace.status,
-                "result_count": trace.result_count,
-                "source_trade_date": trace.source_trade_date,
-            }
-        )
+        row: dict[str, object] = {
+            "capability": capability,
+            "status": trace.status,
+            "result_count": trace.result_count,
+            "source_trade_date": trace.source_trade_date,
+        }
+        for key in ("requested_date", "served_date"):
+            value = getattr(trace, key)
+            if value is not None:
+                row[key] = value
+        if trace.requested_time_range is not None:
+            start, end = trace.requested_time_range
+            row["requested_time_range"] = {"start": start, "end": end}
+        statuses.append(row)
     return statuses
 
 

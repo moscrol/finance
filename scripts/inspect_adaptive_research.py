@@ -4,6 +4,8 @@
 Optionally archive the exact durable episodes from an explicitly supplied store.
 Includes private observations, failures and answer stages, not a public export.
 Use --output outside a sealed pair to reinspect without changing its archive.
+--project-current-judge-status reconstructs the current code's process projection,
+not the historical model request or a fresh semantic review.
 Never modifies source runs; refuses to overwrite an existing inspection.
 """
 
@@ -31,7 +33,7 @@ def dump(path: Path, value: object) -> None:
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def summarize(episode: dict, events: list[dict]) -> dict:
+def summarize(episode: dict, events: list[dict], *, project_current_judge_status: bool = False) -> dict:
     rounds = []
     calls = []
     tool_events = []
@@ -69,7 +71,24 @@ def summarize(episode: dict, events: list[dict]) -> dict:
     outcome = episode["outcome"]
     semantic = episode.get("semantic_verifier", {})
     verified = semantic.get("verified", {}).get("outcome", {})
+    projection = {}
+    if project_current_judge_status:
+        from intelligence.services.agent_runtime import EpisodeEvent
+        from intelligence.services.episode_semantic_verifier import _semantic_tool_status_registry, compact_judge_payload
+        from intelligence.services.provider_observability import ProviderTrace
+
+        trace_source = verified if "traces" in verified else outcome
+        rows = _semantic_tool_status_registry(
+            tuple(ProviderTrace.from_dict(row) for row in trace_source.get("traces", [])),
+            tuple(EpisodeEvent(row["sequence"], row["kind"], row["payload"]) for row in tool_events),
+        )
+        projection["current_code_tool_status_projection"] = {
+            "origin": "reconstructed_parent_events_and_traces; not_captured_judge_request",
+            "trace_source": "verified_outcome" if trace_source is verified else "submitted_outcome",
+            "rows": compact_judge_payload({"tool_status_registry": rows}).get("tool_status_registry", []),
+        }
     return {
+        **projection,
         "configuration": configuration,
         "usage": outcome.get("usage"),
         "status": outcome.get("status"),
@@ -102,6 +121,7 @@ def main() -> int:
     parser.add_argument("pair", type=Path)
     parser.add_argument("--episode-store", type=Path)
     parser.add_argument("--output", type=Path, help="new inspection directory, including outside the source pair")
+    parser.add_argument("--project-current-judge-status", action="store_true", help="reconstruct current-code status projection; not a captured judge request")
     args = parser.parse_args()
     args.pair = args.pair.resolve()
     arms = load(args.pair / "protocol.json")["arms"]
@@ -123,7 +143,7 @@ def main() -> int:
             for name in (store.EVENTS_NAME, store.STATE_NAME):
                 shutil.copy2(original / name, archive / name)
             events = [json.loads(line) for line in (archive / store.EVENTS_NAME).read_text().splitlines() if line.strip()]
-        summary = summarize(episode, events)
+        summary = summarize(episode, events, project_current_judge_status=args.project_current_judge_status)
         answer_path = source / "answer.md"
         summary["delivered_answer"] = answer_path.read_text(encoding="utf-8") if answer_path.is_file() else None
         summary["elapsed_seconds"] = load(source / "result.json")["elapsed_seconds"]

@@ -306,6 +306,22 @@ P4（D5）在 `fix/e2-delivery-closeout` 补齐 `material_only` 逐题交付：�
 
 A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结构门、修复轮**只在 A**；B 有 `gate_receipt` / `CompletionReport` / `evidence_judge` / 输出质检。差的成因是分层——判官在 `runtime/`，B 在 `services/`，不得反向 import。现状与并轨计划见 `docs/superpowers/specs/2026-08-30-engine-b-into-a-strangler-design.md` §1.3。
 
+### 判官的查询身份（候选）
+
+引擎 A 的 `tool_status_registry` 从本轮原始事件按唯一 `call_id` 配对请求与结算，
+保留调用编号、事件序号及合法 `finance_query` 请求的数据集、筛选、时间窗等参数。
+乱序返回不靠顺序猜配；缺编号、重复编号、工具不一致或未结算时不补查询范围。
+查询参数中的空值保留，不套用展示字段的空值压缩。其他工具目前只保留调用状态，
+不投递自由文本参数；子研究/预取只有 trace 时保留日期与状态，不猜数据集或配对。
+调用记录与 provider 状态是两个观察面，不能相加计数；后者不再按粗状态合并。
+
+`returned` 只表示工具返回，交付零条证据不证明源数据没有记录、查询覆盖完整或没有风险；
+错误/未结算与空观察分开，不给过程记录造 E 证据。请求范围不是执行后实际覆盖范围，
+参数中的数字也不是事实；不解析诊断正文获取身份，不向判官透传原始错误/模型正文。
+此改动不启用判官、不改变权限或预算、不修正文保留/缺口披露。旧原件可由
+`inspect_adaptive_research.py --project-current-judge-status --output <新目录>` 离线重建
+当前代码的投影，输出明确不是历史实际判官请求，也不是新模型验收。
+
 ### 判官模式：`ASK_SEMANTIC_JUDGE=llm|off`（工单 #55）
 
 用户 2026-09-12 撤掉独立 Grok 判官（改 kimi-k3 自审）、2026-09-17 进一步决定**不用 LLM 判官**。一个共享开关（`intelligence/services/judge_mode.py::semantic_judge_mode`）同时管两条引擎：
