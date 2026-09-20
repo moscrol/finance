@@ -1,30 +1,30 @@
 # feat/adaptive-research-loop
 
 ## 这个分支做什么
-让模型自定研究视角、随取证修订；复用 PLAN/进展账，不写死股票池。工作树 `~/finance-worktrees/adaptive-research-loop`。
+模型自定视角、随证据调整研究；复用 PLAN/进展账，不写死股票池。树 `~/finance-worktrees/adaptive-research-loop`。
 
 ## 决策与被否方案
-- 默认 `WORKBENCH_ADAPTIVE_RESEARCH=off`；否固定池/必查表，避免把单题分叉变成通用路径。
-- 复用 PLAN；否另建 ResearchState 真本。deep/max 首批后无视角时只请求一次计划复核，原预算不增。
-- 兼容单个 JSON 对象/代码框及普通尾部说明；对象字段、权限仍严验，不提取前置文字中的对象。
-- 自报 supported 不授完成；引用诊断按提交时冻结，否事后追认。
-- 展开与失败原件指针：`docs/handoffs/2026-09-20-adaptive-research-loop.md`。
+- 默认关；否固定视角/必查表与额外预算，避免过拟合单题。
+- 从已接收 PLAN 回传保留项；否删校验/自动补字段，保持修订忠实。
+- 单一事实可直接 FINAL_JSON；否为解释空视角造计划，不绕过终态校验。
+- 原件与理由：`docs/handoffs/2026-09-21-adaptive-research-holdouts.md`。
 
 ## 当前状态
-业务已提交 `469ba766`。未 push/PR/合 main/部署，默认关；8792 健康且仍为 bf662e93。本任务旁车与兼容代理均已关闭。没有其他人的代码改动混入此树。
+业务 `1205ee7c`，测试 `000a7ca4`；未 push/PR/合 main/部署。默认 WORKBENCH_ADAPTIVE_RESEARCH=off。8792 仍 bf662e93；本轮旁车、代理、后台任务均结束。
+原四题八次同版本对照已完成，随后只做两组冻结前缀重放。原件 `~/.finance-runtime/adaptive-holdouts-20260920/`，395文件封存验哈希。
 
 ## 已验证
-干净业务提交完整 Python：11970 passed / 85 skipped / 2 xfailed；收据 `~/.finance-runtime/test-receipts/20260920T150621Z-469ba766.json`。Ruff 与全部提交门禁过。
-3 组 K3 off/on + 1 次 on-only：前三组未接收 PLAN；最终单臂接收5视角并回传，0 非法动作、4模型/7工具、333.47秒。只有 revision=1。
-原件 `~/.finance-runtime/adaptive-research-20260920/`，262文件封存；单臂指纹与业务提交相同。compare/inspect 已入 scripts。
+干净业务完整 Python 11975 passed/85 skipped/2 xfailed；收据 `20260920T163233Z-1205ee7c.json`。测试补充后211项过，业务源码未变；Ruff/提交门禁过。
+修订约束回传、非法修订仍拒收、无证据不能 completed、原条目重排合法。简单事实旧指令重放非法字段，新指令返回收口对象；公司新指令直接收口，未证明修订被接收。
 
 ## 未验证 / 已知边界
-同一开发题、每版 n=1、作者自审、数据未冻结；最后单臂没有同版本 baseline，不证明质量/速度改善。未见观察后 revision=2 改向；公开稿仍漏内部部分未核验边界。max 档简单事实题也可能多一轮。
-四道留出题、独立 Spec/Quality、前端/E2E 与合流验收未跑，不可合入。
+上线不通过：本地风险双臂均联网取财报，公开答仍称本地；重要内部缺口与推理前件未完整公开。权限与公开投影未修。
+四题 n=1、数据未冻结，不证明质量/速度改善；父会话无两份连续接收的视角计划，初次 revision=2 不算改向。重放未做终态语义验证。
+完整独立 Spec/Quality、前端/E2E、合流门禁、新版本完整研究重复未完成。仅完成限定补丁摘录审查及匿名答案审查，后者有误判。
 
 ## 下一步
-先跑 `adaptive-perspectives.questions.json` 留出题，独立审实际改向、反证及公开缺口；同 revision 重复并交替双臂顺序。合并/更新8792须用户确认及全套门禁，勿用旧 baseline 配最终单臂。
+先修材料授权与公开稿保真；审查包补空结果/失败/查询条件。另取未见题重复验证判断与取证改向，原四题现只算回归。合并/更新8792须用户确认与全部门禁。
 
 ## 踩过的坑
-可选 PLAN 被忽略；代码框、引用数组超限、尾部说明各自造成拒收。字段约束必须送给模型，包装兼容不能放宽对象权限。用私有 durable events 看首失效点，公开投影不含完整提示词。旧失败不改判，不代写答案、不补名单。
-可迁移经验已回共享闭环笔记；harness-reference 脏，本轮未动。
+模型不知道保留项会改名或丢分支；字段约束须真实回递，不能降校验。空查询无E编号不等于没查过；盲审包漏观察会误判，查不到也不等于不存在。
+不改旧失败、不代写答案、不补名单。共享经验/能力图已更新；harness-reference 的 BUILD.md 脏，未动。实验脚本绑定冻结前缀且审查包不全，先封存、不冒充通用验收器。
