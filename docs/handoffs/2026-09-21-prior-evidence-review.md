@@ -1,55 +1,59 @@
-# 零新读取复核与原件恢复
+# 2026-09-21 旧证据恢复、日期误删与 K3 复核决策快照
 
 ## 背景
 
-接续输入边界修复 `f3dc8717`：V1允许复核却重新查库，违反“只用已取得”；V2冻结权限后，
-又把 needs_retrieval=false 投影成 non_research，挡在 Engine B 材料总闸，交付拒答。
-用户要求继续推进；不是许可改事实资格、合并、开启研究提示或重启生产。
-本轮代码 `7d0afaff`，独立树 `~/fwp-wt-research-reasoning-awareness`。
+本分支先解决了“明确只用已取得数据，却被错误当成 non_research 拒答”的路由问题，再接通受控原始证据恢复。V3/V4 真实入口证明：恢复输入和零工具可以成立，但模型仍会把成交额占比写成成交增量、把量价扩张当成资金来源区分条件，虚构材料也仍拒答。本快照记录本轮在此基础上完成的工程修复和独立复核，不把工程收据提升成业务质量结论。
 
 ## 发现顺序
 
-1. 读调度、材料链、RunStore、证据账与旁支交接。材料前提/逐句来源由 E2/P5/P6 继续持有；未复制旁支实现或改变 grounding。
-2. 拆开研究交付与新增读取；material_only保持空能力并走研究，语义未决仍先澄清。故意混入旧 web/memory 能力的回归证明不能回退授权。
-3. 加入固定私有工件读取器及单跳恢复器，经同用户/会话/原问/消息/任务身份/完整性验证后，恢复本地原始证据。
-4. 以新 model_input 来源播种证据账并重新编号；旧覆盖和完成状态不继承。添加反例，包括篡改、软链接、跨会话、坏schema、重复身份、缺日期、越截止日、新日期/转题。
-5. 真实 V3 三轮：原题仍过强归因；复核恢复14条、0工具，能撤回部分断言但仍把成交占比写成增量；虚构材料仍拒答。
-6. 全仓 pytest 超600秒被终止，无完整结论；相关组合836P。两处撤保护变异被抓并恢复，再提交、干净树复验836P。
+1. 当前候选 `a4f51112` 全仓收据唯一失败是 `test_agent_episode_no_longer_projects_evidence_ordinals_itself`：`7d0afaff` 的 `_seed_prior_evidence` 在 runtime 内直接导入 `evidence_ordinal_table`。恢复逻辑本身需要 old/new 映射，但职责不应落在 episode loop。
+2. 将映射封装为 `prior_evidence.remap_evidence_bindings(snapshot, evidence)`，内部复用协议层唯一编号表；runtime 只调用证据恢复服务。`E2 -> E1` 回归不变，AST 架构断言恢复。
+3. V4 `on2` 公开答卷出现“有三处撤回”但只剩两处。定位是数值预检把句首 `9-11` 解析成区间；同句“降级”触发条件后，整句被程序删除。该错误属于传输/程序门，不归因于模型。
+4. 日期修复选择句首形状白名单 + 当前绑定证据 `source_date` 月日双条件的局部遮罩。没有扩大日期正则，也没有把所有日期或 `user_premise` 当作数字证据。真实数值条件继续走原门，语义 judge 仍可拒绝。
+5. 在独立 detached worktree 用 `kimi-k3` 运行 Spec/Quality 两轴 K3。两份报告均 PASS；Spec 33 项自建探针及 353 项相关测试，Quality 22 项自建探针、331 项相关测试和两次外部副本变异均通过/按预期击穿。
+6. 最终候选 `2cfa9d0d` 全仓 pytest `12049P/87S/2X/0F`，Ruff 全仓通过。K3 报告、事件流和执行收据留在 `/Users/a77/.finance-runtime/reasoning-boundaries-20260921/k3-independent/`。
 
 ## 决策对比
 
 | 方案 | 评价 | 结果 |
 |---|---|---|
-| 把复核伪装成需要检索 | 修路由却放宽权限，重犯V1 | 否决 |
-| 使用旧助手文本/旧E编号当事实 | 旧结论可被自己证明，且编号仅轮内有效 | 否决 |
-| 从原件恢复完整输入并重编号 | 复用现有唯一写入者，有身份与完整性回执 | 采用 |
-| 从所有历史run搜索相关证据 | 扩大读取范围、来源选择难以审计 | 否决，只取可信窗口最后原答 |
-| 复用任意旧run、逐层追溯 | 混合联网源、兼容schema与链式scope需另立合同 | 暂不做，仅已完成local_only原始Episode |
-| 改全部输出为user_premise让材料答过门 | 掩盖前提资格和逐句来源缺口 | 否决，保留真实拒答 |
-| 仅凭completed/零工具认定求证成功 | V3仍有语义错误，反例已明确 | 否决，行为继续blocked |
-
-本轮没有增加工具、预算或强制反思轮。只新增原始输入投影，不是通用跨轮记忆，也不是崩溃恢复快照。
-SHA256校验来自RunStore登记元数据，不把内容ID当作文件校验值；同机有权恶意换父目录的进程不在此文件检查的防御声明内。
+| 让 runtime 继续直接调用协议序号函数 | 能工作，但违反已存在的职责断言，恢复逻辑会重新拥有公开投影职责 | 否决 |
+| 复制一套 old/new 编号算法到 prior_evidence | 可能消除 import，但会制造第二个编号协议，后续漂移 | 否决；服务只包裹既有唯一表 |
+| 扩大 `_DATE_TOKEN_RE` 把所有 `9-11` 视为日期 | 会误放 `9-11倍/元/手` 等数量和区间 | 否决 |
+| 所有短日期都跳过数值门 | 未绑定/未知日期可获得无资格豁免，违反 fail-closed | 否决 |
+| 只让句首、已绑定 source_date 月日匹配的日期送语义 judge | 修复确定性误删，保留语义裁决和数量门 | 采用 |
+| 重跑后覆盖旧 V4 on2 | 会抹掉程序误删的版本证据，无法区分模型与门 | 否决；旧原件永远保留 |
+| 将虚构材料全部改成 user_premise | 可能让答案过门，但绕过材料来源与推断正确性 | 否决，继续交给 E2 owner |
+| 以 K3 PASS 代替独立语义盲审 | K3 本轮只审代码规格/质量，不审 V4 模型答案 | 否决 |
 
 ## 验证与收据
 
-详见 `docs/verification/2026-09-21-prior-evidence-review.md`，包含原件、题目坐标、哈希、失败和变异收据。
-所有 pytest/ruff 使用主树 `.venv-workbench/bin/python`。
-干净代码 `7d0afaff`：836P、exit0、dirty=false，收据
-`~/.finance-runtime/test-receipts/20260920T175433Z-7d0afaff.json`。
-全仓 Ruff及提交门禁通过。全仓 pytest 无结论；前端/E2E/registry合流检查未跑。
-测试服务18893已停止。生产8792实读仍 `bf662e9310ff`/healthy/clean，未重启。
+- 分层修复提交：`68949b92`。
+- 日期修复提交：`2cfa9d0d`，来源隔离验证提交 `6f935bed`。
+- 当前全仓：`~/.finance-runtime/test-receipts/20260920T195644Z-2cfa9d0d.json`，`12049 passed, 87 skipped, 2 xfailed, 0 failed`，dirty=false。
+- 当前相关：`~/.finance-runtime/test-receipts/20260920T185948Z-2cfa9d0d.json`，477P；Ruff 全仓 `All checks passed`。
+- 日期隔离树相关：338P；移除单位保护 5F，移除日期后缀 lookahead 8F，均在恢复后重跑。
+- Spec K3：`k3-independent/spec-k3/REPORT.md`，SHA256 `63e2358d...`，PASS。
+- Quality K3：`k3-independent/quality-k3/REPORT.md`，SHA256 `f2ae5448...`，PASS。
+- K3 两个 detached tree HEAD 首尾为 `2cfa9d0d`、status 空；作者候选 tree 首尾同样未改。共享 refs 与 agent-memory 指纹在审核时发生并行环境漂移，execution 收据明确记为 false，不能省略此限制。
 
-## 继续与禁止
+## 仍不成立的结论
 
-- 与材料owner接合格用户前提和逐句来源，不靠绕门“修好”虚构题。
-- 对“总额分布/增量分布”“行业/市值”“成交/申赎”等推断补区分性证据与公开答卷审核；不能泛化为固定市场模板。
-- 再做原题/未见题、同版本on/off和重复配对，补独立语义审核以及完整合流检查。
-- 不将这一个成功恢复样本说成质量趋势；不宣称多层复核、任意窗口筛选、跨会话或断点恢复已支持。
-- 默认开关继续off；无用户确认不合并、部署或动8792。
+- `K3 PASS` 只说明本次两个提交的规格/工程质量；不说明求证开关产生了稳定收益。
+- V4 四臂仍是 `a4f51112` 版本；日期修复后的真实入口已在 `2cfa9d0d` 隔离 sidecar 重跑，首答后复核同一连续会话，两个 run 均 completed，复核保留 `9-11` 的绑定证据句并撤回两项资金归因。旧 on2 失败原件必须保留；新 run 不替代独立语义盲审。
+- 四臂同源 judge、0工具和 completed/repaired 不能构成独立语义复核。Grok 因 read-only sandbox socket symlink 故障失败，Codex 因 code-mode host/usage limit 失败；没有有效盲审报告。
+- 供需题仍拒答；材料前提逐句 binding 未接入本候选。
+- 未证明跨会话、多层复核、混合联网原轮、任意日期窗口筛选或崩溃 checkpoint 恢复。
 
-## 工具沉淀盘点
+## 下一步
 
-运行用既有live_probe/workbench_probe，失败模式固化在 `test_prior_evidence.py` 和既有输入边界回归；没有临时通用执行器。
-哈希与会话门均做撤保护实验。可迁移原则追加已有证据卫生笔记；不另造工具，是因为身份恢复属于RunStore领域合同，
-“撤回是否充分/归因是否过强”仍需语义判断，单次样本不足以制造一个通用自动验收器。
+1. 对照新日期重跑与旧 on2，保留两套原件、flag、合同、工具数和公开答案；外部 manifest 在 `v4/date-fix-rerun/MANIFEST.json`。
+2. 让 E2/P5/P6 owner 给出材料前提和逐句来源的可验收版本；不要全局改 `user_premise`。
+3. 补未见题、新 fixture 反例的真实答卷和独立语义审核；若服务不可用，封存输入、错误与未完成状态，不写 PASS。
+4. 处理前端/E2E/registry 合流检查和跨仓 `kb/rag-query` 漂移，但不把无关漂移混进本候选提交。
+5. 合 main、部署、重启8792、购买外审或删除生产原件均需另行授权，本轮不做。
+
+## 原件位置
+
+V4 真实 run、日期 probe、盲审失败原件、全仓日志：`/Users/a77/.finance-runtime/reasoning-boundaries-20260921/v4/`。
+K3 独立 reports、events、stderr、execution receipts：`/Users/a77/.finance-runtime/reasoning-boundaries-20260921/k3-independent/`。
