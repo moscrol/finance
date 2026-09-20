@@ -9,7 +9,12 @@ import pytest
 
 from intelligence.runtime.agent_episode import ContinuousAgentEpisode
 from intelligence.runtime.research_progress import ResearchProgressTracker, ToolCallDigest
-from intelligence.services.adaptive_research import adaptive_research_enabled, perspective_diagnostics
+from intelligence.services.adaptive_research import (
+    adaptive_research_enabled,
+    perspective_checkpoint_message,
+    perspective_diagnostics,
+    perspective_progress,
+)
 from intelligence.services.agent_runtime import ModelTurn
 from intelligence.services.episode_protocol import build_episode_input, build_episode_instructions
 from intelligence.services.research_plan import parse_research_plan, plan_to_public_dict, validate_plan_revision
@@ -252,3 +257,75 @@ def test_disabled_feedback_is_byte_compatible(monkeypatch):
     tracker.record_plan(_plan(_perspective()), evidence=[])
     assert tracker.model_view() == before
     assert "adaptive_research" not in before
+
+
+def _revision_contract_plan(*, revision=4, perspectives=()):
+    return parse_research_plan(_plan_json(
+        answer_elements=["Comparison", "Counterevidence", "Unknowns"],
+        branch_goals=["Verify first alternative", "Verify second alternative"],
+        perspectives=list(perspectives),
+        revision=revision,
+    ))
+
+
+def test_checkpoint_exposes_the_actual_accepted_plan_constraints():
+    plan = _revision_contract_plan(perspectives=[_perspective()])
+    message = json.loads(perspective_checkpoint_message(plan))
+    assert message["plan_revision_constraints"] == {
+        "minimum_revision": 5,
+        "preserve_answer_elements": list(plan.answer_elements),
+        "preserve_branch_goals": list(plan.branch_goals),
+        "preserve_perspective_ids": ["sustainability"],
+    }
+    assert "branch_goals" in message["instruction"]
+    assert "answer_elements" in message["instruction"]
+
+
+def test_regular_feedback_exposes_the_same_detached_revision_constraints():
+    plan = _revision_contract_plan(perspectives=[_perspective()])
+    view = perspective_progress(plan, batch=3, plan_batch=1, unknown_evidence_ids=())
+    contract = json.loads(perspective_checkpoint_message(plan))["plan_revision_constraints"]
+    assert view["plan_revision_constraints"] == contract
+    view["plan_revision_constraints"]["preserve_answer_elements"].append("Not committed")
+    assert "Not committed" not in plan.answer_elements
+    updated = _revision_contract_plan(revision=5)
+    assert perspective_progress(updated, batch=3, plan_batch=3, unknown_evidence_ids=())["plan_revision_constraints"]["minimum_revision"] == 6
+
+
+def test_sufficient_single_fact_checkpoint_allows_finish_without_a_plan():
+    message = json.loads(perspective_checkpoint_message())
+    assert "直接 FINAL_JSON" in message["instruction"]
+    assert "不必提交 PLAN" in message["instruction"]
+    assert message["plan_revision_constraints"] is None
+
+
+def test_real_checkpoint_carries_the_accepted_plan_and_keeps_revision_admission(monkeypatch):
+    monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", "on")
+    monkeypatch.setenv("FORESIGHT_STRICT_DERIVATION", "1")
+    first = _revision_contract_plan(revision=1)
+    second = _revision_contract_plan(revision=2, perspectives=[_perspective(supporting_evidence=["E1"])])
+    model = ScriptedModel([
+        replace(_tool_turn("first", "c1"), content=json.dumps({"kind": "PLAN", **plan_to_public_dict(first)})),
+        ModelTurn(json.dumps({"kind": "PLAN", **plan_to_public_dict(second)}), (), "scripted", ""),
+        _finish_turn(("hash-first",)),
+    ])
+    outcome = _run_deep(model)
+    checkpoint = json.loads(model.calls[1]["messages"][-1]["content"])
+    assert checkpoint["plan_revision_constraints"]["preserve_answer_elements"] == list(first.answer_elements)
+    assert checkpoint["plan_revision_constraints"]["preserve_branch_goals"] == list(first.branch_goals)
+    assert checkpoint["plan_revision_constraints"]["minimum_revision"] == 2
+    assert outcome.plan == second
+    assert outcome.usage.invalid_actions == 0
+    assert outcome.usage.llm_calls == 3 and outcome.usage.tool_calls == 1
+    assert [bool(call["tools"]) for call in model.calls] == [True, False, True]
+
+
+def test_single_fact_can_finish_in_the_checkpoint_without_an_extra_round(monkeypatch):
+    monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", "on")
+    monkeypatch.setenv("FORESIGHT_STRICT_DERIVATION", "1")
+    model = ScriptedModel([_tool_turn("first", "c1"), _finish_turn(("hash-first",))])
+    outcome = _run_deep(model)
+    assert outcome.status == "completed" and outcome.plan is None
+    assert outcome.usage.invalid_actions == 0
+    assert outcome.usage.llm_calls == 2 and outcome.usage.tool_calls == 1
+    assert model.calls[1]["tools"] == []

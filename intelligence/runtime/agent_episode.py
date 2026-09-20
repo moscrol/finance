@@ -1358,7 +1358,7 @@ class ContinuousAgentEpisode:
                 perspective_checkpoint_sent = True
                 append_model_input(
                     messages, ledger,
-                    content=perspective_checkpoint_message(),
+                    content=perspective_checkpoint_message(ledger.plan),
                     source="adaptive_research_checkpoint",
                 )
             # 历史折叠先于对账：它改的是模型即将看到的 tool 消息正文，并以
