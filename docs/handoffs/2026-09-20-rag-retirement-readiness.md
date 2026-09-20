@@ -45,3 +45,9 @@ KB 候选 `3a21010323eababb54ce8519093fd60dbacb9451` 已在每次查询前用固
 ## Spec PASS 后的测试同步
 
 独立最终 Spec 在 `c4f33c5b` PASS，同时确认保留的 keepalive 失败来自测试等待错误：`keepalive_sent` 在请求完成前递增，旧测试只等 `sent>=2` 就读取 `queries_served`。测试提交 `292d78f3afe1513725eb91baa5e65d6ab554ec9d` 在原 3 秒 `_wait_until` 内同时等待 `sent>=2` 与 `queries_served>=3`，保留 PID、model load、served、timeout、state 断言和原 deadline；生产计数器及全部 `intelligence/services` 均未变化。白名单环境下 keepalive/worker/generation 三个模块 85 passed，相关 Ruff 通过，测试收据首尾 SHA 均为 `292d78f3`；证据另存外部 `rag-retirement-fix/keepalive-test-sync/`。
+
+## Quality 限定返修
+
+Quality 在 `ad839d2e` 复现了捕获后解释器链损坏：固定入口 inode 未变，但下游 `python3` 被临时改成自环时，运行期 `resolve(strict=True)` 泄漏 `RuntimeError`。代码提交 `b860ecc8c02c92b77f41bf5d896d732414bbcc6a` 仅在 `python_entry` 的该身份操作捕获 `OSError/RuntimeError` 并映射 `interpreter_replaced`，其他路径仍不吞 `RuntimeError`。回归断言 status 纯读且无 spawn/kill/recovery，query/prewarm 继续抛专用 `RagGenerationUnavailable`。原 Quality 探针从裸异常变为 `failed/invalid/interpreter_replaced`。
+
+原 managed-launch 测试改用 `venv/python -> python3 -> host` 临时链，并直接断言 `Popen argv[0]` 仍是声明入口；唯一一次改成 resolved host 的变异使该断言失败，恢复后通过。白名单 worker/generation/keepalive 三模块 86 passed，相关 Ruff 通过；未触碰真实 venv 链接，未重跑 scratch、整仓或前端。证据在外部 `rag-retirement-fix/runtime-loop-repair/`。
