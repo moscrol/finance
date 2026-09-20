@@ -330,7 +330,7 @@ def _capture_generation_unchecked(
 
     try:
         python_target = _absolute(expected["KB_RAG_PYTHON"]).resolve(strict=True)
-    except OSError as exc:
+    except (OSError, RuntimeError) as exc:
         raise _unavailable("interpreter_replaced") from exc
     paths = {
         "candidate": candidate,

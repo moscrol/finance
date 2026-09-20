@@ -112,6 +112,24 @@ def _remove_managed_artifact(binding: dict[str, str], missing: str, tmp_path: Pa
     )
 
 
+def _replace_managed_interpreter_with_symlink_loop(
+    binding: dict[str, str], tmp_path: Path
+) -> None:
+    interpreter = tmp_path / "looped-venv" / "bin" / "python"
+    interpreter.parent.mkdir(parents=True)
+    interpreter.symlink_to(interpreter)
+    binding["python"] = str(interpreter)
+    manifest_path = Path(binding["manifest"])
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["runtime"]["executable"] = str(interpreter)
+    _write_json(manifest_path, manifest)
+    binding["sha"] = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    _write_json(
+        Path(binding["root"]) / "current.json",
+        {"generation": binding["name"], "manifest_sha256": binding["sha"]},
+    )
+
+
 @pytest.fixture(autouse=True)
 def _clean_workers():
     rag_worker.close_all()
@@ -459,6 +477,34 @@ def test_first_managed_capture_failure_does_not_fallback_to_cli(
     assert result.telemetry.fallback_reason == "persistent_worker_generation_unavailable"
     assert result.telemetry.status == "error"
     assert reason in (result.warning or "")
+    assert rag_worker.status()["configured_workers"] == 0
+
+
+def test_looped_managed_interpreter_does_not_fallback_to_cli(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    binding = _managed_generation(tmp_path, "alpha")
+    _activate(binding)
+    _replace_managed_interpreter_with_symlink_loop(binding, tmp_path)
+    _bind(monkeypatch, binding)
+    monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+    cli_response = WorkerResponse(0, "[]", "")
+
+    with mock.patch.object(kb_rag.subprocess, "run", return_value=cli_response) as cli:
+        result = kb_rag.retrieve(
+            "identity-bound query",
+            Path(binding["wiki"]),
+            index_dir=Path(binding["standard"]),
+            code_root=Path(binding["code"]),
+            python_executable=binding["python"],
+            worker_enabled=True,
+        )
+
+    cli.assert_not_called()
+    assert result.telemetry.fallback_reason == "persistent_worker_generation_unavailable"
+    assert result.telemetry.status == "error"
+    assert "interpreter_replaced" in (result.warning or "")
     assert rag_worker.status()["configured_workers"] == 0
 
 
