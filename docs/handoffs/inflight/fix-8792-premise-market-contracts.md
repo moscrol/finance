@@ -8,7 +8,7 @@
 - 公开表和内部材料分层验收；否了只看judge/completed或把canonical当第二供应商。
 
 ## 当前状态
-最终候选 `8810bac84f67ffd6179b744710f4a88f3b5c51ee`，代码树最新提交后clean。主树当前仅有本次验证文档/fixture待提交，生产未改。
+代码候选 `8810bac84f67ffd6179b744710f4a88f3b5c51ee` 已冻结；其后的归档文档提交为 `058fe3ebe7e41cf318dc0bb6762af7f3011a2532`，工作树clean，生产未改。
 
 ## 已验证
 - v19全量Python `12044 passed / 85 skipped / 2 xfailed`；前端六项全过，收据绑定最终SHA。
@@ -23,8 +23,8 @@
 
 ## 下一步
 1. 关闭v19 sidecar，ready确认active/queued=0；只读核对生产8792仍原revision/fingerprint。
-2. 提交本分支验证README、v19 fixture、日期快照和本交接；按文件pathspec，不合main、不部署。
-3. 生成新SHA/工件manifest与run汇总，保留v1-v19失败原件；若清理P3必须新候选重跑，不能改v19原件。
+2. 归档文档、v19 fixture、manifest和run汇总已落盘；保留v1-v19失败原件。若清理P3必须新候选重跑，不能改v19原件。
+3. 不合main、不push、不部署；生产只读核对已完成。
 
 ## 踩过的坑
 不要用旧SHA收据；不要把0测试/TypeError/输出耗尽的K3当结论；不要把共享worktree测试红归罪最终候选。
