@@ -164,6 +164,39 @@ def test_no_authority_from_protected_quotes():
     assert values(calc)["static_pe"] == 20
 
 
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "归母净利率较上年下降1个百分点。",
+        "经营现金流/归母净利润约66.7%，低于100%，具体原因仍不明确。",
+        "静态市盈率20倍，仍不能据此判断便宜。",
+        "2024年归母净利率10%，2025年归母净利率9%。",
+        "收入同比25%，归母净利润同比12.5%。",
+    ],
+)
+def test_correct_metric_bound_restatements_are_not_false_rejections(statement):
+    calc = compile_case()
+    assert not calc.admit(CALCULATION_MARKER + "\n" + statement, status="completed")[1]
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "归母净利率上升1个百分点。",
+        "归母净利率较上年下降1%。",
+        "收入同比12.5%，归母净利润同比25%。",
+        "2024年归母净利率9%，2025年归母净利率10%。",
+        "2024年静态市盈率20倍。",
+        "经营现金流/归母净利润约66.7%，高于100%。",
+        "静态市盈率20倍，低于100倍，便宜。",
+        "静态市盈率180/8=22.5倍。",
+    ],
+)
+def test_known_numbers_cannot_be_bound_to_wrong_metric_or_period(statement):
+    calc = compile_case()
+    assert calc.admit(CALCULATION_MARKER + "\n" + statement, status="completed")[1]
+
+
 def test_source_record_is_immutable():
     source = PremiseSource("message-1", ARITHMETIC)
     assert replace(source, text=FOLLOWUP) != source

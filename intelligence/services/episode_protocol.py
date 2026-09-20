@@ -421,7 +421,8 @@ def build_episode_input(
             "table": calculation.table,
             "issues": list(calculation.issues),
             "rule": "公式表由程序从用户原文计算并插入。draft 中原样放置一次 [[PREMISE_CALCULATION]]，"
-                    "不要手写或改写公式表；表外只写定性解释，不重复数字、年份、编号或公式。"
+                    "不要手写或改写公式表；表外以定性解释为主。复述数字时须保持同指标、年度、方向与单位，"
+                    "不得换基数、另写公式或引入未给出的数字。"
                     "有 issues 时 status 必须为 partial，说明需明确的输入。表内结果仍是题设计算，不是真实事实证据。",
         }
     from intelligence.services.material_delivery import material_delivery_payload, material_question_outputs

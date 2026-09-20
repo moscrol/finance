@@ -184,12 +184,10 @@ class PremiseCalculation:
                 draft,
                 "计算表缺失或被改写；请在 draft 中原样保留一次 " + CALCULATION_MARKER,
             )
-        # Numbers live in the owned table. This also catches formulas whose
-        # result is correct but whose chosen denominator/year is wrong.
-        if re.search(r"\d", outside):
+        if self._unbound_numbers(outside):
             return (
                 draft,
-                "不要在程序计算表外重复数字、公式或年份；保留计算占位符，其他部分只写定性解释",
+                "表外数字无法绑定到同指标、年度、方向和单位的计算结果；保留计算表，修正或删除该数字复述，不另写公式",
             )
         by_metric = {row.metric: row.value for row in self.rows}
         if (
@@ -199,6 +197,82 @@ class PremiseCalculation:
         ):
             return draft, "收入和利润同比均增长，不能写成增收不增利"
         return rendered, ""
+
+    def _unbound_numbers(self, text: str) -> bool:
+        """Allow checked result restatements, never a bag-of-known-numbers test."""
+        aliases = {
+            "revenue_yoy": r"收入(?:同比增速|同比增长率|同比)",
+            "profit_yoy": r"(?:归母)?净利润(?:同比增速|同比增长率|同比)",
+            "cash_profit_ratio": r"经营现金流(?:/|与)(?:归母)?净利润(?:的)?(?:比值|比率)?",
+            "market_cap": r"(?:当前)?总市值",
+            "static_pe": r"静态市盈率",
+            "margin_change": r"(?:归母)?净利率",
+            "scenario_pe": r"情景市盈率",
+            "scenario_profit": r"(?:下一年|次年|假设)(?:的)?归母净利润",
+        }
+        covered: set[int] = set()
+        latest_margin = max(
+            (
+                row.metric
+                for row in self.rows
+                if re.fullmatch(r"margin_\d{4}", row.metric)
+            ),
+            default="",
+        )
+        for row in self.rows:
+            if row.value is None:
+                continue
+            alias = aliases.get(row.metric)
+            year = re.match(r"(\d{4})年", row.label)
+            if row.metric.startswith("margin_") and row.metric != "margin_change":
+                alias = r"(?:归母)?净利率"
+            if not alias:
+                continue
+            year_prefix = ""
+            if year:
+                year_prefix = re.escape(year[0]) + r"(?:的)?"
+                if row.metric == latest_margin or not row.metric.startswith("margin_"):
+                    year_prefix = "(?:" + year_prefix + ")?"
+            pattern = re.compile(
+                year_prefix + alias + r"(?P<link>[^\d。；;，,\n|]{0,12}?)"
+                r"(?P<value>" + _NUMBER + r")\s*(?:\*\*)?" + re.escape(row.unit)
+            )
+            for match in pattern.finditer(text):
+                number = float(match["value"])
+                falling = bool(re.search(r"下降|降低|减少|下滑", match["link"]))
+                rising = bool(re.search(r"上升|提高|增加|增长", match["link"]))
+                is_change = row.metric.endswith("_yoy") or row.metric == "margin_change"
+                if (falling or rising) and not is_change:
+                    continue
+                if falling:
+                    if number < 0:
+                        continue
+                    number = -number
+                if rising and number < 0:
+                    continue
+                decimals = len(match["value"].partition(".")[2])
+                tolerance = 0.5 * 10**-decimals + 1e-9
+                if not math.isclose(number, row.value, rel_tol=0, abs_tol=tolerance):
+                    continue
+                covered.update(range(match.start(), match.end()))
+                if row.metric == "cash_profit_ratio":
+                    comparison = re.match(
+                        r"[，,\s]*(低于|高于|等于)100%", text[match.end() :]
+                    )
+                    if (
+                        comparison
+                        and {
+                            "低于": row.value < 100,
+                            "高于": row.value > 100,
+                            "等于": row.value == 100,
+                        }[comparison[1]]
+                    ):
+                        covered.update(
+                            range(match.end(), match.end() + comparison.end())
+                        )
+        return any(
+            char.isdigit() and index not in covered for index, char in enumerate(text)
+        )
 
 
 def _visible(text: str) -> str:
