@@ -1,0 +1,211 @@
+FFFFFFFFFFF                                                              [100%]
+=================================== FAILURES ===================================
+_ test_unadmitted_presentations_require_real_future_date_not_title[None-2026-07-25] _
+
+cutoff = None, source_date = '2026-07-25'
+
+    @pytest.mark.parametrize(("cutoff", "source_date"), [
+        (None, "2026-07-25"), (date(2026, 7, 24), None),
+        (date(2026, 7, 24), "2026-07-24"), (date(2026, 7, 24), "unknown"),
+        (date(2026, 7, 24), "2026-99-99"), (date(2026, 7, 24), "2026-07-25garbage"),
+    ])
+    def test_unadmitted_presentations_require_real_future_date_not_title(cutoff, source_date):
+        ledger = EvidenceLedger(information_cutoff=cutoff)
+        item = _atom("missing", source_date=source_date, title="晚于问句日 2026-07-24")
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:75: Failed
+_ test_unadmitted_presentations_require_real_future_date_not_title[cutoff1-None] _
+
+cutoff = datetime.date(2026, 7, 24), source_date = None
+
+    @pytest.mark.parametrize(("cutoff", "source_date"), [
+        (None, "2026-07-25"), (date(2026, 7, 24), None),
+        (date(2026, 7, 24), "2026-07-24"), (date(2026, 7, 24), "unknown"),
+        (date(2026, 7, 24), "2026-99-99"), (date(2026, 7, 24), "2026-07-25garbage"),
+    ])
+    def test_unadmitted_presentations_require_real_future_date_not_title(cutoff, source_date):
+        ledger = EvidenceLedger(information_cutoff=cutoff)
+        item = _atom("missing", source_date=source_date, title="晚于问句日 2026-07-24")
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:75: Failed
+_ test_unadmitted_presentations_require_real_future_date_not_title[cutoff2-2026-07-24] _
+
+cutoff = datetime.date(2026, 7, 24), source_date = '2026-07-24'
+
+    @pytest.mark.parametrize(("cutoff", "source_date"), [
+        (None, "2026-07-25"), (date(2026, 7, 24), None),
+        (date(2026, 7, 24), "2026-07-24"), (date(2026, 7, 24), "unknown"),
+        (date(2026, 7, 24), "2026-99-99"), (date(2026, 7, 24), "2026-07-25garbage"),
+    ])
+    def test_unadmitted_presentations_require_real_future_date_not_title(cutoff, source_date):
+        ledger = EvidenceLedger(information_cutoff=cutoff)
+        item = _atom("missing", source_date=source_date, title="晚于问句日 2026-07-24")
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:75: Failed
+_ test_unadmitted_presentations_require_real_future_date_not_title[cutoff3-unknown] _
+
+cutoff = datetime.date(2026, 7, 24), source_date = 'unknown'
+
+    @pytest.mark.parametrize(("cutoff", "source_date"), [
+        (None, "2026-07-25"), (date(2026, 7, 24), None),
+        (date(2026, 7, 24), "2026-07-24"), (date(2026, 7, 24), "unknown"),
+        (date(2026, 7, 24), "2026-99-99"), (date(2026, 7, 24), "2026-07-25garbage"),
+    ])
+    def test_unadmitted_presentations_require_real_future_date_not_title(cutoff, source_date):
+        ledger = EvidenceLedger(information_cutoff=cutoff)
+        item = _atom("missing", source_date=source_date, title="晚于问句日 2026-07-24")
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:75: Failed
+_ test_unadmitted_presentations_require_real_future_date_not_title[cutoff4-2026-99-99] _
+
+cutoff = datetime.date(2026, 7, 24), source_date = '2026-99-99'
+
+    @pytest.mark.parametrize(("cutoff", "source_date"), [
+        (None, "2026-07-25"), (date(2026, 7, 24), None),
+        (date(2026, 7, 24), "2026-07-24"), (date(2026, 7, 24), "unknown"),
+        (date(2026, 7, 24), "2026-99-99"), (date(2026, 7, 24), "2026-07-25garbage"),
+    ])
+    def test_unadmitted_presentations_require_real_future_date_not_title(cutoff, source_date):
+        ledger = EvidenceLedger(information_cutoff=cutoff)
+        item = _atom("missing", source_date=source_date, title="晚于问句日 2026-07-24")
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:75: Failed
+_ test_unadmitted_presentations_require_real_future_date_not_title[cutoff5-2026-07-25garbage] _
+
+cutoff = datetime.date(2026, 7, 24), source_date = '2026-07-25garbage'
+
+    @pytest.mark.parametrize(("cutoff", "source_date"), [
+        (None, "2026-07-25"), (date(2026, 7, 24), None),
+        (date(2026, 7, 24), "2026-07-24"), (date(2026, 7, 24), "unknown"),
+        (date(2026, 7, 24), "2026-99-99"), (date(2026, 7, 24), "2026-07-25garbage"),
+    ])
+    def test_unadmitted_presentations_require_real_future_date_not_title(cutoff, source_date):
+        ledger = EvidenceLedger(information_cutoff=cutoff)
+        item = _atom("missing", source_date=source_date, title="晚于问句日 2026-07-24")
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:75: Failed
+_ test_v2_reader_rechecks_future_classification_even_with_recomputed_digest[None-2026-07-25] _
+
+cutoff = None, source_date = '2026-07-25'
+
+    @pytest.mark.parametrize(("cutoff", "source_date"), [
+        (None, "2026-07-25"), ("2026-07-24", None), ("2026-07-24", "2026-07-24"),
+        ("2026-07-24", "unknown"), ("2026-07-24", "2026-07-25garbage"),
+    ])
+    def test_v2_reader_rechecks_future_classification_even_with_recomputed_digest(cutoff, source_date):
+        ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
+        payload = ledger.to_recovery_snapshot(
+            episode_id="episode", presented_evidence=(_atom("future", source_date="2026-07-25"),),
+        )
+        payload["information_cutoff"] = cutoff
+        payload["presentations"][0]["atom"]["source_date"] = source_date
+        _resign(payload)
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:129: Failed
+_ test_v2_reader_rechecks_future_classification_even_with_recomputed_digest[2026-07-24-None] _
+
+cutoff = '2026-07-24', source_date = None
+
+    @pytest.mark.parametrize(("cutoff", "source_date"), [
+        (None, "2026-07-25"), ("2026-07-24", None), ("2026-07-24", "2026-07-24"),
+        ("2026-07-24", "unknown"), ("2026-07-24", "2026-07-25garbage"),
+    ])
+    def test_v2_reader_rechecks_future_classification_even_with_recomputed_digest(cutoff, source_date):
+        ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
+        payload = ledger.to_recovery_snapshot(
+            episode_id="episode", presented_evidence=(_atom("future", source_date="2026-07-25"),),
+        )
+        payload["information_cutoff"] = cutoff
+        payload["presentations"][0]["atom"]["source_date"] = source_date
+        _resign(payload)
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:129: Failed
+_ test_v2_reader_rechecks_future_classification_even_with_recomputed_digest[2026-07-24-2026-07-24] _
+
+cutoff = '2026-07-24', source_date = '2026-07-24'
+
+    @pytest.mark.parametrize(("cutoff", "source_date"), [
+        (None, "2026-07-25"), ("2026-07-24", None), ("2026-07-24", "2026-07-24"),
+        ("2026-07-24", "unknown"), ("2026-07-24", "2026-07-25garbage"),
+    ])
+    def test_v2_reader_rechecks_future_classification_even_with_recomputed_digest(cutoff, source_date):
+        ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
+        payload = ledger.to_recovery_snapshot(
+            episode_id="episode", presented_evidence=(_atom("future", source_date="2026-07-25"),),
+        )
+        payload["information_cutoff"] = cutoff
+        payload["presentations"][0]["atom"]["source_date"] = source_date
+        _resign(payload)
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:129: Failed
+_ test_v2_reader_rechecks_future_classification_even_with_recomputed_digest[2026-07-24-unknown] _
+
+cutoff = '2026-07-24', source_date = 'unknown'
+
+    @pytest.mark.parametrize(("cutoff", "source_date"), [
+        (None, "2026-07-25"), ("2026-07-24", None), ("2026-07-24", "2026-07-24"),
+        ("2026-07-24", "unknown"), ("2026-07-24", "2026-07-25garbage"),
+    ])
+    def test_v2_reader_rechecks_future_classification_even_with_recomputed_digest(cutoff, source_date):
+        ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
+        payload = ledger.to_recovery_snapshot(
+            episode_id="episode", presented_evidence=(_atom("future", source_date="2026-07-25"),),
+        )
+        payload["information_cutoff"] = cutoff
+        payload["presentations"][0]["atom"]["source_date"] = source_date
+        _resign(payload)
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:129: Failed
+_ test_v2_reader_rechecks_future_classification_even_with_recomputed_digest[2026-07-24-2026-07-25garbage] _
+
+cutoff = '2026-07-24', source_date = '2026-07-25garbage'
+
+    @pytest.mark.parametrize(("cutoff", "source_date"), [
+        (None, "2026-07-25"), ("2026-07-24", None), ("2026-07-24", "2026-07-24"),
+        ("2026-07-24", "unknown"), ("2026-07-24", "2026-07-25garbage"),
+    ])
+    def test_v2_reader_rechecks_future_classification_even_with_recomputed_digest(cutoff, source_date):
+        ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
+        payload = ledger.to_recovery_snapshot(
+            episode_id="episode", presented_evidence=(_atom("future", source_date="2026-07-25"),),
+        )
+        payload["information_cutoff"] = cutoff
+        payload["presentations"][0]["atom"]["source_date"] = source_date
+        _resign(payload)
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:129: Failed
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_unadmitted_presentations_require_real_future_date_not_title[None-2026-07-25]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_unadmitted_presentations_require_real_future_date_not_title[cutoff1-None]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_unadmitted_presentations_require_real_future_date_not_title[cutoff2-2026-07-24]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_unadmitted_presentations_require_real_future_date_not_title[cutoff3-unknown]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_unadmitted_presentations_require_real_future_date_not_title[cutoff4-2026-99-99]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_unadmitted_presentations_require_real_future_date_not_title[cutoff5-2026-07-25garbage]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_v2_reader_rechecks_future_classification_even_with_recomputed_digest[None-2026-07-25]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_v2_reader_rechecks_future_classification_even_with_recomputed_digest[2026-07-24-None]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_v2_reader_rechecks_future_classification_even_with_recomputed_digest[2026-07-24-2026-07-24]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_v2_reader_rechecks_future_classification_even_with_recomputed_digest[2026-07-24-unknown]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_v2_reader_rechecks_future_classification_even_with_recomputed_digest[2026-07-24-2026-07-25garbage]
+11 failed, 35 deselected in 0.17s

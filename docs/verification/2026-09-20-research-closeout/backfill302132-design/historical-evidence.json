@@ -1,0 +1,240 @@
+{
+  "manifest": {
+    "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-manifest-20260914-v6.json",
+    "sha256": "05ea12d07205ffd89d0638446226f10b74f6ba294b650ee96b323e876bf25d24"
+  },
+  "checked_small_artifacts": [
+    {
+      "group": "old_receipts",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run5-run6/fake-prod.duckdb.repair-backfill-execution.1a34c356050a.json",
+      "expected": "0cda5af051397563403bd5a7b6b39a46cbd56bf4d97c79f7dd5b272b20ea5dd3",
+      "actual": "0cda5af051397563403bd5a7b6b39a46cbd56bf4d97c79f7dd5b272b20ea5dd3",
+      "match": true
+    },
+    {
+      "group": "old_receipts",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run5-run6/fake-prod.duckdb.repair-backfill-execution.432521cb81cd.json",
+      "expected": "98aefceb15c920f671cbd18efe491ad5940bcb9606cf2a7e934e9dfbc8a227ff",
+      "actual": "98aefceb15c920f671cbd18efe491ad5940bcb9606cf2a7e934e9dfbc8a227ff",
+      "match": true
+    },
+    {
+      "group": "old_receipts",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run5-run6/fake-prod.duckdb.staging.backfill-report.1a34c356050a.json",
+      "expected": "84bdd122b5d0052240d7bf152e1213a86a32af91679906247984517a87f19c35",
+      "actual": "84bdd122b5d0052240d7bf152e1213a86a32af91679906247984517a87f19c35",
+      "match": true
+    },
+    {
+      "group": "old_receipts",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run5-run6/fake-prod.duckdb.staging.backfill-report.432521cb81cd.json",
+      "expected": "2b5c89627523a4e821605c828566447811384fc59ab69d34304a7f4e1fc8c287",
+      "actual": "2b5c89627523a4e821605c828566447811384fc59ab69d34304a7f4e1fc8c287",
+      "match": true
+    },
+    {
+      "group": "old_receipts",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run7-run8/fake-prod.duckdb.repair-backfill-execution.205a94a4b531.json",
+      "expected": "31c271810cc2d946a3f06da08628553b0a4dc712f65374f5224a29f8ae89469c",
+      "actual": "31c271810cc2d946a3f06da08628553b0a4dc712f65374f5224a29f8ae89469c",
+      "match": true
+    },
+    {
+      "group": "old_receipts",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run7-run8/fake-prod.duckdb.repair-backfill-execution.cabdeaca07b7.json",
+      "expected": "5703e9eac1fee66da1bbf551d7a13aec92aa0917bd2ec0c1eea6b8082f5ad144",
+      "actual": "5703e9eac1fee66da1bbf551d7a13aec92aa0917bd2ec0c1eea6b8082f5ad144",
+      "match": true
+    },
+    {
+      "group": "old_receipts",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run7-run8/fake-prod.duckdb.staging.backfill-report.205a94a4b531.json",
+      "expected": "a29189496887d9057cfed953d7545aa99275de04dc9ffbbecf7fea52161cbc85",
+      "actual": "a29189496887d9057cfed953d7545aa99275de04dc9ffbbecf7fea52161cbc85",
+      "match": true
+    },
+    {
+      "group": "old_receipts",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run7-run8/fake-prod.duckdb.staging.backfill-report.cabdeaca07b7.json",
+      "expected": "bf4918ac7ea4793dd3280843c8a96be3edd61be472eb18b1ac0def989326ce3f",
+      "actual": "bf4918ac7ea4793dd3280843c8a96be3edd61be472eb18b1ac0def989326ce3f",
+      "match": true
+    },
+    {
+      "group": "old_receipts",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run9-run10/fake-prod.duckdb.repair-backfill-execution.11bad970c4e1.json",
+      "expected": "b12b9130c7a99ca71a705a87375592daaf3c8a881eb11dc5adb5aa8e1994cd44",
+      "actual": "b12b9130c7a99ca71a705a87375592daaf3c8a881eb11dc5adb5aa8e1994cd44",
+      "match": true
+    },
+    {
+      "group": "old_receipts",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run9-run10/fake-prod.duckdb.repair-backfill-execution.efc2b64d8870.json",
+      "expected": "849f6638414da78ddc1178b8231183fc1bb4615fb9dabd47c1452806c94248c1",
+      "actual": "849f6638414da78ddc1178b8231183fc1bb4615fb9dabd47c1452806c94248c1",
+      "match": true
+    },
+    {
+      "group": "old_receipts",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run9-run10/fake-prod.duckdb.staging.backfill-report.11bad970c4e1.json",
+      "expected": "6bbb5d419ad1cc4f3b51e23e237198ec0c264d162c203ca57300164bc10524ea",
+      "actual": "6bbb5d419ad1cc4f3b51e23e237198ec0c264d162c203ca57300164bc10524ea",
+      "match": true
+    },
+    {
+      "group": "old_receipts",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/receipts-run9-run10/fake-prod.duckdb.staging.backfill-report.efc2b64d8870.json",
+      "expected": "67e9f8ba812dd2f7d4e67002267a6a6a93deb7363550c70c2af525b80ecd48ff",
+      "actual": "67e9f8ba812dd2f7d4e67002267a6a6a93deb7363550c70c2af525b80ecd48ff",
+      "match": true
+    },
+    {
+      "group": "acceptance_history",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/dryrun-acceptance-v2.json",
+      "expected": "4064e41f1d84074ba925fb9842450e9e29e565d88e9383a84f7a5b53bc99c487",
+      "actual": "4064e41f1d84074ba925fb9842450e9e29e565d88e9383a84f7a5b53bc99c487",
+      "match": true
+    },
+    {
+      "group": "acceptance_history",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/dryrun-acceptance-v3.json",
+      "expected": "cb5d719c4c97e96684460d3b66637034ffc49d8c6464b695bb014dfede82f301",
+      "actual": "cb5d719c4c97e96684460d3b66637034ffc49d8c6464b695bb014dfede82f301",
+      "match": true
+    },
+    {
+      "group": "acceptance_history",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/dryrun-acceptance-v4.json",
+      "expected": "40949bc44e7c0b48ea31cd34e0917dc7a6ed9fd7c045f66657f4ba1e8b9dcca3",
+      "actual": "40949bc44e7c0b48ea31cd34e0917dc7a6ed9fd7c045f66657f4ba1e8b9dcca3",
+      "match": true
+    },
+    {
+      "group": "acceptance_history",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/dryrun-acceptance-v5.json",
+      "expected": "0829c1b847f34aa53e55bd269b04fbeb93fd652cc4f5e9d5339ea14a7baee97f",
+      "actual": "0829c1b847f34aa53e55bd269b04fbeb93fd652cc4f5e9d5339ea14a7baee97f",
+      "match": true
+    },
+    {
+      "group": "acceptance_history",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/dryrun-acceptance.json",
+      "expected": "4ec9277b3f83ea906c111014c2a48a1e0e531d56009f2ec3685c90f73b50ccfc",
+      "actual": "4ec9277b3f83ea906c111014c2a48a1e0e531d56009f2ec3685c90f73b50ccfc",
+      "match": true
+    },
+    {
+      "group": "run9_run10_backup_receipts",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/fake-prod.duckdb.bak-20260914T134449-efc2b64d8870.receipt.json",
+      "expected": "235ef405fd4b07f300753d2768a409863cfcfaf605840338ffc124f7b8ec1c1e",
+      "actual": "235ef405fd4b07f300753d2768a409863cfcfaf605840338ffc124f7b8ec1c1e",
+      "match": true
+    }
+  ],
+  "v6": {
+    "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/dryrun-acceptance-v6.json",
+    "sha256": "96ed8b5d5093f1738e42df72fde008d4b30fcd1adab32aa64b2ccc5adb9706ef",
+    "verdict": "PASS",
+    "checks": 49,
+    "passed": 49,
+    "failed": [],
+    "expected_revision": "00d64e373e04366b6bdb7602c5ce4397759adefd",
+    "runs": {
+      "apply": "3925f59c0281",
+      "verify": "9b2b60f7278c"
+    }
+  },
+  "run_receipts": [
+    {
+      "mode": "apply",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/fake-prod.duckdb.repair-backfill-execution.3925f59c0281.json",
+      "sha256": "61e97bcf8c0df11a6b79a3d828182d5bf3cbf139830685f42edad6b898e9b757",
+      "schema_errors": [],
+      "child_path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/fake-prod.duckdb.staging.backfill-report.3925f59c0281.json",
+      "child_sha256": "d2f060b5bcf4bc4a50449c859658580b71239305aecd37bcf114bdb6983f33a8",
+      "child_equal_embedded": true,
+      "code_revision": "00d64e373e04366b6bdb7602c5ce4397759adefd",
+      "code_dirty": false,
+      "backup_metadata_only": {
+        "kind": "pre-swap-backup",
+        "run_id": "3925f59c0281",
+        "created_at": "2026-09-14T15:49:53",
+        "source_db": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/fake-prod.duckdb",
+        "source_size_bytes": 3612880896,
+        "source_mtime_ns": 1789323587584092374,
+        "backup_path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/fake-prod.duckdb.bak-20260914T154948-3925f59c0281",
+        "backup_sha256": "76a32fac9c8bcd542982e5f7ffd654ffcf0e8646f515487aeba3b74c3ceff168",
+        "backup_bytes": 3612880896,
+        "copy_method": "clonefile",
+        "readability_check": "read_only 打开成功, 66 张表",
+        "restore_steps": [
+          "1. 确认无活跃写者/读者（probe_no_active_writer 或 lsof）",
+          "2. 校验备份指纹: shasum -a 256 fake-prod.duckdb.bak-20260914T154948-3925f59c0281 应等于 receipt 的 backup_sha256",
+          "3. 若 target 处有残留 WAL 先删除: fake-prod.duckdb.wal",
+          "4. cp -c fake-prod.duckdb.bak-20260914T154948-3925f59c0281 fake-prod.duckdb（同卷 clonefile；跨卷用 cp）",
+          "5. 只读打开 target 抽查行数，确认恢复完成后再让读写方上线",
+          "6. 验证通过后备份可人工删除（3.6G 量级，别长期留）"
+        ]
+      },
+      "parquet_sha256": "51f9ee9cba1ceb4a6ff50c4c4dce8267cb39f78add28d6a33699cbf90bf28d17"
+    },
+    {
+      "mode": "verify",
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/fake-prod.duckdb.repair-backfill-execution.9b2b60f7278c.json",
+      "sha256": "b2fdee2e3dd6183ceed83fee45f0e8a3b08488e6175f4f01b5036c347f6a646e",
+      "schema_errors": [],
+      "child_path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/fake-prod.duckdb.staging.backfill-report.9b2b60f7278c.json",
+      "child_sha256": "12a7c4fe129cedd17032670f3456b57fcf0b6c20399a14e8fd19399b0610c7d9",
+      "child_equal_embedded": true,
+      "code_revision": "00d64e373e04366b6bdb7602c5ce4397759adefd",
+      "code_dirty": false,
+      "backup_metadata_only": {
+        "kind": "pre-swap-backup",
+        "run_id": "9b2b60f7278c",
+        "created_at": "2026-09-14T15:50:26",
+        "source_db": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/fake-prod.duckdb",
+        "source_size_bytes": 3615240192,
+        "source_mtime_ns": 1789372188616264791,
+        "backup_path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132/fake-prod.duckdb.bak-20260914T155022-9b2b60f7278c",
+        "backup_sha256": "1df1f5e159a363fd96c9e43b154d7e30dff62c93edfd2a08e3c6c7c25b606367",
+        "backup_bytes": 3615240192,
+        "copy_method": "clonefile",
+        "readability_check": "read_only 打开成功, 66 张表",
+        "restore_steps": [
+          "1. 确认无活跃写者/读者（probe_no_active_writer 或 lsof）",
+          "2. 校验备份指纹: shasum -a 256 fake-prod.duckdb.bak-20260914T155022-9b2b60f7278c 应等于 receipt 的 backup_sha256",
+          "3. 若 target 处有残留 WAL 先删除: fake-prod.duckdb.wal",
+          "4. cp -c fake-prod.duckdb.bak-20260914T155022-9b2b60f7278c fake-prod.duckdb（同卷 clonefile；跨卷用 cp）",
+          "5. 只读打开 target 抽查行数，确认恢复完成后再让读写方上线",
+          "6. 验证通过后备份可人工删除（3.6G 量级，别长期留）"
+        ]
+      },
+      "parquet_sha256": "51f9ee9cba1ceb4a6ff50c4c4dce8267cb39f78add28d6a33699cbf90bf28d17"
+    }
+  ],
+  "full_test_receipt": {
+    "path": "/Users/a77/.finance-runtime/test-receipts/20260914T080259Z-00d64e37.json",
+    "sha256": "28169ecc431e61c270b60e52ce155ba2ec3dc57fff7559ed730d324e09973e4f",
+    "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "python_version": "3.12.13",
+    "dependency_fingerprint": "3328bed61f3e21ea",
+    "tree": "/Users/a77/fwp-wt-backfill-302132",
+    "revision": "00d64e373e04366b6bdb7602c5ce4397759adefd",
+    "branch": "fix/backfill-302132-scoped",
+    "dirty": false,
+    "dirty_paths": [],
+    "worktree_dirty_total": 0,
+    "dependency_gate_bypassed": false,
+    "target": "/Users/a77/fwp-wt-backfill-302132",
+    "counts": {
+      "passed": 9706,
+      "failed": 0,
+      "error": 0,
+      "skipped": 77
+    },
+    "failed_ids": [],
+    "exit_status": 0,
+    "finished_at": "2026-09-14T08:02:59+00:00"
+  },
+  "limits": "Only small JSON artifacts read and hashed; no historical large DuckDB or backup file opened/copied/hashed. Old result is historical evidence, not current-main qualification."
+}

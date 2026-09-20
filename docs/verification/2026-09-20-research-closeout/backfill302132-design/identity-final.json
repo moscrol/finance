@@ -1,0 +1,20 @@
+{
+  "observed_at": "2026-09-20T04:36:04.143533+00:00",
+  "head": "3736d5bfa9978dfa0a264bb2e44795c4bc29b27d",
+  "code": "00d64e373e04366b6bdb7602c5ce4397759adefd",
+  "fixed_main": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+  "remote_tracking_candidate": "3736d5bfa9978dfa0a264bb2e44795c4bc29b27d",
+  "status": "",
+  "code_to_head_changed_paths": [
+    "docs/handoffs/2026-09-14-302132-backfill-execution-design.md",
+    "docs/handoffs/inflight/fix-backfill-302132-scoped.md"
+  ],
+  "candidate_file_sha256": {
+    "docs/handoffs/2026-09-14-302132-backfill-execution-design.md": "cef6cddb24fec805dc14daba9c9d73fd593a98bc9fbca7377493b6f3997e5e25",
+    "docs/handoffs/inflight/fix-backfill-302132-scoped.md": "16ba5f764123d8f9cfd268287920192db69bab9ef193e7048fb1e1e5630843c7",
+    "market_feature_store/cli.py": "b63374e580dda64a9e6f4d6671ff22628e659a6fb1e5ea87f52c536f0979a0a6",
+    "market_feature_store/sync/repair_backfill_stock_history.py": "5035fdf3faa7e1ccd6fb84af87517f0a70c59d35a1b6c1bbb6ba4a6de5488477",
+    "scripts/verify_302132_backfill_acceptance.py": "b8dd37d5d0b9579985874f8f71a75007b337b1539c91ff6abbef00ea1d99d262",
+    "tests/test_repair_backfill_stock_history.py": "73d7a6fc77047a053eae8497872c25e6510c14df25eb7f30f64c38498eab1e82"
+  }
+}
