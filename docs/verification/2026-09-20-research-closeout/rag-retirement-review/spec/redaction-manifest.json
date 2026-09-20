@@ -1,0 +1,23 @@
+[
+  {
+    "private_original": "missing-managed-artifact-v2.junit.xml",
+    "original_sha256": "5a6344e88686add380f1f880ce24f0114a543916ae2f0ce60c23be527a2da6a2",
+    "sanitized": "sanitized/missing-managed-artifact-v2.junit.xml",
+    "sanitized_sha256": "715592d26294a8ae6ccc104e446aa6e39fb70bb03f8ff84d427a18e3a3e8e223",
+    "reason": "mock-call failure repr included inherited process environment; archive only sanitized copy"
+  },
+  {
+    "private_original": "missing-managed-artifact.junit.xml",
+    "original_sha256": "2e2791a8e9472b8f07cc72febff39beaaad94c44927893716faab7cedfd7fbef",
+    "sanitized": "sanitized/missing-managed-artifact.junit.xml",
+    "sanitized_sha256": "1deee4b83058058d9248e721f8cbfd2ba959971caee75ca5b99fcf46172f801e",
+    "reason": "mock-call failure repr included inherited process environment; archive only sanitized copy"
+  },
+  {
+    "private_original": "consumer-red-green/baseline-bc43ece9.junit.xml",
+    "original_sha256": "31764f8b4377ed8b36cff89a44d0b7e6b1aef73c4f1adf237e0a4113785bafc7",
+    "sanitized": "sanitized/consumer-red-green/baseline-bc43ece9.junit.xml",
+    "sanitized_sha256": "d9925f4bd156be9fd35f24657117c2ab6a68181537617e7ec89c677936b0bde5",
+    "reason": "mock-call failure repr included inherited process environment; archive only sanitized copy"
+  }
+]

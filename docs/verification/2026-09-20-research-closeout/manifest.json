@@ -766,8 +766,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 3567,
-      "sha256": "891cedf96badeb0fff19de3026f972912cd5d99f2effebca955df4462c1ba9c6",
+      "bytes": 3912,
+      "sha256": "c8d3d3654bef7aa2fa4f165bcaf6026341ed44bf6ae16758a027cd8c16e7a64d",
       "source": "repository index maintained with this manifest"
     },
     {
@@ -2155,6 +2155,77 @@
       "bytes": 24405,
       "sha256": "a7261f88693a7ff774c1d786a6a4064de424f42643a84b71f56ac8880ca23624",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/worker-fixed-fb805b64-r2/results.json"
+    },
+    {
+      "path": "rag-retirement-review/spec/REPORT.md",
+      "bytes": 5311,
+      "sha256": "9f2e5d791e4007f186003688afbb967ed67c36acbeae5b882bb98d899f716784",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec/REPORT.md"
+    },
+    {
+      "path": "rag-retirement-review/spec/author-selection-independent-v2.junit.xml",
+      "bytes": 14430,
+      "sha256": "6c2fd69f71bf9e9f82e9f997836ccd25e27af3379e2ecc8205138392cc95a947",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec/author-selection-independent-v2.junit.xml"
+    },
+    {
+      "path": "rag-retirement-review/spec/author-selection-independent.junit.xml",
+      "bytes": 227,
+      "sha256": "c034c6bcceb89938e0bdd79cc1b9c756d3fae2dd3d0727edb8e6a47764fb55b6",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec/author-selection-independent.junit.xml"
+    },
+    {
+      "path": "rag-retirement-review/spec/candidate-generation-tests.junit.xml",
+      "bytes": 2741,
+      "sha256": "3b5908d268c913c473e03cc1bb04d251613dc580b128144c835ac6ef4ea73e2f",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec/candidate-generation-tests.junit.xml"
+    },
+    {
+      "path": "rag-retirement-review/spec/consumer-red-green/adaptation.json",
+      "bytes": 529,
+      "sha256": "c87d44a9c2060a882847dddf5d2387bf35169f5ffa97019aabb4ef0d67c3b9ff",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec/consumer-red-green/adaptation.json"
+    },
+    {
+      "path": "rag-retirement-review/spec/consumer-red-green/test_consumer_no_fallback.py.txt",
+      "bytes": 3190,
+      "sha256": "f3d2a1541bfac85446631c4825e590a44709458a9e3a539c28f2573d7e8b5d42",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec/consumer-red-green/test_consumer_no_fallback.py"
+    },
+    {
+      "path": "rag-retirement-review/spec/redaction-manifest.json",
+      "bytes": 1311,
+      "sha256": "06358feb84eff52d93a031ec79439f476b356184b9ccb734b6145ad7e7bf0d42",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec/redaction-manifest.json"
+    },
+    {
+      "path": "rag-retirement-review/spec/sanitized/consumer-red-green/baseline-bc43ece9.junit.xml",
+      "bytes": 29597,
+      "sha256": "d9925f4bd156be9fd35f24657117c2ab6a68181537617e7ec89c677936b0bde5",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec/sanitized/consumer-red-green/baseline-bc43ece9.junit.xml"
+    },
+    {
+      "path": "rag-retirement-review/spec/sanitized/missing-managed-artifact-v2.junit.xml",
+      "bytes": 29897,
+      "sha256": "715592d26294a8ae6ccc104e446aa6e39fb70bb03f8ff84d427a18e3a3e8e223",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec/sanitized/missing-managed-artifact-v2.junit.xml"
+    },
+    {
+      "path": "rag-retirement-review/spec/sanitized/missing-managed-artifact.junit.xml",
+      "bytes": 29017,
+      "sha256": "1deee4b83058058d9248e721f8cbfd2ba959971caee75ca5b99fcf46172f801e",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec/sanitized/missing-managed-artifact.junit.xml"
+    },
+    {
+      "path": "rag-retirement-review/spec/test_missing_managed_artifact.py.txt",
+      "bytes": 3594,
+      "sha256": "08ff32b076218429afde2f07228160c8c5925dae190ed6bd289935137b3889da",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec/test_missing_managed_artifact.py"
+    },
+    {
+      "path": "rag-retirement-review/spec/ARCHIVE-NOTE.md",
+      "bytes": 634,
+      "sha256": "1b59661e83fe715171a1178796566ce3d0f60d709d3bb42949c7d33783443d78"
     }
   ]
 }
