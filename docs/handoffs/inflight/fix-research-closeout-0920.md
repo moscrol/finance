@@ -1,0 +1,20 @@
+# 未闭环工作推进 · 2026-09-20
+
+## 任务与约束
+用户要求核工作树、判断未闭环设计并推进。设计源 `docs/superpowers/specs/2026-09-20-research-closeout-design-review.md`，具体实施片在同日期 plans。遵守 subagent-driven-development：单实施者，Spec通过后Quality，通过再下一片。禁止动原脏树、生产、真实模型/付费外审；main合并等用户确认。
+
+## 已交付
+- #789 最终62bbc4ec包含main4ace5ec2，全叶通过：Python11825P/85S/2X、前端110P、E2E34P/2S、Ruff/registry；严格base-drift=0，独立双轴与合流增量复核通过。已推，异步合main确认问题待用户答复，未获授权不能合。
+- 财务别名/单位：代码26fadf33，独立Spec与Quality在d2fc872b通过；b345975f仅更新交接，已推。PR797以R6 d8d6196b为基座，未合main。q保邻句、保稿/E2拒句回路尚未合流。
+- 运行恢复补丁：7199db11/7c3b36b4，固定56d6062e已推；作者348P/六变异红绿。独立原future/mixed通过、合同28P、守卫21P，Timer缺口关闭；Spec发现非补零/外围空白完整日期6格仍失败，实施者正在唯一残项返修。修完原日期矩阵复验，再Quality。
+
+## 后续队列
+1. 收运行恢复返修，Spec→Quality，冻结交付。跨进程driver仍未开放。
+2. 历史c9：修WindowSelection稳定根/排名窗身份、code-map连字符别名及后端不可用状态。计划已写，尚未实施；旧真实四题失败属fbd8版本。
+3. 金融RAG消费者：固定受管版本，状态在换版后首次查询前就非ready；legacy/缺绑定/回滚对照，计划已写尚未实施。
+4. 302132：独立65P但发现同步换code仍PASS与巨大int导致无FAIL JSON；按既有CODE绑定并可靠失败，计划已写尚未实施。
+#791：两套相似算法已排序；缺显式成员并集总量及distance_definition投影。#790已有诊断送达与脚本纠参23P，不能重造。其余研究工单、夜跑合流、自然质量及部署仍待各自验收。
+
+## 证据与现场
+外部根 `/Users/a77/.finance-runtime/reviews/research-closeout-20260920/`；入仓原件 `docs/verification/2026-09-20-research-closeout/manifest.json`，.py/.log加.txt保存原字节，README本身也进清单。旧失败不覆盖。
+本树只协调文档，主树detached且有他人修改。指定解释器为主树`.venv-workbench/bin/python`。生产8792/双索引/L2未动。工作树未删除；“推送/定向通过/整合/业务通过/生产生效”分开记。
