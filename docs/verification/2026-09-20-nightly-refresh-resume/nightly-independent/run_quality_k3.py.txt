@@ -1,0 +1,87 @@
+"""One bounded independent Quality session on K3 via pi; same harness as run_spec_k3.py.
+
+Runs only after the Spec axis has a REPORT.md; the prompt itself fails closed (BLOCKED) if that
+report is missing or not PASS. Output goes to quality-k3/; candidate is the exclusive quality-tree.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+
+root = Path(__file__).resolve().parent
+out = root / 'quality-k3'
+out.mkdir(exist_ok=False)
+tree = root / 'quality-tree'
+prompt = root / 'quality-k3-prompt.md'
+spec_report = root / 'spec-k3' / 'REPORT.md'
+author_tree = Path('/Users/a77/fwp-wt-nightly-refresh-resume-0920')
+vault = Path('/Users/a77/agent-memory')
+command = ['/opt/homebrew/bin/pi',
+           '--provider', 'mirasim-kimi', '--model', 'kimi-k3', '--thinking', 'xhigh',
+           '--no-session', '--no-extensions', '--no-skills', '--no-prompt-templates', '--no-approve',
+           '--exclude-tools', 'edit',
+           '--mode', 'json', '-p', '--', prompt.read_text(encoding='utf-8')]
+env = {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+       'TMPDIR': '/tmp', 'LANG': 'C.UTF-8',
+       'PYTHONDONTWRITEBYTECODE': '1', 'FWP_TEST_RECEIPT': '0'}
+
+
+def git(*args, cwd):
+    return subprocess.check_output(['git', *args], cwd=cwd, text=True)
+
+
+def identity():
+    refs = git('for-each-ref', '--format=%(refname) %(objectname)', cwd=tree)
+    return {'revision': git('rev-parse', 'HEAD', cwd=tree).strip(),
+            'status': git('status', '--porcelain', cwd=tree),
+            'shared_refs_sha256': hashlib.sha256(refs.encode()).hexdigest(),
+            'author_tree': {'revision': git('rev-parse', 'HEAD', cwd=author_tree).strip(),
+                            'status': git('status', '--porcelain', cwd=author_tree)},
+            'vault': {'revision': git('rev-parse', 'HEAD', cwd=vault).strip(),
+                      'dirty_count': len(git('status', '--porcelain', cwd=vault).splitlines())},
+            'spec_report_sha256': hashlib.sha256(spec_report.read_bytes()).hexdigest() if spec_report.exists() else None}
+
+
+before = identity()
+assert before['revision'] == 'd95b706edc6e44f3dfa54d7b8837dfdd36b16cf2' and before['status'] == '', before
+assert before['spec_report_sha256'], 'spec-k3/REPORT.md missing: Quality must not start'
+receipt = {'command': command[:-1] + ['<prompt: quality-k3-prompt.md>'],
+           'prompt_file': str(prompt), 'prompt_sha256': hashlib.sha256(prompt.read_bytes()).hexdigest(),
+           'time_before': datetime.now(timezone.utc).isoformat(), 'timeout_seconds': 1800,
+           'identity_before': before, 'complete': False}
+path = out / 'execution.json'
+path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
+with (out / 'events.jsonl').open('xb') as stdout, (out / 'stderr.log').open('xb') as stderr:
+    process = subprocess.Popen(command, cwd=tree, env=env, stdin=subprocess.DEVNULL,
+                               stdout=stdout, stderr=stderr, start_new_session=True)
+    receipt['pid'] = process.pid
+    try:
+        process.communicate(timeout=1800)
+        receipt['timed_out'] = False
+    except subprocess.TimeoutExpired:
+        receipt['timed_out'] = True
+        os.killpg(process.pid, signal.SIGTERM)
+        try:
+            process.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.communicate()
+    receipt['exit_code'] = process.returncode
+after = identity()
+receipt.update(identity_after=after, time_after=datetime.now(timezone.utc).isoformat(), complete=True,
+               candidate_untouched=(after['revision'] == before['revision'] and after['status'] == ''),
+               shared_refs_unchanged=(after['shared_refs_sha256'] == before['shared_refs_sha256']),
+               author_tree_unchanged=(after['author_tree'] == before['author_tree']),
+               vault_unchanged=(after['vault'] == before['vault']),
+               spec_report_unchanged=(after['spec_report_sha256'] == before['spec_report_sha256']))
+for name in ('events.jsonl', 'stderr.log', 'REPORT.md'):
+    file = out / name
+    if file.exists():
+        receipt.setdefault('sha256', {})[name] = hashlib.sha256(file.read_bytes()).hexdigest()
+path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps({k: receipt[k] for k in ('exit_code', 'timed_out', 'candidate_untouched', 'shared_refs_unchanged',
+                                           'author_tree_unchanged', 'vault_unchanged', 'spec_report_unchanged',
+                                           'time_after')}, ensure_ascii=False), flush=True)

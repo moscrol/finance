@@ -40,6 +40,14 @@
 - #800：原时点无文本冲突不等于全叶或原四题自然验收；#791成员并集总量与distance_definition投影待做，#790已有诊断/纠参测试勿重复。
 - #799：只补评论接手指针，不改他人脏工作树或关闭PR。
 
+## 同日接手 QC 与 K3 复跑（本地 17:00–18:00）
+
+1. 接手 QC 先核原交接：全部数字与状态属实。另查出三件：#789 关闭时无接替指针（其头提交已是 main 祖先，内容确经 #801 进入）；共享收据目录有一份 d95b706e 的 0 计数收据（07:39:51Z，产生者不在归档，权威收据是重定向那份）；#803 的 Gitea mergeable=false 源于 WIP 前缀，`merge-tree` 对 main 干净。文档 tip be9e5db9 补跑 ruff、40 个全树扫描测试文件 927P、pre-commit 11 道全过；全量 Python / 前端仍只绑 d95b706e。
+2. 用户告知 K3 恢复后，沿用原 Codex 编排、只换传输为 pi + kimi-k3 复跑：Spec PASS、Quality PASS（issues=[]）。细节、指纹与交叉核验见 `docs/verification/2026-09-20-nightly-refresh-resume/README.md`「K3 复跑」。Codex 失败原件未覆盖。
+3. 取舍：换服务不算越权，`pi --provider mirasim-kimi` 是本仓已用过的独立 QC 路径且用户当场确认；没有 OS 沙箱就用四组指纹替代；审核者证据必须过「哈希对得上、复跑得出、变异咬得住」三关才采信，Quality 删掉的变异副本以事件流工具输出为证。
+4. 踩坑：zsh 不对未加引号的 `$VAR` 分词，整串 `env -i …` 被当成命令名，两次复跑 rc=127；换显式 env 命令后才是真读数。rc=127 不是红，也不是绿。
+5. 仍未做：main 合并等用户确认；#789 指针；337 棵工作树清理（看板：108 棵干净已合可拆、13 棵先认领、生产快照多留约 28 个），已向用户提出分三批清的方案。
+
 ## 工具沉淀盘点
 
 防错保护已进 `tests/test_stitch_refresh_completion.py` 与 `tests/test_recovery_refresh_integration.py`，外部probe/变异日志只作本次证据。固定全叶编排只是调用现有pytest、registry、run_frontend_gate与check_test_receipt；封存脚本原文供复现，不建第二套生产执行框架。可迁移原则补入 `gate-covers-only-its-return-value`：要求刷新是意图，不是已刷新凭证。共享harness-reference树脏且领先远程，未擅改；本次无新增可独立迁移的搭建组件需要登记。

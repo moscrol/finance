@@ -43,9 +43,18 @@ $PY -m pytest -q -p no:cacheprovider \
 
 两条刷新变异选择：`test_refresh_cannot_borrow_old_success_when_baseline_expired` 与 `test_real_refresh_cli_failure_prevents_child_success`；skip变异选择是 integration模块 `-k 'nonoptional and skip'`。源码保护落在正式测试，不依赖一次性探针才能重现。原probe副本含绝对ROOT和输出路径，复跑须适配至新目录，不覆盖证据。
 
-## 独立审核：BLOCKED，不是PASS
+## 独立审核：首次 Codex 尝试 BLOCKED；同日 K3 复跑 Spec PASS · Quality PASS
 
-Spec只启动一次，thread `01a0bdd4-902d-7ad3-9fc9-f60742e71071`。`nightly-independent/spec/events.jsonl` 记载 Codex 使用额度耗尽；另有配置/host警告。0审核工具、无REPORT、无结论；进程rc1，首尾候选干净。未自动重试或换provider，Quality未启动。`run_spec.py.txt` / prompt / execution.json 保留调度与身份事实；**此README是作者说明，不冒充审核者报告**。
+首次 Spec 只启动一次，thread `01a0bdd4-902d-7ad3-9fc9-f60742e71071`。`nightly-independent/spec/events.jsonl` 记载 Codex 使用额度耗尽（恢复时间 2026-09-27 01:06）；0审核工具、无REPORT、无结论；进程rc1，首尾候选干净。原件 `spec/` 逐字节保留，未被后续复跑覆盖。**此README是作者/接手会话说明，不冒充审核者报告**；审核者结论只看两份 `REPORT.md`。
+
+### K3 复跑（用户确认 K3 可用后，由接手 QC 会话调度）
+
+- 传输：`pi 0.85.1 --provider mirasim-kimi --model kimi-k3 --thinking xhigh`，本机网关 127.0.0.1:18788；禁 extensions / skills / prompt-templates，禁 `edit` 工具，json 事件流。pi 没有 Codex 式 OS 沙箱，隔离靠指令 + 前后四组指纹（候选 HEAD 与 porcelain、共享仓全部 refs 哈希、作者分支树、记忆 vault），两轮全部未变，见各 `execution.json`。
+- Spec：独占树 `spec-tree`@d95b706e；prompt 与 Codex 版逐字节只差输出目录（sha `45a06e49…` → `29c31ebd…`）。09:23:57Z–09:39:41Z，45 次工具调用，rc0。自建 fixture 探针 A 27/27、探针 B 18/18，作者 29 项新测试 29P，ruff 0。结论 PASS，报告 `spec-k3/REPORT.md`（sha `644ba90d…`）。
+- Quality：独占树 `quality-tree`@d95b706e；prompt 自带 fail-closed（Spec 报告缺失或非 PASS 即 BLOCKED），首尾均记 Spec 报告 sha。09:40:58Z–09:53:11Z，37 次工具调用，rc0。29P；外部副本变异「吞 rc2」12F/17P、「所有 skip 放行」2F/27P，副本已由审核者删除，实跑输出保留在 `quality-k3/events.compact.jsonl` 的工具结果里。结论 PASS，issues=[]，报告 `quality-k3/REPORT.md`（sha `86589b99…`）。
+- 接手会话交叉核验（不是第三次独立审核，只证审核者证据真实、可复现、对缺陷敏感）：两份报告内全部哈希与实际文件一致；Spec 5 处源码位置引用逐条属实；Spec 两个探针从中立目录对冻结树复跑 27/27、18/18，逐项判定与审核者日志相同；对变异树注入「借旧审计」缺陷探针 A 5 项变红、注入「所有 skip 放行」探针 B 2 项变红，树已恢复干净；Quality 的 5 文件哈希、差分与 `git show d95b706e` 逐字节相同（409 行）、numstat 唯一删行在 recover、差分无新增家目录字面量均属实，其动态数字逐条对到事件流里的工具输出。记录 `qc-of-spec-k3.json` / `qc-of-quality-k3.json`；复跑与变异日志在 `qc-rerun/`、`qc-mutation/`。首轮复跑曾因 zsh 不分词得到 rc=127，已丢弃、未据此下结论。
+- 事件流原件 7.6 MB / 3.4 MB，仓内封存精简版（去掉逐 token `message_update` 与 `tool_execution_update`），原件字节数与 sha256 记在 `manifest.json` 的 `external_only`。
+- 边界不变：两轴只签 d95b706e 的 R1 + I1；审核者是 LLM，不给 main / 生产签字；冻结树无 `.agent-memory` 软链，审核者读的是 AGENTS.md 内嵌偏好。合并仍需最终 SHA 全叶与用户确认。
 
 ## 回填小片：原双审核实与 PR #802
 

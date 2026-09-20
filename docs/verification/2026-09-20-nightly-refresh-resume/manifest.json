@@ -344,6 +344,159 @@
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-pr.json",
       "bytes": 362,
       "sha256": "8de50226034d5684bbb784f3d233a95f5f75d0a635b48e97c14d20e5a65df641"
+    },
+    {
+      "file": "nightly-independent/run_spec_k3.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/run_spec_k3.py",
+      "bytes": 4525,
+      "sha256": "2aa7f03342144aeea479cc48bf822bca3b9f893ceae0e31743dc90ac355bb85a"
+    },
+    {
+      "file": "nightly-independent/spec-k3-prompt.md",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/spec-k3-prompt.md",
+      "bytes": 3866,
+      "sha256": "29c31ebd40d7ab73612cc72742b39dedd2138873c9d53e0c9b39ab1889b312cb"
+    },
+    {
+      "file": "nightly-independent/spec-k3/REPORT.md",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/spec-k3/REPORT.md",
+      "bytes": 7607,
+      "sha256": "644ba90db91652a9f8aa77410b620a419bf7916b2994989c6f67bd8388b76f1e"
+    },
+    {
+      "file": "nightly-independent/spec-k3/events.compact.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/spec-k3/events.jsonl",
+      "bytes": 942978,
+      "sha256": "f9ac57b67f83981f6ddd2b4a8be62a94a5e26ba6104212e06645a4abfb81f1a6"
+    },
+    {
+      "file": "nightly-independent/spec-k3/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/spec-k3/execution.json",
+      "bytes": 2029,
+      "sha256": "90ed52c39a86dc6e4a5c879907a4ff33cf1c16b313a6bfac10aa7955762e9400"
+    },
+    {
+      "file": "nightly-independent/spec-k3/probe_a.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/spec-k3/probe_a.log",
+      "bytes": 1151,
+      "sha256": "416ba860d7614b53406bc5c126bc7993c93c7b7e4db8577e4c5a162a9f9076c9"
+    },
+    {
+      "file": "nightly-independent/spec-k3/probe_a_stitch.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/spec-k3/probe_a_stitch.py",
+      "bytes": 9148,
+      "sha256": "cc44cd8940f691778d49b3e9d542d5a31ef81f6c519cb1ca49cb87f0b1bbb22f"
+    },
+    {
+      "file": "nightly-independent/spec-k3/probe_b.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/spec-k3/probe_b.log",
+      "bytes": 7935,
+      "sha256": "2279bca5e905edaf7843a6e9f56dc621de701fbfd0615744e5696980d6f43583"
+    },
+    {
+      "file": "nightly-independent/spec-k3/probe_b_child.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/spec-k3/probe_b_child.py",
+      "bytes": 7926,
+      "sha256": "86380eda32d851e8af738f2d72af40d0b11a1e8145a9a437cd0b90a87071adc4"
+    },
+    {
+      "file": "nightly-independent/spec-k3/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/spec-k3/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "nightly-independent/run_quality_k3.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/run_quality_k3.py",
+      "bytes": 4695,
+      "sha256": "54ce1e3b37893e525a678a6de0cedd31ea92a6639b411720a5574be5128b2611"
+    },
+    {
+      "file": "nightly-independent/quality-k3-prompt.md",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/quality-k3-prompt.md",
+      "bytes": 4041,
+      "sha256": "6e20d4ae964e0f777600172f98708e41db8a22a5d9948b1149532474e05e5b6f"
+    },
+    {
+      "file": "nightly-independent/quality-k3/REPORT.md",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/quality-k3/REPORT.md",
+      "bytes": 9549,
+      "sha256": "86589b99c30c1f2032a81b51109d23579d1571e83ed608bb062f9b1918af5f93"
+    },
+    {
+      "file": "nightly-independent/quality-k3/events.compact.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/quality-k3/events.jsonl",
+      "bytes": 711222,
+      "sha256": "00b85c3b5d88a79dcdae585db939b8c8ffe6515fb22fc27b1212aec5b3ec9a39"
+    },
+    {
+      "file": "nightly-independent/quality-k3/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/quality-k3/execution.json",
+      "bytes": 2256,
+      "sha256": "752d08e659a8de47d84c177369c6732b3b5ad7f3a3f5494f1bfa6949fa2cbece"
+    },
+    {
+      "file": "nightly-independent/quality-k3/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/quality-k3/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "nightly-independent/qc-rerun/probe_a.rerun.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/qc-rerun/probe_a.rerun.log",
+      "bytes": 1151,
+      "sha256": "416ba860d7614b53406bc5c126bc7993c93c7b7e4db8577e4c5a162a9f9076c9"
+    },
+    {
+      "file": "nightly-independent/qc-rerun/probe_b.rerun.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/qc-rerun/probe_b.rerun.log",
+      "bytes": 7935,
+      "sha256": "2279bca5e905edaf7843a6e9f56dc621de701fbfd0615744e5696980d6f43583"
+    },
+    {
+      "file": "nightly-independent/qc-mutation/probe_a.M1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/qc-mutation/probe_a.M1.log",
+      "bytes": 1621,
+      "sha256": "97990ed9edb8648d45b0760c32abf7587197eb974ddc092b974f08e6d5971d84"
+    },
+    {
+      "file": "nightly-independent/qc-mutation/probe_b.M2.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/qc-mutation/probe_b.M2.log",
+      "bytes": 8075,
+      "sha256": "3817f108789f72b5129668dbbb3bd4152b86a863afc363fd2d09d463aecf06e2"
+    },
+    {
+      "file": "nightly-independent/qc-of-spec-k3.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/qc-of-spec-k3.json",
+      "bytes": 3883,
+      "sha256": "cb9c11443a630eb13e24be75dfe5646b848520b8af086e074be2ace0b7d83e52"
+    },
+    {
+      "file": "nightly-independent/qc-of-quality-k3.json",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/qc-of-quality-k3.json",
+      "bytes": 2816,
+      "sha256": "34527c427939bd3a51dd53217f43713f2dfdb6d4ebb7055db440d359626e65a7"
+    },
+    {
+      "file": "nightly-independent/seal_k3.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/seal_k3.py",
+      "bytes": 5130,
+      "sha256": "2f298d923f5e0be775ebc77d494ce16b4b37cdf94b38c9e616c3d0c3b6dcba8b"
     }
-  ]
+  ],
+  "external_only": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/spec-k3/events.jsonl",
+      "bytes": 7622153,
+      "sha256": "9b443dc012344e91312350f267571536b9b430c2a3c6ad1a5e37252dfa4da22d",
+      "why_external": "full pi json stream incl. token deltas; compact copy sealed"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/quality-k3/events.jsonl",
+      "bytes": 3407928,
+      "sha256": "d5cf2fe9293cb5567af489535f6039f7fc7dcbe978b9ffe0281b3bce53a2b643",
+      "why_external": "full pi json stream incl. token deltas; compact copy sealed"
+    }
+  ],
+  "k3_rerun_note": "Independent Spec/Quality re-run on kimi-k3 via pi after the Codex quota block; Codex originals in nightly-independent/spec/ left byte-identical."
 }
