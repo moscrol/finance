@@ -1,30 +1,34 @@
 # 研究求证意识候选
 
 ## 这个分支做什么
-培养机制求证、竞争解释与反证；当前收口旧证据恢复和日期误删保护，不固定视角或模板。
+培养机制求证、竞争解释与反证；当前收口旧证据恢复、日期误删保护和真实入口边界。
 
 ## 决策与被否方案
-- 选 `prior_evidence` 封装 old/new E 号映射，否 runtime 直接投影：分层断言通过，行为仍为 `E2 -> E1`。
-- 选“句首短日期 + 绑定 source_date 月日”局部遮罩，否扩大日期正则/全局放行：保留 `9-11倍` 等数量门，语义 judge 仍裁决。
-- 保留旧 V4 on2 失败原件，否用修复后运行覆盖：区分程序误删、模型语义和版本证据。
-- 不搬 E2 WIP、不把全部槽改 `user_premise`：材料资格与推断正确性分开验。
+- 选 `prior_evidence` 封装 old/new E 号映射，否 runtime 直接投影：职责和回归都保留。
+- 选“句首短日期 + 绑定 source_date 月日”局部遮罩，否扩大正则/全局放行：数量门仍 fail-closed，judge 仍裁决。
+- 保留旧 V4 on2 原件，否用新运行覆盖：分开程序误删、模型语义和版本证据。
+- 不搬 E2 WIP、不把材料全改 `user_premise`：材料资格与推断正确性是两层合同。
 
 ## 当前状态
-已提交 `68949b92`、`2cfa9d0d`；代码验证 revision 仍为 `2cfa9d0d`，本轮只补文档/外部收据，求证开关默认 off，未 push/PR/合 main/部署，8792 未动。验证快照见 [prior-evidence-review](../2026-09-21-prior-evidence-review.md)。
+分支 `feat/research-reasoning-awareness`；业务代码 `2cfa9d0d7`，文档 tip `e512c6369`。本轮仅新增外部 v5 manifest、更新三份文档，文档改动待提交；开关默认 off，未 push/PR/合 main/部署。8798 PID `13106` 已停，8792 PID `32544` 未动。
 
 ## 已验证
-- 全仓 pytest `12049P/87S/2X/0F`，收据 `~/.finance-runtime/test-receipts/20260920T195644Z-2cfa9d0d.json`；Ruff 绿。
-- K3 Spec/Quality 均 PASS；报告在 `/Users/a77/.finance-runtime/reasoning-boundaries-20260921/k3-independent/`。候选树首尾未改，但共享 refs/agent-memory 漂移，不能称完整隔离。
-- 日期隔离338P；撤保护5F/8F；相关回归477P。
+- 全仓 pytest `12049P/87S/2X/0F`、Ruff 绿；全仓收据 `~/.finance-runtime/test-receipts/20260920T195644Z-2cfa9d0d.json`。
+- 日期隔离 `338P`；撤保护 `5F/8F`；相关回归 `477P`；K3 Spec/Quality PASS，但共享 refs/agent-memory 漂移。
+- 旧 on2 只读重放：目标句到达 stub judge，仅 observation-only。
+- V5：前两次澄清；最小题面有“9-18 逆势放量上涨”方向错误；句首 run `060912_869656` 第一字符为 `9`，目标 `9-11` 绑定 E6(`2026-09-11`)，9-14 绑定 E5，目标首句到达真实 judge 后 `demoted_to_issue`。
+- manifest：`/Users/a77/.finance-runtime/reasoning-boundaries-20260921/v5-short-date/MANIFEST.json`，SHA256 `8142bec5b5213693bc2c97d3354345fb7ae488877621d2443b9fa63d02b8a387`。
 
 ## 未验证 / 已知边界
-真实入口 sidecar 在 `2cfa9d0d` 重跑，首答/复核 completed；新答用全日期，未命中旧 on2 的 `9-11` 路径。旧 on2 原件只读重放：目标句未被数量门删除并到达 stub judge，收据 `/Users/a77/.finance-runtime/reasoning-boundaries-20260921/v4/on2/semantic-replay-2cfa.json`，不等于真实模型验收。四臂仍有错误归因，n=2 不成趋势；同源 judge/零工具/completed 不等于语义通过。独立盲审为负向观察（拒绝 `[1,2,3,5]`），Grok/Codex 仍失败。供需仍拒答，E2 binding未合入；前端/E2E/registry和跨仓漂移未验。
+最新 run `completed/repaired`、`correlated_judge=true`，不等于语义通过；另一个含数字的候选句仍被 `novel_numeric_condition` 删除。总量证据不支持事实式“出逃/兑现”；独立语义盲审 `passed=false`，拒绝 `[1,2,3,5]`。V4 四臂 `n=2` 且 flag 未知；E2/P5/P6 binding、供需题、前端/E2E/registry、跨仓漂移未验。未证明跨会话、多层、混合联网、任意日期窗口或 checkpoint 恢复。
 
 ## 下一步
-对照重跑与旧件，manifest 在外部 `v4/date-fix-rerun/MANIFEST.json`；对齐E2/P5/P6材料来源，补真实入口短日期证据。独立语义负向结果封存，不写PASS。合main、部署、重启8792、购买外审、删生产均暂停。
+1. 提交本轮三份文档，核对只包含 pathspec 指定文件。
+2. 让 E2/P5/P6 owner 补逐句来源，补未见题和新 fixture 反例；不把路径证据写成 PASS。
+3. 处理前端/E2E/registry 与 `kb/rag-query` 漂移；暂停合 main、部署、重启 8792、付费外审、删生产原件。
 
 ## 踩过的坑
-probe打印路径不是隔离users真路径；旧E号不能跨轮复用；合法等长篡改才验证SHA门；`9-11` 既可能是日期也可能是区间，必须先绑定再局部遮罩；K3审核期间共享refs/记忆会受并行环境漂移，收据不能省略。
+probe 显示路径可能不是隔离 users 真路径；旧 E 号不能跨轮引用；`9-11` 必须绑定日期后局部放行；`completed`、同源 judge、结构 gate 和答案保留不能替代独立语义验收；共享 refs/记忆漂移必须入收据。
 
 ## 工具沉淀盘点
-继续复用既有 probe 和测试门；K3 runner/报告留外部，未造生产执行器，不能把一次审核包装成质量量具。
+复用既有 probe、收据和校验命令；没有新增生产执行器或跨项目工具。

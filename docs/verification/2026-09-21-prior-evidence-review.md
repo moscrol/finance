@@ -42,6 +42,21 @@
 
 旧 on2 原件另做只读离线重放：结构重放仍为 `completed` 且与存证无差异；当前 verifier 的确定性预检四类索引均为空，目标句被送入判官请求。该探针使用 stub judge，只证明“未被数量门提前删除并到达判官”，不证明真实模型接受整篇答案。收据 `/Users/a77/.finance-runtime/reasoning-boundaries-20260921/v4/on2/semantic-replay-2cfa.json`，源原件 SHA256 `8e9117…b230cc660`。
 
+## V5 短日期真实入口
+
+外部收据和逐项 SHA256 已封存于 `/Users/a77/.finance-runtime/reasoning-boundaries-20260921/v5-short-date/MANIFEST.json`（SHA256 `8142bec5b5213693bc2c97d3354345fb7ae488877621d2443b9fa63d02b8a387`）。候选 sidecar 加载文档 tip `e512c6369`；业务代码仍为 `2cfa9d0d7`，本轮没有业务代码改动。四次真实入口结果必须分层读取：
+
+| run | 观察 | 判定边界 |
+|---|---|---|
+| `055249_939965` | 初始题面澄清 | 未进入研究、检索或语义判官 |
+| `055441_387889` | 续问仍要求补充关键信息 | 公开结果仍为澄清，不能当行为样本 |
+| `060027_912448` | 最小自然题面进入本地查询 | `completed/repaired` 但有 `numeric_unsupported`，并错误称 9-18 数据确权板块“逆势放量上涨” |
+| `060912_869656` | 答案第一字符为 `9`，首行保留 `9-11 是出逃式交易/兑现压力放大。`；9-11/9-14 分别绑定 E6/E5 | 目标首句进入真实语义 judge，被 `demoted_to_issue`；另一个含数字的候选解释仍被 `novel_numeric_condition` 预检删除。路径成立，整篇不通过 |
+
+最新 run 的 gate 为 `verified_status=completed`、`judge_status=repaired`、`correlated_judge=true`，并记录缺少逐笔卖单、资金申赎和市值分组收益，不能把事实式“出逃/兑现”当作已核验结论。`answer_marker_coverage=incomplete` 仅是观察项；`completed`、公开答案保留句首和同源 judge 均不等于语义验收。此结果补足了旧 on2 的真实入口路径证据，但不替代旧原件、独立语义盲审或 K3 限制。
+
+8798 sidecar PID `13106` 已停止且端口释放；生产 8792 仍由 PID `32544` 监听，未触碰。
+
 虚构供需题的 V4 重跑仍拒答（0工具、结构性终止失败），不能把材料前提整体改成 `user_premise` 以绕过 grounding。E2 owner 的逐句材料绑定仍未合入本候选。
 
 ## K3 独立复核
@@ -66,7 +81,7 @@
 
 ## 下一步与禁做
 
-下一步：与 E2 owner 对齐材料逐句来源；补未见题和新增开发反例的真实答卷；对旧 on2 的短日期路径保留离线重放并另行取得真实入口证据；按归属处理前端/E2E/registry。日期修复重跑原件、离线重放和 manifest 已封存，不覆盖旧 on2。
+下一步：与 E2/P5/P6 owner 对齐材料逐句来源；补未见题和新增开发反例的真实答卷；按归属处理前端/E2E/registry 与跨仓漂移。V5 短日期真实入口、旧 on2 离线重放和各自 manifest 已封存，不覆盖旧 on2。
 
 禁止：不把 K3 PASS 写成业务质量通过；不把同源 judge/零工具/completed 当行为通过；不合 main、部署、重启8792、购买外审额度或删生产原件；不宣称支持跨会话、多层、混合联网、任意日期重筛或崩溃 checkpoint 恢复。
 

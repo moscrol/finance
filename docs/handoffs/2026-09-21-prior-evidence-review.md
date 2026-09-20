@@ -40,14 +40,15 @@
 ## 仍不成立的结论
 
 - `K3 PASS` 只说明本次两个提交的规格/工程质量；不说明求证开关产生了稳定收益。
-- V4 四臂仍是 `a4f51112` 版本；日期修复后的真实入口已在代码验证 revision `2cfa9d0d` 的隔离 sidecar 重跑，首答后复核同一连续会话，两个 run 均 completed，复核保留 `9-11` 的绑定证据句并撤回两项资金归因。但新答案使用的是“9月11日”全日期，没有实际命中旧 on2 被误删的句首短日期 `9-11 ...` 路径；首答仍有“跌停21>涨停40”等错误。旧 on2 失败原件必须保留；新 run 不替代独立语义盲审。
+- V4 四臂仍是 `a4f51112` 版本；日期修复后的第一轮真实入口使用“9月11日”全日期，首答仍有“跌停21>涨停40”等错误，不能证明旧 on2 的短日期路径。旧 on2 失败原件必须保留；新 run 不替代独立语义盲审。
+- V5 三类真实入口结果已封存：初始/续问分别澄清；最小自然题面进入本地查询但出现“9-18 逆势放量上涨”方向错误；最新句首 run `run_20260921_060912_869656` 第一字符为 `9`，保留目标短日期并绑定 E6(`2026-09-11`)/E5(`2026-09-14`)，目标首句到达真实 judge 后被降级为 issue，另一个带数字候选句仍被数值预检删除。结论是短日期路径证据成立，整篇语义验收不成立。manifest：`/Users/a77/.finance-runtime/reasoning-boundaries-20260921/v5-short-date/MANIFEST.json`，SHA256 `8142bec5b5213693bc2c97d3354345fb7ae488877621d2443b9fa63d02b8a387`。
 - 四臂同源 judge、0工具和 completed/repaired 不能构成独立语义复核。Grok 因 read-only sandbox socket symlink 故障失败，Codex 因 code-mode host/usage limit 失败；现有 K3 无工具盲审只作 observation-only 负向证据：报告 `/Users/a77/.finance-runtime/reasoning-boundaries-20260921/semantic-k3-independent-3/REPORT.md`，结果 `passed=false`，拒绝候选 `[1,2,3,5]`，发现 E4 的 `+0.278%` 被错误保留/改号。旧 on2 离线重放仅证明短日期句到达 stub judge，收据 `/Users/a77/.finance-runtime/reasoning-boundaries-20260921/v4/on2/semantic-replay-2cfa.json`，不构成真实模型验收。
 - 供需题仍拒答；材料前提逐句 binding 未接入本候选。
 - 未证明跨会话、多层复核、混合联网原轮、任意日期窗口筛选或崩溃 checkpoint 恢复。
 
 ## 下一步
 
-1. 保留新日期重跑与旧件的原件、flag/flag未知状态、合同、工具数和公开答案；外部 manifest 在 `v4/date-fix-rerun/MANIFEST.json`，不要把新答案称为旧短日期路径的真实复现。
+1. 保留 V4/V5 原件、flag 未知状态、合同、工具数、公开答案和外部 manifest；不要用 V5 替换旧 on2，也不要把路径证据称为语义 PASS。
 2. 让 E2/P5/P6 owner 给出材料前提和逐句来源的可验收版本；不要全局改 `user_premise`。
 3. 补未见题、新 fixture 反例的真实答卷；独立语义盲审负向结果与服务失败原件继续封存，不写 PASS。
 4. 处理前端/E2E/registry 合流检查和跨仓 `kb/rag-query` 漂移，但不把无关漂移混进本候选提交。
