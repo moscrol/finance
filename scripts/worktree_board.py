@@ -224,12 +224,18 @@ def classify_worktree(
     error = ""
     if code != 0 or not top or Path(top).resolve() != Path(path).resolve():
         error = "worktree unavailable or repository root mismatch"
-    plus, minus, in_main = cherry_counts(head, base, cwd=path, timeout=timeout)
+    plus, minus, in_main = (
+        (-1, -1, False) if error
+        else cherry_counts(head, base, cwd=path, timeout=timeout)
+    )
     if plus < 0:
         error = error or "git cherry failed; merge status unknown"
     ahead = _count(["rev-list", "--count", f"{base}..{head}"], cwd=path, timeout=timeout)
     behind = behind_count(head, base, cwd=path, timeout=timeout)
-    status_code, status = _git(["status", "--porcelain"], cwd=path, timeout=timeout)
+    status_code, status = (
+        (1, "") if error
+        else _git(["status", "--porcelain"], cwd=path, timeout=timeout)
+    )
     if status_code != 0:
         error = error or "git status failed; dirty state unknown"
     paths = _status_paths(status)
@@ -526,7 +532,7 @@ def collect_rows(*, cwd: str, timeout: float) -> tuple[str, str, str, list[TreeR
     rows: list[TreeRow] = []
     for spec in parse_worktree_porcelain(porcelain):
         row = classify_worktree(
-            spec, base=base, main_checkout=main_checkout, timeout=timeout
+            spec, base=base_sha or base, main_checkout=main_checkout, timeout=timeout
         )
         if row is not None:
             rows.append(row)

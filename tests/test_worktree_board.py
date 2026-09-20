@@ -471,9 +471,27 @@ def test_parent_repository_is_not_mistaken_for_missing_worktree(tmp_path: Path) 
     nested.mkdir()
     row = _classify(repo, path=str(nested))
     assert "root mismatch" in row.error
+    assert row.cherry_plus == -1 and not row.in_main
     text = board.format_board([row], base="main", base_sha="a" * 40)
     assert "待核实 1" in text
     assert "干净 dev 树 0" in text
+
+
+def test_collect_rows_pins_baseline_for_entire_scan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = _init_repo(tmp_path)
+    expected = _git(repo, "rev-parse", "main")
+    seen = []
+
+    def classify(spec, **kwargs):
+        seen.append(kwargs["base"])
+        return None
+
+    monkeypatch.setattr(board, "classify_worktree", classify)
+    base, sha, _, rows = board.collect_rows(cwd=str(repo), timeout=10)
+    assert base == "main" and sha == expected
+    assert seen == [expected] and rows == []
 
 
 def test_status_failure_never_becomes_prunable(
