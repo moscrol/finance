@@ -3,6 +3,7 @@ import pytest
 
 from intelligence.tests.test_premise_financial_calculation import (
     ARITHMETIC,
+    CALCULATION_MARKER,
     FOLLOWUP,
     PremiseSource,
     compile_case,
@@ -59,3 +60,11 @@ def test_additional_scenario_cannot_silently_replace_the_original():
         "沿用上一轮。再加一个情景：下一年归母净利润增长10%，请比较两个情景市盈率。", HISTORY,
     )
     assert any("多个情景" in issue for issue in calc.issues)
+
+
+def test_static_only_conflict_cannot_silently_drop_requested_metrics():
+    calc = compile_case(
+        ARITHMETIC + "这次只计算静态市盈率，还要给出收入同比。",
+    )
+    assert any("其他指标" in issue for issue in calc.issues)
+    assert calc.admit(CALCULATION_MARKER, status="completed")[1]

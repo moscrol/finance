@@ -651,6 +651,14 @@ def compile_calculation(
         static_only = bool(_STATIC_ONLY.search(instruction))
         declared_scenarios = list(_SCENARIO.finditer(instruction))
         if static_only:
+            conflicting_metrics = tuple(
+                phrase for phrase in requested if phrase in instruction
+            )
+            if conflicting_metrics:
+                issues.append(
+                    "同轮同时要求仅静态估值与其他指标，需明确计算范围："
+                    + "、".join(conflicting_metrics)
+                )
             requested_phrases.clear()
         else:
             requested_phrases.update(phrase for phrase in requested if phrase in instruction)
@@ -680,7 +688,12 @@ def compile_calculation(
         }
         issues.extend(
             f"{labels[metric]}变更缺少单位，不能沿用历史值"
-            for _, _, metric, _ in sorted(invalidated_keys)
+            for _, _, metric, _ in sorted(
+                invalidated_keys,
+                key=lambda item: (
+                    item[0], item[1] is not None, item[1] or -1, item[2], item[3]
+                ),
+            )
         )
     if malformed_scenario:
         issues.append("利润变化情景缺少百分号，不能沿用历史比例")

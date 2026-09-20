@@ -22,6 +22,14 @@ def test_unitless_update_cannot_use_the_previous_input(statement, metric, period
     assert calc.admit(CALCULATION_MARKER, status="completed")[1]
 
 
+def test_multiple_unitless_updates_do_not_crash_on_mixed_periods():
+    calc = compile_case(
+        "沿用上一轮。股价改为30，2025年归母净利润改为10。", HISTORY,
+    )
+    assert calc.issues
+    assert "market_cap" not in values(calc)
+
+
 def test_bare_continue_cannot_clear_unresolved_units():
     calc = compile_case(
         "沿用上一轮，继续。",
