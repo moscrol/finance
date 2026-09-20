@@ -238,6 +238,18 @@ _CONDITION_TRIGGER_RE = re.compile(
     r"(?:若|如果|失效|降级|跌破|站稳|至少|"
     r"阈值|支撑|才算成立|才成立)"
 )
+_DANGLING_CONDITION_COUNT_RE = re.compile(
+    r"(?P<dash>[—–-]+\s*)?"
+    r"(?P<opening>\*{2})?\s*满足"
+    r"(?P<label>升级条件|降级条件)中的"
+    r"(?P<count>[0-9０-９一二两三四五六七八九十百千万]+)条"
+    r"(?P<comma>[，,]\s*)?"
+)
+_CONDITION_DEFINITION_RE = re.compile(
+    r"^\s*(?:[-*]\s*)?(?:\*{2})?"
+    r"(?P<label>升级条件|降级条件)"
+    r"(?:\*{2})?\s*[:：]"
+)
 _LEADING_CONDITION_LABEL_RE = re.compile(
     r"^\s*(?:[-*]\s*)?"
     r"(?:条件|失效信号|降级信号|触发条件)\s*"
@@ -3182,6 +3194,11 @@ class SemanticEpisodeVerifier:
             rejected_sentence_indexes,
             preserve_numbering=bool(material_question_outputs(contract)),
         )
+        draft = _repair_dangling_condition_references(
+            draft,
+            before=original.draft,
+            rejected_sentence_indexes=rejected_sentence_indexes,
+        )
         if not draft:
             return None
         # 先按槽补回被连坐的真值，再算缺口。补回成功时缺口自然为空
@@ -4856,6 +4873,60 @@ def _gaps_with_lost_observations(
     if not notes:
         return gaps
     return tuple(dict.fromkeys((*gaps, *notes)))
+
+
+def _repair_dangling_condition_references(
+    draft: str,
+    *,
+    before: str,
+    rejected_sentence_indexes: tuple[int, ...],
+) -> str:
+    """Remove counts that refer to a condition definition deleted upstream.
+
+    A mechanical condition deletion must not leave prose such as "满足升级条件中的
+    2条" behind.  That count is meaningful only while the referenced condition list
+    is still visible.  The repair is deliberately narrow: it targets labels that were
+    actually deleted in this pass, preserves the surrounding observations, and leaves
+    ordinary conditions untouched.
+    """
+
+    if not draft or not rejected_sentence_indexes:
+        return draft
+    rejected = frozenset(rejected_sentence_indexes)
+    deleted_labels = {
+        match.group("label")
+        for item in _numbered_sentences(before)
+        if item.get("index") in rejected
+        for match in (_CONDITION_DEFINITION_RE.match(str(item.get("text") or "")),)
+        if match is not None
+    }
+    if not deleted_labels:
+        return draft
+    surviving_labels = {
+        match.group("label")
+        for line in str(draft).splitlines()
+        for match in (_CONDITION_DEFINITION_RE.match(line),)
+        if match is not None
+    }
+    orphaned_labels = deleted_labels - surviving_labels
+    if not orphaned_labels:
+        return draft
+
+    lines: list[str] = []
+    for raw_line in str(draft).splitlines():
+        line = raw_line
+        for label in sorted(orphaned_labels):
+            while True:
+                match = _DANGLING_CONDITION_COUNT_RE.search(line)
+                if match is None or match.group("label") != label:
+                    break
+                suffix = line[match.end() :]
+                if match.group("opening") and "**" in suffix:
+                    suffix = suffix.replace("**", "", 1)
+                replacement = "，" if suffix.strip() else ""
+                line = f"{line[:match.start()]}{replacement}{suffix}"
+        lines.append(line)
+    return "\n".join(lines)
 
 
 def _drop_rejected_sentences(

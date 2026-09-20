@@ -34,6 +34,7 @@ from intelligence.services.episode_semantic_verifier import (
     leftover_window_blocks_complete_attempt,
     numeric_condition_unsupported,
     semantic_judge_window_seconds,
+    _repair_dangling_condition_references,
 )
 from intelligence.services.episode_verifier import verify_episode_outcome
 from intelligence.services.evidence_capabilities import (
@@ -1248,6 +1249,40 @@ def test_local_gate_redacts_all_novel_numeric_conditions_in_one_pass() -> None:
     assert judge.calls[0]["sentences"] == [  # type: ignore[attr-defined]
         {"index": 1, "text": "截至2026年7月23日，市场处于反弹阶段。"}
     ]
+
+
+def test_deleted_condition_definition_cannot_leave_a_count_backreference() -> None:
+    judge = _judge(True)
+    frame, structural = _structural(
+        "- 升级条件：若半导体连续2日保持双红且涨停60家以上，则升级。"
+        "- 当前满足：双红各1天、量能主线抱团——**满足升级条件中的2条，双红连续性尚未确立**。"
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert "升级条件：" not in result.public_answer
+    assert "满足升级条件中的2条" not in result.public_answer
+    assert "当前满足：双红各1天、量能主线抱团，双红连续性尚未确立。" in result.public_answer
+    assert "满足升级条件中的2条" not in result.verified.outcome.draft
+
+
+def test_condition_count_backreference_is_unchanged_without_a_deleted_definition() -> None:
+    draft = "升级条件：若连续两日放量，则升级。当前满足升级条件中的1条。"
+
+    assert (
+        _repair_dangling_condition_references(
+            draft,
+            before=draft,
+            rejected_sentence_indexes=(),
+        )
+        == draft
+    )
 
 
 def test_meta_disclosure_rejection_is_exempted_and_sentence_survives() -> None:
