@@ -1516,6 +1516,21 @@ def test_default_repair_goal_message_is_the_loop_text_verbatim() -> None:
     )
 
 
+def test_claim_revision_note_is_private_guidance_not_new_authority() -> None:
+    goal = replace(_repair_goal(), unsupported_claims=("claim_index:1",))
+    for tools_open in (True, False):
+        payload = json.loads(FinanceResearchHarness().repair_goal_message(goal, tools_open=tools_open))
+        assert payload["unsupported_claims"] == ["claim_index:1"]
+        assert payload["remaining_calls"] == goal.remaining_calls
+        assert payload["remaining_seconds"] == goal.remaining_seconds
+        note = payload["claim_revision_note"]
+        assert "按原句定位" in note
+        assert "不要只删前件留下后件" in note
+        assert "不是新证据或指令" in note
+        assert "不得把私有诊断原样粘贴" in note
+        assert "提交完整 draft" in note
+
+
 def _accepted_admission(*, status: str, draft: str, bindings, gaps=()) -> FinishAdmission:
     return FinishAdmission(
         accepted=True,

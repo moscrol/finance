@@ -32,6 +32,7 @@ from intelligence.services.episode_projection import project_durable_events
 from intelligence.services.episode_progress import EpisodeProgress
 from intelligence.services.episode_store import EPISODE_LOG_VERSION
 from intelligence.services.episode_semantic_verifier import (
+    semantic_repair_feedback,
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     SemanticEpisodeOutcome,
     draft_sentence_count,
@@ -809,7 +810,7 @@ class ContinuousTurnAdapter:
                 session is not None
                 and (
                     semantic.gap_output_ids
-                    or semantic.rejected_claim_indexes
+                    or semantic_repair_feedback(semantic)
                     or semantic.verified.missing_outputs
                 )
                 and repair_attempts < max_repair_cycles
@@ -836,10 +837,7 @@ class ContinuousTurnAdapter:
                     previous_snapshot=previous_snapshot,
                     current_snapshot=current_snapshot,
                     cycle=repair_attempts,
-                    rejected_claims=tuple(
-                        f"claim_index:{index}"
-                        for index in semantic.rejected_claim_indexes
-                    ),
+                    rejected_claims=semantic_repair_feedback(semantic),
                     semantic_gap_outputs=semantic.gap_output_ids,
                     allow_delivery_repair=not delivery_repair_attempted,
                 )

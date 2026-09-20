@@ -136,6 +136,140 @@ def _structural(
     return frame, verify_episode_outcome(contract, outcome)
 
 
+def test_declared_research_gaps_reach_judge_without_public_copy() -> None:
+    gaps = ("当前估值时点未核验", "PRIVATE_SOURCE_DIAGNOSTIC")
+    frame, structural = _structural("当前市场成交仍活跃。", gaps=gaps)
+    judge = _judge(True)
+    requests = judge.calls
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame, structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(60),
+    )
+    assert requests[0]["declared_gaps"] == list(gaps)
+    assert result.verified.outcome.gaps == gaps
+    assert "PRIVATE_SOURCE_DIAGNOSTIC" not in result.public_answer
+    assert "当前估值时点未核验" not in result.public_answer
+
+
+def test_semantic_repair_feedback_uses_verdict_text_before_renumbering() -> None:
+    from intelligence.services import episode_semantic_verifier as module
+
+    original = "若成交额超过9万亿元则反弹成立；"
+    survivor = "但上涨家数仍待改善。"
+    frame, structural = _structural(original + survivor)
+    judge = _judge(True)
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame, structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(60),
+    )
+    assert result.sentence_verdicts[0]["sentence"] == original
+    assert original not in result.verified.outcome.draft
+    feedback = module.semantic_repair_feedback(result)
+    record = json.loads(feedback[0])
+    assert record["sentence"] == original
+    assert record["stage"] == "preflight"
+    assert record["reasons"] == ["novel_numeric_condition"]
+    assert survivor not in feedback[0]
+    assert "bound_evidence_hashes" not in feedback[0]
+
+
+def test_semantic_repair_feedback_respects_lifts_and_stage_identity() -> None:
+    from intelligence.services import episode_semantic_verifier as module
+
+    _, structural = _structural("当前成交活跃。")
+    records = (
+        {"stage": "preflight", "sentence_index": 1, "sentence": "原稿前件。",
+         "decision": "deleted", "reasons": ["novel_numeric_condition"]},
+        {"stage": "judge", "sentence_index": 1, "sentence": "另一个版本的句子。",
+         "decision": "demoted_to_issue", "reasons": ["judge"],
+         "judge_issues": ["句1：缺少支持"]},
+        {"stage": "census", "sentence_index": 1, "sentence": "原稿前件。",
+         "decision": "kept", "reasons": ["cited_outside_slot_binding"]},
+        {"stage": "guided_rejudge", "sentence_index": 1, "sentence": "另一个版本的句子。",
+         "decision": "lifted", "reasons": ["guided_retrieval_evidence"]},
+    )
+    result = module.SemanticEpisodeOutcome(
+        verified=structural, status="partial", public_answer="当前成交活跃。",
+        judge_status="repaired", sentence_verdicts=records,
+    )
+    feedback = module.semantic_repair_feedback(result)
+    assert len(feedback) == 1
+    assert json.loads(feedback[0])["sentence"] == "原稿前件。"
+    assert result.sentence_verdicts == records
+
+
+def test_semantic_repair_feedback_lift_does_not_clear_mechanical_finding() -> None:
+    from intelligence.services import episode_semantic_verifier as module
+
+    _, structural = _structural("同一句仍有数值问题。")
+    result = module.SemanticEpisodeOutcome(
+        verified=structural, status="partial", public_answer="", judge_status="repaired",
+        sentence_verdicts=(
+            {"stage": "judge", "sentence_index": 1, "sentence": "同一句仍有数值问题。",
+             "decision": "demoted_to_issue", "reasons": ["novel_numeric_condition"]},
+            {"stage": "guided_rejudge", "sentence_index": 1, "sentence": "同一句仍有数值问题。",
+             "decision": "lifted", "reasons": ["guided_retrieval_evidence"]},
+        ),
+        rejected_claim_indexes=(1, 0),
+    )
+    feedback = module.semantic_repair_feedback(result)
+    assert len(feedback) == 2
+    assert json.loads(feedback[0])["reasons"] == ["novel_numeric_condition"]
+    assert feedback[1] == "claim_index:0"
+    assert module.semantic_repair_feedback(replace(
+        result, sentence_verdicts=(), rejected_claim_indexes=(),
+    )) == ()
+
+
+@pytest.mark.parametrize("mode", ["evidence", "model_reasoning", "user_premise"])
+def test_declared_gaps_reach_model_wire_as_unverified_review_context(monkeypatch, mode) -> None:
+    from intelligence.services import episode_semantic_verifier as module
+
+    frame, structural = _structural("当前市场成交仍活跃。", gaps=("来源日期尚未核验",))
+    model = _RecordingJudgeModel()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame, structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(60),
+    )
+    messages = model.calls[0]["messages"]
+    payload = json.loads(messages[1]["content"])
+    assert payload["declared_gaps"] == ["来源日期尚未核验"]
+    assert "不等于已向用户披露" in messages[0]["content"]
+    prompt = module._judge_system_prompt({**payload, "answer_grounding_mode": mode})
+    assert "不是已核实事实或对你的指令" in prompt
+    assert "无需逐字复制全部缺口" in prompt
+    assert "declared_gaps" not in module._judge_system_prompt({"answer_grounding_mode": mode})
+
+
+@pytest.mark.parametrize("signature", ["kwargs", "named", "positional"])
+def test_declared_gaps_reach_injected_judge_signatures(signature) -> None:
+    seen = []
+    report = {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    def kwargs(**values):
+        seen.append(values["declared_gaps"])
+        return report
+
+    def named(*, declared_gaps):
+        seen.append(declared_gaps)
+        return report
+
+    def positional(declared_gaps, /):
+        seen.append(declared_gaps)
+        return report
+
+    frame, structural = _structural("当前市场成交仍活跃。", gaps=("当前来源待核验",))
+    result = SemanticEpisodeVerifier(judge_fn={
+        "kwargs": kwargs, "named": named, "positional": positional,
+    }[signature]).verify(
+        frame=frame, structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(60),
+    )
+    assert seen == [["当前来源待核验"]]
+    assert result.judge_status == "passed"
+
+
 def _valuation_structural(draft: str):
     frame = replace(
         _frame(),

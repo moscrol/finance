@@ -647,6 +647,175 @@ def test_verifier_gap_reenters_same_session_without_second_runtime_run() -> None
     assert result.private_artifact["repair_cycles"] == 1
 
 
+@pytest.mark.parametrize("repair_budget", [True, False])
+@pytest.mark.parametrize("finding", ["numeric", "weekday"])
+def test_deleted_claim_feedback_reenters_same_session_with_original_text(repair_budget, finding) -> None:
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame, task_id=f"adapter-deleted-claim-{finding}-{repair_budget}",
+        capabilities=control.capabilities, timeout=120.0,
+    )
+    context = replace(context, root_budget=InMemoryRootBudgetLedger(
+        episode_id=context.contract.task_id, initial_calls=1,
+        hard_calls_cap=3 if repair_budget else 1,
+        initial_seconds=30.0, hard_seconds_cap=120.0 if repair_budget else 30.0,
+    ))
+    evidence = AgentEvidence(
+        tool="market_data", title="市场结构", detail="上涨家数仍待改善。",
+        source="本地行情", source_date="2026-07-26", content_hash="feedback-evidence",
+    )
+    rejected = (
+        "若成交额超过9万亿元则反弹成立；" if finding == "numeric"
+        else "2026年7月26日（周一）；"
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash, status="completed",
+        draft=rejected + "但上涨家数仍待改善。", evidence=(evidence,), traces=(),
+        gaps=("估值尚未核验",), stop_reason="model_finish",
+        events=(
+            EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+            EpisodeEvent(2, "model_turn", {"draft": rejected}),
+        ),
+        bindings=(OutputEvidenceBinding("direct_assessment", (evidence.content_hash,)),),
+        usage=AgentUsage(1, 1, 0),
+    )
+    calls = {"start": 0, "resume": 0, "backfill": 0}
+
+    class Runtime:
+        def start(self, task_frame, *, context, registry):
+            calls["start"] += 1
+
+            def resume(previous, goal):
+                assert previous.draft == initial.draft
+                assert goal.episode_id == context.contract.task_id
+                events = (*previous.events, EpisodeEvent(
+                    len(previous.events) + 1, "model_turn", {"repair": True},
+                ))
+                if not goal.unsupported_claims:
+                    # Existing numeric backfill runs first; no new support is found.
+                    calls["backfill"] += 1
+                    return replace(previous, events=events, usage=AgentUsage(2, 1, 0))
+                feedback = [json.loads(item) for item in goal.unsupported_claims]
+                assert feedback[0]["sentence"] == rejected
+                assert feedback[0]["reasons"] == ["calendar_weekday"]
+                assert not goal.reopen_tools
+                calls["resume"] += 1
+                return replace(
+                    previous, draft="上涨家数仍待改善，估值尚未核验。",
+                    events=events, usage=AgentUsage(3, 1, 0),
+                )
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id, outcome=initial, resume_callback=resume,
+            )
+
+    requests = []
+
+    def judge(request):
+        requests.append(request)
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(), semantic_verifier=SemanticEpisodeVerifier(judge_fn=judge),
+        runtime_name="continuous_glm", mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    should_resume = repair_budget and finding == "weekday"
+    assert calls == {
+        "start": 1, "resume": int(should_resume),
+        "backfill": int(repair_budget and finding == "numeric"),
+    }
+    assert result.private_artifact["repair_cycles"] == int(should_resume)
+    assert len(requests) == 1 + int(should_resume)
+    assert requests[0]["declared_gaps"] == ["估值尚未核验"]
+    assert initial.draft == rejected + "但上涨家数仍待改善。"
+    if should_resume:
+        assert result.answer == "上涨家数仍待改善，估值尚未核验。"
+        assert result.private_artifact["outcome"]["usage"]["tool_calls"] == 1
+    else:
+        assert rejected not in result.answer
+
+
+@pytest.mark.parametrize("judge_mode", ["llm", "off"])
+def test_real_episode_receives_stage_anchored_review_in_same_history(monkeypatch, judge_mode) -> None:
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", judge_mode)
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame, task_id="adapter-real-review-feedback", capabilities=control.capabilities,
+        timeout=120.0, latest_data_date="2026-07-26",
+    )
+    context = replace(context, root_budget=InMemoryRootBudgetLedger(
+        episode_id=context.contract.task_id, initial_calls=2, hard_calls_cap=3,
+        initial_seconds=60.0, hard_seconds_cap=120.0,
+    ))
+    evidence = AgentEvidence(
+        tool="market_data", title="市场结构", detail="上涨家数仍待改善。",
+        source="本地行情", source_date="2026-07-26", content_hash="real-feedback-evidence",
+    )
+    registry = ResearchToolRegistry((ToolSpec(
+        name="market_data", capability="market_data", description="市场结构",
+        cost="local", freshness="current", runner=lambda *_args: (
+            [evidence], evidence.detail, ProviderTrace("test:market", "market_data", "success"),
+        ),
+    ),))
+    original = "2026年7月26日（周一）；但上涨家数仍待改善。"
+    corrected = "上涨家数仍待改善，来源覆盖范围尚未核验。"
+
+    class Model:
+        def __init__(self):
+            self.calls = []
+
+        def complete(self, *, messages, tools, timeout):
+            self.calls.append(messages)
+            if len(self.calls) == 1:
+                return ModelTurn("", (ModelToolCall("market", "market_data", {"query": "市场结构"}),), "test", "")
+            if len(self.calls) == 3:
+                assert any(message.get("role") == "tool" for message in messages)
+                assert any(original in str(message.get("content")) for message in messages)
+                goals = [json.loads(message["content"]) for message in messages
+                         if message.get("role") == "user" and '"kind": "REPAIR_GOAL"' in str(message.get("content"))]
+                assert len(goals) == 1
+                feedback = json.loads(goals[0]["unsupported_claims"][0])
+                assert feedback["sentence"] == "2026年7月26日（周一）；"
+                assert feedback["stage"] == "preflight"
+                assert "不要只删前件留下后件" in goals[0]["claim_revision_note"]
+            assert len(self.calls) <= 3
+            return ModelTurn(json.dumps({
+                "status": "completed", "draft": original if len(self.calls) == 2 else corrected,
+                "bindings": [{"output_id": "direct_assessment", "evidence_hashes": ["E1"], "gap": ""}],
+                "gaps": ["来源覆盖范围尚未核验"],
+            }, ensure_ascii=False), (), "test", "")
+
+    model = Model()
+    requests = []
+
+    def judge(request):
+        requests.append(request)
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    result = ContinuousTurnAdapter(
+        runtime=GLMAgentRuntime(client=model),
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=judge),
+        runtime_name="continuous_glm", mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: registry,
+    ).handle(frame=frame, control=control)
+    assert len(model.calls) == 3
+    assert len(requests) == (2 if judge_mode == "llm" else 0)
+    assert result.answer == corrected
+    assert result.private_artifact["repair_cycles"] == 1
+    assert result.private_artifact["outcome"]["usage"]["tool_calls"] == 1
+    assert result.private_artifact["outcome"]["usage"]["invalid_actions"] == 0
+    assert len(result.private_artifact["outcome"]["evidence"]) == 1
+    events = result.private_artifact["events"]
+    assert sum(event["kind"] == "repair_reentry" for event in events) == 1
+    assert any(original in str(event["payload"]) for event in events if event["kind"] == "model_turn")
+
+
 def test_private_artifact_carries_runtime_handle_receipt_and_log_version() -> None:
     """RuntimeHandle 收据落进 continuous-episode.json（运行底座 P2）。
 
