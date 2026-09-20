@@ -285,6 +285,9 @@ def capture_generation(
         "RAG_INDEX_DIR": str((indexes.get("standard") or {}).get("path") or ""),
         "KB_RAG_FULL_INDEX_DIR": str((indexes.get("full") or {}).get("path") or ""),
     }
+    actual_directories = (kb_root, index_dir) + (() if kb_wiki is None else (kb_wiki,))
+    if any(_has_symlink_component(path) for path in actual_directories):
+        raise _unavailable("managed_binding_alias")
     if (
         data.get("root") != str(root)
         or any(env.get(key) != value for key, value in expected.items())

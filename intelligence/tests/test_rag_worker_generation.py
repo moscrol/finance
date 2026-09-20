@@ -364,6 +364,21 @@ def test_managed_binding_distinguishes_venv_entries_with_same_python_target(
         )
 
 
+def test_complete_managed_binding_rejects_index_alias(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    alpha = _managed_generation(tmp_path, "alpha")
+    _activate(alpha)
+    _bind(monkeypatch, alpha)
+    alias = tmp_path / "standard-alias"
+    alias.symlink_to(Path(alpha["standard"]), target_is_directory=True)
+
+    with pytest.raises(rag_worker.RagGenerationUnavailable, match="symlink or alias"):
+        PersistentRagWorker(
+            alpha["python"], Path(alpha["code"]), alias, Path(alpha["wiki"])
+        )
+
+
 def test_retired_generation_does_not_fallback_to_legacy_cli(
     tmp_path: Path,
 ) -> None:
