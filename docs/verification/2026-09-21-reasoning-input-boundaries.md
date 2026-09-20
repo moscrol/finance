@@ -66,6 +66,9 @@
 运行期间代码/测试文件冻结，仅完善了本轮文档；没有前端/E2E/registry 的新收据。
 V2 代码包 `changed-files.tar.gz` SHA-256：
 `229b80661aa4f791727912c9885c55945768fb6ab544ed9ec3c1c4ecb6e2da54`。
+代码提交 `f3dc8717` 后，在干净树复验四个直接相关测试文件 **135 passed**，
+收据 `~/.finance-runtime/test-receipts/20260920T170006Z-f3dc8717.json`；提交门禁全绿。
+该干净收据只覆盖 135 项，不能冒充上述全仓检查。
 
 ## 下一片边界
 

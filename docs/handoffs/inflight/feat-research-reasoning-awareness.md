@@ -4,33 +4,34 @@
 培养机制求证、竞争解释与接受反证的习惯，不固定流动性视角或研究模板。
 
 ## 当前状态
-代码与实验记录已提交 `696e309a`，未 push/PR/合 main/部署。
-树：`~/fwp-wt-research-reasoning-awareness`，基座 `728f3271`。
-`FINANCE_RESEARCH_REASONING` 默认 off。8792 仍为 `bf662e9310ff`；两份测试服务已关闭。
+初版 `696e309a`，输入边界/基线作用域修复 `f3dc8717`；未 push/PR/合 main/部署。
+树 `~/fwp-wt-research-reasoning-awareness`，基座 `728f3271`。
+研究求证开关默认 off。8792 实读仍 `bf662e9310ff`/clean；本轮测试服务和全仓测试已结束。
 
 ## 决策与被否方案
-- 用动态题型规则与原工具预算事件提醒；否了固定视角菜单、强制反思轮与新增权限。
-- 不复制 `feat/adaptive-research-loop` 的 PLAN 视角载体，不依赖其未合代码。
-- 不撤知识门控、不注入整份流动性笔记；否了“提示送达即证明有效”。
-- 背景/被否方案：`docs/handoffs/2026-09-20-research-reasoning-awareness.md`。
+- 复用动态规则/预算事件，不加视角菜单、轮次或权限；不复制其他未验收分支。
+- “只用已取得”编成 material_only，不准重查本地；否了用重新查数冒充旧快照。
+- 顶层复核可继承可信用户条件，引用和旧助手答案不能授予权限/事实资格；旧 E 编号不跨轮。
+- 基线按主张适用，取消全局市场起手和证据等级排序；这批修复不受求证开关控制。
+- 不将全部槽改为 user_premise 绕开材料来源。背景：`docs/handoffs/2026-09-21-reasoning-input-boundaries.md`。
 
 ## 未验证 / 已知边界
-行为验收未通过：行情开启组仍有过强归因；虚构材料两臂都被 evidence 合同拦下。
-反证追问开启组 unknown E1 降级、关闭组交付；n=1 不能认定开关导致回归或改善。
-quick_fact 确认不注入，但两臂都额外查数/展开。旧基线仍有全局强制领域规则，尚未厘清适用条件。
-未跑剩余留出场景、重复配对、独立语义审核、前端/E2E及合流门禁；不启用生产。
+行为仍失败：材料供需题虽零工具，仍 basis_mismatch 后拒答；行情仍把缩量改善断言成抛压衰竭。
+V1 复核有交付但违规重查；V2 禁止重查后被 non_research 投影挡到材料兜底，不是成功交付。
+只在明确允许重查的回归里保留日期锚点，未实现严格原窗口或旧工具证据快照继承。
+未跑留出题、重复配对、独立语义审核、前端/E2E/registry 合流检查；不启用生产。
 
 ## 下一步
-先协同材料/E2 owner 处理材料前提资格、续轮证据身份和窗口，再处理领域规则适用边界。
-保留原失败证据，用 fixture 新场景及留出题重验；不放松证据门、不把旧答案变事实。
-合并与部署须用户确认。
+与材料/E2 owner 对齐逐句来源资格。拆开“需要研究交付”和“需要新检索”的投影；
+从同用户同会话权威工件恢复原始证据、日期/口径及身份后重编号，不能从旧答案造事实。
+恢复后用原题重验，再做同版本 on/off 配对；合并部署须用户确认。
 
 ## 已验证
-新测试44项；相关回归570项；全仓 Python 11957P/85S/2X，exit0；Ruff及提交门禁绿。
-全量是未提交候选树收据 `~/.finance-runtime/test-receipts/20260920T160916Z-728f3271.json`，不是合流收据。
-真实 Workbench 4组8run；仅证实开场/批后送达与 quick_fact 排除，不证明质量增益。
-详情：`docs/verification/2026-09-20-research-reasoning-awareness.md`；原件 `~/.finance-runtime/research-reasoning-20260920/`。
+本轮定向1008P/4S；全仓11989P/85S/2X、exit0（未提交候选收据，不是合流收据）。
+`f3dc8717` 干净树直接相关135P；全仓 Ruff/提交门禁绿；三处撤保护变异被抓。
+两版各3次真实 run，仍未过行为。完整收据：`docs/verification/2026-09-21-reasoning-input-boundaries.md`。
+原件 `~/.finance-runtime/reasoning-boundaries-20260921/`；旧8run在 `research-reasoning-20260920/`。
 
 ## 踩过的坑
-开场原文在 `outcome.events`，顶层 events 已脱敏；verifier 含事件副本，不递归累加批数。
-probe 打印的用户产物路径写死生产根，实际在各臂 users/。复用既有量具，无新通用工具需沉淀。
+开场原文读 outcome.events；不递归累加 verifier 的事件副本。probe 打印的生产路径不是真正隔离 users 路径。
+completed/空工具均不代表交付通过。复用既有量具/回归；继承目标与证据分离的方法已补现有证据卫生笔记，无新通用工具。
