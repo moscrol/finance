@@ -254,8 +254,8 @@ class PersistentRagWorker:
             "last_latency_ms": self._last_latency_ms,
             "abandoned_in_flight": len(self._abandoned),
             "consecutive_timeouts": self._consecutive_timeouts,
-            # 常驻集与空闲时长并列：RSS 从几 GB 掉到几 MB 而 idle 很长 = 被换出了，
-            # 下一次查询的 last_latency_ms 会先付换入。这两个数以前只能现场 ps 才看得到。
+            # RSS 是本进程首次完成查询后的单次采样缓存，不是 status 时刻的实时值；
+            # 进程停止即清空。status 本身不为观测启动 `ps`。
             "rss_bytes": self._rss_bytes if self.healthy() else None,
             "idle_seconds": round(idle, 1) if idle is not None else None,
             "keepalive_interval_seconds": keepalive_interval_seconds(),
@@ -730,7 +730,7 @@ def status() -> dict[str, object]:
         # 冷/热处置账：abandoned 多、killed 少 = 保活在起作用；killed 多 = worker 真在卡死。
         "counters": counters,
         "abandoned_in_flight": sum(int(item.get("abandoned_in_flight") or 0) for item in worker_states),
-        # 换出可观测：rss 从几 GB 掉到几 MB 且 idle 很长 = 模型/索引在盘上，下一次查询先付换入。
+        # 各进程首次完成查询后的 RSS 采样之和；不是 status 时刻的实时 RSS。
         "rss_bytes": sum(rss_values) if rss_values else None,
         "idle_seconds": round(max(idle_values), 1) if idle_values else None,
         "keepalive_interval_seconds": keepalive_interval_seconds(),

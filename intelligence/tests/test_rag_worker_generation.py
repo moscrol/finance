@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import sys
 from pathlib import Path
 from unittest import mock
@@ -92,6 +93,23 @@ def _bind(monkeypatch: pytest.MonkeyPatch, binding: dict[str, str]) -> None:
     }
     for key, value in values.items():
         monkeypatch.setenv(key, value)
+
+
+def _remove_managed_artifact(binding: dict[str, str], missing: str, tmp_path: Path) -> None:
+    if missing != "python":
+        shutil.rmtree(binding[missing])
+        return
+    missing_python = tmp_path / "missing-venv" / "bin" / "python"
+    binding["python"] = str(missing_python)
+    manifest_path = Path(binding["manifest"])
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["runtime"]["executable"] = str(missing_python)
+    _write_json(manifest_path, manifest)
+    binding["sha"] = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    _write_json(
+        Path(binding["root"]) / "current.json",
+        {"generation": binding["name"], "manifest_sha256": binding["sha"]},
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -377,6 +395,101 @@ def test_complete_managed_binding_rejects_index_alias(
         PersistentRagWorker(
             alpha["python"], Path(alpha["code"]), alias, Path(alpha["wiki"])
         )
+
+
+@pytest.mark.parametrize(
+    ("missing", "reason"),
+    [
+        ("full", "index_directory_replaced"),
+        ("code", "code_root_replaced"),
+        ("wiki", "source_root_replaced"),
+        ("python", "interpreter_replaced"),
+    ],
+)
+def test_first_managed_capture_classifies_missing_bound_artifact(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    missing: str,
+    reason: str,
+) -> None:
+    binding = _managed_generation(tmp_path, "alpha")
+    _activate(binding)
+    _remove_managed_artifact(binding, missing, tmp_path)
+    _bind(monkeypatch, binding)
+
+    with pytest.raises(rag_worker.RagGenerationUnavailable) as excinfo:
+        PersistentRagWorker(
+            binding["python"],
+            Path(binding["code"]),
+            Path(binding["standard"]),
+            Path(binding["wiki"]),
+        )
+
+    assert excinfo.value.reason == reason
+
+
+@pytest.mark.parametrize(
+    ("missing", "reason"),
+    [("full", "index_directory_replaced"), ("python", "interpreter_replaced")],
+)
+def test_first_managed_capture_failure_does_not_fallback_to_cli(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    missing: str,
+    reason: str,
+) -> None:
+    binding = _managed_generation(tmp_path, "alpha")
+    _activate(binding)
+    _remove_managed_artifact(binding, missing, tmp_path)
+    _bind(monkeypatch, binding)
+    monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+    cli_response = WorkerResponse(0, "[]", "")
+
+    with mock.patch.object(kb_rag.subprocess, "run", return_value=cli_response) as cli:
+        result = kb_rag.retrieve(
+            "identity-bound query",
+            Path(binding["wiki"]),
+            index_dir=Path(binding["standard"]),
+            code_root=Path(binding["code"]),
+            python_executable=binding["python"],
+            worker_enabled=True,
+        )
+
+    cli.assert_not_called()
+    assert result.telemetry.fallback_reason == "persistent_worker_generation_unavailable"
+    assert result.telemetry.status == "error"
+    assert reason in (result.warning or "")
+    assert rag_worker.status()["configured_workers"] == 0
+
+
+@pytest.mark.parametrize("field", ["sources", "indexes", "runtime", "path_identities"])
+def test_first_managed_capture_classifies_malformed_manifest_shapes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+) -> None:
+    binding = _managed_generation(tmp_path, "alpha")
+    _activate(binding)
+    manifest_path = Path(binding["manifest"])
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest[field] = []
+    _write_json(manifest_path, manifest)
+    binding["sha"] = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    _write_json(
+        Path(binding["root"]) / "current.json",
+        {"generation": binding["name"], "manifest_sha256": binding["sha"]},
+    )
+    _bind(monkeypatch, binding)
+
+    with pytest.raises(rag_worker.RagGenerationUnavailable) as excinfo:
+        PersistentRagWorker(
+            binding["python"],
+            Path(binding["code"]),
+            Path(binding["standard"]),
+            Path(binding["wiki"]),
+        )
+
+    assert excinfo.value.reason == "managed_binding_mismatch"
 
 
 def test_retired_generation_does_not_fallback_to_legacy_cli(

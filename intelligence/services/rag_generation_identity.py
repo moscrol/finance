@@ -272,18 +272,35 @@ def capture_generation(
     candidate = root / "generations" / generation
     expected_manifest = candidate / "manifest.json"
     source = candidate / "source"
-    wiki_name = (data.get("sources") or {}).get("wiki_name")
-    indexes = data.get("indexes") or {}
-    runtime = data.get("runtime") or {}
+    sources = data.get("sources")
+    indexes = data.get("indexes")
+    runtime = data.get("runtime")
+    if not all(isinstance(value, dict) for value in (sources, indexes, runtime)):
+        raise _unavailable("managed_binding_mismatch")
+    assert isinstance(sources, dict) and isinstance(indexes, dict)
+    assert isinstance(runtime, dict)
+    standard_contract = indexes.get("standard")
+    full_contract = indexes.get("full")
+    if not isinstance(standard_contract, dict) or not isinstance(full_contract, dict):
+        raise _unavailable("managed_binding_mismatch")
+    wiki_name = sources.get("wiki_name")
+    executable = runtime.get("executable")
+    standard_path = standard_contract.get("path")
+    full_path = full_contract.get("path")
+    if not all(
+        isinstance(value, str) and value
+        for value in (wiki_name, executable, standard_path, full_path)
+    ):
+        raise _unavailable("managed_binding_mismatch")
     expected = {
         "KB_RAG_GENERATION": manifest_sha,
         "RAG_GENERATION_MANIFEST": str(expected_manifest),
         "RAG_GENERATIONS_ROOT": str(root),
         "KB_RAG_CODE_ROOT": str(candidate / "code"),
-        "KB_RAG_PYTHON": str(runtime.get("executable") or ""),
-        "KB_VAULT": str(source / str(wiki_name or "")),
-        "RAG_INDEX_DIR": str((indexes.get("standard") or {}).get("path") or ""),
-        "KB_RAG_FULL_INDEX_DIR": str((indexes.get("full") or {}).get("path") or ""),
+        "KB_RAG_PYTHON": executable,
+        "KB_VAULT": str(source / wiki_name),
+        "RAG_INDEX_DIR": standard_path,
+        "KB_RAG_FULL_INDEX_DIR": full_path,
     }
     actual_directories = (kb_root, index_dir) + (() if kb_wiki is None else (kb_wiki,))
     if any(_has_symlink_component(path) for path in actual_directories):
@@ -310,6 +327,10 @@ def capture_generation(
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         raise _unavailable("marker_changed") from exc
 
+    try:
+        python_target = _absolute(expected["KB_RAG_PYTHON"]).resolve(strict=True)
+    except OSError as exc:
+        raise _unavailable("interpreter_replaced") from exc
     paths = {
         "candidate": candidate,
         "code": candidate / "code",
@@ -318,9 +339,29 @@ def capture_generation(
         "standard": Path(expected["RAG_INDEX_DIR"]),
         "full": Path(expected["KB_RAG_FULL_INDEX_DIR"]),
         "python_entry": _absolute(expected["KB_RAG_PYTHON"]),
-        "python": _absolute(expected["KB_RAG_PYTHON"]).resolve(strict=True),
+        "python": python_target,
     }
     declared = data.get("path_identities") or {}
+    if not isinstance(declared, dict):
+        raise _unavailable("managed_binding_mismatch")
+    reasons = {
+        "candidate": "generation_directory_replaced",
+        "code": "code_root_replaced",
+        "source": "source_root_replaced",
+        "wiki": "source_root_replaced",
+        "standard": "index_directory_replaced",
+        "full": "index_directory_replaced",
+        "python_entry": "interpreter_replaced",
+        "python": "interpreter_replaced",
+    }
+    identities: dict[str, tuple[int, int]] = {}
+    for name, path in paths.items():
+        try:
+            identities[name] = (
+                _link_identity(path) if name == "python_entry" else _identity(path)
+            )
+        except OSError as exc:
+            raise _unavailable(reasons[name]) from exc
     for name, manifest_name in (
         ("candidate", "."),
         ("code", "code"),
@@ -328,7 +369,7 @@ def capture_generation(
         ("standard", "standard"),
         ("full", "full"),
     ):
-        if list(_identity(paths[name])) != declared.get(manifest_name):
+        if list(identities[name]) != declared.get(manifest_name):
             raise _unavailable("managed_binding_mismatch")
     if any(
         _has_symlink_component(path)
@@ -337,9 +378,11 @@ def capture_generation(
     ):
         raise _unavailable("managed_binding_alias")
 
-    identities = {name: _identity(path) for name, path in paths.items()}
-    identities["python_entry"] = _link_identity(paths["python_entry"])
-    identities.update(root=_identity(root), manifest=_identity(manifest))
+    try:
+        identities.update(root=_identity(root), manifest=_identity(manifest))
+    except OSError as exc:
+        reason = "generation_root_replaced" if not root.exists() else "manifest_missing"
+        raise _unavailable(reason) from exc
     return FrozenRagGeneration(
         managed=True,
         environment=tuple((key, expected[key]) for key in MANAGED_BINDING_KEYS),
