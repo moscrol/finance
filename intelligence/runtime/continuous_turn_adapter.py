@@ -36,6 +36,7 @@ from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     SemanticEpisodeOutcome,
     draft_sentence_count,
+    numeric_condition_repair_feedback,
     numeric_condition_unsupported,
     recheck_material_public_delivery,
 )
@@ -1422,7 +1423,12 @@ class ContinuousTurnAdapter:
         )
         if admission is None or not admission.backfill:
             return None
-        candidate = resume(admission.goal)
+        # The grant is fixed before diagnostics are added; no extra repair turn.
+        goal = replace(
+            admission.goal,
+            unsupported_claims=numeric_condition_repair_feedback(structural),
+        )
+        candidate = resume(goal)
         if not isinstance(candidate, AgentOutcome):
             raise TypeError("episode session resume must return AgentOutcome")
         if outcome.draft.strip() and not candidate.draft.strip():

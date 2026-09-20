@@ -692,8 +692,12 @@ def test_deleted_claim_feedback_reenters_same_session_with_original_text(repair_
                 events = (*previous.events, EpisodeEvent(
                     len(previous.events) + 1, "model_turn", {"repair": True},
                 ))
-                if not goal.unsupported_claims:
-                    # Existing numeric backfill runs first; no new support is found.
+                if finding == "numeric":
+                    # Ignoring the diagnostic must not buy another repair round.
+                    feedback = json.loads(goal.unsupported_claims[0])
+                    assert feedback["sentence"] == rejected
+                    assert feedback["stage"] == "before_backfill"
+                    assert feedback["reasons"] == ["novel_numeric_condition"]
                     calls["backfill"] += 1
                     return replace(previous, events=events, usage=AgentUsage(2, 1, 0))
                 feedback = [json.loads(item) for item in goal.unsupported_claims]
@@ -740,7 +744,11 @@ def test_deleted_claim_feedback_reenters_same_session_with_original_text(repair_
 
 
 @pytest.mark.parametrize("judge_mode", ["llm", "off"])
-def test_real_episode_receives_stage_anchored_review_in_same_history(monkeypatch, judge_mode) -> None:
+@pytest.mark.parametrize("finding", ["weekday", "numeric"])
+@pytest.mark.parametrize("backend", ["glm", "sdk"])
+def test_real_episode_receives_stage_anchored_review_in_same_history(
+    monkeypatch, judge_mode, finding, backend,
+) -> None:
     monkeypatch.setenv("ASK_SEMANTIC_JUDGE", judge_mode)
     frame = _frame()
     control = _control(frame)
@@ -762,8 +770,15 @@ def test_real_episode_receives_stage_anchored_review_in_same_history(monkeypatch
             [evidence], evidence.detail, ProviderTrace("test:market", "market_data", "success"),
         ),
     ),))
-    original = "2026年7月26日（周一）；但上涨家数仍待改善。"
+    rejected = "2026年7月26日（周一）；" if finding == "weekday" else "若成交额超过9万亿元则反弹成立；"
+    original = rejected + "但上涨家数仍待改善。"
     corrected = "上涨家数仍待改善，来源覆盖范围尚未核验。"
+
+    def check_goal(goal):
+        feedback = json.loads(goal["unsupported_claims"][0])
+        assert feedback["sentence"] == rejected
+        assert feedback["stage"] == ("preflight" if finding == "weekday" else "before_backfill")
+        assert "不要只删前件留下后件" in goal["claim_revision_note"]
 
     class Model:
         def __init__(self):
@@ -779,10 +794,7 @@ def test_real_episode_receives_stage_anchored_review_in_same_history(monkeypatch
                 goals = [json.loads(message["content"]) for message in messages
                          if message.get("role") == "user" and '"kind": "REPAIR_GOAL"' in str(message.get("content"))]
                 assert len(goals) == 1
-                feedback = json.loads(goals[0]["unsupported_claims"][0])
-                assert feedback["sentence"] == "2026年7月26日（周一）；"
-                assert feedback["stage"] == "preflight"
-                assert "不要只删前件留下后件" in goals[0]["claim_revision_note"]
+                check_goal(goals[0])
             assert len(self.calls) <= 3
             return ModelTurn(json.dumps({
                 "status": "completed", "draft": original if len(self.calls) == 2 else corrected,
@@ -791,6 +803,25 @@ def test_real_episode_receives_stage_anchored_review_in_same_history(monkeypatch
             }, ensure_ascii=False), (), "test", "")
 
     model = Model()
+    sdk_requests = []
+    continuation = [{"role": "assistant", "content": original}]
+
+    def sdk_runner(request):
+        sdk_requests.append(request)
+        if len(sdk_requests) == 1:
+            request.tools[0].invoke("市场结构")
+        else:
+            assert request._continuation_input is continuation
+            check_goal(json.loads(request.input))
+        return AgentsSdkResult(json.dumps({
+            "status": "completed", "draft": original if len(sdk_requests) == 1 else corrected,
+            "bindings": [{"output_id": "direct_assessment", "evidence_hashes": [evidence.content_hash], "gap": ""}],
+            "gaps": ["来源覆盖范围尚未核验"],
+        }, ensure_ascii=False), 2 if len(sdk_requests) == 1 else 1, continuation_input=continuation)
+
+    runtime = GLMAgentRuntime(client=model) if backend == "glm" else OpenAIAgentsRuntime(
+        runner=sdk_runner, backend="sdk_glm", model_name="test",
+    )
     requests = []
 
     def judge(request):
@@ -798,22 +829,28 @@ def test_real_episode_receives_stage_anchored_review_in_same_history(monkeypatch
         return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
 
     result = ContinuousTurnAdapter(
-        runtime=GLMAgentRuntime(client=model),
+        runtime=runtime,
         semantic_verifier=SemanticEpisodeVerifier(judge_fn=judge),
         runtime_name="continuous_glm", mode="on",
         context_factory=lambda *_args, **_kwargs: context,
         registry_factory=lambda *_args, **_kwargs: registry,
     ).handle(frame=frame, control=control)
-    assert len(model.calls) == 3
-    assert len(requests) == (2 if judge_mode == "llm" else 0)
+    assert len(model.calls) == (3 if backend == "glm" else 0)
+    assert len(sdk_requests) == (2 if backend == "sdk" else 0)
+    assert len(requests) == ((2 if finding == "weekday" else 1) if judge_mode == "llm" else 0)
     assert result.answer == corrected
-    assert result.private_artifact["repair_cycles"] == 1
+    assert result.private_artifact["repair_cycles"] == int(finding == "weekday")
+    assert result.private_artifact["backfill_turns"] == int(finding == "numeric")
     assert result.private_artifact["outcome"]["usage"]["tool_calls"] == 1
     assert result.private_artifact["outcome"]["usage"]["invalid_actions"] == 0
     assert len(result.private_artifact["outcome"]["evidence"]) == 1
     events = result.private_artifact["events"]
     assert sum(event["kind"] == "repair_reentry" for event in events) == 1
-    assert any(original in str(event["payload"]) for event in events if event["kind"] == "model_turn")
+    if backend == "glm":
+        assert any(original in str(event["payload"]) for event in events if event["kind"] == "model_turn")
+    else:
+        assert sdk_requests[1]._continuation_input is continuation
+        check_goal(json.loads(sdk_requests[1].input))
 
 
 def test_private_artifact_carries_runtime_handle_receipt_and_log_version() -> None:
@@ -1861,7 +1898,10 @@ def test_sdk_timeout_with_unbound_evidence_uses_tool_closed_delivery_repair(
         assert request.tools == ()
         assert request._continuation_input is None
         repair_input = json.loads(request.input)
-        assert repair_input["kind"] == "REPAIR_GOAL"
+        assert repair_input["kind"] == "REPAIR_CONTEXT"
+        goal = json.loads(repair_input["repair_goal_message"])
+        assert goal["kind"] == "REPAIR_GOAL"
+        assert "研究工具已关闭" in goal["instruction"]
         assert repair_input["evidence"][0]["content_hash"] == evidence_hash
         return AgentsSdkResult(
             json.dumps(

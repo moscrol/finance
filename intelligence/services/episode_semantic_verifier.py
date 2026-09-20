@@ -4314,6 +4314,25 @@ def draft_sentence_count(draft: str) -> int:
     return len(_numbered_sentences(draft))
 
 
+def numeric_condition_repair_feedback(verified: VerifiedEpisodeOutcome) -> tuple[str, ...]:
+    """Locate the existing numeric finding before an already-granted backfill.
+
+    This is a request for evidence or revision, not a deletion verdict. Keep the
+    source draft untouched and leave authority with the repair admission.
+    """
+    sentences = _numbered_sentences(verified.outcome.draft)
+    rejected = set(_novel_numeric_condition_indexes(sentences, verified))
+    return tuple(
+        json.dumps({
+            "stage": "before_backfill",
+            "sentence_index": sentence["index"],
+            "sentence": sentence["text"],
+            "reasons": [VERDICT_REASON_NUMERIC],
+        }, ensure_ascii=False, separators=(",", ":"))
+        for sentence in sentences if sentence["index"] in rejected
+    )
+
+
 def numeric_condition_unsupported(verified: VerifiedEpisodeOutcome) -> bool:
     """True when the draft has a novel numeric condition G11 would redact.
 

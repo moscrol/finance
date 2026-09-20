@@ -32,6 +32,7 @@ from intelligence.services.episode_semantic_verifier import (
     complete_judge_attempt_seconds,
     dumps_judge_request,
     leftover_window_blocks_complete_attempt,
+    numeric_condition_repair_feedback,
     numeric_condition_unsupported,
     semantic_judge_window_seconds,
 )
@@ -1698,13 +1699,22 @@ def test_numeric_condition_unsupported_is_detectable_before_judge() -> None:
     _frame, structural = _structural(
         "我的基准判断是反弹仍可持续。若指数跌破3870点则失效。"
     )
+    original = structural.to_dict()
     assert numeric_condition_unsupported(structural) is True
+    feedback = [json.loads(item) for item in numeric_condition_repair_feedback(structural)]
+    assert feedback == [{
+        "stage": "before_backfill", "sentence_index": 2,
+        "sentence": "若指数跌破3870点则失效。",
+        "reasons": ["novel_numeric_condition"],
+    }]
+    assert structural.to_dict() == original
 
     _ok_frame, ok_structural = _structural(
         "条件1：若指数跌破3876.78点，则反弹失效。",
         detail="上证指数收于3876.78点。",
     )
     assert numeric_condition_unsupported(ok_structural) is False
+    assert numeric_condition_repair_feedback(ok_structural) == ()
 
 
 def test_local_gate_removes_calendar_weekday_mismatch() -> None:

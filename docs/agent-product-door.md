@@ -337,8 +337,12 @@ A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结
 机械反馈仍有效。本片不改变开关默认值，不由自主视角开关单独控制；它是候选引擎 A 的
 公共修订接线，不涉及引擎 B。脚本模型验证只证明通路，不证明自然模型会改对；
 无预算/无进展时旧删句交付仍可能残缺，尚未完成公开答案保真验收。
-本片离线 Episode 覆盖 GLM 连续路径；SDK 的 `_bounded_repair_goal` 仍截取前20项、
-每项前500字符，且未使用新增的完整推理重写提示，不能推广为所有后端的完整反馈。
+SDK 修订同样走 harness 的 `repair_goal_message`，不再另行裁剪原句/诊断；
+有 provider history 时原样传提示，无 history 时用 `REPAIR_CONTEXT` 包装同一提示和
+已有快照，工具仍关闭。既有数字条件补证先完成授权，再把原句和缺证原因送入该轮，
+标记 `before_backfill`，不是已删除/已裁决；不增加轮次、不绕无进展门或句数限制。
+离线 Episode 已覆盖 GLM/SDK、judge llm/off 的这两类诊断；不代表所有运行后端、
+自然模型纠错或无预算时的残句交付已验收。
 
 ### 判官模式：`ASK_SEMANTIC_JUDGE=llm|off`（工单 #55）
 
