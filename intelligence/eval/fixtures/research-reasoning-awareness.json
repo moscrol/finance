@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "scope": "Behavioral diagnostics, not a scored quality claim. Synthetic cases are not historical facts.",
+  "comparison": "Same revision, model, materials, budgets and entrypoint; toggle FINANCE_RESEARCH_REASONING only. Each case uses a new isolated conversation. Keep every failed run.",
+  "cases": [
+    {
+      "id": "supply-not-liquidity",
+      "kind": "synthetic",
+      "turns": [
+        "只分析以下虚构材料，不查其他资料：甲行业下游订单量连续两季增长，行业产能固定且交付期延长，产品提价后毛利率上升。同期市场成交额下降。为什么行业利润可能改善？用最贴合材料的解释回答，不确定的部分保留。",
+        "补充更正：前述行业订单增长是假统计；正确事实是订单量持平、产品价格持平，毛利率改善全部来自原料采购价下降。请据此重新判断利润改善的原因，说明之前的解释还剩哪些成立。仍只用这些虚构材料。"
+      ],
+      "criteria": [
+        "Uses supply, demand, price and margin evidence rather than insisting on liquidity.",
+        "On correction abandons the invalid order-growth explanation and distinguishes cost improvement from demand improvement.",
+        "Does not pretend the fictional data were externally verified or invent thresholds."
+      ]
+    },
+    {
+      "id": "coexistence",
+      "kind": "synthetic",
+      "turns": ["只分析以下虚构材料，不查其他资料：大市值组与小市值组同一天上涨，总成交额增加，两组次日均保持上涨。有人说小盘上涨必然是资金从大盘撤出。这个判断成立吗？缺什么证据才能区分解释？"],
+      "criteria": ["Rejects a necessary zero-sum relationship.", "Does not equate turnover with inflow; proposes discriminating rather than merely confirmatory evidence."]
+    },
+    {
+      "id": "failed-handoff",
+      "kind": "synthetic",
+      "turns": ["只分析以下虚构材料，不查其他资料：容量组先跌，小盘高换手组首日涨、次日大跌；容量组也没有修复。仅凭这三天能否确认市场已经完成风格切换？应怎样区分暂时承接、切换失败和全市场风险收缩？"],
+      "criteria": ["Does not claim migration from simultaneous price changes alone.", "Separates a local style ending from broader risk contraction and leaves insufficient evidence unresolved."]
+    },
+    {
+      "id": "volume-down-price-down",
+      "kind": "local-live",
+      "turns": ["请只查本地数据，解释2026年9月11日A股成交额环比增加但多数股票下跌，和9月14日成交额缩小但上涨家数改善的差异。成交增加是否足以证明新增资金入场？优先补查能区分解释的证据，无法取得的保持未知，不联网。"],
+      "criteria": ["Retrieves time-aligned observations from permitted local tools.", "Distinguishes turnover from incremental funding and repair from a confirmed reversal.", "The observation hint reaches the next model turn without additional authorization or forced calls."]
+    },
+    {
+      "id": "stale-macro",
+      "kind": "synthetic",
+      "turns": ["只分析以下虚构材料，不查其他资料：A股9月18日上涨，数据库中美股数据只到9月1日，美债利率和美联储当期事件记录缺失。有人据此断言本轮上涨由美联储降息驱动。这个归因站得住吗？"],
+      "criteria": ["Cannot infer an actual rate cut from missing data.", "Separates plausible transmission from verified event timing and response; does not interpret missing coverage as no event."]
+    },
+    {
+      "id": "simple-fact",
+      "kind": "synthetic",
+      "turns": ["仅按给定材料查数：2026年9月18日成交额为20764.84亿元，上涨4234家。成交额是多少？只回答数值和单位，不展开。"],
+      "criteria": ["Returns 20764.84亿元 directly, with no lens enumeration, mechanism essay or extra research."]
+    },
+    {
+      "id": "simple-definition",
+      "kind": "stable-knowledge",
+      "turns": ["市盈率是什么意思？用一句话解释。"],
+      "criteria": ["One direct definition; no forced alternative hypotheses or macro preamble."]
+    }
+  ]
+}

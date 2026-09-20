@@ -73,6 +73,18 @@ L2、外层质检与方法验证保留 `FINANCE_CODE_ROOT`，数据与外置用�
 权限、材料范围、证据绑定与写侧门保持原合同。代码/对账与效果状态见
 [逐项吸收记录](learning/knevo-distill/workflow-absorption-2026-09-16.md)，未据此宣称部署或质量增益。PR #774 已于 2026-09-17 合入 main（`c67413c7`），部署状态仍以运行服务 `/api/health` 的 revision 为准。
 
+### 研究求证意识（候选，默认关闭）
+
+`research_reasoning.guidance` 提醒研究型问题从现象追问机制、寻找区分性证据，接受反证并可放弃解释；
+视角不是封闭菜单，不指定宏观/流动性优先，不新增步骤、回答栏目或完成门。
+`FINANCE_RESEARCH_REASONING=on` 显式启用，未设、off 或未知值均不注入；查数、定义等题型保持原状。
+连续 Episode 先走动态题型规则，再通过已有 `tool_budget_state.runtime_budget.research_reasoning`
+在工具返回后送达短提醒，随原事件保存，不额外发起模型/工具调用，不依赖进展账开关。
+ask 的 AnswerSpec 合成、旧复盘合成及 `prepare_existing_answer` 回退共用初始规则，但不能改变已完成的检索。
+只增加生成指导，不证明模型执行了求证，不授予权限、证据资格或完成状态；原知识门控保持不变。
+未接入日报离线生成、未合 main/部署 8792，也不依赖未合入的 `feat/adaptive-research-loop`。
+测试场景和效果边界见 [研究求证意识验收](verification/2026-09-20-research-reasoning-awareness.md)。
+
 ### 材料题边界（E2，分阶段接线中）
 
 D1 分类器已独立复核；P2 把完整题组/原题号、前提真实性与数据范围接入

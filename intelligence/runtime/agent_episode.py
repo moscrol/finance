@@ -45,6 +45,7 @@ from intelligence.runtime.episode_tool_batch import (
     timeout_detail_for_model,
     tool_definitions_for_menu,
 )
+from intelligence.services.research_reasoning import observation_guidance
 from intelligence.runtime.research_progress import (
     ResearchProgressTracker,
     ToolCallDigest,
@@ -1831,6 +1832,7 @@ class ContinuousAgentEpisode:
                     ),
                     per_batch_cap=batch_call_cap(context.policy),
                     progress=progress_view,
+                    question_type=context.contract.question_type,
                 )
                 if injected:
                     ledger.time_budget_injected = True
@@ -3060,6 +3062,7 @@ class ContinuousAgentEpisode:
         total_seconds: float | None = None,
         per_batch_cap: int | None = None,
         progress: Mapping[str, object] | None = None,
+        question_type: str = "",
     ) -> bool:
         if not messages or messages[-1].role != "tool":
             return False
@@ -3120,6 +3123,9 @@ class ContinuousAgentEpisode:
             # 研究进展账（06 号单）叠在同一个预算块里：不新增事件种类、不改派生规则，
             # 模型在同一处读「还剩多少」和「刚才那批有没有新东西」。
             budget["research_progress"] = dict(progress)
+        reasoning = observation_guidance(question_type)
+        if reasoning:
+            budget["research_reasoning"] = reasoning
         payload["runtime_budget"] = budget
         model_content = json.dumps(payload, ensure_ascii=False)
         # 这是对最后一条 tool 消息的**覆写**，不是追加：durable 侧记整段新 content，

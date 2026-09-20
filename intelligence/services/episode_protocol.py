@@ -28,6 +28,7 @@ from intelligence.services.research_contract import (
 )
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.research_workflow_guidance import workflow_guidance
+from intelligence.services.research_reasoning import guidance as reasoning_guidance
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.degraded_fallback import (
     episode_rule as degraded_episode_rule,
@@ -182,6 +183,7 @@ def _question_type_rules(
         task_frame.question_type,
     )
     track_rule += workflow_guidance(task_frame.question_type)
+    track_rule += reasoning_guidance(task_frame.question_type)
     longtail_rule = episode_rule(task_frame)
     # ASK_DEGRADED_FALLBACK（默认 off）：降级回答章法，off 时空串。
     degraded_rule = degraded_episode_rule(task_frame)
