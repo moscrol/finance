@@ -10,17 +10,18 @@
 - 详见../2026-09-20-runtime-evidence-closeout.md。
 
 ## 当前状态
-原56d6062e的Spec发现日期兼容残项；代码11216c81已单独返修并推送gitea。最终文档身份、clean状态与本轮收据见dates-repair/manifest.json；无PR、未合并部署。下一站为Spec原日期矩阵复验→Quality。日期返修详见../2026-09-20-runtime-evidence-date-forms-repair.md。
+代码11216c81返修日期残项后，clean d197450d通过独立Spec→Quality。已推送gitea，PR #798以fix/runtime-contracts-0918为底；本次只回写状态。未合入main或部署。日期返修详见../2026-09-20-runtime-evidence-date-forms-repair.md。
 
 ## 未验证 / 已知边界
 不构成进程重启driver、跨进程租约/单写者或未知效果对账；检查点后的私有结果与消息现场仍未补齐。未跑真实模型与自然金融质量、整仓四叶门禁；旧全量收据不移签本分支。8792未动。
 
 ## 下一步
-协调者固定最新SHA复验日期残项，再按原a7f5cc06范围做Quality；通过后仍按原合流与用户确认规则处理。
+协调者处理与当前main的8处实测冲突，保留双方API及夹具约束，再跑合流版本完整门禁；main合并仍须用户确认。
 
 ## 踩过的坑
 mixed原探针退出0但JSON为storage_failed，须读结果；旧timer探针同步退出后才release，修复后不能拿它5秒超时作绿。新测试异线程teardown、事件放行，且断言无关Timer仍活着。
 
 ## 已验证
 本轮：原日期矩阵6F/6控制→12P，日期相关模块63P、Ruff/提交钩子绿，单个撤规范化变异6F/24P→30P。未重跑348或旧六变异；它们仅签原56d6062e，不移签最新SHA。
+独立复核d197450d：Spec原12格与相邻守卫通过；Quality另16P。两份收据分别保存在runtime-evidence-recheck/date-final与quality，不合计为整仓结果。
 本轮证据：`/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-fix/dates-repair/manifest.json`。父目录manifest保留原56d证据。
