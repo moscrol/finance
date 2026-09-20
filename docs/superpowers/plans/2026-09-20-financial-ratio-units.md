@@ -78,8 +78,8 @@ _RATIO_UNIT = r"个百分点|百分点|基点|bps?|百分比|%|倍"
 ```
 
 - [x] 用临时撤保护分别去掉含金量、表头差值优先与产物单位拒绝，原行为断言应失败；每次只撤一处，`finally` 恢复文件并核实 hash。证据外置 `mutation-*.log`。
-- [ ] `git diff --check`；只以 pathspec 提交上述五个文件和本计划。普通推送本补丁分支，禁止合 main / 强推。
-- [ ] 用 handoff skill 写 `docs/handoffs/inflight/fix-financial-ratio-units-0920.md`（≤3KB），写固定代码提交、红绿证据、验证范围、q 合流/独立复核/自然验收/完整门禁仍待办；文档单独 pathspec 提交并推送。
+- [x] `git diff --check`；只以 pathspec 提交上述五个文件和本计划。普通推送本补丁分支，禁止合 main / 强推。
+- [x] 用 handoff skill 写 `docs/handoffs/inflight/fix-financial-ratio-units-0920.md`（≤3KB），写固定代码提交、红绿证据、验证范围、q 合流/独立复核/自然验收/完整门禁仍待办；文档单独 pathspec 提交并推送。
 
 ## 自审
 
