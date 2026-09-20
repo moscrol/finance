@@ -149,6 +149,28 @@ def pytest_sessionstart(session):
     assert json.loads((tmp_path / "receipts/latest.json").read_text())["revision"] == "foreign"
 
 
+@pytest.mark.parametrize("inherited_owner", ["", "foreign-launcher"])
+def test_nested_collection_cannot_claim_parent_receipt(repo, tmp_path, inherited_owner):
+    (repo / "test_sample.py").write_text('''import subprocess
+import sys
+
+
+def test_nested_collection():
+    result = subprocess.run([sys.executable, "-m", "pytest", "--collect-only", "-q"],
+                            capture_output=True, text=True, timeout=20)
+    assert result.returncode == 0, result.stdout + result.stderr
+''')
+    git(repo, "add", "--", "test_sample.py")
+    git(repo, "commit", "-m", "nested collection fixture")
+    result = run_gate(repo, tmp_path, extra_env={
+        "FWP_TEST_RECEIPT_OWNER_PID": inherited_owner,
+    })
+    assert result.returncode == 0, result.stdout + result.stderr
+    own = list((tmp_path / "receipts").glob("gate-*/pytest.json"))
+    assert len(own) == 1
+    assert json.loads(own[0].read_text())["counts"]["passed"] == 1
+
+
 def test_missing_current_receipt_never_reuses_stale_latest(repo, tmp_path):
     folder = tmp_path / "receipts"
     folder.mkdir()
