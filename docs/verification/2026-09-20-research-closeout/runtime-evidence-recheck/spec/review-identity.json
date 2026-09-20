@@ -1,0 +1,50 @@
+{
+  "axis": "Spec",
+  "base": "a7f5cc06c087c2d9db896450bb6033851e8e5789",
+  "head": "56d6062e4544ae40d2e91c19968f4bfe8066e60c",
+  "initial_status": "clean (observed at start)",
+  "final_status": "",
+  "finished_at": "2026-09-20T12:43:09.790306+08:00",
+  "result": "FAIL",
+  "findings": [
+    {
+      "id": "complete-date-parser-contract-mismatch",
+      "priority": "P1"
+    }
+  ],
+  "closed": [
+    "original-standard-date-future-only",
+    "same-hash-request-links",
+    "fixture-fired-timer-drain"
+  ],
+  "independent_contracts_passed": 28,
+  "retained_guard_tests_passed": 21,
+  "date_matrix": {
+    "failed": 6,
+    "controls_passed": 6
+  },
+  "original_future_cases_passed": 4,
+  "original_mixed_cases_passed": 2,
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "artifacts_sha256": {
+    "copied-probes.json": "87220d1bf5b790029870e665c1adcea0c1b8ff85315f9caaf68b5fde33ef6e26",
+    "date-forms-results.json": "4ed7dd58449eb35986392abdda8f9d96dff1c9026b17d2b7b472d9e954b7657c",
+    "date-forms.exit": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+    "date-forms.log": "4ed7dd58449eb35986392abdda8f9d96dff1c9026b17d2b7b472d9e954b7657c",
+    "independent-contracts.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "independent-contracts.log": "608a11c344136c372facc79d606270bd5f88afd315692bc5a13c4a4b12f0b854",
+    "independent-contracts.xml": "305ada015e62027946590ee1fa7cf56c3d26a475297971c7d1a0f7454511df11",
+    "original-future.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "original-future.log": "b87c8b71c56921df0a80fd1e041d757e902ed710b84caa1f5baebbd2c55ed9d3",
+    "original-mixed.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "original-mixed.log": "228abbf972704d268a1b1d64552ab8cb41f8b841214f387c25e23614043f4866",
+    "probe_date_forms.py": "d42c3482cf1fa517401f16f0d6cf12da9e5e1052ef84af063947c1a3c420f43c",
+    "probe_future_evidence.py": "b1db34dda0cbddced5b5b30787b614296928f44e9db254f1c0f8d4a4ada94eeb",
+    "probe_mixed_duplicate.py": "0359efb1d4c9f6f7c01ad1421645d55f5318dcc2a030e29312d4abd74b410d91",
+    "recheck-mixed-duplicate-results.json": "228abbf972704d268a1b1d64552ab8cb41f8b841214f387c25e23614043f4866",
+    "retained-guards.log": "b04518b15ac08ca9af6d36af818a6ab371b339ecb11c6fe02491abb416ce5707",
+    "retained-guards.xml": "024dee03d8008b639ad457043175aa25245bc87365075990d2b1d54703aec366",
+    "spec-review.md": "c9606b674733358d6cf05ad1479c8527bc48b06d6a938823fbdddf518928d373",
+    "test_spec_contracts.py": "f63d813c536c68ff7b1bf1e851ed2adadb3bad13a8f2b86ac639c6a56c1ef746"
+  }
+}

@@ -1,0 +1,74 @@
+"""Freeze only the date repair evidence; never rewrite the parent 56d manifest."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+
+ROOT = Path('/Users/a77/fwp-wt-runtime-evidence-closeout-0920')
+OUT = Path(__file__).resolve().parent
+BASE = '56d6062e4544ae40d2e91c19968f4bfe8066e60c'
+CODE = '11216c81585188c7f2986622f6b84ac567538b44'
+SOURCE = Path('/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-recheck/spec/probe_date_forms.py')
+
+
+def git(*args):
+    return subprocess.check_output(['git', *args], cwd=ROOT, text=True).strip()
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def run(label, command):
+    with (OUT / f'{label}.log').open('w') as log:
+        result = subprocess.run(command, cwd=ROOT, env={**os.environ, 'FWP_TEST_RECEIPT': '0'},
+                                stdout=log, stderr=subprocess.STDOUT, timeout=30)
+    assert result.returncode == 0, label
+    return {'command': command, 'exit_code': result.returncode, 'log': f'{label}.log',
+            'log_sha256': sha(OUT / f'{label}.log')}
+
+
+revision = git('rev-parse', 'HEAD')
+assert not git('status', '--porcelain')
+final_dir = OUT / 'final'
+final_dir.mkdir(exist_ok=True)
+shutil.copy2(SOURCE, final_dir / SOURCE.name)
+probe = run('final-probe', [sys.executable, str(final_dir / SOURCE.name), str(ROOT)])
+pytest = run('final-related', [sys.executable, '-m', 'pytest', '-q', 'intelligence/tests/test_episode_evidence_presentations.py'])
+ruff = run('final-ruff', [sys.executable, '-m', 'ruff', 'check', 'intelligence/services/episode_evidence.py',
+                         'intelligence/tests/test_episode_evidence_presentations.py'])
+passed = int(re.search(r'(\d+) passed', (OUT / pytest['log']).read_text()).group(1))
+assert passed == 63
+red = json.loads((OUT / 'red/date-forms-results.json').read_text())
+green = json.loads((final_dir / 'date-forms-results.json').read_text())
+assert len(red) == len(green) == 12
+assert sum(row['model_calls'] == 1 for row in red) == 6
+assert all(row['model_calls'] == 2 and row['stop_reason'] == 'model_finish' for row in green)
+assert all(sha(OUT / side / SOURCE.name) == sha(SOURCE) for side in ('red', 'green', 'final'))
+assert revision == git('rev-parse', 'HEAD') and not git('status', '--porcelain')
+files = git('diff', '--name-only', BASE, 'HEAD').splitlines()
+manifest = {
+    'created_at': datetime.now(timezone.utc).isoformat(), 'revision': revision,
+    'code_revision': CODE, 'base_revision': BASE, 'branch': git('branch', '--show-current'),
+    'clean_before': True, 'clean_after': True, 'interpreter': sys.executable,
+    'probe_source': str(SOURCE), 'probe_source_sha256': sha(SOURCE),
+    'original_matrix': {'red_failures': 6, 'red_controls': 6, 'final_green': 12, 'probe': probe},
+    'pytest': pytest, 'passed': passed, 'ruff': ruff,
+    'mutation': json.loads((OUT / 'mutation.json').read_text()),
+    'changed_files_sha256': {path: sha(ROOT / path) for path in files},
+    'prior_manifest_unchanged_sha256': sha(OUT.parent / 'manifest.json'),
+    'artifacts': {str(path.relative_to(OUT)): {'sha256': sha(path), 'bytes': path.stat().st_size}
+                  for path in sorted(OUT.rglob('*')) if path.is_file() and path.suffix in ('.py', '.json', '.log')
+                  and path.name != 'manifest.json' and '__pycache__' not in path.parts},
+    'not_rerun': ['prior 348-test suite', 'prior six-mutation matrix', 'whole-repository gates'],
+    'no_live_model_calls': True, 'no_production_changes': True,
+    'next': 'Independent Spec recheck of original date matrix, then Quality',
+}
+(OUT / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps({'revision': revision, 'code_revision': CODE, 'passed': passed,
+                  'date_matrix_passed': len(green), 'clean': True, 'manifest': str(OUT / 'manifest.json')}))

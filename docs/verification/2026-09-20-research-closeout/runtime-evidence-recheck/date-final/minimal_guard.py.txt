@@ -1,0 +1,50 @@
+"""Single adjacent contract check: parsing changes cannot admit facts or rewrite originals."""
+from dataclasses import replace
+from datetime import date
+import hashlib
+import json
+import sys
+
+sys.path.insert(0,'/Users/a77/fwp-wt-runtime-evidence-closeout-0920')
+from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.episode_evidence import EpisodeEvidenceSnapshot
+from intelligence.services.evidence_ledger import EvidenceLedger
+
+
+def item(source_date, **updates):
+    return replace(AgentEvidence(tool='market_data',title='晚于问句日',detail='完整原件',source='fixture',source_date=source_date,content_hash='guard'),**updates)
+
+
+def refuses(fn):
+    try: fn()
+    except ValueError: return
+    raise AssertionError('invalid evidence was accepted')
+
+
+cutoff=date(2026,7,24)
+raw=' 2026-07-25 '
+ledger=EvidenceLedger(information_cutoff=cutoff)
+evidence=item(raw)
+payload=ledger.to_recovery_snapshot(episode_id='guard',presented_evidence=(evidence,))
+decoded=EpisodeEvidenceSnapshot.from_dict(payload,episode_id='guard')
+assert decoded.presented_evidence==(evidence,)
+assert decoded.presented_evidence[0].source_date==raw
+assert payload['presentations'][0]['classification']=='future_of_cutoff'
+restored=EvidenceLedger.from_recovery_snapshot(payload,episode_id='guard')
+assert restored.items()==()
+assert not restored.mark_output_covered('forged',evidence_ids=('guard',))
+
+for current_cutoff, value in [(cutoff,'2026-2-30'),(None,'2026-7-25'),(cutoff,'2026-7-24'),(cutoff,'unknown'),(cutoff,'正文2026-7-25'),(cutoff,'/tmp/2026-7-25'),(cutoff,'2026-7-25garbage')]:
+    empty=EvidenceLedger(information_cutoff=current_cutoff)
+    refuses(lambda:empty.to_recovery_snapshot(episode_id='guard',presented_evidence=(item(value),)))
+
+admitted=EvidenceLedger(information_cutoff=cutoff)
+original=item('2026-07-24')
+admitted.append(original)
+refuses(lambda:admitted.to_recovery_snapshot(episode_id='guard',presented_evidence=(replace(original,detail='伪造正文'),)))
+
+payload['presentations'][0]['atom']['source_date']='2026-2-30'
+body={k:v for k,v in payload.items() if k!='sha256'}
+payload['sha256']=hashlib.sha256(json.dumps(body,ensure_ascii=False,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+refuses(lambda:EpisodeEvidenceSnapshot.from_dict(payload,episode_id='guard'))
+print(json.dumps({'result':'PASS','original_date_preserved':True,'excluded_from_facts_and_coverage':True,'invalid_current_unbounded_unknown_text_path_suffix_refused':True,'same_hash_body_replacement_refused':True,'resigned_invalid_date_refused':True}))

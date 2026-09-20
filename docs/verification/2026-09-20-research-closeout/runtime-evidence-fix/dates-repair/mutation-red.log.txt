@@ -1,0 +1,205 @@
+...FFF............FF.........F                                           [100%]
+=================================== FAILURES ===================================
+_ test_future_presentation_restores_exact_notice_but_cannot_cover_output[2026-7-25] _
+
+source_date = '2026-7-25'
+
+    @pytest.mark.parametrize("source_date", [
+        "2026-07-25", "20260725", "2026-07-25T09:30:00+08:00",
+        "2026-7-25", "2026-7-25 09:30:00", " 2026-07-25 ",
+    ])
+    def test_future_presentation_restores_exact_notice_but_cannot_cover_output(source_date):
+        ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
+        future = _atom("future", source_date=source_date, title="原日期提示", supports=("future-output",))
+        assert ledger.append(future, covered_outputs=("future-output",)) == ()
+>       payload = ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=(future,))
+
+intelligence/tests/test_episode_evidence_presentations.py:59: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/services/evidence_ledger.py:238: in to_recovery_snapshot
+    presentations=tuple(EvidencePresentation(
+intelligence/services/evidence_ledger.py:240: in <genexpr>
+    classification=classify_presentation(item, self._items.get(item.content_hash), self._cutoff),
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+item = AgentEvidence(tool='finance_query', title='原日期提示', detail='原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不...inter_dropped=2, structural_neighbor_demoted=1, deep_read=True, publisher_kind='company', document_type='announcement')
+original = None, cutoff = datetime.date(2026, 7, 24)
+
+    def classify_presentation(
+        item: AgentEvidence, original: AgentEvidence | None, cutoff: date | None,
+    ) -> str:
+        """Request links may vary; every other admitted field still belongs to the first writer."""
+        if original is not None:
+            if replace(item, supports=original.supports, contradicts=original.contradicts) != original:
+                raise ValueError("presented evidence differs from its admitted original")
+            return "admitted"
+        # The registry can expose future-only results as a dated notice. This is a
+        # presentation, never a fact admission or an inferred coverage target. Parse
+        # the complete date value: a title or a valid prefix plus junk grants nothing.
+        if cutoff is not None and isinstance(item.source_date, str):
+            source_day = _presentation_source_day(item.source_date)
+            if source_day is not None and source_day > cutoff:
+                return "future_of_cutoff"
+>       raise ValueError("presented evidence is absent from the ledger and is not valid future material")
+E       ValueError: presented evidence is absent from the ledger and is not valid future material
+
+intelligence/services/episode_evidence.py:160: ValueError
+_ test_future_presentation_restores_exact_notice_but_cannot_cover_output[2026-7-25 09:30:00] _
+
+source_date = '2026-7-25 09:30:00'
+
+    @pytest.mark.parametrize("source_date", [
+        "2026-07-25", "20260725", "2026-07-25T09:30:00+08:00",
+        "2026-7-25", "2026-7-25 09:30:00", " 2026-07-25 ",
+    ])
+    def test_future_presentation_restores_exact_notice_but_cannot_cover_output(source_date):
+        ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
+        future = _atom("future", source_date=source_date, title="原日期提示", supports=("future-output",))
+        assert ledger.append(future, covered_outputs=("future-output",)) == ()
+>       payload = ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=(future,))
+
+intelligence/tests/test_episode_evidence_presentations.py:59: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/services/evidence_ledger.py:238: in to_recovery_snapshot
+    presentations=tuple(EvidencePresentation(
+intelligence/services/evidence_ledger.py:240: in <genexpr>
+    classification=classify_presentation(item, self._items.get(item.content_hash), self._cutoff),
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+item = AgentEvidence(tool='finance_query', title='原日期提示', detail='原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不...inter_dropped=2, structural_neighbor_demoted=1, deep_read=True, publisher_kind='company', document_type='announcement')
+original = None, cutoff = datetime.date(2026, 7, 24)
+
+    def classify_presentation(
+        item: AgentEvidence, original: AgentEvidence | None, cutoff: date | None,
+    ) -> str:
+        """Request links may vary; every other admitted field still belongs to the first writer."""
+        if original is not None:
+            if replace(item, supports=original.supports, contradicts=original.contradicts) != original:
+                raise ValueError("presented evidence differs from its admitted original")
+            return "admitted"
+        # The registry can expose future-only results as a dated notice. This is a
+        # presentation, never a fact admission or an inferred coverage target. Parse
+        # the complete date value: a title or a valid prefix plus junk grants nothing.
+        if cutoff is not None and isinstance(item.source_date, str):
+            source_day = _presentation_source_day(item.source_date)
+            if source_day is not None and source_day > cutoff:
+                return "future_of_cutoff"
+>       raise ValueError("presented evidence is absent from the ledger and is not valid future material")
+E       ValueError: presented evidence is absent from the ledger and is not valid future material
+
+intelligence/services/episode_evidence.py:160: ValueError
+_ test_future_presentation_restores_exact_notice_but_cannot_cover_output[ 2026-07-25 ] _
+
+source_date = ' 2026-07-25 '
+
+    @pytest.mark.parametrize("source_date", [
+        "2026-07-25", "20260725", "2026-07-25T09:30:00+08:00",
+        "2026-7-25", "2026-7-25 09:30:00", " 2026-07-25 ",
+    ])
+    def test_future_presentation_restores_exact_notice_but_cannot_cover_output(source_date):
+        ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
+        future = _atom("future", source_date=source_date, title="原日期提示", supports=("future-output",))
+        assert ledger.append(future, covered_outputs=("future-output",)) == ()
+>       payload = ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=(future,))
+
+intelligence/tests/test_episode_evidence_presentations.py:59: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/services/evidence_ledger.py:238: in to_recovery_snapshot
+    presentations=tuple(EvidencePresentation(
+intelligence/services/evidence_ledger.py:240: in <genexpr>
+    classification=classify_presentation(item, self._items.get(item.content_hash), self._cutoff),
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+item = AgentEvidence(tool='finance_query', title='原日期提示', detail='原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不...inter_dropped=2, structural_neighbor_demoted=1, deep_read=True, publisher_kind='company', document_type='announcement')
+original = None, cutoff = datetime.date(2026, 7, 24)
+
+    def classify_presentation(
+        item: AgentEvidence, original: AgentEvidence | None, cutoff: date | None,
+    ) -> str:
+        """Request links may vary; every other admitted field still belongs to the first writer."""
+        if original is not None:
+            if replace(item, supports=original.supports, contradicts=original.contradicts) != original:
+                raise ValueError("presented evidence differs from its admitted original")
+            return "admitted"
+        # The registry can expose future-only results as a dated notice. This is a
+        # presentation, never a fact admission or an inferred coverage target. Parse
+        # the complete date value: a title or a valid prefix plus junk grants nothing.
+        if cutoff is not None and isinstance(item.source_date, str):
+            source_day = _presentation_source_day(item.source_date)
+            if source_day is not None and source_day > cutoff:
+                return "future_of_cutoff"
+>       raise ValueError("presented evidence is absent from the ledger and is not valid future material")
+E       ValueError: presented evidence is absent from the ledger and is not valid future material
+
+intelligence/services/episode_evidence.py:160: ValueError
+_ test_unadmitted_presentations_require_real_future_date_not_title[cutoff12-2026-W30-6] _
+
+cutoff = datetime.date(2026, 7, 24), source_date = '2026-W30-6'
+
+    @pytest.mark.parametrize(("cutoff", "source_date"), [
+        (None, "2026-07-25"), (date(2026, 7, 24), None),
+        (date(2026, 7, 24), "2026-07-24"), (date(2026, 7, 24), "unknown"),
+        (date(2026, 7, 24), "2026-99-99"), (date(2026, 7, 24), "2026-07-25garbage"),
+        (None, "2026-7-25"), (date(2026, 7, 24), "2026-7-24"),
+        (date(2026, 7, 24), "2026-7-25garbage"), (date(2026, 7, 24), "正文2026-7-25"),
+        (date(2026, 7, 24), "/tmp/2026-7-25"), (date(2026, 7, 24), "2026-7-25 09:30:00+08:00garbage"),
+        (date(2026, 7, 24), "2026-W30-6"), (date(2026, 7, 24), "2026W306"),
+    ])
+    def test_unadmitted_presentations_require_real_future_date_not_title(cutoff, source_date):
+        ledger = EvidenceLedger(information_cutoff=cutoff)
+        item = _atom("missing", source_date=source_date, title="晚于问句日 2026-07-24")
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:82: Failed
+_ test_unadmitted_presentations_require_real_future_date_not_title[cutoff13-2026W306] _
+
+cutoff = datetime.date(2026, 7, 24), source_date = '2026W306'
+
+    @pytest.mark.parametrize(("cutoff", "source_date"), [
+        (None, "2026-07-25"), (date(2026, 7, 24), None),
+        (date(2026, 7, 24), "2026-07-24"), (date(2026, 7, 24), "unknown"),
+        (date(2026, 7, 24), "2026-99-99"), (date(2026, 7, 24), "2026-07-25garbage"),
+        (None, "2026-7-25"), (date(2026, 7, 24), "2026-7-24"),
+        (date(2026, 7, 24), "2026-7-25garbage"), (date(2026, 7, 24), "正文2026-7-25"),
+        (date(2026, 7, 24), "/tmp/2026-7-25"), (date(2026, 7, 24), "2026-7-25 09:30:00+08:00garbage"),
+        (date(2026, 7, 24), "2026-W30-6"), (date(2026, 7, 24), "2026W306"),
+    ])
+    def test_unadmitted_presentations_require_real_future_date_not_title(cutoff, source_date):
+        ledger = EvidenceLedger(information_cutoff=cutoff)
+        item = _atom("missing", source_date=source_date, title="晚于问句日 2026-07-24")
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:82: Failed
+_ test_v2_reader_rechecks_future_classification_even_with_recomputed_digest[2026-07-24-2026-W30-6] _
+
+cutoff = '2026-07-24', source_date = '2026-W30-6'
+
+    @pytest.mark.parametrize(("cutoff", "source_date"), [
+        (None, "2026-07-25"), ("2026-07-24", None), ("2026-07-24", "2026-07-24"),
+        ("2026-07-24", "unknown"), ("2026-07-24", "2026-07-25garbage"),
+        ("2026-07-24", "2026-7-25garbage"), ("2026-07-24", "正文2026-7-25"),
+        ("2026-07-24", "/tmp/2026-7-25"), ("2026-07-24", "2026-7-25 09:30:00+08:00garbage"),
+        ("2026-07-24", "2026-W30-6"),
+    ])
+    def test_v2_reader_rechecks_future_classification_even_with_recomputed_digest(cutoff, source_date):
+        ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
+        payload = ledger.to_recovery_snapshot(
+            episode_id="episode", presented_evidence=(_atom("future", source_date="2026-07-25"),),
+        )
+        payload["information_cutoff"] = cutoff
+        payload["presentations"][0]["atom"]["source_date"] = source_date
+        _resign(payload)
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:139: Failed
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_future_presentation_restores_exact_notice_but_cannot_cover_output[2026-7-25]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_future_presentation_restores_exact_notice_but_cannot_cover_output[2026-7-25 09:30:00]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_future_presentation_restores_exact_notice_but_cannot_cover_output[ 2026-07-25 ]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_unadmitted_presentations_require_real_future_date_not_title[cutoff12-2026-W30-6]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_unadmitted_presentations_require_real_future_date_not_title[cutoff13-2026W306]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_v2_reader_rechecks_future_classification_even_with_recomputed_digest[2026-07-24-2026-W30-6]
+6 failed, 24 passed, 33 deselected in 0.20s
