@@ -173,7 +173,8 @@
     {
       "path": "gate-789/receipt-check.log.txt",
       "exit_code": 1,
-      "sha256": "9e9cbe3fecd3baed637bd7ffb360f88149a4a678fb9a991addcf074aa7ef0d35"
+      "sha256": "9e9cbe3fecd3baed637bd7ffb360f88149a4a678fb9a991addcf074aa7ef0d35",
+      "bytes": 1027
     },
     {
       "path": "gate-789-integrated/target.json",
@@ -765,8 +766,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 2581,
-      "sha256": "974cff1a8c58a856a3e8c432fa7d21e100c754bbd3802a84d344b070d0a394ae",
+      "bytes": 2840,
+      "sha256": "2b57a525a1f7fdba0eb91494d600b33234906210c4a6fab450812bc50610176c",
       "source": "repository index maintained with this manifest"
     },
     {
@@ -1320,6 +1321,42 @@
       "bytes": 1743,
       "sha256": "a10cfda042def5a34f12a7b72bcf5cb812c7ffe07191e549178ca09f465c3f63",
       "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-fix/dates-repair/run_date_mutation.py"
+    },
+    {
+      "path": "runtime-evidence-recheck/quality/manifest.json",
+      "bytes": 661,
+      "sha256": "4b956b9ffc168dce239c4f62e9b4d0a05db39d4cdf5bf1607dbddcf7cae4aa99",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-recheck/quality/manifest.json"
+    },
+    {
+      "path": "runtime-evidence-recheck/quality/quality-tests-receipt.json",
+      "bytes": 960,
+      "sha256": "c82c44b6db507f529f2afa466f6e22476745f6f357da932851b070d6534f2846",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-recheck/quality/quality-tests-receipt.json"
+    },
+    {
+      "path": "runtime-evidence-recheck/quality/quality-tests.log.txt",
+      "bytes": 99,
+      "sha256": "687908b1aea054109539c2513dbb5b15ad53ab042e842789bd4c7b28ef984d3e",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-recheck/quality/quality-tests.log"
+    },
+    {
+      "path": "runtime-evidence-recheck/quality/report.md",
+      "bytes": 2561,
+      "sha256": "ea0fb3c029f3f03a1b7d67a92e234f40cad1b41f6a2ba04caa86ed70317c0401",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-recheck/quality/report.md"
+    },
+    {
+      "path": "runtime-evidence-recheck/quality/run_quality.py.txt",
+      "bytes": 1664,
+      "sha256": "690e044b41a1bb24d602ae71f1e838874443587d2189a429609b65247a7178b6",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-recheck/quality/run_quality.py"
+    },
+    {
+      "path": "runtime-evidence-recheck/quality/test_quality_edges.py.txt",
+      "bytes": 4340,
+      "sha256": "a0dd72955ed4fbaec300ba5adba7267e3919298deee5182597c01386058f828a",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-recheck/quality/test_quality_edges.py"
     }
   ]
 }
