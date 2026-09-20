@@ -1,0 +1,179 @@
+{
+  "source_root": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920",
+  "records": [
+    {
+      "path": "research-design/review.md",
+      "bytes": 8492,
+      "sha256": "a122c497683dc621de90e4ace0d1624acc256d035fc7ab5dc2ea3ed6e9be7f22"
+    },
+    {
+      "path": "research-design/probe_delivery_seams.py.txt",
+      "bytes": 3616,
+      "sha256": "cbca102b5ce0405221b18bcffad29d58956efcf4ff0541aedc0919245664ded8",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/research-design/probe_delivery_seams.py"
+    },
+    {
+      "path": "research-design/q-probe.json",
+      "bytes": 5088,
+      "sha256": "968af217e362d2320c3f37e114173a68a14e4ed6f2ca514c1156e01f83e37a9d"
+    },
+    {
+      "path": "research-design/r6-probe.json",
+      "bytes": 5132,
+      "sha256": "1f7af5d1ea07c7482fc59057acd25a7c88273d0ed0e93760c0bdf5d5a73a05cb"
+    },
+    {
+      "path": "research-design/preservation-feedback.json",
+      "bytes": 1162,
+      "sha256": "d789fe54f3294b7e2b44020f54f0d01cdf179b6076d9884d896b746d2a7e193a"
+    },
+    {
+      "path": "research-design/module-presence.json",
+      "bytes": 604,
+      "sha256": "c1a62748256976c637d557a5f55bbd19b7e882fdbf762ac004583d5c6b999f25"
+    },
+    {
+      "path": "history-design/review.md",
+      "bytes": 8388,
+      "sha256": "8aa9d83e40b62bcdc6ed3aa6e1665dbae762501463df6d282ccd30fa3dd0c4eb"
+    },
+    {
+      "path": "history-design/probe_history_design.py.txt",
+      "bytes": 3929,
+      "sha256": "565abab164323fd671f5c9b0c6e4a59dd1a8f01b9a323b7f8ec188f8dc0e8779",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-design/probe_history_design.py"
+    },
+    {
+      "path": "history-design/probe-results.json",
+      "bytes": 3750,
+      "sha256": "0fbe22baff06ba021e4a6861c4d24078a8a48d5db660cff6e67e5341a8054d73"
+    },
+    {
+      "path": "history-design/targeted-tests.txt",
+      "bytes": 99,
+      "sha256": "326dbf1e36bc4f5cc012570784f7c44e28e6e028657acf80fc5f0d58afb18ade"
+    },
+    {
+      "path": "history-design/code-map-diagnosis.json",
+      "source": "/Users/a77/.finance-runtime/history-window-c9bd82ff-checks/code-map-diagnosis.json",
+      "bytes": 26552,
+      "sha256": "8e2a2e42ccf2194ee59a302c0b13452f3c2df04cbaf182806f0ab2d442be295a"
+    },
+    {
+      "path": "kb-design/REVIEW.md",
+      "bytes": 7318,
+      "sha256": "d17dcb0fb5ce361e79b2f7578a70b725e5e29c3a8831a473028b836b99705f97"
+    },
+    {
+      "path": "kb-design/review-receipt.json",
+      "bytes": 1842,
+      "sha256": "0a6e717b2d372ddf53857fa206016afb62ea3718a112da12e922358b2b3d55d9"
+    },
+    {
+      "path": "kb-design/verified-results.json",
+      "bytes": 4306,
+      "sha256": "be9babdab73e7278a4be01e64397df8bef25056fdcef2a258db06ac8aee2fa54"
+    },
+    {
+      "path": "kb-design/probe_finance_worker.py.txt",
+      "bytes": 7007,
+      "sha256": "a4de73d46ceadb31c17488cb318ca0b8e9ae864789fa72b11f0cc0a545114714",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/kb-design/probe_finance_worker.py"
+    },
+    {
+      "path": "kb-design/worker/results.json",
+      "bytes": 16924,
+      "sha256": "d255d2b42be6e1d421308a7e736dd4a91dfc18559eb0b510ced6beaf6363b34c"
+    },
+    {
+      "path": "research-issues.json",
+      "bytes": 5545,
+      "sha256": "ca1bf1faa5d1a08b2535e703cee030b67eb1e9e78cacb76a137a3c216c92cfb3"
+    },
+    {
+      "path": "gate-789/python-registry.json",
+      "bytes": 3718,
+      "sha256": "92e9c26c88d71f2b082d24f36e4f14dff04c44b7533bc795e548fd642683be65"
+    },
+    {
+      "path": "gate-789/pytest.log.txt",
+      "bytes": 17618,
+      "sha256": "043a4a31cdde78a87c411165911e1dc4ecbab9142acea5e3aac8ae0373418b19"
+    },
+    {
+      "path": "gate-789/ruff.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "gate-789/registry-parse.log.txt",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "path": "gate-789/registry-check.log.txt",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "path": "gate-789/registry-tables.log.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "path": "gate-789/registry-views.log.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "path": "gate-789/ledger-crosswalk.log.txt",
+      "bytes": 2069,
+      "sha256": "911746e4c0c3d1f79183d868223a36e472dc033eec74272a1ab10c1b42eab67c"
+    },
+    {
+      "path": "gate-789/receipts/20260920T034000Z-c8dbd387.json",
+      "bytes": 750,
+      "sha256": "a3036a860cc9a5938d57f67501175679cacf7ae53249c7d99aaa711a4c64665b"
+    },
+    {
+      "path": "gate-789/frontend/frontend.json",
+      "bytes": 2558,
+      "sha256": "9452b4fd09a6b39fc8422bdfce655de9514b5b879d0feb81a3acc90e3203ddfd"
+    },
+    {
+      "path": "gate-789/frontend/frontend-0.log.txt",
+      "bytes": 1758,
+      "sha256": "7d7cdd5735f16f033053db568a899b454e3169c2e530a3ab621eae6bb715d8aa"
+    },
+    {
+      "path": "gate-789/frontend/frontend-1.log.txt",
+      "bytes": 174,
+      "sha256": "925d731c5d0133d3752c1ab802ef8aa3a7076487058369a881990b279412eaa1"
+    },
+    {
+      "path": "gate-789/frontend/frontend-2.log.txt",
+      "bytes": 272,
+      "sha256": "f81f777c957948f7983d49852d8885c71c6b63fcb652cdd0b1e21c1d4f974334"
+    },
+    {
+      "path": "gate-789/frontend/frontend-3.log.txt",
+      "bytes": 1547,
+      "sha256": "252fb71a92e42b5f9103640046ad14f1aae29565932e232230ff0d08db502af6"
+    },
+    {
+      "path": "gate-789/frontend/frontend-4.log.txt",
+      "bytes": 1035,
+      "sha256": "7e8487ef0cf74e1a52024af5a934d8d55406be987882716befbdd937ee615f5c"
+    },
+    {
+      "path": "gate-789/frontend/frontend-5.log.txt",
+      "bytes": 12808,
+      "sha256": "f6c098d72de810307833ea935fab6cd68ba0b4588edc8da20213e33aba00d4ff"
+    },
+    {
+      "path": "gate-789/receipt-check.log.txt",
+      "exit_code": 1,
+      "sha256": "9e9cbe3fecd3baed637bd7ffb360f88149a4a678fb9a991addcf074aa7ef0d35"
+    }
+  ]
+}
