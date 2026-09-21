@@ -1,30 +1,31 @@
 # feat/adaptive-research-loop
 
 ## 这个分支做什么
-模型按证据选视角、同会话修订与公开保真。树 `~/finance-worktrees/adaptive-research-loop`。
+模型自主研究、同会话修订与公开保真。树 `~/finance-worktrees/adaptive-research-loop`。
 
 ## 决策与被否方案
-- 修稿/bindings 变更即重核；来不及则旧稿+partial+公开提示。否修改进度门：进展/预算与公开保真正交。
-- 股票后缀闸 `d9e2875c0` 已修：精确比较拒裸六位码并提示后缀，否猜交易所；contains 保持可用。
-- 残片不做正文手术：兼类连接词会误剥，否改已接受句；复现频率先量化。
-- K3 同一请求 200/400/200，不能归因确定性格式错误；否放宽全局 400 重试。并非所有变体都混合，不能把小样本定为稳定50%故障率。
-- 详细决定、原件纠正、历史指针见 `docs/handoffs/2026-09-21-adaptive-forward-830-closeout.md`。
+- 变稿/bindings即重核；来不及则旧稿+partial+公开提示。进展/预算与公开保真正交，不改进度门。
+- K3可当写手；缺特定流程样本不等于模型不可用，不再写“等稳定K3”。
+- 漏kind的完整计划体送严格PLAN纠错，不自动补标/接纳；带终局字段、模糊片段、已收口不借道。否全局宽解析，防误开研究。
+- 股票精确比较拒裸码不猜后缀；不剥已接受句的连接词；不放宽HTTP400重试。
+- 背景/方案见 `docs/handoffs/2026-09-21-adaptive-k3-plan-routing.md`。
 
 ## 当前状态
-固定 `be66029342bfe2c57e62c78be3a6c502fdb73543` 已前向合入 #830 及后来 main=c097d712f；后续仅文档。11:06Z fetch 无新漂移，后续看 `worktree_board.py --this`。最新门禁/临时目录清理见 `docs/handoffs/2026-09-21-adaptive-forward-c097-gates.md`。未push/PR/合回main/部署。
+业务补丁 `4c33e0d458be9cd171c4bb2f7de39b6ccb62d119` 已提交。单次K3真验收在旧干净129e6cbea：两轮/零工具，漏PLAN标签被误催终局，交付未过；已离线返修，未跑修后真模型。未push/PR/合回main/部署。
+本地gitea/main已观察到79b11d4268a3，未追合；旧be660全门禁不移签新补丁。
 
 ## 已验证
-以下只签 be6602934，不移绑文档tip：
-- Python全量12698P/87S/2X/17W、exit0，Ruff过；原c07收据保留不移签。
-- 收据 `~/.finance-runtime/test-receipts/20260921T110550Z-be660293.json`，精确revision/依赖/干净代码/基座漂移0均校验通过。
-- 证据根 `~/.finance-runtime/adaptive-forward-c097-20260921/`：`frontend-be6602934/frontend.json` 六步全过，110P、E2E34P/2S；首尾同SHA、dirty=false、identity_stable/complete=true。
-- `local-checks.json`：registry四项+台账对账exit0；仅本仓在场，23个跨仓skill跳过；台账反向98行warning。不声称跨三仓或零警告。
+- 固定干净4c33e0d45相关10文件748P/0F/0E，Ruff全仓过；首尾SHA/树一致，精确收据校验过。
+- 收据 `~/.finance-runtime/test-receipts/20260921T114433Z-4c33e0d4.json`，只签定向回归。
+- 真实seq6逐字节夹具；开发先9F后264P；四项撤保护均被抓住，不改磁盘源码。
+- 证据 `~/.finance-runtime/adaptive-k3-writer-live-20260921/README.md`，71件SHA256SUMS回读通过；run_20260921_192812_245529。8797已停，8792未改，密钥不落盘。
+- 历史be660完整12698P/前端110P/E2E34P2S见 `2026-09-21-adaptive-forward-c097-gates.md`，仅签旧revision。
 
 ## 未验证 / 已知边界
-“无工具修复+自报partial”自然模型仍未闭合；GLM修复版三次均completed，K3此前受间歇400阻断。证据 `~/.finance-runtime/k3-gateway-intermittent-400-20260921/README.md`（抓包代理/拒绝载荷/重放表）。缺tool_call id有合成补位，content泄漏推理不是本轮已修。#830合流后未重跑真模型；离线和无密钥E2E不证明金融质量。独立Spec/Quality未做。
+K3本次两次正常返回，无400；实际judge调用0、repair0，phase_trace的repair投影不算执行。“无工具改稿+自报partial”重核路径未进入；此前GLM修复版均completed。修后自然取证/金融交付、正常长答推理不泄漏仍未验。新补丁完整合入门禁和独立Spec/Quality待做。离线续轮是替身，不翻真实失败结论。
 
 ## 下一步
-需要闭目标格时，先获稳定K3/第二模型及live授权再自然触发，不刷次数。推送/PR/合main/部署待明确授权；最终待合SHA须重新绑定工程门禁，不能沿用旧收据冒签。
+授权下固定修复版单次真入口验收，先查取证和交付，不刷状态词。之后再准备推送/PR；最终待合SHA须取得对应完整门禁。合main/部署待明确授权。
 
 ## 踩过的坑
-必须显式cd目标树，解释器用 `~/finance-workspace-private/.venv-workbench/bin/python`；本树无venv。E2E用现有 `scripts/run_frontend_gate.py` 自动传解释器和端口，避免宿主Python缺uvicorn。前序主树b4a35fa零执行收据作废，不修无关主树文件。原24KB交接在 `git show cb47cc3b6:docs/handoffs/inflight/feat-adaptive-research-loop.md`，含过期状态，只作历史。
+显式cd本树，pytest/ruff用 `~/finance-workspace-private/.venv-workbench/bin/python`；E2E用现有frontend gate传解释器。收据取日志打印的固定路径，不取共享latest；FWP_TEST_RECEIPT这里只支持0禁写，不支持自定义路径。stock14行在，sector25行是上下文截断，不等于库缺日期。
