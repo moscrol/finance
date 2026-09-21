@@ -7,8 +7,8 @@
 忠实执行 → citations 空 → 「证据不足」。验收 28 题真值通过 0，单这一条就能解释。
 
 ``check_market_snapshot_contract.py`` 原本只校验快照自身格式、不和 DuckDB 对账，
-这个洞让上述失效完全静默。本模块补上：两个日期必须相等，不等或认不出来一律
-FAIL（fail closed），方向写进消息以便定位是哪一侧没跑。
+这个洞让上述失效完全静默。本模块保留两个日期的诚实诊断。2026-09-21 起，日期不同只报 WARN，
+不宣称已有证据作废；无法读到实际日期仍是对账失败，不等于整项分析不可用。
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ def reconcile_snapshot_with_market_db(
     snapshot_result: dict[str, Any],
     db_path: str | Path,
 ) -> dict[str, Any]:
-    """校验快照 ``served_trade_date`` 与 DuckDB ``max(trade_date)`` 相等。
+    """对照快照与 DuckDB 的实际日期；差异是提示，不是分析拒绝条件。
 
     ``snapshot_result`` 是 ``validate_market_snapshot_root`` 的返回值；
     对账表固定为 ``fact_market_daily``，因为供给方新鲜度自检
@@ -34,6 +34,7 @@ def reconcile_snapshot_with_market_db(
     """
 
     errors: list[str] = []
+    warnings: list[str] = []
     served = _served_trade_date(snapshot_result)
     if not served:
         errors.append("快照缺少 served_trade_date，无法对账（fail closed）")
@@ -49,28 +50,26 @@ def reconcile_snapshot_with_market_db(
 
     if served and db_max and served != db_max:
         if served > db_max:
-            errors.append(
+            warnings.append(
                 f"快照 served_trade_date {served} 超前 DuckDB "
                 f"{MARKET_DATE_TABLE} max(trade_date) {db_max}："
-                "新鲜度地板高于供给方，结构化查询会整批被判 stale"
-                "（证据作废 → fail-closed → 证据不足）。"
-                "通常是快照已同步但 daily-full 没跑。"
+                "使用已有真实数据继续分析，分别标明日期，不因日期差异降级或拒答。"
             )
         else:
-            errors.append(
+            warnings.append(
                 f"快照 served_trade_date {served} 落后 DuckDB "
                 f"{MARKET_DATE_TABLE} max(trade_date) {db_max}："
-                "新鲜度地板低于库内数据，agent 会把旧盘面当最新。"
-                "通常是 daily-full 已跑但快照同步没跟上。"
+                "各来源按实际日期使用，不把旧快照冒充库内最新数据。"
             )
 
     return {
-        "status": "FAIL" if errors else "PASS",
+        "status": "FAIL" if errors else "WARN" if warnings else "PASS",
         "snapshot_served_trade_date": served,
         "duckdb_max_trade_date": db_max,
         "db_path": str(path),
         "table": MARKET_DATE_TABLE,
         "errors": errors,
+        "warnings": warnings,
     }
 
 

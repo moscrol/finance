@@ -2024,7 +2024,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         agent_query: str,
         context: agent_research.AgentToolContext,
     ):
-        """通用 Owner 的 D4 主线结构工具，保留同日/滞后边界。"""
+        """通用 Owner 的 D4 主线结构工具，各条事实保留来源日期。"""
 
         if context.deadline.expired:
             raise TimeoutError("agent mainline context deadline expired")
@@ -2057,15 +2057,19 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         evidence, observation = agent_research.block_lines_to_evidence(
             "mainline_context",
             block,
-            "本地 DuckDB · D4 同日主线结构",
+            "本地 DuckDB · D4 可用主线结构",
             limit=10,
             detail_chars=1000,
         )
+        evidence = [
+            item for item in evidence
+            if not item.detail.startswith(agent_research.QUALIFIER_LINE_PREFIXES)
+        ]
         trace = ProviderTrace(
             provider="agent:mainline_context",
             capability="agent_loop",
             status="success" if evidence else "empty",
-            detail="mainline_current_context",
+            detail="mainline_available_context",
             result_count=len(evidence),
         )
         return evidence, observation or "本地主线结构无匹配", trace
@@ -4571,7 +4575,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             return block, Citation(
                 "D4",
                 "本地 DuckDB 主线题材结构数据块",
-                "同日主线结构；若快照滞后则仅提供数据边界",
+                "各表最新可用主线结构；按来源实际日期交付，不把旧值冒充今日值",
             )
 
         providers.append(

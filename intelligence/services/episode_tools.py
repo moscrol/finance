@@ -1076,7 +1076,8 @@ def build_episode_registry(
             source,
             limit=18,
             detail_chars=1000,
-            source_date=served_date,
+            source_date=served_date if frame.question_type == "valuation_estimate" else None,
+            fallback_source_date=served_date,
         )
         evidence = [
             item

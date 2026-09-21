@@ -992,7 +992,7 @@ def test_historical_market_web_uses_task_window_instead_of_latest_data_date(
     assert "future_of_cutoff=1" in observation.trace.detail
 
 
-def test_market_registry_uses_structured_provider_date_for_every_atom(
+def test_market_registry_preserves_line_dates_and_provider_fallback(
     tmp_path,
     monkeypatch,
 ) -> None:
@@ -1042,7 +1042,7 @@ def test_market_registry_uses_structured_provider_date_for_every_atom(
 
     assert [item.source_date for item in observation.evidence] == [
         "2026-07-23",
-        "2026-07-23",
+        "2026-07-20",
     ]
     mainline = registry.execute(
         "mainline_context",

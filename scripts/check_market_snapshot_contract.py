@@ -22,8 +22,8 @@ def run_check(
 ) -> dict[str, Any]:
     """格式校验 + 快照↔DuckDB 对账（默认必跑，`skip_db` 仅供无库环境做纯格式校验）。
 
-    对账不等 → 整体 FAIL、ready=False。原脚本只校验快照自身格式，
-    快照与库差一天时完全静默——那正是 2026-08-12「28 题真值通过 0」的根因。
+    日期差异保留为 WARN，不撤销格式/质量合格快照的 ready；读不到日期仍报对账失败。
+    这是数据诊断，不赋予补采权限，也不要求各来源同日才能分析。
     """
 
     result = validate_market_snapshot_root(root, date)
@@ -35,7 +35,10 @@ def run_check(
         db_path if db_path is not None else default_market_db_path(),
     )
     result["reconciliation"] = reconciliation
-    if reconciliation["status"] != "PASS":
+    result["warnings"] = list(result["warnings"]) + list(reconciliation["warnings"])
+    if reconciliation["status"] == "WARN" and result["status"] == "PASS":
+        result["status"] = "WARN"
+    if reconciliation["status"] == "FAIL":
         result["errors"] = list(result["errors"]) + list(reconciliation["errors"])
         result["status"] = "FAIL"
         result["ready"] = False

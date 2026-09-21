@@ -27,11 +27,7 @@ def write_market_db(path: Path, *dates: str) -> None:
 
 
 class MarketSnapshotReconcileTest(unittest.TestCase):
-    """快照 served_trade_date 必须等于 DuckDB max(trade_date)。
-
-    对应 2026-08-12 事故：快照 08-12、DuckDB 08-11，差一天导致每条结构化
-    查询被判 stale、证据整批作废。原格式门禁对此完全静默。
-    """
+    """快照/库日期不同要如实报告，但不得因此把已有真实数据作废。"""
 
     def _snapshot_result(self, tmp: Path, date: str = "2026-06-11") -> dict:
         root = tmp / "snapshot"
@@ -53,8 +49,8 @@ class MarketSnapshotReconcileTest(unittest.TestCase):
             self.assertEqual(result["duckdb_max_trade_date"], "2026-06-11")
             self.assertEqual(result["errors"], [])
 
-    def test_snapshot_ahead_of_duckdb_fails(self):
-        """事故原形状：快照超前一天 → 必须 FAIL 且指明方向。"""
+    def test_snapshot_ahead_of_duckdb_warns(self):
+        """事故原形状仍报差异，纠偏后不作为分析失败。"""
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             snapshot = self._snapshot_result(base, "2026-08-12")
@@ -63,13 +59,14 @@ class MarketSnapshotReconcileTest(unittest.TestCase):
 
             result = reconcile_snapshot_with_market_db(snapshot, db)
 
-            self.assertEqual(result["status"], "FAIL")
-            joined = " ".join(result["errors"])
+            self.assertEqual(result["status"], "WARN")
+            self.assertEqual(result["errors"], [])
+            joined = " ".join(result["warnings"])
             self.assertIn("2026-08-12", joined)
             self.assertIn("2026-08-11", joined)
             self.assertIn("超前", joined)
 
-    def test_snapshot_behind_duckdb_fails(self):
+    def test_snapshot_behind_duckdb_warns(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             snapshot = self._snapshot_result(base, "2026-08-11")
@@ -78,8 +75,9 @@ class MarketSnapshotReconcileTest(unittest.TestCase):
 
             result = reconcile_snapshot_with_market_db(snapshot, db)
 
-            self.assertEqual(result["status"], "FAIL")
-            self.assertIn("落后", " ".join(result["errors"]))
+            self.assertEqual(result["status"], "WARN")
+            self.assertEqual(result["errors"], [])
+            self.assertIn("落后", " ".join(result["warnings"]))
 
     def test_missing_db_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -127,9 +125,9 @@ class MarketSnapshotReconcileTest(unittest.TestCase):
 
 
 class RunCheckGateTest(unittest.TestCase):
-    """脚本级组合：格式 PASS 但对账不等 → 整体 FAIL、ready=False、exit 非零。"""
+    """脚本级组合：格式 PASS 但日期不齐 → WARN，保留可用性与实际日期。"""
 
-    def test_format_pass_but_mismatch_fails_overall(self):
+    def test_format_pass_with_date_mismatch_stays_ready(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             root = base / "snapshot"
@@ -140,10 +138,11 @@ class RunCheckGateTest(unittest.TestCase):
 
             result = run_check(root, "2026-08-12", db_path=db)
 
-            self.assertEqual(result["status"], "FAIL")
-            self.assertFalse(result["ready"])
-            self.assertEqual(result["reconciliation"]["status"], "FAIL")
-            self.assertIn("超前", " ".join(result["errors"]))
+            self.assertEqual(result["status"], "WARN")
+            self.assertTrue(result["ready"])
+            self.assertEqual(result["reconciliation"]["status"], "WARN")
+            self.assertEqual(result["errors"], [])
+            self.assertIn("超前", " ".join(result["warnings"]))
 
     def test_equal_dates_pass_overall(self):
         with tempfile.TemporaryDirectory() as tmp:

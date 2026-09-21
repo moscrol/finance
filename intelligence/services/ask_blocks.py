@@ -975,7 +975,7 @@ def _daily_market_overview_block_for_llm(
         stage_text = f"{stage}（第 {stage_day} 天）" if stage_day is not None else stage
         lines = [
             "## 本地 DuckDB 最新市场总览",
-            f"- 市场数据截至：{trade_date}。该日期是本轮整体盘面日期。",
+            f"- 市场数据截至：{trade_date}。该日期仅对应市场总览，各来源分别标明日期。",
             f"- 市场阶段：{stage_text}；量能状态：{values['volume_state'] or '未标注'}。",
             (
                 f"- 全市场成交额：{_fmt_optional(values['total_amount'])} 亿元；"
@@ -1014,55 +1014,60 @@ def _daily_market_overview_block_for_llm(
                 f"领先行业为 {industry_text}。"
             )
 
+        mainline_columns: dict[str, set[str]] = {}
+        for table, column in con.execute(
+            "select table_name, column_name from information_schema.columns "
+            "where table_schema = 'main' and table_name in "
+            "('fact_mainline_theme_daily', 'fact_mainline_sector_daily')"
+        ).fetchall():
+            mainline_columns.setdefault(str(table), set()).add(str(column))
+        theme_columns = mainline_columns.get("fact_mainline_theme_daily", set())
         theme_date = None
-        if "fact_mainline_theme_daily" in table_names:
+        if {"trade_date", "theme_name"} <= theme_columns:
             theme_date_row = con.execute(
                 "select max(trade_date) from fact_mainline_theme_daily "
                 "where trade_date <= cast(? as date)",
-                [trade_date],
+                [as_of or date.today().isoformat()],
             ).fetchone()
             theme_date = theme_date_row[0] if theme_date_row else None
             if theme_date:
+                count = "sector_count" if "sector_count" in theme_columns else "null"
+                sort = "min_sort nulls last, theme_name" if "min_sort" in theme_columns else "theme_name"
                 themes = con.execute(
-                    """
-                    select theme_name, sector_count
-                    from fact_mainline_theme_daily
-                    where trade_date = ?
-                    order by min_sort nulls last, theme_name
-                    limit 10
-                    """,
+                    f"select theme_name, {count} from fact_mainline_theme_daily "
+                    f"where trade_date = ? order by {sort} limit 10",
                     [theme_date],
                 ).fetchall()
                 theme_text = "、".join(
-                    f"{name}（{sector_count or 0} 个核心板块）"
+                    f"{name}（{_fmt_optional(sector_count, 0)} 个核心板块）"
                     for name, sector_count in themes
                     if name
                 )
-                if theme_text and str(theme_date) == trade_date:
+                if theme_text:
                     lines.append(f"- 主线题材（截至 {theme_date}）：{theme_text}。")
-                elif theme_text:
-                    lines.append(
-                        f"- 主线题材汇总仅截至 {theme_date}，早于整体盘面日期 {trade_date}；"
-                        "当前题材级主线未知，不展示旧题材名称。"
-                    )
+                    if str(theme_date) != trade_date:
+                        lines.append(
+                            "- 使用要求：总览与题材日期不同，按各自时点使用已有事实，"
+                            "不因日期差异降级或拒答，不把旧题材冒充今日题材。"
+                        )
 
-        if "fact_mainline_sector_daily" in table_names:
+        if "trade_date" in mainline_columns.get("fact_mainline_sector_daily", set()):
             sector_date_row = con.execute(
                 "select max(trade_date) from fact_mainline_sector_daily "
                 "where trade_date <= cast(? as date)",
-                [trade_date],
+                [as_of or date.today().isoformat()],
             ).fetchone()
             sector_date = sector_date_row[0] if sector_date_row else None
             if sector_date and str(sector_date) != trade_date:
                 if theme_date and str(theme_date) == trade_date:
                     lines.append(
-                        f"- 局部数据提示：题材级主线汇总已更新到 {trade_date}，"
-                        f"但核心板块明细仅更新到 {sector_date}；当前核心板块、周期状态和标的未知。"
+                        f"- 使用要求：题材级主线汇总已更新到 {trade_date}，"
+                        f"核心板块明细截至 {sector_date}；可按实际日期继续分析，未覆盖的当日变化未知。"
                     )
                 else:
                     lines.append(
-                        f"- 局部数据提示：核心板块明细仅更新到 {sector_date}，"
-                        f"早于整体盘面日期 {trade_date}；只能作历史参考。"
+                        f"- 使用要求：核心板块明细截至 {sector_date}，"
+                        f"与市场总览 {trade_date} 不同日；按实际日期继续分析，不冒充同日事实。"
                     )
         return "\n".join(lines)
     except Exception:

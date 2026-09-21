@@ -233,9 +233,11 @@ def test_market_prefetch_failure_is_traced_disabled_and_reported_to_owner(
     assert "结构化行情预取失败" in result.answer_spec.gaps[0].text
 
 
+@pytest.mark.parametrize("mainline_date", ["2026-07-20", "2026-07-17"])
 def test_current_mainline_prefetches_market_daily_and_d4_once(
     tmp_path,
     monkeypatch,
+    mainline_date,
 ) -> None:
     """当前主线必须拿到两个事实能力，且固定预取后不再交给 loop 重查。"""
 
@@ -261,7 +263,10 @@ def test_current_mainline_prefetches_market_daily_and_d4_once(
     monkeypatch.setattr(
         ask,
         "_market_review_mainline_context_block_for_llm",
-        lambda *_args: "## 主线\n- 算力：涨停 8，强度高",
+        lambda *_args: (
+            "## 主线\n- 使用要求：主线按实际日期分析，不冒充今日事实\n"
+            f"- {mainline_date} 算力：涨停 8，强度高"
+        ),
     )
     monkeypatch.setattr(ask, "_market_data_asof", lambda _path: "2026-07-20")
     monkeypatch.setattr(agent_research, "build_default_tools", lambda _retrieve: {})
@@ -293,6 +298,11 @@ def test_current_mainline_prefetches_market_daily_and_d4_once(
     )
     assert result.business_status == "complete", repr(result.completion_report)
     assert result.completion_report["business_status"] == "complete"
+    assert result.answer_spec is not None
+    mainline_sources = [item for item in result.answer_spec.sources if "D4" in item.source]
+    assert mainline_sources
+    assert {item.source_date for item in mainline_sources} == {mainline_date}
+    assert all("使用要求：" not in item.detail for item in mainline_sources)
     assert {item.provider for item in result.provider_traces} >= {
         "agent:market_data",
         "agent:mainline_context",

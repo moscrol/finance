@@ -203,6 +203,33 @@ def test_detailed_mainline_keeps_null_count_and_rule_lines_out_of_facts(tmp_path
     assert "判读[" in result.observation
 
 
+@pytest.mark.parametrize("theme_date", ["2026-07-22", "2026-07-26"])
+def test_market_overview_keeps_theme_date_distinct_from_market_date(tmp_path: Path, theme_date: str):
+    with _database(tmp_path) as con:
+        con.execute("create table fact_market_daily(trade_date date, total_amount double)")
+        con.execute("insert into fact_market_daily values ('2026-07-24', 10000)")
+        con.execute(
+            "create table fact_mainline_theme_daily("
+            "trade_date date, theme_name varchar, sector_count integer, min_sort integer)"
+        )
+        con.execute("insert into fact_mainline_theme_daily values (?, '电子', null, 1)", [theme_date])
+        con.execute("insert into fact_mainline_theme_daily values ('2026-07-28', '未来题材', 1, 1)")
+    registry, context = _registry(tmp_path)
+    result = registry.execute("market_data", {}, context=context, step_id="mixed-market:1")
+    assert result.trace.status == "success"
+    assert result.gaps == ()
+    assert result.trace.source_trade_date == "2026-07-24"
+    assert result.trace.served_date == max("2026-07-24", theme_date)
+    amount = next(item for item in result.evidence if "全市场成交额" in item.detail)
+    assert amount.source_date == "2026-07-24"
+    theme = next(item for item in result.evidence if "电子" in item.detail)
+    assert theme.source_date == theme_date
+    assert "0 个核心板块" not in theme.detail
+    assert "未来题材" not in result.observation
+    assert "不展示旧题材" not in result.observation
+    assert not any(item.detail.startswith("使用要求：") for item in result.evidence)
+
+
 def test_episode_date_instruction_separates_reference_from_cutoff(tmp_path: Path):
     import json
     from intelligence.services.episode_protocol import build_episode_input

@@ -1876,6 +1876,7 @@ def block_lines_to_evidence(
     limit: int = 6,
     detail_chars: int = 200,
     source_date: str | None = None,
+    fallback_source_date: str | None = None,
 ) -> tuple[list[AgentEvidence], str]:
     """把确定性数据块文本（D 块/总览）转成 agent 证据行 + 观察摘要。
 
@@ -1890,7 +1891,9 @@ def block_lines_to_evidence(
     里 52% 在 ``evidence[]`` 中没有副本，而这一行正是其中之一（它被
     ``episode_tools`` 刻意挡在证据之外，砍掉即无处可寻）。
 
-    只重排 observation，不动 ``evidence`` 顺序，也不增删任何一行。"""
+    只重排 observation，不动 ``evidence`` 顺序，也不增删任何一行。
+    source_date 是整块显式来源日；混合来源块改用 fallback_source_date，
+    只为无行内日期的事实提供后备日，不覆盖各行自己的日期。"""
     lines = [
         stripped
         for raw in str(block or "").splitlines()
@@ -1918,7 +1921,7 @@ def block_lines_to_evidence(
                 if snapshot_date is not None
                 else max(normalized_dates)
                 if normalized_dates
-                else None
+                else str(fallback_source_date or "").strip() or None
             ),
             evidence_tier=(
                 "L4_structured"

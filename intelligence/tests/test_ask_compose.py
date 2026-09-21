@@ -718,8 +718,8 @@ class DailyMarketOverviewTests(unittest.TestCase):
         self.assertIn("上涨 3774 家", block)
         self.assertIn("半导体（3 个核心板块）", block)
         self.assertIn("题材级主线汇总已更新到 2026-07-10", block)
-        self.assertIn("核心板块明细仅更新到 2026-06-30", block)
-        self.assertIn("当前核心板块、周期状态和标的未知", block)
+        self.assertIn("核心板块明细截至 2026-06-30", block)
+        self.assertIn("可按实际日期继续分析", block)
 
 
 class MarketValueBlockTests(unittest.TestCase):
