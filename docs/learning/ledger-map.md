@@ -73,7 +73,7 @@ launchd `com.financeworkspace.dual-blind-forecast`（工作日 09:10 跑 `script
 
 | 台账 | 最近落点 | 缺档 | 触发方式 | 断因 | 证据 |
 |---|---|---|---|---|---|
-| 晨汇 / 晨汇原料 | `wiki/briefings/2026-08-20.md`（`#5400`，2026-08-22 入库）；原料同日 `wiki/raw/briefings/2026-08-20/` | 库内缺 08-21 起。IMA 侧已有 08-21/22 合刊、0823–0825、0826–0828 | **IMA bridge**：`ima-desktop-bridge/scripts/ima-fetch.cjs` 搜浑水调研 → 拉 PDF → `morning-briefing` 入库。无 crontab。默认检索词是「路演调研日报 / 全量复盘 / 全量总结」 | 上游 PDF 还在；本地最后一次拉到 `~/Downloads/ima-briefings` 是 08-22。新文件改名「全市场路演调研…」，默认词搜不到；今晚 bridge `connected=false`（IMA 未开/插件未心跳），OpenAPI 能搜不能下 | `#5400` 来源写「IMA 浑水调研《路演调研全日汇总 0820.pdf》」；`ima-fetch search --kb 浑水调研 全市场路演` 命中 0828/0827/0826 等 |
+| 晨汇 / 晨汇原料（本行 2026-09-21 复核重写） | `wiki/briefings/2026-09-14.md`（`#6841`/`#6842`，2026-09-15 入库）；原料 `~/Downloads/ima-briefings/` | 库内缺 **09-02 / 09-15 / 09-18**——三份 PDF 都已在本地，卡在入库、不是卡在抓取；09-16 / 09-17 / 09-19 上游确无 PDF（五词交叉验证：路演 / 预期差 / 复盘 / 汇总 / 总结） | **IMA bridge**：`ima-desktop-bridge/scripts/ima-fetch.cjs` 搜浑水调研 → 拉 PDF → `morning-briefing` 入库。无 crontab | 2026-09-21 实测**推翻** 08-28 的「OpenAPI 能搜不能下 / 待打开 IMA 再拉」：`status` 仍报 `IMA_BRIDGE_OFFLINE`，但 `get --media-id` **能正常下载**（status 与下载走不同通道，不必先开 IMA）。真正的坑是**单关键词会漏**——09-18 那份叫「电话会 总结」，默认词「路演」搜不到，换「总结」才命中 | 09-21 实拉 `20260915_路演调研_预期差.pdf`(4.3MB)、`20260918_电话会_总结.pdf`(1.3MB)，均返回 `ok:true`；08-28 原始诊断见本文件 git 历史 |
 | 卖方原文 | `wiki/raw/sellside/2026-08-17-调研纪要miracle.md`（`#5366`，2026-08-18 手贴入库） | 08-18 起无 miracle/原文。东方财富 RSSHub 快照更早停在 07-21 | **近月实写是手贴**，不是 launchd。`material-router` 已 frozen（2026-07 审计：日志零使用）。双盲 sellside/briefing plist 在 `~/Library/LaunchAgents/disabled-by-devin/`，属退役夜跑，不恢复 | 三层自动源都出不了货，手贴也停了 | 见下表 |
 
 卖方自动源（2026-08-28 实测）：
@@ -85,7 +85,7 @@ launchd `com.financeworkspace.dual-blind-forecast`（工作日 09:10 跑 `script
 | wechat2rss `:8090` | 已死（08-14 已登记，08-28 复核仍死） | 端口无响应；`com.finhot.wechat2rss-sync` 未加载；`~/wechat2rss-data/res.db` mtime 08-05 |
 | wechat-download-api `:5050` | 进程健康、库仍空 | `/api/health` healthy；`rss.db` `articles=0` / `subscriptions=39`（mtime 08-22）；`#5365/#5366` 写明频控，8/6 后抓不到，改手贴 |
 
-状态标签：**晨汇 = 上游仍有货、抓取词表/会话断了，待打开 IMA 再拉；卖方 = 微信频控，待用户决策**。不要把两条线当成同一个故障。晨汇缺档不是「无原文」——IMA 里有 PDF，只是还没拉进仓；卖方缺档仍是「无原文，禁止编造」。
+状态标签（2026-09-21 复核）：**晨汇 = 原料能自动拉、卡在入库；卖方 = 微信频控，待用户决策**。不要把两条线当成同一个故障。晨汇缺档不是「无原文」，也不再是「抓取断了」——09-02 / 09-15 / 09-18 三份 PDF 已躺在 `~/Downloads/ima-briefings`，只差走 `morning-briefing` 入库；卖方缺档仍是「无原文，禁止编造」。
 
 ## IMA 缺口清单断档与回填（2026-09-21）
 
