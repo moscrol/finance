@@ -9,6 +9,7 @@
     "history_query",
     "kb_search",
     "l3_lookup",
+    "local_market_snapshot",
     "mainline_context",
     "market_data",
     "memory_lookup",

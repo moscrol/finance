@@ -32,6 +32,20 @@
       "notes": "第 0 步扫过 FINANCE_* env 门与 fixture policy，未发现第二道门。"
     },
     {
+      "id": "local_market_snapshot",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/episode_tools.py::build_episode_registry",
+      "close_via": [
+        "allowed_capabilities:remove"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "仅在已有市场能力授权的 local_only 回合补给，material_only 不装配；最终合同移除此能力即不提供工具。已核 runner，无 FINANCE_* 网络开关；只读截止内日快照。封存实验须显式快照根或 finance_root，否则缺源，不借环境路径逃逸。"
+    },
+    {
       "id": "financial_data",
       "kind": "capability",
       "status": "active",

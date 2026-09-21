@@ -41,6 +41,34 @@ def _registry(tmp_path, question=CURRENT):
     return context, registry
 
 
+def test_removing_snapshot_capability_removes_only_its_schema(tmp_path):
+    from dataclasses import replace
+
+    context, registry = _registry(tmp_path)
+    narrowed = replace(context, contract=replace(
+        context.contract,
+        allowed_capabilities=tuple(
+            name for name in context.contract.allowed_capabilities
+            if name != "local_market_snapshot"
+        ),
+        required_outputs=tuple(
+            replace(output, evidence_types=tuple(
+                name for name in output.evidence_types if name != "local_market_snapshot"
+            ))
+            for output in context.contract.required_outputs
+        ),
+    ))
+    disabled = build_episode_registry(
+        decide_turn(CURRENT).task_frame, narrowed, finance_root=tmp_path,
+        knowledge_wiki=tmp_path / "wiki", fixture_policy=SealedFixturePolicy(),
+    )
+    before = {spec.name for spec in registry.authorized_specs()}
+    after = {spec.name for spec in disabled.authorized_specs()}
+    assert before - after == {"local_market_snapshot"}
+    assert after - before == set()
+    assert "local_market_snapshot" not in disabled.names()
+
+
 def test_local_only_reads_snapshot_without_mixed_tools_or_network(tmp_path, monkeypatch):
     import socket
 
