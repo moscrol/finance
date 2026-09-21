@@ -1,0 +1,6 @@
+805d47e533ba9a85d9b5cd16fb74de7601fc83fb594d218be94a3f70092e03f6  docs/verification/2026-09-21-history-authority-closeout/committed-archive-check.json
+47227fe3308de87d2002260f179bf9cf38db97b378770d212350aea007cb89d0  docs/verification/2026-09-21-history-authority-closeout/memory-graph-final.log.txt
+387f3b6d5758150e77da2d90c7926594450ccf218aa18c924ba4f94625c55bf4  docs/verification/2026-09-21-history-authority-closeout/pr-841-followup.json
+924a85f291d690188f5e749caedd4c46b56a819949022b53d0cba0761cbf06d2  docs/verification/2026-09-21-history-authority-closeout/PR-followup.md
+2327e210b5951a027cf6f5c96f30b4465c369397e28fb8b5ea850fac16805a2e  docs/verification/2026-09-21-history-authority-closeout/prior-archive-check.json
+fc055594d3016b276530cb1c4a2f9a1c73940252a12fd7effa60134fa748a65b  docs/verification/2026-09-21-history-authority-closeout/README.md

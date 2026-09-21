@@ -1,30 +1,28 @@
-# 历史来源绑定 · WIP #841
+# 历史来源绑定与缓存授权 · WIP #841
 
 ## 这个分支做什么
-接替#829孤儿片的返修：严格恢复、同源身份、分块观测与比较槽。基于#832代码a140；#841以#832为diff基线，不执行合入#832。
+接替#829来源返修，基于#832/a140；新增缓存命中当前授权、锁内单次读。#841仅以#832为diff基线，不执行合入#832。
 
 ## 决策与被否方案
-- 旧普通schema只兼容缺新增可选字段；否决历史工具用None丢来源。
-- 先排语义字段再分块；否决仅排序hash外层JSON。
-- 每卡只带实际可见数值；行身份跨页、块号区分公开卡。
-- hash只证一致，不认证原件；资格门仍按合同启用，不全面加码。
-- 细节/被否方案：`docs/handoffs/2026-09-21-history-evidence-integration.md`。
+- 缓存不是授权；RunStore既有run写锁内重载元数据、重验、仅读一次，否双读和另一套锁。
+- refresh重建替换；成功才写缓存，拒绝不改别名/结果/原件；省略conversation参数保旧错误合同。
+- 历史严格恢复与普通旧档窄兼容保留；hash不代证真实归属。
+- 固定SHA绿不抵消main漂移；不降阈值、不移签docs。完整取舍见`docs/handoffs/2026-09-21-history-authority-followup.md`。
 
 ## 当前状态
-代码`f90fd3dc3ba10a9a00f7264f92d3ec959b2ba682`已推，#841 open/WIP；本份为后续docs-only归档。#829原头9fabd688不动，保持WIP/open，评论5416指向#841。未合main/部署8792/写生产。
+代码`7249378a5bdb9b01cc62ec3bca13af3149bd48df`及证据`50c9bfcf243b47b985469f21b3883a91792f3000`已推；#841正文/评论5461更新，open/WIP未merged。新包80文件326556字节，Git核79/79；旧f90包73/73未改。本份为后续docs。记忆134bc4cf已推，未动共享脏树。未合main/部署8792/写生产。
 
 ## 已验证
-- f90净树全量12635P/87S/2X，0F/0error，1178.14s；收据`20260921T114832Z-f90fd3dc.json`严格checker0。相对a140多39P，89项skip/xfail名称/类型/理由一致。
-- 同SHA前端六步0（110P/E2E34P2S）、Ruff+registry/crosswalk六条0；首尾clean，日志hash核实。
-- 同SHA763P定向、八项撤保护均被行为断言捕获；作者诊断不是独立审核。
-- 真实JSON复制到临时RunStore回放225行/9页，累计905次卡恢复（含重复元数据）；同源行卡/重叠页hash与特征一致，源未改，模型0次。
-- 原件`docs/verification/2026-09-21-history-evidence-integration/`；提交后用check_evidence_archive核Git blob，不只核本地。
+- 724首尾clean全量12659P/87S/2X/17W，0F/0error，809.93s；收据`20260921T135039Z-7249378a.json`精确checker0。JUnit新增24项无删除，89项skip/xfail不变。
+- 同SHA315P定向；前端六步0（110P/E2E34P2S）；Ruff/registry/crosswalk六条0，保留98条warning。
+- 七撤保护均行为红、无收集错；225行9页累计905次卡离线恢复（含重复元数据）身份/特征一致，源不变、模型0。
+- 主包`docs/verification/2026-09-21-history-authority-followup/`，后验回执在同级`2026-09-21-history-authority-closeout/`。
 
 ## 未验证 / 已知边界
-独立Spec/Quality未做；#832的K3超时不代签。无新自然金融题，旧not_passed保持：225/25和候选数字自然引用/判官消费、#793板块同窗候选合同、#794按需展开/版本/预算/取消仍待。临时store回放不认证原始用户归属。#833联合树未验；f90只含main f2c3e9e1，不覆盖后来main/docs tip。
+main批次checker1：相对028a251a共同祖先f2c3，13提交/6merge超过5。独立Spec/Quality未做，旧K3超时不代签；自然金融仍not_passed。225/25与候选数字自然引用/判官、#793同窗候选排序、#794展开/版本/预算/取消仍待。#833/#845联合树未验。私有_write_run复现不证公开可利用漏洞；锁不防直接改盘，临时store不认证原始归属。
 
 ## 下一步
-保持WIP；先完成产品前置，确认新的独立/自然验收范围预算。最终合入固定当时base/head重验并等用户批准，不自动重开K3、补绑数字或关闭#793/#794。
+冻结实际合流base/head再跑全叶；独立/自然验收另确认预算与范围。无授权不合main、不部署、不重开K3、不补绑漏引数字、不关#793/#794。
 
 ## 踩过的坑
-新增可选字段也会破严格旧档恢复；同源hash漂移要查分块前顺序。脚本模型必须按grounding_mode绑定，别放宽生产门迁就夹具。先前7F、跨工具hash红和分支模型红保留，不由最终全量覆盖。
+未知run错误类型退化由消费者抓到；visibility不可用仍FileNotFoundError。并行pytest曾撞名不能累签，本轮串行。磁盘约8.9Gi，保留失败原件/owned临时目录。主包工装为固定版源码快照，正式保护在测试；工具失败与产品红分账。
