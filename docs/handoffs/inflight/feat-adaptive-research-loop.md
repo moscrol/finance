@@ -13,21 +13,19 @@ local_only 四只读能力、根 T900/单发帽75/核验共享窗150 不变，�
 
 ## 当前状态
 
-最新代码提交 `3ab0d3d9e`，树应保持干净；未 push/PR/合 main/部署/fetch，未操作生产8792。实现涉及 `finance_query`、写手/判官提示、超时公开投影、产品门文档及收益测试/变异套件。
+收益摘要修复与判官公开提示已完成。新增本地超时诊断探针和定向测试，尚未修改生产传输层；未 push/PR/合 main/部署/fetch，未操作生产8792。完整发现见 `docs/handoffs/2026-09-22-adaptive-timeout-diagnosis.md`。
 
 ## 已验证
 
-提交后准确 SHA 回归：`984 passed, 8 skipped`，收据 `/Users/a77/.finance-runtime/test-receipts/20260921T180047Z-3ab0d3d9.json`；Ruff、diff check、pre-commit 全绿。
-固定提交 `finance-return` 变异：基线49 passed；11条撤保护逐条红，还原49 passed，结果在 `/Users/a77/.finance-runtime/adaptive-return-summary-20260922/mutations/results.json`。
-五组审计原件日线与冻结测试逐行一致；真实模型未重跑。
+收益修复准确 SHA 回归 `984 passed, 8 skipped`，变异套件11条逐条撤保护通过。超时探针定向测试 `14 passed`；本机诊断确认共享窗第三槽零秒拒发有效、根期限耗尽不发请求，但在途 HTTP/流读取会越过 `timeout_asked`。收据 `/Users/a77/.finance-runtime/adaptive-timeout-diagnosis-20260922/transport-expanded.json`。
 
 ## 未验证 / 已知边界
 
-未证明自然模型会选择新摘要或方向正确；判官超时/预算归属未定位，仍可能以 partial 交未审内容。未覆盖均值自然选择、空集/零值/历史回退自然样本、模型自报partial终局重核，以及完整前端/E2E/registry/独立Spec/Quality。
+尚未证明旧真实 GLM 请求是响应头停顿、响应体停顿还是持续流式；未修复绝对墙钟截止，也未重跑真实模型。自然模型是否主动用收益摘要、内容方向是否正确、完整 Python/前端/E2E/registry/独立 Spec/Quality 仍未验。
 
 ## 下一步
 
-先基于已有脱敏收据定位判官服务与超时归属，不能重复 live 刷绿；后续样本另预注册。合入前补跑全仓等价 CI、前端门禁及独立审查。
+先在本地严格探针通过后再审传输层修复；修复前后都记录实际墙钟、请求次数和台账耗时。另行预注册真实样本验证判官可用性和内容，不重跑旧失败题刷绿；合入前补跑完整门禁。
 
 ## 踩过的坑
 
