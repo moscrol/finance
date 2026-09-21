@@ -137,6 +137,18 @@ def test_git_snapshot_cannot_be_overwritten(deployment, kind):
     assert not effects.exists()
 
 
+@pytest.mark.parametrize("external", [False, True])
+def test_linked_code_directory_stops_before_readiness(deployment, external):
+    _, runtime, revision, effects, run = deployment
+    target = (runtime.parent if external else runtime) / "linked-code"
+    (runtime / "intelligence").rename(target)
+    (runtime / "intelligence").symlink_to(target, target_is_directory=True)
+    result = run("--apply", "--expect-revision", revision)
+    assert result.returncode == 1
+    assert "intelligence/" in result.stderr
+    assert not effects.exists()
+
+
 def test_valid_standalone_target_reaches_intercepted_sync(deployment):
     _, _, revision, effects, run = deployment
     result = run("--apply", "--expect-revision", revision)
