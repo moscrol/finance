@@ -15,7 +15,7 @@
 
 2026-09-21 复核已撤回一项曾未提交的改动（悬空连接词剥离），见下「候选：悬空连接词剥离（已撤回）」。
 
-2026-09-21 11:10 跑了真实模型冒烟第 1 题（寒武纪可证伪跟踪条件，单臂 off，生产配置 glm-5.3-flash + judge llm），代码未改；结果见下「真实模型冒烟 1/3–5」，原件 `~/.finance-runtime/adaptive-live-smoke-20260921/`（README / SHA256SUMS，目录外校验日志同名 `-verification.log`）。12:09 跑了第 2 题（东阳光，「只用本地资料」型），见「真实模型冒烟 2/3–5」，原件 `~/.finance-runtime/adaptive-live-smoke-20260921-q2/`。
+2026-09-21 11:10 跑了真实模型冒烟第 1 题（寒武纪可证伪跟踪条件，单臂 off，生产配置 glm-5.3-flash + judge llm），代码未改；结果见下「真实模型冒烟 1/3–5」，原件 `~/.finance-runtime/adaptive-live-smoke-20260921/`（README / SHA256SUMS，目录外校验日志同名 `-verification.log`）。12:09 跑了第 2 题（东阳光，「只用本地资料」型），见「真实模型冒烟 2/3–5」，原件 `~/.finance-runtime/adaptive-live-smoke-20260921-q2/`。12:37 跑了第 3 题（固态电池，theme_track 全工具），见「真实模型冒烟 3/3–5」，原件 `~/.finance-runtime/adaptive-live-smoke-20260921-q3/`。三题原件各自 SHA256SUMS 封存，目录外校验日志同名 `-verification.log`。
 
 ## 已验证
 精确全量 `12096P/85S/2X/17 warnings`，收据 `~/.finance-runtime/test-receipts/20260920T220029Z-7172ba30.json` 绑定 `7172ba30e`（`dirty=False`、`exit_status=0`、依赖指纹未绕过）；`7172ba30e..HEAD` 用 `git diff --name-only` 验证只出 `docs/`，故该收据代表当前代码——**下一个 agent 接手时请重跑这一条验证，再有业务提交它就不成立了**。定向历史4P、发布矩阵21P、跨后端24P、Ruff通过。最终撤线：去发布上限16F/恢复24P；误把已解决语义修订当未解决3F/恢复22P。
@@ -42,11 +42,14 @@ run `run_20260921_111040_597004`，490.72 s，`outcome=partial / stop_reason=rep
 ## 真实模型冒烟 2/3–5（2026-09-21，「只用本地资料」型，n=1）
 run `run_20260921_120952_719744`（东阳光 9 月量价 vs 板块），169.73 s，`outcome=partial / stop_reason=repair_model_stop / judge_status=repaired / semantic_verifier_stale=true`。`local_only` 上限活体成立（授权面收为 `finance_query/evidence_lookup/memory_lookup/mainline_context` 四工具，10 次调用无越界，v11 因 `no_retriever` 跳过；注意该上限**不含 kb_search/evidence_search**，「本地」= 已审定的纯本地 runner，不是 wiki）。判官 round 1 降级三句真实错误（「换手率始终低于1%」在 9/01–9/04 无数据、「9/17 板块普跌」与 E48/E49 不符、20 日 vs 单日口径混用），修复轮 27 s 内把三句全改对并如实自报 `partial`；`admit_repair_result` 规定无工具修复须自报 completed 才算进展 → `repair_model_stop` → 适配器按终局处理、不对新稿重跑判官、置 `semantic_verifier_stale=true` → **公开稿 = 修复前稿 A，三句错句原样发布**，而 `outcome.draft` 是改好的稿 B（三层稿件比对见 q2 README）。发布上限对此形状盲：judge 记录被当作「已处理」。`completed_without_tool` / `_TERMINAL_REPAIR_STOP_REASONS` / stale 不重核 都在 gitea/main 上；本分支新增的判官原句回传（`semantic_repair_feedback`）让修复轮得以开启，净效果是「多一轮调用、公开文本不变、状态变 partial 且无解释」——这是本分支承诺链（反馈→修订→公开保真）的最后一环断点。其余：裸股票代码 2/2 复现（模型第二批自改 `.SH`）；「当前用户任务未授权历史窗口」挡住 8 月末基准价，模型如实记缺口；`scripts/probe_tool.py` 因 `ALL_TOOLS=tuple(_DEFAULT_TOOL_METADATA)` 含三个非能力工具名（`history_query/read_history_result/save_history_research`）在本分支与 main 上都 `ValueError` 构造失败，`test_probe_tool_arguments.py` 只测参数抓不到。原件 `~/.finance-runtime/adaptive-live-smoke-20260921-q2/`（README / SHA256SUMS / 目录外校验日志）。
 
+## 真实模型冒烟 3/3–5（2026-09-21，theme_track 全工具，n=1）
+run `run_20260921_123745_556321`（固态电池可证伪跟踪条件），130.79 s，`outcome=completed / stop_reason=repair_model_finish`，**`publication_assessment.max_status=partial` 且公开稿末尾带提示句——发布上限活体首次观察到触发**。对照第 2 题：修复轮无工具但自报 completed → `progressed=True` → 判官重跑（2 次）→ 无 stale 发布，证明丢稿只发生在「无工具 + 自报 partial」一格。但 round 2 前置门 `novel_numeric_condition` 删了 6 句数值条件（降级/证伪/量能/下期关注①③），用模块自己的 `_bound_evidence_quantities` + `_quantity_supported_by_evidence` 在原件上复算：这些数字（1.82 / 118 / 165 / 2.53 / 21.88 / 1862.79 / 1295.97）**全在绑定证据的数量集合里**，被判 UNSUPPORTED 的是 `1.82%`、`2 家`、`7 家`、`1862.79 亿`……——结构化观察值渲染成 `市场占比=2.53`、`涨停家数=2`、`成交额亿=1862.79`，单位在字段名里，模型按人话补了单位，`_same_quantity_dimension` 判不同维度；`E6`→`6`、`Q3`→`3` 也被当数量。一道「给数值条件」的题六条数值条件全被删，剩悬空的「① 量能…」和失效的「以上四条」；模型补的「下期关注清单」标签句因带数值被删，`track_next_watch` 再判缺（数字门与表达槽互相拆台）；cycle 2 因账本覆盖无进展不批。第 1 题模型靠「推演阈值声明」绕过同一道门，第 3 题按门的意图锚到观察值反被删。修复调用 35 s 超 30 s 授予窗仍完成（授予窗=单次读超时，第 1 题同源）。原件 `~/.finance-runtime/adaptive-live-smoke-20260921-q3/`（README 含逐句复算表）。
+
 ## 未验证 / 已知边界
 自然模型公开保真、披露重要限制、持续观察后改向未验；脚本模型/SDK runner不代表质量。其他后端、真实费用/上下文窗口、裸代码后缀、监管覆盖、独立Spec/Quality、合流/部署未验。judge off不审gaps；17 warnings非零warning结论。
 
 ## 下一步
-**冒烟 2 的「修复稿被丢弃」是本分支承诺链的断点，建议先定修法再继续验收**（候选，未做，待用户定）：A 进度判定改看修复目标句是否被改写，不看模型自报状态词；B 终局修复后若 `outcome.draft != verified.outcome.draft`，预算允许就对新稿重跑判官，否则发布新稿并压 partial 带提示，至少不得发布未采纳的旧稿；C 发布上限把 `semantic_verifier_stale && 稿件不一致` 视为未解决。测试矩阵要补「无工具修复 + 模型自报 partial」这一格。
+**冒烟 2 的「修复稿被丢弃」是本分支承诺链的断点，建议先定修法再继续验收**（候选，未做，待用户定）：A 进度判定改看修复目标句是否被改写，不看模型自报状态词；B 终局修复后若 `outcome.draft != verified.outcome.draft`，预算允许就对新稿重跑判官，否则发布新稿并压 partial 带提示，至少不得发布未采纳的旧稿；C 发布上限把 `semantic_verifier_stale && 稿件不一致` 视为未解决。测试矩阵要补「无工具修复 + 模型自报 partial」这一格。**冒烟 3 另给出候选 D（可能最小改动、最高收益）**：数字门比对时把结构化观察值按字段名单位（`成交额亿`→亿、`市场占比`/`份额`→%、`涨停家数`→家）也生成带单位变体，或在比对前双侧剥单位；E 号（`E6`）与季度（`Q3`）不当数量。删句式修订的残片（悬空列表项、失效计数）是同一条公开保真链上的第二个洞，先定策略再做。三题跑完（3/3–5），建议批次在此暂停，等修法定了再用剩余 0–2 道未见题复验；继续跑只会重复观察同几个接缝。
 
 两个参数不需要用户选：生产 `/api/health` 自报 `agent_runtime.model=glm-5.3-flash`；`ASK_SEMANTIC_JUDGE` 在生产进程未设 → `judge_mode.py` 默认 `llm`（关着的是独立判官，启动器 `LLM_JUDGE_API_KEY` 被注释）。冒烟 1/3–5 已跑（上节），剩 2–4 道**未见**题单臂跑 `scripts/compare_adaptive_research.py --arms off`（解释器用主树 `.venv-workbench/bin/python`，树里没有 `.venv-run`）+ `scripts/inspect_adaptive_research.py --project-current-judge-status`，每题另建目录。**每题发前先用 `scripts/probe_tool.py` 走运行时工具路径验数据前提**（带 `.SH` 后缀查 `finance_query`），别直接查库。四道旧题 + 寒武纪已烧成回归题。题里要含一道「只用本地资料」型（`b6df991f` 只有工程验证）。冒烟发现 ①–④ 是候选工单，都涉及 main 上的共用件（`track_contract` / `judgment_delta` 解析器、状态投影与前端、`_post_chat_message_stream` 超时语义、`finance_query` 代码归一），要不要在本分支修、还是另开分支，待用户定；不要顺手改。
 
@@ -60,3 +63,5 @@ run `run_20260921_120952_719744`（东阳光 9 月量价 vs 板块），169.73 s
 结构核验判「缺 X」时，先把交付稿喂给那个槽的解析器复现，再决定是模型没写还是解析器不认：本次「缺 track_next_watch」实为词汇不相认（模型写了裁判变量），修复轮白花。`judge_status=repaired` + 两句 `lifted` 的组合不代表公开稿有引用支撑——抬回不补 E 号。冒烟题的数据前提要经运行时工具路径验，直接查库会漏掉代码格式这层。
 
 `judge_status=repaired` + 有修复轮 ≠ 修复进了公开稿：先比 `outcome.draft` / `semantic_verifier.verified.outcome.draft` / `semantic_verifier.public_answer` 三层，`semantic_verifier_stale=true` 且 outcome 稿与公开稿不同 = 有修复被丢。`probe_tool.py` 当前构造即失败，用 /tmp 包装器把 `ALL_TOOLS` 里三个历史工具名滤掉再跑（q2 README 有法子）；探 `finance_query` 前要先 `eval` 启动器全部 `export`（`FINANCE_WS` 决定库路径，`OPENAI_API_KEY` 由 `FORESIGHT_BUILTIN_LLM_API_KEY` 派生，单独 eval 一行会得到空密钥和 401）。
+
+复算数字门要用模块自己的函数在真实 outcome 上跑（`_bound_evidence_quantities` 含 observations 的结构化值，纯文本 grep 会漏掉 `1295.97`），并逐个量打印 `_quantity_supported_by_evidence` 的结果，才看得出是「数字不在证据里」还是「单位不一致」。
