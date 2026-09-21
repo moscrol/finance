@@ -18,7 +18,7 @@
 
 ## 下一步
 1. 合 main 前解三处冲突 + 补 E2E；合并等用户确认。
-2. 排序改写要 live 覆盖：先在判官窗上做决定（帽 / 载荷压缩 / 分句送判），再重跑液冷排序题。
+2. 排序改写要 live 覆盖：判官窗已立工单 #57（`2026-09-21-judge-window-k3-latency-workorder.md`，先量后改），不在本分支做。
 3. 吐码率用 `offline_judge_verdict_census.py` 的 `judge_stage.coded_share` 累积；低→修判官接法，不动无码缺省。
 
 ## 踩过的坑
