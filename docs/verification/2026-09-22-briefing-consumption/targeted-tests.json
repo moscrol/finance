@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-briefing-consumption-qc-0921",
+  "revision": "a7288f503da5eb6c51eb7da3734512b3ab20767f",
+  "branch": "fix/briefing-consumption-qc-0921",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_ima_gap_report.py tests/test_verify_briefing_consumption.py tests/test_review_plan_alignment.py tests/test_structured_daily_update_status.py intelligence/tests/test_teaching_framework_narrative.py intelligence/tests/test_teaching_framework_river_objects.py intelligence/tests/test_teaching_framework_reading.py tests/test_river_cutoff_guard.py",
+  "counts": {
+    "passed": 80,
+    "failed": 0,
+    "error": 0,
+    "skipped": 7
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-21T16:26:37+00:00"
+}
