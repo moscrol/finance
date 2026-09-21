@@ -175,6 +175,40 @@ class HistoricalEvidenceProvenance:
     decision_eligible: bool = False
     promotion_eligible: bool = False
 
+    def validate(self) -> None:
+        """Validate shape/qualification, not authenticity of the upstream artifact."""
+        text = (self.query_id, self.operation, self.purpose, self.result_ref,
+                self.row_identity, self.row_hash)
+        if any(not isinstance(value, str) for value in text):
+            raise ValueError("invalid historical provenance text")
+        if (not self.query_id.strip()
+                or self.operation not in {"inspect_history", "compute_history", "find_analogues", "compare_cases"}
+                or self.purpose not in {"retrospective_discovery", "historical_comparison"}
+                or re.fullmatch(r"[A-Za-z0-9_-]+/history-query-[0-9a-f]{64}\.json", self.result_ref) is None):
+            raise ValueError("invalid historical source identity")
+        if (self.research_only is not True or self.decision_eligible is not False
+                or self.promotion_eligible is not False):
+            raise ValueError("invalid historical research qualification")
+        if self.row_index is not None:
+            if (type(self.row_index) is not int or self.row_index < 0
+                    or self.row_identity != f"{self.query_id}:row:{self.row_index}"):
+                raise ValueError("invalid historical row coordinate")
+        elif self.row_identity not in {"", f"{self.query_id}:row:reference"}:
+            raise ValueError("invalid historical reference coordinate")
+        if (self.row_identity and re.fullmatch(r"[0-9a-f]{16}", self.row_hash) is None
+                or not self.row_identity and self.row_hash):
+            raise ValueError("invalid historical row digest")
+
+    @classmethod
+    def from_dict(cls, value: object) -> HistoricalEvidenceProvenance:
+        from dataclasses import fields
+
+        if not isinstance(value, dict) or set(value) != {f.name for f in fields(cls)}:
+            raise ValueError("incomplete or unknown historical provenance schema")
+        result = cls(**value)
+        result.validate()
+        return result
+
 
 @dataclass(frozen=True)
 class AgentEvidence:
@@ -196,8 +230,8 @@ class AgentEvidence:
     content_hash: str = ""
     # 结构化观察值：``detail`` 是给模型看的文本，这里是同一批数的机器可读形态。
     # 下游（槽填数、删句连坐检测）读它，**不回头解析 detail 自由文本**。
-    # 不进 ``evidence_content_hash``（该哈希只吃 tool/title/detail/source），
-    # 因此补上本字段不会改变任何既有证据身份。
+    # 不进 ``evidence_content_hash``：普通卡按 tool/title/detail/source，
+    # 历史卡另绑来源元数据；补上 observations 本身不改变证据身份。
     observations: tuple[StructuredObservation, ...] = ()
     # Historical results remain auditable research evidence, never decision
     # evidence merely because a query id or artifact reference is present.
@@ -2031,6 +2065,17 @@ def evidence_content_hash(item: AgentEvidence) -> str:
     payload = "|".join(
         (item.tool, item.title.strip(), item.detail.strip(), item.source.strip())
     )
+    if item.tool in {"history_query", "read_history_result"} and item.history_provenance is not None:
+        from dataclasses import asdict
+
+        # Query and authorized reader are two views of the same immutable card.
+        # Bind control metadata too: changing operation/ref/row is not a new view
+        # of the old evidence. Ordinary evidence retains its existing identity.
+        payload = json.dumps(
+            ["history_result", item.title.strip(), item.detail.strip(), item.source.strip(),
+             asdict(item.history_provenance)],
+            ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+        )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 

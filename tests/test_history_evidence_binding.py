@@ -1,6 +1,9 @@
 """History provenance, comparison slots, and research-only binding contracts."""
 
-from dataclasses import replace
+from dataclasses import asdict, replace
+import json
+
+import pytest
 
 from intelligence.services.agent_research import evidence_content_hash
 from intelligence.services.agent_runtime import (
@@ -185,17 +188,28 @@ def test_history_observations_reach_judge_only_after_slot_binding():
     assert bound.to_dict()["evidence"][0]["history_provenance"]["result_ref"] == REF
 
 
-def test_history_verifier_rejects_forced_decision_qualification_and_wrong_operation():
+@pytest.mark.parametrize("mutation", [
+    "qualified", "decision", "operation", "missing", "row_hash", "dictionary",
+    "operation_type", "locator", "query_key",
+])
+def test_history_verifier_qualification(mutation):
     result = _hashed_result(_payload([_row(0)]))
     card = next(item for item in result.evidence if item.history_provenance and item.history_provenance.row_index == 0)
-    forced = replace(
-        card,
-        history_provenance=replace(card.history_provenance, decision_eligible=True),
-    )
-    wrong = replace(
-        card,
-        history_provenance=replace(card.history_provenance, operation="inspect_history"),
-    )
+    variants = {
+        "qualified": card,
+        "decision": replace(card, history_provenance=replace(card.history_provenance, decision_eligible=True)),
+        "operation": replace(card, history_provenance=replace(card.history_provenance, operation="inspect_history")),
+        "missing": replace(card, history_provenance=None),
+        "row_hash": replace(card, history_provenance=replace(card.history_provenance, row_hash="f" * 16)),
+        "dictionary": replace(card, history_provenance={"operation": "find_analogues"}),
+        "operation_type": replace(card, history_provenance=replace(card.history_provenance, operation=["find_analogues"])),
+        "locator": replace(card, internal_locator="other/" + REF.split("/", 1)[1]),
+        "query_key": replace(card, independent_key="another-query"),
+    }
+    candidate = variants[mutation]
+    if mutation in {"decision", "operation"}:
+        # These failures must come from qualification, not a stale digest.
+        candidate = replace(candidate, content_hash=evidence_content_hash(candidate))
     contract = ResearchTaskContract(
         task_id="history-negative",
         question="历史类比",
@@ -228,11 +242,130 @@ def test_history_verifier_rejects_forced_decision_qualification_and_wrong_operat
             usage=AgentUsage(),
         )
 
-    missing = replace(card, history_provenance=None)
-    for candidate in (forced, wrong, missing):
-        verified = verify_episode_outcome(contract, outcome(candidate))
-        assert any(item.code == IssueCode.HISTORY_OPERATION_UNSUPPORTED for item in verified.issue_items)
-        assert verified.completion.outputs[0].status == "missing"
+    verified = verify_episode_outcome(contract, outcome(candidate))
+    rejected = any(item.code == IssueCode.HISTORY_OPERATION_UNSUPPORTED for item in verified.issue_items)
+    assert rejected is (mutation != "qualified")
+    assert verified.completion.outputs[0].status == ("fulfilled" if mutation == "qualified" else "missing")
+
+
+def test_split_card_only_carries_its_own_visible_observations():
+    row = _row(0)
+    row["features"].update({f"feature_{i}": 1000 + i for i in range(20)})
+    result = _hashed_result(_payload([row]))
+    cards = [card for card in result.evidence if card.history_provenance.row_index == 0]
+    assert len(cards) > 1
+    recovered = {}
+    for card in cards:
+        detail = json.loads(card.detail)
+        visible = detail.get("features", {})
+        assert {obs.metric: obs.value for obs in card.observations} == visible
+        recovered.update(visible)
+    assert recovered == row["features"]
+
+
+def test_persisted_key_order_does_not_change_chunk_boundaries():
+    row = _row(0)
+    row["features"].update({f"feature_{i}": 1000 + i for i in range(20)})
+    original = _payload([row])
+    original["feature_definitions"] = {
+        name: {"rule": name, "unit": "percent", "version": "v1"}
+        for name in ("z-last", "a-first")
+    }
+    original["comparison"] = {f"metric_{i}": "x" * 30 for i in range(20)}
+    original["universe"] = {"window_days": 2, "entity_codes": ["A.0"], "start": "2025-08-01"}
+    stored = json.loads(json.dumps(original, sort_keys=True))
+    before = _hashed_result(original)
+    after = _hashed_result(stored)
+    assert [card.content_hash for card in before.evidence] == [card.content_hash for card in after.evidence]
+    assert [card.observations for card in before.evidence] == [card.observations for card in after.evidence]
+
+
+def test_history_source_survives_strict_json_reconstruction():
+    from intelligence.services.prior_evidence import _original_atom
+
+    card = _hashed_result(_payload([_row(0)])).evidence[-1]
+    raw = json.loads(json.dumps(asdict(card)))
+    assert _original_atom(raw) == card
+    assert _original_atom(raw).history_provenance == card.history_provenance
+    # Reference and metadata cards have no integer row coordinate; they must
+    # survive the same strict path rather than silently losing provenance.
+    payload = _payload([_row(0)])
+    payload["reference"] = _row(99)
+    for item in _hashed_result(payload).evidence:
+        assert _original_atom(json.loads(json.dumps(asdict(item)))) == item
+
+
+@pytest.mark.parametrize("changes", [
+    {"row_index": True}, {"row_index": -1}, {"row_hash": "forged"},
+    {"result_ref": "../history-query-" + "a" * 64 + ".json"},
+    {"result_ref": "run/history-query-invalid.json"},
+    {"purpose": ""}, {"research_only": "true"}, {"decision_eligible": 0},
+])
+def test_history_metadata_shape_is_strict_even_with_updated_hash(changes):
+    from intelligence.services.prior_evidence import _original_atom
+
+    card = _hashed_result(_payload([_row(0)])).evidence[-1]
+    changed = replace(card, history_provenance=replace(card.history_provenance, **changes))
+    changed = replace(changed, content_hash=evidence_content_hash(changed))
+    raw = json.loads(json.dumps(asdict(changed)))
+    with pytest.raises(ValueError, match="invalid historical"):
+        _original_atom(raw)
+
+
+@pytest.mark.parametrize("mutation", [
+    "absent", "null", "extra", "missing_key", "row_hash", "locator", "query_key", "tool",
+])
+def test_history_reconstruction_does_not_drop_or_rebind_identity(mutation):
+    from intelligence.services.prior_evidence import _original_atom
+
+    card = _hashed_result(_payload([_row(0)])).evidence[-1]
+    raw = json.loads(json.dumps(asdict(card)))
+    if mutation == "absent":
+        raw.pop("history_provenance")
+    elif mutation == "null":
+        raw["history_provenance"] = None
+    elif mutation == "extra":
+        raw["history_provenance"]["unknown"] = True
+    elif mutation == "missing_key":
+        raw["history_provenance"].pop("promotion_eligible")
+    elif mutation == "row_hash":
+        raw["history_provenance"]["row_hash"] = "f" * 16
+    elif mutation == "locator":
+        raw["internal_locator"] = "other/" + REF.split("/", 1)[1]
+    elif mutation == "query_key":
+        raw["independent_key"] = "another-query"
+    else:
+        raw["tool"] = ["history_query"]
+    with pytest.raises(ValueError):
+        _original_atom(raw)
+
+
+def test_same_source_row_keeps_hash_across_query_and_reader_tools(tmp_path):
+    from intelligence.tests.test_historical_research_episode import _registry
+
+    registry, context, session = _registry(tmp_path)
+    query = registry.execute("history_query", {
+        "operation": "compute_history", "start": "2026-08-03", "end": "2026-08-04",
+        "entity_codes": ["A.FP"], "features": ["return_pct", "amount_ratio"],
+    }, context=context, step_id="query")
+    ref = query.telemetry["result_ref"]
+    original = session.read(ref)
+    read = registry.execute("read_history_result", {"result_ref": ref, "offset": 0, "limit": 1},
+                            context=context, step_id="read")
+    def row_cards(result):
+        return [item for item in result.evidence if item.history_provenance.row_index == 0]
+    assert row_cards(query)
+    assert [item.content_hash for item in row_cards(query)] == [item.content_hash for item in row_cards(read)]
+    assert [item.history_provenance for item in row_cards(query)] == [item.history_provenance for item in row_cards(read)]
+    assert session.read(ref) == original
+    from intelligence.services.evidence_ledger import EvidenceLedger
+    from intelligence.services.prior_evidence import _original_atom
+
+    ledger = EvidenceLedger()
+    assert len(ledger.append(row_cards(query))) == len(row_cards(query))
+    assert ledger.append(row_cards(read)) == ()
+    for item in row_cards(read):
+        assert _original_atom(json.loads(json.dumps(asdict(item)))) == item
 
 
 def test_comparison_contract_maps_slots_to_history_operations_and_keeps_hypotheses_reasoning():

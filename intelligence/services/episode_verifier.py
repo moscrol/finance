@@ -11,6 +11,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from intelligence.services.agent_research import (
+    AgentEvidence,
+    HistoricalEvidenceProvenance,
+    evidence_content_hash,
+)
 from intelligence.services.agent_runtime import AgentOutcome
 from intelligence.services.episode_issues import Issue, IssueCode, serialize_issues
 from intelligence.services.episode_output_substance import (
@@ -66,6 +71,22 @@ class VerifiedEpisodeOutcome:
             ),
             "extension_outputs": list(self.extension_outputs),
         }
+
+
+def _valid_history_identity(item: AgentEvidence) -> bool:
+    provenance = item.history_provenance
+    if not isinstance(provenance, HistoricalEvidenceProvenance):
+        return False
+    try:
+        provenance.validate()
+    except ValueError:
+        return False
+    return (
+        item.tool in {"history_query", "read_history_result"}
+        and item.content_hash == evidence_content_hash(item)
+        and item.internal_locator == provenance.result_ref
+        and item.independent_key == provenance.query_id
+    )
 
 
 def verify_episode_outcome(
@@ -277,7 +298,7 @@ def verify_episode_outcome(
             item
             for item in history_items
             if required.allowed_history_operations
-            and item.history_provenance is not None
+            and isinstance(item.history_provenance, HistoricalEvidenceProvenance)
             and (
                 item.history_provenance.operation
                 not in required.allowed_history_operations
@@ -288,31 +309,15 @@ def verify_episode_outcome(
             item
             for item in history_items
             if required.allowed_history_operations
-            and (
-                item.history_provenance is None
-                or not item.history_provenance.research_only
-                or item.history_provenance.decision_eligible
-                or item.history_provenance.promotion_eligible
-                or not item.history_provenance.query_id
-                or not item.history_provenance.result_ref
-                or item.history_provenance.result_ref.count("/") != 1
-                or not item.history_provenance.result_ref.rsplit("/", 1)[-1].startswith("history-query-")
-                or not item.history_provenance.result_ref.endswith(".json")
-                or (
-                    item.history_provenance.row_index is not None
-                    and (
-                        not item.history_provenance.row_identity
-                        or item.history_provenance.row_identity
-                        != f"{item.history_provenance.query_id}:row:{item.history_provenance.row_index}"
-                        or not item.history_provenance.row_hash
-                    )
-                )
-            )
+            and not _valid_history_identity(item)
         )
         if unsupported_history or invalid_history_qualification:
             details = tuple(
                 (item.history_provenance.operation or "unknown")
-                if item.history_provenance is not None else "missing_provenance"
+                if isinstance(item.history_provenance, HistoricalEvidenceProvenance)
+                and isinstance(item.history_provenance.operation, str)
+                else "missing_provenance" if item.history_provenance is None
+                else "invalid_provenance"
                 for item in (*unsupported_history, *invalid_history_qualification)
             )
             issues.append(

@@ -172,7 +172,7 @@ def _model_blocks(identity: dict, atoms: list[dict]) -> list[str]:
     from intelligence.services.tool_result_budget import MAX_EVIDENCE_DETAIL_CHARS
 
     def encode(value):
-        return json.dumps(value, ensure_ascii=False, default=str, separators=(",", ":"))
+        return json.dumps(value, ensure_ascii=False, sort_keys=True, default=str, separators=(",", ":"))
 
     def merge(left, right):
         result = dict(left)
@@ -231,11 +231,18 @@ def _model_projection(
     ):
         # Row identity must be stable across pages, but is not a card identity:
         # a row may span several public citations with different fields.
-        projected.extend(
-            (f"{title}·块{block_index + 1}" if row_identity else title,
-             detail, source_date, row_index, row_identity, row_hash, observations)
-            for block_index, detail in enumerate(_model_blocks(identity, atoms))
-        )
+        for block_index, detail in enumerate(_model_blocks(identity, atoms)):
+            visible = json.loads(detail)
+            visible_values = {**visible, **visible.get("features", {})}
+            block_observations = tuple(
+                observation for observation in observations
+                if type(visible_values.get(observation.metric)) in (int, float)
+                and visible_values[observation.metric] == observation.value
+            )
+            projected.append(
+                (f"{title}·块{block_index + 1}" if row_identity else title,
+                 detail, source_date, row_index, row_identity, row_hash, block_observations)
+            )
 
     scope_observations = tuple(
         StructuredObservation(
@@ -264,15 +271,15 @@ def _model_projection(
             {"condition": spec.get("condition")},
             {"outcome_definition": payload.get("outcome_definition")},
         ])
-        add("历史条件比较完整统计", {}, [{key: value} for key, value in comparison.items()])
+        add("历史条件比较完整统计", {}, [{key: value} for key, value in sorted(comparison.items())])
     universe = payload.get("universe")
     if isinstance(universe, dict):
         add("历史比较宇宙与窗口", {}, [
-            {key: value} for key, value in universe.items() if key != "entity_codes"
+            {key: value} for key, value in sorted(universe.items()) if key != "entity_codes"
         ] + [{"entity_count": len(universe.get("entity_codes", []))}])
     if payload.get("matching_use"):
         add("历史相似召回用途", {}, [{"matching_use": payload["matching_use"]}])
-    for name, definition in payload.get("feature_definitions", {}).items():
+    for name, definition in sorted(payload.get("feature_definitions", {}).items()):
         add("历史特征严格定义", {"feature": name}, [
             {key: definition[key]} for key in ("rule", "unit", "version") if key in definition
         ])
@@ -313,14 +320,16 @@ def _model_projection(
             atoms.extend({key: row[key]} for key in (
                 "comparison_state", "x", "y", "forward_return_pct", "outcome_end"
             ) if key in row)
-        for name, value in row.get("features", {}).items():
+        # Stored artifacts use sorted keys. Order semantic atoms before packing,
+        # not just the final JSON: block boundaries must also survive a reread.
+        for name, value in sorted(row.get("features", {}).items()):
             atoms.append({
                 "features": {name: value},
                 "status": {name: row.get("feature_coverage", {}).get(name, {}).get("status", "unknown")},
             })
         atoms.extend(
             {"feature_differences": {name: value}}
-            for name, value in row.get("feature_differences", {}).items()
+            for name, value in sorted(row.get("feature_differences", {}).items())
         )
         for kind in ("sector", "stock"):
             values = row.get(kind)
@@ -343,12 +352,12 @@ def _model_projection(
         row_observations: list[StructuredObservation] = []
         as_of = date_value or ""
         subject = str(row.get("entity_code") or row.get("entity_name") or query_id)
-        for metric, value in row.get("features", {}).items():
+        for metric, value in sorted(row.get("features", {}).items()):
             if isinstance(value, (int, float)) and not isinstance(value, bool):
                 row_observations.append(
                     StructuredObservation(subject, as_of, str(metric), float(value))
                 )
-        for metric, value in row.items():
+        for metric, value in sorted(row.items()):
             if metric in {"features", "feature_coverage", "entity_code", "entity_name", "start", "end"}:
                 continue
             if isinstance(value, (int, float)) and not isinstance(value, bool):
