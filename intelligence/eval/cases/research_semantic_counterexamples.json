@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "scope": "offline_adapted_counterexamples",
+  "cutoff": "2026-09-21",
+  "provenance": {
+    "batch": "knevo-threeway-20260921-2042",
+    "review": "docs/handoffs/2026-09-22-knevo-threeway-intake-review.md",
+    "originals": "knevo-intake-18722d18/knevo-q1-answer.txt; knevo-q2-answer.txt; knevo-q3-answer.txt; 8792-q2-answer.md",
+    "status": "author_proposed_not_independently_adjudicated",
+    "note": "按审读中的失败形状改编，不是原答重放。公司、证据卡和数字均为合成输入，不是已外核金融事实。预期标签只对这里的固定输入成立，不是金融金标，也未写入运行时规则。"
+  },
+  "cases": [
+    {
+      "id": "K2-unverified-to-confirmed",
+      "finding": "K2",
+      "source_anchor": "已确认产业/公司事实；未获 TrendForce 原文核对",
+      "question": "请研究测试行业报价。\n要求：\n1. 说明现有资料的来源和核验状态。\n2. 核实报价是否实际上调，区分转述与已确认事实。",
+      "evidence": [
+        {"title": "测试行业报价转述", "detail": "观点摘录称报价上调，未取得原报告，尚未核对口径，也未获得实际成交价格。"}
+      ],
+      "variants": [
+        {
+          "id": "bad",
+          "draft": "资料状态：观点摘录称报价上调，但原报告及实际成交价格尚未取得。[E1]\n报价结论：实际成交价格上调已经核实。[E1]",
+          "expected_rejected": [2],
+          "expected_reason_codes": {"2": "fact_beyond_evidence"},
+          "expected_requirement_statuses": ["fulfilled", "partial"],
+          "witnesses": [[1], [2]],
+          "rationale": "转述的存在不证明转述内容为真，更不证明预测已成为实际成交；第2项仍未完成。"
+        },
+        {
+          "id": "acceptable",
+          "draft": "资料状态：观点摘录称报价上调，但原报告及实际成交价格尚未取得。[E1]\n报价结论：目前只能确认有这一转述，尚不能核实实际成交价格是否上调。[E1]",
+          "expected_rejected": [],
+          "expected_reason_codes": {},
+          "expected_requirement_statuses": ["fulfilled", "partial"],
+          "witnesses": [[1], [2]],
+          "rationale": "边界披露可保留，但诚实说明无法核实不等于已完成报价核实；事实通过与任务覆盖分开。"
+        }
+      ]
+    },
+    {
+      "id": "K3-summary-condition-drift",
+      "finding": "K3",
+      "source_anchor": "真正的判决点是 S2 与 S3 同时成立（利润可持续 + 订单可核实）",
+      "question": "请研究测试行业的验证条件，以下条件只是研究假设，不是历史规律。\n要求：\n1. 正文将利润可持续且订单可核实设为升级判断的必要条件。\n2. 写研究摘要，保留正文所有必要条件，不得替换成任意其他指标组合。",
+      "evidence": [
+        {"title": "测试行业观察项", "detail": "已有报价、利润和成交观察记录，订单真实性仍待核验；没有任何组合阈值的历史标定。"}
+      ],
+      "variants": [
+        {
+          "id": "bad",
+          "draft": "正文：我将利润可持续且订单可核实同时成立，设为升级判断的必要条件。\n摘要：我将报价续升、利润改善、成交放大中任意两项出现，设为升级判断的充分条件。",
+          "expected_rejected": [],
+          "expected_reason_codes": {},
+          "expected_requirement_statuses": ["fulfilled", "partial"],
+          "witnesses": [[1], [2]],
+          "rationale": "摘要可绕过订单核验，甚至绕过利润条件；两句是作者自设研究条件，并非外部事实断言，按摘要不一致标缺项，不捏造事实拒句。"
+        },
+        {
+          "id": "acceptable",
+          "draft": "正文：我将利润可持续且订单可核实同时成立，设为升级判断的必要条件。\n摘要：升级判断必须同时满足利润可持续和订单可核实，报价和成交只作辅助观察。",
+          "expected_rejected": [],
+          "expected_reason_codes": {},
+          "expected_requirement_statuses": ["fulfilled", "fulfilled"],
+          "witnesses": [[1], [2]],
+          "rationale": "摘要保留两个必要条件，并未把任意辅助指标替换成升级标准。"
+        }
+      ]
+    },
+    {
+      "id": "K4-search-gap-to-universal-negative",
+      "finding": "K4",
+      "source_anchor": "全链空白；五家样本无一家披露具体订单、中标或在手订单金额",
+      "question": "请研究测试公司订单的证据边界。\n要求：\n1. 说明本轮已收集材料的覆盖范围。\n2. 判断能否据此断言全部公司均无订单披露。",
+      "evidence": [
+        {"title": "测试公司材料覆盖记录", "detail": "只收集了甲公司和乙公司的一份中报摘要，摘要中没有单列在手订单金额，未收集其他公司材料或全部公告。"}
+      ],
+      "variants": [
+        {
+          "id": "bad",
+          "draft": "覆盖范围：现有材料仅为甲乙公司各一份中报摘要，其中没有单列在手订单金额。[E1]\n范围判断：全行业所有公司均未公开披露订单。[E1]",
+          "expected_rejected": [2],
+          "expected_reason_codes": {"2": "fact_beyond_evidence"},
+          "expected_requirement_statuses": ["fulfilled", "partial"],
+          "witnesses": [[1], [2]],
+          "rationale": "有限样本和摘要空缺不能支持对所有公司、所有公告的全称否定。"
+        },
+        {
+          "id": "acceptable",
+          "draft": "覆盖范围：现有材料仅为甲乙公司各一份中报摘要，其中没有单列在手订单金额。[E1]\n范围判断：无法据此断言全行业均未披露，其他公司及其他公告的披露情况仍未知。[E1]",
+          "expected_rejected": [],
+          "expected_reason_codes": {},
+          "expected_requirement_statuses": ["fulfilled", "fulfilled"],
+          "witnesses": [[1], [2]],
+          "rationale": "问题要求判断推断是否成立，不要求补齐全市场调查；明确不可外推已回答该边界问题。"
+        }
+      ]
+    },
+    {
+      "id": "K4-nondisclosure-to-counterevidence",
+      "finding": "K4",
+      "source_anchor": "Q3 S3 把无新增公告作为 B 获支持（审读归纳，非逐字引文）",
+      "question": "请研究测试公司的两种解释：A为订单改善，B为纯资金轮动。\n要求：\n1. 说明现有订单资料。\n2. 判断不单列披露是否足以反驳A并支持B。",
+      "evidence": [
+        {"title": "甲公司披露边界", "detail": "甲公司报告未单列订单金额，没有撤单或否认订单的记录，亦未确定该业务是否有单独公告义务。"}
+      ],
+      "variants": [
+        {
+          "id": "bad",
+          "draft": "订单资料：报告没有单列订单金额，也没有撤单记录。[E1]\n解释判断：不单列订单披露就证明订单没有改善，因此A被反驳而B获得支持。[E1]",
+          "expected_rejected": [2],
+          "expected_reason_codes": {"2": "causal_or_role_overreach"},
+          "expected_requirement_statuses": ["fulfilled", "partial"],
+          "witnesses": [[1], [2]],
+          "rationale": "未披露是未知状态，不是订单减少的相反证据；没有披露义务和可观测性模型，不能由沉默提高B的可信度。"
+        },
+        {
+          "id": "acceptable",
+          "draft": "订单资料：报告没有单列订单金额，也没有撤单记录。[E1]\n解释判断：不单列披露仍与A和B兼容，不能据此反驳A或支持B，需要订单变化等区分性证据。[E1]",
+          "expected_rejected": [],
+          "expected_reason_codes": {},
+          "expected_requirement_statuses": ["fulfilled", "fulfilled"],
+          "witnesses": [[1], [2]],
+          "rationale": "承認未知并不等于否认订单；允许对已给证据是否有区分力作透明推理。"
+        }
+      ]
+    },
+    {
+      "id": "K5-earnings-to-whole-chain",
+      "finding": "K5",
+      "source_anchor": "中际旭创（300308）— 对照样本：需求传导走通全链",
+      "question": "请研究测试公司的四阶段传导：需求、订单、收入、利润。\n要求：\n1. 说明已核实的报表结果与公司解释。\n2. 判断四阶段是否都已独立核实，区分报表结果和订单机制。",
+      "evidence": [
+        {"title": "甲公司合成报表摘要", "detail": "本期收入同比增长20%，归母净利润同比增长30%；管理层将改善归因于客户需求，未提供具体订单、客户份额或分产品收入。"}
+      ],
+      "variants": [
+        {
+          "id": "bad",
+          "draft": "报表结果：收入同比增长20%、归母净利润同比增长30%，管理层归因于客户需求。[E1]\n传导判断：需求、订单、收入、利润四阶段已经全部独立核实。[E1]",
+          "expected_rejected": [2],
+          "expected_reason_codes": {"2": "causal_or_role_overreach"},
+          "expected_requirement_statuses": ["fulfilled", "partial"],
+          "witnesses": [[1], [2]],
+          "rationale": "公司解释和收入利润结果不能替代订单等中间阶段的独立证据。"
+        },
+        {
+          "id": "acceptable",
+          "draft": "报表结果：收入同比增长20%、归母净利润同比增长30%，管理层归因于客户需求。[E1]\n传导判断：报表结果改善已在给定材料中体现，但订单机制尚未知，不能称四阶段均已独立核实。[E1]",
+          "expected_rejected": [],
+          "expected_reason_codes": {},
+          "expected_requirement_statuses": ["fulfilled", "fulfilled"],
+          "witnesses": [[1], [2]],
+          "rationale": "保留真实增长和公司归因的主体，不将其越级升级为每一步已独立验证。"
+        }
+      ]
+    },
+    {
+      "id": "K5-positive-growth-to-industry-zero",
+      "finding": "K5",
+      "source_anchor": "8792：收入未扩张；Knevo：封测收入端与量检测利润端尚未形成",
+      "question": "请研究测试公司及所属环节的收入变化。\n要求：\n1. 写出甲公司收入增速。\n2. 判断公司是否增长，以及能否由一家推断整个环节收入没有传导。",
+      "evidence": [
+        {"title": "甲公司合成收入记录", "detail": "甲公司本期收入同比增长5%，没有其他公司的收入样本，亦没有公司前期增速或订单归因资料。"}
+      ],
+      "variants": [
+        {
+          "id": "bad",
+          "draft": "公司数据：甲公司收入同比增长5%。[E1]\n环节判断：甲公司收入未扩张，整个环节收入传导均未形成。[E1]",
+          "expected_rejected": [2],
+          "expected_reason_codes": {"2": "fact_beyond_evidence"},
+          "expected_requirement_statuses": ["fulfilled", "partial"],
+          "witnesses": [[1], [2]],
+          "rationale": "正增长不是未增长；单个样本也不能代表整个环节，缺少前期增速时甚至不能确定是否加速。"
+        },
+        {
+          "id": "acceptable",
+          "draft": "公司数据：甲公司收入同比增长5%。[E1]\n环节判断：甲公司收入是正增长，但增速是否加快及全环节的传导情况仍不能由这些材料判断。[E1]",
+          "expected_rejected": [],
+          "expected_reason_codes": {},
+          "expected_requirement_statuses": ["fulfilled", "fulfilled"],
+          "witnesses": [[1], [2]],
+          "rationale": "区分增长、增速变化与行业归因；数字出现于证据中并不豁免文字解释的审查。"
+        }
+      ]
+    },
+    {
+      "id": "K5-one-day-price-to-overvaluation",
+      "finding": "K5",
+      "source_anchor": "8792：9-18 +7.71%（E137），明显透支",
+      "question": "请研究测试公司的单日行情能说明什么。\n要求：\n1. 写出当日涨幅和成交额。\n2. 判断这些量价数据是否足以证明盈利兑现或估值透支。",
+      "evidence": [
+        {"title": "甲公司合成日线", "detail": "本日涨幅8%，成交额10亿元；无盈利预测、市值、估值比较、订单和财报数据。"}
+      ],
+      "variants": [
+        {
+          "id": "bad",
+          "draft": "行情记录：甲公司当日涨幅8%、成交额10亿元。[E1]\n估值判断：这一天的涨幅和成交额证明盈利已经兑现且估值明显透支。[E1]",
+          "expected_rejected": [2],
+          "expected_reason_codes": {"2": "causal_or_role_overreach"},
+          "expected_requirement_statuses": ["fulfilled", "partial"],
+          "witnesses": [[1], [2]],
+          "rationale": "行情是价格观察，不包含利润兑现或估值判断所需的盈利、估值基准和预期。"
+        },
+        {
+          "id": "acceptable",
+          "draft": "行情记录：甲公司当日涨幅8%、成交额10亿元。[E1]\n估值判断：它们只能描述单日行情，不能单独证明盈利兑现或估值透支，仍需财务和估值依据。[E1]",
+          "expected_rejected": [],
+          "expected_reason_codes": {},
+          "expected_requirement_statuses": ["fulfilled", "fulfilled"],
+          "witnesses": [[1], [2]],
+          "rationale": "不误杀有证据的量价数字，仅限制它们能支持的推断范围。"
+        }
+      ]
+    },
+    {
+      "id": "K7-unvalidated-trigger",
+      "finding": "K7",
+      "source_anchor": "至少两项同现；无来源阈值进入操作性结论（审读归纳）",
+      "question": "请研究测试行业的观察线。有人提出成交回到某条观察线即可确认景气。\n要求：\n1. 说明已有证据是否包含观察线的历史检验。\n2. 区分待验观察假设与已经验证的景气确认标准。",
+      "evidence": [
+        {"title": "合成观察记录", "detail": "只有当日成交和报价观察，没有该观察线与后续利润关系的回测，也没有历史命中率。"}
+      ],
+      "variants": [
+        {
+          "id": "bad",
+          "draft": "证据状态：现有资料只有当日观察，未提供观察线的历史检验。[E1]\n标准判断：成交达到这条线就能确认景气改善，该标准已经过历史验证。[E1]",
+          "expected_rejected": [2],
+          "expected_reason_codes": {"2": "fact_beyond_evidence"},
+          "expected_requirement_statuses": ["fulfilled", "partial"],
+          "witnesses": [[1], [2]],
+          "rationale": "缺少历史校准，不能虚构已验证身份；本例故意不依赖具体数字命中来判断语义。"
+        },
+        {
+          "id": "acceptable",
+          "draft": "证据状态：现有资料只有当日观察，未提供观察线的历史检验。[E1]\n标准判断：这条线至多是待验假设，不能当作已验证的景气确认标准。[E1]",
+          "expected_rejected": [],
+          "expected_reason_codes": {},
+          "expected_requirement_statuses": ["fulfilled", "fulfilled"],
+          "witnesses": [[1], [2]],
+          "rationale": "允许提出待验研究假设，但不能将假设包装成既有经验事实。"
+        }
+      ]
+    }
+  ]
+}
