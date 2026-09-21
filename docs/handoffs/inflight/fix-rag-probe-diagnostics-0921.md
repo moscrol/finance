@@ -1,27 +1,28 @@
-# 在途交接 · RAG 探针诊断
+# 在途交接 · RAG 探针诊断与并发优化
 
 ## 这个分支做什么
-为 RagCliProbe 补安全耗时/失败分类；继续定位帮助命令超时，不改变单次 5 秒失败语义。
+安全诊断 + 同配置重叠 help 探针去重；保留单次 5 秒、无重试/成功缓存、失败 503。
 
 ## 决策与被否方案
-- 保留单次 help、无重试/成功缓存、失败 503；否了抬超时和隐去错误。
-- 只暴露固定分类/耗时，不输出 stderr、异常全文或环境。
-- KB 懒加载只作隔离实验：虽更快，但坏依赖时帮助探针报兼容；否了作为“纯性能修复”合入。不是整个 readiness 报绿的证明。
-- 保留 worker 模块导出，否了直接把所有导入搬进 query，避免绕过复用函数替换。
-- 理由/收据见 `../2026-09-21-rag-cli-startup-experiment.md`；事故背景见 `../2026-09-21-rag-probe-diagnostics.md`。
+- 选同 key single-flight，完成即删除；否了全局锁包慢 IO、成功缓存及延长超时。
+- 保留查询依赖导入；否了全懒加载，前轮已证明坏依赖被 help 掩盖。
+- key 绑定代码指纹/解释器/环境/预算，返回前复验；变化 code_changed，不输出原始错误或环境。
+- API 字段白名单不变；否了额外 shared_inflight 字段。
+- 理由/收据见 `../2026-09-21-rag-probe-singleflight.md`；前轮见 `../2026-09-21-rag-cli-startup-experiment.md`。
 
 ## 当前状态
-PR #844 保持 WIP，未合未部署。原诊断代码 ea5df3ea4，前次收据绑定 bac1b42a8；本轮仅新增回放脚本及测试，KB 候选未进入 Git/共享树。K3/judge-off 未恢复；本轮未重启、改行情库、改启动器或重发生产题。
+实现已提交 3451c1d65，PR #844 仍 WIP，未合未部署。只改金融探针/测试/回放工具/门页；共享 KB 未改。K3/judge-off 未恢复，本轮无生产 HTTP、重启、行情写入、启动器修改或重发题。
 
 ## 已验证
-金融定向组 178 passed/4 skipped；4 项默认未指定跨仓根。另显式指定新 KB 候选，跨仓+worker 51 passed（含那 4 项），仅证明合成索引路径。旧 KB 基线/候选 253/266 passed，新 KB 308/321 passed。Ruff、diff check 通过。候选启动合同在原基线预期 12 failed/1 passed。
-两组各臂 20 次交替 help 采样；临时 hash 索引 CLI/连续 worker 一致。慢导入原探针 timeout；坏导入原探针 nonzero_exit，但懒加载候选 help 仍兼容、query 失败。
+提交后干净树定向组 230 passed/4 skipped（默认跨仓根未设），Ruff/diff check/pre-commit 通过。真实子进程故障/超时回收、双 HTTP 入口失败 503、不同配置并行、完成后重验已覆盖。两种内存变异分别被 6/1 项失败抓住。
+两轮各条件 n=10：8 并发每轮子进程 8→1；批耗时中位 242→177ms、168→116ms；单请求未加速。慢/坏导入两版仍报 timeout/nonzero_exit。金融哈希匹配提交，KB 40 文件匹配固定 8a413cde。
 
 ## 未验证 / 已知边界
-历史超时根因未知；非严格冷启动，未证明生产兼容、真实 BGE 质量、长期稳定、judge-off、fallback 或恢复演练。全仓/前端/独立外审未跑。本轮未新查生产 HTTP；沿用前次记录不能当实时状态。新证据 `tmp/rag-cli-startup/evidence/selected-manifest.json` 及两份 final-*-pair/receipt.json；原件 0600，勿清理。
+生产并发频率、历史超时根因、真实 BGE/自然检索质量、judge-off/fallback/恢复未验；全仓/前端/E2E/外审未跑。非严格冷启动，仅同进程去重；不检测解释器/依赖原地替换，仍需不可变部署。5 秒不是端到端截止时间。
+证据 `tmp/rag-probe-singleflight/`，含 compare-v1/v2、postcommit-focused XML/日志及 mutations；postcommit-receipt 与 selected-manifest 核验 110 原件。私有本地归档勿删，前轮也保留。
 
 ## 下一步
-审诊断 PR 后等授权；若继续懒加载，先设计协议/运行时健康分层，并验证 worker 关闭/失败时仍可拒绝坏依赖，另开 KB 分支。合并后新 tip 需重跑门禁，不借实验收据部署。行情一致性与 runtime 漂移另案。
+审 PR 后等合并/部署授权；目标 tip 重跑适用门禁。不得借本轮采样宣称历史 timeout 已修复。行情一致性与 runtime 漂移另案。
 
 ## 踩过的坑
-KB 共享 HEAD 8a413cde 与本地 gitea/main d0caf311 不同，不能混用；副本各 40/45 个 Python 文件已对 Git 核验。help 成功不是检索可用。Git adcda94b 本来支持 maintenance_launch，旧目录是文件漂移；recovery 来源不能归因启动器自动创建。
+并行 pytest 自动收据同秒同 HEAD 会撞名，本轮以独立 XML/日志为准；提交后单独复验收据 20260921T154016Z-3451c1d6。KB HEAD 与 main 不同勿混用；help 成功不等于检索质量。adcda94b 本来支持 maintenance_launch，旧 runtime 为文件漂移，不能归因启动器自动恢复。
