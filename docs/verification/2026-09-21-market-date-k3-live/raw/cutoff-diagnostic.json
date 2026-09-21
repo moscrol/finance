@@ -1,0 +1,135 @@
+{
+  "kind": "offline_adversarial_local_tool_diagnostic",
+  "source_run_id": "run_20260921_223908_394353",
+  "question": "只用本地已有数据，不联网：把信息截止严格限定为2026年9月11日，分析当时A股市场的成交额、市场阶段和主要题材。请给出实际数值与来源日期，不使用9月11日之后的数据，缺失的部分单独说明。",
+  "history_intent": null,
+  "parsed_cutoff": null,
+  "requests": [
+    {
+      "label": "default_latest",
+      "arguments": {
+        "dataset": "market_daily",
+        "dimensions": [
+          "trade_date"
+        ],
+        "metrics": [
+          "total_amount"
+        ],
+        "limit": 1
+      },
+      "context_cutoff": {
+        "as_of_date": "2026-09-21",
+        "source": "runtime_default"
+      },
+      "trace": {
+        "provider": "duckdb_semantic_query",
+        "capability": "finance_query",
+        "status": "success",
+        "detail": "dataset=market_daily; rows=1; fingerprint=919d9b79776706a0",
+        "source_trade_date": "2026-09-18",
+        "result_count": 1,
+        "parent_id": "date-cutoff-diagnostic-default_latest",
+        "step_id": "default_latest",
+        "requested_date": "2026-09-21",
+        "served_date": "2026-09-18",
+        "requested_time_range": null
+      },
+      "evidence": [
+        {
+          "tool": "finance_query",
+          "title": "市场日频总览（2026-09-18）",
+          "detail": "交易日=2026-09-18；市场成交额亿=20764.84",
+          "source": "本地结构化数据 · 市场日频总览",
+          "internal_locator": "finance-query:919d9b79776706a0:1",
+          "source_date": "2026-09-18",
+          "evidence_tier": "L4_structured",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "duckdb:market_daily:2026-09-18",
+          "freshness": "current",
+          "content_hash": "20445e65ce7a7115",
+          "observations": [],
+          "derived_from": [],
+          "reexcerpted": null,
+          "pointer_dropped": null,
+          "structural_neighbor_demoted": null,
+          "deep_read": false,
+          "publisher_kind": "",
+          "document_type": "",
+          "io_effect": "local_read"
+        }
+      ],
+      "observation": "查询结果已按 Agent 上下文预算截断至 1 条；未覆盖的日期请收窄 time_range 再查，不要靠调大 limit；实际覆盖 2026-09-18；交易日=2026-09-18；市场成交额亿=20764.84",
+      "gaps": [],
+      "evidence_after_user_cutoff": [
+        "2026-09-18"
+      ]
+    },
+    {
+      "label": "explicit_after_user_cutoff",
+      "arguments": {
+        "dataset": "market_daily",
+        "dimensions": [
+          "trade_date"
+        ],
+        "metrics": [
+          "total_amount"
+        ],
+        "time_range": {
+          "start": "2026-09-18",
+          "end": "2026-09-18"
+        }
+      },
+      "context_cutoff": {
+        "as_of_date": "2026-09-21",
+        "source": "runtime_default"
+      },
+      "trace": {
+        "provider": "duckdb_semantic_query",
+        "capability": "finance_query",
+        "status": "success",
+        "detail": "dataset=market_daily; rows=1; fingerprint=ad0f48273cecbb1a",
+        "source_trade_date": "2026-09-18",
+        "result_count": 1,
+        "parent_id": "date-cutoff-diagnostic-explicit_after_user_cutoff",
+        "step_id": "explicit_after_user_cutoff",
+        "requested_date": "2026-09-21",
+        "served_date": "2026-09-18",
+        "requested_time_range": [
+          "2026-09-18",
+          "2026-09-18"
+        ]
+      },
+      "evidence": [
+        {
+          "tool": "finance_query",
+          "title": "市场日频总览（2026-09-18）",
+          "detail": "交易日=2026-09-18；市场成交额亿=20764.84",
+          "source": "本地结构化数据 · 市场日频总览",
+          "internal_locator": "finance-query:ad0f48273cecbb1a:1",
+          "source_date": "2026-09-18",
+          "evidence_tier": "L4_structured",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "duckdb:market_daily:2026-09-18",
+          "freshness": "current",
+          "content_hash": "20445e65ce7a7115",
+          "observations": [],
+          "derived_from": [],
+          "reexcerpted": null,
+          "pointer_dropped": null,
+          "structural_neighbor_demoted": null,
+          "deep_read": false,
+          "publisher_kind": "",
+          "document_type": "",
+          "io_effect": "local_read"
+        }
+      ],
+      "observation": "交易日=2026-09-18；市场成交额亿=20764.84",
+      "gaps": [],
+      "evidence_after_user_cutoff": [
+        "2026-09-18"
+      ]
+    }
+  ]
+}

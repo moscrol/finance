@@ -1,0 +1,55 @@
+{
+  "implementation": "scripts.smoke_workbench_self_use.SecretScanner",
+  "scope": "all package text before scan-review.json and sha256-manifest.txt are added",
+  "files_scanned": 67,
+  "hits": [
+    {
+      "source": "raw/archive_live.py.txt",
+      "marker": "jwt_shape"
+    },
+    {
+      "source": "raw/probe_cutoff.py.txt",
+      "marker": "jwt_shape"
+    }
+  ],
+  "matches": [
+    {
+      "path": "raw/archive_live.py.txt",
+      "marker": "jwt_shape",
+      "match_sha256": "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1",
+      "known_code_path": true
+    },
+    {
+      "path": "raw/probe_cutoff.py.txt",
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "known_code_path": true
+    },
+    {
+      "path": "raw/probe_cutoff.py.txt",
+      "marker": "jwt_shape",
+      "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+      "known_code_path": true
+    },
+    {
+      "path": "raw/probe_cutoff.py.txt",
+      "marker": "jwt_shape",
+      "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+      "known_code_path": true
+    },
+    {
+      "path": "raw/probe_cutoff.py.txt",
+      "marker": "jwt_shape",
+      "match_sha256": "3cf3dc91c92ed155e5dd557743bee98d7ff86a26eb95adc748e2f6ad47f5754c",
+      "known_code_path": true
+    },
+    {
+      "path": "raw/probe_cutoff.py.txt",
+      "marker": "jwt_shape",
+      "match_sha256": "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1",
+      "known_code_path": true
+    }
+  ],
+  "unclassified_match_count": 0,
+  "conclusion": "Pattern matches need context review; execution success is not zero-hit certification."
+}

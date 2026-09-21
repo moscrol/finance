@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "report_id": "run_20260921_223908_394353",
+  "title": "只用本地已有数据，不联网：把信息截止严格限定为2026年9月11日，分析当时A股市场的成交额、市场阶段和主要题材。请给出实际数值与来源日期，不使用9月11日之后的数据，缺失的部分单独说明。",
+  "task_type": "workflow",
+  "status": "partial",
+  "as_of": "2026-09-11",
+  "llm": {
+    "used": true,
+    "provider": "openai",
+    "model": "kimi-k3"
+  },
+  "modules": [],
+  "warnings": [
+    "证据或语义核验未完全通过，已按证据边界降级。"
+  ],
+  "task_frame": {
+    "raw_question": "只用本地已有数据，不联网：把信息截止严格限定为2026年9月11日，分析当时A股市场的成交额、市场阶段和主要题材。请给出实际数值与来源日期，不使用9月11日之后的数据，缺失的部分单独说明。",
+    "user_goal": "形成条件化判断",
+    "question_type": "stock_deep_dive",
+    "subject": "当时A股市场",
+    "subject_kind": "company",
+    "market_scope": "A股",
+    "timeframe": "2026-09-11",
+    "required_outputs": [
+      "direct_assessment",
+      "supporting_evidence",
+      "counterpoint"
+    ],
+    "assumptions": [],
+    "ambiguities": [],
+    "clarification_question": null,
+    "evidence_policy": "company_multi_layer_evidence",
+    "confidence": 0.86,
+    "material_contract": {
+      "classification": "constraint_confirmed",
+      "authenticity": "real",
+      "data_scope": "本地_only",
+      "premise_marks": [],
+      "questions": [],
+      "continuation_requested": false,
+      "uncertain_reasons": [],
+      "data_scope_declared": true,
+      "premise_calculation": false
+    },
+    "task_frame_hash": "3c72bc41e1ff4680692b176fff288528ffea71d30d7795625f4c430604c54b88"
+  },
+  "task_frame_hash": "3c72bc41e1ff4680692b176fff288528ffea71d30d7795625f4c430604c54b88",
+  "execution_kind": "continuous_episode",
+  "turn_intent": {
+    "primary_subject": "当时A股市场",
+    "secondary_topics": [],
+    "question_type": "stock_deep_dive",
+    "answer_owner": "stock-产业链研究",
+    "comparison_entities": [],
+    "inherited_from_turn": null,
+    "evidence_atom_ids": [],
+    "skill_ids": [],
+    "stage_artifact_ids": [],
+    "time_horizon": "long",
+    "operators": [],
+    "required_outputs": [
+      "direct_assessment",
+      "supporting_evidence",
+      "counterpoint"
+    ],
+    "timeframe": "2026-09-11",
+    "task_frame_hash": "3c72bc41e1ff4680692b176fff288528ffea71d30d7795625f4c430604c54b88",
+    "pending_task_frame": null,
+    "clarification_rounds": 0,
+    "history_intent": null
+  },
+  "answer_marker_coverage": {
+    "task_frame_hash": "3c72bc41e1ff4680692b176fff288528ffea71d30d7795625f4c430604c54b88",
+    "question_type": "stock_deep_dive",
+    "required_output_count": 3,
+    "checked_count": 3,
+    "present": [
+      "supporting_evidence",
+      "counterpoint"
+    ],
+    "absent": [
+      "direct_assessment"
+    ],
+    "uncheckable": [],
+    "marker_coverage": "incomplete",
+    "observation_only": true,
+    "warnings": []
+  },
+  "context_growth": {
+    "sub_agent_provenance": "unavailable",
+    "sub_agent_branch_count": 0,
+    "sub_agent_input_tokens": null,
+    "provenance": "per_turn",
+    "turn_count": 5,
+    "per_turn_input_tokens": [
+      16096,
+      28935,
+      44487,
+      46135,
+      38305
+    ],
+    "max_turn_input_tokens": 46135,
+    "cumulative_input_tokens": 173958,
+    "growth_ratio": 2.38,
+    "observation_only": true
+  },
+  "transport_status": "completed",
+  "research_status": "partial",
+  "answer_status": "partial",
+  "business_status": "partial",
+  "completed_at": "2026-09-21T14:44:04+00:00",
+  "gate_receipt": {
+    "schema_version": 1,
+    "engine": "episode",
+    "rev": "786a3b627da9ae37e042881f2c0e8ef12ccac539",
+    "verified_status": "completed",
+    "judge_status": "unavailable",
+    "issues": [
+      "code=numeric_unsupported subject=numeric_condition :: unsupported numeric condition without bound evidence",
+      "semantic judge window exhausted by prior attempt"
+    ],
+    "judge_unavailable_count": 1,
+    "content_degraded_count": 0,
+    "timings": {
+      "elapsed_seconds": null,
+      "retrieve_seconds": null,
+      "judge_seconds": null,
+      "timeout_asked": 0.0
+    },
+    "correlated_judge": false
+  }
+}

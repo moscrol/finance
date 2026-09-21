@@ -1,0 +1,77 @@
+"""Replay the captured frame through real local tool wiring, without any model.
+
+An adversarial diagnostic, not a third live answer. No production data writes,
+no network tools, and no changes to the original two runs.
+"""
+from __future__ import annotations
+
+from dataclasses import asdict
+import json
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parent
+REPO = Path('/Users/a77/fwp-wt-market-date-advisory-0921')
+DATA = Path('/Users/a77/finance-workspace-private')
+sys.path.insert(0, str(REPO))
+
+from intelligence.services.episode_factory import build_episode_context  # noqa: E402
+from intelligence.services.episode_tools import build_episode_registry  # noqa: E402
+from intelligence.services.honesty_gates import requested_information_cutoff  # noqa: E402
+from intelligence.services.task_frame import TaskFrame  # noqa: E402
+
+
+def main() -> None:
+    result = json.loads((ROOT / 'historical/result.json').read_text())
+    episode = json.loads((Path(result['raw_run']) / 'continuous-episode.json').read_text())
+    frame = TaskFrame.from_dict(episode['task_frame'])
+    assert frame is not None and frame.material_contract.data_scope == 'local_only'
+    output = {
+        'kind': 'offline_adversarial_local_tool_diagnostic',
+        'source_run_id': result['run_id'],
+        'question': frame.raw_question,
+        'history_intent': frame.history_intent,
+        'parsed_cutoff': requested_information_cutoff(frame.raw_question, today='2026-09-21'),
+        'requests': [],
+    }
+    for label, arguments in (
+        ('default_latest', {'dataset': 'market_daily', 'dimensions': ['trade_date'],
+                            'metrics': ['total_amount'], 'limit': 1}),
+        ('explicit_after_user_cutoff', {'dataset': 'market_daily', 'dimensions': ['trade_date'],
+                                       'metrics': ['total_amount'],
+                                       'time_range': {'start': '2026-09-18', 'end': '2026-09-18'}}),
+    ):
+        context = build_episode_context(
+            frame, task_id='date-cutoff-diagnostic-' + label,
+            capabilities=tuple(episode['contract']['allowed_capabilities']),
+            today=episode['research_context']['today'],
+            latest_data_date=episode['research_context']['latest_data_date'],
+            timeout=20.0, synthesis_reserve=0.0,
+        )
+        assert context.information_cutoff.as_of_date.isoformat() == episode['research_context']['information_cutoff']['as_of_date']
+        registry = build_episode_registry(
+            frame, context, finance_root=DATA,
+            knowledge_wiki=ROOT / 'unused-knowledge', l3_runner=None,
+        )
+        response = registry.execute('finance_query', arguments, context=context, step_id=label)
+        output['requests'].append({
+            'label': label, 'arguments': arguments,
+            'context_cutoff': asdict(context.information_cutoff),
+            'trace': asdict(response.trace),
+            'evidence': [asdict(item) for item in response.evidence],
+            'observation': response.observation, 'gaps': response.gaps,
+            'evidence_after_user_cutoff': [item.source_date for item in response.evidence
+                                           if item.source_date and item.source_date > '2026-09-11'],
+        })
+    with (ROOT / 'cutoff-diagnostic.json').open('x') as handle:
+        json.dump(output, handle, ensure_ascii=False, indent=2, default=str)
+        handle.write('\n')
+    print(json.dumps({
+        'parsed_cutoff': output['parsed_cutoff'],
+        'requests': [{k: item[k] for k in ('label', 'context_cutoff', 'evidence_after_user_cutoff')}
+                     for item in output['requests']],
+    }, ensure_ascii=False, default=str))
+
+
+if __name__ == '__main__':
+    main()

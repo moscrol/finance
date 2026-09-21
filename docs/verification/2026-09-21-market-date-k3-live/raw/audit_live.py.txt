@@ -1,0 +1,115 @@
+"""Summarize frozen live events without treating transport success as acceptance.
+
+Content verdicts are separately authored in REVIEW.md. This script checks only
+observable identity, served model, tool dates, public references, and hashes.
+"""
+from __future__ import annotations
+
+from collections import Counter
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parent
+REPO = Path('/Users/a77/fwp-wt-market-date-advisory-0921')
+sys.path.insert(0, str(REPO))
+from scripts.smoke_workbench_self_use import SecretScanner  # noqa: E402
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+def dump_new(path, value):
+    with path.open('x') as handle:
+        json.dump(value, handle, ensure_ascii=False, indent=2, default=str)
+        handle.write('\n')
+
+
+def main():
+    summary = {'kind': 'author_live_acceptance_observations', 'cases': {}}
+    for case, cutoff in [('current', '2026-09-21'), ('historical', '2026-09-11')]:
+        result = load(ROOT / case / 'result.json')
+        raw = Path(result['raw_run'])
+        episode = load(raw / 'continuous-episode.json')
+        message = load(ROOT / case / 'message.json')
+        report = load(raw / 'report.json')
+        events = episode['events']
+        results = [item['payload'] for item in events if item['kind'] == 'tool_result']
+        evidence = [atom for item in results for atom in item.get('evidence', [])]
+        citations = message['citations']
+        bindings = {value for binding in episode['outcome']['bindings'] for value in binding['evidence_hashes']}
+        by_hash = {item['content_hash']: item for item in evidence}
+        answer = (ROOT / case / 'answer.md').read_bytes()
+        artifact = next(item for item in load(raw / 'run.json')['artifacts'] if item['path'] == 'answer.md')
+        sources = {(item['source'], item.get('source_date')) for item in evidence}
+        summary['cases'][case] = {
+            'run_id': result['run_id'], 'conversation_id': result['conversation_id'],
+            'assistant_message_id': result['assistant_message_id'],
+            'elapsed_s': result['elapsed_s'],
+            'served_models': dict(Counter(item['payload'].get('served_model') for item in events if item['kind'] == 'model_turn')),
+            'usage': episode['outcome']['usage'],
+            'task_frame': {key: episode['task_frame'].get(key) for key in ('question_type', 'subject', 'subject_kind', 'timeframe', 'history_intent')},
+            'information_cutoff': episode['research_context']['information_cutoff'],
+            'expected_user_cutoff': cutoff,
+            'context_cutoff_matches_user': episode['research_context']['information_cutoff']['as_of_date'] == cutoff,
+            'tool_result_count': len(results),
+            'tool_names': dict(Counter(item['tool'] for item in results)),
+            'evidence_observations': len(evidence), 'unique_evidence_hashes': len(by_hash),
+            'evidence_dates': dict(sorted(Counter(item.get('source_date') for item in evidence).items())),
+            'evidence_io_effects': dict(Counter(item.get('io_effect') for item in evidence)),
+            'undated_evidence_count': sum(not item.get('source_date') for item in evidence),
+            'observed_evidence_after_user_cutoff': [item['content_hash'] for item in evidence if item.get('source_date', '') > cutoff],
+            'citation_count': len(citations),
+            'citation_source_date_missing_from_evidence': [item for item in citations if (item['source'], item.get('date')) not in sources],
+            'citations_after_user_cutoff': [item for item in citations if item.get('date', '') > cutoff],
+            'citation_schema_keys': sorted({key for item in citations for key in item}),
+            'unresolved_bound_hashes': sorted(bindings - set(by_hash)),
+            'answer_matches_message': answer.decode() == message['content'],
+            'answer_matches_run_artifact': answer == (raw / 'answer.md').read_bytes(),
+            'answer_matches_artifact_hash': hashlib.sha256(answer).hexdigest() == artifact['sha256'],
+            'gate_receipt': report['gate_receipt'],
+            'transport_status': report['transport_status'], 'business_status': report['business_status'],
+            'runtime_closed': episode['runtime_handle']['state'] == 'closed',
+            'first_prompt_text_persisted': False,
+            'prompt_record': [item['payload'] for item in events if item['kind'] == 'prompt_assembled'],
+        }
+    before, after = load(ROOT / 'production-before.json'), load(ROOT / 'production-after.json')
+    summary['production_identity_stable'] = before['runtime'] == after['runtime']
+    summary['selected_data_audit_stable'] = load(ROOT / 'data-before.json') == load(ROOT / 'data-after.json')
+    summary['data_audit_scope'] = 'six table counts/max dates and three tables rows at two cutoffs; not a whole DB checksum'
+    summary['closure'] = load(ROOT / 'closure.json')
+    snapshot = Path('/Users/a77/finance-workspace-private/market_snapshot/2026-09-21.json')
+    raw = snapshot.read_bytes()
+    doc = json.loads(raw)
+    dump_new(ROOT / 'snapshot-postrun-observation.json', {
+        'timing': 'after live runs; contemporaneous readiness.json separately proves a 09-21 snapshot was available at startup',
+        'path': str(snapshot), 'sha256': hashlib.sha256(raw).hexdigest(), 'bytes': len(raw),
+        'metadata': {key: doc.get(key) for key in ('trade_date', 'served_trade_date', 'provider', 'source', 'quality', 'freshness')},
+        'market': doc.get('market'), 'theme_count': len(doc.get('themes', [])),
+    })
+    dump_new(ROOT / 'observations.json', summary)
+    scanner = SecretScanner()
+    files, excluded = [], []
+    for path in sorted(ROOT.rglob('*')):
+        if not path.is_file():
+            continue
+        if path.suffix in {'.sqlite3', '.lock', '.pyc'} or '__pycache__' in path.parts:
+            excluded.append(str(path.relative_to(ROOT)))
+            continue
+        text = path.read_text()
+        label = str(path.relative_to(ROOT))
+        scanner.scan(text, label)
+        files.append(label)
+    dump_new(ROOT / 'scan-observation.json', {
+        'implementation': 'scripts.smoke_workbench_self_use.SecretScanner',
+        'files': files, 'excluded': excluded,
+        'scanned_string_count': scanner.scanned_string_count, 'hits': scanner.hits,
+        'scope': 'text artifacts at this point; excludes SQLite user stores, locks and bytecode; not a complete security certification',
+    })
+    print(json.dumps({'cases': {name: {key: case[key] for key in ('evidence_observations', 'unique_evidence_hashes', 'context_cutoff_matches_user', 'citation_source_date_missing_from_evidence', 'unresolved_bound_hashes')} for name, case in summary['cases'].items()}, 'scan_files': len(files), 'scan_hits': scanner.hits}, ensure_ascii=False))
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,36 @@
+{
+  "identity_after": {
+    "revision": "786a3b627da9ae37e042881f2c0e8ef12ccac539",
+    "tree": "da8fbef79b8b1aaa8e280d532d169bfe7d7c0827",
+    "status": ""
+  },
+  "identity_stable": true,
+  "server_exit_code": -15,
+  "port_closed": true,
+  "results": [
+    {
+      "case": "current",
+      "user": "date-k3-current",
+      "run_id": "run_20260921_223455_384576",
+      "conversation_id": "conv_f3533694f91a4ec7b0cb49e8560f14e1",
+      "assistant_message_id": "msg_df42fd8523ec4c368f4eb566af6d409b",
+      "status": "completed",
+      "terminal_within_deadline": true,
+      "elapsed_s": 253.0,
+      "raw_run": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-current/runs/run_20260921_223455_384576",
+      "quality_verdict": "pending_human_review"
+    },
+    {
+      "case": "historical",
+      "user": "date-k3-historical",
+      "run_id": "run_20260921_223908_394353",
+      "conversation_id": "conv_b321f310b46e40828bb5d35db9c00d23",
+      "assistant_message_id": "msg_4e9d654436ce42149cafcfb8b2535b8f",
+      "status": "completed",
+      "terminal_within_deadline": true,
+      "elapsed_s": 297.17,
+      "raw_run": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-historical/runs/run_20260921_223908_394353",
+      "quality_verdict": "pending_human_review"
+    }
+  ]
+}

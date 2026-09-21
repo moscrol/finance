@@ -1,0 +1,406 @@
+{
+  "revision": "786a3b627da9ae37e042881f2c0e8ef12ccac539",
+  "verdict": "AUTHOR_REAL_ENTRYPOINT_OBSERVED_NOT_ACCEPTED",
+  "scope": "text artifacts; SQLite user stores, locks, and caches remain external",
+  "files": [
+    {
+      "path": "raw/REVIEW.md",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/REVIEW.md",
+      "bytes": 6100,
+      "sha256": "f87a106646021186ddd9aaccc8ea49a020b73b4449a459cba4f51f099d717f81"
+    },
+    {
+      "path": "raw/archive_live.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/archive_live.py",
+      "bytes": 6317,
+      "sha256": "2c2d5757e6cee793cabfa7c620742751070d35e021fa11e38ed47d28741a9e4b"
+    },
+    {
+      "path": "raw/audit_live.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/audit_live.py",
+      "bytes": 6877,
+      "sha256": "737d3bb2b18dee444df69bcd8ddac03ef3cf6086e6bd64d48a76f2fd64ef1408"
+    },
+    {
+      "path": "raw/check_citations.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/check_citations.py",
+      "bytes": 1722,
+      "sha256": "804845e333a4848931dc7abd1f7ce173df67e847783ae9fe586bfd2d7a5c188a"
+    },
+    {
+      "path": "raw/citation-display-audit.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/citation-display-audit.json",
+      "bytes": 11824,
+      "sha256": "bc0c0cba2a077e8685423a06c995d51bfe6afb82bd105864d1fb1ce4e58dfab4"
+    },
+    {
+      "path": "raw/closure.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/closure.json",
+      "bytes": 1347,
+      "sha256": "0ee4c18898ccc28e3b6740bc21e507a9df44b2ff826b000a14d3b2353097a98e"
+    },
+    {
+      "path": "raw/current/answer.md",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/current/answer.md",
+      "bytes": 2772,
+      "sha256": "b32d095722afb20a326abc9e005032eea0c05912adc8098506853c298e7dd550"
+    },
+    {
+      "path": "raw/current/config.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/current/config.json",
+      "bytes": 240,
+      "sha256": "70cef27ca0aa1b7d801917400a7c36d401ac932b040bb4018363ea9d7b50359b"
+    },
+    {
+      "path": "raw/current/conversation.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/current/conversation.json",
+      "bytes": 299,
+      "sha256": "d1c77b10fbd4f10f7b1e7ef50fb831d78fa24c8bafb8d82897fb5059528df861"
+    },
+    {
+      "path": "raw/current/message.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/current/message.json",
+      "bytes": 7257,
+      "sha256": "c66285493332e501ef755a604c72c6f3404694c98056bf408cd2492509eab70a"
+    },
+    {
+      "path": "raw/current/messages.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/current/messages.json",
+      "bytes": 8307,
+      "sha256": "996b936fd9b3e9c6a8bcbdd14ba82b5041904c2b14f525c5233083179a8e43df"
+    },
+    {
+      "path": "raw/current/poll.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/current/poll.jsonl",
+      "bytes": 8825,
+      "sha256": "e88f6c6f04f31dfd26e75c47fec88ab1d733042a309e9c54827b56a4114a709a"
+    },
+    {
+      "path": "raw/current/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/current/result.json",
+      "bytes": 490,
+      "sha256": "a859d1ba3fe4b556bd3a96cae54f280eb1967ec713c0c03db7347a89165f0a49"
+    },
+    {
+      "path": "raw/current/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/current/run.json",
+      "bytes": 1992,
+      "sha256": "02d08b868d4fda2d4a2d40e873120ca6ea12528aa43cec4ccc92ee038511a6a0"
+    },
+    {
+      "path": "raw/current/submission.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/current/submission.json",
+      "bytes": 256,
+      "sha256": "d63246ffed77329e279832232a8365e75d868597ee291c384302c3795815aab8"
+    },
+    {
+      "path": "raw/cutoff-diagnostic.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/cutoff-diagnostic.json",
+      "bytes": 4670,
+      "sha256": "554482657534a278c8dad16009f24ec3750a15dd75a1e2d15460757a121369a6"
+    },
+    {
+      "path": "raw/data-after.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/data-after.json",
+      "bytes": 120833,
+      "sha256": "46bc2271828d93f4afa86ae650f4aa97752bb8550e86274835f891971d463c69"
+    },
+    {
+      "path": "raw/data-before.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/data-before.json",
+      "bytes": 120833,
+      "sha256": "46bc2271828d93f4afa86ae650f4aa97752bb8550e86274835f891971d463c69"
+    },
+    {
+      "path": "raw/driver.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/driver.log",
+      "bytes": 1583,
+      "sha256": "9012f992258a36eef841d65e4011dfe02fdbb8c1e9e68a7b73261f046b98b41a"
+    },
+    {
+      "path": "raw/episodes/run_20260921_223455_384576_msg_df42fd8523ec4c368f4eb566af6d409b-cea7d0c31b13/events.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/episodes/run_20260921_223455_384576_msg_df42fd8523ec4c368f4eb566af6d409b-cea7d0c31b13/events.jsonl",
+      "bytes": 141100,
+      "sha256": "ad0245e8713a72fe5ccf88eb2693c0f7a6e32d57b422fa1a36323c3896317af3"
+    },
+    {
+      "path": "raw/episodes/run_20260921_223455_384576_msg_df42fd8523ec4c368f4eb566af6d409b-cea7d0c31b13/state.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/episodes/run_20260921_223455_384576_msg_df42fd8523ec4c368f4eb566af6d409b-cea7d0c31b13/state.json",
+      "bytes": 1376,
+      "sha256": "c296364be9abcd130a4ef218f73ef6f474bb4376038af1e5dfe921acd5e0198a"
+    },
+    {
+      "path": "raw/episodes/run_20260921_223908_394353_msg_4e9d654436ce42149cafcfb8b2535b8f-d4bb20a7f63b/events.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/episodes/run_20260921_223908_394353_msg_4e9d654436ce42149cafcfb8b2535b8f-d4bb20a7f63b/events.jsonl",
+      "bytes": 275847,
+      "sha256": "e0035ced0185c1d69d6025695ad0ebfcb7ab31b0947e21d0b706fe02b077c203"
+    },
+    {
+      "path": "raw/episodes/run_20260921_223908_394353_msg_4e9d654436ce42149cafcfb8b2535b8f-d4bb20a7f63b/state.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/episodes/run_20260921_223908_394353_msg_4e9d654436ce42149cafcfb8b2535b8f-d4bb20a7f63b/state.json",
+      "bytes": 1363,
+      "sha256": "08e781b14a20ba834b5e4b9cf42c577c0363caf88a29d6bf6d100ceda9b2e7df"
+    },
+    {
+      "path": "raw/health.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/health.json",
+      "bytes": 1995,
+      "sha256": "44c4f0e4ede8a48d2183035c4fe8556e2e11d9c4027616cbee6fceb407f67b13"
+    },
+    {
+      "path": "raw/historical/answer.md",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/historical/answer.md",
+      "bytes": 2883,
+      "sha256": "a9254074d8ae49350d67b8179c34ef8856f85ecbe065ad1ceb4ae493c9a0a2a4"
+    },
+    {
+      "path": "raw/historical/config.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/historical/config.json",
+      "bytes": 240,
+      "sha256": "70cef27ca0aa1b7d801917400a7c36d401ac932b040bb4018363ea9d7b50359b"
+    },
+    {
+      "path": "raw/historical/conversation.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/historical/conversation.json",
+      "bytes": 305,
+      "sha256": "3caa2694805e546b3b64d7c6ad4cf5c0eb12acde04eef02dd3ad600f32b716a2"
+    },
+    {
+      "path": "raw/historical/message.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/historical/message.json",
+      "bytes": 7737,
+      "sha256": "a65484256e660ccffc95a7a1f545b19266c5c9c516af84a094c00dbb58d7703f"
+    },
+    {
+      "path": "raw/historical/messages.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/historical/messages.json",
+      "bytes": 8845,
+      "sha256": "d37eaa454c5b77dfcde65fd56be015107e100408807a9ae44252dd4cdb348481"
+    },
+    {
+      "path": "raw/historical/poll.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/historical/poll.jsonl",
+      "bytes": 10361,
+      "sha256": "cd9fe5d07555d9ae003fb363d0708a939d85a26f7bb079f674164cc0662c9f0a"
+    },
+    {
+      "path": "raw/historical/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/historical/result.json",
+      "bytes": 500,
+      "sha256": "d75951d14abfa61091432ea1467a5a6ff65a605a6b9d7793003b8878cc0c8eff"
+    },
+    {
+      "path": "raw/historical/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/historical/run.json",
+      "bytes": 2049,
+      "sha256": "e512a4b0bd3ae494e1bf5e9a746cead66949e3ef6b3bb0878e507c0498c06d43"
+    },
+    {
+      "path": "raw/historical/submission.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/historical/submission.json",
+      "bytes": 256,
+      "sha256": "f3280b7299f4cdb4d983567aa06e4dc934ac607e4ede30773ab55775b7edc732"
+    },
+    {
+      "path": "raw/observations.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/observations.json",
+      "bytes": 9012,
+      "sha256": "d99d47c834ee4341fecb6d84dbcf3314b9b51366733f59850750cdc6cd1ac481"
+    },
+    {
+      "path": "raw/probe_cutoff.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/probe_cutoff.py",
+      "bytes": 3757,
+      "sha256": "ae4ca0a4fafa9379295f4d39a443b23433a71ebb0de560e09993a0bd92e08ae9"
+    },
+    {
+      "path": "raw/process.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/process.json",
+      "bytes": 36,
+      "sha256": "cf0a73a16afe55e146e3ef002d291e41b05841682779ac4f6151052e0a9677a2"
+    },
+    {
+      "path": "raw/production-after.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/production-after.json",
+      "bytes": 2056,
+      "sha256": "5c18e3628230b4dd2a26813337daa3de157100008d7bbcf08a91aea26df38148"
+    },
+    {
+      "path": "raw/production-before.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/production-before.json",
+      "bytes": 2056,
+      "sha256": "0727f3d95a3f2289816e852dbce779c0c24c86c4e5944019c7c342dce32ab300"
+    },
+    {
+      "path": "raw/protocol.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/protocol.json",
+      "bytes": 1759,
+      "sha256": "599cb58e194d813f25502c2458b147717c7c8257f842e8a75aed266a4dc8cbf0"
+    },
+    {
+      "path": "raw/readiness.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/readiness.json",
+      "bytes": 2811,
+      "sha256": "61562f7c6b9e7abc1bc20b3612cc0274378a763fc7e70427d6e6baac271baed4"
+    },
+    {
+      "path": "raw/run_live.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/run_live.py",
+      "bytes": 12840,
+      "sha256": "492c098a0e597249e2b90c3497c7c051b99bf22ec27cf6933e325c4ca4002d28"
+    },
+    {
+      "path": "raw/scan-observation.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/scan-observation.json",
+      "bytes": 3805,
+      "sha256": "9f701475a4d461276f4d2f335a27fa7ee69deee739c2664c37da30f34925bec9"
+    },
+    {
+      "path": "raw/server.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/server.log",
+      "bytes": 31731,
+      "sha256": "38ef13aebce3b28ffb3b037536ddee20bd7f4e6025cbe05c050fe797569409bd"
+    },
+    {
+      "path": "raw/snapshot-postrun-observation.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/snapshot-postrun-observation.json",
+      "bytes": 744,
+      "sha256": "cfc1578b415ed19311f21f00c41f010704f35eef077e35dedb0bf009da95041c"
+    },
+    {
+      "path": "raw/startup-ledger.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/startup-ledger.jsonl",
+      "bytes": 429,
+      "sha256": "e425be3f29812de9e32a2a6ca733b703c1e7d56a08e4e29a8998c7d1545da218"
+    },
+    {
+      "path": "raw/users/date-k3-current/conversations/conv_f3533694f91a4ec7b0cb49e8560f14e1/conversation.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-current/conversations/conv_f3533694f91a4ec7b0cb49e8560f14e1/conversation.json",
+      "bytes": 323,
+      "sha256": "a480b1c6423f3f73fefac9a1579b9852039ce903245100667a44107602a1ab39"
+    },
+    {
+      "path": "raw/users/date-k3-current/conversations/conv_f3533694f91a4ec7b0cb49e8560f14e1/messages.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-current/conversations/conv_f3533694f91a4ec7b0cb49e8560f14e1/messages.jsonl",
+      "bytes": 8917,
+      "sha256": "6c7f19310cee549c056c405fedca83a20a35bf8ce7a9e982bd860eb1105cfdd7"
+    },
+    {
+      "path": "raw/users/date-k3-current/research_evolution/product_value_events.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-current/research_evolution/product_value_events.jsonl",
+      "bytes": 2773,
+      "sha256": "d2a015e0c7835921d408a001f76db8548c5fdd32c76bf20f56f601749191d4a6"
+    },
+    {
+      "path": "raw/users/date-k3-current/runs/run_20260921_223455_384576/answer.md",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-current/runs/run_20260921_223455_384576/answer.md",
+      "bytes": 2772,
+      "sha256": "b32d095722afb20a326abc9e005032eea0c05912adc8098506853c298e7dd550"
+    },
+    {
+      "path": "raw/users/date-k3-current/runs/run_20260921_223455_384576/continuous-episode.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-current/runs/run_20260921_223455_384576/continuous-episode.json",
+      "bytes": 790109,
+      "sha256": "92387b9852d4454bca94858d5308067a4c66d47bc587b2a0e5f821d478b4a9e6"
+    },
+    {
+      "path": "raw/users/date-k3-current/runs/run_20260921_223455_384576/followups.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-current/runs/run_20260921_223455_384576/followups.json",
+      "bytes": 1260,
+      "sha256": "206f4fd071257cb3a99afdc1eb759d6c43104fa57714fe61f422245522f72481"
+    },
+    {
+      "path": "raw/users/date-k3-current/runs/run_20260921_223455_384576/report.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-current/runs/run_20260921_223455_384576/report.json",
+      "bytes": 3975,
+      "sha256": "3b6c2a66564e371da46f177d66ae2afaeeaf4655d0c9bc93f6cc12610a12caa0"
+    },
+    {
+      "path": "raw/users/date-k3-current/runs/run_20260921_223455_384576/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-current/runs/run_20260921_223455_384576/run.json",
+      "bytes": 2338,
+      "sha256": "2b1396cdfedcdd84914fd34c6e9a32915925257ded0313019355fe2482694a7d"
+    },
+    {
+      "path": "raw/users/date-k3-current/runs/run_20260921_223455_384576/stream.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-current/runs/run_20260921_223455_384576/stream.jsonl",
+      "bytes": 162133,
+      "sha256": "771e91ad0ea51ecb9b401360b7f2036816091293a23c79a478f8c670148b1c03"
+    },
+    {
+      "path": "raw/users/date-k3-current/runs/run_20260921_223455_384576/trace.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-current/runs/run_20260921_223455_384576/trace.jsonl",
+      "bytes": 15596,
+      "sha256": "bab1c62dd79c5515c8d076068a79ff1c703e809b07d978acce1ca638b784abb2"
+    },
+    {
+      "path": "raw/users/date-k3-historical/conversations/conv_b321f310b46e40828bb5d35db9c00d23/conversation.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-historical/conversations/conv_b321f310b46e40828bb5d35db9c00d23/conversation.json",
+      "bytes": 329,
+      "sha256": "b1d2a7a155f8b1be8f00877d14e174723ef69b17426b408edb38d43dfc340cd4"
+    },
+    {
+      "path": "raw/users/date-k3-historical/conversations/conv_b321f310b46e40828bb5d35db9c00d23/messages.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-historical/conversations/conv_b321f310b46e40828bb5d35db9c00d23/messages.jsonl",
+      "bytes": 9573,
+      "sha256": "73d2de74d659f729b2bdd3260e77bfa13affd9b048af8e26c39a622a3cfadf19"
+    },
+    {
+      "path": "raw/users/date-k3-historical/research_evolution/product_value_events.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-historical/research_evolution/product_value_events.jsonl",
+      "bytes": 2779,
+      "sha256": "f3da51b41e7bab59bca93cead7308f0126cbcd8251aa8d2ed536337c1b902a35"
+    },
+    {
+      "path": "raw/users/date-k3-historical/runs/run_20260921_223908_394353/answer.md",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-historical/runs/run_20260921_223908_394353/answer.md",
+      "bytes": 2883,
+      "sha256": "a9254074d8ae49350d67b8179c34ef8856f85ecbe065ad1ceb4ae493c9a0a2a4"
+    },
+    {
+      "path": "raw/users/date-k3-historical/runs/run_20260921_223908_394353/continuous-episode.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-historical/runs/run_20260921_223908_394353/continuous-episode.json",
+      "bytes": 1576374,
+      "sha256": "f47c87c9f9570de68e9939c87e9d119ae2c22045ad5d3151a21a1c18ae3a4607"
+    },
+    {
+      "path": "raw/users/date-k3-historical/runs/run_20260921_223908_394353/followups.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-historical/runs/run_20260921_223908_394353/followups.json",
+      "bytes": 2147,
+      "sha256": "5bfaccc39d34641094f9f8178dadcb694793a3e6ad89693af03c9385e6d685d9"
+    },
+    {
+      "path": "raw/users/date-k3-historical/runs/run_20260921_223908_394353/report.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-historical/runs/run_20260921_223908_394353/report.json",
+      "bytes": 4341,
+      "sha256": "e3112703c654a81500c0b263a2ead61a9a3ac3f1f9e1bba1e4cfd0af0d2a36f2"
+    },
+    {
+      "path": "raw/users/date-k3-historical/runs/run_20260921_223908_394353/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-historical/runs/run_20260921_223908_394353/run.json",
+      "bytes": 2396,
+      "sha256": "30668915c43eabb3b6bf217290151f590ca19c7d17b33bac53997023926b1c40"
+    },
+    {
+      "path": "raw/users/date-k3-historical/runs/run_20260921_223908_394353/stream.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-historical/runs/run_20260921_223908_394353/stream.jsonl",
+      "bytes": 356756,
+      "sha256": "59169cbcc4d3c5c0703b3bd4b6194836908921b550a9054941fe21d3f2ad7805"
+    },
+    {
+      "path": "raw/users/date-k3-historical/runs/run_20260921_223908_394353/trace.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-historical/runs/run_20260921_223908_394353/trace.jsonl",
+      "bytes": 19857,
+      "sha256": "9f6ac98c1d6f0378ee3140090d11c1249eb55a92e7e296d880ac43287391c133"
+    }
+  ],
+  "excluded": [
+    "users/date-k3-current/research_evolution/.research_evolution.lock",
+    "users/date-k3-current/runs/run_20260921_223455_384576/.run-state.lock",
+    "users/date-k3-current/workbench.sqlite3",
+    "users/date-k3-default/workbench.sqlite3",
+    "users/date-k3-historical/research_evolution/.research_evolution.lock",
+    "users/date-k3-historical/runs/run_20260921_223908_394353/.run-state.lock",
+    "users/date-k3-historical/workbench.sqlite3"
+  ]
+}

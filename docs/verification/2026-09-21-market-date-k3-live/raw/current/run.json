@@ -1,0 +1,59 @@
+{
+  "run_id": "run_20260921_223455_384576",
+  "user": "date-k3-current",
+  "question": "只用本地已有数据，不联网：截至2026年9月21日，A股市场处于什么状态、当前有哪些主要题材？请结合真实数据分析，注明各项数据截至日期，缺少的部分单独说明。",
+  "task_type": "ask",
+  "status": "completed",
+  "schema_version": 1,
+  "session_id": "conv_f3533694f91a4ec7b0cb49e8560f14e1",
+  "parent_run_id": null,
+  "created_at": "2026-09-21T22:34:55+08:00",
+  "finished_at": "2026-09-21T22:39:06+08:00",
+  "source_date": "2026-09-18",
+  "duckdb_cutoff": null,
+  "kb_commit": null,
+  "kb_index_built_at": null,
+  "kb_index_freshness": null,
+  "manifest_ref": null,
+  "degrades": [
+    "证据或语义核验未完全通过，已按证据边界降级。"
+  ],
+  "error": null,
+  "artifacts": [
+    {
+      "artifact_id": "artifact_answer_md",
+      "path": "answer.md",
+      "renderer": "markdown",
+      "title": "对话回答：只用本地已有数据，不联网：截至2026年9月21",
+      "sha256": "b32d095722afb20a326abc9e005032eea0c05912adc8098506853c298e7dd550",
+      "bytes": 2772,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    },
+    {
+      "artifact_id": "artifact_report_json",
+      "path": "report.json",
+      "renderer": "structured_report",
+      "title": "结构化对话报告",
+      "sha256": "3b6c2a66564e371da46f177d66ae2afaeeaf4655d0c9bc93f6cc12610a12caa0",
+      "bytes": 3975,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    },
+    {
+      "artifact_id": "artifact_followups_json",
+      "path": "followups.json",
+      "renderer": "json",
+      "title": "猜你想问",
+      "sha256": "206f4fd071257cb3a99afdc1eb759d6c43104fa57714fe61f422245522f72481",
+      "bytes": 1260,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    }
+  ],
+  "maintenance_launch": null,
+  "delivery_pending": false
+}

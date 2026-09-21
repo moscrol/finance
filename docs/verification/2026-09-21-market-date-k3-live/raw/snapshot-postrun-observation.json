@@ -1,0 +1,25 @@
+{
+  "timing": "after live runs; contemporaneous readiness.json separately proves a 09-21 snapshot was available at startup",
+  "path": "/Users/a77/finance-workspace-private/market_snapshot/2026-09-21.json",
+  "sha256": "b89dfe42d45b8b943601ce39b089d536745a158d827b32e32dbeb4894d93b8b9",
+  "bytes": 32995,
+  "metadata": {
+    "trade_date": "2026-09-21",
+    "served_trade_date": "2026-09-21",
+    "provider": "akshare_exact",
+    "source": "AkShare",
+    "quality": "complete",
+    "freshness": "fresh"
+  },
+  "market": {
+    "stage": "上涨阶段",
+    "total_amount": 20479.03,
+    "amount_ratio": null,
+    "advancers": 4535,
+    "decliners": 936,
+    "limit_up": 103,
+    "limit_down": 2,
+    "capacity_top3": []
+  },
+  "theme_count": 52
+}

@@ -1,0 +1,11 @@
+{
+  "mode": "byok",
+  "display_name": "自带密钥",
+  "ready": true,
+  "session_only": true,
+  "built_in_ready": true,
+  "provider": "openai",
+  "model": "kimi-k3",
+  "credential_persisted": false,
+  "saved_credential_available": false
+}

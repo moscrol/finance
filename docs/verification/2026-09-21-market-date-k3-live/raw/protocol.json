@@ -1,0 +1,42 @@
+{
+  "identity_before": {
+    "revision": "786a3b627da9ae37e042881f2c0e8ef12ccac539",
+    "tree": "da8fbef79b8b1aaa8e280d532d169bfe7d7c0827",
+    "status": ""
+  },
+  "cases": [
+    [
+      "current",
+      "只用本地已有数据，不联网：截至2026年9月21日，A股市场处于什么状态、当前有哪些主要题材？请结合真实数据分析，注明各项数据截至日期，缺少的部分单独说明。"
+    ],
+    [
+      "historical",
+      "只用本地已有数据，不联网：把信息截止严格限定为2026年9月11日，分析当时A股市场的成交额、市场阶段和主要题材。请给出实际数值与来源日期，不使用9月11日之后的数据，缺失的部分单独说明。"
+    ]
+  ],
+  "port": 19276,
+  "writer": {
+    "model": "kimi-k3",
+    "base_url": "http://127.0.0.1:8080/v1",
+    "session_only": true
+  },
+  "judge": {
+    "model": "glm-5.3-flash",
+    "semantic": "llm",
+    "evidence": "auto"
+  },
+  "overrides_without_secrets": {
+    "FORESIGHT_EPISODE_STORE": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/episodes",
+    "FINANCE_DEPLOY_LEDGER": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/startup-ledger.jsonl",
+    "FORESIGHT_LLM_KEYCHAIN": "0",
+    "ASK_SEMANTIC_JUDGE": "llm",
+    "ASK_EVIDENCE_JUDGE": "auto",
+    "LLM_JUDGE_BASE_URL": "https://open.bigmodel.cn/api/coding/paas/v4",
+    "LLM_JUDGE_MODEL": "glm-5.3-flash",
+    "MARKET_FEATURE_STORE_DB": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb"
+  },
+  "source_data_frozen": false,
+  "repetitions_per_case": 1,
+  "production_switch_authorized": false,
+  "scope": "real model through conversations; local data reads; no quality or improvement claim from n=1"
+}

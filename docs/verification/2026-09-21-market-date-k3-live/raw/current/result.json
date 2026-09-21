@@ -1,0 +1,12 @@
+{
+  "case": "current",
+  "user": "date-k3-current",
+  "run_id": "run_20260921_223455_384576",
+  "conversation_id": "conv_f3533694f91a4ec7b0cb49e8560f14e1",
+  "assistant_message_id": "msg_df42fd8523ec4c368f4eb566af6d409b",
+  "status": "completed",
+  "terminal_within_deadline": true,
+  "elapsed_s": 253.0,
+  "raw_run": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-current/runs/run_20260921_223455_384576",
+  "quality_verdict": "pending_human_review"
+}

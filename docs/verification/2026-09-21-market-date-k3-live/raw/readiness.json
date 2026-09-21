@@ -1,0 +1,111 @@
+{
+  "http_status": 200,
+  "status": "ready",
+  "timestamp": "2026-09-21T22:34:55+08:00",
+  "checks": {
+    "repo_root": true,
+    "knowledge_wiki": true,
+    "relations": true,
+    "vector_index": true,
+    "rag_runtime": true,
+    "market_snapshot": true,
+    "frontend_built": true,
+    "rag_query_protocol": true,
+    "rag_worker": true,
+    "run_store_writable": true,
+    "market_snapshot_contract": true,
+    "market_data_consistency": false,
+    "code_snapshot_matches_repo": true
+  },
+  "critical": {
+    "repo_root": true,
+    "run_store_writable": true,
+    "knowledge_wiki": true,
+    "relations": true,
+    "vector_index": true,
+    "rag_query_protocol": true,
+    "rag_worker": true,
+    "market_snapshot": true
+  },
+  "missing_critical": [],
+  "rag": {
+    "available": true,
+    "query_protocol_compatible": true,
+    "supported_options": [
+      "--json",
+      "--k",
+      "--mode",
+      "--evidence-chars"
+    ],
+    "missing_required_options": [],
+    "missing_optional_options": [
+      "--evidence-layer",
+      "--fact-hardness",
+      "--source-type",
+      "--as-of",
+      "--receipt"
+    ],
+    "warning": "RAG CLI 使用 legacy query 协议"
+  },
+  "market_snapshot": {
+    "status": "PASS",
+    "ready": true,
+    "date": "2026-09-21",
+    "requested_date": "2026-09-21",
+    "provider": "akshare_exact",
+    "source": "AkShare",
+    "summary": {
+      "theme_count": 52,
+      "strong_stock_count": 103,
+      "market_stage": "上涨阶段",
+      "latest_trade_date": "2026-09-21",
+      "requested_trade_date": "2026-09-21",
+      "served_trade_date": "2026-09-21",
+      "provider": "akshare_exact",
+      "source": "AkShare",
+      "source_updated_at": null,
+      "quality": "complete",
+      "freshness": "fresh"
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "market_database": {
+    "date": "2026-09-18",
+    "snapshot_date": "2026-09-21",
+    "consistent_with_snapshot": false,
+    "required_by_continuous_runtime": false,
+    "advisories": [
+      "行情快照截至 2026-09-21，结构化库截至 2026-09-18；按各来源实际日期使用已有数据，不因日期差异降级或拒答。"
+    ]
+  },
+  "workers": {
+    "active": 0,
+    "queued": 0,
+    "capacity": 4,
+    "max_active_per_user": 1,
+    "max_queued": 4,
+    "timeout_sec": 900,
+    "rag": {
+      "enabled": false,
+      "state": "disabled",
+      "active": 0,
+      "configured_workers": 0,
+      "model_load_count": 0,
+      "prewarm_latency_ms": null,
+      "last_error_type": null,
+      "lifecycle": "startup_prewarm",
+      "counters": {},
+      "abandoned_in_flight": 0,
+      "rss_bytes": null,
+      "idle_seconds": null,
+      "keepalive_interval_seconds": 0.0
+    }
+  },
+  "recovered_runs": 0,
+  "open_episodes": {
+    "count": 0,
+    "episode_ids": [],
+    "truncated": false
+  }
+}

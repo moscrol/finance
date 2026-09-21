@@ -1,0 +1,252 @@
+"""Bounded K3 writer probes against the fixed date-advisory Workbench candidate.
+
+Private experiment, not a deployment or an independent quality verdict. Uses
+real conversations, existing local data, separate users/episode/deploy stores,
+and the existing GLM semantic judge. Credentials remain in process memory.
+"""
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import shlex
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+
+ROOT = Path(__file__).resolve().parent
+REPO = Path('/Users/a77/fwp-wt-market-date-advisory-0921')
+PYTHON = Path('/Users/a77/finance-workspace-private/.venv-workbench/bin/python')
+DATA = Path('/Users/a77/finance-workspace-private')
+REVISION = '786a3b627da9ae37e042881f2c0e8ef12ccac539'
+sys.path.insert(0, str(REPO))
+from intelligence.eval.live_probe import (  # noqa: E402
+    DEFAULT_LAUNCHER, LIVE_LOCK_PATH, SidecarSpec,
+    assert_safe_to_start, choose_port, port_is_listening, sidecar_zsh,
+)
+
+CASES = [
+    ('current', '只用本地已有数据，不联网：截至2026年9月21日，A股市场处于什么状态、当前有哪些主要题材？请结合真实数据分析，注明各项数据截至日期，缺少的部分单独说明。'),
+    ('historical', '只用本地已有数据，不联网：把信息截止严格限定为2026年9月11日，分析当时A股市场的成交额、市场阶段和主要题材。请给出实际数值与来源日期，不使用9月11日之后的数据，缺失的部分单独说明。'),
+]
+OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def dump(path: Path, data: object) -> None:
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+
+
+def git(*args: str) -> str:
+    return subprocess.check_output(['git', '-C', str(REPO), *args], text=True).strip()
+
+
+def identity() -> dict:
+    return {'revision': git('rev-parse', 'HEAD'), 'tree': git('rev-parse', 'HEAD^{tree}'),
+            'status': git('status', '--porcelain')}
+
+
+def request(base: str, path: str, payload=None, *, method=None, timeout=30):
+    data = json.dumps(payload).encode() if payload is not None else None
+    req = urllib.request.Request(base + path, data=data,
+        headers={'Content-Type': 'application/json'},
+        method=method or ('POST' if data is not None else 'GET'))
+    try:
+        response = OPENER.open(req, timeout=timeout)
+    except urllib.error.HTTPError as exc:
+        response = exc
+    with response:
+        return response.code, json.load(response)
+
+
+def environment() -> dict[str, str]:
+    command = f'set -a; . <(grep "^export " {shlex.quote(str(DEFAULT_LAUNCHER))}); /usr/bin/env -0'
+    raw = subprocess.run(['/bin/zsh', '-c', command], check=True, capture_output=True,
+        env={'HOME': str(Path.home()), 'PATH': os.environ['PATH'], 'LANG': 'en_US.UTF-8'}).stdout
+    return dict(item.decode().split('=', 1) for item in raw.split(b'\0') if b'=' in item)
+
+
+def gateway_key() -> str:
+    from dotenv import dotenv_values
+    values = dotenv_values(Path.home() / 'Library/Application Support/mirasim-sidecar/client-keys.env')
+    key = values.get('MIRASIM_CODEX_API_KEY')
+    if not key:
+        raise RuntimeError('gateway credential missing')
+    return key
+
+
+def data_audit() -> dict:
+    import duckdb
+    tables = ['fact_market_daily', 'fact_mainline_theme_daily', 'fact_mainline_sector_daily',
+              'fact_stock_daily', 'fact_sector_daily', 'fact_sector_stock_daily']
+    result = {}
+    with duckdb.connect(str(DATA / 'db/market_feature_store.duckdb'), read_only=True) as con:
+        for table in tables:
+            count, latest = con.execute(f'SELECT count(*), max(trade_date) FROM {table}').fetchone()
+            info = {'count': count, 'latest_date': str(latest), 'by_cutoff': {}}
+            for cutoff in ['2026-09-21', '2026-09-11']:
+                observed = con.execute(f'SELECT max(trade_date) FROM {table} WHERE trade_date <= ?', [cutoff]).fetchone()[0]
+                item = {'observed_date': str(observed)}
+                if table in tables[:3]:
+                    cursor = con.execute(f'SELECT * FROM {table} WHERE trade_date = ?', [observed])
+                    names = [column[0] for column in cursor.description]
+                    item['rows'] = [dict(zip(names, row)) for row in cursor.fetchall()]
+                info['by_cutoff'][cutoff] = item
+            result[table] = info
+    return json.loads(json.dumps(result, default=str))
+
+
+def run_case(base: str, label: str, question: str, key: str) -> dict:
+    dest = ROOT / label
+    dest.mkdir()
+    user = 'date-k3-' + label
+    status, config = request(base, '/api/llm/config', {
+        'user': user, 'provider': 'openai', 'api_key': key,
+        'base_url': 'http://127.0.0.1:8080/v1', 'model': 'kimi-k3', 'remember': False,
+    }, method='PUT')
+    if status != 200:
+        raise RuntimeError('session writer configuration failed')
+    dump(dest / 'config.json', config)
+    status, conversation = request(base, '/api/conversations', {'user': user, 'title': 'Date advisory ' + label})
+    if status not in {200, 201}:
+        raise RuntimeError('conversation creation failed')
+    conv = conversation['conversation_id']
+    dump(dest / 'conversation.json', conversation)
+    submitted_at = time.monotonic()
+    status, submission = request(base, f'/api/conversations/{conv}/messages', {
+        'user': user, 'content': question, 'skill_mode': 'hybrid', 'perspective_mode': 'neutral',
+    })
+    dump(dest / 'submission.json', {'http_status': status, **submission})
+    if status != 202:
+        raise RuntimeError('message submission failed')
+    run_id, message_id = submission['run_id'], submission['assistant_message_id']
+    print(json.dumps({'case': label, 'run_id': run_id, 'conversation_id': conv}), flush=True)
+    terminal = False
+    with (dest / 'poll.jsonl').open('x') as poll:
+        while time.monotonic() - submitted_at < 900:
+            status, run = request(base, f'/api/runs/{run_id}?user={user}')
+            if status != 200:
+                raise RuntimeError('run poll failed')
+            dump(dest / 'run.json', run)
+            poll.write(json.dumps({'elapsed_s': round(time.monotonic() - submitted_at, 2),
+                'status': run.get('status'), 'delivery_pending': run.get('delivery_pending')}) + '\n')
+            poll.flush()
+            if run.get('status') in {'failed', 'cancelled'}:
+                terminal = True
+                break
+            if run.get('status') == 'completed' and not run.get('delivery_pending'):
+                status, messages = request(base, f'/api/conversations/{conv}/messages?user={user}')
+                if status != 200:
+                    raise RuntimeError('message read failed')
+                dump(dest / 'messages.json', messages)
+                items = messages.get('messages', []) if isinstance(messages, dict) else messages
+                answer = next((item for item in items if item.get('message_id') == message_id), None)
+                if answer and answer.get('content'):
+                    dump(dest / 'message.json', answer)
+                    (dest / 'answer.md').write_text(answer['content'])
+                    terminal = True
+                    break
+            time.sleep(2)
+    if not terminal:
+        request(base, f'/api/runs/{run_id}/cancel?user={user}', {}, timeout=15)
+    result = {'case': label, 'user': user, 'run_id': run_id, 'conversation_id': conv,
+        'assistant_message_id': message_id, 'status': run.get('status'),
+        'terminal_within_deadline': terminal, 'elapsed_s': round(time.monotonic() - submitted_at, 2),
+        'raw_run': str(ROOT / 'users' / user / 'runs' / run_id), 'quality_verdict': 'pending_human_review'}
+    dump(dest / 'result.json', result)
+    request(base, f'/api/llm/config?user={user}', method='DELETE')
+    print(json.dumps(result), flush=True)
+    return result
+
+
+def main() -> int:
+    os.umask(0o077)
+    if (ROOT / 'protocol.json').exists():
+        raise RuntimeError('output already used')
+    before = identity()
+    assert before['revision'] == REVISION and before['status'] == ''
+    env = environment()
+    key = gateway_key()
+    judge_key = env['FORESIGHT_BUILTIN_LLM_API_KEY']
+    port = choose_port(preferred=19276, is_busy=port_is_listening)
+    assert_safe_to_start(lock_path=LIVE_LOCK_PATH, port=port, is_busy=port_is_listening)
+    base = f'http://127.0.0.1:{port}'
+    spec = SidecarSpec(port, REPO, PYTHON, DEFAULT_LAUNCHER, ROOT / 'users', 'date-k3-default')
+    command = sidecar_zsh(spec)
+    overrides = {
+        'FORESIGHT_EPISODE_STORE': str(ROOT / 'episodes'),
+        'FINANCE_DEPLOY_LEDGER': str(ROOT / 'startup-ledger.jsonl'),
+        'FORESIGHT_LLM_KEYCHAIN': '0',
+        'ASK_SEMANTIC_JUDGE': 'llm',
+        'ASK_EVIDENCE_JUDGE': 'auto',
+        'LLM_JUDGE_BASE_URL': env['FORESIGHT_BUILTIN_LLM_BASE_URL'],
+        'LLM_JUDGE_MODEL': 'glm-5.3-flash',
+        'MARKET_FEATURE_STORE_DB': str(DATA / 'db/market_feature_store.duckdb'),
+    }
+    # The key stays in inherited environment, never interpolated into the command/log.
+    env['LLM_JUDGE_API_KEY'] = judge_key
+    command = command.replace('mkdir -p ', '\n'.join('export ' + name + '=' + shlex.quote(value)
+        for name, value in overrides.items()) + '\nmkdir -p ', 1)
+    protocol = {'identity_before': before, 'cases': CASES, 'port': port,
+        'writer': {'model': 'kimi-k3', 'base_url': 'http://127.0.0.1:8080/v1', 'session_only': True},
+        'judge': {'model': 'glm-5.3-flash', 'semantic': 'llm', 'evidence': 'auto'},
+        'overrides_without_secrets': overrides, 'source_data_frozen': False,
+        'repetitions_per_case': 1, 'production_switch_authorized': False,
+        'scope': 'real model through conversations; local data reads; no quality or improvement claim from n=1'}
+    dump(ROOT / 'protocol.json', protocol)
+    dump(ROOT / 'data-before.json', data_audit())
+    code, prod = request('http://127.0.0.1:8792', '/api/health')
+    dump(ROOT / 'production-before.json', {'http_status': code, **prod})
+    results = []
+    with (ROOT / 'server.log').open('x') as log:
+        process = subprocess.Popen(['/bin/zsh', '-c', command], stdout=log, stderr=subprocess.STDOUT, env=env)
+        dump(ROOT / 'process.json', {'pid': process.pid, 'port': port})
+        try:
+            startup_deadline = time.monotonic() + 90
+            while True:
+                if process.poll() is not None:
+                    raise RuntimeError('sidecar exited at startup')
+                try:
+                    code, health = request(base, '/api/health', timeout=5)
+                    if code == 200:
+                        break
+                except OSError:
+                    pass
+                if time.monotonic() > startup_deadline:
+                    raise RuntimeError('startup timed out')
+                time.sleep(1)
+            dump(ROOT / 'health.json', health)
+            assert Path(health['runtime']['loaded_code_root']).resolve() == REPO / 'intelligence'
+            assert health['runtime']['source_revision'] == REVISION
+            assert health['runtime']['source_dirty'] is False
+            code, ready = request(base, '/api/readiness?user=date-k3-default', timeout=45)
+            dump(ROOT / 'readiness.json', {'http_status': code, **ready})
+            print(json.dumps({'started': True, 'port': port, 'readiness': ready.get('status'),
+                'missing_critical': ready.get('missing_critical'), 'market_database': ready.get('market_database')}, ensure_ascii=False), flush=True)
+            for label, question in CASES:
+                results.append(run_case(base, label, question, key))
+        finally:
+            process.terminate()
+            try:
+                process.wait(timeout=20)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+            after = identity()
+            dump(ROOT / 'closure.json', {'identity_after': after, 'identity_stable': before == after,
+                'server_exit_code': process.returncode, 'port_closed': not port_is_listening(port), 'results': results})
+            dump(ROOT / 'data-after.json', data_audit())
+            code, prod = request('http://127.0.0.1:8792', '/api/health')
+            dump(ROOT / 'production-after.json', {'http_status': code, **prod})
+    return 0 if len(results) == len(CASES) and all(item['terminal_within_deadline'] for item in results) else 1
+
+
+if __name__ == '__main__':
+    try:
+        raise SystemExit(main())
+    except Exception as exc:
+        # Provider exceptions can embed credentials. Keep only the type in the artifact.
+        dump(ROOT / 'execution-error.json', {'error_type': type(exc).__name__})
+        print('execution_error=' + type(exc).__name__, flush=True)
+        raise SystemExit(2) from None

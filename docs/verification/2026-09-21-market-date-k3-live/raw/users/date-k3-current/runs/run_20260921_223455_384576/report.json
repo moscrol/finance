@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "report_id": "run_20260921_223455_384576",
+  "title": "只用本地已有数据，不联网：截至2026年9月21日，A股市场处于什么状态、当前有哪些主要题材？请结合真实数据分析，注明各项数据截至日期，缺少的部分单独说明。",
+  "task_type": "research",
+  "status": "partial",
+  "as_of": "2026-09-18",
+  "llm": {
+    "used": true,
+    "provider": "openai",
+    "model": "kimi-k3"
+  },
+  "modules": [],
+  "warnings": [
+    "证据或语义核验未完全通过，已按证据边界降级。"
+  ],
+  "task_frame": {
+    "raw_question": "只用本地已有数据，不联网：截至2026年9月21日，A股市场处于什么状态、当前有哪些主要题材？请结合真实数据分析，注明各项数据截至日期，缺少的部分单独说明。",
+    "user_goal": "形成条件化判断",
+    "question_type": "general_finance_qa",
+    "subject": null,
+    "subject_kind": "unknown",
+    "market_scope": "A股",
+    "timeframe": "2026-09-21",
+    "required_outputs": [
+      "direct_answer",
+      "evidence_boundary"
+    ],
+    "assumptions": [],
+    "ambiguities": [],
+    "clarification_question": null,
+    "evidence_policy": "general_finance_evidence",
+    "confidence": 0.4,
+    "material_contract": {
+      "classification": "constraint_confirmed",
+      "authenticity": "real",
+      "data_scope": "本地_only",
+      "premise_marks": [],
+      "questions": [],
+      "continuation_requested": false,
+      "uncertain_reasons": [],
+      "data_scope_declared": true,
+      "premise_calculation": false
+    },
+    "task_frame_hash": "b10780aacc23cab48f282e42ad15b389d4474de354982e3105294c630889b3dc"
+  },
+  "task_frame_hash": "b10780aacc23cab48f282e42ad15b389d4474de354982e3105294c630889b3dc",
+  "execution_kind": "continuous_episode",
+  "turn_intent": {
+    "primary_subject": null,
+    "secondary_topics": [],
+    "question_type": "general_finance_qa",
+    "answer_owner": null,
+    "comparison_entities": [],
+    "inherited_from_turn": null,
+    "evidence_atom_ids": [],
+    "skill_ids": [],
+    "stage_artifact_ids": [],
+    "time_horizon": "long",
+    "operators": [],
+    "required_outputs": [
+      "direct_answer",
+      "evidence_boundary"
+    ],
+    "timeframe": "2026-09-21",
+    "task_frame_hash": "b10780aacc23cab48f282e42ad15b389d4474de354982e3105294c630889b3dc",
+    "pending_task_frame": null,
+    "clarification_rounds": 0,
+    "history_intent": null
+  },
+  "answer_marker_coverage": {
+    "task_frame_hash": "b10780aacc23cab48f282e42ad15b389d4474de354982e3105294c630889b3dc",
+    "question_type": "general_finance_qa",
+    "required_output_count": 2,
+    "checked_count": 1,
+    "present": [],
+    "absent": [
+      "evidence_boundary"
+    ],
+    "uncheckable": [
+      "direct_answer"
+    ],
+    "marker_coverage": "incomplete",
+    "observation_only": true,
+    "warnings": []
+  },
+  "context_growth": {
+    "sub_agent_provenance": "unavailable",
+    "sub_agent_branch_count": 0,
+    "sub_agent_input_tokens": null,
+    "provenance": "per_turn",
+    "turn_count": 2,
+    "per_turn_input_tokens": [
+      15566,
+      29536
+    ],
+    "max_turn_input_tokens": 29536,
+    "cumulative_input_tokens": 45102,
+    "growth_ratio": 1.897,
+    "observation_only": true
+  },
+  "transport_status": "completed",
+  "research_status": "partial",
+  "answer_status": "partial",
+  "business_status": "partial",
+  "completed_at": "2026-09-21T14:39:06+00:00",
+  "gate_receipt": {
+    "schema_version": 1,
+    "engine": "episode",
+    "rev": "786a3b627da9ae37e042881f2c0e8ef12ccac539",
+    "verified_status": "completed",
+    "judge_status": "unavailable",
+    "issues": [
+      "semantic judge window exhausted by prior attempt"
+    ],
+    "judge_unavailable_count": 1,
+    "content_degraded_count": 0,
+    "timings": {
+      "elapsed_seconds": null,
+      "retrieve_seconds": null,
+      "judge_seconds": null,
+      "timeout_asked": 0.0
+    },
+    "correlated_judge": false
+  }
+}

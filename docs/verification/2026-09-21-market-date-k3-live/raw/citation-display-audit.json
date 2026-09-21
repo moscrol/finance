@@ -1,0 +1,403 @@
+{
+  "current": {
+    "citation_count": 15,
+    "unmatched_count": 0,
+    "rows": [
+      {
+        "citation": {
+          "title": "2026-09-18 题材级主线汇总：半导体、AI算力、电子、电力设备。；数据日期：2026-0",
+          "source": "本地市场数据 · 可用主线结构",
+          "date": "2026-09-18"
+        },
+        "matching_evidence_hashes": [
+          "901cbe321341576d"
+        ]
+      },
+      {
+        "citation": {
+          "title": "2026-09-18；最新主线日期：2026-09-18；匹配口径：最新全市场主线；该块是盘面信号",
+          "source": "本地市场数据 · 可用主线结构",
+          "date": "2026-09-18"
+        },
+        "matching_evidence_hashes": [
+          "cbc20c3c43aa2342"
+        ]
+      },
+      {
+        "citation": {
+          "title": "2026-09-18；主线持续性：农林牧渔近20日出现11天（2026-08-31~2026-0",
+          "source": "本地市场数据 · 可用主线结构",
+          "date": "2026-09-18"
+        },
+        "matching_evidence_hashes": [
+          "d7a489473745bf9f"
+        ]
+      },
+      {
+        "citation": {
+          "title": "2026-09-18；AI算力核心板块：CPO概念(-，未标注/-，涨2.34%，边际量12.9",
+          "source": "本地市场数据 · 可用主线结构",
+          "date": "2026-09-18"
+        },
+        "matching_evidence_hashes": [
+          "5afe2ec7be9f0636"
+        ]
+      },
+      {
+        "citation": {
+          "title": "2026-09-18；半导体核心板块：PCB(电子，未标注/-，涨1.09%，边际量6.25%，",
+          "source": "本地市场数据 · 可用主线结构",
+          "date": "2026-09-18"
+        },
+        "matching_evidence_hashes": [
+          "c22cfb1393a5603b"
+        ]
+      },
+      {
+        "citation": {
+          "title": "市场日频总览（2026-09-18）",
+          "source": "本地结构化数据 · 市场日频总览",
+          "date": "2026-09-18"
+        },
+        "matching_evidence_hashes": [
+          "28bc5ff833688043"
+        ]
+      },
+      {
+        "citation": {
+          "title": "市场日频总览（2026-09-17）",
+          "source": "本地结构化数据 · 市场日频总览",
+          "date": "2026-09-17"
+        },
+        "matching_evidence_hashes": [
+          "3a03511700e94e9f"
+        ]
+      },
+      {
+        "citation": {
+          "title": "市场日频总览（2026-09-16）",
+          "source": "本地结构化数据 · 市场日频总览",
+          "date": "2026-09-16"
+        },
+        "matching_evidence_hashes": [
+          "82f1553e7deabc77"
+        ]
+      },
+      {
+        "citation": {
+          "title": "市场日频总览（2026-09-15）",
+          "source": "本地结构化数据 · 市场日频总览",
+          "date": "2026-09-15"
+        },
+        "matching_evidence_hashes": [
+          "fd9b090948fd1fd8"
+        ]
+      },
+      {
+        "citation": {
+          "title": "市场日频总览（2026-09-11）",
+          "source": "本地结构化数据 · 市场日频总览",
+          "date": "2026-09-11"
+        },
+        "matching_evidence_hashes": [
+          "1a9df13d8d14fd08"
+        ]
+      },
+      {
+        "citation": {
+          "title": "市场日频总览（2026-09-08）",
+          "source": "本地结构化数据 · 市场日频总览",
+          "date": "2026-09-08"
+        },
+        "matching_evidence_hashes": [
+          "bfe4c9fd5a9bcc69"
+        ]
+      },
+      {
+        "citation": {
+          "title": "题材涨停热度日频（2026-09-18）",
+          "source": "本地结构化数据 · 题材涨停热度日频",
+          "date": "2026-09-18"
+        },
+        "matching_evidence_hashes": [
+          "4f78852251a1dea7",
+          "9f95e83efb6bf259",
+          "742d36a9a466a032",
+          "17d5d19e9259e764",
+          "c3d9df86e427d055",
+          "ceb4176742fe2f10",
+          "57d73f6d9b261993",
+          "dc0423b48afd4dee",
+          "7e6fc9f74c0d8d0d",
+          "25683412c5dfe360",
+          "6829f53176a31b7b",
+          "20c785d149e630d1",
+          "015967d9d7a1cd96",
+          "8b46ba4842efb1d0",
+          "f76d635ff2bb7825",
+          "7ddb84b8d72767f9",
+          "42bd17b4841d1875",
+          "8f2825a5c064ff15",
+          "93394463294c5d94",
+          "24a760846ae8896c",
+          "04c9485e36c7bd70",
+          "af989205006d574a",
+          "38cfff6d5a978474",
+          "00f6ee1d2de90f53",
+          "48cd276f6a37a59c"
+        ]
+      },
+      {
+        "citation": {
+          "title": "连板龙头高度日频（2026-09-18）",
+          "source": "本地结构化数据 · 连板龙头高度日频",
+          "date": "2026-09-18"
+        },
+        "matching_evidence_hashes": [
+          "d6557031ec37a232"
+        ]
+      },
+      {
+        "citation": {
+          "title": "连板龙头高度日频（2026-09-17）",
+          "source": "本地结构化数据 · 连板龙头高度日频",
+          "date": "2026-09-17"
+        },
+        "matching_evidence_hashes": [
+          "11c81715301f6059"
+        ]
+      },
+      {
+        "citation": {
+          "title": "连板龙头高度日频（2026-09-16）",
+          "source": "本地结构化数据 · 连板龙头高度日频",
+          "date": "2026-09-16"
+        },
+        "matching_evidence_hashes": [
+          "07547f4f79bff312"
+        ]
+      }
+    ]
+  },
+  "historical": {
+    "citation_count": 13,
+    "unmatched_count": 0,
+    "rows": [
+      {
+        "citation": {
+          "title": "市场日频总览（2026-09-11）",
+          "source": "本地结构化数据 · 市场日频总览",
+          "date": "2026-09-11"
+        },
+        "matching_evidence_hashes": [
+          "3018fc23354d160e"
+        ]
+      },
+      {
+        "citation": {
+          "title": "市场日频总览（2026-09-10）",
+          "source": "本地结构化数据 · 市场日频总览",
+          "date": "2026-09-10"
+        },
+        "matching_evidence_hashes": [
+          "08cceacc9f3d8f01"
+        ]
+      },
+      {
+        "citation": {
+          "title": "市场日频总览（2026-09-09）",
+          "source": "本地结构化数据 · 市场日频总览",
+          "date": "2026-09-09"
+        },
+        "matching_evidence_hashes": [
+          "5fca07175ffefd5d"
+        ]
+      },
+      {
+        "citation": {
+          "title": "市场日频总览（2026-09-08）",
+          "source": "本地结构化数据 · 市场日频总览",
+          "date": "2026-09-08"
+        },
+        "matching_evidence_hashes": [
+          "e551966a75531f79"
+        ]
+      },
+      {
+        "citation": {
+          "title": "题材涨停热度日频（2026-09-11）",
+          "source": "本地结构化数据 · 题材涨停热度日频",
+          "date": "2026-09-11"
+        },
+        "matching_evidence_hashes": [
+          "c958d67568b5160c",
+          "a51d2c6c1ba5bc4a",
+          "379fcce46562d23f",
+          "a18866425aff09bf",
+          "27606f45cdf26057",
+          "f1b72ef56f543955",
+          "16d079c5b396f360",
+          "1f8f812fbba33685",
+          "f278cfc2913321b7",
+          "eb0aa7a07e01f678",
+          "b8b841ed04dedf2d",
+          "469934d313fd8794",
+          "3ca80e0a0cbd80af",
+          "ff2b0beb13addb5e",
+          "83497e20dd52a295"
+        ]
+      },
+      {
+        "citation": {
+          "title": "连板龙头高度日频（2026-09-11）",
+          "source": "本地结构化数据 · 连板龙头高度日频",
+          "date": "2026-09-11"
+        },
+        "matching_evidence_hashes": [
+          "8e06d2469541c9a5"
+        ]
+      },
+      {
+        "citation": {
+          "title": "连板龙头高度日频（2026-09-10）",
+          "source": "本地结构化数据 · 连板龙头高度日频",
+          "date": "2026-09-10"
+        },
+        "matching_evidence_hashes": [
+          "32f156bc6cb33cca"
+        ]
+      },
+      {
+        "citation": {
+          "title": "连板龙头高度日频（2026-09-07）",
+          "source": "本地结构化数据 · 连板龙头高度日频",
+          "date": "2026-09-07"
+        },
+        "matching_evidence_hashes": [
+          "4ec3636828785bfd"
+        ]
+      },
+      {
+        "citation": {
+          "title": "主线板块日频结构（2026-09-11）",
+          "source": "本地结构化数据 · 主线板块日频结构",
+          "date": "2026-09-11"
+        },
+        "matching_evidence_hashes": [
+          "5a6e99c2da7f3cb5",
+          "23591b55075f8f9b",
+          "a31165a4218237ed",
+          "15b116b13118ba6e",
+          "27ced0c1863c90d4",
+          "22266801396fca76",
+          "274466bf1a2f9320",
+          "4351b6cd8cfb782e",
+          "7f2b0d4dd8193dc9",
+          "ac8c42965c3435fc",
+          "f80e4c5f0fce76d3",
+          "9482b8557b10b251",
+          "1b04b3a32d8a7b17",
+          "f1586985e819885b",
+          "62bc291c9f29bc75",
+          "64f56c5ef4d819b4",
+          "2a1a206984920775",
+          "55f8b7a4a07e9583",
+          "06644d3548db21a2",
+          "2408998a1f8a2053",
+          "1da9c0417efaf3c5",
+          "a14e5fe9e26332e5",
+          "723ade494f3e7ce8",
+          "c9b609ce255e6141",
+          "1171b94cecbdbcc8",
+          "67b85224ee8f50d0",
+          "26ee1ee878f188a1",
+          "c2068025da54e2e9",
+          "55a0007a9157ebd7",
+          "24fe97856fbd3c77",
+          "269b49b4b39e7d07",
+          "eb7bde9af02ad167",
+          "659b1235786b9322",
+          "37c5a15ef133f6a6",
+          "4e0c1fa518d050c3",
+          "e48e09bb2ebc5117",
+          "bbebf9782620f0f7",
+          "1a0529dcb12127cf",
+          "dbe340c8f273ca80"
+        ]
+      },
+      {
+        "citation": {
+          "title": "主线题材日频结构（2026-09-11）",
+          "source": "本地结构化数据 · 主线题材日频结构",
+          "date": "2026-09-11"
+        },
+        "matching_evidence_hashes": [
+          "52e798750907a738",
+          "8e6e4090a8550328",
+          "43ff5ac75a57672c",
+          "705df2cc53472afd"
+        ]
+      },
+      {
+        "citation": {
+          "title": "申万一级行业日频行情（2026-09-11）",
+          "source": "本地结构化数据 · 申万一级行业日频行情",
+          "date": "2026-09-11"
+        },
+        "matching_evidence_hashes": [
+          "c5db968e30af7a38",
+          "2c9ddfe1db05c798",
+          "55b285f8ce73b576",
+          "13f23a9e7bd098c4",
+          "49ceabbd04b32ba8",
+          "b88f5c76b26d349c",
+          "05d88688b2694a06",
+          "6302bdf656c4e032",
+          "119c47350914477b",
+          "fdf2b895d04ad15c",
+          "7ebda4a523dfe8fb",
+          "bfe57d274ebbb9dc",
+          "1760f1e0d37a0540",
+          "54206c68b393c1ae",
+          "a53084fd32f03648",
+          "8b96e7f2ea5cf456",
+          "150874d9a8e4ee17",
+          "574e10ec3473bb0f",
+          "c2ef9d8932774fec",
+          "052a2c7ef3dd4329",
+          "20375016d405911c",
+          "cf90a67bf3bb8f7f",
+          "455505e522b2702c",
+          "c2225a77abcc30cd",
+          "a7a962bcd617b4a5"
+        ]
+      },
+      {
+        "citation": {
+          "title": "本地个股截面涨跌家数（2026-09-11）",
+          "source": "本地结构化数据 · 本地个股截面涨跌家数",
+          "date": "2026-09-11"
+        },
+        "matching_evidence_hashes": [
+          "7697925ca5bbcde6"
+        ]
+      },
+      {
+        "citation": {
+          "title": "连板梯队个股日频（2026-09-11）",
+          "source": "本地结构化数据 · 连板梯队个股日频",
+          "date": "2026-09-11"
+        },
+        "matching_evidence_hashes": [
+          "386a39301c18c831",
+          "c8a10d8fd311cb76",
+          "6976b2b12aad9e72",
+          "b65b59f81d194c5c",
+          "d4cd9077ae6ded33",
+          "7ae3ca1d9b24809b",
+          "2092fe6d4eaa963b"
+        ]
+      }
+    ]
+  }
+}

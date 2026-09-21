@@ -1,0 +1,263 @@
+{
+  "kind": "author_live_acceptance_observations",
+  "cases": {
+    "current": {
+      "run_id": "run_20260921_223455_384576",
+      "conversation_id": "conv_f3533694f91a4ec7b0cb49e8560f14e1",
+      "assistant_message_id": "msg_df42fd8523ec4c368f4eb566af6d409b",
+      "elapsed_s": 253.0,
+      "served_models": {
+        "kimi-k3": 2
+      },
+      "usage": {
+        "llm_calls": 2,
+        "tool_calls": 5,
+        "invalid_actions": 0,
+        "input_tokens": 45102,
+        "output_tokens": 3110
+      },
+      "task_frame": {
+        "question_type": "general_finance_qa",
+        "subject": null,
+        "subject_kind": "unknown",
+        "timeframe": "2026-09-21",
+        "history_intent": null
+      },
+      "information_cutoff": {
+        "as_of_date": "2026-09-21",
+        "source": "runtime_default"
+      },
+      "expected_user_cutoff": "2026-09-21",
+      "context_cutoff_matches_user": true,
+      "tool_result_count": 5,
+      "tool_names": {
+        "mainline_context": 1,
+        "finance_query": 3,
+        "memory_lookup": 1
+      },
+      "evidence_observations": 48,
+      "unique_evidence_hashes": 48,
+      "evidence_dates": {
+        "2026-09-08": 2,
+        "2026-09-09": 2,
+        "2026-09-10": 2,
+        "2026-09-11": 2,
+        "2026-09-14": 2,
+        "2026-09-15": 2,
+        "2026-09-16": 2,
+        "2026-09-17": 2,
+        "2026-09-18": 32
+      },
+      "evidence_io_effects": {
+        "local_read": 48
+      },
+      "undated_evidence_count": 0,
+      "observed_evidence_after_user_cutoff": [],
+      "citation_count": 15,
+      "citation_source_date_missing_from_evidence": [
+        {
+          "title": "2026-09-18 题材级主线汇总：半导体、AI算力、电子、电力设备。；数据日期：2026-0",
+          "source": "本地市场数据 · 可用主线结构",
+          "date": "2026-09-18"
+        },
+        {
+          "title": "2026-09-18；最新主线日期：2026-09-18；匹配口径：最新全市场主线；该块是盘面信号",
+          "source": "本地市场数据 · 可用主线结构",
+          "date": "2026-09-18"
+        },
+        {
+          "title": "2026-09-18；主线持续性：农林牧渔近20日出现11天（2026-08-31~2026-0",
+          "source": "本地市场数据 · 可用主线结构",
+          "date": "2026-09-18"
+        },
+        {
+          "title": "2026-09-18；AI算力核心板块：CPO概念(-，未标注/-，涨2.34%，边际量12.9",
+          "source": "本地市场数据 · 可用主线结构",
+          "date": "2026-09-18"
+        },
+        {
+          "title": "2026-09-18；半导体核心板块：PCB(电子，未标注/-，涨1.09%，边际量6.25%，",
+          "source": "本地市场数据 · 可用主线结构",
+          "date": "2026-09-18"
+        }
+      ],
+      "citations_after_user_cutoff": [],
+      "citation_schema_keys": [
+        "date",
+        "source",
+        "title"
+      ],
+      "unresolved_bound_hashes": [],
+      "answer_matches_message": true,
+      "answer_matches_run_artifact": true,
+      "answer_matches_artifact_hash": true,
+      "gate_receipt": {
+        "schema_version": 1,
+        "engine": "episode",
+        "rev": "786a3b627da9ae37e042881f2c0e8ef12ccac539",
+        "verified_status": "completed",
+        "judge_status": "unavailable",
+        "issues": [
+          "semantic judge window exhausted by prior attempt"
+        ],
+        "judge_unavailable_count": 1,
+        "content_degraded_count": 0,
+        "timings": {
+          "elapsed_seconds": null,
+          "retrieve_seconds": null,
+          "judge_seconds": null,
+          "timeout_asked": 0.0
+        },
+        "correlated_judge": false
+      },
+      "transport_status": "completed",
+      "business_status": "partial",
+      "runtime_closed": true,
+      "first_prompt_text_persisted": false,
+      "prompt_record": [
+        {
+          "system_sha256": "8ce11f7cad24e087d404df5b8d129b7ff449ba4e075a4e99949b799541409d60",
+          "user_sha256": "e6e1d0f990255ae157785de9852240d61c19946d5f6f394dc383c574200029c2",
+          "system_chars": 2033,
+          "user_chars": 13550,
+          "task_frame_hash": "b10780aacc23cab48f282e42ad15b389d4474de354982e3105294c630889b3dc",
+          "at": "2026-09-21T22:34:55.778+08:00"
+        }
+      ]
+    },
+    "historical": {
+      "run_id": "run_20260921_223908_394353",
+      "conversation_id": "conv_b321f310b46e40828bb5d35db9c00d23",
+      "assistant_message_id": "msg_4e9d654436ce42149cafcfb8b2535b8f",
+      "elapsed_s": 297.17,
+      "served_models": {
+        "kimi-k3": 5
+      },
+      "usage": {
+        "llm_calls": 5,
+        "tool_calls": 10,
+        "invalid_actions": 0,
+        "input_tokens": 173958,
+        "output_tokens": 6383
+      },
+      "task_frame": {
+        "question_type": "stock_deep_dive",
+        "subject": "当时A股市场",
+        "subject_kind": "company",
+        "timeframe": "2026-09-11",
+        "history_intent": null
+      },
+      "information_cutoff": {
+        "as_of_date": "2026-09-21",
+        "source": "runtime_default"
+      },
+      "expected_user_cutoff": "2026-09-11",
+      "context_cutoff_matches_user": false,
+      "tool_result_count": 10,
+      "tool_names": {
+        "finance_query": 9,
+        "memory_lookup": 1
+      },
+      "evidence_observations": 119,
+      "unique_evidence_hashes": 118,
+      "evidence_dates": {
+        "2026-09-04": 1,
+        "2026-09-07": 6,
+        "2026-09-08": 6,
+        "2026-09-09": 6,
+        "2026-09-10": 6,
+        "2026-09-11": 94
+      },
+      "evidence_io_effects": {
+        "local_read": 119
+      },
+      "undated_evidence_count": 0,
+      "observed_evidence_after_user_cutoff": [],
+      "citation_count": 13,
+      "citation_source_date_missing_from_evidence": [],
+      "citations_after_user_cutoff": [],
+      "citation_schema_keys": [
+        "date",
+        "source",
+        "title"
+      ],
+      "unresolved_bound_hashes": [],
+      "answer_matches_message": true,
+      "answer_matches_run_artifact": true,
+      "answer_matches_artifact_hash": true,
+      "gate_receipt": {
+        "schema_version": 1,
+        "engine": "episode",
+        "rev": "786a3b627da9ae37e042881f2c0e8ef12ccac539",
+        "verified_status": "completed",
+        "judge_status": "unavailable",
+        "issues": [
+          "code=numeric_unsupported subject=numeric_condition :: unsupported numeric condition without bound evidence",
+          "semantic judge window exhausted by prior attempt"
+        ],
+        "judge_unavailable_count": 1,
+        "content_degraded_count": 0,
+        "timings": {
+          "elapsed_seconds": null,
+          "retrieve_seconds": null,
+          "judge_seconds": null,
+          "timeout_asked": 0.0
+        },
+        "correlated_judge": false
+      },
+      "transport_status": "completed",
+      "business_status": "partial",
+      "runtime_closed": true,
+      "first_prompt_text_persisted": false,
+      "prompt_record": [
+        {
+          "system_sha256": "8ce11f7cad24e087d404df5b8d129b7ff449ba4e075a4e99949b799541409d60",
+          "user_sha256": "abf579a8941bedcfb8107a3c86148e993ebac29f7fb25f466030ac6f26611d95",
+          "system_chars": 2033,
+          "user_chars": 14472,
+          "task_frame_hash": "3c72bc41e1ff4680692b176fff288528ffea71d30d7795625f4c430604c54b88",
+          "at": "2026-09-21T22:39:08.476+08:00"
+        }
+      ]
+    }
+  },
+  "production_identity_stable": true,
+  "selected_data_audit_stable": true,
+  "data_audit_scope": "six table counts/max dates and three tables rows at two cutoffs; not a whole DB checksum",
+  "closure": {
+    "identity_after": {
+      "revision": "786a3b627da9ae37e042881f2c0e8ef12ccac539",
+      "tree": "da8fbef79b8b1aaa8e280d532d169bfe7d7c0827",
+      "status": ""
+    },
+    "identity_stable": true,
+    "server_exit_code": -15,
+    "port_closed": true,
+    "results": [
+      {
+        "case": "current",
+        "user": "date-k3-current",
+        "run_id": "run_20260921_223455_384576",
+        "conversation_id": "conv_f3533694f91a4ec7b0cb49e8560f14e1",
+        "assistant_message_id": "msg_df42fd8523ec4c368f4eb566af6d409b",
+        "status": "completed",
+        "terminal_within_deadline": true,
+        "elapsed_s": 253.0,
+        "raw_run": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-current/runs/run_20260921_223455_384576",
+        "quality_verdict": "pending_human_review"
+      },
+      {
+        "case": "historical",
+        "user": "date-k3-historical",
+        "run_id": "run_20260921_223908_394353",
+        "conversation_id": "conv_b321f310b46e40828bb5d35db9c00d23",
+        "assistant_message_id": "msg_4e9d654436ce42149cafcfb8b2535b8f",
+        "status": "completed",
+        "terminal_within_deadline": true,
+        "elapsed_s": 297.17,
+        "raw_run": "/Users/a77/.finance-runtime/reviews/market-date-advisory-k3-20260921/users/date-k3-historical/runs/run_20260921_223908_394353",
+        "quality_verdict": "pending_human_review"
+      }
+    ]
+  }
+}

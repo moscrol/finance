@@ -1,32 +1,32 @@
 # 日期差异说明策略
 
 ## 这个分支做什么
-已有真实数据按各来源实际日期分析；不因日期不同整体降级/拒答，缺项局部限制。
+按各来源实际日期交付真实金融事实；日期不一致只做诊断，不整体拒答。
 
 ## 决策与被否方案
-- 日期诊断与服务准入分开；否了硬造一致或只改提示词，前者失真、后者取不回被丢证据。
-- 查询上界用 information_cutoff，否了总览日封顶各表；保留未来过滤与用户严格历史窗口。
-- 混合事实显式标来源日，预取保留原 source_date；否了正文事件日推来源日、未知补参照日。
-- 日期对账 WARN 不升级 partial 快照；NULL 不补0；比较/计算仍核期间、单位、口径。
-- 展开：`docs/handoffs/2026-09-21-market-date-advisory.md`。
+- 查询上界用 information_cutoff，否了总览日封顶各表；未知不猜、NULL不补0，比较另核期间/单位/口径。
+- K3真实验收走 conversations/messages，否了CLI代签；作者工程、自然答卷、独立审查分账。
+- 不因一份自然答卷未越界就认定守住截止：保留只读对抗复现；不边验边改固定候选。
+- 展开：`docs/handoffs/2026-09-21-market-date-k3-live.md`；旧决策见同目录`2026-09-21-market-date-advisory.md`。
 
 ## 当前状态
-源码/测试候选 `c57ec6542e5b33b2d7d2dccadf742e8a33e23b5d`；基座 `79b11d4268a3`。归档已提交 `faf0c1f18`，Git对象200/200内容文件核验通过（另有清单自身）；运行代码无差异，不移签全量。未push/开PR/合main/部署；未补采或写生产库。
+受测运行HEAD `786a3b627`，运行代码与c57ec654相同；首尾干净。本轮仅追加作者真实验收记录：`AUTHOR_REAL_ENTRYPOINT_OBSERVED_NOT_ACCEPTED`。未push/PR/合main/部署，未补采或写生产库。
 
 ## 未验证 / 已知边界
-- 无新独立Spec/Quality，也未通过真实模型的 Workbench conversations 入口核答案与逐来源引用，不能拿离线工具交付代签。
-- 未验与后来main组合；未改上游预取聚合as-of语义、所有 stale 状态或其他快照质量门。
-- 未查自然夜跑新结果、未刷新#836；旧夜跑部署授权不适用于此枝。
-- 记忆图谱校验exit0不签行为；vault全库仍26错误/17警告，含其他笔记与项目存量死链，不是全库通过。
+- 当前题错说“本地尚无09-21行情”：readiness已见09-21 fresh/complete快照，Episode实际只交付至09-18的DuckDB事实。local_only不应放开可能联网的工具来补洞。
+- 历史题自然证据均≤09-11，但context cutoff仍09-21/runtime_default，history_intent=null。省略日期或直查09-18均返回09-18，系统未强制用户上界。
+- 两题judge unavailable/business partial；没有新独立Spec/Quality，没有完整首轮prompt正文（仅hash/字符数和事件），不签产品质量。
+- N=1/题，不能比较改善率；未验后来main组合、前端浏览器展示或自然夜跑。其他在途分支不接管。
 
 ## 下一步
-先核最新授权/main及差分，再做独立审查和隔离用户的真实模型答卷；合入与生产操作仍需用户确认。新候选重跑完整门禁，不能复用此SHA收据。
+先修明示截止解析/合同与本地来源可见性，再固定新SHA跑定向反例、完整门禁、真实K3答卷及独立审查。保留local_only授权；不得以展示标签或模型自选日期代替底座校验。合入/生产操作仍需确认。
 
 ## 踩过的坑
-- `trace.source_trade_date`可为总览供给日，`served_date`为交付证据日期汇总，两者不恒等。
-- 一次误把已提交预取修复当成测试中改码，误停06de全量；首尾其实干净同树，保留 stop-reason-erratum，不冒充代码漂移。
-- 06de完整12550P/1F是local_only旧拒证据断言；c57只改该测试，网络/缺库/指定日查空保护保留。
+- “当时A股市场”被路由为company/stock_deep_dive，属于另一个待修问题。
+- citation源名经展示sanitizer改写：原标签五条不匹配，经实际转换后15/15与13/13可回溯，不是失证，也不证明每句推论正确。
+- 06de误中止理由已勘误；旧工程收据不移签新源码或文档版本。
 
 ## 已验证
-固定c57干净：Python12551P/85S/2X，Ruff0；前端110P、E2E34P/2S；registry五项0；11撤保护均断言失败。解释器主树`.venv-workbench/bin/python`。收据`20260921T134045Z-c57ec654.json`，stdout/JUnit/身份/哈希对账通过。
-证据：`docs/verification/2026-09-21-market-date-advisory/README.md`。197原件逐字节匹配；最终扫描201文件/15组夹具或代码文本命中，非零命中认证。记忆由auto-sync提交22c5d262、403ab697；无手工提交他线改动。长期守卫在正式tests，定版脚本只封存。
+两真实run completed，K3共7模型轮/15工具调用，证据均local_read；当前48条、历史119观察/118唯一hash。只读对抗复现确认截止缺口。19276已关，8792首尾身份相同；选定DB审计相同，非整库校验。
+新证据`docs/verification/2026-09-21-market-date-k3-live/`：65文本原件/68内容文件及SHA清单。原始脚本冻结为.py.txt，不作为通用运行工具。
+旧c57作者门禁：12551P/85S/2X、Ruff0、前端110P/E2E34P2S、registry五项0、11变异；原200内容归档不改。只签固定候选工程，不代签本轮质量。

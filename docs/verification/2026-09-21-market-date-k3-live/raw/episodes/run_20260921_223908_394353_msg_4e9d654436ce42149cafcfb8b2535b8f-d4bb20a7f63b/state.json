@@ -1,0 +1,51 @@
+{
+  "episode_id": "run_20260921_223908_394353:msg_4e9d654436ce42149cafcfb8b2535b8f",
+  "phase": "done",
+  "turn_index": 5,
+  "reserved_ids": [],
+  "consumed_seconds": 600.0,
+  "deadline_at": "2026-09-21T22:41:33.673+08:00",
+  "retry": {},
+  "contract_snapshot": {
+    "model": "",
+    "providers": [
+      {
+        "name": "openai",
+        "model": "kimi-k3"
+      }
+    ],
+    "log_version": 1,
+    "task_id": "run_20260921_223908_394353:msg_4e9d654436ce42149cafcfb8b2535b8f",
+    "research_tier": "max",
+    "allowed_capabilities": [
+      "finance_query",
+      "evidence_lookup",
+      "memory_lookup",
+      "mainline_context"
+    ],
+    "authorized_tools": [
+      "evidence_lookup",
+      "finance_query",
+      "mainline_context",
+      "memory_lookup"
+    ],
+    "tool_replay": {
+      "evidence_lookup": "safe",
+      "finance_query": "safe",
+      "mainline_context": "safe",
+      "memory_lookup": "safe"
+    },
+    "tool_contracts_hash": "f97b72f48d6669b2527b7099be4cc450c4d1ae723e5b49638349d6a467fe1e7d",
+    "sub_research_available": true,
+    "policy_total_seconds": 600.0,
+    "policy_max_steps": 40,
+    "llm_timeout": 75.0,
+    "repair_seconds_cap": 30.0,
+    "provider_name": "openai",
+    "harness": "FinanceResearchHarness"
+  },
+  "cancel": null,
+  "log_version": 1,
+  "last_sequence": 47,
+  "updated_at": "2026-09-21T22:41:33.673+08:00"
+}

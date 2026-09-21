@@ -1,0 +1,33 @@
+"""Compare public citations after the actual presentation sanitizer.
+
+Raw source labels intentionally differ from the public labels. Keep the first
+strict comparison as an observation; add this separate explanation, don't edit it.
+"""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, '/Users/a77/fwp-wt-market-date-advisory-0921')
+from intelligence.runtime.conversation_orchestrator import sanitize_user_visible_artifact_text  # noqa: E402
+
+output = {}
+for case in ('current', 'historical'):
+    result = json.loads((ROOT / case / 'result.json').read_text())
+    episode = json.loads((Path(result['raw_run']) / 'continuous-episode.json').read_text())
+    message = json.loads((ROOT / case / 'message.json').read_text())
+    evidence = episode['outcome']['evidence']
+    rows = []
+    for citation in message['citations']:
+        matched = [item['content_hash'] for item in evidence
+                   if sanitize_user_visible_artifact_text(item['source']) == citation['source']
+                   and item['source_date'] == citation['date']
+                   and sanitize_user_visible_artifact_text(item['title']) == citation['title']]
+        rows.append({'citation': citation, 'matching_evidence_hashes': matched})
+    output[case] = {'citation_count': len(rows), 'unmatched_count': sum(not row['matching_evidence_hashes'] for row in rows), 'rows': rows}
+with (ROOT / 'citation-display-audit.json').open('x') as handle:
+    json.dump(output, handle, ensure_ascii=False, indent=2)
+    handle.write('\n')
+print(json.dumps({name: {key: value for key, value in case.items() if key != 'rows'} for name, case in output.items()}))

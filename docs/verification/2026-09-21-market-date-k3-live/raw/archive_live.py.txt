@@ -1,0 +1,112 @@
+"""Freeze text-only acceptance artifacts without altering the raw originals.
+
+The manifest maps each copy to its original bytes. Log and Python suffixes are
+changed only to keep frozen experiments distinct from executable repo tools.
+Use the existing check_evidence_archive.py after committing this package.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import sys
+
+ROOT = Path(__file__).resolve().parent
+REPO = Path('/Users/a77/fwp-wt-market-date-advisory-0921')
+ARCHIVE = REPO / 'docs/verification/2026-09-21-market-date-k3-live'
+sys.path.insert(0, str(REPO))
+from scripts.smoke_workbench_self_use import SECRET_PATTERNS, SecretScanner  # noqa: E402
+
+
+def main():
+    if ARCHIVE.exists():
+        raise RuntimeError('archive output already exists')
+    files, excluded = [], []
+    for path in sorted(ROOT.rglob('*')):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(ROOT)
+        if path.suffix in {'.sqlite3', '.lock', '.pyc'} or '__pycache__' in relative.parts:
+            excluded.append(str(relative))
+            continue
+        data = path.read_bytes()
+        data.decode('utf-8')
+        copy = Path('raw') / relative
+        if path.suffix in {'.log', '.py'}:
+            copy = copy.with_name(copy.name + '.txt')
+        target = ARCHIVE / copy
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, target)
+        assert data == target.read_bytes()
+        files.append({'path': str(copy), 'source': str(path), 'bytes': len(data),
+                      'sha256': hashlib.sha256(data).hexdigest()})
+    manifest = {'revision': '786a3b627da9ae37e042881f2c0e8ef12ccac539',
+                'verdict': 'AUTHOR_REAL_ENTRYPOINT_OBSERVED_NOT_ACCEPTED',
+                'scope': 'text artifacts; SQLite user stores, locks, and caches remain external',
+                'files': files, 'excluded': excluded}
+    (ARCHIVE / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+    (ARCHIVE / 'README.md').write_text(
+        '# K3 Workbench Live Evidence\n\n'
+        'Verdict: **AUTHOR_REAL_ENTRYPOINT_OBSERVED_NOT_ACCEPTED**.\n\n'
+        'Two real conversations on fixed candidate `786a3b627da9ae37e042881f2c0e8ef12ccac539`, '
+        'K3 writer, isolated users/port, local-only tools. This is author-side live observation, '
+        'not independent Spec/Quality acceptance. No source fix, merge, production switch, or data write.\n\n'
+        '- [Review](raw/REVIEW.md): findings, limits, and next steps.\n'
+        '- [Current answer](raw/current/answer.md) and [historical answer](raw/historical/answer.md).\n'
+        '- [Observations](raw/observations.json), [strict-cutoff diagnostic](raw/cutoff-diagnostic.json), '
+        'and [citation display audit](raw/citation-display-audit.json).\n'
+        '- [Closure](raw/closure.json): clean identity held; test port closed.\n'
+        '- [Copy manifest](manifest.json): originals, byte sizes, SHA-256 hashes, exclusions.\n'
+        '- Frozen driver/diagnostics use `.py.txt`; log copies use `.log.txt`. Originals are retained.\n\n'
+        'The first exact source-label check flags five current citations. The subsequent display audit '
+        'resolves all five by the actual sanitizer; do not treat them as missing evidence. '
+        'Matching citations does not prove every sentence is supported. Prompt bodies were not captured, '
+        'only hashes/counts and tool/model events. N=1 per question does not establish an improvement rate.\n\n'
+        'The old engineering archive and its c57ec654 verdict remain separate. '
+        'Check this package against a committed Git object with:\n\n'
+        '```bash\n'
+        '.venv-workbench/bin/python scripts/check_evidence_archive.py '
+        'docs/verification/2026-09-21-market-date-k3-live --revision <commit>\n'
+        '```\n'
+    )
+    scanner = SecretScanner()
+    matched = []
+    scanned = [path for path in sorted(ARCHIVE.rglob('*')) if path.is_file()]
+    for path in scanned:
+        text = path.read_text()
+        scanner.scan(text, str(path.relative_to(ARCHIVE)))
+        for marker, pattern in SECRET_PATTERNS:
+            for match in pattern.finditer(text):
+                value = match.group()
+                # Only record hash and whether the match is a known Python dotted path.
+                code_path = marker == 'jwt_shape' and (
+                    value.startswith('intelligence.services.')
+                    or value.startswith('intelligence.runtime.')
+                    or value in {'information_cutoff.as_of_date.isoformat',
+                                 'scripts.smoke_workbench_self_use.SecretScanner'}
+                )
+                matched.append({'path': str(path.relative_to(ARCHIVE)), 'marker': marker,
+                                'match_sha256': hashlib.sha256(value.encode()).hexdigest(),
+                                'known_code_path': code_path})
+    receipt = {'implementation': 'scripts.smoke_workbench_self_use.SecretScanner',
+               'scope': 'all package text before scan-review.json and sha256-manifest.txt are added',
+               'files_scanned': len(scanned), 'hits': scanner.hits, 'matches': matched,
+               'unclassified_match_count': sum(not row['known_code_path'] for row in matched),
+               'conclusion': 'Pattern matches need context review; execution success is not zero-hit certification.'}
+    (ARCHIVE / 'scan-review.json').write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
+    lines = []
+    for path in sorted(ARCHIVE.rglob('*')):
+        if path.is_file():
+            lines.append(hashlib.sha256(path.read_bytes()).hexdigest() + '  ' + str(path.relative_to(REPO)))
+    (ARCHIVE / 'sha256-manifest.txt').write_text('\n'.join(lines) + '\n')
+    print(json.dumps({'original_files': len(files), 'original_bytes': sum(row['bytes'] for row in files),
+                      'manifest_content_files': len(lines), 'excluded': excluded,
+                      'scan_groups': len(scanner.hits),
+                      'unclassified_match_count': receipt['unclassified_match_count']}, ensure_ascii=False))
+    if receipt['unclassified_match_count']:
+        raise SystemExit(1)
+
+
+if __name__ == '__main__':
+    main()
