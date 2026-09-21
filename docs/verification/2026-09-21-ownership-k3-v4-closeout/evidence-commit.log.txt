@@ -1,0 +1,706 @@
+detect private key..............................................................Passed
+check for added large files.....................................................Passed
+check for merge conflicts.......................................................Passed
+ruff check..................................................(no files to check)Skipped
+工作区事实：你在哪棵树、用哪个解释器............................................Passed
+- hook id: agent-workspace-facts
+- duration: 0.36s
+
+── 工作区事实（提交时自述，非风格检查）──
+  worktree : /Users/a77/fwp-wt-ownership-closeout-0921
+  分支     : ops/worktree-ownership-closeout-0921 @ 35e105182
+  解释器   : /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+  依赖     : agents, duckdb, fastapi, pytest, ruff, uvicorn, yaml —— 全部可用（宿主 python3 没有，别用它）
+  若刚才某次 pytest 报 ModuleNotFoundError，那是解释器用错了，不是环境缺包。
+
+层级审计........................................................................Passed
+- hook id: layer-audit
+- duration: 7.21s
+
+========================================================================
+层级门禁 — intelligence/services/** 不得 import intelligence.runtime.*
+========================================================================
+  树        /Users/a77/fwp-wt-ownership-closeout-0921
+  分支      ops/worktree-ownership-closeout-0921
+  revision  35e105182  ⚠️ 工作区有未提交改动
+  扫描      486 个模块（不含 tests）
+  分层依据  目录 intelligence/runtime/（22 个模块）
+
+✅ ERROR 0 条
+
+结论：通过，ERROR 0 条 == 基线（对 ops/worktree-ownership-closeout-0921@35e105182 成立）
+
+路径字面量：不得新增写死的家目录................................................Passed
+- hook id: path-literals
+- duration: 1.54s
+
+========================================================================
+路径字面量门禁 — 不得新增写死的家目录（存量免检）
+========================================================================
+  树        /Users/a77/fwp-wt-ownership-closeout-0921
+  扫描      1652 个 .py（不含 .venv/tmp/缓存）
+  存量基线  23 文件 / 37 处
+  当前      23 文件 / 37 处
+
+✅ 无新增家目录字面量
+
+字段契约：不得新增「写了没人读」的字段..........................................Passed
+- hook id: unread-fields
+- duration: 7.48s
+
+================================================================
+字段契约门禁 — 属性写了但全仓没人读（存量免检）
+================================================================
+  扫描      550 个 .py（intelligence, market_feature_store，不含 tests）
+  存量基线  40 文件 / 100 字段
+  当前      38 文件 / 92 字段
+
+✅ 无新增「写了没人读」的字段
+
+dataset 注册：入库了的表 agent 要够得着.........................................Passed
+- hook id: dataset-registration
+- duration: 0.38s
+
+========================================================================
+dataset 注册审计 — 入库 vs agent 够得着（存量免检，只拦新增）
+========================================================================
+  schema.sql 声明   51 张 fact_/feature_ 表（CREATE TABLE）
+    ├ 已注册        34
+    └ 已写明豁免    17
+  另注册 VIEW       2 个（不在 CREATE TABLE 里，单列以免总数对不上）
+  空表检查          跳过（未提供可读的 DuckDB）
+
+✅ 每张 fact_/feature_ 表都有归属（注册或写明豁免）
+
+结论：通过（34 注册 + 17 豁免 = schema.sql 全部 51 张；另有 2 个注册的 VIEW）
+
+工具可达性：声明了的工具生产装配必须够得着......................................Passed
+- hook id: tool-reachability
+- duration: 1.27s
+
+========================================================================
+工具可达性审计 — 声明 vs 生产装配
+========================================================================
+  声明（_DEFAULT_TOOL_METADATA）      18 个
+  无条件装配（build_episode_registry） 12 个
+  条件装配（需额外输入）               6 个
+
+  ⓘ 以下工具在能力授权之外还需额外输入才装配得出来：
+      - derived_calculation: 仅在附加真实装配上下文中出现；需检查对应入口
+      - history_query: 已授权 finance_query，且真实 TaskFrame.history_intent 存在；无需 HistorySession 也可仅计算
+      - memory_lookup: 已授权 memory_lookup，且传入 memory_user 或 memory_users_root 身份
+      - read_history_result: 已授权 finance_query、history_intent，且传入通过同用户/同会话校验的 HistorySession（临时 RunStore 探针）
+      - save_history_research: 已授权 finance_query、history_intent，且传入通过同用户/同会话校验的 HistorySession（临时 RunStore 探针）
+      - sub_research: 已授权 sub_research，且运行时传入绑定协调器和父证据账本的 sub_research_runner
+    这不是缺陷，但生产入口若忘了传那个输入，它会静默永不装配。
+
+✅ 声明与装配一致，无够不着的工具
+
+结论：通过（对 18 个声明工具成立）
+
+运行时目录保鲜：events / tools / harness-seams 与源码一致...(no files to check)Skipped
+- hook id: runtime-catalog-fresh
+红线：禁止提交 密钥/大二进制/缓存/虚拟环境/依赖.............(no files to check)Skipped
+[ops/worktree-ownership-closeout-0921 66f848e46] docs: seal interrupted unlimited K3 ownership review evidence
+ 602 files changed, 159748 insertions(+), 13 deletions(-)
+ create mode 100644 docs/handoffs/2026-09-21-ownership-k3-v4-interrupted.md
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/README.md
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/apparatus-notes.md
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/audit-tests.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/audit_mechanics.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/authorization.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/bootstrap-tests.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/bootstrap.test.mjs.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/coordination-handoff-commit.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/coordination-handoff-push.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/create-quality-tree.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/create-spec-tree.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/credential-bootstrap.initial.mjs.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/credential-bootstrap.mjs.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/inputs/backfill-execution-contract.md
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/inputs/backfill-prep-contract.md
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/inputs/candidate.diff
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/inputs/review-common.md
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/inputs/source-provenance.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/launch-publication.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/launch-reservation.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/launch.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/manifest.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/observe.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/offline-cli-output/credential-events.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/offline-cli-output/credential.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/offline-cli-output/events.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/offline-cli-output/request-admissions.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/offline-cli-output/shell-records/0001.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/offline-cli-output/shell-records/0001.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/offline-cli-output/stderr.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/offline-cli-smoke.mjs.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/offline-tests-r2.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/offline-tests-r3.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/collect-stop.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/collect_stop_state.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/mechanical-audit.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/tool-trace.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0001-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0001-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0002-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0002-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0003-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0003-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0004-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0004-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0005-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0005-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0006-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0006-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0007-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0007-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0008-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0008-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0009-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0009-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0010-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0010-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0011-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0011-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0012-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0012-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0013-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0013-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0014-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0014-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0015-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0015-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0016-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0016-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0017-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0017-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0018-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0018-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0019-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0019-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0020-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0020-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0021-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0021-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0022-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0022-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0023-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0023-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0024-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0024-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0025-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0025-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0026-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0026-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0027-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0027-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0028-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0028-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0028-write-progress.md.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0029-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0029-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0030-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0030-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0031-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0031-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0032-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0032-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0033-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0033-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0034-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0034-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0035-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0035-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0035-write-setup_gaterepo.sh.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0036-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0036-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0037-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0037-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0037-write-probe_a_receipt.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0038-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0038-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0039-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0039-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0040-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0040-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0041-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0041-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0041-write-probe_a_receipt.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0042-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0042-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0043-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0043-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0044-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0044-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0045-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0045-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0046-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0046-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0047-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0047-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0048-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0048-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0049-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0049-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0050-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0050-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0051-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0051-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0052-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0052-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0053-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0053-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0054-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0054-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0055-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0055-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0056-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-mechanics/trace/0056-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/quality-retained-inventory.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/review-qc.md
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/mechanical-audit.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/tool-trace.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0001-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0001-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0002-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0002-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0003-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0003-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0004-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0004-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0005-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0005-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0006-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0006-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0007-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0007-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0008-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0008-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0009-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0009-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0010-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0010-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0011-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0011-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0012-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0012-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0012-write-progress.md.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0013-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0013-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0014-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0014-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0015-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0015-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0016-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0016-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0017-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0017-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0018-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0018-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0019-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0019-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0020-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0020-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0021-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0021-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0022-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0022-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0023-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0023-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0024-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0024-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0025-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0025-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0026-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0026-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0027-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0027-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0028-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0028-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0029-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0029-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0030-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0030-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0031-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0031-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0032-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0032-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0033-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0033-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0034-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0034-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0035-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0035-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0036-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0036-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0037-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0037-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0038-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0038-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0039-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0039-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0040-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0040-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0041-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0041-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0042-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0042-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0043-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0043-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0044-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0044-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0045-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0045-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0046-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0046-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0046-write-probe_readback.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0047-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0047-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0048-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0048-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0048-write-probe_execution.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0049-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0049-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0050-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0050-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0051-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0051-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0051-write-probe_ownership.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0052-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0052-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0052-write-o5_runner.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0053-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0053-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0053-write-o6_runner.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0054-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0054-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0055-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0055-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0056-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0056-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0057-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0057-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0058-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0058-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0059-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0059-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0060-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0060-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0061-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0061-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0061-write-probe_board.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0062-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0062-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0063-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0063-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0064-result-event.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-mechanics/trace/0064-result.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/spec-retained-inventory.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/operator-qc/stop-state.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/pi-config/auth.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/pi-config/models-store.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/pi-config/models.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/pi-config/settings.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/prepare.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/prepare.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/provider-template.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/credential-events.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/credential.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/events.jsonl.part001.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/events.jsonl.part002.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/events.jsonl.part003.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/events.jsonl.part004.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/evidence/probe_a_results.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/execution.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/fixtures/gaterepo/.gitignore
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/fixtures/gaterepo/conftest.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/fixtures/gaterepo/scripts/main_gate_receipt.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/fixtures/gaterepo/scripts/run_main_gate.sh.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/fixtures/gaterepo/test-environment.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/fixtures/gaterepo/test_ok.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/fixtures/gaterepo/tests_inner/test_inner.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a10_git_failure.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a11_gate_sigkill.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a11_sigint.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a11_sigint_validator.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a11_sigkill.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a11_sigterm.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a12_stale_latest.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a13_midrun_drift.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a1_happy.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a2_overlap.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a3_nested_subproc.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a4_nested_inproc.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a5_configure-error_empty.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a5_configure-error_unset.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a5_success_empty.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a5_success_unset.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a6_path_switch.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a7_inherited_foreign.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a7_inherited_self.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a8_immutable.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/logs/a9_io_failure.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/notes/progress.md
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/probes/probe_a_receipt.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/probes/setup_gaterepo.sh.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/request-admissions.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0001.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0001.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0002.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0002.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0003.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0003.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0004.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0004.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0005.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0005.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0006.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0006.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0007.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0007.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0008.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0008.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0009.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0009.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0010.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0010.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0011.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0011.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0012.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0012.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0013.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0013.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0014.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0014.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0015.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0015.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0016.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0016.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0017.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0017.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0018.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0018.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0019.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0019.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0020.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0020.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0021.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0021.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0022.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0022.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0023.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0023.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0024.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0024.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0025.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0025.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0026.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0026.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0027.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0027.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0028.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0028.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0029.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0029.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0030.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0030.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0031.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0031.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0032.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0032.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0033.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0033.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0034.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0034.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0035.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0035.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0036.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/shell-records/0036.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-k3/stderr.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-launch.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-prompt.md
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-reservation.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/quality-runner.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/review-tools.mjs.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/review-tools.test.initial.mjs.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/review-tools.test.mjs.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/run_k3.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/seal_evidence.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/source-handoff-commit.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/source-handoff-push.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/credential-events.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/credential.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/events.jsonl.part001.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/events.jsonl.part002.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/events.jsonl.part003.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/events.jsonl.part004.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/b1/board-matrix.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/b1/board.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/b1/board.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/b1/nobase.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/b1/this-unique.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/exec-dirty-allow.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/exec-dirty-allow/gate-j61zZOrh/pytest.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/exec-dirty-noflag.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/exec-midrun-commit.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/exec-midrun-commit/gate-QxnkQOmi/pytest.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/exec-nofallback.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/exec-zero-exec.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/exec-zero-exec/gate-GyhXczS7/pytest.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/execution-matrix.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/failed-receipt.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/o5.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/o5/run1.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/o5/run3.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/o5/state-0.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/o5/state-1.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/o5/state-2.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/o6.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/o6/run-b.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/o6/state-0.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/o6/state-1.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/o6/state-2.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/o6/state-3.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/own-o1.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/own-o1/gate-4BuG9HaE/pytest.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/own-o2.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/own-o2/gate-GM2Z4LEG/pytest.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/own-o3.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/own-o3/gate-dq0yEH0a/pytest.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/own-o4.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/own-o4/gate-8Ohhjctr/pytest.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/own-o4/inner-owned.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/own-o7.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/own-o8-0.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/own-o8-0/gate-BzltldF1/pytest.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/own-o8-1.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/own-o8-1/gate-3q2JrAsI/pytest.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/ownership-matrix.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/readback-matrix.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/receipts-fail/gate-TBd2dVfq/pytest.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/receipts/gate-Zn2TvXmZ/pytest.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/receipts2/gate-tpYeVonE/pytest.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/valid-control-ruff.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/evidence/r1/valid-control.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/execution.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/notes/progress.md
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/board-family/fwp-main/app.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/board-family/fwp-main/equiv.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/board-family/fwp-wt-equiv-clean/app.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/board-family/fwp-wt-equiv-clean/equiv.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/board-family/fwp-wt-equiv-dirty/app.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/board-family/fwp-wt-equiv-dirty/dirty.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/board-family/fwp-wt-equiv-dirty/equiv.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/board-family/fwp-wt-locked/app.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/board-family/fwp-wt-locked/equiv.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/board-family/fwp-wt-unique/app.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/board-nobase/f.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/o5_runner.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/o6_runner.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/probe_board.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/probe_execution.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/probe_ownership.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/probe_readback.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/receipt-repo/.gitignore
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/receipt-repo/conftest.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/receipt-repo/scripts/main_gate_receipt.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/receipt-repo/scripts/run_main_gate.sh.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/receipt-repo/test-environment.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/receipt-repo/test_a.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/receipt-repo/test_b.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/receipt-repo/test_fail.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/receipt-repo/test_o1_inner.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/receipt-repo/test_o1_nested.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/receipt-repo/test_o2_inner.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/receipt-repo/test_o2_innerfail.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/receipt-repo/test_o3_inner.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/receipt-repo/test_o3_subproc.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/receipt-repo/test_o4_subproc_fresh.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/receipt-repo/test_o7_switch.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/probes/receipt-repo/test_o8.py.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/request-admissions.jsonl
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0001.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0001.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0002.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0002.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0003.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0003.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0004.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0004.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0005.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0005.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0006.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0006.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0007.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0007.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0008.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0008.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0009.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0009.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0010.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0010.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0011.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0011.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0012.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0012.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0013.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0013.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0014.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0014.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0015.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0015.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0016.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0016.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0017.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0017.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0018.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0018.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0019.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0019.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0020.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0020.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0021.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0021.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0022.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0022.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0023.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0023.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0024.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0024.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0025.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0025.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0026.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0026.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0027.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0027.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0028.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0028.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0029.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0029.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0030.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0030.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0031.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0031.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0032.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0032.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0033.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0033.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0034.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0034.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0035.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0035.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0036.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0036.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0037.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0037.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0038.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0038.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0039.combined.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/shell-records/0039.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-k3/stderr.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-launch.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-prompt.md
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-reservation.json
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/spec-runner.log.txt
+ create mode 100644 docs/verification/2026-09-21-ownership-k3-v4/test_audit_mechanics.py.txt

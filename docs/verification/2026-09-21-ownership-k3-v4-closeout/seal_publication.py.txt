@@ -1,0 +1,53 @@
+"""Preserve publication controls separately from immutable reviewer evidence.
+
+Freeze successful Git-byte verification, initial missing-member failure, repair,
+and exact-body comment receipts. No re-review, no change to the 819-member archive.
+The final-state observation occurs later and remains in the runtime closeout root.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import re
+
+ROOT = Path(__file__).resolve().parent
+DEST = Path.home() / "fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-k3-v4-closeout"
+NAMES = (
+    "archive-committed-verification.json", "archive-verification.json",
+    "evidence-commit.log", "evidence-push.log", "source-commit.log", "source-push.log",
+    "membership-repair-commit.log", "membership-repair-reservation.json", "membership-repair-result.json",
+    "repair_archive_membership.py", "verify_evidence.py", "verify-committed.log",
+    "verify-committed-corrected.log", "verify.log", "seal.log", "post_comments.py",
+    "post-comments.log", "pr-comments.json", "final_state.py", "seal_publication.py",
+) + tuple(f"pr-{number}-{name}" for number in (812, 813, 814) for name in ("body.md", "reservation.json", "result.json"))
+
+
+def main():
+    assert not DEST.exists(), "refuse overwriting publication evidence"
+    checked = json.loads((ROOT / "archive-committed-verification.json").read_text())
+    assert checked["commit"] == "47f80174d498794383b0f7edd1e73f7d55e1fabe" and checked["committed_bytes_match"] is True
+    sources = [(ROOT / name, name + ".txt" if Path(name).suffix in {".py", ".log"} else name) for name in NAMES]
+    for path, _ in sources:
+        data = path.read_bytes()
+        assert len(data) < 4 * 1024 * 1024 and not path.is_symlink()
+        assert not re.search(rb"(?m)^-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----\r?$", data)
+        assert not re.search(rb"eyJ[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}", data)
+    DEST.mkdir()
+    rows = []
+    for path, name in sources:
+        data = path.read_bytes()
+        with (DEST / name).open("xb") as stream:
+            stream.write(data)
+        rows.append({"path": name, "source": str(path), "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()})
+    manifest = {"time": datetime.now(timezone.utc).isoformat(), "evidence_commit": checked["commit"],
+                "scope": "publication sidecar, not a new review or modification of sealed reviewer evidence",
+                "final_observation": "final_state.py runs after documentation tip is pushed; result in runtime closeout/final-state.json",
+                "entries": rows}
+    with (DEST / "manifest.json").open("x") as stream:
+        stream.write(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+    print(json.dumps({"directory": str(DEST), "members_excluding_manifest": len(rows),
+                      "bytes_excluding_manifest": sum(r["bytes"] for r in rows)}, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,60 @@
+"""Verify stopped K3 v4 archive membership, original bytes and optional Git commit.
+
+A packaging check only: never grants independent signoff or re-runs a reviewer.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path.home() / "fwp-wt-ownership-closeout-0921"
+REL = Path("docs/verification/2026-09-21-ownership-k3-v4")
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def main():
+    commit = sys.argv[1] if len(sys.argv) > 1 else None
+    destination = ROOT / ("archive-committed-verification.json" if commit else "archive-verification.json")
+    assert not destination.exists(), "refuse overwrite of verification record"
+    archive = TREE / REL
+    manifest = json.loads((archive / "manifest.json").read_text())
+    rows = manifest["entries"]
+    assert {str(p.relative_to(archive)) for p in archive.rglob("*") if p.is_file()} == {r["path"] for r in rows} | {"manifest.json"}
+    for row in rows:
+        data = (archive / row["path"]).read_bytes()
+        assert len(data) == row["bytes"] and sha(data) == row["sha256"], row["path"]
+        with Path(row["source"]).open("rb") as source:
+            source.seek(row.get("source_offset", 0))
+            assert source.read(len(data)) == data, row["path"]
+            if "source_offset" not in row:
+                assert source.read(1) == b"", row["path"]
+        if commit:
+            committed = subprocess.run(["git", "-C", str(TREE), "show", f"{commit}:{REL / row['path']}"], capture_output=True, check=True, timeout=30).stdout
+            assert committed == data, row["path"]
+    for stream in manifest["split_sources"]:
+        data = b"".join((archive / name).read_bytes() for name in stream["ordered_parts"])
+        assert len(data) == stream["bytes"] and sha(data) == stream["sha256"]
+        assert data == Path(stream["source"]).read_bytes()
+    if commit:
+        raw = subprocess.run(["git", "-C", str(TREE), "ls-tree", "-r", "--name-only", commit, "--", str(REL)], capture_output=True, text=True, check=True, timeout=30).stdout.splitlines()
+        assert {str(Path(p).relative_to(REL)) for p in raw} == {r["path"] for r in rows} | {"manifest.json"}
+        saved_manifest = subprocess.run(["git", "-C", str(TREE), "show", f"{commit}:{REL / 'manifest.json'}"], capture_output=True, check=True, timeout=30).stdout
+        assert saved_manifest == (archive / "manifest.json").read_bytes()
+    result = {"time": datetime.now(timezone.utc).isoformat(), "archive": str(archive), "commit": commit,
+        "files_excluding_manifest": len(rows), "bytes_excluding_manifest": sum(r["bytes"] for r in rows),
+        "split_sources": manifest["split_sources"], "manifest_sha256": sha((archive / "manifest.json").read_bytes()),
+        "membership_sizes_hashes_original_bytes": True, "committed_bytes_match": True if commit else None,
+        "independent_signoff": False, "status": "BLOCKED_INFRASTRUCTURE"}
+    with destination.open("x") as stream:
+        stream.write(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
+    print(json.dumps({k: v for k, v in result.items() if k != "split_sources"}, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()

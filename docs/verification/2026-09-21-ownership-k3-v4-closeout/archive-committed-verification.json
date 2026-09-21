@@ -1,0 +1,36 @@
+{
+  "time": "2026-09-21T09:08:20.614539+00:00",
+  "archive": "/Users/a77/fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-k3-v4",
+  "commit": "47f80174d498794383b0f7edd1e73f7d55e1fabe",
+  "files_excluding_manifest": 819,
+  "bytes_excluding_manifest": 33027503,
+  "split_sources": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/events.jsonl",
+      "bytes": 13828009,
+      "sha256": "b8d89e962fc7584f98cb2d0a13e2ea2624d7e57fe508c15f4442a20b379cf542",
+      "ordered_parts": [
+        "quality-k3/events.jsonl.part001.txt",
+        "quality-k3/events.jsonl.part002.txt",
+        "quality-k3/events.jsonl.part003.txt",
+        "quality-k3/events.jsonl.part004.txt"
+      ]
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/events.jsonl",
+      "bytes": 14925730,
+      "sha256": "1da03de9686ba4c86c9e995c17875023485f92f73fe595f0f17ea7ec7f781ed8",
+      "ordered_parts": [
+        "spec-k3/events.jsonl.part001.txt",
+        "spec-k3/events.jsonl.part002.txt",
+        "spec-k3/events.jsonl.part003.txt",
+        "spec-k3/events.jsonl.part004.txt"
+      ]
+    }
+  ],
+  "manifest_sha256": "71f5c53289a80f9dc9e1baf1c75cedea22e20f8feb6fae954a3dbf28f723ad11",
+  "membership_sizes_hashes_original_bytes": true,
+  "committed_bytes_match": true,
+  "independent_signoff": false,
+  "status": "BLOCKED_INFRASTRUCTURE"
+}

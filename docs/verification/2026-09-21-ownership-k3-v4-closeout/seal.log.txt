@@ -1,0 +1,7 @@
+{
+  "archive": "/Users/a77/fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-k3-v4",
+  "files_excluding_manifest": 819,
+  "bytes": 33027503,
+  "split_sources": 2,
+  "overall": "BLOCKED_INFRASTRUCTURE / NO_INDEPENDENT_SIGNOFF"
+}

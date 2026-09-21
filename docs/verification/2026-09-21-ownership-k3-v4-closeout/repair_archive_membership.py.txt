@@ -1,0 +1,75 @@
+"""Recover selected evidence ignored by generic tmp/ rule, without rewriting history.
+
+Only missing text members already named and hashed in the sealed manifest are
+force-added, each as an explicit pathspec. No cache/DB/Git objects are included;
+no blanket -f directory, ignore-rule change, amend, model or source operation.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path.home() / "fwp-wt-ownership-closeout-0921"
+REL = Path("docs/verification/2026-09-21-ownership-k3-v4")
+INITIAL = "66f848e46afecced40a5a0d1c3a29127dd72c516"
+NOTE = "docs/verification/2026-09-21-ownership-k3-v4-publication.md"
+FAILLOG = "docs/verification/2026-09-21-ownership-k3-v4-publication-initial-error.txt"
+
+
+def git(*args):
+    return subprocess.run(["git", "-C", str(TREE), *args], capture_output=True,
+                          text=True, check=True, timeout=30).stdout.rstrip("\n")
+
+
+def main():
+    os.umask(0o022)
+    assert git("rev-parse", "HEAD") == INITIAL and git("status", "--porcelain=v1") == ""
+    manifest = json.loads((TREE / REL / "manifest.json").read_text())
+    present = set(git("ls-tree", "-r", "--name-only", INITIAL, "--", str(REL)).splitlines())
+    missing = [r for r in manifest["entries"] if str(REL / r["path"]) not in present]
+    assert len(missing) == 220
+    for row in missing:
+        path = TREE / REL / row["path"]
+        assert "/tmp/" in row["path"] and (path.suffix in {".txt", ".json", ".md"} or path.name == ".gitignore"), row["path"]
+        assert path.is_file() and not path.is_symlink()
+        data = path.read_bytes()
+        assert len(data) == row["bytes"] and hashlib.sha256(data).hexdigest() == row["sha256"]
+    reservation = {"time": datetime.now(timezone.utc).isoformat(), "initial_commit": INITIAL,
+                   "missing_members": missing, "reason": "generic .gitignore tmp/ rule omitted selected evidence during directory pathspec add"}
+    with (ROOT / "membership-repair-reservation.json").open("x") as f:
+        json.dump(reservation, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    paths = [str(REL / r["path"]) for r in missing]
+    git("add", "-f", "--", *paths)
+    assert set(git("diff", "--cached", "--name-only").splitlines()) == set(paths)
+    with (TREE / FAILLOG).open("xb") as f:
+        f.write((ROOT / "verify-committed.log").read_bytes())
+    with (TREE / NOTE).open("x") as f:
+        f.write("""# K3 v4 中断轮次：归档发布设施纠正
+
+本记录不改变候选、模型输出或独立审查状态（仍BLOCKED_INFRASTRUCTURE）。
+
+本地封档819成员（不含manifest），原件/归档字节校验通过；首次提交`66f848e46afecced40a5a0d1c3a29127dd72c516`只有600个归档文件（含manifest）。原因是仓库通用`.gitignore`的`tmp/`规则静默忽略220份已精选文本证据，不是文件丢失或哈希改变。提交后逐文件`git show`复核发现exit128，原始错误保留在同目录`2026-09-21-ownership-k3-v4-publication-initial-error.txt`。
+
+保留首次提交，不amend，不改旧归档/manifest或ignore规则。已按原manifest逐个核对220份文本/收据的成员、大小、哈希、无symlink、非DB/缓存，使用明确文件pathspec补暂存；本提交将其补齐。没有整目录force-add，没有提交真实临时缓存或二进制。归档仍819文件/33,027,503字节。只有包含补齐提交且再次通过Git字节/成员验证的tip才作为发布锚点；66f848e46单独不算完整归档。
+
+最终提交字节校验记录在`~/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/archive-committed-verification.json`。此处记录的是设施错误，不是候选产品缺陷，也不允许将中断审查改报通过。
+""")
+    git("add", "--", NOTE, FAILLOG)
+    env = {"HOME": str(Path.home()), "PATH": "/Users/a77/finance-workspace-private/.venv-workbench/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin", "PYTHONDONTWRITEBYTECODE": "1", "LANG": "C.UTF-8"}
+    with (ROOT / "membership-repair-commit.log").open("xb") as log:
+        result = subprocess.run(["git", "-C", str(TREE), "commit", "-m", "docs: include ignored textual review evidence in sealed archive", "--", *paths, NOTE, FAILLOG], env=env, stdout=log, stderr=subprocess.STDOUT, timeout=150)
+    record = {"time": datetime.now(timezone.utc).isoformat(), "exit_code": result.returncode,
+              "revision": git("rev-parse", "HEAD"), "status": git("status", "--porcelain=v1"), "restored_members": len(paths)}
+    with (ROOT / "membership-repair-result.json").open("x") as f:
+        json.dump(record, f, indent=2)
+        f.write("\n")
+    print(json.dumps(record, indent=2))
+    raise SystemExit(result.returncode)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,71 @@
+"""One-shot publication of stopped review status; no close/merge/retry."""
+from datetime import datetime, timezone
+import importlib.util
+import json
+import os
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path.home() / "fwp-wt-ownership-closeout-0921"
+EVIDENCE = "47f80174d498794383b0f7edd1e73f7d55e1fabe"
+SOURCE = "1d9e00482a01c6cf11543fbc8982a5c03cab1a35"
+EXPECTED = {812: EVIDENCE, 813: "5994230dadcf23ec0a17c0b27e3a649d782ecf94", 814: SOURCE}
+
+
+def main():
+    os.umask(0o022)
+    spec = importlib.util.spec_from_file_location("ownership_gitea", TREE / "scripts/gitea_pr.py")
+    api = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(api)
+    base = "http://127.0.0.1:3300/a77/finance-workspace-private"
+    archive = f"{base}/src/commit/{EVIDENCE}/docs/verification/2026-09-21-ownership-k3-v4"
+    for number, expected in EXPECTED.items():
+        pr = api._api("GET", f"/pulls/{number}")
+        assert pr["state"] == "open" and not pr.get("merged") and pr["head"]["sha"] == expected, number
+    rows = []
+    leads = {
+        812: "看板是部分独立探针覆盖，不是删真实树许可。",
+        813: "两轴未完成独立自写动态backfill probe，既有回填测试绿不能补签；真实完整副本发布/恢复仍未演练。",
+        814: "a092修复的same-target同进程嵌套探针确实保住外层2P收据，但不等于全范围独立终审。源码未改，当前tip仅文档。",
+    }
+    for number in EXPECTED:
+        marker = f"<!-- ownership-k3-v4-interrupted-6eb12-pr{number} -->"
+        body = f"""{marker}
+## 无预算K3复审异常中断：BLOCKED，不是独立通过
+
+{leads[number]}
+
+被审对象仍为 **6eb12c1b8a41071fd4af8bee343950fe0b85b221**（c615冻结基线），不签后来main。用户“不用给k3设置预算，随便用”已落实为执行器/授权/prompt全部无总时长、请求、token和强制收尾帽；旧v3触帽历史不改。
+
+两路于08:07:40Z启动：Spec于08:40:39.231815Z、Quality于08:40:37.949713Z均exit1，各 **50准入/49完整assistant消息**，均无REPORT/verdict/completion。**50是实测数，不是新限额。** Spec stderr明确 `ENOSPC: no space left on device, write`；Quality stderr为空、几乎同时中断，原因仍未确证。未自动重启、增开会话或切付费路由。
+
+operator QC：首尾及复核时净同SHA/tree/十二源哈希，冻结输入和原输出哈希匹配；75份shell记录完整。Quality现有定向测试 **210P/1S、真实pytest exit0**，receipt关闭、tail后日志非完整stdout；两轴自写探针只有部分覆盖，signal控制未全过。没有确立新的候选产品缺陷，也不能据此宣布无缺陷。原fixture失败/覆盖/删除、错误pipeline退出读数、Quality早期宽泛pkill后才改owned child PID等偏差如实保留；shell无OS沙箱，未作全机旁伤审计。
+
+证据 **[{EVIDENCE[:9]}]({base}/commit/{EVIDENCE})**：[README]({archive}/README.md)、[operator QC]({archive}/operator-qc/review-qc.md)、[manifest]({archive}/manifest.json)。**819文件/33,027,503字节**（README算、manifest不算），events按原字节分片，拼接哈希一致；成员/原件/提交字节复核通过。首次发布66f848e46受通用tmp忽略规则漏220份文本，已在47f80174d补齐且保留初始失败，不amend原历史；[设施纠正]({base}/src/commit/{EVIDENCE}/docs/verification/2026-09-21-ownership-k3-v4-publication.md)。七档旧证据与v3/v4固定树不变。
+
+下一步先核磁盘容量与待处理路径归属，再另行确认恢复审查；不得重跑旧launch/run覆盖本轮，也不重新加旧预算。没有合并、部署、生产回填、删除真实树或接管Arena。最新main集成/完整副本发布恢复另验；三单与组合不可重复合。
+"""
+        with (ROOT / f"pr-{number}-body.md").open("x") as f:
+            f.write(body)
+        with (ROOT / f"pr-{number}-reservation.json").open("x") as f:
+            json.dump({"number": number, "marker": marker, "expected_head": EXPECTED[number],
+                       "time": datetime.now(timezone.utc).isoformat(), "state": "POST_RESERVED"}, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        result = api._api("POST", f"/issues/{number}/comments", {"body": body})
+        reread = api._api("GET", f"/issues/comments/{result['id']}")
+        assert reread["body"] == body
+        row = {"number": number, "id": result["id"], "url": result.get("html_url"), "body_matches": True,
+               "evidence_commit": EVIDENCE, "time": datetime.now(timezone.utc).isoformat()}
+        with (ROOT / f"pr-{number}-result.json").open("x") as f:
+            json.dump(row, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        rows.append(row)
+    with (ROOT / "pr-comments.json").open("x") as f:
+        json.dump(rows, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    print(json.dumps(rows, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()

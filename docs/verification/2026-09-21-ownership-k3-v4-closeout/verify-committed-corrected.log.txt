@@ -1,0 +1,12 @@
+{
+  "time": "2026-09-21T09:08:20.614539+00:00",
+  "archive": "/Users/a77/fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-k3-v4",
+  "commit": "47f80174d498794383b0f7edd1e73f7d55e1fabe",
+  "files_excluding_manifest": 819,
+  "bytes_excluding_manifest": 33027503,
+  "manifest_sha256": "71f5c53289a80f9dc9e1baf1c75cedea22e20f8feb6fae954a3dbf28f723ad11",
+  "membership_sizes_hashes_original_bytes": true,
+  "committed_bytes_match": true,
+  "independent_signoff": false,
+  "status": "BLOCKED_INFRASTRUCTURE"
+}

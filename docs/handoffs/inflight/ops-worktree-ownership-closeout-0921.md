@@ -11,7 +11,7 @@
 
 ## 当前状态
 2026-09-21双轴已异常结束，不再运行：Quality08:40:37.949Z、Spec08:40:39.231Z，均exit1，各50准入/49完整消息，无REPORT/verdict/completion。Spec明确ENOSPC（磁盘写满）；Quality原因未知。结论BLOCKED_INFRASTRUCTURE，独立未签字。
-原件`~/.finance-runtime/reviews/ownership-k3-v4-20260921/`；别重跑launch.py/run_k3.py。新归档`docs/verification/2026-09-21-ownership-k3-v4/`819文件/33,027,503字节（含README、不含manifest），原失败保留，operator QC单列。
+原件`~/.finance-runtime/reviews/ownership-k3-v4-20260921/`；别重跑launch.py/run_k3.py。新归档`docs/verification/2026-09-21-ownership-k3-v4/`819文件/33,027,503字节（含README、不含manifest），原失败保留，operator QC单列。完整发布锚点47f80174d已推且逐字节验Git；首次66f848e46漏220份tmp文本，不可单用。#814文档1d9e00482已推；三PR评论5348/5349/5350原文回读一致。发布设施/勘误见同级`2026-09-21-ownership-k3-v4-closeout/`。
 三v4树`~/fwp-wt-ownership-{gates,spec,quality}-v4-0921`固定6eb12c1b8（c615基线）。没有重启、合并、部署、生产回填、删真实树；Arena另线。
 
 ## 已验证

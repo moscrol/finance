@@ -1,0 +1,1327 @@
+{
+  "time": "2026-09-21T09:07:13.856895+00:00",
+  "initial_commit": "66f848e46afecced40a5a0d1c3a29127dd72c516",
+  "missing_members": [
+    {
+      "path": "quality-k3/tmp/a5-out-configure-error-__unset__/run-1.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a5-out-configure-error-__unset__/run-1.json",
+      "bytes": 666,
+      "sha256": "d53f235381295f714d2c45a8ce72cb07488d4a0351e35a54202e641d21fd30bd"
+    },
+    {
+      "path": "quality-k3/tmp/a5-out-configure-error-__unset__/state-0.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a5-out-configure-error-__unset__/state-0.json",
+      "bytes": 57,
+      "sha256": "f38655c5a54dd9f7d9d6c515abd98df3a036afc8a7c073b4cbc807127de4f8da"
+    },
+    {
+      "path": "quality-k3/tmp/a5-out-configure-error-__unset__/state-1.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a5-out-configure-error-__unset__/state-1.json",
+      "bytes": 56,
+      "sha256": "1c15a417f9b87e1bf0a3508ab639693163679c05b7b4899874f9dd89156cfa19"
+    },
+    {
+      "path": "quality-k3/tmp/a5-out-configure-error-unset/run-1.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a5-out-configure-error-unset/run-1.json",
+      "bytes": 666,
+      "sha256": "dcec0507d46ebdd31b68cbff0f2c6b33fa618f41dffb457d55cdad931aaeedb3"
+    },
+    {
+      "path": "quality-k3/tmp/a5-out-configure-error-unset/state-0.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a5-out-configure-error-unset/state-0.json",
+      "bytes": 55,
+      "sha256": "9fd6c5d2d6da7c06b3bf48c6b63bc6c722a85f9893c2a1595ff2eaa093aca74f"
+    },
+    {
+      "path": "quality-k3/tmp/a5-out-configure-error-unset/state-1.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a5-out-configure-error-unset/state-1.json",
+      "bytes": 54,
+      "sha256": "315410267566b2eba85f9c6c9af83706d65fd7d11ab413a65539e1bdb41a7ffd"
+    },
+    {
+      "path": "quality-k3/tmp/a5-out-success-__unset__/run-0.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a5-out-success-__unset__/run-0.json",
+      "bytes": 658,
+      "sha256": "e042f55fa4fddfea56cd318a05bfdafc7c9d095a8747bc1db08b016e8490fd54"
+    },
+    {
+      "path": "quality-k3/tmp/a5-out-success-__unset__/run-1.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a5-out-success-__unset__/run-1.json",
+      "bytes": 658,
+      "sha256": "2f5134156059c121cf9d5e96bb1b9ea30d67ce695ae5b051d11905714f9026e8"
+    },
+    {
+      "path": "quality-k3/tmp/a5-out-success-__unset__/state-0.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a5-out-success-__unset__/state-0.json",
+      "bytes": 56,
+      "sha256": "1c15a417f9b87e1bf0a3508ab639693163679c05b7b4899874f9dd89156cfa19"
+    },
+    {
+      "path": "quality-k3/tmp/a5-out-success-__unset__/state-1.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a5-out-success-__unset__/state-1.json",
+      "bytes": 56,
+      "sha256": "1c15a417f9b87e1bf0a3508ab639693163679c05b7b4899874f9dd89156cfa19"
+    },
+    {
+      "path": "quality-k3/tmp/a5-out-success-unset/run-0.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a5-out-success-unset/run-0.json",
+      "bytes": 658,
+      "sha256": "8a4726defe2b2f81ca60f8a0cc779c8d48dbc729e55714911863491b72d531d2"
+    },
+    {
+      "path": "quality-k3/tmp/a5-out-success-unset/run-1.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a5-out-success-unset/run-1.json",
+      "bytes": 658,
+      "sha256": "8a4726defe2b2f81ca60f8a0cc779c8d48dbc729e55714911863491b72d531d2"
+    },
+    {
+      "path": "quality-k3/tmp/a5-out-success-unset/state-0.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a5-out-success-unset/state-0.json",
+      "bytes": 54,
+      "sha256": "315410267566b2eba85f9c6c9af83706d65fd7d11ab413a65539e1bdb41a7ffd"
+    },
+    {
+      "path": "quality-k3/tmp/a5-out-success-unset/state-1.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a5-out-success-unset/state-1.json",
+      "bytes": 54,
+      "sha256": "315410267566b2eba85f9c6c9af83706d65fd7d11ab413a65539e1bdb41a7ffd"
+    },
+    {
+      "path": "quality-k3/tmp/a5_runner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a5_runner.py",
+      "bytes": 837,
+      "sha256": "ff1c9e3708da96e3dc616630aa70a89636cf22d919c148df2e76efb481834044"
+    },
+    {
+      "path": "quality-k3/tmp/a7_runner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a7_runner.py",
+      "bytes": 460,
+      "sha256": "63fd8a54c22db948eccc5c3f5369cf26fb30fbe0747901ed4c47b053eb23bde6"
+    },
+    {
+      "path": "quality-k3/tmp/a8-receipts/20260921T083457Z-aaaaaaaa-27fa0fc59899.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a8-receipts/20260921T083457Z-aaaaaaaa-27fa0fc59899.json",
+      "bytes": 96,
+      "sha256": "04c350b4a952b775f0b7822134a3f37cc9ab56ec36462eb5c5003f45a754c8ab"
+    },
+    {
+      "path": "quality-k3/tmp/a8-receipts/20260921T083457Z-aaaaaaaa-351e32c69b1e.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a8-receipts/20260921T083457Z-aaaaaaaa-351e32c69b1e.json",
+      "bytes": 96,
+      "sha256": "04c350b4a952b775f0b7822134a3f37cc9ab56ec36462eb5c5003f45a754c8ab"
+    },
+    {
+      "path": "quality-k3/tmp/a8-receipts/20260921T083457Z-aaaaaaaa-e92777d0505f.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a8-receipts/20260921T083457Z-aaaaaaaa-e92777d0505f.json",
+      "bytes": 96,
+      "sha256": "04c350b4a952b775f0b7822134a3f37cc9ab56ec36462eb5c5003f45a754c8ab"
+    },
+    {
+      "path": "quality-k3/tmp/a8-receipts/run/pytest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a8-receipts/run/pytest.json",
+      "bytes": 96,
+      "sha256": "04c350b4a952b775f0b7822134a3f37cc9ab56ec36462eb5c5003f45a754c8ab"
+    },
+    {
+      "path": "quality-k3/tmp/a9-latest-is-dir/20260921T083416Z-7c9f6cf6-ed3301cae8e6.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a9-latest-is-dir/20260921T083416Z-7c9f6cf6-ed3301cae8e6.json",
+      "bytes": 645,
+      "sha256": "19e82df9097801879da98dea8cfd77a9799434adfa96cfed989e948f3a68d609"
+    },
+    {
+      "path": "quality-k3/tmp/receipts-a1/gate-cB1AKigY/pytest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a1/gate-cB1AKigY/pytest.json",
+      "bytes": 644,
+      "sha256": "95816d7e8e4a7180bb24bf4e9c2297291bbb76f970ba2f366bc6424399e8dff0"
+    },
+    {
+      "path": "quality-k3/tmp/receipts-a10b/20260921T083417Z-(unknown-6b5d4ad032ae.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a10b/20260921T083417Z-(unknown-6b5d4ad032ae.json",
+      "bytes": 620,
+      "sha256": "ec44546a9ced9834b4286e0b89810e724aa6d763a34fef113889d07c291cf4d8"
+    },
+    {
+      "path": "quality-k3/tmp/receipts-a13/gate-qOCFu3WN/pytest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a13/gate-qOCFu3WN/pytest.json",
+      "bytes": 648,
+      "sha256": "af5ad81484c5033287b6c14c5f3caa47118698b8f2b264e45901ef896a3c5f2b"
+    },
+    {
+      "path": "quality-k3/tmp/receipts-a2/gate-ha8ewd36/pytest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a2/gate-ha8ewd36/pytest.json",
+      "bytes": 652,
+      "sha256": "86a591a3d11fa6233ad64240d29f88a945a68d0d64c7fc9b34ca0dc57157cd02"
+    },
+    {
+      "path": "quality-k3/tmp/receipts-a2/gate-iYh5IIOI/pytest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a2/gate-iYh5IIOI/pytest.json",
+      "bytes": 652,
+      "sha256": "ec0876639f5084987f7747b1d9a6b2ba8667b79f411701547898efa06a2970ce"
+    },
+    {
+      "path": "quality-k3/tmp/receipts-a3/gate-GPaALEMQ/pytest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a3/gate-GPaALEMQ/pytest.json",
+      "bytes": 656,
+      "sha256": "360afa733663c642a1b4ae58ab6fe37477da97e6b2561f97e22649ebce9c5f80"
+    },
+    {
+      "path": "quality-k3/tmp/receipts-a4/gate-d8NiW0Ct/pytest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a4/gate-d8NiW0Ct/pytest.json",
+      "bytes": 655,
+      "sha256": "62736d841b8546d92a0edd56d553608b6c57895f79b9fa54cc8fd91842054f93"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a1/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a1/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a1/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a1/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a1/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a1/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a1/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a1/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a1/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a1/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a1/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a1/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a1/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a1/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a10b/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a10b/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a10b/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a10b/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a10b/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a10b/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a10b/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a10b/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a10b/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a10b/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a10b/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a10b/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a10b/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a10b/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a11/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a11/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a11/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a11/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a11/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a11/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a11/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a11/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a11/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a11/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a11/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a11/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a11/test_slow.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a11/test_slow.py",
+      "bytes": 50,
+      "sha256": "9e7f9c4194a152fbbf268e71d03fbd41e88d15442e25a1036beefe57f624e1df"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a11/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a11/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a12/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a12/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a12/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a12/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a12/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a12/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a12/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a12/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a12/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a12/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a12/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a12/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a12/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a12/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a13/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a13/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a13/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a13/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a13/docs_note.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a13/docs_note.md",
+      "bytes": 15,
+      "sha256": "14313adeb934ab7fbf0aae3a88b2343be0c2e1630c3b8c09e442df38c3a2b5ed"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a13/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a13/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a13/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a13/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a13/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a13/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a13/test_drift.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a13/test_drift.py",
+      "bytes": 118,
+      "sha256": "8a370f7373f4113d1b1bb0538de148d34a6474d27a83f42ac3c0e582cf4ad2aa"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a13/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a13/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a13/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a13/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a2/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a2/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a2/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a2/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a2/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a2/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a2/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a2/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a2/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a2/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a2/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a2/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a2/test_rendezvous.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a2/test_rendezvous.py",
+      "bytes": 359,
+      "sha256": "fd8012ce331fcd90bc87663cda2c77ea80b958376d919e38f7077d2073090764"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a2/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a2/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a3/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a3/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a3/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a3/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a3/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a3/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a3/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a3/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a3/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a3/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a3/test_nested_subproc.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a3/test_nested_subproc.py",
+      "bytes": 319,
+      "sha256": "f4074d01521934ff6a49d2ca27a91faa77d03d823e7a18fc70197960fc84302b"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a3/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a3/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a3/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a3/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a4/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a4/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a4/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a4/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a4/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a4/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a4/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a4/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a4/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a4/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a4/test_nested_inproc.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a4/test_nested_inproc.py",
+      "bytes": 205,
+      "sha256": "f4fd7864513bb24958d091a06c7fae3b8bae3f0a8db19da7a77a2fad9e30d69b"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a4/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a4/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a4/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a4/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_configure-error_empty/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_configure-error_empty/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_configure-error_empty/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_configure-error_empty/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_configure-error_empty/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_configure-error_empty/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_configure-error_empty/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_configure-error_empty/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_configure-error_empty/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_configure-error_empty/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_configure-error_empty/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_configure-error_empty/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_configure-error_empty/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_configure-error_empty/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_configure-error_unset/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_configure-error_unset/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_configure-error_unset/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_configure-error_unset/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_configure-error_unset/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_configure-error_unset/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_configure-error_unset/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_configure-error_unset/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_configure-error_unset/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_configure-error_unset/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_configure-error_unset/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_configure-error_unset/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_configure-error_unset/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_configure-error_unset/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_success_empty/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_success_empty/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_success_empty/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_success_empty/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_success_empty/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_success_empty/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_success_empty/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_success_empty/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_success_empty/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_success_empty/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_success_empty/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_success_empty/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_success_empty/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_success_empty/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_success_unset/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_success_unset/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_success_unset/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_success_unset/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_success_unset/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_success_unset/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_success_unset/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_success_unset/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_success_unset/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_success_unset/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_success_unset/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_success_unset/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a5_success_unset/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a5_success_unset/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a6/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a6/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a6/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a6/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a6/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a6/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a6/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a6/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a6/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a6/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a6/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a6/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a6/test_switch_path.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a6/test_switch_path.py",
+      "bytes": 85,
+      "sha256": "ae00f3106cebecb0817b01842bdaff2fb99c3a9e8857d4ce21d14e7d44e56c81"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a6/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a6/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a7_inherited_foreign/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a7_inherited_foreign/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a7_inherited_foreign/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a7_inherited_foreign/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a7_inherited_foreign/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a7_inherited_foreign/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a7_inherited_foreign/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a7_inherited_foreign/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a7_inherited_foreign/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a7_inherited_foreign/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a7_inherited_foreign/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a7_inherited_foreign/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a7_inherited_foreign/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a7_inherited_foreign/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a7_inherited_self/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a7_inherited_self/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a7_inherited_self/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a7_inherited_self/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a7_inherited_self/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a7_inherited_self/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a7_inherited_self/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a7_inherited_self/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a7_inherited_self/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a7_inherited_self/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a7_inherited_self/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a7_inherited_self/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a7_inherited_self/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a7_inherited_self/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a8b/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a8b/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a8b/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a8b/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a8b/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a8b/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a8b/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a8b/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a8b/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a8b/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a8b/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a8b/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a8b/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a8b/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9a/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9a/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9a/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9a/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9a/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9a/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9a/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9a/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9a/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9a/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9a/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9a/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9a/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9a/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9b/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9b/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9b/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9b/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9b/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9b/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9b/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9b/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9b/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9b/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9b/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9b/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9b/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9b/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9c/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9c/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9c/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9c/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9c/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9c/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9c/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9c/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9c/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9c/test-environment.json",
+      "bytes": 273,
+      "sha256": "a827841153485507b3a1cdfd6e2341433e7baa3b19cedf08ea096741b7e2ef38"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9c/test_ok.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9c/test_ok.py",
+      "bytes": 72,
+      "sha256": "991d7c317cffd138643c61b72f0b4d96af8ebe1e0d183e16268df8c43535135e"
+    },
+    {
+      "path": "quality-k3/tmp/repo-a9c/tests_inner/test_inner.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a9c/tests_inner/test_inner.py",
+      "bytes": 78,
+      "sha256": "77ea1716e9befe4a395665f938debf491d8993bb0d8f7da74c07750ca59e7ce3"
+    },
+    {
+      "path": "spec-k3/tmp/e1.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/e1.json",
+      "bytes": 605,
+      "sha256": "8b5de8ee229174ef6ba26006ae83f074307786f790f23e9c7e61a2454d38a32f"
+    },
+    {
+      "path": "spec-k3/tmp/rb-allow-dirty-dirty-ok.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-allow-dirty-dirty-ok.json",
+      "bytes": 604,
+      "sha256": "c06f84eb565e98ef56c374b3e3f579ae1a4f303f2ee165863d1470ccbab64241"
+    },
+    {
+      "path": "spec-k3/tmp/rb-allow-dirty-wrong-revision.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-allow-dirty-wrong-revision.json",
+      "bytes": 605,
+      "sha256": "ae4f754143df46456e7133ea39fa237f0aacac63cd6127967b45a921fb8834c3"
+    },
+    {
+      "path": "spec-k3/tmp/rb-allow-dirty-wrong-tree.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-allow-dirty-wrong-tree.json",
+      "bytes": 530,
+      "sha256": "f2797eee8cdd655d87ce8f4bd1c10bc41d37dc78d5abcc318771265fed3daabb"
+    },
+    {
+      "path": "spec-k3/tmp/rb-base-baseline-different-revision-ok.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-base-baseline-different-revision-ok.json",
+      "bytes": 605,
+      "sha256": "6795f5b5005b96f840cfebfeb06a371fdcf266feb27fc32a1cda53dee28ace7e"
+    },
+    {
+      "path": "spec-k3/tmp/rb-base-baseline-dirty-total.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-base-baseline-dirty-total.json",
+      "bytes": 605,
+      "sha256": "d8b6157f5fecc3b31d8173e6024aab3686f1e5aafa68d366bdf7ca2aaf3c4479"
+    },
+    {
+      "path": "spec-k3/tmp/rb-base-baseline-dirty.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-base-baseline-dirty.json",
+      "bytes": 604,
+      "sha256": "049858c69c00502a5dc2f482d9984823f0583b0558094ff9f5a3f2fb6b22232a"
+    },
+    {
+      "path": "spec-k3/tmp/rb-base-baseline-interrupted-current.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-base-baseline-interrupted-current.json",
+      "bytes": 605,
+      "sha256": "8b5de8ee229174ef6ba26006ae83f074307786f790f23e9c7e61a2454d38a32f"
+    },
+    {
+      "path": "spec-k3/tmp/rb-base-baseline-malformed.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-base-baseline-malformed.json",
+      "bytes": 14,
+      "sha256": "14aa8b3524e6b12d9b929a8ef3c23eb9315995dca24861952e828ceb61e5b0c8"
+    },
+    {
+      "path": "spec-k3/tmp/rb-base-baseline-new-red.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-base-baseline-new-red.json",
+      "bytes": 625,
+      "sha256": "29ee8c44fb834dc7a0050d21101e32ee353d1d816ede897276306c2caa37e982"
+    },
+    {
+      "path": "spec-k3/tmp/rb-base-baseline-passes-decreased.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-base-baseline-passes-decreased.json",
+      "bytes": 605,
+      "sha256": "8b5de8ee229174ef6ba26006ae83f074307786f790f23e9c7e61a2454d38a32f"
+    },
+    {
+      "path": "spec-k3/tmp/rb-base-baseline-same-red-diagnostic.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-base-baseline-same-red-diagnostic.json",
+      "bytes": 625,
+      "sha256": "29ee8c44fb834dc7a0050d21101e32ee353d1d816ede897276306c2caa37e982"
+    },
+    {
+      "path": "spec-k3/tmp/rb-base-baseline-target-mismatch.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-base-baseline-target-mismatch.json",
+      "bytes": 594,
+      "sha256": "f490446c2a400e9bac8e7c27d370fd5282f39b31ec8220eb69caf6f150720cbd"
+    },
+    {
+      "path": "spec-k3/tmp/rb-baseline-different-revision-ok.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-baseline-different-revision-ok.json",
+      "bytes": 605,
+      "sha256": "8b5de8ee229174ef6ba26006ae83f074307786f790f23e9c7e61a2454d38a32f"
+    },
+    {
+      "path": "spec-k3/tmp/rb-baseline-dirty-total.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-baseline-dirty-total.json",
+      "bytes": 605,
+      "sha256": "8b5de8ee229174ef6ba26006ae83f074307786f790f23e9c7e61a2454d38a32f"
+    },
+    {
+      "path": "spec-k3/tmp/rb-baseline-dirty.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-baseline-dirty.json",
+      "bytes": 605,
+      "sha256": "8b5de8ee229174ef6ba26006ae83f074307786f790f23e9c7e61a2454d38a32f"
+    },
+    {
+      "path": "spec-k3/tmp/rb-baseline-interrupted-current.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-baseline-interrupted-current.json",
+      "bytes": 605,
+      "sha256": "4d54595ecd37ae5972eae681a027ef398922afc6232d547a30ff34994e3c1808"
+    },
+    {
+      "path": "spec-k3/tmp/rb-baseline-malformed.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-baseline-malformed.json",
+      "bytes": 605,
+      "sha256": "8b5de8ee229174ef6ba26006ae83f074307786f790f23e9c7e61a2454d38a32f"
+    },
+    {
+      "path": "spec-k3/tmp/rb-baseline-new-red.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-baseline-new-red.json",
+      "bytes": 647,
+      "sha256": "ca8dc8f9c40564a0e7060ca28f256bff61b7582d4dd6ad357775972407288de1"
+    },
+    {
+      "path": "spec-k3/tmp/rb-baseline-passes-decreased.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-baseline-passes-decreased.json",
+      "bytes": 605,
+      "sha256": "4151cf76f7c6f3fd5c8d03507341751981fc822fe18080a1e6b2906acbf8ee3d"
+    },
+    {
+      "path": "spec-k3/tmp/rb-baseline-same-red-diagnostic.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-baseline-same-red-diagnostic.json",
+      "bytes": 625,
+      "sha256": "29ee8c44fb834dc7a0050d21101e32ee353d1d816ede897276306c2caa37e982"
+    },
+    {
+      "path": "spec-k3/tmp/rb-baseline-target-mismatch.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-baseline-target-mismatch.json",
+      "bytes": 605,
+      "sha256": "8b5de8ee229174ef6ba26006ae83f074307786f790f23e9c7e61a2454d38a32f"
+    },
+    {
+      "path": "spec-k3/tmp/rb-counts-bool.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-counts-bool.json",
+      "bytes": 608,
+      "sha256": "a168167457073b97b8b4750b14afc7d10637f28703500b5fd8dfde2371e83db4"
+    },
+    {
+      "path": "spec-k3/tmp/rb-counts-float.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-counts-float.json",
+      "bytes": 607,
+      "sha256": "c91b969c13ff69e1b352c7e3a714042afe86fc36444fac3d0cb15ee7bcaa9d9c"
+    },
+    {
+      "path": "spec-k3/tmp/rb-counts-missing-key.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-counts-missing-key.json",
+      "bytes": 566,
+      "sha256": "014c4a3971a43e93f17f24797365e7377fe0653ec2fd89a584988c8b71f109d9"
+    },
+    {
+      "path": "spec-k3/tmp/rb-counts-negative.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-counts-negative.json",
+      "bytes": 606,
+      "sha256": "d86da58fc0056c995cd2f1dba4a4144665eb9420c2f1e80d3b9441c2a001ca16"
+    },
+    {
+      "path": "spec-k3/tmp/rb-counts-string.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-counts-string.json",
+      "bytes": 607,
+      "sha256": "adc7bc3a6895a365b1dcb4b9994129fb9785ba93a49d74b9bdac2c65a11e6767"
+    },
+    {
+      "path": "spec-k3/tmp/rb-counts-zero-exec.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-counts-zero-exec.json",
+      "bytes": 605,
+      "sha256": "67db51e13ef49c75cf895de3aa23d48179417469aea2e5d7b54a4c707c789840"
+    },
+    {
+      "path": "spec-k3/tmp/rb-dep-gate-bypassed.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-dep-gate-bypassed.json",
+      "bytes": 604,
+      "sha256": "570f71347acbdaaa1f16a53470feeb357783f45b6502896c3b1e5049540a28ee"
+    },
+    {
+      "path": "spec-k3/tmp/rb-dep-gate-missing.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-dep-gate-missing.json",
+      "bytes": 570,
+      "sha256": "ef9e01c7ac4f0cd3d4e87bfc8cdb72ac33bfc26b6b82add5c581dc9030b297f1"
+    },
+    {
+      "path": "spec-k3/tmp/rb-dirty-total-missing.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-dirty-total-missing.json",
+      "bytes": 578,
+      "sha256": "1c6e02256e213c6227d61389612204db5ab1bff478ae3965ec70beb2142cb7c2"
+    },
+    {
+      "path": "spec-k3/tmp/rb-dirty-total-nonzero.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-dirty-total-nonzero.json",
+      "bytes": 605,
+      "sha256": "d921e34d0dbae373b8878655a93f829b34e64b121d7b4720ab5b1fb0688d3148"
+    },
+    {
+      "path": "spec-k3/tmp/rb-dirty-true.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-dirty-true.json",
+      "bytes": 604,
+      "sha256": "049858c69c00502a5dc2f482d9984823f0583b0558094ff9f5a3f2fb6b22232a"
+    },
+    {
+      "path": "spec-k3/tmp/rb-exit-status-2.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-exit-status-2.json",
+      "bytes": 605,
+      "sha256": "4d54595ecd37ae5972eae681a027ef398922afc6232d547a30ff34994e3c1808"
+    },
+    {
+      "path": "spec-k3/tmp/rb-exit-status-5.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-exit-status-5.json",
+      "bytes": 605,
+      "sha256": "b0a0bd115c14daa1792157115a1efef81c22ba6648eaa026b30f9b5899ea862e"
+    },
+    {
+      "path": "spec-k3/tmp/rb-exit-status-missing.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-exit-status-missing.json",
+      "bytes": 587,
+      "sha256": "89b6e8504d9d0247d703145f48f5f95ebb635890607ba02e17919b03572dae2e"
+    },
+    {
+      "path": "spec-k3/tmp/rb-failed-ids-count-mismatch.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-failed-ids-count-mismatch.json",
+      "bytes": 619,
+      "sha256": "dcbcc052205cd036ec111e3e4255a8f3256c2dee98617e8c72da5da202e6d1f0"
+    },
+    {
+      "path": "spec-k3/tmp/rb-failed-receipt.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-failed-receipt.json",
+      "bytes": 625,
+      "sha256": "29ee8c44fb834dc7a0050d21101e32ee353d1d816ede897276306c2caa37e982"
+    },
+    {
+      "path": "spec-k3/tmp/rb-interpreter-missing.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-interpreter-missing.json",
+      "bytes": 523,
+      "sha256": "ed1470941171bb8ba9118bdd314288e1e225a5d7c2b08b90d862a9ff13a59a73"
+    },
+    {
+      "path": "spec-k3/tmp/rb-interpreter-wrong.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-interpreter-wrong.json",
+      "bytes": 558,
+      "sha256": "23e7a141d84b71e6639c5f0270e4d8db4ce4da8dcb88be78abc506494ba38102"
+    },
+    {
+      "path": "spec-k3/tmp/rb-json-array.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-json-array.json",
+      "bytes": 5,
+      "sha256": "49a64717d5d4cb19952e6eac2946415cf6879adacf9908e7d872332d32c6e684"
+    },
+    {
+      "path": "spec-k3/tmp/rb-json-null.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-json-null.json",
+      "bytes": 4,
+      "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+    },
+    {
+      "path": "spec-k3/tmp/rb-malformed-json.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-malformed-json.json",
+      "bytes": 9,
+      "sha256": "92072df399cb74703f8e86f450d552bc0bb01eeeb98a90985a1b7772c8fd0016"
+    },
+    {
+      "path": "spec-k3/tmp/rb-revision-missing.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-revision-missing.json",
+      "bytes": 549,
+      "sha256": "d9d40eaa65e9c684336adc75cb603b22d79ba48d3b3a3f97c9aa4aa4a7cce201"
+    },
+    {
+      "path": "spec-k3/tmp/rb-revision-wrong.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-revision-wrong.json",
+      "bytes": 605,
+      "sha256": "ae4f754143df46456e7133ea39fa237f0aacac63cd6127967b45a921fb8834c3"
+    },
+    {
+      "path": "spec-k3/tmp/rb-status0-with-failed-ids.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-status0-with-failed-ids.json",
+      "bytes": 625,
+      "sha256": "e7ca5e588abef948e4f246dbd8e545df32b351387cb9ae84fb13abf14f922207"
+    },
+    {
+      "path": "spec-k3/tmp/rb-status1-no-failed-ids.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-status1-no-failed-ids.json",
+      "bytes": 605,
+      "sha256": "aa5cde6cf9936c6da8936c732a7842cc29ae25bedfcf78a987094b30068bd787"
+    },
+    {
+      "path": "spec-k3/tmp/rb-target-missing.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-target-missing.json",
+      "bytes": 572,
+      "sha256": "b2f9e0db1e45198725ef0903ee4b3261a19b278349ddd020880c3af47d41246f"
+    },
+    {
+      "path": "spec-k3/tmp/rb-tree-missing.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-tree-missing.json",
+      "bytes": 505,
+      "sha256": "74c66a816dc0ea9209d9d26dab0958d6e379d533f15b376f78d1b89a75c17a9d"
+    },
+    {
+      "path": "spec-k3/tmp/rb-tree-null.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-tree-null.json",
+      "bytes": 519,
+      "sha256": "59348f32f9adec5d72dc2ba306e1d813d22752247f15747f76233bf95fad8586"
+    },
+    {
+      "path": "spec-k3/tmp/rb-tree-wrong.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-tree-wrong.json",
+      "bytes": 530,
+      "sha256": "f2797eee8cdd655d87ce8f4bd1c10bc41d37dc78d5abcc318771265fed3daabb"
+    },
+    {
+      "path": "spec-k3/tmp/rb-valid-copy.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/rb-valid-copy.json",
+      "bytes": 605,
+      "sha256": "8b5de8ee229174ef6ba26006ae83f074307786f790f23e9c7e61a2454d38a32f"
+    }
+  ],
+  "reason": "generic .gitignore tmp/ rule omitted selected evidence during directory pathspec add"
+}

@@ -1,0 +1,167 @@
+"""Check publication of the stopped review, without re-running or approving it.
+
+Read-only Git/API checks plus an exclusive operator record. The eight archives
+and six frozen trees must remain unchanged; later main never inherits evidence.
+"""
+from datetime import datetime, timezone
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+OUT = Path(__file__).resolve().parent
+RUN = Path.home() / ".finance-runtime/reviews/ownership-k3-v4-20260921"
+REPO = Path.home() / "fwp-wt-ownership-closeout-0921"
+EVIDENCE = "47f80174d498794383b0f7edd1e73f7d55e1fabe"
+SOURCE = "1d9e00482a01c6cf11543fbc8982a5c03cab1a35"
+REV = "6eb12c1b8a41071fd4af8bee343950fe0b85b221"
+ARCHIVE_REL = "docs/verification/2026-09-21-ownership-k3-v4"
+
+
+def git(tree, *args):
+    return subprocess.check_output(["git", "-C", str(tree), *args], text=True, timeout=40).rstrip("\n")
+
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def main():
+    os.umask(0o022)
+    assert len(sys.argv) == 2, "pass expected coordination documentation tip"
+    coord = sys.argv[1]
+    assert not (OUT / "final-state.json").exists(), "do not overwrite observation"
+    stop = json.loads((RUN / "operator-qc/stop-state.json").read_text())
+    checked = json.loads((OUT / "archive-committed-verification.json").read_text())
+    assert checked["commit"] == EVIDENCE and checked["committed_bytes_match"] is True
+    expected = [(REPO, coord, "ops/worktree-ownership-closeout-0921"),
+                (Path.home() / "fwp-wt-test-gate-receipt-identity-0921", SOURCE, "fix/test-gate-receipt-identity-0921"),
+                (Path.home() / "fwp-wt-backfill-main-ready-0921", "5994230dadcf23ec0a17c0b27e3a649d782ecf94", "fix/backfill-main-ready-0921")]
+    for row in stop["frozen_trees"]:
+        branch = "baseline/ownership-gates-v4-0921" if row["path"].endswith("gates-v4-0921") else None
+        expected.append((Path(row["path"]), row["revision"], branch))
+    trees = []
+    for tree, revision, branch in expected:
+        assert git(tree, "rev-parse", "HEAD") == revision
+        assert not git(tree, "status", "--porcelain=v1", "--untracked-files=all"), tree
+        row = {"path": str(tree), "revision": revision, "git_tree": git(tree, "rev-parse", "HEAD^{tree}"), "status": ""}
+        if branch:
+            remote = git(REPO, "ls-remote", "gitea", "refs/heads/" + branch).split()[0]
+            assert remote == revision, branch
+            row["remote_tip_matches"] = True
+        trees.append(row)
+    source_changes = git(REPO, "diff", "--name-only", "a092a021c3d7d978c4dfd9551e74aa984a523f18", SOURCE).splitlines()
+    assert source_changes == ["docs/handoffs/inflight/fix-test-gate-receipt-identity-0921.md"]
+    coordination_changes = git(REPO, "diff", "--name-only", "35e105182b6b615b0fdecf892229fd92eb426ebf", coord).splitlines()
+    assert all(p.startswith(("docs/verification/2026-09-21-ownership-k3-v4", "docs/handoffs/")) for p in coordination_changes)
+    archives = []
+    for old in stop["old_archives"] + [{"directory": str(REPO / ARCHIVE_REL), "manifest_sha256": checked["manifest_sha256"]}]:
+        directory = Path(old["directory"])
+        manifest_bytes = (directory / "manifest.json").read_bytes()
+        assert digest(manifest_bytes) == old["manifest_sha256"]
+        manifest = json.loads(manifest_bytes)
+        rows = manifest.get("entries", manifest.get("files"))
+        assert {str(p.relative_to(directory)) for p in directory.rglob("*") if p.is_file()} == {r["path"] for r in rows} | {"manifest.json"}
+        for row in rows:
+            data = (directory / row["path"]).read_bytes()
+            assert len(data) == row["bytes"] and digest(data) == row["sha256"]
+            if directory == REPO / ARCHIVE_REL:
+                with Path(row["source"]).open("rb") as f:
+                    f.seek(row.get("source_offset", 0))
+                    assert f.read(len(data)) == data
+                    if "source_offset" not in row:
+                        assert f.read(1) == b""
+        rel = str(directory.relative_to(REPO))
+        assert git(REPO, "rev-parse", f"{coord}:{rel}") == git(REPO, "rev-parse", f"{EVIDENCE}:{rel}")
+        archives.append({"directory": str(directory), "files_excluding_manifest": len(rows),
+                         "manifest_sha256": digest(manifest_bytes), "hashes_match": True,
+                         "git_tree_matches_verified_evidence_anchor": True})
+    axes = {}
+    for axis in ("spec", "quality"):
+        out = RUN / f"{axis}-k3"
+        ex = json.loads((out / "execution.json").read_text())
+        assert ex["complete"] and ex["exit_code"] == 1 and ex["revision"] == REV
+        assert ex["timeout_seconds"] is None and ex["max_provider_request_admissions"] is None
+        assert ex["forced_exploration_cutoff"] is None and ex["automatic_model_retries"] is False
+        assert not any((out / name).exists() for name in ("REPORT.md", "verdict.json", "completion.json"))
+        for name, value in ex["sha256"].items():
+            assert digest((out / name).read_bytes()) == value
+        for name, value in ex["identity_after"]["inputs_sha256"].items():
+            assert digest((RUN / name).read_bytes()) == value
+        for name, value in ex["identity_after"]["candidate_files"].items():
+            assert digest((Path(ex["identity_after"]["checkout"]) / name).read_bytes()) == value
+            assert digest((Path.home() / "fwp-wt-ownership-gates-v4-0921" / name).read_bytes()) == value
+        axes[axis] = {k: ex[k] for k in ("exit_code", "provider_request_admissions", "assistant_messages", "time_after", "stop_reason", "final_report_present")}
+    spec = importlib.util.spec_from_file_location("ownership_gitea", REPO / "scripts/gitea_pr.py")
+    api = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(api)
+    prs = []
+    for number, head in ((812, coord), (813, expected[2][1]), (814, SOURCE)):
+        pr = api._api("GET", f"/pulls/{number}")
+        assert pr["state"] == "open" and not pr.get("merged") and pr["head"]["sha"] == head
+        prs.append({"number": number, "head": head, "state": pr["state"], "merged": pr.get("merged")})
+    comments = json.loads((OUT / "pr-comments.json").read_text())
+    for row in comments:
+        result = api._api("GET", f"/issues/comments/{row['id']}")
+        assert result["body"] == (OUT / f"pr-{row['number']}-body.md").read_text()
+    handoffs = []
+    for tree, path in ((REPO, "docs/handoffs/inflight/ops-worktree-ownership-closeout-0921.md"),
+                       (expected[1][0], source_changes[0])):
+        data = (tree / path).read_bytes()
+        assert len(data) <= 3072
+        handoffs.append({"path": str(tree / path), "bytes": len(data), "sha256": digest(data)})
+    memory = Path.home() / "agent-memory"
+    mem_rel = "20_projects/finance-workspace-private.md"
+    text = (memory / mem_rel).read_text()
+    own_spans = [s for s in text.splitlines() if s.startswith("| 09-21 工作树归属核验与孤儿接管") or "· 固定6eb12无预算K3双轴异常中断" in s]
+    committed_memory = git(memory, "show", "HEAD:" + mem_rel)
+    assert len(own_spans) == 2 and all(s in committed_memory for s in own_spans)
+    assert "| blocked |" in own_spans[0]
+    knowledge_rel = "10_knowledge/evidence-hygiene-three-failure-shapes.md"
+    assert "不限模型用量不等于资源隔离或恢复授权" in git(memory, "show", "HEAD:" + knowledge_rel)
+    process = subprocess.check_output(["ps", "-axo", "pid=,ppid=,pgid=,command="], text=True, timeout=15)
+    own_processes = []
+    for line in process.splitlines():
+        fields = line.strip().split(maxsplit=3)
+        if len(fields) == 4 and (fields[2] in {"53716", "53717"} or str(RUN / "run_k3.py") in fields[3] or (str(RUN / "credential-bootstrap.mjs") in fields[3] and "pi" in fields[3])):
+            own_processes.append(line.strip())
+    assert not own_processes, own_processes
+    sidecar = REPO / "docs/verification/2026-09-21-ownership-k3-v4-closeout"
+    side_manifest = json.loads((sidecar / "manifest.json").read_text())
+    assert {str(p.relative_to(sidecar)) for p in sidecar.rglob("*") if p.is_file()} == {r["path"] for r in side_manifest["entries"]} | {"manifest.json"}
+    for row in side_manifest["entries"]:
+        data = (sidecar / row["path"]).read_bytes()
+        assert data == Path(row["source"]).read_bytes()
+        assert len(data) == row["bytes"] and digest(data) == row["sha256"]
+        saved = subprocess.check_output(["git", "-C", str(REPO), "show", f"{coord}:{sidecar.relative_to(REPO) / row['path']}"], timeout=30)
+        assert saved == data
+    side_rel = str(sidecar.relative_to(REPO))
+    committed_names = git(REPO, "ls-tree", "-r", "--name-only", coord, "--", side_rel).splitlines()
+    assert {str(Path(p).relative_to(side_rel)) for p in committed_names} == {r["path"] for r in side_manifest["entries"]} | {"manifest.json"}
+    assert subprocess.check_output(["git", "-C", str(REPO), "show", f"{coord}:{side_rel}/manifest.json"], timeout=30) == (sidecar / "manifest.json").read_bytes()
+    result = {"time": datetime.now(timezone.utc).isoformat(), "review_revision": REV,
+              "pinned_base": "c615adbd2f861e23f2c8d03631833f98b3ae5aba", "evidence_commit": EVIDENCE,
+              "coordination_tip": coord, "source_documentation_tip": SOURCE, "trees": trees,
+              "archives": archives, "sidecar_members_verified": len(side_manifest["entries"]),
+              "source_tip_documentation_only": source_changes, "coordination_docs_only": True,
+              "axes": axes, "source_prs": prs, "comments_exact_body_verified": comments,
+              "handoffs": handoffs, "memory_head": git(memory, "rev-parse", "HEAD"),
+              "owned_memory_spans_committed": True, "owned_review_processes_remaining": own_processes,
+              "pid_reuse_note": "checks actual review command paths and original process groups; unrelated reused PIDs not treated as original reviewers",
+              "remote_main_observed": git(REPO, "ls-remote", "gitea", "refs/heads/main").split()[0],
+              "later_main_covered": False, "disk_df_k": subprocess.check_output(["df", "-k", str(RUN)], text=True, timeout=15),
+              "disk_cause_attribution": "Spec explicit ENOSPC; Quality UNKNOWN; no machine-wide allocation attribution",
+              "overall": "BLOCKED_INFRASTRUCTURE / NO_INDEPENDENT_SIGNOFF", "budget_exhaustion": False,
+              "restarted": False, "merged_main": False, "deployed": False, "production_backfill": False,
+              "deleted_real_worktrees": False, "arena_takeover": False}
+    with (OUT / "final-state.json").open("x") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    print(json.dumps({k: result[k] for k in ("time", "overall", "evidence_commit", "coordination_tip", "source_documentation_tip", "memory_head", "remote_main_observed")}, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()

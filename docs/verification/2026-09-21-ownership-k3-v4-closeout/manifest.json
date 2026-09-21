@@ -1,0 +1,182 @@
+{
+  "time": "2026-09-21T09:33:55.985391+00:00",
+  "evidence_commit": "47f80174d498794383b0f7edd1e73f7d55e1fabe",
+  "scope": "publication sidecar, not a new review or modification of sealed reviewer evidence",
+  "final_observation": "final_state.py runs after documentation tip is pushed; result in runtime closeout/final-state.json",
+  "entries": [
+    {
+      "path": "archive-committed-verification.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/archive-committed-verification.json",
+      "bytes": 1427,
+      "sha256": "7c00904c42dc91c5edb161c1885b057c950436a68f3f0439b50d56924e675ae3"
+    },
+    {
+      "path": "archive-verification.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/archive-verification.json",
+      "bytes": 1389,
+      "sha256": "8c3b265b5d7a4c17bf0e2fbee4a494f1701f34a7ab52ffb612101d792a364d3b"
+    },
+    {
+      "path": "evidence-commit.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/evidence-commit.log",
+      "bytes": 71901,
+      "sha256": "f3123fa30848c4b501ad51a2c301b2bb2080d19d60f53b0cb7b5a77f6c652b56"
+    },
+    {
+      "path": "evidence-push.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/evidence-push.log",
+      "bytes": 276,
+      "sha256": "8cbc111dc6c3dbb046e293865171b487ca75dc367d52b510c8af97b4f4a549bf"
+    },
+    {
+      "path": "source-commit.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/source-commit.log",
+      "bytes": 5687,
+      "sha256": "a46c57d17f18087003580a9096d0774080e1aae69a5e98516a94ade2010f6056"
+    },
+    {
+      "path": "source-push.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/source-push.log",
+      "bytes": 275,
+      "sha256": "3153f214cd1ddb37f6356c6e8c94c73419f44ad26a2aa41c46112990b4086c3f"
+    },
+    {
+      "path": "membership-repair-commit.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/membership-repair-commit.log",
+      "bytes": 30863,
+      "sha256": "c78911623fcb69f3da8cc64199d3f3e10f774d7d414c0ece1d188bea97e560c3"
+    },
+    {
+      "path": "membership-repair-reservation.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/membership-repair-reservation.json",
+      "bytes": 68143,
+      "sha256": "8aff380075aabcf443d5183056621e970431024c7fa78acfb48f332beaa34748"
+    },
+    {
+      "path": "membership-repair-result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/membership-repair-result.json",
+      "bytes": 168,
+      "sha256": "75c2c1da883c69c343ffb69bbef6238113e465150f0dee0976ab4174503b5d9e"
+    },
+    {
+      "path": "repair_archive_membership.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/repair_archive_membership.py",
+      "bytes": 4814,
+      "sha256": "e7960b569b26d51558fd5c36bd1d8523e87ce54c5b02c5e54af6120d1cfbead9"
+    },
+    {
+      "path": "verify_evidence.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/verify_evidence.py",
+      "bytes": 3276,
+      "sha256": "4a291186797910a088384fd12b76a3204c3a7a9f7986fcc5fe931335b394a8fa"
+    },
+    {
+      "path": "verify-committed.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/verify-committed.log",
+      "bytes": 1059,
+      "sha256": "4dd076756194badc77a22e84f1fcdc22cc0aa473ceeccc3d52f130003c9fbbd5"
+    },
+    {
+      "path": "verify-committed-corrected.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/verify-committed-corrected.log",
+      "bytes": 525,
+      "sha256": "ce09732674f7c75c4e0db0216e878837862fa4d876854e848589bb000b1ec146"
+    },
+    {
+      "path": "verify.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/verify.log",
+      "bytes": 487,
+      "sha256": "f563f60b23ff238d49452441ac6a03e17eee8cadff35b014dcc19be4614fc657"
+    },
+    {
+      "path": "seal.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/seal.log",
+      "bytes": 248,
+      "sha256": "670788f5a98472dd996ecf578a41bcd10f2128ddd98e808d20ec8128e1420c1b"
+    },
+    {
+      "path": "post_comments.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/post_comments.py",
+      "bytes": 5021,
+      "sha256": "0ba46e5fb3a9b59d5dd8a4df9c2e17e5c8bbf6283bc8014bd14a6bb25a3cba2f"
+    },
+    {
+      "path": "post-comments.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/post-comments.log",
+      "bytes": 837,
+      "sha256": "9c09b1acfe7a28eeca5b1a8c796c8ff68c1464f0d05da08daf989e3f0a5e3c9d"
+    },
+    {
+      "path": "pr-comments.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/pr-comments.json",
+      "bytes": 837,
+      "sha256": "9c09b1acfe7a28eeca5b1a8c796c8ff68c1464f0d05da08daf989e3f0a5e3c9d"
+    },
+    {
+      "path": "final_state.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/final_state.py",
+      "bytes": 10989,
+      "sha256": "a45e112ba02e27810015773f479c287fbde5af3dc1aa483f38a579c751b48566"
+    },
+    {
+      "path": "seal_publication.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/seal_publication.py",
+      "bytes": 3012,
+      "sha256": "449e041d579f89dce9f549782fe8363bb18df1a18bf716c8ad592c2ce32eb8a3"
+    },
+    {
+      "path": "pr-812-body.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/pr-812-body.md",
+      "bytes": 2870,
+      "sha256": "83232cd4bac2ab87dc638868a9ea3c06efb24bcb86204d4a5c8cbaf08aff4771"
+    },
+    {
+      "path": "pr-812-reservation.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/pr-812-reservation.json",
+      "bytes": 220,
+      "sha256": "605e1a1bf3e1ccea28780d80a71cc3fe37aff5fc50fd05b252a715f23edb9178"
+    },
+    {
+      "path": "pr-812-result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/pr-812-result.json",
+      "bytes": 261,
+      "sha256": "94455215ff9df5c776ed13c7b783eb9f845796eb20e416d8b4be8938a01241c0"
+    },
+    {
+      "path": "pr-813-body.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/pr-813-body.md",
+      "bytes": 2939,
+      "sha256": "c65d1319949731c4272610b0ee4d9b0674b6f94c7ae98cc5d5798275715844b9"
+    },
+    {
+      "path": "pr-813-reservation.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/pr-813-reservation.json",
+      "bytes": 220,
+      "sha256": "1cace40a770542c5b4959d4ae1ef965394d195dc18ba3fcb5c0eab8a14d6ac8f"
+    },
+    {
+      "path": "pr-813-result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/pr-813-result.json",
+      "bytes": 261,
+      "sha256": "c64fd83a678081cc13dd549feb3de0b25510b7913deee7de553bb3c266053c5b"
+    },
+    {
+      "path": "pr-814-body.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/pr-814-body.md",
+      "bytes": 2953,
+      "sha256": "c71ffc7647255fcbdb360c912a50c4adde959e77e5d98b4d600ee04c8e2cb00d"
+    },
+    {
+      "path": "pr-814-reservation.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/pr-814-reservation.json",
+      "bytes": 220,
+      "sha256": "c0ec898530dd9013ea73c22c7a95cf589945d0d89af42c51431fb7b39c832264"
+    },
+    {
+      "path": "pr-814-result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/pr-814-result.json",
+      "bytes": 261,
+      "sha256": "6103c244e35cb6c17372bccb47a5556fd212b8be6d2f0906be0868c54d7d44d7"
+    }
+  ]
+}
