@@ -20,7 +20,7 @@ from intelligence.api.app import RunSupervisor  # noqa: E402
 from intelligence.api.quota import RunQuota  # noqa: E402
 from intelligence.services import run_store as rs  # noqa: E402
 from intelligence.services.run_store import RunStore  # noqa: E402
-from intelligence.tests.fixtures.run_supervisor import drain_test_client  # noqa: E402
+from intelligence.tests.fixtures.run_supervisor import drain_test_client, track_test_client_timers  # noqa: E402
 
 
 def _wait_for(predicate: Callable[[], bool], *, timeout: float = 5.0) -> None:
@@ -92,6 +92,7 @@ def harness(tmp_path, monkeypatch):
                 run_quota=quota,
             )
         )
+        track_test_client_timers(client)
         clients.append(client)
         return client
 

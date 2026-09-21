@@ -1,0 +1,156 @@
+[
+  {
+    "id": "authorization_strict_domain_roundtrip",
+    "path": "intelligence/services/episode_authorization.py",
+    "old": "        raise ValueError(\"authorization contract is incomplete or noncanonical\")",
+    "new": "        pass",
+    "targets": ["test_missing_recovery_fields_are_not_silently_filled_from_defaults", "test_malformed_or_inconsistent_authorization_snapshot_is_rejected"]
+  },
+  {
+    "id": "authorization_policy_strict_types",
+    "path": "intelligence/services/episode_authorization.py",
+    "old": "            raise ValueError(\"authorization policy steps must be a nonnegative integer\")",
+    "new": "            pass",
+    "targets": ["test_malformed_or_inconsistent_authorization_snapshot_is_rejected"]
+  },
+  {
+    "id": "authorization_policy_finite_nonnegative",
+    "path": "intelligence/services/episode_authorization.py",
+    "old": "            raise ValueError(\"authorization policy seconds must be finite and nonnegative\")",
+    "new": "            pass",
+    "targets": ["test_malformed_or_inconsistent_authorization_snapshot_is_rejected"]
+  },
+  {
+    "id": "authorization_registry_scope_ceiling",
+    "path": "intelligence/services/episode_authorization.py",
+    "old": "            raise ValueError(\"authorization registry relaxes the material contract\")",
+    "new": "            pass",
+    "targets": ["test_registry_semantics_reject_even_with_a_recomputed_digest"]
+  },
+  {
+    "id": "authorization_tool_io_ceiling",
+    "path": "intelligence/services/episode_authorization.py",
+    "old": "            raise ValueError(\"authorization tool violates the registry IO ceiling\")",
+    "new": "            pass",
+    "targets": ["test_registry_semantics_reject_even_with_a_recomputed_digest"]
+  },
+  {
+    "id": "authorization_tool_capability",
+    "path": "intelligence/services/episode_authorization.py",
+    "old": "            raise ValueError(\"authorization tool name/capability is invalid\")",
+    "new": "            pass",
+    "targets": ["test_registry_semantics_reject_even_with_a_recomputed_digest"]
+  },
+  {
+    "id": "authorization_registry_digest",
+    "path": "intelligence/services/episode_authorization.py",
+    "old": "            raise ValueError(\"authorization registry declaration digest mismatch\")",
+    "new": "            pass",
+    "targets": ["test_malformed_or_inconsistent_authorization_snapshot_is_rejected"]
+  },
+  {
+    "id": "authorization_exact_current_match",
+    "path": "intelligence/services/episode_authorization.py",
+    "old": "        raise ValueError(\"current authorization does not match the captured contract/policy/registry\")",
+    "new": "        pass",
+    "targets": ["test_current_authorization_drift_is_rejected_not_merged_or_upgraded", "test_recovery_revalidates_before_writing_and_preserves_full_authorization"]
+  },
+  {
+    "id": "authorization_unresolved_material",
+    "path": "intelligence/services/episode_authorization.py",
+    "old": "        raise ValueError(\"authorization material boundary remains unresolved\")",
+    "new": "        pass",
+    "targets": ["test_unresolved_material_boundary_cannot_authorize_recovery"]
+  },
+  {
+    "id": "authorization_checkpoint_deep_freeze",
+    "path": "intelligence/services/episode_store.py",
+    "old": "            object.__setattr__(self, \"authorization_snapshot\", _json_freeze(validated.to_dict(), path=\"authorization_snapshot\"))",
+    "new": "            object.__setattr__(self, \"authorization_snapshot\", validated.to_dict())",
+    "targets": ["test_checkpoint_authorization_is_deeply_frozen_and_legacy_missing_is_explicit"]
+  },
+  {
+    "id": "authorization_actual_bound_registry",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "        ledger.active_registry = registry\n        episode_scope = EpisodeScope(",
+    "new": "        ledger.active_registry = registry.without(\"sub_research\")\n        episode_scope = EpisodeScope(",
+    "targets": ["test_checkpoint_captures_actual_bound_tools_after_configuration"]
+  },
+  {
+    "id": "authorization_missing_snapshot_fence",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "                        if authorization is None:\n                            raise ValueError(\"episode omitted its required authorization snapshot\")",
+    "new": "                        if False:\n                            raise ValueError(\"episode omitted its required authorization snapshot\")",
+    "targets": ["test_authorization_encoding_failure_fences_before_more_effects"]
+  },
+  {
+    "id": "authorization_encoding_tree_fence",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "                        self._store_fence.fail(self.episode_id, f\"state:{phase}:authorization\", exc)",
+    "new": "                        pass",
+    "targets": ["test_authorization_encoding_failure_fences_before_more_effects"]
+  },
+  {
+    "id": "authorization_repair_registry_refresh",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "        ledger.active_registry = registry\n        ledger.put_state(phase=\"repair\", context=repair_context)",
+    "new": "        ledger.put_state(phase=\"repair\", context=repair_context)",
+    "targets": ["test_repair_checkpoint_refreshes_rebound_registry_and_downgraded_contract"]
+  },
+  {
+    "id": "authorization_promotion_before_child",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "            ledger.put_state(\n                phase=position.phase, reserved_ids=position.reserved_ids,\n                retry=position.retry, cancel=position.cancel, context=promoted,\n            )",
+    "new": "            pass",
+    "targets": ["test_promoted_authority_is_confirmed_before_plan_child_effects"]
+  },
+  {
+    "id": "authorization_promotion_preserves_position",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "            ledger.put_state(\n                phase=position.phase, reserved_ids=position.reserved_ids,\n                retry=position.retry, cancel=position.cancel, context=promoted,\n            )",
+    "new": "            ledger.put_state(phase=\"planning\", context=promoted)",
+    "targets": ["test_promotion_checkpoint_preserves_the_settled_turn_recovery_position"]
+  },
+  {
+    "id": "authorization_restore_no_legacy_bypass",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "    if state.authorization_snapshot is None or context is None or registry is None:",
+    "new": "    if state.authorization_snapshot is None:\n        return result(\"resumable\", synth=None, plan=ResumePlan(action=\"model_turn\", phase=\"planning\", reason=\"legacy bypass\"), outcome=None, state_after=state)\n    if context is None or registry is None:",
+    "targets": ["test_legacy_or_missing_snapshot_never_bypasses_authorization"]
+  },
+  {
+    "id": "authorization_restore_current_gate",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "        raise RestoreUnavailable(f\"{episode_id}: recovery authorization requires snapshot, current context and registry\")",
+    "new": "        return result(\"resumable\", synth=None, plan=ResumePlan(action=\"model_turn\", phase=\"planning\", reason=\"missing authority bypass\"), outcome=None, state_after=state)",
+    "targets": ["test_recovery_requires_current_authority_before_any_synthesis"]
+  },
+  {
+    "id": "authorization_restore_validation_wiring",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "        validate_current_authorization(state.authorization_snapshot, context=context, registry=registry)",
+    "new": "        pass",
+    "targets": ["test_recovery_revalidates_before_writing_and_preserves_full_authorization", "test_unresolved_material_boundary_cannot_authorize_recovery"]
+  },
+  {
+    "id": "authorization_restore_event_identity",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "        raise RestoreUnavailable(f\"{episode_id}: recovery authorization task identity mismatch\")",
+    "new": "        pass",
+    "targets": ["test_recovery_rejects_identity_mismatch_without_rewriting_log"]
+  },
+  {
+    "id": "authorization_restore_preserves_plan",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "                authorization_snapshot=state.authorization_snapshot,",
+    "new": "                authorization_snapshot=None,",
+    "targets": ["test_recovery_revalidates_before_writing_and_preserves_full_authorization"]
+  },
+  {
+    "id": "authorization_restore_preserves_close",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "            budget_snapshot_sequence=state.budget_snapshot_sequence,\n            authorization_snapshot=state.authorization_snapshot,",
+    "new": "            budget_snapshot_sequence=state.budget_snapshot_sequence,\n            authorization_snapshot=None,",
+    "targets": ["test_recovery_revalidates_before_writing_and_preserves_full_authorization"]
+  }
+]
