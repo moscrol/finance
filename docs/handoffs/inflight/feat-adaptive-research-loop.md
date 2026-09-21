@@ -2,35 +2,36 @@
 
 ## 这个分支做什么
 
-修研究回路的计划、取证、修订与公开保真；本片收窄本地非命中的证据边界。
+修研究回路计划、取证、修订与公开保真；工程边界已修，09-22单次自然验收内容失败。
 
 ## 决策与被否方案
 
-空查询只称本次条件/截止时点内未命中；历史回退保留原日期行，不认证现实退出或逐日覆盖完整。限制放观察前端与gaps，压缩/去重保留。
-写手/分支/判官区分未查、非命中、事实为否；gap不是收据，直接零值可引用。用既有fact_beyond_evidence删除/重审，否决正则一律删否定句，避免误伤。
-详见 `docs/handoffs/2026-09-21-adaptive-local-absence.md`；均值背景同目录 `2026-09-21-adaptive-amount-summary.md`。
+local_only四只读能力冻结，不开derived_calculation；根T900、单帽75、每次核验内部共享窗150不变。不重跑挑样本，不改旧答案。
+空集仅本次未命中，未查/失败只能尚未查证；历史回退不认证退出；gap不是收据，直接零值可引用。拒正则一律删否定句。
+详见 `docs/handoffs/2026-09-22-adaptive-absence-live.md`；旧非命中/均值背景见09-21同目录快照。
 
 ## 当前状态
 
-树 `/Users/a77/finance-worktrees/adaptive-research-loop`，代码 `81ff5e7da`；最终文档提交见git。未push/PR/合main/部署，未fetch新main，8792未探测/恢复。
-local_only四只读能力冻结，未开derived_calculation；T=900/75秒单帽/150秒共享判官窗及全局HTTP400策略不变。静态写手契约指纹有意更新。
+树 `/Users/a77/finance-worktrees/adaptive-research-loop`。业务81ff5e7da，live加载干净a1da0c98e；本轮只改交接，不移签live到文档tip。未push/PR/合main/部署/fetch，未请求/重启8792；隔离8797已退出。
+新run `run_20260922_002223_310816` 原件 `~/.finance-runtime/adaptive-absence-live-20260922/`。584.26秒，9写手/15工具/4判官调用；transport completed，内容partial，judge unavailable。
 
 ## 已验证
 
-解释器 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`。
-干净81ff5e7da相关709P、全仓Ruff/提交钩子绿；非命中六变异全红后绿（首尾15P），amount五变异全红后绿（首尾36P）。固定代码收据 `~/.finance-runtime/test-receipts/20260921T155657Z-81ff5e7d.json` 已校验。
-证据根 `~/.finance-runtime/adaptive-absence-20260921/`；最终文档SHA收据另记README。仅证明观察修正、规则送达与脚本判官接线。
+唯一一次off臂K3真实消息；3次参数错误后纠正、无外部研究工具。backfill1+semantic-gap repair1均无工具且自报completed；新稿重新送核、stale=false，但两次核验均不可用。末次实际失败TimeoutError有脱敏收据，0秒拒发与实际调用分开。
+只读claim-audit确认9月14行：个股-3.0766%、申万综合-2.3047%、芯片+0.5615%、氟-3.5973%、FP综合-4.2820%。除个股外正文累计全错，氟强弱方向反；±1.6%概括漏9/7的+3.70%。审计前后库/股票行一致。
+探针25P；旧a1da0c98e定向709P及81ff5e7da六+五变异为各自版本工程证据，不签本轮内容。解释器主树 `.venv-workbench/bin/python`。
 
 ## 未验证 / 已知边界
 
-本轮无新自然模型请求，未证自然选择均值/有效数、否定证据边界、无工具改稿partial重核、独立判官与正常长答不泄漏。判官失联/关闭/忽略规则时公开策略不变，仍可能发未审的否定事实。
-旧run `run_20260921_203845_282895` 原件在 `~/.finance-runtime/adaptive-k3-plan-fix-live-20260921/`，仍partial，均值与“无涨停”错不改判。留档未见涨停池/龙虎榜匹配查询，gap最多支持尚未查证。
+无PLAN、无均值选择/均值陈述、无finance成功空集、无直接零值/历史回退自然验收。无工具自报partial终局格仍待。本次未见私有诊断泄漏但非独立审查。
+独立判官未裁决；修订由程序预检推动。两次核验合计4发，不是全回合共享150秒；timeout_asked不是耗时。9/19以后未查，单次旧新闻片段不证整个库无同期证据。
+旧run_20260921_203845_282895仍partial，均值错和无据否定不改判。判官失联可交未审错误，发布提示不保证内容正确。
 
 ## 下一步
 
-1. 新隔离会话预先约定单次真实验收上述自然行为，不选样重试/刷live状态词。
-2. 最终基线整合、完整Python/前端/E2E/registry与独立Spec/Quality另签，局部绿不得替代；不自动推进生产。
+先离线复现窗口收益计算/相对强弱错误，论证复用只读聚合；核查判官超时归属，禁止为刷绿加live。后续真实样本另预注册。
+前向基线、完整Python/前端/E2E/registry及独立Spec/Quality另签；不自动推进生产。
 
 ## 踩过的坑
 
-独占basetemp先建父目录；真实零值指标是limit_up。数据集最新日期不是目标主体覆盖证明，自报gap不能当查询收据。测试计数须绑定具体树/提交/解释器，不读共享latest。
+独占basetemp先建父目录；limit_up是零值指标。ok=true可包parse_error，不能当空集。绑定通过不证数学正确；判官轮数、调用数、拒发数须分开。
