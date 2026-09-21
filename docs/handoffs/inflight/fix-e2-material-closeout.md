@@ -2,9 +2,20 @@
 
 ## 这个分支做什么 / 当前状态
 整合 P5/P6：单份正文、逐句来源回执；无 D6/P7 结论。
-树 `/Users/a77/fwp-wt-e2-material-closeout`。代码尖 `df74042c`（= `04d3c397` QC 修正 + forward-merge `gitea/main@18859d37`），
-已推 gitea（远端=本地实读）；本文档提交在其上，PR head 以 `git rev-parse gitea/fix/e2-material-closeout` 为准。
-PR #770 open、WIP，未合 main、未部署；合并与切 8792 等用户。8826 已停；8792 实读 healthy/`ce009718`/clean，本轮未碰。
+树 `/Users/a77/fwp-wt-e2-material-closeout`。代码尖 `32eefcfc6`（= `766164f7b` forward-merge `gitea/main@3c70af64d`
++ 跨 PR 语义修复），本文档提交在其上，PR head 以 `git rev-parse gitea/fix/e2-material-closeout` 为准。
+PR #770 open、WIP，**领先 main 26、落后 0，merge-tree clean**；合并与切 8792 等用户。8792 现跑 `945c04bd7fdd`（09-21 04:47Z 切），本轮未碰。
+
+## 2026-09-21 前向合并 main + 跨 PR 修复（session finance-workspace-private-7d，非原作者）
+- `766164f7b`：合 main（132 提交，含 #819 研究求证意识 / #815 fincalc / #818 注册表）。三处冲突两边保留：
+  `_run_judge` 先放 main 的 `JUDGE_MODE_OFF` 早退，再接 P6 的材料两段审 + `_run_judge_once`；数量门「历史句跳过 +
+  绑定短日期遮罩」叠加；`lessons_learned.md` 两段都留。
+- `32eefcfc6`：合并后 `test_prior_evidence.py` 实际 loop 用例红——`binding_source_errors` 在 material_only 下拒绝一切
+  evidence_hash，而 #819 零读复核正是把原件校验过的旧工具原子注入证据池让模型绑定。修在缝上：新增 keyword-only
+  `frozen_prior_hashes`，只放行「池内且属于恢复集合」的 hash；`validate_episode_finish` 从 `context.prior_evidence` 取，
+  `verify_episode_outcome` 改从 durable 的 `model_input(source=prior_tool_evidence)` 事件读回（`prior_evidence.restored_prior_hashes`）。
+  两条规则都没放松（本轮新读仍拒、不在池内仍拒），回归四向 + loop 用例补结构校验断言。
+- 教训：前向合并后红的是**对方 PR** 的测试文件；旧演练 `9b4c2310b` 只跑了冲突文件的测试，没跑 #819 的。
 
 ## 本轮真实病因（已修，8f6e6eaa→d8ba0fb2）
 作者进修复轮只知道缺哪个输出、不知道上次为什么被拒，于是原样重发。
@@ -19,10 +30,11 @@ max 档三轮修复第二轮会把第一轮已送达的那条再发；计划错�
 改为按 `code`（rejection_code，六个 finish 驳回点都写）置位、清零集合加入 repair_last_rejection；emit 点零改动。
 回归：纯函数七向 + 两条 loop 连续两次 resume；修前六条全红。
 
-## 已验证（全部对 df74042c 干净树）
-python 11586P/0F/83S（`20260917T021523Z-df74042c.json`，`check_test_receipt.py --expect-revision df74042c --base-drift-max 5` 8/8 可采信）；
-ruff 过；前端 lint/typecheck/107P/build（产物与已跟踪文件一致）；E2E 34P/2S（`WORKBENCH_PYTHON` 指 venv-workbench）；
-registry check/parseability/views/path-literals 全过。日志与收据指针：`~/.finance-runtime/e2-material-closeout-df74042c/`。
+## 已验证（全部对 32eefcfc6 干净树，2026-09-21）
+python 12289P/0F/87S/2xfail（`20260921T052130Z-32eefcfc.json`，`check_test_receipt.py --expect-revision 32eefcfc… --base-drift-max 5` 9/9 可采信）；
+ruff 过；`run_frontend_gate.py` 六步（install/lint/typecheck/test/build/test:e2e）全 0，`complete/identity_stable` true、`dirty` false；
+registry 五条 exit 0（树父目录 `/Users/a77`，同级仓可见）。日志与收据：`~/.finance-runtime/e2-material-closeout-32eefcfc/`。
+上一版 df74042c 的读数（11586P、107P 前端、34P/2S e2e）见 `~/.finance-runtime/e2-material-closeout-df74042c/`。
 
 ## 未验证 / 已知边界
 - 判官「invalid tool call」21 次探针 run 出现 3 次（8636a2a2/c6151407/d8ba0fb2，均 correlated_judge），用户空手；「带未复核标识发出」属用户级策略。
@@ -35,6 +47,7 @@ registry check/parseability/views/path-literals 全过。日志与收据指针�
 1. 判官无效 tool call：先固定成回归，再谈交付策略。
 2. rejected_claim_indexes 死字段：接上并重跑证据，或删。
 3. 合并/生产切换等用户确认；合前再 `git fetch gitea && git merge-tree --write-tree gitea/main <尖>` 复探。
+   合入后按 `acceptance-workflow.md` §4 切 8792（当前 945c04bd7fdd，含 #819；P6 的 binding.claims 合同上线前先跑一次 grounded 探针 + 材料题）。
 
 ## 踩过的坑
 工件根 `~/.finance-runtime/e2-material-closeout-{8f6e6eaa,d8ba0fb2,df74042c}/`。不设 FWP_TEST_RECEIPT_DIR，按时间戳收据取数，别读 latest.json。
