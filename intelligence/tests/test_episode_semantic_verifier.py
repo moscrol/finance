@@ -8,7 +8,7 @@ import pytest
 
 from intelligence.services import answer_model, llm_refine
 import intelligence.services.research_contract as research_contract_module
-from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.agent_research import AgentEvidence, StructuredObservation
 from intelligence.services.agent_runtime import (
     AgentOutcome,
     AgentUsage,
@@ -79,6 +79,7 @@ def _structural(
     traces: tuple[ProviderTrace, ...] = (),
     required_outputs: tuple[RequiredOutput, ...] | None = None,
     research_tier: str = "standard",
+    observations: tuple[StructuredObservation, ...] = (),
 ):
     frame = _frame()
     evidence = AgentEvidence(
@@ -88,6 +89,7 @@ def _structural(
         source=source,
         source_date="2026-07-22",
         content_hash="HASH_PRIVATE_SENTINEL",
+        observations=observations,
     )
     if required_outputs is None:
         required_outputs = (
@@ -2013,6 +2015,75 @@ def test_local_gate_allows_rounded_bound_observation_but_rejects_new_threshold()
     assert result.judge_status == "repaired"
     assert "缩约17%" in result.public_answer
     assert "3800点" not in result.public_answer
+
+
+def test_local_gate_accepts_units_the_model_attaches_to_structured_observations() -> None:
+    """结构化观察值的单位住在字段名里，模型按人话补单位不是新阈值。
+
+    2026-09-21 冒烟 3（run_20260921_123745_556321）实测：``市场占比=2.53`` /
+    ``涨停家数=2`` / ``成交额亿=1295.9673`` 都在绑定证据里，模型写成 ``2.53%`` /
+    ``2 家`` / ``1295.97 亿`` 后被门判「证据里没有的数量」，六句有证数值条件整段删除；
+    ``（E6）`` 的 6 与 ``Q3`` 的 3 也被当成数量。真正的新阈值（1800 亿）仍须删。
+    夹具只有一条证据，所以引用写 ``（E1）``——E 号本身要能解析，测的才是数字门不是序号门。
+    """
+    judge = _judge(True)
+    frame, structural = _structural(
+        "若题材份额跌回 2.53% 且涨停停留在 2 家（E1），本轮行情证伪。"
+        "板块成交额若跌破 1295.97 亿视为退潮确认。"
+        "若 Q3 财报确认收入兑现则升级为基本面行情。"
+        "若成交额跌破 1800 亿则量能失效。",
+        detail="交易日=2026-09-18；市场占比=2.53；涨停家数=2；成交额亿=1295.9673",
+        observations=(
+            StructuredObservation(
+                subject="固态电池", as_of="2026-09-18", metric="market_share", value=2.53
+            ),
+            StructuredObservation(
+                subject="固态电池", as_of="2026-09-18", metric="limit_up_count", value=2.0
+            ),
+            StructuredObservation(
+                subject="固态电池", as_of="2026-09-18", metric="amount", value=1295.9673
+            ),
+        ),
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert "2.53% 且涨停停留在 2 家（E1）" in result.public_answer
+    assert "跌破 1295.97 亿视为退潮确认" in result.public_answer
+    assert "若 Q3 财报确认收入兑现" in result.public_answer
+    assert "1800 亿" not in result.public_answer
+
+
+@pytest.mark.parametrize("existing_ceiling", ["completed", "partial"])
+def test_unreviewed_revision_caps_publication_without_touching_review(existing_ceiling) -> None:
+    """终局修复改了稿却来不及复核：公开旧稿必须压 partial 并告知（冒烟 2 的丢稿形状）。"""
+    from intelligence.services import episode_semantic_verifier as module
+    from intelligence.services.research_harness import PublicationAssessment
+
+    other_notice = "另一项公开来源限制。"
+    publication = PublicationAssessment(
+        max_status=existing_ceiling, required_public_notices=(other_notice,),
+    )
+    assert module.with_unreviewed_revision_publication(
+        publication, unreviewed_revision=False,
+    ) is publication
+    capped = module.with_unreviewed_revision_publication(
+        publication, unreviewed_revision=True,
+    )
+    assert capped.max_status == "partial"
+    assert capped.required_public_notices == (
+        other_notice, module.UNREVIEWED_REVISION_NOTICE,
+    )
+    assert module.with_unreviewed_revision_publication(
+        capped, unreviewed_revision=True,
+    ) == capped
+    assert publication.required_public_notices == (other_notice,)
 
 
 @pytest.mark.parametrize(

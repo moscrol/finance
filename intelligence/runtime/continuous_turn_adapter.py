@@ -40,6 +40,7 @@ from intelligence.services.episode_semantic_verifier import (
     numeric_condition_unsupported,
     recheck_material_public_delivery,
     with_unresolved_review_publication,
+    with_unreviewed_revision_publication,
 )
 from intelligence.services.rejudge_pending import append_pending_from_artifact
 from intelligence.services.episode_tools import (
@@ -96,6 +97,20 @@ CONTINUOUS_FAST_PATH_TYPES = FAST_PATH_RUNNER_SUPPORTED_TYPES
 _SUCCESSFUL_REPAIR_STOP_REASONS = frozenset(
     {"model_finish", "repair_model_finish"}
 )
+
+
+def _repair_changed_submission(before: AgentOutcome, after: AgentOutcome) -> bool:
+    """修复轮有没有交出一份新的提交稿（正文或绑定变了）。
+
+    与 ``FinanceResearchHarness.admit_repair_result`` 的 ``revised_without_tool``
+    同一口径；区别是那边拿它判「算不算进展」，这边拿它判「手里的审查结果还对不对
+    得上正文」——两个问题正交：一次诚实的降级重写可以既「无进展」又「必须复核」。
+    """
+
+    return (
+        before.draft.strip() != after.draft.strip()
+        or before.bindings != after.bindings
+    )
 _TERMINAL_REPAIR_STOP_REASONS = frozenset(
     {
         "repair_deadline_exhausted",
@@ -491,6 +506,8 @@ class ContinuousTurnAdapter:
         backfill_turns = 0
         delivery_repair_attempted = False
         semantic_verifier_stale = False
+        # 终局修复改了稿但没来得及复核：公开的仍是旧稿，发布上限要压 partial 并告知。
+        unreviewed_revision = False
         attempts_before = _ledger_attempt_count()
         phase_recorder = PhaseRecorder()
         try:
@@ -850,6 +867,7 @@ class ContinuousTurnAdapter:
                     repair_attempts -= 1
                     break
                 previous_snapshot = current_snapshot
+                previous_outcome = outcome
                 outcome, structural, delivery_only = repaired
                 structural = _with_track_contract_gaps(structural, context)
                 delivery_repair_attempted = (
@@ -881,13 +899,21 @@ class ContinuousTurnAdapter:
                     outcome=outcome,
                     repair_attempts=repair_attempts,
                 )
-                if (
-                    repair_terminal
-                    or self._is_cancelled()
-                    or root_deadline.expired
-                ):
+                revised = _repair_changed_submission(previous_outcome, outcome)
+                if self._is_cancelled() or root_deadline.expired:
+                    semantic_verifier_stale = True
+                    unreviewed_revision = revised
+                    break
+                if repair_terminal and not revised:
+                    # 终局修复没交出新稿（截止带旧稿 / 原样重发）：手里的审查结果
+                    # 仍对着这份正文，只是事件账不同，不值一次判官。
                     semantic_verifier_stale = True
                     break
+                # 终局修复只要真改了稿（正文或绑定），就必须对新稿重跑判官——
+                # 2026-09-21 冒烟 2：无工具修复 + 模型如实自报 partial 被底座判
+                # 「无进展」(repair_model_stop)，这里曾按终局跳过复核，三句错句随
+                # 旧稿原样发布。终局只约束「不再开下一轮修复」（while 条件里的
+                # not repair_terminal），不豁免「公开的正文必须是被审过的那份」。
                 semantic_candidate = self._verify_semantics(
                     frame=frame,
                     structural=structural,
@@ -1095,6 +1121,9 @@ class ContinuousTurnAdapter:
             status = "failed"
         publication = with_unresolved_review_publication(
             self._harness.assess_publication(context=context), semantic,
+        )
+        publication = with_unreviewed_revision_publication(
+            publication, unreviewed_revision=unreviewed_revision,
         )
         if status == "completed" and publication.max_status == "partial":
             status = "partial"

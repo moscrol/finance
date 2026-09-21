@@ -876,6 +876,83 @@ def test_real_episode_receives_stage_anchored_review_in_same_history(
         check_goal(json.loads(sdk_requests[1].input))
 
 
+def test_terminal_repair_with_revised_draft_is_reverified_and_published(monkeypatch) -> None:
+    """无工具修复 + 模型如实自报 partial = 底座判「无进展」（repair_model_stop）。
+
+    2026-09-21 冒烟 2（run_20260921_120952_719744）实测：判官打回三句过度断言，模型
+    27 s 内全改对并诚实标 partial，适配器把 repair_model_stop 当终局、不对新稿重跑判官，
+    旧稿带着三句错句原样发布。终局修复只要真改了稿，就必须对新稿重跑判官；来不及
+    复核那一格由 with_unreviewed_revision_publication 压 partial 并告知。
+    """
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "llm")
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame, task_id="adapter-terminal-revision", capabilities=control.capabilities,
+        timeout=120.0, latest_data_date="2026-07-26",
+    )
+    context = replace(context, root_budget=InMemoryRootBudgetLedger(
+        episode_id=context.contract.task_id, initial_calls=2, hard_calls_cap=3,
+        initial_seconds=60.0, hard_seconds_cap=120.0,
+    ))
+    evidence = AgentEvidence(
+        tool="market_data", title="市场结构", detail="上涨家数仍待改善。",
+        source="本地行情", source_date="2026-07-26", content_hash="terminal-revision-evidence",
+    )
+    registry = ResearchToolRegistry((ToolSpec(
+        name="market_data", capability="market_data", description="市场结构",
+        cost="local", freshness="current", runner=lambda *_args: (
+            [evidence], evidence.detail, ProviderTrace("test:market", "market_data", "success"),
+        ),
+    ),))
+    overclaim = "换手率始终低于百分之一。"
+    original = overclaim + "上涨家数仍待改善。"
+    corrected = "换手率仅在可核验交易日低于百分之一。上涨家数仍待改善。"
+
+    class Model:
+        def __init__(self):
+            self.calls = []
+
+        def complete(self, *, messages, tools, timeout):
+            self.calls.append(messages)
+            if len(self.calls) == 1:
+                return ModelTurn("", (ModelToolCall("market", "market_data", {"query": "市场结构"}),), "test", "")
+            revised = len(self.calls) == 3
+            return ModelTurn(json.dumps({
+                "status": "partial" if revised else "completed",
+                "draft": corrected if revised else original,
+                "bindings": [{"output_id": "direct_assessment", "evidence_hashes": ["E1"], "gap": ""}],
+                "gaps": ["换手率字段部分交易日缺失"] if revised else [],
+            }, ensure_ascii=False), (), "test", "")
+
+    model = Model()
+    requests = []
+
+    def judge(request):
+        requests.append(request)
+        if len(requests) == 1:
+            return {"passed": False, "rejected_sentence_indexes": [1], "issues": ["句1：『始终』超出已核验范围"]}
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    result = ContinuousTurnAdapter(
+        runtime=GLMAgentRuntime(client=model),
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=judge),
+        runtime_name="continuous_glm", mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: registry,
+    ).handle(frame=frame, control=control)
+
+    assert len(model.calls) == 3
+    assert result.private_artifact["outcome"]["stop_reason"] == "repair_model_stop"
+    assert len(requests) == 2, "终局修复改了稿，必须对新稿重跑判官"
+    assert result.private_artifact["semantic_verifier_stale"] is False
+    assert result.answer == corrected
+    assert overclaim not in result.answer
+    publication = result.private_artifact["publication_assessment"]
+    assert publication["max_status"] == "completed"
+    assert publication["required_public_notices"] == []
+
+
 def test_private_artifact_carries_runtime_handle_receipt_and_log_version() -> None:
     """RuntimeHandle 收据落进 continuous-episode.json（运行底座 P2）。
 

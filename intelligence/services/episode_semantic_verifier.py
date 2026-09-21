@@ -260,6 +260,15 @@ _DATE_TOKEN_RE = re.compile(
     r"(?<!\d)(?:0?[1-9]|1[0-2])/(?:0?[1-9]|[12]\d|3[01])(?!\d)|"
     r"(?<!\d)(?:0[1-9]|1[0-2])[-/.](?:0[1-9]|[12]\d|3[01])(?!\d))"
 )
+# 证据序号与季度标签不是数量：``（E6）``、``E47–E52``、``Q3/Q4``、``2026Q4``。
+# 2026-09-21 冒烟 3（run_20260921_123745_556321）：``E6``→6、``Q3``→3 被当成
+# 证据里没有的阈值，整句连坐删除。逐个 E 号剥，不剥分隔符——``E1，118 家`` 里的
+# 118 是真数量，不能被范围写法顺手吞掉。
+_EVIDENCE_REF_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9])E\d{1,3}(?!\d)")
+_QUARTER_TOKEN_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?:20\d{2})?(?:Q[1-4]|[1-4]Q)(?![0-9])"
+    r"|(?<!\d)[一二三四1-4]季度"
+)
 _ARABIC_QUANTITY_RE = re.compile(
     r"[+-]?\d[\d,]*(?:\.\d+)?"
     r"(?:\s*(?:至|到|~|～|—|→|-)\s*[+-]?\d[\d,]*(?:\.\d+)?)?"
@@ -789,6 +798,36 @@ def with_unresolved_review_publication(
         max_status="partial",
         required_public_notices=tuple(dict.fromkeys((
             *publication.required_public_notices, notice,
+        ))),
+    )
+
+
+UNREVIEWED_REVISION_NOTICE = (
+    "核验后产生的修订稿未及复核，本轮按修订前版本发布；当前内容不能视为完整结论。"
+)
+
+
+def with_unreviewed_revision_publication(
+    publication: PublicationAssessment,
+    *,
+    unreviewed_revision: bool,
+) -> PublicationAssessment:
+    """终局修复产出了新稿却来不及复核时，公开的是旧稿：压 partial 并告知。
+
+    2026-09-21 冒烟 2（run_20260921_120952_719744）：无工具修复 + 模型如实自报
+    partial → 底座判无进展（``repair_model_stop``）→ 适配器按终局不再复核 → 三句
+    错句随旧稿原样发布，状态 partial 而无解释。适配器现在会对改了稿的终局修复重跑
+    判官；本函数兜的是重跑也来不及（截止 / 取消）那一格。未复核的新稿不得公开
+    （未核验文本不出门），所以只能是旧稿 + 提示，与 ``with_unresolved_review_publication``
+    同一条纪律：只压公开状态、只加公开提示，不动审查对象。
+    """
+    if not unreviewed_revision:
+        return publication
+    return replace(
+        publication,
+        max_status="partial",
+        required_public_notices=tuple(dict.fromkeys((
+            *publication.required_public_notices, UNREVIEWED_REVISION_NOTICE,
         ))),
     )
 
@@ -4330,12 +4369,15 @@ def _novel_numeric_condition_indexes(
 
     rejected: set[int] = set()
     evidence_quantities = _bound_evidence_quantities(verified.outcome)
+    observation_values = _bound_observation_values(verified.outcome)
     for item in sentences:
         index = item.get("index")
         text = str(item.get("text") or "")
         if not isinstance(index, int):
             continue
         candidate = _DATE_TOKEN_RE.sub("", text)
+        candidate = _EVIDENCE_REF_TOKEN_RE.sub("", candidate)
+        candidate = _QUARTER_TOKEN_RE.sub("", candidate)
         candidate = _LEADING_SECTION_RE.sub("", candidate)
         candidate = _LEADING_LIST_LABEL_RE.sub("", candidate)
         candidate = _LEADING_CONDITION_LABEL_RE.sub("", candidate)
@@ -4353,6 +4395,7 @@ def _novel_numeric_condition_indexes(
                 quantity,
                 evidence_quantities,
                 sentence=text,
+                observation_values=observation_values,
             )
             for quantity in quantities
             if _normalize_quantity(quantity)
@@ -4807,11 +4850,32 @@ def _normalize_quantity(value: object) -> str:
     )
 
 
+def _bound_observation_values(outcome: AgentOutcome) -> frozenset[str]:
+    """结构化观察值的裸数，供数字门做**不看单位**的比对。
+
+    观察值的单位住在字段名里（``成交额亿=1862.79``、``市场占比=2.53``、``涨停家数=2``），
+    模型按人话写成 ``1862.79 亿`` / ``2.53%`` / ``2 家``。文本比对要求同一维度，裸数
+    与带单位的候选永远对不上——2026-09-21 冒烟 3 六句有证数值条件因此整段被删。
+    这些数是 harness 投递的机器值：数才是身份，单位是呈现；单位贴错由语义判官管，
+    不由本门当「证据里没有的数量」连坐。只放宽观察值，不放宽 detail 文本里的裸数：
+    日期碎片（``-18``）、序号这类文本数不该给任何单位背书。
+    """
+
+    values: set[str] = set()
+    for item in outcome.evidence:
+        for obs in item.observations:
+            token = _normalize_quantity(f"{obs.value:g}")
+            if token:
+                values.add(token)
+    return frozenset(values)
+
+
 def _quantity_supported_by_evidence(
     quantity: object,
     evidence_quantities: frozenset[str],
     *,
     sentence: str,
+    observation_values: frozenset[str] = frozenset(),
 ) -> bool:
     """Match exact quantities or deterministic same-unit rounding.
 
@@ -4819,6 +4883,10 @@ def _quantity_supported_by_evidence(
     For example, ``17%`` may represent evidence ``-17.27%`` when the sentence
     explicitly says the value fell, while ``3800点`` cannot represent
     ``3876.777点``. Currency units are converted between 亿元 and 万亿元.
+    ``observation_values`` are unit-less structured values whose unit lives in
+    the field name; they match a candidate in any unit at the candidate's
+    base scale (``成交额亿=20764.84`` supports both ``20764.84 亿`` and
+    ``2.08 万亿``).
     """
 
     normalized = _normalize_quantity(quantity)
@@ -4830,6 +4898,12 @@ def _quantity_supported_by_evidence(
     for evidence in evidence_quantities:
         observed = _parse_quantity(evidence)
         if observed is None or not _same_quantity_dimension(candidate, observed):
+            continue
+        if _rounded_quantity_matches(candidate, observed, sentence=sentence):
+            return True
+    for token in observation_values:
+        observed = _parse_quantity(token)
+        if observed is None:
             continue
         if _rounded_quantity_matches(candidate, observed, sentence=sentence):
             return True
