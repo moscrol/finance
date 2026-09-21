@@ -1,33 +1,32 @@
 ## 这个分支做什么
-离线修复研究清单保真、逐项回执、公开 E 号身份和有限修复边界；不重跑三题首答、不调用模型、不动 8792。
+离线修研究清单、逐项回执、公开 E 身份与有限修复；固化语义反例。不重跑三题、不调模型、不动 8792。
 
 ## 决策与被否方案
-- 复用 `MaterialContract.questions/qN`；否决另造要求身份，避免写手、判官和修复链漂移。
-- 只有研究引导+独立要求标题+连续顶层编号才识别清单；否决把材料/引用编号当控制指令。
-- `explicit_requirements` 只证明送达；`requirement_checks` 才参与完成判断，缺题/缺项/假 witness 一律 fail-closed。
-- 漏答与事实拒绝分开；否决用漏答覆盖事实失败或凭零证据补写。
-- 最终公开投影后重验 witness；否决沿用旧草稿回执。
-- 清单修复复用既有 admission，不增加工具、调用、时间或零证据权限。
-- 完整证据账本先定 E 号再过滤；否决按公开列表位置重编号。
+- 复用 `MaterialContract.questions/qN` 与完整账本 E 号；不另造身份或按公开列表重编号。
+- 清单限研究引导+独立标题+连续顶层编号；不把材料/引用当指令。
+- 回执参与完成判断，漏答与事实拒绝分开；公开稿投影后重验 witness，修复不增权。
+- 反例只入评测，不改线上关键词门/提示词；固定回执证明消费者行为，不证明模型能力。
+- 合成 K3 的条件漂移标覆盖 partial，不伪造事实拒句；不推广为全部摘要错误的通则。
 
 ## 当前状态
-业务仍为 `ba18395ce`，未 push/合 main/部署；冻结生产答卷为 `adcda94b5e40`。代码背景见 `docs/handoffs/2026-09-21-research-contract-requirement-receipts.md`。Knevo 三题已回贴并完成非盲离线对照，收件与发现见 `docs/handoffs/2026-09-22-knevo-threeway-intake-review.md`。
+业务仍 `ba18395ce`；反例初版 `7209bbfff`，完整请求/回执测试 `a8bc27e36`。本轮只改案例/测试/交接，未 push/合 main/部署。冻结答卷 `adcda94b5e40`。详见 `docs/handoffs/2026-09-22-research-semantic-counterexamples.md`；Knevo 收件审读见同目录 `2026-09-22-knevo-threeway-intake-review.md`。
 
 ## 已验证
-- 固定提交定向回归：`1787 passed / 4 skipped / 0 failed`，收据 `~/.finance-runtime/test-receipts/20260921T163733Z-ba18395c.json`。
-- 假完成专项相关回归：`414 passed`，收据 `~/.finance-runtime/test-receipts/20260921T171122Z-a5cb2e9f.json`；覆盖判官、适配器、修复协调和清单协议。
-- 回执/投影/修复预算反向验证：基线与恢复各 `77 passed`，十组保护点均按预期触发断言，`complete=true`、`source_unchanged=true`；专项目录 `~/.finance-runtime/reviews/research-contract-citations-0921/false-completion-ba18395ce/`。
-- 只允许测试进程自建 loopback 临时服务的重入测试：`4 passed / 1 xfailed`；未访问 8792。
-- Ruff、`git diff --check`、pre-commit 门禁通过。
+- 干净 `a8bc27e36` 五文件回归与恢复各342P；收据 `~/.finance-runtime/test-receipts/20260921T184202Z-a8bc27e3.json`、`20260921T184304Z-a8bc27e3.json`。
+- 8个合成案例各坏/可接受两版；原要求/证据送达、JSON/工具/注入报告、公开覆盖均有测试；K3另走完整 verifier 替身。
+- 撤回执/覆盖保护各触发预期断言，无夹具错误；Ruff check/format、diff check、pre-commit通过。
+- 冻结67文件+Knevo4原件哈希未变。
+- 前轮业务固定回归1787P/4S、十组变异、专项414P收据见09-21日期交接，不移签本轮。
 
 ## 未验证 / 已知边界
-- 回执 witness 只证明回答位置被保留，不证明公司集合、`2+2+1`、A/B 各三信号、正反/第三解释、分母、期间或阈值语义正确。
-- Knevo 逐对象交付较完整，但有身份冲突、未核转确认、摘要改变条件；没有金融真值优胜或候选自然质量结论。
-- 未跑全仓 pytest、前端/E2E、跨仓 registry、独立审核；未验证生产装配和部署效果。
-- 冻结首答、8792、数据库事实和生产运行记录均未改写。
+- 位置保留不证明含义正确：K3误报fulfilled时机械复核仍completed，已明确刻画此限制。
+- 无真实模型识别率、独立标签审核、金融外核；诚实披露缺资料也可能仍partial。
+- 非K3未压完整句子修复链；合成证据借market_data夹具，非真实取证装配。
+- 未跑全仓Python、前端/E2E、跨仓registry、独立代码审核、最新主干组合验证或生产装配。
+- socket audit仅限测试进程，不是任意外呼沙箱；共享记忆项目页他人在途未接管。
 
 ## 下一步
-未核转确认、摘要必要条件漂移、未知变否定是待验语义反例，不自动写规则。独立审核/完整门禁后仍须用户确认合并；真实模型须新授权新样本。
+独立审案例与代码；完整门禁后仍须用户确认合并。真实闭环用新授权新样本，不重跑冻结失败，不把本批直接写成研究规则。
 
 ## 踩过的坑
-工程绿不等于金融质量绿；`requirement_checks` 的结构完整性不能替代语义判官。交接收据必须绑定提交 SHA，不能用旧 `8a892290d` 的测试读数代签 `ba18395ce`。
+句后[E1]可能被独立编号；仅调整合成夹具引用位置，勿重编生产或原件。旧67/200P是脏树开发态，不得代签干净提交；工程绿不等于语义绿。
