@@ -7,21 +7,21 @@
 - 源码/证据/发布分别绑定SHA，否拼旧绿签联合树。
 - 正式收据归#814，外置记录器仅操作员证据；否接管邻线。
 - 原thread串行续审遇capacity即停，否自动重试/新增付费通道。
-- 补格复用安全投影与指代识别，否恢复引文授权；见`../2026-09-22-history-gap-followup-verification.md`。
+- 补格复用安全投影，否恢复引文授权；见`../2026-09-22-history-gap-followup-verification.md`及`../2026-09-22-history-engineering-resume.md`。
 
 ## 当前状态
 #845固定442476f7def1013f1fadebaf6594971921147edc已推clean，父b6de；原#833 7edfe24e7未动。修复“上一轮引用标题未完成核验”掩码后漏续问，新增21例；历史补格仍保可信合同/local_only。整体CHANGES_REQUIRED/未验收。
-04包212成员已本地封存，旧六包281/28/38/45/58/81不改；三PR新状态发布待本轮收尾。04新SHA E2E触2GiB下限中止。用户继续后空间实测28GiB，05完整Python已启动，日志在外部history-engineering-resume-05，结果尚待；不要并发重复启动。
+04包212成员在28bbf474b已推并核Git；05包49成员封存，旧七包不改。05完整覆盖12898ID无重叠/漏项：12807P/2F/87S/2X，两RSS环境红配对同env外层2F/无外层2P，原exit1保留。新SHA E2E34P/2S，0重试，所有本轮测试/服务退出。#845/#838新发布待本轮收尾，原#833不移动。
 #834/#835源码本轮不动，历史独立两次capacity无终审，runtime/财务第二轮未启动。#831旧有限结论不代表当前main状态，本轮不接管邻线。
 
 ## 未验证 / 已知边界
-442476全量Python与整组E2E待05；三领域独立终审缺。历史四自然题、财务R6/R3旧not_passed不翻；runtime跨进程driver/lease/未知效果未验。新main/#841/联合树未签。无合并/8792部署/生产回填/清树/付费续审。
+442476无保留全量Python绿及#814正式收据仍缺，完整执行面不能移签定向2P。三领域独立终审缺。历史四自然题、财务R6/R3旧not_passed不翻；runtime跨进程driver/lease/未知效果未验。新main/#841/联合树未签。无合并/8792部署/生产回填/清树/付费续审。
 
 ## 下一步
-完成05有界续验，按测试ID对账两组并补新SHA整组E2E，另包归档。提交后核Git blobs/原件，PR发布读回并回写记忆。独立与自然验收按授权，不移签旧绿、不重贴旧marker。
+05已逐ID对账与归档，提交后核Git blobs/原件，PR发布回读并回写记忆。下一工程轮明确七个环境ID分组或正式安全环境后全量；不得拼2P改05原两红。独立/自然另按授权，不自动续审。
 
 ## 踩过的坑
-b6de全量误发SIGTERM，741.94秒exit-15无摘要/XML；另页补原因不改收据。5例嵌套沙箱环境红单独复验5P，剩一条真回归已修。E2E端口与独立URL须同设。旧包原件不为格式改字节。
+b6de误SIGTERM不是超时；05外层Seatbelt阻/bin/ps exit71导致RSS None。E2E共享浏览器缓存消失首27启动错，专用锁定版本复验34P/2S。旧原件不为求绿改字节，JSONL只无损分片避单文件上限。
 
 ## 已验证
-442476六组1014P/4S，178正常探针重叠；十五变异真实AssertionError且零夹具错/哈希一致。Ruff、registry四项/台账、前端110P及lint/typecheck/build过。E2E9P/1中断/26未跑。b6de更早34P/2S只签b6de。证据根`docs/verification/2026-09-21-research-tail-forward/`。
+442476六组1014P/4S，178正常探针重叠；十五变异真实AssertionError且零夹具错/哈希一致。Ruff、registry四项/台账、前端110P及lint/typecheck/build过。E2E05新SHA34P/2S接替04资源中止；b6de更早34P/2S仍只签b6de。证据根`docs/verification/2026-09-21-research-tail-forward/`。

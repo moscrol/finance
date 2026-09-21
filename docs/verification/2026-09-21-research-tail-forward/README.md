@@ -14,13 +14,19 @@
 - [H-02 可信读取继承](history-permission-repair-02/README.md)：#845固定7c99f389e，770定向通过（含41旧+49新边界例），十变异有效。两条原H-02转绿，但新相邻短材料/未闭合引号反例正常版仍2红，读取上限保持local_only。整体CHANGES_REQUIRED，不替完整门禁或独立/自然验收。
 - [H-02 决策快照](../../handoffs/2026-09-21-history-permission-inheritance-repair.md)与集中inflight给出接手边界。新包固定提交 **5b1452adfc032ad31a78844fa123745d832a1eda** 已推，58/58 Git blob与原件字节一致，旧四包281/28/38/45逐包重核且不变。[H-02 发布回执](history-permission-repair-02-publication-check.json)在包外，记录三PR正文/评论5482/5486/5490回读、记忆5e0012f9与静态图谱审计；图谱首次符号写法失败及修正后exit0都保留，不证明行为或合入。
 
-- **最新：[H-03 材料来源分区](history-source-partition-03/README.md)**：#845固定b6de1a38c，985P/4S定向回归，十四变异有效；短材料/未闭合引号两输入安全断言转绿，合法续问保local_only。正常量具157P重叠不加总。旧外置探针原样1F/1P系诊断空值错误，另存只修诊断的副本以原断言2P，不改原件。新81成员包保开发失败与冻结结果，旧五包不改。整体仍CHANGES_REQUIRED/未验收，不替完整门禁、独立终审或自然四题。
+- **[H-03 材料来源分区](history-source-partition-03/README.md)**：#845固定b6de1a38c，985P/4S定向回归，十四变异有效；短材料/未闭合引号两输入安全断言转绿，合法续问保local_only。正常量具157P重叠不加总。旧外置探针原样1F/1P系诊断空值错误，另存只修诊断的副本以原断言2P，不改原件。新81成员包保开发失败与冻结结果，旧五包不改。整体仍CHANGES_REQUIRED/未验收，不替完整门禁、独立终审或自然四题。
 - [H-03 决策快照](../../handoffs/2026-09-21-history-source-partition-repair.md)记录先strip丢来源容器、英文撇号与编号题组边界。新包固定提交 **c14bc12f5a966d82e4fe49995bf5221bd4540a2f** 已推，六包281/28/38/45/58/81完整清单及Git blobs通过，新79份复制原件与候选补丁逐字节一致。三PR正文/评论5510/5513/5517与远端身份、记忆50efc710、静态图谱exit0见[H-03发布回执](history-source-partition-03-publication-check.json)。首次记忆工作区并行修改导致回执中止也保留记录，后续分列提交/工作区哈希，不冒充同一快照；回执在包外，不改冻结清单。
 
 ## 补缺口续问与工程验证 04
 
 - [04证据包](history-engineering-04/README.md)：#845新源码`442476f7def1013f1fadebaf6594971921147edc`修复引用标题掩码后漏识别合法补缺口续问；固定1014P/4S、十五有效变异、Ruff/registry/台账和前端110P及构建通过。178正常探针重叠不加总。新SHA E2E因2GiB下限中止9P/1中断/26未跑，完整Python未跑，不移签父b6de整组E2E34P/2S。整体仍CHANGES_REQUIRED。
 - 212成员包保留父b6de全量SIGTERM操作员中断、6F定向诊断、5个原生沙箱复验和E2E端口配置首错，不改旧六包。[日期快照](../../handoffs/2026-09-22-history-gap-followup-verification.md)记录完整发现顺序。用户再次继续、磁盘恢复后启动05续验，实际进展看集中inflight，不提前写通过。
+
+## 工程续验 05
+
+- [05证据包](history-engineering-resume-05/README.md)补同一`442476f7d`：完整12898测试ID两组无重叠/遗漏，原始**12807P/2F/87S/2X**。两F为RSS状态，配对同env证明外层Seatbelt阻止`/bin/ps`（exit71）；无外层两P仅作诊断，不改全量exit1，不声称无保留完整绿。
+- 新SHA **E2E34P/2S、0重试**。首轮9P/27F均缺共享浏览器可执行文件；官方安装锁定1179到专用目录后，同36ID复验通过。首错、下载记录和原件均保留。
+- 新包49成员，JSONL逐阶段原记录无损分片，44份整件复制与两份分片来源可核。04固定`28bbf474b11ab30928bbf16687d3fb946c885956`的212成员已推核，旧七包不改。[05快照](../../handoffs/2026-09-22-history-engineering-resume.md)记取舍。整体仍CHANGES_REQUIRED，#814正式门禁/独立终审/自然四题未闭合。
 
 ## 验证方法与范围
 
