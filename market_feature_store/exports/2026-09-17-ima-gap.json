@@ -1,0 +1,240 @@
+{
+  "schema_version": "ima-gap/v1",
+  "date": "2026-09-17",
+  "auto_fetch": false,
+  "note": "只出清单。daily-full 不自动问 IMA；补卡/DeepDive 另开一轮。",
+  "theme_run": [
+    "建材"
+  ],
+  "stock_run": [
+    "秋田微",
+    "山子高科",
+    "众泰汽车",
+    "中材科技",
+    "开尔新材",
+    "三峡新材",
+    "近岸蛋白",
+    "金石亚药",
+    "万邦医药",
+    "百花医药"
+  ],
+  "themes": [
+    {
+      "theme": "新能源车",
+      "bucket": "today_do_ima",
+      "priority": 204.18,
+      "stocks": [
+        "亨通光电",
+        "秋田微",
+        "山子高科",
+        "光智科技",
+        "众泰汽车"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 618,
+      "action": "skip_mega",
+      "reason": "过宽伞页，15 章会写成行业综述"
+    },
+    {
+      "theme": "建材",
+      "bucket": "today_do_ima",
+      "priority": 144.36,
+      "stocks": [
+        "中材科技",
+        "开尔新材",
+        "长海股份",
+        "三峡新材",
+        "宏和科技"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 648,
+      "action": "run_deepdive",
+      "reason": "占位页，走 15 章升 L1"
+    },
+    {
+      "theme": "医疗",
+      "bucket": "today_do_ima",
+      "priority": 121.05,
+      "stocks": [
+        "近岸蛋白",
+        "金石亚药",
+        "万邦医药",
+        "百花医药",
+        "百普赛斯"
+      ],
+      "page_class": "has_deepdive",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 352,
+      "action": "skip_mega",
+      "reason": "过宽伞页，15 章会写成行业综述"
+    },
+    {
+      "theme": "医药",
+      "bucket": "today_do_ima",
+      "priority": 116.0,
+      "stocks": [
+        "近岸蛋白",
+        "金石亚药",
+        "万邦医药",
+        "百花医药",
+        "百普赛斯"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 2994,
+      "action": "skip_mega",
+      "reason": "过宽伞页，15 章会写成行业综述"
+    },
+    {
+      "theme": "光纤光缆",
+      "bucket": "today_find_official_evidence",
+      "priority": 197.48,
+      "stocks": [
+        "亨通光电",
+        "中天科技",
+        "特发信息",
+        "华脉科技",
+        "长飞光纤"
+      ],
+      "page_class": "l1",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 12090,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    },
+    {
+      "theme": "新能源汽车",
+      "bucket": "today_find_official_evidence",
+      "priority": 123.5,
+      "stocks": [
+        "山子高科",
+        "众泰汽车",
+        "均胜电子",
+        "斯菱智驱",
+        "潍柴动力"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 1365,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    },
+    {
+      "theme": "创新药",
+      "bucket": "today_find_official_evidence",
+      "priority": 116.0,
+      "stocks": [
+        "金石亚药",
+        "万邦医药",
+        "百花医药",
+        "百普赛斯",
+        "键凯科技"
+      ],
+      "page_class": "has_deepdive",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 6380,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    }
+  ],
+  "stocks": [
+    {
+      "company": "亨通光电",
+      "theme": "新能源车",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "秋田微",
+      "theme": "新能源车",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "山子高科",
+      "theme": "新能源车",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "光智科技",
+      "theme": "新能源车",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "众泰汽车",
+      "theme": "新能源车",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "中材科技",
+      "theme": "建材",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "开尔新材",
+      "theme": "建材",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "长海股份",
+      "theme": "建材",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "三峡新材",
+      "theme": "建材",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "宏和科技",
+      "theme": "建材",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "近岸蛋白",
+      "theme": "医疗",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "金石亚药",
+      "theme": "医疗",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "万邦医药",
+      "theme": "医疗",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "百花医药",
+      "theme": "医疗",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "百普赛斯",
+      "theme": "医疗",
+      "action": "skip_no_entity",
+      "reason": "无实体页，不空建"
+    }
+  ],
+  "counts": {
+    "theme_run": 1,
+    "stock_run": 10,
+    "themes": 7,
+    "stocks": 15
+  }
+}

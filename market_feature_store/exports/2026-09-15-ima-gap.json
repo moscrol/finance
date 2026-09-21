@@ -1,0 +1,257 @@
+{
+  "schema_version": "ima-gap/v1",
+  "date": "2026-09-15",
+  "auto_fetch": false,
+  "note": "只出清单。daily-full 不自动问 IMA；补卡/DeepDive 另开一轮。",
+  "theme_run": [
+    "LED"
+  ],
+  "stock_run": [
+    "宏工科技",
+    "斯迪克",
+    "华海清科",
+    "寒武纪"
+  ],
+  "themes": [
+    {
+      "theme": "锂",
+      "bucket": "today_do_ima",
+      "priority": 186.97,
+      "stocks": [
+        "华正新材",
+        "双星新材",
+        "诺德股份",
+        "宏工科技",
+        "铜冠铜箔"
+      ],
+      "page_class": "l1",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 1676,
+      "action": "skip_have_l1",
+      "reason": "已有 L1（核心机制/产业链），不重复 IMA"
+    },
+    {
+      "theme": "PCB概念",
+      "bucket": "today_do_ima",
+      "priority": 182.81,
+      "stocks": [
+        "华正新材",
+        "中国巨石",
+        "诺德股份",
+        "斯迪克",
+        "超声电子"
+      ],
+      "page_class": "has_deepdive",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 3284,
+      "action": "skip_have_deepdive",
+      "reason": "已有 ThemeRadar / ima_deep_dive 15 章材料"
+    },
+    {
+      "theme": "LED",
+      "bucket": "today_do_ima",
+      "priority": 173.12,
+      "stocks": [
+        "臻宝科技",
+        "双星新材",
+        "先导智能",
+        "江丰电子",
+        "雅克科技"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 1681,
+      "action": "run_deepdive",
+      "reason": "占位页，走 15 章升 L1"
+    },
+    {
+      "theme": "半导体",
+      "bucket": "today_do_ima",
+      "priority": 126.8,
+      "stocks": [
+        "臻宝科技",
+        "拓荆科技",
+        "华海清科",
+        "气派科技",
+        "寒武纪"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 1632,
+      "action": "skip_mega",
+      "reason": "过宽伞页，15 章会写成行业综述"
+    },
+    {
+      "theme": "先进封装",
+      "bucket": "today_find_official_evidence",
+      "priority": 180.25,
+      "stocks": [
+        "臻宝科技",
+        "拓荆科技",
+        "华正新材",
+        "华海清科",
+        "气派科技"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 17481,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    },
+    {
+      "theme": "存储芯片",
+      "bucket": "today_find_official_evidence",
+      "priority": 179.5,
+      "stocks": [
+        "臻宝科技",
+        "拓荆科技",
+        "华海清科",
+        "气派科技",
+        "长川科技"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 26024,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    },
+    {
+      "theme": "光刻机",
+      "bucket": "today_find_official_evidence",
+      "priority": 126.0,
+      "stocks": [
+        "宝丽迪",
+        "斯迪克",
+        "中船特气",
+        "西陇科学",
+        "国风新材"
+      ],
+      "page_class": "l1",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 1966,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    },
+    {
+      "theme": "玻璃基板",
+      "bucket": "today_find_official_evidence",
+      "priority": 124.0,
+      "stocks": [
+        "华海清科",
+        "戈碧迦",
+        "兴森科技",
+        "华天科技",
+        "东威科技"
+      ],
+      "page_class": "l1",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 16006,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    }
+  ],
+  "stocks": [
+    {
+      "company": "华正新材",
+      "theme": "锂",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "双星新材",
+      "theme": "锂",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "诺德股份",
+      "theme": "锂",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "宏工科技",
+      "theme": "锂",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "铜冠铜箔",
+      "theme": "锂",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "中国巨石",
+      "theme": "PCB概念",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "斯迪克",
+      "theme": "PCB概念",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "超声电子",
+      "theme": "PCB概念",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "臻宝科技",
+      "theme": "LED",
+      "action": "skip_no_entity",
+      "reason": "无实体页，不空建"
+    },
+    {
+      "company": "先导智能",
+      "theme": "LED",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "江丰电子",
+      "theme": "LED",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "雅克科技",
+      "theme": "LED",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "拓荆科技",
+      "theme": "半导体",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "华海清科",
+      "theme": "半导体",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "气派科技",
+      "theme": "半导体",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "寒武纪",
+      "theme": "半导体",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    }
+  ],
+  "counts": {
+    "theme_run": 1,
+    "stock_run": 4,
+    "themes": 8,
+    "stocks": 16
+  }
+}
