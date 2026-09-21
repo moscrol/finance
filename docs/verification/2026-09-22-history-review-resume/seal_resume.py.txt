@@ -1,0 +1,79 @@
+"""Seal this fixed review attempt; preserve external transcripts unchanged."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import re
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+REPO = Path('/Users/a77/fwp-wt-history-evidence-integration-0921')
+ARCHIVE = REPO / 'docs/verification/2026-09-22-history-review-resume'
+SHA = '43511e3f15bd18bfd49868dfbac5b1d3774fd0bc'
+
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(REPO), *args], text=True).strip()
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+assert git('rev-parse', 'HEAD') == SHA
+assert not git('status', '--porcelain')
+ARCHIVE.mkdir(parents=True, exist_ok=False)
+items = {}
+external = []
+for axis in ('spec', 'quality'):
+    record = json.loads((ROOT / f'{axis}-execution.json').read_text())
+    text = (ROOT / f'{axis}.log').read_text()
+    assert record['exit_code'] == 1 and not record.get('timed_out')
+    assert record['identity_stable']
+    assert record['identity_before']['revision'] == SHA
+    assert record['identity_before']['status'] == ''
+    assert 'hit your usage limit' in text
+    assert not (ROOT / f'{axis}-report.md').exists()
+    started = datetime.fromisoformat(record['started_at'])
+    finished = datetime.fromisoformat(record['finished_at'])
+    items[axis] = {
+        'status': 'BLOCKED_USAGE_LIMIT_NO_FINAL_REPORT',
+        'elapsed_seconds': (finished - started).total_seconds(),
+        'exit_code': record['exit_code'],
+        'timeout_seconds': record['timeout_seconds'],
+        'timed_out': False,
+        'identity_stable': True,
+        'minimum_sampled_free_bytes': min(s['free_bytes'] for s in record['disk_free_samples']),
+        'cli_tokens_used_display': int(re.search(r'^tokens used\n([\d,]+)', text, re.M)[1].replace(',', '')),
+        'exec_markers': len(re.findall(r'^exec$', text, re.M)),
+        'final_report_exists': False,
+        'tests_run': 0,
+    }
+    external.append(f'{digest(ROOT / (axis + ".log"))}  {ROOT / (axis + ".log")}')
+for name in ('spec-prompt.txt', 'quality-prompt.txt', 'spec-execution.json',
+             'quality-execution.json', 'transport-probe.txt'):
+    shutil.copyfile(ROOT / name, ARCHIVE / name)
+for name in ('run_check.py', 'seal_resume.py'):
+    shutil.copyfile(ROOT / name, ARCHIVE / (name + '.txt'))
+summary = {
+    'recorded_at': datetime.now(timezone.utc).isoformat(),
+    'reviewed_revision': SHA,
+    'review_records': items,
+    'source_diff_from_f73_excluding_docs': git('diff', '--name-only',
+        'f73d2133968d51d3c782d3e12ee9aa4d0618ef45', SHA, '--', '.', ':!docs'),
+    'new_financial_probe_calls': 0,
+    'new_pytest_runs': 0,
+    'global_change': {
+        'path': '/Users/a77/.local/bin/codex-code-mode-host',
+        'type': 'new_symlink',
+        'target': str(Path('/Users/a77/.local/bin/codex-code-mode-host').readlink()),
+        'config_toml_modified': False,
+        'sandbox_weakened': False,
+    },
+    'raw_transcripts_external': True,
+    'preflight_note': 'Initial --ask-for-approval placement failed CLI parsing before model; shell output only. Successful probe final saved, not full transcript.',
+}
+(ARCHIVE / 'summary.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2) + '\n')
+(ARCHIVE / 'EXTERNAL-SHA256SUMS').write_text('\n'.join(external) + '\n')
+print(json.dumps(summary, ensure_ascii=False, indent=2))

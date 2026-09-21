@@ -1,26 +1,25 @@
 # 历史来源绑定与缓存授权 · WIP #841
 
 ## 这个分支做什么
-接替#829，基于#832；724缓存授权加固后前向合入固定main028a251a成为f73。#832仍是PR基线，不执行合入#832/main。
+接替#829，基于#832；724缓存授权加固后前向合入固定main028a成为f73。#832仍是PR基线，不执行合入#832/main。
 
 ## 决策与被否方案
-- 缓存非授权；同run锁内重载、校验仅读一次；refresh替换；保旧错误合同。
-- 否旧收据移签/降漂移门。两次独立审查宿主失败不自动重试，不用作者测试补签；自然预算未定不启动。
-- 详情`docs/handoffs/2026-09-22-history-review-attempt.md`；全量背景见`2026-09-21-history-main-revalidation.md`。旧五包不改。
+缓存非授权；同run锁内重载、校验仅读一次；refresh替换；保旧错误合同。否中断日志/作者回归代独立签字、自动重试/加购/重开旧K3。自然预算未定不启动。详情`docs/handoffs/2026-09-22-history-review-resume.md`；旧包不改。
 
 ## 当前状态
-业务代码固定f73d2133968d51d3c782d3e12ee9aa4d0618ef45，父b84+028a。后续docs头64b0b48fa上完成本次回归；本交接随新docs提交归档。两次新只读Codex审查均未取得源码：Spec/Quality BLOCKED。作者复核未确认新的可利用越权，不是独立通过。自然金融仍not_passed，新增自然探针0；未合并/部署8792/写生产。
+业务代码仍f73d2133968d51d3c782d3e12ee9aa4d0618ef45。本轮独立审查固定docs头43511e3f15bd18bfd49868dfbac5b1d3774fd0bc，后续仅本归档/交接文档。读取恢复后两条审查已读源码，但终稿前额度耗尽：Spec/Quality均BLOCKED_USAGE_LIMIT_NO_FINAL_REPORT。自然仍not_passed；未合main/#832、未部署8792、未写生产。
 
 ## 已验证
-- 64b0清洁环境定向599P/0F/0error/0S，599唯一JUnit项，12.87s；收据20260921T161808Z-64b0b48f，精确checker0。首尾clean，依赖门禁未绕过。前次559P+40P重叠不加总。
-- 原f73全量12681P/87S/2X/17W，前端110P/E2E34P2S，定向370P，七撤保护行为红，225行9页累计905卡离线恢复；只属原固定组合。
-- 新包`docs/verification/2026-09-22-history-review-attempt/`保存阻塞原件及三次测试收据。解释器固定主树.venv-workbench。
+- 最小Codex只读探针成功，确认完整43511 SHA及read_history_artifact签名，不算审查。
+- Spec395.184s/Quality421.208s，前后SHA/status稳定、各600s时限未触发、exit1用量限制，终稿缺失。新包`docs/verification/2026-09-22-history-review-resume/`；大日志在`~/.finance-runtime/reviews/react-trace-integration-20260921/history-review-resume-43511/`，由EXTERNAL-SHA256SUMS绑定，须保留。
+- 本轮pytest=0、金融探针=0；旧64b0的599P与f73全量各属原SHA，不移签。非docs diff为空。
+- 新增个人软链`~/.local/bin/codex-code-mode-host`指向应用内宿主；会影响该用户CLI入口，未改config/权限/服务。地图build到43511，31102节点。
 
 ## 未验证 / 已知边界
-独立Spec/Quality、225/25自然理解/有效分母/候选引用与判官实际消费未验。#793排序/#794展开版本预算取消、#833/#845联合树未签。先前收尾main e827仅漂移1<=5，新组合未验。私有_write_run不证公开越权，锁不防直接改盘，hash不认证事实归属。HTTP用户下载与模型同会话reader合同不同，不能泛化加固结论。
+无独立裁决；225/25自然理解/有效分母/数字引用/判官消费未验。#793/#794、#833/#845联合树未签，main e827组合未验。磁盘最近约3.9GiB，低于原全量6GiB停止线，未跑全量/装依赖/起服务。hash不认证来源，锁不防直接改盘；HTTP用户下载与同会话reader分账。
 
 ## 下一步
-恢复独立审查的只读文件访问，固定SHA新验；先明确自然题目/模型/provider尝试硬上限/墙钟停止规则，再走workbench_probe会话消息入口。合入需用户确认并验实际组合/main tip；不重开旧K3，不关#793/#794，不接管别线。
+先核额度和磁盘，再固定SHA新开有界独立审查，终稿缺失仍blocked。自然题/模型/provider尝试硬上限/服务端墙钟与停止规则确定后才走workbench_probe。它的--timeout只限客户端等待，不取消服务端。合入需用户确认并验实际组合/main tip。不关#793/#794、不接管别线。
 
 ## 踩过的坑
-缺的是/Users/a77/.local/bin/codex-code-mode-host特定配置路径，其他应用目录有宿主进程；不改共享配置或杀他人进程。共享磁盘仍紧张，下次重验前检查余量。作者回归日志未单独保存stdout，仅JUnit/正式收据与工具输出，不能事后制造原日志。
+软链CLI同目录缺配套宿主会阻塞；本次绝对CLI路径与补链一起生效，未做单变量对照。--ask-for-approval放exec后会解析失败；现存config/hooks warning未修。CLI tokens used不等于计费金额；共享磁盘变化不归因本轮，外置哈希不等于原件备份。
