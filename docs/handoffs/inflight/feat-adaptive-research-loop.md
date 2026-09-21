@@ -40,7 +40,9 @@
 - `20260920T220029Z-7172ba30.json` → `7172ba30e`，`12096P/85S/2X/17W`。只对合并前、修法前的代码成立。
 - `20260921T055918Z-9e08b6b3.json` → `9e08b6b39`（三处修法 + 钉子测试，合并前），`12102P/87S/2X/18W`，`dirty=False`、`worktree_dirty_total=0`、exit 0。
 - `20260921T064012Z-8293ec69.json` → `8293ec69e`（第一次前向合入 `c615adbd2` 后），`12480P/87S/2X/17W`，exit 0，`dirty=False`、`dirty_paths=[]`、依赖指纹未绕过。跑时工作树有 1 个未提交文件，是本交接（纯 docs，`worktree_dirty_total=1` 而 `dirty_paths` 为空 = 代码面干净）。日志 `~/.finance-runtime/adaptive-merged-full-pytest-8293ec69e.log`。
-- `20260921T073452Z-d5d212a1.json` → **`d5d212a1d`（当前 HEAD，第二次前向合入 `adcda94b5` 之后）**，`12629P/87S/2X/17W`，exit 0，`dirty=False`、`worktree_dirty_total=0`、`dirty_paths=[]`、依赖指纹未绕过。日志 `~/.finance-runtime/adaptive-merged2-full-pytest-5bb3817ea.log`（跑起来时 HEAD 是 `5bb3817ea`，收尾时已到 `d5d212a1d`；`git diff --name-only 5bb3817ea..d5d212a1d` 只出本交接一份 docs，故收据代表同一份代码）。**这份代表当前 HEAD**；再有业务提交即失效，接手请自己重跑这条 diff 验证。
+- `20260921T092038Z-ba8c55c3.json` → **`ba8c55c35`（当前 HEAD，含 `finance_query` 代码后缀闸）**，`12636P/87S/2X/17W`，exit 0，`dirty=False`、`worktree_dirty_total=0`、`dirty_paths=[]`、依赖指纹未绕过。**这份是当前代码的收据**；HEAD 可能比它多出若干条纯 docs 提交（本交接自身），接手用 `git diff --name-only ba8c55c35..HEAD` 验证只出 `docs/` 再沿用，出现业务文件即失效。前一次同 revision 的全量 `12 failed/3 errors` 全是 `sqlite3.OperationalError: disk I/O error`（`test_workbench_db` / `test_agent_*`），把那 12 条单独重跑 21P —— 机器高负载下的环境性失败，不是本片改动；红的那份日志 `adaptive-fq-full-pytest-d9e2875c0.log` 保留，不当收据用。
+- **主线漂移**：本枝 `ba8c55c35` 领先 `gitea/main` 32、落后 5（`f2c3e9e1a`，含 #830「K3 写手兼容与无判官独立性统计」，动 `llm_refine.py` / `gate_receipt.py` / `variance_baseline.py` + 两个测试）。这 5 个文件本片一个没碰，但**落后即收据不代表合并后**：接手先前向合并再重跑全量，别沿用本条。
+- `20260921T073452Z-d5d212a1.json` → `d5d212a1d`（第二次前向合入 `adcda94b5` 之后），`12629P/87S/2X/17W`，exit 0，`dirty=False`、`worktree_dirty_total=0`、`dirty_paths=[]`、依赖指纹未绕过。日志 `~/.finance-runtime/adaptive-merged2-full-pytest-5bb3817ea.log`（跑起来时 HEAD 是 `5bb3817ea`，收尾时已到 `d5d212a1d`；`git diff --name-only 5bb3817ea..d5d212a1d` 只出本交接一份 docs，故收据代表同一份代码）。**这份代表当前 HEAD**；再有业务提交即失效，接手请自己重跑这条 diff 验证。
 定向历史4P、发布矩阵21P、跨后端24P、Ruff通过。合并后两侧冲突接缝套件 1199P/4S。最终撤线：去发布上限16F/恢复24P；误把已解决语义修订当未解决3F/恢复22P。
 
 ## 候选：悬空连接词剥离（已撤回）
