@@ -178,8 +178,12 @@ def test_audited_local_queries_run_against_only_temporary_sources(tmp_path, monk
     indexed = registry.execute("evidence_lookup", "甲公司", context=context, step_id="local-index")
     assert indexed.evidence and "临时公告确认订单20" in indexed.evidence[0].detail
     mainline = registry.execute("mainline_context", {}, context=context, step_id="local-mainline")
-    if source_state == "current":
+    if source_state in {"current", "stale"}:
         assert mainline.evidence and "临时主线" in mainline.observation
+        expected_date = "2026-07-23" if source_state == "stale" else "2026-07-24"
+        assert {item.source_date for item in mainline.evidence} == {expected_date}
+        assert mainline.gaps == ()
+        assert all(item.io_effect == "local_read" for item in mainline.evidence)
     else:
         assert mainline.evidence == ()
     memory = registry.execute("memory_lookup", "甲公司", context=context, step_id="local-memory")
