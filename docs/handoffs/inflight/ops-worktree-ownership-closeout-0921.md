@@ -11,7 +11,7 @@
 
 ## 当前状态
 #814代码a092a021c已推，O-K3-001同进程pytest抢外层收据已作者修复验证。只改conftest.py及test_main_gate_receipt.py；后续文档尖不继承源码收据。
-115文件封存`docs/verification/2026-09-21-ownership-reentrant-repair/`（含README不含manifest）。原件`~/.finance-runtime/reviews/ownership-reentrant-repair-20260921/`。
+115文件封存`docs/verification/2026-09-21-ownership-reentrant-repair/`（含README不含manifest），证据b28a61e5a已推；#812/#813/#814评论5273/5274/5275已回读核对。源码文档尖ffc8e1a8。原件`~/.finance-runtime/reviews/ownership-reentrant-repair-20260921/`。
 旧47530e20仍冻结；K3双轴40请求触帽无终审（Quality仅占位），旧代码CHANGES_REQUIRED/独立完成度BLOCKED历史保留。本次未加模型会话/扩额/合main/部署/生产回填/删真实树；Arena另线。
 
 ## 已验证
