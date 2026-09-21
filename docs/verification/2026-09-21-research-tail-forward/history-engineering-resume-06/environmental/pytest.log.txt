@@ -1,0 +1,3 @@
+.......                                                                  [100%]
+- generated xml file: /Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-06/environmental/junit.xml -
+7 passed, 49 deselected in 1.59s
