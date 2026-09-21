@@ -1,0 +1,10 @@
+c1275270804810de54d8cdef93774972fe9ce4fd9ed2a884c5cd5ea841b4f095  docs/verification/2026-09-22-history-review-attempt/focused-receipt.json
+3f0eb137a9705f9b704fc6c704323afc51f554fa2ff94f4e8d25b0d6c1315b0c  docs/verification/2026-09-22-history-review-attempt/focused.xml.txt
+89c00f5613203fc13724823e5c63fec3e9dff51ce580ae9f8b4fb096defc1034  docs/verification/2026-09-22-history-review-attempt/independent-security-review.txt
+9f8001ef5c638c23664c4c4629dc8c422d701d24d45ab8331e14b16ce0cc00cd  docs/verification/2026-09-22-history-review-attempt/independent-spec-review.txt
+d5e3e1df8bb333bd77adf97cc4efc046b7c965bdcf242a993125cf8e7f27f044  docs/verification/2026-09-22-history-review-attempt/initial-559-receipt.json
+31f16ac823c48cee567120adba6a48b2f5db5b7ac4b8952f569d92dff9260189  docs/verification/2026-09-22-history-review-attempt/initial-559.xml.txt
+b966322018399475953bfa8db7cbdd129af754d72d34bf55b9fe803989357923  docs/verification/2026-09-22-history-review-attempt/README.md
+a1a2ba73c5d1517dac571fb3bdc9f0f5afa3d1e297855d671f3c39869cb18ab1  docs/verification/2026-09-22-history-review-attempt/receipt-check.log.txt
+21c3949212edfd58da420dace2c2d6f59994b2ac0449c961de2c01e0ffeeb283  docs/verification/2026-09-22-history-review-attempt/seams-40-receipt.json
+3b00dfb20ee1440b7d19b1eac4848db15ff0bfd51642154fd8a0de45ccf199bb  docs/verification/2026-09-22-history-review-attempt/seams-40.xml.txt

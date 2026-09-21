@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-history-evidence-integration-0921",
+  "revision": "64b0b48fa5c461f6a97911948a7585fec97c65ec",
+  "branch": "feat/history-evidence-integration-0921",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "intelligence/tests/test_condition_reference_seams.py intelligence/tests/test_workbench_api.py::test_create_run_and_fetch_artifacts intelligence/tests/test_workbench_api.py::test_internal_artifact_is_hidden_from_every_public_artifact_interface intelligence/tests/test_workbench_api.py::test_run_artifact_path_traversal_rejected",
+  "counts": {
+    "passed": 40,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-21T16:16:46+00:00"
+}
