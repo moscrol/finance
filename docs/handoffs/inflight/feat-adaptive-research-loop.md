@@ -20,7 +20,7 @@
 
 **撤线（每门一次，单点变异，改完即还原）**：M1 去掉观察值传参 → 1F；M2 去掉 E 号/季度剥离 → 1F；M3 终局一律跳过重核 → 1F/1P；M4 上限规则永不触发 → 3F；M5 适配器不接上限 → 1F/1P；M6 probe 面回退成 ALL_TOOLS → 2F。还原后 8P。日志 `~/.finance-runtime/adaptive-fix-mutations-20260921.log`（含首轮 M3–M5 因 zsh 不分词误报 `no tests ran` 的记录与重跑）。
 
-**合入前向**：`gitea/main@c615adbd2` 的 #770/#819 动了同两处函数，冲突五文件均按「两边行为都留」解（数字门：历史句跳过 + 短日期掩码 → E 号/季度剥离 → 单位无关匹配；判官提示：采用 main 的累加结构，`declared_gaps` 须知接在基底后，`nonfactual_review` 保留 main 的短路；修复轮同时传 `review_feedback` 与 `rejected_claim_notes`；`user_task` 用 `is_material_only_instruction` + `_is_local_only_head` + 放宽词表三支）。合并后两侧相关套件 1199P/4S、Ruff 通过。
+**合入前向（两次）**：`8293ec69e` 合 `c615adbd2`（#770/#819），`5bb3817ea` 合 `adcda94b5`（#825 判官理由码分流 + 8792 公开交付收口、#826 文档）。第二次三处冲突都是「两边各加一个键」：判官载荷 `declared_gaps` + `ranking_contract`、动态输入 `adaptive_research` + `premise_calculation_rule`/`calculation_delivery`、门页两节，全部并存；合并后接缝套件（含 ranking / e2 / protocol）1285P/4S、Ruff 通过。第一次的冲突五文件均按「两边行为都留」解（数字门：历史句跳过 + 短日期掩码 → E 号/季度剥离 → 单位无关匹配；判官提示：采用 main 的累加结构，`declared_gaps` 须知接在基底后，`nonfactual_review` 保留 main 的短路；修复轮同时传 `review_feedback` 与 `rejected_claim_notes`；`user_task` 用 `is_material_only_instruction` + `_is_local_only_head` + 放宽词表三支）。合并后两侧相关套件 1199P/4S、Ruff 通过。
 
 **活体复验（同题、同配置、修法 revision `9e08b6b39`）**：
 - 冒烟 2 原题 → `run_20260921_131925_583952`，131 s：修复轮自报 completed → 复核 → 判官 passed，`outcome/verified/public/answer.md` 四层同稿，`semantic_verifier_stale=false`，两句被打回的原句不在公开稿。**注意**：本次模型自报 completed，走的是原本就会复核的路径；「无工具 + 自报 partial」那一格未被自然触发，该格仍只有离线测试。原件 `~/.finance-runtime/adaptive-live-smoke-20260921-q2-fix/`。
@@ -39,7 +39,8 @@
 **收据与 revision 的对应关系（2026-09-21 下午起，`7172ba30e` 那份已不代表当前代码）**：
 - `20260920T220029Z-7172ba30.json` → `7172ba30e`，`12096P/85S/2X/17W`。只对合并前、修法前的代码成立。
 - `20260921T055918Z-9e08b6b3.json` → `9e08b6b39`（三处修法 + 钉子测试，合并前），`12102P/87S/2X/18W`，`dirty=False`、`worktree_dirty_total=0`、exit 0。
-- `20260921T064012Z-8293ec69.json` → **`8293ec69e`（当前 HEAD，含前向合入 `gitea/main@c615adbd2`）**，`12480P/87S/2X/17W`，exit 0，`dirty=False`、`dirty_paths=[]`、依赖指纹未绕过。跑时工作树有 1 个未提交文件，是本交接（纯 docs，`worktree_dirty_total=1`、`dirty_paths` 为空即代码面干净）。日志 `~/.finance-runtime/adaptive-merged-full-pytest-8293ec69e.log`。**这份才代表当前代码**；再有业务提交即失效。
+- `20260921T064012Z-8293ec69.json` → `8293ec69e`（第一次前向合入 `c615adbd2` 后），`12480P/87S/2X/17W`，exit 0，`dirty=False`、`dirty_paths=[]`、依赖指纹未绕过。跑时工作树有 1 个未提交文件，是本交接（纯 docs，`worktree_dirty_total=1` 而 `dirty_paths` 为空 = 代码面干净）。日志 `~/.finance-runtime/adaptive-merged-full-pytest-8293ec69e.log`。
+- **`5bb3817ea`（当前 HEAD，第二次前向合入 `adcda94b5`）的全量在跑**，日志 `~/.finance-runtime/adaptive-merged2-full-pytest-5bb3817ea.log`。**接手先读它的 `exit=` 行与收据**；在它出结论前，当前 HEAD 没有代表自己的全量收据，上面两份都只代表各自更早的 revision。
 定向历史4P、发布矩阵21P、跨后端24P、Ruff通过。合并后两侧冲突接缝套件 1199P/4S。最终撤线：去发布上限16F/恢复24P；误把已解决语义修订当未解决3F/恢复22P。
 
 ## 候选：悬空连接词剥离（已撤回）
