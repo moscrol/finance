@@ -5,7 +5,7 @@
 - [作者工程与#831独立审核](author-and-small-review/README.md)：四候选固定源码的工程收据；#831独立报告与操作员收窄裁决；c35门禁诊断/主动中止原件。
 - [三领域容量中断](domain-reviews-blocked/README.md)：#833/#834/#835三份session原事件、首尾身份、exit1及无报告事实，不能用部分定向绿代签终审。
 - **最新：[有界续接01](domain-review-resume-01/README.md)**：用户“执行”后历史原thread续审103P，随后再capacity无终审；操作员typed消费者确认三种受保护引文错误继承历史任务/未保local_only，**#833 CHANGES_REQUIRED**。runtime/财务按串行容量失败即停约定本轮未启动。旧两包不改。
-- [续接决策快照](../../handoffs/2026-09-21-research-tail-review-resume-01.md)记录根因、首错与为何停止后两条，不把操作员核证当独立report。
+- [续接决策快照](../../handoffs/2026-09-21-research-tail-review-resume-01.md)记录根因、首错与为何停止后两条，不把操作员核证当独立report。新封档 **c4e7bea4c74932000149c2392b38c3afa2cdb03c** 已推，38/38提交字节通过；[续接发布回执](resume-01-publication-check.json)在冻结包外，记录四PR回贴5407–5410/正文回读与记忆54ab8dfb，不改旧manifest。
 - [日期决策快照](../../handoffs/2026-09-21-research-tail-forward-integration.md)与[协调交接](../../handoffs/inflight/docs-research-tail-closeout-0921.md)。冻结源码没有追加本轮交接，需在`docs/research-tail-closeout-0921`读取对应inflight。
 
 ## 验证方法与范围

@@ -11,7 +11,7 @@
 - 新决策：`../2026-09-21-research-tail-review-resume-01.md`；前向背景见原integration快照。
 
 ## 当前状态
-WIP #838 docs枝统一交接；原封档c47b2751、发布abbc57e98已推，两旧包281/28成员保持原样。新增第三包domain-review-resume-01记录本轮终态，提交身份以git/PR为准。
+WIP #838 docs枝统一交接；新封档c4e7bea4c已推，第三包38/38提交字节通过，旧包281/281与28/28不变。#833/#834/#835/#838回贴5407–5410且正文回读；记忆54ab8dfb验字节。发布回执resume-01-publication-check.json在包外。
 源码仍clean且固定：#831 ea5c3a946、#833 7edfe24e7、#834 cb16cd463、#835 d82cb16b5；后三者基于#831，不是联合树。
 #831独立有限接受不变。历史原thread续接103P后11:33:38Z再次capacity→exit1、无report、未触帽；旧原件不变。操作员typed消费者11断言8P/3F确认H-01，历史CHANGES_REQUIRED。
 H-01：闭合引号/>引用/代码围栏中的续接语错误恢复旧历史权限；旧local_only未保留，合同出现外部读能力。未执行工具/网络/DB，cutoff未抬高。
