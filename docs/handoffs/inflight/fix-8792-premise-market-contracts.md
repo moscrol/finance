@@ -1,30 +1,28 @@
 ## 这个分支做什么
-修复8792题设计算、跨轮状态、恢复、行情证据和最终公开交付；不开发Arena。
+修 8792 题设计算 / 跨轮状态 / 恢复 / 行情证据 / 公开交付；本轮把「判官拒句→公开稿」从一刀切改成理由码分流。不开发 Arena。
 
 ## 决策与被否方案
-- 程序认证仅限有限静态PE合同；否了把题设来源布尔值当通用数学证明。
-- 跨轮继承活动请求和情景；明确替换/取消才收窄，否了按“继续”清空或重算全部历史情景。
-- 缺单位字段失效而不沿用旧值，带单位更正才恢复；否了猜单位。
-- 公开表和内部材料分层验收；否了只看judge/completed或把canonical当第二供应商。
+- 判官报告加可选 `reason_codes`（四码），按码路由：fact_beyond_evidence 删；unsupported_ranking 改写优先级格「N（研判）」；internal_process_leak 「调用工具」→「检索」；其余与无码走原槽位规则（必答槽内降级、槽外删）。否了 1d9e717d2「引了 E 且被拒→删」：账本 39 条里 25 条 L4、7 条判官背书数字。
+- 优先级格只标注不清空：清空触发 `missing_contract_elements` 契约重写循环。
+- 否了模型改写窗：多一次调用叠判官方差，等吐码率再议。
+- 排序题送判载荷加 `ranking_contract`（优先级列=model_reasoning）；股票代码探测器只分区不预检。
+展开：`docs/handoffs/2026-09-21-judge-reason-codes.md`。
 
 ## 当前状态
-代码候选 `8810bac84f67ffd6179b744710f4a88f3b5c51ee` 已冻结；其后的归档文档提交为 `058fe3ebe7e41cf318dc0bb6762af7f3011a2532`，工作树clean，生产未改。
-
-## 已验证
-- v19全量Python `12044 passed / 85 skipped / 2 xfailed`；前端六项全过，收据绑定最终SHA。
-- v19 K3有限diff PASS；定向118项通过。
-- v19三题各一次：前两题同会话，行情新会话；公开表/核心行情数字正确。公开fixture 3/3，wrong_pe/collapsed_boundaries/swapped_breadth均失败。
-- v19准入正常3通过；禁用准入真实2失败/1通过。ready显示市场日期2026-09-18、数据库一致。
+候选 `a97b27057`；工作树 clean（本文与快照随 docs 提交入库）。对 gitea/main 24 ahead / 14 behind，main 未碰本次文件，merge-tree 零冲突。未合 main、未 push、生产未改。
 
 ## 未验证 / 已知边界
-- 行情公开自由文字有P3：`EDA、封测、存储、汽车芯片随后`未绑定到该句所引E2/E3/E4/E52；不要写行情自由文字全量PASS。
-- 独立财务K3两次HTTP 400，无有效报告，不能补写PASS；确定性算术复核已完成。
-- Q6未识别财务prose仍只语义审核；非静态PE不获专用程序数学保证。外部registry漂移单独红。
+- **生产判官（K3 自审链）是否回 `reason_codes` 零实测**：没起 sidecar 跑过一题。不吐码时 v19 P3 那句以降级保留出门，不是删。
+- E2E 未在 a97b27057 重跑（无结论叶子）；v20 live/E2E 收据不移签。
+- 判官放过的编造股票代码抓不到；正文标注仅矩阵行「（研判）」一处，句级标注仍只在 issues。
 
 ## 下一步
-1. 关闭v19 sidecar，ready确认active/queued=0；只读核对生产8792仍原revision/fingerprint。
-2. 归档文档、v19 fixture、manifest和run汇总已落盘；保留v1-v19失败原件。若清理P3必须新候选重跑，不能改v19原件。
-3. 不合main、不push、不部署；生产只读核对已完成。
+1. sidecar @a97b27057 跑三题，看 `sentence_verdicts[].judge_reason_code`；`offline_judge_verdict_census.py --since 2026-09-21` 读 `judge_stage.coded_share`。低→修判官接法，不动无码缺省。
+2. 吐码率够再议：收紧无码缺省 / 开改写窗。
+3. 合 main 前补 E2E；合并等用户确认。
 
 ## 踩过的坑
-不要用旧SHA收据；不要把0测试/TypeError/输出耗尽的K3当结论；不要把共享worktree测试红归罪最终候选。
+别把「引了 E 且被拒→删」加回来（加表格豁免也不行）；别清空优先级格；别把 `reason_codes` 放进 tool schema `required`（老判官整份作废）；zsh 里 `${PIPESTATUS}` 为空，用 `$pipestatus`。
+
+## 已验证
+全仓 pytest @a97b27057：12061 passed / 85 skipped / 2 xfailed（收据 `20260921T042331Z-a97b2705`，可采信）；前端 lint/typecheck/110 单测/build 全绿；11 道 pre-commit 过；生产账本普查 113 run：39 条全 demoted、零 deleted，coded_share 基线 0.0%。
