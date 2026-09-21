@@ -1,41 +1,74 @@
-# 8792 公开交付与准入反事实
+# 8792 公开交付与证据绑定验证
 
-## 范围
+## 当前候选
 
-本目录的 `public-delivery-v12.json` 对应v12固定run；`public-delivery-v19.json` 对应候选 `8810bac84f67ffd6179b744710f4a88f3b5c51ee` 的三个新固定run。它们都不是任意回答的正确性验证器。完整本机证据在 `~/.finance-runtime/8792-premise-market-evidence/`，包含原题、v1-v19原始工件、代码审查原件和v19 live用户根。原始失败不删除，不把新版测试收据移签给旧版或反过来使用。
+v20 对应候选 `1d9e717d2922b00db002ae126d529ea11e9206d2`，分支为 `fix/8792-premise-market-contracts`。本轮修复的公开出口缺陷是：语义判官拒绝、且句子显式引用 E 证据的事实句，不得继续留在公开答案；无 E 引用的分析/情景争议仍可降级保留，机械的表外 E 序号仍删除。
 
-`check_public_finance_delivery.cjs` 用实际 `marked` 解析器比对表头、每行公式/单位/数值及固定片段。它不证明所有解释、供应商真实性、其他运行或源码身份。原文只读；三个变异只在进程内改字符串。
+候选代码提交为 `fix: remove rejected cited fact sentences`。完整 Python 收据为 `12044 passed, 85 skipped, 2 xfailed`；使用项目解释器 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`。候选 SHA 绑定的前端收据另跑并全部通过：lint、typecheck、110 个单测、build，以及 E2E `34 passed, 2 skipped`。不把父 SHA 的前端收据移签给 v20。
+
+## v20 Live
+
+sidecar 端口为 `18894`，用户根为 `/Users/a77/.finance-runtime/8792-premise-market-v20-users/probe-premise-market-v20-20260921/`。运行时健康身份为：
+
+- `source_revision=1d9e717d2922b00db002ae126d529ea11e9206d2`
+- `source_dirty=false`
+- `code_matches_repo=true`
+- loaded/repo tree fingerprint 均为 `137caf4abf18bc7a9aa683e4447343c197c97f1c2ea1a47c17008e680cc545d1`
+
+原三题各执行一次且不自动重试。首题和追问共用会话 `conv_1c083ddc18964a4d88ee4f4dbf8626c2`；行情题使用新会话 `conv_92115c0ac7874659b5c57b78588093ac`。
+
+- `run_20260921_065612_406744`：题设算术，公开表为 25%、12.5%、10%、9%、下降 1 个百分点、66.6667%、180 亿元、20 倍，并明确不能据此判断便宜/贵。
+- `run_20260921_065630_642298`：24 元追问，公开表为 240 亿元、26.6667 倍、7.2 亿元、33.3333 倍；情景明确不是盈利预测。
+- `run_20260921_065657_847324`：2026-09-18 行情，公开答案为 4234/1151/168、涨停 79/跌停 0，前三板块为功率半导体、集成电路设计、半导体设备，并带涨幅、成交额、日期和 `.FP` 口径。
+
+三个 run 均 `completed`，公开 `answer.md` 均非空。v20 行情答案已删除 v19 中未绑定的括注“EDA、封测、存储、汽车芯片随后”；当前答案将 EDA、封测、存储芯片、芯片逐项写出数值，并分别绑定 `E18/E31/E35/E45`。
+
+sidecar 已正常发送 `SIGTERM` 停止。停止前用户根 run 列表为 3 个 `completed`，`running=0`、`queued=0`。
+
+## 公开交付与反事实
+
+使用实际 `marked` 15.0.12 解析器执行：
 
 ```bash
 node scripts/check_public_finance_delivery.cjs \
-  --runs "$HOME/.finance-runtime/8792-premise-market-v19-users/probe-premise-market-v19-20260921/runs" \
-  --webapp /Users/a77/finance-workspace-private/intelligence/webapp \
-  --fixture docs/verification/2026-09-21-8792-premise-market/public-delivery-v19.json
+  --runs "$HOME/.finance-runtime/8792-premise-market-v20-users/probe-premise-market-v20-20260921/runs" \
+  --webapp /Users/a77/fwp-wt-8792-premise-market/intelligence/webapp \
+  --fixture docs/verification/2026-09-21-8792-premise-market/public-delivery-v20.json
 ```
 
-v19实际结果：正常fixture为3/3通过；`wrong_pe`、`collapsed_boundaries`、`swapped_breadth`三个进程内变异均按预期失败。
+正常 fixture 为 `3/3`。以下三个有效进程内变异均按预期失败，且变异确实生效：
 
-同一命令加 `--mutation wrong_pe`、`--mutation collapsed_boundaries` 或 `--mutation swapped_breadth` 应分别失败。未命中变异也失败，不以无效替身充当反证。fixture 锁定 `marked` 15.0.12，其他版本先明确验证范围，不能偷偷更换。
+- `wrong_pe`：exit 1
+- `collapsed_boundaries`：exit 1
+- `swapped_breadth`：exit 1
 
-## 准入守卫
+此前两次错误用户根路径造成的失败原件保留在 evidence 目录，但标记为操作错误，不计入反事实结论。
 
-脚本核对固定 SHA、已跟踪文件清洁状态、实际 import 路径和源文件哈希，禁用正常测试收据及字节码。测试本身仍执行代码，并非 OS 沙箱。使用项目解释器，在中立目录执行：
+候选树的准入守卫为 `3 passed, 65 deselected`。在进程内禁用 admission 后为 `2 failed, 1 passed, 65 deselected`，失败不是 TypeError、导入错误或零测试；源文件哈希未变。
 
-```bash
-cd /tmp
-env -i PATH="$PATH" HOME="$HOME" KNOWLEDGE_WIKI="$KNOWLEDGE_WIKI" \
-  /Users/a77/finance-workspace-private/.venv-workbench/bin/python \
-  /Users/a77/fwp-wt-8792-premise-market/scripts/probe_premise_publication_guard.py \
-  --checkout /Users/a77/fwp-wt-8792-v19-k3-review \
-  --expected-revision 8810bac84f67ffd6179b744710f4a88f3b5c51ee
-```
+## 独立复核
 
-正常v19为3项通过；加 `--disable-admission` 后是实际断言失败（2失败、1通过），不是TypeError、导入失败或未收集测试。这个过程内变异只证明当前公开准入测试能抓到绕过，不证明OS沙箱或任意财务文字。首次替身签名错误另留原件，不算有效反证。
+代码 K3 分两轮保留原件：
 
-## 独立审查
+1. 首轮只给 tiny diff，结论为 `INCOMPLETE`，提出两个 `needs_context`：引用解析器覆盖未展示、质量标记投影路径未展示。这不是确认缺陷。
+2. 第二轮附上候选真实 helper 和投影路径上下文，结论为 `PASS`，确认带 E 引用的语义拒句进入删除 repair、无 E 引用的语义争议仍可 demote、机械表外引用仍删除，质量标记投影只更新控制面而不会重新插入删除句。
 
-v19完整Python为12044 passed / 85 skipped / 2 xfailed，前端六项通过；这些工程结果不替代公开交付审查。v19短diff K3代码复核为PASS，范围限于题设计算状态、缺单位崩溃和范围冲突修复。v19公开答案的确定性复核确认两题计算数字及行情核心数字；行情run内judge留下P3：公开句子“EDA、封测、存储、汽车芯片随后”没有绑定到该句引用的E2/E3/E4/E52，故不能把行情自由文字写成全量PASS。独立财务K3两次请求均被供应商以HTTP 400拒绝，无有效报告，记INCOMPLETE；不能用completed、judge passed或无效请求替代财务独立签字。canonical也不是第二供应商。
+证据引用合同当前是 ASCII `E1..E999`；全角 E/数字不属于现有语法，本轮作为边界记录，没有擅自扩大合同。
 
-后续返修新增的K3边界回归在冻结v12源码中立回放为9失败、59通过；返修树定向95通过。包括历史情景和缺口延续、主体前缀与子串混并、场景数值溢出及真实第三轮合同。旧失败原件和第一版测试现金流文本替换未命中的日志均保留，后者不是有效功能反证。完整测试和独立复审必须在新候选冻结后重跑。
+独立财务 K3 供应商请求返回 `HTTP 400 invalid_request`，没有有效财务独立签字，必须记为 `INCOMPLETE`。确定性审计只核对题设算术表和列明的行情观察值；canonical 是同源口径对照，不是第二供应商，也不覆盖任意自由 prose 或因果解释。
 
-普通非静态PE题设未进入专用计算器；未识别数字文字仅交语义审核并记录未程序核验片段。这是持续存在的覆盖边界，不因本轮修复而变成数学保证。v19的live sidecar为18893，原三题各一次、前两题同会话、行情新会话；收尾前须确认active/queued归零。registry 的外部 `kb/rag-query` 漂移仍红。不合main、不push、不部署、不付费外审、不删除生产。
+## 生产与范围
+
+生产 8792 仅做只读核对，仍为：
+
+- revision `bf662e9310ff751a4c31763815ee78fb7d6d5122`
+- `source_dirty=false`
+- fingerprint `e5a2f94c4638392ace619606e1aa279ab81e3692e4e6d0a420a5f24fcfeb59e8`
+
+本轮不合 main、不 push、不部署、不付费外审、不删除生产。普通非静态 PE 文字仍不进入专用程序计算器；未识别财务数字文字仍依赖语义审核。registry 外部 `kb/rag-query` 漂移继续单独记录。
+
+完整运行时证据、manifest 和 SHA256 清单在：
+
+- `~/.finance-runtime/8792-premise-market-evidence/v20-artifact-manifest.json`
+- `~/.finance-runtime/8792-premise-market-evidence/v20-evidence-SHA256SUMS.tsv`
+- `~/.finance-runtime/8792-premise-market-evidence/v20-user-root-SHA256SUMS.tsv`
