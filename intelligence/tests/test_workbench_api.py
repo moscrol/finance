@@ -1,7 +1,7 @@
 import json
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -2258,6 +2258,59 @@ def test_readiness_exposes_safe_real_probe_timeout(client, monkeypatch, endpoint
     assert payload["rag"]["available"] is False
     assert "secret" not in response.text
     assert probe_calls == [5]
+
+
+@pytest.mark.parametrize("failure", ["timeout", "code_changed"])
+def test_readiness_shares_inflight_failure_and_rechecks_after_completion(client, monkeypatch, failure):
+    entered, joined, release = threading.Event(), threading.Event(), threading.Event()
+    original_run = app_module.kb_rag.subprocess.run
+    original_identity = app_module.kb_rag._probe_code_identity
+    changed = threading.Event()
+    calls = []
+
+    class ObservedFuture(Future):
+        def result(self, timeout=None):
+            joined.set()
+            return super().result(timeout=timeout)
+
+    def run(cmd, **kwargs):
+        if cmd[-2:] != ["query", "--help"]:
+            return original_run(cmd, **kwargs)
+        calls.append(cmd)
+        entered.set()
+        assert release.wait(3)
+        if failure == "timeout":
+            raise app_module.kb_rag.subprocess.TimeoutExpired(cmd, 5, stderr="secret-error")
+        changed.set()
+        return app_module.kb_rag.subprocess.CompletedProcess(
+            cmd, 0, " ".join(app_module.kb_rag.REQUIRED_QUERY_OPTIONS), "",
+        )
+
+    monkeypatch.setattr(app_module.kb_rag, "Future", ObservedFuture)
+    monkeypatch.setattr(app_module.kb_rag.subprocess, "run", run)
+    monkeypatch.setattr(app_module.kb_rag, "_probe_code_identity", lambda root: (
+        original_identity(root) + ("changed" if changed.is_set() else "")
+    ))
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        try:
+            owner = pool.submit(client.get, "/api/readiness")
+            assert entered.wait(3)
+            follower = pool.submit(client.get, "/api/health/ready")
+            assert joined.wait(3)
+        finally:
+            release.set()
+        responses = [owner.result(5), follower.result(5)]
+    assert len(calls) == 1
+    for response in responses:
+        assert response.status_code == 503
+        assert response.json()["missing_critical"] == ["rag_query_protocol"]
+        assert response.json()["rag"]["failure_kind"] == failure
+        assert "secret" not in response.text
+    assert not app_module.kb_rag._PROBE_FLIGHTS
+    monkeypatch.setattr(app_module.kb_rag.subprocess, "run", original_run)
+    later = client.get("/api/readiness")
+    assert later.status_code == 200
+    assert "shared_inflight" not in later.json()["rag"]
 
 
 def test_cancel_run_is_terminal_even_when_worker_finishes_later(
