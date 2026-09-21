@@ -72,3 +72,36 @@ node scripts/check_public_finance_delivery.cjs \
 - `~/.finance-runtime/8792-premise-market-evidence/v20-artifact-manifest.json`
 - `~/.finance-runtime/8792-premise-market-evidence/v20-evidence-SHA256SUMS.tsv`
 - `~/.finance-runtime/8792-premise-market-evidence/v20-user-root-SHA256SUMS.tsv`
+
+## v21：撤回「引了 E 且被拒 → 删」，改为判官理由码分流
+
+v20 候选 `1d9e717d2` 的规则「显式引用 E 且被语义判官拒绝的句子一律删除」被同一份账本
+否掉：生产 113 个带 `sentence_verdicts` 的 run 里，「引了 E 且被拒」共 39 条，来源档
+L4_structured（本地 DuckDB 结构化行情）占 25 条，判官原话里 7 条写明「其中数字本身有
+证据，不是拒绝原因」，拒的是「优先级 1 凭什么」；另有 1 条拒的是「暴露『调用工具』」。
+这一刀会把移远通信公司矩阵 8 行里的 7 行连判官背书的行情数字一起删。普查原件与命令：
+`docs/verification/2026-09-21-judge-verdict-census-pre-reason-codes.md`。
+
+v21 的处置（`intelligence/services/episode_semantic_verifier.py::_plan_repair_indexes`）：
+
+| 判官理由码 | 动词 | 公开稿 |
+|---|---|---|
+| `fact_beyond_evidence` | 删 | 句子移除，连坐的有据数值按槽补回 |
+| `unsupported_ranking` | 改写 | 矩阵行「优先级」格 `N` → `N（研判）`；不是矩阵行则退回槽位规则 |
+| `internal_process_leak` | 改写 | 「调用工具」一族 → 「检索」；仍残留内部词则退回槽位规则 |
+| `causal_or_role_overreach` / 无码 / 未知码 | 槽位规则 | 必答槽内降级为 issue（句子保留），槽外删 |
+
+理由码是判官报告的**可选**字段（`reason_codes`，tool schema 与 JSON 两条路都收）；缺码、
+未知码、畸形字段只影响路由，不作废报告；多出别的未知键仍作废。判官 prompt 增加四码释义。
+新增机械探测器 `unknown_stock_code`：句内 A 股六位代码任一不在任何证据语料 → 该句从
+「语义」划到「机械」（删）；只做分区，不做预检，删除权仍先归判官。排序题送判载荷增加
+`ranking_contract` 块，告知判官「优先级」列属 model_reasoning。`_annotate_semantic_rejects`
+（零调用点的死函数）删除。
+
+v19 的 P3（「EDA、封测、存储、汽车芯片随后」未绑定所引 E）在 v21 下的处置取决于判官是否
+给码：给 `fact_beyond_evidence` 则删；不给码则与 v18 及生产一致——降级保留、控制面记账。
+**这是有意的缺省**：判官不吐码时宁可少删。吐码率用 census 的 `judge_stage.coded_share` 量，
+上线前基线为 0.0%（字段刚有）。
+
+v21 未做 live：本轮没有起 sidecar 重跑三题，生产判官（K3 自审链）是否稳定回 `reason_codes`
+未验证；v20 的 live 结论不移签给 v21。
