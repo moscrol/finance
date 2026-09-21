@@ -77,6 +77,38 @@ L2、外层质检与方法验证保留 `FINANCE_CODE_ROOT`，数据与外置用�
 沙箱内置辅助代码版本 `PRELUDE_VERSION = "5"` 进入 `calc_id`，不复用初版 v4 的计算身份。
 这只保证本地计算及产物一致性，不证明输入行情或公司财务事实真实。
 
+### Workbench 终态与发布边界（本地金融候选，未部署）
+
+移入答案保留枝 `49fd8d72` 的发布片，不代表整枝合流。`run.status` 是完成/失败/取消
+竞争的归属，不是全部产物已发布。公开 Run 新增
+`publication={status: pending|published|not_applicable, message_id}`：本用户会话中该 run
+的助手终稿与精确匹配的 `message.complete`/`message.error` 都落盘才是 published；
+观察到事件后重读 run，不能给旧的半成品产物列表贴完成标记。无助手消息的旧
+`/api/runs`（含任意 session 标签）为 not_applicable，不冒充 Workbench 会话。
+前向合流保留主干 `delivery_pending`：精确发布证明与同进程 writer 收尾是两份独立条件。
+前端轮询与 SSE 终态须两者齐备，再加载最终消息与产物、停止刷新；任一尚未完成时刷新页面继续连接。
+SSE 沿原总时限等待，超时不伪造完成。
+失败/取消不要求 report.json；已存在 report.json 也不能代替最终发布事件。
+`workbench_probe.py` 消费新标记；旧服务无字段时只沿旧 message_id 合同，不证明产物完整。
+这不移动终态 claim、不修跨进程发布崩溃；永久缺事件仍 pending，不猜稿或标成功。
+金融删错的安全正文、引用与补修债经过真实消息/报告落盘；published 仍可对应
+`business_status=partial`，不等于金融完整或质量通过。离线组合测试见
+`test_financial_publication_integration.py`，含正常及可信稿恢复投影；恢复使用脚本化
+核验结果，不是新自然模型或跨进程验收。旧 R6/R3 整题 0/4 不变。
+撤保护入口为 `run_extraction_mutations.py --suite publication`，不替代前端检查。
+
+### RAG 响应读取与代码换代（本地金融候选，未部署）
+
+只移入答案保留枝 `20939b18` 的读取片：`PersistentRagWorker` 用非阻塞字节读取、
+显式换行缓冲，先消费完整行再等内核可读；整行才解码，旧响应/半行不续绝对截止时间。
+首次暖查询放弃保留半行，下一请求按精确ID排掉旧回复；冷启动或连续第二次超时仍杀进程。
+保留本金融基座的检索代码身份、私有字节码缓存隔离与换代策略：当前帧即使已在缓冲中也须
+核响应身份及磁盘代码身份；代码变化/崩溃后，旧半行、放弃ID、连续超时和暖计数不授给新进程。
+真实 `kb_rag.retrieve` 与管道消费者的离线接缝验证“半行放弃→只取当前命中、不另起CLI”，
+不是在线KB效果或自然研究验收。排锁/请求写入预算、消息大小策略、整枝保稿及runtime恢复不在本片。
+回归见 `test_rag_worker_transport.py`；撤保护复用 `run_extraction_mutations.py --suite rag-transport`。
+既有金融partial/引用/拒句账与最终发布门保持，不把检索修复等同整题质量通过。
+
 ### 专项研究纪律（Knevo 增量，2026-09-17 已合 main）
 
 `research_workflow_guidance.workflow_guidance` 给财报、事件推演、观点审查、事实核对、历史类比
@@ -174,6 +206,29 @@ local_only 原始 Episode 恢复输入。RunStore 校验用户、会话、登记
 但原答仍过强归因、复核仍把成交占比写成增量集中，不能宣称求证质量已验收。
 历次原件见 [输入边界复验](verification/2026-09-21-reasoning-input-boundaries.md) 和
 [旧证据复核 V3](verification/2026-09-21-prior-evidence-review.md)。未合、未部署。
+
+### 研究交付保护（R6 与数据链的小片合流候选，2026-09-18）
+
+只移入数据链 `a31b572f` 的结果准入与公开交付保护，不携带其祖先的资金取数、
+历史日期路由或来源恢复改动。保留本分支 R5/R6 的选期、绑定、同会话计算缓存和拒句责任。
+新的 `derived_calculation.result/v1` 结果在报成功前检查摘要标量、表格行列、图序列
+和可展示内容；嵌套摘要、丢单元格或空产物返回 `invalid_result_contract`，不铸派生证据。
+错误同时进入模型观察与审计，沿用 R5 的失败反馈；旧失败原件不改写。
+
+公开答案出口再做有限的确定性检查：有公告查询记录时，显式“查询失败/空白→没有公告”
+推断移除并留缺口，可信邻句保留；单公司、明确报告期/指标的现金流净利比率与实际产物
+逐格对账，错格标“待核对”，不删同一行的现金流/利润，也不替模型改写成正确数。
+缺少所称计算产物时不认证比率；现有回合修复与原预算继续生效，judge off 也不跳过。
+修复请求附固定错因；有原预算余量且获准才续修，耗尽仍带缺口交付，不扩大额度。
+同一槽内保留正文仍引用且原已绑定的证据卡，不把局部缺口扩成整槽引用丢失；最终
+公开投影再检查，不将旧草稿或修复超时恢复成未经检查的答案。R6 的算术/期间/报告
+来源拒句器也在此重跑；恢复路径在日历与领域提示拼接后复查，只能保持或降低状态。
+引用资格在本次局部重开槽前捕获，先前已缺口或未绑定的证据不复活；拒句账合并前置
+与最终交付两个阶段，不由后者覆盖前者。回归 `test_financial_delivery_integration.py`。
+这些有限句式/表格检查不是通用语义裁判：跨公司、隐含期别、公式正确性、任意脚本实际
+消费输入、来源归属仍另验；哈希相同、格式合法或重放通过均不证明自然模型答对。
+
+这是候选代码的边界合同，不代表来源已恢复、所有问法路由准确或现役服务已部署。
 
 ### 材料题边界（E2，分阶段接线中）
 
@@ -353,6 +408,88 @@ material_outputs 清单，工具定义同步限制 ID 与数量，解析仍严�
 [设计 v10](learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md)
 及 `docs/handoffs/inflight/fix-e2-boundary-closeout.md`；是否部署看实际服务 revision。
 
+### 输入与确定性边界（8792 独立 QC 返修）
+
+`track_contract.persistence_opt_out` 在两个 checkpoint 写口与编排层写入前执行：
+同一小句的明确否定、登记动作、跟踪对象按词元顺序识别；量词「这只/一百只」与长宾语
+不再漏判。限定语只在修饰否定或登记动作时生效，宾语中的「遗漏指标/仅供参考」不取消
+拒绝；换行不跨越，「别忘/不要只/需不需要」与登记时别漏细节不算退出。研究跟踪与持久化分开：
+「跟踪一下，但不要登记」仍可研究、不落长期记录。它是有边界的中文判据，不是任意
+自然语言同意解析器。
+
+`user_task.split_user_message` 按区域起点分请求与材料：输出标签/编号不能自己证明
+用户贴了材料，明确请求不因长度跨 400 字而降为材料；请求后接真正的文档标题仍拆开，
+材料内部指令不升级成用户问题。题组残文是完整请求时不剥走主体。真实研报、表格、
+URL/引用仍走既有输入身份与权限合同，不改变 E2 的约束分类。
+
+正式回归：`intelligence/tests/test_readiness_boundary_regressions.py`，覆盖真实写口、
+编排层、路由主体及两种判官模式；`test_boundary_gate_integration.py` 覆盖日期门与
+引用数字隔离的组合交付，保留错误日期、真实阈值及未知引用保护。日期门的范围见下节。
+候选修复的合入/部署状态看 `docs/handoffs/inflight/fix-8792-boundary-integration.md`
+与线上 revision，不据本文推定已上线。
+
+**局部失败不连坐整份可信答案（8792 live 后返修）**：研究进展账只在 JSON 投影边界
+把只读映射复制成普通映射；模型实参仍递归只读，非法 `file://` URL 仍拒绝且不派发，
+失败反馈可回到同一 Episode，既有证据不因记账序列化失败丢失。任意非 JSON 对象仍报错，
+不靠字符串化掩盖类型问题。
+
+下期关注只读本章节，遇后续标题、分隔线、缺口/来源/风险提示段即停止；换行的指标、
+时间、条件可合成同一观察项。日期、到期或占位提示本身不算可证伪条件，提示补全段
+也不能满足自己的缺件。这个检查是结构形状检查，不能证明条件有金融证据支持。
+
+adapter 在语义删句后按**核验过的公开正文**重算表达缺件，复用同 session 的有界修复；
+纯表达补全不再开放工具，修好后仍过原核验门。预算不足/补不齐则保留可信内容、明示
+缺件并以 `partial` 交付，不编数字阈值、不标完成。补全或复验抛异常时，只能恢复本轮
+此前已通过核验的公开稿，重新施加公开边界与领域限制；无可信前稿、身份不符、完整性
+拒绝或取消仍不恢复，未核验的新稿不得借旧收据发布。私有记录保留原异常与恢复来源。
+回归见 `test_next_watch_boundaries.py`、`test_boundary_partial_delivery.py` 和
+`test_agent_episode_progress.py`；均是离线机械/组合测试，不代签真实模型质量。
+
+**R3 失败后的确定性返修（R4 分支候选）**：材料指代按请求获取的来源种类、前后位置与
+用户提供归属分别解析；「你检索到的这份证据」不等于用户漏交附件，其他搜索请求也
+不能豁免真正缺失的材料，或绑定无关历史材料。它是有边界的句法解析，不是通用指代模型。
+数字条件门同时检查标签、条件章节、表格条件格和比较符；换排版不豁免坏阈值，标题
+自身有阈值也要核验。章节切换结束条件上下文，证据编号与日期仍不当业务数量，明确
+`model_reasoning` 授权保留；这仍不是完整金融语义蕴含证明，不改变 V8 纯语义异议记 issue 的合同。
+清单独立登记回执/标题 TTL 不算新事项；显式列表止于后续非缩进散文，真实缺件项不被
+回执豁免。可观察变化的箭头条件可提取，箭头本身不算条件。到期按日期角色而非出现顺序：
+明确复查日期优先于时间字段、报告期与披露截止；非法或冲突的明确复查日期不登记，未给
+安排仍沿用默认到期语义。回归见 `test_boundary_retest_regressions.py`，撤保护反证由
+`scripts/review_probes/run_boundary_repair_mutations.py` 执行。R3 四首题整体失败结果不改写，
+这些离线修复不证明最近两期选取、信息截止透传或比较基线已有证据支持；生产状态另验。
+
+**R5 财务上游合同（独立分支候选）**：明确的信息截止日从用户指令进入研究 context，
+材料/否定/报告期/个人复查日不能冒充它；报告年份与相邻期别绑定。`financial_data`
+按同批数据行交付完整主表与现金流表，标签带主体、报告期、披露日与指标口径；不二次取数。
+最近 N 期按报告期倒序、按截止日前披露可用性筛选，保留较旧对照期与候选排除收据；
+缺披露日、较新期无数值、冲突版本不能被两份旧报告掩盖，候选集不称官方全集。
+`financial_report_contract` 在 `metric_evidence` 槽复核期别/指标绑定、正文列示与必要计算
+产物；快照自动全绑定不代替正文覆盖。缺口仅阻止该槽完成，保留可信邻项与已有正文；
+工具关闭也不把该必答槽降 optional。修复沿用同 Episode/原预算，补不齐仍是 partial。
+`derived_calculation` 失败把机器码与 gap 一同投给模型和审计，空查询不混为计算异常；
+准确 table/chart 签名提示可在剩余额度内纠错，成功计算可在本次绑定内立即复用，
+不等回合落盘、不建跨会话全局缓存。期别列示/有限数值产物只证机械合同，**不证明金融
+语义、公式正确、官方报告全集或比较基线成立**；不改变 V8 与确定性数字/引用保护。
+回归 `test_financial_contracts_r5.py`，反证 `scripts/review_probes/run_financial_contract_mutations.py`。
+旧 R3 四题仍 0/4；自然模型补查/复算与部署状态必须另验，不能借离线组合测试晋级。
+
+**R6 原件返修（`fix/8792-financial-r6-repair` 候选，未合入/未部署）**：无项目符号的
+关注项不再吸入已定义的完整免责声明；新指标仍独立验缺件。问句型阈值仍过原数字条件门，
+定性问题、日期、引用编号与明确授权的模型推理边界不变。`financial_claim_checks`
+仅针对已绑定、主体明确、无冲突的结构化财务观察值，检查显式减法、明确期别的净现比、
+唯一可确定的单季现金流、存货端点时长与累计长度误比；歧义不猜，不判断因果。
+矛盾句以 `financial_claim_mismatch` 进入既有机械拒句账，判官关闭/放行也不抬回；
+保留邻句，不静默替模型改数；删错不等于完成，指标项进入原有有限补修，重新核验正确稿后才解除。
+派生产物的明确期别/绝对比率列另与其自己的输入链复算，
+不拿任务名、表名或最早输入披露日期当报告期。错产物只重开 `metric_evidence` 槽。
+用户要求实际公告/报告文档时，结构化代理行不能满足交付；至少要有绑定的抓取正文、
+文档类型、主体、HTTP(S)来源及有效发布日期，不能借别家公司文档宣称已取得。
+这些有限检查**不是全文/公式/来源真实性认证**，也没有恢复外部公告通道；
+多公司、隐含期别、复杂语义及自然模型续修仍需另验。回归 `test_financial_r6_regressions.py`，
+原件只读检查 `scripts/review_probes/replay_financial_r6.py`；旧 R6/R3 整题 0/4 不变。
+数据链 `a31b572f` 的正文抄数/最终投影保护已移入本地候选；新组合必须按自己的固定
+提交验收，不能沿用两枝旧收据，也不代表数据链、答案保留或运行时整枝已合流。
+
 ### 研究过程中的实际工具菜单
 
 引擎 A 在开放工具的模型请求前记录 `tool_menu.visible`，与该步交给模型的工具定义同源，
@@ -423,9 +560,11 @@ A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结
 用户 2026-09-12 撤掉独立 Grok 判官（改 kimi-k3 自审）、2026-09-17 进一步决定**不用 LLM 判官**。一个共享开关（`intelligence/services/judge_mode.py::semantic_judge_mode`）同时管两条引擎：
 
 - **`llm`（代码默认，行为与此前一致）**：A 的终稿判官 `_run_judge` 调第二模型（无 `LLM_JUDGE_*` 时落回写手自审，`correlated_judge=true`）；B 的合成判官走 `synthesize_messages`；判官不可用时 A 扣稿（`judge_status=unavailable`）、B 走带告示的瞬时放行。
-- **`off`（生产启动器取值）**：A 的 `_run_judge` 返回合成的全过报告，**零模型调用**，判后机械门（数值 / 材料缺口 / 元陈述 / 表外 E）与删句修复照常跑，V11 引导回检索记 `skip_reason=judge_off`；B 的判官段不发调用、`GroundedComposerShadow.status=deterministic_only`、不带掉线告示；检索侧证据判官另由既有 `ASK_EVIDENCE_JUDGE=off` 关。
+- **`off`（显式选择，非代码默认）**：A 的 `_run_judge` 返回合成的全过报告，**零模型调用**，判后机械门（数值 / 材料缺口 / 元陈述 / 表外 E）与删句修复照常跑，V11 引导回检索记 `skip_reason=judge_off`；B 的判官段不发调用、`GroundedComposerShadow.status=deterministic_only`、不带掉线告示；检索侧证据判官另由既有 `ASK_EVIDENCE_JUDGE=off` 关。
 
-读收据别读反：`judge_status` 闭集不变（`passed / repaired / rejected / unavailable`），两种模式下都表示「过了门 / 门删了句并修好 / 修不好 / 结构守卫未放行」；**谁在判**看私有块 `semantic_verifier.judge_mode`（`llm` | `deterministic`，落在 `continuous-episode.json`），公开 `gate_receipt` 键集未动（`RECEIPT_KEYS` 是被钉死的 schema v1 合同）。判官此前抓到的两类绑定错误的去向：句内日期与所引证据日期全不符 → 机械探测器 `evidence_date_mismatch` 删句（两种模式都生效）；引用了别的槽绑定的 E → 只记 `sentence_verdicts[stage=census]` 与 `cited_outside_slot_count`，不删（R-20260821-06）。B 侧健康度多一桶 `deterministic_only`，不冒充 `full_pass`。默认翻转与判官专属路径退役见工单 #56。
+2026-09-17 复核：8792 `bf662e9310ff` 的启动器未设置 `ASK_SEMANTIC_JUDGE`（默认 llm），`ASK_EVIDENCE_JUDGE=auto`；**代码已部署不等于 off 已启用**。两个开关与重启窗口另待确认，当前事实以启动器及实际 run 私有收据为准。
+
+读收据别读反：`judge_status` 闭集不变（`passed / repaired / rejected / unavailable`），两种模式下都表示「过了门 / 门删了句并修好 / 修不好 / 结构守卫未放行」；**谁在判**看私有块 `semantic_verifier.judge_mode`（`llm` | `deterministic`，落在 `continuous-episode.json`），公开 `gate_receipt` 键集未动（`RECEIPT_KEYS` 是被钉死的 schema v1 合同）。判官此前抓到的两类绑定错误的去向：单引证据的明确来源/公告发布日期断言与其唯一 `source_date` 矛盾 → `evidence_date_mismatch` 删句（两种模式都生效）；计划/假设/疑问与其他事件日期不因同句引用被认作来源日期，正文里偶然出现的同日也不能给错误发布日期背书（该门有意不作完备语义判定）；引用了别的槽绑定的 E → 只记 `sentence_verdicts[stage=census]` 与 `cited_outside_slot_count`，不删（R-20260821-06）。B 侧健康度多一桶 `deterministic_only`，不冒充 `full_pass`。默认翻转与判官专属路径退役见工单 #56。
 
 不要把 `ask.answer_query` 写成「金融 Agent 的唯一深模块」。它是引擎 B。也不要为「少学零件」再加 `answer_door` / `EpisodeBuilder`：组装已经在 `GLMAgentRuntime` 和 `episode_factory`。
 

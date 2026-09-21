@@ -1,0 +1,27 @@
+FFFF.................................................................... [ 48%]
+........................................................................ [ 96%]
+.....                                                                    [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T164604Z-0b16bc03.json
+
+=================================== FAILURES ===================================
+_ test_financial_partial_publication_preserves_debt_citations_and_safe_answer[report-normal] _
+intelligence/tests/test_financial_publication_integration.py:111: in test_financial_partial_publication_preserves_debt_citations_and_safe_answer
+    run_id, message_id = created["run_id"], created["assistant_message_id"]
+E   KeyError: 'run_id'
+_ test_financial_partial_publication_preserves_debt_citations_and_safe_answer[report-recovery] _
+intelligence/tests/test_financial_publication_integration.py:111: in test_financial_partial_publication_preserves_debt_citations_and_safe_answer
+    run_id, message_id = created["run_id"], created["assistant_message_id"]
+E   KeyError: 'run_id'
+_ test_financial_partial_publication_preserves_debt_citations_and_safe_answer[commit-event-normal] _
+intelligence/tests/test_financial_publication_integration.py:111: in test_financial_partial_publication_preserves_debt_citations_and_safe_answer
+    run_id, message_id = created["run_id"], created["assistant_message_id"]
+E   KeyError: 'run_id'
+_ test_financial_partial_publication_preserves_debt_citations_and_safe_answer[commit-event-recovery] _
+intelligence/tests/test_financial_publication_integration.py:111: in test_financial_partial_publication_preserves_debt_citations_and_safe_answer
+    run_id, message_id = created["run_id"], created["assistant_message_id"]
+E   KeyError: 'run_id'
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_financial_publication_integration.py::test_financial_partial_publication_preserves_debt_citations_and_safe_answer[report-normal]
+FAILED intelligence/tests/test_financial_publication_integration.py::test_financial_partial_publication_preserves_debt_citations_and_safe_answer[report-recovery]
+FAILED intelligence/tests/test_financial_publication_integration.py::test_financial_partial_publication_preserves_debt_citations_and_safe_answer[commit-event-normal]
+FAILED intelligence/tests/test_financial_publication_integration.py::test_financial_partial_publication_preserves_debt_citations_and_safe_answer[commit-event-recovery]
+4 failed, 145 passed in 48.00s

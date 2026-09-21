@@ -1,0 +1,142 @@
+{
+  "schema": "boundary-repair-engineering/v1",
+  "tested_revision": "9655b16d37b95c9f16e201cf41811c2999e1c5bf",
+  "tested_dirty": false,
+  "base_revision": "0a1cb8c44aaf2d19ae5f5809bf27119b709b8442",
+  "engineering": "passed",
+  "live_acceptance": "not_retested",
+  "promotion_eligible": false,
+  "prior_live": {
+    "revision": "3faf64fbadcfe45fdd0b306acd223d9e78c56525",
+    "verdict": "not_passed",
+    "initial_submissions": 4,
+    "resubmissions": 0,
+    "sealed_files_verified": 219
+  },
+  "new_live_submissions": 0,
+  "python": {
+    "passed": 11677,
+    "failed": 0,
+    "error": 0,
+    "skipped": 81,
+    "xfailed": 2,
+    "warnings": 17,
+    "seconds": 696.78,
+    "receipt": "~/.finance-runtime/test-receipts/20260918T034028Z-9655b16d.json"
+  },
+  "frontend": {
+    "lint": "passed",
+    "typecheck": "passed",
+    "tests_passed": 107,
+    "build": "passed"
+  },
+  "e2e": {
+    "passed": 34,
+    "skipped": 2,
+    "mode": "isolated fixtures, not live finance"
+  },
+  "ruff": "passed",
+  "registry": "passed",
+  "crosswalk_warnings": 98,
+  "counterexamples": {
+    "mapping_projection_removed": 1,
+    "section_boundary_removed": 1,
+    "date_counts_as_trigger": 1,
+    "post_semantic_completeness_removed": 1,
+    "verified_recovery_removed": 1,
+    "all_checkpoint_writes_disabled": 1,
+    "numeric_gate_removed": 1,
+    "opt_out_removed": 1
+  },
+  "original_replay": {
+    "writer_checks": {
+      "f1-opt-out": {
+        "opt_out_writes": 0,
+        "authorized_writes": 0,
+        "due": []
+      },
+      "positive-persistence": {
+        "opt_out_writes": 0,
+        "authorized_writes": 1,
+        "due": [
+          "2026-10-21"
+        ]
+      }
+    },
+    "f3": {
+      "event_count": 57,
+      "url_rejected": true,
+      "progress_json_serializable": true
+    },
+    "network_connect_attempts": 0
+  },
+  "evidence_root": "~/.finance-runtime/reviews/8792-boundary-repairs-20260918/",
+  "source_hashes": {
+    "docs/agent-product-door.md": {
+      "bytes": 35939,
+      "sha256": "4e310ed7b39214f37ed2c563dc143d0e307cb060e253c6e16e260002f2f0a06f"
+    },
+    "intelligence/runtime/continuous_turn_adapter.py": {
+      "bytes": 99349,
+      "sha256": "82efa61a335469a243eadc00121e602df33378f4e5245dc082b605235d7731e1"
+    },
+    "intelligence/runtime/research_progress.py": {
+      "bytes": 17115,
+      "sha256": "b22d7f99fe7d9f240e23c2ecc951e6140dec8b1b2895131a821a9c932a72b6ac"
+    },
+    "intelligence/services/research_harness.py": {
+      "bytes": 46659,
+      "sha256": "6bca03826193376ef8987878c5fafbbb8629b334e219b9d15e192e30f076e375"
+    },
+    "intelligence/services/track_contract.py": {
+      "bytes": 32244,
+      "sha256": "db396b4eecbfa34f76c9e22555da24e0c9a26bbc4b8199dfae33260607ec46a7"
+    },
+    "intelligence/tests/test_agent_episode_progress.py": {
+      "bytes": 15960,
+      "sha256": "555d657fcc85d2e13f6dc4b81afca9fe0f49f2a33e7188e5572aab78a0f1bda1"
+    },
+    "intelligence/tests/test_boundary_partial_delivery.py": {
+      "bytes": 11581,
+      "sha256": "d309226351fb5feb41e3bf08923bb5c019c69dd058a4063814de422f30339b81"
+    },
+    "intelligence/tests/test_next_watch_boundaries.py": {
+      "bytes": 5996,
+      "sha256": "49b51c89177ce26bb0f89725001b0e055ba07b37b8a7843552d5a8acbde44291"
+    },
+    "intelligence/tests/test_research_progress.py": {
+      "bytes": 10226,
+      "sha256": "426e3a44be02758436698c5870aff55be04f7e29fd840726b48152a2598c4f9d"
+    },
+    "intelligence/tests/test_session_projection.py": {
+      "bytes": 11905,
+      "sha256": "0de32e7b8f1ada52ae70600135b49212b54c69154f8d9820324eabf21220685f"
+    },
+    "intelligence/tests/test_track_slot_repair_binding.py": {
+      "bytes": 6790,
+      "sha256": "4c1fb6b658ea21efa2edc08c4d9fd1c23bb8e9b774d1918b212b5b0af330f299"
+    },
+    "scripts/review_probes/replay_boundary_failures.py": {
+      "bytes": 5490,
+      "sha256": "33bd32d7004098b724787a9dcea95f828479f359a630d33c8759afb0b83d3363"
+    },
+    "scripts/review_probes/run_boundary_repair_mutations.py": {
+      "bytes": 4411,
+      "sha256": "7ada421b517bcae0ea4ad6d4a4bb766861fa09bb8004242f597554a9f5ae74ad"
+    }
+  },
+  "known_limits": [
+    "scripted writer/judge/repair, no new live GLM acceptance",
+    "syntax is not financial grounding",
+    "report period selection and requested cutoff remain unverified",
+    "old failure usage and judge token totals unknown",
+    "legacy manual mappingproxy same-root-cause unproven",
+    "not pushed, merged, deployed or judge-mode changed"
+  ],
+  "evidence_index": {
+    "file": "evidence-index.json",
+    "bytes": 22180,
+    "sha256": "f77a51210f489c9e50539e7ffc229c4d2f4227b411ed6572be204c05dce72f16",
+    "sealed_file_count": 131
+  }
+}
