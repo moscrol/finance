@@ -13,6 +13,7 @@ from datetime import date, datetime
 import hashlib
 import json
 from pathlib import Path
+import re
 from threading import Event, Thread
 import time
 from typing import Any, Literal
@@ -1832,6 +1833,14 @@ def validation_retry_hint(
         return "dataset 可选 " + ",".join(sorted(_DATASETS))
     if message == "date filters must use time_range":
         return "日期不要放入 filters；请改用 time_range.start/time_range.end"
+    if message.startswith("code filter needs a market suffix:"):
+        detail = message.removeprefix("code filter needs a market suffix:").strip()
+        return (
+            f"{detail}：库里存的是带交易所后缀的代码，精确比较必须带后缀。"
+            "个股 60/68 开头用 .SH，00/30 开头用 .SZ，8/4 开头用 .BJ；"
+            "板块用 .FP（复盘会）或 .TI（同花顺）。"
+            "不确定后缀时改用 op=contains 传 6 位数字，或先查一次带 stock_name 的宽条件。"
+        )
 
     requested_fields = tuple(
         dict.fromkeys(
@@ -2534,6 +2543,11 @@ def _compile_query(
             raise FinanceQueryValidationError(f"unknown field: {item.field}")
         if item.field == dataset.time_field:
             raise FinanceQueryValidationError("date filters must use time_range")
+        bare_codes = _bare_code_filter_values(field, item)
+        if bare_codes:
+            raise FinanceQueryValidationError(
+                f"code filter needs a market suffix: {item.field}={','.join(bare_codes)}"
+            )
         clause, values = _filter_clause(field, item)
         where_parts.append(clause)
         parameters.extend(values)
@@ -2582,6 +2596,35 @@ def _compile_query(
         applied_limit=applied_limit,
         reverse_after_fetch=reverse_after_fetch,
         sector_universe_index=sector_universe_index,
+    )
+
+
+# 交易所后缀缺失：`stock_code eq 600673` 精确比 `stock_ts_code`，库里存的是
+# `600673.SH`，于是零行返回。观察文案是「结构化查询无结果」，模型据此写「本地
+# 缺失」——2026-09-21 两次真实模型冒烟各撞一次（688256 / 600673），答案诚实而
+# 前提是假的。这里不替模型改值（6 位码到交易所的映射有 B 股等例外，猜错比查空
+# 更坏），而是把静默空结果换成带重试提示的拒绝。
+# 只拦精确比较：`contains` 用 6 位码是能命中的正常写法（LIKE '%600673%'），
+# 那条路径实测有效，不能一起拦下。
+_BARE_A_SHARE_CODE_RE = re.compile(r"\A\d{6}\Z")
+_EXACT_CODE_OPERATORS = frozenset({"eq", "ne", "in"})
+
+
+def _bare_code_filter_values(
+    field: _FieldDefinition,
+    item: QueryFilter,
+) -> tuple[str, ...]:
+    """精确比较一个 ts_code 列时，值里缺后缀的那些。"""
+
+    if item.op not in _EXACT_CODE_OPERATORS or not field.column.endswith("ts_code"):
+        return ()
+    raw = item.value if item.op == "in" else [item.value]
+    if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
+        raw = [item.value]
+    return tuple(
+        value
+        for value in raw
+        if isinstance(value, str) and _BARE_A_SHARE_CODE_RE.match(value.strip())
     )
 
 
