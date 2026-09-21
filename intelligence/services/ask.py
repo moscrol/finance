@@ -69,6 +69,7 @@ from intelligence.services import (
     market_timeseries,
     perspective_lab,
     research_brief,
+    research_reasoning,
     research_queue,
     retrieval_planner,
     generic_research_owner,
@@ -1136,6 +1137,7 @@ def _answer_market_review(
             "已聊过的对象优先说明相较上次的变化，不重跑全模板：\n"
             + "\n\n".join(prior_parts)
         )
+    user_prompt += research_reasoning.guidance("market_review")
     messages = [
         {"role": "system", "content": _MARKET_REVIEW_SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},
@@ -4980,6 +4982,11 @@ def prepare_existing_answer(
             theme,
             result.answer_spec.to_prompt_block(),
             citation_legend=citation_legend,
+            contract_guidance=research_reasoning.guidance(
+                options.question_type_override
+                if options.question_type_override not in {None, "general_finance_qa"}
+                else knowledge_injection_policy.routed_question_type(result.question_plan)
+            ),
         )
     return PreparedAnswer(
         options=replace(options, synthesize=False),
