@@ -48,6 +48,8 @@ import os
 import platform
 import subprocess
 import sys
+import tempfile
+import uuid
 from pathlib import Path
 
 import pytest
@@ -181,6 +183,10 @@ def _revision() -> str:
 def pytest_configure(config: pytest.Config) -> None:
     """收集之前先判解释器。用 UsageError 而非 assert：前者输出干净且退出码明确。"""
 
+    # A nested pytest inherits the output path, but must not claim the parent's file.
+    if os.environ.get("FWP_TEST_RECEIPT_PATH") and not os.environ.get("FWP_TEST_RECEIPT_OWNER_PID"):
+        os.environ["FWP_TEST_RECEIPT_OWNER_PID"] = str(os.getpid())
+
     missing = _missing()
     if not missing:
         return
@@ -268,6 +274,29 @@ def _dependency_fingerprint() -> str:
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
 
+def _write_test_receipt(receipt: dict) -> Path:
+    """Immutable run file plus an atomic, non-authoritative latest pointer."""
+    directory = Path(os.environ.get("FWP_TEST_RECEIPT_DIR") or _RECEIPT_DIR).expanduser()
+    directory.mkdir(parents=True, exist_ok=True)
+    stamp = _dt.datetime.now(_dt.UTC).strftime("%Y%m%dT%H%M%SZ")
+    filename = f"{stamp}-{receipt['revision'][:8]}-{uuid.uuid4().hex[:12]}.json"
+    path = Path(os.environ.get("FWP_TEST_RECEIPT_PATH") or directory / filename).expanduser()
+    encoded = json.dumps(receipt, ensure_ascii=False, indent=2) + "\n"
+    with path.open("x", encoding="utf-8") as stream:
+        stream.write(encoded)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=directory,
+                                         prefix=".latest-", delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(encoded)
+        os.replace(temporary, directory / "latest.json")
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+    return path
+
+
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     """落一份机器可读收据。
 
@@ -276,6 +305,9 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     """
 
     if os.environ.get(_RECEIPT_ENV) == "0":
+        return
+    owner_pid = os.environ.get("FWP_TEST_RECEIPT_OWNER_PID")
+    if os.environ.get("FWP_TEST_RECEIPT_PATH") and owner_pid != str(os.getpid()):
         return
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
     if reporter is None:
@@ -325,15 +357,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         "finished_at": _dt.datetime.now(_dt.UTC).isoformat(timespec="seconds"),
     }
     try:
-        _RECEIPT_DIR.mkdir(parents=True, exist_ok=True)
-        stamp = _dt.datetime.now(_dt.UTC).strftime("%Y%m%dT%H%M%SZ")
-        path = _RECEIPT_DIR / f"{stamp}-{receipt['revision'][:8]}.json"
-        path.write_text(
-            json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-        )
-        (_RECEIPT_DIR / "latest.json").write_text(
-            json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-        )
+        path = _write_test_receipt(receipt)
         reporter.write_line(f"读数收据: {path}")
     except OSError as exc:
         reporter.write_line(f"⚠ 收据未写出（不影响测试结论）: {exc}")

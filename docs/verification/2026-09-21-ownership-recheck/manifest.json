@@ -1,0 +1,188 @@
+{
+  "revision": "e1b63b1a5b7c066b7377bbd2d005051863331001",
+  "base": "728f327160bbd2485cb635e7ef09d040d718d7b5",
+  "tree": "/Users/a77/fwp-wt-ownership-gates-v2-0921",
+  "gate_passed": true,
+  "files": [
+    {
+      "path": "README.md",
+      "source": "/Users/a77/fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-recheck/README.md",
+      "sha256": "c7ed997f4cf21121e3b2e534e9b99e64eff739b8b44ac83413160558cf35f95d",
+      "bytes": 2916
+    },
+    {
+      "path": "author/fwp-gate-nested-after-0921.log.txt",
+      "source": "/tmp/fwp-gate-nested-after-0921.log",
+      "sha256": "c4680d121a0fe7199636a6a869779c3b555aa1f3ea54f806f8e28af6170ec32a",
+      "bytes": 200
+    },
+    {
+      "path": "author/fwp-gate-nested-before-0921.log.txt",
+      "source": "/tmp/fwp-gate-nested-before-0921.log",
+      "sha256": "8b0004fa7ce64f7b6404465f701bae3b1b82066fe51cd6c162ffd1cecb969369",
+      "bytes": 5559
+    },
+    {
+      "path": "collection-probe.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/collection-probe.log",
+      "sha256": "a0c1791f3daccec8ef1c94c44fcd4f06d8e0c38b3bc93e25aa31d3113e711879",
+      "bytes": 878
+    },
+    {
+      "path": "collection-probe/gate-rZptNNEG/pytest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/collection-probe/gate-rZptNNEG/pytest.json",
+      "sha256": "abc62ea33e0eb50d6c03e1214ebe492acd08d61e87052c03bae5e3bc9aaad232",
+      "bytes": 670
+    },
+    {
+      "path": "collection-probe/latest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/collection-probe/latest.json",
+      "sha256": "abc62ea33e0eb50d6c03e1214ebe492acd08d61e87052c03bae5e3bc9aaad232",
+      "bytes": 670
+    },
+    {
+      "path": "frontend/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/frontend/0.log",
+      "sha256": "4b4de0e6e60332843a92f0d8e42c7cec4dc66e41d83ab5e1feee7a1998ac783b",
+      "bytes": 441
+    },
+    {
+      "path": "frontend/gate/frontend-0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/frontend/gate/frontend-0.log.txt",
+      "sha256": "7a74fbc58d3f6daf9ed1a4088d1e73f34ed5351c74fe32d268b350d4083d204f",
+      "bytes": 1878
+    },
+    {
+      "path": "frontend/gate/frontend-1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/frontend/gate/frontend-1.log.txt",
+      "sha256": "f1e956caea2d01cb7bbdc3aaf75abfa91d13bbbdfe92e50cdaae53a877193bb9",
+      "bytes": 118
+    },
+    {
+      "path": "frontend/gate/frontend-2.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/frontend/gate/frontend-2.log.txt",
+      "sha256": "6f011a035df7ef0ba35e2658bf93f55c59947c46fd9fc3f185ff66689384578a",
+      "bytes": 216
+    },
+    {
+      "path": "frontend/gate/frontend-3.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/frontend/gate/frontend-3.log.txt",
+      "sha256": "9d4abffd879693410b3edef567ca93fc73a6b58a2c37c03bca00976f2693b67f",
+      "bytes": 1437
+    },
+    {
+      "path": "frontend/gate/frontend-4.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/frontend/gate/frontend-4.log.txt",
+      "sha256": "6cbef3b2304ea9ae284db56492e901621502a159c14a690b3e65ebc88394db3f",
+      "bytes": 923
+    },
+    {
+      "path": "frontend/gate/frontend-5.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/frontend/gate/frontend-5.log.txt",
+      "sha256": "02fe054c4015216ba78b9767a4698b6dcb9188dcba44fcd67919c996a6f7df68",
+      "bytes": 12758
+    },
+    {
+      "path": "frontend/gate/frontend.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/frontend/gate/frontend.json",
+      "sha256": "b4cf18ea92c131311bcec0b6645c907114001045024999ef3f3df9f4dc60e015",
+      "bytes": 2502
+    },
+    {
+      "path": "frontend/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/frontend/run.json",
+      "sha256": "6946edcbeb9160f36af0eb584760780340a5410eaae82cb280af14d99947a0b5",
+      "bytes": 1257
+    },
+    {
+      "path": "open-prs.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/open-prs.json",
+      "sha256": "d05df3463eb4ea8b4a00d0c52168892fe27b4fa984e4aa8694ec45ac6c71ff8f",
+      "bytes": 6269
+    },
+    {
+      "path": "python/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/python/0.log",
+      "sha256": "8e38cceac19747b0d61d0f550b744d37f165ab2a2015c95f687e10e71d818dfb",
+      "bytes": 2076
+    },
+    {
+      "path": "python/receipts/gate-6jPrqYoy/pytest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/python/receipts/gate-6jPrqYoy/pytest.json",
+      "sha256": "df2807f8f1a67d9d24100c12b3b6a40a0dc82153823e329fa1e4cff13d9333de",
+      "bytes": 666
+    },
+    {
+      "path": "python/receipts/latest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/python/receipts/latest.json",
+      "sha256": "df2807f8f1a67d9d24100c12b3b6a40a0dc82153823e329fa1e4cff13d9333de",
+      "bytes": 666
+    },
+    {
+      "path": "python/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/python/run.json",
+      "sha256": "7f66d8217be9a8ea61bd1a8ccab04a0e2326360d937bc9f53aa4749431192b31",
+      "bytes": 837
+    },
+    {
+      "path": "registry/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/registry/0.log",
+      "sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe",
+      "bytes": 95
+    },
+    {
+      "path": "registry/1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/registry/1.log",
+      "sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a",
+      "bytes": 121
+    },
+    {
+      "path": "registry/2.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/registry/2.log",
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+      "bytes": 116
+    },
+    {
+      "path": "registry/3.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/registry/3.log",
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+      "bytes": 68
+    },
+    {
+      "path": "registry/4.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/registry/4.log",
+      "sha256": "ae00c6859a67a6b809b4a5407566a230e42920d1651cfa6a8abf2898e51576ae",
+      "bytes": 2013
+    },
+    {
+      "path": "registry/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/registry/run.json",
+      "sha256": "e041a9bcd16c5361b073cfe4a6b76f6a99354f3659a68fea31e809ca7465ec61",
+      "bytes": 2999
+    },
+    {
+      "path": "review-request.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/review-request.md",
+      "sha256": "265267a9b1c5077c44543406c877ba65ce463cfb32093e642b0b96e9726e3902",
+      "bytes": 3665
+    },
+    {
+      "path": "run_leaf.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/run_leaf.py",
+      "sha256": "14695fe037abb5afff1aa37cdc8a2e2cd4f0e3a6b152b5c5e4b78e19b6d740ff",
+      "bytes": 2826
+    },
+    {
+      "path": "seal_evidence.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/seal_evidence.py",
+      "sha256": "82372bc121ae53205995b466677e38a064e3018c7dad8a4a0f8b20c872397f7a",
+      "bytes": 2716
+    },
+    {
+      "path": "worktree-board.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/worktree-board.json",
+      "sha256": "8cd1a020982770f6cb61a83408cf53fd184efbfc79874f17eb03db15b5a7c152",
+      "bytes": 202012
+    }
+  ]
+}

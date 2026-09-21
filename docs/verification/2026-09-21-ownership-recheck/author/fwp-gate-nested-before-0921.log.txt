@@ -1,0 +1,79 @@
+FF                                                                       [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260920T203125Z-013289c2-2fa589df41a3.json
+
+=================================== FAILURES ===================================
+_____________ test_nested_collection_cannot_claim_parent_receipt[] _____________
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3136/test_nested_collection_cannot_0/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3136/test_nested_collection_cannot_0')
+inherited_owner = ''
+
+    @pytest.mark.parametrize("inherited_owner", ["", "foreign-launcher"])
+    def test_nested_collection_cannot_claim_parent_receipt(repo, tmp_path, inherited_owner):
+        (repo / "test_sample.py").write_text('''import subprocess
+    import sys
+    
+    
+    def test_nested_collection():
+        result = subprocess.run([sys.executable, "-m", "pytest", "--collect-only", "-q"],
+                                capture_output=True, text=True, timeout=20)
+        assert result.returncode == 0, result.stdout + result.stderr
+    ''')
+        git(repo, "add", "--", "test_sample.py")
+        git(repo, "commit", "-m", "nested collection fixture")
+        result = run_gate(repo, tmp_path, extra_env={
+            "FWP_TEST_RECEIPT_OWNER_PID": inherited_owner,
+        })
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError: == gate @ 93a61bf6fad5 tree=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3136/test_nested_collection_cannot_0/repo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3136/test_nested_collection_cannot_0/receipts/gate-dV5hlBHS/pytest.json
+E         == ruff check .
+E         All checks passed!
+E         == pytest -q -p no:cacheprovider
+E         .                                                                        [100%]⚠ 收据未写出（不影响测试结论）: [Errno 17] File exists: '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3136/test_nested_collection_cannot_0/receipts/gate-dV5hlBHS/pytest.json'
+E         
+E         1 passed in 0.34s
+E         gate receipt refused: zero executed tests
+E         
+E       assert 4 == 0
+E        +  where 4 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh'], returnco...ot_0/receipts/gate-dV5hlBHS/pytest.json'\n\n1 passed in 0.34s\n", stderr='gate receipt refused: zero executed tests\n').returncode
+
+tests/test_main_gate_receipt.py:168: AssertionError
+_____ test_nested_collection_cannot_claim_parent_receipt[foreign-launcher] _____
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3136/test_nested_collection_cannot_1/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3136/test_nested_collection_cannot_1')
+inherited_owner = 'foreign-launcher'
+
+    @pytest.mark.parametrize("inherited_owner", ["", "foreign-launcher"])
+    def test_nested_collection_cannot_claim_parent_receipt(repo, tmp_path, inherited_owner):
+        (repo / "test_sample.py").write_text('''import subprocess
+    import sys
+    
+    
+    def test_nested_collection():
+        result = subprocess.run([sys.executable, "-m", "pytest", "--collect-only", "-q"],
+                                capture_output=True, text=True, timeout=20)
+        assert result.returncode == 0, result.stdout + result.stderr
+    ''')
+        git(repo, "add", "--", "test_sample.py")
+        git(repo, "commit", "-m", "nested collection fixture")
+        result = run_gate(repo, tmp_path, extra_env={
+            "FWP_TEST_RECEIPT_OWNER_PID": inherited_owner,
+        })
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError: == gate @ a88702670b07 tree=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3136/test_nested_collection_cannot_1/repo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3136/test_nested_collection_cannot_1/receipts/gate-0KdpgKt8/pytest.json
+E         == ruff check .
+E         All checks passed!
+E         == pytest -q -p no:cacheprovider
+E         .                                                                        [100%]⚠ 收据未写出（不影响测试结论）: [Errno 17] File exists: '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3136/test_nested_collection_cannot_1/receipts/gate-0KdpgKt8/pytest.json'
+E         
+E         1 passed in 0.32s
+E         gate receipt refused: zero executed tests
+E         
+E       assert 4 == 0
+E        +  where 4 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh'], returnco...ot_1/receipts/gate-0KdpgKt8/pytest.json'\n\n1 passed in 0.32s\n", stderr='gate receipt refused: zero executed tests\n').returncode
+
+tests/test_main_gate_receipt.py:168: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_main_gate_receipt.py::test_nested_collection_cannot_claim_parent_receipt[]
+FAILED tests/test_main_gate_receipt.py::test_nested_collection_cannot_claim_parent_receipt[foreign-launcher]
+2 failed, 26 deselected in 1.87s

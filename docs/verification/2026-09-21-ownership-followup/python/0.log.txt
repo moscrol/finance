@@ -1,0 +1,20 @@
+== gate @ 321712b68732 tree=/Users/a77/fwp-wt-ownership-gates-0921 py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-followup-20260921/python/receipts/gate-Sm54tmrK/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider
+tests/test_pipeline_p0.py::test_mainline_complete_snapshot_is_atomic_and_idempotent
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[exception]
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[empty_groups]
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[empty_stocks]
+tests/test_pipeline_p0.py::test_mainline_empty_theme_list_is_failed_without_writing
+  /Users/a77/fwp-wt-ownership-gates-0921/market_feature_store/sync/sync_fupanhui_mainline_daily.py:66: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+tests/test_pipeline_p0.py::test_mainline_sector_failure_keeps_previous_snapshot[response0]
+tests/test_pipeline_p0.py::test_mainline_sector_failure_keeps_previous_snapshot[response1]
+  /Users/a77/fwp-wt-ownership-gates-0921/market_feature_store/sync/sync_fupanhui_mainline_sector_daily.py:121: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+12059 passed, 85 skipped, 2 xfailed, 17 warnings in 870.33s (0:14:30)
+gate receipt refused: zero executed tests

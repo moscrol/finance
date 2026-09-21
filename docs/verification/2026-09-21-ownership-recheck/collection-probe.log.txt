@@ -1,0 +1,10 @@
+== gate @ e1b63b1a5b7c tree=/Users/a77/fwp-wt-ownership-gates-v2-0921 py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/collection-probe/gate-rZptNNEG/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider intelligence/tests/test_pytest_collection_scope.py
+.s                                                                       [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/collection-probe/gate-rZptNNEG/pytest.json
+
+1 passed, 1 skipped in 40.19s
+== receipt /Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/collection-probe/gate-rZptNNEG/pytest.json
+   revision=e1b63b1a5b7c dirty=False target=intelligence/tests/test_pytest_collection_scope.py
+   passed=1 failed=0 error=0 skipped=1

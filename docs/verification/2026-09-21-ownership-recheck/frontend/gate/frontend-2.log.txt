@@ -1,0 +1,4 @@
+
+> market-intelligence-workbench@0.1.0 typecheck /Users/a77/fwp-wt-ownership-gates-v2-0921/intelligence/webapp
+> tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false
+
