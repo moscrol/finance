@@ -2,36 +2,33 @@
 
 ## 这个分支做什么
 
-修研究回路计划、取证、修订与公开保真；工程边界已修，09-22单次自然验收内容失败。
+修研究回路取证、窗口收益计算、修订与公开保真；最近真实自然验收内容失败，但本轮已落计算与提示边界修复。
 
 ## 决策与被否方案
 
-local_only四只读能力冻结，不开derived_calculation；根T900、单帽75、每次核验内部共享窗150不变。不重跑挑样本，不改旧答案。
-空集仅本次未命中，未查/失败只能尚未查证；历史回退不认证退出；gap不是收据，直接零值可引用。拒正则一律删否定句。
-详见 `docs/handoffs/2026-09-22-adaptive-absence-live.md`；旧非命中/均值背景见09-21同目录快照。
+local_only 四只读能力、根 T900/单发帽75/核验共享窗150 不变，不开 derived_calculation，不重跑旧真实题刷成功。
+`finance_query` 受限提供已观测日逐日复利摘要；不用自由文本算术解析器，也不把 `river_query` 个股首前收盘口径冒充板块日涨幅口径。
+收益比较必须同窗同实际日期集合、收益差用百分点；空集/gap/失败仍不升级为否定事实。判官不可用仍 partial，但公开提示不再把结构绑定说成计算正确。
+完整背景见 `docs/handoffs/2026-09-22-adaptive-return-summary.md`；自然失败见 `docs/handoffs/2026-09-22-adaptive-absence-live.md`。
 
 ## 当前状态
 
-树 `/Users/a77/finance-worktrees/adaptive-research-loop`。业务81ff5e7da，live加载干净a1da0c98e；本轮只改交接，不移签live到文档tip。未push/PR/合main/部署/fetch，未请求/重启8792；隔离8797已退出。
-新run `run_20260922_002223_310816` 原件 `~/.finance-runtime/adaptive-absence-live-20260922/`。584.26秒，9写手/15工具/4判官调用；transport completed，内容partial，judge unavailable。
+最新代码提交 `3ab0d3d9e`，树应保持干净；未 push/PR/合 main/部署/fetch，未操作生产8792。实现涉及 `finance_query`、写手/判官提示、超时公开投影、产品门文档及收益测试/变异套件。
 
 ## 已验证
 
-唯一一次off臂K3真实消息；3次参数错误后纠正、无外部研究工具。backfill1+semantic-gap repair1均无工具且自报completed；新稿重新送核、stale=false，但两次核验均不可用。末次实际失败TimeoutError有脱敏收据，0秒拒发与实际调用分开。
-只读claim-audit确认9月14行：个股-3.0766%、申万综合-2.3047%、芯片+0.5615%、氟-3.5973%、FP综合-4.2820%。除个股外正文累计全错，氟强弱方向反；±1.6%概括漏9/7的+3.70%。审计前后库/股票行一致。
-探针25P；旧a1da0c98e定向709P及81ff5e7da六+五变异为各自版本工程证据，不签本轮内容。解释器主树 `.venv-workbench/bin/python`。
+提交后准确 SHA 回归：`984 passed, 8 skipped`，收据 `/Users/a77/.finance-runtime/test-receipts/20260921T180047Z-3ab0d3d9.json`；Ruff、diff check、pre-commit 全绿。
+固定提交 `finance-return` 变异：基线49 passed；11条撤保护逐条红，还原49 passed，结果在 `/Users/a77/.finance-runtime/adaptive-return-summary-20260922/mutations/results.json`。
+五组审计原件日线与冻结测试逐行一致；真实模型未重跑。
 
 ## 未验证 / 已知边界
 
-无PLAN、无均值选择/均值陈述、无finance成功空集、无直接零值/历史回退自然验收。无工具自报partial终局格仍待。本次未见私有诊断泄漏但非独立审查。
-独立判官未裁决；修订由程序预检推动。两次核验合计4发，不是全回合共享150秒；timeout_asked不是耗时。9/19以后未查，单次旧新闻片段不证整个库无同期证据。
-旧run_20260921_203845_282895仍partial，均值错和无据否定不改判。判官失联可交未审错误，发布提示不保证内容正确。
+未证明自然模型会选择新摘要或方向正确；判官超时/预算归属未定位，仍可能以 partial 交未审内容。未覆盖均值自然选择、空集/零值/历史回退自然样本、模型自报partial终局重核，以及完整前端/E2E/registry/独立Spec/Quality。
 
 ## 下一步
 
-先离线复现窗口收益计算/相对强弱错误，论证复用只读聚合；核查判官超时归属，禁止为刷绿加live。后续真实样本另预注册。
-前向基线、完整Python/前端/E2E/registry及独立Spec/Quality另签；不自动推进生产。
+先基于已有脱敏收据定位判官服务与超时归属，不能重复 live 刷绿；后续样本另预注册。合入前补跑全仓等价 CI、前端门禁及独立审查。
 
 ## 踩过的坑
 
-独占basetemp先建父目录；limit_up是零值指标。ok=true可包parse_error，不能当空集。绑定通过不证数学正确；判官轮数、调用数、拒发数须分开。
+pytest 必须用主树 `.venv-workbench/bin/python` 并先建独占 basetemp；提交前回归不能移签提交后 SHA。`timeout_asked` 不是实际耗时，核验轮数、实际调用数、零秒拒发要分账。
