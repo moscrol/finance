@@ -1,0 +1,48 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_history_artifact_scope.py",
+    "tests/test_history_evidence_binding.py",
+    "tests/test_history_model_projection.py",
+    "tests/test_historical_evidence_contract.py",
+    "tests/test_run_store_history_artifacts.py"
+  ],
+  "identity_before": {
+    "revision": "bbd948a6a400c90871657c0719b1cfb48107470e",
+    "status": "M intelligence/services/historical_research/episode.py\n M intelligence/services/run_store.py\n M tests/test_history_artifact_scope.py\n M tests/test_run_store_history_artifacts.py",
+    "diff_sha256": "876a8df2dde0e506cbb0c801fb6c931bdf613fa4e9eeb4e5e209780f16675cb9"
+  },
+  "started_at": "2026-09-21T13:07:48.892549+00:00",
+  "timeout_seconds": 300,
+  "disk_free_samples": [
+    {
+      "elapsed": 0,
+      "free_bytes": 10839760896
+    },
+    {
+      "elapsed": 2,
+      "free_bytes": 10770022400
+    },
+    {
+      "elapsed": 4,
+      "free_bytes": 10648666112
+    },
+    {
+      "elapsed": 6,
+      "free_bytes": 10647420928
+    }
+  ],
+  "pid": 75583,
+  "exit_code": 0,
+  "identity_after": {
+    "revision": "bbd948a6a400c90871657c0719b1cfb48107470e",
+    "status": "M intelligence/services/historical_research/episode.py\n M intelligence/services/run_store.py\n M tests/test_history_artifact_scope.py\n M tests/test_run_store_history_artifacts.py",
+    "diff_sha256": "876a8df2dde0e506cbb0c801fb6c931bdf613fa4e9eeb4e5e209780f16675cb9"
+  },
+  "finished_at": "2026-09-21T13:07:57.031611+00:00",
+  "identity_stable": true,
+  "receipt_source": "/Users/a77/.finance-runtime/test-receipts/20260921T130755Z-bbd948a6.json"
+}

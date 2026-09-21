@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="4" time="0.468" timestamp="2026-09-21T21:35:29.138359+08:00" hostname="77deMacBook-Air.local"><testcase classname="tests.test_history_artifact_scope" name="test_refresh_removes_stale_references_without_rewriting_artifacts[conversation]" time="0.290" /><testcase classname="tests.test_history_artifact_scope" name="test_refresh_removes_stale_references_without_rewriting_artifacts[visibility]" time="0.027" /><testcase classname="tests.test_history_artifact_scope" name="test_refresh_removes_stale_references_without_rewriting_artifacts[downloadable]" time="0.026"><failure message="AssertionError: assert 'run_20260921_213529_536368/history-query-2c3d90650d84ce16c41c89d2a00278ac1ea487ee4eabb83384ed069ca7ce2ec1.json' not in {'run_20260921_213529_536368/history-query-2c3d90650d84ce16c41c89d2a00278ac1ea487ee4eabb83384ed069ca7ce2ec1.json': ('run_20260921_213529_536368', 'history-query-2c3d90650d84ce16c41c89d2a00278ac1ea487ee4eabb83384ed069ca7ce2ec1.json')}&#10; +  where {'run_20260921_213529_536368/history-query-2c3d90650d84ce16c41c89d2a00278ac1ea487ee4eabb83384ed069ca7ce2ec1.json': ('run_20260921_213529_536368', 'history-query-2c3d90650d84ce16c41c89d2a00278ac1ea487ee4eabb83384ed069ca7ce2ec1.json')} = &lt;intelligence.services.historical_research.episode.HistorySession object at 0x107fcf830&gt;.refs">tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1450/test_refresh_removes_stale_ref2')
+mutation = 'downloadable'
+
+    @pytest.mark.parametrize("mutation", ["conversation", "visibility", "downloadable", "registration"])
+    def test_refresh_removes_stale_references_without_rewriting_artifacts(tmp_path, mutation):
+        registry, context, session = _registry(tmp_path)
+        ref = _query(registry, context).telemetry["result_ref"]
+        run = session.store.load_run(session.run_id)
+        if mutation == "conversation":
+            run.session_id = "other-conversation"
+        elif mutation == "visibility":
+            run.artifacts[0]["visibility"] = "internal"
+        elif mutation == "downloadable":
+            run.artifacts[0]["downloadable"] = False
+        else:
+            run.artifacts.clear()
+        session.store._write_run(run)
+        before = session.store.run_path(run.run_id).read_bytes()
+        session.refresh()
+&gt;       assert ref not in session.refs
+E       AssertionError: assert 'run_20260921_213529_536368/history-query-2c3d90650d84ce16c41c89d2a00278ac1ea487ee4eabb83384ed069ca7ce2ec1.json' not in {'run_20260921_213529_536368/history-query-2c3d90650d84ce16c41c89d2a00278ac1ea487ee4eabb83384ed069ca7ce2ec1.json': ('run_20260921_213529_536368', 'history-query-2c3d90650d84ce16c41c89d2a00278ac1ea487ee4eabb83384ed069ca7ce2ec1.json')}
+E        +  where {'run_20260921_213529_536368/history-query-2c3d90650d84ce16c41c89d2a00278ac1ea487ee4eabb83384ed069ca7ce2ec1.json': ('run_20260921_213529_536368', 'history-query-2c3d90650d84ce16c41c89d2a00278ac1ea487ee4eabb83384ed069ca7ce2ec1.json')} = &lt;intelligence.services.historical_research.episode.HistorySession object at 0x107fcf830&gt;.refs
+
+tests/test_history_artifact_scope.py:166: AssertionError</failure></testcase><testcase classname="tests.test_history_artifact_scope" name="test_refresh_removes_stale_references_without_rewriting_artifacts[registration]" time="0.026" /></testsuite></testsuites>

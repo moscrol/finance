@@ -1,0 +1,47 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_history_read_holds_run_lock_through_byte_verification __________
+
+store = <intelligence.services.run_store.RunStore object at 0x10b0140e0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b0141a0>
+
+    def test_history_read_holds_run_lock_through_byte_verification(store, monkeypatch):
+        run = store.create_run("q", "history", session_id="conversation-a")
+        artifact = store.add_history_artifact(run.run_id, "query", {"rows": []})
+        peer = RunStore(user_id=store.user_id, root=store.root)
+        verifying, release, writer_started, writer_done = Event(), Event(), Event(), Event()
+        original_verify = store._verified_history_bytes
+    
+        def verify(path, registered):
+            verifying.set()
+            assert release.wait(5)
+            return original_verify(path, registered)
+    
+        def writer():
+            writer_started.set()
+            peer.finish_run(run.run_id, STATUS_CANCELLED)
+            writer_done.set()
+    
+        monkeypatch.setattr(store, "_verified_history_bytes", verify)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            reader = pool.submit(
+                store.read_history_artifact, run.run_id, artifact.path,
+                conversation_id="conversation-a",
+            )
+            try:
+                assert verifying.wait(5)
+                updating = pool.submit(writer)
+                assert writer_started.wait(5)
+                completed_during_read = writer_done.wait(0.1)
+            finally:
+                release.set()
+            assert reader.result(timeout=5) == {"rows": []}
+            updating.result(timeout=5)
+>       assert not completed_during_read
+E       assert not True
+
+tests/test_run_store_history_artifacts.py:147: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/mutations/missing_read_lock.xml -
+=========================== short test summary info ============================
+FAILED tests/test_run_store_history_artifacts.py::test_history_read_holds_run_lock_through_byte_verification
+1 failed in 0.08s

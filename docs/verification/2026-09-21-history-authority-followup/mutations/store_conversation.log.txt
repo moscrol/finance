@@ -1,0 +1,36 @@
+.F                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_history_read_enforces_requested_conversation_before_opening_content[conversation-b] _
+
+store = <intelligence.services.run_store.RunStore object at 0x109dbebd0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ad14f80>
+conversation_id = 'conversation-b'
+
+    @pytest.mark.parametrize("conversation_id", ["conversation-a", "conversation-b"])
+    def test_history_read_enforces_requested_conversation_before_opening_content(
+        store, monkeypatch, conversation_id,
+    ):
+        run = store.create_run("q", "history", session_id="conversation-a")
+        artifact = store.add_history_artifact(run.run_id, "query", {"rows": []})
+        original_verify = store._verified_history_bytes
+        reads = []
+    
+        def verify(path, registered):
+            reads.append(path)
+            return original_verify(path, registered)
+    
+        monkeypatch.setattr(store, "_verified_history_bytes", verify)
+        if conversation_id == "conversation-a":
+            assert store.read_history_artifact(
+                run.run_id, artifact.path, conversation_id=conversation_id,
+            ) == {"rows": []}
+            assert len(reads) == 1
+        else:
+>           with pytest.raises(ValueError, match="outside this conversation"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_run_store_history_artifacts.py:68: Failed
+- generated xml file: /Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/mutations/store_conversation.xml -
+=========================== short test summary info ============================
+FAILED tests/test_run_store_history_artifacts.py::test_history_read_enforces_requested_conversation_before_opening_content[conversation-b]
+1 failed, 1 passed in 0.09s
