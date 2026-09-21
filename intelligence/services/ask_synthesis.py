@@ -24,6 +24,7 @@ from intelligence.services import (
     perspective_lab,
     pricing_split,
     ranking_contract,
+    research_reasoning,
     research_workflow_guidance,
     scenario_tree,
     track_contract,
@@ -850,6 +851,14 @@ def _prepare_answer_spec_synthesis(
     # 表达契约（情景树/跟踪）与经验卡片分开注入：契约是强制格式约束，塞进
     # 「历史经验卡片」段会被模型当参考经验忽略（2026-08-13 workbench 实测）。
     contract_parts: list[str] = []
+    reasoning_type = (
+        options.question_type_override
+        if options.question_type_override not in {None, "general_finance_qa"}
+        else knowledge_injection_policy.routed_question_type(question_plan)
+    )
+    reasoning_guidance = research_reasoning.guidance(reasoning_type)
+    if reasoning_guidance:
+        contract_parts.append(reasoning_guidance)
     workflow_guidance = research_workflow_guidance.workflow_guidance(
         question_plan.question_type
     )

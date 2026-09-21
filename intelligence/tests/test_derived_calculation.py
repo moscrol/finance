@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 from collections.abc import Mapping, Sequence
 
@@ -15,6 +17,7 @@ import pytest
 
 from intelligence.runtime.agent_episode import ContinuousAgentEpisode
 from intelligence.services import derived_calculation as dc
+from intelligence.services import derived_calculation_artifacts as artifacts
 from intelligence.services.agent_research import (
     AgentEvidence,
     AgentToolContext,
@@ -596,6 +599,49 @@ def test_structured_result_puts_every_table_number_into_observations_and_telemet
     assert record["params"] == {"tolerance_pct": 0.1}
     assert [entry["ref"] for entry in record["inputs"]] == ["E1", "E2"]
     assert all("detail" not in entry and entry["observations"] for entry in record["inputs"])
+
+
+@pytest.mark.parametrize(
+    "row_source",
+    [
+        "rows = ({'source': r['ref'], 'profit': r['value']} for r in observations())\n",
+        "def iter_rows():\n"
+        "    row = {}\n"
+        "    for r in observations():\n"
+        "        row.update(source=r['ref'], profit=r['value'])\n"
+        "        yield row\n"
+        "rows = iter_rows()\n",
+    ],
+    ids=["fresh_rows", "reused_row"],
+)
+def test_two_argument_table_reaches_sandbox_evidence_and_downloadable_artifacts(row_source) -> None:
+    calc = _run(
+        "import fincalc\n" + row_source + "emit_result(tables=[fincalc.table('profits', rows, unit='yi')])\n"
+    )
+    assert isinstance(calc, dc.DerivedCalculation), calc
+    assert calc.runtime["prelude_version"] == "5"
+    assert calc.result["tables"][0]["columns"] == ["source", "profit"]
+    assert calc.result["tables"][0]["rows"] == [["E1", 1741.44], ["E2", 1740.0]]
+    assert set(calc.input_evidence_hashes) == {item.content_hash for item in _inputs()}
+    metrics = {obs.metric: obs.value for obs in dc.derived_evidence(calc).observations}
+    assert metrics["profits.profit[E1]"] == 1741.44
+    assert metrics["profits.profit[E2]"] == 1740.0
+
+    files = {item.filename: item.content for item in artifacts.artifact_files(calc.to_dict())}
+    table_csv = files[f"calc-{calc.calc_id}-t1.csv"]
+    assert list(csv.reader(io.StringIO(table_csv.encode("utf-8").decode("utf-8-sig")))) == [
+        ["source", "profit"], ["E1", "1741.44"], ["E2", "1740"]
+    ]
+    assert "1741.44" in files[f"calc-{calc.calc_id}.html"]
+    assert json.loads(files[f"calc-{calc.calc_id}.json"])["result"] == calc.result
+
+
+@pytest.mark.parametrize("old_version", ["2", "3", "4"])
+def test_table_environment_has_distinct_calc_identity_from_prior_versions(monkeypatch, old_version) -> None:
+    assert dc.calculation_sandbox.PRELUDE_VERSION == "5"
+    current = dc.compute_calc_id(STRUCTURED_SCRIPT, ("input-hash",))
+    monkeypatch.setattr(dc.calculation_sandbox, "PRELUDE_VERSION", old_version)
+    assert dc.compute_calc_id(STRUCTURED_SCRIPT, ("input-hash",)) != current
 
 
 def test_params_change_the_calc_id_but_not_the_input_chain() -> None:

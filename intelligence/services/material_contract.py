@@ -7,7 +7,7 @@ import re
 
 from intelligence.services.user_task import (
     TopLevelRegions,
-    _B_MATERIAL_ONLY_PHRASES,
+    is_material_only_instruction,
     _B_RELAX_PHRASES,
     _FICTIONAL_SENT_RE,
     _HYPOTHESIS_STRONG_RE,
@@ -165,7 +165,7 @@ def compile_material_contract(
                 authenticity = "fictional"
         if span.scope != "message":
             continue
-        if head.startswith(_B_MATERIAL_ONLY_PHRASES):
+        if is_material_only_instruction(head):
             data_scope, data_scope_declared = "material_only", True
         elif head.startswith(_B_RELAX_PHRASES):
             data_scope, data_scope_declared = "full", True

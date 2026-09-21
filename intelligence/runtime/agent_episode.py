@@ -49,6 +49,8 @@ from intelligence.runtime.episode_tool_batch import (
     timeout_detail_for_model,
     tool_definitions_for_menu,
 )
+from intelligence.services.research_reasoning import observation_guidance
+from intelligence.services.prior_evidence import remap_evidence_bindings
 from intelligence.runtime.research_progress import (
     ResearchProgressTracker,
     ToolCallDigest,
@@ -60,6 +62,7 @@ from intelligence.services.episode_history_compaction import (
     history_compaction_enabled,
     history_keep_batches,
 )
+from intelligence.services.material_grounding import claim_finish_format
 from intelligence.services.mode_governor import ModeDecision
 from intelligence.services.provider_observability import (
     ProviderTrace,
@@ -101,6 +104,7 @@ from intelligence.services.episode_messages import (
     system_message,
     to_provider,
     tool_message,
+    unreported_invalid_finish,
     user_message,
 )
 from intelligence.services.episode_restore import RestoreResult, restore_episode
@@ -832,6 +836,49 @@ class _EpisodeToolAccumulator:
                 self.evidence.append(item)
 
 
+def _seed_prior_evidence(
+    accumulator: _EpisodeToolAccumulator,
+    messages: list[EpisodeMessage],
+    context: ResearchRunContext,
+) -> None:
+    snapshot = context.prior_evidence
+    if snapshot is None:
+        return
+    from intelligence.services.derived_calculation import evidence_payload
+
+    material = context.contract.material_contract
+    if material is None or material.data_scope != "material_only" or context.contract.allowed_capabilities:
+        raise ValueError("frozen prior inputs cannot authorize a new-read episode")
+    evidence = snapshot.admitted(
+        task_frame_hash=context.contract.task_frame_hash,
+        cutoff=context.information_cutoff.as_of_date,
+    )
+    if not evidence:
+        raise ValueError("no prior evidence within the current cutoff")
+    accumulator.evidence_ledger.append(evidence)
+    accumulator.evidence.extend(evidence)
+    accumulator.evidence_hashes.update(item.content_hash for item in evidence)
+    receipt = snapshot.receipt()
+    receipt["bindings"] = remap_evidence_bindings(
+        snapshot, tuple(accumulator.evidence)
+    )
+    append_model_input(
+        messages, accumulator.ledger,
+        content=json.dumps({
+            "kind": "prior_tool_evidence", "receipt": receipt,
+            "evidence": evidence_payload(evidence),
+            "rule": (
+                "以下是经同用户同会话原件校验的旧工具输入，不是重新查询。日期与口径仍属于原轮，"
+                "不能当作当前行情或其他日期的观测；仅用于复核原问题，不扩大研究范围。"
+                "只使用此处新编号，旧答编号不得直接复用。旧结论、覆盖状态和完成判定均未继承。"
+                "历史助手陈述仍只是待审判断；原件没有的资金行为等信息继续未知，"
+                "不得用待撤回的旧说法反过来证明自己。"
+            ),
+        }, ensure_ascii=False),
+        source="prior_tool_evidence",
+    )
+
+
 def _seed_opening_prefetch(
     accumulator: _EpisodeToolAccumulator,
     messages: list[EpisodeMessage],
@@ -1251,6 +1298,7 @@ class ContinuousAgentEpisode:
             harness=self._harness,
             progress=progress,
         )
+        _seed_prior_evidence(accumulator, messages, context)
         _seed_opening_prefetch(accumulator, messages, registry)
         continuation_state: _EpisodeContinuationState | None = None
         if _continuation_sink is not None:
@@ -1860,6 +1908,7 @@ class ContinuousAgentEpisode:
                     ),
                     per_batch_cap=batch_call_cap(context.policy),
                     progress=progress_view,
+                    question_type=context.contract.question_type,
                 )
                 if injected:
                     ledger.time_budget_injected = True
@@ -2263,12 +2312,26 @@ class ContinuousAgentEpisode:
                 "previous_draft_chars": len(previous.draft),
             },
         )
+        # 上一集最后一次拒收如果从没回灌过（loop 只回灌第一次），作者进修复轮时
+        # 只知道「缺哪个输出」、不知道「上次为什么被拒」，往往原样重发。
+        # 此处不多花模型调用，只把账上尚未送达的那句用 harness 同一段文案补上。
+        unreported = unreported_invalid_finish(previous.events)
+        if unreported:
+            append_model_input(
+                messages,
+                ledger,
+                content=self._harness.steering_message(
+                    "invalid_finish", detail=unreported
+                ),
+                source="repair_last_rejection",
+            )
         append_model_input(
             messages,
             ledger,
             content=self._harness.repair_goal_message(
                 prompt_goal,
                 tools_open=research_tools_open,
+                finish_format=claim_finish_format(downgraded_contract),
             ),
             source="repair_goal",
         )
@@ -3089,6 +3152,7 @@ class ContinuousAgentEpisode:
         total_seconds: float | None = None,
         per_batch_cap: int | None = None,
         progress: Mapping[str, object] | None = None,
+        question_type: str = "",
     ) -> bool:
         if not messages or messages[-1].role != "tool":
             return False
@@ -3149,6 +3213,9 @@ class ContinuousAgentEpisode:
             # 研究进展账（06 号单）叠在同一个预算块里：不新增事件种类、不改派生规则，
             # 模型在同一处读「还剩多少」和「刚才那批有没有新东西」。
             budget["research_progress"] = dict(progress)
+        reasoning = observation_guidance(question_type)
+        if reasoning:
+            budget["research_reasoning"] = reasoning
         payload["runtime_budget"] = budget
         model_content = json.dumps(payload, ensure_ascii=False)
         # 这是对最后一条 tool 消息的**覆写**，不是追加：durable 侧记整段新 content，

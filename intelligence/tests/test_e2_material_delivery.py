@@ -1,7 +1,7 @@
 """D5 structural delivery, not D6 material-fact support or live P7 acceptance.
 
-All judges below are explicit offline doubles. Evidence is supplied to the
-structural verifier; these tests do not certify the material anchor producer.
+All judges below are explicit offline doubles. Answered fixtures now use D6
+material anchors; these tests still certify delivery, not semantic entailment.
 """
 from dataclasses import replace
 import json
@@ -9,12 +9,16 @@ from uuid import uuid4
 
 import pytest
 
+from intelligence.tests.material_judge_helpers import material_judge_report
+
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import AgentOutcome, AgentUsage, EpisodeEvent, OutputEvidenceBinding
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_protocol import build_episode_input, validate_episode_finish
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier
 from intelligence.services.episode_verifier import verify_episode_outcome
+from intelligence.services.material_grounding import ClaimSourceBinding, MaterialAnchor, claim_sentences
+from intelligence.services.material_delivery import question_sections
 from intelligence.services.query_understanding import understand_query
 from intelligence.services.repair_coordinator import classify_repair_need
 from intelligence.services.research_contract import ResearchDeadline
@@ -36,21 +40,31 @@ def setup_delivery(*, memo=False):
     return frame, context
 
 
+def answered_binding(context, output_id, body):
+    source = context.contract.material_grounding.materials[0]
+    return OutputEvidenceBinding(output_id, (), claims=tuple(
+        ClaimSourceBinding(text, "material_fact", (MaterialAnchor(source.material_id, source.text),))
+        for text in claim_sentences(body)
+    ))
+
+
 def outcome_for(context, *, all_gap=False, draft=None, status="partial"):
     evidence = AgentEvidence(
         tool="user_material", title="用户材料", detail="甲收入100，订单20。",
         source="user", content_hash="d5-synthetic-structural-evidence",
     )
     first = GAP1 if all_gap else "甲订单占收入20%；材料没有给出利润率，不能换算成利润。"
+    draft = draft if draft is not None else f"## q1\n{first}\n\n## q2\n{GAP2}{BOUNDARY}"
+    body = question_sections(draft).get("q1", (first,))[0]
     return AgentOutcome(
         task_frame_hash=context.contract.task_frame_hash,
         status=status,
-        draft=draft if draft is not None else f"## q1\n{first}\n\n## q2\n{GAP2}{BOUNDARY}",
+        draft=draft,
         evidence=() if all_gap else (evidence,), traces=(), gaps=(),
         stop_reason="model_finish", usage=AgentUsage(),
         events=(EpisodeEvent(1, "task", {"task_frame_hash": context.contract.task_frame_hash}),),
         bindings=(
-            OutputEvidenceBinding("answer_q1", () if all_gap else (evidence.content_hash,), gap=GAP1 if all_gap else ""),
+            OutputEvidenceBinding("answer_q1", (), gap=GAP1) if all_gap else answered_binding(context, "answer_q1", body),
             OutputEvidenceBinding("answer_q2", (), gap=GAP2),
             OutputEvidenceBinding("evidence_boundary", (), basis="user_premise"),
         ),
@@ -132,12 +146,11 @@ def test_ordinary_full_finish_notice_projection_is_byte_preserving():
 def test_all_answered_honest_runtime_partial_keeps_existing_semantic_completion():
     frame, context = setup_delivery()
     original = outcome_for(context)
-    evidence_hash = original.evidence[0].content_hash
     original = replace(original, draft=f"## q1\n甲订单占收入20%。\n## q2\n已按材料说明限制。{BOUNDARY}",
-                       bindings=(original.bindings[0], replace(original.bindings[1], evidence_hashes=(evidence_hash,), gap=""), original.bindings[2]))
+                       bindings=(answered_binding(context, "answer_q1", "甲订单占收入20%。"), answered_binding(context, "answer_q2", "已按材料说明限制。"), original.bindings[2]))
     # This offline judge approves an intentionally synthetic draft: no claim
     # of real-world accuracy, only the pre-existing partial->completed seam.
-    result = SemanticEpisodeVerifier(judge_fn=lambda _: {"passed": True, "rejected_sentence_indexes": [], "issues": []}).verify(
+    result = SemanticEpisodeVerifier(judge_fn=material_judge_report).verify(
         frame=frame, structurally_verified=verify_episode_outcome(context.contract, original), deadline=ResearchDeadline.from_timeout(60),
     )
     assert result.judge_status == "passed" and result.status == "completed"
@@ -170,7 +183,7 @@ def test_gap_does_not_bypass_integrity_gates(mutation):
     calls = []
     def judge(request):
         calls.append(request)
-        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+        return material_judge_report(request)
     SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=setup_delivery()[0], structurally_verified=verified, deadline=ResearchDeadline.from_timeout(60),
     )
@@ -185,7 +198,7 @@ def test_material_partial_is_actually_judged_and_preserves_public_question_gaps(
     calls = []
     def judge(request):
         calls.append(request)
-        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+        return material_judge_report(request)
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(60),
     )
@@ -207,7 +220,7 @@ def test_all_answered_can_complete_without_counting_boundary_as_a_question():
     _, context = setup_delivery()
     outcome = outcome_for(context, status="completed")
     outcome = replace(outcome, draft=f"## q1\n甲订单占收入20%。\n## q2\n无法确定是否升级；毛利率未知。{BOUNDARY}",
-                      bindings=(outcome.bindings[0], replace(outcome.bindings[1], evidence_hashes=(outcome.evidence[0].content_hash,), gap=""), outcome.bindings[2]))
+                      bindings=(answered_binding(context, "answer_q1", "甲订单占收入20%。"), answered_binding(context, "answer_q2", "无法确定是否升级；毛利率未知。"), outcome.bindings[2]))
     # Structural only: the judge is responsible for whether this actually answers q1.
     validate_episode_finish(finish_for(outcome), context=context, evidence=outcome.evidence)
     verified = verify_episode_outcome(context.contract, outcome)
@@ -218,7 +231,7 @@ def test_all_answered_can_complete_without_counting_boundary_as_a_question():
 def test_explicit_memo_limit_applies_to_its_own_original_question_slot(length, valid):
     _, context = setup_delivery(memo=True)
     outcome = outcome_for(context, draft=f"## q1\n甲订单占收入20%。\n## q2\n{'研' * length}{BOUNDARY}", status="completed")
-    outcome = replace(outcome, bindings=(outcome.bindings[0], replace(outcome.bindings[1], evidence_hashes=(outcome.evidence[0].content_hash,), gap=""), outcome.bindings[2]))
+    outcome = replace(outcome, bindings=(outcome.bindings[0], answered_binding(context, "answer_q2", "研" * length), outcome.bindings[2]))
     assert [x.output_id for x in context.contract.required_outputs] == ["answer_q1", "answer_q2", "evidence_boundary"]
     if valid:
         validate_episode_finish(finish_for(outcome), context=context, evidence=outcome.evidence)
@@ -247,7 +260,7 @@ def test_adapter_settles_gaps_without_resume_or_old_ranking_requirements(all_gap
 
     def judge(request):
         calls.append(request)
-        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+        return material_judge_report(request)
 
     result = ContinuousTurnAdapter(
         runtime=Runtime(), runtime_name="continuous_glm", mode="on",
@@ -311,7 +324,7 @@ def test_missing_material_question_enters_tool_closed_expression_repair():
         runtime=Runtime(), runtime_name="continuous_glm", mode="on",
         context_factory=lambda *_args, **_kwargs: context,
         registry_factory=lambda *_args, **_kwargs: ResearchToolRegistry(()),
-        semantic_verifier=SemanticEpisodeVerifier(judge_fn=lambda _: {"passed": True, "rejected_sentence_indexes": [], "issues": []}),
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=material_judge_report),
     ).handle(frame=frame, control=TurnControlResult(
         task_frame=frame, execution_route=frame.question_type, terminal_kind="research",
         needs_retrieval=False, capabilities=(), contract_required=True,
@@ -431,10 +444,10 @@ def test_sanitization_that_removes_a_gap_reopens_that_question():
     outcome = outcome_for(context)
     gap = "缺少 d5-synthetic-structural-evidence 毛利率，无法计算新增利润。"
     outcome = replace(outcome, draft=f"## q1\n甲订单占收入20%。\n## q2\n{gap}{BOUNDARY}",
-                      bindings=(outcome.bindings[0], replace(outcome.bindings[1], gap=gap), outcome.bindings[2]))
+                      bindings=(answered_binding(context, "answer_q1", "甲订单占收入20%。"), replace(outcome.bindings[1], gap=gap), outcome.bindings[2]))
     verified = verify_episode_outcome(context.contract, outcome)
     assert verified.missing_outputs == ()
-    result = SemanticEpisodeVerifier(judge_fn=lambda _: {"passed": True, "rejected_sentence_indexes": [], "issues": []}).verify(
+    result = SemanticEpisodeVerifier(judge_fn=material_judge_report).verify(
         frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(60),
     )
     assert "answer_q2" in result.repair_output_ids
@@ -512,8 +525,7 @@ def test_judge_rejection_revokes_a_structurally_legal_gap(meta_prefix):
     def judge(request):
         indexes = [row["index"] for row in request["sentences"] if "缺少乙" in row["text"]]
         assert len(indexes) == 1
-        return {"passed": False, "rejected_sentence_indexes": indexes,
-                "issues": [f"第{indexes[0]}句：缺失声明与材料不符。"]}
+        return material_judge_report(request, rejected=indexes, issues=[f"第{indexes[0]}句：缺失声明与材料不符。"])
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(60),
     )
@@ -535,8 +547,7 @@ def test_gap_rejection_mapping_uses_position_not_same_text_in_another_question()
     def judge(request):
         indexes = [row["index"] for row in request["sentences"] if row["text"] == "补充说明。"]
         assert len(indexes) == 2
-        return {"passed": False, "rejected_sentence_indexes": [indexes[1]],
-                "issues": [f"第{indexes[1]}句：缺项判断无依据。"]}
+        return material_judge_report(request, rejected=[indexes[1]], issues=[f"第{indexes[1]}句：缺项判断无依据。"])
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=frame, structurally_verified=verify_episode_outcome(context.contract, original), deadline=ResearchDeadline.from_timeout(60),
     )
@@ -548,7 +559,7 @@ def test_material_rejection_does_not_renumber_peer_question_paragraphs():
     frame, context = setup_delivery()
     original = outcome_for(context, all_gap=True, draft=f"1.\n{GAP1}\n2.\n{GAP2}{BOUNDARY}")
     def judge(request):
-        return {"passed": False, "rejected_sentence_indexes": [1], "issues": ["第1句：该题标题不当。"]}
+        return material_judge_report(request, rejected=[1], issues=["第1句：该题标题不当。"])
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=frame, structurally_verified=verify_episode_outcome(context.contract, original), deadline=ResearchDeadline.from_timeout(60),
     )
@@ -594,7 +605,7 @@ def test_adapter_last_sanitizer_reopens_question_before_repair_and_never_publish
         runtime=Runtime(), runtime_name="continuous_glm", mode="on",
         context_factory=lambda *_args, **_kwargs: context,
         registry_factory=lambda *_args, **_kwargs: ResearchToolRegistry(()),
-        semantic_verifier=SemanticEpisodeVerifier(judge_fn=lambda _: {"passed": True, "rejected_sentence_indexes": [], "issues": []}),
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=material_judge_report),
     ).handle(frame=frame, control=TurnControlResult(
         task_frame=frame, execution_route=frame.question_type, terminal_kind="research",
         needs_retrieval=False, capabilities=(), contract_required=True,
@@ -661,8 +672,7 @@ def test_judge_rejected_gap_can_rewrite_without_tools_or_stale_revocation():
     def judge(request):
         requests.append(request)
         rejected = [row["index"] for row in request["sentences"] if bad_gap in row["text"]]
-        return {"passed": not rejected, "rejected_sentence_indexes": rejected,
-                "issues": [f"第{index}句：材料已经给了金额。" for index in rejected]}
+        return material_judge_report(request, rejected=rejected, issues=[f"第{index}句：材料已经给了金额。" for index in rejected])
     result = ContinuousTurnAdapter(
         runtime=Runtime(), runtime_name="continuous_glm", mode="on",
         context_factory=lambda *_args, **_kwargs: context,
@@ -723,7 +733,7 @@ def test_adapter_final_projection_downgrade_reaches_the_turn_status(monkeypatch)
     frame, context = setup_delivery()
     original = outcome_for(context, status="completed")
     original = replace(original, draft=f"## q1\n甲订单占收入20%。\n## q2\n已按材料说明限制。{BOUNDARY}",
-                       bindings=(original.bindings[0], replace(original.bindings[1], evidence_hashes=(original.evidence[0].content_hash,), gap=""), original.bindings[2]))
+                       bindings=(answered_binding(context, "answer_q1", "甲订单占收入20%。"), answered_binding(context, "answer_q2", "已按材料说明限制。"), original.bindings[2]))
     resumes = []
     class Runtime:
         def start(self, _frame, *, context, registry):
@@ -735,7 +745,7 @@ def test_adapter_final_projection_downgrade_reaches_the_turn_status(monkeypatch)
         runtime=Runtime(), runtime_name="continuous_glm", mode="on",
         context_factory=lambda *_args, **_kwargs: context,
         registry_factory=lambda *_args, **_kwargs: ResearchToolRegistry(()),
-        semantic_verifier=SemanticEpisodeVerifier(judge_fn=lambda _: {"passed": True, "rejected_sentence_indexes": [], "issues": []}),
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=material_judge_report),
     ).handle(frame=frame, control=TurnControlResult(
         task_frame=frame, execution_route=frame.question_type, terminal_kind="research",
         needs_retrieval=False, capabilities=(), contract_required=True,
@@ -758,4 +768,6 @@ def test_material_rejection_with_unmatched_sentence_coordinates_fails_closed():
         verified, [{"index": 0, "text": "这句话不在被判的稿里。"}], call,
     )
     assert result is not None and result.judge_status == "rejected"
-    assert set(result.verified.missing_outputs) == {"answer_q1", "answer_q2"}
+    # D6 cannot attribute a rejected sentence with broken coordinates to a clean
+    # scope declaration either: all required owners must be re-established.
+    assert set(result.verified.missing_outputs) == {"answer_q1", "answer_q2", "evidence_boundary"}

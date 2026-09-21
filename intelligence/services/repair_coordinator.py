@@ -16,7 +16,9 @@ tool. The primary model retains that decision inside the same episode.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+import re
 from uuid import uuid4
 
 from intelligence.services.agent_runtime import AgentOutcome
@@ -198,6 +200,14 @@ class RepairGoal:
     # 冷启动修复专用：主检索窗已烧穿时，允许修复轮在授予的窗口内重开工具。
     # 只由 admit_repair 在 grant_for_cold_restart 命中时置位，模型无权申请。
     reopen_tools: bool = False
+    # 作者要读的病因原文：被判官删掉的那几句 + 判官给的理由。
+    #
+    # 与 ``unsupported_claims`` 分开是有意的：后者是**策略信号**（喂
+    # ``classify_repair_failure``，决定这一轮算不算纯交付缺口），前者只是
+    # 摆给作者看的证据，不参与任何判据。2026-09-16 的真实 run 里作者拿到的是
+    # 「缺 evidence_boundary」而判官说的是「c3/c5 没有锚点却写了具体事实」——
+    # 病因根本没过桥，作者只能把同一份结构再发一遍。
+    rejected_claim_notes: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -206,6 +216,7 @@ class RepairGoal:
             "cycle": self.cycle,
             "missing_answer_elements": list(self.missing_answer_elements),
             "unsupported_claims": list(self.unsupported_claims),
+            "rejected_claim_notes": list(self.rejected_claim_notes),
             "missing_evidence_modes": list(self.missing_evidence_modes),
             "attempted_actions": list(self.attempted_actions),
             "evidence_progress": {
@@ -266,6 +277,7 @@ def build_repair_goal(
     remaining_calls: int,
     remaining_seconds: float,
     cycle: int = 1,
+    rejected_claim_notes: tuple[str, ...] = (),
 ) -> RepairGoal:
     episode = str(episode_id or "").strip()
     if not episode:
@@ -283,7 +295,63 @@ def build_repair_goal(
         evidence_progress=previous_progress.coverage_delta,
         remaining_calls=max(0, int(remaining_calls)),
         remaining_seconds=max(0.0, float(remaining_seconds)),
+        rejected_claim_notes=_unique(rejected_claim_notes),
     )
+
+
+def describe_rejected_claims(
+    *,
+    claim_checks: Sequence[Mapping[str, object]] = (),
+    sentence_verdicts: Sequence[Mapping[str, object]] = (),
+    private_tokens: frozenset[str] = frozenset(),
+    limit: int = 6,
+) -> tuple[str, ...]:
+    """把「哪一句被删、判官怎么说」写成作者能直接照着改的短句。
+
+    只转述已有账：材料流用逐句回执（``material_claim_checks`` 带 sentence_index /
+    text / reason），普通流退回拒句账（``sentence_verdicts``）。这里不新造判断、
+    不猜作者该写什么，也不替判官补理由——没有理由就只给原句。
+
+    ``private_tokens`` 是材料私有坐标（material_id / message_id）：作者提示里
+    本来就有目录，但把 id 抄进正文会被 ``private_material_reference`` 拒收，
+    所以转述时一律换成「该材料」，不让修复轮学会写 id。
+    """
+
+    rows: dict[int, tuple[str, str]] = {}
+    # 逐句回执最准（带判官原话）；隔离复核等只改拒句集合的路径没有它，再用拒句账补。
+    for verdict in sentence_verdicts:
+        if verdict.get("decision") != "deleted":
+            continue
+        index = verdict.get("sentence_index")
+        if not isinstance(index, int) or isinstance(index, bool):
+            continue
+        issues = verdict.get("judge_issues")
+        reason = "；".join(str(item) for item in issues) if isinstance(issues, list) else ""
+        rows[index] = (str(verdict.get("sentence") or ""), reason)
+    for check in claim_checks:
+        if check.get("supported") is not False:
+            continue
+        index = check.get("sentence_index")
+        if not isinstance(index, int) or isinstance(index, bool):
+            continue
+        rows[index] = (str(check.get("text") or ""), str(check.get("reason") or ""))
+    notes: list[str] = []
+    for index, (text, reason) in sorted(rows.items()):
+        note = f"claim_index:{index}｜原句：{_scrub(text, private_tokens, 120)}"
+        if reason.strip():
+            note += f"｜判官：{_scrub(reason, private_tokens, 200)}"
+        if note not in notes:
+            notes.append(note)
+    return tuple(notes[:limit])
+
+
+def _scrub(text: str, private_tokens: frozenset[str], limit: int) -> str:
+    cleaned = " ".join(text.split())
+    for token in sorted(private_tokens, key=len, reverse=True):
+        if not token:
+            continue
+        cleaned = re.sub(re.escape(token), "该材料", cleaned, flags=re.IGNORECASE)
+    return cleaned if len(cleaned) <= limit else cleaned[: limit - 1] + "…"
 
 
 def unreachable_repair_goal(
@@ -425,7 +493,7 @@ class RepairFailureShape:
     - ``delivery``：有证据、有结构缺口，但没写出稿或没绑定——tool-closed 交付修复。
     - ``cold_restart``：零证据饿死（窗烧穿 / 主路径模型不可用）——重开工具一发。
     - ``contract_rewrite``：缺的全是契约表达槽——从已有证据/材料补写，不开工具。
-    - ``input_only_rewrite``：材料逐题交付的显式许可；不伪造证据计数。
+    - ``input_only_rewrite``：仅依据材料交付的显式许可；不要求题号，不伪造证据计数。
 
     不看预算、不看 cycle 状态（「交付修复只许一次」是底座的账，由调用方叠）。
     """
@@ -449,10 +517,20 @@ def classify_repair_failure(
     """领域失败分类。``missing_outputs`` 是结构缺口 ∪ 语义缺口（调用方已合并）。"""
 
     from intelligence.services.episode_issues import IssueCode
-    from intelligence.services.material_delivery import material_question_outputs
+    from intelligence.services.episode_protocol import REJECTION_KINDS, RejectionKind
+    from intelligence.services.material_delivery import material_input_output_ids
 
+    # A rejected finish can lose its draft/bindings before structural verification.
+    # Preserve its typed integrity failure instead of laundering it into omissions.
+    if outcome.stop_reason == "integrity_violation" or any(
+        event.kind == "finish"
+        and REJECTION_KINDS.get(event.payload.get("rejection_code")) == RejectionKind.INTEGRITY
+        for event in outcome.events
+    ):
+        return RepairFailureShape(delivery=False, cold_restart=False, contract_rewrite=False)
     has_evidence = bool(outcome.evidence)
-    material_ids = {item.output_id for item in material_question_outputs(structural.contract)} if structural.contract else set()
+    contract = structural.contract
+    material_ids = material_input_output_ids(contract) if contract is not None else frozenset()
     material_rewrite = bool(
         missing_outputs and set(missing_outputs) <= material_ids
         and not rejected_claims and not structural.mandatory_missing_capabilities

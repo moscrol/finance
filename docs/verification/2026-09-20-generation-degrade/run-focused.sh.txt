@@ -1,0 +1,21 @@
+#!/bin/bash
+set -uo pipefail
+umask 022
+root=/Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920
+python=/Users/a77/finance-workspace-private/.venv-workbench/bin/python
+suite=$1
+phase=$2
+shift 2
+tree="$root/$suite/finance-workspace-private"
+run="$root/results/$suite/$phase"
+mkdir -p "$run/users" "$run/episodes" "$run/receipts"
+cd "$tree" || exit 2
+git rev-parse HEAD > "$run/head-before.txt"
+git status --short > "$run/status-before.txt"
+env -i HOME=/Users/a77 USER=a77 LOGNAME=a77 PATH=/Users/a77/finance-workspace-private/.venv-workbench/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin LANG=en_US.UTF-8 TZ=Asia/Shanghai TMPDIR=/tmp PYTHONDONTWRITEBYTECODE=1 FINANCE_WS="$tree" MARKET_FEATURE_STORE_DB="$run/absent-production.duckdb" FORESIGHT_USERS_DIR="$run/users" FORESIGHT_EPISODE_STORE="$run/episodes" FWP_TEST_RECEIPT_DIR="$run/receipts" FWP_GATE_TREE="$tree" PYTHONPATH=/Users/a77/.finance-runtime/open-work-execution-20260920 "$python" -m pytest -q -p no:cacheprovider -p receipt_redirect --basetemp="$run/tmp" "$@" > "$run/pytest.log" 2>&1
+rc=$?
+printf '%s\n' "$rc" > "$run/exit-code.txt"
+git rev-parse HEAD > "$run/head-after.txt"
+git status --short > "$run/status-after.txt"
+printf '%s %s: exit=%s log=%s\n' "$suite" "$phase" "$rc" "$run/pytest.log"
+exit "$rc"

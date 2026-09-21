@@ -58,6 +58,7 @@ from intelligence.services.provider_latency import (
     repair_seconds_cap_for,
 )
 from intelligence.services.repair_coordinator import (
+    describe_rejected_claims,
     max_repair_cycles_for_tier,
     progress_from_ledger,
 )
@@ -560,7 +561,7 @@ class ContinuousTurnAdapter:
             context_candidate = self._context_factory(frame, **context_kwargs)
             if not isinstance(context_candidate, ResearchRunContext):
                 raise TypeError("context factory must return ResearchRunContext")
-            context = context_candidate
+            context = replace(context_candidate, prior_evidence=control.prior_evidence)
             registry = cast(
                 ResearchToolRegistry,
                 self._registry_factory(frame, context),
@@ -860,6 +861,9 @@ class ContinuousTurnAdapter:
                         f"claim_index:{index}" for index in semantic.rejected_claim_indexes
                     ),
                     review_feedback=semantic_repair_feedback(semantic),
+                    # 判官删了哪几句、为什么删：修复轮的作者必须看得到，
+                    # 否则只能对着「缺某个输出」重发同一份结构。
+                    rejected_claim_notes=_rejected_claim_notes(semantic, context),
                     semantic_gap_outputs=semantic.gap_output_ids,
                     allow_delivery_repair=not delivery_repair_attempted,
                 )
@@ -1140,9 +1144,9 @@ class ContinuousTurnAdapter:
         for notice in public_notices:
             if notice not in answer:
                 answer = "\n\n".join(part for part in (answer, notice) if part)
-        from intelligence.services.material_delivery import material_question_outputs
+        from intelligence.services.material_grounding import grounding_scope
 
-        if material_question_outputs(context.contract):
+        if grounding_scope(context.contract) == "material_only":
             semantic = recheck_material_public_delivery(semantic, projected=answer)
             final_outcome = semantic.verified.outcome
             answer = semantic.public_answer
@@ -1309,6 +1313,7 @@ class ContinuousTurnAdapter:
         current_snapshot: EvidenceLedgerSnapshot,
         cycle: int,
         rejected_claims: tuple[str, ...],
+        rejected_claim_notes: tuple[str, ...] = (),
         semantic_gap_outputs: tuple[str, ...] = (),
         review_feedback: tuple[str, ...] = (),
         allow_delivery_repair: bool = True,
@@ -1367,6 +1372,7 @@ class ContinuousTurnAdapter:
             allow_delivery_repair=allow_delivery_repair,
             evidence_count=len(outcome.evidence),
             seconds_cap=self._repair_seconds_cap,
+            rejected_claim_notes=rejected_claim_notes,
         )
         if admission is None:
             return None
@@ -1886,6 +1892,8 @@ def _episode_context_provenance(
         ),
         "history_results": list(context.history_results),
     }
+    if context.prior_evidence is not None:
+        payload["prior_evidence"] = context.prior_evidence.receipt()
     pack = getattr(context, "stance_pack", None)
     if pack is None:
         return payload
@@ -2212,6 +2220,21 @@ def _runtime_handle_receipt(session: object | None) -> dict[str, object] | None:
     except Exception as exc:  # noqa: BLE001 - 收据不可用不是产物不可用
         return {"unavailable": type(exc).__name__}
     return receipt if isinstance(receipt, dict) else None
+
+
+def _rejected_claim_notes(
+    semantic: SemanticEpisodeOutcome, context: ResearchRunContext
+) -> tuple[str, ...]:
+    """修复轮要给作者看的拒句病因（已去掉私有坐标）。"""
+
+    from intelligence.services.material_grounding import material_private_tokens
+
+    return describe_rejected_claims(
+        claim_checks=semantic.material_claim_checks,
+        sentence_verdicts=semantic.sentence_verdicts,
+        private_tokens=_private_tokens(semantic.verified.outcome)
+        | material_private_tokens(context.contract),
+    )
 
 
 def _private_tokens(outcome: AgentOutcome) -> frozenset[str]:
