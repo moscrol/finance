@@ -89,6 +89,14 @@ class HistoryIntent:
         return cls(**value)
 
 
+def _top_level_history_text(question: str) -> str:
+    """Read only the top-level user text for permission-bearing history rules."""
+    from intelligence.services.user_task import top_level_message_text
+
+    visible, _uncertain = top_level_message_text(question)
+    return visible
+
+
 def with_analysis_window_policy(
     intent: HistoryIntent, question: str, *, continuing: bool = False,
 ) -> HistoryIntent:
@@ -97,11 +105,8 @@ def with_analysis_window_policy(
     Reset on each turn: permission to extend an observation is not a standing
     grant. The dates themselves must still come from a scope-checked original.
     """
-    from intelligence.services.user_task import _visible_lines
-
     # Reuse the source-aware input boundary, including short quotes/fences.
-    visible, uncertain = _visible_lines(question.splitlines())
-    question = "\n".join(visible) if not uncertain else ""
+    question = _top_level_history_text(question)
     source = "none"
     if re.search(r"(?:从|沿用|选|选择).{0,35}(?:相似|类似|类比).{0,12}(?:窗口|阶段)", question):
         source = "analogue"
@@ -125,6 +130,7 @@ def explicit_information_cutoff(question: str) -> date | None:
     Shared by history intent recovery and Episode cutoff assembly. Invalid or
     conflicting dates raise so a history task cannot silently become unbounded.
     """
+    question = _top_level_history_text(question)
     values = set()
     for match in _EXPLICIT_INFORMATION_CUTOFF_RE.finditer(question):
         anchor = _DATE.fullmatch(match["before"] or match["after"])
@@ -136,6 +142,7 @@ def explicit_information_cutoff(question: str) -> date | None:
 
 
 def infer_history_intent(question: str) -> HistoryIntent | None:
+    question = _top_level_history_text(question)
     intent = _infer_history_window(question)
     if intent is None:
         return None
@@ -227,6 +234,7 @@ def _infer_history_window(question: str) -> HistoryIntent | None:
 
 
 def named_wave_subject(question: str) -> str | None:
+    question = _top_level_history_text(question)
     match = re.search(
         r"(?:这一波|这波|那一波|上一波)(?:的)?([\u4e00-\u9fffA-Za-z0-9]{2,20}?)(?:是?怎么|如何|的)",
         question,
@@ -261,9 +269,11 @@ def inherit_history_followup(
     question: str, previous: HistoryIntent | None
 ) -> HistoryIntent | None:
     """Only explicit continuations of a known history task inherit its permission."""
-    if previous is None or history_research_cancelled(question):
+    if previous is None:
         return None
-    text = question.strip()
+    text = _top_level_history_text(question).strip()
+    if not text or history_research_cancelled(text):
+        return None
     if re.search(
         r"(?:以前|之前|过去|历史).{0,12}(?:类似|相似|呢|情况)|(?:失败案例|反例)", text
     ):
@@ -294,6 +304,7 @@ def inherit_history_followup(
 
 
 def history_research_cancelled(question: str) -> bool:
+    question = _top_level_history_text(question)
     return bool(
         re.search(
             r"(?:不要|不用|不做|停止|不再|别)(?:再|继续|做|进行)?"

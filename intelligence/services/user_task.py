@@ -761,6 +761,18 @@ def _visible_lines(lines: list[str]) -> tuple[list[str], list[str]]:
     return masked, uncertain
 
 
+def top_level_message_text(text: str) -> tuple[str, tuple[str, ...]]:
+    """Return only text outside protected user-message regions.
+
+    Permission-bearing consumers must share this source partition instead of
+    scanning the raw message and treating quoted instructions as live controls.
+    An uncertain boundary yields no visible text so callers fail closed.
+    """
+    raw = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+    visible, uncertain = _visible_lines(raw.split("\n"))
+    return ("\n".join(visible) if not uncertain else "", tuple(uncertain))
+
+
 @dataclass(frozen=True)
 class InstructionSpan:
     """指令区片段（D1）：行为指令 / 前提声明 / 续轮声明。
