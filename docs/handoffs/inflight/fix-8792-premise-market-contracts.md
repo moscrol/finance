@@ -9,7 +9,7 @@
 展开：`docs/handoffs/2026-09-21-judge-reason-codes.md`。
 
 ## 当前状态
-候选 `a97b27057`；工作树 clean（本文与快照随 docs 提交入库）。对 gitea/main 24 ahead / 14 behind，main 未碰本次文件，merge-tree 零冲突。未合 main、未 push、生产未改。
+候选 `a97b27057`；工作树 clean。main 今天在快速前进，ahead/behind 别抄本文，跑 `git fetch gitea && git rev-list --left-right --count gitea/main...HEAD`。对 `gitea/main@945c04bd7` 的 merge-tree 干跑：**三处冲突** `docs/agent-product-door.md` / `intelligence/runtime/turn_control_core.py` / `intelligence/services/user_task.py`，全部来自本分支早先的题设计算提交（37526350c…41ca2165d）撞上 main 的 #819 研究求证意识合入，与本轮两个提交无关；main 对 `episode_semantic_verifier.py` 只加了 `_mask_bound_short_date_heading`（2cfa9d0d7），与理由码区域无交叠、自动合并干净。未合 main、未 push、生产未改。
 
 ## 未验证 / 已知边界
 - **生产判官（K3 自审链）是否回 `reason_codes` 零实测**：没起 sidecar 跑过一题。不吐码时 v19 P3 那句以降级保留出门，不是删。

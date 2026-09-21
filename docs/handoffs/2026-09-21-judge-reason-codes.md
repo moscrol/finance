@@ -100,8 +100,12 @@ required_outputs」（会牵动整条 contract_rewrite 修复路径）。
   比 v20 的 12044 多 17 条 = 本轮新增测试数。
 - 前端四项在 `a97b27057` 上重跑：lint 0 / typecheck 0 / 单测 110 passed / build 成功（`intelligence/webapp`，
   本轮未改任何前端文件）。
-- 对 `gitea/main`（fetch 于 2026-09-21 12:00）：24 ahead / 14 behind；main 的 14 个提交不碰本次任一文件，
-  `git merge-tree --write-tree HEAD gitea/main` 退出 0（零冲突）。
+- 对 `gitea/main`：12:00 fetch 时 main 领先 14 个提交、不碰本次任一文件、merge-tree 零冲突；12:30 再 fetch
+  main 已到 `945c04bd7`（#819 研究求证意识等合入），merge-tree 出**三处冲突**——`docs/agent-product-door.md`、
+  `intelligence/runtime/turn_control_core.py`、`intelligence/services/user_task.py`。三处都是本分支早先的题设计算
+  提交（37526350c…41ca2165d）与 main 新提交的交叠，不是本轮两个提交造成的；main 对 `episode_semantic_verifier.py`
+  的唯一改动（2cfa9d0d7，加 `_mask_bound_short_date_heading`）与理由码区域无交叠，自动合并干净。
+  合 main 的人要先解这三处；ahead/behind 数字别抄本文，现跑 `git rev-list --left-right --count gitea/main...HEAD`。
 - **未做**：live 三题重跑；生产判官（K3 自审链，独立判官 2026-09-12 起关闭）是否稳定回 `reason_codes`
   **没有任何实测**。v20 的 live 结论不移签给 v21。E2E 未重跑，属「无结论」叶子。
 
