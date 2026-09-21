@@ -15,6 +15,8 @@
 
 2026-09-21 复核已撤回一项曾未提交的改动（悬空连接词剥离），见下「候选：悬空连接词剥离（已撤回）」。
 
+2026-09-21 11:10 跑了真实模型冒烟第 1 题（寒武纪可证伪跟踪条件，单臂 off，生产配置 glm-5.3-flash + judge llm），代码未改；结果见下「真实模型冒烟 1/3–5」，原件 `~/.finance-runtime/adaptive-live-smoke-20260921/`（README / SHA256SUMS，目录外校验日志同名 `-verification.log`）。
+
 ## 已验证
 精确全量 `12096P/85S/2X/17 warnings`，收据 `~/.finance-runtime/test-receipts/20260920T220029Z-7172ba30.json` 绑定 `7172ba30e`（`dirty=False`、`exit_status=0`、依赖指纹未绕过）；`7172ba30e..HEAD` 用 `git diff --name-only` 验证只出 `docs/`，故该收据代表当前代码——**下一个 agent 接手时请重跑这一条验证，再有业务提交它就不成立了**。定向历史4P、发布矩阵21P、跨后端24P、Ruff通过。最终撤线：去发布上限16F/恢复24P；误把已解决语义修订当未解决3F/恢复22P。
 
@@ -34,11 +36,14 @@
 
 要重做须先解决：连接词表里 `但/相反/同理/所以/因此/不过` 都是**兼类**（既是话语标记也是词素），而主用例 `但上涨家数仍待改善。` 恰恰不带标点，所以「必须后接标点」这个统一守卫会废掉主用例——需要逐词分档（无歧义的多字标记可裸剥，兼类词要求后接标点），不是一张词表能收的。收益只是 partial 答案的表面整洁，而 partial 状态与公开提示已把不完整讲清楚；且本分支立场是宿主只删无据句、不改已接受正文，剥连接词是在改已接受句。重做前先论证这条收益值得。
 
+## 真实模型冒烟 1/3–5（2026-09-21，n=1 诊断非裁决）
+run `run_20260921_111040_597004`，490.72 s，`outcome=partial / stop_reason=repair_model_unavailable / judge_status=repaired`，公开稿无提示。修复回路在生产路径上真点着了：repair_goal #1 打回两句「毛利率跌破45%」（`novel_numeric_condition`），模型**整体重写**（改为以 55.25% 为锚的相对条件 + 新增「阈值性质声明」，并自行去掉未点名的其他推演阈值）；宿主未恢复任何拒句，判官降级的两句「东阳光模式」由 v11 检索抬回但**公开稿无引用**。repair_goal #2 要 `track_next_watch`，调用 93 s 后流式失败 → partial 带稿交付。发布上限未触发且**应当**未触发（无未解决审查反馈）。发现（详见原件 README）：① 模型写「裁判变量」（judgment_delta 词汇），`track_contract` 只认「下期关注」，两解析器对「**粗体内联**：①②③」都解不出，`_ITEM_START` 把 `**` 首个 `*` 当项目符号——多余修复轮由此而来（解析器在 main 就有，本分支让它从进收据变成花预算）；② partial 只在 report/gate_receipt，`message.status=transport=completed`，前端 `MessageBubble` 显示「已完成」，webapp 无 `answer_status` 消费者；带稿的 `repair_model_unavailable` 没有公开成因通道；③ 授予 30 s 只是 `urlopen` 单次读超时，非墙钟上限；`_failure_reason` 只进进程内 `_CALL_LEDGER`，原件分不出超时还是网关错；④ 四张个股表键 `stock_ts_code='688256.SH'`，模型 3/4 次传裸码，`finance_query` 不归一也不报格式错，数据到 09-18 都在却答成「本地缺失」；唯一带 `.SH` 的查询打在 `fact_stock_daily_hithink`（最大日 09-08），gap 文案读起来像全局；⑤ 判官注册表只含绑定∪引用证据，东阳光证据在 `outcome.evidence` 里但未绑未引，判官「不存在」相对其投影成立；⑥ 首稿非 FINAL_JSON，+1 调用。
+
 ## 未验证 / 已知边界
 自然模型公开保真、披露重要限制、持续观察后改向未验；脚本模型/SDK runner不代表质量。其他后端、真实费用/上下文窗口、裸代码后缀、监管覆盖、独立Spec/Quality、合流/部署未验。judge off不审gaps；17 warnings非零warning结论。
 
 ## 下一步
-唯一阻断项是真实模型验收的两个参数（用哪个网关/模型、judge 开还是关），待用户定。定了之后：先给网关发一条最小请求确认没在限流，再用 3–5 道**未见**题单臂跑 `scripts/compare_adaptive_research.py --arms off` + `scripts/inspect_adaptive_research.py`，复验目录另建，保留原稿/逐句判据/修订目标事件/公开稿。四道旧题已烧成回归题，不能再算未见样本。题里要含一道「只用本地资料」型（`b6df991f` 的本地授权修复同样只有工程验证）。
+两个参数不需要用户选：生产 `/api/health` 自报 `agent_runtime.model=glm-5.3-flash`；`ASK_SEMANTIC_JUDGE` 在生产进程未设 → `judge_mode.py` 默认 `llm`（关着的是独立判官，启动器 `LLM_JUDGE_API_KEY` 被注释）。冒烟 1/3–5 已跑（上节），剩 2–4 道**未见**题单臂跑 `scripts/compare_adaptive_research.py --arms off`（解释器用主树 `.venv-workbench/bin/python`，树里没有 `.venv-run`）+ `scripts/inspect_adaptive_research.py --project-current-judge-status`，每题另建目录。**每题发前先用 `scripts/probe_tool.py` 走运行时工具路径验数据前提**（带 `.SH` 后缀查 `finance_query`），别直接查库。四道旧题 + 寒武纪已烧成回归题。题里要含一道「只用本地资料」型（`b6df991f` 只有工程验证）。冒烟发现 ①–④ 是候选工单，都涉及 main 上的共用件（`track_contract` / `judgment_delta` 解析器、状态投影与前端、`_post_chat_message_stream` 超时语义、`finance_query` 代码归一），要不要在本分支修、还是另开分支，待用户定；不要顺手改。
 
 合入前另需：在最终 revision 重跑前端与 E2E（`3c30eceb` 之后只改了后端与文档，前端叶子结论可沿用，但 E2E 跑的是后端，最终 revision 上没有 E2E 结论）。不要push、合main、部署、K3、付费外审或删生产，除非明确授权。
 
@@ -46,3 +51,5 @@
 `judge_status=repaired`不是单独发布判据；必须结合`sentence_verdicts`阶段/原因。历史`demoted_to_issue`是已完成的保留式语义降级，不是残句。撤线前先固定提交并让临时树指向精确revision；收据不能移绑后续文档tip。
 
 中文连接词表做正文改写必须按「是否兼类」分档，不能统一规则：`但/相反/同理/所以/因此/不过` 既是话语标记也是词素，`但丁/相反的/同理可证/所以说` 会被整片误剥。配套测试若只取顺风样本（连接词后接标点），四条反例一条都红不了——**每条规则至少配一个兄弟措辞反例**，否则测试绿只证明写法一致，不证明规则成立。
+
+结构核验判「缺 X」时，先把交付稿喂给那个槽的解析器复现，再决定是模型没写还是解析器不认：本次「缺 track_next_watch」实为词汇不相认（模型写了裁判变量），修复轮白花。`judge_status=repaired` + 两句 `lifted` 的组合不代表公开稿有引用支撑——抬回不补 E 号。冒烟题的数据前提要经运行时工具路径验，直接查库会漏掉代码格式这层。
