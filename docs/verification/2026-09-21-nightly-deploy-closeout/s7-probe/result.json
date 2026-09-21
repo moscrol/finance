@@ -1,0 +1,71 @@
+{
+  "candidate": "/Users/a77/.finance-runtime/finance-sync-adcda94b5e40",
+  "staging_root": "/Users/a77/.finance-runtime/finance-s7-sync",
+  "wrapper": "/Users/a77/.local/bin/nightly-review-sync-staged.py",
+  "wrapper_sha256": "742c36c1e79c2e968c2a1d6088df5c022c6d4d5b23e53e486666ac3fab712375",
+  "cases": [
+    {
+      "mode": "success",
+      "passed": true,
+      "exit_code": 0,
+      "before_sha256": "06f59ca2fbb0bb642b5abd15f1786349df5b32ebe643fb95a5201d947510dc93",
+      "after_sha256": "fc9f87e91e9c67aed840819ae36c6ce0634282870e1ebc086a91cd7179273602",
+      "latest": "2026-09-21",
+      "target_sentinel_rows": 1,
+      "target_receipts": 1,
+      "staging_retained": false,
+      "imported_candidate": true
+    },
+    {
+      "mode": "child_failure",
+      "passed": true,
+      "exit_code": 2,
+      "before_sha256": "06f59ca2fbb0bb642b5abd15f1786349df5b32ebe643fb95a5201d947510dc93",
+      "after_sha256": "06f59ca2fbb0bb642b5abd15f1786349df5b32ebe643fb95a5201d947510dc93",
+      "latest": "2026-09-18",
+      "target_sentinel_rows": 1,
+      "target_receipts": 0,
+      "staging_retained": true,
+      "imported_candidate": true
+    },
+    {
+      "mode": "schema_loss",
+      "passed": true,
+      "exit_code": 2,
+      "before_sha256": "06f59ca2fbb0bb642b5abd15f1786349df5b32ebe643fb95a5201d947510dc93",
+      "after_sha256": "06f59ca2fbb0bb642b5abd15f1786349df5b32ebe643fb95a5201d947510dc93",
+      "latest": "2026-09-18",
+      "target_sentinel_rows": 1,
+      "target_receipts": 0,
+      "staging_retained": true,
+      "imported_candidate": true
+    },
+    {
+      "mode": "date_regression",
+      "passed": true,
+      "exit_code": 2,
+      "before_sha256": "06f59ca2fbb0bb642b5abd15f1786349df5b32ebe643fb95a5201d947510dc93",
+      "after_sha256": "06f59ca2fbb0bb642b5abd15f1786349df5b32ebe643fb95a5201d947510dc93",
+      "latest": "2026-09-18",
+      "target_sentinel_rows": 1,
+      "target_receipts": 0,
+      "staging_retained": true,
+      "imported_candidate": true
+    },
+    {
+      "mode": "third_party",
+      "passed": true,
+      "exit_code": 2,
+      "before_sha256": "06f59ca2fbb0bb642b5abd15f1786349df5b32ebe643fb95a5201d947510dc93",
+      "after_sha256": "191c48f0e8e7f1a5d490bd8897f0c3b14fca32bc1aa9bb26d40a00ed04113e64",
+      "latest": "2026-09-18",
+      "target_sentinel_rows": 2,
+      "target_receipts": 0,
+      "staging_retained": true,
+      "imported_candidate": true
+    }
+  ],
+  "passed": 5,
+  "production_used": false,
+  "boundary": "synthetic new-schema database plus fake collector; not real provider/full-copy validation"
+}
