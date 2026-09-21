@@ -164,3 +164,11 @@ shim 的两个已知洞：SSE 分支在客户端先断时（75 s 帽）写不回
 四叶在 `4075ce8ac`：python `ruff` 0 + `pytest` 12440P/85S/2xf（收据 `20260921T062625Z-4075ce8a`，`check_test_receipt`
 判可采信）；frontend lint/typecheck/110 单测/build 全 0 且 build 后树干净；e2e 34P/2S；registry-check 五条 0。
 **PR #825**（http://127.0.0.1:3300/a77/finance-workspace-private/pulls/825），head `4075ce8ac`，conflict-check clean。
+
+## 收口：已合 main（2026-09-21 14:38）
+
+用户「合并」→ PR #825 → 合并提交 `80bf6bb91`。合前身份钉死（`--expect-head cd32a11cee77 --expect-base c615adbd2`），
+合后三项核对全真：`main` 指向合并提交、`cd32a11ce` 是它的双亲、**main 的树 == 合前本机预览树 `cf824323`**。
+授权记录 `~/.finance-runtime/8792-premise-market-evidence/v21-merge-record.json`（含用户原话与出处）。
+分支与 worktree 已清（远端 `fix/8792-premise-market-contracts` 已删）。在途交接随本次收口从 `inflight/` 出册，
+状态以本快照为准。**未部署**：8792 跑的仍是他人切的运行时快照，本次改动上线是另一件事。
