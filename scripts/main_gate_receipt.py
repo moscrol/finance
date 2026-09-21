@@ -58,11 +58,12 @@ def main(argv: list[str] | None = None) -> int:
             or latest["worktree_dirty_total"] != 0
         ):
             raise ValueError("receipt is dirty or dirty state is unknown")
-        if args.pytest_exit is not None:
-            if latest.get("tree") != args.tree:
-                raise ValueError("receipt tree does not match this run")
-            if latest["exit_status"] != args.pytest_exit:
-                raise ValueError("receipt exit_status does not match pytest process")
+        # Receipt-only readback has no new pytest process, but it still has an
+        # expected tree. A matching revision cannot replace that path identity.
+        if latest.get("tree") != args.tree:
+            raise ValueError("receipt tree does not match this run")
+        if args.pytest_exit is not None and latest["exit_status"] != args.pytest_exit:
+            raise ValueError("receipt exit_status does not match pytest process")
         counts, failed = latest["counts"], sorted(latest["failed_ids"])
         print(f"== receipt {args.receipt}")
         print(f"   revision={latest['revision'][:12]} dirty={latest.get('dirty')} "

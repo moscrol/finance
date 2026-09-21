@@ -88,6 +88,7 @@ def test_readback_keeps_failure_exit(repo, tmp_path):
 
 @pytest.mark.parametrize("changes", [
     {"revision": "0" * 40}, {"dirty": True}, {"worktree_dirty_total": 1},
+    {"tree": "/foreign/tree"}, {"tree": None}, {"tree": 123}, {"tree": ""},
     {"dependency_gate_bypassed": True}, {"interpreter": "/wrong/python"},
     {"counts": {"passed": 0, "failed": 0, "error": 0, "skipped": 1}},
     {"counts": {"passed": -1, "failed": 0, "error": 0, "skipped": 0}},
@@ -104,6 +105,26 @@ def test_malformed_receipt_is_structured_failure(repo, tmp_path, data):
     result = readback(repo, tmp_path, data)
     assert result.returncode == 4
     assert "Traceback" not in result.stderr
+
+
+def test_readback_requires_tree_even_without_a_new_pytest_process(repo, tmp_path):
+    data = receipt(repo)
+    del data["tree"]
+    result = readback(repo, tmp_path, data)
+    assert result.returncode == 4, result.stdout + result.stderr
+    assert "tree" in result.stderr
+
+
+def test_baseline_comparison_does_not_bypass_current_tree_identity(repo, tmp_path):
+    result = readback(repo, tmp_path, receipt(repo, tree="/foreign/tree"), receipt(repo))
+    assert result.returncode == 4, result.stdout + result.stderr
+
+
+def test_allow_dirty_does_not_bypass_current_tree_identity(repo, tmp_path):
+    path = tmp_path / "foreign-receipt.json"
+    path.write_text(json.dumps(receipt(repo, tree="/foreign/tree")))
+    result = run_gate(repo, tmp_path, "--receipt", str(path), "--allow-dirty")
+    assert result.returncode == 4, result.stdout + result.stderr
 
 
 def test_baseline_does_not_hide_interrupted_run(repo, tmp_path):
