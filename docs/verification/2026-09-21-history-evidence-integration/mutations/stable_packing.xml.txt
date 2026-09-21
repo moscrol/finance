@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.295" timestamp="2026-09-21T19:30:40.751260+08:00" hostname="77deMacBook-Air.local"><testcase classname="tests.test_history_evidence_binding" name="test_persisted_key_order_does_not_change_chunk_boundaries" time="0.005"><failure message="AssertionError: assert ['986f862ff27...d8fdae6', ...] == ['986f862ff27...d8fdae6', ...]&#10;  &#10;  At index 11 diff: 'bfec99c18297684e' != 'd3a9b40d98d1f089'&#10;  Use -v to get more diff">def test_persisted_key_order_does_not_change_chunk_boundaries():
+        row = _row(0)
+        row["features"].update({f"feature_{i}": 1000 + i for i in range(20)})
+        original = _payload([row])
+        original["feature_definitions"] = {
+            name: {"rule": name, "unit": "percent", "version": "v1"}
+            for name in ("z-last", "a-first")
+        }
+        original["comparison"] = {f"metric_{i}": "x" * 30 for i in range(20)}
+        original["universe"] = {"window_days": 2, "entity_codes": ["A.0"], "start": "2025-08-01"}
+        stored = json.loads(json.dumps(original, sort_keys=True))
+        before = _hashed_result(original)
+        after = _hashed_result(stored)
+&gt;       assert [card.content_hash for card in before.evidence] == [card.content_hash for card in after.evidence]
+E       AssertionError: assert ['986f862ff27...d8fdae6', ...] == ['986f862ff27...d8fdae6', ...]
+E         
+E         At index 11 diff: 'bfec99c18297684e' != 'd3a9b40d98d1f089'
+E         Use -v to get more diff
+
+tests/test_history_evidence_binding.py:279: AssertionError</failure></testcase></testsuite></testsuites>

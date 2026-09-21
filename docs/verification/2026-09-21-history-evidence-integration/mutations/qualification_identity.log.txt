@@ -1,0 +1,395 @@
+.F.FFF.FF                                                                [100%]
+=================================== FAILURES ===================================
+________________ test_history_verifier_qualification[decision] _________________
+
+mutation = 'decision'
+
+    @pytest.mark.parametrize("mutation", [
+        "qualified", "decision", "operation", "missing", "row_hash", "dictionary",
+        "operation_type", "locator", "query_key",
+    ])
+    def test_history_verifier_qualification(mutation):
+        result = _hashed_result(_payload([_row(0)]))
+        card = next(item for item in result.evidence if item.history_provenance and item.history_provenance.row_index == 0)
+        variants = {
+            "qualified": card,
+            "decision": replace(card, history_provenance=replace(card.history_provenance, decision_eligible=True)),
+            "operation": replace(card, history_provenance=replace(card.history_provenance, operation="inspect_history")),
+            "missing": replace(card, history_provenance=None),
+            "row_hash": replace(card, history_provenance=replace(card.history_provenance, row_hash="f" * 16)),
+            "dictionary": replace(card, history_provenance={"operation": "find_analogues"}),
+            "operation_type": replace(card, history_provenance=replace(card.history_provenance, operation=["find_analogues"])),
+            "locator": replace(card, internal_locator="other/" + REF.split("/", 1)[1]),
+            "query_key": replace(card, independent_key="another-query"),
+        }
+        candidate = variants[mutation]
+        if mutation in {"decision", "operation"}:
+            # These failures must come from qualification, not a stale digest.
+            candidate = replace(candidate, content_hash=evidence_content_hash(candidate))
+        contract = ResearchTaskContract(
+            task_id="history-negative",
+            question="历史类比",
+            subject="AI行情",
+            subject_kind="theme",
+            question_type="comparison_analog",
+            required_outputs=(
+                RequiredOutput(
+                    "analog_similarities",
+                    "相似点",
+                    ("history_query",),
+                    allowed_history_operations=("find_analogues",),
+                ),
+            ),
+            allowed_capabilities=("finance_query",),
+            task_frame_hash="history-negative",
+        )
+    
+        def outcome(evidence):
+            return AgentOutcome(
+                task_frame_hash="history-negative",
+                status="completed",
+                draft="相似点",
+                evidence=(evidence,),
+                traces=(),
+                gaps=(),
+                stop_reason="model_finish",
+                events=(EpisodeEvent(1, "task", {"task_frame_hash": "history-negative"}),),
+                bindings=(OutputEvidenceBinding("analog_similarities", (evidence.content_hash,)),),
+                usage=AgentUsage(),
+            )
+    
+        verified = verify_episode_outcome(contract, outcome(candidate))
+        rejected = any(item.code == IssueCode.HISTORY_OPERATION_UNSUPPORTED for item in verified.issue_items)
+>       assert rejected is (mutation != "qualified")
+E       AssertionError: assert False is ('decision' != 'qualified')
+
+tests/test_history_evidence_binding.py:247: AssertionError
+_________________ test_history_verifier_qualification[missing] _________________
+
+mutation = 'missing'
+
+    @pytest.mark.parametrize("mutation", [
+        "qualified", "decision", "operation", "missing", "row_hash", "dictionary",
+        "operation_type", "locator", "query_key",
+    ])
+    def test_history_verifier_qualification(mutation):
+        result = _hashed_result(_payload([_row(0)]))
+        card = next(item for item in result.evidence if item.history_provenance and item.history_provenance.row_index == 0)
+        variants = {
+            "qualified": card,
+            "decision": replace(card, history_provenance=replace(card.history_provenance, decision_eligible=True)),
+            "operation": replace(card, history_provenance=replace(card.history_provenance, operation="inspect_history")),
+            "missing": replace(card, history_provenance=None),
+            "row_hash": replace(card, history_provenance=replace(card.history_provenance, row_hash="f" * 16)),
+            "dictionary": replace(card, history_provenance={"operation": "find_analogues"}),
+            "operation_type": replace(card, history_provenance=replace(card.history_provenance, operation=["find_analogues"])),
+            "locator": replace(card, internal_locator="other/" + REF.split("/", 1)[1]),
+            "query_key": replace(card, independent_key="another-query"),
+        }
+        candidate = variants[mutation]
+        if mutation in {"decision", "operation"}:
+            # These failures must come from qualification, not a stale digest.
+            candidate = replace(candidate, content_hash=evidence_content_hash(candidate))
+        contract = ResearchTaskContract(
+            task_id="history-negative",
+            question="历史类比",
+            subject="AI行情",
+            subject_kind="theme",
+            question_type="comparison_analog",
+            required_outputs=(
+                RequiredOutput(
+                    "analog_similarities",
+                    "相似点",
+                    ("history_query",),
+                    allowed_history_operations=("find_analogues",),
+                ),
+            ),
+            allowed_capabilities=("finance_query",),
+            task_frame_hash="history-negative",
+        )
+    
+        def outcome(evidence):
+            return AgentOutcome(
+                task_frame_hash="history-negative",
+                status="completed",
+                draft="相似点",
+                evidence=(evidence,),
+                traces=(),
+                gaps=(),
+                stop_reason="model_finish",
+                events=(EpisodeEvent(1, "task", {"task_frame_hash": "history-negative"}),),
+                bindings=(OutputEvidenceBinding("analog_similarities", (evidence.content_hash,)),),
+                usage=AgentUsage(),
+            )
+    
+        verified = verify_episode_outcome(contract, outcome(candidate))
+        rejected = any(item.code == IssueCode.HISTORY_OPERATION_UNSUPPORTED for item in verified.issue_items)
+>       assert rejected is (mutation != "qualified")
+E       AssertionError: assert False is ('missing' != 'qualified')
+
+tests/test_history_evidence_binding.py:247: AssertionError
+________________ test_history_verifier_qualification[row_hash] _________________
+
+mutation = 'row_hash'
+
+    @pytest.mark.parametrize("mutation", [
+        "qualified", "decision", "operation", "missing", "row_hash", "dictionary",
+        "operation_type", "locator", "query_key",
+    ])
+    def test_history_verifier_qualification(mutation):
+        result = _hashed_result(_payload([_row(0)]))
+        card = next(item for item in result.evidence if item.history_provenance and item.history_provenance.row_index == 0)
+        variants = {
+            "qualified": card,
+            "decision": replace(card, history_provenance=replace(card.history_provenance, decision_eligible=True)),
+            "operation": replace(card, history_provenance=replace(card.history_provenance, operation="inspect_history")),
+            "missing": replace(card, history_provenance=None),
+            "row_hash": replace(card, history_provenance=replace(card.history_provenance, row_hash="f" * 16)),
+            "dictionary": replace(card, history_provenance={"operation": "find_analogues"}),
+            "operation_type": replace(card, history_provenance=replace(card.history_provenance, operation=["find_analogues"])),
+            "locator": replace(card, internal_locator="other/" + REF.split("/", 1)[1]),
+            "query_key": replace(card, independent_key="another-query"),
+        }
+        candidate = variants[mutation]
+        if mutation in {"decision", "operation"}:
+            # These failures must come from qualification, not a stale digest.
+            candidate = replace(candidate, content_hash=evidence_content_hash(candidate))
+        contract = ResearchTaskContract(
+            task_id="history-negative",
+            question="历史类比",
+            subject="AI行情",
+            subject_kind="theme",
+            question_type="comparison_analog",
+            required_outputs=(
+                RequiredOutput(
+                    "analog_similarities",
+                    "相似点",
+                    ("history_query",),
+                    allowed_history_operations=("find_analogues",),
+                ),
+            ),
+            allowed_capabilities=("finance_query",),
+            task_frame_hash="history-negative",
+        )
+    
+        def outcome(evidence):
+            return AgentOutcome(
+                task_frame_hash="history-negative",
+                status="completed",
+                draft="相似点",
+                evidence=(evidence,),
+                traces=(),
+                gaps=(),
+                stop_reason="model_finish",
+                events=(EpisodeEvent(1, "task", {"task_frame_hash": "history-negative"}),),
+                bindings=(OutputEvidenceBinding("analog_similarities", (evidence.content_hash,)),),
+                usage=AgentUsage(),
+            )
+    
+        verified = verify_episode_outcome(contract, outcome(candidate))
+        rejected = any(item.code == IssueCode.HISTORY_OPERATION_UNSUPPORTED for item in verified.issue_items)
+>       assert rejected is (mutation != "qualified")
+E       AssertionError: assert False is ('row_hash' != 'qualified')
+
+tests/test_history_evidence_binding.py:247: AssertionError
+_______________ test_history_verifier_qualification[dictionary] ________________
+
+mutation = 'dictionary'
+
+    @pytest.mark.parametrize("mutation", [
+        "qualified", "decision", "operation", "missing", "row_hash", "dictionary",
+        "operation_type", "locator", "query_key",
+    ])
+    def test_history_verifier_qualification(mutation):
+        result = _hashed_result(_payload([_row(0)]))
+        card = next(item for item in result.evidence if item.history_provenance and item.history_provenance.row_index == 0)
+        variants = {
+            "qualified": card,
+            "decision": replace(card, history_provenance=replace(card.history_provenance, decision_eligible=True)),
+            "operation": replace(card, history_provenance=replace(card.history_provenance, operation="inspect_history")),
+            "missing": replace(card, history_provenance=None),
+            "row_hash": replace(card, history_provenance=replace(card.history_provenance, row_hash="f" * 16)),
+            "dictionary": replace(card, history_provenance={"operation": "find_analogues"}),
+            "operation_type": replace(card, history_provenance=replace(card.history_provenance, operation=["find_analogues"])),
+            "locator": replace(card, internal_locator="other/" + REF.split("/", 1)[1]),
+            "query_key": replace(card, independent_key="another-query"),
+        }
+        candidate = variants[mutation]
+        if mutation in {"decision", "operation"}:
+            # These failures must come from qualification, not a stale digest.
+            candidate = replace(candidate, content_hash=evidence_content_hash(candidate))
+        contract = ResearchTaskContract(
+            task_id="history-negative",
+            question="历史类比",
+            subject="AI行情",
+            subject_kind="theme",
+            question_type="comparison_analog",
+            required_outputs=(
+                RequiredOutput(
+                    "analog_similarities",
+                    "相似点",
+                    ("history_query",),
+                    allowed_history_operations=("find_analogues",),
+                ),
+            ),
+            allowed_capabilities=("finance_query",),
+            task_frame_hash="history-negative",
+        )
+    
+        def outcome(evidence):
+            return AgentOutcome(
+                task_frame_hash="history-negative",
+                status="completed",
+                draft="相似点",
+                evidence=(evidence,),
+                traces=(),
+                gaps=(),
+                stop_reason="model_finish",
+                events=(EpisodeEvent(1, "task", {"task_frame_hash": "history-negative"}),),
+                bindings=(OutputEvidenceBinding("analog_similarities", (evidence.content_hash,)),),
+                usage=AgentUsage(),
+            )
+    
+        verified = verify_episode_outcome(contract, outcome(candidate))
+        rejected = any(item.code == IssueCode.HISTORY_OPERATION_UNSUPPORTED for item in verified.issue_items)
+>       assert rejected is (mutation != "qualified")
+E       AssertionError: assert False is ('dictionary' != 'qualified')
+
+tests/test_history_evidence_binding.py:247: AssertionError
+_________________ test_history_verifier_qualification[locator] _________________
+
+mutation = 'locator'
+
+    @pytest.mark.parametrize("mutation", [
+        "qualified", "decision", "operation", "missing", "row_hash", "dictionary",
+        "operation_type", "locator", "query_key",
+    ])
+    def test_history_verifier_qualification(mutation):
+        result = _hashed_result(_payload([_row(0)]))
+        card = next(item for item in result.evidence if item.history_provenance and item.history_provenance.row_index == 0)
+        variants = {
+            "qualified": card,
+            "decision": replace(card, history_provenance=replace(card.history_provenance, decision_eligible=True)),
+            "operation": replace(card, history_provenance=replace(card.history_provenance, operation="inspect_history")),
+            "missing": replace(card, history_provenance=None),
+            "row_hash": replace(card, history_provenance=replace(card.history_provenance, row_hash="f" * 16)),
+            "dictionary": replace(card, history_provenance={"operation": "find_analogues"}),
+            "operation_type": replace(card, history_provenance=replace(card.history_provenance, operation=["find_analogues"])),
+            "locator": replace(card, internal_locator="other/" + REF.split("/", 1)[1]),
+            "query_key": replace(card, independent_key="another-query"),
+        }
+        candidate = variants[mutation]
+        if mutation in {"decision", "operation"}:
+            # These failures must come from qualification, not a stale digest.
+            candidate = replace(candidate, content_hash=evidence_content_hash(candidate))
+        contract = ResearchTaskContract(
+            task_id="history-negative",
+            question="历史类比",
+            subject="AI行情",
+            subject_kind="theme",
+            question_type="comparison_analog",
+            required_outputs=(
+                RequiredOutput(
+                    "analog_similarities",
+                    "相似点",
+                    ("history_query",),
+                    allowed_history_operations=("find_analogues",),
+                ),
+            ),
+            allowed_capabilities=("finance_query",),
+            task_frame_hash="history-negative",
+        )
+    
+        def outcome(evidence):
+            return AgentOutcome(
+                task_frame_hash="history-negative",
+                status="completed",
+                draft="相似点",
+                evidence=(evidence,),
+                traces=(),
+                gaps=(),
+                stop_reason="model_finish",
+                events=(EpisodeEvent(1, "task", {"task_frame_hash": "history-negative"}),),
+                bindings=(OutputEvidenceBinding("analog_similarities", (evidence.content_hash,)),),
+                usage=AgentUsage(),
+            )
+    
+        verified = verify_episode_outcome(contract, outcome(candidate))
+        rejected = any(item.code == IssueCode.HISTORY_OPERATION_UNSUPPORTED for item in verified.issue_items)
+>       assert rejected is (mutation != "qualified")
+E       AssertionError: assert False is ('locator' != 'qualified')
+
+tests/test_history_evidence_binding.py:247: AssertionError
+________________ test_history_verifier_qualification[query_key] ________________
+
+mutation = 'query_key'
+
+    @pytest.mark.parametrize("mutation", [
+        "qualified", "decision", "operation", "missing", "row_hash", "dictionary",
+        "operation_type", "locator", "query_key",
+    ])
+    def test_history_verifier_qualification(mutation):
+        result = _hashed_result(_payload([_row(0)]))
+        card = next(item for item in result.evidence if item.history_provenance and item.history_provenance.row_index == 0)
+        variants = {
+            "qualified": card,
+            "decision": replace(card, history_provenance=replace(card.history_provenance, decision_eligible=True)),
+            "operation": replace(card, history_provenance=replace(card.history_provenance, operation="inspect_history")),
+            "missing": replace(card, history_provenance=None),
+            "row_hash": replace(card, history_provenance=replace(card.history_provenance, row_hash="f" * 16)),
+            "dictionary": replace(card, history_provenance={"operation": "find_analogues"}),
+            "operation_type": replace(card, history_provenance=replace(card.history_provenance, operation=["find_analogues"])),
+            "locator": replace(card, internal_locator="other/" + REF.split("/", 1)[1]),
+            "query_key": replace(card, independent_key="another-query"),
+        }
+        candidate = variants[mutation]
+        if mutation in {"decision", "operation"}:
+            # These failures must come from qualification, not a stale digest.
+            candidate = replace(candidate, content_hash=evidence_content_hash(candidate))
+        contract = ResearchTaskContract(
+            task_id="history-negative",
+            question="历史类比",
+            subject="AI行情",
+            subject_kind="theme",
+            question_type="comparison_analog",
+            required_outputs=(
+                RequiredOutput(
+                    "analog_similarities",
+                    "相似点",
+                    ("history_query",),
+                    allowed_history_operations=("find_analogues",),
+                ),
+            ),
+            allowed_capabilities=("finance_query",),
+            task_frame_hash="history-negative",
+        )
+    
+        def outcome(evidence):
+            return AgentOutcome(
+                task_frame_hash="history-negative",
+                status="completed",
+                draft="相似点",
+                evidence=(evidence,),
+                traces=(),
+                gaps=(),
+                stop_reason="model_finish",
+                events=(EpisodeEvent(1, "task", {"task_frame_hash": "history-negative"}),),
+                bindings=(OutputEvidenceBinding("analog_similarities", (evidence.content_hash,)),),
+                usage=AgentUsage(),
+            )
+    
+        verified = verify_episode_outcome(contract, outcome(candidate))
+        rejected = any(item.code == IssueCode.HISTORY_OPERATION_UNSUPPORTED for item in verified.issue_items)
+>       assert rejected is (mutation != "qualified")
+E       AssertionError: assert False is ('query_key' != 'qualified')
+
+tests/test_history_evidence_binding.py:247: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-mutations/qualification_identity.xml -
+=========================== short test summary info ============================
+FAILED tests/test_history_evidence_binding.py::test_history_verifier_qualification[decision]
+FAILED tests/test_history_evidence_binding.py::test_history_verifier_qualification[missing]
+FAILED tests/test_history_evidence_binding.py::test_history_verifier_qualification[row_hash]
+FAILED tests/test_history_evidence_binding.py::test_history_verifier_qualification[dictionary]
+FAILED tests/test_history_evidence_binding.py::test_history_verifier_qualification[locator]
+FAILED tests/test_history_evidence_binding.py::test_history_verifier_qualification[query_key]
+6 failed, 3 passed in 0.37s

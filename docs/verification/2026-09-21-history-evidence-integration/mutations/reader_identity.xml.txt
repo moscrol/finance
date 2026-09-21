@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="1.174" timestamp="2026-09-21T19:30:38.013344+08:00" hostname="77deMacBook-Air.local"><testcase classname="tests.test_history_evidence_binding" name="test_same_source_row_keeps_hash_across_query_and_reader_tools" time="0.793"><failure message="AssertionError: assert ['3a4ce9c4f5fc5dd2'] == ['80161f6c720c2ec5']&#10;  &#10;  At index 0 diff: '3a4ce9c4f5fc5dd2' != '80161f6c720c2ec5'&#10;  Use -v to get more diff">tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1406/test_same_source_row_keeps_has0')
+
+    def test_same_source_row_keeps_hash_across_query_and_reader_tools(tmp_path):
+        from intelligence.tests.test_historical_research_episode import _registry
+    
+        registry, context, session = _registry(tmp_path)
+        query = registry.execute("history_query", {
+            "operation": "compute_history", "start": "2026-08-03", "end": "2026-08-04",
+            "entity_codes": ["A.FP"], "features": ["return_pct", "amount_ratio"],
+        }, context=context, step_id="query")
+        ref = query.telemetry["result_ref"]
+        original = session.read(ref)
+        read = registry.execute("read_history_result", {"result_ref": ref, "offset": 0, "limit": 1},
+                                context=context, step_id="read")
+        def row_cards(result):
+            return [item for item in result.evidence if item.history_provenance.row_index == 0]
+        assert row_cards(query)
+&gt;       assert [item.content_hash for item in row_cards(query)] == [item.content_hash for item in row_cards(read)]
+E       AssertionError: assert ['3a4ce9c4f5fc5dd2'] == ['80161f6c720c2ec5']
+E         
+E         At index 0 diff: '3a4ce9c4f5fc5dd2' != '80161f6c720c2ec5'
+E         Use -v to get more diff
+
+tests/test_history_evidence_binding.py:358: AssertionError</failure></testcase></testsuite></testsuites>

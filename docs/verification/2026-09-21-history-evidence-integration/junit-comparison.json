@@ -1,0 +1,558 @@
+{
+  "before_revision": "a14005fc9a9d671d178da6fc91be9cb69ae67e77",
+  "after_revision": "f90fd3dc3ba10a9a00f7264f92d3ec959b2ba682",
+  "before": {
+    "tests": 12685,
+    "counts": {
+      "passed": 12596,
+      "pytest.skip": 87,
+      "pytest.xfail": 2
+    }
+  },
+  "after": {
+    "tests": 12724,
+    "counts": {
+      "passed": 12635,
+      "pytest.skip": 87,
+      "pytest.xfail": 2
+    }
+  },
+  "passed_delta": 39,
+  "skip_xfail_names_types_and_reasons_equal": true,
+  "skip_xfail_entries": [
+    [
+      "intelligence.tests.conformance.test_inv3_deadline_reserve",
+      "test_synthesis_survives_a_burned_research_window[dsh_stub]",
+      "pytest.skip",
+      "declared not applicable: 脚本化协议参照桩：无模型轮、无检索/合成窗语义（DshStubRuntime._play 顺序回放脚本），deadline 分窗不变量对它无从谈起。"
+    ],
+    [
+      "intelligence.tests.conformance.test_inv5_repair_reentry",
+      "test_gap_triggers_resume_or_an_explicit_unsupported_receipt[codex_headless]",
+      "pytest.xfail",
+      "[baseline] 修复静默跳过：continuous_turn_adapter._resume_for_gap 对无 resume 的 session 返回 None，无任何收据（L1181-1184）；codex 档判官照跑、修复缺席不可观测。2026-08-29 登记（阳性对照，证明套件能抓静默缺席）。"
+    ],
+    [
+      "intelligence.tests.conformance.test_inv6_trace_receipts",
+      "test_runtime_handle_receipts_are_monotonic_when_attached[codex_headless]",
+      "pytest.skip",
+      "declared no runtime handle seam: 事件成对/durable 对账照断言；RuntimeHandle 六态收据没有会话接缝可接（runtime_handle.py docstring 逐条裁定 a 条），该半边按声明跳过。"
+    ],
+    [
+      "intelligence.tests.conformance.test_inv7_finish_protocol",
+      "test_dangling_evidence_binding_is_rejected_not_shipped[dsh_stub]",
+      "pytest.skip",
+      "declared not applicable: stub 不产生模型 FINAL_JSON——draft 由脚本给定、bindings 由 _outcome_from_snapshot 从真实 snapshot 组装，悬空引用在构造上不可表达；AgentOutcome 构造器兜底其余形状。"
+    ],
+    [
+      "intelligence.tests.test_codex_headless_runtime",
+      "test_real_codex_headless_smoke",
+      "pytest.skip",
+      "real Codex headless smoke is opt-in"
+    ],
+    [
+      "intelligence.tests.test_e2_boundary_closeout",
+      "test_closed_outer_quote_is_opaque_to_other_quote_types[\"-outer2]",
+      "pytest.skip",
+      "同类嵌套由独立测试验证，不能拿一个闭符伪装双层闭合"
+    ],
+    [
+      "intelligence.tests.test_e2_boundary_closeout",
+      "test_closed_outer_quote_is_opaque_to_other_quote_types[\\u201c-outer3]",
+      "pytest.skip",
+      "同类嵌套由独立测试验证，不能拿一个闭符伪装双层闭合"
+    ],
+    [
+      "intelligence.tests.test_e2_boundary_closeout",
+      "test_closed_outer_quote_is_opaque_to_other_quote_types[\\u300c-outer0]",
+      "pytest.skip",
+      "同类嵌套由独立测试验证，不能拿一个闭符伪装双层闭合"
+    ],
+    [
+      "intelligence.tests.test_e2_boundary_closeout",
+      "test_closed_outer_quote_is_opaque_to_other_quote_types[\\u300e-outer1]",
+      "pytest.skip",
+      "同类嵌套由独立测试验证，不能拿一个闭符伪装双层闭合"
+    ],
+    [
+      "intelligence.tests.test_finance_query_contains",
+      "test_contains_filter_executes_against_real_duckdb",
+      "pytest.skip",
+      "需要本地 market_feature_store.duckdb"
+    ],
+    [
+      "intelligence.tests.test_finance_query_contains",
+      "test_contains_matches_same_rows_as_equality",
+      "pytest.skip",
+      "需要本地 market_feature_store.duckdb"
+    ],
+    [
+      "intelligence.tests.test_finance_query_contains",
+      "test_contains_never_raises_on_ordinary_values[%]",
+      "pytest.skip",
+      "需要本地 market_feature_store.duckdb"
+    ],
+    [
+      "intelligence.tests.test_finance_query_contains",
+      "test_contains_never_raises_on_ordinary_values[AI]",
+      "pytest.skip",
+      "需要本地 market_feature_store.duckdb"
+    ],
+    [
+      "intelligence.tests.test_finance_query_contains",
+      "test_contains_never_raises_on_ordinary_values[\\\\]",
+      "pytest.skip",
+      "需要本地 market_feature_store.duckdb"
+    ],
+    [
+      "intelligence.tests.test_finance_query_contains",
+      "test_contains_never_raises_on_ordinary_values[\\u670d\\u52a1]",
+      "pytest.skip",
+      "需要本地 market_feature_store.duckdb"
+    ],
+    [
+      "intelligence.tests.test_finance_query_contains",
+      "test_contains_never_raises_on_ordinary_values[\\u7b97\\u529b]",
+      "pytest.skip",
+      "需要本地 market_feature_store.duckdb"
+    ],
+    [
+      "intelligence.tests.test_finance_query_contains",
+      "test_contains_still_escapes_sql_wildcards",
+      "pytest.skip",
+      "需要本地 market_feature_store.duckdb"
+    ],
+    [
+      "intelligence.tests.test_fine_grained_route_length_gate",
+      "test_kol_review_example_preexisting_miss",
+      "pytest.xfail",
+      "存量缺陷，与长度闸无关：该 example 与 kol_review 自己的路由 pattern 对不上，在未改动的生产快照（2efdff46）上同样返回 None。修好 pattern 后此处转 XPASS，到时移除本标记并把该例并入 ROUTE_EXAMPLES。"
+    ],
+    [
+      "intelligence.tests.test_kb_receipt_integration",
+      "test_deployed_code_root_binds_worker_and_cli_to_argument_wiki",
+      "pytest.skip",
+      "跨仓验收需显式 KB_RECEIPT_CODE_ROOT；未验证生产兼容性"
+    ],
+    [
+      "intelligence.tests.test_kb_receipt_integration",
+      "test_real_cli_enforces_grade_review_and_available_time",
+      "pytest.skip",
+      "跨仓验收需显式 KB_RECEIPT_CODE_ROOT；未验证生产兼容性"
+    ],
+    [
+      "intelligence.tests.test_kb_receipt_integration",
+      "test_real_old_metadata_empty_receipt_remains_visible",
+      "pytest.skip",
+      "跨仓验收需显式 KB_RECEIPT_CODE_ROOT；未验证生产兼容性"
+    ],
+    [
+      "intelligence.tests.test_kb_receipt_integration",
+      "test_real_worker_and_cli_preserve_context_then_recheck_source_conflict",
+      "pytest.skip",
+      "跨仓验收需显式 KB_RECEIPT_CODE_ROOT；未验证生产兼容性"
+    ],
+    [
+      "intelligence.tests.test_openai_agents_runtime",
+      "test_real_sdk_glm_smoke",
+      "pytest.skip",
+      "real OpenAI Agents SDK smoke is opt-in"
+    ],
+    [
+      "intelligence.tests.test_pytest_collection_scope",
+      "test_the_gate_is_what_keeps_collection_clean",
+      "pytest.skip",
+      "本机 tmp/ 下没有带 tests/__init__.py 的历史工作 clone，无冲突源可供变异——上一条用例此时证明的是「本机干净」，不是「门禁有效」。"
+    ],
+    [
+      "intelligence.tests.test_teaching_framework_river_objects",
+      "test_river_slice_is_byte_identical_without_the_sidecar_and_strict_pit_filters_it",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_build_bp_public",
+      "test_broken_table_rejected",
+      "pytest.skip",
+      "被测脚本未提交进仓：scripts/build_bp_public.py（提交后本组用例自动恢复）"
+    ],
+    [
+      "tests.test_build_bp_public",
+      "test_contribution_and_thresholds",
+      "pytest.skip",
+      "被测脚本未提交进仓：scripts/build_bp_public.py（提交后本组用例自动恢复）"
+    ],
+    [
+      "tests.test_build_bp_public",
+      "test_duplicate_markers_rejected",
+      "pytest.skip",
+      "被测脚本未提交进仓：scripts/build_bp_public.py（提交后本组用例自动恢复）"
+    ],
+    [
+      "tests.test_build_bp_public",
+      "test_generated_copy_current",
+      "pytest.skip",
+      "被测脚本未提交进仓：scripts/build_bp_public.py（提交后本组用例自动恢复）"
+    ],
+    [
+      "tests.test_build_bp_public",
+      "test_later_development_only_changes_later_months",
+      "pytest.skip",
+      "被测脚本未提交进仓：scripts/build_bp_public.py（提交后本组用例自动恢复）"
+    ],
+    [
+      "tests.test_build_bp_public",
+      "test_missing_artifacts_are_rejected_not_rewritten[/Users/private]",
+      "pytest.skip",
+      "被测脚本未提交进仓：scripts/build_bp_public.py（提交后本组用例自动恢复）"
+    ],
+    [
+      "tests.test_build_bp_public",
+      "test_missing_artifacts_are_rejected_not_rewritten[\\u3010\\u5f85\\u586b\\uff1a\\u5f55\\u5c4f\\u3011]",
+      "pytest.skip",
+      "被测脚本未提交进仓：scripts/build_bp_public.py（提交后本组用例自动恢复）"
+    ],
+    [
+      "tests.test_build_bp_public",
+      "test_missing_artifacts_are_rejected_not_rewritten[\\u968f\\u672c\\u6750\\u6599\\u63d0\\u4ea4]",
+      "pytest.skip",
+      "被测脚本未提交进仓：scripts/build_bp_public.py（提交后本组用例自动恢复）"
+    ],
+    [
+      "tests.test_build_bp_public",
+      "test_missing_artifacts_are_rejected_not_rewritten[{{unknown}}]",
+      "pytest.skip",
+      "被测脚本未提交进仓：scripts/build_bp_public.py（提交后本组用例自动恢复）"
+    ],
+    [
+      "tests.test_build_bp_public",
+      "test_missing_stage_rejected",
+      "pytest.skip",
+      "被测脚本未提交进仓：scripts/build_bp_public.py（提交后本组用例自动恢复）"
+    ],
+    [
+      "tests.test_build_bp_public",
+      "test_only_public_block_exported",
+      "pytest.skip",
+      "被测脚本未提交进仓：scripts/build_bp_public.py（提交后本组用例自动恢复）"
+    ],
+    [
+      "tests.test_build_bp_public",
+      "test_positioning_and_current_support",
+      "pytest.skip",
+      "被测脚本未提交进仓：scripts/build_bp_public.py（提交后本组用例自动恢复）"
+    ],
+    [
+      "tests.test_build_bp_public",
+      "test_staged_development_and_full_test_inference",
+      "pytest.skip",
+      "被测脚本未提交进仓：scripts/build_bp_public.py（提交后本组用例自动恢复）"
+    ],
+    [
+      "tests.test_code_map",
+      "test_cli_empty_json_status_empty",
+      "pytest.skip",
+      "本机已有图；空图 CLI 由 tmp 夹具覆盖"
+    ],
+    [
+      "tests.test_code_map",
+      "test_cli_empty_tree_exits_2_and_one_line_forbids_overview",
+      "pytest.skip",
+      "本机已有图；空图 CLI 由 tmp 夹具覆盖"
+    ],
+    [
+      "tests.test_code_map",
+      "test_query_empty_graph_exits_0_and_refuses_structure",
+      "pytest.skip",
+      "本机已有图；空图 query 由 tmp 夹具覆盖"
+    ],
+    [
+      "tests.test_market_deviation_backfill",
+      "test_偏离度就是收盘对周均线的百分比",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_market_deviation_backfill",
+      "test_周均线是日MA5不是55周均线",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_market_deviation_backfill",
+      "test_回填不覆盖任何已有值",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_market_deviation_backfill",
+      "test_来源必须可分辨_不得把存量冒充抓取",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_market_deviation_backfill",
+      "test_覆盖率与阈值线读数自洽",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_cutoff_guard.TestCutoffRejected",
+      "test_earlier_cutoff_is_allowed",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_cutoff_guard.TestCutoffRejected",
+      "test_equal_cutoff_is_allowed",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_cutoff_guard.TestCutoffRejected",
+      "test_explicit_opt_in_marks_the_slice",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_cutoff_guard.TestCutoffRejected",
+      "test_future_cutoff_raises",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_cutoff_guard.TestCutoffRejected",
+      "test_hindsight_and_require_strict_are_mutually_exclusive",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_cutoff_guard.TestCutoffRejected",
+      "test_one_day_after_also_raises",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_query",
+      "test_市场阶段两套写法必须先归一",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_query",
+      "test_归一确实合并了库里真实存在的两套写法",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_query",
+      "test_横扫幂等",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_query",
+      "test_筛选结果满足两个显式阈值",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_query",
+      "test_舆论排序用近_90_日而不是累计",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_query",
+      "test_队列小于_MIN_N_时不出率",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_query",
+      "test_阳性对照_真值为强信号的队列必须判_supported",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_query",
+      "test_阴性对照_随机队列必须判_not_distinguishable",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_query",
+      "test_零覆盖不参与舆论分位",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_ref_保留当天真实代码不被归一改写",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_require_strict_滤掉晚于_cutoff_的对象",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_产业基本面文档接进舆论轨",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_产业文档不参与任何度量",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_任何一条轨都不得用空列表冒充零",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_六个维度就是终局钦定的那六条",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_六条轨都有结果_要么对象要么缺口",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_判断轨按实体精确匹配_不串轨",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_判断轨的_ref_用记录自带的稳定_id",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_实体解析不做模糊匹配",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_实体身份跨供应商换源必须稳定",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_幂等_同一入参两次调用逐字段相同",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_归一的是身份不是可比性",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_每个对象都能回溯到主数据",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_空切片不得报_strict",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_索引层不持有主数据副本",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_缺轨返回_Gap_且写明原因",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_舆论轨不发明阶段词",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_舆论轨用_created_at_不用_updated_at",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_slice",
+      "test_题材轨用已解析的整数而不是字符串",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_window",
+      "test_区间特征可回溯到表和列",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_window",
+      "test_无共有维的窗口单列而不是塞进簇",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_window",
+      "test_窗口按交易日取而不是自然日",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_window",
+      "test_缺数留_None_不补零",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_window",
+      "test_聚类幂等",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_window",
+      "test_退出签名的维度必须如实报而不是当成零",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_window",
+      "test_阳性对照_量纲差很远的窗口必须被分开",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ],
+    [
+      "tests.test_river_window",
+      "test_阴性对照_阈值放大后会并成一簇",
+      "pytest.skip",
+      "需要真库 db/market_feature_store.duckdb"
+    ]
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "revision": "f90fd3dc3ba10a9a00f7264f92d3ec959b2ba682",
+  "mutations": [
+    {
+      "name": "legacy_optional_field",
+      "exit_code": 1,
+      "failures": [
+        "test_nullable_history_metadata_preserves_ordinary_prior_evidence[True]"
+      ],
+      "errors": 0
+    },
+    {
+      "name": "nested_validation",
+      "exit_code": 1,
+      "failures": [
+        "test_history_metadata_shape_is_strict_even_with_updated_hash[changes0]",
+        "test_history_metadata_shape_is_strict_even_with_updated_hash[changes1]",
+        "test_history_metadata_shape_is_strict_even_with_updated_hash[changes2]",
+        "test_history_metadata_shape_is_strict_even_with_updated_hash[changes3]",
+        "test_history_metadata_shape_is_strict_even_with_updated_hash[changes4]",
+        "test_history_metadata_shape_is_strict_even_with_updated_hash[changes5]",
+        "test_history_metadata_shape_is_strict_even_with_updated_hash[changes6]",
+        "test_history_metadata_shape_is_strict_even_with_updated_hash[changes7]"
+      ],
+      "errors": 0
+    },
+    {
+      "name": "source_digest",
+      "exit_code": 1,
+      "failures": [
+        "test_history_reconstruction_does_not_drop_or_rebind_identity[row_hash]"
+      ],
+      "errors": 0
+    },
+    {
+      "name": "reader_identity",
+      "exit_code": 1,
+      "failures": [
+        "test_same_source_row_keeps_hash_across_query_and_reader_tools"
+      ],
+      "errors": 0
+    },
+    {
+      "name": "stable_packing",
+      "exit_code": 1,
+      "failures": [
+        "test_persisted_key_order_does_not_change_chunk_boundaries"
+      ],
+      "errors": 0
+    },
+    {
+      "name": "block_observations",
+      "exit_code": 1,
+      "failures": [
+        "test_split_card_only_carries_its_own_visible_observations"
+      ],
+      "errors": 0
+    },
+    {
+      "name": "qualification_identity",
+      "exit_code": 1,
+      "failures": [
+        "test_history_verifier_qualification[decision]",
+        "test_history_verifier_qualification[missing]",
+        "test_history_verifier_qualification[row_hash]",
+        "test_history_verifier_qualification[dictionary]",
+        "test_history_verifier_qualification[locator]",
+        "test_history_verifier_qualification[query_key]"
+      ],
+      "errors": 0
+    },
+    {
+      "name": "public_chunk_identity",
+      "exit_code": 1,
+      "failures": [
+        "test_chunked_row_has_distinct_public_citations_and_stable_overlapping_page"
+      ],
+      "errors": 0
+    }
+  ]
+}

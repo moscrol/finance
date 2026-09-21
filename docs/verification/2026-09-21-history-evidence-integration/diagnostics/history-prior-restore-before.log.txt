@@ -1,0 +1,306 @@
+F..................FFFF..........FF                                      [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T095935Z-c827ed74.json
+
+=================================== FAILURES ===================================
+_______ test_only_original_local_atoms_are_restored_without_old_targets ________
+
+source = (<intelligence.services.run_store.RunStore object at 0x107ed9b80>, Run(run_id='run_20260921_175933_576675', user='alic...text': {'information_cutoff': {'as_of_date': '2026-09-18'}}, ...}, <function source.<locals>.save at 0x10a90ea20>, ...)
+
+    def test_only_original_local_atoms_are_restored_without_old_targets(source):
+        _, run, messages, frame, _, _, load = source
+>       snapshot = load()
+
+intelligence/tests/test_prior_evidence.py:59: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/tests/test_prior_evidence.py:52: in load
+    return load_previous_evidence(frame, messages=messages, store=store,
+intelligence/services/prior_evidence.py:201: in load_previous_evidence
+    atom = _original_atom(row)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+raw = {'content_hash': 'external', 'contradicts': [], 'deep_read': False, 'derived_from': [], ...}
+
+    def _original_atom(raw: object) -> AgentEvidence:
+        """Reconstruct the complete stored schema without coercing or dropping fields."""
+        if not isinstance(raw, dict) or set(raw) != {field.name for field in fields(AgentEvidence)}:
+            raise ValueError("incomplete or unknown prior evidence schema")
+        values = dict(raw)
+        sequences = {"supports", "contradicts", "derived_from", "observations"}
+        nullable = {"source_date", "reexcerpted", "pointer_dropped", "structural_neighbor_demoted"}
+        for key in set(raw) - sequences - nullable - {"deep_read"}:
+            if not isinstance(raw[key], str):
+>               raise ValueError("invalid evidence text field")
+E               ValueError: invalid evidence text field
+
+intelligence/services/prior_evidence.py:114: ValueError
+_____________ test_unqualified_source_dates_are_not_admitted[None] _____________
+
+source = (<intelligence.services.run_store.RunStore object at 0x10aa27d10>, Run(run_id='run_20260921_175934_169880', user='alic...text': {'information_cutoff': {'as_of_date': '2026-09-18'}}, ...}, <function source.<locals>.save at 0x10a9fbd80>, ...)
+day = None
+
+    @pytest.mark.parametrize("day", [None, "2026-09-22", "2026-09-14 garbage"])
+    def test_unqualified_source_dates_are_not_admitted(source, day):
+        _, _, _, _, payload, save, load = source
+        payload["outcome"]["evidence"][1]["source_date"] = day
+        save()
+        with pytest.raises(ValueError, match="no admissible"):
+>           load()
+
+intelligence/tests/test_prior_evidence.py:135: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/tests/test_prior_evidence.py:52: in load
+    return load_previous_evidence(frame, messages=messages, store=store,
+intelligence/services/prior_evidence.py:201: in load_previous_evidence
+    atom = _original_atom(row)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+raw = {'content_hash': 'external', 'contradicts': [], 'deep_read': False, 'derived_from': [], ...}
+
+    def _original_atom(raw: object) -> AgentEvidence:
+        """Reconstruct the complete stored schema without coercing or dropping fields."""
+        if not isinstance(raw, dict) or set(raw) != {field.name for field in fields(AgentEvidence)}:
+            raise ValueError("incomplete or unknown prior evidence schema")
+        values = dict(raw)
+        sequences = {"supports", "contradicts", "derived_from", "observations"}
+        nullable = {"source_date", "reexcerpted", "pointer_dropped", "structural_neighbor_demoted"}
+        for key in set(raw) - sequences - nullable - {"deep_read"}:
+            if not isinstance(raw[key], str):
+>               raise ValueError("invalid evidence text field")
+E               ValueError: invalid evidence text field
+
+intelligence/services/prior_evidence.py:114: ValueError
+
+During handling of the above exception, another exception occurred:
+
+source = (<intelligence.services.run_store.RunStore object at 0x10aa27d10>, Run(run_id='run_20260921_175934_169880', user='alic...text': {'information_cutoff': {'as_of_date': '2026-09-18'}}, ...}, <function source.<locals>.save at 0x10a9fbd80>, ...)
+day = None
+
+    @pytest.mark.parametrize("day", [None, "2026-09-22", "2026-09-14 garbage"])
+    def test_unqualified_source_dates_are_not_admitted(source, day):
+        _, _, _, _, payload, save, load = source
+        payload["outcome"]["evidence"][1]["source_date"] = day
+        save()
+>       with pytest.raises(ValueError, match="no admissible"):
+E       AssertionError: Regex pattern did not match.
+E        Regex: 'no admissible'
+E        Input: 'invalid evidence text field'
+
+intelligence/tests/test_prior_evidence.py:134: AssertionError
+__________ test_unqualified_source_dates_are_not_admitted[2026-09-22] __________
+
+source = (<intelligence.services.run_store.RunStore object at 0x10a9e7320>, Run(run_id='run_20260921_175934_199249', user='alic...text': {'information_cutoff': {'as_of_date': '2026-09-18'}}, ...}, <function source.<locals>.save at 0x10a9fb2e0>, ...)
+day = '2026-09-22'
+
+    @pytest.mark.parametrize("day", [None, "2026-09-22", "2026-09-14 garbage"])
+    def test_unqualified_source_dates_are_not_admitted(source, day):
+        _, _, _, _, payload, save, load = source
+        payload["outcome"]["evidence"][1]["source_date"] = day
+        save()
+        with pytest.raises(ValueError, match="no admissible"):
+>           load()
+
+intelligence/tests/test_prior_evidence.py:135: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/tests/test_prior_evidence.py:52: in load
+    return load_previous_evidence(frame, messages=messages, store=store,
+intelligence/services/prior_evidence.py:201: in load_previous_evidence
+    atom = _original_atom(row)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+raw = {'content_hash': 'external', 'contradicts': [], 'deep_read': False, 'derived_from': [], ...}
+
+    def _original_atom(raw: object) -> AgentEvidence:
+        """Reconstruct the complete stored schema without coercing or dropping fields."""
+        if not isinstance(raw, dict) or set(raw) != {field.name for field in fields(AgentEvidence)}:
+            raise ValueError("incomplete or unknown prior evidence schema")
+        values = dict(raw)
+        sequences = {"supports", "contradicts", "derived_from", "observations"}
+        nullable = {"source_date", "reexcerpted", "pointer_dropped", "structural_neighbor_demoted"}
+        for key in set(raw) - sequences - nullable - {"deep_read"}:
+            if not isinstance(raw[key], str):
+>               raise ValueError("invalid evidence text field")
+E               ValueError: invalid evidence text field
+
+intelligence/services/prior_evidence.py:114: ValueError
+
+During handling of the above exception, another exception occurred:
+
+source = (<intelligence.services.run_store.RunStore object at 0x10a9e7320>, Run(run_id='run_20260921_175934_199249', user='alic...text': {'information_cutoff': {'as_of_date': '2026-09-18'}}, ...}, <function source.<locals>.save at 0x10a9fb2e0>, ...)
+day = '2026-09-22'
+
+    @pytest.mark.parametrize("day", [None, "2026-09-22", "2026-09-14 garbage"])
+    def test_unqualified_source_dates_are_not_admitted(source, day):
+        _, _, _, _, payload, save, load = source
+        payload["outcome"]["evidence"][1]["source_date"] = day
+        save()
+>       with pytest.raises(ValueError, match="no admissible"):
+E       AssertionError: Regex pattern did not match.
+E        Regex: 'no admissible'
+E        Input: 'invalid evidence text field'
+
+intelligence/tests/test_prior_evidence.py:134: AssertionError
+______ test_unqualified_source_dates_are_not_admitted[2026-09-14 garbage] ______
+
+source = (<intelligence.services.run_store.RunStore object at 0x10aa1ccb0>, Run(run_id='run_20260921_175934_230599', user='alic...text': {'information_cutoff': {'as_of_date': '2026-09-18'}}, ...}, <function source.<locals>.save at 0x10a9f8cc0>, ...)
+day = '2026-09-14 garbage'
+
+    @pytest.mark.parametrize("day", [None, "2026-09-22", "2026-09-14 garbage"])
+    def test_unqualified_source_dates_are_not_admitted(source, day):
+        _, _, _, _, payload, save, load = source
+        payload["outcome"]["evidence"][1]["source_date"] = day
+        save()
+        with pytest.raises(ValueError, match="no admissible"):
+>           load()
+
+intelligence/tests/test_prior_evidence.py:135: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/tests/test_prior_evidence.py:52: in load
+    return load_previous_evidence(frame, messages=messages, store=store,
+intelligence/services/prior_evidence.py:201: in load_previous_evidence
+    atom = _original_atom(row)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+raw = {'content_hash': 'external', 'contradicts': [], 'deep_read': False, 'derived_from': [], ...}
+
+    def _original_atom(raw: object) -> AgentEvidence:
+        """Reconstruct the complete stored schema without coercing or dropping fields."""
+        if not isinstance(raw, dict) or set(raw) != {field.name for field in fields(AgentEvidence)}:
+            raise ValueError("incomplete or unknown prior evidence schema")
+        values = dict(raw)
+        sequences = {"supports", "contradicts", "derived_from", "observations"}
+        nullable = {"source_date", "reexcerpted", "pointer_dropped", "structural_neighbor_demoted"}
+        for key in set(raw) - sequences - nullable - {"deep_read"}:
+            if not isinstance(raw[key], str):
+>               raise ValueError("invalid evidence text field")
+E               ValueError: invalid evidence text field
+
+intelligence/services/prior_evidence.py:114: ValueError
+
+During handling of the above exception, another exception occurred:
+
+source = (<intelligence.services.run_store.RunStore object at 0x10aa1ccb0>, Run(run_id='run_20260921_175934_230599', user='alic...text': {'information_cutoff': {'as_of_date': '2026-09-18'}}, ...}, <function source.<locals>.save at 0x10a9f8cc0>, ...)
+day = '2026-09-14 garbage'
+
+    @pytest.mark.parametrize("day", [None, "2026-09-22", "2026-09-14 garbage"])
+    def test_unqualified_source_dates_are_not_admitted(source, day):
+        _, _, _, _, payload, save, load = source
+        payload["outcome"]["evidence"][1]["source_date"] = day
+        save()
+>       with pytest.raises(ValueError, match="no admissible"):
+E       AssertionError: Regex pattern did not match.
+E        Regex: 'no admissible'
+E        Input: 'invalid evidence text field'
+
+intelligence/tests/test_prior_evidence.py:134: AssertionError
+______________ test_current_cutoff_and_target_frame_are_rechecked ______________
+
+source = (<intelligence.services.run_store.RunStore object at 0x10a9e7470>, Run(run_id='run_20260921_175934_262402', user='alic...text': {'information_cutoff': {'as_of_date': '2026-09-18'}}, ...}, <function source.<locals>.save at 0x10a9d7a60>, ...)
+
+    def test_current_cutoff_and_target_frame_are_rechecked(source):
+        *_, load = source
+>       snapshot = load()
+
+intelligence/tests/test_prior_evidence.py:140: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/tests/test_prior_evidence.py:52: in load
+    return load_previous_evidence(frame, messages=messages, store=store,
+intelligence/services/prior_evidence.py:201: in load_previous_evidence
+    atom = _original_atom(row)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+raw = {'content_hash': 'external', 'contradicts': [], 'deep_read': False, 'derived_from': [], ...}
+
+    def _original_atom(raw: object) -> AgentEvidence:
+        """Reconstruct the complete stored schema without coercing or dropping fields."""
+        if not isinstance(raw, dict) or set(raw) != {field.name for field in fields(AgentEvidence)}:
+            raise ValueError("incomplete or unknown prior evidence schema")
+        values = dict(raw)
+        sequences = {"supports", "contradicts", "derived_from", "observations"}
+        nullable = {"source_date", "reexcerpted", "pointer_dropped", "structural_neighbor_demoted"}
+        for key in set(raw) - sequences - nullable - {"deep_read"}:
+            if not isinstance(raw[key], str):
+>               raise ValueError("invalid evidence text field")
+E               ValueError: invalid evidence text field
+
+intelligence/services/prior_evidence.py:114: ValueError
+_ test_actual_loop_sees_remapped_originals_without_tools_or_inherited_coverage _
+
+source = (<intelligence.services.run_store.RunStore object at 0x10a9e6d50>, Run(run_id='run_20260921_175934_453746', user='alic...text': {'information_cutoff': {'as_of_date': '2026-09-18'}}, ...}, <function source.<locals>.save at 0x10a9fa2a0>, ...)
+
+    def test_actual_loop_sees_remapped_originals_without_tools_or_inherited_coverage(source):
+        from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+        from intelligence.services.research_tool_registry import ResearchToolRegistry
+        from intelligence.tests.test_agent_episode import ScriptedModel
+    
+        _, _, _, frame, _, _, load = source
+>       context = replace(build_episode_context(frame, task_id="current"), prior_evidence=load())
+
+intelligence/tests/test_prior_evidence.py:190: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/tests/test_prior_evidence.py:52: in load
+    return load_previous_evidence(frame, messages=messages, store=store,
+intelligence/services/prior_evidence.py:201: in load_previous_evidence
+    atom = _original_atom(row)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+raw = {'content_hash': 'external', 'contradicts': [], 'deep_read': False, 'derived_from': [], ...}
+
+    def _original_atom(raw: object) -> AgentEvidence:
+        """Reconstruct the complete stored schema without coercing or dropping fields."""
+        if not isinstance(raw, dict) or set(raw) != {field.name for field in fields(AgentEvidence)}:
+            raise ValueError("incomplete or unknown prior evidence schema")
+        values = dict(raw)
+        sequences = {"supports", "contradicts", "derived_from", "observations"}
+        nullable = {"source_date", "reexcerpted", "pointer_dropped", "structural_neighbor_demoted"}
+        for key in set(raw) - sequences - nullable - {"deep_read"}:
+            if not isinstance(raw[key], str):
+>               raise ValueError("invalid evidence text field")
+E               ValueError: invalid evidence text field
+
+intelligence/services/prior_evidence.py:114: ValueError
+_____________ test_frozen_scope_exempts_only_restored_prior_atoms ______________
+
+source = (<intelligence.services.run_store.RunStore object at 0x106e90650>, Run(run_id='run_20260921_175934_861909', user='alic...text': {'information_cutoff': {'as_of_date': '2026-09-18'}}, ...}, <function source.<locals>.save at 0x106e5efc0>, ...)
+
+    def test_frozen_scope_exempts_only_restored_prior_atoms(source):
+        """P6 冻结范围规则 × #819 旧输入恢复：只有原件校验过的旧 hash 可绑，本轮新读仍拒。"""
+        from intelligence.services.agent_runtime import OutputEvidenceBinding
+        from intelligence.services.material_grounding import binding_source_errors, grounding_scope
+    
+        _, _, _, frame, _, _, load = source
+        # 独立的 episode id：root budget 按 live episode 去重，复用 "current" 会撞上一条测试的预算。
+        contract = build_episode_context(frame, task_id="frozen-scope-check").contract
+        assert grounding_scope(contract) == "material_only"
+>       prior = frozenset(item.content_hash for _, item in load().entries)
+
+intelligence/tests/test_prior_evidence.py:231: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/tests/test_prior_evidence.py:52: in load
+    return load_previous_evidence(frame, messages=messages, store=store,
+intelligence/services/prior_evidence.py:201: in load_previous_evidence
+    atom = _original_atom(row)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+raw = {'content_hash': 'external', 'contradicts': [], 'deep_read': False, 'derived_from': [], ...}
+
+    def _original_atom(raw: object) -> AgentEvidence:
+        """Reconstruct the complete stored schema without coercing or dropping fields."""
+        if not isinstance(raw, dict) or set(raw) != {field.name for field in fields(AgentEvidence)}:
+            raise ValueError("incomplete or unknown prior evidence schema")
+        values = dict(raw)
+        sequences = {"supports", "contradicts", "derived_from", "observations"}
+        nullable = {"source_date", "reexcerpted", "pointer_dropped", "structural_neighbor_demoted"}
+        for key in set(raw) - sequences - nullable - {"deep_read"}:
+            if not isinstance(raw[key], str):
+>               raise ValueError("invalid evidence text field")
+E               ValueError: invalid evidence text field
+
+intelligence/services/prior_evidence.py:114: ValueError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_prior_evidence.py::test_only_original_local_atoms_are_restored_without_old_targets
+FAILED intelligence/tests/test_prior_evidence.py::test_unqualified_source_dates_are_not_admitted[None]
+FAILED intelligence/tests/test_prior_evidence.py::test_unqualified_source_dates_are_not_admitted[2026-09-22]
+FAILED intelligence/tests/test_prior_evidence.py::test_unqualified_source_dates_are_not_admitted[2026-09-14 garbage]
+FAILED intelligence/tests/test_prior_evidence.py::test_current_cutoff_and_target_frame_are_rechecked
+FAILED intelligence/tests/test_prior_evidence.py::test_actual_loop_sees_remapped_originals_without_tools_or_inherited_coverage
+FAILED intelligence/tests/test_prior_evidence.py::test_frozen_scope_exempts_only_restored_prior_atoms
+7 failed, 28 passed in 1.91s

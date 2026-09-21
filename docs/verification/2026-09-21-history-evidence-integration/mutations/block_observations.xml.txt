@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.320" timestamp="2026-09-21T19:30:41.857276+08:00" hostname="77deMacBook-Air.local"><testcase classname="tests.test_history_evidence_binding" name="test_split_card_only_carries_its_own_visible_observations" time="0.003"><failure message="AssertionError: assert {'feature_0':...: 1011.0, ...} == {'feature_0':...ure_10': 1010}&#10;  &#10;  Omitting 3 identical items, use -vv to show&#10;  Left contains 18 more items:&#10;  {'feature_11': 1011.0,&#10;   'feature_12': 1012.0,&#10;   'feature_13': 1013.0,&#10;   'feature_14': 1014.0,...&#10;  &#10;  ...Full output truncated (15 lines hidden), use '-vv' to show">def test_split_card_only_carries_its_own_visible_observations():
+        row = _row(0)
+        row["features"].update({f"feature_{i}": 1000 + i for i in range(20)})
+        result = _hashed_result(_payload([row]))
+        cards = [card for card in result.evidence if card.history_provenance.row_index == 0]
+        assert len(cards) &gt; 1
+        recovered = {}
+        for card in cards:
+            detail = json.loads(card.detail)
+            visible = detail.get("features", {})
+&gt;           assert {obs.metric: obs.value for obs in card.observations} == visible
+E           AssertionError: assert {'feature_0':...: 1011.0, ...} == {'feature_0':...ure_10': 1010}
+E             
+E             Omitting 3 identical items, use -vv to show
+E             Left contains 18 more items:
+E             {'feature_11': 1011.0,
+E              'feature_12': 1012.0,
+E              'feature_13': 1013.0,
+E              'feature_14': 1014.0,...
+E             
+E             ...Full output truncated (15 lines hidden), use '-vv' to show
+
+tests/test_history_evidence_binding.py:261: AssertionError</failure></testcase></testsuite></testsuites>

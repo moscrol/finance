@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="2" time="2.018" timestamp="2026-09-21T19:30:30.005417+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_prior_evidence" name="test_nullable_history_metadata_preserves_ordinary_prior_evidence[False]" time="0.907" /><testcase classname="intelligence.tests.test_prior_evidence" name="test_nullable_history_metadata_preserves_ordinary_prior_evidence[True]" time="0.062"><failure message="ValueError: incomplete or unknown prior evidence schema">source = (&lt;intelligence.services.run_store.RunStore object at 0x10ebb79b0&gt;, Run(run_id='run_20260921_193031_747555', user='alic...text': {'information_cutoff': {'as_of_date': '2026-09-18'}}, ...}, &lt;function source.&lt;locals&gt;.save at 0x10eb27f60&gt;, ...)
+legacy = True
+
+    @pytest.mark.parametrize("legacy", [False, True])
+    def test_nullable_history_metadata_preserves_ordinary_prior_evidence(source, legacy):
+        _, _, _, _, payload, save, load = source
+        if legacy:
+            for row in payload["outcome"]["evidence"]:
+                row.pop("history_provenance")
+        save()
+&gt;       assert load().entries[0][1] == replace(_atom(), supports=())
+
+intelligence/tests/test_prior_evidence.py:145: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/tests/test_prior_evidence.py:52: in load
+    return load_previous_evidence(frame, messages=messages, store=store,
+intelligence/services/prior_evidence.py:223: in load_previous_evidence
+    atom = _original_atom(row)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+raw = {'content_hash': 'external', 'contradicts': [], 'deep_read': False, 'derived_from': [], ...}
+
+    def _original_atom(raw: object) -&gt; AgentEvidence:
+        """Reconstruct the complete stored schema without coercing or dropping fields."""
+        expected = {field.name for field in fields(AgentEvidence)}
+        if not isinstance(raw, dict) or set(raw) not in (expected, expected - {"history_provenance"}):
+&gt;           raise ValueError("incomplete or unknown prior evidence schema")
+E           ValueError: incomplete or unknown prior evidence schema
+
+intelligence/services/prior_evidence.py:111: ValueError</failure></testcase></testsuite></testsuites>
