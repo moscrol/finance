@@ -1,0 +1,14 @@
+{
+  "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+  "parents": [
+    "728f327160bbd2485cb635e7ef09d040d718d7b5",
+    "6c74fa012b1cc79168b72368e262775b66df70f7",
+    "5994230dadcf23ec0a17c0b27e3a649d782ecf94",
+    "cdf6647cfe852bd19c23df0408b4bc2af306da6f"
+  ],
+  "status": "",
+  "base": "728f327160bbd2485cb635e7ef09d040d718d7b5",
+  "remote_main": "728f327160bbd2485cb635e7ef09d040d718d7b5",
+  "code_diff_from_v2": " scripts/main_gate_receipt.py    | 11 ++++++-----\n tests/test_main_gate_receipt.py | 21 +++++++++++++++++++++\n 2 files changed, 27 insertions(+), 5 deletions(-)",
+  "runtime_symlink": "/Users/a77/.finance-runtime/finance-workspace-bf662e9310ff"
+}

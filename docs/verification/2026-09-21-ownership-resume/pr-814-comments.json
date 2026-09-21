@@ -1,0 +1,20 @@
+[
+  {
+    "id": 5131,
+    "state": null,
+    "body": "First combined gate 321712b6 is NOT green: pytest process passed 12059/85S/2X, but readback exited 4 because the nested collect-only pytest inherited and claimed the parent receipt path. The zero-count receipt and failure log are preserved, never rewritten. Added real subprocess regression: old candidate 2F; repair d5d807f80 gives 49 related passes. The hook now reserves ownership at configure time; descendants cannot write the parent file. Rechecking the new frozen combination e1b63b1a across all leaves in a separate clean tree. This remains author validation, not independent PASS or merge permission.",
+    "created_at": "2026-09-21T04:36:24+08:00",
+    "submitted_at": null,
+    "commit_id": null,
+    "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/814#issuecomment-5131"
+  },
+  {
+    "id": 5139,
+    "state": null,
+    "body": "Second fixed combination e1b63b1a5b7c066b7377bbd2d005051863331001 includes d5d807f805629c7e3458d3de0e6954afb287eb69. Author gates pass: Python 12061 passed / 85 skipped / 2 xfailed and receipt readback 0; frontend 110 passed, E2E 34 passed / 2 skipped; Ruff and finance-only registry five checks 0. The real nested collect-only regression passes through the gate at 1 passed / 1 skipped and cannot overwrite the parent receipt. First-round zero-count receipt remains archived and was not rewritten. No independent Spec/Quality verdict or merge authorization.",
+    "created_at": "2026-09-21T04:48:14+08:00",
+    "submitted_at": null,
+    "commit_id": null,
+    "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/814#issuecomment-5139"
+  }
+]

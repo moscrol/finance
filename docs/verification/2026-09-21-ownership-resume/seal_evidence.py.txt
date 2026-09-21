@@ -1,0 +1,86 @@
+"""Seal this finite ownership-resume run without rewriting any prior archive.
+
+Run after all v3 leaves and post-gate checks complete. Refuses an existing
+archive. Every copied byte is verified; README is authored before sealing.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import shutil
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+DEST = Path.home() / "fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-resume"
+TREE = Path.home() / "fwp-wt-ownership-gates-v3-0921"
+SHA = "47530e20fe5c3195e50ce429b31898d57918e413"
+BASE = "728f327160bbd2485cb635e7ef09d040d718d7b5"
+
+
+def git(*args):
+    return subprocess.run(["git", *args], cwd=TREE, check=True, text=True,
+                          capture_output=True, timeout=20).stdout.rstrip("\n")
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+assert git("rev-parse", "HEAD") == SHA
+assert git("rev-parse", "gitea/main") == BASE
+assert git("ls-remote", "gitea", "refs/heads/main").split()[0] == BASE
+assert git("status", "--porcelain=v1") == ""
+for leaf in ("python", "frontend", "registry"):
+    record = json.loads((ROOT / "v3" / leaf / "run.json").read_text())
+    assert record["complete"] is True and record["exit_code"] == 0
+    assert record["identity_before"] == record["identity_after"] == {
+        "revision": SHA, "status": "", "main": BASE,
+    }
+    for check in record["checks"]:
+        assert check["exit_code"] == 0
+        assert sha(Path(check["log"])) == check["sha256"]
+frontend_root = ROOT / "v3/frontend/gate"
+frontend = json.loads((frontend_root / "frontend.json").read_text())
+assert frontend["complete"] is True and frontend["identity_stable"] is True
+assert frontend["dirty"] is False and frontend["exit_code"] == 0
+assert len(frontend["checks"]) == 6
+for check in frontend["checks"]:
+    log = frontend_root / check["log"]
+    assert check["exit_code"] == 0 and sha(log) == check["log_sha256"]
+    assert log.stat().st_size == check["log_bytes"]
+receipts = list((ROOT / "v3/python/receipts").glob("gate-*/pytest.json"))
+assert len(receipts) == 1
+receipt = json.loads(receipts[0].read_text())
+assert receipt["revision"] == SHA and receipt["tree"] == str(TREE)
+assert receipt["dirty"] is False and receipt["worktree_dirty_total"] == 0
+assert receipt["exit_status"] == 0 and receipt["counts"]["passed"] > 0
+assert receipt["counts"]["failed"] == receipt["counts"]["error"] == 0
+assert receipt["target"] == str(TREE)
+assert (ROOT / "v3/receipt-readback.exit").read_text().strip() == "0"
+assert (ROOT / "v3/receipt-compatibility.exit").read_text().strip() == "0"
+assert (ROOT / "README.md").is_file()
+assert not DEST.exists(), "refuse to replace an existing evidence archive"
+files = []
+for source in sorted(ROOT.rglob("*")):
+    if not source.is_file() or source.is_symlink():
+        continue
+    rel = source.relative_to(ROOT)
+    if "__pycache__" in rel.parts or ".ruff_cache" in rel.parts:
+        continue
+    if source.suffix in (".log", ".py"):
+        rel = Path(str(rel) + ".txt")
+    files.append((rel, source))
+DEST.mkdir()
+manifest = {"revision": SHA, "base": BASE, "tree": str(TREE),
+            "gate_passed": True, "independent_review": "not_obtained",
+            "readme_is_archive_documentation": True, "files": []}
+for rel, source in files:
+    target = DEST / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, target)
+    assert target.read_bytes() == source.read_bytes()
+    manifest["files"].append({"path": str(rel), "source": str(source),
+                               "sha256": sha(target), "bytes": target.stat().st_size})
+(DEST / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+print(json.dumps({"archive": str(DEST), "files": len(files), "revision": SHA}))

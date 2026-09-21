@@ -1,0 +1,17 @@
+{
+  "number": 816,
+  "title": "WIP: FinArena main-ready candidate and boundary fixes",
+  "state": "open",
+  "merged": false,
+  "updated_at": "2026-09-21T06:57:13+08:00",
+  "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/816",
+  "body": "前向整合原 PR #811（feat/finance-arena@7162a6cbe304）到当前 gitea/main@728f327160bb。\n\n候选尖：a8fab956bd1368518013fc3e80c892ddd0d914d0；固定组合验收尖：b8292d235a8843d46d9f8cecd62a95567d7d7b1a。\n\n本候选修复：\n- allow_local 仅允许解析结果全部为 loopback 的本机 HTTP；\n- 轮询每次校验远端 run_id，不匹配则失败且不生成可发布 Match；\n- 榜单比赛/投票查询放入 SQLite 读事务，避免并发发布产生不一致快照。\n\n作者工程证据：~/.finance-runtime/reviews/arena-main-ready-v2-20260921/evidence/README.md\n- 全仓 Python 12104P/85S/2X；Arena Python 43P；前端通用六项全绿；Arena E2E 8P；七档 smoke 全绿；registry 五项全绿；组合树干净且 merge-tree 无冲突。\n\n边界：这是作者工程门禁，不是独立 Spec/Quality PASS；不代表 main 合入、8792/生产部署、真实远程 Agent 调用或策略业务验收。原 #811 保持 WIP，不改写、不删除。",
+  "head": {
+    "ref": "fix/arena-main-ready-0921",
+    "sha": "a8fab956bd1368518013fc3e80c892ddd0d914d0"
+  },
+  "base": {
+    "ref": "main",
+    "sha": "728f327160bbd2485cb635e7ef09d040d718d7b5"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "number": 813,
+  "title": "WIP: integrate 302132 backfill acceptance on current main",
+  "state": "open",
+  "merged": false,
+  "updated_at": "2026-09-21T04:54:18+08:00",
+  "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/813",
+  "body": "## 范围\n\n把旧 fix/backfill-acceptance-closeout-0920@1fd34dc7（代码修复be3f2930）前向整合到 gitea/main@728f3271，只新增/调整4个源码与测试文件。原树、原提交、原证据保留，未执行生产回填、未切8792。\n\n代码冻结400d02dd890af165095ceeea1c95e143ab555f5c；最终分支尖e13ec702仅增加文档/证据。`git diff 400d02dd HEAD -- . ':!docs'`为空；最终与728f3271的merge-tree无冲突。\n\n## 验证\n\n- 固定代码400d02dd干净树：Python12017P/85S/2X，全仓Ruff通过；前端110P、E2E34P/2S，lint/typecheck/build通过；finance-only registry五项退出0。\n- Python真实收据：20260920T193037Z-400d02dd.json，exit_status=0、dirty=false、worktree_dirty_total=0；完整SHA及base-drift0校验通过。\n- 最终e13ec702干净树定向104P；收据 /Users/a77/.finance-runtime/test-receipts/20260920T193559Z-e13ec702.json。\n- 400d02dd的全量收据不移签文档尖e13ec702。\n- 首轮Python包装器rc1：FWP_TEST_RECEIPT_DIR未被conftest采用，包装找错收据目录并触发错误提示变量问题。原失败保留；显式--receipt读取真实收据和严格身份校验均0。未把首轮包装器写成通过。\n- 首轮前端完整SHA参数填错被rc2拒绝；后续新目录重跑通过，原失败保留。\n\n## 尚缺\n\n没有本轮独立Spec/Quality裁决，没有真实冻结输入/生产库/原子发布的业务验收。分支名main-ready只是推进目标，不是合入批准。保持WIP，合main、生产执行各需用户确认。\n\n## 交接与原件\n\n- docs/handoffs/2026-09-21-backfill-main-ready.md\n- docs/handoffs/inflight/fix-backfill-main-ready-0921.md\n- docs/verification/2026-09-21-backfill-main-ready/（原件及SHA256清单）\n\n本轮归属协调见#812，Arena保全见#811。不关闭原任务或移除原工作树。\n",
+  "head": {
+    "ref": "fix/backfill-main-ready-0921",
+    "sha": "5994230dadcf23ec0a17c0b27e3a649d782ecf94"
+  },
+  "base": {
+    "ref": "main",
+    "sha": "728f327160bbd2485cb635e7ef09d040d718d7b5"
+  }
+}

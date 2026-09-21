@@ -1,0 +1,17 @@
+{
+  "number": 812,
+  "title": "WIP: harden worktree board and record ownership closeout",
+  "state": "open",
+  "merged": false,
+  "updated_at": "2026-09-21T04:56:33+08:00",
+  "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/812",
+  "body": "## 范围\n\n修复工作树看板的安全误判，并交付 2026-09-21 的归属盘点。基准 728f3271，最终分支尖 f42ea549。本 PR 未申请合入，未改生产或原脏树。\n\n- 失效路径、父仓误识别、cherry/status 查询失败均单列未知；保留 locked/prunable。\n- 任何未提交文件都阻止进入可拆候选，保留 Git porcelain 状态列前导空格。\n- 全扫描冻结基准 SHA，避免中途 main 移动混用口径。\n- 历史采样 322 条全保留，按活跃线、已吸收代码、审查原件、接管候选及未决事项逐线登记。\n\n## 验证\n\n- f42ea549 干净树定向 33 passed，Ruff 通过。\n- 收据：/Users/a77/.finance-runtime/test-receipts/20260920T193043Z-f42ea549.json。\n- main 728f3271 的旧脚本运行完整回归文件：18 passed / 9 failed，新增九个反例均能抓红；日志入仓。\n- SessionStart --this 冒烟正常；提交钩子通过。\n- 未运行本候选的全仓 Python/前端/E2E/registry 合流门禁，未取得独立 Spec/Quality，不具备合入签字。\n\n## 交接\n\n见 docs/handoffs/2026-09-21-worktree-ownership-closeout.md、docs/handoffs/inflight/ops-worktree-ownership-closeout-0921.md 与 docs/verification/2026-09-21-worktree-ownership/README.md。\n\n302132 的当前 main 候选单独在 fix/backfill-main-ready-0921，Arena 保全在 WIP #811。复盘会继续停抓；旧 UI 不整文件覆盖 main；所有原树保留。合 main、部署与删除仍需用户确认。\n",
+  "head": {
+    "ref": "ops/worktree-ownership-closeout-0921",
+    "sha": "6c74fa012b1cc79168b72368e262775b66df70f7"
+  },
+  "base": {
+    "ref": "main",
+    "sha": "728f327160bbd2485cb635e7ef09d040d718d7b5"
+  }
+}

@@ -1,0 +1,526 @@
+{
+  "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+  "base": "728f327160bbd2485cb635e7ef09d040d718d7b5",
+  "tree": "/Users/a77/fwp-wt-ownership-gates-v3-0921",
+  "gate_passed": true,
+  "independent_review": "not_obtained",
+  "readme_is_archive_documentation": true,
+  "files": [
+    {
+      "path": "README.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/README.md",
+      "sha256": "d5c1ffb24c695887e3a8d23ab72c7b90b691b84c6c31adaea49ee59df9954f19",
+      "bytes": 5279
+    },
+    {
+      "path": "archive-receipt-check.exit",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/archive-receipt-check.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    {
+      "path": "archive-receipt-check.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/archive-receipt-check.log",
+      "sha256": "9ba92ff59d309a7c2c92fbc8fe0686c03448626c6bbb6136ff5d99afb5f94eae",
+      "bytes": 862
+    },
+    {
+      "path": "existing-archive-integrity.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/existing-archive-integrity.json",
+      "sha256": "9f6f58482e8f926889a704194d2c60c14536e89939a44033214455dcc8b8ba96",
+      "bytes": 727
+    },
+    {
+      "path": "fixture-foreign-tree.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/fixture-foreign-tree.json",
+      "sha256": "1299d35baf974720f307e199eb79b26d5234c46fba4957a3e6dfc3a9502f3304",
+      "bytes": 902
+    },
+    {
+      "path": "fixture-missing-tree.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/fixture-missing-tree.json",
+      "sha256": "b83b1fca39014ed69600cb6052c04895d1e9377aed4177d22c4eefafb3dcd45c",
+      "bytes": 812
+    },
+    {
+      "path": "fixture-non-string-tree.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/fixture-non-string-tree.json",
+      "sha256": "d455371c204fe099ec0ae366b75e3f2a132fcca2ab7f70e0d1d33927767a8012",
+      "bytes": 827
+    },
+    {
+      "path": "fixture-valid-control.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/fixture-valid-control.json",
+      "sha256": "6beeb792455f1f5575061424eced1de06d76a3637f7b3104c9c0fd0061f86ed9",
+      "bytes": 872
+    },
+    {
+      "path": "frontend-launcher.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/frontend-launcher.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "green-receipts/20260921T022558Z-10f79d47-91ee6b05f33a.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/green-receipts/20260921T022558Z-10f79d47-91ee6b05f33a.json",
+      "sha256": "5ffd251214742c9acdf09b3c858bf447d086529c0656d17bcf8cc396a9374a8e",
+      "bytes": 857
+    },
+    {
+      "path": "green-receipts/latest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/green-receipts/latest.json",
+      "sha256": "5ffd251214742c9acdf09b3c858bf447d086529c0656d17bcf8cc396a9374a8e",
+      "bytes": 857
+    },
+    {
+      "path": "launchers.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/launchers.json",
+      "sha256": "2f11f18c95588a6d7f4f40a76ebe5770ade5fc84dcfa8abf4fb7e10495fd742f",
+      "bytes": 148
+    },
+    {
+      "path": "merge-tree-checks.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/merge-tree-checks.json",
+      "sha256": "73a925d34a9e8f6e3739d79938a7c6226d449ebef723872ade5b227a6560332f",
+      "bytes": 967
+    },
+    {
+      "path": "new-helper-old-failed-receipt.exit",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/new-helper-old-failed-receipt.exit",
+      "sha256": "7de1555df0c2700329e815b93b32c571c3ea54dc967b89e81ab73b9972b72d1d",
+      "bytes": 2
+    },
+    {
+      "path": "new-helper-old-failed-receipt.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/new-helper-old-failed-receipt.log",
+      "sha256": "6d5f9b739e5f35da54496c13dee2082a5d8d2cfa11a40e0a35492981ce6114bb",
+      "bytes": 42
+    },
+    {
+      "path": "new-helper-old-valid-receipt.exit",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/new-helper-old-valid-receipt.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    {
+      "path": "new-helper-old-valid-receipt.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/new-helper-old-valid-receipt.log",
+      "sha256": "23d920888fcca58be17f0162ce4a15bd7e461a90a229317033eae5f6a07fbded",
+      "bytes": 272
+    },
+    {
+      "path": "pr-811-comments.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/pr-811-comments.json",
+      "sha256": "fce00a032968d444ce627394e0a41a3dfd28de1276b81d34d1a01e4a8acec683",
+      "bytes": 692
+    },
+    {
+      "path": "pr-811-reviews.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/pr-811-reviews.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "bytes": 3
+    },
+    {
+      "path": "pr-811.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/pr-811.json",
+      "sha256": "2a3eb74a749ee930d2f46aa0bb9a47c95c7bd562550e81bb49d9975c27db66e0",
+      "bytes": 2108
+    },
+    {
+      "path": "pr-812-comments.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/pr-812-comments.json",
+      "sha256": "f8c824830df218358256de529e44464a3ae848b9fa0fbff2cd9ace16953b1acb",
+      "bytes": 937
+    },
+    {
+      "path": "pr-812-reviews.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/pr-812-reviews.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "bytes": 3
+    },
+    {
+      "path": "pr-812.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/pr-812.json",
+      "sha256": "a68d2ff06b928cca2207ce4b6bf59996b375f7fab7b25ebe155e2573ba10138c",
+      "bytes": 1980
+    },
+    {
+      "path": "pr-813-comments.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/pr-813-comments.json",
+      "sha256": "67ebf29cfebf7e7e60b94862f46089f1ab71cde71a4e89fc6c93f3aaf5842c93",
+      "bytes": 1560
+    },
+    {
+      "path": "pr-813-reviews.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/pr-813-reviews.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "bytes": 3
+    },
+    {
+      "path": "pr-813.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/pr-813.json",
+      "sha256": "03dafce797280a0b1c27e309e123b2667741e587fdd0f30415e4410956261fb0",
+      "bytes": 2326
+    },
+    {
+      "path": "pr-814-comments.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/pr-814-comments.json",
+      "sha256": "eb4edd8163087d2699fdaed0a1250260b2469b9880130476167f8377b7f9d880",
+      "bytes": 1678
+    },
+    {
+      "path": "pr-814-reviews.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/pr-814-reviews.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "bytes": 3
+    },
+    {
+      "path": "pr-814.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/pr-814.json",
+      "sha256": "1b8911962c040fd456798b1f2fe6e8ba32f46a29f9277b44f0081aed2b17e2b1",
+      "bytes": 2122
+    },
+    {
+      "path": "pr-816-comments.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/pr-816-comments.json",
+      "sha256": "1de7e79d5ad698d219b7b6556a451c9447f9a2043faa94ff4373535ee05f6fab",
+      "bytes": 1112
+    },
+    {
+      "path": "pr-816-reviews.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/pr-816-reviews.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "bytes": 3
+    },
+    {
+      "path": "pr-816.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/pr-816.json",
+      "sha256": "a3601f38a1c8d6c400885c5b556c2cfaf93ac0d87c183508cd5a272821b4ee24",
+      "bytes": 1459
+    },
+    {
+      "path": "probe-foreign-tree.stderr.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/probe-foreign-tree.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "probe-foreign-tree.stdout.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/probe-foreign-tree.stdout.txt",
+      "sha256": "673c40bb0595eb6b75122ca0143901749926f39df84534b1085f817042d6b183",
+      "bytes": 458
+    },
+    {
+      "path": "probe-missing-tree.stderr.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/probe-missing-tree.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "probe-missing-tree.stdout.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/probe-missing-tree.stdout.txt",
+      "sha256": "62a3a61b0db68701835dab754dbfd498d5dda81d8497e659b1e6152682315cd9",
+      "bytes": 458
+    },
+    {
+      "path": "probe-non-string-tree.stderr.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/probe-non-string-tree.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "probe-non-string-tree.stdout.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/probe-non-string-tree.stdout.txt",
+      "sha256": "efae9b912464d5b5b6ea6b2aff7c5070d9622320d414a3f69e1a2a948ce53861",
+      "bytes": 461
+    },
+    {
+      "path": "probe-valid-control.stderr.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/probe-valid-control.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "probe-valid-control.stdout.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/probe-valid-control.stdout.txt",
+      "sha256": "90c353880fdfc238626a963bdbe28b73825299d039585941b1a43290969178f2",
+      "bytes": 459
+    },
+    {
+      "path": "probe_receipt_readback.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/probe_receipt_readback.py",
+      "sha256": "d2f159f9941c4bf5ad0bc50525ad79a96cfe9a4a42fe6c43fce896587c7fd36f",
+      "bytes": 1842
+    },
+    {
+      "path": "python-launcher.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/python-launcher.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "readback-after.exit",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/readback-after.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    {
+      "path": "readback-after.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/readback-after.log",
+      "sha256": "d926b25154aa7bd56e45286b21a400976a792cafd0ae016077a11ab0489b4575",
+      "bytes": 235
+    },
+    {
+      "path": "readback-before.exit",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/readback-before.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "bytes": 2
+    },
+    {
+      "path": "readback-before.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/readback-before.log",
+      "sha256": "6d3a442b5e8e5a153e71c22fd0a1f60d70d173690ac84cbe7a186cf70d68e7d0",
+      "bytes": 11698
+    },
+    {
+      "path": "readback-probe-results.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/readback-probe-results.json",
+      "sha256": "4e758a61e28521bf843a8a63ccc5c1d737031f73666841da2188136b3970c9ad",
+      "bytes": 1331
+    },
+    {
+      "path": "red-receipts/20260921T022446Z-10f79d47-1f1211e5788e.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/red-receipts/20260921T022446Z-10f79d47-1f1211e5788e.json",
+      "sha256": "83aed6f5ab48ca62543475672f7dacace502725b687665922783652948830c62",
+      "bytes": 1425
+    },
+    {
+      "path": "red-receipts/latest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/red-receipts/latest.json",
+      "sha256": "83aed6f5ab48ca62543475672f7dacace502725b687665922783652948830c62",
+      "bytes": 1425
+    },
+    {
+      "path": "registry-launcher.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/registry-launcher.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "review-request.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/review-request.md",
+      "sha256": "e09c3ae648eb95b77821dcd2e29d29f25489e8bcd98ec26d423c9c0789c7222c",
+      "bytes": 3397
+    },
+    {
+      "path": "run_leaf.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/run_leaf.py",
+      "sha256": "74f02af6138e767a669688aa4535db36347bd4d80bde110ba0c157fae6523c93",
+      "bytes": 3223
+    },
+    {
+      "path": "seal_evidence.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/seal_evidence.py",
+      "sha256": "1b2e9e13fbd1943ea616417183e295a3475fe8b3149791a4b81784cf698326cf",
+      "bytes": 3814
+    },
+    {
+      "path": "source-cdf-gate.exit",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/source-cdf-gate.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    {
+      "path": "source-cdf-gate.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/source-cdf-gate.log",
+      "sha256": "2a0b1669c97c5ab0e38be500a4b798b63e52f5232aadaad2e2b7ca935c905535",
+      "bytes": 1054
+    },
+    {
+      "path": "source-cdf-receipts/gate-O93oRQ71/pytest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/source-cdf-receipts/gate-O93oRQ71/pytest.json",
+      "sha256": "50d4739b8009a016e7f41f99f98c6bec94f32f4fcde76aae4a42b72b84904c2b",
+      "bytes": 781
+    },
+    {
+      "path": "source-cdf-receipts/latest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/source-cdf-receipts/latest.json",
+      "sha256": "50d4739b8009a016e7f41f99f98c6bec94f32f4fcde76aae4a42b72b84904c2b",
+      "bytes": 781
+    },
+    {
+      "path": "targeted-gate.exit",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/targeted-gate.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    {
+      "path": "targeted-gate.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/targeted-gate.log",
+      "sha256": "de3bc0837eb8d3dff19c8a993e30089eb1260b1122b4cfc326f79cdabd6f00fb",
+      "bytes": 1466
+    },
+    {
+      "path": "targeted-receipts/gate-AND1zY2N/pytest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/targeted-receipts/gate-AND1zY2N/pytest.json",
+      "sha256": "6beeb792455f1f5575061424eced1de06d76a3637f7b3104c9c0fd0061f86ed9",
+      "bytes": 872
+    },
+    {
+      "path": "targeted-receipts/latest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/targeted-receipts/latest.json",
+      "sha256": "6beeb792455f1f5575061424eced1de06d76a3637f7b3104c9c0fd0061f86ed9",
+      "bytes": 872
+    },
+    {
+      "path": "v3/frontend/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/frontend/0.log",
+      "sha256": "879316cb796977bc415244bba360d4ac38a5ba4b363f027675cf3a7989098dc9",
+      "bytes": 434
+    },
+    {
+      "path": "v3/frontend/gate/frontend-0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/frontend/gate/frontend-0.log.txt",
+      "sha256": "f501b6a70db303f0a45e5ff090a490a5dfcdb1f4d19bec5acbb091d1501cd4f5",
+      "bytes": 1878
+    },
+    {
+      "path": "v3/frontend/gate/frontend-1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/frontend/gate/frontend-1.log.txt",
+      "sha256": "96085f31254489f92a06b9ac85d213fea979b9eb88153cc83d5ef68ecac3bc7b",
+      "bytes": 118
+    },
+    {
+      "path": "v3/frontend/gate/frontend-2.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/frontend/gate/frontend-2.log.txt",
+      "sha256": "30be145af3aed20b79d616ed3429d65a47817640befef474e694dff883fa2caf",
+      "bytes": 216
+    },
+    {
+      "path": "v3/frontend/gate/frontend-3.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/frontend/gate/frontend-3.log.txt",
+      "sha256": "511b5c3fae1f83c5152be4d43127d940737055f7df9b92c637fc25d95aca976e",
+      "bytes": 1438
+    },
+    {
+      "path": "v3/frontend/gate/frontend-4.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/frontend/gate/frontend-4.log.txt",
+      "sha256": "578fa0b8e2197f23c3c0404247b9771d8d3633823830f531cbd356ef0800a2a4",
+      "bytes": 923
+    },
+    {
+      "path": "v3/frontend/gate/frontend-5.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/frontend/gate/frontend-5.log.txt",
+      "sha256": "f94c6e13c6ec6eb9533bdc2b34be5a1ea49f99b392d9b4655dbb108819d6e3d5",
+      "bytes": 12753
+    },
+    {
+      "path": "v3/frontend/gate/frontend.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/frontend/gate/frontend.json",
+      "sha256": "068e64036e2a3bc42a3466a9f1da58c3007fc518c02fd7cd471b1afeb6a0a42f",
+      "bytes": 2502
+    },
+    {
+      "path": "v3/frontend/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/frontend/run.json",
+      "sha256": "8876954c2b126ad42b6bddd099435b6bc78bf615b3a7eebfc72ff631b8411767",
+      "bytes": 1244
+    },
+    {
+      "path": "v3/python/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/python/0.log",
+      "sha256": "e9cee3f2886352bb0aa9ba0baa973841477cd4ae9a89d047e969052556e63f4c",
+      "bytes": 2062
+    },
+    {
+      "path": "v3/python/receipts/gate-Idx5hl80/pytest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/python/receipts/gate-Idx5hl80/pytest.json",
+      "sha256": "347ee7709f326013cd7153157f18acf23e337dc5d01853aa521caa621c7a3371",
+      "bytes": 666
+    },
+    {
+      "path": "v3/python/receipts/latest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/python/receipts/latest.json",
+      "sha256": "347ee7709f326013cd7153157f18acf23e337dc5d01853aa521caa621c7a3371",
+      "bytes": 666
+    },
+    {
+      "path": "v3/python/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/python/run.json",
+      "sha256": "577b875ac017b1941e820250ccedc98101c2905d7807aa2ceef42c0540eed894",
+      "bytes": 831
+    },
+    {
+      "path": "v3/receipt-compatibility.exit",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/receipt-compatibility.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    {
+      "path": "v3/receipt-compatibility.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/receipt-compatibility.log",
+      "sha256": "a8a3b00c09a42f5ede5b5402248dfcc961db3fc29802a90750a5ab370f163145",
+      "bytes": 838
+    },
+    {
+      "path": "v3/receipt-readback.exit",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/receipt-readback.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    {
+      "path": "v3/receipt-readback.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/receipt-readback.log",
+      "sha256": "276586c449a2a0c9823a8e2ecaf586528c110822a30a022e6de31f2b3bd380e4",
+      "bytes": 248
+    },
+    {
+      "path": "v3/registry/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/registry/0.log",
+      "sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe",
+      "bytes": 95
+    },
+    {
+      "path": "v3/registry/1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/registry/1.log",
+      "sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a",
+      "bytes": 121
+    },
+    {
+      "path": "v3/registry/2.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/registry/2.log",
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+      "bytes": 116
+    },
+    {
+      "path": "v3/registry/3.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/registry/3.log",
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+      "bytes": 68
+    },
+    {
+      "path": "v3/registry/4.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/registry/4.log",
+      "sha256": "93b0a89d17d977724f7b3da88736386c5922258ea3ef47afcb13c6b4c70e610f",
+      "bytes": 2013
+    },
+    {
+      "path": "v3/registry/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/registry/run.json",
+      "sha256": "3e83cb10b9ec2cb2d9136ade86755e9818158e3f941b76ab6afde569444a6746",
+      "bytes": 2965
+    },
+    {
+      "path": "v3-source-identity.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3-source-identity.json",
+      "sha256": "90d279495858d49569f5b5e97f22c0eb1c7575ca5c9d2e25bc4cd858515b5ad0",
+      "bytes": 675
+    },
+    {
+      "path": "verify_existing_archives.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/verify_existing_archives.py",
+      "sha256": "9724ae87f2d5132c7eee614e687da636f42f97d29ac40b99b300a794cd48351c",
+      "bytes": 1823
+    }
+  ]
+}

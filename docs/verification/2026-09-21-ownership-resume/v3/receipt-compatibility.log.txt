@@ -1,0 +1,19 @@
+========================================================================
+读数收据校验 — 判「能不能采信」，不重跑测试
+========================================================================
+  收据     /Users/a77/.finance-runtime/reviews/ownership-resume-20260921/v3/python/receipts/gate-Idx5hl80/pytest.json
+  产生于   2026-09-21T02:39:57+00:00
+  目标     /Users/a77/fwp-wt-ownership-gates-v3-0921
+  读数     passed=12068 failed=0 error=0 skipped=85
+
+  ✓ 执行读数 12068 条（passed+failed+error）
+  ✓ revision 一致
+  ✓ 解释器一致
+  ✓ python 版本一致
+  ✓ 依赖指纹一致
+  ✓ 收据来自干净树
+  ✓ 依赖门禁未被绕过
+  ✓ 收据 revision == 47530e20fe5c
+  ✓ 基座漂移 0 ≤ 0
+
+✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。

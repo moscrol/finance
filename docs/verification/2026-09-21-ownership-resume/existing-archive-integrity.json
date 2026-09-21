@@ -1,0 +1,20 @@
+[
+  {
+    "archive": "/Users/a77/fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-followup",
+    "entries": 30,
+    "source_bytes_compared": 30,
+    "revision": "321712b68732eef3512da80a4aaedfecd2a9c950",
+    "gate_passed": false,
+    "manifest_sha256": "862f6c814f687b2f0d02561e530e5e56914133fafdd91934aec8009021fa7634",
+    "errors": []
+  },
+  {
+    "archive": "/Users/a77/fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-recheck",
+    "entries": 30,
+    "source_bytes_compared": 30,
+    "revision": "e1b63b1a5b7c066b7377bbd2d005051863331001",
+    "gate_passed": true,
+    "manifest_sha256": "36f324484ca1304a44acd891909f937553d71f1aa87a57e497acd6a0eb5697d0",
+    "errors": []
+  }
+]
