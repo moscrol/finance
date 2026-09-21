@@ -1,0 +1,100 @@
+"""逐个拆掉修复里的一个机制，看红的是不是正好那几条测试。
+
+还原点是已提交的 1b8707c94；每次替换都自检替换数，替换数不对就中止，
+避免「sed 没匹配上却报绿」这种假通过。
+"""
+
+import subprocess
+import sys
+from pathlib import Path
+
+TREE = Path("/Users/a77/fwp-wt-react-trace-closeout-0921")
+SRC = TREE / "intelligence/services/episode_semantic_verifier.py"
+PY = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+
+TESTS = {
+    "A 跨标签扫描": "dangling_count_is_removed_even_after_another_label",
+    "B 悬空副词": "drops_the_adverb_the_removed_count_left_stranded",
+    "C 空行丢弃": "drops_a_line_whose_only_content_was_the_count",
+    "D 列表符": "keeps_the_list_marker_of_the_line_it_edits",
+    "E 前导逗号": "does_not_open_a_line_with_a_comma",
+    "F 双逗号": "does_not_double_a_comma_that_already_precedes_the_count",
+}
+
+MUTATIONS = [
+    (
+        "M1 破折号类放回 ASCII 连字符",
+        r'r"(?P<dash>[—–]+\s*)?"',
+        r'r"(?P<dash>[—–-]+\s*)?"',
+        {"D 列表符"},
+    ),
+    (
+        "M2 扫描只认第一个失联标签",
+        'if found.group("label") in orphaned_labels',
+        'if found.group("label") == sorted(orphaned_labels)[0]',
+        {"A 跨标签扫描"},
+    ),
+    (
+        "M3 不删被计数管住的副词",
+        "    prefix = _drop_adverbs_bound_to_count(prefix)",
+        "    prefix = prefix",
+        {"A 跨标签扫描", "B 悬空副词"},
+    ),
+    (
+        "M4 不丢弃只剩标签的行",
+        "    return None if _is_contentless_after_repair(repaired) else repaired",
+        "    return repaired",
+        {"C 空行丢弃"},
+    ),
+    (
+        "M5 接缝永远补逗号",
+        '    joint = "，" if _seam_needs_separator(prefix, suffix) else ""',
+        '    joint = "，"',
+        {"A 跨标签扫描", "B 悬空副词", "E 前导逗号", "F 双逗号"},
+    ),
+]
+
+
+def restore() -> None:
+    subprocess.run(["git", "restore", "--", str(SRC)], cwd=TREE, check=True)
+
+
+def red_set() -> set[str]:
+    proc = subprocess.run(
+        [
+            PY, "-m", "pytest",
+            "intelligence/tests/test_episode_semantic_verifier.py",
+            "-q", "--no-header", "-p", "no:cacheprovider",
+            "-k", " or ".join(TESTS.values()),
+        ],
+        cwd=TREE,
+        env={"PATH": "/usr/bin:/bin", "PYTHONPATH": str(TREE), "HOME": "/Users/a77"},
+        capture_output=True,
+        text=True,
+    )
+    out = proc.stdout + proc.stderr
+    return {name for name, needle in TESTS.items() if f"FAILED" in out and needle in out.split("short test summary info")[-1]}
+
+
+restore()
+ok = True
+for name, old, new, expected in MUTATIONS:
+    text = SRC.read_text()
+    count = text.count(old)
+    if count != 1:
+        print(f"✗ {name}: 替换数 {count} != 1，中止")
+        restore()
+        sys.exit(1)
+    SRC.write_text(text.replace(old, new))
+    got = red_set()
+    restore()
+    verdict = "✓" if got == expected else "✗"
+    if got != expected:
+        ok = False
+    if not got:
+        ok = False
+        verdict = "✗ 红零条（说明这个机制没有任何测试守）"
+    print(f"{verdict} {name}\n    期望红 {sorted(expected)}\n    实际红 {sorted(got)}")
+
+print("\n结论：", "每个机制都有专属测试守住" if ok else "有机制无人守或红集不符")
+sys.exit(0 if ok else 1)
