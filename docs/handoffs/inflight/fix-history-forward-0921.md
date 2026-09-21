@@ -1,28 +1,30 @@
 # #833 历史前向整合
 
 ## 这个分支做什么
-将#783/#800及父实现与主干新材料/上一轮复核保护组合，不覆盖旧枝。
+将#783/#800及父实现与主干材料/上一轮复核保护组合，不覆盖旧枝。
 
 ## 决策与被否方案
-真实用户/可信合同恢复历史窗口；否助手旧答、摘要、引文授权，防信息截止越权。
-保留材料真假设与程序条件分区，否程序指令被当虚构市场依据。
-直接依赖#831小片，否混入三领域或#829孤儿片；详见`../2026-09-21-research-tail-forward-integration.md`。
+保真实用户/可信合同继承、材料假设与程序条件分区；否助手/引文授权。
+直接依赖#831，否混入三领域/#829或用旧绿签新main。
+本轮续审发现引文继承第二路径；否103P即通过，先修真实消费者。
+见`../2026-09-21-research-tail-review-resume-01.md`及原integration快照。
 
 ## 当前状态
-WIP #833已推7edfe24e76afbd5c365fbf97dd2414847b086f88，源码clean；直接基座ea5c3a946（#831），main基座f783f19c8。旧#800接替评论5359，不关闭。
-新独立sol审10:42:18Z因at capacity结束exit1，无report、无动态测试；首尾净树，BLOCKED_PROVIDER_CAPACITY。不是仍在跑、不自动重开。
-交接集中docs/research-tail-closeout-0921，固定源码树未写文档。
+WIP #833已推7edfe24e76afbd5c365fbf97dd2414847b086f88，源码/review树clean；基座ea5c3a946（#831），main基座f783f19c8。旧#800接替评论5359、不关闭。
+用户“执行”后原thread仅续一次，11:33:38Z又capacity结束exit1、无report、未触1200秒帽。独立终审仍BLOCKED_PROVIDER_CAPACITY；操作员已确认H-01，候选CHANGES_REQUIRED。
+H-01：inherit_history_followup扫描原始query，三种强保护引文触发历史任务继承；材料合同却None，原local_only丢失，Episode合同出现外部读能力及history_query登记。旧cutoff仍9月10日，未实际读DB/网络/工具。helper与旧来源e4675eab相同，不能归因新冲突引入。
+未修源码、无审核后台；交接集中docs/research-tail-closeout-0921，不移动受审HEAD。
 
 ## 未验证 / 已知边界
-新组合Spec/Quality未签；历史原四题仍not_passed，未新自然运行。不签main#830/f2c3e9e1或三领域联合树。#829未合入；不能关闭#793/#794。未合main/部署/回填。
+新组合Spec/Quality未终审；原四题仍not_passed。不签新main5a5334712、三领域联合树或#829；不能关闭#793/#794。无合并/部署/生产操作。
 
 ## 下一步
-先读domain-reviews-blocked中的history事件与操作员裁决，确认可用订阅和单次有界审核，再补真实消费者独立反例。形成新组合需重新全叶验收。
+先读第三包domain-review-resume-01/operator/operator-qc.md；在新修复树统一来源分区，锁typed材料历史→controller→control→Episode→工具登记正负例。保合法续问窗口/截止/local_only，勿全面清空继承。新SHA另验，不重跑模型求绿。runtime/财务本轮因共享容量未启动。
 
 ## 踩过的坑
-MaterialQuestion字段是premise_marks，不是authenticity；首次测试误用4F保留。runtime目录新鲜度门曾拦提交，重生后再冻。
-原包装器rc1来自收据目录无效+UTF-8变量名误读；pytest精确收据exit0，显式回放另计，不覆盖原失败。正式收据方案归#814，c35只诊断。
+材料编译器能挡引用不代表历史helper也挡；现有新增8接缝没覆盖第二路径。外置probe两次导入错非产品红；操作员runpy跑原字节不补独立签字。typed probe首mode误用，修lane再经control投影仍3真反例。
 
 ## 已验证
-固定作者Python12631P/87S/2X、Ruff/四registry/crosswalk0；前端110P、E2E34P2S，六步0、首尾净树。新增8接缝通过。精确收据20260921T091040Z-7edfe24e.json。
-封档：`docs/verification/2026-09-21-research-tail-forward/`两包；原件`~/.finance-runtime/reviews/research-tail-integration-20260921/`。
+固定作者12631P/87S/2X及各工程叶通过，准确收据20260921T091040Z-7edfe24e.json；原wrapper rc1与pytest exit0分账，正式修复沿#814。
+本轮独立六模块103P/11.93秒；操作员原probe13条8P/5F，typed终版11条8P/3F，不合计。源码首尾clean、旧审核哈希不变。
+封档：`docs/verification/2026-09-21-research-tail-forward/`第三包；旧两包不改。

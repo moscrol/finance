@@ -1,0 +1,790 @@
+{
+  "rows": [
+    {
+      "case": "plain_continuation",
+      "has_trusted_previous": true,
+      "query": "范围与截止日继续不变。",
+      "lane": "research",
+      "terminal_kind": "research",
+      "projected_capabilities": [
+        "memory_lookup",
+        "finance_query"
+      ],
+      "context_built_for_diagnostics_only": false,
+      "frame_history": {
+        "purpose": "retrospective_discovery",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-10",
+        "analysis_window_source": "none",
+        "allow_window_extension": false
+      },
+      "context_history": {
+        "purpose": "retrospective_discovery",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-10",
+        "analysis_window_source": "none",
+        "allow_window_extension": false
+      },
+      "inherited_from_turn": "base-turn",
+      "material": {
+        "classification": "constraint_confirmed",
+        "authenticity": "real",
+        "data_scope": "local_only",
+        "premise_marks": [],
+        "questions": [],
+        "continuation_requested": true,
+        "uncertain_reasons": [],
+        "data_scope_declared": false,
+        "premise_calculation": false
+      },
+      "capabilities": [
+        "memory_lookup",
+        "finance_query"
+      ],
+      "cutoff": "2026-09-10",
+      "history_tools": [
+        "history_query"
+      ],
+      "protected_visible": [
+        "范围与截止日继续不变。"
+      ],
+      "uncertain": [],
+      "question_only": "范围与截止日继续不变。"
+    },
+    {
+      "case": "closed_quote",
+      "has_trusted_previous": true,
+      "query": "解释这句话：「范围与截止日继续不变。」",
+      "lane": "research",
+      "terminal_kind": "research",
+      "projected_capabilities": [
+        "kb_search",
+        "graph_lookup",
+        "news_search",
+        "web_search",
+        "memory_lookup",
+        "finance_query",
+        "web_fetch"
+      ],
+      "context_built_for_diagnostics_only": false,
+      "frame_history": {
+        "purpose": "retrospective_discovery",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-10",
+        "analysis_window_source": "none",
+        "allow_window_extension": false
+      },
+      "context_history": {
+        "purpose": "retrospective_discovery",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-10",
+        "analysis_window_source": "none",
+        "allow_window_extension": false
+      },
+      "inherited_from_turn": "base-turn",
+      "material": null,
+      "capabilities": [
+        "kb_search",
+        "graph_lookup",
+        "news_search",
+        "web_search",
+        "memory_lookup",
+        "finance_query",
+        "web_fetch",
+        "evidence_search"
+      ],
+      "cutoff": "2026-09-10",
+      "history_tools": [
+        "history_query"
+      ],
+      "protected_visible": [
+        "解释这句话：             "
+      ],
+      "uncertain": [],
+      "question_only": "解释这句话：「范围与截止日继续不变。」"
+    },
+    {
+      "case": "markdown_quote",
+      "has_trusted_previous": true,
+      "query": "> 范围与截止日继续不变。",
+      "lane": "research",
+      "terminal_kind": "research",
+      "projected_capabilities": [
+        "kb_search",
+        "graph_lookup",
+        "news_search",
+        "web_search",
+        "memory_lookup",
+        "finance_query",
+        "web_fetch"
+      ],
+      "context_built_for_diagnostics_only": false,
+      "frame_history": {
+        "purpose": "retrospective_discovery",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-10",
+        "analysis_window_source": "none",
+        "allow_window_extension": false
+      },
+      "context_history": {
+        "purpose": "retrospective_discovery",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-10",
+        "analysis_window_source": "none",
+        "allow_window_extension": false
+      },
+      "inherited_from_turn": "base-turn",
+      "material": null,
+      "capabilities": [
+        "kb_search",
+        "graph_lookup",
+        "news_search",
+        "web_search",
+        "memory_lookup",
+        "finance_query",
+        "web_fetch",
+        "evidence_search"
+      ],
+      "cutoff": "2026-09-10",
+      "history_tools": [
+        "history_query"
+      ],
+      "protected_visible": [
+        "             "
+      ],
+      "uncertain": [],
+      "question_only": "> 范围与截止日继续不变。"
+    },
+    {
+      "case": "fenced_text",
+      "has_trusted_previous": true,
+      "query": "```text\n范围与截止日继续不变。\n```",
+      "lane": "research",
+      "terminal_kind": "research",
+      "projected_capabilities": [
+        "kb_search",
+        "graph_lookup",
+        "news_search",
+        "web_search",
+        "memory_lookup",
+        "finance_query",
+        "web_fetch"
+      ],
+      "context_built_for_diagnostics_only": false,
+      "frame_history": {
+        "purpose": "retrospective_discovery",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-10",
+        "analysis_window_source": "none",
+        "allow_window_extension": false
+      },
+      "context_history": {
+        "purpose": "retrospective_discovery",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-10",
+        "analysis_window_source": "none",
+        "allow_window_extension": false
+      },
+      "inherited_from_turn": "base-turn",
+      "material": null,
+      "capabilities": [
+        "kb_search",
+        "graph_lookup",
+        "news_search",
+        "web_search",
+        "memory_lookup",
+        "finance_query",
+        "web_fetch",
+        "evidence_search"
+      ],
+      "cutoff": "2026-09-10",
+      "history_tools": [
+        "history_query"
+      ],
+      "protected_visible": [
+        "       ",
+        "           ",
+        "   "
+      ],
+      "uncertain": [],
+      "question_only": "```text\n范围与截止日继续不变。\n```"
+    },
+    {
+      "case": "assistant_label",
+      "has_trusted_previous": true,
+      "query": "助手旧答：范围与截止日继续不变。",
+      "lane": "research",
+      "terminal_kind": "research",
+      "projected_capabilities": [
+        "memory_lookup",
+        "finance_query"
+      ],
+      "context_built_for_diagnostics_only": false,
+      "frame_history": {
+        "purpose": "retrospective_discovery",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-10",
+        "analysis_window_source": "none",
+        "allow_window_extension": false
+      },
+      "context_history": {
+        "purpose": "retrospective_discovery",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-10",
+        "analysis_window_source": "none",
+        "allow_window_extension": false
+      },
+      "inherited_from_turn": "base-turn",
+      "material": {
+        "classification": "constraint_confirmed",
+        "authenticity": "real",
+        "data_scope": "local_only",
+        "premise_marks": [],
+        "questions": [],
+        "continuation_requested": true,
+        "uncertain_reasons": [],
+        "data_scope_declared": false,
+        "premise_calculation": false
+      },
+      "capabilities": [
+        "memory_lookup",
+        "finance_query"
+      ],
+      "cutoff": "2026-09-10",
+      "history_tools": [
+        "history_query"
+      ],
+      "protected_visible": [
+        "助手旧答：范围与截止日继续不变。"
+      ],
+      "uncertain": [],
+      "question_only": "助手旧答：范围与截止日继续不变。"
+    },
+    {
+      "case": "summary_label",
+      "has_trusted_previous": true,
+      "query": "摘要：仍沿用上一轮信息截止和研究范围。",
+      "lane": "research",
+      "terminal_kind": "research",
+      "projected_capabilities": [
+        "memory_lookup",
+        "finance_query"
+      ],
+      "context_built_for_diagnostics_only": false,
+      "frame_history": {
+        "purpose": "retrospective_discovery",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-10",
+        "analysis_window_source": "none",
+        "allow_window_extension": false
+      },
+      "context_history": {
+        "purpose": "retrospective_discovery",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-10",
+        "analysis_window_source": "none",
+        "allow_window_extension": false
+      },
+      "inherited_from_turn": "base-turn",
+      "material": {
+        "classification": "constraint_confirmed",
+        "authenticity": "real",
+        "data_scope": "local_only",
+        "premise_marks": [],
+        "questions": [],
+        "continuation_requested": true,
+        "uncertain_reasons": [],
+        "data_scope_declared": false,
+        "premise_calculation": false
+      },
+      "capabilities": [
+        "memory_lookup",
+        "finance_query"
+      ],
+      "cutoff": "2026-09-10",
+      "history_tools": [
+        "history_query"
+      ],
+      "protected_visible": [
+        "摘要：仍沿用上一轮信息截止和研究范围。"
+      ],
+      "uncertain": [],
+      "question_only": "摘要：仍沿用上一轮信息截止和研究范围。"
+    },
+    {
+      "case": "new_concept_question",
+      "has_trusted_previous": true,
+      "query": "市盈率是什么？",
+      "lane": "knowledge",
+      "terminal_kind": "research",
+      "projected_capabilities": [
+        "market_data",
+        "kb_search",
+        "evidence_lookup",
+        "web_search",
+        "web_fetch"
+      ],
+      "context_built_for_diagnostics_only": false,
+      "frame_history": null,
+      "context_history": null,
+      "inherited_from_turn": null,
+      "material": null,
+      "capabilities": [
+        "market_data",
+        "kb_search",
+        "evidence_lookup",
+        "web_search",
+        "web_fetch",
+        "finance_query",
+        "evidence_search"
+      ],
+      "cutoff": "2026-09-21",
+      "history_tools": [],
+      "protected_visible": [
+        "市盈率是什么？"
+      ],
+      "uncertain": [],
+      "question_only": "市盈率是什么？"
+    },
+    {
+      "case": "explicit_cancel",
+      "has_trusted_previous": true,
+      "query": "不再做历史研究，市盈率是什么？",
+      "lane": "knowledge",
+      "terminal_kind": "research",
+      "projected_capabilities": [
+        "market_data",
+        "kb_search",
+        "evidence_lookup",
+        "web_search",
+        "web_fetch"
+      ],
+      "context_built_for_diagnostics_only": false,
+      "frame_history": null,
+      "context_history": null,
+      "inherited_from_turn": null,
+      "material": null,
+      "capabilities": [
+        "market_data",
+        "kb_search",
+        "evidence_lookup",
+        "web_search",
+        "web_fetch",
+        "finance_query",
+        "evidence_search"
+      ],
+      "cutoff": "2026-09-21",
+      "history_tools": [],
+      "protected_visible": [
+        "不再做历史研究，市盈率是什么？"
+      ],
+      "uncertain": [],
+      "question_only": "不再做历史研究，市盈率是什么？"
+    },
+    {
+      "case": "material_only_control",
+      "has_trusted_previous": true,
+      "query": "不要查询，只依据以下材料解释这句话：\n\n> 范围与截止日继续不变。",
+      "lane": "research",
+      "terminal_kind": "research",
+      "projected_capabilities": [],
+      "context_built_for_diagnostics_only": false,
+      "frame_history": null,
+      "context_history": null,
+      "inherited_from_turn": null,
+      "material": {
+        "classification": "constraint_confirmed",
+        "authenticity": "real",
+        "data_scope": "material_only",
+        "premise_marks": [],
+        "questions": [],
+        "continuation_requested": false,
+        "uncertain_reasons": [],
+        "data_scope_declared": true,
+        "premise_calculation": false
+      },
+      "capabilities": [],
+      "cutoff": "2026-09-21",
+      "history_tools": [],
+      "protected_visible": [
+        "不要查询，只依据以下材料解释这句话：",
+        "",
+        "             "
+      ],
+      "uncertain": [],
+      "question_only": "不要查询，只依据以下材料解释这句话：\n\n> 范围与截止日继续不变。"
+    },
+    {
+      "case": "plain_continuation",
+      "has_trusted_previous": false,
+      "query": "范围与截止日继续不变。",
+      "lane": "clarify",
+      "terminal_kind": "clarification",
+      "projected_capabilities": [],
+      "context_built_for_diagnostics_only": true,
+      "frame_history": null,
+      "context_history": null,
+      "inherited_from_turn": null,
+      "material": {
+        "classification": "state_unavailable",
+        "authenticity": null,
+        "data_scope": null,
+        "premise_marks": [],
+        "questions": [],
+        "continuation_requested": true,
+        "uncertain_reasons": [
+          "base_state_unavailable"
+        ],
+        "data_scope_declared": false,
+        "premise_calculation": false
+      },
+      "capabilities": [],
+      "cutoff": "2026-09-21",
+      "history_tools": [],
+      "protected_visible": [
+        "范围与截止日继续不变。"
+      ],
+      "uncertain": [],
+      "question_only": "范围与截止日继续不变。"
+    },
+    {
+      "case": "closed_quote",
+      "has_trusted_previous": false,
+      "query": "解释这句话：「范围与截止日继续不变。」",
+      "lane": "chat",
+      "terminal_kind": "non_research",
+      "projected_capabilities": [],
+      "context_built_for_diagnostics_only": true,
+      "frame_history": null,
+      "context_history": null,
+      "inherited_from_turn": null,
+      "material": null,
+      "capabilities": [
+        "finance_query",
+        "evidence_search"
+      ],
+      "cutoff": "2026-09-21",
+      "history_tools": [],
+      "protected_visible": [
+        "解释这句话：             "
+      ],
+      "uncertain": [],
+      "question_only": "解释这句话：「范围与截止日继续不变。」"
+    },
+    {
+      "case": "markdown_quote",
+      "has_trusted_previous": false,
+      "query": "> 范围与截止日继续不变。",
+      "lane": "chat",
+      "terminal_kind": "non_research",
+      "projected_capabilities": [],
+      "context_built_for_diagnostics_only": true,
+      "frame_history": null,
+      "context_history": null,
+      "inherited_from_turn": null,
+      "material": null,
+      "capabilities": [
+        "finance_query",
+        "evidence_search"
+      ],
+      "cutoff": "2026-09-21",
+      "history_tools": [],
+      "protected_visible": [
+        "             "
+      ],
+      "uncertain": [],
+      "question_only": "> 范围与截止日继续不变。"
+    },
+    {
+      "case": "fenced_text",
+      "has_trusted_previous": false,
+      "query": "```text\n范围与截止日继续不变。\n```",
+      "lane": "chat",
+      "terminal_kind": "non_research",
+      "projected_capabilities": [],
+      "context_built_for_diagnostics_only": true,
+      "frame_history": null,
+      "context_history": null,
+      "inherited_from_turn": null,
+      "material": null,
+      "capabilities": [
+        "finance_query",
+        "evidence_search"
+      ],
+      "cutoff": "2026-09-21",
+      "history_tools": [],
+      "protected_visible": [
+        "       ",
+        "           ",
+        "   "
+      ],
+      "uncertain": [],
+      "question_only": "```text\n范围与截止日继续不变。\n```"
+    },
+    {
+      "case": "assistant_label",
+      "has_trusted_previous": false,
+      "query": "助手旧答：范围与截止日继续不变。",
+      "lane": "clarify",
+      "terminal_kind": "clarification",
+      "projected_capabilities": [],
+      "context_built_for_diagnostics_only": true,
+      "frame_history": null,
+      "context_history": null,
+      "inherited_from_turn": null,
+      "material": {
+        "classification": "state_unavailable",
+        "authenticity": null,
+        "data_scope": null,
+        "premise_marks": [],
+        "questions": [],
+        "continuation_requested": true,
+        "uncertain_reasons": [
+          "base_state_unavailable"
+        ],
+        "data_scope_declared": false,
+        "premise_calculation": false
+      },
+      "capabilities": [],
+      "cutoff": "2026-09-21",
+      "history_tools": [],
+      "protected_visible": [
+        "助手旧答：范围与截止日继续不变。"
+      ],
+      "uncertain": [],
+      "question_only": "助手旧答：范围与截止日继续不变。"
+    },
+    {
+      "case": "summary_label",
+      "has_trusted_previous": false,
+      "query": "摘要：仍沿用上一轮信息截止和研究范围。",
+      "lane": "clarify",
+      "terminal_kind": "clarification",
+      "projected_capabilities": [],
+      "context_built_for_diagnostics_only": true,
+      "frame_history": null,
+      "context_history": null,
+      "inherited_from_turn": null,
+      "material": {
+        "classification": "state_unavailable",
+        "authenticity": null,
+        "data_scope": null,
+        "premise_marks": [],
+        "questions": [],
+        "continuation_requested": true,
+        "uncertain_reasons": [
+          "base_state_unavailable"
+        ],
+        "data_scope_declared": false,
+        "premise_calculation": false
+      },
+      "capabilities": [],
+      "cutoff": "2026-09-21",
+      "history_tools": [],
+      "protected_visible": [
+        "摘要：仍沿用上一轮信息截止和研究范围。"
+      ],
+      "uncertain": [],
+      "question_only": "摘要：仍沿用上一轮信息截止和研究范围。"
+    },
+    {
+      "case": "new_concept_question",
+      "has_trusted_previous": false,
+      "query": "市盈率是什么？",
+      "lane": "knowledge",
+      "terminal_kind": "research",
+      "projected_capabilities": [
+        "market_data",
+        "kb_search",
+        "evidence_lookup",
+        "web_search",
+        "web_fetch"
+      ],
+      "context_built_for_diagnostics_only": false,
+      "frame_history": null,
+      "context_history": null,
+      "inherited_from_turn": null,
+      "material": null,
+      "capabilities": [
+        "market_data",
+        "kb_search",
+        "evidence_lookup",
+        "web_search",
+        "web_fetch",
+        "finance_query",
+        "evidence_search"
+      ],
+      "cutoff": "2026-09-21",
+      "history_tools": [],
+      "protected_visible": [
+        "市盈率是什么？"
+      ],
+      "uncertain": [],
+      "question_only": "市盈率是什么？"
+    },
+    {
+      "case": "explicit_cancel",
+      "has_trusted_previous": false,
+      "query": "不再做历史研究，市盈率是什么？",
+      "lane": "knowledge",
+      "terminal_kind": "research",
+      "projected_capabilities": [
+        "market_data",
+        "kb_search",
+        "evidence_lookup",
+        "web_search",
+        "web_fetch"
+      ],
+      "context_built_for_diagnostics_only": false,
+      "frame_history": null,
+      "context_history": null,
+      "inherited_from_turn": null,
+      "material": null,
+      "capabilities": [
+        "market_data",
+        "kb_search",
+        "evidence_lookup",
+        "web_search",
+        "web_fetch",
+        "finance_query",
+        "evidence_search"
+      ],
+      "cutoff": "2026-09-21",
+      "history_tools": [],
+      "protected_visible": [
+        "不再做历史研究，市盈率是什么？"
+      ],
+      "uncertain": [],
+      "question_only": "不再做历史研究，市盈率是什么？"
+    },
+    {
+      "case": "material_only_control",
+      "has_trusted_previous": false,
+      "query": "不要查询，只依据以下材料解释这句话：\n\n> 范围与截止日继续不变。",
+      "lane": "research",
+      "terminal_kind": "research",
+      "projected_capabilities": [],
+      "context_built_for_diagnostics_only": false,
+      "frame_history": null,
+      "context_history": null,
+      "inherited_from_turn": null,
+      "material": {
+        "classification": "constraint_confirmed",
+        "authenticity": "real",
+        "data_scope": "material_only",
+        "premise_marks": [],
+        "questions": [],
+        "continuation_requested": false,
+        "uncertain_reasons": [],
+        "data_scope_declared": true,
+        "premise_calculation": false
+      },
+      "capabilities": [],
+      "cutoff": "2026-09-21",
+      "history_tools": [],
+      "protected_visible": [
+        "不要查询，只依据以下材料解释这句话：",
+        "",
+        "             "
+      ],
+      "uncertain": [],
+      "question_only": "不要查询，只依据以下材料解释这句话：\n\n> 范围与截止日继续不变。"
+    }
+  ],
+  "checks": [
+    {
+      "name": "genuine_continuation_keeps_context_and_tool",
+      "passed": true
+    },
+    {
+      "name": "genuine_continuation_keeps_cutoff_and_local_only",
+      "passed": true
+    },
+    {
+      "name": "protected_closed_quote_must_not_inherit_history",
+      "passed": false
+    },
+    {
+      "name": "without_prior_closed_quote_does_not_mint_history",
+      "passed": true
+    },
+    {
+      "name": "protected_markdown_quote_must_not_inherit_history",
+      "passed": false
+    },
+    {
+      "name": "without_prior_markdown_quote_does_not_mint_history",
+      "passed": true
+    },
+    {
+      "name": "protected_fenced_text_must_not_inherit_history",
+      "passed": false
+    },
+    {
+      "name": "without_prior_fenced_text_does_not_mint_history",
+      "passed": true
+    },
+    {
+      "name": "new_concept_question_does_not_inherit_history",
+      "passed": true
+    },
+    {
+      "name": "explicit_cancel_does_not_inherit_history",
+      "passed": true
+    },
+    {
+      "name": "explicit_material_only_still_blocks_history_tools",
+      "passed": true
+    }
+  ],
+  "scope": "actual typed consumers and tool registration only; no tools executed or data fetched"
+}
+{"passed": 8, "failed": ["protected_closed_quote_must_not_inherit_history", "protected_markdown_quote_must_not_inherit_history", "protected_fenced_text_must_not_inherit_history"]}

@@ -1,0 +1,100 @@
+[
+  {
+    "name": "real_user_continuation_retains_scope",
+    "pass": true,
+    "value": "HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='historical_research', strict_window=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False)"
+  },
+  {
+    "name": "quoted_text_does_not_restore_scope:closed_quote",
+    "pass": false,
+    "helper": "HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='historical_research', strict_window=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False)",
+    "consumer": "HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='historical_research', strict_window=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False)"
+  },
+  {
+    "name": "quoted_text_does_not_restore_scope:markdown_quote",
+    "pass": false,
+    "helper": "HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='historical_research', strict_window=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False)",
+    "consumer": "HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='historical_research', strict_window=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False)"
+  },
+  {
+    "name": "quoted_text_does_not_restore_scope:fenced_text",
+    "pass": false,
+    "helper": "HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='historical_research', strict_window=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False)",
+    "consumer": "HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='historical_research', strict_window=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False)"
+  },
+  {
+    "name": "quoted_text_does_not_restore_scope:assistant_label",
+    "pass": false,
+    "helper": "HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='historical_research', strict_window=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False)",
+    "consumer": "HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='historical_research', strict_window=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False)"
+  },
+  {
+    "name": "quoted_text_does_not_restore_scope:summary_label",
+    "pass": false,
+    "helper": "HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='historical_research', strict_window=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False)",
+    "consumer": "HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='historical_research', strict_window=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False)"
+  },
+  {
+    "name": "later_authorized_end_does_not_raise_cutoff",
+    "pass": true,
+    "cutoff": "2026-09-10"
+  },
+  {
+    "name": "procedure_not_fictional",
+    "pass": true,
+    "authenticity": null
+  },
+  {
+    "name": "real_user_hypothesis_still_fictional",
+    "pass": true,
+    "authenticity": "fictional"
+  },
+  {
+    "name": "local_history_producer_mapping_no_external_grant",
+    "pass": true,
+    "allowed": [
+      "memory_lookup",
+      "finance_query"
+    ],
+    "evidence_types": [
+      "finance_query",
+      "history_query",
+      "memory_lookup",
+      "read_history_result"
+    ]
+  },
+  {
+    "name": "typed_diagnostic_is_not_evidence_or_date_authority",
+    "pass": true,
+    "wire": {
+      "noise_prune": {
+        "dropped_keys": [
+          "payload_field_names",
+          "payload_sha256",
+          "caliber"
+        ],
+        "collapsed_prose": false,
+        "instruction": "已删除调试字段或重复叙述；标识与证据身份未动。不要因此重查。"
+      },
+      "ok": true,
+      "tool": "finance_query",
+      "query": "x",
+      "observation": "工具诊断（非市场事实）[invalid_query]：安全字段提示",
+      "evidence": [],
+      "evidence_hashes": [],
+      "evidence_ids": [],
+      "gaps": [],
+      "dataset": "unknown"
+    },
+    "authorized_trade_dates": []
+  },
+  {
+    "name": "history_rank_not_forward_priority",
+    "pass": true
+  },
+  {
+    "name": "history_trace_not_forward_tracking",
+    "pass": true
+  }
+]
+{"failed": ["quoted_text_does_not_restore_scope:closed_quote", "quoted_text_does_not_restore_scope:markdown_quote", "quoted_text_does_not_restore_scope:fenced_text", "quoted_text_does_not_restore_scope:assistant_label", "quoted_text_does_not_restore_scope:summary_label"], "count": 5}

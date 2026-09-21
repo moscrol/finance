@@ -1,32 +1,32 @@
 # 研究尾单前向整合协调 · 2026-09-21
 
 ## 这个分支做什么
-封存#797/#798/#800前向候选、#831独立小片与接替关系；只文档，不合main/部署。
+封存#831及三领域候选/审核与接替关系；只文档，不合main/部署。
 
 ## 决策与被否方案
-- #831先行、三个领域分别堆叠；否三枝混包，避免旧绿代签新组合。
-- io来源用schema v3、缺来源unknown；否删字段/猜local，防隐式扩权。
-- 精确publication与writer收尾分验；否终态即完成，防迟到覆盖追问。
-- 收据正式修复沿#814；c35停止为诊断，否维护第二套。
-- 展开：`../2026-09-21-research-tail-forward-integration.md`。
+- #831先行、领域分别冻结；否拼接单枝绿签联合树。
+- 正式收据修复沿#814；c35只诊断，否第二实现。
+- 用户“执行”后串行续原thread一次/1200秒；否覆盖原件、并发撞容量或付费重试。
+- 历史有反例即CHANGES_REQUIRED；否无终审就只报服务阻塞。
+- 新决策：`../2026-09-21-research-tail-review-resume-01.md`；前向背景见原integration快照。
 
 ## 当前状态
-封档c47b2751已推，WIP #838；两包提交字节核验281/281与28/28，发布收据见verification的publication-check.json。记忆由auto-sync提交94fb8acf，本轮三文件逐字节核Git；图谱审计仅证路径/符号，未移除在途后缀。
-源码均已推且保持干净：#831 ea5c3a946、#833 7edfe24e7、#834 cb16cd463、#835 d82cb16b5。后三者直接基于#831，主干基座f783f19c8，不含后来#830/f2c3e9e1。
-#831独立报告Spec/Quality PASS，根QC有限接受；一个session双节，非两位审核者。
-三领域独立审均at capacity→exit1/无报告，BLOCKED_PROVIDER_CAPACITY；所有本轮后台已结束，不等候旧PID、不自动重开。旧#797/798/800有接替评论、不关闭。
-#829仅孤儿片保全；#832/#814/#817/夜跑/归档保持原归属，未接管。
+WIP #838 docs枝统一交接；原封档c47b2751、发布abbc57e98已推，两旧包281/28成员保持原样。新增第三包domain-review-resume-01记录本轮终态，提交身份以git/PR为准。
+源码仍clean且固定：#831 ea5c3a946、#833 7edfe24e7、#834 cb16cd463、#835 d82cb16b5；后三者基于#831，不是联合树。
+#831独立有限接受不变。历史原thread续接103P后11:33:38Z再次capacity→exit1、无report、未触帽；旧原件不变。操作员typed消费者11断言8P/3F确认H-01，历史CHANGES_REQUIRED。
+H-01：闭合引号/>引用/代码围栏中的续接语错误恢复旧历史权限；旧local_only未保留，合同出现外部读能力。未执行工具/网络/DB，cutoff未抬高。
+runtime/财务本轮只备prompt，按约定停在未启动；旧容量失败无终审不变。无后台待收；未自动重开。
 
 ## 未验证 / 已知边界
-新main及三领域联合树未验；历史原四题、财务R6/R3自然not_passed不翻；runtime不是跨进程driver/lease/未知效果对账/exactly-once。没有合main/8792部署/夜跑装机/生产回填/删树授权。
+三领域Spec/Quality终审仍未完成。历史原四题、财务R6/R3自然not_passed不翻；runtime不是跨进程driver/lease/未知效果对账闭环。新main现观测5a5334712及联合树未验。无合main/8792部署/生产回填/清树授权。#829仅保全；邻线不接管。
 
 ## 下一步
-先读封档README及domain-review-operator-qc；另确认有界订阅审核恢复方式，再各枝补独立审。形成新组合后重跑实际组合，不能拼绿收据。
-本轮交接集中本docs枝，源码树未加文档以保固定身份；用git show本枝读对应inflight。
+先读第三包operator/operator-qc.md，历史先修H-01并以新SHA验真实消费者，不只补材料编译器。runtime/财务需可用通道与有界授权后再审，不等旧PID。
+交接集中docs枝，冻结源码未加文档；用git show本枝读取。
 
 ## 踩过的坑
-旧包装器原rc1保留，pytest准确收据exit0不互相替代；不用global latest。c35全量主动SIGINT，收据exit2、包装器rc4，不称全量绿。审核报告亦须核原事件：#831强限额/挂起Timer来自正式回归重跑，独立probe不单独证明；财务首/usr/bin/timeout不存在，原输出已从events恢复。
+外置probe直接运行导入不到仓库；zsh的status只读。操作员用runpy核原字节不等于审核者终审。新probe首mode字段误用已保首错，最终经control投影仍3反例。旧wrapper失败/pytest成功/回放分账，c35中断不称全量绿。
 
 ## 已验证
-作者四候选全叶齐备：Python12444/12631/12870/13305P，各87S/2X；前端110/110/110/118P，各E2E34P2S，Ruff/四registry/crosswalk0（既有98警告）。#831独立105P1S；领域局部runtime315P、财务240P不代终审。
-证据：`docs/verification/2026-09-21-research-tail-forward/`两包，原件`~/.finance-runtime/reviews/research-tail-integration-20260921/`。
+作者四候选全叶旧收据仍有效但不签新组合；独立历史本轮103P。操作员原probe8P/5F另计；typed终版8P/3F。六棵领域源码/review树精确SHA且clean，旧历史审核哈希未变。
+证据：`docs/verification/2026-09-21-research-tail-forward/`三包。

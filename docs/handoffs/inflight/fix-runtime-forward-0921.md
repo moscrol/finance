@@ -10,13 +10,14 @@ schema v3严格存io_effect；否删新字段/默认local_read，来源参与权
 ## 当前状态
 WIP #834已推cb16cd463db5c19b3187a5137009791082874653，源码clean；直接基座ea5c3a946（#831），main基座f783f19c8。旧#798接替评论5360、不关闭。
 独立sol审六模块315P后10:41:23Z因at capacity结束exit1，无报告/独立probe，首尾净树；BLOCKED_PROVIDER_CAPACITY，不是运行中、不自动重开。
+用户“执行”后本轮只备续接prompt；历史先行又capacity，按串行约定未启动runtime。NOT_STARTED_SHARED_PROVIDER_CAPACITY，无新模型调用/测试/report，无待收后台。
 交接在docs/research-tail-closeout-0921，源码树保持固定身份。
 
 ## 未验证 / 已知边界
 新v3及组合未获独立签字，旧v2审核不可移签。schema摘要非用户/代码签名；跨进程driver、单写者lease、未知效果对账/exactly-once未验。不签后来main#830或财务/历史联合树；未合main/部署/生产操作。
 
 ## 下一步
-先读runtime-sol-review原事件/操作员裁决，明确单次审核恢复方式再补来源伪造、旧版兼容、保存失败的独立消费者反例。若叠入新main或其他领域，验实际新组合。
+读第三包domain-review-resume-01的not-started与根QC，不等待旧PID；另确认可用订阅和单次额度后补来源伪造、旧版兼容、保存失败反例。不因历史出现缺陷外推runtime失败；新main5a5334712/联合树另验。
 
 ## 踩过的坑
 旧白名单遇AgentEvidence.io_effect会fail closed，不能删除来源绕过。改动树590P不签父HEAD。
@@ -24,4 +25,4 @@ WIP #834已推cb16cd463db5c19b3187a5137009791082874653，源码clean；直接基
 
 ## 已验证
 固定作者12870P/87S/2X，Ruff/四registry/crosswalk0；前端110P、E2E34P2S，六步0且首尾净树。准确收据20260921T092044Z-cb16cd46.json。独立局部315P不代终审。
-封档：`docs/verification/2026-09-21-research-tail-forward/`两包，原件`~/.finance-runtime/reviews/research-tail-integration-20260921/`。
+封档：`docs/verification/2026-09-21-research-tail-forward/`三包，原件`~/.finance-runtime/reviews/research-tail-integration-20260921/`。

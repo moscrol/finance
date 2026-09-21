@@ -1,0 +1,223 @@
+{
+  "copied_at": "2026-09-21T11:55:30.152870+00:00",
+  "source_root": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921",
+  "renaming": "append .txt to .log/.py/.sh/.patch; bytes unchanged",
+  "files": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review-resume-01/completion.json",
+      "archived": "history-sol-review-resume-01/completion.json",
+      "bytes": 1959,
+      "sha256": "edcdd9b002763630046297e4b2a30f176444fc5980313818d051450440b11abd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review-resume-01/events.jsonl",
+      "archived": "history-sol-review-resume-01/events.jsonl",
+      "bytes": 186279,
+      "sha256": "c06b7ee726de0c2b726b0d78a965c749f2ef6d709ee4215b959d96b5b637beeb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review-resume-01/independent-contract-probe-01.log",
+      "archived": "history-sol-review-resume-01/independent-contract-probe-01.log.txt",
+      "bytes": 300,
+      "sha256": "082fba850b24b9bd3653baeed421d149b23ffe5599681464c5ad1fac0f043122"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review-resume-01/independent-contract-probe-02.log",
+      "archived": "history-sol-review-resume-01/independent-contract-probe-02.log.txt",
+      "bytes": 300,
+      "sha256": "082fba850b24b9bd3653baeed421d149b23ffe5599681464c5ad1fac0f043122"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review-resume-01/independent_contract_probe.py",
+      "archived": "history-sol-review-resume-01/independent_contract_probe.py.txt",
+      "bytes": 6868,
+      "sha256": "31eb1ad00d7785123f5355b4cdc6f025a91fa17de245b6b7cc7531688a772604"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review-resume-01/launcher.json",
+      "archived": "history-sol-review-resume-01/launcher.json",
+      "bytes": 94,
+      "sha256": "653853a7554f2ddb477be335c97d001974d899e1a8b58211c14116b7b1f88df9"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review-resume-01/launcher.log",
+      "archived": "history-sol-review-resume-01/launcher.log.txt",
+      "bytes": 1959,
+      "sha256": "edcdd9b002763630046297e4b2a30f176444fc5980313818d051450440b11abd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review-resume-01/prior-evidence-hashes.json",
+      "archived": "history-sol-review-resume-01/prior-evidence-hashes.json",
+      "bytes": 604,
+      "sha256": "f424487b15b995bc8bbc5c97ba2d9b485b90567824307acc304d45f50b8f5828"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review-resume-01/probe-followup-quote-01.log",
+      "archived": "history-sol-review-resume-01/probe-followup-quote-01.log.txt",
+      "bytes": 2302,
+      "sha256": "f5740f94432dcb8aecb09aa21df9cc761f0b5e8687cb2a98d43cc50072e0d634"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review-resume-01/probe-real-controller-quote-01.log",
+      "archived": "history-sol-review-resume-01/probe-real-controller-quote-01.log.txt",
+      "bytes": 1950,
+      "sha256": "03f7e6ad0dd1d57b087b9c309372079e57cad1632999ad435b8317c3b79528f9"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review-resume-01/process.json",
+      "archived": "history-sol-review-resume-01/process.json",
+      "bytes": 1513,
+      "sha256": "580d265274af7a6b61c75dced6d6694f6f8d30714c0125667f2ded20a8d82c0c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review-resume-01/prompt.md",
+      "archived": "history-sol-review-resume-01/prompt.md",
+      "bytes": 5199,
+      "sha256": "085217cad4c724071be9075a87c7695edcb4cac6f7674e61679c99819a884614"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review-resume-01/pytest-targeted-01.log",
+      "archived": "history-sol-review-resume-01/pytest-targeted-01.log.txt",
+      "bytes": 181,
+      "sha256": "57949d35d405ee37472ae4dbbc534c17fb3d7b55d33932a190a8de1ee7dde151"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review-resume-01/stderr.txt",
+      "archived": "history-sol-review-resume-01/stderr.txt",
+      "bytes": 143,
+      "sha256": "1ea4ab8043015bc08af7d779f1c556cc72170a18d35f8264f97f39675e98cac9"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-sol-review-resume-01/not-started.json",
+      "archived": "runtime-sol-review-resume-01/not-started.json",
+      "bytes": 286,
+      "sha256": "634829d00d8299d560edf369acabf6b0c2562cfa6ff1e009d7cf5b0cecdf6189"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-sol-review-resume-01/prompt.md",
+      "archived": "runtime-sol-review-resume-01/prompt.md",
+      "bytes": 5012,
+      "sha256": "2d727da86d383d14583564ebc301bac990b9065504554bc678b0bfceca6de96c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-sol-review-resume-01/not-started.json",
+      "archived": "financial-sol-review-resume-01/not-started.json",
+      "bytes": 286,
+      "sha256": "081072fdeb30316aa76ad18acafc901ddb3b037b548348730d7e5cecd49393a1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-sol-review-resume-01/prompt.md",
+      "archived": "financial-sol-review-resume-01/prompt.md",
+      "bytes": 5109,
+      "sha256": "60884cf9a941b777c393f41ea5b757c25818d8831f5d10056f8b315bd327bcfa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/domain-review-resume-01-operator/final-identities.json",
+      "archived": "operator/final-identities.json",
+      "bytes": 1438,
+      "sha256": "cf19774fd841fe84c5724b204877922a075a4995249cb256e9dfbb5d33140859"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/domain-review-resume-01-operator/history-quote-consumer-probe-01.json",
+      "archived": "operator/history-quote-consumer-probe-01.json",
+      "bytes": 1074,
+      "sha256": "effea744c529018fc4fac0140d8493a80e9d1eb911a732c6e7003ca241f3c580"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/domain-review-resume-01-operator/history-quote-consumer-probe-01.log",
+      "archived": "operator/history-quote-consumer-probe-01.log.txt",
+      "bytes": 504,
+      "sha256": "11565e2213b1fd4b4d32ff33c6f73ed41c746279a2aba723bffbab49d0410589"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/domain-review-resume-01-operator/history-quote-consumer-probe-02.json",
+      "archived": "operator/history-quote-consumer-probe-02.json",
+      "bytes": 1273,
+      "sha256": "5797dc68523bd2fa66fef5f11a0577f1613d0a6482c7bcbc5061a49c8461528b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/domain-review-resume-01-operator/history-quote-consumer-probe-02.log",
+      "archived": "operator/history-quote-consumer-probe-02.log.txt",
+      "bytes": 20442,
+      "sha256": "1096d04490bda0b0f076e185fec0713ebd0796a846ae89b21e7ea0a5e812cf79"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/domain-review-resume-01-operator/history-quote-consumer-probe-03.json",
+      "archived": "operator/history-quote-consumer-probe-03.json",
+      "bytes": 1345,
+      "sha256": "3e4f8cf5c894c514bf69005fe7925289ab7ae8468c0705418faa87ee68c569f1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/domain-review-resume-01-operator/history-quote-consumer-probe-03.log",
+      "archived": "operator/history-quote-consumer-probe-03.log.txt",
+      "bytes": 23808,
+      "sha256": "de7777d2a2e80dc92a09cf8971e76a76f2290440a5f1a4ec74b244548238872b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/domain-review-resume-01-operator/history-quote-consumer-probe-first.py.txt",
+      "archived": "operator/history-quote-consumer-probe-first.py.txt",
+      "bytes": 6721,
+      "sha256": "95648e3fe3d3cc92ddb6be04ab6d56d8f1a608ad938f32d1bcd49af133d10ee3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/domain-review-resume-01-operator/history-quote-consumer-probe-second.py.txt",
+      "archived": "operator/history-quote-consumer-probe-second.py.txt",
+      "bytes": 6721,
+      "sha256": "128ac7f8f3347d7ba8c784cabded01728e227bcef5b295a5bcccaab713ba1cfc"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/domain-review-resume-01-operator/history-quote-consumer-probe.py",
+      "archived": "operator/history-quote-consumer-probe.py.txt",
+      "bytes": 7118,
+      "sha256": "fddd778076e64ad40ee4900deb336ac8b3e56e5bdcb12c6d010a820b9a548d10"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/domain-review-resume-01-operator/operator-qc.md",
+      "archived": "operator/operator-qc.md",
+      "bytes": 9516,
+      "sha256": "bdfa37b3b068586778368f317d39e44b67775308b68b0d14a75d46f1a887179f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/domain-review-resume-01-operator/reviewer-dynamic-command-evidence.json",
+      "archived": "operator/reviewer-dynamic-command-evidence.json",
+      "bytes": 8216,
+      "sha256": "28c66070eaa7359a76b4b8bdbb5bd986f8134a2db0c26b0f6d1cff6b96e01c47"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/domain-review-resume-01-operator/reviewer-probe-operator-run.json",
+      "archived": "operator/reviewer-probe-operator-run.json",
+      "bytes": 1078,
+      "sha256": "caabf31499e25695d5b2a90b64eb170e456eb63dac1aa6941d3b3a1e7df713c5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/domain-review-resume-01-operator/reviewer-probe-operator-run.log",
+      "archived": "operator/reviewer-probe-operator-run.log.txt",
+      "bytes": 5460,
+      "sha256": "fc28ad25c1f372e8f514b5c54c00bca1cd08b1c24be4ff790c46e1094783a357"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/domain-review-resume-01-operator/source-identities.json",
+      "archived": "operator/source-identities.json",
+      "bytes": 2790,
+      "sha256": "1aaf8f0d058bf4a649585492b6c8fa5b954f5fbb187f2d4fd53502d9fbfcc951"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/domain-review-resume-01-authorization.json",
+      "archived": "domain-review-resume-01-authorization.json",
+      "bytes": 1103,
+      "sha256": "d26d4e3508a1e999f7702597a361be132cacae1953f899a3363b65d0e2e15d2c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/resume-domain-review-01.py",
+      "archived": "resume-domain-review-01.py.txt",
+      "bytes": 4680,
+      "sha256": "3f0a4a9dd33125ad4bc0ec61d13b68ec97524a9668afc66188b4b3605374668a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/pr838-review-resume-01-comment.json",
+      "archived": "pr838-review-resume-01-comment.json",
+      "bytes": 1561,
+      "sha256": "5a4a0f372be22706d7dabcb78714a08a72f79373a7fa944cfab0213569ffaaf1"
+    }
+  ]
+}
