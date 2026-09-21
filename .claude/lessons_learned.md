@@ -4,6 +4,11 @@
 
 ## 夜跑安装与收据读取
 
+- **[2026-09-21] 开跑时20GiB空闲，不代表共享宿主全程有空间。**
+  2ea6最终全量后段ENOSPC，12454P/2F/8error；全部失败元素有磁盘错误。只归档验哈希后回收本轮3.1GiB scratch，两失败模块诊断25P，不能拼成完整绿。同期Quality exit1无报告、原因未证，不能说模型已审过或自动重试。后续需协调并发与空间余量；失败收据原样保留，见 `docs/handoffs/2026-09-21-nightly-deploy-execute-blocked.md`。
+- **[2026-09-21] JUnit不是“一case一种状态”的表。**
+  setup/call/teardown可产生多条error或单独testcase元素；外部汇总互斥计数会漏teardown。原进程rc1、终端与收据是红则维持红，逐个failure/error元素归因，不靠重分类转绿。
+
 - **[2026-09-21] `plutil -lint` 绿，却不是可安装的任务配置。**
   根因：OpenStep 格式允许裸字符串，语法有效不等于 LaunchAgent 字典合法。安装前再验 Label 与目标任务一致、RunAtLoad=false；真实安装器在临时 HOME/记录型 launchctl 上验证拒绝发生在写入前。五个撤保护变异均被捕获。见 `docs/handoffs/2026-09-21-nightly-deploy-closeout.md`。
 - **[2026-09-21] 全量 pytest exit0，外层汇总误报没有收据。**
