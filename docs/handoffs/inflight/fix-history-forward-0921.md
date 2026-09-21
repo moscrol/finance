@@ -13,13 +13,13 @@
 WIP #833已推7edfe24e76afbd5c365fbf97dd2414847b086f88，源码/review树clean；基座ea5c3a946（#831），main基座f783f19c8。旧#800接替评论5359、不关闭。
 用户“执行”后原thread仅续一次，11:33:38Z又capacity结束exit1、无report、未触1200秒帽。独立终审仍BLOCKED_PROVIDER_CAPACITY；操作员已确认H-01，候选CHANGES_REQUIRED。
 H-01：inherit_history_followup扫描原始query，三种强保护引文触发历史任务继承；材料合同却None，原local_only丢失，Episode合同出现外部读能力及history_query登记。旧cutoff仍9月10日，未实际读DB/网络/工具。helper与旧来源e4675eab相同，不能归因新冲突引入。
-原#833源码未动。WIP #845/b6de1a38c已推，在7c99上修H-03短材料/未闭合引号来源边界；两输入安全断言转绿，合法续问保local_only。固定985P/4S、十四变异有效，整体仍CHANGES_REQUIRED/未验收，无新独立终审。新包history-source-partition-03在#838/c14bc12f5封81成员，六包Git blobs/原件已核，三PR正文/评论5510/5513/5517已回读；包外发布回执留证，旧五包不改，交接集中docs枝。
+原#833源码未动。WIP #845/442476f7d已推clean，在b6de上修补缺口续问安全掩码后的题型/可信合同继承，新增21例；H-03原两输入安全断言仍绿。固定1014P/4S、十五变异有效，Ruff/registry/台账/前端110P及构建过。新SHA E2E因2GiB空间线中止9P/1中断/26未跑；整体CHANGES_REQUIRED/未验收。04包212成员本地封存待提交核验；旧六包不改。用户继续后空间恢复，05完整Python有界续验已启动，接手先核进程/结果，不重跑。
 
 ## 未验证 / 已知边界
 新组合Spec/Quality未终审；原四题仍not_passed。不签新main5a5334712、三领域联合树或#829；不能关闭#793/#794。无合并/部署/生产操作。
 
 ## 下一步
-接手读`fix-history-forward-boundary-0921.md`与新包history-source-partition-03/README.md；归档发布已完成，按授权补新SHA全叶/独立/自然验收。985不是完整门禁，不移签旧全叶或重跑模型求绿。runtime/财务续审未启动。
+接手读`fix-history-forward-boundary-0921.md`及`../2026-09-22-history-gap-followup-verification.md`；完成05精确SHA全量Python/整组E2E，另包封存与发布。1014定向绿不替完整门禁，不移签旧全叶。runtime/财务续审未启动。
 
 ## 踩过的坑
 材料编译器能挡引用不代表历史helper也挡；现有新增8接缝没覆盖第二路径。外置probe两次导入错非产品红；操作员runpy跑原字节不补独立签字。typed probe首mode误用，修lane再经control投影仍3真反例。

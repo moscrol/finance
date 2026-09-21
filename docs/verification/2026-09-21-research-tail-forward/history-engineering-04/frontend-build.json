@@ -1,0 +1,28 @@
+{
+  "stage": "frontend-build",
+  "command": [
+    "pnpm",
+    "build"
+  ],
+  "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921/intelligence/webapp",
+  "started_at": "2026-09-21T16:55:33.592074+00:00",
+  "before": {
+    "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+    "status": "",
+    "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+    "free_bytes": 3412680704
+  },
+  "timeout_seconds": 240,
+  "finished_at": "2026-09-21T16:56:08.827021+00:00",
+  "elapsed_seconds": 35.23447995795868,
+  "exit_code": 0,
+  "stop_reason": null,
+  "min_observed_free_bytes": 3362910208,
+  "after": {
+    "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+    "status": "",
+    "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+    "free_bytes": 3360661504
+  },
+  "log_sha256": "db2289111fa7242d8f470f37e20a780a44f82b3d949e9b6cbbb1644b41dac426"
+}

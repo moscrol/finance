@@ -1,0 +1,37 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "intelligence/tests/test_calculation_sandbox.py::test_seatbelt_alone_denies_network_even_with_python_guard_off",
+    "intelligence/tests/test_calculation_sandbox.py::test_seatbelt_alone_denies_writes_outside_workdir_and_fork",
+    "intelligence/tests/test_calculation_sandbox.py::test_default_enforcement_on_this_machine_is_both_layers",
+    "intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket"
+  ],
+  "started_at": "2026-09-21T17:01:32.395287+00:00",
+  "before": {
+    "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+    "status": "",
+    "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+    "free_bytes": 5621469184
+  },
+  "timeout_seconds": 60,
+  "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921",
+  "signals": [],
+  "outer_sandbox": false,
+  "RE06_E2E_URL": "http://127.0.0.1:19854",
+  "finished_at": "2026-09-21T17:01:34.411620+00:00",
+  "elapsed_seconds": 2.015502375084907,
+  "exit_code": 0,
+  "stop_reason": null,
+  "after": {
+    "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+    "status": "",
+    "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+    "free_bytes": 5622300672
+  },
+  "log_sha256": "88d3e4508bb91705f65f4361c8dbbce4cf33100867a1250dced9ecb4f3825924"
+}

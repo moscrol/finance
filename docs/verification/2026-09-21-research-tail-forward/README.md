@@ -17,6 +17,11 @@
 - **最新：[H-03 材料来源分区](history-source-partition-03/README.md)**：#845固定b6de1a38c，985P/4S定向回归，十四变异有效；短材料/未闭合引号两输入安全断言转绿，合法续问保local_only。正常量具157P重叠不加总。旧外置探针原样1F/1P系诊断空值错误，另存只修诊断的副本以原断言2P，不改原件。新81成员包保开发失败与冻结结果，旧五包不改。整体仍CHANGES_REQUIRED/未验收，不替完整门禁、独立终审或自然四题。
 - [H-03 决策快照](../../handoffs/2026-09-21-history-source-partition-repair.md)记录先strip丢来源容器、英文撇号与编号题组边界。新包固定提交 **c14bc12f5a966d82e4fe49995bf5221bd4540a2f** 已推，六包281/28/38/45/58/81完整清单及Git blobs通过，新79份复制原件与候选补丁逐字节一致。三PR正文/评论5510/5513/5517与远端身份、记忆50efc710、静态图谱exit0见[H-03发布回执](history-source-partition-03-publication-check.json)。首次记忆工作区并行修改导致回执中止也保留记录，后续分列提交/工作区哈希，不冒充同一快照；回执在包外，不改冻结清单。
 
+## 补缺口续问与工程验证 04
+
+- [04证据包](history-engineering-04/README.md)：#845新源码`442476f7def1013f1fadebaf6594971921147edc`修复引用标题掩码后漏识别合法补缺口续问；固定1014P/4S、十五有效变异、Ruff/registry/台账和前端110P及构建通过。178正常探针重叠不加总。新SHA E2E因2GiB下限中止9P/1中断/26未跑，完整Python未跑，不移签父b6de整组E2E34P/2S。整体仍CHANGES_REQUIRED。
+- 212成员包保留父b6de全量SIGTERM操作员中断、6F定向诊断、5个原生沙箱复验和E2E端口配置首错，不改旧六包。[日期快照](../../handoffs/2026-09-22-history-gap-followup-verification.md)记录完整发现顺序。用户再次继续、磁盘恢复后启动05续验，实际进展看集中inflight，不提前写通过。
+
 ## 验证方法与范围
 
 每包`sha256-manifest.txt`对包内除自身外的全部文件逐字节绑定。提交后运行仓内既有`check_evidence_archive.py`核**提交对象**；`sources.json`另外保留原来源文件路径、长度、哈希和`.txt`重命名映射。两个包不互相替代：作者工程全叶绿与独立审核未完成同时成立。
