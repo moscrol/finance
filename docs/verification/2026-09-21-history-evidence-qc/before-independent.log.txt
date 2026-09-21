@@ -1,0 +1,43 @@
+.FF..                                                                    [100%]
+=================================== FAILURES ===================================
+_______ test_missing_provenance_cannot_bypass_history_operation_contract _______
+
+    def test_missing_provenance_cannot_bypass_history_operation_contract():
+        # Dropping the qualifier must not disable the qualifier's validation.
+        result = _verify(replace(_card(), history_provenance=None))
+>       assert result.completion.outputs[0].status == "missing"
+E       AssertionError: assert 'fulfilled' == 'missing'
+E         
+E         - missing
+E         + fulfilled
+
+../.finance-runtime/reviews/react-trace-qc-20260921/probe_history_qc.py:46: AssertionError
+___________ test_each_history_chunk_keeps_a_distinct_public_citation ___________
+
+    def test_each_history_chunk_keeps_a_distinct_public_citation():
+        from intelligence.runtime.continuous_turn_adapter import _public_citation_projection
+        payload = fixture["_payload"]([fixture["_row"](0)])
+        payload["preview"][0]["features"].update({f"feature_{n}": n for n in range(20)})
+        result = fixture["_hashed_result"](payload)
+        cards = tuple(card for card in result.evidence if card.history_provenance.row_index == 0)
+        assert len(cards) > 1, "must cross the real chunk budget, not use a one-card fixture"
+        outcome = AgentOutcome(
+            task_frame_hash="chunks", status="completed", draft="历史观察",
+            evidence=cards, traces=(), gaps=(), stop_reason="model_finish",
+            events=(EpisodeEvent(1, "task", {"task_frame_hash": "chunks"}),),
+            bindings=(OutputEvidenceBinding("direct_assessment", tuple(card.content_hash for card in cards)),),
+            usage=AgentUsage(),
+        )
+        citations = _public_citation_projection(
+            outcome, frozenset(), allowed_output_ids=frozenset({"direct_assessment"})
+        )
+>       assert len(citations) == len(cards)
+E       assert 1 == 7
+E        +  where 1 = len(({'date': '2025-08-28', 'source': '本地历史研究 · 可复算原件', 'title': '历史观察样本 A.0 2025-08-01 2025-08-28｜history-·1'},))
+E        +  and   7 = len((AgentEvidence(tool='history_query', title='历史观察样本 A.0 2025-08-01 2025-08-28｜history-·1', detail='{"sample":0,"entity_...ne, pointer_dropped=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type=''), ...))
+
+../.finance-runtime/reviews/react-trace-qc-20260921/probe_history_qc.py:66: AssertionError
+=========================== short test summary info ============================
+FAILED ../.finance-runtime/reviews/react-trace-qc-20260921/probe_history_qc.py::test_missing_provenance_cannot_bypass_history_operation_contract
+FAILED ../.finance-runtime/reviews/react-trace-qc-20260921/probe_history_qc.py::test_each_history_chunk_keeps_a_distinct_public_citation
+2 failed, 3 passed in 1.14s

@@ -1,0 +1,18 @@
+[
+  {
+    "name": "missing_provenance",
+    "exit_code": 1,
+    "failures": [
+      "test_history_verifier_rejects_forced_decision_qualification_and_wrong_operation"
+    ],
+    "errors": 0
+  },
+  {
+    "name": "chunk_identity",
+    "exit_code": 1,
+    "failures": [
+      "test_chunked_row_has_distinct_public_citations_and_stable_overlapping_page"
+    ],
+    "errors": 0
+  }
+]

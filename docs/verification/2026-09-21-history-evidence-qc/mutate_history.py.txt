@@ -1,0 +1,49 @@
+"""Read-only in-memory mutations of the two history QC repairs."""
+from pathlib import Path
+import importlib
+import json
+import os
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+
+MUTATIONS = {
+    "missing_provenance": (
+        "intelligence.services.episode_verifier",
+        'if item.tool in {"history_query", "read_history_result"}\n            or item.history_provenance is not None',
+        'if item.history_provenance is not None',
+    ),
+    "chunk_identity": (
+        "intelligence.services.historical_research.episode",
+        'f"{title}·块{block_index + 1}" if row_identity else title',
+        'title',
+    ),
+}
+
+if len(sys.argv) > 1 and sys.argv[1] == "child":
+    import pytest
+    name = sys.argv[2]
+    module_name, old, new = MUTATIONS[name]
+    module = importlib.import_module(module_name)
+    path = Path(module.__file__)
+    source = path.read_text()
+    assert source.count(old) == 1
+    exec(compile(source.replace(old, new), str(path), "exec"), module.__dict__)
+    raise SystemExit(pytest.main(["-q", "tests/test_history_evidence_binding.py", "--junitxml", sys.argv[3]]))
+
+out = Path(__file__).resolve().parent / "history-mutations"
+out.mkdir(exist_ok=False)
+rows = []
+for name in MUTATIONS:
+    env = {key: os.environ[key] for key in ("HOME", "PATH") if key in os.environ}
+    env.update(PYTHONPATH=str(Path.cwd()), FWP_TEST_RECEIPT="0")
+    with (out/f"{name}.log").open('w') as log:
+        run = subprocess.run([sys.executable, __file__, 'child', name, str(out/f'{name}.xml')], env=env, stdout=log, stderr=subprocess.STDOUT, timeout=120)
+    root = ET.parse(out/f'{name}.xml').getroot()
+    failures = [node.attrib['name'] for node in root.findall('.//testcase') if node.find('failure') is not None]
+    errors = len(root.findall('.//error'))
+    row = dict(name=name, exit_code=run.returncode, failures=failures, errors=errors)
+    rows.append(row)
+    print(json.dumps(row), flush=True)
+(out/'summary.json').write_text(json.dumps(rows, indent=2)+'\n')
+assert all(row['exit_code']==1 and row['failures'] and not row['errors'] for row in rows)

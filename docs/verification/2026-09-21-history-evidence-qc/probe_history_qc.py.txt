@@ -1,0 +1,74 @@
+"""Independent negative/consumer checks for the untouched salvaged commit."""
+from dataclasses import replace
+from pathlib import Path
+import runpy
+
+import pytest
+
+from intelligence.services.agent_runtime import AgentOutcome, AgentUsage, EpisodeEvent, OutputEvidenceBinding
+from intelligence.services.episode_verifier import verify_episode_outcome
+from intelligence.services.research_contract import RequiredOutput, ResearchTaskContract
+
+fixture = runpy.run_path(str(Path.cwd() / "tests/test_history_evidence_binding.py"))
+
+
+def _card():
+    result = fixture["_hashed_result"](fixture["_payload"]([fixture["_row"](0)]))
+    return next(card for card in result.evidence if card.history_provenance.row_index == 0)
+
+
+def _verify(card):
+    contract = ResearchTaskContract(
+        task_id="history-negative", question="历史类比", subject="AI行情",
+        subject_kind="theme", question_type="comparison_analog",
+        required_outputs=(RequiredOutput(
+            "analog_similarities", "相似点", ("history_query",),
+            allowed_history_operations=("find_analogues",),
+        ),), allowed_capabilities=("finance_query",), task_frame_hash="history-negative",
+    )
+    outcome = AgentOutcome(
+        task_frame_hash="history-negative", status="completed", draft="相似点",
+        evidence=(card,), traces=(), gaps=(), stop_reason="model_finish",
+        events=(EpisodeEvent(1, "task", {"task_frame_hash": "history-negative"}),),
+        bindings=(OutputEvidenceBinding("analog_similarities", (card.content_hash,)),),
+        usage=AgentUsage(),
+    )
+    return verify_episode_outcome(contract, outcome)
+
+
+def test_valid_history_control_is_accepted():
+    assert _verify(_card()).completion.outputs[0].status == "fulfilled"
+
+
+def test_missing_provenance_cannot_bypass_history_operation_contract():
+    # Dropping the qualifier must not disable the qualifier's validation.
+    result = _verify(replace(_card(), history_provenance=None))
+    assert result.completion.outputs[0].status == "missing"
+
+
+def test_each_history_chunk_keeps_a_distinct_public_citation():
+    from intelligence.runtime.continuous_turn_adapter import _public_citation_projection
+    payload = fixture["_payload"]([fixture["_row"](0)])
+    payload["preview"][0]["features"].update({f"feature_{n}": n for n in range(20)})
+    result = fixture["_hashed_result"](payload)
+    cards = tuple(card for card in result.evidence if card.history_provenance.row_index == 0)
+    assert len(cards) > 1, "must cross the real chunk budget, not use a one-card fixture"
+    outcome = AgentOutcome(
+        task_frame_hash="chunks", status="completed", draft="历史观察",
+        evidence=cards, traces=(), gaps=(), stop_reason="model_finish",
+        events=(EpisodeEvent(1, "task", {"task_frame_hash": "chunks"}),),
+        bindings=(OutputEvidenceBinding("direct_assessment", tuple(card.content_hash for card in cards)),),
+        usage=AgentUsage(),
+    )
+    citations = _public_citation_projection(
+        outcome, frozenset(), allowed_output_ids=frozenset({"direct_assessment"})
+    )
+    assert len(citations) == len(cards)
+
+
+@pytest.mark.parametrize("qualification", ["wrong_operation", "decision_eligible"])
+def test_existing_negative_controls_are_still_rejected(qualification):
+    card = _card()
+    changed = dict(operation="inspect_history") if qualification == "wrong_operation" else dict(decision_eligible=True)
+    card = replace(card, history_provenance=replace(card.history_provenance, **changed))
+    assert _verify(card).completion.outputs[0].status == "missing"
