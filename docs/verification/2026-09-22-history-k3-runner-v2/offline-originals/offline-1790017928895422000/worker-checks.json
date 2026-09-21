@@ -1,0 +1,134 @@
+{
+  "status": "FAIL",
+  "checks": [
+    {
+      "name": "identity",
+      "ok": false,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "python: realpath: /Users/a77/finance-workspace-private/.venv-workbench/bin/: Operation not permitted\n"
+    },
+    {
+      "name": "read",
+      "ok": false,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "python: realpath: /Users/a77/finance-workspace-private/.venv-workbench/bin/: Operation not permitted\n"
+    },
+    {
+      "name": "search",
+      "ok": false,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "python: realpath: /Users/a77/finance-workspace-private/.venv-workbench/bin/: Operation not permitted\n"
+    },
+    {
+      "name": "show",
+      "ok": false,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "python: realpath: /Users/a77/finance-workspace-private/.venv-workbench/bin/: Operation not permitted\n"
+    },
+    {
+      "name": "outside",
+      "ok": true,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "python: realpath: /Users/a77/finance-workspace-private/.venv-workbench/bin/: Operation not permitted\n"
+    },
+    {
+      "name": "absolute",
+      "ok": true,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "python: realpath: /Users/a77/finance-workspace-private/.venv-workbench/bin/: Operation not permitted\n"
+    },
+    {
+      "name": "handoff",
+      "ok": true,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "python: realpath: /Users/a77/finance-workspace-private/.venv-workbench/bin/: Operation not permitted\n"
+    },
+    {
+      "name": "users",
+      "ok": true,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "python: realpath: /Users/a77/finance-workspace-private/.venv-workbench/bin/: Operation not permitted\n"
+    },
+    {
+      "name": "env",
+      "ok": true,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "python: realpath: /Users/a77/finance-workspace-private/.venv-workbench/bin/: Operation not permitted\n"
+    },
+    {
+      "name": "bash",
+      "ok": true,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "python: realpath: /Users/a77/finance-workspace-private/.venv-workbench/bin/: Operation not permitted\n"
+    },
+    {
+      "name": "write",
+      "ok": true,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "python: realpath: /Users/a77/finance-workspace-private/.venv-workbench/bin/: Operation not permitted\n"
+    },
+    {
+      "name": "git_inject",
+      "ok": true,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "python: realpath: /Users/a77/finance-workspace-private/.venv-workbench/bin/: Operation not permitted\n"
+    },
+    {
+      "name": "deny_write",
+      "ok": true,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "python: realpath: /Users/a77/finance-workspace-private/.venv-workbench/bin/: Operation not permitted\n"
+    },
+    {
+      "name": "deny_loopback",
+      "ok": true,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "python: realpath: /Users/a77/finance-workspace-private/.venv-workbench/bin/: Operation not permitted\n"
+    },
+    {
+      "name": "deny_external",
+      "ok": true,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "python: realpath: /Users/a77/finance-workspace-private/.venv-workbench/bin/: Operation not permitted\n"
+    },
+    {
+      "name": "deny_other_directory",
+      "ok": true,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "python: realpath: /Users/a77/finance-workspace-private/.venv-workbench/bin/: Operation not permitted\n"
+    },
+    {
+      "name": "deny_other_axis",
+      "ok": true,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "python: realpath: /Users/a77/finance-workspace-private/.venv-workbench/bin/: Operation not permitted\n"
+    },
+    {
+      "name": "environment",
+      "ok": false,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "python: realpath: /Users/a77/finance-workspace-private/.venv-workbench/bin/: Operation not permitted\n"
+    }
+  ],
+  "fixture_config": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-runner-v2/offline-1790017928895422000/session/config.json",
+  "real_model_requests": 0,
+  "credentials_read": 0
+}

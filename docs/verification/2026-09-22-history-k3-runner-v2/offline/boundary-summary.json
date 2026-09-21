@@ -1,0 +1,41 @@
+{
+  "status": "PASS",
+  "rows": [
+    {
+      "name": "gateway_auth_before_dispatch",
+      "ok": true
+    },
+    {
+      "name": "concurrent_pre_dispatch_reservation",
+      "ok": true,
+      "requests": 12,
+      "admitted": 2,
+      "rejected": 10
+    },
+    {
+      "name": "credential_success",
+      "ok": true,
+      "real_credentials_read": 0,
+      "real_http_requests": 0
+    },
+    {
+      "name": "credential_missing_database",
+      "ok": true,
+      "real_credentials_read": 0,
+      "real_http_requests": 0
+    },
+    {
+      "name": "credential_missing_account",
+      "ok": true,
+      "real_credentials_read": 0,
+      "real_http_requests": 0
+    },
+    {
+      "name": "credential_missing_access",
+      "ok": true,
+      "real_credentials_read": 0,
+      "real_http_requests": 0
+    }
+  ],
+  "real_model_requests": 0
+}

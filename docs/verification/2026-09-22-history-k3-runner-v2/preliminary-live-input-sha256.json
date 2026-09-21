@@ -1,0 +1,15 @@
+{
+  "worker.py": "fa9778ec48aebd321fdfb697e08be22f4f8d358b8a0d983f33511b148ae0a33c",
+  "bounded-gateway.mjs": "79f065fd51c949d930d3413d255edb0452d5c7d2608c342ff79d83688459080f",
+  "check_worker.py": "2a6ac38b33898fa026c39c3fd88a948600ac8218242e5fe40751a25af5d62a19",
+  "controller.mjs": "d5732d4adb520af0eb85923384b3b8e95e03f0b41bd1aaa4fd7ffe39702b9121",
+  "session.mjs": "b91fec7d9817624e73cfbde125e155d419f14b89ed21ee00db4b35a32dafa855",
+  "prepare.py": "6800f748cc91808baee0c730ec4df94fd612c171a6d892d70c85a5e0756716e2",
+  "fixture-upstream.mjs": "e32ccada65b2755acda9d499add041b2f8f34eb73a4f3beb9073a66dcd137bfc",
+  "spec/config.json": "fe83ea30baeed9563324f040a8ea5153ffc219926c1f045227750f3c5d63ac52",
+  "spec/prompt.md": "9e270323a940f3244e7df0ce25aa19a976c2e1ebc2c1cc6f55476fac1822968a",
+  "spec/tools.sb": "20b69e3bccdd801d6b595b5a245f5ec67a0367242d14093be1b4689711f5561a",
+  "quality/config.json": "9b4d15e61a86598f501d77bbf642e4ac55ade462e7f04624c39bdeb1950269f6",
+  "quality/prompt.md": "da57b74437012944bd9e36d2be762717b1eadf54e4af65770cc03019f07235b6",
+  "quality/tools.sb": "bc9950bb72f1dabef66d9cb0b9ac4831384aabb2ead5a20b4c071208bda2c360"
+}

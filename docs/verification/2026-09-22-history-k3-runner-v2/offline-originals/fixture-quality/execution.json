@@ -1,0 +1,42 @@
+{
+  "status": "FINAL_RETURNED_REQUIRES_VALIDATION",
+  "exitCode": 0,
+  "started": 1790018236268,
+  "elapsedMs": 981,
+  "before": {
+    "revision": "fedce252330dce1065238f58e6c914417219ec53",
+    "status": ""
+  },
+  "after": {
+    "revision": "fedce252330dce1065238f58e6c914417219ec53",
+    "status": ""
+  },
+  "gateway": {
+    "requestCount": 1,
+    "maxRequests": 24,
+    "startedAt": 1790018236426,
+    "deadlineAt": 1790018266268,
+    "elapsedMs": 823,
+    "closed": true,
+    "finalizing": false
+  },
+  "fixture": true,
+  "tests_run": 0,
+  "retries": 0,
+  "fallback": false,
+  "reportPresent": true,
+  "reportSha256": "bd434f9424d1d72a13f11c273fa7f3341cd1ddcb40e8a0ad2ca69764c724a88a",
+  "disk": [
+    {
+      "timestamp": 1790018236426,
+      "availableBytes": 52039315456
+    },
+    {
+      "timestamp": 1790018237249,
+      "availableBytes": 52037795840
+    }
+  ],
+  "sandbox_layers_per_tool": 1,
+  "controller_trusted_unsandboxed": true,
+  "production_changes": false
+}

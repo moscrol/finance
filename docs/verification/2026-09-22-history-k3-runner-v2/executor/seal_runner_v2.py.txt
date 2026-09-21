@@ -1,0 +1,130 @@
+"""Seal the repaired runner and its one-shot live attempts without secrets."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+REPO = Path('/Users/a77/fwp-wt-history-evidence-integration-0921')
+REL = Path('docs/verification/2026-09-22-history-k3-runner-v2')
+OUT = REPO / REL
+REVISION = 'fedce252330dce1065238f58e6c914417219ec53'
+RUNTIME_REVISION = 'f73d2133968d51d3c782d3e12ee9aa4d0618ef45'
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def put(source, relative):
+    target = OUT / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        raise RuntimeError(f'already exists: {target}')
+    shutil.copy2(source, target)
+    return target
+
+
+def dump(relative, value):
+    target = OUT / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+    return target
+
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(REPO), *args], text=True).strip()
+
+
+assert git('rev-parse', 'HEAD') == 'f6053f43463a5d989efcda7f6a08e5d6889a4661'
+assert not git('status', '--porcelain')
+assert not OUT.exists()
+OUT.mkdir(parents=True)
+
+executor_names = [
+    'worker.py', 'prepare.py', 'session.mjs', 'bounded-gateway.mjs', 'controller.mjs',
+    'fixture-upstream.mjs', 'check_worker.py', 'run_fixture.mjs', 'test_boundaries.mjs',
+    'freeze_offline.py', 'frozen-inputs.json', 'offline-acceptance.json',
+]
+for name in executor_names:
+    put(ROOT / name, Path('executor') / name)
+for axis in ('spec', 'quality'):
+    for name in ('config.json', 'prompt.md', 'tools.sb'):
+        put(ROOT / axis / name, Path('executor-inputs') / axis / name)
+
+latest_worker = sorted(ROOT.glob('offline-*/worker-checks.json'))[-1]
+latest_fixture = sorted(ROOT.glob('fixture-suite-*/summary.json'))[-1]
+latest_boundaries = sorted(ROOT.glob('boundaries-*/summary.json'))[-1]
+put(latest_worker, Path('offline') / 'worker-checks.json')
+put(latest_fixture, Path('offline') / 'fixture-summary.json')
+put(latest_boundaries, Path('offline') / 'boundary-summary.json')
+
+live = {}
+for axis in ('spec', 'quality'):
+    source = ROOT / axis
+    for name in ('execution.json', 'credential.json', 'events.jsonl', 'gateway-events.jsonl', 'session.stderr.log', 'session.stdout.log', 'last-assistant.json'):
+        put(source / name, Path('live') / axis / name)
+    execution = json.loads((source / 'execution.json').read_text())
+    credential = json.loads((source / 'credential.json').read_text())
+    live[axis] = {
+        'status': execution['status'],
+        'exitCode': execution['exitCode'],
+        'gatewayRequestCount': execution['gateway']['requestCount'],
+        'gatewayRequestCap': execution['gateway']['maxRequests'],
+        'providerError': 'credit_exhausted_5h',
+        'credentialBootstrapExitCode': credential['exitCode'],
+        'credentialTokenPersisted': credential['tokenPersisted'],
+        'modelRequestFinal': execution['reportPresent'],
+        'candidateBefore': execution['before'],
+        'candidateAfter': execution['after'],
+    }
+
+offline = json.loads((ROOT / 'offline-acceptance.json').read_text())
+dump('summary.json', {
+    'sealedAt': datetime.now(timezone.utc).isoformat(),
+    'candidateRevision': REVISION,
+    'runtimeRevision': RUNTIME_REVISION,
+    'businessHeadAtSeal': git('rev-parse', 'HEAD'),
+    'businessTreeCleanAtSeal': not bool(git('status', '--porcelain')),
+    'offlineAcceptance': {
+        'status': offline['status'],
+        'checks': offline['checks'],
+        'realModelRequests': offline['realModelRequests'],
+        'credentialsRead': offline['credentialsRead'],
+        'limits': offline['limits'],
+    },
+    'liveAttempts': live,
+    'independentReports': {'spec': False, 'quality': False},
+    'tests_run': 0,
+    'retries': 0,
+    'fallback': False,
+    'naturalFinancialProbes': 0,
+    'productionChanges': False,
+    'mergeOrDeployment': False,
+    'verdict': 'BLOCKED_PROVIDER_QUOTA_NO_FINAL_REPORT',
+    'knownLimits': [
+        'The local gateway counted one admitted dispatch per axis; provider-side internal attempts were not observable.',
+        'A successful credential refresh proves access bootstrap only, not model availability or an independent review.',
+        'No source was read by the independent reviewers and neither axis produced a final report.',
+        'The archive contains no access token, refresh token, account database, or live model response body.',
+    ],
+})
+
+readme = f'''# History K3 Runner v2 Evidence
+
+- Candidate: `{REVISION}`; business runtime: `{RUNTIME_REVISION}`.
+- Purpose: preserve the repaired independent-review executor, offline acceptance, and the two explicitly authorized one-shot live attempts.
+- Offline acceptance: `PASS`, 29 checks. It covered single-layer worker sandboxing, path/symlink allowlisting, no write/network, Pi SDK tool and final-report flow, no-retry/error handling, wall-clock cancellation, concurrent request reservation, and four credential-bootstrap fixture branches. Real model requests: 0.
+- Live Spec and Quality: each started once with 24-request/600-second limits, no retry/fallback. Each credential bootstrap exited 0 without persisting a token; the first local gateway dispatch received provider `credit_exhausted_5h` HTTP 429. Neither reviewer read source or produced a final report. Both candidate trees remained `{REVISION}` and clean.
+- Scope boundary: `tests_run=0`, natural financial probes=0, production configuration/service unchanged, no merge/deploy. The local gateway cap is not evidence about provider-internal retries.
+
+The old bootstrap-failure packages remain immutable. This package contains no credentials or live response bodies.
+'''
+(OUT / 'README.md').write_text(readme)
+
+files = sorted(p for p in OUT.rglob('*') if p.is_file() and p.name != 'sha256-manifest.txt')
+manifest = OUT / 'sha256-manifest.txt'
+manifest.write_text(''.join(f'{sha(p)}  {p.relative_to(REPO).as_posix()}\n' for p in files))
+print(json.dumps({'archive': str(OUT), 'files': len(files), 'manifest': sha(manifest), 'verdict': 'BLOCKED_PROVIDER_QUOTA_NO_FINAL_REPORT'}, ensure_ascii=False, indent=2))
