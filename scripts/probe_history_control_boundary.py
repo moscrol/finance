@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run H-01/H-02 regressions with one process-local protection withdrawal.
+"""Run H-01/H-02/H-03 regressions with one process-local protection withdrawal.
 
 No source edits, model calls, production data or external runner execution. Run each mode
 with a bounded launcher. A killed mutant requires a test assertion failure,
@@ -24,6 +24,7 @@ import textwrap
 ROOT = Path(__file__).resolve().parents[1]
 TEST = "tests/test_history_control_boundary.py"
 INHERITANCE_TEST = "tests/test_history_permission_inheritance.py"
+SOURCE_TEST = "tests/test_history_source_partition.py"
 SOURCES = (
     "intelligence/services/user_task.py",
     "intelligence/services/historical_research/intent.py",
@@ -38,14 +39,15 @@ SOURCES = (
     "docs/agent-product-door.md",
     TEST,
     INHERITANCE_TEST,
+    SOURCE_TEST,
     "scripts/probe_history_control_boundary.py",
 )
 # Alter function code objects so already imported aliases see the same change.
 MUTATIONS = {
     "partition": (
         "user_task", "top_level_message_text",
-        'return ("\\n".join(visible) if not uncertain else "", tuple(uncertain))',
-        "return raw, tuple(uncertain)",
+        'return (regions.control_text if not regions.uncertain_reasons else "", regions.uncertain_reasons)',
+        "return raw, regions.uncertain_reasons",
     ),
     "history-infer": (
         "historical_research.intent", "infer_history_intent",
@@ -54,7 +56,7 @@ MUTATIONS = {
     ),
     "follow-up": (
         "research_contract", "_top_level_follow_up_query",
-        "return cleaned, cleaned != raw", "return raw, False",
+        "return cleaned, cleaned != raw.strip()", "return raw, False",
     ),
     "resolution-hint": (
         "research_contract", "is_contextual_follow_up",
@@ -64,6 +66,24 @@ MUTATIONS = {
         "honesty_gates", "requested_information_cutoff",
         'visible_query, _uncertain = top_level_message_text(str(query or ""))',
         'visible_query = str(query or "")',
+    ),
+    "material-mask": (
+        "user_task", "classify_top_level_regions",
+        '" " * len(line) if claimed[index] else line', "line",
+    ),
+    "unclosed-quote": (
+        "user_task", "_protected_layout",
+        'uncertain.append("unclosed_quote")', "pass",
+    ),
+    "frame-source": (
+        "task_frame", "build_task_frame",
+        'history_intent = infer_history_intent(str(raw_question or ""))',
+        "history_intent = infer_history_intent(core)",
+    ),
+    "followup-source": (
+        "research_contract", "_top_level_follow_up_query",
+        "visible, _uncertain = top_level_message_text(raw)",
+        "visible, _uncertain = top_level_message_text(raw.strip())",
     ),
     "history-contract": (
         "material_contract", "compile_material_contract",
@@ -134,7 +154,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("normal", *MUTATIONS))
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--suite", choices=("boundary", "inheritance", "all"), default="all")
+    parser.add_argument("--suite", choices=("boundary", "inheritance", "source", "all"), default="all")
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -148,7 +168,8 @@ def main():
     started = datetime.now(timezone.utc).isoformat()
     results = Outcomes()
     mutation = None
-    tests = {"boundary": [TEST], "inheritance": [INHERITANCE_TEST], "all": [TEST, INHERITANCE_TEST]}[args.suite]
+    tests = {"boundary": [TEST], "inheritance": [INHERITANCE_TEST], "source": [SOURCE_TEST],
+             "all": [TEST, INHERITANCE_TEST, SOURCE_TEST]}[args.suite]
     pytest_args = ["-q", "--tb=short", "--basetemp", str(output / "tmp"), *tests]
     with (output / "pytest.txt").open("w", encoding="utf-8") as stream:
         with redirect_stdout(stream), redirect_stderr(stream):
@@ -181,7 +202,7 @@ def main():
     )
     ok = expected and not results.errors and before == after
     receipt = {
-        "scope": "H-01/H-02 focused operator check; not independent acceptance",
+        "scope": "H-01/H-02/H-03 focused operator check; not independent acceptance",
         "suite": args.suite, "pytest_args": pytest_args,
         "mode": args.mode, "mutation": mutation, "started": started,
         "finished": datetime.now(timezone.utc).isoformat(),

@@ -1264,10 +1264,10 @@ class StageArtifact:
 
 
 def _top_level_follow_up_query(query: str) -> tuple[str, bool]:
-    raw = str(query or "").strip()
+    raw = str(query or "")
     visible, _uncertain = top_level_message_text(raw)
     cleaned = visible.strip()
-    return cleaned, cleaned != raw
+    return cleaned, cleaned != raw.strip()
 
 
 def is_follow_up(query: str) -> bool:

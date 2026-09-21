@@ -690,7 +690,10 @@ def _protected_layout(lines: list[str]) -> tuple[list[str], list[str], set[int]]
     escaped: set[int] = set()
     backslashes = 0
     for pos, char in enumerate(text):
-        if backslashes % 2:
+        if backslashes % 2 or (
+            char in {"'", "’"} and 0 < pos < len(text) - 1
+            and all(c.isascii() and c.isalnum() for c in (text[pos - 1], text[pos + 1]))
+        ):
             escaped.add(pos)
         backslashes = backslashes + 1 if char == "\\" else 0
     quote_pairs = dict(_QUOTE_PAIRS)
@@ -749,6 +752,8 @@ def _protected_layout(lines: list[str]) -> tuple[list[str], list[str], set[int]]
         end = min((a for a, _ in intervals if a > start), default=len(text))
         if find_state_ops(visible[start + 1:end]):
             uncertain.append("unclosed_quote_with_state_op")
+        else:
+            uncertain.append("unclosed_quote")
     protected_blank_lines = {
         li for li, offset in enumerate(offsets)
         if not lines[li].strip() and any(a <= offset < b for a, b in intervals)
@@ -769,8 +774,8 @@ def top_level_message_text(text: str) -> tuple[str, tuple[str, ...]]:
     An uncertain boundary yields no visible text so callers fail closed.
     """
     raw = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
-    visible, uncertain = _visible_lines(raw.split("\n"))
-    return ("\n".join(visible) if not uncertain else "", tuple(uncertain))
+    regions = classify_top_level_regions(raw)
+    return (regions.control_text if not regions.uncertain_reasons else "", regions.uncertain_reasons)
 
 
 @dataclass(frozen=True)
@@ -800,6 +805,8 @@ class TopLevelRegions:
     # 保留用户原编号，不让从7开始的题被消费者重新编号为1。
     question_ids: tuple[str, ...] = ()
     question_line_ranges: tuple[tuple[int, int], ...] = ()
+    # Derived control projection, not a replacement for the original question/material.
+    control_text: str = ""
 
 
 def _question_candidate_end(
@@ -940,6 +947,12 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
                 claimed[j] = True
         li = end
 
+    # Freeze material ownership before question recognition adds its own claims.
+    control_text = "\n".join(
+        " " * len(line) if claimed[index] else line
+        for index, line in enumerate(masked)
+    )
+
     # 第 3 步：题组区。检测看可见文本，段落边界和存储看原文。
     # 已认定题体的长续行/全引用续行不是材料阈值或空行。
     sub_questions: list[str] = []
@@ -1076,6 +1089,7 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
         uncertain_reasons=tuple(dict.fromkeys(uncertain)),
         question_ids=tuple(question_ids),
         question_line_ranges=tuple(question_line_ranges),
+        control_text=control_text,
     )
 
 
