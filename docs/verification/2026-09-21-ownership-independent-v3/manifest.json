@@ -1,0 +1,165 @@
+{
+  "candidate": "47530e20fe5c3195e50ce429b31898d57918e413",
+  "base": "728f327160bbd2485cb635e7ef09d040d718d7b5",
+  "independent_review_status": "BLOCKED",
+  "spec": "blocked before substantive review",
+  "quality": "not launched",
+  "files": [
+    {
+      "path": "README.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/README.md",
+      "bytes": 4114,
+      "sha256": "7c16f97c459aa0b95a87e367dddb837cef0bc04f1eaa2fee778dd9922054d04d"
+    },
+    {
+      "path": "apparatus-recovery.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/apparatus-recovery.json",
+      "bytes": 596,
+      "sha256": "14e703d85b5d325d5d2373034bdbd993e4ed588c57fb017713e1f7b411ab4a30"
+    },
+    {
+      "path": "auth-route-status.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/auth-route-status.txt",
+      "bytes": 24,
+      "sha256": "16118df3eb3595e44a4721878cef0f79910e6564e10ff0e78e451e7c4e478947"
+    },
+    {
+      "path": "authorization.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/authorization.json",
+      "bytes": 610,
+      "sha256": "b71dca2534a36b18e5bc4bb27ce15c89989a57fac1ce9436a515855b2fc4212e"
+    },
+    {
+      "path": "backfill-execution-contract.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/backfill-execution-contract.md",
+      "bytes": 19542,
+      "sha256": "cef6cddb24fec805dc14daba9c9d73fd593a98bc9fbca7377493b6f3997e5e25"
+    },
+    {
+      "path": "backfill-prep-contract.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/backfill-prep-contract.md",
+      "bytes": 10930,
+      "sha256": "38e532c56f68cf3044fcb7b927560556c600e8c0ccb76a0de35b81680e106fb5"
+    },
+    {
+      "path": "blocked-review-qc.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/blocked-review-qc.json",
+      "bytes": 1157,
+      "sha256": "a3b4a527e495325562a3df5dfb6703f70f98fdf2485e2c067d7d4175fc39dd86"
+    },
+    {
+      "path": "candidate.diff",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/candidate.diff",
+      "bytes": 197605,
+      "sha256": "ff14280010e021e083f6aed601a7113b49b242751296746dad7532da64652687"
+    },
+    {
+      "path": "quality-prompt.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/quality-prompt.md",
+      "bytes": 1462,
+      "sha256": "3d6e5c74eca9abc2c45067b4684608e583efbc047b9a358d6cca8c44c0814d69"
+    },
+    {
+      "path": "review-common.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/review-common.md",
+      "bytes": 6397,
+      "sha256": "0de3418d369d2678ecb05a2911f5bb3f54c7f996539f93c54fd989c351c50f74"
+    },
+    {
+      "path": "run_review.initial.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/run_review.initial.py",
+      "bytes": 5098,
+      "sha256": "b94e2d3cb96f87f296164443e9f53c0768305fa99f874b70f893ac779a584d01"
+    },
+    {
+      "path": "run_review.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/run_review.py",
+      "bytes": 5084,
+      "sha256": "1bb753b990459cf18f6d6a3d1bcefd5d51dc441e7fb0fd25125153ad093071e7"
+    },
+    {
+      "path": "spec/events.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/spec/events.jsonl",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "spec/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/spec/execution.json",
+      "bytes": 3578,
+      "sha256": "ee16f3e2651fd0d2b92711f7b1c9234a2ae0201b5df1f6c6c8e69028ba5ba744"
+    },
+    {
+      "path": "spec/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/spec/stderr.log",
+      "bytes": 217,
+      "sha256": "4cf1ac52b2ecccadc6d5d889db31c8a4437cfb3fe107f20ef93f17fe86cb27f0"
+    },
+    {
+      "path": "spec-launch.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/spec-launch.json",
+      "bytes": 52,
+      "sha256": "3c92844507e8a75599b8e87e2af78ca00843b20c968bd3cf6214366b9dcdaeb7"
+    },
+    {
+      "path": "spec-launcher.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/spec-launcher.log",
+      "bytes": 108,
+      "sha256": "f55432fbb0eeeab8e776e9f3aa4961692296db0f52350cd83b648b5130487908"
+    },
+    {
+      "path": "spec-prompt.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/spec-prompt.md",
+      "bytes": 1128,
+      "sha256": "4fa8263728940987fe16fc86e1e0b96c6962ae81b0c21841336193e4ab25874a"
+    },
+    {
+      "path": "spec-reservation.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/spec-reservation.json",
+      "bytes": 137,
+      "sha256": "2989f2d787fedd9a7b667ab505bd1fb0dc37c3ae0a9d4e2a4e7074065ed5313c"
+    },
+    {
+      "path": "spec-review/events.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/spec-review/events.jsonl",
+      "bytes": 773,
+      "sha256": "93a8edce52eda404f9229fcac226bf2b108536c915eb47332c37d0fa9030e28c"
+    },
+    {
+      "path": "spec-review/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/spec-review/execution.json",
+      "bytes": 3469,
+      "sha256": "f996409b086cfb43376d68c9a23a35423ecba6ec7c2fc7ae6dd542ea02fb9200"
+    },
+    {
+      "path": "spec-review/prompt.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/spec-review/prompt.md",
+      "bytes": 1135,
+      "sha256": "ed5f4c73b98e0a17073f9e370c188438f1d9273e02f1d0402b5da9b4e4439a0f"
+    },
+    {
+      "path": "spec-review/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/spec-review/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "spec-review-launch.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/spec-review-launch.json",
+      "bytes": 66,
+      "sha256": "1fc1b72653247fc0537084922eeb8a686ef7938ee13da4265f2030a7096810c7"
+    },
+    {
+      "path": "spec-review-launcher.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/spec-review-launcher.log",
+      "bytes": 108,
+      "sha256": "d0095287e8747a8f900b30221e5429b6adf319b00a3ad95fa4546dc7dd94e6f2"
+    },
+    {
+      "path": "spec-review-reservation.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/spec-review-reservation.json",
+      "bytes": 137,
+      "sha256": "203ec03322e6746285dc9a1bb91968ff89841d3acce9bb17e00153d670e7297a"
+    }
+  ]
+}

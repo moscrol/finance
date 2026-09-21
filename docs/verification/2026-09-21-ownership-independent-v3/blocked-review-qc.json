@@ -1,0 +1,33 @@
+{
+  "kind": "operator mechanical QC of blocked review, not reviewer verdict",
+  "verdict": "BLOCKED",
+  "spec": "blocked_before_review_output",
+  "quality": "not_launched",
+  "candidate": "47530e20fe5c3195e50ce429b31898d57918e413",
+  "initial_local_config_failure": true,
+  "actual_subscription_session_attempts": 1,
+  "model_response_or_tools_observed": 0,
+  "provider_usage_limit_observed": true,
+  "code_mode_host_missing_observed": true,
+  "paid_fallback_authorized": false,
+  "paid_fallback_started": false,
+  "candidate_states": [
+    {
+      "tree": "/Users/a77/fwp-wt-ownership-gates-v3-0921",
+      "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "status": ""
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-ownership-spec-v3-0921",
+      "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "status": ""
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-ownership-quality-v3-0921",
+      "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "status": ""
+    }
+  ],
+  "root_next_action": "Wait for user decision about available review channel; no automatic retry or merge.",
+  "time": "2026-09-21T03:43:26.835266+00:00"
+}
