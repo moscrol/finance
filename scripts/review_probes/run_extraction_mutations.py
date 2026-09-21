@@ -8,6 +8,9 @@
 用法（在仓根，用 test-environment.json 指定的 Python）：
     python scripts/review_probes/run_extraction_mutations.py --output <新证据目录>
     python scripts/review_probes/run_extraction_mutations.py --revision <sha> --output <目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite stock-amount --output <目录>
+
+默认保持工单 #53 的 extraction 套件；stock-amount 复用相同留证协议验证区间成交额。
 
 只测试已提交 revision；未提交源码或定义不会被悄悄混进证据。证据目录必须新建。
 临时 worktree 在成功后移除；失败则保留还原后的树用于诊断，路径写入 results.json。
@@ -41,10 +44,14 @@ def digest(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
-def run_tests(root: Path, out: Path, label: str, targets: list[str] | None = None) -> dict:
+def run_tests(
+    root: Path, out: Path, label: str, targets: list[str] | None = None,
+    *, tests: list[str] | None = None,
+) -> dict:
     junit = out / f"{label}.xml"
     cmd = [sys.executable, "-B", "-m", "pytest", "-q", "-p", "no:randomly",
-           "-p", "no:cacheprovider", "--tb=short", "--junitxml", str(junit), *TESTS]
+           "-p", "no:cacheprovider", "--tb=short", "--junitxml", str(junit),
+           *(TESTS if tests is None else tests)]
     if targets:
         cmd += ["-k", " or ".join(targets)]
     env = {
@@ -88,19 +95,25 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--revision", default="HEAD")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--suite", choices=("extraction", "stock-amount"), default="extraction")
     args = parser.parse_args()
+    tests, definitions = TESTS, DEFINITIONS
+    if args.suite == "stock-amount":
+        tests = ["intelligence/tests/test_finance_query_amount_summary.py"]
+        definitions = "scripts/review_probes/stock_amount_mutations.json"
     repo = Path(git(Path.cwd(), "rev-parse", "--show-toplevel"))
     revision = git(repo, "rev-parse", f"{args.revision}^{{commit}}")
     out = args.output.expanduser().resolve()
     out.mkdir(parents=True, exist_ok=False)
-    parent = Path(tempfile.mkdtemp(prefix="extraction-closeout-mutations-")).resolve()
+    parent = Path(tempfile.mkdtemp(prefix=f"{args.suite}-closeout-mutations-")).resolve()
     root = parent / "tree"
     subprocess.run(["git", "-C", str(repo), "worktree", "add", "--detach", str(root), revision], check=True)
     report = {"revision": revision, "tree": str(root), "python": sys.executable,
+              "suite": args.suite, "tests": tests,
               "complete": False, "runs": [], "mutations": []}
     try:
         assert git(root, "status", "--porcelain") == ""
-        definitions_raw = (root / DEFINITIONS).read_bytes()
+        definitions_raw = (root / definitions).read_bytes()
         mutations = json.loads(definitions_raw)
         assert mutations and len({m["id"] for m in mutations}) == len(mutations)
         (out / "definitions.json").write_bytes(definitions_raw)
@@ -108,7 +121,7 @@ def main() -> int:
         # 确保实际执行的 runner 也是该 revision 的版本。
         relative_runner = "scripts/review_probes/run_extraction_mutations.py"
         assert Path(__file__).read_bytes() == (root / relative_runner).read_bytes()
-        baseline = run_tests(root, out, "baseline")
+        baseline = run_tests(root, out, "baseline", tests=tests)
         report["runs"].append(baseline)
         check_result(baseline)
         for mutation in mutations:
@@ -124,11 +137,11 @@ def main() -> int:
             try:
                 path.write_text(changed, encoding="utf-8")
                 (out / f"{ident}.diff").write_text(git(root, "diff", "--", relative) + "\n", encoding="utf-8")
-                red = run_tests(root, out, f"{ident}-red", mutation["targets"])
+                red = run_tests(root, out, f"{ident}-red", mutation["targets"], tests=tests)
             finally:
                 path.write_bytes(before)
             assert path.read_bytes() == before
-            green = run_tests(root, out, f"{ident}-green", mutation["targets"])
+            green = run_tests(root, out, f"{ident}-green", mutation["targets"], tests=tests)
             report["runs"].extend([red, green])
             report["mutations"].append({"id": ident, "path": relative, "before_sha256": digest(before),
                                         "mutated_sha256": digest(changed.encode("utf-8")),
@@ -136,7 +149,7 @@ def main() -> int:
             (out / "results.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
             check_result(red, red=True)
             check_result(green)
-        restored = run_tests(root, out, "restored-full")
+        restored = run_tests(root, out, "restored-full", tests=tests)
         report["runs"].append(restored)
         check_result(restored)
         assert git(root, "status", "--porcelain") == ""
