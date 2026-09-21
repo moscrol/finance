@@ -1,0 +1,42 @@
+{
+  "time": "2026-09-21T06:02:12.799897+00:00",
+  "trees": {
+    "source": {
+      "path": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+      "revision": "a092a021c3d7d978c4dfd9551e74aa984a523f18",
+      "status": "",
+      "branch": "fix/test-gate-receipt-identity-0921"
+    },
+    "coordination": {
+      "path": "/Users/a77/fwp-wt-ownership-closeout-0921",
+      "revision": "87f1735eed6c008445f6224ba37e75770bb98a02",
+      "status": "",
+      "branch": "ops/worktree-ownership-closeout-0921"
+    },
+    "v3-author": {
+      "path": "/Users/a77/fwp-wt-ownership-gates-v3-0921",
+      "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "status": "",
+      "branch": "baseline/ownership-gates-v3-0921"
+    },
+    "v3-spec": {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v3-0921",
+      "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "status": "",
+      "branch": ""
+    },
+    "v3-quality": {
+      "path": "/Users/a77/fwp-wt-ownership-quality-v3-0921",
+      "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "status": "",
+      "branch": ""
+    },
+    "harness": {
+      "path": "/Users/a77/hr-wt-receipt-identity-board-0921",
+      "revision": "9f1c80b0b681e6fce89fe118377a67387f756e9a",
+      "status": "",
+      "branch": "docs/receipt-identity-board-0921"
+    }
+  },
+  "remote_main": "c615adbd2f861e23f2c8d03631833f98b3ae5aba"
+}

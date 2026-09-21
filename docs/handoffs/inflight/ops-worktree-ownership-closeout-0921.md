@@ -4,26 +4,25 @@
 协调#812看板/#813回填/#814收据，保护他人现场，固定对象留证。
 
 ## 决策与被否方案
-- 用户指定K3已执行，不再以修Codex/选通道为前置；否决触帽自动续跑。
-- 代码问题与审查完成度分账；否决用根QC代写模型结论或占位冒充终审。
-- 新码新收据，不改冻结树/旧档；本轮只审不修、不合并。
-- 展开：`docs/handoffs/2026-09-21-ownership-k3-review.md`。
+- 用户“继续”后只续#814修复；否决自动追加K3、合并或部署。
+- Config调用级凭据+PID+cleanup；否决PID或target字符串单独判归属。
+- 新码新收据，旧树/档不改；作者修复不冒充独立通过。
+- 展开：`docs/handoffs/2026-09-21-ownership-reentrant-repair.md`。
 
 ## 当前状态
-候选47530e20保持净树。K3 Spec/Quality各40请求触帽exit75，耗时1187.020/933.388秒；Spec无报告，Quality仅in_progress占位，独立验收BLOCKED。
-根QC确认O-K3-001(P1)：同进程pytest.main内层抢写外层收据；外层1P却认内层2P/目标、gate仍0。另建精确源码toy仓复现，子进程对照正常。代码处置CHANGES_REQUIRED；未证明失败外层会被放绿，未追认旧全量污染。
-450文件封存`docs/verification/2026-09-21-ownership-k3-v3/`，文档7dedfd1ea已推；#812/#813/#814评论5253/5254/5255已回读核对。原件`~/.finance-runtime/reviews/ownership-k3-v3-20260921/`。未修代码/购额/重试/合main/部署/生产回填/删真实树；Arena另线未接管。
+#814代码a092a021c已推，O-K3-001同进程pytest抢外层收据已作者修复验证。只改conftest.py及test_main_gate_receipt.py；后续文档尖不继承源码收据。
+115文件封存`docs/verification/2026-09-21-ownership-reentrant-repair/`（含README不含manifest）。原件`~/.finance-runtime/reviews/ownership-reentrant-repair-20260921/`。
+旧47530e20仍冻结；K3双轴40请求触帽无终审（Quality仅占位），旧代码CHANGES_REQUIRED/独立完成度BLOCKED历史保留。本次未加模型会话/扩额/合main/部署/生产回填/删真实树；Arena另线。
 
 ## 已验证
-两轴执行/准入/原轨迹与候选身份核对；Spec定向195P/1S，另零执行收据排除。Quality39参数用例、真实并发和子进程控制正常；同进程反例已复现。五代档案30/30/86/26/450成员、哈希、来源字节通过，旧四代不变；见同目录旁k3-v3-integrity.json。
-历史作者47530e20全叶绿保留ownership-resume，本轮不移签、不升级为独立绿。
+首批9例旧6F/3P→新9P；最终15例对精确旧hook11F/4P，修后15P；相关四模块71P。三变异各打红，还原15P；精确源码/完整契约复验两种嵌套均正确外层1P。
+a092干净源码全量11963P/85S/2X、Ruff绿、gate0；唯一`clean-source-full/receipts/gate-QQdiL9Bn/pytest.json`，JUnit/终端/收据一致，回读/条件检查0。旧五档30/30/86/26/450逐字节不变；旧三审查树仍净47530e20。通用模式推harness PR14@9f1c80b。
 
 ## 未验证 / 已知边界
-双轴均无最终独立结论；Quality动态回填/完整看板未验。无真实完整副本父子发布/恢复演练。K3无OS沙箱；Spec写/tmp/a7.log越界已留证；两轴各16命令漏timeout；首尾净不证明瞬时未改。shell日志不是完整pytest stdout。
+修复未独立复审；未建三单新组合/最新main集成，未跑修复frontend/E2E/registry叶。无真实完整副本302132父子发布恢复演练。调用标记不是恶意写者沙箱；首尾净不证明中途未改。shell只留pytest末15行，JUnit不是完整stdout。
 
 ## 下一步
-用户确认修复后，按pytest调用实例而非PID绑定收据，正式反例先红后绿并保留并发/子进程/顺序调用控制。新冻结对象新门禁，追加审查预算另批。
-封存前远端main=3c70af64(04:52Z)，非本会话合；旧输入main观察已过期，不改原件。最新main合流未验；三单与组合不可重复合。合并/部署/回填/删树仍分别确认。
+06:02Z远端main已c615adbd（他会话变化）。先定基线、冻结新组合跑全叶，再另批独立审查会话/预算。#812/#813/#814与组合不可重复合；合并/部署/回填/删树分别确认。源分支交接在`~/fwp-wt-test-gate-receipt-identity-0921/docs/handoffs/inflight/fix-test-gate-receipt-identity-0921.md`。
 
 ## 踩过的坑
-latest仅导航；PID不等于一次调用；占位报告不等于终审。装置红与产品红分开；有限探针随证据保全，不安装调度器、不改共享harness脏树。
+latest仅导航；PID不等于调用；cleanup必须覆盖configure失败；占位不等于终审。11963是单分支、12068是旧组合，不能直接比增减。旧失败原件不补写求绿。

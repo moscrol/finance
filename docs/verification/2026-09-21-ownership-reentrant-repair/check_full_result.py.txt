@@ -1,0 +1,53 @@
+"""Verify completed source gate, own receipt and JUnit agree before closeout.
+
+The shell retains only the last 15 pytest lines. JUnit is per-test evidence,
+not a full stdout transcript. xfailed is not part of the receipt counts schema.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import re
+import subprocess
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+RUN = ROOT / "clean-source-full"
+TREE = Path.home() / "fwp-wt-test-gate-receipt-identity-0921"
+REV = "a092a021c3d7d978c4dfd9551e74aa984a523f18"
+execution = json.loads((RUN / "execution.json").read_text())
+assert execution["complete"] and execution["exit_code"] == 0, execution
+assert execution["source_unchanged"] and execution["before"] == execution["after"]
+assert execution["before"]["revision"] == REV and not execution["before"]["status"]
+assert subprocess.check_output(["git", "-C", str(TREE), "rev-parse", "HEAD"], text=True).strip() == REV
+assert not subprocess.check_output(["git", "-C", str(TREE), "status", "--porcelain=v1"], text=True).strip()
+paths = list((RUN / "receipts").glob("gate-*/pytest.json"))
+assert len(paths) == 1, paths
+receipt = json.loads(paths[0].read_text())
+assert receipt["revision"] == REV and receipt["tree"] == str(TREE)
+assert receipt["exit_status"] == 0 and not receipt["failed_ids"] and not receipt["dirty"]
+assert receipt["worktree_dirty_total"] == 0 and not receipt["dependency_gate_bypassed"]
+assert receipt["target"] == str(TREE), receipt["target"]
+cases = list(ET.parse(RUN / "junit.xml").iter("testcase"))
+errors = [c.attrib["name"] for c in cases if c.find("error") is not None]
+failures = [c.attrib["name"] for c in cases if c.find("failure") is not None]
+skipped = [c for c in cases if c.find("skipped") is not None]
+xfailed = [c for c in skipped if c.find("skipped").get("type") == "pytest.xfail"]
+passed = len(cases) - len(errors) - len(failures) - len(skipped)
+assert not errors and not failures
+assert receipt["counts"] == {"passed": passed, "failed": 0, "error": 0, "skipped": len(skipped) - len(xfailed)}
+stdout = (RUN / "stdout.log").read_text()
+assert f"{passed} passed" in stdout
+assert "收据未写出" not in stdout
+assert "All checks passed!" in stdout
+result = {"time": datetime.now(timezone.utc).isoformat(), "revision": REV, "tree": str(TREE),
+          "scope": "source #814 full Python gate only; no integrated main or frontend review",
+          "gate_exit": execution["exit_code"], "same_clean_start_end": True,
+          "receipt": str(paths[0]), "receipt_sha256": hashlib.sha256(paths[0].read_bytes()).hexdigest(),
+          "counts": receipt["counts"], "xfailed_from_junit_not_receipt": len(xfailed),
+          "junit_cases": len(cases), "junit_sha256": hashlib.sha256((RUN / "junit.xml").read_bytes()).hexdigest(),
+          "receipt_matches_junit_and_console": True,
+          "pytest_console_summary": [line for line in stdout.splitlines() if re.search(r"\d+ passed", line)],
+          "elapsed_seconds": execution["elapsed_seconds"]}
+(ROOT / "source-gate-qc.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
+print(json.dumps(result, ensure_ascii=False, indent=2))

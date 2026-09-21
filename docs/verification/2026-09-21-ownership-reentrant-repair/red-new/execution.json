@@ -1,0 +1,60 @@
+{
+  "name": "red-new",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "tests/test_main_gate_receipt.py",
+    "-k",
+    "inprocess or nested_execution or parallel_gates",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/red-new/basetemp",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/red-new/junit.xml"
+  ],
+  "cwd": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+  "environment": {
+    "HOME": "/Users/a77",
+    "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "LANG": "C.UTF-8",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "TMPDIR": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/red-new/tmp",
+    "FWP_TEST_RECEIPT_DIR": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/red-new/receipts",
+    "FWP_TEST_RECEIPT": "1",
+    "RUFF_CACHE_DIR": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/red-new/ruff-cache",
+    "GIT_OPTIONAL_LOCKS": "0"
+  },
+  "start": "2026-09-21T05:13:38.701312+00:00",
+  "before": {
+    "tree": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+    "revision": "54913deb9707b4631c110b7bce38bf5db024b980",
+    "status": "M tests/test_main_gate_receipt.py",
+    "hashes": {
+      "conftest.py": "58ad638b97b3660293fe342f58fa326f891e06149b583e683d6474cd801c7b23",
+      "scripts/run_main_gate.sh": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca",
+      "scripts/main_gate_receipt.py": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679",
+      "tests/test_main_gate_receipt.py": "6427ed450f436ca9309fdb557949f5aed993200a0964ea41c4d07f3fd547e398"
+    }
+  },
+  "complete": true,
+  "exit_code": 1,
+  "elapsed_seconds": 8.244,
+  "end": "2026-09-21T05:13:47.040814+00:00",
+  "after": {
+    "tree": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+    "revision": "54913deb9707b4631c110b7bce38bf5db024b980",
+    "status": "M tests/test_main_gate_receipt.py",
+    "hashes": {
+      "conftest.py": "58ad638b97b3660293fe342f58fa326f891e06149b583e683d6474cd801c7b23",
+      "scripts/run_main_gate.sh": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca",
+      "scripts/main_gate_receipt.py": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679",
+      "tests/test_main_gate_receipt.py": "6427ed450f436ca9309fdb557949f5aed993200a0964ea41c4d07f3fd547e398"
+    }
+  },
+  "source_unchanged": true,
+  "log_sha256": {
+    "stdout.log": "0d020e23bea3abf6acb7502affd8f8f91fa75aa01ab0aac0a366641f1de3112c",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

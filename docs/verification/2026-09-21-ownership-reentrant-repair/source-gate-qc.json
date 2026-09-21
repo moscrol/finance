@@ -1,0 +1,24 @@
+{
+  "time": "2026-09-21T06:00:18.061983+00:00",
+  "revision": "a092a021c3d7d978c4dfd9551e74aa984a523f18",
+  "tree": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+  "scope": "source #814 full Python gate only; no integrated main or frontend review",
+  "gate_exit": 0,
+  "same_clean_start_end": true,
+  "receipt": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/clean-source-full/receipts/gate-QQdiL9Bn/pytest.json",
+  "receipt_sha256": "d513bb5f8c30f15613db0c6a1ac433b395e46bd3e044fee9a731ae7d5269705d",
+  "counts": {
+    "passed": 11963,
+    "failed": 0,
+    "error": 0,
+    "skipped": 85
+  },
+  "xfailed_from_junit_not_receipt": 2,
+  "junit_cases": 12050,
+  "junit_sha256": "f82a31791efc23a0d5baaa291461be5169ddad61a9d6ba34b177ab624017a103",
+  "receipt_matches_junit_and_console": true,
+  "pytest_console_summary": [
+    "11963 passed, 85 skipped, 2 xfailed, 17 warnings in 1778.47s (0:29:38)"
+  ],
+  "elapsed_seconds": 1784.292
+}

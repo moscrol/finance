@@ -1,0 +1,6 @@
+remote: 
+remote: Visit the existing pull request:        
+remote:   http://localhost:3300/a77/finance-workspace-private/pulls/814        
+remote: 
+To http://127.0.0.1:3300/a77/finance-workspace-private.git
+   54913deb9..a092a021c  HEAD -> fix/test-gate-receipt-identity-0921

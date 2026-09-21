@@ -1,0 +1,707 @@
+{
+  "created_at": "2026-09-21T06:04:12.877467+00:00",
+  "source_revision": "a092a021c3d7d978c4dfd9551e74aa984a523f18",
+  "scope": "#814 source repair only, not latest-main integration or completed independent review",
+  "independent_review_status": "NOT_RERUN; previous v3 reviews remain incomplete",
+  "entry_count_including_readme_excluding_manifest": 115,
+  "selected_bytes": 2564341,
+  "exclusions": [
+    "full-suite temporary fixtures",
+    "Git objects",
+    "caches",
+    "DB binaries",
+    "latest.json navigation"
+  ],
+  "entries": [
+    {
+      "path": "README.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/README.md",
+      "bytes": 5099,
+      "sha256": "4dc81e8ed17f4c65d44520f9e63faac78054cb9b86afe982a4ce36ea79c7ef78"
+    },
+    {
+      "path": "authorization.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/authorization.json",
+      "bytes": 956,
+      "sha256": "adabab970909914fa7cfb78280295f4af618cdd84fefb802942453f0f62db0a3"
+    },
+    {
+      "path": "check_full_result.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/check_full_result.py",
+      "bytes": 3198,
+      "sha256": "3a087266adc7c9daec45da5d5878cd1b876c2167477f38ffbb0c14516adf77d5"
+    },
+    {
+      "path": "check_old_source.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/check_old_source.py",
+      "bytes": 3491,
+      "sha256": "a81d726aa3697fe77fa945ca45fbb2a4698b38fc2562cef2ca3eca6707d123e6"
+    },
+    {
+      "path": "clean-source-full/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/clean-source-full/execution.json",
+      "bytes": 2589,
+      "sha256": "04b63ca89454896ca4c28c5aceaec6d15c53c186a6ec09c3fde42f019967930b"
+    },
+    {
+      "path": "clean-source-full/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/clean-source-full/junit.xml",
+      "bytes": 1844006,
+      "sha256": "f82a31791efc23a0d5baaa291461be5169ddad61a9d6ba34b177ab624017a103"
+    },
+    {
+      "path": "clean-source-full/receipts/gate-QQdiL9Bn/pytest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/clean-source-full/receipts/gate-QQdiL9Bn/pytest.json",
+      "bytes": 685,
+      "sha256": "d513bb5f8c30f15613db0c6a1ac433b395e46bd3e044fee9a731ae7d5269705d"
+    },
+    {
+      "path": "clean-source-full/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/clean-source-full/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "clean-source-full/stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/clean-source-full/stdout.log",
+      "bytes": 2392,
+      "sha256": "565b8830fcfc24e4b0630ce12de738eafc5e89433e3c96c36b67dbd5fd3b8a93"
+    },
+    {
+      "path": "clean-source-full-launch.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/clean-source-full-launch.log",
+      "bytes": 101,
+      "sha256": "3e9c3ee693a2415738bca507b863dbdd7ff50b0c3b80a157b61bf5641e717f00"
+    },
+    {
+      "path": "code-commit.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/code-commit.log",
+      "bytes": 5696,
+      "sha256": "5f9ff5d6aee29fb714d0de5189d4e94c32492ba8880c89fa891a40b150ddbfb7"
+    },
+    {
+      "path": "code-push.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/code-push.log",
+      "bytes": 275,
+      "sha256": "0236ebaa4129de494a238ccd15f2e1f906221f18c9e848f9f8b70c344117c8fb"
+    },
+    {
+      "path": "exact-source-reproduction/fixture/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/fixture/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "exact-source-reproduction/fixture/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/fixture/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "exact-source-reproduction/fixture/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/fixture/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "exact-source-reproduction/fixture/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/fixture/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "exact-source-reproduction/fixture/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/fixture/test-environment.json",
+      "bytes": 2501,
+      "sha256": "33bc93e449dce2ad3af15d48671123da508da15d27c2ba4f1e67753fa5d4eaba"
+    },
+    {
+      "path": "exact-source-reproduction/fixture/tests/test_inproc.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/fixture/tests/test_inproc.py",
+      "bytes": 132,
+      "sha256": "a71fd21d9060bda04c13773b8ef1a38ee857476c66289c657fbd2b9946bf4d1b"
+    },
+    {
+      "path": "exact-source-reproduction/fixture/tests/test_subproc.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/fixture/tests/test_subproc.py",
+      "bytes": 291,
+      "sha256": "cd76c75a0be90fdbd56f0f3d3479b1d9ce9b03f7ed1f04c5ed343b6e1296f454"
+    },
+    {
+      "path": "exact-source-reproduction/fixture/tests_inner/test_leaf.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/fixture/tests_inner/test_leaf.py",
+      "bytes": 66,
+      "sha256": "75369d5a90095b9b5fd43efef4e37264b08ca6236f29aca3a4c89bf3198821fc"
+    },
+    {
+      "path": "exact-source-reproduction/inprocess-repaired/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/inprocess-repaired/execution.json",
+      "bytes": 891,
+      "sha256": "9027635e92fff3ec157341eb450e9a55470cfdae820b20f4b2d94ff477d9dab8"
+    },
+    {
+      "path": "exact-source-reproduction/inprocess-repaired/receipts/gate-lSNOYSjf/pytest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/inprocess-repaired/receipts/gate-lSNOYSjf/pytest.json",
+      "bytes": 676,
+      "sha256": "5dad4b9848b8acf2f490d9da2cd04c308d757ae9f8a88ab3f76f22ef3ee3f0af"
+    },
+    {
+      "path": "exact-source-reproduction/inprocess-repaired/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/inprocess-repaired/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "exact-source-reproduction/inprocess-repaired/stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/inprocess-repaired/stdout.log",
+      "bytes": 981,
+      "sha256": "101e31c130fe895e6940334855d7d7f258023ca346aa222191879936dc65f7e6"
+    },
+    {
+      "path": "exact-source-reproduction/subprocess-control/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/subprocess-control/execution.json",
+      "bytes": 894,
+      "sha256": "0f02ff17353716ec67e4aed2bfb239bf33e70de746e06a799efa5ef11ecbce78"
+    },
+    {
+      "path": "exact-source-reproduction/subprocess-control/receipts/gate-0JntBn2m/pytest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/subprocess-control/receipts/gate-0JntBn2m/pytest.json",
+      "bytes": 677,
+      "sha256": "afb322b974c0ac9f6997619fbdc502c0b21f0420dface33045d7a42547dd632d"
+    },
+    {
+      "path": "exact-source-reproduction/subprocess-control/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/subprocess-control/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "exact-source-reproduction/subprocess-control/stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/subprocess-control/stdout.log",
+      "bytes": 983,
+      "sha256": "266d299a9ecf198c2df02faaad24c8f47b80d8b30772227838c19f205ad7ce2f"
+    },
+    {
+      "path": "exact-source-reproduction.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction.json",
+      "bytes": 2508,
+      "sha256": "26cfab19d4d04d1f4f38489a4d9a6372abe5217ca27dfde508fea60e25f981b7"
+    },
+    {
+      "path": "exact-source-runner.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-runner.log",
+      "bytes": 2508,
+      "sha256": "26cfab19d4d04d1f4f38489a4d9a6372abe5217ca27dfde508fea60e25f981b7"
+    },
+    {
+      "path": "focused/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/focused/execution.json",
+      "bytes": 2861,
+      "sha256": "4281d30b11b3b4e1774d55ec72d5c1595cd21f18f1180faf27fff4cf3891ba73"
+    },
+    {
+      "path": "focused/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/focused/junit.xml",
+      "bytes": 8664,
+      "sha256": "03cf463911424a58b48fafd74af29dffdf1a7ae7416feefc35a205e6c2fdd45e"
+    },
+    {
+      "path": "focused/receipts/20260921T051551Z-54913deb-10448fb191c3.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/focused/receipts/20260921T051551Z-54913deb-10448fb191c3.json",
+      "bytes": 840,
+      "sha256": "9579a876e548fc855bf2f4192faa655e1ee8fe9b863b3b6c92724546cfb48d39"
+    },
+    {
+      "path": "focused/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/focused/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "focused/stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/focused/stdout.log",
+      "bytes": 361,
+      "sha256": "30f84e772373449ce0b15e7930d3956a751af2e2b145f880fc3529c8044c4e6d"
+    },
+    {
+      "path": "focused-final/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/focused-final/execution.json",
+      "bytes": 2897,
+      "sha256": "9d29a5092ad4fd27db7018adc1dbb4bd898e6017e4eb711dd69fc008aefba3d9"
+    },
+    {
+      "path": "focused-final/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/focused-final/junit.xml",
+      "bytes": 9500,
+      "sha256": "40a7cf20f9cd96cd2daf03fa789bd22105e8422f1df7c8b5bead92917c83b7a7"
+    },
+    {
+      "path": "focused-final/receipts/20260921T051809Z-54913deb-86280054cb81.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/focused-final/receipts/20260921T051809Z-54913deb-86280054cb81.json",
+      "bytes": 840,
+      "sha256": "1dfb296b8ca60fb501d2ab88e4245db47ef7cf5784f577c04c732440b3f17a54"
+    },
+    {
+      "path": "focused-final/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/focused-final/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "focused-final/stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/focused-final/stdout.log",
+      "bytes": 373,
+      "sha256": "91be73cd693e41fa159b489e7c6e6133a673096498a0557cfe10c10a04c57310"
+    },
+    {
+      "path": "full-run-sample-command.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/full-run-sample-command.log",
+      "bytes": 266,
+      "sha256": "67b2d460971fa1e4422d72775f89421280b8cf3dca645d36c69ac93595c39559"
+    },
+    {
+      "path": "full-run-sample.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/full-run-sample.txt",
+      "bytes": 105894,
+      "sha256": "1b69af171b80db81a2cf9a9f48f63e2cd596060dfc25b0db51cfde12161b600c"
+    },
+    {
+      "path": "green-new/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/green-new/execution.json",
+      "bytes": 2797,
+      "sha256": "d89847514c1308b3c265a8c9480f701aa4decfe32a56bf72400da54374977785"
+    },
+    {
+      "path": "green-new/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/green-new/junit.xml",
+      "bytes": 1441,
+      "sha256": "0d84b7a3d8e455271fcf685c622dc8a0b53b813ddbfd9854938cac0e9bbcda67"
+    },
+    {
+      "path": "green-new/receipts/20260921T051453Z-54913deb-a336d736c69c.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/green-new/receipts/20260921T051453Z-54913deb-a336d736c69c.json",
+      "bytes": 721,
+      "sha256": "02e0a1b794183f9ca7de6a88ba7eb1d802f4b51df7dc51daad7c4e6330e81bec"
+    },
+    {
+      "path": "green-new/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/green-new/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "green-new/stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/green-new/stdout.log",
+      "bytes": 378,
+      "sha256": "00e1d00a0a4c1ea3df6fb5c567fe56f09794ec53d7efa595d03dea65de1f12c9"
+    },
+    {
+      "path": "harness-commit.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/harness-commit.log",
+      "bytes": 145,
+      "sha256": "33496946a9ed065e14e6911b6740749cf1cbfdc5764fde04711490d13fa1dddf"
+    },
+    {
+      "path": "harness-push.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/harness-push.log",
+      "bytes": 251,
+      "sha256": "8bac874497349354d10bb1326c1bf15b9b1dcfec87e3285ecc5ebee8aa5b325b"
+    },
+    {
+      "path": "mutate_ownership.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutate_ownership.py",
+      "bytes": 5050,
+      "sha256": "ad5601dc2ade2736b0e9e1dc8634db2b2a5ccda6682fb0fef1b224092a91f8c3"
+    },
+    {
+      "path": "mutation-results.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutation-results.json",
+      "bytes": 6778,
+      "sha256": "89bf2ea8a9cbf19b82d896c4cf85838a71e7bdc238b1a7c34163ad785a8424df"
+    },
+    {
+      "path": "mutation-runner.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutation-runner.log",
+      "bytes": 5491,
+      "sha256": "6d9bc1a2d0ebc22aac1eaa85788463cb630501c1ea7ee04a83b8762ef0da239b"
+    },
+    {
+      "path": "mutations/M1-remove-config-proof/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M1-remove-config-proof/execution.json",
+      "bytes": 1474,
+      "sha256": "052bdfb3f0242c9cb47d3973ac2392c6bc459c92f87d7c7548d4f400da127b0b"
+    },
+    {
+      "path": "mutations/M1-remove-config-proof/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M1-remove-config-proof/junit.xml",
+      "bytes": 26367,
+      "sha256": "8cb030a787e3fb7cbd0a0da119ddf7194e8784322cf2749be09f97cc3700940d"
+    },
+    {
+      "path": "mutations/M1-remove-config-proof/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M1-remove-config-proof/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "mutations/M1-remove-config-proof/stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M1-remove-config-proof/stdout.log",
+      "bytes": 19740,
+      "sha256": "20062dd9ad9e97417496518416d27ede7faa74a368a33b103e70c5699deecc9e"
+    },
+    {
+      "path": "mutations/M2-remove-cleanup/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M2-remove-cleanup/execution.json",
+      "bytes": 1285,
+      "sha256": "42b81bc6e7a5d6aa070f3f36ba8838644a0bc094f91009e459f2687ebf8a95e5"
+    },
+    {
+      "path": "mutations/M2-remove-cleanup/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M2-remove-cleanup/junit.xml",
+      "bytes": 13850,
+      "sha256": "052967411edd27fb79d4b5c42f52f63ff5ed7408a0fbd11d2b388b0764f05061"
+    },
+    {
+      "path": "mutations/M2-remove-cleanup/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M2-remove-cleanup/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "mutations/M2-remove-cleanup/stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M2-remove-cleanup/stdout.log",
+      "bytes": 11584,
+      "sha256": "cad5cd379c7f91683eeffa074a4ffea5d7b2ea606a888e8782f59cbd5e04de8c"
+    },
+    {
+      "path": "mutations/M3-reclaim-same-pid/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/execution.json",
+      "bytes": 1402,
+      "sha256": "283cfb4e6774fce1a2d11e0f8c3ea2a5f1cda69488fcd8a9ff9d37a8312f0fb2"
+    },
+    {
+      "path": "mutations/M3-reclaim-same-pid/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/junit.xml",
+      "bytes": 23607,
+      "sha256": "009df12eaa4bfd9f4359147264e44943608e4b227061572871446e0d1fb6e31c"
+    },
+    {
+      "path": "mutations/M3-reclaim-same-pid/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "mutations/M3-reclaim-same-pid/stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/stdout.log",
+      "bytes": 17687,
+      "sha256": "d3b9100036ca4ddf58e27e692a0fe2632dcd7fa5ba3222e180139a9c5f3b0ba5"
+    },
+    {
+      "path": "mutations/baseline/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/baseline/execution.json",
+      "bytes": 880,
+      "sha256": "3348d67b78c29ca8af89c0d813dfc9e20e58d38f39fecbbababc0c33774e570e"
+    },
+    {
+      "path": "mutations/baseline/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/baseline/junit.xml",
+      "bytes": 2278,
+      "sha256": "4992744ac09dd62ee9b2ef4f682c8e3e193e41b900774a4af119f7dd84ea876c"
+    },
+    {
+      "path": "mutations/baseline/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/baseline/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "mutations/baseline/stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/baseline/stdout.log",
+      "bytes": 239,
+      "sha256": "3d8b811454a5a1ade25e5cfa823db20ce4d78d31362ca7988988007da4341ce6"
+    },
+    {
+      "path": "mutations/fixture/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixture/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "mutations/fixture/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixture/conftest.py",
+      "bytes": 22470,
+      "sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "path": "mutations/fixture/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixture/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "mutations/fixture/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixture/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "mutations/fixture/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixture/test-environment.json",
+      "bytes": 2501,
+      "sha256": "33bc93e449dce2ad3af15d48671123da508da15d27c2ba4f1e67753fa5d4eaba"
+    },
+    {
+      "path": "mutations/fixture/tests/test_main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixture/tests/test_main_gate_receipt.py",
+      "bytes": 19225,
+      "sha256": "8ed84a60c8f6f85a825b2b634e5105ef3c630dd63d6dc72a1e1014b7982b23f0"
+    },
+    {
+      "path": "mutations/restored/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/restored/execution.json",
+      "bytes": 880,
+      "sha256": "40dcb0a128d2f02f68b348348132647e758f5d9f3e540a170468132756d0653d"
+    },
+    {
+      "path": "mutations/restored/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/restored/junit.xml",
+      "bytes": 2278,
+      "sha256": "4307a308239cb09c7d52b9fe5ddfbac8b1ca6bd385a31d03a55ea31ea2ab8497"
+    },
+    {
+      "path": "mutations/restored/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/restored/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "mutations/restored/stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/restored/stdout.log",
+      "bytes": 239,
+      "sha256": "4f5c12cb1ace1c78a105037c8fb06dbb1619e0447c56b122694604c0f88b0e17"
+    },
+    {
+      "path": "old-source-final-tests/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/old-source-final-tests/execution.json",
+      "bytes": 2250,
+      "sha256": "fc47699fb168560cf7f7aa27e02a52382a78ebca31ed495e4be1c5a75c7aa61c"
+    },
+    {
+      "path": "old-source-final-tests/fixture/.gitignore",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/old-source-final-tests/fixture/.gitignore",
+      "bytes": 41,
+      "sha256": "282924d8b8c8db3a1c30793ee77424f46bfd02a49620e84aebf1876150138bf2"
+    },
+    {
+      "path": "old-source-final-tests/fixture/conftest.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/old-source-final-tests/fixture/conftest.py",
+      "bytes": 21559,
+      "sha256": "58ad638b97b3660293fe342f58fa326f891e06149b583e683d6474cd801c7b23"
+    },
+    {
+      "path": "old-source-final-tests/fixture/scripts/main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/old-source-final-tests/fixture/scripts/main_gate_receipt.py",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "path": "old-source-final-tests/fixture/scripts/run_main_gate.sh.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/old-source-final-tests/fixture/scripts/run_main_gate.sh",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "path": "old-source-final-tests/fixture/test-environment.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/old-source-final-tests/fixture/test-environment.json",
+      "bytes": 2501,
+      "sha256": "33bc93e449dce2ad3af15d48671123da508da15d27c2ba4f1e67753fa5d4eaba"
+    },
+    {
+      "path": "old-source-final-tests/fixture/tests/test_main_gate_receipt.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/old-source-final-tests/fixture/tests/test_main_gate_receipt.py",
+      "bytes": 19225,
+      "sha256": "8ed84a60c8f6f85a825b2b634e5105ef3c630dd63d6dc72a1e1014b7982b23f0"
+    },
+    {
+      "path": "old-source-final-tests/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/old-source-final-tests/junit.xml",
+      "bytes": 37501,
+      "sha256": "8f58f27437a0a44369bffa3626ffd2e3a124e706ddb123f0d82e7a9d3dda5ce2"
+    },
+    {
+      "path": "old-source-final-tests/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/old-source-final-tests/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "old-source-final-tests/stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/old-source-final-tests/stdout.log",
+      "bytes": 30586,
+      "sha256": "a9b5ed874b8cb09aec175bcb4f83d6281844ca6c6421d8826c76b8808414b1ef"
+    },
+    {
+      "path": "old-source-runner.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/old-source-runner.log",
+      "bytes": 2250,
+      "sha256": "fc47699fb168560cf7f7aa27e02a52382a78ebca31ed495e4be1c5a75c7aa61c"
+    },
+    {
+      "path": "preseal-state.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/preseal-state.json",
+      "bytes": 1387,
+      "sha256": "37e212df8ebcffd04d86dd079227fbac3ac0b19e5bc7f645c384db397e4d86ad"
+    },
+    {
+      "path": "previous-archives.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/previous-archives.json",
+      "bytes": 112007,
+      "sha256": "b8fa75cfd9d48b3620ae5d3381f51d5e1e7c936c20be6f91454513562cb2512e"
+    },
+    {
+      "path": "red-new/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/red-new/execution.json",
+      "bytes": 2754,
+      "sha256": "ff1c5746cbf96f4dc03471303fe6d9b9bb72a9ed946f0f0f7313c77789827b8d"
+    },
+    {
+      "path": "red-new/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/red-new/junit.xml",
+      "bytes": 21987,
+      "sha256": "281605bb6e02a4199ab079bca22a6c4be5d7dafdf4c3297bb3e5f050e9e8547b"
+    },
+    {
+      "path": "red-new/receipts/20260921T051346Z-54913deb-d15867c38f0c.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/red-new/receipts/20260921T051346Z-54913deb-d15867c38f0c.json",
+      "bytes": 1328,
+      "sha256": "d71685285014f3cea6f208dcc8cd7e6999343af359decb815c0c8dedcf197ac0"
+    },
+    {
+      "path": "red-new/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/red-new/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "red-new/stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/red-new/stdout.log",
+      "bytes": 17220,
+      "sha256": "0d020e23bea3abf6acb7502affd8f8f91fa75aa01ab0aac0a366641f1de3112c"
+    },
+    {
+      "path": "repair-commit.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/repair-commit.txt",
+      "bytes": 358,
+      "sha256": "28339dbb1ed3c77ce0b0514cde301e08fe26017ec262bf291996f3de2df23ac4"
+    },
+    {
+      "path": "repair.diff",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/repair.diff",
+      "bytes": 12441,
+      "sha256": "dd319e176a59f4b88d102909e7049150fca26c9ff25e9dbcf212c8b1835278c3"
+    },
+    {
+      "path": "reproducer-provenance.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/reproducer-provenance.json",
+      "bytes": 1768,
+      "sha256": "5802829dbbb64d56b09dfb5329444500fddca280f1ebdb78b707338f333f0e7c"
+    },
+    {
+      "path": "ruff-final/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/ruff-final/execution.json",
+      "bytes": 2504,
+      "sha256": "26c500684a92456c529f8190aa84bc3e42cb01653bb3fd3b630b194c64601ec7"
+    },
+    {
+      "path": "ruff-final/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/ruff-final/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "ruff-final/stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/ruff-final/stdout.log",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "ruff-first/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/ruff-first/execution.json",
+      "bytes": 2503,
+      "sha256": "93672a42d44744b5f94deaa4b7d982743ec3e06cc3f804ed728ce81cd3687ad2"
+    },
+    {
+      "path": "ruff-first/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/ruff-first/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "ruff-first/stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/ruff-first/stdout.log",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "run_check.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/run_check.py",
+      "bytes": 2675,
+      "sha256": "3cccbedaad8e8907fbd55da095614d987b556905587324272de78da168f34ef9"
+    },
+    {
+      "path": "seal_evidence.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/seal_evidence.py",
+      "bytes": 4091,
+      "sha256": "ab46d6af965fb84731052c0f9fdf119bbee531d4b2b946f56f0818f87eb853c1"
+    },
+    {
+      "path": "source-compatibility/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/source-compatibility/execution.json",
+      "bytes": 2594,
+      "sha256": "82ee7be4e33c3eaad3c0d8156d37da3d68f6d4e4e747aafdc2a5e07f4409d727"
+    },
+    {
+      "path": "source-compatibility/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/source-compatibility/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "source-compatibility/stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/source-compatibility/stdout.log",
+      "bytes": 837,
+      "sha256": "d54b10550fdb8f4d3bed9e8fdf81436ef40319a4a8dafe82e053c08cdbe3c270"
+    },
+    {
+      "path": "source-gate-qc.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/source-gate-qc.json",
+      "bytes": 964,
+      "sha256": "16717f04e67c0fde83c35997bfb5788550ee537fe2e274bb0c6f9078480c5fde"
+    },
+    {
+      "path": "source-readback/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/source-readback/execution.json",
+      "bytes": 2455,
+      "sha256": "c09ffcdcbcb5a5dfb4e5bdb4b91a409c6b7f99c66e4d20c02892d7def6cd7513"
+    },
+    {
+      "path": "source-readback/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/source-readback/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "source-readback/stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/source-readback/stdout.log",
+      "bytes": 274,
+      "sha256": "94e66ecb375b376c74252579e190741016efacaf4eb71988a8b465502ebecf50"
+    },
+    {
+      "path": "verify_exact_source.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/verify_exact_source.py",
+      "bytes": 5682,
+      "sha256": "a176fee79cb0aa6dcf7a7cacdd64f2441aa67715022e668f924dab9899245071"
+    }
+  ]
+}

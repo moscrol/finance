@@ -1,0 +1,55 @@
+{
+  "name": "ruff-final",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "ruff",
+    "check",
+    "conftest.py",
+    "tests/test_main_gate_receipt.py"
+  ],
+  "cwd": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+  "environment": {
+    "HOME": "/Users/a77",
+    "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "LANG": "C.UTF-8",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "TMPDIR": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/ruff-final/tmp",
+    "FWP_TEST_RECEIPT_DIR": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/ruff-final/receipts",
+    "FWP_TEST_RECEIPT": "1",
+    "RUFF_CACHE_DIR": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/ruff-final/ruff-cache",
+    "GIT_OPTIONAL_LOCKS": "0"
+  },
+  "start": "2026-09-21T05:17:31.566936+00:00",
+  "before": {
+    "tree": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+    "revision": "54913deb9707b4631c110b7bce38bf5db024b980",
+    "status": "M conftest.py\n M tests/test_main_gate_receipt.py",
+    "hashes": {
+      "conftest.py": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955",
+      "scripts/run_main_gate.sh": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca",
+      "scripts/main_gate_receipt.py": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679",
+      "tests/test_main_gate_receipt.py": "8ed84a60c8f6f85a825b2b634e5105ef3c630dd63d6dc72a1e1014b7982b23f0"
+    }
+  },
+  "complete": true,
+  "exit_code": 0,
+  "elapsed_seconds": 0.131,
+  "end": "2026-09-21T05:17:31.824925+00:00",
+  "after": {
+    "tree": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+    "revision": "54913deb9707b4631c110b7bce38bf5db024b980",
+    "status": "M conftest.py\n M tests/test_main_gate_receipt.py",
+    "hashes": {
+      "conftest.py": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955",
+      "scripts/run_main_gate.sh": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca",
+      "scripts/main_gate_receipt.py": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679",
+      "tests/test_main_gate_receipt.py": "8ed84a60c8f6f85a825b2b634e5105ef3c630dd63d6dc72a1e1014b7982b23f0"
+    }
+  },
+  "source_unchanged": true,
+  "log_sha256": {
+    "stdout.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

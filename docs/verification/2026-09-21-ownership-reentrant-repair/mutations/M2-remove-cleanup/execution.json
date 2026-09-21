@@ -1,0 +1,29 @@
+{
+  "name": "M2-remove-cleanup",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "tests/test_main_gate_receipt.py",
+    "-k",
+    "inprocess or inherited_pid or switch_its_claimed or nested_execution or parallel_gates",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M2-remove-cleanup/basetemp",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M2-remove-cleanup/junit.xml"
+  ],
+  "cwd": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixture",
+  "exit_code": 1,
+  "elapsed_seconds": 5.113,
+  "cases": 15,
+  "failed_ids": [
+    "test_sequential_inprocess_runs_release_receipt_owner[None-success]",
+    "test_sequential_inprocess_runs_release_receipt_owner[None-configure-error]",
+    "test_sequential_inprocess_runs_release_receipt_owner[-success]",
+    "test_sequential_inprocess_runs_release_receipt_owner[-configure-error]"
+  ],
+  "error_ids": [],
+  "expected_failure": "test_sequential_inprocess_runs_release_receipt_owner[None-configure-error]",
+  "source_sha256": "c6447fa0988f01dbaa0c738b6344b7dcc9f0fe517d6eb9009b660dadd135d48e"
+}

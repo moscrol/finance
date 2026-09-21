@@ -1,0 +1,61 @@
+{
+  "name": "focused",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "tests/test_main_gate_receipt.py",
+    "tests/test_test_receipt_dirt.py",
+    "tests/test_check_receipt_revision_gate.py",
+    "tests/test_check_receipt_zero_count_gate.py",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/focused/basetemp",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/focused/junit.xml"
+  ],
+  "cwd": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+  "environment": {
+    "HOME": "/Users/a77",
+    "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "LANG": "C.UTF-8",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "TMPDIR": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/focused/tmp",
+    "FWP_TEST_RECEIPT_DIR": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/focused/receipts",
+    "FWP_TEST_RECEIPT": "1",
+    "RUFF_CACHE_DIR": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/focused/ruff-cache",
+    "GIT_OPTIONAL_LOCKS": "0"
+  },
+  "start": "2026-09-21T05:15:26.590725+00:00",
+  "before": {
+    "tree": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+    "revision": "54913deb9707b4631c110b7bce38bf5db024b980",
+    "status": "M conftest.py\n M tests/test_main_gate_receipt.py",
+    "hashes": {
+      "conftest.py": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955",
+      "scripts/run_main_gate.sh": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca",
+      "scripts/main_gate_receipt.py": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679",
+      "tests/test_main_gate_receipt.py": "6427ed450f436ca9309fdb557949f5aed993200a0964ea41c4d07f3fd547e398"
+    }
+  },
+  "complete": true,
+  "exit_code": 0,
+  "elapsed_seconds": 25.385,
+  "end": "2026-09-21T05:15:52.037335+00:00",
+  "after": {
+    "tree": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+    "revision": "54913deb9707b4631c110b7bce38bf5db024b980",
+    "status": "M conftest.py\n M tests/test_main_gate_receipt.py",
+    "hashes": {
+      "conftest.py": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955",
+      "scripts/run_main_gate.sh": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca",
+      "scripts/main_gate_receipt.py": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679",
+      "tests/test_main_gate_receipt.py": "6427ed450f436ca9309fdb557949f5aed993200a0964ea41c4d07f3fd547e398"
+    }
+  },
+  "source_unchanged": true,
+  "log_sha256": {
+    "stdout.log": "30f84e772373449ce0b15e7930d3956a751af2e2b145f880fc3529c8044c4e6d",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

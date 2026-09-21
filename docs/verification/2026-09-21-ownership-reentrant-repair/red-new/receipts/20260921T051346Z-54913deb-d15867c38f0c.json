@@ -1,0 +1,31 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+  "revision": "54913deb9707b4631c110b7bce38bf5db024b980",
+  "branch": "fix/test-gate-receipt-identity-0921",
+  "dirty": true,
+  "dirty_paths": [
+    "tests/test_main_gate_receipt.py"
+  ],
+  "worktree_dirty_total": 1,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_main_gate_receipt.py",
+  "counts": {
+    "passed": 3,
+    "failed": 6,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [
+    "tests/test_main_gate_receipt.py::test_inprocess_nested_pytest_keeps_outer_receipt[collect-same-target]",
+    "tests/test_main_gate_receipt.py::test_inprocess_nested_pytest_keeps_outer_receipt[inner-failure]",
+    "tests/test_main_gate_receipt.py::test_inprocess_nested_pytest_keeps_outer_receipt[outer-failure]",
+    "tests/test_main_gate_receipt.py::test_inprocess_nested_pytest_keeps_outer_receipt[run]",
+    "tests/test_main_gate_receipt.py::test_sequential_inprocess_runs_release_receipt_owner[configure-error]",
+    "tests/test_main_gate_receipt.py::test_sequential_inprocess_runs_release_receipt_owner[success]"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-21T05:13:46+00:00"
+}

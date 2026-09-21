@@ -1,0 +1,6 @@
+import pytest
+
+
+def test_outer():
+    result = pytest.main(["-q", "-p", "no:cacheprovider", "tests_inner/"])
+    assert result == 0

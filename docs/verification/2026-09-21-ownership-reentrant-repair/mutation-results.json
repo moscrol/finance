@@ -1,0 +1,151 @@
+{
+  "time": "2026-09-21T05:28:15.549323+00:00",
+  "operator_mutation_only": true,
+  "source_revision": "54913deb9707b4631c110b7bce38bf5db024b980",
+  "source_dirty_iteration": true,
+  "candidate_unchanged": true,
+  "baseline_and_restored_passed": true,
+  "mutants_killed": 3,
+  "rows": [
+    {
+      "name": "baseline",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tests/test_main_gate_receipt.py",
+        "-k",
+        "inprocess or inherited_pid or switch_its_claimed or nested_execution or parallel_gates",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/baseline/basetemp",
+        "--junitxml=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/baseline/junit.xml"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixture",
+      "exit_code": 0,
+      "elapsed_seconds": 5.322,
+      "cases": 15,
+      "failed_ids": [],
+      "error_ids": [],
+      "expected_failure": null,
+      "source_sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    },
+    {
+      "name": "M1-remove-config-proof",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tests/test_main_gate_receipt.py",
+        "-k",
+        "inprocess or inherited_pid or switch_its_claimed or nested_execution or parallel_gates",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M1-remove-config-proof/basetemp",
+        "--junitxml=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M1-remove-config-proof/junit.xml"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixture",
+      "exit_code": 1,
+      "elapsed_seconds": 5.691,
+      "cases": 15,
+      "failed_ids": [
+        "test_inprocess_nested_pytest_keeps_outer_receipt[run]",
+        "test_inprocess_nested_pytest_keeps_outer_receipt[run-same-target]",
+        "test_inprocess_nested_pytest_keeps_outer_receipt[collect-same-target]",
+        "test_inprocess_nested_pytest_keeps_outer_receipt[inner-failure]",
+        "test_inprocess_nested_pytest_keeps_outer_receipt[outer-failure]",
+        "test_inherited_pid_alone_cannot_grant_or_release_ownership[self]",
+        "test_invocation_cannot_switch_its_claimed_receipt_path"
+      ],
+      "error_ids": [],
+      "expected_failure": "test_inprocess_nested_pytest_keeps_outer_receipt[run-same-target]",
+      "source_sha256": "94db6b87049ea9629765f301f99d16f2150f7f13f9204ff05df47ba1f9801982"
+    },
+    {
+      "name": "M2-remove-cleanup",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tests/test_main_gate_receipt.py",
+        "-k",
+        "inprocess or inherited_pid or switch_its_claimed or nested_execution or parallel_gates",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M2-remove-cleanup/basetemp",
+        "--junitxml=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M2-remove-cleanup/junit.xml"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixture",
+      "exit_code": 1,
+      "elapsed_seconds": 5.113,
+      "cases": 15,
+      "failed_ids": [
+        "test_sequential_inprocess_runs_release_receipt_owner[None-success]",
+        "test_sequential_inprocess_runs_release_receipt_owner[None-configure-error]",
+        "test_sequential_inprocess_runs_release_receipt_owner[-success]",
+        "test_sequential_inprocess_runs_release_receipt_owner[-configure-error]"
+      ],
+      "error_ids": [],
+      "expected_failure": "test_sequential_inprocess_runs_release_receipt_owner[None-configure-error]",
+      "source_sha256": "c6447fa0988f01dbaa0c738b6344b7dcc9f0fe517d6eb9009b660dadd135d48e"
+    },
+    {
+      "name": "M3-reclaim-same-pid",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tests/test_main_gate_receipt.py",
+        "-k",
+        "inprocess or inherited_pid or switch_its_claimed or nested_execution or parallel_gates",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp",
+        "--junitxml=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/junit.xml"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixture",
+      "exit_code": 1,
+      "elapsed_seconds": 5.638,
+      "cases": 15,
+      "failed_ids": [
+        "test_inprocess_nested_pytest_keeps_outer_receipt[run]",
+        "test_inprocess_nested_pytest_keeps_outer_receipt[run-same-target]",
+        "test_inprocess_nested_pytest_keeps_outer_receipt[collect-same-target]",
+        "test_inprocess_nested_pytest_keeps_outer_receipt[inner-failure]",
+        "test_inprocess_nested_pytest_keeps_outer_receipt[outer-failure]",
+        "test_inherited_pid_alone_cannot_grant_or_release_ownership[self]"
+      ],
+      "error_ids": [],
+      "expected_failure": "test_inherited_pid_alone_cannot_grant_or_release_ownership[self]",
+      "source_sha256": "b9d40052fcc9dd5b2453992ca7ed36694127efcfa45a67daf267770ae0e67c2f"
+    },
+    {
+      "name": "restored",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tests/test_main_gate_receipt.py",
+        "-k",
+        "inprocess or inherited_pid or switch_its_claimed or nested_execution or parallel_gates",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/restored/basetemp",
+        "--junitxml=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/restored/junit.xml"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixture",
+      "exit_code": 0,
+      "elapsed_seconds": 5.259,
+      "cases": 15,
+      "failed_ids": [],
+      "error_ids": [],
+      "expected_failure": null,
+      "source_sha256": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955"
+    }
+  ]
+}

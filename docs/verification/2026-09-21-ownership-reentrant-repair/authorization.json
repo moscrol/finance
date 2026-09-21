@@ -1,0 +1,15 @@
+{
+  "time": "2026-09-21T05:11:03.122858+00:00",
+  "user_instruction": "继续",
+  "scope": "repair O-K3-001 on existing #814 source branch; offline regressions/mutations and frozen source engineering validation; no new model review, merge, deployment, production backfill or real-tree deletion",
+  "tree": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+  "branch": "fix/test-gate-receipt-identity-0921",
+  "base_head": "54913deb9707b4631c110b7bce38bf5db024b980",
+  "observed_main": "3c70af64d78598e23da601b8c661b09f607e7698",
+  "source_hashes": {
+    "conftest.py": "58ad638b97b3660293fe342f58fa326f891e06149b583e683d6474cd801c7b23",
+    "scripts/run_main_gate.sh": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca",
+    "scripts/main_gate_receipt.py": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679",
+    "tests/test_main_gate_receipt.py": "5feafc0e66d28a1706a833e646b7dc8a1bb9ff189c9b41199c3cbc3d7c232d19"
+  }
+}

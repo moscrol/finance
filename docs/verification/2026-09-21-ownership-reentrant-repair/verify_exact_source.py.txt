@@ -1,0 +1,89 @@
+"""Operator corroboration, NOT a new independent reviewer or a source fix.
+
+Copy the exact candidate gate/hook into a tiny repo. Two otherwise equivalent
+outer tests invoke an inner suite: subprocess (control) vs pytest.main in the
+same process. The receipt must describe the outer invocation in both cases.
+All writes stay under this script's evidence directory; preserve every result.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / "exact-source-reproduction"
+TREE = Path.home() / "fwp-wt-test-gate-receipt-identity-0921"
+PY = str(Path.home() / "finance-workspace-private/.venv-workbench/bin/python")
+REV = "a092a021c3d7d978c4dfd9551e74aa984a523f18"
+FILES = ["conftest.py", "scripts/run_main_gate.sh", "scripts/main_gate_receipt.py", "test-environment.json"]
+os.umask(0o022)
+assert subprocess.check_output(["git", "-C", str(TREE), "rev-parse", "HEAD"], text=True).strip() == REV
+OUT.mkdir(exist_ok=False)
+REPO = OUT / "fixture"
+REPO.mkdir()
+for name in FILES:
+    target = REPO / name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(TREE / name, target)
+(REPO / ".gitignore").write_text("__pycache__/\n.pytest_cache/\n.ruff_cache/\n")
+(REPO / "tests").mkdir()
+(REPO / "tests_inner").mkdir()
+(REPO / "tests_inner/test_leaf.py").write_text(
+    "def test_one():\n    assert True\n\n\ndef test_two():\n    assert True\n")
+(REPO / "tests/test_subproc.py").write_text(
+    'import subprocess\nimport sys\n\n\ndef test_outer():\n'
+    '    result = subprocess.run(\n'
+    '        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests_inner/"],\n'
+    '        capture_output=True, text=True, timeout=30,\n'
+    '    )\n'
+    '    assert result.returncode == 0, result.stdout + result.stderr\n')
+(REPO / "tests/test_inproc.py").write_text(
+    'import pytest\n\n\ndef test_outer():\n'
+    '    result = pytest.main(["-q", "-p", "no:cacheprovider", "tests_inner/"])\n'
+    '    assert result == 0\n')
+env = {"HOME": str(OUT / "home"), "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+       "LANG": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1", "FWP_TEST_RECEIPT": "1",
+       "RUFF_CACHE_DIR": str(OUT / "ruff-cache"), "TMPDIR": str(OUT / "tmp")}
+Path(env["TMPDIR"]).mkdir()
+for args in (["init", "-q"], ["add", "--", *FILES, ".gitignore", "tests/test_subproc.py", "tests/test_inproc.py", "tests_inner/test_leaf.py"],
+             ["-c", "user.name=Operator QC", "-c", "user.email=qc@fixture.invalid", "-c", "commit.gpgsign=false", "commit", "-qm", "minimal receipt identity fixture"]):
+    subprocess.run(["git", *args], cwd=REPO, env=env, check=True, capture_output=True, timeout=20)
+fixture_rev = subprocess.check_output(["git", "-C", str(REPO), "rev-parse", "HEAD"], text=True).strip()
+rows = []
+for mode, target in (("subprocess-control", "tests/test_subproc.py"), ("inprocess-repaired", "tests/test_inproc.py")):
+    destination = OUT / mode
+    destination.mkdir()
+    command = ["bash", "scripts/run_main_gate.sh", "--pytest-args", f"-q -p no:cacheprovider {target}"]
+    result = subprocess.run(command, cwd=REPO, env={**env, "FWP_TEST_RECEIPT_DIR": str(destination / "receipts")}, capture_output=True, timeout=90)
+    (destination / "stdout.log").write_bytes(result.stdout)
+    (destination / "stderr.log").write_bytes(result.stderr)
+    paths = list((destination / "receipts").glob("gate-*/pytest.json"))
+    assert len(paths) == 1, (mode, paths)
+    receipt = json.loads(paths[0].read_text())
+    row = {"scenario": mode, "command": command, "cwd": str(REPO), "gate_exit": result.returncode,
+           "receipt": str(paths[0].relative_to(ROOT)), "target_requested": target,
+           "target_recorded": receipt["target"], "counts": receipt["counts"],
+           "identity_matches": receipt["revision"] == fixture_rev and receipt["tree"] == str(REPO),
+           "matches_outer_invocation": receipt["target"] == target and receipt["counts"]["passed"] == 1,
+           "outer_console_one_pass": b"1 passed" in result.stdout,
+           "immutable_write_warning": b"File exists" in result.stdout,
+           "stdout_sha256": hashlib.sha256(result.stdout).hexdigest(),
+           "stderr_sha256": hashlib.sha256(result.stderr).hexdigest()}
+    rows.append(row)
+    (destination / "execution.json").write_text(json.dumps(row, ensure_ascii=False, indent=2) + "\n")
+assert rows[0]["gate_exit"] == 0 and rows[0]["matches_outer_invocation"] and rows[0]["identity_matches"]
+assert rows[1]["gate_exit"] == 0 and rows[1]["matches_outer_invocation"] and rows[1]["identity_matches"]
+assert rows[1]["target_recorded"] == "tests/test_inproc.py" and rows[1]["counts"]["passed"] == 1
+assert rows[1]["outer_console_one_pass"] and not rows[1]["immutable_write_warning"]
+assert subprocess.check_output(["git", "-C", str(REPO), "status", "--porcelain=v1"], text=True).strip() == ""
+report = {"time": datetime.now(timezone.utc).isoformat(), "candidate": REV, "operator_corroboration": True,
+          "candidate_sources_unchanged": all((REPO / n).read_bytes() == (TREE / n).read_bytes() for n in FILES),
+          "fixture_revision": fixture_rev, "repair_verified": True,
+          "finding": "Config-scoped claim preserves outer receipt for both subprocess nesting and same-process reentry",
+          "does_not_establish": "a failing outer process being accepted; process exit still separately checked",
+          "scenarios": rows}
+(ROOT / "exact-source-reproduction.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+print(json.dumps(report, ensure_ascii=False, indent=2))

@@ -1,0 +1,26 @@
+{
+  "scenario": "subprocess-control",
+  "command": [
+    "bash",
+    "scripts/run_main_gate.sh",
+    "--pytest-args",
+    "-q -p no:cacheprovider tests/test_subproc.py"
+  ],
+  "cwd": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/fixture",
+  "gate_exit": 0,
+  "receipt": "exact-source-reproduction/subprocess-control/receipts/gate-0JntBn2m/pytest.json",
+  "target_requested": "tests/test_subproc.py",
+  "target_recorded": "tests/test_subproc.py",
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0
+  },
+  "identity_matches": true,
+  "matches_outer_invocation": true,
+  "outer_console_one_pass": true,
+  "immutable_write_warning": false,
+  "stdout_sha256": "266d299a9ecf198c2df02faaad24c8f47b80d8b30772227838c19f205ad7ce2f",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

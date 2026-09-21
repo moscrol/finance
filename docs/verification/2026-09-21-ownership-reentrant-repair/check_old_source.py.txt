@@ -1,0 +1,59 @@
+"""Run the final 15 regressions against the exact pre-repair hook in a toy repo.
+
+The earlier 9-case red/green iteration is preserved separately. This follow-up
+uses final checked-in tests and retains exact source bytes in its fixture. It
+never checks out/reverts files in the real candidate or a sealed review tree.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import time
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / "old-source-final-tests"
+TREE = Path.home() / "fwp-wt-test-gate-receipt-identity-0921"
+PY = str(Path.home() / "finance-workspace-private/.venv-workbench/bin/python")
+BEFORE = "54913deb9707b4631c110b7bce38bf5db024b980"
+AFTER = "a092a021c3d7d978c4dfd9551e74aa984a523f18"
+FILES = ["conftest.py", "scripts/run_main_gate.sh", "scripts/main_gate_receipt.py", "test-environment.json", "tests/test_main_gate_receipt.py"]
+os.umask(0o022)
+OUT.mkdir(exist_ok=False)
+repo = OUT / "fixture"
+repo.mkdir()
+for name in FILES:
+    destination = repo / name
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    revision = AFTER if name.startswith("tests/") else BEFORE
+    destination.write_bytes(subprocess.check_output(["git", "-C", str(TREE), "show", f"{revision}:{name}"], timeout=20))
+(repo / ".gitignore").write_text("__pycache__/\n.pytest_cache/\n.ruff_cache/\n")
+env = {"HOME": str(OUT / "home"), "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+       "LANG": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1", "FWP_TEST_RECEIPT": "0",
+       "RUFF_CACHE_DIR": str(OUT / "ruff-cache"), "TMPDIR": str(OUT / "tmp")}
+Path(env["TMPDIR"]).mkdir()
+for args in (["init", "-q"], ["add", "--", *FILES, ".gitignore"],
+             ["-c", "user.name=Old hook fixture", "-c", "user.email=old-hook@fixture.invalid",
+              "-c", "commit.gpgsign=false", "commit", "-qm", "pre-repair hook with final tests"]):
+    subprocess.run(["git", *args], cwd=repo, env=env, capture_output=True, check=True, timeout=15)
+selection = "inprocess or inherited_pid or switch_its_claimed or nested_execution or parallel_gates"
+command = [PY, "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests/test_main_gate_receipt.py",
+           "-k", selection, f"--basetemp={OUT / 'basetemp'}", f"--junitxml={OUT / 'junit.xml'}"]
+started = time.monotonic()
+with (OUT / "stdout.log").open("xb") as stdout, (OUT / "stderr.log").open("xb") as stderr:
+    result = subprocess.run(command, cwd=repo, env=env, stdout=stdout, stderr=stderr, timeout=120)
+xml = ET.parse(OUT / "junit.xml").getroot()
+cases = list(xml.iter("testcase"))
+failed = [case.attrib["name"] for case in cases if case.find("failure") is not None]
+errors = [case.attrib["name"] for case in cases if case.find("error") is not None]
+record = {"time": datetime.now(timezone.utc).isoformat(), "command": command, "cwd": str(repo),
+          "production_revision": BEFORE, "tests_revision": AFTER, "exit_code": result.returncode,
+          "elapsed_seconds": round(time.monotonic() - started, 3), "cases": len(cases),
+          "failed_ids": failed, "error_ids": errors,
+          "hashes": {p: hashlib.sha256((repo / p).read_bytes()).hexdigest() for p in FILES}}
+(OUT / "execution.json").write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+assert result.returncode == 1 and len(cases) == 15 and len(failed) == 11 and not errors, record
+print(json.dumps(record, ensure_ascii=False, indent=2))

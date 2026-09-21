@@ -1,0 +1,10 @@
+== gate @ 647d39127b70 tree=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/fixture py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/inprocess-repaired/receipts/gate-lSNOYSjf/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider tests/test_inproc.py
+.                                                                        [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/inprocess-repaired/receipts/gate-lSNOYSjf/pytest.json
+
+1 passed in 0.09s
+== receipt /Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/exact-source-reproduction/inprocess-repaired/receipts/gate-lSNOYSjf/pytest.json
+   revision=647d39127b70 dirty=False target=tests/test_inproc.py
+   passed=1 failed=0 error=0 skipped=0
