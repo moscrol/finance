@@ -291,7 +291,7 @@ _COUNT_BOUND_ADVERBS = (
 )
 # 副词删完只剩时间状语时，它同样失去落点。
 _STANDALONE_TIME_ADVERBS = frozenset(
-    {"目前", "当前", "现阶段", "截至目前", "截至当前", "暂", "眼下", "现在"}
+    {"目前", "当前", "现阶段", "截至目前", "截至当前", "暂", "暂时", "眼下", "现在"}
 )
 _DANGLING_LEADING_CONJUNCTIONS = ("而且", "并且", "同时", "以及", "但是", "但", "且", "并", "又")
 # 「结论：」这类只剩标签、正文被删空的行，整行丢弃比留个孤零零的冒号好。
@@ -5509,10 +5509,14 @@ def _drop_adverbs_bound_to_count(prefix: str) -> str:
         trimmed = trimmed[:-len(modifier)].rstrip()
     marker_match = _LIST_MARKER_PREFIX_RE.match(trimmed)
     marker = marker_match.group(0) if marker_match else ""
-    body = trimmed[len(marker):]
+    remainder = trimmed[len(marker):]
+    # A time phrase is standalone relative to its own clause, not the whole
+    # line: "观察。目前满足…" must not leave the fragment "目前。".
+    clause_start = max(remainder.rfind(char) for char in _CLAUSE_EDGE_CHARS) + 1
+    body = remainder[clause_start:]
     if body.strip().strip("*") in _STANDALONE_TIME_ADVERBS:
         body = "**" if body.strip().startswith("**") else ""
-    repaired = f"{marker}{body}"
+    repaired = f"{marker}{remainder[:clause_start]}{body}"
     return prefix if repaired == prefix.rstrip() else repaired
 
 
