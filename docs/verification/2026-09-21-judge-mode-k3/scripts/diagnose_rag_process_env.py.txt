@@ -1,0 +1,58 @@
+"""One RAG help timing with the running Workbench environment (never persisted).
+
+Compare with rag-help-profile/receipt.json's sanitized-environment observation.
+Only allowlisted environment fields and import names/times go to the receipt;
+no credentials or full process command. Diagnostic 30s != production's 5s.
+"""
+import datetime
+import hashlib
+import json
+import os
+import re
+import subprocess
+import time
+from pathlib import Path
+
+root = Path(__file__).resolve().parent
+out = root / "rag-process-env-profile"
+out.mkdir(exist_ok=False)
+job = subprocess.check_output(["launchctl", "print", f"gui/{os.getuid()}/com.a77.finance-workbench"], text=True)
+pid = re.search(r"\bpid = (\d+)", job).group(1)
+raw = subprocess.check_output(["ps", "eww", "-p", pid, "-o", "command="], text=True).strip()
+matches = list(re.finditer(r"(?:^|\s)([A-Za-z_][A-Za-z0-9_]*)=", raw))
+env = {match[1]: raw[match.end(): matches[index + 1].start() if index + 1 < len(matches) else len(raw)].strip() for index, match in enumerate(matches)}
+assert env.get("FORESIGHT_BUILTIN_LLM_MODEL") == "glm-5.3-flash"
+assert env.get("KB_RAG_PYTHON") == str(Path.home() / "knowledge-base-private/.rag_venv/bin/python")
+# Do not create pyc files in the shared KB while profiling.
+env["PYTHONDONTWRITEBYTECODE"] = "1"
+kb = Path.home() / "knowledge-base-private"
+command = [env["KB_RAG_PYTHON"], "-X", "importtime", str(kb / "scripts/rag_index.py"), "query", "--help"]
+started = time.monotonic()
+try:
+    result = subprocess.run(command, cwd=kb, env=env, capture_output=True, text=True, timeout=30)
+    code, timed_out = result.returncode, False
+    stderr = result.stderr
+    stdout = result.stdout
+except subprocess.TimeoutExpired as exc:
+    code, timed_out = None, True
+    stderr = exc.stderr.decode() if isinstance(exc.stderr, bytes) else (exc.stderr or "")
+    stdout = exc.stdout.decode() if isinstance(exc.stdout, bytes) else (exc.stdout or "")
+elapsed = time.monotonic() - started
+imports = []
+for line in stderr.splitlines():
+    if not line.startswith("import time:"):
+        continue
+    parts = line.removeprefix("import time:").split("|")
+    if len(parts) == 3 and parts[0].strip().isdigit() and parts[1].strip().isdigit():
+        imports.append({"self_us": int(parts[0]), "cumulative_us": int(parts[1]), "module": parts[2].strip()})
+allow = ("PYTHONPATH", "PYTHONHOME", "PYTHONDONTWRITEBYTECODE", "OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS", "KB_RAG_PYTHON", "KB_RAG_CODE_ROOT")
+receipt = {"at": datetime.datetime.now(datetime.timezone.utc).isoformat(), "pid": pid, "command": command,
+    "elapsed_s": elapsed, "exit_code": code, "timed_out": timed_out,
+    "environment_allowlist": {key: env.get(key) for key in allow},
+    "production_probe_timeout_s": 5, "production_timeout_changed": False,
+    "help_has_required_options": all(option in stdout for option in ("--k", "--mode", "--json")),
+    "stdout_sha256": hashlib.sha256(stdout.encode()).hexdigest(),
+    "top_cumulative_imports": sorted(imports, key=lambda row: row["cumulative_us"], reverse=True)[:15],
+    "limits": "one profiled sample; no proof of historical cause or production stability; secrets never persisted"}
+(out / "receipt.json").write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n")
+print(json.dumps(receipt, ensure_ascii=False, indent=2))

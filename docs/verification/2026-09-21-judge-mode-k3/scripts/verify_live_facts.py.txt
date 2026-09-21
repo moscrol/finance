@@ -1,0 +1,26 @@
+"""Read-only cross-check of first canary grounding, not a model quality score."""
+import json
+from pathlib import Path
+import duckdb
+
+root=Path(__file__).resolve().parent
+p=root/'canary-live-scoped/grounded-receipt.json'
+receipt=json.loads(p.read_text())
+run=Path(receipt['run_dir'])
+ep=json.loads((run/'continuous-episode.json').read_text())
+rows=[]
+for evidence in ep['outcome'].get('evidence',[]):
+    text=str(evidence)
+    if '600584' in text or '2026-09-18' in text:
+        rows.append(evidence)
+con=duckdb.connect(str(Path.home()/'finance-workspace-private/db/market_feature_store.duckdb'),read_only=True)
+columns=[r[0] for r in con.execute('DESCRIBE fact_stock_daily').fetchall()]
+selected=[c for c in ('trade_date','stock_ts_code','stock_name','close','price','pct_chg','amount') if c in columns]
+assert 'stock_ts_code' in selected and 'trade_date' in selected
+stock=con.execute('SELECT '+','.join(selected)+' FROM fact_stock_daily WHERE stock_ts_code IN (?,?) ORDER BY trade_date DESC LIMIT 2',['600584','600584.SH']).fetchall()
+latest=con.execute('SELECT max(trade_date) FROM fact_stock_daily').fetchone()[0]
+con.close()
+result={'latest_stock_date':str(latest),'stock_rows':[dict(zip(selected,row)) for row in stock],
+    'notes':['仅核对原始数值与数据日期；未调新模型。','答案把09-21写成非交易日行情，不准确：当前只是DuckDB尚未更新；不能把缺数据解释成非交易日。','程序门通过不代表所有投资判断已被独立复核。']}
+(root/'canary-grounded-fact-check.json').write_text(json.dumps(result,ensure_ascii=False,indent=2,default=str)+'\n')
+print(json.dumps(result,ensure_ascii=False,indent=2,default=str))

@@ -1,0 +1,14 @@
+{
+  "pid": "59511",
+  "environment_allowlist": {
+    "FORESIGHT_BUILTIN_LLM_MODEL": "glm-5.3-flash",
+    "FORESIGHT_BUILTIN_LLM_BASE_URL": "https://open.bigmodel.cn/api/coding/paas/v4",
+    "LLM_MODEL": "glm-5.3",
+    "LLM_BASE_URL": "https://open.bigmodel.cn/api/coding/paas/v4",
+    "ASK_SEMANTIC_JUDGE": null,
+    "ASK_EVIDENCE_JUDGE": "auto",
+    "AGENT_RUNTIME_BACKEND": "continuous_glm",
+    "FORESIGHT_USERS_DIR": "/Users/a77/.local/share/finance-workbench/users"
+  },
+  "effective_default_semantic_judge": "llm"
+}

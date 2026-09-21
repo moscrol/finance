@@ -1,0 +1,13 @@
+{
+  "at": "2026-09-21T11:07:54.201087+00:00",
+  "revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+  "model": "glm-5.3-flash",
+  "runtime_target": "/Users/a77/.finance-runtime/finance-workspace-adcda94b5e40",
+  "launcher_sha256": "b736771770e67e5d73d1c222c5e5658108628921b28bf8dc554808d9f603dda3",
+  "health_identity_verified": true,
+  "readiness_failed_checks": [
+    "market_data_consistency"
+  ],
+  "k3_deployment_accepted": false,
+  "judge_configuration": "pre-task defaults restored; this is NOT a production judge-off completion"
+}
