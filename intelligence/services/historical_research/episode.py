@@ -8,7 +8,11 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.agent_research import (
+    AgentEvidence,
+    HistoricalEvidenceProvenance,
+    StructuredObservation,
+)
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_tool_registry import ToolRunResult, ToolSpec
 
@@ -202,24 +206,54 @@ def _model_blocks(identity: dict, atoms: list[dict]) -> list[str]:
     return blocks
 
 
-def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, str | None]]:
-    """Project data and definitions, keeping row count distinct from card count."""
-    projected = []
+def _model_projection(
+    payload: dict, result_ref: str
+) -> list[tuple[str, str, str | None, int | None, str, str, tuple[StructuredObservation, ...]]]:
+    """Project data and definitions, keeping row count distinct from card count.
 
-    def add(title, identity, atoms, source_date=None):
+    The extra identity fields are control-plane metadata. They let every model
+    card point back to one immutable query row without making page coordinates
+    or free-form detail text carry provenance.
+    """
+    projected = []
+    query_id = str(payload.get("query_id") or "")
+
+    def add(
+        title,
+        identity,
+        atoms,
+        source_date=None,
+        *,
+        row_index: int | None = None,
+        row_identity: str = "",
+        row_hash: str = "",
+        observations: tuple[StructuredObservation, ...] = (),
+    ):
         projected.extend(
-            (title, detail, source_date) for detail in _model_blocks(identity, atoms)
+            (title, detail, source_date, row_index, row_identity, row_hash, observations)
+            for detail in _model_blocks(identity, atoms)
         )
 
+    scope_observations = tuple(
+        StructuredObservation(
+            subject=query_id,
+            as_of=str(payload.get("end") or payload.get("spec", {}).get("end") or ""),
+            metric=key,
+            value=float(payload[key]),
+        )
+        for key in ("total_matched", "returned_count")
+        if isinstance(payload.get(key), (int, float)) and not isinstance(payload.get(key), bool)
+    )
     add("历史研究范围与完整分母", {}, [
         {key: payload.get(key)}
         for key in ("operation", "status", "total_matched", "returned_count", "truncated", "offset", "next_offset")
-    ] + [{"research_only": True, "decision_eligible": False, "promotion_eligible": False}])
+    ] + [{"research_only": True, "decision_eligible": False, "promotion_eligible": False}], observations=scope_observations)
     add("历史研究原件引用", {}, [{"result_ref": result_ref}])
     add("历史研究使用边界", {}, [{
         "pit_grade": payload.get("pit_grade", "hindsight_reconstruction"),
         "null": "未知或不可计算，非0；具体原因见每项status；not_observed表示该窗口未观察到触发。",
     }])
+
     spec = payload.get("spec", {})
     comparison = payload.get("comparison")
     if isinstance(comparison, dict):
@@ -258,6 +292,9 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
     for index, row in records:
         if not isinstance(row, dict):
             continue
+        row_index = index if isinstance(index, int) else None
+        row_identity = f"{query_id}:row:{index}"
+        row_hash = hashlib.sha256(_compact(row).encode("utf-8")).hexdigest()[:16]
         identity = {"sample": index, "entity_code": row.get("entity_code")}
         if isinstance(reference, dict):
             identity["role"] = "reference" if index == "reference" else "candidate"
@@ -300,7 +337,31 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
             atoms.append({"market_status": "missing_or_ambiguous" if row["market"] is None else "observed"})
         date_value = str(row.get("trade_date", row.get("end", ""))) or None
         sample_scope = " ".join(str(value) for key, value in identity.items() if key != "sample")
-        add(f"历史观察样本 {sample_scope}", identity, atoms, date_value)
+        row_observations: list[StructuredObservation] = []
+        as_of = date_value or ""
+        subject = str(row.get("entity_code") or row.get("entity_name") or query_id)
+        for metric, value in row.get("features", {}).items():
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                row_observations.append(
+                    StructuredObservation(subject, as_of, str(metric), float(value))
+                )
+        for metric, value in row.items():
+            if metric in {"features", "feature_coverage", "entity_code", "entity_name", "start", "end"}:
+                continue
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                row_observations.append(
+                    StructuredObservation(subject, as_of, str(metric), float(value))
+                )
+        add(
+            f"历史观察样本 {sample_scope}",
+            identity,
+            atoms,
+            date_value,
+            row_index=row_index,
+            row_identity=row_identity,
+            row_hash=row_hash,
+            observations=tuple(row_observations),
+        )
     return projected
 
 
@@ -362,7 +423,7 @@ def _result(
             tool=tool,
             # Citation UI deduplicates by title/source/date. A block is a public
             # observation, not an independent sample; independent_key stays qid.
-            title=f"{title}｜{query_id[:8]}·{index + 1}｜{scope}".rstrip("｜"),
+            title=f"{title}｜{query_id[:8]}·{(row_index + 1) if row_index is not None else card_index + 1}｜{scope}".rstrip("｜"),
             detail=detail,
             source="本地历史研究 · 可复算原件",
             internal_locator=result_ref,
@@ -370,8 +431,21 @@ def _result(
             evidence_tier="L4_market_signal",
             freshness="historical",
             independent_key=query_id,
+            observations=observations,
+            history_provenance=HistoricalEvidenceProvenance(
+                query_id=query_id,
+                operation=str(payload.get("operation") or ""),
+                purpose=str(payload.get("purpose") or ""),
+                result_ref=result_ref,
+                row_index=row_index,
+                row_identity=row_identity,
+                row_hash=row_hash,
+                research_only=True,
+                decision_eligible=False,
+                promotion_eligible=False,
+            ),
         )
-        for index, (title, detail, source_date) in enumerate(projection)
+        for card_index, (title, detail, source_date, row_index, row_identity, row_hash, observations) in enumerate(projection)
     ]
     return ToolRunResult(
         evidence=tuple(evidence),

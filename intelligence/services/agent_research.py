@@ -155,6 +155,28 @@ class StructuredObservation:
 
 
 @dataclass(frozen=True)
+class HistoricalEvidenceProvenance:
+    """Immutable identity of one historical result projection.
+
+    This is deliberately separate from ``evidence_content_hash``: the latter
+    identifies the model-facing evidence card, while this record identifies the
+    source query, artifact and immutable source row.  ``research_only`` is a
+    qualification, not a promotion signal.
+    """
+
+    query_id: str
+    operation: str
+    purpose: str
+    result_ref: str
+    row_index: int | None = None
+    row_identity: str = ""
+    row_hash: str = ""
+    research_only: bool = True
+    decision_eligible: bool = False
+    promotion_eligible: bool = False
+
+
+@dataclass(frozen=True)
 class AgentEvidence:
     """一条 agent 补检索证据：来源可回查（kb 路径 / web url / 资讯链接）。"""
 
@@ -177,6 +199,9 @@ class AgentEvidence:
     # 不进 ``evidence_content_hash``（该哈希只吃 tool/title/detail/source），
     # 因此补上本字段不会改变任何既有证据身份。
     observations: tuple[StructuredObservation, ...] = ()
+    # Historical results remain auditable research evidence, never decision
+    # evidence merely because a query id or artifact reference is present.
+    history_provenance: HistoricalEvidenceProvenance | None = None
     # 派生证据的输入哈希链（spec capability-amplification §3.4 ``input_evidence_hashes``）：
     # ``derived_calculation`` 产物必带、其余工具为空。``validate_episode_finish`` 读它——
     # 绑定到一条没有输入链的派生证据的结论会被驳回（derived_without_inputs）。
@@ -209,6 +234,22 @@ class AgentEvidence:
             independent_key=self.independent_key,
             freshness=self.freshness,
             content_hash=self.content_hash,
+            provenance=(
+                {
+                    "query_id": self.history_provenance.query_id,
+                    "operation": self.history_provenance.operation,
+                    "purpose": self.history_provenance.purpose,
+                    "result_ref": self.history_provenance.result_ref,
+                    "row_index": self.history_provenance.row_index,
+                    "row_identity": self.history_provenance.row_identity,
+                    "row_hash": self.history_provenance.row_hash,
+                    "research_only": self.history_provenance.research_only,
+                    "decision_eligible": self.history_provenance.decision_eligible,
+                    "promotion_eligible": self.history_provenance.promotion_eligible,
+                }
+                if self.history_provenance is not None
+                else {}
+            ),
         )
 
 

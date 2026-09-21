@@ -248,6 +248,59 @@ def verify_episode_outcome(
             for item in evidence_items
             if required.evidence_types and item.tool not in required.evidence_types
         )
+        history_items = tuple(
+            item for item in evidence_items if item.history_provenance is not None
+        )
+        unsupported_history = tuple(
+            item
+            for item in history_items
+            if required.allowed_history_operations
+            and (
+                item.history_provenance.operation
+                not in required.allowed_history_operations
+                or item.tool not in {"history_query", "read_history_result"}
+            )
+        )
+        invalid_history_qualification = tuple(
+            item
+            for item in history_items
+            if required.allowed_history_operations
+            and (
+                not item.history_provenance.research_only
+                or item.history_provenance.decision_eligible
+                or item.history_provenance.promotion_eligible
+                or not item.history_provenance.query_id
+                or not item.history_provenance.result_ref
+                or item.history_provenance.result_ref.count("/") != 1
+                or not item.history_provenance.result_ref.rsplit("/", 1)[-1].startswith("history-query-")
+                or not item.history_provenance.result_ref.endswith(".json")
+                or (
+                    item.history_provenance.row_index is not None
+                    and (
+                        not item.history_provenance.row_identity
+                        or item.history_provenance.row_identity
+                        != f"{item.history_provenance.query_id}:row:{item.history_provenance.row_index}"
+                        or not item.history_provenance.row_hash
+                    )
+                )
+            )
+        )
+        if unsupported_history or invalid_history_qualification:
+            details = tuple(
+                f"{item.history_provenance.operation or 'unknown'}"
+                for item in (*unsupported_history, *invalid_history_qualification)
+                if item.history_provenance is not None
+            )
+            issues.append(
+                Issue(
+                    IssueCode.HISTORY_OPERATION_UNSUPPORTED,
+                    required.output_id,
+                    (
+                        f"history evidence is not eligible for {required.output_id}: "
+                        + ",".join(details)
+                    ),
+                )
+            )
         # 类型白名单按「剔除非法、保留合法」执行，不再整槽作废（2026-08-19，
         # run_20260819_130854：prime_quote 绑了 market_data + finance_query
         # 各若干条，旧判据把合法行情哈希一并清掉 → 整篇换缺口模板）。
@@ -263,6 +316,8 @@ def verify_episode_outcome(
                 not required.evidence_types
                 or evidence_by_hash[content_hash].tool in required.evidence_types
             )
+            and evidence_by_hash[content_hash] not in unsupported_history
+            and evidence_by_hash[content_hash] not in invalid_history_qualification
         )
         kept_items = tuple(
             evidence_by_hash[content_hash] for content_hash in kept_hashes
@@ -320,6 +375,8 @@ def verify_episode_outcome(
             and (not wrong_types or bool(kept_hashes))
             and not missing_floor
             and not basis_mismatch
+            and not unsupported_history
+            and not invalid_history_qualification
             and len(evidence_items) == len(binding.evidence_hashes)
         )
         if valid:
