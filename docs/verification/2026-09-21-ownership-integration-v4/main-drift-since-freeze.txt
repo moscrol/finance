@@ -1,0 +1,34 @@
+adcda94b5 Merge pull request 'docs: #825 已合 main 后的真值化（在途交接出册 + 两处「不合 main」更正）' (#826) from docs/8792-825-closeout into main
+c6a3a357c docs(handoff): #825 已合 main 后的真值化——在途交接出册、两处「不合 main」更正
+80bf6bb91 Merge pull request 'fix(judge): 判官理由码分流 + 8792 公开交付收口（v21，K3 live）' (#825) from fix/8792-premise-market-contracts into main
+cd32a11ce docs(handoff): 回写 PR #825 与两次前向合并的实测
+4075ce8ac docs: 立工单 #57 判官窗与 K3 自审延迟 + 交接指向
+24598e8a6 merge: 前向合入 gitea/main@c615adbd2（#770 材料收口 / #824），手工解六处冲突并补一条缝
+b53659e31 merge: 前向合入 gitea/main@3c70af64d（#819 研究求证意识 / #823 gitea_pr 等），手工解三处冲突
+9e5cb1b8e docs(verification): 8792 v21 live——K3 写手+自审在候选 285c71972 上跑五题，判官吐码坐实（n=2）
+285c71972 docs(handoff): 8792 合入状态改为 main@945c04bd7 的实测——三处冲突来自分支早先提交
+e80750676 docs(handoff): 8792 交接改写为 a97b27057 状态 + 判官理由码日期快照
+a97b27057 fix(judge): 判官理由码分流，撤回「引了 E 且被拒 → 删」
+f5f844466 docs: archive v20 premise market verification
+1d9e717d2 fix: remove rejected cited fact sentences
+2a3f56b93 docs: finalize v19 handoff state
+058fe3ebe docs: archive v19 premise market verification
+8810bac84 fix: deduplicate premise scope gaps
+72228bfc8 fix: scope premise conflicts to the current instruction
+7bff0a6bc fix: handle mixed premise gaps without crashing
+37526350c fix: keep unsupported premise math out of trusted lane
+b75f2bf9d fix: honor negated and clarified premise scenario scope
+bd2fe310f fix: retain premise scenario scope and exact subject identity
+3a3969c5d fix: preserve public finance facts and own premise source disclosure
+48caa1921 fix: restore owned calculation table boundaries after public projection
+c4e084868 fix: preserve quote grounding and route calculation delivery through the public view
+dfe40c46c fix: recover premise calculations from owned domain materials without external evidence
+fa02dee48 fix: distinguish calculation contradictions from unparsed prose
+a7bf360c0 fix: validate metric-bound calculation restatements without rejecting correct prose
+41ca2165d fix: bind premise financial calculations to trusted annual inputs
+783c335ae docs: record blocked 8792 repair and preserve all live failures
+df186f9b7 fix: preserve completed annual profit basis in premise valuations
+e814a93e4 fix: retain late cited evidence during malformed finish recovery
+e82447cd4 fix: distinguish denied analog requests and audit calculation explanations
+8a6f66a8e fix: keep premise followups in verified research execution
+ca3df8f01 fix: distinguish premise calculations and preserve market query caliber

@@ -1,0 +1,82 @@
+"""Pin source inclusion and six previous archives while integration gates run.
+
+No test, Git-index or source edits. Main drift is recorded, never chased inside
+the fixed candidate; matching changed paths is not an integration verdict.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+OUT = Path(__file__).resolve().parent
+REPO = Path.home() / "fwp-wt-ownership-closeout-0921"
+C = json.loads((OUT / "candidate.json").read_text())
+A = json.loads((OUT / "authorization.json").read_text())
+TREE = Path(C["checkout"])
+
+def git(*args):
+    return subprocess.check_output(["git", "-C", str(REPO), *args], timeout=60)
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+def text(*args):
+    return git(*args).decode().strip()
+
+sources = {
+    "812": (A["source_prs"][0]["head"], ["scripts/worktree_board.py", "tests/test_worktree_board.py"]),
+    "813": (A["source_prs"][1]["head"], ["market_feature_store/cli.py", "market_feature_store/sync/repair_backfill_stock_history.py",
+                                       "scripts/verify_302132_backfill_acceptance.py", "tests/test_repair_backfill_stock_history.py"]),
+    "814": (A["receipt_repair"], ["conftest.py", "scripts/run_main_gate.sh", "scripts/main_gate_receipt.py", "tests/test_main_gate_receipt.py"]),
+}
+rows = {}
+all_paths = []
+for number, (revision, paths) in sources.items():
+    rows[number] = {"source_revision": revision, "files": {}}
+    for path in paths:
+        original = git("show", f"{revision}:{path}")
+        candidate = git("show", f"{C['revision']}:{path}")
+        assert original == candidate == (TREE / path).read_bytes(), path
+        rows[number]["files"][path] = {"sha256": sha(original), "same_source_candidate_checkout": True}
+        all_paths.append(path)
+archives = {}
+for suffix in ("followup", "recheck", "resume", "independent-v3", "k3-v3", "reentrant-repair"):
+    name = "2026-09-21-ownership-" + suffix
+    directory = REPO / "docs/verification" / name
+    manifest = json.loads((directory / "manifest.json").read_text())
+    members = manifest["entries"] if "entries" in manifest else manifest["files"]
+    expected = {e["path"] for e in members}
+    actual = {str(p.relative_to(directory)) for p in directory.rglob("*") if p.is_file()} - {"manifest.json"}
+    assert actual == expected, name
+    entries = []
+    for path in sorted(directory.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = str(path.relative_to(REPO))
+        data = path.read_bytes()
+        assert data == git("show", f"{A['source_prs'][0]['head']}:{relative}") == (TREE / relative).read_bytes(), relative
+        entries.append({"path": str(path.relative_to(directory)), "bytes": len(data), "sha256": sha(data)})
+    for row in members:
+        data = (directory / row["path"]).read_bytes()
+        assert len(data) == row["bytes"] and sha(data) == row["sha256"], (name, row["path"])
+    archives[name] = {"files_excluding_manifest": len(actual), "entries_including_manifest": entries,
+                      "membership_sizes_hashes_candidate_source_commit_match": True}
+observed = text("ls-remote", "gitea", "refs/heads/main").split()[0]
+# The object may have arrived through another session's fetch. Do not move refs.
+object_known = subprocess.run(["git", "-C", str(REPO), "cat-file", "-e", observed + "^{commit}"],
+                              capture_output=True, timeout=30).returncode == 0
+drift = {"observed_at": datetime.now(timezone.utc).isoformat(), "base": A["base"], "remote_main": observed,
+         "base_is_still_remote_main": observed == A["base"], "object_known": object_known,
+         "candidate_not_changed": True, "later_main_not_covered": observed != A["base"]}
+if object_known:
+    (OUT / "main-drift-since-freeze.txt").write_bytes(git("log", "--oneline", A["base"] + ".." + observed))
+    (OUT / "main-drift-source-stat.txt").write_bytes(git("diff", "--stat", A["base"], observed, "--", ":(exclude)docs/**"))
+    drift["ten_scope_paths_diff"] = text("diff", "--name-only", A["base"], observed, "--", *all_paths).splitlines()
+with (OUT / "source-inclusion.json").open("x") as f:
+    json.dump({"revision": C["revision"], "source_inclusion": rows, "upstream_observation": drift}, f, ensure_ascii=False, indent=2)
+    f.write("\n")
+with (OUT / "previous-archives.json").open("x") as f:
+    json.dump(archives, f, ensure_ascii=False, indent=2)
+    f.write("\n")
+print(json.dumps({"source_inclusion_ok": True, "old_archive_counts": {k: v["files_excluding_manifest"] for k,v in archives.items()}, "drift": drift}, ensure_ascii=False, indent=2))

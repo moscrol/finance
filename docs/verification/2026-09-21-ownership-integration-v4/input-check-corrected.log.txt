@@ -1,0 +1,21 @@
+{
+  "source_inclusion_ok": true,
+  "old_archive_counts": {
+    "2026-09-21-ownership-followup": 30,
+    "2026-09-21-ownership-recheck": 30,
+    "2026-09-21-ownership-resume": 86,
+    "2026-09-21-ownership-independent-v3": 26,
+    "2026-09-21-ownership-k3-v3": 450,
+    "2026-09-21-ownership-reentrant-repair": 115
+  },
+  "drift": {
+    "observed_at": "2026-09-21T06:50:22.185594+00:00",
+    "base": "c615adbd2f861e23f2c8d03631833f98b3ae5aba",
+    "remote_main": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+    "base_is_still_remote_main": false,
+    "object_known": true,
+    "candidate_not_changed": true,
+    "later_main_not_covered": true,
+    "ten_scope_paths_diff": []
+  }
+}

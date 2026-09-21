@@ -1,0 +1,53 @@
+{
+  "started_at": "2026-09-21T07:10:51.423421+00:00",
+  "before": {
+    "tree": "/Users/a77/fwp-wt-ownership-gates-v4-0921",
+    "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+    "status": ""
+  },
+  "checks": [
+    {
+      "command": [
+        "bash",
+        "scripts/run_main_gate.sh",
+        "--receipt",
+        "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/python/receipts/gate-bVVRCApx/pytest.json"
+      ],
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/readback/0.log",
+      "elapsed_seconds": 0.669,
+      "sha256": "141c5f45ad6a5957345205fd0dcc7d1d09b1809d214700ea464a81e078b9574d"
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/check_test_receipt.py",
+        "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/python/receipts/gate-bVVRCApx/pytest.json",
+        "--expect-revision",
+        "6eb12c1b8a41071fd4af8bee343950fe0b85b221"
+      ],
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/readback/1.log",
+      "elapsed_seconds": 0.177,
+      "sha256": "d9ceeeb1509bde1e1d6384a7dadf4cf971c7a5bdc59a9b702c75e00083f76218"
+    }
+  ],
+  "complete": true,
+  "environment": {
+    "HOME": "/Users/a77",
+    "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "LANG": "C.UTF-8",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "GIT_OPTIONAL_LOCKS": "0"
+  },
+  "receipt": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/python/receipts/gate-bVVRCApx/pytest.json",
+  "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+  "after": {
+    "tree": "/Users/a77/fwp-wt-ownership-gates-v4-0921",
+    "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+    "status": ""
+  },
+  "finished_at": "2026-09-21T07:10:52.378012+00:00",
+  "source_unchanged": true,
+  "exit_code": 0
+}

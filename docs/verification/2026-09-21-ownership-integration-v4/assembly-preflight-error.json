@@ -1,0 +1,12 @@
+{
+  "stage": "before merge-tree, ref creation or worktree creation",
+  "error": "AssertionError: run(show-ref, --verify, missing-ref).returncode == 1",
+  "cause": "git show-ref --verify without --quiet returns 128 for the missing ref on this installation; the recorder wrongly expected 1",
+  "observed_plain_exit": 128,
+  "observed_quiet_exit": 1,
+  "branch_existed": false,
+  "worktree_existed": false,
+  "source_tree_clean": true,
+  "correction": "add --quiet to the preflight only; initial script preserved as assemble_candidate.initial.py",
+  "classification": "operator apparatus error, not candidate conflict or product failure"
+}

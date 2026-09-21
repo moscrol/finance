@@ -1,0 +1,121 @@
+"""Finite fixed-candidate engineering checks; no retry or moving-main authority.
+
+Reuse the project's gate entry points. Each leaf claims an exclusive directory,
+uses a minimal environment and checks source identity before/after. Timeout kills
+only its own process group. Frontend includes E2E, not an inferred green leaf.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+
+OUT = Path(__file__).resolve().parent
+CANDIDATE = json.loads((OUT / "candidate.json").read_text())
+TREE = Path(CANDIDATE["checkout"])
+SHA = CANDIDATE["revision"]
+PY = str(Path.home() / "finance-workspace-private/.venv-workbench/bin/python")
+PATHS = ("conftest.py", "scripts/run_main_gate.sh", "scripts/main_gate_receipt.py",
+         "tests/test_main_gate_receipt.py", "scripts/worktree_board.py", "tests/test_worktree_board.py",
+         "market_feature_store/cli.py", "market_feature_store/sync/repair_backfill_stock_history.py",
+         "scripts/verify_302132_backfill_acceptance.py", "tests/test_repair_backfill_stock_history.py",
+         "scripts/run_frontend_gate.py", "test-environment.json")
+
+def now():
+    return datetime.now(timezone.utc).isoformat()
+
+def identity():
+    def git(*args):
+        return subprocess.check_output(["git", "-C", str(TREE), *args], text=True, timeout=30).rstrip("\n")
+    return {"tree": str(TREE), "revision": git("rev-parse", "HEAD"),
+            "tree_object": git("rev-parse", "HEAD^{tree}"),
+            "status": git("status", "--porcelain=v1", "--untracked-files=all"),
+            "source_sha256": {p: hashlib.sha256((TREE / p).read_bytes()).hexdigest() for p in PATHS}}
+
+leaf = sys.argv[1]
+assert leaf in ("python", "frontend", "registry", "hooks")
+os.umask(0o022)
+out = OUT / "gates" / leaf
+out.mkdir(parents=True, exist_ok=False)
+for folder in ("tmp", "receipts", "ruff-cache"):
+    (out / folder).mkdir()
+env = {"HOME": str(Path.home()), "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+       "LANG": "C.UTF-8", "TMPDIR": str(out / "tmp"), "PYTHONDONTWRITEBYTECODE": "1",
+       "FWP_TEST_RECEIPT_DIR": str(out / "receipts"), "FWP_TEST_RECEIPT": "1",
+       "RUFF_CACHE_DIR": str(out / "ruff-cache"), "GIT_OPTIONAL_LOCKS": "0"}
+registry = [[PY, "-c", "from pathlib import Path; import scripts.build_registry as r; "
+             "r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())", *args]
+            for args in (("check-parseability",), ("check",), ("backfill-tables", "--check"),
+                         ("generate-views", "--check"))]
+registry.append([PY, "scripts/audit_ledger_spec_crosswalk.py"])
+commands = {
+    "python": [["bash", "scripts/run_main_gate.sh", "--pytest-args",
+                f"-q -p no:cacheprovider --basetemp={out / 'basetemp'} --junitxml={out / 'junit.xml'}"]],
+    "frontend": [[PY, "scripts/run_frontend_gate.py", "--tree", str(TREE), "--expect-revision", SHA,
+                  "--output", str(out / "gate"), "--workbench-port", "19151", "--re06-port", "19154"]],
+    "registry": registry,
+    "hooks": [[PY, "-m", "pre_commit", "run", "--from-ref", CANDIDATE["parents"][0], "--to-ref", SHA]],
+}[leaf]
+timeout = 3600 if leaf == "python" else 1800 if leaf == "frontend" else 300
+record = {"leaf": leaf, "revision": SHA, "cwd": str(TREE), "pid": os.getpid(),
+          "started_at": now(), "environment": env, "timeout_per_command_seconds": timeout,
+          "pinned_base": CANDIDATE["parents"][0], "before": identity(), "checks": [], "complete": False,
+          "main_semantics": "pinned base; later shared-ref changes are observations, not a source failure"}
+
+def save():
+    tmp = out / "run.json.tmp"
+    tmp.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+    tmp.replace(out / "run.json")
+
+save()
+started = time.monotonic()
+try:
+    assert record["before"]["revision"] == SHA and record["before"]["status"] == ""
+    assert record["before"]["tree_object"] == CANDIDATE["tree_object"]
+    for index, command in enumerate(commands):
+        check = {"command": command, "started_at": now()}
+        tick = time.monotonic()
+        stdout_path, stderr_path = out / f"{index}.stdout.log", out / f"{index}.stderr.log"
+        with stdout_path.open("xb") as stdout, stderr_path.open("xb") as stderr:
+            proc = subprocess.Popen(command, cwd=TREE, env=env, stdout=stdout, stderr=stderr, start_new_session=True)
+            check["pid"] = proc.pid
+            record["active_command"] = check.copy()
+            save()
+            try:
+                check["exit_code"] = proc.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                check["timed_out"] = True
+                os.killpg(proc.pid, signal.SIGTERM)
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                    proc.wait(timeout=10)
+                check["process_exit"] = proc.returncode
+                check["exit_code"] = 124
+        check.update(elapsed_seconds=round(time.monotonic() - tick, 3), finished_at=now())
+        check["logs"] = {p.name: {"bytes": p.stat().st_size, "sha256": hashlib.sha256(p.read_bytes()).hexdigest()}
+                         for p in (stdout_path, stderr_path)}
+        record["checks"].append(check)
+        record.pop("active_command", None)
+        save()
+    record["complete"] = True
+except (AssertionError, OSError, subprocess.SubprocessError) as exc:
+    record["error"] = f"{type(exc).__name__}: {exc}"
+finally:
+    try:
+        record["after"] = identity()
+        record["source_unchanged"] = record["before"] == record["after"]
+    except (OSError, subprocess.SubprocessError) as exc:
+        record["identity_error"] = f"{type(exc).__name__}: {exc}"
+        record["source_unchanged"] = False
+    record["exit_code"] = (0 if record["complete"] and record["source_unchanged"]
+                           and all(c["exit_code"] == 0 for c in record["checks"]) else 1)
+    record.update(finished_at=now(), elapsed_seconds=round(time.monotonic() - started, 3))
+    save()
+print(json.dumps({k: record[k] for k in ("leaf", "revision", "complete", "exit_code", "elapsed_seconds", "source_unchanged")}))
+raise SystemExit(record["exit_code"])

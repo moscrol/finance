@@ -1,0 +1,72 @@
+{
+  "time": "2026-09-21T07:10:37.756590+00:00",
+  "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+  "tree": "/Users/a77/fwp-wt-ownership-gates-v4-0921",
+  "pinned_base": "c615adbd2f861e23f2c8d03631833f98b3ae5aba",
+  "scope": "author engineering integration on pinned base only",
+  "independent_review": "NOT_RERUN",
+  "later_main_covered": false,
+  "leaves": {
+    "hooks": {
+      "exit_code": 0,
+      "complete": true,
+      "same_clean_start_end": true,
+      "elapsed_seconds": 42.183,
+      "checks": 1
+    },
+    "python": {
+      "exit_code": 0,
+      "complete": true,
+      "same_clean_start_end": true,
+      "elapsed_seconds": 1380.761,
+      "checks": 1
+    },
+    "frontend": {
+      "exit_code": 0,
+      "complete": true,
+      "same_clean_start_end": true,
+      "elapsed_seconds": 164.113,
+      "checks": 1
+    },
+    "registry": {
+      "exit_code": 0,
+      "complete": true,
+      "same_clean_start_end": true,
+      "elapsed_seconds": 1.986,
+      "checks": 5
+    }
+  },
+  "python": {
+    "receipt": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/python/receipts/gate-bVVRCApx/pytest.json",
+    "receipt_sha256": "4223d0f758ca5f35c5be396d4ad6ce25abfece0eb6c7b174538eb9015eff036c",
+    "counts": {
+      "passed": 12461,
+      "failed": 0,
+      "error": 0,
+      "skipped": 85
+    },
+    "xfailed_from_junit_not_receipt": 2,
+    "junit_cases": 12548,
+    "junit_sha256": "67e1c477a798c187fc0608f27232b2145e320e8be67d61767e21a15941460fe8",
+    "receipt_junit_console_agree": true,
+    "console_summary": [
+      "12461 passed, 85 skipped, 2 xfailed, 17 warnings in 1377.05s (0:22:57)"
+    ]
+  },
+  "frontend_and_e2e": {
+    "receipt": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/frontend/gate/frontend.json",
+    "receipt_sha256": "d2f6639851e80d926c5f594eeeb980b1d3bfeff531c2dbb63918f023bcd96bb0",
+    "unit_passed": 110,
+    "e2e_passed": 34,
+    "e2e_skipped": 2,
+    "six_commands_exit_zero": true,
+    "source_identity_stable": true
+  },
+  "registry_scope": "five finance-only CI checks; external repositories intentionally unavailable",
+  "limitations": [
+    "shell gate keeps pytest last 15 lines only",
+    "JUnit is per-case evidence, not full stdout",
+    "clean endpoints do not prove no transient edit-and-restore",
+    "no complete-copy 302132 publish/recovery rehearsal or production backfill"
+  ]
+}

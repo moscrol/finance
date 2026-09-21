@@ -1,0 +1,69 @@
+"""Seal finite v4 evidence only after gate QC/readback; preserve older archives.
+
+Copies selected original bytes with .txt suffix for scripts/logs. Never includes
+basetemp, caches, databases, node_modules, Git objects, or latest navigation.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import re
+
+ROOT = Path(__file__).resolve().parent
+REPO = Path.home() / "fwp-wt-ownership-closeout-0921"
+DEST = REPO / "docs/verification/2026-09-21-ownership-integration-v4"
+C = json.loads((ROOT / "candidate.json").read_text())
+QC = json.loads((ROOT / "gate-qc.json").read_text())
+assert QC["revision"] == C["revision"]
+readback = json.loads((ROOT / "readback/run.json").read_text())
+assert readback["complete"] and readback["source_unchanged"] and readback["exit_code"] == 0
+files = {p for p in ROOT.iterdir() if p.is_file() and p.suffix in {".py", ".json", ".txt", ".md", ".diff", ".log"}}
+files -= {ROOT / "archive-verification.json"}
+for leaf in ("hooks", "python", "frontend", "registry"):
+    directory = ROOT / "gates" / leaf
+    r = json.loads((directory / "run.json").read_text())
+    assert r["complete"] and r["source_unchanged"] and r["exit_code"] == 0
+    files.update(p for p in directory.iterdir() if p.is_file())
+    files.update(p for p in (directory / "receipts").rglob("*.json") if p.name != "latest.json")
+files.update(p for p in (ROOT / "gates/frontend/gate").iterdir() if p.is_file())
+files.update(p for p in (ROOT / "readback").iterdir() if p.is_file())
+assert ROOT / "README.md" in files
+assert not DEST.exists()
+DEST.mkdir()
+entries = []
+for source in sorted(files):
+    assert source.suffix not in {".db", ".duckdb", ".sqlite", ".pdf", ".zip", ".pyc"}, source
+    relative = source.relative_to(ROOT)
+    target_relative = Path(str(relative) + ".txt") if source.suffix in {".py", ".sh", ".log"} else relative
+    blob = source.read_bytes()
+    assert len(blob) < 5 * 1024 * 1024, (source, len(blob))
+    text = blob.decode("utf-8")
+    assert not re.search(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:sk-proj-|sk-live-)[A-Za-z0-9_-]{16,}", text), source
+    target = DEST / target_relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("xb") as f:
+        f.write(blob)
+    entries.append({"path": str(target_relative), "source": str(source), "bytes": len(blob),
+                    "sha256": hashlib.sha256(blob).hexdigest()})
+assert {str(p.relative_to(DEST)) for p in DEST.rglob("*") if p.is_file()} == {r["path"] for r in entries}
+for row in entries:
+    data = (DEST / row["path"]).read_bytes()
+    assert data == Path(row["source"]).read_bytes()
+    assert len(data) == row["bytes"] and hashlib.sha256(data).hexdigest() == row["sha256"]
+manifest = {"created_at": datetime.now(timezone.utc).isoformat(), "revision": C["revision"],
+            "base": C["parents"][0], "tree": C["checkout"], "scope": "fixed-base author integration gates",
+            "independent_review": "NOT_RERUN", "latest_main_covered": False,
+            "entry_count_including_readme_excluding_manifest": len(entries),
+            "selected_bytes": sum(e["bytes"] for e in entries), "entries": entries,
+            "exclusions": ["test temporary trees", "caches", "database binaries", "node_modules", "Git objects", "latest.json"]}
+with (DEST / "manifest.json").open("x") as f:
+    json.dump(manifest, f, ensure_ascii=False, indent=2)
+    f.write("\n")
+result = {"time": datetime.now(timezone.utc).isoformat(), "archive": str(DEST),
+          "files_excluding_manifest": len(entries), "bytes": manifest["selected_bytes"],
+          "membership_sizes_hashes_original_bytes_ok": True,
+          "manifest_sha256": hashlib.sha256((DEST / "manifest.json").read_bytes()).hexdigest()}
+with (ROOT / "archive-verification.json").open("x") as f:
+    json.dump(result, f, ensure_ascii=False, indent=2)
+    f.write("\n")
+print(json.dumps(result, ensure_ascii=False, indent=2))

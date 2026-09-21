@@ -1,0 +1,37 @@
+{
+  "time": "2026-09-21T06:19:58.393600+00:00",
+  "instruction": "继续",
+  "scope": "new isolated integration candidate for #812/#813/#814 on current fetched gitea/main, Python/frontend/E2E/finance-only registry gates, archive and handoff; no new model sessions, budget extension, main merge, deployment, production backfill or deletion",
+  "base": "c615adbd2f861e23f2c8d03631833f98b3ae5aba",
+  "base_remote_observed": "c615adbd2f861e23f2c8d03631833f98b3ae5aba",
+  "source_prs": [
+    {
+      "number": 812,
+      "head": "8d955fc38747bc0e0aad32f6889b0b7d84f79530",
+      "branch": "ops/worktree-ownership-closeout-0921",
+      "state": "open",
+      "merged": false,
+      "base": "c615adbd2f861e23f2c8d03631833f98b3ae5aba"
+    },
+    {
+      "number": 813,
+      "head": "5994230dadcf23ec0a17c0b27e3a649d782ecf94",
+      "branch": "fix/backfill-main-ready-0921",
+      "state": "open",
+      "merged": false,
+      "base": "c615adbd2f861e23f2c8d03631833f98b3ae5aba"
+    },
+    {
+      "number": 814,
+      "head": "ffc8e1a83032cc06881aa3a1132947fd7feac363",
+      "branch": "fix/test-gate-receipt-identity-0921",
+      "state": "open",
+      "merged": false,
+      "base": "c615adbd2f861e23f2c8d03631833f98b3ae5aba"
+    }
+  ],
+  "branch": "baseline/ownership-gates-v4-0921",
+  "tree": "/Users/a77/fwp-wt-ownership-gates-v4-0921",
+  "previous_candidate": "47530e20fe5c3195e50ce429b31898d57918e413",
+  "receipt_repair": "a092a021c3d7d978c4dfd9551e74aa984a523f18"
+}

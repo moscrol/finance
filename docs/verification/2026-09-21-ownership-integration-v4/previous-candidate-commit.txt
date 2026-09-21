@@ -1,0 +1,10 @@
+commit 47530e20fe5c3195e50ce429b31898d57918e413
+tree 9ef25245a49b5e70ed84818fa86a7a082f1a43e0
+parent 728f327160bbd2485cb635e7ef09d040d718d7b5
+parent 6c74fa012b1cc79168b72368e262775b66df70f7
+parent 5994230dadcf23ec0a17c0b27e3a649d782ecf94
+parent cdf6647cfe852bd19c23df0408b4bc2af306da6f
+author linxiaoqi5111-del <linxiaoqi5111-del@users.noreply.github.com> 1789957606 +0800
+committer linxiaoqi5111-del <linxiaoqi5111-del@users.noreply.github.com> 1789957606 +0800
+
+    test: freeze ownership candidates with strict receipt-only tree identity

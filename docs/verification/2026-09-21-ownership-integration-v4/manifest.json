@@ -1,0 +1,513 @@
+{
+  "created_at": "2026-09-21T07:13:39.858577+00:00",
+  "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+  "base": "c615adbd2f861e23f2c8d03631833f98b3ae5aba",
+  "tree": "/Users/a77/fwp-wt-ownership-gates-v4-0921",
+  "scope": "fixed-base author integration gates",
+  "independent_review": "NOT_RERUN",
+  "latest_main_covered": false,
+  "entry_count_including_readme_excluding_manifest": 82,
+  "selected_bytes": 2600457,
+  "entries": [
+    {
+      "path": "README.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/README.md",
+      "bytes": 5773,
+      "sha256": "73ccb6601f5bd979b39d21cb24febaa8a96f1c04c3baa7a4b1fc94f26ca7652c"
+    },
+    {
+      "path": "apparatus-notes.md",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/apparatus-notes.md",
+      "bytes": 1834,
+      "sha256": "6dd5bc2daad4a33f86b5d29e66ba7694418c79160519525c856fa97a30ec8b1f"
+    },
+    {
+      "path": "assemble_candidate.initial.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/assemble_candidate.initial.py",
+      "bytes": 4135,
+      "sha256": "8fb79b0fda9f9d03d4ea7403dce28fc6962ec9dfa51c9d6e857f0528fa267fa4"
+    },
+    {
+      "path": "assemble_candidate.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/assemble_candidate.py",
+      "bytes": 4146,
+      "sha256": "9d6657d8a2d35497c22235a180ce744e69815c92599dc10b8c6c1ee5b8f392e8"
+    },
+    {
+      "path": "assembly-preflight-error.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/assembly-preflight-error.json",
+      "bytes": 637,
+      "sha256": "ed0689b60e69fa0409417fb3f18cd191577d3daf152f4f7c8610ed917f3c9deb"
+    },
+    {
+      "path": "assembly.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/assembly.log",
+      "bytes": 2194,
+      "sha256": "97b30386d9a300151d51f1c0bfdcc8d73d330e398539b40dfa5687969351552b"
+    },
+    {
+      "path": "authorization.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/authorization.json",
+      "bytes": 1467,
+      "sha256": "c46954b43a2c6df3a7b6300b08a15a04d0cb3f0a22b3067a11dfcf7a3e890ec2"
+    },
+    {
+      "path": "base-drift.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/base-drift.txt",
+      "bytes": 7210,
+      "sha256": "61669591d8bda1282aaeed8bc766508898e52c6738228d217b85c04b68663754"
+    },
+    {
+      "path": "candidate-commit.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/candidate-commit.txt",
+      "bytes": 767,
+      "sha256": "d7399e596d3c6b9dc6b1f8fdb5a43cf570b8a6212722adc29a6b87d4478d743b"
+    },
+    {
+      "path": "candidate-published.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/candidate-published.json",
+      "bytes": 266,
+      "sha256": "826f07687638b627f68378fba209a2c7b25249bd942f8a0e9431c69ecd5bf27f"
+    },
+    {
+      "path": "candidate-push-reservation.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/candidate-push-reservation.json",
+      "bytes": 166,
+      "sha256": "a318952c059361cd2e8a53c71fab7b95359da63f19d6753f7479b65bdaf5932f"
+    },
+    {
+      "path": "candidate-push.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/candidate-push.log",
+      "bytes": 366,
+      "sha256": "58607fd9202306fc89294a66e33dd417daf019aee23cf7594462b9b28a2fc831"
+    },
+    {
+      "path": "candidate-vs-main-names.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/candidate-vs-main-names.txt",
+      "bytes": 66234,
+      "sha256": "1cde0b0e8cc5e21c8ef5d73385d45047d450843228aef3fadd4fca6eae677192"
+    },
+    {
+      "path": "candidate-vs-main.diff",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/candidate-vs-main.diff",
+      "bytes": 207291,
+      "sha256": "7c3eb653f63685c72b7ea8e55f5a65f35b0f979b7cc81eadc83cc145fb6de76b"
+    },
+    {
+      "path": "candidate-vs-v3-names.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/candidate-vs-v3-names.txt",
+      "bytes": 64114,
+      "sha256": "69b6e9ee8bfe7903fceb422a40582dc3b9c05554a45e1813d592904f6c8e904f"
+    },
+    {
+      "path": "candidate.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/candidate.json",
+      "bytes": 2194,
+      "sha256": "97b30386d9a300151d51f1c0bfdcc8d73d330e398539b40dfa5687969351552b"
+    },
+    {
+      "path": "check_inputs.initial.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/check_inputs.initial.py",
+      "bytes": 4572,
+      "sha256": "e6e9108ebccab767a8e28df63e486b391dbb2bee7903f9e5121afd88c3434745"
+    },
+    {
+      "path": "check_inputs.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/check_inputs.py",
+      "bytes": 4630,
+      "sha256": "7a1a1061a958670641cd008ab56a132043f4ad3ad36c7c107c37ee1673b4737c"
+    },
+    {
+      "path": "frontend-launcher.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/frontend-launcher.log",
+      "bytes": 165,
+      "sha256": "6cd15cb211a4171987cd3034e88e4c2643f6257ccc870aed865c15b93827b7df"
+    },
+    {
+      "path": "gate-qc.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gate-qc.json",
+      "bytes": 2408,
+      "sha256": "308fd8f4ea0101c3d4224e08ce598f5a2c4fbf55bbd4142efb587cc68742a141"
+    },
+    {
+      "path": "gate-qc.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gate-qc.log",
+      "bytes": 2408,
+      "sha256": "308fd8f4ea0101c3d4224e08ce598f5a2c4fbf55bbd4142efb587cc68742a141"
+    },
+    {
+      "path": "gates/frontend/0.stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/frontend/0.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "gates/frontend/0.stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/frontend/0.stdout.log",
+      "bytes": 445,
+      "sha256": "ef745795ccacb862c4ebea3e32738efe05d4d652cfb12418c06f6de9ac7d7b2f"
+    },
+    {
+      "path": "gates/frontend/gate/frontend-0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/frontend/gate/frontend-0.log.txt",
+      "bytes": 1937,
+      "sha256": "079d6f2028eced6bc184169729c1d2c8109ea8c8d6c14197e9e27fbb57516d69"
+    },
+    {
+      "path": "gates/frontend/gate/frontend-1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/frontend/gate/frontend-1.log.txt",
+      "bytes": 118,
+      "sha256": "5951ed111e08d012b8af4b2a4fb815905088b86d9399910ad8cc2bc4b1cf6f6e"
+    },
+    {
+      "path": "gates/frontend/gate/frontend-2.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/frontend/gate/frontend-2.log.txt",
+      "bytes": 216,
+      "sha256": "e6068a7dbc3efbd8cc09935e45b8325a02fef51a941fd3a326469d82ac2981af"
+    },
+    {
+      "path": "gates/frontend/gate/frontend-3.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/frontend/gate/frontend-3.log.txt",
+      "bytes": 3145,
+      "sha256": "c8215156a0acf2331060e482b57f884104ba9febdd6ef1f7a850306757d22419"
+    },
+    {
+      "path": "gates/frontend/gate/frontend-4.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/frontend/gate/frontend-4.log.txt",
+      "bytes": 923,
+      "sha256": "f99a24df7c7104f68f4a4a5ec5551744fb90856131d42ae37fd8fb7fc1f52084"
+    },
+    {
+      "path": "gates/frontend/gate/frontend-5.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/frontend/gate/frontend-5.log.txt",
+      "bytes": 12757,
+      "sha256": "8e8d1f5b8ff287dbec4b56304c275616408c8568615086d5a7abfc82d6e96215"
+    },
+    {
+      "path": "gates/frontend/gate/frontend.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/frontend/gate/frontend.json",
+      "bytes": 2505,
+      "sha256": "d2f6639851e80d926c5f594eeeb980b1d3bfeff531c2dbb63918f023bcd96bb0"
+    },
+    {
+      "path": "gates/frontend/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/frontend/run.json",
+      "bytes": 5271,
+      "sha256": "d18a67cff0e3db2341707591b773e48c9d43371b09f8a7d5ae96fafe23381cc2"
+    },
+    {
+      "path": "gates/hooks/0.stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/hooks/0.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "gates/hooks/0.stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/hooks/0.stdout.log",
+      "bytes": 5806,
+      "sha256": "9ca6b6651f7e9071bdfedc6e815e5fbe34390089c779969a7185ea5958fb8abc"
+    },
+    {
+      "path": "gates/hooks/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/hooks/run.json",
+      "bytes": 5056,
+      "sha256": "14a0266373772c0ca9f2c65fb53d5de842fecec603a7a8b22ae9098c02d2a59c"
+    },
+    {
+      "path": "gates/python/0.stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/python/0.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "gates/python/0.stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/python/0.stdout.log",
+      "bytes": 2325,
+      "sha256": "9c804583624f58880ad746384ea127ef6ec7c6c725cb33622c841d206a3a5901"
+    },
+    {
+      "path": "gates/python/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/python/junit.xml",
+      "bytes": 1927891,
+      "sha256": "67e1c477a798c187fc0608f27232b2145e320e8be67d61767e21a15941460fe8"
+    },
+    {
+      "path": "gates/python/receipts/gate-bVVRCApx/pytest.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/python/receipts/gate-bVVRCApx/pytest.json",
+      "bytes": 666,
+      "sha256": "4223d0f758ca5f35c5be396d4ad6ce25abfece0eb6c7b174538eb9015eff036c"
+    },
+    {
+      "path": "gates/python/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/python/run.json",
+      "bytes": 5111,
+      "sha256": "7fc125eac1cea321186a56a36487ce705652968fb34986157e5e5126b363a2a4"
+    },
+    {
+      "path": "gates/registry/0.stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/registry/0.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "gates/registry/0.stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/registry/0.stdout.log",
+      "bytes": 95,
+      "sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe"
+    },
+    {
+      "path": "gates/registry/1.stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/registry/1.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "gates/registry/1.stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/registry/1.stdout.log",
+      "bytes": 121,
+      "sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a"
+    },
+    {
+      "path": "gates/registry/2.stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/registry/2.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "gates/registry/2.stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/registry/2.stdout.log",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "path": "gates/registry/3.stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/registry/3.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "gates/registry/3.stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/registry/3.stdout.log",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "path": "gates/registry/4.stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/registry/4.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "gates/registry/4.stdout.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/registry/4.stdout.log",
+      "bytes": 2013,
+      "sha256": "96717ff16ad194b19cba54a8be885f1470ef60d04b22841acbd7e924a004fa80"
+    },
+    {
+      "path": "gates/registry/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/registry/run.json",
+      "bytes": 8187,
+      "sha256": "b849a972f1d8b6f9c9e661ba88d8b337d86b964d6d0c478cdbf561c4c40ce4e0"
+    },
+    {
+      "path": "hooks-launcher.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/hooks-launcher.log",
+      "bytes": 161,
+      "sha256": "9768d9c08ff9ac12d41a091f30511638b3d006a5764711c28d27119e65aade63"
+    },
+    {
+      "path": "input-check-corrected.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/input-check-corrected.log",
+      "bytes": 680,
+      "sha256": "0d0d8e8e2fddab8f8ca1f1487048b1b1d8260f93db7dae39f700ca412a3f8bc0"
+    },
+    {
+      "path": "input-check.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/input-check.log",
+      "bytes": 283,
+      "sha256": "28e91e6adeffb1b47c9c2dbbcd91e49e3ee4bc2946a94c7a95956ed469c7829b"
+    },
+    {
+      "path": "launch-reservation.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/launch-reservation.json",
+      "bytes": 189,
+      "sha256": "47527bc042fe747836fa6ab2c5d4ad75d629c6017f29225a73aac75b03d20f88"
+    },
+    {
+      "path": "launchers.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/launchers.json",
+      "bytes": 316,
+      "sha256": "a5c0ddd3039afac7dc1cc1eeec4a6d77e5ac788ac2615ab3b9bf1dc7a02419af"
+    },
+    {
+      "path": "main-drift-since-freeze.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/main-drift-since-freeze.txt",
+      "bytes": 2901,
+      "sha256": "e9a67930bb2c559fbbaa28369ea95811733c76b95c53e3eadfb84ecf766c52f9"
+    },
+    {
+      "path": "main-drift-source-stat.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/main-drift-source-stat.txt",
+      "bytes": 2660,
+      "sha256": "65f35d53e6b6a3b18b0d289c1521c33e4b2a300ce3ef8e570654ce991c7c1549"
+    },
+    {
+      "path": "merge-812.stderr.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/merge-812.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "merge-812.stdout.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/merge-812.stdout.txt",
+      "bytes": 41,
+      "sha256": "306c5a9ce24b7f10b81c0748380ad4fcfaa8bc676aef84c0a4d11414b59c4cf9"
+    },
+    {
+      "path": "merge-813.stderr.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/merge-813.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "merge-813.stdout.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/merge-813.stdout.txt",
+      "bytes": 41,
+      "sha256": "93c9cad5491e7b597f829936c09ad670dad97918b123709af8660d131e6a666d"
+    },
+    {
+      "path": "merge-814.stderr.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/merge-814.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "merge-814.stdout.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/merge-814.stdout.txt",
+      "bytes": 41,
+      "sha256": "05c17dd38c1d1e6634e22883dc7cfd976164e61cd1120296a0483a1e62f5d00e"
+    },
+    {
+      "path": "merge-steps.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/merge-steps.json",
+      "bytes": 1425,
+      "sha256": "5d4e8b6b335a241f4c971e629f85e005983b36632af915b585c20aef9d0e1adc"
+    },
+    {
+      "path": "preseal-state.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/preseal-state.json",
+      "bytes": 2036,
+      "sha256": "50e94426e2022c3304e99f644760a707e81c9ff203b76eb7824f939f364a7078"
+    },
+    {
+      "path": "previous-archives.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/previous-archives.json",
+      "bytes": 133389,
+      "sha256": "3e26e516f432a23cff7fa547f83836a9b5e39c7f90093f3439d94c26a39266d5"
+    },
+    {
+      "path": "previous-candidate-commit.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/previous-candidate-commit.txt",
+      "bytes": 541,
+      "sha256": "428feded41b0d663a0e1e64d1b5015aba989d5ae01b9f9bdce65eeff03840514"
+    },
+    {
+      "path": "protected-trees-before-closeout.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/protected-trees-before-closeout.json",
+      "bytes": 994,
+      "sha256": "cc931aaec960dec934a8f52565c0b8f74f7c179a61d6a40949e376b11a53a328"
+    },
+    {
+      "path": "python-launcher.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/python-launcher.log",
+      "bytes": 164,
+      "sha256": "4f7d2546d21668933192fb9f0a2a276c78899c018656214e38462893879c0fdc"
+    },
+    {
+      "path": "qc_gates.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/qc_gates.py",
+      "bytes": 5935,
+      "sha256": "755d7186c3153cca443972cb98d610c68ea40b2b41963047d3e7a8ace49a48ee"
+    },
+    {
+      "path": "readback/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/readback/0.log",
+      "bytes": 259,
+      "sha256": "141c5f45ad6a5957345205fd0dcc7d1d09b1809d214700ea464a81e078b9574d"
+    },
+    {
+      "path": "readback/1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/readback/1.log",
+      "bytes": 822,
+      "sha256": "d9ceeeb1509bde1e1d6384a7dadf4cf971c7a5bdc59a9b702c75e00083f76218"
+    },
+    {
+      "path": "readback/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/readback/run.json",
+      "bytes": 1975,
+      "sha256": "d8d277fa5ae4484dd1ffb06ab9132ed15fee25705402a537e1425995e5300e34"
+    },
+    {
+      "path": "readback.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/readback.log",
+      "bytes": 1975,
+      "sha256": "d8d277fa5ae4484dd1ffb06ab9132ed15fee25705402a537e1425995e5300e34"
+    },
+    {
+      "path": "readback.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/readback.py",
+      "bytes": 2438,
+      "sha256": "1ab06ad36c871563af2ad82e61b1cbcdfa1c03018ad5121c0e4f91632feebf7a"
+    },
+    {
+      "path": "registry-launcher.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/registry-launcher.log",
+      "bytes": 163,
+      "sha256": "6f00a7c07348e7e3060c42c1e4126520766a8766acadf3b20bbb864e2fcd41fa"
+    },
+    {
+      "path": "run_leaf.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/run_leaf.py",
+      "bytes": 6333,
+      "sha256": "84a76c850bfcbb694b3e9386c00a5236404268bbea734105a7e003eb603b02d4"
+    },
+    {
+      "path": "seal_evidence.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/seal_evidence.py",
+      "bytes": 3947,
+      "sha256": "78ba6086a9095013667b13852df55925b477bb6855e5fbb4fd92c3ba480d2af1"
+    },
+    {
+      "path": "source-inclusion.json",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/source-inclusion.json",
+      "bytes": 2742,
+      "sha256": "f7b4ec8a05ea3d4e591278248ce1c298faef56d338ca8016901e0eeaa2f00555"
+    },
+    {
+      "path": "start-worktrees.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/start-worktrees.txt",
+      "bytes": 57951,
+      "sha256": "3a8bb2c4af08a9ca5af50c995812a18457c427010933078e0517c60a153d27e9"
+    },
+    {
+      "path": "worktree-add.stderr.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/worktree-add.stderr.txt",
+      "bytes": 2221,
+      "sha256": "bf8f96b0de2602c25eb6bb645cc483478b2edaedad54ec76167afea1e02e5133"
+    },
+    {
+      "path": "worktree-add.stdout.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/worktree-add.stdout.txt",
+      "bytes": 85,
+      "sha256": "f0183dbe6d1984042ad396b0b538f9eff43b3140764de247726820a4504a466d"
+    }
+  ],
+  "exclusions": [
+    "test temporary trees",
+    "caches",
+    "database binaries",
+    "node_modules",
+    "Git objects",
+    "latest.json"
+  ]
+}

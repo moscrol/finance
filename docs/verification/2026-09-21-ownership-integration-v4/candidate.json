@@ -1,0 +1,63 @@
+{
+  "time": "2026-09-21T06:43:03.651062+00:00",
+  "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+  "tree_object": "e99dad14cb946a112d92537289854d914e558936",
+  "checkout": "/Users/a77/fwp-wt-ownership-gates-v4-0921",
+  "branch": "baseline/ownership-gates-v4-0921",
+  "parents": [
+    "c615adbd2f861e23f2c8d03631833f98b3ae5aba",
+    "8d955fc38747bc0e0aad32f6889b0b7d84f79530",
+    "5994230dadcf23ec0a17c0b27e3a649d782ecf94",
+    "ffc8e1a83032cc06881aa3a1132947fd7feac363"
+  ],
+  "merge_steps": [
+    {
+      "pr": 812,
+      "left": "c615adbd2f861e23f2c8d03631833f98b3ae5aba",
+      "right": "8d955fc38747bc0e0aad32f6889b0b7d84f79530",
+      "exit_code": 0,
+      "command": [
+        "git",
+        "merge-tree",
+        "--write-tree",
+        "c615adbd2f861e23f2c8d03631833f98b3ae5aba",
+        "8d955fc38747bc0e0aad32f6889b0b7d84f79530"
+      ],
+      "tree": "baf024e9bd093f46c5941554a75d8c1968e8a51e",
+      "intermediate_unreferenced_commit": "43da25dd35bed1e9ec3110ab94525970e98e2877"
+    },
+    {
+      "pr": 813,
+      "left": "43da25dd35bed1e9ec3110ab94525970e98e2877",
+      "right": "5994230dadcf23ec0a17c0b27e3a649d782ecf94",
+      "exit_code": 0,
+      "command": [
+        "git",
+        "merge-tree",
+        "--write-tree",
+        "43da25dd35bed1e9ec3110ab94525970e98e2877",
+        "5994230dadcf23ec0a17c0b27e3a649d782ecf94"
+      ],
+      "tree": "46f891605dd5f821d0b51283f8b46f4cd4dacffb",
+      "intermediate_unreferenced_commit": "92d0d239fa55b3f1654c81183977961e7b11d7a4"
+    },
+    {
+      "pr": 814,
+      "left": "92d0d239fa55b3f1654c81183977961e7b11d7a4",
+      "right": "ffc8e1a83032cc06881aa3a1132947fd7feac363",
+      "exit_code": 0,
+      "command": [
+        "git",
+        "merge-tree",
+        "--write-tree",
+        "92d0d239fa55b3f1654c81183977961e7b11d7a4",
+        "ffc8e1a83032cc06881aa3a1132947fd7feac363"
+      ],
+      "tree": "e99dad14cb946a112d92537289854d914e558936",
+      "intermediate_unreferenced_commit": "800bccb73f42024bb3939e0899a9a5ee1270f20f"
+    }
+  ],
+  "merge_conflicts": [],
+  "source_indexes_untouched": true,
+  "method": "sequential merge-tree with real ancestry, final four-parent commit-tree; no source content edits"
+}

@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/check_inputs.py", line 48, in <module>
+    expected = {e["path"] for e in manifest["entries"]}
+                                   ~~~~~~~~^^^^^^^^^^^
+KeyError: 'entries'

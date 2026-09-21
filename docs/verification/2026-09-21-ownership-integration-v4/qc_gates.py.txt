@@ -1,0 +1,98 @@
+"""Verify fixed-candidate engineering leaves and their original evidence.
+
+Run only after every leaf finished. Do not transfer a receipt to later main or
+upgrade author QC to independent review. JUnit is not a full stdout transcript.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import re
+import subprocess
+import xml.etree.ElementTree as ET
+
+OUT = Path(__file__).resolve().parent
+C = json.loads((OUT / "candidate.json").read_text())
+TREE, REV = Path(C["checkout"]), C["revision"]
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def plain(text):
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
+
+leaves = {}
+for leaf, count in (("hooks", 1), ("python", 1), ("frontend", 1), ("registry", 5)):
+    directory = OUT / "gates" / leaf
+    run = json.loads((directory / "run.json").read_text())
+    assert run["complete"] and run["exit_code"] == 0, (leaf, run.get("error"), run.get("checks"))
+    assert run["source_unchanged"] and run["before"] == run["after"]
+    assert run["before"]["revision"] == REV and run["before"]["status"] == ""
+    assert run["before"]["tree_object"] == C["tree_object"]
+    assert len(run["checks"]) == count
+    for check in run["checks"]:
+        assert check["exit_code"] == 0 and not check.get("timed_out")
+        for name, info in check["logs"].items():
+            p = directory / name
+            assert p.stat().st_size == info["bytes"] and digest(p) == info["sha256"]
+    leaves[leaf] = {"exit_code": 0, "complete": True, "same_clean_start_end": True,
+                    "elapsed_seconds": run["elapsed_seconds"], "checks": len(run["checks"])}
+assert subprocess.check_output(["git", "-C", str(TREE), "rev-parse", "HEAD"], text=True).strip() == REV
+assert not subprocess.check_output(["git", "-C", str(TREE), "status", "--porcelain=v1"], text=True).strip()
+python = OUT / "gates/python"
+receipts = list((python / "receipts").glob("gate-*/pytest.json"))
+assert len(receipts) == 1, receipts
+receipt_path = receipts[0]
+r = json.loads(receipt_path.read_text())
+assert r["revision"] == REV and r["tree"] == str(TREE) and r["target"] == str(TREE)
+assert r["exit_status"] == 0 and not r["failed_ids"] and not r["dirty"]
+assert r["worktree_dirty_total"] == 0 and not r["dirty_paths"] and not r["dependency_gate_bypassed"]
+cases = list(ET.parse(python / "junit.xml").iter("testcase"))
+errors = [c for c in cases if c.find("error") is not None]
+failures = [c for c in cases if c.find("failure") is not None]
+skips = [c for c in cases if c.find("skipped") is not None]
+xfails = [c for c in skips if c.find("skipped").get("type") == "pytest.xfail"]
+passed = len(cases) - len(errors) - len(failures) - len(skips)
+assert not errors and not failures
+assert r["counts"] == {"passed": passed, "failed": 0, "error": 0, "skipped": len(skips) - len(xfails)}
+console = (python / "0.stdout.log").read_text()
+assert f"{passed} passed" in console and "All checks passed!" in console and "收据未写出" not in console
+assert f"{len(xfails)} xfailed" in console
+python_qc = {"receipt": str(receipt_path), "receipt_sha256": digest(receipt_path), "counts": r["counts"],
+             "xfailed_from_junit_not_receipt": len(xfails), "junit_cases": len(cases),
+             "junit_sha256": digest(python / "junit.xml"), "receipt_junit_console_agree": True,
+             "console_summary": [line for line in console.splitlines() if re.search(r"\d+ passed", line)]}
+frontend = OUT / "gates/frontend/gate"
+f = json.loads((frontend / "frontend.json").read_text())
+assert f["exit_code"] == 0 and f["complete"] and f["identity_stable"] and f["dirty"] is False
+assert f["revision"] == REV and f["tree"] == str(TREE)
+for key in ("identity_before", "identity_after"):
+    assert f[key]["revision"] == REV and f[key]["dirty"] is False and f[key]["status_porcelain_z"] == ""
+expected = [["pnpm", *parts] for parts in (("install", "--frozen-lockfile"), ("lint",), ("typecheck",),
+                                         ("test",), ("build",), ("test:e2e",))]
+assert [check["command"] for check in f["checks"]] == expected
+for check in f["checks"]:
+    p = frontend / check["log"]
+    assert check["exit_code"] == 0 and p.stat().st_size == check["log_bytes"] and digest(p) == check["log_sha256"]
+unit_log = plain((frontend / f["checks"][3]["log"]).read_text())
+e2e_log = plain((frontend / f["checks"][5]["log"]).read_text())
+units = re.search(r"Tests\s+(\d+) passed\s+\((\d+)\)", unit_log)
+assert units and units[1] == units[2]
+e2e_pass = re.findall(r"^\s*(\d+) passed \(", e2e_log, re.M)
+e2e_skip = re.findall(r"^\s*(\d+) skipped\s*$", e2e_log, re.M)
+assert len(e2e_pass) == 1 and len(e2e_skip) == 1
+frontend_qc = {"receipt": str(frontend / "frontend.json"), "receipt_sha256": digest(frontend / "frontend.json"),
+               "unit_passed": int(units[1]), "e2e_passed": int(e2e_pass[0]), "e2e_skipped": int(e2e_skip[0]),
+               "six_commands_exit_zero": True, "source_identity_stable": True}
+result = {"time": datetime.now(timezone.utc).isoformat(), "revision": REV, "tree": str(TREE),
+          "pinned_base": C["parents"][0], "scope": "author engineering integration on pinned base only",
+          "independent_review": "NOT_RERUN", "later_main_covered": False,
+          "leaves": leaves, "python": python_qc, "frontend_and_e2e": frontend_qc,
+          "registry_scope": "five finance-only CI checks; external repositories intentionally unavailable",
+          "limitations": ["shell gate keeps pytest last 15 lines only", "JUnit is per-case evidence, not full stdout",
+                          "clean endpoints do not prove no transient edit-and-restore",
+                          "no complete-copy 302132 publish/recovery rehearsal or production backfill"]}
+with (OUT / "gate-qc.json").open("x") as stream:
+    json.dump(result, stream, ensure_ascii=False, indent=2)
+    stream.write("\n")
+print(json.dumps(result, ensure_ascii=False, indent=2))

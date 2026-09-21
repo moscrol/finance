@@ -1,0 +1,75 @@
+"""Assemble a frozen multi-parent integration without touching source indexes.
+
+Git merge-tree performs each real three-way merge in the object database. Stop
+on ANY conflict; do not synthesize file content. Intermediate objects are not
+published refs. The final multi-parent commit preserves all exact source tips.
+Only a new branch/worktree is created; main and the PR branches are unchanged.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+
+OUT = Path(__file__).resolve().parent
+REPO = Path.home() / "fwp-wt-ownership-closeout-0921"
+auth = json.loads((OUT / "authorization.json").read_text())
+BASE = auth["base"]
+HEADS = [pr["head"] for pr in auth["source_prs"]]
+os.umask(0o022)
+
+def run(*args, input=None):
+    return subprocess.run(["git", "-C", str(REPO), *args], input=input, text=True,
+                          capture_output=True, timeout=120)
+
+def git(*args, input=None):
+    result = run(*args, input=input)
+    result.check_returncode()
+    return result.stdout.strip()
+
+assert git("status", "--porcelain=v1") == ""
+assert not Path(auth["tree"]).exists()
+assert run("show-ref", "--verify", "--quiet", "refs/heads/" + auth["branch"]).returncode == 1
+before = git("rev-parse", "HEAD")
+rows = []
+current = BASE
+for index, (pr, source) in enumerate(zip(auth["source_prs"], HEADS, strict=True)):
+    result = run("merge-tree", "--write-tree", current, source)
+    (OUT / f"merge-{pr['number']}.stdout.txt").write_text(result.stdout)
+    (OUT / f"merge-{pr['number']}.stderr.txt").write_text(result.stderr)
+    row = {"pr": pr["number"], "left": current, "right": source, "exit_code": result.returncode,
+           "command": ["git", "merge-tree", "--write-tree", current, source]}
+    rows.append(row)
+    (OUT / "merge-steps.json").write_text(json.dumps(rows, ensure_ascii=False, indent=2) + "\n")
+    assert result.returncode == 0, row
+    tree = result.stdout.splitlines()[0]
+    assert git("cat-file", "-t", tree) == "tree"
+    row["tree"] = tree
+    current = git("commit-tree", tree, "-p", current, "-p", source,
+                  input=f"Temporary merge-tree ancestry for ownership v4 PR #{pr['number']}\n")
+    row["intermediate_unreferenced_commit"] = current
+parents = [item for parent in [BASE, *HEADS] for item in ("-p", parent)]
+message = ("test: freeze repaired ownership candidates on c615adbd main\n\n"
+           "Integration evidence only; no main merge, deployment or independent signoff.\n"
+           + "\n".join(f"#{pr['number']}: {pr['head']}" for pr in auth["source_prs"]) + "\n")
+commit = git("commit-tree", tree, *parents, input=message)
+# Atomic create: never move an existing candidate ref.
+git("update-ref", "refs/heads/" + auth["branch"], commit, "0" * 40)
+result = run("worktree", "add", auth["tree"], auth["branch"])
+(OUT / "worktree-add.stdout.txt").write_text(result.stdout)
+(OUT / "worktree-add.stderr.txt").write_text(result.stderr)
+result.check_returncode()
+assert git("status", "--porcelain=v1") == "" and git("rev-parse", "HEAD") == before
+record = {"time": datetime.now(timezone.utc).isoformat(), "revision": commit, "tree_object": tree,
+          "checkout": auth["tree"], "branch": auth["branch"], "parents": [BASE, *HEADS],
+          "merge_steps": rows, "merge_conflicts": [], "source_indexes_untouched": True,
+          "method": "sequential merge-tree with real ancestry, final four-parent commit-tree; no source content edits"}
+(OUT / "candidate.json").write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+(OUT / "merge-steps.json").write_text(json.dumps(rows, ensure_ascii=False, indent=2) + "\n")
+for name, args in (("candidate-commit.txt", ("show", "--no-patch", "--pretty=raw", commit)),
+                   ("candidate-vs-main.diff", ("diff", BASE, commit, "--", ":(exclude)docs/**")),
+                   ("candidate-vs-main-names.txt", ("diff", "--name-status", BASE, commit)),
+                   ("candidate-vs-v3-names.txt", ("diff", "--name-status", auth["previous_candidate"], commit))):
+    (OUT / name).write_text(git(*args) + "\n")
+print(json.dumps(record, ensure_ascii=False, indent=2))

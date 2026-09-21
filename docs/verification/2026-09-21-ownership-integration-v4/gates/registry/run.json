@@ -1,0 +1,183 @@
+{
+  "leaf": "registry",
+  "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+  "cwd": "/Users/a77/fwp-wt-ownership-gates-v4-0921",
+  "pid": 84909,
+  "started_at": "2026-09-21T06:46:42.221970+00:00",
+  "environment": {
+    "HOME": "/Users/a77",
+    "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "LANG": "C.UTF-8",
+    "TMPDIR": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/registry/tmp",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "FWP_TEST_RECEIPT_DIR": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/registry/receipts",
+    "FWP_TEST_RECEIPT": "1",
+    "RUFF_CACHE_DIR": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921/gates/registry/ruff-cache",
+    "GIT_OPTIONAL_LOCKS": "0"
+  },
+  "timeout_per_command_seconds": 300,
+  "pinned_base": "c615adbd2f861e23f2c8d03631833f98b3ae5aba",
+  "before": {
+    "tree": "/Users/a77/fwp-wt-ownership-gates-v4-0921",
+    "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+    "tree_object": "e99dad14cb946a112d92537289854d914e558936",
+    "status": "",
+    "source_sha256": {
+      "conftest.py": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955",
+      "scripts/run_main_gate.sh": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca",
+      "scripts/main_gate_receipt.py": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679",
+      "tests/test_main_gate_receipt.py": "8ed84a60c8f6f85a825b2b634e5105ef3c630dd63d6dc72a1e1014b7982b23f0",
+      "scripts/worktree_board.py": "bfd5519b73171329f69ea360be15733e9b45bf670bb88eedf7a1970b58772d42",
+      "tests/test_worktree_board.py": "50d8558d1ae8db3c8d1a14604e522e1c1178a47f383c04e9c40927d1c635a8c3",
+      "market_feature_store/cli.py": "907564b9957feab76051a9d3d42370bfd799c9028a9371e7657780d87bf9a35b",
+      "market_feature_store/sync/repair_backfill_stock_history.py": "5035fdf3faa7e1ccd6fb84af87517f0a70c59d35a1b6c1bbb6ba4a6de5488477",
+      "scripts/verify_302132_backfill_acceptance.py": "e786c626d5a56d333d33c38249d4f4a8f8055010ee8286764a2396f4a4db8048",
+      "tests/test_repair_backfill_stock_history.py": "e517755e7c1eeca2c7d93a177bfb6fccfd3593d57453e79b8ff93bc274aa0b97",
+      "scripts/run_frontend_gate.py": "4fa9fd9a8e40507eb7a26e90f46928ac066551225cd6abb91d84370d3c427f32",
+      "test-environment.json": "33bc93e449dce2ad3af15d48671123da508da15d27c2ba4f1e67753fa5d4eaba"
+    }
+  },
+  "checks": [
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-c",
+        "from pathlib import Path; import scripts.build_registry as r; r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())",
+        "check-parseability"
+      ],
+      "started_at": "2026-09-21T06:46:42.538605+00:00",
+      "pid": 84922,
+      "exit_code": 0,
+      "elapsed_seconds": 0.254,
+      "finished_at": "2026-09-21T06:46:42.792453+00:00",
+      "logs": {
+        "0.stdout.log": {
+          "bytes": 95,
+          "sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe"
+        },
+        "0.stderr.log": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-c",
+        "from pathlib import Path; import scripts.build_registry as r; r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())",
+        "check"
+      ],
+      "started_at": "2026-09-21T06:46:42.793744+00:00",
+      "pid": 84934,
+      "exit_code": 0,
+      "elapsed_seconds": 0.242,
+      "finished_at": "2026-09-21T06:46:43.035799+00:00",
+      "logs": {
+        "1.stdout.log": {
+          "bytes": 121,
+          "sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a"
+        },
+        "1.stderr.log": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-c",
+        "from pathlib import Path; import scripts.build_registry as r; r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())",
+        "backfill-tables",
+        "--check"
+      ],
+      "started_at": "2026-09-21T06:46:43.037210+00:00",
+      "pid": 84941,
+      "exit_code": 0,
+      "elapsed_seconds": 0.575,
+      "finished_at": "2026-09-21T06:46:43.613578+00:00",
+      "logs": {
+        "2.stdout.log": {
+          "bytes": 116,
+          "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+        },
+        "2.stderr.log": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-c",
+        "from pathlib import Path; import scripts.build_registry as r; r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())",
+        "generate-views",
+        "--check"
+      ],
+      "started_at": "2026-09-21T06:46:43.616222+00:00",
+      "pid": 84944,
+      "exit_code": 0,
+      "elapsed_seconds": 0.145,
+      "finished_at": "2026-09-21T06:46:43.761298+00:00",
+      "logs": {
+        "3.stdout.log": {
+          "bytes": 68,
+          "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+        },
+        "3.stderr.log": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "started_at": "2026-09-21T06:46:43.764839+00:00",
+      "pid": 84945,
+      "exit_code": 0,
+      "elapsed_seconds": 0.343,
+      "finished_at": "2026-09-21T06:46:44.108013+00:00",
+      "logs": {
+        "4.stdout.log": {
+          "bytes": 2013,
+          "sha256": "96717ff16ad194b19cba54a8be885f1470ef60d04b22841acbd7e924a004fa80"
+        },
+        "4.stderr.log": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    }
+  ],
+  "complete": true,
+  "main_semantics": "pinned base; later shared-ref changes are observations, not a source failure",
+  "after": {
+    "tree": "/Users/a77/fwp-wt-ownership-gates-v4-0921",
+    "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+    "tree_object": "e99dad14cb946a112d92537289854d914e558936",
+    "status": "",
+    "source_sha256": {
+      "conftest.py": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955",
+      "scripts/run_main_gate.sh": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca",
+      "scripts/main_gate_receipt.py": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679",
+      "tests/test_main_gate_receipt.py": "8ed84a60c8f6f85a825b2b634e5105ef3c630dd63d6dc72a1e1014b7982b23f0",
+      "scripts/worktree_board.py": "bfd5519b73171329f69ea360be15733e9b45bf670bb88eedf7a1970b58772d42",
+      "tests/test_worktree_board.py": "50d8558d1ae8db3c8d1a14604e522e1c1178a47f383c04e9c40927d1c635a8c3",
+      "market_feature_store/cli.py": "907564b9957feab76051a9d3d42370bfd799c9028a9371e7657780d87bf9a35b",
+      "market_feature_store/sync/repair_backfill_stock_history.py": "5035fdf3faa7e1ccd6fb84af87517f0a70c59d35a1b6c1bbb6ba4a6de5488477",
+      "scripts/verify_302132_backfill_acceptance.py": "e786c626d5a56d333d33c38249d4f4a8f8055010ee8286764a2396f4a4db8048",
+      "tests/test_repair_backfill_stock_history.py": "e517755e7c1eeca2c7d93a177bfb6fccfd3593d57453e79b8ff93bc274aa0b97",
+      "scripts/run_frontend_gate.py": "4fa9fd9a8e40507eb7a26e90f46928ac066551225cd6abb91d84370d3c427f32",
+      "test-environment.json": "33bc93e449dce2ad3af15d48671123da508da15d27c2ba4f1e67753fa5d4eaba"
+    }
+  },
+  "source_unchanged": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T06:46:44.524565+00:00",
+  "elapsed_seconds": 1.986
+}

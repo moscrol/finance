@@ -1,0 +1,71 @@
+{
+  "time": "2026-09-21T07:12:17.884704+00:00",
+  "pinned_base": "c615adbd2f861e23f2c8d03631833f98b3ae5aba",
+  "latest_remote_main": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+  "latest_main_covered": false,
+  "candidate": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+  "trees": [
+    {
+      "tree": "/Users/a77/fwp-wt-ownership-closeout-0921",
+      "revision": "8d955fc38747bc0e0aad32f6889b0b7d84f79530",
+      "status": ""
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+      "revision": "ffc8e1a83032cc06881aa3a1132947fd7feac363",
+      "status": ""
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-backfill-main-ready-0921",
+      "revision": "5994230dadcf23ec0a17c0b27e3a649d782ecf94",
+      "status": ""
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-ownership-gates-v3-0921",
+      "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "status": ""
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-ownership-spec-v3-0921",
+      "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "status": ""
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-ownership-quality-v3-0921",
+      "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "status": ""
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-ownership-gates-v4-0921",
+      "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+      "status": ""
+    }
+  ],
+  "source_prs": [
+    {
+      "number": 812,
+      "head": "8d955fc38747bc0e0aad32f6889b0b7d84f79530",
+      "state": "open",
+      "merged": false
+    },
+    {
+      "number": 813,
+      "head": "5994230dadcf23ec0a17c0b27e3a649d782ecf94",
+      "state": "open",
+      "merged": false
+    },
+    {
+      "number": 814,
+      "head": "ffc8e1a83032cc06881aa3a1132947fd7feac363",
+      "state": "open",
+      "merged": false
+    }
+  ],
+  "engineering_gates": "PASS on pinned candidate",
+  "independent_review": "NOT_RERUN",
+  "created_combination_pr": false,
+  "main_merge": false,
+  "deployment": false,
+  "production_backfill": false,
+  "real_worktree_deletion": false
+}

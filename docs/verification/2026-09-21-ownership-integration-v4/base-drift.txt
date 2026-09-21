@@ -1,0 +1,72 @@
+c615adbd2 Merge pull request 'docs(handoff): 2026-09-21 切 8792 → 945c04bd7fdd（#818/#819/#820 合入后），门禁、五步切换、三项验证与 grounded 探针读数' (#824) from docs/8792-switch-945c04bd-0921 into main
+328aafba8 Merge pull request 'fix(e2): material closeout — repair-round feedback, contradiction shape, scanner QC fix, forward-merged main + frozen-scope × prior-evidence seam fix' (#770) from fix/e2-material-closeout into main
+605c7d92b docs(handoff): e2 材料收口——前向合并主干（3c70af64d）+ 跨 PR 修复 32eefcfc6 的四叶读数入交接
+32eefcfc6 fix(e2): 冻结范围检查放行 #819 恢复的旧工具输入——前向合并 main 后的跨 PR 语义冲突
+aa8b68a7d docs(handoff): 2026-09-21 切 8792 → 945c04bd7fdd——快照树门禁、五步切换、三项验证与 grounded 探针读数
+766164f7b Merge commit '3c70af64d78598e23da601b8c661b09f607e7698' into fix/e2-material-closeout
+3c70af64d Merge pull request 'feat(gitea_pr): guard / close / merge 身份钉死与授权记录——五个 /tmp 合并脚本收成子命令' (#823) from feat/gitea-pr-guard-close-record into main
+4fd0fe4b5 docs(handoff): gitea_pr 子命令分支 inflight 交接——全量收据 0373a5b5 可采信、边界与下一步
+0373a5b57 test(gitea_pr): 合并树 != 预览树时 ok 必须 false——补「合的不是验过的那棵树」的反向用例
+945c04bd7 Merge pull request 'docs(handoff): research-reasoning-awareness 复核交接——五叶读数、#818 接替注册表补丁、候选已开 PR #819' (#820) from claude/research-reasoning-awareness-review-f65597 into main
+aa512c5ab docs(handoff): 研究求证意识 #818/#819 已合 main（8257ac420 / 2bb7c224c）——合并预览五叶读数落账，两份已合分支 inflight 出册
+1e5e23534 feat(gitea_pr): guard / close / merge 身份钉死与授权记录——把五个 /tmp 合并脚本收成子命令
+d7defc450 Merge remote-tracking branch 'gitea/main' into claude/research-reasoning-awareness-review-f65597
+2bb7c224c Merge pull request 'feat(research): 研究求证意识——opt-in 推理引导 + 旧证据恢复 + 输入边界' (#819) from feat/research-reasoning-awareness into main
+8257ac420 Merge pull request 'chore(registry): rescan after kb/rag-query changed upstream' (#818) from fix/registry-scan-0921 into main
+5ded1a019 Merge pull request 'docs(handoff): 两参表格家族收口——#815/#821 已合、#805/#806/#808 关闭，五份已合分支 inflight 出册' (#822) from docs/fincalc-family-closeout-0921 into main
+1c255d90c docs(handoff): 两参表格家族收口——#815/#821 已合 main、#805/#806/#808 关闭，五份已合分支 inflight 出册
+602ec8b75 Merge pull request 'docs(handoff): fincalc 行值快照 inflight 合并后真值化（入口→CURRENT.md、补 #815 合入记录）' (#821) from docs/fincalc-row-snapshot-post-merge-0921 into main
+ddbf4ddc9 docs(handoff): fincalc 行值快照 inflight 合并后真值化——入口指向 CURRENT.md、补 #815 合入记录
+8aff6ebc3 Merge pull request '三PR组合与行值快照修复（独立验收 PASS_WITH_LIMITS）' (#815) from fix/fincalc-row-snapshot-0921 into main
+8559e6580 docs(handoff): 复核第二轮——候选推至 PR #819（WIP），注册表补丁由 #818 接替，500167e26 全量收据落地
+b2d41fa6f chore(registry): rescan after kb/rag-query SKILL.md changed upstream
+e6ab52f74 docs(handoff): 候选四叶全绿读数 + kb/rag-query 漂移定性与修法
+500167e26 docs(research): clarify e2 integration boundaries
+08578ab63 docs(research): refresh inflight handoff state
+9ba261747 docs(research): seal short-date entry evidence
+e512c6369 docs(research): record semantic replay boundaries
+33d350548 docs(research): record K3 and date-fix verification
+06f74ef14 docs(handoff): freeze row-snapshot repair and preserve K3 interruption
+788980659 fix(fincalc): preserve inferred rows from reused generator buffers
+2cfa9d0d7 fix(research): retain bound date headings for semantic review
+68949b925 fix(research): keep evidence ordinal projection out of runtime
+a4f511127 feat(research): test inference against matching measurement and alternatives
+aac978e33 docs(handoff): record frozen-input review and remaining failures
+7d0afaff7 fix(research): restore verified prior inputs for zero-read reviews
+5b27fc6b9 docs(handoff): freeze three-PR isolated acceptance candidate
+db2bf7021 Merge PR #808 into isolated closeout acceptance
+9af873772 Merge PR #805 into isolated closeout acceptance
+2767b4ee1 Merge PR #806 into isolated closeout acceptance
+84b9d8515 docs(handoff): record input-boundary fixes and blocked behavioral acceptance
+f3dc87179 fix(research): enforce input ceilings and scope reading guidance
+89e6217a2 fix(fincalc): support inferred table columns in versioned sandbox
+83808b3af docs(handoff): preserve reasoning experiment failures and rollout boundary
+696e309a7 feat(research): add opt-in reasoning guidance with failed live acceptance evidence
+4aa805400 docs: reconcile capability tail commits and preserve degradation evidence
+5d46e626a docs: preserve broad-index source delta and scoped test evidence
+c45ad5f85 fix(runtime): retain generation degradation when retrieval falls back
+d4d944cb6 fix(hithink): recover broad-index coverage without hiding source failures
+b1c1c29f2 docs(e2): record the QC fix 04d3c397 and the df74042c four-leaf receipts
+df74042c0 Merge remote-tracking branch 'gitea/main' into fix/e2-material-closeout
+04d3c397a fix(e2): only owe undelivered finish rejections, and count the repair-round delivery
+7e3da7ba1 docs(e2): add the live proof that the repair round now recovers
+d8ba0fb2e fix(e2): restate the frozen finish format in the repair round
+75f44a97d docs(e2): record the repair-feedback diagnosis and 8f6e6eaa receipts
+8f6e6eaaf fix(e2): tell the repair writer why the last finish was rejected
+c6151407e fix(e2): separate material reviewer instructions from writer protocol
+cc3c9bfe2 fix(e2): retain local anchors and trust structured rejection identities
+8636a2a27 fix(e2): isolate nonfactual review and require answer coverage receipts
+a4cefcd5e docs(e2): record bounded live failures and exact verification receipts
+be01127e7 fix(probe): record native model turns without copying frozen mappings
+013766102 fix(e2): require checkable anchor receipts from material judge
+bd6a5778c fix(e2): preserve markdown claims and guard private material coordinates
+812e74cee fix(e2): make material finish template explicit in writer protocol
+6ce174160 Merge remote-tracking branch 'gitea/main' into fix/e2-material-closeout
+f67833c57 fix(e2): render bound claims once and require per-claim review
+4b326855c docs(e2): link WIP PR 770 in handoff
+377651b89 docs(e2): record clean gates and unresolved live grounding failures
+1e4cc6b66 fix(e2): preserve material obligations through runtime repair
+f7950553a Merge remote-tracking branch 'gitea/main' into fix/e2-material-closeout
+50cd3a13b fix(e2): repair unnumbered material answers without tools
+672147054 feat(e2-p6): 逐事实材料锚点——binding.claims 合同 + 判官删句连带撤绑定
+1a7eb3f91 feat(e2): P5 cross-turn inheritance — idempotent restatement and turn-qualified premise scope

@@ -1,0 +1,47 @@
+"""Read back only this fixed candidate's unique receipt; no new test invocation."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import time
+
+ROOT = Path(__file__).resolve().parent
+C = json.loads((ROOT / "candidate.json").read_text())
+QC = json.loads((ROOT / "gate-qc.json").read_text())
+TREE = Path(C["checkout"])
+PY = str(Path.home() / "finance-workspace-private/.venv-workbench/bin/python")
+receipt = QC["python"]["receipt"]
+os.umask(0o022)
+out = ROOT / "readback"
+out.mkdir(exist_ok=False)
+env = {"HOME": str(Path.home()), "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+       "LANG": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1", "GIT_OPTIONAL_LOCKS": "0"}
+
+def identity():
+    def git(*args):
+        return subprocess.check_output(["git", "-C", str(TREE), *args], text=True, timeout=30).strip()
+    return {"tree": str(TREE), "revision": git("rev-parse", "HEAD"), "status": git("status", "--porcelain=v1")}
+
+record = {"started_at": datetime.now(timezone.utc).isoformat(), "before": identity(), "checks": [],
+          "complete": False, "environment": env, "receipt": receipt, "revision": C["revision"]}
+assert record["before"] == {"tree": str(TREE), "revision": C["revision"], "status": ""}
+commands = [["bash", "scripts/run_main_gate.sh", "--receipt", receipt],
+            [PY, "scripts/check_test_receipt.py", receipt, "--expect-revision", C["revision"]]]
+for i, command in enumerate(commands):
+    tick = time.monotonic()
+    log = out / f"{i}.log"
+    with log.open("xb") as f:
+        result = subprocess.run(command, cwd=TREE, env=env, stdout=f, stderr=subprocess.STDOUT, timeout=120)
+    record["checks"].append({"command": command, "exit_code": result.returncode, "log": str(log),
+                             "elapsed_seconds": round(time.monotonic() - tick, 3),
+                             "sha256": hashlib.sha256(log.read_bytes()).hexdigest()})
+record.update(after=identity(), complete=True, finished_at=datetime.now(timezone.utc).isoformat())
+record["source_unchanged"] = record["before"] == record["after"]
+record["exit_code"] = 0 if record["source_unchanged"] and all(r["exit_code"] == 0 for r in record["checks"]) else 1
+with (out / "run.json").open("x") as f:
+    json.dump(record, f, ensure_ascii=False, indent=2)
+    f.write("\n")
+print(json.dumps(record, ensure_ascii=False, indent=2))
+raise SystemExit(record["exit_code"])
