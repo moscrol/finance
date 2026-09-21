@@ -42,14 +42,17 @@ class HistorySession:
             for item in self.store.list_runs()
             if item.user == self.store.user_id and item.session_id == self.conversation_id
         ]
+        refreshed: dict[str, tuple[str, str]] = {}
         for item in related:
             for artifact in item.artifacts:
                 filename = str(artifact.get("path", ""))
                 if (
                     filename.startswith("history-")
                     and artifact.get("visibility") == "public"
+                    and artifact.get("downloadable", True) is True
                 ):
-                    self.refs[f"{item.run_id}/{filename}"] = (item.run_id, filename)
+                    refreshed[f"{item.run_id}/{filename}"] = (item.run_id, filename)
+        self.refs = refreshed
 
     def save(self, kind: str, payload: dict) -> str:
         envelope = dict(
@@ -68,21 +71,14 @@ class HistorySession:
         return ref
 
     def read(self, ref: str) -> dict:
-        if ref not in self.refs:
-            if not isinstance(ref, str) or len(ref) > 300 or ref.count("/") != 1:
-                raise ValueError("history result reference is outside this conversation")
-            run_id, filename = ref.split("/", 1)
-            try:
-                run = self.store.load_run(run_id)
-            except (ValueError, FileNotFoundError) as exc:
-                raise ValueError("history result reference is outside this conversation") from exc
-            if run.user != self.store.user_id or run.session_id != self.conversation_id:
-                raise ValueError("history result reference is outside this conversation")
-            # The display index is bounded; same-conversation authorization isn't.
-            self.store.read_history_artifact(run_id, filename)
-            self.refs[ref] = (run_id, filename)
-        run_id, filename = self.refs[ref]
-        payload = self.store.read_history_artifact(run_id, filename)
+        # The display cache never grants authority, even for a previously read ref.
+        if not isinstance(ref, str) or len(ref) > 300 or ref.count("/") != 1:
+            raise ValueError("history result reference is outside this conversation")
+        run_id, filename = ref.split("/", 1)
+        payload = self.store.read_history_artifact(
+            run_id, filename, conversation_id=self.conversation_id,
+        )
+        self.refs[ref] = (run_id, filename)
         return payload
 
     def remember(self, ref: str, payload: dict):
