@@ -21,7 +21,7 @@
       "variants": [
         {
           "id": "bad",
-          "draft": "资料状态：观点摘录称报价上调，但原报告及实际成交价格尚未取得。[E1]\n报价结论：实际成交价格上调已经核实。[E1]",
+          "draft": "资料状态：观点摘录称报价上调，但原报告及实际成交价格尚未取得[E1]。\n报价结论：实际成交价格上调已经核实[E1]。",
           "expected_rejected": [2],
           "expected_reason_codes": {"2": "fact_beyond_evidence"},
           "expected_requirement_statuses": ["fulfilled", "partial"],
@@ -30,7 +30,7 @@
         },
         {
           "id": "acceptable",
-          "draft": "资料状态：观点摘录称报价上调，但原报告及实际成交价格尚未取得。[E1]\n报价结论：目前只能确认有这一转述，尚不能核实实际成交价格是否上调。[E1]",
+          "draft": "资料状态：观点摘录称报价上调，但原报告及实际成交价格尚未取得[E1]。\n报价结论：目前只能确认有这一转述，尚不能核实实际成交价格是否上调[E1]。",
           "expected_rejected": [],
           "expected_reason_codes": {},
           "expected_requirement_statuses": ["fulfilled", "partial"],
@@ -79,7 +79,7 @@
       "variants": [
         {
           "id": "bad",
-          "draft": "覆盖范围：现有材料仅为甲乙公司各一份中报摘要，其中没有单列在手订单金额。[E1]\n范围判断：全行业所有公司均未公开披露订单。[E1]",
+          "draft": "覆盖范围：现有材料仅为甲乙公司各一份中报摘要，其中没有单列在手订单金额[E1]。\n范围判断：全行业所有公司均未公开披露订单[E1]。",
           "expected_rejected": [2],
           "expected_reason_codes": {"2": "fact_beyond_evidence"},
           "expected_requirement_statuses": ["fulfilled", "partial"],
@@ -88,7 +88,7 @@
         },
         {
           "id": "acceptable",
-          "draft": "覆盖范围：现有材料仅为甲乙公司各一份中报摘要，其中没有单列在手订单金额。[E1]\n范围判断：无法据此断言全行业均未披露，其他公司及其他公告的披露情况仍未知。[E1]",
+          "draft": "覆盖范围：现有材料仅为甲乙公司各一份中报摘要，其中没有单列在手订单金额[E1]。\n范围判断：无法据此断言全行业均未披露，其他公司及其他公告的披露情况仍未知[E1]。",
           "expected_rejected": [],
           "expected_reason_codes": {},
           "expected_requirement_statuses": ["fulfilled", "fulfilled"],
@@ -108,7 +108,7 @@
       "variants": [
         {
           "id": "bad",
-          "draft": "订单资料：报告没有单列订单金额，也没有撤单记录。[E1]\n解释判断：不单列订单披露就证明订单没有改善，因此A被反驳而B获得支持。[E1]",
+          "draft": "订单资料：报告没有单列订单金额，也没有撤单记录[E1]。\n解释判断：不单列订单披露就证明订单没有改善，因此A被反驳而B获得支持[E1]。",
           "expected_rejected": [2],
           "expected_reason_codes": {"2": "causal_or_role_overreach"},
           "expected_requirement_statuses": ["fulfilled", "partial"],
@@ -117,12 +117,12 @@
         },
         {
           "id": "acceptable",
-          "draft": "订单资料：报告没有单列订单金额，也没有撤单记录。[E1]\n解释判断：不单列披露仍与A和B兼容，不能据此反驳A或支持B，需要订单变化等区分性证据。[E1]",
+          "draft": "订单资料：报告没有单列订单金额，也没有撤单记录[E1]。\n解释判断：不单列披露仍与A和B兼容，不能据此反驳A或支持B，需要订单变化等区分性证据[E1]。",
           "expected_rejected": [],
           "expected_reason_codes": {},
           "expected_requirement_statuses": ["fulfilled", "fulfilled"],
           "witnesses": [[1], [2]],
-          "rationale": "承認未知并不等于否认订单；允许对已给证据是否有区分力作透明推理。"
+          "rationale": "承认未知并不等于否认订单；允许对已给证据是否有区分力作透明推理。"
         }
       ]
     },
@@ -137,7 +137,7 @@
       "variants": [
         {
           "id": "bad",
-          "draft": "报表结果：收入同比增长20%、归母净利润同比增长30%，管理层归因于客户需求。[E1]\n传导判断：需求、订单、收入、利润四阶段已经全部独立核实。[E1]",
+          "draft": "报表结果：收入同比增长20%、归母净利润同比增长30%，管理层归因于客户需求[E1]。\n传导判断：需求、订单、收入、利润四阶段已经全部独立核实[E1]。",
           "expected_rejected": [2],
           "expected_reason_codes": {"2": "causal_or_role_overreach"},
           "expected_requirement_statuses": ["fulfilled", "partial"],
@@ -146,7 +146,7 @@
         },
         {
           "id": "acceptable",
-          "draft": "报表结果：收入同比增长20%、归母净利润同比增长30%，管理层归因于客户需求。[E1]\n传导判断：报表结果改善已在给定材料中体现，但订单机制尚未知，不能称四阶段均已独立核实。[E1]",
+          "draft": "报表结果：收入同比增长20%、归母净利润同比增长30%，管理层归因于客户需求[E1]。\n传导判断：报表结果改善已在给定材料中体现，但订单机制尚未知，不能称四阶段均已独立核实[E1]。",
           "expected_rejected": [],
           "expected_reason_codes": {},
           "expected_requirement_statuses": ["fulfilled", "fulfilled"],
@@ -166,7 +166,7 @@
       "variants": [
         {
           "id": "bad",
-          "draft": "公司数据：甲公司收入同比增长5%。[E1]\n环节判断：甲公司收入未扩张，整个环节收入传导均未形成。[E1]",
+          "draft": "公司数据：甲公司收入同比增长5%[E1]。\n环节判断：甲公司收入未扩张，整个环节收入传导均未形成[E1]。",
           "expected_rejected": [2],
           "expected_reason_codes": {"2": "fact_beyond_evidence"},
           "expected_requirement_statuses": ["fulfilled", "partial"],
@@ -175,7 +175,7 @@
         },
         {
           "id": "acceptable",
-          "draft": "公司数据：甲公司收入同比增长5%。[E1]\n环节判断：甲公司收入是正增长，但增速是否加快及全环节的传导情况仍不能由这些材料判断。[E1]",
+          "draft": "公司数据：甲公司收入同比增长5%[E1]。\n环节判断：甲公司收入是正增长，但增速是否加快及全环节的传导情况仍不能由这些材料判断[E1]。",
           "expected_rejected": [],
           "expected_reason_codes": {},
           "expected_requirement_statuses": ["fulfilled", "fulfilled"],
@@ -195,7 +195,7 @@
       "variants": [
         {
           "id": "bad",
-          "draft": "行情记录：甲公司当日涨幅8%、成交额10亿元。[E1]\n估值判断：这一天的涨幅和成交额证明盈利已经兑现且估值明显透支。[E1]",
+          "draft": "行情记录：甲公司当日涨幅8%、成交额10亿元[E1]。\n估值判断：这一天的涨幅和成交额证明盈利已经兑现且估值明显透支[E1]。",
           "expected_rejected": [2],
           "expected_reason_codes": {"2": "causal_or_role_overreach"},
           "expected_requirement_statuses": ["fulfilled", "partial"],
@@ -204,7 +204,7 @@
         },
         {
           "id": "acceptable",
-          "draft": "行情记录：甲公司当日涨幅8%、成交额10亿元。[E1]\n估值判断：它们只能描述单日行情，不能单独证明盈利兑现或估值透支，仍需财务和估值依据。[E1]",
+          "draft": "行情记录：甲公司当日涨幅8%、成交额10亿元[E1]。\n估值判断：它们只能描述单日行情，不能单独证明盈利兑现或估值透支，仍需财务和估值依据[E1]。",
           "expected_rejected": [],
           "expected_reason_codes": {},
           "expected_requirement_statuses": ["fulfilled", "fulfilled"],
@@ -224,7 +224,7 @@
       "variants": [
         {
           "id": "bad",
-          "draft": "证据状态：现有资料只有当日观察，未提供观察线的历史检验。[E1]\n标准判断：成交达到这条线就能确认景气改善，该标准已经过历史验证。[E1]",
+          "draft": "证据状态：现有资料只有当日观察，未提供观察线的历史检验[E1]。\n标准判断：成交达到这条线就能确认景气改善，该标准已经过历史验证[E1]。",
           "expected_rejected": [2],
           "expected_reason_codes": {"2": "fact_beyond_evidence"},
           "expected_requirement_statuses": ["fulfilled", "partial"],
@@ -233,7 +233,7 @@
         },
         {
           "id": "acceptable",
-          "draft": "证据状态：现有资料只有当日观察，未提供观察线的历史检验。[E1]\n标准判断：这条线至多是待验假设，不能当作已验证的景气确认标准。[E1]",
+          "draft": "证据状态：现有资料只有当日观察，未提供观察线的历史检验[E1]。\n标准判断：这条线至多是待验假设，不能当作已验证的景气确认标准[E1]。",
           "expected_rejected": [],
           "expected_reason_codes": {},
           "expected_requirement_statuses": ["fulfilled", "fulfilled"],
