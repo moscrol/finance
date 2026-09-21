@@ -22,7 +22,7 @@
 
 ## 后续
 
-先核新归档的 Git blob/原件字节与三旧包，再更新共享记忆中的项目索引和环境隔离经验，保留 vault 存量 errors/warnings 边界。待独立审查可用、主线组合核对完成后，才把新 K3 runner 重新绑定到准确 SHA，经真实 `/api/conversations` 与 messages 跑两道原题；以 `run_id` 终态和 `assistant_message_id` 取正文，核截止合同、快照日期、引用、公开稿和 GLM 判官。completed 不等于质量通过，N=1 不证明改善率。
+新归档的 Git blob/原件字节、三旧包、共享记忆和最终工作树均已核验。2026-09-22 03:43 CST 再次检查独立审查：Spec/Quality 两份旧运行记录均为 exit 1、无 verdict，Codex 明确报账号 usage limit，提示恢复时间 05:04；本次不换模型、不绕过账号/计费限制。待额度恢复、独立审查可用且主线组合核对完成后，才把新 K3 runner 重新绑定到准确 SHA，经真实 `/api/conversations` 与 messages 跑两道原题；以 `run_id` 终态和 `assistant_message_id` 取正文，核截止合同、快照日期、引用、公开稿和 GLM 判官。completed 不等于质量通过，N=1 不证明改善率。
 
 ## 明确未验证
 
