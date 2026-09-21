@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "tree": "/Users/a77/fwp-wt-briefing-qc-gate-0922",
+  "revision": "338db9114e52050362677a350059a8f9298848bd",
+  "base": "e82717d9a7c3dfa811a4538bd44985b61258355a",
+  "dirty": false,
+  "counts": {"passed": 12520, "failed": 0, "error": 0, "skipped": 85, "xfailed": 2},
+  "exit_status": 0,
+  "receipt": "/Users/a77/.finance-runtime/test-receipts/20260921T171617Z-338db911.json",
+  "receipt_validation": "check_test_receipt --expect-revision 338db9114e52050362677a350059a8f9298848bd --base-drift-max 0 passed",
+  "scope": "candidate merge tree; no main merge or deployment"
+}

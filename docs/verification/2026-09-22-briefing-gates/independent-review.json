@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "status": "INCOMPLETE",
+  "reviewer": "claude -p read-only retry",
+  "attempts": 2,
+  "first_attempt": "Manually terminated after more than 10 minutes without output; not a measured 600-second timeout",
+  "retry_timeout_seconds": 420,
+  "evidence": "/Users/a77/.finance-runtime/reviews/briefing-qc-gate-20260922/reviewer-retry.stderr.log",
+  "conclusion": "No independent findings were produced; this is not an independent PASS and remains a release/merge follow-up.",
+  "scope": "no edits, no tests, no merge, no deployment"
+}

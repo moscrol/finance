@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "tree": "/Users/a77/fwp-wt-briefing-qc-gate-0922",
+  "revision": "338db9114e52050362677a350059a8f9298848bd",
+  "dirty": false,
+  "identity_stable": true,
+  "complete": true,
+  "checks": {
+    "pnpm install --frozen-lockfile": "PASS",
+    "pnpm lint": "PASS",
+    "pnpm typecheck": "PASS",
+    "pnpm test": "110 passed",
+    "pnpm build": "PASS",
+    "pnpm test:e2e": "34 passed, 2 skipped"
+  },
+  "receipt": "/Users/a77/.finance-runtime/reviews/briefing-qc-gate-20260922/frontend/frontend.json",
+  "scope": "candidate merge tree; no main merge or deployment"
+}

@@ -1,0 +1,13 @@
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/Users/a77/fwp-wt-briefing-qc-gate-0922/scripts/agent_review/worker.py", line 88, in _run_reviewer_command
+    stdout, stderr = process.communicate(timeout=timeout_seconds)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py", line 1209, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py", line 2116, in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py", line 1253, in _check_timeout
+    raise TimeoutExpired(
+subprocess.TimeoutExpired: Command '('claude', '-p', '--safe-mode', '--no-session-persistence', '--strict-mcp-config', '--permission-mode', 'dontAsk', '--tools', 'Read,Grep,Glob,Bash', '--allowedTools', 'Read', 'Grep', 'Glob', 'Bash(git diff *)', 'Bash(git show *)', 'Bash(git rev-parse *)', '--add-dir', '/Users/a77/kb-wt-briefing-evidence-qc-0921', '--output-format', 'json', '只读源码审查，不编辑、不测试、不合并部署。finance工作目录HEAD固定338db9114e52050362677a350059a8f9298848bd，审查相对e82717d9a的intelligence/cli.py、scripts/verify_briefing_consumption.py、tests/test_verify_briefing_consumption.py、tests/test_ima_gap_report.py增量。KB树/Users/a77/kb-wt-briefing-evidence-qc-0921固定e4cca95312ccb492cd3c4767858416ca49db00d0，相对d0caf3114审两份wiki/briefings/2026-09-15.md和2026-09-18.md证据升级风险。先核HEAD，不扫全仓。不整读关系JSON。输出中文 findings 严重性/file:line/复现路径/建议，无问题明确说未发现；特别检查验收假成功、未实现的时点保证和测试空白。只对实际可证缺陷给结论。未跑测试明确说明，不能宣称生产就绪。日志已改#6894避开已知并发重号。无需任何记忆回写。')' timed out after 420 seconds
