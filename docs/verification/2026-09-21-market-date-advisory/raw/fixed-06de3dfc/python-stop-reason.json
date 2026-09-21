@@ -1,0 +1,7 @@
+{
+  "at": "2026-09-21T12:45:51.604516+00:00",
+  "pid": 34580,
+  "command": "34569 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider -o tmp_path_retention_policy=failed -o tmp_path_retention_count=1 --basetemp=/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/python/tmp --junitxml=/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/python/junit.xml",
+  "signal": "SIGTERM",
+  "reason": "Owned full gate was started at 06de3dfc, then source was intentionally edited to preserve PrefetchItem.source_date. Source identity is no longer stable; stop and rerun on final commit. This gate is incomplete and not a pass."
+}

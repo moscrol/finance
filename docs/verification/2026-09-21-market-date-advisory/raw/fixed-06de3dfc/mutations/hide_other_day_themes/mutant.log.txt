@@ -1,0 +1,209 @@
+FFFFFF                                                                   [100%]
+=================================== FAILURES ===================================
+_ test_market_overview_keeps_theme_date_distinct_from_market_date[None-2026-07-22] _
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/hide_other_day_themes/mutant-tmp/test_market_overview_keeps_the0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bbcadb0>
+theme_date = '2026-07-22', sector_count = None
+
+    @pytest.mark.parametrize("theme_date", ["2026-07-22", "2026-07-26"])
+    @pytest.mark.parametrize("sector_count", [None, 0, 2])
+    def test_market_overview_keeps_theme_date_distinct_from_market_date(tmp_path: Path, monkeypatch, theme_date: str, sector_count):
+        # 本例只验总览/题材来源；预取聚合的 as-of 日期由独立用例核对，不能混作总览日。
+        monkeypatch.setattr(episode_tools, "_asof_prefetch_text", lambda *_a: "")
+        with _database(tmp_path) as con:
+            con.execute("create table fact_market_daily(trade_date date, total_amount double)")
+            con.execute("insert into fact_market_daily values ('2026-07-24', 10000)")
+            con.execute(
+                "create table fact_mainline_theme_daily("
+                "trade_date date, theme_name varchar, sector_count integer, min_sort integer)"
+            )
+            con.execute("insert into fact_mainline_theme_daily values (?, '电子', ?, 1)", [theme_date, sector_count])
+            con.execute("insert into fact_mainline_theme_daily values ('2026-07-28', '未来题材', 1, 1)")
+        registry, context = _registry(tmp_path)
+        result = registry.execute("market_data", {}, context=context, step_id="mixed-market:1")
+        assert result.trace.status == "success"
+        assert result.gaps == ()
+        assert result.trace.source_trade_date == "2026-07-24"
+        assert result.trace.served_date == max("2026-07-24", theme_date)
+        amount = next(item for item in result.evidence if "全市场成交额" in item.detail)
+        assert amount.source_date == "2026-07-24"
+>       theme = next(item for item in result.evidence if "电子" in item.detail)
+E       StopIteration
+
+intelligence/tests/test_market_date_advisory.py:228: StopIteration
+_ test_market_overview_keeps_theme_date_distinct_from_market_date[None-2026-07-26] _
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/hide_other_day_themes/mutant-tmp/test_market_overview_keeps_the1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b7c2210>
+theme_date = '2026-07-26', sector_count = None
+
+    @pytest.mark.parametrize("theme_date", ["2026-07-22", "2026-07-26"])
+    @pytest.mark.parametrize("sector_count", [None, 0, 2])
+    def test_market_overview_keeps_theme_date_distinct_from_market_date(tmp_path: Path, monkeypatch, theme_date: str, sector_count):
+        # 本例只验总览/题材来源；预取聚合的 as-of 日期由独立用例核对，不能混作总览日。
+        monkeypatch.setattr(episode_tools, "_asof_prefetch_text", lambda *_a: "")
+        with _database(tmp_path) as con:
+            con.execute("create table fact_market_daily(trade_date date, total_amount double)")
+            con.execute("insert into fact_market_daily values ('2026-07-24', 10000)")
+            con.execute(
+                "create table fact_mainline_theme_daily("
+                "trade_date date, theme_name varchar, sector_count integer, min_sort integer)"
+            )
+            con.execute("insert into fact_mainline_theme_daily values (?, '电子', ?, 1)", [theme_date, sector_count])
+            con.execute("insert into fact_mainline_theme_daily values ('2026-07-28', '未来题材', 1, 1)")
+        registry, context = _registry(tmp_path)
+        result = registry.execute("market_data", {}, context=context, step_id="mixed-market:1")
+        assert result.trace.status == "success"
+        assert result.gaps == ()
+        assert result.trace.source_trade_date == "2026-07-24"
+>       assert result.trace.served_date == max("2026-07-24", theme_date)
+E       AssertionError: assert '2026-07-24' == '2026-07-26'
+E         
+E         - 2026-07-26
+E         ?          ^
+E         + 2026-07-24
+E         ?          ^
+
+intelligence/tests/test_market_date_advisory.py:225: AssertionError
+_ test_market_overview_keeps_theme_date_distinct_from_market_date[0-2026-07-22] _
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/hide_other_day_themes/mutant-tmp/test_market_overview_keeps_the2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x11169d040>
+theme_date = '2026-07-22', sector_count = 0
+
+    @pytest.mark.parametrize("theme_date", ["2026-07-22", "2026-07-26"])
+    @pytest.mark.parametrize("sector_count", [None, 0, 2])
+    def test_market_overview_keeps_theme_date_distinct_from_market_date(tmp_path: Path, monkeypatch, theme_date: str, sector_count):
+        # 本例只验总览/题材来源；预取聚合的 as-of 日期由独立用例核对，不能混作总览日。
+        monkeypatch.setattr(episode_tools, "_asof_prefetch_text", lambda *_a: "")
+        with _database(tmp_path) as con:
+            con.execute("create table fact_market_daily(trade_date date, total_amount double)")
+            con.execute("insert into fact_market_daily values ('2026-07-24', 10000)")
+            con.execute(
+                "create table fact_mainline_theme_daily("
+                "trade_date date, theme_name varchar, sector_count integer, min_sort integer)"
+            )
+            con.execute("insert into fact_mainline_theme_daily values (?, '电子', ?, 1)", [theme_date, sector_count])
+            con.execute("insert into fact_mainline_theme_daily values ('2026-07-28', '未来题材', 1, 1)")
+        registry, context = _registry(tmp_path)
+        result = registry.execute("market_data", {}, context=context, step_id="mixed-market:1")
+        assert result.trace.status == "success"
+        assert result.gaps == ()
+        assert result.trace.source_trade_date == "2026-07-24"
+        assert result.trace.served_date == max("2026-07-24", theme_date)
+        amount = next(item for item in result.evidence if "全市场成交额" in item.detail)
+        assert amount.source_date == "2026-07-24"
+>       theme = next(item for item in result.evidence if "电子" in item.detail)
+E       StopIteration
+
+intelligence/tests/test_market_date_advisory.py:228: StopIteration
+_ test_market_overview_keeps_theme_date_distinct_from_market_date[0-2026-07-26] _
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/hide_other_day_themes/mutant-tmp/test_market_overview_keeps_the3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x11169ed20>
+theme_date = '2026-07-26', sector_count = 0
+
+    @pytest.mark.parametrize("theme_date", ["2026-07-22", "2026-07-26"])
+    @pytest.mark.parametrize("sector_count", [None, 0, 2])
+    def test_market_overview_keeps_theme_date_distinct_from_market_date(tmp_path: Path, monkeypatch, theme_date: str, sector_count):
+        # 本例只验总览/题材来源；预取聚合的 as-of 日期由独立用例核对，不能混作总览日。
+        monkeypatch.setattr(episode_tools, "_asof_prefetch_text", lambda *_a: "")
+        with _database(tmp_path) as con:
+            con.execute("create table fact_market_daily(trade_date date, total_amount double)")
+            con.execute("insert into fact_market_daily values ('2026-07-24', 10000)")
+            con.execute(
+                "create table fact_mainline_theme_daily("
+                "trade_date date, theme_name varchar, sector_count integer, min_sort integer)"
+            )
+            con.execute("insert into fact_mainline_theme_daily values (?, '电子', ?, 1)", [theme_date, sector_count])
+            con.execute("insert into fact_mainline_theme_daily values ('2026-07-28', '未来题材', 1, 1)")
+        registry, context = _registry(tmp_path)
+        result = registry.execute("market_data", {}, context=context, step_id="mixed-market:1")
+        assert result.trace.status == "success"
+        assert result.gaps == ()
+        assert result.trace.source_trade_date == "2026-07-24"
+>       assert result.trace.served_date == max("2026-07-24", theme_date)
+E       AssertionError: assert '2026-07-24' == '2026-07-26'
+E         
+E         - 2026-07-26
+E         ?          ^
+E         + 2026-07-24
+E         ?          ^
+
+intelligence/tests/test_market_date_advisory.py:225: AssertionError
+_ test_market_overview_keeps_theme_date_distinct_from_market_date[2-2026-07-22] _
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/hide_other_day_themes/mutant-tmp/test_market_overview_keeps_the4')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x11168c9e0>
+theme_date = '2026-07-22', sector_count = 2
+
+    @pytest.mark.parametrize("theme_date", ["2026-07-22", "2026-07-26"])
+    @pytest.mark.parametrize("sector_count", [None, 0, 2])
+    def test_market_overview_keeps_theme_date_distinct_from_market_date(tmp_path: Path, monkeypatch, theme_date: str, sector_count):
+        # 本例只验总览/题材来源；预取聚合的 as-of 日期由独立用例核对，不能混作总览日。
+        monkeypatch.setattr(episode_tools, "_asof_prefetch_text", lambda *_a: "")
+        with _database(tmp_path) as con:
+            con.execute("create table fact_market_daily(trade_date date, total_amount double)")
+            con.execute("insert into fact_market_daily values ('2026-07-24', 10000)")
+            con.execute(
+                "create table fact_mainline_theme_daily("
+                "trade_date date, theme_name varchar, sector_count integer, min_sort integer)"
+            )
+            con.execute("insert into fact_mainline_theme_daily values (?, '电子', ?, 1)", [theme_date, sector_count])
+            con.execute("insert into fact_mainline_theme_daily values ('2026-07-28', '未来题材', 1, 1)")
+        registry, context = _registry(tmp_path)
+        result = registry.execute("market_data", {}, context=context, step_id="mixed-market:1")
+        assert result.trace.status == "success"
+        assert result.gaps == ()
+        assert result.trace.source_trade_date == "2026-07-24"
+        assert result.trace.served_date == max("2026-07-24", theme_date)
+        amount = next(item for item in result.evidence if "全市场成交额" in item.detail)
+        assert amount.source_date == "2026-07-24"
+>       theme = next(item for item in result.evidence if "电子" in item.detail)
+E       StopIteration
+
+intelligence/tests/test_market_date_advisory.py:228: StopIteration
+_ test_market_overview_keeps_theme_date_distinct_from_market_date[2-2026-07-26] _
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/hide_other_day_themes/mutant-tmp/test_market_overview_keeps_the5')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x11168e6f0>
+theme_date = '2026-07-26', sector_count = 2
+
+    @pytest.mark.parametrize("theme_date", ["2026-07-22", "2026-07-26"])
+    @pytest.mark.parametrize("sector_count", [None, 0, 2])
+    def test_market_overview_keeps_theme_date_distinct_from_market_date(tmp_path: Path, monkeypatch, theme_date: str, sector_count):
+        # 本例只验总览/题材来源；预取聚合的 as-of 日期由独立用例核对，不能混作总览日。
+        monkeypatch.setattr(episode_tools, "_asof_prefetch_text", lambda *_a: "")
+        with _database(tmp_path) as con:
+            con.execute("create table fact_market_daily(trade_date date, total_amount double)")
+            con.execute("insert into fact_market_daily values ('2026-07-24', 10000)")
+            con.execute(
+                "create table fact_mainline_theme_daily("
+                "trade_date date, theme_name varchar, sector_count integer, min_sort integer)"
+            )
+            con.execute("insert into fact_mainline_theme_daily values (?, '电子', ?, 1)", [theme_date, sector_count])
+            con.execute("insert into fact_mainline_theme_daily values ('2026-07-28', '未来题材', 1, 1)")
+        registry, context = _registry(tmp_path)
+        result = registry.execute("market_data", {}, context=context, step_id="mixed-market:1")
+        assert result.trace.status == "success"
+        assert result.gaps == ()
+        assert result.trace.source_trade_date == "2026-07-24"
+>       assert result.trace.served_date == max("2026-07-24", theme_date)
+E       AssertionError: assert '2026-07-24' == '2026-07-26'
+E         
+E         - 2026-07-26
+E         ?          ^
+E         + 2026-07-24
+E         ?          ^
+
+intelligence/tests/test_market_date_advisory.py:225: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/hide_other_day_themes/mutant.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_market_date_advisory.py::test_market_overview_keeps_theme_date_distinct_from_market_date[None-2026-07-22]
+FAILED intelligence/tests/test_market_date_advisory.py::test_market_overview_keeps_theme_date_distinct_from_market_date[None-2026-07-26]
+FAILED intelligence/tests/test_market_date_advisory.py::test_market_overview_keeps_theme_date_distinct_from_market_date[0-2026-07-22]
+FAILED intelligence/tests/test_market_date_advisory.py::test_market_overview_keeps_theme_date_distinct_from_market_date[0-2026-07-26]
+FAILED intelligence/tests/test_market_date_advisory.py::test_market_overview_keeps_theme_date_distinct_from_market_date[2-2026-07-22]
+FAILED intelligence/tests/test_market_date_advisory.py::test_market_overview_keeps_theme_date_distinct_from_market_date[2-2026-07-26]
+6 failed in 0.96s

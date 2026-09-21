@@ -1,0 +1,82 @@
+{
+  "leaf": "python",
+  "revision": "06de3dfc53835cbbaffb20f8c26451674909ebe4",
+  "base": "79b11d4268a3",
+  "tree": "/Users/a77/fwp-wt-market-date-advisory-0921",
+  "pid": 46708,
+  "started_at": "2026-09-21T12:48:46.174528+00:00",
+  "before": {
+    "revision": "06de3dfc53835cbbaffb20f8c26451674909ebe4",
+    "tree_object": "8c7dbd1069a86123c6921ff70cc7247e57eeeb9a",
+    "status": ""
+  },
+  "checks": [
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "started_at": "2026-09-21T12:48:46.296112+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-06de3dfc/python/0.log.txt",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "elapsed_seconds": 3.01
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "-o",
+        "tmp_path_retention_policy=failed",
+        "-o",
+        "tmp_path_retention_count=1",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-06de3dfc/python/tmp",
+        "--junitxml=/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-06de3dfc/python/junit.xml"
+      ],
+      "started_at": "2026-09-21T12:48:49.303120+00:00",
+      "exit_code": 1,
+      "log": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-06de3dfc/python/1.log.txt",
+      "sha256": "edd870042ab54fd71221d21f28357ad9e222c1546f4a4f11e68f6c17a82c26c6",
+      "elapsed_seconds": 781.04
+    }
+  ],
+  "complete": true,
+  "resource_admission": {
+    "at": "2026-09-21T12:48:46.295619+00:00",
+    "free_bytes": 14345486336,
+    "other_pytest_processes": []
+  },
+  "pytest_receipt": {
+    "source": "/Users/a77/.finance-runtime/test-receipts/20260921T130147Z-06de3dfc.json",
+    "sha256": "4299ceffad45c63354bf34be147606d70ebd1d5538a3a5a4e7a6f24e3f517a3b",
+    "counts": {
+      "passed": 12550,
+      "failed": 1,
+      "error": 0,
+      "skipped": 85
+    },
+    "exit_status": 1
+  },
+  "junit_counts": {
+    "passed": 12550,
+    "failed": 1,
+    "error": 0,
+    "skipped": 85,
+    "xfail": 2
+  },
+  "after": {
+    "revision": "06de3dfc53835cbbaffb20f8c26451674909ebe4",
+    "tree_object": "8c7dbd1069a86123c6921ff70cc7247e57eeeb9a",
+    "status": ""
+  },
+  "source_unchanged": true,
+  "finished_at": "2026-09-21T13:01:50.416135+00:00",
+  "exit_code": 1
+}

@@ -1,0 +1,52 @@
+........................................................................ [ 16%]
+........................................................................ [ 32%]
+........F.............................................................F. [ 49%]
+........................................................................ [ 65%]
+........................................................................ [ 81%]
+........................................................................ [ 98%]
+........                                                                 [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T113127Z-c097d712.json
+
+=================================== FAILURES ===================================
+____ TestShippedContracts.test_finance_query_states_the_two_rejected_shapes ____
+
+self = <intelligence.tests.test_tool_behavior_contract.TestShippedContracts object at 0x10c425100>
+
+    def test_finance_query_states_the_two_rejected_shapes(self) -> None:
+        """两种写法 runner 会直接退回而不是查了没有：日期写进 filters
+        （``validation_retry_hint`` 逐字有这条）、未授权时查历史窗口。
+        后者实测会让模型对同一个窗口反复重试。
+        """
+        contract = reg._TOOL_CONTRACTS["finance_query"]
+    
+        assert "time_range" in contract
+>       assert "不要反复重试" in contract
+E       AssertionError: assert '不要反复重试' in '结果会按 Agent 上下文预算截断（当前上限 25 行），返回的是满足条件的前若干行而不一定是全集：不要据此写「全市场最高」「只有这些」这类全称断言，需要更完整的切片就加筛选、分组或排序后再查一次。日期要放进 time_range，...）；sector_stock_daily.high_status 显示「非新高」是事实标注，不是数据缺失。下周/周末大事、事件日历用 event_daily（复盘会编辑催化，不是官方日程全集；event_date 可以晚于信息截止日）。'
+
+intelligence/tests/test_tool_behavior_contract.py:157: AssertionError
+___________________ test_cancel_missing_run_and_idempotence ____________________
+
+client = <starlette.testclient.TestClient object at 0x11b13bef0>
+
+    def test_cancel_missing_run_and_idempotence(client: TestClient) -> None:
+        assert client.post("/api/runs/run_missing/cancel").status_code == 404
+        run_id = client.post("/api/runs", json={"question": "q", "user": "alice"}).json()[
+            "run_id"
+        ]
+        assert (
+            client.post(f"/api/runs/{run_id}/cancel", params={"user": "bob"}).status_code
+            == 404
+        )
+        _wait_terminal(client, run_id, user="alice")
+>       assert client.app.state.cancellation_registry == {}
+E       AssertionError: assert {('alice', 'r... 0x11b251eb0>} == {}
+E         
+E         Left contains 1 more item:
+E         {('alice', 'run_20260921_193104_791507'): <intelligence.api.app.CancellationSignal object at 0x11b251eb0>}
+E         Use -v to get more diff
+
+intelligence/tests/test_workbench_api.py:1691: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_tool_behavior_contract.py::TestShippedContracts::test_finance_query_states_the_two_rejected_shapes
+FAILED intelligence/tests/test_workbench_api.py::test_cancel_missing_run_and_idempotence
+2 failed, 438 passed in 60.01s (0:01:00)

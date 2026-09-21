@@ -1,0 +1,35 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_market_block_selects_available_data_newer_than_reference _________
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/reference_as_query_ceiling/mutant-tmp/test_market_block_selects_avai0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109d47da0>
+
+    def test_market_block_selects_available_data_newer_than_reference(tmp_path: Path, monkeypatch):
+        seen = []
+        monkeypatch.setattr(
+            episode_tools.ask_blocks, "_market_data_asof",
+            lambda *_a, **kw: seen.append(kw["as_of"]) or "2026-07-24",
+        )
+        monkeypatch.setattr(
+            episode_tools.ask_blocks, "_daily_market_overview_block_for_llm",
+            lambda *_a, **kw: seen.append(kw["as_of"]) or "2026-07-24 成交额10000亿元",
+        )
+        monkeypatch.setattr(episode_tools.ask_blocks, "_market_cause_window_block_for_llm", lambda *_a, **_k: "")
+        monkeypatch.setattr(episode_tools, "_asof_prefetch_text", lambda *_a: "")
+        registry, context = _registry(tmp_path, reference_date="2026-07-21")
+        result = registry.execute("market_data", {}, context=context, step_id="newer:1")
+>       assert set(seen) == {"2026-07-27"}
+E       AssertionError: assert {'2026-07-21'} == {'2026-07-27'}
+E         
+E         Extra items in the left set:
+E         '2026-07-21'
+E         Extra items in the right set:
+E         '2026-07-27'
+E         Use -v to get more diff
+
+intelligence/tests/test_market_date_advisory.py:310: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/reference_as_query_ceiling/mutant.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_market_date_advisory.py::test_market_block_selects_available_data_newer_than_reference
+1 failed in 0.14s

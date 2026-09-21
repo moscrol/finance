@@ -1,0 +1,7 @@
+{
+  "at": "2026-09-21T12:03:44.695477+00:00",
+  "pid": 4775,
+  "revision": "583705d8441b7da7bfeb9de3d05b87e74e7d1f23",
+  "reason": "Additional old ask entry metadata/qualifier handling needs correction. Stop owned test before editing; this partial run is not a full gate.",
+  "verified_process": "4768 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider -o tmp_path_retention_policy=failed -o tmp_path_retention_count=1 --basetemp=/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/python/tmp --junitxml=/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/python/junit.xml"
+}

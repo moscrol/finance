@@ -1,0 +1,7 @@
+{
+  "revision": "06de3dfc53835cbbaffb20f8c26451674909ebe4",
+  "original": "python-stop-reason.json",
+  "correction": "The source-moving claim in the stop reason is incorrect. The prefetch fix had already been committed at 06de3dfc before this full run started. The run records identical clean before/after tree 8c7dbd1069a86123c6921ff70cc7247e57eeeb9a with source_unchanged=true. No code edits occurred during this run. The author confused this run with the previous 5d425ff2 run and unnecessarily stopped the owned pytest process.",
+  "effect": "pytest exited -15; the run remains incomplete, not a pass. No original log or stop reason is overwritten. Restart on the same SHA in a new directory.",
+  "verification": ["python/run.json", "../final-date-commit.txt", "git log shows prefetch commit 06de3dfc", "git status --porcelain is empty"]
+}

@@ -1,0 +1,45 @@
+{
+  "leaf": "frontend",
+  "revision": "c57ec6542e5b33b2d7d2dccadf742e8a33e23b5d",
+  "base": "79b11d4268a3",
+  "tree": "/Users/a77/fwp-wt-market-date-advisory-0921",
+  "pid": 74361,
+  "started_at": "2026-09-21T13:06:34.624194+00:00",
+  "before": {
+    "revision": "c57ec6542e5b33b2d7d2dccadf742e8a33e23b5d",
+    "tree_object": "7e704e1d80e1759536919ce6c1163d5784467f4f",
+    "status": ""
+  },
+  "checks": [
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/run_frontend_gate.py",
+        "--tree",
+        "/Users/a77/fwp-wt-market-date-advisory-0921",
+        "--expect-revision",
+        "c57ec6542e5b33b2d7d2dccadf742e8a33e23b5d",
+        "--output",
+        "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/frontend/gate",
+        "--workbench-port",
+        "19551",
+        "--re06-port",
+        "19554"
+      ],
+      "started_at": "2026-09-21T13:06:34.703413+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/frontend/0.log.txt",
+      "sha256": "3501d33e2097990258e7b683b8ca0bd577582ffbc2f5854ffec61a20db459da1",
+      "elapsed_seconds": 96.6
+    }
+  ],
+  "complete": true,
+  "after": {
+    "revision": "c57ec6542e5b33b2d7d2dccadf742e8a33e23b5d",
+    "tree_object": "7e704e1d80e1759536919ce6c1163d5784467f4f",
+    "status": ""
+  },
+  "source_unchanged": true,
+  "finished_at": "2026-09-21T13:08:11.409456+00:00",
+  "exit_code": 0
+}

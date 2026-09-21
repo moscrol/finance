@@ -1,0 +1,54 @@
+.....................F.................................................. [ 78%]
+....................                                                     [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T112307Z-c097d712.json
+
+=================================== FAILURES ===================================
+_ DailyMarketOverviewTests.test_mainline_context_selects_latest_structure_at_or_before_as_of _
+
+self = <intelligence.tests.test_ask_compose.DailyMarketOverviewTests testMethod=test_mainline_context_selects_latest_structure_at_or_before_as_of>
+
+    def test_mainline_context_selects_latest_structure_at_or_before_as_of(
+        self,
+    ) -> None:
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute("create table fact_market_daily(trade_date date)")
+            con.execute(
+                "insert into fact_market_daily values "
+                "('2026-07-24'), ('2026-07-27')"
+            )
+            con.execute(
+                "create table fact_mainline_theme_daily("
+                "trade_date date, theme_name varchar, sector_count integer, "
+                "min_sort integer)"
+            )
+            con.execute(
+                "insert into fact_mainline_theme_daily values "
+                "('2026-07-24', '人工智能', 3, 1), "
+                "('2026-07-27', '机器人', 4, 1)"
+            )
+            con.execute(
+                "create table fact_mainline_sector_daily(trade_date date)"
+            )
+            con.execute(
+                "insert into fact_mainline_sector_daily values "
+                "('2026-07-23'), ('2026-07-27')"
+            )
+            con.close()
+    
+            block = _market_review_mainline_context_block_for_llm(
+                "目前市场的主线是什么",
+                None,
+                db_path,
+                as_of="2026-07-24",
+            )
+    
+>       self.assertIn("截至 2026-07-24", block)
+E       AssertionError: '截至 2026-07-24' not found in ''
+
+intelligence/tests/test_ask_compose.py:478: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/first-targeted.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_ask_compose.py::DailyMarketOverviewTests::test_mainline_context_selects_latest_structure_at_or_before_as_of
+1 failed, 91 passed, 198 deselected in 20.19s

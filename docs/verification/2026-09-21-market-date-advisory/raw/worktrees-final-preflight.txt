@@ -1,0 +1,355 @@
+/Users/a77/finance-workspace-private                                                                                                        b4a35fa2c (detached HEAD)
+/private/tmp/finance-runtime-audit-bf662e93                                                                                                 bf662e931 (detached HEAD)
+/private/tmp/finance-runtime-audit-report-0918                                                                                              83a681905 [baseline/runtime-absorption-audit-0918]
+/private/tmp/fwp-kb-receipt-base-20260918                                                                                                   0a1cb8c44 (detached HEAD)
+/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-p0j6308y/tree                                                   7f6b201d0 [fix/runtime-child-fence-tests-0918]
+/Users/a77/.finance-runtime/continuous-research-09/code                                                                                     adcd4830a (detached HEAD)
+/Users/a77/.finance-runtime/convergence-20260919/registry-pinned/finance-workspace-private                                                  d12bd0b1f (detached HEAD)
+/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-64984b33/registry-pinned/finance-workspace-private              64984b33e (detached HEAD)
+/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e/registry-pinned/finance-workspace-private              6fb37a6e1 (detached HEAD)
+/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-746b716f/registry-pinned/finance-workspace-private              746b716ff (detached HEAD)
+/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-79dba348/registry-pinned/finance-workspace-private              79dba348b (detached HEAD)
+/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-a2a33019/registry-pinned/finance-workspace-private              a2a330196 (detached HEAD)
+/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/registry-pinned/finance-workspace-private              d46c2c3b1 (detached HEAD)
+/Users/a77/.finance-runtime/db-repair/hithink-20260911/tree                                                                                 601db6dd4 [data-source/hithink-rewrite-0911]
+/Users/a77/.finance-runtime/finance-generation-387028b846a2                                                                                 387028b84 (detached HEAD)
+/Users/a77/.finance-runtime/finance-generation-adcda94b5e40                                                                                 adcda94b5 (detached HEAD)
+/Users/a77/.finance-runtime/finance-hosted-alpha                                                                                            35e1b2912 (detached HEAD)
+/Users/a77/.finance-runtime/finance-l2-adcda94b5e40                                                                                         adcda94b5 (detached HEAD)
+/Users/a77/.finance-runtime/finance-l2-d433b90788c0                                                                                         d433b9078 (detached HEAD)
+/Users/a77/.finance-runtime/finance-s7-sync                                                                                                 418515c03 [spec/continuous-depth-gap-r1]
+/Users/a77/.finance-runtime/finance-sync-adcda94b5e40                                                                                       adcda94b5 (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-0060da5c1a08                                                                                  0060da5c1 (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-0758a423d6c8                                                                                  0758a423d (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-1010970acc85                                                                                  1010970ac (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-2ee664fae9c4                                                                                  2ee664fae (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-2efdff46e251                                                                                  2efdff46e (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-3c3c1b1cf38f                                                                                  3c3c1b1cf (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-40fd5a847c65                                                                                  40fd5a847 (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-6626f12fb694                                                                                  6626f12fb (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-6e23dd57e965                                                                                  6e23dd57e (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-7afe37be1913                                                                                  7afe37be1 (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-945c04bd7fdd                                                                                  945c04bd7 (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-a26cec4d470d                                                                                  a26cec4d4 (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-ac0132553aae                                                                                  ac0132553 (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-adcda94b5e40                                                                                  adcda94b5 (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-b594a5e7f8ae                                                                                  b594a5e7f (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-bc2d01214158                                                                                  bc2d01214 (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-bf662e9310ff                                                                                  bf662e931 (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-c615adbd2f86                                                                                  c615adbd2 (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-c7bbcb93e1ad                                                                                  c7bbcb93e (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-ce0097185443                                                                                  ce0097185 (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-d4cb64844ec6                                                                                  d4cb64844 (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-db2963d4fbaa                                                                                  db2963d4f (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-e480e6c7dc8d                                                                                  e480e6c7d (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-f2c3e9e1a24f                                                                                  f2c3e9e1a (detached HEAD)
+/Users/a77/.finance-runtime/finance-workspace-f4c03b9ae610                                                                                  f4c03b9ae (detached HEAD)
+/Users/a77/.finance-runtime/gate-checkouts/daily-swap-candidate-20260913/finance-workspace-private                                          1fef3d276 [integration/daily-swap-hithink-candidate-0913]
+/Users/a77/.finance-runtime/gate-checkouts/instruction-clearance-r2-20260912/finance-workspace-private                                      6935bcb38 (detached HEAD)
+/Users/a77/.finance-runtime/gate-checkouts/instruction-clearance-r3-20260912/finance-workspace-private                                      ecc05e092 (detached HEAD)
+/Users/a77/.finance-runtime/gate-checkouts/instruction-clearance-r4-20260912/finance-workspace-private                                      31d82c392 (detached HEAD)
+/Users/a77/.finance-runtime/gate-checkouts/instruction-clearance-r5-20260913/finance-workspace-private                                      3d9c31027 (detached HEAD)
+/Users/a77/.finance-runtime/gate-checkouts/instruction-migration-clearance-20260912/finance-workspace-private                               4427b4818 (detached HEAD)
+/Users/a77/.finance-runtime/gate-checkouts/post-merge-742-main-tip/finance-workspace-private                                                127fa5132 (detached HEAD)
+/Users/a77/.finance-runtime/hithink-research-guard-20260921/python/finance-workspace-private                                                164b02e4c (detached HEAD)
+/Users/a77/.finance-runtime/hithink-research-recheck-20260921/python/finance-workspace-private                                              e98e87917 (detached HEAD)
+/Users/a77/.finance-runtime/kb-dual-index-20260918/before                                                                                   d32b89662 (detached HEAD)
+/Users/a77/.finance-runtime/kb-dual-index-20260918/gate-058f76a3/finance-workspace-private                                                  058f76a3b (detached HEAD)
+/Users/a77/.finance-runtime/kb-dual-index-20260918/gate-99fb9304/finance-workspace-private                                                  99fb9304a (detached HEAD)
+/Users/a77/.finance-runtime/kb-dual-index-20260918/gate-e9bb34c3/finance-workspace-private                                                  e9bb34c37 (detached HEAD)
+/Users/a77/.finance-runtime/kb-dual-index-20260918/gate/finance-workspace-private                                                           d95d4921b (detached HEAD)
+/Users/a77/.finance-runtime/kb-v4-merge-20260919/closeout/finance-workspace-private                                                         b22ddf8b0 [docs/kb-v4-merge-acceptance]
+/Users/a77/.finance-runtime/kb-v4-merge-20260919/pre/finance-workspace-private                                                              2b4948a40 (detached HEAD)
+/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788-frontend/finance-workspace-private                                        becb68c0d (detached HEAD)
+/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788/finance-workspace-private                                                 becb68c0d (detached HEAD)
+/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/finance-workspace-private                                    4ace5ec2e (detached HEAD)
+/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation/finance-workspace-private                                          dca1bd6e7 (detached HEAD)
+/Users/a77/.finance-runtime/open-work-execution-20260920/gate-hithink/finance-workspace-private                                             ec92b31b5 (detached HEAD)
+/Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec-final-f234                                                         f2342fda0 (detached HEAD)
+/Users/a77/.finance-runtime/reasoning-boundaries-20260921/k3-independent/quality-tree                                                       2cfa9d0d7 (detached HEAD)
+/Users/a77/.finance-runtime/reasoning-boundaries-20260921/k3-independent/spec-tree                                                          2cfa9d0d7 (detached HEAD)
+/Users/a77/.finance-runtime/reasoning-boundaries-20260921/v4/date-fix                                                                       6f935bedc (detached HEAD)
+/Users/a77/.finance-runtime/release-merge-20260916/finance-workspace-private                                                                727b2611f (detached HEAD)
+/Users/a77/.finance-runtime/reviews/8792-boundary-live-20260918/code                                                                        3faf64fba (detached HEAD)
+/Users/a77/.finance-runtime/reviews/8792-boundary-retest-20260918/code                                                                      c481272e0 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/code                                                                    dfd7b4ff6 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/8792-readiness-fixes-20260917/baseline                                                                  0a1cb8c44 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/extraction-closeout-20260915/baseline/finance-workspace-private                                         1fef3d276 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/extraction-closeout-20260915/gate/finance-workspace-private                                             e20302a6f (detached HEAD)
+/Users/a77/.finance-runtime/reviews/extraction-closeout-20260915/gate3/finance-workspace-private                                            3b0531b98 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/hithink-350b076d-qc/tree                                                                                350b076dc [docs/qc-hithink-350b076d]
+/Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/tree                                                                                63f377da8 [docs/qc-hithink-48242bd4]
+/Users/a77/.finance-runtime/reviews/hithink-8ac5a788-qc/tree                                                                                8ac5a7880 [docs/qc-hithink-8ac5a788]
+/Users/a77/.finance-runtime/reviews/hithink-9d73f01a-qc/tree                                                                                c7696acb8 [docs/qc-hithink-9d73f01a]
+/Users/a77/.finance-runtime/reviews/hithink-cd7f6fa9-20260913/tree                                                                          f64746871 [codex/qc-hithink-cd7f6fa9]
+/Users/a77/.finance-runtime/reviews/hithink-efb274b8-qc/tree                                                                                5c86c31e8 [docs/qc-hithink-efb274b8]
+/Users/a77/.finance-runtime/reviews/hithink-stock-preview-40317d78-qc-20260915/finance-workspace-private                                    40317d780 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/kb-retrieval-merge-20260918/finance-workspace-private                                                   d32b89662 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/l2-pct-chg-54248fa3/tree                                                                                79e856617 [docs/qc-l2-pct-chg-54248fa3]
+/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/quality-tree                                                            2ea6c3db0 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/spec-tree                                                               2ea6c3db0 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/nightly-deploy-resume-20260921/quality-tree                                                             b0cf04fb4 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/pr773-fix/before                                                                                        2e2329ea2 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/pr773-fix/finance-workspace-private                                                                     d433b9078 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/pr773-qc/finance-workspace-private                                                                      b6e09b660 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/pr773-qc/report/finance-workspace-private                                                               96b10ad2f [docs/qc-pr773-70811c7d]
+/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/python/finance-workspace-private                                           8c1a95116 [docs/pr803-merge-closeout-0920]
+/Users/a77/.finance-runtime/reviews/re06-9266407f-home                                                                                      9266407fe (detached HEAD)
+/Users/a77/.finance-runtime/reviews/re06-merge-0bd11ece                                                                                     86c87385c [codex/review-re06-merge-0bd11ece]
+/Users/a77/.finance-runtime/reviews/re06-round8-fdb5f91d                                                                                    d51b5e6cb [codex/review-re06-round8-fdb5f91d]
+/Users/a77/.finance-runtime/reviews/react-trace-review-0921/candidate                                                                       99c607671 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/research-candidate-glm-live-20260918/code                                                               35ee8a5c0 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/finance-workspace-private                                62bbc4ecf (detached HEAD)
+/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789/finance-workspace-private                                           c8dbd387f (detached HEAD)
+/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/finance-workspace-private                                e51c5157c [fix/rag-retirement-main-ready-0920]
+/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-frontend/finance-workspace-private                            d95b706ed (detached HEAD)
+/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-gate/finance-workspace-private                                d95b706ed (detached HEAD)
+/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/spec-tree                                         d95b706ed (detached HEAD)
+/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-mutation/finance-workspace-private                            d95b706ed (detached HEAD)
+/Users/a77/.finance-runtime/reviews/research-draft-claim-repair-20260919/code                                                               4d541a907 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/research-draft-claim-repair-20260919/final/code                                                         cdcbc5a82 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/research-draft-claim-repair-20260919/final/mutation-code                                                cdcbc5a82 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/research-draft-claim-repair-20260919/mutation-code                                                      4d541a907 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/research-evolution-06-ba10747d/tree                                                                     ba10747df [docs/qc-research-evolution-06-ba10747d]
+/Users/a77/.finance-runtime/reviews/research-progress-repair-20260918/code                                                                  365627fd1 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/research-publication-live-20260918/code                                                                 7a9380bd0 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/research-publication-live-20260918/mutation-code                                                        7a9380bd0 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/research-publication-repair-20260918/code                                                               49fd8d726 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/research-rag-framing-repair-20260919/code                                                               20939b18b (detached HEAD)
+/Users/a77/.finance-runtime/reviews/research-rag-framing-repair-20260919/mutation-code                                                      20939b18b (detached HEAD)
+/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-frontend                                                       ea5c3a946 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/river-contract-86d61d9e-20260915/tree                                                                   86d61d9e8 [codex/review-river-contract-86d61d9e]
+/Users/a77/.finance-runtime/reviews/stale-closeout-k3-20260921/quality-followup-01/quality-tree                                             06f74ef14 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/stale-closeout-k3-20260921/quality-tree                                                                 5b27fc6b9 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/stale-closeout-k3-20260921/repair-gate/candidate/finance-workspace-private                              06f74ef14 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/stale-closeout-k3-20260921/repair-gate/frontend/finance-workspace-private                               06f74ef14 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/stale-closeout-k3-20260921/repair-gate/probe/finance-workspace-private                                  06f74ef14 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/stale-closeout-k3-20260921/repair-tree                                                                  06f74ef14 [fix/fincalc-row-snapshot-0921]
+/Users/a77/.finance-runtime/reviews/stale-closeout-k3-20260921/repaired-k3/quality-tree                                                     06f74ef14 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/stale-closeout-k3-20260921/repaired-k3/spec-tree                                                        06f74ef14 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/stale-closeout-k3-20260921/spec-tree                                                                    5b27fc6b9 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/stale-closeout-review-20260921/probe/finance-workspace-private                                          5b27fc6b9 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/stale-integration-20260921/candidate/finance-workspace-private                                          5b27fc6b9 [baseline/stale-closeout-integration-0921]
+/Users/a77/.finance-runtime/reviews/stale-integration-20260921/frontend/finance-workspace-private                                           5b27fc6b9 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/acceptance-20260920/broad-index-frontend/finance-workspace-private         5d46e626a (detached HEAD)
+/Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/acceptance-20260920/generation-degrade-frontend/finance-workspace-private  4aa805400 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/acceptance-docs/finance-workspace-private                                  a77d56e28 [docs/stale-closeout-gates-0920]
+/Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/broad-index/finance-workspace-private                                      5d46e626a [fix/broad-index-closeout-0920]
+/Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/fincalc-table-gates-20260921/frontend/finance-workspace-private            89e6217a2 (detached HEAD)
+/Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/fincalc-table/finance-workspace-private                                    89e6217a2 [fix/fincalc-table-closeout-0921]
+/Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/generation-degrade/finance-workspace-private                               4aa805400 [fix/generation-degrade-closeout-0920]
+/Users/a77/.finance-runtime/reviews/workbench-probe-1b68dcd3-20260913/tree                                                                  6936178f9 [docs/qc-workbench-probe-1b68dcd3]
+/Users/a77/.finance-runtime/reviews/workbench-probe-a294a72e-20260913/tree                                                                  8cee0bd35 [docs/qc-workbench-probe-a294a72e]
+/Users/a77/.finance-runtime/reviews/workbench-probe-fd40b55b-20260913/tree                                                                  b22197ae8 [docs/qc-workbench-probe-fd40b55b]
+/Users/a77/agroup-build/finance-workspace-private                                                                                           b2d40776e [feat/instruction-migration-agents-md]
+/Users/a77/finance-workspace-private/.claude/worktrees/daily-swap-race-condition-d0f557                                                     32bff5145 [claude/foresight-copy-versions-33373d]
+/Users/a77/finance-workspace-private/.claude/worktrees/fix-trading-day-calendar                                                             458db8926 [fix/trading-day-calendar]
+/Users/a77/finance-workspace-private/.claude/worktrees/hithink-429-retry-handling-80eeca                                                    ac5c17693 [claude/hithink-429-retry-handling-80eeca]
+/Users/a77/finance-workspace-private/.claude/worktrees/l2-pipeline-order-data-d9489d                                                        4ace5ec2e [claude/household-allocation-sample-15c173]
+/Users/a77/finance-workspace-private/.claude/worktrees/react-trace-closeout-review-8e35bb                                                   728f32716 (detached HEAD)
+/Users/a77/finance-workspace-private/.claude/worktrees/tools-zip-review-d224e9                                                              728f32716 (detached HEAD)
+/Users/a77/finance-workspace-private/.claude/worktrees/workorder-index-reconciliation-1f4eb1                                                728f32716 (detached HEAD)
+/Users/a77/finance-workspace-sync                                                                                                           6382c13b7 (detached HEAD)
+/Users/a77/finance-worktrees/adaptive-research-loop                                                                                         72a2ac534 [feat/adaptive-research-loop]
+/Users/a77/fwp-audit-optimization-status                                                                                                    fee615a9e [docs/optimization-status-audit-0916]
+/Users/a77/fwp-q-react-trace-0921                                                                                                           dda5895aa (detached HEAD)
+/Users/a77/fwp-q-research-data-readiness                                                                                                    493824bb9 [q/research-data-readiness]
+/Users/a77/fwp-qc-judge-mode-k3-0921                                                                                                        292bd5578 (detached HEAD)
+/Users/a77/fwp-salvage-opc-shims-20260919                                                                                                   be87b0262 [salvage/opc-shims-20260919]
+/Users/a77/fwp-wt-8792-boundary-integration                                                                                                 068e2a465 [fix/8792-boundary-integration]
+/Users/a77/fwp-wt-8792-calculation-finalization                                                                                             48caa1921 [fix/8792-calculation-finalization]
+/Users/a77/fwp-wt-8792-financial-contracts-r5                                                                                               1fe2ead27 [fix/8792-financial-contracts-r5]
+/Users/a77/fwp-wt-8792-financial-r6                                                                                                         0e368516e [baseline/8792-financial-r6]
+/Users/a77/fwp-wt-8792-financial-r6-repair                                                                                                  d8d6196ba [fix/8792-financial-r6-repair]
+/Users/a77/fwp-wt-8792-integrate-0913                                                                                                       5fb13a8c2 [fix/8792-integrate-routefix-tradingday]
+/Users/a77/fwp-wt-8792-k3-review                                                                                                            3a3969c5d (detached HEAD)
+/Users/a77/fwp-wt-8792-qc-closeout-0913                                                                                                     1c251a3b2 [fix/8792-qc-closeout-0913]
+/Users/a77/fwp-wt-8792-readiness-fixes                                                                                                      c57633bb3 [fix/8792-readiness-boundaries]
+/Users/a77/fwp-wt-8792-sector-history-diag-0917                                                                                             403214024 [docs/8792-sector-history-diag-0917]
+/Users/a77/fwp-wt-8792-v13-frontend                                                                                                         bd2fe310f (detached HEAD)
+/Users/a77/fwp-wt-8792-v16-frontend                                                                                                         37526350c (detached HEAD)
+/Users/a77/fwp-wt-8792-v16-k3-review                                                                                                        37526350c (detached HEAD)
+/Users/a77/fwp-wt-8792-v17-frontend                                                                                                         7bff0a6bc (detached HEAD)
+/Users/a77/fwp-wt-8792-v17-k3-review                                                                                                        7bff0a6bc (detached HEAD)
+/Users/a77/fwp-wt-8792-v19-frontend                                                                                                         8810bac84 (detached HEAD)
+/Users/a77/fwp-wt-8792-v19-k3-review                                                                                                        8810bac84 (detached HEAD)
+/Users/a77/fwp-wt-8792-v20-k3-review                                                                                                        1d9e717d2 (detached HEAD)
+/Users/a77/fwp-wt-ablation-noise-floor                                                                                                      1e4df5728 [feat/ablation-judge-independence]
+/Users/a77/fwp-wt-acceptance-tests                                                                                                          c50a3d847 [feat/acceptance-9-16-tests]
+/Users/a77/fwp-wt-adaptive-research-06                                                                                                      6273a89a4 [feat/adaptive-research-06]
+/Users/a77/fwp-wt-agent-docs-audit-registry                                                                                                 a6bc3d87e [fix/agent-docs-audit-registry]
+/Users/a77/fwp-wt-arena-main-ready-0921                                                                                                     a8fab956b [fix/arena-main-ready-0921]
+/Users/a77/fwp-wt-arena-recovery-0921                                                                                                       2f2eb31cc [fix/arena-recovery-0921]
+/Users/a77/fwp-wt-arena-recovery-gates-0921                                                                                                 7d10eea9a [ops/arena-recovery-gates-0921]
+/Users/a77/fwp-wt-backfill-302132                                                                                                           3736d5bfa [fix/backfill-302132-scoped]
+/Users/a77/fwp-wt-backfill-acceptance-closeout-0920                                                                                         1fd34dc7a [fix/backfill-acceptance-closeout-0920]
+/Users/a77/fwp-wt-backfill-main-ready-0921                                                                                                  5994230da [fix/backfill-main-ready-0921]
+/Users/a77/fwp-wt-backfill-qa-gate                                                                                                          6c686c549 [feat/stage-model-and-mainline-local]
+/Users/a77/fwp-wt-board-port                                                                                                                ebfe08647 [fix/board-unattributed-switch]
+/Users/a77/fwp-wt-bp-v13                                                                                                                    616c2121a [docs/bp-v1.3-roadshow-align]
+/Users/a77/fwp-wt-branch-queue                                                                                                              051466ba2 [feat/branch-batch-queue-wait]
+/Users/a77/fwp-wt-branch-trace                                                                                                              a9de87f7a [feat/lean-tool-observation]
+/Users/a77/fwp-wt-broad-index                                                                                                               f450f4bb8 [data-source/broad-index-delta]
+/Users/a77/fwp-wt-calc-artifacts-04                                                                                                         246181194 [feat/calc-artifacts-04]
+/Users/a77/fwp-wt-cap02-deep-read                                                                                                           63b7859a2 [feat/cap02-retrieval-deep-read]
+/Users/a77/fwp-wt-capability-benchmark-00                                                                                                   6bea31971 [baseline/capability-benchmark-00]
+/Users/a77/fwp-wt-capability-i2                                                                                                             00673f6d8 [feat/capability-i2]
+/Users/a77/fwp-wt-capability-integration                                                                                                    62e60990b [feat/capability-integration]
+/Users/a77/fwp-wt-capability-upgrade-plan                                                                                                   d93d86738 [codex/docs-capability-upgrade-plan]
+/Users/a77/fwp-wt-capability-wiring                                                                                                         e8a63007b [fix/capability-wiring-closeout]
+/Users/a77/fwp-wt-chat-idle                                                                                                                 6d4a9df16 [fix/chat-idle-no-git-ritual]
+/Users/a77/fwp-wt-checkpoint-bias                                                                                                           2a0fc382d [feat/checkpoint-rule-id-bias]
+/Users/a77/fwp-wt-checkpoint-bias-sync                                                                                                      9550a9313 [fix/checkpoint-rule-id-bias-sync]
+/Users/a77/fwp-wt-citation-numeric-gate-0917                                                                                                3c5f485a7 [fix/citation-numeric-gate-0917]
+/Users/a77/fwp-wt-codex-isolation-interpreter                                                                                               6d709cfdb [fix/codex-isolation-interpreter]
+/Users/a77/fwp-wt-compaction                                                                                                                bb82778e8 [feat/glm-reasoning-effort]
+/Users/a77/fwp-wt-continuous-research-09                                                                                                    e480e6c7d [feat/continuous-research-09-live]
+/Users/a77/fwp-wt-core-stock                                                                                                                9604981e1 [feat/core-stock-local]
+/Users/a77/fwp-wt-cutover-0908b                                                                                                             1674dfd29 [docs/cutover-0908b]
+/Users/a77/fwp-wt-data-holes                                                                                                                e47583382 [fix/data-holes-0817-20250919]
+/Users/a77/fwp-wt-deep-observable                                                                                                           52a12ad71 [feat/deep-observable-without-plan]
+/Users/a77/fwp-wt-demand-driven-data                                                                                                        3fdc11930 [feat/demand-driven-data-requests]
+/Users/a77/fwp-wt-e2-boundary-closeout                                                                                                      851e78861 [fix/e2-boundary-closeout]
+/Users/a77/fwp-wt-e2-closeout-qc                                                                                                            e178bb57c (detached HEAD)
+/Users/a77/fwp-wt-e2-impl-p1                                                                                                                8bd55b26c [feat/e2-material-contract-impl]
+/Users/a77/fwp-wt-e2-material-contract-0913                                                                                                 ec54ef556 [feat/e2-material-contract-design]
+/Users/a77/fwp-wt-e2-p5-inheritance                                                                                                         8355cf8e9 [feat/e2-p5-cross-turn-inheritance]
+/Users/a77/fwp-wt-e2-p6-input                                                                                                               d20982437 [feat/e2-p6-conditioned-input]
+/Users/a77/fwp-wt-event-pricing                                                                                                             8706c0e3d [feat/event-pricing-slice1]
+/Users/a77/fwp-wt-finance-arena                                                                                                             7162a6cbe [feat/finance-arena]
+/Users/a77/fwp-wt-financial-forward-0921                                                                                                    d82cb16b5 [fix/financial-forward-0921]
+/Users/a77/fwp-wt-financial-forward-review-0921                                                                                             d82cb16b5 (detached HEAD)
+/Users/a77/fwp-wt-financial-ratio-units-0920                                                                                                b345975f6 [fix/financial-ratio-units-0920]
+/Users/a77/fwp-wt-full-dd7b6f74                                                                                                             dd7b6f74f (detached HEAD)
+/Users/a77/fwp-wt-fupanhui-session-hygiene                                                                                                  c06a66f38 [fix/fupanhui-session-hygiene]
+/Users/a77/fwp-wt-g05                                                                                                                       51b95ea67 [fix/g05-market-stage-normalize]
+/Users/a77/fwp-wt-gate-0903f                                                                                                                2d8eaea5b (detached HEAD)
+/Users/a77/fwp-wt-gate-receipt-selection-0921                                                                                               c35f61d37 [fix/gate-receipt-selection-0921]
+/Users/a77/fwp-wt-generation-alert-guard-0920                                                                                               4ace5ec2e [codex/generation-alert-guard-0920]
+/Users/a77/fwp-wt-generation-root-guards                                                                                                    ada20cc8e [fix/generation-root-boundary-guards]
+/Users/a77/fwp-wt-generation-root-guards-validation                                                                                         387028b84 (detached HEAD)
+/Users/a77/fwp-wt-generation-root-validation-0f6c2810                                                                                       0f6c28101 (detached HEAD)
+/Users/a77/fwp-wt-generation-stage-code-root                                                                                                6e8c5a2a9 [fix/generation-stage-code-root]
+/Users/a77/fwp-wt-historical-discovery                                                                                                      57f9f17e2 [codex/feat-historical-discovery]
+/Users/a77/fwp-wt-historical-discovery-spec                                                                                                 da254cd34 [codex/docs-historical-discovery-spec]
+/Users/a77/fwp-wt-history-closeout-0920                                                                                                     e4675eab2 [fix/history-closeout-0920]
+/Users/a77/fwp-wt-history-evidence-integration-0921                                                                                         bbd948a6a [feat/history-evidence-integration-0921]
+/Users/a77/fwp-wt-history-evidence-qc-0921                                                                                                  06fca48d4 [baseline/history-evidence-qc-0921]
+/Users/a77/fwp-wt-history-forward-0921                                                                                                      7edfe24e7 [fix/history-forward-0921]
+/Users/a77/fwp-wt-history-forward-review-0921                                                                                               7edfe24e7 (detached HEAD)
+/Users/a77/fwp-wt-history-market-anatomy                                                                                                    c9bd82ff2 [feat/history-market-anatomy]
+/Users/a77/fwp-wt-hithink-merge-0920                                                                                                        ec92b31b5 [codex/hithink-merge-0920]
+/Users/a77/fwp-wt-hithink-research-data                                                                                                     7596751d8 [feat/hithink-research-data]
+/Users/a77/fwp-wt-hithink-review-wiring                                                                                                     d4d0ee263 [fix/hithink-review-wiring]
+/Users/a77/fwp-wt-hybrid-ledger-dependency                                                                                                  7d193f1c6 [docs/hybrid-ledger-dependency]
+/Users/a77/fwp-wt-i1-attribution                                                                                                            01de7e947 [feat/i1-availability-attribution]
+/Users/a77/fwp-wt-judge-calibration                                                                                                         19ae9973a [feat/judge-calibration-validity]
+/Users/a77/fwp-wt-judge-mode-k3-0921                                                                                                        c04959639 [docs/judge-mode-k3-cutover-0921]
+/Users/a77/fwp-wt-judge-recovery-01                                                                                                         95588d698 [fix/judge-recovery-01]
+/Users/a77/fwp-wt-judge-token-usage                                                                                                         916cb4b53 [feat/judge-token-usage]
+/Users/a77/fwp-wt-judge-window                                                                                                              b19d0c40c [fix/judge-window-follows-tier]
+/Users/a77/fwp-wt-k3nj-00                                                                                                                   af50e4055 [eval/k3nj-compat-payload]
+/Users/a77/fwp-wt-kb-dual-index-deploy                                                                                                      2b4948a40 [fix/kb-dual-index-deploy]
+/Users/a77/fwp-wt-kb-filter-receipt                                                                                                         d32b89662 [docs/kb-receipt-merge-0918]
+/Users/a77/fwp-wt-knevo-intake-0917                                                                                                         4a32f63aa [docs/knevo-intake-20260917]
+/Users/a77/fwp-wt-knevo-tool-parity                                                                                                         dc85e602e [feat/knevo-tool-parity]
+/Users/a77/fwp-wt-l2-deploy-0916                                                                                                            9b77537fd [docs/l2-deploy-0916]
+/Users/a77/fwp-wt-l2-file-source-qc                                                                                                         8bcb88e3b [fix/l2-file-source-qc]
+/Users/a77/fwp-wt-l2-share-port-0916                                                                                                        70811c7d6 [feat/l2-share-source-port-0916]
+/Users/a77/fwp-wt-l2-writeback                                                                                                              6bd1e2911 [docs/l2-independence-writeback]
+/Users/a77/fwp-wt-local-plan-alignment-validation                                                                                           07d42891c (detached HEAD)
+/Users/a77/fwp-wt-main-docs                                                                                                                 4ace5ec2e [main]
+/Users/a77/fwp-wt-main-merge-0913                                                                                                           d7e538055 (detached HEAD)
+/Users/a77/fwp-wt-market-date-advisory-0921                                                                                                 25bcdfe06 [fix/market-date-advisory-0921]
+/Users/a77/fwp-wt-mechanism-pilot                                                                                                           c29a64011 [feat/mechanism-research-pilot]
+/Users/a77/fwp-wt-merge-01                                                                                                                  6a35a6831 [feat/01-merge-prep]
+/Users/a77/fwp-wt-merge-02                                                                                                                  287db836c [gate-main-287db836]
+/Users/a77/fwp-wt-merge-04                                                                                                                  1332bed5b [feat/04-merge-prep]
+/Users/a77/fwp-wt-merge-08                                                                                                                  9320a3323 [feat/08-merge-prep]
+/Users/a77/fwp-wt-merge-10                                                                                                                  e4d476fa4 [feat/10-merge-prep]
+/Users/a77/fwp-wt-merge-hd                                                                                                                  705c4bd4c [feat/hd-merge-prep]
+/Users/a77/fwp-wt-merge-i2                                                                                                                  82f5f17fe [feat/i2-merge-prep]
+/Users/a77/fwp-wt-merge-re06                                                                                                                0bd11ece5 [merge/research-evolution-06-main]
+/Users/a77/fwp-wt-methodology-backtest-p0                                                                                                   06a8c3ea1 [docs/p1-gate-writeback]
+/Users/a77/fwp-wt-methodology-backtest-p1b                                                                                                  5c7fe2ebe [docs/p1b-writeback]
+/Users/a77/fwp-wt-methodology-backtest-p1c                                                                                                  47a4fcdeb [docs/p1c-writeback]
+/Users/a77/fwp-wt-methodology-backtest-p1d                                                                                                  8cc32c986 [feat/methodology-backtest-p1-refuted]
+/Users/a77/fwp-wt-methodology-backtest-p1e                                                                                                  10beb788f [feat/methodology-backtest-p1-stage-baseline]
+/Users/a77/fwp-wt-money-effect-regime                                                                                                       47f69827a [feat/money-effect-regime-rules]
+/Users/a77/fwp-wt-nightly-deploy-closeout-0921                                                                                              b26a617d3 [docs/nightly-deployment-receipt-0921]
+/Users/a77/fwp-wt-nightly-refresh-resume-0920                                                                                               728f32716 [fix/nightly-refresh-resume-0920]
+/Users/a77/fwp-wt-nightly-review-0917                                                                                                       6356ffd5e [fix/nightly-review-0917]
+/Users/a77/fwp-wt-open-work-spec                                                                                                            62bbc4ecf [docs/open-work-consolidation-0920]
+/Users/a77/fwp-wt-opinion-stage                                                                                                             0eb623feb [feat/opinion-lifecycle-stage]
+/Users/a77/fwp-wt-ownership-arena-gates-0921                                                                                                471f85a22 [baseline/ownership-arena-gates-0921]
+/Users/a77/fwp-wt-ownership-arena-gates-v2-0921                                                                                             b8292d235 [baseline/ownership-arena-gates-v2-0921]
+/Users/a77/fwp-wt-ownership-closeout-0921                                                                                                   53f789969 [ops/worktree-ownership-closeout-0921]
+/Users/a77/fwp-wt-ownership-gates-0921                                                                                                      321712b68 [baseline/ownership-gates-0921]
+/Users/a77/fwp-wt-ownership-gates-v2-0921                                                                                                   e1b63b1a5 [baseline/ownership-gates-v2-0921]
+/Users/a77/fwp-wt-ownership-gates-v3-0921                                                                                                   47530e20f [baseline/ownership-gates-v3-0921]
+/Users/a77/fwp-wt-ownership-gates-v4-0921                                                                                                   6eb12c1b8 [baseline/ownership-gates-v4-0921]
+/Users/a77/fwp-wt-ownership-quality-v3-0921                                                                                                 47530e20f (detached HEAD)
+/Users/a77/fwp-wt-ownership-quality-v4-0921                                                                                                 6eb12c1b8 (detached HEAD)
+/Users/a77/fwp-wt-ownership-resume-review-0921                                                                                              e1b63b1a5 (detached HEAD)
+/Users/a77/fwp-wt-ownership-spec-v3-0921                                                                                                    47530e20f (detached HEAD)
+/Users/a77/fwp-wt-ownership-spec-v4-0921                                                                                                    6eb12c1b8 (detached HEAD)
+/Users/a77/fwp-wt-public-brief                                                                                                              a7f501039 [feat/public-daily-brief]
+/Users/a77/fwp-wt-qc-0911                                                                                                                   2efdff46e (detached HEAD)
+/Users/a77/fwp-wt-qc-8792-completed-0913                                                                                                    78e326391 [docs/qc-8792-completed-0913]
+/Users/a77/fwp-wt-qc-8792-readiness-0917                                                                                                    0170b6cc9 [docs/qc-8792-readiness-0917]
+/Users/a77/fwp-wt-qc-closeout-0909b                                                                                                         3e87c6aa2 [docs/qc-closeout-0909b]
+/Users/a77/fwp-wt-qc-conformance                                                                                                            f40f878b2 (detached HEAD)
+/Users/a77/fwp-wt-qc-extraction-caba87c7                                                                                                    1d8d95673 [codex/qc-extraction-caba87c7]
+/Users/a77/fwp-wt-qc-extraction-first-p0-b42dc9bf                                                                                           e7f6e8b7f [codex/qc-extraction-first-p0-b42dc9bf]
+/Users/a77/fwp-wt-qc-generation-root-0f6c2810                                                                                               9b974691d [docs/qc-generation-root-0f6c2810]
+/Users/a77/fwp-wt-qc-method-29b07912                                                                                                        fed8a3fe5 [docs/qc-method-29b07912]
+/Users/a77/fwp-wt-qc-research-evolution-06                                                                                                  51c08288f [docs/qc-research-evolution-06-0913]
+/Users/a77/fwp-wt-qc-research-evolution-repair                                                                                              f50ce52e5 [docs/qc-research-evolution-repair-0913]
+/Users/a77/fwp-wt-qc-route-600f2aa9                                                                                                         433951eda [docs/qc-route-gate-600f2aa9]
+/Users/a77/fwp-wt-rag-keepalive                                                                                                             3eb8dc40b [feat/rag-worker-resident-keepalive]
+/Users/a77/fwp-wt-rag-retirement-closeout-0920                                                                                              1931b3a32 [fix/rag-retirement-closeout-0920]
+/Users/a77/fwp-wt-rag-window                                                                                                                94f5daaed [feat/rag-window-gate-and-worker-keepalive]
+/Users/a77/fwp-wt-ranking-scenarios-10                                                                                                      0dc0999db [feat/ranking-scenarios-10]
+/Users/a77/fwp-wt-react-comparison-archive                                                                                                  87c719f89 [docs/react-components-comparison-0918]
+/Users/a77/fwp-wt-react-trace-baseline-0921                                                                                                 728f32716 (detached HEAD)
+/Users/a77/fwp-wt-react-trace-closeout-0921                                                                                                 ac3bbd310 [fix/react-trace-closeout-0921]
+/Users/a77/fwp-wt-react-trace-qc-0921                                                                                                       0888ea984 [fix/react-trace-qc-0921]
+/Users/a77/fwp-wt-react-trace-runtime-0921                                                                                                  dda5895aa [fix/react-trace-runtime-0921]
+/Users/a77/fwp-wt-regime-live                                                                                                               f80464cbe [feat/money-effect-regime-live]
+/Users/a77/fwp-wt-release-gate-closeout                                                                                                     727b2611f [fix/release-gate-closeout]
+/Users/a77/fwp-wt-research-answer-preservation                                                                                              ce673a9f4 [feat/research-answer-preservation]
+/Users/a77/fwp-wt-research-closeout-0920                                                                                                    b1bad144d [fix/research-closeout-0920]
+/Users/a77/fwp-wt-research-data-readiness                                                                                                   b47577092 [feat/research-data-readiness]
+/Users/a77/fwp-wt-research-tail-closeout-docs-0921                                                                                          7d6277ca4 [docs/research-tail-closeout-0921]
+/Users/a77/fwp-wt-research-tail-integration-0921                                                                                            ea5c3a946 [fix/research-tail-integration-0921]
+/Users/a77/fwp-wt-resume-specs-0905                                                                                                         c6e702a6d [docs/resume-specs-0905]
+/Users/a77/fwp-wt-runtime-authority-pc-0918                                                                                                 6b70e5403 [fix/runtime-authority-pc-0918]
+/Users/a77/fwp-wt-runtime-base-p4                                                                                                           89be9b3f6 [feat/runtime-base-p4-races-oracle]
+/Users/a77/fwp-wt-runtime-contracts-0918                                                                                                    a7f5cc06c [fix/runtime-contracts-0918]
+/Users/a77/fwp-wt-runtime-evidence-closeout-0920                                                                                            12d0ea13c [fix/runtime-evidence-closeout-0920]
+/Users/a77/fwp-wt-runtime-evidence-probe-0918                                                                                               d0780df58 [fix/runtime-evidence-probe-0918]
+/Users/a77/fwp-wt-runtime-forward-0921                                                                                                      cb16cd463 [fix/runtime-forward-0921]
+/Users/a77/fwp-wt-runtime-forward-review-0921                                                                                               cb16cd463 (detached HEAD)
+/Users/a77/fwp-wt-sandbox-derived-calc                                                                                                      2ebbc04fe [feat/sandbox-derived-calculation]
+/Users/a77/fwp-wt-step-trajectory-qualification                                                                                             52eba8800 [feat/step-trajectory-qualification]
+/Users/a77/fwp-wt-stock-daily-fix                                                                                                           c8fc3d5c0 [fix/stock-daily-misdated-snapshot]
+/Users/a77/fwp-wt-tail-prereq-review-0921                                                                                                   ea5c3a946 (detached HEAD)
+/Users/a77/fwp-wt-task-frame-clarify                                                                                                        2c3d4f5b5 [fix/task-frame-missing-material-clarify]
+/Users/a77/fwp-wt-teaching-framework-slice1                                                                                                 637b37fc7 [feat/teaching-framework-slice1]
+/Users/a77/fwp-wt-teaching-slice2                                                                                                           86c97c171 [feat/teaching-framework-slice2]
+/Users/a77/fwp-wt-teaching-slice3                                                                                                           3a35d0ec6 [feat/teaching-framework-slice3-structure]
+/Users/a77/fwp-wt-technical-daily                                                                                                           6b6d9f364 [feat/finance-query-technical-daily]
+/Users/a77/fwp-wt-test-gate-receipt-identity-0921                                                                                           6ca9c5724 [fix/test-gate-receipt-identity-0921]
+/Users/a77/fwp-wt-theme-stage                                                                                                               c9ed412f9 [feat/methodology-backtest-p1-lifecycle-stage]
+/Users/a77/fwp-wt-theme-stage-vocab                                                                                                         b80ba77d8 [feat/theme-stage-vocab-g04]
+/Users/a77/fwp-wt-tool-floors                                                                                                               3e5b08736 [feat/tool-window-floors]
+/Users/a77/fwp-wt-verify-8e1ea623                                                                                                           8e1ea6236 (detached HEAD)
+/Users/a77/fwp-wt-webapp-beautiful-ui                                                                                                       78fb86396 [fix/webapp-ime-enter-and-beautiful-ui]
+/Users/a77/fwp-wt-wiki-aperture-ablation                                                                                                    cd94a1db4 [perf/wiki-hybrid-25s]
+/Users/a77/fwp-wt-workbench-research-journey                                                                                                094daed11 [codex/feat-workbench-research-journey]
+/Users/a77/fwp-wt-workbench-tech-premium                                                                                                    717d243be [feat/workbench-tech-premium]
+/Users/a77/fwp-wt-worker-freshness                                                                                                          6f38ea8cb [fix/rag-worker-page-freshness]
+/Users/a77/fwp-wt-workorder-hithink                                                                                                         df003bbec [docs/workorder-41-hithink-ingest]
+/Users/a77/fwp-wt-writer-cost                                                                                                               be4153553 [feat/writer-cost-budget]
+/Users/a77/mirasim-worktrees/finance-workspace-private/spry-soaring-summit                                                                  b4a35fa2c [spry-soaring-summit]
+/Users/a77/worktrees/fix-duckdb-sector-conformance                                                                                          1ce871bad [fix/duckdb-sector-conformance]

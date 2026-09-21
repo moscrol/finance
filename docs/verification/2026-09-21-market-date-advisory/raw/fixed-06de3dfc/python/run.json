@@ -1,0 +1,65 @@
+{
+  "leaf": "python",
+  "revision": "06de3dfc53835cbbaffb20f8c26451674909ebe4",
+  "base": "79b11d4268a3",
+  "tree": "/Users/a77/fwp-wt-market-date-advisory-0921",
+  "pid": 34569,
+  "started_at": "2026-09-21T12:42:02.126540+00:00",
+  "before": {
+    "revision": "06de3dfc53835cbbaffb20f8c26451674909ebe4",
+    "tree_object": "8c7dbd1069a86123c6921ff70cc7247e57eeeb9a",
+    "status": ""
+  },
+  "checks": [
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "started_at": "2026-09-21T12:42:02.241906+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/python/0.log.txt",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "elapsed_seconds": 3.0
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "-o",
+        "tmp_path_retention_policy=failed",
+        "-o",
+        "tmp_path_retention_count=1",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/python/tmp",
+        "--junitxml=/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/python/junit.xml"
+      ],
+      "started_at": "2026-09-21T12:42:05.246889+00:00",
+      "exit_code": -15,
+      "log": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/python/1.log.txt",
+      "sha256": "b55676bb41f289c659b8fe229cf85a7afa75396d4ce90c4493163e3abd107a55",
+      "elapsed_seconds": 228.3
+    }
+  ],
+  "complete": false,
+  "resource_admission": {
+    "at": "2026-09-21T12:42:02.241536+00:00",
+    "free_bytes": 19496407040,
+    "other_pytest_processes": []
+  },
+  "error": "AssertionError: []",
+  "after": {
+    "revision": "06de3dfc53835cbbaffb20f8c26451674909ebe4",
+    "tree_object": "8c7dbd1069a86123c6921ff70cc7247e57eeeb9a",
+    "status": ""
+  },
+  "source_unchanged": true,
+  "finished_at": "2026-09-21T12:45:53.642847+00:00",
+  "exit_code": 1
+}

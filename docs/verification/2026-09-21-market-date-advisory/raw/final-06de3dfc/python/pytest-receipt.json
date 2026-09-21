@@ -1,0 +1,24 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-market-date-advisory-0921",
+  "revision": "06de3dfc53835cbbaffb20f8c26451674909ebe4",
+  "branch": "fix/market-date-advisory-0921",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/fwp-wt-market-date-advisory-0921",
+  "counts": {
+    "passed": 12550,
+    "failed": 1,
+    "error": 0,
+    "skipped": 85
+  },
+  "failed_ids": [
+    "intelligence/tests/test_e2_local_freeze.py::test_audited_local_queries_run_against_only_temporary_sources[stale]"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-21T13:01:47+00:00"
+}

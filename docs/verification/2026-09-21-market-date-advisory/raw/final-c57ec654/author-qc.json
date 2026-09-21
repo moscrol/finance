@@ -1,0 +1,50 @@
+{
+  "at": "2026-09-21T13:42:07.981526+00:00",
+  "revision": "c57ec6542e5b33b2d7d2dccadf742e8a33e23b5d",
+  "tree": "/Users/a77/fwp-wt-market-date-advisory-0921",
+  "verdict": "AUTHOR_ENGINEERING_PASS_NOT_INDEPENDENT_OR_LIVE_ACCEPTANCE",
+  "leaves": {
+    "python": {
+      "run": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/python/run.json",
+      "sha256": "88e4aa758beba2ac54b06e464295d2d9bae394b314c8b49c8a3a517dbc9bc10b"
+    },
+    "frontend": {
+      "run": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/frontend/run.json",
+      "sha256": "ade8570960bc9fe41424a06d5bbbfd292cf71b5287c98e5719b854997298b5f2"
+    },
+    "registry": {
+      "run": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/registry/run.json",
+      "sha256": "cbbffc55f4b34cf4976764278f981b496077982a0ce8a96b6133d81a1f0a9325"
+    }
+  },
+  "receipt": {
+    "path": "/Users/a77/.finance-runtime/test-receipts/20260921T134045Z-c57ec654.json",
+    "sha256": "cfd641011dd40b4aafdb561555b02ddeb68524df83fdb66f246e15205cc89c33",
+    "counts": {
+      "passed": 12551,
+      "failed": 0,
+      "error": 0,
+      "skipped": 85
+    }
+  },
+  "junit": {
+    "testcases": 12638,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 87,
+    "xfail": 2
+  },
+  "e2e": {
+    "passed": 34,
+    "skipped": 2
+  },
+  "mutations": {
+    "caught": 11,
+    "total": 11
+  },
+  "resource_samples": 252,
+  "minimum_free_bytes": 10927255552,
+  "independent_review": "not_run",
+  "natural_model_answer": "not_run",
+  "production_deployment": "not_run"
+}

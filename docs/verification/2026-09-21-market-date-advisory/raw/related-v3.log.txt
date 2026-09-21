@@ -1,0 +1,53 @@
+........................................................................ [ 25%]
+........................................................................ [ 51%]
+........................................................................ [ 77%]
+....................................................F..........          [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T115345Z-c097d712.json
+
+=================================== FAILURES ===================================
+____ TestShippedContracts.test_mainline_context_warns_about_uneven_coverage ____
+
+self = <intelligence.tests.test_tool_behavior_contract.TestShippedContracts object at 0x10ace85f0>
+
+    def test_mainline_context_warns_about_uneven_coverage(self) -> None:
+        """2026-08-10 实测：题材/个股两张主线表各 35 个交易日，起点晚于板块表
+        （88 天），早期日期查不到。空结果不是「当天没有主线」。
+    
+        契约刻意不写死日期——覆盖会随回填推进，写死当天就过期。
+        """
+        contract = reg._TOOL_CONTRACTS["mainline_context"]
+    
+>       assert "不是每个交易日都齐全" in contract
+E       AssertionError: assert '不是每个交易日都齐全' in '主线结构来自本地库各表在截止日内的最新可用切片，覆盖并非每个交易日都齐全，题材与个股两张的起始日明显晚于板块表，较早的日期查不到。返回为空或提示「题材级主线未知」，说明该交易日没有回填主线数据，不能据此说当天没有主线；数据比行情快照旧时仍交付并说明，按各表实际日期继续分析，不因日期差异降级或拒答，不要当作提问当天的主线。'
+
+intelligence/tests/test_tool_behavior_contract.py:216: AssertionError
+=============================== warnings summary ===============================
+intelligence/tests/test_workbench_api.py::test_executor_runner_exception_terminalizes_run_and_pending_message
+  /Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/threadexception.py:82: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-167
+  
+  Traceback (most recent call last):
+    File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/threading.py", line 1075, in _bootstrap_inner
+      self.run()
+    File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/threading.py", line 1433, in run
+      self.function(*self.args, **self.kwargs)
+    File "/Users/a77/fwp-wt-market-date-advisory-0921/intelligence/api/app.py", line 1507, in _expire
+      terminal_handler("executor_timeout")
+    File "/Users/a77/fwp-wt-market-date-advisory-0921/intelligence/api/app.py", line 1337, in <lambda>
+      on_terminal=lambda reason: _terminalize_pending_message(
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/a77/fwp-wt-market-date-advisory-0921/intelligence/api/app.py", line 1784, in _terminalize_pending_message
+      run_store.append_stream_event(
+    File "/Users/a77/fwp-wt-market-date-advisory-0921/intelligence/services/run_store.py", line 402, in append_stream_event
+      existing = self.db.get_run_events(run_id)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "/Users/a77/fwp-wt-market-date-advisory-0921/intelligence/services/workbench_db.py", line 182, in get_run_events
+      rows = conn.execute(
+             ^^^^^^^^^^^^^
+  sqlite3.OperationalError: no such table: run_events
+  
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-v3.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_tool_behavior_contract.py::TestShippedContracts::test_mainline_context_warns_about_uneven_coverage
+1 failed, 278 passed, 1 warning in 16.72s

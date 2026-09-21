@@ -1,0 +1,1188 @@
+{
+  "revision": "c57ec6542e5b33b2d7d2dccadf742e8a33e23b5d",
+  "scope": "text evidence only; temporary databases and caches excluded, originals retained",
+  "files": [
+    {
+      "path": "raw/final-date-commit.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-date-commit.txt",
+      "bytes": 5635,
+      "sha256": "3a8affe0a6fe64bdb4fbb85666f6b3df43b087cee7c7df34bc4c21441defbf33"
+    },
+    {
+      "path": "raw/first-targeted.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/first-targeted.log",
+      "bytes": 2564,
+      "sha256": "2be99e49cbbb762a1a9a82c3586ad11cf4a6e4be9b0b754adaf7dd16bdbf27a1"
+    },
+    {
+      "path": "raw/first-targeted.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/first-targeted.xml",
+      "bytes": 15810,
+      "sha256": "737b4efeb6a4682c1a1c5313d97d5d6eac63ffcaec0bf4864ca3847eea92aec0"
+    },
+    {
+      "path": "raw/followup-commit.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/followup-commit.txt",
+      "bytes": 5707,
+      "sha256": "35f8450e64814abbf55f2d690d9ba25478aaab33b1b2423c34e32e07f888fd8f"
+    },
+    {
+      "path": "raw/forward-main.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/forward-main.txt",
+      "bytes": 2636,
+      "sha256": "8b84f262892ea2e3d0a712e3a5c9e625c6e621a9d32e93d49548a609f157eec3"
+    },
+    {
+      "path": "raw/local-policy-commit.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/local-policy-commit.txt",
+      "bytes": 5691,
+      "sha256": "0faac69aacc5a46a129c0791e27b4dec243a1a1f2e334c81e8fac359cd593b3c"
+    },
+    {
+      "path": "raw/local-policy-followup.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/local-policy-followup.log",
+      "bytes": 302,
+      "sha256": "c065e620bf1e1b5c4dcd60f3118e4abf681a39441437b9340fe4646a234bf1da"
+    },
+    {
+      "path": "raw/local-policy-followup.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/local-policy-followup.xml",
+      "bytes": 8037,
+      "sha256": "9dff003492ac52da61118b7a51931c12d8ef16530819af29031c54b9e966bb1c"
+    },
+    {
+      "path": "raw/prefetch-commit.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/prefetch-commit.txt",
+      "bytes": 5700,
+      "sha256": "0c2a82b49a2a5bd88eabc8fda18204772341450a6782291192217b3ca3065feb"
+    },
+    {
+      "path": "raw/provenance-commit.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/provenance-commit.txt",
+      "bytes": 5704,
+      "sha256": "e9834ada9be749416e97c491fd3ae554b2282fcac1aefa5d0ad8481d0f159967"
+    },
+    {
+      "path": "raw/python-driver.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/python-driver.log",
+      "bytes": 1810,
+      "sha256": "6bca1d33a130c364598040ef064ac033cb88bd8239be52ae58b904f4672c025d"
+    },
+    {
+      "path": "raw/python-stop-escalation.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/python-stop-escalation.json",
+      "bytes": 195,
+      "sha256": "fd269436a9db8897d40812181efb1e01f83cd1a5fe3d7603e832a7ddf14a8ee2"
+    },
+    {
+      "path": "raw/python-stop-reason.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/python-stop-reason.json",
+      "bytes": 714,
+      "sha256": "b5b49e61d796d326996de9ad9c463b58d156083d168535bd3cd9f50326321cfa"
+    },
+    {
+      "path": "raw/qc_and_archive.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/qc_and_archive.py",
+      "bytes": 7329,
+      "sha256": "0611ddfddd8ae56b107848fa9705030f074391a8c09b7924256c2b38f4546e7a"
+    },
+    {
+      "path": "raw/related-ask-final.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-ask-final.log",
+      "bytes": 940,
+      "sha256": "d9707751c2957875f21d298d271953bc6e60cd3fb6a8741a96dd48cce137b2ef"
+    },
+    {
+      "path": "raw/related-ask-final.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-ask-final.xml",
+      "bytes": 104478,
+      "sha256": "00ae7ec8407d29224210291653f2309ee360a99ad6ec8f7f42f91023c7bbb5f1"
+    },
+    {
+      "path": "raw/related-ask-followup.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-ask-followup.log",
+      "bytes": 2820,
+      "sha256": "b48c65c85eb3610a2b272d679087a4def05d81aba8049d94eabb5aaec3deca9b"
+    },
+    {
+      "path": "raw/related-ask-followup.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-ask-followup.xml",
+      "bytes": 106144,
+      "sha256": "37b90d6720cbffb99e569858560c5eadd75a712f48c94d6578e6838693a9807e"
+    },
+    {
+      "path": "raw/related-final.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-final.log",
+      "bytes": 936,
+      "sha256": "33c4b1652057f249fcd90bf55a5833037b7d23aa97496fd98427c72ec1d2716c"
+    },
+    {
+      "path": "raw/related-final.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-final.xml",
+      "bytes": 96514,
+      "sha256": "5cf4266c085ef6683f8ea52479f67b7d5d37ee8743abab8bf2198c53c768d8e5"
+    },
+    {
+      "path": "raw/related-prefetch-final.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-prefetch-final.log",
+      "bytes": 1025,
+      "sha256": "3a3a15b543b7c4dd4e712d600e1f6f93a574dc26ebf7893e16bf7e269c2a7eea"
+    },
+    {
+      "path": "raw/related-prefetch-final.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-prefetch-final.xml",
+      "bytes": 107041,
+      "sha256": "7fab9da27a64cf09325f394db46b75d85c3510f0ec75b95ecab871879c7c4895"
+    },
+    {
+      "path": "raw/related-prefetch.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-prefetch.log",
+      "bytes": 12543,
+      "sha256": "e337b0c0e2bc5fec66dd11fada18b3b5aeb3801cc14168d92e20d629d366de37"
+    },
+    {
+      "path": "raw/related-prefetch.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-prefetch.xml",
+      "bytes": 118129,
+      "sha256": "367422672164562300c7dcbcf2ab7e0491f94e0b2cb4d9713a8aec972066d102"
+    },
+    {
+      "path": "raw/related-provenance.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-provenance.log",
+      "bytes": 1021,
+      "sha256": "7f5049876cb22e8a37253d6fde4c8bbd29fa172a42dd2810913bee6752678d59"
+    },
+    {
+      "path": "raw/related-provenance.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-provenance.xml",
+      "bytes": 105789,
+      "sha256": "dbe483a6e18eb1ee7d2c6f9fba3111d40d648463589cb62ff14355717c826c88"
+    },
+    {
+      "path": "raw/related-v2.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-v2.log",
+      "bytes": 933,
+      "sha256": "3588ec6092f9fe848494878310b595d90dd1e432ac3206b3578359fd4c5d63e9"
+    },
+    {
+      "path": "raw/related-v2.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-v2.xml",
+      "bytes": 95016,
+      "sha256": "32efe19ad22c7c9b7842bc16e27b37cd24fedf00a6942337fbc13101a5d8b2da"
+    },
+    {
+      "path": "raw/related-v3.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-v3.log",
+      "bytes": 4060,
+      "sha256": "5f6cef7f092470e5bdfcc7835cceeb3e7f631c172475c019986b18a8ceaf3a9b"
+    },
+    {
+      "path": "raw/related-v3.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-v3.xml",
+      "bytes": 44562,
+      "sha256": "115aa942c5a2414f98e547f4d48295d8866db7841e1d51e216b01fc3f360a956"
+    },
+    {
+      "path": "raw/related-v4.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-v4.log",
+      "bytes": 692,
+      "sha256": "a7cd92ff638419690b41a123e60050c7a0d3851a5f2dc06a8c32299da723ef31"
+    },
+    {
+      "path": "raw/related-v4.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related-v4.xml",
+      "bytes": 69012,
+      "sha256": "5e5d071c7246691ce2f6a7c5540261354fbbfe9abb49e00ce6ce320131582578"
+    },
+    {
+      "path": "raw/related.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related.log",
+      "bytes": 3520,
+      "sha256": "d1d8a13b90fda5ff89466aab96f54bd86db8088aad35d48025b0c44d168f61f7"
+    },
+    {
+      "path": "raw/related.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/related.xml",
+      "bytes": 70220,
+      "sha256": "212e75b1a2f53c9a851cd42ce41c7d9ceafc05b5e7af2c751310fc6d6febc456"
+    },
+    {
+      "path": "raw/ruff.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/ruff.log",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "raw/run_checks.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/run_checks.py",
+      "bytes": 8238,
+      "sha256": "056d5d16a96e4dfd5f87e8f7a25ab09fff350b613b93905860dd4acbbeafe574"
+    },
+    {
+      "path": "raw/session-facts-final-preflight.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/session-facts-final-preflight.txt",
+      "bytes": 1296,
+      "sha256": "df791310e7755f7662c40606d59f462f446bac61626a8fb66edc8e4c9f4f608f"
+    },
+    {
+      "path": "raw/session-facts-recheck.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/session-facts-recheck.txt",
+      "bytes": 1455,
+      "sha256": "04d17acca9e1010dac31d6e36cef4dfeca8e7d49ca3486667e1099dea79447c4"
+    },
+    {
+      "path": "raw/source-commit.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/source-commit.txt",
+      "bytes": 5768,
+      "sha256": "8c5443ff497fcdf4ad52f4832a51d4a702e06fb576677bf1445f8895a974627a"
+    },
+    {
+      "path": "raw/worktrees-final-preflight.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/worktrees-final-preflight.txt",
+      "bytes": 62229,
+      "sha256": "6f353f4c73663c652b5690ea0faf1a39356bd4f6c813534291d58a02fef6bf2e"
+    },
+    {
+      "path": "raw/worktrees-recheck.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/worktrees-recheck.txt",
+      "bytes": 62229,
+      "sha256": "8abff48bb5f0c4ed42cc0eec4895f84b5749f15f75efeb3b9c3f8fa9f831fb46"
+    },
+    {
+      "path": "raw/python/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/python/0.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "raw/python/1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/python/1.log.txt",
+      "bytes": 5397,
+      "sha256": "67c20db57d12076d4b3c6e1d5d5a2eb31296cf72d40c28d04a37449634549b3d"
+    },
+    {
+      "path": "raw/python/resource-monitor.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/python/resource-monitor.jsonl",
+      "bytes": 10387,
+      "sha256": "1ec19c1162fcfac86fda4d1f825b4d9c3d993e861adf4e39db10c335e9d48f8b"
+    },
+    {
+      "path": "raw/python/resource-wait.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/python/resource-wait.jsonl",
+      "bytes": 100,
+      "sha256": "2dcc04c0736fb339dcf6cc918dd256fbca1565c868192d40035833fdcece976e"
+    },
+    {
+      "path": "raw/python/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/python/run.json",
+      "bytes": 2138,
+      "sha256": "cc0b8c52ad94999a561abe58414c40dcc0cf82a918357cadacc5f2bb68745621"
+    },
+    {
+      "path": "raw/final-c57ec654/author-qc.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/author-qc.json",
+      "bytes": 1605,
+      "sha256": "1b0250138128dddbf05871585d671b9b28ebf4ce5bea1b53f3553ebaa00ac7a3"
+    },
+    {
+      "path": "raw/final-c57ec654/frontend-driver.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/frontend-driver.log",
+      "bytes": 1302,
+      "sha256": "986023c9e8969815902813d2294e7a70f142454f31990ebe59e33bb0f762e003"
+    },
+    {
+      "path": "raw/final-c57ec654/mutation-driver.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutation-driver.log",
+      "bytes": 4171,
+      "sha256": "12c0f77d98acb1a0cc7df201392430daf518c7b0e781bc12b39a8b736853ebf1"
+    },
+    {
+      "path": "raw/final-c57ec654/mutation_probe.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutation_probe.py",
+      "bytes": 8101,
+      "sha256": "3f7c30e8bae586b671bf1992718f8ae575ca3ae74729614fc71672c34d1d0907"
+    },
+    {
+      "path": "raw/final-c57ec654/python-driver.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/python-driver.log",
+      "bytes": 2195,
+      "sha256": "0e217eefd6f1478e77f1a3f0e4ad364411f8ecd6935c4462510e7d6433074d6e"
+    },
+    {
+      "path": "raw/final-c57ec654/registry-driver.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/registry-driver.log",
+      "bytes": 3151,
+      "sha256": "33414723e221d98edd9f99f1beace5b7e010795a8fee2e1378ced2fecce66afa"
+    },
+    {
+      "path": "raw/final-c57ec654/run_checks.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/run_checks.py",
+      "bytes": 8238,
+      "sha256": "a72776b7583bb49b8534415fe7452b76cb992f4b8226298fb515cf732a55a52a"
+    },
+    {
+      "path": "raw/final-c57ec654/frontend/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/frontend/0.log.txt",
+      "bytes": 450,
+      "sha256": "3501d33e2097990258e7b683b8ca0bd577582ffbc2f5854ffec61a20db459da1"
+    },
+    {
+      "path": "raw/final-c57ec654/frontend/resource-monitor.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/frontend/resource-monitor.jsonl",
+      "bytes": 3544,
+      "sha256": "e56ac490abfbfd5587190744dcf1dc1f2363d5903975ac047d76cbcbe146b69e"
+    },
+    {
+      "path": "raw/final-c57ec654/frontend/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/frontend/run.json",
+      "bytes": 1516,
+      "sha256": "ade8570960bc9fe41424a06d5bbbfd292cf71b5287c98e5719b854997298b5f2"
+    },
+    {
+      "path": "raw/final-c57ec654/frontend/gate/frontend-0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/frontend/gate/frontend-0.log.txt",
+      "bytes": 1816,
+      "sha256": "6cb584160224847f0d5b83fbace8c80a72481e8dc1f77d155956eb97e4c799fe"
+    },
+    {
+      "path": "raw/final-c57ec654/frontend/gate/frontend-1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/frontend/gate/frontend-1.log.txt",
+      "bytes": 120,
+      "sha256": "5bf1fb2840113595f6d6fd58fac900c1a3c16011680ac8ae5b3383faec8bda82"
+    },
+    {
+      "path": "raw/final-c57ec654/frontend/gate/frontend-2.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/frontend/gate/frontend-2.log.txt",
+      "bytes": 218,
+      "sha256": "effe439d3f1f047717b28318fd98d0d8c7d412af819c2a0913b8c1b2a5121735"
+    },
+    {
+      "path": "raw/final-c57ec654/frontend/gate/frontend-3.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/frontend/gate/frontend-3.log.txt",
+      "bytes": 1441,
+      "sha256": "00de8bc4ed6f5845f670ce6b2ef74e2419c776a48004a29d6156dedd34b39d8b"
+    },
+    {
+      "path": "raw/final-c57ec654/frontend/gate/frontend-4.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/frontend/gate/frontend-4.log.txt",
+      "bytes": 927,
+      "sha256": "cde4f5e2c39855d1224b28a6a2dbdb3cea901772ebb0dc11c3729608aadfb714"
+    },
+    {
+      "path": "raw/final-c57ec654/frontend/gate/frontend-5.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/frontend/gate/frontend-5.log.txt",
+      "bytes": 12756,
+      "sha256": "1d3a6158b33ec0b3ba8dae4c962cc2042da4dca9b660b1fe4578dc76619430f0"
+    },
+    {
+      "path": "raw/final-c57ec654/frontend/gate/frontend.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/frontend/gate/frontend.json",
+      "bytes": 2503,
+      "sha256": "ae74d37dd2cc3c9b5433b3538fb9f5776fcca26defcb9066fe707e6ec42824b3"
+    },
+    {
+      "path": "raw/final-c57ec654/python/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/python/0.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "raw/final-c57ec654/python/1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/python/1.log.txt",
+      "bytes": 18307,
+      "sha256": "3f7ee824b769f20647b2e68b806958ae21f7e243a325af3ceb81ed5befcf0a39"
+    },
+    {
+      "path": "raw/final-c57ec654/python/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/python/junit.xml",
+      "bytes": 1966082,
+      "sha256": "84383f625d629074b584bb1eed8d6bd5b6784e65aec664e2cf3c52b3987e6808"
+    },
+    {
+      "path": "raw/final-c57ec654/python/pytest-receipt.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/python/pytest-receipt.json",
+      "bytes": 667,
+      "sha256": "cfd641011dd40b4aafdb561555b02ddeb68524df83fdb66f246e15205cc89c33"
+    },
+    {
+      "path": "raw/final-c57ec654/python/resource-monitor.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/python/resource-monitor.jsonl",
+      "bytes": 27897,
+      "sha256": "0217d20a55c52553782620528b91779744aec470aecfe439bda4cf43f9c8171b"
+    },
+    {
+      "path": "raw/final-c57ec654/python/resource-wait.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/python/resource-wait.jsonl",
+      "bytes": 26958,
+      "sha256": "57f2e6e70f671e5983d2324e578ac97c6fe980df2043d2fcb2c07fd3806b6eaf"
+    },
+    {
+      "path": "raw/final-c57ec654/python/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/python/run.json",
+      "bytes": 2599,
+      "sha256": "88e4aa758beba2ac54b06e464295d2d9bae394b314c8b49c8a3a517dbc9bc10b"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/progress.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/progress.json",
+      "bytes": 5263,
+      "sha256": "cc43d030abc2a37af92883af7f391f965039ecd6db7af12033f1c1b8e4178c29"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/result.json",
+      "bytes": 6117,
+      "sha256": "cc9e68694a453d5887b63e4e065a304ce9dfd4e68c73faca0c02d8aca27acb4d"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/date_warning_upgrades_partial/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/date_warning_upgrades_partial/baseline.log",
+      "bytes": 256,
+      "sha256": "8d974b5c25b319badaa878913d8cdf1317b06578ac8c3cf39baeab165c43e34d"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/date_warning_upgrades_partial/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/date_warning_upgrades_partial/baseline.xml",
+      "bytes": 389,
+      "sha256": "07565504a1fd55b2027530218dfcc0477f20169ed15a3b988afcee8a5cf85a05"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/date_warning_upgrades_partial/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/date_warning_upgrades_partial/mutant.log",
+      "bytes": 1590,
+      "sha256": "c4fcea2408cd596894ad895a86723a73ff002664a64ad256f7d631b56cbdefb0"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/date_warning_upgrades_partial/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/date_warning_upgrades_partial/mutant.xml",
+      "bytes": 1441,
+      "sha256": "6f9919293d8706fd6fe7a69fcd867ffeb7e1dd16a28b9d1ee375a0b915b45c59"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/prefetch_drops_own_date/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/prefetch_drops_own_date/baseline.log",
+      "bytes": 250,
+      "sha256": "303a61676c5e163a0bca9b8224d8ed215c06e75ec13edb55ca9042074ece5b41"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/prefetch_drops_own_date/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/prefetch_drops_own_date/baseline.xml",
+      "bytes": 723,
+      "sha256": "9f2b5ef4708e38a4d6bcd929c64306c8bcecae72cf892a088a1993b3eece6f48"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/prefetch_drops_own_date/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/prefetch_drops_own_date/mutant.log",
+      "bytes": 6853,
+      "sha256": "b83f28acf84aa67e3c16b55074c058580de8663672c6fc850fbae38f27575048"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/prefetch_drops_own_date/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/prefetch_drops_own_date/mutant.xml",
+      "bytes": 7245,
+      "sha256": "ef261f45ae839e9a98a84d5b5346234a8cb589a1d277fbb79183b22865e5bfa3"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/unknown_source_filled_from_overview/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/unknown_source_filled_from_overview/baseline.log",
+      "bytes": 262,
+      "sha256": "9f2beb1aa3079755a95dc7b8bc297963ac2892d27c58824ef054a3ff6111ab96"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/unknown_source_filled_from_overview/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/unknown_source_filled_from_overview/baseline.xml",
+      "bytes": 723,
+      "sha256": "613b426da720f3c9e38cbfee09e9bd42bc4c5c894d6a40351ed49c933a7022ee"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/unknown_source_filled_from_overview/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/unknown_source_filled_from_overview/mutant.log",
+      "bytes": 4736,
+      "sha256": "cdc1e20cc4340b64eeacbb7e7d11d8b31b0c93bf6ef2db161596eaaf0b2f14f9"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/unknown_source_filled_from_overview/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/unknown_source_filled_from_overview/mutant.xml",
+      "bytes": 5071,
+      "sha256": "8690dabd4122654ae9bb500a2c2cd07f7f6064f30fc953ecf9d457523ced24e3"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/mismatch_as_failure/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/mismatch_as_failure/baseline.log",
+      "bytes": 246,
+      "sha256": "b14958a8fa9dd2b0aff48ce8415e5c67cc7e58fc47e75188920ef401d6d836a6"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/mismatch_as_failure/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/mismatch_as_failure/baseline.xml",
+      "bytes": 383,
+      "sha256": "d411954d64f3cdd2fdac51add453726f9a129b97dd52769d1eb6894b0127f720"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/mismatch_as_failure/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/mismatch_as_failure/mutant.log",
+      "bytes": 1335,
+      "sha256": "53389b4af0de8d7f0be78e257c327cb0cee04cd68d2a783eafdf8f151ff11fd3"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/mismatch_as_failure/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/mismatch_as_failure/mutant.xml",
+      "bytes": 1217,
+      "sha256": "f5bc4674d7ff76c24984a5a5dc67e31ec5996dc0f6a84468785c55ea57bc39f8"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/uniform_overview_date/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/uniform_overview_date/baseline.log",
+      "bytes": 248,
+      "sha256": "fafc118ea9650c095a6119899efeb1fc73f0281e47e3c1f1a7542d8d3e165f4c"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/uniform_overview_date/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/uniform_overview_date/baseline.xml",
+      "bytes": 1245,
+      "sha256": "1e96b3a6585c5d9dcf5d71bc162c1acdc0402d4636c62e722e7ba1c12f08b495"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/uniform_overview_date/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/uniform_overview_date/mutant.log",
+      "bytes": 14544,
+      "sha256": "a5cb9a526c3552e211f8f7a4dd9ee8861fd6214f2e356b6a4b53c2ac918fe2de"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/uniform_overview_date/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/uniform_overview_date/mutant.xml",
+      "bytes": 15153,
+      "sha256": "8ea6fcc52e9201aba2035aae7ff7f0c446bca724762e78c8c11f13f6b556e005"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/reference_as_query_ceiling/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/reference_as_query_ceiling/baseline.log",
+      "bytes": 253,
+      "sha256": "63d51b3eb463cdd67589dbaa5e5d0aa607cb783b92f5ce95f6b4cbed4d28ddfa"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/reference_as_query_ceiling/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/reference_as_query_ceiling/baseline.xml",
+      "bytes": 388,
+      "sha256": "51794c63ccc5cf135df3435cb2907ff32d327b79e17bb442282931c4458cd84e"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/reference_as_query_ceiling/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/reference_as_query_ceiling/mutant.log",
+      "bytes": 2075,
+      "sha256": "367f5de33a5fe10835bb35f3d68b09972f9755aa1a6408766ffabed5f84d54fb"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/reference_as_query_ceiling/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/reference_as_query_ceiling/mutant.xml",
+      "bytes": 2098,
+      "sha256": "3ed3ac2747577e0318a8ffd902c5410f43053ee576e32b55864e0ac31e3430f2"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/hide_other_day_themes/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/hide_other_day_themes/baseline.log",
+      "bytes": 248,
+      "sha256": "cbd411997e9b92762df8f490d76cff94e6c4bb43bb4dcad4043167f1a830c442"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/hide_other_day_themes/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/hide_other_day_themes/baseline.xml",
+      "bytes": 1245,
+      "sha256": "3e17f64c0f7ee3ca31532528ed0e3a840d198ed5f6b9ae68be05542d67bc5716"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/hide_other_day_themes/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/hide_other_day_themes/mutant.log",
+      "bytes": 13977,
+      "sha256": "63a481ceb9f3eced05c109268c63c100b6344cb5a7477d7d539d3b4455b20f40"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/hide_other_day_themes/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/hide_other_day_themes/mutant.xml",
+      "bytes": 14223,
+      "sha256": "3ad2909ec5fdd8f75518094858522b66bfde846122cef257b04ec0833c16ea17"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/ignore_explicit_source_marker/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/ignore_explicit_source_marker/baseline.log",
+      "bytes": 256,
+      "sha256": "18cdd685a2508a324633c0561b4e0d0d555218dcedff8cb137f3647e76683a40"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/ignore_explicit_source_marker/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/ignore_explicit_source_marker/baseline.xml",
+      "bytes": 393,
+      "sha256": "261489e56fc9818147cad5268f5b99efdc49b38286af05f26deb2c1c25a64662"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/ignore_explicit_source_marker/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/ignore_explicit_source_marker/mutant.log",
+      "bytes": 1491,
+      "sha256": "4181fefa47de5621e1ed2a9a172f943d6f80ed188805a75df26d8ed2d12d1852"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/ignore_explicit_source_marker/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/ignore_explicit_source_marker/mutant.xml",
+      "bytes": 1479,
+      "sha256": "c8f599164b8d8888a58a4b8981a8cc4c66215123ac7d47ec9979e3046fd488ca"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/date_readiness_gate/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/date_readiness_gate/baseline.log",
+      "bytes": 247,
+      "sha256": "100bac2ef2c16c9b3e74f96b5e6f60d13903ac9daeac1a64abbd3298f184dbc9"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/date_readiness_gate/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/date_readiness_gate/baseline.xml",
+      "bytes": 2220,
+      "sha256": "8702c02c14287a597df3def56acc4f3a9005205d333fe7a42bd35906dc94ff06"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/date_readiness_gate/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/date_readiness_gate/mutant.log",
+      "bytes": 28076,
+      "sha256": "d0bed92271eb058828a808d24d5f165d67a48830b584c7caa464e9e59512ef75"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/date_readiness_gate/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/date_readiness_gate/mutant.xml",
+      "bytes": 28967,
+      "sha256": "7f9bbb8a9aa773e7a57c17b9d68399d941d1ab5f9ddea94d97a3f2b1516135a1"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/null_count_as_zero/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/null_count_as_zero/baseline.log",
+      "bytes": 245,
+      "sha256": "cef61f951b67e818e92f844a18c01b899e35739206590ae6205eb53f6dae6bb9"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/null_count_as_zero/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/null_count_as_zero/baseline.xml",
+      "bytes": 1245,
+      "sha256": "dad480580c4dab3a40a5aa6983c4cffa059178caf24d7ff3f13f7460de996341"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/null_count_as_zero/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/null_count_as_zero/mutant.log",
+      "bytes": 6453,
+      "sha256": "c6fae60d64d300d479446c199b9248dc8562e0b41090a0185504225fbf166c14"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/null_count_as_zero/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/null_count_as_zero/mutant.xml",
+      "bytes": 8081,
+      "sha256": "ed8bb2f259afc7f200b83382a0fcab0787359242657e0ba2b8650676a9249e71"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/old_window_self_authorizes/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/old_window_self_authorizes/baseline.log",
+      "bytes": 253,
+      "sha256": "96d392c6f9e7fc77d4ce5f42a72268fd1964ce1c909eb19d49a4a558e85f2966"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/old_window_self_authorizes/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/old_window_self_authorizes/baseline.xml",
+      "bytes": 386,
+      "sha256": "635dd49d41bb82610ddefceb2dcb51856306a9397d41ccfac6e9d4a26d4b5212"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/old_window_self_authorizes/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/old_window_self_authorizes/mutant.log",
+      "bytes": 3192,
+      "sha256": "80223a89576c15b4a9b5148081f508c7a3b6601ab16f99a0f8e3fe00379926a8"
+    },
+    {
+      "path": "raw/final-c57ec654/mutations/old_window_self_authorizes/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/mutations/old_window_self_authorizes/mutant.xml",
+      "bytes": 3437,
+      "sha256": "e31e2790135f08a1069a308df8ac22ca8229018d0c1eac9f64293f31d5b7c6dc"
+    },
+    {
+      "path": "raw/final-c57ec654/registry/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/registry/0.log.txt",
+      "bytes": 95,
+      "sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe"
+    },
+    {
+      "path": "raw/final-c57ec654/registry/1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/registry/1.log.txt",
+      "bytes": 121,
+      "sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a"
+    },
+    {
+      "path": "raw/final-c57ec654/registry/2.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/registry/2.log.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "path": "raw/final-c57ec654/registry/3.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/registry/3.log.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "path": "raw/final-c57ec654/registry/4.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/registry/4.log.txt",
+      "bytes": 2015,
+      "sha256": "489d3454c2c6e542351e44351b87bd4fede6a9db8644ccfd7294db442bfb9c2b"
+    },
+    {
+      "path": "raw/final-c57ec654/registry/resource-monitor.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/registry/resource-monitor.jsonl",
+      "bytes": 550,
+      "sha256": "062516c107ed7d12cae07db98861de52f77455db69c2f1c1045f14c4fa3cabe7"
+    },
+    {
+      "path": "raw/final-c57ec654/registry/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-c57ec654/registry/run.json",
+      "bytes": 3645,
+      "sha256": "cbbffc55f4b34cf4976764278f981b496077982a0ce8a96b6133d81a1f0a9325"
+    },
+    {
+      "path": "raw/final-06de3dfc/python-driver.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-06de3dfc/python-driver.log",
+      "bytes": 2195,
+      "sha256": "bd6f8daf8967795947027319a09669c290489e1b60c2daff00d458b28fd65018"
+    },
+    {
+      "path": "raw/final-06de3dfc/run_checks.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-06de3dfc/run_checks.py",
+      "bytes": 8238,
+      "sha256": "7a4f64b9d1a32d26e1aaf2fd72656df916fc168efd8e4012fdf21ced57e7385f"
+    },
+    {
+      "path": "raw/final-06de3dfc/python/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-06de3dfc/python/0.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "raw/final-06de3dfc/python/1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-06de3dfc/python/1.log.txt",
+      "bytes": 24780,
+      "sha256": "edd870042ab54fd71221d21f28357ad9e222c1546f4a4f11e68f6c17a82c26c6"
+    },
+    {
+      "path": "raw/final-06de3dfc/python/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-06de3dfc/python/junit.xml",
+      "bytes": 1972659,
+      "sha256": "d2d7090fd5e78b5f00ad38b9fb7cf2b9abaaf6439f38bb3033b46a6cccccefdc"
+    },
+    {
+      "path": "raw/final-06de3dfc/python/pytest-receipt.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-06de3dfc/python/pytest-receipt.json",
+      "bytes": 789,
+      "sha256": "4299ceffad45c63354bf34be147606d70ebd1d5538a3a5a4e7a6f24e3f517a3b"
+    },
+    {
+      "path": "raw/final-06de3dfc/python/resource-monitor.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-06de3dfc/python/resource-monitor.jsonl",
+      "bytes": 29165,
+      "sha256": "1afaf9e7d156b958eba61795ad2c1231c5347e0eabc113f85e069a8424f9b412"
+    },
+    {
+      "path": "raw/final-06de3dfc/python/resource-wait.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-06de3dfc/python/resource-wait.jsonl",
+      "bytes": 100,
+      "sha256": "0bba543b12a479d98c0f1a477c2cb4f7bbeec94ec528c757b9dedc32e4648c96"
+    },
+    {
+      "path": "raw/final-06de3dfc/python/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/final-06de3dfc/python/run.json",
+      "bytes": 2599,
+      "sha256": "16d488baf86d85129c3048a9d6702a40f470ade5f95ef6d6b02fbee300564757"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutation-driver.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutation-driver.log",
+      "bytes": 3409,
+      "sha256": "0b2b0f45fb00e4f7a311f09fa05d97024173769bf2b0d85eb4f8d598b3fd9f5a"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutation_probe.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutation_probe.py",
+      "bytes": 7370,
+      "sha256": "20553d7593b33e8f8dfc36275d21453a890a5d910308e3cb187edf8e95bacf9c"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/python-driver.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/python-driver.log",
+      "bytes": 1869,
+      "sha256": "5262fdbc6ea4b95d3180377e2eb5c2410deb0040b21f31ab30ab03a2e4380c55"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/python-stop-reason.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/python-stop-reason.json",
+      "bytes": 787,
+      "sha256": "2d8f5807726cd5ad85f5da2359beb07429dfbc0d3d142ce68fe2c5161f827d33"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/registry-driver.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/registry-driver.log",
+      "bytes": 3151,
+      "sha256": "9eaa72ffd76721fde111be14c8e4b4ab902bb5550d7266429b3a9c23b05d2f0d"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/run_checks.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/run_checks.py",
+      "bytes": 8238,
+      "sha256": "7a4f64b9d1a32d26e1aaf2fd72656df916fc168efd8e4012fdf21ced57e7385f"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/stop-reason-erratum.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/stop-reason-erratum.json",
+      "bytes": 844,
+      "sha256": "7a6cd702c29797a253a128d9edd3b720c0f4f71fa7f67ce55e3a851069af769a"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/python/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/python/0.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/python/1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/python/1.log.txt",
+      "bytes": 3696,
+      "sha256": "b55676bb41f289c659b8fe229cf85a7afa75396d4ce90c4493163e3abd107a55"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/python/resource-monitor.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/python/resource-monitor.jsonl",
+      "bytes": 8576,
+      "sha256": "12539190076a3842eb798823c42e387863d8946d367b60f24b45ed5751bfa027"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/python/resource-wait.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/python/resource-wait.jsonl",
+      "bytes": 100,
+      "sha256": "92c9f024dacb715d5cfbd55ce847980733f32d39efddbe6af1c42d9c5d8be099"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/python/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/python/run.json",
+      "bytes": 2197,
+      "sha256": "e2e7aed14e67b962974598eb9a01e59926a77df5be39e77da5447d5bfde32d4a"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/progress.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/progress.json",
+      "bytes": 4303,
+      "sha256": "3b8db4cb2b34f8e354815aad12a19eccf951fed64665e21ccab3f2c0bd436480"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/result.json",
+      "bytes": 5081,
+      "sha256": "f1064f2197c07252ccffae632596a5db5e7d872602d3ba4d6fe9a5226aff3ffc"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/prefetch_drops_own_date/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/prefetch_drops_own_date/baseline.log",
+      "bytes": 250,
+      "sha256": "7fd52ac05c1645ee4a8a496c4b8a0aab818a090fc0f755959421e409c334640f"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/prefetch_drops_own_date/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/prefetch_drops_own_date/baseline.xml",
+      "bytes": 723,
+      "sha256": "11dce195358939acbbd11f88f5b60779da9d17e164d09a14051ffb30f9d16d8d"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/prefetch_drops_own_date/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/prefetch_drops_own_date/mutant.log",
+      "bytes": 6853,
+      "sha256": "81629f1666cc7dfefe6e9e2d11ba01a09047978c93ac962089714ce79208922d"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/prefetch_drops_own_date/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/prefetch_drops_own_date/mutant.xml",
+      "bytes": 7245,
+      "sha256": "722e71ffefb5c807b98a23d50d0c022cef1c4d6eea283e00ce3f691ca7dde2f0"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/unknown_source_filled_from_overview/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/unknown_source_filled_from_overview/baseline.log",
+      "bytes": 262,
+      "sha256": "3cef804fdafe06499ab00e37ca400809769eac70b3f8f5cd65de266ea62db9fa"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/unknown_source_filled_from_overview/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/unknown_source_filled_from_overview/baseline.xml",
+      "bytes": 723,
+      "sha256": "21d26b90c7c17aaf74953f4b67919e9654d5f6a791d5c391d669528179ba8a18"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/unknown_source_filled_from_overview/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/unknown_source_filled_from_overview/mutant.log",
+      "bytes": 4736,
+      "sha256": "f4ae00e0cacf99422f50999f3d05c91f060ab89bd3381a9f6ec857fef86bfed5"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/unknown_source_filled_from_overview/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/unknown_source_filled_from_overview/mutant.xml",
+      "bytes": 5071,
+      "sha256": "31ac9cd4f7a68e5540bcf5307d9c8c1fbdf1a2a6940a5231751787efc0c6855d"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/mismatch_as_failure/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/mismatch_as_failure/baseline.log",
+      "bytes": 246,
+      "sha256": "4990de3f0fe306571dd46e8d1bbf86fc80e5724b45b441b2a582cd3086488449"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/mismatch_as_failure/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/mismatch_as_failure/baseline.xml",
+      "bytes": 383,
+      "sha256": "a8eb424e117f8aa1aeca442b5315223f10e49bbdbac4099ab4bfcbc1e3ad1440"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/mismatch_as_failure/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/mismatch_as_failure/mutant.log",
+      "bytes": 1335,
+      "sha256": "113a27e10e8e5510f3fd0499f76d797dd556c15ebf1651080ea9e06325dd99a0"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/mismatch_as_failure/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/mismatch_as_failure/mutant.xml",
+      "bytes": 1217,
+      "sha256": "2b85ea1e12df57266431ca192969d1936f23d54a84c3f8d391316ad6cf9f41b1"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/reference_as_query_ceiling/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/reference_as_query_ceiling/baseline.log",
+      "bytes": 253,
+      "sha256": "5be2427579231b64b07c713bac00ea4e08eb95d61ef1e589378d665b6a4a61d5"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/reference_as_query_ceiling/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/reference_as_query_ceiling/baseline.xml",
+      "bytes": 388,
+      "sha256": "456aee37b8c41d99d16b00aade23a6a09256be5ac522de68aca6ec7d8113b160"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/reference_as_query_ceiling/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/reference_as_query_ceiling/mutant.log",
+      "bytes": 2075,
+      "sha256": "94db9aec48a5d6326bf4cf4e2674b9eb49386027c1931a3e2100d3cc81af20c9"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/reference_as_query_ceiling/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/reference_as_query_ceiling/mutant.xml",
+      "bytes": 2098,
+      "sha256": "bbffa96a7163e80e95f22458222f98cfc6a1ccea8cb24ec4e266bbed8d45c0ae"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/hide_other_day_themes/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/hide_other_day_themes/baseline.log",
+      "bytes": 248,
+      "sha256": "f96ce3e1374ded5c2f7ab356130d45ca9cc6008a3e2dde8deada974909eaf1e1"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/hide_other_day_themes/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/hide_other_day_themes/baseline.xml",
+      "bytes": 1245,
+      "sha256": "1a084f3ebc8fb8f24629f2cf2ffbfb1a0b591fd096071dc2013598205c773a3b"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/hide_other_day_themes/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/hide_other_day_themes/mutant.log",
+      "bytes": 13977,
+      "sha256": "4a0e11d59f06b6818e9132cddceac7d5b2cb20605a7210871f0ee42727002b48"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/hide_other_day_themes/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/hide_other_day_themes/mutant.xml",
+      "bytes": 14223,
+      "sha256": "4d32496a944cea6be48f209fafabef18c903e9eaeec8d376d32d66883a298833"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/ignore_explicit_source_marker/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/ignore_explicit_source_marker/baseline.log",
+      "bytes": 256,
+      "sha256": "65ebe90190ee02672be10fc88138a30a7fbc90cb341478d84d1902a45ac1c235"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/ignore_explicit_source_marker/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/ignore_explicit_source_marker/baseline.xml",
+      "bytes": 393,
+      "sha256": "0a12eaa3693bd967137feddf0705aaf4b9b88b2c4dffdf9d88f47a65b6c3de5b"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/ignore_explicit_source_marker/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/ignore_explicit_source_marker/mutant.log",
+      "bytes": 1491,
+      "sha256": "e37b134ab1deccde92f09c4ca5548163f5c8e5fa3d049e7797b58bbb2069b141"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/ignore_explicit_source_marker/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/ignore_explicit_source_marker/mutant.xml",
+      "bytes": 1479,
+      "sha256": "cec5f65154cc896462183e7d44f59a9c30451077402b6dd9e0cb956208d45ea5"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/date_readiness_gate/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/date_readiness_gate/baseline.log",
+      "bytes": 247,
+      "sha256": "07a10ae352c91175a23634d19e2036290d08a614cedb8858efaceebbb2d006d9"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/date_readiness_gate/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/date_readiness_gate/baseline.xml",
+      "bytes": 2220,
+      "sha256": "b116c54d83054a1f44182c92ef58d2a0deddfedde7a2d16ed8f188846db0d7d7"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/date_readiness_gate/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/date_readiness_gate/mutant.log",
+      "bytes": 28076,
+      "sha256": "3b9430c8700abe653a2aaec9f874bdf74271f0efe39ee14412a412cb0edce75c"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/date_readiness_gate/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/date_readiness_gate/mutant.xml",
+      "bytes": 28967,
+      "sha256": "5211ed3ff4b5788bf88c89a12a21962332da492a2707d92d69159ae7b069552f"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/null_count_as_zero/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/null_count_as_zero/baseline.log",
+      "bytes": 245,
+      "sha256": "16320bd0d7ae1da96884e30fd94df3ba29cdde99ee95995050cb0318530bd645"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/null_count_as_zero/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/null_count_as_zero/baseline.xml",
+      "bytes": 1245,
+      "sha256": "e08d643a119670fd56806bddec32b90cf724cd542c3fd72c740a68277a6fbbe3"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/null_count_as_zero/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/null_count_as_zero/mutant.log",
+      "bytes": 6453,
+      "sha256": "422f3046cdb1bbcbf464fabd80975a54d4b0c4990b2fcc8d1db306fccad538b4"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/null_count_as_zero/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/null_count_as_zero/mutant.xml",
+      "bytes": 8081,
+      "sha256": "b67b46d9883ab4f36bbb93c3b702332912f5a390df8688b4b9a0429edb6b2b56"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/old_window_self_authorizes/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/old_window_self_authorizes/baseline.log",
+      "bytes": 253,
+      "sha256": "89860e23515fb40778902b1f85be628627688e879c693479a455b8c8295b7a9b"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/old_window_self_authorizes/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/old_window_self_authorizes/baseline.xml",
+      "bytes": 386,
+      "sha256": "a6db590ee248b7a52a73e433d76834429f6a2bb2628bada481b350aa0534894c"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/old_window_self_authorizes/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/old_window_self_authorizes/mutant.log",
+      "bytes": 3192,
+      "sha256": "3f6c0ddd5625d082e23549dd22597c59fa275995c9bf515515f6de0cb333b9eb"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/mutations/old_window_self_authorizes/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/mutations/old_window_self_authorizes/mutant.xml",
+      "bytes": 3437,
+      "sha256": "b61fd8698c1d358387af8f76a270ff749b61226a2599f0095b60a5ca1547d3d7"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/registry/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/registry/0.log.txt",
+      "bytes": 95,
+      "sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/registry/1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/registry/1.log.txt",
+      "bytes": 121,
+      "sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/registry/2.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/registry/2.log.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/registry/3.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/registry/3.log.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/registry/4.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/registry/4.log.txt",
+      "bytes": 2015,
+      "sha256": "913ed333a2d161d9d32d676b0bbce581f1351dadc1be04efa987c0d706c7b360"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/registry/resource-monitor.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/registry/resource-monitor.jsonl",
+      "bytes": 550,
+      "sha256": "f74f3b21cfea6c7f0e49feba6b8d1983813be357fda32c9adf862253402d8ef1"
+    },
+    {
+      "path": "raw/fixed-06de3dfc/registry/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-06de3dfc/registry/run.json",
+      "bytes": 3645,
+      "sha256": "2faa5772030191667bc8e342d64baeab77d3134052c65c4d39d26011665f3459"
+    },
+    {
+      "path": "raw/fixed-5d425ff2/python-driver.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-5d425ff2/python-driver.log",
+      "bytes": 1869,
+      "sha256": "607b38eb90da4744355a6073122290849ef93cb200400063030598a5b84377f7"
+    },
+    {
+      "path": "raw/fixed-5d425ff2/python-stop-reason.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-5d425ff2/python-stop-reason.json",
+      "bytes": 764,
+      "sha256": "22d1bdb48d0971f924dba6e2d3eacd0f3e0a73c7160c6db44db1d928cc4f1abb"
+    },
+    {
+      "path": "raw/fixed-5d425ff2/run_checks.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-5d425ff2/run_checks.py",
+      "bytes": 8238,
+      "sha256": "ef07c833386dc1ce1a1957f458d83250ab4f7b51408687b6981a0e98f342b48c"
+    },
+    {
+      "path": "raw/fixed-5d425ff2/python/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-5d425ff2/python/0.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "raw/fixed-5d425ff2/python/1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-5d425ff2/python/1.log.txt",
+      "bytes": 2494,
+      "sha256": "0f864cdd7f1de6aa95459500efb839da278be5f23f928a6e41f855fc80a04f11"
+    },
+    {
+      "path": "raw/fixed-5d425ff2/python/resource-monitor.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-5d425ff2/python/resource-monitor.jsonl",
+      "bytes": 4994,
+      "sha256": "f903e6bec7f0279e2c3ae3b657d58574033c641cbd21538043f5dd670fb4f294"
+    },
+    {
+      "path": "raw/fixed-5d425ff2/python/resource-wait.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-5d425ff2/python/resource-wait.jsonl",
+      "bytes": 100,
+      "sha256": "70f0d7d5eb76eea525fc9af65d25325acf6ce272ae5aa42d8835827b4b28b556"
+    },
+    {
+      "path": "raw/fixed-5d425ff2/python/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-5d425ff2/python/run.json",
+      "bytes": 2197,
+      "sha256": "65f6fa05d5363d015381c77217f36384bcc1fbd70179ed8d58054131f03fbf66"
+    }
+  ]
+}

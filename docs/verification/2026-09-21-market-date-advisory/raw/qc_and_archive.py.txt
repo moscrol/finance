@@ -1,0 +1,129 @@
+"""Freeze this task's completed evidence; no production IO or test execution.
+
+This is a specimen-bound archiver, not a replacement for repository gates.
+The original runs, including failures and errata, remain untouched.
+"""
+from __future__ import annotations
+
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+FINAL = ROOT / "final-c57ec654"
+TREE = Path.home() / "fwp-wt-market-date-advisory-0921"
+SHA = "c57ec6542e5b33b2d7d2dccadf742e8a33e23b5d"
+PYTHON = str(Path.home() / "finance-workspace-private/.venv-workbench/bin/python")
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+def sha256(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def cases(path):
+    nodes = ET.parse(path).getroot().findall(".//testcase")
+    return {"testcases": len(nodes),
+            "failures": sum(len(n.findall("failure")) for n in nodes),
+            "errors": sum(len(n.findall("error")) for n in nodes),
+            "skipped": sum(n.find("skipped") is not None for n in nodes),
+            "xfail": sum(any(s.get("type") == "pytest.xfail" for s in n.findall("skipped")) for n in nodes)}
+
+
+def main():
+    revision = subprocess.check_output(["git", "-C", str(TREE), "rev-parse", "HEAD"], text=True).strip()
+    status = subprocess.check_output(["git", "-C", str(TREE), "status", "--porcelain=v1"], text=True)
+    assert revision == SHA and not status, (revision, status)
+    leaves = {}
+    for name in ("python", "frontend", "registry"):
+        run = load(FINAL / name / "run.json")
+        assert run["complete"] and run["exit_code"] == 0 and run["source_unchanged"], run
+        assert run["before"] == run["after"] and run["before"]["revision"] == SHA
+        assert run["before"]["status"] == "" and run["tree"] == str(TREE)
+        for check in run["checks"]:
+            assert check["exit_code"] == 0 and sha256(Path(check["log"])) == check["sha256"]
+        leaves[name] = {"run": str(FINAL / name / "run.json"), "sha256": sha256(FINAL / name / "run.json")}
+    assert len(load(FINAL / "python/run.json")["checks"]) == 2
+    assert len(load(FINAL / "registry/run.json")["checks"]) == 5
+    stdout = (FINAL / "python/1.log.txt").read_text()
+    receipt_paths = re.findall(r"\u8bfb\u6570\u6536\u636e: ([^\r\n]+\.json)(?:\r?\n|$)", stdout)
+    assert len(receipt_paths) == 1, receipt_paths
+    receipt_path = Path(receipt_paths[0])
+    receipt = load(receipt_path)
+    assert receipt["revision"] == SHA and receipt["tree"] == str(TREE) and not receipt["dirty"]
+    assert receipt["interpreter"] == PYTHON and not receipt["dependency_gate_bypassed"]
+    assert receipt["target"] == str(TREE) and receipt["exit_status"] == 0 and not receipt["failed_ids"]
+    assert receipt["counts"]["passed"] > 0 and receipt["counts"]["failed"] == receipt["counts"]["error"] == 0
+    assert sha256(receipt_path) == sha256(FINAL / "python/pytest-receipt.json")
+    xml = cases(FINAL / "python/junit.xml")
+    assert xml["failures"] == xml["errors"] == 0
+    assert xml["testcases"] - xml["skipped"] == receipt["counts"]["passed"]
+    assert xml["skipped"] - xml["xfail"] == receipt["counts"]["skipped"]
+    assert f'{receipt["counts"]["passed"]} passed' in stdout
+    frontend = load(FINAL / "frontend/gate/frontend.json")
+    assert frontend["complete"] and frontend["identity_stable"] and not frontend["dirty"] and frontend["exit_code"] == 0
+    assert len(frontend["checks"]) == 6 and frontend["revision"] == SHA
+    for check in frontend["checks"]:
+        assert check["exit_code"] == 0
+        assert sha256(FINAL / "frontend/gate" / check["log"]) == check["log_sha256"]
+    e2e_log = (FINAL / "frontend/gate/frontend-5.log.txt").read_text()
+    e2e_passed = int(re.search(r"^\s*(\d+) passed \(", e2e_log, re.M).group(1))
+    e2e_skipped = int(re.search(r"^\s*(\d+) skipped\s*$", e2e_log, re.M).group(1))
+    mutation = load(FINAL / "mutations/result.json")
+    assert mutation["pass"] and mutation["source_unchanged"] and mutation["revision"] == SHA
+    assert mutation["before"] == mutation["after"] and not mutation["before"]["status"]
+    for item in mutation["cases"]:
+        assert item["caught"] and item["baseline"]["exit_code"] == 0 and item["mutant"]["exit_code"] == 1
+        baseline = cases(FINAL / "mutations" / item["case"] / "baseline.xml")
+        mutant = cases(FINAL / "mutations" / item["case"] / "mutant.xml")
+        assert baseline["testcases"] > 0 and baseline["failures"] == baseline["errors"] == baseline["skipped"] == 0
+        assert mutant["failures"] > 0 and mutant["errors"] == mutant["skipped"] == 0
+        assert item["mutant"]["assertion_failure"]
+    resources = [json.loads(line) for line in (FINAL / "python/resource-monitor.jsonl").read_text().splitlines()]
+    report = {"at": datetime.now(timezone.utc).isoformat(), "revision": SHA, "tree": str(TREE),
+              "verdict": "AUTHOR_ENGINEERING_PASS_NOT_INDEPENDENT_OR_LIVE_ACCEPTANCE", "leaves": leaves,
+              "receipt": {"path": str(receipt_path), "sha256": sha256(receipt_path), "counts": receipt["counts"]},
+              "junit": xml, "e2e": {"passed": e2e_passed, "skipped": e2e_skipped},
+              "mutations": {"caught": len(mutation["cases"]), "total": len(mutation["cases"])},
+              "resource_samples": len(resources), "minimum_free_bytes": min(s["free_bytes"] for s in resources),
+              "independent_review": "not_run", "natural_model_answer": "not_run", "production_deployment": "not_run"}
+    (FINAL / "author-qc.json").write_text(json.dumps(report, indent=2) + "\n")
+    archive = ROOT / "archive-package"
+    archive.mkdir(exist_ok=False)
+    entries = []
+    allowed = {".json", ".jsonl", ".xml", ".txt", ".log", ".py"}
+    for folder, dirs, files in os.walk(ROOT):
+        dirs[:] = [d for d in dirs if d not in {"archive-package", "tmp", "__pycache__", "ruff-cache", ".ruff_cache"}
+                   and not d.endswith("-tmp")]
+        for name in sorted(files):
+            source = Path(folder) / name
+            if source.suffix not in allowed or source.is_symlink():
+                continue
+            relative = source.relative_to(ROOT)
+            if source.suffix in {".log", ".py"}:
+                relative = Path(str(relative) + ".txt")
+            raw = source.read_bytes()
+            raw.decode("utf-8")
+            assert len(raw) < 5 * 1024**2, source
+            dest = archive / "raw" / relative
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            with dest.open("xb") as stream:
+                stream.write(raw)
+            digest = hashlib.sha256(raw).hexdigest()
+            assert sha256(source) == sha256(dest) == digest
+            entries.append({"path": str(dest.relative_to(archive)), "source": str(source), "bytes": len(raw), "sha256": digest})
+    (archive / "manifest.json").write_text(json.dumps({"revision": SHA, "scope": "text evidence only; temporary databases and caches excluded, originals retained",
+                                                      "files": entries}, indent=2) + "\n")
+    print(json.dumps({"qc": report, "archived_files": len(entries), "archived_bytes": sum(x["bytes"] for x in entries)}, indent=2))
+
+
+if __name__ == "__main__":
+    main()

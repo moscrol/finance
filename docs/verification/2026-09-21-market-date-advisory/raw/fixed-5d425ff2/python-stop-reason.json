@@ -1,0 +1,7 @@
+{
+  "at": "2026-09-21T12:36:24.247598+00:00",
+  "pid": 25055,
+  "command": "25043 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider -o tmp_path_retention_policy=failed -o tmp_path_retention_count=1 --basetemp=/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-5d425ff2/python/tmp --junitxml=/Users/a77/.finance-runtime/reviews/market-date-advisory-20260921/fixed-5d425ff2/python/junit.xml",
+  "signal": "SIGTERM",
+  "reason": "Self-review: _asof_prefetch_text drops PrefetchItem.source_date; mixed-block fallback can replace it with market overview date. Stop only this owned full test before code edits. This run is incomplete."
+}

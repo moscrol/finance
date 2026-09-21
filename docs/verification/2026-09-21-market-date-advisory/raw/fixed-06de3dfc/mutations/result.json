@@ -1,0 +1,188 @@
+{
+  "revision": "06de3dfc53835cbbaffb20f8c26451674909ebe4",
+  "before": {
+    "revision": "06de3dfc53835cbbaffb20f8c26451674909ebe4",
+    "status": "",
+    "tree_object": "8c7dbd1069a86123c6921ff70cc7247e57eeeb9a"
+  },
+  "after": {
+    "revision": "06de3dfc53835cbbaffb20f8c26451674909ebe4",
+    "status": "",
+    "tree_object": "8c7dbd1069a86123c6921ff70cc7247e57eeeb9a"
+  },
+  "source_unchanged": true,
+  "cases": [
+    {
+      "case": "date_readiness_gate",
+      "target": "intelligence/tests/test_workbench_api.py::test_readiness_reports_market_dates_without_blocking_available_data",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 12,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 12,
+        "errors": 0,
+        "testcases": 12,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "reference_as_query_ceiling",
+      "target": "intelligence/tests/test_market_date_advisory.py::test_market_block_selects_available_data_newer_than_reference",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 1,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "hide_other_day_themes",
+      "target": "intelligence/tests/test_market_date_advisory.py::test_market_overview_keeps_theme_date_distinct_from_market_date",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 6,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 6,
+        "errors": 0,
+        "testcases": 6,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "null_count_as_zero",
+      "target": "intelligence/tests/test_market_date_advisory.py::test_market_overview_keeps_theme_date_distinct_from_market_date",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 6,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 2,
+        "errors": 0,
+        "testcases": 6,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "ignore_explicit_source_marker",
+      "target": "intelligence/tests/test_agent_research.py::test_mixed_structured_evidence_distinguishes_source_date_from_event_date",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 1,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "unknown_source_filled_from_overview",
+      "target": "intelligence/tests/test_market_date_advisory.py::test_prefetch_keeps_its_source_date_not_overview_or_event_date",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 3,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 2,
+        "errors": 0,
+        "testcases": 3,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "old_window_self_authorizes",
+      "target": "intelligence/tests/test_episode_tools.py::test_model_selected_historical_window_is_rejected_for_current_task",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 1,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "mismatch_as_failure",
+      "target": "tests/test_market_snapshot_reconcile.py::RunCheckGateTest::test_format_pass_with_date_mismatch_stays_ready",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 1,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "prefetch_drops_own_date",
+      "target": "intelligence/tests/test_market_date_advisory.py::test_prefetch_keeps_its_source_date_not_overview_or_event_date",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 3,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 3,
+        "errors": 0,
+        "testcases": 3,
+        "assertion_failure": true
+      },
+      "caught": true
+    }
+  ],
+  "pass": true
+}
