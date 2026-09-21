@@ -1,0 +1,58 @@
+{
+  "revision": "ec92b31b5300bbbb4abc64e41f96854f1438aea0",
+  "tree": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-hithink/finance-workspace-private",
+  "complete": true,
+  "checks": [
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.09,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-hithink/registry-0.log.txt"
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.08,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-hithink/registry-1.log.txt"
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.05,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-hithink/registry-2.log.txt"
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.04,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-hithink/registry-3.log.txt"
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.12,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-hithink/registry-4.log.txt"
+    }
+  ]
+}

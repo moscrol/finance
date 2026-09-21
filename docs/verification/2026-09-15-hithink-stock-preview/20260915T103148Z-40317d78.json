@@ -1,0 +1,28 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-hithink-stock-mutation-40317d78",
+  "revision": "40317d780d71de03ca6884c4c437b9accece0b49",
+  "branch": "HEAD",
+  "dirty": true,
+  "dirty_paths": [
+    "market_feature_store/hithink_stock_preview.py"
+  ],
+  "worktree_dirty_total": 1,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_hithink_stock_preview.py",
+  "counts": {
+    "passed": 92,
+    "failed": 3,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [
+    "tests/test_hithink_stock_preview.py::test_decimal_ambient_precision_rounding_and_traps_cannot_change_result",
+    "tests/test_hithink_stock_preview.py::test_integer_oracle_agrees_with_half_up_price_amount_and_volume",
+    "tests/test_hithink_stock_preview.py::test_percentage_half_up_ties_in_both_directions[8.01-0.13]"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-15T10:31:48+00:00"
+}

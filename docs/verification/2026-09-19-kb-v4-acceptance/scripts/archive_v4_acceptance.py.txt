@@ -1,0 +1,81 @@
+"""Seal selected operation evidence only after the 99 candidate gate has ended.
+
+Do not overwrite old receipts, copy indexes/raw bodies, or turn a failed gate
+into a green summary. Each archived file is hashed; full live operation remains
+under the operation root. Scripts are inert .txt snapshots, not installed jobs.
+"""
+import hashlib
+import json
+from pathlib import Path
+import re
+
+ROOT = Path.home() / '.finance-runtime/kb-dual-index-20260918'
+EVIDENCE = ROOT / 'evidence'
+DEST = Path.home() / 'fwp-wt-kb-dual-index-deploy/docs/verification/2026-09-19-kb-v4-acceptance'
+assert (ROOT / 'gate-99fb9304-receipts/all.exit').exists(), 'do not archive an unfinished gate'
+assert (EVIDENCE / 'consumer-v4-99/summary.json').exists()
+DEST.mkdir(exist_ok=False)
+
+
+def copy(source, relative):
+    target = DEST / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    data = source.read_bytes()
+    with target.open('xb') as handle:
+        handle.write(data)
+    assert hashlib.sha256(target.read_bytes()).digest() == hashlib.sha256(data).digest()
+
+
+for prefix in ('delivery-', 'frontmatter-', 'fixture-'):
+    for source in sorted(EVIDENCE.glob(f'{prefix}*')):
+        if source.is_file() and source.suffix in ('.txt', '.exit'):
+            copy(source, f'regressions/{source.name}')
+for name in ('verify-v4.log', 'refresh-v4-runner.log', 'verify-after-coordination.log',
+             'probe-v4-consumers.log', 'probe-v4-consumers-r2.log', 'probe-v4-consumers-r3.log',
+             'probe-v4-full-complement.log', 'probe-v4-consumers-99.log', 'final-readonly-99.txt',
+             'file-fence-after-v4.json'):
+    source = EVIDENCE / name
+    copy(source, f'operations/{name.removesuffix(".log") + ".txt" if name.endswith(".log") else name}')
+for folder in ('v4', 'v4-verification', 'post-coordination', 'final-readonly-99',
+               'consumer-v4', 'consumer-v4-r2', 'consumer-v4-r3',
+               'consumer-v4-full-complement', 'consumer-v4-99'):
+    for source in sorted((EVIDENCE / folder).iterdir()):
+        if source.is_file() and source.suffix in ('.json', '.txt', '.log'):
+            suffix_name = source.name.removesuffix('.log') + '.txt' if source.suffix == '.log' else source.name
+            copy(source, f'{folder}/{suffix_name}')
+for folder in ('gate-e9bb34c3-receipts', 'gate-058f76a3-receipts', 'gate-99fb9304-receipts'):
+    gate = ROOT / folder
+    assert (gate / 'all.exit').exists()
+    for source in sorted(gate.iterdir()):
+        if source.is_file() and source.suffix in ('.txt', '.exit', '.log'):
+            suffix_name = source.name.removesuffix('.log') + '.txt' if source.suffix == '.log' else source.name
+            copy(source, f'{folder}/{suffix_name}')
+    output = (gate / 'finance-pytest.txt').read_text()
+    match = re.search(r'读数收据: (\S+\.json)', output)
+    assert match, folder
+    copy(Path(match[1]), f'{folder}/python-receipt.json')
+for name in ('refresh_v4.py', 'verify_indexes.py', 'verify_after_coordination.py', 'verify_v4.py',
+             'probe_v4_consumers.py', 'probe_v4_consumers_r2.py', 'probe_v4_consumers_r3.py',
+             'probe_v4_full_complement.py', 'probe_v4_consumers_99.py',
+             'test_fixture_lifecycle_before.py', 'probe_fixture_missing_join.py',
+             'final_readonly_snapshot.py', 'run-gates-e9.sh', 'run-gates-058.sh', 'run-gates-99.sh',
+             'archive_v4_acceptance.py'):
+    copy(ROOT / name, f'scripts/{name}.txt')
+
+manifest = {
+    'finance_candidate': '99fb9304ae9611178274293de30a117d5d504566',
+    'kb_candidate': '23b4f5e4e1ace932fcc741197bf4892c272bf541',
+    'operation_root': str(ROOT),
+    'gate_exit': int((ROOT / 'gate-99fb9304-receipts/all.exit').read_text()),
+    'consumer_status': json.loads((EVIDENCE / 'consumer-v4-99/summary.json').read_text())['status'],
+    'source_manifest_sha256': hashlib.sha256((EVIDENCE / 'source-files.json').read_bytes()).hexdigest(),
+    'production_switched': False,
+    'limits': ['14 conflict pages remain quarantined', 'not answer-quality acceptance',
+               'guarded maintenance not implemented', 'not merge authorization'],
+}
+(DEST / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2))
+files = sorted(p for p in DEST.rglob('*') if p.is_file())
+with (DEST / 'SHA256SUMS').open('x') as output:
+    for path in files:
+        output.write(hashlib.sha256(path.read_bytes()).hexdigest() + '  ' + path.relative_to(DEST).as_posix() + '\n')
+print(json.dumps({'files_hashed': len(files), 'root': str(DEST), **manifest}, ensure_ascii=False))

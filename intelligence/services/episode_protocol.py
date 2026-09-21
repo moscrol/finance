@@ -32,6 +32,7 @@ from intelligence.services.research_contract import (
 )
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.research_workflow_guidance import workflow_guidance
+from intelligence.services.research_reasoning import guidance as reasoning_guidance
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.degraded_fallback import (
     episode_rule as degraded_episode_rule,
@@ -206,6 +207,7 @@ def _question_type_rules(
         task_frame.question_type,
     )
     track_rule += workflow_guidance(task_frame.question_type)
+    track_rule += reasoning_guidance(task_frame.question_type)
     longtail_rule = episode_rule(task_frame)
     # ASK_DEGRADED_FALLBACK（默认 off）：降级回答章法，off 时空串。
     degraded_rule = degraded_episode_rule(task_frame)
@@ -420,7 +422,10 @@ def build_episode_input(
         "information_cutoff": context.information_cutoff.to_dict(),
         "conversation_context": context.conversation_context,
         "conversation_context_rule": (
-            "历史对话仅用于消解指代和延续用户目标，不得当作事实证据"
+            "历史对话仅用于消解指代、延续用户目标及复核或撤回旧判断，不得当作事实证据。"
+            "E1、E2等证据序号仅在本轮有效，旧回答的编号不能跨轮引用。"
+            "核验旧事实须在本轮授权范围取得原始证据并使用本轮编号；"
+            "若本轮禁止重新读取或无法取得，则说明未重新核验，不把旧回答当已证实事实"
         ),
         "date_rule": (
             "today 不是行情日期；information_cutoff 是所有查询与引用事实的"
@@ -448,8 +453,9 @@ def build_episode_input(
         # 拿不到，重演 2026-08-14 视角注入那次「配置生效、模型没看到」。
         payload["reading_baseline"] = baseline
         payload["reading_baseline_rule"] = (
-            "判读基线是本领域「数据该怎么读」的强制方法约束，适用于全部证据块；"
-            "与本轮证据冲突时以证据为准，但必须显式说明冲突，不得沉默跳过"
+            "判读基线是有适用范围的领域方法，不是固定视角、强制顺序或事实证据；"
+            "无关规则可跳过。适用规则与本轮证据冲突时以证据为准并说明冲突，"
+            "不得为了保住规则而改写题设、忽略反证或越过读取权限"
         )
     if context.perspective_context:
         # 视角约束只在激活时出现：neutral 轮的模型输入逐字节不变。

@@ -5,7 +5,7 @@
 # 快的是「这些人今天多少钱」(value)。刷新策略按 identity 定，值按最便宜的源取。
 #
 # 三个消费者：
-#   1. 同步管线 skills/daily-full-review/scripts/run_review_sync.py --plan full|cheap|auto
+#   1. 同步管线 skills/daily-full-review/scripts/run_review_sync.py --plan full|cheap|local|auto
 #      —— 本文件 `plans` 段与 build_plan() 的步骤名一致性由
 #         tests/test_consumption_registry.py 强制（漂了测试就红）。
 #   2. agent 查询层（intelligence/services/finance_query.py 的 _DATASETS 管「有哪些字段」，
@@ -23,7 +23,12 @@
 # ============================================================================
 
 meta:
-  updated: "2026-09-04"
+  updated: "2026-09-15"
+  source_migration_contract: >-
+    2026-09-15 用户纠偏：复盘会名单池不是权威，不要求复制旧板块/成员或入选集合。
+    允许使用同花顺池，验收计算逻辑、参数、单位、复权与窗口；同次计算须明确成员版本，
+    不把换池造成的差异判为算法失败，也不把等权/指数加权或资金定义变化冒充只换池。
+    当前 local 的旧复盘表仍使用 carry/stitch；同花顺四步只更新并跑表，尚未完成消费切换。
   evidence_window: "2026-08-24 ~ 2026-09-02"
   quota_note: >-
     fupanhui 有周/月调用上限(429)，具体数字未公开。
@@ -86,10 +91,16 @@ plans:
     - features
   # local（2026-09-07 起）：不发任何 fupanhui 请求。名单冻结在最后一份 published 宇宙
   # （carry-forward-universe → stitch），加工层按公开规则自算（limit-stats-local / market-overview-local）。
-  # 不产 mainline / theme_flow / stock_high / 公开资产——门禁按 tables_for_plan('local') 裁剪。
+  # 主线/新高/核心股已有 local 生产者；theme_flow 不以异口径资金代替。
+  # 门禁按 tables_for_plan('local') 裁剪，不把本地篮子资金当复盘会题材面板。
+  # 同花顺四步：缺 key 明确 skip，有 key 执行失败阻断发布；并跑表成功≠复盘旧表已换源。
   local:
     - db-lock
     - stock-daily
+    - hithink-stock-daily
+    - hithink-sector-kline
+    - hithink-limit-pools
+    - hithink-dragon-auction
     - index-daily
     - sw-l1-daily
     - carry-forward-universe
@@ -130,7 +141,7 @@ datasets:
         才打复盘会）、板块日行情官方涨幅来源（payload 落 ops_sector_search_payload_daily）、
         宇宙本身。publish_snapshot 自带 95% 名称连续性门。
     pitfalls:
-      - "同花顺 885 替不了 990；.TI 是死码（223 个，7-24 后退役），别再抓"
+      - "旧复盘会宇宙与同花顺 .TI 是不同池，不能按代码/名称强行一对一；允许主动换池。同花顺官方目录与历史 K 有独立同步器，不因旧复盘会 .TI 停更就判官方 .TI 退役"
       - "dim_sector 是全历史口径，含 is_active=false 死行，抓取清单必须按当日宇宙过滤"
 
   - key: sector_members
@@ -198,7 +209,7 @@ datasets:
         但严格双红判定零翻转 [接手复核]
     pitfalls:
       - "strength 全库空着，主路径没用"
-      - "能算 ≠ 和他们一样：分母永远是 990.FP 成分，不是自选股票池"
+      - "池子允许更换；成交额/涨幅/边际量须写明计算定义与成员版本。跨日成员变化要区分于成交变化，不要求与复盘会逐项同值或双红集合相同"
       - "Kline API diff_ratio 偶发全零（历史已知），本地公式天然免疫"
 
   - key: stock_daily
@@ -213,6 +224,51 @@ datasets:
         已是东财快照（sync-stock-daily-snapshot，非复盘会）。维持。失败兜底 fill-stock-daily-fallback
         （source 带 fallback，来自成分表——cheap 日拼接器会拒绝这种源）。历史回填走 mootdx。
     evidence: "东财值与复盘会成分表逐只完全一致（价/涨幅/成交额 p99 差=0.0）[回测]"
+
+  - key: hithink_stock_daily
+    label: 同花顺个股日线与复权事件（并跑）
+    tables: [fact_stock_daily_hithink, fact_stock_adjustment_hithink]
+    steps: {local: [hithink-stock-daily]}
+    refresh:
+      tier: A-replace
+      policy: >-
+        daily-k-10d + adjustment-factors；独立子进程继承 staging，缺 key 明确 skip。
+        dump 是当前近十日包（无目标日参数）；turnover 为元，不能直接当旧表 amount 的亿。
+        此步骤不改 fact_stock_daily，目标日完整性和 canonical 投影仍须另验。
+
+  - key: hithink_sector_kline
+    label: 同花顺板块与指数 K 线（并跑）
+    tables: [dim_sector_hithink, fact_sector_kline_daily, ops_hithink_sector_capture, ops_hithink_sector_request]
+    steps: {local: [hithink-sector-kline]}
+    refresh:
+      tier: A-replace
+      policy: >-
+        目录 + 截至目标交易日近五日 K 线；显式传 end-date，缺 key 明确 skip。
+        local仍不拉当前成员，不写 fact_sector_daily/stock_daily；采集时点的成员不能冒充历史名单。
+        同一步追加目录逻辑请求审计（catalog-only）；显式成员采集才产生catalog-and-members批，
+        按capture_id保留多标签目录/成员版本，不覆盖旧批。request_complete只指声明范围执行齐全，
+        不是供应商独立完整性（unverified）、K线目标日覆盖或canonical发布。
+        未来以同花顺池计算无需先映射 .FP；独立完整分母及消费切换另验。
+
+  - key: hithink_limit_pools
+    label: 同花顺涨停跌停炸板池（并跑）
+    tables: [fact_limit_pool_hithink]
+    steps: {local: [hithink-limit-pools]}
+    refresh:
+      tier: A-replace
+      policy: >-
+        stock dump 之后，显式传目标交易日，更新近三个交易日；缺 key 明确 skip。
+        此步骤不改旧连板/热度表。零涨跌停可能合法，不能仅用 count>0 验完整性。
+
+  - key: hithink_dragon_auction
+    label: 同花顺龙虎榜热榜竞价（并跑）
+    tables: [fact_dragon_tiger_hithink, fact_dragon_hot_money_hithink, fact_hot_stock_rank_hithink, fact_auction_hithink]
+    steps: {local: [hithink-dragon-auction]}
+    refresh:
+      tier: A-replace
+      policy: >-
+        显式传目标交易日，更新近三日历史与当天竞价终态；目标日非今天时原同步器跳过当前快照。
+        缺 key 明确 skip；成功只说明同步器完成，不代表目标日字段覆盖已验或旧表已切换。
 
   - key: market_overview
     label: 市场总览（要拆开看）

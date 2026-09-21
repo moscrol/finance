@@ -1,0 +1,26 @@
+[
+  {
+    "label": "rag_index-cli-bm25",
+    "status": "pass",
+    "index": ".rag_index",
+    "mode": "bm25",
+    "expected_empty": false,
+    "hits": 3,
+    "filter_verification": "not_requested",
+    "paths": [
+      "wiki/concepts/冷板式液冷.md",
+      "wiki/concepts/数据中心液冷.md",
+      "wiki/entities/曙光数创.md"
+    ]
+  },
+  {
+    "label": "rag_index-cli-L3-empty",
+    "status": "pass",
+    "index": ".rag_index",
+    "mode": "bm25",
+    "expected_empty": true,
+    "hits": 0,
+    "filter_verification": "verified",
+    "paths": []
+  }
+]

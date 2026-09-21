@@ -1,0 +1,4 @@
+
+> market-intelligence-workbench@0.1.0 lint /Users/a77/.finance-runtime/open-work-execution-20260920/gate-hithink/finance-workspace-private/intelligence/webapp
+> eslint .
+

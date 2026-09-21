@@ -17,6 +17,8 @@ export interface Run {
   question: string;
   task_type: string;
   status: RunStatus;
+  // Optional for pre-barrier servers; true means terminal artifacts are still being written.
+  delivery_pending?: boolean;
   schema_version: number;
   session_id: string | null;
   parent_run_id: string | null;

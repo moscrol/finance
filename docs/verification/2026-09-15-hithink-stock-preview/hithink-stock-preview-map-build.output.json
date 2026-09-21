@@ -1,0 +1,8 @@
+{
+  "original_path": "/tmp/hithink-stock-preview-map-build.log",
+  "raw_sha256": "c14979228a1c4667feaafb52e96262d27215e22681d809de347319c986071b55",
+  "encoding": "utf-8",
+  "lines": [
+    "{\"ok\": true, \"argv\": [\"update\", \"--base\", \"3bba5b4ece5360b0f08b3c717b6bf053d2883067\", \"--skip-flows\"], \"built_at_sha\": \"3bba5b4ece5360b0f08b3c717b6bf053d2883067\", \"node_count\": 26384, \"wiki_generated\": true}\n"
+  ]
+}

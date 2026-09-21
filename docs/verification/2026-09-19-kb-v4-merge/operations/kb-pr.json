@@ -1,0 +1,1 @@
+{"already_open": false, "number": 153, "state": "open", "merged": false, "head": "fix/rag-frontmatter-body", "head_sha": "c141a424a16f", "base": "main", "mergeable_claimed_by_gitea": true, "title": "fix(rag): preserve Markdown bodies and invalidate old chunk profiles", "url": "http://127.0.0.1:3300/a77/knowledge-base-private/pulls/153"}

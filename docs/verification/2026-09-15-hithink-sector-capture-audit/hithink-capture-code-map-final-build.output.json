@@ -1,0 +1,8 @@
+{
+  "original_path": "/tmp/hithink-capture-code-map-final-build.log",
+  "raw_sha256": "37b59f2fae050fb2f6f2a79c3d098a9db192461598096a201644c0dfa819b96f",
+  "encoding": "utf-8",
+  "lines": [
+    "{\"ok\": true, \"argv\": [\"update\", \"--base\", \"fdbe5dade48e5bf698208bf008c2af0eb3e0205d\", \"--skip-flows\"], \"built_at_sha\": \"c85d01017fa239aa3b2101b1585e8f5c07e005b3\", \"node_count\": 26384, \"wiki_generated\": true}\n"
+  ]
+}

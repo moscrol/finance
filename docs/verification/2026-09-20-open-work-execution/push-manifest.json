@@ -1,0 +1,222 @@
+[
+  {
+    "branch": "baseline/8792-financial-r6",
+    "revision": "0e368516efdf5d4e481574050456123649ad609e"
+  },
+  {
+    "branch": "baseline/capability-benchmark-00",
+    "revision": "6bea3197136442c66334f24563a748ec51f778e1"
+  },
+  {
+    "branch": "baseline/runtime-absorption-audit-0918",
+    "revision": "83a681905ac21713a7ee7e3f0f87e3284ebb414c"
+  },
+  {
+    "branch": "codex/docs-historical-discovery-spec",
+    "revision": "da254cd34d6dd0cbb1f85913914d4c3c703a6703"
+  },
+  {
+    "branch": "codex/feat-workbench-research-journey",
+    "revision": "094daed115454a6cb5cbb4e41920ad631c5db761"
+  },
+  {
+    "branch": "codex/qc-extraction-caba87c7",
+    "revision": "1d8d956738bdecadd6bbcbb6bc30d9055e3edc72"
+  },
+  {
+    "branch": "codex/qc-extraction-first-p0-b42dc9bf",
+    "revision": "e7f6e8b7f189342a6b557174ff6d82793719a02a"
+  },
+  {
+    "branch": "codex/qc-hithink-cd7f6fa9",
+    "revision": "f647468710561cebe1c458aa161d5c6924d4b151"
+  },
+  {
+    "branch": "codex/review-re06-merge-0bd11ece",
+    "revision": "86c87385c349ac0380e3796169bcbdeefa6870eb"
+  },
+  {
+    "branch": "codex/review-re06-round8-fdb5f91d",
+    "revision": "d51b5e6cba418b6ef86e74bad21621a5ef621c2f"
+  },
+  {
+    "branch": "codex/review-river-contract-86d61d9e",
+    "revision": "86d61d9e86e8522d673fb7c64b6abec92e07bd60"
+  },
+  {
+    "branch": "docs/8792-sector-history-diag-0917",
+    "revision": "403214024fe4d1d3d8fea360b35710625b064386"
+  },
+  {
+    "branch": "docs/bp-v1.3-roadshow-align",
+    "revision": "616c2121adce413d8bede1edb00a196e01a83b74"
+  },
+  {
+    "branch": "docs/optimization-status-audit-0916",
+    "revision": "fee615a9ea5d53a396683b1266b6494293883018"
+  },
+  {
+    "branch": "docs/qc-8792-readiness-0917",
+    "revision": "0170b6cc9e690328f08baa3faab17d1eb4f426d2"
+  },
+  {
+    "branch": "docs/qc-generation-root-0f6c2810",
+    "revision": "9b974691de91f13ae2af6a6a846cf03d66760a5c"
+  },
+  {
+    "branch": "docs/qc-hithink-48242bd4",
+    "revision": "63f377da87dad9a8c76d66319907c7ddbbfd49d2"
+  },
+  {
+    "branch": "docs/qc-hithink-9d73f01a",
+    "revision": "c7696acb867e1cb5838849675ecd215efc1ad6b3"
+  },
+  {
+    "branch": "docs/qc-hithink-efb274b8",
+    "revision": "5c86c31e88e116bec34877566275977e827552d9"
+  },
+  {
+    "branch": "docs/qc-l2-pct-chg-54248fa3",
+    "revision": "79e856617cfd2d0b8154cbf4a72f744121118f5a"
+  },
+  {
+    "branch": "docs/qc-method-29b07912",
+    "revision": "fed8a3fe566e1c38743cfb803ee1088aa28004a2"
+  },
+  {
+    "branch": "docs/qc-research-evolution-06-0913",
+    "revision": "51c08288fcbd094718b3817cea4f8a1e5a2b819f"
+  },
+  {
+    "branch": "docs/qc-research-evolution-repair-0913",
+    "revision": "f50ce52e594212ae29dab44e2243c7a0617f2b9e"
+  },
+  {
+    "branch": "docs/qc-route-gate-600f2aa9",
+    "revision": "433951eda432811f5ffb50a28a604949dda6d02c"
+  },
+  {
+    "branch": "docs/qc-workbench-probe-1b68dcd3",
+    "revision": "6936178f965f476b42506036c34559483d54a5d7"
+  },
+  {
+    "branch": "docs/qc-workbench-probe-a294a72e",
+    "revision": "8cee0bd35dbb257c5125855be9c1385c256b0bf8"
+  },
+  {
+    "branch": "docs/qc-workbench-probe-fd40b55b",
+    "revision": "b22197ae85ad0922b74bb536ae1135d737b71d84"
+  },
+  {
+    "branch": "eval/k3nj-compat-payload",
+    "revision": "af50e4055c387074a3c9e1a67217dd9b7cdafc28"
+  },
+  {
+    "branch": "feat/continuous-research-09-live",
+    "revision": "e480e6c7dc8d2450cc1281169b682f3991219d1b"
+  },
+  {
+    "branch": "feat/e2-p6-conditioned-input",
+    "revision": "d20982437ddf24b4124eb16cd560101b51670d9a"
+  },
+  {
+    "branch": "feat/finance-query-technical-daily",
+    "revision": "6b6d9f36446d81b325c3d376da0857033d283e6a"
+  },
+  {
+    "branch": "feat/history-market-anatomy",
+    "revision": "c9bd82ff2e25fe2727347329706f7aeb98444ee8"
+  },
+  {
+    "branch": "feat/instruction-migration-agents-md",
+    "revision": "b2d40776e80eb3743626e3231d1f367385428244"
+  },
+  {
+    "branch": "feat/judge-calibration-validity",
+    "revision": "19ae9973af02a9c57ce467600c504a942f78687e"
+  },
+  {
+    "branch": "feat/research-answer-preservation",
+    "revision": "ce673a9f4af4afd9995a8be779f98cdcf0a2249a"
+  },
+  {
+    "branch": "feat/research-data-readiness",
+    "revision": "b47577092fed5b8771d64b7bd0fa7735e683ea57"
+  },
+  {
+    "branch": "feat/river-correction-hardness",
+    "revision": "e57f56df138bfd7bcc5f26901ff1de4fa127e33e"
+  },
+  {
+    "branch": "feat/workbench-tech-premium",
+    "revision": "717d243be866cd8cf1fb34a4220e6d81d5150bfb"
+  },
+  {
+    "branch": "fix/8792-boundary-integration",
+    "revision": "068e2a4652d7b8e0250c9d046272e7889b15c5b9"
+  },
+  {
+    "branch": "fix/8792-financial-contracts-r5",
+    "revision": "1fe2ead277a22509d53f06157993b8d016368991"
+  },
+  {
+    "branch": "fix/8792-financial-r6-repair",
+    "revision": "d8d6196baebdb1108a81ae01466e9df6397dc4fc"
+  },
+  {
+    "branch": "fix/8792-readiness-boundaries",
+    "revision": "c57633bb3b7b8a706e3433f4d4dbd73199024619"
+  },
+  {
+    "branch": "fix/backfill-302132-scoped",
+    "revision": "3736d5bfa9978dfa0a264bb2e44795c4bc29b27d"
+  },
+  {
+    "branch": "fix/capability-wiring-closeout",
+    "revision": "e8a63007b737033540c20eaedec5581a9ffd2473"
+  },
+  {
+    "branch": "fix/citation-numeric-gate-0917",
+    "revision": "3c5f485a7760df67213304a26520ae72589a3992"
+  },
+  {
+    "branch": "fix/fupanhui-session-hygiene",
+    "revision": "c06a66f388e049c78fcecff60880df28d4005125"
+  },
+  {
+    "branch": "fix/generation-root-boundary-guards",
+    "revision": "ada20cc8e545d20bea8b52a504c6fb04d69d0d4b"
+  },
+  {
+    "branch": "fix/generation-stage-code-root",
+    "revision": "6e8c5a2a9818eb39fbaf1abf07ea0d78402d6b53"
+  },
+  {
+    "branch": "fix/nightly-generation-deploy-0917",
+    "revision": "f7337bf0e15dfb4ed5f5b2ebabad0b2a6d2b8ed8"
+  },
+  {
+    "branch": "fix/nightly-review-0917",
+    "revision": "6356ffd5e703b30948f687baaaf60102bf97f0a5"
+  },
+  {
+    "branch": "fix/runtime-authority-pc-0918",
+    "revision": "6b70e54034b0fab736430d7e3d00d6f4f7fd617a"
+  },
+  {
+    "branch": "fix/runtime-child-fence-tests-0918",
+    "revision": "7f6b201d028fa53dd9671f5841809d2383caccfb"
+  },
+  {
+    "branch": "fix/runtime-contracts-0918",
+    "revision": "a7f5cc06c087c2d9db896450bb6033851e8e5789"
+  },
+  {
+    "branch": "fix/runtime-evidence-probe-0918",
+    "revision": "d0780df58e5871a00a748e96f365d2f3fc3d900a"
+  },
+  {
+    "branch": "spec/continuous-depth-gap-r1",
+    "revision": "418515c0383334558a8dd44a0e741f39085115fa"
+  }
+]

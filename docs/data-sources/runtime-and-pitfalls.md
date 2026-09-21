@@ -92,16 +92,148 @@
 - `python3 scripts/backtest_sector.py [--scan | --top 5 --hold 3 --min-marginal 8]`：读 `fact_sector_daily` / `fact_market_daily`。
 - `render_daily_review_template.py` 是现役日报渲染入口。
 
-## 复盘会缺了怎么替（抓住本质，不抄他们的格子）
+## 换源恢复：计算逻辑一致，不要求复刻供应商名单
 
-复盘会是别人的加工结果。同一盘面，篮子划法不同，数字对不上，但问的问题可以自己做。
+2026-09-15 用户明确：**复盘会的池子不是权威，允许改用同花顺板块与成员；名单不同不构成失败。**
+验收分三层，不再用「是不是编辑产品」一刀切：
 
-| 他们有的 | 本质在问什么 | 我们怎么做 | 对得上他们的表吗 |
-|---|---|---|---|
-| `/data/theme/panels` → `fact_theme_flow_daily` | 这组股票今天钱进了还是出了 | 当日板块成分 `fund_flow_1d` 加总，source=`local:sector-basket:fund_flow_1d`；复盘会面板能抓到仍优先用 | 否（50 来个编辑格子 vs ~400 个板块） |
-| 个股/涨停大单 | 主动大单净流入 | L2 日包 → `feature_l2_*` | 从未用他们的 tick |
-| 主线、核心股、监管池、龙头高度 | 产品判断（谁是主线、谁该进池） | 仍打复盘会；没有公开盘面公式可还原 | 不能用加总冒充 |
-| 板块成分 / 涨停题材成员 | 谁在这个篮子里 | `fact_sector_stock_daily` / `fact_theme_limit_*`（登录同步） | 可以，这是原料不是加工 |
-| 竞价异动 | 集合竞价谁在动 | 日包里有集合竞价 csv，尚未接夜跑 | 暂缺 |
+1. 输入：目标交易日、单位、复权、窗口和成员版本有依据；不要求与旧源成员集合相同。
+2. 计算：成交额求和、边际量、连板、新高等规则分别对账。同一输入应得相同结果；
+   换池后结果不同可以成立。等权涨幅与指数加权、两种资金净额定义仍是**算法/字段口径差异**，不能归因于名单。
+3. 产物：在新池上用同一阈值生成双红、队列和矩阵；不以与复盘会入选集合一致为硬门。
+   跨日名单变化须有记录，不能拿旧池昨额与新池今额混算而不说明。
 
-质检门仍要求 `fact_theme_flow_daily` 当日有行：复盘会空了就写入篮子加总，门才能过。09-08 那种个股/板块整日空壳，加总也做不出来，还得先把同步段跑绿。
+| 内容 | 现有实现与恢复边界 |
+|---|---|
+| 板块与成员 | 同花顺目录/K线/当前成员已有独立表。local 的 canonical 复盘表目前仍走 carry/stitch；要换池须接通发布快照与成员投影，不要求先映射 `.FP`。当前成员必须保留真实采集日，不能回标成历史名单。 |
+| 板块成交额、边际量、双红 | `sync_local_sector_daily.py` 已有成分聚合；严格双红统一引用 `signals.py`。允许同花顺池，需保证单位、跨日分母和涨幅定义明确。 |
+| 核心股、主线、周期 | `compute_local_stats.py` 已有成交额核心股与主线等生产者，不能笼统说不可还原。核心股排名、主线算法与周期算法分开验；已有自算不等于复刻原标签。 |
+| 题材资金面板 | 池子可换，但个股资金定义仍须明确。本轮不新增篮子资金兜底；local registry 不认领 `fact_theme_flow_daily`。不能为过门把别种净额写成原面板。 |
+| L2 大单与竞价 | L2 日包独立处理；同花顺竞价另有独立表同步器，不把两条线或其完成状态混为一谈。 |
+
+### 分步夜跑接线（本分支代码，未部署）
+
+`build_local_plan` 已列入同花顺个股、板块 K 线、涨跌停池、龙虎榜/热榜/竞价四步，
+独立子进程继承 staging 库环境。仍为并跑表，不自动覆盖旧复盘表。
+有日期参数的三个端点显式接收目标交易日；个股近十日 dump 无历史日期参数。
+local 分步暂不自动抓当前成员；成员抓取与采集日期修复见下节，尚未接入生产切源。
+
+缺 key 记 `skip/no-key`，**不等于已更新**。有 key 执行失败在原位按预算重试，
+未恢复则停止下游/导出/换名；不能到末尾只补 dump，让涨停池沿用旧交易日历。
+已失败后重试变成缺 key 也不能洗成成功。
+
+步骤的成功仅是执行收据，不是字段完整性/目标日覆盖验收：同花顺原同步器可能接受合法空池或上游空响应；
+正式切主源之前还需请求回执、非空关键字段、目标日覆盖与新池计算的隔离库验收。
+计划/表归属以 `market_feature_store/consumption_registry.yaml` 为准。
+生产仍走现有 staging + 原子换库入口，不直接运行写库子命令。
+
+### 同花顺名单只读验算（本分支代码，未部署）
+
+入口 `python3 -m market_feature_store.cli hithink-sector-preview`，只读由
+`MARKET_FEATURE_STORE_DB` 指定的隔离库；要求显式给 `--trade-date`、`--member-date`、
+`--category` 和 `--pct-basis`。不调用 provider、不读取密钥、不初始化缺失库，也不发布快照。
+
+- `--pct-basis member_equal_weight`：选定成员当日涨幅的等权均值，保留 canonical 的日涨幅口径。
+- `--pct-basis index_close_return`：同花顺指数目标日与前一计划交易日收盘比值的收益。
+  **两者不是等价算法**，不得自动互补或把结果差异归因于换池；这两个选项只用于对照，
+  正式切源还要按原板块算法确定映射政策。
+- 成交额从 canonical `fact_stock_daily.amount`（亿元）求和；边际量用**同一选定名单**
+  在相邻交易日的成交额计算，复用 `sync_local_sector_daily.diff_ratio` 与 `signals.is_double_red`。
+  这是明示的同篮子比较，不是把新池今额与旧池昨额拼接；也不认证旧供应商全序列等价。
+- 默认名单/目录年龄为 0；承接旧名单必须同时指定 `--member-date` 与
+  `--max-member-age-days N`（自然日）。前一交易日由统一休市表判定，不能拿「库中最近有行」替代；
+  休市表当前仅登记 2026 年，目标日或前一计划日落在未登记年份即报 `invalid-preview-options`。
+- 缺目录、名单计数/时刻不符、任一成员缺日线/关键值、非法数字、错误来源、重复身份或
+  指数模式缺相邻 bar 时，`calculation_ready=false`、exit 2；部分可算行仅供诊断，
+  不给全池 `double_red_codes`。输入齐全 exit 0 也**只表示本次所选输入可计算**。
+  `production_ready` 始终 false，不能拿这个命令当生产质量门或产物恢复证据。
+
+当前成员接口没有历史日期参数。同步器将每个响应的真实上海接收时刻写为 `updated_at`，
+日期写为 `captured_at`；K 线的 `end_date` 不再影响名单日期。同一天同板块更新采用
+事务内整批替换＋目录计数更新，避免普通 upsert 残留已退出成员；目录标签重复只请求一次。
+空/坏/重复成员响应明确失败，不刷新完整快照。跨午夜可产生多个真实采集日，不回标到一个目标日。
+
+### 目录/成员采集版本与请求审计（本分支代码，未部署）
+
+既有 `sync_hithink_sector_kline` 每次生成新 `capture_id`（采集批次号），写入同一选定库的
+`ops_hithink_sector_capture` / `ops_hithink_sector_request`；唯一写者和落点见
+[`ledger-map.md`](../learning/ledger-map.md)，决策见 [ADR-0004](../adr/0004-hithink-capture-is-not-publication.md)。
+
+- 四类目录计划先落库，全部目录成功后才按唯一板块代码冻结成员请求计划。标签重叠保留各标签行，
+  但每个板块只请求一次成员。固定宽基指数与 K 线请求不属于这份目录/成员审计范围。
+- 成功响应保存规范化的白名单字段、真实上海接收时刻、行数与 SHA256；整批终态封存清单指纹。
+  个股名、未知调试字段、密钥、供应商原始错误正文不存入审计。合同版本为
+  `hithink-sector-capture-v1`，未知版本不按当前规则猜读。
+- 写者不覆盖终态批次/请求；重跑另开批次。短事务保护计划/结果/终态，慢网络 IO 不持有写事务。
+  中途失败保留已收到的结果与未执行计划；进程被打断或审计写入失败会留下 `running/requesting`，
+  不编造成功。失败批只保存在实际写入的库里，**不保证在 staging 被丢弃之后仍永久保留**。
+- `request_complete` 仅说明**所声明请求范围**完成且内部可对账。local 仍 `--skip-constituents`，
+  因而只能是 `catalog-only`（目录范围）；不能当成员齐全。`--limit` 没执行的成员保留为
+  `skipped/limit`，整批为 `partial`，同步 CLI exit 2。不限量调用的审计不完整会抛错，旧分步也不能洗绿。
+- 这不是逐 HTTP 尝试日志：客户端内部退避/重试仍算一个逻辑请求。响应行数和目录代码集合是
+  **请求完成度分母**，不是供应商全集分母。合法但截短的响应仍可能自洽，所以
+  `provider_completeness` 始终 `unverified`，不得用指纹或行数冒充独立完整性证明。
+
+只读预览可额外指定 `--capture-id <批次号>`：读取该批的多标签目录和成员，不读取或回退到最新目录/每日成员表；
+重新核对合同、计划、行数、指纹、时间与终态，消费的就是通过核对的那份行，不检查后另读一份。
+未找到批次 exit 2；缺请求、被损坏、非成员范围也 exit 2，并给结构化 `capture-not-ready` 与 `capture_audit`。
+完整批次可见 `capture_id`、请求收据与清单指纹，但仍必须通过行情/口径/名单日校验，`production_ready=false`。
+
+`--member-date` 仍必填；本片不支持把跨午夜成员批拼成一个单日名单，日期不一致会阻断计算。
+旧批次的目录和成员可以重放，**行情仍从当次 canonical 表读取，不宣称冻结了行情或全量回测时点**。
+未传 `--capture-id` 时保留此前的每日最新表预览，`basis.members=latest_daily_legacy`、
+`request_complete=null`，不能获得版本审计资格；旧目录仍单一 category，标签重叠仍会覆盖，
+这条兼容路径仍可能拒绝与最新目录头不符的历史名单。
+
+尚未将 dump 的元/股换算接入通用 canonical 日更投影，也未替换 canonical 板块宇宙。
+独立供应商完整分母、正式涨幅分类、复权/窗口及真实日报/队列/矩阵/snapshot 产物还需验收。
+单日修复器 `repair_hithink_stock_day.py` 有日期特定合同，不能直接当通用日更器使用。
+
+### 个股标准化只读预演（本分支代码，未部署）
+
+入口 `hithink-stock-preview`，实现 `market_feature_store/hithink_stock_preview.py`；
+决策见 [ADR-0005](../adr/0005-stock-preview-is-not-daily-publication.md)。仅输出诊断 JSON，
+不调用供应商/取密钥、不建表、不写 canonical，也未接入 local 分步或板块预览。
+使用时明确指定隔离库，不把示例日期当真实补数授权：
+
+```bash
+MARKET_FEATURE_STORE_DB=/path/to/isolated.duckdb \
+  .venv-workbench/bin/python -m market_feature_store.cli hithink-stock-preview \
+  --trade-date YYYY-MM-DD --stock-code 600001.SH --stock-code 000001.SZ
+```
+
+- 股票范围必须非空、唯一、显式声明；代码正则只检查形状和市场后缀，不证明上市名册。
+  输出 `requested_stock_count` / `calculated_stock_count`，缺股票不缩小分母；部分行仅作诊断。
+- 一条 SQL 读取 `fact_stock_daily_hithink` 的目标及前一**计划交易日**，以及
+  `fact_stock_adjustment_hithink` 的目标日事件，校验与计算消费同一份输入。
+  不读 canonical 表填名字/换手率/前收，不跨缺行情日找更早裸收，不读取未来除权事件。
+- 可预演范围受统一休市表（`trading_days.closed_dates`，**当前仅登记 2026 年**）限制：
+  目标日与其前一计划交易日都必须落在已登记年份内。2025 及更早、2027 及更晚的目标日，
+  以及前日跨入 2025 的 2026 年首个交易日，一律 fail-closed 报 `invalid-preview-options`——
+  这是日历未登记，不是行情缺失。要预演其他年份先扩休市表，不放宽校验。
+- 价格保持 `adjusted=none`：开高低收有限、正值、符合分价与高低区间；成交量为正整数股，
+  成交额为正数元。零成交不自行标成停牌/平盘；其他源标签、重复身份、缺表/关键字段拒绝。
+  仅做上述结构和数值校验，**不认证成交均价与量额比、供应商原单位或更新时间的新鲜度**。
+- 换算 `amount=turnover/1e8`（亿元、4位小数）、`volume=volume/100`（手、整数）；
+  原字段 `turnover` 是成交额而非换手率，输出 canonical 同名换手率 `turnover=null`、
+  `stock_name=null`。保留 `raw_amount_yuan` / `raw_volume_shares` 解释小量舍入成零，
+  换算零值不等于原始无成交。
+- 无事件行：参考前收=前一计划日裸收，但含义只是「未记录事件」，**不是已证实无除权**。
+  有事件行：仅支持来源明确的CNY纯现金分红，送转/配股比例/价格明确为零，不能用NULL代零；
+  `pre_close=round_half_up(prev_close-dividend_per_share,2)`，须为正数。
+  非现金事件明确拒绝，未直接复制授课模块更宽的公式。
+- `pct_chg=round_half_up((close-pre_close)*100/pre_close,2)`。运算从已入库DOUBLE的十进制文本
+  构造Decimal，固定精度50、完整上下文和半进舍入；先舍入参考前收再计算涨幅。
+  不是还原供应商原始任意精度，不冒称与单日修复器的DOUBLE/DECIMAL混合算法逐边界等价。
+- 输出合同 `hithink-stock-preview-v1`、范围及输入指纹、逐行来源/参考基准。输入指纹对所读白名单行
+  排序并保留重复；输入变更能检测，但没有保存历史原件、独立签名或股票市场全集分母。
+  `updated_at` 仅要求有时间，不以其推导当时可见性；历史预演读的是**当前所存版本**。
+- exit0仅为全声明范围可算，缺口/非法参数/不可读库或schema不符exit2。
+  失败 fallback 报告同样带 `contract_version` 供版本核对，但**不带**范围/输入指纹——
+  失败时范围未验证、输入未读到，补指纹等于伪造「验证过」；
+  `production_ready` 恒false，`request_complete=null`，`provider_completeness` 和
+  `adjustment_coverage` 恒为 `unverified`。已有板块capture审计不扩权认证这些行情/事件。
+
+本片只覆盖两个相邻计划日的普通行情/纯现金除息，不生成前后复权序列、3/5/10/20日收益或新高窗口。
+新股、停复牌、配股/送转、股票名、换手率、事件采集覆盖/真实字段对账，以及新池正式涨幅分类、
+候选/发布和当次产物验收仍待完成；不能用这份预演的exit0放行生产日报。

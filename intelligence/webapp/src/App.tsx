@@ -212,7 +212,7 @@ export default function App() {
   );
 
   const loadConversationData = useCallback(
-    async (conversationId: string): Promise<ChatMessage[]> => {
+    async (conversationId: string) => {
       const generation = ++conversationGeneration.current;
       const nextMessages = await getConversationMessages(conversationId, user);
       const runIds = [
@@ -241,22 +241,21 @@ export default function App() {
           .then((value) => value ?? null)
           .catch(() => null),
       ]);
+      const nextBundles = Object.fromEntries(
+        bundles.filter(
+          (item): item is readonly [string, RunBundle] => item !== null,
+        ),
+      );
       if (
         activeConversationRef.current === conversationId &&
         conversationGeneration.current === generation
       ) {
         setMessages(nextMessages);
-        setRunBundles(
-          Object.fromEntries(
-            bundles.filter(
-              (item): item is readonly [string, RunBundle] => item !== null,
-            ),
-          ),
-        );
+        setRunBundles(nextBundles);
         setResearchProject(project);
         setResearchEvolution(evolution);
       }
-      return nextMessages;
+      return { messages: nextMessages, bundles: nextBundles };
     },
     [fetchRunBundle, user],
   );
@@ -384,7 +383,10 @@ export default function App() {
         try {
           const run = await getRun(identity.runId, user);
           if (eventSourceRef.current !== events) return;
-          if (["completed", "failed", "cancelled"].includes(run.status)) {
+          if (
+            !run.delivery_pending &&
+            ["completed", "failed", "cancelled"].includes(run.status)
+          ) {
             await finalizeRun(
               identity,
               run.status as "completed" | "failed" | "cancelled",
@@ -435,7 +437,10 @@ export default function App() {
             (rawEvent as MessageEvent<string>).data,
           ) as Run;
           if (nextRun.run_id !== identity.runId) return;
-          if (["completed", "failed", "cancelled"].includes(nextRun.status)) {
+          if (
+            !nextRun.delivery_pending &&
+            ["completed", "failed", "cancelled"].includes(nextRun.status)
+          ) {
             void finalizeRun(
               identity,
               nextRun.status as "completed" | "failed" | "cancelled",
@@ -473,7 +478,8 @@ export default function App() {
       }
       setLoading(true);
       try {
-        const nextMessages = await loadConversationData(conversationId);
+        const { messages: nextMessages, bundles } =
+          await loadConversationData(conversationId);
         if (activeConversationRef.current !== conversationId) return;
         const lastUserMessage = [...nextMessages]
           .reverse()
@@ -489,8 +495,9 @@ export default function App() {
           .find(
             (message) =>
               message.role === "assistant" &&
-              message.status === "pending" &&
-              message.run_id,
+              message.run_id &&
+              (message.status === "pending" ||
+                bundles[message.run_id]?.run.delivery_pending),
           );
         if (
           pending?.run_id &&
@@ -724,6 +731,9 @@ export default function App() {
           citations: [],
           degrades: [],
         };
+        // Any in-flight reload captured the conversation before this new turn.
+        // Invalidate it even within the SAME conversation, not only on navigation.
+        ++conversationGeneration.current;
         setMessages((current) => [
           ...current,
           userMessage,

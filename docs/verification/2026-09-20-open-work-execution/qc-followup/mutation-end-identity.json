@@ -1,0 +1,6 @@
+{
+  "mutation": "remove final dirty/revision acceptance condition in memory only",
+  "pytest_exit": 1,
+  "expected_failed_tests": 2,
+  "candidate_source_changed": false
+}

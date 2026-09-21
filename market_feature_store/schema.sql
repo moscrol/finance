@@ -1202,6 +1202,35 @@ CREATE INDEX IF NOT EXISTS idx_fact_stock_adjustment_hithink_date
 -- 成分只有当前，禁止回写 fact_sector_stock_daily。切主是 E 单。
 -- ============================================================
 
+-- 目录/当前成员的逐次采集审计，不发布 canonical 宇宙。
+-- 时间一律带时区；目标 K 线日期不能冒充当前名单的接收日期。
+-- 计划先于外呼落库；终态由 SectorCapture 封存，不复用同一 capture_id 重跑。
+CREATE TABLE IF NOT EXISTS ops_hithink_sector_capture (
+    capture_id         TEXT PRIMARY KEY,
+    contract_version   TEXT NOT NULL,
+    requested_end_date DATE NOT NULL,
+    include_members    BOOLEAN NOT NULL,
+    member_limit       INTEGER CHECK (member_limit IS NULL OR member_limit >= 0),
+    members_planned    BOOLEAN NOT NULL DEFAULT FALSE,
+    status             TEXT NOT NULL CHECK (status IN ('running', 'complete', 'partial', 'failed')),
+    started_at         TIMESTAMP WITH TIME ZONE NOT NULL,
+    finished_at        TIMESTAMP WITH TIME ZONE,
+    manifest_sha256    TEXT
+);
+CREATE TABLE IF NOT EXISTS ops_hithink_sector_request (
+    capture_id       TEXT NOT NULL,
+    kind             TEXT NOT NULL CHECK (kind IN ('catalog', 'members')),
+    request_key      TEXT NOT NULL,
+    status           TEXT NOT NULL CHECK (status IN ('pending', 'requesting', 'success', 'error', 'skipped')),
+    requested_at     TIMESTAMP WITH TIME ZONE,
+    received_at      TIMESTAMP WITH TIME ZONE,
+    row_count        INTEGER,
+    normalized_rows  TEXT, -- 仅白名单业务字段；成功响应的版本原件，不写 key/错误正文
+    rows_sha256      TEXT,
+    error_code       TEXT, -- 固定内部错误码，不复制供应商消息
+    PRIMARY KEY (capture_id, kind, request_key)
+);
+
 CREATE TABLE IF NOT EXISTS dim_sector_hithink (
     sector_ts_code            TEXT PRIMARY KEY,
     sector_name               TEXT,

@@ -1,0 +1,176 @@
+[
+  {
+    "index": ".rag_index",
+    "exit_code": 0,
+    "elapsed_seconds": 87.719,
+    "finished_at": "2026-09-18T15:00:33.521979+00:00",
+    "code_revision": "23b4f5e4e1ace932fcc741197bf4892c272bf541",
+    "before": {
+      "model": "bge-m3",
+      "tokenizer_version": "rag-tokenizer-v1",
+      "chunking_version": "rag-chunking-v3",
+      "chunk_profile": {
+        "chunking_version": "rag-chunking-v3",
+        "max_tokens": 448,
+        "target_tokens": 336,
+        "overlap_ratio": 0.15,
+        "embed_max_length": 512
+      },
+      "built_at": "2026-09-18T13:23:57Z",
+      "include_raw": false,
+      "max_files": 0,
+      "source_revision": "manifest:v1:c060681e80a8e2f97c02cb1851d974fe18a208a6dc98e04e90a0028385dfab5f",
+      "format_version": 2,
+      "evidence_metadata_version": 1,
+      "evidence_field_counts": {
+        "evidence_layer": 17567,
+        "fact_hardness": 17608,
+        "source_type": 18444,
+        "source_quality": 20470,
+        "publish_time": 78134,
+        "available_time": 78206,
+        "review_required": 487
+      },
+      "raw_wiki_dirs": [],
+      "raw_wiki_globs": {},
+      "source_git_revision": "",
+      "source_dirty": null,
+      "source_fingerprint": "50be734f05c508ba24ce452036cc200197417155c9a7c516bbfaee95057af0ba",
+      "source_hash_algorithm": "sha256(chunk_id\\0content_sha1)",
+      "source_file_count": 14434,
+      "num_chunks": 168861,
+      "dim": 1024
+    },
+    "after": {
+      "model": "bge-m3",
+      "tokenizer_version": "rag-tokenizer-v1",
+      "chunking_version": "rag-chunking-v4",
+      "chunk_profile": {
+        "chunking_version": "rag-chunking-v4",
+        "max_tokens": 448,
+        "target_tokens": 336,
+        "overlap_ratio": 0.15,
+        "embed_max_length": 512
+      },
+      "built_at": "2026-09-18T14:59:45Z",
+      "include_raw": false,
+      "max_files": 0,
+      "source_revision": "manifest:v1:c060681e80a8e2f97c02cb1851d974fe18a208a6dc98e04e90a0028385dfab5f",
+      "format_version": 2,
+      "evidence_metadata_version": 1,
+      "evidence_field_counts": {
+        "evidence_layer": 17567,
+        "fact_hardness": 17608,
+        "source_type": 18444,
+        "source_quality": 20470,
+        "publish_time": 78134,
+        "available_time": 78206,
+        "review_required": 487
+      },
+      "raw_wiki_dirs": [],
+      "raw_wiki_globs": {},
+      "source_git_revision": "",
+      "source_dirty": null,
+      "source_fingerprint": "0d7ac81d92506b48ad412646617bb46de299a3f3e5e472b1c286dfea9646f161",
+      "source_hash_algorithm": "sha256(chunk_id\\0content_sha1)",
+      "source_file_count": 14434,
+      "num_chunks": 168862,
+      "dim": 1024
+    }
+  },
+  {
+    "index": ".rag_index_full",
+    "exit_code": 0,
+    "elapsed_seconds": 182.239,
+    "finished_at": "2026-09-18T15:03:35.761859+00:00",
+    "code_revision": "23b4f5e4e1ace932fcc741197bf4892c272bf541",
+    "before": {
+      "model": "bge-m3",
+      "tokenizer_version": "rag-tokenizer-v1",
+      "chunking_version": "rag-chunking-v3",
+      "chunk_profile": {
+        "chunking_version": "rag-chunking-v3",
+        "max_tokens": 448,
+        "target_tokens": 336,
+        "overlap_ratio": 0.15,
+        "embed_max_length": 512
+      },
+      "built_at": "2026-09-18T14:33:58Z",
+      "include_raw": true,
+      "max_files": 0,
+      "source_revision": "manifest:v1:47bcda0365b37d9de58c4b07ca867b7696a3c54b897fe09a2e1eae3f13169c8d",
+      "format_version": 2,
+      "evidence_metadata_version": 1,
+      "evidence_field_counts": {
+        "evidence_layer": 20875,
+        "fact_hardness": 20255,
+        "source_type": 21752,
+        "source_quality": 25843,
+        "publish_time": 78134,
+        "available_time": 78206,
+        "review_required": 3134
+      },
+      "raw_wiki_dirs": [
+        "disclosures",
+        "sellside",
+        "briefings"
+      ],
+      "raw_wiki_globs": {
+        "disclosures": "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/*.md",
+        "sellside": "*.md",
+        "briefings": "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/*.md"
+      },
+      "source_git_revision": "",
+      "source_dirty": null,
+      "source_fingerprint": "7f46cceb9d724f6ec6c3b0e3f5fbd10748c262949013773d0ba04ed29288ee34",
+      "source_hash_algorithm": "sha256(chunk_id\\0content_sha1)",
+      "source_file_count": 17970,
+      "num_chunks": 268641,
+      "dim": 1024
+    },
+    "after": {
+      "model": "bge-m3",
+      "tokenizer_version": "rag-tokenizer-v1",
+      "chunking_version": "rag-chunking-v4",
+      "chunk_profile": {
+        "chunking_version": "rag-chunking-v4",
+        "max_tokens": 448,
+        "target_tokens": 336,
+        "overlap_ratio": 0.15,
+        "embed_max_length": 512
+      },
+      "built_at": "2026-09-18T15:01:48Z",
+      "include_raw": true,
+      "max_files": 0,
+      "source_revision": "manifest:v1:47bcda0365b37d9de58c4b07ca867b7696a3c54b897fe09a2e1eae3f13169c8d",
+      "format_version": 2,
+      "evidence_metadata_version": 1,
+      "evidence_field_counts": {
+        "evidence_layer": 20875,
+        "fact_hardness": 20255,
+        "source_type": 21752,
+        "source_quality": 25843,
+        "publish_time": 78134,
+        "available_time": 78206,
+        "review_required": 3134
+      },
+      "raw_wiki_dirs": [
+        "disclosures",
+        "sellside",
+        "briefings"
+      ],
+      "raw_wiki_globs": {
+        "disclosures": "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/*.md",
+        "sellside": "*.md",
+        "briefings": "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/*.md"
+      },
+      "source_git_revision": "",
+      "source_dirty": null,
+      "source_fingerprint": "3f289b4aebd7e8bd69ee7426e6cf211f405bd6aae4cf7b32b526e04c940a5a9d",
+      "source_hash_algorithm": "sha256(chunk_id\\0content_sha1)",
+      "source_file_count": 17974,
+      "num_chunks": 268791,
+      "dim": 1024
+    }
+  }
+]

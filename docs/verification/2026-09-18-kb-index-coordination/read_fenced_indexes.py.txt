@@ -1,0 +1,46 @@
+"""Execute the installed legacy query entrypoint with only access logs redirected.
+
+No model/network calls (BM25 only). Never rebuild a cache or index here; a write
+attempt against production will be rejected by the already installed file fence.
+This is availability evidence, NOT evidence of updated metadata/quality.
+"""
+import datetime as dt
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+KB = Path.home() / 'knowledge-base-private'
+PYTHON = KB / '.rag_venv/bin/python'
+entry = KB / 'scripts/rag_index.py'
+bootstrap = (
+    'import pathlib,runpy,sys; '
+    f'sys.path.insert(0,{str(KB / "skills/lib")!r}); '
+    'import access_log; '
+    f'access_log.ACCESS_LOG_PATH=pathlib.Path({str(ROOT / "evidence/fence-query-access.jsonl")!r}); '
+    f'sys.argv=[{str(entry)!r}]+sys.argv[1:]; '
+    f'runpy.run_path({str(entry)!r},run_name="__main__")'
+)
+env = {key: os.environ[key] for key in ('HOME', 'PATH', 'TMPDIR') if key in os.environ}
+env.update(KB_VAULT=str(KB / 'wiki'), PYTHONDONTWRITEBYTECODE='1',
+           HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1')
+results = []
+for name in ('.rag_index', '.rag_index_full'):
+    env['RAG_INDEX_DIR'] = str(KB / name)
+    result = subprocess.run([str(PYTHON), '-c', bootstrap, 'query', '液冷',
+                             '--mode', 'bm25', '--k', '3', '--json'],
+                            cwd=KB, env=env, capture_output=True, text=True, timeout=180)
+    (ROOT / 'evidence' / f'fenced-query-{name[1:]}.stdout.json').write_text(result.stdout)
+    (ROOT / 'evidence' / f'fenced-query-{name[1:]}.stderr.txt').write_text(result.stderr)
+    assert result.returncode == 0, result.stderr
+    hits = json.loads(result.stdout)
+    assert isinstance(hits, list) and hits
+    results.append({'index': name, 'exit_code': result.returncode, 'hits': len(hits),
+                    'index_freshness': [hit.get('index_freshness') for hit in hits]})
+summary = {'finished_at': dt.datetime.now(dt.timezone.utc).isoformat(), 'status': 'pass',
+           'code': str(entry), 'mode': 'bm25', 'only_override': 'access log path',
+           'results': results, 'claim': 'fence permits installed query reads; not migrated quality'}
+(ROOT / 'evidence/fenced-query-summary.json').write_text(json.dumps(summary, indent=2, ensure_ascii=False))
+print(json.dumps(summary, ensure_ascii=False))

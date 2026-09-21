@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Callable, Literal
 from intelligence.services.evidence_capabilities import (
     runtime_capabilities_for_frame,
 )
+from intelligence.services.material_permissions import restrict_read_capabilities
 from intelligence.services.research_contract import TurnIntent
 from intelligence.services.task_frame import (
     TaskFrame,
@@ -24,6 +25,7 @@ from intelligence.services.task_frame import (
 )
 
 if TYPE_CHECKING:
+    from intelligence.services.prior_evidence import PriorTurnEvidence
     from intelligence.services.turn_controller import TurnDecision
 
 TerminalKind = Literal["research", "non_research", "clarification"]
@@ -72,6 +74,7 @@ class TurnControlResult:
     # episode never saw it.  Empty tuple means "no owner stages": byte-for-byte
     # legacy behavior.  Never evidence.
     retrieval_stages: tuple[str, ...] = ()
+    prior_evidence: PriorTurnEvidence | None = None
 
 
 def project_turn_decision(
@@ -89,12 +92,20 @@ def project_turn_decision(
     if not clarification_questions and task_frame.clarification_question:
         clarification_questions = (task_frame.clarification_question,)
 
-    if decision.lane == "clarify" or clarification_questions:
+    material = task_frame.material_contract
+    material_only = bool(material and material.data_scope == "material_only")
+    needs_retrieval = not material_only and (
+        decision.needs_retrieval or task_frame_requires_retrieval(task_frame)
+    )
+    if decision.lane == "clarify" or clarification_questions or (
+        material is not None and material.needs_clarification
+    ):
         terminal_kind: TerminalKind = "clarification"
-    elif not (decision.needs_retrieval or task_frame_requires_retrieval(task_frame)):
-        terminal_kind = "non_research"
-    else:
+    elif material_only or needs_retrieval:
+        # Evaluating frozen inputs needs the research delivery contract, not new reads.
         terminal_kind = "research"
+    else:
+        terminal_kind = "non_research"
 
     if terminal_kind == "research":
         frame_capabilities = runtime_capabilities_for_frame(task_frame)
@@ -106,10 +117,11 @@ def project_turn_decision(
         # The immutable TaskFrame owns evidence policy. Legacy aliases are a
         # compatibility fallback only when that policy has no runtime plan;
         # otherwise unioning them silently expands the model's tool surface.
-        capabilities = (
+        capabilities = restrict_read_capabilities(
             frame_capabilities
             if frame_capabilities
-            else tuple(dict.fromkeys(mapped_legacy_capabilities))
+            else tuple(dict.fromkeys(mapped_legacy_capabilities)),
+            material.data_scope if material is not None else None,
         )
         execution_route = task_frame.question_type
     else:
@@ -121,7 +133,7 @@ def project_turn_decision(
         task_frame=task_frame,
         execution_route=execution_route,
         terminal_kind=terminal_kind,
-        needs_retrieval=terminal_kind == "research",
+        needs_retrieval=terminal_kind == "research" and needs_retrieval,
         capabilities=capabilities,
         contract_required=terminal_kind == "research",
         turn_intent=turn_intent if turn_intent is not None else decision.turn_intent,

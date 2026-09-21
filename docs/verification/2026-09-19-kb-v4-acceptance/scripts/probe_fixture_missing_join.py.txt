@@ -1,0 +1,20 @@
+"""Reuse 672abcc5 missing-join mutation; no persistent source changes."""
+import inspect
+import textwrap
+
+import pytest
+
+from intelligence.tests.fixtures import run_supervisor as module
+
+source = textwrap.dedent(inspect.getsource(module.drain_test_client))
+old = "    supervisor._executor.shutdown(wait=True, cancel_futures=True)"
+assert source.count(old) == 1
+namespace = {}
+exec(compile("from __future__ import annotations\n" + source.replace(
+    old, "    pass  # deliberate missing join"), "<missing-fixture-join>", "exec"),
+    module.__dict__, namespace)
+module.drain_test_client = namespace["drain_test_client"]
+raise SystemExit(pytest.main([
+    "-q", "-p", "no:cacheprovider", "--tb=short",
+    "intelligence/tests/test_api_fixture_lifecycle.py",
+]))

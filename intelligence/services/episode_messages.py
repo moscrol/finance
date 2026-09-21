@@ -126,6 +126,7 @@ ProviderDialect = Literal["openai"]
 # 再在发射点用——``append_model_input`` 对不在表里的 source 抛错，防止字面量漂移。
 ModelInputSource = Literal[
     "opening_prefetch",
+    "prior_tool_evidence",
     "steering_invalid_plan",
     "steering_invalid_finish",
     "steering_repair_finalize",
@@ -139,6 +140,7 @@ ModelInputSource = Literal[
 MODEL_INPUT_SOURCES: frozenset[str] = frozenset(
     {
         "opening_prefetch",
+        "prior_tool_evidence",
         "steering_invalid_plan",
         "steering_invalid_finish",
         "steering_repair_finalize",

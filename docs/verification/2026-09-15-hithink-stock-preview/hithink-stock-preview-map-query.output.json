@@ -1,0 +1,8 @@
+{
+  "original_path": "/tmp/hithink-stock-preview-map-query.log",
+  "raw_sha256": "a2d80d9dd2f82cbdd94dde86e5c558428bbf77e0e1cef9c67c1cce03db5fac30",
+  "encoding": "utf-8",
+  "lines": [
+    "{\"query\": \"同花顺个股行情只读标准化预演 成交额 单位 前收 除息 pct_chg 计划交易日\", \"status\": \"stale\", \"vault\": \"unavailable\", \"layers\": {\"doors\": {\"state\": \"ok\", \"hits\": [{\"title\": \"- 覆盖率审计只能抓行数，抓不到「行在、值全 NULL」的空壳；重要回填后再抽 \", \"path\": \"AGENTS.md\", \"symbol\": null, \"excerpt\": \"- 覆盖率审计只能抓行数，抓不到「行在、值全 NULL」的空壳；重要回填后再抽 `price / pct_chg / amount` 非空或做跨日期 diff。\", \"retired\": []}]}, \"structure\": {\"state\": \"stale\", \"hits\": []}, \"narrative\": {\"state\": \"missing\", \"hits\": []}}, \"conflicts\": [], \"completeness_claim\": {\"doors\": \"partial\", \"structure\": \"stale\", \"narrative\": \"missing\", \"recall\": \"untested\"}, \"next_action\": \"正门见 layers.doors。叙事见 layers.narrative 或 ask。\"}\n"
+  ]
+}

@@ -1,0 +1,26 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/.finance-runtime/kb-dual-index-20260918/gate-058f76a3/finance-workspace-private/intelligence/webapp
+> vitest run
+
+
+ RUN  v3.2.4 /Users/a77/.finance-runtime/kb-dual-index-20260918/gate-058f76a3/finance-workspace-private/intelligence/webapp
+
+ ✓ src/researchActivity.test.ts (2 tests) 8ms
+ ✓ src/api.test.ts (3 tests) 15ms
+ ✓ src/streamEventRegistry.test.ts (2 tests) 8ms
+ ✓ src/components/ResearchActivityControl.test.tsx (5 tests) 288ms
+ ✓ src/components/ResearchProjectPanel.test.tsx (5 tests) 415ms
+ ✓ src/components/DailyReportView.test.tsx (4 tests) 551ms
+   ✓ DailyReportView > keeps glossary and the original report behind disclosure controls  339ms
+ ✓ src/components/ResearchEvolutionPanel.test.tsx (18 tests) 976ms
+ ✓ src/components/components.test.tsx (71 tests) 5116ms
+   ✓ Workbench navigation reliability > opens on today and navigates across the five product surfaces  337ms
+   ✓ Workbench navigation reliability > submits an explicit KOL perspective without mixing other profiles  304ms
+   ✓ Workbench navigation reliability > keeps cancel pending until polling confirms the cancelled state  368ms
+   ✓ Workbench navigation reliability > persists BYOK only after opt-in and can explicitly forget it  348ms
+
+ Test Files  8 passed (8)
+      Tests  110 passed (110)
+   Start at  23:28:54
+   Duration  8.69s (transform 1.72s, setup 3.86s, collect 3.89s, tests 7.38s, environment 8.51s, prepare 1.85s)
+

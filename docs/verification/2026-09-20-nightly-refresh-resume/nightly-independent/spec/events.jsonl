@@ -1,0 +1,9 @@
+{"type":"thread.started","thread_id":"01a0bdd4-902d-7ad3-9fc9-f60742e71071"}
+{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Codex is ignoring 1 unrecognized configuration setting. Check for typos or deprecated settings.\n  user (/Users/a77/.codex/config.toml): `mcp_servers.burpsuite.model_instructions_file` is ignored."}}
+{"type":"item.completed","item":{"id":"item_1","type":"error","message":"Codex is ignoring 1 unrecognized configuration setting. Check for typos or deprecated settings.\n  user (/Users/a77/.codex/config.toml): `mcp_servers.burpsuite.model_instructions_file` is ignored."}}
+{"type":"item.completed","item":{"id":"item_2","type":"error","message":"failed to parse hooks config /Users/a77/finance-workspace-private/.codex/hooks.json: unknown field `_why_portable_hooks`, expected `description` or `hooks` at line 2 column 23"}}
+{"type":"item.completed","item":{"id":"item_3","type":"error","message":"Code Mode is unavailable because failed to spawn code-mode host /Users/a77/.local/bin/codex-code-mode-host: host executable was not found. Code mode will fail closed; enable `features.code_mode_host` and install `codex-code-mode-host`."}}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_4","type":"error","message":"Skill descriptions were shortened to fit the skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest."}}
+{"type":"error","message":"You’ve hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Sep 27th, 2026 1:06 AM."}
+{"type":"turn.failed","error":{"message":"You’ve hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Sep 27th, 2026 1:06 AM."}}

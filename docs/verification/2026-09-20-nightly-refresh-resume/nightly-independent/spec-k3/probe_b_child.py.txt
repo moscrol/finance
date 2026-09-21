@@ -1,0 +1,162 @@
+"""独立探针 B：I1 recovery.child 门控（真实 child 控制流 + 真实本地计划 + 自有 fixture）。
+
+自有 tiny staging DuckDB 与自有日期（history 2026-09-10 / snapshot 2026-09-11）。
+真实 validate_inputs / 快照重放 / 历史写出 / build_local_plan / sync_hithink_step；
+run_step / run_release_steps / write_runlog 为确定性 stub（recording）。
+不读生产库、不外呼、不发模型请求。
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import tempfile
+from pathlib import Path
+
+import duckdb
+
+from market_feature_store import db, hithink_client
+from scripts import recover_local_review as recovery
+
+HDAY, SDAY = "2026-09-10", "2026-09-11"
+CODE = "000002.SZ"
+results = []
+
+
+def check(name, cond, detail=""):
+    results.append({"check": name, "pass": bool(cond), "detail": detail})
+    print(("PASS" if cond else "FAIL"), name, detail)
+
+
+def make_env(root: Path):
+    target = root / "probe.duckdb.staging"
+    with duckdb.connect(str(target)) as con:
+        db.init_db(con)
+        con.execute(
+            "INSERT INTO fact_stock_daily (trade_date, stock_ts_code, stock_name, close, pre_close, "
+            "amount, turnover, source) VALUES ('2026-09-09', ?, '探针股', 10, 9.9, .01, 1, "
+            "'sina:stock_zh_a_daily')", [CODE])
+    hist = dict(trade_date=HDAY, stock_ts_code=CODE, stock_name="探针股",
+                source="sina:stock_zh_a_daily", close=11.0, pre_close=10.0, pct_chg=10.0,
+                amount=.011, turnover=1.0, open=10.5, high=11.0, low=10.0, volume=1000.0)
+    raw = [dict(f297=20260911, f12="000002", f14="探针股", f2=12.0, f18=11.0,
+                f3=9.09, f6=1300000, f8=1.0, f17=11.0, f15=12.0, f16=11.0, f5=1100.0)]
+    history, snapshot = root / "history.jsonl", root / "snapshot.json"
+    history.write_text(json.dumps(hist) + "\n")
+    snapshot.write_text(json.dumps(raw))
+    args = argparse.Namespace(history_day=HDAY, snapshot_day=SDAY,
+                              history=history, snapshot=snapshot, receipt=root / "receipt.json")
+    os.environ["FINANCE_WS"] = str(root)
+    os.environ["MARKET_FEATURE_STORE_DB"] = str(target)
+    os.environ["MARKET_FEATURE_STORE_RUN_ID"] = "probe-run-42"
+    os.environ["REVIEW_SYNC_PLAN"] = "local"
+    db.DB_PATH = target
+    db.DB_DIR = root
+    return args, target
+
+
+def make_sync_stub(target, leaf_status: dict, key: bool):
+    """真实 run_review_sync 模块；stub run_step/run_release_steps/write_runlog。"""
+    sync = recovery.load_script("skills/daily-full-review/scripts/run_review_sync.py")
+    calls = []
+    real_run_step = sync.run_step
+
+    def run_step(label, argv, timeout):
+        calls.append((label, list(argv)))
+        status = leaf_status.get(label, "ok")
+        return dict(label=label, status=status,
+                    code=(0 if status in ("ok", "skip") else 2), elapsed=0.0)
+
+    sync.run_step = run_step
+    sync.run_release_steps = lambda day, timeout, plan="local": (
+        [{"label": "same-day-gate", "status": leaf_status.get("same-day-gate", "ok"),
+          "code": 0, "elapsed": 0}], leaf_status.get("same-day-gate", "ok") == "ok")
+    written = []
+    sync.write_runlog = lambda *a, **k: written.append((a, k))
+    hithink_client.has_api_key = lambda: key
+    return sync, calls, written
+
+
+def run_child(root, leaf_status, key=True):
+    args, target = make_env(root)
+    sync, calls, written = make_sync_stub(target, leaf_status, key)
+    recovery.load_script = lambda path: sync  # history 模块也用真名分辨
+    # 历史写出模块要真的：按路径返回
+    real_load = recovery.load_script
+    hist_mod = recovery.__dict__["load_script"]  # noqa: F841
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "backfill_stock_daily_sina",
+        Path(__file__).resolve().parents[1] / "spec-tree/skills/duckdb-backfill/scripts/backfill_stock_daily_sina.py")
+    hist = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(hist)
+    recovery.load_script = lambda path: hist if "backfill_stock_daily_sina.py" in path else sync
+    status_path = Path(str(target) + ".status.json")
+    err = None
+    try:
+        rc = recovery.child(args)
+    except RuntimeError as exc:
+        rc, err = None, str(exc)
+    return rc, err, status_path, calls, sync, written
+
+
+# B1: 全 ok → 写本 run_id 成功状态
+with tempfile.TemporaryDirectory(dir="/tmp") as td:
+    rc, err, sp, calls, sync, _ = run_child(Path(td), {})
+    check("I1.all_ok_rc0", rc == 0 and err is None, f"rc={rc} err={err}")
+    status = json.loads(sp.read_text()) if sp.exists() else {}
+    check("I1.all_ok_status_runid", status.get("run_id") == "probe-run-42" and status.get("ok") is True)
+    check("I1.all_ok_steps_ok", all(r["status"] == "ok" for r in status.get("steps", [])))
+    stitch_argv = [a for lbl, a in calls if lbl == "stitch-sector-stocks"]
+    check("I1.stitch_cmd_include_completed_180",
+          stitch_argv and all("--include-completed" in a and "180" in a for a in stitch_argv),
+          str(stitch_argv[:1]))
+    idx_argv = [a for lbl, a in calls if lbl == "index-daily"]
+    check("I1.local_index_no_fupanhui_fallback_kept",
+          idx_argv and all("--no-fupanhui-fallback" in a for a in idx_argv), str(idx_argv[:1]))
+
+# B2: 四个 Hithink 缺 key skip → 放行且保留原 skip/未更新收据
+with tempfile.TemporaryDirectory(dir="/tmp") as td:
+    rc, err, sp, calls, sync, _ = run_child(Path(td), {}, key=False)
+    check("I1.hithink_skip_rc0", rc == 0 and err is None, f"rc={rc} err={err}")
+    status = json.loads(sp.read_text()) if sp.exists() else {}
+    skips = [r for r in status.get("steps", []) if r["status"] == "skip"]
+    check("I1.hithink_skip_count", len(skips) == 2 * len(sync.HITHINK_STEPS), str(len(skips)))
+    check("I1.hithink_skip_labels", {r["label"] for r in skips} == set(sync.HITHINK_STEPS))
+    check("I1.hithink_skip_receipt_kept",
+          all(r.get("code") is None and "未更新" in (r.get("note") or "") for r in skips),
+          str(skips[:1]))
+    check("I1.hithink_skip_no_subprocess",
+          not any(lbl in sync.HITHINK_STEPS for lbl, _ in calls))
+
+# B3: 必需步骤 skip（index-daily）→ 阻断，不写状态
+with tempfile.TemporaryDirectory(dir="/tmp") as td:
+    rc, err, sp, calls, sync, _ = run_child(Path(td), {"index-daily": "skip"})
+    check("I1.required_skip_blocked", rc is None and err and "no publish" in err, f"err={err}")
+    check("I1.required_skip_no_status", not sp.exists())
+
+# B4: stitch 刷新失败 → 阻断、不写状态、不再派生下游
+with tempfile.TemporaryDirectory(dir="/tmp") as td:
+    rc, err, sp, calls, sync, _ = run_child(Path(td), {"stitch-sector-stocks": "fail"})
+    check("I1.stitch_fail_blocked", rc is None and err and "stitch-sector-stocks failed; no publish" in err,
+          f"err={err}")
+    check("I1.stitch_fail_no_status", not sp.exists())
+    check("I1.stitch_fail_no_derivation",
+          not any(lbl in {"sector-daily-local", "limit-stats-local", "same-day-gate"} for lbl, _ in calls))
+
+# B5: Hithink fail / timeout → 阻断
+for st in ("fail", "timeout"):
+    with tempfile.TemporaryDirectory(dir="/tmp") as td:
+        rc, err, sp, calls, sync, _ = run_child(Path(td), {"hithink-stock-daily": st})
+        check(f"I1.hithink_{st}_blocked", rc is None and err and "no publish" in err and not sp.exists(),
+              f"err={err}")
+
+# B6: 质量门失败 → 阻断
+with tempfile.TemporaryDirectory(dir="/tmp") as td:
+    rc, err, sp, calls, sync, _ = run_child(Path(td), {"same-day-gate": "fail"})
+    check("I1.gate_fail_blocked", rc is None and err and "quality gates failed; no publish" in err
+          and not sp.exists(), f"err={err}")
+
+print(json.dumps({"total": len(results), "failed": [r for r in results if not r["pass"]]},
+                 ensure_ascii=False, indent=1))
+raise SystemExit(1 if any(not r["pass"] for r in results) else 0)

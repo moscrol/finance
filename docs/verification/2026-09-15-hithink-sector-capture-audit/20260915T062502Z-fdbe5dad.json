@@ -1,0 +1,52 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-hithink-review-wiring",
+  "revision": "fdbe5dade48e5bf698208bf008c2af0eb3e0205d",
+  "branch": "fix/hithink-review-wiring",
+  "dirty": true,
+  "dirty_paths": [
+    "tests/test_hithink_sector_capture.py"
+  ],
+  "worktree_dirty_total": 2,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_hithink_sector_capture.py",
+  "counts": {
+    "passed": 0,
+    "failed": 27,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [
+    "tests/test_hithink_sector_capture.py::test_audit_revalidates_rows_hash_time_and_manifest[UPDATE ops_hithink_sector_capture SET members_planned=false]",
+    "tests/test_hithink_sector_capture.py::test_audit_revalidates_rows_hash_time_and_manifest[UPDATE ops_hithink_sector_request SET normalized_rows='[]' WHERE kind='members']",
+    "tests/test_hithink_sector_capture.py::test_audit_revalidates_rows_hash_time_and_manifest[UPDATE ops_hithink_sector_request SET received_at='2026-09-16T18:00:00+08:00' WHERE kind='members']",
+    "tests/test_hithink_sector_capture.py::test_audit_revalidates_rows_hash_time_and_manifest[UPDATE ops_hithink_sector_request SET received_at=NULL WHERE kind='members']",
+    "tests/test_hithink_sector_capture.py::test_audit_revalidates_rows_hash_time_and_manifest[UPDATE ops_hithink_sector_request SET row_count=10 WHERE kind='members']",
+    "tests/test_hithink_sector_capture.py::test_audit_revalidates_rows_hash_time_and_manifest[UPDATE ops_hithink_sector_request SET rows_sha256='wrong' WHERE kind='members']",
+    "tests/test_hithink_sector_capture.py::test_capture_is_planned_before_io_and_completed_not_provider_verified",
+    "tests/test_hithink_sector_capture.py::test_catalog_rejects_empty_ambiguous_or_malformed_response[payload0]",
+    "tests/test_hithink_sector_capture.py::test_catalog_rejects_empty_ambiguous_or_malformed_response[payload10]",
+    "tests/test_hithink_sector_capture.py::test_catalog_rejects_empty_ambiguous_or_malformed_response[payload1]",
+    "tests/test_hithink_sector_capture.py::test_catalog_rejects_empty_ambiguous_or_malformed_response[payload2]",
+    "tests/test_hithink_sector_capture.py::test_catalog_rejects_empty_ambiguous_or_malformed_response[payload3]",
+    "tests/test_hithink_sector_capture.py::test_catalog_rejects_empty_ambiguous_or_malformed_response[payload4]",
+    "tests/test_hithink_sector_capture.py::test_catalog_rejects_empty_ambiguous_or_malformed_response[payload5]",
+    "tests/test_hithink_sector_capture.py::test_catalog_rejects_empty_ambiguous_or_malformed_response[payload6]",
+    "tests/test_hithink_sector_capture.py::test_catalog_rejects_empty_ambiguous_or_malformed_response[payload7]",
+    "tests/test_hithink_sector_capture.py::test_catalog_rejects_empty_ambiguous_or_malformed_response[payload8]",
+    "tests/test_hithink_sector_capture.py::test_catalog_rejects_empty_ambiguous_or_malformed_response[payload9]",
+    "tests/test_hithink_sector_capture.py::test_error_keeps_prior_receipts_and_never_stores_exception_text",
+    "tests/test_hithink_sector_capture.py::test_incomplete_catalog_cannot_schedule_members_or_claim_complete",
+    "tests/test_hithink_sector_capture.py::test_member_plan_keeps_unrequested_limit_gaps",
+    "tests/test_hithink_sector_capture.py::test_partial_scope_and_catalog_only_never_supply_member_inputs",
+    "tests/test_hithink_sector_capture.py::test_request_does_not_store_noncontract_fields",
+    "tests/test_hithink_sector_capture.py::test_running_or_missing_requests_cannot_be_promoted_by_status_alone",
+    "tests/test_hithink_sector_capture.py::test_terminal_capture_and_request_are_not_overwritten",
+    "tests/test_hithink_sector_capture.py::test_unplanned_request_is_rejected_before_io",
+    "tests/test_hithink_sector_capture.py::test_version_preserves_overlap_members_and_does_not_depend_on_latest_tables"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-15T06:25:02+00:00"
+}

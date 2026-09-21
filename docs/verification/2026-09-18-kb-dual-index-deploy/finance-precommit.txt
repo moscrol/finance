@@ -1,0 +1,110 @@
+detect private key..............................................................Passed
+check for added large files.....................................................Passed
+check for merge conflicts.......................................................Passed
+ruff check......................................................................Passed
+工作区事实：你在哪棵树、用哪个解释器............................................Passed
+- hook id: agent-workspace-facts
+- duration: 0.24s
+
+── 工作区事实（提交时自述，非风格检查）──
+  worktree : /Users/a77/fwp-wt-kb-dual-index-deploy
+  分支     : fix/kb-dual-index-deploy @ d32b8966
+  解释器   : /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+  依赖     : agents, duckdb, fastapi, pytest, ruff, uvicorn, yaml —— 全部可用（宿主 python3 没有，别用它）
+  若刚才某次 pytest 报 ModuleNotFoundError，那是解释器用错了，不是环境缺包。
+
+层级审计........................................................................Passed
+- hook id: layer-audit
+- duration: 4.0s
+
+========================================================================
+层级门禁 — intelligence/services/** 不得 import intelligence.runtime.*
+========================================================================
+  树        /Users/a77/fwp-wt-kb-dual-index-deploy
+  分支      fix/kb-dual-index-deploy
+  revision  d32b8966  ⚠️ 工作区有未提交改动
+  扫描      484 个模块（不含 tests）
+  分层依据  目录 intelligence/runtime/（22 个模块）
+
+✅ ERROR 0 条
+
+结论：通过，ERROR 0 条 == 基线（对 fix/kb-dual-index-deploy@d32b8966 成立）
+
+路径字面量：不得新增写死的家目录................................................Passed
+- hook id: path-literals
+- duration: 0.97s
+
+========================================================================
+路径字面量门禁 — 不得新增写死的家目录（存量免检）
+========================================================================
+  树        /Users/a77/fwp-wt-kb-dual-index-deploy
+  扫描      1624 个 .py（不含 .venv/tmp/缓存）
+  存量基线  23 文件 / 37 处
+  当前      23 文件 / 37 处
+
+✅ 无新增家目录字面量
+
+字段契约：不得新增「写了没人读」的字段..........................................Passed
+- hook id: unread-fields
+- duration: 4.78s
+
+================================================================
+字段契约门禁 — 属性写了但全仓没人读（存量免检）
+================================================================
+  扫描      544 个 .py（intelligence, market_feature_store，不含 tests）
+  存量基线  40 文件 / 100 字段
+  当前      38 文件 / 92 字段
+
+✅ 无新增「写了没人读」的字段
+
+dataset 注册：入库了的表 agent 要够得着.........................................Passed
+- hook id: dataset-registration
+- duration: 0.59s
+
+========================================================================
+dataset 注册审计 — 入库 vs agent 够得着（存量免检，只拦新增）
+========================================================================
+  schema.sql 声明   51 张 fact_/feature_ 表（CREATE TABLE）
+    ├ 已注册        34
+    └ 已写明豁免    17
+  另注册 VIEW       2 个（不在 CREATE TABLE 里，单列以免总数对不上）
+  空表检查          跳过（未提供可读的 DuckDB）
+
+✅ 每张 fact_/feature_ 表都有归属（注册或写明豁免）
+
+结论：通过（34 注册 + 17 豁免 = schema.sql 全部 51 张；另有 2 个注册的 VIEW）
+
+工具可达性：声明了的工具生产装配必须够得着......................................Passed
+- hook id: tool-reachability
+- duration: 1.85s
+
+========================================================================
+工具可达性审计 — 声明 vs 生产装配
+========================================================================
+  声明（_DEFAULT_TOOL_METADATA）      18 个
+  无条件装配（build_episode_registry） 12 个
+  条件装配（需额外输入）               6 个
+
+  ⓘ 以下工具在能力授权之外还需额外输入才装配得出来：
+      - derived_calculation: 仅在附加真实装配上下文中出现；需检查对应入口
+      - history_query: 已授权 finance_query，且真实 TaskFrame.history_intent 存在；无需 HistorySession 也可仅计算
+      - memory_lookup: 已授权 memory_lookup，且传入 memory_user 或 memory_users_root 身份
+      - read_history_result: 已授权 finance_query、history_intent，且传入通过同用户/同会话校验的 HistorySession（临时 RunStore 探针）
+      - save_history_research: 已授权 finance_query、history_intent，且传入通过同用户/同会话校验的 HistorySession（临时 RunStore 探针）
+      - sub_research: 已授权 sub_research，且运行时传入绑定协调器和父证据账本的 sub_research_runner
+    这不是缺陷，但生产入口若忘了传那个输入，它会静默永不装配。
+
+✅ 声明与装配一致，无够不着的工具
+
+结论：通过（对 18 个声明工具成立）
+
+运行时目录保鲜：events / tools / harness-seams 与源码一致.......................Passed
+- hook id: runtime-catalog-fresh
+- duration: 1.16s
+
+三张目录与源码一致
+
+红线：禁止提交 密钥/大二进制/缓存/虚拟环境/依赖.............(no files to check)Skipped
+[fix/kb-dual-index-deploy c0fa49cf] fix(rag): bind deployed KB code and worker data roots consistently
+ 6 files changed, 145 insertions(+), 15 deletions(-)
+ create mode 100644 intelligence/tests/test_kb_runtime_roots.py

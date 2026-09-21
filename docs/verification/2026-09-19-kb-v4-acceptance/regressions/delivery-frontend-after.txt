@@ -1,0 +1,21 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/fwp-wt-kb-dual-index-deploy/intelligence/webapp
+> vitest run
+
+
+ RUN  v3.2.4 /Users/a77/fwp-wt-kb-dual-index-deploy/intelligence/webapp
+
+ ✓ src/researchActivity.test.ts (2 tests) 7ms
+ ✓ src/streamEventRegistry.test.ts (2 tests) 7ms
+ ✓ src/api.test.ts (3 tests) 14ms
+ ✓ src/components/ResearchActivityControl.test.tsx (5 tests) 290ms
+ ✓ src/components/ResearchProjectPanel.test.tsx (5 tests) 208ms
+ ✓ src/components/DailyReportView.test.tsx (4 tests) 391ms
+ ✓ src/components/ResearchEvolutionPanel.test.tsx (18 tests) 729ms
+ ✓ src/components/components.test.tsx (70 tests) 3679ms
+
+ Test Files  8 passed (8)
+      Tests  109 passed (109)
+   Start at  22:49:35
+   Duration  6.41s (transform 1.42s, setup 3.40s, collect 3.45s, tests 5.33s, environment 6.33s, prepare 999ms)
+

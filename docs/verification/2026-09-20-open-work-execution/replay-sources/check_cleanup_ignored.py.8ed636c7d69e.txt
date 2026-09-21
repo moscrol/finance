@@ -1,0 +1,30 @@
+"""Git clean 不能证明 ignored 产物可重建；候选删除前另查被忽略的独有证据。"""
+from pathlib import Path
+import datetime, hashlib, json, os, subprocess
+root=Path('/Users/a77/.finance-runtime/open-work-execution-20260920')
+manifest=json.loads((root/'cleanup-manifest.json').read_text())
+rows=[]
+for row in manifest['trees']:
+    if not row['eligible_for_owner_review']:
+        continue
+    proc=subprocess.run(['git','-C',row['path'],'ls-files','--others','--ignored','--exclude-standard','-z'],capture_output=True,check=False)
+    ignored=[p.decode(errors='surrogateescape') for p in proc.stdout.split(b'\0') if p]
+    def cache(name):
+        parts=Path(name).parts
+        return any(p in {'node_modules','__pycache__','.pytest_cache','.ruff_cache'} for p in parts) or name.endswith(('.pyc','.DS_Store'))
+    unique=[p for p in ignored if not cache(p)]
+    artifacts=[]
+    for name in unique:
+        path=Path(row['path'])/name
+        if path.is_symlink():
+            artifacts.append({'path':name,'kind':'symlink','target':os.readlink(path)})
+        elif path.is_file():
+            h=hashlib.sha256()
+            with path.open('rb') as stream:
+                for chunk in iter(lambda:stream.read(1024*1024),b''):h.update(chunk)
+            artifacts.append({'path':name,'bytes':path.stat().st_size,'sha256':h.hexdigest(),'copied':False,'decision':'retain original'})
+    rows.append({'path':row['path'],'exit_code':proc.returncode,'ignored_files':len(ignored),'non_cache_ignored_files':unique,'artifacts':artifacts,
+                 'decision':'retain; ignored artifacts require ownership' if unique or proc.returncode else 'retain; per-tree ownership still pending'})
+result={'checked_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'checked_candidates':len(rows),'with_non_cache_ignored_artifacts':sum(bool(r['non_cache_ignored_files']) for r in rows),'deleted':0,'trees':rows}
+(root/'cleanup-ignored-artifacts.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps({k:v for k,v in result.items() if k!='trees'}))

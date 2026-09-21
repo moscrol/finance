@@ -1,0 +1,36 @@
+{
+  "target_revision": "0f6c28101b92d654338e705c357778cf1d818a85",
+  "base_revision": "1fef3d276d0e251158803fc09d5a81e60d79241b",
+  "production_sources_modified": false,
+  "independent_full_suite_rerun": false,
+  "artifacts": {
+    "probe": {
+      "path": "scripts/probe_generation_code_root.py",
+      "sha256": "abf6dfaf83ad33f2347b2db5086fdefc32afd675cbd742c93a11a5f099bd94b6"
+    },
+    "counterexamples": {
+      "path": "docs/verification/generation-root-0f6c2810/counterexamples.json",
+      "sha256": "53a4c77bf897efe117e89a8d98be3f4b067f6fb3fbda1ba1e3163b6f19dc6d4f"
+    },
+    "independent_targeted_log": {
+      "path": "/Users/a77/.finance-runtime/reviews/generation-root-0f6c2810/targeted.log",
+      "sha256": "2dc27f30f2b374b6d8ce4328e512ea535e4d3e9a61bf0c51b0883645bf7f9d7e"
+    },
+    "independent_targeted_receipt": {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260915T014156Z-0f6c2810.json",
+      "sha256": "e3c93360fb1d1e6ea467f335a798e8bccbd37baea538492ebb8f9f202b80f499"
+    },
+    "author_full_receipt": {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260914T181625Z-0f6c2810.json",
+      "sha256": "632a7f76ecbd27741556fb96b67068ee18636864dfdb3d018ff3c083a580aa26"
+    },
+    "author_full_log": {
+      "path": "/private/tmp/generation-root-0f6c2810-pytest.log",
+      "sha256": "7973b0034739ff02009c9fd1bd67133d2c98ecc7a10ea01f9c85b851c790789d"
+    },
+    "author_receipt_check": {
+      "path": "/Users/a77/.finance-runtime/reviews/generation-root-0f6c2810/qc-generation-root-author-receipt-check.log",
+      "sha256": "8f7265cfbfd4252e578820910dd6e13b1aaaedbc11b4b28921369a9c9792ee03"
+    }
+  }
+}

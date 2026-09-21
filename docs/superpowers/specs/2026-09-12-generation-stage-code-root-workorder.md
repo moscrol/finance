@@ -2,7 +2,9 @@
 
 > 单类型：接线修复（小到中单，半天到一天）+ 一道回归闸。
 > 主仓：金融。优先级 **P2**（不是事故，但它让「夜跑跑的是哪份代码」无法回答）。
-> 分支：`fix/generation-stage-code-root`（未创建）。负责人：**⏳ 待派**。
+> 初版分支：`fix/generation-stage-code-root`；返修分支：`fix/generation-root-boundary-guards`。负责人：pi。
+> 2026-09-15 状态：初版 `0f6c2810` 独立复核发现 R1/R2/R3 三项 P2；返修冻结 `387028b8` 作者侧复验通过，**待独立复核，不是合并/部署放行**。
+> 证据与后续：[返修快照](../../handoffs/2026-09-15-generation-root-boundary-guards.md)、[在途交接](../../handoffs/inflight/fix-generation-root-boundary-guards.md)。
 > 来源：`fix/sync-code-root` 第三轮复核 P2；该分支已修同族前四处，此处刻意不顺手改。
 
 ## 0. 一句话

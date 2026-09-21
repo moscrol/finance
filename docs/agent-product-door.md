@@ -29,7 +29,53 @@
 | 复盘写入（另一条面） | `python3 -m market_feature_store.cli daily-full` | 飞书 Bitable 写入已退役 |
 | 飞书 IM（已退役，不是门） | `python3 -m intelligence.cli feishu-bot` | exit 2，不连 WebSocket。与 Bitable 写入退役是两件事 |
 
+夜跑收尾的运维入口仍是 `nightly_full_review.sh finalize`，不新增问答门或事实写入链。
+生成段从 `FINANCE_GENERATION_CODE_ROOT` 的双根 launcher 调用原 `intelligence.cli daily --skip-sync`；
+L2、外层质检与方法验证保留 `FINANCE_CODE_ROOT`，数据与外置用户态不迁移。
+部署/回滚及验收边界见 [09-17 生成接线](handoffs/2026-09-17-nightly-generation-deployment.md)。
+
 编码任务「仓库里有没有现成实现」走 `python3 scripts/code_map.py query "<问题>"`，不是本页，也不是问答门。空图不得写成架构结论。
+
+### 夜跑日报生成（代码与数据分根）
+
+收尾仍走 `nightly_full_review.sh finalize`，不是另一条数据写入链。其内部以绝对路径启动
+`$FINANCE_GENERATION_CODE_ROOT/scripts/run_daily_generation.py`（未配置生成根时回退
+`FINANCE_CODE_ROOT`），验证实际 import 位置后调用现有
+`intelligence.cli daily`。子步骤继承同一解释器与固定代码搜索路径，脚本用代码根绝对路径；
+工作目录、DuckDB、exports 和复盘 HTML 留在数据根。缺代码根/包、写入位置落进代码根时拒绝生成。
+生成启动器失败后外层立即返回，KB 接收只在成功后运行；拒绝后的提示使用现有进程输出与桌面通知。
+运维告警写入前会解析最终日志路径，拒绝写入配置的 L2 代码根和生成代码根（含文件、父目录软链接）。
+
+已配置的 `FORESIGHT_USERS_DIR` / `FORESIGHT_EPISODE_STORE` / 数据库覆盖保持原位，不迁移存量；
+相对覆盖统一按 `FINANCE_DATA_ROOT` 解析。生成启动器不改变独立 L2 分支的环境或同步守卫。
+启动器在导入项目模块前核验代码面及嵌套脚本软链的真实归属；摘要等参数只由原 CLI 完整解析一次，
+校验与执行共享同一解析结果。运行前检查已启用告警的真实日志目标、用户实例、日期目录、质量状态、增量归档及具体输出文件，
+已有子目录/文件软链指入代码根也拒绝；合法外置用户态软链不迁移。目录检查只读元数据，不读文件正文。
+
+这层是启动前的静态路径校验，不是 OS 沙箱：不防运行期间恶意换链、不认证未枚举的新增写入或外部 KB
+接收器代码。它不保证当天数据齐全、模型网关可用或生产已经部署；不改变其他直接 daily 调用的合同。
+
+### Workbench 终态与交付
+
+`Run.status` 是终态仲裁结果，不保证随后写入的报告已齐。单进程执行器在
+`GET /api/runs` / `GET /api/runs/{id}` 投影 `delivery_pending`：已 completed
+但执行器仍在收尾时为 true；UI 继续轮询/接收 SSE（服务器推送事件），恢复会话亦然。
+执行器退出后再取 run 快照，SSE 排空尾部事件才发最终 `run`。取消/失败不等待
+不合作的 worker。它不修改持久化状态机，不是跨进程交付协议；多 worker 前须替换。
+同会话新消息也使旧加载代际失效，迟到的上一轮快照不得抹掉新追问。
+
+直答车道的生成器返回 `fallback_reason` 时，即使一般知识检索兜底拿到了引用，
+本轮消息、Run 与报告仍保留生成降级记录；检索失败与生成失败分别记账。
+`completed` 只表示回合已结束，不能据此把资料摘要当作正常生成的综述。
+正常生成和确定性回复不因此增加降级标记；本规则不增加重试、调用或检索权限。
+
+### 计算表格的两参形式
+
+`fincalc.table(name, rows)` 在一次迭代中逐行保存当时的键和值，包括嵌套 JSON 值。
+生成器复用同一个行对象时，后续赋值不会覆盖早先行；字典列仍按首次出现顺序取并集，
+序列按最大宽度补 `None`，不补零。显式列名的三参形式保持原行为。
+沙箱内置辅助代码版本 `PRELUDE_VERSION = "5"` 进入 `calc_id`，不复用初版 v4 的计算身份。
+这只保证本地计算及产物一致性，不证明输入行情或公司财务事实真实。
 
 ### 专项研究纪律（Knevo 增量，2026-09-17 已合 main）
 
@@ -39,6 +85,41 @@
 默认开，`FINANCE_RESEARCH_WORKFLOW_GUIDANCE=0` 可关。它是生成指令，不是新增语义审稿器；
 权限、材料范围、证据绑定与写侧门保持原合同。代码/对账与效果状态见
 [逐项吸收记录](learning/knevo-distill/workflow-absorption-2026-09-16.md)，未据此宣称部署或质量增益。PR #774 已于 2026-09-17 合入 main（`c67413c7`），部署状态仍以运行服务 `/api/health` 的 revision 为准。
+
+### 研究求证意识（候选，默认关闭）
+
+`research_reasoning.guidance` 提醒研究型问题从现象追问机制、寻找区分性证据，接受反证并可放弃解释；
+视角不是封闭菜单，不指定宏观/流动性优先，不新增步骤、回答栏目或完成门。
+`FINANCE_RESEARCH_REASONING=on` 显式启用，未设、off 或未知值均不注入；查数、定义等题型保持原状。
+连续 Episode 先走动态题型规则，再通过已有 `tool_budget_state.runtime_budget.research_reasoning`
+在工具返回后送达短提醒，随原事件保存，不额外发起模型/工具调用，不依赖进展账开关。
+ask 的 AnswerSpec 合成、旧复盘合成及 `prepare_existing_answer` 回退共用初始规则，但不能改变已完成的检索。
+v2 补统计对象/分母/时间窗/变化量对齐，以及“相同观察能否容许另一机制”的反例检查；
+区分成交与净入金、行业与市值、订单与交付、毛利率与利润总额，不把不确定扩大为全盘拒答。
+仍只增加生成指导，不证明模型执行了求证，不授予权限、证据资格或完成状态；原知识门控保持不变。
+未接入日报离线生成、未合 main/部署 8792，也不依赖未合入的 `feat/adaptive-research-loop`。
+测试场景和效果边界见 [研究求证意识验收](verification/2026-09-20-research-reasoning-awareness.md)。
+
+本分支 09-21 的配套修复独立于上述开关：共享判读基线改成按待证主张选用，
+不再要求所有问题先判市场阶段，也不把盘面证据全局排在产业事实之前。
+`只分析以下材料` 冻结材料读取上限；顶层 `复核刚才的解释` 可延续可信用户条件，
+明确允许重查的普通续问保留日期锚点。`只用已取得的数据` 比 local_only 更窄，
+编为 material_only，不能再查本地库；引用行不能声明权限。旧 E 编号仍仅限原轮，
+新提示不授予旧回答事实资格。这些修复不是开关 off 时的字节级回滚范围。
+零检索与研究交付已拆开：明确材料任务走 research、needs_retrieval=false，读取能力仍为空。
+同会话明确要求“复核刚才解释、仍只用已取得数据”时，`prior_evidence` 可从上一轮已完成的
+local_only 原始 Episode 恢复输入。RunStore 校验用户、会话、登记工件路径/大小/SHA256；
+恢复器核对原问、消息、TaskFrame/contract/outcome 身份及日期，拒绝未知 schema、重复身份，
+排除非白名单本地工具、缺日期、越截止日及派生计算证据。本轮重新编 E 号，保留原 run/hash 映射；
+旧答案、覆盖/完成状态及权限不继承。仅复用已登记私有原件，不查 DuckDB 或外部资料。
+当前只支持有完整可信历史、无新显式日期/转题的单跳复核；不做跨会话、多层复核链或任意窗口重筛。
+数值预检对句首短日期另核已绑定证据的 source_date，避免把 `9-11` 的撤回句当新阈值删掉；
+仅日期句首形状适用，带单位的区间、未绑定/未知日期不获此资格，句中其他数值仍检查。
+这只保证句子能送交语义审核，不证明日期使用、归因或撤回成立；独立于求证提示开关。
+虚构材料的前提绑定仍未解决。V3 真实复核恢复14条、零新工具且能撤回部分断言，
+但原答仍过强归因、复核仍把成交占比写成增量集中，不能宣称求证质量已验收。
+历次原件见 [输入边界复验](verification/2026-09-21-reasoning-input-boundaries.md) 和
+[旧证据复核 V3](verification/2026-09-21-prior-evidence-review.md)。未合、未部署。
 
 ### 材料题边界（E2，分阶段接线中）
 
@@ -283,6 +364,15 @@ material_outputs 清单，工具定义同步限制 ID 与数量，解析仍严�
 
 A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结构门、修复轮**只在 A**；B 有 `gate_receipt` / `CompletionReport` / `evidence_judge` / 输出质检。差的成因是分层——判官在 `runtime/`，B 在 `services/`，不得反向 import。现状与并轨计划见 `docs/superpowers/specs/2026-08-30-engine-b-into-a-strangler-design.md` §1.3。
 
+### 判官模式：`ASK_SEMANTIC_JUDGE=llm|off`（工单 #55）
+
+用户 2026-09-12 撤掉独立 Grok 判官（改 kimi-k3 自审）、2026-09-17 进一步决定**不用 LLM 判官**。一个共享开关（`intelligence/services/judge_mode.py::semantic_judge_mode`）同时管两条引擎：
+
+- **`llm`（代码默认，行为与此前一致）**：A 的终稿判官 `_run_judge` 调第二模型（无 `LLM_JUDGE_*` 时落回写手自审，`correlated_judge=true`）；B 的合成判官走 `synthesize_messages`；判官不可用时 A 扣稿（`judge_status=unavailable`）、B 走带告示的瞬时放行。
+- **`off`（生产启动器取值）**：A 的 `_run_judge` 返回合成的全过报告，**零模型调用**，判后机械门（数值 / 材料缺口 / 元陈述 / 表外 E）与删句修复照常跑，V11 引导回检索记 `skip_reason=judge_off`；B 的判官段不发调用、`GroundedComposerShadow.status=deterministic_only`、不带掉线告示；检索侧证据判官另由既有 `ASK_EVIDENCE_JUDGE=off` 关。
+
+读收据别读反：`judge_status` 闭集不变（`passed / repaired / rejected / unavailable`），两种模式下都表示「过了门 / 门删了句并修好 / 修不好 / 结构守卫未放行」；**谁在判**看私有块 `semantic_verifier.judge_mode`（`llm` | `deterministic`，落在 `continuous-episode.json`），公开 `gate_receipt` 键集未动（`RECEIPT_KEYS` 是被钉死的 schema v1 合同）。判官此前抓到的两类绑定错误的去向：句内日期与所引证据日期全不符 → 机械探测器 `evidence_date_mismatch` 删句（两种模式都生效）；引用了别的槽绑定的 E → 只记 `sentence_verdicts[stage=census]` 与 `cited_outside_slot_count`，不删（R-20260821-06）。B 侧健康度多一桶 `deterministic_only`，不冒充 `full_pass`。默认翻转与判官专属路径退役见工单 #56。
+
 不要把 `ask.answer_query` 写成「金融 Agent 的唯一深模块」。它是引擎 B。也不要为「少学零件」再加 `answer_door` / `EpisodeBuilder`：组装已经在 `GLMAgentRuntime` 和 `episode_factory`。
 
 ### 生产里谁在拼 `AskOptions`（为什么不加 `answer_door`）
@@ -298,6 +388,34 @@ A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结
 | Workbench `app.py` `_run_ask` | 直接 `AskOptions` + `answer_query`，走 run/store | 否，UI 合同 |
 
 问金融问题走上一节 CLI `ask`；问「仓库里有没有现成实现」走 `python3 scripts/code_map.py query`。仓库里没有第四套 Python `answer_door`。真浅的若还要收，是删掉 `AskWorkflowOptions` 那次字段拷贝，不是再加转发。
+
+### 知识库证据过滤（2026-09-18 已合 main，未部署）
+
+`kb_rag.retrieve` 消费知识库 query 的 `--receipt`（实际执行条件回执）。请求了等级、
+硬度、来源或 `as_of` 时，必须核对封套、逐条元数据与可得日；缺回执/旧 CLI 不支持即
+不交付该次 W 证据，不删除约束后冒充成功。`filters` 保留请求值，`applied_filters` 与
+`filter_verification` 才表示已核验执行；旧索引元数据待迁移的空命中不等于没有事实。
+有过滤的块不再被金融端原页重摘录、整节深读或 stale 恢复替换，避免新正文继承旧等级。
+无过滤查询保留旧列表兼容与现有深读；本次不宣称该路径的等级/时点已核验。
+回执结果不复用未绑定源文件状态的结果缓存（模型/索引常驻缓存仍保留）。
+负能力缓存与 worker 都绑定 CLI/RAG 包的内容指纹；代码变更先结束旧进程，响应再核对
+加载身份，查询中途变化则丢弃结果。发布仍需不可变检出与服务重启，不支持逐文件热部署。
+部署可用 `KB_RAG_CODE_ROOT` 将预热、能力探测、CLI 与常驻 worker 统一绑定到冻结的 KB
+代码检出；资料仍由 `kb_wiki` / `KNOWLEDGE_WIKI` 决定。普通索引走原 `RAG_INDEX_DIR` /
+`VECTOR_INDEX_DIR`，全文模式的 `.rag_index_full` 可由 `KB_RAG_FULL_INDEX_DIR` 绑定到同代
+全文索引；配置目录不存在就拒绝，不回退资料树中的旧全文索引。其他显式索引路径保持原意。
+显式 `retrieve(code_root=...)` 优先于环境配置；指定代码根失效就拒绝，不回退旧资料树代码。
+worker 的资料根按调用参数传递且纳入进程复用键，不继承无关的 `KB_VAULT`；未配置代码根
+保持原目录约定。这是候选部署接线，不代表生产已经切换。
+受管代际由 `KB_RAG_GENERATION`（manifest SHA）、`RAG_GENERATION_MANIFEST` 与
+`RAG_GENERATIONS_ROOT` 三个核心键识别；worker 创建时固定代码、资料、普通/全文索引和
+解释器身份，进程池键也包含这份固定绑定。readiness 的 `status` 只读固定 manifest、
+`current.json`、marker 与目录身份：同一 root 切代、路径缺失/损坏/替换时立即非 ready，
+不启动/终止进程或安排恢复；另一独立 root 的合法环境不会给旧实例改名。退役身份使用专用
+错误停在消费者边界，不回退旧 CLI；普通进程/协议故障仍保留原 CLI 回退。
+这只是检索积木的协议：未给所有产品问句自动加截至日期，也不代表生产索引已迁移。
+跨仓合同见 `docs/handoffs/2026-09-18-kb-filter-receipt.md`；金融 #784 / KB #151 已合入，
+合并验收与生产边界见 `docs/handoffs/2026-09-18-kb-retrieval-merge-acceptance.md`。部署与索引迁移另行。
 
 ## 积木（常见误判）
 

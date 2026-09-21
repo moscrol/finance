@@ -3158,6 +3158,8 @@ def test_static_knowledge_lane_uses_neutral_generator_without_retrieval(
     assert captured["decision"].lane == "knowledge"
     assert "当前视角" not in result.content
     assert "非投资建议" not in result.content
+    assert conversation_store.load_messages(conversation.conversation_id)[-1].degrades == []
+    assert run_store.load_run(run_id).degrades == []
 
 
 def test_methodology_lane_never_falls_back_to_financial_rag(tmp_path) -> None:
@@ -3200,6 +3202,7 @@ def test_methodology_lane_never_falls_back_to_financial_rag(tmp_path) -> None:
     assert "方法论分析" in result.content
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert assistant.degrades == ["方法论回答生成暂时不可用"]
+    assert run_store.load_run(run_id).degrades == assistant.degrades
     controller = next(
         step
         for step in run_store.load_trace(run_id)
@@ -3539,10 +3542,14 @@ def test_static_knowledge_uses_local_retrieval_when_generation_is_unavailable(
     assert captured[0].question_type_override == QUESTION_CONCEPT_DEFINITION
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert assistant.citations[0]["source"] == "百科来源"
+    warning = "自然语言生成暂时不可用，本轮正文未经综述"
+    assert assistant.degrades == [warning]
+    assert run_store.load_run(run_id).degrades == [warning]
     report = json.loads(
         (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
     )
     assert report["task_type"] == "knowledge"
+    assert report["warnings"] == [warning]
 
 
 def test_static_knowledge_fails_closed_when_generation_and_retrieval_fail(
@@ -3585,12 +3592,14 @@ def test_static_knowledge_fails_closed_when_generation_and_retrieval_fail(
     assert "未取得足够可靠的资料" in result.content
     assert "private diagnostic" not in result.content
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
-    assert assistant.degrades == ["一般知识检索暂时不可用"]
+    expected = ["一般知识检索暂时不可用", "自然语言生成暂时不可用，本轮正文未经综述"]
+    assert assistant.degrades == expected
+    assert run_store.load_run(run_id).degrades == expected
     report = json.loads(
         (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
     )
     assert report["task_type"] == "knowledge"
-    assert report["warnings"] == ["一般知识检索暂时不可用"]
+    assert report["warnings"] == expected
 
 
 def test_knowledge_follow_up_uses_bounded_conversation_context_without_retrieval(
@@ -5619,7 +5628,9 @@ def test_recovered_turn_prefixes_event_ids_to_avoid_replay_collisions(
     assert all(event["event_id"].startswith("recovery:2:") for event in events)
 
 
-def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
+def test_completed_stream_persists_human_readable_answer(tmp_path, monkeypatch) -> None:
+    # 展示契约只用本例 answer_spy；不能由外部 FINANCE_WS 读到真实最新交易日后注入盘面包。
+    monkeypatch.setenv("FINANCE_WS", str(tmp_path))
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
     conversation = conversation_store.create_conversation()

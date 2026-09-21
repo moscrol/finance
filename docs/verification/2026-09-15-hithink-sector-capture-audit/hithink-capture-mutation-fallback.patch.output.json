@@ -1,0 +1,26 @@
+{
+  "original_path": "/tmp/hithink-capture-mutation-fallback.patch",
+  "raw_sha256": "c0d91eba556aab09bd4bdd03ec4a04d3e1215801ae4c88067e8e342eb2f94e5a",
+  "encoding": "utf-8",
+  "lines": [
+    "diff --git a/market_feature_store/hithink_sector_preview.py b/market_feature_store/hithink_sector_preview.py\n",
+    "index 6ec06a7c..9668b62e 100644\n",
+    "--- a/market_feature_store/hithink_sector_preview.py\n",
+    "+++ b/market_feature_store/hithink_sector_preview.py\n",
+    "@@ -99,7 +99,13 @@ def preview_sector_calculation(\n",
+    "     if capture_id is not None:\n",
+    "         from .hithink_sector_capture import capture_inputs\n",
+    " \n",
+    "-        sectors, members, capture_audit = capture_inputs(con, capture_id, category)\n",
+    "+        try:\n",
+    "+            sectors, members, capture_audit = capture_inputs(con, capture_id, category)\n",
+    "+        except ValueError:\n",
+    "+            return preview_sector_calculation(\n",
+    "+                con, trade_date, member_date=member_date, category=category,\n",
+    "+                pct_basis=pct_basis, max_member_age_days=max_member_age_days,\n",
+    "+            )\n",
+    "     else:\n",
+    "         sectors = con.execute(\n",
+    "             \"SELECT sector_ts_code, sector_name, updated_at, constituent_count, \"\n"
+  ]
+}

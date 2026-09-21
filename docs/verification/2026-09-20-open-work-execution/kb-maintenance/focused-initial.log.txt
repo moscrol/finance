@@ -1,0 +1,824 @@
+........................................................................ [ 20%]
+.........FF.FF.F.............................FFFFFFFFFF..FFF............ [ 41%]
+........................................................................ [ 62%]
+........................................................................ [ 82%]
+.............F............................FFFFFFF.....F.....             [100%]
+=================================== FAILURES ===================================
+_______ StoreIntegrationTest.test_chunks_file_path_builds_same_artifacts _______
+
+self = <test_bm25_sparse.StoreIntegrationTest testMethod=test_chunks_file_path_builds_same_artifacts>
+
+    def test_chunks_file_path_builds_same_artifacts(self):
+        docs = _corpus(n=25, seed=7)
+        chunks = _chunks(docs)
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+            with (out / "chunks.jsonl").open("w", encoding="utf-8") as fh:
+                for c in chunks:
+                    fh.write(json.dumps(c, ensure_ascii=False) + "\n")
+>           rag_store.save_bm25_from_chunks_file(out)
+
+skills/lib/rag/tests/test_bm25_sparse.py:282: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/store.py:375: in save_bm25_from_chunks_file
+    out_dir = assert_index_writable(Path(out_dir))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmphszg4sws')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmphszg4sws
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+___________ StoreIntegrationTest.test_empty_corpus_removes_stale_csc ___________
+
+self = <test_bm25_sparse.StoreIntegrationTest testMethod=test_empty_corpus_removes_stale_csc>
+
+    def test_empty_corpus_removes_stale_csc(self):
+        docs = _corpus(n=10, seed=8)
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+>           rag_store.save_bm25(out, _chunks(docs))
+
+skills/lib/rag/tests/test_bm25_sparse.py:293: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/store.py:353: in save_bm25
+    out_dir = assert_index_writable(Path(out_dir))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp97o3sh2j')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp97o3sh2j
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+__ StoreIntegrationTest.test_save_bm25_writes_tokens_and_csc_with_fingerprint __
+
+self = <test_bm25_sparse.StoreIntegrationTest testMethod=test_save_bm25_writes_tokens_and_csc_with_fingerprint>
+
+    def test_save_bm25_writes_tokens_and_csc_with_fingerprint(self):
+        docs = _corpus(n=60, seed=6)
+        chunks = _chunks(docs)
+        fp = rag_store.chunks_fingerprint(chunks)
+        self.assertIsNotNone(fp)
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+>           rag_store.save_bm25(out, chunks)
+
+skills/lib/rag/tests/test_bm25_sparse.py:246: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/store.py:353: in save_bm25
+    out_dir = assert_index_writable(Path(out_dir))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpomdryi0t')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpomdryi0t
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+_____ RetrieverTest.test_bm25_mode_uses_mmap_index_and_needs_no_rank_bm25 ______
+
+self = <test_bm25_sparse.RetrieverTest testMethod=test_bm25_mode_uses_mmap_index_and_needs_no_rank_bm25>
+
+    def test_bm25_mode_uses_mmap_index_and_needs_no_rank_bm25(self):
+        docs = _corpus(n=40, seed=9)
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+>           self._store(docs).save(out)
+
+skills/lib/rag/tests/test_bm25_sparse.py:310: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp7zt5g9zl')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp7zt5g9zl
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+__________ RetrieverTest.test_stale_csc_from_other_chunks_is_not_used __________
+
+self = <test_bm25_sparse.RetrieverTest testMethod=test_stale_csc_from_other_chunks_is_not_used>
+
+    def test_stale_csc_from_other_chunks_is_not_used(self):
+        """meta.json 带 source_fingerprint 时，指纹对不上的倒排/语料一律不用（行数相同也拦得住）。"""
+        docs_a = _corpus(n=20, seed=11)
+        docs_b = _corpus(n=20, seed=12)
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+            store_a = self._store(docs_a)
+>           store_a.save(out)                      # 语料 + 倒排属于 A
+
+skills/lib/rag/tests/test_bm25_sparse.py:336: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpkt_f_rio')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpkt_f_rio
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+__ StoreIntegrationTest.test_load_is_lazy_by_default_and_eager_when_disabled ___
+
+self = <test_chunk_table.StoreIntegrationTest testMethod=test_load_is_lazy_by_default_and_eager_when_disabled>
+
+    def test_load_is_lazy_by_default_and_eager_when_disabled(self):
+        with tempfile.TemporaryDirectory() as td:
+>           out = _build_and_save(Path(td))
+
+skills/lib/rag/tests/test_chunk_table.py:192: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_chunk_table.py:90: in _build_and_save
+    store.save(out)
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp0xu61hvp/idx')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp0xu61hvp/idx
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+_ StoreIntegrationTest.test_save_back_into_own_dir_replaces_inode_and_keeps_content _
+
+self = <test_chunk_table.StoreIntegrationTest testMethod=test_save_back_into_own_dir_replaces_inode_and_keeps_content>
+
+    def test_save_back_into_own_dir_replaces_inode_and_keeps_content(self):
+        with tempfile.TemporaryDirectory() as td:
+>           out = _build_and_save(Path(td))
+
+skills/lib/rag/tests/test_chunk_table.py:222: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_chunk_table.py:90: in _build_and_save
+    store.save(out)
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpzc7w1xdk/idx')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpzc7w1xdk/idx
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+____ StoreIntegrationTest.test_snapshot_revision_only_computed_when_missing ____
+
+self = <test_chunk_table.StoreIntegrationTest testMethod=test_snapshot_revision_only_computed_when_missing>
+
+    def test_snapshot_revision_only_computed_when_missing(self):
+        with tempfile.TemporaryDirectory() as td:
+>           out = _build_and_save(Path(td))
+
+skills/lib/rag/tests/test_chunk_table.py:206: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_chunk_table.py:90: in _build_and_save
+    store.save(out)
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp15v3bc4b/idx')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp15v3bc4b/idx
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+_______ StoreIntegrationTest.test_update_and_stale_report_over_lazy_prev _______
+
+self = <test_chunk_table.StoreIntegrationTest testMethod=test_update_and_stale_report_over_lazy_prev>
+
+    def test_update_and_stale_report_over_lazy_prev(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+>           out = _build_and_save(tmp)
+
+skills/lib/rag/tests/test_chunk_table.py:239: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_chunk_table.py:90: in _build_and_save
+    store.save(out)
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp_zjcmzvr/idx')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp_zjcmzvr/idx
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+___ RetrieverEquivalenceTest.test_all_modes_identical_between_lazy_and_eager ___
+
+self = <test_chunk_table.RetrieverEquivalenceTest testMethod=test_all_modes_identical_between_lazy_and_eager>
+
+    def test_all_modes_identical_between_lazy_and_eager(self):
+        with tempfile.TemporaryDirectory() as td:
+>           out = _build_and_save(Path(td))
+
+skills/lib/rag/tests/test_chunk_table.py:276: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_chunk_table.py:90: in _build_and_save
+    store.save(out)
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpczaq3x61/idx')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpczaq3x61/idx
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+_ RetrieverEquivalenceTest.test_hybrid_parses_each_row_at_most_once_and_reuses_lru _
+
+self = <test_chunk_table.RetrieverEquivalenceTest testMethod=test_hybrid_parses_each_row_at_most_once_and_reuses_lru>
+
+    def test_hybrid_parses_each_row_at_most_once_and_reuses_lru(self):
+        """查询期对正文的访问全走 LRU：同一查询内每行最多解析一次，重复查询零解析。
+        （「只碰几百行而非 169k 行」这一量级在小语料上没有区分力，留给真索引实测。）"""
+        with tempfile.TemporaryDirectory() as td:
+>           out = _build_and_save(Path(td))
+
+skills/lib/rag/tests/test_chunk_table.py:312: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_chunk_table.py:90: in _build_and_save
+    store.save(out)
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp7jqqh0tj/idx')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp7jqqh0tj/idx
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+______ RetrieverEquivalenceTest.test_row_boost_terms_match_legacy_formula ______
+
+self = <test_chunk_table.RetrieverEquivalenceTest testMethod=test_row_boost_terms_match_legacy_formula>
+
+    def test_row_boost_terms_match_legacy_formula(self):
+        with tempfile.TemporaryDirectory() as td:
+>           out = _build_and_save(Path(td))
+
+skills/lib/rag/tests/test_chunk_table.py:294: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_chunk_table.py:90: in _build_and_save
+    store.save(out)
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpbfit6d41/idx')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpbfit6d41/idx
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+____________ DenseMmapLoadTest.test_env_off_restores_fp32_in_memory ____________
+
+self = <test_dense_mmap.DenseMmapLoadTest testMethod=test_env_off_restores_fp32_in_memory>
+
+    def test_env_off_restores_fp32_in_memory(self):
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+>           _save(_store(), out)
+
+skills/lib/rag/tests/test_dense_mmap.py:59: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_dense_mmap.py:40: in _save
+    store.save(out, build_bm25=False)
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp5ehncr7t')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp5ehncr7t
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+___________ DenseMmapLoadTest.test_load_returns_readonly_fp16_memmap ___________
+
+self = <test_dense_mmap.DenseMmapLoadTest testMethod=test_load_returns_readonly_fp16_memmap>
+
+    def test_load_returns_readonly_fp16_memmap(self):
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+>           _save(_store(), out)
+
+skills/lib/rag/tests/test_dense_mmap.py:47: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_dense_mmap.py:40: in _save
+    store.save(out, build_bm25=False)
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpjt367odu')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpjt367odu
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+_________ DenseMmapLoadTest.test_missing_dense_file_still_loads_empty __________
+
+self = <test_dense_mmap.DenseMmapLoadTest testMethod=test_missing_dense_file_still_loads_empty>
+
+    def test_missing_dense_file_still_loads_empty(self):
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+>           _save(_store(), out)
+
+skills/lib/rag/tests/test_dense_mmap.py:68: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_dense_mmap.py:40: in _save
+    store.save(out, build_bm25=False)
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpyxl0vl5l')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpyxl0vl5l
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+_______ BlockedDenseScoreTest.test_memmap_blocked_scores_match_full_fp32 _______
+
+self = <test_dense_mmap.BlockedDenseScoreTest testMethod=test_memmap_blocked_scores_match_full_fp32>
+
+    def test_memmap_blocked_scores_match_full_fp32(self):
+        src = _store(n=101, dim=16, seed=3)
+        q = np.random.default_rng(9).standard_normal(16).astype(np.float32)
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+>           _save(src, out)
+
+skills/lib/rag/tests/test_dense_mmap.py:86: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_dense_mmap.py:40: in _save
+    store.save(out, build_bm25=False)
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpxg80wd06')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpxg80wd06
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+___ AtomicDenseSaveTest.test_save_replaces_inode_and_keeps_old_memmap_valid ____
+
+self = <test_dense_mmap.AtomicDenseSaveTest testMethod=test_save_replaces_inode_and_keeps_old_memmap_valid>
+
+    def test_save_replaces_inode_and_keeps_old_memmap_valid(self):
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+            first = _store(n=12, dim=4, seed=1)
+>           _save(first, out)
+
+skills/lib/rag/tests/test_dense_mmap.py:120: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_dense_mmap.py:40: in _save
+    store.save(out, build_bm25=False)
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp6nm3ax2c')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp6nm3ax2c
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+__ AtomicDenseSaveTest.test_saving_a_loaded_memmap_store_back_to_its_own_dir ___
+
+self = <test_dense_mmap.AtomicDenseSaveTest testMethod=test_saving_a_loaded_memmap_store_back_to_its_own_dir>
+
+    def test_saving_a_loaded_memmap_store_back_to_its_own_dir(self):
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+>           _save(_store(n=9, dim=4, seed=5), out)
+
+skills/lib/rag/tests/test_dense_mmap.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/tests/test_dense_mmap.py:40: in _save
+    store.save(out, build_bm25=False)
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpq8gw18b0')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpq8gw18b0
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+_ RetrievalProvenanceTests.test_legacy_index_gets_stable_snapshot_revision_on_load _
+
+self = <test_retrieval_provenance.RetrievalProvenanceTests testMethod=test_legacy_index_gets_stable_snapshot_revision_on_load>
+
+    def test_legacy_index_gets_stable_snapshot_revision_on_load(self):
+        with tempfile.TemporaryDirectory() as td:
+            index_dir = Path(td)
+            store = RagStore(
+                chunks=[
+                    {
+                        "id": "wiki/concepts/sample.md::0",
+                        "text": "Traceable evidence.",
+                        "content_hash": "chunk-hash",
+                    }
+                ],
+                dense=np.zeros((1, 0), dtype=np.float32),
+                meta={},
+            )
+>           store.save(index_dir, build_bm25=False)
+
+skills/lib/rag/tests/test_retrieval_provenance.py:57: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpalan4xuf')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpalan4xuf
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+_______________ NoPickleTests.test_roundtrip_and_stale_detection _______________
+
+self = <test_store_no_pickle.NoPickleTests testMethod=test_roundtrip_and_stale_detection>
+
+    def test_roundtrip_and_stale_detection(self):
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+>           rag_store.save_bm25(out, _CHUNKS)
+
+skills/lib/rag/tests/test_store_no_pickle.py:63: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/store.py:353: in save_bm25
+    out_dir = assert_index_writable(Path(out_dir))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpdh7l3c2f')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpdh7l3c2f
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+____________ NoPickleTests.test_save_writes_json_tokens_not_pickle _____________
+
+self = <test_store_no_pickle.NoPickleTests testMethod=test_save_writes_json_tokens_not_pickle>
+
+    def test_save_writes_json_tokens_not_pickle(self):
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+>           path = rag_store.save_bm25(out, _CHUNKS)
+
+skills/lib/rag/tests/test_store_no_pickle.py:41: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/store.py:353: in save_bm25
+    out_dir = assert_index_writable(Path(out_dir))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpu9bkpcfc')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpu9bkpcfc
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+____________ SaveBm25ToggleTests.test_default_writes_tokens_and_csc ____________
+
+self = <test_store_save_bm25_toggle.SaveBm25ToggleTests testMethod=test_default_writes_tokens_and_csc>
+
+    def test_default_writes_tokens_and_csc(self):
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+>           _store().save(out)  # 默认 build_bm25=True
+
+skills/lib/rag/tests/test_store_save_bm25_toggle.py:43: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpk0s5202x')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpk0s5202x
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+______________ SaveBm25ToggleTests.test_skip_does_not_write_bm25 _______________
+
+self = <test_store_save_bm25_toggle.SaveBm25ToggleTests testMethod=test_skip_does_not_write_bm25>
+
+    def test_skip_does_not_write_bm25(self):
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+>           _store().save(out, build_bm25=False)
+
+skills/lib/rag/tests/test_store_save_bm25_toggle.py:34: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpkertggpv')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpkertggpv
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+__ SaveBm25FromChunksFileTests.test_builds_loadable_bm25_matching_chunk_count __
+
+self = <test_store_save_bm25_toggle.SaveBm25FromChunksFileTests testMethod=test_builds_loadable_bm25_matching_chunk_count>
+
+    def test_builds_loadable_bm25_matching_chunk_count(self):
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+            # 先用 build_bm25=False 落盘 chunks/dense（模拟嵌完的中途状态，无 BM25）
+>           _store().save(out, build_bm25=False)
+
+skills/lib/rag/tests/test_store_save_bm25_toggle.py:55: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp3ed4rio9')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp3ed4rio9
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+_____ SaveBm25FromChunksFileTests.test_empty_chunks_file_writes_none_bm25 ______
+
+self = <test_store_save_bm25_toggle.SaveBm25FromChunksFileTests testMethod=test_empty_chunks_file_writes_none_bm25>
+
+    def test_empty_chunks_file_writes_none_bm25(self):
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+            (out / "chunks.jsonl").write_text("", encoding="utf-8")
+>           path = rag_store.save_bm25_from_chunks_file(out)
+
+skills/lib/rag/tests/test_store_save_bm25_toggle.py:70: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/store.py:375: in save_bm25_from_chunks_file
+    out_dir = assert_index_writable(Path(out_dir))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp0jn0_rqh')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmp0jn0_rqh
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+________ SaveBm25FromChunksFileTests.test_respects_explicit_chunks_path ________
+
+self = <test_store_save_bm25_toggle.SaveBm25FromChunksFileTests testMethod=test_respects_explicit_chunks_path>
+
+    def test_respects_explicit_chunks_path(self):
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+            cp = out / "alt_chunks.jsonl"
+            cp.write_text(
+                json.dumps({"text": "创新药 出海 license out"}, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+>           rag_store.save_bm25_from_chunks_file(out, chunks_path=cp)
+
+skills/lib/rag/tests/test_store_save_bm25_toggle.py:83: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/store.py:375: in save_bm25_from_chunks_file
+    out_dir = assert_index_writable(Path(out_dir))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpt7f7hk7n')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpt7f7hk7n
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+____________ StatCacheTests.test_build_persists_stat_cache_sidecar _____________
+
+self = <test_update_guards.StatCacheTests testMethod=test_build_persists_stat_cache_sidecar>
+
+    def test_build_persists_stat_cache_sidecar(self):
+        with tempfile.TemporaryDirectory() as td:
+            vault = _vault(Path(td))
+            out = Path(td) / "idx"
+            st = build(_Emb("hash", 3), vault)
+>           st.save(out, build_bm25=False)
+
+skills/lib/rag/tests/test_update_guards.py:145: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/store.py:232: in save
+    out_dir = assert_index_writable(Path(out_dir or config.index_dir()))
+skills/lib/rag/maintenance_io.py:176: in assert_index_writable
+    path = canonical(path, exists=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpj15mvxko/idx')
+
+    def canonical(path: Path, *, exists: bool = True) -> Path:
+        """Reject aliases, including symlinked ancestors, rather than re-resolve later."""
+        path = Path(os.path.abspath(path.expanduser()))
+        if path != path.resolve(strict=exists):
+>           raise MaintenanceError(f"symlink/alias path is not allowed: {path}")
+E           rag.maintenance_io.MaintenanceError: symlink/alias path is not allowed: /var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpj15mvxko/idx
+
+skills/lib/rag/maintenance_io.py:52: MaintenanceError
+=========================== short test summary info ============================
+FAILED skills/lib/rag/tests/test_bm25_sparse.py::StoreIntegrationTest::test_chunks_file_path_builds_same_artifacts
+FAILED skills/lib/rag/tests/test_bm25_sparse.py::StoreIntegrationTest::test_empty_corpus_removes_stale_csc
+FAILED skills/lib/rag/tests/test_bm25_sparse.py::StoreIntegrationTest::test_save_bm25_writes_tokens_and_csc_with_fingerprint
+FAILED skills/lib/rag/tests/test_bm25_sparse.py::RetrieverTest::test_bm25_mode_uses_mmap_index_and_needs_no_rank_bm25
+FAILED skills/lib/rag/tests/test_bm25_sparse.py::RetrieverTest::test_stale_csc_from_other_chunks_is_not_used
+FAILED skills/lib/rag/tests/test_chunk_table.py::StoreIntegrationTest::test_load_is_lazy_by_default_and_eager_when_disabled
+FAILED skills/lib/rag/tests/test_chunk_table.py::StoreIntegrationTest::test_save_back_into_own_dir_replaces_inode_and_keeps_content
+FAILED skills/lib/rag/tests/test_chunk_table.py::StoreIntegrationTest::test_snapshot_revision_only_computed_when_missing
+FAILED skills/lib/rag/tests/test_chunk_table.py::StoreIntegrationTest::test_update_and_stale_report_over_lazy_prev
+FAILED skills/lib/rag/tests/test_chunk_table.py::RetrieverEquivalenceTest::test_all_modes_identical_between_lazy_and_eager
+FAILED skills/lib/rag/tests/test_chunk_table.py::RetrieverEquivalenceTest::test_hybrid_parses_each_row_at_most_once_and_reuses_lru
+FAILED skills/lib/rag/tests/test_chunk_table.py::RetrieverEquivalenceTest::test_row_boost_terms_match_legacy_formula
+FAILED skills/lib/rag/tests/test_dense_mmap.py::DenseMmapLoadTest::test_env_off_restores_fp32_in_memory
+FAILED skills/lib/rag/tests/test_dense_mmap.py::DenseMmapLoadTest::test_load_returns_readonly_fp16_memmap
+FAILED skills/lib/rag/tests/test_dense_mmap.py::DenseMmapLoadTest::test_missing_dense_file_still_loads_empty
+FAILED skills/lib/rag/tests/test_dense_mmap.py::BlockedDenseScoreTest::test_memmap_blocked_scores_match_full_fp32
+FAILED skills/lib/rag/tests/test_dense_mmap.py::AtomicDenseSaveTest::test_save_replaces_inode_and_keeps_old_memmap_valid
+FAILED skills/lib/rag/tests/test_dense_mmap.py::AtomicDenseSaveTest::test_saving_a_loaded_memmap_store_back_to_its_own_dir
+FAILED skills/lib/rag/tests/test_retrieval_provenance.py::RetrievalProvenanceTests::test_legacy_index_gets_stable_snapshot_revision_on_load
+FAILED skills/lib/rag/tests/test_store_no_pickle.py::NoPickleTests::test_roundtrip_and_stale_detection
+FAILED skills/lib/rag/tests/test_store_no_pickle.py::NoPickleTests::test_save_writes_json_tokens_not_pickle
+FAILED skills/lib/rag/tests/test_store_save_bm25_toggle.py::SaveBm25ToggleTests::test_default_writes_tokens_and_csc
+FAILED skills/lib/rag/tests/test_store_save_bm25_toggle.py::SaveBm25ToggleTests::test_skip_does_not_write_bm25
+FAILED skills/lib/rag/tests/test_store_save_bm25_toggle.py::SaveBm25FromChunksFileTests::test_builds_loadable_bm25_matching_chunk_count
+FAILED skills/lib/rag/tests/test_store_save_bm25_toggle.py::SaveBm25FromChunksFileTests::test_empty_chunks_file_writes_none_bm25
+FAILED skills/lib/rag/tests/test_store_save_bm25_toggle.py::SaveBm25FromChunksFileTests::test_respects_explicit_chunks_path
+FAILED skills/lib/rag/tests/test_update_guards.py::StatCacheTests::test_build_persists_stat_cache_sidecar
+27 failed, 321 passed in 14.67s

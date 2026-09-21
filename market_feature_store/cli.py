@@ -134,6 +134,77 @@ def cmd_sector_universe_preview(args) -> int:
     return 0
 
 
+def cmd_hithink_sector_preview(args) -> int:
+    """只读换池验算；exit 0 仅代表 calculation_ready，不授予生产发布资格。"""
+    import duckdb
+
+    from .hithink_sector_capture import CaptureNotReadyError
+    from .hithink_sector_preview import CONTRACT_VERSION, preview_sector_calculation
+
+    # 失败路径也带合同版本，下游才能对 fallback 报告做版本核对；
+    # 范围/输入指纹不补——失败时范围未验证、输入未读到，伪造指纹即冒充「验证过」。
+    report: dict[str, object] = {
+        "contract_version": CONTRACT_VERSION,
+        "trade_date": args.trade_date,
+        "member_date": args.member_date,
+        "capture_id": args.capture_id,
+        "request_complete": None,
+        "provider_completeness": "unverified",
+        "calculation_ready": False,
+        "production_ready": False,
+        "rows": [],
+        "double_red_codes": [],
+    }
+    try:
+        con = connect(read_only=True)
+        try:
+            report = preview_sector_calculation(
+                con, args.trade_date, member_date=args.member_date,
+                category=args.category, pct_basis=args.pct_basis,
+                max_member_age_days=args.max_member_age_days, capture_id=args.capture_id,
+            )
+        finally:
+            con.close()
+    except CaptureNotReadyError as exc:
+        report["request_complete"] = exc.audit["request_complete"]
+        report["capture_audit"] = exc.audit
+        report["gaps"] = [{"reason": "capture-not-ready"}]
+    except ValueError as exc:
+        report["gaps"] = [{"reason": "invalid-preview-options", "detail": str(exc)}]
+    except duckdb.Error:
+        # 不自动 init、不落 sidecar；拒绝猜测缺表/缺库意味着「今日无板块」。
+        report["gaps"] = [{"reason": "database-unavailable-or-schema-mismatch"}]
+    print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False))
+    return 0 if report["calculation_ready"] else 2
+
+
+def cmd_hithink_stock_preview(args) -> int:
+    """个股标准化只读预演，显式股票分母；不建库、不取 key、不写 canonical。"""
+    import duckdb
+
+    from .hithink_stock_preview import CONTRACT_VERSION, preview_stock_calculation
+
+    report = {
+        "contract_version": CONTRACT_VERSION,
+        "trade_date": args.trade_date, "stock_codes": args.stock_code,
+        "calculation_ready": False, "production_ready": False,
+        "request_complete": None, "provider_completeness": "unverified",
+        "adjustment_coverage": "unverified", "rows": [],
+    }
+    try:
+        con = connect(read_only=True)
+        try:
+            report = preview_stock_calculation(con, args.trade_date, stock_codes=args.stock_code)
+        finally:
+            con.close()
+    except ValueError as exc:
+        report["gaps"] = [{"reason": "invalid-preview-options", "detail": str(exc)}]
+    except duckdb.Error:
+        report["gaps"] = [{"reason": "database-unavailable-or-schema-mismatch"}]
+    print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False))
+    return 0 if report["calculation_ready"] else 2
+
+
 def cmd_sync_sectors(args) -> int:
     from .sync.sync_fupanhui_sectors import sync_dim_sector
 
@@ -230,6 +301,7 @@ def cmd_sync_index_daily(args) -> int:
         start_date=args.start_date,
         end_date=args.end_date,
         symbol=args.symbol,
+        allow_fupanhui_fallback=not args.no_fupanhui_fallback,
     )
     print(f"指数: {stats['symbol']} | 写入: {stats['rows_written']} 行")
     print(f"指数点位覆盖: {stats['close_count']} 行 ({stats['date_min']} ~ {stats['date_max']})")
@@ -611,6 +683,7 @@ def cmd_stitch_sector_stocks(args) -> int:
         args.trade_date,
         fetch_caps=not args.no_caps,
         dry_run=args.dry_run,
+        include_completed=getattr(args, 'include_completed', False),
         **kwargs,
     )
     print(f"交易日: {s['trade_date']} | snapshot={s['snapshot_id'][:12]} | {s['identity']}")
@@ -626,6 +699,14 @@ def cmd_stitch_sector_stocks(args) -> int:
     if s.get("audit"):
         print(f"完成度审计: {s['audit']}")
     print(brief(s))
+    if getattr(args, "include_completed", False):
+        if args.dry_run:
+            print("刷新预览：未写入，不认证本轮刷新完成")
+        elif s.get("refresh_complete") is not True:
+            print("刷新未完成：本轮候选未全部写入、仍有待补或审计不完整；旧成功记录不能替代本轮刷新")
+            return 2
+        else:
+            print(f"刷新完成：本轮写入 {s['stitched']} 个板块，无待补且审计完整")
     return 0
 
 
@@ -1087,7 +1168,13 @@ def cmd_sync_hithink_sector_kline(args) -> int:
     if stats.get("sidecar"):
         print("wrote sidecar (production db locked)")
     print(f"fingerprint={stats['fingerprint']}")
-    return 0
+    audit = stats["capture_audit"]
+    print(
+        f"capture_id={audit['capture_id']} status={audit['status']} scope={audit['scope']} "
+        f"request_complete={str(audit['request_complete']).lower()} "
+        f"provider_completeness={audit['provider_completeness']}"
+    )
+    return 0 if audit["request_complete"] else 2
 
 
 def cmd_sync_hithink_limit_pools(args) -> int:
@@ -1526,7 +1613,7 @@ def cmd_check_daily(args) -> int:
     from .quality import check_daily
 
     res = check_daily(trade_date=args.trade_date, window=args.window, plan=args.plan)
-    print(f"跨日质检 @{res['trade_date']} (日历窗口={args.window}" + (f", plan={args.plan}" if args.plan else "") + ")")
+    print(f"跨日质检 @{res['trade_date']} (日历窗口={args.window}, plan={res.get('plan')})")
     for g in res["gaps"]:
         print(f"  [\u65ad\u6863] {g['table']}: {', '.join(g['missing_dates'])}" + (f" ({g['note']})" if g.get("note") else ""))
     for a in res["row_anomalies"]:
@@ -1991,6 +2078,40 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_preview.set_defaults(func=cmd_sector_universe_preview)
 
+    from .hithink_sector_preview import CATALOG_TAGS, PCT_BASES
+
+    p_ht_preview = sub.add_parser(
+        "hithink-sector-preview",
+        help="只读验算同花顺名单的成交额/边际量/双红，不外呼、不写库、不代表生产就绪",
+    )
+    p_ht_preview.add_argument("--trade-date", required=True, help="目标交易日 YYYY-MM-DD")
+    p_ht_preview.add_argument("--member-date", required=True, help="真实名单采集日 YYYY-MM-DD")
+    p_ht_preview.add_argument("--category", required=True, choices=CATALOG_TAGS)
+    p_ht_preview.add_argument(
+        "--capture-id", default=None,
+        help="显式选不可覆盖的目录/成员采集批；缺批/不完整拒绝，不回退最新名单",
+    )
+    p_ht_preview.add_argument(
+        "--pct-basis", required=True, choices=PCT_BASES,
+        help="member_equal_weight=成员等权；index_close_return=官方指数收盘收益，不相互兜底",
+    )
+    p_ht_preview.add_argument(
+        "--max-member-age-days", type=int, default=0,
+        help="允许的名单/目录最大年龄（自然日），默认只认当日；承接旧名单必须显式给值",
+    )
+    p_ht_preview.set_defaults(func=cmd_hithink_sector_preview)
+
+    p_ht_stock = sub.add_parser(
+        "hithink-stock-preview",
+        help="只读预演同花顺个股元/股换算和参考涨幅；不是日更或生产发布器",
+    )
+    p_ht_stock.add_argument("--trade-date", required=True, help="目标交易日 YYYY-MM-DD")
+    p_ht_stock.add_argument(
+        "--stock-code", required=True, action="append",
+        help="显式待验 A 股代码，可重复传不同股票；缺行情不缩小分母",
+    )
+    p_ht_stock.set_defaults(func=cmd_hithink_stock_preview)
+
     p_sectors = sub.add_parser("sync-sectors", help="同步复盘会板块清单到 dim_sector")
     p_sectors.add_argument("--trade-date", default=None, help="交易日期 YYYY-MM-DD, 留空取最新")
     p_sectors.set_defaults(func=cmd_sync_sectors)
@@ -2042,6 +2163,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_idx.add_argument("--start-date", default=None, help="起始日期 YYYY-MM-DD")
     p_idx.add_argument("--end-date", default=None, help="结束日期 YYYY-MM-DD；留空取 fact_market_daily 最新日")
     p_idx.add_argument("--symbol", default="sh000001", help="AkShare 指数代码, 默认 sh000001")
+    p_idx.add_argument("--no-fupanhui-fallback", action="store_true", help="主源失败时拒绝请求复盘会（local 计划必带）")
     p_idx.set_defaults(func=cmd_sync_index_daily)
 
     p_sw = sub.add_parser("sync-sw-l1-daily", help="同步申万一级行业指数涨跌幅与复盘会成交占比")
@@ -2177,6 +2299,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_st.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD（需已 sync-sectors 且 stock-daily 为东财源）")
     p_st.add_argument("--no-caps", action="store_true", help="不拉腾讯市值现值，按基线缩放")
     p_st.add_argument("--dry-run", action="store_true", help="只算不写")
+    p_st.add_argument("--include-completed", action="store_true",
+                      help="底行情修正后重建已完成板块；恢复任务仅在 staging 中使用")
     p_st.add_argument("--max-baseline-age-days", type=int, default=None,
                       help="identity 基线最多多旧（日历日），默认 10；名单冻结（fupanhui 停抓）时放宽到 120+")
     p_st.set_defaults(func=cmd_stitch_sector_stocks)
@@ -2459,7 +2583,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_cd.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
     p_cd.add_argument("--window", type=int, default=20, help="交易日历窗口, 默认20")
     p_cd.add_argument("--json", default=None, help="质检报告 JSON 落盘路径, 可选")
-    p_cd.add_argument("--plan", default=None, help="计划档位 full/cheap/local；local 按 registry 裁剪期望表（自算链路不产 fupanhui 独有表）")
+    from .consumption_registry import PLAN_CHOICES
+
+    p_cd.add_argument("--plan", choices=PLAN_CHOICES, default=None,
+                      help="计划档位 full/cheap/local/auto；默认 REVIEW_SYNC_PLAN 或 full；auto 按交易日解析")
     p_cd.set_defaults(func=cmd_check_daily)
 
     p_wg = sub.add_parser("weighted-gainers", help="区间加权涨幅排行 (本地计算)")

@@ -1288,7 +1288,11 @@ def add_adapter_smoke_parser(subparsers: argparse._SubParsersAction) -> None:
 
 
 def add_daily_parser(subparsers: argparse._SubParsersAction) -> None:
+    from market_feature_store.consumption_registry import PLAN_CHOICES
+
     parser = subparsers.add_parser("daily", help="Run daily review workflow")
+    parser.add_argument("--plan", choices=PLAN_CHOICES, default=None,
+                        help="同步/质检档位；显式参数 > REVIEW_SYNC_PLAN > full；auto 按目标交易日解析")
     parser.add_argument("--date", required=True, help="Trade date YYYY-MM-DD")
     parser.add_argument("--user", default=None, help="User id for runtime metrics isolation")
     parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根目录；会传给 agent-daily，并用于刷新驾驶舱晨汇链接")
@@ -1888,11 +1892,13 @@ def cmd_refresh_profile(args: argparse.Namespace) -> int:
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 
-def cmd_daily(args: argparse.Namespace) -> int:
-    from intelligence.workflows.daily_review import DailyReviewOptions, dry_run_daily_review, run_daily_review
+def daily_options_from_args(args: argparse.Namespace):
+    """One daily option mapping for both the CLI and generation preflight."""
+    from intelligence.workflows.daily_review import DailyReviewOptions
 
-    options = DailyReviewOptions(
+    return DailyReviewOptions(
         date=args.date,
+        plan=args.plan,
         user=args.user,
         skip_sync=args.skip_sync,
         skip_long=args.skip_long,
@@ -1910,6 +1916,12 @@ def cmd_daily(args: argparse.Namespace) -> int:
         alerts_enabled=not args.no_alert,
         alert_on_warn=args.alert_on_warn,
     )
+
+
+def cmd_daily(args: argparse.Namespace) -> int:
+    from intelligence.workflows.daily_review import dry_run_daily_review, run_daily_review
+
+    options = daily_options_from_args(args)
     summary = dry_run_daily_review(options) if args.dry_run else run_daily_review(options)
     if args.summary_json:
         summary.write_json(args.summary_json)

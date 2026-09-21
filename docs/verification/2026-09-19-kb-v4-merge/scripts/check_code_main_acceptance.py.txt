@@ -1,0 +1,56 @@
+"""Check exact pre/post code-main receipts without rerunning or editing evidence."""
+import datetime as dt
+import importlib.util
+import json
+from pathlib import Path
+import re
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+PY = Path.home() / 'finance-workspace-private/.venv-workbench/bin/python'
+spec = importlib.util.spec_from_file_location('operation_merge', ROOT / 'gitea_merge.py')
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+results = {}
+for phase in ('pre', 'post'):
+    out = ROOT / f'{phase}-receipts'
+    assert (out / 'all.exit').read_text().strip() == '0', phase
+    for leaf in module.LEAVES:
+        assert (out / f'{leaf}.exit').read_text().strip() == '0', (phase, leaf)
+    for name in ('status-after-build.txt', 'status-after.txt', 'kb-status-after.txt'):
+        assert not (out / name).read_text().strip(), (phase, name)
+    matches = re.findall(r'读数收据: (\S+\.json)', (out / 'finance-pytest.txt').read_text())
+    assert len(matches) == 1
+    receipt = json.loads(Path(matches[0]).read_text())
+    assert receipt['exit_status'] == 0 and not receipt['failed_ids']
+    assert receipt['counts']['failed'] == receipt['counts']['error'] == 0
+    assert not receipt['dirty'] and receipt['worktree_dirty_total'] == 0
+    assert not receipt['dependency_gate_bypassed']
+    tree = ROOT / 'pre/finance-workspace-private'
+    assert receipt['target'] == str(tree), 'must be the full isolated target, not a focused run'
+    command = [str(PY), 'scripts/check_test_receipt.py', matches[0], '--expect-revision',
+               module.CANDIDATES['finance']['revision'], '--require-target', str(tree),
+               '--base-drift-max', '0']
+    checked = subprocess.run(command, cwd=tree, capture_output=True, text=True)
+    if phase == 'post':
+        with (out / 'receipt-check.txt').open('x') as handle:
+            handle.write(checked.stdout + checked.stderr)
+        with (out / 'receipt-check.exit').open('x') as handle:
+            handle.write(f'{checked.returncode}\n')
+    assert checked.returncode == 0, checked.stdout + checked.stderr
+    results[phase] = {'receipt': matches[0], 'counts': receipt['counts'],
+                      'finished_at': receipt['finished_at'], 'receipt_check_exit': checked.returncode}
+for name, candidate in module.CANDIDATES.items():
+    tree = ROOT / 'pre' / candidate['repository']
+    assert module.git(tree, 'rev-parse', 'HEAD') == candidate['revision']
+    assert module.git(tree, 'ls-remote', 'gitea', 'refs/heads/main').split()[0] == candidate['revision']
+    assert module.git(tree, 'rev-parse', 'gitea/main') == candidate['revision']
+    assert not module.git(tree, 'status', '--porcelain')
+    merged = json.loads((ROOT / f'evidence/{name}-merge-result.json').read_text())
+    assert merged['merged'] and merged['main_after'] == candidate['revision']
+results.update(observed_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+               status='pass', production_switched=False,
+               scope='exact code-main pre/post engineering; not subsequent docs identity or deployment')
+with (ROOT / 'evidence/code-main-acceptance.json').open('x') as handle:
+    json.dump(results, handle, ensure_ascii=False, indent=2)
+print(json.dumps(results, ensure_ascii=False, indent=2))

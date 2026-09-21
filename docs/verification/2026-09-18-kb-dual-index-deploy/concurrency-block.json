@@ -1,0 +1,13 @@
+{
+  "observed_at": "2026-09-18T13:40:39.513910+00:00",
+  "foreign_publish_processes": [
+    "41455 41453       15:43 /opt/homebrew/Cellar/python@3.14/3.14.5/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python scripts/publish_rag_index.py --build --tag rag-index-full-latest --prerelease --clobber"
+  ],
+  "production_revision": "bf662e9310ff751a4c31763815ee78fb7d6d5122",
+  "production_switched_by_this_session": false,
+  "decision": "block promotion; do not stop foreign job or overwrite its output; require coordination",
+  "owned_migration_pid": 40354,
+  "owned_gate_pid": 47887,
+  "owned_jobs_are_isolated_and_do_not_promote": true,
+  "hooks": "3 installed post-* maintenance wrappers; originals retained; does not fence direct publish/build"
+}

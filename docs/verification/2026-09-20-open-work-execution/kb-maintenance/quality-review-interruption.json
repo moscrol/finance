@@ -1,0 +1,9 @@
+{
+  "recorded_at": "2026-09-19T18:47:16.401187+00:00",
+  "candidate": "1bd5e1dc8d48f59461c79f35ea553e1cda71a6ec",
+  "phase": "independent quality review report",
+  "outcome": "agent_interrupted_not_pass",
+  "reason": "Platform flagged possible cybersecurity risk; agent turn failed.",
+  "existing_evidence": "quality-1bd5e1dc-evidence/activation-results.json",
+  "followup_scope": "read-only source and existing receipts; no new independent fault-injection probes"
+}

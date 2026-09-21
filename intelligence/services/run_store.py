@@ -561,6 +561,32 @@ class RunStore:
             self._history_json_bytes(payload)
             return payload
 
+    def read_episode_artifact(self, run_id: str, *, conversation_id: str) -> tuple[dict[str, Any], str]:
+        """Read one owned, registered private original; never follow caller paths."""
+        with self._state_lock:
+            run, run_dir = self._history_run(run_id)
+            if run.session_id != conversation_id or run.status != STATUS_COMPLETED:
+                raise ValueError("episode source is not a completed run in this conversation")
+            filename = "continuous-episode.json"
+            registered = [a for a in run.artifacts if a.get("path") == filename]
+            if len(registered) != 1 or artifact_visibility(registered[0]) != "internal":
+                raise ValueError("episode artifact registration missing or ambiguous")
+            artifact = registered[0]
+            path = run_dir / filename
+            if path.is_symlink() or path.resolve().parent != run_dir.resolve():
+                raise ValueError("invalid episode artifact path")
+            limit = 16 * 1024 * 1024
+            with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW), "rb") as fh:
+                data = fh.read(limit + 1)
+            digest = hashlib.sha256(data).hexdigest()
+            if (len(data) > limit or artifact.get("sha256") != digest
+                    or type(artifact.get("bytes")) is not int
+                    or artifact["bytes"] != len(data) or artifact.get("renderer") != "json"):
+                raise ValueError("episode artifact integrity check failed")
+            payload = json.loads(data)
+            self._history_json_bytes(payload)
+            return payload, digest
+
     @contextmanager
     def history_case_transaction(
         self, conversation_id: str, case_id: str

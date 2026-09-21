@@ -1,0 +1,34 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-hithink-review-wiring",
+  "revision": "fdbe5dade48e5bf698208bf008c2af0eb3e0205d",
+  "branch": "fix/hithink-review-wiring",
+  "dirty": true,
+  "dirty_paths": [
+    "market_feature_store/cli.py",
+    "market_feature_store/hithink_sector_capture.py",
+    "market_feature_store/hithink_sector_preview.py",
+    "market_feature_store/schema.sql",
+    "market_feature_store/sync/sync_hithink_sector_kline.py",
+    "tests/test_hithink_sector_capture.py",
+    "tests/test_hithink_sector_capture_integration.py",
+    "tests/test_hithink_sector_kline.py"
+  ],
+  "worktree_dirty_total": 9,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_hithink_sector_capture.py tests/test_hithink_sector_capture_integration.py",
+  "counts": {
+    "passed": 48,
+    "failed": 2,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [
+    "tests/test_hithink_sector_capture.py::test_future_contract_is_not_silently_interpreted_as_current",
+    "tests/test_hithink_sector_capture_integration.py::test_sync_cli_reports_catalog_scope_and_partial_returns_nonzero"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-15T06:54:23+00:00"
+}

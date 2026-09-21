@@ -479,15 +479,27 @@ class MessageParts:
 # ① 轴值更新（B 轴 / A 轴 / 显式放宽）：
 _B_MATERIAL_ONLY_PHRASES: tuple[str, ...] = (
     "只依据", "仅根据", "不读取任何材料外", "不读取材料外",
+    "只分析以下材料", "仅分析以下材料", "只分析以下虚构材料", "仅分析以下虚构材料",
+    "不查其他资料", "不查其它资料",
 )
+_B_PREVIOUS_EVIDENCE_ONLY_HEAD = (
+    r"(?:只|仅)(?:用|使用|依据)(?:已取得|已获得|刚才查到|上轮查到)的"
+    r"(?:本地)?(?:数据|资料|证据)"
+)
+_B_PREVIOUS_EVIDENCE_ONLY_RE = re.compile("^" + _B_PREVIOUS_EVIDENCE_ONLY_HEAD)
 _B_LOCAL_ONLY_PHRASES: tuple[str, ...] = (
     "不要联网", "不联网", "别查实时", "不读外部",
 )
 _B_RELAX_PHRASES: tuple[str, ...] = ("可以查真实数据", "结合最新行情", "结合当前行情")
 # ② 基底继承（续轮声明）：
 _CONTINUATION_HEAD_PHRASES: tuple[str, ...] = ("继续", "接着", "同上")
+_PREVIOUS_ANSWER_REVIEW_RE = re.compile(
+    r"^(?:复核|复查|重新审视|检查|重新检查|审查)(?:一下)?(?:你)?"
+    r"(?:刚才|上轮|上一轮|上次|前面)的?(?:解释|回答|判断|结论|分析)"
+    r"(?=$|[：:，,。；;！？!?])"
+)
 # 切句与句首归一化共用前缀，避免礼貌用语令第二个状态操作漏检。
-_STATE_PREFIX_ATOM = r"(?:请|麻烦|烦请|本轮|这次|此次)\s*"
+_STATE_PREFIX_ATOM = r"(?:请|麻烦|烦请|本轮|这次|此次|仍)\s*"
 
 # 同句多轴操作不仅以标点分开，也可用「且/并」连接。只在后面确有
 # 状态操作时切分，不能把公司名/普通叙述里的「并」拆碎；偏移仍对应原文。
@@ -497,12 +509,12 @@ _SENT_SPLIT_RE = re.compile(
         *_B_MATERIAL_ONLY_PHRASES, *_B_LOCAL_ONLY_PHRASES, *_B_RELAX_PHRASES,
         *_CONTINUATION_HEAD_PHRASES, "其余条件不变", "假设", "如果",
     ))
-    + r"))"
+    + "|" + _B_PREVIOUS_EVIDENCE_ONLY_HEAD + r"))"
 )
 # 虚构前提声明：「以下是完全虚构的研究案例」「均为虚构」「纯属虚构」等（句中即算，
 # 这类措辞极少出现在叙述句里；出现在复核块里时走 boundary_uncertain 保守分支）。
 _FICTIONAL_SENT_RE = re.compile(
-    r"以下\s*[是为][^。；，]{0,12}虚构|均为虚构|纯属虚构|完全虚构|虚构案例|[是为]虚构的?"
+    r"以下\s*[是为][^。；，]{0,12}虚构|均为虚构|纯属虚构|完全虚构|虚构案例|以下虚构材料|[是为]虚构的?"
 )
 # A8 的「假设 X，结合当前行情」不要求额外的「成立」。是否顶层由区域复核决定，
 # 而不是把明确假设漏成无约束；材料内同形态仍走 uncertain，强保护内不可见。
@@ -569,15 +581,44 @@ def _state_op_in_sentence(sent: str) -> str | None:
     if not s:
         return None
     head = _state_head(s)
-    if head.startswith(_B_MATERIAL_ONLY_PHRASES + _B_LOCAL_ONLY_PHRASES + _B_RELAX_PHRASES):
+    if (is_material_only_instruction(head)
+            or head.startswith(_B_LOCAL_ONLY_PHRASES + _B_RELAX_PHRASES)):
         return "constraint_b"
-    if head.startswith(_CONTINUATION_HEAD_PHRASES) or "其余条件不变" in s:
+    if (head.startswith(_CONTINUATION_HEAD_PHRASES) or "其余条件不变" in s
+            or _PREVIOUS_ANSWER_REVIEW_RE.match(head)):
         return "continuation"
     if _FICTIONAL_SENT_RE.search(s):
         return "premise_declaration"
     if _HYPOTHESIS_STRONG_RE.match(s):
         return "premise_declaration"
     return None
+
+
+def is_material_only_instruction(head: str) -> bool:
+    """Previously obtained data is an input ceiling, not permission to query again."""
+    return head.startswith(_B_MATERIAL_ONLY_PHRASES) or bool(_B_PREVIOUS_EVIDENCE_ONLY_RE.match(head))
+
+
+def requests_previous_answer_review(text: str) -> bool:
+    """Recognize a top-level review request, not a quotation or pasted instruction."""
+    regions = classify_top_level_regions(text)
+    return regions.classification != "boundary_uncertain" and any(
+        span.scope == "message"
+        and span.kind == "continuation"
+        and _PREVIOUS_ANSWER_REVIEW_RE.match(_state_head(span.visible_text))
+        for span in regions.instructions
+    )
+
+
+def requests_previous_evidence_only(text: str) -> bool:
+    """Only an explicit final, top-level frozen-input instruction authorizes reuse."""
+    regions = classify_top_level_regions(text)
+    constraints = [span for span in regions.instructions
+                   if span.scope == "message" and span.kind == "constraint_b"]
+    return bool(
+        regions.classification != "boundary_uncertain" and constraints
+        and _B_PREVIOUS_EVIDENCE_ONLY_RE.match(_state_head(constraints[-1].visible_text))
+    )
 
 
 def find_state_ops(text: str) -> tuple[tuple[str, str], ...]:
@@ -607,6 +648,11 @@ def _protected_layout(lines: list[str]) -> tuple[list[str], list[str], set[int]]
         for i, line in enumerate(lines)
         if (match := _FENCE_RE.match(line))
     }
+    blockquote_ends = {
+        offsets[i]: offsets[i] + len(line)
+        for i, line in enumerate(lines)
+        if re.match(r" {0,3}>", line)
+    }
     fence_ends: dict[int, int] = {}
     markers = list(fences)
     for i, start in enumerate(markers):
@@ -628,6 +674,9 @@ def _protected_layout(lines: list[str]) -> tuple[list[str], list[str], set[int]]
         depth = 1
         pos = start + 1
         while pos < len(text):
+            if pos in blockquote_ends:
+                pos = blockquote_ends[pos]
+                continue
             if pos in fence_ends:
                 pos = fence_ends[pos]
                 continue
@@ -649,7 +698,9 @@ def _protected_layout(lines: list[str]) -> tuple[list[str], list[str], set[int]]
     pos = 0
     while pos < len(text):
         end = None
-        if pos in fences:
+        if pos in blockquote_ends:
+            end = blockquote_ends[pos]
+        elif pos in fences:
             end = fence_ends.get(pos)
             if end is None:
                 uncertain.append("unclosed_fence")
@@ -739,7 +790,7 @@ def _question_candidate_end(
 def classify_top_level_regions(text: str) -> TopLevelRegions:
     """E2 设计稿 v10 §3.1：先保护、后解释、三态分类（全部确定性）。
 
-    有序步骤：①强保护掩码（围栏整行 / 闭合引号字符区间；未闭合→uncertain）
+    有序步骤：①强保护掩码（围栏整行 / >引用行 / 闭合引号字符区间；未闭合→uncertain）
     ②引导块/缩进块/长文块内容复核（掩码后文本，命中状态操作→uncertain）
     ③题组区识别（编号连续、保留原文续行；题内状态操作 scope=qN）
     ④指令区识别（句级，行内第二句也算，退修 R1）⑤邻接规则（与叙述无空行相连
@@ -1015,6 +1066,16 @@ _MATERIAL_REFERENCE_RE = re.compile(
 _LONG_SINGLE_LINE_MIN = 160
 _MATERIAL_MIN_CHARS = 40
 _QUESTION_MAX_CHARS = 120
+# 带背景交代的研究问题充其量写到这个量级；再长就当材料看（见 _reads_like_document）。
+_QUESTION_HEAD_MAX_CHARS = 400
+# 只有排版结构才能证明「这是一份文档」：标题方括号、来源/作者字段、行首章节编号。
+# 与 _MATERIAL_MARKER_RE 的区别：那一个含「研报/公告/摘要」等普通名词，用在这里会把
+# 提问误判为材料（「请使用实际可获取的公告」）。
+_STRUCTURAL_MATERIAL_MARKER_RE = re.compile(
+    r"(?:【|】|来源[:：]|作者[:：]|^[一二三四五六七八九十]+[、.．]|^\d+[、.．]|"
+    r"^第[一二三四五六七八九十]+[章节部分])",
+    re.MULTILINE,
+)
 
 
 def material_id_for(text: str) -> str:
@@ -1097,6 +1158,31 @@ def _looks_like_question(text: str) -> bool:
         return False
     compact = re.sub(r"\s+", "", text)
     return bool(compact) and len(compact) <= _QUESTION_MAX_CHARS and _QUESTION_MARKER_RE.search(compact) is not None
+
+
+def _reads_like_document(head: str) -> bool:
+    """「末行是短问句 → 前面是材料」这条规则的前提：前面真的得像份文档。
+
+    原先只看「头部是不是短问句」，而 _looks_like_question 有 120 字上限，于是一句
+    较长的研究问题（带主体、口径、截止日、问号）只因为「太长」就被当成粘贴材料，
+    只剩末尾那句格式要求（「请按……组织」）当问题交给路由。R-20260916-05 两臂就是
+    这么跑成 kind=pasted_text，一臂落到 stock_deep_dive、另一臂落到 kol_review（材料
+    评审），subject 直接丢成 null——同一道题因为排版差异被当成两类任务。
+
+    判据只认**结构性**材料标记（【】、来源：、作者：、行首的「一、」/「1.」/「第二节」），
+    不认「研报/公告/摘要/要点」这类**词**——用户在提问里天然会说「请使用可获取的
+    公告、财务数据」，词面命中就判它是材料，恰恰是 R-20260916-05 踩的那个坑。
+    没有结构标记时，头部带问句标记（？/是否/吗/如何……）且不过长 → 这是提问。
+    长度上限是故意留的：真粘一篇无标题长文、正文里带问号时，仍按材料走。
+    """
+
+    body = str(head or "")
+    if _STRUCTURAL_MATERIAL_MARKER_RE.search(body):
+        return True
+    compact = re.sub(r"\s+", "", body)
+    if len(compact) > _QUESTION_HEAD_MAX_CHARS:
+        return True
+    return _QUESTION_MARKER_RE.search(compact) is None
 
 
 def split_user_message(text: str) -> MessageParts:
@@ -1197,7 +1283,13 @@ def _split_user_message_core(text: str) -> MessageParts:
             question, body = blocks[0], "\n\n".join(blocks[1:])
         else:
             question, body = "", rest
-        if body and (len(body) >= _MATERIAL_MIN_CHARS or _MATERIAL_MARKER_RE.search(body)):
+        # 「其余段落读起来像文档」是这条规则的前提（见 _reads_like_document）：一句带问号的
+        # 长研究问题，只因用空行隔开了末行排版指令，题面本身不该沦为材料。
+        if (
+            body
+            and _reads_like_document(body)
+            and (len(body) >= _MATERIAL_MIN_CHARS or _MATERIAL_MARKER_RE.search(body))
+        ):
             add(body, "pasted_text")
         else:
             question = rest
@@ -1208,10 +1300,22 @@ def _split_user_message_core(text: str) -> MessageParts:
         elif "\n" in block and len(block) >= _MATERIAL_MIN_CHARS:
             # 多行但无空行：末行是短问句 → 前面是材料；整块像文档且没有问句 → 全是材料。
             block_lines = [line.strip() for line in block.split("\n") if line.strip()]
-            if len(block_lines) >= 2 and _looks_like_question(block_lines[-1]) and not _looks_like_question("\n".join(block_lines[:-1])):
+            head = "\n".join(block_lines[:-1])
+            if (
+                len(block_lines) >= 2
+                and _looks_like_question(block_lines[-1])
+                and not _looks_like_question(head)
+                and _reads_like_document(head)
+            ):
                 question = block_lines[-1]
-                add("\n".join(block_lines[:-1]), "pasted_text")
-            elif _MATERIAL_MARKER_RE.search(block) and not _looks_like_question(block_lines[-1]):
+                add(head, "pasted_text")
+            elif (
+                _MATERIAL_MARKER_RE.search(block)
+                and not _looks_like_question(block_lines[-1])
+                and _reads_like_document(block)
+            ):
+                # 同一个前提：词面命中「公告 / 研报」不等于这是份文档。末行不是问句的研究题
+                # 原本会整段变材料、问题变空串。
                 question = ""
                 add(block, "pasted_text")
             else:

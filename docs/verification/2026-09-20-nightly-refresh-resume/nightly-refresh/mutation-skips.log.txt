@@ -1,0 +1,72 @@
+F.F......                                                                [100%]
+=================================== FAILURES ===================================
+__ test_required_failures_and_nonoptional_skips_still_block[index-daily-skip] __
+
+child_runner = (<function child_runner.<locals>.run at 0x1107d5760>, PosixPath('/private/tmp/pytest-of-a77/pytest-1255/test_required_...workbench/bin/python', '-m', 'market_feature_store.cli', 'sync-sw-l1-daily', '--trade-date', '2026-09-16', ...]), ...])
+leaf = 'index-daily', status = 'skip'
+
+    @pytest.mark.parametrize("leaf,status", [
+        ("index-daily", "skip"), ("index-daily", "fail"), ("stitch-sector-stocks", "skip"),
+        ("stitch-sector-stocks", "fail"), ("hithink-stock-daily", "fail"),
+        ("hithink-sector-kline", "timeout"), ("same-day-gate", "fail"),
+        ("cross-day-gate", "fail"), ("backfill-alignment", "fail"),
+    ])
+    def test_required_failures_and_nonoptional_skips_still_block(child_runner, leaf, status):
+        run, target, _, _ = child_runner
+>       with pytest.raises(RuntimeError, match="no publish"):
+E       Failed: DID NOT RAISE <class 'RuntimeError'>
+
+tests/test_recovery_refresh_integration.py:125: Failed
+----------------------------- Captured stdout call -----------------------------
+snapshot replay: {'trade_date': '2026-09-17', 'snapshot_trade_date': '2026-09-17', 'source': 'eastmoney:snapshot', 'fetched': 1, 'rows_written': 1, 'skipped': 0, 'day_rows': 1, 'table_total': 2, 'distinct_stocks': 1, 'distinct_dates': 2, 'date_min': '2026-09-15', 'date_max': '2026-09-17'}
+① pre_close 链 vs 2026-09-15 close: 可比 1 不符 0 (0.00%)
+② 次日锚 2026-09-17.pre_close == 本日 close: 可比 1 不符 0 (0.00%)  ← 除息股会差，>2% 才算红
+③ pct_chg 重算: 不符 0
+④ 量纲闭环（amount/volume 反推均价落在 [low,high]）: 越界 0/1
+   本次 sum(amount)=0.0 亿
+   邻日 2026-09-15: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+   邻日 2026-09-17: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+
+RESULT: PASS
+2026-09-16 行数 0 → 1
+来源: [('sina:stock_zh_a_daily', 1)]
+空值(close/amount/pct): (0, 0, 0)
+
+[runlog] appended -> /private/tmp/pytest-of-a77/pytest-1255/test_required_failures_and_non0/skills/daily-full-review/state/runlog.md
+_ test_required_failures_and_nonoptional_skips_still_block[stitch-sector-stocks-skip] _
+
+child_runner = (<function child_runner.<locals>.run at 0x1108753a0>, PosixPath('/private/tmp/pytest-of-a77/pytest-1255/test_required_...workbench/bin/python', '-m', 'market_feature_store.cli', 'sync-sw-l1-daily', '--trade-date', '2026-09-16', ...]), ...])
+leaf = 'stitch-sector-stocks', status = 'skip'
+
+    @pytest.mark.parametrize("leaf,status", [
+        ("index-daily", "skip"), ("index-daily", "fail"), ("stitch-sector-stocks", "skip"),
+        ("stitch-sector-stocks", "fail"), ("hithink-stock-daily", "fail"),
+        ("hithink-sector-kline", "timeout"), ("same-day-gate", "fail"),
+        ("cross-day-gate", "fail"), ("backfill-alignment", "fail"),
+    ])
+    def test_required_failures_and_nonoptional_skips_still_block(child_runner, leaf, status):
+        run, target, _, _ = child_runner
+>       with pytest.raises(RuntimeError, match="no publish"):
+E       Failed: DID NOT RAISE <class 'RuntimeError'>
+
+tests/test_recovery_refresh_integration.py:125: Failed
+----------------------------- Captured stdout call -----------------------------
+snapshot replay: {'trade_date': '2026-09-17', 'snapshot_trade_date': '2026-09-17', 'source': 'eastmoney:snapshot', 'fetched': 1, 'rows_written': 1, 'skipped': 0, 'day_rows': 1, 'table_total': 2, 'distinct_stocks': 1, 'distinct_dates': 2, 'date_min': '2026-09-15', 'date_max': '2026-09-17'}
+① pre_close 链 vs 2026-09-15 close: 可比 1 不符 0 (0.00%)
+② 次日锚 2026-09-17.pre_close == 本日 close: 可比 1 不符 0 (0.00%)  ← 除息股会差，>2% 才算红
+③ pct_chg 重算: 不符 0
+④ 量纲闭环（amount/volume 反推均价落在 [low,high]）: 越界 0/1
+   本次 sum(amount)=0.0 亿
+   邻日 2026-09-15: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+   邻日 2026-09-17: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+
+RESULT: PASS
+2026-09-16 行数 0 → 1
+来源: [('sina:stock_zh_a_daily', 1)]
+空值(close/amount/pct): (0, 0, 0)
+
+[runlog] appended -> /private/tmp/pytest-of-a77/pytest-1255/test_required_failures_and_non2/skills/daily-full-review/state/runlog.md
+=========================== short test summary info ============================
+FAILED tests/test_recovery_refresh_integration.py::test_required_failures_and_nonoptional_skips_still_block[index-daily-skip]
+FAILED tests/test_recovery_refresh_integration.py::test_required_failures_and_nonoptional_skips_still_block[stitch-sector-stocks-skip]
+2 failed, 7 passed, 3 deselected in 1.21s

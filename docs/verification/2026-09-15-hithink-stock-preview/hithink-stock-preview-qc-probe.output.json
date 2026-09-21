@@ -1,0 +1,28 @@
+{
+  "original_path": "/tmp/hithink-stock-preview-qc-probe.log",
+  "raw_sha256": "eccd21b0f1585de665240208d32b16397f6b836b6d868e3d21dd55197535304f",
+  "encoding": "utf-8",
+  "lines": [
+    "Reading additional input from stdin...\n",
+    "OpenAI Codex v0.154.0-alpha.6.2\n",
+    "--------\n",
+    "workdir: /private/tmp\n",
+    "model: gpt-6-astra\n",
+    "provider: openai\n",
+    "approval: never\n",
+    "sandbox: read-only\n",
+    "reasoning effort: max\n",
+    "reasoning summaries: none\n",
+    "session id: 01a0a495-e629-7c50-9f85-5e0228854749\n",
+    "--------\n",
+    "user\n",
+    "回答两个字：可用\n",
+    "warning: Code Mode is unavailable because failed to spawn code-mode host /Users/a77/.local/bin/codex-code-mode-host: host executable was not found. Code mode will fail closed; enable `features.code_mode_host` and install `codex-code-mode-host`.\n",
+    "warning: Skill descriptions were shortened to fit the skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest.\n",
+    "codex\n",
+    "可用\n",
+    "tokens used\n",
+    "21,560\n",
+    "可用\n"
+  ]
+}

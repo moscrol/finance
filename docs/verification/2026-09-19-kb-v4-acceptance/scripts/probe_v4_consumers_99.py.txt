@@ -1,0 +1,222 @@
+"""Fixed 99fb9304 consumer group; corpus eligibility AND token-posting oracle.
+
+Prior R1/R2/R3 failures stay preserved. In particular, the full-index L3 query
+matches single-character 液 postings, not literal 液冷: this is NOT a relevance
+or answer-quality pass. Assert filter eligibility before calling the consumer,
+then check wiring, receipts, freshness and genuine resident worker counters.
+No production, runtime policy, model, ranking, reranker or timeout change.
+"""
+from dataclasses import asdict
+import datetime as dt
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+HOME = Path.home()
+ROOT = HOME / '.finance-runtime/kb-dual-index-20260918'
+CODE = HOME / '.finance-runtime/kb-code-23b4f5e4e1ac'
+FINANCE = ROOT / 'gate-99fb9304/finance-workspace-private'
+FINANCE_REV = '99fb9304ae9611178274293de30a117d5d504566'
+KB_REV = '23b4f5e4e1ace932fcc741197bf4892c272bf541'
+PY = HOME / 'knowledge-base-private/.rag_venv/bin/python'
+VAULT = ROOT / 'source/wiki'
+PAIR = ROOT / 'staging-v4'
+OUT = ROOT / 'evidence/consumer-v4-99'
+OUT.mkdir(exist_ok=False)
+os.environ.update(
+    KB_RAG_CODE_ROOT=str(CODE), KB_RAG_PYTHON=str(PY),
+    RAG_INDEX_DIR=str(PAIR / '.rag_index'),
+    KB_RAG_FULL_INDEX_DIR=str(PAIR / '.rag_index_full'),
+    KB_ACCESS_LOG_PATH=str(OUT / 'access.jsonl'),
+    HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1', PYTHONDONTWRITEBYTECODE='1',
+    RAG_WORKER_ENABLED='1', RAG_WORKER_KEEPALIVE_SECONDS='0',
+    KB_RAG_STALE_POLICY='fail',
+)
+# Explicit source argument must take precedence over this wrong ambient value.
+os.environ['KB_VAULT'] = str(ROOT / 'nonexistent-ambient-wiki')
+sys.path.insert(0, str(FINANCE))
+from intelligence.services import kb_rag, rag_worker
+from intelligence.services.kb_code_identity import code_identity
+sys.path.insert(0, str(CODE / 'skills/lib'))
+from rag.evidence import matches_filters
+from rag.tokenizer import tokenize
+
+
+def save(name, payload):
+    (OUT / name).write_text(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
+def hashes():
+    result = {}
+    for name in ('.rag_index', '.rag_index_full'):
+        for path in sorted((PAIR / name).iterdir()):
+            if path.is_file():
+                h = hashlib.sha256()
+                with path.open('rb') as handle:
+                    for block in iter(lambda: handle.read(1024 * 1024), b''):
+                        h.update(block)
+                result[path.relative_to(PAIR).as_posix()] = h.hexdigest()
+    return result
+
+
+for root, revision in ((FINANCE, FINANCE_REV), (CODE, KB_REV)):
+    assert subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip() == revision
+    assert not subprocess.check_output(['git', '-C', str(root), 'status', '--porcelain'], text=True).strip()
+before = hashes()
+save('index-before.json', before)
+probe = kb_rag.probe_rag_cli(VAULT, timeout=30)
+save('probe.json', asdict(probe))
+assert probe.available and probe.query_protocol_compatible
+results = []
+qualified_postings = {}
+for name in ('.rag_index', '.rag_index_full'):
+    count = 0
+    eligible = 0
+    positive = 0
+    query_tokens = set(tokenize('液冷'))
+    with (PAIR / name / 'chunks.jsonl').open() as source:
+        for line in source:
+            row = json.loads(line)
+            if matches_filters(row, {'evidence_layer': 'L3'}):
+                eligible += 1
+                count += bool(query_tokens.intersection(tokenize(row['text'])))
+            if (row['file_path'] == 'wiki/sources/GQY视讯 2025年年度报告 baseline 2026-04-29.md'
+                    and matches_filters(row, {'evidence_layer': 'L2', 'fact_hardness': 'baseline',
+                                              'as_of': '2026-07-02'})):
+                positive += 1
+    assert positive > 0
+    qualified_postings[name] = {'eligible_L3': eligible, 'matching_postings': count,
+                               'query_tokens': sorted(query_tokens), 'eligible_positive_chunks': positive}
+save('preflight-oracle.json', qualified_postings)
+
+
+def check_filters(tel, expected):
+    assert tel.applied_filters == expected, asdict(tel)
+    assert tel.filter_verification == ('verified' if expected else 'not_requested')
+    if expected:
+        assert tel.metadata_version == 1 and tel.receipt_received
+        assert not tel.metadata_update_required
+
+
+def record(label, result, name, mode, filters=None, empty=False, expected_path=None):
+    save(f'{label}.json', asdict(result))
+    tel = result.telemetry
+    assert Path(tel.index_dir).resolve() == PAIR / name
+    assert tel.effective_mode == mode and not tel.fallback_reason, asdict(tel)
+    check_filters(tel, filters or {})
+    if empty:
+        assert not result.ok and not result.hits and tel.status == 'empty', asdict(result)
+    else:
+        assert result.ok and result.hits, (label, result.warning)
+        for hit in result.hits:
+            assert hit.index_freshness == 'fresh'
+            assert not any(marker in hit.excerpt for marker in ('<<<<<<<', '>>>>>>>'))
+            if filters:
+                assert hit.evidence_scope_bound
+                if 'evidence_layer' in filters:
+                    assert hit.evidence_layer == filters['evidence_layer']
+        if expected_path:
+            assert any(h.file_path == expected_path for h in result.hits)
+    row = {'label': label, 'status': 'pass', 'index': name, 'mode': mode,
+           'expected_empty': empty, 'hits': len(result.hits),
+           'filter_verification': tel.filter_verification,
+           'paths': [h.file_path for h in result.hits]}
+    results.append(row)
+    save('results.json', results)
+    print(json.dumps(row, ensure_ascii=False), flush=True)
+
+
+try:
+    for name in ('.rag_index', '.rag_index_full'):
+        prefix = name[1:]
+        idx_arg = None if name == '.rag_index' else '.rag_index_full'
+        common = dict(k=3, timeout=120, index_dir=idx_arg, require_fresh=True)
+        result = kb_rag.retrieve('液冷', VAULT, mode='bm25', worker_enabled=False, **common)
+        record(f'{prefix}-cli-bm25', result, name, 'bm25')
+        result = kb_rag.retrieve('液冷', VAULT, mode='bm25', worker_enabled=False,
+                                 evidence_layer='L3', **common)
+        record(f'{prefix}-cli-L3-token-filter-not-quality', result, name, 'bm25',
+               {'evidence_layer': 'L3'}, empty=qualified_postings[name]['matching_postings'] == 0)
+        review_filters = {'evidence_layer': 'L3', 'fact_hardness': 'hard_fact_candidate',
+                          'as_of': '2026-09-01'}
+        result = kb_rag.retrieve('海鸥股份', VAULT, mode='bm25', worker_enabled=False,
+                                 **review_filters, **common)
+        record(f'{prefix}-cli-review-empty', result, name, 'bm25', review_filters, empty=True)
+        positive_filters = {'evidence_layer': 'L2', 'fact_hardness': 'baseline',
+                            'as_of': '2026-07-02'}
+        result = kb_rag.retrieve('GQY视讯', VAULT, mode='hybrid', worker_enabled=False,
+                                 **positive_filters, **common)
+        record(f'{prefix}-cli-bge-filtered', result, name, 'hybrid', positive_filters,
+               expected_path='wiki/sources/GQY视讯 2025年年度报告 baseline 2026-04-29.md')
+        negative_filters = {'evidence_layer': 'L2', 'as_of': '1900-01-01'}
+        result = kb_rag.retrieve('GQY视讯', VAULT, mode='bm25', worker_enabled=False,
+                                 **negative_filters, **common)
+        record(f'{prefix}-cli-asof-empty', result, name, 'bm25', negative_filters, empty=True)
+
+        if name == '.rag_index_full':
+            env = dict(os.environ, KB_VAULT=str(VAULT), RAG_INDEX_DIR=str(PAIR / name))
+            cmd = [str(PY), str(CODE / 'scripts/rag_index.py'), 'query',
+                   '毫米波雷达 十五分钟', '--mode', 'bm25', '--k', '10', '--json', '--receipt',
+                   '--stale-policy', 'fail']
+            proc = subprocess.run(cmd, env=env, cwd=CODE, text=True, capture_output=True, timeout=120)
+            (OUT / 'restored-raw-cli.json').write_text(proc.stdout)
+            (OUT / 'restored-raw-cli.stderr.txt').write_text(proc.stderr)
+            assert proc.returncode == 0
+            payload = json.loads(proc.stdout)
+            assert any(h['file_path'] == 'raw/毫米波雷达-演讲稿.md' and h['index_freshness'] == 'fresh'
+                       for h in payload['hits'])
+
+        # One resident multi-GB model at a time. Filtered service requests are CLI;
+        # actual warm worker probes must be unfiltered and counted at the worker.
+        if name == '.rag_index':
+            state = kb_rag.prewarm(VAULT, timeout=240)
+        else:
+            response = rag_worker.prewarm(python=str(PY), kb_root=CODE, index_dir=PAIR / name,
+                                          kb_wiki=VAULT, timeout=240,
+                                          argv=['query', '液冷', '--k', '1', '--mode', 'hybrid',
+                                                '--stale-policy', 'fail', '--json', '--receipt'])
+            assert response.returncode == 0
+            state = rag_worker.status()
+        save(f'{prefix}-prewarm.json', state)
+        assert state['state'] == 'ready' and state['active'] == 1 and state['model_load_count'] == 1, state
+        worker = rag_worker._worker_for(str(PY), CODE, PAIR / name, VAULT)
+        pid = worker._process.pid
+        assert worker._code_identity == code_identity(CODE)
+        assert worker.kb_wiki == VAULT.resolve()
+        start_queries = state['counters']['queries_served']
+        for seq in (1, 2):
+            result = kb_rag.retrieve('液冷', VAULT, mode='hybrid', worker_enabled=True, **common)
+            record(f'{prefix}-warm-hybrid-{seq}', result, name, 'hybrid')
+            now = rag_worker.status()
+            save(f'{prefix}-worker-after-{seq}.json', now)
+            assert now['configured_workers'] == 1 and now['active'] == 1
+            assert now['model_load_count'] == 1
+            assert now['counters']['queries_served'] == start_queries + seq
+            assert worker._process.pid == pid
+        # Same code/index with another data root cannot reuse this worker.
+        other = rag_worker._worker_for(str(PY), CODE, PAIR / name, ROOT / 'different-wiki')
+        assert other is not worker and not other.healthy()
+        save(f'{prefix}-identity.json', {'pid': pid, 'kb_code_identity': worker._code_identity,
+                                       'kb_wiki': str(worker.kb_wiki), 'index_dir': str(worker.index_dir),
+                                       'data_root_separates_pool': True, 'model_loads_after_queries': 1})
+        rag_worker.close_all()
+finally:
+    rag_worker.close_all()
+    after = hashes()
+    save('index-after.json', after)
+    assert after == before, 'read-only consumer mutated staging indexes'
+save('summary.json', {
+    'observed_at': dt.datetime.now(dt.timezone.utc).isoformat(),
+    'finance_revision': FINANCE_REV, 'kb_revision': KB_REV,
+    'status': 'pass', 'service_query_cases': len(results), 'index_bytes_unchanged': True,
+    'scope': 'CLI/service/prewarm; exact filters; negatives; not answer-quality/rerank/8792/maintenance',
+    'known_relevance_limit': 'Full L3 liquid-cooling query matches 液 alone; not accepted as relevant evidence',
+    'prior_failed_probe_runs_retained': ['consumer-v4', 'consumer-v4-r2', 'consumer-v4-r3'],
+    'workers_closed': True,
+    'parent_interpreter': sys.executable,
+    'query_interpreter': str(PY),
+    'production_switched': False,
+})

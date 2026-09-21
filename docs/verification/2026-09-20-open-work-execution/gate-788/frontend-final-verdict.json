@@ -1,0 +1,10 @@
+{
+  "revision": "becb68c0dd3105abbbcc1f92a917dbde224de24b",
+  "final_frontend_exit": 0,
+  "first_five_checks": "frontend.json checks[0:5] all exit 0",
+  "e2e_final": "e2e-corrected-environment.json exit 0; source code unchanged",
+  "e2e_final_log": "e2e-corrected-environment.log.txt",
+  "original_failure": "frontend.json checks[5] exit 1 and frontend-5.log.txt intentionally retained",
+  "identity_recheck_tree": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788-frontend/finance-workspace-private",
+  "identity_recheck_dirty": false
+}

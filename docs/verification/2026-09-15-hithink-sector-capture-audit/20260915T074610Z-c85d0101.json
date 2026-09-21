@@ -1,0 +1,28 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-hithink-capture-mutation-c85d0101",
+  "revision": "c85d01017fa239aa3b2101b1585e8f5c07e005b3",
+  "branch": "HEAD",
+  "dirty": true,
+  "dirty_paths": [
+    "market_feature_store/hithink_sector_capture.py"
+  ],
+  "worktree_dirty_total": 1,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_hithink_sector_capture.py tests/test_hithink_sector_capture_integration.py",
+  "counts": {
+    "passed": 52,
+    "failed": 3,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [
+    "tests/test_hithink_sector_capture.py::test_member_plan_keeps_unrequested_limit_gaps",
+    "tests/test_hithink_sector_capture_integration.py::test_limit_and_resume_do_not_reduce_catalog_or_reuse_member_responses",
+    "tests/test_hithink_sector_capture_integration.py::test_versioned_preview_real_cli_is_readonly_and_never_falls_back[partial]"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-15T07:46:10+00:00"
+}

@@ -1,0 +1,164 @@
+........................................................................ [ 50%]
+..........FFF.........................................................   [100%]
+=================================== FAILURES ===================================
+____ test_cross_day_cli_env_local_passes_but_explicit_full_and_cheap_do_not ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1118f7590>
+quality_db = <_duckdb.DuckDBPyConnection object at 0x1112436f0>
+capsys = <_pytest.capture.CaptureFixture object at 0x11195f7d0>
+
+    def test_cross_day_cli_env_local_passes_but_explicit_full_and_cheap_do_not(monkeypatch, quality_db, capsys):
+        monkeypatch.setenv("REVIEW_SYNC_PLAN", "local")
+        # CLI 使用真实 quality 函数，仅替换连接；cursor 允许入口关闭而不关闭夹具。
+        monkeypatch.setattr(quality, "_connect_ro", quality_db.cursor)
+>       assert cli.main(["check-daily", "--trade-date", DAY]) == 0
+
+tests/test_review_plan_alignment.py:181: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+market_feature_store/cli.py:2716: in main
+    return args.func(args)
+market_feature_store/cli.py:1605: in cmd_check_daily
+    res = check_daily(trade_date=args.trade_date, window=args.window, plan=args.plan)
+market_feature_store/quality.py:288: in check_daily
+    quoteless_sectors(td, con)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+trade_date = '2026-09-07'
+con = <_duckdb.DuckDBPyConnection object at 0x111a16ab0>
+
+    def quoteless_sectors(trade_date: str, con=None) -> list[dict[str, Any]]:
+        """当日 fact_sector_stock_daily 里「有行、但每一行都没有 price/pct_chg/amount」的板块。
+    
+        这是「拷成分、改日期」留下的空壳形状：行数、断档、收缩比全部正常，日报却全「暂无」
+        （2026-06-22）。正门 store 与表上的 CHECK 现在都不收这种行，这里是独立于写入路径的
+        量具——真出现了就该 FAIL，而不是让后面 16 步在空壳上跑出一份看起来完整的报告。
+        """
+        import duckdb
+    
+        owned = con is None
+        con = con or _connect_ro()
+        try:
+            try:
+>               rows = con.execute(
+                    """
+                    SELECT sector_ts_code, sector_name, COUNT(*) AS rows
+                    FROM fact_sector_stock_daily
+                    WHERE trade_date = ?
+                    GROUP BY sector_ts_code, sector_name
+                    HAVING COUNT(price) = 0 AND COUNT(pct_chg) = 0 AND COUNT(amount) = 0
+                    ORDER BY rows DESC, sector_ts_code
+                    """,
+                    [trade_date],
+                ).fetchall()
+E               _duckdb.BinderException: Binder Error: Referenced column "sector_ts_code" not found in FROM clause!
+E               Candidate bindings: "trade_date"
+E               
+E               LINE 5:                 GROUP BY sector_ts_code, sector_name
+E                                                ^
+
+market_feature_store/quality.py:225: BinderException
+___ test_local_cross_day_still_rejects_missing_required_data_and_bad_values ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1119c2db0>
+quality_db = <_duckdb.DuckDBPyConnection object at 0x1119c5630>
+
+    def test_local_cross_day_still_rejects_missing_required_data_and_bad_values(monkeypatch, quality_db):
+        monkeypatch.setenv("REVIEW_SYNC_PLAN", "local")
+        quality_db.execute("DELETE FROM fact_stock_daily")
+        quality_db.execute("UPDATE fact_market_daily SET total_amount = 0")
+>       result = quality.check_daily(DAY, con=quality_db)
+
+tests/test_review_plan_alignment.py:192: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+market_feature_store/quality.py:288: in check_daily
+    quoteless_sectors(td, con)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+trade_date = '2026-09-07'
+con = <_duckdb.DuckDBPyConnection object at 0x1119c5630>
+
+    def quoteless_sectors(trade_date: str, con=None) -> list[dict[str, Any]]:
+        """当日 fact_sector_stock_daily 里「有行、但每一行都没有 price/pct_chg/amount」的板块。
+    
+        这是「拷成分、改日期」留下的空壳形状：行数、断档、收缩比全部正常，日报却全「暂无」
+        （2026-06-22）。正门 store 与表上的 CHECK 现在都不收这种行，这里是独立于写入路径的
+        量具——真出现了就该 FAIL，而不是让后面 16 步在空壳上跑出一份看起来完整的报告。
+        """
+        import duckdb
+    
+        owned = con is None
+        con = con or _connect_ro()
+        try:
+            try:
+>               rows = con.execute(
+                    """
+                    SELECT sector_ts_code, sector_name, COUNT(*) AS rows
+                    FROM fact_sector_stock_daily
+                    WHERE trade_date = ?
+                    GROUP BY sector_ts_code, sector_name
+                    HAVING COUNT(price) = 0 AND COUNT(pct_chg) = 0 AND COUNT(amount) = 0
+                    ORDER BY rows DESC, sector_ts_code
+                    """,
+                    [trade_date],
+                ).fetchall()
+E               _duckdb.BinderException: Binder Error: Referenced column "sector_ts_code" not found in FROM clause!
+E               Candidate bindings: "trade_date"
+E               
+E               LINE 5:                 GROUP BY sector_ts_code, sector_name
+E                                                ^
+
+market_feature_store/quality.py:225: BinderException
+____________ test_cross_day_auto_uses_db_latest_day_not_wall_clock _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1118f05c0>
+quality_db = <_duckdb.DuckDBPyConnection object at 0x111af7e30>
+
+    def test_cross_day_auto_uses_db_latest_day_not_wall_clock(monkeypatch, quality_db):
+        monkeypatch.setenv("REVIEW_SYNC_PLAN", "auto")
+>       assert quality.check_daily(con=quality_db)["plan"] == "cheap"
+
+tests/test_review_plan_alignment.py:200: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+market_feature_store/quality.py:288: in check_daily
+    quoteless_sectors(td, con)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+trade_date = '2026-09-07'
+con = <_duckdb.DuckDBPyConnection object at 0x111af7e30>
+
+    def quoteless_sectors(trade_date: str, con=None) -> list[dict[str, Any]]:
+        """当日 fact_sector_stock_daily 里「有行、但每一行都没有 price/pct_chg/amount」的板块。
+    
+        这是「拷成分、改日期」留下的空壳形状：行数、断档、收缩比全部正常，日报却全「暂无」
+        （2026-06-22）。正门 store 与表上的 CHECK 现在都不收这种行，这里是独立于写入路径的
+        量具——真出现了就该 FAIL，而不是让后面 16 步在空壳上跑出一份看起来完整的报告。
+        """
+        import duckdb
+    
+        owned = con is None
+        con = con or _connect_ro()
+        try:
+            try:
+>               rows = con.execute(
+                    """
+                    SELECT sector_ts_code, sector_name, COUNT(*) AS rows
+                    FROM fact_sector_stock_daily
+                    WHERE trade_date = ?
+                    GROUP BY sector_ts_code, sector_name
+                    HAVING COUNT(price) = 0 AND COUNT(pct_chg) = 0 AND COUNT(amount) = 0
+                    ORDER BY rows DESC, sector_ts_code
+                    """,
+                    [trade_date],
+                ).fetchall()
+E               _duckdb.BinderException: Binder Error: Referenced column "sector_ts_code" not found in FROM clause!
+E               Candidate bindings: "trade_date"
+E               
+E               LINE 5:                 GROUP BY sector_ts_code, sector_name
+E                                                ^
+
+market_feature_store/quality.py:225: BinderException
+=========================== short test summary info ============================
+FAILED tests/test_review_plan_alignment.py::test_cross_day_cli_env_local_passes_but_explicit_full_and_cheap_do_not
+FAILED tests/test_review_plan_alignment.py::test_local_cross_day_still_rejects_missing_required_data_and_bad_values
+FAILED tests/test_review_plan_alignment.py::test_cross_day_auto_uses_db_latest_day_not_wall_clock
+3 failed, 139 passed in 105.69s (0:01:45)

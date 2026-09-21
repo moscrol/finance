@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/generation-degrade/finance-workspace-private",
+  "revision": "c45ad5f853a53b96f7f369c1295027770d20aa5d",
+  "branch": "fix/generation-degrade-closeout-0920",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "intelligence/tests/test_conversation_orchestrator.py intelligence/tests/test_lane_generation.py intelligence/tests/test_e2_boundary_closeout.py intelligence/tests/test_e2_controller_material_history.py intelligence/tests/test_e2_cross_turn_inheritance.py intelligence/tests/test_e2_independent_review_round2.py intelligence/tests/test_e2_local_freeze.py intelligence/tests/test_e2_material_contract.py intelligence/tests/test_e2_material_delivery.py intelligence/tests/test_e2_material_freeze.py intelligence/tests/test_e2_material_source_binding.py intelligence/tests/test_e2_material_turn_delivery.py intelligence/tests/test_e2_numbered_case_blocks.py intelligence/tests/test_e2_query_resolver_reads.py intelligence/tests/test_e2_question_group_edges.py intelligence/tests/test_e2_runtime_ceiling.py intelligence/tests/test_e2_top_level_regions.py intelligence/tests/test_e2_turn_prior_reads.py intelligence/tests/test_conversation_materials.py intelligence/tests/test_workbench_api.py",
+  "counts": {
+    "passed": 584,
+    "failed": 0,
+    "error": 0,
+    "skipped": 4
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-20T15:15:26+00:00"
+}

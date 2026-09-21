@@ -14,6 +14,8 @@ registry 是 YAML（``consumption_registry.yaml``），三个消费者：同步�
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
+import os
 from pathlib import Path
 import re
 
@@ -26,6 +28,25 @@ SCHEMA_PATH = PACKAGE_DIR / "schema.sql"
 TIERS = ("A-replace", "B-identity", "C-daily", "D-derived")
 RECIPE_STATUSES = ("live", "note", "pending-grilling")
 PLANS = ("full", "cheap", "local")
+PLAN_CHOICES = (*PLANS, "auto")
+
+
+def requested_plan(plan: str | None = None) -> str:
+    """显式参数 > REVIEW_SYNC_PLAN > full；非法配置在任何数据操作前拒绝。"""
+    value = plan if plan is not None else os.environ.get("REVIEW_SYNC_PLAN") or "full"
+    if value not in PLAN_CHOICES:
+        raise ValueError(f"unknown plan {value!r}; expected one of {PLAN_CHOICES}")
+    return value
+
+
+def resolve_plan(plan: str | None, trade_date: str | None) -> str:
+    """auto 按目标交易日解析：周五 full，其余 cheap，不依赖运行时的今天。"""
+    value = requested_plan(plan)
+    if value != "auto":
+        return value
+    if not trade_date:
+        raise ValueError("auto plan requires a trade date")
+    return "full" if date.fromisoformat(str(trade_date)).isoweekday() == 5 else "cheap"
 
 _DDL_OBJECT = re.compile(
     r"CREATE\s+(?:TABLE\s+IF\s+NOT\s+EXISTS|OR\s+REPLACE\s+VIEW|VIEW\s+IF\s+NOT\s+EXISTS|TABLE)\s+"
@@ -82,8 +103,8 @@ class Registry:
 def tables_for_plan(registry: "Registry", plan: str) -> set[str]:
     """某计划会写到的表：所有在该计划下有步骤的数据族的 tables 之并。
 
-    门禁按这个集合裁剪期望表——local 计划（fupanhui 停抓后的自算链路）不产 mainline /
-    theme_flow / 公开资产，这些表在 local 日缺行是设计，不是断档。"""
+    门禁按这个集合裁剪期望表——local 已有主线、新高与核心股自算步骤，但不产
+    theme_flow 等复盘会专属数据；以各数据族 steps 为准，缺豁免表不是断档。"""
     if plan not in registry.plans:
         raise KeyError(f"unknown plan {plan!r}; known: {', '.join(sorted(registry.plans))}")
     out: set[str] = set()

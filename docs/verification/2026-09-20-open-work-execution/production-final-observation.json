@@ -1,0 +1,52 @@
+{
+  "captured_at": "2026-09-19T18:34:27.502106+00:00",
+  "launchctl": {
+    "com.financeworkspace.daily-full-review-finalize": {
+      "read_exit": 0,
+      "environment": {
+        "FINANCE_GENERATION_CODE_ROOT": "/Users/a77/.finance-runtime/finance-generation-387028b846a2",
+        "REVIEW_SYNC_PLAN": "local",
+        "FINANCE_DATA_ROOT": "/Users/a77/finance-workspace-private",
+        "FINANCE_CODE_ROOT": "/Users/a77/.finance-runtime/finance-l2-d433b90788c0"
+      }
+    },
+    "com.financeworkspace.daily-full-review-sync": {
+      "read_exit": 0,
+      "environment": {
+        "REVIEW_SYNC_PLAN": "local",
+        "FINANCE_DATA_ROOT": "/Users/a77/finance-workspace-private",
+        "FINANCE_CODE_ROOT": "/Users/a77/finance-workspace-runtime"
+      }
+    }
+  },
+  "indexes": [
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index",
+      "directory_uchg": true,
+      "files": 12,
+      "files_uchg": 12
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full",
+      "directory_uchg": true,
+      "files": 12,
+      "files_uchg": 12
+    }
+  ],
+  "runtime_alias": "/Users/a77/.finance-runtime/finance-workspace-bf662e9310ff",
+  "alert_log": {
+    "resolved": "/Users/a77/.finance-runtime/alerts.log",
+    "is_symlink": false
+  },
+  "health": {
+    "http_status": 200,
+    "status": "healthy",
+    "git_sha": null
+  },
+  "readiness": {
+    "http_status": 200,
+    "status": "ready",
+    "git_sha": null
+  },
+  "performed": "read-only; no service restart, root/flag change, or index write"
+}
