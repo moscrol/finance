@@ -492,7 +492,7 @@ _B_LOCAL_ONLY_PHRASES: tuple[str, ...] = (
 )
 _B_RELAX_PHRASES: tuple[str, ...] = ("可以查真实数据", "结合最新行情", "结合当前行情")
 # ② 基底继承（续轮声明）：
-_CONTINUATION_HEAD_PHRASES: tuple[str, ...] = ("继续", "接着", "同上")
+_CONTINUATION_HEAD_PHRASES: tuple[str, ...] = ("继续", "接着", "同上", "沿用上一轮", "沿用上轮")
 _PREVIOUS_ANSWER_REVIEW_RE = re.compile(
     r"^(?:复核|复查|重新审视|检查|重新检查|审查)(?:一下)?(?:你)?"
     r"(?:刚才|上轮|上一轮|上次|前面)的?(?:解释|回答|判断|结论|分析)"
@@ -514,13 +514,27 @@ _SENT_SPLIT_RE = re.compile(
 # 虚构前提声明：「以下是完全虚构的研究案例」「均为虚构」「纯属虚构」等（句中即算，
 # 这类措辞极少出现在叙述句里；出现在复核块里时走 boundary_uncertain 保守分支）。
 _FICTIONAL_SENT_RE = re.compile(
-    r"以下\s*[是为][^。；，]{0,12}虚构|均为虚构|纯属虚构|完全虚构|虚构案例|以下虚构材料|[是为]虚构的?"
+    r"以下\s*[是为][^。；，]{0,12}虚构|均为虚构|纯属虚构|完全虚构|虚构案例|以下虚构材料|(?<!不)[是为]虚构的?"
 )
 # A8 的「假设 X，结合当前行情」不要求额外的「成立」。是否顶层由区域复核决定，
 # 而不是把明确假设漏成无约束；材料内同形态仍走 uncertain，强保护内不可见。
-_HYPOTHESIS_STRONG_RE = re.compile(r"^(?:假设|如果)\s*\S.{1,}")
-# 题内假设：句首 假设/如果 即算（题上下文消歧，scope=q{n}）。
-_HYPOTHESIS_IN_QUESTION_RE = re.compile(r"^(?:假设|如果)\s*\S.{1,}")
+_HYPOTHESIS_STRONG_RE = re.compile(
+    r"^(?:假设|如果)\s*"
+    r"(?!(?:某项|某些|任何|所需|这项)?(?:数据|资料|证据|来源|信息|材料|输入)"
+    r"[^。；，]{0,24}(?:无法|不能|没有|缺失|不足|未|取不|找不))\S.{1,}"
+)
+# 题内使用同一识别器；数据缺失处理指令不是金融世界的反事实前提。
+_HYPOTHESIS_IN_QUESTION_RE = _HYPOTHESIS_STRONG_RE
+# A calculation declaration describes the answer's basis, not permission to read.
+# The same protected-region scanner handles declarations and explicit fact requests.
+_PREMISE_CALCULATION_RE = re.compile(
+    r"^(?:(?:这|以下|本题|本轮)(?:是|为))?(?:独立的|一个|一道|纯)?"
+    r"(?:虚构的?(?:财务|金融)?(?:算例|计算题)|情景计算|按给定(?:数据|条件)计算)"
+)
+_WORLD_FACT_REQUEST_RE = re.compile(
+    r"^(?:再|同时|另外)?(?:查询|查证|核实|检索|查|结合|使用|参考)"
+    r"[^。；\n]*(?:真实|实际|最新|当前|今日|行情|财报|公告)"
+)
 
 _FENCE_RE = re.compile(r"^\s*(```|~~~)")
 _QUOTE_PAIRS: tuple[tuple[str, str], ...] = (
@@ -575,7 +589,7 @@ def _sentence_spans(text: str) -> list[tuple[int, int, str]]:
 def _state_op_in_sentence(sent: str) -> str | None:
     """句级状态操作识别（内容复核与指令识别共用的唯一入口，退修 R3）。
 
-    返回 "constraint_b" | "premise_declaration" | "continuation" | None。
+    返回顶层状态操作种类；引用和材料正文不能发出这些操作。
     """
     s = sent.strip()
     if not s:
@@ -587,6 +601,10 @@ def _state_op_in_sentence(sent: str) -> str | None:
     if (head.startswith(_CONTINUATION_HEAD_PHRASES) or "其余条件不变" in s
             or _PREVIOUS_ANSWER_REVIEW_RE.match(head)):
         return "continuation"
+    if _PREMISE_CALCULATION_RE.match(head):
+        return "premise_calculation"
+    if _WORLD_FACT_REQUEST_RE.match(head):
+        return "world_fact_request"
     if _FICTIONAL_SENT_RE.search(s):
         return "premise_declaration"
     if _HYPOTHESIS_STRONG_RE.match(s):
@@ -741,7 +759,7 @@ class InstructionSpan:
     scope="message" 为消息级；题内检出的状态操作 scope="q{用户原编号}"（退修 R6）。
     """
 
-    kind: str  # "constraint_b" | "premise_declaration" | "continuation"
+    kind: str  # constraint_b, premise_declaration, continuation, premise_calculation, world_fact_request
     text: str
     line_index: int
     scope: str = "message"

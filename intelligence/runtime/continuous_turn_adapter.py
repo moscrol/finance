@@ -1944,7 +1944,10 @@ def _safe_public_text(
     lines = []
     for raw in str(value or "").splitlines():
         line = raw.strip()
-        if line and not _contains_public_control(line, private_tokens):
+        if not line:
+            if lines and lines[-1]:
+                lines.append("")
+        elif not _contains_public_control(line, private_tokens):
             lines.append(redact(line))
     return "\n".join(lines).strip()
 

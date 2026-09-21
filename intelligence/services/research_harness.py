@@ -108,6 +108,7 @@ from intelligence.services.empty_pool_fallback import (
 from intelligence.services.episode_protocol import (
     RejectionResponse,
     attach_evidence_ordinals,
+    cited_evidence_ordinals,
     evidence_ordinal_table,
     expand_episode_snapshot_bindings,
     finish_rejection_fields,
@@ -539,11 +540,16 @@ class ResearchHarness(Protocol):
         """Final domain requirements after repairs and semantic verification."""
         ...
 
+    def finalization_materials(self, *, context: ResearchRunContext) -> dict[str, object]:
+        """Owned non-evidence inputs that can support bounded finish recovery."""
+        ...
+
     def recovery_evidence_priority(
         self,
         *,
         context: ResearchRunContext,
         evidence: tuple[AgentEvidence, ...],
+        candidate_content: str = "",
     ) -> tuple[str, ...]:
         """Existing evidence hashes to retain first in a bounded recovery view."""
         ...
@@ -975,19 +981,33 @@ class FinanceResearchHarness:
             )
         return PublicationAssessment()
 
+    def finalization_materials(self, *, context: ResearchRunContext) -> dict[str, object]:
+        calculation = context.contract.premise_calculation
+        if (
+            calculation is None or calculation.issues or not calculation.rows
+            or any(item.grounding_mode != "user_premise" for item in context.contract.required_outputs if item.required)
+        ):
+            return {}
+        return {"calculation_delivery": calculation.model_payload()}
+
     def recovery_evidence_priority(
         self,
         *,
         context: ResearchRunContext,
         evidence: tuple[AgentEvidence, ...],
+        candidate_content: str = "",
     ) -> tuple[str, ...]:
-        if context.history_intent is None:
-            return ()
-        from intelligence.services.historical_research.recovery import (
-            recovery_evidence_priority,
-        )
+        priority: tuple[str, ...] = ()
+        if context.history_intent is not None:
+            from intelligence.services.historical_research.recovery import (
+                recovery_evidence_priority,
+            )
 
-        return recovery_evidence_priority(evidence)
+            priority = recovery_evidence_priority(evidence)
+        # Preserve cited observations, never the unadmitted draft or invented IDs.
+        by_id = {eid: digest for digest, eid in evidence_ordinal_table(evidence).items()}
+        cited = tuple(by_id[ref] for ref in cited_evidence_ordinals(candidate_content) if ref in by_id)
+        return tuple(dict.fromkeys((*priority, *cited)))
 
     def classify_repair_need(
         self,

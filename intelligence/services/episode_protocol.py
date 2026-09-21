@@ -437,6 +437,21 @@ def build_episode_input(
         ),
         "question_type_rules": _question_type_rules(task_frame, context),
     }
+    if task_frame.material_contract and task_frame.material_contract.premise_calculation:
+        payload["premise_calculation_rule"] = (
+            "本轮是按用户题设计算，不是核实真实公司的财务事实。"
+            "用户本轮及明确沿用的历史用户原文中的数字可作为条件，历史助手答案不能替代输入。"
+            "按题设列公式、单位和结果，百分比与百分点分开；缺少输入须明确指出，不能猜补。"
+            "文字解释必须与计算一致：利润增长慢于收入不等于利润没有增长或下降。"
+            "静态市盈率使用题设最近已完成年度的归母净利润；用户未指定旧年基数时，不得擅自回退一年。"
+            "题设已给出的历史年度数据不能自行改称预测或动态口径；未来假设仅用于相应情景计算。"
+            "这些条件及其计算结果的 binding.basis 使用 user_premise，不要求工具证据序号；"
+            "draft 只写自然语言‘按题设’，不得展示 user_premise、basis 等内部字段名；"
+            "不能把题设、情景结果写成真实行情、盈利预测或已核实事实。"
+        )
+    if context.contract.premise_calculation is not None:
+        calculation = context.contract.premise_calculation
+        payload["calculation_delivery"] = calculation.model_payload()
     from intelligence.services.material_delivery import material_delivery_payload, material_question_outputs
 
     if material_question_outputs(context.contract):
@@ -568,6 +583,7 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
     "evidence_type_floor": RejectionKind.SUBSTANCE,
     "no_substantive_answer": RejectionKind.SUBSTANCE,
     "missing_evidence": RejectionKind.SUBSTANCE,
+    "premise_calculation_mismatch": RejectionKind.SUBSTANCE,
     # 结构合法、内容越产品红线（对「明天哪个方向」答成领涨判断）→ 回灌改写成观察剧本
     "forward_direction_call": RejectionKind.SUBSTANCE,
     # 地基破坏 → 硬拒
@@ -886,6 +902,13 @@ def validate_episode_finish(
             raise _reject("bad_claim_binding", str(exc)) from exc
     else:
         draft = _normalize_natural_language_layout(draft)
+    # 题设计算的程序表准入跟在两条 draft 来源之后：无论 draft 是模型原文还是按
+    # 材料主张渲染出来的，只要合同带 premise_calculation，就要过同一道表格硬校验。
+    calculation = context.contract.premise_calculation
+    if calculation is not None:
+        draft, calculation_error = calculation.admit(draft, status=status)
+        if calculation_error:
+            raise _reject("premise_calculation_mismatch", calculation_error)
     if status == "completed" and not draft.strip():
         raise _reject("empty_draft", "completed finish draft must be non-empty")
     forward_hits = forward_direction_call_hits(
@@ -1061,15 +1084,25 @@ def validate_episode_finish(
     # R5-A10 / R6-A10 的冻结形状。
     #
     # 本函数在此把「有哈希的附带限制」挪到顶层 ``gaps`` 并清空
-    # ``binding.gap``——执行已写明的契约，不改 verifier 判据：无哈希的 gap
-    # 仍是真缺口；若有人绕过本函数把 gap 留在 binding 里，verifier 仍会
+    # ``binding.gap``——执行已写明的契约，不改 verifier 判据：普通无哈希的 gap
+    # 仍是真缺口；程序拥有的题设来源声明由下方单独限定。若绕过本函数把 gap 留在 binding 里，verifier 仍会
     # 把那一格判 missing。
     relocated_gaps: list[str] = []
     normalized_bindings: list[OutputEvidenceBinding] = []
     caveat_slips = 0
     for binding in bindings:
         caveat = binding.gap.strip()
-        if binding.evidence_hashes and caveat:
+        # The admitted program table owns this explicit source disclaimer.
+        # It does not prove any other hash-free output or incomplete inputs.
+        owned_boundary = (
+            calculation is not None
+            and not calculation.issues
+            and bool(calculation.rows)
+            and binding.output_id == "evidence_boundary"
+            and binding.basis == "user_premise"
+            and calculation.table in draft
+        )
+        if caveat and (binding.evidence_hashes or owned_boundary):
             relocated_gaps.append(caveat)
             normalized_bindings.append(replace(binding, gap=""))
             caveat_slips += 1

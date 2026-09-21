@@ -3868,6 +3868,35 @@ def test_invalid_finish_after_normal_repair_recovers_only_once() -> None:
     ) == 1
 
 
+def test_malformed_finish_recovery_keeps_late_cited_evidence() -> None:
+    def runner(query, context):
+        evidence, observation, trace = _successful_runner(query, context)
+        evidence.extend(
+            replace(evidence[0], content_hash=f"evidence-{i}", detail=f"rank-data-{i}")
+            for i in range(2, 35)
+        )
+        return evidence, observation, trace
+
+    broken = replace(
+        _finish_turn(draft="Review [E1] [E28] [E29] [E30] [E999]"),
+        content=_finish_turn(draft="Review [E1] [E28] [E29] [E30] [E999]").content + "]",
+    )
+    model = ScriptedModel([_tool_turn("snapshot"), broken, broken, _finish_turn()])
+    frame = _frame()
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame, context=_context(frame), registry=_market_registry(runner),
+    )
+    assert outcome.stop_reason == "finalization_recovered"
+    assert outcome.usage.invalid_actions == 2
+    assert len(model.calls) == 4
+    recovery = json.loads(model.calls[-1]["messages"][1]["content"])
+    ids = {item["evidence_id"] for item in recovery["evidence"]}
+    assert {"E1", "E28", "E29", "E30"} <= ids
+    assert "E999" not in ids
+    assert len(ids) == 12
+    assert "Review" not in json.dumps(recovery)
+
+
 def test_last_planning_round_invalid_gets_repair_before_compact_recovery() -> None:
     frame = _frame()
     model = ScriptedModel(

@@ -1966,6 +1966,8 @@ class TurnOrchestrator:
                 )
             elif material_contract and material_contract.needs_clarification:
                 material_history = ConversationMaterials(unavailable=True)
+            elif material_contract and material_contract.premise_calculation:
+                material_history = ConversationMaterials()
             # Known absence must reach the default controller: dropping it
             # would reopen resolver/model and pending-frame recovery. Legacy
             # injected controllers keep their pre-existing keyword contract.

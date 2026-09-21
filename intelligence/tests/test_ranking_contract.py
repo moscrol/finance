@@ -412,3 +412,44 @@ def test_repair_goal_message_explains_ranking_slots_and_keeps_track_text() -> No
     assert "公司矩阵" not in track_only["expression_elements_note"]
     without = json.loads(harness.repair_goal_message(goal("direct_assessment"), tools_open=False))
     assert "expression_elements_note" not in without
+
+
+def test_matrix_header_mapping_and_priority_judgment_mark() -> None:
+    """判官理由码 unsupported_ranking 的确定性改写：优先级格加「（研判）」，不清空。"""
+
+    header = "| 公司 | 优先级 | 需求暴露 | 收入/利润传导 | 兑现时间 | 已定价程度 | 关键分歧 |"
+    mapping = rc.matrix_header_mapping(header)
+    assert mapping is not None and mapping["优先级"] == 1
+    assert rc.matrix_header_mapping("|---|---|---|---|---|---|---|") is None
+    assert rc.matrix_header_mapping("英维克优先。") is None
+
+    row = "| 英维克（002837） | 1 | 液冷收入占比 30%（E1） | 毛利率 +2pct（E2） | 2026Q3（E1） | 较高（E4） | 客户集中 |"
+    marked = rc.mark_priority_as_judgment(row, mapping)
+    assert marked == row.replace("| 1 |", "| 1（研判） |")
+    # 幂等：已标不再标（复判再拒时调用方退回槽位规则，不无限改写）。
+    assert rc.mark_priority_as_judgment(marked, mapping) is None
+    # 标注不破坏解析：优先级仍是整数，缺件核对不把矩阵判成缺——否则会触发契约重写循环。
+    answer = "\n".join(
+        [
+            header,
+            "|---|---|---|---|---|---|---|",
+            marked,
+            "| 申菱环境 | 2 | 缺数 | 缺数 | 2026Q4 | 中等 | 订单真实性 |",
+        ]
+    )
+    artifact = rc.parse_ranking_artifact(answer)
+    assert [item.priority for item in artifact.matrix] == [1, 2]
+    assert artifact.priority_complete is True
+    assert "matrix" not in rc.missing_contract_elements(answer)
+    # 无整数 / 非表行 / 表头没有优先级列：都不改。
+    assert rc.mark_priority_as_judgment("| 高澜股份 | — | a | b | c | d | e |", mapping) is None
+    assert rc.mark_priority_as_judgment("英维克优先。", mapping) is None
+    assert rc.mark_priority_as_judgment(row, {"公司": 0}) is None
+
+
+def test_judge_ranking_contract_block_names_priority_as_model_reasoning() -> None:
+    block = rc.judge_ranking_contract_block()
+    assert block["priority_column"] == "优先级"
+    assert block["priority_grounding"] == rc.JUDGE_PRIORITY_GROUNDING == "model_reasoning"
+    assert block["matrix_headers"] == list(rc.MATRIX_HEADERS)
+    assert "不得仅因优先级数字无证据" in str(block["note"])

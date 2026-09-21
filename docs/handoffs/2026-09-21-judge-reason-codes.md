@@ -1,0 +1,166 @@
+# 2026-09-21 · 判官理由码分流：撤回「引了 E 且被拒 → 删」
+
+分支 `fix/8792-premise-market-contracts`，提交 `a97b27057`。本文是决策留痕（不限长、写完不改）；
+在途状态看 `docs/handoffs/inflight/fix-8792-premise-market-contracts.md`。
+
+## 背景（不读这段会误判后面每个决定）
+
+v19 live 留下一条 P3：行情答案里「EDA、封测、存储、汽车芯片随后」没绑到它引的 E2/E3/E4/E52。
+v20 候选 `1d9e717d2` 的修法是一刀切：语义判官拒绝、且句子显式引用 E 的，一律删除；无 E 引用的
+必答槽语义句仍降级保留。v20 三题 live 全 completed，K3 代码复核 PASS，全量 Python 12044 通过。
+
+上一轮会话在同一份账本上坐实三件事（都是实测）：
+
+1. `_annotate_semantic_rejects` 是零调用点的死函数，「降级 = 标注」从来没有承载标记的通路。
+2. 那 39 条「引了 E 且被拒」的判官理由**异质**：真·事实超出证据（芯片指数盘中跌超 1% 证据里没有、
+   日期 08-21 vs 注册 09-11、六位股票代码整批无证据、白银有色↔湖南白银主体替换）；因果/角色越权
+   （征求意见升级成订单前置条件）；**判官明确说数字没问题、拒的是别的**——移远通信矩阵 8 行里
+   7 行逐条写着「优先级 1 没有证据或透明排序规则支持；其中行情数字本身有 E4 支持，不是拒绝原因」，
+   第 70 句拒的是「暴露『调用工具』等内部过程表述」。39 条里 L4_structured（本地 DuckDB）占 25 条。
+3. 「只删带数字的事实句」（C 方案）与一刀切（A 方案）在最糟那一格重合——那 8 行全带数字。
+
+本轮又用生产 users 根重算了一遍（`docs/verification/2026-09-21-judge-verdict-census-pre-reason-codes.md`）：
+113 个带字段 run，「引了 E 且被拒」正好 39 条，**今天全部 demoted、零 deleted**；judge 阶段 deleted 的
+34 条全无引用。也就是说 v20 那一刀翻掉的正是这 39 条。
+
+用户的约束：「我不希望出现整体降级输出」。
+
+## 按发现顺序做了什么
+
+1. 读通判官 → 公开稿的链路。整体降级（`_gap_answer`）只在删完公开稿为空时触发；这 8 行不会触发它，
+   但会把矩阵掏成一行数值槽。四个既有句级动词（删 / 降级 / 撤标 / 整体降级）没有一个能「留核心、去装饰」。
+2. 确认 `GroundingJudgeReport` 只有 passed / 句号 / 自由文本 issues；账本 `sentence_verdicts` 的
+   `reasons` 对语义句只会写 `judge`。要分流先得有码。
+3. 确认排序契约 `ranking_contract.py` 里「优先级」列没有任何 grounding 声明送给判官——生产方要模型填
+   1..N，检查方按事实句审。缝在两者之间。
+4. 设计改写时发现 `missing_contract_elements` 要求「优先级列完整」（`priority_complete`）：清空优先级格
+   会被判成缺矩阵 → 契约重写修复 → 模型填回 → 循环。改为加「（研判）」标注，整数保留。
+5. 实现（见下表），全量 `pytest intelligence` 10184 通过，ruff / 字段契约 / 层级 / 目录门禁全过。
+6. 归档 v20 的 README 覆写与 fixture（`f5f844466`），再提交本改动（`a97b27057`）。
+
+## 决策与方案对比
+
+### D1 · 无码时怎么处置「引了 E 且被拒」的句子
+
+| 方案 | 评价 | 结果 |
+|---|---|---|
+| A 一刀切删（v20） | 账本否掉：39 条里 25 条 L4，7 条判官亲口背书数字 | 否 |
+| C 只删带数字的事实句 | 与 A 在矩阵行完全重合 | 否 |
+| A′ 删但豁免表格行 | 在一个不可靠代理上再补一个启发式；用户的发现是「代理本身不可靠」 | 否 |
+| **回到改动前的槽位规则**（必答槽内降级、槽外删） | 生产跑了数月的状态；控制面仍记账；宁可少删 | **选** |
+
+代价写明：判官不吐码时 v19 的 P3 会以「降级保留」出门（与生产今天一致），不是删。要收紧这条缺省，
+先看 census 的 `judge_stage.coded_share`——吐码率低说明判官合同没接上，修判官不修判据。
+
+### D2 · 用什么让判官的拒绝可路由
+
+| 方案 | 评价 | 结果 |
+|---|---|---|
+| 在自由文本 issues 上做关键词分类 | 判官措辞会漂；本轮就见到「不是拒绝原因」「本身有」两种写法 | 否 |
+| **判官报告加可选 `reason_codes` 枚举** | 一次模型调用不增加；缺码退回原处置；老判官零影响 | **选** |
+| 新增一次「分类判官」调用 | 多一次调用、多一层判官方差（判据库：先确定性判据后语义判官） | 否 |
+
+fail-closed 落在**路由**不落在**报告**：缺码 / 未知码 / 畸形 `reason_codes` 只让那句走原处置；
+若整份报告因新字段被作废，会走「判官不可用」扣稿路径——比原处置更差。别的未知键仍作废，严格性不松。
+
+### D3 · 类 3（判官说数字没问题）怎么修
+
+| 方案 | 评价 | 结果 |
+|---|---|---|
+| 整句删 | 删掉判官背书的 L4 数字 | 否 |
+| 原样保留（降级） | 「凭什么排第 1」的问题没回答 | 否（作缺省兜底） |
+| 清空优先级格 | 触发契约重写循环（见发现顺序第 4 条） | 否 |
+| **优先级格加「（研判）」** | 整数保留、解析不变、缺件核对不动；判官与读者看到「这是研判」；spec §3.3「标注写进正文」第一处真落地 | **选** |
+| 模型改写窗（critic-revise） | 多一次调用、要预算授予、再叠判官方差；V11 当时明确不加第二修复窗 | 缓：理由码分布量出来再议 |
+| 「调用工具」→「检索」确定性替换 | 零方差零预算；换完仍残留 provider / 工具就放弃退回原处置 | **选** |
+
+### D4 · 契约缝修在哪
+
+排序题送判载荷加 `ranking_contract` 块（表头、优先级列、`priority_grounding=model_reasoning`、一句说明），
+判官 prompt 加一句「若提供 ranking_contract…不得仅因优先级数字无证据而拒绝该行」。非排序题不加键，
+载荷逐字节不变。否了「给优先级数字造证据绑定」（那是伪造 evidence）和「把 ranking_matrix 塞进
+required_outputs」（会牵动整条 contract_rewrite 修复路径）。
+
+### D5 · 股票代码探测器做预检还是分区
+
+选**只分区**：句内 A 股六位代码任一不在任何证据语料，则该句在判官已拒的前提下从「语义」划到
+「机械」（删）。否了预检（判官前就删）：模型凭常识写出的真代码（「贵州茅台（600519）」）在证据表
+没登记时会被无差别删掉，删除权应先归判官。代价：判官放过的编造代码今天仍抓不到。
+
+## 验证与收据
+
+- `pytest intelligence`（HEAD `f5f844466` + 本改动工作树，收据 `20260921T035521Z-f5f84446`）：
+  10184 passed / 23 skipped / 2 xfailed。
+- 定向：`test_judge_reason_codes` 15 条 + `test_judge_sentence_verdicts` / `test_episode_answer_hygiene` /
+  `test_ranking_contract` 共 77 通过；相邻 13 个判官 / 验证器 / 排序 / 材料模块 414 通过。
+- 门禁：ruff 全绿；`check_unread_fields` / `layer_audit` / `gen_runtime_catalog --check` 通过；
+  提交时 11 道 pre-commit 全过。
+- 全仓等价 CI 在 `a97b27057` 上重跑（仓根 `pytest -q`，干净树）：12061 passed / 85 skipped / 2 xfailed，
+  收据 `20260921T042331Z-a97b2705.json`，`check_test_receipt.py --expect-revision a97b27057` 判「可采信」。
+  比 v20 的 12044 多 17 条 = 本轮新增测试数。
+- 前端四项在 `a97b27057` 上重跑：lint 0 / typecheck 0 / 单测 110 passed / build 成功（`intelligence/webapp`，
+  本轮未改任何前端文件）。
+- 对 `gitea/main`：12:00 fetch 时 main 领先 14 个提交、不碰本次任一文件、merge-tree 零冲突；12:30 再 fetch
+  main 已到 `945c04bd7`（#819 研究求证意识等合入），merge-tree 出**三处冲突**——`docs/agent-product-door.md`、
+  `intelligence/runtime/turn_control_core.py`、`intelligence/services/user_task.py`。三处都是本分支早先的题设计算
+  提交（37526350c…41ca2165d）与 main 新提交的交叠，不是本轮两个提交造成的；main 对 `episode_semantic_verifier.py`
+  的唯一改动（2cfa9d0d7，加 `_mask_bound_short_date_heading`）与理由码区域无交叠，自动合并干净。
+  合 main 的人要先解这三处；ahead/behind 数字别抄本文，现跑 `git rev-list --left-right --count gitea/main...HEAD`。
+- live：写本节时未做；同日 12:46–13:10 用 K3 补跑，结果见文末「补：live 实测」。v20 的 live 结论不移签给 v21。
+  E2E 未重跑，属「无结论」叶子。
+
+## 后续要做的
+
+1. ~~起 sidecar 重跑三题看吐码~~ 已做（K3，见文末）：吐码通路通，n=2；排序题判官撞帽未出报告。
+2. 排序改写要 live 覆盖，先在判官窗上做决定（帽 / 载荷压缩 / 分句送判），再重跑液冷排序题——不在本分支，
+   已立工单 #57 `docs/superpowers/specs/2026-09-21-judge-window-k3-latency-workorder.md`（先量后改，验收基准题就是那道液冷排序）。
+3. 吐码率用 census 累积；低 → 修判官接法，**不动**无码缺省。够了再议无码缺省收紧、模型改写窗。
+4. 合 main 前解三处冲突 + 补 E2E 叶子。
+
+## 不要做的
+
+- 不要把「引了 E 且被拒 → 删」再加回来，哪怕加了表格豁免——账本已否掉这个代理。
+- 不要清空排序矩阵的优先级格——会进契约重写循环。
+- 不要为了让判官吐码而把 `reason_codes` 加进 tool schema 的 `required`——老判官 / 备链判官会整份作废。
+- 不要拿 v20 的 live / E2E 收据当 v21 的。
+
+## 补：live 实测（2026-09-21 12:46–13:10，K3 写手 + K3 自审）
+
+用户裁决「真实跑的就用 k3」。全过程与读数见 `docs/verification/2026-09-21-8792-premise-market/README.md` 的「v21 Live」节。结论三条：
+
+1. **K3 会吐码**：market_cause 题判官拒 2 句，1 句带 `causal_or_role_overreach`、1 句无码；两句按设计都降级保留。传输层看到
+   请求带合同、响应工具调用参数含 `reason_codes`。n=2。
+2. **删 / 两条改写 live 零覆盖**：原三题判官零拒句；专门加跑的排序题 K3 自审两发都撞 75 s 帽（145 卡、198k 字符研究载荷），
+   判官不可用、带披露放行——既有路径，v21 没碰。
+3. **K3 自审延迟贴帽**：35k 字符判官请求 71.8 s。这是在 K3 上量排序改写的前置障碍，属判官窗问题，不在本分支范围。
+
+新增的方案对比（D6 · 候选代码写死 `temperature`，K3 网关拒它）：
+
+| 方案 | 评价 | 结果 |
+|---|---|---|
+| 改候选代码不发 temperature | 换了被测 SHA，全部收据作废 | 否 |
+| 换回 glm-5.3-flash 跑 | 违背用户「用 k3」 | 否 |
+| **传输层 shim 剥键并逐请求记账** | 代码不动；剥了什么、上游回什么全在日志里；偏差写进报告 | **选** |
+
+shim 的两个已知洞：SSE 分支在客户端先断时（75 s 帽）写不回去抛 BrokenPipe，那次调用**不进日志**，只留 stderr 无时间戳的 traceback；
+`req_has_ranking_contract` 匹配到 prompt 句子而非载荷键，是假信号。下次复用先修这两处。
+
+生产 8792 在本轮进行中被切到 main tip `945c04bd7fdd`（12:47），非本轮所为。
+
+## 补：前向合并与 PR（2026-09-21 13:2x–14:3x）
+
+用户「你来推进」。两次前向合并 + 四叶 + 开 PR，合入仍等确认。
+
+- ← `gitea/main@3c70af64d`（#819 研究求证意识等），解 3 处：door 页两节并集；`turn_control_core` 把 main 的
+  `material_only`/`needs_retrieval` 与本分支的 `premise_calculation` 分支叠加；`user_task` 续轮词表与虚构正则并集。
+- ← `gitea/main@c615adbd2`（#770 材料收口等），解 6 处。**其中一条是真缝不是冲突**：#770 的
+  `reconcile_claim_checks` 只重建 `{passed, rejected_sentence_indexes, issues}` 三个必填键，材料题路径会把本分支的
+  可选键 `reason_codes` 静默丢掉——材料题的拒句将永远走无码缺省。修法是带过该字段（它新增的拒句无码、越界码由
+  `parse_judge_reason_codes` 按最终拒句集合过滤），并加 `test_reason_codes_survive_material_claim_reconciliation`；
+  变异验证：删掉带过的那五行，15 条里恰好只红这一条。
+- 协作读数：另一个会话报「#770 只动了 agent-product-door.md」，那对 main 成立，对本分支 merge-tree 报了**六处**冲突。
+  「我这侧没冲突」推不出「你那侧没冲突」——给对方 head SHA 让他自己 merge-tree。
+
+四叶在 `4075ce8ac`：python `ruff` 0 + `pytest` 12440P/85S/2xf（收据 `20260921T062625Z-4075ce8a`，`check_test_receipt`
+判可采信）；frontend lint/typecheck/110 单测/build 全 0 且 build 后树干净；e2e 34P/2S；registry-check 五条 0。
+**PR #825**（http://127.0.0.1:3300/a77/finance-workspace-private/pulls/825），head `4075ce8ac`，conflict-check clean。

@@ -11,6 +11,7 @@ import json
 from typing import TYPE_CHECKING, Sequence
 
 from intelligence.services.material_contract import MaterialContract, compile_material_contract
+from intelligence.services.premise_financial_calculation import PremiseSource
 from intelligence.services.user_task import (
     MaterialRef, material_id_for, references_material, split_user_message,
 )
@@ -40,6 +41,7 @@ class ConversationMaterials:
     assistant_statements: tuple[HistoricalAssistantStatement, ...] = ()
     base_contract: MaterialContract | None = None
     source_turn: int = 0
+    calculation_sources: tuple[PremiseSource, ...] = ()
 
     def to_prompt_block(self) -> str:
         """Typed JSON, never reparsed as a legacy user:/assistant: transcript."""
@@ -48,6 +50,8 @@ class ConversationMaterials:
             "materials": [asdict(item) for item in self.items],
             "historical_assistant_statements": [asdict(item) for item in self.assistant_statements],
             "history_unavailable": self.unavailable,
+            **({"calculation_sources": [asdict(source) for source in self.calculation_sources]}
+               if self.calculation_sources else {}),
         }, ensure_ascii=False)
 
     @classmethod
@@ -78,8 +82,12 @@ class ConversationMaterials:
                 raise ValueError("invalid historical assistant statement")
             old_answers.append(HistoricalAssistantStatement(item["source_message_id"], item["text"]))
         base = value.get("base_contract")
+        sources = value.get("calculation_sources", ())
+        if not isinstance(sources, (list, tuple)):
+            raise ValueError("invalid calculation source history")
         return cls(tuple(parsed), unavailable, tuple(old_answers),
-                   MaterialContract.from_dict(base) if base is not None else None, turn)
+                   MaterialContract.from_dict(base) if base is not None else None, turn,
+                   tuple(PremiseSource.from_dict(source) for source in sources))
 
 
 def collect_conversation_materials(
@@ -137,4 +145,6 @@ def collect_material_turn_history(
     material = collect_conversation_materials(chain, unavailable=unavailable)
     answers = tuple(HistoricalAssistantStatement(m.message_id, m.content) for m in chain
                     if m.role == "assistant" and m.content.strip())
-    return ConversationMaterials(material.items, unavailable, answers, base, turn + 1)
+    sources = tuple(PremiseSource(m.message_id, m.content) for m in chain
+                    if m.role == "user" and m.content.strip()) if base and base.premise_calculation else ()
+    return ConversationMaterials(material.items, unavailable, answers, base, turn + 1, sources)
