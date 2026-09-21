@@ -204,7 +204,8 @@ def test_detailed_mainline_keeps_null_count_and_rule_lines_out_of_facts(tmp_path
 
 
 @pytest.mark.parametrize("theme_date", ["2026-07-22", "2026-07-26"])
-def test_market_overview_keeps_theme_date_distinct_from_market_date(tmp_path: Path, theme_date: str):
+@pytest.mark.parametrize("sector_count", [None, 0, 2])
+def test_market_overview_keeps_theme_date_distinct_from_market_date(tmp_path: Path, theme_date: str, sector_count):
     with _database(tmp_path) as con:
         con.execute("create table fact_market_daily(trade_date date, total_amount double)")
         con.execute("insert into fact_market_daily values ('2026-07-24', 10000)")
@@ -212,7 +213,7 @@ def test_market_overview_keeps_theme_date_distinct_from_market_date(tmp_path: Pa
             "create table fact_mainline_theme_daily("
             "trade_date date, theme_name varchar, sector_count integer, min_sort integer)"
         )
-        con.execute("insert into fact_mainline_theme_daily values (?, '电子', null, 1)", [theme_date])
+        con.execute("insert into fact_mainline_theme_daily values (?, '电子', ?, 1)", [theme_date, sector_count])
         con.execute("insert into fact_mainline_theme_daily values ('2026-07-28', '未来题材', 1, 1)")
     registry, context = _registry(tmp_path)
     result = registry.execute("market_data", {}, context=context, step_id="mixed-market:1")
@@ -224,10 +225,33 @@ def test_market_overview_keeps_theme_date_distinct_from_market_date(tmp_path: Pa
     assert amount.source_date == "2026-07-24"
     theme = next(item for item in result.evidence if "电子" in item.detail)
     assert theme.source_date == theme_date
-    assert "0 个核心板块" not in theme.detail
+    assert f"{'-' if sector_count is None else sector_count} 个核心板块" in theme.detail
     assert "未来题材" not in result.observation
     assert "不展示旧题材" not in result.observation
     assert not any(item.detail.startswith("使用要求：") for item in result.evidence)
+
+
+@pytest.mark.parametrize("theme_schema", ["missing", "date_only", "names_only"])
+def test_sparse_theme_schema_does_not_erase_market_overview(tmp_path: Path, theme_schema: str):
+    with _database(tmp_path) as con:
+        con.execute("create table fact_market_daily(trade_date date, total_amount double)")
+        con.execute("insert into fact_market_daily values ('2026-07-24', 10000)")
+        if theme_schema == "date_only":
+            con.execute("create table fact_mainline_theme_daily(trade_date date)")
+        elif theme_schema == "names_only":
+            con.execute("create table fact_mainline_theme_daily(trade_date date, theme_name varchar)")
+            con.execute("insert into fact_mainline_theme_daily values ('2026-07-22', '电子2026-08-01交付')")
+    registry, context = _registry(tmp_path)
+    result = registry.execute("market_data", {}, context=context, step_id="sparse-overview:1")
+    assert result.trace.status == "success"
+    amount = next(item for item in result.evidence if "全市场成交额" in item.detail)
+    assert amount.source_date == "2026-07-24"
+    if theme_schema == "names_only":
+        theme = next(item for item in result.evidence if "电子" in item.detail)
+        assert theme.source_date == "2026-07-22"
+        assert "- 个核心板块" in theme.detail
+        mainline = registry.execute("mainline_context", {}, context=context, step_id="sparse-mainline:1")
+        assert all(item.source_date == "2026-07-22" for item in mainline.evidence)
 
 
 def test_episode_date_instruction_separates_reference_from_cutoff(tmp_path: Path):

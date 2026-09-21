@@ -232,14 +232,16 @@ def test_structured_evidence_can_inherit_block_snapshot_date() -> None:
     ]
 
 
-def test_mixed_structured_evidence_uses_fallback_only_without_inline_date() -> None:
+def test_mixed_structured_evidence_distinguishes_source_date_from_event_date() -> None:
     evidence, _ = agent_research.block_lines_to_evidence(
         "market_data",
-        "成交额10000亿元\n2026-07-20：指数上涨0.85%\n2026-07-22 主线（2026-07-18启动）",
+        "成交额10000亿元\n回顾2026-07-20指数上涨0.85%\n"
+        "2026-07-22 主线（2026-07-18启动）；数据日期：2026-07-22\n"
+        "题材预计2026-08-01交付；数据日期：2026-07-23",
         "本地 DuckDB",
         fallback_source_date="2026-07-24",
     )
-    assert [item.source_date for item in evidence] == ["2026-07-24", "2026-07-20", "2026-07-22"]
+    assert [item.source_date for item in evidence] == ["2026-07-24", "2026-07-24", "2026-07-22", "2026-07-23"]
     assert all(item.content_hash == agent_research.evidence_content_hash(item) for item in evidence)
 
 

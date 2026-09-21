@@ -1892,8 +1892,9 @@ def block_lines_to_evidence(
     ``episode_tools`` 刻意挡在证据之外，砍掉即无处可寻）。
 
     只重排 observation，不动 ``evidence`` 顺序，也不增删任何一行。
-    source_date 是整块显式来源日；混合来源块改用 fallback_source_date，
-    只为无行内日期的事实提供后备日，不覆盖各行自己的日期。"""
+    source_date 是整块显式来源日；混合来源块由 renderer 写出「；数据日期：YYYY-MM-DD」，
+    fallback_source_date 仅供无此标记的事实后备，不从正文中的历史事件日期猜来源日。
+    未提供块日期的旧调用仍兼容行内日期推断。"""
     lines = [
         stripped
         for raw in str(block or "").splitlines()
@@ -1902,12 +1903,15 @@ def block_lines_to_evidence(
     ]
     evidence: list[AgentEvidence] = []
     snapshot_date = str(source_date or "").strip() or None
+    fallback_date = str(fallback_source_date or "").strip() or None
     for line in lines[:limit]:
         # 一行可能同时包含窗口起止日。旧实现只取第一个日期，导致
         # ``2026-07-14 ~ 2026-07-20`` 被投影成 as_of=07-14，进而让
         # freshness、报告页和外部证据对齐都用错基准日。
         date_matches = re.findall(r"20\d{2}[-/]\d{1,2}[-/]\d{1,2}", line)
         normalized_dates = tuple(value.replace("/", "-") for value in date_matches)
+        row_date_match = re.search(r"；数据日期：(20\d{2}-\d{2}-\d{2})。?$", line)
+        row_date = row_date_match.group(1) if row_date_match else None
         item = AgentEvidence(
             tool=tool,
             title=line[:48],
@@ -1918,10 +1922,9 @@ def block_lines_to_evidence(
             source=source,
             source_date=(
                 snapshot_date
-                if snapshot_date is not None
-                else max(normalized_dates)
-                if normalized_dates
-                else str(fallback_source_date or "").strip() or None
+                or row_date
+                or fallback_date
+                or (max(normalized_dates) if normalized_dates else None)
             ),
             evidence_tier=(
                 "L4_structured"

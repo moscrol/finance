@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -158,6 +159,24 @@ class RunCheckGateTest(unittest.TestCase):
             self.assertEqual(result["status"], "PASS")
             self.assertTrue(result["ready"])
             self.assertEqual(result["reconciliation"]["status"], "PASS")
+
+    def test_date_advisory_does_not_override_partial_snapshot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            root = base / "snapshot"
+            root.mkdir()
+            write_snapshot(root, "2026-08-12")
+            for path in root.glob("*.json"):
+                payload = json.loads(path.read_text())
+                payload["quality"] = "partial"
+                path.write_text(json.dumps(payload))
+            db = base / "market.duckdb"
+            write_market_db(db, "2026-08-11")
+
+            result = run_check(root, "2026-08-12", db_path=db)
+
+            self.assertEqual(result["reconciliation"]["status"], "WARN")
+            self.assertFalse(result["ready"])
 
     def test_skip_db_preserves_format_only_behavior(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -992,7 +992,7 @@ def test_historical_market_web_uses_task_window_instead_of_latest_data_date(
     assert "future_of_cutoff=1" in observation.trace.detail
 
 
-def test_market_registry_preserves_line_dates_and_provider_fallback(
+def test_market_registry_preserves_explicit_source_dates_and_provider_fallback(
     tmp_path,
     monkeypatch,
 ) -> None:
@@ -1008,7 +1008,8 @@ def test_market_registry_preserves_line_dates_and_provider_fallback(
         episode_tools,
         "_market_block",
         lambda *_args: (
-            "当前成交额21949亿元\n2026-07-20：指数上涨0.85%",
+            "当前成交额21949亿元\n回顾2026-07-20指数上涨0.85%\n"
+            "2026-07-20：指数上涨0.85%；数据日期：2026-07-20",
             "本地 DuckDB · 预测盘面窗口",
             "market_forecast_window",
         ),
@@ -1041,6 +1042,7 @@ def test_market_registry_preserves_line_dates_and_provider_fallback(
     )
 
     assert [item.source_date for item in observation.evidence] == [
+        "2026-07-23",
         "2026-07-23",
         "2026-07-20",
     ]

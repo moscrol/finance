@@ -258,7 +258,11 @@ def test_current_mainline_prefetches_market_daily_and_d4_once(
     monkeypatch.setattr(
         ask,
         "_daily_market_overview_block_for_llm",
-        lambda _path: "## 总览\n- 截至 2026-07-20，上证涨跌幅 -1.2%",
+        lambda _path: (
+            "## 总览\n- 上证涨跌幅 -1.2%；数据日期：2026-07-20\n"
+            "- 电子（2026-07-21启动）；数据日期：2026-07-22\n"
+            "- 使用要求：各来源分别标日，不因日期不同拒答"
+        ),
     )
     monkeypatch.setattr(
         ask,
@@ -303,6 +307,9 @@ def test_current_mainline_prefetches_market_daily_and_d4_once(
     assert mainline_sources
     assert {item.source_date for item in mainline_sources} == {mainline_date}
     assert all("使用要求：" not in item.detail for item in mainline_sources)
+    market_sources = [item for item in result.answer_spec.sources if "MARKET_DAILY" in item.source]
+    assert {item.source_date for item in market_sources} == {"2026-07-20", "2026-07-22"}
+    assert all(not item.detail.startswith(agent_research.QUALIFIER_LINE_PREFIXES) for item in market_sources)
     assert {item.provider for item in result.provider_traces} >= {
         "agent:market_data",
         "agent:mainline_context",

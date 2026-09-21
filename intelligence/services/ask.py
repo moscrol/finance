@@ -1961,12 +1961,12 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
                 for part in (
                     "## 当前市场总览结构化证据 [MARKET_DAILY]",
                     _daily_market_overview_block_for_llm(options.market_db_path),
-                    "- 使用边界：这是同一最新交易日的盘面事实，不等于题材主线判断。",
+                    "- 使用边界：各来源按实际数据日期使用，不冒充同日事实，不等于题材主线判断。",
                 )
                 if part
             )
             detail = "mainline_current_market_overview"
-            source = "本地 DuckDB · MARKET_DAILY 同日市场总览"
+            source = "本地 DuckDB · MARKET_DAILY 可用市场总览"
         elif contract.question_type == QUESTION_MARKET_FORECAST:
             overview = _daily_market_overview_block_for_llm(options.market_db_path)
             window = _market_cause_window_block_for_llm(options.market_db_path)
@@ -1993,6 +1993,10 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             limit=(18 if contract.question_type == QUESTION_MARKET_FORECAST else 12),
             detail_chars=700,
         )
+        evidence = [
+            item for item in evidence
+            if not item.detail.startswith(agent_research.QUALIFIER_LINE_PREFIXES)
+        ]
         if contract.question_type == QUESTION_MARKET_FORECAST:
             # 预取行情必须直接进入同一个 ResearchState 的情景关系图。
             # 旧实现只存“context”，导致状态层认为反弹/下跌/失效三项全未

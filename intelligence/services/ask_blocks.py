@@ -365,7 +365,7 @@ def _market_review_mainline_context_block_for_llm(
         lines.append(f"- 使用要求：市场总览数据截至 {market_date}，不覆盖以下主线事实的日期。")
     if themes:
         theme_text = "、".join(themes)
-        lines.append(f"- {theme_date} 题材级主线汇总：{theme_text}。")
+        lines.append(f"- {theme_date} 题材级主线汇总：{theme_text}。；数据日期：{theme_date}")
     if sectors:
         sector_block = _mainline_context_block_for_llm(
             query, theme, market_db_path, as_of=sector_date
@@ -380,11 +380,11 @@ def _market_review_mainline_context_block_for_llm(
                 elif line.startswith("使用要求："):
                     lines.append(f"- {line}")
                 else:
-                    lines.append(f"- {sector_date}；{line}")
+                    lines.append(f"- {sector_date}；{line}；数据日期：{sector_date}")
         else:
             # 旧 schema 缺数字字段时仍交付真实名单，不为此编造量价或周期。
             names = "；".join(f"{name}：{sector}" for name, sector in sectors)
-            lines.append(f"- {sector_date} 核心板块名单：{names}。")
+            lines.append(f"- {sector_date} 核心板块名单：{names}。；数据日期：{sector_date}")
     return "\n".join(lines)
 
 
@@ -1014,6 +1014,8 @@ def _daily_market_overview_block_for_llm(
                 f"领先行业为 {industry_text}。"
             )
 
+        # 每条事实携带确定性来源日；正文中的事件日不能覆盖它。
+        lines = [lines[0], *(f"{line}；数据日期：{trade_date}" for line in lines[1:])]
         mainline_columns: dict[str, set[str]] = {}
         for table, column in con.execute(
             "select table_name, column_name from information_schema.columns "
@@ -1044,7 +1046,7 @@ def _daily_market_overview_block_for_llm(
                     if name
                 )
                 if theme_text:
-                    lines.append(f"- 主线题材（截至 {theme_date}）：{theme_text}。")
+                    lines.append(f"- 主线题材（截至 {theme_date}）：{theme_text}。；数据日期：{theme_date}")
                     if str(theme_date) != trade_date:
                         lines.append(
                             "- 使用要求：总览与题材日期不同，按各自时点使用已有事实，"
@@ -1141,6 +1143,7 @@ def _market_cause_window_block_for_llm(
             f"- 上证指数：{first_close if first_close is not None else '—'} → {last_close if last_close is not None else '—'} 点；区间变化 {cumulative_pct:.2f}% 。" if cumulative_pct is not None else "- 上证指数区间变化：缺数据。",
             f"- 下跌交易日：{down_days}/{len(rows)}；成交额 {first_amount if first_amount is not None else '—'} → {last_amount if last_amount is not None else '—'} 亿元；区间变化 {amount_change:.2f}% 。" if amount_change is not None else "- 成交额区间变化：缺数据。",
         ]
+        lines = [lines[0], *(f"{line}；数据日期：{dates[-1]}" for line in lines[1:])]
         for row in rows:
             industries = "、".join(
                 f"{row[i] or '—'}({row[i + 1] if row[i + 1] is not None else '—'}%)"
@@ -1154,6 +1157,7 @@ def _market_cause_window_block_for_llm(
                 f"涨停/跌停 {row[5] if row[5] is not None else '—'}/{row[6] if row[6] is not None else '—'}；"
                 "行业成交额占全市场比例前三"
                 f"（括号为成交额占比，绝非行业涨跌幅）{industries or '—'}。"
+                f"；数据日期：{row[0]}"
             )
         lines.append("- 因果使用要求：只能把与上述时间窗口对齐的新闻、宏观、外盘或资金证据作为原因；没有对齐证据时保留为候选解释并报告缺口。")
         return "\n".join(lines)
