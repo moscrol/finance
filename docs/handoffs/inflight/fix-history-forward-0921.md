@@ -13,13 +13,13 @@
 WIP #833已推7edfe24e76afbd5c365fbf97dd2414847b086f88，源码/review树clean；基座ea5c3a946（#831），main基座f783f19c8。旧#800接替评论5359、不关闭。
 用户“执行”后原thread仅续一次，11:33:38Z又capacity结束exit1、无report、未触1200秒帽。独立终审仍BLOCKED_PROVIDER_CAPACITY；操作员已确认H-01，候选CHANGES_REQUIRED。
 H-01：inherit_history_followup扫描原始query，三种强保护引文触发历史任务继承；材料合同却None，原local_only丢失，Episode合同出现外部读能力及history_query登记。旧cutoff仍9月10日，未实际读DB/网络/工具。helper与旧来源e4675eab相同，不能归因新冲突引入。
-未修源码、无审核后台；交接集中docs/research-tail-closeout-0921，不移动受审HEAD。
+原#833源码未动。H-01已在新WIP #845/d91aff9d8局部修复并推送；530定向通过，五变异有效，但合法省略续问仍丢local_only（H-02两红例）。整体CHANGES_REQUIRED，无新独立终审。证据3a1c8289b新包45/45 Git blob已核；交接集中docs枝，不移动本受审HEAD。
 
 ## 未验证 / 已知边界
 新组合Spec/Quality未终审；原四题仍not_passed。不签新main5a5334712、三领域联合树或#829；不能关闭#793/#794。无合并/部署/生产操作。
 
 ## 下一步
-先读第三包domain-review-resume-01/operator/operator-qc.md；在新修复树统一来源分区，锁typed材料历史→controller→control→Episode→工具登记正负例。保合法续问窗口/截止/local_only，勿全面清空继承。新SHA另验，不重跑模型求绿。runtime/财务本轮因共享容量未启动。
+接手读`fix-history-forward-boundary-0921.md`与新包history-boundary-repair-01/README.md；下一片修H-02可信权限同步，保新任务/取消/纯材料正反例。530不是完整门禁，不移签旧全叶或重跑模型求绿。runtime/财务续审未启动。
 
 ## 踩过的坑
 材料编译器能挡引用不代表历史helper也挡；现有新增8接缝没覆盖第二路径。外置probe两次导入错非产品红；操作员runpy跑原字节不补独立签字。typed probe首mode误用，修lane再经control投影仍3真反例。
