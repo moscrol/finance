@@ -539,6 +539,71 @@ def _main_judgment(text: str) -> str:
     return ""
 
 
+# ——————————————————————————————————————————— 判官侧契约缝 + 优先级格的确定性改写
+PRIORITY_JUDGMENT_MARK = "（研判）"
+JUDGE_PRIORITY_GROUNDING = "model_reasoning"
+
+
+def judge_ranking_contract_block() -> dict[str, object]:
+    """送给语义判官的排序契约说明：「优先级」列是契约要求填的研判，不是事实断言。
+
+    为什么要这一块：契约（生产方）要模型填 1..N 的优先级，判官（检查方）收到的却是普通
+    编号句，于是按事实句审「凭什么排第 1」——实测一张 8 行公司矩阵 7 行被拒，判官逐条
+    写明「行情数字本身有 E4 支持，不是拒绝原因」。缝在生产方与检查方之间，就补在送判
+    载荷里；不动删句判据，不给优先级数字发证据。
+    """
+    return {
+        "matrix_headers": list(MATRIX_HEADERS),
+        "priority_column": "优先级",
+        "priority_grounding": JUDGE_PRIORITY_GROUNDING,
+        "note": (
+            "公司矩阵表的「优先级」列是排序契约要求模型填写的研究优先级研判（1..N），"
+            "属 model_reasoning，不是事实断言；只审同行其他格的数字、日期与证据绑定，"
+            "不得仅因优先级数字无证据或无排序规则而拒绝该行。"
+        ),
+    }
+
+
+def matrix_header_mapping(line: str) -> dict[str, int] | None:
+    """这一行若是公司矩阵表头，返回各固定表头所在列号；否则 ``None``。"""
+    text = str(line or "")
+    if not _TABLE_LINE_RE.match(text):
+        return None
+    cells = [cell.strip() for cell in text.strip().strip("|").split("|")]
+    found = _find_table([[cells]], MATRIX_HEADERS)
+    return found[1] if found is not None else None
+
+
+def mark_priority_as_judgment(row_line: str, mapping: dict[str, int]) -> str | None:
+    """把矩阵行的「优先级」格 ``N`` 改成 ``N（研判）``；已标、无整数、非表行则 ``None``。
+
+    刻意不清空：``missing_contract_elements`` 要求优先级列完整，清空会被判成缺矩阵、
+    触发契约重写、模型再填回去——循环。整数保留，``_INT_RE`` 解析与机械再排序不受
+    影响；读者与判官看到的是「这是研判」。这是 spec 2026-09-02 §3.3「置信度标注写进
+    正文」第一处真正落到正文的实现——此前标注只进 issues / 控制面。
+    """
+    text = str(row_line or "")
+    if not _TABLE_LINE_RE.match(text):
+        return None
+    index = mapping.get("优先级")
+    if index is None:
+        return None
+    stripped = text.strip()
+    leading = text[: len(text) - len(text.lstrip())]
+    trailing = text[len(text.rstrip()):]
+    cells = stripped.strip("|").split("|")
+    if index >= len(cells):
+        return None
+    cell = cells[index]
+    if PRIORITY_JUDGMENT_MARK in cell:
+        return None
+    match = _INT_RE.search(cell)
+    if match is None:
+        return None
+    cells[index] = cell[: match.end()] + PRIORITY_JUDGMENT_MARK + cell[match.end() :]
+    return leading + "|" + "|".join(cells) + "|" + trailing
+
+
 def parse_ranking_artifact(answer: str) -> RankingArtifact:
     """从答案解析矩阵、改判条件、竞争解释、下一步。解析不到就空，不猜。"""
     text = str(answer or "")

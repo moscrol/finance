@@ -4651,6 +4651,24 @@ def test_public_projection_hides_control_plane_fields_and_private_tokens() -> No
     assert "[REDACTED]" in str(result.private_artifact)
 
 
+def test_public_projection_preserves_markdown_boundaries_while_redacting() -> None:
+    from intelligence.tests.test_premise_financial_calculation import compile_case
+    from intelligence.runtime.conversation_orchestrator import sanitize_conversation_answer
+
+    table = compile_case().table
+    body = table + "\n\n**几点解读：**\n这些信息不足以判断便宜。"
+    result = _scripted_episode_result(
+        semantic_status="completed",
+        public_answer=body + "\n\nsystem_prompt=PRIVATE_PROMPT_SENTINEL",
+        evidence=(),
+        bindings=(),
+    )
+    assert result.answer == body
+    assert sanitize_conversation_answer(result.answer) == body
+    assert "| 20倍 |\n\n**几点解读：**" in result.answer
+    assert "PRIVATE_PROMPT_SENTINEL" not in result.answer
+
+
 def test_public_projection_removes_engineering_hash_keys_and_frame_hash() -> None:
     actual_frame_hash = _frame().task_frame_hash
     safe = AgentEvidence(

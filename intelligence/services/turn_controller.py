@@ -1120,7 +1120,8 @@ def decide_turn(
             parts.regions, source_turn=conversation_materials.source_turn,
             inherited_contract=conversation_materials.base_contract,
         ) if parts.regions else None
-        if material and (material.data_scope == "material_only" or material.needs_clarification):
+        if material and (material.data_scope == "material_only" or material.needs_clarification
+                         or material.premise_calculation):
             envelope = QueryEnvelope(
                 "general_finance_qa", "unknown", None,
                 "逐题依据用户材料回答，分开事实前提、推导与缺口", None, "explicit", 1.0,

@@ -128,6 +128,12 @@ _TOOL_LABELS: dict[str, str] = {
     "save_history_research": "研究假设草稿",
 }
 
+
+def public_tool_label(name: str) -> str | None:
+    """A public label for a known tool, never a provider-supplied fallback."""
+    return _TOOL_LABELS.get(name)
+
+
 # 三个 kind 的工具名落在不同键上：``tool_request`` 来自 ``call.to_dict()``
 # （``name``），``tool_result`` / ``tool_error`` 来自网关 payload（``tool``）。
 # 两个键都试，别赌某一个运行时的写法。
@@ -309,5 +315,6 @@ __all__ = [
     "RunEpisodeProgressPublisher",
     "project_episode_progress",
     "public_progress_messages",
+    "public_tool_label",
     "is_public_progress_message",
 ]

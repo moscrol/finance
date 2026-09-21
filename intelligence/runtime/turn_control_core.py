@@ -94,6 +94,7 @@ def project_turn_decision(
 
     material = task_frame.material_contract
     material_only = bool(material and material.data_scope == "material_only")
+    premise_calculation = bool(material and material.premise_calculation)
     needs_retrieval = not material_only and (
         decision.needs_retrieval or task_frame_requires_retrieval(task_frame)
     )
@@ -101,6 +102,9 @@ def project_turn_decision(
         material is not None and material.needs_clarification
     ):
         terminal_kind: TerminalKind = "clarification"
+    elif premise_calculation:
+        # A calculation needs the verified Episode delivery, but no fact retrieval.
+        terminal_kind = "research"
     elif material_only or needs_retrieval:
         # Evaluating frozen inputs needs the research delivery contract, not new reads.
         terminal_kind = "research"
@@ -133,7 +137,11 @@ def project_turn_decision(
         task_frame=task_frame,
         execution_route=execution_route,
         terminal_kind=terminal_kind,
-        needs_retrieval=terminal_kind == "research" and needs_retrieval,
+        # Frozen inputs and premise calculations both deliver through the research
+        # contract without new reads: neither may re-open retrieval here.
+        needs_retrieval=(
+            terminal_kind == "research" and needs_retrieval and not premise_calculation
+        ),
         capabilities=capabilities,
         contract_required=terminal_kind == "research",
         turn_intent=turn_intent if turn_intent is not None else decision.turn_intent,

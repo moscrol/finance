@@ -513,6 +513,55 @@ class DecisionBrief:
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
 
 
+# 判官理由码（2026-09-21）。判官原本只回 passed / 句号 / 自由文本 issues，下游只能把
+# 每条拒句当同一种东西处置。实测 39 条拒句的理由异质：事实超出证据、因果或角色越权、
+# 「凭什么排第 1」但同句数字判官亲口说有证据、暴露「调用工具」等内部过程表述——
+# 后两类整句删掉会连同判官背书的 L4 行情数字一起删。理由码把「拒绝」拆成可路由的
+# 枚举；缺码、未知码一律按改动前的处置走（fail-closed 落在路由，不落在整份报告）。
+JUDGE_REASON_FACT_BEYOND_EVIDENCE = "fact_beyond_evidence"
+JUDGE_REASON_CAUSAL_OR_ROLE_OVERREACH = "causal_or_role_overreach"
+JUDGE_REASON_UNSUPPORTED_RANKING = "unsupported_ranking"
+JUDGE_REASON_INTERNAL_PROCESS_LEAK = "internal_process_leak"
+JUDGE_REASON_CODES: frozenset[str] = frozenset(
+    {
+        JUDGE_REASON_FACT_BEYOND_EVIDENCE,
+        JUDGE_REASON_CAUSAL_OR_ROLE_OVERREACH,
+        JUDGE_REASON_UNSUPPORTED_RANKING,
+        JUDGE_REASON_INTERNAL_PROCESS_LEAK,
+    }
+)
+
+
+def parse_judge_reason_codes(
+    raw: object,
+    *,
+    allowed_indexes: Sequence[int],
+) -> tuple[tuple[int, str], ...]:
+    """``reason_codes`` 字段 → ``((句号, 理由码), …)``，只保留可路由的条目。
+
+    非列表、非对象条目、句号不在拒句集合、理由码不在枚举里：逐条丢弃，不作废报告。
+    同一句多条只认第一条。返回按句号升序，便于逐字节比较。
+    """
+
+    if not isinstance(raw, list):
+        return ()
+    allowed = {int(index) for index in allowed_indexes}
+    seen: dict[int, str] = {}
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        index = item.get("sentence_index")
+        code = item.get("code")
+        if isinstance(index, bool) or not isinstance(index, int):
+            continue
+        if index not in allowed or index in seen:
+            continue
+        if not isinstance(code, str) or code not in JUDGE_REASON_CODES:
+            continue
+        seen[index] = code
+    return tuple(sorted(seen.items()))
+
+
 @dataclass(frozen=True)
 class GroundingJudgeReport:
     passed: bool
@@ -521,9 +570,16 @@ class GroundingJudgeReport:
     material_claim_checks: tuple[dict[str, object], ...] = ()
     material_output_checks: tuple[dict[str, object], ...] = ()
     material_nonfactual_checks: tuple[dict[str, object], ...] = ()
+    # 每条拒句的理由码（可选）。只含 ``rejected_sentence_indexes`` 里的句号与
+    # ``JUDGE_REASON_CODES`` 里的码；旧判官不回该字段时为空，行为与改动前一致。
+    reason_codes: tuple[tuple[int, str], ...] = ()
+
+    @property
+    def reason_code_by_index(self) -> dict[int, str]:
+        return {int(index): str(code) for index, code in self.reason_codes}
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "passed": self.passed,
             "rejected_sentence_indexes": list(
                 self.rejected_sentence_indexes
@@ -533,6 +589,12 @@ class GroundingJudgeReport:
             **({"material_output_checks": [dict(row) for row in self.material_output_checks]} if self.material_output_checks else {}),
             **({"material_nonfactual_checks": [dict(row) for row in self.material_nonfactual_checks]} if self.material_nonfactual_checks else {}),
         }
+        if self.reason_codes:
+            payload["reason_codes"] = [
+                {"sentence_index": int(index), "code": str(code)}
+                for index, code in self.reason_codes
+            ]
+        return payload
 
 
 @dataclass(frozen=True)
@@ -3795,10 +3857,15 @@ def parse_grounding_judge_report(
         return None
     if passed == bool(rejected):
         return None
+    canonical_rejected = tuple(dict.fromkeys(rejected))
     return GroundingJudgeReport(
         passed=passed,
-        rejected_sentence_indexes=tuple(dict.fromkeys(rejected)),
+        rejected_sentence_indexes=canonical_rejected,
         issues=issues,
+        reason_codes=parse_judge_reason_codes(
+            payload.get("reason_codes"),
+            allowed_indexes=canonical_rejected,
+        ),
     )
 
 

@@ -516,6 +516,10 @@ def test_judge_receives_output_grounding_modes() -> None:
     system_prompt = model.calls[0]["messages"][0]["content"]
     assert "用户明确给出的前提视为真的假设" in system_prompt
     assert "不能仅因缺少证据而拒绝" in system_prompt
+    assert "数字与文字解释的一致性" in system_prompt
+    assert "与题设或可复算结果矛盾" in system_prompt
+    assert "最近已完成年度净利润" in system_prompt
+    assert "擅自回退旧年作为静态基数也须拒绝" in system_prompt
 
 
 def test_mixed_answer_grounding_keeps_evidence_judge_prompt() -> None:
@@ -4532,6 +4536,27 @@ def test_public_sanitizer_keeps_raw_material_and_valuation_model_facts() -> None
     assert result.status == "completed"
     assert "Raw material prices rose 8%" in result.public_answer
     assert "估值 model=DCF，折现率9%" in result.public_answer
+
+
+def test_source_tool_label_does_not_delete_market_numbers_or_date() -> None:
+    from intelligence.services.episode_semantic_verifier import _sanitize_public_answer
+    from intelligence.services.episode_progress import public_tool_label
+
+    evidence = AgentEvidence(
+        tool="finance_query", title="市场广度", detail="上涨与下跌家数",
+        source="本地", source_date="2026-09-18", content_hash="PRIVATE_HASH_SENTINEL",
+    )
+    text = "2026-09-18 A股（来源：本地结构化数据 finance_query）：上涨4234家，下跌1151家，平盘168家。"
+    rendered = _sanitize_public_answer(text, (evidence,), ())
+    assert all(value in rendered for value in ("2026-09-18", "4234", "1151", "168"))
+    assert public_tool_label("finance_query") in rendered
+    assert "finance_query" not in rendered
+    assert _sanitize_public_answer(text + " content_hash=PRIVATE_HASH_SENTINEL", (evidence,), ()) == rendered
+    assert _sanitize_public_answer("finance_query", (evidence,), ()) == ""
+    assert _sanitize_public_answer("system_prompt=finance_query", (evidence,), ()) == ""
+    assert _sanitize_public_answer("PRIVATE_HASH_SENTINEL finance_query", (evidence,), ()) == ""
+    setting = "{}={}".format("api_key", "finance_query")
+    assert _sanitize_public_answer(setting, (evidence,), ()) == ""
 
 
 def test_semantic_public_answer_does_not_duplicate_citation_ledger() -> None:
