@@ -27,6 +27,7 @@ from intelligence.services import (
     finance_query,
     kb_rag,
     l3_evidence,
+    local_market_snapshot,
     market_financials,
     market_news,
     market_technical,
@@ -283,6 +284,7 @@ class SealedFixturePolicy:
     external_financials_enabled: bool = False
     require_fresh_kb: bool = True
     market_db_path: Path | None = None
+    market_snapshot_dir: Path | None = None
     knowledge_index_dir: Path | None = None
     knowledge_code_root: Path | None = None
     knowledge_python: Path | None = None
@@ -1057,6 +1059,22 @@ def build_episode_registry(
         **agent_research.build_graph_tools(knowledge),
     }
 
+    def local_snapshot_runner(_query: str, tool_context: agent_research.AgentToolContext):
+        tool_context.check_cancelled()
+        if tool_context.deadline.expired:
+            raise TimeoutError("local-market-snapshot deadline expired")
+        if fixture_policy is not None:
+            root = fixture_policy.market_snapshot_dir or (finance / "market_snapshot" if finance_root else None)
+        else:
+            paths = default_paths()
+            root = paths.market_snapshot_dir if finance == paths.finance_root else finance / "market_snapshot"
+        cutoff = context.information_cutoff.as_of_date
+        if tool_context.information_cutoff is not None:
+            cutoff = min(cutoff, tool_context.information_cutoff.as_of_date)
+        result = local_market_snapshot.read_snapshot_evidence(root, as_of=cutoff)
+        tool_context.check_cancelled()
+        return result
+
     def market_data_runner(
         _query: str,
         tool_context: agent_research.AgentToolContext,
@@ -1384,6 +1402,8 @@ def build_episode_registry(
             ),
         )
 
+    if "local_market_snapshot" in context.contract.allowed_capabilities:
+        tools["local_market_snapshot"] = local_snapshot_runner
     if "market_data" in context.contract.allowed_capabilities:
         tools["market_data"] = market_data_runner
     if "financial_data" in context.contract.allowed_capabilities:
@@ -1411,11 +1431,10 @@ def build_episode_registry(
         # 的调用方（与可达性审计）留同一个座位，没传就不挂。
         tools["derived_calculation"] = derived_calculation_runner
     base_registry = default_registry(tools)
-    # 这两条 runner 就在本装配函数内选定：mainline_runner 只读 DuckDB；
-    # build_graph_tools._evidence_lookup 只读 KnowledgeAdapter JSON。不是从标签猜。
+    # 审定实际 runner：主线只读 DuckDB，证据索引/日快照只读本地 JSON，无外部回退。
     specs = [
-        replace(spec, io_effect="local_read")
-        if spec.name in {"mainline_context", "evidence_lookup"} else spec
+        replace(spec, io_effect="local_read", cost="local" if spec.name == "local_market_snapshot" else spec.cost)
+        if spec.name in {"mainline_context", "evidence_lookup", "local_market_snapshot"} else spec
         for spec in base_registry.authorized_specs()
     ]
     if frame.history_intent is not None and not local_only:

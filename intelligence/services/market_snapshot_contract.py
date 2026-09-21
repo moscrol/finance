@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date as Date
 from pathlib import Path
 from typing import Any
 
@@ -78,6 +79,38 @@ def validate_market_snapshot_root(root: str | Path, date: str | None = None) -> 
     }
     status = "FAIL" if errors else "WARN" if warnings else "PASS"
     return _result(status, base, target_date, files, errors, warnings, summary, meta)
+
+
+def load_market_snapshot_as_of(root: str | Path, as_of: Date) -> dict[str, Any]:
+    """Read dated files only; latest/meta must never lend today's metadata to history."""
+    base = Path(root).expanduser()
+    warnings: list[str] = []
+    candidates: list[tuple[Date, Path]] = []
+    for path in base.glob("????-??-??.json"):
+        try:
+            day = Date.fromisoformat(path.stem)
+        except ValueError:
+            continue
+        if day <= as_of:
+            candidates.append((day, path))
+    for day, path in sorted(candidates, reverse=True):
+        doc = _read_json(path)
+        if doc is None:
+            warnings.append(f"{path.name}: unreadable snapshot")
+            continue
+        errors: list[str] = []
+        notes: list[str] = []
+        _validate_daily_doc(doc, day.isoformat(), errors, notes)
+        _validate_quality(doc, {}, errors, notes)
+        # A dated file is not proof of its contents' date. Reject contradictory identities.
+        for field in ("served_trade_date", "source_data_date"):
+            if field in doc and doc[field] != day.isoformat():
+                errors.append(f"{field} differs from trade_date")
+        if errors:
+            warnings.append(f"{path.name}: " + "; ".join(errors))
+            continue
+        return {"found": True, "doc": doc, "path": str(path), "warnings": [*warnings, *notes]}
+    return {"found": False, "doc": None, "path": None, "warnings": warnings}
 
 
 def _validate_daily_doc(doc: dict[str, Any], target_date: str, errors: list[str], warnings: list[str]) -> None:

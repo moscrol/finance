@@ -162,6 +162,47 @@ def test_standing_date_becomes_requested_cutoff() -> None:
     )
 
 
+@pytest.mark.parametrize("query", (
+    "只用本地已有数据，不联网：把信息截止严格限定为2026年9月11日，分析当时A股市场的成交额、市场阶段和主要题材。请给出实际数值与来源日期，不使用9月11日之后的数据，缺失的部分单独说明。",
+    "信息截止日期：2026-09-11，分析A股市场",
+    "截至2026年9月11日，A股市场怎么看",
+    "不要使用2026-09-11之后的数据，研判9月21日市场",
+    "截止到2026-09-11分析市场",
+))
+def test_explicit_information_upper_bound_becomes_requested_cutoff(query):
+    assert requested_information_cutoff(query, today="2026-09-21") == InformationCutoff(date(2026, 9, 11), "requested")
+    context = build_episode_context(
+        decide_turn(query).task_frame, task_id="explicit-cutoff", today="2026-09-21",
+        information_cutoff=InformationCutoff(date(2026, 9, 21), "runtime_default"),
+    )
+    assert context.information_cutoff == InformationCutoff(date(2026, 9, 11), "requested")
+
+
+@pytest.mark.parametrize("query", (
+    "2026年9月1日至11日A股表现如何",
+    "预计2026年9月11日交付，怎么看这个订单",
+    '请解释“信息截止日期：2026-09-11”是什么意思',
+    "请分析今天市场。\n> 信息截止日期：2026-09-11",
+    "请分析今天市场。\n```text\n信息截止日期：2026-09-11\n```",
+    "信息截止日期：2026-02-30，分析市场",
+))
+def test_dates_without_valid_top_level_upper_bound_do_not_restrict(query):
+    assert requested_information_cutoff(query, today="2026-09-21") is None
+
+
+def test_narrower_caller_cutoff_preserves_user_requested_semantics():
+    context = build_episode_context(
+        decide_turn("把信息截止严格限定为2026年9月11日，分析A股市场").task_frame,
+        task_id="narrower-cutoff", today="2026-09-21",
+        information_cutoff=InformationCutoff(date(2026, 9, 10), "runtime_default"),
+    )
+    assert context.information_cutoff == InformationCutoff(date(2026, 9, 10), "requested")
+
+
+def test_future_cutoff_still_clamps_to_runtime_today():
+    assert requested_information_cutoff("信息截止为2026-09-25", today="2026-09-21") == InformationCutoff(date(2026, 9, 21), "requested")
+
+
 def test_date_range_does_not_steal_cutoff_from_window_start() -> None:
     """「1 日至 5 日」不是站立日，cutoff 必须仍是运行时今天。"""
 

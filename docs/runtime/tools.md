@@ -5,7 +5,7 @@
 
 来源：`research_tool_registry.default_registry`（用哑 runner 装配）+ `_TOOL_CONTRACTS`。`query_scope=episode` 的工具参数表为空，截止日在 context 上而不在参数里。说明书只写实测过的失败模式，空即合法。
 
-18 个工具
+19 个工具
 
 | 工具 | 能力 | 成本 | 新鲜度 | 查询范围 | 最小窗(s) | 参数键 | produces | 描述 |
 |---|---|---|---|---|---|---|---|---|
@@ -18,6 +18,7 @@
 | `history_query` | finance_query | external | historical | query | — | `query` | — | 可复算历史行情与完整样本比较 |
 | `kb_search` | kb_search | local | stable | query | 20.0 | `query` | direct_answer, direct_definition, direct_explanation, supporting_evidence | 本地知识库检索 |
 | `l3_lookup` | l3_lookup | external | current | query | — | `query` | fact_value, supporting_evidence | 官方公告与互动证据 |
+| `local_market_snapshot` | local_market_snapshot | external | current | episode | — | — | current_baseline, data_date, market_summary, prime_quote, supporting_evidence | 只读本地行情日快照：截止日内最新成交额、涨跌家数、阶段标签和题材/行业候选（独立于 DuckDB） |
 | `mainline_context` | mainline_context | external | current | episode | — | — | mainline_structure, supporting_evidence | 各表最新可用主线与板块结构（分别标明日期） |
 | `market_data` | market_data | external | current | episode | — | — | current_baseline, data_date, market_summary, prime_quote, supporting_evidence | 结构化行情与市场时序 |
 | `memory_lookup` | memory_lookup | local | stable | query | — | `query` | prime_memory | 用户自己过去的判断与纠偏原则（历史先验，不是市场事实） |
@@ -65,6 +66,10 @@
 ### `l3_lookup`
 
 查询成功不等于查到了证据：实测存在「company 查询成功但没有解析到可用证据」的情况。返回为空时只能说明本次没检索到，不能据此断言该公司没有相关公告，应写成明确的证据缺口而不是否定结论。
+
+### `local_market_snapshot`
+
+仅只读本地已保存的行情日文件，不联网、不刷新、不写库，不调用综合 market_data。无参数；以本回合 information_cutoff 为上界，返回最新有效日文件，不能由工具参数放宽日期。来源日期取日文件的 trade_date，独立核对 served_trade_date/source_data_date；不拿最新 meta 或运行日补齐。证据属于 L4 结构化行情；NULL 是缺失不是零。AkShare 阶段标签按涨跌家数差生成，行业涨停分布是涨停池子集，不等同于复盘主线全集。质量/缺项如实披露，旧日期本身不拒证据。空结果只说明本次未取得上界内有效快照，不能说整个本地没有该日行情；finance_query 仅覆盖其 DuckDB 数据集，二者日期不同分别分析，比较前核期间、单位和口径。
 
 ### `mainline_context`
 

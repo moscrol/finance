@@ -120,6 +120,7 @@ _TOOL_LABELS: dict[str, str] = {
     "memory_lookup": "历史对话记录",
     "l3_lookup": "订单与量产证据",
     "market_data": "盘面快照",
+    "local_market_snapshot": "本地行情日快照",
     "financial_data": "财务数据",
     "mainline_context": "主线结构",
     # 历史发现研究三件（2026-09-09）：没有标签的工具进度会静默退回通用句。

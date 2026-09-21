@@ -432,6 +432,8 @@ def build_episode_input(
             "不可变日期上限；latest_data_date 是日期参照，不是所有数据集必须同日的门槛。"
             "不同来源按各自证据日期使用已有真实数据，不因日期差异降级或拒答，"
             "不把旧值冒充今日值；真正缺失的事实或计算输入只限制对应部分。"
+            "本地日快照与结构化复盘库是独立来源；单个工具未取得某日数据，"
+            "只能说明本次查询范围的缺口，不能扩大为整个本地没有该日行情。"
         ),
         "task_frame_hash": task_frame.task_frame_hash,
         "available_tools": registry.prompt_block(

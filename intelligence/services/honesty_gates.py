@@ -16,6 +16,7 @@ from datetime import date
 from intelligence.services.research_contract import InformationCutoff
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.asof_prefetch import standing_iso_from_query
+from intelligence.services.user_task import _visible_lines, split_user_message
 
 # 主库已退役、既非表也非视图的旧名 → canonical fact_*。问句命中旧名时，
 # 交付层必须明说「表不存在」并给出替代，不能让模型改口成「把表贴过来」。
@@ -30,6 +31,19 @@ _RETIRED_TABLES: tuple[tuple[str, str], ...] = (
 _STANDING_CUTOFF_RE = re.compile(
     r"(?:站在\s*)?(?P<iso>\d{4}-\d{2}-\d{2})\s*(?:收盘|盘后|收市)"
     r"|(?:站在\s*)?(?P<cn>\d{4}年\d{1,2}月\d{1,2}日)\s*(?:收盘|盘后|收市)"
+)
+
+
+_CUTOFF_DATE = r"(?:\d{4}-\d{2}-\d{2}|(?:\d{4}年)?\d{1,2}月\d{1,2}日)"
+_EXPLICIT_CUTOFF_RE = re.compile(
+    rf"(?:(?:信息|数据)(?:的)?(?:截止(?:日期|时间|时点|日)?|上界|上限)"
+    rf"\s*(?:严格)?\s*(?:限定|限制|固定|锁定|设定|设置)?\s*(?:为|在|到|至|是|[:：])?"
+    rf"|截至|截止到|截止至)\s*(?P<day>{_CUTOFF_DATE})"
+    r"(?!\s*(?:至|到|~|～|—|–|日?[-－]))"
+)
+_EXCLUDED_FUTURE_RE = re.compile(
+    rf"(?:不使用|不得使用|不要使用|不采用|不引用|不读取)\s*(?P<day>{_CUTOFF_DATE})"
+    r"\s*(?:之后|以后|后)的?(?:数据|信息|材料|行情)"
 )
 
 
@@ -133,31 +147,45 @@ def requested_information_cutoff(
     不走这条——窗口上界由因果工具自己解析，避免把起点当成截止日。
     """
 
-    match = _STANDING_CUTOFF_RE.search(str(query or ""))
-    raw = None
-    if match is not None:
-        raw = match.group("iso") or match.group("cn")
-    else:
-        raw = standing_iso_from_query(str(query or ""))
-    if raw is None:
-        return None
-    try:
-        if "年" in raw:
-            requested_date = date(
-                int(raw.split("年", 1)[0]),
-                int(raw.split("年", 1)[1].split("月", 1)[0]),
-                int(raw.split("月", 1)[1].rstrip("日")),
-            )
-        else:
-            requested_date = date.fromisoformat(raw)
-    except ValueError:
-        return None
+    # 引用/代码块及已识别的粘贴材料不能声明本轮上界。
+    text = str(query or "")
+    parts = split_user_message(text)
+    for material in parts.material_texts:
+        text = text.replace(material, "")
+    visible, _ = _visible_lines(text.splitlines())
+    text = "\n".join(visible)
     try:
         runtime_date = date.fromisoformat(str(today or "")[:10])
     except ValueError:
         runtime_date = None
-    if runtime_date is not None and requested_date > runtime_date:
-        requested_date = runtime_date
+    raws = [
+        match.group("day")
+        for pattern in (_EXPLICIT_CUTOFF_RE, _EXCLUDED_FUTURE_RE)
+        for match in pattern.finditer(text)
+    ]
+    if not raws:
+        match = _STANDING_CUTOFF_RE.search(text)
+        raw = (match.group("iso") or match.group("cn")) if match else standing_iso_from_query(text)
+        raws = [raw] if raw else []
+    dates = []
+    for raw in raws:
+        try:
+            if "月" in raw:
+                match = re.fullmatch(r"(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日", raw)
+                if match is None:
+                    continue
+                year = int(match[1]) if match[1] else (runtime_date or date.today()).year
+                parsed = date(year, int(match[2]), int(match[3]))
+            else:
+                parsed = date.fromisoformat(raw)
+        except ValueError:
+            continue
+        dates.append(parsed)
+    if not dates:
+        return None
+    requested_date = min(dates)
+    if runtime_date is not None:
+        requested_date = min(requested_date, runtime_date)
     return InformationCutoff(requested_date, "requested")
 
 

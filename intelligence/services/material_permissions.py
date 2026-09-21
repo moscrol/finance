@@ -9,11 +9,13 @@ from __future__ import annotations
 # Producers: episode_tools.finance_query_runner -> FinanceQuery (read-only DuckDB);
 # mainline_runner -> ask_blocks._market_review_mainline_context_block_for_llm;
 # agent_research.build_graph_tools._evidence_lookup -> KnowledgeAdapter local JSON;
+# local_market_snapshot.read_snapshot_evidence -> dated JSON files (no sync/fallback);
 # episode_tools.memory_lookup_runner -> user_memory local user ledgers.
 # Not yet certified: kb_search subprocess/model loading, graph_lookup research_map,
 # evidence_search semantic judge, market_data/financial_data external fallbacks.
 LOCAL_READ_CAPABILITIES = frozenset({
     "finance_query", "mainline_context", "evidence_lookup", "memory_lookup",
+    "local_market_snapshot",
 })
 
 

@@ -478,7 +478,7 @@ def _required_output_evidence_types(
         )
     if output_id == "prime_quote":
         return tuple(
-            capability for capability in ("market_data", "finance_query")
+            capability for capability in ("market_data", "finance_query", "local_market_snapshot")
             if capability in capabilities
         )
     if output_id == "prime_news":
@@ -686,6 +686,12 @@ def build_episode_context(
             raise ValueError(f"unknown runtime capability: {capability}")
         if capability not in authorized:
             authorized.append(capability)
+    if (
+        material is not None and material.data_scope == "local_only"
+        and {"market_data", "mainline_context"}.intersection(authorized)
+        and "local_market_snapshot" not in authorized
+    ):
+        authorized.append("local_market_snapshot")
     # 限制最后施加，题型的 mandatory 下限不能把已禁止的读能力加回来。
     # local_only 白名单来自实际 runner 审计，不借 cost/freshness 猜权限。
     # 待澄清合同（轴仍是 None）按 material_only 收窄，不能当 full 用。
@@ -843,14 +849,13 @@ def build_episode_context(
         # 自动 KB 预检不走工具授权，且 knowledge 可由调用方替换；受限轮不运行。
         # 本地证据仍由已审定 runner 获取，不把未分类读取当作预置缺口依据。
         contract = apply_static_chain_mapping_precheck(contract, knowledge=knowledge)
-    cutoff = (
-        information_cutoff
-        or requested_information_cutoff(frame.raw_question, today=today)
-        or _default_information_cutoff(
-            today=today,
-            latest_data_date=latest_data_date,
-        )
+    requested_cutoff = requested_information_cutoff(frame.raw_question, today=today)
+    cutoff = information_cutoff or requested_cutoff or _default_information_cutoff(
+        today=today,
+        latest_data_date=latest_data_date,
     )
+    if requested_cutoff is not None:
+        cutoff = InformationCutoff(min(cutoff.as_of_date, requested_cutoff.as_of_date), "requested")
     if frame.history_intent is not None and frame.history_intent.strict_window and frame.history_intent.requested_end:
         cutoff = InformationCutoff(
             min(cutoff.as_of_date, date.fromisoformat(frame.history_intent.requested_end)),

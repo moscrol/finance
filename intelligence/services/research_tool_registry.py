@@ -168,6 +168,12 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
             }
         ),
     ),
+    "local_market_snapshot": (
+        "local_market_snapshot",
+        "只读本地行情日快照：截止日内最新成交额、涨跌家数、阶段标签和题材/行业候选（独立于 DuckDB）",
+        "current",
+        frozenset({"current_baseline", "market_summary", "supporting_evidence", "data_date", "prime_quote"}),
+    ),
     "financial_data": (
         "financial_data",
         "结构化逐季财务指标（每行带机器可读观察值；可一次取多家公司；实际财报不等于一致预期，缺值不是零）",
@@ -1316,8 +1322,17 @@ class ResearchToolRegistry:
                 rejected.extend(evidence)
                 evidence = []
             remaining_after_cutoff_filter = list(evidence)
-            if rejected:
+            strict_future_observation = (
+                context.information_cutoff.source == "requested"
+                and trace_trade_date is not None
+                and trace_trade_date > effective_context.information_cutoff.as_of_date
+            )
+            if rejected or strict_future_observation:
                 cutoff_iso = effective_context.information_cutoff.as_of_date.isoformat()
+                if context.information_cutoff.source == "requested":
+                    # Gaps also reach the model; provider prose cannot bypass dated evidence filtering.
+                    gaps = ("本次部分结果晚于用户信息截止日，已隔离超窗内容及未分条的原始诊断",)
+                    trace = replace(trace, detail="requested_cutoff_content_quarantined")
                 if remaining_after_cutoff_filter:
                     observation = (
                         "；".join(
@@ -1326,8 +1341,15 @@ class ResearchToolRegistry:
                         )
                         or observation
                     )
+                elif context.information_cutoff.source == "requested":
+                    # 明确历史上界不能靠模型自律；只留越界诊断，不回灌事实内容。
+                    observation = (
+                        f"源返回的结果晚于用户信息截止日 {cutoff_iso}，"
+                        "已隔离且未交付内容；本次没有上界内证据，不代表源中没有记录。"
+                    )
+                    gaps = (*gaps, "本次结果全部晚于用户信息截止日，未取得上界内证据")
                 else:
-                    # T2-a：全滤时空手会让模型以为「源里没有」。把越界条目标注后交还。
+                    # T2-a：非用户严格上界的全滤结果保留既有标注交付。
                     evidence = [
                         replace(
                             item,
@@ -1370,7 +1392,7 @@ class ResearchToolRegistry:
                 trace,
                 status=(
                     "future_of_cutoff"
-                    if rejected and not remaining_after_cutoff_filter
+                    if (rejected or strict_future_observation) and not remaining_after_cutoff_filter
                     else trace.status
                 ),
                 detail=(
@@ -1437,6 +1459,7 @@ class ResearchToolRegistry:
             variant=(
                 f"{spec.freshness};cutoff="
                 f"{effective_context.information_cutoff.as_of_date.isoformat()}"
+                f";strict_cutoff={context.information_cutoff.source == 'requested'}"
             ),
         )
         if scope is None:
@@ -1645,6 +1668,15 @@ _TOOL_CONTRACTS: dict[str, str] = {
     # fact_mainline_stock_daily / theme_daily 只有 35 个交易日、起点晚于
     # sector 表（88 天），早期日期查不到题材级主线。
     # 无可用主线行才返回空；主线日期不同则仍交付，每条事实保留其数据日期。
+    "local_market_snapshot": (
+        "仅只读本地已保存的行情日文件，不联网、不刷新、不写库，不调用综合 market_data。"
+        "无参数；以本回合 information_cutoff 为上界，返回最新有效日文件，不能由工具参数放宽日期。"
+        "来源日期取日文件的 trade_date，独立核对 served_trade_date/source_data_date；不拿最新 meta 或运行日补齐。"
+        "证据属于 L4 结构化行情；NULL 是缺失不是零。AkShare 阶段标签按涨跌家数差生成，"
+        "行业涨停分布是涨停池子集，不等同于复盘主线全集。质量/缺项如实披露，旧日期本身不拒证据。"
+        "空结果只说明本次未取得上界内有效快照，不能说整个本地没有该日行情；"
+        "finance_query 仅覆盖其 DuckDB 数据集，二者日期不同分别分析，比较前核期间、单位和口径。"
+    ),
     "mainline_context": (
         "主线结构来自本地库各表在截止日内的最新可用切片，覆盖并不是每个交易日都齐全，"
         "题材与个股两张的起始日明显晚于板块表，较早的日期查不到。"
@@ -1786,7 +1818,7 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
             min_window_seconds=MIN_WINDOW_SECONDS.get(name),
             query_scope=(
                 "episode"
-                if name in {"market_data", "financial_data", "mainline_context"}
+                if name in {"market_data", "financial_data", "mainline_context", "local_market_snapshot"}
                 else "query"
             ),
             parameters=(
@@ -1799,7 +1831,7 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
                 else DERIVED_CALCULATION_PARAMETERS
                 if name == "derived_calculation"
                 else EMPTY_TOOL_PARAMETERS
-                if name in {"market_data", "mainline_context"}
+                if name in {"market_data", "mainline_context", "local_market_snapshot"}
                 else query_parameters(name)
             ),
             parse_arguments=(
@@ -1812,7 +1844,7 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
                 else parse_derived_calculation_arguments
                 if name == "derived_calculation"
                 else parse_snapshot_arguments
-                if name in {"market_data", "mainline_context"}
+                if name in {"market_data", "mainline_context", "local_market_snapshot"}
                 else parse_query_arguments
             ),
             produces=produces,
