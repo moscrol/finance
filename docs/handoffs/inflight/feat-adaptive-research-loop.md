@@ -40,7 +40,7 @@
 - `20260920T220029Z-7172ba30.json` → `7172ba30e`，`12096P/85S/2X/17W`。只对合并前、修法前的代码成立。
 - `20260921T055918Z-9e08b6b3.json` → `9e08b6b39`（三处修法 + 钉子测试，合并前），`12102P/87S/2X/18W`，`dirty=False`、`worktree_dirty_total=0`、exit 0。
 - `20260921T064012Z-8293ec69.json` → `8293ec69e`（第一次前向合入 `c615adbd2` 后），`12480P/87S/2X/17W`，exit 0，`dirty=False`、`dirty_paths=[]`、依赖指纹未绕过。跑时工作树有 1 个未提交文件，是本交接（纯 docs，`worktree_dirty_total=1` 而 `dirty_paths` 为空 = 代码面干净）。日志 `~/.finance-runtime/adaptive-merged-full-pytest-8293ec69e.log`。
-- **`5bb3817ea`（当前 HEAD，第二次前向合入 `adcda94b5`）的全量在跑**，日志 `~/.finance-runtime/adaptive-merged2-full-pytest-5bb3817ea.log`。**接手先读它的 `exit=` 行与收据**；在它出结论前，当前 HEAD 没有代表自己的全量收据，上面两份都只代表各自更早的 revision。
+- `20260921T073452Z-d5d212a1.json` → **`d5d212a1d`（当前 HEAD，第二次前向合入 `adcda94b5` 之后）**，`12629P/87S/2X/17W`，exit 0，`dirty=False`、`worktree_dirty_total=0`、`dirty_paths=[]`、依赖指纹未绕过。日志 `~/.finance-runtime/adaptive-merged2-full-pytest-5bb3817ea.log`（跑起来时 HEAD 是 `5bb3817ea`，收尾时已到 `d5d212a1d`；`git diff --name-only 5bb3817ea..d5d212a1d` 只出本交接一份 docs，故收据代表同一份代码）。**这份代表当前 HEAD**；再有业务提交即失效，接手请自己重跑这条 diff 验证。
 定向历史4P、发布矩阵21P、跨后端24P、Ruff通过。合并后两侧冲突接缝套件 1199P/4S。最终撤线：去发布上限16F/恢复24P；误把已解决语义修订当未解决3F/恢复22P。
 
 ## 候选：悬空连接词剥离（已撤回）
