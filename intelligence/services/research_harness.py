@@ -85,7 +85,7 @@ PLAN 是本领域的研究协议（先出计划再动手），两家都没有；
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Set
+from collections.abc import Callable, Iterable, Mapping, Set
 from dataclasses import dataclass, replace
 import json
 from typing import Literal, Protocol, runtime_checkable
@@ -108,6 +108,7 @@ from intelligence.services.empty_pool_fallback import (
 from intelligence.services.episode_protocol import (
     RejectionResponse,
     attach_evidence_ordinals,
+    cited_evidence_ordinals,
     evidence_ordinal_table,
     expand_episode_snapshot_bindings,
     finish_rejection_fields,
@@ -539,11 +540,16 @@ class ResearchHarness(Protocol):
         """Final domain requirements after repairs and semantic verification."""
         ...
 
+    def finalization_materials(self, *, context: ResearchRunContext) -> dict[str, object]:
+        """Owned non-evidence inputs that can support bounded finish recovery."""
+        ...
+
     def recovery_evidence_priority(
         self,
         *,
         context: ResearchRunContext,
         evidence: tuple[AgentEvidence, ...],
+        candidate_content: str = "",
     ) -> tuple[str, ...]:
         """Existing evidence hashes to retain first in a bounded recovery view."""
         ...
@@ -571,11 +577,21 @@ class ResearchHarness(Protocol):
         """
         ...
 
-    def repair_goal_message(self, goal: RepairGoal, *, tools_open: bool) -> str:
+    def repair_goal_message(
+        self,
+        goal: RepairGoal,
+        *,
+        tools_open: bool,
+        finish_format: Mapping[str, object] | None = None,
+    ) -> str:
         """修复轮开场给模型的那段话（``REPAIR_GOAL`` 正文，user 角色）。
 
         ``goal`` 是裁决后的模型侧目标（不可达格已降级）；``tools_open`` 是底座
         告诉领域「这一轮能不能派工具」——两套指令按它分叉。
+
+        ``finish_format`` 是开场发过的那份冻结成稿形状（material_only 才有）；传进来就
+        原样重述一遍。修复轮是最后一次机会，它必须在手上，而不是靠作者回忆上文。
+        不传时消息逐字节不变。
         """
         ...
 
@@ -965,19 +981,33 @@ class FinanceResearchHarness:
             )
         return PublicationAssessment()
 
+    def finalization_materials(self, *, context: ResearchRunContext) -> dict[str, object]:
+        calculation = context.contract.premise_calculation
+        if (
+            calculation is None or calculation.issues or not calculation.rows
+            or any(item.grounding_mode != "user_premise" for item in context.contract.required_outputs if item.required)
+        ):
+            return {}
+        return {"calculation_delivery": calculation.model_payload()}
+
     def recovery_evidence_priority(
         self,
         *,
         context: ResearchRunContext,
         evidence: tuple[AgentEvidence, ...],
+        candidate_content: str = "",
     ) -> tuple[str, ...]:
-        if context.history_intent is None:
-            return ()
-        from intelligence.services.historical_research.recovery import (
-            recovery_evidence_priority,
-        )
+        priority: tuple[str, ...] = ()
+        if context.history_intent is not None:
+            from intelligence.services.historical_research.recovery import (
+                recovery_evidence_priority,
+            )
 
-        return recovery_evidence_priority(evidence)
+            priority = recovery_evidence_priority(evidence)
+        # Preserve cited observations, never the unadmitted draft or invented IDs.
+        by_id = {eid: digest for digest, eid in evidence_ordinal_table(evidence).items()}
+        cited = tuple(by_id[ref] for ref in cited_evidence_ordinals(candidate_content) if ref in by_id)
+        return tuple(dict.fromkeys((*priority, *cited)))
 
     def classify_repair_need(
         self,
@@ -1021,11 +1051,20 @@ class FinanceResearchHarness:
             goal=prompt_goal,
         )
 
-    def repair_goal_message(self, goal: RepairGoal, *, tools_open: bool) -> str:
+    def repair_goal_message(
+        self,
+        goal: RepairGoal,
+        *,
+        tools_open: bool,
+        finish_format: Mapping[str, object] | None = None,
+    ) -> str:
         # 逐字搬自 agent_episode.resume()：REPAIR_GOAL 正文 + 工具开/关两套指令。
         payload: dict[str, object] = {
             "kind": "REPAIR_GOAL",
             **goal.to_dict(),
+            # 开场的冻结成稿形状原样重述：修复稿仍要按它交，而修复轮里再犯格式就是终局。
+            # 这一键只在 material_only 出现，其它题型的修复轮消息逐字节不变。
+            **({"finish_format": dict(finish_format)} if finish_format else {}),
             "instruction": (
                 "保留最初任务、全部原始观察和当前工具账本。"
                 + (

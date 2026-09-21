@@ -479,15 +479,27 @@ class MessageParts:
 # ① 轴值更新（B 轴 / A 轴 / 显式放宽）：
 _B_MATERIAL_ONLY_PHRASES: tuple[str, ...] = (
     "只依据", "仅根据", "不读取任何材料外", "不读取材料外",
+    "只分析以下材料", "仅分析以下材料", "只分析以下虚构材料", "仅分析以下虚构材料",
+    "不查其他资料", "不查其它资料",
 )
+_B_PREVIOUS_EVIDENCE_ONLY_HEAD = (
+    r"(?:只|仅)(?:用|使用|依据)(?:已取得|已获得|刚才查到|上轮查到)的"
+    r"(?:本地)?(?:数据|资料|证据)"
+)
+_B_PREVIOUS_EVIDENCE_ONLY_RE = re.compile("^" + _B_PREVIOUS_EVIDENCE_ONLY_HEAD)
 _B_LOCAL_ONLY_PHRASES: tuple[str, ...] = (
     "不要联网", "不联网", "别查实时", "不读外部",
 )
 _B_RELAX_PHRASES: tuple[str, ...] = ("可以查真实数据", "结合最新行情", "结合当前行情")
 # ② 基底继承（续轮声明）：
-_CONTINUATION_HEAD_PHRASES: tuple[str, ...] = ("继续", "接着", "同上")
+_CONTINUATION_HEAD_PHRASES: tuple[str, ...] = ("继续", "接着", "同上", "沿用上一轮", "沿用上轮")
+_PREVIOUS_ANSWER_REVIEW_RE = re.compile(
+    r"^(?:复核|复查|重新审视|检查|重新检查|审查)(?:一下)?(?:你)?"
+    r"(?:刚才|上轮|上一轮|上次|前面)的?(?:解释|回答|判断|结论|分析)"
+    r"(?=$|[：:，,。；;！？!?])"
+)
 # 切句与句首归一化共用前缀，避免礼貌用语令第二个状态操作漏检。
-_STATE_PREFIX_ATOM = r"(?:请|麻烦|烦请|本轮|这次|此次)\s*"
+_STATE_PREFIX_ATOM = r"(?:请|麻烦|烦请|本轮|这次|此次|仍)\s*"
 
 # 同句多轴操作不仅以标点分开，也可用「且/并」连接。只在后面确有
 # 状态操作时切分，不能把公司名/普通叙述里的「并」拆碎；偏移仍对应原文。
@@ -497,18 +509,32 @@ _SENT_SPLIT_RE = re.compile(
         *_B_MATERIAL_ONLY_PHRASES, *_B_LOCAL_ONLY_PHRASES, *_B_RELAX_PHRASES,
         *_CONTINUATION_HEAD_PHRASES, "其余条件不变", "假设", "如果",
     ))
-    + r"))"
+    + "|" + _B_PREVIOUS_EVIDENCE_ONLY_HEAD + r"))"
 )
 # 虚构前提声明：「以下是完全虚构的研究案例」「均为虚构」「纯属虚构」等（句中即算，
 # 这类措辞极少出现在叙述句里；出现在复核块里时走 boundary_uncertain 保守分支）。
 _FICTIONAL_SENT_RE = re.compile(
-    r"以下\s*[是为][^。；，]{0,12}虚构|均为虚构|纯属虚构|完全虚构|虚构案例|[是为]虚构的?"
+    r"以下\s*[是为][^。；，]{0,12}虚构|均为虚构|纯属虚构|完全虚构|虚构案例|以下虚构材料|(?<!不)[是为]虚构的?"
 )
 # A8 的「假设 X，结合当前行情」不要求额外的「成立」。是否顶层由区域复核决定，
 # 而不是把明确假设漏成无约束；材料内同形态仍走 uncertain，强保护内不可见。
-_HYPOTHESIS_STRONG_RE = re.compile(r"^(?:假设|如果)\s*\S.{1,}")
-# 题内假设：句首 假设/如果 即算（题上下文消歧，scope=q{n}）。
-_HYPOTHESIS_IN_QUESTION_RE = re.compile(r"^(?:假设|如果)\s*\S.{1,}")
+_HYPOTHESIS_STRONG_RE = re.compile(
+    r"^(?:假设|如果)\s*"
+    r"(?!(?:某项|某些|任何|所需|这项)?(?:数据|资料|证据|来源|信息|材料|输入)"
+    r"[^。；，]{0,24}(?:无法|不能|没有|缺失|不足|未|取不|找不))\S.{1,}"
+)
+# 题内使用同一识别器；数据缺失处理指令不是金融世界的反事实前提。
+_HYPOTHESIS_IN_QUESTION_RE = _HYPOTHESIS_STRONG_RE
+# A calculation declaration describes the answer's basis, not permission to read.
+# The same protected-region scanner handles declarations and explicit fact requests.
+_PREMISE_CALCULATION_RE = re.compile(
+    r"^(?:(?:这|以下|本题|本轮)(?:是|为))?(?:独立的|一个|一道|纯)?"
+    r"(?:虚构的?(?:财务|金融)?(?:算例|计算题)|情景计算|按给定(?:数据|条件)计算)"
+)
+_WORLD_FACT_REQUEST_RE = re.compile(
+    r"^(?:再|同时|另外)?(?:查询|查证|核实|检索|查|结合|使用|参考)"
+    r"[^。；\n]*(?:真实|实际|最新|当前|今日|行情|财报|公告)"
+)
 
 _FENCE_RE = re.compile(r"^\s*(```|~~~)")
 _QUOTE_PAIRS: tuple[tuple[str, str], ...] = (
@@ -563,21 +589,54 @@ def _sentence_spans(text: str) -> list[tuple[int, int, str]]:
 def _state_op_in_sentence(sent: str) -> str | None:
     """句级状态操作识别（内容复核与指令识别共用的唯一入口，退修 R3）。
 
-    返回 "constraint_b" | "premise_declaration" | "continuation" | None。
+    返回顶层状态操作种类；引用和材料正文不能发出这些操作。
     """
     s = sent.strip()
     if not s:
         return None
     head = _state_head(s)
-    if head.startswith(_B_MATERIAL_ONLY_PHRASES + _B_LOCAL_ONLY_PHRASES + _B_RELAX_PHRASES):
+    if (is_material_only_instruction(head)
+            or head.startswith(_B_LOCAL_ONLY_PHRASES + _B_RELAX_PHRASES)):
         return "constraint_b"
-    if head.startswith(_CONTINUATION_HEAD_PHRASES) or "其余条件不变" in s:
+    if (head.startswith(_CONTINUATION_HEAD_PHRASES) or "其余条件不变" in s
+            or _PREVIOUS_ANSWER_REVIEW_RE.match(head)):
         return "continuation"
+    if _PREMISE_CALCULATION_RE.match(head):
+        return "premise_calculation"
+    if _WORLD_FACT_REQUEST_RE.match(head):
+        return "world_fact_request"
     if _FICTIONAL_SENT_RE.search(s):
         return "premise_declaration"
     if _HYPOTHESIS_STRONG_RE.match(s):
         return "premise_declaration"
     return None
+
+
+def is_material_only_instruction(head: str) -> bool:
+    """Previously obtained data is an input ceiling, not permission to query again."""
+    return head.startswith(_B_MATERIAL_ONLY_PHRASES) or bool(_B_PREVIOUS_EVIDENCE_ONLY_RE.match(head))
+
+
+def requests_previous_answer_review(text: str) -> bool:
+    """Recognize a top-level review request, not a quotation or pasted instruction."""
+    regions = classify_top_level_regions(text)
+    return regions.classification != "boundary_uncertain" and any(
+        span.scope == "message"
+        and span.kind == "continuation"
+        and _PREVIOUS_ANSWER_REVIEW_RE.match(_state_head(span.visible_text))
+        for span in regions.instructions
+    )
+
+
+def requests_previous_evidence_only(text: str) -> bool:
+    """Only an explicit final, top-level frozen-input instruction authorizes reuse."""
+    regions = classify_top_level_regions(text)
+    constraints = [span for span in regions.instructions
+                   if span.scope == "message" and span.kind == "constraint_b"]
+    return bool(
+        regions.classification != "boundary_uncertain" and constraints
+        and _B_PREVIOUS_EVIDENCE_ONLY_RE.match(_state_head(constraints[-1].visible_text))
+    )
 
 
 def find_state_ops(text: str) -> tuple[tuple[str, str], ...]:
@@ -607,6 +666,11 @@ def _protected_layout(lines: list[str]) -> tuple[list[str], list[str], set[int]]
         for i, line in enumerate(lines)
         if (match := _FENCE_RE.match(line))
     }
+    blockquote_ends = {
+        offsets[i]: offsets[i] + len(line)
+        for i, line in enumerate(lines)
+        if re.match(r" {0,3}>", line)
+    }
     fence_ends: dict[int, int] = {}
     markers = list(fences)
     for i, start in enumerate(markers):
@@ -628,6 +692,9 @@ def _protected_layout(lines: list[str]) -> tuple[list[str], list[str], set[int]]
         depth = 1
         pos = start + 1
         while pos < len(text):
+            if pos in blockquote_ends:
+                pos = blockquote_ends[pos]
+                continue
             if pos in fence_ends:
                 pos = fence_ends[pos]
                 continue
@@ -649,7 +716,9 @@ def _protected_layout(lines: list[str]) -> tuple[list[str], list[str], set[int]]
     pos = 0
     while pos < len(text):
         end = None
-        if pos in fences:
+        if pos in blockquote_ends:
+            end = blockquote_ends[pos]
+        elif pos in fences:
             end = fence_ends.get(pos)
             if end is None:
                 uncertain.append("unclosed_fence")
@@ -690,7 +759,7 @@ class InstructionSpan:
     scope="message" 为消息级；题内检出的状态操作 scope="q{用户原编号}"（退修 R6）。
     """
 
-    kind: str  # "constraint_b" | "premise_declaration" | "continuation"
+    kind: str  # constraint_b, premise_declaration, continuation, premise_calculation, world_fact_request
     text: str
     line_index: int
     scope: str = "message"
@@ -739,7 +808,7 @@ def _question_candidate_end(
 def classify_top_level_regions(text: str) -> TopLevelRegions:
     """E2 设计稿 v10 §3.1：先保护、后解释、三态分类（全部确定性）。
 
-    有序步骤：①强保护掩码（围栏整行 / 闭合引号字符区间；未闭合→uncertain）
+    有序步骤：①强保护掩码（围栏整行 / >引用行 / 闭合引号字符区间；未闭合→uncertain）
     ②引导块/缩进块/长文块内容复核（掩码后文本，命中状态操作→uncertain）
     ③题组区识别（编号连续、保留原文续行；题内状态操作 scope=qN）
     ④指令区识别（句级，行内第二句也算，退修 R1）⑤邻接规则（与叙述无空行相连

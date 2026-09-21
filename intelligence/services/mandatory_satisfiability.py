@@ -87,9 +87,9 @@ def apply_static_chain_mapping_precheck(
 
 
 def evidence_required_output_ids(contract: ResearchTaskContract) -> frozenset[str]:
-    from intelligence.services.material_delivery import material_question_outputs
+    from intelligence.services.material_delivery import material_input_output_ids
 
-    material_ids = {item.output_id for item in material_question_outputs(contract)}
+    material_ids = material_input_output_ids(contract)
     # 无工具不等于无法交付材料题：仍能逐题解释缺什么。D5 的 missing
     # 不能降 optional，否则 repair 跳过没写的一题就会伪装成 completed。
     return frozenset(

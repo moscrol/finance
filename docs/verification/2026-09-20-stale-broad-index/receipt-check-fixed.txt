@@ -1,0 +1,18 @@
+========================================================================
+读数收据校验 — 判「能不能采信」，不重跑测试
+========================================================================
+  收据     /Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/results/broad-index/fixed/receipts/20260920T151509Z-d4d944cb.json
+  产生于   2026-09-20T15:15:09+00:00
+  目标     tests/test_hithink_sector_kline.py tests/test_hithink_sector_capture.py tests/test_hithink_sector_capture_integration.py tests/test_hithink_sector_preview.py tests/test_review_sync_hithink_wiring.py
+  读数     passed=139 failed=0 error=0 skipped=0
+
+  ✓ 执行读数 139 条（passed+failed+error）
+  ✓ revision 一致
+  ✓ 解释器一致
+  ✓ python 版本一致
+  ✓ 依赖指纹一致
+  ✓ 收据来自干净树
+  ✓ 依赖门禁未被绕过
+  ✓ 收据 revision == d4d944cb67f9
+
+✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。

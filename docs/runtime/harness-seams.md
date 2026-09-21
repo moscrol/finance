@@ -5,7 +5,7 @@
 
 loop 只在这些方法上调领域 harness（`research_harness.ResearchHarness`）。签名与首段 docstring 直接取自 Protocol 源码，顺序即源码顺序。改接缝先改 Protocol，本表随之再生成；接缝的取舍见 `docs/superpowers/specs/2026-09-02-research-harness-loop-decouple-design.md` §4。
 
-19 个方法
+20 个方法
 
 ## `assemble_prompt`
 
@@ -111,10 +111,18 @@ def assess_publication(self, *, context: 'ResearchRunContext') -> 'PublicationAs
 
 Final domain requirements after repairs and semantic verification.
 
+## `finalization_materials`
+
+```python
+def finalization_materials(self, *, context: 'ResearchRunContext') -> 'dict[str, object]'
+```
+
+Owned non-evidence inputs that can support bounded finish recovery.
+
 ## `recovery_evidence_priority`
 
 ```python
-def recovery_evidence_priority(self, *, context: 'ResearchRunContext', evidence: 'tuple[AgentEvidence, ...]') -> 'tuple[str, ...]'
+def recovery_evidence_priority(self, *, context: 'ResearchRunContext', evidence: 'tuple[AgentEvidence, ...]', candidate_content: 'str' = '') -> 'tuple[str, ...]'
 ```
 
 Existing evidence hashes to retain first in a bounded recovery view.
@@ -138,7 +146,7 @@ def downgrade_unreachable(self, goal: 'RepairGoal', *, contract: 'ResearchTaskCo
 ## `repair_goal_message`
 
 ```python
-def repair_goal_message(self, goal: 'RepairGoal', *, tools_open: 'bool') -> 'str'
+def repair_goal_message(self, goal: 'RepairGoal', *, tools_open: 'bool', finish_format: 'Mapping[str, object] | None' = None) -> 'str'
 ```
 
 修复轮开场给模型的那段话（``REPAIR_GOAL`` 正文，user 角色）。

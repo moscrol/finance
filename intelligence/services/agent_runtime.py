@@ -14,6 +14,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
 from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.material_grounding import ClaimSourceBinding
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_plan import ResearchPlan, plan_to_public_dict
 
@@ -230,6 +231,7 @@ class OutputEvidenceBinding:
     evidence_hashes: tuple[str, ...]
     gap: str = ""
     basis: GroundingMode = "evidence"
+    claims: tuple[ClaimSourceBinding, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.output_id, str) or not self.output_id.strip():
@@ -243,7 +245,9 @@ class OutputEvidenceBinding:
         gap = self.gap.strip()
         if self.basis not in _GROUNDING_MODES:
             raise ValueError("unsupported grounding basis")
-        if self.basis == "evidence" and not hashes and not gap:
+        if not isinstance(self.claims, tuple) or any(not isinstance(c, ClaimSourceBinding) for c in self.claims):
+            raise ValueError("invalid claim source bindings")
+        if self.basis == "evidence" and not hashes and not gap and not self.claims:
             raise ValueError("output binding must contain evidence or a gap")
         object.__setattr__(self, "output_id", self.output_id.strip())
         object.__setattr__(self, "evidence_hashes", hashes)
@@ -256,6 +260,7 @@ class OutputEvidenceBinding:
             "evidence_hashes": list(self.evidence_hashes),
             "gap": self.gap,
             "basis": self.basis,
+            **({"claims": [claim.to_dict() for claim in self.claims]} if self.claims else {}),
         }
 
 
@@ -346,6 +351,7 @@ def public_agent_evidence(item: AgentEvidence) -> dict[str, object]:
         "independent_key": item.independent_key,
         "freshness": item.freshness,
         "content_hash": item.content_hash,
+        **({"io_effect": item.io_effect} if item.io_effect != "unknown" else {}),
     }
 
 

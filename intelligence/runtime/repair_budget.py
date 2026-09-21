@@ -350,6 +350,7 @@ def admit_repair(
     allow_delivery_repair: bool = True,
     evidence_count: int = 0,
     seconds_cap: float | None = None,
+    rejected_claim_notes: tuple[str, ...] = (),
 ) -> RepairAdmission | None:
     """Build one goal and admit exactly one budget grant.
 
@@ -373,6 +374,8 @@ def admit_repair(
         remaining_calls=remaining_calls,
         remaining_seconds=remaining_seconds,
         cycle=cycle,
+        # 只是随车带给作者看的病因，不进任何预算/形状判据。
+        rejected_claim_notes=rejected_claim_notes,
     )
     delivery_candidate = allow_delivery_repair and need.shape.delivery
     contract_rewrite_candidate = need.shape.contract_rewrite
