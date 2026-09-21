@@ -96,7 +96,7 @@ def emitted(monkeypatch: pytest.MonkeyPatch) -> list:
     return out
 
 
-def _install(monkeypatch: pytest.MonkeyPatch, fake: FakeGitea) -> None:
+def _install(monkeypatch: pytest.MonkeyPatch, fake: FakeGitea, *, tree_after: str = PREVIEW_TREE) -> None:
     monkeypatch.setattr(mod, "_api", fake)
 
     def fake_git(*args: str, cwd: Path = REPO_ROOT) -> str:
@@ -107,7 +107,7 @@ def _install(monkeypatch: pytest.MonkeyPatch, fake: FakeGitea) -> None:
         if args == ("log", "-1", "--format=%P", MERGE_SHA):
             return f"{BASE_SHA} {HEAD_SHA}"
         if args == ("rev-parse", f"{MERGE_SHA}^{{tree}}"):
-            return PREVIEW_TREE
+            return tree_after
         raise AssertionError(f"unexpected git {args}")
 
     monkeypatch.setattr(mod, "_git", fake_git)
@@ -274,6 +274,18 @@ def test_merge_happy_path_verifies_tree_and_writes_record(monkeypatch, emitted, 
     }
     assert data["preview"]["tree"] == PREVIEW_TREE
     assert data["after"]["merged"] is True and data["verification"]["ok"] is True
+
+
+def test_merge_flags_tree_mismatch_as_red(monkeypatch, emitted):
+    """合并成功但合并树 != 预览树：merged 仍 true，ok 必须 false、退 1——「合的不是验过的那棵树」。"""
+
+    fake = FakeGitea(_pr())
+    _install(monkeypatch, fake, tree_after="1111111111111111111111111111111111111111")
+    rc = mod.main(["merge", "815", "--yes"])
+    assert rc == 1
+    assert emitted[-1]["merged"] is True
+    assert emitted[-1]["verification"]["tree_matches_preview"] is False
+    assert emitted[-1]["ok"] is False
 
 
 def test_merge_post_error_but_readback_merged_is_success(monkeypatch, emitted):
