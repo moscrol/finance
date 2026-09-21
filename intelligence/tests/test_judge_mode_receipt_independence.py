@@ -6,9 +6,11 @@ import json
 import pytest
 
 from intelligence.eval.variance_baseline import (
+    build_receipt,
     extract_from_run_dir,
     judge_verification_decision,
     score_distribution,
+    write_receipt,
 )
 from intelligence.services import llm_refine
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier
@@ -69,7 +71,7 @@ def test_deterministic_mode_overrides_bool_and_timing(status, raw):
     assert receipt["correlated_judge"] is None
 
 
-def test_replay_modes_are_separate_and_old_unknown_stays_unknown():
+def test_replay_modes_are_separate_and_old_unknown_stays_unknown(tmp_path):
     repeats = [
         {"judge_mode": "deterministic", "correlated_judge": False},
         {"judge_mode": "off", "correlated_judge": True},
@@ -84,6 +86,12 @@ def test_replay_modes_are_separate_and_old_unknown_stays_unknown():
     assert row["correlated_judge_count"] == 1
     assert row["unknown_judge_independence_count"] == 1
     assert score["independent_n"] == 1
+    receipt = build_receipt(score)
+    assert receipt["no_judge_rate"] == 0.4
+    dest = tmp_path / "receipt.json"
+    write_receipt(receipt, dest)
+    assert json.loads(dest.read_text())["no_judge_rate"] == 0.4
+    assert "no_judge_rate: 0.4" in dest.with_suffix(".md").read_text()
 
 
 def test_public_only_current_off_receipt_is_unknown_not_independent(tmp_path):

@@ -590,6 +590,7 @@ def build_receipt(
         "judge_unavailable_rate": scored["judge_unavailable_rate"],
         "correlated_judge_rate": scored.get("correlated_judge_rate"),
         "independent_judge_rate": scored.get("independent_judge_rate"),
+        "no_judge_rate": scored.get("no_judge_rate"),
         "unknown_judge_independence_rate": scored.get("unknown_judge_independence_rate"),
         "independent_n": scored.get("independent_n"),
         "content_flip_rate": scored.get("content_flip_rate"),
@@ -634,6 +635,7 @@ def _render_summary_md(payload: Mapping[str, Any]) -> str:
         f"- correlated_judge_rate: {payload.get('correlated_judge_rate')}",
         f"- independent_judge_rate: {payload.get('independent_judge_rate')}",
         f"- independent_n: {payload.get('independent_n')}",
+        f"- no_judge_rate: {payload.get('no_judge_rate')}",
         f"- content_flip_rate: {payload.get('content_flip_rate')}",
         "",
         AB_RULE,
@@ -648,6 +650,7 @@ def _render_summary_md(payload: Mapping[str, Any]) -> str:
             f"judge_unavailable={item.get('judge_unavailable_rate')} "
             f"correlated={item.get('correlated_judge_rate')} "
             f"independent={item.get('independent_judge_rate')} "
+            f"no_judge={item.get('no_judge_rate')} "
             f"counts={item.get('primary_outcome_counts')}"
         )
     lines.append("")
