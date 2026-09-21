@@ -11,6 +11,7 @@
 - 展开：`../2026-09-21-research-tail-forward-integration.md`。
 
 ## 当前状态
+封档c47b2751已推，WIP #838；两包提交字节核验281/281与28/28，发布收据见verification的publication-check.json。记忆由auto-sync提交94fb8acf，本轮三文件逐字节核Git；图谱审计仅证路径/符号，未移除在途后缀。
 源码均已推且保持干净：#831 ea5c3a946、#833 7edfe24e7、#834 cb16cd463、#835 d82cb16b5。后三者直接基于#831，主干基座f783f19c8，不含后来#830/f2c3e9e1。
 #831独立报告Spec/Quality PASS，根QC有限接受；一个session双节，非两位审核者。
 三领域独立审均at capacity→exit1/无报告，BLOCKED_PROVIDER_CAPACITY；所有本轮后台已结束，不等候旧PID、不自动重开。旧#797/798/800有接替评论、不关闭。
