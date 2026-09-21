@@ -1,0 +1,577 @@
+{
+  "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+  "status": "BLOCKED_NOT_MERGED_NOT_DEPLOYED",
+  "source_root": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921",
+  "files": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/archive-owned-pytest-temp.py",
+      "archived": "archive-owned-pytest-temp.py.txt",
+      "bytes": 3551,
+      "sha256": "33a7e6d7f60b319ce5c5947c1df6073148858dd7e4f6a43dc0bca2804c7838c5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/authorization-update.json",
+      "archived": "authorization-update.json",
+      "bytes": 559,
+      "sha256": "1d339fdb6a61320b20c85c5109c9e89acaeff81f95e1c0e2aa20400d19377d28"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/boundaries/0.log.txt",
+      "archived": "boundaries/0.log.txt",
+      "bytes": 1825,
+      "sha256": "809beb4880401a3db0c60ec8c231b339fa6f16bfb1666074f351d87172105255"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/boundaries/1.log.txt",
+      "archived": "boundaries/1.log.txt",
+      "bytes": 2838,
+      "sha256": "23f67f1de85f61bb58c295f409f5433245e728b45872ac00e3335f0585ab7941"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/boundaries/2.log.txt",
+      "archived": "boundaries/2.log.txt",
+      "bytes": 935,
+      "sha256": "31b171b0f4d2b95434d90f6055584dc71612046ebfde263c5a8fb8e355f6462b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/boundaries/finalize-probe/entry-boundaries.json",
+      "archived": "boundaries/finalize-probe/entry-boundaries.json",
+      "bytes": 2837,
+      "sha256": "24a33e1a493cddd545b4e0ad0c89fc5cdca29a58d50edce30c11e021a3171614"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/boundaries/finalize-probe/generation_rejected_alert.stderr.log",
+      "archived": "boundaries/finalize-probe/generation_rejected_alert.stderr.log.txt",
+      "bytes": 438,
+      "sha256": "53504fe76061c42fa50c05bb1c2219f78b830b527c115deff68e5660ebdf1c0e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/boundaries/finalize-probe/generation_rejected_alert.stdout.log",
+      "archived": "boundaries/finalize-probe/generation_rejected_alert.stdout.log.txt",
+      "bytes": 1162,
+      "sha256": "cd6b77df7bcac22560aac05d5fd16132cad1f853d36c4f768936022bfdd2b735"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/boundaries/finalize-probe/l2_failed_alert.stderr.log",
+      "archived": "boundaries/finalize-probe/l2_failed_alert.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/boundaries/finalize-probe/l2_failed_alert.stdout.log",
+      "archived": "boundaries/finalize-probe/l2_failed_alert.stdout.log.txt",
+      "bytes": 984,
+      "sha256": "b33e4b12347b6e0211e8debeaa0eb3363ff3040355e109e0d8a76a05a46d08e4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/boundaries/finalize-probe/receive_escape.stderr.log",
+      "archived": "boundaries/finalize-probe/receive_escape.stderr.log.txt",
+      "bytes": 299,
+      "sha256": "a889f786b25cb3205524d07c6e6d62bdc3380d1ac4d858ce1c0e8a8564384937"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/boundaries/finalize-probe/receive_escape.stdout.log",
+      "archived": "boundaries/finalize-probe/receive_escape.stdout.log.txt",
+      "bytes": 1096,
+      "sha256": "a1c523d41a1cc72bf6ffdfd1ec3d6ccbaf72f401c00e0470b0f97ec2721c8483"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/boundaries/finalize-probe/safe_external_alert.stderr.log",
+      "archived": "boundaries/finalize-probe/safe_external_alert.stderr.log.txt",
+      "bytes": 775,
+      "sha256": "9f1be34a5aa7b86cb57324fd93f2b71dfd6fa4fa7bee4a7f2d611ec114c481cd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/boundaries/finalize-probe/safe_external_alert.stdout.log",
+      "archived": "boundaries/finalize-probe/safe_external_alert.stdout.log.txt",
+      "bytes": 21340,
+      "sha256": "4e6e63ec4855b825057857bb93698dd1b0254c275e5ca832f863cfac200f98f3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/boundaries/roots-probe.json",
+      "archived": "boundaries/roots-probe.json",
+      "bytes": 1825,
+      "sha256": "809beb4880401a3db0c60ec8c231b339fa6f16bfb1666074f351d87172105255"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/boundaries/run.json",
+      "archived": "boundaries/run.json",
+      "bytes": 2521,
+      "sha256": "9c03df5e9466886de0a3c7ce4026164d326678f3364841f00427fdee31f8f0d1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/boundaries-launch.json",
+      "archived": "boundaries-launch.json",
+      "bytes": 244,
+      "sha256": "9fd839962d78c4143cdf0149e1eca51dddf693868f3ab254991c1556d398d35f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/boundaries-runner.log.txt",
+      "archived": "boundaries-runner.log.txt",
+      "bytes": 2167,
+      "sha256": "b14089b322f1b42ffa5a3863be73d786bb334fe717ebeefe9240371814e52f64"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/controlled-release.py",
+      "archived": "controlled-release.py.txt",
+      "bytes": 14263,
+      "sha256": "c381bfce0bf000a4d96c6c11abba2429c1edd71284885e81b2c786e02060a3aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/credential-bootstrap.mjs",
+      "archived": "credential-bootstrap.mjs.txt",
+      "bytes": 4280,
+      "sha256": "4abd95638e299f1be10bc3c7ecf5a56fc7834461f7a6b954550a1ec77da631e4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/execution-start-comment.json",
+      "archived": "execution-start-comment.json",
+      "bytes": 1643,
+      "sha256": "f24977674fee092c19aefa1ce926ae661bc10560477862db83d5db79bef41881"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/failure-diagnosis/junit.xml",
+      "archived": "failure-diagnosis/junit.xml",
+      "bytes": 3551,
+      "sha256": "d220980b5afccdb427ab098b1515a57336cae9f8d7b618f31712b17894d08212"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/failure-diagnosis/pytest.log.txt",
+      "archived": "failure-diagnosis/pytest.log.txt",
+      "bytes": 219,
+      "sha256": "e1e17a325ab90714f2f66c67b7219af4b66c1a92ee5e0f86db1d1fd7abfa751e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/failure-diagnosis/run.json",
+      "archived": "failure-diagnosis/run.json",
+      "bytes": 909,
+      "sha256": "942c95b438c6598161a6fe8a26b2f6239020981cefc3424c04dbc780bddc1174"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/final-gate-qc.json",
+      "archived": "final-gate-qc.json",
+      "bytes": 1721,
+      "sha256": "61433795d257d0cb59bbc03bf3d1f6403be99fb3f38db045c20e913a49b5e65f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/frontend/0.log.txt",
+      "archived": "frontend/0.log.txt",
+      "bytes": 437,
+      "sha256": "d5f5394f2a934bbc50bd90b0764adeacbece135e748d58a803e1063475e4d286"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/frontend/gate/frontend-0.log.txt",
+      "archived": "frontend/gate/frontend-0.log.txt",
+      "bytes": 995,
+      "sha256": "64e736b6a4136e4ea82b61069f2214e590cec924516db7a627fedb2e3d11da81"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/frontend/gate/frontend-1.log.txt",
+      "archived": "frontend/gate/frontend-1.log.txt",
+      "bytes": 123,
+      "sha256": "b993767d4cbe66f78ba44d214aa47e78b427ca8fac1c04c586f143bd1b57a4fb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/frontend/gate/frontend-2.log.txt",
+      "archived": "frontend/gate/frontend-2.log.txt",
+      "bytes": 221,
+      "sha256": "5795a4918010e7848a728ea721e97225c6398534fd7e6ed3ee0b4433e75baa6d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/frontend/gate/frontend-3.log.txt",
+      "archived": "frontend/gate/frontend-3.log.txt",
+      "bytes": 1446,
+      "sha256": "93bb25161bf955712564e03751733d93d58415ec812f0106226e53fe6079506e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/frontend/gate/frontend-4.log.txt",
+      "archived": "frontend/gate/frontend-4.log.txt",
+      "bytes": 933,
+      "sha256": "99291c3272e9ddaff1844b17beac483c97cedfc039488fb5dde730c6fe84ae04"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/frontend/gate/frontend-5.log.txt",
+      "archived": "frontend/gate/frontend-5.log.txt",
+      "bytes": 12756,
+      "sha256": "baaff22aaf300098f480ce47cdecda0a4495fb41fe259fbb9e55c88cbdde2748"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/frontend/gate/frontend.json",
+      "archived": "frontend/gate/frontend.json",
+      "bytes": 2505,
+      "sha256": "e1776ae3e9aad97c51c2a1fe8408306408f4466734157009454c19671b4390bb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/frontend/run.json",
+      "archived": "frontend/run.json",
+      "bytes": 1525,
+      "sha256": "ff93dab791f7458180264b38b479599efa06a0d5e77ba08b005e242ba4dfefc9"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/frontend-launch.json",
+      "archived": "frontend-launch.json",
+      "bytes": 242,
+      "sha256": "32a97de58efd4726d8c0857fc4e9239522fa4922766dbcb2c8ebb509c88ff8aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/frontend-runner.log.txt",
+      "archived": "frontend-runner.log.txt",
+      "bytes": 1311,
+      "sha256": "591e3caf1391fa9df52bff853317e65e9169584dcfeffa4a56b34c124c96c295"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/pi-config/auth.json",
+      "archived": "pi-config/auth.json",
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/pi-config/models.json",
+      "archived": "pi-config/models.json",
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/pi-config/settings.json",
+      "archived": "pi-config/settings.json",
+      "bytes": 348,
+      "sha256": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/precommit-exit.txt",
+      "archived": "precommit-exit.txt",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/precommit.log.txt",
+      "archived": "precommit.log.txt",
+      "bytes": 5474,
+      "sha256": "e1e0c8f67d4b5cef8ebd5aaf07f17c69db367695ab46bd5e05d2b6b898c865c0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/production-unchanged-final.json",
+      "archived": "production-unchanged-final.json",
+      "bytes": 12790,
+      "sha256": "5830ac62e93266414baf8961af7d655590a3d6d76ac059ae98bc41d5c66a7ab1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/provider-template.json",
+      "archived": "provider-template.json",
+      "bytes": 458,
+      "sha256": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/0.log.txt",
+      "archived": "python/0.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/1.log.txt",
+      "archived": "python/1.log.txt",
+      "bytes": 50309,
+      "sha256": "60da07a35f1d45dfca8144d667ff191e250f09abbb072ea479390b18743b195f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/junit.xml",
+      "archived": "python/junit.xml",
+      "bytes": 1982630,
+      "sha256": "61ddee3b527539ad5d54f1d43b192800f61edd67af1e476d391c4da3813ad96b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/pytest-receipt.json",
+      "archived": "python/pytest-receipt.json",
+      "bytes": 1661,
+      "sha256": "293f872201ba61653d4fc1af79e0f29c50abb770e15a551a1a2a1afba604ad0f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/run.json",
+      "archived": "python/run.json",
+      "bytes": 2360,
+      "sha256": "40e9d24cdc15c2b90a63566b1d02dc1a4ef021e66e25aa4154c910f369e1238e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python-launch.json",
+      "archived": "python-launch.json",
+      "bytes": 240,
+      "sha256": "5d740ae98a07b21520f61a2eb24498e785f1af93d0890069977329d11d311a7e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python-runner.log.txt",
+      "archived": "python-runner.log.txt",
+      "bytes": 2004,
+      "sha256": "43cab099f4507939af9e5894a050b95ad8d3735a9b8bf39f21a11d62771954f2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/qc-spec/independent-rig.sh",
+      "archived": "qc-spec/independent-rig.sh.txt",
+      "bytes": 9865,
+      "sha256": "abe4bc12bdfc13885f8cd65878c7f8dfaa933d65c1d03391a2d95ae087956a5f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/qc-spec/probe.log.txt",
+      "archived": "qc-spec/probe.log.txt",
+      "bytes": 1708,
+      "sha256": "aad0e6019c592320ec121d8ddeb62e8359650fe6effaa73ad4fac77d2dca0152"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/quality-k3/credential.json",
+      "archived": "quality-k3/credential.json",
+      "bytes": 402,
+      "sha256": "5bec9d7b42722a0140b35f7a982cb1cbd918b638742b7de1afe67a2fb9560784"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/quality-k3/execution.json",
+      "archived": "quality-k3/execution.json",
+      "bytes": 6262,
+      "sha256": "26bb55346d605a65ad61607019359e3f58429159b6b6d828701f9d3345f7477a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/quality-k3/request-admissions.jsonl",
+      "archived": "quality-k3/request-admissions.jsonl",
+      "bytes": 991,
+      "sha256": "43e2eb5177f5e99e04703145952be5c85de4873af649c7b3dd090031c70d416f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/quality-k3/stderr.log",
+      "archived": "quality-k3/stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/quality-launch.json",
+      "archived": "quality-launch.json",
+      "bytes": 276,
+      "sha256": "ac8771359d14864b67347340e1bde4dff3355fe077f0cc27cc898b0b069019b9"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/quality-prompt.md",
+      "archived": "quality-prompt.md",
+      "bytes": 5422,
+      "sha256": "5983225cfafc035e4fb004c5b1fa8012d947cf5f6d4c02b20e3f09ec547e939d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/quality-runner.log.txt",
+      "archived": "quality-runner.log.txt",
+      "bytes": 253,
+      "sha256": "164d182dccdb4f67583411e53eb7de5291bd0c76bc8874276554db28a23554db"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/registry/0.log.txt",
+      "archived": "registry/0.log.txt",
+      "bytes": 95,
+      "sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/registry/1.log.txt",
+      "archived": "registry/1.log.txt",
+      "bytes": 121,
+      "sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/registry/2.log.txt",
+      "archived": "registry/2.log.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/registry/3.log.txt",
+      "archived": "registry/3.log.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/registry/4.log.txt",
+      "archived": "registry/4.log.txt",
+      "bytes": 2018,
+      "sha256": "0e7836345bfad416533cc9a9c3b89fe04db6c3d083184d56d8d47082d5c4a59a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/registry/run.json",
+      "archived": "registry/run.json",
+      "bytes": 3613,
+      "sha256": "f0aec6eaffc4f2af57567ac4cbb11f4d8e554f81a71d0c27be0c202c31bbdac8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/registry-launch.json",
+      "archived": "registry-launch.json",
+      "bytes": 242,
+      "sha256": "fc6410bfd671c0845fb9ca116c6a1d104c6cf5c4688325f41beabd8af9134be3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/registry-runner.log.txt",
+      "archived": "registry-runner.log.txt",
+      "bytes": 3119,
+      "sha256": "e8f1ebdb111cd0565ebdb462b2f1bcbec761e751e0bb39507c8a1cfcbf59a101"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/release-plan.md",
+      "archived": "release-plan.md",
+      "bytes": 3446,
+      "sha256": "f83d3770b2481ea4d5dbc26ed36ce9cd25e7416614b2d59f26edf1ecf8ac34cb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/release-precheck.json",
+      "archived": "release-precheck.json",
+      "bytes": 22356,
+      "sha256": "aebd0b107f38ebdf7c5f3c17e5df7d58f491cc6aeeafec42ff5accc260b0363b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/review-common.md",
+      "archived": "review-common.md",
+      "bytes": 4461,
+      "sha256": "e5dc18d6a26f7e3913678fe6be304246067e0ddbba8575ecc573d85af9479201"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/rollback-helper-test.json",
+      "archived": "rollback-helper-test.json",
+      "bytes": 183,
+      "sha256": "262e6431ec4c7cafa4cccf05e67b802985c9f7235b007fd68f5c4fd1d18efcca"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/run-review.py",
+      "archived": "run-review.py.txt",
+      "bytes": 9128,
+      "sha256": "290d53dc044cad3932f4eae6c4bcb35cc776c944c38d2095d0a882764ca0fc61"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/run_checks.py",
+      "archived": "run_checks.py.txt",
+      "bytes": 6509,
+      "sha256": "670e9d87a51a6822230a5c6d40115e4a06917395f4c38dc8ab196ec024609672"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/spec-k3/REPORT.md",
+      "archived": "spec-k3/REPORT.md",
+      "bytes": 10677,
+      "sha256": "b39316b685fdc85fb3f8e4f15b1a47b45bde3c00eaa4e13f1ef9d000b6595295"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/spec-k3/credential.json",
+      "archived": "spec-k3/credential.json",
+      "bytes": 402,
+      "sha256": "174b6b07b811b8ecbb9b152541f9a0fe6ccb496422e57c225bde06b1be3a6bf7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/spec-k3/evidence/independent-rig.log",
+      "archived": "spec-k3/evidence/independent-rig.log.txt",
+      "bytes": 1708,
+      "sha256": "916eb226bd787bc0bd9ae0e31334653cd610d737ff7718d8e8a58b28ad55ad75"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/spec-k3/evidence/reviewed-files.sha256",
+      "archived": "spec-k3/evidence/reviewed-files.sha256",
+      "bytes": 700,
+      "sha256": "dbe6dc0c9d41e7b99f11fd324c2a3c69e2e010eddd519e3fd7699475305cd056"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/spec-k3/execution.json",
+      "archived": "spec-k3/execution.json",
+      "bytes": 5688,
+      "sha256": "1332d2a4edc41175126d11c75f806e4ae69d7796193a5703a9964823b2727712"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/spec-k3/qc.json",
+      "archived": "spec-k3/qc.json",
+      "bytes": 1368,
+      "sha256": "8f91110bc1b10c567ffd9519eae7932b6101f398fbfdd57b4e1f976918d8b5fb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/spec-k3/request-admissions.jsonl",
+      "archived": "spec-k3/request-admissions.jsonl",
+      "bytes": 3291,
+      "sha256": "fa8937b41a0f316c8605f15fe253dd9b7cdbfffb17c8c146a0643263de9da84a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/spec-k3/stderr.log",
+      "archived": "spec-k3/stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/spec-k3/verdict.json",
+      "archived": "spec-k3/verdict.json",
+      "bytes": 1993,
+      "sha256": "af2eac820216e9b41c31f11c1f52b497148b474d9e4ec438af4166c3cc649e32"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/spec-k3/work/independent_rig.sh",
+      "archived": "spec-k3/work/independent_rig.sh.txt",
+      "bytes": 9865,
+      "sha256": "397c46b2e1792356b33312220c5f81c565884f1d037c564c2f63a5cee72615ae"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/spec-launch.json",
+      "archived": "spec-launch.json",
+      "bytes": 238,
+      "sha256": "d4c312103fd9615af40d2d9aff38ca34659ee6d0b33ecb31d4070d5fe59ba9ec"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/spec-prompt.md",
+      "archived": "spec-prompt.md",
+      "bytes": 5174,
+      "sha256": "7d1fc2704fea0dac051e8fff97f369e05cdedd645748f7a577deead5c0cffc0a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/spec-runner.log.txt",
+      "archived": "spec-runner.log.txt",
+      "bytes": 253,
+      "sha256": "e8ce17fc373b42d9273b2cae80fc156d6c034d7922d9bd5c0a25cf3317211c1f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/test-release-restore.py",
+      "archived": "test-release-restore.py.txt",
+      "bytes": 2430,
+      "sha256": "984bf512629399084c3d65e2dbecd01a4495595be1c31693698623f8286bb351"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/verify-owned-temp-archive.py",
+      "archived": "verify-owned-temp-archive.py.txt",
+      "bytes": 2638,
+      "sha256": "5db87dfcbc7bd1407111508273175181e0ee7a6e7d71ec8762f4bb61e69283a0"
+    }
+  ],
+  "external_only": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/spec-k3/events.jsonl",
+      "bytes": 7134036,
+      "sha256": "984fd503a2ba28a7ab30ce19771c35a0acabfd5dd8139f9e2d83141ec76e67c1",
+      "reason": "full token stream; compact tool/terminal stream archived separately"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/quality-k3/events.jsonl",
+      "bytes": 1777539,
+      "sha256": "4cdf0b375ce5be7c05846a78076c3e532a71d9f82fe4cddc72aaf539584b171b",
+      "reason": "full token stream; compact tool/terminal stream archived separately"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/pytest-temp-preserved.tar.gz",
+      "bytes": 313541316,
+      "sha256": "65151d79d103e24c1b100af720977323cd33075403ab320f68f7370fc60026ec",
+      "reason": "verified test scratch archive/83904-member inventory; no database or large compressed file in git"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/pytest-temp-preserved-manifest.json",
+      "bytes": 16637787,
+      "sha256": "75c6b26e38992037d167529709a8d3aa62d81f201fcd082b5d2c134bd8d81eb4",
+      "reason": "verified test scratch archive/83904-member inventory; no database or large compressed file in git"
+    }
+  ],
+  "derived": [
+    {
+      "archived": "spec-k3/events.compact.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/spec-k3/events.jsonl",
+      "transform": "remove only message_update/tool_execution_update events; originals retained externally",
+      "bytes": 747571,
+      "sha256": "0f7d11bdbbcf83b09c1ea303936ae126a717cbea7a33387a1a72a893ad3bd2a8"
+    },
+    {
+      "archived": "quality-k3/events.compact.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/quality-k3/events.jsonl",
+      "transform": "remove only message_update/tool_execution_update events; originals retained externally",
+      "bytes": 316904,
+      "sha256": "c52ebc80eadd87ab500c16ade81e1d54c7bc8b53c42b558ff0e661b2d6a43d3c"
+    }
+  ]
+}

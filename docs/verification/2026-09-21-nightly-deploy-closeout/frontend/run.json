@@ -1,0 +1,45 @@
+{
+  "leaf": "frontend",
+  "revision": "2137345daa44daefa0d029ba4c2de89e0f725b2a",
+  "base": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+  "tree": "/Users/a77/fwp-wt-nightly-deploy-closeout-0921",
+  "pid": 8421,
+  "started_at": "2026-09-21T07:36:25.265743+00:00",
+  "before": {
+    "revision": "2137345daa44daefa0d029ba4c2de89e0f725b2a",
+    "tree_object": "92fc96bc656d106c13586550e87e5f23248f2909",
+    "status": ""
+  },
+  "checks": [
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/run_frontend_gate.py",
+        "--tree",
+        "/Users/a77/fwp-wt-nightly-deploy-closeout-0921",
+        "--expect-revision",
+        "2137345daa44daefa0d029ba4c2de89e0f725b2a",
+        "--output",
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/frontend/gate",
+        "--workbench-port",
+        "19251",
+        "--re06-port",
+        "19254"
+      ],
+      "started_at": "2026-09-21T07:36:25.390449+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/frontend/0.log.txt",
+      "sha256": "c29c65e17b10f95a8099c919be1ad5527c844a7498cf36af481dfccd3daf6c5c",
+      "elapsed_seconds": 168.81
+    }
+  ],
+  "complete": true,
+  "after": {
+    "revision": "2137345daa44daefa0d029ba4c2de89e0f725b2a",
+    "tree_object": "92fc96bc656d106c13586550e87e5f23248f2909",
+    "status": ""
+  },
+  "source_unchanged": true,
+  "finished_at": "2026-09-21T07:39:14.367692+00:00",
+  "exit_code": 0
+}

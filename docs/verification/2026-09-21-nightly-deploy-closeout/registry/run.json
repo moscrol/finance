@@ -1,0 +1,89 @@
+{
+  "leaf": "registry",
+  "revision": "2137345daa44daefa0d029ba4c2de89e0f725b2a",
+  "base": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+  "tree": "/Users/a77/fwp-wt-nightly-deploy-closeout-0921",
+  "pid": 8422,
+  "started_at": "2026-09-21T07:36:25.265598+00:00",
+  "before": {
+    "revision": "2137345daa44daefa0d029ba4c2de89e0f725b2a",
+    "tree_object": "92fc96bc656d106c13586550e87e5f23248f2909",
+    "status": ""
+  },
+  "checks": [
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-c",
+        "from pathlib import Path; import scripts.build_registry as r; r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())",
+        "check-parseability"
+      ],
+      "started_at": "2026-09-21T07:36:25.390437+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/registry/0.log.txt",
+      "sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe",
+      "elapsed_seconds": 0.07
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-c",
+        "from pathlib import Path; import scripts.build_registry as r; r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())",
+        "check"
+      ],
+      "started_at": "2026-09-21T07:36:25.464572+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/registry/1.log.txt",
+      "sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a",
+      "elapsed_seconds": 0.13
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-c",
+        "from pathlib import Path; import scripts.build_registry as r; r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())",
+        "backfill-tables",
+        "--check"
+      ],
+      "started_at": "2026-09-21T07:36:25.597046+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/registry/2.log.txt",
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+      "elapsed_seconds": 0.07
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-c",
+        "from pathlib import Path; import scripts.build_registry as r; r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())",
+        "generate-views",
+        "--check"
+      ],
+      "started_at": "2026-09-21T07:36:25.667834+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/registry/3.log.txt",
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+      "elapsed_seconds": 0.08
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "started_at": "2026-09-21T07:36:25.745024+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/registry/4.log.txt",
+      "sha256": "0d47aa66a6016ddbe7d90e780b62db3288c70560e928f01af39df0d1a7c8265a",
+      "elapsed_seconds": 0.18
+    }
+  ],
+  "complete": true,
+  "after": {
+    "revision": "2137345daa44daefa0d029ba4c2de89e0f725b2a",
+    "tree_object": "92fc96bc656d106c13586550e87e5f23248f2909",
+    "status": ""
+  },
+  "source_unchanged": true,
+  "finished_at": "2026-09-21T07:36:26.111270+00:00",
+  "exit_code": 0
+}

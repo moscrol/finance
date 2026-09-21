@@ -1,0 +1,62 @@
+"""Finish verifying the existing archive sequentially, no overwrite or model/test rerun."""
+from datetime import datetime
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import tarfile
+
+ROOT = Path(__file__).resolve().parent
+manifest = ROOT / 'python/pytest-temp-preserved-manifest.json'
+record = json.loads(manifest.read_text())
+source = Path(record['source'])
+assert source == ROOT / 'python/tmp' and source.is_dir() and not source.is_symlink()
+assert record['state'] == 'INVENTORIED'
+archive = source.parent / 'pytest-temp-preserved.tar.gz'
+expected = {'tmp/' + x['path']: x for x in record['files']}
+verified = {}
+
+
+def digest_stream(stream):
+    sha = hashlib.sha256()
+    for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+        sha.update(chunk)
+    return sha.hexdigest()
+
+
+with tarfile.open(archive, 'r|gz') as tar:
+    for item in tar:
+        if item.name == 'tmp':
+            assert item.isdir()
+            continue
+        row = expected[item.name]
+        assert item.mode == row['mode']
+        if row['type'] == 'file':
+            if item.islnk():
+                value = verified[item.linkname]
+            else:
+                assert item.isfile() and item.size == row['bytes']
+                with tar.extractfile(item) as stream:
+                    value = digest_stream(stream)
+            assert value == row['sha256'], item.name
+            verified[item.name] = value
+        elif row['type'] == 'symlink':
+            assert item.issym() and item.linkname == row['target']
+            verified[item.name] = row['target']
+        else:
+            assert item.isdir()
+            verified[item.name] = 'directory'
+assert set(verified) == set(expected)
+with archive.open('rb') as stream:
+    record['archive_sha256'] = digest_stream(stream)
+record.update(state='VERIFIED', archive_bytes=archive.stat().st_size,
+              note='Initial archive command hit its 240s tool timeout during indexed verification. Existing archive kept; all members verified in a new sequential read, no recompression.')
+manifest.write_text(json.dumps(record, ensure_ascii=False) + '\n')
+proc = subprocess.run(['lsof', '-nP', '+D', str(source)], capture_output=True, text=True, timeout=90)
+assert proc.returncode == 1 and not proc.stdout.strip()
+shutil.rmtree(source)
+record.update(state='ARCHIVED_AND_TEMP_RECLAIMED', free_after=shutil.disk_usage(archive).free,
+              finished_at=datetime.now().astimezone().isoformat())
+manifest.write_text(json.dumps(record, ensure_ascii=False) + '\n')
+print(json.dumps({k: v for k, v in record.items() if k != 'files'}, ensure_ascii=False))
