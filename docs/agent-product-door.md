@@ -106,7 +106,11 @@ P1a 前置切片已接子研究独立日志、父子双向引用及整棵运行�
 本机单写者控制已接到 ContinuousAgentEpisode 的 run/manual_drive、同进程 resume 和
 restore 入口：JSONL 按 episode 持有非阻塞 POSIX flock，Memory 按对象/episode 互斥；
 恢复在 load 前取得所有权，活驱动即使暂停也拒绝第二个控制者。锁随正常返回/异常/显式
-drive.close 或进程退出释放，不按时间抢占，不删锁文件；不同 episode 与只读诊断互不阻塞。
+drive.close 或进程退出释放，不按时间抢占，不删锁文件；不同运行器的不同 episode 与
+只读诊断互不阻塞。同一运行器实例的 run/manual_drive/resume 另共用非阻塞控制锁，
+即使 task_id 不同也拒并发，防共享收件箱与取消信号串线；顺序复用仍允许。
+单步驱动的 step/close 也互斥，执行中的竞争抛 EpisodeWriterBusy，不把活驱动标成结束；
+调用方须等当前 step 返回后再 close，不能把 close 当在飞模型调用的取消/排空接口。
 新 run 拒绝已有日志/检查点，同进程修订核对存储/任务身份，重新取锁并核对原日志与
 检查点，过期续修对象拒写。释放前关闭旧收件箱并等待正在投递的消息落账；异常关闭
 不伪造未决消息已处理/丢弃。正常完成保留已关闭收件箱的查询与迟到拒收行为。

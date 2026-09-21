@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Generator, Mapping, Sequence
+from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 import hashlib
 import json
 import os
 import re
-from threading import RLock
+from threading import Lock, RLock
 from time import monotonic
 
 from intelligence.services.agent_research import AgentEvidence
@@ -114,6 +115,7 @@ from intelligence.services.episode_store import (
     EpisodePhase,
     EpisodeState,
     EpisodeStore,
+    EpisodeWriterBusy,
     FencedEpisodeStore,
     episode_writer,
     now_iso,
@@ -1124,28 +1126,39 @@ class EpisodeDrive:
         self.outcome: AgentOutcome | None = None
         self.finished = False
         self.steps: list[StepPoint] = []
+        self._operation_lock = Lock()
 
     def step(self) -> StepPoint | None:
-        if self.finished:
-            return None
+        if not self._operation_lock.acquire(blocking=False):
+            raise EpisodeWriterBusy("episode drive operation is active")
         try:
-            point = next(self._generator)
-        except StopIteration as stop:
-            self.outcome = stop.value
-            self.finished = True
-            return None
-        except BaseException:
-            self.finished = True
-            raise
-        self.steps.append(point)
-        return point
+            if self.finished:
+                return None
+            try:
+                point = next(self._generator)
+            except StopIteration as stop:
+                self.outcome = stop.value
+                self.finished = True
+                return None
+            except BaseException:
+                self.finished = True
+                raise
+            self.steps.append(point)
+            return point
+        finally:
+            self._operation_lock.release()
 
     def close(self) -> None:
-        """Abandon a paused drive and release ownership, without inventing a finish."""
+        """Abandon a paused drive; an executing step must finish before closing."""
+        if not self._operation_lock.acquire(blocking=False):
+            raise EpisodeWriterBusy("episode drive operation is active")
         try:
-            self._generator.close()
+            try:
+                self._generator.close()
+            finally:
+                self.finished = True
         finally:
-            self.finished = True
+            self._operation_lock.release()
 
     def run_until(self, phase: str) -> StepPoint | None:
         """跑到下一个 ``phase`` 步点；先到终态就回 ``None``。"""
@@ -1225,6 +1238,18 @@ class ContinuousAgentEpisode:
         # P3：当前在跑的 episode 的收件箱（INV-R5）。``steer()`` 从这里递话；run() 进门时换新。
         # 没在跑时是 None——递话方拿到 ``no_active_episode`` 回执，不是异常。
         self._active_inbox: Inbox | None = None
+        # The inbox and cancellation signal belong to this runner, not a task ID.
+        self._control_lock = Lock()
+
+    @contextmanager
+    def _control_writer(self, episode_id: str) -> Iterator[None]:
+        if not self._control_lock.acquire(blocking=False):
+            raise EpisodeWriterBusy("episode runner already controls a task")
+        try:
+            with episode_writer(self._store, episode_id):
+                yield
+        finally:
+            self._control_lock.release()
 
     # ── 收件箱：外部输入的唯一入口（INV-R5）───────────────────────────────
 
@@ -1353,7 +1378,7 @@ class ContinuousAgentEpisode:
         _continuation_sink: list[_EpisodeContinuationState] | None = None,
     ) -> Generator[StepPoint, None, AgentOutcome]:
         episode_id = context.contract.task_id.strip()
-        with episode_writer(self._store, episode_id):
+        with self._control_writer(episode_id):
             if self._store is not None:
                 events, state = self._store.load(episode_id)
                 if events or state is not None:
@@ -2444,7 +2469,7 @@ class ContinuousAgentEpisode:
                 or goal.episode_id != episode_id
                 or previous.task_frame_hash != state.task_frame.task_frame_hash):
             raise RestoreUnavailable("repair continuation owner or task identity mismatch")
-        with episode_writer(self._store, episode_id):
+        with self._control_writer(episode_id):
             if self._store is not None:
                 events, checkpoint = self._store.load(state.ledger.episode_id)
                 if events != tuple(state.ledger.events) or checkpoint != state.ledger.state:

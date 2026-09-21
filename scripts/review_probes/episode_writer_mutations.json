@@ -16,7 +16,7 @@
   {
     "id": "drive_bypasses_writer",
     "path": "intelligence/runtime/agent_episode.py",
-    "old": "        episode_id = context.contract.task_id.strip()\n        with episode_writer(self._store, episode_id):",
+    "old": "        episode_id = context.contract.task_id.strip()\n        with self._control_writer(episode_id):",
     "new": "        episode_id = context.contract.task_id.strip()\n        with episode_writer(None, episode_id):",
     "targets": ["test_killing_real_drive_releases_lock_but_keeps_unexecuted_intent"]
   },
@@ -30,7 +30,7 @@
   {
     "id": "repair_bypasses_writer",
     "path": "intelligence/runtime/agent_episode.py",
-    "old": "        with episode_writer(self._store, episode_id):\n            if self._store is not None:\n                events, checkpoint",
+    "old": "        with self._control_writer(episode_id):\n            if self._store is not None:\n                events, checkpoint",
     "new": "        with episode_writer(None, episode_id):\n            if self._store is not None:\n                events, checkpoint",
     "targets": ["test_repair_owns_entire_operation_and_releases_on_exception"]
   },
