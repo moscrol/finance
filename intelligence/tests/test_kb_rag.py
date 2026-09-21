@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -663,6 +665,9 @@ class KbRagPythonResolutionTests(unittest.TestCase):
 
 
 class KbRagCliProbeTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.enterContext(mock.patch.dict("os.environ", {}, clear=True))
+
     def test_accepts_legacy_cli_when_required_options_exist(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -685,6 +690,153 @@ class KbRagCliProbeTests(unittest.TestCase):
             self.assertEqual(probe.missing_required_options, ())
             self.assertIn("--evidence-chars", probe.missing_optional_options)
             self.assertIn("legacy", probe.warning)
+            self.assertEqual(probe.failure_kind, "")
+            self.assertEqual(probe.timeout_seconds, 5.0)
+            self.assertIsNotNone(probe.elapsed_ms)
+
+    def test_timeout_returns_bounded_diagnostic_without_exception_text(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            wiki = root / "wiki"
+            script = root / kb_rag.RAG_SCRIPT_REL
+            wiki.mkdir()
+            script.parent.mkdir()
+            script.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+            timeout = subprocess.TimeoutExpired(
+                ["rag_index.py", "query", "--help"],
+                timeout=2,
+                output="secret-output",
+                stderr="secret-stderr",
+            )
+
+            with (
+                mock.patch("subprocess.run", side_effect=timeout) as run,
+                mock.patch.object(kb_rag, "time") as clock,
+            ):
+                clock.monotonic.side_effect = [10.0, 12.25]
+                probe = kb_rag.probe_rag_cli(wiki, timeout=2)
+
+            run.assert_called_once()
+            self.assertEqual(run.call_args.kwargs["timeout"], 2)
+            self.assertFalse(probe.available)
+            self.assertFalse(probe.query_protocol_compatible)
+            self.assertEqual(probe.failure_kind, "timeout")
+            self.assertEqual(probe.timeout_seconds, 2.0)
+            self.assertEqual(probe.elapsed_ms, 2250)
+            self.assertNotIn("secret", json.dumps(probe.to_dict()))
+            self.assertEqual(probe.to_dict()["failure_kind"], "timeout")
+
+    def test_os_failure_returns_safe_failure_kind(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            wiki = root / "wiki"
+            script = root / kb_rag.RAG_SCRIPT_REL
+            wiki.mkdir()
+            script.parent.mkdir()
+            script.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+
+            with mock.patch(
+                "subprocess.run",
+                side_effect=OSError("secret executable path"),
+            ):
+                probe = kb_rag.probe_rag_cli(wiki)
+
+            self.assertFalse(probe.available)
+            self.assertFalse(probe.query_protocol_compatible)
+            self.assertEqual(probe.failure_kind, "os_error")
+            self.assertNotIn("secret", json.dumps(probe.to_dict()))
+            self.assertIsNotNone(probe.elapsed_ms)
+
+    def test_execution_error_and_nonzero_exit_do_not_leak_or_retry(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            script = Path(td) / kb_rag.RAG_SCRIPT_REL
+            script.parent.mkdir()
+            script.write_text("# fixture\n", encoding="utf-8")
+            cases = [
+                (ValueError("secret-error"), "execution_error"),
+                (mock.Mock(returncode=7, stdout="secret-out", stderr="secret-err"),
+                 "nonzero_exit"),
+            ]
+            for result, kind in cases:
+                with self.subTest(kind=kind), mock.patch("subprocess.run") as run:
+                    if isinstance(result, Exception):
+                        run.side_effect = result
+                    else:
+                        run.return_value = result
+                    probe = kb_rag.probe_rag_cli(Path(td) / "wiki")
+                    run.assert_called_once()
+                    self.assertEqual(run.call_args.kwargs["timeout"], 5)
+                    self.assertFalse(probe.available)
+                    self.assertFalse(probe.query_protocol_compatible)
+                    self.assertEqual(probe.failure_kind, kind)
+                    self.assertNotIn("secret", json.dumps(probe.to_dict()))
+
+    def test_configuration_failures_do_not_launch_process(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            with mock.patch("subprocess.run") as run:
+                missing_config = kb_rag.probe_rag_cli(None)
+                missing_script = kb_rag.probe_rag_cli(Path(td) / "wiki")
+            run.assert_not_called()
+            for probe, kind in (
+                (missing_config, "configuration"),
+                (missing_script, "missing_script"),
+            ):
+                self.assertFalse(probe.available)
+                self.assertFalse(probe.query_protocol_compatible)
+                self.assertEqual(probe.failure_kind, kind)
+                self.assertEqual(probe.timeout_seconds, 5.0)
+                self.assertIsNotNone(probe.elapsed_ms)
+
+    def test_success_is_not_cached_over_next_timeout(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            script = Path(td) / kb_rag.RAG_SCRIPT_REL
+            script.parent.mkdir()
+            script.write_text("# fixture\n", encoding="utf-8")
+            help_text = " ".join((*kb_rag.REQUIRED_QUERY_OPTIONS, *kb_rag.OPTIONAL_QUERY_OPTIONS))
+            success = mock.Mock(returncode=0, stdout=help_text, stderr="secret-ignored")
+            timeout = subprocess.TimeoutExpired("help", 5)
+            with (
+                mock.patch("subprocess.run", side_effect=[success, timeout]) as run,
+                mock.patch.object(kb_rag, "time") as clock,
+            ):
+                clock.monotonic.side_effect = [10.0, 10.125, 20.0, 25.25]
+                first = kb_rag.probe_rag_cli(Path(td) / "wiki")
+                second = kb_rag.probe_rag_cli(Path(td) / "wiki")
+            self.assertEqual(run.call_count, 2)
+            self.assertTrue(first.query_protocol_compatible)
+            self.assertEqual(first.elapsed_ms, 125)
+            self.assertEqual(first.warning, "")
+            self.assertEqual(first.failure_kind, "")
+            self.assertNotIn("secret", json.dumps(first.to_dict()))
+            self.assertFalse(second.query_protocol_compatible)
+            self.assertEqual(second.failure_kind, "timeout")
+            self.assertEqual(second.elapsed_ms, 5250)
+
+    def test_real_timeout_kills_and_reaps_only_the_probe_child(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            script = Path(td) / kb_rag.RAG_SCRIPT_REL
+            script.parent.mkdir()
+            script.write_text("import time\ntime.sleep(10)\n", encoding="utf-8")
+            children = []
+            original_popen = subprocess.Popen
+
+            def record_child(*args, **kwargs):
+                process = original_popen(*args, **kwargs)
+                children.append(process)
+                return process
+
+            with (
+                mock.patch.dict("os.environ", {"KB_RAG_PYTHON": sys.executable}),
+                mock.patch("subprocess.Popen", side_effect=record_child),
+            ):
+                probe = kb_rag.probe_rag_cli(Path(td) / "wiki", timeout=1)
+            self.assertEqual(len(children), 1)
+            self.assertIsNotNone(children[0].returncode)
+            self.assertFalse(probe.available)
+            self.assertFalse(probe.query_protocol_compatible)
+            self.assertEqual(probe.failure_kind, "timeout")
+            self.assertEqual(probe.timeout_seconds, 1.0)
+            self.assertGreaterEqual(probe.elapsed_ms, 1000)
 
     def test_rejects_cli_missing_required_query_options(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -706,6 +858,7 @@ class KbRagCliProbeTests(unittest.TestCase):
             self.assertTrue(probe.available)
             self.assertFalse(probe.query_protocol_compatible)
             self.assertEqual(probe.missing_required_options, ("--json",))
+            self.assertEqual(probe.failure_kind, "protocol_incompatible")
             self.assertIn("必要", probe.warning)
 
 

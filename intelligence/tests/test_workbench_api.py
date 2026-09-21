@@ -2211,6 +2211,9 @@ def test_readiness_fails_when_rag_query_protocol_is_incompatible(
             supported_options=("--k", "--mode"),
             missing_required_options=("--json",),
             warning="RAG CLI 缺少必要 query 参数",
+            elapsed_ms=12,
+            timeout_seconds=5.0,
+            failure_kind="protocol_incompatible",
         ),
     )
 
@@ -2223,6 +2226,38 @@ def test_readiness_fails_when_rag_query_protocol_is_incompatible(
     assert payload["checks"]["rag_query_protocol"] is False
     assert payload["missing_critical"] == ["rag_query_protocol"]
     assert payload["rag"]["missing_required_options"] == ["--json"]
+    assert payload["rag"]["elapsed_ms"] == 12
+    assert payload["rag"]["timeout_seconds"] == 5.0
+    assert payload["rag"]["failure_kind"] == "protocol_incompatible"
+
+
+@pytest.mark.parametrize("endpoint", ["/api/readiness", "/api/health/ready"])
+def test_readiness_exposes_safe_real_probe_timeout(client, monkeypatch, endpoint) -> None:
+    run = app_module.kb_rag.subprocess.run
+    probe_calls = []
+
+    def fail_help(cmd, **kwargs):
+        if cmd[-2:] == ["query", "--help"]:
+            probe_calls.append(kwargs["timeout"])
+            raise app_module.kb_rag.subprocess.TimeoutExpired(
+                cmd, kwargs["timeout"], output="secret-out", stderr="secret-err"
+            )
+        return run(cmd, **kwargs)
+
+    monkeypatch.setattr(app_module.kb_rag.subprocess, "run", fail_help)
+    response = client.get(endpoint)
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["missing_critical"] == ["rag_query_protocol"]
+    assert payload["rag"]["failure_kind"] == "timeout"
+    assert payload["rag"]["timeout_seconds"] == 5.0
+    assert isinstance(payload["rag"]["elapsed_ms"], int)
+    assert payload["rag"]["elapsed_ms"] >= 0
+    assert payload["rag"]["supported_options"] == []
+    assert payload["rag"]["available"] is False
+    assert "secret" not in response.text
+    assert probe_calls == [5]
 
 
 def test_cancel_run_is_terminal_even_when_worker_finishes_later(

@@ -515,6 +515,9 @@ class RagCliProbe:
     missing_required_options: tuple[str, ...] = ()
     missing_optional_options: tuple[str, ...] = ()
     warning: str = ""
+    elapsed_ms: int | None = None
+    timeout_seconds: float | None = None
+    failure_kind: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -524,6 +527,9 @@ class RagCliProbe:
             "missing_required_options": list(self.missing_required_options),
             "missing_optional_options": list(self.missing_optional_options),
             "warning": self.warning,
+            "elapsed_ms": self.elapsed_ms,
+            "timeout_seconds": self.timeout_seconds,
+            "failure_kind": self.failure_kind,
         }
 
 
@@ -689,20 +695,30 @@ def probe_rag_cli(
     *,
     timeout: int = 5,
 ) -> RagCliProbe:
-    if not kb_wiki:
+    started = time.monotonic()
+    timeout_seconds = float(timeout)
+
+    def failed(
+        warning: str,
+        *,
+        failure_kind: str,
+    ) -> RagCliProbe:
+        # 只返回固定分类和计时；不要把 stderr/异常文本带入 readiness 响应。
         return RagCliProbe(
             available=False,
             query_protocol_compatible=False,
-            warning="未配置知识库 wiki 路径",
+            warning=warning,
+            elapsed_ms=max(0, int((time.monotonic() - started) * 1000)),
+            timeout_seconds=timeout_seconds,
+            failure_kind=failure_kind,
         )
+
+    if not kb_wiki:
+        return failed("未配置知识库 wiki 路径", failure_kind="configuration")
     root = _resolve_code_root(kb_root(kb_wiki))
     script = root / RAG_SCRIPT_REL
     if not script.is_file():
-        return RagCliProbe(
-            available=False,
-            query_protocol_compatible=False,
-            warning="RAG CLI 脚本不存在",
-        )
+        return failed("RAG CLI 脚本不存在", failure_kind="missing_script")
     try:
         proc = subprocess.run(
             [_resolve_rag_python(root), str(script), "query", "--help"],
@@ -712,22 +728,15 @@ def probe_rag_cli(
             cwd=str(root),
         )
     except subprocess.TimeoutExpired:
-        return RagCliProbe(
-            available=False,
-            query_protocol_compatible=False,
-            warning="RAG CLI 能力探测超时",
-        )
+        return failed("RAG CLI 能力探测超时", failure_kind="timeout")
+    except OSError:
+        return failed("RAG CLI 能力探测失败", failure_kind="os_error")
     except Exception:
-        return RagCliProbe(
-            available=False,
-            query_protocol_compatible=False,
-            warning="RAG CLI 能力探测失败",
-        )
+        return failed("RAG CLI 能力探测失败", failure_kind="execution_error")
     if proc.returncode != 0:
-        return RagCliProbe(
-            available=False,
-            query_protocol_compatible=False,
-            warning=f"RAG CLI 能力探测退出码 {proc.returncode}",
+        return failed(
+            f"RAG CLI 能力探测退出码 {proc.returncode}",
+            failure_kind="nonzero_exit",
         )
     help_text = f"{proc.stdout}\n{proc.stderr}"
     known_options = (*REQUIRED_QUERY_OPTIONS, *OPTIONAL_QUERY_OPTIONS)
@@ -750,6 +759,9 @@ def probe_rag_cli(
         missing_required_options=missing_required,
         missing_optional_options=missing_optional,
         warning=warning,
+        elapsed_ms=max(0, int((time.monotonic() - started) * 1000)),
+        timeout_seconds=timeout_seconds,
+        failure_kind="protocol_incompatible" if missing_required else "",
     )
 
 

@@ -475,6 +475,16 @@ worker 的资料根按调用参数传递且纳入进程复用键，不继承无�
 跨仓合同见 `docs/handoffs/2026-09-18-kb-filter-receipt.md`；金融 #784 / KB #151 已合入，
 合并验收与生产边界见 `docs/handoffs/2026-09-18-kb-retrieval-merge-acceptance.md`。部署与索引迁移另行。
 
+### RAG 能力探针诊断
+
+`/api/readiness` 与 `/api/health/ready` 的 `rag` 对象增加 `elapsed_ms`、
+`timeout_seconds`、`failure_kind`：记录整次探针单调时钟耗时、传给 subprocess 的超时预算、
+固定失败分类。耗时含路径检查和子进程回收，不是 CPU/导入耗时，也不是严格的端到端截止时间；
+未测量的手工构造收据保留 null。`os_error` 不进一步断言是启动还是通信失败。
+默认仍执行一次 `query --help`、预算 5 秒，无重试或成功缓存；失败仍非 ready，
+不公开 stderr、命令路径或异常原文。legacy 缺可选参数不作为失败。
+这些字段不能证明真实检索成功，也不能倒推出历史间歇超时根因；候选代码尚未部署。
+
 ## 积木（常见误判）
 
 这些可以很深，但**调用方不是人，是引擎**：
