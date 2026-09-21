@@ -119,6 +119,14 @@ from intelligence.services.research_contract import (
     derive_stage_caps,
     policy_for_env,
 )
+from intelligence.services.research_requirement_review import (
+    REQUIREMENT_CHECK_RULE,
+    REQUIREMENT_CHECK_SCHEMA,
+    invalidate_rejected_requirement_witnesses,
+    reconcile_requirement_checks,
+    requirement_gap_id,
+    requirement_review_rows,
+)
 from intelligence.services.task_frame import TaskFrame, last_explicit_iso_date
 from intelligence.services.task_fulfillment import answer_has_output_marker
 from intelligence.services.tool_result_budget import MAX_EVIDENCE_TITLE_CHARS
@@ -474,6 +482,14 @@ def _judge_report_tools(request: Mapping[str, object]) -> list[dict]:
         output_schema["items"]["properties"]["output_id"]["enum"] = [row["output_id"] for row in request["material_outputs"]]
         schema["properties"]["material_output_checks"] = output_schema
         schema["required"].append("material_output_checks")
+    if request.get("requirement_review"):
+        schema = tools[0]["function"]["parameters"]
+        requirement_schema = deepcopy(REQUIREMENT_CHECK_SCHEMA)
+        rows = request["requirement_review"]
+        requirement_schema["minItems"] = requirement_schema["maxItems"] = len(rows)
+        requirement_schema["items"]["properties"]["question_id"]["enum"] = [row["question_id"] for row in rows]
+        schema["properties"]["requirement_checks"] = requirement_schema
+        schema["required"].append("requirement_checks")
     return tools
 
 
@@ -641,6 +657,7 @@ class SemanticEpisodeOutcome:
     material_output_checks: tuple[dict[str, object], ...] = ()
     material_nonfactual_checks: tuple[dict[str, object], ...] = ()
     material_review_calls: tuple[dict[str, object], ...] = ()
+    requirement_checks: tuple[dict[str, object], ...] = ()
     # V11 判官引导回检索的账（设计 §7.1 的 v11_* 字段由 to_dict 平铺）。
     guided_retrieval: GuidedRetrievalTelemetry = field(
         default_factory=lambda: GuidedRetrievalTelemetry()
@@ -751,6 +768,8 @@ class SemanticEpisodeOutcome:
             payload["material_nonfactual_checks"] = [dict(row) for row in self.material_nonfactual_checks]
         if self.material_review_calls:
             payload["material_review_calls"] = [dict(row) for row in self.material_review_calls]
+        if self.requirement_checks:
+            payload["requirement_checks"] = [dict(row) for row in self.requirement_checks]
         if self.judge_request is not None:
             payload["judge_request"] = self.judge_request
         if self.premise_calculation_review is not None:
@@ -836,6 +855,63 @@ def recheck_material_public_delivery(
         status="partial" if outcome.status == "completed" and not _contract_slots_all_fulfilled(verified) else outcome.status,
         repair_output_ids=tuple(dict.fromkeys((*outcome.repair_output_ids, *missing))),
         issues=tuple(dict.fromkeys((*outcome.issues, *verified.issues))),
+    )
+
+
+def recheck_research_requirement_delivery(
+    outcome: SemanticEpisodeOutcome, *, projected: str | None = None,
+) -> SemanticEpisodeOutcome:
+    """Completion witnesses apply to the delivered text, never a previous draft."""
+    requirements = requirement_review_rows(outcome.verified.contract)
+    if not requirements:
+        return outcome
+    public = outcome.public_answer if projected is None else projected
+    checks = []
+    missing = []
+    by_id = {row["question_id"]: row for row in outcome.requirement_checks}
+    delivered_sentences = set(claim_sentences(public))
+    for requirement in requirements:
+        qid = requirement["question_id"]
+        check = by_id.get(qid)
+        if check is None:
+            missing.append(requirement_gap_id(qid))
+            continue
+        parts = []
+        for part in check["parts"]:
+            lost = any(row["text"] not in delivered_sentences for row in part["answer_sentences"])
+            if lost and part["status"] == "fulfilled":
+                part = {**part, "status": "partial", "missing_aspects": ["原完成回执引用的回答未完整保留在公开稿中。"]}
+            parts.append(part)
+        checks.append({**check, "parts": parts})
+        if any(part["status"] != "fulfilled" for part in parts):
+            missing.append(requirement_gap_id(qid))
+    if not missing:
+        return replace(
+            outcome, requirement_checks=tuple(checks),
+            public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),
+        )
+    verified = outcome.verified
+    # No receipt is an unchecked review, not permission to spend a writer repair.
+    repairable = bool(outcome.requirement_checks) and outcome.judge_status != "unavailable"
+    repair_ids = tuple(missing) if repairable else ()
+    verified = replace(
+        verified,
+        verified_status="failed" if verified.verified_status == "failed" else "partial",
+        missing_outputs=tuple(dict.fromkeys((*verified.missing_outputs, *repair_ids))),
+        completion=replace(verified.completion, status="partial", task_coverage="partial", business_status="partial"),
+    )
+    notice = (
+        "本轮尚未逐项完成原要求，已保留可交付内容，未完成部分需继续核验。"
+        if repairable else "本轮未完成原要求的逐项核验，以下内容不代表已全部答齐。"
+    )
+    if notice not in public:
+        public = "\n\n".join(part for part in (public, notice) if part)
+    return replace(
+        outcome, verified=verified, status="partial" if outcome.status == "completed" else outcome.status,
+        public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),
+        requirement_checks=tuple(checks),
+        repair_output_ids=tuple(dict.fromkeys((*outcome.repair_output_ids, *repair_ids))),
+        issues=tuple(dict.fromkeys((*outcome.issues, *(f"requirement_incomplete:{key}" for key in missing)))),
     )
 
 
@@ -1172,7 +1248,10 @@ class SemanticEpisodeVerifier:
             if call.report is not None:
                 outcome = replace(outcome, material_claim_checks=call.report.material_claim_checks,
                                   material_output_checks=call.report.material_output_checks,
-                                  material_nonfactual_checks=call.report.material_nonfactual_checks)
+                                  material_nonfactual_checks=call.report.material_nonfactual_checks,
+                                  requirement_checks=invalidate_rejected_requirement_witnesses(
+                                      call.report.requirement_checks, call.report.rejected_sentence_indexes,
+                                  ))
             outcome = _attach_judge_clock(outcome, call)
         return recheck_material_public_delivery(self._project_semantic_quality_marks(outcome))
 
@@ -1374,6 +1453,7 @@ class SemanticEpisodeVerifier:
                 )
             elif public != outcome.public_answer:
                 outcome = replace(outcome, public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)))
+        outcome = recheck_research_requirement_delivery(outcome)
         # #55：模式与 census 计数在唯一出口盖章——内层十几条提前返回路径不用各写一遍。
         # llm 模式下两个值都是默认值，dataclass 相等性与历史夹具不受影响。
         outcome = replace(
@@ -2584,6 +2664,9 @@ class SemanticEpisodeVerifier:
                 {"question_id": q.question_id, "text": q.text}
                 for q in frame.material_contract.questions
             ]
+        requirements = requirement_review_rows(contract)
+        if requirements:
+            payload["requirement_review"] = requirements
         if parse_ranking_intent(frame.raw_question, frame.question_type):
             # 生产方（排序契约）要模型填 1..N 的优先级，检查方（判官）得知道那一列是研判。
             # 非排序题不加键，送判载荷逐字节不变。
@@ -2881,7 +2964,7 @@ class SemanticEpisodeVerifier:
                         ),
                         monotonic_release_safe=prior_failures_release_safe,
                     )
-                report = self._parse_report(content, len(request["sentences"]), material_claims=request.get("material_claims"), material_outputs=request.get("material_outputs"))
+                report = self._parse_report(content, len(request["sentences"]), material_claims=request.get("material_claims"), material_outputs=request.get("material_outputs"), requirement_review=request.get("requirement_review"), sentences=request["sentences"])
                 if report is not None:
                     return self._clocked_judge_call(
                         asked=attempt_timeout,
@@ -3071,6 +3154,7 @@ class SemanticEpisodeVerifier:
                     turn,
                     len(request["sentences"]),
                     material_claims=request.get("material_claims"), material_outputs=request.get("material_outputs"),
+                    requirement_review=request.get("requirement_review"), sentences=request["sentences"],
                 )
                 if report is None:
                     return self._clocked_judge_call(
@@ -3090,7 +3174,7 @@ class SemanticEpisodeVerifier:
                     report=report,
                     monotonic_release_safe=prior_failures_release_safe,
                 )
-            report = self._parse_report(turn.content, len(request["sentences"]), material_claims=request.get("material_claims"), material_outputs=request.get("material_outputs"))
+            report = self._parse_report(turn.content, len(request["sentences"]), material_claims=request.get("material_claims"), material_outputs=request.get("material_outputs"), requirement_review=request.get("requirement_review"), sentences=request["sentences"])
             if report is None:
                 return self._clocked_judge_call(
                     asked=attempt_timeout,
@@ -3123,6 +3207,8 @@ class SemanticEpisodeVerifier:
         sentence_count: int,
         *, material_claims: list[dict[str, object]] | None = None,
         material_outputs: list[dict[str, object]] | None = None,
+        requirement_review: list[dict[str, object]] | None = None,
+        sentences: list[dict[str, object]] | None = None,
     ) -> answer_model.GroundingJudgeReport | None:
         if len(turn.tool_calls) != 1:
             return None
@@ -3133,6 +3219,7 @@ class SemanticEpisodeVerifier:
             call.to_dict()["arguments"],
             sentence_count,
             material_claims=material_claims, material_outputs=material_outputs,
+            requirement_review=requirement_review, sentences=sentences,
         )
 
     @staticmethod
@@ -3168,6 +3255,7 @@ class SemanticEpisodeVerifier:
             value,
             len(cast(list[object], request["sentences"])),
             material_claims=request.get("material_claims"), material_outputs=request.get("material_outputs"),
+            requirement_review=request.get("requirement_review"), sentences=request["sentences"],
         )
         if report is None:
             return _JudgeCall(
@@ -3197,10 +3285,12 @@ class SemanticEpisodeVerifier:
         sentence_count: int,
         *, material_claims: list[dict[str, object]] | None = None,
         material_outputs: list[dict[str, object]] | None = None,
+        requirement_review: list[dict[str, object]] | None = None,
+        sentences: list[dict[str, object]] | None = None,
     ) -> answer_model.GroundingJudgeReport | None:
         try:
             if isinstance(value, answer_model.GroundingJudgeReport):
-                if material_claims or material_outputs:
+                if material_claims or material_outputs or requirement_review:
                     return None
                 if not isinstance(value.passed, bool):
                     return None
@@ -3250,6 +3340,8 @@ class SemanticEpisodeVerifier:
                 required_keys.add("material_claim_checks")
             if material_outputs:
                 required_keys.add("material_output_checks")
+            if requirement_review:
+                required_keys.add("requirement_checks")
             keys = set(payload)
             if not required_keys <= keys <= required_keys | _JUDGE_REPORT_OPTIONAL_KEYS:
                 return None
@@ -3271,6 +3363,12 @@ class SemanticEpisodeVerifier:
                 return None
             output_checks = reconcile_output_checks(payload, material_outputs) if material_outputs else ()
             if output_checks is None:
+                return None
+            requirement_checks = (
+                reconcile_requirement_checks(payload, requirement_review, sentences or [])
+                if requirement_review else ()
+            )
+            if requirement_checks is None:
                 return None
             checks = ()
             if material_claims:
@@ -3303,7 +3401,10 @@ class SemanticEpisodeVerifier:
             if not material_claims and not material_outputs:
                 report = _reconcile_issue_sentence_indexes(report, sentence_count)
             return replace(report, passed=report.passed and not incomplete, material_claim_checks=checks,
-                           material_output_checks=output_checks)
+                           material_output_checks=output_checks,
+                           requirement_checks=invalidate_rejected_requirement_witnesses(
+                               requirement_checks, report.rejected_sentence_indexes,
+                           ))
         except Exception:
             return None
 
@@ -5968,6 +6069,8 @@ def _judge_system_prompt(request: Mapping[str, object]) -> str:
         prompt += CLAIM_CHECK_RULE
     if request.get("material_outputs"):
         prompt += OUTPUT_CHECK_RULE
+    if request.get("requirement_review"):
+        prompt += REQUIREMENT_CHECK_RULE
     if request.get("material_delivery"):
         prompt += (
             " 本轮另有 material_delivery：question_states 中 legal_gap 仅为结构候选，"
@@ -6010,6 +6113,7 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
                     "material_outputs",
                     "nonfactual_review",
                     "explicit_requirements",
+                    "requirement_review",
                 )
                 if key in request
             },
@@ -6020,6 +6124,7 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             "question",
             "required_outputs",
             "explicit_requirements",
+            "requirement_review",
             "answer_grounding_mode",
             "output_bindings",
             "evidence_registry",

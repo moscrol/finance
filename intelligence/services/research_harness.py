@@ -88,6 +88,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping, Set
 from dataclasses import dataclass, replace
 import json
+import re
 from typing import Literal, Protocol, runtime_checkable
 
 from intelligence.services.agent_research import AgentEvidence
@@ -1087,7 +1088,10 @@ class FinanceResearchHarness:
             for item in goal.missing_answer_elements
             if item in RANKING_CONTRACT_OUTPUT_ID_SET
         )
-        expression_slots = (*track_slots, *ranking_slots)
+        requirement_slots = tuple(
+            item for item in goal.missing_answer_elements if re.fullmatch(r"requirement_q\d+", item)
+        )
+        expression_slots = (*track_slots, *ranking_slots, *requirement_slots)
         if expression_slots:
             hints: list[str] = []
             if track_slots:
@@ -1097,6 +1101,13 @@ class FinanceResearchHarness:
                 )
             if ranking_slots:
                 hints.append(ranking_expression_slot_note(ranking_slots))
+            if requirement_slots:
+                hints.append("requirement_qN 对应原要求qN；按随附缺项说明修订，保留对象集合、数量与逐项分支，不得以模板替代")
+                if not tools_open:
+                    payload["requirement_repair_rule"] = (
+                        "不得为补齐清单编造事实、公司或数值阈值，也不得把自设阈值当成已验证规律；"
+                        "证据不足可保留定性条件并说明缺口，不要求凑数。"
+                    )
             payload["expression_elements_note"] = (
                 "以下缺件是正文表达要求，写进 draft 即可，不要作为 bindings 的 output_id："
                 + "、".join(expression_slots)

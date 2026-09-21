@@ -573,6 +573,7 @@ class GroundingJudgeReport:
     # 每条拒句的理由码（可选）。只含 ``rejected_sentence_indexes`` 里的句号与
     # ``JUDGE_REASON_CODES`` 里的码；旧判官不回该字段时为空，行为与改动前一致。
     reason_codes: tuple[tuple[int, str], ...] = ()
+    requirement_checks: tuple[dict[str, object], ...] = ()
 
     @property
     def reason_code_by_index(self) -> dict[int, str]:
@@ -589,6 +590,8 @@ class GroundingJudgeReport:
             **({"material_output_checks": [dict(row) for row in self.material_output_checks]} if self.material_output_checks else {}),
             **({"material_nonfactual_checks": [dict(row) for row in self.material_nonfactual_checks]} if self.material_nonfactual_checks else {}),
         }
+        if self.requirement_checks:
+            payload["requirement_checks"] = [dict(row) for row in self.requirement_checks]
         if self.reason_codes:
             payload["reason_codes"] = [
                 {"sentence_index": int(index), "code": str(code)}

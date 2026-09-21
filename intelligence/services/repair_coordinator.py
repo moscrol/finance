@@ -519,6 +519,7 @@ def classify_repair_failure(
     from intelligence.services.episode_issues import IssueCode
     from intelligence.services.episode_protocol import REJECTION_KINDS, RejectionKind
     from intelligence.services.material_delivery import material_input_output_ids
+    from intelligence.services.research_requirement_review import requirement_gap_id, requirement_review_rows
 
     # A rejected finish can lose its draft/bindings before structural verification.
     # Preserve its typed integrity failure instead of laundering it into omissions.
@@ -540,6 +541,12 @@ def classify_repair_failure(
             IssueCode.REQUIRED_OUTPUT_GAP,
         } for item in structural.issue_items)
     )
+    requirement_ids = {requirement_gap_id(row["question_id"]) for row in requirement_review_rows(contract)}
+    requirement_rewrite = bool(
+        missing_outputs and set(missing_outputs) <= requirement_ids
+        and not rejected_claims and not semantic_gap_outputs
+        and not structural.mandatory_missing_capabilities and not structural.issue_items
+    )
     return RepairFailureShape(
         delivery=bool(
             outcome.stop_reason in DELIVERY_REPAIR_STOP_REASONS
@@ -550,7 +557,7 @@ def classify_repair_failure(
         cold_restart=(
             outcome.stop_reason in COLD_RESTART_STOP_REASONS and not has_evidence
         ),
-        contract_rewrite=material_rewrite or is_contract_rewrite_only(
+        contract_rewrite=material_rewrite or requirement_rewrite or is_contract_rewrite_only(
             missing_outputs,
             rejected_claims=rejected_claims,
             semantic_gap_outputs=semantic_gap_outputs,

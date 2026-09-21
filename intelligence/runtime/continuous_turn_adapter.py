@@ -38,6 +38,7 @@ from intelligence.services.episode_semantic_verifier import (
     draft_sentence_count,
     numeric_condition_unsupported,
     recheck_material_public_delivery,
+    recheck_research_requirement_delivery,
 )
 from intelligence.services.rejudge_pending import append_pending_from_artifact
 from intelligence.services.episode_tools import (
@@ -1123,6 +1124,12 @@ class ContinuousTurnAdapter:
             citations = _public_citation_projection(final_outcome, private_tokens, allowed_output_ids=fulfilled_output_ids)
             if status == "completed" and semantic.status != "completed":
                 status = "partial"
+        requirement_checked = recheck_research_requirement_delivery(semantic, projected=answer)
+        if requirement_checked is not semantic:
+            semantic = requirement_checked
+            answer = semantic.public_answer
+            if status == "completed" and semantic.status != "completed":
+                status = "partial"
         _phase_note(
             phase_recorder,
             status,
@@ -1263,10 +1270,9 @@ class ContinuousTurnAdapter:
             raise TypeError("semantic verifier must return SemanticEpisodeOutcome")
         # Check the adapter's own sanitizer before deciding whether to resume.
         # A previously disclosed gap cannot hide a deletion at the final seam.
-        return recheck_material_public_delivery(
-            candidate,
-            projected=_safe_public_text(candidate.public_answer, private_tokens=_private_tokens(candidate.verified.outcome)),
-        )
+        projected = _safe_public_text(candidate.public_answer, private_tokens=_private_tokens(candidate.verified.outcome))
+        candidate = recheck_material_public_delivery(candidate, projected=projected)
+        return recheck_research_requirement_delivery(candidate, projected=projected)
 
     def _resume_for_gap(
         self,
@@ -2190,12 +2196,19 @@ def _rejected_claim_notes(
 
     from intelligence.services.material_grounding import material_private_tokens
 
-    return describe_rejected_claims(
+    from intelligence.services.research_requirement_review import requirement_repair_notes
+
+    private_tokens = _private_tokens(semantic.verified.outcome) | material_private_tokens(context.contract)
+    rejected = describe_rejected_claims(
         claim_checks=semantic.material_claim_checks,
         sentence_verdicts=semantic.sentence_verdicts,
-        private_tokens=_private_tokens(semantic.verified.outcome)
-        | material_private_tokens(context.contract),
+        private_tokens=private_tokens,
     )
+    requirements = tuple(
+        safe for note in requirement_repair_notes(semantic.requirement_checks)
+        if (safe := _safe_public_text(note, private_tokens=private_tokens))
+    )
+    return (*rejected, *requirements)
 
 
 def _private_tokens(outcome: AgentOutcome) -> frozenset[str]:
