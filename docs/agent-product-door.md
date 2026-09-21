@@ -388,6 +388,12 @@ material_outputs 清单，工具定义同步限制 ID 与数量，解析仍严�
 
 实现和分期验收见 [历史发现 spec](superpowers/specs/2026-09-09-historical-discovery-research-design.md) 与 [执行计划](superpowers/plans/2026-09-09-historical-discovery.md)。部署状态以运行服务 `/api/health` 的 revision 为准，仓内存在代码不等于线上已更新。
 
+### 卖方观点订正与可得性（分支候选，未部署）
+
+`fix/sellside-consumption-0922` 在原始事件外追加不可覆盖订正，统一读取层按报告日、首次入库和订正发布时刻取版本。Workbench 概览卖方流使用市场库交易日截止，无市场日不展示无截止数据；缺口进入既有 `data_status`，不是新的产品门。催化归因不再以晨汇存在掩盖卖方隔离或时间缺口，未核验转述不作硬证据优先项。
+
+教学叙事和事件定价日历在构建日读取订正投影，过滤或损坏显式记缺口；仍是事后研究，不证明各历史开盘已知。收益行必须匹配修订版本且计算时间不晚于截止，旧收益生成器尚未迁移。时间长河 `river._opinion_track` 仍读研报目录，不读此投影；分支探针通过不等于线上接通。合同见 [卖方观点消费](learning/opinion-consumption-contract.md)。
+
 ### 质量消融评测：结论只覆盖 legacy CLI ask
 
 `scripts/run_quality_ablation.py` 与 `scripts/rejudge_quality_ablation.py` **不是产品门**，是评测工装。它们经 `run_ask` 调 `python3 -m intelligence.cli ask --compose`，走的是引擎 B 的 legacy CLI 问答路径；**跑出来的分差只覆盖该入口，不代表 Workbench Episode（引擎 A）**。拿消融读数论证「Agent 质量」之前先问这一句。

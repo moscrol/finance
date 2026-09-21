@@ -456,8 +456,20 @@ def _merge_narrative(sector_rows: list[dict[str, Any]], kb_wiki: str | None, dat
         return {"status": "absent", "detail": "未给 --kb-wiki，叙事读数全部记缺口", "briefing": {"status": "absent"}}
     rps5 = {str(k)[:10]: v for k, v in rps5_names.items()}
     note: dict[str, Any]
-    events = load_opinion_events(kb_wiki)
-    if not events:
+    from intelligence.services.opinion_events import OpinionDataError
+
+    warnings: list[str] = []
+    cutoff = date.today().isoformat()
+    try:
+        events = load_opinion_events(kb_wiki, as_of=cutoff, warnings=warnings)
+    except (OpinionDataError, OSError, UnicodeError) as exc:
+        events = []
+        warnings.append(str(exc))
+    if warnings:
+        for row in sector_rows:
+            row["narrative_gap"] = "narrative_source_filtered"
+        note = {"status": "partial", "warnings": warnings}
+    elif not events:
         for row in sector_rows:
             row["narrative_gap"] = "narrative_source_missing"
         note = {"status": "missing", "detail": f"{kb_wiki} 下没有 opinion-events.jsonl 或为空"}
@@ -465,6 +477,8 @@ def _merge_narrative(sector_rows: list[dict[str, Any]], kb_wiki: str | None, dat
         stale = _merge_daily(sector_rows, narrative_daily(events, dates, rps5_names=rps5), NARRATIVE_FIELDS, "narrative_gap", "narrative_rows_absent")
         report_dates = sorted({str(e.get("report_date"))[:10] for e in events if e.get("report_date")})
         note = {"status": "ok", "events": len(events), "report_dates": [report_dates[0], report_dates[-1]], "stale_days": stale}
+    note["knowledge_cutoff"] = cutoff
+    note["temporal_semantics"] = "ex_post_research_not_point_in_time"
     briefings = load_briefing_tier_events(kb_wiki)
     if not briefings:
         for row in sector_rows:
