@@ -1,0 +1,67 @@
+{
+  "leaf": "boundaries",
+  "revision": "c097d712f9acfdd258709c7d0de054f978e0159c",
+  "base": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "tree": "/Users/a77/fwp-wt-nightly-deploy-closeout-0921",
+  "pid": 47293,
+  "started_at": "2026-09-21T09:41:53.582444+00:00",
+  "before": {
+    "revision": "c097d712f9acfdd258709c7d0de054f978e0159c",
+    "tree_object": "9d694de157b6a8fcc464e810afdcc1d7483736bb",
+    "status": ""
+  },
+  "checks": [
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/probe_generation_code_root.py",
+        "--repo",
+        "/Users/a77/fwp-wt-nightly-deploy-closeout-0921",
+        "--output",
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-resume-20260921/boundaries/roots-probe.json"
+      ],
+      "started_at": "2026-09-21T09:41:53.650485+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/nightly-deploy-resume-20260921/boundaries/0.log.txt",
+      "sha256": "88543fdb5bd3e6e69ceef19b2e8723b64e078ca23ce0fb0ef7f8dea4fe50257b",
+      "elapsed_seconds": 9.02
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/review_probes/check_generation_finalize_boundaries.py",
+        "--repo",
+        "/Users/a77/fwp-wt-nightly-deploy-closeout-0921",
+        "--output-dir",
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-resume-20260921/boundaries/finalize-probe"
+      ],
+      "started_at": "2026-09-21T09:42:02.672421+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/nightly-deploy-resume-20260921/boundaries/1.log.txt",
+      "sha256": "71a66a0538c175b99b868de10ece2b15a5ce443ddb59e5617a089935f539895b",
+      "elapsed_seconds": 9.02
+    },
+    {
+      "command": [
+        "/bin/zsh",
+        "scripts/install_eval_launchd.sh",
+        "--nightly-only",
+        "--dry-run"
+      ],
+      "started_at": "2026-09-21T09:42:11.692932+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/nightly-deploy-resume-20260921/boundaries/2.log.txt",
+      "sha256": "31b171b0f4d2b95434d90f6055584dc71612046ebfde263c5a8fb8e355f6462b",
+      "elapsed_seconds": 3.01
+    }
+  ],
+  "complete": true,
+  "after": {
+    "revision": "c097d712f9acfdd258709c7d0de054f978e0159c",
+    "tree_object": "9d694de157b6a8fcc464e810afdcc1d7483736bb",
+    "status": ""
+  },
+  "source_unchanged": true,
+  "finished_at": "2026-09-21T09:42:14.778488+00:00",
+  "exit_code": 0
+}
