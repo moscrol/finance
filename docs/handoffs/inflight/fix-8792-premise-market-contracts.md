@@ -9,20 +9,20 @@
 展开：`docs/handoffs/2026-09-21-judge-reason-codes.md`。
 
 ## 当前状态
-候选 `285c719728`（代码尖 `a97b27057`，其后只有 docs）；工作树 clean。对 gitea/main 的 merge-tree 有三处冲突（`docs/agent-product-door.md` / `turn_control_core.py` / `user_task.py`），全来自本分支早先题设计算提交撞 #819，与理由码无关；`episode_semantic_verifier.py` 自动合并干净。ahead/behind 现跑 `git rev-list --left-right --count gitea/main...HEAD`。未合 main、未 push、生产未被本轮改动（生产 12:47 被他人切到 `945c04bd7fdd`）。
+**PR #825 已开，等用户确认合入**（head `4075ce8ac`，base main）。已推 gitea；工作树 clean。两次前向合并已完成：← `3c70af64d`（解 3 处）、← `c615adbd2`（#770 材料收口，解 6 处 + 补一条真缝）。对 `gitea/main@c615adbd2` conflict-check clean。生产 8792 未被本轮改动（他人 12:47/13:1x 两次切换）。
 
 ## 未验证 / 已知边界
-- live（K3 自审，n=2 拒句）只证「判官会吐码、路由按设计走」：1 句 causal 码→降级、1 句无码→降级。**删与两条改写 live 零覆盖**：排序题 K3 自审两发撞 75 s 帽（145 卡）→ 判官不可用带披露放行（既有路径）。
-- K3 自审 35k 字符请求 71.8 s 贴帽；重题量不了排序改写，先解判官窗（不在本分支）。
-- E2E 未在候选重跑（无结论叶子）；v20 fixture 是 glm 措辞，对 K3 只中核心数字。
+- live（K3 自审，n=2 拒句）只证「判官会吐码、路由按设计走」：1 句 causal 码→降级、1 句无码→降级。**删与两条改写 live 零覆盖**：排序题 K3 自审两发撞 75 s 帽（145 卡）→ 判官不可用带披露放行（既有路径）。已立工单 #57。
+- v20 public fixture 是 glm 措辞，对 K3 只中核心数字，不是回归判据；本轮未另冻 K3 fixture。
+- `episode_protocol` 的「先 render_from_claims 再 admit」顺序只有单测，无 live。
 
 ## 下一步
-1. 合 main 前解三处冲突 + 补 E2E；合并等用户确认。
-2. 排序改写要 live 覆盖：判官窗已立工单 #57（`2026-09-21-judge-window-k3-latency-workorder.md`，先量后改），不在本分支做。
-3. 吐码率用 `offline_judge_verdict_census.py` 的 `judge_stage.coded_share` 累积；低→修判官接法，不动无码缺省。
+1. 用户确认后合 #825（`gitea_pr.py merge 825 --yes --expect-head <当前> --record --authorized-by`）。合前重跑 conflict-check：main 在快速前进。
+2. 判官窗 → 工单 #57（`2026-09-21-judge-window-k3-latency-workorder.md`，先量后改），不在本分支。
+3. 吐码率用 census `judge_stage.coded_share` 累积；低→修判官接法，不动无码缺省。
 
 ## 踩过的坑
-别把「引了 E 且被拒→删」加回来；别清空优先级格；别把 `reason_codes` 放进 tool schema `required`；K3 经 Sub2API 拒 `temperature`；shim SSE 客户端先断那次不进日志；zsh 用 `$pipestatus`。
+别把「引了 E 且被拒→删」加回来；别清空优先级格；别把 `reason_codes` 放进 tool schema `required`；K3 经 Sub2API 拒 `temperature`；**改判官报告字段要 grep 所有重建 payload 的地方**（#770 的 `reconcile_claim_checks` 会静默丢可选键）；对方说「没冲突」只对他那侧成立，自己 merge-tree。
 
 ## 已验证
-全仓 pytest @a97b27057：12061 passed / 85 skipped / 2 xfailed（收据 `20260921T042331Z-a97b2705`，可采信）；前端 lint/typecheck/110 单测/build 全绿；11 道 pre-commit 过；生产账本普查 113 run：39 条全 demoted、零 deleted；live 5 run 全 completed，原件 `~/.finance-runtime/8792-premise-market-evidence/v21-live/` + manifest。
+四叶在 `4075ce8ac` 全绿：python `ruff` 0 + `pytest` 12440P/85S/2xf（收据 `20260921T062625Z-4075ce8a`，可采信）；frontend 110 单测 + build 后树干净；e2e 34P/2S；registry-check 五条 0。live 5 run 全 completed，原件 `~/.finance-runtime/8792-premise-market-evidence/v21-live/` + manifest。

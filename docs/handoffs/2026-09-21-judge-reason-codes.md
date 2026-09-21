@@ -146,3 +146,21 @@ shim 的两个已知洞：SSE 分支在客户端先断时（75 s 帽）写不回
 `req_has_ranking_contract` 匹配到 prompt 句子而非载荷键，是假信号。下次复用先修这两处。
 
 生产 8792 在本轮进行中被切到 main tip `945c04bd7fdd`（12:47），非本轮所为。
+
+## 补：前向合并与 PR（2026-09-21 13:2x–14:3x）
+
+用户「你来推进」。两次前向合并 + 四叶 + 开 PR，合入仍等确认。
+
+- ← `gitea/main@3c70af64d`（#819 研究求证意识等），解 3 处：door 页两节并集；`turn_control_core` 把 main 的
+  `material_only`/`needs_retrieval` 与本分支的 `premise_calculation` 分支叠加；`user_task` 续轮词表与虚构正则并集。
+- ← `gitea/main@c615adbd2`（#770 材料收口等），解 6 处。**其中一条是真缝不是冲突**：#770 的
+  `reconcile_claim_checks` 只重建 `{passed, rejected_sentence_indexes, issues}` 三个必填键，材料题路径会把本分支的
+  可选键 `reason_codes` 静默丢掉——材料题的拒句将永远走无码缺省。修法是带过该字段（它新增的拒句无码、越界码由
+  `parse_judge_reason_codes` 按最终拒句集合过滤），并加 `test_reason_codes_survive_material_claim_reconciliation`；
+  变异验证：删掉带过的那五行，15 条里恰好只红这一条。
+- 协作读数：另一个会话报「#770 只动了 agent-product-door.md」，那对 main 成立，对本分支 merge-tree 报了**六处**冲突。
+  「我这侧没冲突」推不出「你那侧没冲突」——给对方 head SHA 让他自己 merge-tree。
+
+四叶在 `4075ce8ac`：python `ruff` 0 + `pytest` 12440P/85S/2xf（收据 `20260921T062625Z-4075ce8a`，`check_test_receipt`
+判可采信）；frontend lint/typecheck/110 单测/build 全 0 且 build 后树干净；e2e 34P/2S；registry-check 五条 0。
+**PR #825**（http://127.0.0.1:3300/a77/finance-workspace-private/pulls/825），head `4075ce8ac`，conflict-check clean。
