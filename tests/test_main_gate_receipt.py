@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -53,13 +54,18 @@ def receipt(repo, **changes):
     return data
 
 
-def run_gate(repo, tmp_path, *args, extra_env=None):
+def gate_env(tmp_path, **overrides):
     env = {k: v for k, v in os.environ.items()
            if not k.startswith(("FWP_", "PYTEST_", "PYTHONPATH"))}
-    env.update(HOME=str(tmp_path / "home"),
+    env.update(HOME=str(tmp_path / "home"), PYTHONDONTWRITEBYTECODE="1",
                FWP_TEST_RECEIPT_DIR=str(tmp_path / "receipts"))
-    env.update(extra_env or {})
-    return subprocess.run(["bash", str(GATE), *args], cwd=repo, env=env,
+    env.update(overrides)
+    return env
+
+
+def run_gate(repo, tmp_path, *args, extra_env=None):
+    return subprocess.run(["bash", str(GATE), *args], cwd=repo,
+                          env=gate_env(tmp_path, **(extra_env or {})),
                           capture_output=True, text=True, timeout=40)
 
 
@@ -190,6 +196,193 @@ def test_nested_collection():
     own = list((tmp_path / "receipts").glob("gate-*/pytest.json"))
     assert len(own) == 1
     assert json.loads(own[0].read_text())["counts"]["passed"] == 1
+
+
+@pytest.mark.parametrize("mode", [
+    "run", "run-same-target", "collect-same-target", "inner-failure", "outer-failure",
+])
+def test_inprocess_nested_pytest_keeps_outer_receipt(repo, tmp_path, mode):
+    # Same-target execution/collection also prevent a target-string-only workaround.
+    (repo / "test_inner.py").write_text(
+        "def test_inner_one():\n    assert True\n\n\n"
+        f"def test_inner_two():\n    assert {mode != 'inner-failure'}\n"
+    )
+    inner_args = {
+        "collect-same-target": ["--collect-only", "test_sample.py"],
+        "run-same-target": ["test_sample.py", "-k", "leaf"],
+    }.get(mode, ["test_inner.py"])
+    (repo / "test_sample.py").write_text(f'''import pytest
+
+
+def test_outer():
+    result = pytest.main(["-q", "-p", "no:cacheprovider", *{inner_args!r}])
+    assert result == {1 if mode == "inner-failure" else 0}
+    assert {mode != "outer-failure"}
+''' + ("\n\ndef test_leaf():\n    assert True\n" if mode == "run-same-target" else ""))
+    git(repo, "add", "--", "test_sample.py", "test_inner.py")
+    git(repo, "commit", "-m", "inprocess nesting fixture")
+    result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py")
+    failed = int(mode == "outer-failure")
+    assert result.returncode == failed, result.stdout + result.stderr
+    own = list((tmp_path / "receipts").glob("gate-*/pytest.json"))
+    assert len(own) == 1
+    data = json.loads(own[0].read_text())
+    assert data["target"] == "test_sample.py"
+    passed = 1 - failed + int(mode == "run-same-target")
+    assert data["counts"] == {"passed": passed, "failed": failed, "error": 0, "skipped": 0}
+    assert data["failed_ids"] == (["test_sample.py::test_outer"] if failed else [])
+    assert data["exit_status"] == failed
+    assert "收据未写出" not in result.stdout
+
+
+@pytest.mark.parametrize("first_run", ["success", "configure-error"])
+@pytest.mark.parametrize("previous_owner", [None, ""])
+def test_sequential_inprocess_runs_release_receipt_owner(repo, tmp_path, first_run, previous_owner):
+    # Real Config cleanup, including failure before a Session can finish.
+    runner = '''import json
+import os
+import sys
+from pathlib import Path
+
+import pytest
+
+
+class FailConfigure:
+    @pytest.hookimpl(trylast=True)
+    def pytest_configure(self):
+        raise pytest.UsageError("intentional configure failure")
+
+
+out = Path(sys.argv[1])
+out.mkdir()
+for index in range(2):
+    os.environ["FWP_TEST_RECEIPT_PATH"] = str(out / f"run-{index}.json")
+    plugins = [FailConfigure()] if index == 0 and sys.argv[2] == "configure-error" else []
+    result = pytest.main(["-q", "-p", "no:cacheprovider", "test_sample.py"], plugins=plugins)
+    state = {"exit": int(result), "owner_after": os.environ.get("FWP_TEST_RECEIPT_OWNER_PID")}
+    (out / f"state-{index}.json").write_text(json.dumps(state))
+'''
+    out = tmp_path / "sequential"
+    env = gate_env(tmp_path)
+    if previous_owner is not None:
+        env["FWP_TEST_RECEIPT_OWNER_PID"] = previous_owner
+    result = subprocess.run([sys.executable, "-c", runner, str(out), first_run],
+                            cwd=repo, env=env, capture_output=True,
+                            text=True, timeout=40)
+    assert result.returncode == 0, result.stdout + result.stderr
+    for index in range(2):
+        state = json.loads((out / f"state-{index}.json").read_text())
+        failed_config = index == 0 and first_run == "configure-error"
+        assert state == {"exit": 4 if failed_config else 0, "owner_after": previous_owner}
+        path = out / f"run-{index}.json"
+        if failed_config:
+            assert not path.exists()
+        else:
+            data = json.loads(path.read_text())
+            assert data["target"] == "test_sample.py"
+            assert data["counts"]["passed"] == 1
+    assert "收据未写出" not in result.stdout
+
+
+@pytest.mark.parametrize("inherited", ["self", "foreign"])
+def test_inherited_pid_alone_cannot_grant_or_release_ownership(repo, tmp_path, inherited):
+    output = tmp_path / "inherited.json"
+    runner = '''import os
+import sys
+
+import pytest
+
+owner = str(os.getpid()) if sys.argv[1] == "self" else "foreign"
+os.environ["FWP_TEST_RECEIPT_OWNER_PID"] = owner
+assert pytest.main(["-q", "-p", "no:cacheprovider", "test_sample.py"]) == 0
+assert os.environ["FWP_TEST_RECEIPT_OWNER_PID"] == owner
+'''
+    result = subprocess.run([sys.executable, "-c", runner, inherited], cwd=repo,
+                            env=gate_env(tmp_path, FWP_TEST_RECEIPT_PATH=str(output)),
+                            capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not output.exists()
+
+
+def test_invocation_cannot_switch_its_claimed_receipt_path(repo, tmp_path):
+    (repo / "test_sample.py").write_text('''import os
+
+
+def test_switch_path():
+    os.environ["FWP_TEST_RECEIPT_PATH"] += ".foreign"
+''')
+    git(repo, "add", "--", "test_sample.py")
+    git(repo, "commit", "-m", "change claimed output fixture")
+    result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py")
+    assert result.returncode == 4, result.stdout + result.stderr
+    assert not list((tmp_path / "receipts").rglob("pytest.json*"))
+
+
+@pytest.mark.parametrize("kind", ["subprocess", "shell-gate"])
+def test_nested_execution_preserves_outer_ownership(repo, tmp_path, kind):
+    (repo / "test_inner.py").write_text(
+        "def test_inner_one():\n    assert True\n\n\n"
+        "def test_inner_two():\n    assert True\n"
+    )
+    command = ([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "test_inner.py"]
+               if kind == "subprocess" else
+               ["bash", str(GATE), "--pytest-args", "-q -p no:cacheprovider test_inner.py"])
+    (repo / "test_sample.py").write_text(f'''import subprocess
+
+
+def test_outer():
+    result = subprocess.run({command!r}, capture_output=True, text=True, timeout=20)
+    assert result.returncode == 0, result.stdout + result.stderr
+''')
+    git(repo, "add", "--", "test_sample.py", "test_inner.py")
+    git(repo, "commit", "-m", "nested execution fixture")
+    result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py")
+    assert result.returncode == 0, result.stdout + result.stderr
+    files = list((tmp_path / "receipts").glob("gate-*/pytest.json"))
+    receipts = {json.loads(p.read_text())["target"]: json.loads(p.read_text()) for p in files}
+    expected = {"test_sample.py": 1}
+    if kind == "shell-gate":
+        expected["test_inner.py"] = 2  # a new shell allocates its own path/owner
+    assert len(files) == len(expected)
+    assert {target: data["counts"]["passed"] for target, data in receipts.items()} == expected
+
+
+def test_parallel_gates_keep_separate_receipts(repo, tmp_path):
+    # A rendezvous proves both pytest processes are alive together, not just two
+    # sequential successful runs. All marker files live outside the clean repo.
+    (repo / "test_sample.py").write_text('''import os
+import time
+from pathlib import Path
+
+
+def test_overlap():
+    root = Path(os.environ["RENDEZVOUS"])
+    root.joinpath(os.environ["PEER"]).touch()
+    deadline = time.monotonic() + 10
+    while len(list(root.iterdir())) != 2:
+        assert time.monotonic() < deadline, "peer never started"
+        time.sleep(0.01)
+
+
+def test_second():
+    assert True
+''')
+    git(repo, "add", "--", "test_sample.py")
+    git(repo, "commit", "-m", "concurrent gates fixture")
+    meet = tmp_path / "meet"
+    meet.mkdir()
+    targets = ["test_sample.py", "test_sample.py::test_overlap"]
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(run_gate, repo, tmp_path, "--pytest-args",
+                               f"-q -p no:cacheprovider {target}",
+                               extra_env={"RENDEZVOUS": str(meet), "PEER": str(i)})
+                   for i, target in enumerate(targets)]
+        results = [future.result(timeout=45) for future in futures]
+    assert all(r.returncode == 0 for r in results), [(r.stdout, r.stderr) for r in results]
+    own = list((tmp_path / "receipts").glob("gate-*/pytest.json"))
+    assert len(own) == 2
+    assert {json.loads(p.read_text())["target"]: json.loads(p.read_text())["counts"]["passed"]
+            for p in own} == dict(zip(targets, [2, 1], strict=True))
 
 
 def test_missing_current_receipt_never_reuses_stale_latest(repo, tmp_path):

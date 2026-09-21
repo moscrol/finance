@@ -180,12 +180,32 @@ def _revision() -> str:
     return f"{branch} @ {rev}{dirty}"
 
 
+# Config-local proof is not inherited by another pytest.main() in this process.
+# PID in the environment still blocks inherited subprocesses; neither is a sandbox.
+_RECEIPT_OWNER = pytest.StashKey[tuple[str, str]]()
+
+
+@pytest.hookimpl(tryfirst=True)
 def pytest_configure(config: pytest.Config) -> None:
     """收集之前先判解释器。用 UsageError 而非 assert：前者输出干净且退出码明确。"""
 
-    # A nested pytest inherits the output path, but must not claim the parent's file.
-    if os.environ.get("FWP_TEST_RECEIPT_PATH") and not os.environ.get("FWP_TEST_RECEIPT_OWNER_PID"):
-        os.environ["FWP_TEST_RECEIPT_OWNER_PID"] = str(os.getpid())
+    path = os.environ.get("FWP_TEST_RECEIPT_PATH")
+    previous_owner = os.environ.get("FWP_TEST_RECEIPT_OWNER_PID")
+    if path and not previous_owner:
+        owner = str(os.getpid())
+        config.stash[_RECEIPT_OWNER] = (owner, path)
+        os.environ["FWP_TEST_RECEIPT_OWNER_PID"] = owner
+
+        def release_owner() -> None:
+            # Cleanup also runs when configure fails, before sessionfinish exists.
+            # Restore only our claim; never clear a caller's replacement owner.
+            if os.environ.get("FWP_TEST_RECEIPT_OWNER_PID") == owner:
+                if previous_owner is None:
+                    os.environ.pop("FWP_TEST_RECEIPT_OWNER_PID", None)
+                else:
+                    os.environ["FWP_TEST_RECEIPT_OWNER_PID"] = previous_owner
+
+        config.add_cleanup(release_owner)
 
     missing = _missing()
     if not missing:
@@ -306,8 +326,11 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
 
     if os.environ.get(_RECEIPT_ENV) == "0":
         return
-    owner_pid = os.environ.get("FWP_TEST_RECEIPT_OWNER_PID")
-    if os.environ.get("FWP_TEST_RECEIPT_PATH") and owner_pid != str(os.getpid()):
+    path = os.environ.get("FWP_TEST_RECEIPT_PATH")
+    if path and (
+        os.environ.get("FWP_TEST_RECEIPT_OWNER_PID") != str(os.getpid())
+        or session.config.stash.get(_RECEIPT_OWNER, None) != (str(os.getpid()), path)
+    ):
         return
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
     if reporter is None:
