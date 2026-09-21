@@ -1,0 +1,82 @@
+{
+  "leaf": "python",
+  "revision": "4cf5a33ad0ea017da330533f1e284bc4d91041e8",
+  "base": "79b11d4268a3",
+  "tree": "/Users/a77/fwp-wt-market-date-advisory-0921",
+  "pid": 88186,
+  "started_at": "2026-09-21T17:57:32.852861+00:00",
+  "before": {
+    "revision": "4cf5a33ad0ea017da330533f1e284bc4d91041e8",
+    "tree_object": "82c0ed653ea2b3eeba9de035b9553f3c4cc38257",
+    "status": ""
+  },
+  "checks": [
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "started_at": "2026-09-21T17:57:33.363582+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-4cf5a33ad-20260922/python/0.log.txt",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "elapsed_seconds": 3.01
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "-o",
+        "tmp_path_retention_policy=failed",
+        "-o",
+        "tmp_path_retention_count=1",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-4cf5a33ad-20260922/python/tmp",
+        "--junitxml=/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-4cf5a33ad-20260922/python/junit.xml"
+      ],
+      "started_at": "2026-09-21T17:57:36.376707+00:00",
+      "exit_code": 1,
+      "log": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-4cf5a33ad-20260922/python/1.log.txt",
+      "sha256": "4c369bf755cbba6cf82054aeb065731705265c6fe1de9375d9b7a0f96cbceca7",
+      "elapsed_seconds": 1298.13
+    }
+  ],
+  "complete": true,
+  "resource_admission": {
+    "at": "2026-09-21T17:57:33.360928+00:00",
+    "free_bytes": 29245136896,
+    "other_pytest_processes": []
+  },
+  "pytest_receipt": {
+    "source": "/Users/a77/.finance-runtime/test-receipts/20260921T181909Z-4cf5a33a.json",
+    "sha256": "0bf04a8f2881b969e4218eb833f1c020df507cb1da0d55f4adb8019ffa9f6a04",
+    "counts": {
+      "passed": 12591,
+      "failed": 2,
+      "error": 0,
+      "skipped": 87
+    },
+    "exit_status": 1
+  },
+  "junit_counts": {
+    "passed": 12591,
+    "failed": 2,
+    "error": 0,
+    "skipped": 87,
+    "xfail": 2
+  },
+  "after": {
+    "revision": "4cf5a33ad0ea017da330533f1e284bc4d91041e8",
+    "tree_object": "82c0ed653ea2b3eeba9de035b9553f3c4cc38257",
+    "status": ""
+  },
+  "source_unchanged": true,
+  "finished_at": "2026-09-21T18:19:14.715922+00:00",
+  "exit_code": 1
+}

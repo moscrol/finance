@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="3" tests="96" time="15.989" timestamp="2026-09-22T02:26:29.575612+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_capability_switchboard" name="test_fixture_loads_and_declares_its_base" time="0.002" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_unknown_id_fails_closed" time="0.000" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_capability_ids_match_registry_exactly" time="0.000" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_every_capability_documents_its_env_gate_scan" time="0.000" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_seam_paths_exist_except_pending" time="0.001" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_reading_baseline_landed_and_enters_the_arm" time="0.004" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_non_existing_canonical_never_enters_an_arm" time="0.000" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_welded_never_enters_an_arm" time="0.000" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_every_arm_row_has_a_positive_control" time="0.000" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_arm_is_not_empty_and_covers_both_families" time="0.000" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_predicate_row_must_declare_canonical" time="0.007" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_duplicate_id_rejected" time="0.001" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_unknown_enum_rejected" time="0.001" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_empty_close_via_rejected" time="0.001" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_serving_path_does_not_import_switchboard" time="0.089" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_route_and_prose_faces_are_not_wired_on_this_extract" time="0.001" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_default_faces_count_double_red" time="0.000" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_disabled_double_red_face_skips_prefetch_counts" time="0.000" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_unwired_arithmetic_predicates_do_not_enter_arm_or_wired_set" time="0.000" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_default_box_regenerates" time="0.004" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_expansion_rows_registered_with_verified_seams" time="0.001" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_expansion_rows_stay_out_of_arm_and_default_box" time="0.002" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_pointer_entries_document_offboard_switches" time="0.001" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_runner_reading_pack_face_flips_under_contextvar" time="0.323" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_reading_baseline_lists_both_doors" time="0.000" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_new_rows_seams_resolve_to_real_symbols" time="0.001" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_new_rows_stay_out_of_arm_without_positive_control" time="0.000" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_fast_path_constructor_injection_is_abort_not_off" time="0.001" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_repair_seconds_cap_zero_falls_back_not_off" time="0.000" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_evidence_judge_registered_with_its_env_door" time="0.001" /><testcase classname="intelligence.tests.test_capability_switchboard" name="test_new_rows_stay_out_of_default_box" time="0.002" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_removing_snapshot_capability_removes_only_its_schema" time="0.330"><failure message="intelligence.services.research_contract.ResearchContractError: local_only 输出工具证据超出冻结读取授权">tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1626/test_removing_snapshot_capabil0')
+
+    def test_removing_snapshot_capability_removes_only_its_schema(tmp_path):
+        from dataclasses import replace
+    
+        context, registry = _registry(tmp_path)
+&gt;       narrowed = replace(context, contract=replace(
+            context.contract,
+            allowed_capabilities=tuple(
+                name for name in context.contract.allowed_capabilities
+                if name != "local_market_snapshot"
+            ),
+        ))
+
+intelligence/tests/test_local_market_snapshot.py:48: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/dataclasses.py:1588: in replace
+    return obj.__class__(**changes)
+&lt;string&gt;:20: in __init__
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = ResearchTaskContract(task_id='test_removing_snapshot_capabil0', question='只用本地已有数据，不联网：截至2026年9月21日，A股市场处于什么状态、当前有哪些主要...题材？请结合真实数据分析，注明各项数据截至日期，缺少的部分单独说明。', source_message_id='current_user_question'),), historical_assistant_statements=()))
+
+    def __post_init__(self) -&gt; None:
+        if isinstance(self.material_grounding, dict):
+            object.__setattr__(self, "material_grounding", MaterialGrounding.from_dict(self.material_grounding))
+        if self.material_grounding is not None and not isinstance(self.material_grounding, MaterialGrounding):
+            raise ResearchContractError("material_grounding 必须是 MaterialGrounding")
+        if isinstance(self.material_contract, dict):
+            object.__setattr__(self, "material_contract", MaterialContract.from_dict(self.material_contract))
+        if self.material_contract is not None and not isinstance(self.material_contract, MaterialContract):
+            raise ResearchContractError("material_contract 必须是 MaterialContract")
+        if isinstance(self.premise_calculation, dict):
+            object.__setattr__(self, "premise_calculation", PremiseCalculation.from_dict(self.premise_calculation))
+        if self.premise_calculation is not None and (
+            not isinstance(self.premise_calculation, PremiseCalculation)
+            or not self.material_contract or not self.material_contract.premise_calculation
+        ):
+            raise ResearchContractError("premise calculation requires the user premise contract")
+        # Backwards compatibility for callers that expand ``to_dict()`` into
+        # the constructor (older tests/integrations predate EvidencePlan).
+        if isinstance(self.evidence_plan, dict):
+            raw_requirements = self.evidence_plan.get("requirements", ())
+            requirements = tuple(
+                EvidenceRequirement(
+                    provider_name=str(item.get("provider_name") or ""),
+                    capability=str(item.get("capability") or ""),
+                    mandatory=bool(item.get("mandatory", False)),
+                    freshness=str(item.get("freshness") or "current"),
+                    reason=str(item.get("reason") or ""),
+                )
+                for item in raw_requirements
+                if isinstance(item, dict)
+            )
+            object.__setattr__(
+                self,
+                "evidence_plan",
+                EvidencePlan(
+                    profile=str(self.evidence_plan.get("profile") or "general"),
+                    requirements=requirements,
+                    freshness=str(self.evidence_plan.get("freshness") or "current"),
+                ),
+            )
+        if not self.task_id.strip() or not self.question.strip():
+            raise ResearchContractError("task_id/question 不能为空")
+        if self.research_tier not in RESEARCH_TIERS:
+            raise ResearchContractError(f"未知研究档位：{self.research_tier}")
+        if any(not item.output_id.strip() for item in self.required_outputs):
+            raise ResearchContractError("required output id 不能为空")
+        if any(
+            item.grounding_mode not in {"evidence", "user_premise", "model_reasoning"}
+            for item in self.required_outputs
+        ):
+            raise ResearchContractError("required output grounding_mode 无效")
+        for requirement in self.evidence_plan.requirements:
+            if not requirement.provider_name.strip() or not requirement.capability.strip():
+                raise ResearchContractError("evidence plan requirement 必须声明 provider/capability")
+        if self.material_contract is not None and self.material_contract.data_scope == "material_only":
+            if self.allowed_capabilities or self.evidence_plan.requirements:
+                raise ResearchContractError("material_only 不允许读能力或材料外证据计划")
+            if any(output.evidence_types for output in self.required_outputs):
+                raise ResearchContractError("material_only 输出槽不能要求材料外工具证据")
+            for question in self.material_contract.questions:
+                matches = tuple(item for item in self.required_outputs if item.output_id == f"answer_{question.question_id}")
+                if len(matches) != 1 or not matches[0].required:
+                    raise ResearchContractError("material_only 每题须保留唯一必需输出槽：" + question.question_id)
+        if self.material_contract is not None and self.material_contract.data_scope == "local_only":
+            if restrict_read_capabilities(tuple(self.allowed_capabilities), "local_only") != tuple(self.allowed_capabilities):
+                raise ResearchContractError("local_only 含未审定的读取能力")
+            if any(item.capability not in self.allowed_capabilities for item in self.evidence_plan.requirements):
+                raise ResearchContractError("local_only 证据计划超出冻结读取授权")
+            if any(cap not in self.allowed_capabilities for output in self.required_outputs for cap in output.evidence_types):
+&gt;               raise ResearchContractError("local_only 输出工具证据超出冻结读取授权")
+E               intelligence.services.research_contract.ResearchContractError: local_only 输出工具证据超出冻结读取授权
+
+intelligence/services/research_contract.py:945: ResearchContractError</failure></testcase><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_local_only_reads_snapshot_without_mixed_tools_or_network" time="0.010" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_snapshot_theme_locator_preserves_original_array_index" time="0.001" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_historical_cutoff_reaches_query_and_snapshot_runners" time="0.662" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence[future_only]" time="0.022" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence[mixed]" time="0.020" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence[observation_only]" time="0.019" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence[past_with_future_observation]" time="0.016" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_strict_cutoff_does_not_reuse_non_strict_cached_delivery" time="0.021" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_bad_or_contradictory_newer_snapshot_does_not_erase_valid_older[overrides0]" time="0.002" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_bad_or_contradictory_newer_snapshot_does_not_erase_valid_older[overrides1]" time="0.003" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_bad_or_contradictory_newer_snapshot_does_not_erase_valid_older[overrides2]" time="0.002" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_bad_or_contradictory_newer_snapshot_does_not_erase_valid_older[overrides3]" time="0.002" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_bad_or_contradictory_newer_snapshot_does_not_erase_valid_older[overrides4]" time="0.002" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_bad_or_contradictory_newer_snapshot_does_not_erase_valid_older[overrides5]" time="0.002" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_history_never_reads_latest_meta_or_future_daily" time="0.002" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_material_only_never_loads_snapshot" time="0.011" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_sealed_snapshot_does_not_escape_to_environment" time="0.014" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_sealed_snapshot_without_explicit_root_never_probes_default" time="0.014" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_snapshot_not_added_to_unrestricted_or_non_market_menu[\u4eca\u5929A\u80a1\u5e02\u573a\u600e\u4e48\u6837]" time="0.010" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_snapshot_not_added_to_unrestricted_or_non_market_menu[\u53ea\u7528\u672c\u5730\u5df2\u6709\u6570\u636e\uff0c\u4e0d\u8054\u7f51\uff1a\u4ec0\u4e48\u662f\u5e02\u76c8\u7387]" time="0.011" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_snapshot_parameters_cannot_relax_cutoff" time="0.017" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_no_snapshot_reports_scoped_gap" time="0.014" /><testcase classname="tests.test_code_map" name="test_cli_empty_tree_exits_2_and_one_line_forbids_overview" time="0.000"><skipped type="pytest.skip" message="本机已有图；空图 CLI 由 tmp 夹具覆盖">/Users/a77/fwp-wt-market-date-advisory-0921/tests/test_code_map.py:116: 本机已有图；空图 CLI 由 tmp 夹具覆盖</skipped></testcase><testcase classname="tests.test_code_map" name="test_cli_empty_json_status_empty" time="0.000"><skipped type="pytest.skip" message="本机已有图；空图 CLI 由 tmp 夹具覆盖">/Users/a77/fwp-wt-market-date-advisory-0921/tests/test_code_map.py:127: 本机已有图；空图 CLI 由 tmp 夹具覆盖</skipped></testcase><testcase classname="tests.test_code_map" name="test_no_db_is_empty" time="0.374" /><testcase classname="tests.test_code_map" name="test_zero_nodes_is_empty" time="0.259" /><testcase classname="tests.test_code_map" name="test_missing_sha_is_stale" time="0.265" /><testcase classname="tests.test_code_map" name="test_sha_mismatch_light_stale" time="0.419" /><testcase classname="tests.test_code_map" name="test_sha_mismatch_heavy_by_path" time="0.439" /><testcase classname="tests.test_code_map" name="test_ready_when_sha_matches" time="0.335" /><testcase classname="tests.test_code_map" name="test_corrupt_db_is_error" time="0.330" /><testcase classname="tests.test_code_map" name="test_nodes_without_git_is_error" time="0.083" /><testcase classname="tests.test_code_map" name="test_no_db_without_git_is_still_empty" time="0.056" /><testcase classname="tests.test_code_map" name="test_worktree_dirty_code_true_for_scripts" time="0.365" /><testcase classname="tests.test_code_map" name="test_exports_do_not_count_as_code_dirty" time="0.322" /><testcase classname="tests.test_code_map" name="test_status_does_not_implement_build" time="0.084" /><testcase classname="tests.test_code_map" name="test_inner_gitignore_is_explicit_list" time="0.001" /><testcase classname="tests.test_code_map" name="test_root_gitignore_does_not_ignore_whole_crg_dir" time="0.000" /><testcase classname="tests.test_code_map" name="test_crg_ignore_blacklist_present" time="0.000" /><testcase classname="tests.test_code_map" name="test_agents_and_claude_carry_code_map_pointer" time="0.001" /><testcase classname="tests.test_code_map" name="test_session_facts_calls_status_one_line_after_interpreter" time="0.001" /><testcase classname="tests.test_code_map" name="test_session_facts_hook_emits_code_map_line_and_exits_0" time="1.818" /><testcase classname="tests.test_code_map" name="test_query_empty_graph_exits_0_and_refuses_structure" time="0.000"><skipped type="pytest.skip" message="本机已有图；空图 query 由 tmp 夹具覆盖">/Users/a77/fwp-wt-market-date-advisory-0921/tests/test_code_map.py:367: 本机已有图；空图 query 由 tmp 夹具覆盖</skipped></testcase><testcase classname="tests.test_code_map" name="test_query_daily_full_doors_probe" time="1.032" /><testcase classname="tests.test_code_map" name="test_query_skill_bridge_hits_are_a_set_not_merged_lines" time="1.899" /><testcase classname="tests.test_code_map" name="test_query_fact_sector_daily_is_view" time="0.476" /><testcase classname="tests.test_code_map" name="test_query_error_does_not_call_search" time="0.330" /><testcase classname="tests.test_code_map" name="test_query_empty_tmp_repo_does_not_call_search" time="0.233" /><testcase classname="tests.test_code_map" name="test_code_map_has_no_home_path_literal" time="0.001" /><testcase classname="tests.test_code_map" name="test_build_update_uses_receipt_sha_and_skip_flows" time="0.181" /><testcase classname="tests.test_code_map" name="test_build_full_when_no_receipt" time="0.242" /><testcase classname="tests.test_code_map" name="test_build_none_uses_skip_postprocess" time="0.336" /><testcase classname="tests.test_code_map" name="test_build_without_uvx_fail_closed" time="0.192" /><testcase classname="tests.test_code_map" name="test_build_without_git_refuses" time="0.041" /><testcase classname="tests.test_code_map" name="test_structure_probe_daily_full" time="0.765" /><testcase classname="tests.test_code_map" name="test_search_graph_parses_crg_json_results" time="0.179" /><testcase classname="tests.test_code_map" name="test_code_map_skill_and_discovery_symlink" time="0.001" /><testcase classname="tests.test_code_map" name="test_wiki_steering_is_narrative_only_and_tracked" time="0.043" /><testcase classname="tests.test_code_map" name="test_detect_conflicts_marks_narrative_drift" time="0.001" /><testcase classname="tests.test_code_map" name="test_detect_conflicts_skips_when_excerpt_has_retired_context" time="0.000" /><testcase classname="tests.test_code_map" name="test_query_narrative_hits_steered_wiki_page" time="0.316" /><testcase classname="tests.test_code_map" name="test_query_narrative_drift_sets_conflicts" time="0.363" /><testcase classname="tests.test_code_map" name="test_ask_is_extractive_markdown" time="0.300" /><testcase classname="tests.test_code_map" name="test_full_build_writes_steering_door_pages" time="0.253" /></testsuite></testsuites>

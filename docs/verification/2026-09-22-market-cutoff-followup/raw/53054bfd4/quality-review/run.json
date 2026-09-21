@@ -1,0 +1,21 @@
+{
+  "role": "quality",
+  "before": {
+    "revision": "53054bfd4336bebd0d570273a58e92758fb623be",
+    "tree": "2aa8e01864722bd6a659a672e9cd76813f398eeb",
+    "status": ""
+  },
+  "started_at": "2026-09-21T18:30:46.821717+00:00",
+  "complete": true,
+  "pid": 41182,
+  "exit_code": 1,
+  "after": {
+    "revision": "53054bfd4336bebd0d570273a58e92758fb623be",
+    "tree": "2aa8e01864722bd6a659a672e9cd76813f398eeb",
+    "status": ""
+  },
+  "elapsed_seconds": 9.6,
+  "identity_stable": true,
+  "verdict_file_present": false,
+  "review_status": "UNAVAILABLE"
+}

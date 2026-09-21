@@ -1,0 +1,36 @@
+{
+  "revision": "53054bfd4336bebd0d570273a58e92758fb623be",
+  "before": {
+    "revision": "53054bfd4336bebd0d570273a58e92758fb623be",
+    "status": "",
+    "tree_object": "2aa8e01864722bd6a659a672e9cd76813f398eeb"
+  },
+  "after": {
+    "revision": "53054bfd4336bebd0d570273a58e92758fb623be",
+    "status": "",
+    "tree_object": "2aa8e01864722bd6a659a672e9cd76813f398eeb"
+  },
+  "source_unchanged": true,
+  "cases": [
+    {
+      "case": "snapshot_ignores_final_authorization",
+      "target": "intelligence/tests/test_local_market_snapshot.py::test_removing_snapshot_capability_removes_only_its_schema",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 1,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": true
+      },
+      "caught": true
+    }
+  ],
+  "pass": true
+}

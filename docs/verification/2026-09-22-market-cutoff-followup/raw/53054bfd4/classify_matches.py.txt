@@ -1,0 +1,61 @@
+"""Materialize per-location approvals for exact context-reviewed pattern values.
+
+The hash allowlist below was reviewed against source imports/attributes, JUnit
+class names, and three test fixture definitions. Unknown values remain blocked;
+no generic identifier/prefix exemption. Initial scan is immutable.
+"""
+import json
+from pathlib import Path
+
+import archive
+
+# Hashes avoid reintroducing credential-shaped fixture strings into this script.
+REVIEWED = {
+    "d4742f837ab67a306b75ccc7b55601d6eb24726890ad13c1eac6ff4d30c8fe06": "module name in ResearchContractError traceback",
+    "1a5d44a2dca19669d72edf4c4f1c27c4c1ca4b4408fbb17f6ce4ad452d78ddb3": "literal synthetic model-label fixture in tests/test_smoke_workbench_self_use.py:493",
+    "0cc478c1037fb26f890a72aa1fb62a1ae0049b2c9cee2df06bef3fe8b74e2ff7": "literal synthetic model-label fixture in tests/test_smoke_workbench_self_use.py:494",
+    "b899f1820420d75590a7eecc8429ab327de476aae9ecbf39697e871e115c3770": "literal PRIVATE_SECRET fixture in intelligence/tests/test_acceptance_trace_capture.py:83",
+    "f69cdf0588da7c5fd887d930b8f54f8bbaacad4138e242a651ff377e1dbb0f46": "literal synthetic model-label fixture in tests/test_smoke_workbench_self_use.py:495",
+    "877bd9039096fd897e1aa1830313956b8c6978033eedeabe18afb57b26c4cc02": "authorization field label in intelligence/tests/test_acceptance_trace_capture.py:83",
+    "6b58bb5c828cd6362ebb3ddb7a120b36f6dd1b9d9720fc87bd288a5d9d618158": "literal unsafe URL test parameter in intelligence/tests/test_llm_settings.py:201 plus JUnit attribute closing delimiter",
+    "5e77b02420d90ff336fdb22e22c58b4e36039d4f261c6dff4e4fea4a27be0c3b": "JUnit classname for existing docs verification test",
+    "ada91a91e381533cbfa83360788c32193bd33679e6e18da72a52ff8bbd10bc78": "JUnit classname for existing docs verification test",
+    "5ac9aedd8b277898a183fe582756329685d7e0abae02674e519d5f6322da38d9": "JUnit classname for existing docs verification test",
+    "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6": "JUnit classname for existing docs verification test",
+    "0261a93c8f2e98c5c846385f2a082ddf384bdd93a1cebd48493977a4b81d29d2": "JUnit classname for existing docs verification test",
+    "be528bc4a6d862f6a9b14443d5471eb8636f23e923c5c99af21fa0f003e37b5a": "JUnit classname for existing docs verification test",
+    "717be00aab659ac745ca387c43b2778f405ec9b27e8fa9a9439f85ba34812868": "JUnit classname for existing docs verification test",
+    "ed43acb4bbdefe0a98eb840d5ce393099832cfeb06fc4a9d9d5fe54215f541b1": "JUnit classname for existing docs verification test",
+    "8de4cda3f1496d2a7a42cc620bd299a118bc18511209c8b444dd959583c66c13": "JUnit classname for existing docs verification test",
+    "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245": "honesty-gates module in mutation source",
+    "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075": "episode-factory module in mutation source",
+    "a6ec6bd092269a406a7bf97ffa0825da49e26737c184f19d1d1c0a7bfa60d04d": "snapshot-contract module in mutation source",
+    "a147ee61f9e831e6d60477d5219d402700e5753ac04a8b136c19d70b94332b4f": "snapshot module in mutation source or assertion traceback",
+    "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d": "tool-registry module in mutation source",
+    "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb": "episode-tools module in mutation source",
+    "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1": "cutoff date method in mutation source",
+    "df4dfbad61b33b82214d78773ee1d62e16e5d50ea65cdb8c5f28fc1b74f08941": "ask-blocks module in mutation source",
+    "75bcab3dc123a00dcda19ccc6fd4a5c01e155a6c1994f593f8f3a3df2b64fe11": "agent-research module in mutation source",
+    "bf885e170329e8661dc80b519e31fe43476eb0d11dfe151d83b313181c829c28": "snapshot-reconcile module in mutation source",
+    "4d609702f9f72f50e9e52c3a3666e57b32d07a974c262afd413a5cf7bb663528": "material-contract attribute in assertion traceback",
+}
+
+
+def main():
+    files, _ = archive.sources()
+    _, matches = archive.scan(files)
+    for row in matches:
+        row["classification"] = REVIEWED.get(row["match_sha256"], "unclassified")
+    unknown = [row for row in matches if row["classification"] == "unclassified"]
+    if unknown:
+        print(json.dumps(unknown, indent=2))
+        return 1
+    path = Path(__file__).parent / "reviewed-matches.json"
+    assert not path.exists(), "approval list is a one-shot record"
+    path.write_text(json.dumps(matches, ensure_ascii=False, indent=2) + "\n")
+    print(json.dumps({"locations": len(matches), "exact_reviewed_values": len({r["match_sha256"] for r in matches}), "unclassified": 0}))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

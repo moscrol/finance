@@ -1,0 +1,21 @@
+[
+  {
+    "case": "snapshot_ignores_final_authorization",
+    "target": "intelligence/tests/test_local_market_snapshot.py::test_removing_snapshot_capability_removes_only_its_schema",
+    "baseline": {
+      "exit_code": 0,
+      "failures": 0,
+      "errors": 0,
+      "testcases": 1,
+      "assertion_failure": false
+    },
+    "mutant": {
+      "exit_code": 1,
+      "failures": 1,
+      "errors": 0,
+      "testcases": 1,
+      "assertion_failure": true
+    },
+    "caught": true
+  }
+]

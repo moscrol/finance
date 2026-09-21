@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.499" timestamp="2026-09-22T02:45:16.630628+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_removing_snapshot_capability_removes_only_its_schema" time="0.280"><failure message="AssertionError: assert set() == {'local_market_snapshot'}&#10;  &#10;  Extra items in the right set:&#10;  'local_market_snapshot'&#10;  Use -v to get more diff">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch-mutation-two-guards/snapshot_ignores_final_authorization/mutant-tmp/test_removing_snapshot_capabil0')
+
+    def test_removing_snapshot_capability_removes_only_its_schema(tmp_path):
+        from dataclasses import replace
+    
+        context, registry = _registry(tmp_path)
+        narrowed = replace(context, contract=replace(
+            context.contract,
+            allowed_capabilities=tuple(
+                name for name in context.contract.allowed_capabilities
+                if name != "local_market_snapshot"
+            ),
+            required_outputs=tuple(
+                replace(output, evidence_types=tuple(
+                    name for name in output.evidence_types if name != "local_market_snapshot"
+                ))
+                for output in context.contract.required_outputs
+            ),
+        ))
+        disabled = build_episode_registry(
+            decide_turn(CURRENT).task_frame, narrowed, finance_root=tmp_path,
+            knowledge_wiki=tmp_path / "wiki", fixture_policy=SealedFixturePolicy(),
+        )
+        before = {spec.name for spec in registry.authorized_specs()}
+        after = {spec.name for spec in disabled.authorized_specs()}
+&gt;       assert before - after == {"local_market_snapshot"}
+E       AssertionError: assert set() == {'local_market_snapshot'}
+E         
+E         Extra items in the right set:
+E         'local_market_snapshot'
+E         Use -v to get more diff
+
+intelligence/tests/test_local_market_snapshot.py:67: AssertionError</failure></testcase></testsuite></testsuites>

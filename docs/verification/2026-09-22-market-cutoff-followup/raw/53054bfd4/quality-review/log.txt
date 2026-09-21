@@ -1,0 +1,20 @@
+Reading additional input from stdin...
+OpenAI Codex v0.155.0-alpha.9.2
+--------
+workdir: /Users/a77/fwp-wt-market-date-advisory-0921
+model: gpt-6-astra
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 01a0c53c-206d-7a12-95fc-8408786c151c
+--------
+user
+You are an independent quality reviewer, not the author. Review the fixed local candidate 53054bfd4336bebd0d570273a58e92758fb623be in /Users/a77/fwp-wt-market-date-advisory-0921, against base 79b11d4268a39e0c0ba1cca6e99fef46e338661e. Read-only: do not edit files, run commits, handoff, full test suites, network data fetching, deploy, or write any production/user data. Another process is running fixed-revision tests, so keep this to source inspection and minimal in-memory probes. The project Python is /Users/a77/finance-workspace-private/.venv-workbench/bin/python. Do not inspect secret files.
+Requirements: Different true source dates are advisory, not blanket unavailability or readiness failure. Deliver existing facts with their actual source dates; unknown is not zero; comparisons still need period/unit/caliber agreement. Explicit user historical information cutoff must be enforced by the system, including tools and delivered evidence/text/trace/cache, not just model obedience. local_only can read existing daily snapshots but must not enable composite market_data that may use network. material_only must return before path discovery/prefetch/reads. Historical daily snapshots must never open newer files/latest/meta, and must keep source identity, quality, null vs zero, and original JSON locators. Sealed fixtures may not escape to production paths. No claim of complete natural-language or publication-time (PIT) support is required.
+Review engineering quality and regressions: security/authorization, evidence/cache/trace filtering, date parser corner cases, JSON/file identity handling, error semantics, tool metadata, coverage gaps. Seek concrete defects, not formatting preferences. Check the offline capability switchboard change as well.
+Inspect the actual git diff and surrounding implementation. Do not treat author handoffs or green tests as independent proof. Return a written Chinese verdict: findings first with severity/file/line and reasoning; then requirements or paths checked, unverified boundaries, and an explicit conclusion (issues found / no issues found in scope / review unavailable). Do not claim running checks you did not run. No review of other branches or main integration is authorized.
+
+ERROR: You’ve hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro), visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at 5:04 AM.
+ERROR: You’ve hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro), visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at 5:04 AM.

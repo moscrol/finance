@@ -1,0 +1,114 @@
+"""One-off evidence archive for the follow-up checks; never rewrite prior archives.
+
+Only freeze after the owned check processes finish. Retain exact source bytes,
+including failures. Caches, fixture roots and binaries remain external. Unknown
+secret-pattern matches block archival approval until each context is reviewed.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import sys
+
+ROOT = Path(__file__).resolve().parent
+OLD = ROOT.parent / "market-cutoff-snapshot-4cf5a33ad-20260922"
+REPO = Path.home() / "fwp-wt-market-date-advisory-0921"
+DEST = REPO / "docs/verification/2026-09-22-market-cutoff-followup"
+SHA = "53054bfd4336bebd0d570273a58e92758fb623be"
+sys.path.insert(0, str(REPO))
+from scripts.smoke_workbench_self_use import SECRET_PATTERNS, SecretScanner  # noqa: E402
+
+# Keys are file-relative path, line number, marker and exact match hash.
+# Filled only after viewing the matching source context; no prefix allowlist.
+REVIEWS = ROOT / "reviewed-matches.json"
+
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def write_json(path, payload):
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+
+
+def sources():
+    excluded = []
+    selected = []
+    for label, root in (("4cf5a33ad", OLD), ("53054bfd4", ROOT)):
+        for directory, dirs, names in os.walk(root):
+            base = Path(directory)
+            for name in list(dirs):
+                if name == "tmp" or name.endswith("-tmp") or "cache" in name:
+                    excluded.append(str(base / name) + "/")
+                    dirs.remove(name)
+            for name in sorted(names):
+                path = base / name
+                if path.is_symlink() or path.suffix not in {".py", ".log", ".txt", ".xml", ".json", ".jsonl", ".md"}:
+                    excluded.append(str(path))
+                    continue
+                rel = Path("raw") / label / path.relative_to(root)
+                if path.suffix in {".py", ".log"}:
+                    rel = rel.with_name(rel.name + ".txt")
+                selected.append((path, rel))
+    return selected, excluded
+
+
+def scan(files):
+    scanner = SecretScanner()
+    rows = []
+    for source, rel in files:
+        text = source.read_text()
+        scanner.scan(text, str(rel))
+        for marker, pattern in SECRET_PATTERNS:
+            for match in pattern.finditer(text):
+                line = text.count("\n", 0, match.start()) + 1
+                rows.append({"path": str(rel), "line": line, "marker": marker,
+                             "match_sha256": digest(match.group().encode())})
+    return scanner.hits, rows
+
+
+def main():
+    files, excluded = sources()
+    if sys.argv[1:] == ["scan"]:
+        groups, matches = scan(files)
+        write_json(ROOT / "initial-sensitive-scan.json", {"groups": groups, "matches": matches})
+        print(json.dumps({"files": len(files), "groups": len(groups), "matches": len(matches)}))
+        return 0
+    assert json.loads((ROOT / "python/run.json").read_text())["complete"], "full gate is still running"
+    for leaf in ("frontend", "registry"):
+        assert json.loads((ROOT / leaf / "run.json").read_text())["complete"]
+    reviewed = json.loads(REVIEWS.read_text())
+    allowed = {(r["path"], r["line"], r["marker"], r["match_sha256"]): r["classification"] for r in reviewed}
+    DEST.mkdir(parents=True, exist_ok=False)
+    mappings = []
+    for source, rel in files:
+        raw = source.read_bytes()
+        raw.decode("utf-8")
+        target = DEST / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
+        assert target.read_bytes() == raw
+        mappings.append({"path": str(rel), "source": str(source), "bytes": len(raw), "sha256": digest(raw)})
+    write_json(DEST / "manifest.json", {"revision": SHA, "files": mappings, "excluded": excluded})
+    shutil.copyfile(ROOT / "REVIEW.md", DEST / "README.md")
+    scanned = [(p, p.relative_to(DEST)) for p in sorted(DEST.rglob("*")) if p.is_file()]
+    groups, matches = scan(scanned)
+    for row in matches:
+        key = (row["path"], row["line"], row["marker"], row["match_sha256"])
+        row["classification"] = allowed.get(key, "unclassified")
+    unknown = [r for r in matches if r["classification"] == "unclassified"]
+    write_json(DEST / "scan-review.json", {"implementation": "scripts.smoke_workbench_self_use.SecretScanner", "files_scanned": len(scanned), "groups": groups, "matches": matches, "unclassified": len(unknown), "scope": "all package texts excluding generated scan report and checksum list", "conclusion": "Exact match contexts reviewed; not a zero-pattern-hit certification."})
+    if unknown:
+        print(json.dumps({"unclassified": unknown}, indent=2))
+        return 1
+    lines = [digest(p.read_bytes()) + "  " + str(p.relative_to(REPO)) for p in sorted(DEST.rglob("*")) if p.is_file()]
+    (DEST / "sha256-manifest.txt").write_text("\n".join(lines) + "\n")
+    print(json.dumps({"original_files": len(mappings), "original_bytes": sum(r["bytes"] for r in mappings), "content_files": len(lines), "scan_matches": len(matches), "unclassified": 0}))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

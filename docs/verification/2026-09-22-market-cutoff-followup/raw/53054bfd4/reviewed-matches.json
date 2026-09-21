@@ -1,0 +1,1290 @@
+[
+  {
+    "path": "raw/4cf5a33ad/development-fixes.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "d4742f837ab67a306b75ccc7b55601d6eb24726890ad13c1eac6ff4d30c8fe06",
+    "classification": "module name in ResearchContractError traceback"
+  },
+  {
+    "path": "raw/4cf5a33ad/development-fixes.xml",
+    "line": 95,
+    "marker": "jwt_shape",
+    "match_sha256": "d4742f837ab67a306b75ccc7b55601d6eb24726890ad13c1eac6ff4d30c8fe06",
+    "classification": "module name in ResearchContractError traceback"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 19,
+    "marker": "cloud_token_prefix",
+    "match_sha256": "1a5d44a2dca19669d72edf4c4f1c27c4c1ca4b4408fbb17f6ce4ad452d78ddb3",
+    "classification": "literal synthetic model-label fixture in tests/test_smoke_workbench_self_use.py:493"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 19,
+    "marker": "cloud_token_prefix",
+    "match_sha256": "0cc478c1037fb26f890a72aa1fb62a1ae0049b2c9cee2df06bef3fe8b74e2ff7",
+    "classification": "literal synthetic model-label fixture in tests/test_smoke_workbench_self_use.py:494"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "bearer_token",
+    "match_sha256": "b899f1820420d75590a7eecc8429ab327de476aae9ecbf39697e871e115c3770",
+    "classification": "literal PRIVATE_SECRET fixture in intelligence/tests/test_acceptance_trace_capture.py:83"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "5e77b02420d90ff336fdb22e22c58b4e36039d4f261c6dff4e4fea4a27be0c3b",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "ada91a91e381533cbfa83360788c32193bd33679e6e18da72a52ff8bbd10bc78",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "ada91a91e381533cbfa83360788c32193bd33679e6e18da72a52ff8bbd10bc78",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "5ac9aedd8b277898a183fe582756329685d7e0abae02674e519d5f6322da38d9",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "5ac9aedd8b277898a183fe582756329685d7e0abae02674e519d5f6322da38d9",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "5ac9aedd8b277898a183fe582756329685d7e0abae02674e519d5f6322da38d9",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "5ac9aedd8b277898a183fe582756329685d7e0abae02674e519d5f6322da38d9",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "5ac9aedd8b277898a183fe582756329685d7e0abae02674e519d5f6322da38d9",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "0261a93c8f2e98c5c846385f2a082ddf384bdd93a1cebd48493977a4b81d29d2",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "0261a93c8f2e98c5c846385f2a082ddf384bdd93a1cebd48493977a4b81d29d2",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "be528bc4a6d862f6a9b14443d5471eb8636f23e923c5c99af21fa0f003e37b5a",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "be528bc4a6d862f6a9b14443d5471eb8636f23e923c5c99af21fa0f003e37b5a",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "be528bc4a6d862f6a9b14443d5471eb8636f23e923c5c99af21fa0f003e37b5a",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "be528bc4a6d862f6a9b14443d5471eb8636f23e923c5c99af21fa0f003e37b5a",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "717be00aab659ac745ca387c43b2778f405ec9b27e8fa9a9439f85ba34812868",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "717be00aab659ac745ca387c43b2778f405ec9b27e8fa9a9439f85ba34812868",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "717be00aab659ac745ca387c43b2778f405ec9b27e8fa9a9439f85ba34812868",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "ed43acb4bbdefe0a98eb840d5ce393099832cfeb06fc4a9d9d5fe54215f541b1",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "ed43acb4bbdefe0a98eb840d5ce393099832cfeb06fc4a9d9d5fe54215f541b1",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "ed43acb4bbdefe0a98eb840d5ce393099832cfeb06fc4a9d9d5fe54215f541b1",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "ed43acb4bbdefe0a98eb840d5ce393099832cfeb06fc4a9d9d5fe54215f541b1",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "8de4cda3f1496d2a7a42cc620bd299a118bc18511209c8b444dd959583c66c13",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "8de4cda3f1496d2a7a42cc620bd299a118bc18511209c8b444dd959583c66c13",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 19,
+    "marker": "jwt_shape",
+    "match_sha256": "f69cdf0588da7c5fd887d930b8f54f8bbaacad4138e242a651ff377e1dbb0f46",
+    "classification": "literal synthetic model-label fixture in tests/test_smoke_workbench_self_use.py:495"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 1,
+    "marker": "secret_assignment",
+    "match_sha256": "877bd9039096fd897e1aa1830313956b8c6978033eedeabe18afb57b26c4cc02",
+    "classification": "authorization field label in intelligence/tests/test_acceptance_trace_capture.py:83"
+  },
+  {
+    "path": "raw/4cf5a33ad/python/junit.xml",
+    "line": 12,
+    "marker": "secret_assignment",
+    "match_sha256": "6b58bb5c828cd6362ebb3ddb7a120b36f6dd1b9d9720fc87bd288a5d9d618158",
+    "classification": "literal unsafe URL test parameter in intelligence/tests/test_llm_settings.py:201 plus JUnit attribute closing delimiter"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 23,
+    "marker": "jwt_shape",
+    "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+    "classification": "honesty-gates module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 28,
+    "marker": "jwt_shape",
+    "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+    "classification": "honesty-gates module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 34,
+    "marker": "jwt_shape",
+    "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+    "classification": "honesty-gates module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 39,
+    "marker": "jwt_shape",
+    "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+    "classification": "episode-factory module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 44,
+    "marker": "jwt_shape",
+    "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+    "classification": "episode-factory module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 49,
+    "marker": "jwt_shape",
+    "match_sha256": "a6ec6bd092269a406a7bf97ffa0825da49e26737c184f19d1d1c0a7bfa60d04d",
+    "classification": "snapshot-contract module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 54,
+    "marker": "jwt_shape",
+    "match_sha256": "a6ec6bd092269a406a7bf97ffa0825da49e26737c184f19d1d1c0a7bfa60d04d",
+    "classification": "snapshot-contract module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 59,
+    "marker": "jwt_shape",
+    "match_sha256": "a147ee61f9e831e6d60477d5219d402700e5753ac04a8b136c19d70b94332b4f",
+    "classification": "snapshot module in mutation source or assertion traceback"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 64,
+    "marker": "jwt_shape",
+    "match_sha256": "a147ee61f9e831e6d60477d5219d402700e5753ac04a8b136c19d70b94332b4f",
+    "classification": "snapshot module in mutation source or assertion traceback"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 70,
+    "marker": "jwt_shape",
+    "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+    "classification": "tool-registry module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 75,
+    "marker": "jwt_shape",
+    "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+    "classification": "tool-registry module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 80,
+    "marker": "jwt_shape",
+    "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+    "classification": "tool-registry module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 85,
+    "marker": "jwt_shape",
+    "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+    "classification": "tool-registry module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 96,
+    "marker": "jwt_shape",
+    "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+    "classification": "episode-tools module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 97,
+    "marker": "jwt_shape",
+    "match_sha256": "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1",
+    "classification": "cutoff date method in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 98,
+    "marker": "jwt_shape",
+    "match_sha256": "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1",
+    "classification": "cutoff date method in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 102,
+    "marker": "jwt_shape",
+    "match_sha256": "df4dfbad61b33b82214d78773ee1d62e16e5d50ea65cdb8c5f28fc1b74f08941",
+    "classification": "ask-blocks module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 107,
+    "marker": "jwt_shape",
+    "match_sha256": "df4dfbad61b33b82214d78773ee1d62e16e5d50ea65cdb8c5f28fc1b74f08941",
+    "classification": "ask-blocks module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 112,
+    "marker": "jwt_shape",
+    "match_sha256": "75bcab3dc123a00dcda19ccc6fd4a5c01e155a6c1994f593f8f3a3df2b64fe11",
+    "classification": "agent-research module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 117,
+    "marker": "jwt_shape",
+    "match_sha256": "75bcab3dc123a00dcda19ccc6fd4a5c01e155a6c1994f593f8f3a3df2b64fe11",
+    "classification": "agent-research module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 122,
+    "marker": "jwt_shape",
+    "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+    "classification": "episode-tools module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 127,
+    "marker": "jwt_shape",
+    "match_sha256": "bf885e170329e8661dc80b519e31fe43476eb0d11dfe151d83b313181c829c28",
+    "classification": "snapshot-reconcile module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 132,
+    "marker": "jwt_shape",
+    "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+    "classification": "episode-tools module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutation_probe.py.txt",
+    "line": 144,
+    "marker": "jwt_shape",
+    "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+    "classification": "episode-tools module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 23,
+    "marker": "jwt_shape",
+    "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+    "classification": "honesty-gates module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 28,
+    "marker": "jwt_shape",
+    "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+    "classification": "honesty-gates module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 34,
+    "marker": "jwt_shape",
+    "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+    "classification": "honesty-gates module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 39,
+    "marker": "jwt_shape",
+    "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+    "classification": "episode-factory module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 44,
+    "marker": "jwt_shape",
+    "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+    "classification": "episode-factory module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 49,
+    "marker": "jwt_shape",
+    "match_sha256": "a6ec6bd092269a406a7bf97ffa0825da49e26737c184f19d1d1c0a7bfa60d04d",
+    "classification": "snapshot-contract module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 54,
+    "marker": "jwt_shape",
+    "match_sha256": "a6ec6bd092269a406a7bf97ffa0825da49e26737c184f19d1d1c0a7bfa60d04d",
+    "classification": "snapshot-contract module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 59,
+    "marker": "jwt_shape",
+    "match_sha256": "a147ee61f9e831e6d60477d5219d402700e5753ac04a8b136c19d70b94332b4f",
+    "classification": "snapshot module in mutation source or assertion traceback"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 64,
+    "marker": "jwt_shape",
+    "match_sha256": "a147ee61f9e831e6d60477d5219d402700e5753ac04a8b136c19d70b94332b4f",
+    "classification": "snapshot module in mutation source or assertion traceback"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 70,
+    "marker": "jwt_shape",
+    "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+    "classification": "tool-registry module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 75,
+    "marker": "jwt_shape",
+    "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+    "classification": "tool-registry module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 80,
+    "marker": "jwt_shape",
+    "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+    "classification": "tool-registry module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 85,
+    "marker": "jwt_shape",
+    "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+    "classification": "tool-registry module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 96,
+    "marker": "jwt_shape",
+    "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+    "classification": "episode-tools module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 97,
+    "marker": "jwt_shape",
+    "match_sha256": "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1",
+    "classification": "cutoff date method in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 98,
+    "marker": "jwt_shape",
+    "match_sha256": "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1",
+    "classification": "cutoff date method in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 102,
+    "marker": "jwt_shape",
+    "match_sha256": "df4dfbad61b33b82214d78773ee1d62e16e5d50ea65cdb8c5f28fc1b74f08941",
+    "classification": "ask-blocks module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 107,
+    "marker": "jwt_shape",
+    "match_sha256": "df4dfbad61b33b82214d78773ee1d62e16e5d50ea65cdb8c5f28fc1b74f08941",
+    "classification": "ask-blocks module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 112,
+    "marker": "jwt_shape",
+    "match_sha256": "75bcab3dc123a00dcda19ccc6fd4a5c01e155a6c1994f593f8f3a3df2b64fe11",
+    "classification": "agent-research module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 117,
+    "marker": "jwt_shape",
+    "match_sha256": "75bcab3dc123a00dcda19ccc6fd4a5c01e155a6c1994f593f8f3a3df2b64fe11",
+    "classification": "agent-research module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 122,
+    "marker": "jwt_shape",
+    "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+    "classification": "episode-tools module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 127,
+    "marker": "jwt_shape",
+    "match_sha256": "bf885e170329e8661dc80b519e31fe43476eb0d11dfe151d83b313181c829c28",
+    "classification": "snapshot-reconcile module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 132,
+    "marker": "jwt_shape",
+    "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+    "classification": "episode-tools module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 144,
+    "marker": "jwt_shape",
+    "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+    "classification": "episode-tools module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation.py.txt",
+    "line": 152,
+    "marker": "jwt_shape",
+    "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+    "classification": "episode-tools module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 23,
+    "marker": "jwt_shape",
+    "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+    "classification": "honesty-gates module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 28,
+    "marker": "jwt_shape",
+    "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+    "classification": "honesty-gates module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 34,
+    "marker": "jwt_shape",
+    "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+    "classification": "honesty-gates module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 39,
+    "marker": "jwt_shape",
+    "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+    "classification": "episode-factory module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 44,
+    "marker": "jwt_shape",
+    "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+    "classification": "episode-factory module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 49,
+    "marker": "jwt_shape",
+    "match_sha256": "a6ec6bd092269a406a7bf97ffa0825da49e26737c184f19d1d1c0a7bfa60d04d",
+    "classification": "snapshot-contract module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 54,
+    "marker": "jwt_shape",
+    "match_sha256": "a6ec6bd092269a406a7bf97ffa0825da49e26737c184f19d1d1c0a7bfa60d04d",
+    "classification": "snapshot-contract module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 59,
+    "marker": "jwt_shape",
+    "match_sha256": "a147ee61f9e831e6d60477d5219d402700e5753ac04a8b136c19d70b94332b4f",
+    "classification": "snapshot module in mutation source or assertion traceback"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 64,
+    "marker": "jwt_shape",
+    "match_sha256": "a147ee61f9e831e6d60477d5219d402700e5753ac04a8b136c19d70b94332b4f",
+    "classification": "snapshot module in mutation source or assertion traceback"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 70,
+    "marker": "jwt_shape",
+    "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+    "classification": "tool-registry module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 75,
+    "marker": "jwt_shape",
+    "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+    "classification": "tool-registry module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 80,
+    "marker": "jwt_shape",
+    "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+    "classification": "tool-registry module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 85,
+    "marker": "jwt_shape",
+    "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+    "classification": "tool-registry module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 96,
+    "marker": "jwt_shape",
+    "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+    "classification": "episode-tools module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 97,
+    "marker": "jwt_shape",
+    "match_sha256": "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1",
+    "classification": "cutoff date method in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 98,
+    "marker": "jwt_shape",
+    "match_sha256": "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1",
+    "classification": "cutoff date method in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 102,
+    "marker": "jwt_shape",
+    "match_sha256": "df4dfbad61b33b82214d78773ee1d62e16e5d50ea65cdb8c5f28fc1b74f08941",
+    "classification": "ask-blocks module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 107,
+    "marker": "jwt_shape",
+    "match_sha256": "df4dfbad61b33b82214d78773ee1d62e16e5d50ea65cdb8c5f28fc1b74f08941",
+    "classification": "ask-blocks module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 112,
+    "marker": "jwt_shape",
+    "match_sha256": "75bcab3dc123a00dcda19ccc6fd4a5c01e155a6c1994f593f8f3a3df2b64fe11",
+    "classification": "agent-research module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 117,
+    "marker": "jwt_shape",
+    "match_sha256": "75bcab3dc123a00dcda19ccc6fd4a5c01e155a6c1994f593f8f3a3df2b64fe11",
+    "classification": "agent-research module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 122,
+    "marker": "jwt_shape",
+    "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+    "classification": "episode-tools module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 127,
+    "marker": "jwt_shape",
+    "match_sha256": "bf885e170329e8661dc80b519e31fe43476eb0d11dfe151d83b313181c829c28",
+    "classification": "snapshot-reconcile module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 132,
+    "marker": "jwt_shape",
+    "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+    "classification": "episode-tools module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 144,
+    "marker": "jwt_shape",
+    "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+    "classification": "episode-tools module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+    "line": 152,
+    "marker": "jwt_shape",
+    "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+    "classification": "episode-tools module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "cloud_token_prefix",
+    "match_sha256": "1a5d44a2dca19669d72edf4c4f1c27c4c1ca4b4408fbb17f6ce4ad452d78ddb3",
+    "classification": "literal synthetic model-label fixture in tests/test_smoke_workbench_self_use.py:493"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "cloud_token_prefix",
+    "match_sha256": "0cc478c1037fb26f890a72aa1fb62a1ae0049b2c9cee2df06bef3fe8b74e2ff7",
+    "classification": "literal synthetic model-label fixture in tests/test_smoke_workbench_self_use.py:494"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "bearer_token",
+    "match_sha256": "b899f1820420d75590a7eecc8429ab327de476aae9ecbf39697e871e115c3770",
+    "classification": "literal PRIVATE_SECRET fixture in intelligence/tests/test_acceptance_trace_capture.py:83"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "5e77b02420d90ff336fdb22e22c58b4e36039d4f261c6dff4e4fea4a27be0c3b",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "ada91a91e381533cbfa83360788c32193bd33679e6e18da72a52ff8bbd10bc78",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "ada91a91e381533cbfa83360788c32193bd33679e6e18da72a52ff8bbd10bc78",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "5ac9aedd8b277898a183fe582756329685d7e0abae02674e519d5f6322da38d9",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "5ac9aedd8b277898a183fe582756329685d7e0abae02674e519d5f6322da38d9",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "5ac9aedd8b277898a183fe582756329685d7e0abae02674e519d5f6322da38d9",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "5ac9aedd8b277898a183fe582756329685d7e0abae02674e519d5f6322da38d9",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "5ac9aedd8b277898a183fe582756329685d7e0abae02674e519d5f6322da38d9",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "4f20f620887aa7adc8cd7521e48c797b5739ded8e4d7439067386e1bc96c24e6",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "0261a93c8f2e98c5c846385f2a082ddf384bdd93a1cebd48493977a4b81d29d2",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "0261a93c8f2e98c5c846385f2a082ddf384bdd93a1cebd48493977a4b81d29d2",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "be528bc4a6d862f6a9b14443d5471eb8636f23e923c5c99af21fa0f003e37b5a",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "be528bc4a6d862f6a9b14443d5471eb8636f23e923c5c99af21fa0f003e37b5a",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "be528bc4a6d862f6a9b14443d5471eb8636f23e923c5c99af21fa0f003e37b5a",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "be528bc4a6d862f6a9b14443d5471eb8636f23e923c5c99af21fa0f003e37b5a",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "717be00aab659ac745ca387c43b2778f405ec9b27e8fa9a9439f85ba34812868",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "717be00aab659ac745ca387c43b2778f405ec9b27e8fa9a9439f85ba34812868",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "717be00aab659ac745ca387c43b2778f405ec9b27e8fa9a9439f85ba34812868",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "ed43acb4bbdefe0a98eb840d5ce393099832cfeb06fc4a9d9d5fe54215f541b1",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "ed43acb4bbdefe0a98eb840d5ce393099832cfeb06fc4a9d9d5fe54215f541b1",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "ed43acb4bbdefe0a98eb840d5ce393099832cfeb06fc4a9d9d5fe54215f541b1",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "ed43acb4bbdefe0a98eb840d5ce393099832cfeb06fc4a9d9d5fe54215f541b1",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "8de4cda3f1496d2a7a42cc620bd299a118bc18511209c8b444dd959583c66c13",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "8de4cda3f1496d2a7a42cc620bd299a118bc18511209c8b444dd959583c66c13",
+    "classification": "JUnit classname for existing docs verification test"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "jwt_shape",
+    "match_sha256": "f69cdf0588da7c5fd887d930b8f54f8bbaacad4138e242a651ff377e1dbb0f46",
+    "classification": "literal synthetic model-label fixture in tests/test_smoke_workbench_self_use.py:495"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "secret_assignment",
+    "match_sha256": "877bd9039096fd897e1aa1830313956b8c6978033eedeabe18afb57b26c4cc02",
+    "classification": "authorization field label in intelligence/tests/test_acceptance_trace_capture.py:83"
+  },
+  {
+    "path": "raw/53054bfd4/python/junit.xml",
+    "line": 1,
+    "marker": "secret_assignment",
+    "match_sha256": "6b58bb5c828cd6362ebb3ddb7a120b36f6dd1b9d9720fc87bd288a5d9d618158",
+    "classification": "literal unsafe URL test parameter in intelligence/tests/test_llm_settings.py:201 plus JUnit attribute closing delimiter"
+  },
+  {
+    "path": "raw/53054bfd4/mutations/snapshot_locator_reindexed/mutant.log.txt",
+    "line": 8,
+    "marker": "jwt_shape",
+    "match_sha256": "a147ee61f9e831e6d60477d5219d402700e5753ac04a8b136c19d70b94332b4f",
+    "classification": "snapshot module in mutation source or assertion traceback"
+  },
+  {
+    "path": "raw/53054bfd4/mutations/snapshot_locator_reindexed/mutant.xml",
+    "line": 4,
+    "marker": "jwt_shape",
+    "match_sha256": "a147ee61f9e831e6d60477d5219d402700e5753ac04a8b136c19d70b94332b4f",
+    "classification": "snapshot module in mutation source or assertion traceback"
+  },
+  {
+    "path": "raw/53054bfd4/mutations/drop_snapshot_capability/mutant.log.txt",
+    "line": 15,
+    "marker": "jwt_shape",
+    "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+    "classification": "episode-tools module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutations/drop_snapshot_capability/mutant.log.txt",
+    "line": 18,
+    "marker": "jwt_shape",
+    "match_sha256": "4d609702f9f72f50e9e52c3a3666e57b32d07a974c262afd413a5cf7bb663528",
+    "classification": "material-contract attribute in assertion traceback"
+  },
+  {
+    "path": "raw/53054bfd4/mutations/drop_snapshot_capability/mutant.xml",
+    "line": 11,
+    "marker": "jwt_shape",
+    "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+    "classification": "episode-tools module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutations/drop_snapshot_capability/mutant.xml",
+    "line": 14,
+    "marker": "jwt_shape",
+    "match_sha256": "4d609702f9f72f50e9e52c3a3666e57b32d07a974c262afd413a5cf7bb663528",
+    "classification": "material-contract attribute in assertion traceback"
+  },
+  {
+    "path": "raw/53054bfd4/mutations/snapshot_null_as_zero/mutant.log.txt",
+    "line": 15,
+    "marker": "jwt_shape",
+    "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+    "classification": "episode-tools module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutations/snapshot_null_as_zero/mutant.log.txt",
+    "line": 18,
+    "marker": "jwt_shape",
+    "match_sha256": "4d609702f9f72f50e9e52c3a3666e57b32d07a974c262afd413a5cf7bb663528",
+    "classification": "material-contract attribute in assertion traceback"
+  },
+  {
+    "path": "raw/53054bfd4/mutations/snapshot_null_as_zero/mutant.xml",
+    "line": 11,
+    "marker": "jwt_shape",
+    "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+    "classification": "episode-tools module in mutation source"
+  },
+  {
+    "path": "raw/53054bfd4/mutations/snapshot_null_as_zero/mutant.xml",
+    "line": 14,
+    "marker": "jwt_shape",
+    "match_sha256": "4d609702f9f72f50e9e52c3a3666e57b32d07a974c262afd413a5cf7bb663528",
+    "classification": "material-contract attribute in assertion traceback"
+  }
+]

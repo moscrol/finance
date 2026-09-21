@@ -1,0 +1,21 @@
+"""Read-only controlled PATH diagnostic for the retained code-map failure."""
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path.home() / "fwp-wt-market-date-advisory-0921"
+results = []
+for label, path in [("old_restricted", "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"), ("declared_path", os.environ["PATH"])]:
+    env = {"HOME": str(Path.home()), "PATH": path, "LANG": "C.UTF-8"}
+    result = subprocess.run([sys.executable, "scripts/code_map.py", "query", "daily-full", "--json"], cwd=TREE, env=env, capture_output=True, text=True, timeout=60)
+    payload = json.loads(result.stdout)
+    results.append({"label": label, "path": path, "uvx": shutil.which("uvx", path=path), "exit_code": result.returncode, "stderr": result.stderr, "status": payload["status"], "structure": payload["layers"]["structure"]})
+assert results[0]["uvx"] is None and not results[0]["structure"]["hits"]
+assert results[1]["uvx"] and any("market_feature_store" in hit["path"] for hit in results[1]["structure"]["hits"])
+revision = subprocess.check_output(["git", "-C", str(TREE), "rev-parse", "HEAD"], text=True).strip()
+(ROOT / "environment-probe.json").write_text(json.dumps({"revision": revision, "results": results, "conclusion": "PATH omission alone reproduces the missing-structure result; no source or test assertion relaxed"}, ensure_ascii=False, indent=2) + "\n")
+print(json.dumps({"revision": revision, "old_hits": len(results[0]["structure"]["hits"]), "declared_path_hits": len(results[1]["structure"]["hits"])}))

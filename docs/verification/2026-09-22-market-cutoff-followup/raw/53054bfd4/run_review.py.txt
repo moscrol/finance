@@ -1,0 +1,59 @@
+"""One-off read-only independent review attempt; failures are not verdicts."""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path.home() / "fwp-wt-market-date-advisory-0921"
+SHA = "53054bfd4336bebd0d570273a58e92758fb623be"
+role = sys.argv[1]
+assert role in {"spec", "quality"}
+out = ROOT / (role + "-review")
+out.mkdir(exist_ok=False)
+
+def identity():
+    def git(*args):
+        return subprocess.check_output(["git", "-C", str(TREE), *args], text=True).strip()
+    return {"revision": git("rev-parse", "HEAD"), "tree": git("rev-parse", "HEAD^{tree}"), "status": git("status", "--porcelain")}
+
+focus = {
+    "spec": "Assess compliance with the user requirements and authorization/date contracts. Look for paths that can bypass explicit cutoff, misrepresent source dates, deny available facts solely for date mismatch, or broaden local_only/material_only access. Check boundary cases and prove any finding with source references or a minimal read-only reproduction.",
+    "quality": "Review engineering quality and regressions: security/authorization, evidence/cache/trace filtering, date parser corner cases, JSON/file identity handling, error semantics, tool metadata, coverage gaps. Seek concrete defects, not formatting preferences. Check the offline capability switchboard change as well.",
+}[role]
+prompt = f"""You are an independent {role} reviewer, not the author. Review the fixed local candidate {SHA} in {TREE}, against base 79b11d4268a39e0c0ba1cca6e99fef46e338661e. Read-only: do not edit files, run commits, handoff, full test suites, network data fetching, deploy, or write any production/user data. Another process is running fixed-revision tests, so keep this to source inspection and minimal in-memory probes. The project Python is /Users/a77/finance-workspace-private/.venv-workbench/bin/python. Do not inspect secret files.
+Requirements: Different true source dates are advisory, not blanket unavailability or readiness failure. Deliver existing facts with their actual source dates; unknown is not zero; comparisons still need period/unit/caliber agreement. Explicit user historical information cutoff must be enforced by the system, including tools and delivered evidence/text/trace/cache, not just model obedience. local_only can read existing daily snapshots but must not enable composite market_data that may use network. material_only must return before path discovery/prefetch/reads. Historical daily snapshots must never open newer files/latest/meta, and must keep source identity, quality, null vs zero, and original JSON locators. Sealed fixtures may not escape to production paths. No claim of complete natural-language or publication-time (PIT) support is required.
+{focus}
+Inspect the actual git diff and surrounding implementation. Do not treat author handoffs or green tests as independent proof. Return a written Chinese verdict: findings first with severity/file/line and reasoning; then requirements or paths checked, unverified boundaries, and an explicit conclusion (issues found / no issues found in scope / review unavailable). Do not claim running checks you did not run. No review of other branches or main integration is authorized.
+"""
+(out / "prompt.txt").write_text(prompt)
+record = {"role": role, "before": identity(), "started_at": datetime.now(timezone.utc).isoformat(), "complete": False}
+assert record["before"]["revision"] == SHA and not record["before"]["status"]
+command = ["/Applications/ChatGPT.app/Contents/Resources/codex", "exec", "--ignore-user-config", "-m", "gpt-6-astra", "-s", "read-only", "--ephemeral", "--color", "never", "-C", str(TREE), "-o", str(out / "verdict.md"), prompt]
+start = time.monotonic()
+with (out / "log.txt").open("x") as log:
+    proc = subprocess.Popen(command, cwd=TREE, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+    record["pid"] = proc.pid
+    (out / "run.json").write_text(json.dumps(record, indent=2) + "\n")
+    try:
+        record["exit_code"] = proc.wait(timeout=900)
+    except subprocess.TimeoutExpired:
+        os.killpg(proc.pid, signal.SIGTERM)
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait()
+        record["exit_code"] = 124
+        record["timeout"] = True
+record.update(after=identity(), elapsed_seconds=round(time.monotonic() - start, 2), complete=True)
+record["identity_stable"] = record["before"] == record["after"]
+record["verdict_file_present"] = (out / "verdict.md").exists()
+record["review_status"] = "PENDING_READING" if record["exit_code"] == 0 and record["verdict_file_present"] and record["identity_stable"] else "UNAVAILABLE"
+(out / "run.json").write_text(json.dumps(record, indent=2) + "\n")
+print(json.dumps(record), flush=True)
+raise SystemExit(record["exit_code"])

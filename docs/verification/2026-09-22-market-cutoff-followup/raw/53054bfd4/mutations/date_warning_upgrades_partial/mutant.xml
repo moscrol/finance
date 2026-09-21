@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.803" timestamp="2026-09-22T02:33:42.442283+08:00" hostname="77deMacBook-Air.local"><testcase classname="tests.test_market_snapshot_reconcile.RunCheckGateTest" name="test_date_advisory_does_not_override_partial_snapshot" time="0.683"><failure message="AssertionError: True is not false">self = &lt;tests.test_market_snapshot_reconcile.RunCheckGateTest testMethod=test_date_advisory_does_not_override_partial_snapshot&gt;
+
+    def test_date_advisory_does_not_override_partial_snapshot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            root = base / "snapshot"
+            root.mkdir()
+            write_snapshot(root, "2026-08-12")
+            for path in root.glob("*.json"):
+                payload = json.loads(path.read_text())
+                payload["quality"] = "partial"
+                path.write_text(json.dumps(payload))
+            db = base / "market.duckdb"
+            write_market_db(db, "2026-08-11")
+    
+            result = run_check(root, "2026-08-12", db_path=db)
+    
+            self.assertEqual(result["reconciliation"]["status"], "WARN")
+&gt;           self.assertFalse(result["ready"])
+E           AssertionError: True is not false
+
+tests/test_market_snapshot_reconcile.py:179: AssertionError</failure></testcase></testsuite></testsuites>

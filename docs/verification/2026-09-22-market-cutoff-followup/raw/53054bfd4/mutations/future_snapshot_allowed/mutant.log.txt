@@ -1,0 +1,31 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________ test_history_never_reads_latest_meta_or_future_daily _____________
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_snapshot_allowed/mutant-tmp/test_history_never_reads_lates0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108982660>
+
+    def test_history_never_reads_latest_meta_or_future_daily(tmp_path, monkeypatch):
+        root = tmp_path / "snapshots"
+        _snapshot(root, "2026-09-11", quality="partial", freshness="historical")
+        _snapshot(root)
+        original = Path.read_text
+        reads = []
+    
+        def read(path, *args, **kwargs):
+            reads.append(path.name)
+            return original(path, *args, **kwargs)
+    
+        monkeypatch.setattr(Path, "read_text", read)
+        loaded = load_market_snapshot_as_of(root, date(2026, 9, 11))
+>       assert reads == ["2026-09-11.json"]
+E       AssertionError: assert ['2026-09-21.json'] == ['2026-09-11.json']
+E         
+E         At index 0 diff: '2026-09-21.json' != '2026-09-11.json'
+E         Use -v to get more diff
+
+intelligence/tests/test_local_market_snapshot.py:204: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_snapshot_allowed/mutant.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_local_market_snapshot.py::test_history_never_reads_latest_meta_or_future_daily
+1 failed in 1.03s

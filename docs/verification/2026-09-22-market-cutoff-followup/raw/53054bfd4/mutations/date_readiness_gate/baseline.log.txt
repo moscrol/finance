@@ -1,0 +1,3 @@
+............                                                             [100%]
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/date_readiness_gate/baseline.xml -
+12 passed in 14.45s

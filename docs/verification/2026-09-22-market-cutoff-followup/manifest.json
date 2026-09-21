@@ -1,0 +1,1063 @@
+{
+  "revision": "53054bfd4336bebd0d570273a58e92758fb623be",
+  "files": [
+    {
+      "path": "raw/4cf5a33ad/development-fixes-receipt.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-4cf5a33ad-20260922/development-fixes-receipt.json",
+      "bytes": 1038,
+      "sha256": "8e65383cfe4a779558c30f277f4daaf30dbcfa580527bbea5d5148ad74625373"
+    },
+    {
+      "path": "raw/4cf5a33ad/development-fixes-v2-receipt.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-4cf5a33ad-20260922/development-fixes-v2-receipt.json",
+      "bytes": 921,
+      "sha256": "01b53f84a585baa655c949bf8db03eb21452de102a4634f2e4e555acefd988d9"
+    },
+    {
+      "path": "raw/4cf5a33ad/development-fixes-v2.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-4cf5a33ad-20260922/development-fixes-v2.xml",
+      "bytes": 13216,
+      "sha256": "7546090717c51fca6592b105c38ccb03db1370c0b5d4e3beb0155677ba8e09f7"
+    },
+    {
+      "path": "raw/4cf5a33ad/development-fixes.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-4cf5a33ad-20260922/development-fixes.xml",
+      "bytes": 19889,
+      "sha256": "fecc89f450c81a6a83aa39ed59deb4f832cb827de91476572cf0a2e8deec4b28"
+    },
+    {
+      "path": "raw/4cf5a33ad/run_checks.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-4cf5a33ad-20260922/run_checks.py",
+      "bytes": 8253,
+      "sha256": "a38593f776cae6b631ba0b5d8a6e4af58476980952fd5fe91971c75a2812fc21"
+    },
+    {
+      "path": "raw/4cf5a33ad/python/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-4cf5a33ad-20260922/python/0.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "raw/4cf5a33ad/python/1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-4cf5a33ad-20260922/python/1.log.txt",
+      "bytes": 20177,
+      "sha256": "4c369bf755cbba6cf82054aeb065731705265c6fe1de9375d9b7a0f96cbceca7"
+    },
+    {
+      "path": "raw/4cf5a33ad/python/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-4cf5a33ad-20260922/python/junit.xml",
+      "bytes": 1977010,
+      "sha256": "276310f26551004ff44bc25cc087d062199fa173909c2ac5808eb3b7d990f24d"
+    },
+    {
+      "path": "raw/4cf5a33ad/python/pytest-receipt.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-4cf5a33ad-20260922/python/pytest-receipt.json",
+      "bytes": 833,
+      "sha256": "0bf04a8f2881b969e4218eb833f1c020df507cb1da0d55f4adb8019ffa9f6a04"
+    },
+    {
+      "path": "raw/4cf5a33ad/python/resource-monitor.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-4cf5a33ad-20260922/python/resource-monitor.jsonl",
+      "bytes": 48519,
+      "sha256": "d0bdfe638c13027088c9a6f5811c3bc9f37d541380ebe5ed37804414bb66009f"
+    },
+    {
+      "path": "raw/4cf5a33ad/python/resource-wait.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-4cf5a33ad-20260922/python/resource-wait.jsonl",
+      "bytes": 100,
+      "sha256": "f42047bb3af9a3eb9aa5b32686b026555df8010288c4b6ece51b6337e974c96c"
+    },
+    {
+      "path": "raw/4cf5a33ad/python/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-4cf5a33ad-20260922/python/run.json",
+      "bytes": 2588,
+      "sha256": "2b0cd3afaf51d8037a1b17c4abf2d4567985da361adf1c53e690b886ade67010"
+    },
+    {
+      "path": "raw/53054bfd4/REVIEW.md",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/REVIEW.md",
+      "bytes": 4307,
+      "sha256": "c14cdfde4b73b2d385212dce3f948fdff4c73ab2d329e021d6238501bccb729b"
+    },
+    {
+      "path": "raw/53054bfd4/archive.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/archive.py",
+      "bytes": 5252,
+      "sha256": "7cba481f2b75a18f4bdce8b6a9c88bbaf023662d87c98791775021714d732ee3"
+    },
+    {
+      "path": "raw/53054bfd4/classify_matches.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/classify_matches.py",
+      "bytes": 4786,
+      "sha256": "dd1a9e7bcdf5ab54bf892edb8b35bf40077bb901f1da8bf08bedb9eb8039525b"
+    },
+    {
+      "path": "raw/53054bfd4/environment-probe.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/environment-probe.json",
+      "bytes": 7479,
+      "sha256": "e0b9f8a114b72b232d71370bd76c3e69c1cb784acf7ae8ed9414a8566a4f8f8a"
+    },
+    {
+      "path": "raw/53054bfd4/environment_probe.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/environment_probe.py",
+      "bytes": 1597,
+      "sha256": "052418d730557d87d4669f9bbe17cf02cd52ae4a21b4c423c7b5fb287ce6a643"
+    },
+    {
+      "path": "raw/53054bfd4/errata.md",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/errata.md",
+      "bytes": 2721,
+      "sha256": "ddfdf4b1a8d896993617d311a5198a876f9e556ccdfc057412f33cde5891ef57"
+    },
+    {
+      "path": "raw/53054bfd4/frontend-launch.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/frontend-launch.log",
+      "bytes": 2240,
+      "sha256": "5ed29b87a6ba4be5d3bad50d82001ff2f1ae9b5236743eef8a998ad9b4ed14cb"
+    },
+    {
+      "path": "raw/53054bfd4/initial-sensitive-scan.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/initial-sensitive-scan.json",
+      "bytes": 18520,
+      "sha256": "66e6de3a4de1e7caf84eb8263b867cc25550a35c6547fac4d2812e8c0080ff93"
+    },
+    {
+      "path": "raw/53054bfd4/mutation_probe.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutation_probe.py",
+      "bytes": 12938,
+      "sha256": "0685fada62cbdf2ed557e234000404bea8e6a3acf8f6eb758a6965ef737fc4dd"
+    },
+    {
+      "path": "raw/53054bfd4/mutations-launch.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations-launch.log",
+      "bytes": 9079,
+      "sha256": "f4c4d16966bce13ce8ebead128f1dd52f132ce161a130803f53fb8c70f1899cd"
+    },
+    {
+      "path": "raw/53054bfd4/python-launch.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/python-launch.log",
+      "bytes": 3124,
+      "sha256": "6d6b293607f3a7a0d81d1654aebda3d03a3f0269b3b1d823cdf5257eb48b3de2"
+    },
+    {
+      "path": "raw/53054bfd4/quality-launch.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/quality-launch.log",
+      "bytes": 497,
+      "sha256": "d0075c6b275d2b69f2a8153da02e46dfa806367bf73c0a3b677dc74994dd532e"
+    },
+    {
+      "path": "raw/53054bfd4/receipt-validation.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/receipt-validation.txt",
+      "bytes": 779,
+      "sha256": "b4bf1bd8f9d53c70a93abe55f8ef47b84f186482f41513947c6c89384850a2e7"
+    },
+    {
+      "path": "raw/53054bfd4/registry-launch.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/registry-launch.log",
+      "bytes": 4080,
+      "sha256": "9c02c5b8129316f05d4e9e3721d7b9d14794515fe345487c9eee42e9fe63a99e"
+    },
+    {
+      "path": "raw/53054bfd4/reviewed-matches.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/reviewed-matches.json",
+      "bytes": 48684,
+      "sha256": "150106d2391efc810a1ac129186b7cb6434f24908f5d7f543636754f1162023c"
+    },
+    {
+      "path": "raw/53054bfd4/run_checks.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/run_checks.py",
+      "bytes": 8395,
+      "sha256": "e0fd3005170f559d732a256dc38a023779eca3b1f524161f90ba4dd55e29f41f"
+    },
+    {
+      "path": "raw/53054bfd4/run_review.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/run_review.py",
+      "bytes": 4960,
+      "sha256": "94dbfc9ed4925679f848ccd2082a48d30338a5c379f6c1e31acf21ffea9f275b"
+    },
+    {
+      "path": "raw/53054bfd4/spec-launch.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/spec-launch.log",
+      "bytes": 495,
+      "sha256": "16a64cbeb29889f92beb2de2f4623c65fc78361ad6a7509bbbd0f8f9556d17d0"
+    },
+    {
+      "path": "raw/53054bfd4/switch_mutation.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch_mutation.py",
+      "bytes": 13302,
+      "sha256": "d26f7b19357fae7a98fb7d05abe7aa4a9a462cd837fe679fe444e12d89caebfa"
+    },
+    {
+      "path": "raw/53054bfd4/switch_mutation_v2.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch_mutation_v2.py",
+      "bytes": 13578,
+      "sha256": "8120cb109f920ba1abbfc8a98380fd3e50ce6192664503c279f56c06a291db49"
+    },
+    {
+      "path": "raw/53054bfd4/vault-before.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/vault-before.txt",
+      "bytes": 6330,
+      "sha256": "f8c1db596b98d11977077453437b52d6dbcc5e9407878872560ce1cc42401e9c"
+    },
+    {
+      "path": "raw/53054bfd4/frontend/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/frontend/0.log.txt",
+      "bytes": 447,
+      "sha256": "e06448aa8ea5f8c0fcf6e8309ac9772454af338bfe6fcc1096c9d67c91b8cc46"
+    },
+    {
+      "path": "raw/53054bfd4/frontend/resource-monitor.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/frontend/resource-monitor.jsonl",
+      "bytes": 5448,
+      "sha256": "a114f7d7cceae05a7883c38561c40bb8cde9736a524f8873f8d9bf55612a0f4a"
+    },
+    {
+      "path": "raw/53054bfd4/frontend/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/frontend/run.json",
+      "bytes": 2490,
+      "sha256": "bd1e92d65290c4fdcbed49e6f3eb15378dae8a15e7dc18524cf81701c8c99f52"
+    },
+    {
+      "path": "raw/53054bfd4/frontend/gate/frontend-0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/frontend/gate/frontend-0.log.txt",
+      "bytes": 995,
+      "sha256": "da683232584b33396a5d801d09b93843d17bcc3289e2cc7c60b390603a001445"
+    },
+    {
+      "path": "raw/53054bfd4/frontend/gate/frontend-1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/frontend/gate/frontend-1.log.txt",
+      "bytes": 120,
+      "sha256": "5bf1fb2840113595f6d6fd58fac900c1a3c16011680ac8ae5b3383faec8bda82"
+    },
+    {
+      "path": "raw/53054bfd4/frontend/gate/frontend-2.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/frontend/gate/frontend-2.log.txt",
+      "bytes": 218,
+      "sha256": "effe439d3f1f047717b28318fd98d0d8c7d412af819c2a0913b8c1b2a5121735"
+    },
+    {
+      "path": "raw/53054bfd4/frontend/gate/frontend-3.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/frontend/gate/frontend-3.log.txt",
+      "bytes": 2373,
+      "sha256": "1b36049da7753394076575f9d706ca138d125174c1d142ac2d2c6c81d551f824"
+    },
+    {
+      "path": "raw/53054bfd4/frontend/gate/frontend-4.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/frontend/gate/frontend-4.log.txt",
+      "bytes": 927,
+      "sha256": "abb56d4ce68a3196fcdabc4117d347e47834a0c9ac1122f9ca26632e93f62f89"
+    },
+    {
+      "path": "raw/53054bfd4/frontend/gate/frontend-5.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/frontend/gate/frontend-5.log.txt",
+      "bytes": 12761,
+      "sha256": "b4f584502e9d2b0dabd40b8a1f99fbac6973ce97f4b82f5b9f3408ea05432e89"
+    },
+    {
+      "path": "raw/53054bfd4/frontend/gate/frontend.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/frontend/gate/frontend.json",
+      "bytes": 2506,
+      "sha256": "542a2187b5d292905449306c0dde3e3425bb574cfe624b816bfd9b68e53359f2"
+    },
+    {
+      "path": "raw/53054bfd4/python/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/python/0.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "raw/53054bfd4/python/1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/python/1.log.txt",
+      "bytes": 18385,
+      "sha256": "c8a7b825dc07e346a3ea0f1f6f02a07b8d1617b84cba0462940a698722e25b09"
+    },
+    {
+      "path": "raw/53054bfd4/python/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/python/junit.xml",
+      "bytes": 1975561,
+      "sha256": "f3edb22ffbca2e2c5afb2e973c7ddf27a212526c2bc7dc42961a53d6a3d95666"
+    },
+    {
+      "path": "raw/53054bfd4/python/pytest-receipt.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/python/pytest-receipt.json",
+      "bytes": 667,
+      "sha256": "c340686b32bd79a7b01d6226cd607a924d098d430ecad30935bbc705e1d65da1"
+    },
+    {
+      "path": "raw/53054bfd4/python/resource-monitor.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/python/resource-monitor.jsonl",
+      "bytes": 41952,
+      "sha256": "5a77b39759dd743b94f567f695f8e260dc8f607530b722a9c93e6a2fc948ea21"
+    },
+    {
+      "path": "raw/53054bfd4/python/resource-wait.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/python/resource-wait.jsonl",
+      "bytes": 20398,
+      "sha256": "86c65e83e814072fc326f9e9cac6bf853561ec209f7e97f8b0e9f7174e07a173"
+    },
+    {
+      "path": "raw/53054bfd4/python/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/python/run.json",
+      "bytes": 3564,
+      "sha256": "1c82d1fa48cb916bdc6a81b4fd2c03f3ccef989dcca73957674e47fb51a93d04"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/progress.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/progress.json",
+      "bytes": 11458,
+      "sha256": "365681594c0eae966abfe6293dd8b287f69b56cca48a3011d57a1718f7f79cb0"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/result.json",
+      "bytes": 12806,
+      "sha256": "d9f07299d4ff662b6301b2f1e5610614c186e8639f463799b8cd2120320ee8ef"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/ignore_explicit_cutoff/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/ignore_explicit_cutoff/baseline.log",
+      "bytes": 246,
+      "sha256": "b532c751a43521c57734da8e56b43b98610053883623f3a780e71298fb22b2ec"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/ignore_explicit_cutoff/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/ignore_explicit_cutoff/baseline.xml",
+      "bytes": 1811,
+      "sha256": "1da193df1bd97efe2ce02c9b0a3e4963ec09aff72c549f5a84ee5dc171c64c91"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/ignore_explicit_cutoff/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/ignore_explicit_cutoff/mutant.log",
+      "bytes": 10131,
+      "sha256": "06ef75a6092a854fedfde50d915f5e82a6d7e3ad71cee2ec213a5b7cd98ea14d"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/ignore_explicit_cutoff/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/ignore_explicit_cutoff/mutant.xml",
+      "bytes": 11569,
+      "sha256": "41f5d107543022571d13dae849815cc4aa29a4e86ec3fc7bdb722df2dffc552d"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/strict_future_redelivered/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/strict_future_redelivered/baseline.log",
+      "bytes": 249,
+      "sha256": "b79fac74f5e980b52e4db16aeeefbeed52bafa57f5634fce1fb1a947bf8e0159"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/strict_future_redelivered/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/strict_future_redelivered/baseline.xml",
+      "bytes": 925,
+      "sha256": "2eef5e05a03d8074b25361750a13dd6522577b1f21836158985ca2dc0526e0f6"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/strict_future_redelivered/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/strict_future_redelivered/mutant.log",
+      "bytes": 3335,
+      "sha256": "799e84775839e8ca7fbacfe1cda96f090c0a1d09c17584814d14a4273f467d7a"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/strict_future_redelivered/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/strict_future_redelivered/mutant.xml",
+      "bytes": 4524,
+      "sha256": "194ac3808e41984b5587e10cf395b4376369de190288862b0582f0c6282f5e0f"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/future_snapshot_allowed/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_snapshot_allowed/baseline.log",
+      "bytes": 247,
+      "sha256": "15de8f852253fce9d4498641f2cdbbc06ea6c32b8ad29ef849fc14b9410795a6"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/future_snapshot_allowed/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_snapshot_allowed/baseline.xml",
+      "bytes": 380,
+      "sha256": "a09ae098eba8ae5a63298581d8c43bfc5f4a020155e56004466439d984f7068d"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/future_snapshot_allowed/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_snapshot_allowed/mutant.log",
+      "bytes": 1689,
+      "sha256": "6b2e0e55566bf8b4230af540a0ed827acdefba041d8e028e6a4151bd81858db8"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/future_snapshot_allowed/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_snapshot_allowed/mutant.xml",
+      "bytes": 1681,
+      "sha256": "8daab5913437020f899748cc4dc6cea860f6652786ed20093788808e9de1516b"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/date_warning_upgrades_partial/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/date_warning_upgrades_partial/baseline.log",
+      "bytes": 253,
+      "sha256": "e55f7c54a104600ac7b99eb0b10bb45929524793113bc9d6650bd5bb5c29269e"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/date_warning_upgrades_partial/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/date_warning_upgrades_partial/baseline.xml",
+      "bytes": 389,
+      "sha256": "bbef2c5534e528baaf047291fbbdfc3191b79f925136c99b20a5559702dfa8fd"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/date_warning_upgrades_partial/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/date_warning_upgrades_partial/mutant.log",
+      "bytes": 1587,
+      "sha256": "4dd0bd6e4c1273b52c522f30cd5344082139be078d9548c77c064b3067bb0182"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/date_warning_upgrades_partial/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/date_warning_upgrades_partial/mutant.xml",
+      "bytes": 1441,
+      "sha256": "5177ff7ff65c222a81a8bb698a62da644899ba208a56af2e2a6c8b6094ab372c"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/prefetch_drops_own_date/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/prefetch_drops_own_date/baseline.log",
+      "bytes": 247,
+      "sha256": "b049415faf68e8b7caf1524797adbb7e2bd33de93cfbe897f9855b28bd3a18ef"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/prefetch_drops_own_date/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/prefetch_drops_own_date/baseline.xml",
+      "bytes": 723,
+      "sha256": "73e48eac80b392a8c57d5eb3e481faf69d682db730a723b970adc46c7a5027ad"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/prefetch_drops_own_date/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/prefetch_drops_own_date/mutant.log",
+      "bytes": 6841,
+      "sha256": "0de257cfba8bd4cffa2af03ffed7f8e336ac978b6d423e97be7d328eda396b78"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/prefetch_drops_own_date/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/prefetch_drops_own_date/mutant.xml",
+      "bytes": 7236,
+      "sha256": "60413340b1efee1c01fa7ec9a6537d60b6653ec6f56f23a53ce5e6b260b73d8f"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/ignore_source_identity/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/ignore_source_identity/baseline.log",
+      "bytes": 246,
+      "sha256": "1277f34279421217bd39cc73ca34fb8f8de9383e3f5977b3b80e4bf0a479a469"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/ignore_source_identity/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/ignore_source_identity/baseline.xml",
+      "bytes": 1257,
+      "sha256": "f0dcb796b0988bea00402be2706feb24038a63d37e67b631e6887dbfb519286a"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/ignore_source_identity/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/ignore_source_identity/mutant.log",
+      "bytes": 4316,
+      "sha256": "7e351240227a62c7df7d97d0e911f2e1c79a3bcc38b4e230bd161a41919d7549"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/ignore_source_identity/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/ignore_source_identity/mutant.xml",
+      "bytes": 5046,
+      "sha256": "6353cb241f87645439185116076171e7f458aabed7976dba37adaa580d1457bc"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/unknown_source_filled_from_overview/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/unknown_source_filled_from_overview/baseline.log",
+      "bytes": 259,
+      "sha256": "25f07c23ea085963368392b82482e7703495a9715c1e04174fb7d3f811ccbe95"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/unknown_source_filled_from_overview/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/unknown_source_filled_from_overview/baseline.xml",
+      "bytes": 723,
+      "sha256": "8f22bab4d65dded7e81741fba6e789a239549bda7ad6ab8b804b23e42dc1fa9c"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/unknown_source_filled_from_overview/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/unknown_source_filled_from_overview/mutant.log",
+      "bytes": 4727,
+      "sha256": "1700435a59f0b4d2b2132275bd051cfe00763dc134d1ba5e63121e3a40addd56"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/unknown_source_filled_from_overview/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/unknown_source_filled_from_overview/mutant.xml",
+      "bytes": 5065,
+      "sha256": "fc6c1ee34cd6e1162f35ed71efab4deca2c7427337df72efad4e718a38ababd6"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/mismatch_as_failure/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/mismatch_as_failure/baseline.log",
+      "bytes": 243,
+      "sha256": "5a8de3a5eb4a89079e1e4bbec8517e40baed4b272ce862d592159f2f94f85b9a"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/mismatch_as_failure/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/mismatch_as_failure/baseline.xml",
+      "bytes": 383,
+      "sha256": "41407718674d7dda83f8d3257d511c4ae7447b22a59f2a5a2fe48091d3fbc3e3"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/mismatch_as_failure/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/mismatch_as_failure/mutant.log",
+      "bytes": 1332,
+      "sha256": "54782fdc01c1c09f7dd421c727a88b0648eaad19451869805125fe8129230702"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/mismatch_as_failure/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/mismatch_as_failure/mutant.xml",
+      "bytes": 1217,
+      "sha256": "9c78fd751b7b6ce5de50f03c30d75ae3bd6dc0584f34f54b6979fc6521a459a6"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/uniform_overview_date/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/uniform_overview_date/baseline.log",
+      "bytes": 245,
+      "sha256": "2f9bd7c66efc5fbfb7387bf5ba4c88ef3c4c778ac98d1f6f029741824fee83f5"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/uniform_overview_date/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/uniform_overview_date/baseline.xml",
+      "bytes": 1245,
+      "sha256": "faf5313696bd97c9e42e185c06a619696c4d43450cf068a2cab484824eaa17e7"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/uniform_overview_date/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/uniform_overview_date/mutant.log",
+      "bytes": 14523,
+      "sha256": "86122d0440fc49cb16a965bbe8fa43a98476a63d58afa0abdae76970df9ca399"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/uniform_overview_date/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/uniform_overview_date/mutant.xml",
+      "bytes": 15135,
+      "sha256": "7192d93afd0e387297fd7566af50beeb4f39e0dbdabe6b6bae4b21761f06877b"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/yearless_uses_runtime_year/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/yearless_uses_runtime_year/baseline.log",
+      "bytes": 250,
+      "sha256": "1dd3b19bbe32b2252561378cf39c930e46d8446dc6cc666cb61f903001d7a293"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/yearless_uses_runtime_year/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/yearless_uses_runtime_year/baseline.xml",
+      "bytes": 1120,
+      "sha256": "7e0a7811760a13d2111376d2c6e53b75d213016d220b2f0daa35fa82c7265814"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/yearless_uses_runtime_year/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/yearless_uses_runtime_year/mutant.log",
+      "bytes": 2104,
+      "sha256": "c6a76681fed23d89a97889e525cea6495f3e07490740a01e0daf2211fa9c00b4"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/yearless_uses_runtime_year/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/yearless_uses_runtime_year/mutant.xml",
+      "bytes": 2685,
+      "sha256": "90f115df7dbb2419a2fa33cdde716e9fe33eb3587a0b5eef387f0136750f08f7"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/snapshot_locator_reindexed/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/snapshot_locator_reindexed/baseline.log",
+      "bytes": 250,
+      "sha256": "122b05b46cad6c5e01a8fb161f27218957b338708df6c9ee9008a072ba7c60dc"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/snapshot_locator_reindexed/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/snapshot_locator_reindexed/baseline.xml",
+      "bytes": 386,
+      "sha256": "a73b332bfe34c2685840788fa80b80e733b89e8be76e26eeed6fb3cb9f6eacce"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/snapshot_locator_reindexed/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/snapshot_locator_reindexed/mutant.log",
+      "bytes": 2304,
+      "sha256": "1a6e0f2dfbfcaa4e58447181006dacc035bc58fc20bf3bd94a6b57a9bdbda257"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/snapshot_locator_reindexed/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/snapshot_locator_reindexed/mutant.xml",
+      "bytes": 3062,
+      "sha256": "813dbfd0697e81b58823f30f60453ced50524cb427ee16aebd015de14273cfdb"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/reference_as_query_ceiling/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/reference_as_query_ceiling/baseline.log",
+      "bytes": 250,
+      "sha256": "563919e91fb65311f58ce7a9b051e0e3054e476825a69d26684e377cbb1ef1c5"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/reference_as_query_ceiling/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/reference_as_query_ceiling/baseline.xml",
+      "bytes": 388,
+      "sha256": "84b886eb3273735496f19e05b7211c622d5d8dd17e918709c97d60927b454568"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/reference_as_query_ceiling/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/reference_as_query_ceiling/mutant.log",
+      "bytes": 2069,
+      "sha256": "136562a2cc587384b168ee0a59ddf5f078d95ebeb666594dc398c848910ece5f"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/reference_as_query_ceiling/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/reference_as_query_ceiling/mutant.xml",
+      "bytes": 2095,
+      "sha256": "421b36e7ad414d37dc23c7e7afd316cebce3807b1f38416cab326538fe6e1965"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/future_observation_leak/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_observation_leak/baseline.log",
+      "bytes": 247,
+      "sha256": "c9950fdf12b473ed051c769e7217a9fec7172fb62d8206bf71b1e05ba2aafd67"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/future_observation_leak/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_observation_leak/baseline.xml",
+      "bytes": 925,
+      "sha256": "f50478e1dbb491a0b5a08c8e127be478922c15e4af8aa1618097ed2f0889c3af"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/future_observation_leak/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_observation_leak/mutant.log",
+      "bytes": 6419,
+      "sha256": "648b14be7cbcd011b1ad6527a2b4cf0316b249ff7bc906fa726b40ec07985aea"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/future_observation_leak/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_observation_leak/mutant.xml",
+      "bytes": 7995,
+      "sha256": "770b189570958817ddcc359c94bef934ce602eebb664274a0a826c938e72cb2d"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/hide_other_day_themes/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/hide_other_day_themes/baseline.log",
+      "bytes": 245,
+      "sha256": "26b6043364b2267631c34c31990f9a4920cd3eb65139a47e6026f9022c6611c1"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/hide_other_day_themes/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/hide_other_day_themes/baseline.xml",
+      "bytes": 1245,
+      "sha256": "027990fe1f89b91d0e3576bc461333621473af253bfa6fa28ea4e166eda2dd5e"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/hide_other_day_themes/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/hide_other_day_themes/mutant.log",
+      "bytes": 13956,
+      "sha256": "1ab16e87ae870b9b87cdcea322715ed47475813b7e167de45fc55e1873e0969a"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/hide_other_day_themes/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/hide_other_day_themes/mutant.xml",
+      "bytes": 14205,
+      "sha256": "1c2d321014664415e8864c5c5189997e969aa961cdad44afc5b81a702f4943c8"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/drop_snapshot_capability/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/drop_snapshot_capability/baseline.log",
+      "bytes": 248,
+      "sha256": "0028c4072494dbc851a098a29e2a7ff61591ff3937b07d63ecb9ecb0b51681b5"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/drop_snapshot_capability/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/drop_snapshot_capability/baseline.xml",
+      "bytes": 389,
+      "sha256": "ac7d09999ac250a05245a5f80dfe877ce8558c2e28c80f6cfa97e5c9e6694504"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/drop_snapshot_capability/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/drop_snapshot_capability/mutant.log",
+      "bytes": 1677,
+      "sha256": "c853e92bf4ac207f4bb33aa85cf03bf7b8a6b203d549f1288929865a645636c2"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/drop_snapshot_capability/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/drop_snapshot_capability/mutant.xml",
+      "bytes": 1591,
+      "sha256": "d4c73270f6db2828697d181143d6c799b1b26692295d81477fcd7d26c828c170"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/ignore_explicit_source_marker/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/ignore_explicit_source_marker/baseline.log",
+      "bytes": 253,
+      "sha256": "f09df33e92e8890fe44e385c259365307d331d055c06516698bf810deb82a150"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/ignore_explicit_source_marker/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/ignore_explicit_source_marker/baseline.xml",
+      "bytes": 393,
+      "sha256": "8ac2162922aed345b97453fdfe3c133d8f712c63273117703d14ed4ad0a1ccb3"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/ignore_explicit_source_marker/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/ignore_explicit_source_marker/mutant.log",
+      "bytes": 1488,
+      "sha256": "4a72661148d35a0bc35b57a0416d87aa4187a2eccbbea8d275a9f9d26b0251bb"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/ignore_explicit_source_marker/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/ignore_explicit_source_marker/mutant.xml",
+      "bytes": 1479,
+      "sha256": "00a5ee4e50275f0f43f040ea4ceab8a73fc00f1b1c17b05095402f73942a7649"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/ignore_standing_upper_bound/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/ignore_standing_upper_bound/baseline.log",
+      "bytes": 251,
+      "sha256": "42410674ae28614975c683d07402a1ab255a5a07ea4b9d9974bf03797b1c8826"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/ignore_standing_upper_bound/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/ignore_standing_upper_bound/baseline.xml",
+      "bytes": 1120,
+      "sha256": "4841bd4108024c3b3213bc3bfa98cf4abbbc5a3022f4200bb2127248e5152810"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/ignore_standing_upper_bound/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/ignore_standing_upper_bound/mutant.log",
+      "bytes": 2014,
+      "sha256": "15ac926f39a3ec780ecdff19d2b56b29adb1ab2af31daafc666550ce533372b1"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/ignore_standing_upper_bound/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/ignore_standing_upper_bound/mutant.xml",
+      "bytes": 2669,
+      "sha256": "dbb8fc440bc03c3b8d9671c28cf48512ddb6ef3a5deafb888a1d8c27b65f3360"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/date_readiness_gate/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/date_readiness_gate/baseline.log",
+      "bytes": 245,
+      "sha256": "ea118deffcc61f153098fb29581c4af3695b1bb5c31cb094900eb418057f3f7a"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/date_readiness_gate/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/date_readiness_gate/baseline.xml",
+      "bytes": 2221,
+      "sha256": "c6c83b5d4e86ba3e1029a935316105b0865399b57112feef6f955f8a66d3c152"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/date_readiness_gate/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/date_readiness_gate/mutant.log",
+      "bytes": 28037,
+      "sha256": "dab3774055eba19cbe6cfa6e1c4010456d2cc53557e7718b5b7f3a5d2a797054"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/date_readiness_gate/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/date_readiness_gate/mutant.xml",
+      "bytes": 28931,
+      "sha256": "c760e63adcea4c3b6cdcad986e19c475424589cc1bdd1fcbebebdf4778104443"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/caller_overrides_requested/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/caller_overrides_requested/baseline.log",
+      "bytes": 250,
+      "sha256": "6228d13faa677518b08f8107d02e1af03f89a9d75803802197e44cbb075bf45a"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/caller_overrides_requested/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/caller_overrides_requested/baseline.xml",
+      "bytes": 1811,
+      "sha256": "31d785acffb65033f296d892de3fe5e2943aec8049a57a6442da9784cd5fbe46"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/caller_overrides_requested/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/caller_overrides_requested/mutant.log",
+      "bytes": 13676,
+      "sha256": "7dcc46d32af01c2ad46c9e3cfce9cf2104aff64ca415b3475a9ae66763812a30"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/caller_overrides_requested/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/caller_overrides_requested/mutant.xml",
+      "bytes": 13668,
+      "sha256": "4a5f92871f2d81d54e1158e2b8b61462673a87356c4c37f820a8fbb57f1a0508"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/future_gaps_leak/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_gaps_leak/baseline.log",
+      "bytes": 240,
+      "sha256": "378812215f00e002874599612017323060ce14e8feadc0feb1e09b0262e61dea"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/future_gaps_leak/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_gaps_leak/baseline.xml",
+      "bytes": 925,
+      "sha256": "92f2de52e3179ae090e8ca24e5dbdf4d1f5e7face2be4233021f6a2c399f4360"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/future_gaps_leak/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_gaps_leak/mutant.log",
+      "bytes": 10949,
+      "sha256": "80fa0c1a3aea1d4fae992ee572ac0706732eae6075634cf146d74a6fa3e03be7"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/future_gaps_leak/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_gaps_leak/mutant.xml",
+      "bytes": 12329,
+      "sha256": "eda7e0c08e4367ff78312259ce61f81597232749f2dd737d21314251b00cd997"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/snapshot_null_as_zero/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/snapshot_null_as_zero/baseline.log",
+      "bytes": 245,
+      "sha256": "bf13b9923108dfd339f13e6c0987583d541ef2198b30f699537992313a9391d2"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/snapshot_null_as_zero/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/snapshot_null_as_zero/baseline.xml",
+      "bytes": 389,
+      "sha256": "cb2a0719244b03cfc1ccee0dbdb7ac569c9af696a14a77c5329acce5308adb8d"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/snapshot_null_as_zero/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/snapshot_null_as_zero/mutant.log",
+      "bytes": 2506,
+      "sha256": "e404d7d2a70bd6dc0d83ea2f4278d5591d36cb3165efdd6636f90c9c27ed658b"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/snapshot_null_as_zero/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/snapshot_null_as_zero/mutant.xml",
+      "bytes": 2528,
+      "sha256": "0f22ad071eef8a79869885bd483e49b791d1dc42cf430506f317f47482c29471"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/null_count_as_zero/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/null_count_as_zero/baseline.log",
+      "bytes": 242,
+      "sha256": "dfdb77fe2247dc5562a2b7760c001f5955084eb87df261b4314151cedbce9e1e"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/null_count_as_zero/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/null_count_as_zero/baseline.xml",
+      "bytes": 1245,
+      "sha256": "a7357612b2ffbd69df3d004bd0582037492a3fa342eece298df0ccfd6a516d71"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/null_count_as_zero/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/null_count_as_zero/mutant.log",
+      "bytes": 6444,
+      "sha256": "184c577522ce86dcf21282c54d8fe1a47f7ccc818a96f1993e9b29da0fb010d5"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/null_count_as_zero/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/null_count_as_zero/mutant.xml",
+      "bytes": 8075,
+      "sha256": "2ab9c6941225cdb21f3deb5378e445f4af929b5cfe41d40954300407f41bbcd3"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/old_window_self_authorizes/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/old_window_self_authorizes/baseline.log",
+      "bytes": 250,
+      "sha256": "b557f883ed6cefd3e0d919c99c7e44a928d202cf74456658a564953bb4207acd"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/old_window_self_authorizes/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/old_window_self_authorizes/baseline.xml",
+      "bytes": 386,
+      "sha256": "ae0dd4d1f8ac89d216d244ea4d6d1ba3a7f7336b6671bdfc56f49a1e32845e88"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/old_window_self_authorizes/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/old_window_self_authorizes/mutant.log",
+      "bytes": 3186,
+      "sha256": "e3e49431e2db08cd8e29b6a8c498fc5a447dec0408235c412944e0fad9f3b2f2"
+    },
+    {
+      "path": "raw/53054bfd4/mutations/old_window_self_authorizes/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/old_window_self_authorizes/mutant.xml",
+      "bytes": 3434,
+      "sha256": "3d13ed78ae7d4bb638b09d6e357a56d71858e444a28e4699a3376792a17d2bc8"
+    },
+    {
+      "path": "raw/53054bfd4/registry/0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/registry/0.log.txt",
+      "bytes": 95,
+      "sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe"
+    },
+    {
+      "path": "raw/53054bfd4/registry/1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/registry/1.log.txt",
+      "bytes": 121,
+      "sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a"
+    },
+    {
+      "path": "raw/53054bfd4/registry/2.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/registry/2.log.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "path": "raw/53054bfd4/registry/3.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/registry/3.log.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "path": "raw/53054bfd4/registry/4.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/registry/4.log.txt",
+      "bytes": 2015,
+      "sha256": "5d3c1c0fdef9497980824cbf23ca17a8f11aac3eb26b5441a2cc4d10c3a46352"
+    },
+    {
+      "path": "raw/53054bfd4/registry/resource-monitor.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/registry/resource-monitor.jsonl",
+      "bytes": 550,
+      "sha256": "696efab44a37c7df86b8b76cf010ea1ab99c3173abc7e8baa0488e9f0cc0516d"
+    },
+    {
+      "path": "raw/53054bfd4/registry/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/registry/run.json",
+      "bytes": 4610,
+      "sha256": "f4d1e78b378ce40c58dc66f9b4f8d0727df873b3e566d7c5fd71e84154926457"
+    },
+    {
+      "path": "raw/53054bfd4/switch-mutation/progress.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch-mutation/progress.json",
+      "bytes": 491,
+      "sha256": "70def49847949585f11aa8e5a5a94559a5a12c27a0225a6e9b1949fad9ecaac2"
+    },
+    {
+      "path": "raw/53054bfd4/switch-mutation/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch-mutation/result.json",
+      "bytes": 966,
+      "sha256": "ccc80d466775638188de3650c2fd3913a0ce972e259d3cc3a2c17437533a6d93"
+    },
+    {
+      "path": "raw/53054bfd4/switch-mutation/snapshot_ignores_final_authorization/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch-mutation/snapshot_ignores_final_authorization/baseline.log",
+      "bytes": 266,
+      "sha256": "0b4c6c9857034ad6478205cbb25dbcc3aacf13f08057f1d722e3c6dce3af8b66"
+    },
+    {
+      "path": "raw/53054bfd4/switch-mutation/snapshot_ignores_final_authorization/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch-mutation/snapshot_ignores_final_authorization/baseline.xml",
+      "bytes": 385,
+      "sha256": "5101b8d306df5ee4d94d908968a734141a368a6141e39490a2077781ad669ddb"
+    },
+    {
+      "path": "raw/53054bfd4/switch-mutation/snapshot_ignores_final_authorization/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch-mutation/snapshot_ignores_final_authorization/mutant.log",
+      "bytes": 264,
+      "sha256": "be836d1cd11a9b84f2cec1210f36cc3f986fbc4ef76f7ebfe90ed58dfd02b5d6"
+    },
+    {
+      "path": "raw/53054bfd4/switch-mutation/snapshot_ignores_final_authorization/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch-mutation/snapshot_ignores_final_authorization/mutant.xml",
+      "bytes": 385,
+      "sha256": "9618e5d69ac16b802475c65ba21daa6ccb5c6147d736f3784281a3aa990886aa"
+    },
+    {
+      "path": "raw/53054bfd4/quality-review/log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/quality-review/log.txt",
+      "bytes": 2922,
+      "sha256": "7606ecd0259d9edcbb1428cfa135231e90f964b817d7868237aab37c2eeabae7"
+    },
+    {
+      "path": "raw/53054bfd4/quality-review/prompt.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/quality-review/prompt.txt",
+      "bytes": 2235,
+      "sha256": "b105539a3ca73c506a93c624ffbfc2387af1941634e917123bc1536928e5cb48"
+    },
+    {
+      "path": "raw/53054bfd4/quality-review/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/quality-review/run.json",
+      "bytes": 553,
+      "sha256": "5961bb9ab4b65f717ac085d5309d3eb2814c02ae00381f861b4e5666b9a44ef7"
+    },
+    {
+      "path": "raw/53054bfd4/spec-review/log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/spec-review/log.txt",
+      "bytes": 2957,
+      "sha256": "2a976b546be43d7ea39e1f4a5a65d7a33fff68eba458f68f4538f29e4eb9b96f"
+    },
+    {
+      "path": "raw/53054bfd4/spec-review/prompt.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/spec-review/prompt.txt",
+      "bytes": 2270,
+      "sha256": "4b801eaddfdc197fc30da2eaf2d6f25cb948abbc48652ae900d760b5fe45e458"
+    },
+    {
+      "path": "raw/53054bfd4/spec-review/run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/spec-review/run.json",
+      "bytes": 551,
+      "sha256": "bc3ec69ceb2fe3f716a72117a6331183172830484791275acfec3a11aba2c400"
+    },
+    {
+      "path": "raw/53054bfd4/switch-mutation-two-guards/progress.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch-mutation-two-guards/progress.json",
+      "bytes": 489,
+      "sha256": "c47ebf65fa80119f67f16b2543c8ba4ed1530471142feb8db7486f80cd9ee11b"
+    },
+    {
+      "path": "raw/53054bfd4/switch-mutation-two-guards/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch-mutation-two-guards/result.json",
+      "bytes": 963,
+      "sha256": "0373ae7701e1c44d6f50a91931adf97631fd1af15f32c1b9d757740783282777"
+    },
+    {
+      "path": "raw/53054bfd4/switch-mutation-two-guards/snapshot_ignores_final_authorization/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch-mutation-two-guards/snapshot_ignores_final_authorization/baseline.log",
+      "bytes": 277,
+      "sha256": "7dc4c1e418884d6f987c9b6ab15309cffa28304806f91af85c14dafd2c94901f"
+    },
+    {
+      "path": "raw/53054bfd4/switch-mutation-two-guards/snapshot_ignores_final_authorization/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch-mutation-two-guards/snapshot_ignores_final_authorization/baseline.xml",
+      "bytes": 385,
+      "sha256": "a8e4799197ca1e15fd3cb7ba9927aac73ca4ac8e16bf8e79402c5500874faa55"
+    },
+    {
+      "path": "raw/53054bfd4/switch-mutation-two-guards/snapshot_ignores_final_authorization/mutant.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch-mutation-two-guards/snapshot_ignores_final_authorization/mutant.log",
+      "bytes": 2233,
+      "sha256": "3e3f500b51e3930816c105e02545409b29d4ef03699a44460c1c96f36af1f118"
+    },
+    {
+      "path": "raw/53054bfd4/switch-mutation-two-guards/snapshot_ignores_final_authorization/mutant.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch-mutation-two-guards/snapshot_ignores_final_authorization/mutant.xml",
+      "bytes": 2185,
+      "sha256": "ffb1d5f82b4431da9f53e49011c4c16e2a251d334e5022c4f2542b7d384d878e"
+    }
+  ],
+  "excluded": [
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-4cf5a33ad-20260922/python/ruff-cache/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-4cf5a33ad-20260922/python/tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/__pycache__/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/python/ruff-cache/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/python/tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/strict_cache_collision/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/strict_future_redelivered/baseline-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/strict_future_redelivered/mutant-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_snapshot_allowed/baseline-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_snapshot_allowed/mutant-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/prefetch_drops_own_date/baseline-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/prefetch_drops_own_date/mutant-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/ignore_source_identity/baseline-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/ignore_source_identity/mutant-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/unknown_source_filled_from_overview/baseline-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/unknown_source_filled_from_overview/mutant-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/uniform_overview_date/baseline-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/uniform_overview_date/mutant-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/snapshot_locator_reindexed/baseline-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/snapshot_locator_reindexed/mutant-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/reference_as_query_ceiling/baseline-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/reference_as_query_ceiling/mutant-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_observation_leak/baseline-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_observation_leak/mutant-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/hide_other_day_themes/baseline-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/hide_other_day_themes/mutant-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/drop_snapshot_capability/baseline-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/drop_snapshot_capability/mutant-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/date_readiness_gate/baseline-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/date_readiness_gate/mutant-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_gaps_leak/baseline-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/future_gaps_leak/mutant-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/snapshot_null_as_zero/baseline-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/snapshot_null_as_zero/mutant-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/null_count_as_zero/baseline-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/null_count_as_zero/mutant-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/old_window_self_authorizes/baseline-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/mutations/old_window_self_authorizes/mutant-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch-mutation/snapshot_ignores_final_authorization/baseline-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch-mutation/snapshot_ignores_final_authorization/mutant-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch-mutation-two-guards/snapshot_ignores_final_authorization/baseline-tmp/",
+    "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-53054bfd4-20260922/switch-mutation-two-guards/snapshot_ignores_final_authorization/mutant-tmp/"
+  ]
+}

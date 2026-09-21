@@ -1,0 +1,27 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/fwp-wt-market-date-advisory-0921/intelligence/webapp
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90m/Users/a77/fwp-wt-market-date-advisory-0921/intelligence/webapp[39m
+
+ [32m✓[39m src/researchActivity.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/streamEventRegistry.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/api.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+ [32m✓[39m src/components/ResearchActivityControl.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 259[2mms[22m[39m
+ [32m✓[39m src/components/ResearchProjectPanel.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 321[2mms[22m[39m
+ [32m✓[39m src/components/DailyReportView.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 592[2mms[22m[39m
+   [33m[2m✓[22m[39m DailyReportView[2m > [22mkeeps glossary and the original report behind disclosure controls [33m 415[2mms[22m[39m
+ [32m✓[39m src/components/ResearchEvolutionPanel.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 1002[2mms[22m[39m
+ [32m✓[39m src/components/components.test.tsx [2m([22m[2m71 tests[22m[2m)[22m[33m 5971[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mopens on today and navigates across the five product surfaces [33m 436[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling while terminal ownership precedes report delivery [33m 343[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps cancel pending until polling confirms the cancelled state [33m 381[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mconfigures session-only BYOK without exposing the key [33m 310[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mpersists BYOK only after opt-in and can explicitly forget it [33m 374[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[32m110 passed[39m[22m[90m (110)[39m
+[2m   Start at [22m 02:31:01
+[2m   Duration [22m 9.79s[2m (transform 1.45s, setup 4.19s, collect 3.71s, tests 8.19s, environment 8.78s, prepare 1.93s)[22m
+
