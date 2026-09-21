@@ -43,6 +43,7 @@ from intelligence.services.episode_store import (
     EpisodePhase,
     EpisodeState,
     EpisodeStore,
+    episode_writer,
     now_iso,
     require_known_kinds,
 )
@@ -332,14 +333,32 @@ def restore_episode(
 
     非终态必须有完整授权快照及调用方重新提供的 ``context`` / ``registry``，精确匹配后
     才能合成日志/给计划；旧日志可 load 诊断，但不猜权限给恢复计划。确认完成态只读返回。
-    ``now`` 可注入，Tier A 套件用它把「截止已过 / 未过」两格都跑到。仍不是续跑许可。
+    读前取得本机独占写者，活驱动存在时拒绝；返回时释放，plan 不是后续执行许可。
+    ``now`` 可注入，Tier A 套件用它把「截止已过 / 未过」两格都跑到。
     """
 
+    with episode_writer(store, episode_id):
+        return _restore_owned(
+            episode_id, store, registry=registry, harness=harness, now=now, context=context,
+        )
+
+
+def _restore_owned(
+    episode_id: str,
+    store: EpisodeStore,
+    *,
+    registry: ResearchToolRegistry | None,
+    harness: ResearchHarness | None,
+    now: datetime | None,
+    context: ResearchRunContext | None,
+) -> RestoreResult:
     domain = harness if harness is not None else FinanceResearchHarness()
     moment = now if now is not None else datetime.now().astimezone()
     loaded_events, state = store.load(episode_id)
     if state is None:
         raise RestoreUnavailable(f"{episode_id}: 没有 EpisodeState，拒绝从事件流推断位置")
+    if state.episode_id != episode_id:
+        raise RestoreUnavailable(f"{episode_id}: checkpoint episode identity mismatch")
     if state.log_version != EPISODE_LOG_VERSION:
         raise RestoreUnavailable(
             f"{episode_id}: 日志版本 {state.log_version} != 读者 {EPISODE_LOG_VERSION}"

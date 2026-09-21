@@ -104,7 +104,7 @@ from intelligence.services.episode_messages import (
     unreported_invalid_finish,
     user_message,
 )
-from intelligence.services.episode_restore import RestoreResult, restore_episode
+from intelligence.services.episode_restore import RestoreResult, RestoreUnavailable, restore_episode
 from intelligence.services.episode_authorization import capture_authorization_snapshot
 from intelligence.services.episode_evidence import capture_evidence_snapshot
 from intelligence.services.episode_scope import EpisodeScope
@@ -115,6 +115,7 @@ from intelligence.services.episode_store import (
     EpisodeState,
     EpisodeStore,
     FencedEpisodeStore,
+    episode_writer,
     now_iso,
 )
 from intelligence.services.research_harness import (
@@ -1133,8 +1134,18 @@ class EpisodeDrive:
             self.outcome = stop.value
             self.finished = True
             return None
+        except BaseException:
+            self.finished = True
+            raise
         self.steps.append(point)
         return point
+
+    def close(self) -> None:
+        """Abandon a paused drive and release ownership, without inventing a finish."""
+        try:
+            self._generator.close()
+        finally:
+            self.finished = True
 
     def run_until(self, phase: str) -> StepPoint | None:
         """跑到下一个 ``phase`` 步点；先到终态就回 ``None``。"""
@@ -1325,13 +1336,41 @@ class ContinuousAgentEpisode:
         """
 
         return EpisodeDrive(
-            self._drive(
+            self._drive_owned(
                 task_frame=task_frame,
                 context=context,
                 registry=registry,
                 _continuation_sink=_continuation_sink,
             )
         )
+
+    def _drive_owned(
+        self,
+        *,
+        task_frame: TaskFrame,
+        context: ResearchRunContext,
+        registry: ResearchToolRegistry,
+        _continuation_sink: list[_EpisodeContinuationState] | None = None,
+    ) -> Generator[StepPoint, None, AgentOutcome]:
+        episode_id = context.contract.task_id.strip()
+        with episode_writer(self._store, episode_id):
+            if self._store is not None:
+                events, state = self._store.load(episode_id)
+                if events or state is not None:
+                    raise RestoreUnavailable(f"{episode_id}: existing episode requires recovery, not a fresh run")
+            try:
+                return (yield from self._drive(
+                    task_frame=task_frame, context=context, registry=registry,
+                    _continuation_sink=_continuation_sink,
+                ))
+            except BaseException:
+                if self._active_inbox is not None:
+                    self._active_inbox.suspend()
+                self._active_inbox = None
+                raise
+            finally:
+                if self._active_inbox is not None:
+                    self._active_inbox.suspend()
 
     def _drive(
         self,
@@ -2397,6 +2436,36 @@ class ContinuousAgentEpisode:
     ) -> AgentOutcome:
         """Continue one captured provider history for a verifier repair goal."""
 
+        if state.ledger.store_failures:
+            return previous
+        episode_id = state.ledger.episode_id
+        if (state.ledger._store is not self._store
+                or state.context.contract.task_id.strip() != episode_id
+                or goal.episode_id != episode_id
+                or previous.task_frame_hash != state.task_frame.task_frame_hash):
+            raise RestoreUnavailable("repair continuation owner or task identity mismatch")
+        with episode_writer(self._store, episode_id):
+            if self._store is not None:
+                events, checkpoint = self._store.load(state.ledger.episode_id)
+                if events != tuple(state.ledger.events) or checkpoint != state.ledger.state:
+                    raise RestoreUnavailable("repair continuation no longer matches the stored episode")
+            try:
+                return self._resume_owned(state, previous, goal)
+            except BaseException:
+                if self._active_inbox is not None:
+                    self._active_inbox.suspend()
+                self._active_inbox = None
+                raise
+            finally:
+                if self._active_inbox is not None:
+                    self._active_inbox.suspend()
+
+    def _resume_owned(
+        self,
+        state: _EpisodeContinuationState,
+        previous: AgentOutcome,
+        goal: RepairGoal,
+    ) -> AgentOutcome:
         if state.ledger.store_failures:
             return previous
         context = state.context

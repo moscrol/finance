@@ -1,0 +1,65 @@
+[
+  {
+    "id": "disk_writer_not_exclusive",
+    "path": "intelligence/services/episode_store.py",
+    "old": "fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)",
+    "new": "fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)",
+    "targets": ["test_separate_process_cannot_restore_until_owner_releases"]
+  },
+  {
+    "id": "restore_bypasses_writer",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "with episode_writer(store, episode_id):",
+    "new": "with episode_writer(None, episode_id):",
+    "targets": ["test_separate_process_cannot_restore_until_owner_releases"]
+  },
+  {
+    "id": "drive_bypasses_writer",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "        episode_id = context.contract.task_id.strip()\n        with episode_writer(self._store, episode_id):",
+    "new": "        episode_id = context.contract.task_id.strip()\n        with episode_writer(None, episode_id):",
+    "targets": ["test_killing_real_drive_releases_lock_but_keeps_unexecuted_intent"]
+  },
+  {
+    "id": "new_run_restarts_existing_log",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "                if events or state is not None:\n                    raise RestoreUnavailable",
+    "new": "                if False:\n                    raise RestoreUnavailable",
+    "targets": ["test_successful_drive_releases_but_never_restarts_existing_log"]
+  },
+  {
+    "id": "repair_bypasses_writer",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "        with episode_writer(self._store, episode_id):\n            if self._store is not None:\n                events, checkpoint",
+    "new": "        with episode_writer(None, episode_id):\n            if self._store is not None:\n                events, checkpoint",
+    "targets": ["test_repair_owns_entire_operation_and_releases_on_exception"]
+  },
+  {
+    "id": "repair_accepts_stale_prefix",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "                if events != tuple(state.ledger.events) or checkpoint != state.ledger.state:",
+    "new": "                if False:",
+    "targets": ["test_stale_repair_never_appends_or_calls_model"]
+  },
+  {
+    "id": "repair_locks_foreign_store",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "        if (state.ledger._store is not self._store",
+    "new": "        if (False",
+    "targets": ["test_repair_rejects_foreign_owner_or_task_before_any_effect"]
+  },
+  {
+    "id": "inbox_suspend_does_not_drain_delivery",
+    "path": "intelligence/services/episode_inbox.py",
+    "old": "        with self._spool_lock:\n            with self._lock:\n                self._closed = True",
+    "new": "        with self._lock:\n            self._closed = True",
+    "targets": ["test_close_drains_inflight_delivery_before_releasing_writer"]
+  },
+  {
+    "id": "restore_accepts_foreign_checkpoint",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "    if state.episode_id != episode_id:",
+    "new": "    if False:",
+    "targets": ["test_restore_refuses_checkpoint_for_another_episode_even_when_terminal"]
+  }
+]

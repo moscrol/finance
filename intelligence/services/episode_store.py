@@ -27,9 +27,11 @@ dsh 追加式 ``SessionEvent`` 日志。搬的是不变量，不搬 SQLite 事�
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
+import fcntl
 import hashlib
 import json
 import os
@@ -55,6 +57,8 @@ __all__ = [
     "EpisodeStore",
     "FencedEpisodeStore",
     "EpisodeStoreFailed",
+    "EpisodeWriterBusy",
+    "episode_writer",
     "INTENT_KINDS",
     "JsonlEpisodeStore",
     "MemoryEpisodeStore",
@@ -257,7 +261,13 @@ class EpisodeState:
 
 
 class EpisodeStore(Protocol):
-    """四个动作，够 loop 落账、够 restore 读回。多进程写者 / 跨机复制是非目标。"""
+    """日志/检查点与控制入口的独占写者；不支持跨机复制。
+
+    ``writer`` 覆盖读取、判定、效果与写入的整个控制操作。低层 append/put_state
+    仍供导入及测试使用，不自行取得/释放所有权；生产调用方必须走受保护的入口。
+    """
+
+    def writer(self, episode_id: str) -> AbstractContextManager[None]: ...
 
     def append(
         self, episode_id: str, events: Sequence[EpisodeEvent], *, sync: bool = False
@@ -274,13 +284,28 @@ class EpisodeStoreFailed(RuntimeError):
     """A related episode lost write acknowledgement; no more writes are safe."""
 
 
+class EpisodeWriterBusy(RuntimeError):
+    """Another run, repair or recovery currently owns this episode."""
+
+
+@contextmanager
+def episode_writer(store: EpisodeStore | None, episode_id: str) -> Iterator[None]:
+    """No store means ephemeral; an unsupported durable store must not bypass ownership."""
+    if store is None:
+        yield
+        return
+    with store.writer(episode_id):
+        yield
+
+
 class FencedEpisodeStore:
     """One live parent/child tree shares a fail-closed write boundary.
 
     The lock serializes only storage operations, never model/tool IO. Failure
     callbacks run after releasing it and must not acquire episode-ledger locks.
-    Reads remain available for diagnosis. This is not a cross-process lease or
-    a durable failure receipt: acknowledgement loss remains uncertain on disk.
+    Reads remain available for diagnosis. The per-episode writer guard delegates
+    to the backend, without holding this tree-wide lock across model/tool IO.
+    This fence is not a durable failure receipt: ACK loss is uncertain on disk.
     """
 
     def __init__(self, store: EpisodeStore) -> None:
@@ -354,6 +379,9 @@ class FencedEpisodeStore:
     def put_state(self, episode_id: str, state: EpisodeState) -> None:
         self._write(episode_id, f"state:{state.phase}", lambda: self._store.put_state(episode_id, state))
 
+    def writer(self, episode_id: str) -> AbstractContextManager[None]:
+        return self._store.writer(episode_id)
+
     def load(self, episode_id: str) -> tuple[tuple[EpisodeEvent, ...], EpisodeState | None]:
         return self._store.load(episode_id)
 
@@ -406,6 +434,7 @@ class MemoryEpisodeStore:
         self._lock = threading.RLock()
         self._events: dict[str, list[EpisodeEvent]] = {}
         self._states: dict[str, EpisodeState] = {}
+        self._writers: set[str] = set()
         # 写序 oracle 与「意图 fsync、结算不 fsync」的断言靶：记录每次 append 的 sync 标记。
         self.append_log: list[tuple[str, tuple[int, ...], bool]] = []
 
@@ -444,6 +473,18 @@ class MemoryEpisodeStore:
                 )
             )
 
+    @contextmanager
+    def writer(self, episode_id: str) -> Iterator[None]:
+        with self._lock:
+            if episode_id in self._writers:
+                raise EpisodeWriterBusy(f"{episode_id}: episode writer is active")
+            self._writers.add(episode_id)
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._writers.remove(episode_id)
+
     def truncate(self, episode_id: str, *, keep: int) -> None:
         """测试用：模拟崩溃——只保留前 ``keep`` 条事件（状态另由测试决定保留哪份）。"""
 
@@ -479,7 +520,38 @@ class JsonlEpisodeStore:
         self._lock = threading.RLock()
 
     def episode_dir(self, episode_id: str) -> Path:
-        return self.root / _directory_name(str(episode_id))
+        name = _directory_name(str(episode_id))
+        if name in {"", ".", ".."}:
+            raise ValueError("episode_id must name a child directory")
+        return self.root / name
+
+    @contextmanager
+    def writer(self, episode_id: str) -> Iterator[None]:
+        """Local POSIX single-writer guard, held even while a drive is paused.
+
+        Never unlink/replace the lock inode: that would let a second process
+        lock a different inode for the same episode. Kernel ownership, not file
+        contents or elapsed time, decides when takeover is possible. This is
+        advisory: all runtime/recovery entry points must cooperate; raw imports
+        and older processes are not fenced. No network-filesystem guarantee.
+        """
+        directory = self.episode_dir(episode_id)
+        directory.mkdir(parents=True, exist_ok=True)
+        fd = os.open(directory / ".writer.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        acquired = False
+        try:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise EpisodeWriterBusy(f"{episode_id}: episode writer is active") from exc
+            acquired = True
+            yield
+        finally:
+            try:
+                if acquired:
+                    fcntl.flock(fd, fcntl.LOCK_UN)
+            finally:
+                os.close(fd)
 
     def append(
         self, episode_id: str, events: Sequence[EpisodeEvent], *, sync: bool = False
