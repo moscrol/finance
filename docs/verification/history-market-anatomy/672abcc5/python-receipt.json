@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-history-market-anatomy",
+  "revision": "672abcc504b3466a2ddd24dfa450c55703265c70",
+  "branch": "feat/history-market-anatomy",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/fwp-wt-history-market-anatomy",
+  "counts": {
+    "passed": 11579,
+    "failed": 0,
+    "error": 0,
+    "skipped": 81
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-18T12:55:15+00:00"
+}

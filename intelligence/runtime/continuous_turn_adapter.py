@@ -1165,6 +1165,7 @@ class ContinuousTurnAdapter:
                 query=context.contract.question,
                 question_type=context.contract.question_type,
                 as_of=context.today,
+                history_intent=context.history_intent,
             ),
             # 排序与情景契约收据（10 号单）：矩阵/改判条件/竞争解释解析结果 + 缺件。
             "ranking_contract": ranking_receipt(
@@ -1173,6 +1174,7 @@ class ContinuousTurnAdapter:
                 question_type=context.contract.question_type,
                 as_of=context.today,
                 conversation_context=context.conversation_context,
+                history_intent=context.history_intent,
             ),
             # 判断增量 / 产业·定价二分收据（Knevo q17 Q8、Q4 回灌）：只读，不并进
             # missing_outputs——先用同题对照实验量出效果，再决定要不要上修复硬门。
@@ -1546,12 +1548,14 @@ def _with_track_contract_gaps(
         structural.outcome.draft,
         query=context.contract.question,
         question_type=context.contract.question_type,
+        history_intent=context.history_intent,
     )
     merged = merge_ranking_missing_outputs(
         merged,
         structural.outcome.draft,
         query=context.contract.question,
         question_type=context.contract.question_type,
+        history_intent=context.history_intent,
     )
     if merged == structural.missing_outputs:
         return structural

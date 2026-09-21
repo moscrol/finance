@@ -85,6 +85,7 @@ from intelligence.services.watchlist_digest_pack import (
 )
 from intelligence.services.answer_stream import AnswerSnapshot
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.historical_research.intent import HistoryIntent
 from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
     QUESTION_GENERAL,
@@ -3390,6 +3391,7 @@ class TurnOrchestrator:
                 as_of=getattr(result, "trade_date", None),
                 theme=getattr(result, "matched_theme", None),
                 session_id=run_id,
+                history_intent=task_frame.history_intent,
             )
             has_answer_snapshot = result.answer_spec is not None and decision.lane in {
                 "research",
@@ -4691,6 +4693,7 @@ class TurnOrchestrator:
             as_of=result.as_of,
             theme=task_frame.subject,
             session_id=run_id,
+            history_intent=task_frame.history_intent,
         )
         return TurnResult(
             status=projected.run,
@@ -5481,8 +5484,11 @@ class TurnOrchestrator:
         as_of: str | None,
         theme: str | None,
         session_id: str,
+        history_intent: HistoryIntent | None = None,
     ) -> None:
-        """跟踪题下期关注 / 排序题改判条件写入 checkpoint。测试/default 用户不写；失败不挡回答。"""
+        """前向跟踪/排序才写 checkpoint；历史回溯不自动登记，失败不挡回答。"""
+        if history_intent is not None:
+            return
         if os.environ.get("PYTEST_CURRENT_TEST"):
             return
         user_id = self.run_store.user_id

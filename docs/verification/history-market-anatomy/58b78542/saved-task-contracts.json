@@ -1,0 +1,162 @@
+{
+  "scope": "read-only diagnosis of saved fbd8 runs, not a new run or root-cause attribution",
+  "records": [
+    {
+      "run_id": "run_20260918_092041_239775",
+      "source": "/Users/a77/.finance-runtime/history-anatomy-live-20260918-fbd8f2a6/users/history-anatomy-acceptance-v2/runs/run_20260918_092041_239775/continuous-episode.json",
+      "sha256": "9648f0810f40e268848e61a36200628b66f90553578286e98ab1428e8b8e2d0e",
+      "question_type": "comparison_analog",
+      "subject_kind": "unknown",
+      "required_outputs": [
+        {
+          "output_id": "direct_assessment",
+          "description": "直接回答用户问题并说明判断强度",
+          "required": true
+        },
+        {
+          "output_id": "counterpoint",
+          "description": "提供主要反证或竞争性解释",
+          "required": true
+        },
+        {
+          "output_id": "evidence_boundary",
+          "description": "说明证据覆盖范围、数据日期与缺口",
+          "required": true
+        },
+        {
+          "output_id": "aggregate_count",
+          "description": "给出问句所要的精确计数，并标明口径与日期",
+          "required": false
+        }
+      ],
+      "history_intent": {
+        "purpose": "historical_comparison",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-15"
+      }
+    },
+    {
+      "run_id": "run_20260918_092341_744398",
+      "source": "/Users/a77/.finance-runtime/history-anatomy-live-20260918-fbd8f2a6/users/history-anatomy-acceptance-v2/runs/run_20260918_092341_744398/continuous-episode.json",
+      "sha256": "5b2d80a72b92b9324ef134a79666fe838a595047f2815a3357a58e74e8151c71",
+      "question_type": "comparison_analog",
+      "subject_kind": "unknown",
+      "required_outputs": [
+        {
+          "output_id": "direct_assessment",
+          "description": "直接回答用户问题并说明判断强度",
+          "required": true
+        },
+        {
+          "output_id": "counterpoint",
+          "description": "提供主要反证或竞争性解释",
+          "required": true
+        },
+        {
+          "output_id": "evidence_boundary",
+          "description": "说明证据覆盖范围、数据日期与缺口",
+          "required": true
+        },
+        {
+          "output_id": "detail_rows",
+          "description": "列出问句所要的明细行，标明日期与口径",
+          "required": false
+        }
+      ],
+      "history_intent": {
+        "purpose": "historical_comparison",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-15"
+      }
+    },
+    {
+      "run_id": "run_20260918_092551_590812",
+      "source": "/Users/a77/.finance-runtime/history-anatomy-live-20260918-fbd8f2a6/users/history-anatomy-acceptance-v2/runs/run_20260918_092551_590812/continuous-episode.json",
+      "sha256": "db73b2a20c2b93343965bf624db3c63bd4ca6d7c88172e8fb8261bb5faaadf48",
+      "question_type": "comparison_analog",
+      "subject_kind": "unknown",
+      "required_outputs": [
+        {
+          "output_id": "direct_assessment",
+          "description": "直接回答用户问题并说明判断强度",
+          "required": true
+        },
+        {
+          "output_id": "counterpoint",
+          "description": "提供主要反证或竞争性解释",
+          "required": true
+        },
+        {
+          "output_id": "evidence_boundary",
+          "description": "说明证据覆盖范围、数据日期与缺口",
+          "required": true
+        }
+      ],
+      "history_intent": {
+        "purpose": "historical_comparison",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-15"
+      }
+    },
+    {
+      "run_id": "run_20260918_092658_042839",
+      "source": "/Users/a77/.finance-runtime/history-anatomy-live-20260918-fbd8f2a6/users/history-anatomy-acceptance-v2/runs/run_20260918_092658_042839/continuous-episode.json",
+      "sha256": "6ab82feecb1b91ab0ed98cf96418422597754b3d584aff7bf9c912c1dd25ebcd",
+      "question_type": "comparison_analog",
+      "subject_kind": "unknown",
+      "required_outputs": [
+        {
+          "output_id": "direct_assessment",
+          "description": "直接回答用户问题并说明判断强度",
+          "required": true
+        },
+        {
+          "output_id": "counterpoint",
+          "description": "提供主要反证或竞争性解释",
+          "required": true
+        },
+        {
+          "output_id": "evidence_boundary",
+          "description": "说明证据覆盖范围、数据日期与缺口",
+          "required": true
+        },
+        {
+          "output_id": "detail_rows",
+          "description": "列出问句所要的明细行，标明日期与口径",
+          "required": false
+        },
+        {
+          "output_id": "volume_qualification",
+          "description": "给出大盘量能资格盘：站立日全市场成交额、20 日均额（含当日窗口）与总量/均额比；开口预取已带则引用其 E 号；资格判语按画像规则解读，取不到数据则写明缺口",
+          "required": false
+        },
+        {
+          "output_id": "volume_step_trajectory",
+          "description": "给出题目相关板块的近 5 日量能台阶（逐日涨跌幅/成交额/边际量/双红戳）；开口预取已带则引用其 E 号；subject 未锚定到板块口径时如实声明，不得臆配板块",
+          "required": false
+        }
+      ],
+      "history_intent": {
+        "purpose": "historical_comparison",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-15"
+      }
+    }
+  ]
+}

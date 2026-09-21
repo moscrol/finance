@@ -1,0 +1,1044 @@
+{
+  "audit_version": "history-artifact-arithmetic-v2",
+  "supported_schema_version": "historical-research-v1",
+  "supported_feature_versions": [
+    "history-features-v1",
+    "history-anatomy-features-v1"
+  ],
+  "certification_eligible": false,
+  "method": "Descriptive independent arithmetic on saved facts only; no database, model, or engine IO.",
+  "limits": [
+    "Checks internal arithmetic and fingerprints, not vendor authenticity, strict PIT, strategy validity, or promotion eligibility.",
+    "Supports original five scalars, advancer_share, seven anatomy scalars, market mappings, rank populations, launch/peak paths, launch-member ranks, succession pairs, forward returns and four cells; analogue ranking and other unsupported features are explicitly skipped.",
+    "Trace member feature coverage metadata and descriptive entity names are not independently checked. Inspect market fields are compared to saved facts, not arithmetically derived.",
+    "For entity/market tables used by supported arithmetic, identical repeated reads are counted and collapsed explicitly; conflicting exact entity/date keys are errors. Other inputs receive fingerprint checks only.",
+    "Calendar completeness is relative to saved calendar_inputs; missing vendor trading dates cannot be proven absent without an external source."
+  ],
+  "artifacts": [
+    {
+      "artifact": "/Users/a77/.finance-runtime/history-market-anatomy-candidate-20260917/analogues.json",
+      "audit_version": "history-artifact-arithmetic-v2",
+      "calculation_checks": {
+        "advancers_mean": 31,
+        "amount_vs_prior_mean": 31,
+        "limit_down_mean": 31,
+        "limit_up_mean": 31,
+        "max_drawdown_pct": 31,
+        "return_pct": 31
+      },
+      "integrity_checks": {
+        "input_fingerprint": 1,
+        "query_id": 1,
+        "source_input_fingerprint": 1,
+        "source_row_count": 1,
+        "source_snapshot_ids": 1,
+        "source_tables": 1,
+        "total_matched": 1,
+        "returned_count": 1,
+        "preview": 1,
+        "truncated": 1,
+        "expected_dates": 186,
+        "feature_status": 186
+      },
+      "skips": [
+        {
+          "reason": "inspection_or_analogue_ranking_not_recomputed",
+          "operation": "find_analogues"
+        }
+      ],
+      "errors": [],
+      "duplicate_facts": {
+        "fact_market_daily": {
+          "unique_keys": 171,
+          "identical_repeats": 0,
+          "conflicts": 0
+        }
+      },
+      "file_sha256": "c431b759ca5a8be9d48c23d00a747f7e3ae052609864638c564da5ae21cbee8d",
+      "schema_version": "historical-research-v1",
+      "query_id": "faf8db95fd3cc592d38cfae66fe460fe898bdc09913ba6faec4ca57f5b7f58f4",
+      "feature_versions": [
+        "history-anatomy-features-v1",
+        "history-features-v1"
+      ],
+      "operation": "find_analogues",
+      "rows": 30,
+      "result": "partial"
+    },
+    {
+      "artifact": "/Users/a77/.finance-runtime/history-market-anatomy-candidate-20260917/market.json",
+      "audit_version": "history-artifact-arithmetic-v2",
+      "calculation_checks": {},
+      "integrity_checks": {
+        "input_fingerprint": 1,
+        "query_id": 1,
+        "source_input_fingerprint": 1,
+        "source_row_count": 1,
+        "source_snapshot_ids": 1,
+        "source_tables": 1,
+        "total_matched": 1,
+        "returned_count": 1,
+        "preview": 1,
+        "truncated": 1,
+        "market_inspect_dates": 1,
+        "market_inspect_fields": 1
+      },
+      "skips": [
+        {
+          "reason": "inspect_fields_checked_no_arithmetic"
+        }
+      ],
+      "errors": [],
+      "duplicate_facts": {
+        "fact_market_daily": {
+          "unique_keys": 1,
+          "identical_repeats": 0,
+          "conflicts": 0
+        }
+      },
+      "file_sha256": "27d3522276594f21a9c644aa34e208a5dc55c7212525d4b661763ac6e31f1f4a",
+      "schema_version": "historical-research-v1",
+      "query_id": "5edaa8c0a20dcb07a7b9fa114509b6e010aa4aee8e06077d0d797666768a883e",
+      "feature_versions": [
+        "history-features-v1"
+      ],
+      "operation": "inspect_history",
+      "rows": 1,
+      "result": "unsupported"
+    },
+    {
+      "artifact": "/Users/a77/.finance-runtime/history-market-anatomy-candidate-20260917/ranked_sector_trace.json",
+      "audit_version": "history-artifact-arithmetic-v2",
+      "calculation_checks": {
+        "launch_population": 1,
+        "signal_date": 3,
+        "signal_known_as_of": 3,
+        "signal_status": 3,
+        "earlier_signal_gap_dates": 3,
+        "warmup_dates": 3,
+        "price_path_population": 2,
+        "path_status": 107,
+        "missing_dates": 107,
+        "peak_date": 107,
+        "peak_gain_pct": 101,
+        "days_to_peak": 101,
+        "confirmation_date": 107,
+        "peak_status": 107,
+        "peak_known_as_of": 101,
+        "confirmation_known_as_of": 101,
+        "end_drawdown_from_peak_pct": 101,
+        "path_length": 107,
+        "path.trade_date": 548,
+        "path.nav": 548,
+        "path.pct_chg": 548,
+        "path.amount": 548,
+        "path.drawdown_pct": 548,
+        "price_path_codes": 1,
+        "member.return_pct": 105,
+        "member.max_drawdown_pct": 105,
+        "member.up_day_share": 105,
+        "member.rank": 105,
+        "launch_member_population": 1,
+        "succession.anchor_peak_date": 4,
+        "succession.start": 4,
+        "succession.end": 4,
+        "succession.source_peak_status": 4,
+        "succession.source_peak_confirmation_date": 4,
+        "succession.succession_known_as_of": 4,
+        "succession.target_signal_date": 4,
+        "succession.lag_trading_days": 4,
+        "succession.succession_status": 4,
+        "succession.causal_status": 4,
+        "succession.source_return_pct": 4,
+        "succession.target_return_pct": 4,
+        "succession.target_relative_return_pct": 4,
+        "succession_population": 1,
+        "advancer_share": 2,
+        "amount_share_change_pp": 2,
+        "amount_vs_prior_mean": 2,
+        "market_relative_return_pct": 2,
+        "max_drawdown_pct": 2,
+        "return_pct": 2,
+        "up_day_share": 2
+      },
+      "integrity_checks": {
+        "input_fingerprint": 1,
+        "query_id": 1,
+        "source_input_fingerprint": 4,
+        "source_row_count": 4,
+        "source_snapshot_ids": 4,
+        "source_tables": 1,
+        "total_matched": 1,
+        "returned_count": 1,
+        "preview": 1,
+        "truncated": 1,
+        "analysis_definition": 1,
+        "trace_record_kinds": 1,
+        "signal_feature_start": 3,
+        "signal_feature_end": 3,
+        "signal_snapshot": 2,
+        "path_start": 2,
+        "path_end": 2,
+        "no_signal_features": 1,
+        "trace_record_counts": 1,
+        "member.membership_date": 105,
+        "member.membership_snapshot_id": 105,
+        "member.start": 105,
+        "member.end": 105,
+        "member.population_count": 105,
+        "member.path_end": 105,
+        "member.membership_status": 105,
+        "member.path_anchor": 105,
+        "member.selection_mode": 105,
+        "expected_dates": 14,
+        "feature_status": 14
+      },
+      "skips": [],
+      "errors": [],
+      "duplicate_facts": {
+        "fact_market_daily": {
+          "unique_keys": 11,
+          "identical_repeats": 0,
+          "conflicts": 0
+        },
+        "fact_sector_daily": {
+          "unique_keys": 33,
+          "identical_repeats": 0,
+          "conflicts": 0
+        },
+        "fact_stock_daily": {
+          "unique_keys": 1008,
+          "identical_repeats": 0,
+          "conflicts": 0
+        }
+      },
+      "file_sha256": "e697f6b9dbaf362572486b38445060960e6879a094ca6e5ad3a3e5395680e1e8",
+      "schema_version": "historical-research-v1",
+      "query_id": "5dca5350a537cee5f4f30cc0c9390704723c22a1142ac098648d16515c03fece",
+      "feature_versions": [
+        "history-anatomy-features-v1",
+        "history-anatomy-v1",
+        "history-features-v1"
+      ],
+      "operation": "trace_history",
+      "rows": 114,
+      "result": "checked"
+    },
+    {
+      "artifact": "/Users/a77/.finance-runtime/history-market-anatomy-candidate-20260917/ranked_stock_trace.json",
+      "audit_version": "history-artifact-arithmetic-v2",
+      "calculation_checks": {
+        "launch_population": 1,
+        "signal_date": 3,
+        "signal_known_as_of": 3,
+        "signal_status": 3,
+        "earlier_signal_gap_dates": 3,
+        "warmup_dates": 3,
+        "price_path_population": 2,
+        "path_status": 2,
+        "missing_dates": 2,
+        "peak_date": 2,
+        "peak_gain_pct": 2,
+        "days_to_peak": 2,
+        "confirmation_date": 2,
+        "peak_status": 2,
+        "peak_known_as_of": 2,
+        "confirmation_known_as_of": 2,
+        "end_drawdown_from_peak_pct": 2,
+        "path_length": 2,
+        "path.trade_date": 4,
+        "path.nav": 4,
+        "path.pct_chg": 4,
+        "path.amount": 4,
+        "path.drawdown_pct": 4,
+        "price_path_codes": 1,
+        "amount_vs_prior_mean": 2,
+        "market_relative_return_pct": 2,
+        "max_drawdown_pct": 2,
+        "return_pct": 2,
+        "up_day_share": 2
+      },
+      "integrity_checks": {
+        "input_fingerprint": 1,
+        "query_id": 1,
+        "source_input_fingerprint": 2,
+        "source_row_count": 2,
+        "source_snapshot_ids": 2,
+        "source_tables": 1,
+        "total_matched": 1,
+        "returned_count": 1,
+        "preview": 1,
+        "truncated": 1,
+        "analysis_definition": 1,
+        "trace_record_kinds": 1,
+        "signal_feature_start": 3,
+        "signal_feature_end": 3,
+        "path_start": 2,
+        "path_end": 2,
+        "no_signal_features": 1,
+        "trace_record_counts": 1,
+        "stock_trace_no_members": 1,
+        "stock_trace_no_succession": 1,
+        "expected_dates": 10,
+        "feature_status": 10
+      },
+      "skips": [],
+      "errors": [],
+      "duplicate_facts": {
+        "fact_market_daily": {
+          "unique_keys": 11,
+          "identical_repeats": 0,
+          "conflicts": 0
+        },
+        "fact_stock_daily": {
+          "unique_keys": 33,
+          "identical_repeats": 0,
+          "conflicts": 0
+        }
+      },
+      "file_sha256": "8cea08fb3b879ac042ece6fb10227ff3c86de2f54561706175717b364be40682",
+      "schema_version": "historical-research-v1",
+      "query_id": "6cf6ac9418e691788678a85be2a7894183e9325657794059d4c61cd9444c179a",
+      "feature_versions": [
+        "history-anatomy-features-v1",
+        "history-anatomy-v1",
+        "history-features-v1"
+      ],
+      "operation": "trace_history",
+      "rows": 5,
+      "result": "checked"
+    },
+    {
+      "artifact": "/Users/a77/.finance-runtime/history-market-anatomy-candidate-20260917/sector_rank.json",
+      "audit_version": "history-artifact-arithmetic-v2",
+      "calculation_checks": {
+        "max_drawdown_pct": 224,
+        "return_pct": 224,
+        "up_day_share": 224,
+        "rank_population": 1,
+        "rank_order": 1,
+        "rank": 226,
+        "missing_unranked": 1
+      },
+      "integrity_checks": {
+        "input_fingerprint": 1,
+        "query_id": 1,
+        "source_input_fingerprint": 2,
+        "source_row_count": 2,
+        "source_snapshot_ids": 2,
+        "source_tables": 1,
+        "total_matched": 1,
+        "returned_count": 1,
+        "preview": 1,
+        "truncated": 1,
+        "expected_dates": 678,
+        "feature_status": 672,
+        "max_drawdown_pct": 2,
+        "return_pct": 2,
+        "up_day_share": 2,
+        "rank_population_count": 226,
+        "rank_selection_mode": 226,
+        "rank_start": 226,
+        "rank_end": 226,
+        "universe_enumerated": 1,
+        "universe_codes": 1
+      },
+      "skips": [
+        {
+          "reason": "missing_input_dates",
+          "row": 224,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 224,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 224,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 225,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 225,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 225,
+          "feature": "up_day_share"
+        }
+      ],
+      "errors": [],
+      "duplicate_facts": {
+        "fact_market_daily": {
+          "unique_keys": 11,
+          "identical_repeats": 0,
+          "conflicts": 0
+        },
+        "fact_sector_daily": {
+          "unique_keys": 2470,
+          "identical_repeats": 0,
+          "conflicts": 0
+        }
+      },
+      "file_sha256": "627f02d05d6a87215a55fc70c9b90bfde1b94f14165113822701210016ad060b",
+      "schema_version": "historical-research-v1",
+      "query_id": "c924f022dc5e9f45ff855d26d42cd0c5bf7487c7e89f4c5c8778b3eeceac59a4",
+      "feature_versions": [
+        "history-anatomy-features-v1",
+        "history-features-v1"
+      ],
+      "operation": "rank_history",
+      "rows": 226,
+      "result": "partial"
+    },
+    {
+      "artifact": "/Users/a77/.finance-runtime/history-market-anatomy-candidate-20260917/stock_rank.json",
+      "audit_version": "history-artifact-arithmetic-v2",
+      "calculation_checks": {
+        "max_drawdown_pct": 5167,
+        "return_pct": 5167,
+        "up_day_share": 5167,
+        "rank_population": 1,
+        "rank_order": 1,
+        "rank": 5197,
+        "missing_unranked": 1
+      },
+      "integrity_checks": {
+        "input_fingerprint": 1,
+        "query_id": 1,
+        "source_input_fingerprint": 2,
+        "source_row_count": 2,
+        "source_snapshot_ids": 2,
+        "source_tables": 1,
+        "total_matched": 1,
+        "returned_count": 1,
+        "preview": 1,
+        "truncated": 1,
+        "expected_dates": 15591,
+        "feature_status": 15501,
+        "max_drawdown_pct": 30,
+        "return_pct": 30,
+        "up_day_share": 30,
+        "rank_population_count": 5197,
+        "rank_selection_mode": 5197,
+        "rank_start": 5197,
+        "rank_end": 5197,
+        "universe_enumerated": 1,
+        "universe_codes": 1
+      },
+      "skips": [
+        {
+          "reason": "missing_input_dates",
+          "row": 5167,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5167,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5167,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5168,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5168,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5168,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5169,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5169,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5169,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5170,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5170,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5170,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5171,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5171,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5171,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5172,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5172,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5172,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_or_invalid_input_values",
+          "row": 5173,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_or_invalid_input_values",
+          "row": 5173,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_or_invalid_input_values",
+          "row": 5173,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5174,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5174,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5174,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5175,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5175,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5175,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5176,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5176,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5176,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5177,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5177,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5177,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5178,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5178,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5178,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5179,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5179,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5179,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5180,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5180,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5180,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5181,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5181,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5181,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5182,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5182,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5182,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5183,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5183,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5183,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5184,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5184,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5184,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5185,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5185,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5185,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5186,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5186,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5186,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5187,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5187,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5187,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5188,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5188,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5188,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5189,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5189,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5189,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5190,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5190,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5190,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5191,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5191,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5191,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5192,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5192,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5192,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5193,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5193,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5193,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5194,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5194,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5194,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5195,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5195,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5195,
+          "feature": "up_day_share"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5196,
+          "feature": "max_drawdown_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5196,
+          "feature": "return_pct"
+        },
+        {
+          "reason": "missing_input_dates",
+          "row": 5196,
+          "feature": "up_day_share"
+        }
+      ],
+      "errors": [],
+      "duplicate_facts": {
+        "fact_market_daily": {
+          "unique_keys": 11,
+          "identical_repeats": 0,
+          "conflicts": 0
+        },
+        "fact_stock_daily": {
+          "unique_keys": 57070,
+          "identical_repeats": 0,
+          "conflicts": 0
+        }
+      },
+      "file_sha256": "a1236c598c30aac96c16f67e0f9fe6339568d28718922e965cccd4ebeb665a0d",
+      "schema_version": "historical-research-v1",
+      "query_id": "38442cba300e38dccc7a39dcc504f009a0d3caf57c930040f9e86a7b149fdb81",
+      "feature_versions": [
+        "history-anatomy-features-v1",
+        "history-features-v1"
+      ],
+      "operation": "rank_history",
+      "rows": 5197,
+      "result": "partial"
+    },
+    {
+      "artifact": "/Users/a77/.finance-runtime/history-market-anatomy-candidate-20260917/trace.json",
+      "audit_version": "history-artifact-arithmetic-v2",
+      "calculation_checks": {
+        "launch_population": 1,
+        "signal_date": 3,
+        "signal_known_as_of": 3,
+        "signal_status": 3,
+        "earlier_signal_gap_dates": 3,
+        "warmup_dates": 3,
+        "price_path_population": 2,
+        "path_status": 406,
+        "missing_dates": 406,
+        "peak_date": 406,
+        "peak_gain_pct": 403,
+        "days_to_peak": 403,
+        "confirmation_date": 406,
+        "peak_status": 406,
+        "peak_known_as_of": 403,
+        "confirmation_known_as_of": 403,
+        "end_drawdown_from_peak_pct": 403,
+        "path_length": 406,
+        "path.trade_date": 7210,
+        "path.nav": 7210,
+        "path.pct_chg": 7210,
+        "path.amount": 7210,
+        "path.drawdown_pct": 7210,
+        "price_path_codes": 1,
+        "member.return_pct": 404,
+        "member.max_drawdown_pct": 404,
+        "member.up_day_share": 404,
+        "member.rank": 404,
+        "launch_member_population": 1,
+        "succession.anchor_peak_date": 4,
+        "succession.start": 4,
+        "succession.end": 4,
+        "succession.source_peak_status": 4,
+        "succession.source_peak_confirmation_date": 4,
+        "succession.succession_known_as_of": 4,
+        "succession.target_signal_date": 4,
+        "succession.lag_trading_days": 4,
+        "succession.succession_status": 4,
+        "succession.causal_status": 4,
+        "succession.source_return_pct": 4,
+        "succession.target_return_pct": 4,
+        "succession.target_relative_return_pct": 4,
+        "succession_population": 1,
+        "advancer_share": 2,
+        "amount_share_change_pp": 2,
+        "amount_vs_prior_mean": 2,
+        "market_relative_return_pct": 2,
+        "max_drawdown_pct": 2,
+        "return_pct": 2,
+        "up_day_share": 2
+      },
+      "integrity_checks": {
+        "input_fingerprint": 1,
+        "query_id": 1,
+        "source_input_fingerprint": 4,
+        "source_row_count": 4,
+        "source_snapshot_ids": 4,
+        "source_tables": 1,
+        "total_matched": 1,
+        "returned_count": 1,
+        "preview": 1,
+        "truncated": 1,
+        "analysis_definition": 1,
+        "trace_record_kinds": 1,
+        "signal_feature_start": 3,
+        "signal_feature_end": 3,
+        "no_signal_features": 1,
+        "signal_snapshot": 2,
+        "path_start": 2,
+        "path_end": 2,
+        "trace_record_counts": 1,
+        "member.membership_date": 404,
+        "member.membership_snapshot_id": 404,
+        "member.start": 404,
+        "member.end": 404,
+        "member.population_count": 404,
+        "member.path_end": 404,
+        "member.membership_status": 404,
+        "member.path_anchor": 404,
+        "member.selection_mode": 404,
+        "expected_dates": 14,
+        "feature_status": 14
+      },
+      "skips": [],
+      "errors": [],
+      "duplicate_facts": {
+        "fact_market_daily": {
+          "unique_keys": 32,
+          "identical_repeats": 0,
+          "conflicts": 0
+        },
+        "fact_sector_daily": {
+          "unique_keys": 96,
+          "identical_repeats": 0,
+          "conflicts": 0
+        },
+        "fact_stock_daily": {
+          "unique_keys": 12779,
+          "identical_repeats": 0,
+          "conflicts": 0
+        }
+      },
+      "file_sha256": "b8958082ff33017f5659bda7a5e48e76c25a2110a2694390064bcb1c6249e823",
+      "schema_version": "historical-research-v1",
+      "query_id": "cae052af4c4c9786b70f5b264f4ba1a18fafddb940311b27c4b04f665325bd6c",
+      "feature_versions": [
+        "history-anatomy-features-v1",
+        "history-anatomy-v1",
+        "history-features-v1"
+      ],
+      "operation": "trace_history",
+      "rows": 413,
+      "result": "checked"
+    }
+  ],
+  "errors": [],
+  "summary": {
+    "artifacts": 7,
+    "calculation_checks": 68457,
+    "skips": 98,
+    "errors": 0,
+    "results": {
+      "partial": 3,
+      "unsupported": 1,
+      "checked": 3
+    }
+  }
+}

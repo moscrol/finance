@@ -498,6 +498,12 @@ _PREVIOUS_ANSWER_REVIEW_RE = re.compile(
     r"(?:刚才|上轮|上一轮|上次|前面)的?(?:解释|回答|判断|结论|分析)"
     r"(?=$|[：:，,。；;！？!?])"
 )
+# Explicit retention of a prior permission is a continuation, not fresh full
+# access. This detector sees the existing quote/material-masked instructions.
+_SCOPE_CONTINUATION_RE = re.compile(
+    r"(?:沿用|遵守)上一轮.{0,24}(?:范围|截止)|"
+    r"(?:范围|截止日).{0,12}(?:继续)?不变|之前授权的(?:日期|研究)?范围内"
+)
 # 切句与句首归一化共用前缀，避免礼貌用语令第二个状态操作漏检。
 _STATE_PREFIX_ATOM = r"(?:请|麻烦|烦请|本轮|这次|此次|仍)\s*"
 
@@ -520,6 +526,9 @@ _FICTIONAL_SENT_RE = re.compile(
 # 而不是把明确假设漏成无约束；材料内同形态仍走 uncertain，强保护内不可见。
 _HYPOTHESIS_STRONG_RE = re.compile(
     r"^(?:假设|如果)\s*"
+    # Neither research procedure nor missing-input instructions fabricate facts.
+    r"(?!(?:当前)?(?:分析|观察|研究)?窗(?:口)?(?:太短|不足)|"
+    r"(?:要|需要|想)(?:说|声称|证明|验证)|(?:无法|不能|做不到)(?:验证|计算|比较))"
     r"(?!(?:某项|某些|任何|所需|这项)?(?:数据|资料|证据|来源|信息|材料|输入)"
     r"[^。；，]{0,24}(?:无法|不能|没有|缺失|不足|未|取不|找不))\S.{1,}"
 )
@@ -599,7 +608,7 @@ def _state_op_in_sentence(sent: str) -> str | None:
             or head.startswith(_B_LOCAL_ONLY_PHRASES + _B_RELAX_PHRASES)):
         return "constraint_b"
     if (head.startswith(_CONTINUATION_HEAD_PHRASES) or "其余条件不变" in s
-            or _PREVIOUS_ANSWER_REVIEW_RE.match(head)):
+            or _PREVIOUS_ANSWER_REVIEW_RE.match(head) or _SCOPE_CONTINUATION_RE.search(s)):
         return "continuation"
     if _PREMISE_CALCULATION_RE.match(head):
         return "premise_calculation"

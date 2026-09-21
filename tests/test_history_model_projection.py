@@ -176,7 +176,8 @@ def test_all_preview_samples_survive_without_equating_cards_to_returned_rows():
     assert any(row.get("returned_count") == 25 and row.get("total_matched") == 40 for row in details)
     assert "projected_evidence_count" in model["observation"]
     assert "read_history_result" in model["observation"]
-    assert "缩窄" in model["observation"]
+    assert "保持所选窗口" in model["observation"]
+    assert "缩窄日期" not in model["observation"]
 
 
 def test_oversized_field_is_explicitly_omitted_without_clipping_json():
