@@ -4,7 +4,7 @@
 # 它替代的手工流程（2026-09-03 一天重复了五次）：
 #   1. 看 porcelain 是否为空（AGENTS.md：混着未提交改动的树跑出来的 exit code 不对你的 revision 成立）
 #   2. 用 test-environment.json 里那个解释器跑 ruff + pytest（宿主 python3 会多出几十条环境红）
-#   3. 打开 ~/.finance-runtime/test-receipts/latest.json 抄 passed / failed
+#   3. 从本次 pytest 标准输出取精确收据路径（全局 latest.json 会被并发运行覆盖）
 #   4. 把 failed_ids 与上一张 PR 的收据逐条对，确认「同一组红、passed 只增不减」
 # 第 4 步最容易偷懒成「都是 5 红」——今天 gitea/main 上就多出了一条时间敏感红，
 # 只看计数看不出是哪条换了。这里按 id 集合比。
@@ -52,7 +52,7 @@ fi
 cd "$REPO" || exit 4
 if [ -n "$RECEIPT_ONLY" ]; then
   LATEST="$RECEIPT_ONLY"
-  PYTEST_EXIT=0
+  PYTEST_EXIT=""  # archived receipt supplies its own exit status, never assume green
 else
   REV="$(git rev-parse --short HEAD)"
   BRANCH="$(git rev-parse --abbrev-ref HEAD)"
@@ -71,26 +71,70 @@ else
   fi
 
   echo "== pytest $PYTEST_ARGS"
+  PYTEST_LOG="$(mktemp)" || exit 4
+  trap 'rm -f -- "$PYTEST_LOG"' EXIT
   # shellcheck disable=SC2086
-  "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
-  PYTEST_EXIT="${PIPESTATUS[0]}"
-
-  RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
-  LATEST="$RECEIPT_DIR/latest.json"
+  "$PY" -m pytest $PYTEST_ARGS 2>&1 | tee "$PYTEST_LOG" | tail -15
+  PIPE_EXITS=("${PIPESTATUS[@]}")
+  PYTEST_EXIT="${PIPE_EXITS[0]}"
+  if [ "${PIPE_EXITS[1]}" != 0 ] || [ "${PIPE_EXITS[2]}" != 0 ]; then
+    echo "pytest 输出留证失败；不能确认本次收据。" >&2
+    exit 4
+  fi
+  # conftest owns the receipt directory. Read its actual pointer, not an
+  # unsupported directory override or a concurrently replaceable latest.json.
+  LATEST="$("$PY" - "$PYTEST_LOG" <<'PYRECEIPT'
+from pathlib import Path
+import sys
+text = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+paths = [line.split("读数收据: ", 1)[1].strip() for line in text.splitlines() if "读数收据: " in line]
+print(paths[-1] if paths else "")
+PYRECEIPT
+)" || exit 4
 fi
 if [ ! -f "$LATEST" ]; then
-  echo "没找到收据 $LATEST（conftest 的收据插件没跑？）" >&2
+  echo "没找到本次收据 ${LATEST}（conftest 的收据插件没跑？）" >&2
   exit 4
 fi
 
-"$PY" - "$LATEST" "$BASELINE" "$PYTEST_EXIT" <<'PYEOF'
+"$PY" - "$LATEST" "$BASELINE" "$PYTEST_EXIT" "$REPO" "$(git rev-parse HEAD)" "$ALLOW_DIRTY" <<'PYEOF'
 import json, sys
 from pathlib import Path
 
-latest_path, baseline_path, pytest_exit = sys.argv[1], sys.argv[2], int(sys.argv[3])
-latest = json.loads(Path(latest_path).read_text())
-counts = latest.get("counts") or {}
-failed = sorted(latest.get("failed_ids") or [])
+latest_path, baseline_path, measured_exit, repo, revision, allow_dirty = sys.argv[1:]
+
+def invalid(reason):
+    print(f"收据不可用于门禁：{reason}", file=sys.stderr)
+    sys.exit(4)
+
+try:
+    latest = json.loads(Path(latest_path).read_text())
+except (OSError, ValueError) as exc:
+    invalid(str(exc))
+if not isinstance(latest, dict):
+    invalid("对象格式无效")
+counts = latest.get("counts")
+keys = ("passed", "failed", "error", "skipped")
+if not isinstance(counts, dict) or any(type(counts.get(k)) is not int or counts[k] < 0 for k in keys):
+    invalid("缺少有效的执行计数")
+if sum(counts[k] for k in keys) == 0:
+    invalid("没有执行读数")
+pytest_exit = latest.get("exit_status")
+if type(pytest_exit) is not int or not 0 <= pytest_exit <= 5:
+    invalid("缺少有效的 pytest 退出码")
+if measured_exit:
+    if latest.get("revision") != revision or latest.get("tree") != repo:
+        invalid("本次运行的 revision/tree 不匹配")
+    if pytest_exit != int(measured_exit):
+        invalid("收据与 pytest 实测退出码不一致")
+if latest.get("dirty") is not False and allow_dirty != "1":
+    invalid("脏树或缺少身份状态；本地迭代请显式 --allow-dirty")
+failed_ids = latest.get("failed_ids")
+if not isinstance(failed_ids, list) or any(not isinstance(fid, str) for fid in failed_ids):
+    invalid("缺少有效失败集合")
+failed = sorted(failed_ids)
+if pytest_exit == 0 and (failed or counts["failed"] or counts["error"]):
+    invalid("成功退出码与失败记录冲突")
 print(f"== receipt {latest_path}")
 print(f"   revision={latest.get('revision','')[:12]} dirty={latest.get('dirty')} target={latest.get('target')}")
 print(f"   passed={counts.get('passed')} failed={counts.get('failed')} error={counts.get('error')} skipped={counts.get('skipped')}")
@@ -99,9 +143,23 @@ for fid in failed:
 if not baseline_path:
     # 没有基线就只能照实回 pytest 的退出码：已知的环境红也算红，要「同一组红」的判断请给 --baseline。
     sys.exit(pytest_exit)
-base = json.loads(Path(baseline_path).read_text())
-base_failed = sorted(base.get("failed_ids") or [])
-base_counts = base.get("counts") or {}
+# A baseline may acknowledge test failures, not interrupted/empty/internal-error runs.
+if pytest_exit not in (0, 1):
+    sys.exit(pytest_exit)
+if pytest_exit == 1 and not failed:
+    invalid("失败退出却无失败测试身份")
+try:
+    base = json.loads(Path(baseline_path).read_text())
+except (OSError, ValueError) as exc:
+    invalid(f"基线读取失败：{exc}")
+if not isinstance(base, dict) or not isinstance(base.get("failed_ids"), list):
+    invalid("基线缺少失败集合")
+base_counts = base.get("counts")
+if not isinstance(base_counts, dict) or any(type(base_counts.get(k)) is not int or base_counts[k] < 0 for k in keys):
+    invalid("基线缺少有效计数")
+if any(not isinstance(fid, str) for fid in base["failed_ids"]):
+    invalid("基线失败身份无效")
+base_failed = sorted(base["failed_ids"])
 new_red = sorted(set(failed) - set(base_failed))
 gone_red = sorted(set(base_failed) - set(failed))
 print(f"== vs baseline {baseline_path} (revision={base.get('revision','')[:12]}, passed={base_counts.get('passed')}, failed={base_counts.get('failed')})")
