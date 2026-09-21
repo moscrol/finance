@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run H-01/H-02/H-03 regressions with one process-local protection withdrawal.
+"""Run history boundary and gap-followup regressions with one local withdrawal.
 
 No source edits, model calls, production data or external runner execution. Run each mode
 with a bounded launcher. A killed mutant requires a test assertion failure,
@@ -25,7 +25,9 @@ ROOT = Path(__file__).resolve().parents[1]
 TEST = "tests/test_history_control_boundary.py"
 INHERITANCE_TEST = "tests/test_history_permission_inheritance.py"
 SOURCE_TEST = "tests/test_history_source_partition.py"
+GAP_TEST = "tests/test_gap_followup_projection.py"
 SOURCES = (
+    "intelligence/services/query_resolution.py",
     "intelligence/services/user_task.py",
     "intelligence/services/historical_research/intent.py",
     "intelligence/services/research_contract.py",
@@ -40,10 +42,16 @@ SOURCES = (
     TEST,
     INHERITANCE_TEST,
     SOURCE_TEST,
+    GAP_TEST,
     "scripts/probe_history_control_boundary.py",
 )
 # Alter function code objects so already imported aliases see the same change.
 MUTATIONS = {
+    "gap-projection": (
+        "query_resolution", "classify_reference",
+        'r"上一轮(?:「[^」]+」|[ \\t]+)未完成核验"',
+        'r"上一轮「[^」]+」未完成核验"',
+    ),
     "partition": (
         "user_task", "top_level_message_text",
         'return (regions.control_text if not regions.uncertain_reasons else "", regions.uncertain_reasons)',
@@ -154,7 +162,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("normal", *MUTATIONS))
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--suite", choices=("boundary", "inheritance", "source", "all"), default="all")
+    parser.add_argument("--suite", choices=("boundary", "inheritance", "source", "gap", "all"), default="all")
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -169,7 +177,7 @@ def main():
     results = Outcomes()
     mutation = None
     tests = {"boundary": [TEST], "inheritance": [INHERITANCE_TEST], "source": [SOURCE_TEST],
-             "all": [TEST, INHERITANCE_TEST, SOURCE_TEST]}[args.suite]
+             "gap": [GAP_TEST], "all": [TEST, INHERITANCE_TEST, SOURCE_TEST, GAP_TEST]}[args.suite]
     pytest_args = ["-q", "--tb=short", "--basetemp", str(output / "tmp"), *tests]
     with (output / "pytest.txt").open("w", encoding="utf-8") as stream:
         with redirect_stdout(stream), redirect_stderr(stream):
