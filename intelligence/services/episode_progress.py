@@ -95,6 +95,7 @@ _EVENT_PROJECTIONS: dict[str, tuple[str, str, str]] = {
         "running",
     ),
     "finish": ("finalizing", "研究回答已形成，正在完成最终核验。", "completed"),
+    "persistence_failed": ("finalizing", "研究恢复记录保存失败，本轮已停止。", "failed"),
 }
 
 # 公开词表：UI 进度覆盖的 kind。是车道表的精选子集，不是第二套分类。
@@ -233,7 +234,15 @@ def project_episode_progress(event: EpisodeEvent) -> EpisodeProgress | None:
             message=_tool_menu_message(event.payload.get("visible")),
             status="completed",
         )
-    projection = _EVENT_PROJECTIONS.get(event.kind)
+    projection_kind = event.kind
+    if event.kind == "branch_failed" and (
+        event.payload.get("persistence") == "failed"
+        or event.payload.get("error") == "storage_failed"
+        or event.payload.get("reason") == "storage_failed"
+    ):
+        # This is not an isolated missing source: the whole tree is fenced.
+        projection_kind = "persistence_failed"
+    projection = _EVENT_PROJECTIONS.get(projection_kind)
     if projection is None:
         return None
     stage, message, status = projection

@@ -212,6 +212,59 @@ class EvidenceLedger:
         with self._lock:
             return tuple(self._items.values())
 
+    def to_recovery_snapshot(
+        self, *, episode_id: str, presented_evidence: Iterable[AgentEvidence],
+    ) -> dict[str, object]:
+        """Capture full private atoms and coverage under one ledger lock.
+
+        Presentation is owned by the parent loop, not arrival order (parallel
+        children can arrive in the opposite order). Unpresented atoms stay in
+        the ledger without acquiring an E-number.
+        """
+        from intelligence.services.episode_evidence import (
+            EpisodeEvidenceSnapshot, EvidenceCheckpointEntry, EvidencePresentation,
+            classify_presentation,
+        )
+
+        presented = tuple(presented_evidence)
+        with self._lock:
+            snapshot = EpisodeEvidenceSnapshot(
+                episode_id=episode_id, information_cutoff=self._cutoff,
+                entries=tuple(EvidenceCheckpointEntry(
+                    atom=item, targets=self._targets[identity],
+                    branch_owner=self._branch_owners.get(identity),
+                    cutoff_status=_cutoff_status(item, self._cutoff),
+                ) for identity, item in self._items.items()),
+                presentations=tuple(EvidencePresentation(
+                    atom=item,
+                    classification=classify_presentation(item, self._items.get(item.content_hash), self._cutoff),
+                ) for item in presented),
+                covered_outputs=tuple(sorted(self._covered_outputs)),
+                open_gaps=tuple(sorted(self._open_gaps)),
+            )
+            payload = snapshot.to_dict()
+        # Validate without a second capture; serialization failure is required
+        # checkpoint failure, not permission to silently drop a field.
+        return EpisodeEvidenceSnapshot.from_dict(payload, episode_id=episode_id).to_dict()
+
+    @classmethod
+    def from_recovery_snapshot(cls, payload: object, *, episode_id: str) -> EvidenceLedger:
+        """Rebuild data only; grants no execution/publishing permission."""
+        from intelligence.services.episode_evidence import EpisodeEvidenceSnapshot
+
+        snapshot = EpisodeEvidenceSnapshot.from_dict(payload, episode_id=episode_id)
+        ledger = cls(information_cutoff=snapshot.information_cutoff)
+        # Do not re-append with today's policy or renumber/recompute saved links.
+        for entry in snapshot.entries:
+            identity = entry.atom.content_hash
+            ledger._items[identity] = entry.atom
+            ledger._targets[identity] = entry.targets
+            if entry.branch_owner is not None:
+                ledger._branch_owners[identity] = entry.branch_owner
+        ledger._covered_outputs = set(snapshot.covered_outputs)
+        ledger._open_gaps = set(snapshot.open_gaps)
+        return ledger
+
     def snapshot(self) -> EvidenceLedgerSnapshot:
         with self._lock:
             families = tuple(

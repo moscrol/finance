@@ -1,0 +1,121 @@
+[
+  {
+    "id": "restore_budget_debits",
+    "path": "intelligence/services/research_contract.py",
+    "old": "        ledger.remaining_calls = remaining_calls\n        ledger.remaining_seconds = remaining_seconds",
+    "new": "        ledger.remaining_calls = initial_calls\n        ledger.remaining_seconds = initial_seconds",
+    "targets": ["test_snapshot_round_trip_keeps_debits_and_applied_grant_and_promotion_ids"]
+  },
+  {
+    "id": "restore_grant_identities",
+    "path": "intelligence/services/research_contract.py",
+    "old": "        ledger._grants = grants",
+    "new": "        ledger._grants = {}",
+    "targets": ["test_snapshot_round_trip_keeps_debits_and_applied_grant_and_promotion_ids"]
+  },
+  {
+    "id": "restore_promotion_identities",
+    "path": "intelligence/services/research_contract.py",
+    "old": "        ledger._promotions = promotions",
+    "new": "        ledger._promotions = {}",
+    "targets": ["test_snapshot_round_trip_keeps_debits_and_applied_grant_and_promotion_ids"]
+  },
+  {
+    "id": "snapshot_identity_validation",
+    "path": "intelligence/services/research_contract.py",
+    "old": "            or payload[\"episode_id\"] != episode_id",
+    "new": "            or False",
+    "targets": ["test_invalid_snapshot_never_registers_a_live_budget"]
+  },
+  {
+    "id": "snapshot_allocation_reconciliation",
+    "path": "intelligence/services/research_contract.py",
+    "old": "            raise ValueError(\"snapshot grant identities do not reconcile with allocations\")",
+    "new": "            pass",
+    "targets": ["test_invalid_snapshot_never_registers_a_live_budget"]
+  },
+  {
+    "id": "snapshot_cap_reconciliation",
+    "path": "intelligence/services/research_contract.py",
+    "old": "            raise ValueError(\"snapshot last promotion does not match current caps\")",
+    "new": "            pass",
+    "targets": ["test_invalid_snapshot_never_registers_a_live_budget"]
+  },
+  {
+    "id": "restore_single_live_root",
+    "path": "intelligence/services/research_contract.py",
+    "old": "        if episode_id in _LIVE_ROOT_BUDGETS:\n            raise ValueError(f\"root budget already exists for live episode: {episode_id}\")",
+    "new": "        if False:\n            raise ValueError(f\"root budget already exists for live episode: {episode_id}\")",
+    "targets": ["test_restore_and_fresh_allocation_share_the_same_single_root_gate", "test_two_concurrent_restores_cannot_create_two_registered_roots"]
+  },
+  {
+    "id": "checkpoint_current_budget_wiring",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "                        state, budget_snapshot=budget_snapshot, budget_snapshot_sequence=budget_sequence,",
+    "new": "                        state, budget_snapshot=None, budget_snapshot_sequence=None,",
+    "targets": ["test_real_loop_checkpoints_current_budget_not_just_initial_configuration", "test_live_deep_promotion_checkpoint_reopens_without_regranting"]
+  },
+  {
+    "id": "required_root_snapshot_cannot_disappear",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "                        if isinstance(root, InMemoryRootBudgetLedger) and budget_snapshot is None:",
+    "new": "                        if False:",
+    "targets": ["test_snapshot_failure_fences_tree_before_more_effects_and_keeps_received_result"]
+  },
+  {
+    "id": "snapshot_encoding_failure_shared_fence",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "                        self._store_fence.fail(self.episode_id, f\"state:{phase}:budget\", exc)",
+    "new": "                        pass",
+    "targets": ["test_snapshot_failure_fences_tree_before_more_effects_and_keeps_received_result"]
+  },
+  {
+    "id": "snapshot_deep_freeze",
+    "path": "intelligence/services/episode_store.py",
+    "old": "            object.__setattr__(self, \"budget_snapshot\", _json_freeze(copied, path=\"budget_snapshot\"))",
+    "new": "            object.__setattr__(self, \"budget_snapshot\", copied)",
+    "targets": ["test_checkpoint_budget_snapshot_is_deeply_frozen_and_legacy_missing_is_explicit"]
+  },
+  {
+    "id": "restore_preserves_budget_in_plan",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "                budget_snapshot=state.budget_snapshot,\n                budget_snapshot_sequence=state.budget_snapshot_sequence,",
+    "new": "                budget_snapshot=None,\n                budget_snapshot_sequence=None,",
+    "targets": ["test_restore_synthesis_preserves_snapshot_without_registering_or_resetting_budget"]
+  },
+  {
+    "id": "restore_preserves_budget_in_close",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "            budget_snapshot=state.budget_snapshot,\n            budget_snapshot_sequence=state.budget_snapshot_sequence,",
+    "new": "            budget_snapshot=None,\n            budget_snapshot_sequence=None,",
+    "targets": ["test_restore_synthesis_preserves_snapshot_without_registering_or_resetting_budget"]
+  },
+  {
+    "id": "restore_cannot_relabel_old_balance_as_reconciled",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "                budget_snapshot_sequence=state.budget_snapshot_sequence,",
+    "new": "                budget_snapshot_sequence=len(events) if state.budget_snapshot is not None else None,",
+    "targets": ["test_restore_synthesis_preserves_snapshot_without_registering_or_resetting_budget"]
+  },
+  {
+    "id": "tool_debit_before_settled_step",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "                _settle_batch_calls(\n                    context.root_budget,\n                    executed_count=batch.executed_count,\n                    batch_elapsed=batch_elapsed,\n                )\n                # P4 步点④：这一批的结算（tool_result / tool_error）全部落账。\n                yield StepPoint(\"tools_settled\", llm_calls, tool_calls, turn_id=turn_id)",
+    "new": "                # P4 步点④：这一批的结算（tool_result / tool_error）全部落账。\n                yield StepPoint(\"tools_settled\", llm_calls, tool_calls, turn_id=turn_id)\n                _settle_batch_calls(\n                    context.root_budget,\n                    executed_count=batch.executed_count,\n                    batch_elapsed=batch_elapsed,\n                )",
+    "targets": ["test_tool_budget_is_debited_before_publishing_the_tools_settled_step"]
+  },
+  {
+    "id": "repair_debit_before_checkpoint",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "            _settle_batch_calls(\n                repair_context.root_budget,\n                executed_count=batch.executed_count,\n                batch_elapsed=batch_elapsed,\n            )\n            # 修复轮的结果与预算均结算后，才把程序计数器移回 repair。\n            ledger.put_state(phase=\"repair\", context=repair_context)",
+    "new": "            ledger.put_state(phase=\"repair\", context=repair_context)\n            _settle_batch_calls(\n                repair_context.root_budget,\n                executed_count=batch.executed_count,\n                batch_elapsed=batch_elapsed,\n            )",
+    "targets": ["test_repair_checkpoint_includes_spent_tool_and_new_grant"]
+  },
+  {
+    "id": "overrun_never_refunds_executed_calls",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "                    consume_slot()",
+    "new": "                    pass",
+    "targets": ["test_burned_seconds_do_not_refund_already_executed_tool_slots"]
+  }
+]

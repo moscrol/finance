@@ -1,0 +1,30 @@
+[
+  {
+    "id": "api_fixture_running_workers_join_before_patch_undo",
+    "path": "intelligence/tests/fixtures/run_supervisor.py",
+    "old": "    supervisor._executor.shutdown(wait=True, cancel_futures=True)",
+    "new": "    supervisor._executor.shutdown(wait=False, cancel_futures=True)",
+    "targets": ["test_api_fixture_joins_late_worker_before_restoring_runner"]
+  },
+  {
+    "id": "api_quota_fixture_teardown_wiring",
+    "path": "intelligence/tests/test_api_quota.py",
+    "old": "        drain_test_client(client)",
+    "new": "        client.app.state.supervisor.shutdown()",
+    "targets": ["test_api_fixture_joins_late_worker_before_restoring_runner"]
+  },
+  {
+    "id": "api_credits_fixture_teardown_wiring",
+    "path": "intelligence/tests/test_api_credits.py",
+    "old": "            drain_test_client(client)",
+    "new": "            client.app.state.supervisor.shutdown()",
+    "targets": ["test_api_fixture_joins_late_worker_before_restoring_runner"]
+  },
+  {
+    "id": "api_admission_fixture_teardown_wiring",
+    "path": "intelligence/tests/test_api_run_admission.py",
+    "old": "            drain_test_client(client)",
+    "new": "            client.app.state.supervisor.shutdown()",
+    "targets": ["test_api_fixture_joins_late_worker_before_restoring_runner"]
+  }
+]

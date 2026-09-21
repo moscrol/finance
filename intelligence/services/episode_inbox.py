@@ -249,7 +249,9 @@ class Inbox:
         *,
         admit: Callable[[EpisodeMessage], bool] | None = None,
         spool: Path | None = None,
+        persistence_failed: Callable[[], bool] | None = None,
     ) -> None:
+        self._persistence_failed = persistence_failed or (lambda: False)
         self._ledger = ledger
         self._admit = admit
         self._lock = threading.Lock()
@@ -321,8 +323,8 @@ class Inbox:
                     wakeup=record.wakeup,
                     spool_id=record.spool_id,
                 )
-                if receipt.reason == "inbox_closed":
-                    # 没落账就不能删：话还没到过账本。留在槽里等 reopen。
+                if receipt.reason in {"inbox_closed", "storage_failed"}:
+                    # 没确认落账就不能删：保存失败也不把运输副本销毁。
                     break
                 # 至少 inserted 已落（拒收还有 discarded），运输单位可以销毁。
                 try:
@@ -350,6 +352,8 @@ class Inbox:
             # 只有 user 角色能从外部进对话：system 是宪法、assistant 是模型、tool 要配对。
             raise ValueError(f"收件箱只收 user 角色消息，收到 {message.role!r}")
         target_key = self._check_target(target)
+        if self._persistence_failed():
+            return InboxReceipt(message_id="", accepted=False, reason="storage_failed")
         with self._lock:
             if self._closed:
                 return InboxReceipt(message_id="", accepted=False, reason="inbox_closed")
@@ -369,6 +373,8 @@ class Inbox:
                 **({"spool_id": str(spool_id)} if spool_id else {}),
             },
         )
+        if self._persistence_failed():
+            return InboxReceipt(message_id=message_id, accepted=False, reason="storage_failed")
         admitted, detail = self._admitted(message)
         if not admitted:
             ledger.add(
@@ -382,7 +388,8 @@ class Inbox:
                 },
             )
             return InboxReceipt(
-                message_id=message_id, accepted=False, reason="rejected_by_harness"
+                message_id=message_id, accepted=False,
+                reason="storage_failed" if self._persistence_failed() else "rejected_by_harness",
             )
         entry = _Entry(
             message_id=message_id, message=message, target=target_key, wakeup=bool(wakeup)
@@ -396,7 +403,12 @@ class Inbox:
                 should_discard = False
         if should_discard:
             self._discard(entry, reason="episode_finished")
-            return InboxReceipt(message_id=message_id, accepted=False, reason="inbox_closed")
+            return InboxReceipt(
+                message_id=message_id, accepted=False,
+                reason="storage_failed" if self._persistence_failed() else "inbox_closed",
+            )
+        if self._persistence_failed():
+            return InboxReceipt(message_id=message_id, accepted=False, reason="storage_failed")
         return InboxReceipt(message_id=message_id, accepted=True)
 
     # ── 认领 / 丢弃 ─────────────────────────────────────────────────────
@@ -407,11 +419,13 @@ class Inbox:
 
         target_key = self._check_target(target)
         self.ingest_spool()
+        if self._persistence_failed():
+            return []
         with self._lock:
             entries = list(self._queues[target_key])
             self._queues[target_key].clear()
         ledger = self._ledger
-        for entry in entries:
+        for index, entry in enumerate(entries):
             ledger.add(
                 "inbox_claimed",
                 {
@@ -420,6 +434,10 @@ class Inbox:
                     "source": str(entry.message.source or ""),
                 },
             )
+            if self._persistence_failed():
+                with self._lock:
+                    self._queues[target_key][0:0] = entries[index:]
+                return []
         return [entry.message for entry in entries]
 
     def discard_all(self, *, reason: InboxDiscardReason) -> int:
@@ -429,11 +447,16 @@ class Inbox:
 
         if reason not in INBOX_DISCARD_REASONS:
             raise ValueError(f"未知丢弃原因: {reason!r}")
+        if self._persistence_failed():
+            # 不能可靠记丢弃，不伪造送达；保留内存队列及运输副本供诊断/恢复对账。
+            with self._lock:
+                self._closed = True
+            return 0
         # 关箱前最后吞一次槽：收口前到的话与进程内 send 同命——inserted 落了、随即 discarded，
         # 事件流说得清「到了但没送到」，而不是让文件在槽里烂成无迹可查。
         self.ingest_spool()
         with self._lock:
-            keep = reason == "cancelled" and self.keep_on_cancel
+            keep = self._persistence_failed() or (reason == "cancelled" and self.keep_on_cancel)
             if keep:
                 entries: list[_Entry] = []
             else:
@@ -441,8 +464,13 @@ class Inbox:
                 for queue in self._queues.values():
                     queue.clear()
             self._closed = True
-        for entry in entries:
+        for index, entry in enumerate(entries):
             self._discard(entry, reason=reason)
+            if self._persistence_failed():
+                with self._lock:
+                    for pending in entries[index:]:
+                        self._queues[pending.target].append(pending)
+                return index
         return len(entries)
 
     def reopen(self) -> None:
