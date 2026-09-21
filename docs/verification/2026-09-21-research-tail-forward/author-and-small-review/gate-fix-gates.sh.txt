@@ -1,0 +1,24 @@
+#!/bin/bash
+set -u
+umask 022
+ROOT=/Users/a77/fwp-wt-gate-receipt-selection-0921
+OUT=/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921
+PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python
+export HOME=/Users/a77 PATH=/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin LANG=en_US.UTF-8 TMPDIR=/tmp PYTHONDONTWRITEBYTECODE=1
+cd "$ROOT" || exit 2
+[ "$(git rev-parse HEAD)" = c35f61d37db3a26916902aeae688f82458591ebd ] || exit 2
+[ -z "$(git status --porcelain=v1)" ] || exit 2
+git rev-parse HEAD > "$OUT/gate-fix-identity-before.txt"
+git status --porcelain=v1 >> "$OUT/gate-fix-identity-before.txt"
+bash scripts/run_main_gate.sh > "$OUT/gate-fix-main-gate.log" 2>&1
+printf '%s\n' "$?" > "$OUT/gate-fix-main-gate.rc"
+for cmd in 'check-parseability' 'check' 'backfill-tables --check' 'generate-views --check'; do
+  name=${cmd// /_}
+  "$PY" scripts/build_registry.py $cmd > "$OUT/gate-fix-registry-$name.txt" 2>&1
+  printf '%s\n' "$?" > "$OUT/gate-fix-registry-$name.rc"
+done
+"$PY" scripts/audit_ledger_spec_crosswalk.py > "$OUT/gate-fix-crosswalk.txt" 2>&1
+printf '%s\n' "$?" > "$OUT/gate-fix-crosswalk.rc"
+git rev-parse HEAD > "$OUT/gate-fix-identity-after.txt"
+git status --porcelain=v1 >> "$OUT/gate-fix-identity-after.txt"
+printf 'complete\n' > "$OUT/gate-fix-gates.done"
