@@ -8,7 +8,6 @@ from typing import Literal, TypeAlias, cast
 
 from intelligence.services import ask_clarify, llm_refine
 from intelligence.services.conversation_materials import ConversationMaterials
-from intelligence.services.material_contract import compile_material_contract
 from intelligence.services.query_resolution import (
     QueryResolution,
     QueryResolver,
@@ -1106,6 +1105,13 @@ def decide_turn(
     resolver: QueryResolver | None = None,
     conversation_materials: ConversationMaterials | None = None,
 ) -> TurnDecision:
+    from intelligence.services.historical_research.intent import inherit_history_followup
+
+    history_followup = inherit_history_followup(
+        query, previous_intent.history_intent if previous_intent is not None else None
+    )
+    if history_followup is not None and conversation_materials is None:
+        conversation_materials = ConversationMaterials(unavailable=True)
     # Source-aware material turns are resolved before pending-frame recovery,
     # lexicons and generic routing. An old research intent is not a permission.
     # Exception: a pending material-contract clarification means this message
@@ -1116,9 +1122,8 @@ def decide_turn(
         from intelligence.services.user_task import split_user_message
 
         parts = split_user_message(query)
-        material = compile_material_contract(
-            parts.regions, source_turn=conversation_materials.source_turn,
-            inherited_contract=conversation_materials.base_contract,
+        material = conversation_materials.compile_contract(
+            parts.regions, history_continuation=history_followup is not None,
         ) if parts.regions else None
         if material and (material.data_scope == "material_only" or material.needs_clarification
                          or material.premise_calculation):
@@ -1126,7 +1131,10 @@ def decide_turn(
                 "general_finance_qa", "unknown", None,
                 "逐题依据用户材料回答，分开事实前提、推导与缺口", None, "explicit", 1.0,
             )
-            frame = build_task_frame(query, envelope, conversation_materials=conversation_materials)
+            frame = build_task_frame(
+                query, envelope, conversation_materials=conversation_materials,
+                history_continuation=history_followup is not None,
+            )
             if material.needs_clarification:
                 question = (
                     "无法恢复上一轮的可信条件，请补充原材料和本轮允许的数据范围。"
@@ -1203,13 +1211,8 @@ def decide_turn(
         (resolver or QueryResolver()).resolve(resolution_query),
     )
     from intelligence.services.historical_research.intent import (
-        inherit_history_followup,
         infer_history_intent,
         named_wave_subject,
-    )
-
-    history_followup = inherit_history_followup(
-        query, previous_intent.history_intent if previous_intent is not None else None
     )
     inherit_subject = bool(
         previous_intent is not None
@@ -1240,6 +1243,7 @@ def decide_turn(
         # 真实入口的空历史块带「（无历史消息）」字样，非空，走「已知为空」车道。
         conversation_context=context if context else None,
         conversation_materials=conversation_materials,
+        history_continuation=history_followup is not None,
     )
     if history_followup is not None and (
         task_frame.history_intent is None
@@ -1370,9 +1374,34 @@ def decide_turn(
             primary_subject=task_frame.subject or previous_intent.primary_subject,
         )
     if intent.inherited_from_turn is not None:
-        if task_frame.history_intent is None and previous_intent is not None:
+        if (task_frame.history_intent is None and previous_intent is not None
+                and previous_intent.history_intent is not None):
+            # Generic pronoun resolution can inherit history without matching the
+            # domain follow-up grammar. It must recover the same read ceiling.
+            from intelligence.services.user_task import split_user_message
+
+            history = conversation_materials or ConversationMaterials(unavailable=True)
+            material = history.compile_contract(
+                split_user_message(query).regions, history_continuation=True,
+            )
+            if material.needs_clarification:
+                question = "无法恢复上一轮的可信条件，请补充原材料和本轮允许的数据范围。"
+                task_frame = replace(
+                    task_frame, material_contract=material, conversation_materials=history,
+                    clarification_question=question,
+                    ambiguities=(*task_frame.ambiguities, *material.uncertain_reasons),
+                )
+                intent = replace(intent, history_intent=None, pending_task_frame=task_frame.to_dict(),
+                                 clarification_rounds=1, task_frame_hash=task_frame.task_frame_hash)
+                return _attach_turn_intent(
+                    _decision("clarify", envelope=envelope, needs_retrieval=False,
+                              needs_memory=False, needs_template=False,
+                              clarification_questions=(question,), reason="历史回填缺少可信权限基底"),
+                    intent, task_frame=task_frame,
+                )
             task_frame = replace(
-                task_frame, history_intent=previous_intent.history_intent
+                task_frame, history_intent=previous_intent.history_intent,
+                material_contract=material, conversation_materials=history,
             )
         inherited_kind = (
             "company"

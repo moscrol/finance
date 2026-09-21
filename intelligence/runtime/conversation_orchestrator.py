@@ -85,7 +85,7 @@ from intelligence.services.watchlist_digest_pack import (
 )
 from intelligence.services.answer_stream import AnswerSnapshot
 from intelligence.services.provider_observability import ProviderTrace
-from intelligence.services.historical_research.intent import HistoryIntent
+from intelligence.services.historical_research.intent import HistoryIntent, inherit_history_followup
 from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
     QUESTION_GENERAL,
@@ -1946,16 +1946,18 @@ class TurnOrchestrator:
             # Recover state only from complete persisted user messages in the
             # same bounded window; summary/assistant prose is never authority.
             parts = split_user_message(str(query or "").strip())
+            history_continuation = inherit_history_followup(
+                query, inherited_intent.history_intent if inherited_intent is not None else None,
+            ) is not None
             material_contract = compile_material_contract(parts.regions) if parts.regions else None
             material_history = None
-            if material_contract and material_contract.continuation_requested:
+            if history_continuation or (material_contract and material_contract.continuation_requested):
                 material_history = collect_material_turn_history(
                     context.material_messages or (),
                     unavailable=context.material_history_unavailable,
                 )
-                material_contract = compile_material_contract(
-                    parts.regions, source_turn=material_history.source_turn,
-                    inherited_contract=material_history.base_contract,
+                material_contract = material_history.compile_contract(
+                    parts.regions, history_continuation=history_continuation,
                 )
             elif material_contract and material_contract.data_scope == "material_only":
                 material_history = (
@@ -1974,13 +1976,14 @@ class TurnOrchestrator:
             # injected controllers keep their pre-existing keyword contract.
             if not material_contract or (
                 material_contract.data_scope != "material_only"
+                and not history_continuation
                 and not self._uses_default_turn_controller
             ):
                 material_history = None
             restricted_history = bool(
                 material_contract
                 and material_history is not None
-                and (material_contract.data_scope == "material_only" or material_contract.needs_clarification)
+                and (history_continuation or material_contract.data_scope == "material_only" or material_contract.needs_clarification)
             )
             # Keep the established controller context contract byte-compatible.
             # The typed projection is an additional authority input; the model
@@ -2031,6 +2034,7 @@ class TurnOrchestrator:
                     query,
                     legacy_envelope,
                     conversation_materials=material_history,
+                    history_continuation=history_continuation,
                     inherited_subject=(
                         inherited_intent.primary_subject
                         if inherited_intent is not None
@@ -2048,7 +2052,10 @@ class TurnOrchestrator:
             if restricted_history and not self._uses_default_turn_controller:
                 # Injected controllers may supply stale/full frames. Recompile
                 # the source-aware contract, not just replace its permission bit.
-                decision = decide_turn(query, conversation_materials=material_history)
+                decision = decide_turn(
+                    query, conversation_materials=material_history,
+                    previous_intent=inherited_intent, previous_turn_id=inherited_turn_id,
+                )
                 task_frame = decision.task_frame
                 assert task_frame is not None
                 raw_envelope = envelope_from_task_frame(task_frame)

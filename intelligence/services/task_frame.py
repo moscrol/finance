@@ -145,8 +145,11 @@ class TaskFrame:
             payload.pop("material_contract", None)
         if self.conversation_materials is None:
             payload.pop("conversation_materials", None)
-        elif not self.conversation_materials.calculation_sources:
-            payload["conversation_materials"].pop("calculation_sources", None)
+        else:
+            if not self.conversation_materials.calculation_sources:
+                payload["conversation_materials"].pop("calculation_sources", None)
+            if self.conversation_materials.history_intent is None:
+                payload["conversation_materials"].pop("history_intent", None)
         return payload
 
     @property
@@ -294,6 +297,7 @@ def build_task_frame(
     conversation_context: str | None = None,
     conversation_materials: ConversationMaterials | None = None,
     source_turn: int = 0,
+    history_continuation: bool = False,
 ) -> TaskFrame:
     """Compile rules first, then optionally merge one constrained LLM draft.
 
@@ -310,10 +314,13 @@ def build_task_frame(
     # 材料与问题分开：路由、目标、日历、产出物都只看问题部分；raw_question 仍是
     # 完整原文（模型需要读材料本身）。没有材料时 core == question，一切照旧。
     parts = split_user_message(question)
-    material_contract = compile_material_contract(
-        parts.regions,
-        source_turn=conversation_materials.source_turn if conversation_materials else source_turn,
-        inherited_contract=conversation_materials.base_contract if conversation_materials else None,
+    material_contract = (
+        conversation_materials.compile_contract(
+            parts.regions, history_continuation=history_continuation,
+        ) if conversation_materials is not None else compile_material_contract(
+            parts.regions, source_turn=source_turn,
+            history_continuation=history_continuation,
+        )
     ) if parts.regions else None
     restricted_material = bool(material_contract and (
         material_contract.data_scope == "material_only" or material_contract.needs_clarification
