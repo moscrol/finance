@@ -12,7 +12,7 @@
 ## 当前状态
 候选47530e20保持净树。K3 Spec/Quality各40请求触帽exit75，耗时1187.020/933.388秒；Spec无报告，Quality仅in_progress占位，独立验收BLOCKED。
 根QC确认O-K3-001(P1)：同进程pytest.main内层抢写外层收据；外层1P却认内层2P/目标、gate仍0。另建精确源码toy仓复现，子进程对照正常。代码处置CHANGES_REQUIRED；未证明失败外层会被放绿，未追认旧全量污染。
-450文件封存`docs/verification/2026-09-21-ownership-k3-v3/`；原件`~/.finance-runtime/reviews/ownership-k3-v3-20260921/`。未修代码/购额/重试/合main/部署/生产回填/删真实树；Arena另线未接管。
+450文件封存`docs/verification/2026-09-21-ownership-k3-v3/`，文档7dedfd1ea已推；#812/#813/#814评论5253/5254/5255已回读核对。原件`~/.finance-runtime/reviews/ownership-k3-v3-20260921/`。未修代码/购额/重试/合main/部署/生产回填/删真实树；Arena另线未接管。
 
 ## 已验证
 两轴执行/准入/原轨迹与候选身份核对；Spec定向195P/1S，另零执行收据排除。Quality39参数用例、真实并发和子进程控制正常；同进程反例已复现。五代档案30/30/86/26/450成员、哈希、来源字节通过，旧四代不变；见同目录旁k3-v3-integrity.json。
