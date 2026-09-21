@@ -10,6 +10,7 @@ import sys
 import pytest
 
 from intelligence.services.agent_research import AgentEvidence
+from intelligence.runtime.continuous_turn_adapter import _public_citation_projection
 from intelligence.services.agent_runtime import (
     AgentOutcome,
     AgentUsage,
@@ -72,6 +73,58 @@ def test_runtime_claims_bind_numeric_tokens_across_multiple_sources() -> None:
 
     assert claims[0].material_numeric is True
     assert claims[0].source_ids == ("E1", "E2")
+
+
+def test_runtime_sources_preserve_ledger_ids_across_filters_and_duplicates() -> None:
+    def evidence(digest, detail):
+        return AgentEvidence(
+            tool="market_data",
+            title="Quarterly results",
+            detail=detail,
+            source="Public filing",
+            source_date="2026-07-24",
+            content_hash=digest,
+        )
+
+    ledger = (
+        evidence("", "empty identity"),
+        evidence("c" * 64, "unbound"),
+        evidence("f" * 64, "Revenue grew 12%."),
+        evidence("a" * 64, "Profit grew 7%."),
+        evidence("f" * 64, "Revenue grew 12%."),
+        evidence("b" * 64, "excluded output"),
+        evidence("d" * 64, "gap binding"),
+    )
+    outcome = AgentOutcome(
+        task_frame_hash="test",
+        status="partial",
+        draft="Revenue grew 12% [E2].",
+        evidence=ledger,
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        usage=AgentUsage(),
+        events=(EpisodeEvent(1, "task", {"task_frame_hash": "test"}),),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("", "f" * 64, "a" * 64)),
+            OutputEvidenceBinding("repeat", ("f" * 64,)),
+            OutputEvidenceBinding("excluded", ("b" * 64,)),
+            OutputEvidenceBinding("missing", ("d" * 64,), gap="Incomplete"),
+        ),
+    )
+    sources = benchmark._runtime_sources(outcome, excluded_output_ids=("excluded",))
+    assert [(item.source_id, item.content_hash) for item in sources] == [
+        ("E2", "f" * 64),
+        ("E3", "a" * 64),
+    ]
+    public = _public_citation_projection(
+        outcome, frozenset(), allowed_output_ids=frozenset({"direct_assessment", "repeat"})
+    )
+    assert [item["evidence_id"] for item in public] == [item.source_id for item in sources]
+    claims = benchmark._runtime_claims(outcome.draft, sources=sources, evidence=ledger)
+    assert claims[0].source_ids == ("E2",)
+    appended = dataclasses.replace(outcome, evidence=(*ledger, evidence("e" * 64, "later")))
+    assert benchmark._runtime_sources(appended, excluded_output_ids=("excluded",)) == sources
 
 
 def test_runtime_claims_use_source_date_as_numeric_lineage() -> None:
@@ -1169,13 +1222,26 @@ def test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state(
     assert len(contexts) == 2
     assert contexts[0] is not contexts[1]
     assert payload["summary"]["arm_count"] == 2
-    assert arms[0]["citations"] == [
-        {
-            "title": "continuous_glm evidence",
-            "source": "test",
-            "date": "2026-07-24",
-        }
-    ]
+    for arm, context in zip(arms, contexts, strict=True):
+        assert [citation["evidence_id"] for citation in arm["citations"]] == [
+            "E1",
+            "E3",
+            "E4",
+        ]
+        assert all(
+            citation["title"] == f"{arm['backend']} evidence"
+            and citation["source"] == "test"
+            and citation["date"] == "2026-07-24"
+            for citation in arm["citations"]
+        )
+        assert [source["source_id"] for source in arm["sources"]] == [
+            f"E{index + 1}"
+            for index, _ in enumerate(context.contract.required_outputs)
+        ]
+        assert [source["content_hash"] for source in arm["sources"]] == [
+            hashlib.sha256(f"{arm['backend']}-{index}".encode("utf-8")).hexdigest()
+            for index, _ in enumerate(context.contract.required_outputs)
+        ]
     assert arms[0]["data_cutoff"] == "2026-07-24"
     assert [arm["stop_reason"] for arm in arms] == [
         "model_finish",
@@ -1410,6 +1476,7 @@ def test_live_runner_uses_production_adapter_delivery_repair(
     assert private_arm["answer"]
     assert private_arm["citations"] == [
         {
+            "evidence_id": "E2",
             "title": "同日主线结构",
             "source": "local mainline fixture",
             "date": "2026-07-24",

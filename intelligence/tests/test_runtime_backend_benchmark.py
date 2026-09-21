@@ -99,6 +99,28 @@ def test_runtime_arm_rejects_projection_divergence_and_unbound_number() -> None:
         )
 
 
+def test_runtime_arm_preserves_public_citation_identity_without_private_fields() -> None:
+    legacy = _arm().citations[0]
+    citations = tuple(
+        {**legacy, "evidence_id": evidence_id, "content_hash": "private-digest"}
+        for evidence_id in ("E2", "E4")
+    )
+    arm = replace(_arm(), citations=citations)
+
+    assert arm.citations == tuple(
+        {**legacy, "evidence_id": evidence_id} for evidence_id in ("E2", "E4")
+    )
+    assert RuntimeArmResult.from_dict(arm.to_dict()) == arm
+    assert "private-digest" not in json.dumps(arm.to_dict())
+    assert "evidence_id" not in RuntimeArmResult.from_dict(_arm().to_dict()).citations[0]
+
+
+@pytest.mark.parametrize("evidence_id", ["E0", "E01", "E1000", "a" * 64, "/private/path"])
+def test_runtime_arm_rejects_invalid_public_citation_identity(evidence_id) -> None:
+    with pytest.raises(ValueError, match="citation evidence_id"):
+        replace(_arm(), citations=({**_arm().citations[0], "evidence_id": evidence_id},))
+
+
 def test_runtime_arm_rejects_invalid_claim_span_and_future_source() -> None:
     with pytest.raises(ValueError, match="claim span"):
         replace(

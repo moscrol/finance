@@ -33,6 +33,7 @@ from intelligence.services.agent_runtime import AgentModelClient, ModelTurn
 from intelligence.runtime.agent_runtime_factory import resolve_runtime_backend
 from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
 from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.episode_protocol import evidence_ordinal_table
 from intelligence.runtime.episode_finalizer import EpisodeFinalizer
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
 from intelligence.services.episode_semantic_verifier import (
@@ -903,27 +904,23 @@ def _runtime_sources(
         if not binding.gap and binding.output_id not in excluded
         for content_hash in binding.evidence_hashes
     }
-    selected = sorted(
-        (
-            item
-            for item in outcome.evidence
-            if item.content_hash in bound_hashes
-        ),
-        key=lambda item: (
-            item.content_hash,
-            item.tool,
-            item.source_date or "",
-        ),
-    )
-    return tuple(
-        RuntimeSource(
-            source_id=f"E{index}",
-            tool=item.tool,
-            content_hash=_runtime_source_content_hash(item),
-            source_date=item.source_date or "",
+    ordinals = evidence_ordinal_table(outcome.evidence)
+    seen: set[str] = set()
+    sources: list[RuntimeSource] = []
+    for item in outcome.evidence:
+        digest = str(item.content_hash or "").strip()
+        if digest not in bound_hashes or digest not in ordinals or digest in seen:
+            continue
+        seen.add(digest)
+        sources.append(
+            RuntimeSource(
+                source_id=ordinals[digest],
+                tool=item.tool,
+                content_hash=_runtime_source_content_hash(item),
+                source_date=item.source_date or "",
+            )
         )
-        for index, item in enumerate(selected, start=1)
-    )
+    return tuple(sources)
 
 
 def _runtime_source_content_hash(item: object) -> str:

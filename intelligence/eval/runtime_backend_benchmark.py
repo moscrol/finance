@@ -518,6 +518,11 @@ class RuntimeArmResult:
             }
             if not normalized["title"] or not normalized["source"]:
                 raise ValueError("citations require title and source")
+            evidence_id = str(citation.get("evidence_id") or "").strip()
+            if evidence_id:
+                if not re.fullmatch(r"E[1-9][0-9]{0,2}", evidence_id):
+                    raise ValueError("invalid citation evidence_id")
+                normalized["evidence_id"] = evidence_id
             citations.append(normalized)
         object.__setattr__(self, "citations", tuple(citations))
         if self.data_cutoff is not None:
