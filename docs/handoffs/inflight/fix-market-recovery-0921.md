@@ -13,12 +13,12 @@
 | 名称保留腾讯盘后观测、换手率不投影 | 381 名称差异、21 换手率差异未形成来源合同 |
 
 ## 当前状态
-已提交 `7311a7738`：`hithink_recovery_candidate.py` 是纯构造器，`tests/test_hithink_recovery_candidate.py` 覆盖反例；不连接网络、数据库或写文件。真实固定输入最终回放：声明 5565、候选 5553、缺失处置 12；结果指纹 `446cf3af...8b31d4a`，输入指纹 `52410f4d...a1501206`。候选固定 `production_ready=false`、`database_writes=false`、`publication_attempted=false`。
+已提交 `7311a7738`：`hithink_recovery_candidate.py` 是纯构造器，`tests/test_hithink_recovery_candidate.py` 覆盖反例；不连接网络、数据库或写文件。真实回放：声明5565、候选5553、缺失处置12。证据与决定见 `../2026-09-22-market-recovery-pure-candidate.md`。候选固定 `production_ready=false`、`database_writes=false`、`publication_attempted=false`。
 
 ## 已验证
-- 组合回归 `247 passed`；Ruff、diff check、pre-commit 全通过。
+- 干净 `4c0162a9b` 定向247P（新构造器88P）；Ruff/diff/pre-commit通过。
 - 6 类变异（范围指纹、全天停牌区间、复牌间隔事件、历史 witness、股/手单位、半分舍入）均被测试捕获。
-- 最终回放校验 278 个输入文件；manifest SHA `3943ed43...1203525`，封存失败库 SHA `544832ec...17ff98`。
+- 原278输入+新增136证据哈希通过，完整哈希见长版；原清单/失败收据不覆盖。
 - 生产库 SHA `3da5260b...1678a6e2`、inode/大小/mtime 及 `latest.json`/`meta.json` 快照均未变；无新 staging。
 - 09-04 `600825.SH` 历史原件已固定并与封存 bar 核对；两只复牌 witness 均通过。
 
