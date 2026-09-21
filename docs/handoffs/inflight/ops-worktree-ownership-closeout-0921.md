@@ -11,7 +11,7 @@
 
 ## 当前状态
 新组合6eb12c1b8已推`baseline/ownership-gates-v4-0921`，树`~/fwp-wt-ownership-gates-v4-0921`保持净且冻结；父c615adbd+#812@8d955fc3/#813@5994230d/#814@ffc8e1a8（含a092收据归属修复）。未另开组合PR。
-82文件封于`docs/verification/2026-09-21-ownership-integration-v4/`（含README不含manifest），2,600,457字节；原件`~/.finance-runtime/reviews/ownership-integration-v4-20260921/`。#814仅交接续至790dc27a，源码未变。
+82文件封于`docs/verification/2026-09-21-ownership-integration-v4/`（含README不含manifest），2,600,457字节；证据c39e5bfd8已推，#812/#813/#814评论5294/5295/5296逐字回读一致。原件`~/.finance-runtime/reviews/ownership-integration-v4-20260921/`。#814仅交接续至790dc27a，源码未变。
 旧47530e20及六档不动；旧K3双轴40请求触帽未终审历史保留。未新模型会话/合main/部署/生产回填/删真实树；Arena另线。
 
 ## 已验证
@@ -23,7 +23,7 @@ a092修复既有证据115文件保留；旧六档30/30/86/26/450/115成员/哈�
 首尾净不证明中间无改后还原；归属标记不是恶意写者沙箱；shell仅留pytest末15行，JUnit非全stdout。
 
 ## 下一步
-另定独立复审对象/有限预算；若验届时main，重固定组合并跑新全叶。#812/#813/#814与组合不可重复合；合并/部署/回填/删树分别确认。发布证据提交/评论回读指针在完毕后补此处。
+另定独立复审对象/有限预算；若验届时main，重固定组合并跑新全叶。#812/#813/#814与组合不可重复合；合并/部署/回填/删树分别确认。发布和收尾复核记录`~/.finance-runtime/reviews/ownership-integration-v4-closeout-20260921/`。
 
 ## 踩过的坑
 latest只导航；11963旧单分支/12068旧组合/12461新组合不直接比。show-ref缺ref退出码依--quiet变化，旧manifest用files非entries；设施错误原件均保留。
