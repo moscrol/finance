@@ -826,14 +826,16 @@ def test_continuous_handled_turn_bypasses_legacy_and_persists_public_result(
             return ContinuousTurnResult(
                 handled=True,
                 status="completed",
-                answer="反弹持续性取决于量能与领涨扩散，当前先按条件化修复看待。",
+                answer="反弹持续性取决于量能与领涨扩散，当前先按条件化修复看待（E3、E7）。",
                 as_of="2026-07-22",
-                citations=(
+                citations=tuple(
                     {
+                        "evidence_id": evidence_id,
                         "title": "市场量能窗口",
                         "source": "本地行情",
                         "date": "2026-07-22",
-                    },
+                    }
+                    for evidence_id in ("E3", "E7")
                 ),
                 warnings=(),
                 private_artifact={
@@ -903,10 +905,36 @@ def test_continuous_handled_turn_bypasses_legacy_and_persists_public_result(
     assert assistant.turn_intent["task_frame_hash"] == frame.task_frame_hash
     assert assistant.citations == [
         {
+            "evidence_id": evidence_id,
             "title": "市场量能窗口",
             "source": "本地行情",
             "date": "2026-07-22",
         }
+        for evidence_id in ("E3", "E7")
+    ]
+    citations = [
+        event["payload"]["citation"]
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "citation.ready"
+    ]
+    assert citations == assistant.citations
+    evidence_step = next(
+        step
+        for step in run_store.load_trace(run_id)
+        if step["name"] == "continuous_evidence_binding"
+    )
+    assert [row["tag"] for row in evidence_step["retrieval"]["citations"]] == [
+        "E3",
+        "E7",
+    ]
+    from intelligence.api.app import _run_context
+
+    board = _run_context(run_store, run_id)
+    assert [
+        row["id"] for row in board["evidence"] if row["kind"] == "citation_record"
+    ] == [
+        "citation-record:E3",
+        "citation-record:E7",
     ]
     run = run_store.load_run(run_id)
     assert run.status == "completed"

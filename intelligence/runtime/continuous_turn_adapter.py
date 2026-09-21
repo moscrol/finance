@@ -29,6 +29,7 @@ from intelligence.services.episode_issues import (
 )
 from intelligence.services.episode_phase import PhaseRecorder
 from intelligence.services.episode_projection import project_durable_events
+from intelligence.services.episode_protocol import evidence_ordinal_table
 from intelligence.services.episode_progress import EpisodeProgress
 from intelligence.services.episode_store import EPISODE_LOG_VERSION
 from intelligence.services.episode_semantic_verifier import (
@@ -2253,9 +2254,11 @@ def _public_citation_projection(
         for content_hash in binding.evidence_hashes
     }
     citations: list[dict[str, object]] = []
-    seen: set[tuple[str, str, str]] = set()
+    seen: set[str] = set()
+    ordinals = evidence_ordinal_table(outcome.evidence)
     for item in outcome.evidence:
-        if item.content_hash not in bound_hashes:
+        digest = str(item.content_hash or "").strip()
+        if digest not in bound_hashes or digest not in ordinals or digest in seen:
             continue
         raw_values = tuple(
             str(value or "") for value in (item.title, item.source, item.source_date)
@@ -2269,11 +2272,12 @@ def _public_citation_projection(
         values = tuple(
             " ".join(redact(str(value or "")).split()) for value in raw_values
         )
-        if values in seen or not any(values):
+        if not any(values):
             continue
-        seen.add(values)
+        seen.add(digest)
         citations.append(
             {
+                "evidence_id": ordinals[digest],
                 "title": values[0],
                 "source": values[1],
                 "date": values[2],

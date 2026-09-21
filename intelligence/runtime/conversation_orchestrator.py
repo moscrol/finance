@@ -1373,7 +1373,7 @@ def _sanitize_citation_list(
             )
         )
         identity = (
-            str(item.get("tag") or "").strip().casefold(),
+            str(item.get("evidence_id") or item.get("tag") or "").strip().casefold(),
             identity_values,
         )
         if identity in seen:
@@ -4277,12 +4277,14 @@ class TurnOrchestrator:
                     "citation_counts": {"E": len(citations)},
                     "citations": [
                         {
-                            "tag": f"E{index}",
+                            "tag": str(
+                                citation.get("evidence_id") or citation.get("tag") or ""
+                            ),
                             "source": str(citation.get("source") or "研究证据"),
                             "detail": str(citation.get("title") or "已记录引用"),
                             "source_date": str(citation.get("date") or ""),
                         }
-                        for index, citation in enumerate(citations, start=1)
+                        for citation in citations
                     ],
                 },
             )

@@ -2579,6 +2579,11 @@ class SemanticEpisodeVerifier:
             ],
             "sentences": sentences,
         }
+        if frame.material_contract and frame.material_contract.questions:
+            payload["explicit_requirements"] = [
+                {"question_id": q.question_id, "text": q.text}
+                for q in frame.material_contract.questions
+            ]
         if parse_ranking_intent(frame.raw_question, frame.question_type):
             # 生产方（排序契约）要模型填 1..N 的优先级，检查方（判官）得知道那一列是研判。
             # 非排序题不加键，送判载荷逐字节不变。
@@ -5996,13 +6001,25 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             claim_policy=request.get("claim_policy") or dict(_CLAIM_POLICY),
             sentences=request["sentences"],
             timeout=timeout,
-            **{key: request[key] for key in ("material_claims", "material_grounding", "material_delivery", "material_outputs", "nonfactual_review") if key in request},
+            **{
+                key: request[key]
+                for key in (
+                    "material_claims",
+                    "material_grounding",
+                    "material_delivery",
+                    "material_outputs",
+                    "nonfactual_review",
+                    "explicit_requirements",
+                )
+                if key in request
+            },
         )
     named = {
         name: request[name]
         for name in (
             "question",
             "required_outputs",
+            "explicit_requirements",
             "answer_grounding_mode",
             "output_bindings",
             "evidence_registry",

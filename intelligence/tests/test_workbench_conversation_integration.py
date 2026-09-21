@@ -291,9 +291,11 @@ def test_real_conversation_round_trip_persists_skills_sse_and_three_turns(
         assert restored_messages[-1]["run_id"] == third["run_id"]
 
 
+@pytest.mark.parametrize("evidence_id", ("E7", None))
 def test_continuous_episode_citations_survive_run_context_reload(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    evidence_id: str | None,
 ) -> None:
     repo_root = Path(__file__).parent / "fixtures" / "chat_workbench_repo"
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
@@ -309,6 +311,7 @@ def test_continuous_episode_citations_survive_run_context_reload(
                 as_of="2026-07-24",
                 citations=(
                     {
+                        **({"evidence_id": evidence_id} if evidence_id else {}),
                         "title": "半导体板块成交集中度居前",
                         "source": "本地市场数据",
                         "date": "2026-07-24",
@@ -350,9 +353,9 @@ def test_continuous_episode_citations_survive_run_context_reload(
             for item in context["evidence"]
             if item["classification"] == "bound_evidence"
         ]
-        assert [item["label"] for item in bound_evidence] == [
-            "[E1] 本地市场数据"
-        ]
+        expected = [f"[{evidence_id}] 本地市场数据"] if evidence_id else []
+        assert [item["label"] for item in bound_evidence] == expected
+        assert messages[-1]["citations"][0].get("evidence_id") == evidence_id
 
 
 def test_open_gaps_mirror_into_message_followups(

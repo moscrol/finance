@@ -779,6 +779,65 @@ class TopLevelRegions:
     # 保留用户原编号，不让从7开始的题被消费者重新编号为1。
     question_ids: tuple[str, ...] = ()
     question_line_ranges: tuple[tuple[int, int], ...] = ()
+    request_checklist: bool = False
+
+
+_REQUEST_LEAD_RE = re.compile(r"^(?:请|帮我|麻烦)(?:研究|分析|比较|围绕|对|核验|评估)")
+_REQUEST_LIST_RE = re.compile(
+    r"^(?:请完成以下任务|(?:研究|输出|具体)?要求|请按以下要求)[：:]$"
+)
+_DOCUMENT_LINE_RE = re.compile(
+    r"^(?:【|来源[：:]|作者[：:]|[一二三四五六七八九十]+[、．]|第.+[章节])"
+)
+
+
+def _request_checklist_ranges(lines: list[str], masked: list[str]) -> dict[int, int]:
+    """Recognize an explicit brief outside protected/material-marked regions.
+
+    A request opening + standalone requirements heading + consecutive top-level
+    items establish ownership. Quoted/fenced headings are invisible; material
+    lead-ins and document headers keep the existing conservative path.
+    """
+    first = next((line for line in masked if line.strip()), "")
+    if not _REQUEST_LEAD_RE.match(first):
+        return {}
+    if any(
+        _LEADIN_RE.search(line) or _DOCUMENT_LINE_RE.match(line.strip())
+        for line in masked
+    ):
+        return {}
+    headings = [i for i, line in enumerate(masked) if _REQUEST_LIST_RE.fullmatch(line)]
+    if len(headings) != 1:
+        return {}
+    heading = headings[0]
+    if any(
+        line.strip() and not visible.strip()
+        for line, visible in zip(lines[:heading], masked[:heading], strict=True)
+    ):
+        return {}
+    starts = [
+        i
+        for i in range(heading + 1, len(lines))
+        if not lines[i].startswith((" ", "\t")) and _NUMBERED_ITEM_RE.match(masked[i])
+    ]
+    if len(starts) < 2 or any(line.strip() for line in masked[heading + 1 : starts[0]]):
+        return {}
+    numbers = [int(_NUMBERED_ITEM_RE.match(masked[i]).group(1)) for i in starts]
+    if numbers != list(range(numbers[0], numbers[0] + len(numbers))):
+        return {}
+    end = len(lines)
+    for index in range(starts[-1] + 1, len(lines)):
+        if (
+            lines[index - 1].strip()
+            or not masked[index].strip()
+            or lines[index].startswith((" ", "\t"))
+        ):
+            continue
+        tail = [sent for line in masked[index:] for sent in _sentences(line)]
+        if tail and all(_state_op_in_sentence(sent) for sent in tail):
+            end = index
+            break
+    return dict(zip(starts, [*starts[1:], end], strict=True))
 
 
 def _question_candidate_end(
@@ -820,6 +879,7 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
     lines = raw.split("\n")
     n = len(lines)
     masked, uncertain, protected_blanks = _protected_layout(lines)
+    checklist_ranges = _request_checklist_ranges(lines, masked) if not uncertain else {}
     claimed = [False] * n  # 已归材料区（保护/复核通过块）或题组区
 
     # 第 2 步：引导块 / 缩进块（内容复核类；复核在掩码后文本上做，R5）
@@ -828,7 +888,9 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
         if claimed[li] or not masked[li].strip():
             li += 1
             continue
-        question_end = _question_candidate_end(lines, masked, claimed, protected_blanks, li)
+        question_end = checklist_ranges.get(li) or _question_candidate_end(
+            lines, masked, claimed, protected_blanks, li
+        )
         if question_end is not None:
             # 引导行/缩进位于编号题内时属于题文；外层材料若已认领则不会进入这里。
             li = question_end
@@ -890,7 +952,9 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
         visible = masked[li].strip()
         fragments = _sentences(visible)
         state_only = bool(fragments) and all(_state_op_in_sentence(s) for s in fragments)
-        question_end = _question_candidate_end(lines, masked, claimed, protected_blanks, li)
+        question_end = checklist_ranges.get(li) or _question_candidate_end(
+            lines, masked, claimed, protected_blanks, li
+        )
         if question_end is not None:
             # 与引导块/缩进识别共用完整题体边界，不能从题内案例另起长文候选。
             li = question_end
@@ -903,7 +967,12 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
             li += 1
             continue
         end = li + 1
-        while end < n and lines[end].strip() and not claimed[end]:
+        while (
+            end < n
+            and lines[end].strip()
+            and not claimed[end]
+            and end not in checklist_ranges
+        ):
             candidate = masked[end].strip()
             # 编号小节即使含「说明」也不是独立短问句；留在候选共同复核。
             if not _NUMBERED_ITEM_RE.match(candidate) and (
@@ -939,6 +1008,8 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
                 and not _NUMBERED_ITEM_RE.match(masked[j])
             ):
                 j += 1
+            if li in checklist_ranges:
+                j = checklist_ranges[li]
             # j = 题体之后首个空行/编号/已占行；向前看下一个非空行
             nxt = j
             while nxt < n and not lines[nxt].strip():
@@ -957,7 +1028,7 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
                 [m.group(2).strip(), *(masked[k].strip() for k in range(li + 1, j))]
             ).strip()
             # 组在文末、下一编号或独立指令前结束；叙述正文仍不能证明题组终点。
-            if _QUESTIONISH_RE.search(body) and (
+            if (li in checklist_ranges or _QUESTIONISH_RE.search(body)) and (
                 nxt >= n or followed_by_next_item or followed_by_instruction
             ):
                 # 存储用原文（掩码仅供检测），保留题内引号内容
@@ -1055,6 +1126,8 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
         uncertain_reasons=tuple(dict.fromkeys(uncertain)),
         question_ids=tuple(question_ids),
         question_line_ranges=tuple(question_line_ranges),
+        request_checklist=bool(checklist_ranges)
+        and len(question_line_ranges) == len(checklist_ranges),
     )
 
 
@@ -1212,6 +1285,18 @@ def split_user_message(text: str) -> MessageParts:
     """
     parts = _split_user_message_core(text)
     regions = classify_top_level_regions(text)
+    if regions.request_checklist and regions.classification != "boundary_uncertain":
+        explicit_materials = [
+            (ref, body)
+            for ref, body in zip(parts.materials, parts.material_texts, strict=True)
+            if ref.kind != "pasted_text"
+        ]
+        return MessageParts(
+            question=str(text or "").strip(),
+            regions=regions,
+            materials=tuple(ref for ref, _ in explicit_materials),
+            material_texts=tuple(body for _, body in explicit_materials),
+        )
     if regions.sub_questions and regions.classification != "boundary_uncertain":
         lines = str(text or "").replace("\r\n", "\n").replace("\r", "\n").strip("\n").split("\n")
         for start, end in regions.question_line_ranges:

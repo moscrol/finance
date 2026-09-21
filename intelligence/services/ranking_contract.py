@@ -80,7 +80,32 @@ _SCENARIO_UPDATE_RE = re.compile(
 )
 
 
+_NON_COMPANY_TARGET_RE = re.compile(
+    r"(?:资料|证据|信号|观察项|解释|方向|主题|题材|板块)"
+    r"(?:的|研究|跟踪|核实|验证|先后|按[^，。！？；\n]{1,16}){0,2}(?:排序|排个?序|优先级)"
+    r"|(?:优先|最值得)[^。！？；\n]{0,24}(?:方向|主题|题材|板块)"
+    r"|(?:按|以)[^。！？；\n]{0,20}(?:信息增益|获取难度)[^。！？；\n]{0,16}排序"
+)
+_NON_COMPARATIVE_SUPERLATIVE_RE = re.compile(
+    r"最强的?(?:反方解释|替代解释|反证|竞争解释)"
+)
+
+
 def parse_ranking_intent(query: str, question_type: str | None = None) -> bool:
+    """Company-ranking intent must belong to the same request clause.
+
+    A list elsewhere in a long brief cannot turn a request to rank documents,
+    signals or themes into a company matrix. Unqualified reranking follow-ups
+    retain the existing conversational behavior.
+    """
+    return any(
+        _company_ranking_clause(_NON_COMPANY_TARGET_RE.sub("", clause), question_type)
+        for clause in re.split(r"[。！？!?；;\n]+", str(query or ""))
+        if clause.strip()
+    )
+
+
+def _company_ranking_clause(query: str, question_type: str | None = None) -> bool:
     """排序词面 × 多对象信号双门；快事实榜单排除。
 
     三个及以上对象（「A、B、C」）或群指代（「这三家」「哪家」）配任一排序词面即命中；
@@ -88,7 +113,7 @@ def parse_ranking_intent(query: str, question_type: str | None = None) -> bool:
     概念二选一不进来。``question_type`` 只用于未来收窄，当前不据它放行。
     """
     del question_type  # 保留签名与 scenario_tree / track_contract 一致
-    text = re.sub(r"\s+", "", str(query or ""))
+    text = re.sub(r"\s+", "", _NON_COMPARATIVE_SUPERLATIVE_RE.sub("", str(query or "")))
     if not text or _EXCLUDE_RE.search(text):
         return False
     # 再排序追问（「如果铜价回落，排序会怎么变」）天然是排序题：对象在上一轮，不必再点名。

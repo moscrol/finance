@@ -437,6 +437,15 @@ def build_episode_input(
         ),
         "question_type_rules": _question_type_rules(task_frame, context),
     }
+    if task_frame.material_contract and task_frame.material_contract.questions:
+        payload["explicit_requirements"] = [
+            {"question_id": q.question_id, "text": q.text}
+            for q in task_frame.material_contract.questions
+        ]
+        payload["explicit_requirements_rule"] = (
+            "逐项保留原题的对象、数量、时间窗和每项分支要求；题型模板不能替代这些要求。"
+            "无法完成的子项须说明缺口，不能用另一家公司或另一个问题填补。"
+        )
     if task_frame.material_contract and task_frame.material_contract.premise_calculation:
         payload["premise_calculation_rule"] = (
             "本轮是按用户题设计算，不是核实真实公司的财务事实。"

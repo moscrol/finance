@@ -3048,6 +3048,7 @@ def test_semantic_gap_output_does_not_project_its_citation_or_as_of() -> None:
     assert result.status == "partial"
     assert result.citations == (
         {
+            "evidence_id": "E1",
             "title": "市场状态",
             "source": "市场快照",
             "date": "2026-07-23",
@@ -3508,6 +3509,7 @@ def test_long_tail_runs_gates_without_calling_legacy_presenter(
     assert result.answer.startswith("当前更接近条件化修复")
     assert result.citations == (
         {
+            "evidence_id": "E1",
             "title": "A股市场总览",
             "source": "本地行情",
             "date": "2026-07-22",
@@ -3934,6 +3936,7 @@ def test_semantic_verifier_failure_reuses_structural_contract_and_evidence() -> 
     assert result.as_of == "2026-07-21"
     assert result.citations == (
         {
+            "evidence_id": "E1",
             "title": "市场量能窗口",
             "source": "本地行情",
             "date": "2026-07-21",
@@ -4309,6 +4312,7 @@ def test_public_projection_removes_engineering_hash_keys_and_frame_hash() -> Non
     assert result.answer == "可公开结论。"
     assert result.citations == (
         {
+            "evidence_id": "E1",
             "title": "A股市场总览",
             "source": "本地行情",
             "date": "2026-07-22",
@@ -4357,6 +4361,7 @@ def test_public_projection_preserves_financial_hash_rate_language() -> None:
     assert "哈希率上升 8%" in result.answer
     assert result.citations == (
         {
+            "evidence_id": "E1",
             "title": "比特币哈希率月报",
             "source": "公开矿业数据",
             "date": "2026-07-22",
@@ -4395,6 +4400,7 @@ def test_public_projection_preserves_business_provider_language_only() -> None:
     assert result.answer == "Cloud service provider 行业需求保持增长。"
     assert result.citations == (
         {
+            "evidence_id": "E1",
             "title": "Cloud service provider 行业月报",
             "source": "Cloud service provider 行业协会",
             "date": "2026-07-22",
@@ -4442,6 +4448,7 @@ def test_public_projection_preserves_business_name_equal_to_trace_provider() -> 
     assert "OpenAI 是本轮研究主体" in result.answer
     assert result.citations == (
         {
+            "evidence_id": "E1",
             "title": "OpenAI 行业跟踪",
             "source": "OpenAI 公开材料",
             "date": "2026-07-22",
