@@ -65,7 +65,7 @@ node scripts/check_public_finance_delivery.cjs \
 - `source_dirty=false`
 - fingerprint `e5a2f94c4638392ace619606e1aa279ab81e3692e4e6d0a420a5f24fcfeb59e8`
 
-本轮不合 main、不 push、不部署、不付费外审、不删除生产。普通非静态 PE 文字仍不进入专用程序计算器；未识别财务数字文字仍依赖语义审核。registry 外部 `kb/rag-query` 漂移继续单独记录。
+本轮（v20 阶段）不合 main、不 push、不部署、不付费外审、不删除生产。**后续（v21）已合 main**：PR #825 → 合并提交 `80bf6bb91`，仍未部署，详见文末 v21 节与 `docs/handoffs/2026-09-21-judge-reason-codes.md`。普通非静态 PE 文字仍不进入专用程序计算器；未识别财务数字文字仍依赖语义审核。registry 外部 `kb/rag-query` 漂移继续单独记录。
 
 完整运行时证据、manifest 和 SHA256 清单在：
 
