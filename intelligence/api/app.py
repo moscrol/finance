@@ -3226,9 +3226,46 @@ def create_app(
         # pair an old run snapshot with a newly-finished future and claim ready.
         active = supervisor.is_active(store.user_id, run_id)
         run = store.load_run(run_id)
+        delivery_pending = active and run.status == rs.STATUS_COMPLETED
+        if run.session_id and run.status in (rs.STATUS_FAILED, rs.STATUS_CANCELLED):
+            # A supervisor can publish failure/cancellation while the worker is
+            # still blocked. Wait for its durable message event, not that worker.
+            try:
+                messages = conversation_store_for(store.user_id).load_messages(run.session_id)
+            except json.JSONDecodeError:
+                # Corrupt conversation metadata is not an absent conversation.
+                raise
+            except (FileNotFoundError, ValueError):
+                # Non-chat callers may supply a session that is not a conversation.
+                messages = []
+            message_ids = {
+                message.message_id for message in messages
+                if message.role == "assistant" and message.run_id == run_id
+            }
+            if message_ids:
+                delivered = False
+                for event in store.load_stream_events(run_id):
+                    if (
+                        event["event_type"] != "message.error"
+                        or event["conversation_id"] != run.session_id
+                        or event["message_id"] not in message_ids
+                    ):
+                        continue
+                    payload = event["payload"]
+                    status = payload.get("status")
+                    if status is None and isinstance(payload.get("message"), dict):
+                        status = payload["message"].get("status")
+                    if status == run.status:
+                        delivered = True
+                        break
+                delivery_pending = not delivered
+                if delivered:
+                    # Read artifacts after the receipt, never pair an old run
+                    # snapshot with a newly published delivery event.
+                    run = store.load_run(run_id)
         return {
             **_public_run_payload(run),
-            "delivery_pending": active and run.status == rs.STATUS_COMPLETED,
+            "delivery_pending": delivery_pending,
         }
 
     @app.get("/api/runs")

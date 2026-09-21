@@ -3000,6 +3000,210 @@ def test_completed_run_waits_for_artifact_delivery_without_blocking_cancel(
         future.result(timeout=5)
 
 
+@pytest.mark.parametrize("status", [rs.STATUS_FAILED, rs.STATUS_CANCELLED])
+@pytest.mark.parametrize("boundary", ["message", "event"])
+def test_failed_or_cancelled_delivery_waits_for_terminal_message_event(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, status: str, boundary: str,
+) -> None:
+    entered = threading.Event()
+    release = threading.Event()
+    original_revise = ConversationStore.revise_message
+    original_append = RunStore.append_stream_event
+
+    def block():
+        entered.set()
+        assert release.wait(10), "test did not release delivery writer"
+
+    def revise(self, *args, **kwargs):
+        if boundary == "message" and kwargs.get("status") == status:
+            block()
+        return original_revise(self, *args, **kwargs)
+
+    def append(self, *args, **kwargs):
+        if boundary == "event" and kwargs.get("event_type") == "message.error":
+            block()
+        return original_append(self, *args, **kwargs)
+
+    def terminal_turn(**kwargs):
+        orch = app_module.TurnOrchestrator(
+            repo_root=kwargs["repo_root"], conversation_store=kwargs["conversation_store"],
+            run_store=kwargs["run_store"],
+        )
+        args = (kwargs["conversation_id"], kwargs["run_id"], kwargs["assistant_message_id"],
+                {}, [], [], [], [], [], ["preserved draft"])
+        if status == rs.STATUS_FAILED:
+            orch._fail(*args, RuntimeError("offline regression"))
+        else:
+            orch._cancel(*args)
+
+    monkeypatch.setattr(ConversationStore, "revise_message", revise)
+    monkeypatch.setattr(RunStore, "append_stream_event", append)
+    monkeypatch.setattr(app_module, "_run_conversation_turn", terminal_turn)
+    conversation = client.post("/api/conversations", json={"title": "delivery"}).json()["conversation_id"]
+    created = client.post(f"/api/conversations/{conversation}/messages", json={
+        "content": "review", "skill_mode": "auto",
+    }).json()
+    run_id = created["run_id"]
+    supervisor = client.app.state.supervisor
+    try:
+        assert entered.wait(5)
+        with supervisor._lock:
+            future = supervisor._futures[("default", run_id)]
+        pending = client.get(f"/api/runs/{run_id}").json()
+        assert pending["status"] == status
+        assert pending["delivery_pending"] is True
+        listed = next(r for r in client.get("/api/runs").json() if r["run_id"] == run_id)
+        assert listed["delivery_pending"] is True
+        messages = client.get(f"/api/conversations/{conversation}/messages").json()
+        assert messages[-1]["status"] == ("pending" if boundary == "message" else status)
+    finally:
+        release.set()
+        with supervisor._lock:
+            future = supervisor._futures.get(("default", run_id))
+        if future is not None:
+            future.result(timeout=5)
+    ready = client.get(f"/api/runs/{run_id}").json()
+    assert ready["delivery_pending"] is False
+    body = client.get(f"/api/runs/{run_id}/events").text
+    assert body.index("event: message.error") < body.index("event: run\n")
+    assert "preserved draft" in body
+    events = RunStore().load_stream_events(run_id)
+    terminal = next(e for e in events if e["event_type"] == "message.error")
+    resumed = client.get(f"/api/runs/{run_id}/events", headers={
+        "Last-Event-ID": terminal["event_id"],
+    }).text
+    assert "event: message.error" not in resumed and "event: run\n" in resumed
+
+
+@pytest.mark.parametrize("reason", ["cancelled_by_user", "executor_timeout"])
+def test_supervisor_terminal_message_does_not_wait_for_uncooperative_worker(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, reason: str,
+) -> None:
+    started = threading.Event()
+    release = threading.Event()
+
+    def blocked(**_kwargs):
+        started.set()
+        assert release.wait(10)
+
+    monkeypatch.setattr(app_module, "_run_conversation_turn", blocked)
+    conversation = client.post("/api/conversations", json={"title": "cancel"}).json()["conversation_id"]
+    created = client.post(f"/api/conversations/{conversation}/messages", json={
+        "content": "review", "skill_mode": "auto",
+    }).json()
+    run_id = created["run_id"]
+    supervisor = client.app.state.supervisor
+    store = RunStore()
+    key = (store.user_id, run_id)
+    try:
+        assert started.wait(5)
+        with supervisor._lock:
+            future = supervisor._futures[key]
+        if reason == "cancelled_by_user":
+            supervisor.cancel(store, run_id)
+        else:
+            supervisor._expire(store, run_id, key)
+        assert not future.done()
+        payload = client.get(f"/api/runs/{run_id}").json()
+        assert payload["status"] == ("cancelled" if reason == "cancelled_by_user" else "failed")
+        assert payload["delivery_pending"] is False
+        body = client.get(f"/api/runs/{run_id}/events").text
+        assert body.index("event: message.error") < body.index("event: run\n")
+    finally:
+        release.set()
+        with supervisor._lock:
+            future = supervisor._futures.get(key)
+        if future is not None:
+            future.result(timeout=5)
+
+
+@pytest.mark.parametrize("mismatch", ["message", "conversation", "status", "malformed_payload"])
+def test_unrelated_terminal_event_does_not_release_delivery(client: TestClient, mismatch: str) -> None:
+    store = RunStore()
+    conversations = ConversationStore(user_id=store.user_id)
+    conversation = conversations.create_conversation("delivery identity")
+    run = store.create_run("failed", "ask", session_id=conversation.conversation_id)
+    message = conversations.append_message(
+        conversation.conversation_id, "assistant", "", status="pending", run_id=run.run_id,
+    )
+    store.finish_run(run.run_id, rs.STATUS_FAILED)
+    store.append_stream_event(
+        run.run_id, event_id="unrelated", event_type="message.error",
+        payload=(
+            {"message": None} if mismatch == "malformed_payload"
+            else {"status": "cancelled" if mismatch == "status" else "failed"}
+        ),
+        conversation_id="other" if mismatch == "conversation" else conversation.conversation_id,
+        message_id="other" if mismatch == "message" else message.message_id,
+    )
+    assert client.get(f"/api/runs/{run.run_id}").json()["delivery_pending"] is True
+
+
+@pytest.mark.parametrize("status_location", ["top_level", "message"])
+def test_failure_delivery_rereads_run_after_message_event(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, status_location: str,
+) -> None:
+    store = RunStore()
+    conversation_store = ConversationStore(user_id=store.user_id)
+    conversation = conversation_store.create_conversation("delivery reread")
+    run = store.create_run("delivery reread", "ask", session_id=conversation.conversation_id)
+    message = conversation_store.append_message(
+        conversation.conversation_id, "assistant", "failed", status="failed", run_id=run.run_id,
+    )
+    store.finish_run(run.run_id, rs.STATUS_FAILED)
+    original = RunStore.load_stream_events
+    injected = False
+
+    def publish_and_mutate(self, run_id, *args, **kwargs):
+        nonlocal injected
+        events = original(self, run_id, *args, **kwargs)
+        if run_id == run.run_id and not injected:
+            injected = True
+            self.add_artifact(run_id, "answer.md", "failed", renderer="markdown", title="失败回答")
+            self.append_stream_event(
+                run_id, event_id="message:error:reread", event_type="message.error",
+                payload={
+                    "message": asdict(message),
+                    **({"status": "failed"} if status_location == "top_level" else {}),
+                },
+                conversation_id=run.session_id, message_id=message.message_id,
+            )
+            return original(self, run_id, *args, **kwargs)
+        return events
+
+    monkeypatch.setattr(RunStore, "load_stream_events", publish_and_mutate)
+    payload = client.get(f"/api/runs/{run.run_id}").json()
+    assert payload["delivery_pending"] is False
+    assert [item["path"] for item in payload["artifacts"]] == ["answer.md"]
+
+
+@pytest.mark.parametrize("session_id", ["missing-conversation", "ordinary/session"])
+def test_nonconversation_terminal_run_does_not_wait_for_unrelated_message(
+    client: TestClient, session_id: str,
+) -> None:
+    store = RunStore()
+    run = store.create_run("ordinary failure", "ask", session_id=session_id)
+    store.finish_run(run.run_id, rs.STATUS_FAILED)
+    payload = client.get(f"/api/runs/{run.run_id}").json()
+    assert payload["delivery_pending"] is False
+
+
+def test_corrupt_conversation_is_not_treated_as_delivered(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = RunStore()
+    run = store.create_run("corrupt conversation", "ask", session_id="corrupt-conversation")
+    store.finish_run(run.run_id, rs.STATUS_FAILED)
+
+    def corrupt(*_args, **_kwargs):
+        raise json.JSONDecodeError("invalid metadata", "{", 1)
+
+    monkeypatch.setattr(ConversationStore, "load_messages", corrupt)
+    response = client.get(f"/api/runs/{run.run_id}")
+    assert response.status_code != 200
+    assert "delivery_pending" not in response.json()
+
+
 def test_sse_drains_delivery_events_before_terminal_run(
     client: TestClient, monkeypatch: pytest.MonkeyPatch,
 ) -> None:

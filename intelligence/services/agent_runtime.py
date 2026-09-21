@@ -168,7 +168,7 @@ class ModelTurn:
         if self.finish_reason is not None:
             reason = self.finish_reason.strip().lower()
             object.__setattr__(self, "finish_reason", reason or None)
-            if reason in {"length", "max_tokens", "content_filter"}:
+            if reason in {"length", "max_tokens", "content_filter", "missing_finish_reason"}:
                 # Even valid JSON may be semantically incomplete. Fence at the neutral
                 # contract too, so injected clients cannot bypass the provider adapter.
                 object.__setattr__(self, "tool_calls", ())

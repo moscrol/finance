@@ -2163,14 +2163,14 @@ describe("Workbench navigation reliability", () => {
     ).toBeVisible();
   });
 
-  it("keeps polling while terminal ownership precedes report delivery", async () => {
+  it.each(["completed", "failed", "cancelled"] as const)("keeps polling while %s ownership precedes delivery", async (status) => {
     apiMocks.listConversations.mockResolvedValue(conversations);
     apiMocks.getConversationMessages.mockResolvedValue([]);
     let pending = true;
     apiMocks.getRun.mockImplementation(async () => ({
       ...bundle.run,
       run_id: "run_created",
-      status: "completed",
+      status,
       delivery_pending: pending,
       artifacts: pending ? [] : [{
         artifact_id: "report", path: "report.json", renderer: "structured_report",
@@ -2193,7 +2193,7 @@ describe("Workbench navigation reliability", () => {
     pending = false;
     apiMocks.getConversationMessages.mockResolvedValue([{
       ...assistantMessage, message_id: "msg_assistant_new",
-      run_id: "run_created", content: "报告已交付",
+      run_id: "run_created", content: "报告已交付", status,
     }]);
     await act(async () => events?.fail());
     expect(await screen.findByText("报告已交付")).toBeVisible();
