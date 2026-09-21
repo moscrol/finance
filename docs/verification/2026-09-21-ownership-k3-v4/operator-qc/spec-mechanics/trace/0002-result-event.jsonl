@@ -1,0 +1,1 @@
+{"type":"tool_execution_end","toolCallId":"ls_1","toolName":"ls","result":{"content":[{"type":"text","text":"backfill-execution-contract.md\nbackfill-prep-contract.md\ncandidate.diff\nreview-common.md\nsource-provenance.json"}]},"isError":false}

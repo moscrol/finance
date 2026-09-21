@@ -1,0 +1,193 @@
+"""收据的脏判定必须看见 porcelain 的**第一行**。
+
+失败形状（2026-08-26 实测）：``_git`` 对 ``git status --porcelain`` 的整段输出做了
+``.strip()``。未暂存改动行形如 ``" M path"``，整段 strip 吃掉首行那个前导空格，
+随后 ``line[3:]`` 多切一个字符 → ``"ntelligence/services/…"`` → 前缀匹配失败 →
+被静默丢弃。
+
+当它是**唯一**的脏代码文件时，``dirty`` 记成 False，收据自称干净树，
+``check_test_receipt.py`` 判「可采信」——正是这套收据要防的那件事。现场：judge 修复
+树只改了 ``intelligence/services/llm_refine.py``，``_code_dirt()`` 返回 ``[]``。
+"""
+
+from __future__ import annotations
+
+import subprocess
+from pathlib import Path
+
+import pytest
+
+import conftest as root_conftest
+
+
+def _run(repo: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", *args],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+@pytest.fixture()
+def repo(tmp_path: Path) -> Path:
+    _run(tmp_path, "init", "-q")
+    _run(tmp_path, "config", "user.email", "t@example.com")
+    _run(tmp_path, "config", "user.name", "t")
+    (tmp_path / "intelligence" / "services").mkdir(parents=True)
+    (tmp_path / "intelligence" / "services" / "alpha.py").write_text(
+        "x = 1\n", encoding="utf-8"
+    )
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "note.md").write_text("hi\n", encoding="utf-8")
+    _run(tmp_path, "add", "-A")
+    _run(tmp_path, "commit", "-qm", "init")
+    return tmp_path
+
+
+def test_the_only_dirty_code_file_is_not_swallowed(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """唯一脏文件 = porcelain 首行 = 老实现丢掉它、dirty 变 False。"""
+    (repo / "intelligence" / "services" / "alpha.py").write_text(
+        "x = 2\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(root_conftest, "REPO", repo)
+
+    assert root_conftest._code_dirt() == ["intelligence/services/alpha.py"]
+    assert bool(root_conftest._code_dirt()) is True
+
+=====
+"""收据只自证「跑在哪棵树」，不自证「那棵树是不是要合的树」——这两个门补后半句。
+
+失败形状（2026-08-27 工单 §P1-a，#444 实测）：分支收据 6579 passed 是真的，
+但基座落后 main 27 张 PR；合并后的 main tip 上没有任何收据，批次门禁那一格是空的，
+而「收据树 SHA == main tip」只是规程文字，没人执行它。
+
+- ``--expect-revision``：收据 revision 与期望 SHA **全等**（rev-parse 展开后比较，
+  防 startswith 削弱——变异测试就打这里）。
+- ``--base-drift-max``：收据 revision 的合并基座落后主干超过 N 张合并即拒绝，
+  分支尖收据不得冒充批次门禁。
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+_SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "check_test_receipt.py"
+_spec = importlib.util.spec_from_file_location("check_test_receipt", _SCRIPT)
+ctr = importlib.util.module_from_spec(_spec)
+sys.modules.setdefault("check_test_receipt", ctr)
+_spec.loader.exec_module(ctr)
+
+
+def _run(repo: Path, *args: str) -> str:
+    out = subprocess.run(
+        ["git", *args], cwd=repo, check=True, capture_output=True, text=True
+    )
+    return out.stdout.strip()
+
+
+@pytest.fixture()
+def repo(tmp_path: Path) -> Path:
+    _run(tmp_path, "init", "-q", "-b", "main")
+    _run(tmp_path, "config", "user.email", "t@example.com")
+    _run(tmp_path, "config", "user.name", "t")
+=====
+"""一张 0 passed / 0 failed / exit 0 的收据不是读数，不能被采信。
+
+失败形状（2026-09-19 实测）：`~/.finance-runtime/test-receipts/20260919T105310Z-d46c2c3b.json`
+counts 全为 0、exit_status 0、干净树、revision 全等——每一项既有门都过，`check_test_receipt.py`
+会打印「✅ 可采信」。它多半来自 collect-only 或一次什么都没选中的 `-k`，签的是「什么都没跑」。
+
+- ``check_executed_counts``：passed+failed+error 为 0 即拒绝；有 failed 的红读数仍是读数。
+- ``main`` 端到端：零计数收据的 blockers 里必须出现「零执行读数」，exit 1。
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+import pytest
+
+_SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "check_test_receipt.py"
+_spec = importlib.util.spec_from_file_location("check_test_receipt_zero", _SCRIPT)
+ctr = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(ctr)
+
+
+@pytest.mark.parametrize(
+    "counts",
+    [
+        {"passed": 0, "failed": 0, "error": 0, "skipped": 0},
+        {"passed": 0, "failed": 0, "error": 0, "skipped": 87},  # skips alone execute nothing
+        {},
+        None,
+    ],
+)
+def test_zero_executed_counts_are_not_a_reading(counts):
+    ok, message = ctr.check_executed_counts(counts)
+    assert not ok
+    assert "零执行读数" in message
+
+
+=====
+"""收集面的门禁。
+
+`pytest.ini` 的 `norecursedirs` 是唯一拦住「历史工作 clone 参与收集」的东西。
+它失效的表现不是某条测试变红，而是**一条测试都跑不了**：
+
+    !!! Interrupted: 1031 errors during collection !!!
+
+这种失败很容易被读成「环境坏了」而不是「配置回退了」，所以值得钉住。
+
+**断言的是生效结果，不是配置值。** 直接读 `pytest.ini` 或 `pytestconfig.getini(
+"norecursedirs")` 都只能证明「配置里写了 tmp」，证明不了「收集真的干净」——
+命令行 `-o`、`--rootdir` 指错、上游新增另一处同名包，任何一条都能让配置正确而结果
+错误。所以这里 fork 一个真的 `--collect-only` 出去，看它的退出码和产出。
+
+两条用例是一对，缺第二条第一条会假绿：`tmp/` 空的机器上第一条无条件通过，
+而它通过的原因是「没有冲突源」而不是「门禁挡住了冲突源」。
+"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+# pytest 默认值去掉 tmp。这是 pytest.ini 里那行的「变异体」——把唯一的改动撤销，
+# 用来证明绿灯确实由那一项贡献。
+_MUTATED_NORECURSEDIRS = "*.egg .* _darcs build CVS dist node_modules venv {arch}"
+
+
+def _collect(*extra_args: str) -> subprocess.CompletedProcess[str]:
+    """在仓库根跑一次 --collect-only。
+
+    `-p no:cacheprovider`：不写 .pytest_cache，避免污染宿主的缓存目录。
+    不会递归：--collect-only 只收集不执行，收到本文件也不会再 fork。
+    """
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "--collect-only",
+            "-q",
+            "--no-header",
+            "-p",
+            "no:cacheprovider",
+            *extra_args,

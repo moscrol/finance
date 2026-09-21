@@ -1,0 +1,11 @@
+{
+  "id": "0007",
+  "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && git diff c615adbd2f861e23f2c8d03631833f98b3ae5aba..6eb12c1b8a41071fd4af8bee343950fe0b85b221 -- conftest.py | cat",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:09:05.081Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:09:05.130Z",
+  "log_sha256": "5f7026988fce940763d56deb56fee0e09f57755a85ec1a576ae1b293af6824b2"
+}

@@ -1,0 +1,172 @@
+"""One fresh K3 review per axis, unlimited review duration/model admissions.
+
+The user's unlimited-budget instruction supersedes v3 and proposed v4 caps.
+No time/request watchdog, automatic retry, fallback, or hidden second session.
+Reservations, route audit, source identity, subprocess exits, and genuine report
+completion remain required. Per-command timeouts are not a session budget.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+
+from prepare import BASE, GIT_TREE, REV, ROOT, WATCHED
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def git(tree, *args):
+    return subprocess.run(["git", "-C", str(tree), *args], capture_output=True,
+                          text=True, check=True, timeout=30).stdout.rstrip("\n")
+
+
+def timestamp():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def run(axis):
+    assert axis in {"spec", "quality"}
+    os.umask(0o022)
+    tree = Path.home() / f"fwp-wt-ownership-{axis}-v4-0921"
+    author = Path.home() / "fwp-wt-ownership-gates-v4-0921"
+    out = ROOT / f"{axis}-k3"
+    prompt = ROOT / f"{axis}-prompt.md"
+    files = [Path(__file__), ROOT / "prepare.py", prompt, ROOT / "authorization.json",
+             ROOT / "credential-bootstrap.mjs", ROOT / "review-tools.mjs",
+             ROOT / "provider-template.json", *sorted((ROOT / "pi-config").glob("*.json")),
+             *sorted((ROOT / "inputs").iterdir())]
+
+    def identity():
+        return {"checkout": str(tree), "revision": git(tree, "rev-parse", "HEAD"),
+                "git_tree": git(tree, "rev-parse", "HEAD^{tree}"),
+                "status": git(tree, "status", "--porcelain=v1", "--untracked-files=all"),
+                "candidate_files": {p: digest(tree / p) for p in WATCHED},
+                "author": {"revision": git(author, "rev-parse", "HEAD"),
+                           "status": git(author, "status", "--porcelain=v1", "--untracked-files=all")},
+                "upstream_observed": git(tree, "rev-parse", "gitea/main"),
+                "inputs_sha256": {str(p.relative_to(ROOT)): digest(p) for p in files}}
+
+    authorization = json.loads((ROOT / "authorization.json").read_text())
+    assert authorization["revision"] == REV
+    for key in ("max_requests", "max_total_requests", "review_deadline_seconds", "forced_exploration_cutoff", "token_budget"):
+        assert authorization[key] is None, key
+    before = identity()
+    assert (before["revision"], before["git_tree"], before["status"]) == (REV, GIT_TREE, "")
+    assert before["author"] == {"revision": REV, "status": ""}
+    with (ROOT / f"{axis}-reservation.json").open("x") as stream:
+        json.dump({"axis": axis, "state": "RESERVED", "max_sessions": 1,
+                   "max_requests": None, "deadline_seconds": None, "revision": REV,
+                   "authorization_sha256": digest(ROOT / "authorization.json"), "time": timestamp()}, stream, indent=2)
+        stream.flush()
+        os.fsync(stream.fileno())
+    out.mkdir(exist_ok=False)
+    for name in ("tmp", "users", "test-receipts", "ruff-cache"):
+        (out / name).mkdir()
+    command = ["/opt/homebrew/bin/pi", "--provider", "mirasim-kimi", "--model", "kimi-k3",
+               "--thinking", "xhigh", "--models", "mirasim-kimi/kimi-k3", "--no-session",
+               "--no-extensions", "-e", str(ROOT / "credential-bootstrap.mjs"),
+               "-e", str(ROOT / "review-tools.mjs"), "--no-skills", "--no-prompt-templates",
+               "--no-context-files", "--no-themes", "--no-approve", "--offline",
+               "--tools", "read,bash,write,grep,find,ls,finish_review", "--mode", "json", "-p", "--", prompt.read_text()]
+    env = {"HOME": str(Path.home()),
+           "PATH": "/opt/homebrew/bin:/Users/a77/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+           "TMPDIR": str(out / "tmp"), "LANG": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1",
+           "GIT_OPTIONAL_LOCKS": "0", "FWP_TEST_RECEIPT": "0",
+           "FWP_TEST_RECEIPT_DIR": str(out / "test-receipts"), "RUFF_CACHE_DIR": str(out / "ruff-cache"),
+           "PI_CODING_AGENT_DIR": str(ROOT / "pi-config"), "PI_OFFLINE": "1", "PI_TELEMETRY": "0",
+           "REVIEW_OUTPUT_DIR": str(out), "REVIEW_TREE": str(tree), "REVIEW_INPUT_DIR": str(ROOT / "inputs"),
+           "REVIEW_AXIS": axis, "REVIEW_REVISION": REV, "FORESIGHT_USERS_DIR": str(out / "users")}
+    record = {"axis": axis, "revision": REV, "base": BASE, "command": command[:-1] + ["<frozen prompt>"],
+              "prompt_sha256": digest(prompt), "identity_before": before, "time_before": timestamp(),
+              "complete": False, "timeout_seconds": None, "max_provider_request_admissions": None,
+              "forced_exploration_cutoff": None, "billing": "existing subscription; estimate is not invoice",
+              "monetary_cap": None, "os_sandbox": False, "automatic_model_retries": False}
+    record_path = out / "execution.json"
+
+    def save():
+        temp = out / "execution.json.tmp"
+        temp.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+        temp.replace(record_path)
+
+    save()
+    started = time.monotonic()
+    process = None
+    cancelled = None
+
+    def stop(signum, _frame):
+        nonlocal cancelled
+        cancelled = signal.Signals(signum).name
+        if process and process.poll() is None:
+            os.killpg(process.pid, signal.SIGTERM)
+
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
+    with (out / "events.jsonl").open("xb") as stdout, (out / "stderr.log").open("xb") as stderr:
+        process = subprocess.Popen(command, cwd=tree, env=env, stdin=subprocess.DEVNULL,
+                                   stdout=stdout, stderr=stderr, start_new_session=True)
+        record["pid"] = process.pid
+        save()
+        process.wait()  # Intentionally NO review timeout or request-count watchdog.
+    record.update(complete=True, exit_code=process.returncode, stop_reason=cancelled,
+                  elapsed_seconds=round(time.monotonic() - started, 3), time_after=timestamp())
+    try:
+        after = identity()
+        record.update(identity_after=after,
+                      candidate_untouched=all(before[k] == after[k] for k in ("revision", "git_tree", "status", "candidate_files")),
+                      author_untouched=before["author"] == after["author"],
+                      inputs_unchanged=before["inputs_sha256"] == after["inputs_sha256"],
+                      upstream_unchanged=before["upstream_observed"] == after["upstream_observed"])
+    except Exception as exc:
+        record.update(identity_error=str(exc), candidate_untouched=False, inputs_unchanged=False)
+    types, identities, errors = {}, set(), []
+    usage = dict.fromkeys(("input", "output", "cacheRead", "cacheWrite", "totalTokens"), 0)
+    assistant_count, estimated_cost = 0, 0
+    with (out / "events.jsonl").open() as stream:
+        for line in stream:
+            if not line.strip():
+                continue
+            try:
+                event = json.loads(line)
+            except ValueError:
+                types["invalid_json_line"] = types.get("invalid_json_line", 0) + 1
+                continue
+            kind = event.get("type", "unknown")
+            types[kind] = types.get(kind, 0) + 1
+            message = event.get("message", {})
+            if kind == "message_end" and message.get("role") == "assistant":
+                assistant_count += 1
+                identities.add(str(message.get("provider")) + "/" + str(message.get("model")))
+                if message.get("stopReason") in {"error", "aborted"}:
+                    errors.append(message.get("errorMessage", message.get("stopReason")))
+                for key in usage:
+                    usage[key] += message.get("usage", {}).get(key, 0) or 0
+                estimated_cost += message.get("usage", {}).get("cost", {}).get("total", 0) or 0
+    admissions_path = out / "request-admissions.jsonl"
+    admissions = [json.loads(line) for line in admissions_path.read_text().splitlines()] if admissions_path.exists() else []
+    record.update(event_counts=types, assistant_messages=assistant_count, model_identities=sorted(identities),
+                  model_errors=errors, usage=usage, estimated_cost_not_invoice=estimated_cost,
+                  provider_request_admissions=len(admissions),
+                  admissions_valid=[r["admission"] for r in admissions] == list(range(1, len(admissions) + 1)),
+                  operator_qc="OUTSTANDING")
+    record["sha256"] = {name: digest(out / name) for name in (
+        "events.jsonl", "stderr.log", "REPORT.md", "verdict.json", "completion.json", "credential.json",
+        "credential-events.jsonl", "request-admissions.jsonl") if (out / name).is_file()}
+    try:
+        verdict = json.loads((out / "verdict.json").read_text())
+        record["final_report_present"] = (out / "REPORT.md").is_file() and verdict.get("complete") is True and verdict.get("revision") == REV and verdict.get("axis") == axis
+        record["model_verdict"] = verdict.get("verdict")
+    except (OSError, ValueError):
+        record["final_report_present"] = False
+    save()
+    print(json.dumps({k: record.get(k) for k in ("axis", "exit_code", "stop_reason", "candidate_untouched", "model_errors", "provider_request_admissions", "final_report_present", "model_verdict")}), flush=True)
+
+
+if __name__ == "__main__":
+    run(sys.argv[1])

@@ -1,0 +1,11 @@
+{
+  "id": "0016",
+  "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && cat test-environment.json && echo ===== && cat pytest.ini && echo ===== && ls scripts/ | head -40",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:17:35.769Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:17:35.778Z",
+  "log_sha256": "a6e9b882c90ff6f1687c5e4edff284bba45e9003aa79315596c6be74c52f9c62"
+}

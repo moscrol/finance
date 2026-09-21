@@ -1,0 +1,48 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import test from "node:test";
+import install, { policy, validateReports } from "./review-tools.mjs";
+const root = path.dirname(fileURLToPath(import.meta.url));
+const base = fs.mkdtempSync(path.join(root, "tool-tests-"));
+const tree = path.join(base, "tree"), out = path.join(base, "out"), inputs = path.join(base, "inputs");
+for (const p of [tree, out, inputs]) fs.mkdirSync(p);
+const check = policy(tree, out, inputs);
+const event = (toolName, p) => ({ toolName, input: { path: p } });
+test("direct paths permit source/inputs read and own output writes", () => {
+  assert.equal(check(event("read", tree)), undefined); assert.equal(check(event("read", inputs)), undefined);
+  assert.equal(check(event("write", path.join(out, "new/REPORT.md"))), undefined);
+  assert.equal(check(event("write", path.join(tree, "conftest.py"))).block, true);
+  assert.equal(check(event("read", path.dirname(base))).block, true);
+  assert.equal(check(event("read", path.join(tree, ".env"))).block, true);
+});
+test("symlink and traversal do not bypass direct-path check", () => {
+  fs.symlinkSync(tree, path.join(out, "escape"));
+  assert.equal(check(event("write", path.join(out, "escape/a.txt"))).block, true);
+  assert.equal(check(event("write", path.join(out, "../bad.txt"))).block, true);
+});
+test("finalization rejects absent and placeholder reports", () => {
+  assert.throws(() => validateReports(out, "spec", "revision"));
+  fs.writeFileSync(path.join(out, "REPORT.md"), "revision " + "substantive ".repeat(50));
+  const verdict = { revision: "revision", axis: "spec", complete: false, verdict: "BLOCKED", checks: ["not tested"], findings: [], limitations: [] };
+  fs.writeFileSync(path.join(out, "verdict.json"), JSON.stringify(verdict));
+  assert.throws(() => validateReports(out, "spec", "revision"), /incomplete/);
+  fs.writeFileSync(path.join(out, "verdict.json"), JSON.stringify({ ...verdict, complete: true }));
+  assert.equal(validateReports(out, "spec", "revision").verdict, "BLOCKED");
+});
+test("real shell wrapper captures exit and combined bytes; default timeout is 120, not session deadline", async (t) => {
+  const vars = { REVIEW_OUTPUT_DIR: out, REVIEW_TREE: tree, REVIEW_INPUT_DIR: inputs, REVIEW_AXIS: "spec", REVIEW_REVISION: "revision", TMPDIR: out };
+  const old = Object.fromEntries(Object.keys(vars).map((k) => [k, process.env[k]])); Object.assign(process.env, vars);
+  t.after(() => { for (const [k, v] of Object.entries(old)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } });
+  const tools = new Map(); install({ on() {}, registerTool(tool) { tools.set(tool.name, tool); } });
+  const bash = tools.get("bash");
+  await assert.rejects(bash.execute("bad", { command: "true", timeout: 121 }), /timeout/);
+  const result = await bash.execute("one", { command: "printf 'hello'; printf 'err' >&2; exit 3" });
+  assert.ok(result.content.some((c) => c.text?.includes("code 3")));
+  const record = JSON.parse(fs.readFileSync(path.join(out, "shell-records/0001.json")));
+  assert.equal(record.exit_code, 3); assert.equal(record.timeout, 120); assert.equal(record.complete, true);
+  const bytes = fs.readFileSync(path.join(out, "shell-records/0001.combined.log"), "utf8");
+  assert.ok(bytes.includes("hello") && bytes.includes("err"));
+  const done = await tools.get("finish_review").execute(); assert.equal(done.terminate, true);
+});

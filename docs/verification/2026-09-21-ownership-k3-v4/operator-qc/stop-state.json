@@ -1,0 +1,243 @@
+{
+  "time": "2026-09-21T08:52:43.191398+00:00",
+  "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+  "git_tree": "e99dad14cb946a112d92537289854d914e558936",
+  "overall": "BLOCKED_INFRASTRUCTURE / NO_INDEPENDENT_SIGNOFF",
+  "axes": {
+    "spec": {
+      "exit_code": 1,
+      "time_before": "2026-09-21T08:07:40.573158+00:00",
+      "time_after": "2026-09-21T08:40:39.231815+00:00",
+      "elapsed_seconds": 1978.656,
+      "stop_reason": null,
+      "provider_request_admissions": 50,
+      "assistant_messages": 49,
+      "model_errors": [],
+      "candidate_untouched": true,
+      "author_untouched": true,
+      "inputs_unchanged": true,
+      "usage": {
+        "input": 633699,
+        "output": 50350,
+        "cacheRead": 3483224,
+        "cacheWrite": 0,
+        "totalTokens": 4167273
+      },
+      "retained_regular_files": 394,
+      "retained_regular_bytes": 15313907,
+      "shell_records": 39,
+      "completed_tool_calls": 64,
+      "final_report_present": false,
+      "all_recorded_shell_hashes_and_timeouts_match": true,
+      "stderr_bytes": 1237,
+      "stderr_sha256": "aaf69466c7035791e29e5398eff09b8d4eea4236c46101f49ec0c993f6f8c273",
+      "cause": "ENOSPC during Pi JSON stdout write, explicit stderr stack"
+    },
+    "quality": {
+      "exit_code": 1,
+      "time_before": "2026-09-21T08:07:40.573164+00:00",
+      "time_after": "2026-09-21T08:40:37.949713+00:00",
+      "elapsed_seconds": 1977.369,
+      "stop_reason": null,
+      "provider_request_admissions": 50,
+      "assistant_messages": 49,
+      "model_errors": [],
+      "candidate_untouched": true,
+      "author_untouched": true,
+      "inputs_unchanged": true,
+      "usage": {
+        "input": 847009,
+        "output": 46083,
+        "cacheRead": 3498671,
+        "cacheWrite": 0,
+        "totalTokens": 4391763
+      },
+      "retained_regular_files": 4392,
+      "retained_regular_bytes": 1054643137,
+      "shell_records": 36,
+      "completed_tool_calls": 56,
+      "final_report_present": false,
+      "all_recorded_shell_hashes_and_timeouts_match": true,
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cause": "UNKNOWN: exit1 1.282 seconds before Spec, empty stderr, streaming request unfinished; disk exhaustion is plausible but unproven"
+    }
+  },
+  "budget_limits": {
+    "max_requests": null,
+    "max_total_requests": null,
+    "review_deadline_seconds": null,
+    "forced_exploration_cutoff": null,
+    "token_budget": null
+  },
+  "budget_exhaustion": false,
+  "automatic_restart": false,
+  "new_source_defect_claim": false,
+  "old_archives": [
+    {
+      "directory": "/Users/a77/fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-followup",
+      "files_excluding_manifest": 30,
+      "manifest_sha256": "862f6c814f687b2f0d02561e530e5e56914133fafdd91934aec8009021fa7634",
+      "verified": true
+    },
+    {
+      "directory": "/Users/a77/fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-recheck",
+      "files_excluding_manifest": 30,
+      "manifest_sha256": "36f324484ca1304a44acd891909f937553d71f1aa87a57e497acd6a0eb5697d0",
+      "verified": true
+    },
+    {
+      "directory": "/Users/a77/fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-resume",
+      "files_excluding_manifest": 86,
+      "manifest_sha256": "493136518ece7ffbf585ec08f2de56bf8b128d0789d0b880552ce914ebda43df",
+      "verified": true
+    },
+    {
+      "directory": "/Users/a77/fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-independent-v3",
+      "files_excluding_manifest": 26,
+      "manifest_sha256": "31dbbddb46021bf084296880214f147cc47962e35e9e97909fc2a5bcba05b841",
+      "verified": true
+    },
+    {
+      "directory": "/Users/a77/fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-k3-v3",
+      "files_excluding_manifest": 450,
+      "manifest_sha256": "af62c65c9d25ccc5b2c5032ab962b8daa11ba09e0fbc26bb07a919e4f96abb9e",
+      "verified": true
+    },
+    {
+      "directory": "/Users/a77/fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-reentrant-repair",
+      "files_excluding_manifest": 115,
+      "manifest_sha256": "f2e9923b1d0d49bd9ea4814d28815c5512043abeebf411dff2baa45ed96df9c5",
+      "verified": true
+    },
+    {
+      "directory": "/Users/a77/fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-integration-v4",
+      "files_excluding_manifest": 82,
+      "manifest_sha256": "369fb25cb4a36aae94ac50fab82ff0aead73c771b31af8b074a95585eb1730c9",
+      "verified": true
+    }
+  ],
+  "frozen_trees": [
+    {
+      "path": "/Users/a77/fwp-wt-ownership-gates-v3-0921",
+      "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "git_tree": "9ef25245a49b5e70ed84818fa86a7a082f1a43e0",
+      "status": ""
+    },
+    {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v3-0921",
+      "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "git_tree": "9ef25245a49b5e70ed84818fa86a7a082f1a43e0",
+      "status": ""
+    },
+    {
+      "path": "/Users/a77/fwp-wt-ownership-quality-v3-0921",
+      "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "git_tree": "9ef25245a49b5e70ed84818fa86a7a082f1a43e0",
+      "status": ""
+    },
+    {
+      "path": "/Users/a77/fwp-wt-ownership-gates-v4-0921",
+      "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+      "git_tree": "e99dad14cb946a112d92537289854d914e558936",
+      "status": ""
+    },
+    {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+      "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+      "git_tree": "e99dad14cb946a112d92537289854d914e558936",
+      "status": ""
+    },
+    {
+      "path": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+      "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+      "git_tree": "e99dad14cb946a112d92537289854d914e558936",
+      "status": ""
+    }
+  ],
+  "owned_processes_remaining": [],
+  "disk_current_df_k": "Filesystem   1024-blocks      Used Available Capacity iused    ifree %iused  Mounted on\n/dev/disk3s5   482746452 421844388   8016428    99% 8241538 80164280    9%   /System/Volumes/Data\n",
+  "spec_final_matrices_reported": {
+    "spec-k3/evidence/b1/board-matrix.jsonl": {
+      "rows_not_independent_scenarios": 12,
+      "ok_values": {
+        "True": 12
+      },
+      "sha256": "b000c781a192b8e0150ed70b0fee1a48c73a682b382ac3d653279fa61ac3e4ee"
+    },
+    "spec-k3/evidence/r1/execution-matrix.jsonl": {
+      "rows_not_independent_scenarios": 9,
+      "ok_values": {
+        "True": 9
+      },
+      "sha256": "3e60ffcaf466db354308da5af2ab7014dcad5c247a0623f626e03fcb4d714866"
+    },
+    "spec-k3/evidence/r1/ownership-matrix.jsonl": {
+      "rows_not_independent_scenarios": 8,
+      "ok_values": {
+        "True": 8
+      },
+      "sha256": "7e7acf8d57f88bfad95531d36b583ec480211a06545ed268065b863181dd5d5f"
+    },
+    "spec-k3/evidence/r1/readback-matrix.jsonl": {
+      "rows_not_independent_scenarios": 45,
+      "ok_values": {
+        "True": 45
+      },
+      "sha256": "f56411adccbb155ac1781136796e17e8c0a62e073f0e5bf9d2ea9f30dbabf095"
+    }
+  },
+  "quality_final_matrix_reported": {
+    "rows_not_independent_scenarios": 17,
+    "literal_true": 16,
+    "not_literal_true": {
+      "a11_signals": {
+        "sigkill": {
+          "rc": -9,
+          "receipts": []
+        },
+        "sigterm": {
+          "rc": -15,
+          "receipts": []
+        },
+        "sigint": {
+          "rc": -2,
+          "exit_statuses": []
+        },
+        "gate_sigkill": {
+          "rc": 4
+        },
+        "sigint_validator_rc": null,
+        "PASS": []
+      }
+    },
+    "sha256": "577afec73f59473bb76a583ccffbbfb39620436068d5504132ea052f55ea8f42"
+  },
+  "supporting_formal_tests": {
+    "axis": "quality",
+    "receipt_disabled": true,
+    "first": "71 passed in 14.58s; PYTEST_RC=0",
+    "second": "139 passed, 1 skipped in 25.89s; PYTEST_RC=0",
+    "totals": {
+      "passed": 210,
+      "skipped": 1
+    },
+    "source": [
+      "quality-k3/shell-records/0014.combined.log",
+      "quality-k3/shell-records/0015.combined.log"
+    ],
+    "full_pytest_stdout": false
+  },
+  "coverage_limits": [
+    "neither axis delivered REPORT/verdict/completion",
+    "neither axis completed an independently authored dynamic backfill probe",
+    "Quality has no independent board probe",
+    "Spec board matrix checks reported fixed base but no main-ref movement during scan",
+    "SIGINT control remains inconsistent across Quality attempts; no source defect established",
+    "earlier fixtures/results were overwritten or removed; original shell/event bytes retained",
+    "Quality executed broad pkill probes before PID-scoped repair; no all-process collateral-damage audit",
+    "shell boundaries are contractual, no OS sandbox",
+    "no later-main integration or real-copy publish/recovery rehearsal"
+  ],
+  "authority": "No merge/deploy/production backfill/real-tree deletion or new review was performed. Restart and storage remediation require explicit scope."
+}

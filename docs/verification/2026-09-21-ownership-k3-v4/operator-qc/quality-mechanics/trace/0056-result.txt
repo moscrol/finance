@@ -1,0 +1,2 @@
+patched
+[a11_signals] {"sigkill": {"rc": -9, "receipts": []}, "sigterm": {"rc": -15, "receipts": []}, "sigint": {"rc": -2, "exit_statuses": []}, "gate_sigkill": {"rc": 4}, "sigint_validator_rc": null, "PASS": []}

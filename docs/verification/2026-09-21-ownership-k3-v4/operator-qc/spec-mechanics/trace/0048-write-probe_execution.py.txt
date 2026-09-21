@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+"""K3 SPEC probe: execution-mode gate behavior (dirty tree, git failure, zero-exec)."""
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+EV = Path("/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3")
+REPO = EV / "probes" / "receipt-repo"
+OUT = EV / "evidence" / "r1" / "execution-matrix.jsonl"
+PY = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+
+BASE_ENV = {
+    "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+    "HOME": str(EV / "tmp" / "home-r1"),
+    "PYTHONDONTWRITEBYTECODE": "1",
+}
+
+results = []
+
+
+def record(name, rc, expect, note="", extra=None):
+    rec = {"case": name, "rc": rc, "expect": expect, "ok": rc == expect,
+           "note": note}
+    if extra:
+        rec.update(extra)
+    results.append(rec)
+    print(f"{'OK ' if rec['ok'] else 'BAD'} rc={rc} want={expect} {name} {note}")
+
+
+def gate(args, name, extra_env=None, receipt_dir=None):
+    env = dict(BASE_ENV)
+    rd = receipt_dir or (EV / "evidence" / "r1" / f"exec-{name}")
+    env["FWP_TEST_RECEIPT_DIR"] = str(rd)
+    env.update(extra_env or {})
+    proc = subprocess.run(["bash", "scripts/run_main_gate.sh", *args], cwd=REPO,
+                          env=env, capture_output=True, text=True, timeout=90)
+    (EV / "evidence" / "r1" / f"exec-{name}.log").write_text(
+        proc.stdout + "\n---STDERR---\n" + proc.stderr)
+    return proc, rd
+
+
+def git(*args, check=True):
+    return subprocess.run(["git", *args], cwd=REPO, check=check,
+                          capture_output=True, text=True).stdout.strip()
+
+
+def main():
+    head = git("rev-parse", "HEAD")
+
+    # E1: --pytest-exit mismatch (execution-mode constraint), direct checker call
+    good = json.loads(next((EV / "evidence/r1/receipts2").glob("gate-*/pytest.json")).read_text())
+    proc = subprocess.run([PY, "scripts/main_gate_receipt.py",
+                           str(EV / "tmp" / "e1.json"), "--revision", head,
+                           "--tree", str(REPO), "--pytest-exit", "1"],
+                          capture_output=True, text=True)
+    # need the file to exist first
+    (EV / "tmp" / "e1.json").write_text(json.dumps(good))
+    proc = subprocess.run([PY, "scripts/main_gate_receipt.py",
+                           str(EV / "tmp" / "e1.json"), "--revision", head,
+                           "--tree", str(REPO), "--pytest-exit", "1"],
+                          capture_output=True, text=True)
+    record("pytest-exit-mismatch", proc.returncode, 4,
+           note=proc.stderr.strip().splitlines()[-1] if proc.stderr else "")
+    proc = subprocess.run([PY, "scripts/main_gate_receipt.py",
+                           str(EV / "tmp" / "e1.json"), "--revision", head,
+                           "--tree", str(REPO), "--pytest-exit", "0"],
+                          capture_output=True, text=True)
+    record("pytest-exit-match", proc.returncode, 0)
+
+    # E2: dirty tree without/with --allow-dirty (execution mode)
+    (REPO / "test_a.py").write_text("def test_a1():\n    assert True\n\n\n"
+                                    "def test_a2():\n    assert True\n\n\n"
+                                    "def test_a3():\n    assert True  # k3 dirt\n")
+    proc, rd = gate(["--pytest-args", "-q -p no:cacheprovider test_a.py"], "dirty-noflag")
+    record("dirty-tree-noflag", proc.returncode, 2, note="shell refuses dirty tree")
+    proc, rd = gate(["--allow-dirty", "--pytest-args", "-q -p no:cacheprovider test_a.py"],
+                    "dirty-allow")
+    own = list(rd.glob("gate-*/pytest.json"))
+    data = json.loads(own[0].read_text()) if own else {}
+    record("dirty-tree-allow", proc.returncode, 0,
+           note="local iteration allowed",
+           extra={"receipt_dirty": data.get("dirty"),
+                  "receipt_total": data.get("worktree_dirty_total"),
+                  "receipt_dirty_paths": data.get("dirty_paths")})
+    git("checkout", "--", "test_a.py")
+
+    # E3: git status failure at gate start -> rc 4 (cannot pass as clean)
+    shim = EV / "tmp" / "git-shim"
+    shim.mkdir(parents=True, exist_ok=True)
+    (shim / "git").write_text(
+        '#!/bin/bash\nif [ "$1" = "status" ]; then echo "fatal: k3 shim" >&2; exit 128; fi\n'
+        'exec /usr/bin/git "$@"\n')
+    (shim / "git").chmod(0o755)
+    env = dict(BASE_ENV)
+    env["PATH"] = f"{shim}:{env['PATH']}"
+    env["FWP_TEST_RECEIPT_DIR"] = str(EV / "evidence" / "r1" / "exec-gitfail")
+    proc = subprocess.run(["bash", "scripts/run_main_gate.sh", "--pytest-args", "-q test_a.py"],
+                          cwd=REPO, env=env, capture_output=True, text=True, timeout=60)
+    record("git-status-fails-at-start", proc.returncode, 4,
+           note=(proc.stdout + proc.stderr).strip().splitlines()[-1])
+    # git rev-parse failure
+    (shim / "git").write_text(
+        '#!/bin/bash\nif [ "$1" = "rev-parse" ]; then echo "fatal: k3 shim" >&2; exit 128; fi\n'
+        'exec /usr/bin/git "$@"\n')
+    proc = subprocess.run(["bash", "scripts/run_main_gate.sh", "--pytest-args", "-q test_a.py"],
+                          cwd=REPO, env=env, capture_output=True, text=True, timeout=60)
+    record("git-revparse-fails-at-start", proc.returncode, 4)
+    (shim / "git").unlink()
+
+    # E4: zero-execution selection -> receipt written but rejected (rc 4)
+    proc, rd = gate(["--pytest-args", "-q -p no:cacheprovider test_a.py -k k3nomatch"],
+                    "zero-exec")
+    own = list(rd.glob("gate-*/pytest.json"))
+    data = json.loads(own[0].read_text()) if own else None
+    record("zero-execution", proc.returncode, 4,
+           note="pytest exit 5 / zero counts rejected",
+           extra={"receipt_counts": data.get("counts") if data else None,
+                  "receipt_exit_status": data.get("exit_status") if data else None})
+
+    # E5: receipt disabled + stale valid latest.json -> rc 4 (no fallback)
+    rd = EV / "evidence" / "r1" / "exec-nofallback"
+    rd.mkdir(parents=True, exist_ok=True)
+    (rd / "latest.json").write_text(json.dumps(good))
+    proc, _ = gate(["--pytest-args", "-q -p no:cacheprovider test_a.py"],
+                   "nofallback", extra_env={"FWP_TEST_RECEIPT": "0"}, receipt_dir=rd)
+    record("no-fallback-to-latest", proc.returncode, 4,
+           note=(proc.stderr.strip().splitlines()[-1] if proc.stderr else ""))
+
+    # E6: revision change during run -> rc 4
+    (REPO / "test_commit.py").write_text(
+        "import subprocess\n\n\n"
+        "def test_commit():\n"
+        "    subprocess.run(['git', 'commit', '--allow-empty', '-m', 'k3 mid-run'],"
+        " check=True)\n")
+    git("add", "test_commit.py")
+    git("commit", "-m", "k3 mid-run commit fixture")
+    proc, rd = gate(["--pytest-args", "-q -p no:cacheprovider test_commit.py"], "midrun-commit")
+    record("revision-change-during-run", proc.returncode, 4,
+           note=(proc.stderr.strip().splitlines()[-1] if proc.stderr else ""))
+    # receipt was still written by pytest (owned path) but gate refuses it
+    own = list(rd.glob("gate-*/pytest.json"))
+    results[-1]["receipt_written_but_refused"] = bool(own)
+    if own:
+        r = json.loads(own[0].read_text())
+        results[-1]["receipt_revision_is_new_head"] = (r["revision"] == git("rev-parse", "HEAD"))
+    git("reset", "--hard", head)  # restore probe repo to pre-fixture state
+    git("rev-parse", "HEAD")
+
+    OUT.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in results) + "\n")
+    fails = [r for r in results if not r["ok"]]
+    print(f"\n{len(results)} cases, {len(fails)} unexpected")
+    return 1 if fails else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

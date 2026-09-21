@@ -1,0 +1,206 @@
+#!/usr/bin/env python3
+"""K3 SPEC probe: worktree board (B1) on a synthetic repo family.
+
+Family layout (all inside evidence root):
+  main repo  fwp-main/                       (branch main)
+  worktrees  fwp-wt-unique/                  unique patch -> 【还有补丁】
+             fwp-wt-equiv-clean/             patch-equivalent + clean -> prune group
+             fwp-wt-equiv-dirty/             patch-equivalent + dirty -> leftover
+             fwp-wt-locked/                  locked -> 待核实
+             fwp-wt-stale/                   directory deleted -> 待核实 (error)
+Checks: grouping, pinned base_sha == actual main sha, unknown preserved,
+no-base repo -> rc 1 (text + JSON), --this unknown/pinned behavior.
+"""
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+EV = Path("/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3")
+FAM = EV / "probes" / "board-family"
+BOARD = "/Users/a77/fwp-wt-ownership-spec-v4-0921/scripts/worktree_board.py"
+PY = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+OUT = EV / "evidence" / "b1"
+results = []
+
+
+def record(name, ok, **extra):
+    results.append({"case": name, "ok": bool(ok), **extra})
+    print(f"{'OK ' if ok else 'BAD'} {name} {json.dumps(extra, ensure_ascii=False)[:220]}")
+
+
+def git(cwd, *args):
+    return subprocess.run(["git", *args], cwd=cwd, check=True,
+                          capture_output=True, text=True).stdout.strip()
+
+
+def build_family():
+    if FAM.exists():
+        subprocess.run(["git", "worktree", "unlock", "fwp-wt-locked"],
+                       cwd=FAM / "fwp-main", capture_output=True)
+        subprocess.run(["rm", "-rf", str(FAM)], check=True)
+    main = FAM / "fwp-main"
+    main.mkdir(parents=True)
+    git(main, "init", "-q", "-b", "main")
+    git(main, "config", "user.name", "k3")
+    git(main, "config", "user.email", "k3@probe")
+    git(main, "config", "commit.gpgsign", "false")
+    (main / "app.py").write_text("x = 1\n")
+    git(main, "add", "-A")
+    git(main, "commit", "-qm", "base")
+
+    # unique patch worktree
+    git(main, "worktree", "add", "-q", "-b", "wt-unique", str(FAM / "fwp-wt-unique"))
+    (FAM / "fwp-wt-unique" / "app.py").write_text("x = 1\nunique = True\n")
+    git(FAM / "fwp-wt-unique", "add", "-A")
+    git(FAM / "fwp-wt-unique", "commit", "-qm", "unique patch")
+
+    # patch-equivalent worktrees: same patch content as a main commit
+    git(main, "worktree", "add", "-q", "-b", "wt-equiv", str(FAM / "fwp-wt-equiv-clean"))
+    (FAM / "fwp-wt-equiv-clean" / "equiv.py").write_text("equiv = 42\n")
+    git(FAM / "fwp-wt-equiv-clean", "add", "-A")
+    git(FAM / "fwp-wt-equiv-clean", "commit", "-qm", "equivalent patch")
+    # same patch lands on main (different hash)
+    (main / "equiv.py").write_text("equiv = 42\n")
+    git(main, "add", "-A")
+    git(main, "commit", "-qm", "equivalent patch on main")
+
+    # dirty equivalent: branch from main now (patch already in main) + dirt
+    git(main, "worktree", "add", "-q", "--detach", str(FAM / "fwp-wt-equiv-dirty"))
+    (FAM / "fwp-wt-equiv-dirty" / "dirty.txt").write_text("uncommitted\n")
+
+    # locked worktree (clean, patch equivalent)
+    git(main, "worktree", "add", "-q", "--detach", str(FAM / "fwp-wt-locked"))
+    git(main, "worktree", "lock", "--reason", "k3 probe lock", str(FAM / "fwp-wt-locked"))
+
+    # stale worktree: add then delete its directory
+    git(main, "worktree", "add", "-q", "--detach", str(FAM / "fwp-wt-stale"))
+    subprocess.run(["rm", "-rf", str(FAM / "fwp-wt-stale")], check=True)
+    return main
+
+
+def run_board(cwd, *args):
+    return subprocess.run([PY, BOARD, *args], cwd=cwd,
+                          capture_output=True, text=True, timeout=60)
+
+
+def main():
+    OUT.mkdir(parents=True, exist_ok=True)
+    main = build_family()
+    main_sha = git(main, "rev-parse", "HEAD")
+
+    proc = run_board(main)
+    (OUT / "board.txt").write_text(proc.stdout + "\n---STDERR---\n" + proc.stderr)
+    text = proc.stdout
+    procj = run_board(main, "--json")
+    (OUT / "board.json").write_text(procj.stdout)
+    payload = json.loads(procj.stdout)
+    trees = {Path(t["path"]).name: t for t in payload["trees"]}
+
+    record("B1-groups",
+           proc.returncode == 0
+           and "【还有补丁 — 真没合】" in text and "wt-unique" in text
+           and "【补丁已在基线且 Git 干净 — 不是删除许可，本脚本不拆】" in text
+           and "wt-equiv" in text
+           and "【补丁已在基线，但还有未提交文件 — 先认领并保全】" in text
+           and "【待核实 — 查询失败、失效目录或锁定；不可据此拆树】" in text,
+           rc=proc.returncode)
+    record("B1-unique-row",
+           trees["fwp-wt-unique"]["cherry_plus"] == 1
+           and trees["fwp-wt-unique"]["in_main"] is False
+           and trees["fwp-wt-unique"]["error"] == ""
+           and trees["fwp-wt-unique"]["subjects"],
+           row={k: trees["fwp-wt-unique"][k] for k in ("cherry_plus", "in_main", "subjects")})
+    record("B1-equiv-clean-prunable-grouped",
+           trees["fwp-wt-equiv-clean"]["in_main"] is True
+           and trees["fwp-wt-equiv-clean"]["cherry_plus"] == 0
+           and trees["fwp-wt-equiv-clean"]["dirty"] is False
+           and trees["fwp-wt-equiv-clean"]["kind"] == "dev-wt",
+           row={k: trees["fwp-wt-equiv-clean"][k] for k in ("cherry_plus", "in_main", "kind")})
+    record("B1-equiv-dirty-not-clean-candidate",
+           trees["fwp-wt-equiv-dirty"]["in_main"] is True
+           and trees["fwp-wt-equiv-dirty"]["dirty"] is True
+           and "fwp-wt-equiv-dirty" in text.split("先认领并保全")[1],
+           )
+    record("B1-locked-preserved-unknown-group",
+           trees["fwp-wt-locked"]["locked"] != ""
+           and "fwp-wt-locked" in text.split("【待核实")[1],
+           locked=trees["fwp-wt-locked"]["locked"])
+    record("B1-stale-dir-unknown-not-prunable",
+           trees["fwp-wt-stale"]["error"] != ""
+           and trees["fwp-wt-stale"]["cherry_plus"] == -1
+           and trees["fwp-wt-stale"]["dirty"] is False
+           and "fwp-wt-stale" in text.split("【待核实")[1],
+           error=trees["fwp-wt-stale"]["error"])
+    record("B1-pins-main-sha",
+           payload["base"] == "main" and payload["base_sha"] == main_sha,
+           base=payload["base"], sha=payload["base_sha"][:12], head=main_sha[:12])
+    # locked/stale rows must not appear in prune section
+    prune_section = text.split("不是删除许可，本脚本不拆】")[1].split("\n【")[0]
+    record("B1-uncertain-excluded-from-prune",
+           "fwp-wt-locked" not in prune_section
+           and "fwp-wt-stale" not in prune_section
+           and "fwp-wt-equiv-dirty" not in prune_section)
+
+    # --this in the unique worktree (pinned sha shown)
+    proc = run_board(FAM / "fwp-wt-unique", "--this")
+    (OUT / "this-unique.log").write_text(proc.stdout + proc.stderr)
+    record("B1-this-unique",
+           proc.returncode == 0 and f"cherry+1" in proc.stdout
+           and main_sha[:12] in proc.stdout,
+           out=proc.stdout.strip().splitlines()[:1])
+    # --this in equiv worktree
+    proc = run_board(FAM / "fwp-wt-equiv-clean", "--this")
+    record("B1-this-equiv-in-main",
+           proc.returncode == 0 and "cherry+0" in proc.stdout,
+           out=proc.stdout.strip().splitlines()[:1])
+
+    # no-base repo: fresh repo with only branch "dev" (no main/origin/gitea)
+    norepo = EV / "probes" / "board-nobase"
+    if norepo.exists():
+        subprocess.run(["rm", "-rf", str(norepo)], check=True)
+    norepo.mkdir()
+    git(norepo, "init", "-q", "-b", "dev")
+    git(norepo, "config", "user.name", "k3")
+    git(norepo, "config", "user.email", "k3@probe")
+    (norepo / "f.py").write_text("y = 2\n")
+    git(norepo, "add", "-A")
+    git(norepo, "commit", "-qm", "no main ref")
+    proc = run_board(norepo)
+    (OUT / "nobase.log").write_text(proc.stdout + "\n---STDERR---\n" + proc.stderr)
+    procj = run_board(norepo, "--json")
+    payload = json.loads(procj.stdout)
+    proct = run_board(norepo, "--this")
+    record("B1-no-base-fails-closed",
+           proc.returncode == 1 and "未知" in proc.stderr
+           and procj.returncode == 1 and payload.get("trees") is None
+           and "error" in payload
+           and proct.returncode == 1 and "未知" in proct.stdout
+           and "不回退 HEAD 自证" in proct.stdout,
+           rc=proc.returncode, json=payload, this=proct.stdout.strip()[:80])
+
+    # git-query failure inside a worktree: break one worktree's gitdir link
+    # (replace .git file content with garbage -> rev-parse fails there)
+    gitfile = FAM / "fwp-wt-unique" / ".git"
+    saved = gitfile.read_text()
+    gitfile.write_text("gitdir: /nonexistent/k3-broken\n")
+    procj2 = run_board(main, "--json")
+    payload2 = json.loads(procj2.stdout)
+    trees2 = {Path(t["path"]).name: t for t in payload2["trees"]}
+    record("B1-broken-gitdir-unknown",
+           procj2.returncode == 0
+           and trees2["fwp-wt-unique"]["error"] != ""
+           and trees2["fwp-wt-unique"]["cherry_plus"] == -1,
+           error=trees2["fwp-wt-unique"]["error"])
+    gitfile.write_text(saved)
+
+    OUT.joinpath("board-matrix.jsonl").write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in results) + "\n")
+    fails = [r for r in results if not r["ok"]]
+    print(f"\n{len(results)} cases, {len(fails)} failed")
+    return 1 if fails else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

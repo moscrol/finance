@@ -1,0 +1,612 @@
+#!/usr/bin/env python3
+"""K3 independent probe A: receipt ownership / failure boundaries.
+
+Runs the CANDIDATE gate apparatus (copied verbatim into a synthetic git repo)
+through overlapping gates, nested pytest (subprocess + same-process), sequential
+cleanup, path switch, inherited PID, immutable/IO/git/signal failures.
+Every scenario records subprocess return codes + resulting receipt files.
+Each scenario gets a FRESH CLONE of the fixture repo for causal isolation.
+Writes evidence/probe_a_results.json and per-scenario logs under logs/.
+"""
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import signal
+import subprocess
+import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+OUT = Path(__file__).resolve().parents[1]
+FIXTURE = OUT / "fixtures" / "gaterepo"
+LOGS = OUT / "logs"
+PY = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+GATE = FIXTURE / "scripts" / "run_main_gate.sh"
+VALIDATOR = FIXTURE / "scripts" / "main_gate_receipt.py"
+
+RESULTS: dict[str, dict] = {}
+
+
+def log(name: str, text: str) -> None:
+    LOGS.mkdir(parents=True, exist_ok=True)
+    (LOGS / f"{name}.log.txt").write_text(text, encoding="utf-8")
+
+
+def git(repo: Path, *args: str) -> str:
+    return subprocess.run(["git", *args], cwd=repo, check=True,
+                          capture_output=True, text=True).stdout.strip()
+
+
+_REPO_CACHE: dict[str, Path] = {}
+
+
+def repo_for(scenario: str) -> Path:
+    """Fresh clone of the fixture repo per scenario (causal isolation)."""
+    if scenario not in _REPO_CACHE:
+        dest = OUT / "tmp" / f"repo-{scenario}"
+        shutil.rmtree(dest, ignore_errors=True)
+        subprocess.run(["git", "clone", "-q", str(FIXTURE), str(dest)],
+                       check=True, timeout=30)
+        git(dest, "config", "user.name", "k3-probe")
+        git(dest, "config", "user.email", "k3@probe.invalid")
+        _REPO_CACHE[scenario] = dest
+    return _REPO_CACHE[scenario]
+
+
+def base_env(scenario: str, **overrides) -> dict:
+    env = {k: v for k, v in os.environ.items()
+           if not k.startswith(("FWP_", "PYTEST_", "PYTHONPATH"))}
+    env["HOME"] = str(OUT / "tmp" / f"home-{scenario}")
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env["FWP_TEST_RECEIPT_DIR"] = str(OUT / "tmp" / f"receipts-{scenario}")
+    env.update(overrides)
+    return env
+
+
+def run_gate(scenario: str, *args: str, extra_env=None, timeout=60,
+             repo: Path | None = None) -> subprocess.CompletedProcess:
+    env = base_env(scenario, **(extra_env or {}))
+    return subprocess.run(["bash", str(GATE), *args],
+                          cwd=repo or repo_for(scenario), env=env,
+                          capture_output=True, text=True, timeout=timeout)
+
+
+def receipts_under(scenario: str) -> dict[str, dict]:
+    root = OUT / "tmp" / f"receipts-{scenario}"
+    found: dict[str, dict] = {}
+    if root.is_dir():
+        for p in sorted(root.rglob("*.json")):
+            try:
+                found[str(p.relative_to(root))] = json.loads(p.read_text())
+            except (OSError, json.JSONDecodeError) as exc:
+                found[str(p.relative_to(root))] = {"__unreadable__": str(exc)}
+    return found
+
+
+def commit_file(repo: Path, name: str, content: str, message: str) -> None:
+    (repo / name).write_text(content, encoding="utf-8")
+    git(repo, "add", "--", name)
+    git(repo, "commit", "-qm", message)
+
+
+def record(name: str, **fields) -> None:
+    RESULTS[name] = fields
+    print(f"[{name}] {json.dumps(fields, ensure_ascii=False, default=str)[:400]}")
+
+
+# ---------------------------------------------------------------- A1 happy
+def a1_happy():
+    repo = repo_for("a1")
+    r = run_gate("a1", repo=repo)
+    rec = receipts_under("a1")
+    own = {k: v for k, v in rec.items() if k.startswith("gate-")}
+    head = git(repo, "rev-parse", "HEAD")
+    log("a1_happy", r.stdout + "\n--- stderr ---\n" + r.stderr)
+    data = list(own.values())[0] if own else {}
+    ok = (r.returncode == 0 and len(own) == 1
+          and data.get("revision") == head
+          and data.get("dirty") is False
+          and data.get("counts", {}).get("passed") == 2
+          and data.get("exit_status") == 0
+          and "latest.json" in rec)
+    record("a1_happy", rc=r.returncode, own_receipts=len(own),
+           revision_match=data.get("revision") == head,
+           counts=data.get("counts"), exit_status=data.get("exit_status"),
+           latest_present="latest.json" in rec, PASS=ok)
+
+
+# ------------------------------------------------- A2 overlapping gates
+def a2_overlap():
+    repo = repo_for("a2")
+    commit_file(repo, "test_rendezvous.py", '''import os
+import time
+from pathlib import Path
+
+
+def test_meet():
+    root = Path(os.environ["RENDEZVOUS"])
+    root.joinpath(os.environ["PEER"]).touch()
+    deadline = time.monotonic() + 15
+    while len(list(root.iterdir())) != 2:
+        assert time.monotonic() < deadline, "peer never started"
+        time.sleep(0.01)
+
+
+def test_other():
+    assert True
+''', "rendezvous fixture")
+    meet = OUT / "tmp" / "meet-a2"
+    shutil.rmtree(meet, ignore_errors=True)
+    meet.mkdir(parents=True)
+    # Both gates share one receipt root (same FWP_TEST_RECEIPT_DIR).
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futs = [
+            pool.submit(run_gate, "a2", "--pytest-args",
+                        "-q -p no:cacheprovider test_rendezvous.py -k meet",
+                        extra_env={"RENDEZVOUS": str(meet), "PEER": "0"},
+                        repo=repo),
+            pool.submit(run_gate, "a2", "--pytest-args",
+                        "-q -p no:cacheprovider test_rendezvous.py",
+                        extra_env={"RENDEZVOUS": str(meet), "PEER": "1"},
+                        repo=repo),
+        ]
+        rs = [f.result(timeout=90) for f in futs]
+    rec = receipts_under("a2")
+    own = {k: v for k, v in rec.items() if k.startswith("gate-")}
+    log("a2_overlap", "\n===== gate A (-k meet) =====\n" + rs[0].stdout
+        + rs[0].stderr + "\n===== gate B (full file) =====\n"
+        + rs[1].stdout + rs[1].stderr)
+    by_target = {v.get("target"): v.get("counts", {}).get("passed")
+                 for v in own.values()}
+    ok = (all(r.returncode == 0 for r in rs) and len(own) == 2
+          and by_target.get("test_rendezvous.py -k meet") == 1
+          and by_target.get("test_rendezvous.py") == 2)
+    record("a2_overlap", rcs=[r.returncode for r in rs], own_receipts=len(own),
+           by_target=by_target, PASS=ok)
+
+
+# ------------------------------------------------- A3 nested subprocess
+def a3_nested_subprocess():
+    repo = repo_for("a3")
+    commit_file(repo, "test_nested_subproc.py", '''import subprocess
+import sys
+
+
+def test_inner_subprocess():
+    r = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p",
+                        "no:cacheprovider", "tests_inner/test_inner.py"],
+                       capture_output=True, text=True, timeout=30)
+    assert r.returncode == 0, r.stdout + r.stderr
+''', "nested subprocess fixture")
+    r = run_gate("a3", "--pytest-args",
+                 "-q -p no:cacheprovider test_nested_subproc.py", repo=repo)
+    rec = receipts_under("a3")
+    own = {k: v for k, v in rec.items() if k.startswith("gate-")}
+    targets = sorted(v.get("target", "?") for v in rec.values())
+    log("a3_nested_subproc", r.stdout + "\n--- stderr ---\n" + r.stderr
+        + "\n--- receipt targets ---\n" + "\n".join(targets))
+    ok = (r.returncode == 0 and len(own) == 1
+          and list(own.values())[0].get("target") == "test_nested_subproc.py"
+          and list(own.values())[0].get("counts", {}).get("passed") == 1
+          and not any("test_inner" in t for t in targets))
+    record("a3_nested_subprocess", rc=r.returncode, own_receipts=len(own),
+           targets=targets, PASS=ok)
+
+
+# ------------------------------------------------- A4 nested same-process
+def a4_nested_inprocess():
+    repo = repo_for("a4")
+    commit_file(repo, "test_nested_inproc.py", '''import pytest
+
+
+def test_leaf():
+    assert True
+
+
+def test_driver():
+    rc = pytest.main(["-q", "-p", "no:cacheprovider",
+                      "test_nested_inproc.py", "-k", "leaf"])
+    assert rc == 0
+''', "nested in-process fixture (same target, different -k)")
+    r = run_gate("a4", "--pytest-args",
+                 "-q -p no:cacheprovider test_nested_inproc.py", repo=repo)
+    rec = receipts_under("a4")
+    own = {k: v for k, v in rec.items() if k.startswith("gate-")}
+    data = list(own.values())[0] if own else {}
+    log("a4_nested_inproc", r.stdout + "\n--- stderr ---\n" + r.stderr
+        + "\n--- receipt ---\n" + json.dumps(data, indent=2))
+    ok = (r.returncode == 0 and len(own) == 1
+          and data.get("target") == "test_nested_inproc.py"
+          and data.get("counts") == {"passed": 2, "failed": 0, "error": 0,
+                                     "skipped": 0}
+          and data.get("exit_status") == 0)
+    record("a4_nested_inprocess", rc=r.returncode, own_receipts=len(own),
+           counts=data.get("counts"), target=data.get("target"), PASS=ok)
+
+
+# ------------------------------------------------- A5 sequential cleanup
+def a5_sequential():
+    runner = OUT / "tmp" / "a5_runner.py"
+    runner.parent.mkdir(parents=True, exist_ok=True)
+    runner.write_text('''import json
+import os
+import sys
+from pathlib import Path
+
+import pytest
+
+
+class FailConfigure:
+    @pytest.hookimpl(trylast=True)
+    def pytest_configure(self):
+        raise pytest.UsageError("intentional configure failure")
+
+
+out = Path(sys.argv[1])
+out.mkdir(parents=True, exist_ok=True)
+mode = sys.argv[2]
+for index in range(2):
+    os.environ["FWP_TEST_RECEIPT_PATH"] = str(out / f"run-{index}.json")
+    plugins = [FailConfigure()] if index == 0 and mode == "configure-error" else []
+    rc = pytest.main(["-q", "-p", "no:cacheprovider", "test_ok.py"],
+                     plugins=plugins)
+    state = {"exit": int(rc),
+             "owner_after": os.environ.get("FWP_TEST_RECEIPT_OWNER_PID"),
+             "receipt_exists": (out / f"run-{index}.json").is_file()}
+    (out / f"state-{index}.json").write_text(json.dumps(state))
+''', encoding="utf-8")
+    for mode in ("success", "configure-error"):
+        for prev in ("__unset__", ""):
+            tag = f"a5_{mode}_{'unset' if prev == '__unset__' else 'empty'}"
+            outdir = OUT / "tmp" / f"a5-out-{mode}-{prev or 'unset'}"
+            shutil.rmtree(outdir, ignore_errors=True)
+            env = base_env(tag)
+            if prev != "__unset__":
+                env["FWP_TEST_RECEIPT_OWNER_PID"] = prev
+            r = subprocess.run([PY, str(runner), str(outdir), mode],
+                               cwd=repo_for(tag), env=env,
+                               capture_output=True, text=True, timeout=60)
+            states = {}
+            for i in range(2):
+                p = outdir / f"state-{i}.json"
+                states[i] = json.loads(p.read_text()) if p.is_file() else None
+            log(tag, r.stdout + "\n--- stderr ---\n" + r.stderr
+                + "\n--- states ---\n" + json.dumps(states, indent=2))
+            expect_owner = prev if prev != "__unset__" else None
+            ok = (r.returncode == 0
+                  and states[0] is not None and states[1] is not None
+                  and states[0]["exit"] == (4 if mode == "configure-error" else 0)
+                  and states[0]["receipt_exists"] is (mode != "configure-error")
+                  and states[1] == {"exit": 0, "owner_after": expect_owner,
+                                    "receipt_exists": True}
+                  and states[0]["owner_after"] == expect_owner)
+            record(tag, rc=r.returncode, states=states, PASS=ok)
+
+
+# ------------------------------------------------- A6 claimed-path switch
+def a6_path_switch():
+    repo = repo_for("a6")
+    commit_file(repo, "test_switch_path.py", '''import os
+
+
+def test_switch():
+    os.environ["FWP_TEST_RECEIPT_PATH"] += ".foreign"
+''', "path switch fixture")
+    r = run_gate("a6", "--pytest-args", "-q -p no:cacheprovider test_switch_path.py",
+                 repo=repo)
+    rec = receipts_under("a6")
+    root = OUT / "tmp" / "receipts-a6"
+    foreign = list(root.rglob("*.foreign")) if root.is_dir() else []
+    log("a6_path_switch", r.stdout + "\n--- stderr ---\n" + r.stderr)
+    ok = r.returncode == 4 and not rec and not foreign
+    record("a6_path_switch", rc=r.returncode, receipts=list(rec),
+           foreign_file=bool(foreign), PASS=ok)
+
+
+# ------------------------------------------------- A7 inherited PID alone
+def a7_inherited_pid():
+    runner = OUT / "tmp" / "a7_runner.py"
+    runner.write_text('''import json
+import os
+import sys
+
+import pytest
+
+mode = sys.argv[1]
+out = sys.argv[2]
+owner = str(os.getpid()) if mode == "self" else "999999"
+os.environ["FWP_TEST_RECEIPT_OWNER_PID"] = owner
+os.environ["FWP_TEST_RECEIPT_PATH"] = out
+rc = pytest.main(["-q", "-p", "no:cacheprovider", "test_ok.py"])
+print("STATE=" + json.dumps({
+    "exit": int(rc),
+    "owner_after": os.environ.get("FWP_TEST_RECEIPT_OWNER_PID"),
+    "receipt_exists": os.path.exists(out)}))
+''', encoding="utf-8")
+    for mode in ("self", "foreign"):
+        tag = f"a7_inherited_{mode}"
+        out = OUT / "tmp" / f"a7-{mode}.json"
+        out.unlink(missing_ok=True)
+        r = subprocess.run([PY, str(runner), mode, str(out)],
+                           cwd=repo_for(tag),
+                           env=base_env(tag), capture_output=True, text=True,
+                           timeout=60)
+        state_line = next((ln for ln in r.stdout.splitlines()
+                           if ln.startswith("STATE=")), "STATE={}")
+        data = json.loads(state_line[len("STATE="):])
+        log(tag, r.stdout + "\n--- stderr ---\n" + r.stderr)
+        # non-owner must neither write the receipt nor clear the planted owner
+        ok = (r.returncode == 0 and data.get("exit") == 0
+              and data.get("receipt_exists") is False
+              and data.get("owner_after") not in (None, ""))
+        record(tag, rc=r.returncode, **data, PASS=ok)
+
+
+# ------------------------------------------------- A8 immutable write
+def a8_immutable():
+    os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("candidate_conftest",
+                                                  FIXTURE / "conftest.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    folder = OUT / "tmp" / "a8-receipts"
+    shutil.rmtree(folder, ignore_errors=True)
+    folder.mkdir(parents=True)
+    os.environ["FWP_TEST_RECEIPT_DIR"] = str(folder)
+    target = folder / "run" / "pytest.json"
+    target.parent.mkdir()
+    os.environ["FWP_TEST_RECEIPT_PATH"] = str(target)
+    data = {"revision": "a" * 40, "counts": {"passed": 1}}
+    mod._write_test_receipt(data)
+    second_error = None
+    try:
+        mod._write_test_receipt({"revision": "b" * 40})
+    except FileExistsError as exc:
+        second_error = type(exc).__name__
+    intact = json.loads(target.read_text()) == data
+    # default-named writes never collide
+    del os.environ["FWP_TEST_RECEIPT_PATH"]
+    paths = {mod._write_test_receipt(data) for _ in range(3)}
+    # pre-existing file at FWP_TEST_RECEIPT_PATH: pytest passes, warns, untouched
+    os.environ["FWP_TEST_RECEIPT_PATH"] = str(target)
+    r = subprocess.run([PY, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+                        "test_ok.py"], cwd=repo_for("a8b"),
+                       env=base_env("a8b"),
+                       capture_output=True, text=True, timeout=60)
+    warn = "收据未写出" in r.stdout
+    intact2 = json.loads(target.read_text()) == data
+    del os.environ["FWP_TEST_RECEIPT_PATH"]
+    del os.environ["FWP_TEST_RECEIPT_DIR"]
+    log("a8_immutable", f"second_error={second_error} intact={intact} "
+        f"unique_default={len(paths) == 3}\n--- pre-existing path run ---\n"
+        + r.stdout + "\n--- stderr ---\n" + r.stderr)
+    ok = (second_error == "FileExistsError" and intact and len(paths) == 3
+          and r.returncode == 0 and warn and intact2)
+    record("a8_immutable", second_error=second_error, intact=intact,
+           unique_default_names=len(paths) == 3,
+           preexisting_pytest_rc=r.returncode, warning=warn, intact2=intact2,
+           PASS=ok)
+
+
+# ------------------------------------------------- A9 IO failure
+def a9_io_failure():
+    # (a) unwritable receipt dir, default name
+    ro_dir = OUT / "tmp" / "a9-readonly"
+    shutil.rmtree(ro_dir, ignore_errors=True)
+    ro_dir.mkdir(parents=True)
+    os.chmod(ro_dir, 0o555)
+    r1 = subprocess.run([PY, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+                         "test_ok.py"], cwd=repo_for("a9a"),
+                        env=base_env("a9a", FWP_TEST_RECEIPT_DIR=str(ro_dir)),
+                        capture_output=True, text=True, timeout=60)
+    os.chmod(ro_dir, 0o755)
+    # (b) FWP_TEST_RECEIPT_PATH inside a nonexistent directory
+    missing = OUT / "tmp" / "a9-no-such-dir" / "pytest.json"
+    r2 = subprocess.run([PY, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+                         "test_ok.py"], cwd=repo_for("a9b"),
+                        env=base_env("a9b", FWP_TEST_RECEIPT_PATH=str(missing)),
+                        capture_output=True, text=True, timeout=60)
+    # (c) latest.json is a directory -> run file written, latest replace fails
+    dir3 = OUT / "tmp" / "a9-latest-is-dir"
+    shutil.rmtree(dir3, ignore_errors=True)
+    (dir3 / "latest.json").mkdir(parents=True)
+    r3 = subprocess.run([PY, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+                         "test_ok.py"], cwd=repo_for("a9c"),
+                        env=base_env("a9c", FWP_TEST_RECEIPT_DIR=str(dir3)),
+                        capture_output=True, text=True, timeout=60)
+    run_files = [p for p in dir3.iterdir() if p.name != "latest.json"]
+    log("a9_io_failure",
+        f"--- (a) rc={r1.returncode} warn={'收据未写出' in r1.stdout}\n"
+        f"{r1.stdout[-500:]}\n"
+        f"--- (b) rc={r2.returncode} warn={'收据未写出' in r2.stdout}\n"
+        f"{r2.stdout[-500:]}\n"
+        f"--- (c) rc={r3.returncode} warn={'收据未写出' in r3.stdout} "
+        f"run_files={[p.name for p in run_files]}\n{r3.stdout[-500:]}")
+    ok = (r1.returncode == 0 and "收据未写出" in r1.stdout
+          and r2.returncode == 0 and "收据未写出" in r2.stdout
+          and not missing.exists()
+          and r3.returncode == 0 and "收据未写出" in r3.stdout
+          and len(run_files) == 1)
+    record("a9_io_failure", rc_a=r1.returncode, warn_a="收据未写出" in r1.stdout,
+           rc_b=r2.returncode, warn_b="收据未写出" in r2.stdout,
+           rc_c=r3.returncode, warn_c="收据未写出" in r3.stdout,
+           run_file_written_c=len(run_files) == 1, PASS=ok)
+
+
+# ------------------------------------------------- A10 git failure
+def a10_git_failure():
+    # (a) gate outside any git repo -> exit 4
+    plain = OUT / "tmp" / "a10-plain"
+    shutil.rmtree(plain, ignore_errors=True)
+    plain.mkdir(parents=True)
+    r1 = subprocess.run(["bash", str(GATE)], cwd=plain, env=base_env("a10a"),
+                        capture_output=True, text=True, timeout=30)
+    # (b) pytest with git missing from PATH -> revision "(unknown)";
+    # validator must refuse it against the real HEAD.
+    fakebin = OUT / "fixtures" / "fakebin"
+    fakebin.mkdir(exist_ok=True)
+    rdir = OUT / "tmp" / "receipts-a10b"
+    shutil.rmtree(rdir, ignore_errors=True)
+    env = base_env("a10b")
+    env["PATH"] = str(fakebin)
+    repo_b = repo_for("a10b")
+    r2 = subprocess.run([PY, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+                         "test_ok.py"], cwd=repo_b, env=env,
+                        capture_output=True, text=True, timeout=60)
+    recs = receipts_under("a10b")
+    rev = None
+    for v in recs.values():
+        if isinstance(v, dict) and "revision" in v:
+            rev = v["revision"]
+    head = git(repo_b, "rev-parse", "HEAD")
+    rc_val = None
+    val_out = "no receipt produced"
+    if rev is not None:
+        receipt_file = next(iter(
+            p for p in rdir.rglob("*.json") if p.name != "latest.json"))
+        rv = subprocess.run([PY, str(VALIDATOR), str(receipt_file),
+                             "--revision", head, "--tree", str(repo_b)],
+                            capture_output=True, text=True, timeout=30)
+        rc_val = rv.returncode
+        val_out = rv.stdout + rv.stderr
+    log("a10_git_failure",
+        f"--- (a) gate outside repo rc={r1.returncode}\n{r1.stdout}{r1.stderr}"
+        f"\n--- (b) no-git pytest rc={r2.returncode} revision={rev!r}\n"
+        f"{r2.stdout[-400:]}\n--- validator rc={rc_val}\n{val_out}")
+    ok = (r1.returncode == 4 and r2.returncode == 0 and rev == "(unknown)"
+          and rc_val == 4)
+    record("a10_git_failure", gate_outside_repo_rc=r1.returncode,
+           nogit_pytest_rc=r2.returncode, nogit_revision=rev,
+           validator_rc=rc_val, PASS=ok)
+
+
+# ------------------------------------------------- A11 signals
+def a11_signals():
+    repo = repo_for("a11")
+    commit_file(repo, "test_slow.py", '''import time
+
+
+def test_slow():
+    time.sleep(30)
+''', "slow fixture")
+    results: dict[str, dict] = {}
+    for sig, name in ((signal.SIGKILL, "sigkill"), (signal.SIGTERM, "sigterm")):
+        tag = f"a11_{name}"
+        env = base_env(tag)
+        proc = subprocess.Popen(
+            [PY, "-m", "pytest", "-q", "-p", "no:cacheprovider", "test_slow.py"],
+            cwd=repo, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True)
+        time.sleep(3)
+        proc.send_signal(sig)
+        out, err = proc.communicate(timeout=30)
+        rec = receipts_under(tag)
+        results[name] = {"rc": proc.returncode, "receipts": list(rec)}
+        log(tag, f"rc={proc.returncode}\n{out}\n--- stderr ---\n{err}")
+    # SIGINT: pytest handles KeyboardInterrupt -> exit 2; sessionfinish writes
+    tag = "a11_sigint"
+    env = base_env(tag)
+    proc = subprocess.Popen(
+        [PY, "-m", "pytest", "-q", "-p", "no:cacheprovider", "test_slow.py"],
+        cwd=repo, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True)
+    time.sleep(3)
+    proc.send_signal(signal.SIGINT)
+    out, err = proc.communicate(timeout=30)
+    rec = receipts_under(tag)
+    statuses = [v.get("exit_status") for v in rec.values() if isinstance(v, dict)]
+    results["sigint"] = {"rc": proc.returncode, "exit_statuses": statuses}
+    log(tag, f"rc={proc.returncode} statuses={statuses}\n{out}\n--- stderr ---\n{err}")
+    # validator must refuse the interrupted receipt (exit_status=2)
+    rc_val = None
+    if statuses:
+        receipt_file = next(iter(
+            p for p in (OUT / "tmp" / f"receipts-{tag}").rglob("*.json")
+            if p.name != "latest.json"))
+        head = git(repo, "rev-parse", "HEAD")
+        rv = subprocess.run([PY, str(VALIDATOR), str(receipt_file),
+                             "--revision", head, "--tree", str(repo)],
+                            capture_output=True, text=True, timeout=30)
+        rc_val = rv.returncode
+        log(tag + "_validator", f"rc={rc_val}\n{rv.stdout}{rv.stderr}")
+    # gate-level SIGKILL of the pytest child -> gate must exit 4 (no receipt)
+    tag = "a11_gate_sigkill"
+    env = base_env(tag)
+    gate_proc = subprocess.Popen(["bash", str(GATE), "--pytest-args",
+                                  "-q -p no:cacheprovider test_slow.py"],
+                                 cwd=repo, env=env, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE, text=True)
+    time.sleep(6)  # let ruff pass and pytest start
+    subprocess.run(["pkill", "-9", "-f", "pytest.*test_slow"], timeout=10)
+    gout, gerr = gate_proc.communicate(timeout=60)
+    results["gate_sigkill"] = {"rc": gate_proc.returncode}
+    log(tag, f"rc={gate_proc.returncode}\n{gout}\n--- stderr ---\n{gerr}")
+    ok = (results["sigkill"]["rc"] == -9 and not results["sigkill"]["receipts"]
+          and results["sigterm"]["rc"] == -15
+          and not results["sigterm"]["receipts"]
+          and results["sigint"]["exit_statuses"]
+          and all(s == 2 for s in results["sigint"]["exit_statuses"])
+          and rc_val == 4
+          and results["gate_sigkill"]["rc"] == 4)
+    record("a11_signals", **results, sigint_validator_rc=rc_val, PASS=ok)
+
+
+# ------------------------------------------------- A12 stale latest
+def a12_stale_latest():
+    rdir = OUT / "tmp" / "receipts-a12"
+    shutil.rmtree(rdir, ignore_errors=True)
+    rdir.mkdir(parents=True)
+    repo = repo_for("a12")
+    head = git(repo, "rev-parse", "HEAD")
+    stale = {"revision": head, "tree": str(repo), "interpreter": PY,
+             "dirty": False, "worktree_dirty_total": 0,
+             "dependency_gate_bypassed": False, "target": "test_ok.py",
+             "counts": {"passed": 2, "failed": 0, "error": 0, "skipped": 0},
+             "failed_ids": [], "exit_status": 0}
+    (rdir / "latest.json").write_text(json.dumps(stale))
+    r = run_gate("a12", "--pytest-args", "-q -p no:cacheprovider test_ok.py",
+                 extra_env={"FWP_TEST_RECEIPT": "0"}, repo=repo)
+    log("a12_stale_latest", r.stdout + "\n--- stderr ---\n" + r.stderr)
+    ok = r.returncode == 4 and "没找到本轮收据" in (r.stdout + r.stderr)
+    record("a12_stale_latest", rc=r.returncode, PASS=ok)
+
+
+# ------------------------------------------------- A13 mid-run drift
+def a13_midrun_drift():
+    repo = repo_for("a13")
+    commit_file(repo, "test_drift.py", '''from pathlib import Path
+
+
+def test_drift():
+    Path("docs_note.md").write_text("created mid-run", encoding="utf-8")
+''', "drift fixture")
+    r = run_gate("a13", "--pytest-args", "-q -p no:cacheprovider test_drift.py",
+                 repo=repo)
+    log("a13_midrun_drift", r.stdout + "\n--- stderr ---\n" + r.stderr)
+    ok = r.returncode == 4 and "提交或干净状态改变" in (r.stdout + r.stderr)
+    record("a13_midrun_drift", rc=r.returncode, PASS=ok)
+
+
+SCENARIOS = {
+    "a1": a1_happy, "a2": a2_overlap, "a3": a3_nested_subprocess,
+    "a4": a4_nested_inprocess, "a5": a5_sequential, "a6": a6_path_switch,
+    "a7": a7_inherited_pid, "a8": a8_immutable, "a9": a9_io_failure,
+    "a10": a10_git_failure, "a11": a11_signals, "a12": a12_stale_latest,
+    "a13": a13_midrun_drift,
+}
+
+if __name__ == "__main__":
+    names = sys.argv[1:] or list(SCENARIOS)
+    for name in names:
+        SCENARIOS[name]()
+    (OUT / "evidence").mkdir(exist_ok=True)
+    out = OUT / "evidence" / "probe_a_results.json"
+    merged: dict = {}
+    if out.is_file():
+        merged = json.loads(out.read_text())
+    merged.update(RESULTS)
+    out.write_text(json.dumps(merged, ensure_ascii=False, indent=2) + "\n")

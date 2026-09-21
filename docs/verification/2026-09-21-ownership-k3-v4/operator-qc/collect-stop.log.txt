@@ -1,0 +1,27 @@
+{
+  "overall": "BLOCKED_INFRASTRUCTURE / NO_INDEPENDENT_SIGNOFF",
+  "axes": {
+    "spec": {
+      "exit_code": 1,
+      "provider_request_admissions": 50,
+      "retained_regular_bytes": 15313907,
+      "cause": "ENOSPC during Pi JSON stdout write, explicit stderr stack"
+    },
+    "quality": {
+      "exit_code": 1,
+      "provider_request_admissions": 50,
+      "retained_regular_bytes": 1054643137,
+      "cause": "UNKNOWN: exit1 1.282 seconds before Spec, empty stderr, streaming request unfinished; disk exhaustion is plausible but unproven"
+    }
+  },
+  "prior_archive_counts": [
+    30,
+    30,
+    86,
+    26,
+    450,
+    115,
+    82
+  ],
+  "owned_processes_remaining": []
+}

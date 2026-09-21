@@ -1,0 +1,11 @@
+ conftest.py                                        |   65 +-
+ market_feature_store/cli.py                        |  197 ++++
+ .../sync/repair_backfill_stock_history.py          |  775 ++++++++++++
+ scripts/main_gate_receipt.py                       |   97 ++
+ scripts/run_main_gate.sh                           |  132 +--
+ scripts/verify_302132_backfill_acceptance.py       |  729 ++++++++++++
+ scripts/worktree_board.py                          |  123 +-
+ tests/test_main_gate_receipt.py                    |  447 +++++++
+ tests/test_repair_backfill_stock_history.py        | 1236 ++++++++++++++++++++
+ tests/test_worktree_board.py                       |  177 ++-
+ 10 files changed, 3851 insertions(+), 127 deletions(-)

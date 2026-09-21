@@ -1,0 +1,11 @@
+{
+  "id": "0023",
+  "command": "set -e\nEV=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3\nR=$EV/probes/receipt-repo\nSRC=/Users/a77/fwp-wt-ownership-spec-v4-0921\nPY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\nmkdir -p \"$R\"\ncd \"$R\"\ngit init -q -b main\ngit config user.name \"K3 spec probe\"\ngit config user.email \"k3-spec@probe.test\"\ngit config commit.gpgsign false\ncp \"$SRC/conftest.py\" conftest.py\nmkdir -p scripts\ncp \"$SRC/scripts/run_main_gate.sh\" scripts/run_main_gate.sh\ncp \"$SRC/scripts/main_gate_receipt.py\" scripts/main_gate_receipt.py\n\"$PY\" - \"$R/test-environment.json\" <<'EOF'\nimport json, sys\nspec = {\n  \"interpreter\": \"/Users/a77/finance-workspace-private/.venv-workbench/bin/python\",\n  \"required_modules\": [\"pytest\"],\n  \"escape_env_var\": \"FWP_ALLOW_ANY_PYTHON\",\n  \"code_path_prefixes\": [\"conftest.py\", \"test_\", \"scripts/\", \"test-environment.json\"],\n  \"data_path_exceptions\": [],\n}\nopen(sys.argv[1], \"w\").write(json.dumps(spec, indent=2))\nEOF\ncat > test_a.py <<'EOF'\ndef test_a1():\n    assert True\n\n\ndef test_a2():\n    assert True\nEOF\ncat > test_b.py <<'EOF'\ndef test_b1():\n    assert True\nEOF\nprintf '__pycache__/\\n.pytest_cache/\\n.ruff_cache/\\n' > .gitignore\ngit add -A\ngit commit -qm \"k3 receipt probe fixture\"\ngit rev-parse HEAD\ngit status --porcelain | wc -l",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:24:49.915Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:24:50.282Z",
+  "log_sha256": "86a6c74459882d623473e4ea8e2806afb1fa83c8195f925baae6f61e7d9c2147"
+}

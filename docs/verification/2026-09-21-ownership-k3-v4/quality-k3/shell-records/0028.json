@@ -1,0 +1,11 @@
+{
+  "id": "0028",
+  "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && tail -12 logs/a8_immutable.log.txt && ls tmp/receipts-a8b/ 2>/dev/null",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:34:39.374Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:34:39.406Z",
+  "log_sha256": "069430975285c944c3de820d904c40e71d77bfd126fec18cfa19f47b7bbb782f"
+}

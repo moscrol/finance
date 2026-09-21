@@ -1,0 +1,27 @@
+✔ unlimited admissions: 121 requests and elapsed 2000s pass; no token in artifacts/env/argv (6.178958ms)
+✔ native Models auth resolves memory credential and reuses it (0.823ms)
+✔ expiry refresh keeps session unlimited and secrets in memory (0.587666ms)
+✔ failed expiry refresh is sticky, no resolver retry (0.797375ms)
+✔ bad credential shape blocks before provider registration (0.421709ms)
+✔ other plan blocks before provider registration (0.360541ms)
+✔ expired access blocks before provider registration (0.349208ms)
+✔ expired plan blocks before provider registration (0.301167ms)
+✔ resolver error blocks before provider registration (0.293166ms)
+✔ reservation prevents second authentication (0.202875ms)
+✔ wrong provider stops dispatch (0.379209ms)
+✔ wrong id stops dispatch (0.296583ms)
+✔ wrong baseUrl stops dispatch (0.28725ms)
+✔ wrong api stops dispatch (0.289166ms)
+✔ audit append failure stops dispatch (0.357125ms)
+✔ direct paths permit source/inputs read and own output writes (0.902375ms)
+✔ symlink and traversal do not bypass direct-path check (0.241834ms)
+✔ finalization rejects absent and placeholder reports (0.505ms)
+✔ real shell wrapper captures exit and combined bytes; default timeout is 120, not session deadline (6.571375ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 599.4945

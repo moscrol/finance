@@ -1,0 +1,25 @@
+node:events:487
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: ENOSPC: no space left on device, write
+    at writeSync (node:fs:912:3)
+    at SyncWriteStream._write (node:internal/fs/sync_write_stream:27:5)
+    at writeOrBuffer (node:internal/streams/writable:570:12)
+    at _write (node:internal/streams/writable:499:10)
+    at Writable.write (node:internal/streams/writable:508:10)
+    at file:///opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/chunks/chunk-JVUZSMYM.js:1245:14077
+    at new Promise (<anonymous>)
+    at writeRawStdoutChunk (file:///opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/chunks/chunk-JVUZSMYM.js:1245:14021)
+    at file:///opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/chunks/chunk-JVUZSMYM.js:1245:15214
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+Emitted 'error' event on SyncWriteStream instance at:
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  errno: -28,
+  syscall: 'write',
+  code: 'ENOSPC'
+}
+
+Node.js v26.0.0

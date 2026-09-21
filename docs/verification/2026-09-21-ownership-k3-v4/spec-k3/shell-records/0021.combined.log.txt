@@ -1,0 +1,12 @@
+finally:
+        # Explicitly break reference cycle.
+        excinfo = None  # type: ignore
+        os.chdir(session.startpath)
+        if initstate >= 2:
+            try:
+                config.hook.pytest_sessionfinish(
+                    session=session, exitstatus=session.exitstatus
+           
+Traceback (most recent call last):
+  File "<stdin>", line 7, in <module>
+AttributeError: module '_pytest.config' has no attribute 'pytest_cmdline_main'

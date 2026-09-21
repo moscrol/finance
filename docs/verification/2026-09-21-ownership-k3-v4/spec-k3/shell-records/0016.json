@@ -1,0 +1,11 @@
+{
+  "id": "0016",
+  "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && grep -n \"def test\" tests/test_worktree_board.py | head -40; echo ---; grep -n \"def test\" tests/test_repair_backfill_stock_history.py | head -60",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:19:02.506Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:19:02.519Z",
+  "log_sha256": "976747e18d7221af4aa7213c76260e5e712734d62befcb2299113facf0697fa6"
+}

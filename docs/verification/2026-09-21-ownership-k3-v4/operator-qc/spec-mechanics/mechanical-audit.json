@@ -1,0 +1,564 @@
+{
+  "axis": "spec",
+  "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+  "time": "2026-09-21T08:46:36.953423+00:00",
+  "semantic_qc": "PENDING",
+  "exit_code": 1,
+  "stop_reason": null,
+  "elapsed_seconds": 1978.656,
+  "identity_checks": {
+    "start_end_revision_equal": true,
+    "start_end_git_tree_equal": true,
+    "start_end_status_equal": true,
+    "start_end_candidate_files_equal": true,
+    "start_end_author_equal": true,
+    "start_end_inputs_sha256_equal": true,
+    "expected_revision": true,
+    "expected_git_tree": true,
+    "clean_start_end": true,
+    "unlimited_authorization": true,
+    "current_same_identity": true
+  },
+  "input_hash_mismatches": [],
+  "output_hash_mismatches": [],
+  "current_identity": {
+    "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+    "git_tree": "e99dad14cb946a112d92537289854d914e558936",
+    "status": "",
+    "candidate_files": {
+      "conftest.py": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955",
+      "scripts/main_gate_receipt.py": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679",
+      "scripts/run_main_gate.sh": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca",
+      "scripts/worktree_board.py": "bfd5519b73171329f69ea360be15733e9b45bf670bb88eedf7a1970b58772d42",
+      "market_feature_store/cli.py": "907564b9957feab76051a9d3d42370bfd799c9028a9371e7657780d87bf9a35b",
+      "market_feature_store/sync/repair_backfill_stock_history.py": "5035fdf3faa7e1ccd6fb84af87517f0a70c59d35a1b6c1bbb6ba4a6de5488477",
+      "scripts/verify_302132_backfill_acceptance.py": "e786c626d5a56d333d33c38249d4f4a8f8055010ee8286764a2396f4a4db8048",
+      "tests/test_main_gate_receipt.py": "8ed84a60c8f6f85a825b2b634e5105ef3c630dd63d6dc72a1e1014b7982b23f0",
+      "tests/test_worktree_board.py": "50d8558d1ae8db3c8d1a14604e522e1c1178a47f383c04e9c40927d1c635a8c3",
+      "tests/test_repair_backfill_stock_history.py": "e517755e7c1eeca2c7d93a177bfb6fccfd3593d57453e79b8ff93bc274aa0b97",
+      "test-environment.json": "33bc93e449dce2ad3af15d48671123da508da15d27c2ba4f1e67753fa5d4eaba",
+      "market_feature_store/sync/sync_daily_full.py": "57ec1bae65a64655f39f686c6370e10bd5e3016fabfa26a55cb8e1f389ff6d2b"
+    }
+  },
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 50,
+    "message_start": 115,
+    "message_end": 114,
+    "message_update": 50089,
+    "tool_execution_start": 64,
+    "tool_execution_end": 64,
+    "turn_end": 49,
+    "tool_execution_update": 105
+  },
+  "model_identities": [
+    "mirasim-kimi/kimi-k3"
+  ],
+  "model_errors": [],
+  "assistant_messages": 49,
+  "usage_message_end_only_not_invoice": {
+    "input": 633699,
+    "output": 50350,
+    "cacheRead": 3483224,
+    "cacheWrite": 0,
+    "totalTokens": 4167273
+  },
+  "compaction_and_retry_events": [],
+  "admissions": 50,
+  "admission_sequence_valid": true,
+  "admission_routes_valid": true,
+  "tool_calls": 64,
+  "tool_failures": [
+    40
+  ],
+  "trace_anomalies": [],
+  "shell_records": [
+    {
+      "record": "spec-k3/shell-records/0001.json",
+      "log": "spec-k3/shell-records/0001.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 6
+    },
+    {
+      "record": "spec-k3/shell-records/0002.json",
+      "log": "spec-k3/shell-records/0002.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 7
+    },
+    {
+      "record": "spec-k3/shell-records/0003.json",
+      "log": "spec-k3/shell-records/0003.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 8
+    },
+    {
+      "record": "spec-k3/shell-records/0004.json",
+      "log": "spec-k3/shell-records/0004.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 9
+    },
+    {
+      "record": "spec-k3/shell-records/0005.json",
+      "log": "spec-k3/shell-records/0005.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 10
+    },
+    {
+      "record": "spec-k3/shell-records/0006.json",
+      "log": "spec-k3/shell-records/0006.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 11
+    },
+    {
+      "record": "spec-k3/shell-records/0007.json",
+      "log": "spec-k3/shell-records/0007.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 13
+    },
+    {
+      "record": "spec-k3/shell-records/0008.json",
+      "log": "spec-k3/shell-records/0008.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 19
+    },
+    {
+      "record": "spec-k3/shell-records/0009.json",
+      "log": "spec-k3/shell-records/0009.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 21
+    },
+    {
+      "record": "spec-k3/shell-records/0010.json",
+      "log": "spec-k3/shell-records/0010.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 22
+    },
+    {
+      "record": "spec-k3/shell-records/0011.json",
+      "log": "spec-k3/shell-records/0011.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 23
+    },
+    {
+      "record": "spec-k3/shell-records/0012.json",
+      "log": "spec-k3/shell-records/0012.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 27
+    },
+    {
+      "record": "spec-k3/shell-records/0013.json",
+      "log": "spec-k3/shell-records/0013.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 28
+    },
+    {
+      "record": "spec-k3/shell-records/0014.json",
+      "log": "spec-k3/shell-records/0014.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 29
+    },
+    {
+      "record": "spec-k3/shell-records/0015.json",
+      "log": "spec-k3/shell-records/0015.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 33
+    },
+    {
+      "record": "spec-k3/shell-records/0016.json",
+      "log": "spec-k3/shell-records/0016.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 34
+    },
+    {
+      "record": "spec-k3/shell-records/0017.json",
+      "log": "spec-k3/shell-records/0017.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 35
+    },
+    {
+      "record": "spec-k3/shell-records/0018.json",
+      "log": "spec-k3/shell-records/0018.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 37
+    },
+    {
+      "record": "spec-k3/shell-records/0019.json",
+      "log": "spec-k3/shell-records/0019.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 38
+    },
+    {
+      "record": "spec-k3/shell-records/0020.json",
+      "log": "spec-k3/shell-records/0020.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 39
+    },
+    {
+      "record": "spec-k3/shell-records/0021.json",
+      "log": "spec-k3/shell-records/0021.combined.log",
+      "complete": true,
+      "exit_code": 1,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 40
+    },
+    {
+      "record": "spec-k3/shell-records/0022.json",
+      "log": "spec-k3/shell-records/0022.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 41
+    },
+    {
+      "record": "spec-k3/shell-records/0023.json",
+      "log": "spec-k3/shell-records/0023.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 42
+    },
+    {
+      "record": "spec-k3/shell-records/0024.json",
+      "log": "spec-k3/shell-records/0024.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 43
+    },
+    {
+      "record": "spec-k3/shell-records/0025.json",
+      "log": "spec-k3/shell-records/0025.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 44
+    },
+    {
+      "record": "spec-k3/shell-records/0026.json",
+      "log": "spec-k3/shell-records/0026.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 45
+    },
+    {
+      "record": "spec-k3/shell-records/0027.json",
+      "log": "spec-k3/shell-records/0027.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 110,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 47
+    },
+    {
+      "record": "spec-k3/shell-records/0028.json",
+      "log": "spec-k3/shell-records/0028.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 115,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 49
+    },
+    {
+      "record": "spec-k3/shell-records/0029.json",
+      "log": "spec-k3/shell-records/0029.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 50
+    },
+    {
+      "record": "spec-k3/shell-records/0030.json",
+      "log": "spec-k3/shell-records/0030.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 54
+    },
+    {
+      "record": "spec-k3/shell-records/0031.json",
+      "log": "spec-k3/shell-records/0031.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 118,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 55
+    },
+    {
+      "record": "spec-k3/shell-records/0032.json",
+      "log": "spec-k3/shell-records/0032.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 56
+    },
+    {
+      "record": "spec-k3/shell-records/0033.json",
+      "log": "spec-k3/shell-records/0033.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 118,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 57
+    },
+    {
+      "record": "spec-k3/shell-records/0034.json",
+      "log": "spec-k3/shell-records/0034.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 118,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 58
+    },
+    {
+      "record": "spec-k3/shell-records/0035.json",
+      "log": "spec-k3/shell-records/0035.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 118,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 59
+    },
+    {
+      "record": "spec-k3/shell-records/0036.json",
+      "log": "spec-k3/shell-records/0036.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 60
+    },
+    {
+      "record": "spec-k3/shell-records/0037.json",
+      "log": "spec-k3/shell-records/0037.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 115,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 62
+    },
+    {
+      "record": "spec-k3/shell-records/0038.json",
+      "log": "spec-k3/shell-records/0038.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 120,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 63
+    },
+    {
+      "record": "spec-k3/shell-records/0039.json",
+      "log": "spec-k3/shell-records/0039.combined.log",
+      "complete": true,
+      "exit_code": 0,
+      "error": null,
+      "effective_timeout": 115,
+      "timeout_valid": true,
+      "log_hash_matches": true,
+      "trace_index": 64
+    }
+  ],
+  "shell_calls_without_execution_record": [],
+  "shell_command_leads_for_manual_review": [
+    {
+      "trace_index": 42,
+      "matches": [
+        "git_mutation_or_deletion"
+      ]
+    },
+    {
+      "trace_index": 45,
+      "matches": [
+        "git_mutation_or_deletion"
+      ]
+    },
+    {
+      "trace_index": 57,
+      "matches": [
+        "git_mutation_or_deletion"
+      ]
+    },
+    {
+      "trace_index": 58,
+      "matches": [
+        "git_mutation_or_deletion"
+      ]
+    },
+    {
+      "trace_index": 59,
+      "matches": [
+        "outside_tmp",
+        "git_mutation_or_deletion"
+      ]
+    },
+    {
+      "trace_index": 60,
+      "matches": [
+        "git_mutation_or_deletion"
+      ]
+    }
+  ],
+  "repeated_write_targets": {},
+  "report_present": false,
+  "verdict_present": false,
+  "final_report_identity_matches": false,
+  "completion_identity_matches": false,
+  "model_verdict": null,
+  "reported_check_count_not_scenarios": 0,
+  "limitations": [
+    "no OS sandbox",
+    "direct-path and shell command review does not prove all filesystem accesses",
+    "clean start/end does not rule out transient modifications",
+    "shell combined bytes do not identify every nested process exit"
+  ],
+  "sha256": {
+    "execution.json": "cb487452f4a27a8502467ccf76e19a9f37db88e9e2c6916988a2d09bc1a639ee",
+    "events.jsonl": "1da03de9686ba4c86c9e995c17875023485f92f73fe595f0f17ea7ec7f781ed8"
+  }
+}

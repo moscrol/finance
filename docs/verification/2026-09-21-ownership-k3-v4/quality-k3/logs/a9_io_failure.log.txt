@@ -1,0 +1,14 @@
+--- (a) rc=0 warn=True
+..                                                                       [100%]⚠ 收据未写出（不影响测试结论）: [Errno 13] Permission denied: '/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a9-readonly/20260921T083415Z-7c9f6cf6-a8fc3c76ef7c.json'
+
+2 passed in 0.14s
+
+--- (b) rc=0 warn=True
+..                                                                       [100%]⚠ 收据未写出（不影响测试结论）: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a9-no-such-dir/pytest.json'
+
+2 passed in 0.14s
+
+--- (c) rc=0 warn=True run_files=['20260921T083416Z-7c9f6cf6-ed3301cae8e6.json']
+..                                                                       [100%]⚠ 收据未写出（不影响测试结论）: [Errno 21] Is a directory: '/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a9-latest-is-dir/.latest-xg2gnra2' -> '/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a9-latest-is-dir/latest.json'
+
+2 passed in 0.22s

@@ -1,0 +1,114 @@
+"""Offline operator-auditor fixtures; no model, source mutation, or review claim."""
+from contextlib import redirect_stdout
+import io
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+import audit_mechanics as audit
+
+
+class AuditTests(unittest.TestCase):
+    def setUp(self):
+        # Keep apparatus fixtures; these are tiny and not real reviewer evidence.
+        self.root = Path(tempfile.mkdtemp(prefix="audit-tests-", dir=Path(__file__).parent))
+        self.out = self.root / "spec-k3"
+        self.out.mkdir()
+        self.tree = self.root / "synthetic-tree"
+        self.tree.mkdir()
+        (self.tree / "sample.py").write_text("# synthetic\n")
+        (self.root / "input.txt").write_text("frozen\n")
+        self.identity = {
+            "checkout": str(self.tree), "revision": audit.REV, "git_tree": audit.GIT_TREE,
+            "status": "", "author": {"revision": audit.REV, "status": ""},
+            "candidate_files": {"sample.py": audit.sha((self.tree / "sample.py").read_bytes())},
+            "inputs_sha256": {"input.txt": audit.sha((self.root / "input.txt").read_bytes())},
+        }
+        self.events = [
+            {"type": "tool_execution_start", "toolName": "write", "toolCallId": "w1",
+             "args": {"path": str(self.out / "note.txt"), "content": "first\n"}},
+            {"type": "tool_execution_end", "toolCallId": "w1", "isError": False,
+             "result": {"content": [{"type": "text", "text": "ok"}]}},
+            {"type": "tool_execution_start", "toolName": "bash", "toolCallId": "b1",
+             "args": {"command": "printf synthetic"}},
+            {"type": "tool_execution_end", "toolCallId": "b1", "isError": False,
+             "result": {"content": [{"type": "text", "text": "synthetic"}]}},
+        ]
+        event_bytes = b"".join((json.dumps(e) + "\n").encode() for e in self.events)
+        (self.out / "events.jsonl").write_bytes(event_bytes)
+        (self.out / "request-admissions.jsonl").write_text(json.dumps({
+            "admission": 1, "provider": "mirasim-kimi", "model": "kimi-k3"}) + "\n")
+        shells = self.out / "shell-records"
+        shells.mkdir()
+        (shells / "0001.combined.log").write_bytes(b"synthetic")
+        (shells / "0001.json").write_text(json.dumps({"command": "printf synthetic", "complete": True,
+            "exit_code": 0, "timeout": 120, "log_sha256": audit.sha(b"synthetic")}))
+        self.execution = {"complete": True, "revision": audit.REV,
+            "identity_before": self.identity, "identity_after": self.identity,
+            "timeout_seconds": None, "max_provider_request_admissions": None,
+            "forced_exploration_cutoff": None, "exit_code": 1, "stop_reason": None,
+            "elapsed_seconds": 1300, "sha256": {"events.jsonl": audit.sha(event_bytes)}}
+        self.save_execution()
+
+    def save_execution(self):
+        (self.out / "execution.json").write_text(json.dumps(self.execution))
+
+    def run_audit(self):
+        values = {("rev-parse", "HEAD"): audit.REV, ("rev-parse", "HEAD^{tree}"): audit.GIT_TREE,
+                  ("status", "--porcelain=v1", "--untracked-files=all"): ""}
+        with patch.object(audit, "ROOT", self.root), patch.object(audit, "git", side_effect=lambda _, *a: values[a]), redirect_stdout(io.StringIO()):
+            audit.audit("spec")
+        return json.loads((self.root / "operator-qc/spec-mechanics/mechanical-audit.json").read_text())
+
+    def test_running_refused_before_writes(self):
+        self.execution["complete"] = False
+        self.save_execution()
+        with self.assertRaisesRegex(AssertionError, "still running"):
+            self.run_audit()
+        self.assertFalse((self.root / "operator-qc").exists())
+
+    def test_finished_failure_is_not_signoff_and_preserves_bytes(self):
+        result = self.run_audit()
+        self.assertEqual(result["exit_code"], 1)
+        self.assertFalse(result["final_report_identity_matches"])
+        self.assertEqual(result["semantic_qc"], "PENDING")
+        self.assertTrue(all(result["identity_checks"].values()))
+        self.assertEqual(result["trace_anomalies"], [])
+        self.assertEqual((self.root / "operator-qc/spec-mechanics/trace/0002-result-event.jsonl").read_bytes(),
+                         (json.dumps(self.events[3]) + "\n").encode())
+        self.assertEqual((self.root / "operator-qc/spec-mechanics/trace/0001-write-note.txt.txt").read_text(), "first\n")
+
+    def test_input_and_log_corruption_detected(self):
+        (self.root / "input.txt").write_text("changed")
+        (self.out / "shell-records/0001.combined.log").write_bytes(b"changed")
+        result = self.run_audit()
+        self.assertEqual(result["input_hash_mismatches"], ["input.txt"])
+        self.assertFalse(result["shell_records"][0]["log_hash_matches"])
+
+    def test_incomplete_line_and_sequence_detected(self):
+        with (self.out / "events.jsonl").open("ab") as stream:
+            stream.write(b'{"type":')
+        (self.out / "request-admissions.jsonl").write_text('{"admission":3,"provider":"wrong","model":"wrong"}\n')
+        result = self.run_audit()
+        self.assertEqual(result["trace_anomalies"][0]["invalid_event_line"], 5)
+        self.assertEqual(result["output_hash_mismatches"], ["events.jsonl"])
+        self.assertFalse(result["admission_sequence_valid"])
+        self.assertFalse(result["admission_routes_valid"])
+
+    def test_timeout_over_limit_detected(self):
+        path = self.out / "shell-records/0001.json"
+        row = json.loads(path.read_text())
+        row["timeout"] = 121
+        path.write_text(json.dumps(row))
+        self.assertFalse(self.run_audit()["shell_records"][0]["timeout_valid"])
+
+    def test_existing_audit_not_overwritten(self):
+        self.run_audit()
+        with self.assertRaisesRegex(AssertionError, "refuse overwrite"):
+            self.run_audit()
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

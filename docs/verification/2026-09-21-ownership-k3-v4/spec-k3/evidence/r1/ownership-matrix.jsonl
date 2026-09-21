@@ -1,0 +1,8 @@
+{"case": "O1-inprocess-nested", "ok": true, "rc": 0, "n_receipts": 1, "counts": {"passed": 2, "failed": 0, "error": 0, "skipped": 0}}
+{"case": "O2-inner-failure-isolated", "ok": true, "rc": 0, "counts": {"passed": 1, "failed": 0, "error": 0, "skipped": 0}}
+{"case": "O3-subprocess-inherited-blocked", "ok": true, "rc": 0, "stray": []}
+{"case": "O4-fresh-subprocess-new-owner", "ok": true, "rc": 0}
+{"case": "O5-sequential-reentry-immutable-path", "ok": true, "states": [{"exit": 0, "owner_after": null, "write_warning": false}, {"exit": 0, "owner_after": null, "write_warning": true}, {"exit": 0, "owner_after": null, "write_warning": false}], "run1_counts": {"passed": 1, "failed": 0, "error": 0, "skipped": 0}, "run3_target": "test_b.py"}
+{"case": "O6-configure-failure-releases-claim", "ok": true, "states": [{"exit": 4, "owner_after": null}, {"exit": 0, "owner_after": null}, {"exit": 0, "owner_after": "424242"}, {"exit": 4, "owner_after": "424242"}]}
+{"case": "O7-path-switch-no-redirect", "ok": true, "rc": 4, "foreign": []}
+{"case": "O8-simultaneous-gates-separate-receipts", "ok": true, "rcs": [0, 0]}

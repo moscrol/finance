@@ -1,0 +1,9 @@
+{
+  "axis": "spec",
+  "runner_pid": 53701,
+  "time": "2026-09-21T08:07:40.356077+00:00",
+  "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+  "max_requests": null,
+  "review_deadline_seconds": null,
+  "state": "PROCESS_LAUNCHED_NOT_VERDICT"
+}

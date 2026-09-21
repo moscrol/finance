@@ -1,0 +1,6 @@
+import pytest
+
+
+def test_outer_handles_inner_failure():
+    result = pytest.main(["-q", "-p", "no:cacheprovider", "test_o2_inner.py"])
+    assert result == 1  # inner failure seen by outer test, not by outer receipt

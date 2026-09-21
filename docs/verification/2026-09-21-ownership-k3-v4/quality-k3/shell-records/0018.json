@@ -1,0 +1,11 @@
+{
+  "id": "0018",
+  "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && bash $OUT/probes/setup_gaterepo.sh $OUT/fixtures/gaterepo && ls -la $OUT/fixtures/gaterepo",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:19:39.470Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:19:39.717Z",
+  "log_sha256": "bcadf67af93e236fed4f84da1de7fd3ee57a834f141e7089b2ff79a15ffda487"
+}

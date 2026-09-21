@@ -1,0 +1,15 @@
+rc=0
+== gate @ 069f23a9c8f1 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a11 py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a11_gate_sigkill/gate-eCUQ0rTh/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider test_slow.py
+.                                                                        [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a11_gate_sigkill/gate-eCUQ0rTh/pytest.json
+
+1 passed in 30.17s
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a11_gate_sigkill/gate-eCUQ0rTh/pytest.json
+   revision=069f23a9c8f1 dirty=False target=test_slow.py
+   passed=1 failed=0 error=0 skipped=0
+
+--- stderr ---
+====
+pgrep_rc=1

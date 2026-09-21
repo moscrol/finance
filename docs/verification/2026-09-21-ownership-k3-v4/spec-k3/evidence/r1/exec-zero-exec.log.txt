@@ -1,0 +1,10 @@
+== gate @ d0d6f28fd0c6 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/receipt-repo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/exec-zero-exec/gate-GyhXczS7/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider test_a.py -k k3nomatch
+读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/exec-zero-exec/gate-GyhXczS7/pytest.json
+
+2 deselected in 0.19s
+
+---STDERR---
+gate receipt refused: zero executed tests

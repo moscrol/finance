@@ -1,0 +1,5 @@
+..                                                                       [100%]
+2 passed in 0.01s
+STATE={"exit": 0, "owner_after": "999999", "receipt_exists": false}
+
+--- stderr ---

@@ -1,0 +1,282 @@
+def _db_shape(path: Path) -> dict | None:
+    """read_only 读一个库的形状: 表数 / 核心表行数 / fact_market_daily 覆盖上界。
+
+    打不开 (损坏/半成品) 返回 None——调用方 fail closed。
+    """
+    try:
+        con = duckdb.connect(str(path), read_only=True)
+    except Exception:
+        return None
+    try:
+        from ..db import list_tables
+
+        tables = list_tables(con)
+        rows: dict[str, int] = {}
+        for table in _RECEIPT_TABLES:
+            if table in tables:
+                rows[table] = con.execute(
+                    f'SELECT COUNT(*) FROM "{table}"'
+                ).fetchone()[0]
+        max_trade_date = None
+        if "fact_market_daily" in tables:
+            row = con.execute(
+                "SELECT MAX(trade_date) FROM fact_market_daily"
+            ).fetchone()
+            max_trade_date = str(row[0]) if row and row[0] is not None else None
+        return {
+            "table_count": len(tables),
+            "rows": rows,
+            "max_trade_date": max_trade_date,
+        }
+    finally:
+        con.close()
+
+
+def _write_receipt(staging: Path, receipt: dict) -> None:
+    """收据写进 staging、随换名一起可见——生产库自始至终不开 rw 连接。
+
+    (spec §2 的「换名后写收据」若按字面在换名后写生产库, 那一瞬的 rw 打开
+    会让恰好撞上的 read_only 连接秒败, 违背判据 1 的零失败; 故收笔前写入
+    staging, 换名后收据自然在场, 文件 mtime 即换名时刻。)
+    """
+    con = duckdb.connect(str(staging))
+    try:
+        con.execute(OPS_SYNC_RUN_DDL)
+        con.execute(
+            """
+            INSERT INTO ops_sync_run
+                (run_id, kind, plan, trade_date, started_at, finished_at,
+                 duration_s, ok, pid, child_pid, copy_method, copy_seconds,
+                 source_bytes, rows_summary, steps_summary)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            [
+                receipt["run_id"], receipt["kind"], receipt["plan"],
+                receipt["trade_date"], receipt["started_at"],
+                receipt["finished_at"], receipt["duration_s"], receipt["ok"],
+                receipt["pid"], receipt["child_pid"], receipt["copy_method"],
+                receipt["copy_seconds"], receipt["source_bytes"],
+                json.dumps(receipt["rows_summary"], ensure_ascii=False),
+                json.dumps(receipt["steps_summary"], ensure_ascii=False),
+            ],
+        )
+    finally:
+        con.close()
+
+
+def run_daily_full_staged(
+    trade_date: str | None = None,
+    skip_long: bool = False,
+    stock_source: str = "snapshot",
+    child_argv: list[str] | None = None,
+    kind: str = "daily-full",
+    pre_swap_backup: bool = False,
+) -> dict:
+    """staging 编排的公共入口：先取运行互斥锁，再进编排本体。
+
+    QC 复审三轮 P1：两轮父进程共用同一 staging 路径时，B 会把 A 尚未发布
+    的 staging 当旧残留清掉重建，A 恢复后发布的是 B 的失败半成品（连 A 写
+    进 staging 的收据一起没了）。因此互斥锁在任何清理之前取得、覆盖本轮
+    全生命周期（db.hold_run_mutex，锁在独立文件上，读写双方无感）。
+    拿不到锁立即 rc=2，不做任何清理、不动 staging、不动生产库。
+    """
+    target = _db.DB_PATH
+    try:
+        with _db.hold_run_mutex(target):
+            return _run_daily_full_staged_locked(
+                trade_date,
+                skip_long=skip_long,
+                stock_source=stock_source,
+                child_argv=child_argv,
+                kind=kind,
+                pre_swap_backup=pre_swap_backup,
+            )
+    except _db.DatabaseLockedError as exc:
+        reason = f"{exc}；本轮不做任何清理与换名"
+        print(f"[staging] {reason}", flush=True)
+        return {
+            "target": str(target),
+            "staging": str(_db.staging_path(target)),
+            "swapped": False,
+            "rc": 2,
+            "reason": reason,
+            "copy": None,
+            "child_returncode": None,
+            "run_id": None,
+            "backup": None,
+        }
+
+
+def _run_daily_full_staged_locked(
+    trade_date: str | None = None,
+    skip_long: bool = False,
+    stock_source: str = "snapshot",
+    child_argv: list[str] | None = None,
+    kind: str = "daily-full",
+    pre_swap_backup: bool = False,
+) -> dict:
+    """daily-full 的 staging 编排: 同步全程不持有生产库写锁 (bookgap S7)。
+
+    克隆生产库 → 子进程对 staging 副本跑原管道 (env 重定向, 见下) → 校验 →
+    第三方写者守卫 → [可选换名前备份] → 收据 → 原子发布（既有库在换库锁内
+    os.replace 换名；首次建库 os.link no-clobber，六轮 P1）。生产库文件只在
+    发布一瞬变化, 正持旧句柄的读者继续读旧 inode, 新连接读新库。
+    existing/absent 分类钉死在本轮首次观察（七轮 P2，见下文开工闸注释）。
+
+    pre_swap_backup=True 时（修复类调用方，QC S4 执行前提）：守卫通过后、
+    换名前给 target 落一份带 sha256 指纹与恢复步骤收据的备份
+    （db.backup_before_swap），结果带 result["backup"]。日更默认不开——
+    每晚 3.6G 级备份会把磁盘打爆，且日更已有 ops_sync_run 链。
+
+    为什么是子进程而不是进程内改 DB_PATH: 包内存在 import 期捕获路径的读点
+    (cli 顶层常量、analysis.sector_data 的默认参), 进程内改全局会漏掉它们,
+    以后新增的捕获点也会静默漏掉; 子进程在 import 前就带上
+    MARKET_FEATURE_STORE_DB, 天然覆盖全部现有与未来读点 (含孙子进程)。
+
+    child_argv 是测试缝: 注入假子进程 (自身读 env 写库/自杀) 来测换名、
+    守卫与 crash 语义, 不必跑真管道。
+
+    返回 {rc, swapped, reason, ...}; rc: 0=全绿, 1=管道有失败步但按现状
+    口径落库 (换名照做——今天的行为就是失败步不回滚已提交写入),
+    2=fail closed (未换名, 生产库未动)。
+    """
+    started_at = datetime.now()
+    started_mono = time.monotonic()
+    run_id = uuid.uuid4().hex[:12]
+    target = _db.DB_PATH
+    staging = _db.staging_path(target)
+    status_json = Path(str(staging) + ".status.json")
+    result: dict = {
+        "target": str(target),
+        "staging": str(staging),
+        "swapped": False,
+        "rc": 2,
+        "reason": None,
+        "copy": None,
+        "child_returncode": None,
+        "run_id": run_id,
+        "stale_staging_removed": False,
+        "stale_status_removed": False,
+        "backup": None,
+        "publish": None,
+    }
+
+    result["stale_staging_removed"] = _db.remove_stale_staging(staging)
+    if result["stale_staging_removed"]:
+        print(f"[staging] 清理上一轮残留 staging: {staging}", flush=True)
+    if status_json.exists():
+        # QC 复审二轮 P1（2026-09-13）：旧 status 不被清理，子进程失败且不写
+        # status 时父进程会读到上一轮的成功 JSON 照样换库（复现证据
+        # stale-status-min.json）。开工即删 + 后文 run_id 绑定双保险。
+        status_json.unlink()
+        result["stale_status_removed"] = True
+
+    # 开工闸: 有活跃写者时开跑, 克隆是撕裂快照、换名会覆盖对方工作。
+    # QC 七轮 P2：existing/absent 的分类钉死在**本轮首次观察**（就是这次
+    # exists()），之后不再就分类重新观察。此前分类在探针成功之后再做一次
+    # exists()：探针已经打开过旧库、随后目标被第三方删除，第二次 exists 得
+    # False，本轮被静默重新归类为首次建库——子进程建出缺历史的新库并发布
+    # 成功（七轮独立探针实测：旧库 2026-08-14/10000 被删后 rc=0，库里只剩
+    # 2026-08-15/12345）。钉死之后，「已见旧库、随后消失」只剩拒绝：消失在
+    # 探针窗口内由探针抛 SwapTargetReplacedError；消失在探针之后由
+    # hold_swap_lock 开锁失败拒绝——都是 rc=2，不再降格为 bootstrap。反向
+    # （钉为 absent 后第三方新建）由发布前守卫与 os.link EEXIST 原子拒绝
+    # （六轮 P1），所以首次观察一次 exists 就够，不需要身份钉死。
+    # 声明边界：钉死只对「本轮首次观察之后」的消失负责；观察之前就被删的，
+    # 本轮无从知道它存在过。
+    source_exists = target.exists()
+    try:
+        _db.probe_no_active_writer(target)
+    except _db.SwapTargetReplacedError as exc:
+        # 探针窗口内目标消失（探针的 exists→connect 之间被删）：与「有活跃
+        # 写者」分开给措辞，reason 才能指认是哪一处拒绝。它是
+        # DatabaseLockedError 子类，必须排在前面。
+        result["reason"] = f"{exc}; 拒绝开工"
+        print(f"[staging] {result['reason']}", flush=True)
+        return result
+    except _db.DatabaseLockedError as exc:
+        result["reason"] = f"生产库有活跃写者, 拒绝开工: {exc}"
+        print(f"[staging] {result['reason']}", flush=True)
+        return result
+
+    if source_exists:
+        # QC 复审三轮 P1：基线与克隆必须落在同一受保护窗口——克隆之后才认领
+        # 来源最新 stat，会把「副本不含的新写入」记成副本基线（QC 复现：克隆
+        # 10000 → 窗口内第三方提交 17000 → 末端守卫拿错基线 → 换入 10000）。
+        # hold_swap_lock 是 SH 锁：排写不排读，克隆内部的只读探针照常工作，
+        # 窗口内任何写者的 rw 打开必失败；窗口外（子进程阶段）的写入仍由
+        # 末端 stat 守卫兜底。形态基线改从克隆体自身读取——基线=副本版本。
+        try:
+            with _db.hold_swap_lock(target) as lock:
+                result["copy"] = _db.clone_to_staging(target, staging)
+                # QC 复审五轮：基线身份必须**来自这把锁**，并在克隆之后复查一次。
+                # 否则「锁住 A → 克隆 A → 路径被换成 B → 从路径 stat 得到 B」会
+                # 把 A 的副本配上 B 的基线，两边都不自知。
+                _db.assert_same_target(target, lock.identity, stage="克隆后基线")
+                # 版本基线读被锁 inode 自身 (fstat)，不再走路径——路径 stat 拿到的
+                # 可能已经是别人换上来的文件。
+                source_stat = lock.stat()
+                source_identity = lock.identity
+                source_shape = _db_shape(staging)
+        except _db.DatabaseLockedError as exc:
+            # SwapTargetReplacedError 是其子类：开锁时目标已没了、克隆期间目标被
+            # 删、克隆后身份漂了，都走这条，统一成 rc=2 拒绝，不让异常逃逸。
+            # （措辞从「拿锁失败」放宽到「失败」：六轮起这条出口不再只有拿锁一种
+            #   来源，具体是哪一处由 exc 自带的 stage 指认。）
+            result["reason"] = f"基线窗口失败: {exc}; 拒绝开工"
+            print(f"[staging] {result['reason']}", flush=True)
+            return result
+        if source_shape is None:
+            result["reason"] = f"克隆体打不开, 拒绝开工: {staging}"
+            return result
+        copy = result["copy"]
+        print(
+            f"[staging] 克隆生产库 -> {staging.name} "
+            f"({copy['method']}, {copy['seconds']}s, {copy['bytes']} bytes)",
+            flush=True,
+        )
+    else:
+        source_stat = None
+        source_shape = None
+        source_identity = None
+
+    if child_argv is None:
+        child_argv = [
+            sys.executable, "-m", "market_feature_store.cli",
+            "daily-full-exec", "--status-json", str(status_json),
+        ]
+        if trade_date:
+            child_argv += ["--trade-date", trade_date]
+        if skip_long:
+            child_argv.append("--skip-long")
+        child_argv += ["--stock-source", stock_source]
+
+    child_env = os.environ.copy()
+    child_env["MARKET_FEATURE_STORE_DB"] = str(staging)
+    # 本轮身份：子进程把 run_id 写进 status，父进程据此拒收上一轮遗留
+    child_env["MARKET_FEATURE_STORE_RUN_ID"] = run_id
+    proc = subprocess.Popen(child_argv, env=child_env, cwd=str(PROJECT_DIR))
+    print(
+        f"[staging] 子进程同步 pid={proc.pid} (写锁只落在 staging, 生产库无锁)",
+        flush=True,
+    )
+    child_rc = proc.wait()
+    result["child_returncode"] = child_rc
+    result["child_pid"] = proc.pid
+
+    def _abort(reason: str) -> dict:
+        result["reason"] = reason
+        print(f"[staging] {reason}", flush=True)
+        return result
+
+    status: dict = {}
+    if status_json.exists():
+        # QC 复审三轮 P2：损坏/非标量 status 不得抛异常逃逸，统一走明确拒绝。
+        try:
+            raw_status = json.loads(status_json.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            status_json.unlink(missing_ok=True)
+            result["status"] = {}
+            return _abort(f"status.json 解析失败 ({exc}), 不换名")
+
+[233 more lines in file. Use offset=628 to continue.]

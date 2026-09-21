@@ -1,0 +1,32 @@
+{
+  "recorded_at": "2026-09-21T08:03:29.344399+00:00",
+  "user_launch": "启动",
+  "superseding_user_instruction": "不用给k3设置预算，随便用",
+  "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+  "base": "c615adbd2f861e23f2c8d03631833f98b3ae5aba",
+  "git_tree": "e99dad14cb946a112d92537289854d914e558936",
+  "axes": [
+    "spec",
+    "quality"
+  ],
+  "max_sessions_per_axis": 1,
+  "max_requests": null,
+  "max_total_requests": null,
+  "review_deadline_seconds": null,
+  "forced_exploration_cutoff": null,
+  "token_budget": null,
+  "existing_subscription_only": true,
+  "purchases": false,
+  "paid_fallback": false,
+  "automatic_model_retries": false,
+  "merge": false,
+  "deploy": false,
+  "production_backfill": false,
+  "real_worktree_deletion": false,
+  "arena_takeover": false,
+  "per_shell_command_timeout_seconds": 120,
+  "timeout_purpose": "individual stuck-command protection; not total review budget",
+  "os_sandbox": false,
+  "credential_policy": "in-memory cache with expiry refresh through existing resolver; no token persisted",
+  "supersedes": "proposed v4 1200s/40 requests per axis and reporting cutoff; closed v3 artifacts unchanged"
+}

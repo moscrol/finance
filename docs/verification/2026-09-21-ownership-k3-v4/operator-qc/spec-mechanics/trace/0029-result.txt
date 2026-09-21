@@ -1,0 +1,156 @@
+def canonical_production_candidates() -> frozenset[Path]:
+    """canonical 生产库的全部候选绝对路径（检出位置无关）。
+
+    - 包相对路径：代码就在主检出树里跑时的常态。
+    - 主检出树路径：代码在附属 worktree 里跑时，真生产库仍被认出（G1）。
+    - MARKET_FEATURE_STORE_PRODUCTION_DB：跨 clone（独立克隆跑代码写主仓
+      库）时的显式钉；调用期读 env，不做 import 期捕获。
+    """
+    candidates = {canonical_production_path()}
+    main = _main_checkout_dir()
+    if main is not None:
+        candidates.add((main / "db" / CANONICAL_DB_NAME).resolve())
+    pinned = os.environ.get("MARKET_FEATURE_STORE_PRODUCTION_DB")
+    if pinned:
+        candidates.add(Path(pinned).expanduser().resolve())
+    return frozenset(candidates)
+
+
+def is_canonical_production(path: Path | str | None = None) -> bool:
+    """目标是否为 canonical 生产库（不是 .staging、不是测试库、不是克隆）。"""
+    target = Path(path) if path is not None else DB_PATH
+    try:
+        return target.expanduser().resolve() in canonical_production_candidates()
+    except OSError:
+        return False
+
+
+def production_write_blocked(direct: bool, path: Path | str | None = None) -> str | None:
+    """允许写则返回 None；拦下则返回给人看的拒绝理由。"""
+    if not is_canonical_production(path):
+        return None
+    if direct:
+        return None
+    return (
+        "拒绝直写生产库 db/market_feature_store.duckdb。"
+        "正门：python3 skills/daily-full-review/scripts/run_review_sync.py --date YYYY-MM-DD"
+        "（或 python3 -m market_feature_store.cli daily-full，走 staging 换名）。"
+        "急救直写必须显式加 --direct，并会写 ops_sync_run / state/direct-write-*.json 收据。"
+    )
+
+
+def write_direct_receipt(
+    *,
+    trade_date: str | None,
+    command: str,
+    ok: bool,
+    started_at: datetime | None = None,
+    extra: dict | None = None,
+) -> Path:
+    """--direct 写入的最低审计：先落 JSON，再尽力写 ops_sync_run。"""
+    run_id = uuid.uuid4().hex[:12]
+    finished = datetime.now()
+    started = started_at or finished
+    payload = {
+        "run_id": run_id,
+        "kind": "cli-direct",
+        "plan": "direct-prod",
+        "trade_date": trade_date,
+        "command": command,
+        "ok": ok,
+        "pid": os.getpid(),
+        "started_at": started.isoformat(timespec="seconds"),
+        "finished_at": finished.isoformat(timespec="seconds"),
+        "db": str(DB_PATH),
+        "extra": extra or {},
+    }
+    DIRECT_RECEIPT_DIR.mkdir(parents=True, exist_ok=True)
+    path = DIRECT_RECEIPT_DIR / f"direct-write-{trade_date or 'unknown'}-{run_id}.json"
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    try:
+        con = connect()
+        try:
+            con.execute(_OPS_SYNC_RUN_DDL)
+            con.execute(
+                """
+                INSERT INTO ops_sync_run
+                    (run_id, kind, plan, trade_date, started_at, finished_at,
+                     duration_s, ok, pid, child_pid, copy_method, copy_seconds,
+                     source_bytes, rows_summary, steps_summary)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                [
+                    run_id,
+                    "cli-direct",
+                    "direct-prod",
+                    trade_date,
+                    started,
+                    finished,
+                    round((finished - started).total_seconds(), 1),
+                    ok,
+                    os.getpid(),
+                    None,
+                    None,
+                    None,
+                    None,
+                    json.dumps({"receipt": str(path)}, ensure_ascii=False),
+1421-        # 状态文件缺省落在 "<目标库>.status.json"——正是编排层读的那个路径。
+1422-        env_db = os.environ.get("MARKET_FEATURE_STORE_DB")
+1423-        target = Path(args.db or env_db) if (args.db or env_db) else None
+1424:        refused = _refuse_production_write_direct(target)
+1425-        if refused is not None:
+1426-            return refused
+1427-        status_json = (
+1428-            Path(args.status_json)
+1429-            if args.status_json
+1430-            else (Path(str(target) + ".status.json") if target else None)
+1431-        )
+1432-        try:
+1433-            report = run_repair(
+1434-                spec,
+1435-                parquet,
+1436-                db_path=target,
+1437-                status_json=status_json,
+1438-                report_path=Path(args.report_path) if args.report_path else None,
+1439-                with_derived=True,
+1440-            )
+1441-        except RepairRefused as exc:
+1442-            print(f"修复断言不通过, 未写入: {exc}")
+1443-            return 2
+1444-        derived_note = ""
+1445-        if report.get("derived"):
+1446-            derived_note = (
+1447-                f", 派生重算 {report['derived']['recomputed_tables']}"
+1448-                f", 新增票置缺 {sorted(report['derived']['new_codes_unavailable'])}"
+1449-            )
+--
+1483-    return result["rc"]
+1484-
+1485-
+1486:def _refuse_production_write_direct(target) -> int | None:
+1487-    """修复子进程没有 --direct 逃生舱: 目标是 canonical 生产库就拒。"""
+1488-    from .write_path import production_write_blocked
+1489-
+1490-    reason = production_write_blocked(False, target)
+1491-    if reason is None:
+1492-        return None
+1493-    print(reason)
+1494-    return 2
+1495-
+1496-
+1497-def cmd_repair_backfill_302132(args) -> int:
+1498-    """302132.SZ 历史回填父命令：staging 回填 + scoped 派生重建 + 验收 + 原子换库。
+1499-
+1500-    合同 `docs/handoffs/2026-09-14-302132-prep-review.md`（P1-1/P1-2/执行前合同）：
+1501-    复用 run_daily_full_staged 的锁/克隆/第三方守卫/同轮状态/备份/原子发布；
+1502-    独立 kind=repair-backfill-302132；pre_swap_backup=True；回填、scoped 派生与
+1503-    验收全部在父流程创建的 staging 副本内完成，失败不发布。普通 daily-full 会
+1504-    重新克隆并跑全管道，不能用来发布已验 staging（评审退回草案第六节的根因）。
+1505-    --child 是 staging 子进程模式：写 MARKET_FEATURE_STORE_DB（或 --db）指向的
+1506-    副本，直写 canonical 生产库被 write_path 闸门拦死——不新增直写 canonical
+1507-    的通道。
+1508-    """
+1509-    from .sync.repair_backfill_stock_history import BackfillSpec, run_backfill_child
+1510-    from .sync.repair_hithink_stock_day import RepairRefused
+1511-    from .sync.sync_daily_full import run_daily_full_staged
+--

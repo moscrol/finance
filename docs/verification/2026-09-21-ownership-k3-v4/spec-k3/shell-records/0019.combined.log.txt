@@ -1,0 +1,18 @@
+==================== def pytest_cmdline_main MISSING
+==================== def wrap_session MISSING
+==================== def _ensure_unconfigure found
+==================== def add_cleanup found
+    def add_cleanup(self, func: Callable[[], None]) -> None:
+        """Add a function to be called when the config object gets out of
+        use (usually coinciding with pytest_unconfigure)."""
+        self._cleanup.append(func)
+
+    def _ensure_unconfigure(self) -> None:
+        if self._configured:
+            self._configured = False
+            self.hook.pytest_unconfigure(config=self)
+            self.hook.pytest_configure._call_history = []
+        while self._cleanup:
+            fin = self._cleanup.pop()
+            fin()
+

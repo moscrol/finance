@@ -1,0 +1,11 @@
+{
+  "id": "0035",
+  "command": "EV=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3\nrm -rf \"$EV\"/evidence/r1/own-o1 \"$EV\"/evidence/r1/own-o2 \"$EV\"/evidence/r1/own-o3 \"$EV\"/evidence/r1/own-o4 \"$EV\"/evidence/r1/own-o7 \"$EV\"/evidence/r1/own-o8-* \"$EV\"/evidence/r1/o5 \"$EV\"/evidence/r1/o6 \"$EV\"/tmp/o8-meet\nPY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\ncd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes\nPYTHONDONTWRITEBYTECODE=1 $PY probe_ownership.py 2>&1 | tail -12; echo \"driver rc=$?\"",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 118,
+  "started_at": "2026-09-21T08:35:59.249Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:36:08.512Z",
+  "log_sha256": "c28ba9de08e39be68dacb8b6802f866f1767d2219bdf4afed2dd6bfc62d6c478"
+}

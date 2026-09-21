@@ -1,0 +1,1 @@
+{"axis": "spec", "exit_code": 1, "stop_reason": null, "candidate_untouched": true, "model_errors": [], "provider_request_admissions": 50, "final_report_present": false, "model_verdict": null}

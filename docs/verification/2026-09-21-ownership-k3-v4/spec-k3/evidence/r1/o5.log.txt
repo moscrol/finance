@@ -1,0 +1,9 @@
+.                                                                        [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/o5/run1.json
+
+1 passed, 1 deselected in 0.15s
+.                                                                        [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/o5/run3.json
+
+1 passed in 0.18s
+O5 runner done 0 0 0 warning: True
+
+---STDERR---

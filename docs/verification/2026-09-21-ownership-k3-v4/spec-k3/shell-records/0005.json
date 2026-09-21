@@ -1,0 +1,11 @@
+{
+  "id": "0005",
+  "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && git diff --stat c615adbd2f861e23f2c8d03631833f98b3ae5aba..6eb12c1b8a41071fd4af8bee343950fe0b85b221 -- conftest.py scripts/ market_feature_store/ tests/ intelligence/ pytest.ini pyproject.toml 2>/dev/null | cat",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:08:28.041Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:08:28.063Z",
+  "log_sha256": "3b3c164e3286a5c12e9157973c860f71e28e9f5b1321c09f335d987d8d511254"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "0012",
+  "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && sed -n '1,80p' market_feature_store/write_path.py && grep -n \"_refuse_production_write_direct\" -B3 -A30 market_feature_store/cli.py | head -60",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:12:50.436Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:12:50.453Z",
+  "log_sha256": "37386d20a64317178b13e398a6545b94e8930200dd929a547b65eb08e84acbd4"
+}

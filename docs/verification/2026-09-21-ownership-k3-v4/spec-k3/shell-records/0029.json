@@ -1,0 +1,11 @@
+{
+  "id": "0029",
+  "command": "cat /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/execution-matrix.jsonl | /Users/a77/finance-workspace-private/.venv-workbench/bin/python -c \"import json,sys\nfor line in sys.stdin: r=json.loads(line); print(json.dumps(r, ensure_ascii=False))\" | grep -E \"dirty-tree-allow|zero-execution|revision-change\"",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:30:01.288Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:30:01.350Z",
+  "log_sha256": "9fd4ec92dee9f6e8eb3210d5d3b54bada46f315c9d3ba93104d0e4c49b1da86d"
+}

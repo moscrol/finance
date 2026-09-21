@@ -1,0 +1,21 @@
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+
+def test_outer_subproc_fresh():
+    inner_path = Path(os.environ["FWP_TEST_RECEIPT_DIR"]) / "inner-owned.json"
+    env = dict(os.environ)
+    env.pop("FWP_TEST_RECEIPT_OWNER_PID", None)
+    env["FWP_TEST_RECEIPT_PATH"] = str(inner_path)
+    result = subprocess.run([sys.executable, "-m", "pytest", "-q",
+                             "-p", "no:cacheprovider", "test_o3_inner.py"],
+                            env=env, capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stdout + result.stderr
+    data = json.loads(inner_path.read_text())
+    assert data["target"] == "test_o3_inner.py"
+    assert data["counts"]["passed"] == 2
+    # outer's claimed path still untouched by the fresh inner owner
+    assert not Path(os.environ["FWP_TEST_RECEIPT_PATH"]).exists()

@@ -1,0 +1,299 @@
+#!/usr/bin/env python3
+"""K3 SPEC probe: receipt ownership lifecycle (R1) with the real conftest+gate.
+
+Scenarios (all fixtures committed so the tree is clean):
+  O1 same-process nested pytest.main (different counts, -k selection):
+     inner must not write; outer receipt holds outer scope only.
+  O2 inner failure must not leak into outer receipt.
+  O3 subprocess pytest with inherited env cannot write outer's receipt.
+  O4 subprocess with cleared owner + own path is a fresh owner; both receipts exist.
+  O5 sequential same-process runs: ownership released per run; same path cannot be
+     silently overwritten (FileExistsError -> warning, first receipt intact).
+  O6 configure failure before sessionfinish still releases the claim.
+  O7 changing the claimed path mid-run cannot redirect proof (no receipt anywhere).
+  O8 two simultaneous gates keep separate receipts.
+"""
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+EV = Path("/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3")
+REPO = EV / "probes" / "receipt-repo"
+OUT = EV / "evidence" / "r1" / "ownership-matrix.jsonl"
+PY = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+
+BASE_ENV = {
+    "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+    "HOME": str(EV / "tmp" / "home-r1"),
+    "PYTHONDONTWRITEBYTECODE": "1",
+}
+results = []
+
+
+def record(name, ok, **extra):
+    rec = {"case": name, "ok": bool(ok), **extra}
+    results.append(rec)
+    print(f"{'OK ' if ok else 'BAD'} {name} {json.dumps(extra, ensure_ascii=False)[:200]}")
+
+
+def git(*args, check=True):
+    return subprocess.run(["git", *args], cwd=REPO, check=check,
+                          capture_output=True, text=True).stdout.strip()
+
+
+def commit_if_dirty(msg):
+    git("add", "-A")
+    if subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=REPO).returncode != 0:
+        git("commit", "-m", msg)
+
+
+def gate(name, target, extra_env=None):
+    env = dict(BASE_ENV)
+    rd = EV / "evidence" / "r1" / f"own-{name}"
+    env["FWP_TEST_RECEIPT_DIR"] = str(rd)
+    env.update(extra_env or {})
+    proc = subprocess.run(["bash", "scripts/run_main_gate.sh",
+                           "--pytest-args", f"-q -p no:cacheprovider {target}"],
+                          cwd=REPO, env=env, capture_output=True, text=True, timeout=90)
+    (EV / "evidence" / "r1" / f"own-{name}.log").write_text(
+        proc.stdout + "\n---STDERR---\n" + proc.stderr)
+    receipts = sorted(rd.glob("gate-*/pytest.json"))
+    return proc, rd, receipts
+
+
+def write(rel, text):
+    (REPO / rel).write_text(text)
+
+
+def main():
+    # ---- fixtures (committed => clean tree)
+    write("test_o1_inner.py", "def test_inner_one():\n    assert True\n\n\n"
+                              "def test_inner_two():\n    assert True\n")
+    write("test_o1_nested.py", '''import os
+from pathlib import Path
+
+import pytest
+
+
+def test_outer_nested():
+    claimed = Path(os.environ["FWP_TEST_RECEIPT_PATH"])
+    result = pytest.main(["-q", "-p", "no:cacheprovider",
+                          "test_o1_inner.py", "-k", "inner_two"])
+    assert result == 0
+    # the inner same-process run must NOT have written the outer's receipt
+    assert not claimed.exists(), "inner run wrote outer receipt path"
+    assert not list(claimed.parent.glob("*.json"))
+
+
+def test_outer_leaf():
+    assert True
+''')
+    write("test_o2_innerfail.py", '''import pytest
+
+
+def test_outer_handles_inner_failure():
+    result = pytest.main(["-q", "-p", "no:cacheprovider", "test_o2_inner.py"])
+    assert result == 1  # inner failure seen by outer test, not by outer receipt
+''')
+    write("test_o2_inner.py", "def test_inner_bad():\n    assert False\n")
+    write("test_o3_inner.py", "def test_o3a():\n    assert True\n\n\n"
+                              "def test_o3b():\n    assert True\n")
+    write("test_o3_subproc.py", '''import os
+import subprocess
+import sys
+from pathlib import Path
+
+
+def test_outer_subproc():
+    claimed = Path(os.environ["FWP_TEST_RECEIPT_PATH"])
+    result = subprocess.run([sys.executable, "-m", "pytest", "-q",
+                             "-p", "no:cacheprovider", "test_o3_inner.py"],
+                            capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not claimed.exists(), "subprocess wrote outer receipt path"
+''')
+    write("test_o4_subproc_fresh.py", '''import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+
+def test_outer_subproc_fresh():
+    inner_path = Path(os.environ["FWP_TEST_RECEIPT_DIR"]) / "inner-owned.json"
+    env = dict(os.environ)
+    env.pop("FWP_TEST_RECEIPT_OWNER_PID", None)
+    env["FWP_TEST_RECEIPT_PATH"] = str(inner_path)
+    result = subprocess.run([sys.executable, "-m", "pytest", "-q",
+                             "-p", "no:cacheprovider", "test_o3_inner.py"],
+                            env=env, capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stdout + result.stderr
+    data = json.loads(inner_path.read_text())
+    assert data["target"] == "test_o3_inner.py"
+    assert data["counts"]["passed"] == 2
+    # outer's claimed path still untouched by the fresh inner owner
+    assert not Path(os.environ["FWP_TEST_RECEIPT_PATH"]).exists()
+''')
+    write("test_o7_switch.py", '''import os
+from pathlib import Path
+
+
+def test_switch_path():
+    original = os.environ["FWP_TEST_RECEIPT_PATH"]
+    os.environ["FWP_TEST_RECEIPT_PATH"] = original + ".foreign"
+    Path(os.environ["FWP_TEST_RECEIPT_PATH"]).parent.mkdir(parents=True,
+                                                           exist_ok=True)
+''')
+    commit_if_dirty("k3 ownership fixtures")
+
+    # ---- O1
+    proc, rd, receipts = gate("o1", "test_o1_nested.py")
+    data = json.loads(receipts[0].read_text()) if receipts else {}
+    record("O1-inprocess-nested", proc.returncode == 0 and len(receipts) == 1
+           and data.get("target") == "test_o1_nested.py"
+           and data.get("counts") == {"passed": 2, "failed": 0, "error": 0, "skipped": 0}
+           and data.get("exit_status") == 0,
+           rc=proc.returncode, n_receipts=len(receipts), counts=data.get("counts"))
+
+    # ---- O2
+    proc, rd, receipts = gate("o2", "test_o2_innerfail.py")
+    data = json.loads(receipts[0].read_text()) if receipts else {}
+    record("O2-inner-failure-isolated", proc.returncode == 0 and len(receipts) == 1
+           and data.get("counts", {}).get("failed") == 0
+           and data.get("exit_status") == 0 and data.get("failed_ids") == [],
+           rc=proc.returncode, counts=data.get("counts"))
+
+    # ---- O3
+    proc, rd, receipts = gate("o3", "test_o3_subproc.py")
+    data = json.loads(receipts[0].read_text()) if receipts else {}
+    other_jsons = [p for p in rd.rglob("*.json")
+                   if p not in receipts and p.name != "latest.json"]
+    record("O3-subprocess-inherited-blocked",
+           proc.returncode == 0 and len(receipts) == 1
+           and data.get("counts", {}).get("passed") == 1 and not other_jsons,
+           rc=proc.returncode, stray=[str(p) for p in other_jsons])
+
+    # ---- O4
+    proc, rd, receipts = gate("o4", "test_o4_subproc_fresh.py")
+    inner = rd / "inner-owned.json"
+    inner_data = json.loads(inner.read_text()) if inner.exists() else {}
+    outer_data = json.loads(receipts[0].read_text()) if receipts else {}
+    record("O4-fresh-subprocess-new-owner",
+           proc.returncode == 0 and len(receipts) == 1
+           and inner_data.get("counts", {}).get("passed") == 2
+           and outer_data.get("counts", {}).get("passed") == 1,
+           rc=proc.returncode)
+
+    # ---- O5 sequential same-process reentry + immutable path
+    runner = EV / "probes" / "o5_runner.py"
+    outdir = EV / "evidence" / "r1" / "o5"
+    outdir.mkdir(parents=True, exist_ok=True)
+    env = dict(BASE_ENV)
+    env["FWP_TEST_RECEIPT_DIR"] = str(outdir)
+    proc = subprocess.run([PY, str(runner), str(outdir)], cwd=REPO, env=env,
+                          capture_output=True, text=True, timeout=90)
+    (EV / "evidence" / "r1" / "o5.log").write_text(proc.stdout + "\n---STDERR---\n" + proc.stderr)
+    states = [json.loads(p.read_text()) for p in sorted(outdir.glob("state-*.json"))]
+    run1 = outdir / "run1.json"
+    run3 = outdir / "run3.json"
+    run1_data = json.loads(run1.read_text()) if run1.exists() else {}
+    run3_data = json.loads(run3.read_text()) if run3.exists() else {}
+    record("O5-sequential-reentry-immutable-path",
+           proc.returncode == 0
+           and states[0]["exit"] == 0 and states[0]["owner_after"] is None
+           and states[1]["exit"] == 0 and states[1]["owner_after"] is None
+           and states[1]["write_warning"] is True
+           and states[2]["exit"] == 0
+           and run1_data.get("target") == "test_a.py"
+           and run1_data.get("counts", {}).get("passed") == 1
+           and run3_data.get("target") == "test_b.py",
+           states=states, run1_counts=run1_data.get("counts"),
+           run3_target=run3_data.get("target"))
+
+    # ---- O6 configure failure cleanup
+    runner = EV / "probes" / "o6_runner.py"
+    outdir = EV / "evidence" / "r1" / "o6"
+    outdir.mkdir(parents=True, exist_ok=True)
+    env = dict(BASE_ENV)
+    env["FWP_TEST_RECEIPT_DIR"] = str(outdir)
+    proc = subprocess.run([PY, str(runner), str(outdir)], cwd=REPO, env=env,
+                          capture_output=True, text=True, timeout=90)
+    (EV / "evidence" / "r1" / "o6.log").write_text(proc.stdout + "\n---STDERR---\n" + proc.stderr)
+    states = [json.loads(p.read_text()) for p in sorted(outdir.glob("state-*.json"))]
+    run_b = outdir / "run-b.json"
+    run_b_data = json.loads(run_b.read_text()) if run_b.exists() else {}
+    record("O6-configure-failure-releases-claim",
+           proc.returncode == 0
+           and states[0]["exit"] == 4 and states[0]["owner_after"] is None
+           and not (outdir / "run-a.json").exists()
+           and states[1]["exit"] == 0 and states[1]["owner_after"] is None
+           and run_b_data.get("counts", {}).get("passed") == 1
+           and states[2]["exit"] == 0 and states[2]["owner_after"] == "424242"
+           and states[3]["exit"] == 4 and states[3]["owner_after"] == "424242"
+           and not (outdir / "run-c.json").exists()
+           and not (outdir / "run-d.json").exists(),
+           states=states)
+
+    # ---- O7 path switch
+    proc, rd, receipts = gate("o7", "test_o7_switch.py")
+    foreign = list(rd.rglob("*.foreign"))
+    record("O7-path-switch-no-redirect",
+           proc.returncode == 4 and not receipts and not foreign,
+           rc=proc.returncode, foreign=[str(p) for p in foreign])
+
+    # ---- O8 simultaneous gates
+    meet = EV / "tmp" / "o8-meet"
+    meet.mkdir(parents=True, exist_ok=True)
+    write("test_o8.py", '''import os
+import time
+from pathlib import Path
+
+
+def test_rendezvous():
+    root = Path(os.environ["O8_MEET"])
+    root.joinpath(os.environ["O8_PEER"]).touch()
+    deadline = time.monotonic() + 15
+    while len(list(root.iterdir())) < 2:
+        assert time.monotonic() < deadline, "peer never arrived"
+        time.sleep(0.02)
+''')
+    commit_if_dirty("k3 o8 fixture")
+    procs, rds = [], []
+    for i, target in enumerate(("test_o8.py", "test_o8.py")):
+        env = dict(BASE_ENV)
+        rd = EV / "evidence" / "r1" / f"own-o8-{i}"
+        env["FWP_TEST_RECEIPT_DIR"] = str(rd)
+        env["O8_MEET"] = str(meet)
+        env["O8_PEER"] = str(i)
+        procs.append(subprocess.Popen(
+            ["bash", "scripts/run_main_gate.sh",
+             "--pytest-args", f"-q -p no:cacheprovider {target}"],
+            cwd=REPO, env=env, stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, text=True))
+        rds.append(rd)
+    outs = [p.communicate(timeout=90)[0] for p in procs]
+    rcs = [p.returncode for p in procs]
+    for i, out in enumerate(outs):
+        (EV / "evidence" / "r1" / f"own-o8-{i}.log").write_text(out)
+    recs = [sorted(rd.glob("gate-*/pytest.json")) for rd in rds]
+    datas = [json.loads(r[0].read_text()) if r else {} for r in recs]
+    record("O8-simultaneous-gates-separate-receipts",
+           rcs == [0, 0] and all(len(r) == 1 for r in recs)
+           and datas[0].get("target") == "test_o8.py"
+           and datas[1].get("target") == "test_o8.py"
+           and datas[0].get("counts", {}).get("passed") == 1
+           and datas[1].get("counts", {}).get("passed") == 1
+           and recs[0][0] != recs[1][0],
+           rcs=rcs)
+
+    OUT.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in results) + "\n")
+    fails = [r for r in results if not r["ok"]]
+    print(f"\n{len(results)} cases, {len(fails)} failed")
+    return 1 if fails else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

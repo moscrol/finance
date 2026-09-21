@@ -1,0 +1,11 @@
+{
+  "id": "0004",
+  "command": "wc -l /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/candidate.diff /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/backfill-*.md && grep -E '^(diff|---|\\+\\+\\+)' /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/candidate.diff | head -60",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:08:40.247Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:08:40.268Z",
+  "log_sha256": "869f896ce8f0aca9bec95905cf38579418bc5e7458cdfe50ae4c85f71e144216"
+}

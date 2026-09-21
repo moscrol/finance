@@ -1,0 +1,11 @@
+{
+  "id": "0017",
+  "command": "PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python; $PY -c \"import sys, pytest, duckdb; print(sys.version); print('pytest', pytest.__version__); print('duckdb', duckdb.__version__)\"; echo \"RUFF_CACHE_DIR=$RUFF_CACHE_DIR\"; $PY -m ruff --version",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:21:32.722Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:21:32.867Z",
+  "log_sha256": "6bdaa4b42b0993f1720a6f9993cf09b50b8e8cf68f8e2af398b1831ee38e19db"
+}

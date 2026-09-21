@@ -1,0 +1,11 @@
+{
+  "id": "0005",
+  "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && wc -l conftest.py scripts/main_gate_receipt.py scripts/run_main_gate.sh scripts/worktree_board.py market_feature_store/cli.py market_feature_store/sync/repair_backfill_stock_history.py scripts/verify_302132_backfill_acceptance.py market_feature_store/sync/sync_daily_full.py",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:08:56.229Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:08:56.241Z",
+  "log_sha256": "dc8a33252b32bf4a9ae10debe5b5169fc5a59e1c33d44737adf5341cbbabf9cf"
+}

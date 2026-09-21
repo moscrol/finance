@@ -1,0 +1,11 @@
+{
+  "id": "0038",
+  "command": "cat /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/b1/board.txt",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:38:51.867Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:38:51.877Z",
+  "log_sha256": "b6219f3b18725f3dd01b9049ddfa3e49e39e34365c861ea79f27663284655518"
+}

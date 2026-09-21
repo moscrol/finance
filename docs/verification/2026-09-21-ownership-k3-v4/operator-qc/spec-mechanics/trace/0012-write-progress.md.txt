@@ -1,0 +1,51 @@
+# K3 SPEC review progress notes (v4, candidate 6eb12c1b)
+
+## Identity
+- Candidate: 6eb12c1b8a41071fd4af8bee343950fe0b85b221
+- Tree: e99dad14cb946a112d92537289854d914e558936
+- Base: c615adbd2f861e23f2c8d03631833f98b3ae5aba
+- Checkout: /Users/a77/fwp-wt-ownership-spec-v4-0921 — CONFIRMED clean (git status empty), HEAD==candidate, tree matches.
+- Interpreter: /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+- Evidence root: /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3
+
+## Scope files (diff base..candidate, non-docs)
+- conftest.py (+65/-?)
+- scripts/main_gate_receipt.py (+97 new)
+- scripts/run_main_gate.sh (132 changed)
+- scripts/worktree_board.py (+123)
+- market_feature_store/cli.py (+197)
+- market_feature_store/sync/repair_backfill_stock_history.py (+775 new)
+- scripts/verify_302132_backfill_acceptance.py (+729 new)
+- tests/test_main_gate_receipt.py (+447 new)
+- tests/test_worktree_board.py (+177)
+- tests/test_repair_backfill_stock_history.py (+1236 new)
+
+## Requirement map (from review-common.md)
+- R1: receipt ownership per shell invocation; latest=navigation only; no cross-invocation proof exchange; subprocess AND same-process nested pytest cannot claim outer receipt (even identical targets diff -k/counts); fresh shell = new owner; sequential pytest releases only own ownership incl. config failure before sessionfinish; inherited PID insufficient; path change after claim cannot redirect proof.
+- R2: execution + receipt-only readback reject wrong/missing/malformed tree/revision, wrong interpreter, unknown/dirty (unless explicit local allow-dirty), bypassed dep checks, bad/noninteger/negative counts, zero execution, incomplete/interrupted runs, inconsistent failure/status. Actual pytest exit code is additional execution-mode constraint. allow-dirty cannot waive identity.
+- R3: failed current receipt => failure. Baseline comparison diagnostic only; validate current receipt, target scope match, newly introduced red IDs, nondecreasing passes. Historical baseline revision need not equal current. check_test_receipt.py permits same-revision cross-tree compat; strict run_main_gate.sh --receipt binds current tree.
+- R4: git query failure/end drift cannot pass as clean; immutable output cannot silently overwrite. Scope: cooperative-process attribution, NOT hostile forgery/concurrent threads. Start/end sampling does not prove no edit-and-restore.
+- B1: board preserves unknown for missing roots/failed git queries/parent-repo fallback; preserves locked/prunable; pins main SHA per scan; any uncommitted change precludes clean candidate; clean/patch-equivalent != deletion permission.
+- F1: 302132 repair locks stock/window/keys, validates frozen input vs independent oracle, rejects scope escapes; protected slices and nonmissing facts cannot change w/o permission.
+- F2: entrypoint = staged parent/backup/validated atomic publish. Parent --db must reject before file probes/orchestration; parent target resolves through MARKET_FEATURE_STORE_DB, not ignored flag. Child failure and missing/failed acceptance must not publish. Tiny synthetic fixtures only.
+- F3: match extracted historical backfill contracts; separate historical data/permissions from this read-only review. Full-copy publish/recovery rehearsal and production approval OUT OF SCOPE.
+
+## Known regression to assess: v3 same-process pytest could write inner scope/count into outer receipt. Candidate has Config-local claim + cleanup repair.
+
+## TODO checklist
+- [ ] Read conftest.py diff + full
+- [ ] Read scripts/main_gate_receipt.py
+- [ ] Read scripts/run_main_gate.sh
+- [ ] Read scripts/worktree_board.py + tests
+- [ ] Read market_feature_store/cli.py repair-backfill-302132 path
+- [ ] Read repair_backfill_stock_history.py
+- [ ] Read verify_302132_backfill_acceptance.py
+- [ ] Read tests (supporting evidence)
+- [ ] Probe: receipt real shell run (valid control)
+- [ ] Probe: receipt readback negative controls (wrong/missing/malformed identity, modes)
+- [ ] Probe: same-process reentry (nested pytest) — known v3 regression
+- [ ] Probe: invocation lifecycle (sequential invocations, config failure)
+- [ ] Probe: board unknown/pinned-main grouping (synthetic repos)
+- [ ] Probe: staged backfill entry/acceptance contracts (tiny synthetic)
+- [ ] Run existing formal tests (supporting)
+- [ ] Write REPORT.md + verdict.json, finish_review

@@ -1,0 +1,154 @@
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])
+    ap.add_argument(
+        "receipt",
+        nargs="?",
+        default=str(RECEIPT_DIR / "latest.json"),
+        help=f"收据路径，默认 {RECEIPT_DIR / 'latest.json'}",
+    )
+    ap.add_argument(
+        "--require-target",
+        default=None,
+        help="要求收据覆盖了这个 pytest 目标（子串匹配）；不给则不检查覆盖面",
+    )
+    ap.add_argument(
+        "--expect-revision",
+        default=None,
+        metavar="SHA",
+        help="收据 revision 必须与此 SHA 全等（rev-parse 展开后比较）；"
+        "合并前置用它把「收据树 == 要合的树」从规程文字变成 exit code",
+    )
+    ap.add_argument(
+        "--base-drift-max",
+        type=int,
+        default=None,
+        metavar="N",
+        help="收据 revision 的合并基座落后 --main-ref 超过 N 张合并即拒绝"
+        "（治「分支尖收据冒充批次门禁」，工单建议 N=5）",
+    )
+    ap.add_argument(
+        "--main-ref",
+        default="gitea/main",
+        help="--base-drift-max 的主干引用（默认 gitea/main）",
+    )
+    args = ap.parse_args()
+
+    path = Path(args.receipt).expanduser()
+    if not path.is_file():
+        print(f"用不了：没有收据 {path}", file=sys.stderr)
+        print("        先跑一次测试即会自动生成（conftest.py 的 sessionfinish 钩子）。")
+        return 2
+    receipt = _load(path)
+
+    here = {
+        "revision": _git("rev-parse", "HEAD") or "(unknown)",
+        "interpreter": sys.executable,
+        "python_version": platform.python_version(),
+        "dependency_fingerprint": _fingerprint(),
+        # 与收据同判据：只看能影响被测行为的路径，不看全树。
+        "dirty": bool(_code_dirt()),
+    }
+
+    print("=" * 72)
+    print("读数收据校验 — 判「能不能采信」，不重跑测试")
+    print("=" * 72)
+    print(f"  收据     {path}")
+    print(f"  产生于   {receipt.get('finished_at', '?')}")
+    print(f"  目标     {receipt.get('target') or '(全量)'}")
+    counts = receipt.get("counts") or {}
+    print(
+        f"  读数     passed={counts.get('passed', '?')} "
+        f"failed={counts.get('failed', '?')} error={counts.get('error', '?')} "
+        f"skipped={counts.get('skipped', '?')}\n"
+    )
+
+    blockers: list[str] = []
+
+    executed_ok, executed_message = check_executed_counts(receipt.get("counts"))
+    print(f"  {'✓' if executed_ok else '✗'} {executed_message}")
+    if not executed_ok:
+        blockers.append("零执行读数")
+
+    def compare(field: str, label: str) -> None:
+        theirs, mine = receipt.get(field), here[field]
+        same = theirs == mine
+        mark = "✓" if same else "✗"
+        print(f"  {mark} {label}")
+        if not same:
+            print(f"      收据 : {theirs}")
+            print(f"      当前 : {mine}")
+            blockers.append(label)
+
+    compare("revision", "revision 一致")
+    compare("interpreter", "解释器一致")
+    compare("python_version", "python 版本一致")
+    compare("dependency_fingerprint", "依赖指纹一致")
+
+    if receipt.get("dirty"):
+        print("  ✗ 收据来自干净树（按代码路径判，非全树）")
+        print("      收据自述 dirty=true —— 未提交改动无法被 revision 描述，")
+        print("      别人无从复现同一份代码。这类收据只对「本机此刻」有效。")
+        for item in (receipt.get("dirty_paths") or [])[:8]:
+            print(f"        脏: {item}")
+        blockers.append("收据来自脏树")
+    else:
+        total = receipt.get("worktree_dirty_total")
+        note = ""
+        if isinstance(total, int) and total:
+            # 说清「全树脏但代码干净」，否则读者会以为判据漏了东西。
+            note = f"（全树另有 {total} 个脏文件，均为 ingest 数据产物，不影响被测行为）"
+        print(f"  ✓ 收据来自干净树{note}")
+
+    if receipt.get("dependency_gate_bypassed"):
+        print("  ✗ 依赖门禁未被绕过")
+        print("      收据自述 FWP_ALLOW_ANY_PYTHON=1 —— 读数不可跨环境比较。")
+        blockers.append("依赖门禁曾被绕过")
+    else:
+        print("  ✓ 依赖门禁未被绕过")
+
+    if here["dirty"]:
+        # 当前树脏不影响「这份收据是否成立」，但影响「你能不能拿它代表你手上的代码��。
+        print("\n  ⚠ 你当前的树有未提交的**代码**改动：即使上面全部一致，")
+        print("    收据描述的是已提交的那份代码，不含你手上的改动。")
+        for item in _code_dirt()[:8]:
+            print(f"      脏: {item}")
+
+    if args.require_target:
+        target = receipt.get("target") or ""
+        if args.require_target not in target:
+            print(f"\n  ✗ 覆盖面不含 {args.require_target}（收据目标：{target or '(全量)'}）")
+            blockers.append("覆盖面不足")
+
+    receipt_rev = str(receipt.get("revision") or "")
+    if args.expect_revision:
+        ok, message = check_expected_revision(receipt_rev, args.expect_revision)
+        print(f"  {'✓' if ok else '✗'} {message}")
+        if not ok:
+            blockers.append("revision 与期望不符")
+    if args.base_drift_max is not None:
+        ok, message = check_base_drift(
+            receipt_rev, args.main_ref, max_merges=args.base_drift_max
+        )
+        print(f"  {'✓' if ok else '✗'} {message}")
+        if not ok:
+            blockers.append("基座漂移超限")
+
+    if not blockers:
+        print("\n✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。")
+        failed = receipt.get("failed_ids") or []
+        if failed:
+            print(f"   注意收据里有 {len(failed)} 条失败，按名字逐条对待：")
+            for item in failed[:10]:
+                print(f"     - {item}")
+            if len(failed) > 10:
+                print(f"     …另 {len(failed) - 10} 条")
+        return 0
+
+    print(f"\n🔁 需重跑 —— {len(blockers)} 项条件不符：{'、'.join(blockers)}")
+    print("   （「需重跑」不等于「测试坏了」，只是这份收据不适用于你的处境。）")
+    return 1
+
+
+if __name__ == "__main__":
+
+[2 more lines in file. Use offset=390 to continue.]

@@ -1,0 +1,12 @@
+patched
+BAD O1-inprocess-nested {"rc": 0, "n_receipts": 2, "counts": {"passed": 2, "failed": 0, "error": 0, "skipped": 0}}
+BAD O2-inner-failure-isolated {"rc": 0, "counts": {"passed": 1, "failed": 0, "error": 0, "skipped": 0}}
+BAD O3-subprocess-inherited-blocked {"rc": 0, "stray": []}
+BAD O4-fresh-subprocess-new-owner {"rc": 0}
+OK  O5-sequential-reentry-immutable-path {"states": [{"exit": 0, "owner_after": null, "write_warning": false}, {"exit": 0, "owner_after": null, "write_warning": true}, {"exit": 0, "owner_after": null, "write_warning": false}], "run1_counts":
+OK  O6-configure-failure-releases-claim {"states": [{"exit": 4, "owner_after": null}, {"exit": 0, "owner_after": null}, {"exit": 0, "owner_after": "424242"}, {"exit": 4, "owner_after": "424242"}]}
+OK  O7-path-switch-no-redirect {"rc": 4, "foreign": []}
+OK  O8-simultaneous-gates-separate-receipts {"rcs": [0, 0]}
+
+8 cases, 4 failed
+driver rc=0

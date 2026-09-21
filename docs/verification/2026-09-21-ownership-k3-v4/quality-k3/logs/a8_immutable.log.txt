@@ -1,0 +1,7 @@
+second_error=FileExistsError intact=True unique_default=True
+--- pre-existing path run ---
+..                                                                       [100%]⚠ 收据未写出（不影响测试结论）: [Errno 17] File exists: '/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a8-receipts/run/pytest.json'
+
+2 passed in 0.18s
+
+--- stderr ---

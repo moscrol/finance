@@ -1,0 +1,11 @@
+{
+  "id": "0001",
+  "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && git rev-parse HEAD && git rev-parse HEAD^{tree} && git status --porcelain | head -20 && echo \"---STATUS-END---\"",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:08:03.282Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:08:03.375Z",
+  "log_sha256": "c97829f9697032ffa580de56e5f4bafce9d2bfc6595060f8346dac3c43244f25"
+}

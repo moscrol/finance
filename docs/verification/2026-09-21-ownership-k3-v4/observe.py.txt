@@ -1,0 +1,62 @@
+"""Read live review status without restarting, signaling, or claiming a verdict."""
+from collections import Counter, deque
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+
+
+def load(path):
+    return json.loads(path.read_text()) if path.is_file() else {}
+
+
+def alive(pid):
+    if not pid:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+
+
+result = {"observed_at": datetime.now(timezone.utc).isoformat(), "axes": {}}
+for axis in ("spec", "quality"):
+    out = ROOT / f"{axis}-k3"
+    run = load(out / "execution.json")
+    launch = load(ROOT / f"{axis}-launch.json")
+    counts, recent, models, errors = Counter(), deque(maxlen=4), set(), []
+    event_path = out / "events.jsonl"
+    if event_path.is_file():
+        with event_path.open() as stream:
+            for line in stream:
+                try:
+                    event = json.loads(line)
+                except ValueError:
+                    continue  # A current partial line is not a completed bad event.
+                kind = event.get("type", "unknown")
+                counts[kind] += 1
+                if kind == "tool_execution_start":
+                    args = event.get("args", {})
+                    recent.append({"tool": event.get("toolName"), "path": args.get("path"),
+                                   "command_excerpt": args.get("command", "")[:240]})
+                if kind == "message_end" and event.get("message", {}).get("role") == "assistant":
+                    message = event["message"]
+                    models.add(str(message.get("provider")) + "/" + str(message.get("model")))
+                    if message.get("stopReason") in {"error", "aborted"}:
+                        errors.append(message.get("errorMessage", message.get("stopReason")))
+    admissions = out / "request-admissions.jsonl"
+    result["axes"][axis] = {
+        "runner_pid": launch.get("runner_pid"), "runner_alive": alive(launch.get("runner_pid")),
+        "pi_pid": run.get("pid"), "pi_alive": alive(run.get("pid")),
+        "execution_complete": run.get("complete"), "exit_code": run.get("exit_code"),
+        "admissions_observed": len(admissions.read_text().splitlines()) if admissions.is_file() else 0,
+        "model_identities_observed": sorted(models), "errors_observed": errors,
+        "events": dict(counts), "recent_tools": list(recent),
+        "stderr_bytes": (out / "stderr.log").stat().st_size if (out / "stderr.log").exists() else None,
+        "verdict": load(out / "verdict.json"), "completion": load(out / "completion.json"),
+        "operator_qc": "NOT_DONE",
+    }
+print(json.dumps(result, ensure_ascii=False, indent=2))

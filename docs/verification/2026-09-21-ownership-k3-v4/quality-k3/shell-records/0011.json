@@ -1,0 +1,11 @@
+{
+  "id": "0011",
+  "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && grep -n \"DB_PATH\\|MARKET_FEATURE_STORE_DB\\|def staging_path\\|def hold_run_mutex\\|def remove_stale_staging\\|def probe_no_active_writer\\|def clone_to_staging\\|def hold_swap_lock\\|def assert_same_target\\|def backup_before_swap\\|def atomic_swap_into_place\\|def publish_new_into_place\" market_feature_store/db.py | head -40",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:12:50.435Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:12:50.450Z",
+  "log_sha256": "1d73ba10288e07db32de93bd2d9732722f0a71bd6f7d6a00c6defea024499449"
+}

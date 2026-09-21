@@ -1,0 +1,49 @@
+"""O6 runner: configure failure before sessionfinish must still release the claim.
+
+run-a: a plugin raises UsageError in pytest_configure (after conftest's tryfirst
+claim). Expect exit 4, no receipt, owner env restored to absent.
+run-b: normal run afterwards must claim and write (proves release happened).
+run-c/d: with a foreign pre-set owner, no claim happens and the foreign value is
+never cleared by cleanup.
+"""
+import json
+import os
+import sys
+from pathlib import Path
+
+import pytest
+
+out = Path(sys.argv[1])
+
+
+def state(tag, exitcode):
+    s = {"exit": int(exitcode),
+         "owner_after": os.environ.get("FWP_TEST_RECEIPT_OWNER_PID")}
+    (out / f"state-{tag}.json").write_text(json.dumps(s))
+
+
+class FailConfigure:
+    @pytest.hookimpl(trylast=True)
+    def pytest_configure(self):
+        raise pytest.UsageError("k3 intentional configure failure")
+
+
+os.environ["FWP_TEST_RECEIPT_PATH"] = str(out / "run-a.json")
+ra = pytest.main(["-q", "-p", "no:cacheprovider", "test_a.py", "-k", "a1"],
+                 plugins=[FailConfigure()])
+state(0, ra)
+
+os.environ["FWP_TEST_RECEIPT_PATH"] = str(out / "run-b.json")
+rb = pytest.main(["-q", "-p", "no:cacheprovider", "test_a.py", "-k", "a1"])
+state(1, rb)
+
+os.environ["FWP_TEST_RECEIPT_OWNER_PID"] = "424242"  # foreign live owner
+os.environ["FWP_TEST_RECEIPT_PATH"] = str(out / "run-c.json")
+rc = pytest.main(["-q", "-p", "no:cacheprovider", "test_a.py", "-k", "a1"])
+state(2, rc)
+
+os.environ["FWP_TEST_RECEIPT_PATH"] = str(out / "run-d.json")
+rd = pytest.main(["-q", "-p", "no:cacheprovider", "test_a.py", "-k", "a1"],
+                 plugins=[FailConfigure()])
+state(3, rd)
+print("O6 runner done", ra, rb, rc, rd)

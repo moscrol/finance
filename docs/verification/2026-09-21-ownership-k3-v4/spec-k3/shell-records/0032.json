@@ -1,0 +1,11 @@
+{
+  "id": "0032",
+  "command": "EV=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3\n$PY - <<'EOF' 2>/dev/null || PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python; $PY - <<'EOF2'\nEOF\nimport json\nfrom pathlib import Path\nout = Path(\"/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/o5\")\nprint(\"run1 target:\", json.loads((out/\"run1.json\").read_text())[\"target\"])\nprint(\"run3 target:\", json.loads((out/\"run3.json\").read_text())[\"target\"])\nEOF2",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:34:37.084Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:34:37.155Z",
+  "log_sha256": "5a31d6d4f3a7edb27e781cea282b3d0371ce7a5b8a22e8d9a04bad5cdfeb7f01"
+}

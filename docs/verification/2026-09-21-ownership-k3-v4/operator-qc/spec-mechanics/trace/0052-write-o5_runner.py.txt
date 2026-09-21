@@ -1,0 +1,51 @@
+"""O5 runner: sequential same-process pytest runs, same claimed path.
+
+run1 claims and writes run1.json. run2 reuses the SAME path: ownership was
+released (owner env restored), so run2 may claim, but the immutable file must
+not be overwritten -- expect the write warning and run1.json intact.
+run3 uses a fresh path and must write normally.
+"""
+import json
+import os
+import sys
+from pathlib import Path
+
+import pytest
+
+out = Path(sys.argv[1])
+
+
+def state(index, exitcode, warning):
+    s = {"exit": int(exitcode),
+         "owner_after": os.environ.get("FWP_TEST_RECEIPT_OWNER_PID"),
+         "write_warning": warning}
+    (out / f"state-{index}.json").write_text(json.dumps(s))
+
+
+class Capture(pytest.Session if False else object):
+    pass
+
+
+# run 1: claims, writes
+os.environ["FWP_TEST_RECEIPT_PATH"] = str(out / "run1.json")
+r1 = pytest.main(["-q", "-p", "no:cacheprovider", "test_a.py", "-k", "a1"])
+state(0, r1, False)
+first_bytes = (out / "run1.json").read_bytes()
+
+# run 2: same path -> claim succeeds (released), write must fail closed
+os.environ["FWP_TEST_RECEIPT_PATH"] = str(out / "run1.json")
+import io
+from contextlib import redirect_stderr, redirect_stdout
+
+buf = io.StringIO()
+with redirect_stdout(buf), redirect_stderr(buf):
+    r2 = pytest.main(["-q", "-p", "no:cacheprovider", "test_b.py"])
+warning = "收据未写出" in buf.getvalue()
+state(1, r2, warning)
+assert (out / "run1.json").read_bytes() == first_bytes, "run1.json was overwritten!"
+
+# run 3: fresh path writes fine
+os.environ["FWP_TEST_RECEIPT_PATH"] = str(out / "run3.json")
+r3 = pytest.main(["-q", "-p", "no:cacheprovider", "test_b.py"])
+state(2, r3, False)
+print("O5 runner done", r1, r2, r3, "warning:", warning)

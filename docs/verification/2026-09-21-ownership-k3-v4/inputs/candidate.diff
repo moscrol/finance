@@ -1,0 +1,4277 @@
+diff --git a/conftest.py b/conftest.py
+index 325a112a1..3920371cb 100644
+--- a/conftest.py
++++ b/conftest.py
+@@ -48,6 +48,8 @@ import os
+ import platform
+ import subprocess
+ import sys
++import tempfile
++import uuid
+ from pathlib import Path
+ 
+ import pytest
+@@ -178,9 +180,33 @@ def _revision() -> str:
+     return f"{branch} @ {rev}{dirty}"
+ 
+ 
++# Config-local proof is not inherited by another pytest.main() in this process.
++# PID in the environment still blocks inherited subprocesses; neither is a sandbox.
++_RECEIPT_OWNER = pytest.StashKey[tuple[str, str]]()
++
++
++@pytest.hookimpl(tryfirst=True)
+ def pytest_configure(config: pytest.Config) -> None:
+     """收集之前先判解释器。用 UsageError 而非 assert：前者输出干净且退出码明确。"""
+ 
++    path = os.environ.get("FWP_TEST_RECEIPT_PATH")
++    previous_owner = os.environ.get("FWP_TEST_RECEIPT_OWNER_PID")
++    if path and not previous_owner:
++        owner = str(os.getpid())
++        config.stash[_RECEIPT_OWNER] = (owner, path)
++        os.environ["FWP_TEST_RECEIPT_OWNER_PID"] = owner
++
++        def release_owner() -> None:
++            # Cleanup also runs when configure fails, before sessionfinish exists.
++            # Restore only our claim; never clear a caller's replacement owner.
++            if os.environ.get("FWP_TEST_RECEIPT_OWNER_PID") == owner:
++                if previous_owner is None:
++                    os.environ.pop("FWP_TEST_RECEIPT_OWNER_PID", None)
++                else:
++                    os.environ["FWP_TEST_RECEIPT_OWNER_PID"] = previous_owner
++
++        config.add_cleanup(release_owner)
++
+     missing = _missing()
+     if not missing:
+         return
+@@ -268,6 +294,29 @@ def _dependency_fingerprint() -> str:
+     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
+ 
+ 
++def _write_test_receipt(receipt: dict) -> Path:
++    """Immutable run file plus an atomic, non-authoritative latest pointer."""
++    directory = Path(os.environ.get("FWP_TEST_RECEIPT_DIR") or _RECEIPT_DIR).expanduser()
++    directory.mkdir(parents=True, exist_ok=True)
++    stamp = _dt.datetime.now(_dt.UTC).strftime("%Y%m%dT%H%M%SZ")
++    filename = f"{stamp}-{receipt['revision'][:8]}-{uuid.uuid4().hex[:12]}.json"
++    path = Path(os.environ.get("FWP_TEST_RECEIPT_PATH") or directory / filename).expanduser()
++    encoded = json.dumps(receipt, ensure_ascii=False, indent=2) + "\n"
++    with path.open("x", encoding="utf-8") as stream:
++        stream.write(encoded)
++    temporary = None
++    try:
++        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=directory,
++                                         prefix=".latest-", delete=False) as stream:
++            temporary = Path(stream.name)
++            stream.write(encoded)
++        os.replace(temporary, directory / "latest.json")
++    finally:
++        if temporary is not None:
++            temporary.unlink(missing_ok=True)
++    return path
++
++
+ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+     """落一份机器可读收据。
+ 
+@@ -277,6 +326,12 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+ 
+     if os.environ.get(_RECEIPT_ENV) == "0":
+         return
++    path = os.environ.get("FWP_TEST_RECEIPT_PATH")
++    if path and (
++        os.environ.get("FWP_TEST_RECEIPT_OWNER_PID") != str(os.getpid())
++        or session.config.stash.get(_RECEIPT_OWNER, None) != (str(os.getpid()), path)
++    ):
++        return
+     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+     if reporter is None:
+         return
+@@ -325,15 +380,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+         "finished_at": _dt.datetime.now(_dt.UTC).isoformat(timespec="seconds"),
+     }
+     try:
+-        _RECEIPT_DIR.mkdir(parents=True, exist_ok=True)
+-        stamp = _dt.datetime.now(_dt.UTC).strftime("%Y%m%dT%H%M%SZ")
+-        path = _RECEIPT_DIR / f"{stamp}-{receipt['revision'][:8]}.json"
+-        path.write_text(
+-            json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+-        )
+-        (_RECEIPT_DIR / "latest.json").write_text(
+-            json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+-        )
++        path = _write_test_receipt(receipt)
+         reporter.write_line(f"读数收据: {path}")
+     except OSError as exc:
+         reporter.write_line(f"⚠ 收据未写出（不影响测试结论）: {exc}")
+diff --git a/market_feature_store/cli.py b/market_feature_store/cli.py
+index 38e532053..7f89ba470 100644
+--- a/market_feature_store/cli.py
++++ b/market_feature_store/cli.py
+@@ -1494,6 +1494,190 @@ def _refuse_production_write_direct(target) -> int | None:
+     return 2
+ 
+ 
++def cmd_repair_backfill_302132(args) -> int:
++    """302132.SZ 历史回填父命令：staging 回填 + scoped 派生重建 + 验收 + 原子换库。
++
++    合同 `docs/handoffs/2026-09-14-302132-prep-review.md`（P1-1/P1-2/执行前合同）：
++    复用 run_daily_full_staged 的锁/克隆/第三方守卫/同轮状态/备份/原子发布；
++    独立 kind=repair-backfill-302132；pre_swap_backup=True；回填、scoped 派生与
++    验收全部在父流程创建的 staging 副本内完成，失败不发布。普通 daily-full 会
++    重新克隆并跑全管道，不能用来发布已验 staging（评审退回草案第六节的根因）。
++    --child 是 staging 子进程模式：写 MARKET_FEATURE_STORE_DB（或 --db）指向的
++    副本，直写 canonical 生产库被 write_path 闸门拦死——不新增直写 canonical
++    的通道。
++    """
++    from .sync.repair_backfill_stock_history import BackfillSpec, run_backfill_child
++    from .sync.repair_hithink_stock_day import RepairRefused
++    from .sync.sync_daily_full import run_daily_full_staged
++
++    if args.db is not None and not args.child:
++        print("--db 仅供内部 --child 使用；父命令目标由 MARKET_FEATURE_STORE_DB 解析，拒绝忽略显式目标。")
++        return 2
++
++    parquet = Path(args.parquet)
++    if not parquet.exists():
++        print(f"parquet 不存在: {parquet}")
++        return 2
++    spec = BackfillSpec()
++
++    if args.child:
++        # 目标解析与 run_repair 同一顺序：--db > MARKET_FEATURE_STORE_DB > 包默认。
++        env_db = os.environ.get("MARKET_FEATURE_STORE_DB")
++        target = Path(args.db or env_db) if (args.db or env_db) else None
++        if target is None:
++            print("--child 需要 --db 或 MARKET_FEATURE_STORE_DB（收据必须有主）")
++            return 2
++        refused = _refuse_production_write_direct(target)
++        if refused is not None:
++            return refused
++        import duckdb
++
++        status_json = Path(str(target) + ".status.json")
++        try:
++            con = duckdb.connect(str(target))
++            try:
++                report = run_backfill_child(con, spec, parquet)
++            finally:
++                con.close()
++        except RepairRefused as exc:
++            print(f"回填护栏/验收不通过，未发布: {exc}")
++            return 2
++        from datetime import datetime, timezone
++
++        from .sync.repair_backfill_stock_history import _guarded_write_json
++        from .write_path import canonical_production_candidates
++
++        run_id = (os.environ.get("MARKET_FEATURE_STORE_RUN_ID")
++                  or "norun-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
++                  + f"-{os.getpid()}")
++        report["run_id"] = run_id
++        report["trade_date"] = spec.window_end
++        report["kind"] = "repair-backfill-302132"
++        report["ok"] = True
++        protected = {target, parquet, *canonical_production_candidates()}
++        report_path = (
++            Path(args.report_path)
++            if args.report_path
++            else Path(str(target) + f".backfill-report.{run_id}.json")
++        )
++        try:
++            _guarded_write_json(report_path, report, protected)
++        except RepairRefused as exc:
++            print(f"报告路径护栏不通过，未发布: {exc}")
++            return 2
++        status_json.write_text(
++            json.dumps({
++                "trade_date": spec.window_end,
++                "ok": True,
++                "run_id": run_id,
++                "steps": [{"name": "repair-backfill-302132", "ok": True,
++                           "technical_rows": report["technical_rows"],
++                           "window_rows": report["window_rows"]}],
++            }, ensure_ascii=False) + "\n",
++            encoding="utf-8",
++        )
++        print(
++            f"回填完成: {report['code']} 窗内 {report['technical_rows']} technical / "
++            f"{report['window_rows']} window，保护切片指纹不变，报告 {report_path}"
++        )
++        return 0
++
++    child_argv = [
++        sys.executable, "-m", "market_feature_store.cli",
++        "repair-backfill-302132", "--child",
++        "--parquet", str(parquet),
++    ]
++    if args.report_path:
++        child_argv += ["--report-path", args.report_path]
++    # 换库前预校验本轮收据可写（评审：收据在换库后才发现不可写 = 数据已发布、
++    # 证据缺失的窗口）。两条铁律：用户传入路径只纯校验（不创建、不删除——绝不
++    # 触碰用户已有文件）；可写性探针用独立 pid 命名，且仅本轮成功创建才删除。
++    from .sync.repair_backfill_stock_history import (
++        _code_revision, _guarded_write_json, _validate_receipt_path)
++    from .write_path import canonical_production_candidates
++
++    env_db = os.environ.get("MARKET_FEATURE_STORE_DB")
++    from . import db as _dbmod_pre
++    pre_target = Path(env_db) if env_db else _dbmod_pre.DB_PATH
++    protected = {pre_target, parquet, *canonical_production_candidates()}
++    if args.report_path:
++        try:
++            _validate_receipt_path(Path(args.report_path), protected)
++        except RepairRefused as exc:
++            print(f"报告路径预校验不通过（换库前拦截）: {exc}")
++            return 2
++    probe = Path(str(pre_target)
++                 + f".repair-backfill-execution.probe-{os.getpid()}.json")
++    probe_created = False
++    try:
++        _guarded_write_json(probe, {"probe": True}, protected)
++        probe_created = True
++    except RepairRefused as exc:
++        print(f"执行收据路径预校验不通过（换库前拦截）: {exc}")
++        return 2
++    finally:
++        if probe_created:  # 只清理本轮自己成功创建的探针
++            probe.unlink(missing_ok=True)
++    result = run_daily_full_staged(
++        trade_date=spec.window_end,
++        child_argv=child_argv,
++        kind="repair-backfill-302132",
++        pre_swap_backup=True,
++    )
++    if result["swapped"]:
++        print(f"回填状态: {'OK' if result['rc'] == 0 else 'CHECK'} | 已原子换库")
++        if result.get("backup"):
++            print(
++                f"换库前备份: {result['backup']['backup_path']} "
++                f"(sha256={result['backup']['backup_sha256'][:16]}…, "
++                "恢复步骤见同级 .receipt.json)"
++            )
++        # 每轮不可覆盖执行收据（评审 P2-3）：绑定 revision/dirty、run_id、spec、
++        # 两源指纹、备份身份与验收摘要。
++        from dataclasses import asdict
++
++        from . import db as _dbmod
++
++        run_id = result.get("run_id")
++        target = pre_target if pre_target is not None else _dbmod.DB_PATH
++        child_report, child_err = None, None
++        cand = (Path(args.report_path) if args.report_path else (
++            Path(str(_dbmod.staging_path(target))
++                 + f".backfill-report.{run_id}.json") if run_id else None))
++        if cand is not None:
++            try:
++                child_report = json.loads(cand.read_text(encoding="utf-8"))
++            except OSError as exc:
++                child_err = f"{type(exc).__name__}: {exc}"
++        revision, dirty = _code_revision()
++        receipt = {
++            "kind": "repair-backfill-302132",
++            "trade_date": spec.window_end,
++            "run_id": run_id,
++            "code_revision": revision,
++            "code_dirty": dirty,
++            "interpreter": sys.executable,
++            "spec": asdict(spec),
++            "child_report_path": str(cand) if cand else None,
++            "child_report": child_report,
++            "child_report_error": child_err,
++            "backup": result.get("backup"),
++            "parent": {"swapped": result["swapped"], "rc": result["rc"],
++                       "run_id": run_id},
++        }
++        try:
++            receipt_path = _guarded_write_json(
++                Path(str(target) + f".repair-backfill-execution.{run_id}.json"),
++                receipt, {target, parquet, *canonical_production_candidates()})
++        except RepairRefused as exc:
++            print(f"执行收据写出失败（数据已换库；子报告与 ops 台账仍在）: {exc}")
++            return 2
++        print(f"执行收据: {receipt_path}")
++    else:
++        print(f"回填状态: BLOCKED | 生产库未动 | {result['reason']}")
++    return result["rc"]
++
++
+ def cmd_daily_full_exec(args) -> int:
+     """(内部) daily-full 的子进程管道入口, 由 run_daily_full_staged 拉起。
+ 
+@@ -2577,6 +2761,19 @@ def build_parser() -> argparse.ArgumentParser:
+                        help="(内部/干跑) 子进程显式目标库; 缺省读 MARKET_FEATURE_STORE_DB")
+     p_rsd.set_defaults(func=cmd_repair_stock_daily_hithink)
+ 
++    p_rsb = sub.add_parser(
++        "repair-backfill-302132",
++        help="(修复) 302132.SZ 历史回填 + scoped 派生重建 (staging 写+原子换库)",
++    )
++    p_rsb.add_argument("--parquet", required=True, help="冻结 daily-k-10d parquet 路径")
++    p_rsb.add_argument("--report-path", default=None,
++                       help="回填报告 JSON 落盘路径 (缺省落 <staging>.backfill-report.json)")
++    p_rsb.add_argument("--child", action="store_true",
++                       help="(内部) staging 子进程模式, 勿直接使用")
++    p_rsb.add_argument("--db", default=None,
++                       help="(内部/干跑) 子进程显式目标库; 缺省读 MARKET_FEATURE_STORE_DB")
++    p_rsb.set_defaults(func=cmd_repair_backfill_302132)
++
+     sub.add_parser("check", help="数据体检 (行数/交易日/空值/覆盖度)").set_defaults(func=cmd_check)
+ 
+     p_cd = sub.add_parser("check-daily", help="跨日质检 (历史断档/行数异常/值域越界); rc=2 表示未通过")
+diff --git a/market_feature_store/sync/repair_backfill_stock_history.py b/market_feature_store/sync/repair_backfill_stock_history.py
+new file mode 100644
+index 000000000..c2f39f158
+--- /dev/null
++++ b/market_feature_store/sync/repair_backfill_stock_history.py
+@@ -0,0 +1,775 @@
++"""单股历史回填 + 按股限定（scoped）派生重建——302132.SZ 专用合同。
++
++合同来源（评审 `docs/handoffs/2026-09-14-302132-prep-review.md`，P1-1/P1-2
++与「下一轮执行前合同」逐条落码）：
++
++- **发布入口**：只经 `run_daily_full_staged` 父编排（独立 kind、pre_swap_backup=True），
++  父流程自建 staging；回填、派生、验收全部在 staging 副本内完成，任何一步失败
++  抛异常 → 不发布。**不新增直写 canonical 的通道**（本模块不提供 --child 直写模式）。
++- **主表回填**：精确清单 53 INSERT（51 并跑表段 + 2 冻结 parquet 尾段）+
++  06-23 空壳 UPDATE；UPDATE 前校验所有拟覆盖值字段全 NULL（不是只看 close）。
++- **scoped 派生**：读 / DELETE / INSERT 全部限定 stock × 日期窗 × 两族
++  （feature_stock_technical_daily / feature_stock_window）。「预期置缺」=已验输入
++  不足（观测数对照市场历），允许 DELETE 后 INSERT 0 行；输入异常 / 源空 / 计算
++  错误一律 fail closed。日更 `compute_features` 的非空保护不动。
++- **存量处置**（已列入影响清单）：窗内 3 条旧 technical（06-15/16/17，稀疏史
++  产物）删除置缺；4 条旧 window（06-25/06-26/07-01/07-07，旧起点）删 key 重建；
++  窗外 345 条 technical（2025-01-07..2026-06-12）不动。
++- **验收**：钉死集合——窗内 technical 39 行、window 5/10/20/60 = 59/54/44/4
++  合计 161 行、精确日期与 start/end、每窗恰 6/11/21/61 观测且与市场历切片相等、
++  09-11 四窗钉值；保护切片（他股全部行 + 目标股窗外行，含 calculated_at）前后
++  指纹相等；09-11 主表钉值行全列不变。
++- **指纹绑定**：每轮执行由 CLI 写出不可覆盖收据（`_guarded_write_json`，O_EXCL +
++  与生产/staging/冻结输入及别名隔离），绑定代码 revision/dirty、run_id、spec、
++  并跑表源行集 md5、冻结 parquet sha256、备份身份与验收摘要。
++"""
++from __future__ import annotations
++
++import hashlib
++import json
++import math
++import os
++import re
++import subprocess
++import sys
++from dataclasses import dataclass, field
++from decimal import Decimal, ROUND_HALF_UP
++from pathlib import Path
++
++from .repair_hithink_stock_day import RepairRefused
++
++SOURCE_PARALLEL = "hithink:daily-k:backfill-302132-20260914"
++SOURCE_PARQUET = "hithink:daily-k-10d:backfill-302132-20260914"
++
++# ── 钉死的 302132 合同参数（评审确认值）────────────────────────────────
++GAP_PARALLEL = (  # 并跑表段 51 日（06-15..09-08 市场历 61 日 − 生产已有 10 日）
++    "2026-06-17", "2026-06-24", "2026-06-29", "2026-06-30",
++    "2026-07-02", "2026-07-03", "2026-07-06", "2026-07-08", "2026-07-10",
++    "2026-07-13", "2026-07-14", "2026-07-15", "2026-07-16", "2026-07-17",
++    "2026-07-20", "2026-07-21", "2026-07-22", "2026-07-23", "2026-07-24",
++    "2026-07-27", "2026-07-28", "2026-07-29", "2026-07-30", "2026-07-31",
++    "2026-08-03", "2026-08-04", "2026-08-05", "2026-08-06", "2026-08-07",
++    "2026-08-10", "2026-08-11", "2026-08-12", "2026-08-13", "2026-08-14",
++    "2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21",
++    "2026-08-24", "2026-08-25", "2026-08-26", "2026-08-27", "2026-08-28",
++    "2026-08-31", "2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04",
++    "2026-09-07", "2026-09-08",
++)
++GAP_PARQUET = ("2026-09-09", "2026-09-10")
++SHELL_DATE = "2026-06-23"
++# 窗内既有、须删除置缺 / 删 key 重建的存量（评审盘点值）
++STALE_TECHNICAL_DATES = ("2026-06-15", "2026-06-16", "2026-06-17")
++STALE_WINDOW_KEYS = (  # (as_of, start)
++    ("2026-06-25", "2026-06-15"), ("2026-06-26", "2026-06-16"),
++    ("2026-07-01", "2026-06-18"), ("2026-07-07", "2026-06-22"),
++)
++PINNED_0911 = {  # 09-11 主表钉值行（updated_at 除外）
++    "stock_name": "中航成飞", "close": 63.42, "pre_close": 64.35,
++    "pct_chg": -1.45, "amount": 5.9863, "turnover": None,
++    "source": "hithink:daily-k-10d", "open": 64.01, "high": 64.66,
++    "low": 62.82, "volume": 94471.0,
++}
++# 09-11 派生钉值（评审独立核验值）
++PINNED_TECHNICAL_0911 = {"ma26": 59.8542, "std26": 2.6845,
++                         "up_value": 61.9052, "deviation_pct": 2.45}
++PINNED_WINDOWS_0911 = (  # (start, gain, avg_amount) 按 period 60/20/10/5
++    ("2026-06-18", 6.89, 5.0148), ("2026-08-14", 9.34, 6.198),
++    ("2026-08-28", 5.7, 7.9351), ("2026-09-04", 0.19, 6.9264),
++)
++EXPECTED_TECHNICAL_COUNT = 39
++EXPECTED_WINDOW_COUNTS = {5: 59, 10: 54, 20: 44, 60: 4}
++PARQUET_SHA256 = (  # 与 prod-repair-report-20260914.json / gate-report.json 记录一致
++    "51f9ee9cba1ceb4a6ff50c4c4dce8267cb39f78add28d6a33699cbf90bf28d17")
++_CODE_RE = re.compile(r"^\d{6}\.(SZ|SH|BJ)$")
++
++
++@dataclass(frozen=True)
++class BackfillSpec:
++    """单股历史回填合同。所有期望值钉死；任何一项与实况不符即拒绝。"""
++
++    code: str = "302132.SZ"
++    name: str = "中航成飞"
++    window_start: str = "2026-06-15"   # 派生重建窗口（含既有 10 旧行日）
++    window_end: str = "2026-09-11"     # 含目标日（主表行已存在，仅派生重建）
++    main_fill_end: str = "2026-09-10"  # 主表回填到此为止
++    shell_date: str = SHELL_DATE
++    gap_parallel: tuple[str, ...] = GAP_PARALLEL
++    gap_parquet: tuple[str, ...] = GAP_PARQUET
++    expected_total_rows: int = 64
++    stale_technical_dates: tuple[str, ...] = STALE_TECHNICAL_DATES
++    stale_window_keys: tuple[tuple[str, str], ...] = STALE_WINDOW_KEYS
++    pinned_0911: dict = field(default_factory=lambda: dict(PINNED_0911))
++    pinned_technical_0911: dict = field(default_factory=lambda: dict(PINNED_TECHNICAL_0911))
++    pinned_windows_0911: tuple = PINNED_WINDOWS_0911
++    expected_technical_count: int = EXPECTED_TECHNICAL_COUNT
++    expected_window_counts: dict = field(default_factory=lambda: dict(EXPECTED_WINDOW_COUNTS))
++    parquet_sha256: str = PARQUET_SHA256
++    spec_version: str = "302132-backfill-2026-09-14-v1"
++
++
++def _fail(msg: str, detail) -> None:
++    raise RepairRefused(f"{msg}: {detail}")
++
++
++PROJECT_DIR = Path(__file__).resolve().parents[2]
++
++
++def _code_revision() -> tuple[str, bool]:
++    """运行代码的 git revision 与 dirty 标志；解析不出即拒绝（收据不许无绑定）。"""
++    try:
++        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(PROJECT_DIR),
++                              capture_output=True, text=True, check=True).stdout.strip()
++        dirty = bool(subprocess.run(
++            ["git", "status", "--porcelain"], cwd=str(PROJECT_DIR),
++            capture_output=True, text=True, check=True).stdout.strip())
++    except (subprocess.CalledProcessError, FileNotFoundError, OSError) as exc:
++        raise RepairRefused(f"代码 revision 绑定失败（非 git 检出或 git 不可用）: {exc}")
++    if not head:
++        raise RepairRefused("代码 revision 绑定失败: HEAD 为空")
++    return head, dirty
++
++
++def _validate_receipt_path(path: Path,
++                           protected: set[Path] | frozenset | None = None
++                           ) -> Path:
++    """收据路径纯校验：不创建、不删除（绝不触碰调用方/用户已有文件）。"""
++    p = Path(path).expanduser()
++    if p.suffix != ".json":
++        _fail("收据/报告必须为 .json", str(p))
++    if not p.parent.is_dir():
++        _fail("收据目录不存在", str(p.parent))
++    if p.is_symlink():
++        _fail("收据路径是符号链接", str(p))
++    real = Path(os.path.realpath(p))
++    for prot in (protected or ()):
++        if real == Path(os.path.realpath(prot)):
++            _fail("收据路径与受保护文件（生产/staging/冻结输入）冲突或别名", str(p))
++    if p.exists():
++        _fail("收据路径已存在（每轮收据不可覆盖）", str(p))
++    return p
++
++
++def _guarded_write_json(path: Path, payload: dict,
++                        protected: set[Path] | frozenset | None = None) -> Path:
++    """收据/报告的唯一写出通道：O_EXCL 不可覆盖 + 别名隔离 + 全阶段 fail-closed。
++
++    半成品清理严格限于「本轮 os.open 成功创建、且清理时 (st_dev, st_ino) 仍是
++    同一个 inode」的文件——EEXIST 竞争失败或未取得所有权时绝不 unlink。
++    """
++    p = _validate_receipt_path(path, protected)
++    fd = None
++    created: tuple[int, int] | None = None
++    try:
++        fd = os.open(str(p), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
++        st = os.fstat(fd)
++        created = (st.st_dev, st.st_ino)
++        with os.fdopen(fd, "w", encoding="utf-8") as fh:
++            fd = None  # 所有权移交 fh；异常时由 with 负责关闭
++            fh.write(json.dumps(payload, ensure_ascii=False, indent=2, default=str)
++                     + "\n")
++            fh.flush()
++            os.fsync(fh.fileno())
++    except OSError as exc:
++        if fd is not None:
++            os.close(fd)
++        if created is not None:
++            try:  # 仅清理本轮自己创建且仍是同一 inode 的文件
++                cur = p.lstat()
++                if (cur.st_dev, cur.st_ino) == created:
++                    p.unlink()
++            except OSError:
++                pass
++        _fail("收据写出失败", f"{type(exc).__name__}: {exc}")
++    return p
++
++
++def _finite(v) -> bool:
++    """有限数值（int/float/Decimal；None/NaN/Inf/字符串拒绝）。"""
++    if isinstance(v, bool):
++        return False
++    try:
++        return math.isfinite(float(v))
++    except (TypeError, ValueError):
++        return False
++
++
++def _sha256(path: Path) -> str:
++    h = hashlib.sha256()
++    with path.open("rb") as fh:
++        for chunk in iter(lambda: fh.read(8 * 1024 * 1024), b""):
++            h.update(chunk)
++    return h.hexdigest()
++
++
++# ── 字段映射（与 repair_hithink_stock_day 的写入表达式逐项同构）─────────
++# pre_close 分母先 CAST DECIMAL(18,2)（评审 P2-4：严格复用受测映射）；
++# pct_chg：round(CAST((CAST(close AS DECIMAL(18,4))/pre_close_dec - 1)*100 AS DECIMAL(38,12)), 2)
++# amount：round(CAST(turnover AS DECIMAL(38,2))/100000000, 4)
++# volume：round(CAST(volume AS DECIMAL(38,0))/100, 0)
++def _oracle_pct(close: float, pre_close: float) -> float:
++    """python 侧 Decimal 半进 oracle（验收独立重算用）。"""
++    v = (Decimal(str(close)).quantize(Decimal("0.0001"))
++         / Decimal(str(pre_close)).quantize(Decimal("0.01")) - 1) * 100
++    return float(v.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
++
++
++def _oracle_amount(turnover: float) -> float:
++    v = Decimal(str(turnover)).quantize(Decimal("0.01")) / Decimal(100000000)
++    return float(v.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
++
++
++def _oracle_volume(volume: float) -> float:
++    v = Decimal(str(volume)).quantize(Decimal("1")) / Decimal(100)
++    return float(v.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
++
++
++def _slice_fingerprint(con, table: str, date_col: str, where: str) -> dict:
++    """与 repair_hithink_stock_day._table_day_fingerprint 同构的按日行数+全列哈希，
++    加 WHERE 切片（保护切片：他股全量 + 目标股窗外行，含 calculated_at）。"""
++    cols = [r[1] for r in con.execute(f"PRAGMA table_info('{table}')").fetchall()]
++    expr = " || '|' || ".join(f"coalesce(CAST({c} AS VARCHAR), '∅')" for c in cols)
++    rows = con.execute(
++        f"SELECT {date_col}, count(*), sum(hash({expr})) "
++        f"FROM {table} WHERE {where} GROUP BY 1 ORDER BY 1"
++    ).fetchall()
++    return {str(r[0]): {"rows": r[1], "hash": str(r[2])} for r in rows}
++
++
++# ── 阶段 0：护栏（写前全部成立才动手）──────────────────────────────────
++def _guard(con, spec: BackfillSpec, parquet_path: Path) -> dict:
++    if not _CODE_RE.match(spec.code):
++        _fail("非法股票代码", spec.code)
++    if not spec.gap_parallel or not spec.gap_parquet:
++        _fail("空回填清单拒绝（不得回退全市场）", spec.code)
++    if spec.window_start >= spec.window_end or spec.main_fill_end >= spec.window_end:
++        _fail("窗口日期序非法", (spec.window_start, spec.main_fill_end, spec.window_end))
++    actual_sha = _sha256(parquet_path)
++    if actual_sha != spec.parquet_sha256:
++        _fail("冻结 parquet 哈希不符", actual_sha)
++    cal = {str(r[0]) for r in con.execute(
++        "SELECT trade_date FROM fact_market_daily WHERE trade_date BETWEEN ? AND ?",
++        [spec.window_start, spec.window_end]).fetchall()}
++    for d in (spec.window_start, spec.main_fill_end, spec.window_end):
++        if d not in cal:
++            _fail("窗口边界不是市场交易日", d)
++    prev_day_row = con.execute(
++        "SELECT MAX(trade_date) FROM fact_market_daily WHERE trade_date < ?",
++        [spec.window_start]).fetchone()
++    if not prev_day_row or prev_day_row[0] is None:
++        _fail("窗口首日前无市场交易日（pre_close 链无起点）", spec.window_start)
++    prev_day = str(prev_day_row[0])
++    # 缺口清单实况：恰为 spec（apply）或已应用完毕（verify，重跑幂等）；
++    # 部分态 = 异常，fail closed。
++    live_parallel = [str(r[0]) for r in con.execute(
++        "SELECT h.trade_date FROM fact_stock_daily_hithink h "
++        "WHERE h.stock_ts_code=? AND h.trade_date BETWEEN ? AND ? "
++        "AND h.trade_date NOT IN (SELECT trade_date FROM fact_stock_daily "
++        " WHERE stock_ts_code=?) ORDER BY 1",
++        [spec.code, spec.window_start, spec.main_fill_end, spec.code]).fetchall()]
++    live_pq = [str(r[0]) for r in con.execute(
++        "SELECT CAST(to_timestamp(date_ms/1000) AS DATE) FROM read_parquet(?) "
++        "WHERE thscode=? AND CAST(to_timestamp(date_ms/1000) AS DATE) BETWEEN ? AND ? "
++        "AND CAST(to_timestamp(date_ms/1000) AS DATE) NOT IN "
++        "(SELECT trade_date FROM fact_stock_daily WHERE stock_ts_code=?) "
++        "AND CAST(to_timestamp(date_ms/1000) AS DATE) > ? ORDER BY 1",
++        [str(parquet_path), spec.code, spec.window_start, spec.main_fill_end,
++         spec.code, max(spec.gap_parallel)]).fetchall()]
++    if tuple(live_parallel) == spec.gap_parallel and tuple(live_pq) == spec.gap_parquet:
++        mode = "apply"
++    elif not live_parallel and not live_pq:
++        applied = con.execute(
++            "SELECT COUNT(*) FROM fact_stock_daily WHERE stock_ts_code=? "
++            "AND trade_date BETWEEN ? AND ? AND source IN (?, ?)",
++            [spec.code, spec.window_start, spec.main_fill_end,
++             SOURCE_PARALLEL, SOURCE_PARQUET]).fetchone()[0]
++        if applied != len(spec.gap_parallel) + len(spec.gap_parquet) + 1:
++            _fail("缺口已闭但回填行数不符（部分态，拒绝）", applied)
++        mode = "verify"
++    else:
++        _fail("缺口实况 ≠ spec 且非已应用态（部分态，拒绝）",
++              (len(live_parallel), len(live_pq)))
++    # 空壳行：apply 模式要求所有拟覆盖值字段全 NULL；verify 模式由验收 oracle 复核
++    shell = con.execute(
++        "SELECT open, high, low, close, pre_close, pct_chg, amount, volume "
++        "FROM fact_stock_daily WHERE stock_ts_code=? AND trade_date=?",
++        [spec.code, spec.shell_date]).fetchone()
++    if shell is None:
++        _fail("空壳行不存在", spec.shell_date)
++    if mode == "apply" and any(v is not None for v in shell):
++        _fail("空壳行拟覆盖字段存在非 NULL 值（拒绝臆断整行为空）", shell)
++    # 目标日主表钉值行写前快照（写后必须逐列相等）
++    pinned_before = con.execute(
++        "SELECT stock_name, close, pre_close, pct_chg, amount, turnover, source,"
++        " open, high, low, volume FROM fact_stock_daily "
++        "WHERE stock_ts_code=? AND trade_date=?",
++        [spec.code, spec.window_end]).fetchone()
++    if pinned_before is None:
++        _fail("目标日主表行不存在", spec.window_end)
++    # 回填/填充日不得落在除息事件上（pre_close=昨日 close 语义前提）；
++    # 窗口内非回填日的事件（如 06-16 纯现金除息，生产旧行）不在此约束内。
++    marks = ",".join(f"'{d}'" for d in (*spec.gap_parallel, *spec.gap_parquet,
++                                        spec.shell_date))
++    adj = con.execute(
++        f"SELECT ex_date FROM fact_stock_adjustment_hithink WHERE stock_ts_code=? "
++        f"AND ex_date IN ({marks})",
++        [spec.code]).fetchall()
++    if adj:
++        _fail("回填窗口内存在除权事件，pre_close 口径不覆盖", adj)
++    # 存量盘点：apply 模式窗内旧 technical / window 必须恰为 spec 登记集合；
++    # verify 模式窗内已是上轮重建结果，由派生验收的精确集合断言兜底。
++    if mode == "apply":
++        stale_t = tuple(str(r[0]) for r in con.execute(
++            "SELECT trade_date FROM feature_stock_technical_daily WHERE stock_ts_code=? "
++            "AND trade_date BETWEEN ? AND ? ORDER BY 1",
++            [spec.code, spec.window_start, spec.window_end]).fetchall())
++        if stale_t != spec.stale_technical_dates:
++            _fail("窗内既有 technical ≠ spec 登记的删除清单", stale_t)
++        stale_w = tuple((str(r[0]), str(r[1])) for r in con.execute(
++            "SELECT as_of_date, start_date FROM feature_stock_window WHERE stock_ts_code=? "
++            "AND as_of_date BETWEEN ? AND ? ORDER BY 1, 2",
++            [spec.code, spec.window_start, spec.window_end]).fetchall())
++        if stale_w != spec.stale_window_keys:
++            _fail("窗内既有 window ≠ spec 登记的删 key 清单", stale_w)
++    # ── 源依赖完整性（评审 P1-2）：参与 LAG 的源日期集合必须与市场历逐日相等，
++    # 缺日/非历日都会让 LAG 前驱错位；逐回填日证明前驱身份；源值有限且必填非空。
++    cal_full = [str(r[0]) for r in con.execute(
++        "SELECT DISTINCT trade_date FROM fact_market_daily WHERE trade_date BETWEEN ? "
++        "AND ? ORDER BY 1", [prev_day, spec.window_end]).fetchall()]
++    seg_a_end = max(spec.gap_parallel)
++    cal_a = [d for d in cal_full if d <= seg_a_end]
++    src_a = {str(r[0]): r[1:] for r in con.execute(
++        "SELECT trade_date, open, high, low, close, volume, turnover "
++        "FROM fact_stock_daily_hithink WHERE stock_ts_code=? AND adjusted='none' "
++        "AND trade_date BETWEEN ? AND ? ORDER BY 1",
++        [spec.code, prev_day, seg_a_end]).fetchall()}
++    if sorted(src_a) != cal_a:
++        _fail("并跑表源日期集合 ≠ 市场历（缺日/多日将使 LAG 前驱错位）",
++              {"missing": sorted(set(cal_a) - set(src_a))[:5],
++               "extra": sorted(set(src_a) - set(cal_a))[:5]})
++    first_b, last_b = min(spec.gap_parquet), max(spec.gap_parquet)
++    pred_b = cal_full[cal_full.index(first_b) - 1]
++    cal_b = [d for d in cal_full if pred_b <= d <= last_b]
++    src_b = {str(r[0]): r[1:] for r in con.execute(
++        "SELECT CAST(to_timestamp(date_ms/1000) AS DATE), open_price, high_price, "
++        "low_price, close_price, volume, turnover FROM read_parquet(?) "
++        "WHERE thscode=? AND currency='CNY' AND interval='1d' AND adjusted='none' "
++        "AND CAST(to_timestamp(date_ms/1000) AS DATE) BETWEEN ? AND ? ORDER BY 1",
++        [str(parquet_path), spec.code, pred_b, last_b]).fetchall()}
++    if sorted(src_b) != cal_b:
++        _fail("冻结 parquet 源日期集合 ≠ 市场历（缺日/多日将使 LAG 前驱错位）",
++              {"missing": sorted(set(cal_b) - set(src_b))[:5],
++               "extra": sorted(set(src_b) - set(cal_b))[:5]})
++    write_days = set(spec.gap_parallel) | set(spec.gap_parquet) | {spec.shell_date}
++    merged = {**src_a, **src_b}
++    for d in sorted(write_days):
++        pred = cal_full[cal_full.index(d) - 1]  # 逐日证明：前驱 = 前一市场交易日
++        if pred not in merged:
++            _fail("回填日的前驱市场日缺源行", (d, pred))
++    for label, src in (("并跑表", src_a), ("parquet", src_b)):
++        for d, r in src.items():
++            if not _finite(r[3]):  # close 全区间必填（pre_close/pct/均线链）
++                _fail(f"{label}源行 close 空/非有限", d)
++            if d in write_days and not all(_finite(v) for v in r):
++                _fail(f"{label}源行必填字段空/非有限（回填日）", (d, r))
++    # 目标股未授权修改行（保留行，含 09-11）全列快照（含 updated_at）——写后必须逐列相等
++    retained = con.execute(
++        f"SELECT * FROM fact_stock_daily WHERE stock_ts_code=? "
++        f"AND trade_date NOT IN ({marks}) ORDER BY trade_date",
++        [spec.code]).fetchall()
++    return {"calendar": cal, "calendar_full": cal_full, "pinned_0911_before": pinned_before,
++            "prev_day": prev_day, "mode": mode, "retained_rows": retained}
++
++
++# ── 阶段 1：主表回填 ──────────────────────────────────────────────────
++def _apply_main(con, spec: BackfillSpec, parquet_path: Path, prev_day: str,
++                mode: str) -> dict:
++    # 并跑表源行（含窗口前一交易日以供首日 pre_close 链）——口径探测 + 源指纹
++    con.execute(
++        "CREATE OR REPLACE TEMP TABLE bf_src AS "
++        "SELECT h.trade_date, h.open, h.high, h.low, h.close, h.volume, h.turnover, "
++        "       lag(h.close) OVER (ORDER BY h.trade_date) AS prev_close "
++        "FROM fact_stock_daily_hithink h "
++        "WHERE h.stock_ts_code=? AND h.trade_date BETWEEN ? AND ? "
++        "  AND h.adjusted='none'",
++        [spec.code, prev_day, max(spec.gap_parallel)],
++    )
++    src_rows = con.execute(
++        "SELECT trade_date, open, high, low, close, volume, turnover FROM bf_src "
++        "ORDER BY trade_date").fetchall()
++    src_md5 = hashlib.md5(
++        json.dumps([tuple(str(c) for c in r) for r in src_rows]).encode()).hexdigest()
++    src_dates = {str(r[0]) for r in src_rows}
++    if prev_day not in src_dates:
++        _fail("并跑表缺窗口前一交易日（pre_close 链断）", prev_day)
++    missing = [d for d in spec.gap_parallel if d not in src_dates]
++    if missing:
++        _fail("并跑表缺口源行缺失（源空 ≠ 预期置缺，拒绝）", missing)
++    # 并跑表段 INSERT：映射表达式与修复模块同构，验收另用 python oracle 独立复核
++    con.execute(
++        """
++        INSERT INTO fact_stock_daily
++        SELECT s.trade_date, ?, ?, s.close,
++               CAST(CAST(s.prev_close AS DECIMAL(18,2)) AS DOUBLE) AS pre_close,
++               CAST(round(CAST((CAST(s.close AS DECIMAL(18,4))
++                    / CAST(s.prev_close AS DECIMAL(18,2)) - 1) * 100
++                    AS DECIMAL(38,12)), 2) AS DOUBLE) AS pct_chg,
++               CAST(round(CAST(s.turnover AS DECIMAL(38,2)) / 100000000, 4) AS DOUBLE)
++                    AS amount,
++               NULL AS turnover, ?, current_timestamp, s.open, s.high, s.low,
++               CAST(round(CAST(s.volume AS DECIMAL(38,0)) / 100, 0) AS DOUBLE) AS volume
++        FROM bf_src s
++        WHERE s.trade_date BETWEEN ? AND ?
++          AND s.trade_date NOT IN (SELECT trade_date FROM fact_stock_daily
++                                   WHERE stock_ts_code=?)
++        """,
++        [spec.code, spec.name, SOURCE_PARALLEL, spec.window_start,
++         spec.main_fill_end, spec.code],
++    ) if mode == "apply" else None
++    # parquet 尾段（09-09/09-10）：pre_close = parquet 内 lag
++    con.execute(
++        """
++        CREATE OR REPLACE TEMP TABLE bf_pq AS
++        SELECT CAST(to_timestamp(date_ms/1000) AS DATE) AS trade_date,
++               open_price AS open, high_price AS high, low_price AS low,
++               close_price AS close, volume, turnover,
++               lag(close_price) OVER (ORDER BY date_ms) AS prev_close
++        FROM read_parquet(?) WHERE thscode=? AND currency='CNY' AND interval='1d'
++          AND adjusted='none'
++        """,
++        [str(parquet_path), spec.code],
++    )
++    pq_n = con.execute("SELECT COUNT(*) FROM bf_pq").fetchone()[0]
++    if pq_n < 3:
++        _fail("冻结 parquet 源行不足（源空 ≠ 预期置缺，拒绝）", pq_n)
++    con.execute(
++        """
++        INSERT INTO fact_stock_daily
++        SELECT p.trade_date, ?, ?, p.close,
++               CAST(CAST(p.prev_close AS DECIMAL(18,2)) AS DOUBLE),
++               CAST(round(CAST((CAST(p.close AS DECIMAL(18,4))
++                    / CAST(p.prev_close AS DECIMAL(18,2)) - 1) * 100
++                    AS DECIMAL(38,12)), 2) AS DOUBLE),
++               CAST(round(CAST(p.turnover AS DECIMAL(38,2)) / 100000000, 4) AS DOUBLE),
++               NULL, ?, current_timestamp, p.open, p.high, p.low,
++               CAST(round(CAST(p.volume AS DECIMAL(38,0)) / 100, 0) AS DOUBLE)
++        FROM bf_pq p WHERE p.trade_date BETWEEN ? AND ?
++        """,
++        [spec.code, spec.name, SOURCE_PARQUET,
++         min(spec.gap_parquet), max(spec.gap_parquet)],
++    ) if mode == "apply" else None
++    # 06-23 空壳填充（护栏已验 8 个值字段全 NULL）
++    con.execute(
++        """
++        UPDATE fact_stock_daily SET
++          open = s.open, high = s.high, low = s.low, close = s.close,
++          pre_close = CAST(CAST(s.prev_close AS DECIMAL(18,2)) AS DOUBLE),
++          pct_chg = CAST(round(CAST((CAST(s.close AS DECIMAL(18,4))
++                     / CAST(s.prev_close AS DECIMAL(18,2)) - 1) * 100
++                     AS DECIMAL(38,12)), 2) AS DOUBLE),
++          amount = CAST(round(CAST(s.turnover AS DECIMAL(38,2)) / 100000000, 4)
++                   AS DOUBLE),
++          volume = CAST(round(CAST(s.volume AS DECIMAL(38,0)) / 100, 0) AS DOUBLE),
++          source = ?, updated_at = current_timestamp
++        FROM bf_src s
++        WHERE fact_stock_daily.stock_ts_code = ?
++          AND fact_stock_daily.trade_date = ? AND s.trade_date = ?
++        """,
++        [SOURCE_PARALLEL, spec.code, spec.shell_date, spec.shell_date],
++    ) if mode == "apply" else None
++    return {"parallel_source_md5": src_md5, "mode": mode}
++
++
++# ── 阶段 2：scoped 派生重建（读/DELETE/INSERT 全部限定 股×窗×两族）──────
++def _rebuild_derived_scoped(con, spec: BackfillSpec, mode: str = "apply") -> dict:
++    code, d0, d1 = spec.code, spec.window_start, spec.window_end
++    # 2a. scoped 读 + stage（单股一次算全窗，与 compute_features 同公式）
++    con.execute(
++        """
++        CREATE OR REPLACE TEMP TABLE bf_tech AS
++        WITH tech AS (
++            SELECT trade_date, stock_ts_code, stock_name, close,
++                   AVG(close) OVER w AS ma26, STDDEV_POP(close) OVER w AS std26,
++                   COUNT(*) OVER w AS wc
++            FROM fact_stock_daily
++            WHERE stock_ts_code = ? AND trade_date <= ?
++            WINDOW w AS (ORDER BY trade_date ROWS BETWEEN 25 PRECEDING AND CURRENT ROW)
++        )
++        SELECT trade_date, stock_ts_code, stock_name, close,
++               ROUND(ma26, 4) AS ma26, ROUND(std26, 4) AS std26,
++               ROUND(ma26 + 0.764 * std26, 4) AS up_value,
++               ROUND((close / NULLIF(ma26 + 0.764 * std26, 0) - 1) * 100, 2)
++                   AS deviation_pct,
++               CURRENT_TIMESTAMP AS calculated_at
++        FROM tech WHERE trade_date BETWEEN ? AND ? AND wc = 26
++        """,
++        [code, d1, d0, d1],
++    )
++    con.execute("CREATE OR REPLACE TEMP TABLE bf_win AS "
++                "SELECT * FROM feature_stock_window WHERE FALSE")
++    for p in (5, 10, 20, 60):
++        con.execute(
++            f"""
++            INSERT INTO bf_win
++            WITH base AS (
++                SELECT trade_date, stock_ts_code, stock_name, close, amount,
++                       LAG(close, {p}) OVER w AS close_start,
++                       LAG(trade_date, {p}) OVER w AS start_date,
++                       AVG(amount) OVER w2 AS avg_amt, COUNT(*) OVER w2 AS wc
++                FROM fact_stock_daily
++                WHERE stock_ts_code = ? AND trade_date <= ?
++                WINDOW w AS (ORDER BY trade_date),
++                      w2 AS (ORDER BY trade_date
++                             ROWS BETWEEN {p - 1} PRECEDING AND CURRENT ROW)
++            ),
++            gains AS (
++                SELECT trade_date AS as_of_date, start_date, trade_date AS end_date,
++                       stock_ts_code, stock_name,
++                       ROUND((close / NULLIF(close_start, 0) - 1) * 100, 2) AS gain,
++                       ROUND(avg_amt, 4) AS avg_amount
++                FROM base
++                WHERE trade_date BETWEEN ? AND ? AND close_start > 0 AND wc >= {p}
++            ),
++            sectors AS (
++                SELECT trade_date, stock_ts_code,
++                       COUNT(DISTINCT sector_name) AS cnt,
++                       STRING_AGG(DISTINCT sector_name, ',' ORDER BY sector_name) AS names,
++                       STRING_AGG(DISTINCT sw_l1, ',' ORDER BY sw_l1) AS sw1
++                FROM fact_sector_stock_daily
++                WHERE stock_ts_code = ? AND trade_date BETWEEN ? AND ?
++                GROUP BY trade_date, stock_ts_code
++            )
++            SELECT g.as_of_date, g.start_date, g.end_date, g.stock_ts_code, g.stock_name,
++                   g.gain, g.avg_amount, ROUND(g.avg_amount * g.gain / 100, 4),
++                   COALESCE(s.cnt, 0), s.names, s.sw1, CURRENT_TIMESTAMP
++            FROM gains g
++            LEFT JOIN sectors s ON s.stock_ts_code = g.stock_ts_code
++                               AND s.trade_date = g.as_of_date
++            """,
++            [code, d1, d0, d1, code, d0, d1],
++        )
++    # 2b. 「预期置缺」校验：置缺日必须确实输入不足（观测数对照市场历）
++    obs = {str(r[0]): r[1] for r in con.execute(
++        "SELECT trade_date, row_number() OVER (ORDER BY trade_date) "
++        "FROM fact_stock_daily WHERE stock_ts_code=? AND trade_date BETWEEN ? AND ?",
++        [code, d0, d1]).fetchall()}
++    tech_dates = {str(r[0]) for r in con.execute("SELECT trade_date FROM bf_tech").fetchall()}
++    for d, rn in obs.items():
++        expected = rn >= 26
++        if (d in tech_dates) != expected:
++            _fail("technical 置缺/物化与观测数不符（输入异常或计算错误）",
++                  (d, rn, d in tech_dates))
++    # 2c. scoped DELETE（同边界）+ INSERT；空 stage 合法（预期置缺已验）
++    # verify 模式（重跑幂等）：零写入，只证「既有行 == 新鲜计算」（值列双向 EXCEPT ALL）
++    if mode == "verify":
++        for stage, table, dcol in (
++                ("bf_tech", "feature_stock_technical_daily", "trade_date"),
++                ("bf_win", "feature_stock_window", "as_of_date")):
++            cols = [r[1] for r in con.execute(
++                f"PRAGMA table_info('{table}')").fetchall() if r[1] != "calculated_at"]
++            sel = ", ".join(cols)
++            scope = f"stock_ts_code='{code}' AND {dcol} BETWEEN '{d0}' AND '{d1}'"
++            diff = con.execute(
++                f"SELECT COUNT(*) FROM ((SELECT {sel} FROM {stage}) EXCEPT ALL "
++                f"(SELECT {sel} FROM {table} WHERE {scope}))").fetchone()[0]
++            diff += con.execute(
++                f"SELECT COUNT(*) FROM ((SELECT {sel} FROM {table} WHERE {scope}) "
++                f"EXCEPT ALL (SELECT {sel} FROM {stage}))").fetchone()[0]
++            if diff:
++                _fail(f"verify 模式：{table} 既有行 ≠ 新鲜计算（值列）", diff)
++        return {"technical_staged": len(tech_dates)}
++    con.execute(
++        "DELETE FROM feature_stock_technical_daily WHERE stock_ts_code=? "
++        "AND trade_date BETWEEN ? AND ?", [code, d0, d1])
++    con.execute("INSERT INTO feature_stock_technical_daily SELECT * FROM bf_tech")
++    con.execute(
++        "DELETE FROM feature_stock_window WHERE stock_ts_code=? "
++        "AND as_of_date BETWEEN ? AND ?", [code, d0, d1])
++    con.execute("INSERT INTO feature_stock_window SELECT * FROM bf_win")
++    return {"technical_staged": len(tech_dates)}
++
++
++# ── 阶段 3：验收（fail closed）────────────────────────────────────────
++def _accept(con, spec: BackfillSpec, pre: dict) -> dict:
++    code, d0, d1 = spec.code, spec.window_start, spec.window_end
++    # 3a. 主表：64 日精确集合 + 54 行验收（分母 = spec 精确键集，不按输出 source 筛）
++    dates = [str(r[0]) for r in con.execute(
++        "SELECT trade_date FROM fact_stock_daily WHERE stock_ts_code=? "
++        "AND trade_date BETWEEN ? AND ? ORDER BY 1", [code, d0, d1]).fetchall()]
++    if len(dates) != spec.expected_total_rows or set(dates) != pre["calendar"]:
++        _fail("回填后窗口日期集合 ≠ 市场历", (len(dates), len(pre["calendar"])))
++    write_keys = list(spec.gap_parallel) + list(spec.gap_parquet) + [spec.shell_date]
++    marks = ",".join(f"'{d}'" for d in write_keys)
++    rows = con.execute(
++        f"SELECT trade_date, stock_name, open, high, low, close, pre_close, pct_chg,"
++        f" amount, turnover, volume, source FROM fact_stock_daily "
++        f"WHERE stock_ts_code=? AND trade_date IN ({marks})", [code]).fetchall()
++    if len(rows) != len(write_keys):
++        _fail("回填键集行数 ≠ spec（验收分母必须来自授权键集）",
++              (len(rows), len(write_keys)))
++    src_a = {str(r[0]): r[1:] for r in con.execute(
++        "SELECT trade_date, open, high, low, close, volume, turnover FROM bf_src").fetchall()}
++    src_b = {str(r[0]): r[1:] for r in con.execute(
++        "SELECT trade_date, open, high, low, close, volume, turnover FROM bf_pq").fetchall()}
++    merged = {**src_a, **src_b}
++    cal_full = pre["calendar_full"]
++    expected_label = ({d: SOURCE_PARALLEL for d in spec.gap_parallel}
++                      | {spec.shell_date: SOURCE_PARALLEL}
++                      | {d: SOURCE_PARQUET for d in spec.gap_parquet})
++    bad = []
++    for r in rows:
++        d = str(r[0])
++        src = src_b.get(d) if d in spec.gap_parquet else src_a.get(d)
++        if src is None:
++            bad.append((d, "源行缺失"))
++            continue
++        pred = cal_full[cal_full.index(d) - 1]  # oracle 前驱 = 市场历前一日（护栏已证身份）
++        pred_close = merged[pred][3]
++        exp_pre = float(Decimal(str(pred_close)).quantize(Decimal("0.01")))
++        exp_pct = _oracle_pct(r[5], exp_pre)
++        exp_amt = _oracle_amount(src[5])
++        exp_vol = _oracle_volume(src[4])
++        ok = (r[1] == spec.name and r[2] == float(src[0]) and r[3] == float(src[1])
++              and r[4] == float(src[2]) and r[5] == float(src[3])
++              and r[6] is not None and abs(r[6] - exp_pre) <= 1e-9
++              and r[7] is not None and abs(r[7] - exp_pct) <= 1e-9
++              and r[8] is not None and abs(r[8] - exp_amt) <= 1e-9
++              and r[9] is None and r[10] is not None and abs(r[10] - exp_vol) <= 1e-9
++              and r[11] == expected_label[d]
++              and all(_finite(v) for v in (r[2], r[3], r[4], r[5])))
++        if not ok:
++            bad.append((d, tuple(r[1:]), tuple(src)))
++    if bad:
++        _fail("回填行全字段验收 ≠ 独立 oracle（含 OHLC/昨收/来源标签）", bad[:3])
++    # 副查：带回填标签的总行数恰为 54（标签错标/漏标都会破坏守恒）
++    labeled = con.execute(
++        "SELECT COUNT(*) FROM fact_stock_daily WHERE stock_ts_code=? "
++        "AND source IN (?, ?)", [code, SOURCE_PARALLEL, SOURCE_PARQUET]).fetchone()[0]
++    if labeled != len(write_keys):
++        _fail("回填标签行数 ≠ 键集（来源标签守恒破坏）", labeled)
++    # 目标股未授权修改行（含 09-11，全列含 updated_at）必须与写前快照逐列相等
++    retained_after = con.execute(
++        f"SELECT * FROM fact_stock_daily WHERE stock_ts_code=? "
++        f"AND trade_date NOT IN ({marks}) ORDER BY trade_date", [code]).fetchall()
++    if retained_after != pre["retained_rows"]:
++        _fail("目标股保留行（含 09-11 updated_at）被改动",
++              (len(pre["retained_rows"]), len(retained_after)))
++    # 3b. 09-11 钉值行逐列不变
++    pinned_after = con.execute(
++        "SELECT stock_name, close, pre_close, pct_chg, amount, turnover, source,"
++        " open, high, low, volume FROM fact_stock_daily "
++        "WHERE stock_ts_code=? AND trade_date=?", [code, d1]).fetchone()
++    if pinned_after != pre["pinned_0911_before"]:
++        _fail("09-11 钉值行被改动", (pre["pinned_0911_before"], pinned_after))
++    spec_pinned = spec.pinned_0911
++    if tuple(spec_pinned[k] for k in (
++            "stock_name", "close", "pre_close", "pct_chg", "amount", "turnover",
++            "source", "open", "high", "low", "volume")) != pinned_after:
++        _fail("09-11 钉值行 ≠ spec 钉值", pinned_after)
++    # 3c. 派生精确集合
++    tech = con.execute(
++        "SELECT trade_date, ma26, std26, up_value, deviation_pct "
++        "FROM feature_stock_technical_daily WHERE stock_ts_code=? "
++        "AND trade_date BETWEEN ? AND ? ORDER BY 1", [code, d0, d1]).fetchall()
++    if len(tech) != spec.expected_technical_count:
++        _fail("technical 行数 ≠ 钉值", (len(tech), spec.expected_technical_count))
++    for d in spec.stale_technical_dates:
++        if any(str(r[0]) == d for r in tech):
++            _fail("应置缺旧 technical 行残留", d)
++    win = con.execute(
++        "SELECT as_of_date, start_date, end_date, interval_gain_pct, avg_amount "
++        "FROM feature_stock_window WHERE stock_ts_code=? "
++        "AND as_of_date BETWEEN ? AND ? ORDER BY 1, 2", [code, d0, d1]).fetchall()
++    for key in spec.stale_window_keys:
++        if any((str(r[0]), str(r[1])) == key for r in win):
++            _fail("应删旧 window key 残留", key)
++    # 黄金三元组（评审 P2-2）：按市场历索引构造全部合法 (as_of, start, end)，双向集合相等；
++    # start 必须是市场日、跨度必须恰为 p+1 观测，由构造保证，不靠计数推断。
++    cal_sorted = sorted(pre["calendar"])
++    golden = set()
++    for i, a in enumerate(cal_sorted):
++        for p in (5, 10, 20, 60):
++            if i >= p:  # 观测数 i+1 >= p+1
++                golden.add((a, cal_sorted[i - p], a))
++    actual = {(str(r[0]), str(r[1]), str(r[2])) for r in win}
++    if len(actual) != len(win) or actual != golden:
++        _fail("window (as_of,start,end) 集合 ≠ 市场历黄金三元组",
++              {"only_actual": sorted(actual - golden)[:3],
++               "only_golden": sorted(golden - actual)[:3]})
++    idx = {d: i for i, d in enumerate(cal_sorted)}
++    counts = {5: 0, 10: 0, 20: 0, 60: 0}
++    for a, s, _e in actual:
++        counts[idx[a] - idx[s]] += 1
++    if counts != spec.expected_window_counts:
++        _fail("window 各期计数 ≠ 钉值", (counts, spec.expected_window_counts))
++    # 3d. 09-11 派生钉值
++    t9 = [r for r in tech if str(r[0]) == d1]
++    if len(t9) != 1:
++        _fail("09-11 technical 未物化", t9)
++    tp = spec.pinned_technical_0911
++    if (abs(t9[0][1] - tp["ma26"]) > 1e-9 or abs(t9[0][2] - tp["std26"]) > 1e-9
++            or abs(t9[0][3] - tp["up_value"]) > 1e-9
++            or abs(t9[0][4] - tp["deviation_pct"]) > 1e-9):
++        _fail("09-11 technical ≠ 钉值", t9[0])
++    w9 = sorted([r for r in win if str(r[0]) == d1], key=lambda r: str(r[1]))
++    got = tuple((str(r[1]), r[3], r[4]) for r in w9)
++    if len(got) != len(spec.pinned_windows_0911):
++        _fail("目标日 window 窗数 ≠ spec 钉值（缺窗/多窗都拒绝）", got)
++    for g, p in zip(got, spec.pinned_windows_0911):
++        if g[0] != p[0] or abs(g[1] - p[1]) > 1e-9 or abs(g[2] - p[2]) > 1e-9:
++            _fail("09-11 window ≠ 钉值", (g, p))
++    return {"technical_rows": len(tech), "window_rows": len(win),
++            "window_counts": counts}
++
++
++def run_backfill_child(con, spec: BackfillSpec, parquet_path: Path) -> dict:
++    """在父流程 staging 副本内执行：护栏 → 主表 → scoped 派生 → 验收。
++
++    任何一步失败抛 RepairRefused（或底层异常），父流程不发布。
++    """
++    pre = _guard(con, spec, parquet_path)
++    # 保护切片指纹（写前）：他股全量 + 目标股窗外行，含 calculated_at
++    fp_before = {
++        "fact_other": _slice_fingerprint(
++            con, "fact_stock_daily", "trade_date",
++            f"stock_ts_code <> '{spec.code}'"),
++        "tech_protected": _slice_fingerprint(
++            con, "feature_stock_technical_daily", "trade_date",
++            f"stock_ts_code <> '{spec.code}' OR trade_date NOT BETWEEN "
++            f"'{spec.window_start}' AND '{spec.window_end}'"),
++        "win_protected": _slice_fingerprint(
++            con, "feature_stock_window", "as_of_date",
++            f"stock_ts_code <> '{spec.code}' OR as_of_date NOT BETWEEN "
++            f"'{spec.window_start}' AND '{spec.window_end}'"),
++    }
++    facts = _apply_main(con, spec, parquet_path, pre["prev_day"], pre["mode"])
++    derived = _rebuild_derived_scoped(con, spec, pre["mode"])
++    accepted = _accept(con, spec, pre)
++    accepted.update(derived)
++    fp_after = {
++        "fact_other": _slice_fingerprint(
++            con, "fact_stock_daily", "trade_date",
++            f"stock_ts_code <> '{spec.code}'"),
++        "tech_protected": _slice_fingerprint(
++            con, "feature_stock_technical_daily", "trade_date",
++            f"stock_ts_code <> '{spec.code}' OR trade_date NOT BETWEEN "
++                  f"'{spec.window_start}' AND '{spec.window_end}'"),
++        "win_protected": _slice_fingerprint(
++            con, "feature_stock_window", "as_of_date",
++            f"stock_ts_code <> '{spec.code}' OR as_of_date NOT BETWEEN "
++                  f"'{spec.window_start}' AND '{spec.window_end}'"),
++    }
++    for k in fp_before:
++        if fp_before[k] != fp_after[k]:
++            _fail(f"保护切片被改动（{k}，含 calculated_at）",
++                  (len(fp_before[k]), len(fp_after[k])))
++    revision, dirty = _code_revision()
++    return {
++        "spec_version": spec.spec_version,
++        "code": spec.code,
++        "parquet_sha256": spec.parquet_sha256,
++        "code_revision": revision,
++        "code_dirty": dirty,
++        "interpreter": sys.executable,
++        **facts, **accepted,
++        "protected_slices": {k: len(v) for k, v in fp_after.items()},
++    }
+diff --git a/scripts/main_gate_receipt.py b/scripts/main_gate_receipt.py
+new file mode 100644
+index 000000000..1d4a5b3bd
+--- /dev/null
++++ b/scripts/main_gate_receipt.py
+@@ -0,0 +1,97 @@
++"""Read one gate receipt, never a shared latest pointer.
++
++The shell owns the run identity; pytest owns the result. Both must agree.
++An explicit baseline comparison is diagnostic, not permission to merge red tests.
++"""
++from __future__ import annotations
++
++import argparse
++import json
++import sys
++from pathlib import Path
++
++
++def load_receipt(path: str) -> dict:
++    data = json.loads(Path(path).read_text(encoding="utf-8"))
++    if not isinstance(data, dict):
++        raise ValueError("receipt must be an object")
++    counts = data.get("counts")
++    if not isinstance(counts, dict) or any(
++        type(counts.get(key)) is not int or counts[key] < 0
++        for key in ("passed", "failed", "error", "skipped")
++    ):
++        raise ValueError("invalid counts")
++    if sum(counts[key] for key in ("passed", "failed", "error")) == 0:
++        raise ValueError("zero executed tests")
++    status = data.get("exit_status")
++    if type(status) is not int or status not in (0, 1):
++        raise ValueError("missing exit_status or incomplete pytest run")
++    failed = data.get("failed_ids")
++    if not isinstance(failed, list) or any(not isinstance(x, str) or not x for x in failed):
++        raise ValueError("invalid failed_ids")
++    if len(failed) != counts["failed"] + counts["error"] or bool(failed) != bool(status):
++        raise ValueError("exit_status, counts and failed_ids disagree")
++    if not isinstance(data.get("target"), str):
++        raise ValueError("missing target")
++    if data.get("dependency_gate_bypassed") is not False:
++        raise ValueError("dependency gate was bypassed or is unknown")
++    if data.get("interpreter") != sys.executable:
++        raise ValueError("interpreter mismatch")
++    return data
++
++
++def main(argv: list[str] | None = None) -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("receipt")
++    parser.add_argument("--baseline")
++    parser.add_argument("--revision", required=True)
++    parser.add_argument("--tree", required=True)
++    parser.add_argument("--pytest-exit", type=int)
++    parser.add_argument("--allow-dirty", action="store_true")
++    args = parser.parse_args(argv)
++    try:
++        latest = load_receipt(args.receipt)
++        if latest.get("revision") != args.revision:
++            raise ValueError("receipt revision does not match the tested revision")
++        if not args.allow_dirty and (
++            latest.get("dirty") is not False or type(latest.get("worktree_dirty_total")) is not int
++            or latest["worktree_dirty_total"] != 0
++        ):
++            raise ValueError("receipt is dirty or dirty state is unknown")
++        # Receipt-only readback has no new pytest process, but it still has an
++        # expected tree. A matching revision cannot replace that path identity.
++        if latest.get("tree") != args.tree:
++            raise ValueError("receipt tree does not match this run")
++        if args.pytest_exit is not None and latest["exit_status"] != args.pytest_exit:
++            raise ValueError("receipt exit_status does not match pytest process")
++        counts, failed = latest["counts"], sorted(latest["failed_ids"])
++        print(f"== receipt {args.receipt}")
++        print(f"   revision={latest['revision'][:12]} dirty={latest.get('dirty')} "
++              f"target={latest['target']}")
++        print("   " + " ".join(f"{key}={value}" for key, value in counts.items()))
++        for nodeid in failed:
++            print(f"   RED {nodeid}")
++        if not args.baseline:
++            return latest["exit_status"]
++        base = load_receipt(args.baseline)
++        if base.get("dirty") is not False or base.get("worktree_dirty_total") != 0:
++            raise ValueError("baseline is dirty or dirty state is unknown")
++        if base["target"] != latest["target"]:
++            raise ValueError("baseline target differs from this run")
++        new_red = sorted(set(failed) - set(base["failed_ids"]))
++        gone_red = sorted(set(base["failed_ids"]) - set(failed))
++        print(f"== baseline comparison only (not a merge gate): {args.baseline}")
++        for nodeid in new_red:
++            print(f"   NEW RED {nodeid}")
++        for nodeid in gone_red:
++            print(f"   FIXED {nodeid}")
++        passed_ok = counts["passed"] >= base["counts"]["passed"]
++        print(f"   same_red_set={not new_red and not gone_red} passed_non_decreasing={passed_ok}")
++        return 0 if not new_red and passed_ok else 3
++    except (OSError, UnicodeError, ValueError) as exc:
++        print(f"gate receipt refused: {exc}", file=sys.stderr)
++        return 4
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/scripts/run_main_gate.sh b/scripts/run_main_gate.sh
+index 005487c93..cdc98d94f 100755
+--- a/scripts/run_main_gate.sh
++++ b/scripts/run_main_gate.sh
+@@ -1,115 +1,85 @@
+ #!/usr/bin/env bash
+-# 干净树整仓门禁一把跑：树必须干净 → ruff check → 全量 pytest → 拿收据 → 对基线比红集。
+-#
+-# 它替代的手工流程（2026-09-03 一天重复了五次）：
+-#   1. 看 porcelain 是否为空（AGENTS.md：混着未提交改动的树跑出来的 exit code 不对你的 revision 成立）
+-#   2. 用 test-environment.json 里那个解释器跑 ruff + pytest（宿主 python3 会多出几十条环境红）
+-#   3. 打开 ~/.finance-runtime/test-receipts/latest.json 抄 passed / failed
+-#   4. 把 failed_ids 与上一张 PR 的收据逐条对，确认「同一组红、passed 只增不减」
+-# 第 4 步最容易偷懒成「都是 5 红」——今天 gitea/main 上就多出了一条时间敏感红，
+-# 只看计数看不出是哪条换了。这里按 id 集合比。
+-#
++# 干净树门禁：ruff -> pytest -> 本轮唯一收据 -> 提交/退出码身份校验。
+ # 用法：
+-#   bash scripts/run_main_gate.sh                       # 在当前树跑，只打印本次读数
+-#   bash scripts/run_main_gate.sh --baseline <收据.json> # 再对基线收据比红集，红集变了退出码 3
+-#   bash scripts/run_main_gate.sh --allow-dirty          # 本地迭代用；收据会自带 dirty=true，不可跨 agent 采信
+-#   bash scripts/run_main_gate.sh --pytest-args "-x -q intelligence/tests"   # 换范围（收据 target 会跟着变）
+-#   bash scripts/run_main_gate.sh --receipt <收据.json> --baseline <基线.json>  # 不重跑，只比两张收据
+-#
+-# 退出码：0 全过（或与基线同一组红）；1 ruff 红；2 树脏且未 --allow-dirty；3 红集与基线不同 / 新增红；4 环境问题。
++#   bash scripts/run_main_gate.sh
++#   bash scripts/run_main_gate.sh --pytest-args "-q tests/test_example.py"
++#   bash scripts/run_main_gate.sh --allow-dirty   # 仅本地迭代，不可作为合入依据
++#   bash scripts/run_main_gate.sh --receipt <收据.json>
++#   bash scripts/run_main_gate.sh --baseline <基线.json>  # 红集比较，不是合入门禁
++#   bash scripts/run_main_gate.sh --receipt <收据.json> --baseline <基线.json>
++# FWP_TEST_RECEIPT_DIR 指定收据根；每轮新建 gate-*/pytest.json，不读共享 latest.json。
++# 退出码：0 全过/显式基线比较无新增红；1 ruff/测试红；2 脏树；3 新增红；4 设施/身份失败。
+ set -uo pipefail
+ 
+-# 门禁的对象是「你站着的那棵树」，不是脚本所在的树——脚本常从别的 worktree 借用
+-#（2026-09-03 首跑就把 gate-tools 树自己判成了脏树）。
+-REPO="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+-[ -z "$REPO" ] && REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
++GATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 4
+ BASELINE=""
+ RECEIPT_ONLY=""
+ ALLOW_DIRTY=0
+ PYTEST_ARGS="-q -p no:cacheprovider"
+ while [ $# -gt 0 ]; do
+   case "$1" in
+-    --baseline) BASELINE="$2"; shift 2 ;;
+-    --receipt) RECEIPT_ONLY="$2"; shift 2 ;;
++    --baseline|--receipt|--pytest-args)
++      [ $# -ge 2 ] || { echo "missing value: $1" >&2; exit 4; }
++      case "$1" in
++        --baseline) BASELINE="$2" ;;
++        --receipt) RECEIPT_ONLY="$2" ;;
++        --pytest-args) PYTEST_ARGS="$2" ;;
++      esac
++      shift 2 ;;
+     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+-    --pytest-args) PYTEST_ARGS="$2"; shift 2 ;;
+-    -h|--help) sed -n '2,21p' "$0"; exit 0 ;;
++    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   esac
+ done
+ 
+-# 解释器：与 session_facts.sh / conftest.py 同一份真本源 test-environment.json，不另写路径。
+-PY=""
+-if [ -f "$REPO/test-environment.json" ]; then
+-  PY="$(sed -n 's/.*"interpreter"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$REPO/test-environment.json" | head -1)"
+-fi
++# 仅用宿主标准库解析 JSON，测试本身仍用契约指定的解释器。
++PY="$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "") if p.is_file() else "")' "$REPO/test-environment.json")" || exit 4
+ [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+ if [ ! -x "$PY" ]; then
+-  echo "解释器不可执行: $PY（test-environment.json 指向的 venv 不在？）" >&2
++  echo "解释器不可执行: ${PY}" >&2
+   exit 4
+ fi
+-
+ cd "$REPO" || exit 4
++REV="$(git rev-parse HEAD)" || exit 4
++STATUS="$(git status --porcelain)" || exit 4
++if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
++  echo "树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
++  exit 2
++fi
++CHECK_ARGS=(--revision "$REV" --tree "$REPO")
++[ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
++[ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+ if [ -n "$RECEIPT_ONLY" ]; then
+   LATEST="$RECEIPT_ONLY"
+-  PYTEST_EXIT=0
+ else
+-  REV="$(git rev-parse --short HEAD)"
+-  BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+-  DIRTY_COUNT="$(git status --porcelain | wc -l | tr -d ' ')"
+-  if [ "$DIRTY_COUNT" != "0" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+-    echo "树不干净（$DIRTY_COUNT 条 porcelain）。整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
+-    git status --porcelain | head -10 >&2
+-    exit 2
+-  fi
+-  echo "== gate @ $BRANCH $REV  tree=$REPO  dirty=$DIRTY_COUNT  py=$PY"
+-
++  RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
++  mkdir -p "$RECEIPT_DIR" || exit 4
++  RECEIPT_DIR="$(cd "$RECEIPT_DIR" && pwd)" || exit 4
++  RUN_DIR="$(mktemp -d "$RECEIPT_DIR/gate-XXXXXXXX")" || exit 4
++  LATEST="$RUN_DIR/pytest.json"
++  echo "== gate @ ${REV:0:12} tree=${REPO} py=${PY} receipt=${LATEST}"
+   echo "== ruff check ."
+   if ! "$PY" -m ruff check . ; then
+     echo "ruff 红，停。" >&2
+     exit 1
+   fi
+-
+-  echo "== pytest $PYTEST_ARGS"
++  echo "== pytest ${PYTEST_ARGS}"
++  # Preserve the existing whitespace-separated --pytest-args contract; never eval it.
+   # shellcheck disable=SC2086
+-  "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
++  FWP_TEST_RECEIPT_DIR="$RECEIPT_DIR" FWP_TEST_RECEIPT_PATH="$LATEST" \
++    FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
+   PYTEST_EXIT="${PIPESTATUS[0]}"
+-
+-  RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
+-  LATEST="$RECEIPT_DIR/latest.json"
++  CHECK_ARGS+=(--pytest-exit "$PYTEST_EXIT")
++fi
++AFTER_REV="$(git rev-parse HEAD)" || exit 4
++AFTER_STATUS="$(git status --porcelain)" || exit 4
++if [ "$REV" != "$AFTER_REV" ] || { [ "$ALLOW_DIRTY" != "1" ] && [ -n "$AFTER_STATUS" ]; }; then
++  echo "测试期间提交或干净状态改变，收据不可采信。" >&2
++  exit 4
+ fi
+ if [ ! -f "$LATEST" ]; then
+-  echo "没找到收据 $LATEST（conftest 的收据插件没跑？）" >&2
++  echo "没找到本轮收据 ${LATEST}（pytest 收据未写出；不会回退 latest.json）" >&2
+   exit 4
+ fi
+-
+-"$PY" - "$LATEST" "$BASELINE" "$PYTEST_EXIT" <<'PYEOF'
+-import json, sys
+-from pathlib import Path
+-
+-latest_path, baseline_path, pytest_exit = sys.argv[1], sys.argv[2], int(sys.argv[3])
+-latest = json.loads(Path(latest_path).read_text())
+-counts = latest.get("counts") or {}
+-failed = sorted(latest.get("failed_ids") or [])
+-print(f"== receipt {latest_path}")
+-print(f"   revision={latest.get('revision','')[:12]} dirty={latest.get('dirty')} target={latest.get('target')}")
+-print(f"   passed={counts.get('passed')} failed={counts.get('failed')} error={counts.get('error')} skipped={counts.get('skipped')}")
+-for fid in failed:
+-    print(f"   RED {fid}")
+-if not baseline_path:
+-    # 没有基线就只能照实回 pytest 的退出码：已知的环境红也算红，要「同一组红」的判断请给 --baseline。
+-    sys.exit(pytest_exit)
+-base = json.loads(Path(baseline_path).read_text())
+-base_failed = sorted(base.get("failed_ids") or [])
+-base_counts = base.get("counts") or {}
+-new_red = sorted(set(failed) - set(base_failed))
+-gone_red = sorted(set(base_failed) - set(failed))
+-print(f"== vs baseline {baseline_path} (revision={base.get('revision','')[:12]}, passed={base_counts.get('passed')}, failed={base_counts.get('failed')})")
+-for fid in new_red:
+-    print(f"   NEW RED  {fid}")
+-for fid in gone_red:
+-    print(f"   FIXED    {fid}")
+-passed_ok = (counts.get("passed") or 0) >= (base_counts.get("passed") or 0)
+-print(f"   same_red_set={not new_red and not gone_red} passed_non_decreasing={passed_ok}")
+-sys.exit(0 if not new_red and passed_ok else 3)
+-PYEOF
++"$PY" "$GATE_DIR/main_gate_receipt.py" "$LATEST" "${CHECK_ARGS[@]}"
+diff --git a/scripts/verify_302132_backfill_acceptance.py b/scripts/verify_302132_backfill_acceptance.py
+new file mode 100644
+index 000000000..ab6174b96
+--- /dev/null
++++ b/scripts/verify_302132_backfill_acceptance.py
+@@ -0,0 +1,729 @@
++#!/usr/bin/env python3
++"""302132 回填完整副本演练·外部独立验收（fail-closed 门禁，非报告生成器）。
++
++对象角色（两种用法同一语义）：
++- `--production`：**不可变基线**库。演练复验 = 未动的真生产；生产执行后验收 =
++  换库前备份文件（路径与 sha 见执行收据 backup 字段）。
++- `--clone`：**换库后结果**库。演练 = 演练产物库；生产执行后 = canonical 生产库
++  （收据按 `<clone>.repair-backfill-execution.<run_id>.json` 派生）。
++- `--expected-production-sha256`：基线 sha（生产执行后 = 换库前生产 sha =
++  执行收据 backup.backup_sha256），首尾各核一次（TOCTOU 闭环）。
++
++实际执行的检查（文档只声称实现了的）：
++
++参数格式（先于一切数据访问；格式非法的期望值不能充当判据）：
++- --expected-revision 必须 40 位小写 hex；--expected-production-sha256 必须
++  64 位小写 hex；apply/verify 两个 run_id 非空且互不相同。
++
++预检（DuckDB connect/ATTACH 之前）：
++- production / clone / parquet 均为常规文件且非符号链接；
++- `os.path.samefile(production, clone)` 为假——覆盖同路径、符号链接、硬链接
++  三种别名；无法判定（文件不存在等）按失败处理；不通过则跳过全部数据检查；
++- production 基线 sha 开头核一次（结尾再核一次）。
++
++收据深 schema（apply/verify 两份执行收据 + 其指向的独立子报告；缺字段/类型错/
++空值/格式错逐项记 check False，不抛异常逃逸；后续一切访问只建立在验证通过的
++结构上）：
++- 父收据：kind/run_id/code_revision(40hex 且 == --expected-revision)/
++  code_dirty==False/interpreter 非空/trade_date(ISO 真日期且 ==
++  spec.window_end)/parent{swapped==True, rc==0(严格 int), run_id 一致}/
++  backup{backup_path 非空, backup_sha256 64hex, run_id 一致}/
++  child_report_error 键存在且为 null/child_report_path 非空；
++- spec：code(股票代码格式且 == CODE 授权对象)/name 非空/四个日期 ISO 真日期且 window_start <
++  main_fill_end < window_end、shell_date 界内/spec_version(302132-backfill-
++  前缀且前缀后非空)/parquet_sha256(64hex)/gap_parallel、gap_parquet(非空、
++  成员全 ISO 真日期、无重复、互不交、界内、不含 shell_date)/
++  expected_total_rows(正 int)/stale_technical_dates(成员 ISO 真日期)/
++  stale_window_keys(成员恰为二元日期组)/pinned_0911(恰 11 键、数值有限、
++  turnover 允许 null)/pinned_technical_0911(恰 4 键、有限数值)/
++  pinned_windows_0911(非空、成员恰为 [日期, 有限数, 有限数])/
++  expected_window_counts(恰 5/10/20/60 四键、非负 int)/
++  expected_technical_count(正 int)；
++- 子报告：kind/ok==True（显式成功终态）/mode==本轮/run_id、code_revision、
++  interpreter、trade_date 与父收据一致/spec_version==父 spec/code==父 spec/
++  parquet_sha256(64hex)==父 spec/parallel_source_md5(32hex)/
++  technical_rows==spec.expected_technical_count==technical_staged/
++  window_counts==spec.expected_window_counts 且 window_rows==其和/
++  protected_slices 恰三键且非负 int；
++- 独立子报告文件：存在、可解析、与父收据嵌入 child_report 深比较相等；
++- 跨轮绑定：apply/verify 两轮完整授权 spec 深比较相等（无白名单——「同一
++  输入、同一合同下的幂等复验」以 spec 全等为前提）；
++- 冻结输入身份：**每一轮分别** spec.parquet_sha256 == child.parquet_sha256
++  == sha256(--parquet 实际文件)（三向，两轮各自成立）；
++- 备份身份：备份文件存在且其 sha256 == 收据记录值；apply 收据的备份 sha 还
++  必须 == --expected-production-sha256（备份=基线绑定）；
++- --expected-old-receipt 路径=sha256（64hex，可重复）：旧收据逐份存在且哈希
++  不变（不传则不声称检查旧收据）。
++
++数据合同（clone vs 基线双向对照 + 独立 oracle；预检/参数/收据 schema 不过不
++执行；任何读取/计算异常归入 data_checks_error 结构化 FAIL（rc=2），不裸逃逸）：
++- 他股 fact_stock_daily 全列双向零差；目标股窗外无行；保留行（行数 =
++  expected_total_rows − 授权键集数）全列（含 updated_at）逐字节相等；
++- **并跑源表 fact_stock_daily_hithink 与除权源表 fact_stock_adjustment_hithink
++  整表全列双向零差**（合同承诺写入器不触碰；oracle 输入独立性前提）；
++- **parallel_source_md5 从基线重算**（与写入器同查询同序列化）并绑定两轮
++  子报告记录值；
++- 授权键集全字段 oracle：**并跑源行从基线（prod.）读**，parquet 段从冻结
++  文件读——输出与结果库源表一起坏不能自证通过；
++- 两派生表保护切片全列（含 calculated_at）双向零差；window 黄金三元组；
++  expected_window_counts 与黄金三元组派生计数一致；technical 精确日期集且
++  expected_technical_count 与市场历推导一致；目标日 technical/window 钉值；
++  fact_market_daily 双向零差。
++
++用法（生产执行后）：
++python3 scripts/verify_302132_backfill_acceptance.py \
++  --production <换库前备份.duckdb> --clone <canonical 生产库> \
++  --parquet <冻结 parquet> --run-apply <run_id> --run-verify <run_id> \
++  --expected-revision <合入修订 40hex> \
++  --expected-production-sha256 <换库前生产 sha=收据 backup sha> \
++  [--expected-old-receipt <路径>=<sha256>]... --output <新验收 JSON 路径>
++"""
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++import math
++import os
++import re
++from datetime import date
++from decimal import Decimal, ROUND_HALF_UP
++from pathlib import Path
++
++import duckdb
++
++CODE = "302132.SZ"
++KIND = "repair-backfill-302132"
++SPEC_VERSION_PREFIX = "302132-backfill-"
++WINDOW_PERIODS = ("5", "10", "20", "60")
++PROTECTED_SLICE_KEYS = ("fact_other", "tech_protected", "win_protected")
++PINNED_0911_KEYS = ("stock_name", "close", "pre_close", "pct_chg", "amount",
++                    "turnover", "source", "open", "high", "low", "volume")
++PINNED_TECHNICAL_KEYS = ("ma26", "std26", "up_value", "deviation_pct")
++_HEX64 = re.compile(r"[0-9a-f]{64}")
++_HEX40 = re.compile(r"[0-9a-f]{40}")
++_HEX32 = re.compile(r"[0-9a-f]{32}")
++_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
++_CODE_RE = re.compile(r"\d{6}\.(SZ|SH|BJ)")
++
++
++def _sha256(path: Path) -> str:
++    h = hashlib.sha256()
++    with path.open("rb") as fh:
++        for chunk in iter(lambda: fh.read(8 * 1024 * 1024), b""):
++            h.update(chunk)
++    return h.hexdigest()
++
++
++def _is_date(v) -> bool:
++    """ISO 格式且为真实日历日（2026-13-40 之类拒绝）。"""
++    if not isinstance(v, str) or not _DATE.fullmatch(v):
++        return False
++    try:
++        date.fromisoformat(v)
++    except ValueError:
++        return False
++    return True
++
++
++def _is_num(v) -> bool:
++    """有限数值（JSON 可携带 NaN/Inf；bool 不是数值）。"""
++    if not isinstance(v, (int, float)) or isinstance(v, bool):
++        return False
++    try:
++        return math.isfinite(v)
++    except OverflowError:
++        return False
++
++
++def _is_int(v) -> bool:
++    return isinstance(v, int) and not isinstance(v, bool)
++
++
++def _validate_receipt(tag: str, r: dict, want_run: str, exp_rev: str) -> list:
++    """父收据 + spec + 嵌入子报告的递归深 schema。返回违规字段路径列表（空=通过）。
++
++    约束覆盖：必需键存在、成员类型、ISO 真日期、revision/hash 格式、数值有限
++    性、非空集合及其成员、跨字段一致性、子报告显式成功终态（ok is True）。
++    """
++    bad: list[str] = []
++
++    def req(cond: bool, field: str) -> None:
++        if not cond:
++            bad.append(field)
++
++    # ── 父收据顶层 ────────────────────────────────────────────────
++    req(r.get("kind") == KIND, "kind")
++    req(isinstance(r.get("run_id"), str) and bool(r["run_id"])
++        and r["run_id"] == want_run, "run_id")
++    req(isinstance(r.get("code_revision"), str)
++        and bool(_HEX40.fullmatch(r["code_revision"]))
++        and r["code_revision"] == exp_rev, "code_revision")
++    req(r.get("code_dirty") is False, "code_dirty")
++    req(isinstance(r.get("interpreter"), str) and bool(r["interpreter"]),
++        "interpreter")
++    req(_is_date(r.get("trade_date")), "trade_date")
++    par = r.get("parent")
++    req(isinstance(par, dict), "parent")
++    if isinstance(par, dict):
++        req(par.get("swapped") is True, "parent.swapped")
++        req(_is_int(par.get("rc")) and par["rc"] == 0, "parent.rc")
++        req(par.get("run_id") == r.get("run_id"), "parent.run_id")
++    b = r.get("backup")
++    req(isinstance(b, dict), "backup")
++    if isinstance(b, dict):
++        req(isinstance(b.get("backup_path"), str) and bool(b["backup_path"]),
++            "backup.backup_path")
++        req(isinstance(b.get("backup_sha256"), str)
++            and bool(_HEX64.fullmatch(b["backup_sha256"])),
++            "backup.backup_sha256")
++        req(b.get("run_id") == r.get("run_id"), "backup.run_id")
++    req("child_report_error" in r and r["child_report_error"] is None,
++        "child_report_error")
++    req(isinstance(r.get("child_report_path"), str)
++        and bool(r["child_report_path"]), "child_report_path")
++
++    # ── spec（授权合同）───────────────────────────────────────────
++    spec = r.get("spec")
++    req(isinstance(spec, dict), "spec")
++    if isinstance(spec, dict):
++        req(isinstance(spec.get("code"), str)
++            and bool(_CODE_RE.fullmatch(spec["code"]))
++            and spec["code"] == CODE, "spec.code")
++        req(isinstance(spec.get("name"), str) and bool(spec["name"]),
++            "spec.name")
++        for k in ("window_start", "window_end", "main_fill_end", "shell_date"):
++            req(_is_date(spec.get(k)), f"spec.{k}")
++        if all(_is_date(spec.get(k)) for k in
++               ("window_start", "main_fill_end", "window_end")):
++            req(spec["window_start"] < spec["main_fill_end"]
++                < spec["window_end"], "spec.窗口日期序")
++        if all(_is_date(spec.get(k)) for k in
++               ("window_start", "main_fill_end", "shell_date")):
++            req(spec["window_start"] <= spec["shell_date"]
++                <= spec["main_fill_end"], "spec.shell_date:界内")
++        if _is_date(spec.get("window_end")):
++            req(r.get("trade_date") == spec["window_end"],
++                "trade_date==spec.window_end")
++        sv = spec.get("spec_version")
++        req(isinstance(sv, str) and sv.startswith(SPEC_VERSION_PREFIX)
++            and len(sv) > len(SPEC_VERSION_PREFIX), "spec.spec_version")
++        req(isinstance(spec.get("parquet_sha256"), str)
++            and bool(_HEX64.fullmatch(spec["parquet_sha256"])),
++            "spec.parquet_sha256")
++        gaps: dict[str, list] = {}
++        for k in ("gap_parallel", "gap_parquet"):
++            v = spec.get(k)
++            req(isinstance(v, list) and bool(v)
++                and all(_is_date(d) for d in v), f"spec.{k}")
++            if isinstance(v, list) and all(_is_date(d) for d in v):
++                req(len(set(v)) == len(v), f"spec.{k}:重复")
++                gaps[k] = v
++                if _is_date(spec.get("window_start")) \
++                        and _is_date(spec.get("main_fill_end")):
++                    req(all(spec["window_start"] <= d
++                            <= spec["main_fill_end"] for d in v),
++                        f"spec.{k}:界内")
++        if "gap_parallel" in gaps and "gap_parquet" in gaps:
++            req(not (set(gaps["gap_parallel"]) & set(gaps["gap_parquet"])),
++                "spec.gap:交集")
++            if _is_date(spec.get("shell_date")):
++                req(spec["shell_date"] not in
++                    (set(gaps["gap_parallel"]) | set(gaps["gap_parquet"])),
++                    "spec.shell_date:与gap互斥")
++        req(_is_int(spec.get("expected_total_rows"))
++            and spec["expected_total_rows"] > 0, "spec.expected_total_rows")
++        std = spec.get("stale_technical_dates")
++        req(isinstance(std, list) and all(_is_date(d) for d in std),
++            "spec.stale_technical_dates")
++        swk = spec.get("stale_window_keys")
++        req(isinstance(swk, list) and all(
++            isinstance(pair, list) and len(pair) == 2
++            and all(_is_date(d) for d in pair) for pair in swk),
++            "spec.stale_window_keys")
++        p9 = spec.get("pinned_0911")
++        req(isinstance(p9, dict), "spec.pinned_0911")
++        if isinstance(p9, dict):
++            req(set(p9) == set(PINNED_0911_KEYS), "spec.pinned_0911:键集")
++            if set(PINNED_0911_KEYS) <= set(p9):
++                req(isinstance(p9["stock_name"], str)
++                    and bool(p9["stock_name"]), "spec.pinned_0911.stock_name")
++                req(isinstance(p9["source"], str) and bool(p9["source"]),
++                    "spec.pinned_0911.source")
++                req(p9["turnover"] is None or _is_num(p9["turnover"]),
++                    "spec.pinned_0911.turnover")
++                for k in ("close", "pre_close", "pct_chg", "amount",
++                          "open", "high", "low", "volume"):
++                    req(_is_num(p9[k]), f"spec.pinned_0911.{k}")
++        tp = spec.get("pinned_technical_0911")
++        req(isinstance(tp, dict), "spec.pinned_technical_0911")
++        if isinstance(tp, dict):
++            req(set(tp) == set(PINNED_TECHNICAL_KEYS),
++                "spec.pinned_technical_0911:键集")
++            for k in PINNED_TECHNICAL_KEYS:
++                if k in tp:
++                    req(_is_num(tp[k]), f"spec.pinned_technical_0911.{k}")
++        wp = spec.get("pinned_windows_0911")
++        req(isinstance(wp, list) and bool(wp), "spec.pinned_windows_0911")
++        if isinstance(wp, list):
++            for i, e in enumerate(wp):
++                req(isinstance(e, list) and len(e) == 3 and _is_date(e[0])
++                    and _is_num(e[1]) and _is_num(e[2]),
++                    f"spec.pinned_windows_0911[{i}]")
++        ewc = spec.get("expected_window_counts")
++        req(isinstance(ewc, dict) and set(ewc) == set(WINDOW_PERIODS),
++            "spec.expected_window_counts:键集")
++        if isinstance(ewc, dict):
++            for k in WINDOW_PERIODS:
++                if k in ewc:
++                    req(_is_int(ewc[k]) and ewc[k] >= 0,
++                        f"spec.expected_window_counts.{k}")
++        req(_is_int(spec.get("expected_technical_count"))
++            and spec["expected_technical_count"] > 0,
++            "spec.expected_technical_count")
++
++    # ── 嵌入子报告（显式成功终态 + 与父/spec 交叉一致）──────────────
++    ch = r.get("child_report")
++    req(isinstance(ch, dict), "child_report")
++    if isinstance(ch, dict):
++        req(ch.get("kind") == KIND, "child.kind")
++        req(ch.get("ok") is True, "child.ok")
++        req(ch.get("mode") == tag, "child.mode")
++        req(ch.get("run_id") == r.get("run_id"), "child.run_id")
++        req(isinstance(ch.get("code_revision"), str)
++            and bool(_HEX40.fullmatch(ch["code_revision"]))
++            and ch.get("code_revision") == r.get("code_revision"),
++            "child.code_revision")
++        req(ch.get("code_dirty") is False, "child.code_dirty")
++        req(isinstance(ch.get("interpreter"), str) and bool(ch["interpreter"])
++            and ch.get("interpreter") == r.get("interpreter"),
++            "child.interpreter")
++        req(_is_date(ch.get("trade_date"))
++            and ch.get("trade_date") == r.get("trade_date"),
++            "child.trade_date")
++        req(isinstance(ch.get("spec_version"), str) and bool(ch["spec_version"])
++            and isinstance(spec, dict)
++            and ch.get("spec_version") == spec.get("spec_version"),
++            "child.spec_version")
++        req(isinstance(spec, dict)
++            and ch.get("code") == spec.get("code"), "child.code")
++        req(isinstance(ch.get("parquet_sha256"), str)
++            and bool(_HEX64.fullmatch(ch["parquet_sha256"]))
++            and isinstance(spec, dict)
++            and ch.get("parquet_sha256") == spec.get("parquet_sha256"),
++            "child.parquet_sha256")
++        req(isinstance(ch.get("parallel_source_md5"), str)
++            and bool(_HEX32.fullmatch(ch["parallel_source_md5"])),
++            "child.parallel_source_md5")
++        tr = ch.get("technical_rows")
++        req(_is_int(tr) and tr > 0 and isinstance(spec, dict)
++            and tr == spec.get("expected_technical_count"),
++            "child.technical_rows")
++        req(_is_int(ch.get("technical_staged"))
++            and ch["technical_staged"] == tr, "child.technical_staged")
++        wc = ch.get("window_counts")
++        req(isinstance(wc, dict) and bool(wc) and isinstance(spec, dict)
++            and wc == spec.get("expected_window_counts"), "child.window_counts")
++        wr = ch.get("window_rows")
++        req(_is_int(wr) and wr > 0 and isinstance(wc, dict)
++            and all(_is_int(v) for v in wc.values())
++            and wr == sum(wc.values()), "child.window_rows")
++        ps = ch.get("protected_slices")
++        req(isinstance(ps, dict) and set(ps) == set(PROTECTED_SLICE_KEYS)
++            and all(_is_int(v) and v >= 0 for v in ps.values()),
++            "child.protected_slices")
++    return bad
++
++
++def main() -> int:
++    ap = argparse.ArgumentParser()
++    ap.add_argument("--production", required=True, help="不可变基线库")
++    ap.add_argument("--clone", required=True, help="换库后结果库")
++    ap.add_argument("--parquet", required=True)
++    ap.add_argument("--run-apply", required=True)
++    ap.add_argument("--run-verify", required=True)
++    ap.add_argument("--expected-revision", required=True)
++    ap.add_argument("--expected-production-sha256", required=True)
++    ap.add_argument("--expected-old-receipt", action="append", default=[],
++                    metavar="PATH=SHA256")
++    ap.add_argument("--output", required=True)
++    args = ap.parse_args()
++
++    out_path = Path(args.output)
++    if out_path.exists():
++        raise SystemExit(f"验收输出已存在（不可覆盖）: {out_path}")
++    checks: list[dict] = []
++
++    def check(name: str, ok: bool, detail="") -> None:
++        checks.append({"name": name, "ok": bool(ok), "detail": detail})
++
++    def sha_check(name: str, path: Path, want: str) -> str | None:
++        """读文件哈希并比对；读异常归入同名 FAIL 检查，不裸逃逸。"""
++        try:
++            actual = _sha256(path)
++        except OSError as exc:
++            check(name, False, f"{type(exc).__name__}: {exc}")
++            return None
++        check(name, actual == want,
++              {"expected": str(want)[:16], "actual": actual[:16]})
++        return actual
++
++    prod, clone, pq = (Path(args.production), Path(args.clone),
++                       Path(args.parquet))
++
++    # ── 参数格式（先于一切数据访问）────────────────────────────────
++    check("args_expected_revision_format",
++          bool(_HEX40.fullmatch(args.expected_revision)),
++          args.expected_revision)
++    check("args_expected_production_sha256_format",
++          bool(_HEX64.fullmatch(args.expected_production_sha256)))
++    check("args_run_ids_distinct_nonempty",
++          bool(args.run_apply) and bool(args.run_verify)
++          and args.run_apply != args.run_verify,
++          {"apply": args.run_apply, "verify": args.run_verify})
++    args_ok = all(c["ok"] for c in checks)
++
++    # ── 预检：常规文件 + samefile 别名（含硬链接）────────────────────
++    check("inputs_regular_files",
++          all(p.is_file() and not p.is_symlink() for p in (prod, clone, pq)),
++          [str(p) for p in (prod, clone, pq)
++           if not (p.is_file() and not p.is_symlink())])
++    try:
++        same = os.path.samefile(prod, clone)
++    except OSError as exc:
++        same, same_err = None, f"{type(exc).__name__}: {exc}"
++    else:
++        same_err = ""
++    check("clone_is_not_production_alias", same is False,
++          same_err or {"production": os.path.realpath(prod),
++                       "clone": os.path.realpath(clone)})
++    preflight_ok = all(c["ok"] for c in checks[-2:])
++
++    sha_check("production_sha256_before", prod, args.expected_production_sha256)
++
++    # ── 收据：读取 + 深 schema + 身份 ──────────────────────────────
++    receipts: dict[str, dict] = {}
++
++    def _read_receipt(tag: str, run_id: str) -> None:
++        p = Path(str(clone) + f".repair-backfill-execution.{run_id}.json")
++        try:
++            raw = json.loads(p.read_text(encoding="utf-8"))
++        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
++            check(f"receipt_{tag}_readable", False, f"{type(exc).__name__}: {exc}")
++            return
++        if not isinstance(raw, dict):
++            check(f"receipt_{tag}_readable", False, type(raw).__name__)
++            return
++        check(f"receipt_{tag}_readable", True)
++        receipts[tag] = raw
++
++    _read_receipt("apply", args.run_apply)
++    _read_receipt("verify", args.run_verify)
++    check("receipts_apply_verify_present",
++          set(receipts) == {"apply", "verify"}, sorted(receipts))
++
++    schema_ok = set(receipts) == {"apply", "verify"}
++    for tag, r in receipts.items():
++        want = args.run_apply if tag == "apply" else args.run_verify
++        bad = _validate_receipt(tag, r, want, args.expected_revision)
++        check(f"receipt_{tag}_schema", not bad, bad[:12])
++        schema_ok = schema_ok and not bad
++
++    # 独立子报告文件：存在 + 可解析 + 与父收据嵌入子报告深比较相等
++    for tag, r in receipts.items():
++        crp = r.get("child_report_path")
++        if not (isinstance(crp, str) and crp):
++            continue
++        try:
++            ext = json.loads(Path(crp).read_text(encoding="utf-8"))
++        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
++            check(f"receipt_{tag}_child_report_file", False,
++                  f"{type(exc).__name__}: {exc}")
++            continue
++        check(f"receipt_{tag}_child_report_file",
++              isinstance(ext, dict) and ext == r.get("child_report"),
++              "与父收据嵌入子报告深比较")
++
++    # 备份身份：文件存在 + sha 与收据一致；apply 备份还须 == 基线 sha
++    for tag, r in receipts.items():
++        b = r.get("backup")
++        if not isinstance(b, dict):
++            continue
++        want = b.get("backup_sha256")
++        bp = Path(str(b.get("backup_path", "")))
++        if not (isinstance(want, str) and _HEX64.fullmatch(want)):
++            check(f"backup_{tag}_identity", False, "收据 backup_sha256 非法")
++            continue
++        if not bp.is_file():
++            check(f"backup_{tag}_identity", False, f"备份不存在: {bp}")
++            continue
++        sha_check(f"backup_{tag}_identity", bp, want)
++    if isinstance(receipts.get("apply", {}).get("backup"), dict):
++        check("backup_apply_matches_baseline",
++              receipts["apply"]["backup"].get("backup_sha256")
++              == args.expected_production_sha256,
++              "apply 备份 sha == 基线 sha（换库前生产身份）")
++
++    # 跨轮绑定：两轮完整授权 spec 深比较（无白名单）
++    spec_a = receipts.get("apply", {}).get("spec")
++    spec_v = receipts.get("verify", {}).get("spec")
++    check("spec_alignment_apply_verify",
++          isinstance(spec_a, dict) and isinstance(spec_v, dict)
++          and spec_a == spec_v,
++          "apply/verify 授权 spec 深比较（同输入同合同前提）")
++
++    # 冻结输入身份：每一轮分别 spec == child == 实际文件（三向）
++    actual_pq = None
++    try:
++        actual_pq = _sha256(pq)
++        check("parquet_readable", True, actual_pq[:16])
++    except OSError as exc:
++        check("parquet_readable", False, f"{type(exc).__name__}: {exc}")
++    for tag in ("apply", "verify"):
++        r = receipts.get(tag, {})
++        sp, ch = r.get("spec"), r.get("child_report")
++        want = sp.get("parquet_sha256") if isinstance(sp, dict) else None
++        ok = (isinstance(sp, dict) and isinstance(ch, dict)
++              and isinstance(want, str) and bool(_HEX64.fullmatch(want))
++              and ch.get("parquet_sha256") == want
++              and actual_pq is not None and actual_pq == want)
++        check(f"parquet_identity_{tag}", ok,
++              {"spec": str(want)[:16] if isinstance(want, str) else None,
++               "actual": actual_pq[:16] if actual_pq else None})
++
++    # ── 旧收据保留（显式参数核验；未传则不声称检查）────────────────────
++    for item in args.expected_old_receipt:
++        if "=" not in item:
++            check("old_receipt_arg_format", False, item)
++            continue
++        path_s, want_sha = item.rsplit("=", 1)
++        op = Path(path_s)
++        if not _HEX64.fullmatch(want_sha):
++            check(f"old_receipt:{op.name}", False, "期望 sha 非 64hex")
++            continue
++        if not op.is_file():
++            check(f"old_receipt:{op.name}", False, "不存在")
++            continue
++        sha_check(f"old_receipt:{op.name}", op, want_sha)
++
++    # ── 数据合同（预检/参数/收据 schema 不过不执行，避免假阳性）────────
++    spec = receipts.get("apply", {}).get("spec")
++    spec_ok = (preflight_ok and args_ok and schema_ok
++               and isinstance(spec, dict))
++    if spec_ok:
++        try:
++            _data_checks(check, prod, clone, pq, spec, receipts)
++        except Exception as exc:  # 读取/计算异常 → 结构化 FAIL，不裸逃逸
++            check("data_checks_error", False, f"{type(exc).__name__}: {exc}")
++    else:
++        check("data_checks_executed", False,
++              "预检/参数/收据 schema 未过，数据检查跳过（不发绿）")
++
++    # ── 尾核：验收结束时基线 sha 仍等于期望（TOCTOU 闭环）─────────────
++    sha_check("production_sha256_after", prod, args.expected_production_sha256)
++
++    verdict = "PASS" if all(c["ok"] for c in checks) else "FAIL"
++    payload = {"verdict": verdict,
++               "expected_revision": args.expected_revision,
++               "runs": {"apply": args.run_apply, "verify": args.run_verify},
++               "checks": checks,
++               "failed": [c["name"] for c in checks if not c["ok"]]}
++    fd = os.open(str(out_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
++    with os.fdopen(fd, "w", encoding="utf-8") as fh:
++        fh.write(json.dumps(payload, ensure_ascii=False, indent=2, default=str)
++                 + "\n")
++    print(json.dumps({"verdict": verdict, "failed": payload["failed"],
++                      "n": len(checks)}, ensure_ascii=False))
++    return 0 if verdict == "PASS" else 2
++
++
++def _data_checks(check, prod: Path, clone: Path, pq: Path,
++                 spec: dict, receipts: dict) -> None:
++    """数据合同。入口前结构已过深 schema，所有嵌套访问安全。
++
++    oracle 输入纪律（六轮 P1-1）：并跑源行与源指纹一律从基线（prod.）读；
++    结果库中的源表另做整表禁止变更比较——输出与源一起坏不能自证通过。
++    """
++    con = duckdb.connect(str(clone), read_only=True)
++    try:
++        con.execute(f"ATTACH '{prod}' AS prod (READ_ONLY)")
++
++        def xa(table: str, where: str) -> list[int]:
++            cols = [r[1] for r in con.execute(
++                f"PRAGMA table_info('{table}')").fetchall()]
++            sel = ", ".join(cols)
++            fwd = con.execute(
++                f"SELECT COUNT(*) FROM (SELECT {sel} FROM prod.{table} {where} "
++                f"EXCEPT ALL SELECT {sel} FROM {table} {where})").fetchone()[0]
++            rev = con.execute(
++                f"SELECT COUNT(*) FROM (SELECT {sel} FROM {table} {where} "
++                f"EXCEPT ALL SELECT {sel} FROM prod.{table} {where})"
++            ).fetchone()[0]
++            return [fwd, rev]
++
++        d0, d1 = spec["window_start"], spec["window_end"]
++        write_keys = sorted(set(spec["gap_parallel"]) | set(spec["gap_parquet"])
++                            | {spec["shell_date"]})
++        marks = ",".join(f"'{d}'" for d in write_keys)
++        check("fact_other_stocks_allcols",
++              xa("fact_stock_daily", f"WHERE stock_ts_code <> '{CODE}'")
++              == [0, 0])
++        expected_retained = spec["expected_total_rows"] - len(write_keys)
++        before = con.execute(
++            f"SELECT * FROM prod.fact_stock_daily WHERE stock_ts_code='{CODE}' "
++            f"AND trade_date NOT IN ({marks}) ORDER BY trade_date").fetchall()
++        after = con.execute(
++            f"SELECT * FROM fact_stock_daily WHERE stock_ts_code='{CODE}' "
++            f"AND trade_date NOT IN ({marks}) ORDER BY trade_date").fetchall()
++        check("retained_rows_full_column_identical",
++              before == after and len(after) == expected_retained,
++              {"rows": len(after), "expected": expected_retained})
++        oor = con.execute(
++            f"SELECT COUNT(*) FROM fact_stock_daily WHERE stock_ts_code='{CODE}' "
++            f"AND trade_date NOT BETWEEN '{d0}' AND '{d1}'").fetchone()[0]
++        check("target_outside_window_none", oor == 0, oor)
++
++        # 源表禁止变更（整表；合同承诺写入器不触碰这两张输入表）
++        check("hithink_source_untouched",
++              xa("fact_stock_daily_hithink", "") == [0, 0])
++        check("hithink_adjustment_untouched",
++              xa("fact_stock_adjustment_hithink", "") == [0, 0])
++
++        # 源指纹：从基线重算（与写入器同查询同序列化），绑定两轮子报告记录值
++        prev_row = con.execute(
++            "SELECT MAX(trade_date) FROM prod.fact_market_daily "
++            "WHERE trade_date < ?", [d0]).fetchone()
++        prev_day = str(prev_row[0]) if prev_row and prev_row[0] else None
++        if prev_day is None:
++            check("parallel_source_md5_binding", False,
++                  "基线市场历缺窗口前交易日")
++        else:
++            src_rows = con.execute(
++                "SELECT trade_date, open, high, low, close, volume, turnover "
++                "FROM prod.fact_stock_daily_hithink WHERE stock_ts_code=? "
++                "AND adjusted='none' AND trade_date BETWEEN ? AND ? "
++                "ORDER BY 1",
++                [CODE, prev_day, max(spec["gap_parallel"])]).fetchall()
++            recomputed = hashlib.md5(json.dumps(
++                [tuple(str(c) for c in r) for r in src_rows]).encode()
++            ).hexdigest()
++            md5s = {t: receipts[t]["child_report"].get("parallel_source_md5")
++                    for t in ("apply", "verify")}
++            check("parallel_source_md5_binding",
++                  recomputed == md5s["apply"] == md5s["verify"],
++                  {"recomputed": recomputed, "rows": len(src_rows),
++                   "apply": md5s["apply"], "verify": md5s["verify"]})
++
++        # 授权键集全字段 oracle：并跑源行从基线（prod.）读，parquet 段从冻结文件读
++        src = {str(r[0]): r[1:] for r in con.execute(f"""
++          SELECT trade_date, open, high, low, close, volume, turnover
++          FROM prod.fact_stock_daily_hithink
++          WHERE stock_ts_code='{CODE}' AND adjusted='none'
++          UNION ALL
++          SELECT CAST(to_timestamp(date_ms/1000) AS DATE), open_price, high_price,
++                 low_price, close_price, volume, turnover
++          FROM read_parquet('{pq}')
++          WHERE thscode='{CODE}' AND currency='CNY' AND interval='1d'
++            AND adjusted='none'""").fetchall()}
++        cal = [str(r[0]) for r in con.execute(
++            "SELECT DISTINCT trade_date FROM prod.fact_market_daily "
++            "WHERE trade_date BETWEEN '2026-06-01' AND ? ORDER BY 1",
++            [d1]).fetchall()]
++        rows = con.execute(
++            f"SELECT trade_date, stock_name, open, high, low, close, pre_close,"
++            f" pct_chg, amount, turnover, volume, source FROM fact_stock_daily "
++            f"WHERE stock_ts_code='{CODE}' AND trade_date IN ({marks})").fetchall()
++        bad = []
++        for r in rows:
++            d = str(r[0])
++            s = src[d]
++            pred = cal[cal.index(d) - 1]
++            pre = float(Decimal(str(float(src[pred][3]))).quantize(
++                Decimal("0.01")))
++            pct = float(((Decimal(str(r[5])).quantize(Decimal("0.0001"))
++                          / Decimal(str(pre)).quantize(Decimal("0.01")) - 1) * 100
++                         ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
++            amt = float((Decimal(str(float(s[5]))).quantize(Decimal("0.01"))
++                         / Decimal(10**8)).quantize(Decimal("0.0001"),
++                                                   rounding=ROUND_HALF_UP))
++            vol = float((Decimal(str(float(s[4]))).quantize(Decimal("1"))
++                         / Decimal(100)).quantize(Decimal("1"),
++                                                 rounding=ROUND_HALF_UP))
++            exp_label = ("hithink:daily-k-10d:backfill-302132-20260914"
++                         if d in spec["gap_parquet"]
++                         else "hithink:daily-k:backfill-302132-20260914")
++            ok = (r[1] == spec["name"] and r[2] == float(s[0])
++                  and r[3] == float(s[1]) and r[4] == float(s[2])
++                  and r[5] == float(s[3]) and abs(r[6] - pre) < 1e-9
++                  and abs(r[7] - pct) < 1e-9 and abs(r[8] - amt) < 1e-9
++                  and r[9] is None and abs(r[10] - vol) < 1e-9
++                  and r[11] == exp_label
++                  and all(math.isfinite(float(v)) for v in r[2:6]))
++            if not ok:
++                bad.append(d)
++        check("keyset_fullfield_oracle",
++              len(rows) == len(write_keys) and not bad,
++              {"rows": len(rows), "keys": len(write_keys), "bad": bad[:5]})
++
++        w_t = (f"WHERE stock_ts_code <> '{CODE}' OR trade_date NOT BETWEEN "
++               f"'{d0}' AND '{d1}'")
++        w_w = (f"WHERE stock_ts_code <> '{CODE}' OR as_of_date NOT BETWEEN "
++               f"'{d0}' AND '{d1}'")
++        check("technical_protected_allcols",
++              xa("feature_stock_technical_daily", w_t) == [0, 0])
++        check("window_protected_allcols",
++              xa("feature_stock_window", w_w) == [0, 0])
++        cal64 = [d for d in cal if d >= d0]
++        golden = set()
++        for i, a in enumerate(cal64):
++            for p_ in (5, 10, 20, 60):
++                if i >= p_:
++                    golden.add((a, cal64[i - p_], a))
++        actual = {(str(r[0]), str(r[1]), str(r[2])) for r in con.execute(
++            f"SELECT as_of_date, start_date, end_date FROM feature_stock_window "
++            f"WHERE stock_ts_code='{CODE}' AND as_of_date BETWEEN '{d0}' "
++            f"AND '{d1}'").fetchall()}
++        check("window_golden_triples", actual == golden,
++              {"actual": len(actual), "golden": len(golden)})
++        idx = {d: i for i, d in enumerate(cal64)}
++        golden_counts = {p: 0 for p in WINDOW_PERIODS}
++        for a, s, _e in golden:
++            golden_counts[str(idx[a] - idx[s])] += 1
++        check("expected_window_counts_match_golden",
++              golden_counts == spec["expected_window_counts"],
++              {"golden": golden_counts, "spec": spec["expected_window_counts"]})
++        tech_dates = [str(r[0]) for r in con.execute(
++            f"SELECT trade_date FROM feature_stock_technical_daily "
++            f"WHERE stock_ts_code='{CODE}' AND trade_date BETWEEN '{d0}' "
++            f"AND '{d1}' ORDER BY 1").fetchall()]
++        check("technical_exact_set", tech_dates == cal64[25:], len(tech_dates))
++        check("expected_technical_count_matches_calendar",
++              spec["expected_technical_count"] == len(cal64[25:]),
++              {"spec": spec["expected_technical_count"],
++               "calendar": len(cal64[25:])})
++        tp = spec["pinned_technical_0911"]
++        t9 = con.execute(
++            f"SELECT ma26, std26, up_value, deviation_pct "
++            f"FROM feature_stock_technical_daily WHERE stock_ts_code='{CODE}' "
++            f"AND trade_date='{d1}'").fetchone()
++        check("pinned_technical_target_day",
++              t9 is not None and all(
++                  abs(a - b) < 1e-9 for a, b in zip(
++                      t9, (tp["ma26"], tp["std26"], tp["up_value"],
++                           tp["deviation_pct"]))), t9)
++        w9 = con.execute(
++            f"SELECT start_date, interval_gain_pct, avg_amount "
++            f"FROM feature_stock_window WHERE stock_ts_code='{CODE}' "
++            f"AND as_of_date='{d1}' ORDER BY start_date").fetchall()
++        pins = spec["pinned_windows_0911"]
++        check("pinned_windows_target_day",
++              len(w9) == len(pins) and all(
++                  str(r[0]) == p[0] and abs(r[1] - p[1]) < 1e-9
++                  and abs(r[2] - p[2]) < 1e-9 for r, p in zip(w9, pins)))
++        check("market_daily_untouched", xa("fact_market_daily", "") == [0, 0])
++    finally:
++        con.close()
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/scripts/worktree_board.py b/scripts/worktree_board.py
+index e7541ac7f..4f76b0b55 100644
+--- a/scripts/worktree_board.py
++++ b/scripts/worktree_board.py
+@@ -73,6 +73,9 @@ class TreeRow:
+     dirty_n: int
+     kind: str
+     subjects: tuple[str, ...] = field(default_factory=tuple)
++    error: str = ""
++    locked: str = ""
++    prunable: str = ""
+ 
+ 
+ def _git(args: list[str], *, cwd: str | None, timeout: float) -> tuple[int, str]:
+@@ -86,7 +89,7 @@ def _git(args: list[str], *, cwd: str | None, timeout: float) -> tuple[int, str]
+         )
+     except (OSError, subprocess.SubprocessError):
+         return 1, ""
+-    return completed.returncode, (completed.stdout or "").strip()
++    return completed.returncode, (completed.stdout or "").rstrip("\n")
+ 
+ 
+ def resolve_base(cwd: str, timeout: float) -> str:
+@@ -96,7 +99,7 @@ def resolve_base(cwd: str, timeout: float) -> str:
+         code, _ = _git(["rev-parse", "--verify", "--quiet", candidate], cwd=cwd, timeout=timeout)
+         if code == 0:
+             return candidate
+-    return "HEAD"
++    return ""
+ 
+ 
+ def parse_worktree_porcelain(text: str) -> list[dict[str, str]]:
+@@ -113,6 +116,10 @@ def parse_worktree_porcelain(text: str) -> list[dict[str, str]]:
+             current["branch"] = raw.split(" ", 1)[1].removeprefix("refs/heads/")
+         elif raw == "detached":
+             current["branch"] = "(detached)"
++        elif raw == "locked" or raw.startswith("locked "):
++            current["locked"] = raw.partition(" ")[2] or "locked"
++        elif raw == "prunable" or raw.startswith("prunable "):
++            current["prunable"] = raw.partition(" ")[2] or "prunable"
+     if current:
+         rows.append(current)
+     return rows
+@@ -156,7 +163,8 @@ def cherry_counts(head: str, base: str, *, cwd: str, timeout: float) -> tuple[in
+         return 0, 0, True
+     code, out = _git(["cherry", base, head], cwd=cwd, timeout=timeout)
+     if code != 0:
+-        return 0, 0, False
++        # Unknown is not zero: keep failed queries visible in JSON and --this.
++        return -1, -1, False
+     plus = minus = 0
+     for line in out.splitlines():
+         if line.startswith("+ "):
+@@ -179,7 +187,7 @@ def unique_subjects(head: str, base: str, *, cwd: str, timeout: float, limit: in
+ 
+ 
+ def _count(args: list[str], *, cwd: str, timeout: float) -> int:
+-    """``rev-list --count`` 的安全读法：非数字一律当 0。
++    """``rev-list --count`` 的安全读法：失败或非数字用 -1 表示未知。
+ 
+     直接 ``int(out or 0)`` 会在 git 把话写到 stdout 时抛 ValueError。本脚本
+     喂的是 SessionStart，抛出去就是 hook 静默不输出——等于没装（见模块头）。
+@@ -187,7 +195,7 @@ def _count(args: list[str], *, cwd: str, timeout: float) -> int:
+ 
+     code, out = _git(args, cwd=cwd, timeout=timeout)
+     if code != 0 or not out.isdigit():
+-        return 0
++        return -1
+     return int(out)
+ 
+ 
+@@ -212,13 +220,31 @@ def classify_worktree(
+     head = spec.get("head") or ""
+     if not path or not head:
+         return None
+-    plus, minus, in_main = cherry_counts(head, base, cwd=path, timeout=timeout)
+-    ahead = _count(["rev-list", "--count", f"{base}..{head}"], cwd=path, timeout=timeout)
+-    behind = behind_count(head, base, cwd=path, timeout=timeout)
+-    _, status = _git(["status", "--porcelain"], cwd=path, timeout=timeout)
++    code, top = _git(["rev-parse", "--show-toplevel"], cwd=path, timeout=timeout)
++    error = ""
++    if code != 0 or not top or Path(top).resolve() != Path(path).resolve():
++        error = "worktree unavailable or repository root mismatch"
++    plus, minus, in_main = (
++        (-1, -1, False) if error
++        else cherry_counts(head, base, cwd=path, timeout=timeout)
++    )
++    if plus < 0:
++        error = error or "git cherry failed; merge status unknown"
++    ahead = behind = -1
++    if not error:
++        ahead = _count(["rev-list", "--count", f"{base}..{head}"], cwd=path, timeout=timeout)
++        behind = behind_count(head, base, cwd=path, timeout=timeout)
++        if ahead < 0 or behind < 0:
++            error = "git rev-list failed; ahead/behind unknown"
++    status_code, status = (
++        (1, "") if error
++        else _git(["status", "--porcelain"], cwd=path, timeout=timeout)
++    )
++    if status_code != 0:
++        error = error or "git status failed; dirty state unknown"
+     paths = _status_paths(status)
+     subjects: tuple[str, ...] = ()
+-    if plus:
++    if plus > 0:
+         subjects = unique_subjects(head, base, cwd=path, timeout=timeout)
+     return TreeRow(
+         path=path,
+@@ -234,6 +260,9 @@ def classify_worktree(
+         dirty_n=len(paths),
+         kind=tree_kind(path, main_checkout),
+         subjects=subjects,
++        error=error,
++        locked=spec.get("locked", ""),
++        prunable=spec.get("prunable", ""),
+     )
+ 
+ 
+@@ -369,21 +398,23 @@ def display_path(path: str) -> str:
+ 
+ 
+ def format_board(rows: list[TreeRow], *, base: str, base_sha: str) -> str:
+-    unique = [row for row in rows if row.cherry_plus > 0]
++    uncertain = [row for row in rows if row.error or row.locked or row.prunable]
++    known = [row for row in rows if not (row.error or row.locked or row.prunable)]
++    unique = [row for row in known if row.cherry_plus > 0]
+     prune = [
+         row
+-        for row in rows
+-        if row.in_main and row.kind == "dev-wt" and not row.code_dirty
++        for row in known
++        if row.in_main and row.kind == "dev-wt" and not row.dirty
+     ]
+-    snapshots = [row for row in rows if row.kind == "prod-snapshot"]
++    snapshots = [row for row in known if row.kind == "prod-snapshot"]
+     leftover_dirty = [
+         row
+-        for row in rows
+-        if row.in_main and row.kind == "dev-wt" and row.code_dirty
++        for row in known
++        if row.in_main and row.kind == "dev-wt" and row.dirty
+     ]
+     lines = [
+         f"基准 {base}={base_sha[:12]}  （合入看 cherry+，不是 ahead 提交数）",
+-        f"树 {len(rows)} 棵 · 还有补丁 {len(unique)} · 补丁已在基线的 dev 树 {len(prune)}",
++        f"树 {len(rows)} 棵 · 还有补丁 {len(unique)} · 补丁已在基线的干净 dev 树 {len(prune)} · 待核实 {len(uncertain)}",
+         "",
+         "【还有补丁 — 真没合】",
+     ]
+@@ -405,7 +436,7 @@ def format_board(rows: list[TreeRow], *, base: str, base_sha: str) -> str:
+         lines.append(f"      {display_path(row.path)}")
+         for subject in row.subjects:
+             lines.append(f"      · {subject}")
+-    lines += ["", "【补丁已在基线 — 树可拆，本脚本不拆】"]
++    lines += ["", "【补丁已在基线且 Git 干净 — 不是删除许可，本脚本不拆】"]
+     if not prune:
+         lines.append("  （无）")
+     for row in sorted(prune, key=lambda item: item.branch):
+@@ -414,19 +445,26 @@ def format_board(rows: list[TreeRow], *, base: str, base_sha: str) -> str:
+             f"  {row.head[:12]}  {row.branch}{extra}  {display_path(row.path)}"
+         )
+     if leftover_dirty:
+-        lines += ["", "【补丁已在基线，但还有代码脏文件 — 先认领再拆】"]
++        lines += ["", "【补丁已在基线，但还有未提交文件 — 先认领并保全】"]
+         for row in leftover_dirty:
+             lines.append(
+                 f"  {row.head[:12]}  {row.branch}  {display_path(row.path)}"
+             )
+-    lines += ["", "【生产快照】只留当前 8792 + 一个回滚锚；本脚本不拆"]
++    if uncertain:
++        lines += ["", "【待核实 — 查询失败、失效目录或锁定；不可据此拆树】"]
++        for row in uncertain:
++            reason = "; ".join(filter(None, (row.error, row.locked, row.prunable)))
++            lines.append(f"  {row.head[:12]}  {row.branch}  {display_path(row.path)}")
++            lines.append(f"      {reason}")
++    lines += ["", "【生产快照】生产快照保留策略需另行核实；本脚本不拆"]
+     for row in snapshots:
+         lines.append(
+             f"  {row.head[:12]}  dirty={str(row.dirty).lower()}  {display_path(row.path)}"
+         )
+     lines += [
+         "",
+-        "拆树（需你确认）：git worktree remove <path>",
++        "删除前另查 ignored 文件、reflog、活跃进程/定时任务与部署引用，并取得用户确认。",
++        "cherry 只比较补丁等价，不证明业务接替或合并提交里的独有改动已吸收。",
+         "合入状态不要写进 inflight/main.md 或项目笔记交接记录，下次跑本脚本。",
+     ]
+     return "\n".join(lines) + "\n"
+@@ -443,9 +481,12 @@ def this_tree_lines(
+     code, head = _git(["rev-parse", "HEAD"], cwd=cwd, timeout=timeout)
+     if code != 0 or not head:
+         return []
+-    plus, minus, in_main = cherry_counts(head, base, cwd=cwd, timeout=timeout)
+-    behind = behind_count(head, base, cwd=cwd, timeout=timeout)
+-    if in_main:
++    pinned_base = base_sha or base
++    plus, minus, in_main = cherry_counts(head, pinned_base, cwd=cwd, timeout=timeout)
++    behind = behind_count(head, pinned_base, cwd=cwd, timeout=timeout)
++    if plus < 0:
++        merge = f"合入: 未知（git cherry 查询失败，基准 {base}={base_sha[:12]}）"
++    elif in_main:
+         merge = f"合入: 本枝补丁已在 {base}={base_sha[:12]}（cherry+0）"
+     else:
+         merge = (
+@@ -453,7 +494,9 @@ def this_tree_lines(
+         )
+     # 追加在同一行而不是新起一行：SessionStart 有 2000 字符预算，实测已在截断
+     # 后省略三十余条，多一行就是挤掉另一条事实。落后量始终打印，⚠ 只在过阈值时加。
+-    if behind > 0:
++    if behind < 0:
++        merge += "；底落后量未知（git rev-list 查询失败）"
++    elif behind > 0:
+         merge += f"；底落后 {behind} 提交"
+         if behind >= STALE_BASE_WARN:
+             merge += (
+@@ -486,18 +529,24 @@ def this_tree_lines(
+ 
+ def collect_rows(*, cwd: str, timeout: float) -> tuple[str, str, str, list[TreeRow]]:
+     base = resolve_base(cwd, timeout)
+-    _, base_sha = _git(["rev-parse", base], cwd=cwd, timeout=timeout)
+-    _, common = _git(
++    code, base_sha = _git(["rev-parse", base], cwd=cwd, timeout=timeout)
++    if not base or code != 0 or not base_sha:
++        raise RuntimeError("main baseline unavailable; merge status unknown")
++    code, common = _git(
+         ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+         cwd=cwd,
+         timeout=timeout,
+     )
+-    main_checkout = str(Path(common).resolve().parent) if common else cwd
+-    _, porcelain = _git(["worktree", "list", "--porcelain"], cwd=cwd, timeout=timeout)
++    if code != 0 or not common:
++        raise RuntimeError("git common-dir unavailable; worktree inventory unknown")
++    main_checkout = str(Path(common).resolve().parent)
++    code, porcelain = _git(["worktree", "list", "--porcelain"], cwd=cwd, timeout=timeout)
++    if code != 0 or not porcelain:
++        raise RuntimeError("git worktree list failed; worktree inventory unknown")
+     rows: list[TreeRow] = []
+     for spec in parse_worktree_porcelain(porcelain):
+         row = classify_worktree(
+-            spec, base=base, main_checkout=main_checkout, timeout=timeout
++            spec, base=base_sha or base, main_checkout=main_checkout, timeout=timeout
+         )
+         if row is not None:
+             rows.append(row)
+@@ -525,7 +574,10 @@ def main(argv: list[str] | None = None) -> int:
+     if args.this:
+         timeout = min(timeout, 8.0)
+         base = resolve_base(cwd, timeout)
+-        _, base_sha = _git(["rev-parse", base], cwd=cwd, timeout=timeout)
++        code, base_sha = _git(["rev-parse", base], cwd=cwd, timeout=timeout)
++        if not base or code != 0 or not base_sha:
++            print("合入: 未知（main 基准无法读取，不回退 HEAD 自证）")
++            return 1
+         for line in this_tree_lines(
+             cwd=cwd,
+             base=base,
+@@ -535,7 +587,14 @@ def main(argv: list[str] | None = None) -> int:
+         ):
+             print(line)
+         return 0
+-    base, base_sha, _main_checkout, rows = collect_rows(cwd=cwd, timeout=timeout)
++    try:
++        base, base_sha, _main_checkout, rows = collect_rows(cwd=cwd, timeout=timeout)
++    except RuntimeError as exc:
++        if args.json:
++            print(json.dumps({"error": str(exc), "trees": None}))
++        else:
++            print(f"看板: 未知（{exc}）", file=sys.stderr)
++        return 1
+     if args.json:
+         payload = {
+             "base": base,
+diff --git a/tests/test_main_gate_receipt.py b/tests/test_main_gate_receipt.py
+new file mode 100644
+index 000000000..4647d1a6e
+--- /dev/null
++++ b/tests/test_main_gate_receipt.py
+@@ -0,0 +1,447 @@
++"""Exercise the shell entry point and the real pytest receipt writer offline."""
++from __future__ import annotations
++
++import json
++import os
++import shutil
++import subprocess
++import sys
++from concurrent.futures import ThreadPoolExecutor
++from pathlib import Path
++
++import pytest
++
++import conftest as root_conftest
++
++ROOT = Path(__file__).resolve().parents[1]
++GATE = ROOT / "scripts/run_main_gate.sh"
++
++
++def git(repo, *args):
++    return subprocess.run(["git", *args], cwd=repo, check=True,
++                          capture_output=True, text=True).stdout.strip()
++
++
++@pytest.fixture
++def repo(tmp_path):
++    path = tmp_path / "repo"
++    path.mkdir()
++    git(path, "init", "-b", "main")
++    git(path, "config", "user.name", "Gate test")
++    git(path, "config", "user.email", "gate@example.test")
++    git(path, "config", "commit.gpgsign", "false")
++    (path / "test-environment.json").write_text(json.dumps({
++        "interpreter": sys.executable, "required_modules": [],
++        "code_path_prefixes": ["test_", "conftest.py"],
++    }))
++    shutil.copy2(ROOT / "conftest.py", path / "conftest.py")
++    (path / "test_sample.py").write_text("def test_ok():\n    assert True\n")
++    (path / ".gitignore").write_text("__pycache__/\n.pytest_cache/\n.ruff_cache/\n")
++    git(path, "add", "--", "test-environment.json", "conftest.py", "test_sample.py", ".gitignore")
++    git(path, "commit", "-m", "fixture")
++    return path
++
++
++def receipt(repo, **changes):
++    data = {
++        "revision": git(repo, "rev-parse", "HEAD"), "tree": str(repo),
++        "interpreter": sys.executable, "dirty": False, "worktree_dirty_total": 0,
++        "dependency_gate_bypassed": False, "target": "test_sample.py",
++        "counts": {"passed": 1, "failed": 0, "error": 0, "skipped": 0},
++        "failed_ids": [], "exit_status": 0,
++    }
++    data.update(changes)
++    return data
++
++
++def gate_env(tmp_path, **overrides):
++    env = {k: v for k, v in os.environ.items()
++           if not k.startswith(("FWP_", "PYTEST_", "PYTHONPATH"))}
++    env.update(HOME=str(tmp_path / "home"), PYTHONDONTWRITEBYTECODE="1",
++               FWP_TEST_RECEIPT_DIR=str(tmp_path / "receipts"))
++    env.update(overrides)
++    return env
++
++
++def run_gate(repo, tmp_path, *args, extra_env=None):
++    return subprocess.run(["bash", str(GATE), *args], cwd=repo,
++                          env=gate_env(tmp_path, **(extra_env or {})),
++                          capture_output=True, text=True, timeout=40)
++
++
++def readback(repo, tmp_path, data, baseline=None):
++    path = tmp_path / "receipt.json"
++    path.write_text(json.dumps(data))
++    args = ["--receipt", str(path)]
++    if baseline is not None:
++        other = tmp_path / "baseline.json"
++        other.write_text(json.dumps(baseline))
++        args += ["--baseline", str(other)]
++    return run_gate(repo, tmp_path, *args)
++
++
++def test_valid_receipt_readback(repo, tmp_path):
++    result = readback(repo, tmp_path, receipt(repo))
++    assert result.returncode == 0, result.stdout + result.stderr
++
++
++def test_readback_keeps_failure_exit(repo, tmp_path):
++    data = receipt(repo, counts={"passed": 1, "failed": 1, "error": 0, "skipped": 0},
++                   failed_ids=["test_sample.py::test_bad"], exit_status=1)
++    result = readback(repo, tmp_path, data)
++    assert result.returncode == 1, result.stdout + result.stderr
++
++
++@pytest.mark.parametrize("changes", [
++    {"revision": "0" * 40}, {"dirty": True}, {"worktree_dirty_total": 1},
++    {"tree": "/foreign/tree"}, {"tree": None}, {"tree": 123}, {"tree": ""},
++    {"dependency_gate_bypassed": True}, {"interpreter": "/wrong/python"},
++    {"counts": {"passed": 0, "failed": 0, "error": 0, "skipped": 1}},
++    {"counts": {"passed": -1, "failed": 0, "error": 0, "skipped": 0}},
++    {"counts": {"passed": True, "failed": 0, "error": 0, "skipped": 0}},
++    {"exit_status": 2}, {"exit_status": None}, {"failed_ids": ["hidden failure"]},
++])
++def test_readback_refuses_invalid_or_untrustworthy_receipt(repo, tmp_path, changes):
++    result = readback(repo, tmp_path, receipt(repo, **changes))
++    assert result.returncode != 0, result.stdout + result.stderr
++
++
++@pytest.mark.parametrize("data", [{}, [], {"counts": {}}])
++def test_malformed_receipt_is_structured_failure(repo, tmp_path, data):
++    result = readback(repo, tmp_path, data)
++    assert result.returncode == 4
++    assert "Traceback" not in result.stderr
++
++
++def test_readback_requires_tree_even_without_a_new_pytest_process(repo, tmp_path):
++    data = receipt(repo)
++    del data["tree"]
++    result = readback(repo, tmp_path, data)
++    assert result.returncode == 4, result.stdout + result.stderr
++    assert "tree" in result.stderr
++
++
++def test_baseline_comparison_does_not_bypass_current_tree_identity(repo, tmp_path):
++    result = readback(repo, tmp_path, receipt(repo, tree="/foreign/tree"), receipt(repo))
++    assert result.returncode == 4, result.stdout + result.stderr
++
++
++def test_allow_dirty_does_not_bypass_current_tree_identity(repo, tmp_path):
++    path = tmp_path / "foreign-receipt.json"
++    path.write_text(json.dumps(receipt(repo, tree="/foreign/tree")))
++    result = run_gate(repo, tmp_path, "--receipt", str(path), "--allow-dirty")
++    assert result.returncode == 4, result.stdout + result.stderr
++
++
++def test_baseline_does_not_hide_interrupted_run(repo, tmp_path):
++    result = readback(repo, tmp_path, receipt(repo, exit_status=2), receipt(repo))
++    assert result.returncode != 0
++
++
++def test_baseline_scope_must_match(repo, tmp_path):
++    result = readback(repo, tmp_path, receipt(repo), receipt(repo, target="other.py"))
++    assert result.returncode != 0
++
++
++def test_same_known_red_is_only_explicit_baseline_comparison(repo, tmp_path):
++    data = receipt(repo, counts={"passed": 1, "failed": 1, "error": 0, "skipped": 0},
++                   failed_ids=["test_sample.py::test_bad"], exit_status=1)
++    result = readback(repo, tmp_path, data, data)
++    assert result.returncode == 0, result.stdout + result.stderr
++    assert "baseline" in result.stdout.lower()
++
++
++def test_gate_uses_own_receipt_when_latest_is_overwritten(repo, tmp_path):
++    # The real root hook writes first; a second plugin then replaces only latest.json.
++    (repo / "conftest.py").write_text((repo / "conftest.py").read_text() + '''
++class CompetingWriter:
++    @pytest.hookimpl(hookwrapper=True, tryfirst=True)
++    def pytest_sessionfinish(self):
++        yield
++        other = Path(os.environ["FWP_TEST_RECEIPT_DIR"]) / "latest.json"
++        other.write_text('{"revision": "foreign", "exit_status": 1}')
++
++@pytest.hookimpl(trylast=True)
++def pytest_sessionstart(session):
++    session.config.pluginmanager.register(CompetingWriter(), "competing-writer")
++''')
++    git(repo, "add", "--", "conftest.py")
++    git(repo, "commit", "-m", "competing latest writer")
++    result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py")
++    assert result.returncode == 0, result.stdout + result.stderr
++    assert git(repo, "rev-parse", "HEAD")[:12] in result.stdout
++    own = list((tmp_path / "receipts").glob("gate-*/pytest.json"))
++    assert len(own) == 1
++    assert json.loads(own[0].read_text())["revision"] == git(repo, "rev-parse", "HEAD")
++    assert json.loads((tmp_path / "receipts/latest.json").read_text())["revision"] == "foreign"
++
++
++@pytest.mark.parametrize("inherited_owner", ["", "foreign-launcher"])
++def test_nested_collection_cannot_claim_parent_receipt(repo, tmp_path, inherited_owner):
++    (repo / "test_sample.py").write_text('''import subprocess
++import sys
++
++
++def test_nested_collection():
++    result = subprocess.run([sys.executable, "-m", "pytest", "--collect-only", "-q"],
++                            capture_output=True, text=True, timeout=20)
++    assert result.returncode == 0, result.stdout + result.stderr
++''')
++    git(repo, "add", "--", "test_sample.py")
++    git(repo, "commit", "-m", "nested collection fixture")
++    result = run_gate(repo, tmp_path, extra_env={
++        "FWP_TEST_RECEIPT_OWNER_PID": inherited_owner,
++    })
++    assert result.returncode == 0, result.stdout + result.stderr
++    own = list((tmp_path / "receipts").glob("gate-*/pytest.json"))
++    assert len(own) == 1
++    assert json.loads(own[0].read_text())["counts"]["passed"] == 1
++
++
++@pytest.mark.parametrize("mode", [
++    "run", "run-same-target", "collect-same-target", "inner-failure", "outer-failure",
++])
++def test_inprocess_nested_pytest_keeps_outer_receipt(repo, tmp_path, mode):
++    # Same-target execution/collection also prevent a target-string-only workaround.
++    (repo / "test_inner.py").write_text(
++        "def test_inner_one():\n    assert True\n\n\n"
++        f"def test_inner_two():\n    assert {mode != 'inner-failure'}\n"
++    )
++    inner_args = {
++        "collect-same-target": ["--collect-only", "test_sample.py"],
++        "run-same-target": ["test_sample.py", "-k", "leaf"],
++    }.get(mode, ["test_inner.py"])
++    (repo / "test_sample.py").write_text(f'''import pytest
++
++
++def test_outer():
++    result = pytest.main(["-q", "-p", "no:cacheprovider", *{inner_args!r}])
++    assert result == {1 if mode == "inner-failure" else 0}
++    assert {mode != "outer-failure"}
++''' + ("\n\ndef test_leaf():\n    assert True\n" if mode == "run-same-target" else ""))
++    git(repo, "add", "--", "test_sample.py", "test_inner.py")
++    git(repo, "commit", "-m", "inprocess nesting fixture")
++    result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py")
++    failed = int(mode == "outer-failure")
++    assert result.returncode == failed, result.stdout + result.stderr
++    own = list((tmp_path / "receipts").glob("gate-*/pytest.json"))
++    assert len(own) == 1
++    data = json.loads(own[0].read_text())
++    assert data["target"] == "test_sample.py"
++    passed = 1 - failed + int(mode == "run-same-target")
++    assert data["counts"] == {"passed": passed, "failed": failed, "error": 0, "skipped": 0}
++    assert data["failed_ids"] == (["test_sample.py::test_outer"] if failed else [])
++    assert data["exit_status"] == failed
++    assert "收据未写出" not in result.stdout
++
++
++@pytest.mark.parametrize("first_run", ["success", "configure-error"])
++@pytest.mark.parametrize("previous_owner", [None, ""])
++def test_sequential_inprocess_runs_release_receipt_owner(repo, tmp_path, first_run, previous_owner):
++    # Real Config cleanup, including failure before a Session can finish.
++    runner = '''import json
++import os
++import sys
++from pathlib import Path
++
++import pytest
++
++
++class FailConfigure:
++    @pytest.hookimpl(trylast=True)
++    def pytest_configure(self):
++        raise pytest.UsageError("intentional configure failure")
++
++
++out = Path(sys.argv[1])
++out.mkdir()
++for index in range(2):
++    os.environ["FWP_TEST_RECEIPT_PATH"] = str(out / f"run-{index}.json")
++    plugins = [FailConfigure()] if index == 0 and sys.argv[2] == "configure-error" else []
++    result = pytest.main(["-q", "-p", "no:cacheprovider", "test_sample.py"], plugins=plugins)
++    state = {"exit": int(result), "owner_after": os.environ.get("FWP_TEST_RECEIPT_OWNER_PID")}
++    (out / f"state-{index}.json").write_text(json.dumps(state))
++'''
++    out = tmp_path / "sequential"
++    env = gate_env(tmp_path)
++    if previous_owner is not None:
++        env["FWP_TEST_RECEIPT_OWNER_PID"] = previous_owner
++    result = subprocess.run([sys.executable, "-c", runner, str(out), first_run],
++                            cwd=repo, env=env, capture_output=True,
++                            text=True, timeout=40)
++    assert result.returncode == 0, result.stdout + result.stderr
++    for index in range(2):
++        state = json.loads((out / f"state-{index}.json").read_text())
++        failed_config = index == 0 and first_run == "configure-error"
++        assert state == {"exit": 4 if failed_config else 0, "owner_after": previous_owner}
++        path = out / f"run-{index}.json"
++        if failed_config:
++            assert not path.exists()
++        else:
++            data = json.loads(path.read_text())
++            assert data["target"] == "test_sample.py"
++            assert data["counts"]["passed"] == 1
++    assert "收据未写出" not in result.stdout
++
++
++@pytest.mark.parametrize("inherited", ["self", "foreign"])
++def test_inherited_pid_alone_cannot_grant_or_release_ownership(repo, tmp_path, inherited):
++    output = tmp_path / "inherited.json"
++    runner = '''import os
++import sys
++
++import pytest
++
++owner = str(os.getpid()) if sys.argv[1] == "self" else "foreign"
++os.environ["FWP_TEST_RECEIPT_OWNER_PID"] = owner
++assert pytest.main(["-q", "-p", "no:cacheprovider", "test_sample.py"]) == 0
++assert os.environ["FWP_TEST_RECEIPT_OWNER_PID"] == owner
++'''
++    result = subprocess.run([sys.executable, "-c", runner, inherited], cwd=repo,
++                            env=gate_env(tmp_path, FWP_TEST_RECEIPT_PATH=str(output)),
++                            capture_output=True, text=True, timeout=30)
++    assert result.returncode == 0, result.stdout + result.stderr
++    assert not output.exists()
++
++
++def test_invocation_cannot_switch_its_claimed_receipt_path(repo, tmp_path):
++    (repo / "test_sample.py").write_text('''import os
++
++
++def test_switch_path():
++    os.environ["FWP_TEST_RECEIPT_PATH"] += ".foreign"
++''')
++    git(repo, "add", "--", "test_sample.py")
++    git(repo, "commit", "-m", "change claimed output fixture")
++    result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py")
++    assert result.returncode == 4, result.stdout + result.stderr
++    assert not list((tmp_path / "receipts").rglob("pytest.json*"))
++
++
++@pytest.mark.parametrize("kind", ["subprocess", "shell-gate"])
++def test_nested_execution_preserves_outer_ownership(repo, tmp_path, kind):
++    (repo / "test_inner.py").write_text(
++        "def test_inner_one():\n    assert True\n\n\n"
++        "def test_inner_two():\n    assert True\n"
++    )
++    command = ([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "test_inner.py"]
++               if kind == "subprocess" else
++               ["bash", str(GATE), "--pytest-args", "-q -p no:cacheprovider test_inner.py"])
++    (repo / "test_sample.py").write_text(f'''import subprocess
++
++
++def test_outer():
++    result = subprocess.run({command!r}, capture_output=True, text=True, timeout=20)
++    assert result.returncode == 0, result.stdout + result.stderr
++''')
++    git(repo, "add", "--", "test_sample.py", "test_inner.py")
++    git(repo, "commit", "-m", "nested execution fixture")
++    result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py")
++    assert result.returncode == 0, result.stdout + result.stderr
++    files = list((tmp_path / "receipts").glob("gate-*/pytest.json"))
++    receipts = {json.loads(p.read_text())["target"]: json.loads(p.read_text()) for p in files}
++    expected = {"test_sample.py": 1}
++    if kind == "shell-gate":
++        expected["test_inner.py"] = 2  # a new shell allocates its own path/owner
++    assert len(files) == len(expected)
++    assert {target: data["counts"]["passed"] for target, data in receipts.items()} == expected
++
++
++def test_parallel_gates_keep_separate_receipts(repo, tmp_path):
++    # A rendezvous proves both pytest processes are alive together, not just two
++    # sequential successful runs. All marker files live outside the clean repo.
++    (repo / "test_sample.py").write_text('''import os
++import time
++from pathlib import Path
++
++
++def test_overlap():
++    root = Path(os.environ["RENDEZVOUS"])
++    root.joinpath(os.environ["PEER"]).touch()
++    deadline = time.monotonic() + 10
++    while len(list(root.iterdir())) != 2:
++        assert time.monotonic() < deadline, "peer never started"
++        time.sleep(0.01)
++
++
++def test_second():
++    assert True
++''')
++    git(repo, "add", "--", "test_sample.py")
++    git(repo, "commit", "-m", "concurrent gates fixture")
++    meet = tmp_path / "meet"
++    meet.mkdir()
++    targets = ["test_sample.py", "test_sample.py::test_overlap"]
++    with ThreadPoolExecutor(max_workers=2) as pool:
++        futures = [pool.submit(run_gate, repo, tmp_path, "--pytest-args",
++                               f"-q -p no:cacheprovider {target}",
++                               extra_env={"RENDEZVOUS": str(meet), "PEER": str(i)})
++                   for i, target in enumerate(targets)]
++        results = [future.result(timeout=45) for future in futures]
++    assert all(r.returncode == 0 for r in results), [(r.stdout, r.stderr) for r in results]
++    own = list((tmp_path / "receipts").glob("gate-*/pytest.json"))
++    assert len(own) == 2
++    assert {json.loads(p.read_text())["target"]: json.loads(p.read_text())["counts"]["passed"]
++            for p in own} == dict(zip(targets, [2, 1], strict=True))
++
++
++def test_missing_current_receipt_never_reuses_stale_latest(repo, tmp_path):
++    folder = tmp_path / "receipts"
++    folder.mkdir()
++    (folder / "latest.json").write_text(json.dumps(receipt(repo)))
++    result = run_gate(repo, tmp_path, "--pytest-args", "-q test_sample.py",
++                      extra_env={"FWP_TEST_RECEIPT": "0"})
++    assert result.returncode == 4, result.stdout + result.stderr
++
++
++def test_revision_change_during_run_is_refused(repo, tmp_path):
++    (repo / "test_sample.py").write_text('''import subprocess
++
++
++def test_commit():
++    subprocess.run(["git", "commit", "--allow-empty", "-m", "changed during run"], check=True)
++''')
++    git(repo, "add", "--", "test_sample.py")
++    git(repo, "commit", "-m", "revision mutation fixture")
++    result = run_gate(repo, tmp_path, "--pytest-args", "-q test_sample.py")
++    assert result.returncode == 4, result.stdout + result.stderr
++    assert "提交或干净状态改变" in result.stderr
++
++
++@pytest.mark.parametrize("changed", [{"tree": "/foreign"}, {"exit_status": 1}])
++def test_process_identity_mismatch_is_refused(repo, tmp_path, changed):
++    data = receipt(repo, **changed)
++    if changed.get("exit_status") == 1:
++        data.update(counts={"passed": 0, "failed": 1, "error": 0, "skipped": 0},
++                    failed_ids=["test_sample.py::test_bad"])
++    path = tmp_path / "process.json"
++    path.write_text(json.dumps(data))
++    result = subprocess.run([
++        sys.executable, str(ROOT / "scripts/main_gate_receipt.py"), str(path),
++        "--revision", git(repo, "rev-parse", "HEAD"), "--tree", str(repo), "--pytest-exit", "0",
++    ], capture_output=True, text=True)
++    assert result.returncode == 4
++    assert "does not match" in result.stderr
++
++
++def test_writer_honors_override_without_overwriting_original(tmp_path, monkeypatch):
++    folder = tmp_path / "receipts"
++    output = tmp_path / "run/pytest.json"
++    output.parent.mkdir()
++    monkeypatch.setenv("FWP_TEST_RECEIPT_DIR", str(folder))
++    monkeypatch.setenv("FWP_TEST_RECEIPT_PATH", str(output))
++    data = {"revision": "a" * 40, "counts": {"passed": 1}}
++    assert root_conftest._write_test_receipt(data) == output
++    assert json.loads(output.read_text()) == data
++    with pytest.raises(FileExistsError):
++        root_conftest._write_test_receipt({"revision": "b" * 40})
++    assert json.loads(output.read_text()) == data
++
++
++def test_default_receipt_names_cannot_collide(tmp_path, monkeypatch):
++    monkeypatch.setenv("FWP_TEST_RECEIPT_DIR", str(tmp_path))
++    monkeypatch.delenv("FWP_TEST_RECEIPT_PATH", raising=False)
++    data = {"revision": "a" * 40}
++    paths = [root_conftest._write_test_receipt(data) for _ in range(3)]
++    assert len(set(paths)) == 3
++    assert all(json.loads(path.read_text()) == data for path in paths)
+diff --git a/tests/test_repair_backfill_stock_history.py b/tests/test_repair_backfill_stock_history.py
+new file mode 100644
+index 000000000..cb6ed0fc0
+--- /dev/null
++++ b/tests/test_repair_backfill_stock_history.py
+@@ -0,0 +1,1236 @@
++"""repair_backfill_stock_history 单测：scoped 语义 / 预期置缺 / 拒跑 / 幂等。
++
++合同：`docs/handoffs/2026-09-14-302132-prep-review.md`「下一轮执行前合同」。
++合成库 30 个交易日（2026-08-03 起的工作日），目标股 999999.SZ：
++主表仅 D0 正常行 + D1 空壳 + D2 正常行 + D29 钉值行；并跑表 07-31 起全覆盖；
++parquet 夹具供 D27/D28 尾段。另有一只他股 000001.SZ 全量行作不变见证。
++
++钉值策略：technical 用解析精确值（等差 close 步长 0.5 → ma26=18.25、
++std26=3.75 等比可手算）；window 钉值由夹具 SQL 对并跑表源数据独立计算。
++"""
++from __future__ import annotations
++
++import hashlib
++from datetime import date, datetime, timedelta, timezone
++from decimal import Decimal, ROUND_HALF_UP
++from pathlib import Path
++
++import duckdb
++import pytest
++
++from market_feature_store.db import init_db
++from market_feature_store.sync.repair_backfill_stock_history import (
++    BackfillSpec,
++    run_backfill_child,
++)
++from market_feature_store.sync.repair_hithink_stock_day import RepairRefused
++
++CODE = "302132.SZ"  # 与验收脚本钉死的合同代码一致（E2E 验收回归复用本夹具）
++NAME = "测试股份"
++OTHER = "000001.SZ"
++PREV = "2026-07-31"  # 窗口前一交易日（周五）
++
++
++def _calendar() -> list[str]:
++    days, d = [], date(2026, 8, 3)
++    while len(days) < 30:
++        if d.weekday() < 5:
++            days.append(d.isoformat())
++        d += timedelta(days=1)
++    return days
++
++
++CAL = _calendar()
++
++
++def _close(i: int) -> float:
++    return round(10.0 + 0.5 * i, 2)
++
++
++def _turnover(i: int) -> float:
++    return round(_close(i) * (i + 1) * 10000, 2)
++
++
++def _amount(i: int) -> float:
++    """映射后 amount（亿，round4）——与模块 SQL 同式的 Decimal oracle。"""
++    v = Decimal(str(_turnover(i))).quantize(Decimal("0.01")) / Decimal(10**8)
++    return float(v.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
++
++
++def _epoch_ms(d: str) -> int:
++    dt = datetime.fromisoformat(d).replace(tzinfo=timezone.utc) + timedelta(hours=12)
++    return int(dt.timestamp() * 1000)
++
++
++def _insert(con, table: str, row: dict) -> None:
++    cols = ", ".join(row)
++    marks = ", ".join("?" for _ in row)
++    con.execute(f"INSERT INTO {table} ({cols}) VALUES ({marks})", list(row.values()))
++
++
++def _fixture(db_path: Path, parquet_path: Path) -> dict:
++    con = duckdb.connect(str(db_path))
++    init_db(con)
++    for d in [PREV] + CAL:
++        _insert(con, "fact_market_daily", {"trade_date": d})
++    _insert(con, "fact_stock_daily_hithink", {
++        "trade_date": PREV, "stock_ts_code": CODE,
++        "open": 9.4, "high": 9.7, "low": 9.3, "close": 9.5, "volume": 5000.0,
++        "turnover": 47500.0, "adjusted": "none",
++        "source": "hithink:daily-k", "updated_at": datetime(2026, 9, 10, 22, 8)})
++    for i, d in enumerate(CAL[:27]):  # 并跑表止于 D26（对齐生产：尾段只由 parquet 供）
++        _insert(con, "fact_stock_daily_hithink", {
++            "trade_date": d, "stock_ts_code": CODE,
++            "open": _close(i) - 0.1, "high": _close(i) + 0.2, "low": _close(i) - 0.2,
++            "close": _close(i), "volume": float((i + 1) * 10000),
++            "turnover": _turnover(i), "adjusted": "none",
++            "source": "hithink:daily-k", "updated_at": datetime(2026, 9, 10, 22, 8)})
++    # 主表：D0/D2 正常行、D1 空壳、D29 钉值行（updated_at 固定以便逐字节对照）
++    def main_row(i: int, d: str, null_shell: bool = False) -> dict:
++        base = {"trade_date": d, "stock_ts_code": CODE, "stock_name": NAME,
++                "close": _close(i), "pre_close": _close(i - 1),
++                "pct_chg": 5.0, "amount": _amount(i), "turnover": None,
++                "source": "fupanhui:sector_stock_daily:fallback",
++                "updated_at": datetime(2026, 9, 1, 8),
++                "open": _close(i) - 0.1, "high": _close(i) + 0.2,
++                "low": _close(i) - 0.2, "volume": float((i + 1) * 100)}
++        if null_shell:
++            for k in ("open", "high", "low", "close", "pre_close", "pct_chg",
++                      "amount", "volume"):
++                base[k] = None
++        return base
++
++    _insert(con, "fact_stock_daily", main_row(0, CAL[0]))
++    _insert(con, "fact_stock_daily", main_row(1, CAL[1], null_shell=True))
++    _insert(con, "fact_stock_daily", main_row(2, CAL[2]))
++    pinned = {"trade_date": CAL[29], "stock_ts_code": CODE, "stock_name": NAME,
++              "close": _close(29), "pre_close": _close(28), "pct_chg": 2.13,
++              "amount": _amount(29), "turnover": None, "source": "hithink:daily-k-10d",
++              "updated_at": datetime(2026, 9, 12, 2, 19), "open": _close(29) - 0.1,
++              "high": _close(29) + 0.2, "low": _close(29) - 0.2, "volume": 3000.0}
++    _insert(con, "fact_stock_daily", pinned)
++    # 他股见证行：全历 + 派生行（calculated_at 固定）
++    for i, d in enumerate(CAL):
++        _insert(con, "fact_stock_daily", {
++            "trade_date": d, "stock_ts_code": OTHER, "stock_name": "见证股份",
++            "close": 20.0 + i, "pre_close": 19.0 + i, "pct_chg": 5.0,
++            "amount": 1.5, "turnover": 2.5, "source": "eastmoney:snapshot",
++            "updated_at": datetime(2026, 9, 1, 8), "open": 19.5 + i,
++            "high": 20.5 + i, "low": 19.0 + i, "volume": 1000.0})
++        _insert(con, "feature_stock_technical_daily", {
++            "trade_date": d, "stock_ts_code": OTHER, "stock_name": "见证股份",
++            "close": 20.0 + i, "ma26": 20.0, "std26": 1.0, "up_value": 20.764,
++            "deviation_pct": 1.0, "calculated_at": datetime(2026, 9, 1, 9)})
++        _insert(con, "feature_stock_window", {
++            "as_of_date": d, "start_date": CAL[0], "end_date": d,
++            "stock_ts_code": OTHER, "stock_name": "见证股份",
++            "interval_gain_pct": 1.0, "avg_amount": 1.5, "weighted_gain": 0.015,
++            "sector_count": 0, "sector_names": None, "sw_l1_names": None,
++            "calculated_at": datetime(2026, 9, 1, 9)})
++    # 目标股窗内旧派生（待删）：D0 technical + (D4, D0-start) window；窗外旧 technical
++    _insert(con, "feature_stock_technical_daily", {
++        "trade_date": CAL[0], "stock_ts_code": CODE, "stock_name": NAME,
++        "close": _close(0), "ma26": 99.0, "std26": 9.0, "up_value": 99.9,
++        "deviation_pct": -9.0, "calculated_at": datetime(2026, 9, 1, 9)})
++    _insert(con, "feature_stock_technical_daily", {
++        "trade_date": "2025-06-16", "stock_ts_code": CODE, "stock_name": NAME,
++        "close": 8.0, "ma26": 7.5, "std26": 0.5, "up_value": 7.882,
++        "deviation_pct": 1.5, "calculated_at": datetime(2026, 9, 1, 9)})
++    _insert(con, "feature_stock_window", {
++        "as_of_date": CAL[4], "start_date": CAL[0], "end_date": CAL[4],
++        "stock_ts_code": CODE, "stock_name": NAME, "interval_gain_pct": -9.99,
++        "avg_amount": 0.1, "weighted_gain": -0.01, "sector_count": 0,
++        "sector_names": None, "sw_l1_names": None,
++        "calculated_at": datetime(2026, 9, 1, 9)})
++    # parquet 尾段夹具：D26..D29（D26 供 lag 链）
++    rows = ", ".join(
++        f"('{CODE}', 'CNY', '1d', 'none', {_epoch_ms(CAL[i])}, "
++        f"{_close(i) - 0.1}, {_close(i) + 0.2}, {_close(i) - 0.2}, {_close(i)}, "
++        f"{(i + 1) * 10000}.0, {_turnover(i)})"
++        for i in range(26, 30)
++    )
++    con.execute(
++        f"""
++        COPY (
++          SELECT * FROM (VALUES {rows}
++          ) AS v(thscode, currency, interval, adjusted, date_ms,
++                 open_price, high_price, low_price, close_price, volume, turnover)
++        ) TO '{parquet_path}' (FORMAT PARQUET)
++        """
++    )
++    con.close()
++    return {"pinned": pinned}
++
++
++def _spec(db_path: Path, parquet_path: Path, pinned: dict) -> BackfillSpec:
++    sha = hashlib.sha256(parquet_path.read_bytes()).hexdigest()
++    # window 钉值由夹具 SQL 对并跑表源数据独立计算（D29 的 5/10/20 日窗）
++    con = duckdb.connect(str(db_path), read_only=True)
++    win_pins = []
++    for p in (20, 10, 5):  # 钉值元组按 start 升序：20d 起点最早
++        row = con.execute(
++            f"""
++            WITH s AS (
++              SELECT trade_date, close,
++                     round(CAST(turnover AS DECIMAL(38,2)) / 100000000, 4) AS amt
++              FROM fact_stock_daily_hithink WHERE stock_ts_code = '{CODE}'
++                AND trade_date BETWEEN '{CAL[0]}' AND '{CAL[26]}'
++              UNION ALL
++              SELECT CAST(to_timestamp(date_ms/1000) AS DATE), close_price,
++                     round(CAST(turnover AS DECIMAL(38,2)) / 100000000, 4)
++              FROM read_parquet('{parquet_path}')
++              WHERE thscode = '{CODE}'
++                AND CAST(to_timestamp(date_ms/1000) AS DATE) > '{CAL[26]}'
++            ), b AS (
++              SELECT trade_date, close,
++                     LAG(close, {p}) OVER (ORDER BY trade_date) AS cs,
++                     LAG(trade_date, {p}) OVER (ORDER BY trade_date) AS sd,
++                     AVG(amt) OVER (ORDER BY trade_date ROWS BETWEEN {p - 1} PRECEDING
++                                    AND CURRENT ROW) AS aa
++              FROM s
++            )
++            SELECT CAST(sd AS VARCHAR),
++                   ROUND((close / cs - 1) * 100, 2), ROUND(aa, 4)
++            FROM b WHERE trade_date = '{CAL[29]}'
++            """).fetchone()
++        win_pins.append((row[0], float(row[1]), float(row[2])))
++    con.close()
++    win_pins.sort(key=lambda t: t[0])
++    return BackfillSpec(
++        code=CODE, name=NAME,
++        window_start=CAL[0], main_fill_end=CAL[28], window_end=CAL[29],
++        shell_date=CAL[1],
++        gap_parallel=tuple(CAL[3:27]), gap_parquet=(CAL[27], CAL[28]),
++        expected_total_rows=30,
++        stale_technical_dates=(CAL[0],),
++        stale_window_keys=((CAL[4], CAL[0]),),
++        pinned_0911={k: pinned[k] for k in (
++            "stock_name", "close", "pre_close", "pct_chg", "amount", "turnover",
++            "source", "open", "high", "low", "volume")},
++        pinned_technical_0911={"ma26": 18.25, "std26": 3.75, "up_value": 21.115,
++                               "deviation_pct": 16.03},
++        pinned_windows_0911=tuple(win_pins),
++        expected_technical_count=5,
++        expected_window_counts={5: 25, 10: 20, 20: 10, 60: 0},
++        parquet_sha256=sha,
++        spec_version="test-v1",
++    )
++
++
++def _others_snapshot(con) -> dict:
++    return {
++        t: con.execute(
++            f"SELECT * FROM {t} WHERE stock_ts_code = '{OTHER}' ORDER BY 1, 2"
++        ).fetchall()
++        for t in ("fact_stock_daily", "feature_stock_technical_daily",
++                  "feature_stock_window")
++    }
++
++
++def _outside_snapshot(con) -> dict:
++    w0, w1 = CAL[0], CAL[29]
++    return {
++        "tech": con.execute(
++            f"SELECT * FROM feature_stock_technical_daily WHERE stock_ts_code='{CODE}' "
++            f"AND trade_date NOT BETWEEN '{w0}' AND '{w1}'").fetchall(),
++        "win": con.execute(
++            f"SELECT * FROM feature_stock_window WHERE stock_ts_code='{CODE}' "
++            f"AND as_of_date NOT BETWEEN '{w0}' AND '{w1}'").fetchall(),
++    }
++
++
++@pytest.fixture()
++def env(tmp_path):
++    db = tmp_path / "mini.duckdb"
++    pq = tmp_path / "tail.parquet"
++    fx = _fixture(db, pq)
++    spec = _spec(db, pq, fx["pinned"])
++    return db, pq, spec
++
++
++def test_happy_path_scoped_rebuild(env):
++    db, pq, spec = env
++    con = duckdb.connect(str(db))
++    others_before, outside_before = _others_snapshot(con), _outside_snapshot(con)
++    report = run_backfill_child(con, spec, pq)
++    assert report["mode"] == "apply"
++    n = con.execute(
++        f"SELECT COUNT(*) FROM fact_stock_daily WHERE stock_ts_code='{CODE}'"
++    ).fetchone()[0]
++    assert n == 30
++    # 旧行处置：D0 technical 删除（观测不足置缺），(D4, D0-start) window key 删除
++    assert con.execute(
++        f"SELECT COUNT(*) FROM feature_stock_technical_daily WHERE stock_ts_code='{CODE}' "
++        f"AND trade_date='{CAL[0]}'").fetchone()[0] == 0
++    assert con.execute(
++        f"SELECT COUNT(*) FROM feature_stock_window WHERE stock_ts_code='{CODE}' "
++        f"AND as_of_date='{CAL[4]}'").fetchone()[0] == 0
++    # 派生物化节奏：technical 5 行（D25..D29）；window 55 行（25+20+10+0）
++    assert report["technical_rows"] == 5
++    assert report["window_rows"] == 55
++    assert report["window_counts"] == {5: 25, 10: 20, 20: 10, 60: 0}
++    # 空壳已填充且关键值非空
++    shell = con.execute(
++        f"SELECT close, pre_close, pct_chg, amount, volume FROM fact_stock_daily "
++        f"WHERE stock_ts_code='{CODE}' AND trade_date='{CAL[1]}'").fetchone()
++    assert all(v is not None for v in shell)
++    # 他股与窗外行逐字节不变（含 calculated_at / updated_at）
++    assert _others_snapshot(con) == others_before
++    assert _outside_snapshot(con) == outside_before
++    con.close()
++
++
++def test_rerun_idempotent_verify_mode(env):
++    db, pq, spec = env
++    con = duckdb.connect(str(db))
++    run_backfill_child(con, spec, pq)
++    snap1_main = con.execute(
++        f"SELECT * FROM fact_stock_daily WHERE stock_ts_code='{CODE}' ORDER BY 1"
++    ).fetchall()
++    snap1_tech_vals = con.execute(
++        f"SELECT * FROM feature_stock_technical_daily "
++        f"WHERE stock_ts_code='{CODE}' ORDER BY 1").fetchall()
++    report2 = run_backfill_child(con, spec, pq)
++    assert report2["mode"] == "verify"
++    assert con.execute(
++        f"SELECT * FROM fact_stock_daily WHERE stock_ts_code='{CODE}' ORDER BY 1"
++    ).fetchall() == snap1_main  # 主表逐字节幂等（updated_at 不刷新）
++    assert con.execute(
++        f"SELECT * FROM feature_stock_technical_daily "
++        f"WHERE stock_ts_code='{CODE}' ORDER BY 1").fetchall() == snap1_tech_vals
++    # verify 模式零写入：连 calculated_at 都不刷新
++    con.close()
++
++
++@pytest.mark.parametrize("mutate", ["bad_code", "empty_gap", "bad_end",
++                                    "bad_hash", "shell_filled", "stale_missing"])
++def test_refusals_fail_closed(env, mutate):
++    db, pq, spec = env
++    con = duckdb.connect(str(db))
++    before = _others_snapshot(con)
++    kw = dict(code=spec.code, name=spec.name, window_start=spec.window_start,
++              main_fill_end=spec.main_fill_end, window_end=spec.window_end,
++              shell_date=spec.shell_date, gap_parallel=spec.gap_parallel,
++              gap_parquet=spec.gap_parquet,
++              expected_total_rows=spec.expected_total_rows,
++              stale_technical_dates=spec.stale_technical_dates,
++              stale_window_keys=spec.stale_window_keys,
++              pinned_0911=spec.pinned_0911,
++              pinned_technical_0911=spec.pinned_technical_0911,
++              pinned_windows_0911=spec.pinned_windows_0911,
++              expected_technical_count=spec.expected_technical_count,
++              expected_window_counts=dict(spec.expected_window_counts),
++              parquet_sha256=spec.parquet_sha256, spec_version="test-v1")
++    if mutate == "bad_code":
++        kw["code"] = "BAD"
++    elif mutate == "empty_gap":
++        kw["gap_parallel"] = ()
++    elif mutate == "bad_end":
++        kw["window_end"] = "2026-09-12"  # 周六，非交易日
++    elif mutate == "bad_hash":
++        kw["parquet_sha256"] = "0" * 64
++    elif mutate == "shell_filled":
++        con.execute(
++            f"UPDATE fact_stock_daily SET close=1.0 WHERE stock_ts_code='{CODE}' "
++            f"AND trade_date='{CAL[1]}'")
++    elif mutate == "stale_missing":
++        kw["stale_technical_dates"] = ()
++    bad = spec if mutate == "shell_filled" else BackfillSpec(**kw)
++    with pytest.raises(RepairRefused):
++        run_backfill_child(con, bad, pq)
++    # 拒跑后他股不变、目标股主表保持 4 行（guard 在任何写入前）
++    assert _others_snapshot(con) == before
++    assert con.execute(
++        f"SELECT COUNT(*) FROM fact_stock_daily WHERE stock_ts_code='{CODE}'"
++    ).fetchone()[0] == 4
++    con.close()
++
++
++def test_widened_delete_counterexample_caught(env, monkeypatch):
++    """「只筛 INSERT 不筛 DELETE」反例必须被保护切片指纹抓住。"""
++    import market_feature_store.sync.repair_backfill_stock_history as mod
++
++    db, pq, spec = env
++    con = duckdb.connect(str(db))
++
++    real = mod._rebuild_derived_scoped
++
++    def evil(con_, spec_, mode_="apply"):
++        out = real(con_, spec_, mode_)
++        con_.execute(  # 越权删窗外旧行（只筛 INSERT 不筛 DELETE 的等价破坏）
++            f"DELETE FROM feature_stock_technical_daily WHERE stock_ts_code='{CODE}' "
++            f"AND trade_date='2025-06-16'")
++        return out
++
++    monkeypatch.setattr(mod, "_rebuild_derived_scoped", evil)
++    with pytest.raises(RepairRefused, match="保护切片"):
++        mod.run_backfill_child(con, spec, pq)
++    con.close()
++
++
++def test_oracle_matches_module_mapping():
++    """python oracle 与模块 SQL 映射在一组值上逐项相等（映射受测复用的单测锚）。"""
++    from market_feature_store.sync.repair_backfill_stock_history import (
++        _oracle_amount, _oracle_pct, _oracle_volume)
++    mem = duckdb.connect()
++    cases = [(62.21, 61.33, 506166603.05, 8159946.0),
++             (63.42, 64.35, 598632440.33, 9447135.0),
++             (10.0, 9.75, 1234567.89, 10000.0),
++             (24.5, 24.0, 73500000.0, 300000.0)]
++    for close, pre, turnover, volume in cases:
++        row = mem.execute(
++            "SELECT CAST(round(CAST((CAST(? AS DECIMAL(18,4))"
++            " / CAST(? AS DECIMAL(18,2)) - 1) * 100 AS DECIMAL(38,12)), 2) AS DOUBLE),"
++            " CAST(round(CAST(? AS DECIMAL(38,2)) / 100000000, 4) AS DOUBLE),"
++            " CAST(round(CAST(? AS DECIMAL(38,0)) / 100, 0) AS DOUBLE)",
++            [close, pre, turnover, volume]).fetchone()
++        assert abs(row[0] - _oracle_pct(close, pre)) < 1e-9
++        assert abs(row[1] - _oracle_amount(turnover)) < 1e-9
++        assert abs(row[2] - _oracle_volume(volume)) < 1e-9
++    mem.close()
++
++
++# ── 评审退修（6abd08ac）七条误放行反例 → 全部必须拒绝 ─────────────
++import json  # noqa: E402
++
++import market_feature_store.sync.repair_backfill_stock_history as mod  # noqa: E402
++
++
++def test_refused_missing_retained_source_day(env):
++    """P1-2：保留日主表行的并跑表源被删，LAG 会跨日——必须写前拒绝。"""
++    db, pq, spec = env
++    con = duckdb.connect(str(db))
++    con.execute("DELETE FROM fact_stock_daily_hithink WHERE stock_ts_code=? "
++                "AND trade_date=?", [CODE, CAL[2]])
++    with pytest.raises(RepairRefused, match="源日期集合"):
++        mod.run_backfill_child(con, spec, pq)
++    con.close()
++
++
++@pytest.mark.parametrize("field,value", [("open", None), ("pre_close", -999.0)])
++def test_refused_verify_corrupt_backfilled_fields(env, field, value):
++    """P2-1：回填行关键字段损坏，verify 必须拒绝（全字段 oracle + 键集分母）。"""
++    db, pq, spec = env
++    con = duckdb.connect(str(db))
++    mod.run_backfill_child(con, spec, pq)
++    con.execute(f"UPDATE fact_stock_daily SET {field}=? WHERE stock_ts_code=? "
++                "AND trade_date=?", [value, CODE, CAL[3]])
++    with pytest.raises(RepairRefused, match="oracle"):
++        mod.run_backfill_child(con, spec, pq)
++    con.close()
++
++
++def test_refused_verify_source_label_swap(env):
++    """P2-1：并跑段行误标 parquet 来源——逐键标签断言必须拒绝。"""
++    db, pq, spec = env
++    con = duckdb.connect(str(db))
++    mod.run_backfill_child(con, spec, pq)
++    con.execute("UPDATE fact_stock_daily SET source=? WHERE stock_ts_code=? "
++                "AND trade_date=?", [mod.SOURCE_PARQUET, CODE, CAL[3]])
++    with pytest.raises(RepairRefused, match="oracle"):
++        mod.run_backfill_child(con, spec, pq)
++    con.close()
++
++
++def test_refused_window_nontrading_start(env, monkeypatch):
++    """P2-2：窗口起点改为非交易日（跨度计数不变）——黄金三元组必须拒绝。"""
++    db, pq, spec = env
++    con = duckdb.connect(str(db))
++    real = mod._rebuild_derived_scoped
++
++    def corrupt(connection, contract, mode="apply"):
++        out = real(connection, contract, mode)
++        sunday = (date.fromisoformat(CAL[5]) - timedelta(days=1)).isoformat()
++        connection.execute(
++            "UPDATE feature_stock_window SET start_date=? WHERE stock_ts_code=? "
++            "AND as_of_date=? AND start_date=?", [sunday, CODE, CAL[10], CAL[5]])
++        return out
++
++    monkeypatch.setattr(mod, "_rebuild_derived_scoped", corrupt)
++    with pytest.raises(RepairRefused, match="黄金三元组"):
++        mod.run_backfill_child(con, spec, pq)
++    con.close()
++
++
++def test_refused_pinned_updated_at_tamper(env, monkeypatch):
++    """P2-1：09-11 updated_at 被改——保留行全列快照（含 updated_at）必须拒绝。"""
++    db, pq, spec = env
++    con = duckdb.connect(str(db))
++    real = mod._apply_main
++
++    def corrupt(connection, contract, parquet, prev_day, mode="apply"):
++        out = real(connection, contract, parquet, prev_day, mode)
++        connection.execute("UPDATE fact_stock_daily SET updated_at='2000-01-01' "
++                           "WHERE stock_ts_code=? AND trade_date=?",
++                           [CODE, spec.window_end])
++        return out
++
++    monkeypatch.setattr(mod, "_apply_main", corrupt)
++    with pytest.raises(RepairRefused, match="保留行"):
++        mod.run_backfill_child(con, spec, pq)
++    con.close()
++
++
++# ── P1-1/P2-3：CLI 报告/收据写出守卫 ────────────────────────────────
++def _cli_args(pq, db, report_path=None):
++    from types import SimpleNamespace
++    return SimpleNamespace(parquet=str(pq), child=True, db=str(db),
++                           report_path=str(report_path) if report_path else None)
++
++
++def test_refused_cli_report_path_overwrites_canonical(tmp_path, monkeypatch):
++    """P1-1：--report-path 指向 canonical 见证库——拒绝且库内容不变。"""
++    from market_feature_store import cli
++
++    db, pq = tmp_path / "staging.duckdb", tmp_path / "tail.parquet"
++    fixture = _fixture(db, pq)
++    spec = _spec(db, pq, fixture["pinned"])
++    canonical = tmp_path / "canonical-witness.duckdb"
++    with duckdb.connect(str(canonical)) as c:
++        c.execute("CREATE TABLE witness AS SELECT 123 AS x")
++    before = canonical.read_bytes()
++    monkeypatch.setenv("MARKET_FEATURE_STORE_PRODUCTION_DB", str(canonical))
++    monkeypatch.setattr(mod, "BackfillSpec", lambda: spec)
++    rc = cli.cmd_repair_backfill_302132(_cli_args(pq, db, canonical))
++    assert rc == 2 and canonical.read_bytes() == before
++
++
++def test_refused_cli_report_path_existing_file(tmp_path, monkeypatch):
++    """P2-3：--report-path 已存在——不可覆盖。"""
++    from market_feature_store import cli
++
++    db, pq = tmp_path / "staging.duckdb", tmp_path / "tail.parquet"
++    fixture = _fixture(db, pq)
++    spec = _spec(db, pq, fixture["pinned"])
++    existing = tmp_path / "occupied.json"
++    existing.write_text("{}")
++    monkeypatch.setenv("MARKET_FEATURE_STORE_PRODUCTION_DB",
++                       str(tmp_path / "elsewhere.duckdb"))
++    monkeypatch.setattr(mod, "BackfillSpec", lambda: spec)
++    rc = cli.cmd_repair_backfill_302132(_cli_args(pq, db, existing))
++    assert rc == 2 and existing.read_text() == "{}"
++
++
++def test_cli_parent_rejects_ignored_db_argument_before_side_effects(tmp_path, monkeypatch):
++    from types import SimpleNamespace
++
++    from market_feature_store import cli
++    from market_feature_store.sync import sync_daily_full
++
++    pq = tmp_path / "source.parquet"
++    pq.write_bytes(b"no data access authorized")
++    witness = tmp_path / "default-production.duckdb"
++    witness.write_bytes(b"production witness")
++    called = []
++
++    def parent(**kwargs):
++        called.append(kwargs)
++        return {"swapped": False, "reason": "must not reach", "rc": 2}
++
++    monkeypatch.setattr(sync_daily_full, "run_daily_full_staged", parent)
++    monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(witness))
++    probe_calls = []
++    monkeypatch.setattr(mod, "_guarded_write_json", lambda *a, **kw: probe_calls.append(a))
++    args = SimpleNamespace(parquet=str(pq), child=False,
++                           db=str(tmp_path / "intended-clone.duckdb"), report_path=None)
++    assert cli.cmd_repair_backfill_302132(args) == 2
++    assert called == []
++    assert probe_calls == []
++    assert witness.read_bytes() == b"production witness"
++
++
++def test_cli_parent_preflight_blocks_unwritable_receipt_dir(tmp_path, monkeypatch):
++    """收据目录不可写 → 换库前拦截（run_daily_full_staged 不得被调用）。"""
++    from market_feature_store import cli
++    from market_feature_store.sync import sync_daily_full
++
++    ro_dir = tmp_path / "ro"
++    ro_dir.mkdir()
++    ro_dir.chmod(0o555)
++    pq = tmp_path / "source.parquet"
++    pq.write_bytes(b"preflight only checks dir writability")
++    called = {}
++
++    def parent(**kwargs):
++        called.update(kwargs)
++        return {"swapped": False, "reason": "must not reach", "rc": 2}
++
++    monkeypatch.setattr(sync_daily_full, "run_daily_full_staged", parent)
++    monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(ro_dir / "fake.duckdb"))
++    from types import SimpleNamespace
++    args = SimpleNamespace(parquet=str(pq), child=False, db=None, report_path=None)
++    assert cli.cmd_repair_backfill_302132(args) == 2
++    assert called == {}  # 预校验拦截在父编排之前
++
++
++def test_cli_child_receipt_binds_revision_and_run_id(tmp_path, monkeypatch):
++    """P2-3：每轮收据绑定 revision/dirty/run_id/spec/源指纹，按 run_id 命名不覆盖。"""
++    from market_feature_store import cli
++
++    db, pq = tmp_path / "staging.duckdb", tmp_path / "tail.parquet"
++    fixture = _fixture(db, pq)
++    spec = _spec(db, pq, fixture["pinned"])
++    monkeypatch.setenv("MARKET_FEATURE_STORE_PRODUCTION_DB",
++                       str(tmp_path / "elsewhere.duckdb"))
++    monkeypatch.setenv("MARKET_FEATURE_STORE_RUN_ID", "test-run-001")
++    monkeypatch.setattr(mod, "BackfillSpec", lambda: spec)
++    rc = cli.cmd_repair_backfill_302132(_cli_args(pq, db))
++    assert rc == 0
++    report_path = tmp_path / "staging.duckdb.backfill-report.test-run-001.json"
++    report = json.loads(report_path.read_text())
++    assert report["run_id"] == "test-run-001"
++    # 身份断言（不是存在性断言）：revision 必须等于运行时 HEAD，dirty 必须如实
++    import subprocess
++    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(mod.PROJECT_DIR),
++                          capture_output=True, text=True, check=True,
++                          env=_subprocess_env()).stdout.strip()
++    dirty = bool(subprocess.run(["git", "status", "--porcelain"],
++                                cwd=str(mod.PROJECT_DIR), capture_output=True,
++                                text=True, check=True,
++                                env=_subprocess_env()).stdout.strip())
++    assert report["code_revision"] == head
++    assert report["code_dirty"] is dirty
++    assert report["parquet_sha256"] and report["parallel_source_md5"]
++    assert report["interpreter"]
++    # 同 run_id 重跑：报告已存在 → 拒绝覆盖
++    rc2 = cli.cmd_repair_backfill_302132(_cli_args(pq, db))
++    assert rc2 == 2
++    count = len(list(tmp_path.glob("staging.duckdb.backfill-report.*.json")))
++    assert count == 1
++
++
++def test_refused_receipt_write_failure_cleans_partial(tmp_path, monkeypatch):
++    """P1：write/flush 阶段 OSError → RepairRefused 且不留半截文件。"""
++    import os as _os
++
++    target = tmp_path / "r.json"
++
++    class Bomb:
++        def __init__(self, fd):
++            self.fd = fd
++
++        def __enter__(self):
++            return self
++
++        def __exit__(self, *a):
++            _os.close(self.fd)
++            return False
++
++        def write(self, _s):
++            raise OSError("ENOSPC (simulated)")
++
++        def flush(self):
++            pass
++
++        def fileno(self):
++            return self.fd
++
++    monkeypatch.setattr(mod.os, "fdopen",
++                        lambda fd, mode, encoding=None: Bomb(fd))
++    with pytest.raises(RepairRefused, match="收据写出失败"):
++        mod._guarded_write_json(target, {"x": 1})
++    assert not target.exists()
++
++
++def test_cli_parent_preflight_blocks_on_open_permission_error(tmp_path,
++                                                              monkeypatch):
++    """预校验拦截不依赖运行用户权限：os.open 抛 PermissionError 也必须拒绝。"""
++    from market_feature_store import cli
++    from market_feature_store.sync import sync_daily_full
++
++    pq = tmp_path / "source.parquet"
++    pq.write_bytes(b"preflight bomb")
++    called = {}
++
++    def parent(**kwargs):
++        called.update(kwargs)
++        return {"swapped": False, "reason": "must not reach", "rc": 2}
++
++    def bomb(*_a, **_k):
++        raise PermissionError(13, "simulated")
++
++    monkeypatch.setattr(sync_daily_full, "run_daily_full_staged", parent)
++    monkeypatch.setattr(mod.os, "open", bomb)
++    monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(tmp_path / "fake.duckdb"))
++    from types import SimpleNamespace
++    args = SimpleNamespace(parquet=str(pq), child=False, db=None, report_path=None)
++    assert cli.cmd_repair_backfill_302132(args) == 2
++    assert called == {}
++
++
++def test_refused_cli_parent_report_path_never_deletes_user_file(tmp_path,
++                                                                monkeypatch):
++    """P1-1（五轮）：--report-path 指向已有文件时，父命令拒绝但绝不删除它。"""
++    from market_feature_store import cli
++    from market_feature_store.sync import sync_daily_full
++
++    db, pq = tmp_path / "staging.duckdb", tmp_path / "tail.parquet"
++    fixture = _fixture(db, pq)
++    spec = _spec(db, pq, fixture["pinned"])
++    witness = tmp_path / "witness.duckdb"
++    with duckdb.connect(str(witness)) as c:
++        c.execute("CREATE TABLE witness AS SELECT 123 AS x")
++    before = witness.read_bytes()
++    called = {}
++
++    def parent(**kwargs):
++        called.update(kwargs)
++        return {"swapped": False, "reason": "must not reach", "rc": 2}
++
++    monkeypatch.setattr(sync_daily_full, "run_daily_full_staged", parent)
++    monkeypatch.setenv("MARKET_FEATURE_STORE_PRODUCTION_DB",
++                       str(tmp_path / "elsewhere.duckdb"))
++    monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(db))
++    monkeypatch.setattr(mod, "BackfillSpec", lambda: spec)
++    from types import SimpleNamespace
++    args = SimpleNamespace(parquet=str(pq), child=False, db=None,
++                           report_path=str(witness))
++    assert cli.cmd_repair_backfill_302132(args) == 2
++    assert called == {}                       # 父编排未被调用
++    assert witness.read_bytes() == before     # 用户文件原样
++
++
++def test_refused_receipt_eexist_race_keeps_other_writers_file(tmp_path,
++                                                              monkeypatch):
++    """P1-2（五轮）：O_EXCL 竞争失败——另一写者的文件必须原样保留。"""
++    import os as _os
++
++    target = tmp_path / "r.json"
++    real_open = _os.open
++
++    def racing_open(path, flags, mode=0o644):
++        # 另一写者抢先创建并写完自己的文件
++        fd = real_open(path, _os.O_WRONLY | _os.O_CREAT | _os.O_EXCL, mode)
++        with _os.fdopen(fd, "w") as fh:
++            fh.write('{"winner": true}\n')
++        raise FileExistsError(17, "File exists (simulated race)")
++
++    monkeypatch.setattr(mod.os, "open", racing_open)
++    with pytest.raises(RepairRefused, match="收据写出失败|已存在"):
++        mod._guarded_write_json(target, {"loser": 1})
++    assert target.read_text() == '{"winner": true}\n'
++
++
++def test_acceptance_script_rejects_hardlink_alias(tmp_path):
++    """P1-3（五轮）：production 与 clone 互为硬链接 → 预检拒绝，rc=2。"""
++    import subprocess
++    import sys
++
++    prod = tmp_path / "prod.duckdb"
++    with duckdb.connect(str(prod)) as c:
++        c.execute("CREATE TABLE t AS SELECT 1 AS x")
++    clone = tmp_path / "clone-hard.duckdb"
++    import os as _os
++    _os.link(prod, clone)  # 硬链接：realpath 不同，同一 inode
++    pq = tmp_path / "q.parquet"
++    pq.write_bytes(b"x")
++    out = tmp_path / "out.json"
++    script = (mod.PROJECT_DIR / "scripts"
++              / "verify_302132_backfill_acceptance.py")
++    res = subprocess.run(
++        [sys.executable, str(script), "--production", str(prod),
++         "--clone", str(clone), "--parquet", str(pq),
++         "--run-apply", "a", "--run-verify", "v",
++         "--expected-revision", "0" * 40,
++         "--expected-production-sha256", "0" * 64,
++         "--output", str(out)],
++        capture_output=True, text=True, timeout=120, env=_subprocess_env())
++    assert res.returncode == 2
++    verdict = json.loads(out.read_text())
++    assert verdict["verdict"] == "FAIL"
++    alias = [c for c in verdict["checks"]
++             if c["name"] == "clone_is_not_production_alias"]
++    assert alias and alias[0]["ok"] is False
++    skipped = [c for c in verdict["checks"]
++               if c["name"] == "data_checks_executed"]
++    assert skipped and skipped[0]["ok"] is False  # 数据检查被跳过，不发绿
++
++
++def test_acceptance_script_receipt_schema_mutation_fails(tmp_path):
++    """P2-1（五轮）：收据缺 spec_version → 结构化 FAIL，缺证据不发绿。"""
++    import subprocess
++    import sys
++
++    prod = tmp_path / "prod.duckdb"
++    with duckdb.connect(str(prod)) as c:
++        c.execute("CREATE TABLE t AS SELECT 1 AS x")
++    clone = tmp_path / "clone.duckdb"
++    with duckdb.connect(str(clone)) as c:
++        c.execute("CREATE TABLE t AS SELECT 2 AS x")
++    pq = tmp_path / "q.parquet"
++    pq.write_bytes(b"x")
++    prod_sha = mod._sha256(prod)
++    for tag in ("apply", "verify"):
++        receipt = {
++            "kind": "repair-backfill-302132", "run_id": tag, "trade_date": "2026-09-11",
++            "code_revision": "f" * 40, "code_dirty": False, "interpreter": "py",
++            "parent": {"swapped": True, "rc": 0, "run_id": tag},
++            "backup": {"backup_path": str(prod), "backup_sha256": prod_sha},
++            "spec": {"code": "302132.SZ", "name": "中航成飞",
++                     # spec_version 故意缺失（变异）
++                     "window_start": "2026-06-15", "window_end": "2026-09-11",
++                     "main_fill_end": "2026-09-10", "shell_date": "2026-06-23",
++                     "parquet_sha256": "0" * 64,
++                     "gap_parallel": ["2026-06-17"], "gap_parquet": ["2026-09-09"],
++                     "pinned_technical_0911": {}, "pinned_windows_0911": [1],
++                     "expected_window_counts": {}, "expected_technical_count": 39},
++            "child_report": {"kind": "repair-backfill-302132", "run_id": tag,
++                             "mode": tag, "code_revision": "f" * 40,
++                             "code_dirty": False, "parquet_sha256": "0" * 64,
++                             "protected_slices": {}},
++            "child_report_path": None,
++        }
++        (tmp_path / f"clone.duckdb.repair-backfill-execution.{tag}.json"
++         ).write_text(json.dumps(receipt))
++    out = tmp_path / "out.json"
++    script = (mod.PROJECT_DIR / "scripts"
++              / "verify_302132_backfill_acceptance.py")
++    res = subprocess.run(
++        [sys.executable, str(script), "--production", str(prod),
++         "--clone", str(clone), "--parquet", str(pq),
++         "--run-apply", "apply", "--run-verify", "verify",
++         "--expected-revision", "f" * 40,
++         "--expected-production-sha256", prod_sha,
++         "--output", str(out)],
++        capture_output=True, text=True, timeout=120, env=_subprocess_env())
++    assert res.returncode == 2
++    verdict = json.loads(out.read_text())
++    assert verdict["verdict"] == "FAIL"
++    schema = [c for c in verdict["checks"] if c["name"] == "receipt_apply_schema"]
++    assert schema and schema[0]["ok"] is False
++    assert "spec.spec_version" in str(schema[0]["detail"])
++    skipped = [c for c in verdict["checks"]
++               if c["name"] == "data_checks_executed"]
++    assert skipped and skipped[0]["ok"] is False
++
++
++# ── 第六轮退修（审查 595a9acd）：验收脚本深 schema / 跨轮绑定 / oracle 输入独立 ──
++# 策略：好产物必绿（真实形状两轮产物 E2E PASS）+ 坏产物必红（逐字段单因素变异，
++# 父收据与独立子报告同步修改，与审查探针 qc_302132_round6_probes.py 同构）。
++import copy  # noqa: E402
++import os  # noqa: E402
++import shutil  # noqa: E402
++import subprocess  # noqa: E402
++import sys  # noqa: E402
++from dataclasses import asdict, replace  # noqa: E402
++from unittest import mock  # noqa: E402
++
++import scripts.verify_302132_backfill_acceptance as verify_acceptance  # noqa: E402
++
++E2E_REV = "f" * 40
++APPLY_RUN = "run-apply-001"
++VERIFY_RUN = "run-verify-001"
++SCHEMA_BOTH = ("receipt_apply_schema", "receipt_verify_schema")
++
++
++def _subprocess_env() -> dict[str, str]:
++    """子进程只接收测试所需白名单，避免宿主凭据进入失败输出。"""
++    return {
++        "HOME": os.environ.get("HOME", str(Path.home())),
++        "PATH": os.environ.get("PATH", os.defpath),
++        "LANG": os.environ.get("LANG", "C.UTF-8"),
++        "TMPDIR": os.environ.get("TMPDIR", "/tmp"),
++        "FWP_TEST_RECEIPT": "0",
++        "PYTHONDONTWRITEBYTECODE": "1",
++        "PYTHONPATH": str(mod.PROJECT_DIR),
++    }
++
++
++def _build_e2e_artifacts(root: Path) -> dict:
++    """完整可通过验收的两轮产物：基线库 + 结果库（apply/verify 各跑一遍）+
++    冻结 parquet + 父收据/独立子报告（字段形状与 cli.py 实际写出一致）。"""
++    baseline = root / "baseline.duckdb"
++    pq = root / "tail.parquet"
++    fx = _fixture(baseline, pq)
++    spec = replace(_spec(baseline, pq, fx["pinned"]),
++                   spec_version="302132-backfill-test-v1")
++    clone = root / "clone.duckdb"
++    shutil.copy(str(baseline), str(clone))
++    children = {}
++    with mock.patch.object(mod, "_code_revision",
++                           return_value=(E2E_REV, False)):
++        con = duckdb.connect(str(clone))
++        try:
++            for mode, rid in (("apply", APPLY_RUN), ("verify", VERIFY_RUN)):
++                report = mod.run_backfill_child(con, spec, pq)
++                assert report["mode"] == mode
++                report.update({"run_id": rid, "trade_date": spec.window_end,
++                               "kind": "repair-backfill-302132", "ok": True})
++                # JSON 往返：内存中的产物形状与验收器读到的完全一致
++                # （int 键 → str 键等），变异测试不会在假形状上操作
++                children[mode] = json.loads(json.dumps(report))
++        finally:
++            con.close()
++    base_sha = mod._sha256(baseline)
++    receipts = {}
++    for mode, rid in (("apply", APPLY_RUN), ("verify", VERIFY_RUN)):
++        child_path = root / f"child-{mode}.json"
++        child_path.write_text(json.dumps(children[mode], ensure_ascii=False))
++        receipt = {
++            "kind": "repair-backfill-302132", "trade_date": spec.window_end,
++            "run_id": rid, "code_revision": E2E_REV, "code_dirty": False,
++            "interpreter": sys.executable,
++            "spec": json.loads(json.dumps(asdict(spec))),
++            "child_report_path": str(child_path),
++            "child_report": children[mode], "child_report_error": None,
++            "backup": {"backup_path": str(baseline), "backup_sha256": base_sha,
++                       "run_id": rid},
++            "parent": {"swapped": True, "rc": 0, "run_id": rid},
++        }
++        (root / f"clone.duckdb.repair-backfill-execution.{rid}.json"
++         ).write_text(json.dumps(receipt, ensure_ascii=False))
++        receipts[mode] = receipt
++    return {"baseline": baseline, "clone": clone, "pq": pq, "spec": spec,
++            "receipts": receipts, "base_sha": base_sha}
++
++
++@pytest.fixture(scope="module")
++def e2e_art(tmp_path_factory):
++    return _build_e2e_artifacts(tmp_path_factory.mktemp("e2e302132"))
++
++
++def _run_acceptance(clone: Path, art: dict, out: Path,
++                    expected_revision: str = E2E_REV):
++    script = mod.PROJECT_DIR / "scripts" / "verify_302132_backfill_acceptance.py"
++    return subprocess.run(
++        [sys.executable, str(script), "--production", str(art["baseline"]),
++         "--clone", str(clone), "--parquet", str(art["pq"]),
++         "--run-apply", APPLY_RUN, "--run-verify", VERIFY_RUN,
++         "--expected-revision", expected_revision,
++         "--expected-production-sha256", art["base_sha"],
++         "--output", str(out)],
++        capture_output=True, text=True, timeout=120, env=_subprocess_env())
++
++
++def _install(tmp_path: Path, art: dict, mutate) -> Path:
++    """复制结果库并按轮同步变异父收据与独立子报告（与审查探针 install 同构）。"""
++    clone = tmp_path / "clone.duckdb"
++    shutil.copy(str(art["clone"]), str(clone))
++    for mode, rid in (("apply", APPLY_RUN), ("verify", VERIFY_RUN)):
++        receipt = copy.deepcopy(art["receipts"][mode])
++        mutate(mode, receipt)
++        child_path = tmp_path / f"child-{mode}.json"
++        child_path.write_text(
++            json.dumps(receipt["child_report"], ensure_ascii=False))
++        receipt["child_report_path"] = str(child_path)
++        (tmp_path / f"clone.duckdb.repair-backfill-execution.{rid}.json"
++         ).write_text(json.dumps(receipt, ensure_ascii=False))
++    return clone
++
++
++def _assert_structured_fail(res, out: Path, must_fail=(), must_pass=()):
++    """坏产物必红：rc=2 + 结构化 FAIL JSON（非裸异常）；指定检查必红/必绿。"""
++    assert res.returncode == 2, (res.stdout, res.stderr)
++    assert out.exists(), (res.stdout, res.stderr)
++    verdict = json.loads(out.read_text())
++    assert verdict["verdict"] == "FAIL"
++    for name in must_fail:
++        assert name in verdict["failed"], verdict["failed"]
++    for name in must_pass:
++        assert name not in verdict["failed"], verdict["failed"]
++    return verdict
++
++
++def test_acceptance_e2e_baseline_pass(e2e_art, tmp_path):
++    """好产物必绿：深 schema 加严后，真实形状的两轮产物仍通过（不用全绿替代必红）。"""
++    out = tmp_path / "out.json"
++    res = _run_acceptance(e2e_art["clone"], e2e_art, out)
++    assert res.returncode == 0, (res.stdout, res.stderr)
++    verdict = json.loads(out.read_text())
++    assert verdict["verdict"] == "PASS" and verdict["failed"] == []
++
++
++def _set0(lst, v):
++    lst[0] = v
++
++
++# 逐字段单因素变异（删除/错误类型/非法值）；每个变异同步作用于两轮收据及其
++# 独立子报告文件。全部必须结构化 FAIL（rc=2 + FAIL JSON），不允许裸异常。
++RECEIPT_MUTATIONS = [
++    # ── 子报告字段（含六轮实测发绿的 parallel_source_md5 缺失 / ok=false）──
++    ("child_missing_parallel_source_md5",
++     lambda m, r: r["child_report"].pop("parallel_source_md5")),
++    ("child_ok_false", lambda m, r: r["child_report"].update(ok=False)),
++    ("child_mode_wrong",
++     lambda m, r: r["child_report"].update(
++         mode="verify" if m == "apply" else "apply")),
++    ("child_code_dirty_true",
++     lambda m, r: r["child_report"].update(code_dirty=True)),
++    ("child_interpreter_mismatch",
++     lambda m, r: r["child_report"].update(interpreter="/other/python")),
++    ("child_trade_date_mismatch",
++     lambda m, r: r["child_report"].update(trade_date="2026-01-04")),
++    ("child_window_counts_mismatch",
++     lambda m, r: r["child_report"]["window_counts"].update({"5": 999})),
++    ("child_window_rows_mismatch",
++     lambda m, r: r["child_report"].update(window_rows=1)),
++    ("child_technical_rows_mismatch",
++     lambda m, r: r["child_report"].update(technical_rows=99)),
++    ("child_technical_staged_mismatch",
++     lambda m, r: r["child_report"].update(technical_staged=1)),
++    ("child_protected_slices_missing_key",
++     lambda m, r: r["child_report"]["protected_slices"].pop("tech_protected")),
++    ("child_spec_version_mismatch",
++     lambda m, r: r["child_report"].update(
++         spec_version="302132-backfill-other")),
++    ("child_parquet_sha_mismatch",
++     lambda m, r: r["child_report"].update(parquet_sha256="1" * 64)),
++    ("child_code_mismatch",
++     lambda m, r: r["child_report"].update(code="000001.SZ")),
++    ("child_run_id_mismatch",
++     lambda m, r: r["child_report"].update(run_id="other-run")),
++    # ── spec 字段（含六轮实测发绿的空 expected_window_counts / 缺 ma26）──
++    ("empty_expected_window_counts",
++     lambda m, r: r["spec"].update(expected_window_counts={})),
++    ("expected_window_counts_missing_key",
++     lambda m, r: r["spec"]["expected_window_counts"].pop("60")),
++    ("expected_window_counts_negative",
++     lambda m, r: r["spec"]["expected_window_counts"].update({"5": -1})),
++    ("expected_window_counts_wrong_type",
++     lambda m, r: r["spec"]["expected_window_counts"].update({"5": "59"})),
++    ("missing_nested_ma26",
++     lambda m, r: r["spec"]["pinned_technical_0911"].pop("ma26")),
++    ("pinned_technical_extra_key",
++     lambda m, r: r["spec"]["pinned_technical_0911"].update(foo=1.0)),
++    ("pinned_technical_nan",
++     lambda m, r: r["spec"]["pinned_technical_0911"].update(
++         ma26=float("nan"))),
++    ("pinned_stock_huge_int",
++     lambda m, r: r["spec"]["pinned_0911"].update(close=10**400)),
++    ("pinned_technical_huge_int",
++     lambda m, r: r["spec"]["pinned_technical_0911"].update(ma26=10**400)),
++    ("pinned_window_huge_int",
++     lambda m, r: r["spec"]["pinned_windows_0911"][0].__setitem__(1, 10**400)),
++    ("pinned_windows_member_short",
++     lambda m, r: r["spec"].update(pinned_windows_0911=[["2026-08-28", 5.7]])),
++    ("pinned_windows_empty",
++     lambda m, r: r["spec"].update(pinned_windows_0911=[])),
++    ("pinned_windows_member_bad_type",
++     lambda m, r: r["spec"].update(
++         pinned_windows_0911=[["2026-08-28", "5.7", 7.9]])),
++    ("pinned_0911_missing_key",
++     lambda m, r: r["spec"]["pinned_0911"].pop("close")),
++    ("pinned_0911_turnover_wrong_type",
++     lambda m, r: r["spec"]["pinned_0911"].update(turnover="x")),
++    ("gap_parallel_empty", lambda m, r: r["spec"].update(gap_parallel=[])),
++    ("gap_parallel_duplicate",
++     lambda m, r: r["spec"].update(
++         gap_parallel=r["spec"]["gap_parallel"][:1] * 2
++         + r["spec"]["gap_parallel"][1:])),
++    ("gap_parallel_bad_member_type",
++     lambda m, r: _set0(r["spec"]["gap_parallel"], 123)),
++    ("gap_parallel_out_of_window",
++     lambda m, r: _set0(r["spec"]["gap_parallel"], r["spec"]["window_end"])),
++    ("gap_lists_overlap",
++     lambda m, r: _set0(r["spec"]["gap_parquet"],
++                        r["spec"]["gap_parallel"][0])),
++    ("shell_date_in_gap",
++     lambda m, r: r["spec"].update(shell_date=r["spec"]["gap_parallel"][0])),
++    ("window_order_bad",
++     lambda m, r: r["spec"].update(main_fill_end=r["spec"]["window_end"])),
++    ("shell_date_out_of_window",
++     lambda m, r: r["spec"].update(shell_date=r["spec"]["window_end"])),
++    ("spec_version_bad_prefix",
++     lambda m, r: r["spec"].update(spec_version="v9")),
++    ("spec_parquet_sha_short",
++     lambda m, r: r["spec"].update(parquet_sha256="0" * 63)),
++    ("spec_code_bad_format", lambda m, r: r["spec"].update(code="BAD")),
++    ("expected_technical_count_zero",
++     lambda m, r: r["spec"].update(expected_technical_count=0)),
++    ("expected_total_rows_zero",
++     lambda m, r: r["spec"].update(expected_total_rows=0)),
++    ("stale_technical_bad_member",
++     lambda m, r: r["spec"].update(stale_technical_dates=["not-a-date"])),
++    ("stale_window_keys_bad_member",
++     lambda m, r: r["spec"].update(stale_window_keys=[["2026-06-25"]])),
++    # ── 父收据字段 ──
++    ("parent_swapped_false", lambda m, r: r["parent"].update(swapped=False)),
++    ("parent_rc_nonzero", lambda m, r: r["parent"].update(rc=1)),
++    ("parent_run_id_mismatch", lambda m, r: r["parent"].update(run_id="x")),
++    ("backup_sha_short",
++     lambda m, r: r["backup"].update(backup_sha256="0" * 63)),
++    ("backup_run_id_mismatch", lambda m, r: r["backup"].update(run_id="x")),
++    ("child_report_error_nonnull",
++     lambda m, r: r.update(child_report_error="boom")),
++    ("trade_date_not_window_end",
++     lambda m, r: r.update(trade_date="2026-09-10")),
++    ("code_dirty_true", lambda m, r: r.update(code_dirty=True)),
++    ("interpreter_empty", lambda m, r: r.update(interpreter="")),
++    ("kind_wrong", lambda m, r: r.update(kind="other")),
++    ("run_id_mismatch", lambda m, r: r.update(run_id="other-run")),
++]
++
++
++@pytest.mark.parametrize("case,mutate", RECEIPT_MUTATIONS,
++                         ids=[c for c, _ in RECEIPT_MUTATIONS])
++def test_acceptance_receipt_mutation_fails(e2e_art, tmp_path, case, mutate):
++    """六轮 P2-1：逐字段单独变异（父收据与独立子报告同步）→ 结构化 FAIL。"""
++    clone = _install(tmp_path, e2e_art, mutate)
++    out = tmp_path / "out.json"
++    res = _run_acceptance(clone, e2e_art, out)
++    _assert_structured_fail(res, out, must_fail=SCHEMA_BOTH)
++
++
++@pytest.mark.parametrize(
++    "value,expected",
++    [
++        (True, False),
++        (False, False),
++        (float("nan"), False),
++        (float("inf"), False),
++        (float("-inf"), False),
++        (10**400, False),
++        (-(10**400), False),
++        (7, True),
++        (-2.5, True),
++    ],
++)
++def test_acceptance_is_num_is_total_for_json_numbers(value, expected):
++    """JSON 数值判定对布尔、非有限数和超大整数都返回 bool，不得抛异常。"""
++    assert verify_acceptance._is_num(value) is expected
++
++
++@pytest.mark.parametrize(
++    "wrong_modes,must_fail,must_pass",
++    [
++        (("apply",),
++         ("receipt_apply_schema", "spec_alignment_apply_verify"),
++         ("receipt_verify_schema",)),
++        (("verify",),
++         ("receipt_verify_schema", "spec_alignment_apply_verify"),
++         ("receipt_apply_schema",)),
++        (("apply", "verify"),
++         SCHEMA_BOTH,
++         ("spec_alignment_apply_verify",)),
++    ],
++    ids=("apply-only", "verify-only", "both-rounds"),
++)
++def test_acceptance_rejects_spec_code_not_bound_to_sql_target(
++        e2e_art, tmp_path, wrong_modes, must_fail, must_pass):
++    """每轮 spec/嵌入 child/外部 child 即使同步伪造，也不能改变 SQL 授权对象。"""
++    def mutate(mode, receipt):
++        if mode in wrong_modes:
++            receipt["spec"]["code"] = OTHER
++            receipt["child_report"]["code"] = OTHER
++
++    clone = _install(tmp_path, e2e_art, mutate)
++    out = tmp_path / "out.json"
++    res = _run_acceptance(clone, e2e_art, out)
++    _assert_structured_fail(res, out, must_fail=must_fail, must_pass=must_pass)
++
++
++def test_acceptance_malformed_revision_fails(e2e_art, tmp_path):
++    """六轮 P2-1：revision 非 40hex——连 --expected-revision 同步造假也必红。"""
++    def mutate(_m, r):
++        r["code_revision"] = "not-a-git-revision"
++        r["child_report"]["code_revision"] = "not-a-git-revision"
++
++    clone = _install(tmp_path, e2e_art, mutate)
++    out = tmp_path / "out.json"
++    res = _run_acceptance(clone, e2e_art, out,
++                          expected_revision="not-a-git-revision")
++    _assert_structured_fail(res, out, must_fail=("args_expected_revision_format",
++                                                 *SCHEMA_BOTH))
++
++
++def test_acceptance_verify_other_parquet_fails(e2e_art, tmp_path):
++    """六轮 P2-2：只改 verify 轮 parquet 哈希（父=子同步）必红；apply 臂不受影响。"""
++    def mutate(m, r):
++        if m == "verify":
++            r["spec"]["parquet_sha256"] = "0" * 64
++            r["child_report"]["parquet_sha256"] = "0" * 64
++
++    clone = _install(tmp_path, e2e_art, mutate)
++    out = tmp_path / "out.json"
++    res = _run_acceptance(clone, e2e_art, out)
++    _assert_structured_fail(
++        res, out,
++        must_fail=("parquet_identity_verify", "spec_alignment_apply_verify"),
++        must_pass=("parquet_identity_apply", "receipt_verify_schema"))
++
++
++def test_acceptance_apply_other_parquet_fails(e2e_art, tmp_path):
++    """P2-2 对称臂：只改 apply 轮输入哈希同样必红，verify 臂不受影响。"""
++    def mutate(m, r):
++        if m == "apply":
++            r["spec"]["parquet_sha256"] = "0" * 64
++            r["child_report"]["parquet_sha256"] = "0" * 64
++
++    clone = _install(tmp_path, e2e_art, mutate)
++    out = tmp_path / "out.json"
++    res = _run_acceptance(clone, e2e_art, out)
++    _assert_structured_fail(
++        res, out,
++        must_fail=("parquet_identity_apply", "spec_alignment_apply_verify"),
++        must_pass=("parquet_identity_verify", "receipt_apply_schema"))
++
++
++def test_acceptance_verify_spec_divergence_fails(e2e_art, tmp_path):
++    """六轮 P2-2：只改 verify 轮授权 spec（子报告同步、轮内一致）——
++    跨轮 spec 深比较无白名单，必须单独抓住。"""
++    def mutate(m, r):
++        if m == "verify":
++            r["spec"]["expected_window_counts"]["5"] += 1
++            r["child_report"]["window_counts"]["5"] += 1
++            r["child_report"]["window_rows"] += 1
++
++    clone = _install(tmp_path, e2e_art, mutate)
++    out = tmp_path / "out.json"
++    res = _run_acceptance(clone, e2e_art, out)
++    _assert_structured_fail(res, out,
++                            must_fail=("spec_alignment_apply_verify",),
++                            must_pass=SCHEMA_BOTH)
++
++
++# ── 数据库层变异（六轮 P1-1）：源/输出共同损坏不得自证通过 ──
++_GAP_DAY = CAL[3]  # 并跑段首个回填日
++_DB_MUTATIONS = [
++    # 输出与源一起改（六轮实测发绿的反例）：源表禁止变更 + 基线 oracle 双臂抓住
++    ("output_and_source_corrupted_together",
++     [f"UPDATE fact_stock_daily SET open=open+1 WHERE stock_ts_code='{CODE}' "
++      f"AND trade_date='{_GAP_DAY}'",
++      f"UPDATE fact_stock_daily_hithink SET open=open+1 "
++      f"WHERE stock_ts_code='{CODE}' AND trade_date='{_GAP_DAY}' "
++      f"AND adjusted='none'"],
++     ("hithink_source_untouched", "keyset_fullfield_oracle"), ()),
++    # 只改结果库源表：oracle 从基线读，键集仍过；整表禁止变更单独抓住
++    ("source_only_corrupted",
++     [f"UPDATE fact_stock_daily_hithink SET open=open+1 "
++      f"WHERE stock_ts_code='{CODE}' AND trade_date='{_GAP_DAY}' "
++      f"AND adjusted='none'"],
++     ("hithink_source_untouched",),
++     ("keyset_fullfield_oracle", "parallel_source_md5_binding")),
++    # 只改输出：基线 oracle 单独抓住（源表比较不受影响）
++    ("output_only_corrupted",
++     [f"UPDATE fact_stock_daily SET open=open+1 WHERE stock_ts_code='{CODE}' "
++      f"AND trade_date='{_GAP_DAY}'"],
++     ("keyset_fullfield_oracle",), ("hithink_source_untouched",)),
++    # 删结果库源行：禁止变更抓住；基线重算指纹不受影响
++    ("source_row_deleted",
++     [f"DELETE FROM fact_stock_daily_hithink WHERE stock_ts_code='{CODE}' "
++      f"AND trade_date='{_GAP_DAY}' AND adjusted='none'"],
++     ("hithink_source_untouched",), ("parallel_source_md5_binding",)),
++    # 除权源表（pre_close 口径前提）越权写入也禁止
++    ("adjustment_source_tampered",
++     [f"INSERT INTO fact_stock_adjustment_hithink VALUES "
++      f"('{CODE}', '{_GAP_DAY}', 0.1, 0.0, 0.0, 0.0, 'CNY', "
++      f"'hithink:adjustment-factors', '2026-09-14 00:00:00')"],
++     ("hithink_adjustment_untouched",), ()),
++]
++
++
++@pytest.mark.parametrize("case,sqls,must_fail,must_pass", _DB_MUTATIONS,
++                         ids=[c for c, *_ in _DB_MUTATIONS])
++def test_acceptance_db_mutation_fails(e2e_art, tmp_path, case, sqls,
++                                      must_fail, must_pass):
++    """六轮 P1-1：结果库源表/输出任何组合损坏 → 结构化 FAIL（rc=2）。"""
++    clone = _install(tmp_path, e2e_art, lambda m, r: None)
++    con = duckdb.connect(str(clone))
++    try:
++        for sql in sqls:
++            con.execute(sql)
++    finally:
++        con.close()
++    out = tmp_path / "out.json"
++    res = _run_acceptance(clone, e2e_art, out)
++    _assert_structured_fail(res, out, must_fail=must_fail, must_pass=must_pass)
+diff --git a/tests/test_worktree_board.py b/tests/test_worktree_board.py
+index 9a3922da4..c2506d000 100644
+--- a/tests/test_worktree_board.py
++++ b/tests/test_worktree_board.py
+@@ -393,14 +393,14 @@ def test_stale_base_warn_is_a_usable_threshold() -> None:
+     assert 10 <= board.STALE_BASE_WARN <= 200
+ 
+ 
+-def test_count_treats_non_numeric_output_as_zero(tmp_path: Path) -> None:
++def test_count_treats_non_numeric_output_as_unknown(tmp_path: Path) -> None:
+     """git 把话写到 stdout 时不能抛 —— SessionStart 抛出去就是 hook 静默不输出。"""
+ 
+     repo = _init_repo(tmp_path)
+     assert (
+-        board.behind_count("HEAD", "no/such/ref", cwd=str(repo), timeout=10) == 0
++        board.behind_count("HEAD", "no/such/ref", cwd=str(repo), timeout=10) == -1
+     )
+-    assert board._count(["rev-parse", "HEAD"], cwd=str(repo), timeout=10) == 0
++    assert board._count(["rev-parse", "HEAD"], cwd=str(repo), timeout=10) == -1
+ 
+ 
+ def test_format_board_splits_unique_and_prunable() -> None:
+@@ -438,5 +438,172 @@ def test_format_board_splits_unique_and_prunable() -> None:
+     assert "feat/open" in text
+     assert "feat/done" in text
+     assert "还有补丁" in text
+-    assert "树可拆" in text
+-    assert "本脚本不拆" in text
++    assert "树可拆" not in text
++    assert "不是删除许可" in text
++    assert "ignored" in text
++    assert "reflog" in text
++    assert "生产快照保留策略需另行核实" in text
++
++
++def _classify(repo: Path, **metadata: str):
++    return board.classify_worktree(
++        {"path": str(repo), "head": _git(repo, "rev-parse", "HEAD"),
++         "branch": "main", **metadata},
++        base="main", main_checkout=str(repo.parent / "other"), timeout=10,
++    )
++
++
++def test_missing_worktree_is_visible_as_unknown(tmp_path: Path) -> None:
++    repo = _init_repo(tmp_path)
++    row = board.classify_worktree(
++        {"path": str(tmp_path / "fwp-wt-missing"),
++         "head": _git(repo, "rev-parse", "HEAD"), "branch": "topic"},
++        base="main", main_checkout=str(repo), timeout=10,
++    )
++    assert row.error
++    assert row.cherry_plus == -1
++    text = board.format_board([row], base="main", base_sha="a" * 40)
++    assert "待核实 1" in text
++    assert "fwp-wt-missing" in text
++    assert "干净 dev 树 0" in text
++
++
++def test_parent_repository_is_not_mistaken_for_missing_worktree(tmp_path: Path) -> None:
++    repo = _init_repo(tmp_path)
++    nested = repo / "fwp-wt-missing"
++    nested.mkdir()
++    row = _classify(repo, path=str(nested))
++    assert "root mismatch" in row.error
++    assert row.cherry_plus == -1 and not row.in_main
++    assert row.ahead == row.behind == -1
++    text = board.format_board([row], base="main", base_sha="a" * 40)
++    assert "待核实 1" in text
++    assert "干净 dev 树 0" in text
++
++
++def test_collect_rows_pins_baseline_for_entire_scan(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    repo = _init_repo(tmp_path)
++    expected = _git(repo, "rev-parse", "main")
++    seen = []
++
++    def classify(spec, **kwargs):
++        seen.append(kwargs["base"])
++        return None
++
++    monkeypatch.setattr(board, "classify_worktree", classify)
++    base, sha, _, rows = board.collect_rows(cwd=str(repo), timeout=10)
++    assert base == "main" and sha == expected
++    assert seen == [expected] and rows == []
++
++
++def test_status_failure_never_becomes_prunable(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    repo = _init_repo(tmp_path)
++    git = board._git
++
++    def fail_status(args, **kwargs):
++        return (1, "") if args[0] == "status" else git(args, **kwargs)
++
++    monkeypatch.setattr(board, "_git", fail_status)
++    row = _classify(repo)
++    assert "dirty state unknown" in row.error
++    assert "待核实 1" in board.format_board([row], base="main", base_sha="a" * 40)
++
++
++def test_failed_cherry_is_unknown_in_session_start(tmp_path: Path) -> None:
++    repo = _init_repo(tmp_path)
++    assert board.cherry_counts("HEAD", "missing", cwd=str(repo), timeout=10) == (-1, -1, False)
++    lines = board.this_tree_lines(
++        cwd=str(repo), base="missing", base_sha="", timeout=10, repo_root=repo,
++    )
++    assert "未知" in lines[0]
++    assert "cherry+0" not in lines[0]
++
++
++@pytest.mark.parametrize("metadata", [{"locked": "review"}, {"prunable": "missing gitdir"}])
++def test_worktree_metadata_prevents_cleanup_suggestion(tmp_path: Path, metadata) -> None:
++    repo = _init_repo(tmp_path)
++    text = "worktree " + str(repo) + "\nHEAD abc\n"
++    text += "\n".join(f"{key} {value}" for key, value in metadata.items())
++    spec = board.parse_worktree_porcelain(text)[0]
++    for key, value in metadata.items():
++        assert spec[key] == value
++    row = _classify(repo, **metadata)
++    assert "待核实 1" in board.format_board([row], base="main", base_sha="a" * 40)
++
++
++def test_tracked_single_character_file_keeps_porcelain_status_columns(tmp_path: Path) -> None:
++    repo = _init_repo(tmp_path)
++    (repo / "x").write_text("base\n", encoding="utf-8")
++    _git(repo, "add", "x")
++    _git(repo, "commit", "-m", "short filename")
++    (repo / "x").write_text("uncommitted original\n", encoding="utf-8")
++    code, status = board._git(["status", "--porcelain"], cwd=str(repo), timeout=10)
++    assert code == 0 and status == " M x"
++    row = _classify(repo)
++    assert row.dirty and row.dirty_n == 1
++
++
++def test_document_only_dirt_is_not_safe_to_remove(tmp_path: Path) -> None:
++    repo = _init_repo(tmp_path)
++    wt = tmp_path / "fwp-wt-docs"
++    _git(repo, "worktree", "add", "-b", "docs", str(wt))
++    (wt / "notes.md").write_text("uncommitted original\n", encoding="utf-8")
++    row = _classify(wt)
++    assert row.in_main and row.dirty and not row.code_dirty
++    text = board.format_board([row], base="main", base_sha="a" * 40)
++    assert "干净 dev 树 0" in text
++    assert "还有未提交文件" in text
++    assert str(wt) not in text.split("【补丁已在基线且 Git 干净")[1].split("【")[0]
++
++
++def test_ahead_query_failure_remains_unknown(tmp_path, monkeypatch):
++    repo = _init_repo(tmp_path)
++    git = board._git
++
++    def fail_count(args, **kwargs):
++        return (1, "") if args[0] == "rev-list" else git(args, **kwargs)
++
++    monkeypatch.setattr(board, "_git", fail_count)
++    row = _classify(repo)
++    assert row.ahead == row.behind == -1
++    assert row.error
++    assert "待核实 1" in board.format_board([row], base="main", base_sha="a" * 40)
++    assert "底落后量未知" in _this_lines(repo, monkeypatch)[0]
++
++
++def test_session_start_pins_baseline_sha(tmp_path, monkeypatch):
++    repo = _init_repo(tmp_path)
++    sha = _git(repo, "rev-parse", "HEAD")
++    # The ref has disappeared/moved after initial resolution; the frozen SHA is valid.
++    lines = board.this_tree_lines(cwd=str(repo), base="moved/ref", base_sha=sha,
++                                  timeout=10, repo_root=repo)
++    assert "cherry+0" in lines[0]
++    assert "未知" not in lines[0]
++
++
++@pytest.mark.parametrize("mode", ["no-main", "base-failed", "list-failed", "common-failed"])
++def test_global_scan_failure_is_not_empty_inventory(tmp_path, monkeypatch, capsys, mode):
++    repo = _init_repo(tmp_path)
++    monkeypatch.chdir(repo)
++    if mode == "no-main":
++        _git(repo, "branch", "-m", "topic")
++    git = board._git
++
++    def fail(args, **kwargs):
++        if ((mode == "base-failed" and args == ["rev-parse", "main"])
++                or (mode == "list-failed" and args[:2] == ["worktree", "list"])
++                or (mode == "common-failed" and "--git-common-dir" in args)):
++            return 1, ""
++        return git(args, **kwargs)
++
++    monkeypatch.setattr(board, "_git", fail)
++    assert board.main(["--json"]) == 1
++    data = json.loads(capsys.readouterr().out)
++    assert data["error"] and data["trees"] is None
++    if mode == "no-main":
++        assert board.main(["--this"]) == 1
++        assert "不回退 HEAD" in capsys.readouterr().out

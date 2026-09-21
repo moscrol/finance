@@ -1,0 +1,16 @@
+6:可移植性: 数据库路径可用环境变量 MARKET_FEATURE_STORE_DB 覆盖, 便于在
+34:_ENV_DB = os.environ.get("MARKET_FEATURE_STORE_DB")
+35:DB_PATH = Path(_ENV_DB).expanduser() if _ENV_DB else PROJECT_DIR / "db" / "market_feature_store.duckdb"
+36:DB_DIR = DB_PATH.parent
+97:    return duckdb.connect(str(DB_PATH), read_only=read_only)
+252:def staging_path(db_path: Path | None = None) -> Path:
+254:    target = Path(db_path) if db_path is not None else DB_PATH
+280:def clone_to_staging(source: Path, staging: Path) -> dict:
+316:def probe_no_active_writer(db_path: Path) -> None:
+377:def assert_same_target(db_path: Path, expected: tuple[int, int], *, stage: str) -> None:
+398:def atomic_swap_into_place(
+436:def publish_new_into_place(staging: Path, target: Path) -> dict:
+494:def remove_stale_staging(staging: Path) -> bool:
+510:def backup_before_swap(
+586:def hold_swap_lock(db_path: Path):
+642:def hold_run_mutex(db_path: Path):

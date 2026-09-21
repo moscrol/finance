@@ -1,0 +1,11 @@
+{
+  "id": "0021",
+  "command": "PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python; $PY - <<'EOF'\nimport inspect\nimport _pytest.main as m\nsrc = inspect.getsource(m.wrap_session)\ni = src.find(\"finally:\")\nprint(src[i:i+300])\nimport _pytest.config as c\nprint(inspect.getsource(c.pytest_cmdline_main)[:800])\nEOF",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:24:17.477Z",
+  "complete": true,
+  "exit_code": 1,
+  "finished_at": "2026-09-21T08:24:17.805Z",
+  "log_sha256": "aa22775a9aa5317ef06947a976f425af98fd038ab7114780d65058e862c94819"
+}

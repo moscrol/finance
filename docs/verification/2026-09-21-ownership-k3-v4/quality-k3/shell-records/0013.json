@@ -1,0 +1,11 @@
+{
+  "id": "0013",
+  "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && head -60 tests/test_test_receipt_dirt.py && echo ===== && head -40 tests/test_check_receipt_revision_gate.py && echo ===== && head -40 tests/test_check_receipt_zero_count_gate.py && echo ===== && head -50 intelligence/tests/test_pytest_collection_scope.py",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:15:13.335Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:15:13.362Z",
+  "log_sha256": "dd456fa760e2db24b63b788369a3cbb01e3aafb918f05ca7e1e2307be3ea219b"
+}

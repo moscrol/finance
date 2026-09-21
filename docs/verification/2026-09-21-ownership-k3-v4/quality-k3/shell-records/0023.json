@@ -1,0 +1,11 @@
+{
+  "id": "0023",
+  "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && git -C fixtures/gaterepo log --oneline && git -C fixtures/gaterepo status --porcelain; rm -rf tmp/receipts-a1 tmp/repo-a1 tmp/home-a1",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:32:01.283Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:32:01.459Z",
+  "log_sha256": "29c87a88e1fbec7b379c35772a1825980fd97cfb5f486db40dc97f1fddf45032"
+}

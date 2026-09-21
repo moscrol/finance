@@ -1,0 +1,11 @@
+{
+  "id": "0002",
+  "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && for f in conftest.py scripts/main_gate_receipt.py scripts/run_main_gate.sh scripts/worktree_board.py market_feature_store/cli.py market_feature_store/sync/repair_backfill_stock_history.py scripts/verify_302132_backfill_acceptance.py tests/test_main_gate_receipt.py tests/test_worktree_board.py tests/test_repair_backfill_stock_history.py test-environment.json market_feature_store/sync/sync_daily_full.py; do shasum -a 256 \"$f\"; done",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:08:27.857Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:08:27.990Z",
+  "log_sha256": "847e0998127eecba6fac4963e6f24a1934dd71715f3b6bff2341d121b662ad8e"
+}

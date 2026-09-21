@@ -1,0 +1,11 @@
+7c9f6cf6a473288965d3e051e6f54890833b193f
+total 72
+drwxr-xr-x@  9 a77  staff    288 Sep 21 16:19 .
+drwxr-xr-x@  3 a77  staff     96 Sep 21 16:19 ..
+drwxr-xr-x@ 12 a77  staff    384 Sep 21 16:19 .git
+-rw-r--r--@  1 a77  staff     41 Sep 21 16:19 .gitignore
+-rw-r--r--@  1 a77  staff  22470 Sep 21 16:19 conftest.py
+drwxr-xr-x@  4 a77  staff    128 Sep 21 16:19 scripts
+-rw-r--r--@  1 a77  staff    273 Sep 21 16:19 test-environment.json
+-rw-r--r--@  1 a77  staff     72 Sep 21 16:19 test_ok.py
+drwxr-xr-x@  3 a77  staff     96 Sep 21 16:19 tests_inner

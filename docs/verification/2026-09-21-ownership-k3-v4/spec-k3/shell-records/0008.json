@@ -1,0 +1,11 @@
+{
+  "id": "0008",
+  "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && git diff c615adbd2f861e23f2c8d03631833f98b3ae5aba..6eb12c1b8a41071fd4af8bee343950fe0b85b221 -- scripts/worktree_board.py | cat",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:14:16.941Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:14:16.967Z",
+  "log_sha256": "576fad0960cdc4da337150a954431b4df51071818e86c4ccef562093bfdffecf"
+}

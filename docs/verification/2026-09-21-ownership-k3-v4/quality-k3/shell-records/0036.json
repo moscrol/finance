@@ -1,0 +1,11 @@
+{
+  "id": "0036",
+  "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/probes && /Users/a77/finance-workspace-private/.venv-workbench/bin/python - <<'PYEOF'\np = \"probe_a_receipt.py\"\ns = open(p).read()\nold = '''    time.sleep(6)  # let ruff pass and pytest start\n    subprocess.run([\"pkill\", \"-9\", \"-f\", \"python -m pytest.*test_slow\"],\n                   timeout=10)'''\nnew = '''    # kill precisely the gate's own pytest child (never a broad pkill:\n    # this machine runs other reviews' pytest processes concurrently)\n    child_pid = None\n    deadline = time.monotonic() + 30\n    while time.monotonic() < deadline and child_pid is None:\n        time.sleep(0.5)\n        kids = subprocess.run([\"pgrep\", \"-P\", str(gate_proc.pid)],\n                              capture_output=True, text=True, timeout=10\n                              ).stdout.split()\n        for kid in kids:\n            cmd = subprocess.run([\"ps\", \"-p\", kid, \"-o\", \"command=\"],\n                                 capture_output=True, text=True, timeout=10\n                                 ).stdout\n            if \"-m pytest\" in cmd and \"test_slow\" in cmd:\n                child_pid = int(kid)\n                break\n    if child_pid is None:\n        gate_proc.kill()\n        raise RuntimeError(\"pytest child never appeared\")\n    os.kill(child_pid, signal.SIGKILL)'''\nassert old in s\ns = s.replace(old, new)\nopen(p, \"w\").write(s)\nprint(\"patched\")\nPYEOF\ncd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && rm -rf tmp/repo-a11 tmp/receipts-a11_* tmp/home-a11_* && PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probes/probe_a_receipt.py a11 2>&1 | tail -3",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:39:34.873Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:39:47.962Z",
+  "log_sha256": "c159c5fe4560cb5183e5f0ce357e70b09c0c1d469c25cbd1e82475c6d6079b4a"
+}

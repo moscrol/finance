@@ -1,0 +1,40 @@
+✔ unlimited admissions: 121 requests and elapsed 2000s pass; no token in artifacts/env/argv (5.578417ms)
+✔ native Models auth resolves memory credential and reuses it (0.734125ms)
+✔ expiry refresh keeps session unlimited and secrets in memory (0.579584ms)
+✔ failed expiry refresh is sticky, no resolver retry (0.63375ms)
+✔ bad credential shape blocks before provider registration (0.365417ms)
+✔ other plan blocks before provider registration (0.327709ms)
+✔ expired access blocks before provider registration (0.401792ms)
+✔ expired plan blocks before provider registration (0.290042ms)
+✔ resolver error blocks before provider registration (0.293167ms)
+✔ reservation prevents second authentication (0.200541ms)
+✔ wrong provider stops dispatch (0.371708ms)
+✔ wrong id stops dispatch (0.300583ms)
+✔ wrong baseUrl stops dispatch (0.372667ms)
+✔ wrong api stops dispatch (0.282791ms)
+✔ audit append failure stops dispatch (0.356792ms)
+✔ direct paths permit source/inputs read and own output writes (0.832958ms)
+✔ symlink and traversal do not bypass direct-path check (0.188292ms)
+✔ finalization rejects absent and placeholder reports (0.651084ms)
+✖ real shell wrapper captures exit and combined bytes; default timeout is 120, not session deadline (6.581916ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 18
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 556.039041
+
+✖ failing tests:
+
+test at review-tools.test.mjs:34:1
+✖ real shell wrapper captures exit and combined bytes; default timeout is 120, not session deadline (6.581916ms)
+  Error: helloerr
+  
+  Command exited with code 3
+      at Object.execute (file:///opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/core/tools/bash.js:264:27)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (file:///Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/review-tools.test.mjs:41:18)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)

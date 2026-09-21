@@ -1,0 +1,45 @@
+{"case": "valid-copy", "rc": 0, "expect": 0, "ok": true, "stderr_tail": [], "note": ""}
+{"case": "revision-wrong", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: receipt revision does not match the tested revision"], "note": ""}
+{"case": "revision-missing", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: receipt revision does not match the tested revision"], "note": ""}
+{"case": "tree-wrong", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: receipt tree does not match this run"], "note": ""}
+{"case": "tree-missing", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: receipt tree does not match this run"], "note": ""}
+{"case": "tree-null", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: receipt tree does not match this run"], "note": ""}
+{"case": "interpreter-wrong", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: interpreter mismatch"], "note": ""}
+{"case": "interpreter-missing", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: interpreter mismatch"], "note": ""}
+{"case": "dirty-true", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: receipt is dirty or dirty state is unknown"], "note": ""}
+{"case": "dirty-total-nonzero", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: receipt is dirty or dirty state is unknown"], "note": ""}
+{"case": "dirty-total-missing", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: receipt is dirty or dirty state is unknown"], "note": ""}
+{"case": "dep-gate-bypassed", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: dependency gate was bypassed or is unknown"], "note": ""}
+{"case": "dep-gate-missing", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: dependency gate was bypassed or is unknown"], "note": ""}
+{"case": "counts-zero-exec", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: zero executed tests"], "note": "all-skipped is zero execution"}
+{"case": "counts-negative", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: invalid counts"], "note": ""}
+{"case": "counts-float", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: invalid counts"], "note": ""}
+{"case": "counts-bool", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: invalid counts"], "note": ""}
+{"case": "counts-string", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: invalid counts"], "note": ""}
+{"case": "counts-missing-key", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: invalid counts"], "note": ""}
+{"case": "exit-status-2", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: missing exit_status or incomplete pytest run"], "note": "interrupted/usage"}
+{"case": "exit-status-5", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: missing exit_status or incomplete pytest run"], "note": "no tests collected"}
+{"case": "exit-status-missing", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: missing exit_status or incomplete pytest run"], "note": ""}
+{"case": "status1-no-failed-ids", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: exit_status, counts and failed_ids disagree"], "note": ""}
+{"case": "status0-with-failed-ids", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: exit_status, counts and failed_ids disagree"], "note": ""}
+{"case": "failed-ids-count-mismatch", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: exit_status, counts and failed_ids disagree"], "note": ""}
+{"case": "target-missing", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: missing target"], "note": ""}
+{"case": "malformed-json", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"], "note": ""}
+{"case": "json-array", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: receipt must be an object"], "note": ""}
+{"case": "json-null", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: receipt must be an object"], "note": ""}
+{"case": "missing-file", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["没找到本轮收据 /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/does-not-exist.json（pytest 收据未写出；不会回退 latest.json）"]}
+{"case": "failed-receipt", "rc": 1, "expect": 1, "ok": true, "stderr_tail": [], "note": ""}
+{"case": "allow-dirty-dirty-ok", "rc": 0, "expect": 0, "ok": true, "stderr_tail": [], "note": ""}
+{"case": "allow-dirty-wrong-tree", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: receipt tree does not match this run"], "note": ""}
+{"case": "allow-dirty-wrong-revision", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: receipt revision does not match the tested revision"], "note": ""}
+{"case": "baseline-same-red-diagnostic", "rc": 0, "expect": 0, "ok": true, "stderr_tail": [], "note": "explicit baseline, no new red -> 0 (documented diagnostic)"}
+{"case": "baseline-new-red", "rc": 3, "expect": 3, "ok": true, "stderr_tail": [], "note": ""}
+{"case": "baseline-passes-decreased", "rc": 3, "expect": 3, "ok": true, "stderr_tail": [], "note": ""}
+{"case": "baseline-target-mismatch", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: baseline target differs from this run"], "note": ""}
+{"case": "baseline-dirty", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: baseline is dirty or dirty state is unknown"], "note": ""}
+{"case": "baseline-dirty-total", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: baseline is dirty or dirty state is unknown"], "note": ""}
+{"case": "baseline-different-revision-ok", "rc": 0, "expect": 0, "ok": true, "stderr_tail": [], "note": "historical baseline revision need not equal current"}
+{"case": "baseline-interrupted-current", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: missing exit_status or incomplete pytest run"], "note": ""}
+{"case": "baseline-malformed", "rc": 4, "expect": 4, "ok": true, "stderr_tail": ["gate receipt refused: invalid counts"], "note": ""}
+{"case": "unknown-arg", "rc": 4, "expect": 4, "ok": true}
+{"case": "missing-arg-value", "rc": 4, "expect": 4, "ok": true}

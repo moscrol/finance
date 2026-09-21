@@ -1,0 +1,11 @@
+{
+  "id": "0015",
+  "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && ls tests/test_main_gate_receipt.py tests/test_test_receipt_dirt.py tests/test_check_receipt_revision_gate.py tests/test_check_receipt_zero_count_gate.py tests/test_worktree_board.py tests/test_repair_backfill_stock_history.py intelligence/tests/test_pytest_collection_scope.py 2>&1; echo ---; grep -n \"def test\" tests/test_main_gate_receipt.py | head -50",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:19:02.505Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:19:02.518Z",
+  "log_sha256": "2c85ccee05219d78b179d892d99efc24096000937de5c2ebfd7ce36ee01bdbb3"
+}

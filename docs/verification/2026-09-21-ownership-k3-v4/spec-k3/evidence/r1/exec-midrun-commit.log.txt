@@ -1,0 +1,10 @@
+== gate @ a34a12cc2e9c tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/receipt-repo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/exec-midrun-commit/gate-QxnkQOmi/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider test_commit.py
+.                                                                        [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/exec-midrun-commit/gate-QxnkQOmi/pytest.json
+
+1 passed in 0.21s
+
+---STDERR---
+测试期间提交或干净状态改变，收据不可采信。

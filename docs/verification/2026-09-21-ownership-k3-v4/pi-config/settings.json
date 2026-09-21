@@ -1,0 +1,23 @@
+{
+  "retry": {
+    "enabled": false,
+    "maxRetries": 0,
+    "provider": {
+      "maxRetries": 0,
+      "maxRetryDelayMs": 1000
+    }
+  },
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 20000,
+    "keepRecentTokens": 25000
+  },
+  "enableInstallTelemetry": false,
+  "enableAnalytics": false,
+  "defaultProjectTrust": "never",
+  "packages": [],
+  "extensions": [],
+  "skills": [],
+  "prompts": [],
+  "themes": []
+}

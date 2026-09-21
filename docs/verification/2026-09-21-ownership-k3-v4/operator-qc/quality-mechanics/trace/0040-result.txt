@@ -1,0 +1,7 @@
+  File "<stdin>", line 74
+    ''', "rendezvous fixture")'''
+                             ^
+SyntaxError: unmatched ')'
+
+
+Command exited with code 1

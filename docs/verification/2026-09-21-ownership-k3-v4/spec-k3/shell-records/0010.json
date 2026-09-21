@@ -1,0 +1,11 @@
+{
+  "id": "0010",
+  "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && grep -n \"def run_daily_full_staged\" -A 5 market_feature_store/sync/sync_daily_full.py && wc -l market_feature_store/sync/sync_daily_full.py",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:16:21.871Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:16:21.879Z",
+  "log_sha256": "01ad3150bb8bf0c1270f134b141643afd6d5b095ead5e077aeec3d96e2f1f68c"
+}

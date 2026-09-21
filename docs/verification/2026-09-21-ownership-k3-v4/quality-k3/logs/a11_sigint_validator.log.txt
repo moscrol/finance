@@ -1,0 +1,2 @@
+rc=4
+gate receipt refused: zero executed tests

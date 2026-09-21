@@ -1,0 +1,852 @@
+[
+  {
+    "index": 1,
+    "id": "tool_yzMzXcO76c6lTauxiFnXvIYK",
+    "tool": "read",
+    "event_line": 57,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/review-common.md"
+    },
+    "end_event_line": 58,
+    "result_event": "operator-qc/quality-mechanics/trace/0001-result-event.jsonl",
+    "result_event_sha256": "d4c5e3d3c07f1b99954b80d9d5555d5ce8ca1cf2cb1ddf2c6b288d5c49c06cf2",
+    "result_summary": "# Ownership v4 independent review contract\n\nYou are K3, a reviewer in a NEW context, not the author. Produce a finished, evidence-based review of the frozen object, not a repair. SPEC and QUALITY use separate contexts and checkouts. Shared inputs are intentional; this is not a fully blinded/different-vendor experiment.",
+    "is_error": false
+  },
+  {
+    "index": 2,
+    "id": "ls_1",
+    "tool": "ls",
+    "event_line": 188,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs"
+    },
+    "end_event_line": 190,
+    "result_event": "operator-qc/quality-mechanics/trace/0002-result-event.jsonl",
+    "result_event_sha256": "4cae84f2448e6b372db66694a608eabd9e157a0106c3ddc52c20fcbc62bb3bc8",
+    "result_summary": "backfill-execution-contract.md\nbackfill-prep-contract.md\ncandidate.diff\nreview-common.md\nsource-provenance.json",
+    "is_error": false
+  },
+  {
+    "index": 3,
+    "id": "ls_2",
+    "tool": "ls",
+    "event_line": 189,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-quality-v4-0921"
+    },
+    "end_event_line": 191,
+    "result_event": "operator-qc/quality-mechanics/trace/0003-result-event.jsonl",
+    "result_event_sha256": "4f3f731a47c58581d45be549aba8d4697bae314d4f170ad73007f4be475bc7e3",
+    "result_summary": ".agents/\n.claude/\n.code-review-graph/\n.code-review-graphignore\n.codex/\n.devin/\n.git\n.github/\n.gitignore\n.pre-commit-config.yaml\nAGENTS.md\nCLAUDE.md\nconftest.py\ndocs/\nevolution/\nfde/\nfill-rate-baseline.json\nintelligence/\nmarket_feature_store/\nmcp/\nmethodology/\npath-literals-baseline.json\npytest.ini\nREADME.md\nreferences/",
+    "is_error": false
+  },
+  {
+    "index": 4,
+    "id": "read_3",
+    "tool": "read",
+    "event_line": 286,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/source-provenance.json"
+    },
+    "end_event_line": 289,
+    "result_event": "operator-qc/quality-mechanics/trace/0004-result-event.jsonl",
+    "result_event_sha256": "1b189216a207418ab58d8ca459b08f1cffc9f5241aa59b7735df636c3ee5dd46",
+    "result_summary": "{\n  \"time\": \"2026-09-21T08:03:29.344731+00:00\",\n  \"revision\": \"6eb12c1b8a41071fd4af8bee343950fe0b85b221\",\n  \"base\": \"c615adbd2f861e23f2c8d03631833f98b3ae5aba\",\n  \"git_tree\": \"e99dad14cb946a112d92537289854d914e558936\",\n  \"checkouts\": {\n    \"author\": {\n      \"path\": \"/Users/a77/fwp-wt-ownership-gates-v4-0921\",\n      \"rev",
+    "is_error": false
+  },
+  {
+    "index": 5,
+    "id": "bash_4",
+    "tool": "bash",
+    "event_line": 287,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && git rev-parse HEAD && git rev-parse HEAD^{tree} && git status --porcelain | head -20 && git log --oneline -3"
+    },
+    "end_event_line": 292,
+    "result_event": "operator-qc/quality-mechanics/trace/0005-result-event.jsonl",
+    "result_event_sha256": "4f4cf367294e62a01078d32e3a929641bbdee5aa50d5209e55fb388b786b5c20",
+    "result_summary": "6eb12c1b8a41071fd4af8bee343950fe0b85b221\ne99dad14cb946a112d92537289854d914e558936\n6eb12c1b8 test: freeze repaired ownership candidates on c615adbd main\n8d955fc38 docs: link receipt repair handoff to published evidence\nb28a61e5a docs: seal invocation receipt repair evidence and source acceptance\n",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0001.json"
+  },
+  {
+    "index": 6,
+    "id": "bash_5",
+    "tool": "bash",
+    "event_line": 580,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && for f in conftest.py scripts/main_gate_receipt.py scripts/run_main_gate.sh scripts/worktree_board.py market_feature_store/cli.py market_feature_store/sync/repair_backfill_stock_history.py scripts/verify_302132_backfill_acceptance.py tests/test_main_gate_receipt.py tests/test_worktree_board.py tests/test_repair_backfill_stock_history.py test-environment.json market_feature_store/sync/sync_daily_full.py; do shasum -a 256 \"$f\"; done"
+    },
+    "end_event_line": 589,
+    "result_event": "operator-qc/quality-mechanics/trace/0006-result-event.jsonl",
+    "result_event_sha256": "472ad8855218ac9ff01077b7119077d756e5ddf4a7bc54d575ce69fd9c62e214",
+    "result_summary": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955  conftest.py\n214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679  scripts/main_gate_receipt.py\nc2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca  scripts/run_main_gate.sh\nbfd5519b73171329f69ea360be15733e9b45bf670bb88eedf7a1970b",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0002.json"
+  },
+  {
+    "index": 7,
+    "id": "bash_6",
+    "tool": "bash",
+    "event_line": 581,
+    "args": {
+      "command": "mkdir -p /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/{notes,probes,evidence,receipts,tmp,basetemp} && echo ok"
+    },
+    "end_event_line": 585,
+    "result_event": "operator-qc/quality-mechanics/trace/0007-result-event.jsonl",
+    "result_event_sha256": "6012a523d73afdd443884cbff59fca82e03de633e7660c27aa6cd372533c71de",
+    "result_summary": "ok\n",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0003.json"
+  },
+  {
+    "index": 8,
+    "id": "bash_7",
+    "tool": "bash",
+    "event_line": 750,
+    "args": {
+      "command": "wc -l /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/candidate.diff /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/backfill-*.md && grep -E '^(diff|---|\\+\\+\\+)' /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/candidate.diff | head -60"
+    },
+    "end_event_line": 754,
+    "result_event": "operator-qc/quality-mechanics/trace/0008-result-event.jsonl",
+    "result_event_sha256": "e4c9b58e1cb559ac75d04002f44aba0d67b606f0f2febeda55e4969a54e9a670",
+    "result_summary": "    4277 /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/candidate.diff\n     127 /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/backfill-execution-contract.md\n      91 /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/backfill-prep-contract.md\n    4495 total\ndi",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0004.json"
+  },
+  {
+    "index": 9,
+    "id": "read_8",
+    "tool": "read",
+    "event_line": 827,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/backfill-prep-contract.md"
+    },
+    "end_event_line": 829,
+    "result_event": "operator-qc/quality-mechanics/trace/0009-result-event.jsonl",
+    "result_event_sha256": "95d80bda3af590db289b8dfb3e21335dfbadd94c09037ddd7e4a1a1cff9000b5",
+    "result_summary": "# 302132 回填准备阶段独立审查（742c3ff5）\n\n## 结论\n\n**数据来源、缺口与 09-11 可计算性认可；执行草案暂不放行，2 个 P1（执行前必须解决）、1 组 P2（证据/范围声明修正）。** 可以据本审查完善专用回填实现并另交代码评审；本结论不是生产执行授权，事项 3、旧行修正、备份清理均未批准或执行。\n\n审查树 `/private/tmp/302132-prep-qc-742c3ff5`，分支 `docs/qc-302132-prep-742c3ff5`，基于交审提交 `742c3ff5`。主检出树有他人未提交改动，本轮不碰；执行候选 `1fef3d27` 当前干净。所有文件数据库均 READ_ONLY 连",
+    "is_error": false
+  },
+  {
+    "index": 10,
+    "id": "read_9",
+    "tool": "read",
+    "event_line": 828,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/backfill-execution-contract.md"
+    },
+    "end_event_line": 830,
+    "result_event": "operator-qc/quality-mechanics/trace/0010-result-event.jsonl",
+    "result_event_sha256": "6076012f16df199ac5c5685321886c59db820e8ece1f7c248554b2bbfd63db7a",
+    "result_summary": "# 302132.SZ 历史回填·执行实现交审（fix/backfill-302132-scoped @ 00d64e37）\n\n按 `2026-09-14-302132-prep-review.md` 的两条 P1 与「执行前合同」实现；经六轮复审退修全部落地。**第六轮演练在干净提交 00d64e37 上完成，验收 v6 49/49 通过。本轮未写生产**；生产授权另行申请。\n\n## 第六轮（00d64e37）：oracle 输入独立、收据深 schema、跨轮绑定\n\n复审六轮（1 P1 + 2 P2；审查树 595a9acd，探针 `qc_302132_round6_probes.py`）修复（提交 `00d64e37`）：\n\n",
+    "is_error": false
+  },
+  {
+    "index": 11,
+    "id": "bash_10_a8385c21",
+    "tool": "bash",
+    "event_line": 948,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && wc -l conftest.py scripts/main_gate_receipt.py scripts/run_main_gate.sh scripts/worktree_board.py market_feature_store/cli.py market_feature_store/sync/repair_backfill_stock_history.py scripts/verify_302132_backfill_acceptance.py market_feature_store/sync/sync_daily_full.py"
+    },
+    "end_event_line": 951,
+    "result_event": "operator-qc/quality-mechanics/trace/0011-result-event.jsonl",
+    "result_event_sha256": "02fe93dabc1564ca7ddcc6ab3633ae439c709223fbaa3b0f9f511af09b185d31",
+    "result_summary": "     469 conftest.py\n      97 scripts/main_gate_receipt.py\n      85 scripts/run_main_gate.sh\n     612 scripts/worktree_board.py\n    2930 market_feature_store/cli.py\n     775 market_feature_store/sync/repair_backfill_stock_history.py\n     729 scripts/verify_302132_backfill_acceptance.py\n     859 market_feature_store/syn",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0005.json"
+  },
+  {
+    "index": 12,
+    "id": "read_11",
+    "tool": "read",
+    "event_line": 983,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-quality-v4-0921/conftest.py"
+    },
+    "end_event_line": 984,
+    "result_event": "operator-qc/quality-mechanics/trace/0012-result-event.jsonl",
+    "result_event_sha256": "47e3115eb6a59a4638d06c35c4312c356e18be91d9023a8d5dd14ac971fbf23b",
+    "result_summary": "\"\"\"测试环境门禁：解释器不对就**在收集之前**失败，并说清该用哪个。\n\n## 为什么必须在这一层\n\n本仓有两个 python，依赖完全不同：\n\n    宿主 /usr/bin/python3        无 fastapi / agents / duckdb / yaml …\n    .venv-workbench/bin/python   全部具备（AGENTS.md 与 CLAUDE.md 都写了用它）\n\n用错的后果不是\"跑不了\"，而是**跑出一个看起来合理的错读数**。2026-08-10 实测，\n同一棵树同一时刻：\n\n    宿主 python3        71 failed / 3819 passed\n    .",
+    "is_error": false
+  },
+  {
+    "index": 13,
+    "id": "read_12",
+    "tool": "read",
+    "event_line": 2653,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-quality-v4-0921/scripts/run_main_gate.sh"
+    },
+    "end_event_line": 2656,
+    "result_event": "operator-qc/quality-mechanics/trace/0013-result-event.jsonl",
+    "result_event_sha256": "fc58d63296e5ac229f77b0e8d148a7aca5faf56476d14ba3e9842103fe65691a",
+    "result_summary": "#!/usr/bin/env bash\n# 干净树门禁：ruff -> pytest -> 本轮唯一收据 -> 提交/退出码身份校验。\n# 用法：\n#   bash scripts/run_main_gate.sh\n#   bash scripts/run_main_gate.sh --pytest-args \"-q tests/test_example.py\"\n#   bash scripts/run_main_gate.sh --allow-dirty   # 仅本地迭代，不可作为合入依据\n#   bash scripts/run_main_gate.sh --receipt <收据.json>\n#   bash scripts",
+    "is_error": false
+  },
+  {
+    "index": 14,
+    "id": "read_13",
+    "tool": "read",
+    "event_line": 2654,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-quality-v4-0921/scripts/main_gate_receipt.py"
+    },
+    "end_event_line": 2655,
+    "result_event": "operator-qc/quality-mechanics/trace/0014-result-event.jsonl",
+    "result_event_sha256": "f4f331c323b1fc27ccca718e8fef8f2911675447831613bc909d46d04329020e",
+    "result_summary": "\"\"\"Read one gate receipt, never a shared latest pointer.\n\nThe shell owns the run identity; pytest owns the result. Both must agree.\nAn explicit baseline comparison is diagnostic, not permission to merge red tests.\n\"\"\"\nfrom __future__ import annotations\n\nimport argparse\nimport json\nimport sys\nfrom pathlib import Path\n\n\n",
+    "is_error": false
+  },
+  {
+    "index": 15,
+    "id": "read_14_44cbe79a",
+    "tool": "read",
+    "event_line": 2698,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-quality-v4-0921/scripts/worktree_board.py"
+    },
+    "end_event_line": 2699,
+    "result_event": "operator-qc/quality-mechanics/trace/0015-result-event.jsonl",
+    "result_event_sha256": "998f3ef91923f8bc2e9776a515b6412036bf56ad04fc5353f9f9da07e6ddc070",
+    "result_summary": "#!/usr/bin/env python3\n\"\"\"Worktree 合入看板：从 ``git cherry`` 生成，不手抄第二份清单。\n\n失败形状\n--------\n多 session 并发留下几十棵 worktree。人写的 ``inflight/main.md`` 和项目笔记\n「交接记录」会漂（写了「可合未合」之后合进去也不回写）。``git rev-list`` 的\nahead 数也会骗人：同一补丁以 squash / cherry-pick 进了 main，hash 不同仍算\n超前。``git cherry`` 比的是补丁，全是 ``-`` 就是已经在基线里。\n\n本脚本只打印。**绝不** ``worktree remo",
+    "is_error": false
+  },
+  {
+    "index": 16,
+    "id": "bash_15",
+    "tool": "bash",
+    "event_line": 3995,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && git diff --stat c615adbd2f861e23f2c8d03631833f98b3ae5aba..6eb12c1b8a41071fd4af8bee343950fe0b85b221"
+    },
+    "end_event_line": 4002,
+    "result_event": "operator-qc/quality-mechanics/trace/0016-result-event.jsonl",
+    "result_event_sha256": "d2fc7b83ab7fee36ccbdf26db589f6c0fc4d3674421c079418dbf60915c10e12",
+    "result_summary": " conftest.py                                        |    65 +-\n docs/handoffs/2026-09-21-backfill-main-ready.md    |    49 +\n docs/handoffs/2026-09-21-backfill-parent-target.md |    28 +\n docs/handoffs/2026-09-21-ownership-followup.md     |    45 +\n ...6-09-21-ownership-independent-review-blocked.md |    28 +\n docs/han",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0006.json"
+  },
+  {
+    "index": 17,
+    "id": "bash_16",
+    "tool": "bash",
+    "event_line": 3996,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && git diff c615adbd..6eb12c1b -- conftest.py | head -150"
+    },
+    "end_event_line": 4000,
+    "result_event": "operator-qc/quality-mechanics/trace/0017-result-event.jsonl",
+    "result_event_sha256": "2aa6e2b2df63cee154f0db37654eb0cb7490313b59780f5143f81d17f3f529a5",
+    "result_summary": "diff --git a/conftest.py b/conftest.py\nindex 325a112a1..3920371cb 100644\n--- a/conftest.py\n+++ b/conftest.py\n@@ -48,6 +48,8 @@ import os\n import platform\n import subprocess\n import sys\n+import tempfile\n+import uuid\n from pathlib import Path\n \n import pytest\n@@ -178,9 +180,33 @@ def _revision() -> str:\n     return f\"{br",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0007.json"
+  },
+  {
+    "index": 18,
+    "id": "bash_17",
+    "tool": "bash",
+    "event_line": 4305,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && git diff c615adbd..6eb12c1b -- scripts/run_main_gate.sh scripts/worktree_board.py"
+    },
+    "end_event_line": 4308,
+    "result_event": "operator-qc/quality-mechanics/trace/0018-result-event.jsonl",
+    "result_event_sha256": "e4c8a299c29e53d0a5839720c428a6e573ed1728fc76351f9b4615fea53f0ac6",
+    "result_summary": "diff --git a/scripts/run_main_gate.sh b/scripts/run_main_gate.sh\nindex 005487c93..cdc98d94f 100755\n--- a/scripts/run_main_gate.sh\n+++ b/scripts/run_main_gate.sh\n@@ -1,115 +1,85 @@\n #!/usr/bin/env bash\n-# 干净树整仓门禁一把跑：树必须干净 → ruff check → 全量 pytest → 拿收据 → 对基线比红集。\n-#\n-# 它替代的手工流程（2026-09-03 一天重复了五次）：\n-#   1. 看 porcelain 是否",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0008.json"
+  },
+  {
+    "index": 19,
+    "id": "read_18",
+    "tool": "read",
+    "event_line": 4774,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-quality-v4-0921/market_feature_store/sync/repair_backfill_stock_history.py"
+    },
+    "end_event_line": 4775,
+    "result_event": "operator-qc/quality-mechanics/trace/0019-result-event.jsonl",
+    "result_event_sha256": "6a8675a69f40fff91cae6fb552e77ea53f67aa8262fa517b776b41c1fa8a7eca",
+    "result_summary": "\"\"\"单股历史回填 + 按股限定（scoped）派生重建——302132.SZ 专用合同。\n\n合同来源（评审 `docs/handoffs/2026-09-14-302132-prep-review.md`，P1-1/P1-2\n与「下一轮执行前合同」逐条落码）：\n\n- **发布入口**：只经 `run_daily_full_staged` 父编排（独立 kind、pre_swap_backup=True），\n  父流程自建 staging；回填、派生、验收全部在 staging 副本内完成，任何一步失败\n  抛异常 → 不发布。**不新增直写 canonical 的通道**（本模块不提供 --child 直写模式）。\n- **主表回",
+    "is_error": false
+  },
+  {
+    "index": 20,
+    "id": "bash_19",
+    "tool": "bash",
+    "event_line": 4862,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && git diff c615adbd..6eb12c1b -- market_feature_store/cli.py | head -260"
+    },
+    "end_event_line": 4865,
+    "result_event": "operator-qc/quality-mechanics/trace/0020-result-event.jsonl",
+    "result_event_sha256": "a96ef7c754e4d3db52d0c8e459e22960ba159559029642f61435aedafb23086f",
+    "result_summary": "diff --git a/market_feature_store/cli.py b/market_feature_store/cli.py\nindex 38e532053..7f89ba470 100644\n--- a/market_feature_store/cli.py\n+++ b/market_feature_store/cli.py\n@@ -1494,6 +1494,190 @@ def _refuse_production_write_direct(target) -> int | None:\n     return 2\n \n \n+def cmd_repair_backfill_302132(args) -> int:\n",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0009.json"
+  },
+  {
+    "index": 21,
+    "id": "bash_20",
+    "tool": "bash",
+    "event_line": 4995,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && grep -n \"def run_daily_full_staged\" -A 5 market_feature_store/sync/sync_daily_full.py && grep -n \"def \\|^class \" market_feature_store/sync/sync_daily_full.py | head -50"
+    },
+    "end_event_line": 4999,
+    "result_event": "operator-qc/quality-mechanics/trace/0021-result-event.jsonl",
+    "result_event_sha256": "f39e4a249f063f0554f422cfe908506b03400e00e91e8d46dc80328ef5ee8d0b",
+    "result_summary": "414:def run_daily_full_staged(\n415-    trade_date: str | None = None,\n416-    skip_long: bool = False,\n417-    stock_source: str = \"snapshot\",\n418-    child_argv: list[str] | None = None,\n419-    kind: str = \"daily-full\",\n20:def _latest_trade_date() -> str:\n31:def preflight_daily_update(\n65:    def _default_cdp_probe()",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0010.json"
+  },
+  {
+    "index": 22,
+    "id": "read_21",
+    "tool": "read",
+    "event_line": 5039,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-quality-v4-0921/market_feature_store/sync/sync_daily_full.py",
+      "offset": 348,
+      "limit": 280
+    },
+    "end_event_line": 5040,
+    "result_event": "operator-qc/quality-mechanics/trace/0022-result-event.jsonl",
+    "result_event_sha256": "66a7dd4646695e264d6bce7e5348c9776c1f311bf5ba6de39432933a6400e34c",
+    "result_summary": "def _db_shape(path: Path) -> dict | None:\n    \"\"\"read_only 读一个库的形状: 表数 / 核心表行数 / fact_market_daily 覆盖上界。\n\n    打不开 (损坏/半成品) 返回 None——调用方 fail closed。\n    \"\"\"\n    try:\n        con = duckdb.connect(str(path), read_only=True)\n    except Exception:\n        return None\n    try:\n        from ..db import list_tables\n\n        t",
+    "is_error": false
+  },
+  {
+    "index": 23,
+    "id": "read_22",
+    "tool": "read",
+    "event_line": 5080,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-quality-v4-0921/market_feature_store/sync/sync_daily_full.py",
+      "offset": 628,
+      "limit": 232
+    },
+    "end_event_line": 5081,
+    "result_event": "operator-qc/quality-mechanics/trace/0023-result-event.jsonl",
+    "result_event_sha256": "762d49c5c9e1f3fa99f5976030e71224854fa0f8e729ff6a684ad4587efd4a2f",
+    "result_summary": "        status_json.unlink(missing_ok=True)\n        if not isinstance(raw_status, dict):\n            return _abort(\n                f\"status.json 不是 JSON 对象 ({type(raw_status).__name__}), 不换名\"\n            )\n        status = raw_status\n    result[\"status\"] = status\n\n    if child_rc < 0:\n        return _abort(\n          ",
+    "is_error": false
+  },
+  {
+    "index": 24,
+    "id": "tool_htEWaNOmNnDIz7naQdDRDXxK",
+    "tool": "bash",
+    "event_line": 5812,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && grep -n \"DB_PATH\\|MARKET_FEATURE_STORE_DB\\|def staging_path\\|def hold_run_mutex\\|def remove_stale_staging\\|def probe_no_active_writer\\|def clone_to_staging\\|def hold_swap_lock\\|def assert_same_target\\|def backup_before_swap\\|def atomic_swap_into_place\\|def publish_new_into_place\" market_feature_store/db.py | head -40"
+    },
+    "end_event_line": 5818,
+    "result_event": "operator-qc/quality-mechanics/trace/0024-result-event.jsonl",
+    "result_event_sha256": "9047432c76791e007f316fcbb89828c2f26a5c38432d25f5cffc92e7b76e45e5",
+    "result_summary": "6:可移植性: 数据库路径可用环境变量 MARKET_FEATURE_STORE_DB 覆盖, 便于在\n34:_ENV_DB = os.environ.get(\"MARKET_FEATURE_STORE_DB\")\n35:DB_PATH = Path(_ENV_DB).expanduser() if _ENV_DB else PROJECT_DIR / \"db\" / \"market_feature_store.duckdb\"\n36:DB_DIR = DB_PATH.parent\n97:    return duckdb.connect(str(DB_PATH), read_only=read_only)\n252:def staging",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0011.json"
+  },
+  {
+    "index": 25,
+    "id": "tool_r1hYlUFErGCWMXIZaeWBRiUA",
+    "tool": "bash",
+    "event_line": 5813,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && sed -n '1,80p' market_feature_store/write_path.py && grep -n \"_refuse_production_write_direct\" -B3 -A30 market_feature_store/cli.py | head -60"
+    },
+    "end_event_line": 5820,
+    "result_event": "operator-qc/quality-mechanics/trace/0025-result-event.jsonl",
+    "result_event_sha256": "a6bf42b674fc59a10142eb3ce5e4d82466dff0dd82538585496b9bb18d754789",
+    "result_summary": "\"\"\"写入路径策略：生产库不是默认可写目标。\n\n2026-08-20：脏树上的旧 `cli daily-full` 直写生产 fact、不算 features。\ngitea/main 上 `daily-full` 已走 staging 换名；剩下的逃生舱是\n`daily-update` 和手跑 `daily-full-exec` 且 MARKET_FEATURE_STORE_DB 指向生产。\n\n本模块只回答两件事：这是不是 canonical 生产库？有没有 --direct？\n提醒写在 skill 里拦不住人，必须在副作用前 fail closed。\n\n2026-09-13 加固（QC G1）：生产库身份不得随代码检出位置改变。旧",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0012.json"
+  },
+  {
+    "index": 26,
+    "id": "read_25",
+    "tool": "read",
+    "event_line": 7060,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-quality-v4-0921/scripts/verify_302132_backfill_acceptance.py"
+    },
+    "end_event_line": 7061,
+    "result_event": "operator-qc/quality-mechanics/trace/0026-result-event.jsonl",
+    "result_event_sha256": "cc733f9b6d886c6386ffedcae21f0e9e77178c9c7841ae38838917aa993690c8",
+    "result_summary": "#!/usr/bin/env python3\n\"\"\"302132 回填完整副本演练·外部独立验收（fail-closed 门禁，非报告生成器）。\n\n对象角色（两种用法同一语义）：\n- `--production`：**不可变基线**库。演练复验 = 未动的真生产；生产执行后验收 =\n  换库前备份文件（路径与 sha 见执行收据 backup 字段）。\n- `--clone`：**换库后结果**库。演练 = 演练产物库；生产执行后 = canonical 生产库\n  （收据按 `<clone>.repair-backfill-execution.<run_id>.json` 派生）。\n- `--expected-production",
+    "is_error": false
+  },
+  {
+    "index": 27,
+    "id": "read_26",
+    "tool": "read",
+    "event_line": 7235,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-quality-v4-0921/tests/test_main_gate_receipt.py"
+    },
+    "end_event_line": 7236,
+    "result_event": "operator-qc/quality-mechanics/trace/0027-result-event.jsonl",
+    "result_event_sha256": "a82d0619e397265cc31191f1d1e045d692161651e50636358f6724e152d7a24b",
+    "result_summary": "\"\"\"Exercise the shell entry point and the real pytest receipt writer offline.\"\"\"\nfrom __future__ import annotations\n\nimport json\nimport os\nimport shutil\nimport subprocess\nimport sys\nfrom concurrent.futures import ThreadPoolExecutor\nfrom pathlib import Path\n\nimport pytest\n\nimport conftest as root_conftest\n\nROOT = Path(_",
+    "is_error": false
+  },
+  {
+    "index": 28,
+    "id": "write_27",
+    "tool": "write",
+    "event_line": 9180,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/notes/progress.md"
+    },
+    "write_within_output_lexically": true,
+    "content_sha256": "74e6db6ffd2cb47fe8713cc720a5657a44fae34ac7c6aedb1807118fec5364c5",
+    "recovered_write": "operator-qc/quality-mechanics/trace/0028-write-progress.md.txt",
+    "end_event_line": 9181,
+    "result_event": "operator-qc/quality-mechanics/trace/0028-result-event.jsonl",
+    "result_event_sha256": "03696706dadc85d051ebf8732ad120431aa9f9d43b9f6da9bc0863a498dd93d9",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/notes/progress.md",
+    "is_error": false
+  },
+  {
+    "index": 29,
+    "id": "bash_28",
+    "tool": "bash",
+    "event_line": 9296,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && head -60 tests/test_test_receipt_dirt.py && echo ===== && head -40 tests/test_check_receipt_revision_gate.py && echo ===== && head -40 tests/test_check_receipt_zero_count_gate.py && echo ===== && head -50 intelligence/tests/test_pytest_collection_scope.py"
+    },
+    "end_event_line": 9300,
+    "result_event": "operator-qc/quality-mechanics/trace/0029-result-event.jsonl",
+    "result_event_sha256": "26c81069b91e02a88dcb9a219d5e192505973b0dce6123707b74c2b906fe899a",
+    "result_summary": "\"\"\"收据的脏判定必须看见 porcelain 的**第一行**。\n\n失败形状（2026-08-26 实测）：``_git`` 对 ``git status --porcelain`` 的整段输出做了\n``.strip()``。未暂存改动行形如 ``\" M path\"``，整段 strip 吃掉首行那个前导空格，\n随后 ``line[3:]`` 多切一个字符 → ``\"ntelligence/services/…\"`` → 前缀匹配失败 →\n被静默丢弃。\n\n当它是**唯一**的脏代码文件时，``dirty`` 记成 False，收据自称干净树，\n``check_test_receipt.py`` 判「可采信」——正是这套收据要防的那",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0013.json"
+  },
+  {
+    "index": 30,
+    "id": "bash_29",
+    "tool": "bash",
+    "event_line": 9733,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && export PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=0 && OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q -p no:cacheprovider --basetemp=$OUT/basetemp/formal1 tests/test_main_gate_receipt.py tests/test_test_receipt_dirt.py tests/test_check_receipt_revision_gate.py tests/test_check_receipt_zero_count_gate.py 2>&1 | tail -8; echo \"PYTEST_RC=${PIPESTATUS[0]}\"",
+      "timeout": 120
+    },
+    "end_event_line": 9737,
+    "result_event": "operator-qc/quality-mechanics/trace/0030-result-event.jsonl",
+    "result_event_sha256": "37e1801df93226002de5df5a63d006583513b953f207626997188e6ff8054032",
+    "result_summary": ".......................................................................  [100%]\n71 passed in 14.58s\nPYTEST_RC=0\n",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0014.json"
+  },
+  {
+    "index": 31,
+    "id": "tool_Lr3RjMYWI2YtZBxZcywjqH0H",
+    "tool": "bash",
+    "event_line": 9896,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && export PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=0 && OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q -p no:cacheprovider --basetemp=$OUT/basetemp/formal2 tests/test_worktree_board.py tests/test_repair_backfill_stock_history.py intelligence/tests/test_pytest_collection_scope.py 2>&1 | tail -8; echo \"PYTEST_RC=${PIPESTATUS[0]}\"",
+      "timeout": 120
+    },
+    "end_event_line": 9900,
+    "result_event": "operator-qc/quality-mechanics/trace/0031-result-event.jsonl",
+    "result_event_sha256": "6cf8f0b2b022ca5d00b41ccb939ec10f0a86a59abfd7998588dbfe0ddeec640e",
+    "result_summary": "........................................................................ [ 51%]\n...................................................................s     [100%]\n139 passed, 1 skipped in 25.89s\nPYTEST_RC=0\n",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0015.json"
+  },
+  {
+    "index": 32,
+    "id": "bash_31",
+    "tool": "bash",
+    "event_line": 11356,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && cat test-environment.json && echo ===== && cat pytest.ini && echo ===== && ls scripts/ | head -40"
+    },
+    "end_event_line": 11360,
+    "result_event": "operator-qc/quality-mechanics/trace/0032-result-event.jsonl",
+    "result_event_sha256": "626fb9fe07720b4e9ab622410444bdf8c24da0b596130073b1fcba81c5c5540d",
+    "result_summary": "{\n  \"_why\": \"测试环境的唯一真本源。两道门禁都读这里，不各自维护清单。\",\n  \"_history\": \"2026-08-10：conftest.py 与 scripts/check_agent_workspace_facts.py 各存一份依赖清单，靠 docstring 里一句『两处都改才算改完』同步。当天就漂了——uvicorn 与 ruff 只在其中一处。提醒的到达率不可靠，这正是这两道门禁本身要治的病，不该在它们的实现里重犯。\",\n  \"_format\": \"JSON 而非 python 模块：conftest 在收集前跑，此时还不能保证 intelligence/ 能 import（缺依赖时正是它要报错的场景",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0016.json"
+  },
+  {
+    "index": 33,
+    "id": "bash_32",
+    "tool": "bash",
+    "event_line": 11429,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && grep -n \"def check_\\|def main\\|tree\\|cross\" scripts/check_test_receipt.py | head -40 && wc -l scripts/check_test_receipt.py"
+    },
+    "end_event_line": 11433,
+    "result_event": "operator-qc/quality-mechanics/trace/0033-result-event.jsonl",
+    "result_event_sha256": "da182e8d56ced0e2d865f43ed454d85ddb2c08ed40671bc474eb1ebf6412b990",
+    "result_summary": "170:def check_expected_revision(receipt_rev: str, expect: str) -> tuple[bool, str]:\n190:def check_base_drift(\n219:def check_executed_counts(counts: dict | None) -> tuple[bool, str]:\n238:def main() -> int:\n332:        total = receipt.get(\"worktree_dirty_total\")\n     390 scripts/check_test_receipt.py\n",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0017.json"
+  },
+  {
+    "index": 34,
+    "id": "read_33",
+    "tool": "read",
+    "event_line": 11470,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-quality-v4-0921/scripts/check_test_receipt.py",
+      "offset": 238,
+      "limit": 152
+    },
+    "end_event_line": 11471,
+    "result_event": "operator-qc/quality-mechanics/trace/0034-result-event.jsonl",
+    "result_event_sha256": "6581c7e160e7a53f59ad3eb7f1278ebd963ec0a1c1073978b14f7a945ea1b360",
+    "result_summary": "def main() -> int:\n    ap = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])\n    ap.add_argument(\n        \"receipt\",\n        nargs=\"?\",\n        default=str(RECEIPT_DIR / \"latest.json\"),\n        help=f\"收据路径，默认 {RECEIPT_DIR / 'latest.json'}\",\n    )\n    ap.add_argument(\n        \"--require-target\",\n",
+    "is_error": false
+  },
+  {
+    "index": 35,
+    "id": "write_34",
+    "tool": "write",
+    "event_line": 14007,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/probes/setup_gaterepo.sh"
+    },
+    "write_within_output_lexically": true,
+    "content_sha256": "b930fde696d4add54e60b8638f48e4f89ac9ff437e60e605009a3315072659c3",
+    "recovered_write": "operator-qc/quality-mechanics/trace/0035-write-setup_gaterepo.sh.txt",
+    "end_event_line": 14008,
+    "result_event": "operator-qc/quality-mechanics/trace/0035-result-event.jsonl",
+    "result_event_sha256": "7d133b0a2f9412ce7dfe3af85ae323c2c6c7924efe6254e05ed0d7fd72060077",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/probes/setup_gaterepo.sh",
+    "is_error": false
+  },
+  {
+    "index": 36,
+    "id": "bash_35",
+    "tool": "bash",
+    "event_line": 14078,
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && bash $OUT/probes/setup_gaterepo.sh $OUT/fixtures/gaterepo && ls -la $OUT/fixtures/gaterepo"
+    },
+    "end_event_line": 14082,
+    "result_event": "operator-qc/quality-mechanics/trace/0036-result-event.jsonl",
+    "result_event_sha256": "b6446c9bb5f6a929a46c8a7aa8258ae05c9772f3c4390f1b6e3a55279723609f",
+    "result_summary": "7c9f6cf6a473288965d3e051e6f54890833b193f\ntotal 72\ndrwxr-xr-x@  9 a77  staff    288 Sep 21 16:19 .\ndrwxr-xr-x@  3 a77  staff     96 Sep 21 16:19 ..\ndrwxr-xr-x@ 12 a77  staff    384 Sep 21 16:19 .git\n-rw-r--r--@  1 a77  staff     41 Sep 21 16:19 .gitignore\n-rw-r--r--@  1 a77  staff  22470 Sep 21 16:19 conftest.py\ndrwxr-x",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0018.json"
+  },
+  {
+    "index": 37,
+    "id": "write_36",
+    "tool": "write",
+    "event_line": 23556,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/probes/probe_a_receipt.py"
+    },
+    "write_within_output_lexically": true,
+    "content_sha256": "a6ebfab2a6d3df71706920ff14a4c32a36af4a46ff7e72a9248ea9ecc69793fd",
+    "recovered_write": "operator-qc/quality-mechanics/trace/0037-write-probe_a_receipt.py.txt",
+    "end_event_line": 23557,
+    "result_event": "operator-qc/quality-mechanics/trace/0037-result-event.jsonl",
+    "result_event_sha256": "9efed9c5582a140aded1d42a490875ddf0282e537be40920af1020237db836fa",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/probes/probe_a_receipt.py",
+    "is_error": false
+  },
+  {
+    "index": 38,
+    "id": "bash_37_62d48588",
+    "tool": "bash",
+    "event_line": 24525,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/probes && python3 - <<'EOF'\nimport re\np = \"probe_a_receipt.py\"\ns = open(p).read()\nold = '''        line = r.stdout.strip().splitlines()[-1] if r.stdout.strip() else \"{}\"\n        data = _json.loads(line)\n        log(tag, r.stdout + \"\\\\n--- stderr ---\\\\n\" + r.stderr)\n        ok = (r.returncode == 0 and data.get(\"exit\") == 0\n              and data.get(\"receipt_exists\") is False\n              and data.get(\"owner_after\") == (str(r.pid) if False else None) or True)\n        # owner_after must remain the planted value (never cleared by non-owner)\n        planted = None  # cannot know child pid; check via receipt absence only\n        ok = (r.returncode == 0 and data.get(\"exit\") == 0\n              and data.get(\"receipt_exists\") is False\n              and data.get(\"owner_after\") not in (None, \"\"))\n        record(tag, rc=r.returncode, **data, PASS=ok)'''\nnew = '''        line = r.stdout.strip().splitlines()[-1] if r.stdout.strip() else \"{}\"\n        data = _json.loads(line)\n        log(tag, r.stdout + \"\\\\n--- stderr ---\\\\n\" + r.stderr)\n        # non-owner must neither write a receipt nor clear the planted owner\n        ok = (r.returncode == 0 and data.get(\"exit\") == 0\n              and data.get(\"receipt_exists\") is False\n              and data.get(\"owner_after\") not in (None, \"\"))\n        record(tag, rc=r.returncode, **data, PASS=ok)'''\nassert old in s\ns = s.replace(old, new)\n# remove redundant __main__ json import alias usage comment\ns = s.replace(\"    import json as _json  # noqa: F811  (used by a7)\\n\", \"\")\nopen(p, \"w\").write(s)\nprint(\"patched\")\nEOF"
+    },
+    "end_event_line": 24528,
+    "result_event": "operator-qc/quality-mechanics/trace/0038-result-event.jsonl",
+    "result_event_sha256": "5befb6852af21e4ef11e91c163821ee0fd73b4081365f4a4e707760b20937edd",
+    "result_summary": "patched\n",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0019.json"
+  },
+  {
+    "index": 39,
+    "id": "bash_38",
+    "tool": "bash",
+    "event_line": 24869,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && /Users/a77/finance-workspace-private/.venv-workbench/bin/python -c \"import ast; ast.parse(open('probes/probe_a_receipt.py').read())\" && PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probes/probe_a_receipt.py a1",
+      "timeout": 110
+    },
+    "end_event_line": 24872,
+    "result_event": "operator-qc/quality-mechanics/trace/0039-result-event.jsonl",
+    "result_event_sha256": "0f2c03eb7d987cbc57142be772025e25f28de5ea761f6ba08c00a0b15326630d",
+    "result_summary": "[a1_happy] {\"rc\": 0, \"own_receipts\": 1, \"revision_match\": true, \"counts\": {\"passed\": 4, \"failed\": 0, \"error\": 0, \"skipped\": 0}, \"latest_present\": true, \"PASS\": false}\n",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0020.json"
+  },
+  {
+    "index": 40,
+    "id": "bash_39_47528a4e",
+    "tool": "bash",
+    "event_line": 28240,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/probes && python3 - <<'EOF'\np = \"probe_a_receipt.py\"\ns = open(p).read()\n\n# 1. add scenario-scoped repo clone helper after base_env\nold = '''def run_gate(scenario: str, *args: str, extra_env=None, timeout=60) -> subprocess.CompletedProcess:\n    env = base_env(scenario, **(extra_env or {}))\n    return subprocess.run([\"bash\", str(GATE), *args], cwd=FIXTURE, env=env,\n                          capture_output=True, text=True, timeout=timeout)'''\nnew = '''_REPO_CACHE: dict[str, Path] = {}\n\n\ndef repo_for(scenario: str) -> Path:\n    \"\"\"Fresh clone of the fixture repo per scenario for causal isolation.\"\"\"\n    if scenario not in _REPO_CACHE:\n        dest = OUT / \"tmp\" / f\"repo-{scenario}\"\n        shutil.rmtree(dest, ignore_errors=True)\n        subprocess.run([\"git\", \"clone\", \"-q\", str(FIXTURE), str(dest)],\n                       check=True, timeout=30)\n        git(dest, \"config\", \"user.name\", \"k3-probe\")\n        git(dest, \"config\", \"user.email\", \"k3@probe.invalid\")\n        _REPO_CACHE[scenario] = dest\n    return _REPO_CACHE[scenario]\n\n\ndef run_gate(scenario: str, *args: str, extra_env=None, timeout=60,\n             repo: Path | None = None) -> subprocess.CompletedProcess:\n    env = base_env(scenario, **(extra_env or {}))\n    cwd = repo or repo_for(scenario)\n    return subprocess.run([\"bash\", str(GATE), *args], cwd=cwd, env=env,\n                          capture_output=True, text=True, timeout=timeout)'''\nassert old in s\ns = s.replace(old, new)\n\n# 2. commit_file gains repo kw\nold = '''def commit_file(name: str, content: str, message: str) -> None:\n    (FIXTURE / name).write_text(content, encoding=\"utf-8\")\n    git(FIXTURE, \"add\", \"--\", name)\n    git(FIXTURE, \"commit\", \"-qm\", message)'''\nnew = '''def commit_file(name: str, content: str, message: str,\n                repo: Path | None = None) -> Path:\n    target = repo or FIXTURE\n    (target / name).write_text(content, encoding=\"utf-8\")\n    git(target, \"add\", \"--\", name)\n    git(target, \"commit\", \"-qm\", message)\n    return target'''\nassert old in s\ns = s.replace(old, new)\n\n# 3. a1: use scenario repo\nold = '''def a1_happy():\n    r = run_gate(\"a1\")\n    rec = receipts_under(\"a1\")\n    own = {k: v for k, v in rec.items() if k.startswith(\"gate-\")}\n    head = git(FIXTURE, \"rev-parse\", \"HEAD\")'''\nnew = '''def a1_happy():\n    repo = repo_for(\"a1\")\n    r = run_gate(\"a1\", repo=repo)\n    rec = receipts_under(\"a1\")\n    own = {k: v for k, v in rec.items() if k.startswith(\"gate-\")}\n    head = git(repo, \"rev-parse\", \"HEAD\")'''\nassert old in s\ns = s.replace(old, new)\n\n# 4. a2: commit rendezvous into scenario repo\nold = '''def a2_overlap():\n    commit_file(\"test_rendezvous.py\", '''\nnew = '''def a2_overlap():\n    repo = repo_for(\"a2\")\n    commit_file(\"test_rendezvous.py\", '''\nassert old in s\ns = s.replace(old, new)\nold = '''def test_other():\n    assert True\n''', \"rendezvous fixture\")'''\nnew = '''def test_other():\n    assert True\n''', \"rendezvous fixture\", repo)'''\nassert old in s\ns = s.replace(old, new)\n\n# 5. a3\nold = '''def a3_nested_subprocess():\n    commit_file(\"test_nested_subproc.py\", '''\nnew = '''def a3_nested_subprocess():\n    repo = repo_for(\"a3\")\n    commit_file(\"test_nested_subproc.py\", '''\nassert old in s\ns = s.replace(old, new)\nold = '''    assert r.returncode == 0, r.stdout + r.stderr\n''', \"nested subprocess fixture\")'''\nnew = '''    assert r.returncode == 0, r.stdout + r.stderr\n''', \"nested subprocess fixture\", repo)'''\nassert old in s\ns = s.replace(old, new)\n\n# 6. a4\nold = '''    commit_file(\"test_nested_inproc.py\", '''\nnew = '''    repo = repo_for(\"a4\")\n    commit_file(\"test_nested_inproc.py\", '''\nassert old in s\ns = s.replace(old, new)\nold = '''    assert rc == 0\n''', \"nested in-process fixture (same target, different -k)\")'''\nnew = '''    assert rc == 0\n''', \"nested in-process fixture (same target, different -k)\", repo)'''\nassert old in s\ns = s.replace(old, new)\n\n# 7. a5: subprocess cwd should be scenario repo\nold = '''            r = subprocess.run([PY, str(runner), str(outdir), mode], cwd=FIXTURE,\n                               env=env, capture_output=True, text=True, timeout=60)'''\nnew = '''            r = subprocess.run([PY, str(runner), str(outdir), mode],\n                               cwd=repo_for(tag), env=env,\n                               capture_output=True, text=True, timeout=60)'''\nassert old in s\ns = s.replace(old, new)\n\n# 8. a6\nold = '''def a6_path_switch():\n    commit_file(\"test_switch_path.py\", '''\nnew = '''def a6_path_switch():\n    repo = repo_for(\"a6\")\n    commit_file(\"test_switch_path.py\", '''\nassert old in s\ns = s.replace(old, new)\nold = '''    os.environ[\"FWP_TEST_RECEIPT_PATH\"] += \".foreign\"\n''', \"path switch fixture\")'''\nnew = '''    os.environ[\"FWP_TEST_RECEIPT_PATH\"] += \".foreign\"\n''', \"path switch fixture\", repo)'''\nassert old in s\ns = s.replace(old, new)\n\n# 9. a7: cwd scenario repo\nold = '''        r = subprocess.run([PY, str(runner), mode, str(out)], cwd=FIXTURE,\n                           env=base_env(tag), capture_output=True, text=True,\n                           timeout=60)'''\nnew = '''        r = subprocess.run([PY, str(runner), mode, str(out)],\n                           cwd=repo_for(tag),\n                           env=base_env(tag), capture_output=True, text=True,\n                           timeout=60)'''\nassert old in s\ns = s.replace(old, new)\n\n# 10. a8: pre-existing path pytest run cwd -> scenario repo; head refs stay FIXTURE? keep FIXTURE for conftest import; validator --tree must match cwd repo\nold = '''    r = subprocess.run([PY, \"-m\", \"pytest\", \"-q\", \"-p\", \"no:cacheprovider\",\n                        \"test_ok.py\"], cwd=FIXTURE, env=base_env(\"a8b\"),\n                       capture_output=True, text=True, timeout=60)'''\nnew = '''    r = subprocess.run([PY, \"-m\", \"pytest\", \"-q\", \"-p\", \"no:cacheprovider\",\n                        \"test_ok.py\"], cwd=repo_for(\"a8b\"), env=base_env(\"a8b\"),\n                       capture_output=True, text=True, timeout=60)'''\nassert old in s\ns = s.replace(old, new)\n\n# 11. a9: three runs cwd scenario repos\nfor key in (\"a9a\", \"a9b\", \"a9c\"):\n    old = f'''cwd=FIXTURE,\n                        env=base_env(\"{key}\"'''\n    new = f'''cwd=repo_for(\"{key}\"),\n                        env=base_env(\"{key}\"'''\n    assert old in s, key\n    s = s.replace(old, new)\n\n# 12. a10(b): pytest no-git run cwd scenario repo; validator tree = that repo\nold = '''    r2 = subprocess.run([PY, \"-m\", \"pytest\", \"-q\", \"-p\", \"no:cacheprovider\",\n                         \"test_ok.py\"], cwd=FIXTURE, env=env,\n                        capture_output=True, text=True, timeout=60)'''\nnew = '''    repo_b = repo_for(\"a10b\")\n    r2 = subprocess.run([PY, \"-m\", \"pytest\", \"-q\", \"-p\", \"no:cacheprovider\",\n                         \"test_ok.py\"], cwd=repo_b, env=env,\n                        capture_output=True, text=True, timeout=60)'''\nassert old in s\ns = s.replace(old, new)\nold = '''    head = git(FIXTURE, \"rev-parse\", \"HEAD\")\n    rc_val = None\n    if rev is not None:\n        receipt_file = next(iter(\n            p for p in rdir.rglob(\"*.json\") if p.name != \"latest.json\"))\n        rv = subprocess.run([PY, str(FIXTURE / \"scripts\" / \"main_gate_receipt.py\"),\n                             str(receipt_file), \"--revision\", head,\n                             \"--tree\", str(FIXTURE)],\n                            capture_output=True, text=True, timeout=30)'''\nnew = '''    head = git(repo_b, \"rev-parse\", \"HEAD\")\n    rc_val = None\n    if rev is not None:\n        receipt_file = next(iter(\n            p for p in rdir.rglob(\"*.json\") if p.name != \"latest.json\"))\n        rv = subprocess.run([PY, str(FIXTURE / \"scripts\" / \"main_gate_receipt.py\"),\n                             str(receipt_file), \"--revision\", head,\n                             \"--tree\", str(repo_b)],\n                            capture_output=True, text=True, timeout=30)'''\nassert old in s\ns = s.replace(old, new)\n\n# 13. a11: commit slow into a11 repo; all three runs share repo_for(tag-specific)\nold = '''def a11_signals():\n    commit_file(\"test_slow.py\", '''\nnew = '''def a11_signals():\n    repo = repo_for(\"a11\")\n    commit_file(\"test_slow.py\", '''\nassert old in s\ns = s.replace(old, new)\nold = '''    time.sleep(30)\n''', \"slow fixture\")'''\nnew = '''    time.sleep(30)\n''', \"slow fixture\", repo)'''\nassert old in s\ns = s.replace(old, new)\ns = s.replace('''            cwd=FIXTURE, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,\n            text=True)\n        time.sleep(3)\n        proc.send_signal(sig)''', '''            cwd=repo, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,\n            text=True)\n        time.sleep(3)\n        proc.send_signal(sig)''')\ns = s.replace('''        cwd=FIXTURE, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,\n        text=True)\n    time.sleep(3)\n    proc.send_signal(signal.SIGINT)''', '''        cwd=repo, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,\n        text=True)\n    time.sleep(3)\n    proc.send_signal(signal.SIGINT)''')\nold = '''    rc_val = None\n    if statuses:\n        receipt_file = next(iter(\n            p for p in (OUT / \"tmp\" / f\"receipts-{tag}\").rglob(\"*.json\")\n            if p.name != \"latest.json\"))\n        head = git(FIXTURE, \"rev-parse\", \"HEAD\")\n        rv = subprocess.run([PY, str(FIXTURE / \"scripts\" / \"main_gate_receipt.py\"),\n                             str(receipt_file), \"--revision\", head,\n                             \"--tree\", str(FIXTURE)],\n                            capture_output=True, text=True, timeout=30)'''\nnew = '''    rc_val = None\n    if statuses:\n        receipt_file = next(iter(\n            p for p in (OUT / \"tmp\" / f\"receipts-{tag}\").rglob(\"*.json\")\n            if p.name != \"latest.json\"))\n        head = git(repo, \"rev-parse\", \"HEAD\")\n        rv = subprocess.run([PY, str(FIXTURE / \"scripts\" / \"main_gate_receipt.py\"),\n                             str(receipt_file), \"--revision\", head,\n                             \"--tree\", str(repo)],\n                            capture_output=True, text=True, timeout=30)'''\nassert old in s\ns = s.replace(old, new)\nold = '''    gate_proc = subprocess.Popen([\"bash\", str(GATE), \"--pytest-args\",\n                                  \"-q -p no:cacheprovider test_slow.py\"],\n                                 cwd=FIXTURE, env=env, stdout=subprocess.PIPE,\n                                 stderr=subprocess.PIPE, text=True)'''\nnew = '''    gate_proc = subprocess.Popen([\"bash\", str(GATE), \"--pytest-args\",\n                                  \"-q -p no:cacheprovider test_slow.py\"],\n                                 cwd=repo, env=env, stdout=subprocess.PIPE,\n                                 stderr=subprocess.PIPE, text=True)'''\nassert old in s\ns = s.replace(old, new)\nold = '''    git(FIXTURE, \"rm\", \"-q\", \"test_slow.py\")\n    git(FIXTURE, \"commit\", \"-qm\", \"remove slow fixture\")'''\nnew = '''    # scenario repo is throwaway; no cleanup needed (fixture untouched)'''\nassert old in s\ns = s.replace(old, new)\n\n# 14. a12: head from scenario repo, stale tree = scenario repo\nold = '''    rdir.mkdir(parents=True)\n    head = git(FIXTURE, \"rev-parse\", \"HEAD\")\n    stale = {\"revision\": head, \"tree\": str(FIXTURE), \"interpreter\": PY,'''\nnew = '''    rdir.mkdir(parents=True)\n    repo = repo_for(\"a12\")\n    head = git(repo, \"rev-parse\", \"HEAD\")\n    stale = {\"revision\": head, \"tree\": str(repo), \"interpreter\": PY,'''\nassert old in s\ns = s.replace(old, new)\n\n# 15. a13: commit drift into scenario repo; cleanup there\nold = '''def a13_midrun_drift():\n    commit_file(\"test_drift.py\", '''\nnew = '''def a13_midrun_drift():\n    repo = repo_for(\"a13\")\n    commit_file(\"test_drift.py\", '''\nassert old in s\ns = s.replace(old, new)\nold = '''    Path(\"docs_note.md\").write_text(\"created mid-run\", encoding=\"utf-8\")\n''', \"drift fixture\")'''\nnew = '''    Path(\"docs_note.md\").write_text(\"created mid-run\", encoding=\"utf-8\")\n''', \"drift fixture\", repo)'''\nassert old in s\ns = s.replace(old, new)\nold = '''    leftover = FIXTURE / \"docs_note.md\"\n    leftover.unlink(missing_ok=True)\n    git(FIXTURE, \"rm\", \"-q\", \"test_drift.py\")\n    git(FIXTURE, \"commit\", \"-qm\", \"remove drift fixture\")'''\nnew = '''    # scenario repo is throwaway; fixture stays clean'''\nassert old in s\ns = s.replace(old, new)\n\nopen(p, \"w\").write(s)\nprint(\"patched to per-scenario clones\")\nEOF"
+    },
+    "end_event_line": 28243,
+    "result_event": "operator-qc/quality-mechanics/trace/0040-result-event.jsonl",
+    "result_event_sha256": "b9bcb31fbb8daee8f956613dbba1a3c1c13a168639ae2357e5d693b8c2999035",
+    "result_summary": "  File \"<stdin>\", line 74\n    ''', \"rendezvous fixture\")'''\n                             ^\nSyntaxError: unmatched ')'\n\n\nCommand exited with code 1",
+    "is_error": true,
+    "shell_record": "quality-k3/shell-records/0021.json"
+  },
+  {
+    "index": 41,
+    "id": "write_40_b6975aa1",
+    "tool": "write",
+    "event_line": 35514,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/probes/probe_a_receipt.py"
+    },
+    "write_within_output_lexically": true,
+    "content_sha256": "3a90754f4189583ea9debcc27df0fd99174e911874e9e3f369133c9b1ba9ac51",
+    "recovered_write": "operator-qc/quality-mechanics/trace/0041-write-probe_a_receipt.py.txt",
+    "end_event_line": 35515,
+    "result_event": "operator-qc/quality-mechanics/trace/0041-result-event.jsonl",
+    "result_event_sha256": "5a1df354cf10e0e836385a1f90dfd2c8846eea0832967bdc00e983caf8f8296f",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/probes/probe_a_receipt.py",
+    "is_error": false
+  },
+  {
+    "index": 42,
+    "id": "bash_41",
+    "tool": "bash",
+    "event_line": 35601,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probes/probe_a_receipt.py a1 a2 a3 2>&1 | tail -6",
+      "timeout": 120
+    },
+    "end_event_line": 35604,
+    "result_event": "operator-qc/quality-mechanics/trace/0042-result-event.jsonl",
+    "result_event_sha256": "376add94fac55653d4e0cf3516b51c671eaf391bf9f7d444f79f0a1b4b13e74b",
+    "result_summary": "[a1_happy] {\"rc\": 0, \"own_receipts\": 2, \"revision_match\": true, \"counts\": {\"passed\": 4, \"failed\": 0, \"error\": 0, \"skipped\": 0}, \"exit_status\": 0, \"latest_present\": true, \"PASS\": false}\n[a2_overlap] {\"rcs\": [0, 0], \"own_receipts\": 2, \"by_target\": {\"test_rendezvous.py\": 2}, \"PASS\": false}\n[a3_nested_subprocess] {\"rc\": 0,",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0022.json"
+  },
+  {
+    "index": 43,
+    "id": "bash_42",
+    "tool": "bash",
+    "event_line": 37576,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && git -C fixtures/gaterepo log --oneline && git -C fixtures/gaterepo status --porcelain; rm -rf tmp/receipts-a1 tmp/repo-a1 tmp/home-a1"
+    },
+    "end_event_line": 37579,
+    "result_event": "operator-qc/quality-mechanics/trace/0043-result-event.jsonl",
+    "result_event_sha256": "c8c8b53c730c191e9d0540857664b2b5abc8ea9363000f6a6cdc036b1c73e4fd",
+    "result_summary": "7c9f6cf fixture: candidate gate apparatus\n",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0023.json"
+  },
+  {
+    "index": 44,
+    "id": "bash_43",
+    "tool": "bash",
+    "event_line": 39855,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/probes && /Users/a77/finance-workspace-private/.venv-workbench/bin/python - <<'PYEOF'\np = \"probe_a_receipt.py\"\ns = open(p).read()\n\n# helper: clean receipts dir\nold = '''def receipts_under(scenario: str) -> dict[str, dict]:'''\nnew = '''def clean_receipts(scenario: str) -> None:\n    shutil.rmtree(OUT / \"tmp\" / f\"receipts-{scenario}\", ignore_errors=True)\n\n\ndef receipts_under(scenario: str) -> dict[str, dict]:'''\nassert old in s\ns = s.replace(old, new)\n\n# a1: clean + scope to test_ok.py\nold = '''def a1_happy():\n    repo = repo_for(\"a1\")\n    r = run_gate(\"a1\", repo=repo)'''\nnew = '''def a1_happy():\n    clean_receipts(\"a1\")\n    repo = repo_for(\"a1\")\n    r = run_gate(\"a1\", \"--pytest-args\", \"-q -p no:cacheprovider test_ok.py\",\n                 repo=repo)'''\nassert old in s\ns = s.replace(old, new)\n\n# a2: clean; identical positional target, different -k\nold = '''    meet = OUT / \"tmp\" / \"meet-a2\"\n    shutil.rmtree(meet, ignore_errors=True)\n    meet.mkdir(parents=True)\n    # Both gates share one receipt root (same FWP_TEST_RECEIPT_DIR).\n    with ThreadPoolExecutor(max_workers=2) as pool:\n        futs = [\n            pool.submit(run_gate, \"a2\", \"--pytest-args\",\n                        \"-q -p no:cacheprovider test_rendezvous.py -k meet\",\n                        extra_env={\"RENDEZVOUS\": str(meet), \"PEER\": \"0\"},\n                        repo=repo),\n            pool.submit(run_gate, \"a2\", \"--pytest-args\",\n                        \"-q -p no:cacheprovider test_rendezvous.py\",\n                        extra_env={\"RENDEZVOUS\": str(meet), \"PEER\": \"1\"},\n                        repo=repo),\n        ]\n        rs = [f.result(timeout=90) for f in futs]\n    rec = receipts_under(\"a2\")\n    own = {k: v for k, v in rec.items() if k.startswith(\"gate-\")}\n    log(\"a2_overlap\", \"\\\\n===== gate A (-k meet) =====\\\\n\" + rs[0].stdout\n        + rs[0].stderr + \"\\\\n===== gate B (full file) =====\\\\n\"\n        + rs[1].stdout + rs[1].stderr)\n    by_target = {v.get(\"target\"): v.get(\"counts\", {}).get(\"passed\")\n                 for v in own.values()}\n    ok = (all(r.returncode == 0 for r in rs) and len(own) == 2\n          and by_target.get(\"test_rendezvous.py -k meet\") == 1\n          and by_target.get(\"test_rendezvous.py\") == 2)\n    record(\"a2_overlap\", rcs=[r.returncode for r in rs], own_receipts=len(own),\n           by_target=by_target, PASS=ok)'''\nnew = '''    meet = OUT / \"tmp\" / \"meet-a2\"\n    shutil.rmtree(meet, ignore_errors=True)\n    meet.mkdir(parents=True)\n    clean_receipts(\"a2\")\n    # Both gates share one receipt root AND one positional target string;\n    # they differ only by -k/counts (R1: identical targets, different -k).\n    with ThreadPoolExecutor(max_workers=2) as pool:\n        futs = [\n            pool.submit(run_gate, \"a2\", \"--pytest-args\",\n                        \"-q -p no:cacheprovider test_rendezvous.py -k meet\",\n                        extra_env={\"RENDEZVOUS\": str(meet), \"PEER\": \"0\"},\n                        repo=repo),\n            pool.submit(run_gate, \"a2\", \"--pytest-args\",\n                        \"-q -p no:cacheprovider test_rendezvous.py\",\n                        extra_env={\"RENDEZVOUS\": str(meet), \"PEER\": \"1\"},\n                        repo=repo),\n        ]\n        rs = [f.result(timeout=90) for f in futs]\n    rec = receipts_under(\"a2\")\n    own = {k: v for k, v in rec.items() if k.startswith(\"gate-\")}\n    log(\"a2_overlap\", \"\\\\n===== gate A (-k meet) =====\\\\n\" + rs[0].stdout\n        + rs[0].stderr + \"\\\\n===== gate B (full file) =====\\\\n\"\n        + rs[1].stdout + rs[1].stderr)\n    pairs = sorted((v.get(\"target\"), v.get(\"counts\", {}).get(\"passed\"))\n                   for v in own.values())\n    ok = (all(r.returncode == 0 for r in rs) and len(own) == 2\n          and pairs == [(\"test_rendezvous.py\", 1), (\"test_rendezvous.py\", 2)])\n    record(\"a2_overlap\", rcs=[r.returncode for r in rs], own_receipts=len(own),\n           target_passed_pairs=pairs, PASS=ok)'''\nassert old in s\ns = s.replace(old, new)\n\n# a3..a13: clean receipts at start\nfor tag, fn in [(\"a3\", \"def a3_nested_subprocess():\"),\n                (\"a4\", \"def a4_nested_inprocess():\"),\n                (\"a6\", \"def a6_path_switch():\")]:\n    old = f'''{fn}\n    repo = repo_for(\"{tag}\")'''\n    new = f'''{fn}\n    clean_receipts(\"{tag}\")\n    repo = repo_for(\"{tag}\")'''\n    assert old in s, tag\n    s = s.replace(old, new)\n\n# a5: clean per tag inside loop\nold = '''            tag = f\"a5_{mode}_{'unset' if prev == '__unset__' else 'empty'}\"\n            outdir = OUT / \"tmp\" / f\"a5-out-{mode}-{prev or 'unset'}\"\n            shutil.rmtree(outdir, ignore_errors=True)'''\nnew = '''            tag = f\"a5_{mode}_{'unset' if prev == '__unset__' else 'empty'}\"\n            clean_receipts(tag)\n            outdir = OUT / \"tmp\" / f\"a5-out-{mode}-{prev or 'unset'}\"\n            shutil.rmtree(outdir, ignore_errors=True)'''\nassert old in s\ns = s.replace(old, new)\n\n# a7: clean\nold = '''        tag = f\"a7_inherited_{mode}\"\n        out = OUT / \"tmp\" / f\"a7-{mode}.json\"'''\nnew = '''        tag = f\"a7_inherited_{mode}\"\n        clean_receipts(tag)\n        out = OUT / \"tmp\" / f\"a7-{mode}.json\"'''\nassert old in s\ns = s.replace(old, new)\n\n# a10: clean a10b\nold = '''    rdir = OUT / \"tmp\" / \"receipts-a10b\"\n    shutil.rmtree(rdir, ignore_errors=True)'''\nnew = '''    rdir = OUT / \"tmp\" / \"receipts-a10b\"\n    clean_receipts(\"a10a\")\n    shutil.rmtree(rdir, ignore_errors=True)'''\nassert old in s\ns = s.replace(old, new)\n\n# a11: clean per tag\nold = '''    for sig, name in ((signal.SIGKILL, \"sigkill\"), (signal.SIGTERM, \"sigterm\")):\n        tag = f\"a11_{name}\"\n        env = base_env(tag)'''\nnew = '''    for sig, name in ((signal.SIGKILL, \"sigkill\"), (signal.SIGTERM, \"sigterm\")):\n        tag = f\"a11_{name}\"\n        clean_receipts(tag)\n        env = base_env(tag)'''\nassert old in s\ns = s.replace(old, new)\nold = '''    tag = \"a11_sigint\"\n    env = base_env(tag)'''\nnew = '''    tag = \"a11_sigint\"\n    clean_receipts(tag)\n    env = base_env(tag)'''\nassert old in s\ns = s.replace(old, new)\nold = '''    tag = \"a11_gate_sigkill\"\n    env = base_env(tag)'''\nnew = '''    tag = \"a11_gate_sigkill\"\n    clean_receipts(tag)\n    env = base_env(tag)'''\nassert old in s\ns = s.replace(old, new)\n\n# a12: clean before seeding\nold = '''def a12_stale_latest():\n    rdir = OUT / \"tmp\" / \"receipts-a12\"\n    shutil.rmtree(rdir, ignore_errors=True)'''\nnew = '''def a12_stale_latest():\n    clean_receipts(\"a12\")\n    rdir = OUT / \"tmp\" / \"receipts-a12\"\n    shutil.rmtree(rdir, ignore_errors=True)'''\nassert old in s\ns = s.replace(old, new)\n\n# a13: clean\nold = '''def a13_midrun_drift():\n    repo = repo_for(\"a13\")'''\nnew = '''def a13_midrun_drift():\n    clean_receipts(\"a13\")\n    repo = repo_for(\"a13\")'''\nassert old in s\ns = s.replace(old, new)\n\nopen(p, \"w\").write(s)\nprint(\"patched\")\nPYEOF"
+    },
+    "end_event_line": 39858,
+    "result_event": "operator-qc/quality-mechanics/trace/0044-result-event.jsonl",
+    "result_event_sha256": "854902a64396e7f1a594c8c53d6289bba27f65b83a2dc0c9329378bd0f8142fc",
+    "result_summary": "patched\n",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0024.json"
+  },
+  {
+    "index": 45,
+    "id": "bash_44",
+    "tool": "bash",
+    "event_line": 39951,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && rm -rf tmp && PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probes/probe_a_receipt.py a1 a2 a3 a4 2>&1 | tail -6",
+      "timeout": 120
+    },
+    "end_event_line": 39954,
+    "result_event": "operator-qc/quality-mechanics/trace/0045-result-event.jsonl",
+    "result_event_sha256": "04982938f39164900a5ec6576b42dae087f6a5b08123036ae46d28d13e986db3",
+    "result_summary": "[a1_happy] {\"rc\": 0, \"own_receipts\": 1, \"revision_match\": true, \"counts\": {\"passed\": 2, \"failed\": 0, \"error\": 0, \"skipped\": 0}, \"exit_status\": 0, \"latest_present\": true, \"PASS\": true}\n[a2_overlap] {\"rcs\": [0, 0], \"own_receipts\": 2, \"target_passed_pairs\": [[\"test_rendezvous.py\", 1], [\"test_rendezvous.py\", 2]], \"PASS\": t",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0025.json"
+  },
+  {
+    "index": 46,
+    "id": "bash_45",
+    "tool": "bash",
+    "event_line": 40197,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probes/probe_a_receipt.py a5 a6 a7 2>&1 | tail -8",
+      "timeout": 120
+    },
+    "end_event_line": 40200,
+    "result_event": "operator-qc/quality-mechanics/trace/0046-result-event.jsonl",
+    "result_event_sha256": "cd36de53aab161c9f1fe9f4518295c9a0962595837f3ef40be811f08d45b0adc",
+    "result_summary": "[a5_success_unset] {\"rc\": 0, \"states\": {\"0\": {\"exit\": 0, \"owner_after\": null, \"receipt_exists\": true}, \"1\": {\"exit\": 0, \"owner_after\": null, \"receipt_exists\": true}}, \"PASS\": true}\n[a5_success_empty] {\"rc\": 0, \"states\": {\"0\": {\"exit\": 0, \"owner_after\": \"\", \"receipt_exists\": true}, \"1\": {\"exit\": 0, \"owner_after\": \"\", \"r",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0026.json"
+  },
+  {
+    "index": 47,
+    "id": "bash_46",
+    "tool": "bash",
+    "event_line": 40389,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probes/probe_a_receipt.py a8 a9 a10 2>&1 | tail -5",
+      "timeout": 120
+    },
+    "end_event_line": 40392,
+    "result_event": "operator-qc/quality-mechanics/trace/0047-result-event.jsonl",
+    "result_event_sha256": "62d7976074e829f81bfccde7c65fb3369ae0d4c4b5268082dce46be179f54437",
+    "result_summary": "[a8_immutable] {\"second_error\": \"FileExistsError\", \"intact\": true, \"unique_default_names\": true, \"preexisting_pytest_rc\": 0, \"warning\": false, \"intact2\": true, \"PASS\": false}\n[a9_io_failure] {\"rc_a\": 0, \"warn_a\": true, \"rc_b\": 0, \"warn_b\": true, \"rc_c\": 0, \"warn_c\": true, \"run_file_written_c\": true, \"PASS\": true}\n[a10_",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0027.json"
+  },
+  {
+    "index": 48,
+    "id": "bash_47",
+    "tool": "bash",
+    "event_line": 40722,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && tail -12 logs/a8_immutable.log.txt && ls tmp/receipts-a8b/ 2>/dev/null"
+    },
+    "end_event_line": 40726,
+    "result_event": "operator-qc/quality-mechanics/trace/0048-result-event.jsonl",
+    "result_event_sha256": "40dddfd9ca7b2064b9a2b975d67e429c4eddb56877bb879d9f1218c013b88096",
+    "result_summary": "second_error=FileExistsError intact=True unique_default=True\n--- pre-existing path run ---\n..                                                                       [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a8b/20260921T083414Z-7c9f6cf6-d72808b6dc0b.json\n\n2 passed i",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0028.json"
+  },
+  {
+    "index": 49,
+    "id": "bash_48",
+    "tool": "bash",
+    "event_line": 41125,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/probes && /Users/a77/finance-workspace-private/.venv-workbench/bin/python - <<'PYEOF'\np = \"probe_a_receipt.py\"\ns = open(p).read()\nold = '''    r = subprocess.run([PY, \"-m\", \"pytest\", \"-q\", \"-p\", \"no:cacheprovider\",\n                        \"test_ok.py\"], cwd=repo_for(\"a8b\"),\n                       env=base_env(\"a8b\"),\n                       capture_output=True, text=True, timeout=60)'''\nnew = '''    r = subprocess.run([PY, \"-m\", \"pytest\", \"-q\", \"-p\", \"no:cacheprovider\",\n                        \"test_ok.py\"], cwd=repo_for(\"a8b\"),\n                       env=base_env(\"a8b\", FWP_TEST_RECEIPT_PATH=str(target)),\n                       capture_output=True, text=True, timeout=60)'''\nassert old in s\ns = s.replace(old, new)\nopen(p, \"w\").write(s)\nprint(\"patched a8\")\nPYEOF\ncd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && rm -rf tmp/receipts-a8b tmp/repo-a8b tmp/home-a8b tmp/a8-receipts && PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probes/probe_a_receipt.py a8 2>&1 | tail -3",
+      "timeout": 120
+    },
+    "end_event_line": 41129,
+    "result_event": "operator-qc/quality-mechanics/trace/0049-result-event.jsonl",
+    "result_event_sha256": "0a440023fbe949a08f89829c3ad186ca52f299fc215ce758dea373454314e9c6",
+    "result_summary": "patched a8\n[a8_immutable] {\"second_error\": \"FileExistsError\", \"intact\": true, \"unique_default_names\": true, \"preexisting_pytest_rc\": 0, \"warning\": true, \"intact2\": true, \"PASS\": true}\n",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0029.json"
+  },
+  {
+    "index": 50,
+    "id": "bash_49",
+    "tool": "bash",
+    "event_line": 41282,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probes/probe_a_receipt.py a11 a12 a13 2>&1 | tail -4",
+      "timeout": 120
+    },
+    "end_event_line": 41285,
+    "result_event": "operator-qc/quality-mechanics/trace/0050-result-event.jsonl",
+    "result_event_sha256": "50e32ed2caab6e8143f63e9e631db0e71cb070651fef3add1e4c04120037fffa",
+    "result_summary": "[a11_signals] {\"sigkill\": {\"rc\": -9, \"receipts\": []}, \"sigterm\": {\"rc\": -15, \"receipts\": []}, \"sigint\": {\"rc\": 2, \"exit_statuses\": [2, 2]}, \"gate_sigkill\": {\"rc\": -9}, \"sigint_validator_rc\": 4, \"PASS\": false}\n[a12_stale_latest] {\"rc\": 4, \"PASS\": true}\n[a13_midrun_drift] {\"rc\": 4, \"PASS\": true}\n",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0030.json"
+  },
+  {
+    "index": 51,
+    "id": "bash_50",
+    "tool": "bash",
+    "event_line": 41960,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/probes && /Users/a77/finance-workspace-private/.venv-workbench/bin/python - <<'PYEOF'\np = \"probe_a_receipt.py\"\ns = open(p).read()\nold = '''    subprocess.run([\"pkill\", \"-9\", \"-f\", \"pytest.*test_slow\"], timeout=10)'''\nnew = '''    subprocess.run([\"pkill\", \"-9\", \"-f\", \"-m pytest.*test_slow\"], timeout=10)'''\nassert old in s\ns = s.replace(old, new)\nopen(p, \"w\").write(s)\nprint(\"patched a11 pkill pattern\")\nPYEOF\ncd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && rm -rf tmp/repo-a11 tmp/receipts-a11_* tmp/home-a11_* && PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probes/probe_a_receipt.py a11 2>&1 | tail -3",
+      "timeout": 120
+    },
+    "end_event_line": 41964,
+    "result_event": "operator-qc/quality-mechanics/trace/0051-result-event.jsonl",
+    "result_event_sha256": "2c86470e0d6d1999e0fc1451bf696d06f208db80af66852ad92ceecc935d73bd",
+    "result_summary": "patched a11 pkill pattern\n             [-P ppid] [-U uid] [-g pgrp] [-t tty] [-u euid]\n             pattern ...\n[a11_signals] {\"sigkill\": {\"rc\": -9, \"receipts\": []}, \"sigterm\": {\"rc\": -15, \"receipts\": []}, \"sigint\": {\"rc\": 2, \"exit_statuses\": [2, 2]}, \"gate_sigkill\": {\"rc\": 0}, \"sigint_validator_rc\": 4, \"PASS\": false}\n",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0031.json"
+  },
+  {
+    "index": 52,
+    "id": "bash_51",
+    "tool": "bash",
+    "event_line": 42510,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/probes && /Users/a77/finance-workspace-private/.venv-workbench/bin/python - <<'PYEOF'\np = \"probe_a_receipt.py\"\ns = open(p).read()\nold = '''    subprocess.run([\"pkill\", \"-9\", \"-f\", \"-m pytest.*test_slow\"], timeout=10)'''\nnew = '''    subprocess.run([\"pkill\", \"-9\", \"-f\", \"python -m pytest.*test_slow\"],\n                   timeout=10)'''\nassert old in s\ns = s.replace(old, new)\nopen(p, \"w\").write(s)\nprint(\"patched\")\nPYEOF\ncd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && rm -rf tmp/repo-a11 tmp/receipts-a11_* tmp/home-a11_* && PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probes/probe_a_receipt.py a11 2>&1 | tail -3",
+      "timeout": 120
+    },
+    "end_event_line": 42514,
+    "result_event": "operator-qc/quality-mechanics/trace/0052-result-event.jsonl",
+    "result_event_sha256": "79755726398421157b789af2032c4117d8393c9c4dc7d947d95c861e3e21012c",
+    "result_summary": "patched\n[a11_signals] {\"sigkill\": {\"rc\": -9, \"receipts\": []}, \"sigterm\": {\"rc\": -15, \"receipts\": []}, \"sigint\": {\"rc\": 2, \"exit_statuses\": [2, 2]}, \"gate_sigkill\": {\"rc\": 0}, \"sigint_validator_rc\": 4, \"PASS\": false}\n",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0032.json"
+  },
+  {
+    "index": 53,
+    "id": "tool_zGqs066HXfWUm4tNlerXny7r",
+    "tool": "bash",
+    "event_line": 42760,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && cat logs/a11_gate_sigkill.log.txt && echo ==== && pgrep -fl \"test_slow\" ; echo \"pgrep_rc=$?\""
+    },
+    "end_event_line": 42764,
+    "result_event": "operator-qc/quality-mechanics/trace/0053-result-event.jsonl",
+    "result_event_sha256": "2f74ce69e53ab899cacbc46dddc573337104b18fb463a3a0c2d02ef65cb77fab",
+    "result_summary": "rc=0\n== gate @ 069f23a9c8f1 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a11 py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a11_gate_sigkill/gate-eCUQ0rTh/pytest.json",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0033.json"
+  },
+  {
+    "index": 54,
+    "id": "tool_o2a0Bti3lGakHTH2dt7988mJ",
+    "tool": "bash",
+    "event_line": 43031,
+    "args": {
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -c \"import time; time.sleep(20)\" & P1=$!; sleep 1; pgrep -fl \"python -c\" ; echo \"---\"; pgrep -fl \"python -m pytest.*test_slow\"; echo \"pattern_rc=$?\"; kill $P1 2>/dev/null; wait 2>/dev/null; echo done"
+    },
+    "end_event_line": 43035,
+    "result_event": "operator-qc/quality-mechanics/trace/0054-result-event.jsonl",
+    "result_event_sha256": "7e58a279dddc8f3917b8fbcab537d489f7b8e3da7a4afac96e4d53778222598a",
+    "result_summary": "---\npattern_rc=1\ndone\n",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0034.json"
+  },
+  {
+    "index": 55,
+    "id": "bash_54",
+    "tool": "bash",
+    "event_line": 43262,
+    "args": {
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -c \"import time; time.sleep(20)\" & P1=$!; sleep 1; echo \"pid=$P1\"; ps -p $P1 -o command= ; pgrep -f \"time.sleep\" ; echo \"rc1=$?\"; pgrep -fl \"python\"; echo \"rc2=$?\"; kill $P1 2>/dev/null; wait 2>/dev/null; echo done"
+    },
+    "end_event_line": 43266,
+    "result_event": "operator-qc/quality-mechanics/trace/0055-result-event.jsonl",
+    "result_event_sha256": "c18ad15f8d6c3d8e24a91ab2ed9e0044bad1ade92c46a7d9f1397c58fae55456",
+    "result_summary": "pid=21617\n/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -c import time; time.sleep(20)\n21617\nrc1=0\n1352 /opt/homebrew/Cellar/python@3.14/3.14.5/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/a7",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0035.json"
+  },
+  {
+    "index": 56,
+    "id": "bash_55",
+    "tool": "bash",
+    "event_line": 44268,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/probes && /Users/a77/finance-workspace-private/.venv-workbench/bin/python - <<'PYEOF'\np = \"probe_a_receipt.py\"\ns = open(p).read()\nold = '''    time.sleep(6)  # let ruff pass and pytest start\n    subprocess.run([\"pkill\", \"-9\", \"-f\", \"python -m pytest.*test_slow\"],\n                   timeout=10)'''\nnew = '''    # kill precisely the gate's own pytest child (never a broad pkill:\n    # this machine runs other reviews' pytest processes concurrently)\n    child_pid = None\n    deadline = time.monotonic() + 30\n    while time.monotonic() < deadline and child_pid is None:\n        time.sleep(0.5)\n        kids = subprocess.run([\"pgrep\", \"-P\", str(gate_proc.pid)],\n                              capture_output=True, text=True, timeout=10\n                              ).stdout.split()\n        for kid in kids:\n            cmd = subprocess.run([\"ps\", \"-p\", kid, \"-o\", \"command=\"],\n                                 capture_output=True, text=True, timeout=10\n                                 ).stdout\n            if \"-m pytest\" in cmd and \"test_slow\" in cmd:\n                child_pid = int(kid)\n                break\n    if child_pid is None:\n        gate_proc.kill()\n        raise RuntimeError(\"pytest child never appeared\")\n    os.kill(child_pid, signal.SIGKILL)'''\nassert old in s\ns = s.replace(old, new)\nopen(p, \"w\").write(s)\nprint(\"patched\")\nPYEOF\ncd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && rm -rf tmp/repo-a11 tmp/receipts-a11_* tmp/home-a11_* && PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probes/probe_a_receipt.py a11 2>&1 | tail -3",
+      "timeout": 120
+    },
+    "end_event_line": 44272,
+    "result_event": "operator-qc/quality-mechanics/trace/0056-result-event.jsonl",
+    "result_event_sha256": "5f964ce3facbd78d63166213d462fbbceed9a318b3099fef50da5151db9cc50a",
+    "result_summary": "patched\n[a11_signals] {\"sigkill\": {\"rc\": -9, \"receipts\": []}, \"sigterm\": {\"rc\": -15, \"receipts\": []}, \"sigint\": {\"rc\": -2, \"exit_statuses\": []}, \"gate_sigkill\": {\"rc\": 4}, \"sigint_validator_rc\": null, \"PASS\": []}\n",
+    "is_error": false,
+    "shell_record": "quality-k3/shell-records/0036.json"
+  }
+]

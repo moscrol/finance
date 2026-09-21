@@ -1,0 +1,34 @@
+    4277 /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/candidate.diff
+     127 /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/backfill-execution-contract.md
+      91 /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/backfill-prep-contract.md
+    4495 total
+diff --git a/conftest.py b/conftest.py
+--- a/conftest.py
++++ b/conftest.py
+diff --git a/market_feature_store/cli.py b/market_feature_store/cli.py
+--- a/market_feature_store/cli.py
++++ b/market_feature_store/cli.py
+diff --git a/market_feature_store/sync/repair_backfill_stock_history.py b/market_feature_store/sync/repair_backfill_stock_history.py
+--- /dev/null
++++ b/market_feature_store/sync/repair_backfill_stock_history.py
+diff --git a/scripts/main_gate_receipt.py b/scripts/main_gate_receipt.py
+--- /dev/null
++++ b/scripts/main_gate_receipt.py
+diff --git a/scripts/run_main_gate.sh b/scripts/run_main_gate.sh
+--- a/scripts/run_main_gate.sh
++++ b/scripts/run_main_gate.sh
+diff --git a/scripts/verify_302132_backfill_acceptance.py b/scripts/verify_302132_backfill_acceptance.py
+--- /dev/null
++++ b/scripts/verify_302132_backfill_acceptance.py
+diff --git a/scripts/worktree_board.py b/scripts/worktree_board.py
+--- a/scripts/worktree_board.py
++++ b/scripts/worktree_board.py
+diff --git a/tests/test_main_gate_receipt.py b/tests/test_main_gate_receipt.py
+--- /dev/null
++++ b/tests/test_main_gate_receipt.py
+diff --git a/tests/test_repair_backfill_stock_history.py b/tests/test_repair_backfill_stock_history.py
+--- /dev/null
++++ b/tests/test_repair_backfill_stock_history.py
+diff --git a/tests/test_worktree_board.py b/tests/test_worktree_board.py
+--- a/tests/test_worktree_board.py
++++ b/tests/test_worktree_board.py

@@ -1,0 +1,11 @@
+{
+  "id": "0026",
+  "command": "EV=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3\nR=$EV/probes/receipt-repo\ncd \"$R\"\n# failing-test gate run (tree stays clean: fixture committed already)\ncat > test_fail.py <<'EOF'\ndef test_kaboom():\n    assert False, \"k3 probe failure\"\nEOF\ngit add test_fail.py && git commit -qm \"k3 failing fixture (kept for failure-path probes)\"\nenv -i PATH=/usr/bin:/bin:/usr/local/bin HOME=\"$EV/tmp/home-r1\" \\\n  FWP_TEST_RECEIPT_DIR=\"$EV/evidence/r1/receipts-fail\" \\\n  PYTHONDONTWRITEBYTECODE=1 \\\n  bash scripts/run_main_gate.sh --pytest-args \"-q -p no:cacheprovider test_fail.py\" \\\n  > \"$EV/evidence/r1/failed-receipt.log\" 2>&1\necho \"gate rc=$?\"\ntail -6 \"$EV/evidence/r1/failed-receipt.log\"\ngit rev-parse HEAD",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:25:30.984Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:25:32.352Z",
+  "log_sha256": "ccff334f9c23031236b1be84fa2def5833ffecdba7fa46f091934c890ce26c5f"
+}

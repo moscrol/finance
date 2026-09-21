@@ -1,0 +1,12 @@
+import os
+import time
+from pathlib import Path
+
+
+def test_rendezvous():
+    root = Path(os.environ["O8_MEET"])
+    root.joinpath(os.environ["O8_PEER"]).touch()
+    deadline = time.monotonic() + 15
+    while len(list(root.iterdir())) < 2:
+        assert time.monotonic() < deadline, "peer never arrived"
+        time.sleep(0.02)

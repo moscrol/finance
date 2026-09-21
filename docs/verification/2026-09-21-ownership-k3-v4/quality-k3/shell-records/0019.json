@@ -1,0 +1,11 @@
+{
+  "id": "0019",
+  "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/probes && python3 - <<'EOF'\nimport re\np = \"probe_a_receipt.py\"\ns = open(p).read()\nold = '''        line = r.stdout.strip().splitlines()[-1] if r.stdout.strip() else \"{}\"\n        data = _json.loads(line)\n        log(tag, r.stdout + \"\\\\n--- stderr ---\\\\n\" + r.stderr)\n        ok = (r.returncode == 0 and data.get(\"exit\") == 0\n              and data.get(\"receipt_exists\") is False\n              and data.get(\"owner_after\") == (str(r.pid) if False else None) or True)\n        # owner_after must remain the planted value (never cleared by non-owner)\n        planted = None  # cannot know child pid; check via receipt absence only\n        ok = (r.returncode == 0 and data.get(\"exit\") == 0\n              and data.get(\"receipt_exists\") is False\n              and data.get(\"owner_after\") not in (None, \"\"))\n        record(tag, rc=r.returncode, **data, PASS=ok)'''\nnew = '''        line = r.stdout.strip().splitlines()[-1] if r.stdout.strip() else \"{}\"\n        data = _json.loads(line)\n        log(tag, r.stdout + \"\\\\n--- stderr ---\\\\n\" + r.stderr)\n        # non-owner must neither write a receipt nor clear the planted owner\n        ok = (r.returncode == 0 and data.get(\"exit\") == 0\n              and data.get(\"receipt_exists\") is False\n              and data.get(\"owner_after\") not in (None, \"\"))\n        record(tag, rc=r.returncode, **data, PASS=ok)'''\nassert old in s\ns = s.replace(old, new)\n# remove redundant __main__ json import alias usage comment\ns = s.replace(\"    import json as _json  # noqa: F811  (used by a7)\\n\", \"\")\nopen(p, \"w\").write(s)\nprint(\"patched\")\nEOF",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:25:09.643Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:25:09.704Z",
+  "log_sha256": "1094f4a608520e6cd87446d714acc1d2a9fab625af2e03e561bfa50639443eae"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "0033",
+  "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && cat logs/a11_gate_sigkill.log.txt && echo ==== && pgrep -fl \"test_slow\" ; echo \"pgrep_rc=$?\"",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:38:20.191Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:38:20.241Z",
+  "log_sha256": "ef39c6babdcb5716265d105969ff5b142cb064e577c5d21d03d525ef4d4d05d7"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "0033",
+  "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes && python3 - <<'EOF'\nfrom pathlib import Path\np = Path(\"probe_ownership.py\")\nt = p.read_text()\nt = t.replace('and run1_data.get(\"target\") == \"test_a.py -k a1\"',\n              'and run1_data.get(\"target\") == \"test_a.py\"')\n# O8: both gates must run the rendezvous test file\nt = t.replace('for i, target in enumerate((\"test_o8.py\", \"test_b.py\")):',\n              'for i, target in enumerate((\"test_o8.py\", \"test_o8.py\")):')\nt = t.replace('''           and datas[0].get(\"target\") == \"test_o8.py\"\n           and datas[1].get(\"target\") == \"test_b.py\"\n           and datas[0].get(\"counts\", {}).get(\"passed\") == 1\n           and datas[1].get(\"counts\", {}).get(\"passed\") == 1,''',\n              '''           and datas[0].get(\"target\") == \"test_o8.py\"\n           and datas[1].get(\"target\") == \"test_o8.py\"\n           and datas[0].get(\"counts\", {}).get(\"passed\") == 1\n           and datas[1].get(\"counts\", {}).get(\"passed\") == 1\n           and recs[0][0] != recs[1][0],''')\np.write_text(t)\nprint(\"patched\")\nEOF\nPY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\n# re-run only O5/O8 parts by rerunning whole driver (idempotent, fresh receipt dirs)\nrm -rf /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/o5 /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/own-o8-* /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/o8-meet\nPYTHONDONTWRITEBYTECODE=1 $PY probe_ownership.py 2>&1 | tail -12; echo \"driver rc=$?\"",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 118,
+  "started_at": "2026-09-21T08:35:07.466Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:35:07.679Z",
+  "log_sha256": "dd9085be752653db6585f6c1f836c071a465d38feba4165046cb86e4ea83dcf2"
+}

@@ -1,0 +1,11 @@
+{
+  "time": "2026-09-21T08:07:40.354088+00:00",
+  "axes": [
+    "spec",
+    "quality"
+  ],
+  "user_instruction": "不用给k3设置预算，随便用",
+  "max_requests": null,
+  "review_deadline_seconds": null,
+  "automatic_retries": false
+}

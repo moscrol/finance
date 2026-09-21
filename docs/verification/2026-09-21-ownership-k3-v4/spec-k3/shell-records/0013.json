@@ -1,0 +1,11 @@
+{
+  "id": "0013",
+  "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && sed -n '1,80p' market_feature_store/write_path.py",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:18:11.241Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:18:11.248Z",
+  "log_sha256": "7a6d0017b38fec06033450c21ef83cfb4e3ca4f3994593b561c8025de46b4b90"
+}

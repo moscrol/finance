@@ -1,0 +1,11 @@
+{
+  "id": "0004",
+  "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && git diff --stat c615adbd2f861e23f2c8d03631833f98b3ae5aba..6eb12c1b8a41071fd4af8bee343950fe0b85b221 | tail -30",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:08:16.574Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:08:16.660Z",
+  "log_sha256": "c6fa2120ea778f9036c7951185342b02c2e5f3f2d50505e3487e6955306cc388"
+}

@@ -1,0 +1,21 @@
+..                                                                       [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/a5-out-configure-error-__unset__/run-1.json
+
+2 passed in 0.17s
+
+--- stderr ---
+ERROR: intentional configure failure
+
+
+--- states ---
+{
+  "0": {
+    "exit": 4,
+    "owner_after": null,
+    "receipt_exists": false
+  },
+  "1": {
+    "exit": 0,
+    "owner_after": null,
+    "receipt_exists": true
+  }
+}

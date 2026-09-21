@@ -1,0 +1,60 @@
+43:def test_parse_worktree_porcelain() -> None:
+53:def test_code_dirty_skips_exports() -> None:
+58:def test_tree_kind_uses_path_shape_not_home_literal(tmp_path: Path) -> None:
+70:def test_cherry_equivalent_patch_is_in_main(tmp_path: Path) -> None:
+92:def test_unique_commit_is_cherry_plus(tmp_path: Path) -> None:
+109:def test_ledger_falls_back_to_git_common_dir_parent(
+145:def test_ledger_picks_the_home_with_the_freshest_switch(
+187:def test_ledger_prefers_the_single_home_when_no_switch_rows(
+224:def test_last_switch_prefers_port_8792(tmp_path: Path) -> None:
+240:def test_newer_switch_without_port_is_not_masked_by_older_matched_row(
+264:def test_unattributed_switch_is_not_credited_to_another_port(tmp_path: Path) -> None:
+284:def test_board_line_declines_to_assert_when_newest_switch_lacks_port(
+313:def test_this_tree_lines_when_already_on_base(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+364:def test_this_tree_lines_reports_behind_even_when_cherry_is_clean(
+378:def test_this_tree_lines_warns_once_base_drift_passes_threshold(
+390:def test_stale_base_warn_is_a_usable_threshold() -> None:
+396:def test_count_treats_non_numeric_output_as_unknown(tmp_path: Path) -> None:
+406:def test_format_board_splits_unique_and_prunable() -> None:
+456:def test_missing_worktree_is_visible_as_unknown(tmp_path: Path) -> None:
+471:def test_parent_repository_is_not_mistaken_for_missing_worktree(tmp_path: Path) -> None:
+484:def test_collect_rows_pins_baseline_for_entire_scan(
+501:def test_status_failure_never_becomes_prunable(
+516:def test_failed_cherry_is_unknown_in_session_start(tmp_path: Path) -> None:
+527:def test_worktree_metadata_prevents_cleanup_suggestion(tmp_path: Path, metadata) -> None:
+538:def test_tracked_single_character_file_keeps_porcelain_status_columns(tmp_path: Path) -> None:
+550:def test_document_only_dirt_is_not_safe_to_remove(tmp_path: Path) -> None:
+563:def test_ahead_query_failure_remains_unknown(tmp_path, monkeypatch):
+578:def test_session_start_pins_baseline_sha(tmp_path, monkeypatch):
+589:def test_global_scan_failure_is_not_empty_inventory(tmp_path, monkeypatch, capsys, mode):
+---
+251:def test_happy_path_scoped_rebuild(env):
+283:def test_rerun_idempotent_verify_mode(env):
+307:def test_refusals_fail_closed(env, mutate):
+349:def test_widened_delete_counterexample_caught(env, monkeypatch):
+371:def test_oracle_matches_module_mapping():
+399:def test_refused_missing_retained_source_day(env):
+411:def test_refused_verify_corrupt_backfilled_fields(env, field, value):
+423:def test_refused_verify_source_label_swap(env):
+435:def test_refused_window_nontrading_start(env, monkeypatch):
+455:def test_refused_pinned_updated_at_tamper(env, monkeypatch):
+481:def test_refused_cli_report_path_overwrites_canonical(tmp_path, monkeypatch):
+498:def test_refused_cli_report_path_existing_file(tmp_path, monkeypatch):
+514:def test_cli_parent_rejects_ignored_db_argument_before_side_effects(tmp_path, monkeypatch):
+542:def test_cli_parent_preflight_blocks_unwritable_receipt_dir(tmp_path, monkeypatch):
+566:def test_cli_child_receipt_binds_revision_and_run_id(tmp_path, monkeypatch):
+602:def test_refused_receipt_write_failure_cleans_partial(tmp_path, monkeypatch):
+635:def test_cli_parent_preflight_blocks_on_open_permission_error(tmp_path,
+661:def test_refused_cli_parent_report_path_never_deletes_user_file(tmp_path,
+693:def test_refused_receipt_eexist_race_keeps_other_writers_file(tmp_path,
+714:def test_acceptance_script_rejects_hardlink_alias(tmp_path):
+749:def test_acceptance_script_receipt_schema_mutation_fails(tmp_path):
+934:def test_acceptance_e2e_baseline_pass(e2e_art, tmp_path):
+1066:def test_acceptance_receipt_mutation_fails(e2e_art, tmp_path, case, mutate):
+1088:def test_acceptance_is_num_is_total_for_json_numbers(value, expected):
+1108:def test_acceptance_rejects_spec_code_not_bound_to_sql_target(
+1122:def test_acceptance_malformed_revision_fails(e2e_art, tmp_path):
+1136:def test_acceptance_verify_other_parquet_fails(e2e_art, tmp_path):
+1152:def test_acceptance_apply_other_parquet_fails(e2e_art, tmp_path):
+1168:def test_acceptance_verify_spec_divergence_fails(e2e_art, tmp_path):
+1224:def test_acceptance_db_mutation_fails(e2e_art, tmp_path, case, sqls,

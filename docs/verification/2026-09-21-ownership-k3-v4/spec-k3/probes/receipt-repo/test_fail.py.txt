@@ -1,0 +1,2 @@
+def test_kaboom():
+    assert False, "k3 probe failure"

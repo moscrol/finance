@@ -1,0 +1,10 @@
+== gate @ c277222938c3 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/receipt-repo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/receipts/gate-Zn2TvXmZ/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider test_a.py
+..                                                                       [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/receipts/gate-Zn2TvXmZ/pytest.json
+
+2 passed in 0.18s
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/receipts/gate-Zn2TvXmZ/pytest.json
+   revision=c277222938c3 dirty=False target=test_a.py
+   passed=2 failed=0 error=0 skipped=0

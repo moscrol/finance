@@ -1,0 +1,24 @@
+
+===== gate A (-k meet) =====
+== gate @ 05e9979cbb07 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a2 py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a2/gate-ha8ewd36/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider test_rendezvous.py -k meet
+.                                                                        [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a2/gate-ha8ewd36/pytest.json
+
+1 passed, 1 deselected in 0.23s
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a2/gate-ha8ewd36/pytest.json
+   revision=05e9979cbb07 dirty=False target=test_rendezvous.py
+   passed=1 failed=0 error=0 skipped=0
+
+===== gate B (full file) =====
+== gate @ 05e9979cbb07 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a2 py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a2/gate-iYh5IIOI/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider test_rendezvous.py
+..                                                                       [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a2/gate-iYh5IIOI/pytest.json
+
+2 passed in 0.23s
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a2/gate-iYh5IIOI/pytest.json
+   revision=05e9979cbb07 dirty=False target=test_rendezvous.py
+   passed=2 failed=0 error=0 skipped=0

@@ -1,0 +1,192 @@
+{
+  "a1_happy": {
+    "rc": 0,
+    "own_receipts": 1,
+    "revision_match": true,
+    "counts": {
+      "passed": 2,
+      "failed": 0,
+      "error": 0,
+      "skipped": 0
+    },
+    "exit_status": 0,
+    "latest_present": true,
+    "PASS": true
+  },
+  "a2_overlap": {
+    "rcs": [
+      0,
+      0
+    ],
+    "own_receipts": 2,
+    "target_passed_pairs": [
+      [
+        "test_rendezvous.py",
+        1
+      ],
+      [
+        "test_rendezvous.py",
+        2
+      ]
+    ],
+    "PASS": true
+  },
+  "a3_nested_subprocess": {
+    "rc": 0,
+    "own_receipts": 1,
+    "targets": [
+      "test_nested_subproc.py",
+      "test_nested_subproc.py"
+    ],
+    "PASS": true
+  },
+  "a4_nested_inprocess": {
+    "rc": 0,
+    "own_receipts": 1,
+    "counts": {
+      "passed": 2,
+      "failed": 0,
+      "error": 0,
+      "skipped": 0
+    },
+    "target": "test_nested_inproc.py",
+    "PASS": true
+  },
+  "a5_success_unset": {
+    "rc": 0,
+    "states": {
+      "0": {
+        "exit": 0,
+        "owner_after": null,
+        "receipt_exists": true
+      },
+      "1": {
+        "exit": 0,
+        "owner_after": null,
+        "receipt_exists": true
+      }
+    },
+    "PASS": true
+  },
+  "a5_success_empty": {
+    "rc": 0,
+    "states": {
+      "0": {
+        "exit": 0,
+        "owner_after": "",
+        "receipt_exists": true
+      },
+      "1": {
+        "exit": 0,
+        "owner_after": "",
+        "receipt_exists": true
+      }
+    },
+    "PASS": true
+  },
+  "a5_configure-error_unset": {
+    "rc": 0,
+    "states": {
+      "0": {
+        "exit": 4,
+        "owner_after": null,
+        "receipt_exists": false
+      },
+      "1": {
+        "exit": 0,
+        "owner_after": null,
+        "receipt_exists": true
+      }
+    },
+    "PASS": true
+  },
+  "a5_configure-error_empty": {
+    "rc": 0,
+    "states": {
+      "0": {
+        "exit": 4,
+        "owner_after": "",
+        "receipt_exists": false
+      },
+      "1": {
+        "exit": 0,
+        "owner_after": "",
+        "receipt_exists": true
+      }
+    },
+    "PASS": true
+  },
+  "a6_path_switch": {
+    "rc": 4,
+    "receipts": [],
+    "foreign_file": false,
+    "PASS": true
+  },
+  "a7_inherited_self": {
+    "rc": 0,
+    "exit": 0,
+    "owner_after": "14840",
+    "receipt_exists": false,
+    "PASS": true
+  },
+  "a7_inherited_foreign": {
+    "rc": 0,
+    "exit": 0,
+    "owner_after": "999999",
+    "receipt_exists": false,
+    "PASS": true
+  },
+  "a8_immutable": {
+    "second_error": "FileExistsError",
+    "intact": true,
+    "unique_default_names": true,
+    "preexisting_pytest_rc": 0,
+    "warning": true,
+    "intact2": true,
+    "PASS": true
+  },
+  "a9_io_failure": {
+    "rc_a": 0,
+    "warn_a": true,
+    "rc_b": 0,
+    "warn_b": true,
+    "rc_c": 0,
+    "warn_c": true,
+    "run_file_written_c": true,
+    "PASS": true
+  },
+  "a10_git_failure": {
+    "gate_outside_repo_rc": 4,
+    "nogit_pytest_rc": 0,
+    "nogit_revision": "(unknown)",
+    "validator_rc": 4,
+    "PASS": true
+  },
+  "a11_signals": {
+    "sigkill": {
+      "rc": -9,
+      "receipts": []
+    },
+    "sigterm": {
+      "rc": -15,
+      "receipts": []
+    },
+    "sigint": {
+      "rc": -2,
+      "exit_statuses": []
+    },
+    "gate_sigkill": {
+      "rc": 4
+    },
+    "sigint_validator_rc": null,
+    "PASS": []
+  },
+  "a12_stale_latest": {
+    "rc": 4,
+    "PASS": true
+  },
+  "a13_midrun_drift": {
+    "rc": 4,
+    "PASS": true
+  }
+}

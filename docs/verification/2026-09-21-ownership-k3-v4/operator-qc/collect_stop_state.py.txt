@@ -1,0 +1,129 @@
+"""Record the failed v4 review attempt; no model, tests, cleanup, or signoff.
+
+Hashes retained reviewer files without copying DB fixtures. This inventories only
+this task, and verifies the seven prior sealed generations and frozen source.
+It does not attribute global disk consumption or infer Quality's missing error.
+"""
+from collections import Counter
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parents[1]
+COORD = Path.home() / "fwp-wt-ownership-closeout-0921"
+REV = "6eb12c1b8a41071fd4af8bee343950fe0b85b221"
+TREE = "e99dad14cb946a112d92537289854d914e558936"
+OLD = ("followup", "recheck", "resume", "independent-v3", "k3-v3", "reentrant-repair", "integration-v4")
+
+
+def digest(path):
+    h = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def git(tree, *args):
+    return subprocess.run(["git", "-C", str(tree), *args], check=True,
+                          capture_output=True, text=True, timeout=30).stdout.rstrip("\n")
+
+
+def put(path, value):
+    with path.open("x") as stream:
+        stream.write(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
+
+
+def main():
+    os.umask(0o022)
+    axes = {}
+    for axis in ("spec", "quality"):
+        out = ROOT / f"{axis}-k3"
+        execution = json.loads((out / "execution.json").read_text())
+        assert execution["complete"] and execution["revision"] == REV
+        audit = json.loads((ROOT / "operator-qc" / f"{axis}-mechanics/mechanical-audit.json").read_text())
+        assert all(audit["identity_checks"].values())
+        assert not audit["input_hash_mismatches"] and not audit["output_hash_mismatches"]
+        assert not audit["trace_anomalies"] and not audit["shell_calls_without_execution_record"]
+        assert all(s["complete"] and s["log_hash_matches"] and s["timeout_valid"] for s in audit["shell_records"])
+        for name, expected in execution["sha256"].items():
+            assert digest(out / name) == expected
+        inventory, symlinks = [], []
+        for directory, dirs, files in os.walk(out, followlinks=False):
+            base = Path(directory)
+            for name in dirs[:]:
+                p = base / name
+                if p.is_symlink():
+                    symlinks.append({"path": str(p.relative_to(ROOT)), "target": os.readlink(p)})
+                    dirs.remove(name)
+            for name in sorted(files):
+                p = base / name
+                if p.is_symlink():
+                    symlinks.append({"path": str(p.relative_to(ROOT)), "target": os.readlink(p)})
+                elif p.is_file():
+                    inventory.append({"path": str(p.relative_to(ROOT)), "bytes": p.stat().st_size, "sha256": digest(p)})
+        put(ROOT / "operator-qc" / f"{axis}-retained-inventory.json", {"files": inventory, "symlinks_not_followed": symlinks,
+            "meaning": "retained current incarnation only; overwritten/deleted earlier fixtures not restored"})
+        axes[axis] = {k: execution[k] for k in ("exit_code", "time_before", "time_after", "elapsed_seconds", "stop_reason", "provider_request_admissions", "assistant_messages", "model_errors", "candidate_untouched", "author_untouched", "inputs_unchanged", "usage")}
+        axes[axis].update(retained_regular_files=len(inventory), retained_regular_bytes=sum(p["bytes"] for p in inventory),
+            shell_records=len(audit["shell_records"]), completed_tool_calls=audit["tool_calls"],
+            final_report_present=execution["final_report_present"], all_recorded_shell_hashes_and_timeouts_match=True,
+            stderr_bytes=(out / "stderr.log").stat().st_size, stderr_sha256=digest(out / "stderr.log"))
+    axes["spec"]["cause"] = "ENOSPC during Pi JSON stdout write, explicit stderr stack"
+    axes["quality"]["cause"] = "UNKNOWN: exit1 1.282 seconds before Spec, empty stderr, streaming request unfinished; disk exhaustion is plausible but unproven"
+    prior = []
+    for suffix in OLD:
+        directory = COORD / "docs/verification" / f"2026-09-21-ownership-{suffix}"
+        manifest = json.loads((directory / "manifest.json").read_text())
+        rows = manifest.get("entries", manifest.get("files"))
+        assert isinstance(rows, list)
+        assert {str(p.relative_to(directory)) for p in directory.rglob("*") if p.is_file()} == {r["path"] for r in rows} | {"manifest.json"}
+        for row in rows:
+            p = directory / row["path"]
+            assert p.stat().st_size == row["bytes"] and digest(p) == row["sha256"], str(p)
+        prior.append({"directory": str(directory), "files_excluding_manifest": len(rows), "manifest_sha256": digest(directory / "manifest.json"), "verified": True})
+    frozen = []
+    for version in ("v3", "v4"):
+        expected_rev = REV if version == "v4" else "47530e20fe5c3195e50ce429b31898d57918e413"
+        for role in ("gates", "spec", "quality"):
+            path = Path.home() / f"fwp-wt-ownership-{role}-{version}-0921"
+            row = {"path": str(path), "revision": git(path, "rev-parse", "HEAD"),
+                   "git_tree": git(path, "rev-parse", "HEAD^{tree}"), "status": git(path, "status", "--porcelain=v1", "--untracked-files=all")}
+            assert row["revision"] == expected_rev and row["status"] == ""
+            if version == "v4":
+                assert row["git_tree"] == TREE
+            frozen.append(row)
+    matrices = {}
+    for path in sorted((ROOT / "spec-k3/evidence").rglob("*matrix.jsonl")):
+        rows = [json.loads(line) for line in path.read_text().splitlines()]
+        matrices[str(path.relative_to(ROOT))] = {"rows_not_independent_scenarios": len(rows),
+            "ok_values": dict(Counter(str(r.get("ok")) for r in rows)), "sha256": digest(path)}
+    quality_results = ROOT / "quality-k3/evidence/probe_a_results.json"
+    qr = json.loads(quality_results.read_text())
+    qsummary = {"rows_not_independent_scenarios": len(qr), "literal_true": sum(r.get("PASS") is True for r in qr.values()),
+                "not_literal_true": {k: v for k, v in qr.items() if v.get("PASS") is not True}, "sha256": digest(quality_results)}
+    process = subprocess.run(["ps", "-axo", "pid=,ppid=,pgid=,command="], capture_output=True, text=True, check=True, timeout=15)
+    own_processes = []
+    for line in process.stdout.splitlines():
+        parts = line.strip().split(maxsplit=3)
+        if len(parts) == 4 and (parts[0] in {"53701", "53702", "53716", "53717"} or parts[2] in {"53716", "53717"}):
+            own_processes.append(line.strip())
+    disk = subprocess.run(["df", "-k", str(ROOT)], capture_output=True, text=True, check=True, timeout=15).stdout
+    result = {"time": datetime.now(timezone.utc).isoformat(), "revision": REV, "git_tree": TREE,
+        "overall": "BLOCKED_INFRASTRUCTURE / NO_INDEPENDENT_SIGNOFF", "axes": axes,
+        "budget_limits": {"max_requests": None, "max_total_requests": None, "review_deadline_seconds": None, "forced_exploration_cutoff": None, "token_budget": None},
+        "budget_exhaustion": False, "automatic_restart": False, "new_source_defect_claim": False,
+        "old_archives": prior, "frozen_trees": frozen, "owned_processes_remaining": own_processes,
+        "disk_current_df_k": disk, "spec_final_matrices_reported": matrices, "quality_final_matrix_reported": qsummary,
+        "supporting_formal_tests": {"axis": "quality", "receipt_disabled": True, "first": "71 passed in 14.58s; PYTEST_RC=0", "second": "139 passed, 1 skipped in 25.89s; PYTEST_RC=0", "totals": {"passed": 210, "skipped": 1}, "source": ["quality-k3/shell-records/0014.combined.log", "quality-k3/shell-records/0015.combined.log"], "full_pytest_stdout": False},
+        "coverage_limits": ["neither axis delivered REPORT/verdict/completion", "neither axis completed an independently authored dynamic backfill probe", "Quality has no independent board probe", "Spec board matrix checks reported fixed base but no main-ref movement during scan", "SIGINT control remains inconsistent across Quality attempts; no source defect established", "earlier fixtures/results were overwritten or removed; original shell/event bytes retained", "Quality executed broad pkill probes before PID-scoped repair; no all-process collateral-damage audit", "shell boundaries are contractual, no OS sandbox", "no later-main integration or real-copy publish/recovery rehearsal"],
+        "authority": "No merge/deploy/production backfill/real-tree deletion or new review was performed. Restart and storage remediation require explicit scope."}
+    put(ROOT / "operator-qc/stop-state.json", result)
+    print(json.dumps({"overall": result["overall"], "axes": {a: {k: r[k] for k in ("exit_code", "provider_request_admissions", "retained_regular_bytes", "cause")} for a, r in axes.items()}, "prior_archive_counts": [r["files_excluding_manifest"] for r in prior], "owned_processes_remaining": own_processes}, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,10 @@
+== gate @ f8cbd80487c0 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a13 py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a13/gate-qOCFu3WN/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider test_drift.py
+.                                                                        [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a13/gate-qOCFu3WN/pytest.json
+
+1 passed in 0.24s
+
+--- stderr ---
+测试期间提交或干净状态改变，收据不可采信。

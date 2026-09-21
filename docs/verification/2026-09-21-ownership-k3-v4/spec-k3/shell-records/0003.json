@@ -1,0 +1,11 @@
+{
+  "id": "0003",
+  "command": "ls -la /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/ && mkdir -p /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/notes && echo OK",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:08:16.574Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:08:16.589Z",
+  "log_sha256": "935fed54ea1eb3c6821b7a6a9f96045e9b47ef7fd62090d2544f269c83dd55bb"
+}

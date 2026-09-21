@@ -1,0 +1,11 @@
+{
+  "id": "0017",
+  "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && grep -n \"def check_\\|def main\\|tree\\|cross\" scripts/check_test_receipt.py | head -40 && wc -l scripts/check_test_receipt.py",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:17:47.121Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:17:47.129Z",
+  "log_sha256": "8eec72e96f8cd73116ebc70430ea6fecf15598ee5095c4547044e64faa831813"
+}

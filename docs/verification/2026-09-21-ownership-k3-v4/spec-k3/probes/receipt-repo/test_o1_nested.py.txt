@@ -1,0 +1,18 @@
+import os
+from pathlib import Path
+
+import pytest
+
+
+def test_outer_nested():
+    claimed = Path(os.environ["FWP_TEST_RECEIPT_PATH"])
+    result = pytest.main(["-q", "-p", "no:cacheprovider",
+                          "test_o1_inner.py", "-k", "inner_two"])
+    assert result == 0
+    # the inner same-process run must NOT have written the outer's receipt
+    assert not claimed.exists(), "inner run wrote outer receipt path"
+    assert not list(claimed.parent.glob("*.json"))
+
+
+def test_outer_leaf():
+    assert True

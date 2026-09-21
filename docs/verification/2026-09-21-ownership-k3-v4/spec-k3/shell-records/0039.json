@@ -1,0 +1,11 @@
+{
+  "id": "0039",
+  "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes && python3 - <<'EOF'\nfrom pathlib import Path\np = Path(\"probe_board.py\")\nt = p.read_text()\nt = t.replace('prune_section = text.split(\"不是删除许可，本脚本不拆】\")[1].split(\"【\")[1]',\n              'prune_section = text.split(\"不是删除许可，本脚本不拆】\")[1].split(\"\\\\n【\")[0]')\np.write_text(t)\nprint(\"patched\")\nEOF\nPY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\nPYTHONDONTWRITEBYTECODE=1 $PY probe_board.py 2>&1 | tail -14; echo \"driver rc=$?\"",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 115,
+  "started_at": "2026-09-21T08:39:08.504Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:39:16.839Z",
+  "log_sha256": "26919ca8ceb956ca6fe4ce93d86a8408c7c64ff0e32e384ef393ec7e905e2bcb"
+}

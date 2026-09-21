@@ -1,0 +1,12 @@
+.                                                                        [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/o6/run-b.json
+
+1 passed, 1 deselected in 0.17s
+.                                                                        [100%]
+1 passed, 1 deselected in 0.01s
+O6 runner done 4 0 0 4
+
+---STDERR---
+ERROR: k3 intentional configure failure
+
+ERROR: k3 intentional configure failure
+

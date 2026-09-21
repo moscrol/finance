@@ -1,0 +1,21 @@
+{
+  "recorded_at": "2026-09-21T08:18:08.642407+00:00",
+  "published_handoffs": {
+    "coordination": {
+      "revision": "35e105182b6b615b0fdecf892229fd92eb426ebf",
+      "remote_matches": true,
+      "clean": true
+    },
+    "source": {
+      "revision": "7f1275421b4316c365aab177e3f6d5308a369359",
+      "remote_matches": true,
+      "clean": true
+    }
+  },
+  "memory_autosync_commit": "3dc80b494138889826b38b0a35e717ad5d6d8eb5",
+  "review_revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+  "review_status": "RUNNING_NOT_SIGNOFF",
+  "max_requests": null,
+  "deadline_seconds": null,
+  "privileged_followon_operations": false
+}

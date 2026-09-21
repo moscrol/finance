@@ -1,0 +1,444 @@
+diff --git a/scripts/run_main_gate.sh b/scripts/run_main_gate.sh
+index 005487c93..cdc98d94f 100755
+--- a/scripts/run_main_gate.sh
++++ b/scripts/run_main_gate.sh
+@@ -1,115 +1,85 @@
+ #!/usr/bin/env bash
+-# 干净树整仓门禁一把跑：树必须干净 → ruff check → 全量 pytest → 拿收据 → 对基线比红集。
+-#
+-# 它替代的手工流程（2026-09-03 一天重复了五次）：
+-#   1. 看 porcelain 是否为空（AGENTS.md：混着未提交改动的树跑出来的 exit code 不对你的 revision 成立）
+-#   2. 用 test-environment.json 里那个解释器跑 ruff + pytest（宿主 python3 会多出几十条环境红）
+-#   3. 打开 ~/.finance-runtime/test-receipts/latest.json 抄 passed / failed
+-#   4. 把 failed_ids 与上一张 PR 的收据逐条对，确认「同一组红、passed 只增不减」
+-# 第 4 步最容易偷懒成「都是 5 红」——今天 gitea/main 上就多出了一条时间敏感红，
+-# 只看计数看不出是哪条换了。这里按 id 集合比。
+-#
++# 干净树门禁：ruff -> pytest -> 本轮唯一收据 -> 提交/退出码身份校验。
+ # 用法：
+-#   bash scripts/run_main_gate.sh                       # 在当前树跑，只打印本次读数
+-#   bash scripts/run_main_gate.sh --baseline <收据.json> # 再对基线收据比红集，红集变了退出码 3
+-#   bash scripts/run_main_gate.sh --allow-dirty          # 本地迭代用；收据会自带 dirty=true，不可跨 agent 采信
+-#   bash scripts/run_main_gate.sh --pytest-args "-x -q intelligence/tests"   # 换范围（收据 target 会跟着变）
+-#   bash scripts/run_main_gate.sh --receipt <收据.json> --baseline <基线.json>  # 不重跑，只比两张收据
+-#
+-# 退出码：0 全过（或与基线同一组红）；1 ruff 红；2 树脏且未 --allow-dirty；3 红集与基线不同 / 新增红；4 环境问题。
++#   bash scripts/run_main_gate.sh
++#   bash scripts/run_main_gate.sh --pytest-args "-q tests/test_example.py"
++#   bash scripts/run_main_gate.sh --allow-dirty   # 仅本地迭代，不可作为合入依据
++#   bash scripts/run_main_gate.sh --receipt <收据.json>
++#   bash scripts/run_main_gate.sh --baseline <基线.json>  # 红集比较，不是合入门禁
++#   bash scripts/run_main_gate.sh --receipt <收据.json> --baseline <基线.json>
++# FWP_TEST_RECEIPT_DIR 指定收据根；每轮新建 gate-*/pytest.json，不读共享 latest.json。
++# 退出码：0 全过/显式基线比较无新增红；1 ruff/测试红；2 脏树；3 新增红；4 设施/身份失败。
+ set -uo pipefail
+ 
+-# 门禁的对象是「你站着的那棵树」，不是脚本所在的树——脚本常从别的 worktree 借用
+-#（2026-09-03 首跑就把 gate-tools 树自己判成了脏树）。
+-REPO="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+-[ -z "$REPO" ] && REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
++GATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 4
+ BASELINE=""
+ RECEIPT_ONLY=""
+ ALLOW_DIRTY=0
+ PYTEST_ARGS="-q -p no:cacheprovider"
+ while [ $# -gt 0 ]; do
+   case "$1" in
+-    --baseline) BASELINE="$2"; shift 2 ;;
+-    --receipt) RECEIPT_ONLY="$2"; shift 2 ;;
++    --baseline|--receipt|--pytest-args)
++      [ $# -ge 2 ] || { echo "missing value: $1" >&2; exit 4; }
++      case "$1" in
++        --baseline) BASELINE="$2" ;;
++        --receipt) RECEIPT_ONLY="$2" ;;
++        --pytest-args) PYTEST_ARGS="$2" ;;
++      esac
++      shift 2 ;;
+     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+-    --pytest-args) PYTEST_ARGS="$2"; shift 2 ;;
+-    -h|--help) sed -n '2,21p' "$0"; exit 0 ;;
++    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   esac
+ done
+ 
+-# 解释器：与 session_facts.sh / conftest.py 同一份真本源 test-environment.json，不另写路径。
+-PY=""
+-if [ -f "$REPO/test-environment.json" ]; then
+-  PY="$(sed -n 's/.*"interpreter"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$REPO/test-environment.json" | head -1)"
+-fi
++# 仅用宿主标准库解析 JSON，测试本身仍用契约指定的解释器。
++PY="$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "") if p.is_file() else "")' "$REPO/test-environment.json")" || exit 4
+ [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+ if [ ! -x "$PY" ]; then
+-  echo "解释器不可执行: $PY（test-environment.json 指向的 venv 不在？）" >&2
++  echo "解释器不可执行: ${PY}" >&2
+   exit 4
+ fi
+-
+ cd "$REPO" || exit 4
++REV="$(git rev-parse HEAD)" || exit 4
++STATUS="$(git status --porcelain)" || exit 4
++if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
++  echo "树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
++  exit 2
++fi
++CHECK_ARGS=(--revision "$REV" --tree "$REPO")
++[ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
++[ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+ if [ -n "$RECEIPT_ONLY" ]; then
+   LATEST="$RECEIPT_ONLY"
+-  PYTEST_EXIT=0
+ else
+-  REV="$(git rev-parse --short HEAD)"
+-  BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+-  DIRTY_COUNT="$(git status --porcelain | wc -l | tr -d ' ')"
+-  if [ "$DIRTY_COUNT" != "0" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+-    echo "树不干净（$DIRTY_COUNT 条 porcelain）。整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
+-    git status --porcelain | head -10 >&2
+-    exit 2
+-  fi
+-  echo "== gate @ $BRANCH $REV  tree=$REPO  dirty=$DIRTY_COUNT  py=$PY"
+-
++  RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
++  mkdir -p "$RECEIPT_DIR" || exit 4
++  RECEIPT_DIR="$(cd "$RECEIPT_DIR" && pwd)" || exit 4
++  RUN_DIR="$(mktemp -d "$RECEIPT_DIR/gate-XXXXXXXX")" || exit 4
++  LATEST="$RUN_DIR/pytest.json"
++  echo "== gate @ ${REV:0:12} tree=${REPO} py=${PY} receipt=${LATEST}"
+   echo "== ruff check ."
+   if ! "$PY" -m ruff check . ; then
+     echo "ruff 红，停。" >&2
+     exit 1
+   fi
+-
+-  echo "== pytest $PYTEST_ARGS"
++  echo "== pytest ${PYTEST_ARGS}"
++  # Preserve the existing whitespace-separated --pytest-args contract; never eval it.
+   # shellcheck disable=SC2086
+-  "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
++  FWP_TEST_RECEIPT_DIR="$RECEIPT_DIR" FWP_TEST_RECEIPT_PATH="$LATEST" \
++    FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
+   PYTEST_EXIT="${PIPESTATUS[0]}"
+-
+-  RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
+-  LATEST="$RECEIPT_DIR/latest.json"
++  CHECK_ARGS+=(--pytest-exit "$PYTEST_EXIT")
++fi
++AFTER_REV="$(git rev-parse HEAD)" || exit 4
++AFTER_STATUS="$(git status --porcelain)" || exit 4
++if [ "$REV" != "$AFTER_REV" ] || { [ "$ALLOW_DIRTY" != "1" ] && [ -n "$AFTER_STATUS" ]; }; then
++  echo "测试期间提交或干净状态改变，收据不可采信。" >&2
++  exit 4
+ fi
+ if [ ! -f "$LATEST" ]; then
+-  echo "没找到收据 $LATEST（conftest 的收据插件没跑？）" >&2
++  echo "没找到本轮收据 ${LATEST}（pytest 收据未写出；不会回退 latest.json）" >&2
+   exit 4
+ fi
+-
+-"$PY" - "$LATEST" "$BASELINE" "$PYTEST_EXIT" <<'PYEOF'
+-import json, sys
+-from pathlib import Path
+-
+-latest_path, baseline_path, pytest_exit = sys.argv[1], sys.argv[2], int(sys.argv[3])
+-latest = json.loads(Path(latest_path).read_text())
+-counts = latest.get("counts") or {}
+-failed = sorted(latest.get("failed_ids") or [])
+-print(f"== receipt {latest_path}")
+-print(f"   revision={latest.get('revision','')[:12]} dirty={latest.get('dirty')} target={latest.get('target')}")
+-print(f"   passed={counts.get('passed')} failed={counts.get('failed')} error={counts.get('error')} skipped={counts.get('skipped')}")
+-for fid in failed:
+-    print(f"   RED {fid}")
+-if not baseline_path:
+-    # 没有基线就只能照实回 pytest 的退出码：已知的环境红也算红，要「同一组红」的判断请给 --baseline。
+-    sys.exit(pytest_exit)
+-base = json.loads(Path(baseline_path).read_text())
+-base_failed = sorted(base.get("failed_ids") or [])
+-base_counts = base.get("counts") or {}
+-new_red = sorted(set(failed) - set(base_failed))
+-gone_red = sorted(set(base_failed) - set(failed))
+-print(f"== vs baseline {baseline_path} (revision={base.get('revision','')[:12]}, passed={base_counts.get('passed')}, failed={base_counts.get('failed')})")
+-for fid in new_red:
+-    print(f"   NEW RED  {fid}")
+-for fid in gone_red:
+-    print(f"   FIXED    {fid}")
+-passed_ok = (counts.get("passed") or 0) >= (base_counts.get("passed") or 0)
+-print(f"   same_red_set={not new_red and not gone_red} passed_non_decreasing={passed_ok}")
+-sys.exit(0 if not new_red and passed_ok else 3)
+-PYEOF
++"$PY" "$GATE_DIR/main_gate_receipt.py" "$LATEST" "${CHECK_ARGS[@]}"
+diff --git a/scripts/worktree_board.py b/scripts/worktree_board.py
+index e7541ac7f..4f76b0b55 100644
+--- a/scripts/worktree_board.py
++++ b/scripts/worktree_board.py
+@@ -73,6 +73,9 @@ class TreeRow:
+     dirty_n: int
+     kind: str
+     subjects: tuple[str, ...] = field(default_factory=tuple)
++    error: str = ""
++    locked: str = ""
++    prunable: str = ""
+ 
+ 
+ def _git(args: list[str], *, cwd: str | None, timeout: float) -> tuple[int, str]:
+@@ -86,7 +89,7 @@ def _git(args: list[str], *, cwd: str | None, timeout: float) -> tuple[int, str]
+         )
+     except (OSError, subprocess.SubprocessError):
+         return 1, ""
+-    return completed.returncode, (completed.stdout or "").strip()
++    return completed.returncode, (completed.stdout or "").rstrip("\n")
+ 
+ 
+ def resolve_base(cwd: str, timeout: float) -> str:
+@@ -96,7 +99,7 @@ def resolve_base(cwd: str, timeout: float) -> str:
+         code, _ = _git(["rev-parse", "--verify", "--quiet", candidate], cwd=cwd, timeout=timeout)
+         if code == 0:
+             return candidate
+-    return "HEAD"
++    return ""
+ 
+ 
+ def parse_worktree_porcelain(text: str) -> list[dict[str, str]]:
+@@ -113,6 +116,10 @@ def parse_worktree_porcelain(text: str) -> list[dict[str, str]]:
+             current["branch"] = raw.split(" ", 1)[1].removeprefix("refs/heads/")
+         elif raw == "detached":
+             current["branch"] = "(detached)"
++        elif raw == "locked" or raw.startswith("locked "):
++            current["locked"] = raw.partition(" ")[2] or "locked"
++        elif raw == "prunable" or raw.startswith("prunable "):
++            current["prunable"] = raw.partition(" ")[2] or "prunable"
+     if current:
+         rows.append(current)
+     return rows
+@@ -156,7 +163,8 @@ def cherry_counts(head: str, base: str, *, cwd: str, timeout: float) -> tuple[in
+         return 0, 0, True
+     code, out = _git(["cherry", base, head], cwd=cwd, timeout=timeout)
+     if code != 0:
+-        return 0, 0, False
++        # Unknown is not zero: keep failed queries visible in JSON and --this.
++        return -1, -1, False
+     plus = minus = 0
+     for line in out.splitlines():
+         if line.startswith("+ "):
+@@ -179,7 +187,7 @@ def unique_subjects(head: str, base: str, *, cwd: str, timeout: float, limit: in
+ 
+ 
+ def _count(args: list[str], *, cwd: str, timeout: float) -> int:
+-    """``rev-list --count`` 的安全读法：非数字一律当 0。
++    """``rev-list --count`` 的安全读法：失败或非数字用 -1 表示未知。
+ 
+     直接 ``int(out or 0)`` 会在 git 把话写到 stdout 时抛 ValueError。本脚本
+     喂的是 SessionStart，抛出去就是 hook 静默不输出——等于没装（见模块头）。
+@@ -187,7 +195,7 @@ def _count(args: list[str], *, cwd: str, timeout: float) -> int:
+ 
+     code, out = _git(args, cwd=cwd, timeout=timeout)
+     if code != 0 or not out.isdigit():
+-        return 0
++        return -1
+     return int(out)
+ 
+ 
+@@ -212,13 +220,31 @@ def classify_worktree(
+     head = spec.get("head") or ""
+     if not path or not head:
+         return None
+-    plus, minus, in_main = cherry_counts(head, base, cwd=path, timeout=timeout)
+-    ahead = _count(["rev-list", "--count", f"{base}..{head}"], cwd=path, timeout=timeout)
+-    behind = behind_count(head, base, cwd=path, timeout=timeout)
+-    _, status = _git(["status", "--porcelain"], cwd=path, timeout=timeout)
++    code, top = _git(["rev-parse", "--show-toplevel"], cwd=path, timeout=timeout)
++    error = ""
++    if code != 0 or not top or Path(top).resolve() != Path(path).resolve():
++        error = "worktree unavailable or repository root mismatch"
++    plus, minus, in_main = (
++        (-1, -1, False) if error
++        else cherry_counts(head, base, cwd=path, timeout=timeout)
++    )
++    if plus < 0:
++        error = error or "git cherry failed; merge status unknown"
++    ahead = behind = -1
++    if not error:
++        ahead = _count(["rev-list", "--count", f"{base}..{head}"], cwd=path, timeout=timeout)
++        behind = behind_count(head, base, cwd=path, timeout=timeout)
++        if ahead < 0 or behind < 0:
++            error = "git rev-list failed; ahead/behind unknown"
++    status_code, status = (
++        (1, "") if error
++        else _git(["status", "--porcelain"], cwd=path, timeout=timeout)
++    )
++    if status_code != 0:
++        error = error or "git status failed; dirty state unknown"
+     paths = _status_paths(status)
+     subjects: tuple[str, ...] = ()
+-    if plus:
++    if plus > 0:
+         subjects = unique_subjects(head, base, cwd=path, timeout=timeout)
+     return TreeRow(
+         path=path,
+@@ -234,6 +260,9 @@ def classify_worktree(
+         dirty_n=len(paths),
+         kind=tree_kind(path, main_checkout),
+         subjects=subjects,
++        error=error,
++        locked=spec.get("locked", ""),
++        prunable=spec.get("prunable", ""),
+     )
+ 
+ 
+@@ -369,21 +398,23 @@ def display_path(path: str) -> str:
+ 
+ 
+ def format_board(rows: list[TreeRow], *, base: str, base_sha: str) -> str:
+-    unique = [row for row in rows if row.cherry_plus > 0]
++    uncertain = [row for row in rows if row.error or row.locked or row.prunable]
++    known = [row for row in rows if not (row.error or row.locked or row.prunable)]
++    unique = [row for row in known if row.cherry_plus > 0]
+     prune = [
+         row
+-        for row in rows
+-        if row.in_main and row.kind == "dev-wt" and not row.code_dirty
++        for row in known
++        if row.in_main and row.kind == "dev-wt" and not row.dirty
+     ]
+-    snapshots = [row for row in rows if row.kind == "prod-snapshot"]
++    snapshots = [row for row in known if row.kind == "prod-snapshot"]
+     leftover_dirty = [
+         row
+-        for row in rows
+-        if row.in_main and row.kind == "dev-wt" and row.code_dirty
++        for row in known
++        if row.in_main and row.kind == "dev-wt" and row.dirty
+     ]
+     lines = [
+         f"基准 {base}={base_sha[:12]}  （合入看 cherry+，不是 ahead 提交数）",
+-        f"树 {len(rows)} 棵 · 还有补丁 {len(unique)} · 补丁已在基线的 dev 树 {len(prune)}",
++        f"树 {len(rows)} 棵 · 还有补丁 {len(unique)} · 补丁已在基线的干净 dev 树 {len(prune)} · 待核实 {len(uncertain)}",
+         "",
+         "【还有补丁 — 真没合】",
+     ]
+@@ -405,7 +436,7 @@ def format_board(rows: list[TreeRow], *, base: str, base_sha: str) -> str:
+         lines.append(f"      {display_path(row.path)}")
+         for subject in row.subjects:
+             lines.append(f"      · {subject}")
+-    lines += ["", "【补丁已在基线 — 树可拆，本脚本不拆】"]
++    lines += ["", "【补丁已在基线且 Git 干净 — 不是删除许可，本脚本不拆】"]
+     if not prune:
+         lines.append("  （无）")
+     for row in sorted(prune, key=lambda item: item.branch):
+@@ -414,19 +445,26 @@ def format_board(rows: list[TreeRow], *, base: str, base_sha: str) -> str:
+             f"  {row.head[:12]}  {row.branch}{extra}  {display_path(row.path)}"
+         )
+     if leftover_dirty:
+-        lines += ["", "【补丁已在基线，但还有代码脏文件 — 先认领再拆】"]
++        lines += ["", "【补丁已在基线，但还有未提交文件 — 先认领并保全】"]
+         for row in leftover_dirty:
+             lines.append(
+                 f"  {row.head[:12]}  {row.branch}  {display_path(row.path)}"
+             )
+-    lines += ["", "【生产快照】只留当前 8792 + 一个回滚锚；本脚本不拆"]
++    if uncertain:
++        lines += ["", "【待核实 — 查询失败、失效目录或锁定；不可据此拆树】"]
++        for row in uncertain:
++            reason = "; ".join(filter(None, (row.error, row.locked, row.prunable)))
++            lines.append(f"  {row.head[:12]}  {row.branch}  {display_path(row.path)}")
++            lines.append(f"      {reason}")
++    lines += ["", "【生产快照】生产快照保留策略需另行核实；本脚本不拆"]
+     for row in snapshots:
+         lines.append(
+             f"  {row.head[:12]}  dirty={str(row.dirty).lower()}  {display_path(row.path)}"
+         )
+     lines += [
+         "",
+-        "拆树（需你确认）：git worktree remove <path>",
++        "删除前另查 ignored 文件、reflog、活跃进程/定时任务与部署引用，并取得用户确认。",
++        "cherry 只比较补丁等价，不证明业务接替或合并提交里的独有改动已吸收。",
+         "合入状态不要写进 inflight/main.md 或项目笔记交接记录，下次跑本脚本。",
+     ]
+     return "\n".join(lines) + "\n"
+@@ -443,9 +481,12 @@ def this_tree_lines(
+     code, head = _git(["rev-parse", "HEAD"], cwd=cwd, timeout=timeout)
+     if code != 0 or not head:
+         return []
+-    plus, minus, in_main = cherry_counts(head, base, cwd=cwd, timeout=timeout)
+-    behind = behind_count(head, base, cwd=cwd, timeout=timeout)
+-    if in_main:
++    pinned_base = base_sha or base
++    plus, minus, in_main = cherry_counts(head, pinned_base, cwd=cwd, timeout=timeout)
++    behind = behind_count(head, pinned_base, cwd=cwd, timeout=timeout)
++    if plus < 0:
++        merge = f"合入: 未知（git cherry 查询失败，基准 {base}={base_sha[:12]}）"
++    elif in_main:
+         merge = f"合入: 本枝补丁已在 {base}={base_sha[:12]}（cherry+0）"
+     else:
+         merge = (
+@@ -453,7 +494,9 @@ def this_tree_lines(
+         )
+     # 追加在同一行而不是新起一行：SessionStart 有 2000 字符预算，实测已在截断
+     # 后省略三十余条，多一行就是挤掉另一条事实。落后量始终打印，⚠ 只在过阈值时加。
+-    if behind > 0:
++    if behind < 0:
++        merge += "；底落后量未知（git rev-list 查询失败）"
++    elif behind > 0:
+         merge += f"；底落后 {behind} 提交"
+         if behind >= STALE_BASE_WARN:
+             merge += (
+@@ -486,18 +529,24 @@ def this_tree_lines(
+ 
+ def collect_rows(*, cwd: str, timeout: float) -> tuple[str, str, str, list[TreeRow]]:
+     base = resolve_base(cwd, timeout)
+-    _, base_sha = _git(["rev-parse", base], cwd=cwd, timeout=timeout)
+-    _, common = _git(
++    code, base_sha = _git(["rev-parse", base], cwd=cwd, timeout=timeout)
++    if not base or code != 0 or not base_sha:
++        raise RuntimeError("main baseline unavailable; merge status unknown")
++    code, common = _git(
+         ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+         cwd=cwd,
+         timeout=timeout,
+     )
+-    main_checkout = str(Path(common).resolve().parent) if common else cwd
+-    _, porcelain = _git(["worktree", "list", "--porcelain"], cwd=cwd, timeout=timeout)
++    if code != 0 or not common:
++        raise RuntimeError("git common-dir unavailable; worktree inventory unknown")
++    main_checkout = str(Path(common).resolve().parent)
++    code, porcelain = _git(["worktree", "list", "--porcelain"], cwd=cwd, timeout=timeout)
++    if code != 0 or not porcelain:
++        raise RuntimeError("git worktree list failed; worktree inventory unknown")
+     rows: list[TreeRow] = []
+     for spec in parse_worktree_porcelain(porcelain):
+         row = classify_worktree(
+-            spec, base=base, main_checkout=main_checkout, timeout=timeout
++            spec, base=base_sha or base, main_checkout=main_checkout, timeout=timeout
+         )
+         if row is not None:
+             rows.append(row)
+@@ -525,7 +574,10 @@ def main(argv: list[str] | None = None) -> int:
+     if args.this:
+         timeout = min(timeout, 8.0)
+         base = resolve_base(cwd, timeout)
+-        _, base_sha = _git(["rev-parse", base], cwd=cwd, timeout=timeout)
++        code, base_sha = _git(["rev-parse", base], cwd=cwd, timeout=timeout)
++        if not base or code != 0 or not base_sha:
++            print("合入: 未知（main 基准无法读取，不回退 HEAD 自证）")
++            return 1
+         for line in this_tree_lines(
+             cwd=cwd,
+             base=base,
+@@ -535,7 +587,14 @@ def main(argv: list[str] | None = None) -> int:
+         ):
+             print(line)
+         return 0
+-    base, base_sha, _main_checkout, rows = collect_rows(cwd=cwd, timeout=timeout)
++    try:
++        base, base_sha, _main_checkout, rows = collect_rows(cwd=cwd, timeout=timeout)
++    except RuntimeError as exc:
++        if args.json:
++            print(json.dumps({"error": str(exc), "trees": None}))
++        else:
++            print(f"看板: 未知（{exc}）", file=sys.stderr)
++        return 1
+     if args.json:
+         payload = {
+             "base": base,

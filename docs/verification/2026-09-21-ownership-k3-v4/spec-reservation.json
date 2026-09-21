@@ -1,0 +1,10 @@
+{
+  "axis": "spec",
+  "state": "RESERVED",
+  "max_sessions": 1,
+  "max_requests": null,
+  "deadline_seconds": null,
+  "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+  "authorization_sha256": "b9752cb47c58b46ba136690cadd49ed8269cfa300fe48a37aa9dc3dad1b661d3",
+  "time": "2026-09-21T08:07:40.572574+00:00"
+}

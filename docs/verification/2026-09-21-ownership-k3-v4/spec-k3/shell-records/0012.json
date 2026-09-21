@@ -1,0 +1,11 @@
+{
+  "id": "0012",
+  "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && grep -n \"DB_PATH\\|MARKET_FEATURE_STORE_DB\\|def staging_path\\|def hold_run_mutex\\|def canonical_production_candidates\" market_feature_store/db.py market_feature_store/write_path.py | head -40",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:18:11.241Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:18:11.249Z",
+  "log_sha256": "99636bfe97ed76fc873e13cf5f1a006e987dca9dff7a406c9c8b7efe4e62b538"
+}

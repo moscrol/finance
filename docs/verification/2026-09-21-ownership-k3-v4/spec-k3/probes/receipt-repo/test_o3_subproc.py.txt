@@ -1,0 +1,13 @@
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+
+def test_outer_subproc():
+    claimed = Path(os.environ["FWP_TEST_RECEIPT_PATH"])
+    result = subprocess.run([sys.executable, "-m", "pytest", "-q",
+                             "-p", "no:cacheprovider", "test_o3_inner.py"],
+                            capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not claimed.exists(), "subprocess wrote outer receipt path"

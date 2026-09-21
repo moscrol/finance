@@ -1,0 +1,70 @@
+finally:
+        # Explicitly break reference cycle.
+        excinfo = None  # type: ignore
+        os.chdir(session.startpath)
+        if initstate >= 2:
+            try:
+                config.hook.pytest_sessionfinish(
+                    session=session, exitstatus=session.exitstatus
+                )
+            except exit.Exception as exc:
+                if exc.returncode is not None:
+                    session.exitstatus = exc.returncode
+                sys.stderr.write(f"{type(exc).__name__}: {exc}\n")
+        config._ensure_unconfigure()
+    return session.exitstatus
+
+def main(
+    args: list[str] | os.PathLike[str] | None = None,
+    plugins: Sequence[str | _PluggyPlugin] | None = None,
+) -> int | ExitCode:
+    """Perform an in-process test run.
+
+    :param args:
+        List of command line arguments. If `None` or not given, defaults to reading
+        arguments directly from the process command line (:data:`sys.argv`).
+    :param plugins: List of plugin objects to be auto-registered during initialization.
+
+    :returns: An exit code.
+    """
+    old_pytest_version = os.environ.get("PYTEST_VERSION")
+    try:
+        os.environ["PYTEST_VERSION"] = __version__
+        try:
+            config = _prepareconfig(args, plugins)
+        except ConftestImportFailure as e:
+            exc_info = ExceptionInfo.from_exception(e.cause)
+            tw = TerminalWriter(sys.stderr)
+            tw.line(f"ImportError while loading conftest '{e.path}'.", red=True)
+            exc_info.traceback = exc_info.traceback.filter(
+                filter_traceback_for_conftest_import_failure
+            )
+            exc_repr = (
+                exc_info.getrepr(style="short", chain=False)
+                if exc_info.traceback
+                else exc_info.exconly()
+            )
+            formatted_tb = str(exc_repr)
+            for line in formatted_tb.splitlines():
+                tw.line(line.rstrip(), red=True)
+            return ExitCode.USAGE_ERROR
+        else:
+            try:
+                ret: ExitCode | int = config.hook.pytest_cmdline_main(config=config)
+                try:
+                    return ExitCode(ret)
+                except ValueError:
+                    return ret
+            finally:
+                config._ensure_unconfigure()
+    except UsageError as e:
+        tw = TerminalWriter(sys.stderr)
+        for msg in e.args:
+            tw.line(f"ERROR: {msg}\n", red=True)
+        return ExitCode.USAGE_ERROR
+    finally:
+        if old_pytest_version is None:
+            os.environ.pop("PYTEST_VERSION", None)
+        else:
+            os.environ["PYTEST_VERSION"] = old_pytest_version
+

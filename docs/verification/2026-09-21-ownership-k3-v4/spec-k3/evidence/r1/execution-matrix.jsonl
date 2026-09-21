@@ -1,0 +1,9 @@
+{"case": "pytest-exit-mismatch", "rc": 4, "expect": 4, "ok": true, "note": "gate receipt refused: receipt exit_status does not match pytest process"}
+{"case": "pytest-exit-match", "rc": 0, "expect": 0, "ok": true, "note": ""}
+{"case": "dirty-tree-noflag", "rc": 2, "expect": 2, "ok": true, "note": "shell refuses dirty tree"}
+{"case": "dirty-tree-allow", "rc": 0, "expect": 0, "ok": true, "note": "local iteration allowed", "receipt_dirty": true, "receipt_total": 1, "receipt_dirty_paths": ["test_a.py"]}
+{"case": "git-status-fails-at-start", "rc": 4, "expect": 4, "ok": true, "note": "fatal: k3 shim"}
+{"case": "git-revparse-fails-at-start", "rc": 4, "expect": 4, "ok": true, "note": ""}
+{"case": "zero-execution", "rc": 4, "expect": 4, "ok": true, "note": "pytest exit 5 / zero counts rejected", "receipt_counts": {"passed": 0, "failed": 0, "error": 0, "skipped": 0}, "receipt_exit_status": 5}
+{"case": "no-fallback-to-latest", "rc": 4, "expect": 4, "ok": true, "note": "没找到本轮收据 /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/exec-nofallback/gate-LTYbrXGa/pytest.json（pytest 收据未写出；不会回退 latest.json）"}
+{"case": "revision-change-during-run", "rc": 4, "expect": 4, "ok": true, "note": "测试期间提交或干净状态改变，收据不可采信。", "receipt_written_but_refused": true, "receipt_revision_is_new_head": true}

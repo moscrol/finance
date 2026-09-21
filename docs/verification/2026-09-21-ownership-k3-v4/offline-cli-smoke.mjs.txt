@@ -1,0 +1,29 @@
+// OFFLINE APPARATUS TEST ONLY. No credential resolver, model, or network call.
+import childProcess from "node:child_process";
+import { bootstrap } from "./credential-bootstrap.mjs";
+import { createAssistantMessageEventStream } from "/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/index.js";
+export default function (pi) {
+  const previous = childProcess.execFileSync;
+  const now = Date.now() / 1000;
+  const fake = "fixture." + Buffer.from(JSON.stringify({ plan: "plus", exp: now + 4000, plan_exp: now + 9000 })).toString("base64url") + ".offline";
+  childProcess.execFileSync = () => fake;
+  globalThis.fetch = () => { throw new Error("network forbidden in offline smoke"); };
+  let requests = 0;
+  try {
+    bootstrap({ on: pi.on.bind(pi), registerProvider(provider) {
+      const stream = (model, _context, options) => {
+        const output = createAssistantMessageEventStream();
+        queueMicrotask(async () => {
+          await options?.onPayload?.({ model: "kimi-k3" }, model);
+          const content = ++requests === 1 ? [{ type: "toolCall", id: "offline-shell", name: "bash", arguments: { command: "printf 'OFFLINE_APPARATUS_OK'", timeout: 5 } }] : [{ type: "text", text: "OFFLINE_STUB_COMPLETE: no provider request was made." }];
+          const message = { role: "assistant", api: model.api, provider: model.provider, model: model.id, content,
+            usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+            stopReason: requests === 1 ? "toolUse" : "stop", timestamp: Date.now() };
+          output.push({ type: "start", partial: message }); output.push({ type: "done", reason: message.stopReason, message }); output.end();
+        });
+        return output;
+      };
+      pi.registerProvider({ ...provider, stream, streamSimple: stream });
+    } });
+  } finally { childProcess.execFileSync = previous; }
+}

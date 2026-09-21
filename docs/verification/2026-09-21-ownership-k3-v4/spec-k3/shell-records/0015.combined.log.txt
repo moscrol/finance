@@ -1,0 +1,44 @@
+intelligence/tests/test_pytest_collection_scope.py
+tests/test_check_receipt_revision_gate.py
+tests/test_check_receipt_zero_count_gate.py
+tests/test_main_gate_receipt.py
+tests/test_repair_backfill_stock_history.py
+tests/test_test_receipt_dirt.py
+tests/test_worktree_board.py
+---
+38:    (path / "test_sample.py").write_text("def test_ok():\n    assert True\n")
+83:def test_valid_receipt_readback(repo, tmp_path):
+88:def test_readback_keeps_failure_exit(repo, tmp_path):
+104:def test_readback_refuses_invalid_or_untrustworthy_receipt(repo, tmp_path, changes):
+110:def test_malformed_receipt_is_structured_failure(repo, tmp_path, data):
+116:def test_readback_requires_tree_even_without_a_new_pytest_process(repo, tmp_path):
+124:def test_baseline_comparison_does_not_bypass_current_tree_identity(repo, tmp_path):
+129:def test_allow_dirty_does_not_bypass_current_tree_identity(repo, tmp_path):
+136:def test_baseline_does_not_hide_interrupted_run(repo, tmp_path):
+141:def test_baseline_scope_must_match(repo, tmp_path):
+146:def test_same_known_red_is_only_explicit_baseline_comparison(repo, tmp_path):
+154:def test_gate_uses_own_receipt_when_latest_is_overwritten(repo, tmp_path):
+180:def test_nested_collection_cannot_claim_parent_receipt(repo, tmp_path, inherited_owner):
+185:def test_nested_collection():
+204:def test_inprocess_nested_pytest_keeps_outer_receipt(repo, tmp_path, mode):
+207:        "def test_inner_one():\n    assert True\n\n\n"
+208:        f"def test_inner_two():\n    assert {mode != 'inner-failure'}\n"
+217:def test_outer():
+221:''' + ("\n\ndef test_leaf():\n    assert True\n" if mode == "run-same-target" else ""))
+240:def test_sequential_inprocess_runs_release_receipt_owner(repo, tmp_path, first_run, previous_owner):
+288:def test_inherited_pid_alone_cannot_grant_or_release_ownership(repo, tmp_path, inherited):
+307:def test_invocation_cannot_switch_its_claimed_receipt_path(repo, tmp_path):
+311:def test_switch_path():
+322:def test_nested_execution_preserves_outer_ownership(repo, tmp_path, kind):
+324:        "def test_inner_one():\n    assert True\n\n\n"
+325:        "def test_inner_two():\n    assert True\n"
+333:def test_outer():
+350:def test_parallel_gates_keep_separate_receipts(repo, tmp_path):
+358:def test_overlap():
+367:def test_second():
+388:def test_missing_current_receipt_never_reuses_stale_latest(repo, tmp_path):
+397:def test_revision_change_during_run_is_refused(repo, tmp_path):
+401:def test_commit():
+412:def test_process_identity_mismatch_is_refused(repo, tmp_path, changed):
+427:def test_writer_honors_override_without_overwriting_original(tmp_path, monkeypatch):
+441:def test_default_receipt_names_cannot_collide(tmp_path, monkeypatch):

@@ -1,0 +1,11 @@
+{
+  "id": "0034",
+  "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes && python3 - <<'EOF'\nfrom pathlib import Path\np = Path(\"probe_ownership.py\")\nt = p.read_text()\nt = t.replace('''def git(*args):\n    return subprocess.run([\"git\", *args], cwd=REPO, check=True,\n                          capture_output=True, text=True).stdout.strip()''',\n'''def git(*args, check=True):\n    return subprocess.run([\"git\", *args], cwd=REPO, check=check,\n                          capture_output=True, text=True).stdout.strip()\n\n\ndef commit_if_dirty(msg):\n    git(\"add\", \"-A\")\n    if subprocess.run([\"git\", \"diff\", \"--cached\", \"--quiet\"], cwd=REPO).returncode != 0:\n        git(\"commit\", \"-m\", msg)''')\nt = t.replace('''    git(\"add\", \"-A\")\n    git(\"commit\", \"-m\", \"k3 ownership fixtures\")''', '    commit_if_dirty(\"k3 ownership fixtures\")')\nt = t.replace('''    git(\"add\", \"test_o8.py\")\n    git(\"commit\", \"-m\", \"k3 o8 fixture\")''', '    commit_if_dirty(\"k3 o8 fixture\")')\np.write_text(t)\nprint(\"patched\")\nEOF\nPY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\nPYTHONDONTWRITEBYTECODE=1 $PY probe_ownership.py 2>&1 | tail -12; echo \"driver rc=$?\"",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 118,
+  "started_at": "2026-09-21T08:35:30.350Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:35:38.607Z",
+  "log_sha256": "d8f48bdcee40f89d4747cd0d46228f7ed3246408c6cf9154ed6cbd3c07098a75"
+}

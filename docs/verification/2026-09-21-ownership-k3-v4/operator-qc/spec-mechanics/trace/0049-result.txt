@@ -1,0 +1,12 @@
+OK  rc=4 want=4 pytest-exit-mismatch gate receipt refused: receipt exit_status does not match pytest process
+OK  rc=0 want=0 pytest-exit-match 
+OK  rc=2 want=2 dirty-tree-noflag shell refuses dirty tree
+OK  rc=0 want=0 dirty-tree-allow local iteration allowed
+OK  rc=4 want=4 git-status-fails-at-start fatal: k3 shim
+OK  rc=4 want=4 git-revparse-fails-at-start 
+OK  rc=4 want=4 zero-execution pytest exit 5 / zero counts rejected
+OK  rc=4 want=4 no-fallback-to-latest 没找到本轮收据 /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/exec-nofallback/gate-LTYbrXGa/pytest.json（pytest 收据未写出；不会回退 latest.json）
+OK  rc=4 want=4 revision-change-during-run 测试期间提交或干净状态改变，收据不可采信。
+
+9 cases, 0 unexpected
+driver rc=0

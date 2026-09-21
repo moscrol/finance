@@ -1,0 +1,5 @@
+3.12.13 (main, Mar  3 2026, 12:39:30) [Clang 21.0.0 (clang-2100.0.123.102)]
+pytest 8.3.5
+duckdb 1.5.4
+RUFF_CACHE_DIR=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/ruff-cache
+ruff 0.11.13

@@ -1,0 +1,11 @@
+{
+  "id": "0001",
+  "command": "printf 'OFFLINE_APPARATUS_OK'",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 5,
+  "started_at": "2026-09-21T08:06:14.065Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:06:14.070Z",
+  "log_sha256": "f944f2e9f9041af9f681f24a954f878263a7a29a6fd8736b1eb4753b663a4754"
+}

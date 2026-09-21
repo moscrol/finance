@@ -1,0 +1,11 @@
+{
+  "id": "0035",
+  "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -c \"import time; time.sleep(20)\" & P1=$!; sleep 1; echo \"pid=$P1\"; ps -p $P1 -o command= ; pgrep -f \"time.sleep\" ; echo \"rc1=$?\"; pgrep -fl \"python\"; echo \"rc2=$?\"; kill $P1 2>/dev/null; wait 2>/dev/null; echo done",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:38:56.305Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:38:57.414Z",
+  "log_sha256": "20cef7d7e756742e101f6e8cc4e19b3252bf7547d68c37c2f5a0832f2d596fa8"
+}

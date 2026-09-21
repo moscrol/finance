@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+"""K3 SPEC probe: receipt-only readback + baseline matrix against the real gate.
+
+Drives scripts/run_main_gate.sh (hash-identical copy) in the synthetic probe repo.
+Each case: mutate a real gate-produced receipt, run --receipt readback, record rc.
+"""
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+EV = Path("/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3")
+REPO = EV / "probes" / "receipt-repo"
+OUT = EV / "evidence" / "r1" / "readback-matrix.jsonl"
+GOOD = json.loads((EV / "evidence/r1/receipts2"
+                   ).glob("gate-*/pytest.json").__iter__().__next__().read_text())
+FAILED = json.loads((EV / "evidence/r1/receipts-fail"
+                     ).glob("gate-*/pytest.json").__iter__().__next__().read_text())
+
+ENV = {
+    "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+    "HOME": str(EV / "tmp" / "home-r1"),
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "FWP_TEST_RECEIPT_DIR": str(EV / "evidence" / "r1" / "receipts-ro"),
+}
+
+
+def run_gate(args):
+    return subprocess.run(["bash", "scripts/run_main_gate.sh", *args], cwd=REPO,
+                          env=ENV, capture_output=True, text=True, timeout=60)
+
+
+def case(name, data, extra_args=(), raw=None, expect=None, note=""):
+    rfile = EV / "tmp" / f"rb-{name}.json"
+    rfile.parent.mkdir(parents=True, exist_ok=True)
+    if raw is not None:
+        rfile.write_text(raw)
+    else:
+        rfile.write_text(json.dumps(data))
+    proc = run_gate(["--receipt", str(rfile), *extra_args])
+    rec = {"case": name, "rc": proc.returncode, "expect": expect,
+           "ok": expect is None or proc.returncode == expect,
+           "stderr_tail": proc.stderr.strip().splitlines()[-1:] or [],
+           "note": note}
+    with OUT.open("a") as fh:
+        fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    print(f"{'OK ' if rec['ok'] else 'BAD'} rc={proc.returncode} want={expect} {name}")
+    return proc
+
+
+def mutated(**kw):
+    data = json.loads(json.dumps(GOOD))
+    data.update(kw)
+    return data
+
+
+def main():
+    OUT.write_text("")
+    good_counts = GOOD["counts"]
+
+    case("valid-copy", GOOD, expect=0)
+    case("revision-wrong", mutated(revision="0" * 40), expect=4)
+    case("revision-missing", {k: v for k, v in GOOD.items() if k != "revision"}, expect=4)
+    case("tree-wrong", mutated(tree="/foreign/tree"), expect=4)
+    case("tree-missing", {k: v for k, v in GOOD.items() if k != "tree"}, expect=4)
+    case("tree-null", mutated(tree=None), expect=4)
+    case("interpreter-wrong", mutated(interpreter="/usr/bin/python3"), expect=4)
+    case("interpreter-missing", {k: v for k, v in GOOD.items() if k != "interpreter"}, expect=4)
+    case("dirty-true", mutated(dirty=True), expect=4)
+    case("dirty-total-nonzero", mutated(worktree_dirty_total=1), expect=4)
+    case("dirty-total-missing", {k: v for k, v in GOOD.items() if k != "worktree_dirty_total"}, expect=4)
+    case("dep-gate-bypassed", mutated(dependency_gate_bypassed=True), expect=4)
+    case("dep-gate-missing", {k: v for k, v in GOOD.items() if k != "dependency_gate_bypassed"}, expect=4)
+    case("counts-zero-exec", mutated(counts={"passed": 0, "failed": 0, "error": 0, "skipped": 5}),
+         expect=4, note="all-skipped is zero execution")
+    case("counts-negative", mutated(counts={**good_counts, "passed": -1}), expect=4)
+    case("counts-float", mutated(counts={**good_counts, "passed": 3.0}), expect=4)
+    case("counts-bool", mutated(counts={**good_counts, "passed": True}), expect=4)
+    case("counts-string", mutated(counts={**good_counts, "passed": "3"}), expect=4)
+    case("counts-missing-key", mutated(counts={"passed": 3}), expect=4)
+    case("exit-status-2", mutated(exit_status=2), expect=4, note="interrupted/usage")
+    case("exit-status-5", mutated(exit_status=5), expect=4, note="no tests collected")
+    case("exit-status-missing", {k: v for k, v in GOOD.items() if k != "exit_status"}, expect=4)
+    case("status1-no-failed-ids", mutated(exit_status=1), expect=4)
+    case("status0-with-failed-ids",
+         mutated(failed_ids=["test_a.py::test_a1"]), expect=4)
+    case("failed-ids-count-mismatch",
+         mutated(counts={**good_counts, "failed": 1}, exit_status=1,
+                 failed_ids=["a::b", "c::d"]), expect=4)
+    case("target-missing", {k: v for k, v in GOOD.items() if k != "target"}, expect=4)
+    case("malformed-json", None, raw="{not json", expect=4)
+    case("json-array", None, raw="[1,2]", expect=4)
+    case("json-null", None, raw="null", expect=4)
+    # missing file
+    proc = run_gate(["--receipt", str(EV / "tmp" / "does-not-exist.json")])
+    rec = {"case": "missing-file", "rc": proc.returncode, "expect": 4,
+           "ok": proc.returncode == 4,
+           "stderr_tail": proc.stderr.strip().splitlines()[-1:]}
+    with OUT.open("a") as fh:
+        fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    print(f"{'OK ' if rec['ok'] else 'BAD'} rc={proc.returncode} want=4 missing-file")
+
+    # failed current receipt returns failure
+    case("failed-receipt", FAILED, expect=1)
+
+    # allow-dirty waives dirty only, never identity
+    case("allow-dirty-dirty-ok", mutated(dirty=True, worktree_dirty_total=2),
+         extra_args=("--allow-dirty",), expect=0)
+    case("allow-dirty-wrong-tree", mutated(tree="/foreign/tree"),
+         extra_args=("--allow-dirty",), expect=4)
+    case("allow-dirty-wrong-revision", mutated(revision="0" * 40),
+         extra_args=("--allow-dirty",), expect=4)
+
+    # baseline matrix (write baseline files)
+    def with_baseline(name, current, baseline, expect, note=""):
+        bfile = EV / "tmp" / f"rb-base-{name}.json"
+        bfile.write_text(json.dumps(baseline))
+        case(name, current, extra_args=("--baseline", str(bfile)), expect=expect, note=note)
+
+    with_baseline("baseline-same-red-diagnostic", FAILED, FAILED, 0,
+                  note="explicit baseline, no new red -> 0 (documented diagnostic)")
+    new_red = json.loads(json.dumps(FAILED))
+    new_red["failed_ids"] = FAILED["failed_ids"] + ["test_a.py::test_a1"]
+    new_red["counts"] = {"passed": 2, "failed": 2, "error": 0, "skipped": 0}
+    with_baseline("baseline-new-red", new_red, FAILED, 3)
+    decreased = json.loads(json.dumps(GOOD))
+    decreased["counts"] = {"passed": 1, "failed": 0, "error": 0, "skipped": 0}
+    with_baseline("baseline-passes-decreased", decreased, GOOD, 3)
+    with_baseline("baseline-target-mismatch", GOOD, mutated(target="other.py"), 4)
+    with_baseline("baseline-dirty", GOOD, mutated(dirty=True), 4)
+    with_baseline("baseline-dirty-total", GOOD, mutated(worktree_dirty_total=3), 4)
+    old_rev_baseline = mutated(revision="f" * 40)
+    with_baseline("baseline-different-revision-ok", GOOD, old_rev_baseline, 0,
+                  note="historical baseline revision need not equal current")
+    with_baseline("baseline-interrupted-current", mutated(exit_status=2), GOOD, 4)
+    with_baseline("baseline-malformed", GOOD, {"counts": {}}, 4)
+
+    # arg handling
+    proc = run_gate(["--bogus"])
+    rec = {"case": "unknown-arg", "rc": proc.returncode, "expect": 4,
+           "ok": proc.returncode == 4}
+    with OUT.open("a") as fh:
+        fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    print(f"{'OK ' if rec['ok'] else 'BAD'} rc={proc.returncode} want=4 unknown-arg")
+    proc = run_gate(["--receipt"])
+    rec = {"case": "missing-arg-value", "rc": proc.returncode, "expect": 4,
+           "ok": proc.returncode == 4}
+    with OUT.open("a") as fh:
+        fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    print(f"{'OK ' if rec['ok'] else 'BAD'} rc={proc.returncode} want=4 missing-arg-value")
+
+    bad = [json.loads(line) for line in OUT.read_text().splitlines()]
+    fails = [r for r in bad if not r["ok"]]
+    print(f"\n{len(bad)} cases, {len(fails)} unexpected")
+    return 1 if fails else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

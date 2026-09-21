@@ -1,0 +1,11 @@
+{
+  "id": "0008",
+  "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && git diff c615adbd..6eb12c1b -- scripts/run_main_gate.sh scripts/worktree_board.py",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:11:18.095Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:11:18.119Z",
+  "log_sha256": "5e9f1d8e5e285061debf0c98c1fa6f08b3fbba79b7dde6423462514985eeedb2"
+}

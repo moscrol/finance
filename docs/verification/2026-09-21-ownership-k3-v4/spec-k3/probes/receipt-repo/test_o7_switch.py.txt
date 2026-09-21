@@ -1,0 +1,9 @@
+import os
+from pathlib import Path
+
+
+def test_switch_path():
+    original = os.environ["FWP_TEST_RECEIPT_PATH"]
+    os.environ["FWP_TEST_RECEIPT_PATH"] = original + ".foreign"
+    Path(os.environ["FWP_TEST_RECEIPT_PATH"]).parent.mkdir(parents=True,
+                                                           exist_ok=True)

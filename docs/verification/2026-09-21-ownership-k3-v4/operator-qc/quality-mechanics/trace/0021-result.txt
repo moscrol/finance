@@ -1,0 +1,24 @@
+414:def run_daily_full_staged(
+415-    trade_date: str | None = None,
+416-    skip_long: bool = False,
+417-    stock_source: str = "snapshot",
+418-    child_argv: list[str] | None = None,
+419-    kind: str = "daily-full",
+20:def _latest_trade_date() -> str:
+31:def preflight_daily_update(
+65:    def _default_cdp_probe() -> bool:
+81:def _run_step(name, func, *args, **kwargs):
+111:def run_hithink_sector_kline_step(trade_date: str | None = None) -> dict:
+125:def run_hithink_limit_pools_step(trade_date: str | None = None) -> dict:
+138:def run_hithink_dragon_auction_step(trade_date: str | None = None) -> dict:
+154:def run_hithink_stock_daily_step() -> dict:
+165:def _run_compute_features(trade_date: str) -> dict:
+174:def validate_daily_data(trade_date: str | None = None) -> dict:
+228:def run_daily_update(
+293:def sector_completion_gate(trade_date: str) -> dict:
+348:def _db_shape(path: Path) -> dict | None:
+382:def _write_receipt(staging: Path, receipt: dict) -> None:
+414:def run_daily_full_staged(
+457:def _run_daily_full_staged_locked(
+614:    def _abort(reason: str) -> dict:
+819:def run_daily_full(

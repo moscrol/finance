@@ -1,0 +1,11 @@
+{
+  "id": "0030",
+  "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes && python3 - <<'EOF'\nfrom pathlib import Path\np = Path(\"o5_runner.py\")\nt = p.read_text()\nt = t.replace('''class Capture(pytest.Session if False else object):\n    pass\n\n\n''', '')\np.write_text(t)\np = Path(\"probe_ownership.py\")\nt = p.read_text()\nt = t.replace('''           and states[3][\"exit\"] == 0 and states[3][\"owner_after\"] == \"424242\"\n           and not (outdir / \"run-d.json\").exists(),''',\n'''           and states[3][\"exit\"] == 4 and states[3][\"owner_after\"] == \"424242\"\n           and not (outdir / \"run-c.json\").exists()\n           and not (outdir / \"run-d.json\").exists(),''')\np.write_text(t)\nprint(\"patched\")\nEOF",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:33:35.740Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:33:35.819Z",
+  "log_sha256": "1094f4a608520e6cd87446d714acc1d2a9fab625af2e03e561bfa50639443eae"
+}

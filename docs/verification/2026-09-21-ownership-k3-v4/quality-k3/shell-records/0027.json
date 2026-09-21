@@ -1,0 +1,11 @@
+{
+  "id": "0027",
+  "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probes/probe_a_receipt.py a8 a9 a10 2>&1 | tail -5",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:34:13.620Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:34:17.766Z",
+  "log_sha256": "25fc4589e57c74c4528142127c563e4c7e346db8c5e3c115a1a25ae21f0d7712"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "0019",
+  "command": "PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python; $PY - <<'EOF'\nimport inspect, _pytest.config\nsrc = inspect.getsource(_pytest.config)\n# find pytest_cmdline_main and wrap_session\nimport re\nfor name in (\"def pytest_cmdline_main\", \"def wrap_session\", \"def _ensure_unconfigure\", \"def add_cleanup\"):\n    i = src.find(name)\n    print(\"=\"*20, name, \"found\" if i>=0 else \"MISSING\")\nprint(inspect.getsource(_pytest.config.Config.add_cleanup))\nprint(inspect.getsource(_pytest.config.Config._ensure_unconfigure))\nEOF",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:23:35.111Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:23:35.360Z",
+  "log_sha256": "45b829b52414c2b44e33ea81813c37ed8a6163139bda31bebe80637878a7d9b3"
+}

@@ -1,0 +1,92 @@
+import assert from "node:assert/strict";
+import childProcess from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import test from "node:test";
+import { bootstrap } from "./credential-bootstrap.mjs";
+import { createModels } from "/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/index.js";
+
+const root = path.dirname(fileURLToPath(import.meta.url));
+const base = fs.mkdtempSync(path.join(root, "bootstrap-tests-"));
+const now = Math.floor(Date.now() / 1000);
+const valid = { plan: "plus", exp: now + 4000, plan_exp: now + 10000 };
+const encode = (claims) => "fixture." + Buffer.from(JSON.stringify(claims)).toString("base64url") + ".not-a-real-signature";
+let index = 0;
+function fixture(t, value = encode(valid)) {
+  const out = path.join(base, String(++index)); fs.mkdirSync(out);
+  const previous = process.env.REVIEW_OUTPUT_DIR;
+  process.env.REVIEW_OUTPUT_DIR = out;
+  t.after(() => { if (previous === undefined) delete process.env.REVIEW_OUTPUT_DIR; else process.env.REVIEW_OUTPUT_DIR = previous; });
+  let refreshes = 0;
+  t.mock.method(childProcess, "execFileSync", () => { refreshes++; const result = typeof value === "function" ? value(refreshes) : value; if (result instanceof Error) throw result; return result; });
+  const registered = []; const handlers = {};
+  const pi = { registerProvider: (provider) => registered.push(provider), on: (name, fn) => { handlers[name] = fn; } };
+  return { out, pi, registered, handlers, refreshes: () => refreshes };
+}
+const context = { model: { provider: "mirasim-kimi", id: "kimi-k3", baseUrl: "http://127.0.0.1:18788/v1", api: "openai-completions" } };
+const event = { payload: { model: "kimi-k3" } };
+const signal = new AbortController().signal;
+
+test("unlimited admissions: 121 requests and elapsed 2000s pass; no token in artifacts/env/argv", (t) => {
+  const token = encode(valid); const f = fixture(t, token); bootstrap(f.pi);
+  t.mock.method(Date, "now", () => (now + 2000) * 1000);
+  for (let i = 0; i < 121; i++) f.handlers.before_provider_request(event, context);
+  assert.equal(f.refreshes(), 1);
+  const rows = fs.readFileSync(path.join(f.out, "request-admissions.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+  assert.deepEqual(rows.map((row) => row.admission), Array.from({ length: 121 }, (_, i) => i + 1));
+  for (const name of fs.readdirSync(f.out)) assert.equal(fs.readFileSync(path.join(f.out, name), "utf8").includes(token), false);
+  assert.equal(Object.values(process.env).includes(token), false); assert.equal(process.argv.includes(token), false);
+  const record = JSON.parse(fs.readFileSync(path.join(f.out, "credential.json")));
+  assert.equal(record.max_requests, null); assert.equal(record.review_deadline_seconds, null);
+});
+test("native Models auth resolves memory credential and reuses it", async (t) => {
+  const f = fixture(t); bootstrap(f.pi); const models = createModels(); models.setProvider(f.registered[0]);
+  assert.equal((await models.getAvailable("mirasim-kimi")).length, 1);
+  assert.equal((await models.getAuth(context.model)).auth.apiKey, encode(valid));
+  assert.equal((await models.getAuth("mirasim-kimi")).auth.apiKey, encode(valid));
+  assert.equal(f.refreshes(), 1);
+});
+test("expiry refresh keeps session unlimited and secrets in memory", async (t) => {
+  const next = { ...valid, exp: now + 8000 };
+  const f = fixture(t, (n) => encode(n === 1 ? valid : next)); bootstrap(f.pi);
+  t.mock.method(Date, "now", () => (now + 3800) * 1000);
+  const resolve = f.registered[0].auth.apiKey.resolve;
+  assert.equal((await resolve({ signal })).auth.apiKey, encode(next));
+  assert.equal((await resolve({ signal })).auth.apiKey, encode(next));
+  assert.equal(f.refreshes(), 2);
+  for (const name of fs.readdirSync(f.out)) assert.equal(fs.readFileSync(path.join(f.out, name), "utf8").includes(encode(next)), false);
+});
+test("failed expiry refresh is sticky, no resolver retry", async (t) => {
+  const f = fixture(t, (n) => n === 1 ? encode(valid) : new Error("private")); bootstrap(f.pi);
+  t.mock.method(Date, "now", () => (now + 3800) * 1000);
+  const resolve = f.registered[0].auth.apiKey.resolve;
+  await assert.rejects(resolve({ signal }), /blocked/); await assert.rejects(resolve({ signal }), /previously blocked/);
+  assert.equal(f.refreshes(), 2);
+});
+for (const [name, value] of [
+  ["bad credential shape", "not-a-jwt"], ["other plan", encode({ ...valid, plan: "other" })],
+  ["expired access", encode({ ...valid, exp: now + 100 })], ["expired plan", encode({ ...valid, plan_exp: now - 1 })],
+  ["resolver error", Object.assign(new Error("fixture secret"), { status: 1, stdout: Buffer.from("private"), stderr: Buffer.from("private") })],
+]) test(name + " blocks before provider registration", (t) => {
+  const f = fixture(t, value); assert.throws(() => bootstrap(f.pi), /bootstrap blocked/);
+  assert.equal(f.refreshes(), 1); assert.equal(f.registered.length, 0);
+  const text = fs.readFileSync(path.join(f.out, "credential.json"), "utf8");
+  assert.equal(JSON.parse(text).status, "BLOCKED"); assert.equal(text.includes("private"), false); assert.equal(text.includes("fixture secret"), false);
+});
+test("reservation prevents second authentication", (t) => {
+  const f = fixture(t); fs.writeFileSync(path.join(f.out, "credential.json"), "reserved\n");
+  assert.throws(() => bootstrap(f.pi), /EEXIST/); assert.equal(f.refreshes(), 0);
+});
+for (const key of ["provider", "id", "baseUrl", "api"]) test("wrong " + key + " stops dispatch", (t) => {
+  const f = fixture(t); bootstrap(f.pi);
+  t.mock.method(process, "exit", (code) => { throw new Error("exit:" + code); }); t.mock.method(process.stderr, "write", () => true);
+  assert.throws(() => f.handlers.before_provider_request(event, { model: { ...context.model, [key]: "other" } }), /exit:75/);
+  assert.equal(fs.existsSync(path.join(f.out, "request-admissions.jsonl")), false);
+});
+test("audit append failure stops dispatch", (t) => {
+  const f = fixture(t); bootstrap(f.pi);
+  fs.mkdirSync(path.join(f.out, "request-admissions.jsonl"));
+  t.mock.method(process, "exit", (code) => { throw new Error("exit:" + code); }); t.mock.method(process.stderr, "write", () => true);
+  assert.throws(() => f.handlers.before_provider_request(event, context), /exit:75/);
+});

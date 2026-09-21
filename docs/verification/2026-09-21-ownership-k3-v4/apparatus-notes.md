@@ -1,0 +1,13 @@
+# v4 launch apparatus notes
+
+These are operator setup observations, NOT findings about the candidate and NOT K3 review verdicts.
+
+- Historical v3 run/bootstrap/prompts were read only. All new files are under ownership-k3-v4-20260921; v3 caps and history were not rewritten.
+- Initial Pi source lookups guessed providers/create-provider.js and auth.d.ts, returning ENOENT. Actual implementation/types were found at dist/models.js and dist/auth/types.d.ts. No model invocation occurred.
+- First offline bootstrap load failed because installed pi-ai's top-level dist/index.js did not export openAICompletionsApi, despite the documentation example. Corrected import uses the installed dist/api/openai-completions.lazy.js. Original credential-bootstrap.initial.mjs and bootstrap-tests.log retained.
+- Second offline run: 18/19 passed; the test incorrectly expected bash to return a nonzero exit rather than throw. The wrapper had correctly recorded combined bytes and exit3. Changed only the test to assert rejection. Original review-tools.test.initial.mjs and offline-tests-r2.log retained.
+- Third run: 19/19 passed, including 121 request admissions after simulated 2000 seconds, native auth/cache/expiry refresh, sticky credential failure, wrong route/audit-write rejection, direct-path boundary, symlink escape, placeholder rejection and actual shell exit capture.
+- Offline CLI smoke replaced the provider stream and credential resolver with stubs, blocked fetch, and exercised the installed Pi/native provider/tool wiring. It emitted two synthetic admissions and one real `printf` shell command; these are NOT paid/live model requests or independent review evidence. Files are under offline-cli-output/. Exit0, empty stderr, shell-records confirms output.
+- run_k3.py has an unbounded process.wait(), no request/turn/deadline watchdog. authorization.json and both reservations use null limits. Prompts remove the old forced reporting cutoff. Per-command <=120s and resolver35s protect individual stuck operations only. Provider transport retains SDK defaults, not a review-wide deadline.
+- Direct file tools enforce read/source/input/own-output and write/own-output roots. Shell has full combined output/exit recording and a default per-command timeout. Shell filesystem/network limits remain a TASK CONTRACT, not an OS sandbox.
+- Initial and expiry-refresh credentials are only in process memory; sanitized credential-events reserve refresh before invoking the existing Plus resolver. Renewal is not a model retry or paid fallback. Failed renewal stops further resolution rather than repeatedly retrying.

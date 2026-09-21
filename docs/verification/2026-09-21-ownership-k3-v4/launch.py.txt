@@ -1,0 +1,29 @@
+"""Launch exactly one process per approved axis; no model or process retry."""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+PYTHON = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+os.umask(0o022)
+with (ROOT / "launch-reservation.json").open("x") as stream:
+    json.dump({"time": datetime.now(timezone.utc).isoformat(), "axes": ["spec", "quality"],
+               "user_instruction": "不用给k3设置预算，随便用", "max_requests": None,
+               "review_deadline_seconds": None, "automatic_retries": False}, stream, ensure_ascii=False, indent=2)
+    stream.flush()
+    os.fsync(stream.fileno())
+for axis in ("spec", "quality"):
+    with (ROOT / f"{axis}-runner.log").open("xb") as log:
+        process = subprocess.Popen([PYTHON, str(ROOT / "run_k3.py"), axis],
+                                   cwd=ROOT, env={"HOME": "/Users/a77", "PATH": "/opt/homebrew/bin:/usr/bin:/bin",
+                                                  "LANG": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1"},
+                                   stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
+                                   start_new_session=True)
+    record = {"axis": axis, "runner_pid": process.pid, "time": datetime.now(timezone.utc).isoformat(),
+              "revision": "6eb12c1b8a41071fd4af8bee343950fe0b85b221", "max_requests": None,
+              "review_deadline_seconds": None, "state": "PROCESS_LAUNCHED_NOT_VERDICT"}
+    with (ROOT / f"{axis}-launch.json").open("x") as stream:
+        stream.write(json.dumps(record, indent=2) + "\n")
+    print(json.dumps(record), flush=True)

@@ -1,0 +1,974 @@
+[
+  {
+    "index": 1,
+    "id": "read_0",
+    "tool": "read",
+    "event_line": 85,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/review-common.md"
+    },
+    "end_event_line": 88,
+    "result_event": "operator-qc/spec-mechanics/trace/0001-result-event.jsonl",
+    "result_event_sha256": "5e19866321f4fced4444399ff287ba55639ea0ee31152415925ecff7411c80b1",
+    "result_summary": "# Ownership v4 independent review contract\n\nYou are K3, a reviewer in a NEW context, not the author. Produce a finished, evidence-based review of the frozen object, not a repair. SPEC and QUALITY use separate contexts and checkouts. Shared inputs are intentional; this is not a fully blinded/different-vendor experiment.",
+    "is_error": false
+  },
+  {
+    "index": 2,
+    "id": "ls_1",
+    "tool": "ls",
+    "event_line": 86,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs"
+    },
+    "end_event_line": 87,
+    "result_event": "operator-qc/spec-mechanics/trace/0002-result-event.jsonl",
+    "result_event_sha256": "4cae84f2448e6b372db66694a608eabd9e157a0106c3ddc52c20fcbc62bb3bc8",
+    "result_summary": "backfill-execution-contract.md\nbackfill-prep-contract.md\ncandidate.diff\nreview-common.md\nsource-provenance.json",
+    "is_error": false
+  },
+  {
+    "index": 3,
+    "id": "read_2",
+    "tool": "read",
+    "event_line": 208,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/source-provenance.json"
+    },
+    "end_event_line": 211,
+    "result_event": "operator-qc/spec-mechanics/trace/0003-result-event.jsonl",
+    "result_event_sha256": "6f187249631b4b65aaa566f90cf2a07924a4a8c7cc3e19047a83161ccb37e80d",
+    "result_summary": "{\n  \"time\": \"2026-09-21T08:03:29.344731+00:00\",\n  \"revision\": \"6eb12c1b8a41071fd4af8bee343950fe0b85b221\",\n  \"base\": \"c615adbd2f861e23f2c8d03631833f98b3ae5aba\",\n  \"git_tree\": \"e99dad14cb946a112d92537289854d914e558936\",\n  \"checkouts\": {\n    \"author\": {\n      \"path\": \"/Users/a77/fwp-wt-ownership-gates-v4-0921\",\n      \"rev",
+    "is_error": false
+  },
+  {
+    "index": 4,
+    "id": "read_3",
+    "tool": "read",
+    "event_line": 209,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/backfill-execution-contract.md"
+    },
+    "end_event_line": 213,
+    "result_event": "operator-qc/spec-mechanics/trace/0004-result-event.jsonl",
+    "result_event_sha256": "47bf0484e55f022ddffa47d1510130a29547c927200945e1013c5dc784fe2fd1",
+    "result_summary": "# 302132.SZ 历史回填·执行实现交审（fix/backfill-302132-scoped @ 00d64e37）\n\n按 `2026-09-14-302132-prep-review.md` 的两条 P1 与「执行前合同」实现；经六轮复审退修全部落地。**第六轮演练在干净提交 00d64e37 上完成，验收 v6 49/49 通过。本轮未写生产**；生产授权另行申请。\n\n## 第六轮（00d64e37）：oracle 输入独立、收据深 schema、跨轮绑定\n\n复审六轮（1 P1 + 2 P2；审查树 595a9acd，探针 `qc_302132_round6_probes.py`）修复（提交 `00d64e37`）：\n\n",
+    "is_error": false
+  },
+  {
+    "index": 5,
+    "id": "read_4",
+    "tool": "read",
+    "event_line": 210,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/inputs/backfill-prep-contract.md"
+    },
+    "end_event_line": 212,
+    "result_event": "operator-qc/spec-mechanics/trace/0005-result-event.jsonl",
+    "result_event_sha256": "e237fa362965ad4c2348108ccff4a855eabda802ef6f09e10f733caf87cf448f",
+    "result_summary": "# 302132 回填准备阶段独立审查（742c3ff5）\n\n## 结论\n\n**数据来源、缺口与 09-11 可计算性认可；执行草案暂不放行，2 个 P1（执行前必须解决）、1 组 P2（证据/范围声明修正）。** 可以据本审查完善专用回填实现并另交代码评审；本结论不是生产执行授权，事项 3、旧行修正、备份清理均未批准或执行。\n\n审查树 `/private/tmp/302132-prep-qc-742c3ff5`，分支 `docs/qc-302132-prep-742c3ff5`，基于交审提交 `742c3ff5`。主检出树有他人未提交改动，本轮不碰；执行候选 `1fef3d27` 当前干净。所有文件数据库均 READ_ONLY 连",
+    "is_error": false
+  },
+  {
+    "index": 6,
+    "id": "bash_5",
+    "tool": "bash",
+    "event_line": 367,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && git rev-parse HEAD && git rev-parse HEAD^{tree} && git status --porcelain | head -20 && echo \"---STATUS-END---\""
+    },
+    "end_event_line": 376,
+    "result_event": "operator-qc/spec-mechanics/trace/0006-result-event.jsonl",
+    "result_event_sha256": "e5dc4e6f56168d396652e6c858bf17d69f925fc495daa6a3f4cb6d00c8fa6d54",
+    "result_summary": "6eb12c1b8a41071fd4af8bee343950fe0b85b221\ne99dad14cb946a112d92537289854d914e558936\n---STATUS-END---\n",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0001.json"
+  },
+  {
+    "index": 7,
+    "id": "bash_6",
+    "tool": "bash",
+    "event_line": 368,
+    "args": {
+      "command": "ls /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/ 2>/dev/null; echo \"---\"; ls /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/"
+    },
+    "end_event_line": 373,
+    "result_event": "operator-qc/spec-mechanics/trace/0007-result-event.jsonl",
+    "result_event_sha256": "ab75313caea318b0d0bdf459365c72eb990689d7791af5927b5d67df56df593f",
+    "result_summary": "credential-events.jsonl\ncredential.json\nevents.jsonl\nexecution.json\nrequest-admissions.jsonl\nruff-cache\nshell-records\nstderr.log\ntest-receipts\ntmp\nusers\n---\nauthorization.json\nbootstrap-tests-B2Uwle\nbootstrap-tests-qq85I8\nbootstrap-tests.log\nbootstrap.test.mjs\ncreate-quality-tree.log\ncreate-spec-tree.log\ncredential-boo",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0002.json"
+  },
+  {
+    "index": 8,
+    "id": "bash_7",
+    "tool": "bash",
+    "event_line": 767,
+    "args": {
+      "command": "ls -la /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/ && mkdir -p /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/notes && echo OK"
+    },
+    "end_event_line": 773,
+    "result_event": "operator-qc/spec-mechanics/trace/0008-result-event.jsonl",
+    "result_event_sha256": "7b6e9563d8ce4788dda73df51393279fdfad75c937456044e2f171bef9f5827f",
+    "result_summary": "total 816\ndrwxr-xr-x@ 13 a77  staff     416 Sep 21 16:07 .\ndrwxr-xr-x@ 38 a77  staff    1216 Sep 21 16:07 ..\n-rw-------@  1 a77  staff     208 Sep 21 16:07 credential-events.jsonl\n-rw-------@  1 a77  staff     435 Sep 21 16:07 credential.json\n-rw-r--r--@  1 a77  staff  393929 Sep 21 16:08 events.jsonl\n-rw-r--r--@  1 a7",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0003.json"
+  },
+  {
+    "index": 9,
+    "id": "bash_8",
+    "tool": "bash",
+    "event_line": 768,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && git diff --stat c615adbd2f861e23f2c8d03631833f98b3ae5aba..6eb12c1b8a41071fd4af8bee343950fe0b85b221 | tail -30"
+    },
+    "end_event_line": 776,
+    "result_event": "operator-qc/spec-mechanics/trace/0009-result-event.jsonl",
+    "result_event_sha256": "487f5f873b79722e6f042c13ca0493bd46b885addfa30441a63aeff318a3f4c5",
+    "result_summary": " .../2026-09-21-ownership-resume/v3/python/run.json |    30 +\n .../v3/receipt-compatibility.exit                  |     1 +\n .../v3/receipt-compatibility.log.txt               |    19 +\n .../v3/receipt-readback.exit                       |     1 +\n .../v3/receipt-readback.log.txt                    |     3 +\n .../v3/re",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0004.json"
+  },
+  {
+    "index": 10,
+    "id": "bash_9",
+    "tool": "bash",
+    "event_line": 1033,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && git diff --stat c615adbd2f861e23f2c8d03631833f98b3ae5aba..6eb12c1b8a41071fd4af8bee343950fe0b85b221 -- conftest.py scripts/ market_feature_store/ tests/ intelligence/ pytest.ini pyproject.toml 2>/dev/null | cat"
+    },
+    "end_event_line": 1040,
+    "result_event": "operator-qc/spec-mechanics/trace/0010-result-event.jsonl",
+    "result_event_sha256": "957961be4edc293e6f147da3198344abeafc854c0ad0211bbef4776e8ef557aa",
+    "result_summary": " conftest.py                                        |   65 +-\n market_feature_store/cli.py                        |  197 ++++\n .../sync/repair_backfill_stock_history.py          |  775 ++++++++++++\n scripts/main_gate_receipt.py                       |   97 ++\n scripts/run_main_gate.sh                           |  132 +",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0005.json"
+  },
+  {
+    "index": 11,
+    "id": "bash_10",
+    "tool": "bash",
+    "event_line": 1034,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && git diff --name-only c615adbd2f861e23f2c8d03631833f98b3ae5aba..6eb12c1b8a41071fd4af8bee343950fe0b85b221 -- . ':!docs' ':!*.md' | grep -v '^docs/' | head -60"
+    },
+    "end_event_line": 1038,
+    "result_event": "operator-qc/spec-mechanics/trace/0011-result-event.jsonl",
+    "result_event_sha256": "416dcb90d9a227f1733e3014ed7f9be0941a435e08df95779ec55dd58c962d96",
+    "result_summary": "conftest.py\nmarket_feature_store/cli.py\nmarket_feature_store/sync/repair_backfill_stock_history.py\nscripts/main_gate_receipt.py\nscripts/run_main_gate.sh\nscripts/verify_302132_backfill_acceptance.py\nscripts/worktree_board.py\ntests/test_main_gate_receipt.py\ntests/test_repair_backfill_stock_history.py\ntests/test_worktree_",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0006.json"
+  },
+  {
+    "index": 12,
+    "id": "write_11",
+    "tool": "write",
+    "event_line": 2269,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/notes/progress.md"
+    },
+    "write_within_output_lexically": true,
+    "content_sha256": "753710034a15af7d9656f47157d91a5a30d1238bf6c23a87b62730cc6942977f",
+    "recovered_write": "operator-qc/spec-mechanics/trace/0012-write-progress.md.txt",
+    "end_event_line": 2272,
+    "result_event": "operator-qc/spec-mechanics/trace/0012-result-event.jsonl",
+    "result_event_sha256": "aba3994c136982b44bb950be02f0729031e2ba0f86bb2079259243d535e55598",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/notes/progress.md",
+    "is_error": false
+  },
+  {
+    "index": 13,
+    "id": "bash_12",
+    "tool": "bash",
+    "event_line": 2270,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && git diff c615adbd2f861e23f2c8d03631833f98b3ae5aba..6eb12c1b8a41071fd4af8bee343950fe0b85b221 -- conftest.py | cat"
+    },
+    "end_event_line": 2274,
+    "result_event": "operator-qc/spec-mechanics/trace/0013-result-event.jsonl",
+    "result_event_sha256": "768e5c8741b12b1e564662c285bd7140bcccbad33c5bf2420b28db350a03b955",
+    "result_summary": "diff --git a/conftest.py b/conftest.py\nindex 325a112a1..3920371cb 100644\n--- a/conftest.py\n+++ b/conftest.py\n@@ -48,6 +48,8 @@ import os\n import platform\n import subprocess\n import sys\n+import tempfile\n+import uuid\n from pathlib import Path\n \n import pytest\n@@ -178,9 +180,33 @@ def _revision() -> str:\n     return f\"{br",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0007.json"
+  },
+  {
+    "index": 14,
+    "id": "read_13",
+    "tool": "read",
+    "event_line": 4130,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v4-0921/scripts/run_main_gate.sh"
+    },
+    "end_event_line": 4131,
+    "result_event": "operator-qc/spec-mechanics/trace/0014-result-event.jsonl",
+    "result_event_sha256": "d0ea8b9ccfd78d813db67eca3ebf872e1f2622245489281c1204f969d75b2566",
+    "result_summary": "#!/usr/bin/env bash\n# 干净树门禁：ruff -> pytest -> 本轮唯一收据 -> 提交/退出码身份校验。\n# 用法：\n#   bash scripts/run_main_gate.sh\n#   bash scripts/run_main_gate.sh --pytest-args \"-q tests/test_example.py\"\n#   bash scripts/run_main_gate.sh --allow-dirty   # 仅本地迭代，不可作为合入依据\n#   bash scripts/run_main_gate.sh --receipt <收据.json>\n#   bash scripts",
+    "is_error": false
+  },
+  {
+    "index": 15,
+    "id": "read_14",
+    "tool": "read",
+    "event_line": 5150,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v4-0921/scripts/main_gate_receipt.py"
+    },
+    "end_event_line": 5151,
+    "result_event": "operator-qc/spec-mechanics/trace/0015-result-event.jsonl",
+    "result_event_sha256": "f5d207c8163dbd8e7a4478d7ff8ca972caa099f7941a314e86c4f3237367550b",
+    "result_summary": "\"\"\"Read one gate receipt, never a shared latest pointer.\n\nThe shell owns the run identity; pytest owns the result. Both must agree.\nAn explicit baseline comparison is diagnostic, not permission to merge red tests.\n\"\"\"\nfrom __future__ import annotations\n\nimport argparse\nimport json\nimport sys\nfrom pathlib import Path\n\n\n",
+    "is_error": false
+  },
+  {
+    "index": 16,
+    "id": "read_15",
+    "tool": "read",
+    "event_line": 6965,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v4-0921/conftest.py"
+    },
+    "end_event_line": 6966,
+    "result_event": "operator-qc/spec-mechanics/trace/0016-result-event.jsonl",
+    "result_event_sha256": "f4f1117dd9fcb3cde007d944084ed8b55a9afc62283eb1db5fa2ef6314b208a1",
+    "result_summary": "\"\"\"测试环境门禁：解释器不对就**在收集之前**失败，并说清该用哪个。\n\n## 为什么必须在这一层\n\n本仓有两个 python，依赖完全不同：\n\n    宿主 /usr/bin/python3        无 fastapi / agents / duckdb / yaml …\n    .venv-workbench/bin/python   全部具备（AGENTS.md 与 CLAUDE.md 都写了用它）\n\n用错的后果不是\"跑不了\"，而是**跑出一个看起来合理的错读数**。2026-08-10 实测，\n同一棵树同一时刻：\n\n    宿主 python3        71 failed / 3819 passed\n    .",
+    "is_error": false
+  },
+  {
+    "index": 17,
+    "id": "read_16",
+    "tool": "read",
+    "event_line": 11867,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v4-0921/test-environment.json"
+    },
+    "end_event_line": 11870,
+    "result_event": "operator-qc/spec-mechanics/trace/0017-result-event.jsonl",
+    "result_event_sha256": "a46924368d8c1ce5b4036d52f51538227eed43e5fe9368ce1457368ee67e02a2",
+    "result_summary": "{\n  \"_why\": \"测试环境的唯一真本源。两道门禁都读这里，不各自维护清单。\",\n  \"_history\": \"2026-08-10：conftest.py 与 scripts/check_agent_workspace_facts.py 各存一份依赖清单，靠 docstring 里一句『两处都改才算改完』同步。当天就漂了——uvicorn 与 ruff 只在其中一处。提醒的到达率不可靠，这正是这两道门禁本身要治的病，不该在它们的实现里重犯。\",\n  \"_format\": \"JSON 而非 python 模块：conftest 在收集前跑，此时还不能保证 intelligence/ 能 import（缺依赖时正是它要报错的场景",
+    "is_error": false
+  },
+  {
+    "index": 18,
+    "id": "read_17",
+    "tool": "read",
+    "event_line": 11868,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v4-0921/scripts/check_test_receipt.py"
+    },
+    "end_event_line": 11869,
+    "result_event": "operator-qc/spec-mechanics/trace/0018-result-event.jsonl",
+    "result_event_sha256": "009ed8f464711303062cacae20a07d90ce45d52238f0bf3420700822fdc7b436",
+    "result_summary": "#!/usr/bin/env python3\n\"\"\"判定一份读数收据能不能采信——**不重跑测试**就给出结论。\n\n## 要解决的浪费\n\n多 agent 协作里反复出现：上一个 agent 报「3943 passed」，下一个不采信、重跑一遍。\n这不是不礼貌，是**理性反应**——那个数字没说明它在哪个解释器、哪棵树、哪个 revision\n上得出，因此不可复核。而 2026-08-10 的实测证明这种怀疑必要：同一棵树同一时刻，\n宿主 python3 得 71 failed，.venv-workbench 得 14 failed，差 57 条全是环境噪声。\n\n所以方向不是「让 agent 互相信任」（做不到，也不该做），而是**把",
+    "is_error": false
+  },
+  {
+    "index": 19,
+    "id": "bash_18",
+    "tool": "bash",
+    "event_line": 12050,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && git diff c615adbd2f861e23f2c8d03631833f98b3ae5aba..6eb12c1b8a41071fd4af8bee343950fe0b85b221 -- scripts/worktree_board.py | cat"
+    },
+    "end_event_line": 12053,
+    "result_event": "operator-qc/spec-mechanics/trace/0019-result-event.jsonl",
+    "result_event_sha256": "6e2a5b5f70645c23a0d698d2bad0b18a4738ff9202fad2afa45d526bb17ea4ef",
+    "result_summary": "diff --git a/scripts/worktree_board.py b/scripts/worktree_board.py\nindex e7541ac7f..4f76b0b55 100644\n--- a/scripts/worktree_board.py\n+++ b/scripts/worktree_board.py\n@@ -73,6 +73,9 @@ class TreeRow:\n     dirty_n: int\n     kind: str\n     subjects: tuple[str, ...] = field(default_factory=tuple)\n+    error: str = \"\"\n+    l",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0008.json"
+  },
+  {
+    "index": 20,
+    "id": "tool_hwR65xaPGo9CZ214nyB79rEw",
+    "tool": "read",
+    "event_line": 12471,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v4-0921/scripts/worktree_board.py"
+    },
+    "end_event_line": 12472,
+    "result_event": "operator-qc/spec-mechanics/trace/0020-result-event.jsonl",
+    "result_event_sha256": "6c064f880592d53d5f27a5d4cdd105fb84f87641d53281ea9a03f37b42a62a6c",
+    "result_summary": "#!/usr/bin/env python3\n\"\"\"Worktree 合入看板：从 ``git cherry`` 生成，不手抄第二份清单。\n\n失败形状\n--------\n多 session 并发留下几十棵 worktree。人写的 ``inflight/main.md`` 和项目笔记\n「交接记录」会漂（写了「可合未合」之后合进去也不回写）。``git rev-list`` 的\nahead 数也会骗人：同一补丁以 squash / cherry-pick 进了 main，hash 不同仍算\n超前。``git cherry`` 比的是补丁，全是 ``-`` 就是已经在基线里。\n\n本脚本只打印。**绝不** ``worktree remo",
+    "is_error": false
+  },
+  {
+    "index": 21,
+    "id": "bash_20",
+    "tool": "bash",
+    "event_line": 14398,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && git diff c615adbd2f861e23f2c8d03631833f98b3ae5aba..6eb12c1b8a41071fd4af8bee343950fe0b85b221 -- market_feature_store/cli.py | cat"
+    },
+    "end_event_line": 14401,
+    "result_event": "operator-qc/spec-mechanics/trace/0021-result-event.jsonl",
+    "result_event_sha256": "b668ec6e3b7c2dc149f75244ec739456b0b3f93fb6c349f95ca451c3dc178580",
+    "result_summary": "diff --git a/market_feature_store/cli.py b/market_feature_store/cli.py\nindex 38e532053..7f89ba470 100644\n--- a/market_feature_store/cli.py\n+++ b/market_feature_store/cli.py\n@@ -1494,6 +1494,190 @@ def _refuse_production_write_direct(target) -> int | None:\n     return 2\n \n \n+def cmd_repair_backfill_302132(args) -> int:\n",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0009.json"
+  },
+  {
+    "index": 22,
+    "id": "tool_LsylcqQmlqbVFQc2HjDhMlKc",
+    "tool": "bash",
+    "event_line": 15221,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && grep -n \"def run_daily_full_staged\" -A 5 market_feature_store/sync/sync_daily_full.py && wc -l market_feature_store/sync/sync_daily_full.py"
+    },
+    "end_event_line": 15229,
+    "result_event": "operator-qc/spec-mechanics/trace/0022-result-event.jsonl",
+    "result_event_sha256": "980ae38eb1218ca226e34d6b09f0a93fbf12b3d3c34dbf6071f1893af918aa4c",
+    "result_summary": "414:def run_daily_full_staged(\n415-    trade_date: str | None = None,\n416-    skip_long: bool = False,\n417-    stock_source: str = \"snapshot\",\n418-    child_argv: list[str] | None = None,\n419-    kind: str = \"daily-full\",\n     859 market_feature_store/sync/sync_daily_full.py\n",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0010.json"
+  },
+  {
+    "index": 23,
+    "id": "tool_erCmvoIlEKCrjR4GzMWDmWEn",
+    "tool": "bash",
+    "event_line": 15222,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && grep -n \"def \\|class \" market_feature_store/sync/sync_daily_full.py | head -60"
+    },
+    "end_event_line": 15227,
+    "result_event": "operator-qc/spec-mechanics/trace/0023-result-event.jsonl",
+    "result_event_sha256": "d61b040f8a8b5496cb5ee1842cd1c68d099fd4d18b6e46af4d90aadf12fda9ca",
+    "result_summary": "20:def _latest_trade_date() -> str:\n31:def preflight_daily_update(\n65:    def _default_cdp_probe() -> bool:\n81:def _run_step(name, func, *args, **kwargs):\n111:def run_hithink_sector_kline_step(trade_date: str | None = None) -> dict:\n125:def run_hithink_limit_pools_step(trade_date: str | None = None) -> dict:\n138:def ru",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0011.json"
+  },
+  {
+    "index": 24,
+    "id": "tool_0DX6XSeOnDgZjmWpKfEAUZ6t",
+    "tool": "read",
+    "event_line": 15272,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v4-0921/market_feature_store/sync/sync_daily_full.py",
+      "offset": 348,
+      "limit": 330
+    },
+    "end_event_line": 15273,
+    "result_event": "operator-qc/spec-mechanics/trace/0024-result-event.jsonl",
+    "result_event_sha256": "60e8c09c2245ba2471f90aab3891ae5857f1a42d34c840804d81ad6dc90f3c93",
+    "result_summary": "def _db_shape(path: Path) -> dict | None:\n    \"\"\"read_only 读一个库的形状: 表数 / 核心表行数 / fact_market_daily 覆盖上界。\n\n    打不开 (损坏/半成品) 返回 None——调用方 fail closed。\n    \"\"\"\n    try:\n        con = duckdb.connect(str(path), read_only=True)\n    except Exception:\n        return None\n    try:\n        from ..db import list_tables\n\n        t",
+    "is_error": false
+  },
+  {
+    "index": 25,
+    "id": "read_24",
+    "tool": "read",
+    "event_line": 15313,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v4-0921/market_feature_store/sync/sync_daily_full.py",
+      "offset": 678,
+      "limit": 185
+    },
+    "end_event_line": 15314,
+    "result_event": "operator-qc/spec-mechanics/trace/0025-result-event.jsonl",
+    "result_event_sha256": "1af2193c27dcea58db01515902d3847ba3e2e680ff65d1ebebd7cbd27873d66f",
+    "result_summary": "        flush=True,\n    )\n\n    finished_at = datetime.now()\n    _write_receipt(staging, {\n        \"run_id\": run_id,\n        \"kind\": kind,\n        \"plan\": \"staging-swap\",\n        \"trade_date\": status.get(\"trade_date\") or trade_date,\n        \"started_at\": started_at,\n        \"finished_at\": finished_at,\n        \"duration_",
+    "is_error": false
+  },
+  {
+    "index": 26,
+    "id": "read_25",
+    "tool": "read",
+    "event_line": 15823,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v4-0921/market_feature_store/sync/repair_backfill_stock_history.py"
+    },
+    "end_event_line": 15824,
+    "result_event": "operator-qc/spec-mechanics/trace/0026-result-event.jsonl",
+    "result_event_sha256": "b8dfa86d3b086590b2313749cc1901ae7d618434a844db13c5448f2089cad42d",
+    "result_summary": "\"\"\"单股历史回填 + 按股限定（scoped）派生重建——302132.SZ 专用合同。\n\n合同来源（评审 `docs/handoffs/2026-09-14-302132-prep-review.md`，P1-1/P1-2\n与「下一轮执行前合同」逐条落码）：\n\n- **发布入口**：只经 `run_daily_full_staged` 父编排（独立 kind、pre_swap_backup=True），\n  父流程自建 staging；回填、派生、验收全部在 staging 副本内完成，任何一步失败\n  抛异常 → 不发布。**不新增直写 canonical 的通道**（本模块不提供 --child 直写模式）。\n- **主表回",
+    "is_error": false
+  },
+  {
+    "index": 27,
+    "id": "bash_26",
+    "tool": "bash",
+    "event_line": 18016,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && grep -n \"DB_PATH\\|MARKET_FEATURE_STORE_DB\\|def staging_path\\|def hold_run_mutex\\|def canonical_production_candidates\" market_feature_store/db.py market_feature_store/write_path.py | head -40"
+    },
+    "end_event_line": 18023,
+    "result_event": "operator-qc/spec-mechanics/trace/0027-result-event.jsonl",
+    "result_event_sha256": "8973eeff43612369e3be70cdf6869dc8458d3c4f0e52775c1533129871b73fec",
+    "result_summary": "market_feature_store/db.py:6:可移植性: 数据库路径可用环境变量 MARKET_FEATURE_STORE_DB 覆盖, 便于在\nmarket_feature_store/db.py:34:_ENV_DB = os.environ.get(\"MARKET_FEATURE_STORE_DB\")\nmarket_feature_store/db.py:35:DB_PATH = Path(_ENV_DB).expanduser() if _ENV_DB else PROJECT_DIR / \"db\" / \"market_feature_store.duckdb\"\nmarket_feature_store/db.p",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0012.json"
+  },
+  {
+    "index": 28,
+    "id": "bash_27",
+    "tool": "bash",
+    "event_line": 18017,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && sed -n '1,80p' market_feature_store/write_path.py"
+    },
+    "end_event_line": 18022,
+    "result_event": "operator-qc/spec-mechanics/trace/0028-result-event.jsonl",
+    "result_event_sha256": "8a56fd0c8ddc25bb0577efef5ff3e4e796eef082a1a8ca571fe661ce66b816f4",
+    "result_summary": "\"\"\"写入路径策略：生产库不是默认可写目标。\n\n2026-08-20：脏树上的旧 `cli daily-full` 直写生产 fact、不算 features。\ngitea/main 上 `daily-full` 已走 staging 换名；剩下的逃生舱是\n`daily-update` 和手跑 `daily-full-exec` 且 MARKET_FEATURE_STORE_DB 指向生产。\n\n本模块只回答两件事：这是不是 canonical 生产库？有没有 --direct？\n提醒写在 skill 里拦不住人，必须在副作用前 fail closed。\n\n2026-09-13 加固（QC G1）：生产库身份不得随代码检出位置改变。旧",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0013.json"
+  },
+  {
+    "index": 29,
+    "id": "bash_28",
+    "tool": "bash",
+    "event_line": 18099,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && sed -n '80,175p' market_feature_store/write_path.py && grep -n \"_refuse_production_write_direct\" -B3 -A25 market_feature_store/cli.py | head -60"
+    },
+    "end_event_line": 18103,
+    "result_event": "operator-qc/spec-mechanics/trace/0029-result-event.jsonl",
+    "result_event_sha256": "20de0837d26cd9b433fe167afddc66779a3a4b50e0deaac8a61df1e19c90c4d3",
+    "result_summary": "def canonical_production_candidates() -> frozenset[Path]:\n    \"\"\"canonical 生产库的全部候选绝对路径（检出位置无关）。\n\n    - 包相对路径：代码就在主检出树里跑时的常态。\n    - 主检出树路径：代码在附属 worktree 里跑时，真生产库仍被认出（G1）。\n    - MARKET_FEATURE_STORE_PRODUCTION_DB：跨 clone（独立克隆跑代码写主仓\n      库）时的显式钉；调用期读 env，不做 import 期捕获。\n    \"\"\"\n    candidates = {canonical_production_pat",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0014.json"
+  },
+  {
+    "index": 30,
+    "id": "read_29",
+    "tool": "read",
+    "event_line": 18233,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v4-0921/scripts/verify_302132_backfill_acceptance.py",
+      "limit": 220
+    },
+    "end_event_line": 18234,
+    "result_event": "operator-qc/spec-mechanics/trace/0030-result-event.jsonl",
+    "result_event_sha256": "6f462e3f1983a398c60a5f906d8f4e115829d05d3b6e60482a8aafb5f884b1dc",
+    "result_summary": "#!/usr/bin/env python3\n\"\"\"302132 回填完整副本演练·外部独立验收（fail-closed 门禁，非报告生成器）。\n\n对象角色（两种用法同一语义）：\n- `--production`：**不可变基线**库。演练复验 = 未动的真生产；生产执行后验收 =\n  换库前备份文件（路径与 sha 见执行收据 backup 字段）。\n- `--clone`：**换库后结果**库。演练 = 演练产物库；生产执行后 = canonical 生产库\n  （收据按 `<clone>.repair-backfill-execution.<run_id>.json` 派生）。\n- `--expected-production",
+    "is_error": false
+  },
+  {
+    "index": 31,
+    "id": "read_30",
+    "tool": "read",
+    "event_line": 18276,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v4-0921/scripts/verify_302132_backfill_acceptance.py",
+      "offset": 221,
+      "limit": 280
+    },
+    "end_event_line": 18277,
+    "result_event": "operator-qc/spec-mechanics/trace/0031-result-event.jsonl",
+    "result_event_sha256": "3d4807e0aec9a46a583c230ffb0469571ce40defd6a1e1bc93fda9073f52d42b",
+    "result_summary": "                gaps[k] = v\n                if _is_date(spec.get(\"window_start\")) \\\n                        and _is_date(spec.get(\"main_fill_end\")):\n                    req(all(spec[\"window_start\"] <= d\n                            <= spec[\"main_fill_end\"] for d in v),\n                        f\"spec.{k}:界内\")\n        if ",
+    "is_error": false
+  },
+  {
+    "index": 32,
+    "id": "read_31",
+    "tool": "read",
+    "event_line": 18318,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v4-0921/scripts/verify_302132_backfill_acceptance.py",
+      "offset": 501
+    },
+    "end_event_line": 18319,
+    "result_event": "operator-qc/spec-mechanics/trace/0032-result-event.jsonl",
+    "result_event_sha256": "6c6dc3622ed282342d586a2b653d309e8b035ccd922bfbd77b5b7b66a163411d",
+    "result_summary": "        if not _HEX64.fullmatch(want_sha):\n            check(f\"old_receipt:{op.name}\", False, \"期望 sha 非 64hex\")\n            continue\n        if not op.is_file():\n            check(f\"old_receipt:{op.name}\", False, \"不存在\")\n            continue\n        sha_check(f\"old_receipt:{op.name}\", op, want_sha)\n\n    # ── 数据合同（预检/参数/",
+    "is_error": false
+  },
+  {
+    "index": 33,
+    "id": "bash_32",
+    "tool": "bash",
+    "event_line": 18615,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && ls tests/test_main_gate_receipt.py tests/test_test_receipt_dirt.py tests/test_check_receipt_revision_gate.py tests/test_check_receipt_zero_count_gate.py tests/test_worktree_board.py tests/test_repair_backfill_stock_history.py intelligence/tests/test_pytest_collection_scope.py 2>&1; echo ---; grep -n \"def test\" tests/test_main_gate_receipt.py | head -50"
+    },
+    "end_event_line": 18622,
+    "result_event": "operator-qc/spec-mechanics/trace/0033-result-event.jsonl",
+    "result_event_sha256": "ae0d44a0ab242641f5bbe2c55c1a75ae4990d98193251e8e0fc33cc7a1e29ff2",
+    "result_summary": "intelligence/tests/test_pytest_collection_scope.py\ntests/test_check_receipt_revision_gate.py\ntests/test_check_receipt_zero_count_gate.py\ntests/test_main_gate_receipt.py\ntests/test_repair_backfill_stock_history.py\ntests/test_test_receipt_dirt.py\ntests/test_worktree_board.py\n---\n38:    (path / \"test_sample.py\").write_tex",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0015.json"
+  },
+  {
+    "index": 34,
+    "id": "bash_33",
+    "tool": "bash",
+    "event_line": 18616,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && grep -n \"def test\" tests/test_worktree_board.py | head -40; echo ---; grep -n \"def test\" tests/test_repair_backfill_stock_history.py | head -60"
+    },
+    "end_event_line": 18624,
+    "result_event": "operator-qc/spec-mechanics/trace/0034-result-event.jsonl",
+    "result_event_sha256": "89b6a740855909ea8836003a00f6f00cd75845b6513df0dd738c954d0bda5453",
+    "result_summary": "43:def test_parse_worktree_porcelain() -> None:\n53:def test_code_dirty_skips_exports() -> None:\n58:def test_tree_kind_uses_path_shape_not_home_literal(tmp_path: Path) -> None:\n70:def test_cherry_equivalent_patch_is_in_main(tmp_path: Path) -> None:\n92:def test_unique_commit_is_cherry_plus(tmp_path: Path) -> None:\n109:de",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0016.json"
+  },
+  {
+    "index": 35,
+    "id": "bash_34",
+    "tool": "bash",
+    "event_line": 23244,
+    "args": {
+      "command": "PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python; $PY -c \"import sys, pytest, duckdb; print(sys.version); print('pytest', pytest.__version__); print('duckdb', duckdb.__version__)\"; echo \"RUFF_CACHE_DIR=$RUFF_CACHE_DIR\"; $PY -m ruff --version"
+    },
+    "end_event_line": 23250,
+    "result_event": "operator-qc/spec-mechanics/trace/0035-result-event.jsonl",
+    "result_event_sha256": "aef0b4b9f650382b785dd7f5da6d55f21cb8eff0586f08299d2269d3b5ff8bdf",
+    "result_summary": "3.12.13 (main, Mar  3 2026, 12:39:30) [Clang 21.0.0 (clang-2100.0.123.102)]\npytest 8.3.5\nduckdb 1.5.4\nRUFF_CACHE_DIR=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/ruff-cache\nruff 0.11.13\n",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0017.json"
+  },
+  {
+    "index": 36,
+    "id": "read_35",
+    "tool": "read",
+    "event_line": 23245,
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v4-0921/tests/test_main_gate_receipt.py"
+    },
+    "end_event_line": 23247,
+    "result_event": "operator-qc/spec-mechanics/trace/0036-result-event.jsonl",
+    "result_event_sha256": "e88b58c01f40c086d0d33b1ec0188916de2b70fadcee985bccccddf7f689cf8e",
+    "result_summary": "\"\"\"Exercise the shell entry point and the real pytest receipt writer offline.\"\"\"\nfrom __future__ import annotations\n\nimport json\nimport os\nimport shutil\nimport subprocess\nimport sys\nfrom concurrent.futures import ThreadPoolExecutor\nfrom pathlib import Path\n\nimport pytest\n\nimport conftest as root_conftest\n\nROOT = Path(_",
+    "is_error": false
+  },
+  {
+    "index": 37,
+    "id": "bash_36",
+    "tool": "bash",
+    "event_line": 26639,
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && for f in conftest.py scripts/main_gate_receipt.py scripts/run_main_gate.sh scripts/worktree_board.py market_feature_store/cli.py market_feature_store/sync/repair_backfill_stock_history.py scripts/verify_302132_backfill_acceptance.py; do echo \"$(shasum -a 256 \"$f\" | cut -d' ' -f1)  $f\"; done"
+    },
+    "end_event_line": 26649,
+    "result_event": "operator-qc/spec-mechanics/trace/0037-result-event.jsonl",
+    "result_event_sha256": "433bea7365bebba1e5c6401be1934b2c6d9f1d609791f31f8999b9754680e5dc",
+    "result_summary": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955  conftest.py\n214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679  scripts/main_gate_receipt.py\nc2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca  scripts/run_main_gate.sh\nbfd5519b73171329f69ea360be15733e9b45bf670bb88eedf7a1970b",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0018.json"
+  },
+  {
+    "index": 38,
+    "id": "bash_37",
+    "tool": "bash",
+    "event_line": 26640,
+    "args": {
+      "command": "PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python; $PY - <<'EOF'\nimport inspect, _pytest.config\nsrc = inspect.getsource(_pytest.config)\n# find pytest_cmdline_main and wrap_session\nimport re\nfor name in (\"def pytest_cmdline_main\", \"def wrap_session\", \"def _ensure_unconfigure\", \"def add_cleanup\"):\n    i = src.find(name)\n    print(\"=\"*20, name, \"found\" if i>=0 else \"MISSING\")\nprint(inspect.getsource(_pytest.config.Config.add_cleanup))\nprint(inspect.getsource(_pytest.config.Config._ensure_unconfigure))\nEOF"
+    },
+    "end_event_line": 26646,
+    "result_event": "operator-qc/spec-mechanics/trace/0038-result-event.jsonl",
+    "result_event_sha256": "e17ea30f9f018b72f12146fdc5cc399525226b53cf194b2f6ac8763b47a2a5c4",
+    "result_summary": "==================== def pytest_cmdline_main MISSING\n==================== def wrap_session MISSING\n==================== def _ensure_unconfigure found\n==================== def add_cleanup found\n    def add_cleanup(self, func: Callable[[], None]) -> None:\n        \"\"\"Add a function to be called when the config object gets",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0019.json"
+  },
+  {
+    "index": 39,
+    "id": "bash_38",
+    "tool": "bash",
+    "event_line": 26837,
+    "args": {
+      "command": "PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python; $PY - <<'EOF'\nimport inspect\nimport _pytest.main as m\nsrc = inspect.getsource(m)\ni = src.find(\"def pytest_cmdline_main\")\nprint(src[i:i+700])\ni = src.find(\"def wrap_session\")\nprint(src[i:i+1400])\nEOF"
+    },
+    "end_event_line": 26840,
+    "result_event": "operator-qc/spec-mechanics/trace/0039-result-event.jsonl",
+    "result_event_sha256": "c54f0f761af0084b8a62077605146319c68832dbeded77b9e1226914a4bf4f4b",
+    "result_summary": "def pytest_cmdline_main(config: Config) -> int | ExitCode:\n    return wrap_session(config, _main)\n\n\ndef _main(config: Config, session: Session) -> int | ExitCode | None:\n    \"\"\"Default command line protocol for initialization, session,\n    running tests and reporting.\"\"\"\n    config.hook.pytest_collection(session=sessio",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0020.json"
+  },
+  {
+    "index": 40,
+    "id": "bash_39_6f673020",
+    "tool": "bash",
+    "event_line": 27046,
+    "args": {
+      "command": "PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python; $PY - <<'EOF'\nimport inspect\nimport _pytest.main as m\nsrc = inspect.getsource(m.wrap_session)\ni = src.find(\"finally:\")\nprint(src[i:i+300])\nimport _pytest.config as c\nprint(inspect.getsource(c.pytest_cmdline_main)[:800])\nEOF"
+    },
+    "end_event_line": 27050,
+    "result_event": "operator-qc/spec-mechanics/trace/0040-result-event.jsonl",
+    "result_event_sha256": "39860ff568e4208986bb02dcba231b0f3eff786c53a3a1e5c4859c11921aed14",
+    "result_summary": "finally:\n        # Explicitly break reference cycle.\n        excinfo = None  # type: ignore\n        os.chdir(session.startpath)\n        if initstate >= 2:\n            try:\n                config.hook.pytest_sessionfinish(\n                    session=session, exitstatus=session.exitstatus\n           \nTraceback (most rec",
+    "is_error": true,
+    "shell_record": "spec-k3/shell-records/0021.json"
+  },
+  {
+    "index": 41,
+    "id": "bash_40",
+    "tool": "bash",
+    "event_line": 27137,
+    "args": {
+      "command": "PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python; $PY - <<'EOF'\nimport inspect\nimport _pytest.main as m\nsrc = inspect.getsource(m.wrap_session)\ni = src.find(\"finally:\")\nprint(src[i:i+700])\nimport _pytest.config as c\nprint(inspect.getsource(c.main))\nEOF"
+    },
+    "end_event_line": 27140,
+    "result_event": "operator-qc/spec-mechanics/trace/0041-result-event.jsonl",
+    "result_event_sha256": "a75ec5527eb89a2a0418871005292c898b7fe903bfa7c00f885cc058e16b6030",
+    "result_summary": "finally:\n        # Explicitly break reference cycle.\n        excinfo = None  # type: ignore\n        os.chdir(session.startpath)\n        if initstate >= 2:\n            try:\n                config.hook.pytest_sessionfinish(\n                    session=session, exitstatus=session.exitstatus\n                )\n            e",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0022.json"
+  },
+  {
+    "index": 42,
+    "id": "bash_41_881ffc7e",
+    "tool": "bash",
+    "event_line": 27562,
+    "args": {
+      "command": "set -e\nEV=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3\nR=$EV/probes/receipt-repo\nSRC=/Users/a77/fwp-wt-ownership-spec-v4-0921\nPY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\nmkdir -p \"$R\"\ncd \"$R\"\ngit init -q -b main\ngit config user.name \"K3 spec probe\"\ngit config user.email \"k3-spec@probe.test\"\ngit config commit.gpgsign false\ncp \"$SRC/conftest.py\" conftest.py\nmkdir -p scripts\ncp \"$SRC/scripts/run_main_gate.sh\" scripts/run_main_gate.sh\ncp \"$SRC/scripts/main_gate_receipt.py\" scripts/main_gate_receipt.py\n\"$PY\" - \"$R/test-environment.json\" <<'EOF'\nimport json, sys\nspec = {\n  \"interpreter\": \"/Users/a77/finance-workspace-private/.venv-workbench/bin/python\",\n  \"required_modules\": [\"pytest\"],\n  \"escape_env_var\": \"FWP_ALLOW_ANY_PYTHON\",\n  \"code_path_prefixes\": [\"conftest.py\", \"test_\", \"scripts/\", \"test-environment.json\"],\n  \"data_path_exceptions\": [],\n}\nopen(sys.argv[1], \"w\").write(json.dumps(spec, indent=2))\nEOF\ncat > test_a.py <<'EOF'\ndef test_a1():\n    assert True\n\n\ndef test_a2():\n    assert True\nEOF\ncat > test_b.py <<'EOF'\ndef test_b1():\n    assert True\nEOF\nprintf '__pycache__/\\n.pytest_cache/\\n.ruff_cache/\\n' > .gitignore\ngit add -A\ngit commit -qm \"k3 receipt probe fixture\"\ngit rev-parse HEAD\ngit status --porcelain | wc -l"
+    },
+    "end_event_line": 27566,
+    "result_event": "operator-qc/spec-mechanics/trace/0042-result-event.jsonl",
+    "result_event_sha256": "f97b28cd40d094676a58a1ff35e38a1d85b1b8216c603c8cc31f73603d0fb5f3",
+    "result_summary": "c277222938c3d6215ac5eea324a7d59dc41928c4\n       0\n",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0023.json"
+  },
+  {
+    "index": 43,
+    "id": "bash_42",
+    "tool": "bash",
+    "event_line": 27790,
+    "args": {
+      "command": "EV=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3\nR=$EV/probes/receipt-repo\nmkdir -p \"$EV/evidence/r1\"\ncd \"$R\"\nenv -i PATH=/usr/bin:/bin:/usr/local/bin HOME=\"$EV/tmp/home-r1\" \\\n  FWP_TEST_RECEIPT_DIR=\"$EV/evidence/r1/receipts\" \\\n  PYTHONDONTWRITEBYTECODE=1 \\\n  bash scripts/run_main_gate.sh --pytest-args \"-q -p no:cacheprovider test_a.py\" \\\n  > \"$EV/evidence/r1/valid-control.log\" 2>&1\necho \"gate rc=$?\"\ntail -8 \"$EV/evidence/r1/valid-control.log\"\necho \"--- receipts tree:\"\nfind \"$EV/evidence/r1/receipts\" -type f | sort"
+    },
+    "end_event_line": 27794,
+    "result_event": "operator-qc/spec-mechanics/trace/0043-result-event.jsonl",
+    "result_event_sha256": "0c18d5300b1d5827e8b944b0d550499bdadfe6f6573e8c4382df09d3d3996fb8",
+    "result_summary": "gate rc=0\nAll checks passed!\n== pytest -q -p no:cacheprovider test_a.py\n..                                                                       [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/receipts/gate-Zn2TvXmZ/pytest.json\n\n2 passed in 0.18s\n== receipt /Users/a77/.finan",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0024.json"
+  },
+  {
+    "index": 44,
+    "id": "bash_43_44d6ddf7",
+    "tool": "bash",
+    "event_line": 28225,
+    "args": {
+      "command": "EV=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3\nR=$EV/probes/receipt-repo\ncd \"$R\"\nenv -i PATH=/usr/bin:/bin:/usr/local/bin HOME=\"$EV/tmp/home-r1\" \\\n  FWP_TEST_RECEIPT_DIR=\"$EV/evidence/r1/receipts2\" \\\n  PYTHONDONTWRITEBYTECODE=1 \\\n  bash scripts/run_main_gate.sh --pytest-args \"-q -p no:cacheprovider test_a.py test_b.py\" \\\n  > \"$EV/evidence/r1/valid-control-ruff.log\" 2>&1\necho \"gate rc=$?\"\ngrep -E \"^==|All checks|passed\" \"$EV/evidence/r1/valid-control-ruff.log\" | head -6"
+    },
+    "end_event_line": 28231,
+    "result_event": "operator-qc/spec-mechanics/trace/0044-result-event.jsonl",
+    "result_event_sha256": "e71f8e1e549be7e1283653b40581c74009aece8b26ae531963364f0caff682f4",
+    "result_summary": "gate rc=0\n== gate @ d0d6f28fd0c6 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/receipt-repo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/receipts2/gate-tpYeVonE/pytest.json\n=",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0025.json"
+  },
+  {
+    "index": 45,
+    "id": "bash_44_33cff605",
+    "tool": "bash",
+    "event_line": 28226,
+    "args": {
+      "command": "EV=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3\nR=$EV/probes/receipt-repo\ncd \"$R\"\n# failing-test gate run (tree stays clean: fixture committed already)\ncat > test_fail.py <<'EOF'\ndef test_kaboom():\n    assert False, \"k3 probe failure\"\nEOF\ngit add test_fail.py && git commit -qm \"k3 failing fixture (kept for failure-path probes)\"\nenv -i PATH=/usr/bin:/bin:/usr/local/bin HOME=\"$EV/tmp/home-r1\" \\\n  FWP_TEST_RECEIPT_DIR=\"$EV/evidence/r1/receipts-fail\" \\\n  PYTHONDONTWRITEBYTECODE=1 \\\n  bash scripts/run_main_gate.sh --pytest-args \"-q -p no:cacheprovider test_fail.py\" \\\n  > \"$EV/evidence/r1/failed-receipt.log\" 2>&1\necho \"gate rc=$?\"\ntail -6 \"$EV/evidence/r1/failed-receipt.log\"\ngit rev-parse HEAD"
+    },
+    "end_event_line": 28234,
+    "result_event": "operator-qc/spec-mechanics/trace/0045-result-event.jsonl",
+    "result_event_sha256": "be6d4002834e50b85d93fd50fc77629f462e46070b79d29719c6b5cc8de5a87f",
+    "result_summary": "gate rc=1\nFAILED test_fail.py::test_kaboom - AssertionError: k3 probe failure\n1 failed in 0.22s\n== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/receipts-fail/gate-TBd2dVfq/pytest.json\n   revision=d0d6f28fd0c6 dirty=False target=test_fail.py\n   passed=0 failed=1 error=0 skippe",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0026.json"
+  },
+  {
+    "index": 46,
+    "id": "write_45",
+    "tool": "write",
+    "event_line": 31856,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/probe_readback.py"
+    },
+    "write_within_output_lexically": true,
+    "content_sha256": "8cca203ca90cd6f6064c727627eb684ef3f75e9a2eb5b1f845a3a57359e776a5",
+    "recovered_write": "operator-qc/spec-mechanics/trace/0046-write-probe_readback.py.txt",
+    "end_event_line": 31857,
+    "result_event": "operator-qc/spec-mechanics/trace/0046-result-event.jsonl",
+    "result_event_sha256": "5b6376fc86f4f492361d76fad8ca5646f9bcab5a5476df83f0c809eafd0a4318",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/probe_readback.py",
+    "is_error": false
+  },
+  {
+    "index": 47,
+    "id": "bash_46",
+    "tool": "bash",
+    "event_line": 31945,
+    "args": {
+      "command": "PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\nPYTHONDONTWRITEBYTECODE=1 $PY /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/probe_readback.py 2>&1 | tail -50; echo \"driver rc=$?\"",
+      "timeout": 110
+    },
+    "end_event_line": 31948,
+    "result_event": "operator-qc/spec-mechanics/trace/0047-result-event.jsonl",
+    "result_event_sha256": "1018b907a6346c6cdc22dfb8385a1cdbd5ac714ae44c37edf8a257860e731d8d",
+    "result_summary": "OK  rc=0 want=0 valid-copy\nOK  rc=4 want=4 revision-wrong\nOK  rc=4 want=4 revision-missing\nOK  rc=4 want=4 tree-wrong\nOK  rc=4 want=4 tree-missing\nOK  rc=4 want=4 tree-null\nOK  rc=4 want=4 interpreter-wrong\nOK  rc=4 want=4 interpreter-missing\nOK  rc=4 want=4 dirty-true\nOK  rc=4 want=4 dirty-total-nonzero\nOK  rc=4 want=",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0027.json"
+  },
+  {
+    "index": 48,
+    "id": "write_47",
+    "tool": "write",
+    "event_line": 34579,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/probe_execution.py"
+    },
+    "write_within_output_lexically": true,
+    "content_sha256": "30a08b650abafe58c2be241075c913211a1a2378bace9b1782b528d21a56236e",
+    "recovered_write": "operator-qc/spec-mechanics/trace/0048-write-probe_execution.py.txt",
+    "end_event_line": 34580,
+    "result_event": "operator-qc/spec-mechanics/trace/0048-result-event.jsonl",
+    "result_event_sha256": "dca66ae5e4a4149b9141342f0384a5ed5f207d18ef275f2141b71719c5fe56dd",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/probe_execution.py",
+    "is_error": false
+  },
+  {
+    "index": 49,
+    "id": "bash_48",
+    "tool": "bash",
+    "event_line": 34667,
+    "args": {
+      "command": "PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\nPYTHONDONTWRITEBYTECODE=1 $PY /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/probe_execution.py 2>&1 | tail -20; echo \"driver rc=$?\"",
+      "timeout": 115
+    },
+    "end_event_line": 34671,
+    "result_event": "operator-qc/spec-mechanics/trace/0049-result-event.jsonl",
+    "result_event_sha256": "4e333b69476b635caf2462581de02cf5fdd9cef5e45722f3894dfab103a33e7b",
+    "result_summary": "OK  rc=4 want=4 pytest-exit-mismatch gate receipt refused: receipt exit_status does not match pytest process\nOK  rc=0 want=0 pytest-exit-match \nOK  rc=2 want=2 dirty-tree-noflag shell refuses dirty tree\nOK  rc=0 want=0 dirty-tree-allow local iteration allowed\nOK  rc=4 want=4 git-status-fails-at-start fatal: k3 shim\nOK ",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0028.json"
+  },
+  {
+    "index": 50,
+    "id": "bash_49",
+    "tool": "bash",
+    "event_line": 34820,
+    "args": {
+      "command": "cat /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/execution-matrix.jsonl | /Users/a77/finance-workspace-private/.venv-workbench/bin/python -c \"import json,sys\nfor line in sys.stdin: r=json.loads(line); print(json.dumps(r, ensure_ascii=False))\" | grep -E \"dirty-tree-allow|zero-execution|revision-change\""
+    },
+    "end_event_line": 34823,
+    "result_event": "operator-qc/spec-mechanics/trace/0050-result-event.jsonl",
+    "result_event_sha256": "91204a1551d7d4f4de0dacce364071879fb67faf33cefa7a16886de1df14bf65",
+    "result_summary": "{\"case\": \"dirty-tree-allow\", \"rc\": 0, \"expect\": 0, \"ok\": true, \"note\": \"local iteration allowed\", \"receipt_dirty\": true, \"receipt_total\": 1, \"receipt_dirty_paths\": [\"test_a.py\"]}\n{\"case\": \"zero-execution\", \"rc\": 4, \"expect\": 4, \"ok\": true, \"note\": \"pytest exit 5 / zero counts rejected\", \"receipt_counts\": {\"passed\": 0, ",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0029.json"
+  },
+  {
+    "index": 51,
+    "id": "tool_AV8i2dvbkcNlK65IGDbDhUOM",
+    "tool": "write",
+    "event_line": 40214,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/probe_ownership.py"
+    },
+    "write_within_output_lexically": true,
+    "content_sha256": "bbc273fb2a1f7634434a803a6acc1a472e69d3baa8897a64bd946ca539d6c79d",
+    "recovered_write": "operator-qc/spec-mechanics/trace/0051-write-probe_ownership.py.txt",
+    "end_event_line": 40215,
+    "result_event": "operator-qc/spec-mechanics/trace/0051-result-event.jsonl",
+    "result_event_sha256": "b0607016d22e4ddbb71533f4d14dfac34f16295c407d1ea785ba30f7ef8bc1f8",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/probe_ownership.py",
+    "is_error": false
+  },
+  {
+    "index": 52,
+    "id": "write_51",
+    "tool": "write",
+    "event_line": 41239,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/o5_runner.py"
+    },
+    "write_within_output_lexically": true,
+    "content_sha256": "a63ef39064d688d4012856000504dd03cdd08571336c31853f9edf6604dac1b1",
+    "recovered_write": "operator-qc/spec-mechanics/trace/0052-write-o5_runner.py.txt",
+    "end_event_line": 41241,
+    "result_event": "operator-qc/spec-mechanics/trace/0052-result-event.jsonl",
+    "result_event_sha256": "97c7d2abfa273d3d1fd38efcc0b1fc5cbb86deeeef14b08ef79e95081f27899e",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/o5_runner.py",
+    "is_error": false
+  },
+  {
+    "index": 53,
+    "id": "write_52",
+    "tool": "write",
+    "event_line": 41240,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/o6_runner.py"
+    },
+    "write_within_output_lexically": true,
+    "content_sha256": "e423598dc6ba3b0d3256363c0a732215bc4b4e26b0d0d58b850106cf25e9e56a",
+    "recovered_write": "operator-qc/spec-mechanics/trace/0053-write-o6_runner.py.txt",
+    "end_event_line": 41242,
+    "result_event": "operator-qc/spec-mechanics/trace/0053-result-event.jsonl",
+    "result_event_sha256": "e02062d13c90344ccf4a2d6190d417dd6482c6f4233c9b7e24833814e6c6de6a",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/o6_runner.py",
+    "is_error": false
+  },
+  {
+    "index": 54,
+    "id": "bash_53",
+    "tool": "bash",
+    "event_line": 41750,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes && python3 - <<'EOF'\nfrom pathlib import Path\np = Path(\"o5_runner.py\")\nt = p.read_text()\nt = t.replace('''class Capture(pytest.Session if False else object):\n    pass\n\n\n''', '')\np.write_text(t)\np = Path(\"probe_ownership.py\")\nt = p.read_text()\nt = t.replace('''           and states[3][\"exit\"] == 0 and states[3][\"owner_after\"] == \"424242\"\n           and not (outdir / \"run-d.json\").exists(),''',\n'''           and states[3][\"exit\"] == 4 and states[3][\"owner_after\"] == \"424242\"\n           and not (outdir / \"run-c.json\").exists()\n           and not (outdir / \"run-d.json\").exists(),''')\np.write_text(t)\nprint(\"patched\")\nEOF"
+    },
+    "end_event_line": 41753,
+    "result_event": "operator-qc/spec-mechanics/trace/0054-result-event.jsonl",
+    "result_event_sha256": "2d1c4d6e7ad62b49f6d59b25dabeb8ec66419b5817df9e3dcd13cec691376a73",
+    "result_summary": "patched\n",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0030.json"
+  },
+  {
+    "index": 55,
+    "id": "bash_54",
+    "tool": "bash",
+    "event_line": 41887,
+    "args": {
+      "command": "PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\nPYTHONDONTWRITEBYTECODE=1 $PY /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/probe_ownership.py 2>&1 | tail -15; echo \"driver rc=$?\"",
+      "timeout": 118
+    },
+    "end_event_line": 41891,
+    "result_event": "operator-qc/spec-mechanics/trace/0055-result-event.jsonl",
+    "result_event_sha256": "c25f3b015453426155cb5c358ba07a4cbfc5b640e0dce8c24984621e28d60444",
+    "result_summary": "OK  O1-inprocess-nested {\"rc\": 0, \"n_receipts\": 1, \"counts\": {\"passed\": 2, \"failed\": 0, \"error\": 0, \"skipped\": 0}}\nOK  O2-inner-failure-isolated {\"rc\": 0, \"counts\": {\"passed\": 1, \"failed\": 0, \"error\": 0, \"skipped\": 0}}\nOK  O3-subprocess-inherited-blocked {\"rc\": 0, \"stray\": []}\nOK  O4-fresh-subprocess-new-owner {\"rc\": 0",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0031.json"
+  },
+  {
+    "index": 56,
+    "id": "bash_55",
+    "tool": "bash",
+    "event_line": 42583,
+    "args": {
+      "command": "EV=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3\n$PY - <<'EOF' 2>/dev/null || PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python; $PY - <<'EOF2'\nEOF\nimport json\nfrom pathlib import Path\nout = Path(\"/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/o5\")\nprint(\"run1 target:\", json.loads((out/\"run1.json\").read_text())[\"target\"])\nprint(\"run3 target:\", json.loads((out/\"run3.json\").read_text())[\"target\"])\nEOF2"
+    },
+    "end_event_line": 42586,
+    "result_event": "operator-qc/spec-mechanics/trace/0056-result-event.jsonl",
+    "result_event_sha256": "3e1ae3124c969b4eb5b7d60459a5c702184b4905097fa646d5171da46bc0f73f",
+    "result_summary": "run1 target: test_a.py\nrun3 target: test_b.py\n",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0032.json"
+  },
+  {
+    "index": 57,
+    "id": "tool_RC1JKxElEMKmg7QElNyOC3Xg",
+    "tool": "bash",
+    "event_line": 43304,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes && python3 - <<'EOF'\nfrom pathlib import Path\np = Path(\"probe_ownership.py\")\nt = p.read_text()\nt = t.replace('and run1_data.get(\"target\") == \"test_a.py -k a1\"',\n              'and run1_data.get(\"target\") == \"test_a.py\"')\n# O8: both gates must run the rendezvous test file\nt = t.replace('for i, target in enumerate((\"test_o8.py\", \"test_b.py\")):',\n              'for i, target in enumerate((\"test_o8.py\", \"test_o8.py\")):')\nt = t.replace('''           and datas[0].get(\"target\") == \"test_o8.py\"\n           and datas[1].get(\"target\") == \"test_b.py\"\n           and datas[0].get(\"counts\", {}).get(\"passed\") == 1\n           and datas[1].get(\"counts\", {}).get(\"passed\") == 1,''',\n              '''           and datas[0].get(\"target\") == \"test_o8.py\"\n           and datas[1].get(\"target\") == \"test_o8.py\"\n           and datas[0].get(\"counts\", {}).get(\"passed\") == 1\n           and datas[1].get(\"counts\", {}).get(\"passed\") == 1\n           and recs[0][0] != recs[1][0],''')\np.write_text(t)\nprint(\"patched\")\nEOF\nPY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\n# re-run only O5/O8 parts by rerunning whole driver (idempotent, fresh receipt dirs)\nrm -rf /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/o5 /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/own-o8-* /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/tmp/o8-meet\nPYTHONDONTWRITEBYTECODE=1 $PY probe_ownership.py 2>&1 | tail -12; echo \"driver rc=$?\"",
+      "timeout": 118
+    },
+    "end_event_line": 43309,
+    "result_event": "operator-qc/spec-mechanics/trace/0057-result-event.jsonl",
+    "result_event_sha256": "26e3758c72ca602bdc7a3d143cae5947ce4763a32dcb4919cffefb1f48e7dfff",
+    "result_summary": "patched\nTraceback (most recent call last):\n  File \"/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/probe_ownership.py\", line 295, in <module>\n    sys.exit(main())\n             ^^^^^^\n  File \"/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/probe_ownership.py\", line",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0033.json"
+  },
+  {
+    "index": 58,
+    "id": "bash_57",
+    "tool": "bash",
+    "event_line": 43728,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes && python3 - <<'EOF'\nfrom pathlib import Path\np = Path(\"probe_ownership.py\")\nt = p.read_text()\nt = t.replace('''def git(*args):\n    return subprocess.run([\"git\", *args], cwd=REPO, check=True,\n                          capture_output=True, text=True).stdout.strip()''',\n'''def git(*args, check=True):\n    return subprocess.run([\"git\", *args], cwd=REPO, check=check,\n                          capture_output=True, text=True).stdout.strip()\n\n\ndef commit_if_dirty(msg):\n    git(\"add\", \"-A\")\n    if subprocess.run([\"git\", \"diff\", \"--cached\", \"--quiet\"], cwd=REPO).returncode != 0:\n        git(\"commit\", \"-m\", msg)''')\nt = t.replace('''    git(\"add\", \"-A\")\n    git(\"commit\", \"-m\", \"k3 ownership fixtures\")''', '    commit_if_dirty(\"k3 ownership fixtures\")')\nt = t.replace('''    git(\"add\", \"test_o8.py\")\n    git(\"commit\", \"-m\", \"k3 o8 fixture\")''', '    commit_if_dirty(\"k3 o8 fixture\")')\np.write_text(t)\nprint(\"patched\")\nEOF\nPY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\nPYTHONDONTWRITEBYTECODE=1 $PY probe_ownership.py 2>&1 | tail -12; echo \"driver rc=$?\"",
+      "timeout": 118
+    },
+    "end_event_line": 43733,
+    "result_event": "operator-qc/spec-mechanics/trace/0058-result-event.jsonl",
+    "result_event_sha256": "1937e5fc4d63f86285d2a0783e831f265ac127361711ab37fa09f6355185ee92",
+    "result_summary": "patched\nBAD O1-inprocess-nested {\"rc\": 0, \"n_receipts\": 2, \"counts\": {\"passed\": 2, \"failed\": 0, \"error\": 0, \"skipped\": 0}}\nBAD O2-inner-failure-isolated {\"rc\": 0, \"counts\": {\"passed\": 1, \"failed\": 0, \"error\": 0, \"skipped\": 0}}\nBAD O3-subprocess-inherited-blocked {\"rc\": 0, \"stray\": []}\nBAD O4-fresh-subprocess-new-owner ",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0034.json"
+  },
+  {
+    "index": 59,
+    "id": "bash_58",
+    "tool": "bash",
+    "event_line": 44094,
+    "args": {
+      "command": "EV=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3\nrm -rf \"$EV\"/evidence/r1/own-o1 \"$EV\"/evidence/r1/own-o2 \"$EV\"/evidence/r1/own-o3 \"$EV\"/evidence/r1/own-o4 \"$EV\"/evidence/r1/own-o7 \"$EV\"/evidence/r1/own-o8-* \"$EV\"/evidence/r1/o5 \"$EV\"/evidence/r1/o6 \"$EV\"/tmp/o8-meet\nPY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\ncd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes\nPYTHONDONTWRITEBYTECODE=1 $PY probe_ownership.py 2>&1 | tail -12; echo \"driver rc=$?\"",
+      "timeout": 118
+    },
+    "end_event_line": 44098,
+    "result_event": "operator-qc/spec-mechanics/trace/0059-result-event.jsonl",
+    "result_event_sha256": "0892b8aed7f5e4b8b71779e67858759a060b111ddb3bf3d020551674fad2d7e8",
+    "result_summary": "OK  O1-inprocess-nested {\"rc\": 0, \"n_receipts\": 1, \"counts\": {\"passed\": 2, \"failed\": 0, \"error\": 0, \"skipped\": 0}}\nOK  O2-inner-failure-isolated {\"rc\": 0, \"counts\": {\"passed\": 1, \"failed\": 0, \"error\": 0, \"skipped\": 0}}\nOK  O3-subprocess-inherited-blocked {\"rc\": 0, \"stray\": []}\nOK  O4-fresh-subprocess-new-owner {\"rc\": 0",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0035.json"
+  },
+  {
+    "index": 60,
+    "id": "bash_59",
+    "tool": "bash",
+    "event_line": 45007,
+    "args": {
+      "command": "cat >> /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/notes/progress.md <<'EOF'\n\n## DONE: R1-R4 receipt probes (2026-09-21, all in evidence/r1)\n- Valid control: real gate (hash-identical copies) in synthetic repo: rc 0, receipt in gate-*/pytest.json, latest.json written (navigation). Ruff gate positive control rc 0. Failed-test gate rc 1 with RED id.\n- Readback matrix 45/45 (readback-matrix.jsonl): wrong/missing revision, tree, interpreter; dirty w/o flag; dirty-total nonzero/missing; dep-gate bypassed/missing; zero-exec; negative/float/bool/string counts; missing count key; exit_status 2/5/missing; status<->failed_ids inconsistency; target missing; malformed/array/null JSON; missing file; failed receipt rc 1; allow-dirty waives dirty only (wrong tree/revision still rc 4); baseline: same-red rc 0 (diagnostic), new-red rc 3, decreased passes rc 3, target mismatch rc 4, dirty baseline rc 4, different-revision baseline rc 0 (allowed per R3), interrupted current rc 4, malformed baseline rc 4; unknown arg/missing value rc 4.\n- Execution matrix 9/9 (execution-matrix.jsonl): pytest-exit mismatch rc 4 / match rc 0; dirty tree rc 2, --allow-dirty rc 0 with honest receipt (dirty=true, paths listed); git status fail at start rc 4; git rev-parse fail rc 4; zero-execution (exit 5) rc 4; FWP_TEST_RECEIPT=0 + stale valid latest.json rc 4 (no fallback); mid-run commit rc 4 (receipt written binding new head but refused by drift check).\n- Ownership matrix 8/8 (ownership-matrix.jsonl): O1 same-process nested (inner -k selection, 1 inner test) — inner wrote nothing (asserted path absent at inner return), outer receipt = outer scope only (passed=2); O2 inner failure isolated (outer receipt failed=0 exit 0); O3 subprocess inherited env blocked, no stray receipts; O4 fresh subprocess (owner cleared + own path) = new owner, both receipts correct; O5 sequential same-process: claim released per run (owner_after None), same-path second run write fails with 收据未写出 warning, first receipt byte-identical (immutability); O6 configure failure (UsageError after claim) exit 4, no receipt, claim released, next run claims+writes; foreign pre-set owner never cleared, no claim/no write; O7 path switch mid-run: no receipt anywhere, gate rc 4; O8 simultaneous gates (rendezvous-verified overlap): 2 receipts, correct targets/counts.\n- Note: receipt target = positional args only (config.args); -k not captured. Ownership does not depend on target (env+stash), confirmed by O1.\n- pytest 8.3.5 cleanup semantics verified in source: wrap_session finally -> _ensure_unconfigure -> cleanups run even when _do_configure raises (initstate<2 skips sessionfinish). Matches O6.\n\n## NEXT: board probes (B1), backfill probes (F1/F2), formal tests\nEOF\necho noted"
+    },
+    "end_event_line": 45010,
+    "result_event": "operator-qc/spec-mechanics/trace/0060-result-event.jsonl",
+    "result_event_sha256": "27267b964a7367388f8e1d70c284bf702e777c58efd9ea70e82ff560fd126341",
+    "result_summary": "noted\n",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0036.json"
+  },
+  {
+    "index": 61,
+    "id": "write_60",
+    "tool": "write",
+    "event_line": 47825,
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/probe_board.py"
+    },
+    "write_within_output_lexically": true,
+    "content_sha256": "6261d57646139c2c89d996b6da639d3301006050ca7c0074bd53b1db82639727",
+    "recovered_write": "operator-qc/spec-mechanics/trace/0061-write-probe_board.py.txt",
+    "end_event_line": 47826,
+    "result_event": "operator-qc/spec-mechanics/trace/0061-result-event.jsonl",
+    "result_event_sha256": "b9bcd9ea3ef6fa55c9bed02bc266d2bae85b892ba9f87e3e3c5318346c4638d9",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/probe_board.py",
+    "is_error": false
+  },
+  {
+    "index": 62,
+    "id": "tool_GXdQxCsMZ7m1j2sg6XmXda5G",
+    "tool": "bash",
+    "event_line": 47913,
+    "args": {
+      "command": "PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\nPYTHONDONTWRITEBYTECODE=1 $PY /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/probe_board.py 2>&1 | tail -16; echo \"driver rc=$?\"",
+      "timeout": 115
+    },
+    "end_event_line": 47917,
+    "result_event": "operator-qc/spec-mechanics/trace/0062-result-event.jsonl",
+    "result_event_sha256": "1c2d60745b8875865b68a445d29d9f40d878e1dd2623fbe8d8d8c75379297e89",
+    "result_summary": "OK  B1-groups {\"rc\": 0}\nOK  B1-unique-row {\"row\": {\"cherry_plus\": 1, \"in_main\": false, \"subjects\": [\"b4a7f6fbc3c0ea23441c43bcc443680842a37996 unique patch\"]}}\nOK  B1-equiv-clean-prunable-grouped {\"row\": {\"cherry_plus\": 0, \"in_main\": true, \"kind\": \"dev-wt\"}}\nOK  B1-equiv-dirty-not-clean-candidate {}\nOK  B1-locked-preser",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0037.json"
+  },
+  {
+    "index": 63,
+    "id": "bash_62",
+    "tool": "bash",
+    "event_line": 48118,
+    "args": {
+      "command": "cat /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/b1/board.txt"
+    },
+    "end_event_line": 48121,
+    "result_event": "operator-qc/spec-mechanics/trace/0063-result-event.jsonl",
+    "result_event_sha256": "bd3684ac9cb2165c800a4e4dfcb1cec28633dcc7f734d3fa2193caeb01604c48",
+    "result_summary": "基准 main=0a1c931457af  （合入看 cherry+，不是 ahead 提交数）\n树 6 棵 · 还有补丁 1 · 补丁已在基线的干净 dev 树 1 · 待核实 2\n\n【还有补丁 — 真没合】\n  +1 -0  b4a7f6fbc3c0  wt-unique  behind:1\n      ~/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/board-family/fwp-wt-unique\n      · b4a7f6fbc3c0ea23441c43bcc443680842a37996 unique patch\n\n【补丁已在基线且",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0038.json"
+  },
+  {
+    "index": 64,
+    "id": "bash_63",
+    "tool": "bash",
+    "event_line": 48451,
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes && python3 - <<'EOF'\nfrom pathlib import Path\np = Path(\"probe_board.py\")\nt = p.read_text()\nt = t.replace('prune_section = text.split(\"不是删除许可，本脚本不拆】\")[1].split(\"【\")[1]',\n              'prune_section = text.split(\"不是删除许可，本脚本不拆】\")[1].split(\"\\\\n【\")[0]')\np.write_text(t)\nprint(\"patched\")\nEOF\nPY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\nPYTHONDONTWRITEBYTECODE=1 $PY probe_board.py 2>&1 | tail -14; echo \"driver rc=$?\"",
+      "timeout": 115
+    },
+    "end_event_line": 48456,
+    "result_event": "operator-qc/spec-mechanics/trace/0064-result-event.jsonl",
+    "result_event_sha256": "2fab61f30cfe1e1d0a8cb7e24f6a71c01be129885bda7af7ba208b3d88c548d0",
+    "result_summary": "patched\nOK  B1-groups {\"rc\": 0}\nOK  B1-unique-row {\"row\": {\"cherry_plus\": 1, \"in_main\": false, \"subjects\": [\"01799865f7de2d2441a3d10259ff1b7c71431b43 unique patch\"]}}\nOK  B1-equiv-clean-prunable-grouped {\"row\": {\"cherry_plus\": 0, \"in_main\": true, \"kind\": \"dev-wt\"}}\nOK  B1-equiv-dirty-not-clean-candidate {}\nOK  B1-locke",
+    "is_error": false,
+    "shell_record": "spec-k3/shell-records/0039.json"
+  }
+]

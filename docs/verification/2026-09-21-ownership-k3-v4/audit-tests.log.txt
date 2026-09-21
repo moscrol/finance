@@ -1,0 +1,11 @@
+test_existing_audit_not_overwritten (__main__.AuditTests.test_existing_audit_not_overwritten) ... ok
+test_finished_failure_is_not_signoff_and_preserves_bytes (__main__.AuditTests.test_finished_failure_is_not_signoff_and_preserves_bytes) ... ok
+test_incomplete_line_and_sequence_detected (__main__.AuditTests.test_incomplete_line_and_sequence_detected) ... ok
+test_input_and_log_corruption_detected (__main__.AuditTests.test_input_and_log_corruption_detected) ... ok
+test_running_refused_before_writes (__main__.AuditTests.test_running_refused_before_writes) ... ok
+test_timeout_over_limit_detected (__main__.AuditTests.test_timeout_over_limit_detected) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.016s
+
+OK

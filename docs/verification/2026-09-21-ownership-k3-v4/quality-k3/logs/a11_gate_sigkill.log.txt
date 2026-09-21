@@ -1,0 +1,10 @@
+rc=4
+== gate @ 445d936ea338 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a11 py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a11_gate_sigkill/gate-fHq7sdRY/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider test_slow.py
+
+--- stderr ---
+/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/fixtures/gaterepo/scripts/run_main_gate.sh: line 74: 22323 Killed: 9               FWP_TEST_RECEIPT_DIR="$RECEIPT_DIR" FWP_TEST_RECEIPT_PATH="$LATEST" FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -m pytest $PYTEST_ARGS 2>&1
+     22324 Done                    | tail -15
+没找到本轮收据 /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a11_gate_sigkill/gate-fHq7sdRY/pytest.json（pytest 收据未写出；不会回退 latest.json）

@@ -1,0 +1,11 @@
+{
+  "id": "0029",
+  "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/probes && /Users/a77/finance-workspace-private/.venv-workbench/bin/python - <<'PYEOF'\np = \"probe_a_receipt.py\"\ns = open(p).read()\nold = '''    r = subprocess.run([PY, \"-m\", \"pytest\", \"-q\", \"-p\", \"no:cacheprovider\",\n                        \"test_ok.py\"], cwd=repo_for(\"a8b\"),\n                       env=base_env(\"a8b\"),\n                       capture_output=True, text=True, timeout=60)'''\nnew = '''    r = subprocess.run([PY, \"-m\", \"pytest\", \"-q\", \"-p\", \"no:cacheprovider\",\n                        \"test_ok.py\"], cwd=repo_for(\"a8b\"),\n                       env=base_env(\"a8b\", FWP_TEST_RECEIPT_PATH=str(target)),\n                       capture_output=True, text=True, timeout=60)'''\nassert old in s\ns = s.replace(old, new)\nopen(p, \"w\").write(s)\nprint(\"patched a8\")\nPYEOF\ncd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && rm -rf tmp/receipts-a8b tmp/repo-a8b tmp/home-a8b tmp/a8-receipts && PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probes/probe_a_receipt.py a8 2>&1 | tail -3",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:34:57.215Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:34:58.445Z",
+  "log_sha256": "33059007f6ae60ae473c24b933f0101712527952c751e6ea197533cd67c64a8a"
+}

@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Build a tiny synthetic git repo embedding the CANDIDATE's gate apparatus
+# (conftest.py + scripts/run_main_gate.sh + scripts/main_gate_receipt.py copied
+# verbatim from the read-only checkout). All writes stay inside the review output root.
+set -euo pipefail
+
+DEST="$1"
+SRC="/Users/a77/fwp-wt-ownership-quality-v4-0921"
+PY="/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+
+rm -rf "$DEST"
+mkdir -p "$DEST/scripts" "$DEST/tests_inner"
+cd "$DEST"
+git init -q -b main
+git config user.name "k3-probe"
+git config user.email "k3@probe.invalid"
+git config commit.gpgsign false
+
+cp "$SRC/conftest.py" conftest.py
+cp "$SRC/scripts/run_main_gate.sh" scripts/run_main_gate.sh
+cp "$SRC/scripts/main_gate_receipt.py" scripts/main_gate_receipt.py
+cat > test-environment.json <<EOF
+{
+  "interpreter": "$PY",
+  "required_modules": ["pytest"],
+  "escape_env_var": "FWP_ALLOW_ANY_PYTHON",
+  "code_path_prefixes": ["test_", "conftest.py", "scripts/", "tests_inner/"],
+  "data_path_exceptions": []
+}
+EOF
+cat > test_ok.py <<'EOF'
+def test_ok_one():
+    assert True
+
+
+def test_ok_two():
+    assert True
+EOF
+cat > tests_inner/test_inner.py <<'EOF'
+def test_inner_one():
+    assert True
+
+
+def test_inner_two():
+    assert True
+EOF
+cat > .gitignore <<'EOF'
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+EOF
+git add -A
+git commit -qm "fixture: candidate gate apparatus"
+git rev-parse HEAD

@@ -1,0 +1,9 @@
+== gate @ 7c9f6cf6a473 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a12 py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a12/gate-sMt9M6kn/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider test_ok.py
+..                                                                       [100%]
+2 passed in 0.01s
+
+--- stderr ---
+没找到本轮收据 /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a12/gate-sMt9M6kn/pytest.json（pytest 收据未写出；不会回退 latest.json）

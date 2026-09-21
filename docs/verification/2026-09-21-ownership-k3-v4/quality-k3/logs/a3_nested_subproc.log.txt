@@ -1,0 +1,16 @@
+== gate @ ec1892a9e2c8 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/repo-a3 py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a3/gate-GPaALEMQ/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider test_nested_subproc.py
+.                                                                        [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a3/gate-GPaALEMQ/pytest.json
+
+1 passed in 0.74s
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/tmp/receipts-a3/gate-GPaALEMQ/pytest.json
+   revision=ec1892a9e2c8 dirty=False target=test_nested_subproc.py
+   passed=1 failed=0 error=0 skipped=0
+
+--- stderr ---
+
+--- receipt targets ---
+test_nested_subproc.py
+test_nested_subproc.py

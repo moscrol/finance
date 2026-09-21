@@ -1,0 +1,11 @@
+{
+  "id": "0032",
+  "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3/probes && /Users/a77/finance-workspace-private/.venv-workbench/bin/python - <<'PYEOF'\np = \"probe_a_receipt.py\"\ns = open(p).read()\nold = '''    subprocess.run([\"pkill\", \"-9\", \"-f\", \"-m pytest.*test_slow\"], timeout=10)'''\nnew = '''    subprocess.run([\"pkill\", \"-9\", \"-f\", \"python -m pytest.*test_slow\"],\n                   timeout=10)'''\nassert old in s\ns = s.replace(old, new)\nopen(p, \"w\").write(s)\nprint(\"patched\")\nPYEOF\ncd /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && rm -rf tmp/repo-a11 tmp/receipts-a11_* tmp/home-a11_* && PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probes/probe_a_receipt.py a11 2>&1 | tail -3",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:37:18.611Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:37:59.648Z",
+  "log_sha256": "f7938e7add48d11430c53fa3264276d5f964bf42642a53e1cec41a2e88aaf4ba"
+}

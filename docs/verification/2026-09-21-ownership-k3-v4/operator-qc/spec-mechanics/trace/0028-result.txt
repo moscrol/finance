@@ -1,0 +1,80 @@
+"""写入路径策略：生产库不是默认可写目标。
+
+2026-08-20：脏树上的旧 `cli daily-full` 直写生产 fact、不算 features。
+gitea/main 上 `daily-full` 已走 staging 换名；剩下的逃生舱是
+`daily-update` 和手跑 `daily-full-exec` 且 MARKET_FEATURE_STORE_DB 指向生产。
+
+本模块只回答两件事：这是不是 canonical 生产库？有没有 --direct？
+提醒写在 skill 里拦不住人，必须在副作用前 fail closed。
+
+2026-09-13 加固（QC G1）：生产库身份不得随代码检出位置改变。旧实现
+用包所在目录推导 canonical 路径——从独立 worktree 跑代码时，主检出树
+里的真生产库被误判成普通副本，--child --db <真库> 能直达写入函数
+（替换写入函数探针实证，未写生产）。现在 canonical 身份取候选集：
+包相对路径 ∪ 主检出树路径（git common dir 解析，worktree 共享同一
+.git）∕ env 显式钉（MARKET_FEATURE_STORE_PRODUCTION_DB）。
+"""
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import uuid
+from datetime import datetime
+from pathlib import Path
+
+from .db import DB_PATH, PROJECT_DIR, connect
+
+CANONICAL_DB_NAME = "market_feature_store.duckdb"
+DIRECT_RECEIPT_DIR = PROJECT_DIR / "skills" / "daily-full-review" / "state"
+
+_OPS_SYNC_RUN_DDL = """
+CREATE TABLE IF NOT EXISTS ops_sync_run (
+    run_id        TEXT,
+    kind          TEXT,
+    plan          TEXT,
+    trade_date    TEXT,
+    started_at    TIMESTAMP,
+    finished_at   TIMESTAMP,
+    duration_s    DOUBLE,
+    ok            BOOLEAN,
+    pid           BIGINT,
+    child_pid     BIGINT,
+    copy_method   TEXT,
+    copy_seconds  DOUBLE,
+    source_bytes  BIGINT,
+    rows_summary  TEXT,
+    steps_summary TEXT
+)
+"""
+
+
+def canonical_production_path() -> Path:
+    return (PROJECT_DIR / "db" / CANONICAL_DB_NAME).resolve()
+
+
+def _main_checkout_dir() -> Path | None:
+    """本 clone 家族的主检出树：worktree 共享同一个 git common dir。
+
+    生产库住在主检出树的 db/ 下（AGENTS.md 数据契约），而代码可以在任何
+    附属 worktree 里跑。`git rev-parse --git-common-dir` 从任何 worktree
+    都解析回主树的 .git，dirname 即主树根——生产库身份由此与检出位置
+    脱钩。解析失败（非 git 环境 / 无 git）返回 None，候选集退化为
+    包相对路径 ∪ env 钉，不会让非生产路径被误判成生产。
+    """
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            cwd=str(PROJECT_DIR),
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return None
+    if not out:
+        return None
+    return Path(out).resolve().parent
+
+
+def canonical_production_candidates() -> frozenset[Path]:

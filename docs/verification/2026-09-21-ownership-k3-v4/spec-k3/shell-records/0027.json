@@ -1,0 +1,11 @@
+{
+  "id": "0027",
+  "command": "PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\nPYTHONDONTWRITEBYTECODE=1 $PY /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/probe_readback.py 2>&1 | tail -50; echo \"driver rc=$?\"",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 110,
+  "started_at": "2026-09-21T08:27:45.793Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:28:02.343Z",
+  "log_sha256": "2c28e38afc8d27678d58e6961fcfefb79a8cd04bc876865643058b38dbed75ba"
+}

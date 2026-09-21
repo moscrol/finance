@@ -1,0 +1,15 @@
+total 816
+drwxr-xr-x@ 13 a77  staff     416 Sep 21 16:07 .
+drwxr-xr-x@ 38 a77  staff    1216 Sep 21 16:07 ..
+-rw-------@  1 a77  staff     208 Sep 21 16:07 credential-events.jsonl
+-rw-------@  1 a77  staff     435 Sep 21 16:07 credential.json
+-rw-r--r--@  1 a77  staff  393929 Sep 21 16:08 events.jsonl
+-rw-r--r--@  1 a77  staff    4629 Sep 21 16:07 execution.json
+-rw-------@  1 a77  staff     500 Sep 21 16:08 request-admissions.jsonl
+drwxr-xr-x@  2 a77  staff      64 Sep 21 16:07 ruff-cache
+drwxr-xr-x@ 10 a77  staff     320 Sep 21 16:08 shell-records
+-rw-r--r--@  1 a77  staff       0 Sep 21 16:07 stderr.log
+drwxr-xr-x@  2 a77  staff      64 Sep 21 16:07 test-receipts
+drwxr-xr-x@  3 a77  staff      96 Sep 21 16:07 tmp
+drwxr-xr-x@  2 a77  staff      64 Sep 21 16:07 users
+OK

@@ -1,0 +1,22 @@
+== gate @ d0d6f28fd0c6 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/probes/receipt-repo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/receipts-fail/gate-TBd2dVfq/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider test_fail.py
+F                                                                        [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/receipts-fail/gate-TBd2dVfq/pytest.json
+
+=================================== FAILURES ===================================
+_________________________________ test_kaboom __________________________________
+
+    def test_kaboom():
+>       assert False, "k3 probe failure"
+E       AssertionError: k3 probe failure
+E       assert False
+
+test_fail.py:2: AssertionError
+=========================== short test summary info ============================
+FAILED test_fail.py::test_kaboom - AssertionError: k3 probe failure
+1 failed in 0.22s
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/evidence/r1/receipts-fail/gate-TBd2dVfq/pytest.json
+   revision=d0d6f28fd0c6 dirty=False target=test_fail.py
+   passed=0 failed=1 error=0 skipped=0
+   RED test_fail.py::test_kaboom

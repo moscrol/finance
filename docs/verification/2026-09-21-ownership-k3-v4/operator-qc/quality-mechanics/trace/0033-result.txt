@@ -1,0 +1,6 @@
+170:def check_expected_revision(receipt_rev: str, expect: str) -> tuple[bool, str]:
+190:def check_base_drift(
+219:def check_executed_counts(counts: dict | None) -> tuple[bool, str]:
+238:def main() -> int:
+332:        total = receipt.get("worktree_dirty_total")
+     390 scripts/check_test_receipt.py

@@ -1,0 +1,13 @@
+market_feature_store/db.py:6:可移植性: 数据库路径可用环境变量 MARKET_FEATURE_STORE_DB 覆盖, 便于在
+market_feature_store/db.py:34:_ENV_DB = os.environ.get("MARKET_FEATURE_STORE_DB")
+market_feature_store/db.py:35:DB_PATH = Path(_ENV_DB).expanduser() if _ENV_DB else PROJECT_DIR / "db" / "market_feature_store.duckdb"
+market_feature_store/db.py:36:DB_DIR = DB_PATH.parent
+market_feature_store/db.py:97:    return duckdb.connect(str(DB_PATH), read_only=read_only)
+market_feature_store/db.py:252:def staging_path(db_path: Path | None = None) -> Path:
+market_feature_store/db.py:254:    target = Path(db_path) if db_path is not None else DB_PATH
+market_feature_store/db.py:642:def hold_run_mutex(db_path: Path):
+market_feature_store/write_path.py:5:`daily-update` 和手跑 `daily-full-exec` 且 MARKET_FEATURE_STORE_DB 指向生产。
+market_feature_store/write_path.py:26:from .db import DB_PATH, PROJECT_DIR, connect
+market_feature_store/write_path.py:80:def canonical_production_candidates() -> frozenset[Path]:
+market_feature_store/write_path.py:100:    target = Path(path) if path is not None else DB_PATH
+market_feature_store/write_path.py:143:        "db": str(DB_PATH),

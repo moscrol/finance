@@ -1,0 +1,11 @@
+{
+  "id": "0010",
+  "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && grep -n \"def run_daily_full_staged\" -A 5 market_feature_store/sync/sync_daily_full.py && grep -n \"def \\|^class \" market_feature_store/sync/sync_daily_full.py | head -50",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:11:57.223Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:11:57.239Z",
+  "log_sha256": "0384b4e383238033e915af96a52c82c0d91500092a67109a8b594e07f24fa6d6"
+}

@@ -1,0 +1,12 @@
+{"case": "B1-groups", "ok": true, "rc": 0}
+{"case": "B1-unique-row", "ok": true, "row": {"cherry_plus": 1, "in_main": false, "subjects": ["01799865f7de2d2441a3d10259ff1b7c71431b43 unique patch"]}}
+{"case": "B1-equiv-clean-prunable-grouped", "ok": true, "row": {"cherry_plus": 0, "in_main": true, "kind": "dev-wt"}}
+{"case": "B1-equiv-dirty-not-clean-candidate", "ok": true}
+{"case": "B1-locked-preserved-unknown-group", "ok": true, "locked": "k3 probe lock"}
+{"case": "B1-stale-dir-unknown-not-prunable", "ok": true, "error": "worktree unavailable or repository root mismatch"}
+{"case": "B1-pins-main-sha", "ok": true, "base": "main", "sha": "e02662669d10", "head": "e02662669d10"}
+{"case": "B1-uncertain-excluded-from-prune", "ok": true}
+{"case": "B1-this-unique", "ok": true, "out": ["合入: 本枝 cherry+1 / cherry-0 vs main=e02662669d10；底落后 1 提交"]}
+{"case": "B1-this-equiv-in-main", "ok": true, "out": ["合入: 本枝补丁已在 main=e02662669d10（cherry+0）；底落后 1 提交"]}
+{"case": "B1-no-base-fails-closed", "ok": true, "rc": 1, "json": {"error": "main baseline unavailable; merge status unknown", "trees": null}, "this": "合入: 未知（main 基准无法读取，不回退 HEAD 自证）"}
+{"case": "B1-broken-gitdir-unknown", "ok": true, "error": "worktree unavailable or repository root mismatch"}

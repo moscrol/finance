@@ -1,0 +1,11 @@
+{
+  "id": "0024",
+  "command": "EV=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3\nR=$EV/probes/receipt-repo\nmkdir -p \"$EV/evidence/r1\"\ncd \"$R\"\nenv -i PATH=/usr/bin:/bin:/usr/local/bin HOME=\"$EV/tmp/home-r1\" \\\n  FWP_TEST_RECEIPT_DIR=\"$EV/evidence/r1/receipts\" \\\n  PYTHONDONTWRITEBYTECODE=1 \\\n  bash scripts/run_main_gate.sh --pytest-args \"-q -p no:cacheprovider test_a.py\" \\\n  > \"$EV/evidence/r1/valid-control.log\" 2>&1\necho \"gate rc=$?\"\ntail -8 \"$EV/evidence/r1/valid-control.log\"\necho \"--- receipts tree:\"\nfind \"$EV/evidence/r1/receipts\" -type f | sort",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:25:02.977Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:25:04.482Z",
+  "log_sha256": "261e14b8d9ec7e03c427ac95659446b9ca4ed60e0566f9a7ddd57b578f27a1ac"
+}

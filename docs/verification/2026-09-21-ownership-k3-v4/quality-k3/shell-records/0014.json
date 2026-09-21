@@ -1,0 +1,11 @@
+{
+  "id": "0014",
+  "command": "cd /Users/a77/fwp-wt-ownership-quality-v4-0921 && export PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=0 && OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3 && /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q -p no:cacheprovider --basetemp=$OUT/basetemp/formal1 tests/test_main_gate_receipt.py tests/test_test_receipt_dirt.py tests/test_check_receipt_revision_gate.py tests/test_check_receipt_zero_count_gate.py 2>&1 | tail -8; echo \"PYTEST_RC=${PIPESTATUS[0]}\"",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:15:33.467Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:15:48.203Z",
+  "log_sha256": "0b83cdbdc45a27f1475f2d51f804c90c4011714a46372c2024997e627d9e1dd5"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "0034",
+  "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -c \"import time; time.sleep(20)\" & P1=$!; sleep 1; pgrep -fl \"python -c\" ; echo \"---\"; pgrep -fl \"python -m pytest.*test_slow\"; echo \"pattern_rc=$?\"; kill $P1 2>/dev/null; wait 2>/dev/null; echo done",
+  "cwd": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:38:39.969Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:38:41.082Z",
+  "log_sha256": "028958d2b58b6c852ece7de445fbddf5e280697a3e00004629d790e8153a9c3b"
+}

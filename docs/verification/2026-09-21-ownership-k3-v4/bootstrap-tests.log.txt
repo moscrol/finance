@@ -1,0 +1,25 @@
+file:///Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/credential-bootstrap.mjs:9
+import { createProvider, openAICompletionsApi } from "/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/index.js";
+                         ^^^^^^^^^^^^^^^^^^^^
+SyntaxError: The requested module '/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/index.js' does not provide an export named 'openAICompletionsApi'
+    at #asyncInstantiate (node:internal/modules/esm/module_job:326:21)
+    at async ModuleJob.run (node:internal/modules/esm/module_job:429:5)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:642:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v26.0.0
+✖ bootstrap.test.mjs (219.014875ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 223.138958
+
+✖ failing tests:
+
+test at bootstrap.test.mjs:1:1
+✖ bootstrap.test.mjs (219.014875ms)
+  'test failed'

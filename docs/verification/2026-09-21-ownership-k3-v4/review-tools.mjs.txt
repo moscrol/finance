@@ -1,0 +1,86 @@
+// Focused review safeguards, not an OS sandbox. Shell filesystem/network
+// restrictions remain a task contract; direct file tools enforce path roots.
+import fs from "node:fs";
+import path from "node:path";
+import { createHash } from "node:crypto";
+import { Type } from "/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/index.js";
+import { createBashToolDefinition, createLocalBashOperations } from "/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/index.js";
+
+function canonical(target) {
+  let p = path.resolve(target); const tail = [];
+  while (!fs.existsSync(p)) { tail.unshift(path.basename(p)); const parent = path.dirname(p); if (parent === p) throw new Error("unresolvable path"); p = parent; }
+  return path.join(fs.realpathSync(p), ...tail);
+}
+const inside = (p, root) => p === root || p.startsWith(root + path.sep);
+export function policy(tree, output, inputs) {
+  const t = fs.realpathSync(tree), o = fs.realpathSync(output), i = fs.realpathSync(inputs);
+  return (event) => {
+    if (["read", "write", "edit", "grep", "find", "ls"].includes(event.toolName)) {
+      const p = canonical(path.resolve(t, String(event.input.path || ".").replace(/^@/, "")));
+      const write = ["write", "edit"].includes(event.toolName);
+      const allowed = write ? inside(p, o) : [t, o, i].some((root) => inside(p, root));
+      if (!allowed) return { block: true, reason: "Review path boundary: read source/inputs/own output, write own output only." };
+      if (!inside(p, o) && /(^|\/)(\.env[^/]*|\.git|auth\.json|mcp_config\.json|feishu_config\.json)(\/|$)/.test(p)) {
+        return { block: true, reason: "Sensitive or shared Git metadata path; use read-only git commands for source identity." };
+      }
+    }
+  };
+}
+export function validateReports(output, axis, revision) {
+  const text = fs.readFileSync(path.join(output, "REPORT.md"), "utf8");
+  const verdict = JSON.parse(fs.readFileSync(path.join(output, "verdict.json"), "utf8"));
+  if (text.length < 400 || !text.includes(revision) || verdict.revision !== revision || verdict.axis !== axis || verdict.complete !== true ||
+      !["PASS_WITH_LIMITS", "CHANGES_REQUIRED", "BLOCKED"].includes(verdict.verdict) ||
+      !Array.isArray(verdict.checks) || verdict.checks.length === 0 || !Array.isArray(verdict.findings) || !Array.isArray(verdict.limitations)) {
+    throw new Error("Final reports missing, incomplete, or wrong identity; retain honest NOT_TESTED coverage and set complete:true only after finishing the review.");
+  }
+  return verdict;
+}
+export default function (pi) {
+  const out = fs.realpathSync(process.env.REVIEW_OUTPUT_DIR);
+  const tree = fs.realpathSync(process.env.REVIEW_TREE);
+  const inputs = fs.realpathSync(process.env.REVIEW_INPUT_DIR);
+  pi.on("tool_call", policy(tree, out, inputs));
+  const raw = path.join(out, "shell-records"); fs.mkdirSync(raw);
+  const local = createLocalBashOperations({ shellPath: "/bin/bash" });
+  let count = 0;
+  const bash = createBashToolDefinition(tree, { operations: {
+    async exec(command, cwd, options) {
+      const id = String(++count).padStart(4, "0");
+      const log = path.join(raw, id + ".combined.log");
+      const fd = fs.openSync(log, "wx");
+      const record = { id, command, cwd, timeout: options.timeout, started_at: new Date().toISOString(), complete: false };
+      const metadata = path.join(raw, id + ".json");
+      fs.writeFileSync(metadata, JSON.stringify(record, null, 2) + "\n", { flag: "wx" });
+      try {
+        const result = await local.exec(command, cwd, { ...options, onData(data) { fs.writeSync(fd, data); options.onData(data); } });
+        record.exit_code = result.exitCode;
+        return result;
+      } catch (error) { record.error = String(error); throw error; }
+      finally {
+        fs.closeSync(fd); record.complete = true; record.finished_at = new Date().toISOString();
+        record.log_sha256 = createHash("sha256").update(fs.readFileSync(log)).digest("hex");
+        fs.writeFileSync(metadata, JSON.stringify(record, null, 2) + "\n");
+      }
+    },
+  } });
+  pi.registerTool({ ...bash,
+    description: bash.description + " Review wrapper supplies 120s if omitted; each command must be <=120s. Full combined output and shell exit are saved in your shell-records directory. No total review time or request cap.",
+    async execute(id, params, signal, update, ctx) {
+      const timeout = params.timeout ?? 120;
+      if (!Number.isFinite(timeout) || timeout <= 0 || timeout > 120) throw new Error("Per-command timeout must be between 0 and 120 seconds; split long probes. This is not a review-wide budget.");
+      return bash.execute(id, { ...params, timeout }, signal, update, ctx);
+    },
+  });
+  pi.registerTool({ name: "finish_review", label: "Finish independent review",
+    description: "After writing final REPORT.md and verdict.json (complete:true), validate their identity and finish this review. Does not certify the claims; operator QC is separate.",
+    parameters: Type.Object({}),
+    async execute() {
+      const verdict = validateReports(out, process.env.REVIEW_AXIS, process.env.REVIEW_REVISION);
+      const record = { axis: verdict.axis, revision: verdict.revision, verdict: verdict.verdict,
+        finished_at: new Date().toISOString(), validation: "report shape only; operator QC outstanding" };
+      fs.writeFileSync(path.join(out, "completion.json"), JSON.stringify(record, null, 2) + "\n", { flag: "wx" });
+      return { content: [{ type: "text", text: "Final review artifacts recorded." }], details: record, terminate: true };
+    },
+  });
+}

@@ -1,0 +1,7 @@
+[a5_success_unset] {"rc": 0, "states": {"0": {"exit": 0, "owner_after": null, "receipt_exists": true}, "1": {"exit": 0, "owner_after": null, "receipt_exists": true}}, "PASS": true}
+[a5_success_empty] {"rc": 0, "states": {"0": {"exit": 0, "owner_after": "", "receipt_exists": true}, "1": {"exit": 0, "owner_after": "", "receipt_exists": true}}, "PASS": true}
+[a5_configure-error_unset] {"rc": 0, "states": {"0": {"exit": 4, "owner_after": null, "receipt_exists": false}, "1": {"exit": 0, "owner_after": null, "receipt_exists": true}}, "PASS": true}
+[a5_configure-error_empty] {"rc": 0, "states": {"0": {"exit": 4, "owner_after": "", "receipt_exists": false}, "1": {"exit": 0, "owner_after": "", "receipt_exists": true}}, "PASS": true}
+[a6_path_switch] {"rc": 4, "receipts": [], "foreign_file": false, "PASS": true}
+[a7_inherited_self] {"rc": 0, "exit": 0, "owner_after": "14840", "receipt_exists": false, "PASS": true}
+[a7_inherited_foreign] {"rc": 0, "exit": 0, "owner_after": "999999", "receipt_exists": false, "PASS": true}

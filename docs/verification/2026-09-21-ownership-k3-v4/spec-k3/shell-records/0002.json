@@ -1,0 +1,11 @@
+{
+  "id": "0002",
+  "command": "ls /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3/ 2>/dev/null; echo \"---\"; ls /Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:08:03.283Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:08:03.306Z",
+  "log_sha256": "2aa8abb2834ebedb31e35f63a564866c74cbd5a8787fe7a76d6ff37c26e13bf9"
+}

@@ -1,0 +1,118 @@
+"""Seal this stopped v4 attempt, never report independent approval.
+
+Archive selected text only, byte-preserving LF chunks for large JSONL; binary
+fixtures stay local and are inventoried separately. Refuse existing destination.
+No model invocation, source edits, cleanup or new gate. Historical archives stay
+unchanged. Synthetic fixtures may have earlier lost incarnations (QC discloses).
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+
+ROOT = Path(__file__).resolve().parent
+DEST = Path.home() / "fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-k3-v4"
+MAX_BYTES = 4 * 1024 * 1024
+REV = "6eb12c1b8a41071fd4af8bee343950fe0b85b221"
+EXCLUDED_DIRS = {".git", "__pycache__", ".ruff_cache", ".pytest_cache", "ruff-cache", "basetemp", "users"}
+TEXT_SUFFIXES = {".md", ".json", ".jsonl", ".py", ".sh", ".mjs", ".log", ".txt", ".diff", ".rc", ".xml"}
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def wanted(path):
+    rel = path.relative_to(ROOT)
+    if path.is_symlink() or not path.is_file() or any(part in EXCLUDED_DIRS for part in rel.parts):
+        return False
+    if rel.name == "latest.json" or any(part.startswith("home-") for part in rel.parts):
+        return False
+    if len(rel.parts) == 1:
+        return path.suffix in TEXT_SUFFIXES
+    if rel.parts[0] in {"inputs", "pi-config", "operator-qc", "offline-cli-output"}:
+        return path.suffix in TEXT_SUFFIXES
+    if rel.parts[0] not in {"spec-k3", "quality-k3"}:
+        return False
+    if len(rel.parts) == 2:
+        return path.suffix in TEXT_SUFFIXES
+    if rel.parts[1] in {"shell-records", "notes", "probes", "evidence", "logs", "fixtures", "tmp", "test-receipts", "receipts"}:
+        return path.suffix in TEXT_SUFFIXES or rel.name == ".gitignore" or rel.name == "git"
+    return False
+
+
+def archive_name(rel):
+    return Path(str(rel) + ".txt") if rel.suffix in {".py", ".sh", ".log", ".mjs"} else rel
+
+
+def main():
+    os.umask(0o022)
+    assert not DEST.exists(), "refuse overwrite of sealed attempt"
+    qc = json.loads((ROOT / "operator-qc/stop-state.json").read_text())
+    assert qc["revision"] == REV and qc["overall"] == "BLOCKED_INFRASTRUCTURE / NO_INDEPENDENT_SIGNOFF"
+    for axis in ("spec", "quality"):
+        out = ROOT / f"{axis}-k3"
+        ex = json.loads((out / "execution.json").read_text())
+        assert ex["complete"] and ex["revision"] == REV and ex["exit_code"] == 1
+        for name, expected in ex["sha256"].items():
+            assert sha((out / name).read_bytes()) == expected
+        for name, expected in ex["identity_after"]["inputs_sha256"].items():
+            assert sha((ROOT / name).read_bytes()) == expected
+        assert not any((out / name).exists() for name in ("REPORT.md", "verdict.json", "completion.json"))
+    sources = []
+    for directory, dirs, files in os.walk(ROOT, followlinks=False):
+        dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS and not (Path(directory) / d).is_symlink()]
+        sources.extend(p for name in files if wanted(p := Path(directory) / name))
+    sources.sort()
+    for source in sources:
+        data = source.read_bytes()
+        assert not re.search(rb"(?m)^-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----\r?$", data), source
+        assert not re.search(rb"eyJ[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}", data), source
+        assert len(data) <= MAX_BYTES or source.suffix == ".jsonl", source
+    DEST.mkdir()
+    manifest = {"revision": REV, "base": "c615adbd2f861e23f2c8d03631833f98b3ae5aba",
+        "time": datetime.now(timezone.utc).isoformat(), "operator_overall": qc["overall"],
+        "independent_review_status": "Both incomplete after abnormal exit; Spec ENOSPC, Quality cause unconfirmed",
+        "budget_limits": qc["budget_limits"], "budget_exhaustion": False,
+        "archive_scope": "selected textual evidence; binary synthetic DB/Parquet and Git/cache fixtures stay local",
+        "line_splitting": "LF byte boundaries only; ordered concatenation reconstructs original exact bytes",
+        "manifest_excludes_itself": True, "readme_included": True, "entries": [], "split_sources": []}
+    for source in sources:
+        data = source.read_bytes()
+        blocks, start = [], 0
+        if not data:
+            blocks.append(b"")
+        while start < len(data):
+            end = min(start + MAX_BYTES, len(data))
+            if end != len(data):
+                end = data.rfind(b"\n", start, end) + 1
+                assert end > start, "event line larger than chunk limit"
+            blocks.append(data[start:end])
+            start = end
+        names, offset = [], 0
+        rel = source.relative_to(ROOT)
+        for i, block in enumerate(blocks):
+            name = archive_name(rel) if len(blocks) == 1 else Path(str(rel) + f".part{i + 1:03d}.txt")
+            target = DEST / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with target.open("xb") as stream:
+                stream.write(block)
+            entry = {"path": str(name), "source": str(source), "bytes": len(block), "sha256": sha(block)}
+            if len(blocks) > 1:
+                entry["source_offset"] = offset
+            manifest["entries"].append(entry)
+            names.append(str(name))
+            offset += len(block)
+        assert b"".join((DEST / n).read_bytes() for n in names) == data
+        if len(blocks) > 1:
+            manifest["split_sources"].append({"source": str(source), "bytes": len(data), "sha256": sha(data), "ordered_parts": names})
+    with (DEST / "manifest.json").open("x") as stream:
+        stream.write(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+    assert {str(p.relative_to(DEST)) for p in DEST.rglob("*") if p.is_file()} == {r["path"] for r in manifest["entries"]} | {"manifest.json"}
+    print(json.dumps({"archive": str(DEST), "files_excluding_manifest": len(manifest["entries"]), "bytes": sum(r["bytes"] for r in manifest["entries"]), "split_sources": len(manifest["split_sources"]), "overall": qc["overall"]}, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()

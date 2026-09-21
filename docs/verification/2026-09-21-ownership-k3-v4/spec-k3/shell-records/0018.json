@@ -1,0 +1,11 @@
+{
+  "id": "0018",
+  "command": "cd /Users/a77/fwp-wt-ownership-spec-v4-0921 && for f in conftest.py scripts/main_gate_receipt.py scripts/run_main_gate.sh scripts/worktree_board.py market_feature_store/cli.py market_feature_store/sync/repair_backfill_stock_history.py scripts/verify_302132_backfill_acceptance.py; do echo \"$(shasum -a 256 \"$f\" | cut -d' ' -f1)  $f\"; done",
+  "cwd": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+  "timeout": 120,
+  "started_at": "2026-09-21T08:23:35.110Z",
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:23:35.475Z",
+  "log_sha256": "aef03159eed315db76b2b739f62b38ad00fc4fcc42ddc0900e3f516f3d848fc3"
+}
