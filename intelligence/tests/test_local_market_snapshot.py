@@ -165,13 +165,15 @@ def test_history_never_reads_latest_meta_or_future_daily(tmp_path, monkeypatch):
     _snapshot(root, "2026-09-11", quality="partial", freshness="historical")
     _snapshot(root)
     original = Path.read_text
+    reads = []
 
     def read(path, *args, **kwargs):
-        assert path.name == "2026-09-11.json"
+        reads.append(path.name)
         return original(path, *args, **kwargs)
 
     monkeypatch.setattr(Path, "read_text", read)
     loaded = load_market_snapshot_as_of(root, date(2026, 9, 11))
+    assert reads == ["2026-09-11.json"]
     assert loaded["doc"]["quality"] == "partial"
     assert loaded["doc"]["freshness"] == "historical"
 

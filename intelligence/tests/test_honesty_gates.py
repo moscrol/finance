@@ -190,6 +190,15 @@ def test_dates_without_valid_top_level_upper_bound_do_not_restrict(query):
     assert requested_information_cutoff(query, today="2026-09-21") is None
 
 
+@pytest.mark.parametrize(("question", "today", "expected"), (
+    ("站在2026-09-11收盘，截至2026-09-21分析市场", "2026-09-21", "2026-09-11"),
+    ("把信息截止限定为2026年9月11日，不使用9月11日之后的数据", "2027-01-02", "2026-09-11"),
+    ("信息截止为2026年9月11日，不使用9月11日之后的数据", "2025-12-30", "2025-12-30"),
+))
+def test_all_explicit_upper_bounds_share_historical_year_and_take_earliest(question, today, expected):
+    assert requested_information_cutoff(question, today=today) == InformationCutoff(date.fromisoformat(expected), "requested")
+
+
 def test_narrower_caller_cutoff_preserves_user_requested_semantics():
     context = build_episode_context(
         decide_turn("把信息截止严格限定为2026年9月11日，分析A股市场").task_frame,

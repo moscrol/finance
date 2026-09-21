@@ -163,24 +163,33 @@ def requested_information_cutoff(
         for pattern in (_EXPLICIT_CUTOFF_RE, _EXCLUDED_FUTURE_RE)
         for match in pattern.finditer(text)
     ]
-    if not raws:
-        match = _STANDING_CUTOFF_RE.search(text)
-        raw = (match.group("iso") or match.group("cn")) if match else standing_iso_from_query(text)
-        raws = [raw] if raw else []
+    standing = [match.group("iso") or match.group("cn") for match in _STANDING_CUTOFF_RE.finditer(text)]
+    raw = standing_iso_from_query(text) if not standing else None
+    raws.extend(standing or ([raw] if raw else []))
     dates = []
+    yearless = []
     for raw in raws:
         try:
             if "月" in raw:
                 match = re.fullmatch(r"(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日", raw)
                 if match is None:
                     continue
-                year = int(match[1]) if match[1] else (runtime_date or date.today()).year
-                parsed = date(year, int(match[2]), int(match[3]))
+                if match[1] is None:
+                    yearless.append((int(match[2]), int(match[3])))
+                    continue
+                parsed = date(int(match[1]), int(match[2]), int(match[3]))
             else:
                 parsed = date.fromisoformat(raw)
         except ValueError:
             continue
         dates.append(parsed)
+    # A repeated month/day upper bound inherits the explicit historical year, not today's year.
+    reference_year = min(dates).year if dates else (runtime_date or date.today()).year
+    for month, day in yearless:
+        try:
+            dates.append(date(reference_year, month, day))
+        except ValueError:
+            continue
     if not dates:
         return None
     requested_date = min(dates)
