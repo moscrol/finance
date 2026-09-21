@@ -211,3 +211,38 @@ def test_actual_loop_sees_remapped_originals_without_tools_or_inherited_coverage
     assert outcome.evidence[0].observations == _atom().observations
     assert continuations[0].initial_evidence_snapshot.covered_outputs == ()
     assert not any(e.kind == "tool_request" for e in outcome.events)
+    # P6 的结构校验对同一 outcome 复查绑定来源：恢复的旧 hash 不得再被判成越界。
+    from intelligence.services.episode_verifier import verify_episode_outcome
+
+    verified = verify_episode_outcome(context.contract, outcome)
+    assert [str(getattr(issue.code, "value", issue.code)) for issue in verified.issues
+            if "material_source" in str(getattr(issue.code, "value", issue.code))] == []
+
+
+def test_frozen_scope_exempts_only_restored_prior_atoms(source):
+    """P6 冻结范围规则 × #819 旧输入恢复：只有原件校验过的旧 hash 可绑，本轮新读仍拒。"""
+    from intelligence.services.agent_runtime import OutputEvidenceBinding
+    from intelligence.services.material_grounding import binding_source_errors, grounding_scope
+
+    _, _, _, frame, _, _, load = source
+    # 独立的 episode id：root budget 按 live episode 去重，复用 "current" 会撞上一条测试的预算。
+    contract = build_episode_context(frame, task_id="frozen-scope-check").contract
+    assert grounding_scope(contract) == "material_only"
+    prior = frozenset(item.content_hash for _, item in load().entries)
+    assert prior == {"original-local"}
+    fresh = replace(_atom(), content_hash="fresh-local-read", supports=())
+    evidence = (replace(_atom(), supports=()), fresh)
+
+    def binding(*hashes):
+        return OutputEvidenceBinding(output_id="direct_answer", evidence_hashes=tuple(hashes), gap="", basis="evidence")
+
+    assert binding_source_errors(contract, binding("original-local"), "x", evidence, frozen_prior_hashes=prior) == ()
+    assert binding_source_errors(contract, binding("fresh-local-read"), "x", evidence, frozen_prior_hashes=prior) == (
+        "binding exceeds frozen data scope: fresh-local-read",
+    )
+    assert binding_source_errors(contract, binding("original-local"), "x", evidence) == (
+        "binding exceeds frozen data scope: original-local",
+    )
+    assert binding_source_errors(contract, binding("missing"), "x", evidence, frozen_prior_hashes=frozenset({"missing"})) == (
+        "binding exceeds frozen data scope: missing",
+    )

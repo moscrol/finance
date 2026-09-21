@@ -67,6 +67,41 @@ def remap_evidence_bindings(
     ]
 
 
+PRIOR_EVIDENCE_INPUT_SOURCE = "prior_tool_evidence"
+
+
+def restored_prior_hashes(events: Sequence[object]) -> frozenset[str]:
+    """Content hashes of the prior-turn atoms ``_seed_prior_evidence`` injected.
+
+    Read back from the durable ``model_input`` event whose ``source`` is
+    ``prior_tool_evidence`` (its content is the receipt built by
+    :meth:`PriorTurnEvidence.receipt` plus the remapped bindings), so structural
+    verifiers that only see an ``AgentOutcome`` can tell restored inputs from
+    fresh reads without a second plumbing path. Malformed or absent blocks yield
+    an empty set, which keeps every frozen-scope rule at its strict default.
+    """
+    hashes: set[str] = set()
+    for event in events:
+        if getattr(event, "kind", None) != "model_input":
+            continue
+        payload = getattr(event, "payload", None) or {}
+        if payload.get("source") != PRIOR_EVIDENCE_INPUT_SOURCE:
+            continue
+        try:
+            body = json.loads(str(payload.get("content") or ""))
+        except ValueError:
+            continue
+        receipt = body.get("receipt") if isinstance(body, dict) else None
+        if not isinstance(receipt, dict):
+            continue
+        for row in (*receipt.get("entries", ()), *receipt.get("bindings", ())):
+            if isinstance(row, dict):
+                digest = str(row.get("content_hash") or "").strip()
+                if digest:
+                    hashes.add(digest)
+    return frozenset(hashes)
+
+
 def _original_atom(raw: object) -> AgentEvidence:
     """Reconstruct the complete stored schema without coercing or dropping fields."""
     if not isinstance(raw, dict) or set(raw) != {field.name for field in fields(AgentEvidence)}:

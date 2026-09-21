@@ -174,7 +174,22 @@ def claim_binding_error(contract: ResearchTaskContract, claim: ClaimSourceBindin
     return ""
 
 
-def binding_source_errors(contract: ResearchTaskContract, binding: OutputEvidenceBinding, draft: str, evidence: tuple) -> tuple[str, ...]:
+def binding_source_errors(
+    contract: ResearchTaskContract,
+    binding: OutputEvidenceBinding,
+    draft: str,
+    evidence: tuple,
+    *,
+    frozen_prior_hashes: frozenset[str] = frozenset(),
+) -> tuple[str, ...]:
+    """Mechanical source-scope check for one finish binding.
+
+    ``frozen_prior_hashes`` are the content hashes of prior-turn tool atoms that
+    ``_seed_prior_evidence`` restored after verifying the original artifact of the
+    same user / session (#819 ``prior_evidence``). In a zero-read review they are
+    the only legitimate evidence besides material anchors, so they are exempt from
+    the frozen-scope rejection; every other evidence hash keeps the P6 rule.
+    """
     scope = grounding_scope(contract)
     if scope not in {"material_only", "local_only"}:
         return ()
@@ -194,7 +209,13 @@ def binding_source_errors(contract: ResearchTaskContract, binding: OutputEvidenc
     by_hash = {item.content_hash: item for item in evidence}
     for key in binding.evidence_hashes:
         item = by_hash.get(key)
-        if scope == "material_only" or item is None or item.io_effect != "local_read":
+        if item is None:
+            errors.append("binding exceeds frozen data scope: " + key)
+        elif key in frozen_prior_hashes:
+            # 同用户同会话原件校验过的旧工具输入：复核轮里唯一合法的证据绑定来源，
+            # 与材料坐标并列。本轮任何新读仍按下面的规则拒。
+            continue
+        elif scope == "material_only" or item.io_effect != "local_read":
             errors.append("binding exceeds frozen data scope: " + key)
     return tuple(dict.fromkeys(errors))
 

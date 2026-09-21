@@ -906,6 +906,14 @@ def validate_episode_finish(
         raise _reject("bindings_not_list", "finish bindings must be a list")
     bindings: list[OutputEvidenceBinding] = []
     allowed_outputs = {item.output_id for item in context.contract.required_outputs}
+    # #819 恢复的旧工具输入（prior_evidence）已按原件校验并被 _seed_prior_evidence 注入证据池；
+    # 冻结范围检查放行它们的 hash，其余证据引用照旧受 P6 材料范围规则约束。
+    prior_snapshot = getattr(context, "prior_evidence", None)
+    frozen_prior_hashes = (
+        frozenset(item.content_hash for _, item in prior_snapshot.entries)
+        if prior_snapshot is not None
+        else frozenset()
+    )
     for raw in raw_bindings:
         if not isinstance(raw, Mapping):
             raise _reject("binding_not_object", "each finish binding must be an object")
@@ -926,7 +934,9 @@ def validate_episode_finish(
             basis=str(raw.get("basis") or "evidence"),
             claims=claims,
         )
-        source_errors = binding_source_errors(context.contract, binding, draft, evidence)
+        source_errors = binding_source_errors(
+            context.contract, binding, draft, evidence, frozen_prior_hashes=frozen_prior_hashes
+        )
         if source_errors:
             raise _reject("material_source_violation", "; ".join(source_errors))
         if binding.output_id not in allowed_outputs:
