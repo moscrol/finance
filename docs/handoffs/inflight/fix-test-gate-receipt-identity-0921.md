@@ -23,7 +23,7 @@
 归属标记不是恶意写者沙箱；首尾净不证明中间无改后还原；shell只留pytest末15行。
 
 ## 下一步
-协调入口`~/fwp-wt-ownership-closeout-0921/docs/handoffs/inflight/ops-worktree-ownership-closeout-0921.md`；中断快照`2026-09-21-ownership-k3-v4-interrupted.md`在协调树。原件`~/.finance-runtime/reviews/ownership-k3-v4-20260921/`，新档819文件已保全。先核容量/归属，再确认恢复审查；不重跑原launch/run或重设旧预算。main集成、合并/部署/生产回填/删树分别确认；三单与组合不可重复合。
+本part已收尾、复审暂停，独立未签字不变。用户要求K3保持可替换、重心转投研agent根因；本次未修投研逻辑。接手看协调树`~/fwp-wt-ownership-closeout-0921/docs/handoffs/inflight/ops-worktree-ownership-closeout-0921.md`及`2026-09-21-ownership-part-closeout.md`。原中断档819文件已保全，不重跑launch/run。恢复审查、清理、main集成/合并/部署/生产回填/删树另确认；三单与组合不可重复合。
 
 ## 踩过的坑
 latest只导航；配置失败也要cleanup；旧单分支/旧组合/新组合总数不能直接比增减。被冻结的候选及历史证据不补写。
