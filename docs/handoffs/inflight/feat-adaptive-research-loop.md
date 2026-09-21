@@ -11,13 +11,13 @@
 - 详细决定、原件纠正、历史指针见 `docs/handoffs/2026-09-21-adaptive-forward-830-closeout.md`。
 
 ## 当前状态
-业务冻结提交 `c07dda427608d694a905cc635b15f8ee932ad48c` 已前向合入 #830，后续仅交接文档。2026-09-21 fetch 的 `gitea/main=f2c3e9e1a24f` 无新增漂移；后续看 `worktree_board.py --this`，不手抄合入清单。未push/PR/合回main/部署。
+固定 `be66029342bfe2c57e62c78be3a6c502fdb73543` 已前向合入 #830 及后来 main=c097d712f；后续仅文档。11:06Z fetch 无新漂移，后续看 `worktree_board.py --this`。最新门禁/临时目录清理见 `docs/handoffs/2026-09-21-adaptive-forward-c097-gates.md`。未push/PR/合回main/部署。
 
 ## 已验证
-以下只签 c07dda427，不移绑文档tip：
-- Python全量12678P/87S/2X/17W、exit0；Ruff过，K3/判官离线接缝42P。
-- 收据 `~/.finance-runtime/test-receipts/20260921T100727Z-c07dda42.json`，精确revision/依赖/干净代码/基座漂移0均校验通过。
-- 证据根 `~/.finance-runtime/adaptive-forward-830-20260921/`：`frontend-c07dda427/frontend.json` 六步全过，110P、E2E34P/2S；首尾同SHA、dirty=false、identity_stable/complete=true。
+以下只签 be6602934，不移绑文档tip：
+- Python全量12698P/87S/2X/17W、exit0，Ruff过；原c07收据保留不移签。
+- 收据 `~/.finance-runtime/test-receipts/20260921T110550Z-be660293.json`，精确revision/依赖/干净代码/基座漂移0均校验通过。
+- 证据根 `~/.finance-runtime/adaptive-forward-c097-20260921/`：`frontend-be6602934/frontend.json` 六步全过，110P、E2E34P/2S；首尾同SHA、dirty=false、identity_stable/complete=true。
 - `local-checks.json`：registry四项+台账对账exit0；仅本仓在场，23个跨仓skill跳过；台账反向98行warning。不声称跨三仓或零警告。
 
 ## 未验证 / 已知边界
