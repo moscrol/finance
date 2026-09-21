@@ -1,0 +1,102 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_history_artifact_scope.py",
+    "tests/test_history_evidence_binding.py",
+    "tests/test_history_model_projection.py",
+    "tests/test_historical_evidence_contract.py",
+    "tests/test_run_store_history_artifacts.py",
+    "tests/test_history_recovery_selection.py",
+    "tests/test_history_date_scope.py",
+    "tests/test_historical_episode_branching.py",
+    "tests/test_history_case_patch.py",
+    "intelligence/tests/test_prior_evidence.py",
+    "intelligence/tests/test_historical_research_episode.py",
+    "intelligence/tests/test_episode_verifier.py",
+    "tests/test_eval_launchd_installer.py",
+    "tests/test_eval_launchd_wiring.py",
+    "tests/test_ima_gap_report.py",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-main-f73d21339/focused-temp",
+    "--junitxml",
+    "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-main-f73d21339/focused.xml",
+    "-o",
+    "tmp_path_retention_policy=failed",
+    "-o",
+    "tmp_path_retention_count=1"
+  ],
+  "identity_before": {
+    "revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "started_at": "2026-09-21T14:48:28.054276+00:00",
+  "timeout_seconds": 300,
+  "disk_free_samples": [
+    {
+      "elapsed": 0,
+      "free_bytes": 15147241472
+    },
+    {
+      "elapsed": 2,
+      "free_bytes": 15146598400
+    },
+    {
+      "elapsed": 4,
+      "free_bytes": 15147094016
+    },
+    {
+      "elapsed": 6,
+      "free_bytes": 15145779200
+    },
+    {
+      "elapsed": 8,
+      "free_bytes": 15144808448
+    },
+    {
+      "elapsed": 10,
+      "free_bytes": 15145250816
+    },
+    {
+      "elapsed": 12,
+      "free_bytes": 15144218624
+    },
+    {
+      "elapsed": 14,
+      "free_bytes": 15144136704
+    },
+    {
+      "elapsed": 16,
+      "free_bytes": 15144095744
+    },
+    {
+      "elapsed": 18,
+      "free_bytes": 15143538688
+    },
+    {
+      "elapsed": 20,
+      "free_bytes": 15142260736
+    },
+    {
+      "elapsed": 22,
+      "free_bytes": 15108386816
+    },
+    {
+      "elapsed": 24,
+      "free_bytes": 15112462336
+    }
+  ],
+  "pid": 91218,
+  "exit_code": 0,
+  "identity_after": {
+    "revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "finished_at": "2026-09-21T14:48:54.199665+00:00",
+  "identity_stable": true,
+  "receipt_source": "/Users/a77/.finance-runtime/test-receipts/20260921T144853Z-f73d2133.json"
+}

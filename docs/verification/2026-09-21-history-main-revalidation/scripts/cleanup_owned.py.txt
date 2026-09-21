@@ -1,0 +1,52 @@
+"""Remove only owned reproducible caches and completed synthetic session fixtures."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parents[1]
+OUT = ROOT / 'space-cleanup-20260921.json'
+RUNS = (
+    (ROOT, 'python-final', 'pycache'),
+    (ROOT / 'history-final-f90fd3dc', 'python-final', 'pycache'),
+    (ROOT / 'history-authority', 'python-full', 'pycache-full'),
+)
+FIXTURES = {'river-frozen0', 'dependence0', 'replay-synthetic0', 'bias-mini0',
+            'parity0', 'event_pricing0', 'synthetic0', 'mini0', 'e0070',
+            'event_pricing_narrative0'}
+assert not OUT.exists()
+record = {'started_at': datetime.now(timezone.utc).isoformat(),
+          'free_before': shutil.disk_usage(ROOT).free, 'removed': [], 'preserved_evidence': []}
+targets = []
+for root, stem, cache in RUNS:
+    execution = json.loads((root / f'{stem}-execution.json').read_text())
+    assert execution['exit_code'] == 0 and not execution.get('timed_out', False)
+    assert execution['identity_stable']
+    xml = ET.parse(root / f'{stem}.xml')
+    assert not xml.findall('.//failure') and not xml.findall('.//error')
+    for path in root.iterdir():
+        if path.is_file() and path != Path(__file__):
+            record['preserved_evidence'].append({'path': str(path), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()})
+    targets.append(root / cache)
+    temp = root / f'{stem}-temp'
+    targets.extend(p for p in temp.iterdir() if p.name in FIXTURES)
+for target in targets:
+    assert target.is_dir() and not target.is_symlink() and target.resolve().is_relative_to(ROOT)
+    result = subprocess.run(['lsof', '-nP', '+D', str(target)], capture_output=True, text=True)
+    assert result.returncode == 1 and not result.stdout.strip() and not result.stderr.strip(), result.stdout + result.stderr
+    size = int(subprocess.check_output(['du', '-sk', str(target)], text=True).split()[0]) * 1024
+    record['removed'].append({'path': str(target), 'allocated_bytes_before': size})
+OUT.write_text(json.dumps(record, indent=2) + '\n')
+for target in targets:
+    shutil.rmtree(target)
+for item in record['preserved_evidence']:
+    assert hashlib.sha256(Path(item['path']).read_bytes()).hexdigest() == item['sha256']
+record.update(finished_at=datetime.now(timezone.utc).isoformat(),
+              free_after=shutil.disk_usage(ROOT).free, preserved_hashes_unchanged=True,
+              allocated_bytes_removed=sum(item['allocated_bytes_before'] for item in record['removed']))
+OUT.write_text(json.dumps(record, indent=2) + '\n')
+print(json.dumps({k: v for k, v in record.items() if k not in ('removed', 'preserved_evidence')}, indent=2))
+print('removed_dirs=', len(targets), 'preserved_evidence_files=', len(record['preserved_evidence']))
