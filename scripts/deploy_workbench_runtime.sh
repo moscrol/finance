@@ -76,6 +76,7 @@ SOURCE_STATUS="$(git -C "$REPO" status --porcelain --untracked-files=all)" || di
 # symlink 要解析到真实目录再 rsync：直接对 symlink 用 --delete 会删错东西。
 SNAP="$(cd "$RUNTIME_LINK" 2>/dev/null && pwd -P)" || die "运行快照不可达：$RUNTIME_LINK"
 [[ -d "$SNAP/intelligence" ]] || die "快照缺 intelligence/：$SNAP"
+[[ ! -L "$SNAP/intelligence" ]] || die "运行目录 intelligence/ 不得是软链；禁止通过软链覆盖其他快照"
 # A versioned snapshot is also a rollback anchor; rsync would destroy its identity.
 [[ ! -e "$SNAP/.git" && ! -L "$SNAP/.git" ]] || die "禁止覆盖 Git 快照；请新建快照并切换运行软链"
 if git -C "$SNAP" rev-parse --show-toplevel >/dev/null 2>&1; then
