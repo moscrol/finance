@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from intelligence.services import sandbox_fincalc as fc
 
 _EVIDENCE = [
@@ -115,6 +117,115 @@ def test_scenario_and_sensitivity_tables_follow_the_result_protocol() -> None:
     assert result["schema"] == fc.SCHEMA
     assert [table["name"] for table in result["tables"]] == ["2026 收入情景", "净利润敏感性"]
     assert result["params"] == {}
+
+
+def test_table_infers_dict_columns_in_first_seen_order_without_losing_rows() -> None:
+    rows = [{"period": "2025Q1", "revenue": 10}, {"profit": 2, "period": "2025Q2"}]
+    result = fc.table("quarterly", iter(rows), unit="yi", note="source data")
+
+    assert result == {
+        "name": "quarterly",
+        "columns": ["period", "revenue", "profit"],
+        "rows": [["2025Q1", 10, None], ["2025Q2", None, 2]],
+        "unit": "yi",
+        "note": "source data",
+    }
+    assert rows == [{"period": "2025Q1", "revenue": 10}, {"profit": 2, "period": "2025Q2"}]
+
+
+def test_table_infers_sequence_width_and_pads_missing_cells_without_filling_zero() -> None:
+    rows = [("2025Q1", 0), ["2025Q2", float("nan"), 2], []]
+    result = fc.table("quarterly", iter(rows))
+
+    assert result["columns"] == ["第1列", "第2列", "第3列"]
+    assert result["rows"] == [["2025Q1", 0, None], ["2025Q2", None, 2], [None, None, None]]
+    assert rows[0] == ("2025Q1", 0) and rows[2] == []
+
+
+@pytest.mark.parametrize("row_kind", ["dict", "list"])
+def test_table_snapshots_reused_scalar_rows(row_kind) -> None:
+    def rows():
+        row = {"value": None} if row_kind == "dict" else [None]
+        for value in (11, 22, 33):
+            row["value" if row_kind == "dict" else 0] = value
+            yield row
+
+    inferred = fc.table("reused", rows())
+    explicit = fc.table("reused", ["value"], rows())
+    assert inferred["rows"] == explicit["rows"] == [[11], [22], [33]]
+
+
+@pytest.mark.parametrize("row_kind", ["dict", "list", "tuple"])
+def test_table_snapshots_nested_cells_from_reused_rows_once(row_kind) -> None:
+    class ReusedRows:
+        iterations = 0
+
+        def __iter__(self):
+            self.iterations += 1
+            assert self.iterations == 1
+            cell = {"values": [None]}
+            row = {"cell": cell} if row_kind == "dict" else [cell] if row_kind == "list" else (cell,)
+            for value in (11, 22, 33):
+                cell["values"][0] = value
+                yield row
+
+    rows = ReusedRows()
+    inferred = fc.table("reused", rows)
+    explicit = fc.table("reused", ["cell"], ReusedRows())
+    assert inferred["rows"] == explicit["rows"] == [
+        [{"values": [11]}], [{"values": [22]}], [{"values": [33]}]
+    ]
+    assert rows.iterations == 1
+
+
+def test_table_snapshots_reused_dict_keys_before_the_next_yield() -> None:
+    def rows():
+        row = {}
+        for key, value in (("alpha", 11), ("beta", 22)):
+            row.clear()
+            row[key] = value
+            yield row
+
+    result = fc.table("reused", rows())
+    assert result["columns"] == ["alpha", "beta"]
+    assert result["rows"] == [[11, None], [None, 22]]
+
+
+def test_table_snapshots_reused_sequence_width_before_the_next_yield() -> None:
+    def rows():
+        row = []
+        for values in ([11], [22, 33]):
+            row[:] = values
+            yield row
+
+    result = fc.table("reused", rows())
+    assert result["columns"] == ["第1列", "第2列"]
+    assert result["rows"] == [[11, None], [22, 33]]
+
+
+@pytest.mark.parametrize("rows, expected", [([], []), (iter(()), []), ([{}], [[]]), ([[], ()], [[], []])])
+def test_table_infers_empty_columns_without_inventing_data(rows, expected) -> None:
+    result = fc.table("empty", rows)
+
+    assert result["columns"] == []
+    assert result["rows"] == expected
+
+
+@pytest.mark.parametrize("rows", [[{"a": 1}, [2]], [[1], {"a": 2}], ["ab"], [1], [{1: 2}]])
+def test_table_rejects_ambiguous_shorthand_rows(rows) -> None:
+    with pytest.raises(TypeError, match="table"):
+        fc.table("invalid", rows)
+
+
+def test_table_explicit_columns_keep_order_and_existing_keyword_contract() -> None:
+    result = fc.table(
+        name="explicit", columns=["profit", "revenue"], rows=iter([{"revenue": 10, "profit": 0}])
+    )
+    assert result["columns"] == ["profit", "revenue"]
+    assert result["rows"] == [[0, 10]]
+    assert fc.table("explicit", [1, 2], [[3, 4]])["columns"] == ["1", "2"]
+    with pytest.raises(TypeError):
+        fc.table("invalid", ["revenue"], None)
 
 
 def test_growth_path_stops_propagating_after_a_missing_rate() -> None:

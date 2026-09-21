@@ -8,7 +8,7 @@ import time
 from dataclasses import asdict, dataclass, field
 from datetime import date
 from threading import RLock
-from typing import Literal, Protocol, TypeAlias, cast
+from typing import TYPE_CHECKING, Literal, Protocol, TypeAlias, cast
 from weakref import WeakValueDictionary
 
 from intelligence.services.query_resolution import (
@@ -23,6 +23,10 @@ from intelligence.services.material_contract import MaterialContract
 from intelligence.services.premise_financial_calculation import PremiseCalculation
 from intelligence.services.material_permissions import restrict_read_capabilities
 from intelligence.services.historical_research.intent import HistoryIntent
+from intelligence.services.user_task import requests_previous_answer_review
+
+if TYPE_CHECKING:
+    from intelligence.services.prior_evidence import PriorTurnEvidence
 
 AnswerOwner: TypeAlias = Literal[
     "stock-deep-dive",
@@ -176,7 +180,7 @@ _CONTEXT_DEPENDENT_RESEARCH_PREFIX_PATTERN = re.compile(
     r"下周|一阶|二阶|哪些反证|哪些风险)"
 )
 _EXPLICIT_SWITCH_PATTERN = re.compile(
-    r"(?:改看|换成|切换到|另外看|再分析|重新分析|转向)"
+    r"(?:改看|换成|切换到|另外看|再分析|重新分析|转向|换个话题|换个问题|另一个问题)"
 )
 _TASK_SWITCH_PATTERNS: dict[str, re.Pattern[str]] = {
     "financial_analysis": re.compile(
@@ -1097,6 +1101,7 @@ class ResearchRunContext:
     history_intent: HistoryIntent | None = None
     history_results: list[dict[str, object]] = field(default_factory=list)
     history_artifact_index: list[dict[str, object]] = field(default_factory=list)
+    prior_evidence: PriorTurnEvidence | None = None
 
 
 @dataclass(frozen=True)
@@ -1264,6 +1269,10 @@ def is_contextual_follow_up(
     if previous_intent is None:
         return False
     cleaned = query.strip()
+    if requests_previous_answer_review(cleaned):
+        return not _EXPLICIT_SWITCH_PATTERN.search(cleaned) and (
+            envelope.subject is None or envelope.subject == previous_intent.primary_subject
+        )
     if is_follow_up(cleaned) or (
         resolution is not None and resolution.context_dependent
     ):

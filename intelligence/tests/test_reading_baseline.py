@@ -53,6 +53,32 @@ def test_every_rule_carries_id_and_provenance() -> None:
         assert f"[{rule.id}]" in reading_baseline.baseline_guidance()
 
 
+def test_baseline_separates_claim_types_instead_of_ranking_all_evidence() -> None:
+    rules = {rule.id: rule.rule for rule in reading_baseline.baseline_rules()}
+    assert "不是所有研究的起点" in rules["CR-01"]
+    assert "待证主张" in rules["CR-02"]
+    assert "不能仅凭股价或成交额否定利润" in rules["CR-02"]
+    assert "产业事实也不能直接证明资金流向" in rules["CR-02"]
+    assert "只有交易强弱判断" in rules["CR-03"]
+    assert "不额外要求给出交易判断" in rules["SPT-A10"]
+    assert "固定研究顺序" in reading_baseline.baseline_guidance()
+    assert "盘面量价资金结构 >" not in reading_baseline.baseline_guidance()
+
+
+def test_conditional_baseline_reaches_both_generation_engines(monkeypatch, tmp_path) -> None:
+    import json
+    from intelligence.services.episode_protocol import build_episode_input
+    from intelligence.tests.test_episode_protocol import _context, _frame, _registry
+    from intelligence.tests.test_research_workflow_guidance import _ask_messages
+
+    frame = _frame()
+    payload = json.loads(build_episode_input(frame, _context(frame), _registry()))
+    assert payload["reading_baseline"] == reading_baseline.baseline_guidance()
+    assert "强制方法约束，适用于全部证据块" not in payload["reading_baseline_rule"]
+    messages = _ask_messages(monkeypatch, tmp_path, "financial_analysis", "为什么利润改善？")
+    assert reading_baseline.baseline_guidance() in "\n".join(m["content"] for m in messages)
+
+
 def test_kill_switch_restores_byte_identical_input() -> None:
     """总开关关掉后，注入侧全部归零（全局块与数据块内两处都要归零）。"""
     off = {"FINANCE_READING_BASELINE": "0"}

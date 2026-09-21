@@ -266,6 +266,11 @@ _DATE_TOKEN_RE = re.compile(
     r"(?<!\d)(?:0?[1-9]|1[0-2])/(?:0?[1-9]|[12]\d|3[01])(?!\d)|"
     r"(?<!\d)(?:0[1-9]|1[0-2])[-/.](?:0[1-9]|[12]\d|3[01])(?!\d))"
 )
+_SHORT_DATE_HEADING_RE = re.compile(
+    r"^\s*(?:[-*]\s*)?(?:\*\*)?[\"“「‘]?"
+    r"(?P<date>(?P<month>[1-9]|1[0-2])-(?P<day>0?[1-9]|[12]\d|3[01]))"
+    r"(?![\d./-])(?=\s*(?:\*\*)?[\"”」’]?\s*(?:[:：，,]|是|的))"
+)
 _ARABIC_QUANTITY_RE = re.compile(
     r"[+-]?\d[\d,]*(?:\.\d+)?"
     r"(?:\s*(?:至|到|~|～|—|→|-)\s*[+-]?\d[\d,]*(?:\.\d+)?)?"
@@ -4403,6 +4408,25 @@ def _optional_rejudge_allows_monotonic_release(call: _JudgeCall) -> bool:
     )
 
 
+def _mask_bound_short_date_heading(text: str, outcome: AgentOutcome) -> str:
+    """Leave a bound date heading to semantic review, not the quantity gate."""
+    match = _SHORT_DATE_HEADING_RE.match(text)
+    if match is None:
+        return text
+    # Only date-shaped headings qualify; a trailing unit is still a quantity.
+    bound_hashes = {key for binding in outcome.bindings for key in binding.evidence_hashes}
+    for item in outcome.evidence:
+        if item.content_hash not in bound_hashes:
+            continue
+        try:
+            observed_date = date.fromisoformat(str(item.source_date or ""))
+        except ValueError:
+            continue
+        if (observed_date.month, observed_date.day) == (int(match["month"]), int(match["day"])):
+            return text[:match.start("date")] + " " + text[match.end("date"):]
+    return text
+
+
 def _novel_numeric_condition_indexes(
     sentences: list[dict[str, object]],
     verified: VerifiedEpisodeOutcome,
@@ -4450,7 +4474,8 @@ def _novel_numeric_condition_indexes(
         text = str(item.get("text") or "")
         if not isinstance(index, int):
             continue
-        candidate = _DATE_TOKEN_RE.sub("", text)
+        candidate = _mask_bound_short_date_heading(text, verified.outcome)
+        candidate = _DATE_TOKEN_RE.sub("", candidate)
         candidate = _LEADING_SECTION_RE.sub("", candidate)
         candidate = _LEADING_LIST_LABEL_RE.sub("", candidate)
         candidate = _LEADING_CONDITION_LABEL_RE.sub("", candidate)

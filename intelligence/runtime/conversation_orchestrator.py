@@ -2245,6 +2245,23 @@ class TurnOrchestrator:
                     continuous_control = replace(
                         continuous_control, stance_pack=stance_pack
                     )
+                if material_only and continuous_control.terminal_kind == "research":
+                    from intelligence.services.prior_evidence import load_previous_evidence
+
+                    try:
+                        prior_evidence = load_previous_evidence(
+                            task_frame, messages=context.material_messages or (),
+                            store=self.run_store, conversation_id=conversation_id,
+                            current_run_id=run_id,
+                            history_unavailable=context.material_history_unavailable,
+                        )
+                    except (OSError, ValueError, TypeError, OverflowError) as exc:
+                        # Missing originals never authorize a fresh query or old-answer evidence.
+                        warning = f"prior_evidence_unavailable:{type(exc).__name__}"
+                        warnings.append(warning)
+                        self.run_store.add_degrade(run_id, warning)
+                    else:
+                        continuous_control = replace(continuous_control, prior_evidence=prior_evidence)
                 with bind_run_hunger(
                     self.run_store.run_dir(run_id), run_id=run_id
                 ):
@@ -2391,12 +2408,15 @@ class TurnOrchestrator:
                                 "elapsed_ms": self._elapsed_ms(fallback_started),
                             },
                         )
-                if (
-                    decision.question_type == QUESTION_METHODOLOGY
-                    and lane_answer.fallback_reason
-                ):
-                    warning = "方法论回答生成暂时不可用"
-                    lane_warnings.append(warning)
+                # Retrieval fallback does not repair a failed generation attempt.
+                if lane_answer.fallback_reason:
+                    warning = (
+                        "方法论回答生成暂时不可用"
+                        if decision.question_type == QUESTION_METHODOLOGY
+                        else "自然语言生成暂时不可用，本轮正文未经综述"
+                    )
+                    if warning not in lane_warnings:
+                        lane_warnings.append(warning)
                     self.run_store.add_degrade(run_id, warning)
                 self._trace(
                     run_id,
