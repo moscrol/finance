@@ -15,3 +15,11 @@
 
 ## 后续与禁做
 先审阅 PR，合并必须另获授权；合并后按新 tip 重建门禁、候选快照和一次有界部署验收。不要重发此前两道生产题，不要用当前 recovery 成功翻案原部署失败，不要把 health 的 revision 字段单独当作实际加载树完整性证明。runtime 快照 dirty/格式向前写入导致旧回滚不可读，应另立兼容性与部署产物审计任务。
+
+## 收尾订正与证据索引
+- 上段的“格式向前写入”不能解释为 adcda94b 提交本身不兼容：Git blob 中本来就含 maintenance_launch。旧目录当前 run_store.py 的 SHA256 为 130c906c562cc0acdec02eeaa9387b1bfcf6046ef900e3a48baad1c3b0d4d70d，Git blob/干净 recovery 树均为 b816a5153b83c771032ac9839a814a224197c83b0eb086c2843431c601e36ca4。已证实的是启动失败时文件与提交不符；未证明写者、改写时刻，不能回推 19:07 回滚时已脏。
+- 启动器没有自动造 recovery 树的逻辑。deploy-ledger 的 21:26 switch/startup 和进程 3095 证明运行树被切换，不证明操作者身份。本诊断窗口没有执行切换。
+- PR #844 已建，WIP、未合未部署；代码 ea5df3ea4，首份交接 9475a9b0b。链接：http://127.0.0.1:3300/a77/finance-workspace-private/pulls/844 。
+- 本地证据根 `~/.finance-runtime/reviews/rag-probe-diagnostics-20260921/`：targeted.txt/xml、ruff.txt、mutation-drop-timing.txt、mutation-timeout-pass.txt；变异分别打红 3 项与 2 项，已恢复。它们不是独立审核收据。
+- sampling-closeout/receipt.json 绑定 24 份原件哈希：10 个 help 计时、12 个 readiness 响应、2 个后续健康/就绪响应。早期 help 为 0.19–0.54 秒，12 响应仅行情红；没有同时绑定执行身份，也未保存这 12 次 HTTP 状态码/耗时，不回填臆测。归档时采集的 KB 身份只代表归档时刻。
+- 工具沉淀：故障注入和变异保护已落正式测试；没有新建通用部署器或重复采样脚本。共享 harness 未改；采样与事故证据只作个案，不足升级为自动恢复规则。
