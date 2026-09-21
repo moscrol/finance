@@ -106,16 +106,15 @@ required_outputs」（会牵动整条 contract_rewrite 修复路径）。
   提交（37526350c…41ca2165d）与 main 新提交的交叠，不是本轮两个提交造成的；main 对 `episode_semantic_verifier.py`
   的唯一改动（2cfa9d0d7，加 `_mask_bound_short_date_heading`）与理由码区域无交叠，自动合并干净。
   合 main 的人要先解这三处；ahead/behind 数字别抄本文，现跑 `git rev-list --left-right --count gitea/main...HEAD`。
-- **未做**：live 三题重跑；生产判官（K3 自审链，独立判官 2026-09-12 起关闭）是否稳定回 `reason_codes`
-  **没有任何实测**。v20 的 live 结论不移签给 v21。E2E 未重跑，属「无结论」叶子。
+- live：写本节时未做；同日 12:46–13:10 用 K3 补跑，结果见文末「补：live 实测」。v20 的 live 结论不移签给 v21。
+  E2E 未重跑，属「无结论」叶子。
 
 ## 后续要做的
 
-1. 起 sidecar 在 `a97b27057` 上重跑三题，看 `continuous-episode.json` 里 `sentence_verdicts[].judge_reason_code`
-   是否非空；再跑一遍 census 读 `judge_stage.coded_share`。吐码率低 → 修判官 prompt / tool schema 的接法，
-   **不动**无码缺省。
-2. 吐码率够了再议：无码缺省是否收紧；模型改写窗（critic-revise）是否值得开。
-3. 合 main 前补 E2E 叶子。
+1. ~~起 sidecar 重跑三题看吐码~~ 已做（K3，见文末）：吐码通路通，n=2；排序题判官撞帽未出报告。
+2. 排序改写要 live 覆盖，先在判官窗上做决定（帽 / 载荷压缩 / 分句送判），再重跑液冷排序题——不在本分支。
+3. 吐码率用 census 累积；低 → 修判官接法，**不动**无码缺省。够了再议无码缺省收紧、模型改写窗。
+4. 合 main 前解三处冲突 + 补 E2E 叶子。
 
 ## 不要做的
 
@@ -123,3 +122,26 @@ required_outputs」（会牵动整条 contract_rewrite 修复路径）。
 - 不要清空排序矩阵的优先级格——会进契约重写循环。
 - 不要为了让判官吐码而把 `reason_codes` 加进 tool schema 的 `required`——老判官 / 备链判官会整份作废。
 - 不要拿 v20 的 live / E2E 收据当 v21 的。
+
+## 补：live 实测（2026-09-21 12:46–13:10，K3 写手 + K3 自审）
+
+用户裁决「真实跑的就用 k3」。全过程与读数见 `docs/verification/2026-09-21-8792-premise-market/README.md` 的「v21 Live」节。结论三条：
+
+1. **K3 会吐码**：market_cause 题判官拒 2 句，1 句带 `causal_or_role_overreach`、1 句无码；两句按设计都降级保留。传输层看到
+   请求带合同、响应工具调用参数含 `reason_codes`。n=2。
+2. **删 / 两条改写 live 零覆盖**：原三题判官零拒句；专门加跑的排序题 K3 自审两发都撞 75 s 帽（145 卡、198k 字符研究载荷），
+   判官不可用、带披露放行——既有路径，v21 没碰。
+3. **K3 自审延迟贴帽**：35k 字符判官请求 71.8 s。这是在 K3 上量排序改写的前置障碍，属判官窗问题，不在本分支范围。
+
+新增的方案对比（D6 · 候选代码写死 `temperature`，K3 网关拒它）：
+
+| 方案 | 评价 | 结果 |
+|---|---|---|
+| 改候选代码不发 temperature | 换了被测 SHA，全部收据作废 | 否 |
+| 换回 glm-5.3-flash 跑 | 违背用户「用 k3」 | 否 |
+| **传输层 shim 剥键并逐请求记账** | 代码不动；剥了什么、上游回什么全在日志里；偏差写进报告 | **选** |
+
+shim 的两个已知洞：SSE 分支在客户端先断时（75 s 帽）写不回去抛 BrokenPipe，那次调用**不进日志**，只留 stderr 无时间戳的 traceback；
+`req_has_ranking_contract` 匹配到 prompt 句子而非载荷键，是假信号。下次复用先修这两处。
+
+生产 8792 在本轮进行中被切到 main tip `945c04bd7fdd`（12:47），非本轮所为。

@@ -105,3 +105,65 @@ v19 的 P3（「EDA、封测、存储、汽车芯片随后」未绑定所引 E�
 
 v21 未做 live：本轮没有起 sidecar 重跑三题，生产判官（K3 自审链）是否稳定回 `reason_codes`
 未验证；v20 的 live 结论不移签给 v21。
+
+## v21 Live（K3 写手 + K3 自审，候选 285c719728）
+
+用户指令「真实跑的就用 k3」。旁路实例端口 `18895`，用户根
+`~/.finance-runtime/8792-premise-market-v21-users/probe-premise-market-v21-20260921/`，启动脚本
+`~/.finance-runtime/8792-premise-market-evidence/v21-sidecar-launch.sh`。运行时身份：`source_revision=285c719728f496a5d29eeb7fd1db04562be79d94`、
+`source_dirty=false`、`code_matches_repo=true`、loaded/repo fingerprint 均为
+`e3cb48000341d9f97c0cd429f6904195f46341659d4b7c3f45f74609ff85204d`、监听进程 cwd 为候选树、`agent_runtime.model=kimi-k3`。
+判官链 `LLM_JUDGE_*` 全空 → 主客户端自审，收据 `correlated_judge=true`，与生产 2026-09-12 起的形状一致。
+
+**与生产的偏差（全部声明）**：写手 kimi-k3（生产当时 glm-5.3-flash）；`temperature` 在传输层被剥掉——
+kimi-k3 经 Sub2API（127.0.0.1:8080）对任何带 `temperature` 的请求返 `400 invalid_request`，不带则 200
+（`v21-live/k3_matrix.py` 七种形状实测），候选代码写死发 `temperature`，改代码会换被测 SHA，故加一层透传 shim
+（`v21-live/k3_shim.py`，127.0.0.1:18808，逐请求记录剥掉的键与上游状态）；RAG worker 关（16 GB 机器、swap 已 13/14 GB）；
+`LLM_REASONING_EFFORT` 未设。
+
+### 原三题（各一次、不自动重试）
+
+| 题 | run | 状态 | 判官 | 拒句 |
+|---|---|---|---|---|
+| 题设算术 | `run_20260921_124651_168094` | completed | passed | 0 |
+| 24 元追问（同会话） | `run_20260921_124724_426152` | completed | passed | 0 |
+| 2026-09-18 行情（新会话） | `run_20260921_124800_727217` | completed | passed | 0 |
+
+三题判官零拒句，理由码通路没有被触发。公开表核对（`marked` 15.0.12，v20 fixture 逐字段）：追问 10/10 行 + 2/2 片段全过；
+算术 8/8 行全过、缺 1 个固定片段「不能给出“便宜/贵”的结论」（K3 写的是「这些信息不足以判断股票是否便宜」）；
+行情 10 个固定片段只中 1 个——核心数字（4234/1151/168、涨停 79/跌停 0、3911.871、20764.84、.FP、三板块名与涨幅）全部在，
+缺的是措辞与小数位（151.6705→151.67、1626.3593→1626.36、548.7215→548.72）和「EDA/存储芯片」那句尾巴。
+**v20 fixture 的固定片段是按 glm-5.3-flash 的措辞冻结的，对 K3 是跨模型措辞比对，不是回归判据**；本轮不另冻 K3 fixture。
+
+### 加跑两题（为触发判官拒句）
+
+`run_20260921_125145_286054`（液冷四家排序，stock_deep_dive，145 张证据卡、32 次工具调用、草稿 3960 字）：
+**判官不可用**。`judge_attempt_index=2`、`timeout_asked=0.0`、issue「semantic judge window exhausted by prior attempt」、
+`degrade_class=judge_unavailable`。时间线：写手 finish 12:58:02.8 → report.complete 13:00:34，中间 151 s = 两次 75 s 的判官尝试；
+shim stderr 有三条 `BrokenPipeError`（客户端到 75 s 帽先断、K3 还在流式回，shim 写不回去；其中两条对得上这两发，第三条无法归属，
+stderr 不带时间戳）。公开稿以「本次未完成独立复核（复核服务超时）；内容与证据绑定已通过校验」为首句照常发布，
+3 条 preflight `novel_numeric_condition` 删句照常。**这条路径 v21 一行没动**，是既有「判官不可用 → 带披露放行」形状；
+但它意味着 `unsupported_ranking` 改写在 live 上零覆盖——K3 没能对任何排序答案返回过一份报告。
+
+`run_20260921_130210_417858`（9-18 半导体为何大涨，market_cause）：**判官吐码坐实**。judge_status=repaired，判官拒 2 句：
+第 17 句（引 E69，收盘后资讯当作当日驱动）**带码 `causal_or_role_overreach` → 降级保留**；第 20 句**无码 → 槽位规则降级保留**。
+两句都在公开稿里，控制面 issues 记账。传输层证据（shim 逐请求标记）：该判官请求 35528 字符、带 `submit_grounding_report` 工具、
+请求体含 `reason_codes` 合同，响应为工具调用且参数含 `reason_codes`，耗时 **71.84 s（帽 75 s）**。
+shim 的 `req_has_ranking_contract=True` 是假信号：它匹配到的是判官 prompt 里新增的那句「若提供 ranking_contract…」，
+不是载荷键；`parse_ranking_intent` 对该题为 False，载荷里没有该块（与设计一致）。
+
+census（`offline_judge_verdict_census.py --runs-root ~/.finance-runtime/8792-premise-market-v21-users`，原件 `v21-live/v21-k3-live.{json,md}`）：
+5 run 全带字段；拒句 5（preflight 3 / judge 2）；judge 阶段吐码 1/2 = **50%（n=2）**，码分布 `{causal_or_role_overreach: 1}`；
+`rewritten` 0。
+
+### 结论与边界
+
+- 真实 K3 链会通过工具调用返回 `reason_codes`；路由按设计走（带码 causal → 降级、无码 → 槽位规则）。样本 n=2，只证「通路通」，不证吐码率。
+- `fact_beyond_evidence` 删、`unsupported_ranking` 改写、`internal_process_leak` 改写三条路 live 零覆盖，只有单测。
+- K3 自审延迟是硬约束：35k 字符请求 71.8 s 贴帽；145 卡的排序题两发都撞帽。要在 K3 上量排序改写，先解判官窗（帽 / 载荷压缩 / 分句送判），
+  不是 v21 的范围。
+- 生产 8792 本轮只读，未被本轮改动；但在本轮进行中（12:47，`~/finance-workspace-runtime` 符号链接 mtime）生产自 `bf662e9310ff`
+  切到了 `945c04bd7fdd`（main tip），非本轮所为。停 sidecar 后的只读读数在 `v21-live/8792-v21-production-health-after.txt`；
+  切换前那次读数（`bf662e9310ff`，12:36）只在本会话输出里，没落文件。
+- sidecar 与 shim 已 SIGTERM 停止，停前 5 run 全 completed、无 running/queued。原件、manifest 与哈希：
+  `~/.finance-runtime/8792-premise-market-evidence/v21-artifact-manifest.json`、`v21-user-root-SHA256SUMS.tsv`、`v21-live/`。

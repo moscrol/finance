@@ -5,24 +5,24 @@
 - 判官报告加可选 `reason_codes`（四码），按码路由：fact_beyond_evidence 删；unsupported_ranking 改写优先级格「N（研判）」；internal_process_leak 「调用工具」→「检索」；其余与无码走原槽位规则（必答槽内降级、槽外删）。否了 1d9e717d2「引了 E 且被拒→删」：账本 39 条里 25 条 L4、7 条判官背书数字。
 - 优先级格只标注不清空：清空触发 `missing_contract_elements` 契约重写循环。
 - 否了模型改写窗：多一次调用叠判官方差，等吐码率再议。
-- 排序题送判载荷加 `ranking_contract`（优先级列=model_reasoning）；股票代码探测器只分区不预检。
+- live 用 K3：候选写死发 `temperature` 而 K3 网关拒它，用传输层 shim 剥键（否了改代码/换模型）。
 展开：`docs/handoffs/2026-09-21-judge-reason-codes.md`。
 
 ## 当前状态
-候选 `a97b27057`；工作树 clean。main 今天在快速前进，ahead/behind 别抄本文，跑 `git fetch gitea && git rev-list --left-right --count gitea/main...HEAD`。对 `gitea/main@945c04bd7` 的 merge-tree 干跑：**三处冲突** `docs/agent-product-door.md` / `intelligence/runtime/turn_control_core.py` / `intelligence/services/user_task.py`，全部来自本分支早先的题设计算提交（37526350c…41ca2165d）撞上 main 的 #819 研究求证意识合入，与本轮两个提交无关；main 对 `episode_semantic_verifier.py` 只加了 `_mask_bound_short_date_heading`（2cfa9d0d7），与理由码区域无交叠、自动合并干净。未合 main、未 push、生产未改。
+候选 `285c719728`（代码尖 `a97b27057`，其后只有 docs）；工作树 clean。对 gitea/main 的 merge-tree 有三处冲突（`docs/agent-product-door.md` / `turn_control_core.py` / `user_task.py`），全来自本分支早先题设计算提交撞 #819，与理由码无关；`episode_semantic_verifier.py` 自动合并干净。ahead/behind 现跑 `git rev-list --left-right --count gitea/main...HEAD`。未合 main、未 push、生产未被本轮改动（生产 12:47 被他人切到 `945c04bd7fdd`）。
 
 ## 未验证 / 已知边界
-- **生产判官（K3 自审链）是否回 `reason_codes` 零实测**：没起 sidecar 跑过一题。不吐码时 v19 P3 那句以降级保留出门，不是删。
-- E2E 未在 a97b27057 重跑（无结论叶子）；v20 live/E2E 收据不移签。
-- 判官放过的编造股票代码抓不到；正文标注仅矩阵行「（研判）」一处，句级标注仍只在 issues。
+- live（K3 自审，n=2 拒句）只证「判官会吐码、路由按设计走」：1 句 causal 码→降级、1 句无码→降级。**删与两条改写 live 零覆盖**：排序题 K3 自审两发撞 75 s 帽（145 卡）→ 判官不可用带披露放行（既有路径）。
+- K3 自审 35k 字符请求 71.8 s 贴帽；重题量不了排序改写，先解判官窗（不在本分支）。
+- E2E 未在候选重跑（无结论叶子）；v20 fixture 是 glm 措辞，对 K3 只中核心数字。
 
 ## 下一步
-1. sidecar @a97b27057 跑三题，看 `sentence_verdicts[].judge_reason_code`；`offline_judge_verdict_census.py --since 2026-09-21` 读 `judge_stage.coded_share`。低→修判官接法，不动无码缺省。
-2. 吐码率够再议：收紧无码缺省 / 开改写窗。
-3. 合 main 前补 E2E；合并等用户确认。
+1. 合 main 前解三处冲突 + 补 E2E；合并等用户确认。
+2. 排序改写要 live 覆盖：先在判官窗上做决定（帽 / 载荷压缩 / 分句送判），再重跑液冷排序题。
+3. 吐码率用 `offline_judge_verdict_census.py` 的 `judge_stage.coded_share` 累积；低→修判官接法，不动无码缺省。
 
 ## 踩过的坑
-别把「引了 E 且被拒→删」加回来（加表格豁免也不行）；别清空优先级格；别把 `reason_codes` 放进 tool schema `required`（老判官整份作废）；zsh 里 `${PIPESTATUS}` 为空，用 `$pipestatus`。
+别把「引了 E 且被拒→删」加回来；别清空优先级格；别把 `reason_codes` 放进 tool schema `required`；K3 经 Sub2API 拒 `temperature`；shim SSE 客户端先断那次不进日志；zsh 用 `$pipestatus`。
 
 ## 已验证
-全仓 pytest @a97b27057：12061 passed / 85 skipped / 2 xfailed（收据 `20260921T042331Z-a97b2705`，可采信）；前端 lint/typecheck/110 单测/build 全绿；11 道 pre-commit 过；生产账本普查 113 run：39 条全 demoted、零 deleted，coded_share 基线 0.0%。
+全仓 pytest @a97b27057：12061 passed / 85 skipped / 2 xfailed（收据 `20260921T042331Z-a97b2705`，可采信）；前端 lint/typecheck/110 单测/build 全绿；11 道 pre-commit 过；生产账本普查 113 run：39 条全 demoted、零 deleted；live 5 run 全 completed，原件 `~/.finance-runtime/8792-premise-market-evidence/v21-live/` + manifest。
