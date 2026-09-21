@@ -124,6 +124,12 @@ Workbench 对明确的虚构算例 / 情景计算，在受保护的顶层指令�
 
 `finance_query.market_breadth_daily` 只读聚合同日 canonical 个股截面，返回涨跌平盘
 及覆盖信息，不以返回行数上限截断统计，空涨幅或重复代码不能伪装完整计数。
+`stock_daily` 保留 `amount` 的求和语义；区间日均成交额走同一只读查询的
+`amount_mean` + `amount_valid_count`，强制按 `stock_code` 分组并显式给完整
+`time_range`。均值只对窗口内已入库的有限成交额求算，零值计入，空值/NaN/无穷值不计入；
+有效样本数不等于应有交易日数，也不证明数据全集齐全。聚合在 Agent 返回组数上限之前完成，
+不能从被截断的逐日明细自行心算。这个接口仍属于 `finance_query` 的本地只读能力，
+不等于放开 `derived_calculation`，也不把历史未收录解释成事实不存在。
 板块证据自动携带 `.FP` 复盘会 / `.TI` 同花顺清单口径；数值加工来源另列 `source`。
 格式错误触发终局恢复时，`FinanceResearchHarness.recovery_evidence_priority` 会保留
 未通过草稿引用的真实证据，避免工具均分截断丢掉后续查得的关键行；草稿本身不直接

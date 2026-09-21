@@ -1656,6 +1656,7 @@ def build_episode_registry(
             notice = finance_query.truncation_notice(
                 result.audit,
                 covered_range=covered_range,
+                group_by=bounded_value.group_by,
             )
             if notice:
                 notices.append(notice)
@@ -1664,12 +1665,15 @@ def build_episode_registry(
             # 观测型：不改 observation 一个字节，写失败也不进工具路径。
             from intelligence.services.tool_hunger import record_window_uncovered
 
-            record_window_uncovered(
-                bounded_value,
-                covered_range=covered_range,
-                row_count=len(result.evidence),
-                applied_limit=result.audit.applied_limit,
-            )
+            # Grouped source_date is MAX(date), not the covered date range.
+            # Empty groups still prove no match; nonempty groups cannot prove gaps.
+            if finance_query.result_has_date_axis(bounded_value) or not result.evidence:
+                record_window_uncovered(
+                    bounded_value,
+                    covered_range=covered_range,
+                    row_count=len(result.evidence),
+                    applied_limit=result.audit.applied_limit,
+                )
             # 代偿必须让模型看见：查询成功但写法被改过，不说它下一轮还会照原样写。
             if normalization_notes:
                 notices.extend(normalization_notes)
