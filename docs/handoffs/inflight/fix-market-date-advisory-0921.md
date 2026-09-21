@@ -10,7 +10,7 @@
 - 展开：`docs/handoffs/2026-09-21-market-date-k3-live.md`；旧决策见同目录`2026-09-21-market-date-advisory.md`。
 
 ## 当前状态
-受测运行HEAD `786a3b627`，运行代码与c57ec654相同；首尾干净。本轮仅追加作者真实验收记录：`AUTHOR_REAL_ENTRYPOINT_OBSERVED_NOT_ACCEPTED`。未push/PR/合main/部署，未补采或写生产库。
+受测运行HEAD `786a3b627`，运行代码与c57ec654相同；首尾干净。本轮仅追加作者真实验收记录：`AUTHOR_REAL_ENTRYPOINT_OBSERVED_NOT_ACCEPTED`。证据提交`110b4afe5`后Git对象核验新68/68、旧200/200通过。未push/PR/合main/部署，未补采或写生产库。
 
 ## 未验证 / 已知边界
 - 当前题错说“本地尚无09-21行情”：readiness已见09-21 fresh/complete快照，Episode实际只交付至09-18的DuckDB事实。local_only不应放开可能联网的工具来补洞。
