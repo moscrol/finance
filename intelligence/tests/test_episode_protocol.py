@@ -358,7 +358,7 @@ def _static_contract_text() -> str:
 # 宿主按冻结合同构造的 wire_template；不代填返回值、不放宽来源或 basis 校验。
 # 2026-09-21: distinguish local nonmatches, unverified gaps and negative facts.
 _CONTRACT_FINGERPRINT = (
-    "57495f9ed822867eef6378a13a74667fc1c4b6d5ef5b8934ff5c8321ceed721c"
+    "4c907c696b68bc9cd2ec81a42158b832db89cc0f60c314e8395c06003b2e9e97"
 )
 
 
@@ -376,6 +376,16 @@ def test_instruction_reshape_kept_every_constraint_verbatim() -> None:
         "若这次确实要改约束内容，请显式更新 _CONTRACT_FINGERPRINT 并在 commit "
         "里说明改了哪一条；不要靠回退重排来让它变绿。"
     )
+
+
+def test_writer_requires_comparable_computed_returns() -> None:
+    instructions = build_episode_instructions(_frame(), _context(_frame()), _registry())
+    for rule in (
+        "累计收益引用 return_compound_pct", "return_valid_count/return_observed_count",
+        "逐日复利包含窗口首日涨跌", "不得从截断日线心算累计",
+        "对齐实际观测日期集合", "收益率相减用百分点", "不猜数或强判跑赢跑输",
+    ):
+        assert rule in instructions
 
 
 def test_writer_distinguishes_nonmatch_from_unattempted_and_absent_event() -> None:

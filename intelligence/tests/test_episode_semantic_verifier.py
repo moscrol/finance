@@ -738,6 +738,23 @@ def test_judge_receives_sanitized_tool_status_for_empty_retrieval(
     assert "不能支持市场事实或因果结论" in system_prompt
 
 
+def test_judge_return_arithmetic_rules_reach_provider(monkeypatch) -> None:
+    frame, structural = _structural("芯片本月累计涨7.3%。", detail="芯片已观测日复利收益率%=0.5615")
+    model = _RecordingJudgeModel()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(5),
+    )
+    prompt = model.calls[0]["messages"][0]["content"]
+    for rule in (
+        "平均日涨跌幅不是累计收益", "包含首日涨跌", "样本数不证明交易日齐全",
+        "实际日期集合", "收益率差是百分点", "fact_beyond_evidence",
+        "不能忽略所引窗口内的反例", "结构绑定通过不证明计算正确",
+    ):
+        assert rule in prompt
+    # This scripted provider proves delivery, not natural arithmetic judgment.
+
+
 def test_judge_checks_negative_facts_and_unverified_gap_claims_on_wire(monkeypatch) -> None:
     frame, structural = _structural(
         "9月未再新高、无涨停。",
@@ -3347,6 +3364,8 @@ def test_independent_judge_outage_keeps_uncorrelated_audit_flag(monkeypatch) -> 
     assert result.judge_status == "unavailable"
     assert result.correlated_judge is False
     assert "本次未完成独立复核（复核服务超时）" in result.public_answer
+    assert "不代表计算或结论正确" in result.public_answer
+    assert "市场当前偏弱" in result.public_answer
 
 
 def test_independent_judge_timeout_records_asked_triplet_and_exc_class(

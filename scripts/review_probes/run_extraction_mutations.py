@@ -11,7 +11,8 @@
     python scripts/review_probes/run_extraction_mutations.py --suite stock-amount --output <目录>
 
 默认保持工单 #53 的 extraction 套件；stock-amount 验证区间成交额，
-finance-absence 验证非命中边界在工具观察/模型输入的送达，不验证自然模型遵守。
+finance-absence 验证非命中边界；finance-return 验证收益计算/完整证据卡及指令送达。
+两者均不验证自然模型遵守。
 
 只测试已提交 revision；未提交源码或定义不会被悄悄混进证据。证据目录必须新建。
 临时 worktree 在成功后移除；失败则保留还原后的树用于诊断，路径写入 results.json。
@@ -50,8 +51,11 @@ def run_tests(
     *, tests: list[str] | None = None,
 ) -> dict:
     junit = out / f"{label}.xml"
+    basetemp = out / "pytest" / label
+    basetemp.parent.mkdir(parents=True, exist_ok=True)
     cmd = [sys.executable, "-B", "-m", "pytest", "-q", "-p", "no:randomly",
            "-p", "no:cacheprovider", "--tb=short", "--junitxml", str(junit),
+           "--basetemp", str(basetemp),
            *(TESTS if tests is None else tests)]
     if targets:
         cmd += ["-k", " or ".join(targets)]
@@ -96,7 +100,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--revision", default="HEAD")
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--suite", choices=("extraction", "stock-amount", "finance-absence"), default="extraction")
+    parser.add_argument("--suite", choices=("extraction", "stock-amount", "finance-absence", "finance-return"), default="extraction")
     args = parser.parse_args()
     tests, definitions = TESTS, DEFINITIONS
     if args.suite == "stock-amount":
@@ -112,6 +116,14 @@ def main() -> int:
             "intelligence/tests/test_episode_semantic_verifier.py::test_direct_negative_evidence_is_not_mechanically_rewritten",
         ]
         definitions = "scripts/review_probes/finance_absence_mutations.json"
+    elif args.suite == "finance-return":
+        tests = [
+            "intelligence/tests/test_finance_query_return_summary.py",
+            "intelligence/tests/test_episode_protocol.py::test_writer_requires_comparable_computed_returns",
+            "intelligence/tests/test_episode_semantic_verifier.py::test_judge_return_arithmetic_rules_reach_provider",
+            "intelligence/tests/test_session_projection.py::test_three_causes_emit_distinct_first_sentences",
+        ]
+        definitions = "scripts/review_probes/finance_return_mutations.json"
     repo = Path(git(Path.cwd(), "rev-parse", "--show-toplevel"))
     revision = git(repo, "rev-parse", f"{args.revision}^{{commit}}")
     out = args.output.expanduser().resolve()
