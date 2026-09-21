@@ -1088,6 +1088,20 @@ def _complete_cli_judge(
     return str(content)
 
 
+def _chat_payload(
+    provider: LLMProvider, messages: list[dict], temperature: float, **extra: object
+) -> dict:
+    """Shared wire options: K3 rejects temperature, other models keep it.
+
+    Omit rather than retry an invalid request or silently switch writers.
+    Match the exact model, not the provider slot (managed K3 is named zhipu).
+    """
+    payload = {"model": provider.model, "messages": messages, **extra}
+    if provider.model.strip().lower() != "kimi-k3":
+        payload["temperature"] = temperature
+    return payload
+
+
 def _post_chat(
     provider: LLMProvider,
     messages: list[dict],
@@ -1097,7 +1111,7 @@ def _post_chat(
 ) -> str:
     _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
-    payload = {"model": provider.model, "messages": messages, "temperature": temperature}
+    payload = _chat_payload(provider, messages, temperature)
     if max_tokens is not None:
         payload["max_tokens"] = max_tokens
     _apply_thinking_controls(
@@ -1150,12 +1164,7 @@ def _post_chat_synthesis(
 ) -> tuple[str, str | None]:
     _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
-    payload = {
-        "model": provider.model,
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
+    payload = _chat_payload(provider, messages, temperature, max_tokens=max_tokens)
     _apply_thinking_controls(payload, disable_thinking=synthesis_thinking_disabled())
     request = urllib.request.Request(
         url,
@@ -1319,15 +1328,12 @@ def _post_chat_message_stream(
 
     _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
-    payload: dict = {
-        "model": provider.model,
-        "messages": messages,
-        "temperature": temperature,
-        "stream": True,
+    payload = _chat_payload(
+        provider, messages, temperature, stream=True,
         # 没有它就拿不到 usage：非流式响应里 usage 是顶层字段，流式下只在
         # 最后一个 chunk 出现，且要显式开。丢了它 episode 的 token 账会归零。
-        "stream_options": {"include_usage": True},
-    }
+        stream_options={"include_usage": True},
+    )
     _apply_thinking_controls(
         payload,
         disable_thinking=(
@@ -1443,7 +1449,7 @@ def _post_chat_message(
     in addition to / instead of ``content`` — needed to drive an agent loop."""
     _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
-    payload: dict = {"model": provider.model, "messages": messages, "temperature": temperature}
+    payload = _chat_payload(provider, messages, temperature)
     _apply_thinking_controls(
         payload,
         disable_thinking=(
@@ -2202,13 +2208,9 @@ def _post_chat_stream_raw(
     attempt: _LLMCallAttempt | None = None,
 ) -> tuple[str, str | None]:
     url = provider.base_url.rstrip("/") + "/chat/completions"
-    payload = {
-        "model": provider.model,
-        "messages": messages,
-        "temperature": temperature,
-        "stream": True,
-        "max_tokens": max_tokens,
-    }
+    payload = _chat_payload(
+        provider, messages, temperature, stream=True, max_tokens=max_tokens,
+    )
     _apply_thinking_controls(payload, disable_thinking=synthesis_thinking_disabled())
     request = urllib.request.Request(
         url,

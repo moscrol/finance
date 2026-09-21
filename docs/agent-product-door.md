@@ -423,9 +423,13 @@ A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结
 用户 2026-09-12 撤掉独立 Grok 判官（改 kimi-k3 自审）、2026-09-17 进一步决定**不用 LLM 判官**。一个共享开关（`intelligence/services/judge_mode.py::semantic_judge_mode`）同时管两条引擎：
 
 - **`llm`（代码默认，行为与此前一致）**：A 的终稿判官 `_run_judge` 调第二模型（无 `LLM_JUDGE_*` 时落回写手自审，`correlated_judge=true`）；B 的合成判官走 `synthesize_messages`；判官不可用时 A 扣稿（`judge_status=unavailable`）、B 走带告示的瞬时放行。
-- **`off`（生产启动器取值）**：A 的 `_run_judge` 返回合成的全过报告，**零模型调用**，判后机械门（数值 / 材料缺口 / 元陈述 / 表外 E）与删句修复照常跑，V11 引导回检索记 `skip_reason=judge_off`；B 的判官段不发调用、`GroundedComposerShadow.status=deterministic_only`、不带掉线告示；检索侧证据判官另由既有 `ASK_EVIDENCE_JUDGE=off` 关。
+- **`off`（须在服务启动环境显式设置，不能从代码默认推断生产状态）**：A 的 `_run_judge` 返回合成的全过报告，**零模型调用**，判后机械门（数值 / 材料缺口 / 元陈述 / 表外 E）与删句修复照常跑，V11 引导回检索记 `skip_reason=judge_off`；B 的判官段不发调用、`GroundedComposerShadow.status=deterministic_only`、不带掉线告示；检索侧证据判官另由既有 `ASK_EVIDENCE_JUDGE=off` 关。
 
 读收据别读反：`judge_status` 闭集不变（`passed / repaired / rejected / unavailable`），两种模式下都表示「过了门 / 门删了句并修好 / 修不好 / 结构守卫未放行」；**谁在判**看私有块 `semantic_verifier.judge_mode`（`llm` | `deterministic`，落在 `continuous-episode.json`），公开 `gate_receipt` 键集未动（`RECEIPT_KEYS` 是被钉死的 schema v1 合同）。判官此前抓到的两类绑定错误的去向：句内日期与所引证据日期全不符 → 机械探测器 `evidence_date_mismatch` 删句（两种模式都生效）；引用了别的槽绑定的 E → 只记 `sentence_verdicts[stage=census]` 与 `cited_outside_slot_count`，不删（R-20260821-06）。B 侧健康度多一桶 `deterministic_only`，不冒充 `full_pass`。默认翻转与判官专属路径退役见工单 #56。
+
+判官独立性另计：`deterministic` 不曾调用模型判官，公开 `correlated_judge=null`，不能把机械门的 `passed` 当成独立审核。方差评测优先读取私有 `judge_mode`，将其计入 `no_judge`（包括修复前公开误写 `false` 的样本），不进入 `independent_n`；只有新公开收据而无私有块时记 unknown。旧收据若既无模式又无私有原件，无法追溯是否关闭，不能据此给关闭实验背书。
+
+写手连接由 Workbench「模型连接」或内置 provider 链选择，不受 `continuous_glm` 历史引擎名限制。K3（精确模型名 `kimi-k3`）的 Chat Completions 请求统一不传 `temperature`，因为现有网关会拒绝该参数；其余模型保持原采样参数，工具、流式与 token 上限不变。部署中的首选/兜底、判官模式以启动环境及实际 run 自报模型为准，不在本页写死。
 
 不要把 `ask.answer_query` 写成「金融 Agent 的唯一深模块」。它是引擎 B。也不要为「少学零件」再加 `answer_door` / `EpisodeBuilder`：组装已经在 `GLMAgentRuntime` 和 `episode_factory`。
 
