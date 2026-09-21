@@ -85,7 +85,7 @@ PLAN 是本领域的研究协议（先出计划再动手），两家都没有；
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Set
+from collections.abc import Callable, Iterable, Mapping, Set
 from dataclasses import dataclass, replace
 import json
 from typing import Literal, Protocol, runtime_checkable
@@ -577,11 +577,21 @@ class ResearchHarness(Protocol):
         """
         ...
 
-    def repair_goal_message(self, goal: RepairGoal, *, tools_open: bool) -> str:
+    def repair_goal_message(
+        self,
+        goal: RepairGoal,
+        *,
+        tools_open: bool,
+        finish_format: Mapping[str, object] | None = None,
+    ) -> str:
         """修复轮开场给模型的那段话（``REPAIR_GOAL`` 正文，user 角色）。
 
         ``goal`` 是裁决后的模型侧目标（不可达格已降级）；``tools_open`` 是底座
         告诉领域「这一轮能不能派工具」——两套指令按它分叉。
+
+        ``finish_format`` 是开场发过的那份冻结成稿形状（material_only 才有）；传进来就
+        原样重述一遍。修复轮是最后一次机会，它必须在手上，而不是靠作者回忆上文。
+        不传时消息逐字节不变。
         """
         ...
 
@@ -1041,11 +1051,20 @@ class FinanceResearchHarness:
             goal=prompt_goal,
         )
 
-    def repair_goal_message(self, goal: RepairGoal, *, tools_open: bool) -> str:
+    def repair_goal_message(
+        self,
+        goal: RepairGoal,
+        *,
+        tools_open: bool,
+        finish_format: Mapping[str, object] | None = None,
+    ) -> str:
         # 逐字搬自 agent_episode.resume()：REPAIR_GOAL 正文 + 工具开/关两套指令。
         payload: dict[str, object] = {
             "kind": "REPAIR_GOAL",
             **goal.to_dict(),
+            # 开场的冻结成稿形状原样重述：修复稿仍要按它交，而修复轮里再犯格式就是终局。
+            # 这一键只在 material_only 出现，其它题型的修复轮消息逐字节不变。
+            **({"finish_format": dict(finish_format)} if finish_format else {}),
             "instruction": (
                 "保留最初任务、全部原始观察和当前工具账本。"
                 + (

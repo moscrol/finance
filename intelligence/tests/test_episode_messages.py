@@ -37,6 +37,7 @@ from intelligence.services.episode_messages import (
     to_provider,
     tool_message,
     undeclared_tool_call_ids,
+    unreported_invalid_finish,
     user_message,
 )
 from intelligence.services.episode_event_lanes import DURABLE_EVENT_KINDS, lane_for
@@ -549,3 +550,86 @@ def test_projection_leaves_events_without_model_visible_text_byte_identical() ->
     projection = project_durable_events(events)
 
     assert list(projection.events) == [event.to_dict() for event in events]
+
+
+def _finish_rejection(seq: int, reason: str) -> EpisodeEvent:
+    # 两条 loop 的六个 finish 驳回点都写 code（rejection_code）：这是「终局拒收」的结构化标记，
+    # 计划错误 / 终局阶段调工具等 invalid_action 不带它。
+    return EpisodeEvent(
+        seq, "invalid_action", {"reason": reason, "code": "bad_claim_binding", "disposition": "stop"}
+    )
+
+
+def _model_input(seq: int, source: str) -> EpisodeEvent:
+    return EpisodeEvent(seq, "model_input", {"source": source, "content": "…"})
+
+
+@pytest.mark.parametrize(
+    ("events", "expected"),
+    [
+        pytest.param(
+            (_finish_rejection(7, "X"), _model_input(8, "steering_invalid_finish")),
+            "",
+            id="steered_once_nothing_owed",
+        ),
+        pytest.param(
+            (
+                _finish_rejection(7, "X"),
+                _model_input(8, "steering_invalid_finish"),
+                _finish_rejection(12, "Y"),
+            ),
+            "Y",
+            id="last_rejection_never_steered",
+        ),
+        pytest.param(
+            (
+                _finish_rejection(7, "X"),
+                _model_input(8, "steering_invalid_finish"),
+                _finish_rejection(12, "Y"),
+                _model_input(17, "repair_last_rejection"),
+                _model_input(18, "repair_goal"),
+                EpisodeEvent(23, "finish", {"status": "completed"}),
+            ),
+            "",
+            id="own_delivery_clears_before_next_cycle",
+        ),
+        pytest.param(
+            (
+                _finish_rejection(12, "Y"),
+                _model_input(17, "repair_last_rejection"),
+                _finish_rejection(24, "Z"),
+            ),
+            "Z",
+            id="new_rejection_after_own_delivery_is_owed",
+        ),
+        pytest.param(
+            (
+                EpisodeEvent(7, "invalid_action", {"reason": "PLAN_ERR"}),
+                _model_input(8, "steering_invalid_plan"),
+            ),
+            "",
+            id="plan_error_steered_on_its_own_channel",
+        ),
+        pytest.param(
+            (EpisodeEvent(7, "invalid_action", {"reason": "PLAN_ERR"}),),
+            "",
+            id="plan_error_without_code_is_not_a_finish_rejection",
+        ),
+        pytest.param(
+            (EpisodeEvent(7, "invalid_action", {"reason": "tool_call_during_finalization"}),),
+            "",
+            id="tool_call_during_finalization_is_not_a_finish_rejection",
+        ),
+    ],
+)
+def test_unreported_invalid_finish_only_owes_undelivered_finish_rejections(
+    events: tuple[EpisodeEvent, ...], expected: str
+) -> None:
+    """扫账本找欠账是两个集合的问题：哪些事件算置位、哪些算清零。
+
+    置位集合只收带 rejection_code 的 invalid_action（终局拒收）；清零集合必须包含这条通道
+    自己的送达 ``repair_last_rejection``，否则 max 档三轮修复里第二轮会把作者早已改对的那条
+    再发一遍；计划错误走 ``steering_invalid_plan``，不归这条通道，也不该套进 invalid_finish 文案。
+    """
+
+    assert unreported_invalid_finish(events) == expected

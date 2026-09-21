@@ -333,3 +333,47 @@ def test_non_ranking_question_judge_request_has_no_ranking_contract_key() -> Non
     request = verifier._judge_request(frame, structural, sentences)
 
     assert "ranking_contract" not in request
+
+
+# ————————————————————————————————————————————— 5. 与材料题判官（#770）的缝
+
+
+def test_reason_codes_survive_material_claim_reconciliation() -> None:
+    """材料题判官的 ``reconcile_claim_checks`` 只重建三个必填键；理由码必须原样带过。
+
+    合并 #770 时发现的缝：材料题路径把 payload 换成 {passed, rejected, issues} 三键再送
+    ``parse_grounding_judge_report``，``reason_codes`` 在那一步静默丢失，材料题的拒句
+    永远走无码缺省。这里钉住：带码进、带码出；越界句号的码仍按最终拒句集合过滤。
+    """
+
+    from intelligence.tests.material_judge_helpers import material_judge_report
+
+    request = {
+        "material_claims": [
+            {"claim_id": "c1", "sentence_index": 2, "kind": "material_fact",
+             "material_anchors": [{"material_id": "m1", "quote": "输入"}]},
+        ],
+        "sentences": [{"index": 1}, {"index": 2}],
+    }
+    payload = material_judge_report(request, rejected=(2,), issues=("第2句超出材料。",))
+    payload["reason_codes"] = [
+        {"sentence_index": 2, "code": "fact_beyond_evidence"},
+        {"sentence_index": 1, "code": "internal_process_leak"},  # 第 1 句没被拒：过滤掉
+    ]
+
+    report = SemanticEpisodeVerifier._parse_report(
+        payload, 2, material_claims=request["material_claims"]
+    )
+
+    assert report is not None and not report.passed
+    assert report.rejected_sentence_indexes == (2,)
+    assert report.reason_codes == ((2, "fact_beyond_evidence"),)
+    assert report.material_claim_checks and report.material_claim_checks[0]["claim_id"] == "c1"
+    # 材料题必填键缺一不可；reason_codes 仍是唯一可选键，别的未知键仍作废。
+    assert SemanticEpisodeVerifier._parse_report(
+        {**payload, "confidence": 0.5}, 2, material_claims=request["material_claims"]
+    ) is None
+    payload.pop("material_claim_checks")
+    assert SemanticEpisodeVerifier._parse_report(
+        payload, 2, material_claims=request["material_claims"]
+    ) is None

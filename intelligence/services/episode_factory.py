@@ -660,6 +660,8 @@ def build_episode_context(
 ) -> ResearchRunContext:
     """Freeze control output into one immutable research run contract."""
 
+    from intelligence.services.material_grounding import freeze_material_grounding
+
     material = frame.material_contract
     material_only = _material_restricted(material)
     output_ids = _required_output_ids(frame)
@@ -813,6 +815,7 @@ def build_episode_context(
         task_frame_hash=frame.task_frame_hash,
         material_contract=material,
         premise_calculation=calculation_for_frame(frame, today=today),
+        material_grounding=freeze_material_grounding(frame) if material is not None else None,
     )
     if frame.history_intent is not None and "finance_query" in capability_tuple and not (
         material is not None and material.data_scope == "local_only"
