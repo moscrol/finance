@@ -1,0 +1,30 @@
+{
+  "scope": "focused operator check, not independent or full CI",
+  "name": "conversation-delivery",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-s",
+    "--tb=short",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-permission-repair-02/frozen-check-conversation-delivery/tmp",
+    "intelligence/tests/test_conversation_orchestrator.py",
+    "intelligence/tests/test_conversation_materials.py",
+    "intelligence/tests/test_e2_material_turn_delivery.py",
+    "intelligence/tests/test_task_frame.py"
+  ],
+  "started": "2026-09-21T15:06:30.596582+00:00",
+  "finished": "2026-09-21T15:07:00.022179+00:00",
+  "before": {
+    "head": "7c99f389e9c72668663449dedeacd7fe4830cbdd\n",
+    "status": ""
+  },
+  "after": {
+    "head": "7c99f389e9c72668663449dedeacd7fe4830cbdd\n",
+    "status": ""
+  },
+  "exit": 0,
+  "expected_failure": false
+}

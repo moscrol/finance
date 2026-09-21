@@ -1,27 +1,29 @@
-# #845 历史控制边界返修
+# #845 历史控制与读取继承返修
 
 ## 这个分支做什么
-叠在#833之上修H-01：引用不能恢复历史权限；不合main、不部署。
+叠在#833之上修H-01/H-02；不合main、不部署。源码在带boundary后缀的树，交接集中#838。
 
 ## 决策与被否方案
-- 复用user_task来源分区；否另写引号正则/清空全部历史，原文仍保留。
-- 历史helper、通用追问回填、截止投影一起保护；否只验材料编译器。
-- 显式续问保窗口/截止/local_only；省略式合同丢失另列H-02，不用局部绿覆盖。
-- 变异只改进程内函数并finally恢复；否反复编辑冻结树。背景见`../2026-09-21-history-control-boundary-repair.md`。
+- 来源分区复用user_task，原文保留；否另造引号解析器。
+- 历史意图与读取合同沿完整用户消息同步回放；否旧助手话/previous任务对象自证授权。
+- 复用逐轴编译器，当前用户可显式放宽；缺链/截断先澄清，否默认full。
+- 工程绿、正常版红例、独立审核分账；背景见`../2026-09-21-history-permission-inheritance-repair.md`。
 
 ## 当前状态
-WIP #845，源码`fix/history-forward-boundary-0921@d91aff9d8437fe903f3e643b65d4805aa4cf243c`已推且clean；父#833仍7edfe24e7，未动。交接/证据集中#838文档枝，源码SHA不因归档移动。
-H-01受测范围已修；整体历史仍CHANGES_REQUIRED。H-02正常版2反例仍红：合法省略续问保历史与截止，却material_contract=None，授权含web_search/web_fetch；只检查工具登记，未执行IO。不要等独立审核替代修这个缺口。
+WIP #845源码`7c99f389e9c72668663449dedeacd7fe4830cbdd`已推且clean，父d91aff9d8；原#833 7edfe24e7未动。H-02原两省略续问已保窗口/截止/local_only，连续回放、真实run_turn送达和备用控制器重验已测；普通指代回填须同时恢复读取合同。
+整体历史仍CHANGES_REQUIRED：新相邻输入边界2反例正常版仍红。短“材料如下”段、未闭合中文引号中的“那它们见顶后谁接力？”未标uncertain，可误续接history_query；本版仍local_only，没有证明外部授权或执行IO。
+新包history-permission-repair-02已封存58成员，旧四包不改；Git归档/发布状态以包外回执为准。
 
 ## 未验证 / 已知边界
-本revision未跑完整Python、前端/E2E/registry全叶；530定向绿不是合入门禁。历史原四自然题仍not_passed，三领域独立终审仍缺。本轮未重开外审；runtime/财务只保原候选，联合树/#841未验。无合并/8792部署/生产回填/清树授权；#814正式收据线不接管。
+770定向绿不是完整Python/前端/E2E/registry合入门禁。三领域独立终审缺，历史原四自然题仍not_passed；新main/#841/联合树未验。通用指代正例只证直接controller有typed来源时可恢复；真实入口未送达时澄清，不宣称全部自然续问支持。
+无合并/8792部署/生产回填/清树/新增付费通道；#814与邻线不接管，本轮未重启外审。
 
 ## 下一步
-从新包`frozen-regressions/adjacent-unresolved.txt`的两红例修H-02：可信用户基底的权限上限须随历史意图同步，不能从旧助手话/无条件复制合同猜授权。新SHA重验正负例与执行前上限；新任务/取消/material_only不得被旧合同污染。完整门禁与独立审查另计，不自动重试付费通道。
+读新包frozen-check-adjacent-unresolved/pytest.txt，针对短材料与未闭合引号修共享来源边界，保合法续问和读取上限。新SHA补回归/变异、完整门禁与授权后的独立/自然验收；不移签旧绿。
 
 ## 踩过的坑
-误编辑无boundary后缀的原候选已精确撤回并验clean。替身缺relation_path、local能力白名单过窄均是夹具错误。首版patch.object恢复__code__失败，输出不是有效收据，v2/frozen已另验。单撤resolution保护原39例未红，补2例后抓到1F。
+入口变异首次选错包装函数，第二次绕过测试截停而120秒超时，均无有效收据。加计划前截停及意外模型调用计数后才完成；不得说中断轮零IO。正常版红例不被runner总exit0洗绿。
 
 ## 已验证
-固定d91干净树530P=168+169+193（内含新41例），全仓Ruff/diff-check通过；五变异24/15/6/1/4断言红、0夹具错、源码前后哈希相同。H-01夹具禁并计数socket/DuckDB连接，离线模型/知识替身；既有回归用临时DB不外推零DB。
-证据`docs/verification/2026-09-21-research-tail-forward/history-boundary-repair-01/README.md`；旧三包不改。邻接2F单列，不以runner exit0洗绿。
+固定clean 7c99：770P=168+169+242+191，已含41旧+49新边界例；另90P量具重叠不加总。Ruff/diff-check通过。十变异失败24/15/6/1/4及42/2/17/3/1，零夹具错、源码哈希不变。
+边界夹具禁并计数socket/DuckDB，H-02另计模型尝试；外部dispatch在runner前拒绝。常规回归含临时DB，不外推全部零DB。证据根`docs/verification/2026-09-21-research-tail-forward/`。

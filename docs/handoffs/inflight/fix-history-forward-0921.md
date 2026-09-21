@@ -13,13 +13,13 @@
 WIP #833已推7edfe24e76afbd5c365fbf97dd2414847b086f88，源码/review树clean；基座ea5c3a946（#831），main基座f783f19c8。旧#800接替评论5359、不关闭。
 用户“执行”后原thread仅续一次，11:33:38Z又capacity结束exit1、无report、未触1200秒帽。独立终审仍BLOCKED_PROVIDER_CAPACITY；操作员已确认H-01，候选CHANGES_REQUIRED。
 H-01：inherit_history_followup扫描原始query，三种强保护引文触发历史任务继承；材料合同却None，原local_only丢失，Episode合同出现外部读能力及history_query登记。旧cutoff仍9月10日，未实际读DB/网络/工具。helper与旧来源e4675eab相同，不能归因新冲突引入。
-原#833源码未动。H-01已在新WIP #845/d91aff9d8局部修复并推送；530定向通过，五变异有效，但合法省略续问仍丢local_only（H-02两红例）。整体CHANGES_REQUIRED，无新独立终审。证据3a1c8289b新包45/45 Git blob已核；交接集中docs枝，不移动本受审HEAD。
+原#833源码未动。WIP #845/7c99f389e在d91之上局部修H-02可信读取继承：770定向通过、十变异有效。新相邻短材料/未闭合引号省略句仍误续接历史，正常版2红但local_only保持；整体CHANGES_REQUIRED，无新独立终审。新包history-permission-repair-02封存58成员，Git发布状态见包外回执；旧3a1c包45/45保留，交接集中docs枝。
 
 ## 未验证 / 已知边界
 新组合Spec/Quality未终审；原四题仍not_passed。不签新main5a5334712、三领域联合树或#829；不能关闭#793/#794。无合并/部署/生产操作。
 
 ## 下一步
-接手读`fix-history-forward-boundary-0921.md`与新包history-boundary-repair-01/README.md；下一片修H-02可信权限同步，保新任务/取消/纯材料正反例。530不是完整门禁，不移签旧全叶或重跑模型求绿。runtime/财务续审未启动。
+接手读`fix-history-forward-boundary-0921.md`与新包history-permission-repair-02/README.md；下一片修短材料/未闭合引号来源边界，保合法续问/local_only。770不是完整门禁，不移签旧全叶或重跑模型求绿。runtime/财务续审未启动。
 
 ## 踩过的坑
 材料编译器能挡引用不代表历史helper也挡；现有新增8接缝没覆盖第二路径。外置probe两次导入错非产品红；操作员runpy跑原字节不补独立签字。typed probe首mode误用，修lane再经control投影仍3真反例。
