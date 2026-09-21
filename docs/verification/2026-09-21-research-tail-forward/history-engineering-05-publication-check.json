@@ -1,0 +1,177 @@
+{
+  "recorded_at": "2026-09-21T18:35:08.745789+00:00",
+  "scope": "Publication/archival integrity; not an unqualified full Python pass or independent acceptance.",
+  "source_revision": "442476f7def1013f1fadebaf6594971921147edc",
+  "archive_revision": "57f187de9c89f528bb79fdd8928c4a862b27fa60",
+  "archive_check": {
+    "recorded_at": "2026-09-21T18:29:49.206624+00:00",
+    "archive_revision": "57f187de9c89f528bb79fdd8928c4a862b27fa60",
+    "archives": [
+      {
+        "revision": "57f187de9c89f528bb79fdd8928c4a862b27fa60",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/author-and-small-review",
+        "manifest_files": 281,
+        "committed_files": 281,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "57f187de9c89f528bb79fdd8928c4a862b27fa60",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/domain-review-resume-01",
+        "manifest_files": 38,
+        "committed_files": 38,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "57f187de9c89f528bb79fdd8928c4a862b27fa60",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/domain-reviews-blocked",
+        "manifest_files": 28,
+        "committed_files": 28,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "57f187de9c89f528bb79fdd8928c4a862b27fa60",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/history-boundary-repair-01",
+        "manifest_files": 45,
+        "committed_files": 45,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "57f187de9c89f528bb79fdd8928c4a862b27fa60",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/history-engineering-04",
+        "manifest_files": 212,
+        "committed_files": 212,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "57f187de9c89f528bb79fdd8928c4a862b27fa60",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05",
+        "manifest_files": 49,
+        "committed_files": 49,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "57f187de9c89f528bb79fdd8928c4a862b27fa60",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/history-permission-repair-02",
+        "manifest_files": 58,
+        "committed_files": 58,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "57f187de9c89f528bb79fdd8928c4a862b27fa60",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03",
+        "manifest_files": 81,
+        "committed_files": 81,
+        "ok": true,
+        "errors": []
+      }
+    ],
+    "originals": [
+      {
+        "archive": "history-engineering-04",
+        "whole_originals_matching": 210,
+        "chunked_originals_matching": 0
+      },
+      {
+        "archive": "history-engineering-resume-05",
+        "whole_originals_matching": 44,
+        "chunked_originals_matching": 2
+      }
+    ],
+    "old_seven_unchanged_from": "28bbf474b11ab30928bbf16687d3fb946c885956",
+    "total_manifest_members": 792
+  },
+  "publications": [
+    {
+      "recorded_at": "2026-09-21T18:31:37.598416+00:00",
+      "number": 845,
+      "source_revision": "442476f7def1013f1fadebaf6594971921147edc",
+      "archive_revision": "57f187de9c89f528bb79fdd8928c4a862b27fa60",
+      "head_at_publication": "442476f7def1013f1fadebaf6594971921147edc",
+      "body_sha256": "5ac064fd250a18a10651bd6f413a52079adcd786c4484283974ab16424f31a7e",
+      "comment_id": 5546,
+      "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/845#issuecomment-5546",
+      "write_errors_readback_resolved": [],
+      "overall": "CHANGES_REQUIRED",
+      "independent_review": "NOT_RESTARTED",
+      "merge_deploy_production": "NOT_PERFORMED"
+    },
+    {
+      "recorded_at": "2026-09-21T18:31:37.971500+00:00",
+      "number": 838,
+      "source_revision": "442476f7def1013f1fadebaf6594971921147edc",
+      "archive_revision": "57f187de9c89f528bb79fdd8928c4a862b27fa60",
+      "head_at_publication": "57f187de9c89f528bb79fdd8928c4a862b27fa60",
+      "body_sha256": "52dd29a765bf29431ac58db92d57b2a1b302177d8e3a1415d1c5ec53ffbb659a",
+      "comment_id": 5545,
+      "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/838#issuecomment-5545",
+      "write_errors_readback_resolved": [],
+      "overall": "CHANGES_REQUIRED",
+      "independent_review": "NOT_RESTARTED",
+      "merge_deploy_production": "NOT_PERFORMED"
+    }
+  ],
+  "original_pr833_unchanged": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+  "remote_heads_at_publication": {
+    "refs/heads/docs/research-tail-closeout-0921": "57f187de9c89f528bb79fdd8928c4a862b27fa60",
+    "refs/heads/fix/history-forward-0921": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+    "refs/heads/fix/history-forward-boundary-0921": "442476f7def1013f1fadebaf6594971921147edc"
+  },
+  "memory": {
+    "commit": "78e2f69930d3d01ee1f309546cdd6d4b2d8d251e",
+    "files": [
+      {
+        "path": "20_projects/finance-workspace-private.md",
+        "committed_sha256": "a7f5874e3ae34db9d11c51ce93f86a466ec2ba60af3c80155963ea7e82f96597",
+        "working_sha256": "09f69348e15e557c6c815ef18020acdd7bb8a67808e49cd3dbfee1658ed8e75f",
+        "working_matches": false
+      },
+      {
+        "path": "10_knowledge/finance-agent-capability-graph.md",
+        "committed_sha256": "730bbcc2e0d989b3a977682e7ed7bf728d612f6a7fe0e560656a632db31df1e6",
+        "working_sha256": "730bbcc2e0d989b3a977682e7ed7bf728d612f6a7fe0e560656a632db31df1e6",
+        "working_matches": true
+      }
+    ]
+  },
+  "static_graph_audit": {
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "/Users/a77/agent-memory/scripts/graph_audit.py"
+    ],
+    "exit_code": 0,
+    "log_sha256": "0c2d7759dc58a0b333fc79da695d6d2c1c2c7edd108a7e8f3709b4d7ca17ff59",
+    "scope": "static symbol audit only; not behavior or merged-state acceptance"
+  },
+  "publication_metadata_files": [
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-05-publication/publish.py.txt",
+      "sha256": "44ec66fb018a6e75014d51dc538e63c59d8f7511bdaa43cb94cabc947f11a1a5"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-05-publication/verify_archives.py.txt",
+      "sha256": "dee0155c1ce38df79947e9780075f17ecab71166fa065ace1a813e46c04da3cb"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-05-publication/finalize.py.txt",
+      "sha256": "3a8303c40143c58773c545f842af6e583d08433ab2a35620b4dd5d03557077b9"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-05-publication/graph-audit.txt",
+      "sha256": "0c2d7759dc58a0b333fc79da695d6d2c1c2c7edd108a7e8f3709b4d7ca17ff59"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-05-publication/graph-audit-result.json",
+      "sha256": "991eef0a9d64c4230f4786ed38f03420cf950361b7d0e4718f1ab97425e6f04e"
+    }
+  ],
+  "overall": "CHANGES_REQUIRED",
+  "no_merge_deploy_production_or_paid_review": true,
+  "future_docs_tip_note": "A later docs-only commit will add this receipt and final inflight state; immutable test archives remain bound to archive_revision."
+}

@@ -26,7 +26,7 @@
 
 - [05证据包](history-engineering-resume-05/README.md)补同一`442476f7d`：完整12898测试ID两组无重叠/遗漏，原始**12807P/2F/87S/2X**。两F为RSS状态，配对同env证明外层Seatbelt阻止`/bin/ps`（exit71）；无外层两P仅作诊断，不改全量exit1，不声称无保留完整绿。
 - 新SHA **E2E34P/2S、0重试**。首轮9P/27F均缺共享浏览器可执行文件；官方安装锁定1179到专用目录后，同36ID复验通过。首错、下载记录和原件均保留。
-- 新包49成员，JSONL逐阶段原记录无损分片，44份整件复制与两份分片来源可核。04固定`28bbf474b11ab30928bbf16687d3fb946c885956`的212成员已推核，旧七包不改。[05快照](../../handoffs/2026-09-22-history-engineering-resume.md)记取舍。整体仍CHANGES_REQUIRED，#814正式门禁/独立终审/自然四题未闭合。
+- 新包49成员，JSONL逐阶段原记录无损分片，44份整件复制与两份分片来源可核。04固定`28bbf474b11ab30928bbf16687d3fb946c885956`的212成员已推核，旧七包不改。[05快照](../../handoffs/2026-09-22-history-engineering-resume.md)记取舍。发布与远端身份回执见[05 publication check](history-engineering-05-publication-check.json)：#845评论5546、#838评论5545，#833未移动。整体仍CHANGES_REQUIRED，#814正式门禁/独立终审/自然四题未闭合。
 
 ## 验证方法与范围
 
