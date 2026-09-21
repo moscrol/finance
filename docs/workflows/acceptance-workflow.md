@@ -73,7 +73,7 @@ exit 0 只对「命令里那个 `gitea/main` 解析出的 SHA」成立；报告�
 
 ## 4. 切 8792（链切五步）
 
-链切用下面五步。`scripts/deploy_workbench_runtime.sh` 面向的是「rsync 进现有快照」的旧形态，只在快照目录不换时用。
+链切用下面五步。`scripts/deploy_workbench_runtime.sh` 仅面向不受 Git 管理的旧式 standalone 目录：必须显式设置 `WORKBENCH_REPO_ROOT=<干净源树>` 并传入 `--apply --expect-revision <完整SHA>`。它拒绝覆盖 Git worktree 快照，版本快照只能新建再切链；无参数、未知参数和不匹配的版本均拒绝执行，`--help` 只显示帮助。旧版本没有参数解析，连 `--help` 都可能执行真实部署，禁止以运行旧脚本的方式探测用法，先读源码。
 
 ```bash
 # ⚠️ 这条 fetch 不能省（2026-08-18 实测补入）：验收 session 总是刚合完 PR 才切，
