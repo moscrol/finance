@@ -540,7 +540,7 @@ class ContinuousTurnAdapter:
             context_candidate = self._context_factory(frame, **context_kwargs)
             if not isinstance(context_candidate, ResearchRunContext):
                 raise TypeError("context factory must return ResearchRunContext")
-            context = context_candidate
+            context = replace(context_candidate, prior_evidence=control.prior_evidence)
             registry = cast(
                 ResearchToolRegistry,
                 self._registry_factory(frame, context),
@@ -1843,6 +1843,8 @@ def _episode_context_provenance(
         ),
         "history_results": list(context.history_results),
     }
+    if context.prior_evidence is not None:
+        payload["prior_evidence"] = context.prior_evidence.receipt()
     pack = getattr(context, "stance_pack", None)
     if pack is None:
         return payload

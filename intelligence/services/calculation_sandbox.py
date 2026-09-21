@@ -58,7 +58,8 @@ from intelligence.services import sandbox_fincalc
 # 否则同脚本同输入会得到「看起来同 id、实际不同环境」的两份产物。
 # v2（工单 04）：给脚本 ``PARAMS`` / ``fincalc`` 财务助手 / ``emit_result`` 结构化结果出口；
 # ``sandbox_fincalc.py`` 的改动也走这个号（它随 prelude 一起拷进沙箱，是同一个执行环境）。
-PRELUDE_VERSION = "2"
+# v3 属于旧未合分支，v4 是两参表格初版；v5 区分逐行保存值后的计算身份。
+PRELUDE_VERSION = "5"
 FINCALC_MODULE = "fincalc"
 
 RESULT_SENTINEL = "__DERIVED_CALCULATION_RESULT__"
