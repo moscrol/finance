@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -91,6 +92,63 @@ def test_plan_allows_plain_suffix_without_changing_validated_payload(fenced: boo
     content = f"```json\n{raw}\n```" if fenced else raw
     result = parse_plan_candidate(content + "\n\nPLAN repaired; continue collecting evidence.")
     assert result.plan == parse_research_plan(raw) and not result.error
+
+
+@pytest.mark.parametrize("fenced", [False, True])
+def test_complete_plan_without_kind_is_rejected_as_plan_not_finish(fenced: bool) -> None:
+    payload = json.loads(_plan_json())
+    del payload["kind"]
+    raw = json.dumps(payload)
+    content = f"```json\n{raw}\n```" if fenced else raw
+
+    result = parse_plan_candidate(content)
+
+    assert result.plan is None, "recognition must not silently admit the plan"
+    assert result.error == "missing plan fields: kind"
+    with pytest.raises(ValueError, match="missing plan fields: kind"):
+        parse_research_plan(content)
+
+
+def test_live_k3_missing_kind_response_uses_plan_validation() -> None:
+    # run_20260921_192812_245529, model_turn sequence=6; exact content bytes.
+    content = (Path(__file__).parent / "fixtures" / "k3_missing_plan_kind.json").read_text(
+        encoding="utf-8"
+    )
+    result = parse_plan_candidate(content)
+    assert result.plan is None
+    assert result.error == "missing plan fields: kind"
+
+
+@pytest.mark.parametrize("field", ["budget", "tool", "evidence_hashes"])
+def test_missing_kind_does_not_hide_unknown_plan_fields(field: str) -> None:
+    payload = json.loads(_plan_json())
+    del payload["kind"]
+    payload[field] = "not authorized"
+    result = parse_plan_candidate(json.dumps(payload))
+    assert result.plan is None
+    assert result.error == f"unknown plan fields: {field}"
+
+
+@pytest.mark.parametrize("field", ["status", "draft", "gaps", "bindings", "render_from_claims"])
+def test_untagged_plan_shaped_payload_with_finish_fields_stays_in_finish_lane(field: str) -> None:
+    payload = json.loads(_plan_json())
+    del payload["kind"]
+    payload[field] = None  # Even an invalid terminal value is terminal intent.
+    result = parse_plan_candidate(json.dumps(payload))
+    assert result.plan is None
+    assert result.error == ""
+
+
+@pytest.mark.parametrize("content", [
+    "", "null", "[]", "not JSON", "{}",
+    '{"task_summary":"ordinary response"}',
+    '{"requested_mode":"quick","revision":1}',
+    '{"status":"partial","draft":"not enough evidence","gaps":[],"bindings":[]}',
+])
+def test_non_plan_output_is_not_inferred_from_text_or_partial_shape(content: str) -> None:
+    result = parse_plan_candidate(content)
+    assert result.plan is None
+    assert result.error == ""
 
 
 def test_fenced_plan_still_rejects_authoritative_fields() -> None:

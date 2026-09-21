@@ -272,7 +272,7 @@ def parse_research_plan(content: str) -> ResearchPlan:
 
 
 def parse_plan_candidate(content: str) -> PlanParseResult:
-    """Recognize explicit PLAN output while leaving FINAL_JSON untouched."""
+    """Recognize PLAN candidates for validation, never infer execution authority."""
 
     try:
         payload = _decode_plan(content)
@@ -280,8 +280,18 @@ def parse_plan_candidate(content: str) -> PlanParseResult:
         if isinstance(content, str) and "PLAN" in content and "kind" in content:
             return PlanParseResult(None, "PLAN must be one valid JSON object")
         return PlanParseResult(None)
-    if not isinstance(payload, dict) or "kind" not in payload:
+    if not isinstance(payload, dict):
         return PlanParseResult(None)
+    if "kind" not in payload:
+        # A complete plan body with only its discriminator missing still needs
+        # PLAN repair, not the finish steering that asks the model to stop.
+        # Do not insert kind or admit it: the strict parser must reject it.
+        # Terminal fields win for untagged objects, even with invalid values;
+        # ambiguous or merely partial shapes remain the finish lane's concern.
+        plan_body = _REQUIRED_PLAN_FIELDS - {"kind"}
+        terminal_fields = {"status", "draft", "gaps", "bindings", "render_from_claims"}
+        if not plan_body <= payload.keys() or terminal_fields & payload.keys():
+            return PlanParseResult(None)
     try:
         return PlanParseResult(parse_research_plan(content))
     except ValueError as exc:

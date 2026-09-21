@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import replace
 import json
+from pathlib import Path
 from threading import Event, Lock
 
 import pytest
@@ -2316,6 +2317,76 @@ def test_malformed_plan_gets_one_same_episode_repair_without_tool_use() -> None:
     assert outcome.usage.invalid_actions == 1
 
 
+@pytest.mark.parametrize("repair_plan", [False, True])
+def test_live_untagged_plan_gets_plan_steering_then_can_research(repair_plan: bool) -> None:
+    """Replay the real first response; later turns/tools are offline scripted controls."""
+    raw = (Path(__file__).parent / "fixtures" / "k3_missing_plan_kind.json").read_text(
+        encoding="utf-8"
+    )
+    turns = [ModelTurn(raw, (), "scripted", "")]
+    if repair_plan:
+        corrected = {"kind": "PLAN", **json.loads(raw)}
+        turns.append(ModelTurn(json.dumps(corrected), (), "scripted", ""))
+    turns.extend([_tool_turn("A股 最新行情"), _finish_turn()])
+    model = ScriptedModel(turns)
+    frame = _frame()
+    runner_calls = []
+
+    def runner(query, context):
+        runner_calls.append(query)
+        return _successful_runner(query, context)
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(runner),
+    )
+
+    repair_message = model.calls[1]["messages"][-1]
+    assert repair_message["role"] == "user"
+    assert "上一条 PLAN 无效" in repair_message["content"]
+    assert "missing plan fields: kind" in repair_message["content"]
+    assert "直接调用已授权工具" in repair_message["content"]
+    assert "FINAL_JSON" not in repair_message["content"]
+    assert model.calls[1]["tools"], "format repair must leave the authorized menu open"
+    assert model.calls[1]["messages"][-2]["content"] == raw
+    assert outcome.status == "completed"
+    assert outcome.usage.invalid_actions == 1
+    assert outcome.usage.llm_calls == 3 + int(repair_plan)
+    assert outcome.usage.tool_calls == 1
+    assert runner_calls == ["A股 最新行情"], "candidate_actions must not execute tools"
+    assert outcome.bindings[0].evidence_hashes == ("evidence-1",)
+    assert (outcome.plan is not None) is repair_plan
+    if outcome.plan is not None:
+        assert outcome.plan.revision == 1
+    sources = [e.payload.get("source") for e in outcome.events if e.kind == "model_input"]
+    assert sources.count("steering_invalid_plan") == 1
+    assert "steering_invalid_finish" not in sources
+
+
+def test_untagged_plan_does_not_get_unbounded_format_repairs() -> None:
+    raw = (Path(__file__).parent / "fixtures" / "k3_missing_plan_kind.json").read_text(
+        encoding="utf-8"
+    )
+    bad = ModelTurn(raw, (), "scripted", "")
+    model = ScriptedModel([
+        bad, bad,
+        _finish_turn(status="partial", hashes=(), gap="未取得证据"),
+    ])
+    frame = _frame()
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+    sources = [e.payload.get("source") for e in outcome.events if e.kind == "model_input"]
+    assert sources.count("steering_invalid_plan") == 1
+    assert outcome.plan is None
+    assert outcome.usage.tool_calls == 0
+    assert outcome.usage.llm_calls == 3
+    assert outcome.status == "partial"
+
+
 def test_initial_plan_can_express_answer_elements_without_contract_ids() -> None:
     frame = _frame()
     model = ScriptedModel(
@@ -4034,12 +4105,20 @@ def test_tool_call_after_finalization_closed_uses_compact_recovery() -> None:
     assert model.calls[2]["tools"] == []
 
 
-def test_plan_after_finalization_enters_terminal_recovery_instead_of_being_accepted() -> None:
+@pytest.mark.parametrize("missing_kind", [False, True])
+def test_plan_after_finalization_enters_terminal_recovery_instead_of_being_accepted(
+    missing_kind: bool,
+) -> None:
     frame = _frame()
+    plan = _plan_turn()
+    if missing_kind:
+        payload = json.loads(plan.content)
+        del payload["kind"]
+        plan = replace(plan, content=json.dumps(payload))
     model = ScriptedModel(
         [
             _tool_turn("A股 最新行情", call_id="research-call"),
-            _plan_turn(),
+            plan,
             _finish_turn(),
         ]
     )
