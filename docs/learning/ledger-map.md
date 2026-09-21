@@ -87,6 +87,22 @@ launchd `com.financeworkspace.dual-blind-forecast`（工作日 09:10 跑 `script
 
 状态标签：**晨汇 = 上游仍有货、抓取词表/会话断了，待打开 IMA 再拉；卖方 = 微信频控，待用户决策**。不要把两条线当成同一个故障。晨汇缺档不是「无原文」——IMA 里有 PDF，只是还没拉进仓；卖方缺档仍是「无原文，禁止编造」。
 
+## IMA 缺口清单断档与回填（2026-09-21）
+
+`ima-gap-report` 自 2026-09-03 起静默停产，产物断在 `2026-09-02`。**断因不是脚本失败，是代码从没合进 main**：
+09-03 主检出树前移到 `gitea/main` 时，`intelligence/services/ima_gap_report.py` + 测试连同 `cli.py` /
+`daily_review.py` 的接线一起被保管进 `wip/mainline-move-footprints-20260903`（该 handoff 明写「不合 main，
+归属者认领后自己决定」），无人认领，主树切到 main 后这一步随之消失。上表照登记着它——**台账说有、代码里没有**，
+断了 19 天无人发现，下游一直吃 09-02 的旧清单（知识库仓 09-15 的入库提交仍写着「ima-gap 0902 积压」）。
+
+回填口径（`fix/restore-ima-gap-report`）：接线移植回 main 后补跑 **09-07 / 09-09 / 09-14～09-18 共 7 天**。
+
+- **回填清单不是当日快照**。`ima-gap-report` 拿当日 `research-queue.json` 去比**当前**知识库状态，补出来的是
+  「以今天的 wiki 看，那天的队列里还缺什么」。对「现在该去 IMA 跑什么」这个用途口径是对的（已入库的会正确判成
+  `skip_have_deepdive`），但**不能当作「当时该跑什么」的历史证据**。
+- **09-03～09-06 / 09-08 / 09-10～09-13 永久补不了**：这些日期没有 `<date>-research-queue.json`，缺的是上游
+  日报线，不是本步。
+
 ## 边界约定（去重复）
 
 - **正式日报唯一真本源 = `<date>-daily-review.json`**（2026-09-03 起）：此前 `build_daily_review`
