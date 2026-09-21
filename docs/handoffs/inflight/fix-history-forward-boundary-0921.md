@@ -12,14 +12,14 @@
 
 ## 当前状态
 WIP #845源码b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16已推clean，父7c99；原#833 7edfe24e7未动。H-03短“材料如下”与未闭合引号两输入安全断言已转绿，合法续问保窗口/截止/local_only。新增67例含回放、真实入口、缩进、撇号和独立提问。
-整体仍CHANGES_REQUIRED/未验收，具体“两相邻反例仍红”已由新SHA受测结果接替。新81成员包history-source-partition-03已本地封存，提交对象核验及PR发布尚待收尾；旧五包及发布回执不改。
+整体仍CHANGES_REQUIRED/未验收，具体“两相邻反例仍红”已由新SHA受测结果接替。新81成员包history-source-partition-03已在#838/c14bc12f5封存推送，六包Git blobs及原件已核，旧五包不变。三PR正文/评论5510/5513/5517回读完成；包外history-source-partition-03-publication-check.json留证，记忆50efc710已含本轮状态。
 
 ## 未验证 / 已知边界
 985定向绿不是完整Python/前端/E2E/registry全叶。三领域独立终审缺，历史原四自然题仍not_passed；新main/#841/联合树未验。只测意图/合同/工具登记，未执行history_query，不声称任意自然输入安全。
 无合并/8792部署/生产回填/清树/重启付费审核；#814与邻线不接管。
 
 ## 下一步
-先完成新包Git blobs核验、WIP发布及记忆回写；再按授权补精确SHA全叶、独立/自然验收。不移签旧绿，不自动续审。
+按授权补精确SHA全叶、独立/自然验收。不移签旧绿，不自动续审。发布/归档已完成，不重复POST或覆盖旧包。
 
 ## 踩过的坑
 原样旧探针1F/1P：诊断打印material_contract.data_scope触None异常，未达断言；新副本仅修诊断，原断言2P。不得把原件写成全绿。开发4红定位先strip丢缩进。早期check记录器缺research_contract哈希，冻结收据已含。

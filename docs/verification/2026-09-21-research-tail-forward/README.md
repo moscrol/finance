@@ -15,7 +15,7 @@
 - [H-02 决策快照](../../handoffs/2026-09-21-history-permission-inheritance-repair.md)与集中inflight给出接手边界。新包固定提交 **5b1452adfc032ad31a78844fa123745d832a1eda** 已推，58/58 Git blob与原件字节一致，旧四包281/28/38/45逐包重核且不变。[H-02 发布回执](history-permission-repair-02-publication-check.json)在包外，记录三PR正文/评论5482/5486/5490回读、记忆5e0012f9与静态图谱审计；图谱首次符号写法失败及修正后exit0都保留，不证明行为或合入。
 
 - **最新：[H-03 材料来源分区](history-source-partition-03/README.md)**：#845固定b6de1a38c，985P/4S定向回归，十四变异有效；短材料/未闭合引号两输入安全断言转绿，合法续问保local_only。正常量具157P重叠不加总。旧外置探针原样1F/1P系诊断空值错误，另存只修诊断的副本以原断言2P，不改原件。新81成员包保开发失败与冻结结果，旧五包不改。整体仍CHANGES_REQUIRED/未验收，不替完整门禁、独立终审或自然四题。
-- [H-03 决策快照](../../handoffs/2026-09-21-history-source-partition-repair.md)记录先strip丢来源容器、英文撇号与编号题组边界。新包提交对象核验和发布事实随后在包外回执记录，不追加冻结清单。
+- [H-03 决策快照](../../handoffs/2026-09-21-history-source-partition-repair.md)记录先strip丢来源容器、英文撇号与编号题组边界。新包固定提交 **c14bc12f5a966d82e4fe49995bf5221bd4540a2f** 已推，六包281/28/38/45/58/81完整清单及Git blobs通过，新79份复制原件与候选补丁逐字节一致。三PR正文/评论5510/5513/5517与远端身份、记忆50efc710、静态图谱exit0见[H-03发布回执](history-source-partition-03-publication-check.json)。首次记忆工作区并行修改导致回执中止也保留记录，后续分列提交/工作区哈希，不冒充同一快照；回执在包外，不改冻结清单。
 
 ## 验证方法与范围
 
