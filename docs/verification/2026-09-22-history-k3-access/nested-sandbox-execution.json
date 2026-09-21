@@ -1,0 +1,34 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-access-fedce/quality/controller.sb",
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-access-fedce/quality/tools.sb",
+    "/bin/echo",
+    "local-only"
+  ],
+  "identity_before": {
+    "revision": "fedce252330dce1065238f58e6c914417219ec53",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "started_at": "2026-09-21T18:22:57.613719+00:00",
+  "timeout_seconds": 15,
+  "disk_free_samples": [
+    {
+      "elapsed": 0,
+      "free_bytes": 46048075776
+    }
+  ],
+  "pid": 29225,
+  "exit_code": 71,
+  "identity_after": {
+    "revision": "fedce252330dce1065238f58e6c914417219ec53",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "finished_at": "2026-09-21T18:22:59.720169+00:00",
+  "identity_stable": true
+}

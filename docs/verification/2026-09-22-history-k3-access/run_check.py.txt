@@ -1,0 +1,81 @@
+"""Version-bound local check recorder; no network/model requests or gate changes."""
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import signal
+import subprocess
+import sys
+import time
+
+TREE = Path('/Users/a77/fwp-wt-history-evidence-integration-0921')
+OUT = Path(__file__).resolve().parent
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+
+
+def identity():
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=TREE).decode().strip()
+    return {'revision': git('rev-parse', 'HEAD'), 'status': git('status', '--porcelain'),
+            'diff_sha256': hashlib.sha256(subprocess.check_output(['git', 'diff', 'HEAD'], cwd=TREE)).hexdigest()}
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('label')
+    parser.add_argument('--clean-sha')
+    parser.add_argument('--timeout', type=int, default=300)
+    parser.add_argument('command', nargs=argparse.REMAINDER)
+    args = parser.parse_args()
+    command = args.command
+    if command and command[0] == '--':
+        command = command[1:]
+    assert command
+    before = identity()
+    if args.clean_sha:
+        assert before['revision'] == args.clean_sha and before['status'] == '', before
+    record = {'command': command, 'identity_before': before,
+              'started_at': datetime.now(timezone.utc).isoformat(),
+              'timeout_seconds': args.timeout, 'disk_free_samples': []}
+    log_path = OUT / (args.label + '.log')
+    record_path = OUT / (args.label + '-execution.json')
+    env = {key: os.environ[key] for key in ('HOME', 'PATH') if key in os.environ}
+    with log_path.open('xb') as log:
+        proc = subprocess.Popen(command, cwd=TREE, env=env, stdout=log,
+                                stderr=subprocess.STDOUT, start_new_session=True, umask=0o022)
+        record['pid'] = proc.pid
+        start = time.monotonic()
+        while proc.poll() is None:
+            record['disk_free_samples'].append({'elapsed': round(time.monotonic()-start),
+                                                 'free_bytes': shutil.disk_usage(TREE).free})
+            record_path.write_text(json.dumps(record, indent=2)+'\n')
+            if time.monotonic()-start > args.timeout:
+                record['timed_out'] = True
+                os.killpg(proc.pid, signal.SIGTERM)
+                try:
+                    proc.wait(timeout=20)
+                except subprocess.TimeoutExpired:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                break
+            time.sleep(2)
+        record['exit_code'] = proc.wait()
+    record.update(identity_after=identity(), finished_at=datetime.now(timezone.utc).isoformat())
+    record['identity_stable'] = record['identity_before'] == record['identity_after']
+    text = log_path.read_text(errors='replace')
+    receipts = re.findall(r'/Users/a77/\.finance-runtime/test-receipts/[A-Za-z0-9-]+\.json', text)
+    if receipts:
+        receipt_path = Path(receipts[-1])
+        shutil.copyfile(receipt_path, OUT / (args.label + '-receipt.json'))
+        record['receipt_source'] = str(receipt_path)
+    record_path.write_text(json.dumps(record, indent=2)+'\n')
+    print('\n'.join(text.splitlines()[-18:]))
+    print(json.dumps({key: value for key, value in record.items() if key != 'disk_free_samples'}, indent=2))
+    return record['exit_code']
+
+
+if __name__ == '__main__':
+    sys.exit(main())

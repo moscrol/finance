@@ -1,25 +1,29 @@
 # 历史来源绑定与缓存授权 · WIP #841
 
 ## 这个分支做什么
-接替#829，基于#832；724缓存授权加固后前向合入固定main028a成为f73。#832仍是PR基线，不执行合入#832/main。
+接替#829，基于#832；完成历史证据来源绑定、缓存授权加固及固定版本工程验收，当前补做独立审查收口。
 
 ## 决策与被否方案
-缓存非授权；同run锁内重载、校验仅读一次；refresh替换；保旧错误合同。否中断日志/作者回归代独立签字、自动重试/加购/重开旧K3。自然预算未定不启动。详情`docs/handoffs/2026-09-22-history-review-resume.md`；旧包不改。
+缓存非授权：同run锁内重载、重授权、校验后仅读一次；refresh替换集合并保旧错误合同。否中断日志/作者回归代独立签字，否自动重试/加购/重开旧K3。审查壳不能用外层here-doc或嵌套sandbox；先修设施再重跑，不为终稿放宽隔离。
 
 ## 当前状态
-业务代码仍f73d2133968d51d3c782d3e12ee9aa4d0618ef45。本轮独立审查固定docs头43511e3f15bd18bfd49868dfbac5b1d3774fd0bc，后续仅本归档/交接文档。读取恢复后两条审查已读源码，但终稿前额度耗尽：Spec/Quality均BLOCKED_USAGE_LIMIT_NO_FINAL_REPORT。自然仍not_passed；未合main/#832、未部署8792、未写生产。
+业务头仍`f73d2133968d51d3c782d3e12ee9aa4d0618ef45`；本分支头`fedce252330dce1065238f58e6c914417219ec53`，之后仅文档。当前新增未提交归档`docs/verification/2026-09-22-history-k3-access/`及本交接/日期快照，待校验提交。详情见`docs/handoffs/2026-09-22-history-k3-access.md`。
 
 ## 已验证
-- 最小Codex只读探针成功，确认完整43511 SHA及read_history_artifact签名，不算审查。
-- Spec395.184s/Quality421.208s，前后SHA/status稳定、各600s时限未触发、exit1用量限制，终稿缺失。新包`docs/verification/2026-09-22-history-review-resume/`；大日志在`~/.finance-runtime/reviews/react-trace-integration-20260921/history-review-resume-43511/`，由EXTERNAL-SHA256SUMS绑定，须保留。
-- 本轮pytest=0、金融探针=0；旧64b0的599P与f73全量各属原SHA，不移签。非docs diff为空。
-- 新增个人软链`~/.local/bin/codex-code-mode-host`指向应用内宿主；会影响该用户CLI入口，未改config/权限/服务。地图build到43511，31102节点。
+- Spec/Quality各一次：固定fedce，1.338s/1.466s，exit70，模型请求0，无终稿；均`BLOCKED_BOOTSTRAP_NO_MODEL_DISPATCH`，原件保留。
+- `/usr/bin/true`替身保留原shell resolver，复现相同here-doc临时文件错误哈希；指定TMPDIR仍失败。直接Python正文SQLite/HTTP四分支夹具通过，不等于真实修复。
+- 外层controller嵌tools sandbox的echo exit71（`sandbox_apply: Operation not permitted`），不再盲重跑。
+- fedce定向599 passed、0 failed/error/skipped；收据`20260921T180311Z-fedce252.json`精确checker exit0。作者回归不代独立签字。
+- 候选/作者树首尾稳定；无自然金融探针、生产配置/服务/业务代码改动。
 
 ## 未验证 / 已知边界
-无独立裁决；225/25自然理解/有效分母/数字引用/判官消费未验。#793/#794、#833/#845联合树未签，main e827组合未验。磁盘最近约3.9GiB，低于原全量6GiB停止线，未跑全量/装依赖/起服务。hash不认证来源，锁不防直接改盘；HTTP用户下载与同会话reader分账。
+无独立终稿；自然金融仍`not_passed`，225/25分母、自然数字引用、判官消费未验。生产写手/判官模型须真实运行收据，旧注释不算。main tip组合、#793/#794、#833/#845联合树未验。claims未签名验证；hash只证明字节。本轮定向磁盘最低31.25GB；下次重新采样，原全量6GiB线不变。
 
 ## 下一步
-先核额度和磁盘，再固定SHA新开有界独立审查，终稿缺失仍blocked。自然题/模型/provider尝试硬上限/服务端墙钟与停止规则确定后才走workbench_probe。它的--timeout只限客户端等待，不取消服务端。合入需用户确认并验实际组合/main tip。不关#793/#794、不接管别线。
+1. 提交归档后用`check_evidence_archive.py`按归档提交校验；599收据仍绑定fedce，不移签。
+2. 修审查设施：凭证初始化去掉受限shell here-doc；工具隔离改为可验证单层策略；补完整终稿收口和请求收据。先做无网络离线验证，不能只改草稿后跑模型。
+3. 获明确授权后，以新目录/准确SHA各启动一次有界独立审查；终稿缺失仍BLOCKED。通过后才冻结自然题、写手/判官、provider硬上限和服务端墙钟。
+4. 最后验实际main组合；合入/部署另获确认。不切生产写手、不接管或关闭其他PR。
 
 ## 踩过的坑
-软链CLI同目录缺配套宿主会阻塞；本次绝对CLI路径与补链一起生效，未做单变量对照。--ask-for-approval放exec后会解析失败；现存config/hooks warning未修。CLI tokens used不等于计费金额；共享磁盘变化不归因本轮，外置哈希不等于原件备份。
+个人Codex宿主软链恢复读取，但Codex额度中断仍无终稿；不要混称K3不可用。controller允许默认但禁写，不能据此断言禁网。`workbench_probe --timeout`只等客户端，不取消服务端。失败后改过Spec草稿，已与执行原件分包；旧包不可改。

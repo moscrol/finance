@@ -1,0 +1,31 @@
+{
+  "status": "CREDENTIAL_READY_NOT_MODEL_TESTED",
+  "time_before": "2026-09-21T17:57:47.852037+00:00",
+  "identity_before": {
+    "revision": "fedce252330dce1065238f58e6c914417219ec53",
+    "status": ""
+  },
+  "resolver": "/Users/a77/.claude/mirasim-kimi-token.sh",
+  "resolver_sha256": "602a59daf33af6b27c3c7504881001c6aafc4d92d96f40580069c11641a83e36",
+  "resolver_attempt_limit": 1,
+  "timeout_seconds": 35,
+  "model_requests": 0,
+  "new_purchase": false,
+  "disk_free_before": 29228093440,
+  "credential_policy": "stdout inspected in memory only; neither credential nor raw stderr persisted",
+  "resolver_exit_code": 0,
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_bytes": 0,
+  "http_error_codes": [],
+  "known_failure_labels": [],
+  "declared_plan": "plus",
+  "covers_600_seconds": true,
+  "claims_are_not_signature_verified": true,
+  "identity_after": {
+    "revision": "fedce252330dce1065238f58e6c914417219ec53",
+    "status": ""
+  },
+  "identity_stable": true,
+  "time_after": "2026-09-21T17:57:49.806942+00:00",
+  "disk_free_after": 29224632320
+}

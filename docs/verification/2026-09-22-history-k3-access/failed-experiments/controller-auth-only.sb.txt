@@ -1,0 +1,6 @@
+(version 1)
+(allow default)
+(deny file-write*)
+(allow file-write* (subpath "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-access-fedce") (literal "/dev/null"))
+(allow network-outbound (remote ip "198.18.0.37:443"))
+(allow network-outbound (remote ip "localhost:18788"))

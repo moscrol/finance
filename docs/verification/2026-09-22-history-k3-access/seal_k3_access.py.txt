@@ -1,0 +1,101 @@
+"""Seal this failed attempt only; reconstruct modified inputs against recorded hashes."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+REPO = Path('/Users/a77/fwp-wt-history-evidence-integration-0921')
+REL = Path('docs/verification/2026-09-22-history-k3-access')
+OUT = REPO / REL
+REV = 'fedce252330dce1065238f58e6c914417219ec53'
+
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def save(path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open('xb') as stream:
+        stream.write(data)
+
+
+def json_bytes(value):
+    return (json.dumps(value, ensure_ascii=False, indent=2) + '\n').encode()
+
+
+assert subprocess.check_output(['git', '-C', str(REPO), 'rev-parse', 'HEAD'], text=True).strip() == REV
+OUT.mkdir(exist_ok=False)
+# Preserve operator edits separately before restoring hash-bound executed bytes.
+reconstruction = []
+for name in ('run.py', 'credential-bootstrap.mjs', 'controller.sb', 'launch.py'):
+    path = ROOT / 'spec' / name
+    draft = path.read_bytes()
+    save(ROOT / 'unexecuted-drafts/spec' / name, draft)
+    source = ROOT / 'quality' / name
+    actual = source.read_bytes()
+    if name == 'controller.sb':
+        actual = actual.replace(str(ROOT / 'quality/k3').encode(), str(ROOT / 'spec/k3').encode())
+    expected = json.loads((ROOT / 'spec/k3/execution.json').read_text())['inputs_sha256'].get(name)
+    if expected is not None:
+        assert digest(actual) == expected
+    path.write_bytes(actual)
+    reconstruction.append({'path': 'spec/' + name, 'draft_sha256': digest(draft),
+                           'restored_sha256': digest(actual), 'recorded_sha256': expected,
+                           'source': 'quality copy; axis substitution for controller only',
+                           'hash_bound': expected is not None,
+                           'note': 'launch.py was not hashed at execution; reconstruction is not authentication' if expected is None else 'matches execution-time hash'})
+save(OUT / 'failed-experiments/controller-auth-only.sb.txt', (ROOT / 'controller-auth-only.sb').read_bytes())
+save(OUT / 'input-reconstruction.json', json_bytes(reconstruction))
+for path in sorted((ROOT / 'unexecuted-drafts').rglob('*')):
+    if path.is_file():
+        save(OUT / 'unexecuted-drafts' / (str(path.relative_to(ROOT / 'unexecuted-drafts')) + '.txt'), path.read_bytes())
+reviews = {}
+for axis in ('spec', 'quality'):
+    folder = ROOT / axis
+    execution = json.loads((folder / 'k3/execution.json').read_text())
+    assert execution['revision'] == REV and execution['exit_code'] == 70
+    assert execution['provider_request_admissions'] == 0 and not execution['final_response_present']
+    for name, expected in execution['inputs_sha256'].items():
+        data = (folder / name).read_bytes()
+        assert digest(data) == expected, (axis, name)
+        save(OUT / axis / 'executed-inputs' / (name + '.txt'), data)
+    for name, expected in execution['sha256'].items():
+        assert digest((folder / 'k3' / name).read_bytes()) == expected
+    for name in ('execution.json', 'credential.json', 'events.jsonl', 'stderr.log', 'preflight.log'):
+        target = name + '.txt' if name.endswith(('.log', '.jsonl')) else name
+        save(OUT / axis / target, (folder / 'k3' / name).read_bytes())
+    save(OUT / axis / 'launch.json', (folder / 'launch.json').read_bytes())
+    reviews[axis] = {'status': 'BLOCKED_BOOTSTRAP_NO_MODEL_DISPATCH', 'exit_code': 70,
+                     'elapsed_seconds': execution['elapsed_seconds'], 'model_requests': 0,
+                     'final_report': False, 'timeout_seconds': 600, 'max_provider_requests': 24,
+                     'candidate_untouched': execution['candidate_untouched']}
+for name in ('access-preflight.json', 'focused-execution.json', 'focused-receipt.json',
+             'focused.log', 'focused.xml', 'receipt-check-execution.json', 'receipt-check.log',
+             'nested-sandbox-execution.json', 'nested-sandbox.log',
+             'diagnostics/heredoc-result.json', 'diagnostics/direct-python-result.json',
+             'preflight.py', 'diagnose_local.py', 'diagnostic_runner.py', 'diagnose_heredoc.py',
+             'verify_direct_python.py', 'run_check.py', 'seal_k3_access.py'):
+    target = name + '.txt' if name.endswith(('.py', '.log', '.xml')) else name
+    save(OUT / target, (ROOT / name).read_bytes())
+suites = ET.parse(ROOT / 'focused.xml').getroot().findall('.//testsuite')
+counts = {key: sum(int(suite.get(key, '0')) for suite in suites) for key in ('tests', 'failures', 'errors', 'skipped')}
+assert counts == {'tests': 599, 'failures': 0, 'errors': 0, 'skipped': 0}
+summary = {'tested_revision': REV, 'runtime_revision': 'f73d2133968d51d3c782d3e12ee9aa4d0618ef45',
+           'sealed_at': datetime.now(timezone.utc).isoformat(), 'reviews': reviews,
+           'credential_preflight': 'one real refresh succeeded outside sandbox; no model dispatch',
+           'diagnosis': {'original_stderr_reproduced_without_network': True,
+                         'scoped_tmp_fix_failed': True, 'direct_python_fixture_cases_passed': 4,
+                         'nested_sandbox_exit_code': 71, 'live_bootstrap_fix_verified': False},
+           'focused_regression': {**counts, 'receipt': '20260921T180311Z-fedce252.json', 'receipt_checker_exit_code': 0},
+           'natural_financial_probes': 0, 'natural_quality': 'not_passed',
+           'merge_or_deployment': False, 'external_root': str(ROOT),
+           'limitations': ['No independent final report', 'No actual main-tip combination acceptance',
+                           'No proof of provider availability from preflight',
+                           'No current production model claim from startup comments',
+                           'Author regression and fixture diagnostics cannot substitute for independent review']}
+save(OUT / 'summary.json', json_bytes(summary))
+print(json.dumps({'archive': str(OUT), 'reviews': reviews, 'focused_counts': counts}, indent=2))

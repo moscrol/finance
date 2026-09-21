@@ -1,0 +1,31 @@
+"""Reserve one launch; the bounded runner owns the model process until exit."""
+import json
+import os
+from pathlib import Path
+import subprocess
+from datetime import datetime, timezone
+
+ROOT = Path(__file__).resolve().parent
+os.umask(0o022)
+record = {'state': 'RESERVED', 'time': datetime.now(timezone.utc).isoformat(), 'attempt_limit': 1, 'model_requests': 0}
+with (ROOT / 'launch.json').open('x') as f:
+    json.dump(record, f, indent=2)
+    f.flush()
+    os.fsync(f.fileno())
+resolver = subprocess.run(['/Users/a77/.claude/mirasim-kimi-token.sh'], capture_output=True, timeout=35,
+                          env={'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin', 'LANG': 'C.UTF-8'})
+if resolver.returncode != 0 or not resolver.stdout.strip():
+    import hashlib
+    record.update(state='BLOCKED_CREDENTIAL_REFRESH', resolver_exit=resolver.returncode,
+                  resolver_stderr_sha256=hashlib.sha256(resolver.stderr).hexdigest())
+    (ROOT / 'launch.json').write_text(json.dumps(record, indent=2) + '\n')
+    raise SystemExit(2)
+run_env = {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin', 'LANG': 'C.UTF-8',
+           'PYTHONDONTWRITEBYTECODE': '1', 'REVIEW_K3_TOKEN': resolver.stdout.decode().strip()}
+with (ROOT / 'runner.log').open('xb') as log:
+    proc = subprocess.Popen(['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '-B', str(ROOT / 'run.py')],
+        cwd=ROOT, env=run_env,
+        stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+record.update(state='STARTED', pid=proc.pid)
+(ROOT / 'launch.json').write_text(json.dumps(record, indent=2) + '\n')
+print(json.dumps(record))

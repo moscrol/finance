@@ -1,0 +1,38 @@
+"""No-network reproduction of the resolver's shell startup, with Python replaced by true."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+AXIS = ROOT / 'quality'
+WORK = AXIS / 'k3/work'
+STUB = WORK / 'diagnostic-bin'
+assert (STUB / 'python3').resolve() == Path('/usr/bin/true')
+resolver = '/Users/a77/.claude/mirasim-kimi-token.sh'
+expected = json.loads((AXIS / 'k3/credential.json').read_text())['stderr_sha256']
+rows = []
+for case, tmpdir in [('default_tmp', None), ('scoped_tmp', str(WORK / 'tmp'))]:
+    env = {'HOME': '/Users/a77', 'PATH': f'{STUB}:/usr/bin:/bin', 'LANG': 'C.UTF-8'}
+    if tmpdir:
+        env['TMPDIR'] = tmpdir
+    command = ['/usr/bin/sandbox-exec', '-f', str(AXIS / 'controller.sb'), resolver]
+    p = subprocess.run(command, env=env, capture_output=True, timeout=15)
+    stderr = p.stderr.decode('utf-8', errors='replace')
+    assert not p.stdout
+    digest = hashlib.sha256(p.stderr).hexdigest()
+    rows.append({'case': case, 'exit_code': p.returncode, 'stderr': stderr,
+                 'stderr_sha256': digest, 'matches_original_failure': digest == expected,
+                 'python_replaced_by': '/usr/bin/true', 'http_requests': 0, 'model_requests': 0})
+# Isolate the sandbox failure without widening its network or write policy.
+command = ['/usr/bin/sandbox-exec', '-f', str(AXIS / 'controller.sb'), '/bin/sh', '-c',
+           'python3 -c "print(123)"']
+p = subprocess.run(command, env={'HOME': '/Users/a77', 'PATH': f'{STUB}:/usr/bin:/bin', 'LANG': 'C.UTF-8'},
+                   capture_output=True, timeout=15)
+rows.append({'case': 'no_heredoc_stub', 'exit_code': p.returncode,
+             'stderr': p.stderr.decode('utf-8', errors='replace'), 'http_requests': 0, 'model_requests': 0})
+result = {'original_error_sha256': expected, 'cases': rows,
+          'scope': 'shell startup only; no credentials read/refreshed, no live provider retest'}
+(ROOT / 'diagnostics/heredoc-result.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps(result, ensure_ascii=False, indent=2))
