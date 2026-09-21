@@ -1,0 +1,16 @@
+import json
+import os
+import sys
+
+import pytest
+
+mode = sys.argv[1]
+out = sys.argv[2]
+owner = str(os.getpid()) if mode == "self" else "999999"
+os.environ["FWP_TEST_RECEIPT_OWNER_PID"] = owner
+os.environ["FWP_TEST_RECEIPT_PATH"] = out
+rc = pytest.main(["-q", "-p", "no:cacheprovider", "test_ok.py"])
+print("STATE=" + json.dumps({
+    "exit": int(rc),
+    "owner_after": os.environ.get("FWP_TEST_RECEIPT_OWNER_PID"),
+    "receipt_exists": os.path.exists(out)}))

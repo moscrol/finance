@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/verify_evidence.py", line 60, in <module>
+    main()
+  File "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-closeout-20260921/verify_evidence.py", line 38, in main
+    committed = subprocess.run(["git", "-C", str(TREE), "show", f"{commit}:{REL / row['path']}"], capture_output=True, check=True, timeout=30).stdout
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['git', '-C', '/Users/a77/fwp-wt-ownership-closeout-0921', 'show', '66f848e46afecced40a5a0d1c3a29127dd72c516:docs/verification/2026-09-21-ownership-k3-v4/quality-k3/tmp/a5-out-configure-error-__unset__/run-1.json']' returned non-zero exit status 128.

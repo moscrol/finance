@@ -1,0 +1,5 @@
+import os
+
+
+def test_switch():
+    os.environ["FWP_TEST_RECEIPT_PATH"] += ".foreign"

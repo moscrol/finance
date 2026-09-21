@@ -1,0 +1,16 @@
+import os
+import time
+from pathlib import Path
+
+
+def test_meet():
+    root = Path(os.environ["RENDEZVOUS"])
+    root.joinpath(os.environ["PEER"]).touch()
+    deadline = time.monotonic() + 15
+    while len(list(root.iterdir())) != 2:
+        assert time.monotonic() < deadline, "peer never started"
+        time.sleep(0.01)
+
+
+def test_other():
+    assert True

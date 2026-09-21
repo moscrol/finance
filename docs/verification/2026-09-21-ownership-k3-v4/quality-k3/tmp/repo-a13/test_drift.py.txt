@@ -1,0 +1,5 @@
+from pathlib import Path
+
+
+def test_drift():
+    Path("docs_note.md").write_text("created mid-run", encoding="utf-8")

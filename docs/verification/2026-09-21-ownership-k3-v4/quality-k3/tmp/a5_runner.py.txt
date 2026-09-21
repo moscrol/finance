@@ -1,0 +1,26 @@
+import json
+import os
+import sys
+from pathlib import Path
+
+import pytest
+
+
+class FailConfigure:
+    @pytest.hookimpl(trylast=True)
+    def pytest_configure(self):
+        raise pytest.UsageError("intentional configure failure")
+
+
+out = Path(sys.argv[1])
+out.mkdir(parents=True, exist_ok=True)
+mode = sys.argv[2]
+for index in range(2):
+    os.environ["FWP_TEST_RECEIPT_PATH"] = str(out / f"run-{index}.json")
+    plugins = [FailConfigure()] if index == 0 and mode == "configure-error" else []
+    rc = pytest.main(["-q", "-p", "no:cacheprovider", "test_ok.py"],
+                     plugins=plugins)
+    state = {"exit": int(rc),
+             "owner_after": os.environ.get("FWP_TEST_RECEIPT_OWNER_PID"),
+             "receipt_exists": (out / f"run-{index}.json").is_file()}
+    (out / f"state-{index}.json").write_text(json.dumps(state))

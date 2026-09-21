@@ -1,0 +1,11 @@
+import pytest
+
+
+def test_leaf():
+    assert True
+
+
+def test_driver():
+    rc = pytest.main(["-q", "-p", "no:cacheprovider",
+                      "test_nested_inproc.py", "-k", "leaf"])
+    assert rc == 0
