@@ -2282,7 +2282,10 @@ class FinanceQuery:
         dates = tuple(item.source_date for item in evidence if item.source_date)
         observation = "；".join(item.detail for item in evidence)
         if not observation:
-            observation = f"{dataset.label}：结构化查询无结果"
+            observation = (
+                f"{dataset.label}：本次条件与截止时点内未命中本地记录；"
+                "不证明事件未发生，也不证明数据覆盖完整。"
+            )
         audit = FinanceQueryAudit(
             dataset=spec.dataset,
             physical_sql=compiled.sql,

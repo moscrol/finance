@@ -649,7 +649,7 @@ def test_episode_no_longer_accepts_mode_injection_at_all() -> None:
 
 
 def test_default_project_sub_research_equals_inline_projection() -> None:
-    """分支证据按主 episode 累计序号呈现、去 hash；文案逐字与原 _append_sub_research_message 同。"""
+    """分支证据按累计序号呈现；缺口声明不能升级成事实或查询收据。"""
 
     from dataclasses import dataclass as _dc
 
@@ -701,6 +701,8 @@ def test_default_project_sub_research_equals_inline_projection() -> None:
             "这些是只读分支返回的公开证据观察，不是最终答案。"
             "主 episode 仍需自行比较证据、处理冲突并决定停止；"
             "绑定用证据序号 E1、E2…，不得把分支状态或内部标识写入公开答案。"
+            "分支 gaps 是待核验声明，不是事实证据或查询收据；"
+            "不得据此声称本地没有记录或事件未发生。未获匹配查询收据时只写尚未查证。"
         ),
     }
     assert json.loads(text) == expected

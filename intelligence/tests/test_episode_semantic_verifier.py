@@ -738,6 +738,73 @@ def test_judge_receives_sanitized_tool_status_for_empty_retrieval(
     assert "不能支持市场事实或因果结论" in system_prompt
 
 
+def test_judge_checks_negative_facts_and_unverified_gap_claims_on_wire(monkeypatch) -> None:
+    frame, structural = _structural(
+        "9月未再新高、无涨停。",
+        detail="个股仅有8月新高记录。",
+        gaps=("9月涨停池/龙虎榜该股无本地记录",),
+    )
+    model = _RecordingJudgeModel()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    before = structural.outcome.to_dict()
+    SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame, structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    sent = model.calls[0]
+    prompt = sent["messages"][0]["content"]
+    payload = json.loads(sent["messages"][1]["content"])
+    for rule in (
+        "否定事实与肯定事实使用同一证据标准",
+        "未命中不等于事件未发生",
+        "无匹配查询收据时不能把缺口写成已查得的本地无记录",
+        "明确零值或否定事实可按其主体、日期和覆盖口径引用",
+        "reason_codes.code=fact_beyond_evidence",
+    ):
+        assert rule in prompt
+    assert payload["declared_gaps"] == ["9月涨停池/龙虎榜该股无本地记录"]
+    assert payload["sentences"] == [{"index": 1, "text": "9月未再新高、无涨停。"}]
+    assert len(payload["evidence_registry"]) == 1
+    assert structural.outcome.to_dict() == before
+    # This recorder proves delivery, not that a natural judge obeys the rules.
+
+
+def test_negative_fact_rejection_uses_existing_delete_and_rejudge_path() -> None:
+    draft = "本地可见历史记录。9月无涨停。"
+    frame, structural = _structural(draft, detail="本地可见历史记录。", gaps=("涨停尚未查证",))
+    calls = []
+
+    def judge(request):
+        calls.append(request)
+        if len(calls) == 1:
+            return {"passed": False, "rejected_sentence_indexes": [2],
+                    "issues": ["第2句：无对应事实证据"],
+                    "reason_codes": [{"sentence_index": 2, "code": "fact_beyond_evidence"}]}
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert len(calls) == 2
+    assert "9月无涨停" not in result.public_answer
+    assert "本地可见历史记录" in result.public_answer
+    assert all("9月无涨停" not in row["text"] for row in calls[1]["sentences"])
+    assert calls[1]["declared_gaps"] == ["涨停尚未查证"]
+    assert any(row["decision"] == "deleted" and row["judge_reason_code"] == "fact_beyond_evidence"
+               for row in result.sentence_verdicts)
+    assert structural.outcome.draft == draft
+
+
+def test_direct_negative_evidence_is_not_mechanically_rewritten() -> None:
+    frame, structural = _structural("该日无涨停。", detail="该日涨停家数为零。")
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert result.public_answer.strip() == "该日无涨停。"
+    assert result.status == "completed"
+    assert result.sentence_verdicts == ()
+
+
 def _query_arguments(dataset="regulation_event_daily", code="300308", start="2026-08-01"):
     return {
         "dataset": dataset,

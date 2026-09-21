@@ -356,8 +356,9 @@ def _static_contract_text() -> str:
 # 使用私有 claims 坐标；否则 material_only 的空工具授权与全局宪法互相矛盾。
 # 同日 live 发现模型留空 draft 却漏模式字段：显式条件化终局示例，材料轮使用
 # 宿主按冻结合同构造的 wire_template；不代填返回值、不放宽来源或 basis 校验。
+# 2026-09-21: distinguish local nonmatches, unverified gaps and negative facts.
 _CONTRACT_FINGERPRINT = (
-    "84a03532fb6127f148ae6808e9461653ae22d4d59cc8170d2353336896b7dcf9"
+    "57495f9ed822867eef6378a13a74667fc1c4b6d5ef5b8934ff5c8321ceed721c"
 )
 
 
@@ -375,6 +376,17 @@ def test_instruction_reshape_kept_every_constraint_verbatim() -> None:
         "若这次确实要改约束内容，请显式更新 _CONTRACT_FINGERPRINT 并在 commit "
         "里说明改了哪一条；不要靠回退重排来让它变绿。"
     )
+
+
+def test_writer_distinguishes_nonmatch_from_unattempted_and_absent_event() -> None:
+    instructions = build_episode_instructions(_frame(), _context(_frame()), _registry())
+    for rule in (
+        "未命中不等于事件未发生",
+        "未查询或调用失败只能写尚未查证",
+        "gaps 是待核验声明，不是事实证据",
+        "明确零值或否定事实可按其主体、日期和覆盖口径引用",
+    ):
+        assert rule in instructions
 
 
 def test_instructions_are_grouped_not_one_flat_wall() -> None:

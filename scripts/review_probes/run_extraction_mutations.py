@@ -10,7 +10,8 @@
     python scripts/review_probes/run_extraction_mutations.py --revision <sha> --output <目录>
     python scripts/review_probes/run_extraction_mutations.py --suite stock-amount --output <目录>
 
-默认保持工单 #53 的 extraction 套件；stock-amount 复用相同留证协议验证区间成交额。
+默认保持工单 #53 的 extraction 套件；stock-amount 验证区间成交额，
+finance-absence 验证非命中边界在工具观察/模型输入的送达，不验证自然模型遵守。
 
 只测试已提交 revision；未提交源码或定义不会被悄悄混进证据。证据目录必须新建。
 临时 worktree 在成功后移除；失败则保留还原后的树用于诊断，路径写入 results.json。
@@ -95,12 +96,22 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--revision", default="HEAD")
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--suite", choices=("extraction", "stock-amount"), default="extraction")
+    parser.add_argument("--suite", choices=("extraction", "stock-amount", "finance-absence"), default="extraction")
     args = parser.parse_args()
     tests, definitions = TESTS, DEFINITIONS
     if args.suite == "stock-amount":
         tests = ["intelligence/tests/test_finance_query_amount_summary.py"]
         definitions = "scripts/review_probes/stock_amount_mutations.json"
+    elif args.suite == "finance-absence":
+        tests = [
+            "intelligence/tests/test_finance_absence_boundaries.py",
+            "intelligence/tests/test_episode_protocol.py::test_writer_distinguishes_nonmatch_from_unattempted_and_absent_event",
+            "intelligence/tests/test_research_harness.py::test_default_project_sub_research_equals_inline_projection",
+            "intelligence/tests/test_episode_semantic_verifier.py::test_judge_checks_negative_facts_and_unverified_gap_claims_on_wire",
+            "intelligence/tests/test_episode_semantic_verifier.py::test_negative_fact_rejection_uses_existing_delete_and_rejudge_path",
+            "intelligence/tests/test_episode_semantic_verifier.py::test_direct_negative_evidence_is_not_mechanically_rewritten",
+        ]
+        definitions = "scripts/review_probes/finance_absence_mutations.json"
     repo = Path(git(Path.cwd(), "rev-parse", "--show-toplevel"))
     revision = git(repo, "rev-parse", f"{args.revision}^{{commit}}")
     out = args.output.expanduser().resolve()

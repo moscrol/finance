@@ -503,7 +503,10 @@ def _subject_exited_universe(
     dataset_max_date: str | None,
     floor: date,
 ) -> bool:
-    """被筛子集停在更早，但数据集本身是新的 → 该主体退出了集合，不是管道陈旧。
+    """检测子集日期落后于已更新数据集，允许交付带日期的历史匹配。
+
+    名称保留旧调用合同；此判据不证明现实退出或逐日覆盖完整。
+    `_exited_universe_result` 负责把这个限制与历史行一起交付。
 
     2026-08-17 用户口径：新鲜度按**数据类**分档，不是整体放宽。
 
@@ -547,7 +550,7 @@ def _probe_filtered_universe_exit(
     tool_context: agent_research.AgentToolContext,
     dataset_label: str,
 ) -> ToolRunResult | None:
-    """问句日无行时，探测「该筛选条件最后一次出现」是否构成要素退出。
+    """问句日无行时，找同条件的历史匹配，不把本地缺行当现实退出。
 
     与 stale 路径的差别：历史授权的定点查询 served_date 为空，不会走进
     `_is_current_query_stale`。空结果若只说「无结果」，模型会把「航空发动机」
@@ -611,19 +614,18 @@ def _exited_universe_result(
     detail: str,
     spec: finance_query.FinanceQuerySpec | None = None,
 ) -> ToolRunResult:
-    """交付「退出集合」这一生命周期事实，连同退出前的行。
+    """Deliver dated historical matches, without certifying real-world absence.
 
-    与 `_stale_structured_result` 的关键差别：**证据照常交付**。那些行确实早于
-    floor，但它们不是「冒充当前状态的旧数据」——它们是「该主体最后一次出现时
-    长什么样」，配合退出事实一起读才完整。每条证据自带 `source_date`，日期在场，
-    不会被误读成当前盘面。
+    A newer dataset row distinguishes this from a wholly stale dataset, but
+    neither MAX(date) nor a filtered nonmatch certifies complete daily coverage.
+    Keep the existing historical evidence; qualify it before model compaction.
     """
 
     served = str(result.served_date or "未知日期")
     fact = (
-        f"{dataset_label} 中该筛选条件最后一次出现是 {served}；"
-        f"数据集已更新到 {dataset_max_date}，其后未再出现"
-        "（构成要素退出，非数据陈旧）。"
+        f"{dataset_label} 中本次交付的历史匹配记录日期截至 {served}；"
+        f"数据集最新可见日期为 {dataset_max_date}。"
+        "未命中不证明事件未发生；最新日期不证明逐日覆盖完整。"
     )
     observation = f"{fact}{result.observation}" if result.observation else fact
     payload = _finance_payload_kwargs(spec, result) if spec is not None else {}
@@ -639,7 +641,10 @@ def _exited_universe_result(
             served_date=result.served_date,
             result_count=len(result.evidence),
         ),
-        gaps=(),
+        gaps=(
+            "当前筛选缺少请求时点记录；历史记录不代替请求窗口内缺失的事实，"
+            "也不能据此断言事件未发生。",
+        ),
         **payload,
     )
 
@@ -1638,7 +1643,7 @@ def build_episode_registry(
             gaps = (
                 ()
                 if result.evidence
-                else (f"{value.dataset} 在指定条件与时点内没有结构化结果",)
+                else (f"{value.dataset} 在指定条件与时点内未命中本地记录；不证明事件未发生或覆盖完整",)
             )
             # 三条限定语**排在数据行之前**（BUILD 模式 4）。它们此前追加在
             # observation 末尾，而 ``tool_result_budget`` 从头数满 900 字符就切，
