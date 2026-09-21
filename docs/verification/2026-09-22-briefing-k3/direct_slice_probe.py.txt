@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+"""独立于 verifier 的 raw-API 复核：直接调 slice_river 验证 strict 过滤与 pit_grade。"""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+CANDIDATE = Path("/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-tree")
+sys.path.insert(0, str(CANDIDATE))
+
+from intelligence.services.river import slice_river  # noqa: E402
+
+WORK = Path(sys.argv[1])  # positive case 的工作目录
+common = {"db_path": WORK / "market.duckdb", "checkpoints_path": WORK / "absent-checkpoints.jsonl"}
+labels = WORK / "labels.duckdb"
+
+live = slice_river("2026-09-19", "测试板块", teaching_labels_db=labels, **common)
+strict = slice_river("2026-09-19", "测试板块", teaching_labels_db=labels, require_strict=True, **common)
+plain = slice_river("2026-09-19", "测试板块", **common)
+
+live_brief = [o for o in live.objects if o.object_type == "teaching_briefing"]
+strict_brief = [o for o in strict.objects if o.object_type == "teaching_briefing"]
+late = [o for o in live.objects if o.object_type.startswith("teaching_")
+        and (not o.recorded_at or o.recorded_at[:10] > "2026-09-19")]
+print({
+    "live_pit_grade": live.pit_grade,
+    "strict_pit_grade": strict.pit_grade,
+    "live_briefing_count": len(live_brief),
+    "live_briefing_recorded_at": live_brief[0].recorded_at if live_brief else None,
+    "strict_briefing_count": len(strict_brief),
+    "late_teaching_refs": [o.ref for o in late],
+    "late_refs_in_strict": sorted({o.ref for o in late} & {o.ref for o in strict.objects}),
+    "market_track_strict_types": [o.object_type for o in strict.objects if o.track == "market"]
+    if not isinstance(strict.tracks["market"], dict) else str(strict.tracks["market"]),
+    "plain_equals_off_parametrization_note": "plain 与 verifier 的 off 均以 teaching_labels_db=None 调用(同参)",
+})

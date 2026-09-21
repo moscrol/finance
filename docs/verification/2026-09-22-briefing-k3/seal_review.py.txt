@@ -1,0 +1,103 @@
+"""Seal incomplete K3 review evidence; process exit zero is not approval."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+FIN = Path('/Users/a77/fwp-wt-briefing-consumption-qc-0921')
+KB = Path('/Users/a77/kb-wt-briefing-evidence-qc-0921')
+QC = ROOT / 'coordinator-qc'
+QC.mkdir(exist_ok=False)
+os.umask(0o022)
+ENV = {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin', 'LANG': 'C.UTF-8',
+       'FINANCE_WS': str(ROOT / 'finance-tree'), 'KB_VAULT': str(ROOT / 'kb-tree/wiki'),
+       'FWP_TEST_RECEIPT': '0', 'PYTHONDONTWRITEBYTECODE': '1'}
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def execute(name, cwd, argv):
+    with (QC / f'{name}.log').open('xb') as log:
+        result = subprocess.run(argv, cwd=cwd, env=ENV, stdout=log, stderr=subprocess.STDOUT, timeout=180)
+    return {'name': name, 'cwd': str(cwd), 'argv': argv, 'exit_code': result.returncode,
+            'log': str(QC / f'{name}.log'), 'sha256': digest(QC / f'{name}.log')}
+
+
+checks = [execute('finance-tests', ROOT / 'finance-tree', [PY, '-m', 'pytest', '-q', '-p', 'no:cacheprovider',
+            '--basetemp=' + str(QC / 'finance-tmp'), 'tests/test_ima_gap_report.py', 'tests/test_verify_briefing_consumption.py']),
+          execute('kb-tests', ROOT / 'kb-tree', [PY, '-m', 'pytest', '-q', '-p', 'no:cacheprovider',
+            '--basetemp=' + str(QC / 'kb-tmp'), 'tests/test_extract_tier_events.py',
+            'skills/cross-analysis/tests/test_check_briefing_provenance.py']),
+          execute('extractor', ROOT / 'kb-tree', [PY, 'skills/morning-briefing/scripts/extract_tier_events.py', '--check'])]
+for case, expected in [('positive', 0), ('mismatch', 1), ('null_zero', 1), ('duplicate', 1),
+                       ('backdated', 1), ('missing_row', 1), ('blocked', 2)]:
+    check = execute('probe-' + case, QC, [PY, str(ROOT / 'finance-review/probes/briefing_consumption_control.py'),
+                                       case, str(QC / case)])
+    result = json.loads((QC / case / f'result-{case}.json').read_text())
+    check['verifier_exit'] = result['exit']
+    check['expected_verifier_exit'] = expected
+    check['matches_expectation'] = result['exit'] == expected
+    checks.append(check)
+qc = {'created_at': datetime.now(timezone.utc).isoformat(), 'kind': 'coordinator_reproduction_not_independent_verdict',
+      'checks': checks, 'all_exits_expected': all(c['exit_code'] == 0 and c.get('matches_expectation', True) for c in checks),
+      'caveat': 'Reviewer fixture intentionally uses a synthetic 2026-09-19 market row (Saturday), not a real calendar or production-consumption proof. Reviewer probes print results; coordinator explicitly checks embedded verifier exit codes.'}
+(QC / 'reproduction.json').write_text(json.dumps(qc, ensure_ascii=False, indent=2) + '\n')
+summary = {'schema': 1, 'status': 'INCOMPLETE', 'review_complete': False,
+           'reason': 'Both fresh K3 sessions ended on credit_exhausted_5h before producing REPORT.md or verdict.json.',
+           'provider': 'mirasim-kimi', 'model': 'kimi-k3',
+           'identity_boundary': 'Provider/model labels verified from event streams, not independent attestation of gateway backend.',
+           'process_complete_is_not_review_complete': True, 'automatic_retry': False, 'fallback': False,
+           'merge_or_deploy': False, 'coordinator_reproduction': qc, 'reviews': {}}
+for axis in ('finance', 'kb'):
+    out = ROOT / f'{axis}-review'
+    run = json.loads((out / 'execution.json').read_text())
+    summary['reviews'][axis] = {k: run[k] for k in ('revision', 'started_at', 'finished_at', 'elapsed_seconds',
+         'exit_code', 'model_errors', 'provider_request_admissions', 'model_identities',
+         'all_candidate_and_author_trees_unchanged', 'inputs_unchanged')}
+    summary['reviews'][axis].update(report_exists=(out / 'REPORT.md').exists(), verdict_exists=(out / 'verdict.json').exists(),
+                                  review_status='INCOMPLETE')
+(ROOT / 'qc-summary.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2) + '\n')
+for axis, repo in [('finance', FIN), ('kb', KB)]:
+    dest = repo / 'docs/verification/2026-09-22-briefing-k3'
+    dest.mkdir(exist_ok=False)
+    sources = {
+        'qc-summary.json': ROOT / 'qc-summary.json',
+        'run_review.py.txt': ROOT / 'run_review.py',
+        'seal_review.py.txt': Path(__file__),
+        'credential-bootstrap.mjs.txt': ROOT / 'credential-bootstrap.mjs',
+        'provider-template.json': ROOT / 'provider-template.json',
+        'settings.json': ROOT / 'pi-config/settings.json',
+        f'{axis}-prompt.md': ROOT / f'{axis}-prompt.md',
+        'execution.json': ROOT / f'{axis}-review/execution.json',
+        'request-admissions.jsonl': ROOT / f'{axis}-review/request-admissions.jsonl',
+        'coordinator-tests.log.txt': QC / f'{axis}-tests.log',
+    }
+    if axis == 'finance':
+        for name in ('pytest-changed.log', 'probe-positive.log', 'probe-negatives.log', 'probe-direct-slice.log', 'reviewed-files.sha256'):
+            sources[name + '.txt'] = ROOT / 'finance-review/evidence' / name
+        for name in ('briefing_consumption_control.py', 'direct_slice_probe.py'):
+            sources[name + '.txt'] = ROOT / 'finance-review/probes' / name
+    else:
+        sources.update({'compare_bte.py.txt': ROOT / 'kb-review/probes/compare_bte.py',
+                        'compare_bte.out.txt': ROOT / 'kb-review/probes/compare_bte.out',
+                        'reviewed-files.sha256.txt': ROOT / 'kb-review/probes/sha256.txt',
+                        'coordinator-extractor.log.txt': QC / 'extractor.log'})
+    manifest = {'scope': 'Partial independent K3 evidence, NOT approval. No database is included.', 'files': [], 'external_only': []}
+    for name, source in sources.items():
+        shutil.copyfile(source, dest / name)
+        manifest['files'].append({'path': name, 'source': str(source), 'bytes': source.stat().st_size, 'sha256': digest(source)})
+    out = ROOT / f'{axis}-review'
+    for path in sorted(out.rglob('*')):
+        if path.is_file() and path.suffix != '.duckdb' and 'pytest-temp' not in path.parts:
+            manifest['external_only'].append({'path': str(path), 'bytes': path.stat().st_size, 'sha256': digest(path)})
+    (dest / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps({'review_status': 'INCOMPLETE', 'coordinator_checks_match': qc['all_exits_expected'],
+                  'evidence_directories': [str(p / 'docs/verification/2026-09-22-briefing-k3') for p in (FIN, KB)]}))

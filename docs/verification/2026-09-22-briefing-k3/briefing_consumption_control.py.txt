@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+"""独立合成对照：为 scripts/verify_briefing_consumption.py 构造最小合法/非法输入。
+
+只用合成 DuckDB（schema 来自候选树 market_feature_store/schema.sql 全文应用），
+工作目录与产物全部落在 review output 下，不写候选树。
+
+用法: briefing_consumption_control.py <case> <workdir>
+case: positive | mismatch | null_zero | duplicate | backdated | missing_row | blocked
+"""
+from __future__ import annotations
+
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+import duckdb
+
+CANDIDATE = Path("/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-tree")
+sys.path.insert(0, str(CANDIDATE))
+
+from intelligence.services.methodology_backtest.store import TEACHING_DDL  # noqa: E402
+
+DAY = "2026-09-19"          # landing trading day
+MATERIAL = "2026-09-18"     # briefing material day
+RECORDED = "2026-09-21"     # projection written (backfill batch)
+COMPUTED = "2026-09-21 10:00:00"  # labels build time
+
+
+def build_market_db(path: Path, case: str) -> None:
+    con = duckdb.connect(str(path))
+    try:
+        con.execute((CANDIDATE / "market_feature_store/schema.sql").read_text(encoding="utf-8"))
+        if case == "blocked":
+            # 市场日历在 available_from 之前结束 → 期望 BLOCKED/exit2
+            con.execute(
+                "INSERT INTO fact_market_daily (trade_date, market_stage, total_amount, updated_at) VALUES (?, ?, ?, ?)",
+                [MATERIAL, "震荡", 1.5e11, f"{MATERIAL} 07:55:00"],
+            )
+        else:
+            con.execute(
+                "INSERT INTO fact_market_daily (trade_date, market_stage, total_amount, updated_at) VALUES (?, ?, ?, ?)",
+                [DAY, "震荡", 1.5e11, f"{DAY} 07:55:00"],
+            )
+            con.execute(
+                "INSERT INTO fact_sector_daily_generation (trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name, sw_l1, pct_chg, amount, diff_ratio, updated_at) "
+                "VALUES (?, 'legacy', 'TEST001', '测试板块', '测试L1', 1.5, 8.0e8, 12.0, ?)",
+                [DAY, f"{DAY} 07:55:00"],
+            )
+    finally:
+        con.close()
+
+
+def label_rows(case: str) -> list[tuple]:
+    base = [
+        ("tf.briefing_tier1_items", 0.0),
+        ("tf.briefing_tier2_items", 1.0),
+        ("tf.briefing_tier3_items", 0.0),
+        ("tf.briefing_market_confirmed", None),
+        ("tf.briefing_dimensions", 2.0),
+        ("tf.briefing_hit_rps5_pct", None),
+        ("tf.briefing_lag_days", 2.0),
+    ]
+    if case == "mismatch":
+        base = [(k, 2.0 if k == "tf.briefing_tier2_items" else v) for k, v in base]
+    if case == "null_zero":
+        base = [(k, 0.0 if k == "tf.briefing_market_confirmed" else v) for k, v in base]
+    if case == "missing_row":
+        base = [(k, v) for k, v in base if k != "tf.briefing_lag_days"]
+    computed = "2026-09-20 10:00:00" if case == "backdated" else COMPUTED
+    rows = [("market", "market", DAY, k, v, None, "v-test", "v-test", "ok", None, computed) for k, v in base]
+    if case == "duplicate":
+        rows.append(("market", "market", DAY, "tf.briefing_tier2_items", 1.0, None, "v-test", "v-test", "ok", None, computed))
+    return rows
+
+
+def build_labels_db(path: Path, case: str) -> None:
+    con = duckdb.connect(str(path))
+    try:
+        ddl = TEACHING_DDL[0]
+        if case == "duplicate":
+            ddl = re.sub(r"PRIMARY KEY \(entity_type, entity_id, trade_date, label\)", "", ddl)
+        con.execute(ddl)
+        if case == "blocked":
+            return  # 空标签表：BLOCKED 分支在查标签前就 continue
+        con.executemany(
+            "INSERT INTO history_teaching_labels (entity_type, entity_id, trade_date, label, value_num, value_text, label_version, framework_version, status, status_reason, computed_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            label_rows(case),
+        )
+    finally:
+        con.close()
+
+
+def build_wiki(path: Path) -> None:
+    projection = path / "raw/theme-radar/opinion-store/briefing-tier-events.jsonl"
+    projection.parent.mkdir(parents=True, exist_ok=True)
+    projection.write_text(
+        json.dumps({"briefing_date": MATERIAL, "available_from": DAY, "recorded_at": RECORDED, "tier": 2, "dimensions": 2},
+                   ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def main() -> int:
+    case, workdir = sys.argv[1], Path(sys.argv[2])
+    workdir.mkdir(parents=True, exist_ok=True)
+    db, labels, wiki = workdir / "market.duckdb", workdir / "labels.duckdb", workdir / "wiki"
+    for stale in (db, labels):
+        stale.unlink(missing_ok=True)
+    build_market_db(db, case)
+    build_labels_db(labels, case)
+    build_wiki(wiki)
+    cmd = [
+        sys.executable, str(CANDIDATE / "scripts/verify_briefing_consumption.py"),
+        "--db-path", str(db), "--labels-db", str(labels), "--kb-wiki", str(wiki),
+        "--briefing-date", MATERIAL, "--entity", "测试板块",
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=workdir,
+                          env={"PATH": "/usr/bin:/bin", "PYTHONPATH": str(CANDIDATE), "PYTHONDONTWRITEBYTECODE": "1"})
+    report = {"case": case, "exit": proc.returncode, "stdout": proc.stdout, "stderr_tail": proc.stderr[-800:]}
+    (workdir / f"result-{case}.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"case={case} exit={proc.returncode}")
+    print(proc.stdout)
+    if proc.stderr:
+        print("STDERR:", proc.stderr[-400:])
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

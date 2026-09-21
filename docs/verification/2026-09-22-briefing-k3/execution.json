@@ -1,0 +1,142 @@
+{
+  "axis": "finance",
+  "revision": "1dc45ff5ee6d2c95d804b9f4e75428e46fba96da",
+  "identity_before": {
+    "finance": {
+      "revision": "1dc45ff5ee6d2c95d804b9f4e75428e46fba96da",
+      "tree": "dfa1827b54f91e069539f8cf4577b4ace3497299",
+      "status": "",
+      "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "kb": {
+      "revision": "05f1220ad7373e9057e7ac9d72572c4906d08c7e",
+      "tree": "98ba23b56e3ab05a6c0c3cd095021df7c6d27ce7",
+      "status": "",
+      "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "author_finance": {
+      "revision": "1dc45ff5ee6d2c95d804b9f4e75428e46fba96da",
+      "tree": "dfa1827b54f91e069539f8cf4577b4ace3497299",
+      "status": "",
+      "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "author_kb": {
+      "revision": "05f1220ad7373e9057e7ac9d72572c4906d08c7e",
+      "tree": "98ba23b56e3ab05a6c0c3cd095021df7c6d27ce7",
+      "status": "",
+      "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "inputs_sha256": {
+    "run_review.py": "e944662b199ee82056234c5595bc4acf1701c5dda9e4b0b95c53ee5e36942fd4",
+    "finance-prompt.md": "eb1b8c193fbc05410d666666c36ca56e3bca783ef7af6d7067ede81f26c94bd0",
+    "credential-bootstrap.mjs": "4abd95638e299f1be10bc3c7ecf5a56fc7834461f7a6b954550a1ec77da631e4",
+    "provider-template.json": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4",
+    "pi-config/settings.json": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d",
+    "pi-config/models.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "pi-config/auth.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+  },
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "mirasim-kimi",
+    "--model",
+    "kimi-k3",
+    "--thinking",
+    "xhigh",
+    "--models",
+    "mirasim-kimi/kimi-k3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/credential-bootstrap.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--tools",
+    "read,bash,write,grep,find,ls",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<prompt file>"
+  ],
+  "started_at": "2026-09-21T18:25:40.998869+00:00",
+  "complete": true,
+  "timeout_seconds": 1200,
+  "max_provider_requests": 40,
+  "isolation": "fresh sessions, dedicated checkouts, prompt restrictions and before/after fingerprints; NOT an OS sandbox",
+  "billing": "existing subscription; no monetary cap or invoice claim",
+  "pid": 30860,
+  "exit_code": 0,
+  "stop_reason": null,
+  "finished_at": "2026-09-21T18:31:40.925191+00:00",
+  "elapsed_seconds": 359.926,
+  "identity_after": {
+    "finance": {
+      "revision": "1dc45ff5ee6d2c95d804b9f4e75428e46fba96da",
+      "tree": "dfa1827b54f91e069539f8cf4577b4ace3497299",
+      "status": "",
+      "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "kb": {
+      "revision": "05f1220ad7373e9057e7ac9d72572c4906d08c7e",
+      "tree": "98ba23b56e3ab05a6c0c3cd095021df7c6d27ce7",
+      "status": "",
+      "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "author_finance": {
+      "revision": "1dc45ff5ee6d2c95d804b9f4e75428e46fba96da",
+      "tree": "dfa1827b54f91e069539f8cf4577b4ace3497299",
+      "status": "",
+      "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "author_kb": {
+      "revision": "05f1220ad7373e9057e7ac9d72572c4906d08c7e",
+      "tree": "98ba23b56e3ab05a6c0c3cd095021df7c6d27ce7",
+      "status": "",
+      "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "all_candidate_and_author_trees_unchanged": true,
+  "inputs_unchanged": true,
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 37,
+    "message_start": 86,
+    "message_end": 86,
+    "message_update": 7780,
+    "tool_execution_start": 48,
+    "tool_execution_update": 117,
+    "tool_execution_end": 48,
+    "turn_end": 37,
+    "agent_end": 1,
+    "agent_settled": 1
+  },
+  "model_identities": [
+    "mirasim-kimi/kimi-k3"
+  ],
+  "model_errors": [
+    "429: {\"code\":\"credit_exhausted_5h\",\"message\":\"已用满 5 小时用量上限，约 2 小时 53 分钟后自动恢复。这是短时突发上限，本周额度并没有用完；想立刻继续可在设置里切回自己的模型订阅。 / Your 5-hour usage limit is used up; it resets in about 2h 53m. This is a short burst limit — your weekly quota is not spent. To keep working right now, switch back to your own model subscription in settings.\",\"type\":\"rate_limit_error\"}"
+  ],
+  "provider_request_admissions": 37,
+  "admissions_valid": true,
+  "usage": {
+    "input": 46547,
+    "output": 25573,
+    "cacheRead": 1279488,
+    "cacheWrite": 0,
+    "totalTokens": 1351608
+  },
+  "sha256": {
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "credential.json": "acee9bd47528766fa0734abf229a7dab0f824387ff13659b78867a4644a5ada6",
+    "request-admissions.jsonl": "7dde7ff85f98852f96659e0d3f4fb7f69db814291245e4ab174afe631110e3d2",
+    "events.jsonl": "52cb41fa3f91ab2a51c4ecf504e60af25334bf58ce8cd4b0120dc94cb54e9a32",
+    "events.compact.jsonl": "efd9a90e9226427bc610a717e37ea6354d5fb727c2bf011bd21e0a2f676faed9"
+  }
+}

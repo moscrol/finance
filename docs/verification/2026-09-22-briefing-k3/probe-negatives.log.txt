@@ -1,0 +1,30 @@
+case=mismatch exit=1
+{
+  "status": "FAIL",
+  "error": "Label mismatch: 2026-09-19 briefing_tier2_items"
+---
+case=null_zero exit=1
+{
+  "status": "FAIL",
+  "error": "Label mismatch: 2026-09-19 briefing_market_confirmed"
+---
+case=duplicate exit=1
+{
+  "status": "FAIL",
+  "error": "Duplicate label versions on 2026-09-19"
+---
+case=backdated exit=1
+{
+  "status": "FAIL",
+  "error": "Backdated computed_at"
+---
+case=missing_row exit=1
+{
+  "status": "FAIL",
+  "error": "Label mismatch: 2026-09-19 briefing_lag_days"
+---
+case=blocked exit=2
+{
+  "status": "BLOCKED",
+  "scope": "explicit_inputs_only; live_market_read_only; not_production_readiness",
+---

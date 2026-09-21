@@ -1,0 +1,264 @@
+{
+  "scope": "Partial independent K3 evidence, NOT approval. No database is included.",
+  "files": [
+    {
+      "path": "qc-summary.json",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/qc-summary.json",
+      "bytes": 10844,
+      "sha256": "e81646f2dc3f663f040d96c61c8fc9e3683b367abf425ec0fcd34376bee0f721"
+    },
+    {
+      "path": "run_review.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/run_review.py",
+      "bytes": 6803,
+      "sha256": "e944662b199ee82056234c5595bc4acf1701c5dda9e4b0b95c53ee5e36942fd4"
+    },
+    {
+      "path": "seal_review.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/seal_review.py",
+      "bytes": 6782,
+      "sha256": "2be08aec1f4bb91a50c707d202fb3b8a8bc3092d3a996051bd74eaad9774362e"
+    },
+    {
+      "path": "credential-bootstrap.mjs.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/credential-bootstrap.mjs",
+      "bytes": 4280,
+      "sha256": "4abd95638e299f1be10bc3c7ecf5a56fc7834461f7a6b954550a1ec77da631e4"
+    },
+    {
+      "path": "provider-template.json",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/provider-template.json",
+      "bytes": 458,
+      "sha256": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4"
+    },
+    {
+      "path": "settings.json",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/pi-config/settings.json",
+      "bytes": 348,
+      "sha256": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d"
+    },
+    {
+      "path": "finance-prompt.md",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-prompt.md",
+      "bytes": 4096,
+      "sha256": "eb1b8c193fbc05410d666666c36ca56e3bca783ef7af6d7067ede81f26c94bd0"
+    },
+    {
+      "path": "execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/execution.json",
+      "bytes": 5556,
+      "sha256": "ebddae1aec521a1067684a13509ea8cff99454200d133743331b7341000507e9"
+    },
+    {
+      "path": "request-admissions.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/request-admissions.jsonl",
+      "bytes": 3691,
+      "sha256": "7dde7ff85f98852f96659e0d3f4fb7f69db814291245e4ab174afe631110e3d2"
+    },
+    {
+      "path": "coordinator-tests.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/finance-tests.log",
+      "bytes": 99,
+      "sha256": "515a58a0fc8a65055020dbc3c9d9ffd3be7211bd4bd3cd5c3508d4d5a1bf4730"
+    },
+    {
+      "path": "pytest-changed.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/evidence/pytest-changed.log",
+      "bytes": 99,
+      "sha256": "14cf0f6829741210b8470fb7f1db796c94268859118eebc60f6081b991ab6f0b"
+    },
+    {
+      "path": "probe-positive.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/evidence/probe-positive.log",
+      "bytes": 933,
+      "sha256": "23a155bae198d4b3fafbde000b628f041f8f9750d5cadb785a9c8e00263d7d20"
+    },
+    {
+      "path": "probe-negatives.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/evidence/probe-negatives.log",
+      "bytes": 646,
+      "sha256": "c890ac2fd15742f1589ce75cf47ad9d84574089d4a259cc787424b75951d4b00"
+    },
+    {
+      "path": "probe-direct-slice.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/evidence/probe-direct-slice.log",
+      "bytes": 445,
+      "sha256": "654df489d3baee20569dc9edd461e47a30516c125aafd14ef467af5c96702ab9"
+    },
+    {
+      "path": "reviewed-files.sha256.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/evidence/reviewed-files.sha256",
+      "bytes": 394,
+      "sha256": "b4e7026725f44620e38f4613ec2547a488f35775d5d945da5dec1d55656cf2f8"
+    },
+    {
+      "path": "briefing_consumption_control.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/briefing_consumption_control.py",
+      "bytes": 5609,
+      "sha256": "8ff792f2ac606f20e117ce3c034f8e32f8a22a40c7f216bb7d0e3a2cc3c7f806"
+    },
+    {
+      "path": "direct_slice_probe.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/direct_slice_probe.py",
+      "bytes": 1859,
+      "sha256": "5b54be75f9b54eb31b7d7f5d8caee4396db078a720a7f90bffa017d1fa059a8b"
+    }
+  ],
+  "external_only": [
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/credential.json",
+      "bytes": 402,
+      "sha256": "acee9bd47528766fa0734abf229a7dab0f824387ff13659b78867a4644a5ada6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/events.compact.jsonl",
+      "bytes": 881527,
+      "sha256": "efd9a90e9226427bc610a717e37ea6354d5fb727c2bf011bd21e0a2f676faed9"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/events.jsonl",
+      "bytes": 3499755,
+      "sha256": "52cb41fa3f91ab2a51c4ecf504e60af25334bf58ce8cd4b0120dc94cb54e9a32"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/evidence/head.txt",
+      "bytes": 41,
+      "sha256": "c2afc8d2bcb04fe3896cc51be60961dbdb48536ef868b90216fe35c870c76c58"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/evidence/ima-consumers.txt",
+      "bytes": 59,
+      "sha256": "842b34a0e475e35935c74935055ea8f7b137de4bf29a4c905aca1f46e9a4d381"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/evidence/probe-direct-slice.log",
+      "bytes": 445,
+      "sha256": "654df489d3baee20569dc9edd461e47a30516c125aafd14ef467af5c96702ab9"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/evidence/probe-negatives.log",
+      "bytes": 646,
+      "sha256": "c890ac2fd15742f1589ce75cf47ad9d84574089d4a259cc787424b75951d4b00"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/evidence/probe-positive.log",
+      "bytes": 933,
+      "sha256": "23a155bae198d4b3fafbde000b628f041f8f9750d5cadb785a9c8e00263d7d20"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/evidence/pytest-changed.log",
+      "bytes": 99,
+      "sha256": "14cf0f6829741210b8470fb7f1db796c94268859118eebc60f6081b991ab6f0b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/evidence/reviewed-files.sha256",
+      "bytes": 394,
+      "sha256": "b4e7026725f44620e38f4613ec2547a488f35775d5d945da5dec1d55656cf2f8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/execution.json",
+      "bytes": 5556,
+      "sha256": "ebddae1aec521a1067684a13509ea8cff99454200d133743331b7341000507e9"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/backdated/result-backdated.json",
+      "bytes": 146,
+      "sha256": "171d0975e90bf8e5657e98b9290e336602cf67603a2d2fdd037cc31891c9ca33"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/backdated/wiki/raw/theme-radar/opinion-store/briefing-tier-events.jsonl",
+      "bytes": 121,
+      "sha256": "c1baf43f2af382f0be2ae46fbf7ce2611e4f8bb6ace6a21e0daab8644fcd6494"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/blocked/result-blocked.json",
+      "bytes": 481,
+      "sha256": "85d34bb53c9fcdf78f4af7b011510f506437ad110ff01a89a54f7fae27a3fa39"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/blocked/wiki/raw/theme-radar/opinion-store/briefing-tier-events.jsonl",
+      "bytes": 121,
+      "sha256": "c1baf43f2af382f0be2ae46fbf7ce2611e4f8bb6ace6a21e0daab8644fcd6494"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/briefing_consumption_control.py",
+      "bytes": 5609,
+      "sha256": "8ff792f2ac606f20e117ce3c034f8e32f8a22a40c7f216bb7d0e3a2cc3c7f806"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/cli/ws/err.log",
+      "bytes": 1588,
+      "sha256": "13003c0ffa6ea3131969be9788d2db99fdeb6edac5b011c96aad40e5c809b01d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/cli/ws/market_feature_store/exports/2026-09-18-research-queue.json",
+      "bytes": 2,
+      "sha256": "a6fb08fda1acb957b6116bd37811a1fe41a01611c0631edbf786d6889a27a55c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/direct_slice_probe.py",
+      "bytes": 1859,
+      "sha256": "5b54be75f9b54eb31b7d7f5d8caee4396db078a720a7f90bffa017d1fa059a8b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/duplicate/result-duplicate.json",
+      "bytes": 163,
+      "sha256": "1051546b1f1defb81482e5b9c79baa6839b73b0bbe99c4f0d358770ae1061176"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/duplicate/wiki/raw/theme-radar/opinion-store/briefing-tier-events.jsonl",
+      "bytes": 121,
+      "sha256": "c1baf43f2af382f0be2ae46fbf7ce2611e4f8bb6ace6a21e0daab8644fcd6494"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/mismatch/result-mismatch.json",
+      "bytes": 171,
+      "sha256": "c558e8ef9fe4efec4ee22baf45eeb2fca1e2afdb4aef9b088b9183e94c3d790e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/mismatch/wiki/raw/theme-radar/opinion-store/briefing-tier-events.jsonl",
+      "bytes": 121,
+      "sha256": "c1baf43f2af382f0be2ae46fbf7ce2611e4f8bb6ace6a21e0daab8644fcd6494"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/missing_row/result-missing_row.json",
+      "bytes": 171,
+      "sha256": "ac5745dc60d37f58718fb2ccf0e5abafa283134360a1967c6884b4a8ca5062e7"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/missing_row/wiki/raw/theme-radar/opinion-store/briefing-tier-events.jsonl",
+      "bytes": 121,
+      "sha256": "c1baf43f2af382f0be2ae46fbf7ce2611e4f8bb6ace6a21e0daab8644fcd6494"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/null_zero/result-null_zero.json",
+      "bytes": 177,
+      "sha256": "55174f10f494b96354da1e3632f74579458b273752fb5f9a5e1ce2954a91c626"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/null_zero/wiki/raw/theme-radar/opinion-store/briefing-tier-events.jsonl",
+      "bytes": 121,
+      "sha256": "c1baf43f2af382f0be2ae46fbf7ce2611e4f8bb6ace6a21e0daab8644fcd6494"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/positive/result-positive.json",
+      "bytes": 1082,
+      "sha256": "1713cd74789a1b218f0cd23ca589450456b7882051454204acfc913124cbbe70"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/positive/wiki/raw/theme-radar/opinion-store/briefing-tier-events.jsonl",
+      "bytes": 121,
+      "sha256": "c1baf43f2af382f0be2ae46fbf7ce2611e4f8bb6ace6a21e0daab8644fcd6494"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/request-admissions.jsonl",
+      "bytes": 3691,
+      "sha256": "7dde7ff85f98852f96659e0d3f4fb7f69db814291245e4ab174afe631110e3d2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

@@ -1,0 +1,221 @@
+{
+  "schema": 1,
+  "status": "INCOMPLETE",
+  "review_complete": false,
+  "reason": "Both fresh K3 sessions ended on credit_exhausted_5h before producing REPORT.md or verdict.json.",
+  "provider": "mirasim-kimi",
+  "model": "kimi-k3",
+  "identity_boundary": "Provider/model labels verified from event streams, not independent attestation of gateway backend.",
+  "process_complete_is_not_review_complete": true,
+  "automatic_retry": false,
+  "fallback": false,
+  "merge_or_deploy": false,
+  "coordinator_reproduction": {
+    "created_at": "2026-09-21T18:35:20.474324+00:00",
+    "kind": "coordinator_reproduction_not_independent_verdict",
+    "checks": [
+      {
+        "name": "finance-tests",
+        "cwd": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-tree",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "-p",
+          "no:cacheprovider",
+          "--basetemp=/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/finance-tmp",
+          "tests/test_ima_gap_report.py",
+          "tests/test_verify_briefing_consumption.py"
+        ],
+        "exit_code": 0,
+        "log": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/finance-tests.log",
+        "sha256": "515a58a0fc8a65055020dbc3c9d9ffd3be7211bd4bd3cd5c3508d4d5a1bf4730"
+      },
+      {
+        "name": "kb-tests",
+        "cwd": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/kb-tree",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "-p",
+          "no:cacheprovider",
+          "--basetemp=/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/kb-tmp",
+          "tests/test_extract_tier_events.py",
+          "skills/cross-analysis/tests/test_check_briefing_provenance.py"
+        ],
+        "exit_code": 0,
+        "log": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/kb-tests.log",
+        "sha256": "ad02a8741201d47e6fca91bc0e613f043355714159e51d4751fb9cdc3fa74447"
+      },
+      {
+        "name": "extractor",
+        "cwd": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/kb-tree",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "skills/morning-briefing/scripts/extract_tier_events.py",
+          "--check"
+        ],
+        "exit_code": 0,
+        "log": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/extractor.log",
+        "sha256": "972d3fdead11becf125d69db326280c21e0e753a2085db7063c2cb05d4265e2e"
+      },
+      {
+        "name": "probe-positive",
+        "cwd": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/briefing_consumption_control.py",
+          "positive",
+          "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/positive"
+        ],
+        "exit_code": 0,
+        "log": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/probe-positive.log",
+        "sha256": "23a155bae198d4b3fafbde000b628f041f8f9750d5cadb785a9c8e00263d7d20",
+        "verifier_exit": 0,
+        "expected_verifier_exit": 0,
+        "matches_expectation": true
+      },
+      {
+        "name": "probe-mismatch",
+        "cwd": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/briefing_consumption_control.py",
+          "mismatch",
+          "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/mismatch"
+        ],
+        "exit_code": 0,
+        "log": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/probe-mismatch.log",
+        "sha256": "9839160f4bc3ab51ca6fbb691b199d13e27f06031256d69c4dea45e819667dbe",
+        "verifier_exit": 1,
+        "expected_verifier_exit": 1,
+        "matches_expectation": true
+      },
+      {
+        "name": "probe-null_zero",
+        "cwd": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/briefing_consumption_control.py",
+          "null_zero",
+          "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/null_zero"
+        ],
+        "exit_code": 0,
+        "log": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/probe-null_zero.log",
+        "sha256": "9066ef0e3e56c3b85f2fd3daa0d65aacd992fc6148a084d481e4c6ce441e84d6",
+        "verifier_exit": 1,
+        "expected_verifier_exit": 1,
+        "matches_expectation": true
+      },
+      {
+        "name": "probe-duplicate",
+        "cwd": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/briefing_consumption_control.py",
+          "duplicate",
+          "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/duplicate"
+        ],
+        "exit_code": 0,
+        "log": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/probe-duplicate.log",
+        "sha256": "49dcafe596b291351647d07b69e494758b7247624edfce9b0257ddedbfb378e8",
+        "verifier_exit": 1,
+        "expected_verifier_exit": 1,
+        "matches_expectation": true
+      },
+      {
+        "name": "probe-backdated",
+        "cwd": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/briefing_consumption_control.py",
+          "backdated",
+          "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/backdated"
+        ],
+        "exit_code": 0,
+        "log": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/probe-backdated.log",
+        "sha256": "b638ccb985a9511d1c9d6c22d1c3ce249c1c055412289a525cf4f5361899c378",
+        "verifier_exit": 1,
+        "expected_verifier_exit": 1,
+        "matches_expectation": true
+      },
+      {
+        "name": "probe-missing_row",
+        "cwd": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/briefing_consumption_control.py",
+          "missing_row",
+          "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/missing_row"
+        ],
+        "exit_code": 0,
+        "log": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/probe-missing_row.log",
+        "sha256": "58a85d2df11ed30b7d1ffbc60615115a4e8259c0bd5a25b77625dd9252b5cf8c",
+        "verifier_exit": 1,
+        "expected_verifier_exit": 1,
+        "matches_expectation": true
+      },
+      {
+        "name": "probe-blocked",
+        "cwd": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/finance-review/probes/briefing_consumption_control.py",
+          "blocked",
+          "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/blocked"
+        ],
+        "exit_code": 0,
+        "log": "/Users/a77/.finance-runtime/reviews/briefing-k3-20260922/coordinator-qc/probe-blocked.log",
+        "sha256": "dbd74c720f05b84a63d360624f32676eabf76f65721f31dc433fbe634c73742a",
+        "verifier_exit": 2,
+        "expected_verifier_exit": 2,
+        "matches_expectation": true
+      }
+    ],
+    "all_exits_expected": true,
+    "caveat": "Reviewer fixture intentionally uses a synthetic 2026-09-19 market row (Saturday), not a real calendar or production-consumption proof. Reviewer probes print results; coordinator explicitly checks embedded verifier exit codes."
+  },
+  "reviews": {
+    "finance": {
+      "revision": "1dc45ff5ee6d2c95d804b9f4e75428e46fba96da",
+      "started_at": "2026-09-21T18:25:40.998869+00:00",
+      "finished_at": "2026-09-21T18:31:40.925191+00:00",
+      "elapsed_seconds": 359.926,
+      "exit_code": 0,
+      "model_errors": [
+        "429: {\"code\":\"credit_exhausted_5h\",\"message\":\"已用满 5 小时用量上限，约 2 小时 53 分钟后自动恢复。这是短时突发上限，本周额度并没有用完；想立刻继续可在设置里切回自己的模型订阅。 / Your 5-hour usage limit is used up; it resets in about 2h 53m. This is a short burst limit — your weekly quota is not spent. To keep working right now, switch back to your own model subscription in settings.\",\"type\":\"rate_limit_error\"}"
+      ],
+      "provider_request_admissions": 37,
+      "model_identities": [
+        "mirasim-kimi/kimi-k3"
+      ],
+      "all_candidate_and_author_trees_unchanged": true,
+      "inputs_unchanged": true,
+      "report_exists": false,
+      "verdict_exists": false,
+      "review_status": "INCOMPLETE"
+    },
+    "kb": {
+      "revision": "05f1220ad7373e9057e7ac9d72572c4906d08c7e",
+      "started_at": "2026-09-21T18:25:40.998949+00:00",
+      "finished_at": "2026-09-21T18:31:16.598620+00:00",
+      "elapsed_seconds": 335.599,
+      "exit_code": 0,
+      "model_errors": [
+        "429: {\"code\":\"credit_exhausted_5h\",\"message\":\"已用满 5 小时用量上限，约 2 小时 54 分钟后自动恢复。这是短时突发上限，本周额度并没有用完；想立刻继续可在设置里切回自己的模型订阅。 / Your 5-hour usage limit is used up; it resets in about 2h 54m. This is a short burst limit — your weekly quota is not spent. To keep working right now, switch back to your own model subscription in settings.\",\"type\":\"rate_limit_error\"}"
+      ],
+      "provider_request_admissions": 35,
+      "model_identities": [
+        "mirasim-kimi/kimi-k3"
+      ],
+      "all_candidate_and_author_trees_unchanged": true,
+      "inputs_unchanged": true,
+      "report_exists": false,
+      "verdict_exists": false,
+      "review_status": "INCOMPLETE"
+    }
+  }
+}
