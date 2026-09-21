@@ -1,0 +1,150 @@
+{
+  "axis": "finance",
+  "candidate_revision": "518ddf8d0fce7acdbcadd34e94234e956b2f76ec",
+  "files": [
+    {
+      "path": "run_review.py.txt",
+      "bytes": 8723,
+      "sha256": "9166a33cb8669c1fdf7972041f59bc0f9786370a7d5fdbf7082c1ef841e1c9bc",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/run_review.py"
+    },
+    {
+      "path": "run_review_budgeted.py.txt",
+      "bytes": 8793,
+      "sha256": "233dc8bbb0c70898be2c0c9723647ea5bdf8f3c47da2b8396b47d593a7f8b0e0",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/run_review_budgeted.py"
+    },
+    {
+      "path": "run_review_finance2.py.txt",
+      "bytes": 8799,
+      "sha256": "a5f7ee6b80f8b4759ebfe0c6b344df903fa2a0a237efc2dfda54cbbfec941975",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/run_review_finance2.py"
+    },
+    {
+      "path": "credential-bootstrap-bridge.mjs.txt",
+      "bytes": 3966,
+      "sha256": "fee82a0844b8c3c927ecabfea3859e5235136cd0d5439a7f63654777ebd17fd1",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/credential-bootstrap-bridge.mjs"
+    },
+    {
+      "path": "credential-bootstrap-budgeted.mjs.txt",
+      "bytes": 4580,
+      "sha256": "865582d01a5a964e746380237071a4be68e97ef0d274ad0d03c577423851659f",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/credential-bootstrap-budgeted.mjs"
+    },
+    {
+      "path": "settings.json",
+      "bytes": 348,
+      "sha256": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/pi-config/settings.json"
+    },
+    {
+      "path": "seal_bridge_review.py.txt",
+      "bytes": 11185,
+      "sha256": "81d9885f11d050a1e0be2a4d41f8e9c9a37628a1cc47acb52861856f6d27e8c1",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/seal_bridge_review.py"
+    },
+    {
+      "path": "finance-prompt.md",
+      "bytes": 3312,
+      "sha256": "9dc27a9d2e991cf10a318b3428e872fa058a2993a74f4601478d21df64dc8ecb",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-prompt.md"
+    },
+    {
+      "path": "finance-prompt-2.md",
+      "bytes": 3632,
+      "sha256": "e19d37e83724431727d2ddc239b6b799990ec991d3077950813caae16b32c0cb",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-prompt-2.md"
+    },
+    {
+      "path": "attempt-1/execution.json",
+      "bytes": 5705,
+      "sha256": "b342626a4da821ff6dc2a8ec06af8cc7d972ddecc7d2b227c4a1c42820f04ab9",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-review/execution.json"
+    },
+    {
+      "path": "attempt-1/request-admissions.jsonl",
+      "bytes": 5311,
+      "sha256": "7f5d00bb0dd2d706842f0d3e55078e10dfa4a24cebeba7f9df466555332cf1d2",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-review/request-admissions.jsonl"
+    },
+    {
+      "path": "attempt-1/stderr.log.txt",
+      "bytes": 56,
+      "sha256": "b69d8dbeab4a0a64b83437822dfcd4c6569cd8f9e25d8eeecec2fcdaadac7884",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-review/stderr.log"
+    },
+    {
+      "path": "attempt-1/probe.py.txt",
+      "bytes": 13405,
+      "sha256": "ff3e46976551d05e94bad641979a44336d2976fe83bd1ef5b3d35c5431127aba",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-review/probe_briefing_consumption.py"
+    },
+    {
+      "path": "attempt-1/repro_backdated_label.py.txt",
+      "bytes": 1483,
+      "sha256": "58b79b43a94938ef74a1ea56ba403d72a6f5cbfff606a47f13e74e97b6864e70",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-review/repro_backdated_label.py"
+    },
+    {
+      "path": "attempt-1/probe.log.txt",
+      "bytes": 4418,
+      "sha256": "ae1e630ee8db3978c59f55eeed55c8c5409db3daf1e30640f9849ac71d2a1df6",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-review/results/probe-briefing-consumption.log"
+    },
+    {
+      "path": "attempt-1/repro.log.txt",
+      "bytes": 325,
+      "sha256": "82459f9d1ec37f3532b1fc16b03bbc7e4f635dbf81d2f3b5c68834576ff21c09",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-review/results/repro-backdated-label.log"
+    },
+    {
+      "path": "attempt-2/REPORT.md",
+      "bytes": 10251,
+      "sha256": "f185f2994d42e17534b04792960616c6e5c675e65b8e4c9f36aaa30ec3148518",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-review-2/REPORT.md"
+    },
+    {
+      "path": "attempt-2/verdict.json",
+      "bytes": 4909,
+      "sha256": "bac99afaa083e7f21a660db56b4ba87ce676b186ef7a8b9c9058b16a421e42b5",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-review-2/verdict.json"
+    },
+    {
+      "path": "attempt-2/execution.json",
+      "bytes": 6092,
+      "sha256": "61bfc59b6d69991e528770686f6c02e3080b1e34629404057f591bf093063104",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-review-2/execution.json"
+    },
+    {
+      "path": "attempt-2/request-admissions.jsonl",
+      "bytes": 3582,
+      "sha256": "b24f7fde6f81983f7ab4e79233581dc6b57c3293be9b1c0c850d584f61a0bd59",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-review-2/request-admissions.jsonl"
+    },
+    {
+      "path": "attempt-2/probe.py.txt",
+      "bytes": 7121,
+      "sha256": "bf7425bb2419a7fe0f88bbcaa0b3954e75c2bb6315ff42d71440b9400960fa05",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-review-2/probe_briefing.py"
+    },
+    {
+      "path": "attempt-2/probe_results.json",
+      "bytes": 1717,
+      "sha256": "6ff956796ba6b50cf14cdc9f02e41d1903f4c2dd2e6ac613d8a7eed84a566802",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-review-2/probe_results.json"
+    },
+    {
+      "path": "attempt-2/probe.log.txt",
+      "bytes": 1718,
+      "sha256": "b98842e49da97a38f63d9f87a7212c518c3f201267f5bb2a79a3551c5c7f05a5",
+      "source": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-review-2/probe-run.log"
+    },
+    {
+      "path": "coordinator-qc.json",
+      "bytes": 6865,
+      "sha256": "bfd618a730aaefadc690766576b1b22c0f6383b56b2ad82fff66b790ab821d96",
+      "source": "coordinator verification, not reviewer verdict"
+    }
+  ]
+}

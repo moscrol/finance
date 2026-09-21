@@ -1,0 +1,63 @@
+[
+  {
+    "case": "positive",
+    "outcome": "FAIL",
+    "exit_would_be": 1,
+    "error": "BinderException: Binder Error: Table \"v\" does not have a column named \"strength\"\n\nCandidate bindings: : \"sector_name\"\n\nLINE 3:                v.diff_ratio, v.strength, v.multi_period_resonance,\n                                     ^",
+    "expected": "PASS"
+  },
+  {
+    "case": "blocked_future",
+    "outcome": "report",
+    "status": "BLOCKED",
+    "exit_would_be": 2,
+    "landing": null,
+    "object_recorded_at": null,
+    "river_pit_grade": null,
+    "late_filtered": null,
+    "source_recorded_at": null,
+    "expected": "BLOCKED"
+  },
+  {
+    "case": "label_mismatch",
+    "outcome": "FAIL",
+    "exit_would_be": 1,
+    "error": "ValueError: Label mismatch: 2026-09-19 briefing_tier2_items",
+    "expected": "FAIL"
+  },
+  {
+    "case": "null_silently_zero",
+    "outcome": "FAIL",
+    "exit_would_be": 1,
+    "error": "ValueError: Label mismatch: 2026-09-19 briefing_market_confirmed",
+    "expected": "FAIL"
+  },
+  {
+    "case": "missing_label_row",
+    "outcome": "FAIL",
+    "exit_would_be": 1,
+    "error": "ValueError: Label mismatch: 2026-09-19 briefing_lag_days",
+    "expected": "FAIL"
+  },
+  {
+    "case": "duplicate_label",
+    "outcome": "FAIL",
+    "exit_would_be": 1,
+    "error": "ValueError: Duplicate label versions on 2026-09-19",
+    "expected": "FAIL"
+  },
+  {
+    "case": "backdated_computed",
+    "outcome": "FAIL",
+    "exit_would_be": 1,
+    "error": "ValueError: Backdated computed_at",
+    "expected": "FAIL"
+  },
+  {
+    "case": "label_older_than_source",
+    "outcome": "FAIL",
+    "exit_would_be": 1,
+    "error": "ValueError: Backdated computed_at",
+    "expected": "PASS"
+  }
+]

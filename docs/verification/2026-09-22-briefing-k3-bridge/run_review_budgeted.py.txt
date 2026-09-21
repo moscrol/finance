@@ -1,0 +1,166 @@
+"""Bounded offline K3 review; frozen heads and evidence, never merge or deploy."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+AXIS = sys.argv[1]
+assert AXIS in {"finance", "kb"}
+REVISIONS = {
+    "finance": "518ddf8d0fce7acdbcadd34e94234e956b2f76ec",
+    "kb": "7a47a6dc45ba6e8a3bebe47131bbd198b2090540",
+}
+BASES = {
+    "finance": "a2c8d1f90773fdf3dcb7cf53f5d9733590924ae1",
+    "kb": "d0caf31146a30e2cea05e6549652afb16fe70cb8",
+}
+AUTHORS = {
+    "finance": Path("/Users/a77/fwp-wt-briefing-consumption-qc-0921"),
+    "kb": Path("/Users/a77/kb-wt-briefing-evidence-qc-0921"),
+}
+OUT = ROOT / f"{AXIS}-review"
+TREE = ROOT / f"{AXIS}-tree"
+PROMPT = ROOT / f"{AXIS}-prompt.md"
+OUT.mkdir(exist_ok=True)
+os.umask(0o022)
+
+if "--start" in sys.argv:
+    with (OUT / "launcher.log").open("xb") as log:
+        process = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), AXIS],
+                                   cwd=ROOT, stdin=subprocess.DEVNULL, stdout=log,
+                                   stderr=log, start_new_session=True)
+    print(json.dumps({"axis": AXIS, "runner_pid": process.pid}))
+    sys.exit(0)
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def git(tree, *args):
+    return subprocess.check_output(["git", "-C", str(tree), *args], text=True).strip()
+
+
+def identity():
+    states = {}
+    for label, tree in {**{k: ROOT / f"{k}-tree" for k in REVISIONS},
+                        **{f"author_{k}": p for k, p in AUTHORS.items()}}.items():
+        states[label] = {
+            "revision": git(tree, "rev-parse", "HEAD"),
+            "tree": git(tree, "rev-parse", "HEAD^{tree}"),
+            "status": git(tree, "status", "--porcelain", "--untracked-files=all"),
+            "diff_sha256": hashlib.sha256(subprocess.check_output(
+                ["git", "-C", str(tree), "diff", "HEAD", "--binary"])).hexdigest(),
+        }
+    return states
+
+
+before = identity()
+for key, rev in REVISIONS.items():
+    assert before[key]["revision"] == rev and not before[key]["status"]
+    assert before[f"author_{key}"]["revision"] == rev and not before[f"author_{key}"]["status"]
+inputs = [Path(__file__), PROMPT, ROOT / "credential-bootstrap-budgeted.mjs",
+          ROOT / "pi-config/settings.json", ROOT / "pi-config/models.json", ROOT / "pi-config/auth.json"]
+input_hashes = {str(p.relative_to(ROOT)): sha(p) for p in inputs}
+command = ["/opt/homebrew/bin/pi", "--provider", "mirasim-kimi-bridge", "--model", "kimi-k3",
+           "--thinking", "xhigh", "--models", "mirasim-kimi-bridge/kimi-k3", "--no-session",
+           "--no-extensions", "-e", str(ROOT / "credential-bootstrap-budgeted.mjs"), "--no-skills",
+           "--no-prompt-templates", "--no-context-files", "--no-themes", "--no-approve",
+           "--offline", "--tools", "read,bash,write,grep,find,ls", "--mode", "json", "-p", "--", PROMPT.read_text()]
+env = {
+    "HOME": "/Users/a77", "PATH": "/opt/homebrew/bin:/Users/a77/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "TMPDIR": str(ROOT / f"tmp-{AXIS}"), "LANG": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1",
+    "FWP_TEST_RECEIPT": "0", "PI_CODING_AGENT_DIR": str(ROOT / "pi-config"),
+    "PI_OFFLINE": "1", "PI_TELEMETRY": "0", "REVIEW_OUTPUT_DIR": str(OUT),
+    "FORESIGHT_USERS_DIR": str(OUT / "users"), "FINANCE_WS": str(ROOT / "finance-tree"),
+    "KB_VAULT": str(ROOT / "kb-tree/wiki"), "NO_PROXY": "127.0.0.1,localhost",
+    "REVIEW_MAX_REQUESTS": "32", "REVIEW_BUDGET_SECONDS": "1080",
+}
+receipt = {
+    "axis": AXIS, "revision": REVISIONS[AXIS], "base": BASES[AXIS],
+    "companion_revision": REVISIONS["kb" if AXIS == "finance" else "finance"],
+    "identity_before": before, "inputs_sha256": input_hashes,
+    "command": command[:-1] + ["<prompt file>"],
+    "provider": "mirasim-kimi-bridge", "model": "kimi-k3",
+    "route": "http://127.0.0.1:18790/v1 -> http://127.0.0.1:8080",
+    "started_at": datetime.now(timezone.utc).isoformat(), "complete": False,
+    "timeout_seconds": 1080, "max_provider_requests": 32,
+    "isolation": "fresh sessions, dedicated checkouts, prompt restrictions and before/after fingerprints; NOT an OS sandbox",
+    "billing": "existing configured bridge; no purchase, invoice or monetary cap claim",
+    "automatic_retry": False, "fallback": False,
+    "upstream_bridge_retry": "existing bridge policy unchanged; outer runner does not retry",
+    "merge_or_deploy": False,
+}
+record = OUT / "execution.json"
+with record.open("x") as stream:
+    json.dump(receipt, stream, ensure_ascii=False, indent=2)
+started = time.monotonic()
+reason = None
+with (OUT / "events.jsonl").open("xb") as stdout, (OUT / "stderr.log").open("xb") as stderr:
+    process = subprocess.Popen(command, cwd=TREE, env=env, stdin=subprocess.DEVNULL,
+                               stdout=stdout, stderr=stderr, start_new_session=True)
+    receipt["pid"] = process.pid
+    record.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n")
+    try:
+        process.wait(timeout=1080)
+    except subprocess.TimeoutExpired:
+        reason = "deadline"
+        os.killpg(process.pid, signal.SIGTERM)
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.wait()
+after = identity()
+counts, messages, final = {}, [], []
+with (OUT / "events.jsonl").open() as stream, (OUT / "events.compact.jsonl").open("x") as compact:
+    for line in stream:
+        try:
+            event = json.loads(line)
+        except ValueError:
+            counts["invalid_json_line"] = counts.get("invalid_json_line", 0) + 1
+            continue
+        kind = event.get("type", "unknown")
+        counts[kind] = counts.get(kind, 0) + 1
+        if kind not in {"message_update", "tool_execution_update", "agent_end"}:
+            compact.write(line)
+        message = event.get("message", {})
+        if kind == "message_end" and message.get("role") == "assistant":
+            messages.append(message)
+            if message.get("stopReason") == "stop":
+                final = [c.get("text", "") for c in message.get("content", []) if c.get("type") == "text"]
+if final:
+    (OUT / "final.txt").write_text("\n".join(final) + "\n")
+admission_path = OUT / "request-admissions.jsonl"
+admissions = [json.loads(s) for s in admission_path.read_text().splitlines()] if admission_path.exists() else []
+errors = [m.get("errorMessage", m.get("stopReason")) for m in messages if m.get("stopReason") in {"error", "aborted"}]
+report_exists = (OUT / "REPORT.md").is_file() and (OUT / "REPORT.md").stat().st_size > 100
+verdict = None
+try:
+    verdict = json.loads((OUT / "verdict.json").read_text())
+except (OSError, ValueError):
+    pass
+verdict_valid = isinstance(verdict, dict) and verdict.get("revision") == REVISIONS[AXIS] and verdict.get("axis") == AXIS and verdict.get("verdict") in {"PASS", "CHANGES_REQUIRED", "BLOCKED"} and isinstance(verdict.get("issues"), list) and isinstance(verdict.get("limitations"), list)
+inputs_unchanged = input_hashes == {str(p.relative_to(ROOT)): sha(p) for p in inputs}
+review_complete = bool(process.returncode == 0 and reason is None and not errors and report_exists and verdict_valid and verdict["verdict"] != "BLOCKED" and before == after and inputs_unchanged)
+receipt.update({
+    "complete": True, "exit_code": process.returncode, "stop_reason": reason,
+    "finished_at": datetime.now(timezone.utc).isoformat(), "elapsed_seconds": round(time.monotonic() - started, 3),
+    "identity_after": after, "all_candidate_and_author_trees_unchanged": before == after,
+    "inputs_unchanged": inputs_unchanged,
+    "event_counts": counts, "model_identities": sorted({f'{m.get("provider")}/{m.get("model")}' for m in messages}),
+    "model_errors": errors, "provider_request_admissions": len(admissions),
+    "admissions_valid": len(admissions) <= 32 and [r["admission"] for r in admissions] == list(range(1, len(admissions) + 1)),
+    "report_exists": report_exists, "verdict_valid": verdict_valid,
+    "review_complete": review_complete, "review_status": verdict["verdict"] if review_complete else "INCOMPLETE",
+    "usage": {k: sum(m.get("usage", {}).get(k, 0) or 0 for m in messages) for k in ("input", "output", "cacheRead", "cacheWrite", "totalTokens")},
+    "sha256": {p.name: sha(p) for p in OUT.iterdir() if p.is_file() and p not in {record, OUT / "launcher.log"}},
+})
+record.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n")
+print(json.dumps({k: receipt[k] for k in ("axis", "complete", "exit_code", "review_status", "all_candidate_and_author_trees_unchanged", "model_errors", "provider_request_admissions")}, ensure_ascii=False))

@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+"""Independent synthetic probe for scripts/verify_briefing_consumption.py.
+
+Builds synthetic DuckDB market/labels DBs + KB projection, then runs the
+verifier's verify() in-process across positive and negative cases, plus the
+required adversarial case: label computed_at EARLIER than source recorded_at.
+"""
+from __future__ import annotations
+
+import json
+import sys
+import traceback
+from argparse import Namespace
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+CANDIDATE = Path("/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-tree")
+OUTDIR = Path("/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-review-2")
+sys.path.insert(0, str(CANDIDATE))
+
+import duckdb  # noqa: E402
+
+from scripts.verify_briefing_consumption import verify  # noqa: E402
+
+NOW = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+EVENT = {
+    "briefing_date": "2026-09-18",
+    "available_from": "2026-09-19",
+    "recorded_at": "2026-09-21",
+    "tier": 2,
+    "dimensions": 2,
+    "theme": "测试主题",
+}
+# expected briefing_daily values for landing 2026-09-19:
+# tier1=0, tier2=1, tier3=0, market_confirmed=None (dims=2), dimensions=2,
+# hit_rps5=None, lag_days=(2026-09-21 - 2026-09-19)=2, recorded_at="2026-09-21"
+LABELS = {
+    "tf.briefing_tier1_items": 0.0,
+    "tf.briefing_tier2_items": 1.0,
+    "tf.briefing_tier3_items": 0.0,
+    "tf.briefing_market_confirmed": None,
+    "tf.briefing_dimensions": 2.0,
+    "tf.briefing_hit_rps5_pct": None,
+    "tf.briefing_lag_days": 2.0,
+}
+
+
+def build_case(root: Path, *, label_computed_at: str = "2026-09-21 10:00:00",
+               labels: dict | None = None, drop_labels: list | None = None,
+               extra_dup: bool = False, calendar: list | None = None):
+    root.mkdir(parents=True, exist_ok=True)
+    db = root / "market.duckdb"
+    labels_db = root / "labels.duckdb"
+    wiki = root / "wiki"
+    projection = wiki / "raw/theme-radar/opinion-store/briefing-tier-events.jsonl"
+    projection.parent.mkdir(parents=True, exist_ok=True)
+    projection.write_text(json.dumps(EVENT, ensure_ascii=False) + "\n", encoding="utf-8")
+    with duckdb.connect(str(db)) as con:
+        con.execute("CREATE TABLE fact_market_daily (trade_date DATE, market_stage VARCHAR, stage_day INTEGER, total_amount DOUBLE, amount_vs_yesterday_pct DOUBLE, advancers INTEGER, limit_up INTEGER, limit_down INTEGER, sh_deviation_pct DOUBLE, volume_state VARCHAR, concentration_state VARCHAR, updated_at TIMESTAMP)")
+        con.execute("CREATE TABLE fact_sector_daily (trade_date DATE, sector_ts_code VARCHAR, sector_name VARCHAR, sw_l1 VARCHAR, pct_chg DOUBLE, diff_ratio DOUBLE, amount DOUBLE)")
+        for d in (calendar or ["2026-09-18", "2026-09-19"]):
+            con.execute("INSERT INTO fact_market_daily VALUES (?, 'stage', 1, 0, 0, 0, 0, 0, 0, 'v', 'c', '2026-09-19 00:00:00')", [d])
+        con.execute("INSERT INTO fact_sector_daily VALUES ('2026-09-19', 'TST1', '测试板块', 'sw', 0, 0, 0)")
+    rows = dict(labels if labels is not None else LABELS)
+    for k in (drop_labels or []):
+        rows.pop(k, None)
+    with duckdb.connect(str(labels_db)) as con:
+        con.execute(
+            "CREATE TABLE history_teaching_labels (entity_type VARCHAR, entity_id VARCHAR, trade_date DATE,"
+            " label VARCHAR, value_num DOUBLE, value_text VARCHAR, label_version VARCHAR,"
+            " framework_version VARCHAR, status VARCHAR, status_reason VARCHAR, computed_at TIMESTAMP)"
+        )
+        for label, value in rows.items():
+            con.execute(
+                "INSERT INTO history_teaching_labels VALUES ('market','market','2026-09-19',?,?,NULL,'v1','fw1','ok',NULL,?)",
+                [label, value, label_computed_at],
+            )
+        if extra_dup:
+            con.execute(
+                "INSERT INTO history_teaching_labels VALUES ('market','market','2026-09-19',"
+                "'tf.briefing_tier2_items',1.0,NULL,'v1','fw1','ok',NULL,?)",
+                [label_computed_at],
+            )
+    return Namespace(db_path=db, labels_db=labels_db, kb_wiki=wiki, briefing_date=["2026-09-18"], entity="测试板块")
+
+
+def run_case(name: str, ns: Namespace) -> dict:
+    try:
+        report = verify(ns)
+        status, err = report.get("status"), None
+        brief = report.get("briefings", [{}])[0]
+        return {"case": name, "outcome": "report", "status": status,
+                "exit_would_be": 2 if status == "BLOCKED" else 0,
+                "landing": brief.get("landing"), "object_recorded_at": brief.get("object_recorded_at"),
+                "river_pit_grade": brief.get("river_pit_grade"),
+                "late_filtered": brief.get("late_teaching_objects_filtered"),
+                "source_recorded_at": brief.get("source_recorded_at")}
+    except Exception as exc:  # verifier FAIL path (exit 1)
+        return {"case": name, "outcome": "FAIL", "exit_would_be": 1,
+                "error": f"{type(exc).__name__}: {exc}"}
+
+
+def main() -> int:
+    results = []
+    base = OUTDIR / "probe-work"
+    cases = {}
+
+    cases["positive"] = build_case(base / "positive")
+    cases["blocked_future"] = build_case(base / "blocked", calendar=["2026-09-18"])  # calendar ends before availability
+    cases["label_mismatch"] = build_case(base / "mismatch",
+                                         labels={**LABELS, "tf.briefing_tier2_items": 5.0})
+    cases["null_silently_zero"] = build_case(base / "nullzero",
+                                             labels={**LABELS, "tf.briefing_market_confirmed": 0.0})
+    cases["missing_label_row"] = build_case(base / "missingrow", drop_labels=["tf.briefing_lag_days"])
+    cases["duplicate_label"] = build_case(base / "dup", extra_dup=True)
+    # Adversarial A (contract): label computed_at (river object recorded_at) EARLIER than source recorded_at.
+    # backdate computed_at BELOW landing -> caught ("Backdated computed_at")
+    cases["backdated_computed"] = build_case(base / "backdated", label_computed_at="2026-09-19 00:00:00")
+    # Adversarial B (KEY): computed_at >= landing but < source recorded_at ("2026-09-21").
+    # Landing-day check passes; nothing compares against source recorded_at -> expectation: FALSE PASS.
+    cases["label_older_than_source"] = build_case(base / "older", label_computed_at="2026-09-20 08:00:00")
+
+    for name, ns in cases.items():
+        r = run_case(name, ns)
+        r["expected"] = ("PASS" if name in ("positive", "label_older_than_source")
+                         else "BLOCKED" if name == "blocked_future" else "FAIL")
+        results.append(r)
+
+    # replay detection: does verify compare anything against the *label write time* vs source recorded_at?
+    # line evidence gathered separately by reviewer; here show the false-pass object_recorded_at < source_recorded_at.
+    out = OUTDIR / "probe_results.json"
+    out.write_text(json.dumps(results, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+    print(json.dumps(results, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

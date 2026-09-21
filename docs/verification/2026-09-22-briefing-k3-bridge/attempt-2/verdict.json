@@ -1,0 +1,48 @@
+{
+  "revision": "518ddf8d0fce7acdbcadd34e94234e956b2f76ec",
+  "axis": "finance",
+  "verdict": "CHANGES_REQUIRED",
+  "issues": [
+    {
+      "id": "IMA-GAP-VERIFY-001",
+      "severity": "P1",
+      "path": "scripts/verify_briefing_consumption.py",
+      "line": 77,
+      "description": "验收下界绑错时间轴：断言 `obj.recorded_at[:10] >= expected['recorded_at'][:10]`，右项 expected['recorded_at'] 来自 source projection(briefing-tier-events.jsonl) 的回填写成时刻(narrative.py:239)，左项 obj.recorded_at 是旁路库标签行 computed_at(river_objects.py)。两者不是同一物理量。合同要求的『标签 computed_at 早于 source recorded_at 不得当成功』未被真正验证为『原始 label 写入时间 vs source recorded_at』，而是『对象 recorded_at(=computed_at) vs source recorded_at』。后果：(a)同日假阴性——computed_at 与 source recorded_at 同一日时，仅按日期切片比较，computed_at 早于当日 source 写入时刻的标签被判 PASS；(b)跨日假阳性——见 P2。",
+      "reproduction": "独立合成 DuckDB 探针 probe_briefing.py 用例 label_older_than_source：7 个 tf.briefing_* 行 computed_at='2026-09-20 08:00:00'，source 行 recorded_at='2026-09-21'，落点 2026-09-19。实测 FAIL ValueError: Backdated computed_at(exit1)。该结果证明右项绑定 source 时间轴；同一边界把 source recorded_at 与 computed_at 放到同日则同样代码路径判 PASS（同日漏检）。结果存 probe_results.json / probe-run.log。"
+    },
+    {
+      "id": "VERIFY-BACKDATE-002",
+      "severity": "P2",
+      "path": "scripts/verify_briefing_consumption.py",
+      "line": 77,
+      "description": "反向假阳性：真实合同应为『computed_at >= 落点日』即放行，但当前右项是更晚的 source recorded_at，把合规的同日落点晚写（computed_at 落在落点日与 source 写成日之间）误报为 Backdated computed_at。",
+      "reproduction": "同一探针用例 label_older_than_source：computed_at=2026-09-20 >= 落点 2026-09-19 本属合规，却被 FAIL Backdated computed_at。probe_results.json / probe-run.log。"
+    },
+    {
+      "id": "VERIFY-SCOPE-003",
+      "severity": "P3",
+      "path": "scripts/verify_briefing_consumption.py",
+      "line": 69,
+      "description": "briefing_hit_rps5_pct 被显式 continue 跳过（7 个 BRIEFING_FIELDS 只校验 6 个），NULL 静默转 0 的合同仅由其余字段(如 briefing_market_confirmed)间接覆盖，校验面不完整。脚本在 scope/limits 已声明不重算价量对照。",
+      "reproduction": "静态阅读 scripts/verify_briefing_consumption.py:69-70；BRIEFING_FIELDS 7 字段中 briefing_hit_rps5_pct 被跳过。"
+    },
+    {
+      "id": "RIVER-STRICT-004",
+      "severity": "P3",
+      "path": "scripts/verify_briefing_consumption.py",
+      "line": 84,
+      "description": "范围提示：strict 的 _enforce_cutoff(river.py:984, 按 recorded_at[:10] <= cutoff 过滤)只对带 recorded_at 的 teaching_* 对象填日期闸门，不证明所有 market facts；ordinary river 仅 trade_date_only grade（非完整冻结历史回放）。PASS 行已如实记录 river_pit_grade=trade_date_only 与 late_teaching_objects_filtered，未夸大。",
+      "reproduction": "静态阅读 river.py:984 与候选自证 docs/verification/.../probe-direct-slice.log.txt(live_pit_grade=trade_date_only, strict_briefing_count=0)。"
+    }
+  ],
+  "limitations": [
+    "正向 PASS 的 river 端到端切片在本审查环境未独立复现：本探针自建 fact_sector_daily/market 列与 river 各轨列期望未完全对齐，positive 用例抛 BinderException；正向改采信候选树自带证据(docs/verification/.../probe-positive.log.txt exit0 + direct_slice_probe.py + 12/12 定向测试)，未经我独立重建。",
+    "plain==off（关闭 sidecar 不改变基线）仅由候选自证日志佐证，本探针未独立重跑该对偶比较。",
+    "briefing_hit_rps5_pct 价量对照未重算；summary object 非全文 briefing RAG，未审。",
+    "strict 的 _enforce_cutoff 对无 recorded_at 既存 market facts 的覆盖未逐一构造反例。",
+    "本次为离线 synthetic DuckDB 审查，未触 live/production DB、网络、collector；不代表 main 或生产。",
+    "精确测试计数：tests/test_ima_gap_report.py + tests/test_verify_briefing_consumption.py = 12 passed, 0 failed, 0 skipped（python 3.12.13, FWP_TEST_RECEIPT=0）；未跑 broad full-suite。",
+    "审查文件 SHA256：cli.py 0acf2fdadddfc6baa072bd6b16a6585f24eac1d7d900530ad90159f7237510e6；verify_briefing_consumption.py 29ba5146c90388ab1fea3713cc992852b3aa6fa1f056c8156786df9aeee73abd；test_ima_gap_report.py cb742c38f5288a6825feb9f59507727fd8b4cd14843a13cf1d296e670a21f78e；test_verify_briefing_consumption.py c8bb54352b5290c3dba97b86659bce578b4c6981d6b9b7df1e1e8b6a23972f41。"
+  ]
+}

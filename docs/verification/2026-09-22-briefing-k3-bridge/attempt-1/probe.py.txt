@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+"""Independent synthetic probe for scripts/verify_briefing_consumption.py (review artifact).
+
+Builds a labelled DuckDB market source (enough columns for river.slice_river), a
+teaching sidecar following the real history_teaching_labels schema
+(intelligence/services/methodology_backtest/store.py TEACHING_DDL), and a KB
+briefing-tier-events.jsonl projection. Runs the real verify() via main() across
+positive and negative cases and prints the exits.
+"""
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+import duckdb
+
+ROOT = Path("/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-tree")
+sys.path.insert(0, str(ROOT))
+
+from scripts.verify_briefing_consumption import main  # noqa: E402
+
+CAL = ["2026-09-17", "2026-09-18"]  # 严格大于主线日历常见 20 日回看窗之外即可；这里只需两天
+LANDING = "2026-09-18"
+
+PROJECTION_ROW = {
+    "briefing_date": "2026-09-16",
+    "available_from": "2026-09-17",  # lands on 2026-09-17? no: first trading day >= available_from
+    "recorded_at": "2026-09-17",
+    "tier": 1,
+    "dimensions": 3,
+    "market_confirmed": True,
+    "theme": "算力租赁",
+    "wikilinks": ["算力租赁"],
+}
+# available_from=2026-09-17 -> landing 2026-09-17. We want landing == 2026-09-18 to exercise
+# "lands on first trading day >= available_from" (2026-09-17 is a trading day though).
+# Use available_from=2026-09-18 so landing is 2026-09-18.
+PROJECTION_ROW["available_from"] = "2026-09-18"
+PROJECTION_ROW["recorded_at"] = "2026-09-18"
+
+EXPECT = {
+    "briefing_tier1_items": 1,
+    "briefing_tier2_items": 0,
+    "briefing_tier3_items": 0,
+    "briefing_market_confirmed": 1,
+    "briefing_dimensions": 3,
+    "briefing_lag_days": 0,
+}
+MERGE_NULL_FIELDS = ["briefing_hit_rps5_pct"]
+
+STAGE_ROW = ("market", "market", LANDING, "tf.stage_coarse", None, "观察", "v1", "fw-test", "ok", None, "2026-09-18 15:30:00")
+
+
+def briefing_row(label: str, value, computed_at: str):
+    return ("market", "market", LANDING, label, value, None, "v1", "fw-test", "ok", None, computed_at)
+
+
+def build_market_db(path: Path) -> None:
+    con = duckdb.connect(str(path))
+    try:
+        con.execute("CREATE TABLE fact_market_daily (trade_date DATE, market_stage VARCHAR, stage_day INTEGER, total_amount DOUBLE, amount_vs_yesterday_pct DOUBLE, advancers INTEGER, limit_up INTEGER, limit_down INTEGER, sh_deviation_pct DOUBLE, volume_state VARCHAR, concentration_state VARCHAR, updated_at TIMESTAMP)")
+        for d in CAL:
+            con.execute("INSERT INTO fact_market_daily VALUES (?, '横盘', 1, 9000.0, 1.0, 2500, 40, 5, 0.1, '平量', '分散', ?)", [d, f"{d} 15:30:00"])
+        con.execute("CREATE TABLE fact_sector_daily (trade_date DATE, sector_ts_code VARCHAR, sector_name VARCHAR, sw_l1 VARCHAR, pct_chg DOUBLE, amount DOUBLE, diff_ratio DOUBLE, strength DOUBLE, multi_period_resonance VARCHAR, sector_universe_snapshot_id VARCHAR, updated_at TIMESTAMP, source VARCHAR)")
+        for d in CAL:
+            con.execute("INSERT INTO fact_sector_daily VALUES (?, 'TEST01.FP', '测试板块', '测试一级', 1.5, 800.0, 12.0, 0.6, 'Y', 'snap-1', ?, 'test')", [d, f"{d} 15:30:00"])
+        con.execute("CREATE TABLE fact_theme_limit_stock_daily (trade_date DATE, sector_ts_code VARCHAR, stock_ts_code VARCHAR, stock_name VARCHAR, limit_status VARCHAR, limit_times INTEGER, up_stat VARCHAR, up_stat_days INTEGER, up_stat_boards INTEGER, first_limit_time VARCHAR, theme_names_json VARCHAR, leader_plate VARCHAR, amount DOUBLE, updated_at TIMESTAMP)")
+        con.execute("INSERT INTO fact_theme_limit_stock_daily VALUES (?, 'TEST01.FP', 'SZ000001', '测试股份', '涨停', 1, '1/1', 1, 1, '10:00', '[]', 'Y', 100.0, ?)", [LANDING, f"{LANDING} 15:30:00"])
+        con.execute("CREATE TABLE fact_theme_limit_heat_daily (trade_date DATE, sector_name VARCHAR, limit_up_count INTEGER, total_count INTEGER, limit_up_ratio DOUBLE, market_share DOUBLE, rank INTEGER, market_limit_up_count INTEGER, data_stage VARCHAR, updated_at TIMESTAMP)")
+        con.execute("INSERT INTO fact_theme_limit_heat_daily VALUES (?, '测试板块', 3, 10, 30.0, 2.0, 1, 40, 'final', ?)", [LANDING, f"{LANDING} 15:30:00"])
+        con.execute("CREATE TABLE fact_research_report_catalog (report_id VARCHAR, title VARCHAR, report_date DATE, report_type VARCHAR, is_hot BOOLEAN, sector_tags VARCHAR, concept_tags VARCHAR, created_at VARCHAR, updated_at VARCHAR)")
+        con.execute("INSERT INTO fact_research_report_catalog VALUES ('r1', '测试板块深度', DATE '2026-09-17', '深度', false, '[\"测试板块\"]', '[]', '2026-09-17 18:00:00', '2026-09-17 18:00:00')")
+        con.execute("CREATE TABLE fact_theme_fundamental_doc (document_pk VARCHAR, title VARCHAR, analysis_type VARCHAR, workflow_name VARCHAR, core_theme VARCHAR, verification_points VARCHAR, linked_sectors VARCHAR, produced_at TIMESTAMP)")
+        con.execute("CREATE TABLE fact_sector_stock_daily (trade_date DATE, sector_ts_code VARCHAR, stock_ts_code VARCHAR, stock_name VARCHAR, fund_flow_1d DOUBLE, fund_flow_5d DOUBLE, amount DOUBLE, high_status_label VARCHAR, limit_times INTEGER, updated_at TIMESTAMP, source VARCHAR)")
+        con.execute("INSERT INTO fact_sector_stock_daily VALUES (?, 'TEST01.FP', 'SZ000001', '测试股份', 5.0, 10.0, 100.0, '强势', 1, ?, 'test')", [LANDING, f"{LANDING} 15:30:00"])
+        con.execute("CREATE TABLE fact_stock_daily (trade_date DATE, stock_ts_code VARCHAR, close DOUBLE, pct_chg DOUBLE, amount DOUBLE, turnover DOUBLE, updated_at TIMESTAMP)")
+        con.execute("INSERT INTO fact_stock_daily VALUES (?, 'SZ000001', 10.0, 9.99, 100.0, 5.0, ?)", [LANDING, f"{LANDING} 15:30:00"])
+        con.execute("CREATE TABLE fact_theme_flow_daily (trade_date DATE, theme_code VARCHAR, theme_name VARCHAR, total_fund DOUBLE, total_amount DOUBLE, stock_count INTEGER, source VARCHAR, updated_at TIMESTAMP)")
+        con.execute("INSERT INTO fact_theme_flow_daily VALUES (?, 'T1', '测试板块', 3.0, 100.0, 5, 'test', ?)", [LANDING, f"{LANDING} 15:30:00"])
+    finally:
+        con.close()
+
+
+def build_labels_db(path: Path, rows, with_gap=False) -> None:
+    con = duckdb.connect(str(path))
+    try:
+        con.execute("""CREATE TABLE history_teaching_labels (
+            entity_type VARCHAR NOT NULL, entity_id VARCHAR NOT NULL, trade_date DATE NOT NULL,
+            label VARCHAR NOT NULL, value_num DOUBLE, value_text VARCHAR,
+            label_version VARCHAR NOT NULL, framework_version VARCHAR NOT NULL,
+            status VARCHAR NOT NULL DEFAULT 'ok', status_reason VARCHAR, computed_at TIMESTAMP NOT NULL,
+            PRIMARY KEY (entity_type, entity_id, trade_date, label))""")
+        con.execute("""CREATE TABLE history_teaching_gaps (trade_date DATE NOT NULL, gap_kind VARCHAR NOT NULL,
+            missing_cols VARCHAR, framework_version VARCHAR NOT NULL, status VARCHAR NOT NULL DEFAULT 'gap',
+            status_reason VARCHAR, computed_at TIMESTAMP NOT NULL, PRIMARY KEY (trade_date, gap_kind))""")
+        for r in rows:
+            con.execute("INSERT INTO history_teaching_labels VALUES (?,?,?,?,?,?,?,?,?,?,?)", list(r))
+        if with_gap:
+            con.execute("INSERT INTO history_teaching_gaps VALUES (?, 'tf.narrative_events', NULL, 'fw-test', 'gap', 'narrative_source_missing', ?)", [LANDING, "2026-09-18 15:30:00"])
+    finally:
+        con.close()
+
+
+def default_rows(computed_at="2026-09-18 15:30:00"):
+    rows = [STAGE_ROW]
+    for field in sorted(EXPECT):
+        rows.append(briefing_row(f"tf.{field}", float(EXPECT[field]) if not isinstance(EXPECT[field], float) else EXPECT[field], computed_at))
+    for field in MERGE_NULL_FIELDS:  # builder writes explicit NULL rows; river object drops them
+        rows.append(briefing_row(f"tf.{field}", None, computed_at))
+    return rows
+
+
+def build_wiki(root: Path, projection_text: str) -> None:
+    p = root / "raw/theme-radar/opinion-store/briefing-tier-events.jsonl"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(projection_text, encoding="utf-8")
+
+
+def run_case(name: str, tmp: Path, market: Path, wiki: Path, labels: Path, date: str, expect: set[int]) -> int:
+    argv = ["verify", "--db-path", str(market), "--labels-db", str(labels),
+            "--kb-wiki", str(wiki), "--briefing-date", date, "--entity", "测试板块"]
+    old = sys.argv
+    sys.argv = argv
+    try:
+        code = main()
+    finally:
+        sys.argv = old
+    verdict = "OK" if code in expect else "UNEXPECTED"
+    print(f"===== CASE {name}: exit={code} expect={sorted(expect)} -> {verdict}", file=sys.stderr)
+    return code
+
+
+def main_probe() -> int:
+    import shutil
+    tmp = Path("/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/tmp-finance/probe")
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir(parents=True, exist_ok=True)
+    failures = []
+
+    def check(name, got, want):
+        ok = got in want
+        print(f"[{'PASS' if ok else 'FAIL'}] {name}: exit={got} expected={sorted(want)}")
+        if not ok:
+            failures.append(name)
+
+    # ---- positive baseline
+    market = tmp / "market.duckdb"; labels = tmp / "labels.duckdb"; wiki = tmp / "wiki"
+    build_market_db(market)
+    build_wiki(wiki, json.dumps(PROJECTION_ROW, ensure_ascii=False) + "\n")
+    build_labels_db(labels, default_rows(), with_gap=True)
+    check("positive_full_consumption", run_case("positive", tmp, market, wiki, labels, "2026-09-16", {0}), {0})
+
+    # ---- negatives on the same positive baseline
+    # 1. label value mismatch
+    rows = default_rows()
+    rows = [r if r[3] != "tf.briefing_tier1_items" else r[:4] + (9.0,) + r[5:] for r in rows]
+    build_labels_db(tmp / "l1.duckdb", rows)
+    check("neg_label_value_mismatch", run_case("neg_mismatch", tmp, market, wiki, tmp / "l1.duckdb", "2026-09-16", {1}), {1})
+
+    # 2. missing label row (table exists, one field absent)
+    rows = [r for r in default_rows() if r[3] != "tf.briefing_lag_days"]
+    build_labels_db(tmp / "l2.duckdb", rows)
+    check("neg_missing_label_row", run_case("neg_missing", tmp, market, wiki, tmp / "l2.duckdb", "2026-09-16", {1}), {1})
+
+    # 3. duplicate labels (dup rows in a nos-PK table must not silently PASS)
+    con = duckdb.connect(str(tmp / "l3.duckdb"))
+    con.execute("CREATE TABLE history_teaching_labels (entity_type VARCHAR, entity_id VARCHAR, trade_date DATE, label VARCHAR, value_num DOUBLE, value_text VARCHAR, label_version VARCHAR, framework_version VARCHAR, status VARCHAR, status_reason VARCHAR, computed_at TIMESTAMP)")
+    for r in default_rows():
+        con.execute("INSERT INTO history_teaching_labels VALUES (?,?,?,?,?,?,?,?,?,?,?)", list(r))
+    # duplicate one label with the SAME value (weak dup) and one with a DIFFERENT value (strong dup)
+    dup_same = briefing_row("tf.briefing_tier2_items", 0.0, "2026-09-18 15:30:00")
+    dup_diff = briefing_row("tf.briefing_tier3_items", 7.0, "2026-09-18 15:30:00")
+    con.execute("INSERT INTO history_teaching_labels VALUES (?,?,?,?,?,?,?,?,?,?,?)", list(dup_same))
+    con.execute("INSERT INTO history_teaching_labels VALUES (?,?,?,?,?,?,?,?,?,?,?)", list(dup_diff))
+    con.close()
+    check("neg_duplicate_labels", run_case("neg_dup", tmp, market, wiki, tmp / "l3.duckdb", "2026-09-16", {1}), {1})
+
+    # 4. NULL value_num where expected value is 0 (NULL must not equal 0)
+    rows = default_rows()
+    rows = [r if r[3] != "tf.briefing_market_confirmed" else r[:4] + (None,) + r[5:] for r in rows]
+    build_labels_db(tmp / "l4.duckdb", rows)
+    check("neg_null_not_zero", run_case("neg_null", tmp, market, wiki, tmp / "l4.duckdb", "2026-09-16", {1}), {1})
+
+    # 5. late teaching objects must be filtered in strict slice (positive: live shows them,
+    #    strict drops them; verify still passes because the briefing row itself is on time).
+    late = default_rows(computed_at="2026-09-18 15:30:00")
+    late.append(("market", "market", LANDING, "tf.dragon_count", 3.0, None, "v1", "fw-test", "ok", None, "2026-09-20 09:00:00"))
+    build_labels_db(tmp / "l5.duckdb", late, with_gap=True)
+    check("pos_late_teaching_filtered", run_case("pos_late", tmp, market, wiki, tmp / "l5.duckdb", "2026-09-16", {0}), {0})
+
+    # 6. briefing label rows computed_at AFTER the landing day while projection recorded_at is on time
+    #    => object recorded_at > landing; verify's backdate guard should FAIL (river object would
+    #    leak through strict filter otherwise).
+    backdated = default_rows(computed_at="2026-09-21 09:00:00")
+    backdated[0] = STAGE_ROW
+    build_labels_db(tmp / "l6.duckdb", backdated)
+    check("neg_backdated_labels", run_case("neg_backdated", tmp, market, wiki, tmp / "l6.duckdb", "2026-09-16", {1}), {1})
+
+    # 7. missing rows for a requested briefing_date in projection
+    check("neg_no_projection_rows", run_case("neg_norows", tmp, market, wiki, labels, "2026-09-15", {1}), {1})
+
+    # 8. missing labels db file
+    check("neg_missing_labels_db", run_case("neg_nolabels", tmp, market, wiki, tmp / "absent.duckdb", "2026-09-16", {1}), {1})
+
+    # 9. invalid projection JSON
+    badwiki = tmp / "wiki2"
+    build_wiki(badwiki, "{\n")
+    check("neg_invalid_projection_json", run_case("neg_badjson", tmp, market, badwiki, labels, "2026-09-16", {1}), {1})
+
+    print("PROBE_FAILURES:", failures if failures else "none")
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main_probe())

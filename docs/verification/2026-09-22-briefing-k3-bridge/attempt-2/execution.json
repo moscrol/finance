@@ -1,0 +1,158 @@
+{
+  "axis": "finance",
+  "revision": "518ddf8d0fce7acdbcadd34e94234e956b2f76ec",
+  "base": "a2c8d1f90773fdf3dcb7cf53f5d9733590924ae1",
+  "companion_revision": "7a47a6dc45ba6e8a3bebe47131bbd198b2090540",
+  "identity_before": {
+    "finance": {
+      "revision": "518ddf8d0fce7acdbcadd34e94234e956b2f76ec",
+      "tree": "b8b92d95195a524b35871934e2e79fedb3d516fd",
+      "status": "",
+      "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "kb": {
+      "revision": "7a47a6dc45ba6e8a3bebe47131bbd198b2090540",
+      "tree": "3c0053716f57cc963c86bbecdab6f1d157afe438",
+      "status": "",
+      "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "author_finance": {
+      "revision": "518ddf8d0fce7acdbcadd34e94234e956b2f76ec",
+      "tree": "b8b92d95195a524b35871934e2e79fedb3d516fd",
+      "status": "",
+      "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "author_kb": {
+      "revision": "7a47a6dc45ba6e8a3bebe47131bbd198b2090540",
+      "tree": "3c0053716f57cc963c86bbecdab6f1d157afe438",
+      "status": "",
+      "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "inputs_sha256": {
+    "run_review_finance2.py": "a5f7ee6b80f8b4759ebfe0c6b344df903fa2a0a237efc2dfda54cbbfec941975",
+    "finance-prompt-2.md": "e19d37e83724431727d2ddc239b6b799990ec991d3077950813caae16b32c0cb",
+    "credential-bootstrap-budgeted.mjs": "865582d01a5a964e746380237071a4be68e97ef0d274ad0d03c577423851659f",
+    "pi-config/settings.json": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d",
+    "pi-config/models.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "pi-config/auth.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+  },
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "mirasim-kimi-bridge",
+    "--model",
+    "kimi-k3",
+    "--thinking",
+    "xhigh",
+    "--models",
+    "mirasim-kimi-bridge/kimi-k3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/credential-bootstrap-budgeted.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--tools",
+    "read,bash,write,grep,find,ls",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<prompt file>"
+  ],
+  "provider": "mirasim-kimi-bridge",
+  "model": "kimi-k3",
+  "route": "http://127.0.0.1:18790/v1 -> http://127.0.0.1:8080",
+  "started_at": "2026-09-21T19:26:49.329113+00:00",
+  "complete": true,
+  "timeout_seconds": 1080,
+  "max_provider_requests": 32,
+  "isolation": "fresh sessions, dedicated checkouts, prompt restrictions and before/after fingerprints; NOT an OS sandbox",
+  "billing": "existing configured bridge; no purchase, invoice or monetary cap claim",
+  "automatic_retry": false,
+  "fallback": false,
+  "upstream_bridge_retry": "existing bridge policy unchanged; outer runner does not retry",
+  "merge_or_deploy": false,
+  "pid": 44653,
+  "exit_code": 0,
+  "stop_reason": null,
+  "finished_at": "2026-09-21T19:30:38.989534+00:00",
+  "elapsed_seconds": 229.66,
+  "identity_after": {
+    "finance": {
+      "revision": "518ddf8d0fce7acdbcadd34e94234e956b2f76ec",
+      "tree": "b8b92d95195a524b35871934e2e79fedb3d516fd",
+      "status": "",
+      "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "kb": {
+      "revision": "7a47a6dc45ba6e8a3bebe47131bbd198b2090540",
+      "tree": "3c0053716f57cc963c86bbecdab6f1d157afe438",
+      "status": "",
+      "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "author_finance": {
+      "revision": "518ddf8d0fce7acdbcadd34e94234e956b2f76ec",
+      "tree": "b8b92d95195a524b35871934e2e79fedb3d516fd",
+      "status": "",
+      "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "author_kb": {
+      "revision": "7a47a6dc45ba6e8a3bebe47131bbd198b2090540",
+      "tree": "3c0053716f57cc963c86bbecdab6f1d157afe438",
+      "status": "",
+      "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "all_candidate_and_author_trees_unchanged": true,
+  "inputs_unchanged": true,
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 27,
+    "message_start": 59,
+    "message_end": 59,
+    "message_update": 704,
+    "tool_execution_start": 31,
+    "tool_execution_update": 91,
+    "tool_execution_end": 31,
+    "turn_end": 27,
+    "agent_end": 1,
+    "agent_settled": 1
+  },
+  "model_identities": [
+    "mirasim-kimi-bridge/kimi-k3"
+  ],
+  "model_errors": [],
+  "provider_request_admissions": 27,
+  "admissions_valid": true,
+  "report_exists": true,
+  "verdict_valid": true,
+  "review_complete": true,
+  "review_status": "CHANGES_REQUIRED",
+  "usage": {
+    "input": 58201,
+    "output": 20654,
+    "cacheRead": 763904,
+    "cacheWrite": 0,
+    "totalTokens": 842759
+  },
+  "sha256": {
+    "probe_briefing.py": "bf7425bb2419a7fe0f88bbcaa0b3954e75c2bb6315ff42d71440b9400960fa05",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "probe-run.log": "b98842e49da97a38f63d9f87a7212c518c3f201267f5bb2a79a3551c5c7f05a5",
+    "REPORT.md": "f185f2994d42e17534b04792960616c6e5c675e65b8e4c9f36aaa30ec3148518",
+    "final.txt": "1fe700b9d361aec3f8416ea751adc962059fcfba6fe72814ae62dcd524ac86aa",
+    "credential.json": "8f508612890686a2f7aebd376c94d1a95649b6ca289ca9e86f1e0574a6568f6b",
+    "verdict.json": "bac99afaa083e7f21a660db56b4ba87ce676b186ef7a8b9c9058b16a421e42b5",
+    "request-admissions.jsonl": "b24f7fde6f81983f7ab4e79233581dc6b57c3293be9b1c0c850d584f61a0bd59",
+    "events.jsonl": "bae11dbd16345c2ff85f0702ff798088ed4925e1bee7535fa0d0ef3754306305",
+    "probe_results.json": "6ff956796ba6b50cf14cdc9f02e41d1903f4c2dd2e6ac613d8a7eed84a566802",
+    "events.compact.jsonl": "3c1587b4ac1b2be70c35237a7cd945651f36b0727032807c1be2aa44f0c83d25"
+  }
+}

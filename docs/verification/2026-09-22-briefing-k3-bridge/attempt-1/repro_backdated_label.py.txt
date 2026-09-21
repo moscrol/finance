@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+"""Minimal reproduction: verify_briefing_consumption.py backdate guard compares the
+source projection's recorded_at against *itself*, so briefing label rows written
+(backfilled) after the landing day still exit 0 even though the teaching object is
+filtered out of the strict river slice as a lookahead object."""
+import sys
+from argparse import Namespace
+from pathlib import Path
+
+sys.path.insert(0, "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-tree")
+from scripts.verify_briefing_consumption import verify  # noqa: E402
+
+tmp = Path("/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/tmp-finance/probe")
+args = Namespace(
+    db_path=tmp / "market.duckdb",      # calendar 09-17/09-18; landing = 2026-09-18
+    labels_db=tmp / "l6.duckdb",        # tf.briefing_* rows computed_at = 2026-09-21 (3 days late backfill)
+    kb_wiki=tmp / "wiki",               # projection recorded_at = 2026-09-18 (on time)
+    briefing_date=["2026-09-16"], entity="测试板块",
+)
+report = verify(args)
+b = report["briefings"][0]
+print("status:", b["status"])
+print("source projection recorded_at:", b["source_recorded_at"])
+print("labels sidecar object recorded_at:", b["object_recorded_at"])
+print("sidecar rows written >3 days after the landing day they claim to describe: TRUE")
+print("expected verdict per module contract (backdated labels must FAIL): FAIL/exit1")
+print("actual verdict: PASS/exit0  -> FALSE-POSITIVE ACCEPTANCE")

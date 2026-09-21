@@ -1,0 +1,6 @@
+status: PASS
+source projection recorded_at: 2026-09-18
+labels sidecar object recorded_at: 2026-09-21T09:00:00
+sidecar rows written >3 days after the landing day they claim to describe: TRUE
+expected verdict per module contract (backdated labels must FAIL): FAIL/exit1
+actual verdict: PASS/exit0  -> FALSE-POSITIVE ACCEPTANCE

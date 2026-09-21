@@ -1,0 +1,188 @@
+"""Archive bounded K3 bridge review evidence without turning model verdicts into approvals.
+
+Whitelisted text only; credentials, model event bodies, synthetic DBs and raw
+materials stay out of git. Preserve reviewer reports verbatim and append separate
+coordinator objections. This script neither changes content nor posts/merges PRs.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import re
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+DESTINATIONS = {
+    "finance": Path("/Users/a77/fwp-wt-briefing-consumption-qc-0921"),
+    "kb": Path("/Users/a77/kb-wt-briefing-evidence-qc-0921"),
+}
+REVISIONS = {
+    "finance": "518ddf8d0fce7acdbcadd34e94234e956b2f76ec",
+    "kb": "7a47a6dc45ba6e8a3bebe47131bbd198b2090540",
+}
+RELPATH = Path("docs/verification/2026-09-22-briefing-k3-bridge")
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def git(tree, *args):
+    return subprocess.check_output(["git", "-C", str(tree), *args])
+
+
+def save(path, data):
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+
+
+receipts = {}
+for folder in ("finance-review", "kb-review", "finance-review-2"):
+    output = ROOT / folder
+    receipt = json.loads((output / "execution.json").read_text())
+    assert receipt["complete"] and receipt["all_candidate_and_author_trees_unchanged"]
+    assert receipt["inputs_unchanged"] and receipt["model_errors"] == []
+    for name, expected in receipt["inputs_sha256"].items():
+        assert digest(ROOT / name) == expected, name
+    for name, expected in receipt["sha256"].items():
+        assert digest(output / name) == expected, (folder, name)
+    for protected in (receipt["pid"],):
+        try:
+            import os
+            os.kill(protected, 0)
+        except ProcessLookupError:
+            pass
+        else:
+            raise RuntimeError(f"Review process is still present: {protected}")
+    verdict_path = output / "verdict.json"
+    verdict = json.loads(verdict_path.read_text()) if verdict_path.exists() else None
+    receipts[folder] = {
+        "execution_exit": receipt["exit_code"],
+        "requests": receipt["provider_request_admissions"],
+        "tool_calls": receipt["event_counts"]["tool_execution_start"],
+        "elapsed_seconds": receipt["elapsed_seconds"],
+        "model_errors": receipt["model_errors"],
+        "model_identities": receipt["model_identities"],
+        "execution_review_status": receipt["review_status"],
+        "reviewer_verdict": verdict["verdict"] if verdict else None,
+        "report_delivered": (output / "REPORT.md").is_file(),
+        "inputs_hash_verified": True,
+        "trees_unchanged_during_run": True,
+        "full_events_local_path": str(output / "events.jsonl"),
+        "full_events_sha256": digest(output / "events.jsonl"),
+    }
+
+kb = ROOT / "kb-tree"
+raw_evidence = []
+for name in ("raw/0915晨汇纪要.md", "raw/0918晨汇纪要.md"):
+    data = (kb / name).read_bytes()
+    assert data == git(kb, "show", f"HEAD:{name}")
+    assert data == git(kb, "show", f"d0caf31146a30e2cea05e6549652afb16fe70cb8:{name}")
+    raw_evidence.append({"path": name, "bytes": len(data),
+                         "sha256": hashlib.sha256(data).hexdigest(),
+                         "md5_current_markdown": hashlib.md5(data).hexdigest(),
+                         "equals_base_and_head": True})
+index_lines = [
+    {"line": i, "text": line}
+    for i, line in enumerate((kb / "wiki/index.md").read_text().splitlines(), 1)
+    if line.startswith(("- [[2026-09-15]]", "- [[2026-09-18]]"))
+]
+assert len(index_lines) == 2
+for item in index_lines:
+    assert not any(phrase in item["text"] for phrase in ("紧缺至2028H1", "MLCC日韩转出量化", "MLCC 升级为"))
+finance_probes = json.loads((ROOT / "finance-review-2/probe_results.json").read_text())
+older = next(x for x in finance_probes if x["case"] == "label_older_than_source")
+assert older["exit_would_be"] == 1 and "Backdated computed_at" in older["error"]
+for axis, destination in DESTINATIONS.items():
+    assert git(destination, "rev-parse", "HEAD").decode().strip() == REVISIONS[axis]
+    assert git(ROOT / f"{axis}-tree", "rev-parse", "HEAD").decode().strip() == REVISIONS[axis]
+    assert not git(ROOT / f"{axis}-tree", "status", "--porcelain").strip()
+    changes = git(destination, "status", "--porcelain", "--untracked-files=all").decode().splitlines()
+    assert all(line[3:].startswith(str(RELPATH) + "/") for line in changes), changes
+
+summary = {
+    "sealed_at": datetime.now(timezone.utc).isoformat(),
+    "route": "127.0.0.1:18790/v1 -> 127.0.0.1:8080",
+    "requested_model": "kimi-k3",
+    "quota_conclusion": "existing bridge handled 97 admitted review requests without model errors; previous 18788 429 is route/account/time scoped, not global K3 unavailability",
+    "upstream_model_weights_independently_verified": False,
+    "runs": receipts,
+    "candidate_revisions": REVISIONS,
+    "bases_at_dispatch": {"finance": "a2c8d1f90773fdf3dcb7cf53f5d9733590924ae1", "kb": "d0caf31146a30e2cea05e6549652afb16fe70cb8"},
+    "coordinator_acceptance": "REVIEW_EVIDENCE_DISPUTED_NO_APPROVAL",
+    "coordinator_is_independent_reviewer": False,
+    "objections": [
+        {"axis": "finance", "id": "IMA-GAP-VERIFY-001/VERIFY-BACKDATE-002", "disposition": "not_established_by_supplied_reproduction", "evidence": older,
+         "reason": "Reviewer probe expected PASS for labels older than source, contradicting the supplied rejection contract; it actually rejected correctly. Intraday claim is not reproduced; canonical extractor emits recorded_at as a date. Does not establish absence of other defects."},
+        {"axis": "finance", "id": "VERIFY-SCOPE-003/RIVER-STRICT-004", "disposition": "documented_scope_not_regression", "reason": "Price-ranking recomputation and fully frozen historical replay were explicitly excluded; report calls strict observation non-defect."},
+        {"axis": "finance", "id": "positive_control", "disposition": "scope_incomplete", "reason": "Second session synthetic positive failed on missing schema column strength; author receipts do not replace independent positive control. Model CHANGES_REQUIRED is not accepted as a completed approval-quality review."},
+        {"axis": "kb", "id": "I1", "disposition": "cited_old_text_not_current_candidate", "evidence": index_lines},
+        {"axis": "kb", "id": "raw_missing", "disposition": "coordinator_located_files_but_not_independent_attribution_review", "evidence": raw_evidence},
+        {"axis": "kb", "id": "I2", "disposition": "field_layers_mixed_in_prompt", "reason": "Existing projection market_confirmed is Boolean; narrative briefing_market_confirmed is None with dimensions=2. The prompt failed to distinguish layers. Reviewer did not resolve it independently; do not manually edit JSONL."},
+    ],
+    "receipt_semantics": "KB execution.review_status=INCOMPLETE conflates a delivered BLOCKED verdict with no report. Preserve execution.json unchanged; reviewer verdict and report delivery are recorded separately here.",
+    "raw_digest_limit": "Current Markdown MD5 differs from historical log MD5 strings; their original PDF/Markdown target identity was not established. No claim that old MD5 was validated, no raw/history rewrite.",
+    "production": {"checked_this_round": False, "prior_0918_consumption_block_remains_unresolved": True, "merge_or_deploy": False},
+    "followup": "Review contract and input-locator quality need correction before another bounded review. No automatic retry or new run queued; no independent PASS.",
+}
+
+common = [
+    ("run_review.py", "run_review.py.txt"),
+    ("run_review_budgeted.py", "run_review_budgeted.py.txt"),
+    ("run_review_finance2.py", "run_review_finance2.py.txt"),
+    ("credential-bootstrap-bridge.mjs", "credential-bootstrap-bridge.mjs.txt"),
+    ("credential-bootstrap-budgeted.mjs", "credential-bootstrap-budgeted.mjs.txt"),
+    ("pi-config/settings.json", "settings.json"),
+    ("seal_bridge_review.py", "seal_bridge_review.py.txt"),
+]
+axis_files = {
+    "finance": [
+        ("finance-prompt.md", "finance-prompt.md"),
+        ("finance-prompt-2.md", "finance-prompt-2.md"),
+        ("finance-review/execution.json", "attempt-1/execution.json"),
+        ("finance-review/request-admissions.jsonl", "attempt-1/request-admissions.jsonl"),
+        ("finance-review/stderr.log", "attempt-1/stderr.log.txt"),
+        ("finance-review/probe_briefing_consumption.py", "attempt-1/probe.py.txt"),
+        ("finance-review/repro_backdated_label.py", "attempt-1/repro_backdated_label.py.txt"),
+        ("finance-review/results/probe-briefing-consumption.log", "attempt-1/probe.log.txt"),
+        ("finance-review/results/repro-backdated-label.log", "attempt-1/repro.log.txt"),
+        ("finance-review-2/REPORT.md", "attempt-2/REPORT.md"),
+        ("finance-review-2/verdict.json", "attempt-2/verdict.json"),
+        ("finance-review-2/execution.json", "attempt-2/execution.json"),
+        ("finance-review-2/request-admissions.jsonl", "attempt-2/request-admissions.jsonl"),
+        ("finance-review-2/probe_briefing.py", "attempt-2/probe.py.txt"),
+        ("finance-review-2/probe_results.json", "attempt-2/probe_results.json"),
+        ("finance-review-2/probe-run.log", "attempt-2/probe.log.txt"),
+    ],
+    "kb": [
+        ("kb-prompt.md", "kb-prompt.md"),
+        ("kb-review/REPORT.md", "REPORT.md"),
+        ("kb-review/verdict.json", "verdict.json"),
+        ("kb-review/execution.json", "execution.json"),
+        ("kb-review/request-admissions.jsonl", "request-admissions.jsonl"),
+        ("kb-review/extractor-check.txt", "extractor-check.txt"),
+        ("kb-review/pytest-tier.txt", "pytest-tier.txt"),
+        ("kb-review/jsonl-parse.txt", "jsonl-parse.txt"),
+        ("kb-review/final-sha256.txt", "final-sha256.txt"),
+    ],
+}
+for axis, destination in DESTINATIONS.items():
+    target = destination / RELPATH
+    target.mkdir(parents=True, exist_ok=True)
+    manifest = []
+    for source, relative in common + axis_files[axis]:
+        src = ROOT / source
+        dst = target / relative
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, dst)
+        manifest.append({"path": relative, "bytes": dst.stat().st_size, "sha256": digest(dst), "source": str(src)})
+    save(target / "coordinator-qc.json", summary)
+    manifest.append({"path": "coordinator-qc.json", "bytes": (target / "coordinator-qc.json").stat().st_size,
+                     "sha256": digest(target / "coordinator-qc.json"), "source": "coordinator verification, not reviewer verdict"})
+    for entry in manifest:
+        data = (target / entry["path"]).read_bytes()
+        assert not re.search(rb"eyJ[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{12,}", data)
+        assert not re.search(rb"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----\r?\n[A-Za-z0-9+/=]{20,}", data)
+        assert len(data) < 100000
+    save(target / "manifest.json", {"axis": axis, "candidate_revision": REVISIONS[axis], "files": manifest})
+    print(json.dumps({"axis": axis, "files": len(manifest), "destination": str(target), "status": summary["coordinator_acceptance"]}))

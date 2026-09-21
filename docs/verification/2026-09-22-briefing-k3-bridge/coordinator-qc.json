@@ -1,0 +1,147 @@
+{
+  "sealed_at": "2026-09-21T19:36:33.722309+00:00",
+  "route": "127.0.0.1:18790/v1 -> 127.0.0.1:8080",
+  "requested_model": "kimi-k3",
+  "quota_conclusion": "existing bridge handled 97 admitted review requests without model errors; previous 18788 429 is route/account/time scoped, not global K3 unavailability",
+  "upstream_model_weights_independently_verified": false,
+  "runs": {
+    "finance-review": {
+      "execution_exit": 75,
+      "requests": 40,
+      "tool_calls": 46,
+      "elapsed_seconds": 260.438,
+      "model_errors": [],
+      "model_identities": [
+        "mirasim-kimi-bridge/kimi-k3"
+      ],
+      "execution_review_status": "INCOMPLETE",
+      "reviewer_verdict": null,
+      "report_delivered": false,
+      "inputs_hash_verified": true,
+      "trees_unchanged_during_run": true,
+      "full_events_local_path": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-review/events.jsonl",
+      "full_events_sha256": "7cdd2c95eb0ce78ea8c45819b5ee2604eeacfdab456f0d52f17c6fb9f310c554"
+    },
+    "kb-review": {
+      "execution_exit": 0,
+      "requests": 30,
+      "tool_calls": 38,
+      "elapsed_seconds": 239.496,
+      "model_errors": [],
+      "model_identities": [
+        "mirasim-kimi-bridge/kimi-k3"
+      ],
+      "execution_review_status": "INCOMPLETE",
+      "reviewer_verdict": "BLOCKED",
+      "report_delivered": true,
+      "inputs_hash_verified": true,
+      "trees_unchanged_during_run": true,
+      "full_events_local_path": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/kb-review/events.jsonl",
+      "full_events_sha256": "d4178ce810cf869236c3cd54683330af22d162b9dea725f596328e0aa2ecfa25"
+    },
+    "finance-review-2": {
+      "execution_exit": 0,
+      "requests": 27,
+      "tool_calls": 31,
+      "elapsed_seconds": 229.66,
+      "model_errors": [],
+      "model_identities": [
+        "mirasim-kimi-bridge/kimi-k3"
+      ],
+      "execution_review_status": "CHANGES_REQUIRED",
+      "reviewer_verdict": "CHANGES_REQUIRED",
+      "report_delivered": true,
+      "inputs_hash_verified": true,
+      "trees_unchanged_during_run": true,
+      "full_events_local_path": "/Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/finance-review-2/events.jsonl",
+      "full_events_sha256": "bae11dbd16345c2ff85f0702ff798088ed4925e1bee7535fa0d0ef3754306305"
+    }
+  },
+  "candidate_revisions": {
+    "finance": "518ddf8d0fce7acdbcadd34e94234e956b2f76ec",
+    "kb": "7a47a6dc45ba6e8a3bebe47131bbd198b2090540"
+  },
+  "bases_at_dispatch": {
+    "finance": "a2c8d1f90773fdf3dcb7cf53f5d9733590924ae1",
+    "kb": "d0caf31146a30e2cea05e6549652afb16fe70cb8"
+  },
+  "coordinator_acceptance": "REVIEW_EVIDENCE_DISPUTED_NO_APPROVAL",
+  "coordinator_is_independent_reviewer": false,
+  "objections": [
+    {
+      "axis": "finance",
+      "id": "IMA-GAP-VERIFY-001/VERIFY-BACKDATE-002",
+      "disposition": "not_established_by_supplied_reproduction",
+      "evidence": {
+        "case": "label_older_than_source",
+        "outcome": "FAIL",
+        "exit_would_be": 1,
+        "error": "ValueError: Backdated computed_at",
+        "expected": "PASS"
+      },
+      "reason": "Reviewer probe expected PASS for labels older than source, contradicting the supplied rejection contract; it actually rejected correctly. Intraday claim is not reproduced; canonical extractor emits recorded_at as a date. Does not establish absence of other defects."
+    },
+    {
+      "axis": "finance",
+      "id": "VERIFY-SCOPE-003/RIVER-STRICT-004",
+      "disposition": "documented_scope_not_regression",
+      "reason": "Price-ranking recomputation and fully frozen historical replay were explicitly excluded; report calls strict observation non-defect."
+    },
+    {
+      "axis": "finance",
+      "id": "positive_control",
+      "disposition": "scope_incomplete",
+      "reason": "Second session synthetic positive failed on missing schema column strength; author receipts do not replace independent positive control. Model CHANGES_REQUIRED is not accepted as a completed approval-quality review."
+    },
+    {
+      "axis": "kb",
+      "id": "I1",
+      "disposition": "cited_old_text_not_current_candidate",
+      "evidence": [
+        {
+          "line": 644,
+          "text": "- [[2026-09-15]] — L3-L4 材料转述：电子纱/MLCC供给叙事、PCB与工程机械预期、焦煤分歧；长鑫1503亿营收/85%毛利率等尚未核官方财报，不作兑现结论；宏观加息/降息矛盾保留（32页209场·31主题/3pattern/137概念·无盘面二维·2026-09-21回填与#6894纠偏）"
+        },
+        {
+          "line": 645,
+          "text": "- [[2026-09-18]] — L3-L4 待核线索：宏观「12:0加息」待官方决议；MLCC原文「18%缺口」分母不明，不与国内总产能10%直接比较；客户验证、PCB卖方反驳、火电3分涨价预测与T链周产均非独立实证；焦煤分歧保留（48页59场·37主题/4pattern/271概念·无盘面二维·2026-09-21回填与#6894纠偏）"
+        }
+      ]
+    },
+    {
+      "axis": "kb",
+      "id": "raw_missing",
+      "disposition": "coordinator_located_files_but_not_independent_attribution_review",
+      "evidence": [
+        {
+          "path": "raw/0915晨汇纪要.md",
+          "bytes": 67082,
+          "sha256": "7eae2156ff373399bca310011c3f6ac7b993554231d64a78f9173e61e2bdd434",
+          "md5_current_markdown": "4aa1c81cc1361875974ba073f8973a86",
+          "equals_base_and_head": true
+        },
+        {
+          "path": "raw/0918晨汇纪要.md",
+          "bytes": 162644,
+          "sha256": "1fd1660e635ec0aacc93ae43d4798d0438b6e51109d582fea44cf02b02c34bb1",
+          "md5_current_markdown": "080b3792fe3d0583a34f8e9a82a87922",
+          "equals_base_and_head": true
+        }
+      ]
+    },
+    {
+      "axis": "kb",
+      "id": "I2",
+      "disposition": "field_layers_mixed_in_prompt",
+      "reason": "Existing projection market_confirmed is Boolean; narrative briefing_market_confirmed is None with dimensions=2. The prompt failed to distinguish layers. Reviewer did not resolve it independently; do not manually edit JSONL."
+    }
+  ],
+  "receipt_semantics": "KB execution.review_status=INCOMPLETE conflates a delivered BLOCKED verdict with no report. Preserve execution.json unchanged; reviewer verdict and report delivery are recorded separately here.",
+  "raw_digest_limit": "Current Markdown MD5 differs from historical log MD5 strings; their original PDF/Markdown target identity was not established. No claim that old MD5 was validated, no raw/history rewrite.",
+  "production": {
+    "checked_this_round": false,
+    "prior_0918_consumption_block_remains_unresolved": true,
+    "merge_or_deploy": false
+  },
+  "followup": "Review contract and input-locator quality need correction before another bounded review. No automatic retry or new run queued; no independent PASS."
+}

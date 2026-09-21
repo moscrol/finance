@@ -1,0 +1,136 @@
+===== CASE positive: exit=0 expect=[0] -> OK
+===== CASE neg_mismatch: exit=1 expect=[1] -> OK
+===== CASE neg_missing: exit=1 expect=[1] -> OK
+===== CASE neg_dup: exit=1 expect=[1] -> OK
+===== CASE neg_null: exit=1 expect=[1] -> OK
+===== CASE pos_late: exit=0 expect=[0] -> OK
+===== CASE neg_backdated: exit=0 expect=[1] -> UNEXPECTED
+===== CASE neg_norows: exit=1 expect=[1] -> OK
+===== CASE neg_nolabels: exit=1 expect=[1] -> OK
+===== CASE neg_badjson: exit=1 expect=[1] -> OK
+{
+  "status": "PASS",
+  "scope": "explicit_inputs_only; live_market_read_only; not_production_readiness",
+  "market_latest": "2026-09-18",
+  "briefings": [
+    {
+      "briefing_date": "2026-09-16",
+      "source_rows": 1,
+      "available_from": "2026-09-18",
+      "status": "PASS",
+      "landing": "2026-09-18",
+      "labels": {
+        "briefing_dimensions": 3.0,
+        "briefing_lag_days": 0.0,
+        "briefing_market_confirmed": 1.0,
+        "briefing_tier1_items": 1.0,
+        "briefing_tier2_items": 0.0,
+        "briefing_tier3_items": 0.0,
+        "briefing_hit_rps5_pct": null
+      },
+      "source_recorded_at": "2026-09-18",
+      "object_recorded_at": "2026-09-18T15:30:00",
+      "river_ref": "history_teaching_labels:2026-09-18:market:briefing",
+      "river_pit_grade": "strict",
+      "late_teaching_objects_filtered": 0,
+      "disabled_sidecar_unchanged": true
+    }
+  ]
+}
+[PASS] positive_full_consumption: exit=0 expected=[0]
+{
+  "status": "FAIL",
+  "error": "Label mismatch: 2026-09-18 briefing_tier1_items"
+}
+[PASS] neg_label_value_mismatch: exit=1 expected=[1]
+{
+  "status": "FAIL",
+  "error": "Label mismatch: 2026-09-18 briefing_lag_days"
+}
+[PASS] neg_missing_label_row: exit=1 expected=[1]
+{
+  "status": "FAIL",
+  "error": "Duplicate label versions on 2026-09-18"
+}
+[PASS] neg_duplicate_labels: exit=1 expected=[1]
+{
+  "status": "FAIL",
+  "error": "Label mismatch: 2026-09-18 briefing_market_confirmed"
+}
+[PASS] neg_null_not_zero: exit=1 expected=[1]
+{
+  "status": "PASS",
+  "scope": "explicit_inputs_only; live_market_read_only; not_production_readiness",
+  "market_latest": "2026-09-18",
+  "briefings": [
+    {
+      "briefing_date": "2026-09-16",
+      "source_rows": 1,
+      "available_from": "2026-09-18",
+      "status": "PASS",
+      "landing": "2026-09-18",
+      "labels": {
+        "briefing_dimensions": 3.0,
+        "briefing_lag_days": 0.0,
+        "briefing_market_confirmed": 1.0,
+        "briefing_tier1_items": 1.0,
+        "briefing_tier2_items": 0.0,
+        "briefing_tier3_items": 0.0,
+        "briefing_hit_rps5_pct": null
+      },
+      "source_recorded_at": "2026-09-18",
+      "object_recorded_at": "2026-09-18T15:30:00",
+      "river_ref": "history_teaching_labels:2026-09-18:market:briefing",
+      "river_pit_grade": "trade_date_only",
+      "late_teaching_objects_filtered": 1,
+      "disabled_sidecar_unchanged": true
+    }
+  ]
+}
+[PASS] pos_late_teaching_filtered: exit=0 expected=[0]
+{
+  "status": "PASS",
+  "scope": "explicit_inputs_only; live_market_read_only; not_production_readiness",
+  "market_latest": "2026-09-18",
+  "briefings": [
+    {
+      "briefing_date": "2026-09-16",
+      "source_rows": 1,
+      "available_from": "2026-09-18",
+      "status": "PASS",
+      "landing": "2026-09-18",
+      "labels": {
+        "briefing_dimensions": 3.0,
+        "briefing_lag_days": 0.0,
+        "briefing_market_confirmed": 1.0,
+        "briefing_tier1_items": 1.0,
+        "briefing_tier2_items": 0.0,
+        "briefing_tier3_items": 0.0,
+        "briefing_hit_rps5_pct": null
+      },
+      "source_recorded_at": "2026-09-18",
+      "object_recorded_at": "2026-09-21T09:00:00",
+      "river_ref": "history_teaching_labels:2026-09-18:market:briefing",
+      "river_pit_grade": "trade_date_only",
+      "late_teaching_objects_filtered": 1,
+      "disabled_sidecar_unchanged": true
+    }
+  ]
+}
+[FAIL] neg_backdated_labels: exit=0 expected=[1]
+{
+  "status": "FAIL",
+  "error": "No projection rows for 2026-09-15"
+}
+[PASS] neg_no_projection_rows: exit=1 expected=[1]
+{
+  "status": "FAIL",
+  "error": "Missing input: /Users/a77/.finance-runtime/reviews/briefing-k3-bridge-20260922/tmp-finance/probe/absent.duckdb"
+}
+[PASS] neg_missing_labels_db: exit=1 expected=[1]
+{
+  "status": "FAIL",
+  "error": "Expecting property name enclosed in double quotes: line 2 column 1 (char 2)"
+}
+[PASS] neg_invalid_projection_json: exit=1 expected=[1]
+PROBE_FAILURES: ['neg_backdated_labels']
