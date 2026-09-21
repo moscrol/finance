@@ -96,6 +96,7 @@ _OUTPUT_DESCRIPTIONS: dict[str, str] = {
     "financial_assessment": "公司财务表现的直接判断",
     "metric_evidence": "支撑财务判断的指标证据",
     "comparison_dimensions": "列出比较维度与各自的观察口径",
+    "comparison_assumptions": "列出待验证的类比假设，并明确哪些只是解释而非已验证规律",
     "key_differences": "说明候选之间的关键差异",
     "transmission_chain": "说明情景向结果的传导链",
     "direct_explanation": "解释所问方法或概念的要点",
@@ -352,10 +353,43 @@ def _has_owned_premise_calculation(frame: TaskFrame) -> bool:
     return calculation_for_frame(frame) is not None
 
 
+_COMPARISON_ANALOG_OUTPUT_IDS: tuple[str, ...] = (
+    "comparison_dimensions",
+    "comparison_assumptions",
+    "analog_similarities",
+    "key_differences",
+    "limits_of_analogy",
+    "counterpoint",
+    "evidence_boundary",
+)
+_ALL_HISTORY_OPERATIONS = (
+    "inspect_history",
+    "compute_history",
+    "find_analogues",
+    "compare_cases",
+)
+_COMPARISON_ANALOG_HISTORY_OPERATIONS: dict[str, tuple[str, ...]] = {
+    "direct_assessment": ("compare_cases", "find_analogues"),
+    "comparison_dimensions": ("inspect_history", "compute_history", "compare_cases"),
+    "analog_similarities": ("find_analogues",),
+    "key_differences": ("find_analogues", "compare_cases"),
+    "limits_of_analogy": ("find_analogues", "compare_cases"),
+    "counterpoint": ("find_analogues", "compare_cases"),
+    "evidence_boundary": (
+        "inspect_history",
+        "compute_history",
+        "find_analogues",
+        "compare_cases",
+    ),
+}
+
+
 def _required_output_ids(frame: TaskFrame) -> tuple[str, ...]:
     if _has_owned_premise_calculation(frame):
         return ("direct_answer", "evidence_boundary")
     outputs = frame.required_outputs
+    if frame.question_type == "comparison_analog":
+        outputs = tuple(dict.fromkeys((*outputs, *_COMPARISON_ANALOG_OUTPUT_IDS)))
     if frame.question_type == "valuation_estimate":
         outputs = tuple(dict.fromkeys((*outputs, *_VALUATION_REQUIRED_OUTPUTS)))
     from intelligence.services.research_contract import compile_research_program
@@ -457,24 +491,20 @@ def _with_residual_prime(
 def _required_output_evidence_types(
     output_id: str,
     capabilities: tuple[str, ...],
+    *,
+    history_comparison: bool = False,
 ) -> tuple[str, ...]:
+    if history_comparison and output_id in _COMPARISON_ANALOG_HISTORY_OPERATIONS:
+        return (
+            ("history_query", "read_history_result")
+            if "finance_query" in capabilities
+            else ()
+        )
+    if output_id == "comparison_assumptions":
+        return ()
     if output_id in {"prior_recall", "prime_memory"}:
-        # 这一格只有 memory_lookup 的产出能填：它装的是用户自己的历史判断，
-        # 市场侧工具（kb_search / graph_lookup / news_search ...）返回的都是
-        # 当前世界事实，格式与 grounding_mode=user_premise 不兼容。
-        #
-        # 为什么收窄而不是加强提示词：上一轮决证（run_20260808_102708）里
-        # prior_recall 槽位、memory_lookup 授权、"必须优先调用"的提示词三样
-        # 都在，模型仍在第一轮把 7 次工具预算全投给市场侧检索。原因是这格的
-        # evidence_types 是全量能力列表——模型从契约里读不出"哪个工具能填它"，
-        # 而其余三格都是 evidence，市场侧工具对它们的贡献是确定的。
-        #
-        # 收窄后契约自身就携带了工具→槽位的映射，模型靠自主推理即可选中
-        # memory_lookup，不需要任何强制调用顺序。这保住了 agentic RAG：
-        # 其余槽位的 evidence_types 不变，市场侧工具照常参与竞争。
         return tuple(
-            capability for capability in ("memory_lookup",)
-            if capability in capabilities
+            capability for capability in ("memory_lookup",) if capability in capabilities
         )
     if output_id == "prime_quote":
         return tuple(
@@ -541,11 +571,12 @@ def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
         if frame.material_contract.authenticity == "fictional" or frame.material_contract.data_scope == "material_only":
             # 只给范围声明前提资格；其它事实槽仍需证据，A轴不能取消B轴检索。
             return "user_premise"
-    if output_id in {"prior_recall", "prime_memory"}:
-        # 这一格装的是用户自己的历史判断，按定义不是当前世界事实，所以既不能
-        # 要求它有市场证据支撑，也不能让它被当成证据去支撑别的结论。语义裁判
-        # 已有对应契约：user_premise 题「用户明确给出的前提视为真的假设，不能
-        # 要求先证明前提」——正是这份先验需要的待遇。
+    if output_id in {"prior_recall", "prime_memory", "comparison_assumptions"}:
+        # 用户先验和比较题的待验证解释都不是当前世界事实。比较假设
+        # 允许模型推理，但不能通过证据绑定伪装成已验证规律。
+        if output_id == "comparison_assumptions":
+            return "model_reasoning"
+        # 这格装的是用户自己的历史判断，不能让它被当成当前事实证据。
         return "user_premise"
     if frame.question_type == "methodology_discussion" or "method" in frame.required_outputs:
         return "model_reasoning"
@@ -762,6 +793,10 @@ def build_episode_context(
                     else _required_output_evidence_types(
                         output_id,
                         capability_tuple,
+                        history_comparison=(
+                            frame.history_intent is not None
+                            and frame.question_type == "comparison_analog"
+                        ),
                     )
                 ),
                 # prior_recall 是**可选**槽位，这一点是设计核心而不是保守：
@@ -799,6 +834,20 @@ def build_episode_context(
                     else "model_reasoning"
                     if output_id in forward_slots
                     else _grounding_mode(frame, output_id)
+                ),
+                allowed_history_operations=(
+                    _COMPARISON_ANALOG_HISTORY_OPERATIONS.get(output_id, ())
+                    if frame.history_intent is not None
+                    and frame.question_type == "comparison_analog"
+                    else (
+                        _ALL_HISTORY_OPERATIONS
+                        if frame.history_intent is not None
+                        and "finance_query" in _required_output_evidence_types(
+                            output_id,
+                            capability_tuple,
+                        )
+                        else ()
+                    )
                 ),
             )
             for output_id in output_ids

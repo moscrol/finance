@@ -37,6 +37,7 @@ class IssueCode(str, Enum):
     AMBIGUOUS_EVIDENCE_HASH = "ambiguous_evidence_hash"
     EVIDENCE_TYPE_STRIPPED = "evidence_type_stripped"
     EVIDENCE_TYPE_UNSUPPORTED = "evidence_type_unsupported"
+    HISTORY_OPERATION_UNSUPPORTED = "history_operation_unsupported"
     FINANCIAL_ANCHOR_MISSING = "financial_anchor_missing"
     MISSING_MANDATORY_CAPABILITY = "missing_mandatory_capability"
     REQUIRED_OUTPUT_NO_SUBSTANCE = "required_output_no_substance"
@@ -80,6 +81,7 @@ RELEASE_POLICY: dict[IssueCode, ReleaseAction] = {
     IssueCode.AMBIGUOUS_EVIDENCE_HASH: ReleaseAction.BLOCK,
     IssueCode.EVIDENCE_TYPE_STRIPPED: ReleaseAction.STRIP_OK,
     IssueCode.EVIDENCE_TYPE_UNSUPPORTED: ReleaseAction.PARTIAL_OK,
+    IssueCode.HISTORY_OPERATION_UNSUPPORTED: ReleaseAction.BLOCK,
     IssueCode.FINANCIAL_ANCHOR_MISSING: ReleaseAction.BLOCK,
     IssueCode.MISSING_MANDATORY_CAPABILITY: ReleaseAction.PARTIAL_OK,
     IssueCode.REQUIRED_OUTPUT_NO_SUBSTANCE: ReleaseAction.BLOCK,

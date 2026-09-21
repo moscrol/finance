@@ -838,6 +838,9 @@ class RequiredOutput:
     grounding_mode: GroundingMode = "evidence"
     # W2：静态预检 / 动态不可达降级预置的缺口声明。空串表示没有预置。
     preplaced_gap: str = ""
+    # History is an operation-scoped contract, not a blanket capability grant.
+    # Empty means this output accepts ordinary evidence only.
+    allowed_history_operations: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -992,6 +995,9 @@ class ResearchTaskContract:
                     required=bool(raw.get("required", True)),
                     grounding_mode=str(raw.get("grounding_mode") or "evidence"),
                     preplaced_gap=str(raw.get("preplaced_gap") or ""),
+                    allowed_history_operations=tuple(
+                        str(item) for item in raw.get("allowed_history_operations", ())
+                    ) if isinstance(raw.get("allowed_history_operations", ()), (list, tuple)) else (),
                 )
             )
         capabilities = value.get("allowed_capabilities", ())
