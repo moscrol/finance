@@ -1910,8 +1910,17 @@ def block_lines_to_evidence(
         # freshness、报告页和外部证据对齐都用错基准日。
         date_matches = re.findall(r"20\d{2}[-/]\d{1,2}[-/]\d{1,2}", line)
         normalized_dates = tuple(value.replace("/", "-") for value in date_matches)
-        row_date_match = re.search(r"；数据日期：(20\d{2}-\d{2}-\d{2})。?$", line)
-        row_date = row_date_match.group(1) if row_date_match else None
+        row_date_match = re.search(r"；数据日期：([^；\s。]+)。?$", line)
+        if snapshot_date:
+            item_source_date = snapshot_date
+        elif row_date_match:
+            try:
+                item_source_date = datetime.date.fromisoformat(row_date_match.group(1)).isoformat()
+            except ValueError:
+                # 明示未知/畸形的来源日不能再被后备日或正文事件日悄悄补齐。
+                item_source_date = None
+        else:
+            item_source_date = fallback_date or (max(normalized_dates) if normalized_dates else None)
         item = AgentEvidence(
             tool=tool,
             title=line[:48],
@@ -1920,12 +1929,7 @@ def block_lines_to_evidence(
             # 先被 200 字截断后，再要求模型从残片做排序。
             detail=line[: max(80, min(int(detail_chars), 1200))],
             source=source,
-            source_date=(
-                snapshot_date
-                or row_date
-                or fallback_date
-                or (max(normalized_dates) if normalized_dates else None)
-            ),
+            source_date=item_source_date,
             evidence_tier=(
                 "L4_structured"
                 if tool in {"market_data", "mainline_context"}

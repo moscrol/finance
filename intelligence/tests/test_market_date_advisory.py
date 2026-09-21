@@ -205,7 +205,9 @@ def test_detailed_mainline_keeps_null_count_and_rule_lines_out_of_facts(tmp_path
 
 @pytest.mark.parametrize("theme_date", ["2026-07-22", "2026-07-26"])
 @pytest.mark.parametrize("sector_count", [None, 0, 2])
-def test_market_overview_keeps_theme_date_distinct_from_market_date(tmp_path: Path, theme_date: str, sector_count):
+def test_market_overview_keeps_theme_date_distinct_from_market_date(tmp_path: Path, monkeypatch, theme_date: str, sector_count):
+    # 本例只验总览/题材来源；预取聚合的 as-of 日期由独立用例核对，不能混作总览日。
+    monkeypatch.setattr(episode_tools, "_asof_prefetch_text", lambda *_a: "")
     with _database(tmp_path) as con:
         con.execute("create table fact_market_daily(trade_date date, total_amount double)")
         con.execute("insert into fact_market_daily values ('2026-07-24', 10000)")
@@ -252,6 +254,31 @@ def test_sparse_theme_schema_does_not_erase_market_overview(tmp_path: Path, them
         assert "- 个核心板块" in theme.detail
         mainline = registry.execute("mainline_context", {}, context=context, step_id="sparse-mainline:1")
         assert all(item.source_date == "2026-07-22" for item in mainline.evidence)
+
+
+@pytest.mark.parametrize("source_date", ["2026-07-22", None, "not-a-date"])
+def test_prefetch_keeps_its_source_date_not_overview_or_event_date(tmp_path: Path, monkeypatch, source_date):
+    from intelligence.services import asof_prefetch
+
+    monkeypatch.setattr(episode_tools.ask_blocks, "_market_data_asof", lambda *_a, **_k: "2026-07-24")
+    monkeypatch.setattr(episode_tools.ask_blocks, "_daily_market_overview_block_for_llm", lambda *_a, **_k: "")
+    monkeypatch.setattr(episode_tools.ask_blocks, "_market_cause_window_block_for_llm", lambda *_a, **_k: "")
+    monkeypatch.setattr(
+        asof_prefetch, "collect_prefetch_items", lambda **_k: (
+            asof_prefetch.PrefetchItem(
+                tool="market_data", title="预取",
+                detail="## 预取\n- 指数样本2026-07-20上涨\n- 预计2026-08-01交付\n- 使用要求：情景不是事实",
+                source_date=source_date,
+            ),
+        ),
+    )
+    registry, context = _registry(tmp_path)
+    result = registry.execute("market_data", {}, context=context, step_id="prefetch-date:1")
+    assert result.trace.status == "success"
+    assert len(result.evidence) == 2
+    assert {item.source_date for item in result.evidence} == {source_date if source_date == "2026-07-22" else None}
+    assert "情景不是事实" in result.observation
+    assert all(not item.detail.startswith("使用要求：") for item in result.evidence)
 
 
 def test_episode_date_instruction_separates_reference_from_cutoff(tmp_path: Path):

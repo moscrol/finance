@@ -750,7 +750,19 @@ def _asof_prefetch_text(
         )
     except Exception:
         return ""
-    return "\n".join(item.detail for item in items if str(item.detail or "").strip())
+    lines: list[str] = []
+    for item in items:
+        source_date = _iso_date(item.source_date)
+        date_label = source_date.isoformat() if source_date else "未确认"
+        for line in str(item.detail or "").splitlines():
+            stripped = line.strip().lstrip("-").strip()
+            if not stripped:
+                continue
+            if stripped.startswith(("#", *agent_research.QUALIFIER_LINE_PREFIXES)):
+                lines.append(line)
+            else:
+                lines.append(f"{line}；数据日期：{date_label}")
+    return "\n".join(lines)
 
 
 def _opening_prefetch_evidence(
