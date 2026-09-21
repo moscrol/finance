@@ -410,15 +410,10 @@ def _overnight_news_evidence(
 
 
 def _structured_as_of(context: ResearchRunContext) -> str:
-    """盘面查询上界：有快照用 min(快照, cutoff)，没有快照也必须夹在 cutoff 内。
+    """查询上界来自用户信息截止日，不拿某个总览/快照日封顶其他数据集。
 
-    freshness_floor 在缺快照时返回 None，是为了不把「昨天的数」误判成 stale。
-    查询上界不能跟着变成 None——否则 cutoff=07-21 仍会取出 08-13 的最新行（C7）。
+    日期参照用于说明差异；真正的截止上界仍不可越过，即使快照日期未知也不放开。
     """
-
-    floor = _structured_freshness_floor(context)
-    if floor is not None:
-        return floor.isoformat()
     return context.information_cutoff.as_of_date.isoformat()
 
 
@@ -486,15 +481,23 @@ def _requests_earlier_window(
     )
 
 
-def _structured_provider_is_stale(
+def _structured_date_advisory(
     served_date: str | None,
     *,
-    floor: date | None,
-) -> bool:
-    if floor is None:
-        return False
+    reference_date: date | None,
+) -> str:
+    """说明时点，不撤掉已有证据，也不把日期差异包装成缺口。"""
     served = _iso_date(served_date)
-    return served is None or served < floor
+    if served is None:
+        return "数据日期未确认；保留已有内容，不把它表述为今日事实。"
+    if reference_date is None or served >= reference_date:
+        return ""
+    return (
+        f"数据时点说明：本来源截至 {served.isoformat()}，"
+        f"参考日期为 {reference_date.isoformat()}；"
+        "使用已有数据继续分析，逐来源标明实际日期，不因日期差异降级或拒答，"
+        "不把旧值冒充今日值；只有确实缺失的事实或计算输入才列为缺口。"
+    )
 
 
 def _subject_exited_universe(
@@ -505,19 +508,15 @@ def _subject_exited_universe(
 ) -> bool:
     """被筛子集停在更早，但数据集本身是新的 → 该主体退出了集合，不是管道陈旧。
 
-    2026-08-17 用户口径：新鲜度按**数据类**分档，不是整体放宽。
-
-    - DuckDB 硬事实（行情/成交/涨停）→ 照旧从严；
-    - 知识库/图谱 → 关注逻辑的生命周期变化，本就不过这道门；
-    - 本函数只处理第三种情形：**行业构成的变化本身就是要观察的对象**。
+    行业构成的变化本身就是要观察的对象；日期落后不能直接推断主体已退出。
+    2026-09-21 用户口径：旧数据仍交付并标日期，本函数只判是否有「退出」证据。
 
     实例：`fact_mainline_sector_daily` 整体有到 2026-08-14 的行，而「AI算力」最后
     一天是 08-07（08-10 起主线只剩有色金属/医药/消费零售）。「算力掉出主线」正是
     「发酵/共识/透支」要的那个信号，把它当过期数据整批丢弃等于丢掉答案。
 
-    **红线不动**：判别变量是「数据集 max 与被筛子集 max 的关系」，不是放宽 floor。
-    `dataset_max < floor` 说明整条管道确实落后，仍然照旧拒绝——那是这道门禁的
-    原始设计意图。探针取不到值（None）时同样落回拒绝那一侧，fail-closed。
+    判别变量是「数据集 max 与被筛子集 max 的关系」。`dataset_max < floor`
+    或探针无读数时不宣称退出，但仍可交付带实际日期的已有行。
     """
 
     dataset_max = _iso_date(dataset_max_date)
@@ -613,7 +612,7 @@ def _exited_universe_result(
 ) -> ToolRunResult:
     """交付「退出集合」这一生命周期事实，连同退出前的行。
 
-    与 `_stale_structured_result` 的关键差别：**证据照常交付**。那些行确实早于
+    证据照常交付，并额外说明生命周期变化。那些行确实早于
     floor，但它们不是「冒充当前状态的旧数据」——它们是「该主体最后一次出现时
     长什么样」，配合退出事实一起读才完整。每条证据自带 `source_date`，日期在场，
     不会被误读成当前盘面。
@@ -640,40 +639,6 @@ def _exited_universe_result(
             result_count=len(result.evidence),
         ),
         gaps=(),
-        **payload,
-    )
-
-
-def _stale_structured_result(
-    *,
-    capability: str,
-    provider: str,
-    served_date: str | None,
-    floor: date,
-    detail: str,
-    spec: finance_query.FinanceQuerySpec | None = None,
-) -> ToolRunResult:
-    served = str(served_date or "未知日期")
-    required = floor.isoformat()
-    gap = (
-        f"结构化市场数据仅更新到 {served}，早于当前所需 {required}；"
-        "旧数据未用于当前判断"
-    )
-    payload = _finance_payload_kwargs(spec) if spec is not None else {}
-    return ToolRunResult(
-        evidence=(),
-        observation=gap,
-        trace=ProviderTrace(
-            provider=provider,
-            capability=capability,
-            status="stale",
-            detail=detail,
-            source_trade_date=served_date,
-            requested_date=required,
-            served_date=served_date,
-            result_count=0,
-        ),
-        gaps=(gap,),
         **payload,
     )
 
@@ -1087,21 +1052,6 @@ def build_episode_registry(
         tool_context.check_cancelled()
         if tool_context.deadline.expired:
             raise TimeoutError("market-data deadline expired")
-        if (
-            frame.question_type != "valuation_estimate"
-            and _structured_provider_is_stale(
-                structured_source_date,
-                floor=freshness_floor,
-            )
-        ):
-            assert freshness_floor is not None
-            return _stale_structured_result(
-                capability="market_data",
-                provider="agent:market_data",
-                served_date=structured_source_date,
-                floor=freshness_floor,
-                detail="market_snapshot_newer_than_structured_market",
-            )
         block, source, detail = _market_block(
             frame,
             context,
@@ -1119,19 +1069,6 @@ def build_episode_registry(
             if frame.question_type == "valuation_estimate"
             else structured_source_date
         )
-        if _structured_provider_is_stale(served_date, floor=freshness_floor):
-            assert freshness_floor is not None
-            return _stale_structured_result(
-                capability="market_data",
-                provider="agent:market_data",
-                served_date=served_date,
-                floor=freshness_floor,
-                detail=(
-                    "valuation_snapshot_missing_or_stale"
-                    if frame.question_type == "valuation_estimate"
-                    else detail
-                ),
-            )
         tool_context.check_cancelled()
         evidence, observation = agent_research.block_lines_to_evidence(
             "market_data",
@@ -1181,6 +1118,11 @@ def build_episode_registry(
                         observation = "；".join(
                             part for part in (observation, news_obs) if part
                         )
+        date_note = (
+            _structured_date_advisory(served_date, reference_date=freshness_floor)
+            if evidence else ""
+        )
+        observation = "；".join(part for part in (date_note, observation) if part)
         return (
             evidence,
             observation or "结构化行情无可用结果",
@@ -1341,18 +1283,6 @@ def build_episode_registry(
         tool_context.check_cancelled()
         if tool_context.deadline.expired:
             raise TimeoutError("mainline-context deadline expired")
-        if _structured_provider_is_stale(
-            structured_source_date,
-            floor=freshness_floor,
-        ):
-            assert freshness_floor is not None
-            return _stale_structured_result(
-                capability="mainline_context",
-                provider="agent:mainline_context",
-                served_date=structured_source_date,
-                floor=freshness_floor,
-                detail="market_snapshot_newer_than_structured_mainline",
-            )
         block = ask_blocks._market_review_mainline_context_block_for_llm(
             frame.raw_question,
             frame.subject,
@@ -1367,16 +1297,26 @@ def build_episode_registry(
             evidence, observation = agent_research.block_lines_to_evidence(
                 "mainline_context",
                 block,
-                "本地 DuckDB · D4 同日主线结构",
+                "本地 DuckDB · D4 可用主线结构",
                 limit=12,
                 detail_chars=1000,
-                source_date=structured_source_date,
+                # D4 每条事实自带日期；不能把整块都盖成市场总览的日期。
             )
             evidence = [
                 item
                 for item in evidence
                 if not item.detail.startswith(_NON_EVIDENCE_PREFIXES)
             ]
+        source_dates = sorted({item.source_date for item in evidence if item.source_date})
+        date_note = ""
+        if source_dates:
+            date_note = (
+                f"数据时点说明：主线来源切片日期为 {'、'.join(source_dates)}；"
+                "各条事实按自己的日期引用，不因日期差异降级或拒答。"
+            )
+        if any(not _iso_date(item.source_date) for item in evidence):
+            date_note += _structured_date_advisory(None, reference_date=freshness_floor)
+        observation = "；".join(part for part in (date_note, observation) if part)
         return (
             evidence,
             observation,
@@ -1384,7 +1324,8 @@ def build_episode_registry(
                 provider="agent:mainline_context",
                 capability="mainline_context",
                 status="success" if evidence else "empty",
-                detail="current_mainline_context",
+                detail="available_mainline_context",
+                source_trade_date=source_dates[-1] if source_dates else None,
                 result_count=len(evidence),
             ),
         )
@@ -1542,13 +1483,29 @@ def build_episode_registry(
                 bounded_value,
                 context.authorized_trade_dates,
             )
-            if (
-                _requests_earlier_window(
-                    bounded_value,
-                    floor=freshness_floor,
-                )
+            needs_window_check = (
+                _requests_earlier_window(bounded_value, floor=freshness_floor)
                 and not historical_authorized
-            ):
+            )
+            if needs_window_check:
+                # 某张表自己的最新日可能比总览旧；模型请求该日不等于任意换历史题。
+                # 只读同一数据集的真实覆盖，不把模型传入的日期当成授权。
+                try:
+                    dataset_latest = _iso_date(query_engine.dataset_max_date(
+                        replace(bounded_value, time_range=None),
+                        information_cutoff=context.information_cutoff,
+                        deadline=tool_context.deadline,
+                        is_cancelled=tool_context.is_cancelled,
+                    ))
+                except finance_query.FinanceQueryError:
+                    dataset_latest = None
+                window = bounded_value.time_range
+                if dataset_latest is not None and window is not None:
+                    needs_window_check = not (
+                        (window.start is None or window.start <= dataset_latest)
+                        and window.end is not None and dataset_latest <= window.end
+                    )
+            if needs_window_check:
                 assert freshness_floor is not None
                 return ToolRunResult(
                     evidence=(),
@@ -1592,9 +1549,7 @@ def build_episode_registry(
                 historical_authorized=historical_authorized,
             ):
                 assert freshness_floor is not None
-                # 判 stale 之前先分一次因：被筛子集停在更早，可能是「该主体退出了
-                # 集合」而不是「管道陈旧」。两者在 served_date 上同码，只有再读一次
-                # 不加 filter 的 max 才分得开。探针只在这条（本就要拒的）路径上发。
+                # 旧行照常交付；额外区分主体退出和整表落后，不能凭日期猜退出。
                 dataset_max = None
                 if bounded_value.filters:
                     dataset_max = query_engine.dataset_max_date(
@@ -1617,14 +1572,6 @@ def build_episode_registry(
                         detail=f"dataset={value.dataset}; subject_exited_universe",
                         spec=bounded_value,
                     )
-                return _stale_structured_result(
-                    capability="finance_query",
-                    provider="duckdb_semantic_query",
-                    served_date=result.served_date,
-                    floor=freshness_floor,
-                    detail=f"dataset={value.dataset}; stale_current_data",
-                    spec=bounded_value,
-                )
             if not result.evidence and bounded_value.filters:
                 exit_result = _probe_filtered_universe_exit(
                     query_engine,
@@ -1650,6 +1597,11 @@ def build_episode_registry(
             # 数据行在 ``evidence[]`` 里逐条另有副本（实测被砍片段 92% 有副本），
             # 这三条没有——所以先给限定语，砍到的只会是有副本的那部分。
             notices: list[str] = []
+            date_note = _structured_date_advisory(
+                result.served_date, reference_date=freshness_floor
+            )
+            if date_note and result.evidence:
+                notices.append(date_note)
             covered_range = finance_query.covered_date_range(
                 tuple(item.source_date for item in result.evidence)
             )

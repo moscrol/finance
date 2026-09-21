@@ -296,9 +296,11 @@ def test_sealed_fixture_registry_uses_explicit_physical_paths(
     assert captured["worker_enabled"] is False
 
 
+@pytest.mark.parametrize("reference_date", ["2026-07-22", "2026-07-27"])
 def test_valuation_registry_uses_valuation_provider_snapshot_date(
     tmp_path,
     monkeypatch,
+    reference_date,
 ) -> None:
     frame = _valuation_frame()
     context = build_episode_context(
@@ -306,7 +308,8 @@ def test_valuation_registry_uses_valuation_provider_snapshot_date(
         task_id="valuation-asof",
         capabilities=("market_data",),
         timeout=30.0,
-        latest_data_date="2026-07-22",
+        today="2026-07-27",
+        latest_data_date=reference_date,
     )
     monkeypatch.setattr(
         episode_tools,
@@ -335,6 +338,10 @@ def test_valuation_registry_uses_valuation_provider_snapshot_date(
 
     assert observation.evidence[0].source_date == "2026-07-22"
     assert observation.trace.served_date == "2026-07-22"
+    assert observation.trace.status == "success"
+    assert observation.gaps == ()
+    if reference_date != "2026-07-22":
+        assert "不因日期差异降级或拒答" in observation.observation
 
 
 def test_valuation_registry_exposes_structured_financial_anchor(
@@ -1015,7 +1022,7 @@ def test_market_registry_uses_structured_provider_date_for_every_atom(
         episode_tools.ask_blocks,
         "_market_review_mainline_context_block_for_llm",
         lambda *_args, **_kwargs: (
-            "最新主线为电子\n2026-07-20启动的电力仍在观察"
+            "2026-07-22 主线为电子\n2026-07-22；2026-07-20启动的电力仍在观察"
         ),
     )
     registry = build_episode_registry(
@@ -1044,9 +1051,11 @@ def test_market_registry_uses_structured_provider_date_for_every_atom(
         step_id="market-asof:2",
     )
     assert [item.source_date for item in mainline.evidence] == [
-        "2026-07-23",
-        "2026-07-23",
+        "2026-07-22",
+        "2026-07-22",
     ]
+    assert mainline.trace.status == "success"
+    assert mainline.gaps == ()
 
 
 def test_overnight_hybrid_market_data_appends_us_leader_quotes(
@@ -1539,8 +1548,10 @@ def test_episode_registry_exposes_and_executes_model_owned_research_tools(
     assert searched.trace.requested_date == "2026-07-24"
 
 
-def test_current_finance_query_rejects_rows_older_than_snapshot_floor(
+@pytest.mark.parametrize("explicit_latest", [False, True])
+def test_current_finance_query_keeps_older_available_rows_with_actual_dates(
     tmp_path: Path,
+    explicit_latest: bool,
 ) -> None:
     finance_root = tmp_path / "finance"
     db_path = finance_root / "db" / "market_feature_store.duckdb"
@@ -1589,30 +1600,40 @@ def test_current_finance_query_rejects_rows_older_than_snapshot_floor(
             "group_by": [],
             "order_by": [{"field": "trade_date", "direction": "desc"}],
             "limit": 5,
+            **({"time_range": {"start": "2025-06-30", "end": "2025-06-30"}}
+               if explicit_latest else {}),
         },
         context=context,
         step_id="stale-current-market:1",
     )
 
-    assert result.evidence == ()
-    assert result.trace.status == "stale"
+    assert result.evidence
+    assert {item.source_date for item in result.evidence} == {"2025-06-30"}
+    assert "14866" in result.evidence[0].detail
+    assert result.trace.status == "success"
     assert result.trace.requested_date == "2026-07-27"
     assert result.trace.served_date == "2025-06-30"
-    assert result.gaps == (
-        "结构化市场数据仅更新到 2025-06-30，早于当前所需 2026-07-27；"
-        "旧数据未用于当前判断",
-    )
+    assert result.gaps == ()
+    assert result.observation.startswith("数据时点说明：")
+    assert "2025-06-30" in result.observation
+    assert "2026-07-27" in result.observation
+    assert "不因日期差异降级或拒答" in result.observation
+    assert result.dataset == "market_daily"
+    assert result.payload_sha256
+    assert "total_amount" in result.payload_field_names
 
 
-def test_current_market_tool_rejects_stale_block_before_model_observation(
+@pytest.mark.parametrize("tool", ["market_data", "mainline_context"])
+def test_market_tools_keep_older_blocks_with_actual_dates(
     tmp_path: Path,
     monkeypatch,
+    tool: str,
 ) -> None:
     frame = _market_forecast_frame()
     context = build_episode_context(
         frame,
         task_id="stale-current-block",
-        capabilities=("market_data",),
+        capabilities=("market_data", "mainline_context"),
         timeout=10.0,
         synthesis_reserve=0.0,
         today="2026-07-27",
@@ -1632,6 +1653,11 @@ def test_current_market_tool_rejects_stale_block_before_model_observation(
             "market_forecast_window",
         ),
     )
+    monkeypatch.setattr(
+        episode_tools.ask_blocks,
+        "_market_review_mainline_context_block_for_llm",
+        lambda *_args, **_kwargs: "2025-06-30 主线为电子",
+    )
     registry = build_episode_registry(
         frame,
         context,
@@ -1641,16 +1667,19 @@ def test_current_market_tool_rejects_stale_block_before_model_observation(
     )
 
     result = registry.execute(
-        "market_data",
+        tool,
         {},
         context=context,
         step_id="stale-current-block:1",
     )
 
-    assert result.evidence == ()
-    assert result.trace.status == "stale"
+    assert result.evidence
+    assert {item.source_date for item in result.evidence} == {"2025-06-30"}
+    assert result.trace.status == "success"
     assert result.trace.requested_date == "2026-07-27"
     assert result.trace.served_date == "2025-06-30"
+    assert result.gaps == ()
+    assert result.observation.startswith("数据时点说明：")
 
 
 def test_model_selected_historical_window_is_rejected_for_current_task(
@@ -1666,7 +1695,8 @@ def test_model_selected_historical_window_is_rejected_for_current_task(
     )
     connection.execute(
         "insert into fact_market_daily values "
-        "('2025-06-30', '主升阶段', 14866)"
+        "('2025-06-30', '主升阶段', 14866), "
+        "('2026-07-24', '震荡阶段', 17000)"
     )
     connection.close()
     frame = _market_forecast_frame()

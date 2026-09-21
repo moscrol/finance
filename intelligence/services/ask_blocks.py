@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import re
-from datetime import timedelta
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -273,7 +273,7 @@ def _mainline_context_block_for_llm(
                 sector_bits.append(
                     f"{sector_name}({sw_l1 or '-'}，{cycle_status or '未标注'}/{cycle_level or '-'}，"
                     f"涨{_fmt_optional(sector_pct)}%，边际量{_fmt_optional(diff_ratio)}%，"
-                    f"成交{_fmt_optional(sector_amount)}亿，涨停{limit_up_count or 0}，{volume_state}{breakout_text}{startup_text})"
+                    f"成交{_fmt_optional(sector_amount)}亿，涨停{_fmt_optional(limit_up_count, 0)}，{volume_state}{breakout_text}{startup_text})"
                 )
             lines.append(f"- {theme_name}核心板块：" + "；".join(sector_bits))
         lines.append("- 使用要求：回答时要区分连续主线与新启动主线；cycle_status=分歧/消亡不能写成无条件主升；涨幅为正但 diff_ratio 为负时，优先解释为缩量强修复/存量抱团，而不是低位放量启动。")
@@ -296,94 +296,95 @@ def _market_review_mainline_context_block_for_llm(
 ) -> str:
     market_date = _market_data_asof(market_db_path, as_of=as_of)
     db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
-    if not market_date or not db_path.exists():
+    upper_date = as_of or date.today().isoformat()
+    if not db_path.exists():
         return ""
     db_result = retrieval_cache.try_connect_readonly(db_path)
     if not db_result.available:
         return ""
     con = db_result.connection
     try:
-        table_names = {
-            str(row[0])
-            for row in con.execute(
-                """
-                select table_name
-                from information_schema.tables
-                where table_schema = 'main'
-                """
-            ).fetchall()
-        }
+        columns: dict[str, set[str]] = {}
+        for table, column in con.execute(
+            "select table_name, column_name from information_schema.columns "
+            "where table_schema = 'main' and table_name in "
+            "('fact_mainline_theme_daily', 'fact_mainline_sector_daily')"
+        ).fetchall():
+            columns.setdefault(str(table), set()).add(str(column))
+        theme_columns = columns.get("fact_mainline_theme_daily", set())
+        sector_columns = columns.get("fact_mainline_sector_daily", set())
         theme_date = None
-        themes: list[tuple[str, int]] = []
-        if "fact_mainline_theme_daily" in table_names:
+        themes: list[str] = []
+        if {"trade_date", "theme_name"} <= theme_columns:
             row = con.execute(
                 "select max(trade_date) from fact_mainline_theme_daily "
                 "where trade_date <= cast(? as date)",
-                [market_date],
+                [upper_date],
             ).fetchone()
             theme_date = str(row[0]) if row and row[0] else None
-            if theme_date == market_date:
+            if theme_date:
+                sort = "min_sort nulls last, theme_name" if "min_sort" in theme_columns else "theme_name"
                 themes = [
-                    (str(name), int(sector_count or 0))
-                    for name, sector_count in con.execute(
-                        """
-                        select theme_name, sector_count
-                        from fact_mainline_theme_daily
-                        where trade_date = ?
-                        order by min_sort nulls last, theme_name
-                        limit 10
-                        """,
+                    str(name)
+                    for (name,) in con.execute(
+                        "select theme_name from fact_mainline_theme_daily "
+                        f"where trade_date = ? order by {sort} limit 10",
                         [theme_date],
                     ).fetchall()
                     if name
                 ]
         sector_date = None
-        if "fact_mainline_sector_daily" in table_names:
+        sectors: list[tuple[str, str]] = []
+        if {"trade_date", "theme_name", "sector_name"} <= sector_columns:
             row = con.execute(
                 "select max(trade_date) from fact_mainline_sector_daily "
                 "where trade_date <= cast(? as date)",
-                [market_date],
+                [upper_date],
             ).fetchone()
             sector_date = str(row[0]) if row and row[0] else None
+            if sector_date:
+                sectors = con.execute(
+                    "select theme_name, sector_name from fact_mainline_sector_daily "
+                    "where trade_date = cast(? as date) "
+                    "order by theme_name, sector_name limit 30",
+                    [sector_date],
+                ).fetchall()
     except Exception:
         return ""
     finally:
         con.close()
-    if sector_date == market_date:
-        return _mainline_context_block_for_llm(
-            query,
-            theme,
-            market_db_path,
-            as_of=market_date,
-        )
-    lines = ["## 市场复盘主线数据边界"]
-    if theme_date == market_date and themes:
-        theme_text = "、".join(name for name, _ in themes)
-        lines.append(
-            f"- 当日市场总览和题材级主线汇总均截至 {market_date}；"
-            f"当前主线题材为 {theme_text}。"
-        )
-    elif theme_date:
-        lines.append(
-            f"- 当日市场总览截至 {market_date}；主线题材汇总仅截至 {theme_date}。"
-        )
-        lines.append(
-            "- 当前交易日的题材级主线未知，禁止把旧题材名称写成当日事实。"
-        )
-    else:
-        lines.append(
-            f"- 当日市场总览截至 {market_date}；没有可用的同日主线题材汇总。"
-        )
-        lines.append("- 当前交易日的题材级主线未知。")
-    if sector_date:
-        lines.append(
-            f"- 核心板块明细仅截至 {sector_date}；当前核心板块、周期状态和标的未知。"
-        )
-    else:
-        lines.append("- 没有可用的核心板块明细；当前核心板块、周期状态和标的未知。")
+    if not themes and not sectors:
+        return ""
+    # 分别取各表在查询上界内的最新可用切片；不是要求全库同日，也不改写源日期。
+    lines = ["## 可用主线结构数据 [D4]"]
     lines.append(
-        "- 禁止把旧板块名称、涨幅、生命周期或标的写成当日事实。"
+        "- 使用要求：使用已有数据继续分析，各来源分别标明实际日期；"
+        "不因日期差异降级或拒答，不把旧板块、涨幅或周期状态冒充今日事实。"
     )
+    if market_date:
+        lines.append(f"- 使用要求：市场总览数据截至 {market_date}，不覆盖以下主线事实的日期。")
+    if themes:
+        theme_text = "、".join(themes)
+        lines.append(f"- {theme_date} 题材级主线汇总：{theme_text}。")
+    if sectors:
+        sector_block = _mainline_context_block_for_llm(
+            query, theme, market_db_path, as_of=sector_date
+        )
+        if sector_block:
+            for raw in sector_block.splitlines():
+                line = raw.strip().lstrip("-").strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("判读["):
+                    lines.append(f"- 使用要求：{line}")
+                elif line.startswith("使用要求："):
+                    lines.append(f"- {line}")
+                else:
+                    lines.append(f"- {sector_date}；{line}")
+        else:
+            # 旧 schema 缺数字字段时仍交付真实名单，不为此编造量价或周期。
+            names = "；".join(f"{name}：{sector}" for name, sector in sectors)
+            lines.append(f"- {sector_date} 核心板块名单：{names}。")
     return "\n".join(lines)
 
 
@@ -395,8 +396,8 @@ def _mainline_theme_names(
 ) -> tuple[str, list[str]]:
     """当日主线方向名。返回 (主线日期, 方向名列表)；同日没有汇总就返回空列表。
 
-    与 _market_review_mainline_context_block_for_llm 用同一张
-    fact_mainline_theme_daily、同一个「必须同日」判据，避免两个块讲不同的主线。
+    用 fact_mainline_theme_daily 筛当日知识锚点；不同日的已有主线数据由
+    _market_review_mainline_context_block_for_llm 另行交付，不冒充当日锚点。
     """
     if not market_db_path:
         # 不回退 DEFAULT_MARKET_DB_PATH：调用方没给库就是没要盘面数据。回退会让

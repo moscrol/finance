@@ -1879,11 +1879,7 @@ def test_continuous_adapter_receives_runtime_and_snapshot_dates(
 
 
 def test_runtime_market_reference_date_does_not_outrun_duckdb(monkeypatch) -> None:
-    """快照日超前 DuckDB 时，参考日必须落到库里真有的那天。
-
-    否则 market_data 首轮就被判 stale（所需 08-19、供给 08-18），W5 回填再打
-    同一空查询也补不到数。readiness 已经红，查询路径不能再用那个不可供给的日期。
-    """
+    """市场叙述保留共同参照日；它不再是查询上限或旧数据拒答的门槛。"""
 
     monkeypatch.setattr(
         app_module,
@@ -1907,9 +1903,13 @@ def test_runtime_market_reference_date_does_not_outrun_duckdb(monkeypatch) -> No
     assert app_module._runtime_market_reference_date() == "2026-08-18"
 
 
-def test_continuous_readiness_rejects_snapshot_newer_than_market_database(
+@pytest.mark.parametrize("mode", ["on", "canary", "off"])
+@pytest.mark.parametrize("db_date", ["2025-06-30", "2026-07-16", "2026-07-17", None])
+def test_readiness_reports_market_dates_without_blocking_available_data(
     tmp_path: Path,
     monkeypatch,
+    mode: str,
+    db_date: str | None,
 ) -> None:
     users_root = tmp_path / "users"
     repo_root = tmp_path / "repo"
@@ -1920,29 +1920,40 @@ def test_continuous_readiness_rejects_snapshot_newer_than_market_database(
     market_snapshot = tmp_path / "market_snapshot"
     market_snapshot.mkdir()
     _write_market_snapshot_fixture(market_snapshot)
-    _write_overview_market_db(
-        repo_root / "db" / "market_feature_store.duckdb",
-        trade_date="2025-06-30",
-    )
+    if db_date:
+        _write_overview_market_db(
+            repo_root / "db" / "market_feature_store.duckdb",
+            trade_date=db_date,
+        )
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
     monkeypatch.setenv("FINANCE_WS", str(repo_root))
     monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
     monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
-    monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", "on")
+    monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", mode)
 
     with TestClient(app_module.create_app(repo_root=repo_root)) as probe:
         response = probe.get("/api/health/ready")
 
-    assert response.status_code == 503
+    assert response.status_code == 200
     payload = response.json()
-    assert payload["critical"]["market_data_consistency"] is False
-    assert "market_data_consistency" in payload["missing_critical"]
-    assert payload["market_database"] == {
-        "date": "2025-06-30",
-        "snapshot_date": "2026-07-16",
-        "consistent_with_snapshot": False,
-        "required_by_continuous_runtime": True,
-    }
+    consistent = bool(db_date and db_date >= "2026-07-16")
+    assert payload["status"] == "ready"
+    assert payload["checks"]["market_data_consistency"] is consistent
+    assert "market_data_consistency" not in payload["critical"]
+    assert payload["missing_critical"] == []
+    database = payload["market_database"]
+    assert database["date"] == db_date
+    assert database["snapshot_date"] == "2026-07-16"
+    assert database["consistent_with_snapshot"] is consistent
+    assert database["required_by_continuous_runtime"] is False
+    if db_date is None:
+        assert "未取得" in database["advisories"][0]
+    elif db_date != "2026-07-16":
+        assert db_date in database["advisories"][0]
+        assert "2026-07-16" in database["advisories"][0]
+        assert "不因日期差异降级或拒答" in database["advisories"][0]
+    else:
+        assert database["advisories"] == []
 
 
 def test_health_reports_continuous_canary_without_credentials(

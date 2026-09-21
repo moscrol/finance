@@ -1,8 +1,8 @@
 """「主体退出集合」与「管道陈旧」必须分开（R-20260816-22）。
 
-2026-08-17 用户口径：新鲜度按**数据类**分档，不是整体放宽。
+2026-09-21 用户更新口径：数据日期不齐仍交付，并标实际日期。
 
-- DuckDB 硬事实（行情/成交/涨停）→ 照旧从严；
+- DuckDB 硬事实（行情/成交/涨停）→ 不把旧值冒充今日值；
 - 知识库/图谱（`kb_search` / `graph_lookup`）→ 关注逻辑的生命周期变化，
   本就不过这道门（现状即符合，本文件不涉及）；
 - 第三种情形：数据集整体已到 floor、被筛子集停在更早 → **该主体退出了集合**，
@@ -12,8 +12,7 @@
 一天是 08-07（08-10 起主线只剩有色金属/医药/消费零售）。「算力掉出主线」正是
 「发酵/共识/透支」要的信号，当过期数据丢掉等于丢掉答案。
 
-**本文件的判据是「两种情形被分开」，不是「门槛变松了」。** 只断言退出那条通过、
-不断言陈旧那条仍被拒，会让「把 floor 调松」这种假修复照样发绿。
+本文件只断言两种情形被区分：整表落后不能冒称主体退出；两者的已有数据均可交付。
 """
 
 from __future__ import annotations
@@ -49,13 +48,10 @@ def test_subject_exited_holds_when_dataset_is_ahead_of_floor() -> None:
     )
 
 
-# ------------------------------------------------ 情形二：真陈旧（必须仍被拒）
+# ------------------------------------------------ 情形二：整表落后（不能宣称主体退出）
 
 def test_pipeline_stale_is_not_an_exit() -> None:
-    """数据集整体也停在更早 → 管道真落后，仍按 stale 处理。
-
-    **这条是红线**：该门禁的原始设计意图就是挡住「拿旧数据冒充当前判断」。
-    """
+    """数据集整体也停在更早 → 只知管道落后，不能据此宣称主体退出。"""
 
     assert not _subject_exited_universe(
         served_date="2026-08-07",
@@ -89,10 +85,7 @@ def test_pipeline_stale_when_dataset_max_just_below_floor() -> None:
 def test_unknown_readings_fall_back_to_stale(
     served: str | None, dataset_max: str | None
 ) -> None:
-    """读数缺失或畸形时落回**更严**的那一侧。
-
-    探针是为了放宽误判；它自己坏掉时必须 fail-closed，不能把 stale 洗成通过。
-    """
+    """读数缺失或畸形时不颁发主体退出的证明；不撤销已有数据的交付。"""
 
     assert not _subject_exited_universe(
         served_date=served, dataset_max_date=dataset_max, floor=_FLOOR

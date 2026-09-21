@@ -59,6 +59,10 @@ def test_baseline_separates_claim_types_instead_of_ranking_all_evidence() -> Non
     assert "待证主张" in rules["CR-02"]
     assert "不能仅凭股价或成交额否定利润" in rules["CR-02"]
     assert "产业事实也不能直接证明资金流向" in rules["CR-02"]
+    assert "使用已有真实数据继续分析" in rules["CR-02"]
+    assert "不因此降级或拒答" in rules["CR-02"]
+    assert "不把旧值冒充今日值" in rules["CR-02"]
+    assert "只限制对应部分" in rules["CR-02"]
     assert "只有交易强弱判断" in rules["CR-03"]
     assert "不额外要求给出交易判断" in rules["SPT-A10"]
     assert "固定研究顺序" in reading_baseline.baseline_guidance()
@@ -74,6 +78,7 @@ def test_conditional_baseline_reaches_both_generation_engines(monkeypatch, tmp_p
     frame = _frame()
     payload = json.loads(build_episode_input(frame, _context(frame), _registry()))
     assert payload["reading_baseline"] == reading_baseline.baseline_guidance()
+    assert "不因此降级或拒答" in payload["reading_baseline"]
     assert "强制方法约束，适用于全部证据块" not in payload["reading_baseline_rule"]
     messages = _ask_messages(monkeypatch, tmp_path, "financial_analysis", "为什么利润改善？")
     assert reading_baseline.baseline_guidance() in "\n".join(m["content"] for m in messages)

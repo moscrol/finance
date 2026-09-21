@@ -844,7 +844,7 @@ class MarketValueBlockTests(unittest.TestCase):
 
 
 class EvidenceDataBlockTests(unittest.TestCase):
-    def test_market_review_mainline_block_hides_stale_theme_details(self) -> None:
+    def test_market_review_mainline_block_keeps_older_sector_names_with_date(self) -> None:
         duckdb = __import__("duckdb")
         with tempfile.TemporaryDirectory() as tmp:
             db_path = Path(tmp) / "market.duckdb"
@@ -867,14 +867,13 @@ class EvidenceDataBlockTests(unittest.TestCase):
                 db_path,
             )
 
-        self.assertIn("当日市场总览截至 2026-07-10", block)
-        self.assertIn("没有可用的同日主线题材汇总", block)
-        self.assertIn("当前交易日的题材级主线未知", block)
-        self.assertIn("核心板块明细仅截至 2026-06-30", block)
-        self.assertNotIn("AI算力", block)
-        self.assertNotIn("共封装光学", block)
+        self.assertIn("市场总览数据截至 2026-07-10", block)
+        self.assertIn("2026-06-30 核心板块名单", block)
+        self.assertIn("不因日期差异降级或拒答", block)
+        self.assertIn("AI算力", block)
+        self.assertIn("共封装光学", block)
 
-    def test_market_review_mainline_block_keeps_current_themes_but_hides_stale_sectors(self) -> None:
+    def test_market_review_mainline_block_keeps_different_dated_themes_and_sectors(self) -> None:
         duckdb = __import__("duckdb")
         with tempfile.TemporaryDirectory() as tmp:
             db_path = Path(tmp) / "market.duckdb"
@@ -906,11 +905,10 @@ class EvidenceDataBlockTests(unittest.TestCase):
                 db_path,
             )
 
-        self.assertIn("题材级主线汇总均截至 2026-07-10", block)
-        self.assertIn("当前主线题材为 半导体、AI算力", block)
-        self.assertIn("核心板块明细仅截至 2026-06-30", block)
-        self.assertIn("当前核心板块、周期状态和标的未知", block)
-        self.assertNotIn("共封装光学", block)
+        self.assertIn("2026-07-10 题材级主线汇总：半导体、AI算力", block)
+        self.assertIn("2026-06-30 核心板块名单", block)
+        self.assertIn("共封装光学", block)
+        self.assertIn("不把旧板块", block)
 
     def test_mainline_context_block_adds_theme_sector_cycle_state(self) -> None:
         duckdb = __import__("duckdb")

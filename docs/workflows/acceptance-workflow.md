@@ -105,7 +105,7 @@ launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.a77.finance-workbe
 
 验证（三项全过才算切完）：
 
-1. `GET :8792/api/readiness` checks 全 true（预热冷启最长约 3 分钟，热缓存 ~1 分钟内）。
+1. `GET :8792/api/readiness` HTTP 200、`status=ready`、`missing_critical=[]`，且 `critical` 全 true（预热冷启最长约 3 分钟，热缓存 ~1 分钟内）。不要要求诊断性 `checks` 全 true：市场快照/库日期差异仍如实报告，但不阻断已有真实数据分析；同时读取 `market_database.advisories`。
 2. `GET :8792/api/health` **三读**：`source_revision` == 新 sha12、`source_dirty=false`、`code_matches_repo=true`。
 3. grounded 探针：长电题、生产 env 形状（`cwd` 与 `PYTHONPATH`、`WORKBENCH_REPO_ROOT` 都指 `/Users/a77/finance-workspace-runtime`，`FINANCE_WS=/Users/a77/finance-workspace-private`），收据落 `~/.finance-runtime/live-probe-traceability/`。
 

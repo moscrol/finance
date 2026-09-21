@@ -252,8 +252,8 @@ def _runtime_market_reference_date() -> str | None:
             snapshot_date = value[:10]
     db_date = latest_market_date(paths.finance_root)
     if snapshot_date and db_date:
-        # 快照超前 DuckDB 一天时，用快照日当 floor 会让每条结构化查询 stale。
-        # 两边都有日期时取较早的那天——那是供给方真能端上来的上限。
+        # 保留市场叙述的共同参照日；它不是所有表的查询上限或服务准入条件。
+        # 各来源仍可取用户截止日内自己的最新数据，并分别交付实际日期。
         return min(snapshot_date, db_date)
     return snapshot_date or db_date
 
@@ -2751,19 +2751,24 @@ def create_app(
             or ""
         )[:10]
         market_database_date = latest_market_date(runtime_paths.finance_root)
-        continuous_requires_market_consistency = continuous_mode in {
-            "on",
-            "canary",
-        }
-        market_data_consistent = (
-            not continuous_requires_market_consistency
-            or (
-                bool(snapshot_contract["ready"])
-                and bool(snapshot_date)
-                and market_database_date is not None
-                and market_database_date >= snapshot_date
-            )
+        # 日期覆盖是观测值，不是服务可用性：旧的真实数据仍可按实际日期分析。
+        market_data_consistent = bool(
+            snapshot_contract["ready"]
+            and snapshot_date
+            and market_database_date is not None
+            and market_database_date >= snapshot_date
         )
+        market_date_advisories = []
+        if snapshot_date and market_database_date and snapshot_date != market_database_date:
+            market_date_advisories.append(
+                f"行情快照截至 {snapshot_date}，结构化库截至 {market_database_date}；"
+                "按各来源实际日期使用已有数据，不因日期差异降级或拒答。"
+            )
+        elif market_database_date is None:
+            market_date_advisories.append(
+                "未取得结构化库的数据日期；可继续使用其他已有数据，"
+                "仅对确实缺失的事实或计算输入说明缺口。"
+            )
         run_root_ready = False
         try:
             store.root.mkdir(parents=True, exist_ok=True)
@@ -2804,7 +2809,6 @@ def create_app(
             "rag_query_protocol": checks["rag_query_protocol"],
             "rag_worker": checks["rag_worker"],
             "market_snapshot": checks["market_snapshot_contract"],
-            "market_data_consistency": checks["market_data_consistency"],
         }
         ready = all(critical.values())
         payload = {
@@ -2834,9 +2838,8 @@ def create_app(
                 "date": market_database_date,
                 "snapshot_date": snapshot_date or None,
                 "consistent_with_snapshot": market_data_consistent,
-                "required_by_continuous_runtime": (
-                    continuous_requires_market_consistency
-                ),
+                "required_by_continuous_runtime": False,
+                "advisories": market_date_advisories,
             },
             "workers": {
                 "active": supervisor.active_count(),

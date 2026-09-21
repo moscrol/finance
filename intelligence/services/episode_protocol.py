@@ -429,7 +429,9 @@ def build_episode_input(
         ),
         "date_rule": (
             "today 不是行情日期；information_cutoff 是所有查询与引用事实的"
-            "不可变日期上限；市场事实还须服从 latest_data_date 和证据日期"
+            "不可变日期上限；latest_data_date 是日期参照，不是所有数据集必须同日的门槛。"
+            "不同来源按各自证据日期使用已有真实数据，不因日期差异降级或拒答，"
+            "不把旧值冒充今日值；真正缺失的事实或计算输入只限制对应部分。"
         ),
         "task_frame_hash": task_frame.task_frame_hash,
         "available_tools": registry.prompt_block(

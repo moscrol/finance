@@ -18,7 +18,7 @@
 | `history_query` | finance_query | external | historical | query | — | `query` | — | 可复算历史行情与完整样本比较 |
 | `kb_search` | kb_search | local | stable | query | 20.0 | `query` | direct_answer, direct_definition, direct_explanation, supporting_evidence | 本地知识库检索 |
 | `l3_lookup` | l3_lookup | external | current | query | — | `query` | fact_value, supporting_evidence | 官方公告与互动证据 |
-| `mainline_context` | mainline_context | external | current | episode | — | — | mainline_structure, supporting_evidence | 同日主线与板块结构 |
+| `mainline_context` | mainline_context | external | current | episode | — | — | mainline_structure, supporting_evidence | 各表最新可用主线与板块结构（分别标明日期） |
 | `market_data` | market_data | external | current | episode | — | — | current_baseline, data_date, market_summary, prime_quote, supporting_evidence | 结构化行情与市场时序 |
 | `memory_lookup` | memory_lookup | local | stable | query | — | `query` | prime_memory | 用户自己过去的判断与纠偏原则（历史先验，不是市场事实） |
 | `news_search` | news_search | external | current | query | 5.0 | `query` | event_facts, impact_transmission, prime_news, supporting_evidence | 财经新闻检索 |
@@ -44,7 +44,7 @@
 
 ### `finance_query`
 
-结果会按 Agent 上下文预算截断（当前上限 25 行），返回的是满足条件的前若干行而不一定是全集：不要据此写「全市场最高」「只有这些」这类全称断言，需要更完整的切片就加筛选、分组或排序后再查一次。日期要放进 time_range，不要写成 filters 条件。当前任务未授权历史窗口时，旧日期的查询不会被执行而是直接退回，此时按提示把时间窗调回截止日附近，不要反复重试同一个窗口。返回为空只说明该 dataset 在这组条件与时点下没有结构化结果，应写成证据缺口，不得据此推断事实不存在。新高家数/新高结构类问题用 stock_high_daily（表内只含当日创新高的个股，按 high_period/sw_l1 分组计数即新高结构）；sector_stock_daily.high_status 显示「非新高」是事实标注，不是数据缺失。下周/周末大事、事件日历用 event_daily（复盘会编辑催化，不是官方日程全集；event_date 可以晚于信息截止日）。
+结果会按 Agent 上下文预算截断（当前上限 25 行），返回的是满足条件的前若干行而不一定是全集：不要据此写「全市场最高」「只有这些」这类全称断言，需要更完整的切片就加筛选、分组或排序后再查一次。日期要放进 time_range，不要写成 filters 条件。当前任务未授权历史窗口时，允许读取该数据集自己的最新可用日，其他旧窗口会退回；按提示调整或省略 time_range，不要反复重试。不同数据集日期不一致仍交付已有行并标明实际日期，继续分析，不因日期差异降级或拒答；不要把旧行冒充今日数据。返回为空只说明该 dataset 在这组条件与时点下没有结构化结果，应写成证据缺口，不得据此推断事实不存在。新高家数/新高结构类问题用 stock_high_daily（表内只含当日创新高的个股，按 high_period/sw_l1 分组计数即新高结构）；sector_stock_daily.high_status 显示「非新高」是事实标注，不是数据缺失。下周/周末大事、事件日历用 event_daily（复盘会编辑催化，不是官方日程全集；event_date 可以晚于信息截止日）。
 
 ### `financial_data`
 
@@ -68,7 +68,7 @@
 
 ### `mainline_context`
 
-同日主线结构来自本地库的主线表，而这几张表的覆盖并不是每个交易日都齐全，题材与个股两张的起始日明显晚于板块表，较早的日期查不到。返回为空或提示「题材级主线未知」，说明该交易日没有回填主线数据，不能据此说当天没有主线；数据比行情快照旧时会退回并说明，此时应写出数据截至日期，不要当作提问当天的主线。
+主线结构来自本地库各表在截止日内的最新可用切片，覆盖并不是每个交易日都齐全，题材与个股两张的起始日明显晚于板块表，较早的日期查不到。返回为空或提示「题材级主线未知」，说明该交易日没有回填主线数据，不能据此说当天没有主线；数据比行情快照旧时仍交付并说明，按各表实际日期继续分析，不因日期差异降级或拒答，不要当作提问当天的主线。
 
 ### `market_data`
 
