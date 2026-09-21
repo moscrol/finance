@@ -953,6 +953,105 @@ def test_terminal_repair_with_revised_draft_is_reverified_and_published(monkeypa
     assert publication["required_public_notices"] == []
 
 
+def test_terminal_repair_revision_that_cannot_be_reverified_is_capped_and_disclosed(
+    monkeypatch,
+) -> None:
+    """同上一格，但重跑判官前预算已到：公开的只能是旧稿，须压 partial 并公开告知。
+
+    截止用 ``ResearchDeadline.expired`` 的类属性在修复轮返回之后翻真来模拟（在
+    ``_repair_snapshot`` 看到 ``repair_model_stop`` 那一刻），不依赖真实时钟。
+    """
+    from intelligence.services.episode_semantic_verifier import UNREVIEWED_REVISION_NOTICE
+    from intelligence.services.research_contract import ResearchDeadline
+
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "llm")
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame, task_id="adapter-terminal-revision-expired", capabilities=control.capabilities,
+        timeout=120.0, latest_data_date="2026-07-26",
+    )
+    context = replace(context, root_budget=InMemoryRootBudgetLedger(
+        episode_id=context.contract.task_id, initial_calls=2, hard_calls_cap=3,
+        initial_seconds=60.0, hard_seconds_cap=120.0,
+    ))
+    evidence = AgentEvidence(
+        tool="market_data", title="市场结构", detail="上涨家数仍待改善。",
+        source="本地行情", source_date="2026-07-26", content_hash="terminal-revision-expired-evidence",
+    )
+    registry = ResearchToolRegistry((ToolSpec(
+        name="market_data", capability="market_data", description="市场结构",
+        cost="local", freshness="current", runner=lambda *_args: (
+            [evidence], evidence.detail, ProviderTrace("test:market", "market_data", "success"),
+        ),
+    ),))
+    overclaim = "换手率始终低于百分之一。"
+    original = overclaim + "上涨家数仍待改善。"
+    corrected = "换手率仅在可核验交易日低于百分之一。上涨家数仍待改善。"
+
+    class Model:
+        def __init__(self):
+            self.calls = []
+
+        def complete(self, *, messages, tools, timeout):
+            self.calls.append(messages)
+            if len(self.calls) == 1:
+                return ModelTurn("", (ModelToolCall("market", "market_data", {"query": "市场结构"}),), "test", "")
+            revised = len(self.calls) == 3
+            return ModelTurn(json.dumps({
+                "status": "partial" if revised else "completed",
+                "draft": corrected if revised else original,
+                "bindings": [{"output_id": "direct_assessment", "evidence_hashes": ["E1"], "gap": ""}],
+                "gaps": ["换手率字段部分交易日缺失"] if revised else [],
+            }, ensure_ascii=False), (), "test", "")
+
+    expired = [False]
+    original_expired = ResearchDeadline.expired
+    monkeypatch.setattr(
+        ResearchDeadline, "expired",
+        property(lambda self: expired[0] or original_expired.fget(self)),
+    )
+    real_snapshot = adapter_module._repair_snapshot
+
+    def snapshot_then_expire(outcome, *args, **kwargs):
+        if outcome.stop_reason == "repair_model_stop":
+            expired[0] = True
+        return real_snapshot(outcome, *args, **kwargs)
+
+    monkeypatch.setattr(adapter_module, "_repair_snapshot", snapshot_then_expire)
+
+    model = Model()
+    requests = []
+
+    def judge(request):
+        requests.append(request)
+        if len(requests) == 1:
+            return {"passed": False, "rejected_sentence_indexes": [1], "issues": ["句1：『始终』超出已核验范围"]}
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    result = ContinuousTurnAdapter(
+        runtime=GLMAgentRuntime(client=model),
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=judge),
+        runtime_name="continuous_glm", mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: registry,
+    ).handle(frame=frame, control=control)
+
+    assert len(model.calls) == 3
+    assert result.private_artifact["outcome"]["stop_reason"] == "repair_model_stop"
+    assert len(requests) == 1, "预算已到，不得再跑判官"
+    assert result.private_artifact["semantic_verifier_stale"] is True
+    assert result.status == "partial"
+    assert corrected not in result.answer, "未复核的新稿不得公开"
+    # 判官对必填块的句子是「降级为 issue、保留公开」而不是删句（与冒烟 2 同形），
+    # 所以旧稿原文照发；本测试钉的是「发的是旧稿 + 提示」，不是判官的删/降策略。
+    assert result.answer == original + "\n\n" + UNREVIEWED_REVISION_NOTICE
+    publication = result.private_artifact["publication_assessment"]
+    assert publication["max_status"] == "partial"
+    assert publication["required_public_notices"] == [UNREVIEWED_REVISION_NOTICE]
+    assert result.private_artifact["outcome"]["draft"] == corrected
+
+
 def test_private_artifact_carries_runtime_handle_receipt_and_log_version() -> None:
     """RuntimeHandle 收据落进 continuous-episode.json（运行底座 P2）。
 

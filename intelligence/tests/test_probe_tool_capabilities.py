@@ -8,6 +8,8 @@
 """
 from __future__ import annotations
 
+import inspect
+
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.research_contract import release_root_budget
 from intelligence.services.research_tool_registry import DEFAULT_RESEARCH_CAPABILITIES
@@ -38,6 +40,13 @@ def _frame() -> TaskFrame:
 def test_probe_capabilities_are_a_subset_of_runtime_capabilities() -> None:
     assert set(probe_tool.PROBE_CAPABILITIES) <= set(DEFAULT_RESEARCH_CAPABILITIES)
     assert set(probe_tool.ALL_TOOLS) - set(probe_tool.PROBE_CAPABILITIES) == _HISTORY_TOOLS
+
+
+def test_probe_passes_the_capability_face_not_the_tool_list() -> None:
+    """钉调用点：``probe()`` 真传的是 PROBE_CAPABILITIES；常量对了、调用点回退到 ALL_TOOLS 照样炸。"""
+    source = inspect.getsource(probe_tool.probe)
+    assert "capabilities=PROBE_CAPABILITIES" in source
+    assert "capabilities=ALL_TOOLS" not in source
 
 
 def test_probe_context_builds_with_the_probe_capability_face() -> None:
