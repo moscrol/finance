@@ -1,0 +1,820 @@
+........................................................................ [  0%]
+......s.....................x.........s.....s........................... [  1%]
+........................................................................ [  1%]
+........................................................................ [  2%]
+........................................................................ [  2%]
+........................................................................ [  3%]
+........................................................................ [  4%]
+........................................................................ [  4%]
+........................................................................ [  5%]
+........................................................................ [  5%]
+........................................................................ [  6%]
+........................................................................ [  6%]
+........................................................................ [  7%]
+........................................................................ [  8%]
+........................................................................ [  8%]
+........................................................................ [  9%]
+........................................................................ [  9%]
+........................................................................ [ 10%]
+........................................................................ [ 10%]
+........................................................................ [ 11%]
+........................................................................ [ 12%]
+........................................................................ [ 12%]
+........................................................................ [ 13%]
+........................................................................ [ 13%]
+........................................................................ [ 14%]
+........................................................................ [ 14%]
+........................................................................ [ 15%]
+...............................................................s........ [ 16%]
+........................................................................ [ 16%]
+........................................................................ [ 17%]
+........................................................................ [ 17%]
+........................................................................ [ 18%]
+........................................................................ [ 18%]
+........................................................................ [ 19%]
+........................................................................ [ 20%]
+........................................................................ [ 20%]
+........................................................................ [ 21%]
+.....s....s....s....s................................................... [ 21%]
+........................................................................ [ 22%]
+........................................................................ [ 22%]
+........................................................................ [ 23%]
+........................................................................ [ 24%]
+........................................................................ [ 24%]
+........................................................................ [ 25%]
+........................................................................ [ 25%]
+........................................................................ [ 26%]
+........................................................................ [ 26%]
+........................................................................ [ 27%]
+........................................................................ [ 28%]
+........................................................................ [ 28%]
+........................................................................ [ 29%]
+........................................................................ [ 29%]
+........................................................................ [ 30%]
+........................................................................ [ 30%]
+........................................................................ [ 31%]
+........................................................................ [ 32%]
+........................................................................ [ 32%]
+........................................................................ [ 33%]
+........................................................................ [ 33%]
+........................................................................ [ 34%]
+........................ssssssss...................................x.... [ 35%]
+........................................................................ [ 35%]
+........................................................................ [ 36%]
+........................................................................ [ 36%]
+........................................................................ [ 37%]
+........................................................................ [ 37%]
+........................................................................ [ 38%]
+........................................................................ [ 39%]
+........................................................................ [ 39%]
+........................................................................ [ 40%]
+........................................................................ [ 40%]
+........................................................................ [ 41%]
+........................................................................ [ 41%]
+........................................................................ [ 42%]
+........................................................................ [ 43%]
+........................................................................ [ 43%]
+........................................................................ [ 44%]
+..............ssss...................................................... [ 44%]
+........................................................................ [ 45%]
+........................................................................ [ 45%]
+........................................................................ [ 46%]
+........................................................................ [ 47%]
+........................................................................ [ 47%]
+........................................................................ [ 48%]
+........................................................................ [ 48%]
+........................................................................ [ 49%]
+........................................................................ [ 49%]
+........................................................................ [ 50%]
+........................................................................ [ 51%]
+........................................................................ [ 51%]
+........................................................................ [ 52%]
+........................................................................ [ 52%]
+........................................................................ [ 53%]
+..............s......................................................... [ 53%]
+........................................................................ [ 54%]
+........................................................................ [ 55%]
+........................................................................ [ 55%]
+........................................................................ [ 56%]
+........................................................................ [ 56%]
+........................................................................ [ 57%]
+........................................................................ [ 57%]
+........................................................................ [ 58%]
+........s............................................................... [ 59%]
+........................................................................ [ 59%]
+........................................................................ [ 60%]
+........................................................................ [ 60%]
+........................................................................ [ 61%]
+........................................................................ [ 61%]
+........................................................................ [ 62%]
+........................................................................ [ 63%]
+........................................................................ [ 63%]
+........................................................................ [ 64%]
+........................................................................ [ 64%]
+........................................................................ [ 65%]
+........................................................................ [ 65%]
+........................................................................ [ 66%]
+........................................................................ [ 67%]
+........................................................................ [ 67%]
+........................................................................ [ 68%]
+........................................................................ [ 68%]
+........................................................................ [ 69%]
+........................................................................ [ 70%]
+........................................................................ [ 70%]
+........................................................................ [ 71%]
+........................................................................ [ 71%]
+........................................................................ [ 72%]
+........................................................................ [ 72%]
+........................................................................ [ 73%]
+........................................................................ [ 74%]
+........................................................................ [ 74%]
+........................................................................ [ 75%]
+........................................................................ [ 75%]
+........................................................................ [ 76%]
+.............................................................s.......... [ 76%]
+........................................................................ [ 77%]
+........................................................................ [ 78%]
+........................................................................ [ 78%]
+........................................................................ [ 79%]
+........................................................................ [ 79%]
+........................................................................ [ 80%]
+........................................................................ [ 80%]
+........................................................................ [ 81%]
+........................................................................ [ 82%]
+........................................................................ [ 82%]
+........................................................................ [ 83%]
+........................................................................ [ 83%]
+........................................................................ [ 84%]
+........................................................................ [ 84%]
+................................................sssssssssssss........... [ 85%]
+..................................................s..................... [ 86%]
+........................................................................ [ 86%]
+........................................................................ [ 87%]
+........................................................................ [ 87%]
+........................................................................ [ 88%]
+........................................................................ [ 88%]
+........................................................................ [ 89%]
+........................................................................ [ 90%]
+........................................................................ [ 90%]
+........................................................................ [ 91%]
+........................................................................ [ 91%]
+..........................................sssss......................... [ 92%]
+........................................................................ [ 92%]
+........................................................................ [ 93%]
+........................................................................ [ 94%]
+........................................................................ [ 94%]
+........................................................................ [ 95%]
+...ssssss.........sssssssss...............................ssssssssssssss [ 95%]
+ssssssssssssss.......................................................... [ 96%]
+........................................................................ [ 96%]
+........................................................................ [ 97%]
+........................................................................ [ 98%]
+........................................................................ [ 98%]
+..............................F....FEEEEEEEE............................ [ 99%]
+........................................................................ [ 99%]
+.......................                                                  [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T084101Z-2ea6c3db.json
+
+==================================== ERRORS ====================================
+_ ERROR at teardown of test_expired_markets_are_dropped_because_upstream_closed_flag_lies _
+
+self = <contextlib._GeneratorContextManager object at 0x129ac5490>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+__________________ ERROR at setup of test_is_expired_boundary __________________
+
+self = <contextlib._GeneratorContextManager object at 0x11de35e80>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+________________ ERROR at teardown of test_is_expired_boundary _________________
+
+self = <contextlib._GeneratorContextManager object at 0x129a7fd40>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+_______ ERROR at setup of test_sync_writes_rows_with_snapshot_trade_date _______
+
+self = <CaptureManager _method='fd' _global_capturing=<MultiCapture out=<FDCapture 1 oldfd=5 _state='suspended' tmpfile=<_io....xtIOWrapper name='/dev/null' mode='r' encoding='utf-8'>> _state='suspended' _in_suspended=False> _capture_fixture=None>
+when = 'setup', item = <Function test_sync_writes_rows_with_snapshot_trade_date>
+
+    @contextlib.contextmanager
+    def item_capture(self, when: str, item: Item) -> Generator[None]:
+        self.resume_global_capture()
+        self.activate_fixture()
+        try:
+>           yield
+
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/capture.py:860: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/capture.py:893: in pytest_runtest_setup
+    return (yield)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/threadexception.py:87: in pytest_runtest_setup
+    yield from thread_exception_runtest_hook()
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/threadexception.py:68: in thread_exception_runtest_hook
+    yield
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py:160: in pytest_runtest_setup
+    item.session._setupstate.setup(item)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py:514: in setup
+    col.setup()
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py:1630: in setup
+    self._request._fillfixtures()
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:697: in _fillfixtures
+    item.funcargs[argname] = self.getfixturevalue(argname)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:532: in getfixturevalue
+    fixturedef = self._get_active_fixturedef(argname)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:617: in _get_active_fixturedef
+    fixturedef.execute(request=subrequest)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:1091: in execute
+    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py:512: in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py:120: in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py:53: in run_old_style_hookwrapper
+    return result.get_result()
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py:38: in run_old_style_hookwrapper
+    res = yield
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/setuponly.py:36: in pytest_fixture_setup
+    return (yield)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:1140: in pytest_fixture_setup
+    result = call_fixture_func(fixturefunc, request, kwargs)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:891: in call_fixture_func
+    fixture_result = next(generator)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/tmpdir.py:265: in tmp_path
+    path = _mk_tmp(request, tmp_path_factory)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/tmpdir.py:252: in _mk_tmp
+    return factory.mktemp(name, numbered=True)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/tmpdir.py:136: in mktemp
+    p = make_numbered_dir(root=self.getbasetemp(), prefix=basename, mode=0o700)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/tmp')
+prefix = 'test_sync_writes_rows_with_sna', mode = 448
+
+    def make_numbered_dir(root: Path, prefix: str, mode: int = 0o700) -> Path:
+        """Create a directory with an increased number as suffix for the given prefix."""
+        for i in range(10):
+            # try up to 10 times to create the folder
+            max_existing = max(map(parse_num, find_suffixes(root, prefix)), default=-1)
+            new_number = max_existing + 1
+            new_path = root.joinpath(f"{prefix}{new_number}")
+            try:
+                new_path.mkdir(mode=mode)
+            except Exception:
+                pass
+            else:
+                _force_symlink(root, prefix + "current", new_path)
+                return new_path
+        else:
+>           raise OSError(
+                "could not create numbered dir with prefix "
+                f"{prefix} in {root} after 10 tries"
+            )
+E           OSError: could not create numbered dir with prefix test_sync_writes_rows_with_sna in /Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/tmp after 10 tries
+
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/pathlib.py:240: OSError
+
+During handling of the above exception, another exception occurred:
+
+self = <contextlib._GeneratorContextManager object at 0x1255246b0>
+typ = <class 'OSError'>
+value = OSError('could not create numbered dir with prefix test_sync_writes_rows_with_sna in /Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/tmp after 10 tries')
+traceback = <traceback object at 0x126ca4480>
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+                next(self.gen)
+            except StopIteration:
+                return False
+            else:
+                try:
+                    raise RuntimeError("generator didn't stop")
+                finally:
+                    self.gen.close()
+        else:
+            if value is None:
+                # Need to force instantiation so we can reliably
+                # tell if we get the same exception back
+                value = typ()
+            try:
+>               self.gen.throw(value)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:158: OSError
+_____ ERROR at teardown of test_sync_writes_rows_with_snapshot_trade_date ______
+
+self = <contextlib._GeneratorContextManager object at 0x134db4e30>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+____ ERROR at setup of test_sync_defaults_trade_date_to_today_when_omitted _____
+
+self = <CaptureManager _method='fd' _global_capturing=<MultiCapture out=<FDCapture 1 oldfd=5 _state='suspended' tmpfile=<_io....xtIOWrapper name='/dev/null' mode='r' encoding='utf-8'>> _state='suspended' _in_suspended=False> _capture_fixture=None>
+when = 'setup'
+item = <Function test_sync_defaults_trade_date_to_today_when_omitted>
+
+    @contextlib.contextmanager
+    def item_capture(self, when: str, item: Item) -> Generator[None]:
+        self.resume_global_capture()
+        self.activate_fixture()
+        try:
+>           yield
+
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/capture.py:860: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/capture.py:893: in pytest_runtest_setup
+    return (yield)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/threadexception.py:87: in pytest_runtest_setup
+    yield from thread_exception_runtest_hook()
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/threadexception.py:68: in thread_exception_runtest_hook
+    yield
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py:160: in pytest_runtest_setup
+    item.session._setupstate.setup(item)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py:514: in setup
+    col.setup()
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py:1630: in setup
+    self._request._fillfixtures()
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:697: in _fillfixtures
+    item.funcargs[argname] = self.getfixturevalue(argname)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:532: in getfixturevalue
+    fixturedef = self._get_active_fixturedef(argname)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:617: in _get_active_fixturedef
+    fixturedef.execute(request=subrequest)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:1091: in execute
+    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py:512: in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py:120: in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py:53: in run_old_style_hookwrapper
+    return result.get_result()
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py:38: in run_old_style_hookwrapper
+    res = yield
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/setuponly.py:36: in pytest_fixture_setup
+    return (yield)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:1140: in pytest_fixture_setup
+    result = call_fixture_func(fixturefunc, request, kwargs)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:891: in call_fixture_func
+    fixture_result = next(generator)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/tmpdir.py:265: in tmp_path
+    path = _mk_tmp(request, tmp_path_factory)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/tmpdir.py:252: in _mk_tmp
+    return factory.mktemp(name, numbered=True)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/tmpdir.py:136: in mktemp
+    p = make_numbered_dir(root=self.getbasetemp(), prefix=basename, mode=0o700)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/tmp')
+prefix = 'test_sync_defaults_trade_date_', mode = 448
+
+    def make_numbered_dir(root: Path, prefix: str, mode: int = 0o700) -> Path:
+        """Create a directory with an increased number as suffix for the given prefix."""
+        for i in range(10):
+            # try up to 10 times to create the folder
+            max_existing = max(map(parse_num, find_suffixes(root, prefix)), default=-1)
+            new_number = max_existing + 1
+            new_path = root.joinpath(f"{prefix}{new_number}")
+            try:
+                new_path.mkdir(mode=mode)
+            except Exception:
+                pass
+            else:
+                _force_symlink(root, prefix + "current", new_path)
+                return new_path
+        else:
+>           raise OSError(
+                "could not create numbered dir with prefix "
+                f"{prefix} in {root} after 10 tries"
+            )
+E           OSError: could not create numbered dir with prefix test_sync_defaults_trade_date_ in /Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/tmp after 10 tries
+
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/pathlib.py:240: OSError
+
+During handling of the above exception, another exception occurred:
+
+self = <contextlib._GeneratorContextManager object at 0x11dd7fa70>
+typ = <class 'OSError'>
+value = OSError('could not create numbered dir with prefix test_sync_defaults_trade_date_ in /Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/tmp after 10 tries')
+traceback = <traceback object at 0x126cdba40>
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+                next(self.gen)
+            except StopIteration:
+                return False
+            else:
+                try:
+                    raise RuntimeError("generator didn't stop")
+                finally:
+                    self.gen.close()
+        else:
+            if value is None:
+                # Need to force instantiation so we can reliably
+                # tell if we get the same exception back
+                value = typ()
+            try:
+>               self.gen.throw(value)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:158: OSError
+___ ERROR at teardown of test_sync_defaults_trade_date_to_today_when_omitted ___
+
+self = <contextlib._GeneratorContextManager object at 0x12701e6c0>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+______ ERROR at setup of test_sync_reports_zero_rows_when_nothing_matches ______
+
+self = <CaptureManager _method='fd' _global_capturing=<MultiCapture out=<FDCapture 1 oldfd=5 _state='suspended' tmpfile=<_io....xtIOWrapper name='/dev/null' mode='r' encoding='utf-8'>> _state='suspended' _in_suspended=False> _capture_fixture=None>
+when = 'setup'
+item = <Function test_sync_reports_zero_rows_when_nothing_matches>
+
+    @contextlib.contextmanager
+    def item_capture(self, when: str, item: Item) -> Generator[None]:
+        self.resume_global_capture()
+        self.activate_fixture()
+        try:
+>           yield
+
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/capture.py:860: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/capture.py:893: in pytest_runtest_setup
+    return (yield)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/threadexception.py:87: in pytest_runtest_setup
+    yield from thread_exception_runtest_hook()
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/threadexception.py:68: in thread_exception_runtest_hook
+    yield
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py:160: in pytest_runtest_setup
+    item.session._setupstate.setup(item)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py:514: in setup
+    col.setup()
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py:1630: in setup
+    self._request._fillfixtures()
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:697: in _fillfixtures
+    item.funcargs[argname] = self.getfixturevalue(argname)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:532: in getfixturevalue
+    fixturedef = self._get_active_fixturedef(argname)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:617: in _get_active_fixturedef
+    fixturedef.execute(request=subrequest)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:1091: in execute
+    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py:512: in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py:120: in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py:53: in run_old_style_hookwrapper
+    return result.get_result()
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py:38: in run_old_style_hookwrapper
+    res = yield
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/setuponly.py:36: in pytest_fixture_setup
+    return (yield)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:1140: in pytest_fixture_setup
+    result = call_fixture_func(fixturefunc, request, kwargs)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:891: in call_fixture_func
+    fixture_result = next(generator)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/tmpdir.py:265: in tmp_path
+    path = _mk_tmp(request, tmp_path_factory)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/tmpdir.py:252: in _mk_tmp
+    return factory.mktemp(name, numbered=True)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/tmpdir.py:136: in mktemp
+    p = make_numbered_dir(root=self.getbasetemp(), prefix=basename, mode=0o700)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/tmp')
+prefix = 'test_sync_reports_zero_rows_wh', mode = 448
+
+    def make_numbered_dir(root: Path, prefix: str, mode: int = 0o700) -> Path:
+        """Create a directory with an increased number as suffix for the given prefix."""
+        for i in range(10):
+            # try up to 10 times to create the folder
+            max_existing = max(map(parse_num, find_suffixes(root, prefix)), default=-1)
+            new_number = max_existing + 1
+            new_path = root.joinpath(f"{prefix}{new_number}")
+            try:
+                new_path.mkdir(mode=mode)
+            except Exception:
+                pass
+            else:
+                _force_symlink(root, prefix + "current", new_path)
+                return new_path
+        else:
+>           raise OSError(
+                "could not create numbered dir with prefix "
+                f"{prefix} in {root} after 10 tries"
+            )
+E           OSError: could not create numbered dir with prefix test_sync_reports_zero_rows_wh in /Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/tmp after 10 tries
+
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/pathlib.py:240: OSError
+
+During handling of the above exception, another exception occurred:
+
+self = <contextlib._GeneratorContextManager object at 0x1181ab800>
+typ = <class 'OSError'>
+value = OSError('could not create numbered dir with prefix test_sync_reports_zero_rows_wh in /Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/tmp after 10 tries')
+traceback = <traceback object at 0x11ff536c0>
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+                next(self.gen)
+            except StopIteration:
+                return False
+            else:
+                try:
+                    raise RuntimeError("generator didn't stop")
+                finally:
+                    self.gen.close()
+        else:
+            if value is None:
+                # Need to force instantiation so we can reliably
+                # tell if we get the same exception back
+                value = typ()
+            try:
+>               self.gen.throw(value)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:158: OSError
+=================================== FAILURES ===================================
+_________ test_sync_range_aligns_to_market_calendar_and_skips_existing _________
+
+start_date = '2026-08-11', end_date = '2026-08-12'
+
+    def sync_range(
+        start_date: str,
+        end_date: str,
+        *,
+        refresh: bool = False,
+        sleep: float = 0.2,
+        include_catalog: bool = False,
+        only: tuple[str, ...] | None = None,
+    ) -> dict:
+        """按 fact_market_daily 交易日历回补日频资产，跳过已有行。
+    
+        研报目录 / 题材挖掘默认不重拉（不是按日切片的库）。
+        only: 只跑这些子任务名（如 leader_height），配合 refresh 做定点重刷。
+        """
+        dates = calendar_dates(start_date, end_date)
+        if not dates:
+            raise RuntimeError(f"fact_market_daily 在 {start_date}~{end_date} 无交易日")
+        tasks = list(DAILY_SYNCS)
+        if include_catalog:
+            tasks.extend(ONCE_SYNCS)
+        if only:
+            allow = set(only)
+            unknown = allow - {name for name, _fn in tasks}
+            if unknown:
+                raise RuntimeError(f"未知子任务: {sorted(unknown)}")
+            tasks = [(name, fn) for name, fn in tasks if name in allow]
+            if not tasks:
+                raise RuntimeError("only 过滤后无子任务")
+    
+        synced = 0
+        skipped = 0
+        failed = 0
+        per_task = {name: {"synced": 0, "skipped": 0, "failed": 0, "empty": 0} for name, _fn in tasks}
+    
+        for i, td in enumerate(dates, start=1):
+            init_db()
+            con = connect()
+            try:
+                pending = []
+                for name, fn in tasks:
+                    if not refresh and (_has_rows(con, name, td) or _ops_done(con, td, name)):
+                        per_task[name]["skipped"] += 1
+                        skipped += 1
+                        continue
+                    pending.append((name, fn))
+            finally:
+                con.close()
+    
+            if not pending:
+                print(f"[{i}/{len(dates)}] {td} skip-all", flush=True)
+                continue
+    
+            print(f"[{i}/{len(dates)}] {td} run={','.join(n for n, _ in pending)}", flush=True)
+            for name, fn in pending:
+                try:
+                    result = fn(td)
+                    rows = _result_row_count(result)
+                    if rows > 0 or (name == "keywords" and isinstance(result, dict) and result.get("updated")):
+                        _mark_ops(td, name, "complete", max(rows, 1))
+                        per_task[name]["synced"] += 1
+                        synced += 1
+                    else:
+>                       _mark_ops(td, name, "empty", 0)
+
+market_feature_store/sync/sync_fupanhui_public_assets.py:1357: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+trade_date = '2026-08-11', step = 'dragon_summary', status = 'empty'
+row_count = 0, message = None
+
+    def _mark_ops(trade_date: str, step: str, status: str, row_count: int, message: str | None = None) -> None:
+        init_db()
+        con = connect()
+        try:
+>           con.execute(
+                """
+                INSERT INTO ops_pipeline_run_daily
+                    (trade_date, pipeline, step, status, row_count, message, source, finished_at)
+                VALUES (?,?,?,?,?,?,?,?)
+                ON CONFLICT (trade_date, pipeline, step) DO UPDATE SET
+                    status = excluded.status,
+                    row_count = excluded.row_count,
+                    message = excluded.message,
+                    source = excluded.source,
+                    finished_at = excluded.finished_at
+                """,
+                [
+                    trade_date,
+                    _PIPELINE,
+                    step,
+                    status,
+                    int(row_count),
+                    message,
+                    f"{SOURCE_PREFIX}/{step}",
+                    _now(),
+                ],
+            )
+E           _duckdb.TransactionException: TransactionContext Error: Failed to commit: Could not write file "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/tmp/test_sync_range_aligns_to_mark0/market_feature_store.duckdb.wal": No space left on device
+
+market_feature_store/sync/sync_fupanhui_public_assets.py:1193: TransactionException
+
+During handling of the above exception, another exception occurred:
+
+patched_db = <function _connect_test_db.<locals>.connect at 0x11ddf8c20>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1280815b0>
+
+    def test_sync_range_aligns_to_market_calendar_and_skips_existing(patched_db, monkeypatch):
+        con = patched_db()
+        try:
+            con.executemany(
+                "INSERT INTO fact_market_daily (trade_date, source) VALUES (?, ?)",
+                [("2026-08-11", "test"), ("2026-08-12", "test")],
+            )
+        finally:
+            con.close()
+        _stub_empty_daily_apis(monkeypatch)
+>       first = assets.sync_range("2026-08-11", "2026-08-12", sleep=0)
+
+tests/test_sync_fupanhui_public_assets.py:539: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+market_feature_store/sync/sync_fupanhui_public_assets.py:1361: in sync_range
+    _mark_ops(td, name, "failed", 0, f"{type(exc).__name__}: {exc}")
+market_feature_store/sync/sync_fupanhui_public_assets.py:1190: in _mark_ops
+    init_db()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+con = <_duckdb.DuckDBPyConnection object at 0x11fcf0230>
+
+    def init_db(con=None):
+        own = con is None
+        con = duckdb.connect(str(path)) if own else con
+        try:
+>           con.execute(db.SCHEMA_PATH.read_text(encoding="utf-8"))
+E           _duckdb.TransactionException: TransactionContext Error: Failed to commit: Could not write file "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/tmp/test_sync_range_aligns_to_mark0/market_feature_store.duckdb.wal": No space left on device
+
+tests/test_sync_fupanhui_public_assets.py:25: TransactionException
+
+During handling of the above exception, another exception occurred:
+
+self = <contextlib._GeneratorContextManager object at 0x128080530>
+typ = <class '_duckdb.TransactionException'>
+value = TransactionException('TransactionContext Error: Failed to commit: Could not write file "/Users/a77/.finance-runtime/re...execute-20260921/python/tmp/test_sync_range_aligns_to_mark0/market_feature_store.duckdb.wal": No space left on device')
+traceback = <traceback object at 0x129a6dbc0>
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+                next(self.gen)
+            except StopIteration:
+                return False
+            else:
+                try:
+                    raise RuntimeError("generator didn't stop")
+                finally:
+                    self.gen.close()
+        else:
+            if value is None:
+                # Need to force instantiation so we can reliably
+                # tell if we get the same exception back
+                value = typ()
+            try:
+>               self.gen.throw(value)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:158: OSError
+--------------------------- Captured stdout teardown ---------------------------
+[1/2] 2026-08-12 run=keywords,historical_mapping,leader_height,global_market,dragon,dragon_summary,dragon_seats,regulation,core_stocks,auction,events
+[2/2] 2026-08-11 run=keywords,historical_mapping,leader_height,global_market,dragon,dragon_summary,dragon_seats,regulation,core_stocks,auction,events
+  FAIL global_market: TransactionException: TransactionContext Error: Failed to commit: Cannot open file "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/tmp/test_sync_range_aligns_to_mark0/market_feature_store.duckdb.wal": No space left on device
+______ test_expired_markets_are_dropped_because_upstream_closed_flag_lies ______
+
+self = <contextlib._GeneratorContextManager object at 0x12701e270>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+=============================== warnings summary ===============================
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /Users/a77/fwp-wt-nightly-deploy-closeout-0921/market_feature_store/models/market_stage.py:146: RuntimeWarning: divide by zero encountered in matmul
+    S = Z @ W
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /Users/a77/fwp-wt-nightly-deploy-closeout-0921/market_feature_store/models/market_stage.py:146: RuntimeWarning: overflow encountered in matmul
+    S = Z @ W
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /Users/a77/fwp-wt-nightly-deploy-closeout-0921/market_feature_store/models/market_stage.py:146: RuntimeWarning: invalid value encountered in matmul
+    S = Z @ W
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /Users/a77/fwp-wt-nightly-deploy-closeout-0921/market_feature_store/models/market_stage.py:149: RuntimeWarning: divide by zero encountered in matmul
+    G = Z.T @ ((P - Y) * cw[:, None]) / len(Z) + l2 * np.vstack([W[:-1], np.zeros((1, k))]) / len(Z)
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /Users/a77/fwp-wt-nightly-deploy-closeout-0921/market_feature_store/models/market_stage.py:149: RuntimeWarning: overflow encountered in matmul
+    G = Z.T @ ((P - Y) * cw[:, None]) / len(Z) + l2 * np.vstack([W[:-1], np.zeros((1, k))]) / len(Z)
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /Users/a77/fwp-wt-nightly-deploy-closeout-0921/market_feature_store/models/market_stage.py:149: RuntimeWarning: invalid value encountered in matmul
+    G = Z.T @ ((P - Y) * cw[:, None]) / len(Z) + l2 * np.vstack([W[:-1], np.zeros((1, k))]) / len(Z)
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /Users/a77/fwp-wt-nightly-deploy-closeout-0921/market_feature_store/models/market_stage.py:157: RuntimeWarning: divide by zero encountered in matmul
+    S = Z @ W
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /Users/a77/fwp-wt-nightly-deploy-closeout-0921/market_feature_store/models/market_stage.py:157: RuntimeWarning: overflow encountered in matmul
+    S = Z @ W
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /Users/a77/fwp-wt-nightly-deploy-closeout-0921/market_feature_store/models/market_stage.py:157: RuntimeWarning: invalid value encountered in matmul
+    S = Z @ W
+
+tests/test_pipeline_p0.py::test_mainline_complete_snapshot_is_atomic_and_idempotent
+tests/test_pipeline_p0.py::test_mainline_complete_snapshot_is_atomic_and_idempotent
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[exception]
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[empty_groups]
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[empty_stocks]
+tests/test_pipeline_p0.py::test_mainline_empty_theme_list_is_failed_without_writing
+  /Users/a77/fwp-wt-nightly-deploy-closeout-0921/market_feature_store/sync/sync_fupanhui_mainline_daily.py:66: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+tests/test_pipeline_p0.py::test_mainline_sector_failure_keeps_previous_snapshot[response0]
+tests/test_pipeline_p0.py::test_mainline_sector_failure_keeps_previous_snapshot[response1]
+  /Users/a77/fwp-wt-nightly-deploy-closeout-0921/market_feature_store/sync/sync_fupanhui_mainline_sector_daily.py:121: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/junit.xml -
+=========================== short test summary info ============================
+FAILED tests/test_sync_fupanhui_public_assets.py::test_sync_range_aligns_to_market_calendar_and_skips_existing
+FAILED tests/test_sync_polymarket_macro_odds.py::test_expired_markets_are_dropped_because_upstream_closed_flag_lies
+ERROR tests/test_sync_polymarket_macro_odds.py::test_expired_markets_are_dropped_because_upstream_closed_flag_lies
+ERROR tests/test_sync_polymarket_macro_odds.py::test_is_expired_boundary - OS...
+ERROR tests/test_sync_polymarket_macro_odds.py::test_is_expired_boundary - OS...
+ERROR tests/test_sync_polymarket_macro_odds.py::test_sync_writes_rows_with_snapshot_trade_date
+ERROR tests/test_sync_polymarket_macro_odds.py::test_sync_writes_rows_with_snapshot_trade_date
+ERROR tests/test_sync_polymarket_macro_odds.py::test_sync_defaults_trade_date_to_today_when_omitted
+ERROR tests/test_sync_polymarket_macro_odds.py::test_sync_defaults_trade_date_to_today_when_omitted
+ERROR tests/test_sync_polymarket_macro_odds.py::test_sync_reports_zero_rows_when_nothing_matches
+2 failed, 12454 passed, 85 skipped, 2 xfailed, 17 warnings, 8 errors in 1418.64s (0:23:38)

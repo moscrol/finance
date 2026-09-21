@@ -1,0 +1,17 @@
+
+> market-intelligence-workbench@0.1.0 build /Users/a77/fwp-wt-nightly-deploy-closeout-0921/intelligence/webapp
+> pnpm typecheck && vite build
+
+
+> market-intelligence-workbench@0.1.0 typecheck /Users/a77/fwp-wt-nightly-deploy-closeout-0921/intelligence/webapp
+> tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false
+
+[36mvite v6.3.5 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 1615 modules transformed.
+rendering chunks...
+computing gzip size...
+[2m../api/static/[22m[32mindex.html                 [39m[1m[2m  0.47 kB[22m[1m[22m[2m │ gzip:   0.31 kB[22m
+[2m../api/static/[22m[2massets/[22m[35mindex-D80DtDZY.css  [39m[1m[2m 76.92 kB[22m[1m[22m[2m │ gzip:  15.10 kB[22m
+[2m../api/static/[22m[2massets/[22m[36mindex-DH207EFA.js   [39m[1m[2m411.27 kB[22m[1m[22m[2m │ gzip: 126.23 kB[22m
+[32m✓ built in 950ms[39m
