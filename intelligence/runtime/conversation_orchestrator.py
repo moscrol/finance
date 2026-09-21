@@ -2389,12 +2389,15 @@ class TurnOrchestrator:
                                 "elapsed_ms": self._elapsed_ms(fallback_started),
                             },
                         )
-                if (
-                    decision.question_type == QUESTION_METHODOLOGY
-                    and lane_answer.fallback_reason
-                ):
-                    warning = "方法论回答生成暂时不可用"
-                    lane_warnings.append(warning)
+                # Retrieval fallback does not repair a failed generation attempt.
+                if lane_answer.fallback_reason:
+                    warning = (
+                        "方法论回答生成暂时不可用"
+                        if decision.question_type == QUESTION_METHODOLOGY
+                        else "自然语言生成暂时不可用，本轮正文未经综述"
+                    )
+                    if warning not in lane_warnings:
+                        lane_warnings.append(warning)
                     self.run_store.add_degrade(run_id, warning)
                 self._trace(
                     run_id,
