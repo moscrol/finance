@@ -20,6 +20,10 @@ from intelligence.services.episode_output_substance import (
     required_outputs_without_substance,
 )
 from intelligence.services import knowledge_injection_policy
+from intelligence.services.material_grounding import (
+    ClaimSourceBinding, binding_source_errors, grounding_scope, material_grounding_payload,
+    material_private_tokens, render_material_claims,
+)
 from intelligence.services.judgment_delta import episode_judgment_delta_rule
 from intelligence.services.pricing_split import episode_pricing_split_rule
 from intelligence.services.research_contract import (
@@ -85,6 +89,7 @@ def finish_json_schema() -> dict[str, object]:
                 "enum": ["completed", "partial"],
             },
             "draft": {"type": "string"},
+            "render_from_claims": {"type": "boolean"},
             "gaps": {
                 "type": "array",
                 "items": {"type": "string"},
@@ -113,6 +118,25 @@ def finish_json_schema() -> dict[str, object]:
                             ],
                         },
                         "gap": {"type": "string"},
+                        "claims": {
+                            "type": "array",
+                            "items": {
+                                "type": "object", "additionalProperties": False,
+                                "properties": {
+                                    "text": {"type": "string"},
+                                    "kind": {"type": "string", "enum": ["material_fact", "reasoning", "premise_declaration", "historical_assistant_statement"]},
+                                    "material_anchors": {"type": "array", "items": {
+                                        "type": "object", "additionalProperties": False,
+                                        "properties": {"material_id": {"type": "string"}, "quote": {"type": "string"}},
+                                        "required": ["material_id", "quote"],
+                                    }},
+                                    "old_answer_coordinate": {"type": "string"},
+                                    "historical_quote": {"type": "string"},
+                                    "basis": {"type": "string"},
+                                },
+                                "required": ["text", "kind"],
+                            },
+                        },
                     },
                     "required": [
                         "output_id",
@@ -314,6 +338,8 @@ def build_episode_instructions(
         "权限、预算或继续派生分支。计划修订必须保持原任务且 revision 严格递增。\n"
         "\n"
         "【工具与观察】\n"
+        "若本轮提供 material_grounding，以下工具证据要求按其 data_scope 条件化："
+        "材料事实在 binding.claims 绑定材料坐标，历史纠错绑定旧答坐标；其它事实仍绑定工具证据。\n"
         "每次看到工具原始观察后，自主决定继续查、改写查询或停止。只能调用本轮提供的"
         "只读工具，不能臆造工具结果。\n"
         "事实判断必须绑定工具观察里的证据序号 E1、E2…；"
@@ -354,6 +380,9 @@ def build_episode_instructions(
         "或风险点写成列表项；核心判断用 **加粗** 标出。\n"
         "\n"
         "【终局 JSON】\n"
+        "若本轮 material_grounding 提供 finish_format，使用其中 wire_template 的字段骨架："
+        "保留顶层 render_from_claims=true 和 draft=空字符串，正文只写 binding.claims。"
+        "basis 逐项原样保留，不能把所有输出改成 user_premise。未提供 finish_format 时使用下面的旧格式。\n"
         "只输出一个 JSON 对象：\n"
         '{"status":"completed|partial","draft":"自然语言回答",'
         '"gaps":["..."],"bindings":[{"output_id":"...",'
@@ -412,6 +441,9 @@ def build_episode_input(
 
     if material_question_outputs(context.contract):
         payload["material_delivery"] = material_delivery_payload(context.contract)
+    grounding = material_grounding_payload(context.contract)
+    if grounding is not None:
+        payload["material_grounding"] = grounding
     # 市场态题型（market_watch）不注入：三轮消融实测该题型上判读基线稳定负贡献
     # （主线题七读数全 ≤0），与 Engine B 合成侧共用 knowledge_injection_policy 门控。
     baseline = knowledge_injection_policy.reading_guidance_for(task_frame.question_type)
@@ -527,6 +559,9 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
     "hashes_not_list": RejectionKind.FORMAT,
     "unknown_evidence_ref": RejectionKind.FORMAT,
     "basis_mismatch": RejectionKind.FORMAT,
+    "bad_claim_binding": RejectionKind.FORMAT,
+    "private_material_reference": RejectionKind.FORMAT,
+    "material_source_violation": RejectionKind.INTEGRITY,
     "duplicate_binding": RejectionKind.FORMAT,
     # 内容不足 → 降级保留草稿
     "empty_draft": RejectionKind.SUBSTANCE,
@@ -839,7 +874,18 @@ def validate_episode_finish(
     draft = decoded.get("draft")
     if not isinstance(draft, str):
         raise _reject("draft_not_string", "finish draft must be a string")
-    draft = _normalize_natural_language_layout(draft)
+    render_from_claims = decoded.get("render_from_claims", False)
+    if not isinstance(render_from_claims, bool):
+        raise _reject("bad_claim_binding", "render_from_claims must be a boolean")
+    if render_from_claims:
+        if draft:
+            raise _reject("bad_claim_binding", "claim rendering cannot include a second draft")
+        try:
+            draft = render_material_claims(context.contract, decoded.get("bindings"))
+        except ValueError as exc:
+            raise _reject("bad_claim_binding", str(exc)) from exc
+    else:
+        draft = _normalize_natural_language_layout(draft)
     if status == "completed" and not draft.strip():
         raise _reject("empty_draft", "completed finish draft must be non-empty")
     forward_hits = forward_direction_call_hits(
@@ -860,18 +906,39 @@ def validate_episode_finish(
         raise _reject("bindings_not_list", "finish bindings must be a list")
     bindings: list[OutputEvidenceBinding] = []
     allowed_outputs = {item.output_id for item in context.contract.required_outputs}
+    # #819 恢复的旧工具输入（prior_evidence）已按原件校验并被 _seed_prior_evidence 注入证据池；
+    # 冻结范围检查放行它们的 hash，其余证据引用照旧受 P6 材料范围规则约束。
+    prior_snapshot = getattr(context, "prior_evidence", None)
+    frozen_prior_hashes = (
+        frozenset(item.content_hash for _, item in prior_snapshot.entries)
+        if prior_snapshot is not None
+        else frozenset()
+    )
     for raw in raw_bindings:
         if not isinstance(raw, Mapping):
             raise _reject("binding_not_object", "each finish binding must be an object")
         raw_hashes = raw.get("evidence_hashes", [])
         if not isinstance(raw_hashes, list):
             raise _reject("hashes_not_list", "binding evidence_hashes must be a list")
+        raw_claims = raw.get("claims", [])
+        if not isinstance(raw_claims, list):
+            raise _reject("bad_claim_binding", "binding claims must be a list")
+        try:
+            claims = tuple(ClaimSourceBinding.from_dict(item) for item in raw_claims)
+        except ValueError as exc:
+            raise _reject("bad_claim_binding", str(exc)) from exc
         binding = OutputEvidenceBinding(
             output_id=str(raw.get("output_id") or ""),
             evidence_hashes=resolve_evidence_refs(raw_hashes, evidence),
             gap=str(raw.get("gap") or ""),
             basis=str(raw.get("basis") or "evidence"),
+            claims=claims,
         )
+        source_errors = binding_source_errors(
+            context.contract, binding, draft, evidence, frozen_prior_hashes=frozen_prior_hashes
+        )
+        if source_errors:
+            raise _reject("material_source_violation", "; ".join(source_errors))
         if binding.output_id not in allowed_outputs:
             if binding.output_id in TRACK_CONTRACT_OUTPUT_ID_SET:
                 # 跟踪题的表达槽（四态 / TTL / 下期关注）由 track_contract 以合成 id 并进
@@ -960,6 +1027,12 @@ def validate_episode_finish(
                 + "；派生数必须能指回它算的那几条证据",
             )
 
+    private_tokens = material_private_tokens(context.contract)
+    if any(token in text.casefold() for text in (draft, *gaps, *(b.gap for b in bindings)) for token in private_tokens):
+        raise _reject(
+            "private_material_reference",
+            "材料ID与消息坐标仅用于私有绑定，不可写进 claims.text、draft 或 gap；公开正文改用‘用户材料’等自然语言，保留原引用绑定。",
+        )
     binding_map = {item.output_id: item for item in bindings}
     empty_outputs = tuple(
         output_id
@@ -1030,7 +1103,9 @@ def validate_episode_finish(
             if binding.gap and not binding.evidence_hashes:
                 missing.append(required.output_id)
                 continue
-            if required.grounding_mode == "evidence" and not binding.evidence_hashes:
+            if required.grounding_mode == "evidence" and not binding.evidence_hashes and not (
+                grounding_scope(context.contract) == "material_only" and binding.claims
+            ):
                 missing.append(required.output_id)
         if missing:
             raise _reject(
@@ -1091,14 +1166,7 @@ def expand_comparison_set_bindings(
             siblings = cohorts.get(key, ())
             if len(siblings) >= 2:
                 hashes.extend(siblings)
-        expanded.append(
-            OutputEvidenceBinding(
-                output_id=binding.output_id,
-                evidence_hashes=tuple(dict.fromkeys(hashes)),
-                gap=binding.gap,
-                basis=binding.basis,
-            )
-        )
+        expanded.append(replace(binding, evidence_hashes=tuple(dict.fromkeys(hashes))))
     return tuple(expanded)
 
 
@@ -1137,14 +1205,7 @@ def expand_episode_snapshot_bindings(
         for tool, tool_hashes in snapshot_hashes.items():
             if tool in selected_snapshot_tools:
                 hashes.extend(tool_hashes)
-        expanded.append(
-            OutputEvidenceBinding(
-                output_id=binding.output_id,
-                evidence_hashes=tuple(dict.fromkeys(hashes)),
-                gap=binding.gap,
-                basis=binding.basis,
-            )
-        )
+        expanded.append(replace(binding, evidence_hashes=tuple(dict.fromkeys(hashes))))
     return expand_comparison_set_bindings(
         bindings=tuple(expanded),
         evidence=evidence,

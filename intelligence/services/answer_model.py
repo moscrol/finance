@@ -518,6 +518,9 @@ class GroundingJudgeReport:
     passed: bool
     rejected_sentence_indexes: tuple[int, ...] = ()
     issues: tuple[str, ...] = ()
+    material_claim_checks: tuple[dict[str, object], ...] = ()
+    material_output_checks: tuple[dict[str, object], ...] = ()
+    material_nonfactual_checks: tuple[dict[str, object], ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -526,6 +529,9 @@ class GroundingJudgeReport:
                 self.rejected_sentence_indexes
             ),
             "issues": list(self.issues),
+            **({"material_claim_checks": [dict(row) for row in self.material_claim_checks]} if self.material_claim_checks else {}),
+            **({"material_output_checks": [dict(row) for row in self.material_output_checks]} if self.material_output_checks else {}),
+            **({"material_nonfactual_checks": [dict(row) for row in self.material_nonfactual_checks]} if self.material_nonfactual_checks else {}),
         }
 
 

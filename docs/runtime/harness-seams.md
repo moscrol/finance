@@ -138,7 +138,7 @@ def downgrade_unreachable(self, goal: 'RepairGoal', *, contract: 'ResearchTaskCo
 ## `repair_goal_message`
 
 ```python
-def repair_goal_message(self, goal: 'RepairGoal', *, tools_open: 'bool') -> 'str'
+def repair_goal_message(self, goal: 'RepairGoal', *, tools_open: 'bool', finish_format: 'Mapping[str, object] | None' = None) -> 'str'
 ```
 
 修复轮开场给模型的那段话（``REPAIR_GOAL`` 正文，user 角色）。

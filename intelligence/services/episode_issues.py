@@ -31,6 +31,7 @@ class IssueCode(str, Enum):
     UNKNOWN_OUTPUT_BINDING = "unknown_output_binding"
     MISSING_REQUIRED_OUTPUT = "missing_required_output"
     GROUNDING_BASIS_MISMATCH = "grounding_basis_mismatch"
+    MATERIAL_SOURCE_VIOLATION = "material_source_violation"
     REQUIRED_OUTPUT_GAP = "required_output_gap"
     UNKNOWN_EVIDENCE_HASH = "unknown_evidence_hash"
     AMBIGUOUS_EVIDENCE_HASH = "ambiguous_evidence_hash"
@@ -73,6 +74,7 @@ RELEASE_POLICY: dict[IssueCode, ReleaseAction] = {
     IssueCode.UNKNOWN_OUTPUT_BINDING: ReleaseAction.BLOCK,
     IssueCode.MISSING_REQUIRED_OUTPUT: ReleaseAction.BLOCK,
     IssueCode.GROUNDING_BASIS_MISMATCH: ReleaseAction.BLOCK,
+    IssueCode.MATERIAL_SOURCE_VIOLATION: ReleaseAction.BLOCK,
     IssueCode.REQUIRED_OUTPUT_GAP: ReleaseAction.PARTIAL_OK,
     IssueCode.UNKNOWN_EVIDENCE_HASH: ReleaseAction.BLOCK,
     IssueCode.AMBIGUOUS_EVIDENCE_HASH: ReleaseAction.BLOCK,

@@ -20,6 +20,7 @@ from intelligence.services.route_table import owner_skills_from_route_table
 from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRequirement
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.material_contract import MaterialContract
+from intelligence.services.material_grounding import MaterialGrounding
 from intelligence.services.material_permissions import restrict_read_capabilities
 from intelligence.services.historical_research.intent import HistoryIntent
 from intelligence.services.user_task import requests_previous_answer_review
@@ -868,8 +869,13 @@ class ResearchTaskContract:
     contract_version: str = "1"
     task_frame_hash: str = ""
     material_contract: MaterialContract | None = None
+    material_grounding: MaterialGrounding | None = None
 
     def __post_init__(self) -> None:
+        if isinstance(self.material_grounding, dict):
+            object.__setattr__(self, "material_grounding", MaterialGrounding.from_dict(self.material_grounding))
+        if self.material_grounding is not None and not isinstance(self.material_grounding, MaterialGrounding):
+            raise ResearchContractError("material_grounding 必须是 MaterialGrounding")
         if isinstance(self.material_contract, dict):
             object.__setattr__(self, "material_contract", MaterialContract.from_dict(self.material_contract))
         if self.material_contract is not None and not isinstance(self.material_contract, MaterialContract):
@@ -951,6 +957,7 @@ class ResearchTaskContract:
             "contract_version": self.contract_version,
             "task_frame_hash": self.task_frame_hash,
             **({"material_contract": self.material_contract.to_dict()} if self.material_contract is not None else {}),
+            **({"material_grounding": self.material_grounding.to_dict()} if self.material_grounding is not None else {}),
         }
 
     @classmethod
@@ -1029,6 +1036,7 @@ class ResearchTaskContract:
             contract_version=str(value.get("contract_version") or "1"),
             task_frame_hash=str(value.get("task_frame_hash") or ""),
             material_contract=(MaterialContract.from_dict(value["material_contract"]) if "material_contract" in value else None),
+            material_grounding=(MaterialGrounding.from_dict(value["material_grounding"]) if "material_grounding" in value else None),
         )
 
 
