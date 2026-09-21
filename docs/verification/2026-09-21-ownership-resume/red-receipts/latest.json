@@ -1,0 +1,32 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+  "revision": "10f79d47e27739bd632ea13d69fd71fa77f395c7",
+  "branch": "fix/test-gate-receipt-identity-0921",
+  "dirty": true,
+  "dirty_paths": [
+    "tests/test_main_gate_receipt.py"
+  ],
+  "worktree_dirty_total": 1,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_main_gate_receipt.py",
+  "counts": {
+    "passed": 28,
+    "failed": 7,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [
+    "tests/test_main_gate_receipt.py::test_allow_dirty_does_not_bypass_current_tree_identity",
+    "tests/test_main_gate_receipt.py::test_baseline_comparison_does_not_bypass_current_tree_identity",
+    "tests/test_main_gate_receipt.py::test_readback_refuses_invalid_or_untrustworthy_receipt[changes3]",
+    "tests/test_main_gate_receipt.py::test_readback_refuses_invalid_or_untrustworthy_receipt[changes4]",
+    "tests/test_main_gate_receipt.py::test_readback_refuses_invalid_or_untrustworthy_receipt[changes5]",
+    "tests/test_main_gate_receipt.py::test_readback_refuses_invalid_or_untrustworthy_receipt[changes6]",
+    "tests/test_main_gate_receipt.py::test_readback_requires_tree_even_without_a_new_pytest_process"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-21T02:24:46+00:00"
+}

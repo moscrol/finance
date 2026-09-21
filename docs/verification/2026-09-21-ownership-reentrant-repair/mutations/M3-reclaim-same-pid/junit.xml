@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="6" skipped="0" tests="15" time="5.474" timestamp="2026-09-21T13:28:04.748492+08:00" hostname="77deMacBook-Air.local"><testcase classname="tests.test_main_gate_receipt" name="test_inprocess_nested_pytest_keeps_outer_receipt[run]" time="0.423"><failure message="AssertionError: assert 'test_inner.py' == 'test_sample.py'&#10;  &#10;  - test_sample.py&#10;  + test_inner.py">repo = PosixPath('/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k0/repo')
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k0')
+mode = 'run'
+
+    @pytest.mark.parametrize("mode", [
+        "run", "run-same-target", "collect-same-target", "inner-failure", "outer-failure",
+    ])
+    def test_inprocess_nested_pytest_keeps_outer_receipt(repo, tmp_path, mode):
+        # Same-target execution/collection also prevent a target-string-only workaround.
+        (repo / "test_inner.py").write_text(
+            "def test_inner_one():\n    assert True\n\n\n"
+            f"def test_inner_two():\n    assert {mode != 'inner-failure'}\n"
+        )
+        inner_args = {
+            "collect-same-target": ["--collect-only", "test_sample.py"],
+            "run-same-target": ["test_sample.py", "-k", "leaf"],
+        }.get(mode, ["test_inner.py"])
+        (repo / "test_sample.py").write_text(f'''import pytest
+    
+    
+    def test_outer():
+        result = pytest.main(["-q", "-p", "no:cacheprovider", *{inner_args!r}])
+        assert result == {1 if mode == "inner-failure" else 0}
+        assert {mode != "outer-failure"}
+    ''' + ("\n\ndef test_leaf():\n    assert True\n" if mode == "run-same-target" else ""))
+        git(repo, "add", "--", "test_sample.py", "test_inner.py")
+        git(repo, "commit", "-m", "inprocess nesting fixture")
+        result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py")
+        failed = int(mode == "outer-failure")
+        assert result.returncode == failed, result.stdout + result.stderr
+        own = list((tmp_path / "receipts").glob("gate-*/pytest.json"))
+        assert len(own) == 1
+        data = json.loads(own[0].read_text())
+&gt;       assert data["target"] == "test_sample.py"
+E       AssertionError: assert 'test_inner.py' == 'test_sample.py'
+E         
+E         - test_sample.py
+E         + test_inner.py
+
+tests/test_main_gate_receipt.py:230: AssertionError</failure></testcase><testcase classname="tests.test_main_gate_receipt" name="test_inprocess_nested_pytest_keeps_outer_receipt[run-same-target]" time="0.447"><failure message="AssertionError: assert {'error': 0, ... 'skipped': 0} == {'error': 0, ... 'skipped': 0}&#10;  &#10;  Omitting 3 identical items, use -vv to show&#10;  Differing items:&#10;  {'passed': 1} != {'passed': 2}&#10;  Use -v to get more diff">repo = PosixPath('/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k1/repo')
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k1')
+mode = 'run-same-target'
+
+    @pytest.mark.parametrize("mode", [
+        "run", "run-same-target", "collect-same-target", "inner-failure", "outer-failure",
+    ])
+    def test_inprocess_nested_pytest_keeps_outer_receipt(repo, tmp_path, mode):
+        # Same-target execution/collection also prevent a target-string-only workaround.
+        (repo / "test_inner.py").write_text(
+            "def test_inner_one():\n    assert True\n\n\n"
+            f"def test_inner_two():\n    assert {mode != 'inner-failure'}\n"
+        )
+        inner_args = {
+            "collect-same-target": ["--collect-only", "test_sample.py"],
+            "run-same-target": ["test_sample.py", "-k", "leaf"],
+        }.get(mode, ["test_inner.py"])
+        (repo / "test_sample.py").write_text(f'''import pytest
+    
+    
+    def test_outer():
+        result = pytest.main(["-q", "-p", "no:cacheprovider", *{inner_args!r}])
+        assert result == {1 if mode == "inner-failure" else 0}
+        assert {mode != "outer-failure"}
+    ''' + ("\n\ndef test_leaf():\n    assert True\n" if mode == "run-same-target" else ""))
+        git(repo, "add", "--", "test_sample.py", "test_inner.py")
+        git(repo, "commit", "-m", "inprocess nesting fixture")
+        result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py")
+        failed = int(mode == "outer-failure")
+        assert result.returncode == failed, result.stdout + result.stderr
+        own = list((tmp_path / "receipts").glob("gate-*/pytest.json"))
+        assert len(own) == 1
+        data = json.loads(own[0].read_text())
+        assert data["target"] == "test_sample.py"
+        passed = 1 - failed + int(mode == "run-same-target")
+&gt;       assert data["counts"] == {"passed": passed, "failed": failed, "error": 0, "skipped": 0}
+E       AssertionError: assert {'error': 0, ... 'skipped': 0} == {'error': 0, ... 'skipped': 0}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'passed': 1} != {'passed': 2}
+E         Use -v to get more diff
+
+tests/test_main_gate_receipt.py:232: AssertionError</failure></testcase><testcase classname="tests.test_main_gate_receipt" name="test_inprocess_nested_pytest_keeps_outer_receipt[collect-same-target]" time="0.434"><failure message="AssertionError: == gate @ b9ef0a050a5b tree=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k2/repo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k2/receipts/gate-ZjKxz5LT/pytest.json&#10;  == ruff check .&#10;  All checks passed!&#10;  == pytest -q -p no:cacheprovider test_sample.py&#10;  .                                                                        [100%]⚠ 收据未写出（不影响测试结论）: [Errno 17] File exists: '/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k2/receipts/gate-ZjKxz5LT/pytest.json'&#10;  &#10;  1 passed in 0.12s&#10;  gate receipt refused: zero executed tests&#10;  &#10;assert 4 == 0&#10; +  where 4 = CompletedProcess(args=['bash', '/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixt...t_k2/receipts/gate-ZjKxz5LT/pytest.json'\n\n1 passed in 0.12s\n&quot;, stderr='gate receipt refused: zero executed tests\n').returncode">repo = PosixPath('/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k2/repo')
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k2')
+mode = 'collect-same-target'
+
+    @pytest.mark.parametrize("mode", [
+        "run", "run-same-target", "collect-same-target", "inner-failure", "outer-failure",
+    ])
+    def test_inprocess_nested_pytest_keeps_outer_receipt(repo, tmp_path, mode):
+        # Same-target execution/collection also prevent a target-string-only workaround.
+        (repo / "test_inner.py").write_text(
+            "def test_inner_one():\n    assert True\n\n\n"
+            f"def test_inner_two():\n    assert {mode != 'inner-failure'}\n"
+        )
+        inner_args = {
+            "collect-same-target": ["--collect-only", "test_sample.py"],
+            "run-same-target": ["test_sample.py", "-k", "leaf"],
+        }.get(mode, ["test_inner.py"])
+        (repo / "test_sample.py").write_text(f'''import pytest
+    
+    
+    def test_outer():
+        result = pytest.main(["-q", "-p", "no:cacheprovider", *{inner_args!r}])
+        assert result == {1 if mode == "inner-failure" else 0}
+        assert {mode != "outer-failure"}
+    ''' + ("\n\ndef test_leaf():\n    assert True\n" if mode == "run-same-target" else ""))
+        git(repo, "add", "--", "test_sample.py", "test_inner.py")
+        git(repo, "commit", "-m", "inprocess nesting fixture")
+        result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py")
+        failed = int(mode == "outer-failure")
+&gt;       assert result.returncode == failed, result.stdout + result.stderr
+E       AssertionError: == gate @ b9ef0a050a5b tree=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k2/repo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k2/receipts/gate-ZjKxz5LT/pytest.json
+E         == ruff check .
+E         All checks passed!
+E         == pytest -q -p no:cacheprovider test_sample.py
+E         .                                                                        [100%]⚠ 收据未写出（不影响测试结论）: [Errno 17] File exists: '/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k2/receipts/gate-ZjKxz5LT/pytest.json'
+E         
+E         1 passed in 0.12s
+E         gate receipt refused: zero executed tests
+E         
+E       assert 4 == 0
+E        +  where 4 = CompletedProcess(args=['bash', '/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixt...t_k2/receipts/gate-ZjKxz5LT/pytest.json'\n\n1 passed in 0.12s\n", stderr='gate receipt refused: zero executed tests\n').returncode
+
+tests/test_main_gate_receipt.py:226: AssertionError</failure></testcase><testcase classname="tests.test_main_gate_receipt" name="test_inprocess_nested_pytest_keeps_outer_receipt[inner-failure]" time="0.439"><failure message="AssertionError: == gate @ 812d41ec55de tree=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k3/repo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k3/receipts/gate-HYnsfGUX/pytest.json&#10;  == ruff check .&#10;  All checks passed!&#10;  == pytest -q -p no:cacheprovider test_sample.py&#10;  .                                                                        [100%]⚠ 收据未写出（不影响测试结论）: [Errno 17] File exists: '/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k3/receipts/gate-HYnsfGUX/pytest.json'&#10;  &#10;  1 passed in 0.12s&#10;  gate receipt refused: receipt exit_status does not match pytest process&#10;  &#10;assert 4 == 0&#10; +  where 4 = CompletedProcess(args=['bash', '/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixt...test.json'\n\n1 passed in 0.12s\n&quot;, stderr='gate receipt refused: receipt exit_status does not match pytest process\n').returncode">repo = PosixPath('/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k3/repo')
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k3')
+mode = 'inner-failure'
+
+    @pytest.mark.parametrize("mode", [
+        "run", "run-same-target", "collect-same-target", "inner-failure", "outer-failure",
+    ])
+    def test_inprocess_nested_pytest_keeps_outer_receipt(repo, tmp_path, mode):
+        # Same-target execution/collection also prevent a target-string-only workaround.
+        (repo / "test_inner.py").write_text(
+            "def test_inner_one():\n    assert True\n\n\n"
+            f"def test_inner_two():\n    assert {mode != 'inner-failure'}\n"
+        )
+        inner_args = {
+            "collect-same-target": ["--collect-only", "test_sample.py"],
+            "run-same-target": ["test_sample.py", "-k", "leaf"],
+        }.get(mode, ["test_inner.py"])
+        (repo / "test_sample.py").write_text(f'''import pytest
+    
+    
+    def test_outer():
+        result = pytest.main(["-q", "-p", "no:cacheprovider", *{inner_args!r}])
+        assert result == {1 if mode == "inner-failure" else 0}
+        assert {mode != "outer-failure"}
+    ''' + ("\n\ndef test_leaf():\n    assert True\n" if mode == "run-same-target" else ""))
+        git(repo, "add", "--", "test_sample.py", "test_inner.py")
+        git(repo, "commit", "-m", "inprocess nesting fixture")
+        result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py")
+        failed = int(mode == "outer-failure")
+&gt;       assert result.returncode == failed, result.stdout + result.stderr
+E       AssertionError: == gate @ 812d41ec55de tree=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k3/repo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k3/receipts/gate-HYnsfGUX/pytest.json
+E         == ruff check .
+E         All checks passed!
+E         == pytest -q -p no:cacheprovider test_sample.py
+E         .                                                                        [100%]⚠ 收据未写出（不影响测试结论）: [Errno 17] File exists: '/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k3/receipts/gate-HYnsfGUX/pytest.json'
+E         
+E         1 passed in 0.12s
+E         gate receipt refused: receipt exit_status does not match pytest process
+E         
+E       assert 4 == 0
+E        +  where 4 = CompletedProcess(args=['bash', '/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixt...test.json'\n\n1 passed in 0.12s\n", stderr='gate receipt refused: receipt exit_status does not match pytest process\n').returncode
+
+tests/test_main_gate_receipt.py:226: AssertionError</failure></testcase><testcase classname="tests.test_main_gate_receipt" name="test_inprocess_nested_pytest_keeps_outer_receipt[outer-failure]" time="0.438"><failure message="AssertionError: == gate @ fe5d5db5d76c tree=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k4/repo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k4/receipts/gate-NWMgTRWk/pytest.json&#10;  == ruff check .&#10;  All checks passed!&#10;  == pytest -q -p no:cacheprovider test_sample.py&#10;  &#10;      def test_outer():&#10;          result = pytest.main([&quot;-q&quot;, &quot;-p&quot;, &quot;no:cacheprovider&quot;, *['test_inner.py']])&#10;          assert result == 0&#10;  &gt;       assert False&#10;  E       assert False&#10;  &#10;  test_sample.py:7: AssertionError&#10;  ----------------------------- Captured stdout call -----------------------------&#10;  ..                                                                       [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k4/receipts/gate-NWMgTRWk/pytest.json&#10;  &#10;  2 passed in 0.05s&#10;  =========================== short test summary info ============================&#10;  FAILED test_sample.py::test_outer - assert False&#10;  1 failed in 0.12s&#10;  gate receipt refused: receipt exit_status does not match pytest process&#10;  &#10;assert 4 == 1&#10; +  where 4 = CompletedProcess(args=['bash', '/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixt...assert False\n1 failed in 0.12s\n', stderr='gate receipt refused: receipt exit_status does not match pytest process\n').returncode">repo = PosixPath('/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k4/repo')
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k4')
+mode = 'outer-failure'
+
+    @pytest.mark.parametrize("mode", [
+        "run", "run-same-target", "collect-same-target", "inner-failure", "outer-failure",
+    ])
+    def test_inprocess_nested_pytest_keeps_outer_receipt(repo, tmp_path, mode):
+        # Same-target execution/collection also prevent a target-string-only workaround.
+        (repo / "test_inner.py").write_text(
+            "def test_inner_one():\n    assert True\n\n\n"
+            f"def test_inner_two():\n    assert {mode != 'inner-failure'}\n"
+        )
+        inner_args = {
+            "collect-same-target": ["--collect-only", "test_sample.py"],
+            "run-same-target": ["test_sample.py", "-k", "leaf"],
+        }.get(mode, ["test_inner.py"])
+        (repo / "test_sample.py").write_text(f'''import pytest
+    
+    
+    def test_outer():
+        result = pytest.main(["-q", "-p", "no:cacheprovider", *{inner_args!r}])
+        assert result == {1 if mode == "inner-failure" else 0}
+        assert {mode != "outer-failure"}
+    ''' + ("\n\ndef test_leaf():\n    assert True\n" if mode == "run-same-target" else ""))
+        git(repo, "add", "--", "test_sample.py", "test_inner.py")
+        git(repo, "commit", "-m", "inprocess nesting fixture")
+        result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py")
+        failed = int(mode == "outer-failure")
+&gt;       assert result.returncode == failed, result.stdout + result.stderr
+E       AssertionError: == gate @ fe5d5db5d76c tree=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k4/repo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k4/receipts/gate-NWMgTRWk/pytest.json
+E         == ruff check .
+E         All checks passed!
+E         == pytest -q -p no:cacheprovider test_sample.py
+E         
+E             def test_outer():
+E                 result = pytest.main(["-q", "-p", "no:cacheprovider", *['test_inner.py']])
+E                 assert result == 0
+E         &gt;       assert False
+E         E       assert False
+E         
+E         test_sample.py:7: AssertionError
+E         ----------------------------- Captured stdout call -----------------------------
+E         ..                                                                       [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inprocess_nested_pytest_k4/receipts/gate-NWMgTRWk/pytest.json
+E         
+E         2 passed in 0.05s
+E         =========================== short test summary info ============================
+E         FAILED test_sample.py::test_outer - assert False
+E         1 failed in 0.12s
+E         gate receipt refused: receipt exit_status does not match pytest process
+E         
+E       assert 4 == 1
+E        +  where 4 = CompletedProcess(args=['bash', '/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixt...assert False\n1 failed in 0.12s\n', stderr='gate receipt refused: receipt exit_status does not match pytest process\n').returncode
+
+tests/test_main_gate_receipt.py:226: AssertionError</failure></testcase><testcase classname="tests.test_main_gate_receipt" name="test_sequential_inprocess_runs_release_receipt_owner[None-success]" time="0.293" /><testcase classname="tests.test_main_gate_receipt" name="test_sequential_inprocess_runs_release_receipt_owner[None-configure-error]" time="0.236" /><testcase classname="tests.test_main_gate_receipt" name="test_sequential_inprocess_runs_release_receipt_owner[-success]" time="0.290" /><testcase classname="tests.test_main_gate_receipt" name="test_sequential_inprocess_runs_release_receipt_owner[-configure-error]" time="0.236" /><testcase classname="tests.test_main_gate_receipt" name="test_inherited_pid_alone_cannot_grant_or_release_ownership[self]" time="0.226"><failure message="AssertionError: assert not True&#10; +  where True = exists()&#10; +    where exists = PosixPath('/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inherited_pid_alone_canno0/inherited.json').exists">repo = PosixPath('/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inherited_pid_alone_canno0/repo')
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inherited_pid_alone_canno0')
+inherited = 'self'
+
+    @pytest.mark.parametrize("inherited", ["self", "foreign"])
+    def test_inherited_pid_alone_cannot_grant_or_release_ownership(repo, tmp_path, inherited):
+        output = tmp_path / "inherited.json"
+        runner = '''import os
+    import sys
+    
+    import pytest
+    
+    owner = str(os.getpid()) if sys.argv[1] == "self" else "foreign"
+    os.environ["FWP_TEST_RECEIPT_OWNER_PID"] = owner
+    assert pytest.main(["-q", "-p", "no:cacheprovider", "test_sample.py"]) == 0
+    assert os.environ["FWP_TEST_RECEIPT_OWNER_PID"] == owner
+    '''
+        result = subprocess.run([sys.executable, "-c", runner, inherited], cwd=repo,
+                                env=gate_env(tmp_path, FWP_TEST_RECEIPT_PATH=str(output)),
+                                capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stdout + result.stderr
+&gt;       assert not output.exists()
+E       AssertionError: assert not True
+E        +  where True = exists()
+E        +    where exists = PosixPath('/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp/test_inherited_pid_alone_canno0/inherited.json').exists
+
+tests/test_main_gate_receipt.py:304: AssertionError</failure></testcase><testcase classname="tests.test_main_gate_receipt" name="test_inherited_pid_alone_cannot_grant_or_release_ownership[foreign]" time="0.174" /><testcase classname="tests.test_main_gate_receipt" name="test_invocation_cannot_switch_its_claimed_receipt_path" time="0.291" /><testcase classname="tests.test_main_gate_receipt" name="test_nested_execution_preserves_outer_ownership[subprocess]" time="0.475" /><testcase classname="tests.test_main_gate_receipt" name="test_nested_execution_preserves_outer_ownership[shell-gate]" time="0.635" /><testcase classname="tests.test_main_gate_receipt" name="test_parallel_gates_keep_separate_receipts" time="0.387" /></testsuite></testsuites>

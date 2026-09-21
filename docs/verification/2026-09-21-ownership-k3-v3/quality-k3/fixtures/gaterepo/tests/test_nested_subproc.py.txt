@@ -1,0 +1,11 @@
+import os
+import subprocess
+import sys
+
+
+def test_nested_subprocess_pytest():
+    cp = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests_inner/"],
+        capture_output=True, text=True, env=dict(os.environ), timeout=100,
+    )
+    assert cp.returncode == 0, cp.stdout + cp.stderr

@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "bash_29",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "B4 rc=0\nreceipt: /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-IvvrbRD2/pytest.json\ntarget= tests_inner/\ncounts= {'passed': 2, 'failed': 0, 'error': 0, 'skipped': 0}\nexit_status= 0\n1\n.                                                                        [100%]⚠ 收据未写出（不影响测试结论）: [Errno 17] File exists: '/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-IvvrbRD2/pytest.json'\n\n1 passed in 0.41s\n== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-IvvrbRD2/pytest.json\n   revision=756868a9b140 dirty=False target=tests_inner/\n   passed=2 failed=0 error=0 skipped=0\n"
+      }
+    ]
+  },
+  "isError": false
+}

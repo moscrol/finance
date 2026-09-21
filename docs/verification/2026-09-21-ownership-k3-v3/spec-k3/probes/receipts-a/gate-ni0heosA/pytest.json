@@ -1,0 +1,24 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "e3b0c44298fc1c14",
+  "tree": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/repo-a",
+  "revision": "b8ed30c638eaf09f39bac8a7c798c85f10ec44e4",
+  "branch": "main",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "test_pass.py test_fail.py",
+  "counts": {
+    "passed": 1,
+    "failed": 1,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [
+    "test_fail.py::test_bad"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-21T04:06:39+00:00"
+}

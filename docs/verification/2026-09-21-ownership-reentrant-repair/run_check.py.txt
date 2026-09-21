@@ -1,0 +1,51 @@
+"""Finite offline command recorder: separate original logs and exact source identity.
+
+A receipt from a dirty iteration is only diagnostic; clean source runs carry the
+actual tree/revision. No command retry, no model/production calls, no latest proof.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path.home() / "fwp-wt-test-gate-receipt-identity-0921"
+name = sys.argv[1]
+command = sys.argv[2:]
+assert name and "/" not in name and command
+out = ROOT / name
+os.umask(0o022)
+out.mkdir(exist_ok=False)
+for folder in ("tmp", "receipts", "ruff-cache"):
+    (out / folder).mkdir()
+
+def identity():
+    def git(*args):
+        return subprocess.check_output(["git", "-C", str(TREE), *args], text=True, timeout=20).strip()
+    return {"tree": str(TREE), "revision": git("rev-parse", "HEAD"),
+            "status": git("status", "--porcelain=v1"),
+            "hashes": {p: hashlib.sha256((TREE / p).read_bytes()).hexdigest() for p in
+                       ("conftest.py", "scripts/run_main_gate.sh", "scripts/main_gate_receipt.py", "tests/test_main_gate_receipt.py")}}
+
+env = {"HOME": str(Path.home()), "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+       "LANG": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1", "TMPDIR": str(out / "tmp"),
+       "FWP_TEST_RECEIPT_DIR": str(out / "receipts"), "FWP_TEST_RECEIPT": "1",
+       "RUFF_CACHE_DIR": str(out / "ruff-cache"), "GIT_OPTIONAL_LOCKS": "0"}
+record = {"name": name, "command": command, "cwd": str(TREE), "environment": env,
+          "start": datetime.now(timezone.utc).isoformat(), "before": identity(), "complete": False}
+(out / "execution.json").write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+started = time.monotonic()
+with (out / "stdout.log").open("xb") as stdout, (out / "stderr.log").open("xb") as stderr:
+    result = subprocess.run(command, cwd=TREE, env=env, stdout=stdout, stderr=stderr, timeout=1800)
+record.update(complete=True, exit_code=result.returncode,
+              elapsed_seconds=round(time.monotonic() - started, 3),
+              end=datetime.now(timezone.utc).isoformat(), after=identity())
+record["source_unchanged"] = record["before"] == record["after"]
+record["log_sha256"] = {p: hashlib.sha256((out / p).read_bytes()).hexdigest() for p in ("stdout.log", "stderr.log")}
+(out / "execution.json").write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+print(json.dumps({k: record[k] for k in ("name", "exit_code", "elapsed_seconds", "source_unchanged")}, ensure_ascii=False))
+raise SystemExit(result.returncode)

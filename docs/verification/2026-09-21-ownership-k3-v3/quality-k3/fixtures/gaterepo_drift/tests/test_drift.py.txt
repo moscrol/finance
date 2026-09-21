@@ -1,0 +1,10 @@
+import subprocess
+from pathlib import Path
+
+
+def test_commit_during_run():
+    Path("drift_artifact.txt").write_text("mid-run change\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], check=True, capture_output=True)
+    subprocess.run(["git", "-c", "user.email=k3@probe", "-c", "user.name", "k3",
+                    "commit", "-qm", "mid-run commit"], check=True, capture_output=True)
+    assert True

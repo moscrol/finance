@@ -1,0 +1,158 @@
+_CODE_RE = re.compile(r"^\d{6}\.(SZ|SH|BJ)$")
+
+
+@dataclass(frozen=True)
+class BackfillSpec:
+    """单股历史回填合同。所有期望值钉死；任何一项与实况不符即拒绝。"""
+
+    code: str = "302132.SZ"
+    name: str = "中航成飞"
+    window_start: str = "2026-06-15"   # 派生重建窗口（含既有 10 旧行日）
+    window_end: str = "2026-09-11"     # 含目标日（主表行已存在，仅派生重建）
+    main_fill_end: str = "2026-09-10"  # 主表回填到此为止
+    shell_date: str = SHELL_DATE
+    gap_parallel: tuple[str, ...] = GAP_PARALLEL
+    gap_parquet: tuple[str, ...] = GAP_PARQUET
+    expected_total_rows: int = 64
+    stale_technical_dates: tuple[str, ...] = STALE_TECHNICAL_DATES
+    stale_window_keys: tuple[tuple[str, str], ...] = STALE_WINDOW_KEYS
+    pinned_0911: dict = field(default_factory=lambda: dict(PINNED_0911))
+    pinned_technical_0911: dict = field(default_factory=lambda: dict(PINNED_TECHNICAL_0911))
+    pinned_windows_0911: tuple = PINNED_WINDOWS_0911
+    expected_technical_count: int = EXPECTED_TECHNICAL_COUNT
+    expected_window_counts: dict = field(default_factory=lambda: dict(EXPECTED_WINDOW_COUNTS))
+    parquet_sha256: str = PARQUET_SHA256
+    spec_version: str = "302132-backfill-2026-09-14-v1"
+
+
+def _fail(msg: str, detail) -> None:
+    raise RepairRefused(f"{msg}: {detail}")
+
+
+PROJECT_DIR = Path(__file__).resolve().parents[2]
+
+
+def _code_revision() -> tuple[str, bool]:
+    """运行代码的 git revision 与 dirty 标志；解析不出即拒绝（收据不许无绑定）。"""
+    try:
+        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(PROJECT_DIR),
+                              capture_output=True, text=True, check=True).stdout.strip()
+        dirty = bool(subprocess.run(
+            ["git", "status", "--porcelain"], cwd=str(PROJECT_DIR),
+            capture_output=True, text=True, check=True).stdout.strip())
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError) as exc:
+        raise RepairRefused(f"代码 revision 绑定失败（非 git 检出或 git 不可用）: {exc}")
+    if not head:
+        raise RepairRefused("代码 revision 绑定失败: HEAD 为空")
+    return head, dirty
+
+
+def _validate_receipt_path(path: Path,
+                           protected: set[Path] | frozenset | None = None
+                           ) -> Path:
+    """收据路径纯校验：不创建、不删除（绝不触碰调用方/用户已有文件）。"""
+    p = Path(path).expanduser()
+    if p.suffix != ".json":
+        _fail("收据/报告必须为 .json", str(p))
+    if not p.parent.is_dir():
+        _fail("收据目录不存在", str(p.parent))
+    if p.is_symlink():
+        _fail("收据路径是符号链接", str(p))
+    real = Path(os.path.realpath(p))
+    for prot in (protected or ()):
+        if real == Path(os.path.realpath(prot)):
+            _fail("收据路径与受保护文件（生产/staging/冻结输入）冲突或别名", str(p))
+    if p.exists():
+        _fail("收据路径已存在（每轮收据不可覆盖）", str(p))
+    return p
+
+
+def _guarded_write_json(path: Path, payload: dict,
+                        protected: set[Path] | frozenset | None = None) -> Path:
+    """收据/报告的唯一写出通道：O_EXCL 不可覆盖 + 别名隔离 + 全阶段 fail-closed。
+
+    半成品清理严格限于「本轮 os.open 成功创建、且清理时 (st_dev, st_ino) 仍是
+    同一个 inode」的文件——EEXIST 竞争失败或未取得所有权时绝不 unlink。
+    """
+    p = _validate_receipt_path(path, protected)
+    fd = None
+    created: tuple[int, int] | None = None
+    try:
+        fd = os.open(str(p), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        st = os.fstat(fd)
+        created = (st.st_dev, st.st_ino)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fd = None  # 所有权移交 fh；异常时由 with 负责关闭
+            fh.write(json.dumps(payload, ensure_ascii=False, indent=2, default=str)
+                     + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+    except OSError as exc:
+        if fd is not None:
+            os.close(fd)
+        if created is not None:
+            try:  # 仅清理本轮自己创建且仍是同一 inode 的文件
+                cur = p.lstat()
+                if (cur.st_dev, cur.st_ino) == created:
+                    p.unlink()
+            except OSError:
+                pass
+        _fail("收据写出失败", f"{type(exc).__name__}: {exc}")
+    return p
+
+
+def _finite(v) -> bool:
+    """有限数值（int/float/Decimal；None/NaN/Inf/字符串拒绝）。"""
+    if isinstance(v, bool):
+        return False
+    try:
+        return math.isfinite(float(v))
+    except (TypeError, ValueError):
+        return False
+
+
+def _sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(8 * 1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+# ── 字段映射（与 repair_hithink_stock_day 的写入表达式逐项同构）─────────
+# pre_close 分母先 CAST DECIMAL(18,2)（评审 P2-4：严格复用受测映射）；
+# pct_chg：round(CAST((CAST(close AS DECIMAL(18,4))/pre_close_dec - 1)*100 AS DECIMAL(38,12)), 2)
+# amount：round(CAST(turnover AS DECIMAL(38,2))/100000000, 4)
+# volume：round(CAST(volume AS DECIMAL(38,0))/100, 0)
+def _oracle_pct(close: float, pre_close: float) -> float:
+    """python 侧 Decimal 半进 oracle（验收独立重算用）。"""
+    v = (Decimal(str(close)).quantize(Decimal("0.0001"))
+         / Decimal(str(pre_close)).quantize(Decimal("0.01")) - 1) * 100
+    return float(v.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+def _oracle_amount(turnover: float) -> float:
+    v = Decimal(str(turnover)).quantize(Decimal("0.01")) / Decimal(100000000)
+    return float(v.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
+
+
+def _oracle_volume(volume: float) -> float:
+    v = Decimal(str(volume)).quantize(Decimal("1")) / Decimal(100)
+    return float(v.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def _slice_fingerprint(con, table: str, date_col: str, where: str) -> dict:
+    """与 repair_hithink_stock_day._table_day_fingerprint 同构的按日行数+全列哈希，
+    加 WHERE 切片（保护切片：他股全量 + 目标股窗外行，含 calculated_at）。"""
+    cols = [r[1] for r in con.execute(f"PRAGMA table_info('{table}')").fetchall()]
+    expr = " || '|' || ".join(f"coalesce(CAST({c} AS VARCHAR), '∅')" for c in cols)
+    rows = con.execute(
+        f"SELECT {date_col}, count(*), sum(hash({expr})) "
+        f"FROM {table} WHERE {where} GROUP BY 1 ORDER BY 1"
+    ).fetchall()
+    return {str(r[0]): {"rows": r[1], "hash": str(r[2])} for r in rows}
+
+
+# ── 阶段 0：护栏（写前全部成立才动手）──────────────────────────────────
+def _guard(con, spec: BackfillSpec, parquet_path: Path) -> dict:
+    if not _CODE_RE.match(spec.code):

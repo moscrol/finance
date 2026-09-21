@@ -1,0 +1,10 @@
+B7 rc=4
+scripts/run_main_gate.sh: line 74: 97432 Terminated: 15          FWP_TEST_RECEIPT_DIR="$RECEIPT_DIR" FWP_TEST_RECEIPT_PATH="$LATEST" FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -m pytest $PYTEST_ARGS 2>&1
+     97433 Done                    | tail -15
+没找到本轮收据 /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-w9gb57lO/pytest.json（pytest 收据未写出；不会回退 latest.json）
+B9 rc=4
+FAILED tests/test_drift.py::test_commit_during_run - subprocess.CalledProcess...
+1 failed in 0.55s
+测试期间提交或干净状态改变，收据不可采信。
+3ae1d7a fix drift test
+c73c711 drift+suicide tests

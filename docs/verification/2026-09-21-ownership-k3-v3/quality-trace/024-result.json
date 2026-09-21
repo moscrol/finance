@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "tool_1bK5SPdpVoTZN0VzjszFARNT",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "..                                                                       [100%]\n2 passed in 0.01s\n---\n/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root:\ntotal 0\ndrwxr-xr-x@ 3 a77  staff   96 Sep 21 12:29 .\ndrwxr-xr-x@ 6 a77  staff  192 Sep 21 12:29 ..\ndrwxr-xr-x@ 2 a77  staff   64 Sep 21 12:29 gate-debug\n\n/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-debug:\ntotal 0\ndrwxr-xr-x@ 2 a77  staff  64 Sep 21 12:29 .\ndrwxr-xr-x@ 3 a77  staff  96 Sep 21 12:29 ..\n"
+      }
+    ]
+  },
+  "isError": false
+}

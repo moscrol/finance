@@ -1,0 +1,14 @@
+C1 parent --db: rc= 2 (expect 2) parent_called= False  witness_intact= True
+C2 child guard-fail: rc= 2 (expect 2) db_unchanged= True  status_json_exists= False  reports= []
+C3 overwrite existing: refused, intact= True
+C3 symlink: refused, victim_exists= False
+C3 non-conflicting write: ok
+C3 hardlink-alias: refused (realpath same)
+C4 apply: mode= apply  tech= 5  win= 55
+C4 other-stock tamper: !!!ALLOWED
+C4 retained-row tamper: !!!ALLOWED
+C4 partial-state: refused :: 缺口实况 ≠ spec 且非已应用态（部分态，拒绝）: (1, 0)
+C5 child happy: rc= 0  report_exists= True  status= True
+C5 same-run_id rerun: rc= 2 (expect 2, no overwrite) reports= 1
+C6 child->canonical: rc= 2 (expect 2) prod_intact= True
+PROBE-C-DONE

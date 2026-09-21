@@ -1,0 +1,91 @@
+{
+  "candidate": "47530e20fe5c3195e50ce429b31898d57918e413",
+  "historical_base": "728f327160bbd2485cb635e7ef09d040d718d7b5",
+  "authority": "operator QC of partial independent K3 traces plus an offline operator corroboration; not a model-authored final review",
+  "overall": "CHANGES_REQUIRED",
+  "independent_review_status": "BLOCKED",
+  "merge_authorized": false,
+  "reason": "O-K3-001 reproduces incorrect receipt scope/count acceptance under same-process nested pytest. Both finite model sessions exhausted request caps without final reports; incomplete checks remain unaccepted.",
+  "provider": "mirasim-kimi/kimi-k3",
+  "billing": "existing Plus subscription; no purchase or fallback, no monetary cap or zero-cost/invoice claim",
+  "budget_per_axis": {"sessions": 1, "request_admissions": 40, "deadline_seconds": 1200, "automatic_retry": false},
+  "spec": {
+    "process_complete": true,
+    "exit_code": 75,
+    "request_admissions": 40,
+    "elapsed_seconds": 1187.02,
+    "assistant_messages": 40,
+    "tool_calls": 42,
+    "report_present": false,
+    "final_verdict_present": false,
+    "operator_completion_status": "BLOCKED",
+    "supplementary_formal_tests": {"passed": 195, "skipped": 1, "failed": 0, "error": 0},
+    "excluded_zero_executed_receipts": 1,
+    "evidence": "operator-qc/spec-qc.md"
+  },
+  "quality": {
+    "process_complete": true,
+    "exit_code": 75,
+    "request_admissions": 40,
+    "elapsed_seconds": 933.388,
+    "assistant_messages": 40,
+    "tool_calls": 42,
+    "report_present": true,
+    "report_is_initial_placeholder": true,
+    "final_verdict_present": false,
+    "operator_completion_status": "BLOCKED",
+    "helper_parameter_cases_expected_return_codes": {"confirmed": 39, "total": 39},
+    "formal_candidate_suite_run": false,
+    "evidence": "operator-qc/quality-qc.md"
+  },
+  "findings": [
+    {
+      "id": "O-K3-001",
+      "severity": "P1 / high",
+      "requirement": "R1",
+      "status": "CONFIRMED",
+      "title": "Same-process nested pytest claims the outer immutable receipt; shell gate accepts inner scope and counts",
+      "locations": ["conftest.py:183-188", "conftest.py:306-311", "scripts/main_gate_receipt.py:34-35", "scripts/run_main_gate.sh:70-85"],
+      "discovery": "Quality independently authored dynamic probe; no completed model-authored final finding",
+      "reviewer_evidence": ["quality-trace/030-result.txt", "quality-k3/logs/b4_nested_inproc.log"],
+      "operator_corroboration": "operator-qc/inprocess-reproduction.json",
+      "positive_control": "subprocess-control: gate exit 0, outer target and 1 pass preserved",
+      "negative_control": "inprocess-negative: gate exit 0, outer stdout 1 pass, receipt inner target / 2 passes, immutable-write warning",
+      "source_fix_performed": false,
+      "attribution": "present at frozen v3; PID owner protection leaves reentrant invocation gap. No old-base behavioral comparison; not attributed to receipt-only tree-validation patch alone.",
+      "limits": "Does not demonstrate acceptance of a failing outer process or prove historical v3 full author totals were corrupted. Invocations, not only process IDs or target text, need independent ownership."
+    }
+  ],
+  "hygiene": {
+    "os_sandbox": false,
+    "independence": "separate fresh conversations/checkouts, same model and common inputs; not fully blinded or different-vendor",
+    "candidate_author_start_end_clean_unchanged": true,
+    "input_hashes_unchanged": true,
+    "explicit_timeout_missing_bash_calls": {"spec": 16, "quality": 16},
+    "confirmed_spec_output_boundary_violation": "/tmp/a7.log; preserved as operator-qc/spec-outside-output-a7.log; original not deleted",
+    "quality_outside_output_write_observed": false,
+    "tool_success_is_not_subprocess_success": true,
+    "full_pytest_stdout_retained": false,
+    "synthetic_fixtures_all_incarnations_retained": false,
+    "mechanical_path_audit_does_not_cover_shell_writes": true
+  },
+  "main_drift": {
+    "input_observation_stale": "8aff6ebc3f0ea681a80179fbca8e1f39a815f103",
+    "spec_start": "602ec8b751c5e84bf078ae15ad8500fa8c7ac39d",
+    "spec_end_quality_start": "2bb7c224c9b3748f50de0075099fd2c298a54315",
+    "quality_end": "945c04bd7fdd72f3144b9a5df724d2e1d33244af",
+    "preseal_remote_observation": "3c70af64d78598e23da601b8c661b09f607e7698",
+    "observation_evidence": "operator-qc/preseal-observation.json",
+    "latest_main_integration_tested": false
+  },
+  "not_accepted": [
+    "complete independent Spec or Quality signoff",
+    "exhaustive board classification/pinned-main race coverage",
+    "Quality dynamic backfill/publish probes",
+    "real complete-copy 302132 parent-child publish/recovery rehearsal",
+    "latest-main integrated candidate or its engineering gates",
+    "financial answer quality, latency, production deployment or Arena acceptance"
+  ],
+  "historical_author_gates": "v3 author-green evidence remains in ownership-resume archive; not rerun or promoted to independent approval",
+  "next_action": "User decision on receipt-ownership repair, then new frozen candidate/gates and separately authorized finite independent review. No automatic retries, source fixes, merge, deployment, production backfill or real-tree deletion."
+}

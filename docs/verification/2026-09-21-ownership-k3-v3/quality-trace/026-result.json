@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "tool_f81tXEpdfvzrqYXnHL9mYObM",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "B1 rc=0\n== gate @ ee9b01e5f36a tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/gaterepo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-lHghRW0S/pytest.json\n== ruff check .\nAll checks passed!\n== pytest -q tests/test_ok.py\n..                                                                       [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-lHghRW0S/pytest.json\n\n2 passed in 0.50s\n== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-lHghRW0S/pytest.json\n   revision=ee9b01e5f36a dirty=False target=tests/test_ok.py\n   passed=2 failed=0 error=0 skipped=0\n--- files:\n/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-lHghRW0S/pytest.json\n/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/latest.json\n"
+      }
+    ]
+  },
+  "isError": false
+}

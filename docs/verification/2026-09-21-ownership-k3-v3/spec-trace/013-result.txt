@@ -1,0 +1,401 @@
++def _cli_args(pq, db, report_path=None):
++    from types import SimpleNamespace
++    return SimpleNamespace(parquet=str(pq), child=True, db=str(db),
++                           report_path=str(report_path) if report_path else None)
++
++
++def test_refused_cli_report_path_overwrites_canonical(tmp_path, monkeypatch):
++    """P1-1：--report-path 指向 canonical 见证库——拒绝且库内容不变。"""
++    from market_feature_store import cli
++
++    db, pq = tmp_path / "staging.duckdb", tmp_path / "tail.parquet"
++    fixture = _fixture(db, pq)
++    spec = _spec(db, pq, fixture["pinned"])
++    canonical = tmp_path / "canonical-witness.duckdb"
++    with duckdb.connect(str(canonical)) as c:
++        c.execute("CREATE TABLE witness AS SELECT 123 AS x")
++    before = canonical.read_bytes()
++    monkeypatch.setenv("MARKET_FEATURE_STORE_PRODUCTION_DB", str(canonical))
++    monkeypatch.setattr(mod, "BackfillSpec", lambda: spec)
++    rc = cli.cmd_repair_backfill_302132(_cli_args(pq, db, canonical))
++    assert rc == 2 and canonical.read_bytes() == before
++
++
++def test_refused_cli_report_path_existing_file(tmp_path, monkeypatch):
++    """P2-3：--report-path 已存在——不可覆盖。"""
++    from market_feature_store import cli
++
++    db, pq = tmp_path / "staging.duckdb", tmp_path / "tail.parquet"
++    fixture = _fixture(db, pq)
++    spec = _spec(db, pq, fixture["pinned"])
++    existing = tmp_path / "occupied.json"
++    existing.write_text("{}")
++    monkeypatch.setenv("MARKET_FEATURE_STORE_PRODUCTION_DB",
++                       str(tmp_path / "elsewhere.duckdb"))
++    monkeypatch.setattr(mod, "BackfillSpec", lambda: spec)
++    rc = cli.cmd_repair_backfill_302132(_cli_args(pq, db, existing))
++    assert rc == 2 and existing.read_text() == "{}"
++
++
++def test_cli_parent_rejects_ignored_db_argument_before_side_effects(tmp_path, monkeypatch):
++    from types import SimpleNamespace
++
++    from market_feature_store import cli
++    from market_feature_store.sync import sync_daily_full
++
++    pq = tmp_path / "source.parquet"
++    pq.write_bytes(b"no data access authorized")
++    witness = tmp_path / "default-production.duckdb"
++    witness.write_bytes(b"production witness")
++    called = []
++
++    def parent(**kwargs):
++        called.append(kwargs)
++        return {"swapped": False, "reason": "must not reach", "rc": 2}
++
++    monkeypatch.setattr(sync_daily_full, "run_daily_full_staged", parent)
++    monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(witness))
++    probe_calls = []
++    monkeypatch.setattr(mod, "_guarded_write_json", lambda *a, **kw: probe_calls.append(a))
++    args = SimpleNamespace(parquet=str(pq), child=False,
++                           db=str(tmp_path / "intended-clone.duckdb"), report_path=None)
++    assert cli.cmd_repair_backfill_302132(args) == 2
++    assert called == []
++    assert probe_calls == []
++    assert witness.read_bytes() == b"production witness"
++
++
++def test_cli_parent_preflight_blocks_unwritable_receipt_dir(tmp_path, monkeypatch):
++    """收据目录不可写 → 换库前拦截（run_daily_full_staged 不得被调用）。"""
++    from market_feature_store import cli
++    from market_feature_store.sync import sync_daily_full
++
++    ro_dir = tmp_path / "ro"
++    ro_dir.mkdir()
++    ro_dir.chmod(0o555)
++    pq = tmp_path / "source.parquet"
++    pq.write_bytes(b"preflight only checks dir writability")
++    called = {}
++
++    def parent(**kwargs):
++        called.update(kwargs)
++        return {"swapped": False, "reason": "must not reach", "rc": 2}
++
++    monkeypatch.setattr(sync_daily_full, "run_daily_full_staged", parent)
++    monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(ro_dir / "fake.duckdb"))
++    from types import SimpleNamespace
++    args = SimpleNamespace(parquet=str(pq), child=False, db=None, report_path=None)
++    assert cli.cmd_repair_backfill_302132(args) == 2
++    assert called == {}  # 预校验拦截在父编排之前
++
++
++def test_cli_child_receipt_binds_revision_and_run_id(tmp_path, monkeypatch):
++    """P2-3：每轮收据绑定 revision/dirty/run_id/spec/源指纹，按 run_id 命名不覆盖。"""
++    from market_feature_store import cli
++
++    db, pq = tmp_path / "staging.duckdb", tmp_path / "tail.parquet"
++    fixture = _fixture(db, pq)
++    spec = _spec(db, pq, fixture["pinned"])
++    monkeypatch.setenv("MARKET_FEATURE_STORE_PRODUCTION_DB",
++                       str(tmp_path / "elsewhere.duckdb"))
++    monkeypatch.setenv("MARKET_FEATURE_STORE_RUN_ID", "test-run-001")
++    monkeypatch.setattr(mod, "BackfillSpec", lambda: spec)
++    rc = cli.cmd_repair_backfill_302132(_cli_args(pq, db))
++    assert rc == 0
++    report_path = tmp_path / "staging.duckdb.backfill-report.test-run-001.json"
++    report = json.loads(report_path.read_text())
++    assert report["run_id"] == "test-run-001"
++    # 身份断言（不是存在性断言）：revision 必须等于运行时 HEAD，dirty 必须如实
++    import subprocess
++    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(mod.PROJECT_DIR),
++                          capture_output=True, text=True, check=True,
++                          env=_subprocess_env()).stdout.strip()
++    dirty = bool(subprocess.run(["git", "status", "--porcelain"],
++                                cwd=str(mod.PROJECT_DIR), capture_output=True,
++                                text=True, check=True,
++                                env=_subprocess_env()).stdout.strip())
++    assert report["code_revision"] == head
++    assert report["code_dirty"] is dirty
++    assert report["parquet_sha256"] and report["parallel_source_md5"]
++    assert report["interpreter"]
++    # 同 run_id 重跑：报告已存在 → 拒绝覆盖
++    rc2 = cli.cmd_repair_backfill_302132(_cli_args(pq, db))
++    assert rc2 == 2
++    count = len(list(tmp_path.glob("staging.duckdb.backfill-report.*.json")))
++    assert count == 1
++
++
++def test_refused_receipt_write_failure_cleans_partial(tmp_path, monkeypatch):
++    """P1：write/flush 阶段 OSError → RepairRefused 且不留半截文件。"""
++    import os as _os
++
++    target = tmp_path / "r.json"
++
++    class Bomb:
++        def __init__(self, fd):
++            self.fd = fd
++
++        def __enter__(self):
++            return self
++
++        def __exit__(self, *a):
++            _os.close(self.fd)
++            return False
++
++        def write(self, _s):
++            raise OSError("ENOSPC (simulated)")
++
++        def flush(self):
++            pass
++
++        def fileno(self):
++            return self.fd
++
++    monkeypatch.setattr(mod.os, "fdopen",
++                        lambda fd, mode, encoding=None: Bomb(fd))
++    with pytest.raises(RepairRefused, match="收据写出失败"):
++        mod._guarded_write_json(target, {"x": 1})
++    assert not target.exists()
++
++
++def test_cli_parent_preflight_blocks_on_open_permission_error(tmp_path,
++                                                              monkeypatch):
++    """预校验拦截不依赖运行用户权限：os.open 抛 PermissionError 也必须拒绝。"""
++    from market_feature_store import cli
++    from market_feature_store.sync import sync_daily_full
++
++    pq = tmp_path / "source.parquet"
++    pq.write_bytes(b"preflight bomb")
++    called = {}
++
++    def parent(**kwargs):
++        called.update(kwargs)
++        return {"swapped": False, "reason": "must not reach", "rc": 2}
++
++    def bomb(*_a, **_k):
++        raise PermissionError(13, "simulated")
++
++    monkeypatch.setattr(sync_daily_full, "run_daily_full_staged", parent)
++    monkeypatch.setattr(mod.os, "open", bomb)
++    monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(tmp_path / "fake.duckdb"))
++    from types import SimpleNamespace
++    args = SimpleNamespace(parquet=str(pq), child=False, db=None, report_path=None)
++    assert cli.cmd_repair_backfill_302132(args) == 2
++    assert called == {}
++
++
++def test_refused_cli_parent_report_path_never_deletes_user_file(tmp_path,
++                                                                monkeypatch):
++    """P1-1（五轮）：--report-path 指向已有文件时，父命令拒绝但绝不删除它。"""
++    from market_feature_store import cli
++    from market_feature_store.sync import sync_daily_full
++
++    db, pq = tmp_path / "staging.duckdb", tmp_path / "tail.parquet"
++    fixture = _fixture(db, pq)
++    spec = _spec(db, pq, fixture["pinned"])
++    witness = tmp_path / "witness.duckdb"
++    with duckdb.connect(str(witness)) as c:
++        c.execute("CREATE TABLE witness AS SELECT 123 AS x")
++    before = witness.read_bytes()
++    called = {}
++
++    def parent(**kwargs):
++        called.update(kwargs)
++        return {"swapped": False, "reason": "must not reach", "rc": 2}
++
++    monkeypatch.setattr(sync_daily_full, "run_daily_full_staged", parent)
++    monkeypatch.setenv("MARKET_FEATURE_STORE_PRODUCTION_DB",
++                       str(tmp_path / "elsewhere.duckdb"))
++    monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(db))
++    monkeypatch.setattr(mod, "BackfillSpec", lambda: spec)
++    from types import SimpleNamespace
++    args = SimpleNamespace(parquet=str(pq), child=False, db=None,
++                           report_path=str(witness))
++    assert cli.cmd_repair_backfill_302132(args) == 2
++    assert called == {}                       # 父编排未被调用
++    assert witness.read_bytes() == before     # 用户文件原样
++
++
++def test_refused_receipt_eexist_race_keeps_other_writers_file(tmp_path,
++                                                              monkeypatch):
++    """P1-2（五轮）：O_EXCL 竞争失败——另一写者的文件必须原样保留。"""
++    import os as _os
++
++    target = tmp_path / "r.json"
++    real_open = _os.open
++
++    def racing_open(path, flags, mode=0o644):
++        # 另一写者抢先创建并写完自己的文件
++        fd = real_open(path, _os.O_WRONLY | _os.O_CREAT | _os.O_EXCL, mode)
++        with _os.fdopen(fd, "w") as fh:
++            fh.write('{"winner": true}\n')
++        raise FileExistsError(17, "File exists (simulated race)")
++
++    monkeypatch.setattr(mod.os, "open", racing_open)
++    with pytest.raises(RepairRefused, match="收据写出失败|已存在"):
++        mod._guarded_write_json(target, {"loser": 1})
++    assert target.read_text() == '{"winner": true}\n'
++
++
++def test_acceptance_script_rejects_hardlink_alias(tmp_path):
++    """P1-3（五轮）：production 与 clone 互为硬链接 → 预检拒绝，rc=2。"""
++    import subprocess
++    import sys
++
++    prod = tmp_path / "prod.duckdb"
++    with duckdb.connect(str(prod)) as c:
++        c.execute("CREATE TABLE t AS SELECT 1 AS x")
++    clone = tmp_path / "clone-hard.duckdb"
++    import os as _os
++    _os.link(prod, clone)  # 硬链接：realpath 不同，同一 inode
++    pq = tmp_path / "q.parquet"
++    pq.write_bytes(b"x")
++    out = tmp_path / "out.json"
++    script = (mod.PROJECT_DIR / "scripts"
++              / "verify_302132_backfill_acceptance.py")
++    res = subprocess.run(
++        [sys.executable, str(script), "--production", str(prod),
++         "--clone", str(clone), "--parquet", str(pq),
++         "--run-apply", "a", "--run-verify", "v",
++         "--expected-revision", "0" * 40,
++         "--expected-production-sha256", "0" * 64,
++         "--output", str(out)],
++        capture_output=True, text=True, timeout=120, env=_subprocess_env())
++    assert res.returncode == 2
++    verdict = json.loads(out.read_text())
++    assert verdict["verdict"] == "FAIL"
++    alias = [c for c in verdict["checks"]
++             if c["name"] == "clone_is_not_production_alias"]
++    assert alias and alias[0]["ok"] is False
++    skipped = [c for c in verdict["checks"]
++               if c["name"] == "data_checks_executed"]
++    assert skipped and skipped[0]["ok"] is False  # 数据检查被跳过，不发绿
++
++
++def test_acceptance_script_receipt_schema_mutation_fails(tmp_path):
++    """P2-1（五轮）：收据缺 spec_version → 结构化 FAIL，缺证据不发绿。"""
++    import subprocess
++    import sys
++
++    prod = tmp_path / "prod.duckdb"
++    with duckdb.connect(str(prod)) as c:
++        c.execute("CREATE TABLE t AS SELECT 1 AS x")
++    clone = tmp_path / "clone.duckdb"
++    with duckdb.connect(str(clone)) as c:
++        c.execute("CREATE TABLE t AS SELECT 2 AS x")
++    pq = tmp_path / "q.parquet"
++    pq.write_bytes(b"x")
++    prod_sha = mod._sha256(prod)
++    for tag in ("apply", "verify"):
++        receipt = {
++            "kind": "repair-backfill-302132", "run_id": tag, "trade_date": "2026-09-11",
++            "code_revision": "f" * 40, "code_dirty": False, "interpreter": "py",
++            "parent": {"swapped": True, "rc": 0, "run_id": tag},
++            "backup": {"backup_path": str(prod), "backup_sha256": prod_sha},
++            "spec": {"code": "302132.SZ", "name": "中航成飞",
++                     # spec_version 故意缺失（变异）
++                     "window_start": "2026-06-15", "window_end": "2026-09-11",
++                     "main_fill_end": "2026-09-10", "shell_date": "2026-06-23",
++                     "parquet_sha256": "0" * 64,
++                     "gap_parallel": ["2026-06-17"], "gap_parquet": ["2026-09-09"],
++                     "pinned_technical_0911": {}, "pinned_windows_0911": [1],
++                     "expected_window_counts": {}, "expected_technical_count": 39},
++            "child_report": {"kind": "repair-backfill-302132", "run_id": tag,
++                             "mode": tag, "code_revision": "f" * 40,
++                             "code_dirty": False, "parquet_sha256": "0" * 64,
++                             "protected_slices": {}},
++            "child_report_path": None,
++        }
++        (tmp_path / f"clone.duckdb.repair-backfill-execution.{tag}.json"
++         ).write_text(json.dumps(receipt))
++    out = tmp_path / "out.json"
++    script = (mod.PROJECT_DIR / "scripts"
++              / "verify_302132_backfill_acceptance.py")
++    res = subprocess.run(
++        [sys.executable, str(script), "--production", str(prod),
++         "--clone", str(clone), "--parquet", str(pq),
++         "--run-apply", "apply", "--run-verify", "verify",
++         "--expected-revision", "f" * 40,
++         "--expected-production-sha256", prod_sha,
++         "--output", str(out)],
++        capture_output=True, text=True, timeout=120, env=_subprocess_env())
++    assert res.returncode == 2
++    verdict = json.loads(out.read_text())
++    assert verdict["verdict"] == "FAIL"
++    schema = [c for c in verdict["checks"] if c["name"] == "receipt_apply_schema"]
++    assert schema and schema[0]["ok"] is False
++    assert "spec.spec_version" in str(schema[0]["detail"])
++    skipped = [c for c in verdict["checks"]
++               if c["name"] == "data_checks_executed"]
++    assert skipped and skipped[0]["ok"] is False
++
++
++# ── 第六轮退修（审查 595a9acd）：验收脚本深 schema / 跨轮绑定 / oracle 输入独立 ──
++# 策略：好产物必绿（真实形状两轮产物 E2E PASS）+ 坏产物必红（逐字段单因素变异，
++# 父收据与独立子报告同步修改，与审查探针 qc_302132_round6_probes.py 同构）。
++import copy  # noqa: E402
++import os  # noqa: E402
++import shutil  # noqa: E402
++import subprocess  # noqa: E402
++import sys  # noqa: E402
++from dataclasses import asdict, replace  # noqa: E402
++from unittest import mock  # noqa: E402
++
++import scripts.verify_302132_backfill_acceptance as verify_acceptance  # noqa: E402
++
++E2E_REV = "f" * 40
++APPLY_RUN = "run-apply-001"
++VERIFY_RUN = "run-verify-001"
++SCHEMA_BOTH = ("receipt_apply_schema", "receipt_verify_schema")
++
++
++def _subprocess_env() -> dict[str, str]:
++    """子进程只接收测试所需白名单，避免宿主凭据进入失败输出。"""
++    return {
++        "HOME": os.environ.get("HOME", str(Path.home())),
++        "PATH": os.environ.get("PATH", os.defpath),
++        "LANG": os.environ.get("LANG", "C.UTF-8"),
++        "TMPDIR": os.environ.get("TMPDIR", "/tmp"),
++        "FWP_TEST_RECEIPT": "0",
++        "PYTHONDONTWRITEBYTECODE": "1",
++        "PYTHONPATH": str(mod.PROJECT_DIR),
++    }
++
++
++def _build_e2e_artifacts(root: Path) -> dict:
++    """完整可通过验收的两轮产物：基线库 + 结果库（apply/verify 各跑一遍）+
++    冻结 parquet + 父收据/独立子报告（字段形状与 cli.py 实际写出一致）。"""
++    baseline = root / "baseline.duckdb"
++    pq = root / "tail.parquet"
++    fx = _fixture(baseline, pq)
++    spec = replace(_spec(baseline, pq, fx["pinned"]),
++                   spec_version="302132-backfill-test-v1")
++    clone = root / "clone.duckdb"
++    shutil.copy(str(baseline), str(clone))
++    children = {}
++    with mock.patch.object(mod, "_code_revision",
++                           return_value=(E2E_REV, False)):
++        con = duckdb.connect(str(clone))
++        try:
++            for mode, rid in (("apply", APPLY_RUN), ("verify", VERIFY_RUN)):
++                report = mod.run_backfill_child(con, spec, pq)
++                assert report["mode"] == mode
++                report.update({"run_id": rid, "trade_date": spec.window_end,
++                               "kind": "repair-backfill-302132", "ok": True})
++                # JSON 往返：内存中的产物形状与验收器读到的完全一致
++                # （int 键 → str 键等），变异测试不会在假形状上操作
++                children[mode] = json.loads(json.dumps(report))
++        finally:
++            con.close()
++    base_sha = mod._sha256(baseline)
++    receipts = {}
++    for mode, rid in (("apply", APPLY_RUN), ("verify", VERIFY_RUN)):
++        child_path = root / f"child-{mode}.json"
++        child_path.write_text(json.dumps(children[mode], ensure_ascii=False))
++        receipt = {
++            "kind": "repair-backfill-302132", "trade_date": spec.window_end,
++            "run_id": rid, "code_revision": E2E_REV, "code_dirty": False,
++            "interpreter": sys.executable,
++            "spec": json.loads(json.dumps(asdict(spec))),
++            "child_report_path": str(child_path),
++            "child_report": children[mode], "child_report_error": None,

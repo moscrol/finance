@@ -1,0 +1,2 @@
+def test_inner_also_passes():
+    assert 2 + 2 == 4

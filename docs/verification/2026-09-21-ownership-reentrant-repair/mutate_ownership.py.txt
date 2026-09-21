@@ -1,0 +1,90 @@
+"""Offline mutation proof for O-K3-001; no changes in the source worktree.
+
+Copy just the actual hook, gates and formal regression module into a toy repo.
+Each baseline/mutant/restoration runs the SAME selected tests via real pytest;
+keep red diagnostics separate and verify the exact intended test IDs failed.
+The toy revision is not source acceptance. This is not an independent review.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import time
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / "mutations"
+SOURCE = Path.home() / "fwp-wt-test-gate-receipt-identity-0921"
+PY = str(Path.home() / "finance-workspace-private/.venv-workbench/bin/python")
+FILES = ["conftest.py", "scripts/run_main_gate.sh", "scripts/main_gate_receipt.py",
+         "tests/test_main_gate_receipt.py", "test-environment.json"]
+os.umask(0o022)
+OUT.mkdir(exist_ok=False)
+repo = OUT / "fixture"
+repo.mkdir()
+for name in FILES:
+    path = repo / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(SOURCE / name, path)
+original = (repo / "conftest.py").read_text()
+(repo / ".gitignore").write_text("__pycache__/\n.pytest_cache/\n.ruff_cache/\n")
+env = {"HOME": str(OUT / "home"), "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+       "LANG": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1", "FWP_TEST_RECEIPT": "0",
+       "RUFF_CACHE_DIR": str(OUT / "ruff-cache"), "TMPDIR": str(OUT / "tmp")}
+Path(env["TMPDIR"]).mkdir()
+for args in (["init", "-q"], ["add", "--", *FILES, ".gitignore"],
+             ["-c", "user.name=Mutation fixture", "-c", "user.email=mutation@fixture.invalid",
+              "-c", "commit.gpgsign=false", "commit", "-qm", "source copy"]):
+    subprocess.run(["git", *args], cwd=repo, env=env, capture_output=True, check=True, timeout=15)
+selection = "inprocess or inherited_pid or switch_its_claimed or nested_execution or parallel_gates"
+mutants = [
+    ("M1-remove-config-proof", "        or session.config.stash.get(_RECEIPT_OWNER, None) != (str(os.getpid()), path)\n", "",
+     "test_inprocess_nested_pytest_keeps_outer_receipt[run-same-target]"),
+    ("M2-remove-cleanup", "        config.add_cleanup(release_owner)\n", "        # Mutation: never release this invocation's claim.\n",
+     "test_sequential_inprocess_runs_release_receipt_owner[None-configure-error]"),
+    ("M3-reclaim-same-pid", "    if path and not previous_owner:\n",
+     "    if path and (not previous_owner or previous_owner == str(os.getpid())):\n",
+     "test_inherited_pid_alone_cannot_grant_or_release_ownership[self]"),
+]
+rows = []
+for label, old, new, expected in [("baseline", None, None, None), *mutants, ("restored", None, None, None)]:
+    text = original
+    if old is not None:
+        assert original.count(old) == 1, label
+        text = original.replace(old, new)
+    (repo / "conftest.py").write_text(text)
+    dest = OUT / label
+    dest.mkdir()
+    command = [PY, "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests/test_main_gate_receipt.py",
+               "-k", selection, f"--basetemp={dest / 'basetemp'}", f"--junitxml={dest / 'junit.xml'}"]
+    start = time.monotonic()
+    with (dest / "stdout.log").open("xb") as stdout, (dest / "stderr.log").open("xb") as stderr:
+        result = subprocess.run(command, cwd=repo, env=env, stdout=stdout, stderr=stderr, timeout=120)
+    xml = ET.parse(dest / "junit.xml").getroot()
+    cases = list(xml.iter("testcase"))
+    failed = [case.attrib["name"] for case in cases if case.find("failure") is not None]
+    errors = [case.attrib["name"] for case in cases if case.find("error") is not None]
+    row = {"name": label, "command": command, "cwd": str(repo), "exit_code": result.returncode,
+           "elapsed_seconds": round(time.monotonic() - start, 3), "cases": len(cases),
+           "failed_ids": failed, "error_ids": errors, "expected_failure": expected,
+           "source_sha256": hashlib.sha256(text.encode()).hexdigest()}
+    (dest / "execution.json").write_text(json.dumps(row, ensure_ascii=False, indent=2) + "\n")
+    rows.append(row)
+    print(json.dumps(row, ensure_ascii=False), flush=True)
+    assert not errors, row
+    assert len(cases) == 15, row
+    if expected:
+        assert result.returncode == 1 and expected in failed, row
+    else:
+        assert result.returncode == 0 and not failed, row
+assert (repo / "conftest.py").read_text() == original
+assert all((SOURCE / name).read_bytes() == (repo / name).read_bytes() for name in FILES)
+report = {"time": datetime.now(timezone.utc).isoformat(), "operator_mutation_only": True,
+          "source_revision": subprocess.check_output(["git", "-C", str(SOURCE), "rev-parse", "HEAD"], text=True).strip(),
+          "source_dirty_iteration": True, "candidate_unchanged": True, "baseline_and_restored_passed": True,
+          "mutants_killed": len(mutants), "rows": rows}
+(ROOT / "mutation-results.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")

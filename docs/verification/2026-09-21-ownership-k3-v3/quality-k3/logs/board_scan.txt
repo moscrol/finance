@@ -1,0 +1,20 @@
+基准 main=43a6207cdebc  （合入看 cherry+，不是 ahead 提交数）
+树 5 棵 · 还有补丁 0 · 补丁已在基线的干净 dev 树 0 · 待核实 2
+
+【还有补丁 — 真没合】
+  （无）
+
+【补丁已在基线且 Git 干净 — 不是删除许可，本脚本不拆】
+  （无）
+
+【待核实 — 查询失败、失效目录或锁定；不可据此拆树】
+  43a6207cdebc  (detached)  ~/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/boardmain-wt-gone
+      worktree unavailable or repository root mismatch; gitdir file points to non-existent location
+  4972ce7c90d7  wt-locked-branch  ~/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/boardmain-wt-locked
+      locked
+
+【生产快照】生产快照保留策略需另行核实；本脚本不拆
+
+删除前另查 ignored 文件、reflog、活跃进程/定时任务与部署引用，并取得用户确认。
+cherry 只比较补丁等价，不证明业务接替或合并提交里的独有改动已吸收。
+合入状态不要写进 inflight/main.md 或项目笔记交接记录，下次跑本脚本。

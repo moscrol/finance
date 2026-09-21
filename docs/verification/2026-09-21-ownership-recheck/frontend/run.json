@@ -1,0 +1,40 @@
+{
+  "leaf": "frontend",
+  "revision": "e1b63b1a5b7c066b7377bbd2d005051863331001",
+  "pid": 69238,
+  "started": 1789936415.480352,
+  "identity_before": {
+    "revision": "e1b63b1a5b7c066b7377bbd2d005051863331001",
+    "status": "",
+    "main": "728f327160bbd2485cb635e7ef09d040d718d7b5"
+  },
+  "checks": [
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/run_frontend_gate.py",
+        "--tree",
+        "/Users/a77/fwp-wt-ownership-gates-v2-0921",
+        "--expect-revision",
+        "e1b63b1a5b7c066b7377bbd2d005051863331001",
+        "--output",
+        "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/frontend/gate",
+        "--workbench-port",
+        "18991",
+        "--re06-port",
+        "18994"
+      ],
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921/frontend/0.log",
+      "sha256": "4b4de0e6e60332843a92f0d8e42c7cec4dc66e41d83ab5e1feee7a1998ac783b"
+    }
+  ],
+  "complete": true,
+  "identity_after": {
+    "revision": "e1b63b1a5b7c066b7377bbd2d005051863331001",
+    "status": "",
+    "main": "728f327160bbd2485cb635e7ef09d040d718d7b5"
+  },
+  "finished": 1789936524.669868,
+  "exit_code": 0
+}

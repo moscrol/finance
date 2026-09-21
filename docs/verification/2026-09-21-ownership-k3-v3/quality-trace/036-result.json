@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "bash_35",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "B8a dirty rc=2\n树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。\nB8b allow-dirty rc=0\n2 passed in 0.29s\n== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-BkBwp0u8/pytest.json\n   revision=756868a9b140 dirty=True target=tests/test_ok.py\n   passed=2 failed=0 error=0 skipped=0\nreceipt dirty= True wdt= 1 paths= ['tests/test_ok.py']\n       0\n"
+      }
+    ]
+  },
+  "isError": false
+}

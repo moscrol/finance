@@ -1,0 +1,486 @@
+FFFFFFFFFFFFFFFFF.FFFF                                                   [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260920T200259Z-728f3271.json
+
+=================================== FAILURES ===================================
+_______________________ test_readback_keeps_failure_exit _______________________
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_keeps_failure_ex0/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_keeps_failure_ex0')
+
+    def test_readback_keeps_failure_exit(repo, tmp_path):
+        data = receipt(repo, counts={"passed": 1, "failed": 1, "error": 0, "skipped": 0},
+                       failed_ids=["test_sample.py::test_bad"], exit_status=1)
+        result = readback(repo, tmp_path, data)
+>       assert result.returncode == 1, result.stdout + result.stderr
+E       AssertionError: == receipt /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_keeps_failure_ex0/receipt.json
+E            revision=8fd908a2071b dirty=False target=test_sample.py
+E            passed=1 failed=1 error=0 skipped=0
+E            RED test_sample.py::test_bad
+E         
+E       assert 0 == 1
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh', '--receip...rty=False target=test_sample.py\n   passed=1 failed=1 error=0 skipped=0\n   RED test_sample.py::test_bad\n', stderr='').returncode
+
+tests/test_main_gate_receipt.py:81: AssertionError
+_______ test_readback_refuses_invalid_or_untrustworthy_receipt[changes0] _______
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_0/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_0')
+changes = {'revision': '0000000000000000000000000000000000000000'}
+
+    @pytest.mark.parametrize("changes", [
+        {"revision": "0" * 40}, {"dirty": True}, {"worktree_dirty_total": 1},
+        {"dependency_gate_bypassed": True}, {"interpreter": "/wrong/python"},
+        {"counts": {"passed": 0, "failed": 0, "error": 0, "skipped": 1}},
+        {"counts": {"passed": -1, "failed": 0, "error": 0, "skipped": 0}},
+        {"counts": {"passed": True, "failed": 0, "error": 0, "skipped": 0}},
+        {"exit_status": 2}, {"exit_status": None}, {"failed_ids": ["hidden failure"]},
+    ])
+    def test_readback_refuses_invalid_or_untrustworthy_receipt(repo, tmp_path, changes):
+        result = readback(repo, tmp_path, receipt(repo, **changes))
+>       assert result.returncode != 0, result.stdout + result.stderr
+E       AssertionError: == receipt /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_0/receipt.json
+E            revision=000000000000 dirty=False target=test_sample.py
+E            passed=1 failed=0 error=0 skipped=0
+E         
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh', '--receip...json\n   revision=000000000000 dirty=False target=test_sample.py\n   passed=1 failed=0 error=0 skipped=0\n', stderr='').returncode
+
+tests/test_main_gate_receipt.py:94: AssertionError
+_______ test_readback_refuses_invalid_or_untrustworthy_receipt[changes1] _______
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_1/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_1')
+changes = {'dirty': True}
+
+    @pytest.mark.parametrize("changes", [
+        {"revision": "0" * 40}, {"dirty": True}, {"worktree_dirty_total": 1},
+        {"dependency_gate_bypassed": True}, {"interpreter": "/wrong/python"},
+        {"counts": {"passed": 0, "failed": 0, "error": 0, "skipped": 1}},
+        {"counts": {"passed": -1, "failed": 0, "error": 0, "skipped": 0}},
+        {"counts": {"passed": True, "failed": 0, "error": 0, "skipped": 0}},
+        {"exit_status": 2}, {"exit_status": None}, {"failed_ids": ["hidden failure"]},
+    ])
+    def test_readback_refuses_invalid_or_untrustworthy_receipt(repo, tmp_path, changes):
+        result = readback(repo, tmp_path, receipt(repo, **changes))
+>       assert result.returncode != 0, result.stdout + result.stderr
+E       AssertionError: == receipt /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_1/receipt.json
+E            revision=47262f6ededa dirty=True target=test_sample.py
+E            passed=1 failed=0 error=0 skipped=0
+E         
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh', '--receip....json\n   revision=47262f6ededa dirty=True target=test_sample.py\n   passed=1 failed=0 error=0 skipped=0\n', stderr='').returncode
+
+tests/test_main_gate_receipt.py:94: AssertionError
+_______ test_readback_refuses_invalid_or_untrustworthy_receipt[changes2] _______
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_2/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_2')
+changes = {'worktree_dirty_total': 1}
+
+    @pytest.mark.parametrize("changes", [
+        {"revision": "0" * 40}, {"dirty": True}, {"worktree_dirty_total": 1},
+        {"dependency_gate_bypassed": True}, {"interpreter": "/wrong/python"},
+        {"counts": {"passed": 0, "failed": 0, "error": 0, "skipped": 1}},
+        {"counts": {"passed": -1, "failed": 0, "error": 0, "skipped": 0}},
+        {"counts": {"passed": True, "failed": 0, "error": 0, "skipped": 0}},
+        {"exit_status": 2}, {"exit_status": None}, {"failed_ids": ["hidden failure"]},
+    ])
+    def test_readback_refuses_invalid_or_untrustworthy_receipt(repo, tmp_path, changes):
+        result = readback(repo, tmp_path, receipt(repo, **changes))
+>       assert result.returncode != 0, result.stdout + result.stderr
+E       AssertionError: == receipt /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_2/receipt.json
+E            revision=47262f6ededa dirty=False target=test_sample.py
+E            passed=1 failed=0 error=0 skipped=0
+E         
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh', '--receip...json\n   revision=47262f6ededa dirty=False target=test_sample.py\n   passed=1 failed=0 error=0 skipped=0\n', stderr='').returncode
+
+tests/test_main_gate_receipt.py:94: AssertionError
+_______ test_readback_refuses_invalid_or_untrustworthy_receipt[changes3] _______
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_3/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_3')
+changes = {'dependency_gate_bypassed': True}
+
+    @pytest.mark.parametrize("changes", [
+        {"revision": "0" * 40}, {"dirty": True}, {"worktree_dirty_total": 1},
+        {"dependency_gate_bypassed": True}, {"interpreter": "/wrong/python"},
+        {"counts": {"passed": 0, "failed": 0, "error": 0, "skipped": 1}},
+        {"counts": {"passed": -1, "failed": 0, "error": 0, "skipped": 0}},
+        {"counts": {"passed": True, "failed": 0, "error": 0, "skipped": 0}},
+        {"exit_status": 2}, {"exit_status": None}, {"failed_ids": ["hidden failure"]},
+    ])
+    def test_readback_refuses_invalid_or_untrustworthy_receipt(repo, tmp_path, changes):
+        result = readback(repo, tmp_path, receipt(repo, **changes))
+>       assert result.returncode != 0, result.stdout + result.stderr
+E       AssertionError: == receipt /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_3/receipt.json
+E            revision=47262f6ededa dirty=False target=test_sample.py
+E            passed=1 failed=0 error=0 skipped=0
+E         
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh', '--receip...json\n   revision=47262f6ededa dirty=False target=test_sample.py\n   passed=1 failed=0 error=0 skipped=0\n', stderr='').returncode
+
+tests/test_main_gate_receipt.py:94: AssertionError
+_______ test_readback_refuses_invalid_or_untrustworthy_receipt[changes4] _______
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_4/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_4')
+changes = {'interpreter': '/wrong/python'}
+
+    @pytest.mark.parametrize("changes", [
+        {"revision": "0" * 40}, {"dirty": True}, {"worktree_dirty_total": 1},
+        {"dependency_gate_bypassed": True}, {"interpreter": "/wrong/python"},
+        {"counts": {"passed": 0, "failed": 0, "error": 0, "skipped": 1}},
+        {"counts": {"passed": -1, "failed": 0, "error": 0, "skipped": 0}},
+        {"counts": {"passed": True, "failed": 0, "error": 0, "skipped": 0}},
+        {"exit_status": 2}, {"exit_status": None}, {"failed_ids": ["hidden failure"]},
+    ])
+    def test_readback_refuses_invalid_or_untrustworthy_receipt(repo, tmp_path, changes):
+        result = readback(repo, tmp_path, receipt(repo, **changes))
+>       assert result.returncode != 0, result.stdout + result.stderr
+E       AssertionError: == receipt /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_4/receipt.json
+E            revision=47262f6ededa dirty=False target=test_sample.py
+E            passed=1 failed=0 error=0 skipped=0
+E         
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh', '--receip...json\n   revision=47262f6ededa dirty=False target=test_sample.py\n   passed=1 failed=0 error=0 skipped=0\n', stderr='').returncode
+
+tests/test_main_gate_receipt.py:94: AssertionError
+_______ test_readback_refuses_invalid_or_untrustworthy_receipt[changes5] _______
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_5/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_5')
+changes = {'counts': {'error': 0, 'failed': 0, 'passed': 0, 'skipped': 1}}
+
+    @pytest.mark.parametrize("changes", [
+        {"revision": "0" * 40}, {"dirty": True}, {"worktree_dirty_total": 1},
+        {"dependency_gate_bypassed": True}, {"interpreter": "/wrong/python"},
+        {"counts": {"passed": 0, "failed": 0, "error": 0, "skipped": 1}},
+        {"counts": {"passed": -1, "failed": 0, "error": 0, "skipped": 0}},
+        {"counts": {"passed": True, "failed": 0, "error": 0, "skipped": 0}},
+        {"exit_status": 2}, {"exit_status": None}, {"failed_ids": ["hidden failure"]},
+    ])
+    def test_readback_refuses_invalid_or_untrustworthy_receipt(repo, tmp_path, changes):
+        result = readback(repo, tmp_path, receipt(repo, **changes))
+>       assert result.returncode != 0, result.stdout + result.stderr
+E       AssertionError: == receipt /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_5/receipt.json
+E            revision=47262f6ededa dirty=False target=test_sample.py
+E            passed=0 failed=0 error=0 skipped=1
+E         
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh', '--receip...json\n   revision=47262f6ededa dirty=False target=test_sample.py\n   passed=0 failed=0 error=0 skipped=1\n', stderr='').returncode
+
+tests/test_main_gate_receipt.py:94: AssertionError
+_______ test_readback_refuses_invalid_or_untrustworthy_receipt[changes6] _______
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_6/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_6')
+changes = {'counts': {'error': 0, 'failed': 0, 'passed': -1, 'skipped': 0}}
+
+    @pytest.mark.parametrize("changes", [
+        {"revision": "0" * 40}, {"dirty": True}, {"worktree_dirty_total": 1},
+        {"dependency_gate_bypassed": True}, {"interpreter": "/wrong/python"},
+        {"counts": {"passed": 0, "failed": 0, "error": 0, "skipped": 1}},
+        {"counts": {"passed": -1, "failed": 0, "error": 0, "skipped": 0}},
+        {"counts": {"passed": True, "failed": 0, "error": 0, "skipped": 0}},
+        {"exit_status": 2}, {"exit_status": None}, {"failed_ids": ["hidden failure"]},
+    ])
+    def test_readback_refuses_invalid_or_untrustworthy_receipt(repo, tmp_path, changes):
+        result = readback(repo, tmp_path, receipt(repo, **changes))
+>       assert result.returncode != 0, result.stdout + result.stderr
+E       AssertionError: == receipt /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_6/receipt.json
+E            revision=47262f6ededa dirty=False target=test_sample.py
+E            passed=-1 failed=0 error=0 skipped=0
+E         
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh', '--receip...son\n   revision=47262f6ededa dirty=False target=test_sample.py\n   passed=-1 failed=0 error=0 skipped=0\n', stderr='').returncode
+
+tests/test_main_gate_receipt.py:94: AssertionError
+_______ test_readback_refuses_invalid_or_untrustworthy_receipt[changes7] _______
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_7/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_7')
+changes = {'counts': {'error': 0, 'failed': 0, 'passed': True, 'skipped': 0}}
+
+    @pytest.mark.parametrize("changes", [
+        {"revision": "0" * 40}, {"dirty": True}, {"worktree_dirty_total": 1},
+        {"dependency_gate_bypassed": True}, {"interpreter": "/wrong/python"},
+        {"counts": {"passed": 0, "failed": 0, "error": 0, "skipped": 1}},
+        {"counts": {"passed": -1, "failed": 0, "error": 0, "skipped": 0}},
+        {"counts": {"passed": True, "failed": 0, "error": 0, "skipped": 0}},
+        {"exit_status": 2}, {"exit_status": None}, {"failed_ids": ["hidden failure"]},
+    ])
+    def test_readback_refuses_invalid_or_untrustworthy_receipt(repo, tmp_path, changes):
+        result = readback(repo, tmp_path, receipt(repo, **changes))
+>       assert result.returncode != 0, result.stdout + result.stderr
+E       AssertionError: == receipt /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_7/receipt.json
+E            revision=47262f6ededa dirty=False target=test_sample.py
+E            passed=True failed=0 error=0 skipped=0
+E         
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh', '--receip...n\n   revision=47262f6ededa dirty=False target=test_sample.py\n   passed=True failed=0 error=0 skipped=0\n', stderr='').returncode
+
+tests/test_main_gate_receipt.py:94: AssertionError
+_______ test_readback_refuses_invalid_or_untrustworthy_receipt[changes8] _______
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_8/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_8')
+changes = {'exit_status': 2}
+
+    @pytest.mark.parametrize("changes", [
+        {"revision": "0" * 40}, {"dirty": True}, {"worktree_dirty_total": 1},
+        {"dependency_gate_bypassed": True}, {"interpreter": "/wrong/python"},
+        {"counts": {"passed": 0, "failed": 0, "error": 0, "skipped": 1}},
+        {"counts": {"passed": -1, "failed": 0, "error": 0, "skipped": 0}},
+        {"counts": {"passed": True, "failed": 0, "error": 0, "skipped": 0}},
+        {"exit_status": 2}, {"exit_status": None}, {"failed_ids": ["hidden failure"]},
+    ])
+    def test_readback_refuses_invalid_or_untrustworthy_receipt(repo, tmp_path, changes):
+        result = readback(repo, tmp_path, receipt(repo, **changes))
+>       assert result.returncode != 0, result.stdout + result.stderr
+E       AssertionError: == receipt /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_8/receipt.json
+E            revision=47262f6ededa dirty=False target=test_sample.py
+E            passed=1 failed=0 error=0 skipped=0
+E         
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh', '--receip...json\n   revision=47262f6ededa dirty=False target=test_sample.py\n   passed=1 failed=0 error=0 skipped=0\n', stderr='').returncode
+
+tests/test_main_gate_receipt.py:94: AssertionError
+_______ test_readback_refuses_invalid_or_untrustworthy_receipt[changes9] _______
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_9/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_9')
+changes = {'exit_status': None}
+
+    @pytest.mark.parametrize("changes", [
+        {"revision": "0" * 40}, {"dirty": True}, {"worktree_dirty_total": 1},
+        {"dependency_gate_bypassed": True}, {"interpreter": "/wrong/python"},
+        {"counts": {"passed": 0, "failed": 0, "error": 0, "skipped": 1}},
+        {"counts": {"passed": -1, "failed": 0, "error": 0, "skipped": 0}},
+        {"counts": {"passed": True, "failed": 0, "error": 0, "skipped": 0}},
+        {"exit_status": 2}, {"exit_status": None}, {"failed_ids": ["hidden failure"]},
+    ])
+    def test_readback_refuses_invalid_or_untrustworthy_receipt(repo, tmp_path, changes):
+        result = readback(repo, tmp_path, receipt(repo, **changes))
+>       assert result.returncode != 0, result.stdout + result.stderr
+E       AssertionError: == receipt /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_9/receipt.json
+E            revision=0201f44c6506 dirty=False target=test_sample.py
+E            passed=1 failed=0 error=0 skipped=0
+E         
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh', '--receip...json\n   revision=0201f44c6506 dirty=False target=test_sample.py\n   passed=1 failed=0 error=0 skipped=0\n', stderr='').returncode
+
+tests/test_main_gate_receipt.py:94: AssertionError
+______ test_readback_refuses_invalid_or_untrustworthy_receipt[changes10] _______
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_10/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_10')
+changes = {'failed_ids': ['hidden failure']}
+
+    @pytest.mark.parametrize("changes", [
+        {"revision": "0" * 40}, {"dirty": True}, {"worktree_dirty_total": 1},
+        {"dependency_gate_bypassed": True}, {"interpreter": "/wrong/python"},
+        {"counts": {"passed": 0, "failed": 0, "error": 0, "skipped": 1}},
+        {"counts": {"passed": -1, "failed": 0, "error": 0, "skipped": 0}},
+        {"counts": {"passed": True, "failed": 0, "error": 0, "skipped": 0}},
+        {"exit_status": 2}, {"exit_status": None}, {"failed_ids": ["hidden failure"]},
+    ])
+    def test_readback_refuses_invalid_or_untrustworthy_receipt(repo, tmp_path, changes):
+        result = readback(repo, tmp_path, receipt(repo, **changes))
+>       assert result.returncode != 0, result.stdout + result.stderr
+E       AssertionError: == receipt /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_readback_refuses_invalid_10/receipt.json
+E            revision=0201f44c6506 dirty=False target=test_sample.py
+E            passed=1 failed=0 error=0 skipped=0
+E            RED hidden failure
+E         
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh', '--receip...44c6506 dirty=False target=test_sample.py\n   passed=1 failed=0 error=0 skipped=0\n   RED hidden failure\n', stderr='').returncode
+
+tests/test_main_gate_receipt.py:94: AssertionError
+_____________ test_malformed_receipt_is_structured_failure[data0] ______________
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_malformed_receipt_is_stru0/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_malformed_receipt_is_stru0')
+data = {}
+
+    @pytest.mark.parametrize("data", [{}, [], {"counts": {}}])
+    def test_malformed_receipt_is_structured_failure(repo, tmp_path, data):
+        result = readback(repo, tmp_path, data)
+>       assert result.returncode == 4
+E       AssertionError: assert 0 == 4
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh', '--receip...u0/receipt.json\n   revision= dirty=None target=None\n   passed=None failed=None error=None skipped=None\n', stderr='').returncode
+
+tests/test_main_gate_receipt.py:100: AssertionError
+_____________ test_malformed_receipt_is_structured_failure[data1] ______________
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_malformed_receipt_is_stru1/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_malformed_receipt_is_stru1')
+data = []
+
+    @pytest.mark.parametrize("data", [{}, [], {"counts": {}}])
+    def test_malformed_receipt_is_structured_failure(repo, tmp_path, data):
+        result = readback(repo, tmp_path, data)
+>       assert result.returncode == 4
+E       assert 1 == 4
+E        +  where 1 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh', '--receip...recent call last):\n  File "<stdin>", line 6, in <module>\nAttributeError: \'list\' object has no attribute \'get\'\n').returncode
+
+tests/test_main_gate_receipt.py:100: AssertionError
+_____________ test_malformed_receipt_is_structured_failure[data2] ______________
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_malformed_receipt_is_stru2/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_malformed_receipt_is_stru2')
+data = {'counts': {}}
+
+    @pytest.mark.parametrize("data", [{}, [], {"counts": {}}])
+    def test_malformed_receipt_is_structured_failure(repo, tmp_path, data):
+        result = readback(repo, tmp_path, data)
+>       assert result.returncode == 4
+E       AssertionError: assert 0 == 4
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh', '--receip...u2/receipt.json\n   revision= dirty=None target=None\n   passed=None failed=None error=None skipped=None\n', stderr='').returncode
+
+tests/test_main_gate_receipt.py:100: AssertionError
+_________________ test_baseline_does_not_hide_interrupted_run __________________
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_baseline_does_not_hide_in0/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_baseline_does_not_hide_in0')
+
+    def test_baseline_does_not_hide_interrupted_run(repo, tmp_path):
+        result = readback(repo, tmp_path, receipt(repo, exit_status=2), receipt(repo))
+>       assert result.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh', '--receip...seline.json (revision=0201f44c6506, passed=1, failed=0)\n   same_red_set=True passed_non_decreasing=True\n', stderr='').returncode
+
+tests/test_main_gate_receipt.py:106: AssertionError
+________________________ test_baseline_scope_must_match ________________________
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_baseline_scope_must_match0/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_baseline_scope_must_match0')
+
+    def test_baseline_scope_must_match(repo, tmp_path):
+        result = readback(repo, tmp_path, receipt(repo), receipt(repo, target="other.py"))
+>       assert result.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh', '--receip...seline.json (revision=0201f44c6506, passed=1, failed=0)\n   same_red_set=True passed_non_decreasing=True\n', stderr='').returncode
+
+tests/test_main_gate_receipt.py:111: AssertionError
+____________ test_gate_uses_own_receipt_when_latest_is_overwritten _____________
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_gate_uses_own_receipt_whe0/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_gate_uses_own_receipt_whe0')
+
+    def test_gate_uses_own_receipt_when_latest_is_overwritten(repo, tmp_path):
+        # The real root hook writes first; a second plugin then replaces only latest.json.
+        (repo / "conftest.py").write_text((repo / "conftest.py").read_text() + '''
+    class CompetingWriter:
+        @pytest.hookimpl(hookwrapper=True, tryfirst=True)
+        def pytest_sessionfinish(self):
+            yield
+            other = Path(os.environ["FWP_TEST_RECEIPT_DIR"]) / "latest.json"
+            other.write_text('{"revision": "foreign", "exit_status": 1}')
+    
+    @pytest.hookimpl(trylast=True)
+    def pytest_sessionstart(session):
+        session.config.pluginmanager.register(CompetingWriter(), "competing-writer")
+    ''')
+        git(repo, "add", "--", "conftest.py")
+        git(repo, "commit", "-m", "competing latest writer")
+>       result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py")
+
+tests/test_main_gate_receipt.py:138: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_main_gate_receipt.py:62: in run_gate
+    return subprocess.run(["bash", str(GATE), *args], cwd=repo, env=env,
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py:550: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py:1209: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py:2157: in _communicate
+    stderr = self._translate_newlines(stderr,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: 1 args: ['bash', '/Users/a77/fwp-wt-test-gate-receipt-id...>
+data = b'/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh: line 82: LATEST\xef: unbound variable\n'
+encoding = 'UTF-8', errors = 'strict'
+
+    def _translate_newlines(self, data, encoding, errors):
+>       data = data.decode(encoding, errors)
+E       UnicodeDecodeError: 'utf-8' codec can't decode byte 0xef in position 91: invalid continuation byte
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py:1086: UnicodeDecodeError
+____________ test_missing_current_receipt_never_reuses_stale_latest ____________
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_missing_current_receipt_n0/repo')
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_missing_current_receipt_n0')
+
+    def test_missing_current_receipt_never_reuses_stale_latest(repo, tmp_path):
+        folder = tmp_path / "receipts"
+        folder.mkdir()
+        (folder / "latest.json").write_text(json.dumps(receipt(repo)))
+        result = run_gate(repo, tmp_path, "--pytest-args", "-q test_sample.py",
+                          extra_env={"FWP_TEST_RECEIPT": "0"})
+>       assert result.returncode == 4, result.stdout + result.stderr
+E       AssertionError: == gate @ main 8585772  tree=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_missing_current_receipt_n0/repo  dirty=0  py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python
+E         == ruff check .
+E         All checks passed!
+E         == pytest -q test_sample.py
+E         .                                                                        [100%]
+E         1 passed in 0.00s
+E         == receipt /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_missing_current_receipt_n0/receipts/latest.json
+E            revision=85857727fa37 dirty=False target=test_sample.py
+E            passed=1 failed=0 error=0 skipped=0
+E         
+E       assert 0 == 4
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/a77/fwp-wt-test-gate-receipt-identity-0921/scripts/run_main_gate.sh', '--pytest...json\n   revision=85857727fa37 dirty=False target=test_sample.py\n   passed=1 failed=0 error=0 skipped=0\n', stderr='').returncode
+
+tests/test_main_gate_receipt.py:153: AssertionError
+___________ test_writer_honors_override_without_overwriting_original ___________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_writer_honors_override_wi0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10877a300>
+
+    def test_writer_honors_override_without_overwriting_original(tmp_path, monkeypatch):
+        folder = tmp_path / "receipts"
+        output = tmp_path / "run/pytest.json"
+        output.parent.mkdir()
+        monkeypatch.setenv("FWP_TEST_RECEIPT_DIR", str(folder))
+        monkeypatch.setenv("FWP_TEST_RECEIPT_PATH", str(output))
+        data = {"revision": "a" * 40, "counts": {"passed": 1}}
+>       assert root_conftest._write_test_receipt(data) == output
+E       AttributeError: module 'conftest' has no attribute '_write_test_receipt'
+
+tests/test_main_gate_receipt.py:163: AttributeError
+__________________ test_default_receipt_names_cannot_collide ___________________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3125/test_default_receipt_names_can0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108779af0>
+
+    def test_default_receipt_names_cannot_collide(tmp_path, monkeypatch):
+        monkeypatch.setenv("FWP_TEST_RECEIPT_DIR", str(tmp_path))
+        monkeypatch.delenv("FWP_TEST_RECEIPT_PATH", raising=False)
+        data = {"revision": "a" * 40}
+>       paths = [root_conftest._write_test_receipt(data) for _ in range(3)]
+E       AttributeError: module 'conftest' has no attribute '_write_test_receipt'
+
+tests/test_main_gate_receipt.py:174: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_main_gate_receipt.py::test_readback_keeps_failure_exit - As...
+FAILED tests/test_main_gate_receipt.py::test_readback_refuses_invalid_or_untrustworthy_receipt[changes0]
+FAILED tests/test_main_gate_receipt.py::test_readback_refuses_invalid_or_untrustworthy_receipt[changes1]
+FAILED tests/test_main_gate_receipt.py::test_readback_refuses_invalid_or_untrustworthy_receipt[changes2]
+FAILED tests/test_main_gate_receipt.py::test_readback_refuses_invalid_or_untrustworthy_receipt[changes3]
+FAILED tests/test_main_gate_receipt.py::test_readback_refuses_invalid_or_untrustworthy_receipt[changes4]
+FAILED tests/test_main_gate_receipt.py::test_readback_refuses_invalid_or_untrustworthy_receipt[changes5]
+FAILED tests/test_main_gate_receipt.py::test_readback_refuses_invalid_or_untrustworthy_receipt[changes6]
+FAILED tests/test_main_gate_receipt.py::test_readback_refuses_invalid_or_untrustworthy_receipt[changes7]
+FAILED tests/test_main_gate_receipt.py::test_readback_refuses_invalid_or_untrustworthy_receipt[changes8]
+FAILED tests/test_main_gate_receipt.py::test_readback_refuses_invalid_or_untrustworthy_receipt[changes9]
+FAILED tests/test_main_gate_receipt.py::test_readback_refuses_invalid_or_untrustworthy_receipt[changes10]
+FAILED tests/test_main_gate_receipt.py::test_malformed_receipt_is_structured_failure[data0]
+FAILED tests/test_main_gate_receipt.py::test_malformed_receipt_is_structured_failure[data1]
+FAILED tests/test_main_gate_receipt.py::test_malformed_receipt_is_structured_failure[data2]
+FAILED tests/test_main_gate_receipt.py::test_baseline_does_not_hide_interrupted_run
+FAILED tests/test_main_gate_receipt.py::test_baseline_scope_must_match - Asse...
+FAILED tests/test_main_gate_receipt.py::test_gate_uses_own_receipt_when_latest_is_overwritten
+FAILED tests/test_main_gate_receipt.py::test_missing_current_receipt_never_reuses_stale_latest
+FAILED tests/test_main_gate_receipt.py::test_writer_honors_override_without_overwriting_original
+FAILED tests/test_main_gate_receipt.py::test_default_receipt_names_cannot_collide
+21 failed, 1 passed in 4.59s

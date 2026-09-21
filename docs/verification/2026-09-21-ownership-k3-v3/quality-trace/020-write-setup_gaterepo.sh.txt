@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# K3 quality: build synthetic gate repo fixture (copies candidate code, never mutates checkout).
+set -euo pipefail
+OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3
+SRC=/Users/a77/fwp-wt-ownership-quality-v3-0921
+PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python
+
+build_repo() {
+  local dst="$1"
+  rm -rf "$dst"
+  mkdir -p "$dst/scripts" "$dst/tests" "$dst/tests_inner"
+  cp "$SRC/conftest.py" "$dst/conftest.py"
+  cp "$SRC/scripts/run_main_gate.sh" "$dst/scripts/run_main_gate.sh"
+  cp "$SRC/scripts/main_gate_receipt.py" "$dst/scripts/main_gate_receipt.py"
+  cat > "$dst/test-environment.json" <<EOF
+{
+  "interpreter": "$PY",
+  "required_modules": ["pytest", "ruff"],
+  "escape_env_var": "FWP_ALLOW_ANY_PYTHON",
+  "code_path_prefixes": ["tests/", "tests_inner/", "conftest.py", "scripts/", "test-environment.json"],
+  "data_path_exceptions": []
+}
+EOF
+  cat > "$dst/tests/test_ok.py" <<'EOF'
+def test_alpha():
+    assert 1 + 1 == 2
+
+
+def test_beta():
+    assert "a".upper() == "A"
+EOF
+  cat > "$dst/tests/test_ok2.py" <<'EOF'
+def test_gamma():
+    assert len([1, 2, 3]) == 3
+EOF
+  cat > "$dst/tests_inner/test_inner.py" <<'EOF'
+def test_inner_passes():
+    assert True
+EOF
+  git -C "$dst" init -q
+  git -C "$dst" add -A
+  git -C "$dst" -c user.email=k3@probe -c user.name=k3 commit -qm "fixture baseline"
+}
+
+build_repo "$OUT/fixtures/gaterepo"
+# separate copy for the mid-run drift probe (it commits during the run)
+build_repo "$OUT/fixtures/gaterepo_drift"
+cat > "$OUT/fixtures/gaterepo_drift/tests/test_drift.py" <<'EOF'
+import subprocess
+
+
+def test_commit_during_run():
+    subprocess.run(["git", "add", "-A"], check=True, capture_output=True)
+    subprocess.run(["git", "-c", "user.email=k3@probe", "-c", "user.name", "k3",
+                    "commit", "-qm", "mid-run commit"], check=True, capture_output=True)
+    assert True
+EOF
+cat > "$OUT/fixtures/gaterepo_drift/tests/test_suicide.py" <<'EOF'
+import os
+import signal
+
+
+def test_kill_pytest():
+    os.kill(os.getpid(), signal.SIGTERM)
+EOF
+git -C "$OUT/fixtures/gaterepo_drift" add -A
+git -C "$OUT/fixtures/gaterepo_drift" -c user.email=k3@probe -c user.name=k3 commit -qm "drift+suicide tests"
+echo "fixtures built"
+git -C "$OUT/fixtures/gaterepo" log --oneline | head -2

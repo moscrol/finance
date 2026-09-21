@@ -1,0 +1,451 @@
+-fi
++# 仅用宿主标准库解析 JSON，测试本身仍用契约指定的解释器。
++PY="$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "") if p.is_file() else "")' "$REPO/test-environment.json")" || exit 4
+ [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+ if [ ! -x "$PY" ]; then
+-  echo "解释器不可执行: $PY（test-environment.json 指向的 venv 不在？）" >&2
++  echo "解释器不可执行: ${PY}" >&2
+   exit 4
+ fi
+-
+ cd "$REPO" || exit 4
++REV="$(git rev-parse HEAD)" || exit 4
++STATUS="$(git status --porcelain)" || exit 4
++if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
++  echo "树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
++  exit 2
++fi
++CHECK_ARGS=(--revision "$REV" --tree "$REPO")
++[ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
++[ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+ if [ -n "$RECEIPT_ONLY" ]; then
+   LATEST="$RECEIPT_ONLY"
+-  PYTEST_EXIT=0
+ else
+-  REV="$(git rev-parse --short HEAD)"
+-  BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+-  DIRTY_COUNT="$(git status --porcelain | wc -l | tr -d ' ')"
+-  if [ "$DIRTY_COUNT" != "0" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+-    echo "树不干净（$DIRTY_COUNT 条 porcelain）。整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
+-    git status --porcelain | head -10 >&2
+-    exit 2
+-  fi
+-  echo "== gate @ $BRANCH $REV  tree=$REPO  dirty=$DIRTY_COUNT  py=$PY"
+-
++  RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
++  mkdir -p "$RECEIPT_DIR" || exit 4
++  RECEIPT_DIR="$(cd "$RECEIPT_DIR" && pwd)" || exit 4
++  RUN_DIR="$(mktemp -d "$RECEIPT_DIR/gate-XXXXXXXX")" || exit 4
++  LATEST="$RUN_DIR/pytest.json"
++  echo "== gate @ ${REV:0:12} tree=${REPO} py=${PY} receipt=${LATEST}"
+   echo "== ruff check ."
+   if ! "$PY" -m ruff check . ; then
+     echo "ruff 红，停。" >&2
+     exit 1
+   fi
+-
+-  echo "== pytest $PYTEST_ARGS"
++  echo "== pytest ${PYTEST_ARGS}"
++  # Preserve the existing whitespace-separated --pytest-args contract; never eval it.
+   # shellcheck disable=SC2086
+-  "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
++  FWP_TEST_RECEIPT_DIR="$RECEIPT_DIR" FWP_TEST_RECEIPT_PATH="$LATEST" \
++    FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
+   PYTEST_EXIT="${PIPESTATUS[0]}"
+-
+-  RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
+-  LATEST="$RECEIPT_DIR/latest.json"
++  CHECK_ARGS+=(--pytest-exit "$PYTEST_EXIT")
++fi
++AFTER_REV="$(git rev-parse HEAD)" || exit 4
++AFTER_STATUS="$(git status --porcelain)" || exit 4
++if [ "$REV" != "$AFTER_REV" ] || { [ "$ALLOW_DIRTY" != "1" ] && [ -n "$AFTER_STATUS" ]; }; then
++  echo "测试期间提交或干净状态改变，收据不可采信。" >&2
++  exit 4
+ fi
+ if [ ! -f "$LATEST" ]; then
+-  echo "没找到收据 $LATEST（conftest 的收据插件没跑？）" >&2
++  echo "没找到本轮收据 ${LATEST}（pytest 收据未写出；不会回退 latest.json）" >&2
+   exit 4
+ fi
+-
+-"$PY" - "$LATEST" "$BASELINE" "$PYTEST_EXIT" <<'PYEOF'
+-import json, sys
+-from pathlib import Path
+-
+-latest_path, baseline_path, pytest_exit = sys.argv[1], sys.argv[2], int(sys.argv[3])
+-latest = json.loads(Path(latest_path).read_text())
+-counts = latest.get("counts") or {}
+-failed = sorted(latest.get("failed_ids") or [])
+-print(f"== receipt {latest_path}")
+-print(f"   revision={latest.get('revision','')[:12]} dirty={latest.get('dirty')} target={latest.get('target')}")
+-print(f"   passed={counts.get('passed')} failed={counts.get('failed')} error={counts.get('error')} skipped={counts.get('skipped')}")
+-for fid in failed:
+-    print(f"   RED {fid}")
+-if not baseline_path:
+-    # 没有基线就只能照实回 pytest 的退出码：已知的环境红也算红，要「同一组红」的判断请给 --baseline。
+-    sys.exit(pytest_exit)
+-base = json.loads(Path(baseline_path).read_text())
+-base_failed = sorted(base.get("failed_ids") or [])
+-base_counts = base.get("counts") or {}
+-new_red = sorted(set(failed) - set(base_failed))
+-gone_red = sorted(set(base_failed) - set(failed))
+-print(f"== vs baseline {baseline_path} (revision={base.get('revision','')[:12]}, passed={base_counts.get('passed')}, failed={base_counts.get('failed')})")
+-for fid in new_red:
+-    print(f"   NEW RED  {fid}")
+-for fid in gone_red:
+-    print(f"   FIXED    {fid}")
+-passed_ok = (counts.get("passed") or 0) >= (base_counts.get("passed") or 0)
+-print(f"   same_red_set={not new_red and not gone_red} passed_non_decreasing={passed_ok}")
+-sys.exit(0 if not new_red and passed_ok else 3)
+-PYEOF
++"$PY" "$GATE_DIR/main_gate_receipt.py" "$LATEST" "${CHECK_ARGS[@]}"
+diff --git a/scripts/verify_302132_backfill_acceptance.py b/scripts/verify_302132_backfill_acceptance.py
+new file mode 100644
+index 000000000..ab6174b96
+--- /dev/null
++++ b/scripts/verify_302132_backfill_acceptance.py
+@@ -0,0 +1,729 @@
++#!/usr/bin/env python3
++"""302132 回填完整副本演练·外部独立验收（fail-closed 门禁，非报告生成器）。
++
++对象角色（两种用法同一语义）：
++- `--production`：**不可变基线**库。演练复验 = 未动的真生产；生产执行后验收 =
++  换库前备份文件（路径与 sha 见执行收据 backup 字段）。
++- `--clone`：**换库后结果**库。演练 = 演练产物库；生产执行后 = canonical 生产库
++  （收据按 `<clone>.repair-backfill-execution.<run_id>.json` 派生）。
++- `--expected-production-sha256`：基线 sha（生产执行后 = 换库前生产 sha =
++  执行收据 backup.backup_sha256），首尾各核一次（TOCTOU 闭环）。
++
++实际执行的检查（文档只声称实现了的）：
++
++参数格式（先于一切数据访问；格式非法的期望值不能充当判据）：
++- --expected-revision 必须 40 位小写 hex；--expected-production-sha256 必须
++  64 位小写 hex；apply/verify 两个 run_id 非空且互不相同。
++
++预检（DuckDB connect/ATTACH 之前）：
++- production / clone / parquet 均为常规文件且非符号链接；
++- `os.path.samefile(production, clone)` 为假——覆盖同路径、符号链接、硬链接
++  三种别名；无法判定（文件不存在等）按失败处理；不通过则跳过全部数据检查；
++- production 基线 sha 开头核一次（结尾再核一次）。
++
++收据深 schema（apply/verify 两份执行收据 + 其指向的独立子报告；缺字段/类型错/
++空值/格式错逐项记 check False，不抛异常逃逸；后续一切访问只建立在验证通过的
++结构上）：
++- 父收据：kind/run_id/code_revision(40hex 且 == --expected-revision)/
++  code_dirty==False/interpreter 非空/trade_date(ISO 真日期且 ==
++  spec.window_end)/parent{swapped==True, rc==0(严格 int), run_id 一致}/
++  backup{backup_path 非空, backup_sha256 64hex, run_id 一致}/
++  child_report_error 键存在且为 null/child_report_path 非空；
++- spec：code(股票代码格式且 == CODE 授权对象)/name 非空/四个日期 ISO 真日期且 window_start <
++  main_fill_end < window_end、shell_date 界内/spec_version(302132-backfill-
++  前缀且前缀后非空)/parquet_sha256(64hex)/gap_parallel、gap_parquet(非空、
++  成员全 ISO 真日期、无重复、互不交、界内、不含 shell_date)/
++  expected_total_rows(正 int)/stale_technical_dates(成员 ISO 真日期)/
++  stale_window_keys(成员恰为二元日期组)/pinned_0911(恰 11 键、数值有限、
++  turnover 允许 null)/pinned_technical_0911(恰 4 键、有限数值)/
++  pinned_windows_0911(非空、成员恰为 [日期, 有限数, 有限数])/
++  expected_window_counts(恰 5/10/20/60 四键、非负 int)/
++  expected_technical_count(正 int)；
++- 子报告：kind/ok==True（显式成功终态）/mode==本轮/run_id、code_revision、
++  interpreter、trade_date 与父收据一致/spec_version==父 spec/code==父 spec/
++  parquet_sha256(64hex)==父 spec/parallel_source_md5(32hex)/
++  technical_rows==spec.expected_technical_count==technical_staged/
++  window_counts==spec.expected_window_counts 且 window_rows==其和/
++  protected_slices 恰三键且非负 int；
++- 独立子报告文件：存在、可解析、与父收据嵌入 child_report 深比较相等；
++- 跨轮绑定：apply/verify 两轮完整授权 spec 深比较相等（无白名单——「同一
++  输入、同一合同下的幂等复验」以 spec 全等为前提）；
++- 冻结输入身份：**每一轮分别** spec.parquet_sha256 == child.parquet_sha256
++  == sha256(--parquet 实际文件)（三向，两轮各自成立）；
++- 备份身份：备份文件存在且其 sha256 == 收据记录值；apply 收据的备份 sha 还
++  必须 == --expected-production-sha256（备份=基线绑定）；
++- --expected-old-receipt 路径=sha256（64hex，可重复）：旧收据逐份存在且哈希
++  不变（不传则不声称检查旧收据）。
++
++数据合同（clone vs 基线双向对照 + 独立 oracle；预检/参数/收据 schema 不过不
++执行；任何读取/计算异常归入 data_checks_error 结构化 FAIL（rc=2），不裸逃逸）：
++- 他股 fact_stock_daily 全列双向零差；目标股窗外无行；保留行（行数 =
++  expected_total_rows − 授权键集数）全列（含 updated_at）逐字节相等；
++- **并跑源表 fact_stock_daily_hithink 与除权源表 fact_stock_adjustment_hithink
++  整表全列双向零差**（合同承诺写入器不触碰；oracle 输入独立性前提）；
++- **parallel_source_md5 从基线重算**（与写入器同查询同序列化）并绑定两轮
++  子报告记录值；
++- 授权键集全字段 oracle：**并跑源行从基线（prod.）读**，parquet 段从冻结
++  文件读——输出与结果库源表一起坏不能自证通过；
++- 两派生表保护切片全列（含 calculated_at）双向零差；window 黄金三元组；
++  expected_window_counts 与黄金三元组派生计数一致；technical 精确日期集且
++  expected_technical_count 与市场历推导一致；目标日 technical/window 钉值；
++  fact_market_daily 双向零差。
++
++用法（生产执行后）：
++python3 scripts/verify_302132_backfill_acceptance.py \
++  --production <换库前备份.duckdb> --clone <canonical 生产库> \
++  --parquet <冻结 parquet> --run-apply <run_id> --run-verify <run_id> \
++  --expected-revision <合入修订 40hex> \
++  --expected-production-sha256 <换库前生产 sha=收据 backup sha> \
++  [--expected-old-receipt <路径>=<sha256>]... --output <新验收 JSON 路径>
++"""
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++import math
++import os
++import re
++from datetime import date
++from decimal import Decimal, ROUND_HALF_UP
++from pathlib import Path
++
++import duckdb
++
++CODE = "302132.SZ"
++KIND = "repair-backfill-302132"
++SPEC_VERSION_PREFIX = "302132-backfill-"
++WINDOW_PERIODS = ("5", "10", "20", "60")
++PROTECTED_SLICE_KEYS = ("fact_other", "tech_protected", "win_protected")
++PINNED_0911_KEYS = ("stock_name", "close", "pre_close", "pct_chg", "amount",
++                    "turnover", "source", "open", "high", "low", "volume")
++PINNED_TECHNICAL_KEYS = ("ma26", "std26", "up_value", "deviation_pct")
++_HEX64 = re.compile(r"[0-9a-f]{64}")
++_HEX40 = re.compile(r"[0-9a-f]{40}")
++_HEX32 = re.compile(r"[0-9a-f]{32}")
++_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
++_CODE_RE = re.compile(r"\d{6}\.(SZ|SH|BJ)")
++
++
++def _sha256(path: Path) -> str:
++    h = hashlib.sha256()
++    with path.open("rb") as fh:
++        for chunk in iter(lambda: fh.read(8 * 1024 * 1024), b""):
++            h.update(chunk)
++    return h.hexdigest()
++
++
++def _is_date(v) -> bool:
++    """ISO 格式且为真实日历日（2026-13-40 之类拒绝）。"""
++    if not isinstance(v, str) or not _DATE.fullmatch(v):
++        return False
++    try:
++        date.fromisoformat(v)
++    except ValueError:
++        return False
++    return True
++
++
++def _is_num(v) -> bool:
++    """有限数值（JSON 可携带 NaN/Inf；bool 不是数值）。"""
++    if not isinstance(v, (int, float)) or isinstance(v, bool):
++        return False
++    try:
++        return math.isfinite(v)
++    except OverflowError:
++        return False
++
++
++def _is_int(v) -> bool:
++    return isinstance(v, int) and not isinstance(v, bool)
++
++
++def _validate_receipt(tag: str, r: dict, want_run: str, exp_rev: str) -> list:
++    """父收据 + spec + 嵌入子报告的递归深 schema。返回违规字段路径列表（空=通过）。
++
++    约束覆盖：必需键存在、成员类型、ISO 真日期、revision/hash 格式、数值有限
++    性、非空集合及其成员、跨字段一致性、子报告显式成功终态（ok is True）。
++    """
++    bad: list[str] = []
++
++    def req(cond: bool, field: str) -> None:
++        if not cond:
++            bad.append(field)
++
++    # ── 父收据顶层 ────────────────────────────────────────────────
++    req(r.get("kind") == KIND, "kind")
++    req(isinstance(r.get("run_id"), str) and bool(r["run_id"])
++        and r["run_id"] == want_run, "run_id")
++    req(isinstance(r.get("code_revision"), str)
++        and bool(_HEX40.fullmatch(r["code_revision"]))
++        and r["code_revision"] == exp_rev, "code_revision")
++    req(r.get("code_dirty") is False, "code_dirty")
++    req(isinstance(r.get("interpreter"), str) and bool(r["interpreter"]),
++        "interpreter")
++    req(_is_date(r.get("trade_date")), "trade_date")
++    par = r.get("parent")
++    req(isinstance(par, dict), "parent")
++    if isinstance(par, dict):
++        req(par.get("swapped") is True, "parent.swapped")
++        req(_is_int(par.get("rc")) and par["rc"] == 0, "parent.rc")
++        req(par.get("run_id") == r.get("run_id"), "parent.run_id")
++    b = r.get("backup")
++    req(isinstance(b, dict), "backup")
++    if isinstance(b, dict):
++        req(isinstance(b.get("backup_path"), str) and bool(b["backup_path"]),
++            "backup.backup_path")
++        req(isinstance(b.get("backup_sha256"), str)
++            and bool(_HEX64.fullmatch(b["backup_sha256"])),
++            "backup.backup_sha256")
++        req(b.get("run_id") == r.get("run_id"), "backup.run_id")
++    req("child_report_error" in r and r["child_report_error"] is None,
++        "child_report_error")
++    req(isinstance(r.get("child_report_path"), str)
++        and bool(r["child_report_path"]), "child_report_path")
++
++    # ── spec（授权合同）───────────────────────────────────────────
++    spec = r.get("spec")
++    req(isinstance(spec, dict), "spec")
++    if isinstance(spec, dict):
++        req(isinstance(spec.get("code"), str)
++            and bool(_CODE_RE.fullmatch(spec["code"]))
++            and spec["code"] == CODE, "spec.code")
++        req(isinstance(spec.get("name"), str) and bool(spec["name"]),
++            "spec.name")
++        for k in ("window_start", "window_end", "main_fill_end", "shell_date"):
++            req(_is_date(spec.get(k)), f"spec.{k}")
++        if all(_is_date(spec.get(k)) for k in
++               ("window_start", "main_fill_end", "window_end")):
++            req(spec["window_start"] < spec["main_fill_end"]
++                < spec["window_end"], "spec.窗口日期序")
++        if all(_is_date(spec.get(k)) for k in
++               ("window_start", "main_fill_end", "shell_date")):
++            req(spec["window_start"] <= spec["shell_date"]
++                <= spec["main_fill_end"], "spec.shell_date:界内")
++        if _is_date(spec.get("window_end")):
++            req(r.get("trade_date") == spec["window_end"],
++                "trade_date==spec.window_end")
++        sv = spec.get("spec_version")
++        req(isinstance(sv, str) and sv.startswith(SPEC_VERSION_PREFIX)
++            and len(sv) > len(SPEC_VERSION_PREFIX), "spec.spec_version")
++        req(isinstance(spec.get("parquet_sha256"), str)
++            and bool(_HEX64.fullmatch(spec["parquet_sha256"])),
++            "spec.parquet_sha256")
++        gaps: dict[str, list] = {}
++        for k in ("gap_parallel", "gap_parquet"):
++            v = spec.get(k)
++            req(isinstance(v, list) and bool(v)
++                and all(_is_date(d) for d in v), f"spec.{k}")
++            if isinstance(v, list) and all(_is_date(d) for d in v):
++                req(len(set(v)) == len(v), f"spec.{k}:重复")
++                gaps[k] = v
++                if _is_date(spec.get("window_start")) \
++                        and _is_date(spec.get("main_fill_end")):
++                    req(all(spec["window_start"] <= d
++                            <= spec["main_fill_end"] for d in v),
++                        f"spec.{k}:界内")
++        if "gap_parallel" in gaps and "gap_parquet" in gaps:
++            req(not (set(gaps["gap_parallel"]) & set(gaps["gap_parquet"])),
++                "spec.gap:交集")
++            if _is_date(spec.get("shell_date")):
++                req(spec["shell_date"] not in
++                    (set(gaps["gap_parallel"]) | set(gaps["gap_parquet"])),
++                    "spec.shell_date:与gap互斥")
++        req(_is_int(spec.get("expected_total_rows"))
++            and spec["expected_total_rows"] > 0, "spec.expected_total_rows")
++        std = spec.get("stale_technical_dates")
++        req(isinstance(std, list) and all(_is_date(d) for d in std),
++            "spec.stale_technical_dates")
++        swk = spec.get("stale_window_keys")
++        req(isinstance(swk, list) and all(
++            isinstance(pair, list) and len(pair) == 2
++            and all(_is_date(d) for d in pair) for pair in swk),
++            "spec.stale_window_keys")
++        p9 = spec.get("pinned_0911")
++        req(isinstance(p9, dict), "spec.pinned_0911")
++        if isinstance(p9, dict):
++            req(set(p9) == set(PINNED_0911_KEYS), "spec.pinned_0911:键集")
++            if set(PINNED_0911_KEYS) <= set(p9):
++                req(isinstance(p9["stock_name"], str)
++                    and bool(p9["stock_name"]), "spec.pinned_0911.stock_name")
++                req(isinstance(p9["source"], str) and bool(p9["source"]),
++                    "spec.pinned_0911.source")
++                req(p9["turnover"] is None or _is_num(p9["turnover"]),
++                    "spec.pinned_0911.turnover")
++                for k in ("close", "pre_close", "pct_chg", "amount",
++                          "open", "high", "low", "volume"):
++                    req(_is_num(p9[k]), f"spec.pinned_0911.{k}")
++        tp = spec.get("pinned_technical_0911")
++        req(isinstance(tp, dict), "spec.pinned_technical_0911")
++        if isinstance(tp, dict):
++            req(set(tp) == set(PINNED_TECHNICAL_KEYS),
++                "spec.pinned_technical_0911:键集")
++            for k in PINNED_TECHNICAL_KEYS:
++                if k in tp:
++                    req(_is_num(tp[k]), f"spec.pinned_technical_0911.{k}")
++        wp = spec.get("pinned_windows_0911")
++        req(isinstance(wp, list) and bool(wp), "spec.pinned_windows_0911")
++        if isinstance(wp, list):
++            for i, e in enumerate(wp):
++                req(isinstance(e, list) and len(e) == 3 and _is_date(e[0])
++                    and _is_num(e[1]) and _is_num(e[2]),
++                    f"spec.pinned_windows_0911[{i}]")
++        ewc = spec.get("expected_window_counts")
++        req(isinstance(ewc, dict) and set(ewc) == set(WINDOW_PERIODS),
++            "spec.expected_window_counts:键集")
++        if isinstance(ewc, dict):
++            for k in WINDOW_PERIODS:
++                if k in ewc:
++                    req(_is_int(ewc[k]) and ewc[k] >= 0,
++                        f"spec.expected_window_counts.{k}")
++        req(_is_int(spec.get("expected_technical_count"))
++            and spec["expected_technical_count"] > 0,
++            "spec.expected_technical_count")
++
++    # ── 嵌入子报告（显式成功终态 + 与父/spec 交叉一致）──────────────
++    ch = r.get("child_report")
++    req(isinstance(ch, dict), "child_report")
++    if isinstance(ch, dict):
++        req(ch.get("kind") == KIND, "child.kind")
++        req(ch.get("ok") is True, "child.ok")
++        req(ch.get("mode") == tag, "child.mode")
++        req(ch.get("run_id") == r.get("run_id"), "child.run_id")
++        req(isinstance(ch.get("code_revision"), str)
++            and bool(_HEX40.fullmatch(ch["code_revision"]))
++            and ch.get("code_revision") == r.get("code_revision"),
++            "child.code_revision")
++        req(ch.get("code_dirty") is False, "child.code_dirty")
++        req(isinstance(ch.get("interpreter"), str) and bool(ch["interpreter"])
++            and ch.get("interpreter") == r.get("interpreter"),
++            "child.interpreter")
++        req(_is_date(ch.get("trade_date"))
++            and ch.get("trade_date") == r.get("trade_date"),
++            "child.trade_date")
++        req(isinstance(ch.get("spec_version"), str) and bool(ch["spec_version"])
++            and isinstance(spec, dict)
++            and ch.get("spec_version") == spec.get("spec_version"),
++            "child.spec_version")
++        req(isinstance(spec, dict)
++            and ch.get("code") == spec.get("code"), "child.code")
++        req(isinstance(ch.get("parquet_sha256"), str)
++            and bool(_HEX64.fullmatch(ch["parquet_sha256"]))
++            and isinstance(spec, dict)
++            and ch.get("parquet_sha256") == spec.get("parquet_sha256"),
++            "child.parquet_sha256")
++        req(isinstance(ch.get("parallel_source_md5"), str)
++            and bool(_HEX32.fullmatch(ch["parallel_source_md5"])),
++            "child.parallel_source_md5")
++        tr = ch.get("technical_rows")
++        req(_is_int(tr) and tr > 0 and isinstance(spec, dict)
++            and tr == spec.get("expected_technical_count"),
++            "child.technical_rows")
++        req(_is_int(ch.get("technical_staged"))
++            and ch["technical_staged"] == tr, "child.technical_staged")
++        wc = ch.get("window_counts")
++        req(isinstance(wc, dict) and bool(wc) and isinstance(spec, dict)
++            and wc == spec.get("expected_window_counts"), "child.window_counts")
++        wr = ch.get("window_rows")
++        req(_is_int(wr) and wr > 0 and isinstance(wc, dict)
++            and all(_is_int(v) for v in wc.values())
++            and wr == sum(wc.values()), "child.window_rows")
++        ps = ch.get("protected_slices")
++        req(isinstance(ps, dict) and set(ps) == set(PROTECTED_SLICE_KEYS)
++            and all(_is_int(v) and v >= 0 for v in ps.values()),
++            "child.protected_slices")
++    return bad
++
++
++def main() -> int:
++    ap = argparse.ArgumentParser()
++    ap.add_argument("--production", required=True, help="不可变基线库")
++    ap.add_argument("--clone", required=True, help="换库后结果库")
++    ap.add_argument("--parquet", required=True)
++    ap.add_argument("--run-apply", required=True)

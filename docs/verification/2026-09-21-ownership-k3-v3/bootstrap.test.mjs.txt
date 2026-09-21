@@ -1,0 +1,97 @@
+import assert from "node:assert/strict";
+import childProcess from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import test from "node:test";
+import { bootstrap } from "./credential-bootstrap.mjs";
+
+const root = path.dirname(fileURLToPath(import.meta.url));
+const base = fs.mkdtempSync(path.join(root, "bootstrap-tests-"));
+const now = Math.floor(Date.now() / 1000);
+const valid = { plan: "plus", exp: now + 4000, plan_exp: now + 5000 };
+const encode = (claims) => "fixture." + Buffer.from(JSON.stringify(claims)).toString("base64url") + ".not-a-real-signature";
+let index = 0;
+function fixture(t, value = encode(valid)) {
+  const out = path.join(base, String(++index));
+  fs.mkdirSync(out);
+  const previous = process.env.REVIEW_OUTPUT_DIR;
+  process.env.REVIEW_OUTPUT_DIR = out;
+  t.after(() => {
+    if (previous === undefined) delete process.env.REVIEW_OUTPUT_DIR;
+    else process.env.REVIEW_OUTPUT_DIR = previous;
+  });
+  let refreshes = 0;
+  t.mock.method(childProcess, "execFileSync", () => {
+    refreshes++;
+    if (value instanceof Error) throw value;
+    return value;
+  });
+  const registered = [];
+  const handlers = {};
+  const pi = { registerProvider: (...args) => registered.push(args), on: (name, fn) => { handlers[name] = fn; } };
+  return { out, pi, registered, handlers, refreshes: () => refreshes };
+}
+
+test("cache is only in provider memory; reserve forty admissions before dispatch", (t) => {
+  const token = encode(valid);
+  const f = fixture(t, token);
+  bootstrap(f.pi);
+  assert.equal(f.refreshes(), 1);
+  assert.equal(f.registered.length, 1);
+  assert.equal(f.registered[0][0], "mirasim-kimi");
+  assert.equal(f.registered[0][1].apiKey, token);
+  const record = fs.readFileSync(path.join(f.out, "credential.json"), "utf8");
+  assert.equal(JSON.parse(record).status, "READY");
+  assert.equal(record.includes(token), false);
+  assert.equal(Object.values(process.env).includes(token), false);
+  assert.equal(process.argv.includes(token), false);
+  const context = { model: { provider: "mirasim-kimi", id: "kimi-k3" } };
+  const event = { payload: { model: "kimi-k3" } };
+  for (let i = 0; i < 40; i++) f.handlers.before_provider_request(event, context);
+  assert.equal(f.refreshes(), 1);
+  t.mock.method(process, "exit", (code) => { throw new Error("exit:" + code); });
+  t.mock.method(process.stderr, "write", () => true);
+  assert.throws(() => f.handlers.before_provider_request(event, context), /exit:75/);
+  const admissions = fs.readFileSync(path.join(f.out, "request-admissions.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+  assert.deepEqual(admissions.map((item) => item.admission), Array.from({ length: 40 }, (_, i) => i + 1));
+  assert.equal(admissions.some((item) => JSON.stringify(item).includes(token)), false);
+});
+for (const [name, value] of [
+  ["bad credential shape", "not-a-jwt"],
+  ["other plan", encode({ ...valid, plan: "other" })],
+  ["insufficient access lifetime", encode({ ...valid, exp: now + 100 })],
+  ["expired plan", encode({ ...valid, plan_exp: now - 1 })],
+  ["resolver error", Object.assign(new Error("fixture secret should not be recorded"), { status: 1, stderr: Buffer.from("fixture-private") })],
+]) {
+  test(name + " fails before provider registration", (t) => {
+    const f = fixture(t, value);
+    assert.throws(() => bootstrap(f.pi), /bootstrap blocked/);
+    assert.equal(f.refreshes(), 1);
+    assert.equal(f.registered.length, 0);
+    const text = fs.readFileSync(path.join(f.out, "credential.json"), "utf8");
+    assert.equal(JSON.parse(text).status, "BLOCKED");
+    assert.equal(text.includes("fixture-private"), false);
+    assert.equal(text.includes("fixture secret"), false);
+  });
+}
+test("reserved output prevents a second authentication attempt", (t) => {
+  const f = fixture(t);
+  fs.writeFileSync(path.join(f.out, "credential.json"), "reserved\n");
+  assert.throws(() => bootstrap(f.pi), /EEXIST/);
+  assert.equal(f.refreshes(), 0);
+  assert.equal(f.registered.length, 0);
+});
+for (const kind of ["wrong model", "deadline"]) {
+  test(kind + " blocks before the first admission", (t) => {
+    const f = fixture(t);
+    bootstrap(f.pi);
+    t.mock.method(process, "exit", (code) => { throw new Error("exit:" + code); });
+    t.mock.method(process.stderr, "write", () => true);
+    if (kind === "deadline") t.mock.method(Date, "now", () => (now + 1300) * 1000);
+    const event = { payload: { model: kind === "wrong model" ? "other" : "kimi-k3" } };
+    const context = { model: { provider: "mirasim-kimi", id: "kimi-k3" } };
+    assert.throws(() => f.handlers.before_provider_request(event, context), /exit:75/);
+    assert.equal(fs.existsSync(path.join(f.out, "request-admissions.jsonl")), false);
+  });
+}

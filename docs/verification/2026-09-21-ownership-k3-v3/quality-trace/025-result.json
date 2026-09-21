@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "bash_24",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "FWP_TEST_RECEIPT_DIR=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/test-receipts\nPWD=/Users/a77/fwp-wt-ownership-quality-v3-0921\nFWP_TEST_RECEIPT=0\n---\n..                                                                       [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-debug/pytest.json\n\n2 passed in 0.26s\npytest.json\n"
+      }
+    ]
+  },
+  "isError": false
+}

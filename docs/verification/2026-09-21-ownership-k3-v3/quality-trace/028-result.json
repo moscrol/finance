@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "bash_27",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "756868a nested pytest probes\n       0\n"
+      }
+    ]
+  },
+  "isError": false
+}

@@ -1,0 +1,83 @@
+?? test_fail.py
+a0407a5 cleanup
+831df27 nested
+16e3ccd fixture
+=== A2r failing run -> rc1, readback keeps failure
+== gate @ b8ed30c638ea tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/repo-a py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-ni0heosA/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider test_pass.py test_fail.py
+.F                                                                       [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-ni0heosA/pytest.json
+
+=================================== FAILURES ===================================
+___________________________________ test_bad ___________________________________
+
+    def test_bad():
+>       assert False
+E       assert False
+
+test_fail.py:2: AssertionError
+=========================== short test summary info ============================
+FAILED test_fail.py::test_bad - assert False
+1 failed, 1 passed in 0.23s
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-ni0heosA/pytest.json
+   revision=b8ed30c638ea dirty=False target=test_pass.py test_fail.py
+   passed=1 failed=1 error=0 skipped=0
+   RED test_fail.py::test_bad
+A2r exec rc=1 (expect 1)
+A2r receipt exit= 1 failed_ids= ['test_fail.py::test_bad']
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-ni0heosA/pytest.json
+   revision=b8ed30c638ea dirty=False target=test_pass.py test_fail.py
+   passed=1 failed=1 error=0 skipped=0
+   RED test_fail.py::test_bad
+A2r readback rc=1 (expect 1)
+=== A3r identity mutations with correct cwd (must refuse with identity reason)
+=== A3b baseline semantics (clean tree)
+=== A4r allow-dirty combinations (comment-only dirt, ruff-safe)
+树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。
+A4r dirty-no-flag rc=2 (expect 2)
+== gate @ 91bcdb4e4e59 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/repo-a py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-PZWjmZJC/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider test_pass.py
+.                                                                        [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-PZWjmZJC/pytest.json
+
+1 passed in 0.18s
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-PZWjmZJC/pytest.json
+   revision=91bcdb4e4e59 dirty=True target=test_pass.py
+   passed=1 failed=0 error=0 skipped=0
+A4r dirty-allow rc=0 (expect 0)
+A4r receipt dirty= True total= 1
+树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。
+A4r dirty receipt readback no-flag rc=2 (expect 4)
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-PZWjmZJC/pytest.json
+   revision=91bcdb4e4e59 dirty=True target=test_pass.py
+   passed=1 failed=0 error=0 skipped=0
+A4r dirty receipt readback allow rc=0 (expect 0)
+=== A6r receipt disabled -> rc4, no latest.json fallback
+== gate @ 91bcdb4e4e59 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/repo-a py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a6/gate-fzxgHBPf/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider test_pass.py
+.                                                                        [100%]
+1 passed in 0.01s
+没找到本轮收据 /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a6/gate-fzxgHBPf/pytest.json（pytest 收据未写出；不会回退 latest.json）
+A6r rc=4 (expect 4)
+=== A7r nested pytest cannot claim parent path
+== gate @ 83153eef7232 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/repo-a py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-RQZ3t0Ch/pytest.json
+== ruff check .
+test_nested.py:1:1: E401 [*] Multiple imports on one line
+  |
+1 | import subprocess, sys
+  | ^^^^^^^^^^^^^^^^^^^^^^ E401
+2 | def test_nested():
+3 |     r = subprocess.run([sys.executable, "-m", "pytest", "--collect-only", "-q"],
+  |
+  = help: Split imports
+
+Found 1 error.
+[*] 1 fixable with the `--fix` option.
+ruff 红，停。
+A7r rc=1 (expect 0)
+A7r receipts before=3 after=3 (expect exactly +1)
+PROBE-A2-DONE

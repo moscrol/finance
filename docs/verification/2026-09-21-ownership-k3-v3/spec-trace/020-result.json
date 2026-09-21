@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "tool_WtnjTHnZmd1IdXvwWuiyAgKQ",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "?? test_fail.py\na0407a5 cleanup\n831df27 nested\n16e3ccd fixture\n?? test_fail.py\nA2r exec rc=1 (expect 1)\nA2r receipt exit= 1 failed_ids= ['test_fail.py::test_bad']\nA2r readback rc=1 (expect 1)\nA3r wrong_revision: rc=4 OK-REFUSED :: gate receipt refused: receipt revision does not match the tested revision\nA3r revision_upper: rc=4 OK-REFUSED :: gate receipt refused: receipt revision does not match the tested revision\nA3r foreign_tree: rc=4 OK-REFUSED :: gate receipt refused: receipt tree does not match this run\nA3r tree_none: rc=4 OK-REFUSED :: gate receipt refused: receipt tree does not match this run\nA3r tree_int: rc=4 OK-REFUSED :: gate receipt refused: receipt tree does not match this run\nA3r tree_missing_key: rc=4 OK-REFUSED :: gate receipt refused: receipt tree does not match this run\nA3r dirty_true: rc=4 OK-REFUSED :: gate receipt refused: receipt is dirty or dirty state is unknown\nA3r dirty_missing: rc=4 OK-REFUSED :: gate receipt refused: receipt is dirty or dirty state is unknown\nA3r dirty_total_1: rc=4 OK-REFUSED :: gate receipt refused: receipt is dirty or dirty state is unknown\nA3r dirty_total_missing: rc=4 OK-REFUSED :: gate receipt refused: receipt is dirty or dirty state is unknown\nA3r target_int: rc=4 OK-REFUSED :: gate receipt refused: missing target\nA3r control_valid: rc=0 OK-PASS\nA3r allow_dirty_foreigntree: rc=4 OK-REFUSED :: gate receipt refused: receipt tree does not match this run\nA3b same_red: rc=0 expect=0 OK\nA3b new_red: rc=3 expect=3 OK\nA3b passed_decreased: rc=3 expect=3 OK\nA3b target_mismatch: rc=4 expect=4 OK\nA3b dirty_baseline: rc=4 expect=4 OK\nA3b baseline_old_revision_ok: rc=0 expect=0 OK\nA4r dirty-no-flag rc=2 (expect 2)\nA4r dirty-allow rc=0 (expect 0)\nA4r receipt dirty= True total= 1\nA4r dirty receipt readback no-flag rc=2 (expect 4)\nA4r dirty receipt readback allow rc=0 (expect 0)\nA6r rc=4 (expect 4)\nA7r rc=1 (expect 0)\nA7r receipts before=3 after=3 (expect exactly +1)\nPROBE-A2-DONE\n"
+      }
+    ]
+  },
+  "isError": false
+}

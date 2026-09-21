@@ -1,0 +1,94 @@
+................FF.F.......                                              [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260920T200257Z-f42ea549.json
+
+=================================== FAILURES ===================================
+_______________ test_count_treats_non_numeric_output_as_unknown ________________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3126/test_count_treats_non_numeric_0')
+
+    def test_count_treats_non_numeric_output_as_unknown(tmp_path: Path) -> None:
+        """git 把话写到 stdout 时不能抛 —— SessionStart 抛出去就是 hook 静默不输出。"""
+    
+        repo = _init_repo(tmp_path)
+>       assert (
+            board.behind_count("HEAD", "no/such/ref", cwd=str(repo), timeout=10) == -1
+        )
+E       AssertionError: assert 0 == -1
+E        +  where 0 = <function behind_count at 0x10a60eb60>('HEAD', 'no/such/ref', cwd='/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3126/test_count_treats_non_numeric_0/repo', timeout=10)
+E        +    where <function behind_count at 0x10a60eb60> = board.behind_count
+E        +    and   '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3126/test_count_treats_non_numeric_0/repo' = str(PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3126/test_count_treats_non_numeric_0/repo'))
+
+tests/test_worktree_board.py:400: AssertionError
+_________________ test_format_board_splits_unique_and_prunable _________________
+
+    def test_format_board_splits_unique_and_prunable() -> None:
+        unique = board.TreeRow(
+            path="/tmp/fwp-wt-open",
+            head="aaaaaaaaaaaa",
+            branch="feat/open",
+            cherry_plus=2,
+            cherry_minus=0,
+            ahead=2,
+            behind=3,
+            in_main=False,
+            dirty=False,
+            code_dirty=False,
+            dirty_n=0,
+            kind="dev-wt",
+            subjects=("deadbeef feat: leftover",),
+        )
+        done = board.TreeRow(
+            path="/tmp/fwp-wt-done",
+            head="bbbbbbbbbbbb",
+            branch="feat/done",
+            cherry_plus=0,
+            cherry_minus=1,
+            ahead=1,
+            behind=0,
+            in_main=True,
+            dirty=False,
+            code_dirty=False,
+            dirty_n=0,
+            kind="dev-wt",
+            subjects=(),
+        )
+        text = board.format_board([unique, done], base="gitea/main", base_sha="c" * 40)
+        assert "feat/open" in text
+        assert "feat/done" in text
+        assert "还有补丁" in text
+>       assert "树可拆" not in text
+E       AssertionError: assert '树可拆' not in '基准 gitea/ma...记录，下次跑本脚本。\n'
+E         
+E         '树可拆' is contained here:
+E           【补丁已在基线 — 树可拆，本脚本不拆】
+E         ?           +++
+E             bbbbbbbbbbbb  feat/done  /tmp/fwp-wt-done
+E           
+E           【生产快照】只留当前 8792 + 一个回滚锚；本脚本不拆...
+E         
+E         ...Full output truncated (3 lines hidden), use '-vv' to show
+
+tests/test_worktree_board.py:441: AssertionError
+_________ test_parent_repository_is_not_mistaken_for_missing_worktree __________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3126/test_parent_repository_is_not_0')
+
+    def test_parent_repository_is_not_mistaken_for_missing_worktree(tmp_path: Path) -> None:
+        repo = _init_repo(tmp_path)
+        nested = repo / "fwp-wt-missing"
+        nested.mkdir()
+        row = _classify(repo, path=str(nested))
+        assert "root mismatch" in row.error
+        assert row.cherry_plus == -1 and not row.in_main
+>       assert row.ahead == row.behind == -1
+E       AssertionError: assert 0 == -1
+E        +  where 0 = TreeRow(path='/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3126/test_parent_repositor...irty_n=0, kind='dev-wt', subjects=(), error='worktree unavailable or repository root mismatch', locked='', prunable='').behind
+
+tests/test_worktree_board.py:478: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_worktree_board.py::test_count_treats_non_numeric_output_as_unknown
+FAILED tests/test_worktree_board.py::test_format_board_splits_unique_and_prunable
+FAILED tests/test_worktree_board.py::test_parent_repository_is_not_mistaken_for_missing_worktree
+3 failed, 24 passed in 2.82s
+/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/pathlib.py:96: PytestWarning: (rm_rf) error removing /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/garbage-cf4c82ea-1b11-48fb-b425-42ca75367dc6/test_true_hybrid_build_accepts0/fixture/rag-code-runtime/scripts
+<class 'OSError'>: [Errno 66] Directory not empty: '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/garbage-cf4c82ea-1b11-48fb-b425-42ca75367dc6/test_true_hybrid_build_accepts0/fixture/rag-code-runtime/scripts'
+  warnings.warn(

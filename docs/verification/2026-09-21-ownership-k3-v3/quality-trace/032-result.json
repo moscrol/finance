@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "bash_31",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "B5a rc=4\nmktemp: mkdtemp failed on /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/readonly-root/gate-AJq0Jfe6: Permission denied\nB6a rc=4\nB6b rc=4\n"
+      }
+    ]
+  },
+  "isError": false
+}

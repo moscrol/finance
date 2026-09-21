@@ -1,0 +1,16 @@
+B1 missing-path: error='worktree unavailable or repository root mismatch' cherry_plus=-1 ahead=-1 behind=-1
+B1 board has 待核实: True | in clean-prune section: False
+B2 parent-fallback: error='worktree unavailable or repository root mismatch' cherry_plus=-1 in_main=False
+B3 parsed specs: [('main', '', ''), ('feat', '', '')]
+B3 locked spec parsed: k3-review
+B3 locked row in 待核实: True | locked reason shown: True
+B4 cherry bad base: (-1, -1, False) (expect (-1,-1,False))
+B4 this_tree_lines[0]: 合入: 未知（git cherry 查询失败，基准 no/such/ref=）；底落后量未知（git rev-list 查询失败）
+B5 no-main RuntimeError: main baseline unavailable; merge status unknown
+B6 doc-dirty: in_main=True dirty=True code_dirty=False dirty_n=1
+B6 doc-dirty in clean-prune list: False (expect False)
+B7 pinned base: base=main sha=c0f08060359c all-classify-got-sha=True n=3
+B8 clean patch-equiv: in clean section: False | disclaimer: True | extra caution: True
+B9 --this no-main: rc=1 out='合入: 未知（main 基准无法读取，不回退 HEAD 自证）'
+B10 status-fail: error='git status failed; dirty state unknown' dirty=False
+PROBE-B-DONE

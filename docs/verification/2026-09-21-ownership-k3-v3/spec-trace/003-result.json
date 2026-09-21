@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "tool_vXTA2HTAS7ar1kH8nfr050fZ",
+  "toolName": "ls",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "authorization.json\nbackfill-execution-contract.md\nbackfill-prep-contract.md\nbootstrap-tests-sVxPU5/\nbootstrap-tests.log\nbootstrap.test.mjs\ncandidate.diff\ncredential-bootstrap.mjs\npi-config/\nprovider-template.json\nquality-prompt.md\nreview-common.md\nrun_k3.py\nsource-provenance.json\nspec-k3/\nspec-launch.json\nspec-prompt.md\nspec-reservation.json\nspec-runner.log"
+      }
+    ]
+  },
+  "isError": false
+}

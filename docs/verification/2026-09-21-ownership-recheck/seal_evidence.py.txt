@@ -1,0 +1,49 @@
+"""Archive the completed second ownership combination without replacing round one."""
+from pathlib import Path
+import hashlib
+import json
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+DEST = Path('/Users/a77/fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-recheck')
+TREE = Path('/Users/a77/fwp-wt-ownership-gates-v2-0921')
+SHA = 'e1b63b1a5b7c066b7377bbd2d005051863331001'
+BASE = '728f327160bbd2485cb635e7ef09d040d718d7b5'
+
+def git(*args):
+    return subprocess.run(['git', *args], cwd=TREE, check=True, text=True, capture_output=True).stdout.rstrip('\n')
+
+assert git('rev-parse', 'HEAD') == SHA and git('rev-parse', 'gitea/main') == BASE
+assert not git('status', '--porcelain=v1')
+files = {}
+for leaf in ('python', 'frontend', 'registry'):
+    run = json.loads((ROOT / leaf / 'run.json').read_text())
+    assert run['complete'] and run['revision'] == SHA and run['exit_code'] == 0, run
+    assert run['identity_before'] == run['identity_after']
+    assert run['identity_before'] == {'revision': SHA, 'status': '', 'main': BASE}
+    for check in run['checks']:
+        assert check['exit_code'] == 0
+        assert hashlib.sha256(Path(check['log']).read_bytes()).hexdigest() == check['sha256']
+    for path in (ROOT / leaf).rglob('*'):
+        if path.is_file():
+            files[str(path.relative_to(ROOT)) + ('.txt' if path.suffix == '.log' else '')] = path
+for path in (ROOT / 'collection-probe').rglob('*.json'):
+    files[str(path.relative_to(ROOT))] = path
+files['README.md'] = Path('/Users/a77/fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-recheck/README.md')
+for name in ('run_leaf.py', 'seal_evidence.py', 'review-request.md', 'collection-probe.log',
+             'worktree-board.json', 'open-prs.json'):
+    files[name + ('.txt' if name.endswith(('.py', '.log')) else '')] = ROOT / name
+for name in ('fwp-gate-nested-before-0921.log', 'fwp-gate-nested-after-0921.log'):
+    files['author/' + name + '.txt'] = Path('/tmp') / name
+DEST.mkdir(exist_ok=True)
+manifest = {'revision': SHA, 'base': BASE, 'tree': str(TREE), 'gate_passed': True, 'files': []}
+for rel, source in sorted(files.items()):
+    target = DEST / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if source.resolve() != target.resolve():
+        shutil.copyfile(source, target)
+    assert target.read_bytes() == source.read_bytes()
+    manifest['files'].append({'path': rel, 'source': str(source), 'sha256': hashlib.sha256(target.read_bytes()).hexdigest(), 'bytes': target.stat().st_size})
+(DEST / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+print(json.dumps({'archive': str(DEST), 'files': len(manifest['files']), 'revision': SHA}))

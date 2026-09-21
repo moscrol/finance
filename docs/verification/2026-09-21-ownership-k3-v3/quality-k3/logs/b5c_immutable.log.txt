@@ -1,0 +1,3 @@
+..                                                                       [100%]⚠ 收据未写出（不影响测试结论）: [Errno 17] File exists: '/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/immut/pytest.json'
+
+2 passed in 0.21s

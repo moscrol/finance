@@ -1,0 +1,20 @@
+83:_CODE_RE = re.compile(r"^\d{6}\.(SZ|SH|BJ)$")
+87:class BackfillSpec:
+110:def _fail(msg: str, detail) -> None:
+117:def _code_revision() -> tuple[str, bool]:
+132:def _validate_receipt_path(path: Path,
+152:def _guarded_write_json(path: Path, payload: dict,
+186:def _finite(v) -> bool:
+196:def _sha256(path: Path) -> str:
+209:def _oracle_pct(close: float, pre_close: float) -> float:
+216:def _oracle_amount(turnover: float) -> float:
+221:def _oracle_volume(volume: float) -> float:
+226:def _slice_fingerprint(con, table: str, date_col: str, where: str) -> dict:
+239:def _guard(con, spec: BackfillSpec, parquet_path: Path) -> dict:
+384:def _apply_main(con, spec: BackfillSpec, parquet_path: Path, prev_day: str,
+483:def _rebuild_derived_scoped(con, spec: BackfillSpec, mode: str = "apply") -> dict:
+592:def _accept(con, spec: BackfillSpec, pre: dict) -> dict:
+724:def run_backfill_child(con, spec: BackfillSpec, parquet_path: Path) -> dict:
+     775 market_feature_store/sync/repair_backfill_stock_history.py
+     729 scripts/verify_302132_backfill_acceptance.py
+    1504 total

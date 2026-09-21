@@ -1,0 +1,534 @@
+[
+  {
+    "index": 1,
+    "id": "read_0",
+    "tool": "read",
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/review-common.md"
+    },
+    "result_file": "quality-trace/001-result.json",
+    "is_error": false,
+    "result_text_sha256": "b59bd8b7e0cfe9d9460126b99eb63a65b5cf453cce8c35f0bdb05816412038c8",
+    "result_summary": "# Ownership v3 independent review contract\n\nYou are K3, an independent reviewer in a NEW context, not the author. Do not repair source or assume green. The root operator is collecting SPEC/QUALITY evidence for a user-aut"
+  },
+  {
+    "index": 2,
+    "id": "ls_1",
+    "tool": "ls",
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-quality-v3-0921"
+    },
+    "result_file": "quality-trace/002-result.json",
+    "is_error": false,
+    "result_text_sha256": "4bc7cabee3a44e31c84bdb9e05d08d792e28fbf9f546f9e0fb3be4d1cb227481",
+    "result_summary": ".agents/\n.claude/\n.code-review-graph/\n.code-review-graphignore\n.codex/\n.devin/\n.git\n.github/\n.gitignore\n.pre-commit-config.yaml\nAGENTS.md\nCLAUDE.md\nconftest.py\ndocs/\nevolution/\nfde/\nfill-rate-baseline.json\nintelligence/\n"
+  },
+  {
+    "index": 3,
+    "id": "bash_2",
+    "tool": "bash",
+    "args": {
+      "command": "mkdir -p /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/{probes,logs,fixtures} && cd /Users/a77/fwp-wt-ownership-quality-v3-0921 && git rev-parse HEAD && git status --porcelain | head -5 && git diff --stat 728f327160bbd2485cb635e7ef09d040d718d7b5..HEAD | tail -30"
+    },
+    "result_file": "quality-trace/003-result.json",
+    "is_error": false,
+    "result_text_sha256": "40a5c879e5aca470b2b2d5233f9ff8e868f28922c5c6fe30c863c9b71c29b1fe",
+    "result_summary": "47530e20fe5c3195e50ce429b31898d57918e413\n .../python/receipts/latest.json                    |   22 +\n .../2026-09-21-ownership-recheck/python/run.json   |   30 +\n .../registry/0.log.txt                             |    "
+  },
+  {
+    "index": 4,
+    "id": "write_3",
+    "tool": "write",
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/REPORT.md"
+    },
+    "content_sha256": "4984feb8459985a074b77e266462700b6dedc103ee24ff941a6ea9524af01ab5",
+    "recovered_write": "quality-trace/004-write-REPORT.md.txt",
+    "result_file": "quality-trace/004-result.json",
+    "is_error": false,
+    "result_text_sha256": "fbcbbc08481922d21504194836878a0652596c7c70f8fa3172e46137c0915d36",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/REPORT.md"
+  },
+  {
+    "index": 5,
+    "id": "write_4",
+    "tool": "write",
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/verdict.json"
+    },
+    "content_sha256": "216e628eb04f638227bbe828b095d792f0c7b3c86fc261aeec26b4d4471fb7b3",
+    "recovered_write": "quality-trace/005-write-verdict.json.txt",
+    "result_file": "quality-trace/005-result.json",
+    "is_error": false,
+    "result_text_sha256": "7cd8bb3e0dffa5865260e870b161e82778ca3822887a957d6bc8360997a9c0fd",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/verdict.json"
+  },
+  {
+    "index": 6,
+    "id": "bash_5",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v3-0921 && git diff 728f327160bbd2485cb635e7ef09d040d718d7b5..HEAD -- scripts/run_main_gate.sh scripts/main_gate_receipt.py conftest.py | head -400"
+    },
+    "result_file": "quality-trace/006-result.json",
+    "is_error": false,
+    "result_text_sha256": "05e9f0e3429ae6af4a28fd890d8e4a30ef8082800a24a3a6313131fdf0d0c7da",
+    "result_summary": "diff --git a/conftest.py b/conftest.py\nindex 325a112a1..351a0f486 100644\n--- a/conftest.py\n+++ b/conftest.py\n@@ -48,6 +48,8 @@ import os\n import platform\n import subprocess\n import sys\n+import tempfile\n+import uuid\n from"
+  },
+  {
+    "index": 7,
+    "id": "bash_6",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v3-0921 && sed -n '150,360p' conftest.py"
+    },
+    "result_file": "quality-trace/007-result.json",
+    "is_error": false,
+    "result_text_sha256": "831e5d221d1ba927ffdffee2dd9d97bf3dfaba8784f19a0a17a10a50f5c3f3d1",
+    "result_summary": "\ndef _code_dirt() -> list[str]:\n    \"\"\"未提交改动里**能影响被测行为**的那些路径，排序后返回。\n\n    只看代码/测试/契约/配置。收窄依据是实验而非推理：那 44 个长期脏文件中有 9 个\n    被测试按路径提到，全部是 ``tmp_path`` 自建夹具或字符串字面量，无一读取真实\n    脏文件；实测这 9 个测试在当前脏树上 25 passed。\n    \"\"\"\n\n    out: "
+  },
+  {
+    "index": 8,
+    "id": "tool_GG2BHoXVJL4ax0KTeJF6CglN",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v3-0921 && git diff 728f327160bbd2485cb635e7ef09d040d718d7b5..HEAD -- scripts/worktree_board.py | head -260"
+    },
+    "result_file": "quality-trace/008-result.json",
+    "is_error": false,
+    "result_text_sha256": "19d75404a1c3fa782b979018e5226ddcb532f113144eba6edab91b1958503da6",
+    "result_summary": "diff --git a/scripts/worktree_board.py b/scripts/worktree_board.py\nindex e7541ac7f..4f76b0b55 100644\n--- a/scripts/worktree_board.py\n+++ b/scripts/worktree_board.py\n@@ -73,6 +73,9 @@ class TreeRow:\n     dirty_n: int\n    "
+  },
+  {
+    "index": 9,
+    "id": "tool_okiWq2mSYGvQ8HwuKMhy2IyA",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v3-0921 && git diff 728f327160bbd2485cb635e7ef09d040d718d7b5..HEAD -- market_feature_store/cli.py | head -230"
+    },
+    "result_file": "quality-trace/009-result.json",
+    "is_error": false,
+    "result_text_sha256": "e741310bc6edb34ff3ce94ea080e9ed23d6b24ea7bdb4d6fe3a32573ad9ed008",
+    "result_summary": "diff --git a/market_feature_store/cli.py b/market_feature_store/cli.py\nindex 38e532053..7f89ba470 100644\n--- a/market_feature_store/cli.py\n+++ b/market_feature_store/cli.py\n@@ -1494,6 +1494,190 @@ def _refuse_production_"
+  },
+  {
+    "index": 10,
+    "id": "tool_vV33LHzDCEPSLtD2TVSI0xyA",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v3-0921 && grep -n \"^def \\|^class \\|^_\\|^BACKFILL\\|def run_backfill_child\\|def _guarded_write_json\\|def _validate_receipt_path\\|def _code_revision\\|class BackfillSpec\\|class RepairRefused\" market_feature_store/sync/repair_backfill_stock_history.py | head -60 && wc -l market_feature_store/sync/repair_backfill_stock_history.py scripts/verify_302132_backfill_acceptance.py"
+    },
+    "result_file": "quality-trace/010-result.json",
+    "is_error": false,
+    "result_text_sha256": "dc541c4e27b713aeb5e004f8b7dc2202c1e4fc01614f10ff5b7de8d6fac13e00",
+    "result_summary": "83:_CODE_RE = re.compile(r\"^\\d{6}\\.(SZ|SH|BJ)$\")\n87:class BackfillSpec:\n110:def _fail(msg: str, detail) -> None:\n117:def _code_revision() -> tuple[str, bool]:\n132:def _validate_receipt_path(path: Path,\n152:def _guarded_w"
+  },
+  {
+    "index": 11,
+    "id": "bash_10",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v3-0921 && sed -n '83,240p' market_feature_store/sync/repair_backfill_stock_history.py"
+    },
+    "result_file": "quality-trace/011-result.json",
+    "is_error": false,
+    "result_text_sha256": "916c7ddbb488777f6a84cfbf6da0b0401c6857d86de8e9291d2456b1d9b363f2",
+    "result_summary": "_CODE_RE = re.compile(r\"^\\d{6}\\.(SZ|SH|BJ)$\")\n\n\n@dataclass(frozen=True)\nclass BackfillSpec:\n    \"\"\"单股历史回填合同。所有期望值钉死；任何一项与实况不符即拒绝。\"\"\"\n\n    code: str = \"302132.SZ\"\n    name: str = \"中航成飞\"\n    window_start: str = \"2026-06-15"
+  },
+  {
+    "index": 12,
+    "id": "tool_4lnleBmZ3YXmOdvx3Vuq0oWf",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v3-0921 && grep -n \"def run_daily_full_staged\\|def _refuse_production_write_direct\\|swapped\\|acceptance\\|verify_302132\" market_feature_store/sync/sync_daily_full.py | head -40 && sed -n '/def run_daily_full_staged/,/^def /p' market_feature_store/sync/sync_daily_full.py | sed -n '1,120p'"
+    },
+    "result_file": "quality-trace/012-result.json",
+    "is_error": false,
+    "result_text_sha256": "fb3b325c09cf7420a28ec28f94be1764a98ba65b5a09c84b2af8b7b3619bb41a",
+    "result_summary": "414:def run_daily_full_staged(\n447:            \"swapped\": False,\n486:    返回 {rc, swapped, reason, ...}; rc: 0=全绿, 1=管道有失败步但按现状\n499:        \"swapped\": False,\n733:        # 在此窗口内让第三方 rw 提交 17000，编排照样 rc=0/swapped=true，而新库不"
+  },
+  {
+    "index": 13,
+    "id": "tool_N7cXFqJ0e5IAdQhDDHVGNXMx",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v3-0921 && sed -n '455,560p' market_feature_store/sync/sync_daily_full.py && grep -n \"def staging_path\\|def hold_run_mutex\\|DatabaseLockedError\" market_feature_store/db.py | head"
+    },
+    "result_file": "quality-trace/013-result.json",
+    "is_error": false,
+    "result_text_sha256": "5f20d53c42fcce3121c6178456d20c2e7d95caa9ae44b1f4a4079be7f6bca4ee",
+    "result_summary": "\n\ndef _run_daily_full_staged_locked(\n    trade_date: str | None = None,\n    skip_long: bool = False,\n    stock_source: str = \"snapshot\",\n    child_argv: list[str] | None = None,\n    kind: str = \"daily-full\",\n    pre_swap"
+  },
+  {
+    "index": 14,
+    "id": "bash_13",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v3-0921 && sed -n '560,700p' market_feature_store/sync/sync_daily_full.py"
+    },
+    "result_file": "quality-trace/014-result.json",
+    "is_error": false,
+    "result_text_sha256": "9c1f6691b4e96a40a1d6465dc7c9ec0cc2f756a16fccae367fccdb74eb327f3f",
+    "result_summary": "                # 否则「锁住 A → 克隆 A → 路径被换成 B → 从路径 stat 得到 B」会\n                # 把 A 的副本配上 B 的基线，两边都不自知。\n                _db.assert_same_target(target, lock.identity, stage=\"克隆后基线\")\n                # 版本基线读被锁 inode 自身 (fsta"
+  },
+  {
+    "index": 15,
+    "id": "bash_14",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v3-0921 && sed -n '1,110p' conftest.py | grep -n \"EXPECTED_PY\\|_SPEC\\|test-environment\\|required_modules\\|def _missing\\|REPO =\" && grep -n \"DB_PATH = \\|MARKET_FEATURE_STORE_DB\" market_feature_store/db.py | head -8 && sed -n '/def _refuse_production_write_direct/,/return 2/p' market_feature_store/cli.py | head -30 && grep -n \"def canonical_production_candidates\" -A 15 market_feature_store/write_path.py | head -20 && /Users/a77/finance-workspace-private/.venv-workbench/bin/python -c \"import duckdb, pytest, ruff; print('duckdb', duckdb.__version__, 'pytest', pytest.__version__)\" 2>&1; cat test-environment.json"
+    },
+    "result_file": "quality-trace/015-result.json",
+    "is_error": false,
+    "result_text_sha256": "b4b8f01cdbb2f1740fc3237251c9e5f127278ccc6b412a5948d2c7fb8d7c4c37",
+    "result_summary": "57:REPO = Path(__file__).resolve().parent\n62:_SPEC_PATH = REPO / \"test-environment.json\"\n71:        return json.loads(_SPEC_PATH.read_text(encoding=\"utf-8\"))\n76:_SPEC = _spec()\n77:EXPECTED_PY = Path(\n78:    str(_SPEC.get"
+  },
+  {
+    "index": 16,
+    "id": "tool_MHEqdkvlbZgn17v6neJV6aBA",
+    "tool": "write",
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/probes/probe_a_receipt_edges.py"
+    },
+    "content_sha256": "209c253782c22d3caaebacfd2b9402c6a1e014b77fbc21b3ab145d0e864ca903",
+    "recovered_write": "quality-trace/016-write-probe_a_receipt_edges.py.txt",
+    "result_file": "quality-trace/016-result.json",
+    "is_error": false,
+    "result_text_sha256": "ce1b55dd1f894ed6b467514736200948dced93e36d6bb81193faa024230aaa9f",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/probes/probe_a_receipt_edges.py"
+  },
+  {
+    "index": 17,
+    "id": "bash_16",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3 && PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probes/probe_a_receipt_edges.py 2>&1 | tail -45",
+      "timeout": 110
+    },
+    "result_file": "quality-trace/017-result.json",
+    "is_error": false,
+    "result_text_sha256": "9bed42c177c373d39d317c81a4232e4adbb97e7e97f452370efbc65621779fb3",
+    "result_summary": "A01_valid_pass                         rc=0  \nA02_valid_fail_rc1                     rc=1  \nA03_neg_count                          rc=4  gate receipt refused: invalid counts\nA04_str_count                          rc=4  g"
+  },
+  {
+    "index": 18,
+    "id": "bash_17",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v3-0921 && sed -n '360,420p' conftest.py && grep -n \"^def \\|^@pytest\" conftest.py | tail -10"
+    },
+    "result_file": "quality-trace/018-result.json",
+    "is_error": false,
+    "result_text_sha256": "74058e4767cda7c5b051c8dd9e06025daa0472bad010c5b07022c916d8c595cf",
+    "result_summary": "        path = _write_test_receipt(receipt)\n        reporter.write_line(f\"读数收据: {path}\")\n    except OSError as exc:\n        reporter.write_line(f\"⚠ 收据未写出（不影响测试结论）: {exc}\")\n\n\n# --------------------------------------------"
+  },
+  {
+    "index": 19,
+    "id": "bash_18",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v3-0921 && sed -n '76,103p' conftest.py && grep -rn \"pytest.main(\" tests/ intelligence/tests/ --include=\"*.py\" | head -8 && grep -rn \"runpytest_inprocess\\|runpytest(\" tests/ intelligence/tests/ --include=\"*.py\" | head -5"
+    },
+    "result_file": "quality-trace/019-result.json",
+    "is_error": false,
+    "result_text_sha256": "02f2ad7742b34f18eca7981a47f0239df5329c4fe0049e5ebb239e48fa0013d4",
+    "result_summary": "_SPEC = _spec()\nEXPECTED_PY = Path(\n    str(_SPEC.get(\"interpreter\"))\n    if _SPEC.get(\"interpreter\")\n    else REPO / \".venv-workbench\" / \"bin\" / \"python\"\n)\nREQUIRED: tuple[str, ...] = tuple(_SPEC.get(\"required_modules\")"
+  },
+  {
+    "index": 20,
+    "id": "write_19",
+    "tool": "write",
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/probes/setup_gaterepo.sh"
+    },
+    "content_sha256": "70049c823f911e8027495cafb8ed1d753303bc60a72f00f6cf6bbb74948af9d8",
+    "recovered_write": "quality-trace/020-write-setup_gaterepo.sh.txt",
+    "result_file": "quality-trace/020-result.json",
+    "is_error": false,
+    "result_text_sha256": "38b981f483de16542064745ff3fc538db5c14a62be29a1209d6aa5a165c607da",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/probes/setup_gaterepo.sh"
+  },
+  {
+    "index": 21,
+    "id": "bash_20",
+    "tool": "bash",
+    "args": {
+      "command": "bash /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/probes/setup_gaterepo.sh",
+      "timeout": 60
+    },
+    "result_file": "quality-trace/021-result.json",
+    "is_error": false,
+    "result_text_sha256": "e070dc03f408b2244388b99f0352dabcd76345b2bd335aa12702f1b8ab7bdb5b",
+    "result_summary": "fixtures built\nee9b01e fixture baseline\n"
+  },
+  {
+    "index": 22,
+    "id": "bash_21",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; cd \"$OUT/fixtures/gaterepo\" && export PYTHONDONTWRITEBYTECODE=1 && FWP_TEST_RECEIPT_DIR=\"$OUT/fixtures/receipt-root\" bash scripts/run_main_gate.sh --pytest-args \"-q tests/test_ok.py\" > \"$OUT/logs/b1_happy.log\" 2>&1; echo \"B1 rc=$?\"; tail -8 \"$OUT/logs/b1_happy.log\"; ls \"$OUT/fixtures/receipt-root\"",
+      "timeout": 110
+    },
+    "result_file": "quality-trace/022-result.json",
+    "is_error": false,
+    "result_text_sha256": "490a29e7e457fbe345841d23607f6607774d2a4d77916c6299ca07ba56ed5c02",
+    "result_summary": "B1 rc=4\n== gate @ ee9b01e5f36a tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/gaterepo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance"
+  },
+  {
+    "index": 23,
+    "id": "bash_22",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; cat \"$OUT/logs/b1_happy.log\"; ls -la \"$OUT/fixtures/receipt-root/gate-s92MFtJq\" 2>&1"
+    },
+    "result_file": "quality-trace/023-result.json",
+    "is_error": false,
+    "result_text_sha256": "c92806acf15b1ca6161cc581513f3b9627409c055375a6f8c346982d9b329ba4",
+    "result_summary": "== gate @ ee9b01e5f36a tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/gaterepo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime"
+  },
+  {
+    "index": 24,
+    "id": "tool_1bK5SPdpVoTZN0VzjszFARNT",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; cd \"$OUT/fixtures/gaterepo\" && rm -rf \"$OUT/fixtures/receipt-root\" && mkdir -p \"$OUT/fixtures/receipt-root/gate-debug\" && PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT_DIR=\"$OUT/fixtures/receipt-root\" FWP_TEST_RECEIPT_PATH=\"$OUT/fixtures/receipt-root/gate-debug/pytest.json\" FWP_TEST_RECEIPT_OWNER_PID=\"\" /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q -p no:cacheprovider tests/test_ok.py 2>&1 | tail -25; echo \"---\"; ls -la \"$OUT/fixtures/receipt-root/gate-debug\" \"$OUT/fixtures/receipt-root\"",
+      "timeout": 110
+    },
+    "result_file": "quality-trace/024-result.json",
+    "is_error": false,
+    "result_text_sha256": "025c7a47c53fe8063ada1f3f8506287a5ff26b5dec627450d28618079f2c97e3",
+    "result_summary": "..                                                                       [100%]\n2 passed in 0.01s\n---\n/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root:\ntotal 0\ndrwxr-xr-x@ 3 a"
+  },
+  {
+    "index": 25,
+    "id": "bash_24",
+    "tool": "bash",
+    "args": {
+      "command": "env | grep -i \"FWP\\|RECEIPT\" ; echo \"---\"; OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; cd \"$OUT/fixtures/gaterepo\" && PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=1 FWP_TEST_RECEIPT_DIR=\"$OUT/fixtures/receipt-root\" FWP_TEST_RECEIPT_PATH=\"$OUT/fixtures/receipt-root/gate-debug/pytest.json\" FWP_TEST_RECEIPT_OWNER_PID=\"\" /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q -p no:cacheprovider tests/test_ok.py 2>&1 | tail -6; ls \"$OUT/fixtures/receipt-root/gate-debug\"",
+      "timeout": 110
+    },
+    "result_file": "quality-trace/025-result.json",
+    "is_error": false,
+    "result_text_sha256": "b950010d4e4c50b44a0b1ef53e73f7bdef2290014007049141d5df1f6c6f397e",
+    "result_summary": "FWP_TEST_RECEIPT_DIR=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/test-receipts\nPWD=/Users/a77/fwp-wt-ownership-quality-v3-0921\nFWP_TEST_RECEIPT=0\n---\n..                                        "
+  },
+  {
+    "index": 26,
+    "id": "tool_f81tXEpdfvzrqYXnHL9mYObM",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; cd \"$OUT/fixtures/gaterepo\" && rm -rf \"$OUT/fixtures/receipt-root\" && PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=1 FWP_TEST_RECEIPT_DIR=\"$OUT/fixtures/receipt-root\" bash scripts/run_main_gate.sh --pytest-args \"-q tests/test_ok.py\" > \"$OUT/logs/b1_happy_v2.log\" 2>&1; echo \"B1 rc=$?\"; cat \"$OUT/logs/b1_happy_v2.log\"; echo \"--- files:\"; find \"$OUT/fixtures/receipt-root\" -type f | sort",
+      "timeout": 110
+    },
+    "result_file": "quality-trace/026-result.json",
+    "is_error": false,
+    "result_text_sha256": "102f3365f5ac3e03f4015c0bf55616b2a48e7b7910eb48c8dade7159d5180252",
+    "result_summary": "B1 rc=0\n== gate @ ee9b01e5f36a tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/gaterepo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance"
+  },
+  {
+    "index": 27,
+    "id": "bash_26",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; cd \"$OUT/fixtures/gaterepo\" && rm -rf \"$OUT/fixtures/receipt-root\" && export PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=1 FWP_TEST_RECEIPT_DIR=\"$OUT/fixtures/receipt-root\"\n( bash scripts/run_main_gate.sh --pytest-args \"-q tests/test_ok.py\"  > \"$OUT/logs/b2_run1.log\" 2>&1; echo $? > \"$OUT/logs/b2_run1.rc\" ) &\nP1=$!\n( bash scripts/run_main_gate.sh --pytest-args \"-q tests/test_ok2.py\" > \"$OUT/logs/b2_run2.log\" 2>&1; echo $? > \"$OUT/logs/b2_run2.rc\" ) &\nP2=$!\nwait $P1 $P2\necho \"run1 rc=$(cat \"$OUT/logs/b2_run1.rc\")  run2 rc=$(cat \"$OUT/logs/b2_run2.rc\")\"\ngrep -h \"receipt=\" \"$OUT/logs/b2_run1.log\" \"$OUT/logs/b2_run2.log\" | sed 's/.*receipt=//'\necho \"--- receipt files:\"; find \"$OUT/fixtures/receipt-root\" -name \"pytest.json\" | sort\necho \"--- run1 tail:\"; tail -4 \"$OUT/logs/b2_run1.log\"; echo \"--- run2 tail:\"; tail -4 \"$OUT/logs/b2_run2.log\"",
+      "timeout": 115
+    },
+    "result_file": "quality-trace/027-result.json",
+    "is_error": false,
+    "result_text_sha256": "a8ac319eb5d1291c2be26f82d57c22c02d97d8b19a78cc40cdc820bd67439d01",
+    "result_summary": "run1 rc=0  run2 rc=0\n/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-brrCNnyF/pytest.json\n/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixture"
+  },
+  {
+    "index": 28,
+    "id": "bash_27",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; cd \"$OUT/fixtures/gaterepo\"\ncat > tests_inner/test_inner2.py <<'EOF'\ndef test_inner_also_passes():\n    assert 2 + 2 == 4\nEOF\ncat > tests/test_nested_subproc.py <<'EOF'\nimport os\nimport subprocess\nimport sys\n\n\ndef test_nested_subprocess_pytest():\n    cp = subprocess.run(\n        [sys.executable, \"-m\", \"pytest\", \"-q\", \"-p\", \"no:cacheprovider\", \"tests_inner/\"],\n        capture_output=True, text=True, env=dict(os.environ), timeout=100,\n    )\n    assert cp.returncode == 0, cp.stdout + cp.stderr\nEOF\ncat > tests/test_nested_inproc.py <<'EOF'\nimport pytest\n\n\ndef test_nested_inprocess_pytest():\n    rc = pytest.main([\"-q\", \"-p\", \"no:cacheprovider\", \"tests_inner/\"])\n    assert rc == 0\nEOF\ngit add -A && git -c user.email=k3@probe -c user.name=k3 commit -qm \"nested pytest probes\" && git log --oneline | head -1 && git status --porcelain | wc -l",
+      "timeout": 60
+    },
+    "result_file": "quality-trace/028-result.json",
+    "is_error": false,
+    "result_text_sha256": "7586321e9551b24bf54cb4e9f9af50bbed11eeba8ed1a844c82f925fda1e77be",
+    "result_summary": "756868a nested pytest probes\n       0\n"
+  },
+  {
+    "index": 29,
+    "id": "bash_28",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; cd \"$OUT/fixtures/gaterepo\" && export PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=1\nrm -rf \"$OUT/fixtures/receipt-root\"\nFWP_TEST_RECEIPT_DIR=\"$OUT/fixtures/receipt-root\" bash scripts/run_main_gate.sh --pytest-args \"-q tests/test_nested_subproc.py\" > \"$OUT/logs/b3_nested_subproc.log\" 2>&1; echo \"B3 rc=$?\"\nR=$(find \"$OUT/fixtures/receipt-root\" -name pytest.json); echo \"receipt: $R\"\n/Users/a77/finance-workspace-private/.venv-workbench/bin/python -c \"import json;d=json.load(open('$R'));print('target=',d['target']);print('counts=',d['counts']);print('exit_status=',d['exit_status'])\"\ntail -5 \"$OUT/logs/b3_nested_subproc.log\"",
+      "timeout": 115
+    },
+    "result_file": "quality-trace/029-result.json",
+    "is_error": false,
+    "result_text_sha256": "ed45d35e55b94f745180897deb8aba609afc24c6c2b95d95ad2a1180d0b34995",
+    "result_summary": "B3 rc=0\nreceipt: /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-N3S6zRVA/pytest.json\ntarget= tests/test_nested_subproc.py\ncounts= {'passed': 1, 'failed': 0, 'error': 0,"
+  },
+  {
+    "index": 30,
+    "id": "bash_29",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; cd \"$OUT/fixtures/gaterepo\" && export PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=1\nrm -rf \"$OUT/fixtures/receipt-root\"\nFWP_TEST_RECEIPT_DIR=\"$OUT/fixtures/receipt-root\" bash scripts/run_main_gate.sh --pytest-args \"-q tests/test_nested_inproc.py\" > \"$OUT/logs/b4_nested_inproc.log\" 2>&1; echo \"B4 rc=$?\"\nR=$(find \"$OUT/fixtures/receipt-root\" -name pytest.json); echo \"receipt: $R\"\n/Users/a77/finance-workspace-private/.venv-workbench/bin/python -c \"import json;d=json.load(open('$R'));print('target=',d['target']);print('counts=',d['counts']);print('exit_status=',d['exit_status'])\"\ngrep -c \"收据未写出\" \"$OUT/logs/b4_nested_inproc.log\"; tail -6 \"$OUT/logs/b4_nested_inproc.log\"",
+      "timeout": 115
+    },
+    "result_file": "quality-trace/030-result.json",
+    "is_error": false,
+    "result_text_sha256": "e1365ddf31544524392b5177955ff895ce5678a96900ed51174073f09ade29b8",
+    "result_summary": "B4 rc=0\nreceipt: /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-IvvrbRD2/pytest.json\ntarget= tests_inner/\ncounts= {'passed': 2, 'failed': 0, 'error': 0, 'skipped': 0}\ne"
+  },
+  {
+    "index": 31,
+    "id": "bash_30",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; cd \"$OUT/fixtures/gaterepo_drift\"\ncat > tests/test_drift.py <<'EOF'\nimport subprocess\nfrom pathlib import Path\n\n\ndef test_commit_during_run():\n    Path(\"drift_artifact.txt\").write_text(\"mid-run change\\n\", encoding=\"utf-8\")\n    subprocess.run([\"git\", \"add\", \"-A\"], check=True, capture_output=True)\n    subprocess.run([\"git\", \"-c\", \"user.email=k3@probe\", \"-c\", \"user.name\", \"k3\",\n                    \"commit\", \"-qm\", \"mid-run commit\"], check=True, capture_output=True)\n    assert True\nEOF\ngit add -A && git -c user.email=k3@probe -c user.name=k3 commit -qm \"fix drift test\" && echo committed",
+      "timeout": 60
+    },
+    "result_file": "quality-trace/031-result.json",
+    "is_error": false,
+    "result_text_sha256": "cc2e4bb51f522b77c0c3ad04f7a87386a7e06d4fa287c004b6c066410c5c24dc",
+    "result_summary": "committed\n"
+  },
+  {
+    "index": 32,
+    "id": "bash_31",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; export PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=1\n# B5a: forced IO failure — read-only receipt root (mktemp must fail)\nRO=\"$OUT/fixtures/readonly-root\"; rm -rf \"$RO\"; mkdir -p \"$RO\"; chmod 555 \"$RO\"\ncd \"$OUT/fixtures/gaterepo\" && FWP_TEST_RECEIPT_DIR=\"$RO\" bash scripts/run_main_gate.sh --pytest-args \"-q tests/test_ok.py\" > \"$OUT/logs/b5a_readonly.log\" 2>&1; echo \"B5a rc=$?\"; cat \"$OUT/logs/b5a_readonly.log\"\nchmod 755 \"$RO\"\n# B6a: git unavailable (fake git that always fails)\nFB=\"$OUT/fixtures/fakebin\"; mkdir -p \"$FB\"; printf '#!/bin/sh\\nexit 1\\n' > \"$FB/git\"; chmod +x \"$FB/git\"\nPATH=\"$FB:/usr/bin:/bin\" bash scripts/run_main_gate.sh --pytest-args \"-q tests/test_ok.py\" > \"$OUT/logs/b6a_nogit.log\" 2>&1; echo \"B6a rc=$?\"; cat \"$OUT/logs/b6a_nogit.log\"\n# B6b: not a git repo\nmkdir -p \"$OUT/fixtures/notarepo\" && cd \"$OUT/fixtures/notarepo\" && bash \"$OUT/fixtures/gaterepo/scripts/run_main_gate.sh\" > \"$OUT/logs/b6b_notrepo.log\" 2>&1; echo \"B6b rc=$?\"; cat \"$OUT/logs/b6b_notrepo.log\"",
+      "timeout": 115
+    },
+    "result_file": "quality-trace/032-result.json",
+    "is_error": false,
+    "result_text_sha256": "1677d96cb9b9e796e1c124a41b206b79bef982918c3cfc557bb89f4f655b1a35",
+    "result_summary": "B5a rc=4\nmktemp: mkdtemp failed on /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/readonly-root/gate-AJq0Jfe6: Permission denied\nB6a rc=4\nB6b rc=4\n"
+  },
+  {
+    "index": 33,
+    "id": "tool_zvdLHEHGtU1CiCgLxxf5Cl7E",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; export PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=1\n# B7: pytest killed by SIGTERM mid-run\ncd \"$OUT/fixtures/gaterepo_drift\" && rm -rf \"$OUT/fixtures/receipt-root\"\nFWP_TEST_RECEIPT_DIR=\"$OUT/fixtures/receipt-root\" bash scripts/run_main_gate.sh --pytest-args \"-q tests/test_suicide.py\" > \"$OUT/logs/b7_signal.log\" 2>&1; echo \"B7 rc=$?\"; tail -3 \"$OUT/logs/b7_signal.log\"\n# B9: mid-run commit (revision drift)\nrm -rf \"$OUT/fixtures/receipt-root\"\nFWP_TEST_RECEIPT_DIR=\"$OUT/fixtures/receipt-root\" bash scripts/run_main_gate.sh --pytest-args \"-q tests/test_drift.py\" > \"$OUT/logs/b9_drift.log\" 2>&1; echo \"B9 rc=$?\"; tail -3 \"$OUT/logs/b9_drift.log\"; git log --oneline | head -2",
+      "timeout": 115
+    },
+    "result_file": "quality-trace/033-result.json",
+    "is_error": false,
+    "result_text_sha256": "54e80e65bd0b6fdb51d67358d6497d90ff8dd78ae54f15fe022093833780c098",
+    "result_summary": "B7 rc=4\nscripts/run_main_gate.sh: line 74: 97432 Terminated: 15          FWP_TEST_RECEIPT_DIR=\"$RECEIPT_DIR\" FWP_TEST_RECEIPT_PATH=\"$LATEST\" FWP_TEST_RECEIPT_OWNER_PID=\"\" \"$PY\" -m pytest $PYTEST_ARGS 2>&1\n     97433 Done"
+  },
+  {
+    "index": 34,
+    "id": "tool_X1nKB0qq6md1ixnLBxjHsLBv",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; cd \"$OUT/fixtures/gaterepo_drift\" && git status --porcelain; ls drift_artifact.txt 2>&1; echo \"--- manual commit attempt:\"; echo x >> drift_artifact2.txt && git add -A && git -c user.email=k3@probe -c user.name=k3 commit -qm \"manual\" ; echo \"commit rc=$?\"; git log --oneline | head -2",
+      "timeout": 60
+    },
+    "result_file": "quality-trace/034-result.json",
+    "is_error": false,
+    "result_text_sha256": "87b81f0ea764f03491864a73eac9f80235cbb7046a8395ac34ebf7a6c996a0e5",
+    "result_summary": "A  drift_artifact.txt\ndrift_artifact.txt\n--- manual commit attempt:\ncommit rc=0\n0d3a34c manual\n3ae1d7a fix drift test\n"
+  },
+  {
+    "index": 35,
+    "id": "bash_34_012b78ef",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; export PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=1\ncd \"$OUT/fixtures/gaterepo_drift\" && git reset -q --hard 3ae1d7a && git clean -qfd\ncat > tests/test_drift.py <<'EOF'\nimport subprocess\nfrom pathlib import Path\n\n\ndef test_commit_during_run():\n    Path(\"drift_artifact.txt\").write_text(\"mid-run change\\n\", encoding=\"utf-8\")\n    subprocess.run([\"git\", \"add\", \"-A\"], check=True, capture_output=True)\n    subprocess.run([\"git\", \"-c\", \"user.email=k3@probe\", \"-c\", \"user.name=k3\",\n                    \"commit\", \"-qm\", \"mid-run commit\"], check=True, capture_output=True)\n    assert True\nEOF\ngit add -A && git -c user.email=k3@probe -c user.name=k3 commit -qm \"fix drift test v2\"\nREV_BEFORE=$(git rev-parse HEAD)\nrm -rf \"$OUT/fixtures/receipt-root\"\nFWP_TEST_RECEIPT_DIR=\"$OUT/fixtures/receipt-root\" bash scripts/run_main_gate.sh --pytest-args \"-q tests/test_drift.py\" > \"$OUT/logs/b9b_drift.log\" 2>&1; echo \"B9b rc=$?\"\necho \"rev_before=${REV_BEFORE:0:8} rev_after=$(git rev-parse HEAD | cut -c1-8)\"; tail -2 \"$OUT/logs/b9b_drift.log\"\ngit reset -q --hard 3ae1d7a 2>/dev/null; git log --oneline | head -1",
+      "timeout": 115
+    },
+    "result_file": "quality-trace/035-result.json",
+    "is_error": false,
+    "result_text_sha256": "475f20a1ee661b8979f5139967d145a28115e613569d445aed72bcbb1be9fc69",
+    "result_summary": "B9b rc=4\nrev_before=eae2c251 rev_after=4c684bf1\n1 passed in 0.40s\n测试期间提交或干净状态改变，收据不可采信。\n3ae1d7a fix drift test\n"
+  },
+  {
+    "index": 36,
+    "id": "bash_35",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; export PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=1\ncd \"$OUT/fixtures/gaterepo\" && printf '\\n# local edit\\n' >> tests/test_ok.py\nrm -rf \"$OUT/fixtures/receipt-root\"\nFWP_TEST_RECEIPT_DIR=\"$OUT/fixtures/receipt-root\" bash scripts/run_main_gate.sh --pytest-args \"-q tests/test_ok.py\" > \"$OUT/logs/b8a_dirty.log\" 2>&1; echo \"B8a dirty rc=$?\"; cat \"$OUT/logs/b8a_dirty.log\"\nFWP_TEST_RECEIPT_DIR=\"$OUT/fixtures/receipt-root\" bash scripts/run_main_gate.sh --allow-dirty --pytest-args \"-q tests/test_ok.py\" > \"$OUT/logs/b8b_allowdirty.log\" 2>&1; echo \"B8b allow-dirty rc=$?\"; tail -4 \"$OUT/logs/b8b_allowdirty.log\"\nR=$(find \"$OUT/fixtures/receipt-root\" -name pytest.json | head -1); /Users/a77/finance-workspace-private/.venv-workbench/bin/python -c \"import json;d=json.load(open('$R'));print('receipt dirty=',d['dirty'],'wdt=',d['worktree_dirty_total'],'paths=',d['dirty_paths'])\"\ngit checkout -- tests/test_ok.py && git status --porcelain | wc -l",
+      "timeout": 115
+    },
+    "result_file": "quality-trace/036-result.json",
+    "is_error": false,
+    "result_text_sha256": "94fdb626a22c59954992fdbac346ae79c14ea5c1449c7c441079bcd91d14c6b8",
+    "result_summary": "B8a dirty rc=2\n树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。\nB8b allow-dirty rc=0\n2 passed in 0.29s\n== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-BkBwp0u8/pytest.j"
+  },
+  {
+    "index": 37,
+    "id": "tool_vO6QQ8anSIeKnfgYMBc4ownp",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; export PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=1\nPY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\n# B5c: pre-existing receipt file must NOT be overwritten (x-mode), warning expected\nIM=\"$OUT/fixtures/immut\"; rm -rf \"$IM\"; mkdir -p \"$IM\"; echo '{\"sentinel\": \"do-not-overwrite\"}' > \"$IM/pytest.json\"\ncd \"$OUT/fixtures/gaterepo\"\nFWP_TEST_RECEIPT_DIR=\"$IM\" FWP_TEST_RECEIPT_PATH=\"$IM/pytest.json\" FWP_TEST_RECEIPT_OWNER_PID=\"\" \"$PY\" -m pytest -q -p no:cacheprovider tests/test_ok.py > \"$OUT/logs/b5c_immutable.log\" 2>&1; echo \"B5c pytest rc=$?\"\ngrep -o \"收据未写出（不影响测试结论）.*\" \"$OUT/logs/b5c_immutable.log\" | head -1; echo \"content after: $(cat \"$IM/pytest.json\")\"\n# control: fresh path writes fine\nFWP_TEST_RECEIPT_DIR=\"$IM\" FWP_TEST_RECEIPT_PATH=\"$IM/fresh.json\" FWP_TEST_RECEIPT_OWNER_PID=\"\" \"$PY\" -m pytest -q -p no:cacheprovider tests/test_ok.py > \"$OUT/logs/b5c_control.log\" 2>&1; echo \"B5c control rc=$?\"; test -f \"$IM/fresh.json\" && echo \"control receipt written\"\n# receipt-only readback via shell\nR=$(find \"$OUT/fixtures/receipt-root\" -name pytest.json | head -1)\nbash scripts/run_main_gate.sh --receipt \"$R\" > \"$OUT/logs/b8c_receiptonly.log\" 2>&1; echo \"receipt-only(dirty,no-allow) rc=$?\"\nbash scripts/run_main_gate.sh --receipt \"$R\" --allow-dirty > \"$OUT/logs/b8d_receiptonly_ad.log\" 2>&1; echo \"receipt-only(allow-dirty) rc=$?\"; tail -3 \"$OUT/logs/b8d_receiptonly_ad.log\"",
+      "timeout": 115
+    },
+    "result_file": "quality-trace/037-result.json",
+    "is_error": false,
+    "result_text_sha256": "2c63dcadc1d003b7532d3647d95a89764b3a9cd29e1e8e40f78390086af63bd8",
+    "result_summary": "B5c pytest rc=0\n收据未写出（不影响测试结论）: [Errno 17] File exists: '/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/immut/pytest.json'\ncontent after: {\"sentinel\": \"do-not-overwrite\"}\nB5c control rc="
+  },
+  {
+    "index": 38,
+    "id": "tool_raskbcbrNS2nyBmT8tdzRi6L",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v3-0921 && sed -n '/def main/,/^if __name__/p' scripts/worktree_board.py | head -60 && grep -n \"STALE_BASE_WARN\\|def tree_kind\\|def _status_paths\\|def behind_count\" scripts/worktree_board.py | head"
+    },
+    "result_file": "quality-trace/038-result.json",
+    "is_error": false,
+    "result_text_sha256": "e11d74270d0cd52e9cd3eee9729d8321757aba68281bace5fcccb956d5761694",
+    "result_summary": "def main(argv: list[str] | None = None) -> int:\n    parser = argparse.ArgumentParser(description=__doc__.split(\"\\n\", 1)[0])\n    parser.add_argument(\"--json\", action=\"store_true\", help=\"机器可读\")\n    parser.add_argument(\n   "
+  },
+  {
+    "index": 39,
+    "id": "bash_38",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; B=\"$OUT/fixtures/boardmain\"; rm -rf \"$B\" \"$B\"-wt-*; mkdir -p \"$B\"; cd \"$B\"\ngit init -qb main && git config user.email k3@probe && git config user.name k3\necho base > base.txt && git add -A && git commit -qm base\n# merged branch: patch P on branch, equivalent P' on main\ngit checkout -qb wt-merged-branch && echo apple > a.txt && git add -A && git commit -qm \"patch P\"\ngit checkout -q main && echo apple > a.txt && git add -A && git commit -qm \"patch P equivalent\"\n# dirty branch: patch Q on branch, equivalent Q' on main\ngit checkout -qb wt-dirty-branch && echo banana > b.txt && git add -A && git commit -qm \"patch Q\"\ngit checkout -q main && echo banana > b.txt && git add -A && git commit -qm \"patch Q equivalent\"\n# unique branch: patch R NOT on main\ngit checkout -qb wt-unique-branch && echo cherry > c.txt && git add -A && git commit -qm \"patch R unique\"\ngit checkout -q main\ngit worktree add -q \"$B-wt-merged\" wt-merged-branch\ngit worktree add -q \"$B-wt-dirty\" wt-dirty-branch\ngit worktree add -q \"$B-wt-locked\" wt-unique-branch 2>/dev/null || true\n# locked worktree uses a fourth branch\ngit checkout -qb wt-locked-branch && echo lock > l.txt && git add -A && git commit -qm \"patch L unique\"\ngit checkout -q main\nrm -rf \"$B-wt-locked\"; git worktree add -q \"$B-wt-locked\" wt-locked-branch && git worktree lock \"$B-wt-locked\"\ngit worktree add -q \"$B-wt-gone\" wt-unique-branch 2>/dev/null || git worktree add -q --detach \"$B-wt-gone\" HEAD\necho dirty-file > \"$B-wt-dirty/uncommitted.txt\"\nrm -rf \"$B-wt-gone\"   # missing root, prunable\ngit worktree list --porcelain | grep -c \"^worktree\"; echo \"fixture ready\"",
+      "timeout": 60
+    },
+    "result_file": "quality-trace/039-result.json",
+    "is_error": false,
+    "result_text_sha256": "c1706d1fee89bca3563ca603554a4ceef6a4df3b732c5b79ea2d4db3179abe22",
+    "result_summary": "fatal: '/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/boardmain-wt-locked' is a missing but already registered worktree;\nuse 'add -f' to override, or 'prune' or 'remove' to clear\n5\nfixt"
+  },
+  {
+    "index": 40,
+    "id": "bash_39",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; B=\"$OUT/fixtures/boardmain\"; cd \"$B\"\ngit worktree prune\ngit worktree add -q \"$B-wt-locked\" wt-locked-branch && git worktree lock \"$B-wt-locked\" && echo \"locked ok\"\ngit worktree add -q --detach \"$B-wt-gone\" HEAD && rm -rf \"$B-wt-gone\" && echo \"gone ok\"\ngit worktree list --porcelain",
+      "timeout": 60
+    },
+    "result_file": "quality-trace/040-result.json",
+    "is_error": false,
+    "result_text_sha256": "fea6bd1438ae2f8501c9c346c947f7acceb0c16ac62d80a6e967ad7795656081",
+    "result_summary": "locked ok\ngone ok\nworktree /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/boardmain\nHEAD 43a6207cdebc459cd54534c785a21cb3d089b3f4\nbranch refs/heads/main\n\nworktree /Users/a77/.finance-run"
+  },
+  {
+    "index": 41,
+    "id": "bash_40",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3; cd \"$OUT/fixtures/boardmain\"\nPY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\nPYTHONDONTWRITEBYTECODE=1 \"$PY\" /Users/a77/fwp-wt-ownership-quality-v3-0921/scripts/worktree_board.py --json > \"$OUT/logs/board_scan.json\" 2>\"$OUT/logs/board_scan.err\"; echo \"json rc=$?\"\nPYTHONDONTWRITEBYTECODE=1 \"$PY\" /Users/a77/fwp-wt-ownership-quality-v3-0921/scripts/worktree_board.py > \"$OUT/logs/board_scan.txt\" 2>&1; echo \"text rc=$?\"\n\"$PY\" - <<'EOF'\nimport json\nd = json.load(open(\"/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/logs/board_scan.json\"))\nprint(\"base:\", d[\"base\"], \"sha:\", d[\"base_sha\"][:12])\nfor t in d[\"trees\"]:\n    print(f\"{t['path'].rsplit('-',1)[-1]:10s} plus={t['cherry_plus']:3d} in_main={t['in_main']!s:5s} dirty={t['dirty']!s:5s} kind={t['kind']:12s} err={t['error'][:45]!r} locked={t['locked'][:10]!r} prunable={t['prunable'][:20]!r}\")\nEOF\ngrep -A6 \"待核实\" \"$OUT/logs/board_scan.txt\" | head -12",
+      "timeout": 110
+    },
+    "result_file": "quality-trace/041-result.json",
+    "is_error": false,
+    "result_text_sha256": "6682d93b9bea06bffc8d0630e25d1046bb99d6e688d5fffcefbe364a88da922e",
+    "result_summary": "json rc=0\ntext rc=0\nbase: main sha: 43a6207cdebc\nk3/fixtures/boardmain plus=  0 in_main=True  dirty=False kind=main-checkout err='' locked='' prunable=''\ndirty      plus=  0 in_main=True  dirty=True  kind=other        er"
+  },
+  {
+    "index": 42,
+    "id": "bash_41",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-quality-v3-0921 && sed -n '128,150p' scripts/worktree_board.py && sed -n '95,101p' scripts/worktree_board.py"
+    },
+    "result_file": "quality-trace/042-result.json",
+    "is_error": false,
+    "result_text_sha256": "ee7c3a1a343fbcdce17fe9c235c5149014d9ebe98f16ef9cd53232574d0a5102",
+    "result_summary": "def tree_kind(path: str, main_checkout: str) -> str:\n    posix = path.replace(\"\\\\\", \"/\")\n    if \"/.finance-runtime/finance-workspace-\" in posix:\n        return \"prod-snapshot\"\n    if \"/fwp-wt-\" in posix or \"/.worktrees/\""
+  }
+]

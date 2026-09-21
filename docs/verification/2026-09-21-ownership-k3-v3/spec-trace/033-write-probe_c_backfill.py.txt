@@ -1,0 +1,159 @@
+"""K3 independent probe C: 302132 staged-backfill contract (F1/F2). Tiny synthetic fixtures only."""
+import importlib.util
+import json
+import os
+import sys
+from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
+
+import duckdb
+
+CHK = Path("/Users/a77/fwp-wt-ownership-spec-v3-0921")
+OUT = Path("/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes")
+sys.path.insert(0, str(CHK))
+os.environ["FWP_TEST_RECEIPT"] = "0"
+
+from market_feature_store import cli  # noqa: E402
+import market_feature_store.sync.repair_backfill_stock_history as mod  # noqa: E402
+from market_feature_store.sync.repair_hithink_stock_history import RepairRefused  # noqa: E402
+
+# import the formal test module ONLY to reuse its synthetic fixture builder
+# (my counterexamples below are my own; builder reuse avoids fixture transcription errors)
+spec = importlib.util.spec_from_file_location(
+    "formal_fixture", CHK / "tests" / "test_repair_backfill_stock_history.py")
+fx = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(fx)
+
+LOG = (OUT / "probe_c_backfill.log").open("w")
+def note(*a):
+    line = " ".join(str(x) for x in a)
+    print(line); LOG.write(line + "\n")
+
+import tempfile
+tmp = Path(tempfile.mkdtemp(prefix="k3-c-", dir=OUT))
+
+# ── C1: parent --db rejected BEFORE any side effect ─────────────────────
+pq = tmp / "src.parquet"; pq.write_bytes(b"k3 probe: no data access authorized")
+witness = tmp / "canonical-witness.duckdb"; witness.write_bytes(b"witness-bytes")
+called = []
+def parent_spy(**kw):
+    called.append(kw)
+    return {"swapped": False, "reason": "must not reach", "rc": 2}
+with mock.patch.object(cli, "run_daily_full_staged", parent_spy), \
+     mock.patch.dict(os.environ, {"MARKET_FEATURE_STORE_DB": str(witness)}):
+    rc = cli.cmd_repair_backfill_302132(SimpleNamespace(
+        parquet=str(pq), child=False, db=str(tmp / "intended.duckdb"), report_path=None))
+note("C1 parent --db: rc=", rc, "(expect 2) parent_called=", bool(called),
+     " witness_intact=", witness.read_bytes() == b"witness-bytes")
+
+# ── C2: child mode guard failure -> rc2, no status.json, no report, DB unchanged ──
+db2 = tmp / "staging2.duckdb"
+con = duckdb.connect(str(db2)); con.execute("CREATE TABLE t AS SELECT 1 AS x"); con.close()
+before = db2.read_bytes()
+with mock.patch.dict(os.environ, {"MARKET_FEATURE_STORE_PRODUCTION_DB": str(tmp / "prod.duckdb"),
+                                  "MARKET_FEATURE_STORE_RUN_ID": "k3-c2"}):
+    rc = cli.cmd_repair_backfill_302132(SimpleNamespace(
+        parquet=str(pq), child=True, db=str(db2), report_path=None))
+note("C2 child guard-fail: rc=", rc, "(expect 2) db_unchanged=", db2.read_bytes() == before,
+     " status_json_exists=", Path(str(db2) + ".status.json").exists(),
+     " reports=", list(tmp.glob("staging2.duckdb.backfill-report.*")))
+
+# ── C3: receipt write guards ─────────────────────────────────────────────
+occ = tmp / "occupied.json"; occ.write_text('{"orig": true}')
+try:
+    mod._guarded_write_json(occ, {"x": 1})
+    note("C3 overwrite: !!!ALLOWED")
+except RepairRefused:
+    note("C3 overwrite existing: refused, intact=", occ.read_text() == '{"orig": true}')
+link = tmp / "link.json"; link.symlink_to(tmp / "victim.json")
+try:
+    mod._guarded_write_json(link, {"x": 1})
+    note("C3 symlink: !!!ALLOWED")
+except RepairRefused:
+    note("C3 symlink: refused, victim_exists=", (tmp / "victim.json").exists())
+prot = tmp / "protected.duckdb"; prot.write_bytes(b"p")
+try:
+    mod._guarded_write_json(tmp / "alias.json", {"x": 1}, protected={prot})
+    note("C3 non-conflicting write: ok")
+    (tmp / "alias.json").unlink()
+    # hardlink alias to protected
+    hl = tmp / "hl.json"; os.link(prot, hl)
+    try:
+        mod._guarded_write_json(hl, {"x": 1}, protected={prot})
+        note("C3 hardlink-alias: !!!ALLOWED")
+    except RepairRefused:
+        note("C3 hardlink-alias: refused (realpath same)")
+except RepairRefused as e:
+    note("C3 unexpected refusal:", e)
+
+# ── C4: happy path + my own protected-slice tamper counterexample ────────
+db4 = tmp / "mini4.duckdb"; pq4 = tmp / "tail4.parquet"
+fixture = fx._fixture(db4, pq4)
+spec4 = fx._spec(db4, pq4, fixture["pinned"])
+con = duckdb.connect(str(db4))
+rep = mod.run_backfill_child(con, spec4, pq4)
+note("C4 apply: mode=", rep["mode"], " tech=", rep["technical_rows"], " win=", rep["window_rows"])
+# my counterexample 1: tamper OTHER-stock row (protected slice) after apply, rerun -> must refuse
+con.execute(f"UPDATE feature_stock_technical_daily SET ma26=ma26+1 WHERE stock_ts_code='{fx.OTHER}' AND trade_date='{fx.CAL[10]}'")
+try:
+    mod.run_backfill_child(con, spec4, pq4)
+    note("C4 other-stock tamper: !!!ALLOWED")
+except RepairRefused as e:
+    note("C4 other-stock tamper: refused ::", str(e)[:60])
+con.rollback() if False else None
+con.close()
+# restore by rebuilding fixture (tamper persisted); rebuild fresh for next counterexample
+db5 = tmp / "mini5.duckdb"; pq5 = tmp / "tail5.parquet"
+fixture = fx._fixture(db5, pq5)
+spec5 = fx._spec(db5, pq5, fixture["pinned"])
+con = duckdb.connect(str(db5))
+mod.run_backfill_child(con, spec5, pq5)
+# my counterexample 2: tamper target-stock RETAINED row (outside write keys) -> must refuse
+con.execute(f"UPDATE fact_stock_daily SET amount=amount+1 WHERE stock_ts_code='{fx.CODE}' AND trade_date='{fx.CAL[0]}'")
+try:
+    mod.run_backfill_child(con, spec5, pq5)
+    note("C4 retained-row tamper: !!!ALLOWED")
+except RepairRefused as e:
+    note("C4 retained-row tamper: refused ::", str(e)[:60])
+con.close()
+# my counterexample 3: delete one backfilled row (partial state) -> must refuse
+db6 = tmp / "mini6.duckdb"; pq6 = tmp / "tail6.parquet"
+fixture = fx._fixture(db6, pq6)
+spec6 = fx._spec(db6, pq6, fixture["pinned"])
+con = duckdb.connect(str(db6))
+mod.run_backfill_child(con, spec6, pq6)
+con.execute(f"DELETE FROM fact_stock_daily WHERE stock_ts_code='{fx.CODE}' AND trade_date='{fx.CAL[3]}'")
+try:
+    mod.run_backfill_child(con, spec6, pq6)
+    note("C4 partial-state: !!!ALLOWED")
+except RepairRefused as e:
+    note("C4 partial-state: refused ::", str(e)[:60])
+con.close()
+
+# ── C5: child happy path via CLI + same-run_id rerun refused ─────────────
+db7 = tmp / "staging7.duckdb"; pq7 = tmp / "tail7.parquet"
+fixture = fx._fixture(db7, pq7)
+spec7 = fx._spec(db7, pq7, fixture["pinned"])
+with mock.patch.dict(os.environ, {"MARKET_FEATURE_STORE_PRODUCTION_DB": str(tmp / "prod7.duckdb"),
+                                  "MARKET_FEATURE_STORE_RUN_ID": "k3-run-1"}), \
+     mock.patch.object(mod, "BackfillSpec", lambda: spec7):
+    rc = cli.cmd_repair_backfill_302132(SimpleNamespace(parquet=str(pq7), child=True, db=str(db7), report_path=None))
+    rep7 = tmp / "staging7.duckdb.backfill-report.k3-run-1.json"
+    note("C5 child happy: rc=", rc, " report_exists=", rep7.exists(),
+         " status=", json.loads(Path(str(db7) + ".status.json").read_text())["ok"] if Path(str(db7) + ".status.json").exists() else None)
+    rc2 = cli.cmd_repair_backfill_302132(SimpleNamespace(parquet=str(pq7), child=True, db=str(db7), report_path=None))
+    note("C5 same-run_id rerun: rc=", rc2, "(expect 2, no overwrite) reports=",
+         len(list(tmp.glob("staging7.duckdb.backfill-report.*.json"))))
+
+# ── C6: child targeting canonical production -> refused by write_path gate ──
+prod = tmp / "prod-real.duckdb"
+with duckdb.connect(str(prod)) as c:
+    c.execute("CREATE TABLE t AS SELECT 1 AS x")
+prod_bytes = prod.read_bytes()
+with mock.patch.dict(os.environ, {"MARKET_FEATURE_STORE_PRODUCTION_DB": str(prod)}):
+    rc = cli.cmd_repair_backfill_302132(SimpleNamespace(parquet=str(pq), child=True, db=str(prod), report_path=None))
+note("C6 child->canonical: rc=", rc, "(expect 2) prod_intact=", prod.read_bytes() == prod_bytes)
+
+note("PROBE-C-DONE")
+LOG.close()

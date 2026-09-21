@@ -1,0 +1,47 @@
+A1 rc=0
+A1 receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-fFu53M6y/pytest.json
+A1 receipt identity: True dirty= False tree_ok= True counts= {'passed': 1, 'failed': 0, 'error': 0, 'skipped': 0} exit= 0
+A2 exec rc=2 (expect 1)
+A2 readback rc=2 (expect 1)
+fatal: pathspec 'test_fail.py' did not match any files
+On branch main
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	test_fail.py
+
+nothing added to commit but untracked files present (use "git add" to track)
+A3 wrong_revision: rc=4 OK-REFUSED :: gate receipt refused: receipt revision does not match the tested revision
+A3 foreign_tree: rc=4 OK-REFUSED :: gate receipt refused: receipt revision does not match the tested revision
+A3 tree_none: rc=4 OK-REFUSED :: gate receipt refused: receipt revision does not match the tested revision
+A3 tree_int: rc=4 OK-REFUSED :: gate receipt refused: receipt revision does not match the tested revision
+A3 dirty_true: rc=4 OK-REFUSED :: gate receipt refused: receipt revision does not match the tested revision
+A3 dirty_total_1: rc=4 OK-REFUSED :: gate receipt refused: receipt revision does not match the tested revision
+A3 dirty_total_missing: rc=4 OK-REFUSED :: gate receipt refused: receipt revision does not match the tested revision
+A3 counts_bool: rc=4 OK-REFUSED :: gate receipt refused: invalid counts
+A3 counts_negative: rc=4 OK-REFUSED :: gate receipt refused: invalid counts
+A3 counts_zero_exec: rc=4 OK-REFUSED :: gate receipt refused: zero executed tests
+A3 counts_str: rc=4 OK-REFUSED :: gate receipt refused: invalid counts
+A3 exit_interrupted: rc=4 OK-REFUSED :: gate receipt refused: missing exit_status or incomplete pytest run
+A3 exit_none: rc=4 OK-REFUSED :: gate receipt refused: missing exit_status or incomplete pytest run
+A3 failedids_len_mismatch: rc=4 OK-REFUSED :: gate receipt refused: exit_status, counts and failed_ids disagree
+A3 failedids_empty_str: rc=4 OK-REFUSED :: gate receipt refused: invalid failed_ids
+A3 dep_bypassed: rc=4 OK-REFUSED :: gate receipt refused: dependency gate was bypassed or is unknown
+A3 dep_missing: rc=4 OK-REFUSED :: gate receipt refused: dependency gate was bypassed or is unknown
+A3 wrong_interpreter: rc=4 OK-REFUSED :: gate receipt refused: interpreter mismatch
+A3 status_counts_disagree: rc=4 OK-REFUSED :: gate receipt refused: exit_status, counts and failed_ids disagree
+A3b same_red: rc=2 :: 树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。
+A3b new_red: rc=2 :: 树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。
+A3b target_mismatch: rc=2 :: 树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。
+A3b dirty_baseline: rc=2 :: 树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。
+A4 dirty-no-flag rc=2 (expect 2)
+A4 dirty-allow rc=1 (expect 0)
+A4 dirty receipt dirty= False total= 0
+A4 dirty receipt readback no-flag rc=2 (expect 4)
+A4 dirty receipt readback allow rc=0 (expect 0)
+
+1 passed in 0.18s
+A5 same-file-after-second-run: UNCHANGED
+A6 rc=2 (expect 4)
+A7 rc=2 (expect 0)
+A7 receipts total=1 (each run exactly one)
+PROBE-A-DONE

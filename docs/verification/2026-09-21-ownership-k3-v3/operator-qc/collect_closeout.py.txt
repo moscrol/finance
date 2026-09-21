@@ -1,0 +1,98 @@
+"""Read-only operator checks and identity observation; no new review/model request."""
+from datetime import datetime, timezone
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parents[1]
+REV = "47530e20fe5c3195e50ce429b31898d57918e413"
+COORD = Path.home() / "fwp-wt-ownership-closeout-0921"
+
+def git(tree, *args):
+    return subprocess.check_output(["git", "-C", str(tree), *args], text=True, timeout=30).strip()
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+spec = importlib.util.spec_from_file_location("ownership_gitea", COORD / "scripts/gitea_pr.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+prs = []
+for number in (812, 813, 814):
+    data = module._api("GET", f"/pulls/{number}")
+    prs.append({**module._summary(data), "head_sha": data["head"]["sha"], "base_sha": data["base"]["sha"]})
+
+trees = {}
+for role, path in {
+    "author": Path.home() / "fwp-wt-ownership-gates-v3-0921",
+    "spec": Path.home() / "fwp-wt-ownership-spec-v3-0921",
+    "quality": Path.home() / "fwp-wt-ownership-quality-v3-0921",
+    "coordination": COORD,
+    "backfill_source": Path.home() / "fwp-wt-backfill-main-ready-0921",
+    "receipt_source": Path.home() / "fwp-wt-test-gate-receipt-identity-0921",
+}.items():
+    trees[role] = {"path": str(path), "revision": git(path, "rev-parse", "HEAD"),
+                   "status": git(path, "status", "--porcelain=v1"),
+                   "branch": git(path, "branch", "--show-current")}
+    if role in {"author", "spec", "quality"}:
+        assert trees[role]["revision"] == REV and trees[role]["status"] == ""
+
+# Establish expected return-code denominator independently of reviewer labels.
+results = json.loads((ROOT / "quality-k3/logs/probe_a_results.json").read_text())
+special = {"A01_valid_pass": 0, "A02_valid_fail_rc1": 1, "A20_dirty_allowdirty": 0,
+           "A26_pyexit_match": 1, "A30_baseline_new_red": 3, "A31_baseline_same_red": 0,
+           "A32_baseline_passed_decreased": 3}
+assert len(results) == 39 and len({r["case"] for r in results}) == 39
+assert all(r["rc"] == special.get(r["case"], 4) for r in results)
+
+axes = {}
+for axis in ("spec", "quality"):
+    out = ROOT / f"{axis}-k3"
+    record = json.loads((out / "execution.json").read_text())
+    assert record["complete"] and record["exit_code"] == 75
+    assert record["provider_request_admissions"] == 40 and record["admissions_valid"]
+    for name, expected in record["sha256"].items():
+        assert sha(out / name) == expected
+    trace = json.loads((ROOT / f"{axis}-tool-trace.json").read_text())
+    commands = [t for t in trace if t["tool"] == "bash"]
+    axes[axis] = {"elapsed_seconds": record["elapsed_seconds"], "exit": record["exit_code"],
+                  "admissions": record["provider_request_admissions"], "usage_reported": record["usage"],
+                  "bash_calls": len(commands),
+                  "bash_without_explicit_timeout": [t["index"] for t in commands if "timeout" not in t["args"]],
+                  "upstream_before": record["identity_before"]["upstream_observed"],
+                  "upstream_after": record["identity_after"]["upstream_observed"],
+                  "provider": record["model_identities"]}
+
+receipts = []
+excluded_receipts = []
+for path in sorted((ROOT / "spec-k3/formal-receipts").glob("*.json")):
+    if path.name == "latest.json":
+        continue
+    data = json.loads(path.read_text())
+    assert data["revision"] == REV and data["tree"] == trees["spec"]["path"]
+    assert data["dirty"] is False and data["worktree_dirty_total"] == 0 and data["exit_status"] == 0
+    row = {"path": str(path.relative_to(ROOT)), "sha256": sha(path), "counts": data["counts"]}
+    if sum(data["counts"][k] for k in ("passed", "failed", "error")) == 0:
+        excluded_receipts.append({**row, "reason": "zero executed tests; not a formal passing receipt"})
+    else:
+        receipts.append(row)
+assert len(receipts) == 2
+assert sum(r["counts"]["passed"] for r in receipts) == 195
+assert sum(r["counts"]["skipped"] for r in receipts) == 1
+
+finding = json.loads((ROOT / "operator-qc/inprocess-reproduction.json").read_text())
+assert finding["finding_reproduced"] and finding["candidate_sources_unchanged"]
+report = {"time": datetime.now(timezone.utc).isoformat(), "candidate": REV, "trees": trees,
+          "remote_main": git(COORD, "ls-remote", "gitea", "refs/heads/main").split()[0],
+          "local_tracking_main": git(COORD, "rev-parse", "gitea/main"), "pull_requests": prs,
+          "axes": axes, "quality_helper_parameter_cases": {"total": 39, "expected_return_codes_confirmed": 39},
+          "spec_formal_receipts": receipts, "excluded_spec_receipts": excluded_receipts,
+          "operator_inprocess_reproduction": True,
+          "scope": "read-only identity/trace checks; no new candidate gate or integration validation"}
+path = ROOT / "operator-qc/preseal-observation.json"
+with path.open("x") as stream:
+    json.dump(report, stream, ensure_ascii=False, indent=2)
+    stream.write("\n")
+print(json.dumps(report, ensure_ascii=False, indent=2))

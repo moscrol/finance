@@ -1,0 +1,16 @@
+run1 rc=0  run2 rc=0
+/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-brrCNnyF/pytest.json
+/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-gcOpMElM/pytest.json
+--- receipt files:
+/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-brrCNnyF/pytest.json
+/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-gcOpMElM/pytest.json
+--- run1 tail:
+2 passed in 0.46s
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-brrCNnyF/pytest.json
+   revision=ee9b01e5f36a dirty=False target=tests/test_ok.py
+   passed=2 failed=0 error=0 skipped=0
+--- run2 tail:
+1 passed in 0.43s
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-gcOpMElM/pytest.json
+   revision=ee9b01e5f36a dirty=False target=tests/test_ok2.py
+   passed=1 failed=0 error=0 skipped=0

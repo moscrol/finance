@@ -1,0 +1,18 @@
+{
+  "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+  "axis": "quality",
+  "verdict": "BLOCKED",
+  "status": "in_progress",
+  "findings": [],
+  "checks": [
+    {"id": "R1", "status": "NOT_TESTED"},
+    {"id": "R2", "status": "NOT_TESTED"},
+    {"id": "R3", "status": "NOT_TESTED"},
+    {"id": "R4", "status": "NOT_TESTED"},
+    {"id": "B1", "status": "NOT_TESTED"},
+    {"id": "F1", "status": "NOT_TESTED"},
+    {"id": "F2", "status": "NOT_TESTED"},
+    {"id": "F3", "status": "NOT_TESTED"}
+  ],
+  "limitations": ["review in progress; no probes executed yet"]
+}

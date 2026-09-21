@@ -1,0 +1,50 @@
+[
+  {
+    "case": "valid-control",
+    "command": [
+      "bash",
+      "scripts/run_main_gate.sh",
+      "--receipt",
+      "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/fixture-valid-control.json"
+    ],
+    "cwd": "/Users/a77/fwp-wt-ownership-resume-review-0921",
+    "actual_exit": 0,
+    "expected_exit": 0
+  },
+  {
+    "case": "foreign-tree",
+    "command": [
+      "bash",
+      "scripts/run_main_gate.sh",
+      "--receipt",
+      "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/fixture-foreign-tree.json"
+    ],
+    "cwd": "/Users/a77/fwp-wt-ownership-resume-review-0921",
+    "actual_exit": 0,
+    "expected_exit": 4
+  },
+  {
+    "case": "missing-tree",
+    "command": [
+      "bash",
+      "scripts/run_main_gate.sh",
+      "--receipt",
+      "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/fixture-missing-tree.json"
+    ],
+    "cwd": "/Users/a77/fwp-wt-ownership-resume-review-0921",
+    "actual_exit": 0,
+    "expected_exit": 4
+  },
+  {
+    "case": "non-string-tree",
+    "command": [
+      "bash",
+      "scripts/run_main_gate.sh",
+      "--receipt",
+      "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921/fixture-non-string-tree.json"
+    ],
+    "cwd": "/Users/a77/fwp-wt-ownership-resume-review-0921",
+    "actual_exit": 0,
+    "expected_exit": 4
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "scenario": "inprocess-negative",
+  "command": [
+    "bash",
+    "scripts/run_main_gate.sh",
+    "--pytest-args",
+    "-q -p no:cacheprovider tests/test_inproc.py"
+  ],
+  "cwd": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/operator-qc/inprocess-reproduction/fixture",
+  "gate_exit": 0,
+  "receipt": "inprocess-reproduction/inprocess-negative/receipts/gate-WVhnK17d/pytest.json",
+  "target_requested": "tests/test_inproc.py",
+  "target_recorded": "tests_inner/",
+  "counts": {
+    "passed": 2,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0
+  },
+  "identity_matches": true,
+  "matches_outer_invocation": false,
+  "outer_console_one_pass": true,
+  "immutable_write_warning": true,
+  "stdout_sha256": "ba63a37cb4b8089054a8858050bad00ec2a356b36b733b0f7c98628d3c00d448",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

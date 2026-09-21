@@ -1,0 +1,559 @@
++            "child_report": children[mode], "child_report_error": None,
++            "backup": {"backup_path": str(baseline), "backup_sha256": base_sha,
++                       "run_id": rid},
++            "parent": {"swapped": True, "rc": 0, "run_id": rid},
++        }
++        (root / f"clone.duckdb.repair-backfill-execution.{rid}.json"
++         ).write_text(json.dumps(receipt, ensure_ascii=False))
++        receipts[mode] = receipt
++    return {"baseline": baseline, "clone": clone, "pq": pq, "spec": spec,
++            "receipts": receipts, "base_sha": base_sha}
++
++
++@pytest.fixture(scope="module")
++def e2e_art(tmp_path_factory):
++    return _build_e2e_artifacts(tmp_path_factory.mktemp("e2e302132"))
++
++
++def _run_acceptance(clone: Path, art: dict, out: Path,
++                    expected_revision: str = E2E_REV):
++    script = mod.PROJECT_DIR / "scripts" / "verify_302132_backfill_acceptance.py"
++    return subprocess.run(
++        [sys.executable, str(script), "--production", str(art["baseline"]),
++         "--clone", str(clone), "--parquet", str(art["pq"]),
++         "--run-apply", APPLY_RUN, "--run-verify", VERIFY_RUN,
++         "--expected-revision", expected_revision,
++         "--expected-production-sha256", art["base_sha"],
++         "--output", str(out)],
++        capture_output=True, text=True, timeout=120, env=_subprocess_env())
++
++
++def _install(tmp_path: Path, art: dict, mutate) -> Path:
++    """复制结果库并按轮同步变异父收据与独立子报告（与审查探针 install 同构）。"""
++    clone = tmp_path / "clone.duckdb"
++    shutil.copy(str(art["clone"]), str(clone))
++    for mode, rid in (("apply", APPLY_RUN), ("verify", VERIFY_RUN)):
++        receipt = copy.deepcopy(art["receipts"][mode])
++        mutate(mode, receipt)
++        child_path = tmp_path / f"child-{mode}.json"
++        child_path.write_text(
++            json.dumps(receipt["child_report"], ensure_ascii=False))
++        receipt["child_report_path"] = str(child_path)
++        (tmp_path / f"clone.duckdb.repair-backfill-execution.{rid}.json"
++         ).write_text(json.dumps(receipt, ensure_ascii=False))
++    return clone
++
++
++def _assert_structured_fail(res, out: Path, must_fail=(), must_pass=()):
++    """坏产物必红：rc=2 + 结构化 FAIL JSON（非裸异常）；指定检查必红/必绿。"""
++    assert res.returncode == 2, (res.stdout, res.stderr)
++    assert out.exists(), (res.stdout, res.stderr)
++    verdict = json.loads(out.read_text())
++    assert verdict["verdict"] == "FAIL"
++    for name in must_fail:
++        assert name in verdict["failed"], verdict["failed"]
++    for name in must_pass:
++        assert name not in verdict["failed"], verdict["failed"]
++    return verdict
++
++
++def test_acceptance_e2e_baseline_pass(e2e_art, tmp_path):
++    """好产物必绿：深 schema 加严后，真实形状的两轮产物仍通过（不用全绿替代必红）。"""
++    out = tmp_path / "out.json"
++    res = _run_acceptance(e2e_art["clone"], e2e_art, out)
++    assert res.returncode == 0, (res.stdout, res.stderr)
++    verdict = json.loads(out.read_text())
++    assert verdict["verdict"] == "PASS" and verdict["failed"] == []
++
++
++def _set0(lst, v):
++    lst[0] = v
++
++
++# 逐字段单因素变异（删除/错误类型/非法值）；每个变异同步作用于两轮收据及其
++# 独立子报告文件。全部必须结构化 FAIL（rc=2 + FAIL JSON），不允许裸异常。
++RECEIPT_MUTATIONS = [
++    # ── 子报告字段（含六轮实测发绿的 parallel_source_md5 缺失 / ok=false）──
++    ("child_missing_parallel_source_md5",
++     lambda m, r: r["child_report"].pop("parallel_source_md5")),
++    ("child_ok_false", lambda m, r: r["child_report"].update(ok=False)),
++    ("child_mode_wrong",
++     lambda m, r: r["child_report"].update(
++         mode="verify" if m == "apply" else "apply")),
++    ("child_code_dirty_true",
++     lambda m, r: r["child_report"].update(code_dirty=True)),
++    ("child_interpreter_mismatch",
++     lambda m, r: r["child_report"].update(interpreter="/other/python")),
++    ("child_trade_date_mismatch",
++     lambda m, r: r["child_report"].update(trade_date="2026-01-04")),
++    ("child_window_counts_mismatch",
++     lambda m, r: r["child_report"]["window_counts"].update({"5": 999})),
++    ("child_window_rows_mismatch",
++     lambda m, r: r["child_report"].update(window_rows=1)),
++    ("child_technical_rows_mismatch",
++     lambda m, r: r["child_report"].update(technical_rows=99)),
++    ("child_technical_staged_mismatch",
++     lambda m, r: r["child_report"].update(technical_staged=1)),
++    ("child_protected_slices_missing_key",
++     lambda m, r: r["child_report"]["protected_slices"].pop("tech_protected")),
++    ("child_spec_version_mismatch",
++     lambda m, r: r["child_report"].update(
++         spec_version="302132-backfill-other")),
++    ("child_parquet_sha_mismatch",
++     lambda m, r: r["child_report"].update(parquet_sha256="1" * 64)),
++    ("child_code_mismatch",
++     lambda m, r: r["child_report"].update(code="000001.SZ")),
++    ("child_run_id_mismatch",
++     lambda m, r: r["child_report"].update(run_id="other-run")),
++    # ── spec 字段（含六轮实测发绿的空 expected_window_counts / 缺 ma26）──
++    ("empty_expected_window_counts",
++     lambda m, r: r["spec"].update(expected_window_counts={})),
++    ("expected_window_counts_missing_key",
++     lambda m, r: r["spec"]["expected_window_counts"].pop("60")),
++    ("expected_window_counts_negative",
++     lambda m, r: r["spec"]["expected_window_counts"].update({"5": -1})),
++    ("expected_window_counts_wrong_type",
++     lambda m, r: r["spec"]["expected_window_counts"].update({"5": "59"})),
++    ("missing_nested_ma26",
++     lambda m, r: r["spec"]["pinned_technical_0911"].pop("ma26")),
++    ("pinned_technical_extra_key",
++     lambda m, r: r["spec"]["pinned_technical_0911"].update(foo=1.0)),
++    ("pinned_technical_nan",
++     lambda m, r: r["spec"]["pinned_technical_0911"].update(
++         ma26=float("nan"))),
++    ("pinned_stock_huge_int",
++     lambda m, r: r["spec"]["pinned_0911"].update(close=10**400)),
++    ("pinned_technical_huge_int",
++     lambda m, r: r["spec"]["pinned_technical_0911"].update(ma26=10**400)),
++    ("pinned_window_huge_int",
++     lambda m, r: r["spec"]["pinned_windows_0911"][0].__setitem__(1, 10**400)),
++    ("pinned_windows_member_short",
++     lambda m, r: r["spec"].update(pinned_windows_0911=[["2026-08-28", 5.7]])),
++    ("pinned_windows_empty",
++     lambda m, r: r["spec"].update(pinned_windows_0911=[])),
++    ("pinned_windows_member_bad_type",
++     lambda m, r: r["spec"].update(
++         pinned_windows_0911=[["2026-08-28", "5.7", 7.9]])),
++    ("pinned_0911_missing_key",
++     lambda m, r: r["spec"]["pinned_0911"].pop("close")),
++    ("pinned_0911_turnover_wrong_type",
++     lambda m, r: r["spec"]["pinned_0911"].update(turnover="x")),
++    ("gap_parallel_empty", lambda m, r: r["spec"].update(gap_parallel=[])),
++    ("gap_parallel_duplicate",
++     lambda m, r: r["spec"].update(
++         gap_parallel=r["spec"]["gap_parallel"][:1] * 2
++         + r["spec"]["gap_parallel"][1:])),
++    ("gap_parallel_bad_member_type",
++     lambda m, r: _set0(r["spec"]["gap_parallel"], 123)),
++    ("gap_parallel_out_of_window",
++     lambda m, r: _set0(r["spec"]["gap_parallel"], r["spec"]["window_end"])),
++    ("gap_lists_overlap",
++     lambda m, r: _set0(r["spec"]["gap_parquet"],
++                        r["spec"]["gap_parallel"][0])),
++    ("shell_date_in_gap",
++     lambda m, r: r["spec"].update(shell_date=r["spec"]["gap_parallel"][0])),
++    ("window_order_bad",
++     lambda m, r: r["spec"].update(main_fill_end=r["spec"]["window_end"])),
++    ("shell_date_out_of_window",
++     lambda m, r: r["spec"].update(shell_date=r["spec"]["window_end"])),
++    ("spec_version_bad_prefix",
++     lambda m, r: r["spec"].update(spec_version="v9")),
++    ("spec_parquet_sha_short",
++     lambda m, r: r["spec"].update(parquet_sha256="0" * 63)),
++    ("spec_code_bad_format", lambda m, r: r["spec"].update(code="BAD")),
++    ("expected_technical_count_zero",
++     lambda m, r: r["spec"].update(expected_technical_count=0)),
++    ("expected_total_rows_zero",
++     lambda m, r: r["spec"].update(expected_total_rows=0)),
++    ("stale_technical_bad_member",
++     lambda m, r: r["spec"].update(stale_technical_dates=["not-a-date"])),
++    ("stale_window_keys_bad_member",
++     lambda m, r: r["spec"].update(stale_window_keys=[["2026-06-25"]])),
++    # ── 父收据字段 ──
++    ("parent_swapped_false", lambda m, r: r["parent"].update(swapped=False)),
++    ("parent_rc_nonzero", lambda m, r: r["parent"].update(rc=1)),
++    ("parent_run_id_mismatch", lambda m, r: r["parent"].update(run_id="x")),
++    ("backup_sha_short",
++     lambda m, r: r["backup"].update(backup_sha256="0" * 63)),
++    ("backup_run_id_mismatch", lambda m, r: r["backup"].update(run_id="x")),
++    ("child_report_error_nonnull",
++     lambda m, r: r.update(child_report_error="boom")),
++    ("trade_date_not_window_end",
++     lambda m, r: r.update(trade_date="2026-09-10")),
++    ("code_dirty_true", lambda m, r: r.update(code_dirty=True)),
++    ("interpreter_empty", lambda m, r: r.update(interpreter="")),
++    ("kind_wrong", lambda m, r: r.update(kind="other")),
++    ("run_id_mismatch", lambda m, r: r.update(run_id="other-run")),
++]
++
++
++@pytest.mark.parametrize("case,mutate", RECEIPT_MUTATIONS,
++                         ids=[c for c, _ in RECEIPT_MUTATIONS])
++def test_acceptance_receipt_mutation_fails(e2e_art, tmp_path, case, mutate):
++    """六轮 P2-1：逐字段单独变异（父收据与独立子报告同步）→ 结构化 FAIL。"""
++    clone = _install(tmp_path, e2e_art, mutate)
++    out = tmp_path / "out.json"
++    res = _run_acceptance(clone, e2e_art, out)
++    _assert_structured_fail(res, out, must_fail=SCHEMA_BOTH)
++
++
++@pytest.mark.parametrize(
++    "value,expected",
++    [
++        (True, False),
++        (False, False),
++        (float("nan"), False),
++        (float("inf"), False),
++        (float("-inf"), False),
++        (10**400, False),
++        (-(10**400), False),
++        (7, True),
++        (-2.5, True),
++    ],
++)
++def test_acceptance_is_num_is_total_for_json_numbers(value, expected):
++    """JSON 数值判定对布尔、非有限数和超大整数都返回 bool，不得抛异常。"""
++    assert verify_acceptance._is_num(value) is expected
++
++
++@pytest.mark.parametrize(
++    "wrong_modes,must_fail,must_pass",
++    [
++        (("apply",),
++         ("receipt_apply_schema", "spec_alignment_apply_verify"),
++         ("receipt_verify_schema",)),
++        (("verify",),
++         ("receipt_verify_schema", "spec_alignment_apply_verify"),
++         ("receipt_apply_schema",)),
++        (("apply", "verify"),
++         SCHEMA_BOTH,
++         ("spec_alignment_apply_verify",)),
++    ],
++    ids=("apply-only", "verify-only", "both-rounds"),
++)
++def test_acceptance_rejects_spec_code_not_bound_to_sql_target(
++        e2e_art, tmp_path, wrong_modes, must_fail, must_pass):
++    """每轮 spec/嵌入 child/外部 child 即使同步伪造，也不能改变 SQL 授权对象。"""
++    def mutate(mode, receipt):
++        if mode in wrong_modes:
++            receipt["spec"]["code"] = OTHER
++            receipt["child_report"]["code"] = OTHER
++
++    clone = _install(tmp_path, e2e_art, mutate)
++    out = tmp_path / "out.json"
++    res = _run_acceptance(clone, e2e_art, out)
++    _assert_structured_fail(res, out, must_fail=must_fail, must_pass=must_pass)
++
++
++def test_acceptance_malformed_revision_fails(e2e_art, tmp_path):
++    """六轮 P2-1：revision 非 40hex——连 --expected-revision 同步造假也必红。"""
++    def mutate(_m, r):
++        r["code_revision"] = "not-a-git-revision"
++        r["child_report"]["code_revision"] = "not-a-git-revision"
++
++    clone = _install(tmp_path, e2e_art, mutate)
++    out = tmp_path / "out.json"
++    res = _run_acceptance(clone, e2e_art, out,
++                          expected_revision="not-a-git-revision")
++    _assert_structured_fail(res, out, must_fail=("args_expected_revision_format",
++                                                 *SCHEMA_BOTH))
++
++
++def test_acceptance_verify_other_parquet_fails(e2e_art, tmp_path):
++    """六轮 P2-2：只改 verify 轮 parquet 哈希（父=子同步）必红；apply 臂不受影响。"""
++    def mutate(m, r):
++        if m == "verify":
++            r["spec"]["parquet_sha256"] = "0" * 64
++            r["child_report"]["parquet_sha256"] = "0" * 64
++
++    clone = _install(tmp_path, e2e_art, mutate)
++    out = tmp_path / "out.json"
++    res = _run_acceptance(clone, e2e_art, out)
++    _assert_structured_fail(
++        res, out,
++        must_fail=("parquet_identity_verify", "spec_alignment_apply_verify"),
++        must_pass=("parquet_identity_apply", "receipt_verify_schema"))
++
++
++def test_acceptance_apply_other_parquet_fails(e2e_art, tmp_path):
++    """P2-2 对称臂：只改 apply 轮输入哈希同样必红，verify 臂不受影响。"""
++    def mutate(m, r):
++        if m == "apply":
++            r["spec"]["parquet_sha256"] = "0" * 64
++            r["child_report"]["parquet_sha256"] = "0" * 64
++
++    clone = _install(tmp_path, e2e_art, mutate)
++    out = tmp_path / "out.json"
++    res = _run_acceptance(clone, e2e_art, out)
++    _assert_structured_fail(
++        res, out,
++        must_fail=("parquet_identity_apply", "spec_alignment_apply_verify"),
++        must_pass=("parquet_identity_verify", "receipt_apply_schema"))
++
++
++def test_acceptance_verify_spec_divergence_fails(e2e_art, tmp_path):
++    """六轮 P2-2：只改 verify 轮授权 spec（子报告同步、轮内一致）——
++    跨轮 spec 深比较无白名单，必须单独抓住。"""
++    def mutate(m, r):
++        if m == "verify":
++            r["spec"]["expected_window_counts"]["5"] += 1
++            r["child_report"]["window_counts"]["5"] += 1
++            r["child_report"]["window_rows"] += 1
++
++    clone = _install(tmp_path, e2e_art, mutate)
++    out = tmp_path / "out.json"
++    res = _run_acceptance(clone, e2e_art, out)
++    _assert_structured_fail(res, out,
++                            must_fail=("spec_alignment_apply_verify",),
++                            must_pass=SCHEMA_BOTH)
++
++
++# ── 数据库层变异（六轮 P1-1）：源/输出共同损坏不得自证通过 ──
++_GAP_DAY = CAL[3]  # 并跑段首个回填日
++_DB_MUTATIONS = [
++    # 输出与源一起改（六轮实测发绿的反例）：源表禁止变更 + 基线 oracle 双臂抓住
++    ("output_and_source_corrupted_together",
++     [f"UPDATE fact_stock_daily SET open=open+1 WHERE stock_ts_code='{CODE}' "
++      f"AND trade_date='{_GAP_DAY}'",
++      f"UPDATE fact_stock_daily_hithink SET open=open+1 "
++      f"WHERE stock_ts_code='{CODE}' AND trade_date='{_GAP_DAY}' "
++      f"AND adjusted='none'"],
++     ("hithink_source_untouched", "keyset_fullfield_oracle"), ()),
++    # 只改结果库源表：oracle 从基线读，键集仍过；整表禁止变更单独抓住
++    ("source_only_corrupted",
++     [f"UPDATE fact_stock_daily_hithink SET open=open+1 "
++      f"WHERE stock_ts_code='{CODE}' AND trade_date='{_GAP_DAY}' "
++      f"AND adjusted='none'"],
++     ("hithink_source_untouched",),
++     ("keyset_fullfield_oracle", "parallel_source_md5_binding")),
++    # 只改输出：基线 oracle 单独抓住（源表比较不受影响）
++    ("output_only_corrupted",
++     [f"UPDATE fact_stock_daily SET open=open+1 WHERE stock_ts_code='{CODE}' "
++      f"AND trade_date='{_GAP_DAY}'"],
++     ("keyset_fullfield_oracle",), ("hithink_source_untouched",)),
++    # 删结果库源行：禁止变更抓住；基线重算指纹不受影响
++    ("source_row_deleted",
++     [f"DELETE FROM fact_stock_daily_hithink WHERE stock_ts_code='{CODE}' "
++      f"AND trade_date='{_GAP_DAY}' AND adjusted='none'"],
++     ("hithink_source_untouched",), ("parallel_source_md5_binding",)),
++    # 除权源表（pre_close 口径前提）越权写入也禁止
++    ("adjustment_source_tampered",
++     [f"INSERT INTO fact_stock_adjustment_hithink VALUES "
++      f"('{CODE}', '{_GAP_DAY}', 0.1, 0.0, 0.0, 0.0, 'CNY', "
++      f"'hithink:adjustment-factors', '2026-09-14 00:00:00')"],
++     ("hithink_adjustment_untouched",), ()),
++]
++
++
++@pytest.mark.parametrize("case,sqls,must_fail,must_pass", _DB_MUTATIONS,
++                         ids=[c for c, *_ in _DB_MUTATIONS])
++def test_acceptance_db_mutation_fails(e2e_art, tmp_path, case, sqls,
++                                      must_fail, must_pass):
++    """六轮 P1-1：结果库源表/输出任何组合损坏 → 结构化 FAIL（rc=2）。"""
++    clone = _install(tmp_path, e2e_art, lambda m, r: None)
++    con = duckdb.connect(str(clone))
++    try:
++        for sql in sqls:
++            con.execute(sql)
++    finally:
++        con.close()
++    out = tmp_path / "out.json"
++    res = _run_acceptance(clone, e2e_art, out)
++    _assert_structured_fail(res, out, must_fail=must_fail, must_pass=must_pass)
+diff --git a/tests/test_worktree_board.py b/tests/test_worktree_board.py
+index 9a3922da4..c2506d000 100644
+--- a/tests/test_worktree_board.py
++++ b/tests/test_worktree_board.py
+@@ -393,14 +393,14 @@ def test_stale_base_warn_is_a_usable_threshold() -> None:
+     assert 10 <= board.STALE_BASE_WARN <= 200
+ 
+ 
+-def test_count_treats_non_numeric_output_as_zero(tmp_path: Path) -> None:
++def test_count_treats_non_numeric_output_as_unknown(tmp_path: Path) -> None:
+     """git 把话写到 stdout 时不能抛 —— SessionStart 抛出去就是 hook 静默不输出。"""
+ 
+     repo = _init_repo(tmp_path)
+     assert (
+-        board.behind_count("HEAD", "no/such/ref", cwd=str(repo), timeout=10) == 0
++        board.behind_count("HEAD", "no/such/ref", cwd=str(repo), timeout=10) == -1
+     )
+-    assert board._count(["rev-parse", "HEAD"], cwd=str(repo), timeout=10) == 0
++    assert board._count(["rev-parse", "HEAD"], cwd=str(repo), timeout=10) == -1
+ 
+ 
+ def test_format_board_splits_unique_and_prunable() -> None:
+@@ -438,5 +438,172 @@ def test_format_board_splits_unique_and_prunable() -> None:
+     assert "feat/open" in text
+     assert "feat/done" in text
+     assert "还有补丁" in text
+-    assert "树可拆" in text
+-    assert "本脚本不拆" in text
++    assert "树可拆" not in text
++    assert "不是删除许可" in text
++    assert "ignored" in text
++    assert "reflog" in text
++    assert "生产快照保留策略需另行核实" in text
++
++
++def _classify(repo: Path, **metadata: str):
++    return board.classify_worktree(
++        {"path": str(repo), "head": _git(repo, "rev-parse", "HEAD"),
++         "branch": "main", **metadata},
++        base="main", main_checkout=str(repo.parent / "other"), timeout=10,
++    )
++
++
++def test_missing_worktree_is_visible_as_unknown(tmp_path: Path) -> None:
++    repo = _init_repo(tmp_path)
++    row = board.classify_worktree(
++        {"path": str(tmp_path / "fwp-wt-missing"),
++         "head": _git(repo, "rev-parse", "HEAD"), "branch": "topic"},
++        base="main", main_checkout=str(repo), timeout=10,
++    )
++    assert row.error
++    assert row.cherry_plus == -1
++    text = board.format_board([row], base="main", base_sha="a" * 40)
++    assert "待核实 1" in text
++    assert "fwp-wt-missing" in text
++    assert "干净 dev 树 0" in text
++
++
++def test_parent_repository_is_not_mistaken_for_missing_worktree(tmp_path: Path) -> None:
++    repo = _init_repo(tmp_path)
++    nested = repo / "fwp-wt-missing"
++    nested.mkdir()
++    row = _classify(repo, path=str(nested))
++    assert "root mismatch" in row.error
++    assert row.cherry_plus == -1 and not row.in_main
++    assert row.ahead == row.behind == -1
++    text = board.format_board([row], base="main", base_sha="a" * 40)
++    assert "待核实 1" in text
++    assert "干净 dev 树 0" in text
++
++
++def test_collect_rows_pins_baseline_for_entire_scan(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    repo = _init_repo(tmp_path)
++    expected = _git(repo, "rev-parse", "main")
++    seen = []
++
++    def classify(spec, **kwargs):
++        seen.append(kwargs["base"])
++        return None
++
++    monkeypatch.setattr(board, "classify_worktree", classify)
++    base, sha, _, rows = board.collect_rows(cwd=str(repo), timeout=10)
++    assert base == "main" and sha == expected
++    assert seen == [expected] and rows == []
++
++
++def test_status_failure_never_becomes_prunable(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    repo = _init_repo(tmp_path)
++    git = board._git
++
++    def fail_status(args, **kwargs):
++        return (1, "") if args[0] == "status" else git(args, **kwargs)
++
++    monkeypatch.setattr(board, "_git", fail_status)
++    row = _classify(repo)
++    assert "dirty state unknown" in row.error
++    assert "待核实 1" in board.format_board([row], base="main", base_sha="a" * 40)
++
++
++def test_failed_cherry_is_unknown_in_session_start(tmp_path: Path) -> None:
++    repo = _init_repo(tmp_path)
++    assert board.cherry_counts("HEAD", "missing", cwd=str(repo), timeout=10) == (-1, -1, False)
++    lines = board.this_tree_lines(
++        cwd=str(repo), base="missing", base_sha="", timeout=10, repo_root=repo,
++    )
++    assert "未知" in lines[0]
++    assert "cherry+0" not in lines[0]
++
++
++@pytest.mark.parametrize("metadata", [{"locked": "review"}, {"prunable": "missing gitdir"}])
++def test_worktree_metadata_prevents_cleanup_suggestion(tmp_path: Path, metadata) -> None:
++    repo = _init_repo(tmp_path)
++    text = "worktree " + str(repo) + "\nHEAD abc\n"
++    text += "\n".join(f"{key} {value}" for key, value in metadata.items())
++    spec = board.parse_worktree_porcelain(text)[0]
++    for key, value in metadata.items():
++        assert spec[key] == value
++    row = _classify(repo, **metadata)
++    assert "待核实 1" in board.format_board([row], base="main", base_sha="a" * 40)
++
++
++def test_tracked_single_character_file_keeps_porcelain_status_columns(tmp_path: Path) -> None:
++    repo = _init_repo(tmp_path)
++    (repo / "x").write_text("base\n", encoding="utf-8")
++    _git(repo, "add", "x")
++    _git(repo, "commit", "-m", "short filename")
++    (repo / "x").write_text("uncommitted original\n", encoding="utf-8")
++    code, status = board._git(["status", "--porcelain"], cwd=str(repo), timeout=10)
++    assert code == 0 and status == " M x"
++    row = _classify(repo)
++    assert row.dirty and row.dirty_n == 1
++
++
++def test_document_only_dirt_is_not_safe_to_remove(tmp_path: Path) -> None:
++    repo = _init_repo(tmp_path)
++    wt = tmp_path / "fwp-wt-docs"
++    _git(repo, "worktree", "add", "-b", "docs", str(wt))
++    (wt / "notes.md").write_text("uncommitted original\n", encoding="utf-8")
++    row = _classify(wt)
++    assert row.in_main and row.dirty and not row.code_dirty
++    text = board.format_board([row], base="main", base_sha="a" * 40)
++    assert "干净 dev 树 0" in text
++    assert "还有未提交文件" in text
++    assert str(wt) not in text.split("【补丁已在基线且 Git 干净")[1].split("【")[0]
++
++
++def test_ahead_query_failure_remains_unknown(tmp_path, monkeypatch):
++    repo = _init_repo(tmp_path)
++    git = board._git
++
++    def fail_count(args, **kwargs):
++        return (1, "") if args[0] == "rev-list" else git(args, **kwargs)
++
++    monkeypatch.setattr(board, "_git", fail_count)
++    row = _classify(repo)
++    assert row.ahead == row.behind == -1
++    assert row.error
++    assert "待核实 1" in board.format_board([row], base="main", base_sha="a" * 40)
++    assert "底落后量未知" in _this_lines(repo, monkeypatch)[0]
++
++
++def test_session_start_pins_baseline_sha(tmp_path, monkeypatch):
++    repo = _init_repo(tmp_path)
++    sha = _git(repo, "rev-parse", "HEAD")
++    # The ref has disappeared/moved after initial resolution; the frozen SHA is valid.
++    lines = board.this_tree_lines(cwd=str(repo), base="moved/ref", base_sha=sha,
++                                  timeout=10, repo_root=repo)
++    assert "cherry+0" in lines[0]
++    assert "未知" not in lines[0]
++
++
++@pytest.mark.parametrize("mode", ["no-main", "base-failed", "list-failed", "common-failed"])
++def test_global_scan_failure_is_not_empty_inventory(tmp_path, monkeypatch, capsys, mode):
++    repo = _init_repo(tmp_path)
++    monkeypatch.chdir(repo)
++    if mode == "no-main":
++        _git(repo, "branch", "-m", "topic")
++    git = board._git
++
++    def fail(args, **kwargs):
++        if ((mode == "base-failed" and args == ["rev-parse", "main"])
++                or (mode == "list-failed" and args[:2] == ["worktree", "list"])
++                or (mode == "common-failed" and "--git-common-dir" in args)):
++            return 1, ""
++        return git(args, **kwargs)
++
++    monkeypatch.setattr(board, "_git", fail)
++    assert board.main(["--json"]) == 1
++    data = json.loads(capsys.readouterr().out)
++    assert data["error"] and data["trees"] is None
++    if mode == "no-main":
++        assert board.main(["--this"]) == 1
++        assert "不回退 HEAD" in capsys.readouterr().out

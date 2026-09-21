@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "bash_26",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "run1 rc=0  run2 rc=0\n/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-brrCNnyF/pytest.json\n/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-gcOpMElM/pytest.json\n--- receipt files:\n/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-brrCNnyF/pytest.json\n/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-gcOpMElM/pytest.json\n--- run1 tail:\n2 passed in 0.46s\n== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-brrCNnyF/pytest.json\n   revision=ee9b01e5f36a dirty=False target=tests/test_ok.py\n   passed=2 failed=0 error=0 skipped=0\n--- run2 tail:\n1 passed in 0.43s\n== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-gcOpMElM/pytest.json\n   revision=ee9b01e5f36a dirty=False target=tests/test_ok2.py\n   passed=1 failed=0 error=0 skipped=0\n"
+      }
+    ]
+  },
+  "isError": false
+}

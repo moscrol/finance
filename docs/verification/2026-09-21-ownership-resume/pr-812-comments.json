@@ -1,0 +1,11 @@
+[
+  {
+    "id": 5141,
+    "state": null,
+    "body": "Fixed combined acceptance object: e1b63b1a5b7c066b7377bbd2d005051863331001 (baseline 728f3271), separate from the source head. Author engineering gates pass in an exclusive clean tree: Python 12061 passed / 85 skipped / 2 xfailed with receipt readback exit 0; frontend 110 passed, E2E 34 passed / 2 skipped, Ruff and finance-only registry five checks exit 0. The first combined 321712b6 remains archived as NOT green: pytest console passed but nested collect-only claimed the parent receipt and readback exited 4; no counts were rewritten. This is author validation only: no independent Spec/Quality verdict, merge authorization, production backfill, deployment, or tree deletion.",
+    "created_at": "2026-09-21T04:48:14+08:00",
+    "submitted_at": null,
+    "commit_id": null,
+    "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/812#issuecomment-5141"
+  }
+]

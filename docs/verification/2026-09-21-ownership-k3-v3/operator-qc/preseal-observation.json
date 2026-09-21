@@ -1,0 +1,197 @@
+{
+  "time": "2026-09-21T04:52:08.622900+00:00",
+  "candidate": "47530e20fe5c3195e50ce429b31898d57918e413",
+  "trees": {
+    "author": {
+      "path": "/Users/a77/fwp-wt-ownership-gates-v3-0921",
+      "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "status": "",
+      "branch": "baseline/ownership-gates-v3-0921"
+    },
+    "spec": {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v3-0921",
+      "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "status": "",
+      "branch": ""
+    },
+    "quality": {
+      "path": "/Users/a77/fwp-wt-ownership-quality-v3-0921",
+      "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "status": "",
+      "branch": ""
+    },
+    "coordination": {
+      "path": "/Users/a77/fwp-wt-ownership-closeout-0921",
+      "revision": "d79e7f81519c5edadc42c422cdec94303d109dff",
+      "status": "",
+      "branch": "ops/worktree-ownership-closeout-0921"
+    },
+    "backfill_source": {
+      "path": "/Users/a77/fwp-wt-backfill-main-ready-0921",
+      "revision": "5994230dadcf23ec0a17c0b27e3a649d782ecf94",
+      "status": "",
+      "branch": "fix/backfill-main-ready-0921"
+    },
+    "receipt_source": {
+      "path": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+      "revision": "54913deb9707b4631c110b7bce38bf5db024b980",
+      "status": "",
+      "branch": "fix/test-gate-receipt-identity-0921"
+    }
+  },
+  "remote_main": "3c70af64d78598e23da601b8c661b09f607e7698",
+  "local_tracking_main": "3c70af64d78598e23da601b8c661b09f607e7698",
+  "pull_requests": [
+    {
+      "number": 812,
+      "state": "open",
+      "merged": false,
+      "head": "ops/worktree-ownership-closeout-0921",
+      "head_sha": "d79e7f81519c5edadc42c422cdec94303d109dff",
+      "base": "main",
+      "mergeable_claimed_by_gitea": false,
+      "title": "WIP: harden worktree board and record ownership closeout",
+      "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/812",
+      "base_sha": "3c70af64d78598e23da601b8c661b09f607e7698"
+    },
+    {
+      "number": 813,
+      "state": "open",
+      "merged": false,
+      "head": "fix/backfill-main-ready-0921",
+      "head_sha": "5994230dadcf23ec0a17c0b27e3a649d782ecf94",
+      "base": "main",
+      "mergeable_claimed_by_gitea": false,
+      "title": "WIP: integrate 302132 backfill acceptance on current main",
+      "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/813",
+      "base_sha": "3c70af64d78598e23da601b8c661b09f607e7698"
+    },
+    {
+      "number": 814,
+      "state": "open",
+      "merged": false,
+      "head": "fix/test-gate-receipt-identity-0921",
+      "head_sha": "54913deb9707b4631c110b7bce38bf5db024b980",
+      "base": "main",
+      "mergeable_claimed_by_gitea": false,
+      "title": "WIP: bind test gates to immutable per-run receipts",
+      "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/814",
+      "base_sha": "3c70af64d78598e23da601b8c661b09f607e7698"
+    }
+  ],
+  "axes": {
+    "spec": {
+      "elapsed_seconds": 1187.02,
+      "exit": 75,
+      "admissions": 40,
+      "usage_reported": {
+        "input": 415125,
+        "output": 28291,
+        "cacheRead": 2329572,
+        "cacheWrite": 0,
+        "totalTokens": 2772988
+      },
+      "bash_calls": 34,
+      "bash_without_explicit_timeout": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        21,
+        29,
+        32
+      ],
+      "upstream_before": "602ec8b751c5e84bf078ae15ad8500fa8c7ac39d",
+      "upstream_after": "2bb7c224c9b3748f50de0075099fd2c298a54315",
+      "provider": [
+        "mirasim-kimi/kimi-k3"
+      ]
+    },
+    "quality": {
+      "elapsed_seconds": 933.388,
+      "exit": 75,
+      "admissions": 40,
+      "usage_reported": {
+        "input": 237299,
+        "output": 33289,
+        "cacheRead": 1396438,
+        "cacheWrite": 0,
+        "totalTokens": 1667026
+      },
+      "bash_calls": 36,
+      "bash_without_explicit_timeout": [
+        3,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        18,
+        19,
+        23,
+        38,
+        42
+      ],
+      "upstream_before": "2bb7c224c9b3748f50de0075099fd2c298a54315",
+      "upstream_after": "945c04bd7fdd72f3144b9a5df724d2e1d33244af",
+      "provider": [
+        "mirasim-kimi/kimi-k3"
+      ]
+    }
+  },
+  "quality_helper_parameter_cases": {
+    "total": 39,
+    "expected_return_codes_confirmed": 39
+  },
+  "spec_formal_receipts": [
+    {
+      "path": "spec-k3/formal-receipts/20260921T041749Z-47530e20-2312ed82d8a6.json",
+      "sha256": "c3394b0dd8b0d91509c84feb0fe038ca2469be28b62e45334ac356654e4f960e",
+      "counts": {
+        "passed": 90,
+        "failed": 0,
+        "error": 0,
+        "skipped": 1
+      }
+    },
+    {
+      "path": "spec-k3/formal-receipts/20260921T041836Z-47530e20-03899aeeb7c4.json",
+      "sha256": "6898cdded5086e7862ef9444e81dd7cef5dfc22c910d2d83bb74d6ff9ef60c37",
+      "counts": {
+        "passed": 105,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0
+      }
+    }
+  ],
+  "excluded_spec_receipts": [
+    {
+      "path": "spec-k3/formal-receipts/20260921T041747Z-47530e20-1a04228dcb87.json",
+      "sha256": "b73126ce5316f1ae2baebaa89b33c34e8f9e99c09aa0dfc738fc33ca585e5863",
+      "counts": {
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0
+      },
+      "reason": "zero executed tests; not a formal passing receipt"
+    }
+  ],
+  "operator_inprocess_reproduction": true,
+  "scope": "read-only identity/trace checks; no new candidate gate or integration validation"
+}

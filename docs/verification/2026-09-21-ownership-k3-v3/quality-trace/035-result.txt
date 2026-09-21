@@ -1,0 +1,5 @@
+B9b rc=4
+rev_before=eae2c251 rev_after=4c684bf1
+1 passed in 0.40s
+测试期间提交或干净状态改变，收据不可采信。
+3ae1d7a fix drift test

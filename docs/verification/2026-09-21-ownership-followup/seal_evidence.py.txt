@@ -1,0 +1,56 @@
+"""Seal only the completed, fixed-SHA ownership integration evidence; one-off."""
+from pathlib import Path
+import hashlib
+import json
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+DEST = Path('/Users/a77/fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-followup')
+SHA = '321712b68732eef3512da80a4aaedfecd2a9c950'
+BASE = '728f327160bbd2485cb635e7ef09d040d718d7b5'
+TREE = Path('/Users/a77/fwp-wt-ownership-gates-0921')
+
+def git(*args):
+    return subprocess.run(['git', *args], cwd=TREE, check=True, text=True, capture_output=True).stdout.rstrip('\n')
+
+assert git('rev-parse', 'HEAD') == SHA
+assert git('rev-parse', 'gitea/main') == BASE
+assert not git('status', '--porcelain=v1')
+files = {}
+leaf_exits = {}
+for leaf in ('python', 'frontend', 'registry'):
+    run_path = ROOT / leaf / 'run.json'
+    run = json.loads(run_path.read_text())
+    assert run['complete'] and run['revision'] == SHA, run
+    leaf_exits[leaf] = run['exit_code']
+    assert run['identity_before'] == run['identity_after']
+    assert run['identity_before']['revision'] == SHA and not run['identity_before']['status']
+    assert run['identity_before']['main'] == BASE
+    for check in run['checks']:
+        assert isinstance(check['exit_code'], int)
+        path = Path(check['log'])
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == check['sha256']
+    for path in (ROOT / leaf).rglob('*'):
+        if path.is_file() and path.name != 'native-sample.txt':
+            suffix = '.txt' if path.suffix == '.log' else ''
+            files[str(path.relative_to(ROOT)) + suffix] = path
+files['README.md'] = Path('/Users/a77/fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-followup/README.md')
+for name in ('run_leaf.py', 'seal_evidence.py', 'review-request.md', 'gate-pr.md'):
+    files[name + ('.txt' if name.endswith('.py') else '')] = ROOT / name
+for name in ('fwp-gate-identity-before-0921.log', 'fwp-gate-identity-final-0921.log',
+             'fwp-board-followup-before-0921.log', 'fwp-board-followup-final-0921.log',
+             'fwp-backfill-parent-before-0921.log', 'fwp-backfill-parent-after-0921.log'):
+    files['author/' + name + '.txt'] = Path('/tmp') / name
+DEST.mkdir(exist_ok=True)
+manifest = {'revision': SHA, 'base': BASE, 'tree': str(TREE), 'leaf_exits': leaf_exits,
+            'gate_passed': all(code == 0 for code in leaf_exits.values()), 'files': []}
+for rel, source in sorted(files.items()):
+    target = DEST / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if source.resolve() != target.resolve():
+        shutil.copyfile(source, target)
+    assert target.read_bytes() == source.read_bytes()
+    manifest['files'].append({'path': rel, 'source': str(source), 'sha256': hashlib.sha256(target.read_bytes()).hexdigest(), 'bytes': target.stat().st_size})
+(DEST / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+print(json.dumps({'archive': str(DEST), 'files': len(manifest['files']), 'revision': SHA}))

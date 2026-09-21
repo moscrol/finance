@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "tool_lpWjvGw2wNaJQf7XiISCTWQj",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Traceback (most recent call last):\n  File \"/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_c_backfill.py\", line 43, in <module>\n    with mock.patch.object(cli, \"run_daily_full_staged\", parent_spy), \\\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/mock.py\", line 1467, in __enter__\n    original, local = self.get_original()\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/mock.py\", line 1437, in get_original\n    raise AttributeError(\nAttributeError: <module 'market_feature_store.cli' from '/Users/a77/fwp-wt-ownership-spec-v3-0921/market_feature_store/cli.py'> does not have the attribute 'run_daily_full_staged'\n"
+      }
+    ]
+  },
+  "isError": false
+}

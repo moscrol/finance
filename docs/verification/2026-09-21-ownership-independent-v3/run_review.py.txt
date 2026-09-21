@@ -1,0 +1,114 @@
+"""One finite subscription review per axis, with exclusive reservation and evidence.
+
+No retry, API-key fallback, queue submission, candidate edits, or production access.
+The Codex workspace-write sandbox grants only the axis evidence cwd (not checkout).
+"""
+from __future__ import annotations
+
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+EXPECTED = "47530e20fe5c3195e50ce429b31898d57918e413"
+AXIS = sys.argv[1]
+assert AXIS in {"spec", "quality"}
+TREE = Path.home() / f"fwp-wt-ownership-{AXIS}-v3-0921"
+OUT = ROOT / f"{AXIS}-review"
+TIMEOUT = 900
+PRODUCTION = ["conftest.py", "scripts/main_gate_receipt.py", "scripts/run_main_gate.sh",
+              "scripts/worktree_board.py", "market_feature_store/cli.py",
+              "market_feature_store/sync/repair_backfill_stock_history.py",
+              "scripts/verify_302132_backfill_acceptance.py"]
+
+
+def stamp():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def identity():
+    def git(*args):
+        return subprocess.run(["git", *args], cwd=TREE, capture_output=True,
+                              text=True, check=True, timeout=20).stdout.rstrip("\n")
+    return {"tree": str(TREE), "revision": git("rev-parse", "HEAD"),
+            "status": git("status", "--porcelain=v1"),
+            "production_sha256": {p: digest(TREE / p) for p in PRODUCTION}}
+
+
+os.umask(0o022)
+before = identity()
+assert before["revision"] == EXPECTED and before["status"] == "", before
+OUT.mkdir(exist_ok=False)
+(OUT / "tmp").mkdir()
+with (ROOT / f"{AXIS}-review-reservation.json").open("x") as stream:
+    json.dump({"state": "reserved", "axis": AXIS, "time": stamp(),
+               "attempt_limit": 1, "timeout_seconds": TIMEOUT}, stream, indent=2)
+    stream.flush()
+    os.fsync(stream.fileno())
+prompt = (ROOT / f"{AXIS}-prompt.md").read_text()
+prompt = prompt.replace(str(ROOT / AXIS), str(OUT))
+(OUT / "prompt.md").write_text(prompt)
+command = [
+    str(Path.home() / ".local/bin/codex"), "exec", "--ignore-user-config",
+    "--ephemeral", "--skip-git-repo-check", "--sandbox", "workspace-write",
+    "--cd", str(OUT), "--model", "gpt-6-astra",
+    "-c", 'forced_login_method="chatgpt"',
+    "-c", 'approval_policy="never"',
+    "-c", 'model_reasoning_effort="high"',
+    "-c", 'web_search="disabled"',
+    "-c", "sandbox_workspace_write.network_access=false",
+    "--color", "never", "--json", "--output-last-message", str(OUT / "final-message.md"), "-",
+]
+env = {"HOME": str(Path.home()),
+       "PATH": "/opt/homebrew/bin:/Users/a77/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+       "LANG": "en_US.UTF-8", "TMPDIR": str(OUT / "tmp"),
+       "PYTHONDONTWRITEBYTECODE": "1", "GIT_OPTIONAL_LOCKS": "0",
+       "FWP_TEST_RECEIPT_DIR": str(OUT / "test-receipts"),
+       "RUFF_CACHE_DIR": str(OUT / "ruff-cache")}
+record = {"axis": AXIS, "candidate": EXPECTED, "time_before": stamp(),
+          "command": command, "prompt_sha256": digest(OUT / "prompt.md"),
+          "common_contract_sha256": digest(ROOT / "review-common.md"),
+          "identity_before": before, "complete": False, "timeout_seconds": TIMEOUT,
+          "credential_source": "existing ChatGPT subscription; forced chatgpt; no API key env"}
+path = OUT / "execution.json"
+path.write_text(json.dumps(record, indent=2) + "\n")
+start = time.monotonic()
+with (OUT / "events.jsonl").open("xb") as stdout, (OUT / "stderr.log").open("xb") as stderr:
+    process = subprocess.Popen(command, cwd=OUT, env=env, stdin=subprocess.PIPE,
+                               stdout=stdout, stderr=stderr, start_new_session=True)
+    record["pid"] = process.pid
+    path.write_text(json.dumps(record, indent=2) + "\n")
+    try:
+        process.communicate(input=prompt.encode(), timeout=TIMEOUT)
+        record["timed_out"] = False
+    except subprocess.TimeoutExpired:
+        record["timed_out"] = True
+        os.killpg(process.pid, signal.SIGTERM)
+        try:
+            process.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.communicate()
+    record["exit_code"] = process.returncode
+try:
+    after = identity()
+    record.update(identity_after=after, candidate_untouched=after == before)
+except Exception as exc:
+    record.update(identity_after_error=str(exc), candidate_untouched=False)
+record.update(complete=True, time_after=stamp(), elapsed_seconds=round(time.monotonic() - start, 3))
+record["sha256"] = {p.name: digest(p) for p in (
+    OUT / "events.jsonl", OUT / "stderr.log", OUT / "REPORT.md", OUT / "verdict.json",
+    OUT / "final-message.md") if p.is_file()}
+path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+print(json.dumps({k: record[k] for k in ("axis", "exit_code", "timed_out", "candidate_untouched", "elapsed_seconds")}), flush=True)
+raise SystemExit(0 if record["exit_code"] == 0 and record["candidate_untouched"] else 1)

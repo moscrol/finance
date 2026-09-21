@@ -1,0 +1,10 @@
+B5c pytest rc=0
+收据未写出（不影响测试结论）: [Errno 17] File exists: '/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/immut/pytest.json'
+content after: {"sentinel": "do-not-overwrite"}
+B5c control rc=0
+control receipt written
+receipt-only(dirty,no-allow) rc=4
+receipt-only(allow-dirty) rc=0
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-BkBwp0u8/pytest.json
+   revision=756868a9b140 dirty=True target=tests/test_ok.py
+   passed=2 failed=0 error=0 skipped=0

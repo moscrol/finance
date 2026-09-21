@@ -1,0 +1,11 @@
+fatal: not a git repository (or any of the parent directories): .git
+B1 missing-path: error='worktree unavailable or repository root mismatch' cherry_plus=-1 ahead=-1 behind=-1
+B1 board has 待核实: True | in clean-prune section: False
+B2 parent-fallback: error='worktree unavailable or repository root mismatch' cherry_plus=-1 in_main=False
+B3 parsed specs: [('main', '', ''), ('feat', '', '')]
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_b_board.py", line 69, in <module>
+    subprocess.run(["git", "worktree", "lock", "--reason", "k3-review", str(wt)], check=True)
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['git', 'worktree', 'lock', '--reason', 'k3-review', '/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/repo-b/wt-locked']' returned non-zero exit status 128.

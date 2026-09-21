@@ -1,0 +1,13 @@
+..                                                                       [100%]
+2 passed in 0.01s
+---
+/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root:
+total 0
+drwxr-xr-x@ 3 a77  staff   96 Sep 21 12:29 .
+drwxr-xr-x@ 6 a77  staff  192 Sep 21 12:29 ..
+drwxr-xr-x@ 2 a77  staff   64 Sep 21 12:29 gate-debug
+
+/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-debug:
+total 0
+drwxr-xr-x@ 2 a77  staff  64 Sep 21 12:29 .
+drwxr-xr-x@ 3 a77  staff  96 Sep 21 12:29 ..

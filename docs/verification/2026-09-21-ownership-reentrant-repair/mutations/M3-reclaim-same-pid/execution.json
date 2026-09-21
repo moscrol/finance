@@ -1,0 +1,31 @@
+{
+  "name": "M3-reclaim-same-pid",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "tests/test_main_gate_receipt.py",
+    "-k",
+    "inprocess or inherited_pid or switch_its_claimed or nested_execution or parallel_gates",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/basetemp",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/M3-reclaim-same-pid/junit.xml"
+  ],
+  "cwd": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/mutations/fixture",
+  "exit_code": 1,
+  "elapsed_seconds": 5.638,
+  "cases": 15,
+  "failed_ids": [
+    "test_inprocess_nested_pytest_keeps_outer_receipt[run]",
+    "test_inprocess_nested_pytest_keeps_outer_receipt[run-same-target]",
+    "test_inprocess_nested_pytest_keeps_outer_receipt[collect-same-target]",
+    "test_inprocess_nested_pytest_keeps_outer_receipt[inner-failure]",
+    "test_inprocess_nested_pytest_keeps_outer_receipt[outer-failure]",
+    "test_inherited_pid_alone_cannot_grant_or_release_ownership[self]"
+  ],
+  "error_ids": [],
+  "expected_failure": "test_inherited_pid_alone_cannot_grant_or_release_ownership[self]",
+  "source_sha256": "b9d40052fcc9dd5b2453992ca7ed36694127efcfa45a67daf267770ae0e67c2f"
+}

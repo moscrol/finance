@@ -1,0 +1,12 @@
+{
+  "user_instruction": "执行",
+  "scope": "Independent Spec/Quality review of frozen ownership v3 only; no merge, deployment, production DB access/write, external data requests, deletion or fixes.",
+  "candidate": "47530e20fe5c3195e50ce429b31898d57918e413",
+  "base": "728f327160bbd2485cb635e7ef09d040d718d7b5",
+  "auth_route": "Codex CLI, forced ChatGPT subscription, clean environment and ignore-user-config; no API key or paid fallback",
+  "max_processes": 2,
+  "max_attempts_per_axis": 1,
+  "timeout_seconds_per_axis": 900,
+  "tool_network": false,
+  "recorded_at": "2026-09-21T03:35:39.192596+00:00"
+}

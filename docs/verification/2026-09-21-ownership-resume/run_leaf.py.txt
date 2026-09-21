@@ -1,0 +1,80 @@
+"""Finite three-leaf evidence run for ownership v3; not an installed scheduler."""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path.home() / "fwp-wt-ownership-gates-v3-0921"
+OUT = Path(__file__).resolve().parent / "v3"
+SHA = "47530e20fe5c3195e50ce429b31898d57918e413"
+BASE = "728f327160bbd2485cb635e7ef09d040d718d7b5"
+PY = str(Path.home() / "finance-workspace-private/.venv-workbench/bin/python")
+leaf = sys.argv[1]
+assert leaf in ("python", "frontend", "registry")
+run = OUT / leaf
+run.mkdir(parents=True, exist_ok=False)
+os.umask(0o022)
+env = {key: os.environ[key] for key in ("PATH", "HOME", "LANG", "TMPDIR") if key in os.environ}
+env["PYTHONDONTWRITEBYTECODE"] = "1"
+env["FWP_TEST_RECEIPT_DIR"] = str(run / "receipts")
+
+
+def identity():
+    def git(*args):
+        return subprocess.run(["git", *args], cwd=ROOT, check=True, text=True,
+                              capture_output=True, timeout=20).stdout.rstrip("\n")
+    return {"revision": git("rev-parse", "HEAD"), "status": git("status", "--porcelain=v1"),
+            "main": git("rev-parse", "gitea/main")}
+
+
+registry = [
+    [PY, "-c", "from pathlib import Path; import scripts.build_registry as r; "
+     "r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())", *args]
+    for args in (("check-parseability",), ("check",), ("backfill-tables", "--check"),
+                 ("generate-views", "--check"))
+] + [[PY, "scripts/audit_ledger_spec_crosswalk.py"]]
+commands = {
+    "python": [["bash", "scripts/run_main_gate.sh"]],
+    "frontend": [[PY, "scripts/run_frontend_gate.py", "--tree", str(ROOT),
+                  "--expect-revision", SHA, "--output", str(run / "gate"),
+                  "--workbench-port", "19051", "--re06-port", "19054"]],
+    "registry": registry,
+}[leaf]
+receipt = {"leaf": leaf, "revision": SHA, "pid": os.getpid(), "started": time.time(),
+           "identity_before": identity(), "checks": [], "complete": False}
+
+
+def save():
+    (run / "run.json").write_text(json.dumps(receipt, indent=2) + "\n")
+
+
+save()
+assert receipt["identity_before"] == {"revision": SHA, "status": "", "main": BASE}
+try:
+    for index, command in enumerate(commands):
+        log = run / f"{index}.log"
+        with log.open("xb") as stream:
+            result = subprocess.run(command, cwd=ROOT, env=env, stdout=stream,
+                                    stderr=subprocess.STDOUT, timeout=1800)
+        receipt["checks"].append({"command": command, "exit_code": result.returncode,
+                                  "log": str(log),
+                                  "sha256": hashlib.sha256(log.read_bytes()).hexdigest()})
+        save()
+    receipt["identity_after"] = identity()
+    receipt["complete"] = True
+    receipt["exit_code"] = 0 if (
+        receipt["identity_before"] == receipt["identity_after"]
+        and all(check["exit_code"] == 0 for check in receipt["checks"])
+    ) else 1
+except (OSError, subprocess.SubprocessError) as exc:
+    receipt["error"] = f"{type(exc).__name__}: {exc}"
+    receipt["exit_code"] = 4
+finally:
+    receipt["finished"] = time.time()
+    save()
+raise SystemExit(receipt["exit_code"])

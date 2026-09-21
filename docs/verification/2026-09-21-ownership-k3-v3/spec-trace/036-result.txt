@@ -1,0 +1,19 @@
+--db 仅供内部 --child 使用；父命令目标由 MARKET_FEATURE_STORE_DB 解析，拒绝忽略显式目标。
+C1 parent --db: rc= 2 (expect 2) parent_called= False  witness_intact= True
+回填护栏/验收不通过，未发布: 冻结 parquet 哈希不符: 519da1d5c923e5aefba8acaa80021200f0dd2ad6f1f693be57d9e82050fef4cb
+C2 child guard-fail: rc= 2 (expect 2) db_unchanged= True  status_json_exists= False  reports= []
+C3 overwrite existing: refused, intact= True
+C3 symlink: refused, victim_exists= False
+C3 non-conflicting write: ok
+C3 hardlink-alias: refused (realpath same)
+C4 apply: mode= apply  tech= 5  win= 55
+C4 other-stock tamper: !!!ALLOWED
+C4 retained-row tamper: !!!ALLOWED
+C4 partial-state: refused :: 缺口实况 ≠ spec 且非已应用态（部分态，拒绝）: (1, 0)
+回填完成: 302132.SZ 窗内 5 technical / 55 window，保护切片指纹不变，报告 /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/k3-c-vdg82hrf/staging7.duckdb.backfill-report.k3-run-1.json
+C5 child happy: rc= 0  report_exists= True  status= True
+报告路径护栏不通过，未发布: 收据路径已存在（每轮收据不可覆盖）: /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/k3-c-vdg82hrf/staging7.duckdb.backfill-report.k3-run-1.json
+C5 same-run_id rerun: rc= 2 (expect 2, no overwrite) reports= 1
+拒绝直写生产库 db/market_feature_store.duckdb。正门：python3 skills/daily-full-review/scripts/run_review_sync.py --date YYYY-MM-DD（或 python3 -m market_feature_store.cli daily-full，走 staging 换名）。急救直写必须显式加 --direct，并会写 ops_sync_run / state/direct-write-*.json 收据。
+C6 child->canonical: rc= 2 (expect 2) prod_intact= True
+PROBE-C-DONE

@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "bash_22",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "== gate @ ee9b01e5f36a tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/gaterepo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-s92MFtJq/pytest.json\n== ruff check .\nAll checks passed!\n== pytest -q tests/test_ok.py\n..                                                                       [100%]\n2 passed in 0.01s\n没找到本轮收据 /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-s92MFtJq/pytest.json（pytest 收据未写出；不会回退 latest.json）\ntotal 0\ndrwx------@ 2 a77  staff  64 Sep 21 12:28 .\ndrwxr-xr-x@ 3 a77  staff  96 Sep 21 12:28 ..\n"
+      }
+    ]
+  },
+  "isError": false
+}

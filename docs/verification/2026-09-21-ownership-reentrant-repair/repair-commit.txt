@@ -1,0 +1,7 @@
+commit a092a021c3d7d978c4dfd9551e74aa984a523f18
+Author:     linxiaoqi5111-del <linxiaoqi5111-del@users.noreply.github.com>
+AuthorDate: Mon Sep 21 13:29:42 2026 +0800
+Commit:     linxiaoqi5111-del <linxiaoqi5111-del@users.noreply.github.com>
+CommitDate: Mon Sep 21 13:29:42 2026 +0800
+
+    fix(gate): bind receipt ownership to the pytest invocation lifecycle

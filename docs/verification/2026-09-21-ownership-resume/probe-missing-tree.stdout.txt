@@ -1,0 +1,3 @@
+== receipt /Users/a77/.finance-runtime/reviews/ownership-resume-20260921/fixture-missing-tree.json
+   revision=e1b63b1a5b7c dirty=False target=tests/test_worktree_board.py tests/test_main_gate_receipt.py tests/test_test_receipt_dirt.py tests/test_check_receipt_revision_gate.py tests/test_check_receipt_zero_count_gate.py tests/test_repair_backfill_stock_history.py intelligence/tests/test_pytest_collection_scope.py
+   passed=188 failed=0 error=0 skipped=1

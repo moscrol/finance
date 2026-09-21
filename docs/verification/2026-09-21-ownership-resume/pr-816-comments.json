@@ -1,0 +1,11 @@
+[
+  {
+    "id": 5165,
+    "state": null,
+    "body": "离线 Spec/Quality 复核已完成，结论：NO-GO，PR 继续保持 WIP，未授权合入/部署。\n\n指定的三处边界修复（loopback endpoint、远端 run_id 关联、SQLite 榜单读快照）未发现新的反例；但发现 P1 状态一致性缺口：`runner.py` 先提交 `finish_run(status=completed)`，再单独执行 `add_match()`。第二步失败或进程退出时会留下 completed run、review 题目、0 个 Match，现有 CLI 没有恢复/重新物化路径。另有 P2：stale running 无恢复闭环，publish 的人工审核开关未形成持久化审计记录。\n\n复核报告与故障注入输出：`/Users/a77/.finance-runtime/reviews/arena-main-ready-v2-20260921/offline-spec-quality-review.md`；证据索引和 SHA256 已更新。修复后必须用新 revision 重建独占组合和全部收据，旧收据不移签。",
+    "created_at": "2026-09-21T06:41:32+08:00",
+    "submitted_at": null,
+    "commit_id": null,
+    "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/816#issuecomment-5165"
+  }
+]

@@ -1,0 +1,49 @@
+{
+  "time": "2026-09-21T04:22:54.962114+00:00",
+  "operator_not_independent_review": true,
+  "checks": [
+    {
+      "name": "ruff-python",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "conftest.py",
+        "scripts/main_gate_receipt.py",
+        "scripts/worktree_board.py",
+        "scripts/verify_302132_backfill_acceptance.py",
+        "market_feature_store/cli.py",
+        "market_feature_store/sync/repair_backfill_stock_history.py",
+        "tests/test_main_gate_receipt.py",
+        "tests/test_worktree_board.py",
+        "tests/test_repair_backfill_stock_history.py"
+      ],
+      "cwd": "/Users/a77/fwp-wt-ownership-spec-v3-0921",
+      "exit_code": 0,
+      "stdout_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "ruff-shell-wrong-input",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "scripts/run_main_gate.sh"
+      ],
+      "cwd": "/Users/a77/fwp-wt-ownership-spec-v3-0921",
+      "exit_code": 1,
+      "stdout_sha256": "d7471a24c54766351531284fb5ea9a3e4e29e2e78e41557168ecdf3e37c9e0b9",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "spec-outside-output-write",
+      "source": "/tmp/a7.log",
+      "bytes": 829,
+      "sha256": "bb240127d2426ffe20cdb41831f9d644a155b1504a47bb935941ae2421dacb3e",
+      "action": "preserved-copy; original untouched; not an allowed output path"
+    }
+  ]
+}

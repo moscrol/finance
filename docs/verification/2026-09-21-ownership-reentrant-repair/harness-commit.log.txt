@@ -1,0 +1,2 @@
+[docs/receipt-identity-board-0921 9f1c80b] docs: bind receipt ownership to invocation lifecycle
+ 2 files changed, 3 insertions(+), 1 deletion(-)

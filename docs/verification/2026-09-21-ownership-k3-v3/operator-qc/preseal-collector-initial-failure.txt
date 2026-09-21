@@ -1,0 +1,9 @@
+Operator apparatus failure, not candidate code failure. Initial collect_closeout.py run failed before creating preseal-observation.json:
+
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/operator-qc/collect_closeout.py", line 76, in <module>
+    assert len(receipts) == 2
+           ^^^^^^^^^^^^^^^^^^
+AssertionError
+
+Cause: formal-receipts contains two real passing run receipts PLUS one zero-executed receipt 20260921T041747Z-47530e20-1a04228dcb87.json (and latest navigation copy). The collector originally excluded only latest. Corrected selection explicitly records and excludes zero-executed receipts; the three original files remain unchanged. Passing counts remain 195 / skipped 1. This does not imply the zero-execution file passed the strict main gate (no such gate acceptance is established).

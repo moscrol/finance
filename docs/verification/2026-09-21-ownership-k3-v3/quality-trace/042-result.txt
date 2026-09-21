@@ -1,0 +1,30 @@
+def tree_kind(path: str, main_checkout: str) -> str:
+    posix = path.replace("\\", "/")
+    if "/.finance-runtime/finance-workspace-" in posix:
+        return "prod-snapshot"
+    if "/fwp-wt-" in posix or "/.worktrees/" in posix:
+        return "dev-wt"
+    if os.path.abspath(path) == os.path.abspath(main_checkout):
+        return "main-checkout"
+    return "other"
+
+
+def _status_paths(porcelain: str) -> list[str]:
+    paths: list[str] = []
+    for line in porcelain.splitlines():
+        if len(line) < 4:
+            continue
+        rel = line[3:].strip().strip('"')
+        if " -> " in rel:
+            rel = rel.split(" -> ", 1)[1]
+        paths.append(rel)
+    return paths
+
+
+def resolve_base(cwd: str, timeout: float) -> str:
+    """合入基线：日常远程是 gitea/main，没有再退 origin/main、main。"""
+
+    for candidate in ("gitea/main", "origin/main", "main"):
+        code, _ = _git(["rev-parse", "--verify", "--quiet", candidate], cwd=cwd, timeout=timeout)
+        if code == 0:
+            return candidate

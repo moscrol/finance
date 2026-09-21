@@ -1,0 +1,2 @@
+def test_gamma():
+    assert len([1, 2, 3]) == 3

@@ -1,0 +1,18 @@
+{
+  "original": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/operator-qc/reproduce_inprocess_receipt.py",
+  "original_sha256": "8d3d9c460a2385f0c64cb212e2cdb1d919d5db34f7a9fa5d8154b5ae807afb08",
+  "derived_sha256": "a176fee79cb0aa6dcf7a7cacdd64f2441aa67715022e668f924dab9899245071",
+  "changes": {
+    "ROOT / \"inprocess-reproduction\"": "ROOT / \"exact-source-reproduction\"",
+    "Path.home() / \"fwp-wt-ownership-quality-v3-0921\"": "Path.home() / \"fwp-wt-test-gate-receipt-identity-0921\"",
+    "REV = \"47530e20fe5c3195e50ce429b31898d57918e413\"": "REV = \"a092a021c3d7d978c4dfd9551e74aa984a523f18\"",
+    "\"inprocess-negative\"": "\"inprocess-repaired\"",
+    "assert rows[1][\"gate_exit\"] == 0 and not rows[1][\"matches_outer_invocation\"] and rows[1][\"identity_matches\"]": "assert rows[1][\"gate_exit\"] == 0 and rows[1][\"matches_outer_invocation\"] and rows[1][\"identity_matches\"]",
+    "assert rows[1][\"target_recorded\"] == \"tests_inner/\" and rows[1][\"counts\"][\"passed\"] == 2": "assert rows[1][\"target_recorded\"] == \"tests/test_inproc.py\" and rows[1][\"counts\"][\"passed\"] == 1",
+    "assert rows[1][\"outer_console_one_pass\"] and rows[1][\"immutable_write_warning\"]": "assert rows[1][\"outer_console_one_pass\"] and not rows[1][\"immutable_write_warning\"]",
+    "\"finding_reproduced\": True": "\"repair_verified\": True",
+    "\"finding\": \"PID-only receipt owner does not distinguish reentrant pytest invocations; gate accepts inner counts/target as outer proof\"": "\"finding\": \"Config-scoped claim preserves outer receipt for both subprocess nesting and same-process reentry\"",
+    "ROOT / \"inprocess-reproduction.json\"": "ROOT / \"exact-source-reproduction.json\""
+  },
+  "old_output_untouched": true
+}

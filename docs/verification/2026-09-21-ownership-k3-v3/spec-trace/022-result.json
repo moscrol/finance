@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "bash_21",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "A7 rc=0 (expect 0)\nreceipts 3 -> 4 (expect +1)\n== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-JkpmdPLn/pytest.json\n   revision=ad09e824e376 dirty=False target=test_nested.py\n   passed=1 failed=0 error=0 skipped=0\nad09e82 nested2\n== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-JkpmdPLn/pytest.json\n   revision=ad09e824e376 dirty=False target=test_nested.py\n   passed=1 failed=0 error=0 skipped=0\ndirect dirty receipt no-flag rc=0 (expect 4)\nCLEAN\n"
+      }
+    ]
+  },
+  "isError": false
+}

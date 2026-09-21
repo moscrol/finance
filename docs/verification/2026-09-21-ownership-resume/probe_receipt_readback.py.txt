@@ -1,0 +1,51 @@
+"""Bounded offline probe: receipt-only readback must still bind the tree.
+
+Uses copies in this review directory; never rewrites an archived receipt or
+runs pytest/production operations. Run with the project interpreter.
+"""
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path.home() / "fwp-wt-ownership-resume-review-0921"
+receipts = list((ROOT / "targeted-receipts").glob("gate-*/pytest.json"))
+assert len(receipts) == 1, receipts
+original = json.loads(receipts[0].read_text())
+assert original["tree"] == str(TREE)
+results = []
+for name, change in (
+    ("valid-control", {}),
+    ("foreign-tree", {"tree": str(ROOT / "unrelated-tree")}),
+    ("missing-tree", {"tree": None}),
+    ("non-string-tree", {"tree": 123}),
+):
+    receipt = dict(original)
+    receipt.update(change)
+    if name == "missing-tree":
+        del receipt["tree"]
+    fixture = ROOT / f"fixture-{name}.json"
+    with fixture.open("x") as stream:
+        json.dump(receipt, stream, indent=2)
+        stream.write("\n")
+    command = ["bash", "scripts/run_main_gate.sh", "--receipt", str(fixture)]
+    run = subprocess.run(
+        command, cwd=TREE,
+        env={"HOME": str(Path.home()), "PATH": os.environ["PATH"]},
+        capture_output=True, text=True, timeout=30,
+    )
+    (ROOT / f"probe-{name}.stdout.txt").write_text(run.stdout)
+    (ROOT / f"probe-{name}.stderr.txt").write_text(run.stderr)
+    result = {
+        "case": name, "command": command, "cwd": str(TREE),
+        "actual_exit": run.returncode,
+        "expected_exit": 0 if name == "valid-control" else 4,
+    }
+    results.append(result)
+    print(json.dumps(result))
+with (ROOT / "readback-probe-results.json").open("x") as stream:
+    json.dump(results, stream, indent=2)
+    stream.write("\n")

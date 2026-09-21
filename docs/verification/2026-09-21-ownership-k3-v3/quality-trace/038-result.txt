@@ -1,0 +1,63 @@
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
+    parser.add_argument("--json", action="store_true", help="机器可读")
+    parser.add_argument(
+        "--this",
+        action="store_true",
+        help="只报当前 HEAD（给 SessionStart，不扫全仓）",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=20.0,
+        help="单次 git 超时秒数",
+    )
+    args = parser.parse_args(argv)
+    cwd = os.getcwd()
+    repo_root = Path(cwd)
+    timeout = max(1.0, float(args.timeout))
+    if args.this:
+        timeout = min(timeout, 8.0)
+        base = resolve_base(cwd, timeout)
+        code, base_sha = _git(["rev-parse", base], cwd=cwd, timeout=timeout)
+        if not base or code != 0 or not base_sha:
+            print("合入: 未知（main 基准无法读取，不回退 HEAD 自证）")
+            return 1
+        for line in this_tree_lines(
+            cwd=cwd,
+            base=base,
+            base_sha=base_sha,
+            timeout=timeout,
+            repo_root=repo_root,
+        ):
+            print(line)
+        return 0
+    try:
+        base, base_sha, _main_checkout, rows = collect_rows(cwd=cwd, timeout=timeout)
+    except RuntimeError as exc:
+        if args.json:
+            print(json.dumps({"error": str(exc), "trees": None}))
+        else:
+            print(f"看板: 未知（{exc}）", file=sys.stderr)
+        return 1
+    if args.json:
+        payload = {
+            "base": base,
+            "base_sha": base_sha,
+            "trees": [asdict(row) for row in rows],
+        }
+        json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+        return 0
+    sys.stdout.write(format_board(rows, base=base, base_sha=base_sha))
+    return 0
+
+
+if __name__ == "__main__":
+44:STALE_BASE_WARN = 50
+128:def tree_kind(path: str, main_checkout: str) -> str:
+139:def _status_paths(porcelain: str) -> list[str]:
+202:def behind_count(head: str, base: str, *, cwd: str, timeout: float) -> int:
+206:    报。只报 cherry 的后果见 ``STALE_BASE_WARN`` 的注释。
+501:        if behind >= STALE_BASE_WARN:
+503:                f"（≥{STALE_BASE_WARN}）⚠ 本树跑出的门禁 / 能力图谱读数量的是旧代码，"

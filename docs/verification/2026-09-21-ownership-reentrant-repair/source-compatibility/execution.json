@@ -1,0 +1,54 @@
+{
+  "name": "source-compatibility",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "scripts/check_test_receipt.py",
+    "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/clean-source-full/receipts/gate-QQdiL9Bn/pytest.json",
+    "--expect-revision",
+    "a092a021c3d7d978c4dfd9551e74aa984a523f18"
+  ],
+  "cwd": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+  "environment": {
+    "HOME": "/Users/a77",
+    "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "LANG": "C.UTF-8",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "TMPDIR": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/source-compatibility/tmp",
+    "FWP_TEST_RECEIPT_DIR": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/source-compatibility/receipts",
+    "FWP_TEST_RECEIPT": "1",
+    "RUFF_CACHE_DIR": "/Users/a77/.finance-runtime/reviews/ownership-reentrant-repair-20260921/source-compatibility/ruff-cache",
+    "GIT_OPTIONAL_LOCKS": "0"
+  },
+  "start": "2026-09-21T06:01:01.744961+00:00",
+  "before": {
+    "tree": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+    "revision": "a092a021c3d7d978c4dfd9551e74aa984a523f18",
+    "status": "",
+    "hashes": {
+      "conftest.py": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955",
+      "scripts/run_main_gate.sh": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca",
+      "scripts/main_gate_receipt.py": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679",
+      "tests/test_main_gate_receipt.py": "8ed84a60c8f6f85a825b2b634e5105ef3c630dd63d6dc72a1e1014b7982b23f0"
+    }
+  },
+  "complete": true,
+  "exit_code": 0,
+  "elapsed_seconds": 0.79,
+  "end": "2026-09-21T06:01:02.950761+00:00",
+  "after": {
+    "tree": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+    "revision": "a092a021c3d7d978c4dfd9551e74aa984a523f18",
+    "status": "",
+    "hashes": {
+      "conftest.py": "296c74bc31b9966167c857e4c595a68427731f3a61affcfa192241edb80ff955",
+      "scripts/run_main_gate.sh": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca",
+      "scripts/main_gate_receipt.py": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679",
+      "tests/test_main_gate_receipt.py": "8ed84a60c8f6f85a825b2b634e5105ef3c630dd63d6dc72a1e1014b7982b23f0"
+    }
+  },
+  "source_unchanged": true,
+  "log_sha256": {
+    "stdout.log": "d54b10550fdb8f4d3bed9e8fdf81436ef40319a4a8dafe82e053c08cdbe3c270",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

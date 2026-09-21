@@ -1,0 +1,8 @@
+{
+  "cause": "Reserved built-in provider override rejected before session creation",
+  "observed_events_bytes": 0,
+  "observed_elapsed_seconds": 0.062,
+  "prior_evidence": "spec/",
+  "action": "Remove unsupported provider override; use separate spec-review/quality-review folders, preserve failed launch. One actual reviewer session per axis, no paid fallback, same 900s model-session budget.",
+  "budget_interpretation": "Local validation failure does not constitute a model review or retry of a sent request. CLI internal transport retries now defaults; no operator rerun or budget increase."
+}

@@ -1,0 +1,77 @@
+{
+  "axis": "spec",
+  "candidate": "47530e20fe5c3195e50ce429b31898d57918e413",
+  "time_before": "2026-09-21T03:40:35.520961+00:00",
+  "command": [
+    "/Users/a77/.local/bin/codex",
+    "exec",
+    "--ignore-user-config",
+    "--ephemeral",
+    "--skip-git-repo-check",
+    "--sandbox",
+    "workspace-write",
+    "--cd",
+    "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/spec-review",
+    "--model",
+    "gpt-6-astra",
+    "-c",
+    "forced_login_method=\"chatgpt\"",
+    "-c",
+    "approval_policy=\"never\"",
+    "-c",
+    "model_reasoning_effort=\"high\"",
+    "-c",
+    "web_search=\"disabled\"",
+    "-c",
+    "sandbox_workspace_write.network_access=false",
+    "--color",
+    "never",
+    "--json",
+    "--output-last-message",
+    "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/spec-review/final-message.md",
+    "-"
+  ],
+  "prompt_sha256": "ed5f4c73b98e0a17073f9e370c188438f1d9273e02f1d0402b5da9b4e4439a0f",
+  "common_contract_sha256": "0de3418d369d2678ecb05a2911f5bb3f54c7f996539f93c54fd989c351c50f74",
+  "identity_before": {
+    "tree": "/Users/a77/fwp-wt-ownership-spec-v3-0921",
+    "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+    "status": "",
+    "production_sha256": {
+      "conftest.py": "58ad638b97b3660293fe342f58fa326f891e06149b583e683d6474cd801c7b23",
+      "scripts/main_gate_receipt.py": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679",
+      "scripts/run_main_gate.sh": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca",
+      "scripts/worktree_board.py": "bfd5519b73171329f69ea360be15733e9b45bf670bb88eedf7a1970b58772d42",
+      "market_feature_store/cli.py": "907564b9957feab76051a9d3d42370bfd799c9028a9371e7657780d87bf9a35b",
+      "market_feature_store/sync/repair_backfill_stock_history.py": "5035fdf3faa7e1ccd6fb84af87517f0a70c59d35a1b6c1bbb6ba4a6de5488477",
+      "scripts/verify_302132_backfill_acceptance.py": "e786c626d5a56d333d33c38249d4f4a8f8055010ee8286764a2396f4a4db8048"
+    }
+  },
+  "complete": true,
+  "timeout_seconds": 900,
+  "credential_source": "existing ChatGPT subscription; forced chatgpt; no API key env",
+  "pid": 17240,
+  "timed_out": false,
+  "exit_code": 1,
+  "identity_after": {
+    "tree": "/Users/a77/fwp-wt-ownership-spec-v3-0921",
+    "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+    "status": "",
+    "production_sha256": {
+      "conftest.py": "58ad638b97b3660293fe342f58fa326f891e06149b583e683d6474cd801c7b23",
+      "scripts/main_gate_receipt.py": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679",
+      "scripts/run_main_gate.sh": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca",
+      "scripts/worktree_board.py": "bfd5519b73171329f69ea360be15733e9b45bf670bb88eedf7a1970b58772d42",
+      "market_feature_store/cli.py": "907564b9957feab76051a9d3d42370bfd799c9028a9371e7657780d87bf9a35b",
+      "market_feature_store/sync/repair_backfill_stock_history.py": "5035fdf3faa7e1ccd6fb84af87517f0a70c59d35a1b6c1bbb6ba4a6de5488477",
+      "scripts/verify_302132_backfill_acceptance.py": "e786c626d5a56d333d33c38249d4f4a8f8055010ee8286764a2396f4a4db8048"
+    }
+  },
+  "candidate_untouched": true,
+  "time_after": "2026-09-21T03:40:43.739640+00:00",
+  "elapsed_seconds": 8.218,
+  "sha256": {
+    "events.jsonl": "93a8edce52eda404f9229fcac226bf2b108536c915eb47332c37d0fa9030e28c",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "time": "2026-09-21T04:20:32.554937+00:00",
+  "spec_status": "BLOCKED: request budget exhausted without report/verdict",
+  "spec_not_retried": true,
+  "quality_is_previously_authorized_second_axis": true,
+  "quality_prompt_refined_before_first_launch": "reserve report from request 5; focus paths, full logs, stop expansion at 28 requests or 15 minutes; no spec findings shared",
+  "upstream_main_observed": "2bb7c224c9b3748f50de0075099fd2c298a54315"
+}

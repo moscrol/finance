@@ -1,0 +1,17 @@
+{
+  "number": 814,
+  "title": "WIP: bind test gates to immutable per-run receipts",
+  "state": "open",
+  "merged": false,
+  "updated_at": "2026-09-21T04:54:17+08:00",
+  "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/814",
+  "body": "## Scope\n\nFix the test receipt path/identity defect discovered while validating #813. This is a separate infrastructure change, not a backfill or runtime change.\n\nCode candidate: `013289c2ae23fb2519646f18a90cb4a379d596d5`.\n\n- The gate allocates a unique `gate-*/pytest.json` path and the pytest hook honors it and `FWP_TEST_RECEIPT_DIR`.\n- Run receipts use exclusive creation; default filenames include a random suffix. `latest.json` is atomic navigation only.\n- Readback rejects mismatched revision/tree/process exit, wrong interpreter, dirty/unknown state, bypassed dependency checks, incomplete runs, invalid counts and zero executed tests.\n- Explicit baseline comparison remains diagnostic and does not authorize a merge with failing tests.\n- Test fixture runs real pytest and overwrites only `latest.json` after the legitimate hook; the gate must still use its own result.\n\n## Verification\n\nAuthor checks before commit: 47 related tests passed, whole-repository Ruff and shell syntax passed. The first old-code run had 21 failures / 1 pass, including 2 new-helper absence failures; these are not 21 independent semantic findings.\n\nFrozen combined candidate `321712b68732eef3512da80a4aaedfecd2a9c950` contains this code plus #812 at `49169f7e` and #813 at `49f32259`. Complete gate evidence is being collected at `~/.finance-runtime/reviews/ownership-followup-20260921/`; final results will be posted in a follow-up comment.\n\nWIP: no independent review verdict, no merge authorization, no production switch, no real backfill, no worktree deletion. The current fixed main baseline is `728f327160bbd2485cb635e7ef09d040d718d7b5`.\n",
+  "head": {
+    "ref": "fix/test-gate-receipt-identity-0921",
+    "sha": "10f79d47e27739bd632ea13d69fd71fa77f395c7"
+  },
+  "base": {
+    "ref": "main",
+    "sha": "728f327160bbd2485cb635e7ef09d040d718d7b5"
+  }
+}

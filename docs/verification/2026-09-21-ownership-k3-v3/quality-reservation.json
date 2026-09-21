@@ -1,0 +1,8 @@
+{
+  "axis": "quality",
+  "state": "RESERVED",
+  "max_sessions": 1,
+  "max_requests": 40,
+  "deadline_seconds": 1200,
+  "time": "2026-09-21T04:20:33.081699+00:00"
+}

@@ -1,0 +1,20 @@
+[
+  {
+    "id": 5140,
+    "state": null,
+    "body": "Frozen combined candidate e1b63b1a5b7c066b7377bbd2d005051863331001 now has author engineering gate evidence: Python 12061 passed / 85 skipped / 2 xfailed, receipt readback exit 0; frontend 110 passed, E2E 34 passed / 2 skipped; Ruff and finance-only registry five checks exit 0. The parent --db rejection remains d5 only in the separate receipt facility? Correction: #813 code is 49f32259 and was included in this candidate. This does not approve real 302132 execution: no current frozen input clone, parent-child publish rehearsal, production data signoff, independent Spec/Quality verdict, or merge authorization.",
+    "created_at": "2026-09-21T04:48:14+08:00",
+    "submitted_at": null,
+    "commit_id": null,
+    "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/813#issuecomment-5140"
+  },
+  {
+    "id": 5143,
+    "state": null,
+    "body": "Clarification to the previous comment: #813 code candidate is `49f32259ea5aab495ae928e63e73c453cd31fae4`; it is included in combined author-validation commit `e1b63b1a5b7c066b7377bbd2d005051863331001`. The receipt-ownership fix is a separate #814 candidate `d5d807f8` and is mentioned only because the combination needed it for a trustworthy gate. No #813 code was replaced by #814, and no production database was accessed or changed.",
+    "created_at": "2026-09-21T04:51:29+08:00",
+    "submitted_at": null,
+    "commit_id": null,
+    "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/813#issuecomment-5143"
+  }
+]

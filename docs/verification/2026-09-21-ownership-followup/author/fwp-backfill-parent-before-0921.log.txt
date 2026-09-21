@@ -1,0 +1,43 @@
+F                                                                        [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260920T201017Z-e13ec702.json
+
+=================================== FAILURES ===================================
+_______ test_cli_parent_rejects_ignored_db_argument_before_side_effects ________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3132/test_cli_parent_rejects_ignore0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ac6a780>
+
+    def test_cli_parent_rejects_ignored_db_argument_before_side_effects(tmp_path, monkeypatch):
+        from types import SimpleNamespace
+    
+        from market_feature_store import cli
+        from market_feature_store.sync import sync_daily_full
+    
+        pq = tmp_path / "source.parquet"
+        pq.write_bytes(b"no data access authorized")
+        witness = tmp_path / "default-production.duckdb"
+        witness.write_bytes(b"production witness")
+        called = []
+    
+        def parent(**kwargs):
+            called.append(kwargs)
+            return {"swapped": False, "reason": "must not reach", "rc": 2}
+    
+        monkeypatch.setattr(sync_daily_full, "run_daily_full_staged", parent)
+        monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(witness))
+        probe_calls = []
+        monkeypatch.setattr(mod, "_guarded_write_json", lambda *a, **kw: probe_calls.append(a))
+        args = SimpleNamespace(parquet=str(pq), child=False,
+                               db=str(tmp_path / "intended-clone.duckdb"), report_path=None)
+        assert cli.cmd_repair_backfill_302132(args) == 2
+>       assert called == []
+E       AssertionError: assert [{'child_argv...'2026-09-11'}] == []
+E         
+E         Left contains one more item: {'child_argv': ['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '-m', 'market_feature_store.cli', '...', '--child', '--parquet', ...], 'kind': 'repair-backfill-302132', 'pre_swap_backup': True, 'trade_date': '2026-09-11'}
+E         Use -v to get more diff
+
+tests/test_repair_backfill_stock_history.py:537: AssertionError
+----------------------------- Captured stdout call -----------------------------
+回填状态: BLOCKED | 生产库未动 | must not reach
+=========================== short test summary info ============================
+FAILED tests/test_repair_backfill_stock_history.py::test_cli_parent_rejects_ignored_db_argument_before_side_effects
+1 failed, 104 deselected in 0.49s

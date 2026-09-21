@@ -1,0 +1,53 @@
+"""One-off bounded orchestration for the frozen ownership integration evidence."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+
+ROOT = Path('/Users/a77/fwp-wt-ownership-gates-0921')
+OUT = Path(__file__).resolve().parent
+SHA = '321712b68732eef3512da80a4aaedfecd2a9c950'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+leaf = sys.argv[1]
+run = OUT / leaf
+run.mkdir(exist_ok=False)
+os.umask(0o022)
+env = {key: os.environ[key] for key in ('PATH', 'HOME', 'LANG', 'TMPDIR', 'KNOWLEDGE_WIKI') if key in os.environ}
+env['PYTHONDONTWRITEBYTECODE'] = '1'
+env['FWP_TEST_RECEIPT_DIR'] = str(run / 'receipts')
+
+def identity():
+    def git(*args):
+        return subprocess.run(['git', *args], cwd=ROOT, check=True, text=True, capture_output=True).stdout.rstrip('\n')
+    return {'revision': git('rev-parse', 'HEAD'), 'status': git('status', '--porcelain=v1'),
+            'main': git('rev-parse', 'gitea/main')}
+
+commands = {
+    'python': [['bash', 'scripts/run_main_gate.sh']],
+    'frontend': [[PY, 'scripts/run_frontend_gate.py', '--tree', str(ROOT), '--expect-revision', SHA,
+                  '--output', str(run / 'gate'), '--workbench-port', '18991', '--re06-port', '18994']],
+    'registry': [[PY, '-c', "from pathlib import Path; import scripts.build_registry as r; r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())", *args]
+                 for args in [('check-parseability',), ('check',), ('backfill-tables', '--check'), ('generate-views', '--check')]]
+                 + [[PY, 'scripts/audit_ledger_spec_crosswalk.py']],
+}[leaf]
+receipt = {'leaf': leaf, 'revision': SHA, 'pid': os.getpid(), 'started': time.time(),
+           'identity_before': identity(), 'checks': [], 'complete': False}
+(run / 'run.json').write_text(json.dumps(receipt, indent=2))
+if receipt['identity_before']['revision'] != SHA or receipt['identity_before']['status']:
+    raise SystemExit('initial identity refused')
+for index, command in enumerate(commands):
+    log = run / f'{index}.log'
+    with log.open('xb') as stream:
+        result = subprocess.run(command, cwd=ROOT, env=env, stdout=stream, stderr=subprocess.STDOUT, timeout=1800)
+    receipt['checks'].append({'command': command, 'exit_code': result.returncode,
+                              'log': str(log), 'sha256': hashlib.sha256(log.read_bytes()).hexdigest()})
+    (run / 'run.json').write_text(json.dumps(receipt, indent=2))
+receipt['identity_after'] = identity()
+receipt['complete'] = True
+receipt['finished'] = time.time()
+receipt['exit_code'] = 0 if receipt['identity_before'] == receipt['identity_after'] and all(c['exit_code'] == 0 for c in receipt['checks']) else 1
+(run / 'run.json').write_text(json.dumps(receipt, indent=2))
+raise SystemExit(receipt['exit_code'])

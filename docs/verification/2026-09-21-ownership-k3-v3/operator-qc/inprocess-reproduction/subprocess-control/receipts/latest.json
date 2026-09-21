@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "f43a32a966918121",
+  "tree": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/operator-qc/inprocess-reproduction/fixture",
+  "revision": "57a553fee0ee0c1a1d4ab17ac8f76f21f24a558e",
+  "branch": "main",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_subproc.py",
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-21T04:34:59+00:00"
+}

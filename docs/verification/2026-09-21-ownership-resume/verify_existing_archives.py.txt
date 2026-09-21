@@ -1,0 +1,42 @@
+"""Read-only integrity recheck of the two finite pre-resume evidence archives."""
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+
+OUT = Path(__file__).resolve().parent
+ROOT = Path.home() / "fwp-wt-ownership-closeout-0921/docs/verification"
+reports = []
+for name in ("2026-09-21-ownership-followup", "2026-09-21-ownership-recheck"):
+    archive = ROOT / name
+    manifest_path = archive / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    errors, source_compared = [], 0
+    for item in manifest["files"]:
+        path = archive / item["path"]
+        content = path.read_bytes()
+        if len(content) != item["bytes"] or hashlib.sha256(content).hexdigest() != item["sha256"]:
+            errors.append(item["path"])
+        source = Path(item["source"])
+        if not source.is_file() or source.read_bytes() != content:
+            errors.append("source mismatch: " + item["path"])
+        else:
+            source_compared += 1
+    listed = {item["path"] for item in manifest["files"]}
+    actual = {str(p.relative_to(archive)) for p in archive.rglob("*")
+              if p.is_file() and p != manifest_path}
+    if listed != actual or len(listed) != len(manifest["files"]):
+        errors.append("manifest membership mismatch")
+    reports.append({
+        "archive": str(archive), "entries": len(manifest["files"]),
+        "source_bytes_compared": source_compared,
+        "revision": manifest["revision"], "gate_passed": manifest["gate_passed"],
+        "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        "errors": errors,
+    })
+    assert not errors, errors
+with (OUT / "existing-archive-integrity.json").open("x") as stream:
+    json.dump(reports, stream, indent=2)
+    stream.write("\n")
+print(json.dumps(reports))

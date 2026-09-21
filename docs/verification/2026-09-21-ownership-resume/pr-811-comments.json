@@ -1,0 +1,11 @@
+[
+  {
+    "id": 5162,
+    "state": null,
+    "body": "本 PR 是 #811 的前向整合候选，当前请以 #816 为验收入口。#811 原分支与旧收据保持保全，不能把旧尖 7162a6c 移签到新组合。#816 的候选尖为 a8fab956，固定组合 b8292d23；作者工程门禁已通过（全仓 Python 12104P/85S/2X、Arena 43P、Arena E2E 8P、前端/registry/smoke 全绿）。独立 Spec/Quality、main 合入、8792/生产部署和真实远程 Agent 调用仍未授权。",
+    "created_at": "2026-09-21T06:19:38+08:00",
+    "submitted_at": null,
+    "commit_id": null,
+    "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/811#issuecomment-5162"
+  }
+]

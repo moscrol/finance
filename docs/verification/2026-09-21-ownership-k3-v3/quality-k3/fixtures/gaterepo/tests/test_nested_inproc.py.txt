@@ -1,0 +1,6 @@
+import pytest
+
+
+def test_nested_inprocess_pytest():
+    rc = pytest.main(["-q", "-p", "no:cacheprovider", "tests_inner/"])
+    assert rc == 0

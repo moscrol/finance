@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+  "revision": "a092a021c3d7d978c4dfd9551e74aa984a523f18",
+  "branch": "fix/test-gate-receipt-identity-0921",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/fwp-wt-test-gate-receipt-identity-0921",
+  "counts": {
+    "passed": 11963,
+    "failed": 0,
+    "error": 0,
+    "skipped": 85
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-21T05:59:53+00:00"
+}
