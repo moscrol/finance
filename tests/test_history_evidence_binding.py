@@ -228,7 +228,8 @@ def test_history_verifier_rejects_forced_decision_qualification_and_wrong_operat
             usage=AgentUsage(),
         )
 
-    for candidate in (forced, wrong):
+    missing = replace(card, history_provenance=None)
+    for candidate in (forced, wrong, missing):
         verified = verify_episode_outcome(contract, outcome(candidate))
         assert any(item.code == IssueCode.HISTORY_OPERATION_UNSUPPORTED for item in verified.issue_items)
         assert verified.completion.outputs[0].status == "missing"
@@ -263,3 +264,31 @@ def test_comparison_contract_maps_slots_to_history_operations_and_keeps_hypothes
     }
     assert outputs["comparison_assumptions"].grounding_mode == "model_reasoning"
     assert outputs["comparison_assumptions"].evidence_types == ()
+
+
+def test_chunked_row_has_distinct_public_citations_and_stable_overlapping_page():
+    from intelligence.runtime.continuous_turn_adapter import _public_citation_projection
+
+    row = _row(1)
+    row["features"].update({f"feature_{index}": index for index in range(20)})
+    first = _hashed_result(_payload([_row(0), row]))
+    page = _hashed_result(_payload([row], offset=1), offset=1)
+    cards = tuple(
+        card for card in first.evidence if card.history_provenance.row_index == 1
+    )
+    page_cards = tuple(
+        card for card in page.evidence if card.history_provenance.row_index == 1
+    )
+    assert len(cards) > 1
+    assert [card.content_hash for card in cards] == [card.content_hash for card in page_cards]
+    outcome = AgentOutcome(
+        task_frame_hash="history-chunks", status="completed", draft="历史观察",
+        evidence=cards, traces=(), gaps=(), stop_reason="model_finish",
+        events=(EpisodeEvent(1, "task", {"task_frame_hash": "history-chunks"}),),
+        bindings=(OutputEvidenceBinding("direct_assessment", tuple(card.content_hash for card in cards)),),
+        usage=AgentUsage(),
+    )
+    citations = _public_citation_projection(
+        outcome, frozenset(), allowed_output_ids=frozenset({"direct_assessment"})
+    )
+    assert len(citations) == len(cards)
