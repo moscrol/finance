@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-nightly-deploy-closeout-0921",
+  "revision": "2137345daa44daefa0d029ba4c2de89e0f725b2a",
+  "branch": "fix/nightly-deploy-closeout-0921",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/fwp-wt-nightly-deploy-closeout-0921",
+  "counts": {
+    "passed": 12460,
+    "failed": 0,
+    "error": 0,
+    "skipped": 85
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-21T07:54:00+00:00"
+}

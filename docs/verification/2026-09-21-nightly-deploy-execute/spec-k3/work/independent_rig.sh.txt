@@ -1,0 +1,154 @@
+#!/bin/zsh
+# Independent SPEC rig for PR827: run the REAL candidate installer with fake HOME
+# and a recording stub launchctl. Mutations only under spec-k3/work.
+set -uo pipefail
+
+CAND=/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/spec-tree
+WORK=/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/spec-k3/work
+INSTALLER="$CAND/scripts/install_eval_launchd.sh"
+rm -rf "$WORK/rig"
+mkdir -p "$WORK/rig"
+PASS=0; FAIL=0
+note() { print -- "$(date +%T) $*"; }
+ok()   { PASS=$((PASS+1)); note "PASS: $*"; }
+bad()  { FAIL=$((FAIL+1)); note "FAIL: $*"; }
+
+# Build a fresh fake HOME seeded as if a previous full install happened.
+make_home() {
+  local home="$1"
+  rm -rf "$home"; mkdir -p "$home/.local/bin" "$home/Library/LaunchAgents"
+  cp "$CAND/scripts/lib/ops_python.sh" "$home/.local/bin/ops_python.sh"
+  for f in run_fidelity_daily_agent.sh run_fidelity_forward_acceptance.sh freeze_daily_pit_snapshot.sh run_checkpoint_recheck.sh nightly_full_review.sh nightly-full-review-s7.sh; do
+    print -- "OLD $f" > "$home/.local/bin/$f"
+  done
+  for j in fidelity-daily-agent fidelity-forward-acceptance pit-snapshot checkpoint-recheck daily-full-review-sync daily-full-review-finalize; do
+    print -- "OLD com.financeworkspace.$j.plist" > "$home/Library/LaunchAgents/com.financeworkspace.$j.plist"
+  done
+}
+
+make_stub() {
+  local bindir="$1"
+  rm -rf "$bindir"; mkdir -p "$bindir"
+  cat > "$bindir/launchctl" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >> "$INSTALL_CALL_LOG"
+EOF
+  chmod +x "$bindir/launchctl"
+}
+
+snapshot() { (cd "$1" && find . -type f | sort | xargs shasum -a 256) ; }
+
+run_installer() {  # args: home repo log extra-args...
+  local home="$1" repo="$2" log="$3"; shift 3
+  env -i HOME="$home" PATH="$WORK/rig/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+    FINANCE_OPS_REPO="$repo" INSTALL_CALL_LOG="$log" \
+    /bin/zsh "$INSTALLER" "$@" > "$log.stdout" 2> "$log.stderr"
+}
+
+# ---------- Positive control: --nightly-only ----------
+H=$WORK/rig/home-pos; L=$WORK/rig/pos.calls; make_stub $WORK/rig/bin; make_home "$H"
+before=$(snapshot "$H")
+run_installer "$H" "$CAND" "$L" --nightly-only; rc=$?
+after=$(snapshot "$H")
+changed=$(print -- "$before\n$after" | sort | uniq -u | awk '{print $2}' | sort -u)
+note "positive rc=$rc changed:"; print -- "$changed"
+exp=$(print -- './Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist\n./Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist\n./.local/bin/nightly-full-review-s7.sh\n./.local/bin/nightly_full_review.sh' | sort -u)
+[[ $rc -eq 0 && "$changed" == "$exp" ]] && ok "nightly-only changes exactly 2 plists + 2 wrappers" || bad "nightly-only change set wrong (rc=$rc)"
+calls=$(cat "$L"); n=$(print -- "$calls" | grep -c .)
+[[ $n -eq 4 && $(print -- "$calls" | grep -c '^bootout ') -eq 2 && $(print -- "$calls" | grep -c '^bootstrap ') -eq 2 && -z $(print -- "$calls" | grep kickstart || true) ]] \
+  && ok "4 launchctl calls, bootout+bootstrap x2, no kickstart" || bad "launchctl calls wrong: $calls"
+print -- "$calls" | grep -q 'daily-full-review-sync' && print -- "$calls" | grep -q 'daily-full-review-finalize' && ! print -- "$calls" | grep -qE 'fidelity|pit-snapshot|checkpoint' \
+  && ok "calls scoped to the two night jobs" || bad "calls hit other jobs"
+cmp -s "$H/.local/bin/nightly-full-review-s7.sh" "$CAND/skills/daily-full-review/scripts/nightly_full_review_s7.sh" && ok "installed s7 wrapper matches candidate bytes" || bad "s7 wrapper mismatch"
+grep -q 'finance-sync-adcda94b5e40' "$H/Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist" && ok "installed sync plist carries adcda root" || bad "installed sync plist wrong"
+
+# ---------- Counterexample A: drifted shared helper rejected before writes ----------
+H=$WORK/rig/home-a; L=$WORK/rig/a.calls; make_home "$H"
+print -- "DRIFTED" > "$H/.local/bin/ops_python.sh"
+before=$(snapshot "$H")
+run_installer "$H" "$CAND" "$L" --nightly-only; rc=$?
+[[ $rc -eq 2 && "$(snapshot "$H")" == "$before" && ! -e "$L" ]] && ok "A: ops_python drift -> rc=2, zero writes, zero launchctl" || bad "A: drift not safely rejected (rc=$rc)"
+
+# ---------- Counterexample B: dry-run (both orders) has no side effects ----------
+for args in "--dry-run" "--nightly-only --dry-run" "--dry-run --nightly-only"; do
+  H=$WORK/rig/home-b; L=$WORK/rig/b.calls; make_home "$H"; before=$(snapshot "$H")
+  run_installer "$H" "$CAND" "$L" ${=args}; rc=$?
+  [[ $rc -eq 0 && "$(snapshot "$H")" == "$before" && ! -e "$L" && ! -e "$H/.finance-runtime" ]] \
+    && ok "B: dry-run [$args] side-effect free" || bad "B: dry-run [$args] leaked (rc=$rc)"
+done
+# dry-run on a completely empty HOME must not even create directories
+H=$WORK/rig/home-b2; L=$WORK/rig/b2.calls
+run_installer "$H" "$CAND" "$L" --dry-run; rc=$?
+[[ ! -e "$H" ]] && ok "B2: dry-run creates no dirs on empty HOME (rc=$rc)" || bad "B2: dry-run created HOME dirs"
+
+# ---------- Counterexample C: contradictory options, both orders ----------
+for args in "--dry-run --kickstart" "--kickstart --dry-run"; do
+  H=$WORK/rig/home-c; L=$WORK/rig/c.calls; make_home "$H"; before=$(snapshot "$H")
+  run_installer "$H" "$CAND" "$L" ${=args}; rc=$?
+  [[ $rc -eq 2 && "$(snapshot "$H")" == "$before" && ! -e "$L" ]] && ok "C: [$args] rc=2 before side effects" || bad "C: [$args] not rejected (rc=$rc)"
+done
+
+# ---------- Counterexample D: unknown option ----------
+H=$WORK/rig/home-d; L=$WORK/rig/d.calls; make_home "$H"; before=$(snapshot "$H")
+run_installer "$H" "$CAND" "$L" --nigthly-only; rc=$?
+[[ $rc -eq 2 && "$(snapshot "$H")" == "$before" && ! -e "$L" ]] && ok "D: unknown option rc=2 before side effects" || bad "D: unknown option mishandled (rc=$rc)"
+
+# ---------- Repo copies for corruption cases ----------
+RC=$WORK/rig/repo-copy
+rm -rf "$RC"; mkdir -p "$RC/scripts/lib" "$RC/skills/daily-full-review/scripts" "$RC/intelligence/eval" "$RC/intelligence/dream"
+cp "$CAND/scripts/lib/ops_python.sh" "$RC/scripts/lib/"
+for f in run_fidelity_daily_agent.sh run_fidelity_forward_acceptance.sh freeze_daily_pit_snapshot.sh run_checkpoint_recheck.sh; do cp "$CAND/scripts/$f" "$RC/scripts/"; done
+cp "$CAND/skills/daily-full-review/scripts/nightly_full_review.sh" "$CAND/skills/daily-full-review/scripts/nightly_full_review_s7.sh" "$RC/skills/daily-full-review/scripts/"
+cp "$CAND"/intelligence/eval/*.plist "$RC/intelligence/eval/"
+cp "$CAND"/intelligence/dream/com.financeworkspace.daily-full-review-{sync,finalize}.plist "$RC/intelligence/dream/"
+
+# ---------- Counterexample E: selected plist semantically wrong (RunAtLoad=true) ----------
+RS=$WORK/rig/repo-e; cp -R "$RC" "$RS"
+/usr/bin/python3 - "$RS/intelligence/dream/com.financeworkspace.daily-full-review-finalize.plist" <<'EOF'
+import plistlib,sys
+p=sys.argv[1]; d=plistlib.load(open(p,'rb')); d['RunAtLoad']=True
+plistlib.dump(d,open(p,'wb'))
+EOF
+H=$WORK/rig/home-e; L=$WORK/rig/e.calls; make_home "$H"; before=$(snapshot "$H")
+run_installer "$H" "$RS" "$L" --nightly-only; rc=$?
+[[ $rc -ne 0 && "$(snapshot "$H")" == "$before" && ! -e "$L" ]] && ok "E: RunAtLoad=true on selected plist stops before any copy (rc=$rc)" || bad "E: bad selected plist not stopped (rc=$rc)"
+
+# ---------- Counterexample F: UNSELECTED plist broken must not block scoped install ----------
+RS=$WORK/rig/repo-f; cp -R "$RC" "$RS"
+/usr/bin/python3 - "$RS/intelligence/eval/com.financeworkspace.pit-snapshot.plist" <<'EOF'
+import plistlib,sys
+p=sys.argv[1]; d=plistlib.load(open(p,'rb')); d['RunAtLoad']=True
+plistlib.dump(d,open(p,'wb'))
+EOF
+H=$WORK/rig/home-f; L=$WORK/rig/f.calls; make_home "$H"
+run_installer "$H" "$RS" "$L" --nightly-only; rc=$?
+[[ $rc -eq 0 && -e "$L" && $(grep -c . "$L") -eq 4 ]] && ok "F: broken unselected plist does not block nightly-only (scoping exact)" || bad "F: scoping leaked to unselected files (rc=$rc)"
+# ...but the SAME broken plist must block a DEFAULT full install before writes
+H=$WORK/rig/home-f2; L=$WORK/rig/f2.calls; make_home "$H"; before=$(snapshot "$H")
+run_installer "$H" "$RS" "$L"; rc=$?
+[[ $rc -ne 0 && "$(snapshot "$H")" == "$before" && ! -e "$L" ]] && ok "F2: same broken plist blocks full install preflight (rc=$rc)" || bad "F2: full install preflight missed bad plist (rc=$rc)"
+
+# ---------- Counterexample G: default full install = 6 jobs / 12 calls ----------
+H=$WORK/rig/home-g; L=$WORK/rig/g.calls; make_home "$H"
+run_installer "$H" "$CAND" "$L"; rc=$?
+n=$(grep -c . "$L" 2>/dev/null || echo 0)
+[[ $rc -eq 0 && $n -eq 12 ]] && grep -q 'installed 6 jobs' "$L.stdout" && ok "G: default install 6 jobs, 12 launchctl calls" || bad "G: default install wrong (rc=$rc calls=$n)"
+[[ $(grep -c '^bootstrap ' "$L") -eq 6 && $(grep -c '^bootout ' "$L") -eq 6 ]] && ok "G: bootout+bootstrap for all six" || bad "G: call mix wrong"
+
+# ---------- Counterexample H: missing selected script stops before writes ----------
+RS=$WORK/rig/repo-h; cp -R "$RC" "$RS"; rm "$RS/skills/daily-full-review/scripts/nightly_full_review_s7.sh"
+H=$WORK/rig/home-h; L=$WORK/rig/h.calls; make_home "$H"; before=$(snapshot "$H")
+run_installer "$H" "$RS" "$L" --nightly-only; rc=$?
+[[ $rc -ne 0 && "$(snapshot "$H")" == "$before" && ! -e "$L" ]] && ok "H: missing selected script stops before writes (rc=$rc)" || bad "H: missing script not stopped (rc=$rc)"
+
+# ---------- Counterexample I: explicit kickstart scoped, order-independent ----------
+k=0
+for args in "--nightly-only --kickstart" "--kickstart --nightly-only"; do
+  k=$((k+1)); H=$WORK/rig/home-i$k; L=$WORK/rig/i$k.calls; make_home "$H"
+  run_installer "$H" "$CAND" "$L" ${=args}; rc=$?
+  [[ $rc -eq 0 && $(grep -c '^kickstart -k ' "$L") -eq 2 && $(grep -c . "$L") -eq 6 ]] && ! grep -qE 'kickstart.*(fidelity|pit|checkpoint)' "$L" \
+    && ok "I: [$args] kickstarts exactly the two night jobs" || bad "I: kickstart scoping wrong [$args] (rc=$rc)"
+done
+
+note "== totals: PASS=$PASS FAIL=$FAIL =="
+[[ $FAIL -eq 0 ]]

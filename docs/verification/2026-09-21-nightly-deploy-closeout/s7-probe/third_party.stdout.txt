@@ -1,0 +1,5 @@
+[staging] 克隆生产库 -> market.duckdb.staging (clonefile, 0.005s, 3420160 bytes)
+[staging] 子进程同步 pid=24488 (写锁只落在 staging, 生产库无锁)
+candidate_db=/Users/a77/.finance-runtime/finance-sync-adcda94b5e40/market_feature_store/db.py
+[staging] 校验通过: 表 69>=69, fact_market_daily 覆盖到 2026-09-21
+[staging] 第三方写者守卫: 生产库在同步期间被修改, 拒绝换名; staging 保留待人工裁决

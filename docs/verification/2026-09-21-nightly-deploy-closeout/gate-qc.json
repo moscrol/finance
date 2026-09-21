@@ -1,0 +1,37 @@
+{
+  "revision": "2137345daa44daefa0d029ba4c2de89e0f725b2a",
+  "base": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+  "status": "AUTHOR_ENGINEERING_PASS",
+  "independent_review": "NOT_RUN",
+  "latest_main_integration": "NOT_RERUN_AFTER_DOC_ONLY_PR828",
+  "python": {
+    "counts": {
+      "passed": 12460,
+      "failed": 0,
+      "error": 0,
+      "skipped": 85,
+      "xfail": 2
+    },
+    "receipt": "/Users/a77/.finance-runtime/test-receipts/20260921T075400Z-2137345d.json",
+    "receipt_sha256": "5911ceb93144c54b0abe74cef79ef0868bc1e2568236ecffa9d637ae3c90f315",
+    "junit_cases": 12547,
+    "process_exit": 0,
+    "initial_apparatus_exit": 1,
+    "reconciliation": "receipt appears after [100%] on the same line; original run.json retained; no tests rerun"
+  },
+  "frontend": {
+    "receipt": "frontend/gate/frontend.json",
+    "checks": 6,
+    "unit_passed": 110,
+    "e2e_passed": 34,
+    "e2e_skipped": 2
+  },
+  "registry_commands": 5,
+  "boundaries": "7 generation + 4 finalize predicates; installer dry-run",
+  "runtime_revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+  "deployed_by_this_session": false,
+  "notes": [
+    "Later main f783f19c8 adds only PR828 deployment docs; not part of this fixed receipt",
+    "8792 was switched to adcda94b by another session; not a result of this PR"
+  ]
+}

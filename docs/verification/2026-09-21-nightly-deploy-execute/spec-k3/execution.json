@@ -1,0 +1,139 @@
+{
+  "axis": "spec",
+  "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "mirasim-kimi",
+    "--model",
+    "kimi-k3",
+    "--thinking",
+    "xhigh",
+    "--models",
+    "mirasim-kimi/kimi-k3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/credential-bootstrap.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--tools",
+    "read,bash,write,grep,find,ls",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<prompt file>"
+  ],
+  "prompt_sha256": "7d1fc2704fea0dac051e8fff97f369e05cdedd645748f7a577deead5c0cffc0a",
+  "common_sha256": "e5dc18d6a26f7e3913678fe6be304246067e0ddbba8575ecc573d85af9479201",
+  "settings_sha256": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d",
+  "authorization_sha256": "1d339fdb6a61320b20c85c5109c9e89acaeff81f95e1c0e2aa20400d19377d28",
+  "runner_sha256": "290d53dc044cad3932f4eae6c4bcb35cc776c944c38d2095d0a882764ca0fc61",
+  "identity_before": {
+    "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+    "status": "",
+    "relevant_refs": "refs/heads/fix/nightly-deploy-closeout-0921 2ea6c3db01a062b9c623498df1b60edfbafe582b\nrefs/remotes/gitea/main f783f19c8a01fbe8d0ed70d851df7ed14598c051",
+    "author": {
+      "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+      "status": ""
+    },
+    "vault": {
+      "revision": "3dc80b494138889826b38b0a35e717ad5d6d8eb5",
+      "status": ""
+    },
+    "inputs_sha256": {
+      "run-review.py": "290d53dc044cad3932f4eae6c4bcb35cc776c944c38d2095d0a882764ca0fc61",
+      "spec-prompt.md": "7d1fc2704fea0dac051e8fff97f369e05cdedd645748f7a577deead5c0cffc0a",
+      "review-common.md": "e5dc18d6a26f7e3913678fe6be304246067e0ddbba8575ecc573d85af9479201",
+      "authorization-update.json": "1d339fdb6a61320b20c85c5109c9e89acaeff81f95e1c0e2aa20400d19377d28",
+      "credential-bootstrap.mjs": "4abd95638e299f1be10bc3c7ecf5a56fc7834461f7a6b954550a1ec77da631e4",
+      "provider-template.json": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4",
+      "pi-config/settings.json": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d",
+      "pi-config/models.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "pi-config/auth.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    }
+  },
+  "time_before": "2026-09-21T08:17:24.280751+00:00",
+  "complete": true,
+  "timeout_seconds": 1200,
+  "turn_watchdog_threshold": 41,
+  "max_provider_request_admissions": 40,
+  "monetary_cap": null,
+  "billing": "existing subscription; estimated cost is not a financial invoice",
+  "pid": 62459,
+  "exit_code": 0,
+  "stop_reason": null,
+  "identity_after": {
+    "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+    "status": "",
+    "relevant_refs": "refs/heads/fix/nightly-deploy-closeout-0921 2ea6c3db01a062b9c623498df1b60edfbafe582b\nrefs/remotes/gitea/main f783f19c8a01fbe8d0ed70d851df7ed14598c051",
+    "author": {
+      "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+      "status": ""
+    },
+    "vault": {
+      "revision": "3dc80b494138889826b38b0a35e717ad5d6d8eb5",
+      "status": ""
+    },
+    "inputs_sha256": {
+      "run-review.py": "290d53dc044cad3932f4eae6c4bcb35cc776c944c38d2095d0a882764ca0fc61",
+      "spec-prompt.md": "7d1fc2704fea0dac051e8fff97f369e05cdedd645748f7a577deead5c0cffc0a",
+      "review-common.md": "e5dc18d6a26f7e3913678fe6be304246067e0ddbba8575ecc573d85af9479201",
+      "authorization-update.json": "1d339fdb6a61320b20c85c5109c9e89acaeff81f95e1c0e2aa20400d19377d28",
+      "credential-bootstrap.mjs": "4abd95638e299f1be10bc3c7ecf5a56fc7834461f7a6b954550a1ec77da631e4",
+      "provider-template.json": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4",
+      "pi-config/settings.json": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d",
+      "pi-config/models.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "pi-config/auth.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    }
+  },
+  "time_after": "2026-09-21T08:35:19.475179+00:00",
+  "elapsed_seconds": 1075.196,
+  "candidate_untouched": true,
+  "author_untouched": true,
+  "relevant_refs_unchanged": true,
+  "vault_unchanged": true,
+  "inputs_unchanged": true,
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 33,
+    "message_start": 78,
+    "message_end": 78,
+    "message_update": 24309,
+    "tool_execution_start": 44,
+    "tool_execution_update": 120,
+    "tool_execution_end": 44,
+    "turn_end": 33,
+    "agent_end": 1,
+    "agent_settled": 1
+  },
+  "assistant_messages": 33,
+  "model_identities": [
+    "mirasim-kimi/kimi-k3"
+  ],
+  "model_errors": [],
+  "usage": {
+    "input": 136847,
+    "output": 25759,
+    "cacheRead": 674418,
+    "cacheWrite": 0,
+    "totalTokens": 837024
+  },
+  "estimated_cost_not_invoice": 0,
+  "provider_request_admissions": 33,
+  "admissions_valid": true,
+  "sha256": {
+    "events.jsonl": "984fd503a2ba28a7ab30ce19771c35a0acabfd5dd8139f9e2d83141ec76e67c1",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "REPORT.md": "b39316b685fdc85fb3f8e4f15b1a47b45bde3c00eaa4e13f1ef9d000b6595295",
+    "verdict.json": "af2eac820216e9b41c31f11c1f52b497148b474d9e4ec438af4166c3cc649e32",
+    "credential.json": "174b6b07b811b8ecbb9b152541f9a0fe6ccb496422e57c225bde06b1be3a6bf7",
+    "request-admissions.jsonl": "fa8937b41a0f316c8605f15fe253dd9b7cdbfffb17c8c146a0643263de9da84a"
+  }
+}
