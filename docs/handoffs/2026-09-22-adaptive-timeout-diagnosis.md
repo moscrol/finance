@@ -10,7 +10,7 @@
 
 ## 结果
 
-收据：`/Users/a77/.finance-runtime/adaptive-timeout-diagnosis-20260922/transport-expanded.json`。
+诊断工具代码提交：`6f084297b7228fced1d214582f8b63992f495a99`。准确收据：`/Users/a77/.finance-runtime/adaptive-timeout-diagnosis-20260922/transport-6f084297b.json`。
 
 - 非流式 `complete()` 获批 0.8 秒时，响应体持续滴流约 2.93 秒仍成功；响应头/响应体停顿才在约 0.8 秒失败。说明 `urlopen(timeout=...)` 是 socket 空闲等待上限，不是绝对请求截止。
 - 工具流式持续滴流约 2.95 秒成功；未形成完整 SSE 行时约 3.25 秒才交付，也未被总时限打断。
@@ -19,10 +19,10 @@
 - 判官持续滴流约 2.93 秒后返回有效报告，状态为可用；这证明当前判官路径会接受越过 `timeout_asked` 的完整响应。
 - 根期限为 0 时请求数和台账记录均为 0，归因仍为 `semantic judge deadline exhausted`。
 
-严格探针故意以非零退出，因为当前代码存在上述超时越窗；`--assert-deadline` 是修复验收闸，不是本轮通过标准。定向测试：`14 passed`，pytest 收据由 conftest 生成于 `/Users/a77/.finance-runtime/test-receipts/20260921T183215Z-bcd48b2f.json`。
+严格探针故意以非零退出，因为当前代码存在上述超时越窗；`--assert-deadline` 是修复验收闸，不是本轮通过标准。提交后定向测试 `14 passed`，pytest 收据为 `/Users/a77/.finance-runtime/test-receipts/20260921T183634Z-6f084297.json`。
 
 ## 结论与边界
 
 已定位为：共享预算分配和零秒拒发有效；在途 HTTP/流读取没有统一的绝对墙钟截止。尚不能从旧真实收据判断 GLM 当时卡在响应头、响应体停顿还是持续流式输出，因为旧产物没有请求级实际耗时与字节间隔。
 
-本轮没有修改 `llm_refine`、判官预算、重试次数或生产服务，没有重跑旧自然模型题。后续若修复，应先让严格本地探针通过，再另行预注册真实样本；不要把本机慢服务结果当作供应商行为或内容正确性结论。
+本轮没有修改 `llm_refine`、判官预算、重试次数或生产服务，没有重跑旧自然模型题。后续若修复，应先让严格本地探针通过，再另行预注册真实样本；不要把本机慢服务结果当作供应商行为或内容正确性结论。探针提交后工作树已确认干净。

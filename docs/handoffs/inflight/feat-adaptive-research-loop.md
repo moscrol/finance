@@ -17,7 +17,7 @@ local_only 四只读能力、根 T900/单发帽75/核验共享窗150 不变，�
 
 ## 已验证
 
-收益修复准确 SHA 回归 `984 passed, 8 skipped`，变异套件11条逐条撤保护通过。超时探针定向测试 `14 passed`；本机诊断确认共享窗第三槽零秒拒发有效、根期限耗尽不发请求，但在途 HTTP/流读取会越过 `timeout_asked`。收据 `/Users/a77/.finance-runtime/adaptive-timeout-diagnosis-20260922/transport-expanded.json`。
+收益修复准确 SHA 回归 `984 passed, 8 skipped`，变异套件11条逐条撤保护通过。超时探针代码提交 `6f084297b`，定向测试 `14 passed`；本机诊断确认共享窗第三槽零秒拒发有效、根期限耗尽不发请求，但在途 HTTP/流读取会越过 `timeout_asked`。准确收据 `/Users/a77/.finance-runtime/adaptive-timeout-diagnosis-20260922/transport-6f084297b.json`。
 
 ## 未验证 / 已知边界
 
