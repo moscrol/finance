@@ -1,0 +1,56 @@
+=== A1 legit clean run (passing test)
+== gate @ 16e3ccd84b95 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/repo-a py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-fFu53M6y/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider test_pass.py
+.                                                                        [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-fFu53M6y/pytest.json
+
+1 passed in 0.18s
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-fFu53M6y/pytest.json
+   revision=16e3ccd84b95 dirty=False target=test_pass.py
+   passed=1 failed=0 error=0 skipped=0
+A1 rc=0
+A1 receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-fFu53M6y/pytest.json
+A1 receipt identity: True dirty= False tree_ok= True counts= {'passed': 1, 'failed': 0, 'error': 0, 'skipped': 0} exit= 0
+=== A2 failing run -> rc1, readback keeps failure
+树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。
+A2 exec rc=2 (expect 1)
+树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。
+A2 readback rc=2 (expect 1)
+=== A3 readback mutations (all must refuse rc!=0)
+=== A3b baseline semantics
+=== A4 allow-dirty combinations
+树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。
+A4 dirty-no-flag rc=2 (expect 2)
+== gate @ 16e3ccd84b95 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/repo-a py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-misGQWAO/pytest.json
+== ruff check .
+conftest.py:447:1: F821 Undefined name `x`
+    |
+445 |     for name, value in _FORCED_TEST_ENV:
+446 |         monkeypatch.setenv(name, value)
+447 | x
+    | ^ F821
+    |
+
+Found 1 error.
+ruff 红，停。
+A4 dirty-allow rc=1 (expect 0)
+A4 dirty receipt dirty= False total= 0
+树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。
+A4 dirty receipt readback no-flag rc=2 (expect 4)
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-fFu53M6y/pytest.json
+   revision=16e3ccd84b95 dirty=False target=test_pass.py
+   passed=1 failed=0 error=0 skipped=0
+A4 dirty receipt readback allow rc=0 (expect 0)
+=== A5 receipt immutability: second writer cannot overwrite owned path
+
+1 passed in 0.18s
+A5 same-file-after-second-run: UNCHANGED
+=== A6 receipt disabled -> gate refuses, no latest.json fallback
+树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。
+A6 rc=2 (expect 4)
+=== A7 nested pytest cannot claim parent path
+树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。
+A7 rc=2 (expect 0)
+A7 receipts total=1 (each run exactly one)
+PROBE-A-DONE

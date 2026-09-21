@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "bash_2",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "47530e20fe5c3195e50ce429b31898d57918e413\n .../python/receipts/latest.json                    |   22 +\n .../2026-09-21-ownership-recheck/python/run.json   |   30 +\n .../registry/0.log.txt                             |    1 +\n .../registry/1.log.txt                             |    2 +\n .../registry/2.log.txt                             |    2 +\n .../registry/3.log.txt                             |    1 +\n .../registry/4.log.txt                             |   24 +\n .../2026-09-21-ownership-recheck/registry/run.json |   76 +\n .../2026-09-21-ownership-recheck/review-request.md |   43 +\n .../2026-09-21-ownership-recheck/run_leaf.py.txt   |   53 +\n .../seal_evidence.py.txt                           |   49 +\n .../worktree-board.json                            | 6467 ++++++++++++++++++\n .../2026-09-21-worktree-ownership/README.md        |   48 +\n .../arena-followup.md                              |   23 +\n .../backfill-400d02dd-frontend.json                |   94 +\n .../backfill-frontend-wrong-identity-refused.json  |   27 +\n .../board-6a9cb527-targeted.json                   |   22 +\n .../board-before-final.log.txt                     |  167 +\n .../2026-09-21-worktree-ownership/decisions.json   |  141 +\n .../2026-09-21-worktree-ownership/inventory.json   | 6869 ++++++++++++++++++++\n market_feature_store/cli.py                        |  197 +\n .../sync/repair_backfill_stock_history.py          |  775 +++\n scripts/main_gate_receipt.py                       |   97 +\n scripts/run_main_gate.sh                           |  132 +-\n scripts/verify_302132_backfill_acceptance.py       |  729 +++\n scripts/worktree_board.py                          |  123 +-\n tests/test_main_gate_receipt.py                    |  254 +\n tests/test_repair_backfill_stock_history.py        | 1236 ++++\n tests/test_worktree_board.py                       |  177 +-\n 114 files changed, 20817 insertions(+), 127 deletions(-)\n"
+      }
+    ]
+  },
+  "isError": false
+}

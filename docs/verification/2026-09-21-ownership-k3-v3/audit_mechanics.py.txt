@@ -1,0 +1,95 @@
+"""Inspect completed K3 evidence without conferring a semantic review verdict.
+
+Recover every tool result/write from the immutable event trace so apparatus
+failures and overwritten probe revisions remain visible to operator QC.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parent
+AXIS = sys.argv[1]
+assert AXIS in {"spec", "quality"}
+OUT = ROOT / f"{AXIS}-k3"
+RECOVERY = ROOT / f"{AXIS}-trace"
+REV = "47530e20fe5c3195e50ce429b31898d57918e413"
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+execution = json.loads((OUT / "execution.json").read_text())
+assert execution["complete"], "review still running"
+assert execution["revision"] == REV
+for name, expected in execution["sha256"].items():
+    assert sha(OUT / name) == expected, name
+for name, expected in execution["identity_after"]["inputs_sha256"].items():
+    assert sha(ROOT / name) == expected, name
+RECOVERY.mkdir(exist_ok=False)
+events = [json.loads(line) for line in (OUT / "events.jsonl").read_text().split("\n") if line]
+trace = []
+by_id = {}
+violations = []
+for event in events:
+    kind = event.get("type")
+    if kind == "tool_execution_start":
+        args = event.get("args", {})
+        tool = event["toolName"]
+        item = {"index": len(trace) + 1, "id": event.get("toolCallId"), "tool": tool,
+                "args": {k: v for k, v in args.items() if k != "content"}}
+        if tool == "write":
+            path = Path(args["path"])
+            if not path.is_absolute() or not path.is_relative_to(OUT):
+                violations.append({"index": item["index"], "write_path": str(path)})
+            data = args.get("content", "").encode()
+            destination = RECOVERY / f"{item['index']:03d}-write-{path.name}.txt"
+            destination.write_bytes(data)
+            item["content_sha256"] = hashlib.sha256(data).hexdigest()
+            item["recovered_write"] = str(destination.relative_to(ROOT))
+        trace.append(item)
+        by_id[item["id"]] = item
+    elif kind == "tool_execution_end":
+        item = by_id.get(event.get("toolCallId"))
+        if item is None:
+            violations.append({"unmatched_tool_end": event.get("toolCallId")})
+            continue
+        result = event.get("result", {})
+        destination = RECOVERY / f"{item['index']:03d}-result.json"
+        destination.write_text(json.dumps(event, ensure_ascii=False, indent=2) + "\n")
+        item["result_file"] = str(destination.relative_to(ROOT))
+        item["is_error"] = event.get("isError", False)
+        text = "\n".join(c.get("text", "") for c in result.get("content", []) if isinstance(c, dict))
+        (RECOVERY / f"{item['index']:03d}-result.txt").write_text(text)
+        item["result_text_sha256"] = hashlib.sha256(text.encode()).hexdigest()
+        item["result_summary"] = text[:220]
+report = OUT / "REPORT.md"
+verdict_file = OUT / "verdict.json"
+verdict = json.loads(verdict_file.read_text()) if verdict_file.is_file() else {}
+checks = verdict.get("checks", [])
+mechanics = {
+    "axis": AXIS, "revision": REV, "time": datetime.now(timezone.utc).isoformat(),
+    "semantic_qc_pending": True, "exit_code": execution["exit_code"],
+    "stop_reason": execution["stop_reason"], "model_errors": execution["model_errors"],
+    "model_identities": execution["model_identities"],
+    "request_admissions": execution["provider_request_admissions"],
+    "admissions_valid": execution["admissions_valid"],
+    "tool_calls": len(trace), "tool_failures": [t["index"] for t in trace if t.get("is_error")],
+    "path_or_trace_violations": violations,
+    "candidate_untouched": execution["candidate_untouched"],
+    "author_untouched": execution.get("author_untouched"),
+    "inputs_unchanged": execution["inputs_unchanged"],
+    "upstream_unchanged": execution.get("upstream_unchanged"),
+    "report_present": report.is_file(), "verdict_present": verdict_file.is_file(),
+    "verdict": verdict.get("verdict"),
+    "verdict_identity_matches": verdict.get("revision") == REV and verdict.get("axis") == AXIS,
+    "check_count_reported": len(checks),
+    "sha256": {p.name: sha(p) for p in (OUT / "execution.json", OUT / "events.jsonl", report, verdict_file) if p.is_file()},
+}
+(ROOT / f"{AXIS}-tool-trace.json").write_text(json.dumps(trace, ensure_ascii=False, indent=2) + "\n")
+with (ROOT / f"{AXIS}-mechanical-audit.json").open("x") as stream:
+    json.dump(mechanics, stream, ensure_ascii=False, indent=2)
+    stream.write("\n")
+print(json.dumps(mechanics, ensure_ascii=False, indent=2))

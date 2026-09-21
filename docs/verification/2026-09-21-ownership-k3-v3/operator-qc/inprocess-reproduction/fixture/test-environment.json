@@ -1,0 +1,41 @@
+{
+  "_why": "测试环境的唯一真本源。两道门禁都读这里，不各自维护清单。",
+  "_history": "2026-08-10：conftest.py 与 scripts/check_agent_workspace_facts.py 各存一份依赖清单，靠 docstring 里一句『两处都改才算改完』同步。当天就漂了——uvicorn 与 ruff 只在其中一处。提醒的到达率不可靠，这正是这两道门禁本身要治的病，不该在它们的实现里重犯。",
+  "_format": "JSON 而非 python 模块：conftest 在收集前跑，此时还不能保证 intelligence/ 能 import（缺依赖时正是它要报错的场景）；scripts/ 也不是包。只用 json+pathlib 读，无 import 依赖。",
+
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+
+  "_required_why": "被反复误报成『环境缺包』的依赖。清单来自真实误报，不是凭空列的。",
+  "required_modules": [
+    "fastapi",
+    "agents",
+    "yaml",
+    "uvicorn",
+    "duckdb",
+    "pytest",
+    "ruff"
+  ],
+
+  "_escape_hatch": "FWP_ALLOW_ANY_PYTHON=1 放行依赖门禁（用于故意验证缺依赖时的行为），放行时仍打横幅，不静默。",
+  "escape_env_var": "FWP_ALLOW_ANY_PYTHON",
+
+  "_dirty_why": "读数收据的 dirty 判据。不能按**全树** git status 算：本仓工作区长期有 45 个脏文件（复盘台账、market_feature_store/exports、复盘/ 下的 HTML 产物、skills/*/state 等），都是每日 ingest 的正常产物。按全树判则收据永远 dirty、校验器永远建议重跑——永远发红的门禁比没有门禁更糟，它训练人忽略它。收窄依据是实验：那批脏文件里有 9 个被测试按路径提到，全部是 tmp_path 自建夹具或字符串字面量，无一读取真实脏文件，实测在当前脏树上 25 passed。",
+  "_dirty_shared": "conftest.py 与 scripts/check_test_receipt.py 共读这两个字段。两处各写一份清单必漂——本仓当天已在依赖清单上栽过一次（uvicorn/ruff 只在其中一处）。",
+  "code_path_prefixes": [
+    "intelligence/",
+    "evolution/",
+    "market_feature_store/",
+    "scripts/",
+    "tests/",
+    "conftest.py",
+    "pytest.ini",
+    "ruff.toml",
+    "test-environment.json",
+    "requirements-consumer.lock"
+  ],
+  "_data_exceptions_why": "market_feature_store/ 整体算代码，但它下面的 exports/ 是每日数据产物，要挖掉。",
+  "data_path_exceptions": [
+    "market_feature_store/exports/"
+  ]
+}

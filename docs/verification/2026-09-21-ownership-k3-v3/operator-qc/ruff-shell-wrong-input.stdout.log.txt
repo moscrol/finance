@@ -1,0 +1,1989 @@
+scripts/run_main_gate.sh:12:9: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+10 | # FWP_TEST_RECEIPT_DIR 指定收据根；每轮新建 gate-*/pytest.json，不读共享 latest.json。
+11 | # 退出码：0 全过/显式基线比较无新增红；1 ruff/测试红；2 脏树；3 新增红；4 设施/身份失败。
+12 | set -uo pipefail
+   |         ^
+13 |
+14 | GATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+   |
+
+scripts/run_main_gate.sh:14:17: SyntaxError: Got unexpected token $
+   |
+12 | set -uo pipefail
+13 |
+14 | GATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+   |                 ^
+15 | REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 4
+16 | BASELINE=""
+   |
+
+scripts/run_main_gate.sh:14:27: SyntaxError: Expected ')', found string
+   |
+12 | set -uo pipefail
+13 |
+14 | GATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+   |                           ^
+15 | REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 4
+16 | BASELINE=""
+   |
+
+scripts/run_main_gate.sh:14:46: SyntaxError: Expected a statement
+   |
+12 | set -uo pipefail
+13 |
+14 | GATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+   |                                              ^
+15 | REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 4
+16 | BASELINE=""
+   |
+
+scripts/run_main_gate.sh:15:54: SyntaxError: Expected an expression
+   |
+14 | GATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+15 | REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 4
+   |                                                      ^
+16 | BASELINE=""
+17 | RECEIPT_ONLY=""
+   |
+
+scripts/run_main_gate.sh:15:61: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+14 | GATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+15 | REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 4
+   |                                                             ^
+16 | BASELINE=""
+17 | RECEIPT_ONLY=""
+   |
+
+scripts/run_main_gate.sh:20:9: SyntaxError: Got unexpected token $
+   |
+18 | ALLOW_DIRTY=0
+19 | PYTEST_ARGS="-q -p no:cacheprovider"
+20 | while [ $# -gt 0 ]; do
+   |         ^
+21 |   case "$1" in
+22 |     --baseline|--receipt|--pytest-args)
+   |
+
+scripts/run_main_gate.sh:21:8: SyntaxError: Expected ',', found string
+   |
+19 | PYTEST_ARGS="-q -p no:cacheprovider"
+20 | while [ $# -gt 0 ]; do
+21 |   case "$1" in
+   |        ^
+22 |     --baseline|--receipt|--pytest-args)
+23 |       [ $# -ge 2 ] || { echo "missing value: $1" >&2; exit 4; }
+   |
+
+scripts/run_main_gate.sh:22:39: SyntaxError: Expected ',', found ')'
+   |
+20 | while [ $# -gt 0 ]; do
+21 |   case "$1" in
+22 |     --baseline|--receipt|--pytest-args)
+   |                                       ^
+23 |       [ $# -ge 2 ] || { echo "missing value: $1" >&2; exit 4; }
+24 |       case "$1" in
+   |
+
+scripts/run_main_gate.sh:22:40: SyntaxError: Expected ',', found newline
+   |
+20 | while [ $# -gt 0 ]; do
+21 |   case "$1" in
+22 |     --baseline|--receipt|--pytest-args)
+   |                                        ^
+23 |       [ $# -ge 2 ] || { echo "missing value: $1" >&2; exit 4; }
+24 |       case "$1" in
+25 |         --baseline) BASELINE="$2" ;;
+   |
+
+scripts/run_main_gate.sh:23:1: SyntaxError: Expected ',', found indent
+   |
+21 |   case "$1" in
+22 |     --baseline|--receipt|--pytest-args)
+23 |       [ $# -ge 2 ] || { echo "missing value: $1" >&2; exit 4; }
+   | ^
+24 |       case "$1" in
+25 |         --baseline) BASELINE="$2" ;;
+   |
+
+scripts/run_main_gate.sh:23:9: SyntaxError: Got unexpected token $
+   |
+21 |   case "$1" in
+22 |     --baseline|--receipt|--pytest-args)
+23 |       [ $# -ge 2 ] || { echo "missing value: $1" >&2; exit 4; }
+   |         ^
+24 |       case "$1" in
+25 |         --baseline) BASELINE="$2" ;;
+   |
+
+scripts/run_main_gate.sh:24:12: SyntaxError: Expected ',', found string
+   |
+22 |     --baseline|--receipt|--pytest-args)
+23 |       [ $# -ge 2 ] || { echo "missing value: $1" >&2; exit 4; }
+24 |       case "$1" in
+   |            ^
+25 |         --baseline) BASELINE="$2" ;;
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+   |
+
+scripts/run_main_gate.sh:25:19: SyntaxError: Expected ',', found ')'
+   |
+23 |       [ $# -ge 2 ] || { echo "missing value: $1" >&2; exit 4; }
+24 |       case "$1" in
+25 |         --baseline) BASELINE="$2" ;;
+   |                   ^
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+   |
+
+scripts/run_main_gate.sh:25:29: SyntaxError: Expected ',', found '='
+   |
+23 |       [ $# -ge 2 ] || { echo "missing value: $1" >&2; exit 4; }
+24 |       case "$1" in
+25 |         --baseline) BASELINE="$2" ;;
+   |                             ^
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+   |
+
+scripts/run_main_gate.sh:25:35: SyntaxError: Expected ',', found ';'
+   |
+23 |       [ $# -ge 2 ] || { echo "missing value: $1" >&2; exit 4; }
+24 |       case "$1" in
+25 |         --baseline) BASELINE="$2" ;;
+   |                                   ^
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+   |
+
+scripts/run_main_gate.sh:25:36: SyntaxError: Expected ',', found ';'
+   |
+23 |       [ $# -ge 2 ] || { echo "missing value: $1" >&2; exit 4; }
+24 |       case "$1" in
+25 |         --baseline) BASELINE="$2" ;;
+   |                                    ^
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+   |
+
+scripts/run_main_gate.sh:25:36: E703 Statement ends with an unnecessary semicolon
+   |
+23 |       [ $# -ge 2 ] || { echo "missing value: $1" >&2; exit 4; }
+24 |       case "$1" in
+25 |         --baseline) BASELINE="$2" ;;
+   |                                    ^ E703
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+   |
+   = help: Remove unnecessary semicolon
+
+scripts/run_main_gate.sh:25:37: SyntaxError: Expected ',', found newline
+   |
+23 |       [ $# -ge 2 ] || { echo "missing value: $1" >&2; exit 4; }
+24 |       case "$1" in
+25 |         --baseline) BASELINE="$2" ;;
+   |                                     ^
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+28 |       esac
+   |
+
+scripts/run_main_gate.sh:26:1: SyntaxError: Expected ',', found indent
+   |
+24 |       case "$1" in
+25 |         --baseline) BASELINE="$2" ;;
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+   | ^
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+28 |       esac
+   |
+
+scripts/run_main_gate.sh:26:18: SyntaxError: Expected ',', found ')'
+   |
+24 |       case "$1" in
+25 |         --baseline) BASELINE="$2" ;;
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+   |                  ^
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+28 |       esac
+   |
+
+scripts/run_main_gate.sh:26:32: SyntaxError: Expected ',', found '='
+   |
+24 |       case "$1" in
+25 |         --baseline) BASELINE="$2" ;;
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+   |                                ^
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+28 |       esac
+   |
+
+scripts/run_main_gate.sh:26:38: SyntaxError: Expected ',', found ';'
+   |
+24 |       case "$1" in
+25 |         --baseline) BASELINE="$2" ;;
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+   |                                      ^
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+28 |       esac
+   |
+
+scripts/run_main_gate.sh:26:39: SyntaxError: Expected ',', found ';'
+   |
+24 |       case "$1" in
+25 |         --baseline) BASELINE="$2" ;;
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+   |                                       ^
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+28 |       esac
+   |
+
+scripts/run_main_gate.sh:26:39: E703 Statement ends with an unnecessary semicolon
+   |
+24 |       case "$1" in
+25 |         --baseline) BASELINE="$2" ;;
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+   |                                       ^ E703
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+28 |       esac
+   |
+   = help: Remove unnecessary semicolon
+
+scripts/run_main_gate.sh:26:40: SyntaxError: Expected ',', found newline
+   |
+24 |       case "$1" in
+25 |         --baseline) BASELINE="$2" ;;
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+   |                                        ^
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+28 |       esac
+29 |       shift 2 ;;
+   |
+
+scripts/run_main_gate.sh:27:22: SyntaxError: Expected ',', found ')'
+   |
+25 |         --baseline) BASELINE="$2" ;;
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+   |                      ^
+28 |       esac
+29 |       shift 2 ;;
+   |
+
+scripts/run_main_gate.sh:27:35: SyntaxError: Expected ',', found '='
+   |
+25 |         --baseline) BASELINE="$2" ;;
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+   |                                   ^
+28 |       esac
+29 |       shift 2 ;;
+   |
+
+scripts/run_main_gate.sh:27:41: SyntaxError: Expected ',', found ';'
+   |
+25 |         --baseline) BASELINE="$2" ;;
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+   |                                         ^
+28 |       esac
+29 |       shift 2 ;;
+   |
+
+scripts/run_main_gate.sh:27:42: SyntaxError: Expected ',', found ';'
+   |
+25 |         --baseline) BASELINE="$2" ;;
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+   |                                          ^
+28 |       esac
+29 |       shift 2 ;;
+   |
+
+scripts/run_main_gate.sh:27:42: E703 Statement ends with an unnecessary semicolon
+   |
+25 |         --baseline) BASELINE="$2" ;;
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+   |                                          ^ E703
+28 |       esac
+29 |       shift 2 ;;
+   |
+   = help: Remove unnecessary semicolon
+
+scripts/run_main_gate.sh:27:43: SyntaxError: Expected ',', found newline
+   |
+25 |         --baseline) BASELINE="$2" ;;
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+   |                                           ^
+28 |       esac
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+   |
+
+scripts/run_main_gate.sh:28:7: SyntaxError: Expected ',', found dedent
+   |
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+28 |       esac
+   |       ^
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+   |
+
+scripts/run_main_gate.sh:28:11: SyntaxError: Expected ',', found newline
+   |
+26 |         --receipt) RECEIPT_ONLY="$2" ;;
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+28 |       esac
+   |           ^
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+   |
+
+scripts/run_main_gate.sh:29:13: SyntaxError: Expected ',', found int
+   |
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+28 |       esac
+29 |       shift 2 ;;
+   |             ^
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+   |
+
+scripts/run_main_gate.sh:29:15: SyntaxError: Expected ',', found ';'
+   |
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+28 |       esac
+29 |       shift 2 ;;
+   |               ^
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+   |
+
+scripts/run_main_gate.sh:29:16: SyntaxError: Expected ',', found ';'
+   |
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+28 |       esac
+29 |       shift 2 ;;
+   |                ^
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+   |
+
+scripts/run_main_gate.sh:29:16: E703 Statement ends with an unnecessary semicolon
+   |
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+28 |       esac
+29 |       shift 2 ;;
+   |                ^ E703
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+   |
+   = help: Remove unnecessary semicolon
+
+scripts/run_main_gate.sh:29:17: SyntaxError: Expected ',', found newline
+   |
+27 |         --pytest-args) PYTEST_ARGS="$2" ;;
+28 |       esac
+29 |       shift 2 ;;
+   |                 ^
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |
+
+scripts/run_main_gate.sh:30:1: SyntaxError: unindent does not match any outer indentation level
+   |
+28 |       esac
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+   | ^
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |
+
+scripts/run_main_gate.sh:30:18: SyntaxError: Expected ',', found ')'
+   |
+28 |       esac
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+   |                  ^
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |
+
+scripts/run_main_gate.sh:30:31: SyntaxError: Expected ',', found '='
+   |
+28 |       esac
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+   |                               ^
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |
+
+scripts/run_main_gate.sh:30:33: SyntaxError: Expected ',', found ';'
+   |
+28 |       esac
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+   |                                 ^
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |
+
+scripts/run_main_gate.sh:30:33: E702 Multiple statements on one line (semicolon)
+   |
+28 |       esac
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+   |                                 ^ E702
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |
+
+scripts/run_main_gate.sh:30:41: SyntaxError: Expected ',', found ';'
+   |
+28 |       esac
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+   |                                         ^
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |
+
+scripts/run_main_gate.sh:30:42: SyntaxError: Expected ',', found ';'
+   |
+28 |       esac
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+   |                                          ^
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |
+
+scripts/run_main_gate.sh:30:42: E703 Statement ends with an unnecessary semicolon
+   |
+28 |       esac
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+   |                                          ^ E703
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |
+   = help: Remove unnecessary semicolon
+
+scripts/run_main_gate.sh:30:43: SyntaxError: Expected ',', found newline
+   |
+28 |       esac
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+   |                                           ^
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+33 |   esac
+   |
+
+scripts/run_main_gate.sh:31:1: SyntaxError: Expected ',', found indent
+   |
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+   | ^
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+33 |   esac
+   |
+
+scripts/run_main_gate.sh:31:14: SyntaxError: Expected ',', found ')'
+   |
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+   |              ^
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+33 |   esac
+   |
+
+scripts/run_main_gate.sh:31:23: SyntaxError: Expected ',', found string
+   |
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+   |                       ^
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+33 |   esac
+   |
+
+scripts/run_main_gate.sh:31:35: SyntaxError: Expected ',', found ';'
+   |
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+   |                                   ^
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+33 |   esac
+   |
+
+scripts/run_main_gate.sh:31:35: E702 Multiple statements on one line (semicolon)
+   |
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+   |                                   ^ E702
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+33 |   esac
+   |
+
+scripts/run_main_gate.sh:31:42: SyntaxError: Expected ',', found int
+   |
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+   |                                          ^
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+33 |   esac
+   |
+
+scripts/run_main_gate.sh:31:44: SyntaxError: Expected ',', found ';'
+   |
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+   |                                            ^
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+33 |   esac
+   |
+
+scripts/run_main_gate.sh:31:45: SyntaxError: Expected ',', found ';'
+   |
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+   |                                             ^
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+33 |   esac
+   |
+
+scripts/run_main_gate.sh:31:45: E703 Statement ends with an unnecessary semicolon
+   |
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+   |                                             ^ E703
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+33 |   esac
+   |
+   = help: Remove unnecessary semicolon
+
+scripts/run_main_gate.sh:31:46: SyntaxError: Expected ',', found newline
+   |
+29 |       shift 2 ;;
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+   |                                              ^
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+33 |   esac
+34 | done
+   |
+
+scripts/run_main_gate.sh:32:6: SyntaxError: Expected an expression
+   |
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |      ^
+33 |   esac
+34 | done
+   |
+
+scripts/run_main_gate.sh:32:13: SyntaxError: Expected ',', found string
+   |
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |             ^
+33 |   esac
+34 | done
+   |
+
+scripts/run_main_gate.sh:32:32: SyntaxError: Expected an expression
+   |
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |                                ^
+33 |   esac
+34 | done
+   |
+
+scripts/run_main_gate.sh:32:34: SyntaxError: Expected ',', found ';'
+   |
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |                                  ^
+33 |   esac
+34 | done
+   |
+
+scripts/run_main_gate.sh:32:34: E702 Multiple statements on one line (semicolon)
+   |
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |                                  ^ E702
+33 |   esac
+34 | done
+   |
+
+scripts/run_main_gate.sh:32:41: SyntaxError: Expected ',', found int
+   |
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |                                         ^
+33 |   esac
+34 | done
+   |
+
+scripts/run_main_gate.sh:32:43: SyntaxError: Expected ',', found ';'
+   |
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |                                           ^
+33 |   esac
+34 | done
+   |
+
+scripts/run_main_gate.sh:32:44: SyntaxError: Expected ',', found ';'
+   |
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |                                            ^
+33 |   esac
+34 | done
+   |
+
+scripts/run_main_gate.sh:32:44: E703 Statement ends with an unnecessary semicolon
+   |
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |                                            ^ E703
+33 |   esac
+34 | done
+   |
+   = help: Remove unnecessary semicolon
+
+scripts/run_main_gate.sh:32:45: SyntaxError: Expected ',', found newline
+   |
+30 |     --allow-dirty) ALLOW_DIRTY=1; shift ;;
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+   |                                             ^
+33 |   esac
+34 | done
+   |
+
+scripts/run_main_gate.sh:33:1: SyntaxError: unindent does not match any outer indentation level
+   |
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+33 |   esac
+   | ^
+34 | done
+   |
+
+scripts/run_main_gate.sh:33:7: SyntaxError: Expected ',', found newline
+   |
+31 |     -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+33 |   esac
+   |       ^
+34 | done
+35 |
+36 | # 仅用宿主标准库解析 JSON，测试本身仍用契约指定的解释器。
+   |
+
+scripts/run_main_gate.sh:34:5: SyntaxError: Expected ',', found newline
+   |
+32 |     *) echo "unknown arg: $1" >&2; exit 4 ;;
+33 |   esac
+34 | done
+   |     ^
+35 |
+36 | # 仅用宿主标准库解析 JSON，测试本身仍用契约指定的解释器。
+37 | PY="$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "…
+   |
+
+scripts/run_main_gate.sh:37:3: SyntaxError: Expected ',', found '='
+   |
+36 | # 仅用宿主标准库解析 JSON，测试本身仍用契约指定的解释器。
+37 | PY="$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "…
+   |   ^
+38 | [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+39 | if [ ! -x "$PY" ]; then
+   |
+
+scripts/run_main_gate.sh:37:120: SyntaxError: Expected ',', found name
+   |
+36 | # 仅用宿主标准库解析 JSON，测试本身仍用契约指定的解释器。
+37 | PY="$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "…
+   |                                                                                                                        ^
+38 | [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+39 | if [ ! -x "$PY" ]; then
+   |
+
+scripts/run_main_gate.sh:37:131: SyntaxError: Expected ',', found string
+   |
+36 | …
+37 | …th(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "") if p.is_file() else "")' "$REPO/test-environment.json")" || e…
+   |                                                                   ^
+38 | …
+39 | …
+   |
+
+scripts/run_main_gate.sh:37:164: SyntaxError: Got unexpected token $
+   |
+36 | …
+37 | …(p.read_text()).get("interpreter", "") if p.is_file() else "")' "$REPO/test-environment.json")" || exit 4
+   |                                                                   ^
+38 | …
+39 | …
+   |
+
+scripts/run_main_gate.sh:37:191: SyntaxError: Expected ',', found string
+   |
+36 | …
+37 | …reter", "") if p.is_file() else "")' "$REPO/test-environment.json")" || exit 4
+   |                                                                   ^
+38 | …
+39 | …
+   |
+
+scripts/run_main_gate.sh:37:196: SyntaxError: Expected an expression
+   |
+36 | …
+37 | …", "") if p.is_file() else "")' "$REPO/test-environment.json")" || exit 4
+   |                                                                   ^
+38 | …
+39 | …
+   |
+
+scripts/run_main_gate.sh:37:203: SyntaxError: Expected ',', found int
+   |
+36 | …
+37 | …if p.is_file() else "")' "$REPO/test-environment.json")" || exit 4
+   |                                                                   ^
+38 | …
+39 | …
+   |
+
+scripts/run_main_gate.sh:37:204: SyntaxError: Expected ',', found newline
+   |
+36 | …
+37 | …f p.is_file() else "")' "$REPO/test-environment.json")" || exit 4
+   |                                                                   ^
+38 | …
+39 | …
+40 | …
+   |
+
+scripts/run_main_gate.sh:38:6: SyntaxError: Expected ',', found string
+   |
+36 | # 仅用宿主标准库解析 JSON，测试本身仍用契约指定的解释器。
+37 | PY="$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "…
+38 | [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+   |      ^
+39 | if [ ! -x "$PY" ]; then
+40 |   echo "解释器不可执行: ${PY}" >&2
+   |
+
+scripts/run_main_gate.sh:38:15: SyntaxError: Expected an expression
+   |
+36 | # 仅用宿主标准库解析 JSON，测试本身仍用契约指定的解释器。
+37 | PY="$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "…
+38 | [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+   |               ^
+39 | if [ ! -x "$PY" ]; then
+40 |   echo "解释器不可执行: ${PY}" >&2
+   |
+
+scripts/run_main_gate.sh:38:19: SyntaxError: Expected ',', found '='
+   |
+36 | # 仅用宿主标准库解析 JSON，测试本身仍用契约指定的解释器。
+37 | PY="$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "…
+38 | [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+   |                   ^
+39 | if [ ! -x "$PY" ]; then
+40 |   echo "解释器不可执行: ${PY}" >&2
+   |
+
+scripts/run_main_gate.sh:38:54: SyntaxError: Expected ',', found newline
+   |
+36 | # 仅用宿主标准库解析 JSON，测试本身仍用契约指定的解释器。
+37 | PY="$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "…
+38 | [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+   |                                                      ^
+39 | if [ ! -x "$PY" ]; then
+40 |   echo "解释器不可执行: ${PY}" >&2
+41 |   exit 4
+   |
+
+scripts/run_main_gate.sh:39:1: SyntaxError: Expected ']', found 'if'
+   |
+37 | PY="$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "…
+38 | [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+39 | if [ ! -x "$PY" ]; then
+   | ^
+40 |   echo "解释器不可执行: ${PY}" >&2
+41 |   exit 4
+   |
+
+scripts/run_main_gate.sh:39:6: SyntaxError: Expected an expression
+   |
+37 | PY="$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "…
+38 | [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+39 | if [ ! -x "$PY" ]; then
+   |      ^
+40 |   echo "解释器不可执行: ${PY}" >&2
+41 |   exit 4
+   |
+
+scripts/run_main_gate.sh:39:11: SyntaxError: Expected ',', found string
+   |
+37 | PY="$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "…
+38 | [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+39 | if [ ! -x "$PY" ]; then
+   |           ^
+40 |   echo "解释器不可执行: ${PY}" >&2
+41 |   exit 4
+   |
+
+scripts/run_main_gate.sh:39:18: SyntaxError: Expected 'else', found ';'
+   |
+37 | PY="$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "…
+38 | [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+39 | if [ ! -x "$PY" ]; then
+   |                  ^
+40 |   echo "解释器不可执行: ${PY}" >&2
+41 |   exit 4
+   |
+
+scripts/run_main_gate.sh:39:18: E702 Multiple statements on one line (semicolon)
+   |
+37 | PY="$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "…
+38 | [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+39 | if [ ! -x "$PY" ]; then
+   |                  ^ E702
+40 |   echo "解释器不可执行: ${PY}" >&2
+41 |   exit 4
+   |
+
+scripts/run_main_gate.sh:39:24: SyntaxError: Expected ',', found newline
+   |
+37 | PY="$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "…
+38 | [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+39 | if [ ! -x "$PY" ]; then
+   |                        ^
+40 |   echo "解释器不可执行: ${PY}" >&2
+41 |   exit 4
+42 | fi
+   |
+
+scripts/run_main_gate.sh:40:1: SyntaxError: Expected ',', found indent
+   |
+38 | [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+39 | if [ ! -x "$PY" ]; then
+40 |   echo "解释器不可执行: ${PY}" >&2
+   | ^
+41 |   exit 4
+42 | fi
+   |
+
+scripts/run_main_gate.sh:40:8: SyntaxError: Expected ',', found string
+   |
+38 | [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+39 | if [ ! -x "$PY" ]; then
+40 |   echo "解释器不可执行: ${PY}" >&2
+   |        ^
+41 |   exit 4
+42 | fi
+   |
+
+scripts/run_main_gate.sh:40:26: SyntaxError: Expected an expression
+   |
+38 | [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+39 | if [ ! -x "$PY" ]; then
+40 |   echo "解释器不可执行: ${PY}" >&2
+   |                                 ^
+41 |   exit 4
+42 | fi
+   |
+
+scripts/run_main_gate.sh:40:28: SyntaxError: Expected ',', found newline
+   |
+38 | [ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+39 | if [ ! -x "$PY" ]; then
+40 |   echo "解释器不可执行: ${PY}" >&2
+   |                                   ^
+41 |   exit 4
+42 | fi
+43 | cd "$REPO" || exit 4
+   |
+
+scripts/run_main_gate.sh:41:8: SyntaxError: Expected ',', found int
+   |
+39 | if [ ! -x "$PY" ]; then
+40 |   echo "解释器不可执行: ${PY}" >&2
+41 |   exit 4
+   |        ^
+42 | fi
+43 | cd "$REPO" || exit 4
+   |
+
+scripts/run_main_gate.sh:41:9: SyntaxError: Expected ',', found newline
+   |
+39 | if [ ! -x "$PY" ]; then
+40 |   echo "解释器不可执行: ${PY}" >&2
+41 |   exit 4
+   |         ^
+42 | fi
+43 | cd "$REPO" || exit 4
+44 | REV="$(git rev-parse HEAD)" || exit 4
+   |
+
+scripts/run_main_gate.sh:42:1: SyntaxError: Expected ',', found dedent
+   |
+40 |   echo "解释器不可执行: ${PY}" >&2
+41 |   exit 4
+42 | fi
+   | ^
+43 | cd "$REPO" || exit 4
+44 | REV="$(git rev-parse HEAD)" || exit 4
+   |
+
+scripts/run_main_gate.sh:42:3: SyntaxError: Expected ',', found newline
+   |
+40 |   echo "解释器不可执行: ${PY}" >&2
+41 |   exit 4
+42 | fi
+   |   ^
+43 | cd "$REPO" || exit 4
+44 | REV="$(git rev-parse HEAD)" || exit 4
+45 | STATUS="$(git status --porcelain)" || exit 4
+   |
+
+scripts/run_main_gate.sh:43:4: SyntaxError: Expected ',', found string
+   |
+41 |   exit 4
+42 | fi
+43 | cd "$REPO" || exit 4
+   |    ^
+44 | REV="$(git rev-parse HEAD)" || exit 4
+45 | STATUS="$(git status --porcelain)" || exit 4
+   |
+
+scripts/run_main_gate.sh:43:13: SyntaxError: Expected an expression
+   |
+41 |   exit 4
+42 | fi
+43 | cd "$REPO" || exit 4
+   |             ^
+44 | REV="$(git rev-parse HEAD)" || exit 4
+45 | STATUS="$(git status --porcelain)" || exit 4
+   |
+
+scripts/run_main_gate.sh:43:20: SyntaxError: Expected ',', found int
+   |
+41 |   exit 4
+42 | fi
+43 | cd "$REPO" || exit 4
+   |                    ^
+44 | REV="$(git rev-parse HEAD)" || exit 4
+45 | STATUS="$(git status --porcelain)" || exit 4
+   |
+
+scripts/run_main_gate.sh:43:21: SyntaxError: Expected ',', found newline
+   |
+41 |   exit 4
+42 | fi
+43 | cd "$REPO" || exit 4
+   |                     ^
+44 | REV="$(git rev-parse HEAD)" || exit 4
+45 | STATUS="$(git status --porcelain)" || exit 4
+46 | if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+   |
+
+scripts/run_main_gate.sh:44:4: SyntaxError: Expected ',', found '='
+   |
+42 | fi
+43 | cd "$REPO" || exit 4
+44 | REV="$(git rev-parse HEAD)" || exit 4
+   |    ^
+45 | STATUS="$(git status --porcelain)" || exit 4
+46 | if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+   |
+
+scripts/run_main_gate.sh:44:30: SyntaxError: Expected an expression
+   |
+42 | fi
+43 | cd "$REPO" || exit 4
+44 | REV="$(git rev-parse HEAD)" || exit 4
+   |                              ^
+45 | STATUS="$(git status --porcelain)" || exit 4
+46 | if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+   |
+
+scripts/run_main_gate.sh:44:37: SyntaxError: Expected ',', found int
+   |
+42 | fi
+43 | cd "$REPO" || exit 4
+44 | REV="$(git rev-parse HEAD)" || exit 4
+   |                                     ^
+45 | STATUS="$(git status --porcelain)" || exit 4
+46 | if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+   |
+
+scripts/run_main_gate.sh:44:38: SyntaxError: Expected ',', found newline
+   |
+42 | fi
+43 | cd "$REPO" || exit 4
+44 | REV="$(git rev-parse HEAD)" || exit 4
+   |                                      ^
+45 | STATUS="$(git status --porcelain)" || exit 4
+46 | if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+47 |   echo "树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
+   |
+
+scripts/run_main_gate.sh:45:7: SyntaxError: Expected ',', found '='
+   |
+43 | cd "$REPO" || exit 4
+44 | REV="$(git rev-parse HEAD)" || exit 4
+45 | STATUS="$(git status --porcelain)" || exit 4
+   |       ^
+46 | if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+47 |   echo "树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
+   |
+
+scripts/run_main_gate.sh:45:37: SyntaxError: Expected an expression
+   |
+43 | cd "$REPO" || exit 4
+44 | REV="$(git rev-parse HEAD)" || exit 4
+45 | STATUS="$(git status --porcelain)" || exit 4
+   |                                     ^
+46 | if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+47 |   echo "树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
+   |
+
+scripts/run_main_gate.sh:45:44: SyntaxError: Expected ',', found int
+   |
+43 | cd "$REPO" || exit 4
+44 | REV="$(git rev-parse HEAD)" || exit 4
+45 | STATUS="$(git status --porcelain)" || exit 4
+   |                                            ^
+46 | if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+47 |   echo "树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
+   |
+
+scripts/run_main_gate.sh:45:45: SyntaxError: Expected ',', found newline
+   |
+43 | cd "$REPO" || exit 4
+44 | REV="$(git rev-parse HEAD)" || exit 4
+45 | STATUS="$(git status --porcelain)" || exit 4
+   |                                             ^
+46 | if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+47 |   echo "树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
+48 |   exit 2
+   |
+
+scripts/run_main_gate.sh:46:1: SyntaxError: Expected ']', found 'if'
+   |
+44 | REV="$(git rev-parse HEAD)" || exit 4
+45 | STATUS="$(git status --porcelain)" || exit 4
+46 | if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+   | ^
+47 |   echo "树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
+48 |   exit 2
+   |
+
+scripts/run_main_gate.sh:46:9: SyntaxError: Expected ',', found string
+   |
+44 | REV="$(git rev-parse HEAD)" || exit 4
+45 | STATUS="$(git status --porcelain)" || exit 4
+46 | if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+   |         ^
+47 |   echo "树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
+48 |   exit 2
+   |
+
+scripts/run_main_gate.sh:46:22: SyntaxError: Expected an expression
+   |
+44 | REV="$(git rev-parse HEAD)" || exit 4
+45 | STATUS="$(git status --porcelain)" || exit 4
+46 | if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+   |                      ^
+47 |   echo "树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
+48 |   exit 2
+   |
+
+scripts/run_main_gate.sh:46:49: SyntaxError: Expected 'else', found ';'
+   |
+44 | REV="$(git rev-parse HEAD)" || exit 4
+45 | STATUS="$(git status --porcelain)" || exit 4
+46 | if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+   |                                                 ^
+47 |   echo "树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
+48 |   exit 2
+   |
+
+scripts/run_main_gate.sh:46:49: E702 Multiple statements on one line (semicolon)
+   |
+44 | REV="$(git rev-parse HEAD)" || exit 4
+45 | STATUS="$(git status --porcelain)" || exit 4
+46 | if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+   |                                                 ^ E702
+47 |   echo "树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
+48 |   exit 2
+   |
+
+scripts/run_main_gate.sh:47:1: SyntaxError: Unexpected indentation
+   |
+45 | STATUS="$(git status --porcelain)" || exit 4
+46 | if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+47 |   echo "树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
+   | ^
+48 |   exit 2
+49 | fi
+   |
+
+scripts/run_main_gate.sh:47:8: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+45 | STATUS="$(git status --porcelain)" || exit 4
+46 | if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+47 |   echo "树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
+   |        ^
+48 |   exit 2
+49 | fi
+   |
+
+scripts/run_main_gate.sh:47:50: SyntaxError: Expected an expression
+   |
+45 | STATUS="$(git status --porcelain)" || exit 4
+46 | if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+47 |   echo "树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
+   |                                                                          ^
+48 |   exit 2
+49 | fi
+   |
+
+scripts/run_main_gate.sh:48:8: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+46 | if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+47 |   echo "树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
+48 |   exit 2
+   |        ^
+49 | fi
+50 | CHECK_ARGS=(--revision "$REV" --tree "$REPO")
+   |
+
+scripts/run_main_gate.sh:49:1: SyntaxError: Expected a statement
+   |
+47 |   echo "树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。" >&2
+48 |   exit 2
+49 | fi
+   | ^
+50 | CHECK_ARGS=(--revision "$REV" --tree "$REPO")
+51 | [ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
+   |
+
+scripts/run_main_gate.sh:50:24: SyntaxError: Expected ')', found string
+   |
+48 |   exit 2
+49 | fi
+50 | CHECK_ARGS=(--revision "$REV" --tree "$REPO")
+   |                        ^
+51 | [ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
+52 | [ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+   |
+
+scripts/run_main_gate.sh:50:38: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+48 |   exit 2
+49 | fi
+50 | CHECK_ARGS=(--revision "$REV" --tree "$REPO")
+   |                                      ^
+51 | [ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
+52 | [ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+   |
+
+scripts/run_main_gate.sh:50:45: SyntaxError: Expected a statement
+   |
+48 |   exit 2
+49 | fi
+50 | CHECK_ARGS=(--revision "$REV" --tree "$REPO")
+   |                                             ^
+51 | [ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
+52 | [ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+   |
+
+scripts/run_main_gate.sh:50:46: SyntaxError: Expected a statement
+   |
+48 |   exit 2
+49 | fi
+50 | CHECK_ARGS=(--revision "$REV" --tree "$REPO")
+   |                                              ^
+51 | [ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
+52 | [ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+53 | if [ -n "$RECEIPT_ONLY" ]; then
+   |
+
+scripts/run_main_gate.sh:51:1: SyntaxError: Invalid augmented assignment target
+   |
+49 | fi
+50 | CHECK_ARGS=(--revision "$REV" --tree "$REPO")
+51 | [ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
+   | ^
+52 | [ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+53 | if [ -n "$RECEIPT_ONLY" ]; then
+   |
+
+scripts/run_main_gate.sh:51:18: SyntaxError: Expected an expression or a ']'
+   |
+49 | fi
+50 | CHECK_ARGS=(--revision "$REV" --tree "$REPO")
+51 | [ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
+   |                  ^
+52 | [ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+53 | if [ -n "$RECEIPT_ONLY" ]; then
+   |
+
+scripts/run_main_gate.sh:51:27: SyntaxError: Expected an expression
+   |
+49 | fi
+50 | CHECK_ARGS=(--revision "$REV" --tree "$REPO")
+51 | [ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
+   |                           ^
+52 | [ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+53 | if [ -n "$RECEIPT_ONLY" ]; then
+   |
+
+scripts/run_main_gate.sh:52:1: SyntaxError: Invalid augmented assignment target
+   |
+50 | CHECK_ARGS=(--revision "$REV" --tree "$REPO")
+51 | [ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
+52 | [ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+   | ^
+53 | if [ -n "$RECEIPT_ONLY" ]; then
+54 |   LATEST="$RECEIPT_ONLY"
+   |
+
+scripts/run_main_gate.sh:52:6: SyntaxError: Expected ',', found string
+   |
+50 | CHECK_ARGS=(--revision "$REV" --tree "$REPO")
+51 | [ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
+52 | [ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+   |      ^
+53 | if [ -n "$RECEIPT_ONLY" ]; then
+54 |   LATEST="$RECEIPT_ONLY"
+   |
+
+scripts/run_main_gate.sh:52:21: SyntaxError: Expected an expression
+   |
+50 | CHECK_ARGS=(--revision "$REV" --tree "$REPO")
+51 | [ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
+52 | [ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+   |                     ^
+53 | if [ -n "$RECEIPT_ONLY" ]; then
+54 |   LATEST="$RECEIPT_ONLY"
+   |
+
+scripts/run_main_gate.sh:52:47: SyntaxError: Expected ')', found string
+   |
+50 | CHECK_ARGS=(--revision "$REV" --tree "$REPO")
+51 | [ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
+52 | [ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+   |                                               ^
+53 | if [ -n "$RECEIPT_ONLY" ]; then
+54 |   LATEST="$RECEIPT_ONLY"
+   |
+
+scripts/run_main_gate.sh:52:58: SyntaxError: Expected a statement
+   |
+50 | CHECK_ARGS=(--revision "$REV" --tree "$REPO")
+51 | [ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
+52 | [ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+   |                                                          ^
+53 | if [ -n "$RECEIPT_ONLY" ]; then
+54 |   LATEST="$RECEIPT_ONLY"
+   |
+
+scripts/run_main_gate.sh:52:59: SyntaxError: Expected a statement
+   |
+50 | CHECK_ARGS=(--revision "$REV" --tree "$REPO")
+51 | [ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
+52 | [ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+   |                                                           ^
+53 | if [ -n "$RECEIPT_ONLY" ]; then
+54 |   LATEST="$RECEIPT_ONLY"
+55 | else
+   |
+
+scripts/run_main_gate.sh:53:9: SyntaxError: Expected ',', found string
+   |
+51 | [ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
+52 | [ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+53 | if [ -n "$RECEIPT_ONLY" ]; then
+   |         ^
+54 |   LATEST="$RECEIPT_ONLY"
+55 | else
+   |
+
+scripts/run_main_gate.sh:53:26: SyntaxError: Expected ':', found ';'
+   |
+51 | [ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
+52 | [ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+53 | if [ -n "$RECEIPT_ONLY" ]; then
+   |                          ^
+54 |   LATEST="$RECEIPT_ONLY"
+55 | else
+   |
+
+scripts/run_main_gate.sh:53:26: E702 Multiple statements on one line (semicolon)
+   |
+51 | [ "$ALLOW_DIRTY" = "1" ] && CHECK_ARGS+=(--allow-dirty)
+52 | [ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+53 | if [ -n "$RECEIPT_ONLY" ]; then
+   |                          ^ E702
+54 |   LATEST="$RECEIPT_ONLY"
+55 | else
+   |
+
+scripts/run_main_gate.sh:54:1: SyntaxError: Unexpected indentation
+   |
+52 | [ -n "$BASELINE" ] && CHECK_ARGS+=(--baseline "$BASELINE")
+53 | if [ -n "$RECEIPT_ONLY" ]; then
+54 |   LATEST="$RECEIPT_ONLY"
+   | ^
+55 | else
+56 |   RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
+   |
+
+scripts/run_main_gate.sh:55:1: SyntaxError: Expected a statement
+   |
+53 | if [ -n "$RECEIPT_ONLY" ]; then
+54 |   LATEST="$RECEIPT_ONLY"
+55 | else
+   | ^
+56 |   RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
+57 |   mkdir -p "$RECEIPT_DIR" || exit 4
+   |
+
+scripts/run_main_gate.sh:55:5: SyntaxError: Expected a statement
+   |
+53 | if [ -n "$RECEIPT_ONLY" ]; then
+54 |   LATEST="$RECEIPT_ONLY"
+55 | else
+   |     ^
+56 |   RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
+57 |   mkdir -p "$RECEIPT_DIR" || exit 4
+58 |   RECEIPT_DIR="$(cd "$RECEIPT_DIR" && pwd)" || exit 4
+   |
+
+scripts/run_main_gate.sh:56:1: SyntaxError: Unexpected indentation
+   |
+54 |   LATEST="$RECEIPT_ONLY"
+55 | else
+56 |   RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
+   | ^
+57 |   mkdir -p "$RECEIPT_DIR" || exit 4
+58 |   RECEIPT_DIR="$(cd "$RECEIPT_DIR" && pwd)" || exit 4
+   |
+
+scripts/run_main_gate.sh:57:12: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+55 | else
+56 |   RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
+57 |   mkdir -p "$RECEIPT_DIR" || exit 4
+   |            ^
+58 |   RECEIPT_DIR="$(cd "$RECEIPT_DIR" && pwd)" || exit 4
+59 |   RUN_DIR="$(mktemp -d "$RECEIPT_DIR/gate-XXXXXXXX")" || exit 4
+   |
+
+scripts/run_main_gate.sh:57:28: SyntaxError: Expected an expression
+   |
+55 | else
+56 |   RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
+57 |   mkdir -p "$RECEIPT_DIR" || exit 4
+   |                            ^
+58 |   RECEIPT_DIR="$(cd "$RECEIPT_DIR" && pwd)" || exit 4
+59 |   RUN_DIR="$(mktemp -d "$RECEIPT_DIR/gate-XXXXXXXX")" || exit 4
+   |
+
+scripts/run_main_gate.sh:57:35: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+55 | else
+56 |   RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
+57 |   mkdir -p "$RECEIPT_DIR" || exit 4
+   |                                   ^
+58 |   RECEIPT_DIR="$(cd "$RECEIPT_DIR" && pwd)" || exit 4
+59 |   RUN_DIR="$(mktemp -d "$RECEIPT_DIR/gate-XXXXXXXX")" || exit 4
+   |
+
+scripts/run_main_gate.sh:58:22: SyntaxError: Got unexpected token $
+   |
+56 |   RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
+57 |   mkdir -p "$RECEIPT_DIR" || exit 4
+58 |   RECEIPT_DIR="$(cd "$RECEIPT_DIR" && pwd)" || exit 4
+   |                      ^
+59 |   RUN_DIR="$(mktemp -d "$RECEIPT_DIR/gate-XXXXXXXX")" || exit 4
+60 |   LATEST="$RUN_DIR/pytest.json"
+   |
+
+scripts/run_main_gate.sh:58:34: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+56 |   RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
+57 |   mkdir -p "$RECEIPT_DIR" || exit 4
+58 |   RECEIPT_DIR="$(cd "$RECEIPT_DIR" && pwd)" || exit 4
+   |                                  ^
+59 |   RUN_DIR="$(mktemp -d "$RECEIPT_DIR/gate-XXXXXXXX")" || exit 4
+60 |   LATEST="$RUN_DIR/pytest.json"
+   |
+
+scripts/run_main_gate.sh:58:46: SyntaxError: Expected an expression
+   |
+56 |   RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
+57 |   mkdir -p "$RECEIPT_DIR" || exit 4
+58 |   RECEIPT_DIR="$(cd "$RECEIPT_DIR" && pwd)" || exit 4
+   |                                              ^
+59 |   RUN_DIR="$(mktemp -d "$RECEIPT_DIR/gate-XXXXXXXX")" || exit 4
+60 |   LATEST="$RUN_DIR/pytest.json"
+   |
+
+scripts/run_main_gate.sh:58:53: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+56 |   RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
+57 |   mkdir -p "$RECEIPT_DIR" || exit 4
+58 |   RECEIPT_DIR="$(cd "$RECEIPT_DIR" && pwd)" || exit 4
+   |                                                     ^
+59 |   RUN_DIR="$(mktemp -d "$RECEIPT_DIR/gate-XXXXXXXX")" || exit 4
+60 |   LATEST="$RUN_DIR/pytest.json"
+   |
+
+scripts/run_main_gate.sh:59:25: SyntaxError: Got unexpected token $
+   |
+57 |   mkdir -p "$RECEIPT_DIR" || exit 4
+58 |   RECEIPT_DIR="$(cd "$RECEIPT_DIR" && pwd)" || exit 4
+59 |   RUN_DIR="$(mktemp -d "$RECEIPT_DIR/gate-XXXXXXXX")" || exit 4
+   |                         ^
+60 |   LATEST="$RUN_DIR/pytest.json"
+61 |   echo "== gate @ ${REV:0:12} tree=${REPO} py=${PY} receipt=${LATEST}"
+   |
+
+scripts/run_main_gate.sh:59:51: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+57 |   mkdir -p "$RECEIPT_DIR" || exit 4
+58 |   RECEIPT_DIR="$(cd "$RECEIPT_DIR" && pwd)" || exit 4
+59 |   RUN_DIR="$(mktemp -d "$RECEIPT_DIR/gate-XXXXXXXX")" || exit 4
+   |                                                   ^
+60 |   LATEST="$RUN_DIR/pytest.json"
+61 |   echo "== gate @ ${REV:0:12} tree=${REPO} py=${PY} receipt=${LATEST}"
+   |
+
+scripts/run_main_gate.sh:59:56: SyntaxError: Expected an expression
+   |
+57 |   mkdir -p "$RECEIPT_DIR" || exit 4
+58 |   RECEIPT_DIR="$(cd "$RECEIPT_DIR" && pwd)" || exit 4
+59 |   RUN_DIR="$(mktemp -d "$RECEIPT_DIR/gate-XXXXXXXX")" || exit 4
+   |                                                        ^
+60 |   LATEST="$RUN_DIR/pytest.json"
+61 |   echo "== gate @ ${REV:0:12} tree=${REPO} py=${PY} receipt=${LATEST}"
+   |
+
+scripts/run_main_gate.sh:59:63: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+57 |   mkdir -p "$RECEIPT_DIR" || exit 4
+58 |   RECEIPT_DIR="$(cd "$RECEIPT_DIR" && pwd)" || exit 4
+59 |   RUN_DIR="$(mktemp -d "$RECEIPT_DIR/gate-XXXXXXXX")" || exit 4
+   |                                                               ^
+60 |   LATEST="$RUN_DIR/pytest.json"
+61 |   echo "== gate @ ${REV:0:12} tree=${REPO} py=${PY} receipt=${LATEST}"
+   |
+
+scripts/run_main_gate.sh:61:8: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+59 |   RUN_DIR="$(mktemp -d "$RECEIPT_DIR/gate-XXXXXXXX")" || exit 4
+60 |   LATEST="$RUN_DIR/pytest.json"
+61 |   echo "== gate @ ${REV:0:12} tree=${REPO} py=${PY} receipt=${LATEST}"
+   |        ^
+62 |   echo "== ruff check ."
+63 |   if ! "$PY" -m ruff check . ; then
+   |
+
+scripts/run_main_gate.sh:62:8: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+60 |   LATEST="$RUN_DIR/pytest.json"
+61 |   echo "== gate @ ${REV:0:12} tree=${REPO} py=${PY} receipt=${LATEST}"
+62 |   echo "== ruff check ."
+   |        ^
+63 |   if ! "$PY" -m ruff check . ; then
+64 |     echo "ruff 红，停。" >&2
+   |
+
+scripts/run_main_gate.sh:63:6: SyntaxError: Expected an expression
+   |
+61 |   echo "== gate @ ${REV:0:12} tree=${REPO} py=${PY} receipt=${LATEST}"
+62 |   echo "== ruff check ."
+63 |   if ! "$PY" -m ruff check . ; then
+   |      ^
+64 |     echo "ruff 红，停。" >&2
+65 |     exit 1
+   |
+
+scripts/run_main_gate.sh:63:17: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+61 |   echo "== gate @ ${REV:0:12} tree=${REPO} py=${PY} receipt=${LATEST}"
+62 |   echo "== ruff check ."
+63 |   if ! "$PY" -m ruff check . ; then
+   |                 ^
+64 |     echo "ruff 红，停。" >&2
+65 |     exit 1
+   |
+
+scripts/run_main_gate.sh:63:22: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+61 |   echo "== gate @ ${REV:0:12} tree=${REPO} py=${PY} receipt=${LATEST}"
+62 |   echo "== ruff check ."
+63 |   if ! "$PY" -m ruff check . ; then
+   |                      ^
+64 |     echo "ruff 红，停。" >&2
+65 |     exit 1
+   |
+
+scripts/run_main_gate.sh:63:30: SyntaxError: Expected an identifier
+   |
+61 |   echo "== gate @ ${REV:0:12} tree=${REPO} py=${PY} receipt=${LATEST}"
+62 |   echo "== ruff check ."
+63 |   if ! "$PY" -m ruff check . ; then
+   |                              ^
+64 |     echo "ruff 红，停。" >&2
+65 |     exit 1
+   |
+
+scripts/run_main_gate.sh:63:30: E702 Multiple statements on one line (semicolon)
+   |
+61 |   echo "== gate @ ${REV:0:12} tree=${REPO} py=${PY} receipt=${LATEST}"
+62 |   echo "== ruff check ."
+63 |   if ! "$PY" -m ruff check . ; then
+   |                              ^ E702
+64 |     echo "ruff 红，停。" >&2
+65 |     exit 1
+   |
+
+scripts/run_main_gate.sh:64:1: SyntaxError: Unexpected indentation
+   |
+62 |   echo "== ruff check ."
+63 |   if ! "$PY" -m ruff check . ; then
+64 |     echo "ruff 红，停。" >&2
+   | ^
+65 |     exit 1
+66 |   fi
+   |
+
+scripts/run_main_gate.sh:64:10: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+62 |   echo "== ruff check ."
+63 |   if ! "$PY" -m ruff check . ; then
+64 |     echo "ruff 红，停。" >&2
+   |          ^
+65 |     exit 1
+66 |   fi
+   |
+
+scripts/run_main_gate.sh:64:23: SyntaxError: Expected an expression
+   |
+62 |   echo "== ruff check ."
+63 |   if ! "$PY" -m ruff check . ; then
+64 |     echo "ruff 红，停。" >&2
+   |                           ^
+65 |     exit 1
+66 |   fi
+   |
+
+scripts/run_main_gate.sh:65:10: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+63 |   if ! "$PY" -m ruff check . ; then
+64 |     echo "ruff 红，停。" >&2
+65 |     exit 1
+   |          ^
+66 |   fi
+67 |   echo "== pytest ${PYTEST_ARGS}"
+   |
+
+scripts/run_main_gate.sh:66:3: SyntaxError: Expected a statement
+   |
+64 |     echo "ruff 红，停。" >&2
+65 |     exit 1
+66 |   fi
+   |   ^
+67 |   echo "== pytest ${PYTEST_ARGS}"
+68 |   # Preserve the existing whitespace-separated --pytest-args contract; never eval it.
+   |
+
+scripts/run_main_gate.sh:67:8: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+65 |     exit 1
+66 |   fi
+67 |   echo "== pytest ${PYTEST_ARGS}"
+   |        ^
+68 |   # Preserve the existing whitespace-separated --pytest-args contract; never eval it.
+69 |   # shellcheck disable=SC2086
+   |
+
+scripts/run_main_gate.sh:70:39: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+68 |   # Preserve the existing whitespace-separated --pytest-args contract; never eval it.
+69 |   # shellcheck disable=SC2086
+70 |   FWP_TEST_RECEIPT_DIR="$RECEIPT_DIR" FWP_TEST_RECEIPT_PATH="$LATEST" \
+   |                                       ^
+71 |     FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
+72 |   PYTEST_EXIT="${PIPESTATUS[0]}"
+   |
+
+scripts/run_main_gate.sh:71:5: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+69 |   # shellcheck disable=SC2086
+70 |   FWP_TEST_RECEIPT_DIR="$RECEIPT_DIR" FWP_TEST_RECEIPT_PATH="$LATEST" \
+71 |     FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
+   |     ^
+72 |   PYTEST_EXIT="${PIPESTATUS[0]}"
+73 |   CHECK_ARGS+=(--pytest-exit "$PYTEST_EXIT")
+   |
+
+scripts/run_main_gate.sh:71:44: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+69 |   # shellcheck disable=SC2086
+70 |   FWP_TEST_RECEIPT_DIR="$RECEIPT_DIR" FWP_TEST_RECEIPT_PATH="$LATEST" \
+71 |     FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
+   |                                            ^
+72 |   PYTEST_EXIT="${PIPESTATUS[0]}"
+73 |   CHECK_ARGS+=(--pytest-exit "$PYTEST_EXIT")
+   |
+
+scripts/run_main_gate.sh:71:51: SyntaxError: Got unexpected token $
+   |
+69 |   # shellcheck disable=SC2086
+70 |   FWP_TEST_RECEIPT_DIR="$RECEIPT_DIR" FWP_TEST_RECEIPT_PATH="$LATEST" \
+71 |     FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
+   |                                                   ^
+72 |   PYTEST_EXIT="${PIPESTATUS[0]}"
+73 |   CHECK_ARGS+=(--pytest-exit "$PYTEST_EXIT")
+   |
+
+scripts/run_main_gate.sh:71:64: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+69 |   # shellcheck disable=SC2086
+70 |   FWP_TEST_RECEIPT_DIR="$RECEIPT_DIR" FWP_TEST_RECEIPT_PATH="$LATEST" \
+71 |     FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
+   |                                                                ^
+72 |   PYTEST_EXIT="${PIPESTATUS[0]}"
+73 |   CHECK_ARGS+=(--pytest-exit "$PYTEST_EXIT")
+   |
+
+scripts/run_main_gate.sh:71:66: SyntaxError: Expected an expression
+   |
+69 |   # shellcheck disable=SC2086
+70 |   FWP_TEST_RECEIPT_DIR="$RECEIPT_DIR" FWP_TEST_RECEIPT_PATH="$LATEST" \
+71 |     FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
+   |                                                                  ^
+72 |   PYTEST_EXIT="${PIPESTATUS[0]}"
+73 |   CHECK_ARGS+=(--pytest-exit "$PYTEST_EXIT")
+   |
+
+scripts/run_main_gate.sh:73:30: SyntaxError: Expected ')', found string
+   |
+71 |     FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
+72 |   PYTEST_EXIT="${PIPESTATUS[0]}"
+73 |   CHECK_ARGS+=(--pytest-exit "$PYTEST_EXIT")
+   |                              ^
+74 | fi
+75 | AFTER_REV="$(git rev-parse HEAD)" || exit 4
+   |
+
+scripts/run_main_gate.sh:73:44: SyntaxError: Expected a statement
+   |
+71 |     FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
+72 |   PYTEST_EXIT="${PIPESTATUS[0]}"
+73 |   CHECK_ARGS+=(--pytest-exit "$PYTEST_EXIT")
+   |                                            ^
+74 | fi
+75 | AFTER_REV="$(git rev-parse HEAD)" || exit 4
+   |
+
+scripts/run_main_gate.sh:73:45: SyntaxError: Expected a statement
+   |
+71 |     FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
+72 |   PYTEST_EXIT="${PIPESTATUS[0]}"
+73 |   CHECK_ARGS+=(--pytest-exit "$PYTEST_EXIT")
+   |                                             ^
+74 | fi
+75 | AFTER_REV="$(git rev-parse HEAD)" || exit 4
+76 | AFTER_STATUS="$(git status --porcelain)" || exit 4
+   |
+
+scripts/run_main_gate.sh:74:1: SyntaxError: Expected a statement
+   |
+72 |   PYTEST_EXIT="${PIPESTATUS[0]}"
+73 |   CHECK_ARGS+=(--pytest-exit "$PYTEST_EXIT")
+74 | fi
+   | ^
+75 | AFTER_REV="$(git rev-parse HEAD)" || exit 4
+76 | AFTER_STATUS="$(git status --porcelain)" || exit 4
+   |
+
+scripts/run_main_gate.sh:75:36: SyntaxError: Expected an expression
+   |
+73 |   CHECK_ARGS+=(--pytest-exit "$PYTEST_EXIT")
+74 | fi
+75 | AFTER_REV="$(git rev-parse HEAD)" || exit 4
+   |                                    ^
+76 | AFTER_STATUS="$(git status --porcelain)" || exit 4
+77 | if [ "$REV" != "$AFTER_REV" ] || { [ "$ALLOW_DIRTY" != "1" ] && [ -n "$AFTER_STATUS" ]; }; then
+   |
+
+scripts/run_main_gate.sh:75:43: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+73 |   CHECK_ARGS+=(--pytest-exit "$PYTEST_EXIT")
+74 | fi
+75 | AFTER_REV="$(git rev-parse HEAD)" || exit 4
+   |                                           ^
+76 | AFTER_STATUS="$(git status --porcelain)" || exit 4
+77 | if [ "$REV" != "$AFTER_REV" ] || { [ "$ALLOW_DIRTY" != "1" ] && [ -n "$AFTER_STATUS" ]; }; then
+   |
+
+scripts/run_main_gate.sh:76:43: SyntaxError: Expected an expression
+   |
+74 | fi
+75 | AFTER_REV="$(git rev-parse HEAD)" || exit 4
+76 | AFTER_STATUS="$(git status --porcelain)" || exit 4
+   |                                           ^
+77 | if [ "$REV" != "$AFTER_REV" ] || { [ "$ALLOW_DIRTY" != "1" ] && [ -n "$AFTER_STATUS" ]; }; then
+78 |   echo "测试期间提交或干净状态改变，收据不可采信。" >&2
+   |
+
+scripts/run_main_gate.sh:76:50: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+74 | fi
+75 | AFTER_REV="$(git rev-parse HEAD)" || exit 4
+76 | AFTER_STATUS="$(git status --porcelain)" || exit 4
+   |                                                  ^
+77 | if [ "$REV" != "$AFTER_REV" ] || { [ "$ALLOW_DIRTY" != "1" ] && [ -n "$AFTER_STATUS" ]; }; then
+78 |   echo "测试期间提交或干净状态改变，收据不可采信。" >&2
+   |
+
+scripts/run_main_gate.sh:77:32: SyntaxError: Expected an expression
+   |
+75 | AFTER_REV="$(git rev-parse HEAD)" || exit 4
+76 | AFTER_STATUS="$(git status --porcelain)" || exit 4
+77 | if [ "$REV" != "$AFTER_REV" ] || { [ "$ALLOW_DIRTY" != "1" ] && [ -n "$AFTER_STATUS" ]; }; then
+   |                                ^
+78 |   echo "测试期间提交或干净状态改变，收据不可采信。" >&2
+79 |   exit 4
+   |
+
+scripts/run_main_gate.sh:77:63: SyntaxError: Expected an expression
+   |
+75 | AFTER_REV="$(git rev-parse HEAD)" || exit 4
+76 | AFTER_STATUS="$(git status --porcelain)" || exit 4
+77 | if [ "$REV" != "$AFTER_REV" ] || { [ "$ALLOW_DIRTY" != "1" ] && [ -n "$AFTER_STATUS" ]; }; then
+   |                                                               ^
+78 |   echo "测试期间提交或干净状态改变，收据不可采信。" >&2
+79 |   exit 4
+   |
+
+scripts/run_main_gate.sh:77:70: SyntaxError: Expected ',', found string
+   |
+75 | AFTER_REV="$(git rev-parse HEAD)" || exit 4
+76 | AFTER_STATUS="$(git status --porcelain)" || exit 4
+77 | if [ "$REV" != "$AFTER_REV" ] || { [ "$ALLOW_DIRTY" != "1" ] && [ -n "$AFTER_STATUS" ]; }; then
+   |                                                                      ^
+78 |   echo "测试期间提交或干净状态改变，收据不可采信。" >&2
+79 |   exit 4
+   |
+
+scripts/run_main_gate.sh:77:87: SyntaxError: Expected an expression or a '}'
+   |
+75 | AFTER_REV="$(git rev-parse HEAD)" || exit 4
+76 | AFTER_STATUS="$(git status --porcelain)" || exit 4
+77 | if [ "$REV" != "$AFTER_REV" ] || { [ "$ALLOW_DIRTY" != "1" ] && [ -n "$AFTER_STATUS" ]; }; then
+   |                                                                                       ^
+78 |   echo "测试期间提交或干净状态改变，收据不可采信。" >&2
+79 |   exit 4
+   |
+
+scripts/run_main_gate.sh:77:90: SyntaxError: Expected ':', found ';'
+   |
+75 | AFTER_REV="$(git rev-parse HEAD)" || exit 4
+76 | AFTER_STATUS="$(git status --porcelain)" || exit 4
+77 | if [ "$REV" != "$AFTER_REV" ] || { [ "$ALLOW_DIRTY" != "1" ] && [ -n "$AFTER_STATUS" ]; }; then
+   |                                                                                          ^
+78 |   echo "测试期间提交或干净状态改变，收据不可采信。" >&2
+79 |   exit 4
+   |
+
+scripts/run_main_gate.sh:77:90: E702 Multiple statements on one line (semicolon)
+   |
+75 | AFTER_REV="$(git rev-parse HEAD)" || exit 4
+76 | AFTER_STATUS="$(git status --porcelain)" || exit 4
+77 | if [ "$REV" != "$AFTER_REV" ] || { [ "$ALLOW_DIRTY" != "1" ] && [ -n "$AFTER_STATUS" ]; }; then
+   |                                                                                          ^ E702
+78 |   echo "测试期间提交或干净状态改变，收据不可采信。" >&2
+79 |   exit 4
+   |
+
+scripts/run_main_gate.sh:78:1: SyntaxError: Unexpected indentation
+   |
+76 | AFTER_STATUS="$(git status --porcelain)" || exit 4
+77 | if [ "$REV" != "$AFTER_REV" ] || { [ "$ALLOW_DIRTY" != "1" ] && [ -n "$AFTER_STATUS" ]; }; then
+78 |   echo "测试期间提交或干净状态改变，收据不可采信。" >&2
+   | ^
+79 |   exit 4
+80 | fi
+   |
+
+scripts/run_main_gate.sh:78:8: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+76 | AFTER_STATUS="$(git status --porcelain)" || exit 4
+77 | if [ "$REV" != "$AFTER_REV" ] || { [ "$ALLOW_DIRTY" != "1" ] && [ -n "$AFTER_STATUS" ]; }; then
+78 |   echo "测试期间提交或干净状态改变，收据不可采信。" >&2
+   |        ^
+79 |   exit 4
+80 | fi
+   |
+
+scripts/run_main_gate.sh:78:33: SyntaxError: Expected an expression
+   |
+76 | AFTER_STATUS="$(git status --porcelain)" || exit 4
+77 | if [ "$REV" != "$AFTER_REV" ] || { [ "$ALLOW_DIRTY" != "1" ] && [ -n "$AFTER_STATUS" ]; }; then
+78 |   echo "测试期间提交或干净状态改变，收据不可采信。" >&2
+   |                                                      ^
+79 |   exit 4
+80 | fi
+   |
+
+scripts/run_main_gate.sh:79:8: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+77 | if [ "$REV" != "$AFTER_REV" ] || { [ "$ALLOW_DIRTY" != "1" ] && [ -n "$AFTER_STATUS" ]; }; then
+78 |   echo "测试期间提交或干净状态改变，收据不可采信。" >&2
+79 |   exit 4
+   |        ^
+80 | fi
+81 | if [ ! -f "$LATEST" ]; then
+   |
+
+scripts/run_main_gate.sh:80:1: SyntaxError: Expected a statement
+   |
+78 |   echo "测试期间提交或干净状态改变，收据不可采信。" >&2
+79 |   exit 4
+80 | fi
+   | ^
+81 | if [ ! -f "$LATEST" ]; then
+82 |   echo "没找到本轮收据 ${LATEST}（pytest 收据未写出；不会回退 latest.json）" >&2
+   |
+
+scripts/run_main_gate.sh:81:6: SyntaxError: Expected an expression
+   |
+79 |   exit 4
+80 | fi
+81 | if [ ! -f "$LATEST" ]; then
+   |      ^
+82 |   echo "没找到本轮收据 ${LATEST}（pytest 收据未写出；不会回退 latest.json）" >&2
+83 |   exit 4
+   |
+
+scripts/run_main_gate.sh:81:11: SyntaxError: Expected ',', found string
+   |
+79 |   exit 4
+80 | fi
+81 | if [ ! -f "$LATEST" ]; then
+   |           ^
+82 |   echo "没找到本轮收据 ${LATEST}（pytest 收据未写出；不会回退 latest.json）" >&2
+83 |   exit 4
+   |
+
+scripts/run_main_gate.sh:81:22: SyntaxError: Expected ':', found ';'
+   |
+79 |   exit 4
+80 | fi
+81 | if [ ! -f "$LATEST" ]; then
+   |                      ^
+82 |   echo "没找到本轮收据 ${LATEST}（pytest 收据未写出；不会回退 latest.json）" >&2
+83 |   exit 4
+   |
+
+scripts/run_main_gate.sh:81:22: E702 Multiple statements on one line (semicolon)
+   |
+79 |   exit 4
+80 | fi
+81 | if [ ! -f "$LATEST" ]; then
+   |                      ^ E702
+82 |   echo "没找到本轮收据 ${LATEST}（pytest 收据未写出；不会回退 latest.json）" >&2
+83 |   exit 4
+   |
+
+scripts/run_main_gate.sh:82:1: SyntaxError: Unexpected indentation
+   |
+80 | fi
+81 | if [ ! -f "$LATEST" ]; then
+82 |   echo "没找到本轮收据 ${LATEST}（pytest 收据未写出；不会回退 latest.json）" >&2
+   | ^
+83 |   exit 4
+84 | fi
+   |
+
+scripts/run_main_gate.sh:82:8: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+80 | fi
+81 | if [ ! -f "$LATEST" ]; then
+82 |   echo "没找到本轮收据 ${LATEST}（pytest 收据未写出；不会回退 latest.json）" >&2
+   |        ^
+83 |   exit 4
+84 | fi
+   |
+
+scripts/run_main_gate.sh:82:60: SyntaxError: Expected an expression
+   |
+80 | fi
+81 | if [ ! -f "$LATEST" ]; then
+82 |   echo "没找到本轮收据 ${LATEST}（pytest 收据未写出；不会回退 latest.json）" >&2
+   |                                                                               ^
+83 |   exit 4
+84 | fi
+   |
+
+scripts/run_main_gate.sh:83:8: SyntaxError: Simple statements must be separated by newlines or semicolons
+   |
+81 | if [ ! -f "$LATEST" ]; then
+82 |   echo "没找到本轮收据 ${LATEST}（pytest 收据未写出；不会回退 latest.json）" >&2
+83 |   exit 4
+   |        ^
+84 | fi
+85 | "$PY" "$GATE_DIR/main_gate_receipt.py" "$LATEST" "${CHECK_ARGS[@]}"
+   |
+
+scripts/run_main_gate.sh:84:1: SyntaxError: Expected a statement
+   |
+82 |   echo "没找到本轮收据 ${LATEST}（pytest 收据未写出；不会回退 latest.json）" >&2
+83 |   exit 4
+84 | fi
+   | ^
+85 | "$PY" "$GATE_DIR/main_gate_receipt.py" "$LATEST" "${CHECK_ARGS[@]}"
+   |
+
+Found 197 errors.

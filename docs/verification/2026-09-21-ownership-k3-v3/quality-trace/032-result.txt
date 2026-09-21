@@ -1,0 +1,4 @@
+B5a rc=4
+mktemp: mkdtemp failed on /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/readonly-root/gate-AJq0Jfe6: Permission denied
+B6a rc=4
+B6b rc=4

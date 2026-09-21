@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_b_board.py", line 39, in <module>
+    main_repo = init_repo(OUT / "repo-b" / "main")
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_b_board.py", line 35, in init_repo
+    git(path, "commit", "-qm", "base")
+  File "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_b_board.py", line 23, in git
+    raise RuntimeError(f"{args}: {r.stderr}")
+RuntimeError: ('commit', '-qm', 'base'): 

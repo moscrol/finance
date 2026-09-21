@@ -1,0 +1,169 @@
+"""Finite K3 review using the previously tested subscription bootstrap unchanged.
+
+Reserves an axis once, never retries or falls back. Request admissions occur in
+credential-bootstrap before dispatch. Output identity/status is evidence, NOT a
+review verdict. No financial cap is claimed for subscription usage estimates.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+AXIS = sys.argv[1]
+assert AXIS in {"spec", "quality"}
+REV = "47530e20fe5c3195e50ce429b31898d57918e413"
+TREE = Path.home() / f"fwp-wt-ownership-{AXIS}-v3-0921"
+AUTHOR = Path.home() / "fwp-wt-ownership-gates-v3-0921"
+OUT = ROOT / f"{AXIS}-k3"
+PROMPT = ROOT / f"{AXIS}-prompt.md"
+DEADLINE_SECONDS = 1200
+LIMIT = 40
+WATCHED = ["conftest.py", "scripts/main_gate_receipt.py", "scripts/run_main_gate.sh",
+           "scripts/worktree_board.py", "market_feature_store/cli.py",
+           "market_feature_store/sync/repair_backfill_stock_history.py",
+           "scripts/verify_302132_backfill_acceptance.py", "tests/test_main_gate_receipt.py",
+           "tests/test_worktree_board.py", "tests/test_repair_backfill_stock_history.py"]
+os.umask(0o022)
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def git(tree, *args):
+    return subprocess.run(["git", "-C", str(tree), *args], capture_output=True,
+                          text=True, check=True, timeout=20).stdout.rstrip("\n")
+
+
+def identity():
+    files = [Path(__file__), PROMPT, ROOT / "review-common.md", ROOT / "authorization.json",
+             ROOT / "credential-bootstrap.mjs", ROOT / "provider-template.json",
+             ROOT / "pi-config/settings.json", ROOT / "pi-config/models.json",
+             ROOT / "pi-config/auth.json", ROOT / "candidate.diff",
+             ROOT / "backfill-prep-contract.md", ROOT / "backfill-execution-contract.md"]
+    return {"tree": str(TREE), "revision": git(TREE, "rev-parse", "HEAD"),
+            "status": git(TREE, "status", "--porcelain=v1", "--untracked-files=all"),
+            "candidate_files": {p: digest(TREE / p) for p in WATCHED},
+            "author": {"revision": git(AUTHOR, "rev-parse", "HEAD"),
+                       "status": git(AUTHOR, "status", "--porcelain=v1")},
+            "upstream_observed": git(TREE, "rev-parse", "gitea/main"),
+            "inputs_sha256": {str(p.relative_to(ROOT)): digest(p) for p in files}}
+
+
+before = identity()
+assert before["revision"] == REV and before["status"] == ""
+assert before["author"] == {"revision": REV, "status": ""}
+OUT.mkdir(exist_ok=False)
+(OUT / "tmp").mkdir()
+with (ROOT / f"{AXIS}-reservation.json").open("x") as stream:
+    json.dump({"axis": AXIS, "state": "RESERVED", "max_sessions": 1,
+               "max_requests": LIMIT, "deadline_seconds": DEADLINE_SECONDS,
+               "time": datetime.now(timezone.utc).isoformat()}, stream, indent=2)
+    stream.flush()
+    os.fsync(stream.fileno())
+command = ["/opt/homebrew/bin/pi", "--provider", "mirasim-kimi", "--model", "kimi-k3",
+           "--thinking", "xhigh", "--models", "mirasim-kimi/kimi-k3", "--no-session",
+           "--no-extensions", "-e", str(ROOT / "credential-bootstrap.mjs"),
+           "--no-skills", "--no-prompt-templates", "--no-context-files", "--no-themes",
+           "--no-approve", "--offline", "--tools", "read,bash,write,grep,find,ls",
+           "--mode", "json", "-p", "--", PROMPT.read_text()]
+env = {"HOME": str(Path.home()),
+       "PATH": "/opt/homebrew/bin:/Users/a77/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+       "TMPDIR": str(OUT / "tmp"), "LANG": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1",
+       "GIT_OPTIONAL_LOCKS": "0", "FWP_TEST_RECEIPT": "0",
+       "FWP_TEST_RECEIPT_DIR": str(OUT / "test-receipts"), "RUFF_CACHE_DIR": str(OUT / "ruff-cache"),
+       "PI_CODING_AGENT_DIR": str(ROOT / "pi-config"), "PI_OFFLINE": "1", "PI_TELEMETRY": "0",
+       "REVIEW_OUTPUT_DIR": str(OUT), "FORESIGHT_USERS_DIR": str(OUT / "users")}
+record = {"axis": AXIS, "revision": REV, "command": command[:-1] + ["<prompt file>"],
+          "prompt_sha256": digest(PROMPT), "identity_before": before,
+          "time_before": datetime.now(timezone.utc).isoformat(), "complete": False,
+          "timeout_seconds": DEADLINE_SECONDS, "max_provider_request_admissions": LIMIT,
+          "billing": "existing subscription; estimated cost is not an invoice",
+          "monetary_cap": None, "os_sandbox": False}
+path = OUT / "execution.json"
+path.write_text(json.dumps(record, indent=2) + "\n")
+started = time.monotonic()
+reason = None
+turns = 0
+buffer = b""
+with (OUT / "events.jsonl").open("xb") as stdout, (OUT / "stderr.log").open("xb") as stderr:
+    process = subprocess.Popen(command, cwd=TREE, env=env, stdin=subprocess.DEVNULL,
+                               stdout=stdout, stderr=stderr, start_new_session=True)
+    record["pid"] = process.pid
+    path.write_text(json.dumps(record, indent=2) + "\n")
+    with (OUT / "events.jsonl").open("rb") as stream:
+        while process.poll() is None:
+            buffer += stream.read()
+            lines = buffer.split(b"\n")
+            buffer = lines.pop()
+            for line in lines:
+                try:
+                    if json.loads(line).get("type") == "turn_start":
+                        turns += 1
+                except (ValueError, UnicodeError):
+                    pass
+            if time.monotonic() - started >= DEADLINE_SECONDS:
+                reason = "deadline"
+            elif turns > LIMIT:
+                reason = "turn_watchdog"
+            if reason:
+                try:
+                    os.killpg(process.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.wait()
+                break
+            time.sleep(0.25)
+    process.wait()
+record.update(complete=True, exit_code=process.returncode, stop_reason=reason,
+              elapsed_seconds=round(time.monotonic() - started, 3),
+              time_after=datetime.now(timezone.utc).isoformat())
+try:
+    after = identity()
+    record.update(identity_after=after,
+                  candidate_untouched=all(before[k] == after[k] for k in ("revision", "status", "candidate_files")),
+                  author_untouched=before["author"] == after["author"],
+                  inputs_unchanged=before["inputs_sha256"] == after["inputs_sha256"],
+                  upstream_unchanged=before["upstream_observed"] == after["upstream_observed"])
+except Exception as exc:
+    record.update(identity_error=str(exc), candidate_untouched=False, inputs_unchanged=False)
+messages = []
+types = {}
+for line in (OUT / "events.jsonl").read_bytes().split(b"\n"):
+    if not line:
+        continue
+    try:
+        event = json.loads(line)
+    except (ValueError, UnicodeError):
+        types["invalid_json_line"] = types.get("invalid_json_line", 0) + 1
+        continue
+    kind = event.get("type", "unknown")
+    types[kind] = types.get(kind, 0) + 1
+    message = event.get("message", {})
+    if kind == "message_end" and message.get("role") == "assistant":
+        messages.append(message)
+record["event_counts"] = types
+record["assistant_messages"] = len(messages)
+record["model_identities"] = sorted({str(m.get("provider")) + "/" + str(m.get("model")) for m in messages})
+record["model_errors"] = [m.get("errorMessage", m.get("stopReason")) for m in messages if m.get("stopReason") in {"error", "aborted"}]
+record["usage"] = {k: sum(m.get("usage", {}).get(k, 0) or 0 for m in messages)
+                   for k in ("input", "output", "cacheRead", "cacheWrite", "totalTokens")}
+record["estimated_cost_not_invoice"] = sum(m.get("usage", {}).get("cost", {}).get("total", 0) or 0 for m in messages)
+admissions = OUT / "request-admissions.jsonl"
+rows = [json.loads(line) for line in admissions.read_text().splitlines()] if admissions.exists() else []
+record["provider_request_admissions"] = len(rows)
+record["admissions_valid"] = len(rows) <= LIMIT and [r["admission"] for r in rows] == list(range(1, len(rows) + 1))
+record["sha256"] = {name: digest(OUT / name) for name in (
+    "events.jsonl", "stderr.log", "REPORT.md", "verdict.json", "credential.json", "request-admissions.jsonl") if (OUT / name).is_file()}
+path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+print(json.dumps({k: record[k] for k in ("axis", "exit_code", "stop_reason", "candidate_untouched", "model_errors", "provider_request_admissions")}), flush=True)

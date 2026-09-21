@@ -1,0 +1,11 @@
+A7 rc=0 (expect 0)
+receipts 3 -> 4 (expect +1)
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-JkpmdPLn/pytest.json
+   revision=ad09e824e376 dirty=False target=test_nested.py
+   passed=1 failed=0 error=0 skipped=0
+ad09e82 nested2
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-JkpmdPLn/pytest.json
+   revision=ad09e824e376 dirty=False target=test_nested.py
+   passed=1 failed=0 error=0 skipped=0
+direct dirty receipt no-flag rc=0 (expect 4)
+CLEAN

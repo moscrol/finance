@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "bash_34_012b78ef",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "B9b rc=4\nrev_before=eae2c251 rev_after=4c684bf1\n1 passed in 0.40s\n测试期间提交或干净状态改变，收据不可采信。\n3ae1d7a fix drift test\n"
+      }
+    ]
+  },
+  "isError": false
+}

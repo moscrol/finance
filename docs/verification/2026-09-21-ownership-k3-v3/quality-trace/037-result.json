@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "tool_vO6QQ8anSIeKnfgYMBc4ownp",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "B5c pytest rc=0\n收据未写出（不影响测试结论）: [Errno 17] File exists: '/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/immut/pytest.json'\ncontent after: {\"sentinel\": \"do-not-overwrite\"}\nB5c control rc=0\ncontrol receipt written\nreceipt-only(dirty,no-allow) rc=4\nreceipt-only(allow-dirty) rc=0\n== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-BkBwp0u8/pytest.json\n   revision=756868a9b140 dirty=True target=tests/test_ok.py\n   passed=2 failed=0 error=0 skipped=0\n"
+      }
+    ]
+  },
+  "isError": false
+}

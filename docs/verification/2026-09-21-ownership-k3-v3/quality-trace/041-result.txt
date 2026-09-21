@@ -1,0 +1,20 @@
+json rc=0
+text rc=0
+base: main sha: 43a6207cdebc
+k3/fixtures/boardmain plus=  0 in_main=True  dirty=False kind=main-checkout err='' locked='' prunable=''
+dirty      plus=  0 in_main=True  dirty=True  kind=other        err='' locked='' prunable=''
+gone       plus= -1 in_main=False dirty=False kind=other        err='worktree unavailable or repository root misma' locked='' prunable='gitdir file points t'
+locked     plus=  1 in_main=False dirty=False kind=other        err='' locked='locked' prunable=''
+merged     plus=  0 in_main=True  dirty=False kind=other        err='' locked='' prunable=''
+树 5 棵 · 还有补丁 0 · 补丁已在基线的干净 dev 树 0 · 待核实 2
+
+【还有补丁 — 真没合】
+  （无）
+
+【补丁已在基线且 Git 干净 — 不是删除许可，本脚本不拆】
+  （无）
+--
+【待核实 — 查询失败、失效目录或锁定；不可据此拆树】
+  43a6207cdebc  (detached)  ~/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/boardmain-wt-gone
+      worktree unavailable or repository root mismatch; gitdir file points to non-existent location
+  4972ce7c90d7  wt-locked-branch  ~/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/boardmain-wt-locked

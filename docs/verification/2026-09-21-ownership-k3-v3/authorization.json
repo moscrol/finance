@@ -1,0 +1,15 @@
+{
+  "user_instruction": "用k3跑啊",
+  "candidate": "47530e20fe5c3195e50ce429b31898d57918e413",
+  "historical_base": "728f327160bbd2485cb635e7ef09d040d718d7b5",
+  "observed_current_main": "8aff6ebc3f0ea681a80179fbca8e1f39a815f103",
+  "scope": "One independent Spec then one independent Quality review. No fixes, merge, deployment, production database access, other paid fallback, purchase, or tree deletion.",
+  "provider": "mirasim-kimi",
+  "model": "kimi-k3",
+  "billing": "existing Plus subscription validated during credential bootstrap, no dollar cap or zero invoice claim",
+  "max_model_requests_per_axis": 40,
+  "deadline_seconds_per_axis": 1200,
+  "max_sessions_per_axis": 1,
+  "automatic_retry": false,
+  "time": "2026-09-21T03:55:03.184179+00:00"
+}

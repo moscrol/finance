@@ -1,0 +1,32 @@
+{
+  "axis": "quality",
+  "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+  "time": "2026-09-21T04:36:50.594250+00:00",
+  "semantic_qc_pending": true,
+  "exit_code": 75,
+  "stop_reason": null,
+  "model_errors": [],
+  "model_identities": [
+    "mirasim-kimi/kimi-k3"
+  ],
+  "request_admissions": 40,
+  "admissions_valid": true,
+  "tool_calls": 42,
+  "tool_failures": [],
+  "path_or_trace_violations": [],
+  "candidate_untouched": true,
+  "author_untouched": true,
+  "inputs_unchanged": true,
+  "upstream_unchanged": false,
+  "report_present": true,
+  "verdict_present": true,
+  "verdict": "BLOCKED",
+  "verdict_identity_matches": true,
+  "check_count_reported": 8,
+  "sha256": {
+    "execution.json": "0bf37f410abf104f47861c1ee15727045c64259b2bc733a9c04c1f9c3bd12fb0",
+    "events.jsonl": "1d00a680dcfceec8399f6de8b383898d463009347d653ecfc277cfcddd5656bc",
+    "REPORT.md": "4984feb8459985a074b77e266462700b6dedc103ee24ff941a6ea9524af01ab5",
+    "verdict.json": "216e628eb04f638227bbe828b095d792f0c7b3c86fc261aeec26b4d4471fb7b3"
+  }
+}

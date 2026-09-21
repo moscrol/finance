@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "bash_39",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "........................................................................ [ 79%]\n..................s                                                      [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/formal-receipts/20260921T041749Z-47530e20-2312ed82d8a6.json\n\n90 passed, 1 skipped in 100.50s (0:01:40)\n"
+      }
+    ]
+  },
+  "isError": false
+}

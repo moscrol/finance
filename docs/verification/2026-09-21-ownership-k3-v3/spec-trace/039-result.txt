@@ -1,0 +1,9 @@
+D1 good artifacts: rc= 0  verdict= PASS  n_checks= 37
+D2 other-stock tamper: rc= 2  failed= ['technical_protected_allcols']
+D3 retained-row tamper: rc= 2  failed= ['retained_rows_full_column_identical']
+D4a parent.rc string: rc= 2  schema_failed= ['receipt_apply_schema', 'receipt_verify_schema']
+D4b spec impossible date: rc= 2  failed= ['receipt_apply_schema', 'receipt_verify_schema', 'data_checks_executed']
+D4c child missing interpreter: rc= 2  failed= ['receipt_apply_schema', 'receipt_verify_schema', 'data_checks_executed']
+D5 output overwrite: rc= 1  refused= True  intact= True
+D6 wrong baseline sha: rc= 2  failed= ['production_sha256_before', 'receipt_apply_child_report_file', 'receipt_verify_child_report_file', 'backup_apply_matches_baseline', 'production_sha256_after']
+PROBE-D-DONE

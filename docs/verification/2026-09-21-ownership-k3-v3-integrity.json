@@ -1,0 +1,41 @@
+{
+  "time": "2026-09-21T04:56:26.943379+00:00",
+  "valid": true,
+  "archives": [
+    {
+      "name": "2026-09-21-ownership-followup",
+      "files": 30,
+      "bytes_hashes_sources_membership": true,
+      "historical_bytes_equal_head": true,
+      "split_sources_verified": 0
+    },
+    {
+      "name": "2026-09-21-ownership-recheck",
+      "files": 30,
+      "bytes_hashes_sources_membership": true,
+      "historical_bytes_equal_head": true,
+      "split_sources_verified": 0
+    },
+    {
+      "name": "2026-09-21-ownership-resume",
+      "files": 86,
+      "bytes_hashes_sources_membership": true,
+      "historical_bytes_equal_head": true,
+      "split_sources_verified": 0
+    },
+    {
+      "name": "2026-09-21-ownership-independent-v3",
+      "files": 26,
+      "bytes_hashes_sources_membership": true,
+      "historical_bytes_equal_head": true,
+      "split_sources_verified": 0
+    },
+    {
+      "name": "2026-09-21-ownership-k3-v3",
+      "files": 450,
+      "bytes_hashes_sources_membership": true,
+      "historical_bytes_equal_head": null,
+      "split_sources_verified": 2
+    }
+  ]
+}

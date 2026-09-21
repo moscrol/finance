@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+# K3 probe A2 (redo): correct fixture discipline. repo-a kept clean except intentional cases.
+set -uo pipefail
+OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes
+CHK=/Users/a77/fwp-wt-ownership-spec-v3-0921
+PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python
+LOG=$OUT/probe_a2_gate.log
+: > "$LOG"
+REPO=$OUT/repo-a
+cd "$REPO"
+git status --porcelain | tee -a "$LOG"   # must be empty now
+git log --oneline | head -3 >> "$LOG"
+
+run_gate() {
+  env -i HOME="$OUT/home" PATH="$PATH" FWP_TEST_RECEIPT_DIR="$OUT/receipts-a" \
+      FWP_TEST_RECEIPT=1 PYTHONDONTWRITEBYTECODE=1 "$@" 2>&1
+}
+note() { echo "=== $*" | tee -a "$LOG"; }
+
+note "A2r failing run -> rc1, readback keeps failure"
+cat > test_fail.py <<'EOF'
+def test_bad():
+    assert False
+EOF
+git add test_fail.py; git commit -qm add-fail
+run_gate bash "$CHK/scripts/run_main_gate.sh" --pytest-args "-q -p no:cacheprovider test_pass.py test_fail.py" >>"$LOG"
+echo "A2r exec rc=$? (expect 1)" | tee -a "$LOG"
+RCPT2=$(ls -t "$OUT"/receipts-a/gate-*/pytest.json | head -1)
+"$PY" -c "import json;d=json.load(open('$RCPT2'));print('A2r receipt exit=',d['exit_status'],'failed_ids=',d['failed_ids'])" | tee -a "$LOG"
+run_gate bash "$CHK/scripts/run_main_gate.sh" --receipt "$RCPT2" >>"$LOG"
+echo "A2r readback rc=$? (expect 1)" | tee -a "$LOG"
+git revert -q --no-edit HEAD >/dev/null 2>&1 || git rm -q test_fail.py
+git rm -q test_fail.py 2>/dev/null; git commit -qm clean >/dev/null 2>&1
+git status --porcelain | tee -a "$LOG"
+
+note "A3r identity mutations with correct cwd (must refuse with identity reason)"
+HEAD=$(git rev-parse HEAD)
+"$PY" - "$REPO" "$HEAD" "$OUT" <<'PYEOF'
+import json, subprocess, sys, copy
+repo, head, out = sys.argv[1], sys.argv[2], sys.argv[3]
+base = {"revision": head, "tree": repo, "interpreter": sys.executable,
+        "dirty": False, "worktree_dirty_total": 0, "dependency_gate_bypassed": False,
+        "target": "test_pass.py", "counts": {"passed": 1, "failed": 0, "error": 0, "skipped": 0},
+        "failed_ids": [], "exit_status": 0}
+muts = {
+  "wrong_revision": {"revision": "0"*40},
+  "revision_upper": {"revision": head.upper()},
+  "foreign_tree": {"tree": "/foreign/tree"},
+  "tree_none": {"tree": None},
+  "tree_int": {"tree": 123},
+  "tree_missing_key": {"tree": "__DELETE__"},
+  "dirty_true": {"dirty": True},
+  "dirty_missing": {"dirty": "__DELETE__"},
+  "dirty_total_1": {"worktree_dirty_total": 1},
+  "dirty_total_missing": {"worktree_dirty_total": "__DELETE__"},
+  "target_int": {"target": 7},
+}
+env = {"HOME": out+"/home", "PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
+       "FWP_TEST_RECEIPT_DIR": out+"/receipts-a"}
+G = "/Users/a77/fwp-wt-ownership-spec-v3-0921/scripts/run_main_gate.sh"
+for name, m in muts.items():
+    d = copy.deepcopy(base)
+    for k, v in m.items():
+        if v == "__DELETE__": d.pop(k, None)
+        else: d[k] = v
+    p = f"{out}/mut2-{name}.json"; json.dump(d, open(p, "w"))
+    r = subprocess.run(["bash", G, "--receipt", p], cwd=repo, capture_output=True, text=True, env=env)
+    verdict = "OK-REFUSED" if r.returncode != 0 else "!!!ACCEPTED"
+    print(f"A3r {name}: rc={r.returncode} {verdict} :: {(r.stderr or r.stdout).strip().splitlines()[-1][:100]}")
+# control: unmodified receipt must PASS readback
+p = f"{out}/mut2-control.json"; json.dump(base, open(p, "w"))
+r = subprocess.run(["bash", G, "--receipt", p], cwd=repo, capture_output=True, text=True, env=env)
+print(f"A3r control_valid: rc={r.returncode} {'OK-PASS' if r.returncode==0 else '!!!REFUSED'}")
+# allow-dirty must NOT waive tree identity
+d = copy.deepcopy(base); d["tree"] = "/foreign/tree"; d["dirty"] = True; d["worktree_dirty_total"] = 3
+p = f"{out}/mut2-dirty-foreigntree.json"; json.dump(d, open(p, "w"))
+r = subprocess.run(["bash", G, "--receipt", p, "--allow-dirty"], cwd=repo, capture_output=True, text=True, env=env)
+print(f"A3r allow_dirty_foreigntree: rc={r.returncode} {'OK-REFUSED' if r.returncode!=0 else '!!!ACCEPTED'} :: {(r.stderr or r.stdout).strip().splitlines()[-1][:90]}")
+PYEOF
+
+note "A3b baseline semantics (clean tree)"
+"$PY" - "$REPO" "$OUT" <<'PYEOF'
+import json, subprocess, sys
+repo, out = sys.argv[1], sys.argv[2]
+head = subprocess.run(["git","rev-parse","HEAD"],cwd=repo,capture_output=True,text=True).stdout.strip()
+env = {"HOME": out+"/home", "PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
+       "FWP_TEST_RECEIPT_DIR": out+"/receipts-a"}
+G = "/Users/a77/fwp-wt-ownership-spec-v3-0921/scripts/run_main_gate.sh"
+def mk(**kw):
+    d = {"revision": head, "tree": repo, "interpreter": sys.executable,
+         "dirty": False, "worktree_dirty_total": 0, "dependency_gate_bypassed": False,
+         "target": "t.py", "counts": {"passed": 1, "failed": 1, "error": 0, "skipped": 0},
+         "failed_ids": ["t.py::test_x"], "exit_status": 1}
+    d.update(kw); return d
+json.dump(mk(), open(out+"/b-cur.json","w"))
+json.dump(mk(), open(out+"/b-base-same.json","w"))
+json.dump(mk(failed_ids=["t.py::test_x","t.py::test_y"],
+             counts={"passed":0,"failed":2,"error":0,"skipped":0}), open(out+"/b-cur-newred.json","w"))
+json.dump(mk(counts={"passed":0,"failed":1,"error":0,"skipped":0}), open(out+"/b-cur-passdec.json","w"))
+json.dump(mk(target="other.py"), open(out+"/b-base-target.json","w"))
+json.dump(mk(dirty=True), open(out+"/b-base-dirty.json","w"))
+json.dump(mk(revision="1"*40), open(out+"/b-base-oldrev.json","w"))
+for name, c, b, expect in [("same_red", "b-cur.json", "b-base-same.json", 0),
+                   ("new_red", "b-cur-newred.json", "b-base-same.json", 3),
+                   ("passed_decreased", "b-cur-passdec.json", "b-base-same.json", 3),
+                   ("target_mismatch", "b-cur.json", "b-base-target.json", 4),
+                   ("dirty_baseline", "b-cur.json", "b-base-dirty.json", 4),
+                   ("baseline_old_revision_ok", "b-cur.json", "b-base-oldrev.json", 0)]:
+    r = subprocess.run(["bash", G, "--receipt", f"{out}/{c}", "--baseline", f"{out}/{b}"],
+                       cwd=repo, capture_output=True, text=True, env=env)
+    ok = "OK" if r.returncode == expect else "!!!UNEXPECTED"
+    print(f"A3b {name}: rc={r.returncode} expect={expect} {ok}")
+PYEOF
+
+note "A4r allow-dirty combinations (comment-only dirt, ruff-safe)"
+printf '# local edit\n' >> "$REPO/conftest.py"
+run_gate bash "$CHK/scripts/run_main_gate.sh" --pytest-args "-q -p no:cacheprovider test_pass.py" >>"$LOG"
+echo "A4r dirty-no-flag rc=$? (expect 2)" | tee -a "$LOG"
+run_gate bash "$CHK/scripts/run_main_gate.sh" --allow-dirty --pytest-args "-q -p no:cacheprovider test_pass.py" >>"$LOG"
+echo "A4r dirty-allow rc=$? (expect 0)" | tee -a "$LOG"
+RCPT3=$(ls -t "$OUT"/receipts-a/gate-*/pytest.json | head -1)
+"$PY" -c "import json;d=json.load(open('$RCPT3'));print('A4r receipt dirty=',d['dirty'],'total=',d['worktree_dirty_total'])" | tee -a "$LOG"
+run_gate bash "$CHK/scripts/run_main_gate.sh" --receipt "$RCPT3" >>"$LOG"
+echo "A4r dirty receipt readback no-flag rc=$? (expect 4)" | tee -a "$LOG"
+run_gate bash "$CHK/scripts/run_main_gate.sh" --receipt "$RCPT3" --allow-dirty >>"$LOG"
+echo "A4r dirty receipt readback allow rc=$? (expect 0)" | tee -a "$LOG"
+git checkout -- conftest.py
+
+note "A6r receipt disabled -> rc4, no latest.json fallback"
+mkdir -p "$OUT/receipts-a6"
+echo '{"revision":"stale"}' > "$OUT/receipts-a6/latest.json"
+env -i HOME="$OUT/home" PATH="$PATH" FWP_TEST_RECEIPT=0 FWP_TEST_RECEIPT_DIR="$OUT/receipts-a6" \
+  PYTHONDONTWRITEBYTECODE=1 bash "$CHK/scripts/run_main_gate.sh" --pytest-args "-q -p no:cacheprovider test_pass.py" >>"$LOG" 2>&1
+echo "A6r rc=$? (expect 4)" | tee -a "$LOG"
+
+note "A7r nested pytest cannot claim parent path"
+cat > test_nested.py <<'EOF'
+import subprocess, sys
+def test_nested():
+    r = subprocess.run([sys.executable, "-m", "pytest", "--collect-only", "-q"],
+                       capture_output=True, text=True, timeout=60)
+    assert r.returncode == 0, r.stdout + r.stderr
+EOF
+git add test_nested.py; git commit -qm nested
+BEFORE=$(ls "$OUT"/receipts-a/gate-*/pytest.json | wc -l | tr -d ' ')
+run_gate bash "$CHK/scripts/run_main_gate.sh" --pytest-args "-q -p no:cacheprovider test_nested.py" >>"$LOG"
+echo "A7r rc=$? (expect 0)" | tee -a "$LOG"
+AFTER=$(ls "$OUT"/receipts-a/gate-*/pytest.json | wc -l | tr -d ' ')
+echo "A7r receipts before=$BEFORE after=$AFTER (expect exactly +1)" | tee -a "$LOG"
+git rm -q test_nested.py; git commit -qm cleanup2
+git status --porcelain | tee -a "$LOG"
+echo "PROBE-A2-DONE" | tee -a "$LOG"

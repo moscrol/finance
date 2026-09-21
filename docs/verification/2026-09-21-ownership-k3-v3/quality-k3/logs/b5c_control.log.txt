@@ -1,0 +1,3 @@
+..                                                                       [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/immut/fresh.json
+
+2 passed in 0.18s

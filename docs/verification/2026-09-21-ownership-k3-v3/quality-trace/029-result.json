@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "bash_28",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "B3 rc=0\nreceipt: /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-N3S6zRVA/pytest.json\ntarget= tests/test_nested_subproc.py\ncounts= {'passed': 1, 'failed': 0, 'error': 0, 'skipped': 0}\nexit_status= 0\n\n1 passed in 0.59s\n== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-N3S6zRVA/pytest.json\n   revision=756868a9b140 dirty=False target=tests/test_nested_subproc.py\n   passed=1 failed=0 error=0 skipped=0\n"
+      }
+    ]
+  },
+  "isError": false
+}

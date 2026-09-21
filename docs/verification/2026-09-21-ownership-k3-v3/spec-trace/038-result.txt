@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_d_acceptance.py", line 24, in <module>
+    art = fx._build_e2e_artifacts(tmp / "art")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/fwp-wt-ownership-spec-v3-0921/tests/test_repair_backfill_stock_history.py", line 844, in _build_e2e_artifacts
+    fx = _fixture(baseline, pq)
+         ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/fwp-wt-ownership-spec-v3-0921/tests/test_repair_backfill_stock_history.py", line 72, in _fixture
+    con = duckdb.connect(str(db_path))
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_duckdb.IOException: IO Error: Cannot open file "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/k3-d-uu34sse5/art/baseline.duckdb": No such file or directory

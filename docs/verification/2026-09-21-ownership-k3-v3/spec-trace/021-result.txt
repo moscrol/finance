@@ -1,0 +1,18 @@
+=== A7r nested pytest cannot claim parent path
+== gate @ 83153eef7232 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/repo-a py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-RQZ3t0Ch/pytest.json
+== ruff check .
+test_nested.py:1:1: E401 [*] Multiple imports on one line
+  |
+1 | import subprocess, sys
+  | ^^^^^^^^^^^^^^^^^^^^^^ E401
+2 | def test_nested():
+3 |     r = subprocess.run([sys.executable, "-m", "pytest", "--collect-only", "-q"],
+  |
+  = help: Split imports
+
+Found 1 error.
+[*] 1 fixable with the `--fix` option.
+ruff 红，停。
+A7r rc=1 (expect 0)
+A7r receipts before=3 after=3 (expect exactly +1)
+PROBE-A2-DONE

@@ -1,0 +1,6 @@
+A  drift_artifact.txt
+drift_artifact.txt
+--- manual commit attempt:
+commit rc=0
+0d3a34c manual
+3ae1d7a fix drift test

@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "tool_X1nKB0qq6md1ixnLBxjHsLBv",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "A  drift_artifact.txt\ndrift_artifact.txt\n--- manual commit attempt:\ncommit rc=0\n0d3a34c manual\n3ae1d7a fix drift test\n"
+      }
+    ]
+  },
+  "isError": false
+}

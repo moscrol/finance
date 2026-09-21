@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "bash_38",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "D1 good artifacts: rc= 0  verdict= PASS  n_checks= 37\nD2 other-stock tamper: rc= 2  failed= ['technical_protected_allcols']\nD3 retained-row tamper: rc= 2  failed= ['retained_rows_full_column_identical']\nD4a parent.rc string: rc= 2  schema_failed= ['receipt_apply_schema', 'receipt_verify_schema']\nD4b spec impossible date: rc= 2  failed= ['receipt_apply_schema', 'receipt_verify_schema', 'data_checks_executed']\nD4c child missing interpreter: rc= 2  failed= ['receipt_apply_schema', 'receipt_verify_schema', 'data_checks_executed']\nD5 output overwrite: rc= 1  refused= True  intact= True\nD6 wrong baseline sha: rc= 2  failed= ['production_sha256_before', 'receipt_apply_child_report_file', 'receipt_verify_child_report_file', 'backup_apply_matches_baseline', 'production_sha256_after']\nPROBE-D-DONE\n"
+      }
+    ]
+  },
+  "isError": false
+}

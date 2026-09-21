@@ -1,0 +1,26 @@
+{
+  "scenario": "subprocess-control",
+  "command": [
+    "bash",
+    "scripts/run_main_gate.sh",
+    "--pytest-args",
+    "-q -p no:cacheprovider tests/test_subproc.py"
+  ],
+  "cwd": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/operator-qc/inprocess-reproduction/fixture",
+  "gate_exit": 0,
+  "receipt": "inprocess-reproduction/subprocess-control/receipts/gate-GFcNmen2/pytest.json",
+  "target_requested": "tests/test_subproc.py",
+  "target_recorded": "tests/test_subproc.py",
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0
+  },
+  "identity_matches": true,
+  "matches_outer_invocation": true,
+  "outer_console_one_pass": true,
+  "immutable_write_warning": false,
+  "stdout_sha256": "a7bd96de65f4e7c5cff503310e0cc220039aaa47b81c54a5bae62b9cd63cbb19",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

@@ -1,0 +1,1 @@
+{"axis": "quality", "exit_code": 75, "stop_reason": null, "candidate_untouched": true, "model_errors": [], "provider_request_admissions": 40}

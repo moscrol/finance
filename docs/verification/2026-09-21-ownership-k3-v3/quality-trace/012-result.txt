@@ -1,0 +1,51 @@
+414:def run_daily_full_staged(
+447:            "swapped": False,
+486:    返回 {rc, swapped, reason, ...}; rc: 0=全绿, 1=管道有失败步但按现状
+499:        "swapped": False,
+733:        # 在此窗口内让第三方 rw 提交 17000，编排照样 rc=0/swapped=true，而新库不
+789:        # rc=0/swapped=True。run mutex 只排同协议的 staging 编排，排不掉普通
+808:    result["swapped"] = True
+def run_daily_full_staged(
+    trade_date: str | None = None,
+    skip_long: bool = False,
+    stock_source: str = "snapshot",
+    child_argv: list[str] | None = None,
+    kind: str = "daily-full",
+    pre_swap_backup: bool = False,
+) -> dict:
+    """staging 编排的公共入口：先取运行互斥锁，再进编排本体。
+
+    QC 复审三轮 P1：两轮父进程共用同一 staging 路径时，B 会把 A 尚未发布
+    的 staging 当旧残留清掉重建，A 恢复后发布的是 B 的失败半成品（连 A 写
+    进 staging 的收据一起没了）。因此互斥锁在任何清理之前取得、覆盖本轮
+    全生命周期（db.hold_run_mutex，锁在独立文件上，读写双方无感）。
+    拿不到锁立即 rc=2，不做任何清理、不动 staging、不动生产库。
+    """
+    target = _db.DB_PATH
+    try:
+        with _db.hold_run_mutex(target):
+            return _run_daily_full_staged_locked(
+                trade_date,
+                skip_long=skip_long,
+                stock_source=stock_source,
+                child_argv=child_argv,
+                kind=kind,
+                pre_swap_backup=pre_swap_backup,
+            )
+    except _db.DatabaseLockedError as exc:
+        reason = f"{exc}；本轮不做任何清理与换名"
+        print(f"[staging] {reason}", flush=True)
+        return {
+            "target": str(target),
+            "staging": str(_db.staging_path(target)),
+            "swapped": False,
+            "rc": 2,
+            "reason": reason,
+            "copy": None,
+            "child_returncode": None,
+            "run_id": None,
+            "backup": None,
+        }
+
+
+def _run_daily_full_staged_locked(

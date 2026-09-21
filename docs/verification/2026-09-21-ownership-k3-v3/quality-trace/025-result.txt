@@ -1,0 +1,8 @@
+FWP_TEST_RECEIPT_DIR=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/test-receipts
+PWD=/Users/a77/fwp-wt-ownership-quality-v3-0921
+FWP_TEST_RECEIPT=0
+---
+..                                                                       [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-debug/pytest.json
+
+2 passed in 0.26s
+pytest.json

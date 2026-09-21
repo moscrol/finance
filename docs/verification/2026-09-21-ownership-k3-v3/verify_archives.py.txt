@@ -1,0 +1,60 @@
+"""Verify finite evidence archives, including lossless split-stream reconstruction.
+
+No writes to sources. Historical manifests must remain byte-identical to Git HEAD;
+new archive is checked by file membership/length/hash and original source bytes.
+Call after sealing; JSON report is created exclusively outside the archive.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+TREE = Path.home() / "fwp-wt-ownership-closeout-0921"
+NAMES = ["2026-09-21-ownership-followup", "2026-09-21-ownership-recheck",
+         "2026-09-21-ownership-resume", "2026-09-21-ownership-independent-v3",
+         "2026-09-21-ownership-k3-v3"]
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+rows = []
+for name in NAMES:
+    root = TREE / "docs/verification" / name
+    manifest = json.loads((root / "manifest.json").read_text())
+    expected = {r["path"] for r in manifest["files"]} | {"manifest.json"}
+    actual = {str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()}
+    assert actual == expected, (name, sorted(actual ^ expected))
+    for item in manifest["files"]:
+        path = root / item["path"]
+        data = path.read_bytes()
+        assert len(data) == item["bytes"] and sha(data) == item["sha256"], path
+        source = Path(item["source"])
+        assert source.is_file(), ("missing original", source)
+        offset = item.get("source_offset", 0)
+        original = source.read_bytes()
+        assert data == original[offset:offset + len(data)], source
+        if "source_offset" not in item:
+            assert len(data) == len(original), source
+    for source in manifest.get("split_sources", []):
+        data = b"".join((root / p).read_bytes() for p in source["ordered_parts"])
+        assert len(data) == source["bytes"] and sha(data) == source["sha256"]
+        assert data == Path(source["source"]).read_bytes()
+    old_unchanged = None
+    if name != NAMES[-1]:
+        for rel in expected:
+            path = root / rel
+            blob = subprocess.check_output(["git", "-C", str(TREE), "show", f"HEAD:{path.relative_to(TREE)}"])
+            assert blob == path.read_bytes(), path
+        old_unchanged = True
+    rows.append({"name": name, "files": len(manifest["files"]), "bytes_hashes_sources_membership": True,
+                 "historical_bytes_equal_head": old_unchanged,
+                 "split_sources_verified": len(manifest.get("split_sources", []))})
+report = {"time": datetime.now(timezone.utc).isoformat(), "valid": True, "archives": rows}
+with Path(sys.argv[1]).open("x") as stream:
+    json.dump(report, stream, indent=2)
+    stream.write("\n")
+print(json.dumps(report, indent=2))

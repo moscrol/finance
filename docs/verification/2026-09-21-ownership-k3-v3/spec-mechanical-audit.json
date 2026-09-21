@@ -1,0 +1,30 @@
+{
+  "axis": "spec",
+  "revision": "47530e20fe5c3195e50ce429b31898d57918e413",
+  "time": "2026-09-21T04:20:32.435645+00:00",
+  "semantic_qc_pending": true,
+  "exit_code": 75,
+  "stop_reason": null,
+  "model_errors": [],
+  "model_identities": [
+    "mirasim-kimi/kimi-k3"
+  ],
+  "request_admissions": 40,
+  "admissions_valid": true,
+  "tool_calls": 42,
+  "tool_failures": [],
+  "path_or_trace_violations": [],
+  "candidate_untouched": true,
+  "author_untouched": true,
+  "inputs_unchanged": true,
+  "upstream_unchanged": false,
+  "report_present": false,
+  "verdict_present": false,
+  "verdict": null,
+  "verdict_identity_matches": false,
+  "check_count_reported": 0,
+  "sha256": {
+    "execution.json": "5e98065541ec4350ac5fbf235b5668338e831ca9b80f0700fa0ba85a809ff5d3",
+    "events.jsonl": "347e09bbf1ede68ca9056a270170f8fe896bf94564e27119de9e0d019378ecb0"
+  }
+}

@@ -1,0 +1,116 @@
+
+
+def _run_daily_full_staged_locked(
+    trade_date: str | None = None,
+    skip_long: bool = False,
+    stock_source: str = "snapshot",
+    child_argv: list[str] | None = None,
+    kind: str = "daily-full",
+    pre_swap_backup: bool = False,
+) -> dict:
+    """daily-full 的 staging 编排: 同步全程不持有生产库写锁 (bookgap S7)。
+
+    克隆生产库 → 子进程对 staging 副本跑原管道 (env 重定向, 见下) → 校验 →
+    第三方写者守卫 → [可选换名前备份] → 收据 → 原子发布（既有库在换库锁内
+    os.replace 换名；首次建库 os.link no-clobber，六轮 P1）。生产库文件只在
+    发布一瞬变化, 正持旧句柄的读者继续读旧 inode, 新连接读新库。
+    existing/absent 分类钉死在本轮首次观察（七轮 P2，见下文开工闸注释）。
+
+    pre_swap_backup=True 时（修复类调用方，QC S4 执行前提）：守卫通过后、
+    换名前给 target 落一份带 sha256 指纹与恢复步骤收据的备份
+    （db.backup_before_swap），结果带 result["backup"]。日更默认不开——
+    每晚 3.6G 级备份会把磁盘打爆，且日更已有 ops_sync_run 链。
+
+    为什么是子进程而不是进程内改 DB_PATH: 包内存在 import 期捕获路径的读点
+    (cli 顶层常量、analysis.sector_data 的默认参), 进程内改全局会漏掉它们,
+    以后新增的捕获点也会静默漏掉; 子进程在 import 前就带上
+    MARKET_FEATURE_STORE_DB, 天然覆盖全部现有与未来读点 (含孙子进程)。
+
+    child_argv 是测试缝: 注入假子进程 (自身读 env 写库/自杀) 来测换名、
+    守卫与 crash 语义, 不必跑真管道。
+
+    返回 {rc, swapped, reason, ...}; rc: 0=全绿, 1=管道有失败步但按现状
+    口径落库 (换名照做——今天的行为就是失败步不回滚已提交写入),
+    2=fail closed (未换名, 生产库未动)。
+    """
+    started_at = datetime.now()
+    started_mono = time.monotonic()
+    run_id = uuid.uuid4().hex[:12]
+    target = _db.DB_PATH
+    staging = _db.staging_path(target)
+    status_json = Path(str(staging) + ".status.json")
+    result: dict = {
+        "target": str(target),
+        "staging": str(staging),
+        "swapped": False,
+        "rc": 2,
+        "reason": None,
+        "copy": None,
+        "child_returncode": None,
+        "run_id": run_id,
+        "stale_staging_removed": False,
+        "stale_status_removed": False,
+        "backup": None,
+        "publish": None,
+    }
+
+    result["stale_staging_removed"] = _db.remove_stale_staging(staging)
+    if result["stale_staging_removed"]:
+        print(f"[staging] 清理上一轮残留 staging: {staging}", flush=True)
+    if status_json.exists():
+        # QC 复审二轮 P1（2026-09-13）：旧 status 不被清理，子进程失败且不写
+        # status 时父进程会读到上一轮的成功 JSON 照样换库（复现证据
+        # stale-status-min.json）。开工即删 + 后文 run_id 绑定双保险。
+        status_json.unlink()
+        result["stale_status_removed"] = True
+
+    # 开工闸: 有活跃写者时开跑, 克隆是撕裂快照、换名会覆盖对方工作。
+    # QC 七轮 P2：existing/absent 的分类钉死在**本轮首次观察**（就是这次
+    # exists()），之后不再就分类重新观察。此前分类在探针成功之后再做一次
+    # exists()：探针已经打开过旧库、随后目标被第三方删除，第二次 exists 得
+    # False，本轮被静默重新归类为首次建库——子进程建出缺历史的新库并发布
+    # 成功（七轮独立探针实测：旧库 2026-08-14/10000 被删后 rc=0，库里只剩
+    # 2026-08-15/12345）。钉死之后，「已见旧库、随后消失」只剩拒绝：消失在
+    # 探针窗口内由探针抛 SwapTargetReplacedError；消失在探针之后由
+    # hold_swap_lock 开锁失败拒绝——都是 rc=2，不再降格为 bootstrap。反向
+    # （钉为 absent 后第三方新建）由发布前守卫与 os.link EEXIST 原子拒绝
+    # （六轮 P1），所以首次观察一次 exists 就够，不需要身份钉死。
+    # 声明边界：钉死只对「本轮首次观察之后」的消失负责；观察之前就被删的，
+    # 本轮无从知道它存在过。
+    source_exists = target.exists()
+    try:
+        _db.probe_no_active_writer(target)
+    except _db.SwapTargetReplacedError as exc:
+        # 探针窗口内目标消失（探针的 exists→connect 之间被删）：与「有活跃
+        # 写者」分开给措辞，reason 才能指认是哪一处拒绝。它是
+        # DatabaseLockedError 子类，必须排在前面。
+        result["reason"] = f"{exc}; 拒绝开工"
+        print(f"[staging] {result['reason']}", flush=True)
+        return result
+    except _db.DatabaseLockedError as exc:
+        result["reason"] = f"生产库有活跃写者, 拒绝开工: {exc}"
+        print(f"[staging] {result['reason']}", flush=True)
+        return result
+
+    if source_exists:
+        # QC 复审三轮 P1：基线与克隆必须落在同一受保护窗口——克隆之后才认领
+        # 来源最新 stat，会把「副本不含的新写入」记成副本基线（QC 复现：克隆
+        # 10000 → 窗口内第三方提交 17000 → 末端守卫拿错基线 → 换入 10000）。
+        # hold_swap_lock 是 SH 锁：排写不排读，克隆内部的只读探针照常工作，
+        # 窗口内任何写者的 rw 打开必失败；窗口外（子进程阶段）的写入仍由
+        # 末端 stat 守卫兜底。形态基线改从克隆体自身读取——基线=副本版本。
+        try:
+            with _db.hold_swap_lock(target) as lock:
+                result["copy"] = _db.clone_to_staging(target, staging)
+                # QC 复审五轮：基线身份必须**来自这把锁**，并在克隆之后复查一次。
+                # 否则「锁住 A → 克隆 A → 路径被换成 B → 从路径 stat 得到 B」会
+44:class DatabaseLockedError(RuntimeError):
+52:class SwapTargetReplacedError(DatabaseLockedError):
+64:    继承 DatabaseLockedError 是刻意的：既有调用方的 `except
+65:    DatabaseLockedError` 会把它变成明确的 rc=2 拒绝，而不是让异常逃逸出编排
+70:class SwapTargetCreatedError(DatabaseLockedError):
+81:    继承 DatabaseLockedError 同 SwapTargetReplacedError：拒绝要带出口码，
+107:    """只读连接 + 文件锁有界重试；等不到锁时抛 DatabaseLockedError。
+130:    raise DatabaseLockedError(
+252:def staging_path(db_path: Path | None = None) -> Path:
+293:    FileNotFoundError 逃出编排 (调用点只捕 DatabaseLockedError 家族)。

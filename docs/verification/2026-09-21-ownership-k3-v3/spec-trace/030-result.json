@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "tool_7wCZtGCvr8sR9kdjeofQwMEx",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "B8r kind: dev-wt in_main: True dirty: False\nB8r in clean section: False | disclaimer 不是删除许可: True\nB8r doc-dirty excluded from clean section: False | in 未提交 section: False\n"
+      }
+    ]
+  },
+  "isError": false
+}

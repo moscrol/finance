@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+"""K3 quality probe A: main_gate_receipt.py type/argument/identity edges.
+
+Independently authored. Drives the CANDIDATE script
+/Users/a77/fwp-wt-ownership-quality-v3-0921/scripts/main_gate_receipt.py
+with crafted receipts under this output dir. Records rc + stdout + stderr per case.
+"""
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+OUT = Path("/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3")
+CASES = OUT / "fixtures" / "receipts"
+CASES.mkdir(parents=True, exist_ok=True)
+SCRIPT = "/Users/a77/fwp-wt-ownership-quality-v3-0921/scripts/main_gate_receipt.py"
+PY = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+REV = "47530e20fe5c3195e50ce429b31898d57918e413"
+TREE = "/synthetic/tree-a"
+
+
+def receipt(**over):
+    base = {
+        "interpreter": PY,
+        "python_version": "3.12.13",
+        "tree": TREE,
+        "revision": REV,
+        "branch": "main",
+        "dirty": False,
+        "dirty_paths": [],
+        "worktree_dirty_total": 0,
+        "dependency_gate_bypassed": False,
+        "target": "-q tests/test_x.py",
+        "counts": {"passed": 5, "failed": 0, "error": 0, "skipped": 1},
+        "failed_ids": [],
+        "exit_status": 0,
+        "finished_at": "2026-09-21T00:00:00+00:00",
+    }
+    base.update(over)
+    return base
+
+
+def failed_receipt(**over):
+    r = receipt(
+        counts={"passed": 4, "failed": 1, "error": 0, "skipped": 1},
+        failed_ids=["tests/test_x.py::test_bad"],
+        exit_status=1,
+    )
+    r.update(over)
+    return r
+
+
+def write_case(name, obj, raw=None):
+    p = CASES / f"{name}.json"
+    if raw is not None:
+        p.write_text(raw, encoding="utf-8")
+    else:
+        p.write_text(json.dumps(obj), encoding="utf-8")
+    return p
+
+
+def run(name, path, *extra):
+    cmd = [PY, SCRIPT, str(path), "--revision", REV, "--tree", TREE, *extra]
+    cp = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    return {"case": name, "rc": cp.returncode,
+            "stdout": cp.stdout.strip(), "stderr": cp.stderr.strip()}
+
+
+results = []
+
+# identity-valid controls
+results.append(run("A01_valid_pass", write_case("A01", receipt())))
+results.append(run("A02_valid_fail_rc1", write_case("A02", failed_receipt())))
+# counts edges
+results.append(run("A03_neg_count", write_case("A03", receipt(counts={"passed": -1, "failed": 0, "error": 0, "skipped": 0}))))
+results.append(run("A04_str_count", write_case("A04", receipt(counts={"passed": "5", "failed": 0, "error": 0, "skipped": 0}))))
+results.append(run("A05_bool_count", write_case("A05", receipt(counts={"passed": True, "failed": 0, "error": 0, "skipped": 0}))))
+results.append(run("A06_zero_executed", write_case("A06", receipt(counts={"passed": 0, "failed": 0, "error": 0, "skipped": 3}))))
+results.append(run("A06b_missing_key", write_case("A06b", receipt(counts={"passed": 5, "failed": 0, "error": 0}))))
+# exit_status edges
+results.append(run("A07_exit2_interrupted", write_case("A07", receipt(exit_status=2))))
+results.append(run("A08_exit_bool", write_case("A08", receipt(exit_status=True))))
+results.append(run("A09_exit_missing", write_case("A09", {k: v for k, v in receipt().items() if k != "exit_status"})))
+results.append(run("A09b_exit5_notests", write_case("A09b", receipt(exit_status=5))))
+# failed_ids consistency
+results.append(run("A10_fid_nonstr", write_case("A10", failed_receipt(failed_ids=[123]))))
+results.append(run("A11_fid_len_mismatch", write_case("A11", failed_receipt(failed_ids=["a", "b"]))))
+results.append(run("A12_exit1_empty_fids", write_case("A12", receipt(exit_status=1))))
+results.append(run("A13_exit0_nonempty_fids", write_case("A13", receipt(failed_ids=["x"]))))
+results.append(run("A13b_fid_empty_str", write_case("A13b", failed_receipt(failed_ids=[""]))))
+# target / gate / interpreter / revision
+results.append(run("A14_missing_target", write_case("A14", {k: v for k, v in receipt().items() if k != "target"})))
+results.append(run("A15_gate_bypassed", write_case("A15", receipt(dependency_gate_bypassed=True))))
+results.append(run("A16_gate_missing", write_case("A16", {k: v for k, v in receipt().items() if k != "dependency_gate_bypassed"})))
+results.append(run("A17_wrong_interpreter", write_case("A17", receipt(interpreter="/usr/bin/python3"))))
+results.append(run("A18_wrong_revision", write_case("A18", receipt(revision="0" * 40))))
+# dirty family
+results.append(run("A19_dirty", write_case("A19", receipt(dirty=True, worktree_dirty_total=1))))
+results.append(run("A20_dirty_allowdirty", write_case("A19", receipt(dirty=True, worktree_dirty_total=1)), "--allow-dirty"))
+results.append(run("A21_dirty_allowdirty_wrongrev", write_case("A19b", receipt(dirty=True, worktree_dirty_total=1, revision="0" * 40)), "--allow-dirty"))
+results.append(run("A22_wdt_missing", write_case("A22", {k: v for k, v in receipt().items() if k != "worktree_dirty_total"})))
+results.append(run("A23_wdt_nonzero_codedirty_false", write_case("A23", receipt(worktree_dirty_total=44))))
+results.append(run("A23b_wdt_str", write_case("A23b", receipt(worktree_dirty_total="0"))))
+# tree / pytest-exit
+results.append(run("A24_tree_mismatch", write_case("A24", receipt(tree="/other/tree"))))
+results.append(run("A25_pyexit_mismatch", write_case("A25", receipt()), "--pytest-exit", "1"))
+results.append(run("A26_pyexit_match", write_case("A26", failed_receipt()), "--pytest-exit", "1"))
+# malformed
+results.append(run("A27_malformed_json", write_case("A27", None, raw="{not json")))
+results.append(run("A28_non_dict", write_case("A28", None, raw="[1,2,3]")))
+results.append(run("A29_missing_file", CASES / "does-not-exist.json"))
+# baseline family
+base_clean = write_case("base_clean", failed_receipt())
+results.append(run("A30_baseline_new_red", write_case("A30", failed_receipt(failed_ids=["tests/test_x.py::test_bad", "tests/test_x.py::test_NEW"], counts={"passed": 4, "failed": 2, "error": 0, "skipped": 1})), "--baseline", str(base_clean)))
+results.append(run("A31_baseline_same_red", write_case("A31", failed_receipt()), "--baseline", str(base_clean)))
+results.append(run("A32_baseline_passed_decreased", write_case("A32", failed_receipt(counts={"passed": 3, "failed": 1, "error": 0, "skipped": 1})), "--baseline", str(base_clean)))
+results.append(run("A33_baseline_dirty", write_case("A33", failed_receipt()), "--baseline", str(write_case("base_dirty", failed_receipt(dirty=True, worktree_dirty_total=2)))))
+results.append(run("A34_baseline_target_mismatch", write_case("A34", failed_receipt()), "--baseline", str(write_case("base_target", failed_receipt(target="-q other")))))
+results.append(run("A35_baseline_also_validates_types", write_case("A35", receipt()), "--baseline", str(write_case("base_bad", failed_receipt(counts={"passed": -1, "failed": 1, "error": 0, "skipped": 0})))))
+
+log = OUT / "logs" / "probe_a_results.json"
+log.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
+for r in results:
+    print(f"{r['case']:38s} rc={r['rc']}  {r['stderr'][:90]}")
+print(f"\nwrote {log}")

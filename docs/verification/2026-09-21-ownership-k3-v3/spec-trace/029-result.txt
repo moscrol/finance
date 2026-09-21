@@ -1,0 +1,16 @@
+128:def tree_kind(path: str, main_checkout: str) -> str:
+129-    posix = path.replace("\\", "/")
+130-    if "/.finance-runtime/finance-workspace-" in posix:
+131-        return "prod-snapshot"
+132-    if "/fwp-wt-" in posix or "/.worktrees/" in posix:
+133-        return "dev-wt"
+134-    if os.path.abspath(path) == os.path.abspath(main_checkout):
+135-        return "main-checkout"
+136-    return "other"
+137-
+138-
+139-def _status_paths(porcelain: str) -> list[str]:
+140-    paths: list[str] = []
+141-    for line in porcelain.splitlines():
+142-        if len(line) < 4:
+143-            continue

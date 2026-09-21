@@ -1,0 +1,29 @@
+_SPEC = _spec()
+EXPECTED_PY = Path(
+    str(_SPEC.get("interpreter"))
+    if _SPEC.get("interpreter")
+    else REPO / ".venv-workbench" / "bin" / "python"
+)
+REQUIRED: tuple[str, ...] = tuple(_SPEC.get("required_modules") or ())
+_ESCAPE = str(_SPEC.get("escape_env_var") or "FWP_ALLOW_ANY_PYTHON")
+
+
+def _missing() -> tuple[str, ...]:
+    """当前解释器里装不上的必需依赖。"""
+
+    return tuple(m for m in REQUIRED if importlib.util.find_spec(m) is None)
+
+
+def _git(*args: str) -> str:
+    """在**本仓根**执行 git。模块级而非嵌套：收据钩子也要用它取 revision。"""
+
+    try:
+        out = subprocess.run(
+            ["git", *args], cwd=REPO, capture_output=True, text=True, timeout=10
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return out.stdout.strip() if out.returncode == 0 else ""
+
+
+intelligence/tests/test_acceptance_board.py:547:    raise SystemExit(pytest.main([__file__, "-q"]))

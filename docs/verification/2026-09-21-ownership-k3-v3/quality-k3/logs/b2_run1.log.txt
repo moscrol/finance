@@ -1,0 +1,10 @@
+== gate @ ee9b01e5f36a tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/gaterepo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-brrCNnyF/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q tests/test_ok.py
+..                                                                       [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-brrCNnyF/pytest.json
+
+2 passed in 0.46s
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-brrCNnyF/pytest.json
+   revision=ee9b01e5f36a dirty=False target=tests/test_ok.py
+   passed=2 failed=0 error=0 skipped=0

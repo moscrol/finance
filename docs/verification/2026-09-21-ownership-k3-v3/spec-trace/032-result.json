@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "bash_31",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "1422-        env_db = os.environ.get(\"MARKET_FEATURE_STORE_DB\")\n1423-        target = Path(args.db or env_db) if (args.db or env_db) else None\n1424:        refused = _refuse_production_write_direct(target)\n1425-        if refused is not None:\n1426-            return refused\n1427-        status_json = (\n1428-            Path(args.status_json)\n1429-            if args.status_json\n1430-            else (Path(str(target) + \".status.json\") if target else None)\n1431-        )\n1432-        try:\n1433-            report = run_repair(\n1434-                spec,\n1435-                parquet,\n1436-                db_path=target,\n1437-                status_json=status_json,\n1438-                report_path=Path(args.report_path) if args.report_path else None,\n1439-                with_derived=True,\n1440-            )\n1441-        except RepairRefused as exc:\n1442-            print(f\"修复断言不通过, 未写入: {exc}\")\n1443-            return 2\n1444-        derived_note = \"\"\n--\n1484-\n1485-\n1486:def _refuse_production_write_direct(target) -> int | None:\n1487-    \"\"\"修复子进程没有 --direct 逃生舱: 目标是 canonical 生产库就拒。\"\"\"\n1488-    from .write_path import production_write_blocked\n1489-\n1490-    reason = production_write_blocked(False, target)\n1491-    if reason is None:\n1492-        return None\n1493-    print(reason)\n1494-    return 2\n1495-\n1496-\n1497-def cmd_repair_backfill_302132(args) -> int:\n1498-    \"\"\"302132.SZ 历史回填父命令：staging 回填 + scoped 派生重建 + 验收 + 原子换库。\n1499-\n414:def run_daily_full_staged(\n415-    trade_date: str | None = None,\n416-    skip_long: bool = False,\n417-    stock_source: str = \"snapshot\",\n418-    child_argv: list[str] | None = None,\n419-    kind: str = \"daily-full\",\n420-    pre_swap_backup: bool = False,\n421-) -> dict:\n422-    \"\"\"staging 编排的公共入口：先取运行互斥锁，再进编排本体。\n423-\n424-    QC 复审三轮 P1：两轮父进程共用同一 staging 路径时，B 会把 A 尚未发布\n425-    的 staging 当旧残留清掉重建，A 恢复后发布的是 B 的失败半成品（连 A 写\n426-    进 staging 的收据一起没了）。因此互斥锁在任何清理之前取得、覆盖本轮\n427-    全生命周期（db.hold_run_mutex，锁在独立文件上，读写双方无感）。\n428-    拿不到锁立即 rc=2，不做任何清理、不动 staging、不动生产库。\n429-    \"\"\"\n430-    target = _db.DB_PATH\n431-    try:\n432-        with _db.hold_run_mutex(target):\n433-            return _run_daily_full_staged_locked(\n434-                trade_date,\n435-                skip_long=skip_long,\n436-                stock_source=stock_source,\n437-                child_argv=child_argv,\n438-                kind=kind,\n439-                pre_swap_backup=pre_swap_backup,\n440-            )\n441-    except _db.DatabaseLockedError as exc:\n442-        reason = f\"{exc}；本轮不做任何清理与换名\"\n443-        print(f\"[staging] {reason}\", flush=True)\n444-        return {\n"
+      }
+    ]
+  },
+  "isError": false
+}

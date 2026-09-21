@@ -1,0 +1,3 @@
+gate receipt refused: receipt exit_status does not match pytest process
+rc=4 (expect 4 exit-mismatch)
+rc=0 (expect 0 matching exit)

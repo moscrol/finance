@@ -1,0 +1,147 @@
+"""K3 independent probe B: worktree_board unknown-preservation (B1). Synthetic repos only."""
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+sys.path.insert(0, "/Users/a77/fwp-wt-ownership-spec-v3-0921/scripts")
+import worktree_board as board
+
+OUT = Path("/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes")
+LOG = (OUT / "probe_b_board.log").open("w")
+
+
+def note(*a):
+    line = " ".join(str(x) for x in a)
+    print(line)
+    LOG.write(line + "\n")
+
+
+def git(repo, *args, check=True):
+    r = subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True)
+    if check and r.returncode != 0:
+        raise RuntimeError(f"{args}: {r.stderr}")
+    return r.stdout.strip()
+
+
+def init_repo(path):
+    path.mkdir(parents=True, exist_ok=True)
+    git(path, "init", "-q", "-b", "main")
+    git(path, "config", "user.name", "k3")
+    git(path, "config", "user.email", "k3@probe.test")
+    git(path, "config", "commit.gpgsign", "false")
+    (path / "f").write_text("base\n")
+    git(path, "add", "f")
+    git(path, "commit", "-qm", "base")
+    return path
+
+
+main_repo = init_repo(OUT / "repo-b" / "main")
+HEAD = git(main_repo, "rev-parse", "HEAD")
+
+# B1: missing worktree path -> unknown, never clean-prunable
+row = board.classify_worktree(
+    {"path": str(OUT / "repo-b" / "ghost"), "head": HEAD, "branch": "topic"},
+    base="main", main_checkout=str(main_repo), timeout=10)
+note("B1 missing-path: error=%r cherry_plus=%s ahead=%s behind=%s" %
+     (row.error, row.cherry_plus, row.ahead, row.behind))
+text = board.format_board([row], base="main", base_sha="a" * 40)
+note("B1 board has 待核实:", "待核实 1" in text, "| in clean-prune section:",
+     "ghost" in text.split("【补丁已在基线且 Git 干净")[1].split("【")[0])
+
+# B2: parent-repo fallback (dir inside repo but not a worktree root)
+nested = main_repo / "inner-dir"
+nested.mkdir()
+row2 = board.classify_worktree(
+    {"path": str(nested), "head": HEAD, "branch": "main"},
+    base="main", main_checkout=str(main_repo), timeout=10)
+note("B2 parent-fallback: error=%r cherry_plus=%s in_main=%s" %
+     (row2.error, row2.cherry_plus, row2.in_main))
+
+# B3: locked / prunable porcelain preserved and excluded from clean candidates
+wt = OUT / "repo-b" / "wt-locked"
+git(main_repo, "worktree", "add", "-q", "-b", "feat", str(wt))
+porcelain = git(main_repo, "worktree", "list", "--porcelain")
+specs = board.parse_worktree_porcelain(porcelain)
+note("B3 parsed specs:", [(s.get("branch"), s.get("locked", ""), s.get("prunable", "")) for s in specs])
+# synthetically inject locked metadata (git only emits it when actually locked)
+git(wt, "worktree", "lock", "--reason", "k3-review") if False else None
+subprocess.run(["git", "worktree", "lock", "--reason", "k3-review", str(wt)], check=True, cwd=str(main_repo))
+specs2 = board.parse_worktree_porcelain(git(main_repo, "worktree", "list", "--porcelain"))
+locked_spec = [s for s in specs2 if s["path"] == str(wt)][0]
+note("B3 locked spec parsed:", locked_spec.get("locked"))
+row3 = board.classify_worktree(locked_spec, base="main", main_checkout=str(main_repo), timeout=10)
+text3 = board.format_board([row3], base="main", base_sha="a" * 40)
+note("B3 locked row in 待核实:", "待核实 1" in text3, "| locked reason shown:", "k3-review" in text3)
+subprocess.run(["git", "worktree", "unlock", str(wt)], check=True, cwd=str(main_repo))
+
+# B4: cherry failure -> unknown, not zero; this_tree_lines says 未知
+plus, minus, in_main = board.cherry_counts("HEAD", "no/such/ref", cwd=str(main_repo), timeout=10)
+note("B4 cherry bad base:", (plus, minus, in_main), "(expect (-1,-1,False))")
+lines = board.this_tree_lines(cwd=str(main_repo), base="no/such/ref", base_sha="",
+                              timeout=10, repo_root=main_repo)
+note("B4 this_tree_lines[0]:", lines[0][:80] if lines else "EMPTY")
+
+# B5: collect_rows with no main ref -> hard error, not empty inventory
+nom = init_repo(OUT / "repo-b" / "nomain")
+git(nom, "branch", "-m", "topic")
+try:
+    board.collect_rows(cwd=str(nom), timeout=10)
+    note("B5 no-main: !!!NO ERROR")
+except RuntimeError as exc:
+    note("B5 no-main RuntimeError:", str(exc)[:60])
+
+# B6: any uncommitted change (doc-only) precludes clean-candidate classification
+wt2 = OUT / "repo-b" / "wt-docs"
+git(main_repo, "worktree", "add", "-q", "-b", "docs", str(wt2))
+(wt2 / "notes.md").write_text("uncommitted\n")
+row6 = board.classify_worktree(
+    {"path": str(wt2), "head": git(wt2, "rev-parse", "HEAD"), "branch": "docs"},
+    base="main", main_checkout=str(main_repo), timeout=10)
+note("B6 doc-dirty: in_main=%s dirty=%s code_dirty=%s dirty_n=%s" %
+     (row6.in_main, row6.dirty, row6.code_dirty, row6.dirty_n))
+text6 = board.format_board([row6], base="main", base_sha="a" * 40)
+clean_section = text6.split("【补丁已在基线且 Git 干净")[1].split("【")[1] if "【补丁已在基线且 Git 干净" in text6 else ""
+note("B6 doc-dirty in clean-prune list:", "wt-docs" in clean_section, "(expect False)")
+
+# B7: pinned base SHA used for whole scan (not re-resolved per row)
+seen = []
+orig = board.classify_worktree
+def spy(spec, **kw):
+    seen.append(kw["base"])
+    return None
+board.classify_worktree = spy
+base, sha, _, rows = board.collect_rows(cwd=str(main_repo), timeout=10)
+board.classify_worktree = orig
+note("B7 pinned base: base=%s sha=%s all-classify-got-sha=%s n=%d" %
+     (base, sha[:12], all(s == sha for s in seen), len(seen)))
+
+# B8: clean patch-equivalent dev worktree -> listed but explicitly NOT deletion permission
+row8 = board.classify_worktree(
+    {"path": str(wt2), "head": git(wt2, "rev-parse", "HEAD"), "branch": "docs"},
+    base="main", main_checkout=str(main_repo), timeout=10)
+(wt2 / "notes.md").unlink()
+row8 = board.classify_worktree(
+    {"path": str(wt2), "head": git(wt2, "rev-parse", "HEAD"), "branch": "docs"},
+    base="main", main_checkout=str(main_repo), timeout=10)
+text8 = board.format_board([row8], base="main", base_sha="a" * 40)
+note("B8 clean patch-equiv: in clean section:", "wt-docs" in text8.split("【补丁已在基线且 Git 干净")[1].split("【")[0],
+     "| disclaimer:", "不是删除许可" in text8, "| extra caution:", "reflog" in text8 and "ignored" in text8)
+
+# B9: --this with unresolvable base and no sha -> rc 1, no HEAD fallback
+r = subprocess.run([sys.executable, "/Users/a77/fwp-wt-ownership-spec-v3-0921/scripts/worktree_board.py",
+                    "--this"], cwd=str(nom), capture_output=True, text=True)
+note("B9 --this no-main: rc=%s out=%r" % (r.returncode, (r.stdout + r.stderr).strip()[:70]))
+
+# B10: status failure -> dirty unknown, never prunable (monkeypatch _git)
+real_git = board._git
+def fail_status(args, **kw):
+    return (1, "") if args[0] == "status" else real_git(args, **kw)
+board._git = fail_status
+row10 = board.classify_worktree(
+    {"path": str(main_repo), "head": HEAD, "branch": "main"},
+    base="main", main_checkout=str(main_repo), timeout=10)
+board._git = real_git
+note("B10 status-fail: error=%r dirty=%s" % (row10.error, row10.dirty))
+note("PROBE-B-DONE")
+LOG.close()

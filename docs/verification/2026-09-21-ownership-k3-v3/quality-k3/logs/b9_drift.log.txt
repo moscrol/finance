@@ -1,0 +1,20 @@
+== gate @ 3ae1d7ae281b tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/gaterepo_drift py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-G4h1h4Rt/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q tests/test_drift.py
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['git', '-c', 'user.email=k3@probe', '-c', 'user.name', 'k3', 'commit', '-qm', 'mid-run commit']' returned non-zero exit status 1.
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py:571: CalledProcessError
+=========================== short test summary info ============================
+FAILED tests/test_drift.py::test_commit_during_run - subprocess.CalledProcess...
+1 failed in 0.55s
+测试期间提交或干净状态改变，收据不可采信。

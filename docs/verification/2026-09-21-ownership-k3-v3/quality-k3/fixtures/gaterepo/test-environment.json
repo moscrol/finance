@@ -1,0 +1,7 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "required_modules": ["pytest", "ruff"],
+  "escape_env_var": "FWP_ALLOW_ANY_PYTHON",
+  "code_path_prefixes": ["tests/", "tests_inner/", "conftest.py", "scripts/", "test-environment.json"],
+  "data_path_exceptions": []
+}

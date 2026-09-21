@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "bash_18",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "_SPEC = _spec()\nEXPECTED_PY = Path(\n    str(_SPEC.get(\"interpreter\"))\n    if _SPEC.get(\"interpreter\")\n    else REPO / \".venv-workbench\" / \"bin\" / \"python\"\n)\nREQUIRED: tuple[str, ...] = tuple(_SPEC.get(\"required_modules\") or ())\n_ESCAPE = str(_SPEC.get(\"escape_env_var\") or \"FWP_ALLOW_ANY_PYTHON\")\n\n\ndef _missing() -> tuple[str, ...]:\n    \"\"\"当前解释器里装不上的必需依赖。\"\"\"\n\n    return tuple(m for m in REQUIRED if importlib.util.find_spec(m) is None)\n\n\ndef _git(*args: str) -> str:\n    \"\"\"在**本仓根**执行 git。模块级而非嵌套：收据钩子也要用它取 revision。\"\"\"\n\n    try:\n        out = subprocess.run(\n            [\"git\", *args], cwd=REPO, capture_output=True, text=True, timeout=10\n        )\n    except (OSError, subprocess.SubprocessError):\n        return \"\"\n    return out.stdout.strip() if out.returncode == 0 else \"\"\n\n\nintelligence/tests/test_acceptance_board.py:547:    raise SystemExit(pytest.main([__file__, \"-q\"]))\n"
+      }
+    ]
+  },
+  "isError": false
+}

@@ -1,0 +1,130 @@
+"""Seal this finite K3 attempt; preserve byte identity, failures and scope.
+
+Runtime DB fixtures, Git objects and caches stay local. Text logs/sources are
+archived with .txt suffix where needed. Large JSONL is split only at LF bytes;
+concatenation must reproduce the exact original hash (never parse/reserialize).
+No prior archive may be replaced. This is evidence packaging, not a review gate.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+DEST = Path.home() / "fwp-wt-ownership-closeout-0921/docs/verification/2026-09-21-ownership-k3-v3"
+REV = "47530e20fe5c3195e50ce429b31898d57918e413"
+BASE = "728f327160bbd2485cb635e7ef09d040d718d7b5"
+MAX_BYTES = 4 * 1024 * 1024
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def wanted(path):
+    rel = path.relative_to(ROOT)
+    if path.is_symlink() or not path.is_file():
+        return False
+    if len(rel.parts) == 1:
+        return path.suffix in {".md", ".json", ".py", ".mjs", ".log", ".diff"}
+    if rel.parts[0] == "pi-config":
+        return len(rel.parts) == 2 and rel.name in {"settings.json", "models.json", "auth.json"}
+    if rel.parts[0].endswith("-trace"):
+        return len(rel.parts) == 2
+    if rel.parts[0] == "operator-qc":
+        if any(p in {".git", "__pycache__", ".ruff_cache", ".pytest_cache", "ruff-cache", "tmp", "home"} for p in rel.parts):
+            return False
+        return path.suffix in {".md", ".json", ".py", ".sh", ".log", ".txt"} or rel.name == ".gitignore"
+    if rel.parts[0] not in {"spec-k3", "quality-k3"}:
+        return False
+    if len(rel.parts) == 2:
+        return path.suffix in {".md", ".json", ".jsonl", ".log", ".txt"}
+    if rel.parts[1] in {"logs", "formal-receipts", "test-receipts"}:
+        return not any(p in {".git", "__pycache__"} for p in rel.parts) and path.suffix in {".json", ".log", ".txt", ".xml", ".rc"}
+    if rel.parts[0] == "quality-k3" and rel.parts[1] == "fixtures":
+        # Final textual state, not a claim to preserve reset/deleted Git/receipt history.
+        if any(p in {".git", "__pycache__", ".ruff_cache", ".pytest_cache"} for p in rel.parts):
+            return False
+        return path.suffix in {".py", ".sh", ".json", ".log", ".txt"} or rel.parts[2:] == ("fakebin", "git")
+    if rel.parts[1] == "probes":
+        if len(rel.parts) == 3:
+            return path.suffix in {".py", ".sh", ".json", ".jsonl", ".log", ".txt"}
+        return path.suffix == ".json" and not any(p in {".git", "__pycache__", "repo-a", "repo-b"} for p in rel.parts)
+    return False
+
+
+def archive_name(rel):
+    return Path(str(rel) + ".txt") if rel.suffix in {".py", ".sh", ".log", ".mjs"} else rel
+
+
+assert not DEST.exists(), "refuse to overwrite sealed attempt"
+assert (ROOT / "README.md").is_file()
+assert (ROOT / "operator-qc/final-qc.json").is_file()
+for axis in ("spec", "quality"):
+    out = ROOT / f"{axis}-k3"
+    execution = json.loads((out / "execution.json").read_text())
+    assert execution["complete"] and execution["revision"] == REV
+    assert execution["candidate_untouched"] and execution["author_untouched"] and execution["inputs_unchanged"]
+    for name, expected in execution["sha256"].items():
+        assert sha((out / name).read_bytes()) == expected, (axis, name)
+    for name, expected in execution["identity_after"]["inputs_sha256"].items():
+        assert sha((ROOT / name).read_bytes()) == expected, (axis, name)
+    tree = Path(execution["identity_after"]["tree"])
+    assert subprocess.check_output(["git", "-C", str(tree), "rev-parse", "HEAD"], text=True).strip() == REV
+    assert subprocess.check_output(["git", "-C", str(tree), "status", "--porcelain=v1"], text=True).strip() == ""
+
+sources = sorted(p for p in ROOT.rglob("*") if wanted(p))
+# Check secrets before any tracked copy. Fake fixture tokens are never credentials.
+import re
+for source in sources:
+    data = source.read_bytes()
+    assert not re.search(rb"(?m)^-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----\r?$", data), source
+    assert not re.search(rb"eyJ[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}", data), source
+    assert len(data) <= MAX_BYTES or source.suffix == ".jsonl", ("unexpected large text", source)
+
+DEST.mkdir()
+manifest = {
+    "revision": REV, "historical_base": BASE, "time": datetime.now(timezone.utc).isoformat(),
+    "operator_overall": json.loads((ROOT / "operator-qc/final-qc.json").read_text())["overall"],
+    "independent_review_status": "BLOCKED / both axes incomplete at request cap",
+    "archive_scope": "selected textual evidence; runtime synthetic DB/Git/cache fixtures remain local",
+    "line_splitting": "LF byte boundaries only; ordered concatenation reconstructs original exact bytes",
+    "manifest_excludes_itself": True, "readme_is_archive_documentation": True,
+    "files": [], "split_sources": [],
+}
+for source in sources:
+    rel = source.relative_to(ROOT)
+    data = source.read_bytes()
+    blocks = [data]
+    if len(data) > MAX_BYTES:
+        blocks = []
+        start = 0
+        while start < len(data):
+            end = min(start + MAX_BYTES, len(data))
+            if end != len(data):
+                end = data.rfind(b"\n", start, end) + 1
+                assert end > start, "single JSONL event exceeds chunk limit"
+            blocks.append(data[start:end])
+            start = end
+    names = []
+    offset = 0
+    for index, block in enumerate(blocks):
+        name = archive_name(rel) if len(blocks) == 1 else Path(str(rel) + f".part{index + 1:03d}.txt")
+        target = DEST / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with target.open("xb") as stream:
+            stream.write(block)
+        assert target.read_bytes() == data[offset:offset + len(block)]
+        item = {"path": str(name), "source": str(source), "bytes": len(block), "sha256": sha(block)}
+        if len(blocks) > 1:
+            item["source_offset"] = offset
+        manifest["files"].append(item)
+        names.append(str(name))
+        offset += len(block)
+    assert b"".join((DEST / n).read_bytes() for n in names) == data
+    if len(blocks) > 1:
+        manifest["split_sources"].append({"source": str(source), "bytes": len(data), "sha256": sha(data), "ordered_parts": names})
+(DEST / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+assert {str(p.relative_to(DEST)) for p in DEST.rglob("*") if p.is_file()} == {r["path"] for r in manifest["files"]} | {"manifest.json"}
+print(json.dumps({"archive": str(DEST), "files": len(manifest["files"]), "split_sources": len(manifest["split_sources"]), "operator_overall": manifest["operator_overall"]}))

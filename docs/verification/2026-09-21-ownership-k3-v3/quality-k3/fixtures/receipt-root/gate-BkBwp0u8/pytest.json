@@ -1,0 +1,24 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "5c0b43e0450cfab6",
+  "tree": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/gaterepo",
+  "revision": "756868a9b1401675e565fa418458cedcfb13babc",
+  "branch": "main",
+  "dirty": true,
+  "dirty_paths": [
+    "tests/test_ok.py"
+  ],
+  "worktree_dirty_total": 1,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_ok.py",
+  "counts": {
+    "passed": 2,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-21T04:33:46+00:00"
+}

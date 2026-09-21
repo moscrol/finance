@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "write_16",
+  "toolName": "write",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_a_gate.sh"
+      }
+    ]
+  },
+  "isError": false
+}

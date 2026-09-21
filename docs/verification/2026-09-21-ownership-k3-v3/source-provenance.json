@@ -1,0 +1,26 @@
+{
+  "credential-bootstrap.mjs": {
+    "source": "/Users/a77/.finance-runtime/reviews/stale-closeout-k3-20260921/quality-followup-01/credential-bootstrap.mjs",
+    "sha256": "4abd95638e299f1be10bc3c7ecf5a56fc7834461f7a6b954550a1ec77da631e4"
+  },
+  "bootstrap.test.mjs": {
+    "source": "/Users/a77/.finance-runtime/reviews/stale-closeout-k3-20260921/quality-followup-01/bootstrap.test.mjs",
+    "sha256": "c43c67cd5fa41bb28e57f690580437c1fad58b5a9b6ffe3618df06a5380a7e67"
+  },
+  "provider-template.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/stale-closeout-k3-20260921/quality-followup-01/provider-template.json",
+    "sha256": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4"
+  },
+  "candidate.diff": {
+    "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/candidate.diff",
+    "sha256": "ff14280010e021e083f6aed601a7113b49b242751296746dad7532da64652687"
+  },
+  "backfill-prep-contract.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/backfill-prep-contract.md",
+    "sha256": "38e532c56f68cf3044fcb7b927560556c600e8c0ccb76a0de35b81680e106fb5"
+  },
+  "backfill-execution-contract.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/ownership-independent-v3-20260921/backfill-execution-contract.md",
+    "sha256": "cef6cddb24fec805dc14daba9c9d73fd593a98bc9fbca7377493b6f3997e5e25"
+  }
+}

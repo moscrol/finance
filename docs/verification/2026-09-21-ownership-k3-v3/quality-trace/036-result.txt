@@ -1,0 +1,9 @@
+B8a dirty rc=2
+树不干净，整仓收据只对干净树成立；本地迭代请加 --allow-dirty。
+B8b allow-dirty rc=0
+2 passed in 0.29s
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-BkBwp0u8/pytest.json
+   revision=756868a9b140 dirty=True target=tests/test_ok.py
+   passed=2 failed=0 error=0 skipped=0
+receipt dirty= True wdt= 1 paths= ['tests/test_ok.py']
+       0

@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "tool_C1o6soCWmTpOaIuYFSTW6l9J",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "=== clean patch-equivalent dev-wt board ===\n基准 main=aaaaaaaaaaaa  （合入看 cherry+，不是 ahead 提交数）\n树 1 棵 · 还有补丁 0 · 补丁已在基线的干净 dev 树 1 · 待核实 0\n\n【还有补丁 — 真没合】\n  （无）\n\n【补丁已在基线且 Git 干净 — 不是删除许可，本脚本不拆】\n  c0f08060359c  done2  ~/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/repo-b/fwp-wt-done\n\n【生产快照】生产快照保留策略需另行核实；本脚本不拆\n\n删除前另查 ignored 文件、reflog、活跃进程/定时任务与部署引用，并取得用户确认。\ncherry 只比较补丁等价，不证明业务接替或合并提交里的独有改动已吸收。\n合入状态不要写进 inflight/main.md 或项目笔记交接记录，下次跑本脚本。\n\n=== same tree with doc-only uncommitted file ===\n基准 main=aaaaaaaaaaaa  （合入看 cherry+，不是 ahead 提交数）\n树 1 棵 · 还有补丁 0 · 补丁已在基线的干净 dev 树 0 · 待核实 0\n\n【还有补丁 — 真没合】\n  （无）\n\n【补丁已在基线且 Git 干净 — 不是删除许可，本脚本不拆】\n  （无）\n\n【补丁已在基线，但还有未提交文件 — 先认领并保全】\n  c0f08060359c  done2  ~/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/repo-b/fwp-wt-done\n\n【生产快照】生产快照保留策略需另行核实；本脚本不拆\n\n删除前另查 ignored 文件、reflog、活跃进程/定时任务与部署引用，并取得用户确认。\ncherry 只比较补丁等价，不证明业务接替或合并提交里的独有改动已吸收。\n合入状态不要写进 inflight/main.md 或项目笔记交接记录，下次跑本脚本。\n\n"
+      }
+    ]
+  },
+  "isError": false
+}

@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "bash_41",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "def tree_kind(path: str, main_checkout: str) -> str:\n    posix = path.replace(\"\\\\\", \"/\")\n    if \"/.finance-runtime/finance-workspace-\" in posix:\n        return \"prod-snapshot\"\n    if \"/fwp-wt-\" in posix or \"/.worktrees/\" in posix:\n        return \"dev-wt\"\n    if os.path.abspath(path) == os.path.abspath(main_checkout):\n        return \"main-checkout\"\n    return \"other\"\n\n\ndef _status_paths(porcelain: str) -> list[str]:\n    paths: list[str] = []\n    for line in porcelain.splitlines():\n        if len(line) < 4:\n            continue\n        rel = line[3:].strip().strip('\"')\n        if \" -> \" in rel:\n            rel = rel.split(\" -> \", 1)[1]\n        paths.append(rel)\n    return paths\n\n\ndef resolve_base(cwd: str, timeout: float) -> str:\n    \"\"\"合入基线：日常远程是 gitea/main，没有再退 origin/main、main。\"\"\"\n\n    for candidate in (\"gitea/main\", \"origin/main\", \"main\"):\n        code, _ = _git([\"rev-parse\", \"--verify\", \"--quiet\", candidate], cwd=cwd, timeout=timeout)\n        if code == 0:\n            return candidate\n"
+      }
+    ]
+  },
+  "isError": false
+}

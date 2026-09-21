@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "tool_FQiGxHz5GzXiCC4ZNq0aQd6s",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-JkpmdPLn/pytest.json dirty=False\n/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-PZWjmZJC/pytest.json dirty=True\n/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-fFu53M6y/pytest.json dirty=False\n/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-ni0heosA/pytest.json dirty=False\ndirty receipt: /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-PZWjmZJC/pytest.json\ngate receipt refused: receipt is dirty or dirty state is unknown\nrc=4 (expect 4 dirty refusal)\nrc=0 (expect 0 with --allow-dirty)\ngate receipt refused: receipt revision does not match the tested revision\nrc=4 (expect 4 exit mismatch)\n"
+      }
+    ]
+  },
+  "isError": false
+}

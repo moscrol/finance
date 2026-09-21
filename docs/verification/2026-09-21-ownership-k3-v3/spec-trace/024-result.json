@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "bash_23",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "gate receipt refused: receipt exit_status does not match pytest process\nrc=4 (expect 4 exit-mismatch)\nrc=0 (expect 0 matching exit)\n"
+      }
+    ]
+  },
+  "isError": false
+}

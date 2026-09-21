@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "bash_28",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "128:def tree_kind(path: str, main_checkout: str) -> str:\n129-    posix = path.replace(\"\\\\\", \"/\")\n130-    if \"/.finance-runtime/finance-workspace-\" in posix:\n131-        return \"prod-snapshot\"\n132-    if \"/fwp-wt-\" in posix or \"/.worktrees/\" in posix:\n133-        return \"dev-wt\"\n134-    if os.path.abspath(path) == os.path.abspath(main_checkout):\n135-        return \"main-checkout\"\n136-    return \"other\"\n137-\n138-\n139-def _status_paths(porcelain: str) -> list[str]:\n140-    paths: list[str] = []\n141-    for line in porcelain.splitlines():\n142-        if len(line) < 4:\n143-            continue\n"
+      }
+    ]
+  },
+  "isError": false
+}

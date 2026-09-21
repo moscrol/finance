@@ -1,0 +1,534 @@
+[
+  {
+    "index": 1,
+    "id": "read_0",
+    "tool": "read",
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/review-common.md"
+    },
+    "result_file": "spec-trace/001-result.json",
+    "is_error": false,
+    "result_text_sha256": "b59bd8b7e0cfe9d9460126b99eb63a65b5cf453cce8c35f0bdb05816412038c8",
+    "result_summary": "# Ownership v3 independent review contract\n\nYou are K3, an independent reviewer in a NEW context, not the author. Do not repair source or assume green. The root operator is collecting SPEC/QUALITY evidence for a user-aut"
+  },
+  {
+    "index": 2,
+    "id": "ls_1",
+    "tool": "ls",
+    "args": {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v3-0921"
+    },
+    "result_file": "spec-trace/002-result.json",
+    "is_error": false,
+    "result_text_sha256": "4bc7cabee3a44e31c84bdb9e05d08d792e28fbf9f546f9e0fb3be4d1cb227481",
+    "result_summary": ".agents/\n.claude/\n.code-review-graph/\n.code-review-graphignore\n.codex/\n.devin/\n.git\n.github/\n.gitignore\n.pre-commit-config.yaml\nAGENTS.md\nCLAUDE.md\nconftest.py\ndocs/\nevolution/\nfde/\nfill-rate-baseline.json\nintelligence/\n"
+  },
+  {
+    "index": 3,
+    "id": "tool_vXTA2HTAS7ar1kH8nfr050fZ",
+    "tool": "ls",
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921"
+    },
+    "result_file": "spec-trace/003-result.json",
+    "is_error": false,
+    "result_text_sha256": "370ef053472235793c2276c223ab82dd5ebcc53ac51dbed00867eb2643e91edb",
+    "result_summary": "authorization.json\nbackfill-execution-contract.md\nbackfill-prep-contract.md\nbootstrap-tests-sVxPU5/\nbootstrap-tests.log\nbootstrap.test.mjs\ncandidate.diff\ncredential-bootstrap.mjs\npi-config/\nprovider-template.json\nquality"
+  },
+  {
+    "index": 4,
+    "id": "tool_NKy4lKw5PVVltKqtVDnGIb1W",
+    "tool": "bash",
+    "args": {
+      "command": "mkdir -p /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes && cd /Users/a77/fwp-wt-ownership-spec-v3-0921 && git rev-parse HEAD && git status --porcelain | head -5 && python3 --version"
+    },
+    "result_file": "spec-trace/004-result.json",
+    "is_error": false,
+    "result_text_sha256": "cb999191f6c75896a05870840b4dd9f31e2a0b4c490dfb13cf3b326ce0c48342",
+    "result_summary": "47530e20fe5c3195e50ce429b31898d57918e413\nPython 3.14.5\n"
+  },
+  {
+    "index": 5,
+    "id": "bash_4",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921 && wc -l candidate.diff backfill-prep-contract.md backfill-execution-contract.md && head -100 candidate.diff"
+    },
+    "result_file": "spec-trace/005-result.json",
+    "is_error": false,
+    "result_text_sha256": "e0eed55bb9aa5c1dee9586ffda1d06224cf558942b47fe0dd9f23bd5ce39d696",
+    "result_summary": "    4058 candidate.diff\n      91 backfill-prep-contract.md\n     127 backfill-execution-contract.md\n    4276 total\ndiff --git a/conftest.py b/conftest.py\nindex 325a112a1..351a0f486 100644\n--- a/conftest.py\n+++ b/conftest."
+  },
+  {
+    "index": 6,
+    "id": "bash_5",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921 && sed -n 100,400p candidate.diff"
+    },
+    "result_file": "spec-trace/006-result.json",
+    "is_error": false,
+    "result_text_sha256": "91dbe8db24268d7572d99021154e894e716e5cc793d13928099847ae6dbae550",
+    "result_summary": "+    的通道。\n+    \"\"\"\n+    from .sync.repair_backfill_stock_history import BackfillSpec, run_backfill_child\n+    from .sync.repair_hithink_stock_day import RepairRefused\n+    from .sync.sync_daily_full import run_daily_full"
+  },
+  {
+    "index": 7,
+    "id": "tool_2IJEi4VGXXf2HkxaaVCed0SO",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921 && sed -n 400,800p candidate.diff"
+    },
+    "result_file": "spec-trace/007-result.json",
+    "is_error": false,
+    "result_text_sha256": "80a5a4dd9cf544930cb80172f2bd27f89a41d222c9cc7c6b69a22e1884b93fde",
+    "result_summary": "+    expected_total_rows: int = 64\n+    stale_technical_dates: tuple[str, ...] = STALE_TECHNICAL_DATES\n+    stale_window_keys: tuple[tuple[str, str], ...] = STALE_WINDOW_KEYS\n+    pinned_0911: dict = field(default_factor"
+  },
+  {
+    "index": 8,
+    "id": "bash_7",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921 && sed -n 800,1250p candidate.diff"
+    },
+    "result_file": "spec-trace/008-result.json",
+    "is_error": false,
+    "result_text_sha256": "5356f1772b97d9d3a49904e81e40e8cf50bcd2bf87b213979583c8460872195b",
+    "result_summary": "+               ROUND(ma26, 4) AS ma26, ROUND(std26, 4) AS std26,\n+               ROUND(ma26 + 0.764 * std26, 4) AS up_value,\n+               ROUND((close / NULLIF(ma26 + 0.764 * std26, 0) - 1) * 100, 2)\n+               "
+  },
+  {
+    "index": 9,
+    "id": "bash_8",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921 && sed -n 1250,1700p candidate.diff"
+    },
+    "result_file": "spec-trace/009-result.json",
+    "is_error": false,
+    "result_text_sha256": "31e7695aadc75d015d37c58efee52d28b7e71925d3f8018be9d9ab66aa14fd90",
+    "result_summary": "-fi\n+# 仅用宿主标准库解析 JSON，测试本身仍用契约指定的解释器。\n+PY=\"$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get(\"interpreter\", \"\") if p.is_file() else \"\")' \"$REPO/test-environ"
+  },
+  {
+    "index": 10,
+    "id": "tool_Idf7OQvcQqHVVDj09xcntmEq",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921 && sed -n 1700,2200p candidate.diff"
+    },
+    "result_file": "spec-trace/010-result.json",
+    "is_error": false,
+    "result_text_sha256": "4f1d1e10a8ceee0547094999b6478af43891fca0e76c4c24d48b6e5abfbdb750",
+    "result_summary": "+    ap.add_argument(\"--run-apply\", required=True)\n+    ap.add_argument(\"--run-verify\", required=True)\n+    ap.add_argument(\"--expected-revision\", required=True)\n+    ap.add_argument(\"--expected-production-sha256\", requi"
+  },
+  {
+    "index": 11,
+    "id": "bash_10",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921 && sed -n 2200,2700p candidate.diff"
+    },
+    "result_file": "spec-trace/011-result.json",
+    "is_error": false,
+    "result_text_sha256": "2f9da0b577a37035167a508ef9d3385d812b72b3f90988d97f9ea076c8f33688",
+    "result_summary": "+        locked=spec.get(\"locked\", \"\"),\n+        prunable=spec.get(\"prunable\", \"\"),\n     )\n \n \n@@ -369,21 +398,23 @@ def display_path(path: str) -> str:\n \n \n def format_board(rows: list[TreeRow], *, base: str, base_sha: "
+  },
+  {
+    "index": 12,
+    "id": "bash_11_23d0d925",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921 && sed -n 2700,3100p candidate.diff"
+    },
+    "result_file": "spec-trace/012-result.json",
+    "is_error": false,
+    "result_text_sha256": "e50d0fd8a7a98d17d06cf2e0d63b09197baf8735c33b69d365875b4233510395",
+    "result_summary": "+        _insert(con, \"fact_market_daily\", {\"trade_date\": d})\n+    _insert(con, \"fact_stock_daily_hithink\", {\n+        \"trade_date\": PREV, \"stock_ts_code\": CODE,\n+        \"open\": 9.4, \"high\": 9.7, \"low\": 9.3, \"close\": 9."
+  },
+  {
+    "index": 13,
+    "id": "bash_12",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921 && sed -n 3100,3500p candidate.diff"
+    },
+    "result_file": "spec-trace/013-result.json",
+    "is_error": false,
+    "result_text_sha256": "7ff11a76ac66c1c9934882625c18ac42b17d51c0c18f8fc18a68f3562230199b",
+    "result_summary": "+def _cli_args(pq, db, report_path=None):\n+    from types import SimpleNamespace\n+    return SimpleNamespace(parquet=str(pq), child=True, db=str(db),\n+                           report_path=str(report_path) if report_pat"
+  },
+  {
+    "index": 14,
+    "id": "bash_13",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921 && sed -n 3500,4058p candidate.diff"
+    },
+    "result_file": "spec-trace/014-result.json",
+    "is_error": false,
+    "result_text_sha256": "ec56010f94bd9a3ffc1362af53a4bfb937bc7d332cc18388788aa2c5b08abff9",
+    "result_summary": "+            \"child_report\": children[mode], \"child_report_error\": None,\n+            \"backup\": {\"backup_path\": str(baseline), \"backup_sha256\": base_sha,\n+                       \"run_id\": rid},\n+            \"parent\": {\"s"
+  },
+  {
+    "index": 15,
+    "id": "bash_14_7184d9a9",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921 && cat backfill-prep-contract.md && echo ============ && cat backfill-execution-contract.md"
+    },
+    "result_file": "spec-trace/015-result.json",
+    "is_error": false,
+    "result_text_sha256": "9809dd9ea0e108fa22331e7189c73d88b785e2d688bd8d22ebc9f3d195764540",
+    "result_summary": "# 302132 回填准备阶段独立审查（742c3ff5）\n\n## 结论\n\n**数据来源、缺口与 09-11 可计算性认可；执行草案暂不放行，2 个 P1（执行前必须解决）、1 组 P2（证据/范围声明修正）。** 可以据本审查完善专用回填实现并另交代码评审；本结论不是生产执行授权，事项 3、旧行修正、备份清理均未批准或执行。\n\n审查树 `/private/tmp/302132-prep-qc-742c3ff5`，分支 `docs/qc"
+  },
+  {
+    "index": 16,
+    "id": "bash_15",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v3-0921 && git log --oneline -1 && git diff 728f327160bbd2485cb635e7ef09d040d718d7b5 --stat | tail -15 && /Users/a77/finance-workspace-private/.venv-workbench/bin/python -c \"import duckdb, pytest; print(duckdb.__version__, pytest.__version__)\" && cat test-environment.json"
+    },
+    "result_file": "spec-trace/016-result.json",
+    "is_error": false,
+    "result_text_sha256": "abdf00fa9fe2d3059c8b461987e6cee4372cc25c93a3221e890c000291e88f51",
+    "result_summary": "47530e20f test: freeze ownership candidates with strict receipt-only tree identity\n .../backfill-frontend-wrong-identity-refused.json  |   27 +\n .../board-6a9cb527-targeted.json                   |   22 +\n .../board-befo"
+  },
+  {
+    "index": 17,
+    "id": "write_16",
+    "tool": "write",
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_a_gate.sh"
+    },
+    "content_sha256": "a4dc92a60855dcb51d729f8d9c058107ff830962eaf874621401e2a3e3585394",
+    "recovered_write": "spec-trace/017-write-probe_a_gate.sh.txt",
+    "result_file": "spec-trace/017-result.json",
+    "is_error": false,
+    "result_text_sha256": "29c11bdf02e14c4ad8ce2977166f2f16bda3c47fbfe72e4142bb7756133e80da",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_a_gate.sh"
+  },
+  {
+    "index": 18,
+    "id": "bash_17",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes && timeout 115 bash probe_a_gate.sh 2>&1 | grep -v '^===' | head -60",
+      "timeout": 120
+    },
+    "result_file": "spec-trace/018-result.json",
+    "is_error": false,
+    "result_text_sha256": "4d29c9c21b314dc301fd798970a3205a277eed785c3e0022247fa122a6698b1d",
+    "result_summary": "A1 rc=0\nA1 receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-fFu53M6y/pytest.json\nA1 receipt identity: True dirty= False tree_ok= True counts= {'passed': 1, 'failed': 0, "
+  },
+  {
+    "index": 19,
+    "id": "tool_XDPIFJn9XMhqGjwy7wUY5K3a",
+    "tool": "write",
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_a2_gate.sh"
+    },
+    "content_sha256": "6dd16179acd876cfac79f3651465137e5ec74163a8dc806b0c3e68ab48a04e9b",
+    "recovered_write": "spec-trace/019-write-probe_a2_gate.sh.txt",
+    "result_file": "spec-trace/019-result.json",
+    "is_error": false,
+    "result_text_sha256": "fc06c2ba02bf1eb732dca6c3e21d7522b702f0975680ea49840ad99ad034bca5",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_a2_gate.sh"
+  },
+  {
+    "index": 20,
+    "id": "tool_WtnjTHnZmd1IdXvwWuiyAgKQ",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes && git -C repo-a status --porcelain; git -C repo-a log --oneline | head -3; timeout 115 bash probe_a2_gate.sh 2>&1 | grep -v '^===' | head -50",
+      "timeout": 120
+    },
+    "result_file": "spec-trace/020-result.json",
+    "is_error": false,
+    "result_text_sha256": "b5271cd37d6072302403fb3c041fde1abb1ca542dd5c4c791fc756356d8629b0",
+    "result_summary": "?? test_fail.py\na0407a5 cleanup\n831df27 nested\n16e3ccd fixture\n?? test_fail.py\nA2r exec rc=1 (expect 1)\nA2r receipt exit= 1 failed_ids= ['test_fail.py::test_bad']\nA2r readback rc=1 (expect 1)\nA3r wrong_revision: rc=4 OK-"
+  },
+  {
+    "index": 21,
+    "id": "tool_t9su3HqXyZdWVPV59wQy7opa",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes && sed -n '/A7r nested/,$p' probe_a2_gate.log | head -30"
+    },
+    "result_file": "spec-trace/021-result.json",
+    "is_error": false,
+    "result_text_sha256": "1c8cd87d149e3399187d611478f25611a1fccc83ea291d3a52c07e88474a3261",
+    "result_summary": "=== A7r nested pytest cannot claim parent path\n== gate @ 83153eef7232 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/repo-a py=/Users/a77/finance-workspace-private/.venv-workbench/bin/py"
+  },
+  {
+    "index": 22,
+    "id": "bash_21",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/repo-a && cat > test_nested.py <<'EOF'\nimport subprocess\nimport sys\n\n\ndef test_nested():\n    r = subprocess.run([sys.executable, \"-m\", \"pytest\", \"--collect-only\", \"-q\"],\n                       capture_output=True, text=True, timeout=60)\n    assert r.returncode == 0, r.stdout + r.stderr\nEOF\ngit add test_nested.py && git commit -qm nested2\nOUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes\nBEFORE=$(ls \"$OUT\"/receipts-a/gate-*/pytest.json | wc -l | tr -d ' ')\nenv -i HOME=\"$OUT/home\" PATH=\"$PATH\" FWP_TEST_RECEIPT_DIR=\"$OUT/receipts-a\" FWP_TEST_RECEIPT=1 PYTHONDONTWRITEBYTECODE=1 bash /Users/a77/fwp-wt-ownership-spec-v3-0921/scripts/run_main_gate.sh --pytest-args \"-q -p no:cacheprovider test_nested.py\" >/tmp/a7.log 2>&1\necho \"A7 rc=$? (expect 0)\"; AFTER=$(ls \"$OUT\"/receipts-a/gate-*/pytest.json | wc -l | tr -d ' '); echo \"receipts $BEFORE -> $AFTER (expect +1)\"\ntail -3 /tmp/a7.log\n# direct: dirty receipt refused at receipt level without --allow-dirty\nRCPT3=$(ls -t \"$OUT\"/receipts-a/gate-*/pytest.json | head -1)\ngit -C . log --oneline -1\n/Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/fwp-wt-ownership-spec-v3-0921/scripts/main_gate_receipt.py \"$RCPT3\" --revision \"$(git rev-parse HEAD)\" --tree \"$PWD\"; echo \"direct dirty receipt no-flag rc=$? (expect 4)\"\ngit rm -q test_nested.py && git commit -qm cleanup3 && git status --porcelain && echo CLEAN",
+      "timeout": 90
+    },
+    "result_file": "spec-trace/022-result.json",
+    "is_error": false,
+    "result_text_sha256": "7ee802fb74e3e9d5ba7af16a5b8782ccaff830a68b632370fee75b59818280c1",
+    "result_summary": "A7 rc=0 (expect 0)\nreceipts 3 -> 4 (expect +1)\n== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-JkpmdPLn/pytest.json\n   revision=ad09e824e376 dirty=False target=test_"
+  },
+  {
+    "index": 23,
+    "id": "tool_FQiGxHz5GzXiCC4ZNq0aQd6s",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes\nPY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\nfor f in \"$OUT\"/receipts-a/gate-*/pytest.json; do\n  d=$(\"$PY\" -c \"import json;print(json.load(open('$f'))['dirty'])\")\n  echo \"$f dirty=$d\"\ndone\nDIRTYRCPT=$(for f in \"$OUT\"/receipts-a/gate-*/pytest.json; do \"$PY\" -c \"import json,sys;d=json.load(open('$f'));sys.exit(0 if d['dirty'] else 1)\" && echo \"$f\"; done | head -1)\necho \"dirty receipt: $DIRTYRCPT\"\ncd \"$OUT/repo-a\"\n# receipt revision is the dirty-run HEAD; look it up from the receipt itself and feed matching revision so only dirt refuses\nREV=$(\"$PY\" -c \"import json;print(json.load(open('$DIRTYRCPT'))['revision'])\")\n\"$PY\" /Users/a77/fwp-wt-ownership-spec-v3-0921/scripts/main_gate_receipt.py \"$DIRTYRCPT\" --revision \"$REV\" --tree \"$PWD\"; echo \"rc=$? (expect 4 dirty refusal)\"\n\"$PY\" /Users/a77/fwp-wt-ownership-spec-v3-0921/scripts/main_gate_receipt.py \"$DIRTYRCPT\" --revision \"$REV\" --tree \"$PWD\" --allow-dirty >/dev/null; echo \"rc=$? (expect 0 with --allow-dirty)\"\n# pytest-exit mismatch in execution mode\nCLEANRCPT=$(ls -t \"$OUT\"/receipts-a/gate-*/pytest.json | head -1)\n\"$PY\" /Users/a77/fwp-wt-ownership-spec-v3-0921/scripts/main_gate_receipt.py \"$CLEANRCPT\" --revision \"$(git rev-parse HEAD)\" --tree \"$PWD\" --pytest-exit 1; echo \"rc=$? (expect 4 exit mismatch)\"",
+      "timeout": 60
+    },
+    "result_file": "spec-trace/023-result.json",
+    "is_error": false,
+    "result_text_sha256": "5aea084290fbaaa4c02e56e2e8e098d065df8e9f3b826be44a901dc82b5aceef",
+    "result_summary": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-JkpmdPLn/pytest.json dirty=False\n/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/receipts-a/gate-PZW"
+  },
+  {
+    "index": 24,
+    "id": "bash_23",
+    "tool": "bash",
+    "args": {
+      "command": "OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes\nPY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python\nCLEANRCPT=$(ls -t \"$OUT\"/receipts-a/gate-*/pytest.json | head -1)\nREV=$(\"$PY\" -c \"import json;print(json.load(open('$CLEANRCPT'))['revision'])\")\ncd \"$OUT/repo-a\"\n\"$PY\" /Users/a77/fwp-wt-ownership-spec-v3-0921/scripts/main_gate_receipt.py \"$CLEANRCPT\" --revision \"$REV\" --tree \"$PWD\" --pytest-exit 1; echo \"rc=$? (expect 4 exit-mismatch)\"\n\"$PY\" /Users/a77/fwp-wt-ownership-spec-v3-0921/scripts/main_gate_receipt.py \"$CLEANRCPT\" --revision \"$REV\" --tree \"$PWD\" --pytest-exit 0 >/dev/null; echo \"rc=$? (expect 0 matching exit)\"",
+      "timeout": 30
+    },
+    "result_file": "spec-trace/024-result.json",
+    "is_error": false,
+    "result_text_sha256": "b8fc434ea8d455b1a7a914552bf00313aed7d2bbbb5ac447cee73c4dff75c2ad",
+    "result_summary": "gate receipt refused: receipt exit_status does not match pytest process\nrc=4 (expect 4 exit-mismatch)\nrc=0 (expect 0 matching exit)\n"
+  },
+  {
+    "index": 25,
+    "id": "write_24",
+    "tool": "write",
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_b_board.py"
+    },
+    "content_sha256": "d748b93a052f81438e4667a3946c7102dc8aeaaf4d0c5b9adfddab9b7a8d44dc",
+    "recovered_write": "spec-trace/025-write-probe_b_board.py.txt",
+    "result_file": "spec-trace/025-result.json",
+    "is_error": false,
+    "result_text_sha256": "a177bac6d5b7392d5b8f41f8cbdcdbe34b0b28fa750756a524016e4d10954e09",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_b_board.py"
+  },
+  {
+    "index": 26,
+    "id": "bash_25",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes && PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=0 timeout 100 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probe_b_board.py 2>&1 | tail -30",
+      "timeout": 110
+    },
+    "result_file": "spec-trace/026-result.json",
+    "is_error": false,
+    "result_text_sha256": "f9c38acd1190b25ccd1407ab663543edb21d1a54c0946493b0d67cd23bd39d18",
+    "result_summary": "fatal: not a git repository (or any of the parent directories): .git\nB1 missing-path: error='worktree unavailable or repository root mismatch' cherry_plus=-1 ahead=-1 behind=-1\nB1 board has 待核实: True | in clean-prune sec"
+  },
+  {
+    "index": 27,
+    "id": "bash_26",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes && python3 - <<'EOF'\nimport re\np = \"probe_b_board.py\"\ns = open(p).read()\ns = s.replace('subprocess.run([\"git\", \"worktree\", \"lock\", \"--reason\", \"k3-review\", str(wt)], check=True)',\n              'subprocess.run([\"git\", \"worktree\", \"lock\", \"--reason\", \"k3-review\", str(wt)], check=True, cwd=str(main_repo))')\ns = s.replace('subprocess.run([\"git\", \"worktree\", \"unlock\", str(wt)], check=True)',\n              'subprocess.run([\"git\", \"worktree\", \"unlock\", str(wt)], check=True, cwd=str(main_repo))')\nopen(p, \"w\").write(s)\nEOF\nPYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=0 timeout 100 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probe_b_board.py 2>&1 | tail -25",
+      "timeout": 110
+    },
+    "result_file": "spec-trace/027-result.json",
+    "is_error": false,
+    "result_text_sha256": "4d330955f1cfe060c823a19e292b8094bc0d75a894ce2fbc492c83dabab85731",
+    "result_summary": "Traceback (most recent call last):\n  File \"/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_b_board.py\", line 39, in <module>\n    main_repo = init_repo(OUT / \"repo-b\" / \"main\")\n          "
+  },
+  {
+    "index": 28,
+    "id": "bash_27",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes && rm -rf repo-b && PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=0 timeout 100 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probe_b_board.py 2>&1 | tail -25",
+      "timeout": 110
+    },
+    "result_file": "spec-trace/028-result.json",
+    "is_error": false,
+    "result_text_sha256": "6858e60ffd5e356a94c39097e58a1583dd5e67ca5560b696ad08714798dc0076",
+    "result_summary": "B1 missing-path: error='worktree unavailable or repository root mismatch' cherry_plus=-1 ahead=-1 behind=-1\nB1 board has 待核实: True | in clean-prune section: False\nB2 parent-fallback: error='worktree unavailable or reposi"
+  },
+  {
+    "index": 29,
+    "id": "bash_28",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v3-0921 && grep -n \"def tree_kind\" -A 15 scripts/worktree_board.py"
+    },
+    "result_file": "spec-trace/029-result.json",
+    "is_error": false,
+    "result_text_sha256": "2f2bdc9d1baa4b7be27a7fc222ef9895ae5ef6f37c7b553db8d81ad552b41acf",
+    "result_summary": "128:def tree_kind(path: str, main_checkout: str) -> str:\n129-    posix = path.replace(\"\\\\\", \"/\")\n130-    if \"/.finance-runtime/finance-workspace-\" in posix:\n131-        return \"prod-snapshot\"\n132-    if \"/fwp-wt-\" in pos"
+  },
+  {
+    "index": 30,
+    "id": "tool_7wCZtGCvr8sR9kdjeofQwMEx",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes && PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=0 timeout 60 /Users/a77/finance-workspace-private/.venv-workbench/bin/python - <<'EOF'\nimport subprocess, sys\nfrom pathlib import Path\nsys.path.insert(0, \"/Users/a77/fwp-wt-ownership-spec-v3-0921/scripts\")\nimport worktree_board as board\nOUT = Path(\"/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes\")\nmain_repo = OUT / \"repo-b\" / \"main\"\ndef git(repo, *a):\n    return subprocess.run([\"git\", *a], cwd=repo, capture_output=True, text=True, check=True).stdout.strip()\nwt = OUT / \"repo-b\" / \"fwp-wt-done\"\ngit(main_repo, \"worktree\", \"add\", \"-q\", \"-b\", \"done\", str(wt))\nrow = board.classify_worktree({\"path\": str(wt), \"head\": git(wt, \"rev-parse\", \"HEAD\"), \"branch\": \"done\"},\n                              base=\"main\", main_checkout=str(main_repo), timeout=10)\nprint(\"B8r kind:\", row.kind, \"in_main:\", row.in_main, \"dirty:\", row.dirty)\ntext = board.format_board([row], base=\"main\", base_sha=\"a\"*40)\nclean_sec = text.split(\"【补丁已在基线且 Git 干净\")[1].split(\"【\")[1]\nprint(\"B8r in clean section:\", \"fwp-wt-done\" in clean_sec, \"| disclaimer 不是删除许可:\", \"不是删除许可\" in text)\n# and with doc-only dirt it must leave the clean section\n(wt / \"notes.md\").write_text(\"x\\n\")\nrow2 = board.classify_worktree({\"path\": str(wt), \"head\": git(wt, \"rev-parse\", \"HEAD\"), \"branch\": \"done\"},\n                               base=\"main\", main_checkout=str(main_repo), timeout=10)\ntext2 = board.format_board([row2], base=\"main\", base_sha=\"a\"*40)\nclean_sec2 = text2.split(\"【补丁已在基线且 Git 干净\")[1].split(\"【\")[1]\nprint(\"B8r doc-dirty excluded from clean section:\", \"fwp-wt-done\" not in clean_sec2, \"| in 未提交 section:\", \"fwp-wt-done\" in text2.split(\"还有未提交文件\")[1].split(\"【\")[1])\ngit(main_repo, \"worktree\", \"remove\", \"--force\", str(wt))\nEOF",
+      "timeout": 70
+    },
+    "result_file": "spec-trace/030-result.json",
+    "is_error": false,
+    "result_text_sha256": "c684fc446df32c8988fa9684c7f340ba685aa9d72384450d34009d7d7e7c1cd2",
+    "result_summary": "B8r kind: dev-wt in_main: True dirty: False\nB8r in clean section: False | disclaimer 不是删除许可: True\nB8r doc-dirty excluded from clean section: False | in 未提交 section: False\n"
+  },
+  {
+    "index": 31,
+    "id": "tool_C1o6soCWmTpOaIuYFSTW6l9J",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes && PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=0 timeout 60 /Users/a77/finance-workspace-private/.venv-workbench/bin/python - <<'EOF'\nimport subprocess, sys\nfrom pathlib import Path\nsys.path.insert(0, \"/Users/a77/fwp-wt-ownership-spec-v3-0921/scripts\")\nimport worktree_board as board\nOUT = Path(\"/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes\")\nmain_repo = OUT / \"repo-b\" / \"main\"\ndef git(repo, *a):\n    return subprocess.run([\"git\", *a], cwd=repo, capture_output=True, text=True, check=True).stdout.strip()\nwt = OUT / \"repo-b\" / \"fwp-wt-done\"\ngit(main_repo, \"worktree\", \"add\", \"-q\", \"-b\", \"done2\", str(wt))\nrow = board.classify_worktree({\"path\": str(wt), \"head\": git(wt, \"rev-parse\", \"HEAD\"), \"branch\": \"done2\"},\n                              base=\"main\", main_checkout=str(main_repo), timeout=10)\nprint(\"=== clean patch-equivalent dev-wt board ===\")\nprint(board.format_board([row], base=\"main\", base_sha=\"a\"*40))\n(wt / \"notes.md\").write_text(\"x\\n\")\nrow2 = board.classify_worktree({\"path\": str(wt), \"head\": git(wt, \"rev-parse\", \"HEAD\"), \"branch\": \"done2\"},\n                               base=\"main\", main_checkout=str(main_repo), timeout=10)\nprint(\"=== same tree with doc-only uncommitted file ===\")\nprint(board.format_board([row2], base=\"main\", base_sha=\"a\"*40))\ngit(main_repo, \"worktree\", \"remove\", \"--force\", str(wt))\nEOF",
+      "timeout": 70
+    },
+    "result_file": "spec-trace/031-result.json",
+    "is_error": false,
+    "result_text_sha256": "63582aaf40ee70119ff663d63d5ae0a22bbef4ebec2fe1dbe0edbd25f96c3ba1",
+    "result_summary": "=== clean patch-equivalent dev-wt board ===\n基准 main=aaaaaaaaaaaa  （合入看 cherry+，不是 ahead 提交数）\n树 1 棵 · 还有补丁 0 · 补丁已在基线的干净 dev 树 1 · 待核实 0\n\n【还有补丁 — 真没合】\n  （无）\n\n【补丁已在基线且 Git 干净 — 不是删除许可，本脚本不拆】\n  c0f08060359c  done2  ~/.finan"
+  },
+  {
+    "index": 32,
+    "id": "bash_31",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v3-0921 && grep -n \"_refuse_production_write_direct\" -B2 -A20 market_feature_store/cli.py | head -40 && grep -n \"def run_daily_full_staged\" -A 30 market_feature_store/sync/sync_daily_full.py | head -45"
+    },
+    "result_file": "spec-trace/032-result.json",
+    "is_error": false,
+    "result_text_sha256": "c732139e7d739da62fda845ce68c6131f8b20d7d4f8f4e2e507ee932f5297b2f",
+    "result_summary": "1422-        env_db = os.environ.get(\"MARKET_FEATURE_STORE_DB\")\n1423-        target = Path(args.db or env_db) if (args.db or env_db) else None\n1424:        refused = _refuse_production_write_direct(target)\n1425-        i"
+  },
+  {
+    "index": 33,
+    "id": "write_32",
+    "tool": "write",
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_c_backfill.py"
+    },
+    "content_sha256": "61881271b7be1d571dd8718f242e6820278ccec00b6b43acb2f11be7ef8e46be",
+    "recovered_write": "spec-trace/033-write-probe_c_backfill.py.txt",
+    "result_file": "spec-trace/033-result.json",
+    "is_error": false,
+    "result_text_sha256": "7294084fc57bef667924061741e279fdca6345b32d00f6b1adaf224492aca36e",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_c_backfill.py"
+  },
+  {
+    "index": 34,
+    "id": "tool_oNrFPdvWlrTM75mnXCJIT7TA",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes && PYTHONDONTWRITEBYTECODE=1 timeout 115 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probe_c_backfill.py 2>&1 | tail -25",
+      "timeout": 120
+    },
+    "result_file": "spec-trace/034-result.json",
+    "is_error": false,
+    "result_text_sha256": "3704f7d1bb84c68e31a71c928aa9559a84b481b2fc3f17cb3f0c38c3dde81390",
+    "result_summary": "Traceback (most recent call last):\n  File \"/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_c_backfill.py\", line 19, in <module>\n    from market_feature_store.sync.repair_hithink_stock_hi"
+  },
+  {
+    "index": 35,
+    "id": "tool_lpWjvGw2wNaJQf7XiISCTWQj",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes && sed -i '' 's/repair_hithink_stock_history import RepairRefused/repair_hithink_stock_day import RepairRefused/' probe_c_backfill.py && PYTHONDONTWRITEBYTECODE=1 timeout 115 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probe_c_backfill.py 2>&1 | tail -25",
+      "timeout": 120
+    },
+    "result_file": "spec-trace/035-result.json",
+    "is_error": false,
+    "result_text_sha256": "7aa9620ecaa8c4758de9cc37b76949050716eb2b648e6e4f8db1bc16ac73f907",
+    "result_summary": "Traceback (most recent call last):\n  File \"/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_c_backfill.py\", line 43, in <module>\n    with mock.patch.object(cli, \"run_daily_full_staged\", p"
+  },
+  {
+    "index": 36,
+    "id": "bash_35",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes && python3 - <<'EOF'\ns = open(\"probe_c_backfill.py\").read()\ns = s.replace('with mock.patch.object(cli, \"run_daily_full_staged\", parent_spy), \\\\',\n              'from market_feature_store.sync import sync_daily_full\\nwith mock.patch.object(sync_daily_full, \"run_daily_full_staged\", parent_spy), \\\\')\nopen(\"probe_c_backfill.py\", \"w\").write(s)\nEOF\nPYTHONDONTWRITEBYTECODE=1 timeout 115 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probe_c_backfill.py 2>&1 | tail -25",
+      "timeout": 120
+    },
+    "result_file": "spec-trace/036-result.json",
+    "is_error": false,
+    "result_text_sha256": "f879ae2923f80ebaa56a5b16ca36c287f4fdb54fd149121f160338d291d8ccae",
+    "result_summary": "--db 仅供内部 --child 使用；父命令目标由 MARKET_FEATURE_STORE_DB 解析，拒绝忽略显式目标。\nC1 parent --db: rc= 2 (expect 2) parent_called= False  witness_intact= True\n回填护栏/验收不通过，未发布: 冻结 parquet 哈希不符: 519da1d5c923e5aefba8acaa80021200f0dd2ad6f1f693"
+  },
+  {
+    "index": 37,
+    "id": "write_36",
+    "tool": "write",
+    "args": {
+      "path": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_d_acceptance.py"
+    },
+    "content_sha256": "dd25562b96dd6634338b3ec34d5ecac289c63aa331bf48a328235b6d611b0e59",
+    "recovered_write": "spec-trace/037-write-probe_d_acceptance.py.txt",
+    "result_file": "spec-trace/037-result.json",
+    "is_error": false,
+    "result_text_sha256": "388a1bf76f7ae6c0f654568e8de352035b8106c8bba38e46eb09c1ad35b3cc83",
+    "result_summary": "Successfully wrote to /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_d_acceptance.py"
+  },
+  {
+    "index": 38,
+    "id": "bash_37",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes && PYTHONDONTWRITEBYTECODE=1 timeout 115 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probe_d_acceptance.py 2>&1 | tail -15",
+      "timeout": 120
+    },
+    "result_file": "spec-trace/038-result.json",
+    "is_error": false,
+    "result_text_sha256": "a04c86f4084801f241ff0ff481e8b66dca62b130450988e9a6749d24c52d65c8",
+    "result_summary": "Traceback (most recent call last):\n  File \"/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes/probe_d_acceptance.py\", line 24, in <module>\n    art = fx._build_e2e_artifacts(tmp / \"art\")\n         "
+  },
+  {
+    "index": 39,
+    "id": "bash_38",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes && python3 - <<'EOF'\ns = open(\"probe_d_acceptance.py\").read()\ns = s.replace('art = fx._build_e2e_artifacts(tmp / \"art\")',\n              '(tmp / \"art\").mkdir(parents=True, exist_ok=True)\\nart = fx._build_e2e_artifacts(tmp / \"art\")')\nopen(\"probe_d_acceptance.py\", \"w\").write(s)\nEOF\nPYTHONDONTWRITEBYTECODE=1 timeout 115 /Users/a77/finance-workspace-private/.venv-workbench/bin/python probe_d_acceptance.py 2>&1 | tail -12",
+      "timeout": 120
+    },
+    "result_file": "spec-trace/039-result.json",
+    "is_error": false,
+    "result_text_sha256": "0e98d58db1b764c93f047ef58c1c135c3133051a562b1bced36e70867e4b0e9e",
+    "result_summary": "D1 good artifacts: rc= 0  verdict= PASS  n_checks= 37\nD2 other-stock tamper: rc= 2  failed= ['technical_protected_allcols']\nD3 retained-row tamper: rc= 2  failed= ['retained_rows_full_column_identical']\nD4a parent.rc str"
+  },
+  {
+    "index": 40,
+    "id": "bash_39",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v3-0921 && OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3 && PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=1 FWP_TEST_RECEIPT_DIR=\"$OUT/formal-receipts\" /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -p no:cacheprovider --basetemp=\"$OUT/basetemp\" -q tests/test_main_gate_receipt.py tests/test_test_receipt_dirt.py tests/test_check_receipt_revision_gate.py tests/test_check_receipt_zero_count_gate.py tests/test_worktree_board.py intelligence/tests/test_pytest_collection_scope.py 2>&1 | tail -5",
+      "timeout": 120
+    },
+    "result_file": "spec-trace/040-result.json",
+    "is_error": false,
+    "result_text_sha256": "54c88373595c9f4aae81e983b82b043af5ace25a21b8c50d1cdf1fe80554e4dc",
+    "result_summary": "........................................................................ [ 79%]\n..................s                                                      [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v3-202"
+  },
+  {
+    "index": 41,
+    "id": "tool_y7yLRs7mU0eoffqmQWgbKMos",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v3-0921 && OUT=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3 && PYTHONDONTWRITEBYTECODE=1 FWP_TEST_RECEIPT=1 FWP_TEST_RECEIPT_DIR=\"$OUT/formal-receipts\" /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -p no:cacheprovider --basetemp=\"$OUT/basetemp2\" -q tests/test_repair_backfill_stock_history.py 2>&1 | tail -3",
+      "timeout": 120
+    },
+    "result_file": "spec-trace/041-result.json",
+    "is_error": false,
+    "result_text_sha256": "fb957499b28bbb1124673817e1b9a9afe897964be8c63523a1263d7f7f3cf46f",
+    "result_summary": ".................................                                        [100%]读数收据: /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/formal-receipts/20260921T041836Z-47530e20-03899aeeb7c4.json\n\n105 p"
+  },
+  {
+    "index": 42,
+    "id": "tool_gjzsIUsbPG0UJ5M3qskFBqcj",
+    "tool": "bash",
+    "args": {
+      "command": "cd /Users/a77/fwp-wt-ownership-spec-v3-0921 && RUFF_CACHE_DIR=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/ruff-cache /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m ruff check conftest.py scripts/run_main_gate.sh scripts/main_gate_receipt.py scripts/worktree_board.py scripts/verify_302132_backfill_acceptance.py market_feature_store/cli.py market_feature_store/sync/repair_backfill_stock_history.py tests/test_main_gate_receipt.py tests/test_worktree_board.py tests/test_repair_backfill_stock_history.py 2>&1 | tail -3",
+      "timeout": 60
+    },
+    "result_file": "spec-trace/042-result.json",
+    "is_error": false,
+    "result_text_sha256": "15a77ade83e87f3a4305e6b55efbe89650713cfbed8d1d062848755daa4c2b06",
+    "result_summary": "   |\n\nFound 197 errors.\n"
+  }
+]

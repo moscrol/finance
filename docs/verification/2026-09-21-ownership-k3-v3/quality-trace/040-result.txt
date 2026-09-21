@@ -1,0 +1,24 @@
+locked ok
+gone ok
+worktree /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/boardmain
+HEAD 43a6207cdebc459cd54534c785a21cb3d089b3f4
+branch refs/heads/main
+
+worktree /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/boardmain-wt-dirty
+HEAD c0022052a2501a95b4715d8434f691358c31b7e1
+branch refs/heads/wt-dirty-branch
+
+worktree /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/boardmain-wt-gone
+HEAD 43a6207cdebc459cd54534c785a21cb3d089b3f4
+detached
+prunable gitdir file points to non-existent location
+
+worktree /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/boardmain-wt-locked
+HEAD 4972ce7c90d712145b162e96f7c88966e3951cd4
+branch refs/heads/wt-locked-branch
+locked
+
+worktree /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/boardmain-wt-merged
+HEAD e4b1e80d68b0634834904fd6552527f62a35c2a1
+branch refs/heads/wt-merged-branch
+

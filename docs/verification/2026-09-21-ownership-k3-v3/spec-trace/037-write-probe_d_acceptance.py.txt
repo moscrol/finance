@@ -1,0 +1,133 @@
+"""K3 independent probe D: external acceptance gate (F1/F2) — good artifacts PASS, my own tampers FAIL."""
+import importlib.util
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+import duckdb
+
+CHK = Path("/Users/a77/fwp-wt-ownership-spec-v3-0921")
+OUT = Path("/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3/probes")
+sys.path.insert(0, str(CHK))
+import market_feature_store.sync.repair_backfill_stock_history as mod  # noqa: E402
+
+spec = importlib.util.spec_from_file_location(
+    "formal_fixture", CHK / "tests" / "test_repair_backfill_stock_history.py")
+fx = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(fx)
+
+tmp = Path(tempfile.mkdtemp(prefix="k3-d-", dir=OUT))
+art = fx._build_e2e_artifacts(tmp / "art")
+SCRIPT = CHK / "scripts" / "verify_302132_backfill_acceptance.py"
+ENV = {"HOME": os.environ.get("HOME", "/tmp"), "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+       "PYTHONPATH": str(CHK), "PYTHONDONTWRITEBYTECODE": "1", "FWP_TEST_RECEIPT": "0"}
+
+
+def run_accept(clone, out, **over):
+    args = [sys.executable, str(SCRIPT), "--production", str(art["baseline"]),
+            "--clone", str(clone), "--parquet", str(art["pq"]),
+            "--run-apply", fx.APPLY_RUN, "--run-verify", fx.VERIFY_RUN,
+            "--expected-revision", over.get("rev", fx.E2E_REV),
+            "--expected-production-sha256", art["base_sha"],
+            "--output", str(out)]
+    return subprocess.run(args, capture_output=True, text=True, timeout=110, env=ENV)
+
+
+def fresh_clone(tag):
+    c = tmp / f"clone-{tag}.duckdb"
+    shutil.copy(str(art["clone"]), str(c))
+    for mode, rid in (("apply", fx.APPLY_RUN), ("verify", fx.VERIFY_RUN)):
+        shutil.copy(str(art["clone"]) + f".repair-backfill-execution.{rid}.json",
+                    str(c) + f".repair-backfill-execution.{rid}.json")
+    return c
+
+
+# D1: good artifacts must PASS
+c1 = fresh_clone("good")
+r = run_accept(c1, tmp / "out-good.json")
+v = json.loads((tmp / "out-good.json").read_text())
+print("D1 good artifacts: rc=", r.returncode, " verdict=", v["verdict"], " n_checks=", v and len(v["checks"]))
+
+# D2: my tamper — other-stock technical row in clone (between-run protected slice)
+c2 = fresh_clone("t2")
+con = duckdb.connect(str(c2))
+con.execute(f"UPDATE feature_stock_technical_daily SET ma26=ma26+1 WHERE stock_ts_code='{fx.OTHER}' AND trade_date='{fx.CAL[10]}'")
+con.close()
+r = run_accept(c2, tmp / "out-t2.json")
+v = json.loads((tmp / "out-t2.json").read_text())
+print("D2 other-stock tamper: rc=", r.returncode, " failed=", v["failed"])
+
+# D3: my tamper — retained target-stock row (outside write keys)
+c3 = fresh_clone("t3")
+con = duckdb.connect(str(c3))
+con.execute(f"UPDATE fact_stock_daily SET amount=amount+1 WHERE stock_ts_code='{fx.CODE}' AND trade_date='{fx.CAL[0]}'")
+con.close()
+r = run_accept(c3, tmp / "out-t3.json")
+v = json.loads((tmp / "out-t3.json").read_text())
+print("D3 retained-row tamper: rc=", r.returncode, " failed=", v["failed"])
+
+# D4: my receipt mutations not in the formal list
+import copy
+def mutate_receipts(tag, fn):
+    c = fresh_clone(tag)
+    for mode, rid in (("apply", fx.APPLY_RUN), ("verify", fx.VERIFY_RUN)):
+        p = Path(str(c) + f".repair-backfill-execution.{rid}.json")
+        d = json.loads(p.read_text())
+        fn(mode, d)
+        p.write_text(json.dumps(d, ensure_ascii=False))
+        # keep external child report in sync with embedded one
+        cp = Path(d["child_report_path"])
+        if cp.exists():
+            cp.write_text(json.dumps(d["child_report"], ensure_ascii=False))
+    return c
+
+def m_rc_str(mode, r):  # parent.rc as string "0" (wrong type)
+    r["parent"]["rc"] = "0"
+c = mutate_receipts("m1", m_rc_str)
+r = run_accept(c, tmp / "out-m1.json")
+v = json.loads((tmp / "out-m1.json").read_text())
+print("D4a parent.rc string: rc=", r.returncode, " schema_failed=", [x for x in v["failed"] if "schema" in x])
+
+def m_bad_date(mode, r):  # impossible calendar date in spec
+    r["spec"]["window_start"] = "2026-02-30"
+c = mutate_receipts("m2", m_bad_date)
+r = run_accept(c, tmp / "out-m2.json")
+v = json.loads((tmp / "out-m2.json").read_text())
+print("D4b spec impossible date: rc=", r.returncode, " failed=", v["failed"][:6])
+
+def m_child_missing_interpreter(mode, r):
+    r["child_report"].pop("interpreter", None)
+c = mutate_receipts("m3", m_child_missing_interpreter)
+r = run_accept(c, tmp / "out-m3.json")
+v = json.loads((tmp / "out-m3.json").read_text())
+print("D4c child missing interpreter: rc=", r.returncode, " failed=", v["failed"][:6])
+
+# D5: output path must not be overwritten
+out5 = tmp / "out-dup.json"
+out5.write_text("{}")
+r = subprocess.run([sys.executable, str(SCRIPT), "--production", str(art["baseline"]),
+                    "--clone", str(c1), "--parquet", str(art["pq"]),
+                    "--run-apply", fx.APPLY_RUN, "--run-verify", fx.VERIFY_RUN,
+                    "--expected-revision", fx.E2E_REV,
+                    "--expected-production-sha256", art["base_sha"],
+                    "--output", str(out5)], capture_output=True, text=True, timeout=60, env=ENV)
+print("D5 output overwrite: rc=", r.returncode, " refused=", "不可覆盖" in (r.stdout + r.stderr),
+      " intact=", out5.read_text() == "{}")
+
+# D6: baseline sha swapped mid-run is out of scope, but wrong expected sha must FAIL at precheck
+c6 = fresh_clone("t6")
+r = run_accept(c6, tmp / "out-t6.json", rev=fx.E2E_REV)
+r2 = subprocess.run([sys.executable, str(SCRIPT), "--production", str(art["baseline"]),
+                     "--clone", str(c6), "--parquet", str(art["pq"]),
+                     "--run-apply", fx.APPLY_RUN, "--run-verify", fx.VERIFY_RUN,
+                     "--expected-revision", fx.E2E_REV,
+                     "--expected-production-sha256", "0" * 64,
+                     "--output", str(tmp / "out-t6b.json")],
+                    capture_output=True, text=True, timeout=110, env=ENV)
+v = json.loads((tmp / "out-t6b.json").read_text())
+print("D6 wrong baseline sha: rc=", r2.returncode, " failed=", v["failed"][:6])
+print("PROBE-D-DONE")

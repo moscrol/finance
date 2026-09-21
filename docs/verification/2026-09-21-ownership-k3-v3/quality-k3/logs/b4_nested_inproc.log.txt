@@ -1,0 +1,10 @@
+== gate @ 756868a9b140 tree=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/gaterepo py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-IvvrbRD2/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q tests/test_nested_inproc.py
+.                                                                        [100%]⚠ 收据未写出（不影响测试结论）: [Errno 17] File exists: '/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-IvvrbRD2/pytest.json'
+
+1 passed in 0.41s
+== receipt /Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3/fixtures/receipt-root/gate-IvvrbRD2/pytest.json
+   revision=756868a9b140 dirty=False target=tests_inner/
+   passed=2 failed=0 error=0 skipped=0

@@ -1,0 +1,8 @@
+{
+  "axis": "spec",
+  "state": "RESERVED",
+  "max_sessions": 1,
+  "max_requests": 40,
+  "deadline_seconds": 1200,
+  "time": "2026-09-21T03:59:09.124033+00:00"
+}

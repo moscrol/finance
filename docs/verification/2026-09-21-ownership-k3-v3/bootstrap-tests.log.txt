@@ -1,0 +1,17 @@
+✔ cache is only in provider memory; reserve forty admissions before dispatch (32.015416ms)
+✔ bad credential shape fails before provider registration (7.37225ms)
+✔ other plan fails before provider registration (2.123834ms)
+✔ insufficient access lifetime fails before provider registration (2.321334ms)
+✔ expired plan fails before provider registration (1.687416ms)
+✔ resolver error fails before provider registration (3.778ms)
+✔ reserved output prevents a second authentication attempt (2.410541ms)
+✔ wrong model blocks before the first admission (2.561375ms)
+✔ deadline blocks before the first admission (2.324542ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 409.737333

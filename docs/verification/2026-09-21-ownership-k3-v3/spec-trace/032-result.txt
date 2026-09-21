@@ -1,0 +1,71 @@
+1422-        env_db = os.environ.get("MARKET_FEATURE_STORE_DB")
+1423-        target = Path(args.db or env_db) if (args.db or env_db) else None
+1424:        refused = _refuse_production_write_direct(target)
+1425-        if refused is not None:
+1426-            return refused
+1427-        status_json = (
+1428-            Path(args.status_json)
+1429-            if args.status_json
+1430-            else (Path(str(target) + ".status.json") if target else None)
+1431-        )
+1432-        try:
+1433-            report = run_repair(
+1434-                spec,
+1435-                parquet,
+1436-                db_path=target,
+1437-                status_json=status_json,
+1438-                report_path=Path(args.report_path) if args.report_path else None,
+1439-                with_derived=True,
+1440-            )
+1441-        except RepairRefused as exc:
+1442-            print(f"修复断言不通过, 未写入: {exc}")
+1443-            return 2
+1444-        derived_note = ""
+--
+1484-
+1485-
+1486:def _refuse_production_write_direct(target) -> int | None:
+1487-    """修复子进程没有 --direct 逃生舱: 目标是 canonical 生产库就拒。"""
+1488-    from .write_path import production_write_blocked
+1489-
+1490-    reason = production_write_blocked(False, target)
+1491-    if reason is None:
+1492-        return None
+1493-    print(reason)
+1494-    return 2
+1495-
+1496-
+1497-def cmd_repair_backfill_302132(args) -> int:
+1498-    """302132.SZ 历史回填父命令：staging 回填 + scoped 派生重建 + 验收 + 原子换库。
+1499-
+414:def run_daily_full_staged(
+415-    trade_date: str | None = None,
+416-    skip_long: bool = False,
+417-    stock_source: str = "snapshot",
+418-    child_argv: list[str] | None = None,
+419-    kind: str = "daily-full",
+420-    pre_swap_backup: bool = False,
+421-) -> dict:
+422-    """staging 编排的公共入口：先取运行互斥锁，再进编排本体。
+423-
+424-    QC 复审三轮 P1：两轮父进程共用同一 staging 路径时，B 会把 A 尚未发布
+425-    的 staging 当旧残留清掉重建，A 恢复后发布的是 B 的失败半成品（连 A 写
+426-    进 staging 的收据一起没了）。因此互斥锁在任何清理之前取得、覆盖本轮
+427-    全生命周期（db.hold_run_mutex，锁在独立文件上，读写双方无感）。
+428-    拿不到锁立即 rc=2，不做任何清理、不动 staging、不动生产库。
+429-    """
+430-    target = _db.DB_PATH
+431-    try:
+432-        with _db.hold_run_mutex(target):
+433-            return _run_daily_full_staged_locked(
+434-                trade_date,
+435-                skip_long=skip_long,
+436-                stock_source=stock_source,
+437-                child_argv=child_argv,
+438-                kind=kind,
+439-                pre_swap_backup=pre_swap_backup,
+440-            )
+441-    except _db.DatabaseLockedError as exc:
+442-        reason = f"{exc}；本轮不做任何清理与换名"
+443-        print(f"[staging] {reason}", flush=True)
+444-        return {

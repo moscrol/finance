@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "tool_gjzsIUsbPG0UJ5M3qskFBqcj",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "   |\n\nFound 197 errors.\n"
+      }
+    ]
+  },
+  "isError": false
+}

@@ -1,0 +1,141 @@
+                # 否则「锁住 A → 克隆 A → 路径被换成 B → 从路径 stat 得到 B」会
+                # 把 A 的副本配上 B 的基线，两边都不自知。
+                _db.assert_same_target(target, lock.identity, stage="克隆后基线")
+                # 版本基线读被锁 inode 自身 (fstat)，不再走路径——路径 stat 拿到的
+                # 可能已经是别人换上来的文件。
+                source_stat = lock.stat()
+                source_identity = lock.identity
+                source_shape = _db_shape(staging)
+        except _db.DatabaseLockedError as exc:
+            # SwapTargetReplacedError 是其子类：开锁时目标已没了、克隆期间目标被
+            # 删、克隆后身份漂了，都走这条，统一成 rc=2 拒绝，不让异常逃逸。
+            # （措辞从「拿锁失败」放宽到「失败」：六轮起这条出口不再只有拿锁一种
+            #   来源，具体是哪一处由 exc 自带的 stage 指认。）
+            result["reason"] = f"基线窗口失败: {exc}; 拒绝开工"
+            print(f"[staging] {result['reason']}", flush=True)
+            return result
+        if source_shape is None:
+            result["reason"] = f"克隆体打不开, 拒绝开工: {staging}"
+            return result
+        copy = result["copy"]
+        print(
+            f"[staging] 克隆生产库 -> {staging.name} "
+            f"({copy['method']}, {copy['seconds']}s, {copy['bytes']} bytes)",
+            flush=True,
+        )
+    else:
+        source_stat = None
+        source_shape = None
+        source_identity = None
+
+    if child_argv is None:
+        child_argv = [
+            sys.executable, "-m", "market_feature_store.cli",
+            "daily-full-exec", "--status-json", str(status_json),
+        ]
+        if trade_date:
+            child_argv += ["--trade-date", trade_date]
+        if skip_long:
+            child_argv.append("--skip-long")
+        child_argv += ["--stock-source", stock_source]
+
+    child_env = os.environ.copy()
+    child_env["MARKET_FEATURE_STORE_DB"] = str(staging)
+    # 本轮身份：子进程把 run_id 写进 status，父进程据此拒收上一轮遗留
+    child_env["MARKET_FEATURE_STORE_RUN_ID"] = run_id
+    proc = subprocess.Popen(child_argv, env=child_env, cwd=str(PROJECT_DIR))
+    print(
+        f"[staging] 子进程同步 pid={proc.pid} (写锁只落在 staging, 生产库无锁)",
+        flush=True,
+    )
+    child_rc = proc.wait()
+    result["child_returncode"] = child_rc
+    result["child_pid"] = proc.pid
+
+    def _abort(reason: str) -> dict:
+        result["reason"] = reason
+        print(f"[staging] {reason}", flush=True)
+        return result
+
+    status: dict = {}
+    if status_json.exists():
+        # QC 复审三轮 P2：损坏/非标量 status 不得抛异常逃逸，统一走明确拒绝。
+        try:
+            raw_status = json.loads(status_json.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            status_json.unlink(missing_ok=True)
+            result["status"] = {}
+            return _abort(f"status.json 解析失败 ({exc}), 不换名")
+        status_json.unlink(missing_ok=True)
+        if not isinstance(raw_status, dict):
+            return _abort(
+                f"status.json 不是 JSON 对象 ({type(raw_status).__name__}), 不换名"
+            )
+        status = raw_status
+    result["status"] = status
+
+    if child_rc < 0:
+        return _abort(
+            f"子进程被信号终止 (rc={child_rc}), staging 视为半成品, 不换名"
+        )
+    if not status:
+        return _abort(
+            f"子进程未写出 status.json (rc={child_rc}), 视为未跑完管道, 不换名"
+        )
+    if status.get("run_id") != run_id:
+        return _abort(
+            "status.json 缺本轮 run_id 或不匹配（疑似上一轮遗留/非本轮产物），不换名"
+        )
+    if child_rc not in (0, 1):
+        return _abort(f"子进程异常退出 (rc={child_rc}), 不换名")
+
+    staging_shape = _db_shape(staging)
+    if staging_shape is None:
+        return _abort(f"staging 打不开, 不换名: {staging}")
+    if source_shape is not None:
+        if staging_shape["table_count"] < source_shape["table_count"]:
+            return _abort(
+                f"校验失败: staging 表数 {staging_shape['table_count']} < "
+                f"生产 {source_shape['table_count']}, 不换名"
+            )
+        if (
+            source_shape["max_trade_date"]
+            and (staging_shape["max_trade_date"] or "")
+            < source_shape["max_trade_date"]
+        ):
+            return _abort(
+                f"校验失败: staging 交易日覆盖 {staging_shape['max_trade_date']}"
+                f" 倒退于生产 {source_shape['max_trade_date']}, 不换名"
+            )
+    result["validation"] = {
+        "source": source_shape,
+        "staging": staging_shape,
+    }
+    print(
+        "[staging] 校验通过: 表 "
+        f"{staging_shape['table_count']}"
+        + (f">={source_shape['table_count']}" if source_shape else "")
+        + f", fact_market_daily 覆盖到 {staging_shape['max_trade_date']}",
+        flush=True,
+    )
+
+    finished_at = datetime.now()
+    _write_receipt(staging, {
+        "run_id": run_id,
+        "kind": kind,
+        "plan": "staging-swap",
+        "trade_date": status.get("trade_date") or trade_date,
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "duration_s": round(time.monotonic() - started_mono, 1),
+        "ok": child_rc == 0,
+        "pid": os.getpid(),
+        "child_pid": proc.pid,
+        "copy_method": (result["copy"] or {}).get("method"),
+        "copy_seconds": (result["copy"] or {}).get("seconds"),
+        "source_bytes": (result["copy"] or {}).get("bytes"),
+        "rows_summary": staging_shape["rows"],
+        "steps_summary": status.get("steps") or [],
+    })
+
+    # 第三方写者守卫（锁外预检）: 克隆基线之后生产文件动过、或此刻有写者持锁,
