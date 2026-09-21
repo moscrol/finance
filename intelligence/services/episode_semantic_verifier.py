@@ -239,12 +239,45 @@ _CONDITION_TRIGGER_RE = re.compile(
     r"阈值|支撑|才算成立|才成立)"
 )
 _DANGLING_CONDITION_COUNT_RE = re.compile(
-    r"(?P<dash>[—–-]+\s*)?"
+    # 破折号只认中文全角 — –：ASCII 连字符在行首是 markdown 列表符，
+    # 吃掉它会让整条列表项塌成一句没有标记的散文。
+    r"(?P<dash>[—–]+\s*)?"
     r"(?P<opening>\*{2})?\s*满足"
     r"(?P<label>升级条件|降级条件)中的"
     r"(?P<count>[0-9０-９一二两三四五六七八九十百千万]+)条"
     r"(?P<comma>[，,]\s*)?"
 )
+# 删掉计数后，接缝两侧已有这些字符之一就不再补标点，否则会出现「，，」。
+_CLAUSE_EDGE_CHARS = "，,、；;：:。．！？!?—–-"
+_LIST_MARKER_ONLY_RE = re.compile(r"^\s*(?:[-*+•>]|\d+[.、)）])?\s*$")
+_LIST_MARKER_PREFIX_RE = re.compile(r"^\s*(?:[-*+•>]|\d+[.、)）])\s*")
+# 只管住计数短语的副词：计数没了它们也就没了宾语，留着就是「目前尚未，需继续观察」。
+_COUNT_BOUND_ADVERBS = (
+    "均尚未",
+    "尚未",
+    "还未",
+    "暂未",
+    "均未",
+    "已经",
+    "没有",
+    "仅仅",
+    "未",
+    "没",
+    "已",
+    "仅",
+    "只",
+    "共",
+)
+# 副词删完只剩时间状语时，它同样失去落点。
+_STANDALONE_TIME_ADVERBS = frozenset(
+    {"目前", "当前", "现阶段", "截至目前", "截至当前", "暂", "眼下", "现在"}
+)
+_DANGLING_LEADING_CONJUNCTIONS = ("而且", "并且", "同时", "以及", "且", "并", "又")
+# 「结论：」这类只剩标签、正文被删空的行，整行丢弃比留个孤零零的冒号好。
+_LABEL_ONLY_AFTER_REPAIR_RE = re.compile(
+    r"^[\s\-*+•>]*(?:\*{2})?[^：:。．！？\n]{0,16}[：:]\s*(?:\*{2})?[。．，,、；;\s]*$"
+)
+_SUBSTANTIVE_CHAR_RE = re.compile(r"[0-9A-Za-z一-鿿]")
 _CONDITION_DEFINITION_RE = re.compile(
     r"^\s*(?:[-*]\s*)?(?:\*{2})?"
     r"(?P<label>升级条件|降级条件)"
@@ -4912,21 +4945,106 @@ def _repair_dangling_condition_references(
     if not orphaned_labels:
         return draft
 
+    orphaned = frozenset(orphaned_labels)
     lines: list[str] = []
     for raw_line in str(draft).splitlines():
-        line = raw_line
-        for label in sorted(orphaned_labels):
-            while True:
-                match = _DANGLING_CONDITION_COUNT_RE.search(line)
-                if match is None or match.group("label") != label:
-                    break
-                suffix = line[match.end() :]
-                if match.group("opening") and "**" in suffix:
-                    suffix = suffix.replace("**", "", 1)
-                replacement = "，" if suffix.strip() else ""
-                line = f"{line[:match.start()]}{replacement}{suffix}"
+        line = _strip_dangling_condition_counts(raw_line, orphaned)
+        if line is None:
+            continue
         lines.append(line)
     return "\n".join(lines)
+
+
+def _strip_dangling_condition_counts(
+    line: str, orphaned_labels: frozenset[str]
+) -> str | None:
+    """Drop every orphaned count on one line; None means the line lost all content.
+
+    扫描用 ``finditer`` 而不是「search 到第一个就判标签」：同一行里先出现一个
+    未失联的计数时，后面失联的那个必须照样删得掉。
+    """
+
+    repaired = line
+    changed = False
+    while True:
+        match = next(
+            (
+                found
+                for found in _DANGLING_CONDITION_COUNT_RE.finditer(repaired)
+                if found.group("label") in orphaned_labels
+            ),
+            None,
+        )
+        if match is None:
+            break
+        repaired = _splice_out_condition_count(repaired, match)
+        changed = True
+    if not changed:
+        return line
+    return None if _is_contentless_after_repair(repaired) else repaired
+
+
+def _splice_out_condition_count(line: str, match: re.Match[str]) -> str:
+    """Remove one matched count and heal the seam it leaves behind."""
+
+    prefix = line[: match.start()]
+    suffix = line[match.end() :]
+    if match.group("opening") and "**" in suffix:
+        suffix = suffix.replace("**", "", 1)
+    prefix = _drop_adverbs_bound_to_count(prefix)
+    joint = "，" if _seam_needs_separator(prefix, suffix) else ""
+    if _LIST_MARKER_ONLY_RE.match(prefix):
+        # 计数原本是这半句的主干，后半句的连词失去了前件。
+        suffix = _drop_leading_conjunction(suffix)
+        # 列表符后的空格被正则的 \s* 吃掉了，补回来，否则塌成「-量能配合」。
+        if prefix.strip() and not prefix[-1:].isspace() and suffix[:1].strip():
+            joint = " "
+    return f"{prefix}{joint}{suffix}"
+
+
+def _drop_adverbs_bound_to_count(prefix: str) -> str:
+    """Drop a trailing adverb whose only object was the removed count."""
+
+    trimmed = prefix.rstrip()
+    for adverb in _COUNT_BOUND_ADVERBS:
+        if trimmed.endswith(adverb):
+            trimmed = trimmed[: -len(adverb)]
+            break
+    else:
+        return prefix
+    marker_match = _LIST_MARKER_PREFIX_RE.match(trimmed)
+    marker = marker_match.group(0) if marker_match else ""
+    body = trimmed[len(marker) :]
+    if body.strip().strip("*") in _STANDALONE_TIME_ADVERBS:
+        body = ""
+    return f"{marker}{body}"
+
+
+def _drop_leading_conjunction(suffix: str) -> str:
+    head = suffix.lstrip()
+    padding = suffix[: len(suffix) - len(head)]
+    for conjunction in _DANGLING_LEADING_CONJUNCTIONS:
+        if head.startswith(conjunction):
+            return f"{padding}{head[len(conjunction):]}"
+    return suffix
+
+
+def _seam_needs_separator(prefix: str, suffix: str) -> bool:
+    head = prefix.rstrip()
+    tail = suffix.lstrip()
+    if not head or not tail:
+        return False
+    if _LIST_MARKER_ONLY_RE.match(prefix):
+        return False
+    return head[-1] not in _CLAUSE_EDGE_CHARS and tail[0] not in _CLAUSE_EDGE_CHARS
+
+
+def _is_contentless_after_repair(line: str) -> bool:
+    """Whether a repaired line still carries anything a reader can use."""
+
+    if not _SUBSTANTIVE_CHAR_RE.search(line):
+        return True
+    return bool(_LABEL_ONLY_AFTER_REPAIR_RE.match(line))
 
 
 def _drop_rejected_sentences(

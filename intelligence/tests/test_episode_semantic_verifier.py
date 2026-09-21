@@ -34,6 +34,7 @@ from intelligence.services.episode_semantic_verifier import (
     leftover_window_blocks_complete_attempt,
     numeric_condition_unsupported,
     semantic_judge_window_seconds,
+    _numbered_sentences,
     _repair_dangling_condition_references,
 )
 from intelligence.services.episode_verifier import verify_episode_outcome
@@ -1283,6 +1284,78 @@ def test_condition_count_backreference_is_unchanged_without_a_deleted_definition
         )
         == draft
     )
+
+
+# 两条定义都被上游删掉，两个标签同时失联——同一行里先后出现两种计数的现实形状。
+_BOTH_CONDITIONS_DELETED = "升级条件：站稳20日线。降级条件：跌破前低。当前观察如下。"
+
+
+def _repair_with_both_conditions_deleted(draft: str) -> str:
+    rejected = tuple(
+        int(item["index"])  # type: ignore[arg-type]
+        for item in _numbered_sentences(_BOTH_CONDITIONS_DELETED)
+        if str(item["text"]).startswith(("升级条件", "降级条件"))
+    )
+    # 固定桩要自证前提：两条定义都得真被认出来，否则下面的断言测的是空集。
+    assert rejected == (1, 2)
+    return _repair_dangling_condition_references(
+        draft,
+        before=_BOTH_CONDITIONS_DELETED,
+        rejected_sentence_indexes=rejected,
+    )
+
+
+def test_dangling_count_is_removed_even_after_another_label_on_the_same_line() -> None:
+    # 按标签逐个 search 会在第一个不匹配的计数上停下，后面那个就永远删不掉。
+    repaired = _repair_with_both_conditions_deleted(
+        "已满足降级条件中的1条，且满足升级条件中的2条，需跟踪。"
+    )
+
+    assert "降级条件中的1条" not in repaired
+    assert "升级条件中的2条" not in repaired
+    assert repaired == "需跟踪。"
+
+
+def test_repair_drops_the_adverb_the_removed_count_left_stranded() -> None:
+    # 「尚未」的宾语就是那个计数，留着会读成「目前尚未，需继续观察」。
+    repaired = _repair_with_both_conditions_deleted(
+        "目前尚未满足升级条件中的3条，需继续观察。"
+    )
+
+    assert repaired == "需继续观察。"
+
+
+def test_repair_drops_a_line_whose_only_content_was_the_count() -> None:
+    # 删完只剩「结论：」和标点，整行丢弃比留个孤零零的冒号好。
+    repaired = _repair_with_both_conditions_deleted("结论：满足升级条件中的2条。")
+
+    assert repaired == ""
+
+
+def test_repair_keeps_the_list_marker_of_the_line_it_edits() -> None:
+    # ASCII 连字符在行首是列表符，不是破折号；吃掉它整条列表项就塌了。
+    repaired = _repair_with_both_conditions_deleted(
+        "- 满足升级条件中的2条，量能配合。"
+    )
+
+    assert repaired == "- 量能配合。"
+
+
+def test_repair_does_not_open_a_line_with_a_comma() -> None:
+    repaired = _repair_with_both_conditions_deleted(
+        "满足升级条件中的2条，量能配合。"
+    )
+
+    assert repaired == "量能配合。"
+
+
+def test_repair_does_not_double_a_comma_that_already_precedes_the_count() -> None:
+    # 主路径形状：计数夹在两个逗号之间，盲补逗号会得到「上攻，，值得跟踪」。
+    repaired = _repair_with_both_conditions_deleted(
+        "该股放量上攻，满足升级条件中的2条，值得跟踪。"
+    )
+
+    assert repaired == "该股放量上攻，值得跟踪。"
 
 
 def test_meta_disclosure_rejection_is_exempted_and_sentence_survives() -> None:
