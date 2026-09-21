@@ -35,6 +35,8 @@
 - 反向验证产物 `/Users/a77/.finance-runtime/reviews/research-contract-citations-0921/requirements-fixed-ba18395ce-mutations/results.json`：`complete=true`、`source_unchanged=true`；基线和恢复各 77 项通过，清单识别、非公司排序保护、引用序号/存储身份、回执、覆盖度、最终投影、repair notes 与 repair budget 等十组变异均按预期让断言失败。
 - 修复重入 conformance：`4 passed / 1 xfailed`，收据 `~/.finance-runtime/test-receipts/20260921T163455Z-ba18395c.json`；测试进程只自建 loopback 临时服务，未访问生产 8792。既有 `xfailed` 是 Codex 后端不支持 resume 却缺少显式不支持回执，未修复且不算通过。
 - 定向与变异子测试在 Python 进程内拒绝 `socket.connect`；重入测试仅放行本进程自建临时服务。这不是对子进程或任意外呼的通用网络沙箱认证。
+- 假完成专项相关回归：`414 passed`，收据 `/Users/a77/.finance-runtime/test-receipts/20260921T171122Z-a5cb2e9f.json`；覆盖 fulfilled 无 witness、被拒 witness、公开稿改写/删除、补写后仍缺项等路径。
+- `scripts/review_probes/check_research_contract_boundaries.py` 的专项产物 `/Users/a77/.finance-runtime/reviews/research-contract-citations-0921/false-completion-ba18395ce/results.json`：基线与恢复各 77 项通过，十组反向保护均有效，`complete=true`、`source_unchanged=true`。
 - `ruff check .`、`git diff --check` 与提交前 pre-commit 门禁通过。
 
 ## 这些收据不能证明什么

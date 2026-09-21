@@ -15,7 +15,8 @@
 
 ## 已验证
 - 固定提交定向回归：`1787 passed / 4 skipped / 0 failed`，收据 `~/.finance-runtime/test-receipts/20260921T163733Z-ba18395c.json`。
-- 回执/投影/修复预算反向验证：基线与恢复各 `77 passed`，十组保护点均按预期触发断言，`complete=true`、`source_unchanged=true`。
+- 假完成专项相关回归：`414 passed`，收据 `~/.finance-runtime/test-receipts/20260921T171122Z-a5cb2e9f.json`；覆盖判官、适配器、修复协调和清单协议。
+- 回执/投影/修复预算反向验证：基线与恢复各 `77 passed`，十组保护点均按预期触发断言，`complete=true`、`source_unchanged=true`；专项目录 `~/.finance-runtime/reviews/research-contract-citations-0921/false-completion-ba18395ce/`。
 - 只允许测试进程自建 loopback 临时服务的重入测试：`4 passed / 1 xfailed`；未访问 8792。
 - Ruff、`git diff --check`、pre-commit 门禁通过。
 
