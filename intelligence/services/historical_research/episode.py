@@ -229,9 +229,12 @@ def _model_projection(
         row_hash: str = "",
         observations: tuple[StructuredObservation, ...] = (),
     ):
+        # Row identity must be stable across pages, but is not a card identity:
+        # a row may span several public citations with different fields.
         projected.extend(
-            (title, detail, source_date, row_index, row_identity, row_hash, observations)
-            for detail in _model_blocks(identity, atoms)
+            (f"{title}·块{block_index + 1}" if row_identity else title,
+             detail, source_date, row_index, row_identity, row_hash, observations)
+            for block_index, detail in enumerate(_model_blocks(identity, atoms))
         )
 
     scope_observations = tuple(

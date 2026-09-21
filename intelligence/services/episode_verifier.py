@@ -269,12 +269,15 @@ def verify_episode_outcome(
             if required.evidence_types and item.tool not in required.evidence_types
         )
         history_items = tuple(
-            item for item in evidence_items if item.history_provenance is not None
+            item for item in evidence_items
+            if item.tool in {"history_query", "read_history_result"}
+            or item.history_provenance is not None
         )
         unsupported_history = tuple(
             item
             for item in history_items
             if required.allowed_history_operations
+            and item.history_provenance is not None
             and (
                 item.history_provenance.operation
                 not in required.allowed_history_operations
@@ -286,7 +289,8 @@ def verify_episode_outcome(
             for item in history_items
             if required.allowed_history_operations
             and (
-                not item.history_provenance.research_only
+                item.history_provenance is None
+                or not item.history_provenance.research_only
                 or item.history_provenance.decision_eligible
                 or item.history_provenance.promotion_eligible
                 or not item.history_provenance.query_id
@@ -307,9 +311,9 @@ def verify_episode_outcome(
         )
         if unsupported_history or invalid_history_qualification:
             details = tuple(
-                f"{item.history_provenance.operation or 'unknown'}"
+                (item.history_provenance.operation or "unknown")
+                if item.history_provenance is not None else "missing_provenance"
                 for item in (*unsupported_history, *invalid_history_qualification)
-                if item.history_provenance is not None
             )
             issues.append(
                 Issue(
