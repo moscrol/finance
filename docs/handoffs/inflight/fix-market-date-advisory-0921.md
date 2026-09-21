@@ -11,7 +11,7 @@
 - 展开：`docs/handoffs/2026-09-21-market-date-advisory.md`。
 
 ## 当前状态
-源码/测试候选 `c57ec6542e5b33b2d7d2dccadf742e8a33e23b5d`；基座 `79b11d4268a3`。后续归档提交不移签全量。未push/开PR/合main/部署；未补采或写生产库。
+源码/测试候选 `c57ec6542e5b33b2d7d2dccadf742e8a33e23b5d`；基座 `79b11d4268a3`。归档已提交 `faf0c1f18`，Git对象200/200内容文件核验通过（另有清单自身）；运行代码无差异，不移签全量。未push/开PR/合main/部署；未补采或写生产库。
 
 ## 未验证 / 已知边界
 - 无新独立Spec/Quality，也未通过真实模型的 Workbench conversations 入口核答案与逐来源引用，不能拿离线工具交付代签。
