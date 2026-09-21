@@ -652,6 +652,8 @@ class SemanticEpisodeOutcome:
     http_status: int | None = None
     judge_attempt_index: int | None = None
     judge_request: dict[str, object] | None = None
+    # A refused attempt must not inherit the preceding request's failure clock.
+    last_dispatched_failure: dict[str, object] | None = None
     repair_withheld: bool = False
     unattempted_claim_count: int = 0
     asked_date_coverage: str = "not_applicable"
@@ -776,6 +778,8 @@ class SemanticEpisodeOutcome:
             payload["material_nonfactual_checks"] = [dict(row) for row in self.material_nonfactual_checks]
         if self.material_review_calls:
             payload["material_review_calls"] = [dict(row) for row in self.material_review_calls]
+        if self.last_dispatched_failure is not None:
+            payload["last_dispatched_failure"] = dict(self.last_dispatched_failure)
         if self.judge_request is not None:
             payload["judge_request"] = self.judge_request
         if self.premise_calculation_review is not None:
@@ -1027,6 +1031,7 @@ class _JudgeCall:
     judge_attempt_index: int | None = None
     request: dict[str, object] | None = None
     material_review_calls: tuple[dict[str, object], ...] = ()
+    last_dispatched_failure: dict[str, object] | None = None
 
 
 def _judge_failure_identity(value: object) -> tuple[str | None, int | None]:
@@ -1089,6 +1094,7 @@ def _attach_judge_clock(
         judge_attempt_index=call.judge_attempt_index,
         judge_request=pending_request,
         material_review_calls=call.material_review_calls,
+        last_dispatched_failure=call.last_dispatched_failure,
     )
 
 
@@ -2804,6 +2810,7 @@ class SemanticEpisodeVerifier:
         transient_provider_failure: bool = False,
         monotonic_release_safe: bool = False,
         judge_attempt_index: int | None = None,
+        last_dispatched_failure: _JudgeCall | None = None,
     ) -> _JudgeCall:
         exc_class, http_status = (
             _judge_failure_identity(failure) if failure is not None else (None, None)
@@ -2822,6 +2829,17 @@ class SemanticEpisodeVerifier:
             exc_class=exc_class,
             http_status=http_status,
             judge_attempt_index=judge_attempt_index,
+            last_dispatched_failure=(
+                {
+                    "judge_attempt_index": last_dispatched_failure.judge_attempt_index,
+                    "timeout_asked": last_dispatched_failure.timeout_asked,
+                    "remaining_seconds_at_entry": last_dispatched_failure.remaining_seconds_at_entry,
+                    "issue": last_dispatched_failure.issue,
+                    "exc_class": last_dispatched_failure.exc_class,
+                    "http_status": last_dispatched_failure.http_status,
+                }
+                if last_dispatched_failure is not None else None
+            ),
         )
 
     def _judge_attempt_cap(self) -> float:
@@ -2950,6 +2968,7 @@ class SemanticEpisodeVerifier:
                 },
             ]
             prior_failures_release_safe = True
+            last_failure: _JudgeCall | None = None
             # 窗口余额账：报价是「一次完整尝试」，真正的封顶是这里。
             # 用 deadline 读数扣账而不是另起时钟——冻结时间的测试才不会两套钟打架。
             window_left = total_window
@@ -2970,6 +2989,7 @@ class SemanticEpisodeVerifier:
                         correlated=False,
                         unavailable=True,
                         issue=LEFTOVER_WINDOW_ISSUE,
+                        last_dispatched_failure=last_failure,
                         root_deadline_exhausted=True,
                         monotonic_release_safe=True,
                     )
@@ -2988,6 +3008,7 @@ class SemanticEpisodeVerifier:
                         correlated=False,
                         unavailable=True,
                         issue=self._window_starved_issue(attempt, deadline),
+                        last_dispatched_failure=last_failure,
                         root_deadline_exhausted=True,
                         monotonic_release_safe=failure_chain_release_safe,
                     )
@@ -3026,9 +3047,7 @@ class SemanticEpisodeVerifier:
                         # 主判官放弃但链上还有没上场的备胎：下一槽换人再试。
                         # 释放安全账照常累计，不因换人清零（R-20260829-03）。
                         should_retry = True
-                    if should_retry:
-                        continue
-                    return self._clocked_judge_call(
+                    last_failure = self._clocked_judge_call(
                         asked=attempt_timeout,
                         judge_attempt_index=attempt,
                         remaining=remaining_at_entry,
@@ -3041,6 +3060,9 @@ class SemanticEpisodeVerifier:
                         ),
                         monotonic_release_safe=prior_failures_release_safe,
                     )
+                    if should_retry:
+                        continue
+                    return last_failure
                 report = self._parse_report(content, len(request["sentences"]), material_claims=request.get("material_claims"), material_outputs=request.get("material_outputs"))
                 if report is not None:
                     return self._clocked_judge_call(
@@ -3052,9 +3074,8 @@ class SemanticEpisodeVerifier:
                         report=report,
                         monotonic_release_safe=prior_failures_release_safe,
                     )
-                issue, retryable, release_safe = _stable_semantic_judge_error(
-                    reason or "invalid semantic judge output"
-                )
+                failure = reason or "invalid semantic judge output"
+                issue, retryable, release_safe = _stable_semantic_judge_error(failure)
                 should_retry = _should_retry_semantic_judge(
                     attempt,
                     retryable=retryable,
@@ -3068,25 +3089,27 @@ class SemanticEpisodeVerifier:
                 ):
                     # 同上：链上还有备胎时不在主判官身上判死刑。
                     should_retry = True
-                if should_retry:
-                    continue
-                return self._clocked_judge_call(
+                last_failure = self._clocked_judge_call(
                     asked=attempt_timeout,
-                        judge_attempt_index=attempt,
+                    judge_attempt_index=attempt,
                     remaining=remaining_at_entry,
                     correlated=False,
                     unavailable=True,
                     issue=issue,
-                    failure=reason or "invalid semantic judge output",
+                    failure=failure,
                     transient_provider_failure=prior_failures_release_safe,
                     monotonic_release_safe=prior_failures_release_safe,
                 )
+                if should_retry:
+                    continue
+                return last_failure
             return self._clocked_judge_call(
                 asked=None,
                 remaining=_deadline_remaining_seconds(deadline),
                 correlated=False,
                 unavailable=True,
                 issue="semantic judge unavailable",
+                last_dispatched_failure=last_failure,
             )
 
         # Explicit injection is the deterministic test/canary seam only when
@@ -3134,6 +3157,7 @@ class SemanticEpisodeVerifier:
             },
         ]
         prior_failures_release_safe = True
+        last_failure: _JudgeCall | None = None
         # 与 provider 分支同一本窗口余额账，见 _semantic_attempt_timeouts。
         window_left = total_window
         previous_remaining: float | None = None
@@ -3156,6 +3180,7 @@ class SemanticEpisodeVerifier:
                     correlated=True,
                     unavailable=True,
                     issue=self._window_starved_issue(attempt, deadline),
+                    last_dispatched_failure=last_failure,
                     root_deadline_exhausted=True,
                     monotonic_release_safe=failure_chain_release_safe,
                 )
@@ -3179,11 +3204,9 @@ class SemanticEpisodeVerifier:
                     deadline=deadline,
                 )
                 prior_failures_release_safe &= release_safe
-                if should_retry:
-                    continue
-                return self._clocked_judge_call(
+                last_failure = self._clocked_judge_call(
                     asked=attempt_timeout,
-                        judge_attempt_index=attempt,
+                    judge_attempt_index=attempt,
                     remaining=remaining_at_entry,
                     correlated=True,
                     unavailable=True,
@@ -3192,6 +3215,9 @@ class SemanticEpisodeVerifier:
                     transient_provider_failure=prior_failures_release_safe,
                     monotonic_release_safe=prior_failures_release_safe,
                 )
+                if should_retry:
+                    continue
+                return last_failure
             if not isinstance(turn, ModelTurn):
                 return self._clocked_judge_call(
                     asked=attempt_timeout,
@@ -3213,11 +3239,9 @@ class SemanticEpisodeVerifier:
                     deadline=deadline,
                 )
                 prior_failures_release_safe &= release_safe
-                if should_retry:
-                    continue
-                return self._clocked_judge_call(
+                last_failure = self._clocked_judge_call(
                     asked=attempt_timeout,
-                        judge_attempt_index=attempt,
+                    judge_attempt_index=attempt,
                     remaining=remaining_at_entry,
                     correlated=True,
                     unavailable=True,
@@ -3226,6 +3250,9 @@ class SemanticEpisodeVerifier:
                     transient_provider_failure=prior_failures_release_safe,
                     monotonic_release_safe=prior_failures_release_safe,
                 )
+                if should_retry:
+                    continue
+                return last_failure
             if turn.tool_calls:
                 report = self._parse_tool_report(
                     turn,
@@ -3275,6 +3302,7 @@ class SemanticEpisodeVerifier:
             correlated=True,
             unavailable=True,
             issue="semantic judge unavailable",
+            last_dispatched_failure=last_failure,
         )
 
     @staticmethod

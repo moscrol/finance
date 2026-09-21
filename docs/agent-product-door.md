@@ -447,6 +447,15 @@ material_outputs 清单，工具定义同步限制 ID 与数量，解析仍严�
 
 A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结构门、修复轮**只在 A**；B 有 `gate_receipt` / `CompletionReport` / `evidence_judge` / 输出质检。差的成因是分层——判官在 `runtime/`，B 在 `services/`，不得反向 import。现状与并轨计划见 `docs/superpowers/specs/2026-08-30-engine-b-into-a-strangler-design.md` §1.3。
 
+### 判官窗口诊断（候选）
+
+判官共享窗耗尽或根期限余量不足时，私有工件的顶层 `judge_attempt_index` /
+`timeout_asked` 仍描述被拒发的尝试；没有请求发出，就不继承上一发的异常类或 HTTP 状态。
+此前有实际失败时，另留 `last_dispatched_failure`，含最近失败的尝试序号（从 0 起）、
+获批超时、调用前根期限余量、稳定错误分类、异常类及 HTTP 状态，不含原始错误正文。
+重试成功或首发前即被拒发时不附此字段；它不是完整调用历史，获批超时也不是实际耗时。
+此诊断不改变重试、单次帽、共享窗或公开降级，不证明超时已解决，也不能恢复旧工件丢失的错误。
+
 ### 判官的查询身份（候选）
 
 引擎 A 的 `tool_status_registry` 从本轮原始事件按唯一 `call_id` 配对请求与结算，

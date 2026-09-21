@@ -3159,6 +3159,7 @@ def test_independent_judge_retries_one_transient_failure(
     assert result.judge_status == "passed"
     assert len(calls) == 2
     assert all(0.0 < timeout <= 60.0 for timeout in calls)
+    assert "last_dispatched_failure" not in result.to_dict()
 
 
 def test_leftover_sliver_does_not_dispatch_independent_judge(monkeypatch) -> None:
@@ -3203,6 +3204,7 @@ def test_leftover_sliver_does_not_dispatch_independent_judge(monkeypatch) -> Non
     assert payload["pending_rejudge"] is True
     assert payload["timeout_asked"] == 0.0
     assert isinstance(payload.get("judge_request"), dict)
+    assert "last_dispatched_failure" not in payload
 
 
 def test_unclassified_runtimeerror_holds_draft_without_evidence_lie(
@@ -5230,6 +5232,7 @@ def test_repaired_judge_after_transient_retry_keeps_clock_and_attempt_index(
     assert payload["timeout_asked"] == pytest.approx(model.calls[1])
     assert payload["judge_attempt_index"] == 1
     assert payload["exc_class"] is None
+    assert "last_dispatched_failure" not in payload
 
 
 def test_every_dispatched_judge_attempt_is_a_complete_attempt() -> None:
@@ -5389,8 +5392,120 @@ def test_standard_tier_judge_caps_unchanged_and_window_starvation_is_labelled(
     assert payload["timeout_asked"] == 0.0
     assert payload["timeout_configured"] == 50.0
     assert payload["remaining_seconds_at_entry"] > 500.0
+    assert payload["exc_class"] is None
+    assert payload["http_status"] is None
+    assert payload["last_dispatched_failure"] == {
+        "judge_attempt_index": 0,
+        "timeout_asked": 50.0,
+        "remaining_seconds_at_entry": 600.0,
+        "issue": "semantic judge transient provider error",
+        "exc_class": "TimeoutError",
+        "http_status": None,
+    }
     assert WINDOW_EXHAUSTED_ISSUE in result.issues
     assert ROOT_DEADLINE_EXHAUSTED_ISSUE not in result.issues
+
+
+@pytest.mark.parametrize("independent", [True, False])
+@pytest.mark.parametrize(
+    ("failure_kind", "exc_class", "http_status"),
+    [("returned_http", "HTTPError", 503), ("raised_timeout", "TimeoutError", None)],
+)
+def test_starved_judge_keeps_last_dispatched_failure_separate(
+    monkeypatch, independent, failure_kind, exc_class, http_status,
+) -> None:
+    now = _freeze_clock(monkeypatch)
+    frame, structural = _structural("市场当前偏弱。", research_tier="max")
+    provider = llm_refine.LLMProvider("judge", "secret", "https://judge.invalid", "j")
+    monkeypatch.setattr(
+        llm_refine, "judge_provider_chain", lambda: (provider,) if independent else (),
+    )
+    calls: list[float] = []
+
+    def fail(timeout):
+        calls.append(float(timeout))
+        now[0] += float(timeout)
+        if len(calls) == 1:
+            return "ConnectionError"
+        if failure_kind == "raised_timeout":
+            raise TimeoutError("RAW_PROVIDER_SENTINEL")
+        return "HTTP 503 RAW_PROVIDER_SENTINEL"
+
+    def complete(*_args, **kwargs):
+        return None, provider, fail(kwargs["timeout"])
+
+    class Primary:
+        def complete(self, **kwargs):
+            return ModelTurn("", (), "glm", fail(kwargs["timeout"]))
+
+    monkeypatch.setattr(llm_refine, "complete", complete)
+    result = SemanticEpisodeVerifier(primary_judge=Primary()).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(600.0),
+    )
+    payload = result.to_dict()
+
+    assert calls == [75.0, 75.0]
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
+    assert result.correlated_judge is (not independent)
+    assert WINDOW_EXHAUSTED_ISSUE in result.issues
+    assert ROOT_DEADLINE_EXHAUSTED_ISSUE not in result.issues
+    assert payload["judge_attempt_index"] == 2
+    assert payload["timeout_asked"] == 0.0
+    assert payload["remaining_seconds_at_entry"] == 450.0
+    assert payload["exc_class"] is None
+    assert payload["http_status"] is None
+    assert payload["last_dispatched_failure"] == {
+        "judge_attempt_index": 1,
+        "timeout_asked": 75.0,
+        "remaining_seconds_at_entry": 525.0,
+        "issue": "semantic judge transient provider error",
+        "exc_class": exc_class,
+        "http_status": http_status,
+    }
+    assert "RAW_PROVIDER_SENTINEL" not in json.dumps(payload, ensure_ascii=False)
+    assert exc_class not in result.public_answer
+
+
+def test_leftover_refusal_keeps_previous_http_failure_clock(monkeypatch) -> None:
+    now = _freeze_clock(monkeypatch)
+    frame, structural = _structural("市场当前偏弱。")
+    provider = llm_refine.LLMProvider("judge", "secret", "https://judge.invalid", "j")
+    monkeypatch.setattr(llm_refine, "judge_provider_chain", lambda: (provider,))
+    calls: list[float] = []
+
+    def complete(*_args, **kwargs):
+        calls.append(float(kwargs["timeout"]))
+        now[0] += 11.0
+        return None, provider, "HTTP 503 RAW_PROVIDER_SENTINEL"
+
+    monkeypatch.setattr(llm_refine, "complete", complete)
+    result = SemanticEpisodeVerifier().verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(60.0),
+    )
+    payload = result.to_dict()
+
+    assert calls == [50.0]
+    assert result.judge_status == "unavailable"
+    assert LEFTOVER_WINDOW_ISSUE in result.issues
+    assert payload["judge_attempt_index"] == 1
+    assert payload["timeout_asked"] == 0.0
+    assert payload["remaining_seconds_at_entry"] == 49.0
+    assert payload["exc_class"] is None
+    assert payload["http_status"] is None
+    assert payload["last_dispatched_failure"] == {
+        "judge_attempt_index": 0,
+        "timeout_asked": 50.0,
+        "remaining_seconds_at_entry": 60.0,
+        "issue": "semantic judge transient provider error",
+        "exc_class": "HTTPError",
+        "http_status": 503,
+    }
+    assert "RAW_PROVIDER_SENTINEL" not in json.dumps(payload, ensure_ascii=False)
 
 
 def test_judge_caps_follow_contract_tier_not_env(monkeypatch) -> None:
