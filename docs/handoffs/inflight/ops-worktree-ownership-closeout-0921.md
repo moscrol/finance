@@ -1,29 +1,29 @@
 # 工作树归属与接管
 
 ## 这个分支做什么
-协调#812看板/#813回填/#814收据，保护他人现场，固定对象留证。
+协调#812看板/#813回填/#814收据，固定对象复审、保护他人现场。
 
 ## 决策与被否方案
-- 再次“继续”只建新组合跑工程全叶；否自动加K3预算/合并/部署。
-- 固定授权时main c615adbd；否测试中追着main换对象或移签收据。
-- merge-tree真实合流+四父提交；适用hooks另跑，否手拷文件冒充组合。
-- 展开：`docs/handoffs/2026-09-21-ownership-integration-v4.md`。
+- 用户“启动”后又说“不用给k3设置预算，随便用”：取消请求/总时长/强制收尾帽；否只改口头而执行器仍限额。
+- 仍用既有Plus K3，不购买/切付费路由/自动重试/增开代理；单命令防卡死超时不是整场预算。
+- 固定6eb12候选；否追着main移签，旧v3触帽历史不改。
+- 展开：`docs/handoffs/2026-09-21-ownership-k3-v4-launch.md`。
 
 ## 当前状态
-新组合6eb12c1b8已推`baseline/ownership-gates-v4-0921`，树`~/fwp-wt-ownership-gates-v4-0921`保持净且冻结；父c615adbd+#812@8d955fc3/#813@5994230d/#814@ffc8e1a8（含a092收据归属修复）。未另开组合PR。
-82文件封于`docs/verification/2026-09-21-ownership-integration-v4/`（含README不含manifest），2,600,457字节；证据c39e5bfd8已推，#812/#813/#814评论5294/5295/5296逐字回读一致。原件`~/.finance-runtime/reviews/ownership-integration-v4-20260921/`。#814仅交接续至790dc27a，源码未变。
-旧47530e20及六档不动；旧K3双轴40请求触帽未终审历史保留。未新模型会话/合main/部署/生产回填/删真实树；Arena另线。
+2026-09-21T08:07:40Z新K3双轴实际启动；Spec runner/Pi 53701/53716，Quality 53702/53717。均Plus READY、有真实请求；仅启动事实，不是终审。
+新根`~/.finance-runtime/reviews/ownership-k3-v4-20260921/`：authorization/两轴prompt/runner已去掉40请求、1200秒、报告截止点，凭证内存缓存+临期刷新。execution/admissions/events持续写；别重跑launch.py/run_k3.py。
+作者与新spec/quality树`~/fwp-wt-ownership-{gates,spec,quality}-v4-0921`均固定6eb12c1b8（c615基线，含a092修复）。旧三v3树及七档封档不改。无合并/部署/生产回填/删真实树，Arena另线。
 
 ## 已验证
-6eb12固定组合：Python12461P/85S/2X、Ruff绿、gate0；前端110P，E2E34P/2S，六命令全0；finance-only registry五项0；适用pre-commit通过。一次运行，各叶首尾净同SHA/tree/源哈希。唯一`gates/python/receipts/gate-bVVRCApx/pytest.json`与JUnit12548条/终端一致；回读/兼容均0。
-a092修复既有证据115文件保留；旧六档30/30/86/26/450/115成员/哈希/冻结提交字节不变，旧三v3审查树净47530e20。
+不限额设施19项离线通过（模拟121请求/2000秒仍准入），离线Pi stub无真实模型请求；两次设施红日志保留。双轴启动身份净同SHA/tree/源哈希。
+6eb12作者工程：Python12461P/85S/2X、Ruff/gate0，前端110P、E2E34P/2S，registry五项0，hooks过。证据c39e5bfd8/82文件，评论5294/5295/5296回读一致；唯一gate-bVVRCApx收据、JUnit12548/终端一致，回读/兼容0。
 
 ## 未验证 / 已知边界
-没有新独立Spec/Quality终审。07:12Z远端main已adcda94b（他会话），本轮只签c615基线组合，不签后来main；十个范围路径零差不是全仓集成证据。真实完整副本302132父子发布恢复未演练。
-首尾净不证明中间无改后还原；归属标记不是恶意写者沙箱；shell仅留pytest末15行，JUnit非全stdout。
+新独立报告/QC仍待完成；作者绿不替代独立签字，不签后来main。真实完整副本302132父子发布恢复未演练。
+直接文件工具有根约束；shell无OS沙箱。首尾净不证明中途无改还原；收据归属非恶意写者防线；旧shell gate仅留pytest末15行。
 
 ## 下一步
-另定独立复审对象/有限预算；若验届时main，重固定组合并跑新全叶。#812/#813/#814与组合不可重复合；合并/部署/回填/删树分别确认。发布和收尾复核记录`~/.finance-runtime/reviews/ownership-integration-v4-closeout-20260921/`。
+先查新根每轴execution.json、admissions、events和PID；若已完成，核对REPORT/verdict/真实exit与覆盖、单独写operator QC、封档发布。不限额授权已生效，不再问旧40/20预算。latest-main新集成/合并/部署/回填/删树分别确认；三单与组合不可重复合。
 
 ## 踩过的坑
-latest只导航；11963旧单分支/12068旧组合/12461新组合不直接比。show-ref缺ref退出码依--quiet变化，旧manifest用files非entries；设施错误原件均保留。
+latest只导航；旧单分支/旧组合/新组合数量不能直接比。文档示例导出与本地Pi不一致，按实际lazy API导入；bash非零退出会throw。原错误保留，不算产品缺陷。
