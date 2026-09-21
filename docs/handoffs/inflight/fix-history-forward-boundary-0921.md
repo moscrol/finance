@@ -12,7 +12,7 @@
 ## 当前状态
 WIP #845源码`7c99f389e9c72668663449dedeacd7fe4830cbdd`已推且clean，父d91aff9d8；原#833 7edfe24e7未动。H-02原两省略续问已保窗口/截止/local_only，连续回放、真实run_turn送达和备用控制器重验已测；普通指代回填须同时恢复读取合同。
 整体历史仍CHANGES_REQUIRED：新相邻输入边界2反例正常版仍红。短“材料如下”段、未闭合中文引号中的“那它们见顶后谁接力？”未标uncertain，可误续接history_query；本版仍local_only，没有证明外部授权或执行IO。
-新包history-permission-repair-02已封存58成员，旧四包不改；Git归档/发布状态以包外回执为准。
+证据5b1452adf已推#838，新包58/58 Git blob及原件核验，旧四包不变；#845/#833/#838正文与评论5482/5486/5490已回读。包外history-permission-repair-02-publication-check.json留发布事实。
 
 ## 未验证 / 已知边界
 770定向绿不是完整Python/前端/E2E/registry合入门禁。三领域独立终审缺，历史原四自然题仍not_passed；新main/#841/联合树未验。通用指代正例只证直接controller有typed来源时可恢复；真实入口未送达时澄清，不宣称全部自然续问支持。

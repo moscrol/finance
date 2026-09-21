@@ -12,7 +12,7 @@
 
 - [H-01 控制隔离](history-boundary-repair-01/README.md)：固定d91aff9d8，530定向通过，五变异有效；当时H-02两红例保留。证据3a1c8289b的45成员已核，[发布回执](history-boundary-repair-01-publication-check.json)在包外。
 - **最新：[H-02 可信读取继承](history-permission-repair-02/README.md)**：#845固定7c99f389e，770定向通过（含41旧+49新边界例），十变异有效。两条原H-02转绿，但新相邻短材料/未闭合引号反例正常版仍2红，读取上限保持local_only。整体CHANGES_REQUIRED，不替完整门禁或独立/自然验收。
-- [H-02 决策快照](../../handoffs/2026-09-21-history-permission-inheritance-repair.md)与集中inflight给出接手边界。新包58成员封存，旧四包不动，提交字节/PR发布核验另记包外回执。
+- [H-02 决策快照](../../handoffs/2026-09-21-history-permission-inheritance-repair.md)与集中inflight给出接手边界。新包固定提交 **5b1452adfc032ad31a78844fa123745d832a1eda** 已推，58/58 Git blob与原件字节一致，旧四包281/28/38/45逐包重核且不变。[H-02 发布回执](history-permission-repair-02-publication-check.json)在包外，记录三PR正文/评论5482/5486/5490回读、记忆5e0012f9与静态图谱审计；图谱首次符号写法失败及修正后exit0都保留，不证明行为或合入。
 
 ## 验证方法与范围
 
