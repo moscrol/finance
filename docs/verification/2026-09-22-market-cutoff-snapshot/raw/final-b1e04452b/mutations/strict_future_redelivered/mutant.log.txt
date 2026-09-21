@@ -1,0 +1,36 @@
+F...                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence[future_only] _
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/strict_future_redelivered/mutant-tmp/test_explicit_cutoff_does_not_0')
+shape = 'future_only'
+
+    @pytest.mark.parametrize("shape", ("future_only", "mixed", "observation_only", "past_with_future_observation"))
+    def test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence(tmp_path, shape):
+        context, _ = _registry(tmp_path, HISTORICAL)
+    
+        def runner(*_args):
+            future = AgentEvidence(tool="mainline_context", title="SECRET-FUTURE", detail="99999 future", source="fixture", source_date="2026-09-18")
+            past = AgentEvidence(tool="mainline_context", title="past", detail="past value", source="fixture", source_date="2026-09-11")
+            evidence = {
+                "observation_only": [], "mixed": [past, future],
+                "past_with_future_observation": [past], "future_only": [future],
+            }[shape]
+            return evidence, "99999 future", ProviderTrace(provider="fixture", capability="mainline_context", status="success", detail="99999 future", source_trade_date="2026-09-18"), ("99999 future gap",)
+    
+        registry = default_registry({"mainline_context": runner})
+        # Verify the shared cutoff guard, independent of the local-only authorization guard.
+        from dataclasses import replace
+        context = replace(context, contract=replace(context.contract, material_contract=None, allowed_capabilities=("mainline_context",)))
+        result = registry.execute("mainline_context", {}, context=context, step_id="hostile")
+        has_past = shape in {"mixed", "past_with_future_observation"}
+>       assert len(result.evidence) == (1 if has_past else 0)
+E       AssertionError: assert 1 == 0
+E        +  where 1 = len((AgentEvidence(tool='mainline_context', title='晚于问句日 2026-09-11｜SECRET-FUTURE', detail='99999 future（晚于问句日 2026-09-11，...ed=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='', io_effect='unknown'),))
+E        +    where (AgentEvidence(tool='mainline_context', title='晚于问句日 2026-09-11｜SECRET-FUTURE', detail='99999 future（晚于问句日 2026-09-11，...ed=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='', io_effect='unknown'),) = ToolObservation(tool='mainline_context', query='snapshot', evidence=(AgentEvidence(tool='mainline_context', title='晚于问...ld_names=('unknown',), payload_sha256='a093e5caca2f5f3d8acf3d9bd0edf39319dfa855b22e1acb9c134384182e1773', telemetry={}).evidence
+
+intelligence/tests/test_local_market_snapshot.py:123: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/strict_future_redelivered/mutant.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_local_market_snapshot.py::test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence[future_only]
+1 failed, 3 passed in 1.76s

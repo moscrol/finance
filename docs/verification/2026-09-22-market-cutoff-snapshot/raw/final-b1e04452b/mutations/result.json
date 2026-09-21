@@ -1,0 +1,473 @@
+{
+  "revision": "b1e04452bfd45ae2fa4e9177847cb299293ca859",
+  "before": {
+    "revision": "b1e04452bfd45ae2fa4e9177847cb299293ca859",
+    "status": "",
+    "tree_object": "e104eb0fcbf4f11dd74326ce411f568019c3a10b"
+  },
+  "after": {
+    "revision": "b1e04452bfd45ae2fa4e9177847cb299293ca859",
+    "status": "",
+    "tree_object": "e104eb0fcbf4f11dd74326ce411f568019c3a10b"
+  },
+  "source_unchanged": true,
+  "cases": [
+    {
+      "case": "ignore_standing_upper_bound",
+      "target": "intelligence/tests/test_honesty_gates.py::test_all_explicit_upper_bounds_share_historical_year_and_take_earliest",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 3,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 1,
+        "errors": 0,
+        "testcases": 3,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "yearless_uses_runtime_year",
+      "target": "intelligence/tests/test_honesty_gates.py::test_all_explicit_upper_bounds_share_historical_year_and_take_earliest",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 3,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 1,
+        "errors": 0,
+        "testcases": 3,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "ignore_explicit_cutoff",
+      "target": "intelligence/tests/test_honesty_gates.py::test_explicit_information_upper_bound_becomes_requested_cutoff",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 5,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 5,
+        "errors": 0,
+        "testcases": 5,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "caller_overrides_requested",
+      "target": "intelligence/tests/test_honesty_gates.py::test_explicit_information_upper_bound_becomes_requested_cutoff",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 5,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 5,
+        "errors": 0,
+        "testcases": 5,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "drop_snapshot_capability",
+      "target": "intelligence/tests/test_local_market_snapshot.py::test_local_only_reads_snapshot_without_mixed_tools_or_network",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 1,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "future_snapshot_allowed",
+      "target": "intelligence/tests/test_local_market_snapshot.py::test_history_never_reads_latest_meta_or_future_daily",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 1,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "ignore_source_identity",
+      "target": "intelligence/tests/test_local_market_snapshot.py::test_bad_or_contradictory_newer_snapshot_does_not_erase_valid_older",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 6,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 3,
+        "errors": 0,
+        "testcases": 6,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "snapshot_null_as_zero",
+      "target": "intelligence/tests/test_local_market_snapshot.py::test_local_only_reads_snapshot_without_mixed_tools_or_network",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 1,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "snapshot_locator_reindexed",
+      "target": "intelligence/tests/test_local_market_snapshot.py::test_snapshot_theme_locator_preserves_original_array_index",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 1,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "strict_future_redelivered",
+      "target": "intelligence/tests/test_local_market_snapshot.py::test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 4,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 1,
+        "errors": 0,
+        "testcases": 4,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "future_gaps_leak",
+      "target": "intelligence/tests/test_local_market_snapshot.py::test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 4,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 4,
+        "errors": 0,
+        "testcases": 4,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "strict_cache_collision",
+      "target": "intelligence/tests/test_local_market_snapshot.py::test_strict_cutoff_does_not_reuse_non_strict_cached_delivery",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 1,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "future_observation_leak",
+      "target": "intelligence/tests/test_local_market_snapshot.py::test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 4,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 2,
+        "errors": 0,
+        "testcases": 4,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "date_readiness_gate",
+      "target": "intelligence/tests/test_workbench_api.py::test_readiness_reports_market_dates_without_blocking_available_data",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 12,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 12,
+        "errors": 0,
+        "testcases": 12,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "reference_as_query_ceiling",
+      "target": "intelligence/tests/test_market_date_advisory.py::test_market_block_selects_available_data_newer_than_reference",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 1,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "hide_other_day_themes",
+      "target": "intelligence/tests/test_market_date_advisory.py::test_market_overview_keeps_theme_date_distinct_from_market_date",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 6,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 6,
+        "errors": 0,
+        "testcases": 6,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "null_count_as_zero",
+      "target": "intelligence/tests/test_market_date_advisory.py::test_market_overview_keeps_theme_date_distinct_from_market_date",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 6,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 2,
+        "errors": 0,
+        "testcases": 6,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "ignore_explicit_source_marker",
+      "target": "intelligence/tests/test_agent_research.py::test_mixed_structured_evidence_distinguishes_source_date_from_event_date",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 1,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "unknown_source_filled_from_overview",
+      "target": "intelligence/tests/test_market_date_advisory.py::test_prefetch_keeps_its_source_date_not_overview_or_event_date",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 3,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 2,
+        "errors": 0,
+        "testcases": 3,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "old_window_self_authorizes",
+      "target": "intelligence/tests/test_episode_tools.py::test_model_selected_historical_window_is_rejected_for_current_task",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 1,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "mismatch_as_failure",
+      "target": "tests/test_market_snapshot_reconcile.py::RunCheckGateTest::test_format_pass_with_date_mismatch_stays_ready",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 1,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "uniform_overview_date",
+      "target": "intelligence/tests/test_market_date_advisory.py::test_market_overview_keeps_theme_date_distinct_from_market_date",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 6,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 6,
+        "errors": 0,
+        "testcases": 6,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "date_warning_upgrades_partial",
+      "target": "tests/test_market_snapshot_reconcile.py::RunCheckGateTest::test_date_advisory_does_not_override_partial_snapshot",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 1,
+        "errors": 0,
+        "testcases": 1,
+        "assertion_failure": true
+      },
+      "caught": true
+    },
+    {
+      "case": "prefetch_drops_own_date",
+      "target": "intelligence/tests/test_market_date_advisory.py::test_prefetch_keeps_its_source_date_not_overview_or_event_date",
+      "baseline": {
+        "exit_code": 0,
+        "failures": 0,
+        "errors": 0,
+        "testcases": 3,
+        "assertion_failure": false
+      },
+      "mutant": {
+        "exit_code": 1,
+        "failures": 3,
+        "errors": 0,
+        "testcases": 3,
+        "assertion_failure": true
+      },
+      "caught": true
+    }
+  ],
+  "pass": true
+}

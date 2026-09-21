@@ -1,0 +1,76 @@
+"""Capture a targeted regression receipt on one immutable candidate, not a full gate."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / "directed"
+TREE = Path.home() / "fwp-wt-market-date-advisory-0921"
+PY = str(Path.home() / "finance-workspace-private/.venv-workbench/bin/python")
+SHA = "b1e04452bfd45ae2fa4e9177847cb299293ca859"
+TESTS = ["test_local_market_snapshot.py", "test_honesty_gates.py", "test_market_date_advisory.py",
+         "test_episode_tools.py", "test_news_cutoff_disclosure.py", "test_episode_progress.py",
+         "test_tool_behavior_contract.py", "test_tool_produces_satisfiability.py",
+         "test_episode_factory.py", "test_e2_runtime_ceiling.py", "test_reasoning_input_boundaries.py"]
+
+
+def identity():
+    def git(*args):
+        return subprocess.check_output(["git", "-C", str(TREE), *args], text=True).rstrip("\n")
+    return {"revision": git("rev-parse", "HEAD"), "tree_object": git("rev-parse", "HEAD^{tree}"),
+            "status": git("status", "--porcelain=v1", "--untracked-files=all")}
+
+
+def main():
+    os.umask(0o022)
+    OUT.mkdir(exist_ok=False)
+    before = identity()
+    assert before["revision"] == SHA and not before["status"]
+    env = {"HOME": str(Path.home()), "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+           "LANG": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1", "FWP_TEST_RECEIPT": "1",
+           "RUFF_CACHE_DIR": str(OUT / "ruff-cache")}
+    record = {"scope": "targeted regression plus repository ruff; NOT complete Python gate",
+              "before": before, "started_at": datetime.now(timezone.utc).isoformat(), "checks": []}
+    commands = [
+        [PY, "-m", "ruff", "check", "."],
+        [PY, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-o", "tmp_path_retention_policy=failed",
+         "-o", "tmp_path_retention_count=1", f"--basetemp={OUT / 'tmp'}", f"--junitxml={OUT / 'junit.xml'}",
+         *["intelligence/tests/" + name for name in TESTS]],
+    ]
+    for index, command in enumerate(commands):
+        assert shutil.disk_usage(ROOT).free >= 3 * 1024**3, "resource floor"
+        log = OUT / f"{index}.log.txt"
+        with log.open("xb") as stream:
+            proc = subprocess.run(command, cwd=TREE, env=env, stdout=stream, stderr=subprocess.STDOUT, timeout=180)
+        record["checks"].append({"command": command, "exit_code": proc.returncode,
+                                 "log": str(log), "sha256": hashlib.sha256(log.read_bytes()).hexdigest()})
+    paths = re.findall(r"读数收据: ([^\r\n]+\.json)(?:\r?\n|$)", (OUT / "1.log.txt").read_text())
+    assert len(paths) == 1, paths
+    raw = Path(paths[0]).read_bytes()
+    receipt = json.loads(raw)
+    assert receipt["revision"] == SHA and receipt["tree"] == str(TREE) and not receipt["dirty"]
+    assert receipt["exit_status"] == record["checks"][1]["exit_code"]
+    assert receipt["interpreter"] == PY and not receipt["dependency_gate_bypassed"]
+    cases = ET.parse(OUT / "junit.xml").getroot().findall(".//testcase")
+    assert not any(case.find("failure") is not None or case.find("error") is not None for case in cases)
+    assert len(cases) == receipt["counts"]["passed"]
+    (OUT / "pytest-receipt.json").write_bytes(raw)
+    record["pytest_receipt"] = {"source": paths[0], "sha256": hashlib.sha256(raw).hexdigest(),
+                                "counts": receipt["counts"], "junit_testcases": len(cases)}
+    record["after"] = identity()
+    record["source_unchanged"] = before == record["after"]
+    record["pass"] = record["source_unchanged"] and all(c["exit_code"] == 0 for c in record["checks"])
+    record["finished_at"] = datetime.now(timezone.utc).isoformat()
+    (OUT / "result.json").write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+    print(json.dumps(record, ensure_ascii=False))
+    return 0 if record["pass"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

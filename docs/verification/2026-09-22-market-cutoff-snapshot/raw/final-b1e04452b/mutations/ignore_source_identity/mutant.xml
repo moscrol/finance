@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="6" time="1.472" timestamp="2026-09-22T00:51:36.529307+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_bad_or_contradictory_newer_snapshot_does_not_erase_valid_older[overrides0]" time="0.029" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_bad_or_contradictory_newer_snapshot_does_not_erase_valid_older[overrides1]" time="0.008"><failure message="AssertionError: assert (True and '2026-09-21' == '2026-09-11'&#10;  &#10;  - 2026-09-11&#10;  ?          -&#10;  + 2026-09-21&#10;  ?         +)">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/ignore_source_identity/mutant-tmp/test_bad_or_contradictory_newe0')
+overrides = {'served_trade_date': '2026-09-22'}
+
+    @pytest.mark.parametrize("overrides", [
+        {"trade_date": "2026-09-22"}, {"served_trade_date": "2026-09-22"},
+        {"source_data_date": "2026-09-22"}, {"source_data_date": "bad"},
+        {"quality": "failed"}, {"market": []},
+    ])
+    def test_bad_or_contradictory_newer_snapshot_does_not_erase_valid_older(tmp_path: Path, overrides):
+        root = tmp_path / "snapshots"
+        _snapshot(root, "2026-09-11")
+        _snapshot(root, **overrides)
+        loaded = load_market_snapshot_as_of(root, date(2026, 9, 21))
+&gt;       assert loaded["found"] and loaded["doc"]["trade_date"] == "2026-09-11"
+E       AssertionError: assert (True and '2026-09-21' == '2026-09-11'
+E         
+E         - 2026-09-11
+E         ?          -
+E         + 2026-09-21
+E         ?         +)
+
+intelligence/tests/test_local_market_snapshot.py:159: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_bad_or_contradictory_newer_snapshot_does_not_erase_valid_older[overrides2]" time="0.003"><failure message="AssertionError: assert (True and '2026-09-21' == '2026-09-11'&#10;  &#10;  - 2026-09-11&#10;  ?          -&#10;  + 2026-09-21&#10;  ?         +)">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/ignore_source_identity/mutant-tmp/test_bad_or_contradictory_newe1')
+overrides = {'source_data_date': '2026-09-22'}
+
+    @pytest.mark.parametrize("overrides", [
+        {"trade_date": "2026-09-22"}, {"served_trade_date": "2026-09-22"},
+        {"source_data_date": "2026-09-22"}, {"source_data_date": "bad"},
+        {"quality": "failed"}, {"market": []},
+    ])
+    def test_bad_or_contradictory_newer_snapshot_does_not_erase_valid_older(tmp_path: Path, overrides):
+        root = tmp_path / "snapshots"
+        _snapshot(root, "2026-09-11")
+        _snapshot(root, **overrides)
+        loaded = load_market_snapshot_as_of(root, date(2026, 9, 21))
+&gt;       assert loaded["found"] and loaded["doc"]["trade_date"] == "2026-09-11"
+E       AssertionError: assert (True and '2026-09-21' == '2026-09-11'
+E         
+E         - 2026-09-11
+E         ?          -
+E         + 2026-09-21
+E         ?         +)
+
+intelligence/tests/test_local_market_snapshot.py:159: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_bad_or_contradictory_newer_snapshot_does_not_erase_valid_older[overrides3]" time="0.005"><failure message="AssertionError: assert (True and '2026-09-21' == '2026-09-11'&#10;  &#10;  - 2026-09-11&#10;  ?          -&#10;  + 2026-09-21&#10;  ?         +)">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/ignore_source_identity/mutant-tmp/test_bad_or_contradictory_newe2')
+overrides = {'source_data_date': 'bad'}
+
+    @pytest.mark.parametrize("overrides", [
+        {"trade_date": "2026-09-22"}, {"served_trade_date": "2026-09-22"},
+        {"source_data_date": "2026-09-22"}, {"source_data_date": "bad"},
+        {"quality": "failed"}, {"market": []},
+    ])
+    def test_bad_or_contradictory_newer_snapshot_does_not_erase_valid_older(tmp_path: Path, overrides):
+        root = tmp_path / "snapshots"
+        _snapshot(root, "2026-09-11")
+        _snapshot(root, **overrides)
+        loaded = load_market_snapshot_as_of(root, date(2026, 9, 21))
+&gt;       assert loaded["found"] and loaded["doc"]["trade_date"] == "2026-09-11"
+E       AssertionError: assert (True and '2026-09-21' == '2026-09-11'
+E         
+E         - 2026-09-11
+E         ?          -
+E         + 2026-09-21
+E         ?         +)
+
+intelligence/tests/test_local_market_snapshot.py:159: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_bad_or_contradictory_newer_snapshot_does_not_erase_valid_older[overrides4]" time="0.004" /><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_bad_or_contradictory_newer_snapshot_does_not_erase_valid_older[overrides5]" time="0.005" /></testsuite></testsuites>

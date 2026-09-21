@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="2.191" timestamp="2026-09-22T00:55:02.410200+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_agent_research" name="test_mixed_structured_evidence_distinguishes_source_date_from_event_date" time="0.003"><failure message="AssertionError: assert ['2026-07-24'... '2026-07-24'] == ['2026-07-24'... '2026-07-23']&#10;  &#10;  At index 2 diff: '2026-07-24' != '2026-07-22'&#10;  Use -v to get more diff">def test_mixed_structured_evidence_distinguishes_source_date_from_event_date() -&gt; None:
+        evidence, _ = agent_research.block_lines_to_evidence(
+            "market_data",
+            "成交额10000亿元\n回顾2026-07-20指数上涨0.85%\n"
+            "2026-07-22 主线（2026-07-18启动）；数据日期：2026-07-22\n"
+            "题材预计2026-08-01交付；数据日期：2026-07-23",
+            "本地 DuckDB",
+            fallback_source_date="2026-07-24",
+        )
+&gt;       assert [item.source_date for item in evidence] == ["2026-07-24", "2026-07-24", "2026-07-22", "2026-07-23"]
+E       AssertionError: assert ['2026-07-24'... '2026-07-24'] == ['2026-07-24'... '2026-07-23']
+E         
+E         At index 2 diff: '2026-07-24' != '2026-07-22'
+E         Use -v to get more diff
+
+intelligence/tests/test_agent_research.py:244: AssertionError</failure></testcase></testsuite></testsuites>

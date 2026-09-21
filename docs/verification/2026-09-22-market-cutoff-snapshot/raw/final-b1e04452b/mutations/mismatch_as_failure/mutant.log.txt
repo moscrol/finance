@@ -1,0 +1,27 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______ RunCheckGateTest.test_format_pass_with_date_mismatch_stays_ready _______
+
+self = <tests.test_market_snapshot_reconcile.RunCheckGateTest testMethod=test_format_pass_with_date_mismatch_stays_ready>
+
+    def test_format_pass_with_date_mismatch_stays_ready(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            root = base / "snapshot"
+            root.mkdir()
+            write_snapshot(root, "2026-08-12")
+            db = base / "market.duckdb"
+            write_market_db(db, "2026-08-11")
+    
+            result = run_check(root, "2026-08-12", db_path=db)
+    
+>           self.assertEqual(result["status"], "WARN")
+E           AssertionError: 'FAIL' != 'WARN'
+E           - FAIL
+E           + WARN
+
+tests/test_market_snapshot_reconcile.py:142: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/mismatch_as_failure/mutant.xml -
+=========================== short test summary info ============================
+FAILED tests/test_market_snapshot_reconcile.py::RunCheckGateTest::test_format_pass_with_date_mismatch_stays_ready
+1 failed in 2.33s

@@ -1,0 +1,77 @@
+..FF                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence[observation_only] _
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/mutations/future_observation_leak/mutant-tmp/test_explicit_cutoff_does_not_0')
+shape = 'observation_only'
+
+    @pytest.mark.parametrize("shape", ("future_only", "mixed", "observation_only", "past_with_future_observation"))
+    def test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence(tmp_path, shape):
+        context, _ = _registry(tmp_path, HISTORICAL)
+    
+        def runner(*_args):
+            future = AgentEvidence(tool="mainline_context", title="SECRET-FUTURE", detail="99999 future", source="fixture", source_date="2026-09-18")
+            past = AgentEvidence(tool="mainline_context", title="past", detail="past value", source="fixture", source_date="2026-09-11")
+            evidence = {
+                "observation_only": [], "mixed": [past, future],
+                "past_with_future_observation": [past], "future_only": [future],
+            }[shape]
+            return evidence, "99999 future", ProviderTrace(provider="fixture", capability="mainline_context", status="success", detail="99999 future", source_trade_date="2026-09-18"), ("99999 future gap",)
+    
+        registry = default_registry({"mainline_context": runner})
+        # Verify the shared cutoff guard, independent of the local-only authorization guard.
+        from dataclasses import replace
+        context = replace(context, contract=replace(context.contract, material_contract=None, allowed_capabilities=("mainline_context",)))
+        result = registry.execute("mainline_context", {}, context=context, step_id="hostile")
+        has_past = shape in {"mixed", "past_with_future_observation"}
+        assert len(result.evidence) == (1 if has_past else 0)
+        assert result.trace.status == ("success" if has_past else "future_of_cutoff")
+>       assert "99999" not in repr(result) and "SECRET-FUTURE" not in repr(result)
+E       AssertionError: assert ('99999' not in 'ToolObserva...elemetry={})'
+E         
+E         '99999' is contained here:
+E         ?           ^^^^^^^^^
+E           ervation='99999 future', trace=ProviderTrace(provider='fixture', capability='mainline_context', status='future_of_cutoff', detail='99999 future', source_trade_date='2026-09-18', result_count=0, parent_id='test_explicit_cutoff_does_not_0', step_id='hostile', requested_date='2026-09-11', served_date='2026-09-18', requested_time_range=None), gaps=('99999 future gap',), evidence_hashes=(), dataset='unknown', caliber='', payload_field_names=('unknown',), payload_sha256='a093e5caca2f5f3d8acf3d9bd0edf39319dfa855b22e1acb9c134384182e1773', telemetry={})
+E         ?           ^^^^^^^^^^^^^^)
+
+intelligence/tests/test_local_market_snapshot.py:125: AssertionError
+_ test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence[past_with_future_observation] _
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/mutations/future_observation_leak/mutant-tmp/test_explicit_cutoff_does_not_1')
+shape = 'past_with_future_observation'
+
+    @pytest.mark.parametrize("shape", ("future_only", "mixed", "observation_only", "past_with_future_observation"))
+    def test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence(tmp_path, shape):
+        context, _ = _registry(tmp_path, HISTORICAL)
+    
+        def runner(*_args):
+            future = AgentEvidence(tool="mainline_context", title="SECRET-FUTURE", detail="99999 future", source="fixture", source_date="2026-09-18")
+            past = AgentEvidence(tool="mainline_context", title="past", detail="past value", source="fixture", source_date="2026-09-11")
+            evidence = {
+                "observation_only": [], "mixed": [past, future],
+                "past_with_future_observation": [past], "future_only": [future],
+            }[shape]
+            return evidence, "99999 future", ProviderTrace(provider="fixture", capability="mainline_context", status="success", detail="99999 future", source_trade_date="2026-09-18"), ("99999 future gap",)
+    
+        registry = default_registry({"mainline_context": runner})
+        # Verify the shared cutoff guard, independent of the local-only authorization guard.
+        from dataclasses import replace
+        context = replace(context, contract=replace(context.contract, material_contract=None, allowed_capabilities=("mainline_context",)))
+        result = registry.execute("mainline_context", {}, context=context, step_id="hostile")
+        has_past = shape in {"mixed", "past_with_future_observation"}
+        assert len(result.evidence) == (1 if has_past else 0)
+        assert result.trace.status == ("success" if has_past else "future_of_cutoff")
+>       assert "99999" not in repr(result) and "SECRET-FUTURE" not in repr(result)
+E       AssertionError: assert ('99999' not in 'ToolObserva...elemetry={})'
+E         
+E         '99999' is contained here:
+E         ?           ^^^^^^^^^
+E           ervation='99999 future', trace=ProviderTrace(provider='fixture', capability='mainline_context', status='success', detail='99999 future', source_trade_date='2026-09-18', result_count=1, parent_id='test_explicit_cutoff_does_not_1', step_id='hostile', requested_date='2026-09-11', served_date='2026-09-11', requested_time_range=None), gaps=('99999 future gap',), evidence_hashes=('1fc53ebb303ea7ca',), dataset='unknown', caliber='', payload_field_names=('unknown',), payload_sha256='a093e5caca2f5f3d8acf3d9bd0edf39319dfa855b22e1acb9c134384182e1773', telemetry={})
+E         ?           ^^^^^^^^^^^^^^)
+
+intelligence/tests/test_local_market_snapshot.py:125: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/mutations/future_observation_leak/mutant.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_local_market_snapshot.py::test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence[observation_only]
+FAILED intelligence/tests/test_local_market_snapshot.py::test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence[past_with_future_observation]
+2 failed, 2 passed in 1.00s

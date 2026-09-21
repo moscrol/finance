@@ -1,0 +1,232 @@
+FFFFF                                                                    [100%]
+=================================== FAILURES ===================================
+_ test_explicit_information_upper_bound_becomes_requested_cutoff[\u53ea\u7528\u672c\u5730\u5df2\u6709\u6570\u636e\uff0c\u4e0d\u8054\u7f51\uff1a\u628a\u4fe1\u606f\u622a\u6b62\u4e25\u683c\u9650\u5b9a\u4e3a2026\u5e749\u670811\u65e5\uff0c\u5206\u6790\u5f53\u65f6A\u80a1\u5e02\u573a\u7684\u6210\u4ea4\u989d\u3001\u5e02\u573a\u9636\u6bb5\u548c\u4e3b\u8981\u9898\u6750\u3002\u8bf7\u7ed9\u51fa\u5b9e\u9645\u6570\u503c\u4e0e\u6765\u6e90\u65e5\u671f\uff0c\u4e0d\u4f7f\u75289\u670811\u65e5\u4e4b\u540e\u7684\u6570\u636e\uff0c\u7f3a\u5931\u7684\u90e8\u5206\u5355\u72ec\u8bf4\u660e\u3002] _
+
+query = '只用本地已有数据，不联网：把信息截止严格限定为2026年9月11日，分析当时A股市场的成交额、市场阶段和主要题材。请给出实际数值与来源日期，不使用9月11日之后的数据，缺失的部分单独说明。'
+
+    @pytest.mark.parametrize("query", (
+        "只用本地已有数据，不联网：把信息截止严格限定为2026年9月11日，分析当时A股市场的成交额、市场阶段和主要题材。请给出实际数值与来源日期，不使用9月11日之后的数据，缺失的部分单独说明。",
+        "信息截止日期：2026-09-11，分析A股市场",
+        "截至2026年9月11日，A股市场怎么看",
+        "不要使用2026-09-11之后的数据，研判9月21日市场",
+        "截止到2026-09-11分析市场",
+    ))
+    def test_explicit_information_upper_bound_becomes_requested_cutoff(query):
+        assert requested_information_cutoff(query, today="2026-09-21") == InformationCutoff(date(2026, 9, 11), "requested")
+        context = build_episode_context(
+            decide_turn(query).task_frame, task_id="explicit-cutoff", today="2026-09-21",
+            information_cutoff=InformationCutoff(date(2026, 9, 21), "runtime_default"),
+        )
+>       assert context.information_cutoff == InformationCutoff(date(2026, 9, 11), "requested")
+E       AssertionError: assert InformationCu...time_default') == InformationCu...e='requested')
+E         
+E         Differing attributes:
+E         ['as_of_date', 'source']
+E         
+E         Drill down into differing attribute as_of_date:
+E           as_of_date: datetime.date(2026, 9, 21) != datetime.date(2026, 9, 11)
+E         ...
+E         
+E         ...Full output truncated (4 lines hidden), use '-vv' to show
+
+intelligence/tests/test_honesty_gates.py:178: AssertionError
+_ test_explicit_information_upper_bound_becomes_requested_cutoff[\u4fe1\u606f\u622a\u6b62\u65e5\u671f\uff1a2026-09-11\uff0c\u5206\u6790A\u80a1\u5e02\u573a] _
+
+query = '信息截止日期：2026-09-11，分析A股市场'
+
+    @pytest.mark.parametrize("query", (
+        "只用本地已有数据，不联网：把信息截止严格限定为2026年9月11日，分析当时A股市场的成交额、市场阶段和主要题材。请给出实际数值与来源日期，不使用9月11日之后的数据，缺失的部分单独说明。",
+        "信息截止日期：2026-09-11，分析A股市场",
+        "截至2026年9月11日，A股市场怎么看",
+        "不要使用2026-09-11之后的数据，研判9月21日市场",
+        "截止到2026-09-11分析市场",
+    ))
+    def test_explicit_information_upper_bound_becomes_requested_cutoff(query):
+        assert requested_information_cutoff(query, today="2026-09-21") == InformationCutoff(date(2026, 9, 11), "requested")
+>       context = build_episode_context(
+            decide_turn(query).task_frame, task_id="explicit-cutoff", today="2026-09-21",
+            information_cutoff=InformationCutoff(date(2026, 9, 21), "runtime_default"),
+        )
+
+intelligence/tests/test_honesty_gates.py:174: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/services/episode_factory.py:238: in build_episode_context
+    # 推翻条件/验证时点整组缺席（2026-08-25 生产契约冻结实测，SPT 有色题）。
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+policy = ResearchPolicy(tier='standard', max_steps=6, total_seconds=90.0, synthesis_reserve=20.0)
+
+    def root_budget_for_policy(
+        policy: ResearchPolicy,
+        *,
+        episode_id: str,
+    ) -> InMemoryRootBudgetLedger:
+        """Allocate one root ledger from the immutable tier policy."""
+    
+        episode = str(episode_id or "").strip()
+        if not episode:
+            raise ValueError("episode_id must be non-empty")
+        hard_calls = {
+            "quick": 4,
+            "standard": 8,
+            "deep": 24,
+            "max": PRODUCT_MAX_TOOL_CALLS,
+        }.get(str(policy.tier).strip().lower(), policy.max_steps)
+        with _LIVE_ROOT_BUDGETS_LOCK:
+            if episode in _LIVE_ROOT_BUDGETS:
+>               raise ValueError(f"root budget already exists for live episode: {episode}")
+E               ValueError: root budget already exists for live episode: explicit-cutoff
+
+intelligence/services/research_contract.py:781: ValueError
+_ test_explicit_information_upper_bound_becomes_requested_cutoff[\u622a\u81f32026\u5e749\u670811\u65e5\uff0cA\u80a1\u5e02\u573a\u600e\u4e48\u770b] _
+
+query = '截至2026年9月11日，A股市场怎么看'
+
+    @pytest.mark.parametrize("query", (
+        "只用本地已有数据，不联网：把信息截止严格限定为2026年9月11日，分析当时A股市场的成交额、市场阶段和主要题材。请给出实际数值与来源日期，不使用9月11日之后的数据，缺失的部分单独说明。",
+        "信息截止日期：2026-09-11，分析A股市场",
+        "截至2026年9月11日，A股市场怎么看",
+        "不要使用2026-09-11之后的数据，研判9月21日市场",
+        "截止到2026-09-11分析市场",
+    ))
+    def test_explicit_information_upper_bound_becomes_requested_cutoff(query):
+        assert requested_information_cutoff(query, today="2026-09-21") == InformationCutoff(date(2026, 9, 11), "requested")
+>       context = build_episode_context(
+            decide_turn(query).task_frame, task_id="explicit-cutoff", today="2026-09-21",
+            information_cutoff=InformationCutoff(date(2026, 9, 21), "runtime_default"),
+        )
+
+intelligence/tests/test_honesty_gates.py:174: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/services/episode_factory.py:238: in build_episode_context
+    # 推翻条件/验证时点整组缺席（2026-08-25 生产契约冻结实测，SPT 有色题）。
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+policy = ResearchPolicy(tier='standard', max_steps=6, total_seconds=90.0, synthesis_reserve=20.0)
+
+    def root_budget_for_policy(
+        policy: ResearchPolicy,
+        *,
+        episode_id: str,
+    ) -> InMemoryRootBudgetLedger:
+        """Allocate one root ledger from the immutable tier policy."""
+    
+        episode = str(episode_id or "").strip()
+        if not episode:
+            raise ValueError("episode_id must be non-empty")
+        hard_calls = {
+            "quick": 4,
+            "standard": 8,
+            "deep": 24,
+            "max": PRODUCT_MAX_TOOL_CALLS,
+        }.get(str(policy.tier).strip().lower(), policy.max_steps)
+        with _LIVE_ROOT_BUDGETS_LOCK:
+            if episode in _LIVE_ROOT_BUDGETS:
+>               raise ValueError(f"root budget already exists for live episode: {episode}")
+E               ValueError: root budget already exists for live episode: explicit-cutoff
+
+intelligence/services/research_contract.py:781: ValueError
+_ test_explicit_information_upper_bound_becomes_requested_cutoff[\u4e0d\u8981\u4f7f\u75282026-09-11\u4e4b\u540e\u7684\u6570\u636e\uff0c\u7814\u52249\u670821\u65e5\u5e02\u573a] _
+
+query = '不要使用2026-09-11之后的数据，研判9月21日市场'
+
+    @pytest.mark.parametrize("query", (
+        "只用本地已有数据，不联网：把信息截止严格限定为2026年9月11日，分析当时A股市场的成交额、市场阶段和主要题材。请给出实际数值与来源日期，不使用9月11日之后的数据，缺失的部分单独说明。",
+        "信息截止日期：2026-09-11，分析A股市场",
+        "截至2026年9月11日，A股市场怎么看",
+        "不要使用2026-09-11之后的数据，研判9月21日市场",
+        "截止到2026-09-11分析市场",
+    ))
+    def test_explicit_information_upper_bound_becomes_requested_cutoff(query):
+        assert requested_information_cutoff(query, today="2026-09-21") == InformationCutoff(date(2026, 9, 11), "requested")
+>       context = build_episode_context(
+            decide_turn(query).task_frame, task_id="explicit-cutoff", today="2026-09-21",
+            information_cutoff=InformationCutoff(date(2026, 9, 21), "runtime_default"),
+        )
+
+intelligence/tests/test_honesty_gates.py:174: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/services/episode_factory.py:238: in build_episode_context
+    # 推翻条件/验证时点整组缺席（2026-08-25 生产契约冻结实测，SPT 有色题）。
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+policy = ResearchPolicy(tier='standard', max_steps=6, total_seconds=90.0, synthesis_reserve=20.0)
+
+    def root_budget_for_policy(
+        policy: ResearchPolicy,
+        *,
+        episode_id: str,
+    ) -> InMemoryRootBudgetLedger:
+        """Allocate one root ledger from the immutable tier policy."""
+    
+        episode = str(episode_id or "").strip()
+        if not episode:
+            raise ValueError("episode_id must be non-empty")
+        hard_calls = {
+            "quick": 4,
+            "standard": 8,
+            "deep": 24,
+            "max": PRODUCT_MAX_TOOL_CALLS,
+        }.get(str(policy.tier).strip().lower(), policy.max_steps)
+        with _LIVE_ROOT_BUDGETS_LOCK:
+            if episode in _LIVE_ROOT_BUDGETS:
+>               raise ValueError(f"root budget already exists for live episode: {episode}")
+E               ValueError: root budget already exists for live episode: explicit-cutoff
+
+intelligence/services/research_contract.py:781: ValueError
+_ test_explicit_information_upper_bound_becomes_requested_cutoff[\u622a\u6b62\u52302026-09-11\u5206\u6790\u5e02\u573a] _
+
+query = '截止到2026-09-11分析市场'
+
+    @pytest.mark.parametrize("query", (
+        "只用本地已有数据，不联网：把信息截止严格限定为2026年9月11日，分析当时A股市场的成交额、市场阶段和主要题材。请给出实际数值与来源日期，不使用9月11日之后的数据，缺失的部分单独说明。",
+        "信息截止日期：2026-09-11，分析A股市场",
+        "截至2026年9月11日，A股市场怎么看",
+        "不要使用2026-09-11之后的数据，研判9月21日市场",
+        "截止到2026-09-11分析市场",
+    ))
+    def test_explicit_information_upper_bound_becomes_requested_cutoff(query):
+        assert requested_information_cutoff(query, today="2026-09-21") == InformationCutoff(date(2026, 9, 11), "requested")
+>       context = build_episode_context(
+            decide_turn(query).task_frame, task_id="explicit-cutoff", today="2026-09-21",
+            information_cutoff=InformationCutoff(date(2026, 9, 21), "runtime_default"),
+        )
+
+intelligence/tests/test_honesty_gates.py:174: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/services/episode_factory.py:238: in build_episode_context
+    # 推翻条件/验证时点整组缺席（2026-08-25 生产契约冻结实测，SPT 有色题）。
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+policy = ResearchPolicy(tier='standard', max_steps=6, total_seconds=90.0, synthesis_reserve=20.0)
+
+    def root_budget_for_policy(
+        policy: ResearchPolicy,
+        *,
+        episode_id: str,
+    ) -> InMemoryRootBudgetLedger:
+        """Allocate one root ledger from the immutable tier policy."""
+    
+        episode = str(episode_id or "").strip()
+        if not episode:
+            raise ValueError("episode_id must be non-empty")
+        hard_calls = {
+            "quick": 4,
+            "standard": 8,
+            "deep": 24,
+            "max": PRODUCT_MAX_TOOL_CALLS,
+        }.get(str(policy.tier).strip().lower(), policy.max_steps)
+        with _LIVE_ROOT_BUDGETS_LOCK:
+            if episode in _LIVE_ROOT_BUDGETS:
+>               raise ValueError(f"root budget already exists for live episode: {episode}")
+E               ValueError: root budget already exists for live episode: explicit-cutoff
+
+intelligence/services/research_contract.py:781: ValueError
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/caller_overrides_requested/mutant.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_honesty_gates.py::test_explicit_information_upper_bound_becomes_requested_cutoff[\u53ea\u7528\u672c\u5730\u5df2\u6709\u6570\u636e\uff0c\u4e0d\u8054\u7f51\uff1a\u628a\u4fe1\u606f\u622a\u6b62\u4e25\u683c\u9650\u5b9a\u4e3a2026\u5e749\u670811\u65e5\uff0c\u5206\u6790\u5f53\u65f6A\u80a1\u5e02\u573a\u7684\u6210\u4ea4\u989d\u3001\u5e02\u573a\u9636\u6bb5\u548c\u4e3b\u8981\u9898\u6750\u3002\u8bf7\u7ed9\u51fa\u5b9e\u9645\u6570\u503c\u4e0e\u6765\u6e90\u65e5\u671f\uff0c\u4e0d\u4f7f\u75289\u670811\u65e5\u4e4b\u540e\u7684\u6570\u636e\uff0c\u7f3a\u5931\u7684\u90e8\u5206\u5355\u72ec\u8bf4\u660e\u3002]
+FAILED intelligence/tests/test_honesty_gates.py::test_explicit_information_upper_bound_becomes_requested_cutoff[\u4fe1\u606f\u622a\u6b62\u65e5\u671f\uff1a2026-09-11\uff0c\u5206\u6790A\u80a1\u5e02\u573a]
+FAILED intelligence/tests/test_honesty_gates.py::test_explicit_information_upper_bound_becomes_requested_cutoff[\u622a\u81f32026\u5e749\u670811\u65e5\uff0cA\u80a1\u5e02\u573a\u600e\u4e48\u770b]
+FAILED intelligence/tests/test_honesty_gates.py::test_explicit_information_upper_bound_becomes_requested_cutoff[\u4e0d\u8981\u4f7f\u75282026-09-11\u4e4b\u540e\u7684\u6570\u636e\uff0c\u7814\u52249\u670821\u65e5\u5e02\u573a]
+FAILED intelligence/tests/test_honesty_gates.py::test_explicit_information_upper_bound_becomes_requested_cutoff[\u622a\u6b62\u52302026-09-11\u5206\u6790\u5e02\u573a]
+5 failed in 2.07s

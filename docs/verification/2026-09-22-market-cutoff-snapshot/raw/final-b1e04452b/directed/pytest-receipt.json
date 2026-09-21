@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-market-date-advisory-0921",
+  "revision": "b1e04452bfd45ae2fa4e9177847cb299293ca859",
+  "branch": "fix/market-date-advisory-0921",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "intelligence/tests/test_local_market_snapshot.py intelligence/tests/test_honesty_gates.py intelligence/tests/test_market_date_advisory.py intelligence/tests/test_episode_tools.py intelligence/tests/test_news_cutoff_disclosure.py intelligence/tests/test_episode_progress.py intelligence/tests/test_tool_behavior_contract.py intelligence/tests/test_tool_produces_satisfiability.py intelligence/tests/test_episode_factory.py intelligence/tests/test_e2_runtime_ceiling.py intelligence/tests/test_reasoning_input_boundaries.py",
+  "counts": {
+    "passed": 326,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-21T16:50:15+00:00"
+}

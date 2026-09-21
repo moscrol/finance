@@ -1,0 +1,89 @@
+{
+  "leaf": "registry",
+  "revision": "b1e04452bfd45ae2fa4e9177847cb299293ca859",
+  "base": "79b11d4268a3",
+  "tree": "/Users/a77/fwp-wt-market-date-advisory-0921",
+  "pid": 33331,
+  "started_at": "2026-09-21T16:50:39.677742+00:00",
+  "before": {
+    "revision": "b1e04452bfd45ae2fa4e9177847cb299293ca859",
+    "tree_object": "e104eb0fcbf4f11dd74326ce411f568019c3a10b",
+    "status": ""
+  },
+  "checks": [
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-c",
+        "from pathlib import Path; import scripts.build_registry as r; r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())",
+        "check-parseability"
+      ],
+      "started_at": "2026-09-21T16:50:39.984521+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/registry/0.log.txt",
+      "sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe",
+      "elapsed_seconds": 3.01
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-c",
+        "from pathlib import Path; import scripts.build_registry as r; r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())",
+        "check"
+      ],
+      "started_at": "2026-09-21T16:50:43.000351+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/registry/1.log.txt",
+      "sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a",
+      "elapsed_seconds": 3.03
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-c",
+        "from pathlib import Path; import scripts.build_registry as r; r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())",
+        "backfill-tables",
+        "--check"
+      ],
+      "started_at": "2026-09-21T16:50:46.042484+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/registry/2.log.txt",
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+      "elapsed_seconds": 3.04
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-c",
+        "from pathlib import Path; import scripts.build_registry as r; r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())",
+        "generate-views",
+        "--check"
+      ],
+      "started_at": "2026-09-21T16:50:49.084043+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/registry/3.log.txt",
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+      "elapsed_seconds": 3.03
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "started_at": "2026-09-21T16:50:52.118044+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/registry/4.log.txt",
+      "sha256": "619f335d1de58bd9211dd971ed5ee19634e4c4ece525853215b6947378e31db6",
+      "elapsed_seconds": 3.02
+    }
+  ],
+  "complete": true,
+  "after": {
+    "revision": "b1e04452bfd45ae2fa4e9177847cb299293ca859",
+    "tree_object": "e104eb0fcbf4f11dd74326ce411f568019c3a10b",
+    "status": ""
+  },
+  "source_unchanged": true,
+  "finished_at": "2026-09-21T16:50:55.424414+00:00",
+  "exit_code": 0
+}

@@ -1,0 +1,1417 @@
+{
+  "implementation": "scripts.smoke_workbench_self_use.SecretScanner",
+  "scope": "all archive source texts, README and manifest; scan report and checksum list excluded",
+  "files_scanned": 245,
+  "hits": [
+    {
+      "source": "raw/development/independent-review.log.txt",
+      "marker": "jwt_shape"
+    },
+    {
+      "source": "raw/development/tool-smoke.log.txt",
+      "marker": "jwt_shape"
+    },
+    {
+      "source": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "marker": "jwt_shape"
+    },
+    {
+      "source": "raw/final-b1e04452b/mutations/drop_snapshot_capability/mutant.log.txt",
+      "marker": "jwt_shape"
+    },
+    {
+      "source": "raw/final-b1e04452b/mutations/drop_snapshot_capability/mutant.xml",
+      "marker": "jwt_shape"
+    },
+    {
+      "source": "raw/final-b1e04452b/mutations/snapshot_locator_reindexed/mutant.log.txt",
+      "marker": "jwt_shape"
+    },
+    {
+      "source": "raw/final-b1e04452b/mutations/snapshot_locator_reindexed/mutant.xml",
+      "marker": "jwt_shape"
+    },
+    {
+      "source": "raw/final-b1e04452b/mutations/snapshot_null_as_zero/mutant.log.txt",
+      "marker": "jwt_shape"
+    },
+    {
+      "source": "raw/final-b1e04452b/mutations/snapshot_null_as_zero/mutant.xml",
+      "marker": "jwt_shape"
+    },
+    {
+      "source": "raw/mutation_probe.py.txt",
+      "marker": "jwt_shape"
+    },
+    {
+      "source": "raw/mutations/drop_snapshot_capability/mutant.log.txt",
+      "marker": "jwt_shape"
+    },
+    {
+      "source": "raw/mutations/drop_snapshot_capability/mutant.xml",
+      "marker": "jwt_shape"
+    },
+    {
+      "source": "raw/mutations/snapshot_locator_reindexed/mutant.log.txt",
+      "marker": "jwt_shape"
+    },
+    {
+      "source": "raw/mutations/snapshot_locator_reindexed/mutant.xml",
+      "marker": "jwt_shape"
+    },
+    {
+      "source": "raw/mutations/snapshot_null_as_zero/mutant.log.txt",
+      "marker": "jwt_shape"
+    },
+    {
+      "source": "raw/mutations/snapshot_null_as_zero/mutant.xml",
+      "marker": "jwt_shape"
+    },
+    {
+      "source": "raw/quality-review.log.txt",
+      "marker": "jwt_shape"
+    }
+  ],
+  "matches": [
+    {
+      "path": "raw/development/independent-review.log.txt",
+      "line": 16,
+      "marker": "jwt_shape",
+      "match_sha256": "3b206ea9db2325b30388d830be2d5fc1fc14d47a158f03f9513c5f88b3c392f8",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/development/independent-review.log.txt",
+      "line": 18,
+      "marker": "jwt_shape",
+      "match_sha256": "3b206ea9db2325b30388d830be2d5fc1fc14d47a158f03f9513c5f88b3c392f8",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/development/tool-smoke.log.txt",
+      "line": 16,
+      "marker": "jwt_shape",
+      "match_sha256": "3b206ea9db2325b30388d830be2d5fc1fc14d47a158f03f9513c5f88b3c392f8",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/development/tool-smoke.log.txt",
+      "line": 18,
+      "marker": "jwt_shape",
+      "match_sha256": "3b206ea9db2325b30388d830be2d5fc1fc14d47a158f03f9513c5f88b3c392f8",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 23,
+      "marker": "jwt_shape",
+      "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 28,
+      "marker": "jwt_shape",
+      "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 34,
+      "marker": "jwt_shape",
+      "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 39,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 44,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 49,
+      "marker": "jwt_shape",
+      "match_sha256": "a6ec6bd092269a406a7bf97ffa0825da49e26737c184f19d1d1c0a7bfa60d04d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 54,
+      "marker": "jwt_shape",
+      "match_sha256": "a6ec6bd092269a406a7bf97ffa0825da49e26737c184f19d1d1c0a7bfa60d04d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 59,
+      "marker": "jwt_shape",
+      "match_sha256": "a147ee61f9e831e6d60477d5219d402700e5753ac04a8b136c19d70b94332b4f",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 64,
+      "marker": "jwt_shape",
+      "match_sha256": "a147ee61f9e831e6d60477d5219d402700e5753ac04a8b136c19d70b94332b4f",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 70,
+      "marker": "jwt_shape",
+      "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 75,
+      "marker": "jwt_shape",
+      "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 80,
+      "marker": "jwt_shape",
+      "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 85,
+      "marker": "jwt_shape",
+      "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 96,
+      "marker": "jwt_shape",
+      "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 97,
+      "marker": "jwt_shape",
+      "match_sha256": "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 98,
+      "marker": "jwt_shape",
+      "match_sha256": "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 102,
+      "marker": "jwt_shape",
+      "match_sha256": "df4dfbad61b33b82214d78773ee1d62e16e5d50ea65cdb8c5f28fc1b74f08941",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 107,
+      "marker": "jwt_shape",
+      "match_sha256": "df4dfbad61b33b82214d78773ee1d62e16e5d50ea65cdb8c5f28fc1b74f08941",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 112,
+      "marker": "jwt_shape",
+      "match_sha256": "75bcab3dc123a00dcda19ccc6fd4a5c01e155a6c1994f593f8f3a3df2b64fe11",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 117,
+      "marker": "jwt_shape",
+      "match_sha256": "75bcab3dc123a00dcda19ccc6fd4a5c01e155a6c1994f593f8f3a3df2b64fe11",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 122,
+      "marker": "jwt_shape",
+      "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 127,
+      "marker": "jwt_shape",
+      "match_sha256": "bf885e170329e8661dc80b519e31fe43476eb0d11dfe151d83b313181c829c28",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 132,
+      "marker": "jwt_shape",
+      "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutation_probe.py.txt",
+      "line": 144,
+      "marker": "jwt_shape",
+      "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutations/drop_snapshot_capability/mutant.log.txt",
+      "line": 15,
+      "marker": "jwt_shape",
+      "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutations/drop_snapshot_capability/mutant.log.txt",
+      "line": 18,
+      "marker": "jwt_shape",
+      "match_sha256": "4d609702f9f72f50e9e52c3a3666e57b32d07a974c262afd413a5cf7bb663528",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutations/drop_snapshot_capability/mutant.xml",
+      "line": 11,
+      "marker": "jwt_shape",
+      "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutations/drop_snapshot_capability/mutant.xml",
+      "line": 14,
+      "marker": "jwt_shape",
+      "match_sha256": "4d609702f9f72f50e9e52c3a3666e57b32d07a974c262afd413a5cf7bb663528",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutations/snapshot_locator_reindexed/mutant.log.txt",
+      "line": 8,
+      "marker": "jwt_shape",
+      "match_sha256": "a147ee61f9e831e6d60477d5219d402700e5753ac04a8b136c19d70b94332b4f",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutations/snapshot_locator_reindexed/mutant.xml",
+      "line": 4,
+      "marker": "jwt_shape",
+      "match_sha256": "a147ee61f9e831e6d60477d5219d402700e5753ac04a8b136c19d70b94332b4f",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutations/snapshot_null_as_zero/mutant.log.txt",
+      "line": 15,
+      "marker": "jwt_shape",
+      "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutations/snapshot_null_as_zero/mutant.log.txt",
+      "line": 18,
+      "marker": "jwt_shape",
+      "match_sha256": "4d609702f9f72f50e9e52c3a3666e57b32d07a974c262afd413a5cf7bb663528",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutations/snapshot_null_as_zero/mutant.xml",
+      "line": 11,
+      "marker": "jwt_shape",
+      "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/final-b1e04452b/mutations/snapshot_null_as_zero/mutant.xml",
+      "line": 14,
+      "marker": "jwt_shape",
+      "match_sha256": "4d609702f9f72f50e9e52c3a3666e57b32d07a974c262afd413a5cf7bb663528",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 23,
+      "marker": "jwt_shape",
+      "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 28,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 33,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 38,
+      "marker": "jwt_shape",
+      "match_sha256": "a6ec6bd092269a406a7bf97ffa0825da49e26737c184f19d1d1c0a7bfa60d04d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 43,
+      "marker": "jwt_shape",
+      "match_sha256": "a6ec6bd092269a406a7bf97ffa0825da49e26737c184f19d1d1c0a7bfa60d04d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 48,
+      "marker": "jwt_shape",
+      "match_sha256": "a147ee61f9e831e6d60477d5219d402700e5753ac04a8b136c19d70b94332b4f",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 53,
+      "marker": "jwt_shape",
+      "match_sha256": "a147ee61f9e831e6d60477d5219d402700e5753ac04a8b136c19d70b94332b4f",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 59,
+      "marker": "jwt_shape",
+      "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 64,
+      "marker": "jwt_shape",
+      "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 69,
+      "marker": "jwt_shape",
+      "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 74,
+      "marker": "jwt_shape",
+      "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 85,
+      "marker": "jwt_shape",
+      "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 86,
+      "marker": "jwt_shape",
+      "match_sha256": "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 87,
+      "marker": "jwt_shape",
+      "match_sha256": "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 91,
+      "marker": "jwt_shape",
+      "match_sha256": "df4dfbad61b33b82214d78773ee1d62e16e5d50ea65cdb8c5f28fc1b74f08941",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 96,
+      "marker": "jwt_shape",
+      "match_sha256": "df4dfbad61b33b82214d78773ee1d62e16e5d50ea65cdb8c5f28fc1b74f08941",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 101,
+      "marker": "jwt_shape",
+      "match_sha256": "75bcab3dc123a00dcda19ccc6fd4a5c01e155a6c1994f593f8f3a3df2b64fe11",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 106,
+      "marker": "jwt_shape",
+      "match_sha256": "75bcab3dc123a00dcda19ccc6fd4a5c01e155a6c1994f593f8f3a3df2b64fe11",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 111,
+      "marker": "jwt_shape",
+      "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 116,
+      "marker": "jwt_shape",
+      "match_sha256": "bf885e170329e8661dc80b519e31fe43476eb0d11dfe151d83b313181c829c28",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 121,
+      "marker": "jwt_shape",
+      "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutation_probe.py.txt",
+      "line": 133,
+      "marker": "jwt_shape",
+      "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutations/drop_snapshot_capability/mutant.log.txt",
+      "line": 15,
+      "marker": "jwt_shape",
+      "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutations/drop_snapshot_capability/mutant.log.txt",
+      "line": 18,
+      "marker": "jwt_shape",
+      "match_sha256": "4d609702f9f72f50e9e52c3a3666e57b32d07a974c262afd413a5cf7bb663528",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/mutations/drop_snapshot_capability/mutant.xml",
+      "line": 11,
+      "marker": "jwt_shape",
+      "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutations/drop_snapshot_capability/mutant.xml",
+      "line": 14,
+      "marker": "jwt_shape",
+      "match_sha256": "4d609702f9f72f50e9e52c3a3666e57b32d07a974c262afd413a5cf7bb663528",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/mutations/snapshot_locator_reindexed/mutant.log.txt",
+      "line": 8,
+      "marker": "jwt_shape",
+      "match_sha256": "a147ee61f9e831e6d60477d5219d402700e5753ac04a8b136c19d70b94332b4f",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutations/snapshot_locator_reindexed/mutant.xml",
+      "line": 4,
+      "marker": "jwt_shape",
+      "match_sha256": "a147ee61f9e831e6d60477d5219d402700e5753ac04a8b136c19d70b94332b4f",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutations/snapshot_null_as_zero/mutant.log.txt",
+      "line": 15,
+      "marker": "jwt_shape",
+      "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutations/snapshot_null_as_zero/mutant.log.txt",
+      "line": 18,
+      "marker": "jwt_shape",
+      "match_sha256": "4d609702f9f72f50e9e52c3a3666e57b32d07a974c262afd413a5cf7bb663528",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/mutations/snapshot_null_as_zero/mutant.xml",
+      "line": 11,
+      "marker": "jwt_shape",
+      "match_sha256": "d3ead6aa1123782c2ad50fa4dd1ad7ce454f03830222a8393b70e3c61c608feb",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/mutations/snapshot_null_as_zero/mutant.xml",
+      "line": 14,
+      "marker": "jwt_shape",
+      "match_sha256": "4d609702f9f72f50e9e52c3a3666e57b32d07a974c262afd413a5cf7bb663528",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 64,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 65,
+      "marker": "jwt_shape",
+      "match_sha256": "a6ec6bd092269a406a7bf97ffa0825da49e26737c184f19d1d1c0a7bfa60d04d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 68,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 70,
+      "marker": "jwt_shape",
+      "match_sha256": "a6ec6bd092269a406a7bf97ffa0825da49e26737c184f19d1d1c0a7bfa60d04d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 81,
+      "marker": "jwt_shape",
+      "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 82,
+      "marker": "jwt_shape",
+      "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 83,
+      "marker": "jwt_shape",
+      "match_sha256": "a6ec6bd092269a406a7bf97ffa0825da49e26737c184f19d1d1c0a7bfa60d04d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 88,
+      "marker": "jwt_shape",
+      "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 95,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 96,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 97,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 99,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 100,
+      "marker": "jwt_shape",
+      "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 104,
+      "marker": "jwt_shape",
+      "match_sha256": "a6ec6bd092269a406a7bf97ffa0825da49e26737c184f19d1d1c0a7bfa60d04d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 113,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 114,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 115,
+      "marker": "jwt_shape",
+      "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 130,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 132,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 133,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 134,
+      "marker": "jwt_shape",
+      "match_sha256": "a6ec6bd092269a406a7bf97ffa0825da49e26737c184f19d1d1c0a7bfa60d04d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 135,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 139,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 142,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 143,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 144,
+      "marker": "jwt_shape",
+      "match_sha256": "a6ec6bd092269a406a7bf97ffa0825da49e26737c184f19d1d1c0a7bfa60d04d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 148,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 149,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 151,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 152,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 153,
+      "marker": "jwt_shape",
+      "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 157,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 161,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 168,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 171,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 172,
+      "marker": "jwt_shape",
+      "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 173,
+      "marker": "jwt_shape",
+      "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 174,
+      "marker": "jwt_shape",
+      "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 177,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 181,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 183,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 184,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 185,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 186,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 194,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 195,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 196,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 197,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 203,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 215,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 227,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 236,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 241,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 261,
+      "marker": "jwt_shape",
+      "match_sha256": "557c8ff791328dd4df042da0185a1b32b1cc7dcf41dffc5cc534ee6f825ee075",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 442,
+      "marker": "jwt_shape",
+      "match_sha256": "3ce5dbd36cb55fdc61c5e6ed8e288533422a9c8000b81b9d0b83d136cc9e08ec",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 783,
+      "marker": "jwt_shape",
+      "match_sha256": "13fac666d39539f597a04e2826d89ef5090e4c229a1bab395294def3dd8df53a",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1088,
+      "marker": "jwt_shape",
+      "match_sha256": "1fafb1c76ac229b4750dff358634ca16cea2f9073fa1e6efc2f878b6df8b05e6",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1107,
+      "marker": "jwt_shape",
+      "match_sha256": "663ca268a3bf648d698e4b5cb34eb373ab5e22bff988242faeb50b5923fa10e0",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1108,
+      "marker": "jwt_shape",
+      "match_sha256": "d4742f837ab67a306b75ccc7b55601d6eb24726890ad13c1eac6ff4d30c8fe06",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1112,
+      "marker": "jwt_shape",
+      "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1122,
+      "marker": "jwt_shape",
+      "match_sha256": "3cf3dc91c92ed155e5dd557743bee98d7ff86a26eb95adc748e2f6ad47f5754c",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1123,
+      "marker": "jwt_shape",
+      "match_sha256": "6019cfaf6c4a47860fd8bd344747dbcb645cec38619ba660e29829db18f3ad72",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1435,
+      "marker": "jwt_shape",
+      "match_sha256": "e175b2df25cd8b17aa8ecd0c6a3c59fcb8a0cfa527794af372adec1f504b190f",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1480,
+      "marker": "jwt_shape",
+      "match_sha256": "088244e1013627d3b882f98f93a70e4dafd2100475adb395467b85a7a36746b0",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1499,
+      "marker": "jwt_shape",
+      "match_sha256": "088244e1013627d3b882f98f93a70e4dafd2100475adb395467b85a7a36746b0",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1565,
+      "marker": "jwt_shape",
+      "match_sha256": "088244e1013627d3b882f98f93a70e4dafd2100475adb395467b85a7a36746b0",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1570,
+      "marker": "jwt_shape",
+      "match_sha256": "c1816adcaac0501d34e348e9d2c1c042ccc9282d881d37dd10d6d7d19059f8d2",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1641,
+      "marker": "jwt_shape",
+      "match_sha256": "9ec06e9dae772107ecc2b7d25ce2dad007506e44ffbf7aa01436b255bdcaf260",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1653,
+      "marker": "jwt_shape",
+      "match_sha256": "27ed2fb22bcf58bd6d09f7e55aceda6d2e11aa02398905472ba9c1248eaa3902",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1682,
+      "marker": "jwt_shape",
+      "match_sha256": "f1b790128d744e29f21fd6c30863419270e9dbe5206e94c7d0b522db8003fa15",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1698,
+      "marker": "jwt_shape",
+      "match_sha256": "9ec06e9dae772107ecc2b7d25ce2dad007506e44ffbf7aa01436b255bdcaf260",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1738,
+      "marker": "jwt_shape",
+      "match_sha256": "d4742f837ab67a306b75ccc7b55601d6eb24726890ad13c1eac6ff4d30c8fe06",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1739,
+      "marker": "jwt_shape",
+      "match_sha256": "3cf3dc91c92ed155e5dd557743bee98d7ff86a26eb95adc748e2f6ad47f5754c",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1740,
+      "marker": "jwt_shape",
+      "match_sha256": "ae8b02dd2e4fcc47045029ba46b0e1966633f24cef1e771d9883864a9b76bf95",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 1741,
+      "marker": "jwt_shape",
+      "match_sha256": "e5e9c0c2c0b2dbffee61bdb5ecea6df9819540ec74d8d46abba3036018bc3667",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 2027,
+      "marker": "jwt_shape",
+      "match_sha256": "75bcab3dc123a00dcda19ccc6fd4a5c01e155a6c1994f593f8f3a3df2b64fe11",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 2028,
+      "marker": "jwt_shape",
+      "match_sha256": "a6ec6bd092269a406a7bf97ffa0825da49e26737c184f19d1d1c0a7bfa60d04d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 2029,
+      "marker": "jwt_shape",
+      "match_sha256": "663ca268a3bf648d698e4b5cb34eb373ab5e22bff988242faeb50b5923fa10e0",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 2334,
+      "marker": "jwt_shape",
+      "match_sha256": "429418456523fe1854f92c5cc58ee1db6cf1763f1dcfe52959fca267836eba24",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 2549,
+      "marker": "jwt_shape",
+      "match_sha256": "f8ef187e6915dc96e7563dbca7b8385efff040b19c9f20a796f16e5496c4c62f",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 2599,
+      "marker": "jwt_shape",
+      "match_sha256": "f8ef187e6915dc96e7563dbca7b8385efff040b19c9f20a796f16e5496c4c62f",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 2610,
+      "marker": "jwt_shape",
+      "match_sha256": "f8ef187e6915dc96e7563dbca7b8385efff040b19c9f20a796f16e5496c4c62f",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 2613,
+      "marker": "jwt_shape",
+      "match_sha256": "f8ef187e6915dc96e7563dbca7b8385efff040b19c9f20a796f16e5496c4c62f",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 2692,
+      "marker": "jwt_shape",
+      "match_sha256": "f8ef187e6915dc96e7563dbca7b8385efff040b19c9f20a796f16e5496c4c62f",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 2745,
+      "marker": "jwt_shape",
+      "match_sha256": "f8ef187e6915dc96e7563dbca7b8385efff040b19c9f20a796f16e5496c4c62f",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 2880,
+      "marker": "jwt_shape",
+      "match_sha256": "44373d7c0a4cfe8600b1eb70ed1ef749dfbc96f28504bdddff19f5f24157fffb",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 3118,
+      "marker": "jwt_shape",
+      "match_sha256": "f26e252b3e46671ee336db197574f9bd5614dbc45db9df86a5613a1e3ac03813",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 3238,
+      "marker": "jwt_shape",
+      "match_sha256": "e175b2df25cd8b17aa8ecd0c6a3c59fcb8a0cfa527794af372adec1f504b190f",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 3290,
+      "marker": "jwt_shape",
+      "match_sha256": "088244e1013627d3b882f98f93a70e4dafd2100475adb395467b85a7a36746b0",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 3295,
+      "marker": "jwt_shape",
+      "match_sha256": "c1816adcaac0501d34e348e9d2c1c042ccc9282d881d37dd10d6d7d19059f8d2",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 3362,
+      "marker": "jwt_shape",
+      "match_sha256": "9ec06e9dae772107ecc2b7d25ce2dad007506e44ffbf7aa01436b255bdcaf260",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 3374,
+      "marker": "jwt_shape",
+      "match_sha256": "27ed2fb22bcf58bd6d09f7e55aceda6d2e11aa02398905472ba9c1248eaa3902",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 3514,
+      "marker": "jwt_shape",
+      "match_sha256": "1fafb1c76ac229b4750dff358634ca16cea2f9073fa1e6efc2f878b6df8b05e6",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 3533,
+      "marker": "jwt_shape",
+      "match_sha256": "663ca268a3bf648d698e4b5cb34eb373ab5e22bff988242faeb50b5923fa10e0",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 3534,
+      "marker": "jwt_shape",
+      "match_sha256": "d4742f837ab67a306b75ccc7b55601d6eb24726890ad13c1eac6ff4d30c8fe06",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 3538,
+      "marker": "jwt_shape",
+      "match_sha256": "30693ec701e4ac7bd72342e191b5365bef97473a9c0205407efaa9b9e188ef8d",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 3548,
+      "marker": "jwt_shape",
+      "match_sha256": "3cf3dc91c92ed155e5dd557743bee98d7ff86a26eb95adc748e2f6ad47f5754c",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 3549,
+      "marker": "jwt_shape",
+      "match_sha256": "6019cfaf6c4a47860fd8bd344747dbcb645cec38619ba660e29829db18f3ad72",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 3829,
+      "marker": "jwt_shape",
+      "match_sha256": "9ec06e9dae772107ecc2b7d25ce2dad007506e44ffbf7aa01436b255bdcaf260",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 3841,
+      "marker": "jwt_shape",
+      "match_sha256": "27ed2fb22bcf58bd6d09f7e55aceda6d2e11aa02398905472ba9c1248eaa3902",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 3870,
+      "marker": "jwt_shape",
+      "match_sha256": "f1b790128d744e29f21fd6c30863419270e9dbe5206e94c7d0b522db8003fa15",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 3928,
+      "marker": "jwt_shape",
+      "match_sha256": "44373d7c0a4cfe8600b1eb70ed1ef749dfbc96f28504bdddff19f5f24157fffb",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4087,
+      "marker": "jwt_shape",
+      "match_sha256": "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4107,
+      "marker": "jwt_shape",
+      "match_sha256": "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4110,
+      "marker": "jwt_shape",
+      "match_sha256": "4d609702f9f72f50e9e52c3a3666e57b32d07a974c262afd413a5cf7bb663528",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4112,
+      "marker": "jwt_shape",
+      "match_sha256": "4d609702f9f72f50e9e52c3a3666e57b32d07a974c262afd413a5cf7bb663528",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4122,
+      "marker": "jwt_shape",
+      "match_sha256": "e175b2df25cd8b17aa8ecd0c6a3c59fcb8a0cfa527794af372adec1f504b190f",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4124,
+      "marker": "jwt_shape",
+      "match_sha256": "e175b2df25cd8b17aa8ecd0c6a3c59fcb8a0cfa527794af372adec1f504b190f",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4127,
+      "marker": "jwt_shape",
+      "match_sha256": "27ed2fb22bcf58bd6d09f7e55aceda6d2e11aa02398905472ba9c1248eaa3902",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4134,
+      "marker": "jwt_shape",
+      "match_sha256": "5c09a8cac8022cadca40aedeaf67c97d0febb93de9648f3f66892e3b611b8de9",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4136,
+      "marker": "jwt_shape",
+      "match_sha256": "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4140,
+      "marker": "jwt_shape",
+      "match_sha256": "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4141,
+      "marker": "jwt_shape",
+      "match_sha256": "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4158,
+      "marker": "jwt_shape",
+      "match_sha256": "f8ef187e6915dc96e7563dbca7b8385efff040b19c9f20a796f16e5496c4c62f",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4161,
+      "marker": "jwt_shape",
+      "match_sha256": "f8ef187e6915dc96e7563dbca7b8385efff040b19c9f20a796f16e5496c4c62f",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4163,
+      "marker": "jwt_shape",
+      "match_sha256": "f8ef187e6915dc96e7563dbca7b8385efff040b19c9f20a796f16e5496c4c62f",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4164,
+      "marker": "jwt_shape",
+      "match_sha256": "f8ef187e6915dc96e7563dbca7b8385efff040b19c9f20a796f16e5496c4c62f",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4167,
+      "marker": "jwt_shape",
+      "match_sha256": "f8ef187e6915dc96e7563dbca7b8385efff040b19c9f20a796f16e5496c4c62f",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4168,
+      "marker": "jwt_shape",
+      "match_sha256": "f8ef187e6915dc96e7563dbca7b8385efff040b19c9f20a796f16e5496c4c62f",
+      "classification": "unclassified"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4177,
+      "marker": "jwt_shape",
+      "match_sha256": "f041d5bece9eb10246ebc7e3829c7c58b4f6203e582eaca99d4704fb65d94245",
+      "classification": "python_dotted_name"
+    },
+    {
+      "path": "raw/quality-review.log.txt",
+      "line": 4204,
+      "marker": "jwt_shape",
+      "match_sha256": "5cc34f7624fe4858194b86e37c1e8b15d6d2c745b9a5dcb98ee9de5176474ad1",
+      "classification": "unclassified"
+    }
+  ],
+  "unique_match_hashes": 32,
+  "unclassified_match_count": 60,
+  "conclusion": "Pattern matches are not automatically secrets; context-reviewed classifications, not zero-hit certification."
+}

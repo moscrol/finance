@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="3" time="0.797" timestamp="2026-09-22T00:50:49.160248+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_honesty_gates" name="test_all_explicit_upper_bounds_share_historical_year_and_take_earliest[\u7ad9\u57282026-09-11\u6536\u76d8\uff0c\u622a\u81f32026-09-21\u5206\u6790\u5e02\u573a-2026-09-21-2026-09-11]" time="0.006"><failure message="AssertionError: assert InformationCu...e='requested') == InformationCu...e='requested')&#10;  &#10;  Omitting 1 identical items, use -vv to show&#10;  Differing attributes:&#10;  ['as_of_date']&#10;  &#10;  Drill down into differing attribute as_of_date:&#10;    as_of_date: datetime.date(2026, 9, 21) != datetime.date(2026, 9, 11)">question = '站在2026-09-11收盘，截至2026-09-21分析市场', today = '2026-09-21'
+expected = '2026-09-11'
+
+    @pytest.mark.parametrize(("question", "today", "expected"), (
+        ("站在2026-09-11收盘，截至2026-09-21分析市场", "2026-09-21", "2026-09-11"),
+        ("把信息截止限定为2026年9月11日，不使用9月11日之后的数据", "2027-01-02", "2026-09-11"),
+        ("信息截止为2026年9月11日，不使用9月11日之后的数据", "2025-12-30", "2025-12-30"),
+    ))
+    def test_all_explicit_upper_bounds_share_historical_year_and_take_earliest(question, today, expected):
+&gt;       assert requested_information_cutoff(question, today=today) == InformationCutoff(date.fromisoformat(expected), "requested")
+E       AssertionError: assert InformationCu...e='requested') == InformationCu...e='requested')
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Differing attributes:
+E         ['as_of_date']
+E         
+E         Drill down into differing attribute as_of_date:
+E           as_of_date: datetime.date(2026, 9, 21) != datetime.date(2026, 9, 11)
+
+intelligence/tests/test_honesty_gates.py:199: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_honesty_gates" name="test_all_explicit_upper_bounds_share_historical_year_and_take_earliest[\u628a\u4fe1\u606f\u622a\u6b62\u9650\u5b9a\u4e3a2026\u5e749\u670811\u65e5\uff0c\u4e0d\u4f7f\u75289\u670811\u65e5\u4e4b\u540e\u7684\u6570\u636e-2027-01-02-2026-09-11]" time="0.002" /><testcase classname="intelligence.tests.test_honesty_gates" name="test_all_explicit_upper_bounds_share_historical_year_and_take_earliest[\u4fe1\u606f\u622a\u6b62\u4e3a2026\u5e749\u670811\u65e5\uff0c\u4e0d\u4f7f\u75289\u670811\u65e5\u4e4b\u540e\u7684\u6570\u636e-2025-12-30-2025-12-30]" time="0.001" /></testsuite></testsuites>

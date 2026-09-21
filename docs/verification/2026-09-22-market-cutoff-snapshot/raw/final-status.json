@@ -1,0 +1,30 @@
+{
+  "verdict": "AUTHOR_TARGETED_CHECKS_PASSED_ACCEPTANCE_BLOCKED",
+  "revision": "b1e04452bfd45ae2fa4e9177847cb299293ca859",
+  "tree_object": "e104eb0fcbf4f11dd74326ce411f568019c3a10b",
+  "working_tree_at_checks_end": "clean",
+  "targeted_python_passed": 326,
+  "ruff_exit_code": 0,
+  "mutations_caught": 24,
+  "mutations_total": 24,
+  "frontend_unit_passed": 110,
+  "frontend_e2e_passed": 34,
+  "frontend_e2e_skipped": 2,
+  "registry_checks_exit_zero": 5,
+  "full_python": "NOT_STARTED_RESOURCE_BLOCKED",
+  "full_python_admission_gib": 8,
+  "running_floor_gib": 3,
+  "observed_free_disk_gib_rounded_after_checks": 3.2,
+  "spec_review_final_revision": "NOT_RUN; older b41 attempt ended without verdict",
+  "quality_review_final_revision": "NOT_RUN; older b41 attempt ended without verdict",
+  "k3_real_conversations": "NOT_STARTED; engineering admission incomplete",
+  "closure": {
+    "owned_checks_and_reviews_running": false,
+    "test_ports_without_listeners": [19651, 19654, 19276],
+    "production_health_checked_this_round": false,
+    "new_live_driver_configured": false,
+    "new_live_driver_note": "A copy of the prior run_live.py exists in market-cutoff-snapshot-k3-20260922 with old identity; it was not run and must not be run unedited."
+  },
+  "actions_not_taken": ["data collection", "data backfill", "production database write", "financial branch push", "PR", "main merge", "deployment"],
+  "prior_live_verdict": "AUTHOR_REAL_ENTRYPOINT_OBSERVED_NOT_ACCEPTED"
+}

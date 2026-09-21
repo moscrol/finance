@@ -1,0 +1,45 @@
+{
+  "leaf": "frontend",
+  "revision": "b1e04452bfd45ae2fa4e9177847cb299293ca859",
+  "base": "79b11d4268a3",
+  "tree": "/Users/a77/fwp-wt-market-date-advisory-0921",
+  "pid": 33330,
+  "started_at": "2026-09-21T16:50:39.663387+00:00",
+  "before": {
+    "revision": "b1e04452bfd45ae2fa4e9177847cb299293ca859",
+    "tree_object": "e104eb0fcbf4f11dd74326ce411f568019c3a10b",
+    "status": ""
+  },
+  "checks": [
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/run_frontend_gate.py",
+        "--tree",
+        "/Users/a77/fwp-wt-market-date-advisory-0921",
+        "--expect-revision",
+        "b1e04452bfd45ae2fa4e9177847cb299293ca859",
+        "--output",
+        "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/frontend/gate",
+        "--workbench-port",
+        "19651",
+        "--re06-port",
+        "19654"
+      ],
+      "started_at": "2026-09-21T16:50:39.984429+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/frontend/0.log.txt",
+      "sha256": "c343652a77c5a367d540e980d46af21549004557977a28785e3dccca81c28dd4",
+      "elapsed_seconds": 307.17
+    }
+  ],
+  "complete": true,
+  "after": {
+    "revision": "b1e04452bfd45ae2fa4e9177847cb299293ca859",
+    "tree_object": "e104eb0fcbf4f11dd74326ce411f568019c3a10b",
+    "status": ""
+  },
+  "source_unchanged": true,
+  "finished_at": "2026-09-21T16:55:47.539423+00:00",
+  "exit_code": 0
+}

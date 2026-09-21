@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.878" timestamp="2026-09-22T00:36:24.452024+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_local_only_reads_snapshot_without_mixed_tools_or_network" time="0.485"><failure message="AssertionError: assert 'local_market_snapshot' in ('mainline_context', 'finance_query')">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/mutations/drop_snapshot_capability/mutant-tmp/test_local_only_reads_snapshot0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x108f3e480&gt;
+
+    def test_local_only_reads_snapshot_without_mixed_tools_or_network(tmp_path, monkeypatch):
+        import socket
+    
+        def forbidden(*_a, **_kw):
+            pytest.fail("snapshot must not connect or use mixed market runner")
+    
+        monkeypatch.setattr(socket.socket, "connect", forbidden)
+        monkeypatch.setattr("intelligence.services.episode_tools._market_block", forbidden)
+        _snapshot(tmp_path / "market_snapshot")
+        context, registry = _registry(tmp_path)
+        assert context.contract.material_contract.data_scope == "local_only"
+        names = registry.names()
+&gt;       assert "local_market_snapshot" in names
+E       AssertionError: assert 'local_market_snapshot' in ('mainline_context', 'finance_query')
+
+intelligence/tests/test_local_market_snapshot.py:56: AssertionError</failure></testcase></testsuite></testsuites>

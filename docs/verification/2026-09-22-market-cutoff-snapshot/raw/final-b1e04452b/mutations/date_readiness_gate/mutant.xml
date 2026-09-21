@@ -1,0 +1,493 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="12" skipped="0" tests="12" time="35.159" timestamp="2026-09-22T00:53:19.846875+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_workbench_api" name="test_readiness_reports_market_dates_without_blocking_available_data[2025-06-30-on]" time="4.635"><failure message="assert 503 == 200&#10; +  where 503 = &lt;Response [503 Service Unavailable]&gt;.status_code">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/date_readiness_gate/mutant-tmp/test_readiness_reports_market_0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10b1756a0&gt;
+mode = 'on', db_date = '2025-06-30'
+
+    @pytest.mark.parametrize("mode", ["on", "canary", "off"])
+    @pytest.mark.parametrize("db_date", ["2025-06-30", "2026-07-16", "2026-07-17", None])
+    def test_readiness_reports_market_dates_without_blocking_available_data(
+        tmp_path: Path,
+        monkeypatch,
+        mode: str,
+        db_date: str | None,
+    ) -&gt; None:
+        users_root = tmp_path / "users"
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+        knowledge_wiki = tmp_path / "wiki"
+        (knowledge_wiki / "relations").mkdir(parents=True)
+        _write_rag_fixture(tmp_path, knowledge_wiki)
+        market_snapshot = tmp_path / "market_snapshot"
+        market_snapshot.mkdir()
+        _write_market_snapshot_fixture(market_snapshot)
+        if db_date:
+            _write_overview_market_db(
+                repo_root / "db" / "market_feature_store.duckdb",
+                trade_date=db_date,
+            )
+        monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+        monkeypatch.setenv("FINANCE_WS", str(repo_root))
+        monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+        monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
+        monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", mode)
+    
+        with TestClient(app_module.create_app(repo_root=repo_root)) as probe:
+            response = probe.get("/api/health/ready")
+    
+&gt;       assert response.status_code == 200
+E       assert 503 == 200
+E        +  where 503 = &lt;Response [503 Service Unavailable]&gt;.status_code
+
+intelligence/tests/test_workbench_api.py:1937: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_workbench_api" name="test_readiness_reports_market_dates_without_blocking_available_data[2025-06-30-canary]" time="2.815"><failure message="assert 503 == 200&#10; +  where 503 = &lt;Response [503 Service Unavailable]&gt;.status_code">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/date_readiness_gate/mutant-tmp/test_readiness_reports_market_1')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1107f8fb0&gt;
+mode = 'canary', db_date = '2025-06-30'
+
+    @pytest.mark.parametrize("mode", ["on", "canary", "off"])
+    @pytest.mark.parametrize("db_date", ["2025-06-30", "2026-07-16", "2026-07-17", None])
+    def test_readiness_reports_market_dates_without_blocking_available_data(
+        tmp_path: Path,
+        monkeypatch,
+        mode: str,
+        db_date: str | None,
+    ) -&gt; None:
+        users_root = tmp_path / "users"
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+        knowledge_wiki = tmp_path / "wiki"
+        (knowledge_wiki / "relations").mkdir(parents=True)
+        _write_rag_fixture(tmp_path, knowledge_wiki)
+        market_snapshot = tmp_path / "market_snapshot"
+        market_snapshot.mkdir()
+        _write_market_snapshot_fixture(market_snapshot)
+        if db_date:
+            _write_overview_market_db(
+                repo_root / "db" / "market_feature_store.duckdb",
+                trade_date=db_date,
+            )
+        monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+        monkeypatch.setenv("FINANCE_WS", str(repo_root))
+        monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+        monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
+        monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", mode)
+    
+        with TestClient(app_module.create_app(repo_root=repo_root)) as probe:
+            response = probe.get("/api/health/ready")
+    
+&gt;       assert response.status_code == 200
+E       assert 503 == 200
+E        +  where 503 = &lt;Response [503 Service Unavailable]&gt;.status_code
+
+intelligence/tests/test_workbench_api.py:1937: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_workbench_api" name="test_readiness_reports_market_dates_without_blocking_available_data[2025-06-30-off]" time="2.381"><failure message="assert 503 == 200&#10; +  where 503 = &lt;Response [503 Service Unavailable]&gt;.status_code">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/date_readiness_gate/mutant-tmp/test_readiness_reports_market_2')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1107fa7e0&gt;
+mode = 'off', db_date = '2025-06-30'
+
+    @pytest.mark.parametrize("mode", ["on", "canary", "off"])
+    @pytest.mark.parametrize("db_date", ["2025-06-30", "2026-07-16", "2026-07-17", None])
+    def test_readiness_reports_market_dates_without_blocking_available_data(
+        tmp_path: Path,
+        monkeypatch,
+        mode: str,
+        db_date: str | None,
+    ) -&gt; None:
+        users_root = tmp_path / "users"
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+        knowledge_wiki = tmp_path / "wiki"
+        (knowledge_wiki / "relations").mkdir(parents=True)
+        _write_rag_fixture(tmp_path, knowledge_wiki)
+        market_snapshot = tmp_path / "market_snapshot"
+        market_snapshot.mkdir()
+        _write_market_snapshot_fixture(market_snapshot)
+        if db_date:
+            _write_overview_market_db(
+                repo_root / "db" / "market_feature_store.duckdb",
+                trade_date=db_date,
+            )
+        monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+        monkeypatch.setenv("FINANCE_WS", str(repo_root))
+        monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+        monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
+        monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", mode)
+    
+        with TestClient(app_module.create_app(repo_root=repo_root)) as probe:
+            response = probe.get("/api/health/ready")
+    
+&gt;       assert response.status_code == 200
+E       assert 503 == 200
+E        +  where 503 = &lt;Response [503 Service Unavailable]&gt;.status_code
+
+intelligence/tests/test_workbench_api.py:1937: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_workbench_api" name="test_readiness_reports_market_dates_without_blocking_available_data[2026-07-16-on]" time="2.086"><failure message="AssertionError: assert 'market_data_consistency' not in {'knowledge_wiki': True, 'market_data_consistency': True, 'market_snapshot': True, 'rag_query_protocol': True, ...}">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/date_readiness_gate/mutant-tmp/test_readiness_reports_market_3')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10b019670&gt;
+mode = 'on', db_date = '2026-07-16'
+
+    @pytest.mark.parametrize("mode", ["on", "canary", "off"])
+    @pytest.mark.parametrize("db_date", ["2025-06-30", "2026-07-16", "2026-07-17", None])
+    def test_readiness_reports_market_dates_without_blocking_available_data(
+        tmp_path: Path,
+        monkeypatch,
+        mode: str,
+        db_date: str | None,
+    ) -&gt; None:
+        users_root = tmp_path / "users"
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+        knowledge_wiki = tmp_path / "wiki"
+        (knowledge_wiki / "relations").mkdir(parents=True)
+        _write_rag_fixture(tmp_path, knowledge_wiki)
+        market_snapshot = tmp_path / "market_snapshot"
+        market_snapshot.mkdir()
+        _write_market_snapshot_fixture(market_snapshot)
+        if db_date:
+            _write_overview_market_db(
+                repo_root / "db" / "market_feature_store.duckdb",
+                trade_date=db_date,
+            )
+        monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+        monkeypatch.setenv("FINANCE_WS", str(repo_root))
+        monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+        monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
+        monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", mode)
+    
+        with TestClient(app_module.create_app(repo_root=repo_root)) as probe:
+            response = probe.get("/api/health/ready")
+    
+        assert response.status_code == 200
+        payload = response.json()
+        consistent = bool(db_date and db_date &gt;= "2026-07-16")
+        assert payload["status"] == "ready"
+        assert payload["checks"]["market_data_consistency"] is consistent
+&gt;       assert "market_data_consistency" not in payload["critical"]
+E       AssertionError: assert 'market_data_consistency' not in {'knowledge_wiki': True, 'market_data_consistency': True, 'market_snapshot': True, 'rag_query_protocol': True, ...}
+
+intelligence/tests/test_workbench_api.py:1942: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_workbench_api" name="test_readiness_reports_market_dates_without_blocking_available_data[2026-07-16-canary]" time="2.167"><failure message="AssertionError: assert 'market_data_consistency' not in {'knowledge_wiki': True, 'market_data_consistency': True, 'market_snapshot': True, 'rag_query_protocol': True, ...}">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/date_readiness_gate/mutant-tmp/test_readiness_reports_market_4')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10aff7cb0&gt;
+mode = 'canary', db_date = '2026-07-16'
+
+    @pytest.mark.parametrize("mode", ["on", "canary", "off"])
+    @pytest.mark.parametrize("db_date", ["2025-06-30", "2026-07-16", "2026-07-17", None])
+    def test_readiness_reports_market_dates_without_blocking_available_data(
+        tmp_path: Path,
+        monkeypatch,
+        mode: str,
+        db_date: str | None,
+    ) -&gt; None:
+        users_root = tmp_path / "users"
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+        knowledge_wiki = tmp_path / "wiki"
+        (knowledge_wiki / "relations").mkdir(parents=True)
+        _write_rag_fixture(tmp_path, knowledge_wiki)
+        market_snapshot = tmp_path / "market_snapshot"
+        market_snapshot.mkdir()
+        _write_market_snapshot_fixture(market_snapshot)
+        if db_date:
+            _write_overview_market_db(
+                repo_root / "db" / "market_feature_store.duckdb",
+                trade_date=db_date,
+            )
+        monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+        monkeypatch.setenv("FINANCE_WS", str(repo_root))
+        monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+        monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
+        monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", mode)
+    
+        with TestClient(app_module.create_app(repo_root=repo_root)) as probe:
+            response = probe.get("/api/health/ready")
+    
+        assert response.status_code == 200
+        payload = response.json()
+        consistent = bool(db_date and db_date &gt;= "2026-07-16")
+        assert payload["status"] == "ready"
+        assert payload["checks"]["market_data_consistency"] is consistent
+&gt;       assert "market_data_consistency" not in payload["critical"]
+E       AssertionError: assert 'market_data_consistency' not in {'knowledge_wiki': True, 'market_data_consistency': True, 'market_snapshot': True, 'rag_query_protocol': True, ...}
+
+intelligence/tests/test_workbench_api.py:1942: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_workbench_api" name="test_readiness_reports_market_dates_without_blocking_available_data[2026-07-16-off]" time="1.592"><failure message="AssertionError: assert 'market_data_consistency' not in {'knowledge_wiki': True, 'market_data_consistency': True, 'market_snapshot': True, 'rag_query_protocol': True, ...}">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/date_readiness_gate/mutant-tmp/test_readiness_reports_market_5')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1109b8350&gt;
+mode = 'off', db_date = '2026-07-16'
+
+    @pytest.mark.parametrize("mode", ["on", "canary", "off"])
+    @pytest.mark.parametrize("db_date", ["2025-06-30", "2026-07-16", "2026-07-17", None])
+    def test_readiness_reports_market_dates_without_blocking_available_data(
+        tmp_path: Path,
+        monkeypatch,
+        mode: str,
+        db_date: str | None,
+    ) -&gt; None:
+        users_root = tmp_path / "users"
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+        knowledge_wiki = tmp_path / "wiki"
+        (knowledge_wiki / "relations").mkdir(parents=True)
+        _write_rag_fixture(tmp_path, knowledge_wiki)
+        market_snapshot = tmp_path / "market_snapshot"
+        market_snapshot.mkdir()
+        _write_market_snapshot_fixture(market_snapshot)
+        if db_date:
+            _write_overview_market_db(
+                repo_root / "db" / "market_feature_store.duckdb",
+                trade_date=db_date,
+            )
+        monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+        monkeypatch.setenv("FINANCE_WS", str(repo_root))
+        monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+        monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
+        monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", mode)
+    
+        with TestClient(app_module.create_app(repo_root=repo_root)) as probe:
+            response = probe.get("/api/health/ready")
+    
+        assert response.status_code == 200
+        payload = response.json()
+        consistent = bool(db_date and db_date &gt;= "2026-07-16")
+        assert payload["status"] == "ready"
+        assert payload["checks"]["market_data_consistency"] is consistent
+&gt;       assert "market_data_consistency" not in payload["critical"]
+E       AssertionError: assert 'market_data_consistency' not in {'knowledge_wiki': True, 'market_data_consistency': True, 'market_snapshot': True, 'rag_query_protocol': True, ...}
+
+intelligence/tests/test_workbench_api.py:1942: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_workbench_api" name="test_readiness_reports_market_dates_without_blocking_available_data[2026-07-17-on]" time="1.486"><failure message="AssertionError: assert 'market_data_consistency' not in {'knowledge_wiki': True, 'market_data_consistency': True, 'market_snapshot': True, 'rag_query_protocol': True, ...}">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/date_readiness_gate/mutant-tmp/test_readiness_reports_market_6')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x110d9a720&gt;
+mode = 'on', db_date = '2026-07-17'
+
+    @pytest.mark.parametrize("mode", ["on", "canary", "off"])
+    @pytest.mark.parametrize("db_date", ["2025-06-30", "2026-07-16", "2026-07-17", None])
+    def test_readiness_reports_market_dates_without_blocking_available_data(
+        tmp_path: Path,
+        monkeypatch,
+        mode: str,
+        db_date: str | None,
+    ) -&gt; None:
+        users_root = tmp_path / "users"
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+        knowledge_wiki = tmp_path / "wiki"
+        (knowledge_wiki / "relations").mkdir(parents=True)
+        _write_rag_fixture(tmp_path, knowledge_wiki)
+        market_snapshot = tmp_path / "market_snapshot"
+        market_snapshot.mkdir()
+        _write_market_snapshot_fixture(market_snapshot)
+        if db_date:
+            _write_overview_market_db(
+                repo_root / "db" / "market_feature_store.duckdb",
+                trade_date=db_date,
+            )
+        monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+        monkeypatch.setenv("FINANCE_WS", str(repo_root))
+        monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+        monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
+        monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", mode)
+    
+        with TestClient(app_module.create_app(repo_root=repo_root)) as probe:
+            response = probe.get("/api/health/ready")
+    
+        assert response.status_code == 200
+        payload = response.json()
+        consistent = bool(db_date and db_date &gt;= "2026-07-16")
+        assert payload["status"] == "ready"
+        assert payload["checks"]["market_data_consistency"] is consistent
+&gt;       assert "market_data_consistency" not in payload["critical"]
+E       AssertionError: assert 'market_data_consistency' not in {'knowledge_wiki': True, 'market_data_consistency': True, 'market_snapshot': True, 'rag_query_protocol': True, ...}
+
+intelligence/tests/test_workbench_api.py:1942: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_workbench_api" name="test_readiness_reports_market_dates_without_blocking_available_data[2026-07-17-canary]" time="2.646"><failure message="AssertionError: assert 'market_data_consistency' not in {'knowledge_wiki': True, 'market_data_consistency': True, 'market_snapshot': True, 'rag_query_protocol': True, ...}">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/date_readiness_gate/mutant-tmp/test_readiness_reports_market_7')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x110d44a10&gt;
+mode = 'canary', db_date = '2026-07-17'
+
+    @pytest.mark.parametrize("mode", ["on", "canary", "off"])
+    @pytest.mark.parametrize("db_date", ["2025-06-30", "2026-07-16", "2026-07-17", None])
+    def test_readiness_reports_market_dates_without_blocking_available_data(
+        tmp_path: Path,
+        monkeypatch,
+        mode: str,
+        db_date: str | None,
+    ) -&gt; None:
+        users_root = tmp_path / "users"
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+        knowledge_wiki = tmp_path / "wiki"
+        (knowledge_wiki / "relations").mkdir(parents=True)
+        _write_rag_fixture(tmp_path, knowledge_wiki)
+        market_snapshot = tmp_path / "market_snapshot"
+        market_snapshot.mkdir()
+        _write_market_snapshot_fixture(market_snapshot)
+        if db_date:
+            _write_overview_market_db(
+                repo_root / "db" / "market_feature_store.duckdb",
+                trade_date=db_date,
+            )
+        monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+        monkeypatch.setenv("FINANCE_WS", str(repo_root))
+        monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+        monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
+        monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", mode)
+    
+        with TestClient(app_module.create_app(repo_root=repo_root)) as probe:
+            response = probe.get("/api/health/ready")
+    
+        assert response.status_code == 200
+        payload = response.json()
+        consistent = bool(db_date and db_date &gt;= "2026-07-16")
+        assert payload["status"] == "ready"
+        assert payload["checks"]["market_data_consistency"] is consistent
+&gt;       assert "market_data_consistency" not in payload["critical"]
+E       AssertionError: assert 'market_data_consistency' not in {'knowledge_wiki': True, 'market_data_consistency': True, 'market_snapshot': True, 'rag_query_protocol': True, ...}
+
+intelligence/tests/test_workbench_api.py:1942: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_workbench_api" name="test_readiness_reports_market_dates_without_blocking_available_data[2026-07-17-off]" time="2.087"><failure message="AssertionError: assert 'market_data_consistency' not in {'knowledge_wiki': True, 'market_data_consistency': True, 'market_snapshot': True, 'rag_query_protocol': True, ...}">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/date_readiness_gate/mutant-tmp/test_readiness_reports_market_8')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x110d9a3f0&gt;
+mode = 'off', db_date = '2026-07-17'
+
+    @pytest.mark.parametrize("mode", ["on", "canary", "off"])
+    @pytest.mark.parametrize("db_date", ["2025-06-30", "2026-07-16", "2026-07-17", None])
+    def test_readiness_reports_market_dates_without_blocking_available_data(
+        tmp_path: Path,
+        monkeypatch,
+        mode: str,
+        db_date: str | None,
+    ) -&gt; None:
+        users_root = tmp_path / "users"
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+        knowledge_wiki = tmp_path / "wiki"
+        (knowledge_wiki / "relations").mkdir(parents=True)
+        _write_rag_fixture(tmp_path, knowledge_wiki)
+        market_snapshot = tmp_path / "market_snapshot"
+        market_snapshot.mkdir()
+        _write_market_snapshot_fixture(market_snapshot)
+        if db_date:
+            _write_overview_market_db(
+                repo_root / "db" / "market_feature_store.duckdb",
+                trade_date=db_date,
+            )
+        monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+        monkeypatch.setenv("FINANCE_WS", str(repo_root))
+        monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+        monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
+        monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", mode)
+    
+        with TestClient(app_module.create_app(repo_root=repo_root)) as probe:
+            response = probe.get("/api/health/ready")
+    
+        assert response.status_code == 200
+        payload = response.json()
+        consistent = bool(db_date and db_date &gt;= "2026-07-16")
+        assert payload["status"] == "ready"
+        assert payload["checks"]["market_data_consistency"] is consistent
+&gt;       assert "market_data_consistency" not in payload["critical"]
+E       AssertionError: assert 'market_data_consistency' not in {'knowledge_wiki': True, 'market_data_consistency': True, 'market_snapshot': True, 'rag_query_protocol': True, ...}
+
+intelligence/tests/test_workbench_api.py:1942: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_workbench_api" name="test_readiness_reports_market_dates_without_blocking_available_data[None-on]" time="2.906"><failure message="assert 503 == 200&#10; +  where 503 = &lt;Response [503 Service Unavailable]&gt;.status_code">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/date_readiness_gate/mutant-tmp/test_readiness_reports_market_9')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x110b771a0&gt;
+mode = 'on', db_date = None
+
+    @pytest.mark.parametrize("mode", ["on", "canary", "off"])
+    @pytest.mark.parametrize("db_date", ["2025-06-30", "2026-07-16", "2026-07-17", None])
+    def test_readiness_reports_market_dates_without_blocking_available_data(
+        tmp_path: Path,
+        monkeypatch,
+        mode: str,
+        db_date: str | None,
+    ) -&gt; None:
+        users_root = tmp_path / "users"
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+        knowledge_wiki = tmp_path / "wiki"
+        (knowledge_wiki / "relations").mkdir(parents=True)
+        _write_rag_fixture(tmp_path, knowledge_wiki)
+        market_snapshot = tmp_path / "market_snapshot"
+        market_snapshot.mkdir()
+        _write_market_snapshot_fixture(market_snapshot)
+        if db_date:
+            _write_overview_market_db(
+                repo_root / "db" / "market_feature_store.duckdb",
+                trade_date=db_date,
+            )
+        monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+        monkeypatch.setenv("FINANCE_WS", str(repo_root))
+        monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+        monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
+        monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", mode)
+    
+        with TestClient(app_module.create_app(repo_root=repo_root)) as probe:
+            response = probe.get("/api/health/ready")
+    
+&gt;       assert response.status_code == 200
+E       assert 503 == 200
+E        +  where 503 = &lt;Response [503 Service Unavailable]&gt;.status_code
+
+intelligence/tests/test_workbench_api.py:1937: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_workbench_api" name="test_readiness_reports_market_dates_without_blocking_available_data[None-canary]" time="2.394"><failure message="assert 503 == 200&#10; +  where 503 = &lt;Response [503 Service Unavailable]&gt;.status_code">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/date_readiness_gate/mutant-tmp/test_readiness_reports_market_10')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x110bb1f40&gt;
+mode = 'canary', db_date = None
+
+    @pytest.mark.parametrize("mode", ["on", "canary", "off"])
+    @pytest.mark.parametrize("db_date", ["2025-06-30", "2026-07-16", "2026-07-17", None])
+    def test_readiness_reports_market_dates_without_blocking_available_data(
+        tmp_path: Path,
+        monkeypatch,
+        mode: str,
+        db_date: str | None,
+    ) -&gt; None:
+        users_root = tmp_path / "users"
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+        knowledge_wiki = tmp_path / "wiki"
+        (knowledge_wiki / "relations").mkdir(parents=True)
+        _write_rag_fixture(tmp_path, knowledge_wiki)
+        market_snapshot = tmp_path / "market_snapshot"
+        market_snapshot.mkdir()
+        _write_market_snapshot_fixture(market_snapshot)
+        if db_date:
+            _write_overview_market_db(
+                repo_root / "db" / "market_feature_store.duckdb",
+                trade_date=db_date,
+            )
+        monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+        monkeypatch.setenv("FINANCE_WS", str(repo_root))
+        monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+        monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
+        monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", mode)
+    
+        with TestClient(app_module.create_app(repo_root=repo_root)) as probe:
+            response = probe.get("/api/health/ready")
+    
+&gt;       assert response.status_code == 200
+E       assert 503 == 200
+E        +  where 503 = &lt;Response [503 Service Unavailable]&gt;.status_code
+
+intelligence/tests/test_workbench_api.py:1937: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_workbench_api" name="test_readiness_reports_market_dates_without_blocking_available_data[None-off]" time="2.557"><failure message="assert 503 == 200&#10; +  where 503 = &lt;Response [503 Service Unavailable]&gt;.status_code">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/date_readiness_gate/mutant-tmp/test_readiness_reports_market_11')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1109fd700&gt;
+mode = 'off', db_date = None
+
+    @pytest.mark.parametrize("mode", ["on", "canary", "off"])
+    @pytest.mark.parametrize("db_date", ["2025-06-30", "2026-07-16", "2026-07-17", None])
+    def test_readiness_reports_market_dates_without_blocking_available_data(
+        tmp_path: Path,
+        monkeypatch,
+        mode: str,
+        db_date: str | None,
+    ) -&gt; None:
+        users_root = tmp_path / "users"
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+        knowledge_wiki = tmp_path / "wiki"
+        (knowledge_wiki / "relations").mkdir(parents=True)
+        _write_rag_fixture(tmp_path, knowledge_wiki)
+        market_snapshot = tmp_path / "market_snapshot"
+        market_snapshot.mkdir()
+        _write_market_snapshot_fixture(market_snapshot)
+        if db_date:
+            _write_overview_market_db(
+                repo_root / "db" / "market_feature_store.duckdb",
+                trade_date=db_date,
+            )
+        monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+        monkeypatch.setenv("FINANCE_WS", str(repo_root))
+        monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+        monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
+        monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", mode)
+    
+        with TestClient(app_module.create_app(repo_root=repo_root)) as probe:
+            response = probe.get("/api/health/ready")
+    
+&gt;       assert response.status_code == 200
+E       assert 503 == 200
+E        +  where 503 = &lt;Response [503 Service Unavailable]&gt;.status_code
+
+intelligence/tests/test_workbench_api.py:1937: AssertionError</failure></testcase></testsuite></testsuites>

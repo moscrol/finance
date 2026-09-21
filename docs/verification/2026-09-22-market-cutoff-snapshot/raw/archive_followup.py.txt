@@ -1,0 +1,119 @@
+"""Freeze candidate-specific text evidence, retaining failures and exact original bytes.
+
+Fixtures/caches/binaries stay external. Use the existing SecretScanner and
+check_evidence_archive.py rather than treating a local checksum as Git proof.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import sys
+
+ROOT = Path(__file__).resolve().parent
+REPO = Path.home() / "fwp-wt-market-date-advisory-0921"
+ARCHIVE = REPO / "docs/verification/2026-09-22-market-cutoff-snapshot"
+sys.path.insert(0, str(REPO))
+from scripts.smoke_workbench_self_use import SECRET_PATTERNS, SecretScanner  # noqa: E402
+
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def scan():
+    scanner = SecretScanner()
+    matches = []
+    texts = [p for p in sorted(ARCHIVE.rglob("*")) if p.is_file()
+             and p.name not in {"scan-review.json", "sha256-manifest.txt"}]
+    for path in texts:
+        text = path.read_text()
+        rel = str(path.relative_to(ARCHIVE))
+        scanner.scan(text, rel)
+        for marker, pattern in SECRET_PATTERNS:
+            for match in pattern.finditer(text):
+                value = match.group()
+                known = marker == "jwt_shape" and value.startswith((
+                    "intelligence.services.", "intelligence.runtime.", "intelligence.tests.",
+                    "tests.test_", "scripts.smoke_workbench_self_use.",
+                ))
+                matches.append({"path": rel, "line": text.count("\n", 0, match.start()) + 1,
+                                "marker": marker, "match_sha256": digest(value.encode()),
+                                "classification": "python_dotted_name" if known else "unclassified"})
+    receipt = {"implementation": "scripts.smoke_workbench_self_use.SecretScanner",
+               "scope": "all archive source texts, README and manifest; scan report and checksum list excluded",
+               "files_scanned": len(texts), "hits": scanner.hits, "matches": matches,
+               "unique_match_hashes": len({m["match_sha256"] for m in matches}),
+               "unclassified_match_count": sum(m["classification"] == "unclassified" for m in matches),
+               "conclusion": "Pattern matches are not automatically secrets; context-reviewed classifications, not zero-hit certification."}
+    (ARCHIVE / "scan-review.json").write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n")
+    lines = [digest(p.read_bytes()) + "  " + str(p.relative_to(REPO))
+             for p in sorted(ARCHIVE.rglob("*")) if p.is_file() and p.name != "sha256-manifest.txt"]
+    (ARCHIVE / "sha256-manifest.txt").write_text("\n".join(lines) + "\n")
+    print(json.dumps({"files_scanned": len(texts), "scan_groups": len(scanner.hits),
+                      "matches": len(matches), "unique_values": receipt["unique_match_hashes"],
+                      "unclassified": receipt["unclassified_match_count"],
+                      "manifest_content_files": len(lines)}))
+    return int(receipt["unclassified_match_count"] > 0)
+
+
+def main():
+    if sys.argv[1:] == ["scan"]:
+        return scan()
+    ARCHIVE.mkdir(parents=True, exist_ok=False)
+    files, excluded = [], []
+    for directory, dirs, names in os.walk(ROOT):
+        base = Path(directory)
+        for name in list(dirs):
+            if name == "tmp" or name.endswith("-tmp") or "cache" in name:
+                excluded.append(str((base / name).relative_to(ROOT)) + "/")
+                dirs.remove(name)
+        for name in sorted(names):
+            path = base / name
+            relative = path.relative_to(ROOT)
+            if path.is_symlink() or path.suffix not in {".py", ".log", ".txt", ".xml", ".json", ".jsonl", ".md"}:
+                excluded.append(str(relative))
+                continue
+            data = path.read_bytes()
+            data.decode("utf-8")
+            copy = Path("raw") / relative
+            if path.suffix in {".py", ".log"}:
+                copy = copy.with_name(copy.name + ".txt")
+            target = ARCHIVE / copy
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(path, target)
+            assert data == target.read_bytes()
+            files.append({"path": str(copy), "source": str(path), "bytes": len(data), "sha256": digest(data)})
+    manifest = {"revision": "b1e04452bfd45ae2fa4e9177847cb299293ca859",
+                "verdict": "AUTHOR_TARGETED_CHECKS_PASSED_ACCEPTANCE_BLOCKED",
+                "scope": "text-only evidence, including older candidate failure and review errors",
+                "files": sorted(files, key=lambda row: row["path"]), "excluded": sorted(excluded)}
+    (ARCHIVE / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+    (ARCHIVE / "README.md").write_text(
+        "# Cutoff and Local Snapshot Evidence\n\n"
+        "Verdict: **AUTHOR_TARGETED_CHECKS_PASSED_ACCEPTANCE_BLOCKED**.\n\n"
+        "Candidate `b1e04452bfd45ae2fa4e9177847cb299293ca859`: clean 326 targeted Python passes, "
+        "Ruff, 24 caught mutations, frontend 110 unit passes and 34 E2E passes / 2 skips, five registry checks. "
+        "No complete Python gate, independent Spec/Quality verdict, or new K3 live acceptance. "
+        "Disk admission blocked; old review attempts ended with capacity/startup errors.\n\n"
+        "- [Review and limits](raw/REVIEW.md)\n"
+        "- [Final targeted receipt](raw/final-b1e04452b/directed/pytest-receipt.json)\n"
+        "- [Final mutations](raw/final-b1e04452b/mutations/result.json)\n"
+        "- [Final frontend](raw/final-b1e04452b/frontend/gate/frontend.json)\n"
+        "- [Final registry](raw/final-b1e04452b/registry/run.json)\n"
+        "- [Old survivor and process correction](raw/closure-notes.json)\n"
+        "- [Copy manifest](manifest.json), [sensitive-pattern review](scan-review.json)\n\n"
+        "Raw originals remain external. Frozen scripts/logs use .py.txt/.log.txt. "
+        "Excluded fixture roots/caches/binaries are listed, not erased. "
+        "No push, PR, merge, deployment, data collection, or production database write. "
+        "Validate committed bytes with scripts/check_evidence_archive.py; local hashes alone are insufficient.\n"
+    )
+    print(json.dumps({"original_files": len(files), "original_bytes": sum(r["bytes"] for r in files),
+                      "excluded_entries": len(excluded)}))
+    return scan()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

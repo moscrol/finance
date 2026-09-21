@@ -1,0 +1,217 @@
+"""Offline runtime mutations: never edit the candidate checkout or production data.
+
+Each mutant replaces exactly one function in a fresh Python process. Baseline
+must pass first; a mutant counts as caught only on assertion failure, without
+collection/setup errors. All pytest fixtures stay in a dedicated external root.
+"""
+from __future__ import annotations
+
+import ast
+import importlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+
+TREE = Path.home() / "fwp-wt-market-date-advisory-0921"
+SHA = "b41c8d4755ae1a6735828b911197f3b62407f58e"
+OUT = Path(__file__).resolve().parent / "mutations"
+CASES = {
+    "ignore_explicit_cutoff": (
+        "intelligence.services.honesty_gates", "requested_information_cutoff",
+        "for pattern in (_EXPLICIT_CUTOFF_RE, _EXCLUDED_FUTURE_RE)", "for pattern in ()",
+        "intelligence/tests/test_honesty_gates.py::test_explicit_information_upper_bound_becomes_requested_cutoff",
+    ),
+    "caller_overrides_requested": (
+        "intelligence.services.episode_factory", "build_episode_context",
+        "if requested_cutoff is not None:", "if False:",
+        "intelligence/tests/test_honesty_gates.py::test_explicit_information_upper_bound_becomes_requested_cutoff",
+    ),
+    "drop_snapshot_capability": (
+        "intelligence.services.episode_factory", "build_episode_context",
+        'authorized.append("local_market_snapshot")', 'pass',
+        "intelligence/tests/test_local_market_snapshot.py::test_local_only_reads_snapshot_without_mixed_tools_or_network",
+    ),
+    "future_snapshot_allowed": (
+        "intelligence.services.market_snapshot_contract", "load_market_snapshot_as_of",
+        "if day <= as_of:", "if True:",
+        "intelligence/tests/test_local_market_snapshot.py::test_history_never_reads_latest_meta_or_future_daily",
+    ),
+    "ignore_source_identity": (
+        "intelligence.services.market_snapshot_contract", "load_market_snapshot_as_of",
+        'for field in ("served_trade_date", "source_data_date"):', 'for field in ():',
+        "intelligence/tests/test_local_market_snapshot.py::test_bad_or_contradictory_newer_snapshot_does_not_erase_valid_older",
+    ),
+    "snapshot_null_as_zero": (
+        "intelligence.services.local_market_snapshot", "read_snapshot_evidence",
+        "value = market.get(field)", "value = market.get(field) or 0",
+        "intelligence/tests/test_local_market_snapshot.py::test_local_only_reads_snapshot_without_mixed_tools_or_network",
+    ),
+    "snapshot_locator_reindexed": (
+        "intelligence.services.local_market_snapshot", "read_snapshot_evidence",
+        '[(index, row) for index, row in enumerate(doc["themes"]) if isinstance(row, dict)]',
+        'list(enumerate(row for row in doc["themes"] if isinstance(row, dict)))',
+        "intelligence/tests/test_local_market_snapshot.py::test_snapshot_theme_locator_preserves_original_array_index",
+    ),
+    "strict_future_redelivered": (
+        "intelligence.services.research_tool_registry", "ResearchToolRegistry.execute",
+        'elif context.information_cutoff.source == "requested":', 'elif False:',
+        "intelligence/tests/test_local_market_snapshot.py::test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence",
+    ),
+    "future_gaps_leak": (
+        "intelligence.services.research_tool_registry", "ResearchToolRegistry.execute",
+        'gaps = ("本次部分结果晚于用户信息截止日，已隔离超窗内容及未分条的原始诊断",)', 'gaps = run_result.gaps',
+        "intelligence/tests/test_local_market_snapshot.py::test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence",
+    ),
+    "strict_cache_collision": (
+        "intelligence.services.research_tool_registry", "ResearchToolRegistry.execute",
+        'f";strict_cutoff={context.information_cutoff.source == \'requested\'}"', '""',
+        "intelligence/tests/test_local_market_snapshot.py::test_strict_cutoff_does_not_reuse_non_strict_cached_delivery",
+    ),
+    "future_observation_leak": (
+        "intelligence.services.research_tool_registry", "ResearchToolRegistry.execute",
+        'if rejected or strict_future_observation:', 'if rejected:',
+        "intelligence/tests/test_local_market_snapshot.py::test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence",
+    ),
+    "date_readiness_gate": (
+        "intelligence.api.app", "create_app",
+        '"market_snapshot": checks["market_snapshot_contract"],',
+        '"market_snapshot": checks["market_snapshot_contract"], "market_data_consistency": checks["market_data_consistency"],',
+        "intelligence/tests/test_workbench_api.py::test_readiness_reports_market_dates_without_blocking_available_data",
+    ),
+    "reference_as_query_ceiling": (
+        "intelligence.services.episode_tools", "_structured_as_of",
+        "return context.information_cutoff.as_of_date.isoformat()",
+        "return min(context.latest_data_date, context.information_cutoff.as_of_date.isoformat())",
+        "intelligence/tests/test_market_date_advisory.py::test_market_block_selects_available_data_newer_than_reference",
+    ),
+    "hide_other_day_themes": (
+        "intelligence.services.ask_blocks", "_daily_market_overview_block_for_llm",
+        "if theme_text:", "if theme_text and str(theme_date) == trade_date:",
+        "intelligence/tests/test_market_date_advisory.py::test_market_overview_keeps_theme_date_distinct_from_market_date",
+    ),
+    "null_count_as_zero": (
+        "intelligence.services.ask_blocks", "_daily_market_overview_block_for_llm",
+        "_fmt_optional(sector_count, 0)", "_fmt_optional(sector_count or 0, 0)",
+        "intelligence/tests/test_market_date_advisory.py::test_market_overview_keeps_theme_date_distinct_from_market_date",
+    ),
+    "ignore_explicit_source_marker": (
+        "intelligence.services.agent_research", "block_lines_to_evidence",
+        "elif row_date_match:", "elif False:",
+        "intelligence/tests/test_agent_research.py::test_mixed_structured_evidence_distinguishes_source_date_from_event_date",
+    ),
+    "unknown_source_filled_from_overview": (
+        "intelligence.services.agent_research", "block_lines_to_evidence",
+        "item_source_date = None", "item_source_date = fallback_date",
+        "intelligence/tests/test_market_date_advisory.py::test_prefetch_keeps_its_source_date_not_overview_or_event_date",
+    ),
+    "old_window_self_authorizes": (
+        "intelligence.services.episode_tools", "build_episode_registry",
+        "replace(bounded_value, time_range=None)", "bounded_value",
+        "intelligence/tests/test_episode_tools.py::test_model_selected_historical_window_is_rejected_for_current_task",
+    ),
+    "mismatch_as_failure": (
+        "intelligence.services.market_snapshot_reconcile", "reconcile_snapshot_with_market_db",
+        "warnings.append(", "errors.append(",
+        "tests/test_market_snapshot_reconcile.py::RunCheckGateTest::test_format_pass_with_date_mismatch_stays_ready",
+    ),
+    "uniform_overview_date": (
+        "intelligence.services.episode_tools", "build_episode_registry",
+        'source_date=served_date if frame.question_type == "valuation_estimate" else None,',
+        'source_date=served_date,',
+        "intelligence/tests/test_market_date_advisory.py::test_market_overview_keeps_theme_date_distinct_from_market_date",
+    ),
+    "date_warning_upgrades_partial": (
+        "scripts.check_market_snapshot_contract", "run_check",
+        'result["reconciliation"] = reconciliation',
+        'result["reconciliation"] = reconciliation\n    result["ready"] = True',
+        "tests/test_market_snapshot_reconcile.py::RunCheckGateTest::test_date_advisory_does_not_override_partial_snapshot",
+    ),
+    "prefetch_drops_own_date": (
+        "intelligence.services.episode_tools", "_asof_prefetch_text",
+        'lines.append(f"{line}\uff1b\u6570\u636e\u65e5\u671f\uff1a{date_label}")', "lines.append(line)",
+        "intelligence/tests/test_market_date_advisory.py::test_prefetch_keeps_its_source_date_not_overview_or_event_date",
+    ),
+}
+
+
+def identity():
+    def git(*args):
+        return subprocess.check_output(["git", "-C", str(TREE), *args], text=True).strip()
+    return {"revision": git("rev-parse", "HEAD"), "status": git("status", "--porcelain"),
+            "tree_object": git("rev-parse", "HEAD^{tree}")}
+
+
+def child(case_name, mutate):
+    sys.path.insert(0, str(TREE))
+    os.chdir(TREE)
+    os.umask(0o022)
+    module_name, function_name, old, new, target = CASES[case_name]
+    if mutate:
+        module = importlib.import_module(module_name)
+        source = Path(module.__file__).read_text()
+        import textwrap
+        owner = None
+        nodes = ast.parse(source).body
+        if "." in function_name:
+            class_name, function_name = function_name.split(".")
+            owner = getattr(module, class_name)
+            nodes = next(n for n in nodes if isinstance(n, ast.ClassDef) and n.name == class_name).body
+        node = next(n for n in nodes if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == function_name)
+        segment = ast.get_source_segment(source, node)
+        original = textwrap.dedent(" " * node.col_offset + segment)
+        assert original.count(old) == (2 if case_name == "mismatch_as_failure" else 1)
+        replacement = original.replace(old, new)
+        assert replacement != original
+        # Compile only the selected function, preserving module types/registrations.
+        exec(compile("from __future__ import annotations\n" + replacement, str(module.__file__), "exec"), module.__dict__)
+        if owner is not None:
+            setattr(owner, function_name, module.__dict__[function_name])
+    import pytest
+    tag = "mutant" if mutate else "baseline"
+    output = OUT / case_name
+    return pytest.main(["-q", "-p", "no:cacheprovider", "-o", "tmp_path_retention_policy=failed",
+                       "-o", "tmp_path_retention_count=1", f"--basetemp={output / (tag + '-tmp')}",
+                       f"--junitxml={output / (tag + '.xml')}", target])
+
+
+def main():
+    if len(sys.argv) == 4 and sys.argv[1] == "child":
+        return child(sys.argv[2], sys.argv[3] == "mutant")
+    OUT.mkdir(exist_ok=False)
+    before = identity()
+    assert before["revision"] == SHA and not before["status"], before
+    results = []
+    env = {"HOME": str(Path.home()), "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+           "LANG": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1", "FWP_TEST_RECEIPT": "0"}
+    for name in CASES:
+        folder = OUT / name
+        folder.mkdir()
+        row = {"case": name, "target": CASES[name][-1]}
+        for tag in ("baseline", "mutant"):
+            with (folder / (tag + ".log")).open("xb") as log:
+                result = subprocess.run([sys.executable, __file__, "child", name, tag], cwd=TREE,
+                                        env=env, stdout=log, stderr=subprocess.STDOUT, timeout=120)
+            root = ET.parse(folder / (tag + ".xml")).getroot()
+            failures = root.findall(".//failure")
+            errors = root.findall(".//error")
+            row[tag] = {"exit_code": result.returncode, "failures": len(failures), "errors": len(errors),
+                        "testcases": len(root.findall(".//testcase")),
+                        "assertion_failure": any("AssertionError" in (f.text or "") or "assert " in (f.text or "") for f in failures)}
+        row["caught"] = (row["baseline"]["exit_code"] == 0 and row["baseline"]["testcases"] > 0
+                         and row["mutant"]["exit_code"] == 1 and row["mutant"]["errors"] == 0
+                         and row["mutant"]["failures"] > 0 and row["mutant"]["assertion_failure"])
+        results.append(row)
+        (OUT / "progress.json").write_text(json.dumps(results, indent=2) + "\n")
+        print(json.dumps(row), flush=True)
+    after = identity()
+    report = {"revision": SHA, "before": before, "after": after, "source_unchanged": before == after,
+              "cases": results, "pass": all(r["caught"] for r in results) and before == after}
+    (OUT / "result.json").write_text(json.dumps(report, indent=2) + "\n")
+    return 0 if report["pass"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

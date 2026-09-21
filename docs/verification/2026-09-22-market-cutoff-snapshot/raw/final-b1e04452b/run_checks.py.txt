@@ -1,0 +1,170 @@
+"""One-off fixed-revision evidence orchestration; no deployment or API requests.
+
+The existing main gate reads a shared latest.json. Do not change #814's owned
+work: run native pytest, preserve complete stdout/JUnit, then copy only the
+exact receipt path emitted by this process and cross-check its identity/counts.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import shlex
+import signal
+import subprocess
+import sys
+import time
+import xml.etree.ElementTree as ET
+
+os.umask(0o022)
+OUT = Path(__file__).resolve().parent
+TREE = Path.home() / "fwp-wt-market-date-advisory-0921"
+SHA = "b1e04452bfd45ae2fa4e9177847cb299293ca859"
+PY = str(Path.home() / "finance-workspace-private/.venv-workbench/bin/python")
+BASE = "79b11d4268a3"
+
+
+def identity():
+    def git(*args):
+        return subprocess.check_output(["git", "-C", str(TREE), *args], text=True).rstrip("\n")
+    return {"revision": git("rev-parse", "HEAD"), "tree_object": git("rev-parse", "HEAD^{tree}"),
+            "status": git("status", "--porcelain=v1", "--untracked-files=all")}
+
+
+def now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+leaf = sys.argv[1]
+assert leaf in ("python", "frontend", "registry")
+out = OUT / leaf
+out.mkdir(exist_ok=False)
+env = {"HOME": str(Path.home()), "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+       "LANG": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1", "FWP_TEST_RECEIPT": "1",
+       "RUFF_CACHE_DIR": str(out / "ruff-cache")}
+registry = [[PY, "-c", "from pathlib import Path; import scripts.build_registry as r; "
+             "r.REPOS_DIR=Path('/nonexistent/finance-only-ci'); raise SystemExit(r.main())", *args]
+            for args in (("check-parseability",), ("check",), ("backfill-tables", "--check"),
+                         ("generate-views", "--check"))]
+commands = {
+    "python": [[PY, "-m", "ruff", "check", "."],
+               [PY, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+                "-o", "tmp_path_retention_policy=failed", "-o", "tmp_path_retention_count=1",
+                f"--basetemp={out / 'tmp'}", f"--junitxml={out / 'junit.xml'}"]],
+    "frontend": [[PY, "scripts/run_frontend_gate.py", "--tree", str(TREE),
+                  "--expect-revision", SHA, "--output", str(out / "gate"),
+                  "--workbench-port", "19651", "--re06-port", "19654"]],
+    "registry": registry + [[PY, "scripts/audit_ledger_spec_crosswalk.py"]],
+}[leaf]
+record = {"leaf": leaf, "revision": SHA, "base": BASE, "tree": str(TREE), "pid": os.getpid(),
+          "started_at": now(), "before": identity(), "checks": [], "complete": False}
+
+
+def save():
+    tmp = out / "run.json.tmp"
+    tmp.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+    tmp.replace(out / "run.json")
+
+
+save()
+try:
+    assert record["before"]["revision"] == SHA and not record["before"]["status"]
+    if leaf == "python":
+        wait_started = time.monotonic()
+        with (out / "resource-wait.jsonl").open("x") as samples:
+            while True:
+                others = []
+                for line in subprocess.check_output(["ps", "-Ao", "pid=,command="], text=True).splitlines():
+                    pid, _, args = line.strip().partition(" ")
+                    try:
+                        argv = shlex.split(args)
+                    except ValueError:
+                        continue
+                    if len(argv) >= 3 and Path(argv[0]).name.lower().startswith("python") and argv[1:3] == ["-m", "pytest"]:
+                        others.append({"pid": int(pid), "argv": argv})
+                free = shutil.disk_usage(OUT).free
+                sample = {"at": now(), "free_bytes": free, "other_pytest_processes": others}
+                samples.write(json.dumps(sample) + "\n"); samples.flush()
+                if not others and free >= 8 * 1024**3:
+                    record["resource_admission"] = sample
+                    save()
+                    break
+                assert time.monotonic() - wait_started < 2700, "resource wait expired; no test started"
+                time.sleep(15)
+    for index, command in enumerate(commands):
+        check = {"command": command, "started_at": now()}
+        log = out / f"{index}.log.txt"
+        start = time.monotonic()
+        with log.open("xb") as stream:
+            proc = subprocess.Popen(command, cwd=TREE, env=env, stdout=stream,
+                                    stderr=subprocess.STDOUT, start_new_session=True)
+            record["active_pid"] = proc.pid
+            save()
+            try:
+                while proc.poll() is None:
+                    elapsed = time.monotonic() - start
+                    free = shutil.disk_usage(OUT).free
+                    with (out / "resource-monitor.jsonl").open("a") as samples:
+                        samples.write(json.dumps({"at": now(), "pid": proc.pid, "free_bytes": free, "elapsed_seconds": round(elapsed, 3)}) + "\n")
+                    if free < 3 * 1024**3:
+                        check["resource_abort"] = "free disk below 3GiB floor; only owned process group stopped"
+                        raise subprocess.TimeoutExpired(command, elapsed)
+                    if elapsed >= 2700:
+                        raise subprocess.TimeoutExpired(command, elapsed)
+                    time.sleep(3)
+                check["exit_code"] = proc.returncode
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid, signal.SIGTERM)
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                    proc.wait()
+                check["exit_code"] = 124
+        data = log.read_bytes()
+        check.update(log=str(log), sha256=hashlib.sha256(data).hexdigest(),
+                     elapsed_seconds=round(time.monotonic() - start, 2))
+        record["checks"].append(check)
+        record.pop("active_pid", None)
+        save()
+    if leaf == "python":
+        text = (out / "1.log.txt").read_text()
+        paths = re.findall(r"读数收据: ([^\r\n]+\.json)(?:\r?\n|$)", text)
+        assert len(paths) == 1, paths
+        raw = Path(paths[0]).read_bytes()
+        receipt = json.loads(raw)
+        assert receipt["revision"] == SHA and receipt["tree"] == str(TREE) and not receipt["dirty"]
+        assert receipt["exit_status"] == record["checks"][1]["exit_code"]
+        assert receipt["target"] == str(TREE) or receipt["target"] == "", receipt["target"]
+        (out / "pytest-receipt.json").write_bytes(raw)
+        record["pytest_receipt"] = {"source": paths[0], "sha256": hashlib.sha256(raw).hexdigest(),
+                                    "counts": receipt["counts"], "exit_status": receipt["exit_status"]}
+        cases = ET.parse(out / "junit.xml").getroot().findall(".//testcase")
+        counts = {"passed": 0, "failed": 0, "error": 0, "skipped": 0, "xfail": 0}
+        for case in cases:
+            if case.find("failure") is not None:
+                counts["failed"] += len(case.findall("failure"))
+                counts["error"] += len(case.findall("error"))
+            elif case.find("error") is not None:
+                counts["error"] += len(case.findall("error"))
+            elif case.find("skipped") is not None:
+                item = case.find("skipped")
+                counts["xfail" if item.get("type") == "pytest.xfail" else "skipped"] += 1
+            else:
+                counts["passed"] += 1
+        record["junit_counts"] = counts
+        assert all(counts[k] == receipt["counts"][k] for k in ("passed", "failed", "error", "skipped"))
+    record["complete"] = True
+except (AssertionError, OSError, ValueError, subprocess.SubprocessError) as exc:
+    record["error"] = f"{type(exc).__name__}: {exc}"
+finally:
+    record["after"] = identity()
+    record["source_unchanged"] = record["before"] == record["after"]
+    record["finished_at"] = now()
+    record["exit_code"] = 0 if (record["complete"] and record["source_unchanged"]
+                                  and all(c["exit_code"] == 0 for c in record["checks"])) else 1
+    save()
+print(json.dumps(record, ensure_ascii=False))
+raise SystemExit(record["exit_code"])

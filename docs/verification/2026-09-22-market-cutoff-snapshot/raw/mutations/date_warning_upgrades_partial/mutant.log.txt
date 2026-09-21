@@ -1,0 +1,30 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____ RunCheckGateTest.test_date_advisory_does_not_override_partial_snapshot ____
+
+self = <tests.test_market_snapshot_reconcile.RunCheckGateTest testMethod=test_date_advisory_does_not_override_partial_snapshot>
+
+    def test_date_advisory_does_not_override_partial_snapshot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            root = base / "snapshot"
+            root.mkdir()
+            write_snapshot(root, "2026-08-12")
+            for path in root.glob("*.json"):
+                payload = json.loads(path.read_text())
+                payload["quality"] = "partial"
+                path.write_text(json.dumps(payload))
+            db = base / "market.duckdb"
+            write_market_db(db, "2026-08-11")
+    
+            result = run_check(root, "2026-08-12", db_path=db)
+    
+            self.assertEqual(result["reconciliation"]["status"], "WARN")
+>           self.assertFalse(result["ready"])
+E           AssertionError: True is not false
+
+tests/test_market_snapshot_reconcile.py:179: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/mutations/date_warning_upgrades_partial/mutant.xml -
+=========================== short test summary info ============================
+FAILED tests/test_market_snapshot_reconcile.py::RunCheckGateTest::test_date_advisory_does_not_override_partial_snapshot
+1 failed in 0.37s

@@ -1,0 +1,37 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_local_only_reads_snapshot_without_mixed_tools_or_network _________
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/snapshot_null_as_zero/mutant-tmp/test_local_only_reads_snapshot0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10767e060>
+
+    def test_local_only_reads_snapshot_without_mixed_tools_or_network(tmp_path, monkeypatch):
+        import socket
+    
+        def forbidden(*_a, **_kw):
+            pytest.fail("snapshot must not connect or use mixed market runner")
+    
+        monkeypatch.setattr(socket.socket, "connect", forbidden)
+        monkeypatch.setattr("intelligence.services.episode_tools._market_block", forbidden)
+        _snapshot(tmp_path / "market_snapshot")
+        context, registry = _registry(tmp_path)
+        assert context.contract.material_contract.data_scope == "local_only"
+        names = registry.names()
+        assert "local_market_snapshot" in names
+        assert not {"market_data", "financial_data", "web_search"}.intersection(names)
+        assert all(spec.io_effect == "local_read" for spec in registry.authorized_specs())
+        result = registry.execute("local_market_snapshot", {}, context=context, step_id="snapshot")
+        assert result.trace.status == "success"
+        assert {item.source_date for item in result.evidence} == {"2026-09-21"}
+        assert any("20479.03亿元" in item.detail for item in result.evidence)
+        assert any("跌停家数 0家" in item.detail for item in result.evidence)
+        assert "null" in next(item.detail for item in result.evidence if "化学制药" in item.title)
+>       assert not any("快照成交量比 0" in item.detail for item in result.evidence)
+E       assert not True
+E        +  where True = any(<generator object test_local_only_reads_snapshot_without_mixed_tools_or_network.<locals>.<genexpr> at 0x10d208ba0>)
+
+intelligence/tests/test_local_market_snapshot.py:65: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/snapshot_null_as_zero/mutant.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_local_market_snapshot.py::test_local_only_reads_snapshot_without_mixed_tools_or_network
+1 failed in 1.58s

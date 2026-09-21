@@ -1,0 +1,57 @@
+Reading additional input from stdin...
+OpenAI Codex v0.155.0-alpha.9.2
+--------
+workdir: /Users/a77/fwp-wt-market-date-advisory-0921
+model: gpt-6-astra
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: medium
+reasoning summaries: none
+session id: 01a0c4d1-7904-7581-bfcd-5835c0b17a03
+--------
+user
+独立规格审查。只读固定提交 b41c8d4755ae1a6735828b911197f3b62407f58e 相对父提交的增量。用户要求：明确历史信息截止必须成为不可放宽的工具上界，引用/材料不能授予日期权限，严格截止超窗事实不能重新交付；local_only 能读取本地已有行情日快照，但不开放可能联网的 market_data；material_only 在任何读取前空注册表；封存夹具不逃到默认生产快照；各来源日期如实使用，未知不填0，快照阶段和行业分布不冒充复盘主线。关注端到端合同、边界反例、既有行为回归。只报告可复现问题和文件行号，无问题则注明范围。禁止文件修改、提交、联网、浏览器、启动服务、读凭证。不跑全量测试。只审查本提交，不把工程绿或真实质量当作已验收。命令通道不可用就停止并报告。
+codex
+我会按代码审查流程只读检查提交 `b41c8d4755ae1a6735828b911197f3b62407f58e` 相对父提交的差异，重点验证你列出的日期权限、来源读取、封存夹具和回归边界；不修改文件、不联网、不启动服务，也不跑全量测试。先读取审查规范并确认工作树状态。
+exec
+/bin/zsh -lc 'cat /Users/a77/.codex/skills/code-review/SKILL.md && git status --short && git branch --show-current && git show --no-ext-diff --stat --oneline --decorate --no-renames b41c8d4755ae1a6735828b911197f3b62407f58e && git diff --no-ext-diff --name-status b41c8d4755ae1a6735828b911197f3b62407f58e''^ b41c8d4755ae1a6735828b911197f3b62407f58e --' in /Users/a77/fwp-wt-market-date-advisory-0921
+ succeeded in 152ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+fix/market-date-advisory-0921
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+b41c8d475 (HEAD -> fix/market-date-advisory-0921) fix: enforce historical cutoff and local snapshot provenance
+ docs/agent-product-door.md                        |  13 ++
+ docs/runtime/tools.md                             |   7 +-
+ intelligence/services/episode_factory.py          |  21 +-
+ intelligence/services/episode_progress.py         |   1 +
+ intelligence/services/episode_protocol.py         |   2 +
+ intelligence/services/episode_tools.py            |  27 ++-
+ intelligence/services/honesty_gates.py            |  70 +++++--
+ intelligence/services/local_market_snapshot.py    | 101 ++++++++++
+ intelligence/services/market_snapshot_contract.py |  33 +++
+ intelligence/services/material_permissions.py     |   2 +
+ intelligence/services/research_tool_registry.py   |  44 +++-
+ intelligence/tests/test_honesty_gates.py          |  41 ++++
+ intelligence/tests/test_local_market_snapshot.py  | 235 ++++++++++++++++++++++
+ 13 files changed, 557 insertions(+), 40 deletions(-)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+M	docs/agent-product-door.md
+M	docs/runtime/tools.md
+M	intelligence/services/episode_factory.py
+M	intelligence/services/episode_progress.py
+M	intelligence/services/episode_protocol.py
+M	intelligence/services/episode_tools.py
+M	intelligence/services/honesty_gates.py
+A	intelligence/services/local_market_snapshot.py
+M	intelligence/services/market_snapshot_contract.py
+M	intelligence/services/material_permissions.py
+M	intelligence/services/research_tool_registry.py
+M	intelligence/tests/test_honesty_gates.py
+A	intelligence/tests/test_local_market_snapshot.py
+
+2026-09-21T16:35:07.042643Z ERROR codex_core::tools::router: error=collab spawn failed: no thread with id: 01a0c4d1-7904-7581-bfcd-5835c0b17a03
+ERROR: Selected model is at capacity. Please try a different model.
+ERROR: Selected model is at capacity. Please try a different model.
+tokens used
+4,402

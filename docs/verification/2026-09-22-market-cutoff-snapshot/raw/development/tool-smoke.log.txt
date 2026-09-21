@@ -1,0 +1,23 @@
+Reading additional input from stdin...
+OpenAI Codex v0.155.0-alpha.9.2
+--------
+workdir: /Users/a77/fwp-wt-market-date-advisory-0921
+model: gpt-6-astra
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: medium
+reasoning summaries: none
+session id: 01a0c4c5-b566-7c61-89b2-9f278ef247b0
+--------
+user
+只执行 pwd 和 git status --short，然后简要报告。不用浏览器、不读密钥、不改文件。这是只读命令工具可用性检查。
+warning: Codex is ignoring 1 unrecognized configuration setting. Check for typos or deprecated settings.
+  user (/Users/a77/.codex/config.toml): `mcp_servers.burpsuite.model_instructions_file` is ignored.
+warning: Codex is ignoring 1 unrecognized configuration setting. Check for typos or deprecated settings.
+  user (/Users/a77/.codex/config.toml): `mcp_servers.burpsuite.model_instructions_file` is ignored.
+warning: failed to parse hooks config /Users/a77/finance-workspace-private/.codex/hooks.json: unknown field `_why_portable_hooks`, expected `description` or `hooks` at line 2 column 23
+warning: Code Mode is unavailable because code-mode host is disabled. Code mode will fail closed; enable `features.code_mode_host` and install `codex-code-mode-host`.
+warning: Skill descriptions were shortened to fit the skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest.
+ERROR: Selected model is at capacity. Please try a different model.
+ERROR: Selected model is at capacity. Please try a different model.

@@ -1,0 +1,7 @@
+{"command": ["pnpm", "install", "--frozen-lockfile"], "exit_code": 0}
+{"command": ["pnpm", "lint"], "exit_code": 0}
+{"command": ["pnpm", "typecheck"], "exit_code": 0}
+{"command": ["pnpm", "test"], "exit_code": 0}
+{"command": ["pnpm", "build"], "exit_code": 0}
+{"command": ["pnpm", "test:e2e"], "exit_code": 0}
+{"receipt": "/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/frontend/gate/frontend.json", "exit_code": 0}

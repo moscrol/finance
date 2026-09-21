@@ -1,0 +1,119 @@
+"""Finalize the existing archive; verify originals and classify exact reviewed matches.
+
+Do not rerun the earlier archive generator: its prefix classifier intentionally
+left 60 matches unresolved. This follow-up preserves that receipt and uses an
+exact set reviewed against code/import/test/warning context, not identifier shape.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import sys
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent / "market-cutoff-snapshot-20260922"
+REPO = Path.home() / "fwp-wt-market-date-advisory-0921"
+ARCHIVE = REPO / "docs/verification/2026-09-22-market-cutoff-snapshot"
+sys.path.insert(0, str(REPO))
+from scripts.smoke_workbench_self_use import SECRET_PATTERNS, SecretScanner  # noqa: E402
+
+REVIEWED = frozenset({
+    "mcp_servers.burpsuite.model_instructions_file",
+    "intelligence.services.honesty_gates",
+    "intelligence.services.episode_factory",
+    "intelligence.services.market_snapshot_contract",
+    "intelligence.services.local_market_snapshot",
+    "intelligence.services.research_tool_registry",
+    "intelligence.services.episode_tools",
+    "information_cutoff.as_of_date.isoformat",
+    "intelligence.services.ask_blocks",
+    "intelligence.services.agent_research",
+    "intelligence.services.market_snapshot_reconcile",
+    "contract.material_contract.data_scope",
+    "tool_budget_state.runtime_budget.research_reasoning",
+    "intelligence.services.material_grounding",
+    "intelligence.adapters.knowledge",
+    "intelligence.services.provider_observability",
+    "intelligence.services.research_contract",
+    "intelligence.services.task_frame",
+    "intelligence.services.tool_payload",
+    "tool_context.information_cutoff.as_of_date",
+    "tool_context.deadline.stage_timeout",
+    "l3_evidence.L3LookupConfig.from_env",
+    "intelligence.services.historical_research",
+    "run_context.information_cutoff.as_of_date",
+    "finance_query.FinanceQuerySpec.from_arguments",
+    "intelligence.services.asof_prefetch",
+    "intelligence.services.user_task",
+    "agent_research.build_graph_tools._evidence_lookup",
+    "effective_context.information_cutoff.as_of_date",
+    "agent_research.build_graph_tools._graph_lookup",
+    "services.derived_calculation.bind_derived_calculation_tool",
+    "source_frame.material_contract.data_scope",
+})
+
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def main():
+    manifest = json.loads((ARCHIVE / "manifest.json").read_text())
+    for row in manifest["files"]:
+        original = Path(row["source"]).read_bytes()
+        assert digest(original) == row["sha256"]
+        assert original == (ARCHIVE / row["path"]).read_bytes()
+    initial = HERE / "initial-scan.json"
+    assert not initial.exists(), "one-shot finalizer; do not overwrite original receipts"
+    shutil.copyfile(ARCHIVE / "scan-review.json", initial)
+    for source in (initial, ROOT / "scan-review.json", HERE / "closure-errata.md", Path(__file__)):
+        target = Path("raw/closure") / source.name
+        if source.suffix == ".py":
+            target = target.with_name(target.name + ".txt")
+        output = ARCHIVE / target
+        output.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, output)
+        data = source.read_bytes()
+        assert data == output.read_bytes()
+        manifest["files"].append({"path": str(target), "source": str(source), "bytes": len(data), "sha256": digest(data)})
+    manifest["files"].sort(key=lambda row: row["path"])
+    (ARCHIVE / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+    scanner = SecretScanner()
+    matches = []
+    files = [p for p in sorted(ARCHIVE.rglob("*")) if p.is_file()
+             and p not in {ARCHIVE / "scan-review.json", ARCHIVE / "sha256-manifest.txt"}]
+    for path in files:
+        text = path.read_text()
+        rel = str(path.relative_to(ARCHIVE))
+        scanner.scan(text, rel)
+        for marker, pattern in SECRET_PATTERNS:
+            for match in pattern.finditer(text):
+                value = match.group()
+                matches.append({"path": rel, "line": text.count("\n", 0, match.start()) + 1,
+                                "marker": marker, "match_sha256": digest(value.encode()),
+                                "classification": "context_reviewed_code_or_config_key"
+                                if marker == "jwt_shape" and value in REVIEWED else "unclassified"})
+    report = {"implementation": "scripts.smoke_workbench_self_use.SecretScanner",
+              "scope": "all package texts except this generated report and sha256-manifest.txt",
+              "files_scanned": len(files), "hits": scanner.hits, "matches": matches,
+              "unique_values": len({m["match_sha256"] for m in matches}),
+              "unclassified_match_count": sum(m["classification"] == "unclassified" for m in matches),
+              "classification_basis": "exact 32 reviewed code/module/attribute/config strings; initial scan retained under raw/closure",
+              "conclusion": "Not zero-hit certification; no credential found in reviewed contexts."}
+    (ARCHIVE / "scan-review.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+    lines = [digest(p.read_bytes()) + "  " + str(p.relative_to(REPO))
+             for p in sorted(ARCHIVE.rglob("*")) if p.is_file() and p != ARCHIVE / "sha256-manifest.txt"]
+    (ARCHIVE / "sha256-manifest.txt").write_text("\n".join(lines) + "\n")
+    print(json.dumps({"original_files": len(manifest["files"]),
+                      "original_bytes": sum(r["bytes"] for r in manifest["files"]),
+                      "files_scanned": len(files), "scan_groups": len(scanner.hits),
+                      "matches": len(matches), "unique_values": report["unique_values"],
+                      "unclassified": report["unclassified_match_count"],
+                      "manifest_content_files": len(lines)}))
+    return int(report["unclassified_match_count"] > 0)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

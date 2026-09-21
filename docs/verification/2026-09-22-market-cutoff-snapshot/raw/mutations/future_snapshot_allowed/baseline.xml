@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="0.742" timestamp="2026-09-22T00:36:26.197449+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_history_never_reads_latest_meta_or_future_daily" time="0.004" /></testsuite></testsuites>

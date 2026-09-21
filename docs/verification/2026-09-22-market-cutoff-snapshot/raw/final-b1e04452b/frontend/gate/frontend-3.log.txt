@@ -1,0 +1,38 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/fwp-wt-market-date-advisory-0921/intelligence/webapp
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90m/Users/a77/fwp-wt-market-date-advisory-0921/intelligence/webapp[39m
+
+ [32m✓[39m src/researchActivity.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/streamEventRegistry.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/api.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+ [32m✓[39m src/components/ResearchActivityControl.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 463[2mms[22m[39m
+ [32m✓[39m src/components/DailyReportView.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 733[2mms[22m[39m
+   [33m[2m✓[22m[39m DailyReportView[2m > [22mkeeps glossary and the original report behind disclosure controls [33m 441[2mms[22m[39m
+ [32m✓[39m src/components/ResearchProjectPanel.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 521[2mms[22m[39m
+ [32m✓[39m src/components/ResearchEvolutionPanel.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 1869[2mms[22m[39m
+ [32m✓[39m src/components/components.test.tsx [2m([22m[2m71 tests[22m[2m)[22m[33m 16855[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench components[2m > [22mstarts a workflow preset and submits from the unified composer [33m 431[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mopens on today and navigates across the five product surfaces [33m 744[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mrestores the latest conversation and submits in hybrid mode [33m 2036[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mseeds the credits line from bootstrap and refreshes it once a question is accepted [33m 1719[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22msubmits an explicit KOL perspective without mixing other profiles [33m 2104[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mrestores the perspective picker from the latest user message [33m 353[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mregenerates with the original user message perspective [33m 1046[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mrecovers a persisted terminal run after the stream disconnects [33m 1413[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling while terminal ownership precedes report delivery [33m 781[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not let an old finalization snapshot erase the next submitted turn [33m 784[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps cancel pending until polling confirms the cancelled state [33m 678[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mcloses the event stream and polling timer when unmounted [33m 335[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mconfigures session-only BYOK without exposing the key [33m 538[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mpersists BYOK only after opt-in and can explicitly forget it [33m 577[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mregenerates as a new message without replacing the old answer [33m 567[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not let a late artifact response replace the current selection [33m 356[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[32m110 passed[39m[22m[90m (110)[39m
+[2m   Start at [22m 00:51:13
+[2m   Duration [22m 23.40s[2m (transform 2.46s, setup 6.48s, collect 5.49s, tests 20.48s, environment 18.21s, prepare 2.73s)[22m
+

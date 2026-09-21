@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="3" time="0.307" timestamp="2026-09-22T00:37:41.888869+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_market_date_advisory" name="test_prefetch_keeps_its_source_date_not_overview_or_event_date[2026-07-22]" time="0.006" /><testcase classname="intelligence.tests.test_market_date_advisory" name="test_prefetch_keeps_its_source_date_not_overview_or_event_date[None]" time="0.003"><failure message="AssertionError: assert {'2026-07-24'} == {None}&#10;  &#10;  Extra items in the left set:&#10;  '2026-07-24'&#10;  Extra items in the right set:&#10;  None&#10;  Use -v to get more diff">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/mutations/unknown_source_filled_from_overview/mutant-tmp/test_prefetch_keeps_its_source0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x109c85f10&gt;
+source_date = None
+
+    @pytest.mark.parametrize("source_date", ["2026-07-22", None, "not-a-date"])
+    def test_prefetch_keeps_its_source_date_not_overview_or_event_date(tmp_path: Path, monkeypatch, source_date):
+        from intelligence.services import asof_prefetch
+    
+        monkeypatch.setattr(episode_tools.ask_blocks, "_market_data_asof", lambda *_a, **_k: "2026-07-24")
+        monkeypatch.setattr(episode_tools.ask_blocks, "_daily_market_overview_block_for_llm", lambda *_a, **_k: "")
+        monkeypatch.setattr(episode_tools.ask_blocks, "_market_cause_window_block_for_llm", lambda *_a, **_k: "")
+        monkeypatch.setattr(
+            asof_prefetch, "collect_prefetch_items", lambda **_k: (
+                asof_prefetch.PrefetchItem(
+                    tool="market_data", title="预取",
+                    detail="## 预取\n- 指数样本2026-07-20上涨\n- 预计2026-08-01交付\n- 使用要求：情景不是事实",
+                    source_date=source_date,
+                ),
+            ),
+        )
+        registry, context = _registry(tmp_path)
+        result = registry.execute("market_data", {}, context=context, step_id="prefetch-date:1")
+        assert result.trace.status == "success"
+        assert len(result.evidence) == 2
+&gt;       assert {item.source_date for item in result.evidence} == {source_date if source_date == "2026-07-22" else None}
+E       AssertionError: assert {'2026-07-24'} == {None}
+E         
+E         Extra items in the left set:
+E         '2026-07-24'
+E         Extra items in the right set:
+E         None
+E         Use -v to get more diff
+
+intelligence/tests/test_market_date_advisory.py:279: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_market_date_advisory" name="test_prefetch_keeps_its_source_date_not_overview_or_event_date[not-a-date]" time="0.003"><failure message="AssertionError: assert {'2026-07-24'} == {None}&#10;  &#10;  Extra items in the left set:&#10;  '2026-07-24'&#10;  Extra items in the right set:&#10;  None&#10;  Use -v to get more diff">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/mutations/unknown_source_filled_from_overview/mutant-tmp/test_prefetch_keeps_its_source1')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10a55c800&gt;
+source_date = 'not-a-date'
+
+    @pytest.mark.parametrize("source_date", ["2026-07-22", None, "not-a-date"])
+    def test_prefetch_keeps_its_source_date_not_overview_or_event_date(tmp_path: Path, monkeypatch, source_date):
+        from intelligence.services import asof_prefetch
+    
+        monkeypatch.setattr(episode_tools.ask_blocks, "_market_data_asof", lambda *_a, **_k: "2026-07-24")
+        monkeypatch.setattr(episode_tools.ask_blocks, "_daily_market_overview_block_for_llm", lambda *_a, **_k: "")
+        monkeypatch.setattr(episode_tools.ask_blocks, "_market_cause_window_block_for_llm", lambda *_a, **_k: "")
+        monkeypatch.setattr(
+            asof_prefetch, "collect_prefetch_items", lambda **_k: (
+                asof_prefetch.PrefetchItem(
+                    tool="market_data", title="预取",
+                    detail="## 预取\n- 指数样本2026-07-20上涨\n- 预计2026-08-01交付\n- 使用要求：情景不是事实",
+                    source_date=source_date,
+                ),
+            ),
+        )
+        registry, context = _registry(tmp_path)
+        result = registry.execute("market_data", {}, context=context, step_id="prefetch-date:1")
+        assert result.trace.status == "success"
+        assert len(result.evidence) == 2
+&gt;       assert {item.source_date for item in result.evidence} == {source_date if source_date == "2026-07-22" else None}
+E       AssertionError: assert {'2026-07-24'} == {None}
+E         
+E         Extra items in the left set:
+E         '2026-07-24'
+E         Extra items in the right set:
+E         None
+E         Use -v to get more diff
+
+intelligence/tests/test_market_date_advisory.py:279: AssertionError</failure></testcase></testsuite></testsuites>

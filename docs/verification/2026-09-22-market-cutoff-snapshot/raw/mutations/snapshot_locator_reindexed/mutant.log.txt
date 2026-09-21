@@ -1,0 +1,25 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_snapshot_theme_locator_preserves_original_array_index __________
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/mutations/snapshot_locator_reindexed/mutant-tmp/test_snapshot_theme_locator_pr0')
+
+    def test_snapshot_theme_locator_preserves_original_array_index(tmp_path):
+        from intelligence.services.local_market_snapshot import read_snapshot_evidence
+    
+        root = tmp_path / "snapshots"
+        doc = _snapshot(root)
+        _snapshot(root, themes=[None, *doc["themes"]])
+        evidence, _, _ = read_snapshot_evidence(root, as_of=date(2026, 9, 21))
+        theme = next(item for item in evidence if "化学制药" in item.title)
+>       assert theme.internal_locator.endswith("#themes.1")
+E       assert False
+E        +  where False = <built-in method endswith of str object at 0x10b3b8650>('#themes.1')
+E        +    where <built-in method endswith of str object at 0x10b3b8650> = '/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/mutations/snapshot_locator_reindexed/mutant-tmp/test_snapshot_theme_locator_pr0/snapshots/2026-09-21.json#themes.0'.endswith
+E        +      where '/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/mutations/snapshot_locator_reindexed/mutant-tmp/test_snapshot_theme_locator_pr0/snapshots/2026-09-21.json#themes.0' = AgentEvidence(tool='local_market_snapshot', title='2026-09-21 涨停池行业分布 化学制药', detail='数据日期 2026-09-21；涨停池行业分布 化学制药：{"pr...pped=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='', io_effect='unknown').internal_locator
+
+intelligence/tests/test_local_market_snapshot.py:79: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/mutations/snapshot_locator_reindexed/mutant.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_local_market_snapshot.py::test_snapshot_theme_locator_preserves_original_array_index
+1 failed in 0.41s

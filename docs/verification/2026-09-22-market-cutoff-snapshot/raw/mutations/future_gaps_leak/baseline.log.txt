@@ -1,0 +1,3 @@
+....                                                                     [100%]
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/mutations/future_gaps_leak/baseline.xml -
+4 passed in 1.69s

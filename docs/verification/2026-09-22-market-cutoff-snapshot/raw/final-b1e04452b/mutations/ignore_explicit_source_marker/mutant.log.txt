@@ -1,0 +1,24 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___ test_mixed_structured_evidence_distinguishes_source_date_from_event_date ___
+
+    def test_mixed_structured_evidence_distinguishes_source_date_from_event_date() -> None:
+        evidence, _ = agent_research.block_lines_to_evidence(
+            "market_data",
+            "成交额10000亿元\n回顾2026-07-20指数上涨0.85%\n"
+            "2026-07-22 主线（2026-07-18启动）；数据日期：2026-07-22\n"
+            "题材预计2026-08-01交付；数据日期：2026-07-23",
+            "本地 DuckDB",
+            fallback_source_date="2026-07-24",
+        )
+>       assert [item.source_date for item in evidence] == ["2026-07-24", "2026-07-24", "2026-07-22", "2026-07-23"]
+E       AssertionError: assert ['2026-07-24'... '2026-07-24'] == ['2026-07-24'... '2026-07-23']
+E         
+E         At index 2 diff: '2026-07-24' != '2026-07-22'
+E         Use -v to get more diff
+
+intelligence/tests/test_agent_research.py:244: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/ignore_explicit_source_marker/mutant.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_agent_research.py::test_mixed_structured_evidence_distinguishes_source_date_from_event_date
+1 failed in 2.07s

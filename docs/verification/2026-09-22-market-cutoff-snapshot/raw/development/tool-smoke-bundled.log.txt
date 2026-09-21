@@ -1,0 +1,18 @@
+Reading additional input from stdin...
+OpenAI Codex v0.155.0-alpha.9.2
+--------
+workdir: /Users/a77/fwp-wt-market-date-advisory-0921
+model: gpt-5.4
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: medium
+reasoning summaries: none
+session id: 01a0c4cf-905e-7ea3-8ec2-7e7d427d3f22
+--------
+user
+只执行 pwd 和 git status --short。不改文件、不读密钥、不联网或用浏览器，不用其他工具通道；如果不能执行本地命令则立即报告阻塞并停止。
+warning: Model metadata for `gpt-5.4` not found. Defaulting to fallback metadata; this can degrade performance and cause issues.
+2026-09-21T16:32:15.014645Z ERROR codex_models_manager::manager: failed to refresh available models: timeout waiting for child process to exit
+ERROR: {"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The 'gpt-5.4' model is not supported when using Codex with a ChatGPT account."}}
+ERROR: {"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The 'gpt-5.4' model is not supported when using Codex with a ChatGPT account."}}

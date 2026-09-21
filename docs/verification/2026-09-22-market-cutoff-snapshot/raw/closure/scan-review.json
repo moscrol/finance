@@ -1,0 +1,28 @@
+{
+  "implementation": "scripts.smoke_workbench_self_use.SecretScanner",
+  "scope": "245 text files copied into the evidence package; scan report and checksum manifest excluded",
+  "raw_pattern_matches": 191,
+  "raw_unique_values": 32,
+  "context_reviewed_unclassified_hits": 60,
+  "context_reviewed_unique_values": 15,
+  "classification": "all 60 context-reviewed hits are Python dotted attribute/module/config names or a non-secret configuration warning; no credential value found",
+  "classified_examples": [
+    "mcp_servers.burpsuite.model_instructions_file: CLI warning text",
+    "information_cutoff.as_of_date.isoformat: test mutation source",
+    "contract.material_contract.data_scope: test assertion",
+    "tool_budget_state.runtime_budget.research_reasoning: source reference",
+    "intelligence.adapters.knowledge: import path",
+    "tool_context.information_cutoff.as_of_date: source diff",
+    "tool_context.deadline.stage_timeout: source diff",
+    "l3_evidence.L3LookupConfig.from_env: source diff",
+    "run_context.information_cutoff.as_of_date: source diff",
+    "finance_query.FinanceQuerySpec.from_arguments: source diff",
+    "agent_research.build_graph_tools._evidence_lookup: source reference",
+    "effective_context.information_cutoff.as_of_date: source diff",
+    "agent_research.build_graph_tools._graph_lookup: source reference",
+    "services.derived_calculation.bind_derived_calculation_tool: source reference",
+    "source_frame.material_contract.data_scope: source reference"
+  ],
+  "unclassified_match_count": 0,
+  "conclusion": "Pattern matching is not zero-hit certification; all matches were context-reviewed before archive acceptance. No secret or token was included."
+}

@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="4" time="1.419" timestamp="2026-09-22T00:52:00.871587+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence[future_only]" time="0.594"><failure message="AssertionError: assert ('99999' not in 'ToolObserva...elemetry={})'&#10;  &#10;  '99999' is contained here:&#10;    ), gaps=('99999 future gap', '本次结果全部晚于用户信息截止日，未取得上界内证据'), evidence_hashes=(), dataset='unknown', caliber='', payload_field_names=('unknown',), payload_sha256='a093e5caca2f5f3d8acf3d9bd0edf39319dfa855b22e1acb9c134384182e1773', telemetry={})&#10;  ?           +++++)">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/future_gaps_leak/mutant-tmp/test_explicit_cutoff_does_not_0')
+shape = 'future_only'
+
+    @pytest.mark.parametrize("shape", ("future_only", "mixed", "observation_only", "past_with_future_observation"))
+    def test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence(tmp_path, shape):
+        context, _ = _registry(tmp_path, HISTORICAL)
+    
+        def runner(*_args):
+            future = AgentEvidence(tool="mainline_context", title="SECRET-FUTURE", detail="99999 future", source="fixture", source_date="2026-09-18")
+            past = AgentEvidence(tool="mainline_context", title="past", detail="past value", source="fixture", source_date="2026-09-11")
+            evidence = {
+                "observation_only": [], "mixed": [past, future],
+                "past_with_future_observation": [past], "future_only": [future],
+            }[shape]
+            return evidence, "99999 future", ProviderTrace(provider="fixture", capability="mainline_context", status="success", detail="99999 future", source_trade_date="2026-09-18"), ("99999 future gap",)
+    
+        registry = default_registry({"mainline_context": runner})
+        # Verify the shared cutoff guard, independent of the local-only authorization guard.
+        from dataclasses import replace
+        context = replace(context, contract=replace(context.contract, material_contract=None, allowed_capabilities=("mainline_context",)))
+        result = registry.execute("mainline_context", {}, context=context, step_id="hostile")
+        has_past = shape in {"mixed", "past_with_future_observation"}
+        assert len(result.evidence) == (1 if has_past else 0)
+        assert result.trace.status == ("success" if has_past else "future_of_cutoff")
+&gt;       assert "99999" not in repr(result) and "SECRET-FUTURE" not in repr(result)
+E       AssertionError: assert ('99999' not in 'ToolObserva...elemetry={})'
+E         
+E         '99999' is contained here:
+E           ), gaps=('99999 future gap', '本次结果全部晚于用户信息截止日，未取得上界内证据'), evidence_hashes=(), dataset='unknown', caliber='', payload_field_names=('unknown',), payload_sha256='a093e5caca2f5f3d8acf3d9bd0edf39319dfa855b22e1acb9c134384182e1773', telemetry={})
+E         ?           +++++)
+
+intelligence/tests/test_local_market_snapshot.py:125: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence[mixed]" time="0.038"><failure message="AssertionError: assert ('99999' not in 'ToolObserva...elemetry={})'&#10;  &#10;  '99999' is contained here:&#10;    ), gaps=('99999 future gap',), evidence_hashes=('1fc53ebb303ea7ca',), dataset='unknown', caliber='', payload_field_names=('unknown',), payload_sha256='a093e5caca2f5f3d8acf3d9bd0edf39319dfa855b22e1acb9c134384182e1773', telemetry={})&#10;  ?           +++++)">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/future_gaps_leak/mutant-tmp/test_explicit_cutoff_does_not_1')
+shape = 'mixed'
+
+    @pytest.mark.parametrize("shape", ("future_only", "mixed", "observation_only", "past_with_future_observation"))
+    def test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence(tmp_path, shape):
+        context, _ = _registry(tmp_path, HISTORICAL)
+    
+        def runner(*_args):
+            future = AgentEvidence(tool="mainline_context", title="SECRET-FUTURE", detail="99999 future", source="fixture", source_date="2026-09-18")
+            past = AgentEvidence(tool="mainline_context", title="past", detail="past value", source="fixture", source_date="2026-09-11")
+            evidence = {
+                "observation_only": [], "mixed": [past, future],
+                "past_with_future_observation": [past], "future_only": [future],
+            }[shape]
+            return evidence, "99999 future", ProviderTrace(provider="fixture", capability="mainline_context", status="success", detail="99999 future", source_trade_date="2026-09-18"), ("99999 future gap",)
+    
+        registry = default_registry({"mainline_context": runner})
+        # Verify the shared cutoff guard, independent of the local-only authorization guard.
+        from dataclasses import replace
+        context = replace(context, contract=replace(context.contract, material_contract=None, allowed_capabilities=("mainline_context",)))
+        result = registry.execute("mainline_context", {}, context=context, step_id="hostile")
+        has_past = shape in {"mixed", "past_with_future_observation"}
+        assert len(result.evidence) == (1 if has_past else 0)
+        assert result.trace.status == ("success" if has_past else "future_of_cutoff")
+&gt;       assert "99999" not in repr(result) and "SECRET-FUTURE" not in repr(result)
+E       AssertionError: assert ('99999' not in 'ToolObserva...elemetry={})'
+E         
+E         '99999' is contained here:
+E           ), gaps=('99999 future gap',), evidence_hashes=('1fc53ebb303ea7ca',), dataset='unknown', caliber='', payload_field_names=('unknown',), payload_sha256='a093e5caca2f5f3d8acf3d9bd0edf39319dfa855b22e1acb9c134384182e1773', telemetry={})
+E         ?           +++++)
+
+intelligence/tests/test_local_market_snapshot.py:125: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence[observation_only]" time="0.023"><failure message="AssertionError: assert ('99999' not in 'ToolObserva...elemetry={})'&#10;  &#10;  '99999' is contained here:&#10;    ), gaps=('99999 future gap', '本次结果全部晚于用户信息截止日，未取得上界内证据'), evidence_hashes=(), dataset='unknown', caliber='', payload_field_names=('unknown',), payload_sha256='a093e5caca2f5f3d8acf3d9bd0edf39319dfa855b22e1acb9c134384182e1773', telemetry={})&#10;  ?           +++++)">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/future_gaps_leak/mutant-tmp/test_explicit_cutoff_does_not_2')
+shape = 'observation_only'
+
+    @pytest.mark.parametrize("shape", ("future_only", "mixed", "observation_only", "past_with_future_observation"))
+    def test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence(tmp_path, shape):
+        context, _ = _registry(tmp_path, HISTORICAL)
+    
+        def runner(*_args):
+            future = AgentEvidence(tool="mainline_context", title="SECRET-FUTURE", detail="99999 future", source="fixture", source_date="2026-09-18")
+            past = AgentEvidence(tool="mainline_context", title="past", detail="past value", source="fixture", source_date="2026-09-11")
+            evidence = {
+                "observation_only": [], "mixed": [past, future],
+                "past_with_future_observation": [past], "future_only": [future],
+            }[shape]
+            return evidence, "99999 future", ProviderTrace(provider="fixture", capability="mainline_context", status="success", detail="99999 future", source_trade_date="2026-09-18"), ("99999 future gap",)
+    
+        registry = default_registry({"mainline_context": runner})
+        # Verify the shared cutoff guard, independent of the local-only authorization guard.
+        from dataclasses import replace
+        context = replace(context, contract=replace(context.contract, material_contract=None, allowed_capabilities=("mainline_context",)))
+        result = registry.execute("mainline_context", {}, context=context, step_id="hostile")
+        has_past = shape in {"mixed", "past_with_future_observation"}
+        assert len(result.evidence) == (1 if has_past else 0)
+        assert result.trace.status == ("success" if has_past else "future_of_cutoff")
+&gt;       assert "99999" not in repr(result) and "SECRET-FUTURE" not in repr(result)
+E       AssertionError: assert ('99999' not in 'ToolObserva...elemetry={})'
+E         
+E         '99999' is contained here:
+E           ), gaps=('99999 future gap', '本次结果全部晚于用户信息截止日，未取得上界内证据'), evidence_hashes=(), dataset='unknown', caliber='', payload_field_names=('unknown',), payload_sha256='a093e5caca2f5f3d8acf3d9bd0edf39319dfa855b22e1acb9c134384182e1773', telemetry={})
+E         ?           +++++)
+
+intelligence/tests/test_local_market_snapshot.py:125: AssertionError</failure></testcase><testcase classname="intelligence.tests.test_local_market_snapshot" name="test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence[past_with_future_observation]" time="0.033"><failure message="AssertionError: assert ('99999' not in 'ToolObserva...elemetry={})'&#10;  &#10;  '99999' is contained here:&#10;    ), gaps=('99999 future gap',), evidence_hashes=('1fc53ebb303ea7ca',), dataset='unknown', caliber='', payload_field_names=('unknown',), payload_sha256='a093e5caca2f5f3d8acf3d9bd0edf39319dfa855b22e1acb9c134384182e1773', telemetry={})&#10;  ?           +++++)">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/final-b1e04452b/mutations/future_gaps_leak/mutant-tmp/test_explicit_cutoff_does_not_3')
+shape = 'past_with_future_observation'
+
+    @pytest.mark.parametrize("shape", ("future_only", "mixed", "observation_only", "past_with_future_observation"))
+    def test_explicit_cutoff_does_not_redeliver_all_future_tool_evidence(tmp_path, shape):
+        context, _ = _registry(tmp_path, HISTORICAL)
+    
+        def runner(*_args):
+            future = AgentEvidence(tool="mainline_context", title="SECRET-FUTURE", detail="99999 future", source="fixture", source_date="2026-09-18")
+            past = AgentEvidence(tool="mainline_context", title="past", detail="past value", source="fixture", source_date="2026-09-11")
+            evidence = {
+                "observation_only": [], "mixed": [past, future],
+                "past_with_future_observation": [past], "future_only": [future],
+            }[shape]
+            return evidence, "99999 future", ProviderTrace(provider="fixture", capability="mainline_context", status="success", detail="99999 future", source_trade_date="2026-09-18"), ("99999 future gap",)
+    
+        registry = default_registry({"mainline_context": runner})
+        # Verify the shared cutoff guard, independent of the local-only authorization guard.
+        from dataclasses import replace
+        context = replace(context, contract=replace(context.contract, material_contract=None, allowed_capabilities=("mainline_context",)))
+        result = registry.execute("mainline_context", {}, context=context, step_id="hostile")
+        has_past = shape in {"mixed", "past_with_future_observation"}
+        assert len(result.evidence) == (1 if has_past else 0)
+        assert result.trace.status == ("success" if has_past else "future_of_cutoff")
+&gt;       assert "99999" not in repr(result) and "SECRET-FUTURE" not in repr(result)
+E       AssertionError: assert ('99999' not in 'ToolObserva...elemetry={})'
+E         
+E         '99999' is contained here:
+E           ), gaps=('99999 future gap',), evidence_hashes=('1fc53ebb303ea7ca',), dataset='unknown', caliber='', payload_field_names=('unknown',), payload_sha256='a093e5caca2f5f3d8acf3d9bd0edf39319dfa855b22e1acb9c134384182e1773', telemetry={})
+E         ?           +++++)
+
+intelligence/tests/test_local_market_snapshot.py:125: AssertionError</failure></testcase></testsuite></testsuites>

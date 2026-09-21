@@ -1,0 +1,25 @@
+{
+  "revision": "b41c8d4755ae1a6735828b911197f3b62407f58e",
+  "python": {
+    "status": "NOT_STARTED_RESOURCE_BLOCKED",
+    "runner_pid": 13134,
+    "runner_stopped_at_local": "2026-09-22T00:37:35+08:00",
+    "reason": "Free disk stayed below the predeclared 8 GiB admission threshold and declined to about 4.3 GiB. No ruff or pytest child had started; run.json checks is empty. Only this owned waiting process received SIGTERM. Original incomplete receipt and wait samples retained.",
+    "full_python_exit_code": null
+  },
+  "mutations": {
+    "status": "COMPLETED_WITH_ONE_SURVIVOR",
+    "source": "mutations/result.json",
+    "completed": 22,
+    "caught": 21,
+    "survivor": "future_snapshot_allowed",
+    "erratum": "A progress update incorrectly said eight new catches and anticipated stopping an incomplete run. The result file proves all 22 cases completed with clean stable b41c8d475 identity before the termination attempt. One test assertion was swallowed by the snapshot reader error handler; subsequent test-only repair belongs to a new revision."
+  },
+  "independent_reviews": {
+    "spec": "NO_VERDICT_MODEL_CAPACITY_ERROR",
+    "quality": "NO_VERDICT_MODEL_CAPACITY_ERROR",
+    "earlier_attempts": "Missing code-mode host and CLI usage failures retained in development logs; none is a completed review."
+  },
+  "live": "NOT_STARTED_ENGINEERING_GATE_INCOMPLETE",
+  "production": "No deployment, production service switch, market data write, or new K3 conversation was performed in this round."
+}

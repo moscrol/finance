@@ -1,0 +1,27 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_local_only_reads_snapshot_without_mixed_tools_or_network _________
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/mutations/drop_snapshot_capability/mutant-tmp/test_local_only_reads_snapshot0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108f3e480>
+
+    def test_local_only_reads_snapshot_without_mixed_tools_or_network(tmp_path, monkeypatch):
+        import socket
+    
+        def forbidden(*_a, **_kw):
+            pytest.fail("snapshot must not connect or use mixed market runner")
+    
+        monkeypatch.setattr(socket.socket, "connect", forbidden)
+        monkeypatch.setattr("intelligence.services.episode_tools._market_block", forbidden)
+        _snapshot(tmp_path / "market_snapshot")
+        context, registry = _registry(tmp_path)
+        assert context.contract.material_contract.data_scope == "local_only"
+        names = registry.names()
+>       assert "local_market_snapshot" in names
+E       AssertionError: assert 'local_market_snapshot' in ('mainline_context', 'finance_query')
+
+intelligence/tests/test_local_market_snapshot.py:56: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-cutoff-snapshot-20260922/mutations/drop_snapshot_capability/mutant.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_local_market_snapshot.py::test_local_only_reads_snapshot_without_mixed_tools_or_network
+1 failed in 0.88s
