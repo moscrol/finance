@@ -19,11 +19,11 @@
 新组合6eb12c1b8：Python12461P/85S/2X、Ruff绿；前端110P、E2E34P/2S；finance-only registry五项0；适用pre-commit通过。各叶首尾身份/源哈希不变，唯一收据/JUnit/终端一致，回读/兼容0。新组合收据`gates/python/receipts/gate-bVVRCApx/pytest.json`。
 
 ## 未验证 / 已知边界
-没有新独立复审；旧v3 K3各40请求触帽未终审历史不改。07:12Z远端main已adcda94b，6eb12收据只签c615基线组合，不签后来main。真实完整副本302132发布恢复未演练。
+2026-09-21T08:07:40Z已启动6eb12双轴K3，报告/QC待完成。用户“不用给k3设置预算，随便用”已落执行器：取消请求/总时长/强制收尾帽，既有订阅/权限边界不变；旧v3触帽历史不改。6eb12只签c615基线组合，不签后来main。真实完整副本302132发布恢复未演练。
 归属标记不是恶意写者沙箱；首尾净不证明中间无改后还原；shell只留pytest末15行。
 
 ## 下一步
-协调入口`~/fwp-wt-ownership-closeout-0921/docs/handoffs/inflight/ops-worktree-ownership-closeout-0921.md`。另定独立复审对象/有限预算与届时main合流范围；合并/部署/生产回填/删树分别确认，三单与组合不可重复合。
+协调入口`~/fwp-wt-ownership-closeout-0921/docs/handoffs/inflight/ops-worktree-ownership-closeout-0921.md`。查`~/.finance-runtime/reviews/ownership-k3-v4-20260921/`两轴execution/events；别重复启动或重设旧预算。收报告后单独QC/封档。届时main集成、合并/部署/生产回填/删树分别确认；三单与组合不可重复合。
 
 ## 踩过的坑
 latest只导航；配置失败也要cleanup；旧单分支/旧组合/新组合总数不能直接比增减。被冻结的候选及历史证据不补写。
