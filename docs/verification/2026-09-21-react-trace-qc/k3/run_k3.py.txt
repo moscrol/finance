@@ -1,0 +1,73 @@
+"""One bounded read-only K3 follow-up on the existing subscription, no retries."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / 'k3'
+TREE = Path('/Users/a77/fwp-wt-react-trace-qc-0921')
+REVISION = 'a412a56aa757863a5c35bdbc2b71498827d2b278'
+OUT.mkdir(exist_ok=False)
+(OUT/'tmp').mkdir()
+
+def identity():
+    def git(*args): return subprocess.check_output(['git',*args],cwd=TREE,text=True).strip()
+    return dict(revision=git('rev-parse','HEAD'), status=git('status','--porcelain'))
+
+sandbox=ROOT/'k3.sb'
+sandbox.write_text(f'''(version 1)
+(allow default)
+(deny file-write*)
+(allow file-write* (subpath "{OUT}") (literal "/dev/null"))
+(deny network*)
+(allow network-outbound (remote ip "localhost:18788"))
+''')
+command=['/usr/bin/sandbox-exec','-f',str(sandbox),'/opt/homebrew/bin/pi','--offline',
+         '--provider','mirasim-kimi','--model','kimi-k3','--thinking','xhigh','--no-session',
+         '--no-extensions','--no-skills','--no-prompt-templates','--no-themes','--no-context-files',
+         '--no-approve','--tools','read,bash,write','--mode','json','-p','--','@'+str(ROOT/'k3-prompt.md')]
+record=dict(command=command,identity_before=identity(),timeout_seconds=600,
+            started_at=datetime.now(timezone.utc).isoformat(), complete=False,
+            prompt_sha256=hashlib.sha256((ROOT/'k3-prompt.md').read_bytes()).hexdigest())
+assert record['identity_before']==dict(revision=REVISION,status='')
+path=OUT/'execution.json'
+path.write_text(json.dumps(record,indent=2)+'\n')
+try:
+    auth=subprocess.run(['/Users/a77/.claude/mirasim-kimi-token.sh'],capture_output=True,text=True,timeout=30,check=True)
+    token=auth.stdout.strip()
+    if not token: raise ValueError('empty credential')
+except (subprocess.SubprocessError,ValueError):
+    record.update(complete=True,blocked='auth_bootstrap_failed_before_model')
+    path.write_text(json.dumps(record,indent=2)+'\n')
+    raise SystemExit(2) from None
+provider=json.loads(Path('/Users/a77/.pi/agent/models.json').read_text())['providers']['mirasim-kimi']
+assert provider['baseUrl']=='http://127.0.0.1:18788/v1'
+safe={key:provider[key] for key in ('baseUrl','api','compat','models') if key in provider}
+safe['apiKey']='$PR809_QC_K3_TOKEN'
+config=OUT/'agent-config'; config.mkdir()
+(config/'models.json').write_text(json.dumps({'providers':{'mirasim-kimi':safe}},indent=2)+'\n')
+env={'HOME':'/Users/a77','PATH':'/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin','LANG':'C.UTF-8',
+     'TMPDIR':str(OUT/'tmp'),'PYTHONDONTWRITEBYTECODE':'1','FWP_TEST_RECEIPT':'0',
+     'GIT_OPTIONAL_LOCKS':'0','PI_OFFLINE':'1','PI_TELEMETRY':'0','PI_CODING_AGENT_DIR':str(config),
+     'PR809_QC_K3_TOKEN':token}
+with (OUT/'events.jsonl').open('xb') as stdout, (OUT/'stderr.log').open('xb') as stderr:
+    proc=subprocess.Popen(command,cwd=TREE,env=env,stdin=subprocess.DEVNULL,stdout=stdout,stderr=stderr,start_new_session=True)
+    record['pid']=proc.pid; path.write_text(json.dumps(record,indent=2)+'\n')
+    try:
+        proc.wait(timeout=600)
+        record['timed_out']=False
+    except subprocess.TimeoutExpired:
+        record['timed_out']=True
+        os.killpg(proc.pid,signal.SIGTERM)
+        try: proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid,signal.SIGKILL); proc.wait()
+    record['exit_code']=proc.returncode
+record.update(identity_after=identity(),complete=True,finished_at=datetime.now(timezone.utc).isoformat())
+record['candidate_untouched']=record['identity_after']==record['identity_before']
+record['sha256']={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in [OUT/'events.jsonl',OUT/'stderr.log',OUT/'REPORT.md'] if p.exists()}
+path.write_text(json.dumps(record,indent=2)+'\n')

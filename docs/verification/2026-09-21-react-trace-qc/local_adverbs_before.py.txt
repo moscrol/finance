@@ -1,0 +1,21 @@
+"""Root follow-up to unfinished K3 A1; not an independent review verdict."""
+import pytest
+from intelligence.services.episode_semantic_verifier import _repair_dangling_condition_references
+
+@pytest.mark.parametrize(('text', 'expected'), [
+    ('多头结构未破坏。目前尚未满足升级条件中的2条。', '多头结构未破坏。'),
+    ('多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。', '多头结构未破坏。需继续观察。'),
+    ('观察结果良好。当前满足升级条件中的2条。', '观察结果良好。'),
+    ('量能配合，暂时满足升级条件中的2条。', '量能配合。'),
+    ('量能配合；目前满足升级条件中的2条，需观察。', '量能配合，需观察。'),
+    ('- 量能配合。**目前尚未满足升级条件中的2条**。', '- 量能配合。'),
+    ('量能配合：目前满足升级条件中的2条，需观察。', '量能配合：需观察。'),
+    ('量能配合，截至目前满足升级条件中的2条。', '量能配合。'),
+    ('量能仅满足当前研究需要，满足升级条件中的2条。', '量能仅满足当前研究需要。'),
+    ('**当前观察良好**，满足升级条件中的2条。', '**当前观察良好**。'),
+    ('所谓目前满足升级条件中的2条，仍需观察。', '所谓目前，仍需观察。'),
+])
+def test_local_count_modifiers(text, expected):
+    assert _repair_dangling_condition_references(
+        text, before='升级条件：站稳20日线。', rejected_sentence_indexes=(1,)
+    ) == expected

@@ -1,0 +1,234 @@
+FFFFFFFF...                                                              [100%]
+=================================== FAILURES ===================================
+_ test_local_count_modifiers[\u591a\u5934\u7ed3\u6784\u672a\u7834\u574f\u3002\u76ee\u524d\u5c1a\u672a\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\u3002-\u591a\u5934\u7ed3\u6784\u672a\u7834\u574f\u3002] _
+
+text = '多头结构未破坏。目前尚未满足升级条件中的2条。', expected = '多头结构未破坏。'
+
+    @pytest.mark.parametrize(('text', 'expected'), [
+        ('多头结构未破坏。目前尚未满足升级条件中的2条。', '多头结构未破坏。'),
+        ('多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。', '多头结构未破坏。需继续观察。'),
+        ('观察结果良好。当前满足升级条件中的2条。', '观察结果良好。'),
+        ('量能配合，暂时满足升级条件中的2条。', '量能配合。'),
+        ('量能配合；目前满足升级条件中的2条，需观察。', '量能配合，需观察。'),
+        ('- 量能配合。**目前尚未满足升级条件中的2条**。', '- 量能配合。'),
+        ('量能配合：目前满足升级条件中的2条，需观察。', '量能配合：需观察。'),
+        ('量能配合，截至目前满足升级条件中的2条。', '量能配合。'),
+        ('量能仅满足当前研究需要，满足升级条件中的2条。', '量能仅满足当前研究需要。'),
+        ('**当前观察良好**，满足升级条件中的2条。', '**当前观察良好**。'),
+        ('所谓目前满足升级条件中的2条，仍需观察。', '所谓目前，仍需观察。'),
+    ])
+    def test_local_count_modifiers(text, expected):
+>       assert _repair_dangling_condition_references(
+            text, before='升级条件：站稳20日线。', rejected_sentence_indexes=(1,)
+        ) == expected
+E       AssertionError: assert '多头结构未破坏。目前。' == '多头结构未破坏。'
+E         
+E         - 多头结构未破坏。
+E         + 多头结构未破坏。目前。
+E         ?         +++
+
+../.finance-runtime/reviews/react-trace-qc-20260921/probe_condition_local_adverbs.py:19: AssertionError
+_ test_local_count_modifiers[\u591a\u5934\u7ed3\u6784\u672a\u7834\u574f\u3002\u76ee\u524d\u5c1a\u672a\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\uff0c\u9700\u7ee7\u7eed\u89c2\u5bdf\u3002-\u591a\u5934\u7ed3\u6784\u672a\u7834\u574f\u3002\u9700\u7ee7\u7eed\u89c2\u5bdf\u3002] _
+
+text = '多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。', expected = '多头结构未破坏。需继续观察。'
+
+    @pytest.mark.parametrize(('text', 'expected'), [
+        ('多头结构未破坏。目前尚未满足升级条件中的2条。', '多头结构未破坏。'),
+        ('多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。', '多头结构未破坏。需继续观察。'),
+        ('观察结果良好。当前满足升级条件中的2条。', '观察结果良好。'),
+        ('量能配合，暂时满足升级条件中的2条。', '量能配合。'),
+        ('量能配合；目前满足升级条件中的2条，需观察。', '量能配合，需观察。'),
+        ('- 量能配合。**目前尚未满足升级条件中的2条**。', '- 量能配合。'),
+        ('量能配合：目前满足升级条件中的2条，需观察。', '量能配合：需观察。'),
+        ('量能配合，截至目前满足升级条件中的2条。', '量能配合。'),
+        ('量能仅满足当前研究需要，满足升级条件中的2条。', '量能仅满足当前研究需要。'),
+        ('**当前观察良好**，满足升级条件中的2条。', '**当前观察良好**。'),
+        ('所谓目前满足升级条件中的2条，仍需观察。', '所谓目前，仍需观察。'),
+    ])
+    def test_local_count_modifiers(text, expected):
+>       assert _repair_dangling_condition_references(
+            text, before='升级条件：站稳20日线。', rejected_sentence_indexes=(1,)
+        ) == expected
+E       AssertionError: assert '多头结构未破坏。目前，需继续观察。' == '多头结构未破坏。需继续观察。'
+E         
+E         - 多头结构未破坏。需继续观察。
+E         + 多头结构未破坏。目前，需继续观察。
+E         ?         +++
+
+../.finance-runtime/reviews/react-trace-qc-20260921/probe_condition_local_adverbs.py:19: AssertionError
+_ test_local_count_modifiers[\u89c2\u5bdf\u7ed3\u679c\u826f\u597d\u3002\u5f53\u524d\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\u3002-\u89c2\u5bdf\u7ed3\u679c\u826f\u597d\u3002] _
+
+text = '观察结果良好。当前满足升级条件中的2条。', expected = '观察结果良好。'
+
+    @pytest.mark.parametrize(('text', 'expected'), [
+        ('多头结构未破坏。目前尚未满足升级条件中的2条。', '多头结构未破坏。'),
+        ('多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。', '多头结构未破坏。需继续观察。'),
+        ('观察结果良好。当前满足升级条件中的2条。', '观察结果良好。'),
+        ('量能配合，暂时满足升级条件中的2条。', '量能配合。'),
+        ('量能配合；目前满足升级条件中的2条，需观察。', '量能配合，需观察。'),
+        ('- 量能配合。**目前尚未满足升级条件中的2条**。', '- 量能配合。'),
+        ('量能配合：目前满足升级条件中的2条，需观察。', '量能配合：需观察。'),
+        ('量能配合，截至目前满足升级条件中的2条。', '量能配合。'),
+        ('量能仅满足当前研究需要，满足升级条件中的2条。', '量能仅满足当前研究需要。'),
+        ('**当前观察良好**，满足升级条件中的2条。', '**当前观察良好**。'),
+        ('所谓目前满足升级条件中的2条，仍需观察。', '所谓目前，仍需观察。'),
+    ])
+    def test_local_count_modifiers(text, expected):
+>       assert _repair_dangling_condition_references(
+            text, before='升级条件：站稳20日线。', rejected_sentence_indexes=(1,)
+        ) == expected
+E       AssertionError: assert '观察结果良好。当前。' == '观察结果良好。'
+E         
+E         - 观察结果良好。
+E         + 观察结果良好。当前。
+E         ?        +++
+
+../.finance-runtime/reviews/react-trace-qc-20260921/probe_condition_local_adverbs.py:19: AssertionError
+_ test_local_count_modifiers[\u91cf\u80fd\u914d\u5408\uff0c\u6682\u65f6\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\u3002-\u91cf\u80fd\u914d\u5408\u3002] _
+
+text = '量能配合，暂时满足升级条件中的2条。', expected = '量能配合。'
+
+    @pytest.mark.parametrize(('text', 'expected'), [
+        ('多头结构未破坏。目前尚未满足升级条件中的2条。', '多头结构未破坏。'),
+        ('多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。', '多头结构未破坏。需继续观察。'),
+        ('观察结果良好。当前满足升级条件中的2条。', '观察结果良好。'),
+        ('量能配合，暂时满足升级条件中的2条。', '量能配合。'),
+        ('量能配合；目前满足升级条件中的2条，需观察。', '量能配合，需观察。'),
+        ('- 量能配合。**目前尚未满足升级条件中的2条**。', '- 量能配合。'),
+        ('量能配合：目前满足升级条件中的2条，需观察。', '量能配合：需观察。'),
+        ('量能配合，截至目前满足升级条件中的2条。', '量能配合。'),
+        ('量能仅满足当前研究需要，满足升级条件中的2条。', '量能仅满足当前研究需要。'),
+        ('**当前观察良好**，满足升级条件中的2条。', '**当前观察良好**。'),
+        ('所谓目前满足升级条件中的2条，仍需观察。', '所谓目前，仍需观察。'),
+    ])
+    def test_local_count_modifiers(text, expected):
+>       assert _repair_dangling_condition_references(
+            text, before='升级条件：站稳20日线。', rejected_sentence_indexes=(1,)
+        ) == expected
+E       AssertionError: assert '量能配合，暂时。' == '量能配合。'
+E         
+E         - 量能配合。
+E         + 量能配合，暂时。
+E         ?     +++
+
+../.finance-runtime/reviews/react-trace-qc-20260921/probe_condition_local_adverbs.py:19: AssertionError
+_ test_local_count_modifiers[\u91cf\u80fd\u914d\u5408\uff1b\u76ee\u524d\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\uff0c\u9700\u89c2\u5bdf\u3002-\u91cf\u80fd\u914d\u5408\uff0c\u9700\u89c2\u5bdf\u3002] _
+
+text = '量能配合；目前满足升级条件中的2条，需观察。', expected = '量能配合，需观察。'
+
+    @pytest.mark.parametrize(('text', 'expected'), [
+        ('多头结构未破坏。目前尚未满足升级条件中的2条。', '多头结构未破坏。'),
+        ('多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。', '多头结构未破坏。需继续观察。'),
+        ('观察结果良好。当前满足升级条件中的2条。', '观察结果良好。'),
+        ('量能配合，暂时满足升级条件中的2条。', '量能配合。'),
+        ('量能配合；目前满足升级条件中的2条，需观察。', '量能配合，需观察。'),
+        ('- 量能配合。**目前尚未满足升级条件中的2条**。', '- 量能配合。'),
+        ('量能配合：目前满足升级条件中的2条，需观察。', '量能配合：需观察。'),
+        ('量能配合，截至目前满足升级条件中的2条。', '量能配合。'),
+        ('量能仅满足当前研究需要，满足升级条件中的2条。', '量能仅满足当前研究需要。'),
+        ('**当前观察良好**，满足升级条件中的2条。', '**当前观察良好**。'),
+        ('所谓目前满足升级条件中的2条，仍需观察。', '所谓目前，仍需观察。'),
+    ])
+    def test_local_count_modifiers(text, expected):
+>       assert _repair_dangling_condition_references(
+            text, before='升级条件：站稳20日线。', rejected_sentence_indexes=(1,)
+        ) == expected
+E       AssertionError: assert '量能配合；目前，需观察。' == '量能配合，需观察。'
+E         
+E         - 量能配合，需观察。
+E         + 量能配合；目前，需观察。
+E         ?     +++
+
+../.finance-runtime/reviews/react-trace-qc-20260921/probe_condition_local_adverbs.py:19: AssertionError
+_ test_local_count_modifiers[- \u91cf\u80fd\u914d\u5408\u3002**\u76ee\u524d\u5c1a\u672a\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761**\u3002-- \u91cf\u80fd\u914d\u5408\u3002] _
+
+text = '- 量能配合。**目前尚未满足升级条件中的2条**。', expected = '- 量能配合。'
+
+    @pytest.mark.parametrize(('text', 'expected'), [
+        ('多头结构未破坏。目前尚未满足升级条件中的2条。', '多头结构未破坏。'),
+        ('多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。', '多头结构未破坏。需继续观察。'),
+        ('观察结果良好。当前满足升级条件中的2条。', '观察结果良好。'),
+        ('量能配合，暂时满足升级条件中的2条。', '量能配合。'),
+        ('量能配合；目前满足升级条件中的2条，需观察。', '量能配合，需观察。'),
+        ('- 量能配合。**目前尚未满足升级条件中的2条**。', '- 量能配合。'),
+        ('量能配合：目前满足升级条件中的2条，需观察。', '量能配合：需观察。'),
+        ('量能配合，截至目前满足升级条件中的2条。', '量能配合。'),
+        ('量能仅满足当前研究需要，满足升级条件中的2条。', '量能仅满足当前研究需要。'),
+        ('**当前观察良好**，满足升级条件中的2条。', '**当前观察良好**。'),
+        ('所谓目前满足升级条件中的2条，仍需观察。', '所谓目前，仍需观察。'),
+    ])
+    def test_local_count_modifiers(text, expected):
+>       assert _repair_dangling_condition_references(
+            text, before='升级条件：站稳20日线。', rejected_sentence_indexes=(1,)
+        ) == expected
+E       AssertionError: assert '- 量能配合。**目前，**。' == '- 量能配合。'
+E         
+E         - - 量能配合。
+E         + - 量能配合。**目前，**。
+
+../.finance-runtime/reviews/react-trace-qc-20260921/probe_condition_local_adverbs.py:19: AssertionError
+_ test_local_count_modifiers[\u91cf\u80fd\u914d\u5408\uff1a\u76ee\u524d\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\uff0c\u9700\u89c2\u5bdf\u3002-\u91cf\u80fd\u914d\u5408\uff1a\u9700\u89c2\u5bdf\u3002] _
+
+text = '量能配合：目前满足升级条件中的2条，需观察。', expected = '量能配合：需观察。'
+
+    @pytest.mark.parametrize(('text', 'expected'), [
+        ('多头结构未破坏。目前尚未满足升级条件中的2条。', '多头结构未破坏。'),
+        ('多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。', '多头结构未破坏。需继续观察。'),
+        ('观察结果良好。当前满足升级条件中的2条。', '观察结果良好。'),
+        ('量能配合，暂时满足升级条件中的2条。', '量能配合。'),
+        ('量能配合；目前满足升级条件中的2条，需观察。', '量能配合，需观察。'),
+        ('- 量能配合。**目前尚未满足升级条件中的2条**。', '- 量能配合。'),
+        ('量能配合：目前满足升级条件中的2条，需观察。', '量能配合：需观察。'),
+        ('量能配合，截至目前满足升级条件中的2条。', '量能配合。'),
+        ('量能仅满足当前研究需要，满足升级条件中的2条。', '量能仅满足当前研究需要。'),
+        ('**当前观察良好**，满足升级条件中的2条。', '**当前观察良好**。'),
+        ('所谓目前满足升级条件中的2条，仍需观察。', '所谓目前，仍需观察。'),
+    ])
+    def test_local_count_modifiers(text, expected):
+>       assert _repair_dangling_condition_references(
+            text, before='升级条件：站稳20日线。', rejected_sentence_indexes=(1,)
+        ) == expected
+E       AssertionError: assert '量能配合：目前，需观察。' == '量能配合：需观察。'
+E         
+E         - 量能配合：需观察。
+E         + 量能配合：目前，需观察。
+E         ?      +++
+
+../.finance-runtime/reviews/react-trace-qc-20260921/probe_condition_local_adverbs.py:19: AssertionError
+_ test_local_count_modifiers[\u91cf\u80fd\u914d\u5408\uff0c\u622a\u81f3\u76ee\u524d\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\u3002-\u91cf\u80fd\u914d\u5408\u3002] _
+
+text = '量能配合，截至目前满足升级条件中的2条。', expected = '量能配合。'
+
+    @pytest.mark.parametrize(('text', 'expected'), [
+        ('多头结构未破坏。目前尚未满足升级条件中的2条。', '多头结构未破坏。'),
+        ('多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。', '多头结构未破坏。需继续观察。'),
+        ('观察结果良好。当前满足升级条件中的2条。', '观察结果良好。'),
+        ('量能配合，暂时满足升级条件中的2条。', '量能配合。'),
+        ('量能配合；目前满足升级条件中的2条，需观察。', '量能配合，需观察。'),
+        ('- 量能配合。**目前尚未满足升级条件中的2条**。', '- 量能配合。'),
+        ('量能配合：目前满足升级条件中的2条，需观察。', '量能配合：需观察。'),
+        ('量能配合，截至目前满足升级条件中的2条。', '量能配合。'),
+        ('量能仅满足当前研究需要，满足升级条件中的2条。', '量能仅满足当前研究需要。'),
+        ('**当前观察良好**，满足升级条件中的2条。', '**当前观察良好**。'),
+        ('所谓目前满足升级条件中的2条，仍需观察。', '所谓目前，仍需观察。'),
+    ])
+    def test_local_count_modifiers(text, expected):
+>       assert _repair_dangling_condition_references(
+            text, before='升级条件：站稳20日线。', rejected_sentence_indexes=(1,)
+        ) == expected
+E       AssertionError: assert '量能配合，截至目前。' == '量能配合。'
+E         
+E         - 量能配合。
+E         + 量能配合，截至目前。
+
+../.finance-runtime/reviews/react-trace-qc-20260921/probe_condition_local_adverbs.py:19: AssertionError
+=========================== short test summary info ============================
+FAILED ../.finance-runtime/reviews/react-trace-qc-20260921/probe_condition_local_adverbs.py::test_local_count_modifiers[\u591a\u5934\u7ed3\u6784\u672a\u7834\u574f\u3002\u76ee\u524d\u5c1a\u672a\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\u3002-\u591a\u5934\u7ed3\u6784\u672a\u7834\u574f\u3002]
+FAILED ../.finance-runtime/reviews/react-trace-qc-20260921/probe_condition_local_adverbs.py::test_local_count_modifiers[\u591a\u5934\u7ed3\u6784\u672a\u7834\u574f\u3002\u76ee\u524d\u5c1a\u672a\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\uff0c\u9700\u7ee7\u7eed\u89c2\u5bdf\u3002-\u591a\u5934\u7ed3\u6784\u672a\u7834\u574f\u3002\u9700\u7ee7\u7eed\u89c2\u5bdf\u3002]
+FAILED ../.finance-runtime/reviews/react-trace-qc-20260921/probe_condition_local_adverbs.py::test_local_count_modifiers[\u89c2\u5bdf\u7ed3\u679c\u826f\u597d\u3002\u5f53\u524d\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\u3002-\u89c2\u5bdf\u7ed3\u679c\u826f\u597d\u3002]
+FAILED ../.finance-runtime/reviews/react-trace-qc-20260921/probe_condition_local_adverbs.py::test_local_count_modifiers[\u91cf\u80fd\u914d\u5408\uff0c\u6682\u65f6\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\u3002-\u91cf\u80fd\u914d\u5408\u3002]
+FAILED ../.finance-runtime/reviews/react-trace-qc-20260921/probe_condition_local_adverbs.py::test_local_count_modifiers[\u91cf\u80fd\u914d\u5408\uff1b\u76ee\u524d\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\uff0c\u9700\u89c2\u5bdf\u3002-\u91cf\u80fd\u914d\u5408\uff0c\u9700\u89c2\u5bdf\u3002]
+FAILED ../.finance-runtime/reviews/react-trace-qc-20260921/probe_condition_local_adverbs.py::test_local_count_modifiers[- \u91cf\u80fd\u914d\u5408\u3002**\u76ee\u524d\u5c1a\u672a\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761**\u3002-- \u91cf\u80fd\u914d\u5408\u3002]
+FAILED ../.finance-runtime/reviews/react-trace-qc-20260921/probe_condition_local_adverbs.py::test_local_count_modifiers[\u91cf\u80fd\u914d\u5408\uff1a\u76ee\u524d\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\uff0c\u9700\u89c2\u5bdf\u3002-\u91cf\u80fd\u914d\u5408\uff1a\u9700\u89c2\u5bdf\u3002]
+FAILED ../.finance-runtime/reviews/react-trace-qc-20260921/probe_condition_local_adverbs.py::test_local_count_modifiers[\u91cf\u80fd\u914d\u5408\uff0c\u622a\u81f3\u76ee\u524d\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\u3002-\u91cf\u80fd\u914d\u5408\u3002]
+8 failed, 3 passed in 0.96s

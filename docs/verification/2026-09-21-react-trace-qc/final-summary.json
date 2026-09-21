@@ -1,0 +1,22 @@
+{
+  "revision": "ec246761eec6caeac17ea9ad3477b06248f200f5",
+  "receipt": "/Users/a77/.finance-runtime/test-receipts/20260921T093438Z-ec246761.json",
+  "receipt_sha256": "a0c78cc858f2b9f30a269455d9ec361fb6ed1a9adade314473f5715455e4df01",
+  "counts": {
+    "passed": 12554,
+    "failed": 0,
+    "error": 0,
+    "skipped": 87
+  },
+  "xfailed": 2,
+  "xml_counts_including_xfail_as_skipped": {
+    "passed": 12554,
+    "failure": 0,
+    "error": 0,
+    "skipped": 89
+  },
+  "receipt_check_exit_code": 0,
+  "clean_fixed_candidate": true,
+  "later_main_integration_tested": false,
+  "later_main_seen": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a"
+}
