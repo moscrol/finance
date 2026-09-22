@@ -73,7 +73,11 @@
 - `test_workbench_api.py`：126 passed。
 - `-k "episode or research_contract or run_store or restore or contract"`：2040 passed。
 - Ruff：改动文件全绿。
-- 全量 `pytest -q`：本轮**未跑完**（单机约 90 分钟量级），不能声称全绿。
+- 全量 `pytest -q -p no:randomly`：13044 passed, 87 skipped, 2 xfailed, **1 failed**，2301 秒。
+  唯一的红是 `test_workbench_conversation_integration.py::test_skill_timeout_degrades_one_module_and_continues`：
+  该用例的 `_SlowSkill` 睡 1.2 秒对 `timeout_seconds=1`，只有 0.2 秒余量；它直接构造 `TurnOrchestrator`，
+  不经过 `_build_continuous_turn_adapter`，也不碰 episode 存储/恢复。单跑（107 秒）与整文件跑（111 秒）均绿。
+  **没有**在同等负载下跑基线对照，所以只能断言「与本改动无路径交集、且对负载敏感」，不能断言它在 main 上同样会红。
 
 不成立的结论：这些测试证明的是「跨用户/跨会话/跨 run/未绑定的组合会被拒、且拒绝时不写盘」，**不**证明续跑安全——续跑驱动还没写，未知效果与费用对账也还没做。
 
