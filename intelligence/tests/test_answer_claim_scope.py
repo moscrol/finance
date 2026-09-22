@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import re
 import unittest
 
 from intelligence.services.answer_claim_scope import (
+    CALENDAR_DATASETS,
+    FUND_FLOW_METRICS,
     RULE_FUND_FLOW,
     RULE_LATEST_TRADING_DAY,
     RULE_ORDER,
@@ -78,6 +81,84 @@ class LatestTradingDayRuleTests(unittest.TestCase):
     def test_negation_alone_clears_the_claim(self) -> None:
         answer = "2026-09-18 并非最近一个已收盘交易日，仅是本次取到的最后一行。"
         self.assertEqual([], _rules(answer, MARKET_CONTEXT))
+
+
+class QualifierBindingTests(unittest.TestCase):
+    """2026-09-22 审查探针：限定词必须紧挨断言，整句放行会放走真缺陷。"""
+
+    def test_data_cutoff_wording_no_longer_clears_the_claim(self) -> None:
+        # 首跑原句只把「数据日期：」换成「数据截至」，越界断言一字未改。
+        # 旧实现会静默——而本模块自己的 remedy 正是这么建议写的。
+        answer = "**数据截至 2026-09-18（最近一个已收盘交易日）**"
+        self.assertEqual([RULE_LATEST_TRADING_DAY], _rules(answer, MARKET_CONTEXT))
+
+    def test_snapshot_wording_alone_no_longer_clears_the_claim(self) -> None:
+        answer = "以下为历史盘面快照，2026-07-08 是最近一个已收盘交易日。"
+        self.assertEqual([RULE_LATEST_TRADING_DAY], _rules(answer, MARKET_CONTEXT))
+
+    def test_binding_qualifier_next_to_the_claim_still_clears(self) -> None:
+        answer = "库内最新交易日为 2026-09-18，数据截至该日。"
+        self.assertEqual([], _rules(answer, MARKET_CONTEXT))
+
+    def test_every_claim_in_a_sentence_must_be_bound(self) -> None:
+        answer = "库内最新交易日为 2026-09-18，也就是最近一个已收盘交易日。"
+        self.assertEqual([RULE_LATEST_TRADING_DAY], _rules(answer, MARKET_CONTEXT))
+
+
+class FundFlowDisclaimerShapeTests(unittest.TestCase):
+    """审查方曾把「页脚免责仍报警」当成误报，实测后自己推翻。
+
+    真正的合规写法（正文不谈方向、页脚声明未取数）本来就不命中；仍报的
+    那两种，正文都还留着「资金集中流入」——与免责句自相矛盾，报警是对的。
+    三条都钉成回归，防止后人再把它当误报“修”掉。
+    """
+
+    def test_footer_disclaimer_does_not_excuse_a_live_flow_claim(self) -> None:
+        answer = (
+            "显示资金当日集中流入封测方向。\n\n"
+            "**数据说明**：本次未取资金流数据，方向不做判断。"
+        )
+        self.assertEqual([RULE_FUND_FLOW], _rules(answer, MARKET_CONTEXT))
+
+    def test_activity_only_body_with_footer_is_clean(self) -> None:
+        answer = (
+            "成交额放大 133%，成交活跃度显著提升。\n\n"
+            "**数据说明**：本次未取资金流数据，方向不做判断。"
+        )
+        self.assertEqual([], _rules(answer, MARKET_CONTEXT))
+
+    def test_immediate_retraction_still_reports_the_contradiction(self) -> None:
+        answer = "显示资金当日集中流入封测方向。但本次未取资金流数据，该推断不成立。"
+        self.assertEqual([RULE_FUND_FLOW], _rules(answer, MARKET_CONTEXT))
+
+
+class RegistryFactTests(unittest.TestCase):
+    """证据常量跟着 finance_query 注册表走，漂了就红。"""
+
+    def test_fund_flow_metric_constant_matches_registry(self) -> None:
+        from intelligence.services import finance_query
+
+        pattern = re.compile(r"(fund|net_inflow|net_amount)", re.IGNORECASE)
+        registry = {
+            name
+            for dataset in finance_query._DATASETS.values()
+            for name in (getattr(dataset, "metrics", {}) or {})
+            if pattern.search(name)
+        }
+        self.assertEqual(registry, set(FUND_FLOW_METRICS))
+
+    def test_no_trading_calendar_dataset_exists(self) -> None:
+        # 日历事实只在 market_feature_store/trading_days.py，agent 取不到；
+        # 所以 calendar_evidence 只能人工声明。哪天真加了日历 dataset，这条会红。
+        from intelligence.services import finance_query
+
+        calendar_like = {
+            name
+            for name in finance_query._DATASETS
+            if re.search(r"(calendar|trading_day|trade_cal)", name, re.IGNORECASE)
+        }
+        self.assertEqual(set(), calendar_like)
+        self.assertEqual(frozenset(), CALENDAR_DATASETS)
 
 
 class ScopeRuleTests(unittest.TestCase):

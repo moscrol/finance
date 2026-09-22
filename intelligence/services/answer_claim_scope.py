@@ -39,6 +39,29 @@ RULE_ORDER = (
     RULE_UNIT_GAP,
 )
 
+# 证据判定按**注册表事实**，不按对 payload 做子串匹配：后者任何一段文本
+# （例如 kb_search 的检索词里写了「交易日历」）都能把证据判成"取过"，规则
+# 随即静默。下面两组常量 2026-09-22 从 finance_query 注册表枚举，
+# RegistryFactTests 会在注册表漂移时变红。
+#
+# finance_query 里承载资金**方向**的指标（成交额/量能不在其列）。
+FUND_FLOW_METRICS = frozenset(
+    {
+        "fund_flow_today",  # core_stock_daily
+        "net_amount",  # dragon_tiger_daily
+        "net_inflow_1d",  # mainline_sector_daily
+        "fund_flow_1d",  # sector_stock_daily / theme_limit_stock_daily
+        "fund_flow_5d",  # sector_stock_daily
+        "fund_today",  # stock_high_daily
+    }
+)
+
+# finance_query **没有**交易日历 dataset：日历事实只在
+# `market_feature_store/trading_days.py`，agent 的工具面够不着。所以
+# calendar_evidence 不可能从 episode 自动推出，只能由调用方显式声明来源。
+# 这个空集合是事实陈述，不是待填的 TODO。
+CALENDAR_DATASETS: frozenset[str] = frozenset()
+
 _SENTENCE_SPLIT = re.compile(r"(?<=[。！？!?；;])|\n")
 _WHITESPACE = re.compile(r"\s+")
 _QUOTE_LIMIT = 80
@@ -48,11 +71,14 @@ _QUOTE_LIMIT = 80
 _LATEST_TRADING_DAY = re.compile(
     r"(?:最近|最新|最后|上一个)(?:一个)?(?:已)?(?:收盘)?(?:的)?(?:交易日|收盘日)"
 )
-_DATA_SCOPE_QUALIFIER = re.compile(
-    r"库内|本地库|数据库(?:内|中)|库中|已入库|落库|入库(?:的)?最新|"
-    r"可用(?:的)?(?:最新)?数据|数据截至|截至库|现有数据|"
-    # 截至具体日期、或明写快照口径的，都已把适用范围限住
-    r"截至\s*20\d{2}|(?:历史|盘面)?快照|快照日"
+# 限定必须**紧挨断言**才算数。原先只要整句任意位置出现「数据截至」「快照」
+# 就放行，于是 `数据截至 2026-09-18（最近一个已收盘交易日）`——越界断言一字
+# 未改——直接静默（2026-09-22 审查探针实测）。更糟的是本模块给出的 remedy
+# 正把写手往「（数据截至…）」引导，等于教人把红灯写成绿灯。改判为：断言短语
+# 前 12 字内出现范围限定词，才算这次断言被限住。
+_CLAIM_BINDING_WINDOW = 12
+_SCOPE_BINDING = re.compile(
+    r"库内|本地库|数据库(?:内|中)|库中|已入库|落库|入库|可用|现有数据|样本内"
 )
 # 否定句（"不能视为最新交易日复盘"）说的正是本规则要的话，不能倒扪。
 # 这条是拿仓内已归档答案做校准时实测出来的误报。
@@ -185,11 +211,20 @@ def _quote(sentence: str) -> str:
 def _latest_trading_day_issue(
     sentence: str, context: ClaimEvidenceContext
 ) -> ClaimIssue | None:
-    if not _LATEST_TRADING_DAY.search(sentence):
+    matches = list(_LATEST_TRADING_DAY.finditer(sentence))
+    if not matches:
         return None
-    if context.calendar_evidence or _DATA_SCOPE_QUALIFIER.search(sentence):
+    if context.calendar_evidence:
         return None
     if _LATEST_DAY_NEGATION.search(sentence):
+        return None
+    # 一句里可能出现多次断言；只有**每一次**都被紧邻限定才算限住。
+    if all(
+        _SCOPE_BINDING.search(
+            sentence[max(0, match.start() - _CLAIM_BINDING_WINDOW) : match.start()]
+        )
+        for match in matches
+    ):
         return None
     dates = "、".join(context.evidence_dates[:3]) or "无"
     return ClaimIssue(
