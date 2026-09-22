@@ -246,6 +246,48 @@ def test_missing_baseline_asks_for_the_number_instead_of_deleting_the_sentence()
     assert _issue_backfill_plan(_verified(POSITIVE_WATCH, keep_ocf=True), _context()) is None
 
 
+def _sealed_shape(periods):
+    """封存回合的真实形状：带公司名的那条是 0 读数的表头，读数在标题无名的条目里。"""
+    header = AgentEvidence(
+        "financial_data", "目标：中际旭创（300308.SZ），近 6 期累计口径（新→旧）：",
+        "表头", "结构化财报", source_date="2026-08-22", content_hash="header", observations=(),
+    )
+    return (header, *_evidence(periods))
+
+
+def test_a_chinese_subject_name_does_not_blind_the_check():
+    """契约主体写中文名、读数挂在股票代码下时，没有读数≠没有缺口。"""
+    from intelligence.services.financial_claim_checks import comparison_baseline_gaps
+
+    evidence = _sealed_shape(PROFIT_ONLY)
+    rows = [{"index": 5, "text": POSITIVE_WATCH}]
+    hashes = [item.content_hash for item in evidence]
+    assert len(comparison_baseline_gaps(rows, evidence, hashes, subject="中际旭创")) == 1
+    # 基准齐了就不该报，不是“认不出主体就一律报”。
+    both = _sealed_shape(BOTH_METRICS)
+    assert comparison_baseline_gaps(
+        rows, both, [item.content_hash for item in both], subject="中际旭创",
+    ) == ()
+
+
+def test_multi_subject_evidence_still_fails_closed():
+    """同业对比绑了多家公司：主体认不出来就不猜，宁可不报。"""
+    from intelligence.services.financial_claim_checks import comparison_baseline_gaps
+
+    evidence = _sealed_shape(PROFIT_ONLY)
+    peer = AgentEvidence(
+        "financial_data", "同业", "同业读数", "结构化财报", source_date="2026-08-22",
+        content_hash="peer", observations=(
+            StructuredObservation("000001.SZ", "2025-12-31", "net_profit_cum_yi", 1.0),
+        ),
+    )
+    evidence = (*evidence, peer)
+    assert comparison_baseline_gaps(
+        [{"index": 5, "text": POSITIVE_WATCH}], evidence,
+        [item.content_hash for item in evidence], subject="中际旭创",
+    ) == ()
+
+
 def test_unbound_or_missing_financial_evidence_is_not_guessed():
     from intelligence.services.financial_claim_checks import comparison_baseline_gaps
 

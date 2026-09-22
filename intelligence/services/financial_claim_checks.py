@@ -165,10 +165,23 @@ def comparison_baseline_gaps(
     with the existing numeric-support gate, qualitative conditions are untouched,
     and a peer company's readings never stand in for the requested subject.
     """
-    values = _observations(evidence, set(bound_hashes), subject)
+    bound = set(bound_hashes)
+    values = _observations(evidence, bound, subject)
     if not values:
-        # 一条都没绑定时无从判断，交给绑定/证据门，不在这里臆断。
-        return ()
+        # 契约主体常写中文名（「中际旭创」），而带读数的证据标题里只有代码；
+        # 含公司名的那条往往是 0 读数的表头，标题反查因此落空（实测于封存回合
+        # 8792-boundary-retest-20260918/positive-persistence）。仅当已绑定读数只指向
+        # **一个**主体时回退；同业对比等多主体场景继续失败关闭，不猜。
+        subjects = {
+            obs.subject for item in evidence
+            if item.tool == "financial_data" and item.content_hash in bound
+            for obs in item.observations
+        }
+        if len(subjects) != 1:
+            return ()
+        values = _observations(evidence, bound, subjects.pop())
+        if not values:
+            return ()
     available = {
         period for period, metric in values
         if metric == "ocf_cum_yi" and (period, "net_profit_cum_yi") in values
