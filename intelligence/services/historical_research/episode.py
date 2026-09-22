@@ -768,7 +768,7 @@ def history_tool_specs(
         ToolSpec(
             name="history_query",
             capability="finance_query",
-            description="重建历史行情、市场环境类比、启动到顶部日线路径与板块候选接力。市场阶段先inspect_history(entity_kind=market,000001.SH)，类比用find_analogues显式历史范围，当时谁强用rank_history声明窗排名（未指定代码=窗口内已观测全集；超限报缺口，不偷偷缩窗），行情解剖用trace_history；先inspect核对板块/股票精确代码，同名不同供应商不混接。共同启动特征比较launch_signal行，验证还须compare_cases含失败样本。trace仅日线描述代理，不冒充SPT/风远完整方法或当时可知顶部。续问按可信用途先read_history_result，再用window_ref绑定类比候选sample_id或已有分析观察窗，不按旧助手答案猜日期。不确定窗口先提出并注明，缺数不补零。",
+            description="重建历史行情、市场环境类比、启动到顶部日线路径与板块候选接力。市场阶段先inspect_history(entity_kind=market,000001.SH)，类比用find_analogues显式历史范围，当时谁强用rank_history声明窗排名（未指定代码=窗口内已观测全集；超限报缺口，不偷偷缩窗），行情解剖用trace_history；先inspect核对板块/股票精确代码，同名不同供应商不混接。共同启动特征比较launch_signal行；但只看已启动的是幸存者偏差，验证请用compare_cases配 condition={'rule':'launch_signal'}，它按同版本规则逐窗判定当时是否启动，未启动窗口即控制组，缺数与未成熟分开计数仍留在分母。trace仅日线描述代理，不冒充SPT/风远完整方法或当时可知顶部。续问按可信用途先read_history_result，再用window_ref绑定类比候选sample_id或已有分析观察窗，不按旧助手答案猜日期。不确定窗口先提出并注明，缺数不补零。",
             contract=_TOOL_CONTRACTS["history_query"],
             cost="local",
             freshness="historical",

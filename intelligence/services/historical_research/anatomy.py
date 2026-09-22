@@ -148,6 +148,34 @@ def _first_signal(kind, days, rows, check):
     )
 
 
+# 同一套启动规则供路径解剖与受控比较共用：比较组不得另立判定。
+LAUNCH_RULE = "launch_signal"
+LAUNCHED_STATES = frozenset({"observed", "observed_with_earlier_gaps"})
+LAUNCH_RULE_DEFINITION = {
+    "name": LAUNCH_RULE,
+    "version": ANATOMY_VERSION,
+    "warmup_days": WARMUP,
+    "rule": ANATOMY_DEFINITION["rule"],
+    "decision_point": "Each candidate window is judged only by its own dates; the first WARMUP dates are warmup, so a launch can only be dated after them. No lookback outside the window, no later fact.",
+    "states": (
+        "observed/observed_with_earlier_gaps=launched inside this window; "
+        "not_observed=control, i.e. this entity did not launch by this rule in this window; "
+        "missing/insufficient_history=undecidable, kept in the denominator and never counted as not launched."
+    ),
+    "selection_bias": ANATOMY_DEFINITION["selection_bias"],
+}
+
+
+def launch_state(kind, days, rows, check):
+    """Judge one window by the trace rule: launched, control, or undecidable."""
+    index, status, unknown = _first_signal(kind, days, rows, check)
+    return {
+        "launch_state": status,
+        "launch_date": days[index] if index is not None else None,
+        "launch_unknown_days": len(unknown),
+    }
+
+
 def trace_history(spec, reader, check):
     kind = spec.entity_kind
     table, code_key = f"fact_{kind}_daily", f"{kind}_ts_code"
