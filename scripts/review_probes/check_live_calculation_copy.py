@@ -65,7 +65,13 @@ def main() -> int:
         )
 
         episode = json.loads((run_dir / "continuous-episode.json").read_text())
-        draft = episode["semantic_verifier"]["verified"]["outcome"]["draft"]
+        semantic = episode["semantic_verifier"]
+        # A withheld episode is judged on the draft that never shipped; a
+        # delivered one is judged on what the reader actually got.
+        withheld = semantic["judge_status"] == "unavailable"
+        draft = (semantic["verified"]["outcome"]["draft"] if withheld
+                 else semantic.get("public_answer") or "")
+        report["graded_text"] = "withheld_draft" if withheld else "public_answer"
         report["draft_sha256"] = hashlib.sha256(draft.encode()).hexdigest()
         report["public_answer"] = episode["semantic_verifier"]["public_answer"]
         report["judge_status"] = episode["semantic_verifier"]["judge_status"]
@@ -196,6 +202,27 @@ def main() -> int:
         }
         report["independent_mismatches"] = mismatches
         caught = {f.code for f in findings}
+        if not mismatches:
+            # A clean episode is the other half of the instrument: the guard
+            # must bind the products and then say nothing about a correct draft.
+            expectations = {
+                "guard_bound_any_ratio_product": bool(
+                    report["ratio_products_from_live_record"]
+                ),
+                "guard_bound_the_inputs": bool(
+                    {"ocf_cum_yi", "net_profit_cum_yi"} <= set(report["input_metric_names"])
+                ),
+                "model_did_not_miscopy": True,
+                "guard_raised_nothing_on_a_correct_draft": not findings,
+            }
+            report["checks"] = expectations
+            after = _identity(root)
+            report.update(after=after, target_unchanged=before == after)
+            if before != after:
+                raise ValueError("target_changed")
+            report["status"] = "passed" if all(expectations.values()) else "not_passed"
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0 if report["status"] == "passed" else 1
         expectations = {
             # Every number the sandbox emitted is an observation, but only the
             # ones the guard recognizes as a ratio column can ever be compared.
