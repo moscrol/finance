@@ -206,6 +206,48 @@ def comparison_baseline_gaps(
     return tuple(dict.fromkeys(gaps))
 
 
+def _relative_ratio_comparison_mismatch(text: str) -> bool:
+    """Carry a level's period into a same-sentence '较/相较于' counterpart.
+
+    Callers segment sentences, so this only spans clauses inside one sentence.
+    Keep it separate from generic previous-period context: an inventory or
+    revenue clause is not a ratio anchor. A comparison whose antecedent is
+    ambiguous stays deferred rather than guessed in either direction.
+    """
+    ratio_period: str | None = None
+    for segment in re.split(r"但是|但|然而|却", text):
+        caveat = bool(_COMPARISON_CAVEAT.search(segment))
+        for clause in re.split(r"[，,]", segment):
+            if not clause.strip():
+                continue
+            periods = _periods(clause)
+            relative = re.match(r"\s*(?:相较于?|相比于?|较)", clause)
+            if len(periods) != 1:
+                if not _COMPARISON_CAVEAT.search(clause):
+                    ratio_period = None
+                continue
+            start, end, period = periods[0]
+            tail = clause[end:].lstrip().removeprefix("累计").lstrip()
+            level = _RATIO_VALUE.match(tail)
+            value = level or re.match(rf"(?:的)?\s*{_NUMBER}(?![\d.])", tail)
+            # A named metric after the number ends the narrow ellipsis,
+            # e.g. '较2025全年1.009亿元收入增长'.
+            counterpart = value and re.match(
+                r"\s*(?:倍|%)?\s*(?:明显|显著|有所)?\s*(?:走弱|恶化|改善|回升|上升|升|下降|降)",
+                tail[value.end():],
+            )
+            if (relative and not clause[relative.end():start].strip()
+                    and counterpart and ratio_period and not caveat
+                    and _COMPARISON.search(clause) and "单季" not in clause):
+                if period[5:7] != ratio_period[5:7]:
+                    return True
+            # Only an explicitly named ratio level anchors a later clause: a
+            # bare number does not establish which metric it is. A caveat
+            # without a dated fact may carry across 'but'; anything else clears.
+            ratio_period = period if level and "单季" not in clause else None
+    return False
+
+
 def financial_claim_mismatches(
     sentences: Sequence[dict[str, object]], evidence: Sequence[AgentEvidence],
     bound_hashes: Sequence[str], *, subject: str | None,
@@ -237,6 +279,7 @@ def financial_claim_mismatches(
         bad = False
         financial = bool(re.search(r"现金流|OCF|存货|净利润", text, re.I) or re.search(_RATIO, text, re.I))
         if financial:
+            bad |= _relative_ratio_comparison_mismatch(text)
             for equation in _EQUATION.finditer(text):
                 a, b = _decimal(equation["a"]), _decimal(equation["b"])
                 if a is not None and b is not None:
