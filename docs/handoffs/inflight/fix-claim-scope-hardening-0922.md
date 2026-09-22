@@ -30,7 +30,35 @@
 
 拿 1347 个历史 run 回测，压出三类误报共 30 条并修掉（含我上一轮自己改出来的「可得」词表缺口）；命中 96→66，真命中一条没丢。证据：`docs/verification/2026-09-22-claim-scope-backtest/`。残留 15 条条件句/假说保留不改。漏报仍不可测（无标注语料）。
 
+## 接入点设计（已定位接缝，未动运行时）
+
+接缝在 `ask.py:4782`：`output_review.review_output(...)` 产出 `result.review_gate`；
+其中 `advisory_only=False` 的 WARN 会进 `result.warnings` 并触发 `_revise_synthesis_on_warn`
+（带着 warn_notes 让模型改写一轮），`advisory_only=True` 的只记录不改写。
+
+**按仓内既有先例走两步**，不自创路径——`_check_stale_mislabel` 的 docstring 写着
+「观察一段在场率后再议是否升格进修订轮（同 KC-13 五元素 lint 的推进方式）」：
+
+1. **第一步（advisory）**：claim-scope 的命中以 `advisory_only=True` 进 review_gate，
+   只记录、不触发修订轮、不改答案。攒在场率与人读判定，看它在真实流量里的误报率
+   是否与 1347 run 回测一致（回测是历史存量，分布可能与当前不同）。
+2. **第二步（升格）**：确认误报可接受后，改为 `advisory_only=False`，命中即进修订轮。
+   这一步才需要部署授权。
+
+**必须先解决的映射问题**：`review_output` 现在只拿到 `final_answer`，拿不到证据上下文。
+CLI 里 `ClaimEvidenceContext` 是从 episode 的 tool_request + `outcome.evidence` 解出来的；
+ask.py 里对应物是 `audit` 与证据台账，需要新建映射。`result.stale_block_hints` 已有先例
+（`ask.py:4643` 先 `extract_stale_block_hints` 再传进 `review_output`），照此办理。
+
+**映射的验收判据**：接入后对两个冻结 run 重放，必须得出与 CLI 完全相同的裁决
+（材料题 1 条、行情题 3 条）。映射错了就会静默变绿——这正是本分支修掉的那类失效。
+
+**degraded 的在线语义**：CLI 用退出码 2 表达「判据不可靠」。进程内没有退出码，
+必须映射成一条独立的 WARN（而不是当作干净），否则取数形状一变就无声放行。
+
 ## 下一步
 1. 合并顺序：本分支 base 指向 #850，需 #850 先合；或由用户授权把两者合成一张单。
-2. 接入实时路径前，本轮三条是前置条件中的「判据可靠性」部分；接入点（作答后提示／进修订轮／硬拦）仍需运行时改动 + 部署授权。
-3. 划清与 `output_review._check_stale_mislabel` 的日期错标管辖边界，避免两条规则各自漂。
+2. 按上面的接入设计做第一步（advisory 接线 + 映射 + 冻结 run 重放验收），需运行时改动授权。
+3. ~~划清与 `output_review._check_stale_mislabel` 的管辖边界~~ → 已做，见
+   `intelligence/tests/test_date_claim_jurisdiction.py`（差分测试当场抓出两个真问题）。
+4. 真实流量在场率观察：接线后攒一段，再与 1347 run 回测的误报分布对照。
