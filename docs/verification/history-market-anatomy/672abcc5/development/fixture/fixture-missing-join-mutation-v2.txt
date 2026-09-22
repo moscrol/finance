@@ -1,0 +1,28 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+______ test_api_fixture_joins_late_worker_before_restoring_runner[quota] _______
+intelligence/tests/test_api_fixture_lifecycle.py:69: in test_api_fixture_joins_late_worker_before_restoring_runner
+    assert joined.is_set(), "fixture restored dependencies without joining its worker"
+E   AssertionError: fixture restored dependencies without joining its worker
+E   assert False
+E    +  where False = is_set()
+E    +    where is_set = <threading.Event at 0x108fbdf40: unset>.is_set
+_____ test_api_fixture_joins_late_worker_before_restoring_runner[credits] ______
+intelligence/tests/test_api_fixture_lifecycle.py:69: in test_api_fixture_joins_late_worker_before_restoring_runner
+    assert joined.is_set(), "fixture restored dependencies without joining its worker"
+E   AssertionError: fixture restored dependencies without joining its worker
+E   assert False
+E    +  where False = is_set()
+E    +    where is_set = <threading.Event at 0x1090d1bb0: unset>.is_set
+____ test_api_fixture_joins_late_worker_before_restoring_runner[admission] _____
+intelligence/tests/test_api_fixture_lifecycle.py:69: in test_api_fixture_joins_late_worker_before_restoring_runner
+    assert joined.is_set(), "fixture restored dependencies without joining its worker"
+E   AssertionError: fixture restored dependencies without joining its worker
+E   assert False
+E    +  where False = is_set()
+E    +    where is_set = <threading.Event at 0x1091fdc70: unset>.is_set
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_api_fixture_lifecycle.py::test_api_fixture_joins_late_worker_before_restoring_runner[quota]
+FAILED intelligence/tests/test_api_fixture_lifecycle.py::test_api_fixture_joins_late_worker_before_restoring_runner[credits]
+FAILED intelligence/tests/test_api_fixture_lifecycle.py::test_api_fixture_joins_late_worker_before_restoring_runner[admission]
+3 failed in 1.44s

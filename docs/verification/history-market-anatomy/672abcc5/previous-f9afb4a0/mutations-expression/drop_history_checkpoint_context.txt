@@ -1,0 +1,11 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ test_real_run_turn_passes_inherited_history_to_checkpoint_boundary ______
+tests/test_history_expression_contract_boundary.py:269: in test_real_run_turn_passes_inherited_history_to_checkpoint_boundary
+    assert captured[0]["history_intent"] == first.task_frame.history_intent
+E   AssertionError: assert None == HistoryIntent(purpose='historical_comparison', requested_start='2026-01-01', requested_end='2026-09-15', scope='historical_research', strict_window=True, window_error=None, information_cutoff='2026-09-15')
+E    +  where HistoryIntent(purpose='historical_comparison', requested_start='2026-01-01', requested_end='2026-09-15', scope='historical_research', strict_window=True, window_error=None, information_cutoff='2026-09-15') = TaskFrame(raw_question='以2026年9月15日为信息截止日，先判断当时市场处于什么阶段，分清标签来源、量价和涨跌家数证据；再把9月1日至9月15日作为观察窗，在2026年1月1日至8月31日中寻找多维度比较接近的...estions=(), continuation_requested=False, uncertain_reasons=(), data_scope_declared=True), conversation_materials=None).history_intent
+E    +    where TaskFrame(raw_question='以2026年9月15日为信息截止日，先判断当时市场处于什么阶段，分清标签来源、量价和涨跌家数证据；再把9月1日至9月15日作为观察窗，在2026年1月1日至8月31日中寻找多维度比较接近的...estions=(), continuation_requested=False, uncertain_reasons=(), data_scope_declared=True), conversation_materials=None) = TurnDecision(lane='research', needs_retrieval=True, needs_memory=False, needs_template=True, question_type='comparison...stions=(), continuation_requested=False, uncertain_reasons=(), data_scope_declared=True), conversation_materials=None)).task_frame
+=========================== short test summary info ============================
+FAILED tests/test_history_expression_contract_boundary.py::test_real_run_turn_passes_inherited_history_to_checkpoint_boundary
+1 failed in 0.29s

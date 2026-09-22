@@ -168,6 +168,93 @@ def normalize_result(result: Mapping[str, object] | None) -> ResultView:
     )
 
 
+def result_contract_errors(result: Mapping[str, object]) -> tuple[str, ...]:
+    """Validate *new* results before success admission, without changing archives.
+
+    v1 must not lose values in normalization/rendering. Stable codes contain no
+    provider data. Legacy emit(dict) remains supported; an empty dict is not a
+    result. This checks delivery shape, NOT arithmetic or actual input use.
+    """
+    if "schema" in result and result["schema"] != RESULT_SCHEMA_V1:
+        return ("unsupported_result_schema",)
+    if result.get("schema") != RESULT_SCHEMA_V1:
+        return () if result else ("no_renderable_result",)
+    errors: list[str] = []
+    known = {"schema", "summary", "tables", "charts", "params", "formulas", "notes"}
+    if set(result) - known:
+        errors.append("unsupported_result_fields")
+    summary = result.get("summary", {})
+    if not isinstance(summary, Mapping):
+        errors.append("summary_not_object")
+    elif any(not _is_scalar(value) for value in summary.values()):
+        errors.append("summary_non_scalar")
+    renderable = isinstance(summary, Mapping) and bool(summary)
+    tables = result.get("tables", [])
+    if not isinstance(tables, (list, tuple)):
+        errors.append("tables_not_array")
+        tables = []
+    for table in tables:
+        if not isinstance(table, Mapping):
+            errors.append("table_not_object")
+            continue
+        columns = table.get("columns")
+        if (not isinstance(columns, (list, tuple)) or not columns
+                or any(not isinstance(c, str) or not c.strip() for c in columns)
+                or len(set(columns)) != len(columns)):
+            errors.append("table_columns_invalid")
+            continue
+        rows = table.get("rows")
+        if not isinstance(rows, (list, tuple)):
+            errors.append("table_rows_not_array")
+            continue
+        renderable |= bool(rows)
+        for row in rows:
+            if isinstance(row, Mapping):
+                if set(row) != set(columns):
+                    errors.append("table_row_keys")
+                cells = tuple(row.values())
+            elif isinstance(row, (list, tuple)):
+                if len(row) != len(columns):
+                    errors.append("table_row_width")
+                cells = row
+            else:
+                errors.append("table_row_invalid")
+                continue
+            if any(not _is_scalar(cell) for cell in cells):
+                errors.append("table_non_scalar")
+    charts = result.get("charts", [])
+    if not isinstance(charts, (list, tuple)):
+        errors.append("charts_not_array")
+        charts = []
+    for chart in charts:
+        if not isinstance(chart, Mapping):
+            errors.append("chart_not_object")
+            continue
+        x, series = chart.get("x"), chart.get("series")
+        if (not isinstance(x, (list, tuple)) or not x
+                or not isinstance(series, Mapping) or not series
+                or not isinstance(chart.get("kind", "line"), str)
+                or chart.get("kind", "line") not in {"line", "bar"}
+                or any(not _is_scalar(label) for label in x)):
+            errors.append("chart_series_invalid")
+            continue
+        renderable = True
+        for values in series.values():
+            if (not isinstance(values, (list, tuple)) or len(values) != len(x)
+                    or any(v is not None and not _is_number(v) for v in values)):
+                errors.append("chart_series_invalid")
+    if not isinstance(result.get("params", {}), Mapping):
+        errors.append("params_not_object")
+    for field_name in ("notes", "formulas"):
+        value = result.get(field_name, [])
+        if (not isinstance(value, (list, tuple))
+                or any(not isinstance(item, str) for item in value)):
+            errors.append(f"{field_name}_not_text_array")
+    if not renderable:
+        errors.append("no_renderable_result")
+    return tuple(dict.fromkeys(errors))
+
+
 def _row_label(table: ResultTable, row: Sequence[object], index: int) -> str:
     first = row[0] if row else None
     if isinstance(first, str) and first.strip():

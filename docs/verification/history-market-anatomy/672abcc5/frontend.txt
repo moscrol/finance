@@ -1,0 +1,50 @@
+$ pnpm lint
+
+> market-intelligence-workbench@0.1.0 lint /Users/a77/fwp-wt-history-market-anatomy/intelligence/webapp
+> eslint .
+
+$ pnpm typecheck
+
+> market-intelligence-workbench@0.1.0 typecheck /Users/a77/fwp-wt-history-market-anatomy/intelligence/webapp
+> tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false
+
+$ pnpm test
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/fwp-wt-history-market-anatomy/intelligence/webapp
+> vitest run
+
+
+ RUN  v3.2.4 /Users/a77/fwp-wt-history-market-anatomy/intelligence/webapp
+
+ ✓ src/researchActivity.test.ts (2 tests) 5ms
+ ✓ src/api.test.ts (3 tests) 7ms
+ ✓ src/streamEventRegistry.test.ts (2 tests) 6ms
+ ✓ src/components/ResearchActivityControl.test.tsx (5 tests) 181ms
+ ✓ src/components/ResearchProjectPanel.test.tsx (5 tests) 133ms
+ ✓ src/components/DailyReportView.test.tsx (4 tests) 130ms
+ ✓ src/components/ResearchEvolutionPanel.test.tsx (18 tests) 278ms
+ ✓ src/components/components.test.tsx (68 tests) 1652ms
+
+ Test Files  8 passed (8)
+      Tests  107 passed (107)
+   Start at  20:40:28
+   Duration  3.40s (transform 731ms, setup 1.56s, collect 1.52s, tests 2.39s, environment 3.82s, prepare 1.19s)
+
+$ pnpm build
+
+> market-intelligence-workbench@0.1.0 build /Users/a77/fwp-wt-history-market-anatomy/intelligence/webapp
+> pnpm typecheck && vite build
+
+
+> market-intelligence-workbench@0.1.0 typecheck /Users/a77/fwp-wt-history-market-anatomy/intelligence/webapp
+> tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false
+
+vite v6.3.5 building for production...
+transforming...
+✓ 1615 modules transformed.
+rendering chunks...
+computing gzip size...
+../api/static/index.html                   0.47 kB │ gzip:   0.30 kB
+../api/static/assets/index-D80DtDZY.css   76.92 kB │ gzip:  15.10 kB
+../api/static/assets/index-DWf9m4Ox.js   411.09 kB │ gzip: 126.17 kB
+✓ built in 1.01s

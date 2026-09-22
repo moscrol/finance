@@ -61,6 +61,9 @@ PLAN 是本领域的研究协议（先出计划再动手），两家都没有；
 ``project_tool_result`` 决定一次工具观察**审计留什么、模型看什么**：审计底稿全量
 （含 hash / telemetry），模型视图去重、预算、去 hash 只留 E<n>——这条边界是
 2026-08 B1/B7 零绑定事故（模型誊抄 16-hex）之后立的，不能因为换 loop 而漂。
+``acknowledge_tool_result`` 在 loop 追加该投影消息之后，委托领域更新交付记录；
+不把 worker 完成或仅调用投影函数当成已入模型上下文，也不证明 provider 已处理。
+旧注入 harness 缺此回调时保持兼容，但不能获得依赖实际交付的新权限。
 
 ``fallback_after_empty_batch``（`2026-09-02-empty-pool-fallback-state-machine.md`）两家也没有：
 一批工具跑完、下一次问模型之前，loop 替模型**自己补发**一次查询——某个 ``sector_daily`` 池开场
@@ -79,7 +82,7 @@ PLAN 是本领域的研究协议（先出计划再动手），两家都没有；
 
 - ``FinanceResearchHarness`` 是对既有函数的**纯委托**：没有新判定。改口径改
   ``episode_protocol`` / ``forecast_residual_budget``，不改这里。
-- harness **不持有 loop 状态**。四个方法都是（context, evidence, registry）→ 值。
+- harness **不持有 loop 状态**。交付确认仅委托领域更新传入 context，其他判定返回值。
 - 本模块只 import ``services.*``（``scripts/layer_audit.py``：领域层不得依赖底座）。
 """
 
@@ -465,6 +468,13 @@ class ResearchHarness(Protocol):
         """
         ...
 
+    def acknowledge_tool_result(
+        self, observation: ToolObservation, projection: ToolResultProjection,
+        *, context: ResearchRunContext,
+    ) -> None:
+        """底座已追加工具消息后确认交付；计算完成不等于模型消息可见。"""
+        ...
+
     def project_tool_error(
         self, *, tool: str, error: str, detail: str
     ) -> dict[str, object]:
@@ -797,7 +807,7 @@ class FinanceResearchHarness:
         # 逐字搬自 _EpisodeToolAccumulator.consume 的成功分支。
         ordinals = evidence_ordinal_table(tuple(evidence_so_far))
         audit: dict[str, object] = {
-            "ok": True,
+            **observation.result_status_fields(),
             "tool": observation.tool,
             "query": observation.query,
             "observation": observation.observation,
@@ -836,6 +846,14 @@ class FinanceResearchHarness:
             model_content=content,
             seen_prose=frozenset(seen),
         )
+
+    def acknowledge_tool_result(
+        self, observation: ToolObservation, projection: ToolResultProjection,
+        *, context: ResearchRunContext,
+    ) -> None:
+        from intelligence.services.historical_research.episode import record_history_delivery
+
+        record_history_delivery(observation, projection.model_content, context=context)
 
     def project_tool_error(
         self, *, tool: str, error: str, detail: str
@@ -1092,7 +1110,9 @@ class FinanceResearchHarness:
             hints: list[str] = []
             if track_slots:
                 hints.append(
-                    "track_ttl → 一行「复核期限：YYYY-MM-DD」；track_next_watch → 一段「下期关注：…」；"
+                    "track_ttl → 一行「复核期限：YYYY-MM-DD」；"
+                    "track_next_watch → 「下期关注」每项须含指标/事件、时间节点与可证伪触发条件；"
+                    "只用现有证据支持的条件，不编造数字阈值；无法补齐时保留可信正文并明确缺口；"
                     "track_quad_or_baseline → 四态对照或「无上期基线」声明"
                 )
             if ranking_slots:

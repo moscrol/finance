@@ -1,0 +1,140 @@
+...................................F.........F.......................... [ 85%]
+.F.......F..                                                             [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T134542Z-87b854e2.json
+
+=================================== FAILURES ===================================
+_ test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u548c2025\u5168\u5e74\u4e0d\u80fd\u76f4\u63a5\u6bd4\u8f83\uff0c\u4f46\u51c0\u73b0\u6bd4\u4ece2025\u5168\u5e741.009\u964d\u81f32026\u4e2d\u62a50.132\uff0c\u8bf4\u660e\u56de\u6b3e\u6076\u5316\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b339b50>
+claim = '2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。'
+mode = 'off'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报和2025....132，说明回款恶化。' not in '应收账款明细尚未取得，....132，说明回款恶化。'
+E
+E         '2026中报和2025全年不能直接比...2026中报0.132，说明回款恶化。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。
+
+intelligence/tests/test_financial_r6_regressions.py:153: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u548c2025\u5168\u5e74\u4e0d\u80fd\u76f4\u63a5\u6bd4\u8f83\uff0c\u4f46\u51c0\u73b0\u6bd4\u4ece2025\u5168\u5e741.009\u964d\u81f32026\u4e2d\u62a50.132\uff0c\u8bf4\u660e\u56de\u6b3e\u6076\u5316\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b37a660>
+claim = '2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。'
+mode = 'llm'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报和2025....132，说明回款恶化。' not in '应收账款明细尚未取得，....132，说明回款恶化。'
+E
+E         '2026中报和2025全年不能直接比...2026中报0.132，说明回款恶化。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。
+
+intelligence/tests/test_financial_r6_regressions.py:153: AssertionError
+_ test_document_claim_does_not_borrow_an_unrelated_company[overrides1-\u672c\u6b21\u5b9e\u9645\u53d6\u5f97\u5e76\u5f15\u7528\u7684\u62a5\u544a\u4e3a\u4e2d\u9645\u65ed\u521b2026\u5e74\u534a\u5e74\u5ea6\u62a5\u544a\u3002-True] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b3cf4d0>
+overrides = {'detail': '其他公司报告正文', 'title': '其他公司报告'}
+claim = '本次实际取得并引用的报告为中际旭创2026年半年度报告。', rejected = True
+
+    @pytest.mark.parametrize("overrides,claim,rejected", [
+        ({}, "本次实际取得并引用的报告为中际旭创2026年半年度报告。", False),
+        ({"title": "其他公司报告", "detail": "其他公司报告正文"}, "本次实际取得并引用的报告为中际旭创2026年半年度报告。", True),
+        ({"tool": "financial_data"}, "本次实际取得并引用的报告为中际旭创2026年半年度报告。", True),
+        ({"tool": "financial_data"}, "未能取得报告文档，目前只有结构化代理数据。", False),
+    ])
+    def test_document_claim_does_not_borrow_an_unrelated_company(monkeypatch, overrides, claim, rejected):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
+        frame, verified = _financial(SAFE + "\n" + claim)
+        doc = _document(**overrides)
+        outcome = replace(verified.outcome, evidence=(*verified.outcome.evidence, doc), bindings=tuple(
+            replace(binding, evidence_hashes=(*binding.evidence_hashes, doc.content_hash))
+            for binding in verified.outcome.bindings
+        ))
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verify_episode_outcome(verified.contract, outcome),
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert (claim not in result.public_answer) == rejected
+E       AssertionError: assert ('本次实际取得并引用的报...创2026年半年度报告。' not in '应收账款明细尚未取得，...创2026年半年度报告。'
+E
+E         '本次实际取得并引用的报告为中际旭创2026年半年度报告。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           本次实际取得并引用的报告为中际旭创2026年半年度报告。) == True
+
+intelligence/tests/test_financial_r6_regressions.py:257: AssertionError
+_ test_result_ratio_is_recomputed_only_from_its_own_inputs[\u51c0\u73b0\u6bd4.\u51c0\u73b0\u6bd4\u540c\u6bd4\u589e\u957f[2026\u4e2d\u62a5]-13.2-False] _
+
+metric = '净现比.净现比同比增长[2026中报]', value = 13.2, rejected = False
+
+    @pytest.mark.parametrize("metric,value,rejected", [
+        ("净现比.净现比[2026中报]", 0.132, False),
+        ("净现比.净现比[2026中报]", 0.133, True),
+        ("2025年报汇总.净现比[2026中报]", 0.132, False),
+        ("净现比.净现比%[2026中报]", 13.2, False),
+        ("净现比.营收[2026中报]", 417.78, False),
+        ("净现比.净现比同比增长[2026中报]", 13.2, False),
+        ("净现比.净现比[2026中报]", float("nan"), True),
+    ])
+    def test_result_ratio_is_recomputed_only_from_its_own_inputs(metric, value, rejected):
+        from intelligence.services.financial_claim_checks import calculation_ratio_gaps
+        _, verified = _financial(SAFE)
+        inputs = verified.outcome.evidence
+        calc = AgentEvidence(
+            "derived_calculation", "净现比计算", "计算结果", "sandbox:0000000000000001", content_hash="calc",
+            derived_from=tuple(item.content_hash for item in inputs),
+            observations=(StructuredObservation("计算任务", "2025-04-21", metric, value),),
+        )
+        evidence = (*inputs, calc)
+>       assert bool(calculation_ratio_gaps(evidence, ("calc",), subject="300308")) == rejected
+E       AssertionError: assert True == False
+E        +  where True = bool(('计算产物 0000000000000001 的 净现比.净现比同比增长[2026中报] 与同报告期原始输入复算不一致',))
+E        +    where ('计算产物 0000000000000001 的 净现比.净现比同比增长[2026中报] 与同报告期原始输入复算不一致',) = <function calculation_ratio_gaps at 0x10b32e520>((AgentEvidence(tool='financial_data', title='300308 2026-06-30', detail='2026-06-30累计经营现金流18.0亿元，归母净利136.51亿元，存货198.26...ed=None, pointer_dropped=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='')), ('calc',), subject='300308')
+
+intelligence/tests/test_financial_r6_regressions.py:279: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u548c2025\u5168\u5e74\u4e0d\u80fd\u76f4\u63a5\u6bd4\u8f83\uff0c\u4f46\u51c0\u73b0\u6bd4\u4ece2025\u5168\u5e741.009\u964d\u81f32026\u4e2d\u62a50.132\uff0c\u8bf4\u660e\u56de\u6b3e\u6076\u5316\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u548c2025\u5168\u5e74\u4e0d\u80fd\u76f4\u63a5\u6bd4\u8f83\uff0c\u4f46\u51c0\u73b0\u6bd4\u4ece2025\u5168\u5e741.009\u964d\u81f32026\u4e2d\u62a50.132\uff0c\u8bf4\u660e\u56de\u6b3e\u6076\u5316\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_document_claim_does_not_borrow_an_unrelated_company[overrides1-\u672c\u6b21\u5b9e\u9645\u53d6\u5f97\u5e76\u5f15\u7528\u7684\u62a5\u544a\u4e3a\u4e2d\u9645\u65ed\u521b2026\u5e74\u534a\u5e74\u5ea6\u62a5\u544a\u3002-True]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_result_ratio_is_recomputed_only_from_its_own_inputs[\u51c0\u73b0\u6bd4.\u51c0\u73b0\u6bd4\u540c\u6bd4\u589e\u957f[2026\u4e2d\u62a5]-13.2-False]
+4 failed, 80 passed in 0.44s

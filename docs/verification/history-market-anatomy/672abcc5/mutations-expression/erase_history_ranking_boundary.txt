@@ -1,0 +1,12 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_both_checkpoint_writers_reject_history_even_with_registerable_answer[ingest_flip_conditions] _
+tests/test_history_expression_contract_boundary.py:182: in test_both_checkpoint_writers_reject_history_even_with_registerable_answer
+    assert writer(missing, answer, query=FORWARD, history_intent=frame.history_intent) == []
+E   AssertionError: assert [{'category':...: False, ...}] == []
+E     
+E     Left contains 2 more items, first extra item: {'category': '改判条件', 'claim': '改判条件｜若铜价回落 20% → 申菱环境↑ 英维克↓｜观察：铜价周度均价，30 天内', 'due': '2026-10-18', 'hindsight': False, ...}
+E     Use -v to get more diff
+=========================== short test summary info ============================
+FAILED tests/test_history_expression_contract_boundary.py::test_both_checkpoint_writers_reject_history_even_with_registerable_answer[ingest_flip_conditions]
+1 failed in 0.85s

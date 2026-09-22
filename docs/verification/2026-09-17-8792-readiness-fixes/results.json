@@ -1,0 +1,292 @@
+{
+  "schema_version": 1,
+  "purpose": "Fixed-revision validation evidence index; not a test receipt or production acceptance.",
+  "revision": "6f9df75a6d01c35801dcd7d26b95d2338daf756c",
+  "base_revision": "0a1cb8c44aaf2d19ae5f5809bf27119b709b8442",
+  "branch": "fix/8792-readiness-boundaries",
+  "raw_evidence_root": "~/.finance-runtime/reviews/8792-readiness-fixes-20260917",
+  "python_receipt": "~/.finance-runtime/test-receipts/20260917T134635Z-6f9df75a.json",
+  "source_sha256": {
+    "intelligence/services/track_contract.py": "0c818c154ddfab201a8f29e899813937a63a5225832d7684cb468560cc95491b",
+    "intelligence/services/episode_semantic_verifier.py": "d8fd3f6ff36efdd900f2a3ecb6e9a09a47c13669e4ac875b3cf3c2d8b5a8d882",
+    "intelligence/services/user_task.py": "c268b3d40e58e3f5cb7a57abd8600cc881d9ee162c0c092f34a7ce51a516b96d",
+    "intelligence/tests/test_readiness_boundary_regressions.py": "70f458bc446e048f08c0258937e5f529a9748b90a8309803461076ace9db5632"
+  },
+  "results": {
+    "python": {
+      "passed": 11519,
+      "failed": 0,
+      "error": 0,
+      "skipped": 81,
+      "xfailed": 2,
+      "warnings": 17,
+      "seconds": 544.13,
+      "exit_code": 0,
+      "dirty": false
+    },
+    "python_receipt_check": {
+      "expected_revision": "6f9df75a6d01c35801dcd7d26b95d2338daf756c",
+      "base_drift_max": 0,
+      "checks_passed": 8
+    },
+    "ruff": {
+      "scope": "whole repository",
+      "exit_code": 0
+    },
+    "frontend": {
+      "commands": [
+        "pnpm lint",
+        "pnpm typecheck",
+        "pnpm test",
+        "pnpm build"
+      ],
+      "vitest_passed": 107,
+      "exit_code": 0
+    },
+    "e2e": {
+      "passed": 34,
+      "skipped": 2,
+      "exit_code": 0,
+      "ports": [
+        8793,
+        8795
+      ],
+      "note": "Isolated fixtures, users and database. Binding test desktop-only; no real model acceptance."
+    },
+    "registry": {
+      "commands": [
+        "scripts/build_registry.py check-parseability",
+        "scripts/build_registry.py check",
+        "scripts/build_registry.py backfill-tables --check",
+        "scripts/build_registry.py generate-views --check",
+        "scripts/audit_ledger_spec_crosswalk.py",
+        "scripts/gen_runtime_catalog.py --check"
+      ],
+      "exit_code": 0,
+      "reverse_crosswalk_warnings": 98
+    },
+    "qc_replay": {
+      "tests_run": 15,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "exit_code": 0,
+      "runner_sha256": "d0d9c11913275633072bd4fd425a2a18b0852d2aa2d82dd28919ba975c715c7b"
+    },
+    "regression_baseline": {
+      "revision": "0a1cb8c44aaf2d19ae5f5809bf27119b709b8442",
+      "failed": 68,
+      "passed": 16,
+      "note": "Only the new test file was added; not a clean-tree full run."
+    },
+    "related_selection": {
+      "passed": 892,
+      "skipped": 4,
+      "note": "Pre-commit targeted run, not fixed-revision whole-suite receipt."
+    },
+    "mutations": [
+      {
+        "mutation": "opt_out_off",
+        "target": "intelligence.services.track_contract.persistence_opt_out",
+        "selection": "test_explicit_opt_out_blocks_real_writers",
+        "exit_code": 1,
+        "summary": "14 failed, 7 passed, 63 deselected in 0.47s"
+      },
+      {
+        "mutation": "date_gate_off",
+        "target": "intelligence.services.episode_semantic_verifier._mismatched_evidence_date_indexes",
+        "selection": "test_source_date_assertions_remain_mechanically_rejected",
+        "exit_code": 1,
+        "summary": "5 failed, 79 deselected in 0.20s"
+      },
+      {
+        "mutation": "document_always",
+        "target": "intelligence.services.user_task._reads_like_document",
+        "selection": "test_formatting_does_not_demote_question_or_change_route",
+        "exit_code": 1,
+        "summary": "12 failed, 72 deselected in 0.32s"
+      }
+    ]
+  },
+  "known_limits": [
+    "No real-model task validation through the repaired Workbench API.",
+    "No merge, deployment, production judge-mode switch or production ledger/database write.",
+    "Citation-numeric-gate repair is on a separate branch and was not integrated.",
+    "E2 material integration (#770), freshness and longitudinal field evidence remain separate.",
+    "Language predicates are conservative rules, not complete semantic interpretation.",
+    "Documentation commits after the tested revision did not receive a new full-suite run."
+  ],
+  "prior_failures_preserved": [
+    {
+      "file": "frontend-install.log",
+      "cause": "Offline package tarball unavailable; frozen-lockfile online install then succeeded."
+    },
+    {
+      "file": "registry-6f9df75a.log",
+      "exit_code": 2,
+      "cause": "Incorrect final script name; corrected full registry plus runtime-catalog run exited 0."
+    }
+  ],
+  "evidence_files": [
+    {
+      "path": "20260917T134635Z-6f9df75a.json",
+      "bytes": 657,
+      "sha256": "a7fd5cf7b0cfbdf19a79655f7d09b4dec3e46c33d3bcef158e0d00a23556087c"
+    },
+    {
+      "path": "baseline-identity.json",
+      "bytes": 353,
+      "sha256": "76db6a71fbcfe5ac7cc1c89b6a7a67c1be57e5a0023f5f1dc369d12ecf07710a"
+    },
+    {
+      "path": "baseline-red.log",
+      "bytes": 121694,
+      "sha256": "db71f5f37972ceedf333770974a08138a04974a707efafe7be6579f1dab6e5e9"
+    },
+    {
+      "path": "e2e-6f9df75a.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "e2e-6f9df75a.log",
+      "bytes": 12743,
+      "sha256": "f1e736b38240ee4a9333ce3b90c9f6373e256c361331c872355c60c9f8521f4b"
+    },
+    {
+      "path": "frontend-6f9df75a.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "frontend-6f9df75a.log",
+      "bytes": 1877,
+      "sha256": "a544ff91c2848c7ece2649eaa0ef2abff08e2259cf0589de2289d218815dd4cc"
+    },
+    {
+      "path": "frontend-install-online.log",
+      "bytes": 3299,
+      "sha256": "5e322a08bf75568dfaec11659d1a883dfff5289af8f0e3dfc7e4df80f4168606"
+    },
+    {
+      "path": "frontend-install.log",
+      "bytes": 414,
+      "sha256": "72939c9daa87cee8e9b0984d3a3491c8983377ba167d54ac4567d982ce8c3559"
+    },
+    {
+      "path": "full-pytest-6f9df75a.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "full-pytest-6f9df75a.log",
+      "bytes": 17010,
+      "sha256": "b9e0103d0d22e1932b3a595fa0df65e32293e3b57780a6742e3eba8ffd8968f3"
+    },
+    {
+      "path": "graph-audit-before.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "graph-audit-before.log",
+      "bytes": 26473,
+      "sha256": "dee7baf34fdff38318406c486f612926fe8f95a5a2f4bf8fcf36fc5ce1341329"
+    },
+    {
+      "path": "mutation-date_gate_off.log",
+      "bytes": 6913,
+      "sha256": "5a411121c0280dda665ff82a7adec22813a5af0b25e49fc5e9bff1dcd039a4a6"
+    },
+    {
+      "path": "mutation-document_always.log",
+      "bytes": 15381,
+      "sha256": "7ea627e2dbaf8ac84e2312061ea1ac07fc658d808e39fd74d07467d8b2d7f6a4"
+    },
+    {
+      "path": "mutation-opt_out_off.log",
+      "bytes": 33982,
+      "sha256": "6b6f5dcfa605196aa2f5f62d27a5da6188ff1e5d6f0d04ef579f717218820f05"
+    },
+    {
+      "path": "mutation-results.json",
+      "bytes": 810,
+      "sha256": "4be14256c320d50453999f65816a643667d7568b65f33c743319dbc04b9945e2"
+    },
+    {
+      "path": "production-health-readonly.json",
+      "bytes": 266,
+      "sha256": "4b6f3a4b03ca08a1617493de94d3e0f3370c8aa0e3b04d8f549ce35b5cb5f22e"
+    },
+    {
+      "path": "qc-replay-6f9df75a.json",
+      "bytes": 1366,
+      "sha256": "0ed2ea5d2c6f53c3fe393aaf99c7bd81b914ce3df2138f90ef9961036e548a9b"
+    },
+    {
+      "path": "qc-replay-6f9df75a.log",
+      "bytes": 2032,
+      "sha256": "9e3207dc3cefa3c76935eac6c13699ab844553b0ca5582537ff8d800ee410d2d"
+    },
+    {
+      "path": "receipt-check-6f9df75a.log",
+      "bytes": 747,
+      "sha256": "bf6efa9edc34eb4067bddc8a502d72be29f440fc47aaae22e78147e5f6459229"
+    },
+    {
+      "path": "red.log",
+      "bytes": 79816,
+      "sha256": "466a1ae4eaa4eb878ee62b338483a218c92809d3e6a96d9b249bb3025f68e599"
+    },
+    {
+      "path": "registry-6f9df75a.exit",
+      "bytes": 2,
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+    },
+    {
+      "path": "registry-6f9df75a.log",
+      "bytes": 588,
+      "sha256": "366fcf4ba199eecb9e85fe6cefbdd10a8f6d6a0067b0b32938ab440fca095eb7"
+    },
+    {
+      "path": "registry-final-6f9df75a.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "registry-final-6f9df75a.log",
+      "bytes": 2350,
+      "sha256": "7bb1b4fe29213f3071907c2ea5b964ffc9e6e6dfbf027dc4c76920d66d53160e"
+    },
+    {
+      "path": "related-1.log",
+      "bytes": 998,
+      "sha256": "ebc2bbeb77efa48083538afe526b70ef1bdc593d475cbe3d96f9f010ee526d02"
+    },
+    {
+      "path": "scanner-long-input-smoke.json",
+      "bytes": 575,
+      "sha256": "e4dfbaa8e4baf7e358eb7b75e00d922bed255ab9bed40d829423bc7d075480a0"
+    },
+    {
+      "path": "targeted-1.log",
+      "bytes": 4065,
+      "sha256": "96c21952c847fdb620275bf9d9508dc4c5eafda046c91307aa47d0d5582e7f8f"
+    },
+    {
+      "path": "targeted-2.log",
+      "bytes": 267,
+      "sha256": "f099ad7821e4334f70f2e3ed9e97968111f3180cab6acf774c806087c0249574"
+    },
+    {
+      "path": "targeted-3.log",
+      "bytes": 758,
+      "sha256": "c112b4c03e99b88ec002b52af594448651e523a55097e528b8b3c67514c652f4"
+    },
+    {
+      "path": "targeted-final.log",
+      "bytes": 1158,
+      "sha256": "487b98150c6fb5699cf76dc229566dfca0344d1aa2e4276af537b780798b2100"
+    }
+  ]
+}
