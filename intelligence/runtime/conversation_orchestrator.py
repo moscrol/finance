@@ -38,6 +38,10 @@ from intelligence.services.outlook_delivery_gate import (
     apply_outlook_delivery_gate,
     evidence_grid_text,
 )
+from intelligence.services.public_delivery_gate import (
+    contract_output_descriptions,
+    review_public_delivery,
+)
 from intelligence.services.reading_direction_gate import (
     apply_reading_direction_gate,
     collect_direction_observations,
@@ -4497,6 +4501,33 @@ class TurnOrchestrator:
             "context_growth",
             growth,
         )
+        # 最终交付门（services/public_delivery_gate）。放在这里而不是 adapter 里：
+        # adapter 返回之后正文还会被视角头、复核意见、outlook / market_watch 删句闸
+        # 和未验证网格改写，只有这一行之后的 answer_text 才是用户真正读到的那段。
+        # 判定本体是 services 侧纯函数，runtime 只接线、不持有词表。
+        delivery = review_public_delivery(
+            answer_text,
+            required_outputs=task_frame.required_outputs,
+            descriptions=contract_output_descriptions(
+                private_artifact.get("contract")
+            ),
+        )
+        answer_status = projected.report_business
+        if delivery.applied:
+            answer_text = delivery.text
+            answer_status = delivery.answer_status or answer_status
+            warning = f"public_delivery_gate:{delivery.verdict}"
+            warnings.append(warning)
+            self.run_store.add_degrade(run_id, warning)
+        report["public_delivery_gate"] = delivery.to_dict()
+        self._trace(
+            run_id,
+            assistant_message_id,
+            conversation_id,
+            "continuous:public_delivery_gate",
+            "public_delivery_gate",
+            delivery.to_dict(),
+        )
         complete_report(
             report,
             as_of=result.as_of,
@@ -4504,9 +4535,10 @@ class TurnOrchestrator:
             llm_provider=result.llm_provider,
             llm_model=self.llm_model,
             business_status=projected.report_business,
-            # 刻意保持不变：本轮只加观测，不让 coverage 判定影响交付状态。
-            # 见 _continuous_answer_coverage 的 docstring 与路线图 Phase 1「先量后改」。
-            answer_status=projected.report_business,
+            # marker coverage 仍是观测（见 _continuous_answer_coverage 的 docstring）。
+            # 会动交付状态的只有上面那道确定性交付门：它要求「形态 + 覆盖」两把
+            # 钥匙同时命中，单独缺措辞标记不足以降级。
+            answer_status=answer_status,
         )
         public_report = _redact_object(report)
         if isinstance(public_report, dict):
