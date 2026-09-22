@@ -1,0 +1,42 @@
+{
+  "checked_at": "2026-09-23T01:06:24.874440+08:00",
+  "tool_revision": "fdaf35251235958b34314a0df74344b0f571e4fa",
+  "targeted_tests": 44,
+  "source_sha256": "edabef87f97baf92abf0783bbb0a8712ab001fdaefbf886a4e906bd82211614e",
+  "mutations_caught": 5,
+  "cutoff_revision": "4a6e18da6f1469da2df9f79438d26ce8d2759e5f",
+  "cutoff_handoff_bytes": 2601,
+  "preservation": [
+    {
+      "source": "feat/grok-cli-judge",
+      "tip": "a354d2651d238839b9bafb068ca7456be58cc9a5",
+      "original_remote": "20c5b8d58b174d8422427fb6551fb199bfb6e4b3",
+      "target": "salvage/grok-cli-judge-local-20260923",
+      "local_only_commits": [
+        "a354d2651d238839b9bafb068ca7456be58cc9a5"
+      ]
+    },
+    {
+      "source": "feat/reading-rules-baseline-r2",
+      "tip": "9c2fff08c76de663ce909bd6eabccf72f5721e4a",
+      "original_remote": "ad3f417215928dd14a29bb0c8d0ccfbede489fb7",
+      "target": "salvage/reading-rules-baseline-r2-local-20260923",
+      "local_only_commits": [
+        "9c2fff08c76de663ce909bd6eabccf72f5721e4a",
+        "77ccf73c9aa2d8dd0c227a137482ec446935b837",
+        "93fa9615481895acd3111765bf219a7401534b9a",
+        "2f8ac4a1e55792bfede91c77534541e9e147572e",
+        "a699156b9d3cecabab8f135730ff4c583ee73d7b",
+        "33bd007c869a19722b3b7df0ce6e76dfe0e77756",
+        "5b117959eeaff682495067fbad160103b4b30043",
+        "9b45158b676f4e3a57707ed300c9d0996ca17287",
+        "3093b97b7830c192ab148e47ca29f25160dd1b76",
+        "637cc09cd393e512a155b208d5c5e1627fe9738b"
+      ]
+    }
+  ],
+  "original_remote_refs_unchanged": true,
+  "independent_snapshot_unchanged_clean": true,
+  "receipt_junit_consistent": true,
+  "ok": true
+}

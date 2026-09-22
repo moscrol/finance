@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""Run only disposable copies; never mutate a checkout or real Git index."""
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+
+SOURCE = Path('/Users/a77/fwp-wt-push-preservation-qc-0923')
+OUT = Path(__file__).resolve().parent
+SCRIPT = 'scripts/preview_evidence_archive.py'
+TEST = 'tests/test_preview_evidence_archive.py'
+MUTATIONS = [
+    ('index-scope', '_git(repo, "add", "--", *selected, env=env)',
+     '_git(repo, "add", "--", *selected)',
+     'test_prepare_preserves_real_index_refs_and_other_staged_content'),
+    ('tree-identity', 'if tree != preview_tree:', 'if False:',
+     'test_valid_archive_but_different_tree_is_rejected'),
+    ('base-parent', 'if len(preview_parents) != 1 or parents != preview_parents:', 'if False:',
+     'test_same_tree_with_wrong_parent_is_rejected'),
+    ('nonzero-exit', 'return 0 if result["ok"] else 1', 'return 0',
+     'test_prepare_rejects_invalid_archive_with_nonzero_exit[hash]'),
+    ('recheck-actual', 'errors.extend(f"real commit: {e}" for e in actual_check["errors"])',
+     'pass  # mutation: discard actual archive failures',
+     'test_verification_rechecks_archive_even_if_trees_match'),
+]
+
+
+def main():
+    original = (SOURCE / SCRIPT).read_text()
+    results = []
+    for name, old, new, test in MUTATIONS:
+        assert original.count(old) == 1
+        with tempfile.TemporaryDirectory(prefix='evidence-preview-mutation-') as directory:
+            root = Path(directory)
+            (root / 'scripts').mkdir()
+            (root / 'tests').mkdir()
+            (root / 'scripts/__init__.py').touch()
+            shutil.copy2(SOURCE / 'scripts/check_evidence_archive.py', root / 'scripts/check_evidence_archive.py')
+            shutil.copy2(SOURCE / TEST, root / TEST)
+            (root / SCRIPT).write_text(original.replace(old, new))
+            proc = subprocess.run(
+                [sys.executable, '-m', 'pytest', '-q', f'{TEST}::{test}'],
+                cwd=root, capture_output=True, text=True, timeout=60,
+            )
+            (OUT / f'mutation-{name}.txt').write_text(proc.stdout + proc.stderr)
+            # Code 1 means an assertion failed; collection/import errors are not catches.
+            caught = proc.returncode == 1 and '1 failed' in proc.stdout and 'ERROR collecting' not in proc.stdout
+            results.append({'mutation': name, 'test': test, 'exit_code': proc.returncode, 'caught': caught})
+            print(name, 'CAUGHT' if caught else 'NOT CAUGHT')
+    result = {
+        'source_sha256': hashlib.sha256(original.encode()).hexdigest(),
+        'results': results, 'ok': all(row['caught'] for row in results),
+    }
+    (OUT / 'mutations.json').write_text(json.dumps(result, indent=2) + '\n')
+    return 0 if result['ok'] else 1
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
