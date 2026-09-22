@@ -1,0 +1,13 @@
+你是独立的 spec 审查者，不是实现作者。只审查精确候选 revision 53054bfd4336bebd0d570273a58e92758fb623be（tree 2aa8e01864722bd6a659a672e9cd76813f398eeb），工作树为 /Users/a77/.finance-runtime/reviews/market-cutoff-independent-53054bfd4-tree-20260922，基线为 79b11d4268a39e0c0ba1cca6e99fef46e338661e。这是新鲜审查会话；不要读取其他审查目录、作者 handoff、共享记忆或凭据来替代代码判断。
+
+只读边界：禁止编辑候选文件、提交、切换分支、修改 git refs、运行全量测试、联网取数、部署、生产/用户数据写入或启动服务。允许源码阅读、git diff 和少量只读内存探针；不要读取 secret 文件。项目规定解释器是 /Users/a77/finance-workspace-private/.venv-workbench/bin/python，但本次不要跑全仓测试。输出只能写入本次审查目录 /Users/a77/.finance-runtime/reviews/market-cutoff-independent-53054bfd4-retry-01-20260922/spec；如果工具无法遵守只读边界，停止并说明。
+
+本任务要求：不同真实来源日期是 advisory，不是整体不可用/ready 失败；已有事实按真实来源日期交付，未知不猜、NULL 不补 0；比较仍须核对期间、单位和口径。明确用户历史信息截止必须由系统强制，覆盖工具读取以及 evidence、观察文本、gaps、trace、cache，不能只靠模型自觉。local_only 只能补已有授权的本地日快照，不得借综合 market_data 放开可能联网能力。material_only 必须在路径发现、预取和读取之前返回。历史日快照只能打开截止内的日文件，不能用较新文件、latest 或 meta 补历史；必须保留来源身份、质量、NULL/0 区别和原 JSON locator。封存 fixture 不得逃逸到生产路径。不要求完整自然语言解析，也不要求完整 publication-time/PIT 语义。
+
+重点审查规格与权限合同：是否有路径绕过明确 cutoff、把真实来源日期误报为无效、因日期不一致而拒绝已有事实，或扩大 local_only/material_only 能力。检查工具层、证据层和交付层的边界，并用源码证据或最小只读内存探针证明具体问题。
+
+请先读实际 git diff 及关键调用链周边实现，再独立判断。不要把作者测试数字或交接结论当作独立证明。输出中文书面 verdict：
+1. findings 在前，按严重度列出文件/行号、触发条件、影响和最小复现；没有确证问题就明确写“本范围未发现问题”，不要为了凑数造问题。
+2. 列已检查的关键路径、未验证边界和任何环境限制；不要声称执行了没有执行的命令。
+3. 最后给明确结论：发现问题 / 本范围未发现问题 / 审查不可用。若因额度、工具或环境错误未能完成，必须写“审查不可用”，不能写 PASS。
+不要审查其他分支、main 合流、真实 Workbench 或生产效果。

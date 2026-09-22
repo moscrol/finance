@@ -1,5 +1,5 @@
-c14cdfde4b73b2d385212dce3f948fdff4c73ab2d329e021d6238501bccb729b  docs/verification/2026-09-22-market-cutoff-followup/README.md
-a47bc355210adbde0f826d2f128c2a3d493bff0917d3526aba381f18456c9cbb  docs/verification/2026-09-22-market-cutoff-followup/manifest.json
+304d481cfaebf602f52116b3ca20a16a924c2c74f5be2251a83d7e2b4fe5eeba  docs/verification/2026-09-22-market-cutoff-followup/README.md
+9f67ae0c1d5e3234ca8aa3fef6337dc39ebe1a710600a7eea25893855875596f  docs/verification/2026-09-22-market-cutoff-followup/manifest.json
 8e65383cfe4a779558c30f277f4daaf30dbcfa580527bbea5d5148ad74625373  docs/verification/2026-09-22-market-cutoff-followup/raw/4cf5a33ad/development-fixes-receipt.json
 01b53f84a585baa655c949bf8db03eb21452de102a4634f2e4e555acefd988d9  docs/verification/2026-09-22-market-cutoff-followup/raw/4cf5a33ad/development-fixes-v2-receipt.json
 7546090717c51fca6592b105c38ccb03db1370c0b5d4e3beb0155677ba8e09f7  docs/verification/2026-09-22-market-cutoff-followup/raw/4cf5a33ad/development-fixes-v2.xml
@@ -12,7 +12,7 @@ d0bdfe638c13027088c9a6f5811c3bc9f37d541380ebe5ed37804414bb66009f  docs/verificat
 f42047bb3af9a3eb9aa5b32686b026555df8010288c4b6ece51b6337e974c96c  docs/verification/2026-09-22-market-cutoff-followup/raw/4cf5a33ad/python/resource-wait.jsonl
 2b0cd3afaf51d8037a1b17c4abf2d4567985da361adf1c53e690b886ade67010  docs/verification/2026-09-22-market-cutoff-followup/raw/4cf5a33ad/python/run.json
 a38593f776cae6b631ba0b5d8a6e4af58476980952fd5fe91971c75a2812fc21  docs/verification/2026-09-22-market-cutoff-followup/raw/4cf5a33ad/run_checks.py.txt
-c14cdfde4b73b2d385212dce3f948fdff4c73ab2d329e021d6238501bccb729b  docs/verification/2026-09-22-market-cutoff-followup/raw/53054bfd4/REVIEW.md
+304d481cfaebf602f52116b3ca20a16a924c2c74f5be2251a83d7e2b4fe5eeba  docs/verification/2026-09-22-market-cutoff-followup/raw/53054bfd4/REVIEW.md
 7cba481f2b75a18f4bdce8b6a9c88bbaf023662d87c98791775021714d732ee3  docs/verification/2026-09-22-market-cutoff-followup/raw/53054bfd4/archive.py.txt
 dd1a9e7bcdf5ab54bf892edb8b35bf40077bb901f1da8bf08bedb9eb8039525b  docs/verification/2026-09-22-market-cutoff-followup/raw/53054bfd4/classify_matches.py.txt
 e0b9f8a114b72b232d71370bd76c3e69c1cb784acf7ae8ed9414a8566a4f8f8a  docs/verification/2026-09-22-market-cutoff-followup/raw/53054bfd4/environment-probe.json
@@ -170,3 +170,12 @@ d26f7b19357fae7a98fb7d05abe7aa4a9a462cd837fe679fe444e12d89caebfa  docs/verificat
 8120cb109f920ba1abbfc8a98380fd3e50ce6192664503c279f56c06a291db49  docs/verification/2026-09-22-market-cutoff-followup/raw/53054bfd4/switch_mutation_v2.py.txt
 f8c1db596b98d11977077453437b52d6dbcc5e9407878872560ce1cc42401e9c  docs/verification/2026-09-22-market-cutoff-followup/raw/53054bfd4/vault-before.txt
 bf8a13491c523ffdae2f7ae56ae00cd5f3b4e063490435ba03cbe0d4dfe31c12  docs/verification/2026-09-22-market-cutoff-followup/scan-review.json
+d363fc0b8c19991d416d4b6e30386ddb75124396d3f8d78baa9c2faa7d7a4bd0  docs/verification/2026-09-22-market-cutoff-followup/raw/53054bfd4/independent-retry-01/launchers/quality.log.txt
+cdd8ace6b32cf678da44a6a33c8d8a663d2c34432477cb5d797a1fa80560f694  docs/verification/2026-09-22-market-cutoff-followup/raw/53054bfd4/independent-retry-01/launchers/spec.log.txt
+acea3d8fbade8938a879c6fc7465fe181bdf332a8bfb0c1b7c56b9b06245ebb2  docs/verification/2026-09-22-market-cutoff-followup/raw/53054bfd4/independent-retry-01/quality/log.txt
+4d084a8be7c00c2a8b0721f2762d87995ec754b9ed04927f42e03771bbb410db  docs/verification/2026-09-22-market-cutoff-followup/raw/53054bfd4/independent-retry-01/quality/prompt.txt
+b18cea53f16368ef65737aab00eeb34b30080850eee24c575eeaf6e83a705274  docs/verification/2026-09-22-market-cutoff-followup/raw/53054bfd4/independent-retry-01/quality/run.json
+2b49f5bfec7b6971ff7487db05d96494e3c636a8cf567b81ffede97dd0611bf3  docs/verification/2026-09-22-market-cutoff-followup/raw/53054bfd4/independent-retry-01/run_review.py.txt
+03c0d1695208855ce2ec410e0fc44b4d0f1e7164a23b810e1b95282e0c3290c5  docs/verification/2026-09-22-market-cutoff-followup/raw/53054bfd4/independent-retry-01/spec/log.txt
+99ecbf5fa4a039b941254caa45d9ccce217457a3c25ace3bcbc39a644bf2b785  docs/verification/2026-09-22-market-cutoff-followup/raw/53054bfd4/independent-retry-01/spec/prompt.txt
+1fc67d62c92a425af48aecad0b84d87eacc6cae367d1a2b2ebea250cb4d912f3  docs/verification/2026-09-22-market-cutoff-followup/raw/53054bfd4/independent-retry-01/spec/run.json
