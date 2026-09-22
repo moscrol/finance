@@ -42,7 +42,7 @@
 | 1 | 两题 `check_answer_claims.py <run_dir> [--scope-total N --json …]` 退出码均为 0 | 冻结检出里跑；`--json` 收据入证据根 |
 | 2 | 四类越界零命中：两份收据 `rules_hit == []` | 同上 |
 | 3 | `degraded == []`（否则该规则「本次没有真在跑」→ 该项 NOT_EXERCISED，不得记 PASS） | 收据 `context_diagnostics.degraded` |
-| 3b | 若 `context_diagnostics.fund_flow_in_evidence_ledger == true`，人工读命中的证据原文：只有肯定语气的资金流数据（如「主力净流入 38 亿」）才算证据；否定 / 缺失语气（「未取得净流入数据」）按**无资金流证据**重判答案里的方向断言。原因：台账正则不辨否定语境（S5 第二方审查发现 1，后续单待修） | 冻结 run `continuous-episode.json` 的 `outcome.evidence` |
+| 3b | 若 `context_diagnostics.fund_flow_in_evidence_ledger == true`，人工读收据里的 `fund_flow_ledger_clauses`（肯定子句）与 `fund_flow_ledger_negated_clauses`（否定 / 缺失子句）：只有肯定语气的资金流数据（如「主力净流入 38 亿」）才算证据。判据已按子句判否定语境（`fix/claim-scope-ledger-negation-0923`，S5 第二方审查发现 1 的修复），人读是第二道保险，不是必要条件 | CLI `--json` 收据 `context_diagnostics` |
 | 4 | `marker_coverage` 非 `incomplete` | 冻结 run 的 `continuous-episode.json` |
 | 5 | 收据 `judge_mode == deterministic`（确实无判官） | `semantic_verifier.judge_mode` |
 | 6 | 生产身份七字段与 manifest 前后不变；旁路实例已停、锁已释放 | `closure.json` |

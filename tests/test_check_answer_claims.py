@@ -96,6 +96,32 @@ def test_fund_flow_numbers_in_the_evidence_ledger_count_as_evidence() -> None:
     assert diagnostics["fund_flow_in_evidence_ledger"] is True
 
 
+def test_negated_fund_flow_mention_in_the_ledger_is_not_evidence() -> None:
+    # 2026-09-23 第二方审查探针：工具回包说「未取得」，整份台账子串匹配却判成有证据，
+    # 答案里的「资金集中流入」随即被放行——判据 fail-open。
+    episode = _episode(
+        [_finance_query(["amount"])],
+        evidence_text="本次未取得主力资金净流入数据，仅有成交额 114.90 亿元。",
+    )
+    context, diagnostics = _build(episode)
+    assert context.fund_flow_evidence is False
+    assert diagnostics["fund_flow_in_evidence_ledger"] is False
+    assert diagnostics["fund_flow_ledger_clauses"] == []
+    assert diagnostics["fund_flow_ledger_negated_clauses"], "否定子句要留痕供人核"
+
+
+def test_positive_and_negated_ledger_clauses_still_count_as_evidence() -> None:
+    # 同一批证据里一条说没取到、另一条给了数字：数字那条才是证据，整体算有。
+    episode = _episode(
+        [_finance_query(["amount"])],
+        evidence_text="本次未取得主力资金净流入数据。另据证券日报：逾38亿主力资金净流入封测板块。",
+    )
+    context, diagnostics = _build(episode)
+    assert context.fund_flow_evidence is True
+    assert len(diagnostics["fund_flow_ledger_clauses"]) == 1
+    assert len(diagnostics["fund_flow_ledger_negated_clauses"]) == 1
+
+
 def test_fund_flow_words_in_tool_arguments_are_not_evidence() -> None:
     # 证据是**取回来的东西**；模型自己敲的检索词敲什么都行，不算证据。
     episode = _episode([{"name": "kb_search", "arguments": {"query": "主力资金净流入"}}])
