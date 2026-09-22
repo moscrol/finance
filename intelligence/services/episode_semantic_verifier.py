@@ -693,7 +693,7 @@ def _recheck_research_delivery(outcome: SemanticEpisodeOutcome, public: str) -> 
     if contract is None:
         return outcome
     findings = (
-        *disclosure_absence_findings(public, before.outcome.traces),
+        *disclosure_absence_findings(public, before.outcome.traces, before.outcome.evidence),
         *calculation_copy_findings(
             public, before.outcome.evidence,
             calculation_required=bool(re.search(r"(?:用|使用|通过).{0,8}(?:计算工具|计算器|沙箱)", contract.question)),

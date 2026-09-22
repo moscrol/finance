@@ -31,7 +31,16 @@ _SEARCH_GAP = re.compile(
     r"(?:查询|检索|搜索|接口|返回|清单|列表|抓取).{0,32}"
     r"(?:失败|空白|为空|无结果|无记录|未返回|不完整|空集|未找到|查不到|没有结果)"
 )
-_ABSENCE = re.compile(r"(?:没有|并无|不存在|无|零|未发布)(?:新增|新的|新)?公告|零披露|(?:新增)?官方信息差|尚未兑现|没有兑现")
+# Absence is a composition, not a phrase list. A negator is a closed class and
+# so is the disclosure noun; enumerating their surface combinations is what let
+# '本期无任何披露文件' through while '零披露' was caught. Cross them instead.
+_NEGATOR = r"(?:没有|并无|不存在|毫无|缺(?:失|少)?|未|无|非|零|0)"
+_DISCLOSURE_NOUN = r"(?:公告|披露(?:文件|文档|内容|记录)?|公示|官方信息)"
+_ABSENCE = re.compile(
+    rf"{_NEGATOR}[^。！？；;\n]{{0,6}}{_DISCLOSURE_NOUN}"
+    rf"|{_DISCLOSURE_NOUN}[^。！？；;\n]{{0,4}}(?:为空|为零|为\s?0|为无)"
+    r"|(?:新增)?官方信息差|尚未兑现|没有兑现"
+)
 _INFERENCE = re.compile(r"因此|所以|说明|表明|证明|坐实|意味着|可判定|可以认定|即可|即无")
 _UNKNOWN = re.compile(r"不能|无法|不足以|不代表|不等于|不意味着|不说明|不得|不可|未能|尚不能|不成立|无依据|错误推断")
 _CLAUSE = re.compile(r"[^。！？；;\n]+[。！？；;]?")
@@ -39,11 +48,12 @@ _CLAUSE = re.compile(r"[^。！？；;\n]+[。！？；;]?")
 _ASSERTION_SEPARATOR = r"[,，、—]+|--+|但是|然而|不过|但|(?<=\])而|(?<=\])[ \t]+"
 _ASSERTION_PART = re.compile(rf"(?:^|{_ASSERTION_SEPARATOR})(?P<claim>(?:(?!{_ASSERTION_SEPARATOR}).)+)")
 _ATTRIBUTED = re.compile(r"(?:官方公告|公告原文|公司原文|交易所披露平台|巨潮资讯网)(?:称|明确说明|说明|显示)")
+_CITATION = re.compile(r"\[E\d+\]")
 _HYPOTHESIS = re.compile(r"^(?:若|如果|假设)")
 _DEPENDENT = re.compile(r"^(?:即|也就是说|换言之|据此|因此|由此)")
 
 
-def _rejected_assertion_spans(raw: str) -> tuple[tuple[int, int], ...]:
+def _rejected_assertion_spans(raw: str, *, channel_sourced: bool = False) -> tuple[tuple[int, int], ...]:
     """Sentence context establishes the inference; only its bad parts are removed.
 
     Merge adjacent rejected parts before choosing one separator to remove. Keep
@@ -64,8 +74,14 @@ def _rejected_assertion_spans(raw: str) -> tuple[tuple[int, int], ...]:
         elif has_rejected_premise:
             independent = bool(
                 _UNKNOWN.search(value) or _HYPOTHESIS.search(value)
-                or (re.search(r"\[E\d+\]", value) and (
-                    _ATTRIBUTED.search(value)
+                or (_CITATION.search(value) and (
+                    # A venue this list happens to know, OR - the part that does
+                    # not depend on us having heard of the venue - the episode
+                    # actually holds evidence from the disclosure channel, so a
+                    # cited statement can rest on something other than the
+                    # failed query. '深交所互动易' is in no list and never will be.
+                    channel_sourced
+                    or _ATTRIBUTED.search(value)
                     or (index > 0 and _ATTRIBUTED.search(values[index - 1]) and not rejected[index - 1])
                 ))
             )
@@ -100,18 +116,30 @@ def _rejected_assertion_spans(raw: str) -> tuple[tuple[int, int], ...]:
     return tuple(spans)
 
 
-def disclosure_absence_findings(text: str, traces: Sequence[ProviderTrace]) -> tuple[DeliveryFinding, ...]:
+def disclosure_absence_findings(
+    text: str,
+    traces: Sequence[ProviderTrace],
+    evidence: Sequence[AgentEvidence] = (),
+) -> tuple[DeliveryFinding, ...]:
     """Flag explicit inference from a search gap, not all negative prose.
 
     Conditional 'if a query is empty, it proves no disclosure' is still an
     invalid inference. 'If the company has no disclosures, then...' without a
     query claim remains a hypothesis. Successful L3 lookups are not universe
     completeness certificates either.
+
+    ``evidence`` answers one question the text cannot: did the disclosure
+    channel yield anything at all this episode? If it did, a cited neighbour may
+    be reporting it; if it did not, every citation next to an absence claim is
+    borrowed from something else. Deliberately not by citation index - aliases
+    are projected and can be offset, so an index would bind the wrong item.
     """
     disclosure_traces = [t for t in traces if provider_trace_tool_name(t) == "l3_lookup"]
     if not disclosure_traces:
         return ()  # not a blanket ban on examples in a methodology/critique answer
     incomplete = any(t.status not in {"success", "fallback_success"} for t in disclosure_traces)
+    channel = {provider_trace_tool_name(t) for t in disclosure_traces}
+    channel_sourced = any(item.tool in channel for item in evidence)
     findings = []
     for clause in _CLAUSE.finditer(text):
         value = re.sub(r"[*_`]+", "", clause.group())
@@ -124,7 +152,8 @@ def disclosure_absence_findings(text: str, traces: Sequence[ProviderTrace]) -> t
         if search_claim or collapsed_gap:
             findings.extend(
                 DeliveryFinding(clause.start() + start, clause.start() + end, "disclosure_absence_inference")
-                for start, end in _rejected_assertion_spans(clause.group())
+                for start, end in _rejected_assertion_spans(
+                    clause.group(), channel_sourced=channel_sourced)
             )
     return tuple(findings)
 

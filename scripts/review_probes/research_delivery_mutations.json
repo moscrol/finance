@@ -30,7 +30,7 @@
   {
     "id": "public-disclosure-check",
     "path": "intelligence/services/episode_semantic_verifier.py",
-    "old": "        *disclosure_absence_findings(public, before.outcome.traces),",
+    "old": "        *disclosure_absence_findings(public, before.outcome.traces, before.outcome.evidence),",
     "new": "        *(),",
     "targets": ["test_success_exit_also_checks_absence_and_preserves_neighbors", "test_frozen_disclosure_answer_through_real_verifier_exit"]
   },
@@ -142,8 +142,8 @@
   {
     "id": "disclosure-new-announcement-wording",
     "path": "intelligence/services/research_delivery_checks.py",
-    "old": "(?:没有|并无|不存在|无|零|未发布)(?:新增|新的|新)?公告",
-    "new": "(?:没有|并无|不存在|无(?:新增|新的|新)?|零|未发布(?:新)?)公告",
+    "old": "    rf\"{_NEGATOR}[^。！？；;\\n]{{0,6}}{_DISCLOSURE_NOUN}\"",
+    "new": "    rf\"{_NEGATOR}{_DISCLOSURE_NOUN}\"",
     "targets": ["test_review_disclosure_residue_is_not_republished"]
   },
   {
@@ -240,8 +240,8 @@
   {
     "id": "disclosure-connective-free-residue",
     "path": "intelligence/services/research_delivery_checks.py",
-    "old": "公告|零披露|(?:新增)?官方信息差",
-    "new": "公告|(?:新增)?官方信息差",
+    "old": "_NEGATOR = r\"(?:没有|并无|不存在|毫无|缺(?:失|少)?|未|无|非|零|0)\"",
+    "new": "_NEGATOR = r\"(?:没有|并无|不存在|毫无|缺(?:失|少)?|未|无|非|0)\"",
     "targets": ["test_review_second_round_disclosure_controls"]
   },
   {
@@ -397,5 +397,33 @@
     "old": "    return [m for m in _PERIOD.finditer(value) if not _QUALIFIER_DATE.search(value[:m.start()])]",
     "new": "    return list(_PERIOD.finditer(value))",
     "targets": ["test_a_dating_parenthesis_does_not_end_the_period_scope", "test_live_draft_miscopy_is_caught_and_only_that_number_is_pulled"]
+  },
+  {
+    "id": "absence-is-negator-times-noun",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "_NEGATOR = r\"(?:没有|并无|不存在|毫无|缺(?:失|少)?|未|无|非|零|0)\"",
+    "new": "_NEGATOR = r\"(?:没有|并无)\"",
+    "targets": ["test_absence_is_a_negator_crossed_with_a_disclosure_noun"]
+  },
+  {
+    "id": "absence-noun-class-not-one-word",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "_DISCLOSURE_NOUN = r\"(?:公告|披露(?:文件|文档|内容|记录)?|公示|官方信息)\"",
+    "new": "_DISCLOSURE_NOUN = r\"(?:公告)\"",
+    "targets": ["test_absence_is_a_negator_crossed_with_a_disclosure_noun"]
+  },
+  {
+    "id": "attribution-not-only-by-venue-list",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "                    channel_sourced\n                    or _ATTRIBUTED.search(value)",
+    "new": "                    _ATTRIBUTED.search(value)",
+    "targets": ["test_a_venue_we_never_listed_keeps_its_sentence_and_its_citation"]
+  },
+  {
+    "id": "citation-must-come-from-the-channel",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    channel_sourced = any(item.tool in channel for item in evidence)",
+    "new": "    channel_sourced = bool(evidence)",
+    "targets": ["test_a_citation_from_another_channel_cannot_launder_the_same_sentence"]
   }
 ]

@@ -29,31 +29,45 @@ from check_delivery_fact_retention import _identity
 
 
 REJECTED = "因此公司没有公告"
-# (name, draft, kind, origin)
+UNLISTED_VENUE = "收入可核[E1]，查询返回空白，因此公司没有公告，深交所互动易显示本期没有公告[E2]。"
+# (name, draft, kind, origin, venue_evidence_tool)
 CASES = (
     (
         "unlisted-venue-attribution",
-        "收入可核[E1]，查询返回空白，因此公司没有公告，深交所互动易显示本期没有公告[E2]。",
+        UNLISTED_VENUE,
         "attributed",
         "review-fragment-completed-by-producer",
+        "l3_lookup",
     ),
     (
         "listed-venue-control",
         "收入可核[E1]，查询返回空白，因此公司没有公告，巨潮资讯网显示本期没有公告[E2]。",
         "attributed",
         "control-listed-venue",
+        "l3_lookup",
+    ),
+    (
+        # Same sentence, but the cited card did not come from the disclosure
+        # channel. If a bare citation were enough, this would survive too.
+        "borrowed-citation-control",
+        UNLISTED_VENUE,
+        "borrowed",
+        "control-citation-from-another-channel",
+        "news_search",
     ),
     (
         "unlisted-absence-wording",
         "收入可核[E1]，查询返回空白，因此本期无任何披露文件。",
         "absence",
         "review-fragment-completed-by-producer",
+        "l3_lookup",
     ),
     (
         "listed-absence-control",
         "收入可核[E1]，查询返回空白，因此本期为零披露。",
         "absence",
         "control-listed-wording",
+        "l3_lookup",
     ),
 )
 
@@ -89,7 +103,7 @@ def main() -> int:
         ).hexdigest()
         cases = []
         for mode in ("off", "llm"):
-            for name, draft, kind, origin in CASES:
+            for name, draft, kind, origin, venue_tool in CASES:
                 frame, structural = fixture._structural(
                     draft, detail="收入可核。", traces=(financial_fixture.TRACE,)
                 )
@@ -100,13 +114,14 @@ def main() -> int:
                     structural.outcome,
                     evidence=(first, replace(
                         first,
+                        tool=venue_tool,
                         content_hash="venue-fixture",
                         title="披露来源夹具",
                         detail="本期没有公告",
                     )),
                 ))
                 findings = checks.disclosure_absence_findings(
-                    draft, structural.outcome.traces
+                    draft, structural.outcome.traces, structural.outcome.evidence
                 )
                 with patch.dict("os.environ", {"ASK_SEMANTIC_JUDGE": mode}):
                     result = verifier.SemanticEpisodeVerifier(judge_fn=lambda request: {
@@ -129,7 +144,17 @@ def main() -> int:
                         result.gap_output_ids and result.repair_output_ids
                     ),
                 }
-                if kind == "attributed":
+                if kind == "borrowed":
+                    expectations["rejected_inference_removed"] = (
+                        REJECTED not in result.public_answer
+                    )
+                    # Nothing in the episode came from the disclosure channel,
+                    # so the neighbouring statement is not independently sourced
+                    # no matter which venue it names or that it carries [E2].
+                    expectations["borrowed_attribution_not_retained"] = (
+                        attributed_clause not in result.public_answer
+                    )
+                elif kind == "attributed":
                     expectations["rejected_inference_removed"] = (
                         REJECTED not in result.public_answer
                     )
