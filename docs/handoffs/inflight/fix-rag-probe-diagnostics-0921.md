@@ -5,23 +5,22 @@
 
 ## 决策与被否方案
 - 同 key single-flight 完成即删；否了全局慢IO锁、缓存、延长超时。
-- 保留查询依赖导入，否了全懒加载；代码变化 code_changed，公开字段白名单不扩。
-- 生产 readiness 会恢复worker/创建目录，本轮不调用；只读复算行情判据，沙箱单次help。
-- 生产指纹另算，不只信启动快照；dirty-source不直接判整库死。理由/收据：`../2026-09-22-production-readonly-readiness.md`；实现证据：`../2026-09-21-rag-probe-singleflight.md`。
+- 09-22 按用户要求做**一次** readiness 实跑并先声明其恢复/建目录副作用；否了继续用 help 冒充实跑，也否了轮询求绿。
+- 保持 503 与原始日期；否了改快照日期、放松一致性门、部署本候选求绿——探针去重不生产行情事实。
+- 行情恢复仍归 `fwp-wt-market-recovery-0921`；本枝不写库、不发布。
+- 详情见 `../2026-09-22-rag-readiness-live-resume.md` 及同目录 09-21/09-22 旧快照。
 
 ## 当前状态
-实现3451c1d65，只读交接894ad9f65；#844保留WIP，未合未部署。09-22 00:17核验：8792仍adcda94b recovery / GLM-5.3-flash，判官缺省llm；行情一致性false（主库09-18，快照09-21）。09-21同步遇RemoteDisconnected，质量门拒绝staging晋升，finalize中止。后续“执行”依CLAUDE.md停在手动技能门，未补库/改配置/重启/切模型。
+实现仍 `3451c1d65`，其后只有文档。#844 open/WIP、未合未部署，远端 head `18c6215791e5`；本地 `894ad9f65`、`a25cf7e24` 及本轮文档**未推送**。生产仍 adcda94b / GLM-5.3-flash / 判官缺省 llm，没有本候选的新字段。
 
 ## 已验证
-前轮定向230P/4S、Ruff/diff/pre-commit通过；两变异6/1项失败；8并发子进程8→1，非单次CLI提速。
-00:17 health healthy；当前代码指纹匹配启动值、受跟踪文件干净；快照契约PASS。沙箱单次help309ms/rc0，必要参数齐，可选过滤/receipt仍缺；保护项哈希/主库stat未变。随后显式read_only复查：主库五张关键fact的09-21均0行；staging仅fact_market_daily 1行，其余四表0行。latest/meta均served=09-21。审计用库内日历，missing=0不证目标日齐；本次未另封存收据。
+09-22 17:58 单次 `GET /api/readiness`：HTTP **503**、780.664ms、`missing_critical=["market_data_consistency"]`；RAG 必要四参数齐（五可选缺，legacy），worker ready/active=1/recoveries=0（queries_served=6 是进程累计）。只读 DuckDB：五张关键 fact 最新均 **09-18**，09-21/09-22 全 0 行；快照已到 **09-22**（契约 PASS）。09-18 主线 71 行 today_pct/amount/strength 全空——`compute_mainline_local` 本就只写名单，不是新损坏。索引元数据门通过（年龄 3.86d<14、chunk_profile 一致、向量/BM25 对齐）。干净 `a25cf7e24` 定向 **226P/0F/0S**（env -i 隔离），八文件 Ruff 通过。采样前后保护文件/主库 SHA256/进程不变。证据 `docs/verification/2026-09-22-rag-readiness/summary.json`，33 份原件在 `~/.finance-runtime/reviews/rag-readiness-resume-20260922T175900/`（勿删）。
 
 ## 未验证 / 已知边界
-未调用HTTP readiness、真实query或模型；worker仅证进程存活，内部状态未知。help环境有只读/离线约束，n=1不是生产重放或历史超时根因证明。索引元数据对齐不等于内容新鲜。全仓/前端/E2E/外审、BGE质量、fallback/恢复未验。single-flight仅同进程，5秒非端到端deadline。
-原件：`tmp/production-readonly-20260922/` receipt/manifest及受限原始日志；前轮`tmp/rag-probe-singleflight/`110文件证据与失败原件保留，勿删。
+未发真实 query/模型题：逐页内容新鲜度、召回质量、worker 内部加载身份、fallback/恢复全未验；元数据对齐≠内容新鲜。n=1 不证明历史间歇 timeout 消失，780ms 是旧版端到端 HTTP，非新探针性能。226P 与前轮 230P/4S 分母不同，不是 merge gate：全仓/前端/E2E/registry/独立外审未跑。另有 fact 表停在 09-02/09-08/09-15 或为空，未逐表归因。
 
 ## 下一步
-请用户手动调用 `/daily-full-review 补齐2026-09-21行情` 后再抓源/写staging；不绕技能门、直写生产或改日期标签求绿，保留失败staging。跨午夜先验源实际交易日；recover_local_review要求两日输入，不直接套单日。审#844，等合并/部署授权及目标tip门禁；先RAG受控部署，再单独K3/judge-off，不宣称超时已修复。
+先推进行情恢复（历史日 09-21 走回填规程、09-22 走当日盘后正门，均需用户显式调用技能并按阶段授权），数据到位后再复验 readiness。#844 需目标 tip 完整门禁 + 独立审核 + 合并/部署授权；先 RAG 受控部署，再单独 K3/judge-off，不宣称超时已修复。
 
 ## 踩过的坑
-readiness GET不是纯读；新进程status看不到生产worker。health指纹只在启动算；RSS不证明模型卸载。日志CR会让splitlines行号偏移。adcda94b本来支持maintenance_launch，旧目录为文件漂移，别归因启动器自动恢复。共享KB有他人改动/冲突，勿碰。
+readiness GET 不是纯读；curl rc0 只表示收到响应，不代表就绪。行数≠字段可用（主线空列）。health 指纹只在启动算；RSS 不证明模型卸载。共享 KB 有他人改动/冲突，勿碰。
