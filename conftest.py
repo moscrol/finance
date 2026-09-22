@@ -268,6 +268,30 @@ def _dependency_fingerprint() -> str:
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
 
+def _collection_scope(session: pytest.Session) -> dict:
+    """收窄旋钮 + 实收数：让一张收据能自证「跑的是多大一片」。
+
+    ``target`` 只是位置参数，``--ignore`` / ``-k`` / ``-m`` / ``--deselect``
+    这些真正决定收集面的选项一个都不进收据。
+    """
+
+    option = getattr(session.config, "option", None)
+
+    def _get(name: str, default):
+        return getattr(option, name, default) if option is not None else default
+
+    return {
+        "ignore": list(_get("ignore", None) or []),
+        "ignore_glob": list(_get("ignore_glob", None) or []),
+        "deselect": list(_get("deselect", None) or []),
+        "keyword": _get("keyword", "") or "",
+        "markexpr": _get("markexpr", "") or "",
+        "maxfail": int(_get("maxfail", 0) or 0),
+        "last_failed": bool(_get("lf", False)),
+        "collected": int(getattr(session, "testscollected", 0) or 0),
+    }
+
+
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     """落一份机器可读收据。
 
@@ -287,9 +311,11 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         for report in stats.get(key, [])
         if hasattr(report, "nodeid")
     )
+    # 带上 xfailed/xpassed：没有它们，collected 与读数天然对不平，
+    # 「收了 N 条只跑了 M 条」这种截断就永远解释得通、也就永远查不出来。
     counts = {
         key: len(stats.get(key, []))
-        for key in ("passed", "failed", "error", "skipped")
+        for key in ("passed", "failed", "error", "skipped", "xfailed", "xpassed")
     }
     receipt = {
         # ——— 判定采信所需的条件（校验器逐条比对这些）———
@@ -317,6 +343,14 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         "dependency_gate_bypassed": os.environ.get(_ESCAPE) == "1",
         # ——— 读数本身 ———
         "target": " ".join(session.config.args or []),
+        # target 只是**位置参数**：`pytest -q` 与
+        # `pytest -q --ignore=scripts/archive -k something` 写出来的收据一模一样，
+        # 都是一个仓根路径。于是「全量绿」无法从收据自身审计收集面——
+        # `docs/verification/re06-*/REVIEW.md` 两份复核都只能从交接正文里找回
+        # 「命令含 --ignore=test_codex_sandbox.py」，并声明不当作自己的全量结论。
+        # 所以把收窄旋钮与实收数一并记账；collected 与 counts 对不上，就是被
+        # 截断过（maxfail / -x / 收集期中断）。
+        "scope": _collection_scope(session),
         "counts": counts,
         # 存 ID 而非只存个数：修好 3 条 + 引入 3 条 = 总数不变。
         # 失败归属必须按名字比，这是 baseline_diff.py 学到的同一条。

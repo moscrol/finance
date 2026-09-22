@@ -235,6 +235,59 @@ def check_executed_counts(counts: dict | None) -> tuple[bool, str]:
     return True, f"执行读数 {executed} 条（passed+failed+error）"
 
 
+_NARROWING = ("ignore", "ignore_glob", "deselect", "keyword", "markexpr", "last_failed")
+
+
+def describe_collection_scope(receipt: dict) -> tuple[bool | None, str]:
+    """收据是不是一次**没被收窄**的读数。
+
+    治的形状：``target`` 只记位置参数，`pytest -q` 与
+    `pytest -q --ignore=scripts/archive` 写出来的收据逐字相同。
+    `docs/verification/re06-*/REVIEW.md` 两份复核都只能从交接正文里找回
+    「命令含 --ignore=...」——收据自身证不了收集面，于是「全量绿」不可审计。
+
+    返回 ``None`` 表示旧格式收据（没有 scope 段）：不是绿也不是红，是**不知道**。
+    """
+
+    scope = receipt.get("scope")
+    if not isinstance(scope, dict):
+        return None, "收据无 scope 段（旧格式）——收集面不可审计，别当全量结论用"
+    used = []
+    for key in _NARROWING:
+        value = scope.get(key)
+        if value:
+            used.append(f"{key}={value}")
+    if int(scope.get("maxfail") or 0):
+        used.append(f"maxfail={scope['maxfail']}")
+    if used:
+        return False, "收集面被收窄：" + "；".join(used)
+    return True, f"收集面未被收窄（collected={scope.get('collected', '?')}）"
+
+
+def check_collected_matches_counts(receipt: dict) -> tuple[bool | None, str]:
+    """收了 N 条就该有 N 条读数——对不上就是跑了一半。
+
+    绿收据尤其要对账：``-x`` / ``--maxfail`` 在**没有失败**时不会截断，所以
+    一张 exit 0 却「收 12000 跑 6000」的收据，只能是收集后中途停了。
+    """
+
+    scope = receipt.get("scope")
+    if not isinstance(scope, dict) or "collected" not in scope:
+        return None, "收据无 collected（旧格式）——跑没跑完不可对账"
+    collected = int(scope.get("collected") or 0)
+    counts = receipt.get("counts") or {}
+    reported = sum(
+        int(counts.get(key) or 0)
+        for key in ("passed", "failed", "error", "skipped", "xfailed", "xpassed")
+    )
+    if collected == reported:
+        return True, f"收执对账平：collected={collected} == 读数合计={reported}"
+    return False, (
+        f"收执对账不平：collected={collected}，读数合计={reported}"
+        f"（差 {collected - reported}）——这张收据没跑完它收集的用例"
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])
     ap.add_argument(
@@ -242,6 +295,12 @@ def main() -> int:
         nargs="?",
         default=str(RECEIPT_DIR / "latest.json"),
         help=f"收据路径，默认 {RECEIPT_DIR / 'latest.json'}",
+    )
+    ap.add_argument(
+        "--require-full-scope",
+        action="store_true",
+        help="要求收据是一次未被 --ignore/-k/-m/--deselect 收窄的读数；"
+        "旧格式收据（无 scope 段）按 fail closed 拒绝",
     )
     ap.add_argument(
         "--require-target",
@@ -305,6 +364,19 @@ def main() -> int:
     print(f"  {'✓' if executed_ok else '✗'} {executed_message}")
     if not executed_ok:
         blockers.append("零执行读数")
+
+    # 收集面与收执对账：默认只报，不拦——验子集读数是正当用法（见
+    # --require-target）。要把一张收据当「全量绿」用时，才用 --require-full-scope
+    # 把它升成拦截项。
+    scope_ok, scope_message = describe_collection_scope(receipt)
+    print(f"  {'✓' if scope_ok else '?' if scope_ok is None else '✗'} {scope_message}")
+    if args.require_full_scope and scope_ok is not True:
+        blockers.append("收集面被收窄或不可审计")
+
+    recon_ok, recon_message = check_collected_matches_counts(receipt)
+    print(f"  {'✓' if recon_ok else '?' if recon_ok is None else '✗'} {recon_message}")
+    if recon_ok is False:
+        blockers.append("收执对账不平")
 
     def compare(field: str, label: str) -> None:
         theirs, mine = receipt.get(field), here[field]
