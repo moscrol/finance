@@ -20,6 +20,20 @@ _COMPARISON = re.compile(
     r"(?:市场|行情|盘面).{0,24}(?:像哪|类似哪|相似阶段)|"
     r"不同板块.{0,35}(?:共同|共性|可计算特征)"
 )
+# 「本轮是不是要把结论建在样本全集上」——与 purpose 分开。
+# purpose 是研究模式（发现/比较），在对话里**继承**；这条是逐轮的请求判据。
+# 两者混用的后果已实测：四道真题全部继承为 historical_comparison，于是描述性
+# 回合（“当时谁走强”、“有没有别的板块接上来”）无论答得多好都被强制降为 partial，
+# 理由是“尚未完成条件全集比较”——而用户根本没要过那个。
+#
+# 词表故意窄：只认“把规律/概率建立在样本上”这类请求。不收“胜率”：它在真实提问里
+# 几乎总以否定形出现（第一题就是“不要把相似程度当预测胜率”），收了就把警告读成请求。
+# 漏判有兵底：模型若声明 claim_level=historical_comparison 却没引 compare_cases 原件，
+# assess_history_finish 仍会以 history_missing_comparison 直接拒收。
+_FULL_COMPARISON_REQUEST = re.compile(
+    r"条件全集|纳入比较|加入比较|一起比较|统计规律|概率|成功率|四格|分母|"
+    r"(?:收益|后续|历史|普遍|共同).{0,8}规律|规律(?:是否|成立|验证)"
+)
 _DATE = re.compile(r"(?<!\d)(20\d{2})[-/年](\d{1,2})[-/月](\d{1,2})日?(?!\d)")
 _EXPLICIT_INFORMATION_CUTOFF_RE = re.compile(
     r"(?:以\s*)?(?P<before>20\d{2}-\d{2}-\d{2}|20\d{2}年\d{1,2}月\d{1,2}日)\s*(?:为|作为)?\s*信息截止日"
@@ -43,6 +57,8 @@ class HistoryIntent:
     information_cutoff: str | None = None
     analysis_window_source: str = "none"
     allow_window_extension: bool = False
+    # None = 未判定，回落到 purpose（旧行为，也是直接构造时的默认）。
+    comparison_requested: bool | None = None
 
     def __post_init__(self):
         if self.purpose not in {"retrospective_discovery", "historical_comparison"}:
@@ -57,6 +73,8 @@ class HistoryIntent:
             raise ValueError("invalid window extension flag")
         if self.allow_window_extension and self.analysis_window_source != "prior_analysis":
             raise ValueError("window extension requires a prior analysis")
+        if self.comparison_requested is not None and type(self.comparison_requested) is not bool:
+            raise ValueError("invalid comparison request flag")
         for value in (self.requested_start, self.requested_end, self.information_cutoff):
             if value is not None:
                 date.fromisoformat(value)
@@ -84,9 +102,21 @@ class HistoryIntent:
             "information_cutoff",
             "analysis_window_source",
             "allow_window_extension",
+            "comparison_requested",
         }:
             raise ValueError("invalid history intent")
         return cls(**value)
+
+    @property
+    def requires_full_comparison(self) -> bool:
+        """本轮是否要求把结论建在样本全集上（要求则必须有 compare_cases）。
+
+        没判定过就回落到 purpose：旧原件、旧调用方与直接构造的 intent 行为不变。
+        """
+
+        if self.comparison_requested is None:
+            return self.purpose == "historical_comparison"
+        return self.comparison_requested
 
 
 def _top_level_history_text(question: str) -> str:
@@ -146,6 +176,9 @@ def infer_history_intent(question: str) -> HistoryIntent | None:
     intent = _infer_history_window(question)
     if intent is None:
         return None
+    intent = replace(
+        intent, comparison_requested=bool(_FULL_COMPARISON_REQUEST.search(question))
+    )
     try:
         cutoff = explicit_information_cutoff(question)
     except ValueError:
@@ -268,7 +301,24 @@ def named_wave_subject(question: str) -> str | None:
 def inherit_history_followup(
     question: str, previous: HistoryIntent | None
 ) -> HistoryIntent | None:
-    """Only explicit continuations of a known history task inherit its permission."""
+    """Only explicit continuations of a known history task inherit its permission.
+
+    权限（窗口、截止日、研究模式）继承；「本轮要不要求样本全集」不继承，
+    每轮重新读用户这一句。跟问说「当时谁走强」就是描述性请求，
+    不应因为第一轮问过类比就被当成没做完的比较。
+    """
+    inherited = _inherit_history_purpose(question, previous)
+    if inherited is None:
+        return None
+    text = _top_level_history_text(question).strip()
+    return replace(
+        inherited, comparison_requested=bool(_FULL_COMPARISON_REQUEST.search(text))
+    )
+
+
+def _inherit_history_purpose(
+    question: str, previous: HistoryIntent | None
+) -> HistoryIntent | None:
     if previous is None:
         return None
     text = _top_level_history_text(question).strip()

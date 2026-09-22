@@ -192,8 +192,11 @@ def test_same_window_ranking_and_launch_path_reach_the_answer(tmp_path, anatomy_
     # 不是内容失败——正文与绑定都在。若要让描述性回合能标 completed，
     # 那是 assess_history_finish 的口径问题，见 docs/handoffs。
     assert "A.FP" in outcome.draft
-    assert outcome.status == "partial"
-    assert any("条件全集" in gap for gap in outcome.gaps), outcome.gaps
+    # 这一轮用户问的是「当时谁走强、从启动到见顶经过了什么」，不是「有没有规律」，
+    # 所以做完就该是 completed：不能因为第一轮问过类比，就把描述性回合一直挂在
+    # 「尚未完成条件全集比较」上。要求样本全集的那一轮见下一条用例。
+    assert outcome.status == "completed", outcome.gaps
+    assert not any("条件全集" in gap for gap in outcome.gaps), outcome.gaps
 
 
 def _prior_analysis(tmp_path, db):
