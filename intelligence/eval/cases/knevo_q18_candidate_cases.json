@@ -2,6 +2,8 @@
   "schema_version": "0.1-candidate",
   "_comment": "Knevo q18 三组题面候选（absorption-plan-2026-09-11 第四档 R10）。⚠️ 这是候选题面，不是验收集：未接 runner、无 expect_facts / expect_answer_set、不参与任何通过率统计，也不改 acceptance_cases.json 那 28 道冻结基准。每题只写「题面形状」与「应观察什么」，期望值留空——期望值一旦现在写死，就会把 q18 里 Knevo 自己的答法当成金标准，而 q18 六题是它在知情被测状态下连发作答的（题面泄漏了测试设计），按知情状态行为上限降级使用。",
   "status": "candidate_not_wired",
+  "material_proxy_successor": "intelligence/eval/cases/knevo_absorption_regression.json",
+  "successor_boundary": "2026-09-23：同ID改写已接 Workbench 探针，只是显式虚构材料回归；原文件列出的真实存储、检索和跨轮前置条件尚未接入，故本候选状态不升格。独立题集不参与28题或Knevo胜率。结果见 docs/learning/knevo-distill/final-report.md。",
   "source": "docs/learning/knevo-distill/q18-系统自检六题.md（C2/C3/C4-C6）+ docs/learning/knevo-distill/absorption-review-2026-09-11.md「q18 更适合炼成验收样本」",
   "wiring_note": "要接进验收集须先做三件事：①把题面改写成本仓真实入口能问的问句（不能留「请你自检」这类元提问）；②为每题写可判定的 pass_rule（观察项不是判据）；③按 acceptance-workflow 走一次基线跑，再决定是否并入 28 题。并入前后都不得用本文件的题面去反推既有 28 题的红绿。",
   "groups": [

@@ -80,7 +80,10 @@ L2、外层质检与方法验证保留 `FINANCE_CODE_ROOT`，数据与外置用�
 ### 专项研究纪律（Knevo 增量，2026-09-17 已合 main）
 
 `research_workflow_guidance.workflow_guidance` 给财报、事件推演、观点审查、事实核对、历史类比
-五类既有题型补分析纪律；连续 Episode 的动态规则与 ask 合成共用，不增加产品门、工具或权限。
+及消息影响等既有题型补分析纪律；连续 Episode 的动态规则与 ask 合成共用，不增加产品门、工具或权限。
+09-23 候选增量在 `news_impact` / `fact_check` 拆事实、解读与情绪表达，按主张保留来源、时点和确认阶段；
+无定价模型时不量化情绪溢价，不将事实直接升级为交易动作。仍按最终题型投递，
+材料入口若解析为通用题型不强塞消息纪律；[揭盲回归与边界](learning/knevo-distill/final-report.md)另列。
 旧 ask 保留信封已识别的专项意图，显式 override 优先；不代表所有自然语言路由已经准确。
 默认开，`FINANCE_RESEARCH_WORKFLOW_GUIDANCE=0` 可关。它是生成指令，不是新增语义审稿器；
 权限、材料范围、证据绑定与写侧门保持原合同。代码/对账与效果状态见

@@ -1,6 +1,6 @@
 """Question-scoped research disciplines shared by both answer engines.
 
-Absorbed from the Knevo rounds 18-19 audit, not a new router or tool grant.
+Absorbed from the Knevo rounds 18-19 audit and Q14, not a new router or tool grant.
 These are generation instructions, not evidence or a semantic verifier.
 """
 
@@ -10,6 +10,16 @@ import os
 
 ENV_FLAG = "FINANCE_RESEARCH_WORKFLOW_GUIDANCE"
 HEADING = "【专项研究纪律】"
+
+_NEWS_LAYERS = (
+    "消息逐项拆为事实、解读与情绪表达：事实标来源、对象、时间和确认阶段；"
+    "解读列出从事实到结论的附加假设；情绪或宣传性措辞不充当业务进展证据。"
+    "这是主张身份的区分，不是按媒体名称给整篇材料定真伪。",
+    "传播次数与独立来源数分开；来源缺失时写无法核实，不判定事件没发生。"
+    "已证实事实也不自动成为交易指令，解读不能单独支撑确定性受益结论。"
+    "没有可比基线、定价模型及假设时，不用实际涨幅减一个猜测的合理涨幅来量化情绪溢价；"
+    "摘要保留原有条件，新的一手证据出现后允许修订判断。",
+)
 
 _RULES: dict[str, tuple[str, ...]] = {
     "financial_analysis": (
@@ -43,7 +53,9 @@ _RULES: dict[str, tuple[str, ...]] = {
         "保留作者前后矛盾及相反解释，给出能推翻观点的事实与可监控指标；"
         "历史立场是先验，不覆盖当前证据。分析完成不等于批准写入画像。",
     ),
+    "news_impact": _NEWS_LAYERS,
     "fact_check": (
+        *_NEWS_LAYERS,
         "事实核对：按数值与口径、实体消歧、来源可追溯、逻辑自洽、时效、完整性六维检查；"
         "每项区分已核验、发现错误、证据不足与不适用，未查到不等于正确。",
         "问题项给原文位置、待核主张、核验依据及修正建议；同名公司、币种、百分比与百分点、"
