@@ -253,6 +253,35 @@ def test_clock_reversal_blocks_unlimited_sync_and_legacy_step_is_not_green(isola
         assert con.execute("SELECT status FROM ops_hithink_sector_capture").fetchone() == ("partial",)
 
 
+@pytest.mark.parametrize("pct_basis", ["member_equal_weight", "index_close_return"])
+def test_versioned_preview_binds_capture_and_prices_to_one_snapshot(isolated, pct_basis):
+    capture_id = _sync(isolated)["capture_audit"]["capture_id"]
+    with duckdb.connect(str(isolated)) as reader, duckdb.connect(str(isolated)) as writer:
+        before = _preview(reader, capture_id, pct_basis=pct_basis)
+
+        class ConcurrentCommit:
+            fired = False
+
+            def execute(self, sql, *args):
+                cursor = reader.execute(sql, *args)
+                if "FROM ops_hithink_sector_request" in sql and not self.fired:
+                    self.fired = True
+                    writer.execute("BEGIN TRANSACTION")
+                    writer.execute("UPDATE fact_stock_daily SET amount=amount*2 WHERE trade_date=?", [DAY])
+                    writer.execute("UPDATE fact_sector_kline_daily SET close=105 WHERE trade_date=?", [DAY])
+                    writer.execute("COMMIT")
+                return cursor
+
+        racing = ConcurrentCommit()
+        during = _preview(racing, capture_id, pct_basis=pct_basis)
+        after = _preview(reader, capture_id, pct_basis=pct_basis)
+        assert racing.fired
+        assert during == before
+        assert after["rows"][0]["amount"] == 1200
+        assert after["rows"][0]["pct_chg"] == (2 if pct_basis == "member_equal_weight" else 5)
+        assert after["request_complete"] and not after["production_ready"]
+
+
 def test_preview_does_not_reread_responses_after_validation(isolated):
     capture_id = _sync(isolated)["capture_audit"]["capture_id"]
     with duckdb.connect(str(isolated), read_only=True) as con:
