@@ -362,25 +362,53 @@ _COMPARISON_ANALOG_OUTPUT_IDS: tuple[str, ...] = (
     "counterpoint",
     "evidence_boundary",
 )
+# 兑不出的白名单比没有白名单更坏：漏掉一个算子，模型做对了也交不出去。
+# 参数只能是引擎声明的那六个（tests/test_history_operation_eligibility.py 盯漂移）。
 _ALL_HISTORY_OPERATIONS = (
     "inspect_history",
     "compute_history",
     "find_analogues",
     "compare_cases",
+    "trace_history",
+    "rank_history",
 )
+# 作用域仍然有效：哪个提问靠哪种观察支撑。只在题目真的需要时放行
+# 同窗排名（rank_history）与启动到峰值路径（trace_history）。
 _COMPARISON_ANALOG_HISTORY_OPERATIONS: dict[str, tuple[str, ...]] = {
-    "direct_assessment": ("compare_cases", "find_analogues"),
-    "comparison_dimensions": ("inspect_history", "compute_history", "compare_cases"),
-    "analog_similarities": ("find_analogues",),
-    "key_differences": ("find_analogues", "compare_cases"),
-    "limits_of_analogy": ("find_analogues", "compare_cases"),
-    "counterpoint": ("find_analogues", "compare_cases"),
-    "evidence_boundary": (
+    "direct_assessment": (
+        "compare_cases",
+        "find_analogues",
+        "rank_history",
+        "trace_history",
+    ),
+    "comparison_dimensions": (
         "inspect_history",
         "compute_history",
+        "compare_cases",
+        "rank_history",
+        "trace_history",
+    ),
+    # 相似点必须来自真做过的类比检索，不得用排名或路径冗代。
+    "analog_similarities": ("find_analogues",),
+    "key_differences": (
         "find_analogues",
         "compare_cases",
+        "rank_history",
+        "trace_history",
     ),
+    "limits_of_analogy": (
+        "find_analogues",
+        "compare_cases",
+        "rank_history",
+        "trace_history",
+    ),
+    "counterpoint": (
+        "find_analogues",
+        "compare_cases",
+        "rank_history",
+        "trace_history",
+    ),
+    "evidence_boundary": _ALL_HISTORY_OPERATIONS,
 }
 
 
