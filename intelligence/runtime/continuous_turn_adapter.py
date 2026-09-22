@@ -35,6 +35,7 @@ from intelligence.services.episode_store import EPISODE_LOG_VERSION
 from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     SemanticEpisodeOutcome,
+    comparison_baseline_unsupported,
     draft_sentence_count,
     numeric_condition_unsupported,
     recheck_material_public_delivery,
@@ -1565,6 +1566,16 @@ def _issue_backfill_plan(
                 "unsupported numeric condition without bound evidence",
             ),
         )
+    # 比较基准缺位走同一条路：去把历史读数补回来，而不是把看着可证伪的条件删掉。
+    if comparison_baseline_unsupported(structural):
+        items = (
+            *items,
+            Issue(
+                IssueCode.NUMERIC_UNSUPPORTED,
+                "comparison_baseline",
+                "condition compares against a prior-period baseline without bound evidence",
+            ),
+        )
     return plan_issue_backfill(
         items,
         subject_kind=context.contract.subject_kind,
@@ -1647,12 +1658,16 @@ def _track_public_delivery(
         answer, query=context.contract.question,
         question_type=context.contract.question_type, as_of=context.today,
     )
-    if material_question_outputs(context.contract) or not receipt["missing_outputs"]:
+    if material_question_outputs(context.contract):
         return answer, (), receipt
+    # 期限自相矛盾是「写了但对不上」，缺件检查看不到它；只如实披露，不替用户选日期、不改写正文。
+    conflicts = tuple(receipt["ttl_conflicts"])
+    if not receipt["missing_outputs"]:
+        return answer, conflicts, receipt
     missing = missing_contract_elements(answer)
     labels = {"quad_or_baseline": "观点对照或基线", "ttl": "复核期限", "next_watch": "下期关注的指标、时间或触发条件"}
     notice = "跟踪输出未完成：" + "、".join(labels[item] for item in missing) + "。"
-    return append_contract_stub(answer, missing), (notice,), receipt
+    return append_contract_stub(answer, missing), (notice, *conflicts), receipt
 
 
 def _with_semantic_contract_gaps(

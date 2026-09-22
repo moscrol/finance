@@ -42,6 +42,17 @@ _SINGLE_OCF = re.compile(
 _STOCK_MOVE = re.compile(rf"(?P<a>{_NUMBER})\s*(?:亿元?|亿)?\s*→\s*(?P<b>{_NUMBER})")
 _DURATION = re.compile(r"(?P<half>半年)(?!度|报)|(?P<months>[一二三四六九十\d]+)个月")
 _CN_NUM = {"一": 1, "二": 2, "三": 3, "四": 4, "六": 6, "九": 9, "十": 10}
+# 向**历史**基准比的条件（「不低于两期中较低值」「回到上期水平」）。未来数据未到手是正常的，
+# 但基准取不到时，条件到复查日也无法被评判——看着可证伪，实际不可证伪。
+_BASELINE_COMPARISON = re.compile(
+    r"(?:不低于|不高于|低于|高于|回升至?|回到|恢复至|超过|达到)[^，,。；;、]{0,8}?"
+    r"(?P<scope>最近两期|前两期|两期中|两期|上一期|上期|同期)[^，,。；;、]{0,6}?"
+    r"(?:较低值|较高值|均值|平均值|水平|值|数)"
+)
+_BASELINE_SCOPE_PERIODS = {
+    "最近两期": 2, "前两期": 2, "两期中": 2, "两期": 2,
+    "上一期": 1, "上期": 1, "同期": 1,
+}
 
 
 def _decimal(raw: object) -> Decimal | None:
@@ -138,6 +149,47 @@ def calculation_ratio_gaps(
             multiplier = 100 if "%" in column or "百分比" in column else 1
             if ocf is not None and profit and not _same_display(ocf / profit * multiplier, str(obs.value)):
                 gaps.append(f"计算产物 {item.source.removeprefix('sandbox:')} 的 {obs.metric} 与同报告期原始输入复算不一致")
+    return tuple(dict.fromkeys(gaps))
+
+
+def comparison_baseline_gaps(
+    sentences: Sequence[dict[str, object]], evidence: Sequence[AgentEvidence],
+    bound_hashes: Sequence[str], *, subject: str | None,
+) -> tuple[str, ...]:
+    """Flag conditions whose *historical* comparison baseline was never obtained.
+
+    A watch condition may reference data that does not exist yet -- that is what
+    a watch is for. What it may not do is compare against a prior-period baseline
+    this answer never bound: at recheck time there is nothing to compare with, so
+    the condition only looks falsifiable. Clauses carrying a literal value stay
+    with the existing numeric-support gate, qualitative conditions are untouched,
+    and a peer company's readings never stand in for the requested subject.
+    """
+    values = _observations(evidence, set(bound_hashes), subject)
+    if not values:
+        # 一条都没绑定时无从判断，交给绑定/证据门，不在这里臆断。
+        return ()
+    available = {
+        period for period, metric in values
+        if metric == "ocf_cum_yi" and (period, "net_profit_cum_yi") in values
+    }
+    gaps = []
+    for sentence in sentences:
+        text = str(sentence.get("text") or "").replace("**", "").replace("__", "")
+        for clause in re.split(r"[，,。；;、]", text):
+            if re.search(r"\d", clause):
+                continue
+            ratio = re.search(_RATIO, clause, re.I)
+            match = _BASELINE_COMPARISON.search(clause)
+            if ratio is None or match is None:
+                continue
+            required = _BASELINE_SCOPE_PERIODS[match["scope"]]
+            if len(available) >= required:
+                continue
+            gaps.append(
+                f"触发条件「{match[0]}」依赖{ratio[0]}的历史比较基准，"
+                f"但已绑定证据只够算 {len(available)} 期、需要 {required} 期"
+            )
     return tuple(dict.fromkeys(gaps))
 
 

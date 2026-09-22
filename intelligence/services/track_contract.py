@@ -307,6 +307,13 @@ _VALID_UNTIL_RE = re.compile(
 )
 EXPIRED_MARK = "已过期，待复核"
 _EXPIRED_SUFFIX = "（已过期，待复核）"
+# 同一条结论被写上两个不同有效期：F1 原件把用户指定的复查日填进「复核期限」
+# （2026-10-22），尾句又按契约默认 30 天自述「本结论……（至2026-10-17）未复核」。
+# 只认**自指本结论**的重述，且只在与已声明期限都不一致时报冲突——契约本来就允许
+# 每条结论各标有效期（跟踪级 30 天 / 框架级 90 天），把全文日期强行拉平才是错的。
+_RESTATED_TTL_RE = re.compile(
+    r"(?:本|本期|该|上述)结论[^。；;\n]{0,24}?至\s*(20\d{2}-\d{2}-\d{2})[^。；;\n]{0,12}?未复核"
+)
 
 
 def contract_missing_outputs(
@@ -375,6 +382,27 @@ def parse_valid_until(answer: str) -> str | None:
     if found:
         return found.group(1)
     return None
+
+
+def conclusion_ttl_conflicts(answer: str) -> tuple[str, ...]:
+    """同一条结论标了互相矛盾的有效期时报冲突；不改写正文、不统一日期。
+
+    只比同一种角色的两种写法：显式「复核期限/valid_until」与自指本结论的重述。
+    披露截止日、复查进度日、下期关注的时间节点是**别的角色**，不参与比较——R4 已按
+    「先判日期角色再取值」修过 watch due，这里不能反过来把角色不同的日期凑成一致。
+    一个声明都没有属于缺件（由 :func:`missing_contract_elements` 报 ttl），不是冲突。
+    """
+    text = str(answer or "").split(CONTRACT_STUB_HEADING, 1)[0]
+    declared = [match.group(1) for match in _VALID_UNTIL_RE.finditer(text)]
+    if not declared:
+        return ()
+    conflicts = [
+        f"结论有效期自相矛盾：正文声明「复核期限：{declared[0]}」，"
+        f"同一条结论又写明至 {match.group(1)} 未复核即视为待复核"
+        for match in _RESTATED_TTL_RE.finditer(text)
+        if match.group(1) not in declared
+    ]
+    return tuple(dict.fromkeys(conflicts))
 
 
 def ttl_status(valid_until: str | None, *, as_of: str | None = None) -> str:
@@ -446,6 +474,8 @@ def contract_receipt(
         "prior_verdict_check": verdict,
         "valid_until": valid,
         "ttl_status": ttl_status(valid, as_of=as_of) if track_intent else "missing",
+        # 冲突与过期是两回事：过期说明该复核了，冲突说明这条结论的期限本身对不上。
+        "ttl_conflicts": list(conclusion_ttl_conflicts(body)) if track_intent else [],
         "baseline_declared": bool(
             track_intent and any(marker in body for marker in _BASELINE_MARKERS)
         ),
