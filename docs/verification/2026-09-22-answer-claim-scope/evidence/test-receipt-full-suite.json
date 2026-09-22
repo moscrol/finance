@@ -1,0 +1,26 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-answer-claims-0922",
+  "revision": "a2c8d1f90773fdf3dcb7cf53f5d9733590924ae1",
+  "branch": "fix/answer-claim-scope-0922",
+  "dirty": true,
+  "dirty_paths": [
+    "intelligence/services/answer_claim_scope.py",
+    "intelligence/tests/test_answer_claim_scope.py",
+    "scripts/check_answer_claims.py"
+  ],
+  "worktree_dirty_total": 3,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/fwp-wt-answer-claims-0922",
+  "counts": {
+    "passed": 12542,
+    "failed": 0,
+    "error": 0,
+    "skipped": 85
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-22T11:25:23+00:00"
+}
