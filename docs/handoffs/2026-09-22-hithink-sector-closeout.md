@@ -95,8 +95,15 @@ provider 没有前一日快照，闸门直接跳过。跨源的板块名称本�
 - 变异 2 只红「显式换源」这条**正向**用例——如果只写拒绝用例，把换源彻底做死也能全绿，
   这个洞会漏过去。正向用例在这里是承重的。
 - 全量 `pytest -q -p no:randomly`：12528 passed / 85 skipped / 2 xfailed，用时 35 分钟。
+  注：这轮跑于**提交前的脏树**（脏的只有本次改动，代码内容同 `f900c1f31`），故**无收据**。
   1 failed = `intelligence/tests/test_rag_worker.py::test_warm_worker_survives_first_timeout_...`，
-  与本改动无 import 依赖（已 grep 核），单跑 3/3 绿 → 全量负载下的偶发超时，非本次引入。
+  与本改动无 import 依赖（已 grep 核），单跑 3/3 绿。事后查 `uptime`：本机 **load average ≈ 50**
+  （当时至少还有 `fwp-wt-runtime-entry-identity-0922`、`fwp-wt-mutation-timeout-evidence-0922`
+  等多棵工作树在跑）——负载导致的计时假红，非本次引入。同一负载下重跑全量被迫在 11%
+  处超时中断（>3000s），故改为出**目标收据**。
+- 干净树收据（`dirty=false`，`revision=f900c1f31`，`check_test_receipt.py` 判「可采信」）：
+  `~/.finance-runtime/test-receipts/20260922T112608Z-f900c1f3.json`，**196 passed**，
+  target = 5 个板块/预览测试文件。**它是目标收据，不是全量收据**，不得当全量绿引用。
 - `hithink_stock_preview._read_inputs` 只有一条 `con.execute`（单条 UNION 查询），天然单快照，
   **无 D1 同类缺陷**——已核实，不是推测。
 
