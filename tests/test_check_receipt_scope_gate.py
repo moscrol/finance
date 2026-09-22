@@ -212,6 +212,10 @@ def test_a_real_run_writes_scope_and_xfail_counts_into_its_receipt(tmp_path) -> 
         [sys.executable, "-m", "pytest", "-q", "--no-header", "-p", "no:cacheprovider",
          "tests/test_check_receipt_zero_count_gate.py", "-k", keyword],
         cwd=Path(__file__).resolve().parents[1],
+        # 收据写到 tmp_path，不污染全机收据目录（FWP_TEST_RECEIPT_DIR 见
+        # tests/test_receipt_pointer_isolation.py）。
+        env={"HOME": str(Path.home()), "PATH": "/opt/homebrew/bin:/usr/bin:/bin",
+             "TMPDIR": "/tmp", "FWP_TEST_RECEIPT_DIR": str(tmp_path)},
         capture_output=True, text=True, timeout=600,
     )
     assert proc.returncode == 0, proc.stdout[-2000:]

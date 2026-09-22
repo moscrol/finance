@@ -46,6 +46,7 @@ import importlib.util
 import json
 import os
 import platform
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -237,7 +238,11 @@ def pytest_report_header() -> list[str]:
 # 供 scripts/check_test_receipt.py 做「能不能采信」的判定。
 # ---------------------------------------------------------------------------
 
-_RECEIPT_DIR = Path.home() / ".finance-runtime" / "test-receipts"
+# scripts/run_main_gate.sh 一直在读 FWP_TEST_RECEIPT_DIR，而这里原本写死家目录：
+# 设了那个变量的人，收据写到 A、脚本去 B 找，报「没找到收据」exit 4。认它。
+_RECEIPT_DIR = Path(
+    os.environ.get("FWP_TEST_RECEIPT_DIR") or Path.home() / ".finance-runtime" / "test-receipts"
+)
 _RECEIPT_ENV = "FWP_TEST_RECEIPT"
 
 
@@ -266,6 +271,17 @@ def _dependency_fingerprint() -> str:
             parts.append(f"{name}==<缺失>")
     blob = ";".join(parts)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
+
+
+def latest_pointer_name(tree: Path) -> str:
+    """本棵树专属的 latest 指针文件名。
+
+    规则刻意选得能在 shell 里一行算出来（``tr -c 'A-Za-z0-9._-' '_'``），
+    这样 session_facts.sh / run_main_gate.sh 不必调 Python 就能找到同一个文件。
+    """
+
+    slug = re.sub(r"[^A-Za-z0-9._-]", "_", str(tree))
+    return f"latest-{slug}.json"
 
 
 def _collection_scope(session: pytest.Session) -> dict:
@@ -365,7 +381,17 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         path.write_text(
             json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
+        # latest.json 是全机**单个**文件：多棵树并跑时，谁后结束谁覆盖。实测
+        # 2026-09-22：本树全量刚跑完，latest.json 已是另一棵树的读数（7585 passed
+        # / 1 failed）。而 scripts/session_facts.sh 正是拿 latest.json 的 revision
+        # 与本树 HEAD 比，同 base 的两棵干净树 revision 天然相等 → 它会说
+        # 「可直接采信，不必重跑」，采信的却是别人跑的。run_main_gate.sh 同理：
+        # 跑完 pytest 去读 latest.json，中间别人结束就抄走别人的数。
+        # 故再写一份按树区分的指针；latest.json 保留，旧读法不破。
         (_RECEIPT_DIR / "latest.json").write_text(
+            json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        (_RECEIPT_DIR / latest_pointer_name(REPO)).write_text(
             json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
         reporter.write_line(f"读数收据: {path}")

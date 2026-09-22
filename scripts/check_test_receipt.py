@@ -41,13 +41,35 @@ import argparse
 import hashlib
 import importlib.metadata as md
 import json
+import os
 import platform
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-RECEIPT_DIR = Path.home() / ".finance-runtime" / "test-receipts"
+RECEIPT_DIR = Path(
+    os.environ.get("FWP_TEST_RECEIPT_DIR") or Path.home() / ".finance-runtime" / "test-receipts"
+)
+
+
+def latest_pointer(tree: Path) -> Path:
+    """本树专属的 latest 指针（与 conftest.latest_pointer_name 同一规则）。"""
+
+    slug = re.sub(r"[^A-Za-z0-9._-]", "_", str(tree))
+    return RECEIPT_DIR / f"latest-{slug}.json"
+
+
+def default_receipt(tree: Path) -> Path:
+    """默认验哪张收据：本树的最新一张，没有才回落到全机 latest.json。
+
+    latest.json 是全机单个文件，多棵树并跑时谁后结束谁覆盖——默认去读它，
+    等于默认可能验的是别人的读数。
+    """
+
+    mine = latest_pointer(tree)
+    return mine if mine.exists() else RECEIPT_DIR / "latest.json"
 _SPEC_PATH = REPO / "test-environment.json"
 _LOCK = REPO / "requirements-consumer.lock"
 
@@ -293,8 +315,8 @@ def main() -> int:
     ap.add_argument(
         "receipt",
         nargs="?",
-        default=str(RECEIPT_DIR / "latest.json"),
-        help=f"收据路径，默认 {RECEIPT_DIR / 'latest.json'}",
+        default=None,
+        help="收据路径，默认取本树最新一张（latest-<树>.json），没有才回落 latest.json",
     )
     ap.add_argument(
         "--require-full-scope",
@@ -328,6 +350,9 @@ def main() -> int:
         help="--base-drift-max 的主干引用（默认 gitea/main）",
     )
     args = ap.parse_args()
+    used_default = args.receipt is None
+    if used_default:
+        args.receipt = str(default_receipt(REPO))
 
     path = Path(args.receipt).expanduser()
     if not path.is_file():
@@ -350,6 +375,7 @@ def main() -> int:
     print("=" * 72)
     print(f"  收据     {path}")
     print(f"  产生于   {receipt.get('finished_at', '?')}")
+    print(f"  来自树   {receipt.get('tree', '(未记)')}")
     print(f"  目标     {receipt.get('target') or '(全量)'}")
     counts = receipt.get("counts") or {}
     print(
@@ -372,6 +398,18 @@ def main() -> int:
     print(f"  {'✓' if scope_ok else '?' if scope_ok is None else '✗'} {scope_message}")
     if args.require_full_scope and scope_ok is not True:
         blockers.append("收集面被收窄或不可审计")
+
+    # 只在**没显式给路径**时拦跨树：跨树采信本身是收据制度的目的（复核者在自己的
+    # 树上验执行方的收据），要拦的是「默认去读全机 latest.json，结果读到别人的」。
+    if used_default:
+        their_tree = receipt.get("tree")
+        same_tree = str(their_tree) == str(REPO)
+        print(f"  {'✓' if same_tree else '✗'} 默认收据来自本树")
+        if not same_tree:
+            print(f"      收据 : {their_tree}")
+            print(f"      当前 : {REPO}")
+            print("      latest.json 是全机单个文件，多棵树并跑时谁后结束谁覆盖。")
+            blockers.append("默认收据来自别的树")
 
     recon_ok, recon_message = check_collected_matches_counts(receipt)
     print(f"  {'✓' if recon_ok else '?' if recon_ok is None else '✗'} {recon_message}")

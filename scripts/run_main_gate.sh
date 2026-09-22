@@ -76,7 +76,12 @@ else
   PYTEST_EXIT="${PIPESTATUS[0]}"
 
   RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
-  LATEST="$RECEIPT_DIR/latest.json"
+  # 不读全机 latest.json：它是单个文件，跑完这几秒里别人的全量一结束就会覆盖它，
+  # 于是把别人的 passed/failed 抄成自己的（实测 2026-09-22 撞上过）。
+  # 读本树专属指针，命名规则与 conftest.latest_pointer_name 一致。
+  RECEIPT_SLUG="$(printf '%s' "$REPO" | tr -c 'A-Za-z0-9._-' '_')"
+  LATEST="$RECEIPT_DIR/latest-$RECEIPT_SLUG.json"
+  [ -f "$LATEST" ] || LATEST="$RECEIPT_DIR/latest.json"
 fi
 if [ ! -f "$LATEST" ]; then
   echo "没找到收据 $LATEST（conftest 的收据插件没跑？）" >&2
