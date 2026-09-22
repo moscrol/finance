@@ -1,27 +1,25 @@
 # fix/history-forward-boundary-0921 在途
 
-## 现状
-整体仍 **CHANGES_REQUIRED / 未验收**。本轮只补「#814 正式门禁收据」这一个缺口，且结论**只对新候选 `42784d27e` 成立**。
+整体 **CHANGES_REQUIRED / 未验收**。证据 `~/.finance-runtime/reviews/research-tail-formal-gate-20260922/summary.json`。未合、未推、未部署；#845 head 仍 `442476f7d`。
 
-候选 = `442476f7d`（历史修复）+ #814 四文件**原样移植**（`a092a021c` 的 `conftest.py`/`scripts/run_main_gate.sh`/`scripts/main_gate_receipt.py`/`tests/test_main_gate_receipt.py`，patch-id 与源侧一致）。**零产品代码改动**，不另建第二套门禁。候选与证据都在树外隔离目录 `~/.finance-runtime/reviews/research-tail-formal-gate-20260922/`（见其 `summary.json`），未推送；本分支 tip 只多这份文档，**#845 head 仍是 `442476f7d`**。
+## 两个已固定对象
+- 候选 `42784d27e` = `442476f7d` + #814 四文件**原样移植**（patch-id 同源、零产品改动，不建第二套门禁）
+- 联合树 `de8b06732` = main `a2c8d1f9` + 候选 + runtime `cb16cd463`，**0 冲突**（main 已含集成基线 #831）
 
-## 本轮已验
-- **Python 正式门禁**：`scripts/run_main_gate.sh` exit 0，981s，**12861P / 85S / 2X，failed=0**；收据 `gates/python/receipts/gate-LeUjPpuc/pytest.json` 绑定 revision + 解释器 + `dirty=false`，写在树外。
-- **收据独立复核**：`main_gate_receipt.py` 对该收据 exit 0；负向控制两条——换 revision → exit 4、谎报 pytest exit=1 → exit 4。
-- **前端叶**（同 commit 的**另一个检出**）：install/lint/typecheck/`110P`/build/E2E `34P 2S 0 重试` 全 exit 0；build 产物与仓内静态资源逐字节一致（`dirty=false`、首尾身份稳定）。
-- **registry 叶**：四条 `--check` + 台账对账 exit 0（反向 98 行仍是既存 warning）。
+## 候选：正式门禁通过
+`run_main_gate.sh` exit 0 / 981s，**12861P / 85S / 2X / 0F**；树外收据经 `main_gate_receipt.py` 复核 exit 0，负向控制（换 revision、谎报 pytest exit）各被拒 exit 4。前端 6 项全绿（110P、E2E 34P2S、build 产物与仓内静态资源逐字节一致），registry 5 项绿。
+与 06 轮逐 ID 对账：新增 50 全来自 `test_main_gate_receipt.py`，消失 0，4 条变化因 `.code-review-graph/graph.db` 被 gitignore 致 code_map 互斥对换边。**覆盖差**：`test_structure_probe_daily_full` 本轮未跑（CI 同样不跑；06 那次用 `b6de1a38` 陈旧图）。
 
-## 与 06 轮逐 ID 对账
-新增 **50 个 ID 全部来自** `tests/test_main_gate_receipt.py`；**消失 0 个**；4 条状态变化全在 `tests/test_code_map.py`——`.code-review-graph/graph.db` 被 gitignore，新检出无图，那对互斥测试整体换边（3 条空图用例由 skip 转 pass，结构探针转 skip）。
-**覆盖差（不要含糊）**：`test_code_map.py::test_structure_probe_daily_full` 本轮未跑（CI 同样不跑）；06 轮那次通过用的是 `b6de1a38` 建的陈旧图——两边都没把它绑到本候选。
+## 联合树：两绿一未完成
+前端 6 项、registry 5 项全绿。**Python 叶未完成**：1968s 时被磁盘停止线中断（SIGINT，`stop_reason=disk-space-floor`，门禁 exit 4）。**不是测试红**——中断收据里的 12077P 和那条 hithink error 都是磁盘耗尽产物，不可当部分绿。成因是他人两个全量 pytest 吃掉约 20G。重跑需先留出 ~4G。
 
-## 未验，别外推
-独立模型终审（三领域）、历史原四自然题、runtime/financial 两线、与当前 `main`（`a2c8d1f9`，领先 9 个 merge）的联合树；CI 用 node22 而本机 node26。**未合并、未推送、未部署、未回填**。06 轮证据未重跑、未复用、未重发。
+## 财务线进不来（真冲突，不是取舍）
+`d82cb16b5` 与历史 6 文件 7 处、与 runtime 4 文件 5 处冲突，且是同一调用点的语义碰撞（`continuous_turn_adapter.py` 的 `contract_receipt`：历史加 `history_intent`，财务重写同一调用）。化解属作者级决定，未做。
+历史∩runtime 有 4 个非测试 .py 文本合干净，语义仍押在那条未完成的 Python 叶上。
+
+## 未验
+独立终审、原四自然题、财务线与三领域全并、联合树 Python 叶；CI node22 vs 本机 node26。
 
 ## 坑
-- 收据目录必须用 `FWP_TEST_RECEIPT_DIR` 指到树外，否则污染共享 `latest.json`。
-- 前端 build 会写 `intelligence/api/static`（tracked），**必须另开检出**，否则 Python 叶的首尾身份校验被污染。
-- 一轮 basetemp 3.4GB / 5816 项，且含测试造的只读夹具，删前要 `chmod -R u+w`（清单留在 `basetemp-inventory.json`）；本机磁盘长期 97%。
-
-## 下一步
-按授权逐项走：① 独立终审（同 thread / 串行 / 容量失败即停）；② 原四自然题单独验收，不得用单个工具或登记测试代签；③ 最后才做联合树 + 新 main 组合验收。合并与部署始终另行确认。
+- `FWP_TEST_RECEIPT_DIR` 必须指树外；前端 build 会写 `intelligence/api/static`，须另开检出
+- basetemp 一轮 2～3.4G 且含只读夹具，删前 `chmod -R u+w`；本机长期 97%+，多会话并跑会互相挤爆
