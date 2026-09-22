@@ -4,10 +4,15 @@
 长得一样。既有的脚本化用例都以 status="partial"、bindings 里 evidence_hashes 为空
 收尾——它们证明了管线不崩，没证明过一份**绑着真实历史原件的完整答案**能出门。
 
-这里让脚本化模型按题目要求把事做对，断言落在「系统允许交付」上：真实证据绑进正文、
-没有 BLOCK、排名与追踪共用同一窗口、条件全集比较能把结论升到 completed。
+这里让脚本化模型按真实四题的形状把事做对，断言落在「系统允许交付」上：
 
-这不是模型质量评测（模型是脚本），是交付通路的存在性证明。
+1. 市场阶段与类比检索——阶段有自己的出处，相似不冒充预测（真验收失败①：漏传市场类型）
+2. 同窗内的板块排名、成员股票排名与代表板块启动路径（失败②：两种排名各用各的窗口）
+3. 接力判不了就报未成熟，不写成「没接上」（失败③：把观察天数不足当成没有接力）
+4. 同一条启动规则量过全体，未启动样本留在分母（失败④：拿近期表现代替启动时特征）
+
+这不是模型质量评测（模型是脚本，数据是合成的），是交付通路的存在性证明：用来把
+「模型没做对」和「系统不让它交」分开。真模型复验是另一回事，见 docs/handoffs。
 """
 
 import json
@@ -187,10 +192,6 @@ def test_same_window_ranking_and_launch_path_reach_the_answer(tmp_path, anatomy_
     # 两种排名分列：板块与成员股票各自成原件，不混为一张榜。
     assert [doc["spec"]["entity_kind"] for doc in saved] == ["sector", "stock", "sector"]
 
-    # 内容确实交付了（不是缺口模板），但整轮仍按现行策略标 partial：
-    # 本轮没做条件全集比较，引擎坚持「单案例不能当规律」。这是标签策略，
-    # 不是内容失败——正文与绑定都在。若要让描述性回合能标 completed，
-    # 那是 assess_history_finish 的口径问题，见 docs/handoffs。
     assert "A.FP" in outcome.draft
     # 这一轮用户问的是「当时谁走强、从启动到见顶经过了什么」，不是「有没有规律」，
     # 所以做完就该是 completed：不能因为第一轮问过类比，就把描述性回合一直挂在
@@ -199,8 +200,13 @@ def test_same_window_ranking_and_launch_path_reach_the_answer(tmp_path, anatomy_
     assert not any("条件全集" in gap for gap in outcome.gaps), outcome.gaps
 
 
-def _prior_analysis(tmp_path, db):
-    """走到第四题：先有一份绑窗的分析原件，它才是后续窗口的来源。"""
+def _prior_analysis(tmp_path, db, *, followup=2, sample=0):
+    """按真实顺序把对话走到第 followup+2 题，交出该轮的工具、上下文与参照分析件。
+
+    前两轮只负责产出后续轮要引用的原件，不跑 episode——这几条用例要证的是
+    「某一轮能不能交付」，不是把前面的轮次再验一遍。轮次意图逐轮继承，
+    与线上同一条路径（decide_turn）走出来，不另抄一份。
+    """
 
     conversations = ConversationStore("dryrun", root=tmp_path / "conversations")
     conversation = conversations.create_conversation()
@@ -225,15 +231,31 @@ def _prior_analysis(tmp_path, db):
     context2 = _context(second.task_frame)
     tools2 = _tools(second.task_frame, context2, db, session2)
     _read(tools2, context2, ref)
-    ranked = _execute(tools2, context2, **_args(original, ref))
+    # sample 选的是第一轮类比返回的哪一个候选窗口；不同候选覆盖不同的行情段，
+    # 后面几轮的参照窗就是它。挑窗口是研究选择，不是测试凑数据。
+    row = original["rows"][sample]
+    ranked = _execute(
+        tools2, context2,
+        **_args(original, ref, start=row["start"], end=row["end"],
+                window_ref={"result_ref": ref, "sample_id": row["sample_id"]}),
+    )
     analysis_ref = ranked.telemetry["result_ref"]
 
-    fourth = _decide(conversations, conversation, FOLLOWUPS[2], second.turn_intent, 2)
-    run4 = runs.create_run(FOLLOWUPS[2], "ask", session_id=run.session_id)
-    session4 = HistorySession(runs, run4.run_id, run.session_id)
-    context4 = _context(fourth.task_frame)
-    tools4 = _tools(fourth.task_frame, context4, db, session4)
-    return tools4, context4, session4, fourth, analysis_ref, session2.read(analysis_ref)
+    previous, question = second.turn_intent, FOLLOWUPS[followup]
+    if followup > 1:
+        # 第三题在中间：它的意图要真的走一遍，第四题才是接在它后面而不是接在第二题后面。
+        previous = _decide(
+            conversations, conversation, FOLLOWUPS[1], second.turn_intent, 2
+        ).turn_intent
+    later = _decide(conversations, conversation, question, previous, followup + 1)
+    run_later = runs.create_run(question, "ask", session_id=run.session_id)
+    session_later = HistorySession(runs, run_later.run_id, run.session_id)
+    context_later = _context(later.task_frame)
+    tools_later = _tools(later.task_frame, context_later, db, session_later)
+    return (
+        tools_later, context_later, session_later, later, analysis_ref,
+        session2.read(analysis_ref),
+    )
 
 
 @pytest.mark.parametrize("loop_name", ["episode", "harness"])
@@ -348,3 +370,225 @@ def test_launch_comparison_with_controls_completes_the_turn(tmp_path, anatomy_db
     assert any(
         LAUNCH_RULE in str(ref) for ref in saved["compare_cases"].get("definition_refs", ())
     )
+
+
+@pytest.mark.parametrize("loop_name", ["episode", "harness"])
+def test_immature_succession_is_delivered_as_immature_not_as_absence(
+    tmp_path, anatomy_db, loop_name
+):
+    """第三题的形状：接力判不了就说判不了，不能写成「没接上」。
+
+    真验收这一题的错法是把「峰后观察天数不足」当成「没有接力」——一个是还没到期，
+    一个是已观察到不成立，前者被写成后者就是凭空多出一条结论。这一轮用户授权了
+    延长观察终点（起点不动），所以正确做法是先用满授权的终点观察，再照实报状态。
+    """
+
+    from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
+
+    tools, context, session, decision, analysis_ref, analysis = _prior_analysis(
+        tmp_path, anatomy_db, followup=1, sample=2
+    )
+    intent = decision.task_frame.history_intent
+    assert intent.analysis_window_source == "prior_analysis"
+    assert intent.allow_window_extension is True
+    assert intent.requires_full_comparison is False
+
+    plan = [
+        ("read-analysis", "read_history_result", {"result_ref": analysis_ref}, "rank_history"),
+        # 来源与候选目标必须在同一次 trace 的 entity_codes 里、同一窗口：
+        # 只查单码得到 0 条接力记录是没配对，不是没接力。
+        (
+            "trace-succession",
+            "history_query",
+            dict(
+                operation="trace_history", entity_kind="sector",
+                entity_codes=["A.FP", "B.FP"],
+                start=analysis["spec"]["start"], end="2026-01-16",
+                preview_limit=25, window_ref={"result_ref": analysis_ref},
+            ),
+            "trace_history",
+        ),
+        (
+            "analogues-again",
+            "history_query",
+            dict(
+                operation="find_analogues", entity_kind="market", entity_codes=["000001.SH"],
+                start="2026-01-24", end="2026-01-29", search_start="2026-01-05",
+                search_end="2026-01-23", window_days=6, step_days=6,
+                features=["return_pct", "advancers_mean"], preview_limit=1,
+            ),
+            "find_analogues",
+        ),
+    ]
+
+    class PerfectModel:
+        def complete(self, *, messages, tools, timeout):
+            observed = _observations(messages)
+            if len(observed) < len(plan):
+                call_id, name, args, _operation = plan[len(observed)]
+                return ModelTurn("", (ModelToolCall(call_id, name, args),), "dry-run", "")
+            assert all(o.get("ok") for o in observed), observed
+            refs = [r for r in session.refs if r.startswith(session.run_id + "/")]
+            draft = (
+                "沿用上一轮参照窗的起点，按授权把观察终点延到2026-01-16：A.FP与B.FP的接力"
+                "判定都还没到期（峰后可观察日不足5个交易日），因此既不能说接上了，也不能说"
+                "没接上；日线先后也不证明资金转移。"
+            )
+            envelope = {
+                "purpose": decision.task_frame.history_intent.purpose,
+                "result_refs": refs,
+                # 本轮没做条件全集比较，就不能自称规律；单案例如实标注。
+                "claim_level": "single_case",
+                "research_only": True,
+                "decision_eligible": False,
+                "promotion_eligible": False,
+            }
+            return ModelTurn(
+                json.dumps(
+                    _final(context, observed, plan, draft, status="completed", envelope=envelope),
+                    ensure_ascii=False,
+                ),
+                (),
+                "dry-run",
+                "",
+            )
+
+    outcome = _run(loop_name, PerfectModel(), decision, context, tools)
+
+    assert outcome.stop_reason == "model_finish"
+    _no_blocking(context.contract, outcome)
+    assert outcome.status == "completed", outcome.gaps
+
+    traced = next(
+        session.read(r)
+        for r in session.refs
+        if r.startswith(session.run_id + "/") and session.read(r)["spec"]["operation"] == "trace_history"
+    )
+    succession = {
+        row["entity_code"]: row["succession_status"]
+        for row in traced["rows"]
+        if row["record_kind"] == "sector_succession"
+    }
+    # 「还没到期」与「已观察到不成立」在原件里就是两个状态，不靠正文措辞区分。
+    assert succession == {"A.FP": "immature", "B.FP": "immature"}
+    assert "not_supported" not in succession.values()
+
+    binding = traced["window_binding"]
+    # 授权只允许延长观察终点：起点与排名窗原样留痕，延长这件事本身记在原件里。
+    assert binding["relation"] == "extended_observation"
+    assert (binding["ranking_start"], binding["ranking_end"]) == (
+        analysis["spec"]["start"],
+        analysis["spec"]["end"],
+    )
+    assert binding["end"] == "2026-01-16"
+
+    # 这条「未成熟」必须是正文引得动的原件行，而不是只写在草稿里的说法。
+    bound_ids = {
+        eid for item in outcome.bindings for eid in item.evidence_hashes
+    }
+    immature = [
+        item
+        for item in outcome.evidence
+        if item.history_provenance is not None
+        and item.history_provenance.operation == "trace_history"
+        and "immature" in (item.detail or "")
+    ]
+    assert immature, [item.detail for item in outcome.evidence][:3]
+    assert {item.content_hash for item in immature} & bound_ids
+
+
+@pytest.mark.parametrize("loop_name", ["episode", "harness"])
+def test_market_stage_and_analogues_carry_their_own_basis(tmp_path, anatomy_db, loop_name):
+    """第一题的形状：先按市场类型看阶段，再找相似窗口，口径与缺失随原件走。
+
+    真验收这一题的错法是查询没带市场类型，于是拿不到市场行的阶段与来源，
+    只好凭板块数据讲市场。这里把实体类型真的传成 market，并要求「阶段是谁说的」
+    与「相似不是预测」这两件事都能在正文里引到。
+    """
+
+    from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
+    from intelligence.services.conversation_store import ConversationStore as _Store
+    from intelligence.services.run_store import RunStore as _Runs
+
+    conversations = _Store("dryrun", root=tmp_path / "conversations")
+    conversation = conversations.create_conversation()
+    decision = _decide(conversations, conversation, FIRST)
+    runs = _Runs("dryrun", root=tmp_path / "runs")
+    run = runs.create_run(FIRST, "ask", session_id=conversation.conversation_id)
+    session = HistorySession(runs, run.run_id, run.session_id)
+    context = _context(decision.task_frame)
+    tools = _tools(decision.task_frame, context, anatomy_db, session)
+    # 第一轮没有参照原件可绑，窗口来源为 none：这时不该被要求先读原件。
+    assert decision.task_frame.history_intent.analysis_window_source == "none"
+
+    plan = [
+        (
+            "market-stage",
+            "history_query",
+            dict(
+                operation="inspect_history", entity_kind="market",
+                entity_codes=["000001.SH"], start="2026-01-24", end="2026-01-29",
+                preview_limit=5,
+            ),
+            "inspect_history",
+        ),
+        (
+            "analogues",
+            "history_query",
+            dict(
+                operation="find_analogues", entity_kind="market",
+                entity_codes=["000001.SH"], start="2026-01-24", end="2026-01-29",
+                search_start="2026-01-05", search_end="2026-01-23",
+                window_days=6, step_days=6,
+                features=["return_pct", "advancers_mean"], preview_limit=3,
+            ),
+            "find_analogues",
+        ),
+    ]
+
+    class PerfectModel:
+        def complete(self, *, messages, tools, timeout):
+            observed = _observations(messages)
+            if len(observed) < len(plan):
+                call_id, name, args, _operation = plan[len(observed)]
+                return ModelTurn("", (ModelToolCall(call_id, name, args),), "dry-run", "")
+            assert all(o.get("ok") for o in observed), observed
+            draft = (
+                "市场阶段取自market行自带的market_stage与其来源字段，供应商内层cycle_stage另标；"
+                "相似窗口按声明的距离口径给出，重叠候选属同一簇、不是独立样本，相似程度不当预测胜率。"
+            )
+            return ModelTurn(
+                json.dumps(
+                    _final(context, observed, plan, draft, status="completed"),
+                    ensure_ascii=False,
+                ),
+                (),
+                "dry-run",
+                "",
+            )
+
+    outcome = _run(loop_name, PerfectModel(), decision, context, tools)
+
+    assert outcome.stop_reason == "model_finish"
+    _no_blocking(context.contract, outcome)
+    assert outcome.status == "completed", outcome.gaps
+
+    saved = [session.read(r) for r in session.refs if r.startswith(session.run_id + "/")]
+    inspected, analogues = saved[0], saved[1]
+    assert inspected["spec"]["entity_kind"] == "market"
+    market = inspected["rows"][0]["market"]
+    # 阶段有自己的出处字段：授课口径与供应商内层阶段各归各的，不混着讲。
+    assert "market_stage" in market and "market_stage_source" in market
+    assert market["cycle_stage_source"] and market["cycle_stage"] != market["market_stage"]
+
+    # 相似不是预测：距离口径、重叠不独立这两条随原件走，不靠模型自觉。
+    assert "no fitted transform or forward outcomes" in analogues["distance_definition"]
+    assert "not independent evidence or predictive odds" in analogues["independence_policy"]
+    assert analogues["decision_eligible"] is False and analogues["promotion_eligible"] is False
+
+    bound = {
+        item.history_provenance.operation
+        for item in outcome.evidence
+        if item.history_provenance is not None
+    }
+    assert {"inspect_history", "find_analogues"} <= bound
