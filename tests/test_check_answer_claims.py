@@ -20,11 +20,18 @@ FLOW_SENTENCE = "成交额放大至 114.90 亿元，显示资金当日集中流�
 SCOPE_SENTENCE = "长电科技当日涨幅 7.75%，跑赢其所有归属板块。"
 
 
-def _episode(requests: list[dict], dates: tuple[str, ...] = ("2026-09-18",)) -> dict:
+def _episode(
+    requests: list[dict],
+    dates: tuple[str, ...] = ("2026-09-18",),
+    evidence_text: str | None = None,
+) -> dict:
+    evidence: list[dict] = [{"source_date": d} for d in dates]
+    if evidence_text is not None:
+        evidence.append({"source_date": dates[0], "summary": evidence_text})
     return {
         "outcome": {
             "events": [{"kind": "tool_request", "payload": p} for p in requests],
-            "evidence": [{"source_date": d} for d in dates],
+            "evidence": evidence,
         }
     }
 
@@ -75,6 +82,26 @@ def test_amount_metrics_are_not_fund_flow_evidence() -> None:
     context, diagnostics = _build(episode)
     assert context.fund_flow_evidence is False
     assert diagnostics["fund_flow_metrics_seen"] == []
+
+
+def test_fund_flow_numbers_in_the_evidence_ledger_count_as_evidence() -> None:
+    # 1347 个历史 run 回测：13 条命中的资金流数字来自新闻等渠道，只认
+    # finance_query 指标会把这类有据可查的声明当成无证据。
+    episode = _episode(
+        [_finance_query(["amount"])],
+        evidence_text="证券日报：特高压板坨19股涨停、逾38亿主力资金净流入。",
+    )
+    context, diagnostics = _build(episode)
+    assert context.fund_flow_evidence is True
+    assert diagnostics["fund_flow_in_evidence_ledger"] is True
+
+
+def test_fund_flow_words_in_tool_arguments_are_not_evidence() -> None:
+    # 证据是**取回来的东西**；模型自己敲的检索词敲什么都行，不算证据。
+    episode = _episode([{"name": "kb_search", "arguments": {"query": "主力资金净流入"}}])
+    context, diagnostics = _build(episode)
+    assert context.fund_flow_evidence is False
+    assert diagnostics["fund_flow_in_evidence_ledger"] is False
 
 
 def test_calendar_keyword_in_tool_arguments_is_not_calendar_evidence() -> None:

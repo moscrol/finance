@@ -1,0 +1,31 @@
+{
+  "archived_at": "2026-09-22T21:24:14.167629+08:00",
+  "archive": "docs/verification/2026-09-22-claim-scope-backtest",
+  "file_count": 4,
+  "sources": [
+    {
+      "source": "本目录内生成（见 README 复跑命令）",
+      "archived_as": "README.md",
+      "sha256": "e9baee10f09ac914560cf7e402bf3282e633effd4b6f0761d793d7b4030177ac",
+      "redacted": false
+    },
+    {
+      "source": "本目录内生成（见 README 复跑命令）",
+      "archived_as": "evidence/backtest-1347-runs.json",
+      "sha256": "2f7edaa50cc2ef0ce9f1344fb8702656d7ced8b61adfc6484a6dce455a98dae0",
+      "redacted": false
+    },
+    {
+      "source": "本目录内生成（见 README 复跑命令）",
+      "archived_as": "evidence/residual-hits.json",
+      "sha256": "fbf943372dbb4e0ab92f6f6f8d637227ad0c0515998943f0014fb1f7b6933e63",
+      "redacted": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260922T132056Z-daa60f88.json",
+      "archived_as": "evidence/test-receipt-targeted.json",
+      "sha256": "0d601ce6eacfb7c6da091a5118fa7ff2324a7e27937d71fc01a881a8451a50d5",
+      "redacted": false
+    }
+  ]
+}

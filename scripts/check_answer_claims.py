@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 import sys
 from typing import Any
 
@@ -70,6 +71,18 @@ def _sector_codes(requests: list[dict[str, Any]]) -> set[str]:
     return codes
 
 
+# 取回来的证据台账里带资金流数字（常见于新闻：「逆 38 亿主力资金净流入」），
+# 也是资金方向证据。只认 finance_query 指标会把这类声明当成无证据（1347 个
+# 历史 run 里 13 条如此）。注意这里只扫**取回来的证据**，不扫工具参数：
+# 后者是模型自己敲的检索词，敲什么都行，不构成证据。
+_LEDGER_FLOW = re.compile(r"净流入|净流出|主力净|资金净|净申购|net_inflow|moneyflow")
+
+
+def _ledger_has_fund_flow(episode: dict[str, Any]) -> bool:
+    evidence = episode.get("outcome", {}).get("evidence", []) or []
+    return bool(_LEDGER_FLOW.search(json.dumps(evidence, ensure_ascii=False)))
+
+
 def _fund_flow_metrics(requests: list[dict[str, Any]]) -> set[str]:
     """资金方向证据 = 请求里真的要了资金流**指标**。
 
@@ -105,13 +118,14 @@ def build_context(
     )
     codes = _sector_codes(requests)
     flow_metrics = _fund_flow_metrics(requests)
+    ledger_flow = _ledger_has_fund_flow(episode)
     context = ClaimEvidenceContext(
         question=str(run.get("question") or ""),
         evidence_dates=tuple(dates),
         calendar_evidence=bool(calendar_source),
         compared_scope_count=len(codes) or None,
         known_scope_total=scope_total,
-        fund_flow_evidence=bool(flow_metrics),
+        fund_flow_evidence=bool(flow_metrics) or ledger_flow,
     )
     degraded: list[str] = []
     if scope_total is not None and context.compared_scope_count is None:
@@ -124,6 +138,7 @@ def build_context(
         "tool_names": sorted({str(r.get("name")) for r in requests if r.get("name")}),
         "sector_codes_seen": sorted(codes),
         "fund_flow_metrics_seen": sorted(flow_metrics),
+        "fund_flow_in_evidence_ledger": ledger_flow,
         "calendar_evidence_source": calendar_source
         or "未声明（finance_query 无交易日历 dataset，episode 推不出）",
         "degraded": degraded,

@@ -1,0 +1,266 @@
+[
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "**证据边界**：盘面数据截至 2026-09-18（最新已收盘交易日，今日问句日无新行情数据）；"
+ },
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "**证据边界**：盘面数据截至 2026-09-18（最新已收盘交易日，今日问句日无新行情数据）；"
+ },
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "盘面数据截至2026-09-18（最新交易日）；"
+ },
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "盘面数据截至2026-09-18（最新交易日）；"
+ },
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "**先说明**：你没有指定「组件」的具体参数，我按本地组件的默认口径执行——市场阶段→主线题材→「主线×正宗度×人气」核心股池→连板梯队→技术偏离度过滤，数据截…"
+ },
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "**先说明**：你没有指定「组件」的具体参数，我按本地组件的默认口径执行——市场阶段→主线题材→「主线×正宗度×人气」核心股池→连板梯队→技术偏离度过滤，数据截…"
+ },
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "截至最新交易日2026年7月24日，我的判断是：盘面当前最值得跟踪的主线是半导体链，强度集中在半导体设备，并由存储芯片、半导体板块共同构成；"
+ },
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "**证据边界**：数据截至 2026-09-10（最新已收盘交易日）；"
+ },
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "最低收盘日由2024年6月各交易时段的最低值比较确认，数据覆盖截至当月最后一个交易日2024年6月28日。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "- 第12句：「增量资金回流第二阶段观察窗」无证据中的阶段编号或回流事实，E19 仅有缩量强修复/存量抱团。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "假说一：下跌6日后超跌资金集中回流主线（依据：阶段切换为反弹第1天，E2,E3，强势股成交占比从13.53%升至21.06%）；"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "【质检存疑】2）半导体/CPO等旧主线边际量-25%~-35%的资金撤离尚未稳住，观察是否止跌收边际量；"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "假说一：增量资金回流主流科技主线（半导体、CPO 同日 5-6 千亿级成交、涨停 22-30 只，E31/E33 支持增量启动口径）。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "假说二：超跌反抽+存量高低切换（前期6天下跌后修复，医药金融资金流出至电子，E16、E18走弱旁证）。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "综合：判断强度中高，链路=AI算力需求→PCB量价与扩产→资金回流第二波，但兑现风险已进入事件密集提示期。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "**反证/竞争解释**：电子仍是当日第一领先行业（26.40%，E23），若半导体先进封装逻辑重新发酵，长电作为封装龙头可能被资金回流修复；"
+ },
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "截至2026-08-17（最近已收盘交易日），A股处于【底部横盘阶段，第14天】，量能状态为'主线抱团'，判断强度较高（阶段标签与量能、题材结构相互印证）。"
+ },
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "数据截至 2026-08-17（最近已收盘交易日）。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "三是半导体设备大跌4.61%显示科技方向资金撤离。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "催化（新闻线索级）：半年报利润修复、川西锂矿环评受理、紫金马诺诺首批出口、旺季需求预期，量化资金抢筹人气股。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "- H1（资金回流主导）：半导体/AI 主线超跌后资金集中回流，芯片一家占涨停半壁（E10）与集中度上升（E7）支持情绪性修复主导。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "信号：隔夜纳指转跌超 1%、半导体板块资金转净流出。"
+ },
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "**口径**：以 2026-08-25（最近一个已收盘交易日）A股板块日频数据为准，\"双红\"=当日板块涨跌幅>0 且边际量（量能边际变化）>0。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "不确定性与失效条件：若您之前所说\"双红\"指的是别的口径（如\"价红+资金净流入红\"或个位数级别的强势板块清单），上述计数不适用；"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "条件化判断：若后续动力电池各细分方向能够由分化转为同步走强，且成交额/边际量同步改善，可上调为资金回流信号；"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "下期关注清单：动力电池各细分板块日度表现＋下一个交易日＋若由多数下跌转为同步上涨且成交与边际量改善，则支持资金回流；"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "条件化判断：若后续动力电池各细分方向能够由分化转为同步走强，且成交额/边际量同步改善，可上调为资金回流信号；"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "下期关注清单：动力电池各细分板块日度表现＋下一个交易日＋若由多数下跌转为同步上涨且成交与边际量改善，则支持资金回流；"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "成交额是买卖双边换手总量，本地数据中没有分项的净流入/新开户/机构申购数据来确认资金来源。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "- 判断失效条件：若后续取得分项资金流数据显示 9月11日确有大幅净流入，或后续连续多日出现「量增+广度改善」组合，则上述「量增≠新增入场」的判断应下调。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "无实际资金申赎、分板块净流入或市值分组收益，「存量 vs 增量」不可判定；"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "会改变判断的新观察：9-11 或 9-14 当日出现板块级净流入/边际量与涨跌方向一致的双红结构，或主力资金明细同向。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "确认增量需上涨家数持续改善并叠加两融/北向/机构净流入等资金面证据。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "失效条件：若取得逐笔委托方向、两融/北向/机构净流入或申赎数据，上述假设可被检验；"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "- 撤回「存量资金在主线内轮动抱团、而非全市场增量」：无实际资金申赎、无板块净流入，存量/增量在本数据下不可区分，这句应整体降级为假说而非结论。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "缺逐笔卖单、实际申赎、市值分组收益、板块净流入，因此一切资金来源与修复动力归因均为 gap，维持未验证。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "- **撤回「出逃式交易」「筹码换手与兑现压力放大」**：无逐笔卖单、主力净流入数据，放量下跌同样兼容对冲调仓、量化再平衡、大单拆分等多种解释，旧答把这写成了倾…"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "失效/升级条件不变：取得分板块净流入或「放量且上涨家数同步扩张」的组合证据时，才可重新评估增量资金假说。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "- **成交额变化不足以证明新增资金入场**——成交是买卖双边撮合结果，这一方法论判断保留，且在无净流入、申赎数据的条件下更为成立。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "注意「增量启动」是提供方判读口径，不等于已核验的资金净流入。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "逐笔订单、净流入、申赎、市值分组收益均缺失，一切资金来源与买卖动机结论保持未知。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "区分性证据（放量且上涨家数同步扩张、板块级净流入、两融或开户变化）仍是未来改变判断的条件。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "- **“成交额不足以证明新增资金入场”结论保留且应更严格坚持**：成交额是双边撮合结果，本地无净流入与申赎口径，增量资金假说维持未验证。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "缺逐笔卖单、实际资金申赎、市值分组收益、板块净流入。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "**仍然未知的证据**：逐笔/主动买卖单方向、ETF 与两融申赎净流入、大小市值分组收益、9-11 当日跌停股题材分布、龙虎榜全市场机构/散户净买入（本地汇总表…"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "「9-11 是出逃式交易/兑现压力放大」为候选解释（低置信），若后续取得两融/ETF 净赎回或主动卖压数据且方向为净流出，可升级为更可能解释。"
+ },
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "据此判断：说明：本地结构化行情库仅授权到最新交易日（2026-08-18），无法直接取到 8月15日当日（8-15 是否交易日亦未确认）的盘面切片，以下以最新可…"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "且较一季报累计33.68亿元（E4）不升反降，意味着Q2单季经营现金流为净流出。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "- 回款端不匹配：2026中报累计经营现金流18亿元，显著低于一季度末的33.68亿元（累计口径下二季度单季经营现金流为净流出约15.66亿元，系本人对累计值做…"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "且较一季报累计33.68亿元（E4）不升反降，意味着Q2单季经营现金流为净流出。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "- 回款端不匹配：2026中报累计经营现金流18亿元，显著低于一季度末的33.68亿元（累计口径下二季度单季经营现金流为净流出约15.66亿元，系本人对累计值做…"
+ },
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "**数据日期：2026-09-18（最近一个已收盘交易日；"
+ },
+ {
+  "rule": "unit_gap_claim_contradicts_input",
+  "quote": "材料未注明公告日期、是否审计、合并或分部口径及币种单位，故精确性以该段文字为限。"
+ },
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "**数据日期：2026-09-18（最近一个已收盘交易日）**"
+ },
+ {
+  "rule": "scope_claim_exceeds_comparison",
+  "quote": "长电科技 7.75% 的涨幅明显跑赢其所有归属板块，且封测板块本身边际量 +72.66% 为各板块中最高，显示资金当日集中流入封测方向。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "长电科技 7.75% 的涨幅明显跑赢其所有归属板块，且封测板块本身边际量 +72.66% 为各板块中最高，显示资金当日集中流入封测方向。"
+ },
+ {
+  "rule": "unit_gap_claim_contradicts_input",
+  "quote": "材料未注明公告日期、是否审计、合并或分部口径及币种单位，故精确性以该段文字为限。"
+ },
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "**数据日期：2026-09-18（最近一个已收盘交易日）**"
+ },
+ {
+  "rule": "scope_claim_exceeds_comparison",
+  "quote": "长电科技 7.75% 的涨幅明显跑赢其所有归属板块，且封测板块本身边际量 +72.66% 为各板块中最高，显示资金当日集中流入封测方向。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "长电科技 7.75% 的涨幅明显跑赢其所有归属板块，且封测板块本身边际量 +72.66% 为各板块中最高，显示资金当日集中流入封测方向。"
+ },
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "**证据边界**：行情数据截至2026-09-17（最近收盘日）；"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "H2存量资金板块内轮动放大成交而无净流入。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "H2 板块轮动资金回流（前期缩量回踩后的技术性反包）。"
+ },
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "证据边界：全部行情数据截至2026-08-21（最新收盘日），未取得8-22及以后数据、新闻面与用户历史台账未检索，产业渗透率类硬数据本轮缺失。"
+ },
+ {
+  "rule": "fund_flow_claim_without_flow_evidence",
+  "quote": "其二，8月19日大跌6.46%（E5）叠加持续缩量，可能表明共识已过、资金撤离，题材进入尾声而非共识期中段。"
+ },
+ {
+  "rule": "latest_trading_day_unverified",
+  "quote": "基准判断（截至2026-08-21，数据为最近已收盘交易日）：机器人概念近一周更接近「高位波动后的修复性补涨」，而非新一轮主升，判断强度为中等偏弱，需条件确认。"
+ }
+]

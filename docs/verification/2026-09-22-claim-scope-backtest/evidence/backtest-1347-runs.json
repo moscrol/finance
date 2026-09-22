@@ -1,0 +1,79 @@
+{
+  "purpose": "口径越界 lint 的首次真实精度回测：1347 个历史 run（带 answer.md + continuous-episode.json）",
+  "corpus": {
+    "runs": 1347,
+    "sentences": 14501,
+    "source": "~/.finance-runtime 下全部带答案与 episode 的历史 run，非抽样",
+    "note": "--scope-total 未知，故范围规则基本沉默；日历证据无来源可声明，故 R1 按未验证计"
+  },
+  "stages": [
+    {
+      "stage": "A 基线 1cf35f516（#850 tip）",
+      "hits": 82,
+      "runs_hit": 53,
+      "by_rule": {
+        "fund_flow_claim_without_flow_evidence": 71,
+        "latest_trading_day_unverified": 7,
+        "unit_gap_claim_contradicts_input": 2,
+        "scope_claim_exceeds_comparison": 2
+      }
+    },
+    {
+      "stage": "B 三条 fail-open 闭合后",
+      "hits": 96,
+      "runs_hit": 67,
+      "by_rule": {
+        "fund_flow_claim_without_flow_evidence": 69,
+        "latest_trading_day_unverified": 23,
+        "unit_gap_claim_contradicts_input": 2,
+        "scope_claim_exceeds_comparison": 2
+      },
+      "delta_note": "R1 7→23：收紧限定词绑定所致，其中 4 条经人读为误报（『本轮可得/当前可得的最近一个已收盘交易日』限定干净，只是词表没收『可得』）"
+    },
+    {
+      "stage": "C 精度修正后",
+      "hits": 66,
+      "runs_hit": 49,
+      "by_rule": {
+        "latest_trading_day_unverified": 19,
+        "fund_flow_claim_without_flow_evidence": 43,
+        "unit_gap_claim_contradicts_input": 2,
+        "scope_claim_exceeds_comparison": 2
+      }
+    }
+  ],
+  "false_positive_classes_found": [
+    {
+      "class": "限定词表缺『可得』",
+      "count": 4,
+      "fixed": true,
+      "example": "这是本轮可得的最近一个已收盘交易日"
+    },
+    {
+      "class": "自陈缺数据/不做断言（免责词表太窄）",
+      "count": 16,
+      "fixed": true,
+      "example": "两日的分板块净流入、主力资金明细未查得，资金来源结论不做断言。"
+    },
+    {
+      "class": "资金流数字来自新闻等渠道，只认 finance_query 指标而漏认",
+      "count": 13,
+      "fixed": true,
+      "example": "证券日报称特高压板块19股涨停、逾38亿主力资金净流入（E5）"
+    }
+  ],
+  "residual_fund_flow_breakdown": {
+    "待人读": 28,
+    "条件/假说(已知噪音)": 15
+  },
+  "known_noise_kept": {
+    "条件句与假说": "『若…则支持资金回流』『假说一：增量资金回流主线』仍会命中。判断：假说仍在断言方向，保留；如后续认定为噪音，需另立规则而非放宽本规则",
+    "理由": "放宽条件句等于给『我只是假设』开后门"
+  },
+  "preserved": {
+    "两个冻结 run 判定": "与首版逐字段一致",
+    "三条探针": "P1/P3/P4 仍闭合",
+    "仓内 6 份语料": "命中 0"
+  },
+  "boundary": "本回测只测**命中侧**：66 条命中可人读分类，但**漏报无法测**——没有标注语料说明哪些答案本该被抓。所以这里给的是『命中是否可信』，不是召回率。"
+}

@@ -132,6 +132,50 @@ class FundFlowDisclaimerShapeTests(unittest.TestCase):
         self.assertEqual([RULE_FUND_FLOW], _rules(answer, MARKET_CONTEXT))
 
 
+class BacktestFalsePositiveTests(unittest.TestCase):
+    """1347 个历史 run 回测里压出来的误报，全是真实答案原句。
+
+    共同特征：答案在**诚实地说自己没数据**，却被当成越界断言。
+    误报这些句子等于惩罚诚实，比漏报更坏。
+    """
+
+    def test_available_in_this_round_is_a_bound_qualifier(self) -> None:
+        answer = (
+            "- 数据截至 2026-09-18，这是本轮可得的最近一个已收盘交易日，"
+            "不是提问当天（2026-09-20，周末）的实时行情（E1）。"
+        )
+        self.assertEqual([], _rules(answer, MARKET_CONTEXT))
+
+    def test_currently_available_is_a_bound_qualifier(self) -> None:
+        answer = (
+            "证据边界：以上数据来自本地结构化市场总览数据，截至 2026-09-18 收盘，"
+            "这是当前可得的最新已收盘交易日；"
+        )
+        self.assertEqual([], _rules(answer, MARKET_CONTEXT))
+
+    def test_not_retrieved_and_no_assertion_is_clean(self) -> None:
+        answer = "两日的分板块净流入、主力资金明细未查得，资金来源结论不做断言。"
+        self.assertEqual([], _rules(answer, MARKET_CONTEXT))
+
+    def test_asking_for_more_evidence_is_clean(self) -> None:
+        answer = (
+            "要证明增量资金，需要补充能区分的证据——如板块/个股级别的净流入数据、"
+            "边际量（放量且上涨的板块结构）、新开户或两融余额变化等。"
+        )
+        self.assertEqual([], _rules(answer, MARKET_CONTEXT))
+
+    def test_cannot_verify_is_clean(self) -> None:
+        answer = (
+            "若仅指价与资金净流入双红，本地数据未返回当日板块级资金净流入字段，无法核验。"
+        )
+        self.assertEqual([], _rules(answer, MARKET_CONTEXT))
+
+    def test_bare_parenthetical_claim_still_reports(self) -> None:
+        # 与上面对照：没有任何限定的裸断言，仍须报。
+        answer = "**证据边界**：盘面数据截至 2026-09-18（最新已收盘交易日）；"
+        self.assertEqual([RULE_LATEST_TRADING_DAY], _rules(answer, MARKET_CONTEXT))
+
+
 class RegistryFactTests(unittest.TestCase):
     """证据常量跟着 finance_query 注册表走，漂了就红。"""
 
