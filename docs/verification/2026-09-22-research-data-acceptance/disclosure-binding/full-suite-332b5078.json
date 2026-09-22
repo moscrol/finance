@@ -1,0 +1,6 @@
+{
+  "revision": "332b50782b6b0843e7a16d3333c0368c753dea11",
+  "suite": "intelligence/tests",
+  "tail": "10803 passed, 23 skipped, 2 xfailed in 1134.57s (0:18:54)",
+  "note": "10782 -> 10803 = +8 live-product tests (前一提交) +13 disclosure-binding tests (本提交)"
+}
