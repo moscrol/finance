@@ -51,8 +51,8 @@
   {
     "id": "metric-column-not-table-purpose",
     "path": "intelligence/services/research_delivery_checks.py",
-    "old": "            if not _absolute_ratio_label(column):",
-    "new": "            if False and not _absolute_ratio_label(column):",
+    "old": "            if not (_absolute_ratio_label(column) or column in structural):",
+    "new": "            if False and not (_absolute_ratio_label(column) or column in structural):",
     "targets": ["test_correct_rounding_percent_and_unrelated_numbers_not_rejected"]
   },
   {
@@ -362,5 +362,40 @@
     "old": "    marked = re.sub(r\"[*`]+\", \"\", raw[:insertion]).rstrip().endswith(_UNLOCATED_RATIO_MARK)",
     "new": "    marked = raw[:insertion].rstrip().endswith(_UNLOCATED_RATIO_MARK)",
     "targets": ["test_formatted_marker_still_unverified_but_not_duplicated", "test_formatted_marker_wrong_value_withheld_with_one_marker"]
+  },
+  {
+    "id": "ratio-column-bound-by-arithmetic",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "            if not (_absolute_ratio_label(column) or column in structural):",
+    "new": "            if not _absolute_ratio_label(column):",
+    "targets": ["test_live_column_binds_by_arithmetic_not_by_its_name", "test_live_draft_miscopy_is_caught_and_only_that_number_is_pulled"]
+  },
+  {
+    "id": "ratio-column-needs-two-rows",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    return {column for column, seen in hits.items() if seen >= 2}",
+    "new": "    return {column for column, seen in hits.items() if seen >= 1}",
+    "targets": ["test_one_coincidental_row_cannot_promote_a_column"]
+  },
+  {
+    "id": "prose-near-miss-without-a-label",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "                        if len(values) == 1 and period_match.start() not in parallel_values:",
+    "new": "                        if False and len(values) == 1 and period_match.start() not in parallel_values:",
+    "targets": ["test_live_draft_miscopy_is_caught_and_only_that_number_is_pulled"]
+  },
+  {
+    "id": "near-miss-skips-integer-tokens",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    if unit == \"个百分点\" or _BASIS_POINTS.fullmatch(unit) or \".\" not in raw:",
+    "new": "    if unit == \"个百分点\" or _BASIS_POINTS.fullmatch(unit):",
+    "targets": ["test_rounded_and_unrelated_numbers_in_the_live_draft_are_not_touched"]
+  },
+  {
+    "id": "dating-parenthesis-is-not-a-claim",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    return [m for m in _PERIOD.finditer(value) if not _QUALIFIER_DATE.search(value[:m.start()])]",
+    "new": "    return list(_PERIOD.finditer(value))",
+    "targets": ["test_a_dating_parenthesis_does_not_end_the_period_scope", "test_live_draft_miscopy_is_caught_and_only_that_number_is_pulled"]
   }
 ]
