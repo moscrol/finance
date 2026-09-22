@@ -163,7 +163,18 @@ episode」。Workbench 门对服务端 run 记录核验后签发入口身份（`
 `restore_episode` 的 close()/resumable() 重建状态时透传身份，恢复一次不丢主人。它只证「同一扇门
 同一会话」，不证崩溃前的外部请求是否已执行或已计费；`EpisodeScope.user_id` 仍空串；
 `RestoreResult.entry_identity_bound` 是后续跨进程续跑驱动的准入条件，本切片不做续跑。
-仍须未知效果对账、查询/消息等剩余现场及执行器接管合同，才可驱动续跑；
+未知效果 / 费用对账（`fix/runtime-effect-reconciliation-0922`，叠在入口身份之上，候选）：两条记账
+路径都在外部工作完成后才扣账，`budget_snapshot` 只在相位边界拍，崩在
+`tool_request → tool_result → consume_call` 之间时恢复方读到的是派发前余额，同一笔钱可被花 N 次。
+恢复现在把这段未知窗口登记为 `EpisodeState.unreconciled_effects` 上的 durable 凭证（`retry_model` /
+`replay_tools` 路径同样登记；未派发的声明不进清单），原则是未知效果双向保守：证据按没发生、成本按
+已发生。恢复只登记不扣账；`restore_root_budget(unreconciled_effects=…)` 必填无默认，清单非空拒绝放出
+可花余额；`charge_unknown_effects` 作用在快照上，只扣调用格不扣秒，格数不够记 `slots_unavailable`
+不写负余额，无快照却有未清效果抛错。对账 = 扣账 + 清空一次原子跃迁，清单即去重凭证。没有自动对账
+的执行者：非空清单意味着 episode 停下等能付钱的人，是有意的 fail closed；`replay="safe"` 是效果
+幂等声明不是费用声明；闸只拦 `restore_root_budget` 这一扇门，别处直接拿 `budget_snapshot` 造账本仍
+绕得过。
+仍须查询/消息等剩余现场及执行器接管合同，才可驱动续跑；
 真正恢复driver、压缩原文回读及Workbench插话仍未实现，本切片不是P1整体完成。
 进度 SSE 也会补发两次读取之间新到的终态事件，再关闭连接。验证与当前阶段见
 [执行计划](superpowers/plans/2026-09-18-runtime-contracts.md)；未合并、未部署，无质量胜出声明。
