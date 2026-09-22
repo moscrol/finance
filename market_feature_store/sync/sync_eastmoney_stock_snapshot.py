@@ -24,9 +24,15 @@
 """
 from __future__ import annotations
 
+import http.client
 import json
+import socket
+import ssl
+import subprocess
+import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import date, datetime
 
@@ -119,23 +125,125 @@ def _num(x):
         return None
 
 
+# ── 传输层 ────────────────────────────────────────────────────────────
+#
+# 2026-09-22 夜跑事故（09-21 同形）: 一次取数失败拖垮整晚复盘, 主库停在 09-18。
+# 两个独立缺陷与实测证据见 tests/test_eastmoney_transport.py 模块头。
+
+#: 绕开本机代理 fake-IP 劫持用的公共 DNS
+PUBLIC_DNS = ("223.5.5.5", "119.29.29.29", "8.8.8.8")
+#: 代理 fake-IP 模式的伪地址段 (RFC 2544 基准测试段, 真实公网不会用)
+PROXY_FAKE_IP_PREFIX = "198.18."
+#: 这一发没打通 → 重试。URLError / TimeoutError 本身就是 OSError;
+#: RemoteDisconnected 同时是 ConnectionResetError(OSError) 与 HTTPException——
+#: 旧版只写 URLError **接不住它**, 因为 urllib 只把「发请求阶段」的 OSError 包成
+#: URLError, 而连接是在 getresponse() 阶段断的, 异常原样穿透整个调用栈。
+#: ValueError 收 JSON 解析失败 (上游偶尔回非 JSON 的挡板页)。
+TRANSIENT_FETCH_ERRORS = (OSError, http.client.HTTPException, ValueError)
+
+_ip_cache: dict[str, str | None] = {}
+_ip_lock = threading.Lock()
+#: 已知「系统解析这条路打不通」的 host。失败一次就记住——否则 60 页每页都白打一发。
+_transport_cache: dict[str, str] = {}
+
+
+def _system_ip(host: str) -> str | None:
+    """系统解析结果 (urllib 真正会用的那条路径); 解析不出来返回 None。"""
+    try:
+        return socket.gethostbyname(host)
+    except OSError:
+        return None
+
+
+def _looks_hijacked(host: str) -> bool:
+    """系统解析落进代理伪地址段 = 这条路一定不通, 别等它断连再学。"""
+    ip = _system_ip(host)
+    return bool(ip and ip.startswith(PROXY_FAKE_IP_PREFIX))
+
+
+def _direct_ip(host: str) -> str | None:
+    """用公共 DNS 取真实 IP (绕代理 fake-IP)。拿不到返回 None → 退回系统解析。"""
+    with _ip_lock:
+        if host in _ip_cache:
+            return _ip_cache[host]
+    ip = None
+    for ns in PUBLIC_DNS:
+        try:
+            out = subprocess.run(
+                ["dig", "+short", f"@{ns}", host, "A"],
+                capture_output=True, text=True, timeout=8,
+            ).stdout
+            ip = next(
+                (ln.strip() for ln in out.splitlines()
+                 if ln.strip() and ln.strip()[0].isdigit()
+                 and not ln.startswith(PROXY_FAKE_IP_PREFIX)),  # 首行常是 CNAME
+                None,
+            )
+            if ip:
+                break
+        except Exception:  # noqa: BLE001 — dig 不存在/超时都退回系统解析
+            continue
+    with _ip_lock:
+        _ip_cache[host] = ip
+    return ip
+
+
+def _tls_connection(ip: str, host: str, timeout: float) -> http.client.HTTPSConnection:
+    """连真实 IP, 但 TLS SNI 与 Host 仍填域名 (等价 curl --resolve)。"""
+    sock = socket.create_connection((ip, 443), timeout)
+    try:
+        ssock = ssl.create_default_context().wrap_socket(sock, server_hostname=host)
+    except Exception:
+        sock.close()
+        raise
+    conn = http.client.HTTPSConnection(host, timeout=timeout)
+    conn.sock = ssock
+    return conn
+
+
+def _urllib_get_json(url: str, timeout: float) -> dict:
+    req = urllib.request.Request(url, headers=EM_HEADERS)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _direct_get_json(host: str, path: str, timeout: float) -> dict:
+    """直连真实 IP + SNI 保持域名; 没有真实 IP 时退回系统解析。"""
+    ip = _direct_ip(host)
+    if not ip:
+        return _urllib_get_json(f"https://{host}{path}", timeout)
+    conn = _tls_connection(ip, host, timeout)
+    try:
+        conn.request("GET", path, headers={**EM_HEADERS, "Host": host})
+        return json.loads(conn.getresponse().read().decode("utf-8"))
+    finally:
+        conn.close()
+
+
 def _get_json(url: str, timeout: float, retries: int = 6, backoff: float = 1.2) -> dict:
-    """GET + json 解析, 对 502/超时等瞬时错误退避重试 (翻页几十次难免偶发 502)。
+    """GET + json 解析, 对断连/超时/502 等瞬时错误退避重试 (翻页几十次难免偶发)。
 
     默认打 push2delay; 若重试耗尽 (如该 host 偶发不可达), 自动把 host 换成 push2
-    再试一轮, 双 host 兜底。"""
+    再试一轮, 双 host 兜底。被本机代理 fake-IP 劫持的 host 直接走真实 IP 直连;
+    系统解析看着正常、实际却打不通的, 失败一次后也降级到直连。
+    """
     targets = [url]
     if EM_URL in url:
         targets.append(url.replace(EM_URL, EM_URL_FALLBACK))
     last_err: Exception | None = None
     for target in targets:
+        parts = urllib.parse.urlsplit(target)
+        host = parts.netloc
+        path = parts.path + (f"?{parts.query}" if parts.query else "")
         for attempt in range(retries):
             try:
-                req = urllib.request.Request(target, headers=EM_HEADERS)
-                with urllib.request.urlopen(req, timeout=timeout) as resp:
-                    return json.loads(resp.read().decode("utf-8"))
-            except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+                if _transport_cache.get(host) == "direct" or _looks_hijacked(host):
+                    return _direct_get_json(host, path, timeout)
+                return _urllib_get_json(target, timeout)
+            except TRANSIENT_FETCH_ERRORS as exc:
                 last_err = exc
+                # 系统解析这条路这次没打通 → 下一发换直连, 不在同一条坏路上耗满重试。
+                _transport_cache[host] = "direct"
                 time.sleep(backoff * (attempt + 1))
     raise RuntimeError(f"东财快照请求失败: {url}") from last_err
 
