@@ -1,0 +1,7 @@
+17b6b4b3ee5c7fe1239efe7af9479bc242b745ea82e3fb81ddc2babb57ed89b9  docs/verification/2026-09-22-claim-scope-hardening/README.md
+83333a0672c2856bf1a076e897886a9e8b14c37b99acfc8dc45bef1aa681f262  docs/verification/2026-09-22-claim-scope-hardening/evidence/frozen-run-parity.json
+2b2a0549d20c6299847489253cb2d1d0fbb223dff3a0964e5989a22a98724932  docs/verification/2026-09-22-claim-scope-hardening/evidence/gates.json
+54f0353d28c2c7ba49a76599c53b62e7c7a023eaf3fa67827afaefede11cda9d  docs/verification/2026-09-22-claim-scope-hardening/evidence/probe-closure.json
+0b5fadfb37ee94919cd34a5a89a195e79b742a14c97ecc09350c825af5ec94fb  docs/verification/2026-09-22-claim-scope-hardening/evidence/recalibration.json
+1e21ba1cbb6c91145b97659187c6993ed5b2130714e1d19a2949d0ceb3020121  docs/verification/2026-09-22-claim-scope-hardening/evidence/test-receipt-targeted.json
+41ce677a60c257b4709c93a4fd6aad62a4c4164cd2319b1616c05795fdf1ee17  docs/verification/2026-09-22-claim-scope-hardening/sources.json
