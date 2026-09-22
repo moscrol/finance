@@ -14,6 +14,7 @@ import pytest
 
 from intelligence.services import research_contract as budgets
 from intelligence.services.agent_runtime import EpisodeEvent
+from intelligence.services.episode_effects import charge_unknown_effects
 from intelligence.services.episode_restore import restore_episode
 from intelligence.services.episode_store import EpisodeState, JsonlEpisodeStore
 from intelligence.services.repair_coordinator import BudgetGrant
@@ -44,7 +45,7 @@ def test_snapshot_round_trip_keeps_debits_and_applied_grant_and_promotion_ids():
     payload = json.loads(json.dumps(root.to_snapshot(), allow_nan=False))
     # The model-facing diagnostic summary must not acquire recovery-only identities.
     assert "grants" not in root.to_dict() and "schema_version" not in root.to_dict()
-    restored = budgets.restore_root_budget(payload, episode_id=episode)
+    restored = budgets.restore_root_budget(payload, episode_id=episode, unreconciled_effects=())
     try:
         assert restored.to_dict() == root.to_dict()
         assert restored.remaining_calls == 2 and restored.remaining_seconds == 19.5
@@ -96,7 +97,7 @@ def test_invalid_snapshot_never_registers_a_live_budget(field, value):
     payload[field] = value
     try:
         with pytest.raises(ValueError):
-            budgets.restore_root_budget(payload, episode_id=episode)
+            budgets.restore_root_budget(payload, episode_id=episode, unreconciled_effects=())
         # Rejected input must not poison the existing single-root registration gate.
         fresh = root_budget_for_policy(ResearchPolicy("quick", 2, 30, 10), episode_id=episode)
         assert fresh.remaining_calls == 2
@@ -109,9 +110,9 @@ def test_legacy_summary_or_missing_dedup_records_cannot_be_upgraded_by_guessing(
     root, _ = _funded(episode)
     for payload in (root.to_dict(), {k: v for k, v in root.to_snapshot().items() if k != "promotions"}):
         with pytest.raises(ValueError):
-            budgets.restore_root_budget(payload, episode_id=episode)
+            budgets.restore_root_budget(payload, episode_id=episode, unreconciled_effects=())
     with pytest.raises(ValueError):
-        budgets.restore_root_budget(root.to_snapshot(), episode_id="different-owner")
+        budgets.restore_root_budget(root.to_snapshot(), episode_id="different-owner", unreconciled_effects=())
 
 
 def test_restore_and_fresh_allocation_share_the_same_single_root_gate():
@@ -120,11 +121,11 @@ def test_restore_and_fresh_allocation_share_the_same_single_root_gate():
     existing = root_budget_for_policy(ResearchPolicy("quick", 2, 30, 10), episode_id=episode)
     try:
         with pytest.raises(ValueError, match="already exists"):
-            budgets.restore_root_budget(root.to_snapshot(), episode_id=episode)
+            budgets.restore_root_budget(root.to_snapshot(), episode_id=episode, unreconciled_effects=())
         assert existing.remaining_calls == 2
     finally:
         release_root_budget(episode)
-    restored = budgets.restore_root_budget(root.to_snapshot(), episode_id=episode)
+    restored = budgets.restore_root_budget(root.to_snapshot(), episode_id=episode, unreconciled_effects=())
     try:
         with pytest.raises(ValueError, match="already exists"):
             root_budget_for_policy(ResearchPolicy("quick", 2, 30, 10), episode_id=episode)
@@ -142,7 +143,7 @@ def test_two_concurrent_restores_cannot_create_two_registered_roots():
     def restore():
         barrier.wait(timeout=5)
         try:
-            return budgets.restore_root_budget(payload, episode_id=episode)
+            return budgets.restore_root_budget(payload, episode_id=episode, unreconciled_effects=())
         except ValueError as exc:
             return exc
 
@@ -218,10 +219,30 @@ def test_restore_synthesis_preserves_snapshot_without_registering_or_resetting_b
     assert result.disposition == ("closed" if expired else "resumable")
     assert result.state_after.budget_snapshot == state.budget_snapshot
     assert result.state_after.budget_snapshot_sequence == 2 < result.state_after.last_sequence
-    assert JsonlEpisodeStore(tmp_path).load(episode)[1].budget_snapshot == state.budget_snapshot
+    saved = JsonlEpisodeStore(tmp_path).load(episode)[1]
+    assert saved.budget_snapshot == state.budget_snapshot
+    # 快照原样保留（不重置、不注册），但它记的是**派发前**的余额：turn-1 已出门、
+    # 没回来，那一次模型请求是否已按 token 计过费，这里答不出来。
+    assert [e.reserved_id for e in result.unreconciled_effects] == ["turn-1"]
+    assert len(saved.unreconciled_effects) == 1  # 凭证跟着检查点落盘，不在内存里
+    # 未对账就想花这份余额 → 拒绝。此前这条闸只是 docstring 里的一句 TODO。
+    with pytest.raises(ValueError, match="unreconciled"):
+        budgets.restore_root_budget(
+            saved.budget_snapshot, episode_id=episode,
+            unreconciled_effects=saved.unreconciled_effects,
+        )
+    # 对账 = 按「可能已执行」扣一格 + 清空清单，写进同一份检查点。
+    debited, receipt = charge_unknown_effects(saved.budget_snapshot, result.unreconciled_effects)
+    assert receipt == {
+        "effects": 1, "slots_charged": 1, "slots_unavailable": 0, "possibly_billed": 1,
+    }
+    # 保守记账是单向的：扣格不扣秒（窗口真实耗时无从得知，编一个数字是伪造测量）。
+    assert debited["remaining_calls"] == 1 and debited["remaining_seconds"] == 19.5
     try:
-        restored = budgets.restore_root_budget(result.state_after.budget_snapshot, episode_id=episode)
-        assert restored.remaining_calls == 2 and restored.remaining_seconds == 19.5
+        restored = budgets.restore_root_budget(
+            debited, episode_id=episode, unreconciled_effects=(),
+        )
+        assert restored.remaining_calls == 1 and restored.remaining_seconds == 19.5
     finally:
         release_root_budget(episode)
 
@@ -407,7 +428,12 @@ def test_live_deep_promotion_checkpoint_reopens_without_regranting(tmp_path):
     assert state.budget_snapshot["hard_calls_cap"] == 24
     assert state.budget_snapshot["remaining_calls"] == 23
     assert state.budget_snapshot["grants"] and state.budget_snapshot["promotions"]
-    restored = budgets.restore_root_budget(state.budget_snapshot, episode_id=episode)
+    # 跑完的 run 没有在飞效果：空清单是一个**断言**（无账可对），不是默认值。
+    assert state.unreconciled_effects == ()
+    restored = budgets.restore_root_budget(
+        state.budget_snapshot, episode_id=episode,
+        unreconciled_effects=state.unreconciled_effects,
+    )
     try:
         before = restored.to_snapshot()
         # Replay the approval against the old tier context: identities, not a

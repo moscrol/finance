@@ -469,6 +469,12 @@ class _EpisodeLedger:
                 cancel=carried_cancel,
                 last_sequence=len(self.events),
                 updated_at=now_iso(),
+                # 热路径不产生未知效果（本进程内的意图都能看到自己的结算），但也没资格
+                # **抹掉**上一次恢复留下的未对账凭证：只有对账能清空它。不带它往下传，
+                # 等于用下一个检查点把「有笔账没对」静默改写成「无账可对」。
+                unreconciled_effects=(
+                    tuple(previous.unreconciled_effects) if previous is not None else ()
+                ),
             )
             if not self.store_failures:
                 try:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 import hashlib
 import json
 import math
@@ -17,6 +17,7 @@ from intelligence.services.query_resolution import (
     QueryResolution,
     classify_reference,
 )
+from intelligence.services.episode_effects import unknown_effects_from_payload
 from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.route_table import owner_skills_from_route_table
 from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRequirement
@@ -941,13 +942,32 @@ def root_budget_for_policy(
 
 
 def restore_root_budget(
-    payload: Mapping[str, object], *, episode_id: str,
+    payload: Mapping[str, object],
+    *,
+    episode_id: str,
+    unreconciled_effects: Sequence[Mapping[str, object]],
 ) -> InMemoryRootBudgetLedger:
     """Restore balances/identities, never allocate afresh from a tier policy.
 
     The live registration is process-local, NOT a cross-process writer lease.
-    A future driver must reconcile unknown effects before using this ledger.
+
+    ``unreconciled_effects`` is **required**, not defaulted. A snapshot is taken
+    at a phase boundary while both accounting paths debit *after* the external
+    work finished, so the balance in it says an in-flight call cost zero. Handing
+    that balance to a spender is how the same money gets spent twice -- and under
+    a crash loop, N times. The caller must therefore state what it knows about
+    the window, and a non-empty list is refused here: recovering a ledger is not
+    the place to decide that an unknown charge can be ignored. Reconciling means
+    charging (``episode_effects.charge_unknown_effects``) and clearing the list
+    on the checkpoint, as one durable transition; the list is its own dedup
+    token, so reconciling twice is impossible rather than merely discouraged.
     """
+    outstanding = unknown_effects_from_payload(list(unreconciled_effects))
+    if outstanding:
+        raise ValueError(
+            f"root budget for {episode_id} has {len(outstanding)} unreconciled effect(s); "
+            "reconcile them before spending this balance"
+        )
     ledger = InMemoryRootBudgetLedger.from_snapshot(payload, episode_id=episode_id)
     with _LIVE_ROOT_BUDGETS_LOCK:
         if episode_id in _LIVE_ROOT_BUDGETS:

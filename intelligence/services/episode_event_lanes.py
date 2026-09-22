@@ -118,6 +118,10 @@ DURABLE_EVENT_KINDS: frozenset[str] = frozenset(
         "persistence_failed",  # memory/artifact receipt when durable writing is fenced
         "configure",
         "root_budget_overdraft",
+        # 恢复发现的未知效果窗口（``episode_effects``）：意图已落、结算未落，那次外部请求
+        # 是否已执行/已计费在本进程里答不出来。归 durable 是必然——这是「有笔账没对」的
+        # 唯一凭证，丢了它就等于把未对账静默降级成无账可对。
+        "effects_unknown",
     }
 )
 

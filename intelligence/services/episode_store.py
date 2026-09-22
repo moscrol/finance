@@ -43,6 +43,10 @@ from typing import Literal, Protocol
 
 from intelligence.services.agent_runtime import EpisodeEvent, _json_copy, _json_freeze
 from intelligence.services.episode_authorization import EpisodeAuthorizationSnapshot
+from intelligence.services.episode_effects import (
+    merge_unknown_effects,
+    unknown_effects_from_payload,
+)
 from intelligence.services.episode_entry_identity import EpisodeEntryIdentity
 from intelligence.services.episode_event_lanes import DURABLE_EVENT_KINDS
 from intelligence.services.episode_evidence import EpisodeEvidenceSnapshot
@@ -136,6 +140,11 @@ class EpisodeState:
     - ``entry_identity``：这一轮是从哪个入口、属于哪个用户/会话/run 起的。**不是**身份证明，
       是当时的记录：恢复由入口重新提供同一身份并精确比对才算同一主人。None = 起跑时没有
       可信入口（离线/CLI/测试），它只能与同样未绑定的入口对上，不能被任何一扇门接管。
+    - ``unreconciled_effects``：崩溃窗口里「意图已落、结算未落」的外部效果凭证
+      （``episode_effects.UnknownEffect``）。那次请求是否已执行、是否已计费，在本进程里
+      答不出来，所以持久化的是**问题本身**而不是某个方便的假设。非空 = 这份
+      ``budget_snapshot`` 尚未对账，``restore_root_budget`` 据此拒绝放行；对账（扣账 +
+      清空）是一次原子跃迁，清单本身就是去重凭证，因此重复恢复不会重复扣费。
     """
 
     episode_id: str
@@ -162,6 +171,9 @@ class EpisodeState:
     # Who this episode belongs to, as recorded by the entry point that started
     # it. Saved identity is a record, not a credential: recovery re-asks the door.
     entry_identity: Mapping[str, object] | None = None
+    # In-flight external effects whose settlement never landed. Empty is a claim
+    # ("nothing outstanding"), not a default: only reconciliation may empty it.
+    unreconciled_effects: tuple[Mapping[str, object], ...] = ()
 
     def __post_init__(self) -> None:
         episode_id = str(self.episode_id or "").strip()
@@ -220,6 +232,17 @@ class EpisodeState:
             identity = EpisodeEntryIdentity.from_dict(self.entry_identity, episode_id=episode_id)
             object.__setattr__(self, "entry_identity", _json_freeze(identity.to_dict(), path="entry_identity"))
 
+        # Validate-and-canonicalize: a damaged receipt must fail loudly here, not
+        # be skipped later. Merge also dedups, so restoring twice cannot inflate.
+        effects = merge_unknown_effects(
+            unknown_effects_from_payload(list(self.unreconciled_effects)), ()
+        )
+        object.__setattr__(
+            self,
+            "unreconciled_effects",
+            tuple(_json_freeze(item.to_dict(), path="unreconciled_effects") for item in effects),
+        )
+
     @property
     def terminal(self) -> bool:
         return self.phase == "done"
@@ -244,6 +267,9 @@ class EpisodeState:
             "evidence_snapshot": _json_copy(self.evidence_snapshot, path="evidence_snapshot"),
             "evidence_snapshot_sequence": self.evidence_snapshot_sequence,
             "entry_identity": _json_copy(self.entry_identity, path="entry_identity"),
+            "unreconciled_effects": [
+                _json_copy(item, path="unreconciled_effects") for item in self.unreconciled_effects
+            ],
         }
 
     @classmethod
@@ -270,6 +296,7 @@ class EpisodeState:
             evidence_snapshot=payload.get("evidence_snapshot"),  # type: ignore[arg-type]
             evidence_snapshot_sequence=payload.get("evidence_snapshot_sequence"),  # type: ignore[arg-type]
             entry_identity=payload.get("entry_identity"),  # type: ignore[arg-type]
+            unreconciled_effects=tuple(payload.get("unreconciled_effects") or ()),  # type: ignore[arg-type]
         )
 
 

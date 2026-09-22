@@ -37,6 +37,13 @@ from typing import Literal
 
 from intelligence.services.agent_runtime import AgentOutcome, AgentUsage, EpisodeEvent
 from intelligence.services.episode_authorization import validate_current_authorization
+from intelligence.services.episode_effects import (
+    UnknownEffect,
+    UnreconciledEffects,
+    merge_unknown_effects,
+    unknown_effects_from_payload,
+    unknown_effects_payload,
+)
 from intelligence.services.episode_entry_identity import (
     capture_entry_identity,
     entry_identities_match,
@@ -118,6 +125,10 @@ class RestoreResult:
     # 重新驱动时要把它们递回收件箱，否则用户递进去的话会随崩溃静默消失（INV-R5 三事实里
     # 缺了第三件）。这里只**列出**，不认领——认领是 loop 的事，恢复读的是事实。
     pending_inbox: tuple[str, ...] = ()
+    # 「意图已落、结算未落」的外部效果：那次请求是否已执行、是否已计费，这里答不出来。
+    # 恢复只**登记**这段未知窗口，不替人决定它是否要付钱——对账要扣的是活账本，而恢复
+    # 拿到的是数据。非空即代表 ``state_after.budget_snapshot`` 的余额尚未对账。
+    unreconciled_effects: UnreconciledEffects = ()
     # 该检查点是否带着已核对的入口身份（用户/会话/run）。False = 起跑时就没有门，恢复也只能
     # 由同样未绑定的调用方读；将来的自动续跑驱动应当要求 True，读这一位，而不是自己猜主人。
     entry_identity_bound: bool = False
@@ -244,6 +255,18 @@ class _Synthesizer:
         self.events.append(event)
         self.synthesized.append(event)
         return event
+
+
+def _declared(value: object, allowed: frozenset[str] | set[str]) -> str:
+    """把一个声明规范化成凭证域；认不出来的一律 ``unknown``。
+
+    恢复读到一个没见过的声明值时不能崩（恢复路径本身不该成为新的失败源），也不能把它
+    归成最宽松的那一档。``unknown`` 在 ``may_have_been_billed`` 里按「可能已计费」算，
+    方向朝多记账偏——这是这里唯一安全的偏法。
+    """
+
+    text = str(value or "").strip()
+    return text if text in allowed else "unknown"
 
 
 def _settle_model_interrupted(
@@ -382,6 +405,11 @@ def _restore_owned(
         )
     events = list(loaded_events)
     task_frame_hash = _task_frame_hash(events)
+    # 检查点带来的未对账凭证原样带走（恢复不是对账，没资格消它们），本次新发现的再并进去。
+    current_unknown: UnreconciledEffects = unknown_effects_from_payload(
+        list(state.unreconciled_effects)
+    )
+    pending_unknown: list[UnknownEffect] = []
 
     def result(
         disposition: RestoreDisposition,
@@ -402,6 +430,7 @@ def _restore_owned(
             outcome=outcome,
             pending_inbox=pending_inbox_messages(loaded_events),
             entry_identity_bound=state.entry_identity is not None,
+            unreconciled_effects=current_unknown,
         )
 
     latest_finish = next((e for e in reversed(events) if e.kind == "finish"), None)
@@ -478,7 +507,37 @@ def _restore_owned(
     deadline_passed = _deadline_passed(state, moment)
     cancel = dict(state.cancel) if state.cancel and state.cancel.get("requested") else None
 
+    def flush_unknown_effects() -> None:
+        """把本次发现的未知窗口并进清单，新增才落一条 ``effects_unknown``。
+
+        并集必须幂等：``retry_model`` / ``replay_tools`` 这类计划不合成任何结算，下一次
+        恢复照样看得见那条悬空意图；若每次都追一条，清单会随重启次数无限膨胀，
+        将来对账时就会按重启次数重复扣费——那是把一个少记账的 bug 换成一个多记账的 bug。
+        """
+
+        nonlocal current_unknown
+        if not pending_unknown:
+            return
+        merged = merge_unknown_effects(current_unknown, pending_unknown)
+        pending_unknown.clear()
+        if len(merged) == len(current_unknown):
+            return  # 都是旧窗口：不重复登记
+        added = tuple(item for item in merged if item.key not in {e.key for e in current_unknown})
+        current_unknown = merged
+        synth.add(
+            "effects_unknown",
+            {
+                "effects": unknown_effects_payload(added),
+                "outstanding": len(merged),
+                "possibly_billed": sum(1 for item in merged if item.may_have_been_billed),
+                "budget_snapshot_sequence": state.budget_snapshot_sequence,
+            },
+        )
+
     def close(stop_reason: str, gaps: Sequence[str], extra: Mapping[str, object] | None = None) -> RestoreResult:
+        # finish 必须是最后一条（terminal 校验要求 latest_finish.sequence == last_sequence），
+        # 所以未知效果登记先落。关闭不等于对账：烧掉的钱不会因为 episode 结束而回来。
+        flush_unknown_effects()
         finish = _synthesize_finish(synth, stop_reason=stop_reason, gaps=gaps, extra=extra)
         done = EpisodeState(
             episode_id=episode_id,
@@ -500,12 +559,16 @@ def _restore_owned(
             # Recovery must not unbind the episode: a checkpoint that forgot its
             # owner would be recoverable by any doorless caller next time.
             entry_identity=state.entry_identity,
+            unreconciled_effects=tuple(unknown_effects_payload(current_unknown)),
         )
         store.put_state(episode_id, done)
         outcome = _terminal_outcome(events, task_frame_hash=task_frame_hash, finish=finish)
         return result("closed", synth=synth, plan=None, outcome=outcome, state_after=done)
 
     def resumable(plan: ResumePlan) -> RestoreResult:
+        # 登记要先于返回计划：``retry_model`` / ``replay_tools`` 正是在提议“再付一次钱”，
+        # 它们跟合成 interrupted 结算共享同一段未知窗口，没有理由只给后者留凭证。
+        flush_unknown_effects()
         state_after = state
         if synth.synthesized:
             # A plan has not executed. Keep the original program counter and
@@ -529,6 +592,7 @@ def _restore_owned(
                 evidence_snapshot=state.evidence_snapshot,
                 evidence_snapshot_sequence=state.evidence_snapshot_sequence,
                 entry_identity=state.entry_identity,
+                unreconciled_effects=tuple(unknown_effects_payload(current_unknown)),
             )
             store.put_state(episode_id, state_after)
         return result("resumable", synth=synth, plan=plan, outcome=None, state_after=state_after)
@@ -562,20 +626,32 @@ def _restore_owned(
         if intent_phase in {"planning", "finalizing", "repair"}:
             continue_phase = intent_phase  # type: ignore[assignment]
         if settlement is None:
-            if cancel is not None:
-                _settle_model_interrupted(synth, intent=intent, turn_id=turn_id)
-            else:
-                remaining = int(state.retry.get("remaining") or 0)
-                if remaining > 0 and not deadline_passed:
-                    return resumable(
-                        ResumePlan(
-                            action="retry_model",
-                            phase=continue_phase,
-                            reason=f"model_intent {turn_id} 无结算；捕获的重试余量 {remaining}，截止未过",
-                            turn_id=turn_id,
-                        ),
-                    )
-                _settle_model_interrupted(synth, intent=intent, turn_id=turn_id)
+            remaining = int(state.retry.get("remaining") or 0)
+            retrying = cancel is None and remaining > 0 and not deadline_passed
+            # 意图已落、结算未落：这次请求可能已经出门、已经被按 token 计了费。合成
+            # ``model_error{interrupted}`` 只说明「没有结果可用」，它答不了「是否已计费」；
+            # ``retry_model`` 更是在提议再付一次。两条路共享同一段未知窗口，都要登记。
+            pending_unknown.append(
+                UnknownEffect(
+                    effect="model",
+                    reserved_id=turn_id,
+                    intent_sequence=intent.sequence,
+                    disposition="retry_proposed" if retrying else "settled_interrupted",
+                    cost="external",
+                    io_effect="external_or_mixed",
+                )
+            )
+            if retrying:
+                return resumable(
+                    ResumePlan(
+                        action="retry_model",
+                        phase=continue_phase,
+                        reason=f"model_intent {turn_id} 无结算；捕获的重试余量 {remaining}，截止未过",
+                        turn_id=turn_id,
+                    ),
+                )
+            _settle_model_interrupted(synth, intent=intent, turn_id=turn_id)
+            if cancel is None:
                 settled_turn_error = True
         elif settlement.kind == "model_error" or str(settlement.payload.get("error") or ""):
             settled_turn_error = True
@@ -619,13 +695,31 @@ def _restore_owned(
         call_id = str(intent.payload.get("call_id") or "")
         name = str(intent.payload.get("name") or "")
         declared_safe = str(intent.payload.get("replay") or "never") == "safe"
-        current_safe = True
+        spec = None
         if registry is not None:
             try:
-                current_safe = registry.resolve(name).replay == "safe"
+                spec = registry.resolve(name)
             except UnknownResearchTool:
-                current_safe = False
-        if cancel is None and declared_safe and current_safe and not deadline_passed:
+                spec = None
+        current_safe = True if registry is None else (spec is not None and spec.replay == "safe")
+        replaying = cancel is None and declared_safe and current_safe and not deadline_passed
+        # ``replay=safe`` 是关于**效果幂等**的声明，不是关于**费用**的声明：注册表默认
+        # 就是 ``cost="external"`` + ``replay="safe"``。所以重跑前后都要把这段窗口记下来。
+        pending_unknown.append(
+            UnknownEffect(
+                effect="tool",
+                reserved_id=call_id,
+                intent_sequence=intent.sequence,
+                disposition="replay_proposed" if replaying else "settled_interrupted",
+                name=name,
+                cost=_declared(getattr(spec, "cost", None), {"local", "external"}),
+                io_effect=_declared(
+                    getattr(spec, "io_effect", None), {"local_read", "external_or_mixed"}
+                ),
+                replay=_declared(intent.payload.get("replay"), {"safe", "never"}),
+            )
+        )
+        if replaying:
             replayable.append(call_id)
             continue
         if cancel is not None:
@@ -679,6 +773,18 @@ def _restore_owned(
             None,
         )
         if outcome_after is None:
+            # 兜底合成也是一次模型调用：意图（``finalization_recovery_started``）已落、
+            # 结算未落，同样可能已计费。它随后走 close()，但关闭不等于对账。
+            pending_unknown.append(
+                UnknownEffect(
+                    effect="model",
+                    reserved_id=_RECOVERY_RESERVED_ID,
+                    intent_sequence=last_started.sequence,
+                    disposition="settled_interrupted",
+                    cost="external",
+                    io_effect="external_or_mixed",
+                )
+            )
             synth.add(
                 "finalization_recovery_outcome",
                 {"status": "failed", "reason": INTERRUPTED, "intent_sequence": last_started.sequence},

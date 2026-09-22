@@ -116,7 +116,8 @@ def test_separate_process_cannot_restore_until_owner_releases(tmp_path):
     report = _child(RESTORE_CHILD, tmp_path)
     assert report["busy"] is False
     assert report["result"]["plan"]["action"] == "finalize"
-    assert len(report["result"]["synthesized"]) == 1
+    # 合成结算 + 未知效果登记：后者记的是「那次模型请求可能已计费」，跨进程一样要留。
+    assert [e["kind"] for e in report["result"]["synthesized"]] == ["model_error", "effects_unknown"]
     saved = store.load(EPISODE_ID)
     assert _child(RESTORE_CHILD, tmp_path)["result"]["synthesized"] == []
     assert store.load(EPISODE_ID) == saved
@@ -158,8 +159,13 @@ sys.stdin.readline()
         result = restore_episode(rig.task_id, store, context=rig.context, registry=rig.registry)
         assert result.plan.action == "retry_model"
         assert result.plan.turn_id == state.reserved_ids[0]
-        assert not result.synthesized
-        assert store.load(rig.task_id) == (events, state)
+        # 「keeps unexecuted intent」：意图原封不动、没被执行也没被结算。多出来的只有未知
+        # 效果登记——被 kill 的那一枪到底发出去没有，这里永远也答不了。
+        after_events, after_state = store.load(rig.task_id)
+        assert after_events[: len(events)] == events
+        assert [e.kind for e in after_events[len(events):]] == ["effects_unknown"]
+        assert (after_state.phase, after_state.reserved_ids) == (state.phase, state.reserved_ids)
+        assert [e.reserved_id for e in result.unreconciled_effects] == [state.reserved_ids[0]]
         assert (store.episode_dir(rig.task_id) / ".writer.lock").exists()
     finally:
         if process.poll() is None:
@@ -193,7 +199,12 @@ def test_drive_guards_paused_effects_and_close_releases_without_a_finish(tmp_pat
     assert rig.episode.inbox is None
     result = restore_episode(rig.task_id, store, context=rig.context, registry=rig.registry)
     assert result.plan.action == "retry_model"
-    assert store.load(rig.task_id) == before
+    # 上面两次「Busy」下存储一字未动（拿不到写权就什么都不写）；拿到写权之后产生的
+    # 唯一一条是未知效果登记，程序计数器仍停在原处。
+    after_events, after_state = store.load(rig.task_id)
+    assert after_events[: len(before[0])] == before[0]
+    assert [e.kind for e in after_events[len(before[0]):]] == ["effects_unknown"]
+    assert (after_state.phase, after_state.reserved_ids) == (before[1].phase, before[1].reserved_ids)
     with pytest.raises(RestoreUnavailable, match="existing episode"):
         competing.run(task_frame=rig.frame, context=rig.context, registry=rig.registry)
     assert rig.model.calls == 0

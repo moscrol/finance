@@ -197,8 +197,20 @@ def test_every_crash_prefix_restores_to_what_actually_happened_next() -> None:
         )
         if expected_calls:
             assert tuple(result.plan.call_ids) == expected_calls
-        # 截止未过、意图声明 safe：什么都不该被合成，日志一字不多。
-        assert result.synthesized == ()
+        # 截止未过、意图声明 safe：不该合成任何**结算**，模型历史一字不多。
+        # 唯一允许多出来的是未知效果登记：``retry_model`` / ``replay_tools`` 正是在提议
+        # “再付一次钱”，那段窗口必须留痕。它不是结算、不进模型历史，只登记“有笔账没对”。
+        synthesized_kinds = [e.kind for e in result.synthesized]
+        assert set(synthesized_kinds) <= {"effects_unknown"}, (length, synthesized_kinds)
+        if result.plan.action in {"retry_model", "replay_tools"}:
+            assert synthesized_kinds == ["effects_unknown"], (length, state.phase)
+            assert {e.reserved_id for e in result.unreconciled_effects} == set(
+                result.plan.call_ids or (result.plan.turn_id,)
+            ), (length, state.phase)
+        else:
+            # 没有悬空意图就没有未知窗口；``dispatch_tools`` 那条没落意图的调用从未出门。
+            assert synthesized_kinds == [], (length, state.phase)
+            assert result.unreconciled_effects == (), (length, state.phase)
         checked.add((state.phase, expected_action))
     # 三种切点都到过：意图前（model_turn / dispatch_tools）、意图后结算前（retry / replay）、结算后。
     assert {"retry_model", "replay_tools", "model_turn", "interpret_turn", "dispatch_tools"} <= {
@@ -235,8 +247,15 @@ def test_deadline_passed_closes_dangling_model_intent_with_interrupted_error() -
 
     assert result.disposition == "closed" and result.outcome is not None
     kinds = [e.kind for e in result.synthesized]
-    assert kinds == ["model_error", "finish"]
-    error, finish = result.synthesized
+    # 登记在 finish 之前：finish 必须是最后一条（terminal 校验要求它对齐 last_sequence）。
+    assert kinds == ["model_error", "effects_unknown", "finish"]
+    error, unknown, finish = result.synthesized
+    # 关闭不等于对账：那次模型请求可能已按 token 计过费，关了 episode 也退不回来。
+    assert [e.reserved_id for e in result.unreconciled_effects] == [first_intent.payload["turn_id"]]
+    assert result.unreconciled_effects[0].effect == "model"
+    assert result.unreconciled_effects[0].disposition == "settled_interrupted"
+    assert result.unreconciled_effects[0].may_have_been_billed is True
+    assert unknown.payload["possibly_billed"] == 1
     assert error.payload["reason"] == "interrupted"
     assert error.payload["turn_id"] == first_intent.payload["turn_id"]
     assert error.payload["intent_sequence"] == first_intent.sequence
@@ -244,10 +263,12 @@ def test_deadline_passed_closes_dangling_model_intent_with_interrupted_error() -
     assert finish.payload["stop_reason"] == "interrupted"
     assert result.outcome.status == "failed"  # 中断前没有任何 tool_result
     assert result.outcome.stop_reason == "interrupted"
-    # 写回：日志多了两条、状态 done、不再列为 open；序号仍连续。
+    # 写回：日志多了三条、状态 done、不再列为 open；序号仍连续。
     stored, stored_state = crash_store.load(EPISODE_ID)
-    assert len(stored) == first_intent.sequence + 2
+    assert len(stored) == first_intent.sequence + 3
     assert stored_state is not None and stored_state.phase == "done"
+    # 终局检查点也得带着这笔未对的账：只有对账能清空它。
+    assert len(stored_state.unreconciled_effects) == 1
     assert crash_store.list_open() == ()
     # 再恢复一次：已终局，什么都不做。
     again = restore_episode(EPISODE_ID, crash_store, now=MUCH_LATER)
@@ -268,7 +289,14 @@ def test_deadline_passed_closes_dangling_tool_intents_and_derivation_still_holds
     result = restore_episode(EPISODE_ID, crash_store, now=MUCH_LATER, context=store.context, registry=store.registry)
 
     assert result.disposition == "closed" and result.outcome is not None
-    assert [e.kind for e in result.synthesized] == ["tool_error", "tool_error", "finish"]
+    assert [e.kind for e in result.synthesized] == [
+        "tool_error", "tool_error", "effects_unknown", "finish",
+    ]
+    # 两条意图都出了门但都没回来：两段未知窗口，一条意图一段。
+    assert [e.reserved_id for e in result.unreconciled_effects] == [
+        e.payload["call_id"] for e in requests
+    ]
+    assert {e.effect for e in result.unreconciled_effects} == {"tool"}
     for error, intent in zip(result.synthesized[:2], requests):
         assert error.payload["call_id"] == intent.payload["call_id"]
         assert error.payload["error"] == "interrupted"
@@ -341,6 +369,10 @@ def test_application_declaration_without_dispatch_is_settled_so_no_tool_call_dan
     declared = {c.call_id for m in derived if m.role == "assistant" for c in m.tool_calls}
     answered = {m.tool_call_id for m in derived if m.role == "tool"}
     assert declared == answered  # 每个声明都有结算，每个结算都有声明。
+    # 声明不是意图：请求根本没出门，没有外部效果也没有费用。把它算进未对账清单
+    # 是**虚报**——与漏报同样是错，只是错在另一个方向。
+    assert result.unreconciled_effects == ()
+    assert not any(e.kind == "effects_unknown" for e in result.synthesized)
     # 恰好一次：这条声明本身就算「已尝试」，恢复后的下一批不会再补第二枪。
     from intelligence.services.empty_pool_fallback import fallback_already_attempted
 
@@ -356,7 +388,11 @@ def test_application_declaration_with_dangling_intent_replays_the_same_call() ->
 
     assert result.disposition == "resumable" and result.plan is not None
     assert result.plan.action == "replay_tools" and result.plan.call_ids == (fallback_id,)
-    assert result.synthesized == ()
+    # 重跑之前先登记：``replay=safe`` 说的是效果幂等，不是重跑不要钱。
+    assert [e.kind for e in result.synthesized] == ["effects_unknown"]
+    assert [e.reserved_id for e in result.unreconciled_effects] == [fallback_id]
+    assert result.unreconciled_effects[0].disposition == "replay_proposed"
+    assert result.unreconciled_effects[0].replay == "safe"
     assert sum(1 for e in result.events if e.kind == "application_tool_call") == 1
 
 
@@ -407,12 +443,19 @@ def test_replay_never_tool_is_settled_as_interrupted_not_replayed() -> None:
     # 截止未过也不重跑：合成 interrupted 结算，然后回模型让它看到这条错误。
     assert result.disposition == "resumable" and result.plan is not None
     assert result.plan.action == "model_turn"
-    assert [e.kind for e in result.synthesized] == ["tool_error"]
+    assert [e.kind for e in result.synthesized] == ["tool_error", "effects_unknown"]
     assert result.synthesized[0].payload["detail"] == "intent declared replay=never"
     assert result.state_after.reserved_ids == (intent.payload["call_id"],)
-    assert restore_episode(
+    # replay=never 不重跑，但那一枪可能已经出去了 —— 恰恰是写效果的工具最该留痕。
+    assert [e.disposition for e in result.unreconciled_effects] == ["settled_interrupted"]
+    assert result.unreconciled_effects[0].name == AUTHORIZED_TOOL
+    # 再恢复一次：同一个计划，且未对账清单不重复登记（并集幂等）。
+    again = restore_episode(
         EPISODE_ID, crash_store, registry=registry, now=SOON, context=store.context,
-    ).plan == result.plan
+    )
+    assert again.plan == result.plan
+    assert again.synthesized == ()
+    assert len(again.unreconciled_effects) == 1
 
 
 def test_current_declaration_flipping_to_never_blocks_replay() -> None:
@@ -456,13 +499,20 @@ def test_partial_intents_dispatch_the_rest_after_settling_the_landed_one() -> No
     assert result.plan is not None and result.plan.action == "replay_tools"
     assert result.plan.call_ids == (requests[0].payload["call_id"],)
     # 计划尚未执行：保留原模型回合定位，才能在下次恢复继续找到未派发的第二条。
-    assert result.state_after == state
+    # 程序计数器不动，但未知效果要落账：两件事不冲突。
+    assert (result.state_after.phase, result.state_after.reserved_ids, result.state_after.turn_index) == (
+        state.phase, state.reserved_ids, state.turn_index,
+    )
+    assert [e.reserved_id for e in result.unreconciled_effects] == [requests[0].payload["call_id"]]
+    assert [e.disposition for e in result.unreconciled_effects] == ["replay_proposed"]
 
     # 截止已过：落了的合成 interrupted，整个 episode 闭合——没落的那条从未发生、不合成。
     crash_store2, _ = _store_at(events, store.states, requests[0].sequence)
     closed = restore_episode(EPISODE_ID, crash_store2, now=MUCH_LATER, context=store.context, registry=store.registry)
     assert closed.disposition == "closed"
-    assert [e.kind for e in closed.synthesized] == ["tool_error", "finish"]
+    assert [e.kind for e in closed.synthesized] == ["tool_error", "effects_unknown", "finish"]
+    # 没落意图的 call-2 从未出门：不该进未对账清单（把它算进来就是虚报）。
+    assert [e.reserved_id for e in closed.unreconciled_effects] == [requests[0].payload["call_id"]]
 
 
 def test_durable_cancel_closes_with_typed_cause_after_settling_intents() -> None:
@@ -524,8 +574,14 @@ def test_finalization_recovery_dangling_closes_interrupted() -> None:
     )
     result = restore_episode(EPISODE_ID, store, now=SOON, **_control_authority())
     assert result.disposition == "closed"
-    assert [e.kind for e in result.synthesized] == ["finalization_recovery_outcome", "finish"]
+    assert [e.kind for e in result.synthesized] == [
+        "finalization_recovery_outcome", "effects_unknown", "finish",
+    ]
     assert result.synthesized[0].payload["reason"] == "interrupted"
+    # 兜底合成也是一次模型调用，意图落了结算没落 —— 同样可能已计费。
+    assert [(e.effect, e.reserved_id) for e in result.unreconciled_effects] == [
+        ("model", "finalization_recovery"),
+    ]
 
 
 def test_refuses_without_state_version_mismatch_unknown_kind_or_lagging_log() -> None:
