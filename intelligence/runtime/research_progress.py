@@ -59,6 +59,15 @@ def stall_finalize_batches() -> int:
     return max(0, value)
 
 
+def _json_value(value: object) -> object:
+    """ModelToolCall freezes nested mappings; detach before JSON encoding."""
+    if isinstance(value, Mapping):
+        return {key: _json_value(item) for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [_json_value(item) for item in value]
+    return value
+
+
 def normalize_query(value: object) -> str:
     """归一化查询键：压空白、小写、截长。只用于比较，不回灌给模型。"""
 
@@ -71,7 +80,7 @@ def normalize_query(value: object) -> str:
             if isinstance(goals, (list, tuple)) and goals:
                 value = " | ".join(str(item) for item in goals)
             else:
-                value = json.dumps(value, ensure_ascii=False, sort_keys=True) if value else ""
+                value = json.dumps(_json_value(value), ensure_ascii=False, sort_keys=True) if value else ""
     text = re.sub(r"\s+", " ", str(value or "")).strip().lower()
     return text[:_MAX_QUERY_CHARS]
 

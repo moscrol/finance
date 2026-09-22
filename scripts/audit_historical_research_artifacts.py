@@ -23,7 +23,16 @@ import re
 from typing import Any
 
 
-AUDIT_VERSION = "history-artifact-arithmetic-v1"
+if __package__:
+    from .history_anatomy_arithmetic import (
+        ANATOMY_FEATURE_VERSION, NEW_DEFINITIONS, audit_rank, audit_trace, calculate_new,
+    )
+else:
+    from history_anatomy_arithmetic import (
+        ANATOMY_FEATURE_VERSION, NEW_DEFINITIONS, audit_rank, audit_trace, calculate_new,
+    )
+
+AUDIT_VERSION = "history-artifact-arithmetic-v2"
 SCHEMA_VERSION = "historical-research-v1"
 FEATURE_VERSION = "history-features-v1"
 # Deliberately independent, frozen v1 definitions; do not import the engine.
@@ -51,6 +60,11 @@ DEFINITIONS = {
         "maximum consecutive days satisfying " + RED_RULE,
     ),
 }
+DEFINITIONS.update(NEW_DEFINITIONS)
+DEFINITIONS["advancer_share"] = (
+    ["members.pct_chg"], "ratio",
+    "mean daily positive-return member share; denominator is unique observed membership each day",
+)
 CELLS = ("x_true_y_true", "x_true_y_false", "x_false_y_true", "x_false_y_false")
 
 
@@ -213,7 +227,8 @@ def _supported(name, doc, audit):
     if not isinstance(definition, dict):
         audit.error("feature_definition", feature=name, reason="missing definition")
         return False
-    if definition.get("version") != FEATURE_VERSION:
+    version = ANATOMY_FEATURE_VERSION if name in NEW_DEFINITIONS else FEATURE_VERSION
+    if definition.get("version") != version:
         audit.skip(
             "unsupported_feature_version",
             feature=name,
@@ -224,13 +239,12 @@ def _supported(name, doc, audit):
         audit.skip("unsupported_feature", feature=name)
         return False
     fields, unit, rule = DEFINITIONS[name]
-    if definition != dict(
-        fields=fields,
-        unit=unit,
-        rule=rule,
-        version=FEATURE_VERSION,
-        entity_kind=doc["spec"]["entity_kind"],
-    ):
+    expected = dict(fields=fields, unit=unit, rule=rule, version=version,
+                    entity_kind=doc["spec"]["entity_kind"])
+    if doc["spec"]["entity_kind"] == "market":
+        expected["input_mapping"] = {"pct_chg": "fact_market_daily.sh_index_pct_chg",
+                                     "amount": "fact_market_daily.total_amount"}
+    if definition != expected:
         audit.skip("unsupported_definition", feature=name)
         return False
     if doc["spec"]["entity_kind"] == "stock" and name in {
@@ -242,19 +256,26 @@ def _supported(name, doc, audit):
     return True
 
 
-def _calculate(name, days, facts, markets, code):
+def _calculate(name, days, facts, markets, code, members=()):
     rows = [facts.get((code, day)) for day in days]
     if not days or any(row is None for row in rows):
         return None, "missing_input_dates"
     fields = DEFINITIONS[name][0]
+    if name == "advancer_share":
+        baskets = [[r for r in members if r["trade_date"] == d and r["sector_ts_code"] == code] for d in days]
+        if any(not b or len({r["stock_ts_code"] for r in b}) != len(b) or not all(_finite(r.get("pct_chg")) for r in b) for b in baskets):
+            return None, "missing_or_ambiguous_members"
+        return sum(sum(r["pct_chg"] > 0 for r in b) / len(b) for b in baskets) / len(days), None
     for field in fields:
         values = (
-            [markets.get(("", d), {}).get("sh_index_pct_chg") for d in days]
+            [markets.get(("", d), {}).get(field.split(".")[1]) for d in days]
             if field.startswith("market.")
             else [row.get(field) for row in rows]
         )
         if not all(_finite(v) for v in values):
             return None, "missing_or_invalid_input_values"
+    if name in NEW_DEFINITIONS:
+        return calculate_new(name, rows, [markets.get(("", d), {}) for d in days])
     if name == "return_pct":
         return _compound([r["pct_chg"] for r in rows]), None
     if name == "amount_ratio":
@@ -435,23 +456,33 @@ def audit_artifact(path: Path | str) -> dict:
             }
         )
         kind = doc["spec"]["entity_kind"]
-        if kind not in {"stock", "sector"}:
-            raise ValueError("entity_kind must be stock or sector")
+        if kind not in {"stock", "sector", "market"}:
+            raise ValueError("entity_kind must be stock, sector or market")
         operation = doc["spec"]["operation"]
         audit.receipt.update(operation=operation, rows=len(doc["rows"]))
         if operation not in {
             "compute_history",
             "compare_cases",
             "find_analogues",
-            "inspect_history",
+            "inspect_history", "rank_history", "trace_history",
         }:
             audit.skip("unsupported_operation", operation=operation)
             return audit.finish()
-        table, code_key = f"fact_{kind}_daily", f"{kind}_ts_code"
-        facts = audit.index(table, doc["inputs"].get(table, []), code_key)
         markets = audit.index(
             "fact_market_daily", doc["inputs"].get("fact_market_daily", []), None
         )
+        if kind == "market":
+            facts = {("000001.SH", d): {**r, "pct_chg": r.get("sh_index_pct_chg"), "amount": r.get("total_amount")}
+                     for (_, d), r in markets.items()}
+        else:
+            table, code_key = f"fact_{kind}_daily", f"{kind}_ts_code"
+            facts = audit.index(table, doc["inputs"].get(table, []), code_key)
+        if kind == "market" and operation == "inspect_history":
+            audit.check("market_inspect_dates", sorted(r["trade_date"] for r in doc["rows"]), sorted(d for _, d in markets))
+            for row in doc["rows"]:
+                audit.check("market_inspect_fields", row["market"], markets["", row["trade_date"]])
+            audit.skip("inspect_fields_checked_no_arithmetic")
+            return audit.finish()
         days = sorted(
             {
                 _day(day)
@@ -461,9 +492,18 @@ def audit_artifact(path: Path | str) -> dict:
             }
         )
         supported = {
-            name for name in doc["feature_definitions"] if _supported(name, doc, audit)
+            name for name in doc["feature_definitions"]
+            if name != "trace_history" and _supported(name, doc, audit)
         }
-        feature_rows = list(enumerate(doc["rows"]))
+        if operation == "trace_history":
+            needed = {"return_pct", "amount_vs_prior_mean", "max_drawdown_pct", "up_day_share", "market_relative_return_pct"}
+            if not needed <= supported:
+                audit.skip("trace_requires_supported_scalar_definitions")
+                return audit.finish()
+            if not audit_trace(doc, days, facts, markets, _calculate, audit):
+                return audit.finish()
+        feature_rows = [(i, r) for i, r in enumerate(doc["rows"])
+                        if operation != "trace_history" or r["record_kind"] == "launch_signal"]
         if doc.get("reference"):
             feature_rows.append(("reference", doc["reference"]))
         for index, row in feature_rows:
@@ -488,7 +528,8 @@ def audit_artifact(path: Path | str) -> dict:
                     audit.skip("feature_not_recomputed", row=index, feature=name)
                     continue
                 value, reason = _calculate(
-                    name, window, facts, markets, row["entity_code"]
+                    name, window, facts, markets, row["entity_code"],
+                    doc["inputs"].get("fact_sector_stock_daily", []),
                 )
                 derived[name] = value
                 audit.check(
@@ -514,6 +555,11 @@ def audit_artifact(path: Path | str) -> dict:
                 )
         if operation == "compare_cases":
             _comparison(doc, audit)
+        if operation == "rank_history":
+            if "return_pct" in supported:
+                audit_rank(doc, facts, audit)
+            else:
+                audit.skip("rank_requires_supported_return_definition")
         if operation in {"inspect_history", "find_analogues"}:
             audit.skip(
                 "inspection_or_analogue_ranking_not_recomputed", operation=operation
@@ -568,12 +614,13 @@ def main(argv=None) -> int:
     report = {
         "audit_version": AUDIT_VERSION,
         "supported_schema_version": SCHEMA_VERSION,
-        "supported_feature_version": FEATURE_VERSION,
+        "supported_feature_versions": [FEATURE_VERSION, ANATOMY_FEATURE_VERSION],
         "certification_eligible": False,
         "method": "Descriptive independent arithmetic on saved facts only; no database, model, or engine IO.",
         "limits": [
             "Checks internal arithmetic and fingerprints, not vendor authenticity, strict PIT, strategy validity, or promotion eligibility.",
-            "Only five scalar features plus forward returns, X/Y and four-cell summaries are supported; other features and analogue ranking are explicitly skipped.",
+            "Supports original five scalars, advancer_share, seven anatomy scalars, market mappings, rank populations, launch/peak paths, launch-member ranks, succession pairs, forward returns and four cells; analogue ranking and other unsupported features are explicitly skipped.",
+            "Trace member feature coverage metadata and descriptive entity names are not independently checked. Inspect market fields are compared to saved facts, not arithmetically derived.",
             "For entity/market tables used by supported arithmetic, identical repeated reads are counted and collapsed explicitly; conflicting exact entity/date keys are errors. Other inputs receive fingerprint checks only.",
             "Calendar completeness is relative to saved calendar_inputs; missing vendor trading dates cannot be proven absent without an external source.",
         ],

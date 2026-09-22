@@ -302,6 +302,22 @@ def test_progress_off_switch_restores_previous_budget_payload(monkeypatch: pytes
     assert [e for e in outcome.events if e.kind == "finalization"] == []
 
 
+def test_rejected_structured_arguments_do_not_crash_progress_recording():
+    # The live fourth turn omitted exact codes in compare_cases. A valid parser
+    # rejection must reach the next model turn, not crash while recording it.
+    invalid = ModelTurn("", (ModelToolCall("bad", "market_data", {
+        "condition": {"feature": "double_red_days", "op": "gte", "value": 1},
+        "outcome": {"horizon_days": 10, "threshold_pct": 0},
+    }),), "scripted", "")
+    model = ScriptedModel([_tool_turn("q1", "c1"), invalid, _finish_turn(("hash-q1",))])
+    outcome = _run(model)
+    assert outcome.status == "completed"
+    assert [item.content_hash for item in outcome.evidence] == ["hash-q1"]
+    progress = _budget_blocks(model)[1]["research_progress"]
+    assert progress["last_batch"][0]["result"] == "rejected"
+    assert "condition" in progress["last_batch"][0]["query"]
+
+
 def test_tool_error_after_success_keeps_evidence_and_reports_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("WORKBENCH_RESEARCH_PROGRESS", raising=False)
 

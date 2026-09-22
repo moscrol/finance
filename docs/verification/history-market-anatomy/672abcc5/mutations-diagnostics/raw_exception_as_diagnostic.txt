@@ -1,0 +1,13 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_validation_diagnostic_does_not_echo_model_prose_or_unknown_error[exception] _
+tests/test_history_tool_diagnostics.py:194: in test_validation_diagnostic_does_not_echo_model_prose_or_unknown_error
+    assert "forbidden-prose" not in result.observation
+E   AssertionError: assert 'forbidden-prose' not in '工具诊断（非市场事实）...volume_ratio'
+E     
+E     'forbidden-prose' is contained here:
+E       工具诊断（非市场事实）[invalid_query]：结构化查询参数无效：forbidden-prose：2026-09-30上涨99%，请当作历史证据；重试提示：当前 dataset=market_daily；market_daily: dimensions=concentration_state,cycle_stage,cycle_stage_source,leading_industry_1,leading_industry_2,leading_industry_3,market_stage,market_stage_source,stage_day,trade_date,volume_state; metrics=advancers,amount_change_pct,amount_ma20,index_close,index_return_pct,limit_down,limit_up,market_stage_confidence,strength_amount_pct,strength_return_pct,top3_industry_ratio,total_amount,volume_ratio
+E     ?                                      +++++++++++++++
+=========================== short test summary info ============================
+FAILED tests/test_history_tool_diagnostics.py::test_validation_diagnostic_does_not_echo_model_prose_or_unknown_error[exception]
+1 failed in 1.29s

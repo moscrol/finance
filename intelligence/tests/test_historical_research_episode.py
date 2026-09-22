@@ -240,6 +240,15 @@ def test_real_app_factory_injects_same_run_writer_only_for_history(
     assert "history_session" not in received[-1]
 
 
+def _history_user_records(question):
+    from intelligence.services.conversation_materials import collect_material_turn_history
+    from intelligence.services.conversation_store import Message
+
+    return collect_material_turn_history([
+        Message("history-user", "conv", "user", question, "2026-09-21", "completed"),
+    ])
+
+
 def test_elliptical_history_followup_inherits_and_can_change_window():
     from intelligence.services.turn_controller import decide_turn
 
@@ -250,12 +259,14 @@ def test_elliptical_history_followup_inherits_and_can_change_window():
     previous = first.turn_intent
     for query in ("以前有没有类似？", "那以前呢？"):
         followup = decide_turn(
-            query, previous_intent=previous, previous_turn_id="t1", llm_complete=offline
+            query, previous_intent=previous, previous_turn_id="t1", llm_complete=offline,
+            conversation_materials=_history_user_records(first.task_frame.raw_question),
         )
         assert followup.task_frame.history_intent.purpose == "historical_comparison"
         assert followup.subject == "农业"
     narrowed = decide_turn(
         "只看2025-01-01到2025-03-31",
+        conversation_materials=_history_user_records(first.task_frame.raw_question),
         previous_intent=previous,
         previous_turn_id="t1",
         llm_complete=offline,
@@ -540,7 +551,8 @@ def test_source_restriction_preserves_explicit_history_continuation(question):
 
     previous = decide_turn("这一波农业怎么走出来的", llm_complete=offline).turn_intent
     result = decide_turn(
-        question, previous_intent=previous, previous_turn_id="old", llm_complete=offline
+        question, previous_intent=previous, previous_turn_id="old", llm_complete=offline,
+        conversation_materials=_history_user_records("这一波农业怎么走出来的"),
     )
     assert result.task_frame.history_intent == previous.history_intent
     assert result.subject == "农业"

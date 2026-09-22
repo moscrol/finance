@@ -11,6 +11,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from intelligence.services.agent_research import (
+    AgentEvidence,
+    HistoricalEvidenceProvenance,
+    evidence_content_hash,
+)
 from intelligence.services.agent_runtime import AgentOutcome
 from intelligence.services.episode_issues import Issue, IssueCode, serialize_issues
 from intelligence.services.episode_output_substance import (
@@ -66,6 +71,22 @@ class VerifiedEpisodeOutcome:
             ),
             "extension_outputs": list(self.extension_outputs),
         }
+
+
+def _valid_history_identity(item: AgentEvidence) -> bool:
+    provenance = item.history_provenance
+    if not isinstance(provenance, HistoricalEvidenceProvenance):
+        return False
+    try:
+        provenance.validate()
+    except ValueError:
+        return False
+    return (
+        item.tool in {"history_query", "read_history_result"}
+        and item.content_hash == evidence_content_hash(item)
+        and item.internal_locator == provenance.result_ref
+        and item.independent_key == provenance.query_id
+    )
 
 
 def verify_episode_outcome(
@@ -268,6 +289,47 @@ def verify_episode_outcome(
             for item in evidence_items
             if required.evidence_types and item.tool not in required.evidence_types
         )
+        history_items = tuple(
+            item for item in evidence_items
+            if item.tool in {"history_query", "read_history_result"}
+            or item.history_provenance is not None
+        )
+        unsupported_history = tuple(
+            item
+            for item in history_items
+            if required.allowed_history_operations
+            and isinstance(item.history_provenance, HistoricalEvidenceProvenance)
+            and (
+                item.history_provenance.operation
+                not in required.allowed_history_operations
+                or item.tool not in {"history_query", "read_history_result"}
+            )
+        )
+        invalid_history_qualification = tuple(
+            item
+            for item in history_items
+            if required.allowed_history_operations
+            and not _valid_history_identity(item)
+        )
+        if unsupported_history or invalid_history_qualification:
+            details = tuple(
+                (item.history_provenance.operation or "unknown")
+                if isinstance(item.history_provenance, HistoricalEvidenceProvenance)
+                and isinstance(item.history_provenance.operation, str)
+                else "missing_provenance" if item.history_provenance is None
+                else "invalid_provenance"
+                for item in (*unsupported_history, *invalid_history_qualification)
+            )
+            issues.append(
+                Issue(
+                    IssueCode.HISTORY_OPERATION_UNSUPPORTED,
+                    required.output_id,
+                    (
+                        f"history evidence is not eligible for {required.output_id}: "
+                        + ",".join(details)
+                    ),
+                )
+            )
         # 类型白名单按「剔除非法、保留合法」执行，不再整槽作废（2026-08-19，
         # run_20260819_130854：prime_quote 绑了 market_data + finance_query
         # 各若干条，旧判据把合法行情哈希一并清掉 → 整篇换缺口模板）。
@@ -283,6 +345,8 @@ def verify_episode_outcome(
                 not required.evidence_types
                 or evidence_by_hash[content_hash].tool in required.evidence_types
             )
+            and evidence_by_hash[content_hash] not in unsupported_history
+            and evidence_by_hash[content_hash] not in invalid_history_qualification
         )
         kept_items = tuple(
             evidence_by_hash[content_hash] for content_hash in kept_hashes
@@ -342,6 +406,8 @@ def verify_episode_outcome(
             and (not wrong_types or bool(kept_hashes))
             and not missing_floor
             and not basis_mismatch
+            and not unsupported_history
+            and not invalid_history_qualification
             and len(evidence_items) == len(binding.evidence_hashes)
         )
         if valid:

@@ -135,6 +135,25 @@ def test_unqualified_source_dates_are_not_admitted(source, day):
         load()
 
 
+@pytest.mark.parametrize("legacy", [False, True])
+def test_nullable_history_metadata_preserves_ordinary_prior_evidence(source, legacy):
+    _, _, _, _, payload, save, load = source
+    if legacy:
+        for row in payload["outcome"]["evidence"]:
+            row.pop("history_provenance")
+    save()
+    assert load().entries[0][1] == replace(_atom(), supports=())
+
+
+@pytest.mark.parametrize("value", [False, "", {}, {"query_id": "forged"}])
+def test_malformed_history_metadata_does_not_become_ordinary_evidence(source, value):
+    _, _, _, _, payload, save, load = source
+    payload["outcome"]["evidence"][1]["history_provenance"] = value
+    save()
+    with pytest.raises(ValueError):
+        load()
+
+
 def test_current_cutoff_and_target_frame_are_rechecked(source):
     *_, load = source
     snapshot = load()
