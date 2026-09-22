@@ -56,17 +56,22 @@ fi
 - **没有选择“校验器自动提交/推送”**：只读校验与授权副作用分开；工具不替调用者选择提交范围。
 - 环境变量必须覆盖每个预览子进程。手工移植时，在唯一临时目录下、子 shell 内先
   `export GIT_INDEX_FILE="$tmp/index"` 与 `export GIT_NO_REPLACE_OBJECTS=1`，再执行所有 Git 命令。
-  父身份必须从 `git cat-file commit <sha>` 的原始 header 读取，不要用会受 shallow/grafts
-  改写的 `git show --format=%P`。仅在第一条命令前赋值不会跨 `&&` 传播。
+  父身份从 `git cat-file commit <sha>` 的原始字节读取：只取首行 `tree` 后紧邻的连续
+  `parent ` 行，遇第一条非 parent 行即停止；不要对整个对象 `grep '^parent '`，也不要
+  将任意编码的提交消息按 UTF-8 解码。`git show --format=%P` 会受 shallow/grafts 改写。
+  仅在第一条命令前赋值不会跨 `&&` 传播。
 
 ## 范围与限制
 
 - 路径按仓根解析且作为字面量；拒绝仓外路径、`.`、`.git` 和魔法 pathspec。
-- 拒绝继承 `GIT_INDEX_FILE` 等仓库重定向，避免不同 helper 操作不同仓。不是可嵌入 pre-commit 的检查器。
+- 两个工具（含独立运行的 checker）共用路径校验与环境检查，拒绝继承 `GIT_INDEX_FILE`
+  等仓库重定向，避免操作不同仓。不是可嵌入 pre-commit 的检查器。
 - 不给共享工作树加写锁。预览时 HEAD 漂移会拒绝，正式提交与预览不一致会拒绝；仍优先独占工作树。
 - 读取原始 Git 对象：两层工具均使用 `--no-replace-objects`，不接受本地 replacement refs
   （对象替换映射）把同一 SHA 指成别的内容；父身份直接读 commit header，不读会被
   shallow/grafts（浅克隆边界/本地谱系改写）改变的历史展示。替换映射本身不会被删除或改动。
+  支持 SHA-1 / SHA-256 仓库；按 `git rev-parse --show-object-format` 校验对象 ID 长度。
+  归档清单的文件摘要始终使用 SHA-256，与 Git 仓库的对象格式是两回事。
 - 使用仓库其余正常 Git 配置；信任其 clean filters 等配置，不是运行不受信仓库的沙箱。
 - 不验证远端留存、来源真实性、独立审查 verdict（正式结论）或产品质量；181/181 也可能只是完整保存了一份失败报告。
 

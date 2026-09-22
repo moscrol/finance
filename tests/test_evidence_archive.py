@@ -5,7 +5,8 @@ import subprocess
 
 import pytest
 
-from scripts.check_evidence_archive import check_archive
+from scripts.check_evidence_archive import GIT_REDIRECT_VARS, check_archive
+from tests.archive_path_cases import INVALID_REPOSITORY_PATHS
 
 
 def git(repo: Path, *args: str) -> str:
@@ -116,11 +117,16 @@ def test_replacement_refs_cannot_hide_corrupt_committed_bytes(archive_repo, repl
     assert "hash mismatch: archive/report.md" in result["errors"]
 
 
-@pytest.mark.parametrize("archive", [
-    "/tmp/archive", "../archive", "archive/../archive", ".", "archive/",
-    ":!archive", ":(glob)archive", ".git/config",
-])
+@pytest.mark.parametrize("archive", INVALID_REPOSITORY_PATHS)
 def test_invalid_archive_path_is_rejected(archive_repo, archive):
     revision = commit(archive_repo)
     with pytest.raises(ValueError):
         check_archive(archive_repo, archive, revision)
+
+
+@pytest.mark.parametrize("key", GIT_REDIRECT_VARS)
+def test_standalone_checker_rejects_inherited_git_redirection(archive_repo, monkeypatch, key):
+    revision = commit(archive_repo)
+    monkeypatch.setenv(key, str(archive_repo / "unexpected"))
+    with pytest.raises(ValueError, match="refusing inherited Git redirection"):
+        check_archive(archive_repo, "archive", revision)

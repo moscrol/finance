@@ -27,22 +27,29 @@ import argparse
 import json
 import os
 import re
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import subprocess
 import tempfile
 
 if __package__:
-    from .check_evidence_archive import check_archive
+    from .check_evidence_archive import (
+        GIT_REDIRECT_VARS,
+        check_archive,
+        literal_repo_path,
+        reject_inherited_git_redirection,
+    )
 else:
-    from check_evidence_archive import check_archive
+    from check_evidence_archive import (
+        GIT_REDIRECT_VARS,
+        check_archive,
+        literal_repo_path,
+        reject_inherited_git_redirection,
+    )
 
 
-# check_archive also launches Git; refuse caller redirection consistently rather
-# than silently switching repositories/indexes in just one of the two helpers.
-_REDIRECT = (
-    "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR",
-    "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-)
+# Keep the compatibility name used by the regression tests while sharing the
+# refusal list with the standalone checker.
+_REDIRECT = GIT_REDIRECT_VARS
 
 
 def _child_env(env: dict[str, str] | None = None) -> dict[str, str]:
@@ -66,19 +73,11 @@ def _git_bytes(repo: Path, *args: str, env: dict[str, str] | None = None) -> byt
 
 
 def _path(value: str) -> str:
-    path = PurePosixPath(value)
-    if (
-        not path.parts or path.is_absolute() or path.as_posix() != value
-        or ".." in path.parts or ".git" in path.parts or value.startswith(":")
-    ):
-        raise ValueError(f"expected a literal repository-relative path: {value!r}")
-    return value
+    return literal_repo_path(value)
 
 
 def _repo(repo: Path) -> Path:
-    redirected = [key for key in _REDIRECT if key in os.environ]
-    if redirected:
-        raise ValueError(f"refusing inherited Git redirection: {', '.join(redirected)}")
+    reject_inherited_git_redirection()
     return Path(_git(repo, "rev-parse", "--show-toplevel")).resolve()
 
 
@@ -86,7 +85,7 @@ def _commit(repo: Path, revision: str) -> str:
     return _git(repo, "rev-parse", "--verify", "--end-of-options", f"{revision}^{{commit}}")
 
 
-_OBJECT_ID = re.compile(rb"[0-9a-f]{40}\Z")
+_OBJECT_ID = re.compile(rb"[0-9a-f]+\Z")
 
 
 def _parents(repo: Path, revision: str) -> list[str]:
@@ -97,13 +96,22 @@ def _parents(repo: Path, revision: str) -> list[str]:
     raw = _git_bytes(repo, "cat-file", "commit", revision)
     header = raw.split(b"\n\n", 1)[0]
     lines = header.split(b"\n")
-    if not lines or not lines[0].startswith(b"tree ") or _OBJECT_ID.fullmatch(lines[0][5:]) is None:
+    object_format = _git(repo, "rev-parse", "--show-object-format")
+    object_width = {"sha1": 40, "sha256": 64}.get(object_format)
+    if object_width is None:
+        raise ValueError(f"unsupported Git object format: {object_format}")
+    if (
+        not lines
+        or not lines[0].startswith(b"tree ")
+        or _OBJECT_ID.fullmatch(lines[0][5:]) is None
+        or len(lines[0][5:]) != object_width
+    ):
         raise ValueError("invalid commit object header: missing valid tree")
     parents: list[str] = []
     index = 1
     while index < len(lines) and lines[index].startswith(b"parent "):
         token = lines[index][7:]
-        if _OBJECT_ID.fullmatch(token) is None:
+        if _OBJECT_ID.fullmatch(token) is None or len(token) != object_width:
             raise ValueError("invalid commit object header: invalid parent")
         parents.append(token.decode("ascii"))
         index += 1
