@@ -1,22 +1,23 @@
-# docs/claim-scope-65-design · #65 口径越界 lint（#850/#854）合入准备 · 2026-09-23 凌晨（S5）
+# docs/claim-scope-65-design · #65 口径越界 lint（#850/#854）已合入 · 2026-09-23 凌晨（S5）
 
-**红线**：运行时一行不改；零 live；不动 8792。
+**红线守住**：运行时一行未改；零 live；未动 8792；未翻 `ASK_SEMANTIC_JUDGE`。
 
 ## 状态
 
-- 文档 PR 见分支 `docs/claim-scope-65-design`（base 主干；INDEX #65 行已直接推到 `docs/closeout-workorders-0922`＝#858 分支，同姊妹会话惯例）：接入点设计 `docs/superpowers/specs/2026-09-22-claim-scope-runtime-integration-design.md`；`docs/verification/2026-09-22-claim-scope-merge-65/`（README、#76 L5 条件卡、#75 候选包、第二方审查）。
-- 候选：#850 `1cf35f5167ed`（base main）、#854 `5f5ce2d114b2`（叠 #850，+8 提交）。对 `gitea/main@f24a61a8a` `merge-tree` 均 clean；main 漂移 9 文件与 #854 32 文件零重叠；drift 1 张合并。
-- 已取读数：registry 五条在隔离检出 `/Users/a77/fwp-gate-65/finance-workspace-private`（@5f5ce2d1，kb/site 软链在场）5/5 exit 0；#850 head 定向 31P 干净收据 `20260922T154730Z-1cf35f51.json`；阳性对照：删日期规则行情题命中 3→2、删单位规则材料题退出 1→0，还原后回原值。夹具四反例 + 正例 #854 已含。
-- **已授权**：用户 2026-09-22T16:11:39Z「继续按照最优路径推进，然后可以合并的就合并」→ 案 A（先 #850 再 #854），决定 + 出处已评在两 PR。
-- **第二方审查**（S5 确定性探针）`PASS_WITH_LIMITS`：台账正则不辨否定语境 → 资金流规则可被「未取得净流入数据」静默（fail-open，**后续单**，L5 条件卡已加人工缓解）；「无法确认」免责句误报（低）。#75 K3 审查未开队列，合入不等它。
-- **待**：#854 head python 全量 + frontend/e2e 两叶。`~/.finance-runtime/reviews/claim-scope-merge-65-20260922/gate-runner.sh` 轮询准入；00:35 用户再授权后放弃等准入、带负载起跑；python 叶带 `--ignore=scripts/archive`（#58 未合）。
+- **已合入主干**：#850 → `a696c5e1d`（`gitea_pr.py merge --record`，回读三项全过）；#854（先 `PATCH` base → 主干）→ `6fc6bfa94`（POST 客户端超时但服务端已合：tip 树 == 预览树、`^2` == head；PR 对象滞后且 `manually-merged` 不允许，已关闭留指针评论）。记录 `~/.finance-runtime/reviews/claim-scope-merge-65-20260922/merge-85{0,4}.json`，含授权原话与出处（用户 16:11:39Z / 16:34:51Z 两条）。
+- 合前四叶（#854 head `5f5ce2d1`）：python 12576P/0F（`20260922T170400Z-5f5ce2d1.json`，可采信，漂移 4，带 `--ignore=scripts/archive`）；frontend+e2e exit 0（e2e 34P）；registry 5/5；预览树定向 240P；#850 head 定向 31P。
+- 合后：两冻结 run 在 `6fc6bfa94` 重放逐字段一致（`replay-on-main/`）。
+- 文档 PR **#869**（本分支，base 主干；#866 已关闭指向它）：接入点设计、`docs/verification/2026-09-22-claim-scope-merge-65/`（README / L5 条件卡已填候选 SHA / QC 候选包改事后审 / 第二方审查）。INDEX #65 行直接推在 `docs/closeout-workorders-0922`（#858 分支）。
+- 远端分支 `fix/answer-claim-scope-0922`、`fix/claim-scope-hardening-0922` 已删；本地同名已 `-d`；两 PR 的 worktree 与三棵门禁树已清。留 `fwp-gate-65-main`（合后主干 detached，供 #75 事后审）与本树。
+
+## 未做 / 留给后续
+
+1. **主干 tip 全量批次门禁未跑**：合入时机器磁盘 <1 GB、swap 10.6/12 G、9 套 pytest 并发（#69 告警），新起会假红。下一轮主干批次门禁（#59 形态）补。
+2. **后续单（判据缺陷）**：`check_answer_claims._ledger_has_fund_flow` 不辨否定语境（「未取得净流入数据」让资金流规则静默，fail-open，中）；`_LATEST_DAY_NEGATION` 缺「无法确认 / 无法核验」（误报，低）。夹具句在 `second-party-review.md`。L5 条件卡已加人工缓解。
+3. #75 K3 审查对合后主干事后审（候选包已改）；#76 L5 用条件卡（候选 SHA `6fc6bfa94…`）。
+4. 接入实施（advisory 档）需用户单独授权 + 另立单，按设计稿 §5 六条验收。
+5. 本地分支 `docs/claim-scope-merge-65`（#866 旧版）未删（`-d` 拒绝、内容已在 #869）。
 
 ## 接手怎么做
 
-1. `tail …/gate-runner.log`。收据按 revision + `counts.passed>0` 取 `<stamp>-5f5ce2d1.json`，`check_test_receipt.py <收据> --expect-revision 5f5ce2d114b2… --base-drift-max 5`；`frontend/frontend.json` 要 `exit_code=0 / complete / identity_stable / dirty=false`。红按 #59 分诊（单跑 ×3 + 低负载整文件 ×1）。
-2. 合前 `git fetch gitea` 重探 `merge-tree`；`gitea_pr.py merge 850 --yes --expect-head 1cf35f5167ed --expect-base <gitea/main> --record …`（`--authorized-by` 用上面原话，`--authorization-source` 写会话 5e0708f1 第 2 条用户消息）→ `PATCH` #854 base→main → `merge 854 --expect-head 5f5ce2d114b2 --record …`。
-3. 合后：在新 main 检出重放两冻结 run（材料 1 / 行情 3，`--scope-total 20`）逐字段不变；条件卡填合后 SHA；读数补 README / INDEX #65 / 本文；清 `fwp-gate-65` 与两 PR 的 worktree（`git worktree remove`，不 --force）。
-
-## 不做
-
-不修写手缺陷；不给召回率；不接 Episode 实时路径；不部署 K3、不翻 `ASK_SEMANTIC_JUDGE`；不合 #849/#840（#77）。
+合 #869 前 `merge-tree` 自探（纯文档）；INDEX #65 行终态在 closeout 分支（`✅ 已合入`），若 #858 已合则改主干上的行。

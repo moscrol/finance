@@ -6,8 +6,8 @@
 
 | 工单号 | PR | head SHA | 候选检出路径（绝对，独占只读） | 证据目录 | 主张清单来源 | 状态 |
 |---|---|---|---|---|---|---|
-| #65 | #854（叠 #850） | `5f5ce2d114b238edd3f278504e5a25f35f31710d` | `/Users/a77/fwp-gate-65/finance-workspace-private`（detached，同级软链 kb / site 在场） | `docs/verification/2026-09-22-claim-scope-hardening/`、`…-claim-scope-backtest/`、`…-answer-claim-scope/`（分支内） | PR #854 描述「修了什么」三条 + 「验证」表；PR #850 描述「内容」「检出器自己被真实语料抓出三个缺陷」 | 待审 |
-| #65 | #850 | `1cf35f5167ed3adebbb7d6ce60a37f8b92c79d0c` | `/Users/a77/fwp-wt-answer-claims-0922`（作者树，clean） | `docs/verification/2026-09-22-answer-claim-scope/` | PR #850 描述 | 待审（若 #854 审过，本行只需确认 #850 ⊂ #854） |
+| #65 | #854（叠 #850）——**已合入** `6fc6bfa94` | `5f5ce2d114b238edd3f278504e5a25f35f31710d` | `/Users/a77/fwp-gate-65-main/finance-workspace-private`（detached @ 合后主干 `6fc6bfa94…`，独占只读） | 主干上 `docs/verification/2026-09-22-claim-scope-hardening/`、`…-claim-scope-backtest/`、`…-answer-claim-scope/` | PR #854 描述「修了什么」三条 + 「验证」表；PR #850 描述「内容」「检出器自己被真实语料抓出三个缺陷」；S5 第二方审查两条发现（`second-party-review.md`）作为已知起点 | 事后审（依用户授权已合，#75 结论回写 INDEX #65 行；CHANGES_REQUIRED 走后续单） |
+| #65 | #850——**已合入** `a696c5e1d` | `1cf35f5167ed3adebbb7d6ce60a37f8b92c79d0c` | 同上 | `docs/verification/2026-09-22-answer-claim-scope/` | PR #850 描述 | 事后审（#850 ⊂ #854） |
 
 ## 作者读数（与审查探针分开记账）
 

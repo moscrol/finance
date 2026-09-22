@@ -6,7 +6,7 @@
 
 | 项 | 要求 | 填法 |
 |---|---|---|
-| 候选代码 | #850 + #854 合入后的 `gitea/main` SHA（完整 40 位） | 合入后由 #65 回写此处：`<待填>` |
+| 候选代码 | #850 + #854 合入后的主干 SHA（完整 40 位） | **`6fc6bfa94070beba2fbb1f944863a25a8493cf94`**（#854 合并提交，2026-09-23 01:1x CST；含 #850 `a696c5e1d`）。后续主干再前进时用「含此提交的最新主干」并在 protocol 写明 |
 | 判据版本 | `intelligence/services/answer_claim_scope.py` 与 `scripts/check_answer_claims.py` 与候选 SHA 同源 | 冻结检出里跑 CLI，不用主检出树 |
 | 判官 | `ASK_SEMANTIC_JUDGE=off`（收据 `judge_mode=deterministic`） | 旁路实例启动参数写明 |
 | 写手 | `kimi-k3`，路由 `127.0.0.1:8080/v1`，钥匙照生产启动器同一 `client-keys.env` | 不写进任何文件 |
