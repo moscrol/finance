@@ -68,7 +68,8 @@
 
 证据根 `~/.finance-runtime/adaptive-advance-20260922/`。
 
-- 严格探针（提交态）：`accept-strict-deadline.json`，exit 0，violations `[]`，revision `f514e6713`，`dirty=false`。
+- 严格探针（提交态）：`accept-strict-deadline.json`（`f514e6713`）与 `final-strict-deadline.json`（`11f702f12`），
+  均 exit 0、violations `[]`、`dirty=false`。
 - 变异套件：`mutations.py` / `mutations.json`，M1 父侧截止关 / M2 子侧硬停关 / M3 两侧全关（＝修前行为）/ M4 共享截止忽略，
   **四杀零存活**；每轮跑完从备份还原并校验 sha256 `c695f5fd…c4c5` 字节一致。
 - 定向套件：`test_llm_timeout_diagnostic.py` 25 passed，负载 ~30 下连跑 10 次无抖动。
@@ -80,8 +81,10 @@
   | `pytest-full2.log.txt` | 修桩签名后 | 1 failed / 12848 passed | 第 6 条，我自己写错的时间断言 |
   | `accept-pytest.log.txt` | 提交态 `f514e6713` | 1 failed / 12848 passed | 第 7 条既有竞态（已修） |
   | `accept2-pytest.log.txt` | 提交态 `a945c51ff` | 1 failed / 12848 passed | `test_late_rejudge_rejection_is_redacted_before_release` |
+  | `accept3-pytest.log.txt` | 提交态 `11f702f12` | **12849 passed / 0 failed** | 无（load 6.5，13 分 20 秒） |
 
-  四次都在 load 28–45 的机器上跑（其他会话占着 CPU）。最后这条用 `ResearchDeadline.from_timeout(0.02)`——**20 毫秒**预算，
+  前四次都在 load 28–45 的机器上跑（其他会话占着 CPU），最后一次等到 load 6.5 才跑，**全绿**——
+  这反过来印证了前几次的单条红确实是负载产物（唯一例外已作为真缺陷修掉）。最后这条用 `ResearchDeadline.from_timeout(0.02)`——**20 毫秒**预算，
   且 judge 是直接注入的普通函数、不走 HTTP；负载 6.5 时单跑 5/5 绿。它与本轮改动无关，也**没改**：
   紧预算是它故意的设计，等比放大到秒级属于语义校验那边的取舍，不应由我顺手改。若它继续抖，候选做法是同比例放大
   （截止 0.02→符合实际的值，伴随的 `sleep 0.03` 同比例调），而不是加重试。
