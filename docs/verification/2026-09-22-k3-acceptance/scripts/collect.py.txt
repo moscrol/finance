@@ -1,0 +1,321 @@
+"""One-off K3 acceptance audit; no deployment, model calls, or readiness.
+
+Only the private output directory is written. Recompute current production
+identity/data dates and inspect immutable first-run artifacts. A separate
+backup pass streams the existing archive; it neither extracts nor starts Gitea.
+Not a supported deployment CLI and not an automatic semantic quality gate.
+"""
+from __future__ import annotations
+
+import argparse
+import collections
+from datetime import datetime
+import gzip
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import tarfile
+import time
+from urllib.request import urlopen
+
+import duckdb
+
+OUT = Path(__file__).resolve().parent
+HOME = Path.home()
+FINANCE = HOME / "finance-workspace-private"
+SOURCE = HOME / "fwp-wt-judge-mode-k3-0921"
+SNAPSHOT = HOME / "finance-workspace-runtime"
+ARCHIVE = "docs/verification/2026-09-21-judge-mode-k3"
+ARCHIVE_REV = "f2f20e4c60d35fc22c32a6b755c128c993c8f910"
+RUN_REV = "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a"
+EXPECTED_RUNTIME = "adcda94b5e401158f1c3aa51f210e1e8d0f0b713"
+BACKUP = HOME / "backups/gitea-20260921-post830-guarded.tar.gz"
+EXPECTED_BACKUP = "9a5af3b3fecfae116033ed761beb9ad4c99d5d988462c0ca07f74f6e882c9fbd"
+os.umask(0o077)
+
+
+def now():
+    return datetime.now().astimezone().isoformat()
+
+
+def save(name, value):
+    raw = json.dumps(value, ensure_ascii=False, indent=2, default=str) + "\n"
+    with (OUT / name).open("x", encoding="utf-8") as handle:
+        handle.write(raw)
+
+
+def digest(path):
+    h = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def identity(path):
+    stat = path.stat()
+    return {"size": stat.st_size, "mtime_ns": stat.st_mtime_ns, "inode": stat.st_ino}
+
+
+def module(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    result = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(result)
+    return result
+
+
+def command(args):
+    return subprocess.check_output(args, text=True, timeout=30).strip()
+
+
+def git_blob(path):
+    return subprocess.check_output(
+        ["git", "-C", str(SOURCE), "show", f"{ARCHIVE_REV}:{path}"], timeout=30,
+    )
+
+
+def inspect_runs():
+    checker = module("archive_checker", SOURCE / "scripts/check_evidence_archive.py")
+    verified = checker.check_archive(SOURCE, ARCHIVE, ARCHIVE_REV)
+    save("prior-archive-check.json", verified)
+    if not verified["ok"]:
+        raise RuntimeError("Historical Git archive validation failed")
+    runs = []
+    for case, rid in (
+        ("material", "run_20260921_183219_280474"),
+        ("grounded", "run_20260921_183642_325351"),
+    ):
+        prefix = f"{ARCHIVE}/evidence/production-verification/runs/{rid}"
+        source_hashes = {}
+        values = {}
+        for name in ("run.json", "continuous-episode.json", "report.json", "answer.md"):
+            body = git_blob(f"{prefix}/{name}")
+            source_hashes[name] = hashlib.sha256(body).hexdigest()
+            values[name] = body.decode() if name.endswith(".md") else json.loads(body)
+        ep = values["continuous-episode.json"]
+        report = values["report.json"]
+        events = ep["outcome"]["events"]
+        turns = [e["payload"] for e in events if e["kind"] == "model_turn"]
+        requests = [e["payload"] for e in events if e["kind"] == "tool_request"]
+        answer = values["answer.md"]
+        item = {
+            "case": case, "run_id": rid, "artifact_sha256": source_hashes,
+            "question": values["run.json"]["question"],
+            "outer_status": values["run.json"]["status"],
+            "episode_status": ep["outcome"]["status"],
+            "gate_revision": report["gate_receipt"]["rev"],
+            "writer_models": [t["served_model"] for t in turns],
+            "provider_attempts_per_turn": [t["provider_attempts"] for t in turns],
+            "judge_mode": ep["semantic_verifier"].get("judge_mode"),
+            "terminal_judge_calls": ep["metrics"]["judge_usage"]["calls"],
+            "public_correlated_judge": report["gate_receipt"]["correlated_judge"],
+            "tools": dict(collections.Counter(t["name"] for t in requests)),
+            "source_dates": dict(collections.Counter(e.get("source_date") for e in ep["outcome"]["evidence"])),
+        }
+        assert item["gate_revision"] == RUN_REV
+        assert item["judge_mode"] == "deterministic"
+        assert item["terminal_judge_calls"] == 0 and item["public_correlated_judge"] is None
+        assert turns and all(t["served_model"] == "kimi-k3" for t in turns)
+        if case == "material":
+            item["independent_arithmetic"] = {"profit_margin_pct": 9 / 180 * 100, "investment_revenue_ratio": 50 / 180}
+            item["problem_quotes"] = [line for line in answer.splitlines() if "币种单位" in line]
+            assert "亿元" in item["question"]
+        else:
+            selected = []
+            for req in requests:
+                args = req.get("arguments", {})
+                if req["name"] == "finance_query" and args.get("dataset") == "sector_daily":
+                    for filt in args.get("filters", []):
+                        if filt.get("field") == "sector_code" and filt.get("op") == "in":
+                            selected.extend(filt["value"])
+            item["queried_sector_codes"] = sorted(set(selected))
+            item["queried_sector_count"] = len(set(selected))
+            item["problem_quotes"] = [line for line in answer.splitlines() if any(term in line for term in ("最近一个已收盘", "所有归属板块", "集中流入"))]
+        runs.append(item)
+    save("frozen-run-review.json", {
+        "reviewed_at": now(), "source_commit": ARCHIVE_REV, "runs": runs,
+        "new_model_calls": 0, "new_production_runs": 0,
+        "verdict": "content_quality_not_accepted",
+        "scope": "post-hoc factual review of two existing first runs, n=1 per question; not a statistical comparison or independent external QC",
+    })
+    return runs
+
+
+def collect_runtime():
+    started = now()
+    runtime = SNAPSHOT.resolve(strict=True)
+    db = FINANCE / "db/market_feature_store.duckdb"
+    meta_path = FINANCE / "market_snapshot/meta.json"
+    meta = json.loads(meta_path.read_text())
+    snapshot_date = str(meta["latest_trade_date"])
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", snapshot_date):
+        raise ValueError("Unsafe snapshot date")
+    protected = [
+        HOME / ".local/bin/start-finance-workbench",
+        HOME / "Library/LaunchAgents/com.a77.finance-workbench.plist",
+        meta_path, FINANCE / "market_snapshot/latest.json",
+        FINANCE / f"market_snapshot/{snapshot_date}.json",
+    ]
+    before = {str(p): digest(p) for p in protected}
+    db_before = identity(db)
+    health_samples = []
+    for number in range(3):
+        with urlopen("http://127.0.0.1:8792/api/health", timeout=10) as response:
+            health = json.load(response)
+        save(f"health-{number + 1}.json", health)
+        health_samples.append(health)
+        if number < 2:
+            time.sleep(0.15)
+    r = health_samples[-1]["runtime"]
+    if any(h["runtime"]["source_revision"] != EXPECTED_RUNTIME for h in health_samples):
+        raise RuntimeError("Runtime identity changed; no further production inspection")
+    if Path(r["loaded_code_root"]).resolve() != runtime / "intelligence":
+        raise RuntimeError("Loaded code path differs from canonical symlink")
+    pids = command(["lsof", "-t", "-iTCP:8792", "-sTCP:LISTEN"]).splitlines()
+    if len(set(pids)) != 1:
+        raise RuntimeError("Ambiguous server PID")
+    pid = pids[0]
+    raw = command(["ps", "eww", "-p", pid, "-o", "command="])
+    markers = list(re.finditer(r"(?:^|\s)([A-Za-z_][A-Za-z0-9_]*)=", raw))
+    env = {m.group(1): raw[m.end():markers[i+1].start() if i+1 < len(markers) else len(raw)].strip() for i, m in enumerate(markers)}
+    keys = (
+        "ASK_SEMANTIC_JUDGE", "ASK_EVIDENCE_JUDGE", "ASK_CONTINUOUS_RUNTIME",
+        "FINANCE_WS", "MARKET_FEATURE_STORE_DB", "MARKET_SNAPSHOT_DIR",
+    )
+    settings = {key: env.get(key) for key in keys}
+    mode = str(settings["ASK_SEMANTIC_JUDGE"] or "llm").strip().lower()
+    effective_judge = "off" if mode in {"0", "false", "off", "no", "deterministic"} else "llm"
+    for key, expected in (("FINANCE_WS", FINANCE), ("MARKET_FEATURE_STORE_DB", db), ("MARKET_SNAPSHOT_DIR", FINANCE / "market_snapshot")):
+        if settings[key] and Path(settings[key]).resolve() != expected.resolve():
+            raise RuntimeError("Production data root changed")
+    del env, raw
+    provenance = module("runtime_provenance_readonly", runtime / "intelligence/services/runtime_provenance.py")
+    fingerprint, count = provenance._package_tree_fingerprint(runtime / "intelligence")
+    status = command(["git", "-C", str(runtime), "status", "--porcelain", "--untracked-files=no"])
+    snapshot = module("snapshot_contract_readonly", runtime / "intelligence/services/market_snapshot_contract.py").validate_market_snapshot_root(FINANCE / "market_snapshot")
+    save("snapshot-contract.json", snapshot)
+    tables = ("fact_market_daily", "fact_stock_daily", "fact_sector_daily", "fact_sector_stock_daily", "fact_mainline_sector_daily")
+    dates = {}
+    with duckdb.connect(str(db), read_only=True) as con:
+        for table in tables:
+            last, target, prior = con.execute(
+                f"SELECT max(trade_date), count(*) FILTER (WHERE trade_date=?), count(*) FILTER (WHERE trade_date=?) FROM {table}",
+                [snapshot_date, "2026-09-21"],
+            ).fetchone()
+            dates[table] = {"max_date": str(last) if last else None, "snapshot_date_rows": target, "2026-09-21_rows": prior}
+        def query(sql, params):
+            result = con.execute(sql, params)
+            names = [item[0] for item in result.description]
+            return [dict(zip(names, row)) for row in result.fetchall()]
+        stock = query("SELECT trade_date,close,pct_chg,amount FROM fact_stock_daily WHERE stock_ts_code=? AND trade_date IN (?,?) ORDER BY trade_date", ["600584.SH", "2026-09-17", "2026-09-18"])
+        sectors = query("SELECT DISTINCT sector_ts_code,sector_name FROM fact_sector_stock_daily WHERE stock_ts_code=? AND trade_date=? ORDER BY sector_ts_code", ["600584.SH", "2026-09-18"])
+    save("database-readonly.json", {"read_only": True, "snapshot_date": snapshot_date, "tables": dates, "stock_0917_0918": stock, "memberships_0918": sectors, "membership_count": len(sectors), "boundary": "current DB query is not a reconstruction of historical DB contents; compare immutable prior-run evidence separately"})
+    served = str(snapshot["summary"].get("served_trade_date") or "")[:10]
+    requires = settings["ASK_CONTINUOUS_RUNTIME"] in {"on", "canary"}
+    consistency = not requires or bool(snapshot["ready"] and served and dates["fact_market_daily"]["max_date"] and dates["fact_market_daily"]["max_date"] >= served)
+    after = {str(p): digest(p) for p in protected}
+    after_stat = identity(db)
+    save("protected-files.json", {"before": before, "after": after, "database_stat_before": db_before, "database_stat_after": after_stat})
+    receipt = {
+        "started_at": started, "finished_at": now(), "server_pid": int(pid),
+        "health_statuses": [h["status"] for h in health_samples],
+        "runtime_revision": r["source_revision"], "runtime_path": str(runtime),
+        "runtime_model_config": r["agent_runtime"]["model"],
+        "runtime_backend": r["agent_runtime"]["backend"],
+        "settings_allowlist": settings, "semantic_judge_effective": effective_judge,
+        "runtime_current_fingerprint": fingerprint, "module_count": count,
+        "current_fingerprint_matches_startup": fingerprint == r["loaded_tree_fingerprint"],
+        "runtime_tracked_clean": not status,
+        "runtime_symlink_unchanged": SNAPSHOT.resolve() == runtime,
+        "production_judge_module_sha256": digest(runtime / "intelligence/services/judge_mode.py"),
+        "market_data_consistency_recomputed": consistency,
+        "market_snapshot_ready": snapshot["ready"], "market_snapshot_date": served,
+        "database_dates": dates,
+        "protected_hashes_unchanged": before == after,
+        "database_stat_unchanged": db_before == after_stat,
+        "http_readiness_called": False, "rag_help_called": False,
+        "real_query_called": False, "model_calls": 0,
+        "boundary": "health/config/current-file identity only, not actual writer invocation or RAG retrieval/recovery acceptance; hashes/stat samples do not exclude concurrent change-and-revert",
+    }
+    save("production-readonly-receipt.json", receipt)
+    return receipt
+
+
+def verify_backup():
+    started = now()
+    before = identity(BACKUP)
+    actual_digest = digest(BACKUP)
+    gzip_bytes = 0
+    # Exhaust the gzip stream explicitly: tar iteration stops at its end marker
+    # and by itself need not validate the gzip footer CRC / trailing bytes.
+    with gzip.open(BACKUP, "rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            gzip_bytes += len(block)
+    types = collections.Counter()
+    regular_bytes = 0
+    entries = 0
+    sqlite_headers = 0
+    for_count_only = []
+    with tarfile.open(BACKUP, "r|gz") as archive:
+        for member in archive:
+            entries += 1
+            if member.isfile():
+                types["regular"] += 1
+                regular_bytes += member.size
+                if member.name.endswith((".db", ".sqlite", ".sqlite3")):
+                    file = archive.extractfile(member)
+                    if file is not None and file.read(16) == b"SQLite format 3\x00":
+                        sqlite_headers += 1
+            elif member.isdir():
+                types["directory"] += 1
+            elif member.issym():
+                types["symlink"] += 1
+            elif member.islnk():
+                types["hardlink"] += 1
+            else:
+                types["other"] += 1
+            if not member.name.startswith("gitea/") and member.name != "gitea":
+                for_count_only.append(True)
+    after = identity(BACKUP)
+    result = {
+        "started_at": started, "finished_at": now(), "path": str(BACKUP),
+        "stat_before": before, "stat_after": after, "stat_unchanged": before == after,
+        "expected_sha256": EXPECTED_BACKUP, "actual_sha256": actual_digest,
+        "sha256_matches_original_receipt": actual_digest == EXPECTED_BACKUP,
+        "gzip_full_stream_crc_passed": True, "gzip_uncompressed_bytes": gzip_bytes,
+        "tar_traversal_passed": True, "tar_entries": entries, "tar_types": dict(types),
+        "regular_file_declared_bytes": regular_bytes, "sqlite_header_count": sqlite_headers,
+        "non_gitea_prefix_entry_count": len(for_count_only),
+        "extracted_files": 0, "gitea_stopped": False, "restored_service_started": False,
+        "database_integrity_check": "not_run", "restore_accepted": False,
+        "boundary": "transport/archive readability only; original online capture transaction consistency and actual service restoration are unverified",
+    }
+    save("backup-integrity.json", result)
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("mode", choices=("runtime", "backup"))
+    mode = parser.parse_args().mode
+    if mode == "runtime":
+        runs = inspect_runs()
+        result = collect_runtime()
+        print(json.dumps({"scope": "read-only", "runtime_revision": result["runtime_revision"], "model_config": result["runtime_model_config"], "semantic_judge": result["semantic_judge_effective"], "market_snapshot_date": result["market_snapshot_date"], "database_dates": result["database_dates"], "market_consistency": result["market_data_consistency_recomputed"], "protected_unchanged": result["protected_hashes_unchanged"], "code_matches_startup": result["current_fingerprint_matches_startup"], "old_runs_reviewed": len(runs)}, ensure_ascii=False, indent=2))
+    else:
+        result = verify_backup()
+        print(json.dumps({key: result[key] for key in ("sha256_matches_original_receipt", "gzip_full_stream_crc_passed", "tar_traversal_passed", "tar_entries", "sqlite_header_count", "extracted_files", "restore_accepted")}, indent=2))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as exc:
+        save(f"failure-{sys.argv[-1]}-{int(time.time())}.json", {"error_type": type(exc).__name__, "message": str(exc), "at": now()})
+        print("Audit failed; private failure receipt preserved", file=sys.stderr)
+        raise SystemExit(1) from None

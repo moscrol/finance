@@ -1,0 +1,16 @@
+df6eb1405d2b0b8e3cbdb860424632257b3786ff2a4f347614ccc288631ff2b4  docs/verification/2026-09-22-k3-acceptance/README.md
+f3b748dc3370c3d95571a69bd519c25624bd1c6377ae089c665207dbad73bfa1  docs/verification/2026-09-22-k3-acceptance/evidence/backup-integrity.json
+7581ed359a46d2f1929bdb7d404b217269109eba56e3758c4eb55d820fa70098  docs/verification/2026-09-22-k3-acceptance/evidence/database-readonly.json
+439420c59eeb505cf0b4b4cb9814713bb67f36b18270057e739aa6d85ca4dbf3  docs/verification/2026-09-22-k3-acceptance/evidence/frozen-run-review.json
+f0703f6253ea2029d2c061b0cd5503cf9bbb04dcb08d5cbfc44d24eb353671ef  docs/verification/2026-09-22-k3-acceptance/evidence/health-1.json
+f0703f6253ea2029d2c061b0cd5503cf9bbb04dcb08d5cbfc44d24eb353671ef  docs/verification/2026-09-22-k3-acceptance/evidence/health-2.json
+7c982d4b6947e770ad61dc338c2d0bee4670c41f190af243316c64a4c86e109a  docs/verification/2026-09-22-k3-acceptance/evidence/health-3.json
+e08d5fc28418b6ff529d188c443e220d1dd090fcb2b2fd22669c8f24c91e8312  docs/verification/2026-09-22-k3-acceptance/evidence/pr-status-readonly.json
+1ce16310245f439de87904a00130499385f8cbd4cce1109ced15170a7b39c817  docs/verification/2026-09-22-k3-acceptance/evidence/prior-archive-check.json
+1c3ac34ec1d8a7cd3663112ceac3c586e3b3a1b149763237346140adee2970cc  docs/verification/2026-09-22-k3-acceptance/evidence/production-readonly-receipt.json
+42eb720c27a11a1adc4bc33ccb24fdd578aef961f76f554648b2ec226bb35243  docs/verification/2026-09-22-k3-acceptance/evidence/protected-files.json
+e3b57df877cb6767d6ec93dc560e2d619ba760c71a65064c36b2d3e2db082c09  docs/verification/2026-09-22-k3-acceptance/evidence/snapshot-contract.json
+207641da7d1f3f10ad142973fb3e046ec8ec076ceddd6b566c8e59c6caa6e22e  docs/verification/2026-09-22-k3-acceptance/scripts/archive_evidence.py.txt
+5fb64bcb96e2dce2f06578bb027f6743808c905090996df7ed9284853e4e140c  docs/verification/2026-09-22-k3-acceptance/scripts/collect.py.txt
+1ab412b927377f9eaa772ddff8a2edaf548ed47a4eeab068d4a344dd32f65650  docs/verification/2026-09-22-k3-acceptance/secret-scan.json
+fd8ed04b9a33d717475644222712394a0d6f07a596e228bb4e95abc424705675  docs/verification/2026-09-22-k3-acceptance/sources.json
