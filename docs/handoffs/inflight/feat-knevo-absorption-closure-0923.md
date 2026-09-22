@@ -10,7 +10,7 @@
 
 ## 当前状态
 - 代码 `85bff632610d0b0861d6afae7f410cc498392f11`、报告/观察/交接 `61ebccc88073690252abf57253e5f031ca96e4b4` 已推 Gitea；PR **#877 WIP**，平台 `mergeable=false`。
-- 本 handoff 的状态修订待作最后 docs-only 提交推送；不合 main、不部署 8792、不回补行情、不写生产画像。
+- 本 handoff 的状态修订已随 `82b7493e9` 作为 docs-only 提交推送；不合 main、不部署 8792、不回补行情、不写生产画像。
 
 ## 已验证
 - 固定代码：定向 325P；全仓 12567P/85S/2X；Ruff/diff-check 绿；前端同 revision lint/typecheck/Vitest 110/build/E2E 34P/2S 绿。收据见 `~/.finance-runtime/test-receipts/` 和 `~/.finance-runtime/knevo-absorption-20260923/frontend-gate-61ebccc88-v2/frontend.json`。
