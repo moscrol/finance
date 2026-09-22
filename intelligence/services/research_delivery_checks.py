@@ -150,6 +150,17 @@ def _absolute_ratio_label(value: str) -> bool:
     return bool(_RATIO_NAME.search(value)) and not re.search(r"同比|环比|增速|变化|变动|差额|增量", value)
 
 
+# '2025年报（截止 2025-12-31，披露 2026-04-17）' names ONE period and then dates
+# it. Reading the qualifier as a second claim ends the first one's scope early,
+# which is how a wrong value after the parenthesis escaped every check.
+_QUALIFIER_DATE = re.compile(r"(?:截[止至]|披露|公告|发布|更新|报告期截止)(?:日期?|于|时间)?\s*[:：]?\s*$")
+
+
+def _claim_periods(value: str) -> list[re.Match]:
+    """Period tokens that assert a period, dropping ones that merely date it."""
+    return [m for m in _PERIOD.finditer(value) if not _QUALIFIER_DATE.search(value[:m.start()])]
+
+
 def _period(value: str) -> str | None:
     match = _PERIOD.search(value)
     if not match:
@@ -179,6 +190,69 @@ def _display_matches(raw: str, value: float, unit: str = "") -> bool:
         return False
 
 
+def _near_miss(raw: str, unit: str, value: float) -> bool:
+    """A printed number one last-digit step away from the product.
+
+    Transcription slips (0.7474 -> 0.7473) land here; an unrelated fact in the
+    same sentence does not. Correct rounding is excluded by the caller, so this
+    only ever fires on a number that claims to be, but isn't, that product.
+    """
+    # Points and basis points quote a change, never the level; and an integer
+    # token ('1 份公告') is not a printed ratio.
+    if unit == "个百分点" or _BASIS_POINTS.fullmatch(unit) or "." not in raw:
+        return False
+    try:
+        displayed = Decimal(raw.replace(",", ""))
+        expected = Decimal(str(value)) * (100 if unit == "%" else 1)
+    except (InvalidOperation, ValueError):
+        return False
+    ulp = Decimal(1).scaleb(displayed.as_tuple().exponent)
+    return abs(displayed - expected) <= Decimal("1.5") * ulp
+
+
+def _input_ratio_truth(inputs: Sequence[AgentEvidence]) -> dict[str, dict[str, float]]:
+    """Per-period OCF and profit under their canonical metric names.
+
+    These names come from the financial-data contract, not from the script, so
+    they are the one part of a calculation the producer cannot rename.
+    """
+    truth: dict[str, dict[str, float]] = {}
+    for item in inputs:
+        for obs in item.observations:
+            if obs.metric not in {"ocf_cum_yi", "net_profit_cum_yi"}:
+                continue
+            period = _period(obs.as_of or "")
+            if period:
+                truth.setdefault(period, {})[obs.metric] = obs.value
+    return truth
+
+
+def _derived_ratio_columns(
+    item: AgentEvidence, truth: dict[str, dict[str, float]],
+) -> set[str]:
+    """Which columns ARE the ratio, decided by arithmetic, not by their name.
+
+    The script names its own columns, so a name list can only ever cover the
+    names we already thought of: the live run called it '现金流/净利润' and every
+    check downstream went quiet. A column instead qualifies when its cells
+    reproduce OCF/profit for the period on that row. Two independent rows are
+    required, so one coincidental cell cannot promote an unrelated column.
+    """
+    hits: dict[str, int] = {}
+    for obs in item.observations:
+        column = obs.metric.rsplit(".", 1)[-1].split("[", 1)[0]
+        label = obs.metric.rsplit("[", 1)[-1].rstrip("]") if "[" in obs.metric else obs.metric
+        period = _period(label)
+        row = truth.get(period or "", {})
+        ocf, profit = row.get("ocf_cum_yi"), row.get("net_profit_cum_yi")
+        if ocf is None or not profit:
+            continue
+        scaled = obs.value / 100 if "%" in column or "百分比" in column else obs.value
+        if _display_matches(str(scaled), ocf / profit):
+            hits[column] = hits.get(column, 0) + 1
+    return {column for column, seen in hits.items() if seen >= 2}
+
+
 def _ratio_products(evidence: Sequence[AgentEvidence]) -> dict[str, set[float]]:
     by_hash = {e.content_hash: e for e in evidence}
     # Multiple companies need an explicit subject-bearing result contract; do
@@ -195,11 +269,12 @@ def _ratio_products(evidence: Sequence[AgentEvidence]) -> dict[str, set[float]]:
         metrics = {o.metric for e in inputs for o in e.observations}
         if not {"ocf_cum_yi", "net_profit_cum_yi"} <= metrics:
             continue
+        structural = _derived_ratio_columns(item, _input_ratio_truth(inputs))
         for obs in item.observations:
             # For tables inspect the COLUMN, not a 'cash ratio' purpose/table
             # name covering unrelated revenue columns. Row label supplies time.
             column = obs.metric.rsplit(".", 1)[-1].split("[", 1)[0]
-            if not _absolute_ratio_label(column):
+            if not (_absolute_ratio_label(column) or column in structural):
                 continue
             # A year in the table name must not override the row's report period.
             label = obs.metric.rsplit("[", 1)[-1].rstrip("]") if "[" in obs.metric else obs.metric
@@ -433,7 +508,7 @@ def calculation_copy_findings(
             # matching (e.g. ambiguous bare 1.588) stays with the existing judge.
             for clause in _RATIO_CLAUSE.finditer(line):
                 value = re.sub(r"[*`]+", "", clause.group())
-                periods = list(_PERIOD.finditer(value))
+                periods = _claim_periods(value)
                 parallel_values, parallel_end = _parallel_ratio_values(value, periods)
                 for period_index, period_match in enumerate(periods):
                     scope_end = _ratio_scope_end(value, periods, period_index)
@@ -450,6 +525,29 @@ def calculation_copy_findings(
                         remainder_start = period_match.end()
                         remainder = tail
                     else:
+                        # No local ratio label. The writer picks its own wording
+                        # ('比值 0.7473') just as the script picks its own column
+                        # names, so neither may gate the comparison. Fall back
+                        # to numeric identity: only a last-digit neighbour of
+                        # this period's product is a claim about that product.
+                        values = products.get(_period(period_match.group()) or "", set())
+                        if len(values) == 1 and period_match.start() not in parallel_values:
+                            product = next(iter(values))
+                            region = value[period_match.end():scope_end]
+                            for token in re.finditer(rf"({_NUMBER})\s*({_RATIO_UNIT})?", region):
+                                raw, unit = token[1], token[2] or ""
+                                if _NON_RATIO_SUFFIX.match(value, period_match.end() + token.end()):
+                                    continue
+                                if _display_matches(raw, product, unit):
+                                    continue
+                                if not _near_miss(raw, unit, product):
+                                    continue
+                                start = period_match.end() + token.start(1)
+                                findings.append(_prose_value_finding(
+                                    clause.group(), start, start + len(raw),
+                                    offset=offset + clause.start(),
+                                    code="calculation_value_mismatch",
+                                ))
                         continue
                     if period_match.start() in parallel_values:
                         number = parallel_values[period_match.start()]
