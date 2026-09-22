@@ -9,7 +9,7 @@
 - 已取读数：registry 五条在隔离检出 `/Users/a77/fwp-gate-65/finance-workspace-private`（@5f5ce2d1，kb/site 软链在场）5/5 exit 0；#850 head 定向 31P 干净收据 `20260922T154730Z-1cf35f51.json`；阳性对照：删日期规则行情题命中 3→2、删单位规则材料题退出 1→0，还原后回原值。夹具四反例 + 正例 #854 已含。
 - **已授权**：用户 2026-09-22T16:11:39Z「继续按照最优路径推进，然后可以合并的就合并」→ 案 A（先 #850 再 #854），决定 + 出处已评在两 PR。
 - **第二方审查**（S5 确定性探针）`PASS_WITH_LIMITS`：台账正则不辨否定语境 → 资金流规则可被「未取得净流入数据」静默（fail-open，**后续单**，L5 条件卡已加人工缓解）；「无法确认」免责句误报（低）。#75 K3 审查未开队列，合入不等它。
-- **待**：#854 head python 全量 + frontend/e2e 两叶。`~/.finance-runtime/reviews/claim-scope-merge-65-20260922/gate-runner.sh` 轮询准入（load ≤ 10、pytest ≤ 3；00:18 时 load 47–52、5–6 套全量并发），17:00Z 到点则带负载跑并记录；python 叶带 `--ignore=scripts/archive`（#58 未合）。
+- **待**：#854 head python 全量 + frontend/e2e 两叶。`~/.finance-runtime/reviews/claim-scope-merge-65-20260922/gate-runner.sh` 轮询准入；00:35 用户再授权后放弃等准入、带负载起跑；python 叶带 `--ignore=scripts/archive`（#58 未合）。
 
 ## 接手怎么做
 
