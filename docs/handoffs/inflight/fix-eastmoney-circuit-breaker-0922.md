@@ -1,64 +1,23 @@
-# 东财取数熔断（在途）
+# 东财熔断 · #60 合并候选与部署预演（在途）
 
-分支 `fix/eastmoney-circuit-breaker-0922` @ `a092ac98e`，基座 `b1d797593`
-（即 `fix/eastmoney-snapshot-direct-ip-0922`，该分支本身**未合**，本分支是它的后继）。
-工作树 `~/fwp-wt-eastmoney-circuit-breaker-0922`。**未合并、未部署。**
+分支 `fix/eastmoney-circuit-breaker-0922` = PR #856，树 `~/fwp-wt-eastmoney-circuit-breaker-0922`。
+**未合、未装机。** 时限：09-23 18:30 前熔断须进夜跑 sync 代码根；用户 17:00 前给部署授权。
 
-## 为什么
+## 已做（09-22 23:30 起，S3）
 
-`b1d797593` 已按授权热部署并重跑今晚 sync 段，**补丁确实生效**（snapshot 步骤
-41.7s → 90.9s，重试阶梯真的跑起来了）。但今晚的阻塞已换成另一件事：
+- 推了 `fix/eastmoney-snapshot-direct-ip-0922`，并入其根因修正交接；前向到 `gitea/main@f24a61a8a`，零冲突，两个代码文件未被前向改动。
+- `01e25264f` 只改文案：`UpstreamRefusing` 的 message/注释从「按出口 IP 封禁」改为「端点拒绝服务、连发拖垮同主机端点」；判据与逻辑未动，测试断言收紧。
+- `9876f0e60` 钉根，照 #827：两份 plist 的 sync 根键、s7 launcher 缺省、wiring 测试常量四处 → `finance-sync-01e25264f218`。
+- 已建代码根 `~/.finance-runtime/finance-sync-01e25264f218`（detached @`01e25264f`，干净）。干净 shell 导入探针 + 63 例定向测试在根内通过。**尚无 plist 指向它，非生产。**
+- 阳性对照：阈值 3→999 恰红熔断组 3 例，还原后 11 绿。
+- 证据 `~/.finance-runtime/reviews/eastmoney-cb-deploy-20260922/`：四叶收据 `gates/`、装机 dry-run、plist diff、B 方案补丁与 before/after sha256、明日 runbook `deploy-steps.md`。四叶结论以 PR #856 描述为准。
 
-**东财按出口 IP 在应用层拒绝。** TLS 握手成功、证书 `*.eastmoney.com` 验证通过、
-对端是真东财，但它接下连接后对 `/api/qt/clist/get` 不给响应体。
-`curl --noproxy '*' --resolve` 直打真实 IP 同样 `52 Empty reply`——**与 Python 无关**。
-pz=1/pz=100、百分号编码、最小字段集、push2 备用域、三家公共 DNS 给的不同真实 IP，
-全部同形。18:59 还能拿 5918 只，19:2x 起全废，中间隔着两轮「60 页 × 重试」。
-20:00 冷却 40 分钟复测被拒；**21:11 本轮再测仍被拒**（`probe-2110.json`）。
+## 明日（每步一句授权）
 
-所以 `b1d797593` 的上游作者在交接里留了设计反馈：本补丁提高了重试压力，若封禁是
-我们自己打出来的，更顽强的重试会**加深**而非绕过——而 `daily-full-review-sync@18:30`
-明天会自动再打一轮。那条反馈写的是「只是建议，未实现」，这里实现它。
-
-## 改了什么（按错误形状分账）
-
-| 形状 | 旧 | 新 |
-|---|---|---|
-| 连上即空回应 `RemoteDisconnected` | 与抖动同类，6×2 发磨完 | 连续 3 发判 `UpstreamRefusing`，停本轮；已判 host 后续页**一发不打** |
-| 挡板页 `ValueError` | 改传输选路 | 只重试，不改选路、不计熔断 |
-| 公共 DNS 查不到 | `None` 写进 `_ip_cache` 永久生效 | 只缓存成功结果 |
-| 进程级状态 | 无重置入口 | `reset_transport_state()` |
-
-- 判据是**连续**不是累计，成功一发即清零 → 不误伤整晚翻页里的偶发抖动。
-- 一个 host 被拒不牵连另一个，备用域仍有机会。
-- `UpstreamRefusing` 继承 `RuntimeError`：既有 `except RuntimeError` 不受影响，
-  但调用方**能够**区分「上游不让取」与「重试耗尽」——前者该换源/换窗口，后者可再等。
-- 熔断状态是进程级、不持久化：夜跑每晚新进程，不会把一晚的结论带到下一晚。
-
-## 证据
-
-- 新增 `tests/test_eastmoney_circuit_breaker.py` 11 例，**先红后绿**（红态 11 errors）。
-- 相关 51 个测试文件 **899 passed / 1 skipped**；ruff clean；pre-commit 6 道门禁全过。
-- **撤保护变异 5/5 全部被杀**：M1 阈值失效→3 红、M2 拆跨页 fail-fast→1 红、
-  M3 内容层重新污染路由→1 红、M4 失败 DNS 恢复永久缓存→1 红、M5 拆成功清零→1 红。
-- ⚠ M5 **第一次没杀死**：原用例带兜底域，「没清零→host1 熔断→host2 接住」同样
-  返回 PAYLOAD 且请求数同为 6，断言分辨不出。已改为单 host 场景 + 断言
-  `_refusing_hosts` 为空后才杀死。**变异测试抓的是测试本身的缺陷，这次抓到了。**
-- 开发中踩坑并留证：新增 `_refusing_hosts` 后既有 9 个用例单独跑绿、一起跑红
-  （全局可变状态没有重置入口）→ 这就是 `reset_transport_state()` 的由来。
+- A 正门：用户确认 → `gitea_pr.py merge 856 --yes --expect-head <head> --record …` → 合后 main 干净检出跑 `install_eval_launchd.sh --nightly-only --dry-run` 贴出 → 授权 → 去 `--dry-run` → `plutil -p` 与 `launchctl print` 回读 `FINANCE_SYNC_CODE_ROOT`。
+- B 临时：17:00 仍未合 → 按 `plan-B-hotpatch/` 只热补 snapshot.py 进旧根（fund_flow 指纹未变），落 `deployment-circuit-breaker.json`。
+- 19:00 后回读 sync 日志：clist 请求数 ≤ 3×host；`UpstreamRefusing` 一条之后该 host 零请求。
 
 ## 边界
 
-- **没有解决封禁本身**。熔断只保证「不再加深、快速失败、错误可辨」，不会让数据回来。
-- 09-21/09-22 两个交易日的缺口仍在，主库停 `2026-09-18`，`/api/readiness` 仍 503。
-- 阈值 3 是工程取值，未用真实抖动分布标定。
-- 未碰数据库、未部署、未改定时、未动他人工作树。
-
-## 下一步（需授权）
-
-1. 部署到 sync 代码根（同 `b1d797593` 的路径与回滚方式）——**在明天 18:30 之前**做完，
-   否则定时会带着更长的重试阶梯再打一轮。
-2. 封禁本身另找出路：换出口、等窗口过去、或换数据源。
-   备用源今晚也不可用（mootdx `bars()` 在多个 offset 下一律返回空 DataFrame，
-   「元数据能拿、批量行情拿不到」，与东财形状相似，疑似共同的出口侧原因）。
-3. 本分支含上游未合的 `b1d797593`，合并顺序需一并决定。
+未碰生产库、未装 plist、未动 8792 与旧根 `finance-sync-adcda94b5e40`（保留作回滚）。python 叶带 `--ignore=scripts/archive`（#58 未合，仓根收集仍 Interrupted）。#61 若要进同一根，需重钉到合后 main tip（四处同改）。
