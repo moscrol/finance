@@ -172,7 +172,7 @@ def _evidence(content_hash: str, *, title: str = "A股市场总览") -> AgentEvi
     )
 
 
-def _registry(evidence: tuple[AgentEvidence, ...], *, query_scope: str = "turn"):
+def _registry(evidence: tuple[AgentEvidence, ...], *, query_scope: str = "query"):
     def runner(query: str, _context: AgentToolContext):
         del query
         return (
@@ -381,7 +381,7 @@ def test_default_prompt_halt_and_retrieval_delegate_to_domain_functions() -> Non
     assert (
         harness.retrieval_complete(
             context=context,
-            registry=_registry(evidence, query_scope="turn"),
+            registry=_registry(evidence, query_scope="query"),
             successful_tools={"market_data"},
         )
         is False

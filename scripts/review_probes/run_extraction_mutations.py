@@ -8,13 +8,17 @@
 用法（在仓根，用 test-environment.json 指定的 Python）：
     python scripts/review_probes/run_extraction_mutations.py --output <新证据目录>
     python scripts/review_probes/run_extraction_mutations.py --revision <sha> --output <目录>
-    python scripts/review_probes/run_extraction_mutations.py --suite stock-amount --output <目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite financial-r6 --output <新目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite research-delivery --output <新目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite publication --output <新目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite rag-transport --output <新目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite stock-amount --output <新目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite finance-absence --output <新目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite finance-return --output <新目录>
 
-默认保持工单 #53 的 extraction 套件；stock-amount 验证区间成交额，
-finance-absence 验证非命中边界；finance-return 验证收益计算/完整证据卡及指令送达。
-两者均不验证自然模型遵守。
-
-只测试已提交 revision；未提交源码或定义不会被悄悄混进证据。证据目录必须新建。
+默认仍跑工单 #53；其他合同复用 --definitions <仓内 JSON> --tests <测试路径...>，
+不复制 runner。stock-amount 验证区间成交额，finance-absence 验证非命中边界，
+finance-return 验证收益计算 / 完整证据卡及指令送达；三者均不验证自然模型遵守。只测试已提交 revision；未提交源码或定义不会被悄悄混进证据。证据目录必须新建。
 临时 worktree 在成功后移除；失败则保留还原后的树用于诊断，路径写入 results.json。
 """
 
@@ -36,6 +40,49 @@ TESTS = [
     "intelligence/tests/test_extraction_closeout.py",
 ]
 DEFINITIONS = "scripts/review_probes/extraction_mutations.json"
+SUITES = {
+    "extraction": (TESTS, DEFINITIONS),
+    "financial-r6": ([
+        "intelligence/tests/test_financial_r6_regressions.py",
+    ], "scripts/review_probes/financial_r6_mutations.json"),
+    "financial-delivery": ([
+        "intelligence/tests/test_financial_delivery_integration.py",
+    ], "scripts/review_probes/financial_delivery_mutations.json"),
+    "publication": ([
+        "intelligence/tests/test_workbench_api.py",
+        "intelligence/tests/test_workbench_conversation_integration.py",
+        "intelligence/tests/test_financial_publication_integration.py",
+        "tests/test_workbench_probe.py",
+    ], "scripts/review_probes/publication_mutations.json"),
+    "rag-transport": ([
+        "intelligence/tests/test_rag_worker_transport.py",
+        "intelligence/tests/test_rag_worker.py",
+        "intelligence/tests/test_rag_worker_keepalive.py",
+    ], "scripts/review_probes/rag_transport_mutations.json"),
+    "research-delivery": ([
+        "intelligence/tests/test_calculation_result_delivery.py",
+        "intelligence/tests/test_research_delivery_checks.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_frozen_research_delivery.py",
+    ], "scripts/review_probes/research_delivery_mutations.json"),
+    "stock-amount": ([
+        "intelligence/tests/test_finance_query_amount_summary.py",
+    ], "scripts/review_probes/stock_amount_mutations.json"),
+    "finance-absence": ([
+        "intelligence/tests/test_finance_absence_boundaries.py",
+        "intelligence/tests/test_episode_protocol.py::test_writer_distinguishes_nonmatch_from_unattempted_and_absent_event",
+        "intelligence/tests/test_research_harness.py::test_default_project_sub_research_equals_inline_projection",
+        "intelligence/tests/test_episode_semantic_verifier.py::test_judge_checks_negative_facts_and_unverified_gap_claims_on_wire",
+        "intelligence/tests/test_episode_semantic_verifier.py::test_negative_fact_rejection_uses_existing_delete_and_rejudge_path",
+        "intelligence/tests/test_episode_semantic_verifier.py::test_direct_negative_evidence_is_not_mechanically_rewritten",
+    ], "scripts/review_probes/finance_absence_mutations.json"),
+    "finance-return": ([
+        "intelligence/tests/test_finance_query_return_summary.py",
+        "intelligence/tests/test_episode_protocol.py::test_writer_requires_comparable_computed_returns",
+        "intelligence/tests/test_episode_semantic_verifier.py::test_judge_return_arithmetic_rules_reach_provider",
+        "intelligence/tests/test_session_projection.py::test_three_causes_emit_distinct_first_sentences",
+    ], "scripts/review_probes/finance_return_mutations.json"),
+}
 
 
 def git(root: Path, *args: str) -> str:
@@ -47,16 +94,15 @@ def digest(raw: bytes) -> str:
 
 
 def run_tests(
-    root: Path, out: Path, label: str, targets: list[str] | None = None,
-    *, tests: list[str] | None = None,
+    root: Path, out: Path, label: str, tests: list[str],
+    targets: list[str] | None = None,
 ) -> dict:
     junit = out / f"{label}.xml"
     basetemp = out / "pytest" / label
     basetemp.parent.mkdir(parents=True, exist_ok=True)
     cmd = [sys.executable, "-B", "-m", "pytest", "-q", "-p", "no:randomly",
            "-p", "no:cacheprovider", "--tb=short", "--junitxml", str(junit),
-           "--basetemp", str(basetemp),
-           *(TESTS if tests is None else tests)]
+           "--basetemp", str(basetemp), *tests]
     if targets:
         cmd += ["-k", " or ".join(targets)]
     env = {
@@ -66,6 +112,8 @@ def run_tests(
         "PYTHONDONTWRITEBYTECODE": "1",
         "FWP_TEST_RECEIPT": "0",
         "FORESIGHT_USERS_DIR": str(out / "isolated-users"),
+        "FORESIGHT_LLM_KEYCHAIN": "0",
+        **{k: os.environ[k] for k in ("LANG", "TMPDIR", "KNOWLEDGE_WIKI") if k in os.environ},
     }
     proc = subprocess.run(cmd, cwd=root, env=env, text=True, capture_output=True, timeout=180)
     (out / f"{label}.log").write_text(
@@ -96,47 +144,41 @@ def check_result(result: dict, *, red: bool = False) -> None:
     assert (result["failures"] > 0) if red else (result["failures"] == 0), result
 
 
-def main() -> int:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--revision", default="HEAD")
+    parser.add_argument("--suite", choices=tuple(SUITES), default="extraction")
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--suite", choices=("extraction", "stock-amount", "finance-absence", "finance-return"), default="extraction")
-    args = parser.parse_args()
-    tests, definitions = TESTS, DEFINITIONS
-    if args.suite == "stock-amount":
-        tests = ["intelligence/tests/test_finance_query_amount_summary.py"]
-        definitions = "scripts/review_probes/stock_amount_mutations.json"
-    elif args.suite == "finance-absence":
-        tests = [
-            "intelligence/tests/test_finance_absence_boundaries.py",
-            "intelligence/tests/test_episode_protocol.py::test_writer_distinguishes_nonmatch_from_unattempted_and_absent_event",
-            "intelligence/tests/test_research_harness.py::test_default_project_sub_research_equals_inline_projection",
-            "intelligence/tests/test_episode_semantic_verifier.py::test_judge_checks_negative_facts_and_unverified_gap_claims_on_wire",
-            "intelligence/tests/test_episode_semantic_verifier.py::test_negative_fact_rejection_uses_existing_delete_and_rejudge_path",
-            "intelligence/tests/test_episode_semantic_verifier.py::test_direct_negative_evidence_is_not_mechanically_rewritten",
-        ]
-        definitions = "scripts/review_probes/finance_absence_mutations.json"
-    elif args.suite == "finance-return":
-        tests = [
-            "intelligence/tests/test_finance_query_return_summary.py",
-            "intelligence/tests/test_episode_protocol.py::test_writer_requires_comparable_computed_returns",
-            "intelligence/tests/test_episode_semantic_verifier.py::test_judge_return_arithmetic_rules_reach_provider",
-            "intelligence/tests/test_session_projection.py::test_three_causes_emit_distinct_first_sentences",
-        ]
-        definitions = "scripts/review_probes/finance_return_mutations.json"
+    parser.add_argument("--definitions", help="仓内已提交的变异定义 JSON；优先于 --suite")
+    parser.add_argument("--tests", nargs="+", help="仓内已提交的测试路径；优先于 --suite")
+    args = parser.parse_args(argv)
+    suite_tests, suite_definitions = SUITES[args.suite]
+    args.tests = args.tests if args.tests is not None else suite_tests
+    args.definitions = args.definitions if args.definitions is not None else suite_definitions
+    return args
+
+
+def main() -> int:
+    args = _parse_args()
+    tests, definitions = args.tests, args.definitions
+    os.umask(0o022)
     repo = Path(git(Path.cwd(), "rev-parse", "--show-toplevel"))
     revision = git(repo, "rev-parse", f"{args.revision}^{{commit}}")
     out = args.output.expanduser().resolve()
     out.mkdir(parents=True, exist_ok=False)
-    parent = Path(tempfile.mkdtemp(prefix=f"{args.suite}-closeout-mutations-")).resolve()
+    parent = Path(tempfile.mkdtemp(prefix="contract-mutations-")).resolve()
     root = parent / "tree"
     subprocess.run(["git", "-C", str(repo), "worktree", "add", "--detach", str(root), revision], check=True)
-    report = {"revision": revision, "tree": str(root), "python": sys.executable,
-              "suite": args.suite, "tests": tests,
+    report = {"revision": revision, "suite": args.suite, "tree": str(root), "python": sys.executable,
+              "tests": tests, "definitions": definitions,
               "complete": False, "runs": [], "mutations": []}
     try:
         assert git(root, "status", "--porcelain") == ""
-        definitions_raw = (root / definitions).read_bytes()
+        definitions_path = (root / definitions).resolve()
+        assert definitions_path.is_relative_to(root), "definitions must belong to the frozen tree"
+        for test_path in tests:
+            assert (root / test_path).resolve().is_relative_to(root), test_path
+        definitions_raw = definitions_path.read_bytes()
         mutations = json.loads(definitions_raw)
         assert mutations and len({m["id"] for m in mutations}) == len(mutations)
         (out / "definitions.json").write_bytes(definitions_raw)
@@ -144,7 +186,7 @@ def main() -> int:
         # 确保实际执行的 runner 也是该 revision 的版本。
         relative_runner = "scripts/review_probes/run_extraction_mutations.py"
         assert Path(__file__).read_bytes() == (root / relative_runner).read_bytes()
-        baseline = run_tests(root, out, "baseline", tests=tests)
+        baseline = run_tests(root, out, "baseline", tests)
         report["runs"].append(baseline)
         check_result(baseline)
         for mutation in mutations:
@@ -160,11 +202,11 @@ def main() -> int:
             try:
                 path.write_text(changed, encoding="utf-8")
                 (out / f"{ident}.diff").write_text(git(root, "diff", "--", relative) + "\n", encoding="utf-8")
-                red = run_tests(root, out, f"{ident}-red", mutation["targets"], tests=tests)
+                red = run_tests(root, out, f"{ident}-red", tests, mutation["targets"])
             finally:
                 path.write_bytes(before)
             assert path.read_bytes() == before
-            green = run_tests(root, out, f"{ident}-green", mutation["targets"], tests=tests)
+            green = run_tests(root, out, f"{ident}-green", tests, mutation["targets"])
             report["runs"].extend([red, green])
             report["mutations"].append({"id": ident, "path": relative, "before_sha256": digest(before),
                                         "mutated_sha256": digest(changed.encode("utf-8")),
@@ -172,7 +214,7 @@ def main() -> int:
             (out / "results.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
             check_result(red, red=True)
             check_result(green)
-        restored = run_tests(root, out, "restored-full", tests=tests)
+        restored = run_tests(root, out, "restored-full", tests)
         report["runs"].append(restored)
         check_result(restored)
         assert git(root, "status", "--porcelain") == ""

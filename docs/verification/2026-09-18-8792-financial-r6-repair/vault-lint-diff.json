@@ -1,0 +1,15 @@
+{
+  "baseline_revision": "b8bd6780",
+  "current_counts": {
+    "errors": 20,
+    "warnings": 17
+  },
+  "baseline_counts": {
+    "errors": 20,
+    "warnings": 17
+  },
+  "new_errors": [],
+  "new_warnings": [],
+  "removed_errors": [],
+  "normalization": "Warning byte-count only; actual errors compared verbatim. Neither run passed."
+}

@@ -1,0 +1,58 @@
+"""Read frozen failure originals only; no DB/model, never modify original evidence."""
+from dataclasses import replace
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).parent
+REPO = Path.home() / 'fwp-wt-history-market-anatomy'
+sys.path.insert(0, str(REPO))
+from intelligence.services.historical_research.episode import _result
+from intelligence.services.agent_research import evidence_content_hash
+from intelligence.services.agent_runtime import AgentOutcome, AgentUsage, EpisodeEvent
+from intelligence.services.episode_semantic_verifier import _project_semantic_evidence
+from tests.test_history_succession_projection import _legacy_live_payload
+from tests.test_history_model_projection import _project
+
+revision = subprocess.check_output(['git','rev-parse','HEAD'],cwd=REPO,text=True).strip()
+assert revision == 'ba28138189ff231b19b61561644594ab9a44b041'
+source = Path.home() / '.finance-runtime/history-anatomy-live-20260918-fbd8f2a6/users/history-anatomy-acceptance-v2/runs/run_20260918_092551_590812/history-query-461de0b134934e8e572c5b2677581da6f63992c43fcb255633f1e04531a227f4.json'
+digest = hashlib.sha256(source.read_bytes()).hexdigest()
+payload = json.loads(source.read_text())
+fixture = _legacy_live_payload()
+assert fixture['rows'] == [r for r in payload['rows'] if r.get('record_kind') == 'sector_succession']
+assert all(fixture['spec'][k] == payload['spec'][k] for k in fixture['spec'])
+for key in ('stock_dates','market_dates'):
+    assert fixture['calendar_inputs'][0][key] == payload['calendar_inputs'][0][key]
+result = _result(payload, result_ref=source.parent.name+'/'+source.name)
+model, details = _project(result)
+states = [r for r in details if 'succession_status' in r]
+assert len(states) == 6
+assert [r['observed_days'] for r in states] == [0,0,0,0,2,2]
+assert all('尚不能判成败' in r['meaning'] and '无需先回撤确认' in r['meaning'] for r in states)
+assert not any('projection_status' in r for r in details)
+evidence = tuple(replace(e,content_hash=evidence_content_hash(e)) for e in result.evidence)
+reviewed = []
+for ordinal, e in enumerate(evidence,1):
+    if '"succession_status"' not in e.detail:
+        continue
+    outcome = AgentOutcome(task_frame_hash='saved-succession-projection',status='partial',
+        draft=f'此配对观察未成熟，不能判失败 [E{ordinal}]。',evidence=evidence,traces=(),gaps=(),
+        stop_reason='model_finish',bindings=(),usage=AgentUsage(),
+        events=(EpisodeEvent(1,'task',{'task_frame_hash':'saved-succession-projection'}),))
+    _, registry, telemetry = _project_semantic_evidence(outcome)
+    assert len(registry)==1 and registry[0]['detail']==e.detail
+    assert telemetry.cited_unbound_count==1
+    reviewed.extend(registry)
+assert hashlib.sha256(source.read_bytes()).hexdigest() == digest
+report = dict(scope='saved original -> actual writer and cited-only reviewer projection; no real model, DB, new calculation or QC',
+    tested_revision=revision,source=str(source),source_sha256=digest,source_bytes=source.stat().st_size,
+    query_id=payload['query_id'],source_unchanged=True,reduced_fixture_matches_source=True,
+    original_rows=payload['total_matched'],original_preview_rows=len(payload['preview']),
+    projected_evidence_count=len(model['evidence']),projection_omissions=[],states=states,
+    cited_only_review=reviewed)
+with (ROOT/'saved-delivery.json').open('x') as f:
+    json.dump(report,f,indent=2,ensure_ascii=False)
+print('Six legacy pair states delivered intact to writer and cited-only reviewer; source unchanged.')

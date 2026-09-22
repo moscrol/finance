@@ -504,6 +504,12 @@ _PREVIOUS_ANSWER_REVIEW_RE = re.compile(
     r"(?:刚才|上轮|上一轮|上次|前面)的?(?:解释|回答|判断|结论|分析)"
     r"(?=$|[：:，,。；;！？!?])"
 )
+# Explicit retention of a prior permission is a continuation, not fresh full
+# access. This detector sees the existing quote/material-masked instructions.
+_SCOPE_CONTINUATION_RE = re.compile(
+    r"(?:沿用|遵守)上一轮.{0,24}(?:范围|截止)|"
+    r"(?:范围|截止日).{0,12}(?:继续)?不变|之前授权的(?:日期|研究)?范围内"
+)
 # 切句与句首归一化共用前缀，避免礼貌用语令第二个状态操作漏检。
 _STATE_PREFIX_ATOM = r"(?:请|麻烦|烦请|本轮|这次|此次|仍)\s*"
 
@@ -527,6 +533,9 @@ _FICTIONAL_SENT_RE = re.compile(
 # 而不是把明确假设漏成无约束；材料内同形态仍走 uncertain，强保护内不可见。
 _HYPOTHESIS_STRONG_RE = re.compile(
     r"^(?:假设|如果)\s*"
+    # Neither research procedure nor missing-input instructions fabricate facts.
+    r"(?!(?:当前)?(?:分析|观察|研究)?窗(?:口)?(?:太短|不足)|"
+    r"(?:要|需要|想)(?:说|声称|证明|验证)|(?:无法|不能|做不到)(?:验证|计算|比较))"
     r"(?!(?:某项|某些|任何|所需|这项)?(?:数据|资料|证据|来源|信息|材料|输入)"
     r"[^。；，]{0,24}(?:无法|不能|没有|缺失|不足|未|取不|找不))\S.{1,}"
 )
@@ -613,7 +622,7 @@ def _state_op_in_sentence(sent: str) -> str | None:
             or head.startswith(_B_RELAX_PHRASES)):
         return "constraint_b"
     if (head.startswith(_CONTINUATION_HEAD_PHRASES) or "其余条件不变" in s
-            or _PREVIOUS_ANSWER_REVIEW_RE.match(head)):
+            or _PREVIOUS_ANSWER_REVIEW_RE.match(head) or _SCOPE_CONTINUATION_RE.search(s)):
         return "continuation"
     if _PREMISE_CALCULATION_RE.match(head):
         return "premise_calculation"
@@ -695,7 +704,10 @@ def _protected_layout(lines: list[str]) -> tuple[list[str], list[str], set[int]]
     escaped: set[int] = set()
     backslashes = 0
     for pos, char in enumerate(text):
-        if backslashes % 2:
+        if backslashes % 2 or (
+            char in {"'", "’"} and 0 < pos < len(text) - 1
+            and all(c.isascii() and c.isalnum() for c in (text[pos - 1], text[pos + 1]))
+        ):
             escaped.add(pos)
         backslashes = backslashes + 1 if char == "\\" else 0
     quote_pairs = dict(_QUOTE_PAIRS)
@@ -754,6 +766,8 @@ def _protected_layout(lines: list[str]) -> tuple[list[str], list[str], set[int]]
         end = min((a for a, _ in intervals if a > start), default=len(text))
         if find_state_ops(visible[start + 1:end]):
             uncertain.append("unclosed_quote_with_state_op")
+        else:
+            uncertain.append("unclosed_quote")
     protected_blank_lines = {
         li for li, offset in enumerate(offsets)
         if not lines[li].strip() and any(a <= offset < b for a, b in intervals)
@@ -764,6 +778,18 @@ def _protected_layout(lines: list[str]) -> tuple[list[str], list[str], set[int]]
 def _visible_lines(lines: list[str]) -> tuple[list[str], list[str]]:
     masked, uncertain, _ = _protected_layout(lines)
     return masked, uncertain
+
+
+def top_level_message_text(text: str) -> tuple[str, tuple[str, ...]]:
+    """Return only text outside protected user-message regions.
+
+    Permission-bearing consumers must share this source partition instead of
+    scanning the raw message and treating quoted instructions as live controls.
+    An uncertain boundary yields no visible text so callers fail closed.
+    """
+    raw = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+    regions = classify_top_level_regions(raw)
+    return (regions.control_text if not regions.uncertain_reasons else "", regions.uncertain_reasons)
 
 
 @dataclass(frozen=True)
@@ -793,6 +819,8 @@ class TopLevelRegions:
     # 保留用户原编号，不让从7开始的题被消费者重新编号为1。
     question_ids: tuple[str, ...] = ()
     question_line_ranges: tuple[tuple[int, int], ...] = ()
+    # Derived control projection, not a replacement for the original question/material.
+    control_text: str = ""
 
 
 def _question_candidate_end(
@@ -933,6 +961,12 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
                 claimed[j] = True
         li = end
 
+    # Freeze material ownership before question recognition adds its own claims.
+    control_text = "\n".join(
+        " " * len(line) if claimed[index] else line
+        for index, line in enumerate(masked)
+    )
+
     # 第 3 步：题组区。检测看可见文本，段落边界和存储看原文。
     # 已认定题体的长续行/全引用续行不是材料阈值或空行。
     sub_questions: list[str] = []
@@ -1069,6 +1103,7 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
         uncertain_reasons=tuple(dict.fromkeys(uncertain)),
         question_ids=tuple(question_ids),
         question_line_ranges=tuple(question_line_ranges),
+        control_text=control_text,
     )
 
 
@@ -1098,15 +1133,15 @@ _MATERIAL_REFERENCE_RE = re.compile(
 _LONG_SINGLE_LINE_MIN = 160
 _MATERIAL_MIN_CHARS = 40
 _QUESTION_MAX_CHARS = 120
-# 带背景交代的研究问题充其量写到这个量级；再长就当材料看（见 _reads_like_document）。
-_QUESTION_HEAD_MAX_CHARS = 400
-# 只有排版结构才能证明「这是一份文档」：标题方括号、来源/作者字段、行首章节编号。
-# 与 _MATERIAL_MARKER_RE 的区别：那一个含「研报/公告/摘要」等普通名词，用在这里会把
-# 提问误判为材料（「请使用实际可获取的公告」）。
-_STRUCTURAL_MATERIAL_MARKER_RE = re.compile(
-    r"(?:【|】|来源[:：]|作者[:：]|^[一二三四五六七八九十]+[、.．]|^\d+[、.．]|"
-    r"^第[一二三四五六七八九十]+[章节部分])",
-    re.MULTILINE,
+# 请求语气与文档来源分开认：编号/方括号只是排版，不能自行把整段问题变成材料。
+_REQUEST_HEAD_RE = re.compile(r"^(?:请|帮我|麻烦|烦请|看看|分析一下|判断一下|解读一下|研究一下)")
+_LAYOUT_PREFIX_RE = re.compile(r"^(?:#{1,6}\s*|(?:\d+|[一二三四五六七八九十]+)[、.．)）]\s*)")
+_INSTRUCTION_HEADING_RE = re.compile(
+    r"^(?:【(?:输出|回答|研究|格式|任务)(?:要求|格式|问题)?】\s*"
+    r"|(?:输出|回答|研究|格式|任务)(?:要求|格式|问题|任务)[:：]?$)"
+)
+_DOCUMENT_START_RE = re.compile(
+    r"^(?:【[^】]*(?:摘要|研报|纪要|公告|报告|原文)[^】]*】|(?:来源|作者)[:：])"
 )
 
 
@@ -1192,29 +1227,36 @@ def _looks_like_question(text: str) -> bool:
     return bool(compact) and len(compact) <= _QUESTION_MAX_CHARS and _QUESTION_MARKER_RE.search(compact) is not None
 
 
+def _request_line(text: str) -> str:
+    """仅去布局前缀供角色识别；question/material 保存的原文不作改写。"""
+    return _INSTRUCTION_HEADING_RE.sub("", _LAYOUT_PREFIX_RE.sub("", text.strip()))
+
+
+def _first_role_line(text: str) -> str:
+    # 只含「【输出要求】」的行是标签，身份由其后的正文决定。
+    return next((_request_line(line) for line in text.splitlines() if _request_line(line)), "")
+
+
+def _starts_with_request(text: str) -> bool:
+    return _REQUEST_HEAD_RE.match(_first_role_line(text)) is not None
+
+
 def _reads_like_document(head: str) -> bool:
-    """「末行是短问句 → 前面是材料」这条规则的前提：前面真的得像份文档。
+    """先看区域起点的角色，不以长度或格式标记证明「用户贴了材料」。
 
-    原先只看「头部是不是短问句」，而 _looks_like_question 有 120 字上限，于是一句
-    较长的研究问题（带主体、口径、截止日、问号）只因为「太长」就被当成粘贴材料，
-    只剩末尾那句格式要求（「请按……组织」）当问题交给路由。R-20260916-05 两臂就是
-    这么跑成 kind=pasted_text，一臂落到 stock_deep_dive、另一臂落到 kol_review（材料
-    评审），subject 直接丢成 null——同一道题因为排版差异被当成两类任务。
-
-    判据只认**结构性**材料标记（【】、来源：、作者：、行首的「一、」/「1.」/「第二节」），
-    不认「研报/公告/摘要/要点」这类**词**——用户在提问里天然会说「请使用可获取的
-    公告、财务数据」，词面命中就判它是材料，恰恰是 R-20260916-05 踩的那个坑。
-    没有结构标记时，头部带问句标记（？/是否/吗/如何……）且不过长 → 这是提问。
-    长度上限是故意留的：真粘一篇无标题长文、正文里带问号时，仍按材料走。
+    明确请求开头没有 120/400 字材料化上限；从来源/文档标题开头的正文则不因
+    内部出现「请」或问号升级成用户指令。原无标记短问句语义保持兼容。
     """
-
-    body = str(head or "")
-    if _STRUCTURAL_MATERIAL_MARKER_RE.search(body):
+    body = str(head or "").strip()
+    first = _first_role_line(body)
+    if _DOCUMENT_START_RE.search(first):
         return True
-    compact = re.sub(r"\s+", "", body)
-    if len(compact) > _QUESTION_HEAD_MAX_CHARS:
+    if _starts_with_request(body):
+        return False
+    # 对明确叙述/章节起点仍保留材料身份；不扫描后面的输出要求反推整块身份。
+    if _MATERIAL_MARKER_RE.search(first) and not _QUESTION_MARKER_RE.search(_request_line(first)):
         return True
-    return _QUESTION_MARKER_RE.search(compact) is None
+    return _QUESTION_MARKER_RE.search(_request_line(first)) is None
 
 
 def split_user_message(text: str) -> MessageParts:
@@ -1236,6 +1278,10 @@ def split_user_message(text: str) -> MessageParts:
                 line = lines[span.line_index]
                 lines[span.line_index] = line[:span.start_offset] + line[span.end_offset:]
         residual = "\n".join(line for line in lines if line.strip(" 。！？；，,\t"))
+        # 编号输出要求也可能被题组扫描识别；若前文是完整用户请求而非材料，
+        # 不准扣掉主体再把余文塞成 material。真正的材料+题组仍走原合同。
+        if residual.strip() and not parts.materials and not _reads_like_document(residual):
+            return replace(parts, regions=regions)
         material = material_from_text(residual)
         parts = MessageParts(
             question="\n\n".join(f"{qid[1:]}. {body}" for qid, body in zip(regions.question_ids, regions.sub_questions, strict=True)),
@@ -1305,6 +1351,25 @@ def _split_user_message_core(text: str) -> MessageParts:
     remaining_lines = [line for index, line in enumerate(lines) if index not in consumed]
     rest = "\n".join(remaining_lines).strip()
 
+    # 明确请求后接独立文档标题：分开角色，不能因请求很长把后面的真材料吞进问题，
+    # 也不能因材料里有「请」将其升级。仅来源字段可能是输出字段，不能单独触发这里。
+    rest_lines = rest.splitlines()
+    for index, line in enumerate(rest_lines):
+        if index == 0 or not line.strip().startswith("【") or not _DOCUMENT_START_RE.match(line.strip()):
+            continue
+        prefix = "\n".join(rest_lines[:index]).strip()
+        if _reads_like_document(prefix):
+            break
+        suffix = _split_user_message_core("\n".join(rest_lines[index:]))
+        if suffix.materials:
+            for ref, body in zip(suffix.materials, suffix.material_texts, strict=True):
+                add(body, ref.kind)
+            return MessageParts(
+                question="\n\n".join(p for p in (prefix, suffix.question) if p),
+                materials=tuple(materials), material_texts=tuple(texts),
+            )
+        break
+
     # 2. 段落：空行分块；首/末短问句是问题，其余长文是材料。
     blocks = [block.strip() for block in re.split(r"\n\s*\n", rest) if block.strip()]
     question = rest
@@ -1355,7 +1420,11 @@ def _split_user_message_core(text: str) -> MessageParts:
         elif "\n" not in block and len(block) >= _LONG_SINGLE_LINE_MIN:
             # 单行长文 + 句尾短问句。
             sentences = [part for part in re.split(r"(?<=[。！？!?])", block) if part.strip()]
-            if len(sentences) >= 2 and _looks_like_question(sentences[-1]) and len("".join(sentences[:-1])) >= 100:
+            if (
+                len(sentences) >= 2 and _looks_like_question(sentences[-1])
+                and len("".join(sentences[:-1])) >= 100
+                and _reads_like_document("".join(sentences[:-1]))
+            ):
                 question = sentences[-1].strip()
                 add("".join(sentences[:-1]), "pasted_text")
             else:
@@ -1374,11 +1443,86 @@ def _split_user_message_core(text: str) -> MessageParts:
     )
 
 
-def references_material(text: str) -> bool:
-    """「这篇 / 这份材料 / 上面这段 / 附件」——题面引用了一份材料。"""
+_SOURCE_NOUN_RE = re.compile(r"定期报告|年度报告|半年度报告|报告|年报|半年报|季报|公告|研报|纪要|文章|证据|来源")
+_SOURCE_ACQUIRE_RE = re.compile(r"检索|查找|查阅|搜索")
+_SUPPLIED_OWNER_RE = re.compile(r"(?:我|用户)(?:刚|已|所)?(?:上传|提供|提交|贴|发|给)|附件|刚(?:贴|发|给)|上传的")
+_REFERENCE_OBJECT_RE = re.compile(
+    r"^(?:这[篇份段]?|这个|该)(?:你(?:确实|实际|自行)?(?:检索|查找|查阅|搜索)到的?)?"
+    r"(?:真实|本次|刚刚|检索到的?|找到的?)*(?P<noun>"
+    + _SOURCE_NOUN_RE.pattern + r"|研究|分析|回答|答复)"
+)
 
-    compact = re.sub(r"\s+", "", str(text or ""))
-    return bool(compact) and _MATERIAL_REFERENCE_RE.search(compact) is not None
+
+def _source_family(noun: str) -> str:
+    return "报告" if noun.endswith("报告") or noun in {"年报", "半年报", "季报"} else noun
+
+
+def _requested_source_families(text: str) -> dict[str, int]:
+    """First acquisition position per source family, scanned once per question.
+
+    Quoted instructions have already been masked. An unrelated search anywhere
+    in the question must not cancel a missing attachment or a different document.
+    """
+    families: dict[str, int] = {}
+    for span in re.finditer(r"[^。！？!?；;\n，,]+", text):
+        clause = span.group()
+        if not re.match(r"^(?:请|帮我|麻烦|选用|选择|使用|采用|先|再|并|同时|自行|你)", clause):
+            continue
+        for acquisition in _SOURCE_ACQUIRE_RE.finditer(clause):
+            if re.search(r"不要|不用|无需|禁止|不必|别|勿", clause[:acquisition.start()]):
+                continue
+            target = clause[acquisition.end():]
+            # 「检索这份报告里的错误」要求已有文档，不是在请求发现一份来源。
+            if _MATERIAL_REFERENCE_RE.search(target):
+                continue
+            for noun in _SOURCE_NOUN_RE.finditer(target):
+                position = span.start() + acquisition.end() + noun.end()
+                families.setdefault(_source_family(noun.group()), position)
+    return families
+
+
+def references_material(text: str) -> bool:
+    """Whether a reference needs user-supplied material, not a future research output.
+
+    Resolve each reference independently: explicit user/attachment references
+    remain binding requests; an acquired source can resolve a subsequent same-
+    kind reference. This is bounded syntax, not general pronoun resolution.
+    """
+    compact = re.sub(r"[^\S\r\n]+", "", str(text or ""))
+    visible = "\n".join(_visible_lines(compact.split("\n"))[0])
+    requested = _requested_source_families(visible)
+    # Index clause boundaries once rather than rescanning the complete prefix
+    # for every pronoun in a long multi-part request.
+    clauses = list(re.finditer(r"[^，,。；;\n]+", compact))
+    clause_index = 0
+    for reference in _MATERIAL_REFERENCE_RE.finditer(compact):
+        while clause_index < len(clauses) - 1 and clauses[clause_index].end() <= reference.start():
+            clause_index += 1
+        clause = clauses[clause_index]
+        tail = compact[reference.start():clause.end()]
+        prefix = compact[clause.start():reference.start()]
+        if reference.group().startswith(("附件", "刚", "上面")) or _SUPPLIED_OWNER_RE.search(prefix + tail):
+            return True
+        obj = _REFERENCE_OBJECT_RE.match(tail)
+        if obj is None:
+            return True
+        noun = obj.group("noun")
+        if noun in {"研究", "分析", "回答", "答复"}:
+            # 「给这份研究列缺口」is an output instruction; 「解读这份研究」
+            # still needs the research text. A noun alone is not proof of origin.
+            if re.search(r"(?:给|为|在|对)$", prefix) and re.match(
+                r"(?:列|写|附|标注|补充|给出|整理)", tail[obj.end():],
+            ):
+                continue
+            return True
+        # Explicit future provenance (「这份你检索到的报告」) is local to this noun.
+        if _SOURCE_ACQUIRE_RE.search(obj.group()):
+            continue
+        families = {family for family, end in requested.items() if end <= reference.start()}
+        if _source_family(noun) in families or (families and noun in {"证据", "来源"}):
+            continue
+        return True
+    return False
 
 
 _PROMPT_BLOCK_ROLE_RE = re.compile(r"^(user|assistant|system)[:：]\s?", re.MULTILINE)

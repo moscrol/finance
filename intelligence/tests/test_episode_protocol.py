@@ -27,6 +27,7 @@ from intelligence.services.episode_protocol import (
     finish_rejection_fields,
     resolve_evidence_refs,
     split_episode_prompt,
+    strip_evidence_ordinals,
     strip_hashes_for_model,
     validate_episode_finish,
 )
@@ -1535,6 +1536,23 @@ def test_cited_evidence_ordinals_rejects_lookalike_tokens() -> None:
     )
     assert cited_evidence_ordinals("") == ()
     assert cited_evidence_ordinals("E0 与 E1000 越格式") == ()
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("若走弱则降级（E27）。", "若走弱则降级（ ）。"),
+        ("参考[E1, e27]与【E999】。", "参考[ ,  ]与【 】。"),
+        ("据E27显示低于27则降级。", "据 显示低于27则降级。"),
+        ("若涨幅达到100%（E27）则降级。", "若涨幅达到100%（ ）则降级。"),
+        ("PE10；1.5E8；CE4；E0；E027；E1000", "PE10；1.5E8；CE4；E0；E027；E1000"),
+        ("", ""),
+    ],
+)
+def test_strip_evidence_ordinals_uses_the_prose_citation_grammar(text, expected):
+    assert strip_evidence_ordinals(text) == expected
+    assert cited_evidence_ordinals(strip_evidence_ordinals(text)) == ()
+    assert strip_evidence_ordinals(expected) == expected
 
 
 def test_finish_rejection_fields_present_when_absent() -> None:

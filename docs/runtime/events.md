@@ -5,7 +5,7 @@
 
 车道：durable 进重放日志与对账权威；live 只走实时出口。阶段来自 `episode_phase`，L1 步来自 `normalize_harness_trace`（评测口径），投影剔正文的字段来自 `episode_messages.MODEL_VISIBLE_TEXT_FIELDS`（对外 artifact 只留 sha256 与字符数）。
 
-durable 36 种 · live 3 种
+durable 37 种 · live 3 种
 
 | kind | 车道 | 阶段 | L1 步 | 投影剔正文字段 | 发射文件 |
 |---|---|---|---|---|---|
@@ -29,6 +29,7 @@ durable 36 种 · live 3 种
 | `model_input` | durable | — | intent | content | `intelligence/services/episode_messages.py` |
 | `model_intent` | durable | — | intent | — | `intelligence/runtime/agent_episode.py` |
 | `model_turn` | durable | research | — | — | `intelligence/runtime/agent_episode.py`, `intelligence/runtime/dsh_stub_runtime.py`, `intelligence/runtime/harness_reference_loop.py`, `intelligence/runtime/openai_agents_runtime.py` |
+| `persistence_failed` | durable | — | — | — | `intelligence/runtime/agent_episode.py` |
 | `plan` | durable | planning | plan | — | `intelligence/runtime/agent_episode.py`, `intelligence/runtime/codex_headless_runtime.py`, `intelligence/runtime/harness_reference_loop.py` |
 | `prefetch` | durable | — | — | — | `intelligence/runtime/agent_episode.py` |
 | `prompt_assembled` | durable | — | configure | system, user | `intelligence/services/episode_messages.py` |

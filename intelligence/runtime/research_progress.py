@@ -67,6 +67,17 @@ def stall_finalize_batches() -> int:
     return max(0, value)
 
 
+def _mapping_for_json(value: object) -> dict:
+    """JSON accepts dict, not the recursive read-only mappings in ModelToolCall.
+
+    Convert only mappings at this projection boundary. Tuples are handled by
+    JSON itself; arbitrary objects must still fail rather than become reprs.
+    """
+    if isinstance(value, Mapping):
+        return dict(value)
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
 def normalize_query(value: object) -> str:
     """归一化查询键：压空白、小写、截长。只用于比较，不回灌给模型。"""
 
@@ -79,7 +90,9 @@ def normalize_query(value: object) -> str:
             if isinstance(goals, (list, tuple)) and goals:
                 value = " | ".join(str(item) for item in goals)
             else:
-                value = json.dumps(value, ensure_ascii=False, sort_keys=True) if value else ""
+                value = json.dumps(
+                    value, ensure_ascii=False, sort_keys=True, default=_mapping_for_json,
+                ) if value else ""
     text = re.sub(r"\s+", " ", str(value or "")).strip().lower()
     return text[:_MAX_QUERY_CHARS]
 

@@ -83,6 +83,7 @@ from intelligence.services.ranking_contract import (
 from intelligence.services.episode_protocol import (
     cited_evidence_ordinals,
     evidence_ordinal_table,
+    strip_evidence_ordinals,
 )
 from intelligence.services.episode_issues import (
     Issue,
@@ -251,14 +252,36 @@ VERDICT_REASON_PATH = "path_trend"
 VERDICT_REASON_ORDINAL = "unresolved_evidence_ordinal"
 VERDICT_REASON_EVIDENCE_DATE = "evidence_date_mismatch"
 VERDICT_REASON_STOCK_CODE = "unknown_stock_code"
+VERDICT_REASON_FINANCIAL = "financial_claim_mismatch"
+_FINANCIAL_CLAIM_ISSUE = Issue(
+    IssueCode.NUMERIC_UNSUPPORTED, "financial_claim",
+    "financial claim contradicts bound arithmetic, period or source kind",
+)
 # #55 census：引用了槽绑定之外的 E 只记账不删句（R-20260821-06 的既定裁决）。
 # stage / decision / reason 三个都是新值，读侧按 stage 过滤即可把它与拒句账分开。
 VERDICT_STAGE_CENSUS = "census"
+# Final projection/recovery uses the same finite checks on newly delivered text.
+VERDICT_STAGE_DELIVERY = "delivery"
 VERDICT_KEPT = "kept"
 VERDICT_REASON_OUTSIDE_SLOT = "cited_outside_slot_binding"
 _CONDITION_TRIGGER_RE = re.compile(
     r"(?:若|如果|失效|降级|跌破|站稳|至少|"
-    r"阈值|支撑|才算成立|才成立)"
+    r"阈值|支撑|才算成立|才成立|"
+    r"(?:是否|能否|能不能|可否)(?:回到|恢复至|回升到|达到)|"
+    r"[+-]?\d+(?:\.\d+)?(?:%|倍|成)?(?:以上|以下))"
+)
+# Equivalent conditions need not say 「若」: table cells and discriminating
+# variables are still threshold claims. Match comparison operators only when
+# followed by a quantity, not Markdown/HTML delimiters or an arrow alone.
+_NUMERIC_COMPARATOR_RE = re.compile(
+    r"(?:[<>≤≥≦≧]=?|不低于|不高于|大于等于|小于等于|低于|高于|超过|大于|小于)\s*[+-]?\d"
+)
+_CONDITION_LABEL_RE = re.compile(
+    r"^(?:区分变量|判断标准|检验条件|改判条件(?:表)?|证伪条件|触发条件|失效条件|"
+    r"失效信号|降级信号|条件)\s*(?:\d+|[一二三四五六七八九十]+)?\s*[：:=]"
+)
+_CONDITION_HEADING_RE = re.compile(
+    r"(?:区分变量|判断标准|改判条件(?:表)?|证伪条件|触发条件|失效条件|失效信号|降级信号|条件)"
 )
 _LEADING_CONDITION_LABEL_RE = re.compile(
     r"^\s*(?:[-*]\s*)?"
@@ -657,6 +680,10 @@ class SemanticEpisodeOutcome:
     gap_output_ids: tuple[str, ...] = ()
     rejected_claim_indexes: tuple[int, ...] = ()
     repair_output_ids: tuple[str, ...] = ()
+    # Local delivery repair is partial within a slot. These hashes preserve only
+    # already-bound citations still present in retained public text, NOT slot success.
+    delivery_retained_evidence_hashes: tuple[str, ...] = ()
+    delivery_repair_notes: tuple[str, ...] = ()
     timeout_asked: float | None = None
     timeout_configured: float | None = None
     remaining_seconds_at_entry: float | None = None
@@ -738,6 +765,8 @@ class SemanticEpisodeOutcome:
             "gap_output_ids": list(self.gap_output_ids),
             "rejected_claim_indexes": list(self.rejected_claim_indexes),
             "repair_output_ids": list(self.repair_output_ids),
+            "delivery_retained_evidence_hashes": list(self.delivery_retained_evidence_hashes),
+            "delivery_repair_notes": list(self.delivery_repair_notes),
             "timeout_asked": self.timeout_asked,
             "timeout_configured": self.timeout_configured,
             "remaining_seconds_at_entry": self.remaining_seconds_at_entry,
@@ -935,6 +964,112 @@ def with_unreviewed_revision_publication(
     )
 
 
+def _retained_delivery_hashes(outcome: SemanticEpisodeOutcome, public: str) -> tuple[str, ...]:
+    """Keep cited, previously eligible bindings, never revive a prior gap's cards."""
+    before = outcome.verified
+    eligible_slots = {
+        item.output_id for item in before.completion.outputs
+        if item.status == "fulfilled" and item.output_id not in outcome.gap_output_ids
+    }
+    bound = {
+        h for binding in before.outcome.bindings if binding.output_id in eligible_slots
+        for h in binding.evidence_hashes
+    }
+    cited = set(cited_evidence_ordinals(public))
+    ordinals = evidence_ordinal_table(before.outcome.evidence)
+    retained = tuple(h for h, ordinal in ordinals.items() if h in bound and ordinal in cited)
+    prior = tuple(h for h in outcome.delivery_retained_evidence_hashes if ordinals.get(h) in cited)
+    return tuple(dict.fromkeys((*prior, *retained)))
+
+
+def _recheck_research_delivery(outcome: SemanticEpisodeOutcome, public: str) -> SemanticEpisodeOutcome:
+    """Final local checks also cover judge-off, rollback and retained answers.
+
+    Keep independently verified neighbors; feed local gaps to the EXISTING
+    bounded repair loop. This is not a second model, source or budget.
+    """
+    from intelligence.services.research_delivery_checks import (
+        calculation_copy_findings, disclosure_absence_findings, remove_findings,
+    )
+
+    before = outcome.verified
+    contract = before.contract
+    if contract is None:
+        return outcome
+    # Projections and trusted-draft recovery may change text AFTER verify().
+    # Reuse R6's finite checker, not a new judge or a receipt for an older draft.
+    sentences = _numbered_sentences(public)
+    rejected = _financial_claim_mismatch_indexes(sentences, before)
+    if rejected:
+        verdicts = tuple(
+            _sentence_verdict_record(
+                stage=VERDICT_STAGE_DELIVERY, judge_round=None, index=int(item["index"]),
+                sentence=str(item["text"]), decision=VERDICT_DELETED,
+                reasons=(VERDICT_REASON_FINANCIAL,), issues=(), verified=before,
+            )
+            for item in sentences if item["index"] in rejected
+        )
+        public = _drop_rejected_sentences(public, rejected)
+        outcome = _with_financial_repair_debt(replace(
+            outcome,
+            public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),
+            sentence_verdicts=(*outcome.sentence_verdicts, *verdicts),
+        ), verdicts)
+        public = outcome.public_answer
+        before = outcome.verified
+    findings = (
+        *disclosure_absence_findings(public, before.outcome.traces),
+        *calculation_copy_findings(
+            public, before.outcome.evidence,
+            calculation_required=bool(re.search(r"(?:用|使用|通过).{0,8}(?:计算工具|计算器|沙箱)", contract.question)),
+        ),
+    )
+    if not findings:
+        return outcome
+    codes = tuple(dict.fromkeys(f.code for f in findings))
+    target_ids: set[str] = set()
+    if any(code.startswith("calculation_value_") for code in codes):
+        target_ids.update(("metric_evidence", "supporting_evidence"))
+    if "disclosure_absence_inference" in codes:
+        target_ids.update(("event_facts", "fact_value", "supporting_evidence"))
+    evidence_ids = tuple(
+        item.output_id for item in contract.required_outputs
+        if item.required and item.grounding_mode == "evidence"
+    )
+    gap_ids = tuple(i for i in evidence_ids if i in target_ids)
+    if not gap_ids:
+        gap_ids = evidence_ids[:1]  # custom one-slot contracts; not every slot
+    # No model draft/provider diagnostics in these notices.
+    notices: list[str] = []
+    repair_notes: list[str] = []
+    if "disclosure_absence_inference" in codes:
+        notices.append("公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。")
+        repair_notes.append("查询失败或空白不能推出没有公告、无新增信息或尚未兑现；删除此推断，保留已核实事实并说明覆盖缺口。")
+    if "calculation_value_mismatch" in codes:
+        notices.append("部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。")
+        repair_notes.append("按报告期及比率列重新对账本次计算产物，修正抄数错误；保留同一行原始数据，不借其他期别数字充证。")
+    if "calculation_value_unverified" in codes:
+        notices.append("部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。")
+        repair_notes.append("所称计算结果缺少或冲突，不得声称已核算；按原权限补齐或明确留缺口，不手填结果。")
+    repaired = remove_findings(public, findings)
+    repaired = "\n\n".join((repaired, *notices)).strip()
+    retained = _retained_delivery_hashes(outcome, repaired)
+    issues = tuple(f"code={code} :: delivered research claim failed local check" for code in codes)
+    # Do not replace archived draft/evidence or mark the whole slot's facts as
+    # false. Public text + gap IDs carry the repair need, and status cannot rise.
+    return replace(
+        outcome,
+        public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=repaired)),
+        status="partial" if outcome.status == "completed" else outcome.status,
+        judge_status="repaired" if outcome.judge_status == "passed" else outcome.judge_status,
+        issues=tuple(dict.fromkeys((*outcome.issues, *issues))),
+        gap_output_ids=tuple(dict.fromkeys((*outcome.gap_output_ids, *gap_ids))),
+        repair_output_ids=tuple(dict.fromkeys((*outcome.repair_output_ids, *gap_ids))),
+        delivery_retained_evidence_hashes=retained,
+        delivery_repair_notes=tuple(dict.fromkeys((*outcome.delivery_repair_notes, *repair_notes))),
+    )
+
+
 def recheck_material_public_delivery(
     outcome: SemanticEpisodeOutcome,
     *,
@@ -952,13 +1087,29 @@ def recheck_material_public_delivery(
     """
     from intelligence.services.material_delivery import material_question_outputs, with_all_material_gaps_notice
 
+    public = outcome.public_answer if projected is None else projected
+    checked = _recheck_research_delivery(outcome, public)
+    # If the local check changed public text, don't restore the rejected caller
+    # projection below. Otherwise preserve the material sanitizer's input.
+    if checked is not outcome:
+        public = checked.public_answer
+    outcome = checked
     before = outcome.verified
     contract = before.contract
     if contract is None or not (
         material_question_outputs(contract) or grounding_scope(contract) == "material_only"
     ):
-        return outcome
-    public = outcome.public_answer if projected is None else projected
+        if public == outcome.public_answer:
+            return outcome
+        ordinals = evidence_ordinal_table(before.outcome.evidence)
+        cited = set(cited_evidence_ordinals(public))
+        return replace(
+            outcome,
+            public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),
+            delivery_retained_evidence_hashes=tuple(
+                h for h in outcome.delivery_retained_evidence_hashes if ordinals.get(h) in cited
+            ),
+        )
     private_tokens = material_private_tokens(contract)
     if _contains_private_token(public, private_tokens):
         public = _sanitize_public_answer(public, (), (), extra_private_tokens=private_tokens)
@@ -1435,6 +1586,7 @@ class SemanticEpisodeVerifier:
             ordinal=_unresolved_evidence_ordinal_indexes(sentences, verified),
             evidence_date=_mismatched_evidence_date_indexes(sentences, verified),
             stock_code=_unknown_stock_code_indexes(sentences, verified),
+            financial=_financial_claim_mismatch_indexes(sentences, verified),
         )
         for index in decision_for:
             # 语义拒句的理由就是判官本身；v8 降级关掉时机械集为全集，也可能有
@@ -1527,6 +1679,7 @@ class SemanticEpisodeVerifier:
             outcome.guided_retrieval == GuidedRetrievalTelemetry()
         ):
             outcome = replace(outcome, guided_retrieval=self._guided_result)
+        outcome = _with_financial_repair_debt(outcome, self._sentence_verdicts)
         outcome = recheck_material_public_delivery(outcome)
         contract = structurally_verified.contract
         calculation = contract.premise_calculation if contract else None
@@ -1560,9 +1713,13 @@ class SemanticEpisodeVerifier:
             judge_mode=judge_mode_label(self._judge_mode),
             cited_outside_slot_count=self._census_count,
         )
-        if not self._sentence_verdicts or outcome.sentence_verdicts:
+        # Final delivery may add verdicts after the preflight/judge ledger.
+        # Preserve both stages rather than letting the newer tuple mask history.
+        verdicts = list(self._sentence_verdicts)
+        verdicts.extend(row for row in outcome.sentence_verdicts if row not in verdicts)
+        if tuple(verdicts) == outcome.sentence_verdicts:
             return outcome
-        return replace(outcome, sentence_verdicts=tuple(self._sentence_verdicts))
+        return replace(outcome, sentence_verdicts=tuple(verdicts))
 
     def _guided_retrieve_and_rejudge(
         self,
@@ -1836,6 +1993,7 @@ class SemanticEpisodeVerifier:
             sentences,
             structural,
         )
+        financial_rejected = _financial_claim_mismatch_indexes(sentences, structural)
         weekday_rejected = _mismatched_weekday_indexes(
             sentences,
             structural,
@@ -1856,11 +2014,23 @@ class SemanticEpisodeVerifier:
                         *weekday_rejected,
                         *path_rejected,
                         *evidence_date_rejected,
+                        *financial_rejected,
                     )
                 )
             )
         )
         if preflight_rejected:
+            preflight_issues = tuple(
+                issue.serialize()
+                for indexes, issue in (
+                    (numeric_rejected, _NUMERIC_CONDITION_ISSUE),
+                    (weekday_rejected, _CALENDAR_WEEKDAY_ISSUE),
+                    (path_rejected, _PATH_TREND_ISSUE),
+                    (evidence_date_rejected, _EVIDENCE_DATE_ISSUE),
+                    (financial_rejected, _FINANCIAL_CLAIM_ISSUE),
+                )
+                if indexes
+            )
             self._record_sentence_verdicts(
                 stage=VERDICT_STAGE_PREFLIGHT,
                 indexes=preflight_rejected,
@@ -1872,6 +2042,7 @@ class SemanticEpisodeVerifier:
                     weekday=weekday_rejected,
                     path=path_rejected,
                     evidence_date=evidence_date_rejected,
+                    financial=financial_rejected,
                 ),
             )
             before_repair = structural.outcome.draft
@@ -1889,22 +2060,12 @@ class SemanticEpisodeVerifier:
                     judge_status="rejected",
                     issues=tuple(
                         dict.fromkeys(
-                            (*structural.issues, _NUMERIC_CONDITION_ISSUE.serialize())
+                            (*structural.issues, *preflight_issues)
                         )
                     ),
                     correlated_judge=False,
                 )
             structural, _preflight_frame = preflight
-            preflight_issues = tuple(
-                issue.serialize()
-                for indexes, issue in (
-                    (numeric_rejected, _NUMERIC_CONDITION_ISSUE),
-                    (weekday_rejected, _CALENDAR_WEEKDAY_ISSUE),
-                    (path_rejected, _PATH_TREND_ISSUE),
-                    (evidence_date_rejected, _EVIDENCE_DATE_ISSUE),
-                )
-                if indexes
-            )
             marker_loss = _lost_grounded_output_substance(
                 contract,
                 before_repair,
@@ -4294,6 +4455,7 @@ def _mechanical_reasons_by_index(
     ordinal: tuple[int, ...] = (),
     evidence_date: tuple[int, ...] = (),
     stock_code: tuple[int, ...] = (),
+    financial: tuple[int, ...] = (),
 ) -> dict[int, tuple[str, ...]]:
     """每个索引被哪些机械探测器点名（同一句可被多个探测器同时点）。"""
 
@@ -4305,6 +4467,7 @@ def _mechanical_reasons_by_index(
         (VERDICT_REASON_ORDINAL, ordinal),
         (VERDICT_REASON_EVIDENCE_DATE, evidence_date),
         (VERDICT_REASON_STOCK_CODE, stock_code),
+        (VERDICT_REASON_FINANCIAL, financial),
     ):
         for index in indexes:
             reasons.setdefault(int(index), []).append(code)
@@ -4430,10 +4593,16 @@ def _apply_numeric_condition_gate(
     if report is None:
         return call
     rejected = set(report.rejected_sentence_indexes)
-    rejected.update(_novel_numeric_condition_indexes(sentences, verified))
+    numeric = _novel_numeric_condition_indexes(sentences, verified)
+    financial = _financial_claim_mismatch_indexes(sentences, verified)
+    rejected.update((*numeric, *financial))
     if rejected == set(report.rejected_sentence_indexes):
         return call
-    issues = tuple(dict.fromkeys((*report.issues, _NUMERIC_CONDITION_ISSUE.message)))
+    issues = tuple(dict.fromkeys((
+        *report.issues,
+        *(_NUMERIC_CONDITION_ISSUE.message for _ in [0] if numeric),
+        *(_FINANCIAL_CLAIM_ISSUE.message for _ in [0] if financial),
+    )))
     return replace(
         call,
         report=replace(
@@ -4483,6 +4652,7 @@ def _mechanical_sentence_indexes(
             *_unresolved_evidence_ordinal_indexes(sentences, verified),
             *_mismatched_evidence_date_indexes(sentences, verified),
             *_unknown_stock_code_indexes(sentences, verified),
+            *_financial_claim_mismatch_indexes(sentences, verified),
         )
     )
 
@@ -4817,6 +4987,77 @@ def _mask_bound_short_date_heading(text: str, outcome: AgentOutcome) -> str:
     return text
 
 
+def _with_financial_repair_debt(
+    outcome: SemanticEpisodeOutcome, verdicts: Sequence[Mapping[str, object]],
+) -> SemanticEpisodeOutcome:
+    """Deleting a contradiction is not completion of the requested analysis.
+
+    Reopen only its metric obligation, using existing bounded repair fields.
+    Keep the original evidence/bindings; neither a deletion nor this notice
+    supplies a corrected result. A fresh verify of a corrected draft has a new
+    verdict ledger and therefore does not inherit stale repair debt.
+    """
+    if not any(VERDICT_REASON_FINANCIAL in row.get("reasons", ()) for row in verdicts):
+        return outcome
+    verified = outcome.verified
+    contract = verified.contract
+    if contract is None:
+        return outcome
+    eligible = tuple(item.output_id for item in contract.required_outputs
+                     if item.required and item.grounding_mode == "evidence")
+    targets = tuple(i for i in eligible if i == "metric_evidence") or eligible[:1]
+    if not targets:
+        return outcome
+    notice = "部分财务差值、期间或报告来源断言未通过核对；已保留其他内容，相关分析仍需补齐。"
+    # Capture eligible citations BEFORE opening this local repair debt. A prior
+    # unrelated gap remains ineligible; kept cards are not completion evidence.
+    retained = _retained_delivery_hashes(outcome, outcome.public_answer)
+    repair_note = "按已绑定输入核对财务差值、报告期间及报告文档来源；修正矛盾或明确留缺口，保留已核实邻项，不增加取数权限。"
+    outputs = tuple(replace(item, status="missing", gap=item.gap or notice)
+                    if item.output_id in targets else item for item in verified.completion.outputs)
+    issues = tuple(Issue(IssueCode.REQUIRED_OUTPUT_GAP, target, notice) for target in targets)
+    verified = replace(
+        verified,
+        verified_status="partial" if verified.verified_status == "completed" else verified.verified_status,
+        missing_outputs=tuple(dict.fromkeys((*verified.missing_outputs, *targets))),
+        completion=replace(verified.completion, outputs=outputs, status="partial",
+                           task_coverage="partial", business_status="partial"),
+        issue_items=tuple(dict.fromkeys((*verified.issue_items, *issues))),
+    )
+    public = outcome.public_answer
+    if public and notice not in public:
+        public = public + "\n\n" + notice
+    return replace(
+        outcome, verified=verified, public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),
+        status="partial" if outcome.status == "completed" else outcome.status,
+        gap_output_ids=tuple(dict.fromkeys((*outcome.gap_output_ids, *targets))),
+        repair_output_ids=tuple(dict.fromkeys((*outcome.repair_output_ids, *targets))),
+        issues=tuple(dict.fromkeys((*outcome.issues, *verified.issues))),
+        delivery_retained_evidence_hashes=retained,
+        delivery_repair_notes=tuple(dict.fromkeys((*outcome.delivery_repair_notes, repair_note))),
+    )
+
+
+def _financial_claim_mismatch_indexes(
+    sentences: list[dict[str, object]], verified: VerifiedEpisodeOutcome,
+) -> tuple[int, ...]:
+    contract = verified.contract
+    if contract is None or contract.question_type != "financial_analysis":
+        return ()
+    from intelligence.services.financial_claim_checks import financial_claim_mismatches
+    from intelligence.services.financial_report_contract import report_document_claim_mismatches
+
+    bound = tuple(dict.fromkeys(h for b in verified.outcome.bindings for h in b.evidence_hashes))
+    return tuple(sorted(set((
+        *financial_claim_mismatches(
+            sentences, verified.outcome.evidence, bound, subject=contract.subject,
+        ),
+        *report_document_claim_mismatches(
+            sentences, verified.outcome.evidence, bound, subject=contract.subject,
+        ),
+    ))))
+
+
 def _novel_numeric_condition_indexes(
     sentences: list[dict[str, object]],
     verified: VerifiedEpisodeOutcome,
@@ -4865,6 +5106,8 @@ def _novel_numeric_condition_indexes(
     rejected: set[int] = set()
     evidence_quantities = _bound_evidence_quantities(verified.outcome)
     observation_values = _bound_observation_values(verified.outcome)
+    condition_section = False
+    condition_columns: tuple[int, ...] = ()
     for item in sentences:
         index = item.get("index")
         text = str(item.get("text") or "")
@@ -4873,17 +5116,64 @@ def _novel_numeric_condition_indexes(
         if text in historical:
             continue
         candidate = _mask_bound_short_date_heading(text, verified.outcome)
-        candidate = _DATE_TOKEN_RE.sub("", candidate)
+        # References remain in the draft for citation validation, but their
+        # ordinals must not trigger a numeric backfill or sentence deletion.
+        candidate = _DATE_TOKEN_RE.sub("", strip_evidence_ordinals(candidate))
         candidate = _EVIDENCE_REF_TOKEN_RE.sub("", candidate)
         candidate = _QUARTER_TOKEN_RE.sub("", candidate)
+        # Heading context stops at the next heading; ordinary facts in another
+        # section must not inherit a condition label. Formatting is analysis-only.
+        heading = re.match(
+            r"^(?:#{1,6}\s+([^：:。；;\n]+)(?:[：:]|$)|"
+            r"\*\*(.+?)\*\*(?:\s*[：:]|$)|__(.+?)__(?:\s*[：:]|$))", candidate,
+        )
+        plain_heading = _CONDITION_HEADING_RE.fullmatch(candidate.strip(" ：:"))
+        if heading or plain_heading:
+            title = (
+                next(group for group in heading.groups() if group).strip(" ：:")
+                if heading else plain_heading.group()
+            )
+            condition_section = _CONDITION_HEADING_RE.fullmatch(title) is not None
+            condition_columns = ()
+            candidate = candidate[heading.end():].strip() if heading else ""
+            if not candidate:
+                # A layout heading can itself make a claim. It is not exempt
+                # merely because the author moved the threshold into bold text.
+                candidate = title
         candidate = _LEADING_SECTION_RE.sub("", candidate)
         candidate = _LEADING_LIST_LABEL_RE.sub("", candidate)
+        candidate = candidate.replace("**", "").replace("__", "").lstrip("-* ")
+        labelled = _CONDITION_LABEL_RE.match(candidate) is not None
+        # In a condition matrix check its condition cells, not an unrelated
+        # company code or numeric priority column. Header detection is exact.
+        if candidate.startswith("|") and candidate.endswith("|"):
+            cells = [cell.strip() for cell in candidate.strip("|").split("|")]
+            columns = tuple(i for i, cell in enumerate(cells) if cell in {
+                "变化", "条件", "触发条件", "改判条件", "证伪条件", "失效信号", "区分变量",
+            })
+            if columns and not re.search(r"\d", candidate):
+                condition_columns = columns
+                continue
+            if condition_section and condition_columns:
+                candidate = " | ".join(
+                    cell for i, cell in enumerate(cells)
+                    if i in condition_columns or _CONDITION_TRIGGER_RE.search(cell)
+                    or _NUMERIC_COMPARATOR_RE.search(cell)
+                )
+        else:
+            condition_columns = ()
         candidate = _LEADING_CONDITION_LABEL_RE.sub("", candidate)
         trigger = _CONDITION_TRIGGER_RE.search(candidate)
-        if trigger is None:
+        if not (trigger or labelled or condition_section or _NUMERIC_COMPARATOR_RE.search(candidate)):
             continue
-        if trigger.group(0) in {"若", "如果"}:
-            candidate = candidate[trigger.start() :]
+        if trigger and trigger.group(0) in {"若", "如果"}:
+            # Retain a preceding threshold (「净现比≥0.5，若达到…」), but do
+            # not rope unrelated factual quantities before the condition into it.
+            prefix_comparator = _NUMERIC_COMPARATOR_RE.search(candidate[:trigger.start()])
+            start = prefix_comparator.start() if prefix_comparator else trigger.start()
+            if labelled or condition_section:
+                start = 0
+            candidate = candidate[start:]
         quantities = (
             *_ARABIC_QUANTITY_RE.findall(candidate),
             *_CHINESE_QUANTITY_RE.findall(candidate),
@@ -5208,17 +5498,49 @@ def _evidence_by_ordinal(outcome: AgentOutcome) -> dict[str, object]:
     }
 
 
+# 只识别来源/公告的发布日期断言，不把同句的计划、投产日、预测时点等与 source_date 比。
+# 这是有意收窄的机械门，不是通用日期语义判官：没有可比较的字段/关系就不删句。
+_SOURCE_DATE_SUBJECT = r"(?:该|这[份条篇则]?|上述)?(?:公告|报告|研报|材料|证据|新闻)"
+_SOURCE_DATE_PREDICATE = re.compile(
+    rf"(?:{_SOURCE_DATE_SUBJECT}(?:的)?(?:发布|披露)(?:日期|时间)?"
+    r"|(?<![\w\u4e00-\u9fff])发布日期|来源日期|source_date)"
+    r"(?:为|是|于|：|:)?$"
+)
+_SOURCE_DATE_INVERTED = re.compile(rf"{_SOURCE_DATE_SUBJECT}(?:已)?于$")
+_DATE_NONASSERTION = re.compile(
+    r"[？?]|是否|能否|会否|如果|假如|假设|若|计划|预计|预期|拟|可能|待(?:核|查|补)"
+    r"|(?:并非|不是|并不|没有|尚未|未曾|不曾|不)(?:在|于)?(?:发布|披露|是|为)?"
+)
+
+
+def _asserted_source_dates(text: str) -> frozenset[date]:
+    dates: set[date] = set()
+    # 计划与事实可在同一句中并列，按小句判断，不因出现一个「计划」就豁免整句。
+    for clause in re.split(r"[，,；;。！!\n]", text):
+        compact = re.sub(r"\s+", "", clause)
+        if _DATE_NONASSERTION.search(compact):
+            continue
+        for pattern in (_FULL_ISO_DATE_RE, _FULL_CHINESE_DATE_RE):
+            for match in pattern.finditer(compact):
+                before, after = compact[:match.start()], compact[match.end():]
+                if not (
+                    _SOURCE_DATE_PREDICATE.search(before)
+                    or (_SOURCE_DATE_INVERTED.search(before) and re.match(r"(?:发布|披露)", after))
+                ):
+                    continue
+                dates.update(_full_dates_in(match.group(0)))
+    return frozenset(dates)
+
+
 def _mismatched_evidence_date_indexes(
     sentences: list[dict[str, object]],
     verified: VerifiedEpisodeOutcome,
 ) -> tuple[int, ...]:
-    """Reject a sentence whose full dates all contradict its only cited evidence.
+    """Reject explicit source/publication date claims that contradict source_date.
 
-    #55：判官反复抓到的形状——「第 12 句把 E104 的日期写成 2026-08-21，证据登记的
-    source_date 是 2026-09-11」。机械版刻意保守，只在四个条件同时成立时删句：
-    句子恰好引用**一条** E 且能反解；句内含完整日期；该证据语料（title / detail /
-    source / source_date）也含完整日期；句内**没有任何一个**日期出现在证据语料里。
-    双引、无日期、证据无日期、日期吻合都放过——「只会少算不会多算」。
+    单引 E 且能反解、明确的来源日期事实关系、唯一可解析的 source_date 才判。
+    计划/假设/否定/疑问不作事实断言；其他日期共现既不能定罪，也不能替错误发布日期
+    背书。双引或字段缺失时不猜。这不是日期事实的完备检测器。
     """
 
     by_ordinal = _evidence_by_ordinal(verified.outcome)
@@ -5231,13 +5553,13 @@ def _mismatched_evidence_date_indexes(
         cited = tuple(dict.fromkeys(cited_evidence_ordinals(text)))
         if len(cited) != 1 or cited[0] not in by_ordinal:
             continue
-        stated = _full_dates_in(text)
+        stated = _asserted_source_dates(text)
         if not stated:
             continue
-        known = _full_dates_in(_evidence_corpus(by_ordinal[cited[0]]))
-        if not known:
+        known = _full_dates_in(str(getattr(by_ordinal[cited[0]], "source_date", "") or ""))
+        if len(known) != 1:
             continue
-        if stated.isdisjoint(known):
+        if stated - known:
             rejected.append(index)
     return tuple(rejected)
 
@@ -5319,7 +5641,9 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
                 str(item.source_date or ""),
             )
         )
-    corpus = " ".join(fields)
+    # Evidence prose can cite other cards too: E27 must not authorize a real
+    # threshold of 27 in the answer. Match the answer-side quantity view.
+    corpus = strip_evidence_ordinals(" ".join(fields))
     quantities = {
         _normalize_quantity(quantity)
         for quantity in (
