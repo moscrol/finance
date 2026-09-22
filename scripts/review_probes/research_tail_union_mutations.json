@@ -26,5 +26,12 @@
     "old": "            if match.group(\"until\") and re.search(\n",
     "new": "            if False and match.group(\"until\") and re.search(\n",
     "targets": ["test_cutoff_provenance_roles_negation_and_conflicts_do_not_fallback"]
+  },
+  {
+    "id": "history-intent-bypasses-negated-cutoff",
+    "path": "intelligence/services/historical_research/intent.py",
+    "old": "    values = set(explicit_information_cutoff_dates(question))\n    if None in values:\n",
+    "new": "    values = set(explicit_information_cutoff_dates(question.split(\"不要\")[-1]))\n    if None in values:\n",
+    "targets": ["test_history_intent_and_episode_cutoff_read_one_truth", "test_negated_cutoff_does_not_reach_episode_through_history_intent"]
   }
 ]
