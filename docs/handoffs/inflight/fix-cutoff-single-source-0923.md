@@ -14,13 +14,13 @@
 ## 已验证
 - ruff 5 文件通过；定向 8 个测试文件全绿（收据 `test-receipts/20260922T164747Z-8e798937-*.json`，窄集）。
 - 新增测试（`intelligence/tests/test_research_tail_union_seams.py`）：7 组短语下历史意图 / `explicit_information_cutoff` / `requested_information_cutoff` 三者同值；冲突句历史侧 `window_error`、Episode 侧 `None`；端到端 `decide_turn → build_episode_context` 否定句截止日落运行日而非 09-11。
-- 变异定义新增 `history-intent-bypasses-negated-cutoff`（`research_tail_union_mutations.json`），提交后用 runner 跑：见本文件末尾读数。
+- 广域 `-k`（history / cutoff / asof / intent / honesty / mutation …，两个测试树）**1361P / 7S / 0F**；变异 runner 在 `b674e54b6` 上 5/5 改坏即红、还原即绿（新 `history-intent-bypasses-negated-cutoff` 红 2），`results.json` 已写 `suite=custom`。证据 `~/.finance-runtime/reviews/research-tail-union-postmerge-20260923/cutoff-mutations-b674e54b6/`，读数已贴 PR #870 评论。
 - 门页 `docs/agent-product-door.md`「联合候选的接缝」补一句单一解析器。
 
 ## 未验证 / 边界
-- 未跑全量四叶（磁盘 < 12 GiB，准入不放行）；合并前必须补。
+- 未跑全量四叶（磁盘 < 12 GiB，准入不放行）；合并前必须补，收据 revision 须等于分支尖。
 - 历史线真实四题、财务 R6 四题未跑（#76）。
 
 ## 下一步
-1. 广域回归（history / cutoff / intent / asof 相关 `-k` 面）绿 → 提交 → 变异 runner 复跑（5 条含新 1 条）→ 推送 → 开 PR（WIP 守卫）。
-2. 磁盘恢复后四叶；合入等用户确认。
+1. PR #870 已开并 WIP 守卫。磁盘恢复后跑四叶（python 叶可复用 `research-tail-union-postmerge-20260923/run_main_tip_python_leaf.py` 的准入模式，换成本分支尖的检出）。
+2. 四叶绿 + 用户确认后合入；本分支自四叶起不再追加提交。
