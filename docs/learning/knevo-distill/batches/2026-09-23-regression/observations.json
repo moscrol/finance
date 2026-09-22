@@ -54,6 +54,7 @@
   "cases": [
     {
       "case_id": "Q18-G1a-record-exists",
+      "frame_source": "private_episode",
       "run_id": "run_20260923_003624_945344",
       "user": "probe-knevo-0923",
       "question_sha256": "4690a511a4d735b22e0e374f1ba97982b69e18523408a970b55fc1faf4f44211",
@@ -93,6 +94,7 @@
     },
     {
       "case_id": "Q18-G1b-retrieval-miss",
+      "frame_source": "private_episode",
       "run_id": "run_20260923_003847_513700",
       "user": "probe-knevo-0923",
       "question_sha256": "b07e03a8ffc6a306abb5cec158a06326138faf7cae084a0bd58031679b0f4344",
@@ -132,6 +134,7 @@
     },
     {
       "case_id": "Q18-G1c-store-unavailable",
+      "frame_source": "private_episode",
       "run_id": "run_20260923_003932_899615",
       "user": "probe-knevo-0923",
       "question_sha256": "ad327c91e9689148511d16767a8691f7a3983cf56bd0b9d619f3415dc1efbf23",
@@ -171,6 +174,7 @@
     },
     {
       "case_id": "Q18-G2a-new-price-old-archive",
+      "frame_source": "private_episode",
       "run_id": "run_20260923_004458_152606",
       "user": "probe-knevo-0923",
       "question_sha256": "856eb4f6ac235622521f7b029e07a120e1cafde4ba45e71fdcc515a3a537e351",
@@ -210,6 +214,7 @@
     },
     {
       "case_id": "Q18-G2b-intermittent-field",
+      "frame_source": "private_episode",
       "run_id": "run_20260923_004751_005392",
       "user": "probe-knevo-0923",
       "question_sha256": "724cc16ab6eeede03565c4aba31ae38c259ea5976c8a9cab5f0e62a7ae2442cc",
@@ -249,6 +254,7 @@
     },
     {
       "case_id": "Q18-G3a-top-ranked-hits-invalidation",
+      "frame_source": "private_episode",
       "run_id": "run_20260923_004842_736035",
       "user": "probe-knevo-0923",
       "question_sha256": "91a8e65b780177fcc5ba4b2fcae9c7254f97a72c1102c71ccb34ffb7f040d3b1",
@@ -288,6 +294,7 @@
     },
     {
       "case_id": "Q18-G3b-two-frameworks-different-windows",
+      "frame_source": "private_episode",
       "run_id": "run_20260923_005128_701521",
       "user": "probe-knevo-0923",
       "question_sha256": "2d16f5a9ed8cb7b4b12cadb25ad4d7e2f9a3f263a3d7be1d41f56bceda9ff15e",
@@ -332,6 +339,7 @@
     },
     {
       "case_id": "Q18-G3c-similar-chart-different-mechanism",
+      "frame_source": "private_episode",
       "run_id": "run_20260923_005651_631859",
       "user": "probe-knevo-0923",
       "question_sha256": "18dc9155677dac645ae5b1591ae0dbabfde2f6f76af98e32d382547075c58040",
@@ -371,6 +379,7 @@
     },
     {
       "case_id": "Q14-news-layers",
+      "frame_source": "private_episode",
       "run_id": "run_20260923_004200_900107",
       "user": "probe-knevo-0923",
       "question_sha256": "14fad449d2d9c447298c2548e93fe156bde63981c0b0e3f5853c4351b03bf49d",
@@ -410,6 +419,7 @@
     },
     {
       "case_id": "K260917-pack1",
+      "frame_source": "private_episode",
       "run_id": "run_20260923_005843_816502",
       "user": "probe-knevo-0923",
       "question_sha256": "58049aacb0571b6fa036d920d634dce43ff01f540ce99586d5f9b5cf3aa418b8",
@@ -449,6 +459,7 @@
     },
     {
       "case_id": "K260917-pack2",
+      "frame_source": "private_episode",
       "run_id": "run_20260923_010000_266528",
       "user": "probe-knevo-0923",
       "question_sha256": "4f733f678981da95f2414473b7ee3fd42db94e5aa03a32d32f0696fa7812dd18",
@@ -497,6 +508,7 @@
     },
     {
       "case_id": "K260917-pack3",
+      "frame_source": "public_report",
       "run_id": "run_20260923_010139_417143",
       "user": "probe-knevo-0923",
       "question_sha256": "e9fc5dae9b0b816a4993b21c1d961242126e563aaf25fa5ae000a0419d1f0da5",
