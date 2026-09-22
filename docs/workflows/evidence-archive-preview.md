@@ -62,7 +62,10 @@ fi
 - 路径按仓根解析且作为字面量；拒绝仓外路径、`.`、`.git` 和魔法 pathspec。
 - 拒绝继承 `GIT_INDEX_FILE` 等仓库重定向，避免不同 helper 操作不同仓。不是可嵌入 pre-commit 的检查器。
 - 不给共享工作树加写锁。预览时 HEAD 漂移会拒绝，正式提交与预览不一致会拒绝；仍优先独占工作树。
-- 使用仓库正常 Git 配置；信任其 clean filters 等配置，不是运行不受信仓库的沙箱。
+- 读取原始 Git 对象：两层工具均使用 `--no-replace-objects`，不接受本地 replacement refs
+  （对象替换映射）把同一 SHA 指成别的内容；父身份直接读 commit header，不读会被
+  shallow/grafts（浅克隆边界/本地谱系改写）改变的历史展示。替换映射本身不会被删除或改动。
+- 使用仓库其余正常 Git 配置；信任其 clean filters 等配置，不是运行不受信仓库的沙箱。
 - 不验证远端留存、来源真实性、独立审查 verdict（正式结论）或产品质量；181/181 也可能只是完整保存了一份失败报告。
 
 实现/回归：`scripts/preview_evidence_archive.py`、`tests/test_preview_evidence_archive.py`。

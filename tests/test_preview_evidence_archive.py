@@ -190,6 +190,58 @@ def test_same_tree_with_wrong_parent_is_rejected(repo):
     assert any("pinned base" in e for e in result["errors"])
 
 
+def test_replaced_real_commit_cannot_disguise_different_tree(repo):
+    changed(repo)
+    planned = preview.prepare(repo, "archive", [])
+    (repo / "archive/report.md").write_text("different formal bytes\n")
+    seal(repo)
+    actual = commit_archive(repo)
+    git(repo, "replace", actual, planned["preview_revision"])
+    rc, result = cli(repo, "verify", "archive", "--preview", planned["preview_revision"], "--revision", actual)
+    assert rc == 1 and result["ok"] is False
+    assert result["tree"] == git(repo, "--no-replace-objects", "rev-parse", actual + "^{tree}")
+    assert "real commit tree differs from preview tree" in result["errors"]
+
+
+def test_prepare_reads_original_base_tree_despite_replacement(repo):
+    base = git(repo, "rev-parse", "HEAD")
+    (repo / "other.txt").write_text("virtual replacement content\n")
+    git(repo, "add", "--", "other.txt")
+    tree = git(repo, "write-tree")
+    replacement = git(repo, "commit-tree", tree, "-p", base, "-m", "virtual base")
+    git(repo, "replace", base, replacement)
+    index_before = (repo / ".git/index").read_bytes()
+    refs_before = git(repo, "show-ref")
+    changed(repo)
+    result = preview.prepare(repo, "archive", [])
+    assert result["ok"]
+    assert git(repo, "--no-replace-objects", "show", f"{result['preview_revision']}:other.txt") == "not owned"
+    assert (repo / ".git/index").read_bytes() == index_before
+    assert git(repo, "show-ref") == refs_before
+
+
+def test_graft_cannot_hide_an_extra_real_parent(repo):
+    changed(repo)
+    planned = preview.prepare(repo, "archive", [])
+    base = planned["base_revision"]
+    other = git(repo, "commit-tree", planned["tree"], "-p", base, "-m", "other parent")
+    actual = git(repo, "commit-tree", planned["tree"], "-p", base, "-p", other, "-m", "merge")
+    (repo / ".git/info/grafts").write_text(f"{actual} {base}\n")
+    result = preview.verify(repo, "archive", planned["preview_revision"], actual)
+    assert result["tree"] == result["preview_tree"]
+    assert result["ok"] is False
+    assert "real commit must have exactly the preview's pinned base parent" in result["errors"]
+
+
+def test_shallow_boundary_does_not_erase_raw_parent_identity(repo):
+    changed(repo)
+    planned = preview.prepare(repo, "archive", [])
+    actual = commit_archive(repo)
+    (repo / ".git/shallow").write_text(f"{planned['preview_revision']}\n{actual}\n")
+    result = preview.verify(repo, "archive", planned["preview_revision"], actual)
+    assert result["ok"] is True
+
+
 def test_preview_itself_is_not_a_real_commit(repo):
     result = preview.prepare(repo, "archive", [])
     rc, verified = cli(repo, "verify", "archive", "--preview", result["preview_revision"], "--revision", result["preview_revision"])

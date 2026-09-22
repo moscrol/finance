@@ -46,7 +46,7 @@ _REDIRECT = (
 
 def _git(repo: Path, *args: str, env: dict[str, str] | None = None) -> str:
     return subprocess.run(
-        ["git", "--literal-pathspecs", "-C", str(repo), *args],
+        ["git", "--no-replace-objects", "--literal-pathspecs", "-C", str(repo), *args],
         check=True, capture_output=True, text=True, timeout=30, env=env,
     ).stdout.strip()
 
@@ -70,6 +70,13 @@ def _repo(repo: Path) -> Path:
 
 def _commit(repo: Path, revision: str) -> str:
     return _git(repo, "rev-parse", "--verify", "--end-of-options", f"{revision}^{{commit}}")
+
+
+def _parents(repo: Path, revision: str) -> list[str]:
+    # Revision walkers (including `show --format=%P`) may hide or rewrite
+    # parents at shallow/graft boundaries. Read the immutable object header.
+    header = _git(repo, "cat-file", "commit", revision).split("\n\n", 1)[0]
+    return [line.removeprefix("parent ") for line in header.splitlines() if line.startswith("parent ")]
 
 
 def prepare(repo: Path, archive: str, paths: list[str]) -> dict[str, object]:
@@ -104,8 +111,8 @@ def verify(repo: Path, archive: str, preview: str, revision: str) -> dict[str, o
     archive = _path(archive)
     preview = _commit(repo, preview)
     revision = _commit(repo, revision)
-    preview_parents = _git(repo, "show", "-s", "--format=%P", preview).split()
-    parents = _git(repo, "show", "-s", "--format=%P", revision).split()
+    preview_parents = _parents(repo, preview)
+    parents = _parents(repo, revision)
     preview_tree = _git(repo, "rev-parse", f"{preview}^{{tree}}")
     tree = _git(repo, "rev-parse", f"{revision}^{{tree}}")
     errors = []

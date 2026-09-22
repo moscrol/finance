@@ -24,7 +24,9 @@ MANIFEST = "sha256-manifest.txt"
 
 def _git(repo: Path, *args: str) -> bytes:
     return subprocess.run(
-        ["git", "-C", str(repo), *args], check=True, capture_output=True, timeout=30,
+        # Replacement refs are local overlays, not bytes named by the SHA.
+        ["git", "--no-replace-objects", "-C", str(repo), *args],
+        check=True, capture_output=True, timeout=30,
     ).stdout
 
 

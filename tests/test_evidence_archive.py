@@ -98,6 +98,24 @@ def test_archive_mutations_are_rejected(archive_repo, fault):
         assert "missing from commit: archive/run.log.txt" in result["errors"]
 
 
+@pytest.mark.parametrize("replacement_kind", ["commit", "blob"])
+def test_replacement_refs_cannot_hide_corrupt_committed_bytes(archive_repo, replacement_kind):
+    repo = archive_repo
+    good = commit(repo)
+    good_blob = git(repo, "rev-parse", f"{good}:archive/report.md")
+    (repo / "archive/report.md").write_text("corrupt bytes after sealing\n")
+    corrupt = commit(repo)
+    corrupt_blob = git(repo, "rev-parse", f"{corrupt}:archive/report.md")
+    if replacement_kind == "commit":
+        git(repo, "replace", corrupt, good)
+    else:
+        git(repo, "replace", corrupt_blob, good_blob)
+    result = check_archive(repo, "archive", corrupt)
+    assert result["revision"] == corrupt
+    assert result["ok"] is False
+    assert "hash mismatch: archive/report.md" in result["errors"]
+
+
 @pytest.mark.parametrize("archive", ["/tmp/archive", "../archive", "archive/../archive", ".", "archive/"])
 def test_invalid_archive_path_is_rejected(archive_repo, archive):
     revision = commit(archive_repo)
