@@ -9,24 +9,22 @@
 - 合成 K3 的条件漂移标覆盖 partial，不伪造事实拒句；不推广为全部摘要错误的通则。
 
 ## 当前状态
-业务仍 `ba18395ce`；反例初版 `7209bbfff`，完整请求/回执测试 `a8bc27e36`。本轮只改案例/测试/交接，未 push/合 main/部署。冻结答卷 `adcda94b5e40`。详见 `docs/handoffs/2026-09-22-research-semantic-counterexamples.md`；Knevo 收件审读见同目录 `2026-09-22-knevo-threeway-intake-review.md`。
+本轮新增 benchmark 证据身份适配，提交 `1e2ce06e4`；未 push、合 main 或部署。工作树当前应保持干净。业务固定提交仍 `ba18395ce`，冻结答卷 `adcda94b5e40`，8792 不动。详细决策见 `docs/handoffs/2026-09-22-benchmark-evidence-ordinal-adapter.md`；反例背景见 `docs/handoffs/2026-09-22-research-semantic-counterexamples.md`。
 
 ## 已验证
-- 干净 `a8bc27e36` 五文件回归与恢复各342P；收据 `~/.finance-runtime/test-receipts/20260921T184202Z-a8bc27e3.json`、`20260921T184304Z-a8bc27e3.json`。
-- 8个合成案例各坏/可接受两版；原要求/证据送达、JSON/工具/注入报告、公开覆盖均有测试；K3另走完整 verifier 替身。
-- 撤回执/覆盖保护各触发预期断言，无夹具错误；Ruff check/format、diff check、pre-commit通过。
-- 冻结67文件+Knevo4原件哈希未变。
-- 前轮业务固定回归1787P/4S、十组变异、专项414P收据见09-21日期交接，不移签本轮。
+- 全量 Python：`12673 passed / 0 failed / 85 skipped / 2 xfailed`；收据 `~/.finance-runtime/test-receipts/20260921T194841Z-1e2ce06e.json`，干净绑定提交。
+- 前端 install/lint/typecheck/test/build/E2E 全通过；组件 `110 passed`，E2E `34 passed / 2 skipped`；收据在 `~/.finance-runtime/reviews/research-contract-citations-0921/frontend-fixed-1e2ce06e4/frontend.json`。
+- 注册表四项检查、ledger-spec 对账、pre-commit、Ruff 均通过；对账 98 条反向回指为既存 warning。
+- 边界变异 baseline/restored 各77项通过；10个变异均按预期断言失败，源码未变。冻结67文件及Knevo4原件哈希未变。
 
 ## 未验证 / 已知边界
-- 位置保留不证明含义正确：K3误报fulfilled时机械复核仍completed，已明确刻画此限制。
-- 无真实模型识别率、独立标签审核、金融外核；诚实披露缺资料也可能仍partial。
-- 非K3未压完整句子修复链；合成证据借market_data夹具，非真实取证装配。
-- 未跑全仓Python、前端/E2E、跨仓registry、独立代码审核、最新主干组合验证或生产装配。
-- socket audit仅限测试进程，不是任意外呼沙箱；共享记忆项目页他人在途未接管。
+- 工程协议绿不等于金融语义绿；无真实模型识别率、独立案例/代码 reviewer verdict、金融外核或自然修复质量。
+- K3 位置 witness 仍不证明摘要条件正确；合成证据不是实际取证。真实闭环须新授权、新样本。
+- 相对 `gitea/main` behind 5，未做最新主干组合验证；未做生产装配验收。socket audit 也不是通用外呼沙箱。
+- 不把本批成绩写成研究规则，不重跑冻结失败，不访问 8792，不接管共享记忆他人改动。
 
 ## 下一步
-独立审案例与代码；完整门禁后仍须用户确认合并。真实闭环用新授权新样本，不重跑冻结失败，不把本批直接写成研究规则。
+独立审案例与代码；用户确认后再决定推送/合并。若需真实验证，先授权并使用新样本，分开记录事实漏判、语义误杀、任务覆盖和最终状态。
 
 ## 踩过的坑
-句后[E1]可能被独立编号；仅调整合成夹具引用位置，勿重编生产或原件。旧67/200P是脏树开发态，不得代签干净提交；工程绿不等于语义绿。
+完整证据账本先定 E 号再过滤；benchmark 不能按 hash 重编号。短 SHA 会被 frontend gate 当成不同 revision；门禁须传完整 40 位 SHA。旧67/200P是脏树开发态，不得代签干净提交；工程绿不等于语义绿。
