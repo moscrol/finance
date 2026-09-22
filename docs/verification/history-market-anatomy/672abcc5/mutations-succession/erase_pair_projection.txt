@@ -1,0 +1,9 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_saved_live_pairs_deliver_atomic_status_reason_and_actual_observation_dates _
+tests/test_history_succession_projection.py:74: in test_saved_live_pairs_deliver_atomic_status_reason_and_actual_observation_dates
+    assert [r["observed_days"] for r in states] == [0, 0, 0, 0, 2, 2]
+E   KeyError: 'observed_days'
+=========================== short test summary info ============================
+FAILED tests/test_history_succession_projection.py::test_saved_live_pairs_deliver_atomic_status_reason_and_actual_observation_dates
+1 failed in 0.28s

@@ -127,6 +127,52 @@ def _stream_payloads(response_text: str) -> list[dict[str, object]]:
     ]
 
 
+def test_real_turn_terminal_claim_does_not_publish_an_incomplete_artifact_list(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo_root = Path(__file__).parent / "fixtures" / "chat_workbench_repo"
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    monkeypatch.setenv("FINANCE_WS", str(repo_root))
+    monkeypatch.setenv("KB_VAULT", str(repo_root / "wiki"))
+    monkeypatch.setenv("FINANCE_NEWS_FETCH", "0")
+    monkeypatch.setenv("FINANCE_WEB_SEARCH", "0")
+    for key in _LLM_KEY_NAMES:
+        monkeypatch.delenv(key, raising=False)
+    reached, release = threading.Event(), threading.Event()
+    original = RunStore.add_artifact
+
+    def blocked_report(self, run_id, name, *args, **kwargs):
+        if name == "report.json":
+            reached.set()
+            assert release.wait(10), "test must release report publication"
+        return original(self, run_id, name, *args, **kwargs)
+
+    monkeypatch.setattr(RunStore, "add_artifact", blocked_report)
+    with TestClient(create_app(repo_root=repo_root)) as client:
+        conv = client.post("/api/conversations", json={"user": "alice"}).json()["conversation_id"]
+        created = client.post(f"/api/conversations/{conv}/messages", json={
+            "user": "alice", "content": "今天研究什么", "skill_mode": "manual",
+            "selected_skill_ids": ["daily-agent"],
+        }).json()
+        try:
+            assert reached.wait(10)
+            run = client.get(f"/api/runs/{created['run_id']}?user=alice").json()
+            assert run["status"] == "completed"
+            assert run["publication"] == {"status": "pending", "message_id": None}
+            assert "report.json" not in [a["path"] for a in run["artifacts"]]
+            message = _wait_message_terminal(client, conv)[-1]
+            assert message["message_id"] == created["assistant_message_id"]
+            assert message["content"]  # 消息先写也不能冒充所有产物已发布。
+        finally:
+            release.set()
+        body = client.get(f"/api/runs/{created['run_id']}/events?user=alice").text
+        terminal = json.loads(body.split("event: run\ndata: ")[1].strip())
+        assert terminal["publication"] == {
+            "status": "published", "message_id": created["assistant_message_id"],
+        }
+        assert "report.json" in [a["path"] for a in terminal["artifacts"]]
+
+
 def test_real_conversation_round_trip_persists_skills_sse_and_three_turns(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

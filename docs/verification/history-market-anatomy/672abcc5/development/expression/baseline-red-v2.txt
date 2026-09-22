@@ -1,0 +1,97 @@
+FFF                                                                      [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T113807Z-b6f9cbc2.json
+
+=================================== FAILURES ===================================
+______ test_original_four_turn_prompts_use_history_not_forward_contracts _______
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2515/test_original_four_turn_prompt0')
+
+    def test_original_four_turn_prompts_use_history_not_forward_contracts(tmp_path):
+        frozen = Path(__file__).resolve().parents[1] / (
+            "docs/verification/history-market-anatomy/fbd8f2a6/questions.json"
+        )
+        assert json.loads(frozen.read_text())["questions"] == [FIRST, *FOLLOWUPS]
+        store = ConversationStore("history-contract", root=tmp_path / "conversation")
+        conv = store.create_conversation()
+        previous = None
+        for n, question in enumerate((FIRST, *FOLLOWUPS)):
+            decision = _decide(store, conv, question, previous, n)
+            frame = decision.task_frame
+            context = _context(frame)
+            assert context.history_intent == frame.history_intent
+            assert context.history_intent.strict_window
+            assert context.information_cutoff.as_of_date.isoformat() == "2026-09-15"
+            system, user = FinanceResearchHarness().assemble_prompt(
+                frame, context, ResearchToolRegistry(())
+            )
+            for heading in ("【跟踪表达契约】", "【排序与情景表达契约】", "【情景树表达契约】"):
+>               assert heading not in system + user, (n + 1, heading)
+E               AssertionError: (2, '【跟踪表达契约】')
+E               assert '【跟踪表达契约】' not in '你是连续运行的金融研究...ble": false}'
+E                 
+E                 '【跟踪表达契约】' is contained here:
+E                   ": "\n\n\n【跟踪表达契约】本题为持续跟踪类问题，draft 必须按此结构组织：\n1. delta-only 纪律：以上期基线为锚只报有信息量的变化；上期结论仍成立的项写一句「无变化」即可，禁止重跑全景模板凑字数。上期基线只能来自 memory_lookup 召回的用户既有判断或 conversation_context 里的先前结论；两处都无相关记录时，draft 开头显式声明「无上期基线，本期建立基线」，禁止虚构或臆测上期说过什么。\n2. 观点四态对照：对每条召回的既有判断给显式判定——「支持 / 削弱 / 无变化 / 信息不足」四态之一；判定必须由本轮 evidence 支撑并进入对应 binding，没有证据支撑的判定只能写「信息不足」。\n3. 结论 TTL：本期每条新结论标注「复核期限：YYYY-MM-DD」——跟踪级默认 30 天、框架级默认 90 天；到期未复核视为待复核，不得当作已验证事实引用。\n4. 下期关注清单（draft 结尾必给）：每项 = 指标/事件 + 时间节点 + 触发条件（可观察、可证伪，如「若 X 月中报毛利率 <Y% 则削弱扩产逻辑」）；禁止「持续关注市场情绪」这类不可证伪表述。\n5. 跟踪不改变证据纪律：变化必须来自本轮工具证据，不得由「距上次隔了很久」...
+E                 
+E                 ...Full output truncated (4 lines hidden), use '-vv' to show
+
+tests/test_history_expression_contract_boundary.py:85: AssertionError
+____ test_repair_does_not_replace_history_evidence_gaps_with_forward_slots _____
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2515/test_repair_does_not_replace_h0')
+
+    def test_repair_does_not_replace_history_evidence_gaps_with_forward_slots(tmp_path):
+        frame = _history_frame(tmp_path)
+        context = _context(frame)
+        outcome = _unfulfilled(frame, context)
+        original = verify_episode_outcome(context.contract, outcome)
+        assert original.missing_outputs
+        assert not FORWARD_SLOTS.intersection(original.missing_outputs)
+        actual = _with_track_contract_gaps(original, context)
+>       assert actual == original
+E       AssertionError: assert VerifiedEpiso...on_outputs=()) == VerifiedEpiso...on_outputs=())
+E         
+E         Omitting 8 identical items, use -vv to show
+E         Differing attributes:
+E         ['missing_outputs']
+E         
+E         Drill down into differing attribute missing_outputs:
+E           missing_outputs: ('direct_assessment', 'counterpoint', 'evidence_boundary', 'track_quad_or_baseline', 'track_ttl', 'track_next_watch', 'ranking_matrix', 'ranking_flip_conditions', 'ranking_competing_explanations', 'ranking_next_actions') != ('direct_assessment', 'counterpoint', 'evidence_boundary')
+E           Left contains 7 more items, first extra item: 'track_quad_or_baseline'
+E           Use -v to get more diff
+
+tests/test_history_expression_contract_boundary.py:101: AssertionError
+_________ test_actual_adapter_receipts_and_repair_keep_history_missing _________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2515/test_actual_adapter_receipts_a0')
+
+    def test_actual_adapter_receipts_and_repair_keep_history_missing(tmp_path):
+        frame = _history_frame(tmp_path)
+        context = _context(frame)
+        outcome = _unfulfilled(frame, context)
+    
+        class Runtime:
+            def run(self, **_kwargs):
+                return outcome
+    
+        result = ContinuousTurnAdapter(
+            runtime=Runtime(), mode="on",
+            context_factory=lambda *_args, **_kwargs: context,
+            registry_factory=lambda *_args, **_kwargs: ResearchToolRegistry(()),
+            semantic_verifier=SemanticEpisodeVerifier(judge_fn=lambda _: {
+                "passed": True, "rejected_sentence_indexes": [], "issues": [],
+            }),
+        ).handle(frame=frame, control=TurnControlResult(
+            task_frame=frame, execution_route=frame.question_type,
+            terminal_kind="research", needs_retrieval=True,
+            capabilities=("finance_query",), contract_required=True,
+        ))
+        assert result.status != "completed"
+        artifact = result.private_artifact
+>       assert artifact["track_contract"]["track_intent"] is False
+E       assert True is False
+
+tests/test_history_expression_contract_boundary.py:159: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_history_expression_contract_boundary.py::test_original_four_turn_prompts_use_history_not_forward_contracts
+FAILED tests/test_history_expression_contract_boundary.py::test_repair_does_not_replace_history_evidence_gaps_with_forward_slots
+FAILED tests/test_history_expression_contract_boundary.py::test_actual_adapter_receipts_and_repair_keep_history_missing
+3 failed, 6 deselected in 0.53s

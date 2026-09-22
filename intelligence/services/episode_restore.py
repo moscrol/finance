@@ -21,7 +21,8 @@
    的事（§12 第 3 题：重启后只登记、人工触发）。能闭合的（取消 / 截止已过）在这里直接闭合成
    ``AgentOutcome``，让 ``list_open()`` 不再列它。
 
-合成事件写回 store（结算不 fsync；``finish`` 之后 ``put_state(done)``），sequence 仍追加取号
+合成事件逐条同步写回 store（恢复是低频控制路径；确认之后才能更新 checkpoint / 返回下一动作），
+``finish`` 与 ``put_state(done)`` 都确认后才闭合。sequence 仍追加取号
 （本仓日志按序号连续、不预留空洞；预留的是关联 id——工单 #29 §0 第 2 条），并带 ``intent_sequence``
 指回意图、``synthesized=True`` 标明来源。
 """
@@ -35,6 +36,8 @@ import json
 from typing import Literal
 
 from intelligence.services.agent_runtime import AgentOutcome, AgentUsage, EpisodeEvent
+from intelligence.services.episode_authorization import validate_current_authorization
+from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.episode_store import (
     EPISODE_LOG_VERSION,
     EpisodePhase,
@@ -224,10 +227,12 @@ class _Synthesizer:
                 "restored_from_phase": self._phase,
             },
         )
+        # A recovery plan/checkpoint must not get ahead of the settlements it
+        # relies on. Unlike the hot loop, recovery has no guaranteed next intent
+        # to flush them. ACK loss propagates: no plan/outcome, no rollback/retry.
+        self._store.append(self._episode_id, (event,), sync=True)
         self.events.append(event)
         self.synthesized.append(event)
-        # 合成的是结算 / 终局，不是意图：不 fsync（与 loop 同口径）。
-        self._store.append(self._episode_id, (event,), sync=False)
         return event
 
 
@@ -307,6 +312,7 @@ def _terminal_outcome(
         bindings=(),
         usage=AgentUsage(llm_calls=llm_calls, tool_calls=tool_calls, invalid_actions=0),
         plan=None,
+        persistence="durable",
     )
 
 
@@ -320,11 +326,13 @@ def restore_episode(
     registry: ResearchToolRegistry | None = None,
     harness: ResearchHarness | None = None,
     now: datetime | None = None,
+    context: ResearchRunContext | None = None,
 ) -> RestoreResult:
     """读状态 → 点查 → switch。返回下一动作（``plan``）或已闭合的终局（``outcome``）。
 
-    ``registry`` 给出**当前**的 replay 声明（「当前声明仍 safe」那半边）；不传就只信意图里
-    记的声明。``now`` 可注入，Tier A 套件用它把「截止已过 / 未过」两格都跑到。
+    非终态必须有完整授权快照及调用方重新提供的 ``context`` / ``registry``，精确匹配后
+    才能合成日志/给计划；旧日志可 load 诊断，但不猜权限给恢复计划。确认完成态只读返回。
+    ``now`` 可注入，Tier A 套件用它把「截止已过 / 未过」两格都跑到。仍不是续跑许可。
     """
 
     domain = harness if harness is not None else FinanceResearchHarness()
@@ -365,8 +373,57 @@ def restore_episode(
             pending_inbox=pending_inbox_messages(loaded_events),
         )
 
-    if state.terminal or any(e.kind == "finish" for e in events):
+    latest_finish = next((e for e in reversed(events) if e.kind == "finish"), None)
+    if state.terminal:
+        # A visible finish alone does not prove the done checkpoint was ACKed.
+        # Nor may an old done checkpoint hide a later repair or failure suffix.
+        if (
+            latest_finish is None
+            or latest_finish.sequence != state.last_sequence
+            or state.last_sequence != len(events)
+        ):
+            raise RestoreUnavailable(f"{episode_id}: terminal checkpoint does not match the finish prefix")
         return result("already_terminal", synth=None, plan=None, outcome=None, state_after=state)
+    if latest_finish is not None:
+        repair_checkpointed = any(
+            e.kind == "repair_reentry"
+            and latest_finish.sequence < e.sequence <= state.last_sequence
+            for e in events
+        )
+        if not repair_checkpointed:
+            raise RestoreUnavailable(f"{episode_id}: finish has no confirmed completion or repair checkpoint")
+        # Same-process repair can legally continue after a prior finish. Its
+        # newer checkpoint, not a historical finish, owns the recovery position.
+
+    # P1a stores linked episodes, but no driver yet restores their shared budget,
+    # branch delivery/ownership and in-flight effects together. Refuse BEFORE
+    # synthesizing events; a standalone retry would mint a second child tree.
+    if state.contract_snapshot.get("branch_parent") or any(
+        event.kind == "branch_started" for event in events
+    ):
+        raise RestoreUnavailable(f"{episode_id}: linked episode recovery requires child reconciliation")
+
+    # Saved authority is not a grant. The owning entry point must reauthorize;
+    # validate BEFORE any synthetic event/checkpoint, including expired closure.
+    # Absence cannot distinguish legacy data from a damaged new checkpoint.
+    # Both stay loadable for diagnosis, but neither may bypass this gate.
+    if state.authorization_snapshot is None or context is None or registry is None:
+        raise RestoreUnavailable(f"{episode_id}: recovery authorization requires snapshot, current context and registry")
+    if context.contract.task_id != episode_id or (
+        context.contract.task_frame_hash and context.contract.task_frame_hash != task_frame_hash
+    ):
+        raise RestoreUnavailable(f"{episode_id}: recovery authorization task identity mismatch")
+    try:
+        validate_current_authorization(state.authorization_snapshot, context=context, registry=registry)
+    except (TypeError, ValueError) as exc:
+        raise RestoreUnavailable(f"{episode_id}: recovery authorization mismatch") from exc
+
+    # A public tool_result is lossy (no private locator/structured values), so
+    # absent evidence cannot be reconstructed from it or treated as empty.
+    if state.evidence_snapshot is None:
+        raise RestoreUnavailable(f"{episode_id}: recovery evidence snapshot is required")
+    if state.evidence_snapshot["information_cutoff"] != context.information_cutoff.as_of_date.isoformat():
+        raise RestoreUnavailable(f"{episode_id}: recovery evidence cutoff mismatch")
 
     synth = _Synthesizer(
         episode_id=episode_id,
@@ -392,6 +449,11 @@ def restore_episode(
             cancel=cancel,
             last_sequence=len(events),
             updated_at=now_iso(),
+            budget_snapshot=state.budget_snapshot,
+            budget_snapshot_sequence=state.budget_snapshot_sequence,
+            authorization_snapshot=state.authorization_snapshot,
+            evidence_snapshot=state.evidence_snapshot,
+            evidence_snapshot_sequence=state.evidence_snapshot_sequence,
         )
         store.put_state(episode_id, done)
         outcome = _terminal_outcome(events, task_frame_hash=task_frame_hash, finish=finish)
@@ -412,6 +474,11 @@ def restore_episode(
                 cancel=cancel,
                 last_sequence=len(events),
                 updated_at=now_iso(),
+                budget_snapshot=state.budget_snapshot,
+                budget_snapshot_sequence=state.budget_snapshot_sequence,
+                authorization_snapshot=state.authorization_snapshot,
+                evidence_snapshot=state.evidence_snapshot,
+                evidence_snapshot_sequence=state.evidence_snapshot_sequence,
             )
             store.put_state(episode_id, state_after)
         return result("resumable", synth=synth, plan=plan, outcome=None, state_after=state_after)

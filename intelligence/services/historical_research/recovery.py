@@ -41,6 +41,16 @@ def recovery_evidence_priority(evidence: tuple[AgentEvidence, ...]) -> tuple[str
                 result.append(item.content_hash)
 
     for rows in reversed(tuple(groups.values())):
+        # A trace can have many NAV/member cards. Keep all previewed pair states
+        # before those details, in original order (never candidate-first).
+        pairs = [row for row in rows if row[1].get("record_kind") == "sector_succession"]
+        if pairs:
+            remember(row for row in pairs if "succession_status" in row[1])
+            remember(row for row in pairs if "succession_rule" in row[1])
+            remember(pairs)
+            remember(rows)
+            if len(result) >= 12:
+                break
         samples = [(item, value) for item, value in rows if _SAMPLE_FIELDS.intersection(value)]
         if not samples:
             continue

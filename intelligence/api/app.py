@@ -82,6 +82,7 @@ from intelligence.runtime.conversation_orchestrator import (
 from intelligence.runtime.continuous_turn_adapter import (
     ContinuousTurnAdapter,
 )
+from intelligence.services.cancel_signal import CancelSignal
 from intelligence.services.conversation_store import (
     ConversationDataIntegrityError,
     ConversationStore,
@@ -493,9 +494,17 @@ def _build_continuous_turn_adapter(
         )
 
     selection = resolve_runtime_backend()
+    # Execution-local failure must reach the injected client as well as the loop.
+    # Do not replace the orchestrator's user-cancel predicate: storage failure is
+    # delivered as failed/storage_failed, not swallowed as a user cancellation.
+    execution_cancel = (
+        CancelSignal.coerce(is_cancelled)
+        if selection.name == "continuous_glm"
+        else is_cancelled
+    )
     client = GLMModelClient(
         providers=providers,
-        is_cancelled=is_cancelled,
+        is_cancelled=execution_cancel,
         # 只在 continuous_glm 上接：sdk_glm 走 OpenAIAgentsRuntime，
         # 它自己的流式语义还没对齐，这里不假装它也能流。
         on_draft_delta=(
@@ -512,7 +521,7 @@ def _build_continuous_turn_adapter(
         runtime = GLMAgentRuntime(
             client=client,
             finalizer=finalizer,
-            is_cancelled=is_cancelled,
+            is_cancelled=execution_cancel,
             event_sink=(
                 publish_episode_event if progress_publisher is not None else None
             ),
@@ -781,8 +790,54 @@ def _public_degrades(values: list[str]) -> list[str]:
     )
 
 
-def _public_run_payload(run: rs.Run) -> dict[str, object]:
+def _public_run_payload(run: rs.Run, *, store: rs.RunStore) -> dict[str, object]:
+    # Claiming terminal ownership precedes message/artifact writes. Only the
+    # matching final message event is a publication barrier; a report file alone
+    # is neither sufficient nor required (failure/cancellation can lack one).
+    publication: dict[str, object] = {"status": "pending", "message_id": None}
+    target = None
+    if run.session_id:
+        try:
+            messages = ConversationStore(user_id=store.user_id).load_messages(
+                run.session_id
+            )
+        except FileNotFoundError:
+            messages = []  # Legacy /api/runs may carry an arbitrary session label.
+        target = next(
+            (m for m in messages if m.role == "assistant" and m.run_id == run.run_id),
+            None,
+        )
+    if target is None:
+        publication["status"] = "not_applicable"
+    elif (
+        run.status in {rs.STATUS_COMPLETED, rs.STATUS_FAILED, rs.STATUS_CANCELLED}
+        and target.status == run.status
+    ):
+        expected_type = (
+            "message.complete" if run.status == rs.STATUS_COMPLETED else "message.error"
+        )
+        for event in store.load_stream_events(run.run_id):
+            message = event.get("payload", {}).get("message")
+            if (
+                event.get("event_type") == expected_type
+                and event.get("run_id") == run.run_id
+                and event.get("conversation_id") == run.session_id
+                and isinstance(message, dict)
+                and message.get("role") == "assistant"
+                and message.get("status") == run.status
+                and message.get("run_id") == run.run_id
+                and message.get("conversation_id") == run.session_id
+                and isinstance(event.get("message_id"), str)
+                and event["message_id"] == target.message_id
+                and message.get("message_id") == event["message_id"]
+            ):
+                publication = {"status": "published", "message_id": event["message_id"]}
+                # Do not label a pre-event snapshot published: an artifact may
+                # have been registered between load_run and the event read.
+                run = store.load_run(run.run_id)
+                break
     payload = asdict(run)
+    payload["publication"] = publication
     payload["artifacts"] = [
         artifact
         for artifact in run.artifacts
@@ -3218,7 +3273,7 @@ def create_app(
         active = supervisor.is_active(store.user_id, run_id)
         run = store.load_run(run_id)
         return {
-            **_public_run_payload(run),
+            **_public_run_payload(run, store=store),
             "delivery_pending": active and run.status == rs.STATUS_COMPLETED,
         }
 
@@ -3299,7 +3354,6 @@ def create_app(
         def stream():
             current_cursor = cursor
             deadline = time.monotonic() + _SSE_MAX_SECONDS
-            terminal_event_deadline: float | None = None
             while True:
                 run_payload = delivered_run_payload(store, run_id)
                 report_events = store.load_stream_events(run_id, after=current_cursor)
@@ -3319,30 +3373,17 @@ def create_app(
                     rs.STATUS_FAILED,
                     rs.STATUS_CANCELLED,
                 ):
-                    # A writer may have finished between this iteration's event
-                    # snapshot and terminal check. Drain that tail before closing.
-                    if store.load_stream_events(run_id, after=current_cursor):
-                        continue
-                    terminal_message_missing = run_payload["session_id"] and not any(
-                        event["event_type"] in {"message.complete", "message.error"}
-                        for event in store.load_stream_events(run_id)
-                    )
-                    if terminal_message_missing:
-                        terminal_event_deadline = (
-                            terminal_event_deadline
-                            or time.monotonic() + 2 * _SSE_POLL_SECONDS
+                    if run_payload["publication"]["status"] != "pending":
+                        # A commit event can arrive between the reads above.
+                        # Drain it on the next pass before the terminal run.
+                        pending = store.load_stream_events(run_id, after=current_cursor)
+                        if pending:
+                            continue
+                        yield (
+                            "event: run\n"
+                            f"data: {json.dumps(run_payload, ensure_ascii=False)}\n\n"
                         )
-                    if (
-                        terminal_message_missing
-                        and time.monotonic() < terminal_event_deadline
-                    ):
-                        time.sleep(_SSE_POLL_SECONDS)
-                        continue
-                    yield (
-                        "event: run\n"
-                        f"data: {json.dumps(run_payload, ensure_ascii=False)}\n\n"
-                    )
-                    return
+                        return
                 if time.monotonic() > deadline:
                     yield "event: timeout\ndata: {}\n\n"
                     return
@@ -3606,7 +3647,7 @@ def create_app(
         return {
             "user": store.user_id,
             "workflows": workflows,
-            "recent_runs": [_public_run_payload(run) for run in runs],
+            "recent_runs": [_public_run_payload(run, store=store) for run in runs],
             "latest_artifacts": [artifact.public_dict() for artifact in artifacts[:10]],
             "latest_daily_artifact": latest_daily.public_dict()
             if latest_daily

@@ -788,6 +788,9 @@ class HarnessReferenceLoop:
             state.messages.append(
                 tool_message(call.call_id, projection.model_content, source="tool_result")
             )
+            acknowledge = getattr(harness, "acknowledge_tool_result", None)
+            if acknowledge is not None:
+                acknowledge(observation, projection, context=state.context)
         return invalid_actions
 
     @staticmethod

@@ -1,0 +1,181 @@
+{
+  "schema": "history-forward-template-conflict-v1",
+  "inspected_at_revision": "f9afb4a0029224ed13dd3b3bb16d0a76e7c0f2e8",
+  "scope": "read-only extraction of old fbd8 prompts and receipts; no model, DB or new conversation",
+  "finding": "The actual turn-2 prompt required forward track and company priority templates, and structural checks pursued their missing sections.",
+  "limits": "Proves a conflicting instruction/check path, not a unique causal explanation of the entire failed answer or the four-turn group; does not resolve mismatched rank windows or startup comparison.",
+  "source_unchanged": true,
+  "turns": [
+    {
+      "run_id": "run_20260918_092041_239775",
+      "events": {
+        "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260918-fbd8f2a6/episodes/run_20260918_092041_239775_msg_bc6d531b887943b7996975e39e2ee7f1-700bcaecb3bb/events.jsonl",
+        "bytes": 239266,
+        "sha256": "6bdc287b82986287d873db125f482ff44ba804dddc3c2343ccdbc0024f0789fb",
+        "prompt_line": 3
+      },
+      "artifact": {
+        "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260918-fbd8f2a6/users/history-anatomy-acceptance-v2/runs/run_20260918_092041_239775/continuous-episode.json",
+        "bytes": 1361724,
+        "sha256": "9648f0810f40e268848e61a36200628b66f90553578286e98ab1428e8b8e2d0e"
+      },
+      "user_prompt_sha256": "b52c3eb0fe958c037fd43d0269fc6b7b16ed0c7bd8f2712100d0e487555530d4",
+      "system_prompt_sha256": "dd7b149d13a9ca55a787aa37eb1ce87b6e992d6a58c00318cf9cf35f7c579cda",
+      "question": "以2026年9月15日为信息截止日，先判断当时市场处于什么阶段，分清标签来源、量价和涨跌家数证据；再把9月1日至9月15日作为观察窗，在2026年1月1日至8月31日中寻找多维度比较接近的历史窗口。说明比较口径、缺失和重叠窗口，不要把相似程度当预测胜率。本组研究只使用2026年1月1日至9月15日的本地历史数据，不联网补数。",
+      "history_intent": {
+        "purpose": "historical_comparison",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-15"
+      },
+      "forward_contract_headings": [],
+      "rules_sha256": "7daf10dae97c5bb297912a3e8e678d4f6ca160992b308d266a49360f3c2e79d5",
+      "track_contract": {
+        "check": "track_contract",
+        "track_intent": false,
+        "missing_outputs": [],
+        "prior_verdict_check": null,
+        "valid_until": null,
+        "ttl_status": "missing",
+        "baseline_declared": false
+      },
+      "ranking_intent": false,
+      "ranking_missing_outputs": [],
+      "structural_missing_outputs": []
+    },
+    {
+      "run_id": "run_20260918_092341_744398",
+      "events": {
+        "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260918-fbd8f2a6/episodes/run_20260918_092341_744398_msg_c571161e411c488a815ddf2c2b49a818-e0a176e2c0fb/events.jsonl",
+        "bytes": 1143123,
+        "sha256": "018a9e7ad4be621267db3a5e03071a77c717cc07ba10cb95d169ce299b9b33b3",
+        "prompt_line": 3
+      },
+      "artifact": {
+        "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260918-fbd8f2a6/users/history-anatomy-acceptance-v2/runs/run_20260918_092341_744398/continuous-episode.json",
+        "bytes": 6535898,
+        "sha256": "5b2d80a72b92b9324ef134a79666fe838a595047f2815a3357a58e74e8151c71"
+      },
+      "user_prompt_sha256": "386d73ed42e525b56a681f8665f85b43ca5330ff3f009fa0d8a5e1e023fdc966",
+      "system_prompt_sha256": "dd7b149d13a9ca55a787aa37eb1ce87b6e992d6a58c00318cf9cf35f7c579cda",
+      "question": "继续：从你刚才找到的相似历史窗口里选一个证据最完整的，看看当时强势的板块和个股分别有哪些。区分全市场排名与板块成员排名，再追踪有明确启动信号的代表：从启动到窗口内峰值经过了什么过程、量价怎么变、后来是否得到回撤确认？没触发、缺数据或窗口太短的请保留，不要只报赢家。仍沿用上一轮信息截止和研究范围。",
+      "history_intent": {
+        "purpose": "historical_comparison",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-15"
+      },
+      "forward_contract_headings": [
+        "【跟踪表达契约】",
+        "【排序与情景表达契约】"
+      ],
+      "rules_sha256": "3b72245eb0a0fbf1f72f3682d6d764211c69dcdc9a05f1592f2b982c16f3a547",
+      "track_contract": {
+        "check": "track_contract",
+        "track_intent": true,
+        "missing_outputs": [
+          "track_next_watch"
+        ],
+        "prior_verdict_check": null,
+        "valid_until": "2026-10-15",
+        "ttl_status": "current",
+        "baseline_declared": true
+      },
+      "ranking_intent": true,
+      "ranking_missing_outputs": [
+        "ranking_flip_conditions"
+      ],
+      "structural_missing_outputs": [
+        "track_next_watch",
+        "ranking_flip_conditions"
+      ],
+      "question_type_rules": "\n\n\n【跟踪表达契约】本题为持续跟踪类问题，draft 必须按此结构组织：\n1. delta-only 纪律：以上期基线为锚只报有信息量的变化；上期结论仍成立的项写一句「无变化」即可，禁止重跑全景模板凑字数。上期基线只能来自 memory_lookup 召回的用户既有判断或 conversation_context 里的先前结论；两处都无相关记录时，draft 开头显式声明「无上期基线，本期建立基线」，禁止虚构或臆测上期说过什么。\n2. 观点四态对照：对每条召回的既有判断给显式判定——「支持 / 削弱 / 无变化 / 信息不足」四态之一；判定必须由本轮 evidence 支撑并进入对应 binding，没有证据支撑的判定只能写「信息不足」。\n3. 结论 TTL：本期每条新结论标注「复核期限：YYYY-MM-DD」——跟踪级默认 30 天、框架级默认 90 天；到期未复核视为待复核，不得当作已验证事实引用。\n4. 下期关注清单（draft 结尾必给）：每项 = 指标/事件 + 时间节点 + 触发条件（可观察、可证伪，如「若 X 月中报毛利率 <Y% 则削弱扩产逻辑」）；禁止「持续关注市场情绪」这类不可证伪表述。\n5. 跟踪不改变证据纪律：变化必须来自本轮工具证据，不得由「距上次隔了很久」推断「肯定有变化」。【排序与情景表达契约】本题为多对象研究优先级/排序题，draft 必须按此结构组织（表头逐字照抄，程序据此解析；这些是正文表达要求，不是可绑定的 output_id）：\n1. **主判断**（开头 ≤3 句）：谁优先、为什么、最大的不确定变量是什么。\n2. **公司矩阵**（Markdown 表，表头逐字为）：\n| 公司 | 优先级 | 需求暴露 | 收入/利润传导 | 兑现时间 | 已定价程度 | 关键分歧 |\n每家公司一行；「优先级」填 1..N 的整数（1 最优先，不并列）；每格写「取值（证据序号 E1、E2…）」或「缺数：需要什么数据」，禁止空格、禁止只写形容词；同一维度所有公司都要填，不能只输出产业链名单。\n3. **财务传导**：每家一行「需求变化 → 收入/成本/利润 → 兑现时间 → 市场预期差」；有数据的写幅度与口径（如「毛利率 +2pct，2026Q2 单季」），没数据写范围条件和优先补什么；禁止编造具体弹性、权重、胜率、概率。\n4. **竞争解释**（标题「竞争解释」）：≥2 条互斥解释，各自解释当前排序为什么成立/不成立；每条末尾写「区分变量：X；若 X … 则本解释成立」。\n5. **改判条件表**（Markdown 表，表头逐字为）：\n| 变量 | 变化 | 受影响公司 | 方向 | 观察指标×时间窗 |\n≥2 行；「变量」必须是可观察量（成本、订单、需求、产能、政策、客户资本开支等）；「方向」用箭头写谁升谁降，如「英维克↑ 申菱环境↓」，↑ 表示上移一位、↑↑ 两位；「观察指标×时间窗」写看什么指标 + 何时（日期或 N 天内）。\n6. **历史类比**（题目涉及历史/相似时才写）：机制相似点与不适用点各 ≥1 条；不得只列走势形态相似的案例。\n7. **下一步**（标题「下一步」，2-3 条）：每条以「补关键缺口：」「比较替代解释：」「检验条件：」之一开头，写成下一轮能直接执行的研究动作。\n8. **再排序题**（如果/若 … 排序会怎么变）：先写命中了上一轮改判条件表的哪一行（上一轮结论只能来自 conversation_context 里的先前排序或 memory_lookup 召回，没有就声明「无上一轮排序，本期建立基线」），再给「新旧排序对照」表（表头逐字为）：\n| 公司 | 原优先级 | 新优先级 | 变动原因 |\n最后更新观察点；未被改判条件表覆盖的变量，如实写「排序不变，需补该变量的敏感性」。\n9. 纪律：无数据处写缺数与优先补什么，不用形容词补位；不给数值概率；不输出买卖指令。\n\n【专项研究纪律】\n仅在本轮材料范围和已授权工具内执行；缺失资料明确降级，不能扩大读取权限。下面是分析纪律，不是已有事实或审查通过证明；仍按本轮输出槽和证据绑定契约交付。\n联想与类比：从当前问题出发，按相关性检查产业链、竞对、宏观因素、事件传导、不同主体观点、历史模式；不相关的维度不强凑，已有结论不重复。\n每条线索说明为什么相关、来源、传导假设、验证办法及失效边界；图谱里的关系只证明登记过关联，不自动证明因果、采购份额或受益强度。\n历史类比同时列相似点与关键差异，比较供需结构、估值位置、政策/资金环境及时间尺度；历史后验表现不当作当时已知信息，案例不能代替完整样本的规律验证。\n不同机构/KOL 的观点保留归属和日期，不把重复转述算独立证据；推断明确标注，暂无有价值关联时如实说明。输出是待验证线索，不自动升为投资结论。\n"
+    },
+    {
+      "run_id": "run_20260918_092551_590812",
+      "events": {
+        "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260918-fbd8f2a6/episodes/run_20260918_092551_590812_msg_f9fbb3a0af9e4083925340f846c13995-33f3fba06f40/events.jsonl",
+        "bytes": 720782,
+        "sha256": "1dd4bf6a9f9d49c5eea8783dedee87ae6de1f42b10ad0ecd48a604100e9ae124",
+        "prompt_line": 3
+      },
+      "artifact": {
+        "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260918-fbd8f2a6/users/history-anatomy-acceptance-v2/runs/run_20260918_092551_590812/continuous-episode.json",
+        "bytes": 3650371,
+        "sha256": "db73b2a20c2b93343965bf624db3c63bd4ca6d7c88172e8fb8261bb5faaadf48"
+      },
+      "user_prompt_sha256": "f26651ad966ecca041077ae3d3e51c713e709f0edbf993c5a116658f7a08dea3",
+      "system_prompt_sha256": "dd7b149d13a9ca55a787aa37eb1ce87b6e992d6a58c00318cf9cf35f7c579cda",
+      "question": "那在这些代表板块见到窗口峰值后，有没有别的板块接上来？请用同一时间窗验证强弱切换；如果当前分析窗太短，只能在之前授权的日期范围内继续观察。日线先后是否足以说资金转移了？把未确认、没接上和缺数据的情况也说清。",
+      "history_intent": {
+        "purpose": "historical_comparison",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-15"
+      },
+      "forward_contract_headings": [],
+      "rules_sha256": "7daf10dae97c5bb297912a3e8e678d4f6ca160992b308d266a49360f3c2e79d5",
+      "track_contract": {
+        "check": "track_contract",
+        "track_intent": false,
+        "missing_outputs": [],
+        "prior_verdict_check": null,
+        "valid_until": null,
+        "ttl_status": "missing",
+        "baseline_declared": false
+      },
+      "ranking_intent": false,
+      "ranking_missing_outputs": [],
+      "structural_missing_outputs": []
+    },
+    {
+      "run_id": "run_20260918_092658_042839",
+      "events": {
+        "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260918-fbd8f2a6/episodes/run_20260918_092658_042839_msg_9fd8a5fea65149cfb6c14f410c45b4be-62d844fb8433/events.jsonl",
+        "bytes": 211900,
+        "sha256": "75230455c6b4412c3720cd658aa2bca17a326862e91a5c6ef4d0f461d2b772e4",
+        "prompt_line": 3
+      },
+      "artifact": {
+        "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260918-fbd8f2a6/users/history-anatomy-acceptance-v2/runs/run_20260918_092658_042839/continuous-episode.json",
+        "bytes": 1001305,
+        "sha256": "6ab82feecb1b91ab0ed98cf96418422597754b3d584aff7bf9c912c1dd25ebcd"
+      },
+      "user_prompt_sha256": "51e615edc43192aba9ccd07ab5d828ac5242d2c6325befefd2adbb50cb0c12ef",
+      "system_prompt_sha256": "dd7b149d13a9ca55a787aa37eb1ce87b6e992d6a58c00318cf9cf35f7c579cda",
+      "question": "最后把不同板块启动时的可计算特征放在同一口径下对照：哪些只是你用来筛选启动的条件，哪些才可能是额外共同特征？如果要说有后续收益规律，请把未启动或失败样本、缺数和未成熟样本也纳入比较。做不到的部分明确降级为研究假设，不要说已验证SPT或风远方法。范围与截止日继续不变。",
+      "history_intent": {
+        "purpose": "historical_comparison",
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-09-15",
+        "scope": "historical_research",
+        "strict_window": true,
+        "window_error": null,
+        "information_cutoff": "2026-09-15"
+      },
+      "forward_contract_headings": [],
+      "rules_sha256": "7daf10dae97c5bb297912a3e8e678d4f6ca160992b308d266a49360f3c2e79d5",
+      "track_contract": {
+        "check": "track_contract",
+        "track_intent": false,
+        "missing_outputs": [],
+        "prior_verdict_check": null,
+        "valid_until": null,
+        "ttl_status": "missing",
+        "baseline_declared": false
+      },
+      "ranking_intent": false,
+      "ranking_missing_outputs": [],
+      "structural_missing_outputs": []
+    }
+  ]
+}

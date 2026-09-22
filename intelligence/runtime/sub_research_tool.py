@@ -17,23 +17,28 @@ text」那条**不抄**，回文本进不了 ``admit_finish``。
 
 预算：分支的墙钟以**本批工具窗**为界（``tool_batch_timeout_seconds`` 的同一套算术），不是
 episode deadline——批执行器等的是那个窗，超了会把本调用记成 ``tool_timeout`` 而线程照跑；
-先把协调器的 deadline 收进窗里，分支就不会在父臂走掉之后还在往账本里写。
+协调器的 deadline 收进绝对工具窗；不合作的慢线程仍可能晚归，
+再用本批 ToolResultScope 原子关闭父事件/证据交付，不能仅凭 deadline 声称线程已停。
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import nullcontext
 from dataclasses import replace
 import json
 
 from intelligence.runtime.episode_tool_batch import tool_batch_timeout_seconds
+from intelligence.runtime.tool_result_scope import current_tool_result_scope
 from intelligence.runtime.sub_research import (
     BranchResult,
+    BranchRun,
     SubResearchCoordinator,
     SubResearchResult,
 )
 from intelligence.services.agent_research import AgentToolContext
-from intelligence.services.evidence_ledger import EvidenceLedger
+from intelligence.services.evidence_ledger import BranchEvidenceSink, EvidenceLedger
+from intelligence.services.episode_store import EpisodeStore
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     ResearchDeadline,
@@ -59,7 +64,9 @@ def bind_sub_research_tool(
     current_context: Callable[[], ResearchRunContext],
     base_registry: ResearchToolRegistry,
     evidence_ledger: EvidenceLedger,
-    on_result: Callable[[tuple[str, ...], SubResearchResult], None] | None = None,
+    on_start: Callable[[tuple[str, ...], BranchRun], bool] | None = None,
+    on_result: Callable[[tuple[str, ...], SubResearchResult, BranchRun], None] | None = None,
+    episode_store: EpisodeStore | None = None,
 ) -> ToolSpec:
     """绑出这一个 episode 的 ``sub_research`` ToolSpec。
 
@@ -73,9 +80,35 @@ def bind_sub_research_tool(
     def runner(goals_json: str, tool_context: AgentToolContext) -> ToolRunResult:
         goals = tuple(json.loads(goals_json))
         parent = current_context()
-        window = tool_context.deadline.stage_timeout(
-            tool_batch_timeout_seconds(parent.policy)
-        )
+        branch_run = BranchRun(parent.contract.task_id, "tool")
+        delivery = current_tool_result_scope()
+
+        def acceptance():
+            return delivery.accepting() if delivery is not None else nullcontext(True)
+
+        def sink_for(episode_id: str) -> BranchEvidenceSink:
+            sink = evidence_ledger.branch_sink(episode_id)
+
+            def append(branch_id, evidence):
+                with acceptance() as accepted:
+                    return sink.append(evidence) if accepted else ()
+
+            return BranchEvidenceSink(episode_id, append, sink.snapshot)
+
+        with acceptance() as accepted:
+            if not accepted:
+                return tool_result_from_branches(goals, SubResearchResult((), "delivery_closed"))
+            if on_start is not None and not on_start(goals, branch_run):
+                result = SubResearchResult((), "storage_failed")
+                if on_result is not None:
+                    on_result(goals, result, branch_run)
+                return tool_result_from_branches(goals, result)
+        tool_deadline = tool_context.deadline
+        if delivery is not None:
+            tool_deadline = ResearchDeadline(min(
+                tool_deadline.expires_at - tool_deadline.synthesis_reserve, delivery.cutoff,
+            ))
+        window = tool_deadline.stage_timeout(tool_batch_timeout_seconds(parent.policy))
         bounded = replace(
             parent,
             contract=replace(
@@ -86,9 +119,7 @@ def bind_sub_research_tool(
                     if capability != SUB_RESEARCH_TOOL
                 ),
             ),
-            deadline=ResearchDeadline.from_timeout(
-                max(0.0, window * _WINDOW_SAFETY_FRACTION)
-            ),
+            deadline=tool_deadline.bounded_stage(max(0.0, window * _WINDOW_SAFETY_FRACTION)),
         )
         # 父账本在分支前后的余量。分支经 _BranchBudgetView 把自己的调用与秒**累加**
         # 记到父账本（三支并行 150s 记 450s），随后父臂 _settle_batch_calls 再按本批墙钟
@@ -101,11 +132,14 @@ def bind_sub_research_tool(
             task_frame=task_frame,
             context=bounded,
             registry=branch_registry,
-            evidence_sink_factory=evidence_ledger.branch_sink,
+            evidence_sink_factory=sink_for,
+            branch_run=branch_run,
+            episode_store=episode_store,
         )
         after = _root_budget_snapshot(parent.root_budget)
-        if on_result is not None:
-            on_result(goals, result)
+        with acceptance() as accepted:
+            if accepted and on_result is not None:
+                on_result(goals, result, branch_run)
         root_budget = (
             {"before": before, "after_branches": after}
             if before is not None and after is not None
@@ -251,6 +285,9 @@ def branch_telemetry(branch: BranchResult) -> dict[str, object]:
         "input_tokens": branch.input_tokens,
         "output_tokens": branch.output_tokens,
     }
+    if branch.episode_ref is not None:
+        payload["episode_ref"] = branch.episode_ref.to_dict()
+        payload["persistence"] = branch.persistence
     if branch.budget is not None:
         payload["budget"] = branch.budget.to_dict()
     if branch.batches:

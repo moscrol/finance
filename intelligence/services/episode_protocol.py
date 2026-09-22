@@ -181,10 +181,11 @@ def _question_type_rules(
     # 非跟踪题得到空串。从模块导入的文本不进 build_episode_instructions 的
     # 静态契约指纹（test_episode_protocol 只提取该函数体内的字符串常量）。
     # 排序与情景契约（10 号单）同一条注入口：多对象排序题命中才有文本，其它题空串。
-    # 历史发现题（怎么走出来）不叠情景契约，避免和 history 自己的答法打架。
+    # 历史 rank/trace 不叠前向排序/持续跟踪/情景契约；同一意图也传到修复、收据与写入门。
     track_rule = episode_track_rule(
         task_frame.raw_question,
         task_frame.question_type,
+        history_intent=context.history_intent,
     )
     if context.history_intent is None:
         track_rule += episode_scenario_rule(
@@ -195,6 +196,7 @@ def _question_type_rules(
         task_frame.raw_question,
         task_frame.question_type,
         conversation_context=context.conversation_context,
+        history_intent=context.history_intent,
     )
     # 判断增量契约（q17 Q8 回灌）与产业/定价二分契约（q17 Q4 回灌）：同一条注入口，
     # 材料型判断题 / 定价状态题命中才有文本，其它题空串。
@@ -743,6 +745,17 @@ def cited_evidence_ordinals(text: str) -> tuple[str, ...]:
     for match in _PROSE_EVIDENCE_REF_RE.finditer(str(text or "")):
         seen.setdefault(f"E{match.group(1)}", None)
     return tuple(seen)
+
+
+def strip_evidence_ordinals(text: str) -> str:
+    """Mask prose E references in an analysis-only copy, using the citation grammar.
+
+    Citation IDs are not quantities. Replace them with a space rather than
+    joining adjacent tokens. This neither validates references nor changes the
+    public draft: consumers must still check unknown ordinals in the original.
+    """
+
+    return _PROSE_EVIDENCE_REF_RE.sub(" ", str(text or ""))
 
 
 def resolve_evidence_refs(
@@ -1353,6 +1366,7 @@ __all__ = [
     "parse_finish_json",
     "rejection_response",
     "resolve_evidence_refs",
+    "strip_evidence_ordinals",
     "strip_hashes_for_model",
     "validate_episode_finish",
 ]

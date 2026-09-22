@@ -1,0 +1,132 @@
+{
+  "schema": "history-diagnostic-engineering-snapshot-v1",
+  "tested_revision": "58b785421195da707a74e1fe84fb59570f04b91f",
+  "created_at": "2026-09-18T07:17:09.561076+00:00",
+  "scope": "author-side engineering and scripted Episode repair; no real-model retest, independent personnel QC or business acceptance",
+  "status": {
+    "engineering": "passed",
+    "mutation_tests": "caught",
+    "real_model_retest": "not_run",
+    "last_real_group": "failed_at_fbd8f2a6",
+    "merged": false,
+    "deployed": false
+  },
+  "previous_failure": "a05b3483 Python: two telemetry tests expected old untyped wording; fixed in 58b78542 with sink parity checks, no runtime code change",
+  "runtime_root": "/Users/a77/.finance-runtime/history-diagnostic-58b78542-checks",
+  "records": [
+    {
+      "source": "/Users/a77/.finance-runtime/history-diagnostic-58b78542-checks/receipt.json",
+      "archived": "ci-receipt.json",
+      "bytes": 3129,
+      "sha256": "b9399d1d214d512dbbed1999e4c9c6f2b7583ff173fa30b10450aac060b14e5a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260918T071557Z-58b78542.json",
+      "archived": "python-receipt.json",
+      "bytes": 659,
+      "sha256": "9626ba6b516bd75d32920af6b1b4b7caabfaae6e95e138056b504d3f8fc8493e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-diagnostic-58b78542-checks/python.txt",
+      "archived": "python.txt",
+      "bytes": 17212,
+      "sha256": "9c4edacdbf9f3d31152d63047c722c9439a6a7765cd3ceeccbc482d51bd2b717"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-diagnostic-58b78542-checks/frontend.txt",
+      "archived": "frontend.txt",
+      "bytes": 1942,
+      "sha256": "f79d01b5543b362b9171e5ec721d7e87803520bdcd2ac3c276cfed3d654f25c4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-diagnostic-58b78542-checks/e2e.txt",
+      "archived": "e2e.txt",
+      "bytes": 12762,
+      "sha256": "d91f933e63bdbf3d87bfda1cfe1e1575c0745717bfe5fccb9fda1c15eea904f8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-diagnostic-58b78542-checks/registry.txt",
+      "archived": "registry.txt",
+      "bytes": 2869,
+      "sha256": "6be6e9e83fe3816c34af1d8e7a5cc44d33e4cff391d4dcb785cd178875796d46"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-diagnostic-58b78542-checks/receipt-check.txt",
+      "archived": "receipt-check.txt",
+      "bytes": 749,
+      "sha256": "ad80c09a0b403817f5369ed6d182a8105dfb0f440d659bee59af671e47fd24ec"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-diagnostic-58b78542-checks/saved-task-contracts.json",
+      "archived": "saved-task-contracts.json",
+      "bytes": 6209,
+      "sha256": "38e4cca9fa98ff0f621314e74468dcafcd4bb13a2c4329438ad10574a5c68f7f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-diagnostic-58b78542-mutations/receipt.json",
+      "archived": "mutations/receipt.json",
+      "bytes": 2635,
+      "sha256": "786ff943f5c8a743dd00e91a61b4cb43386e890711a80461ad471e063ce996b0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-diagnostic-58b78542-mutations/erase_diagnostic_delivery.txt",
+      "archived": "mutations/erase_diagnostic_delivery.txt",
+      "bytes": 1061,
+      "sha256": "550a79351e7029f044c59de217e299caf2d4e5bd2b4e7ba099fd2bbb22491f92"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-diagnostic-58b78542-mutations/diagnostic_bypasses_fact_gate.txt",
+      "archived": "mutations/diagnostic_bypasses_fact_gate.txt",
+      "bytes": 3936,
+      "sha256": "d9d8be078d212ed05cd22aa9f365975e0efcbb4bc53cbff78a8ffce7d565c03d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-diagnostic-58b78542-mutations/raw_exception_as_diagnostic.txt",
+      "archived": "mutations/raw_exception_as_diagnostic.txt",
+      "bytes": 1552,
+      "sha256": "04f5fc1a0affc86e94cabe9db4ec4500f2faea283e37910186dd191d7b5ae0b3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-diagnostic-58b78542-mutations/silently_infer_market_kind.txt",
+      "archived": "mutations/silently_infer_market_kind.txt",
+      "bytes": 836,
+      "sha256": "ff72f837e120189c2b06440c9781eb8da0d20a361912792ad82aad2fcc6e2bf8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-diagnostic-a05b3483-checks/receipt.json",
+      "archived": "previous-a05b3483/ci-receipt.json",
+      "bytes": 3129,
+      "sha256": "0928994fad00b13d38fa0f4694e884d58bce47897049365ded66e396872e45fd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260918T070507Z-a05b3483.json",
+      "archived": "previous-a05b3483/python-receipt.json",
+      "bytes": 885,
+      "sha256": "9a6aa6ea846e092fd6f40faff0b2e6309eb52404d27a3f45a1112307d4ec2e77"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-diagnostic-a05b3483-checks/python.txt",
+      "archived": "previous-a05b3483/python.txt",
+      "bytes": 20706,
+      "sha256": "b6202b6509cbda8d3c8b6626e2ebfd0610894144a63d9e5c40adfbc4b50c0164"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-diagnostic-a05b3483-checks/frontend.txt",
+      "archived": "previous-a05b3483/frontend.txt",
+      "bytes": 1944,
+      "sha256": "df79561afe6bb99c3c7a393d3f9e4c76e2a03e047c0257232466b332246de97c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-diagnostic-a05b3483-checks/e2e.txt",
+      "archived": "previous-a05b3483/e2e.txt",
+      "bytes": 12769,
+      "sha256": "c3e9c773c3b4f31338e644958797e19c5d86fd5aa1a3756b4e6b762ed6603d6e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-diagnostic-a05b3483-checks/registry.txt",
+      "archived": "previous-a05b3483/registry.txt",
+      "bytes": 2869,
+      "sha256": "45d697138e817bfea2506ea1fdcdc0f2efb96b687ee58d24e0840ffd1a852166"
+    }
+  ]
+}

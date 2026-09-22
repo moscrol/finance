@@ -1,0 +1,39 @@
+WARN  20_projects/knowledge-base-private.md: 项目笔记 89155 字节（>81920），新交接严格一行，正文放 repo 的 docs/handoffs/；存量按棘轮可不动
+WARN  20_projects/finance-workspace-private.md: 项目笔记 420840 字节（>81920），新交接严格一行，正文放 repo 的 docs/handoffs/；存量按棘轮可不动
+WARN  10_knowledge/ab-criterion-must-check-baseline-headroom.md: 缺 agent（2026-09-11 < 2026-09-14 存量豁免）——如果还记得是谁写的就补上，不记得别猜
+WARN  10_knowledge/state-transition-identity-must-survive-dedup.md: 缺 agent（2026-09-13 < 2026-09-14 存量豁免）——如果还记得是谁写的就补上，不记得别猜
+WARN  10_knowledge/seam-test-inflight-sibling-module.md: 缺 agent（2026-09-13 < 2026-09-14 存量豁免）——如果还记得是谁写的就补上，不记得别猜
+WARN  10_knowledge/source-switch-coverage-must-be-reconciled-first.md: 缺 agent（2026-09-09 < 2026-09-14 存量豁免）——如果还记得是谁写的就补上，不记得别猜
+WARN  00_inbox/2026-08-28-fde-harness-bootstrap-p1-mount.md: inbox 条目已 22 天未提炼（>14 天）
+WARN  00_inbox/2026-09-01-prime-agent-harness-eval.md: inbox 条目已 18 天未提炼（>14 天）
+WARN  00_inbox/2026-08-22-v7-subagent-ping-timeout-triage.md: inbox 条目已 28 天未提炼（>14 天）
+WARN  00_inbox/2026-08-22-zsxq-ai-design-language-cdp-audit.md: inbox 条目已 28 天未提炼（>14 天）
+WARN  00_inbox/2026-08-22-awesome-design-md-upstream-audit.md: inbox 条目已 28 天未提炼（>14 天）
+WARN  00_inbox/2026-08-18-dao-ay-terra-403-root-fix-handoff.md: inbox 条目已 32 天未提炼（>14 天）
+WARN  00_inbox/2026-08-27-meta-asset-inventory-and-bootstrap-roadmap.md: inbox 条目已 23 天未提炼（>14 天）
+WARN  00_inbox/2026-08-23-agent-loop-aab-mashu-comparison.md: inbox 条目已 27 天未提炼（>14 天）
+WARN  00_inbox/2026-08-20-mashu-arch-review-close-read.md: inbox 条目已 30 天未提炼（>14 天）
+WARN  00_inbox/2026-08-19-dao-same-model-pin-closeout.md: inbox 条目已 31 天未提炼（>14 天）
+WARN  00_inbox/2026-08-20-harness-books-arch-review.md: inbox 条目已 30 天未提炼（>14 天）
+ERROR 20_projects/insurance-copilot.md: agent=pi 不在固定取值表里（all/any/claude/codex/cursor/devin/grok/human），见 30_conventions/frontmatter-spec.md
+ERROR 20_projects/finance-workspace-private.md: 死链 [[infra-failure-report-may-hide-partial-success]]
+ERROR 20_projects/finance-workspace-private.md: 死链 [[batch-only-idle-branches-check-last-commit-time]]
+ERROR 20_projects/finance-workspace-private.md: 死链 [[../10_knowledge/…]]
+ERROR 20_projects/finance-workspace-private.md: 死链 [[mutation-test-needs-a-committed-restore-point]]
+ERROR 20_projects/finance-workspace-private.md: 死链 [[verification-tools-can-be-silent-on-the-defect]]
+ERROR 20_projects/finance-workspace-private.md: 死链 [[count-render-outlets-by-body-text-not-call-sites]]
+ERROR 20_projects/venture-info-lane.md: frontmatter 缺字段 type
+ERROR 20_projects/venture-info-lane.md: frontmatter 缺字段 source
+ERROR 20_projects/venture-info-lane.md: frontmatter 缺字段 tags
+ERROR 20_projects/venture-info-lane.md: agent=grok-bot-chief 不在固定取值表里（all/any/claude/codex/cursor/devin/grok/human），见 30_conventions/frontmatter-spec.md
+ERROR 10_knowledge/merge-conflict-keep-both-when-two-sides-describe-one-fact.md: 缺 stance（2026-09-14 起的新知识笔记必填，取值 ai-distilled/author-view/evidenced/hypothesis/principle）——别把「谁的主张」和「已验证结论」写成同一种东西
+ERROR 10_knowledge/cross-branch-handoff-is-invisible-to-same-topic-tracks.md: 死链 [[workorders-index-is-a-hot-file-scan-branches-before-numbering]]
+ERROR 10_knowledge/cross-branch-handoff-is-invisible-to-same-topic-tracks.md: 缺 stance（2026-09-14 起的新知识笔记必填，取值 ai-distilled/author-view/evidenced/hypothesis/principle）——别把「谁的主张」和「已验证结论」写成同一种东西
+ERROR 10_knowledge/weakref-registry-tests-need-unique-ids.md: agent=pi 不在固定取值表里（all/any/claude/codex/cursor/devin/grok/human），见 30_conventions/frontmatter-spec.md
+ERROR 10_knowledge/weakref-registry-tests-need-unique-ids.md: 缺 stance（2026-09-14 起的新知识笔记必填，取值 ai-distilled/author-view/evidenced/hypothesis/principle）——别把「谁的主张」和「已验证结论」写成同一种东西
+ERROR 10_knowledge/retry-must-carry-the-last-rejection.md: 缺 stance（2026-09-14 起的新知识笔记必填，取值 ai-distilled/author-view/evidenced/hypothesis/principle）——别把「谁的主张」和「已验证结论」写成同一种东西
+ERROR 10_knowledge/denied-io-tests-must-count-attempts.md: agent=pi 不在固定取值表里（all/any/claude/codex/cursor/devin/grok/human），见 30_conventions/frontmatter-spec.md
+ERROR 10_knowledge/denied-io-tests-must-count-attempts.md: 缺 stance（2026-09-14 起的新知识笔记必填，取值 ai-distilled/author-view/evidenced/hypothesis/principle）——别把「谁的主张」和「已验证结论」写成同一种东西
+ERROR 50_agents/TOOLKIT.md: 与 ../harness-reference/TOOLKIT.md 正文不一致（镜像已漂）
+
+FAIL: 20 error(s), 17 warn(s)
