@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """验收测试：check_kb_freshness.py 修复验证
 
 测试目标：证明修复后的脚本不会被 mtime 刷新误导成假绿。
@@ -21,8 +20,11 @@ import tempfile
 from datetime import date, timedelta
 from pathlib import Path
 
-# 添加 scripts 到路径以便导入
-sys.path.insert(0, str(Path(__file__).parent))
+# 被测脚本在 scripts/，本测试在 tests/：按仓内惯例（对照
+# ``tests/test_code_map.py``）把 scripts/ 插进 sys.path，而不是插自己的
+# 目录。原写法插 ``Path(__file__).parent`` 只在测试与脚本同目录时成立，
+# 2026-08-20 归档 sweep 把它移进 scripts/archive/ 后就断了。
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from check_kb_freshness import load_evidence_freshness
 
@@ -173,34 +175,7 @@ def test_invalid_dates_ignored():
         print(f"✓ 最新日期：{latest_date}（5 天前）")
 
 
-def main():
-    """运行所有测试"""
-    print("检查 KB freshness 修复验收测试")
-    print("=" * 60)
-    
-    try:
-        test_mtime_does_not_affect_freshness()
-        test_lane_isolation()
-        test_invalid_dates_ignored()
-        
-        print("\n" + "=" * 60)
-        print("✅ 所有测试通过")
-        print("\n修复验证要点：")
-        print("  1. ✓ 不使用文件 mtime，只看 source_date")
-        print("  2. ✓ 按 source_quality 分线报告")
-        print("  3. ✓ 公告线活着不会盖住题材线断更")
-        print("  4. ✓ 无效日期被正确忽略")
-        return 0
-        
-    except AssertionError as e:
-        print(f"\n❌ 测试失败：{e}")
-        return 1
-    except Exception as e:
-        print(f"\n❌ 测试异常：{e}")
-        import traceback
-        traceback.print_exc()
-        return 1
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+# 原件还带一个手写 ``main()`` 跑器：它 catch 住 AssertionError 后打印
+# 「✅ 所有测试通过」或 return 1。现在文件回到 pytest 收集面，那个跑器
+# 无人调用，且属于本文件本来就在防的「假绿」形状（自己给自己发合格证），
+# 因此随迁回一同删除；判据以 pytest 断言为准。

@@ -229,7 +229,10 @@ def test_outer():
     data = json.loads(own[0].read_text())
     assert data["target"] == "test_sample.py"
     passed = 1 - failed + int(mode == "run-same-target")
-    assert data["counts"] == {"passed": passed, "failed": failed, "error": 0, "skipped": 0}
+    # counts 自 #860 起带 xfailed/xpassed（收执对账要它们与 collected 对平）；
+    # 这里要锁的仍是「外层收据只记外层那一轮」，内层的 test_inner_* 一条都不该进来。
+    assert data["counts"] == {"passed": passed, "failed": failed, "error": 0, "skipped": 0,
+                              "xfailed": 0, "xpassed": 0}
     assert data["failed_ids"] == (["test_sample.py::test_outer"] if failed else [])
     assert data["exit_status"] == failed
     assert "收据未写出" not in result.stdout
