@@ -305,7 +305,6 @@ _DATE_TOKEN_RE = re.compile(
 # 2026-09-21 冒烟 3（run_20260921_123745_556321）：``E6``→6、``Q3``→3 被当成
 # 证据里没有的阈值，整句连坐删除。逐个 E 号剥，不剥分隔符——``E1，118 家`` 里的
 # 118 是真数量，不能被范围写法顺手吞掉。
-_EVIDENCE_REF_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9])E\d{1,3}(?!\d)")
 _QUARTER_TOKEN_RE = re.compile(
     r"(?<![A-Za-z0-9])(?:20\d{2})?(?:Q[1-4]|[1-4]Q)(?![0-9])"
     r"|(?<!\d)[一二三四1-4]季度"
@@ -5119,7 +5118,6 @@ def _novel_numeric_condition_indexes(
         # References remain in the draft for citation validation, but their
         # ordinals must not trigger a numeric backfill or sentence deletion.
         candidate = _DATE_TOKEN_RE.sub("", strip_evidence_ordinals(candidate))
-        candidate = _EVIDENCE_REF_TOKEN_RE.sub("", candidate)
         candidate = _QUARTER_TOKEN_RE.sub("", candidate)
         # Heading context stops at the next heading; ordinary facts in another
         # section must not inherit a condition label. Formatting is analysis-only.
