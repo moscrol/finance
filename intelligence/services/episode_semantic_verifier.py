@@ -5005,6 +5005,27 @@ def numeric_condition_unsupported(verified: VerifiedEpisodeOutcome) -> bool:
     )
 
 
+def comparison_baseline_unsupported(verified: VerifiedEpisodeOutcome) -> bool:
+    """True when a condition compares against a prior-period baseline nobody bound.
+
+    Same routing as :func:`numeric_condition_unsupported`: the adapter runs this
+    *before* the judge so the missing baseline can be fetched, rather than the
+    sentence being thinned. A watch item may reference future data; it may not
+    rest on a historical value this episode never obtained.
+    """
+
+    contract = verified.contract
+    if contract is None or contract.question_type != "financial_analysis":
+        return False
+    from intelligence.services.financial_claim_checks import comparison_baseline_gaps
+
+    bound = tuple(dict.fromkeys(h for b in verified.outcome.bindings for h in b.evidence_hashes))
+    return bool(comparison_baseline_gaps(
+        _numbered_sentences(verified.outcome.draft), verified.outcome.evidence, bound,
+        subject=contract.subject,
+    ))
+
+
 def _mismatched_weekday_indexes(
     sentences: list[dict[str, object]],
     verified: VerifiedEpisodeOutcome,
@@ -6707,6 +6728,7 @@ __all__ = [
     "SEMANTIC_QUALITY_DOUBT_MARK",
     "SemanticEpisodeOutcome",
     "SemanticEpisodeVerifier",
+    "comparison_baseline_unsupported",
     "draft_sentence_count",
     "numeric_condition_unsupported",
     "v8_semantic_degrade_enabled",
