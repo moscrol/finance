@@ -380,7 +380,7 @@ material_outputs 清单，工具定义同步限制 ID 与数量，解析仍严�
 
 ### 会话使用计时（分支候选，非试点效果）
 
-研究检查器提供「同意并开始本次计时」，默认关闭。经既有 `research-evolution/events` 保存同意后，`ResearchActivityControl` / `startResearchActivity` 记录可见与隐藏区间；使用单调时钟量经过时间，前端不自报服务端时钟或任务完成。停止、切会话和 `pagehide` 结束采集并尽力保存末段与撤回；保存失败在当前页显示缺口，异常退出不能保证送达，也不自动恢复采集。
+研究检查器提供「同意并开始本次计时」，默认关闭。经既有 `research-evolution/events` 保存同意后，`ResearchActivityControl` / `startResearchActivity` 记录可见与隐藏区间；使用单调时钟量经过时间，前端不自报服务端时钟或任务完成。停止、切会话和 `pagehide` 结束采集并尽力保存末段与撤回；保存失败在当前页显示缺口，异常退出不能保证送达，也不自动恢复采集。该撤回记在 owner 名下、用的又是自用测量门所需的同一组范围（`research`+`logging`），所以**停一次计时会连带停掉自用测量**（`run_started` / `run_finished` / `cost_recorded`），直到再次授权；界面当前不提示这一点，用过一次计时因此比从没用过测得更少。口径与文案待定，现状见 `intelligence/tests/test_re06_activity_consent_gate_effect.py`。
 
 这里只产生 `workbench:<conversation_id>` 自用事件，`task_id=null`；优先队列候选不是冻结试点分配，不能拿它填身份。可见时间不等于键鼠操作时间；隐藏原因 `tab_hidden` 不代表获准扣减端到端时间，也不推断外部查阅。真正的配对效果仍需授权、冻结分配、任务终态和05测量收据，不由计时按钮创建。当前接线和隔离测试不等于生产部署。
 
