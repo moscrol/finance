@@ -107,6 +107,7 @@ from intelligence.services.episode_messages import (
 )
 from intelligence.services.episode_restore import RestoreResult, RestoreUnavailable, restore_episode
 from intelligence.services.episode_authorization import capture_authorization_snapshot
+from intelligence.services.episode_entry_identity import capture_entry_identity
 from intelligence.services.episode_evidence import capture_evidence_snapshot
 from intelligence.services.episode_scope import EpisodeScope
 from intelligence.services.episode_store import (
@@ -507,6 +508,24 @@ class _EpisodeLedger:
                     if self._store_fence is not None:
                         self._store_fence.fail(self.episode_id, f"state:{phase}:authorization", exc)
                     self._fail_store(f"state:{phase}:authorization:{type(exc).__name__}")
+            if not self.store_failures:
+                try:
+                    identity = previous.entry_identity if previous is not None else None
+                    if source is not None:
+                        captured = capture_entry_identity(source)
+                        # One episode, one owner. A door that changes mid-run (or
+                        # disappears) is not a fallback to "unbound" -- it means the
+                        # context we are checkpointing is no longer the one that started.
+                        if identity is not None and captured != identity:
+                            raise ValueError("episode entry identity must not change mid-run")
+                        identity = captured
+                    state = replace(state, entry_identity=identity)
+                except Exception as exc:
+                    if self.persistence_mode != "durable":
+                        raise
+                    if self._store_fence is not None:
+                        self._store_fence.fail(self.episode_id, f"state:{phase}:identity", exc)
+                    self._fail_store(f"state:{phase}:identity:{type(exc).__name__}")
             if not self.store_failures:
                 try:
                     evidence = previous.evidence_snapshot if previous is not None else None

@@ -29,6 +29,7 @@ from intelligence.services.historical_research.intent import HistoryIntent
 from intelligence.services.user_task import requests_previous_answer_review
 
 if TYPE_CHECKING:
+    from intelligence.services.episode_entry_identity import EpisodeEntryIdentity
     from intelligence.services.prior_evidence import PriorTurnEvidence
 
 AnswerOwner: TypeAlias = Literal[
@@ -1272,6 +1273,10 @@ class ResearchRunContext:
     history_results: list[dict[str, object]] = field(default_factory=list)
     history_artifact_index: list[dict[str, object]] = field(default_factory=list)
     prior_evidence: PriorTurnEvidence | None = None
+    # 入口身份（控制面，永不进提示词、永不作证据）：这一轮属于哪个用户 / 会话 /
+    # run / 助手消息。由入口在核对过 run 归属之后绑定；None = 没有可信入口
+    # （离线驱动、CLI、测试），恢复时按「未绑定」处理，不会与任何门匹配上。
+    entry_identity: EpisodeEntryIdentity | None = None
 
 
 @dataclass(frozen=True)

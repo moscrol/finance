@@ -92,6 +92,7 @@ from intelligence.services.draft_publisher import (
     RunDraftDeltaPublisher,
     draft_streaming_enabled,
 )
+from intelligence.services.episode_entry_identity import EntryIdentity
 from intelligence.services.episode_progress import (
     EpisodeProgress,
     RunEpisodeProgressPublisher,
@@ -451,6 +452,23 @@ def _build_continuous_turn_adapter(
     ``episode_tools``.
     """
 
+    entry_identity: EntryIdentity | None = None
+    if run_store is not None:
+        # 入口身份在这里盖章，而且只能在这里：服务端已存的 run 记录说了算，调用方
+        # 传什么不算。跨用户、跨会话的组合在这一步就被拒，而不是等到恢复时才发现。
+        run = run_store.load_run(run_id)
+        if run.user != run_store.user_id:
+            raise ValueError("run belongs to another user")
+        if (run.session_id or "") != conversation_id:
+            raise ValueError("run belongs to another conversation")
+        entry_identity = EntryIdentity(
+            entry="workbench_conversation",
+            user_id=run_store.user_id,
+            conversation_id=conversation_id,
+            run_id=run_id,
+            assistant_message_id=assistant_message_id,
+        )
+
     progress_publisher = None
     if run_store is not None:
         if not conversation_id.strip():
@@ -621,6 +639,9 @@ def _build_continuous_turn_adapter(
         tier=_research_tier_from_env(),
         registry_factory=registry_factory,
         task_id_factory=lambda: task_id,
+        # 未绑定的入口声明：episode 号由 ``task_id_factory`` 现场铸，身份到那时才绑。
+        # 预先绑好传进来，就会在注入式 task_id 下把旧编号盖在新 episode 上。
+        entry_identity=entry_identity,
         timeout=timeout,
         # 组合根这里已经握着生效链。只靠 adapter 问 runtime 会落空：
         # GLMAgentRuntime 没有 _providers，帽会静默回到 30。

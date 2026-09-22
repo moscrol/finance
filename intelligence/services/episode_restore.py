@@ -37,6 +37,11 @@ from typing import Literal
 
 from intelligence.services.agent_runtime import AgentOutcome, AgentUsage, EpisodeEvent
 from intelligence.services.episode_authorization import validate_current_authorization
+from intelligence.services.episode_entry_identity import (
+    capture_entry_identity,
+    entry_identities_match,
+    validate_current_entry_identity,
+)
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.episode_store import (
     EPISODE_LOG_VERSION,
@@ -113,6 +118,9 @@ class RestoreResult:
     # 重新驱动时要把它们递回收件箱，否则用户递进去的话会随崩溃静默消失（INV-R5 三事实里
     # 缺了第三件）。这里只**列出**，不认领——认领是 loop 的事，恢复读的是事实。
     pending_inbox: tuple[str, ...] = ()
+    # 该检查点是否带着已核对的入口身份（用户/会话/run）。False = 起跑时就没有门，恢复也只能
+    # 由同样未绑定的调用方读；将来的自动续跑驱动应当要求 True，读这一位，而不是自己猜主人。
+    entry_identity_bound: bool = False
 
     @property
     def terminal(self) -> bool:
@@ -128,6 +136,7 @@ class RestoreResult:
             "plan": self.plan.to_dict() if self.plan is not None else None,
             "stop_reason": self.outcome.stop_reason if self.outcome is not None else None,
             "pending_inbox": list(self.pending_inbox),
+            "entry_identity_bound": self.entry_identity_bound,
         }
 
 
@@ -333,6 +342,8 @@ def restore_episode(
 
     非终态必须有完整授权快照及调用方重新提供的 ``context`` / ``registry``，精确匹配后
     才能合成日志/给计划；旧日志可 load 诊断，但不猜权限给恢复计划。确认完成态只读返回。
+    同一道门还要问「谁的」：``context.entry_identity`` 必须与检查点记下的入口身份逐字节相等，
+    两边都未绑定也算一致；一边有一边无是不匹配，没有任何一边可以替对方补上。
     读前取得本机独占写者，活驱动存在时拒绝；返回时释放，plan 不是后续执行许可。
     ``now`` 可注入，Tier A 套件用它把「截止已过 / 未过」两格都跑到。
     """
@@ -390,6 +401,7 @@ def _restore_owned(
             plan=plan,
             outcome=outcome,
             pending_inbox=pending_inbox_messages(loaded_events),
+            entry_identity_bound=state.entry_identity is not None,
         )
 
     latest_finish = next((e for e in reversed(events) if e.kind == "finish"), None)
@@ -437,6 +449,18 @@ def _restore_owned(
     except (TypeError, ValueError) as exc:
         raise RestoreUnavailable(f"{episode_id}: recovery authorization mismatch") from exc
 
+    # Same contract, same tools, different owner is still someone else's episode.
+    # The entry point must re-present the identity the interrupted run recorded;
+    # an unbound checkpoint and a bound door are a mismatch in BOTH directions,
+    # because neither absence nor presence may be filled in on the other's behalf.
+    if not entry_identities_match(state.entry_identity, capture_entry_identity(context)):
+        raise RestoreUnavailable(f"{episode_id}: recovery entry identity does not match the recorded owner")
+    if state.entry_identity is not None:
+        try:
+            validate_current_entry_identity(state.entry_identity, context=context)
+        except (TypeError, ValueError) as exc:
+            raise RestoreUnavailable(f"{episode_id}: recovery entry identity mismatch") from exc
+
     # A public tool_result is lossy (no private locator/structured values), so
     # absent evidence cannot be reconstructed from it or treated as empty.
     if state.evidence_snapshot is None:
@@ -473,6 +497,9 @@ def _restore_owned(
             authorization_snapshot=state.authorization_snapshot,
             evidence_snapshot=state.evidence_snapshot,
             evidence_snapshot_sequence=state.evidence_snapshot_sequence,
+            # Recovery must not unbind the episode: a checkpoint that forgot its
+            # owner would be recoverable by any doorless caller next time.
+            entry_identity=state.entry_identity,
         )
         store.put_state(episode_id, done)
         outcome = _terminal_outcome(events, task_frame_hash=task_frame_hash, finish=finish)
@@ -501,6 +528,7 @@ def _restore_owned(
                 authorization_snapshot=state.authorization_snapshot,
                 evidence_snapshot=state.evidence_snapshot,
                 evidence_snapshot_sequence=state.evidence_snapshot_sequence,
+                entry_identity=state.entry_identity,
             )
             store.put_state(episode_id, state_after)
         return result("resumable", synth=synth, plan=plan, outcome=None, state_after=state_after)

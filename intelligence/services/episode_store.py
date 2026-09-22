@@ -43,6 +43,7 @@ from typing import Literal, Protocol
 
 from intelligence.services.agent_runtime import EpisodeEvent, _json_copy, _json_freeze
 from intelligence.services.episode_authorization import EpisodeAuthorizationSnapshot
+from intelligence.services.episode_entry_identity import EpisodeEntryIdentity
 from intelligence.services.episode_event_lanes import DURABLE_EVENT_KINDS
 from intelligence.services.episode_evidence import EpisodeEvidenceSnapshot
 from intelligence.services.research_contract import InMemoryRootBudgetLedger
@@ -132,6 +133,9 @@ class EpisodeState:
       来源。None仍可load诊断，但非终态restore必须拒绝，不能降级为只信configure。
     - ``evidence_snapshot`` / ``evidence_snapshot_sequence``：完整私有证据账及独立模型引用顺序、
       捕获前缀；不等于完整执行现场，也不证明前缀后收到的工具原件/费用已经归齐。
+    - ``entry_identity``：这一轮是从哪个入口、属于哪个用户/会话/run 起的。**不是**身份证明，
+      是当时的记录：恢复由入口重新提供同一身份并精确比对才算同一主人。None = 起跑时没有
+      可信入口（离线/CLI/测试），它只能与同样未绑定的入口对上，不能被任何一扇门接管。
     """
 
     episode_id: str
@@ -155,6 +159,9 @@ class EpisodeState:
     # citation order. Capture position is not an effects reconciliation mark.
     evidence_snapshot: Mapping[str, object] | None = None
     evidence_snapshot_sequence: int | None = None
+    # Who this episode belongs to, as recorded by the entry point that started
+    # it. Saved identity is a record, not a credential: recovery re-asks the door.
+    entry_identity: Mapping[str, object] | None = None
 
     def __post_init__(self) -> None:
         episode_id = str(self.episode_id or "").strip()
@@ -209,6 +216,10 @@ class EpisodeState:
             validated = EpisodeEvidenceSnapshot.from_dict(self.evidence_snapshot, episode_id=episode_id)
             object.__setattr__(self, "evidence_snapshot", _json_freeze(validated.to_dict(), path="evidence_snapshot"))
 
+        if self.entry_identity is not None:
+            identity = EpisodeEntryIdentity.from_dict(self.entry_identity, episode_id=episode_id)
+            object.__setattr__(self, "entry_identity", _json_freeze(identity.to_dict(), path="entry_identity"))
+
     @property
     def terminal(self) -> bool:
         return self.phase == "done"
@@ -232,6 +243,7 @@ class EpisodeState:
             "authorization_snapshot": _json_copy(self.authorization_snapshot, path="authorization_snapshot"),
             "evidence_snapshot": _json_copy(self.evidence_snapshot, path="evidence_snapshot"),
             "evidence_snapshot_sequence": self.evidence_snapshot_sequence,
+            "entry_identity": _json_copy(self.entry_identity, path="entry_identity"),
         }
 
     @classmethod
@@ -257,6 +269,7 @@ class EpisodeState:
             authorization_snapshot=payload.get("authorization_snapshot"),  # type: ignore[arg-type]
             evidence_snapshot=payload.get("evidence_snapshot"),  # type: ignore[arg-type]
             evidence_snapshot_sequence=payload.get("evidence_snapshot_sequence"),  # type: ignore[arg-type]
+            entry_identity=payload.get("entry_identity"),  # type: ignore[arg-type]
         )
 
 
