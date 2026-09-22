@@ -85,6 +85,40 @@
 `finance_query.limit_up_ratio/total_count`）没有改字段语义，只是让分母口径可被上面的合同解释。
 same-day / cross-day / L2 三门最近仍 `rc=2`，**未复跑**。
 
+验收清单不是我定的，是 `consumption_registry.tables_for_plan(registry, "local")` 派生的
+**33 张表**（`check_daily_review_data.py --plan local` 按它裁剪）。相对 full 计划：少 12 张
+复盘会独有表（龙虎榜/竞价/题材资金/全球指数/监管/研报目录），多 12 张同花顺系表
+（`fact_stock_daily_hithink`、`fact_sector_kline_daily`、`fact_limit_pool_hithink`、
+`fact_auction_hithink`、`fact_dragon_tiger_hithink` 等）——**这就是「换路径」的准确含义**。
+
+## 现行链路的事实核对（只读查生产库，2026-09-22 18:40）
+
+本文档初版把「板块全目录」写进下一步，是照抄了旧交接里 **full 计划**的措辞，**作废**。
+实测：复盘会早已停抓，现行是 `plan=local` 全本地自算链路。
+
+| 事实 | 证据 |
+|---|---|
+| 复盘会成分/板块日行情最后一天 = **09-02**；search payload 全表只剩 **09-03** 一天 | `fact_sector_stock_daily` / `fact_sector_daily` / `ops_sector_search_payload_daily` 分组计数 |
+| 09-17/09-18 宇宙快照 `provider_source = local:carry`（本地冻结延用，403 板块 / expected 52955） | `ops_sector_universe_snapshot_daily`；`sector_universe.py:494` 注释「fupanhui 停抓后的冻结名单」 |
+| 成分全部 `local:stitch`、板块日行情全部 `local:agg/pct=eqw`（官方涨幅 payload 早已没有） | 同上分组计数 |
+| `fact_market_daily` 最近三日 `source=local:overview`、强度 `local:top5pct`、新高 `local:high-ohlc`、指数 akshare | 行内 source 列 |
+| 夜间 local 计划 16 步**零复盘会**，且显式 `index-daily --no-fupanhui-fallback` | `skills/daily-full-review/scripts/run_review_sync.py:400-420` |
+| 门禁脚本自述：「local（**fupanhui 停抓后的自算链路**）不产这些字段，缺它们是设计不是缺数」 | `check_daily_review_data.py:128` |
+
+**09-21 恢复的真实路线（零复盘会请求）**：库里 09-21 **一行都没有**（`fact_market_daily`
+最后一天 = 09-18）。唯一需要外部输入的是个股 bar，而它**已经抓到并封存**（候选 5553 行，
+`hithink:daily-k-10d`）。其余按 local 计划本地派生：`carry-forward-universe`（延用 09-18 名单）
+→ `stitch-sector-stocks --max-baseline-age-days 180` → `sync-sector-daily-local` →
+`compute-limit-stats-local` → `compute-market-overview/editorial/stage/stock-high/mainline/core-*-local`
+→ `features`。
+
+与第 4 条直接相关：stitch 的 identity 锚仍是 **09-02 那份 fupanhui 名单**（180 天窗口内可达），
+停牌股在锚里**还在**，只是当日无值被硬约束 2 剔除——所以「身份分母」不是假想问题，恢复 09-21 时就会发生。
+
+另需注意：`plan=local` 清单里的 12 张同花顺表目前 `max(trade_date) = 2026-09-08`，本身就落后于 09-18；
+此刻（18:37）有独立进程 PID 92660 在跑 `sync-hithink-dragon-auction --incremental --end-date 2026-09-22`
+补这条线，**不是我发起的**，我没有干预。
+
 ## 代码与测试
 
 | 文件 | 性质 |
@@ -119,5 +153,7 @@ $PY -m scripts.audit_recovery_metadata \
 - 官方历史上市名册、全量除权完备性、官方流通股本口径**仍未拿到**；审计产物里三个
   `*_verified` 标志固定为 false，不得被下游当成已核验。
 - 第二供应商名单是**当前**名单（`comparison_has_target_date=false`），只能做差异对照，不能当 PIT 依据。
-- 板块全目录 / 成员 generation / 派生表 / L2 仍未恢复；三门未复跑；全仓测试通过 ≠ 可写库。
+- 09-21 在生产库里仍是**整日零行**；local 计划 16 步一步都没跑；三门未复跑；全仓测试通过 ≠ 可写库。
+- 生产库基线已变：mtime 从 09-22 02:26 收据里的值动到**今天 08:08**（size/inode 未变），且此刻有 staging 在写。
+  旧保全收据只对 02:26 成立；真要写库必须**重取基线**并与夜间 staging 抢同一把 run mutex。
 - 写库、建 staging、原子换库、发布、合并、部署：**每一步都还需要用户显式授权**，本轮一个都没做。
