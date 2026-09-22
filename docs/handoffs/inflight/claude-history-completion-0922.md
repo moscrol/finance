@@ -17,20 +17,28 @@
 | `613376089` | `compare_cases` 规则型条件：控制组能力（本轮主要业务缺口） |
 | `4e000ee22` | 两处「历史算子清单」补齐为引擎声明的六个（BLOCK 级死路） |
 | `c1d4643df` | 引错算子按剔除处理而非整格作废；四题离线干跑 |
+| `7fc60d279` | 「本轮欠不欠一份条件全集比较」改为逐轮判据（下一节） |
+| `0ee839f14` | 四题四种形状全部离线走通（8 条） |
 
 ## 门禁收据（干净树）
 `.venv-workbench/bin/python -m pytest -q -p no:randomly`，收据
-`~/.finance-runtime/test-receipts/20260922T125353Z-c1d4643d.json`：
-revision `c1d4643df376d1c910adf051202dfaaa633a6481`、`dirty: false`、
-**12975 passed / 1 failed / 89 skipped / 2 xfailed**、`exit_status: 1`，日志
-`~/.finance-runtime/reviews/history-completion-20260922/full-clean.txt`。
+`~/.finance-runtime/test-receipts/20260922T141005Z-0ee839f1.json`：
+revision `0ee839f1492afdc95d7aa1fd65770cc94a0a1afc`、`dirty: false`、
+**12984 passed / 1 failed / 89 skipped / 2 xfailed**、`exit_status: 1`，日志
+`~/.finance-runtime/reviews/history-completion-20260922/full-final.txt`。
+（上一轮 `c1d4643df` 的收据是 `20260922T125353Z-c1d4643d.json`，12975 passed / 1 failed，
+同一条失败。）
 
 唯一失败 `tests/test_code_map.py::test_structure_probe_daily_full`：断言为
-`assert 'market_feature_store' in '[]'`——本机 `.code-review-graph/graph.db` 那一刻
-查不出结构命中（该用例本就「本机有图才跑」），单跑 1 passed。不属本次改动面，
-也不移签为绿：收据原样留着。
+`assert 'market_feature_store' in '[]'`——`code_map.py query` 的结构层在
+`search_graph` 取不到结果时会给 `unavailable` 并返回空命中，而这条用例只断言命中内容。
+两次全量都在本机同时跑着别的 agent 的全量（`~/.finance-runtime/test-receipts/` 里同
+时间段有 b4a35fa2、a945c51f、d68b8f51 等别的 revision），本树的 `graph.db` 有 542MB，
+磁盘还剩 4%。单跑 `tests/test_code_map.py` 42 passed / 3 skipped。不属本次改动面，
+不移签为绿，也不改它去容忍失败：收据原样留着。
 
-ruff：`intelligence tests` 全绿。历史域受影响面（-k 筛选）：3157 passed / 1 skipped。
+ruff：`intelligence tests` 全绿。历史域受影响面（-k 筛选）：最后一次 2050 passed / 9 skipped；
+含 episode/harness/research/decision 的更大切面 3418 passed / 2 skipped。
 
 ## 四个缺口的收口情况
 1. **控制组**（第四题）——**已实现**。`compare_cases` 的 X 原来只能是「某数值过线」，
@@ -61,21 +69,37 @@ ruff：`intelligence tests` 全绿。历史域受影响面（-k 筛选）：3157
 3. **四道真题全部被判 `comparison_analog`**，槽位相同（`docs` 无此记录，实测得出）。
    这意味着每轮都要求 `analog_similarities` 这类只认 `find_analogues` 的格子。
 
-## 需要你拍板的一处口径（我没有擅自改）
-`assess_history_finish` 里 `comparison_missing` 只看 `intent.purpose == "historical_comparison"`
-与本轮是否跑过 `compare_cases`。而 purpose 在对话里**继承**：四题实测
-Q1..Q4 全是 `historical_comparison`。因此第一、二、三题**无论答得多好都会被强制降为
-partial**，理由是「尚未完成声明条件全集的历史比较」。这与真实验收看到的「四轮 transport
-completed 但 report 均 partial」形状吻合。
+## 第四处真问题：该问「这一轮」，不是问「这段对话」（已改，`7fc60d279`）
+`assess_history_finish` 判「本轮欠不欠一份条件全集比较」时读的是对话级
+`intent.purpose`，而 purpose 在跟问里继承。实测 Q1..Q4 全是 `historical_comparison`，
+于是第二题（当时谁走强）、第三题（有没有别的板块接上）**无论答得多好都被强制降为
+partial**，通知说「尚未完成声明条件全集的历史比较」——用户这两轮没要过规律。
+这是真实验收「四轮 transport completed 但 report 均 partial」的最后一段。
 
-- 现状不是虚假陈述：正文与绑定都在，只是多一条通知，且 `claim_level` 已标 `single_case`。
-- 但第二题问的是「当时谁走强、启动到见顶经过什么」，本来就不需要条件全集比较；
-  这条通知对用户是噪音。
-- 我没有放宽它：`tests/test_history_comparison_completion.py` 明确钉住「省略信封不得掩盖
-  未完成的比较请求」，改判据要动那条已声明的意图。
-- 若要改，正确的改法是让「本轮是否请求了条件全集比较」成为**逐轮**判据（新增
-  `HistoryIntent.comparison_requested`，默认回落到 `purpose == "historical_comparison"`
-  以保留现有行为），而不是用对话级 purpose 代替。建议单独立案。
+改法：`HistoryIntent` 新增逐轮字段 `comparison_requested`（None = 未判定），
+`requires_full_comparison` 属性回落到 purpose，所以旧原件、旧调用方、直接构造的 intent
+行为一字不变；推断与跟问继承时按本轮原话重新判（权限仍然继承，只有这一条逐轮）。
+实测四题得 `[False, False, False, True]`——只有第四题说了「如果要说有后续收益规律，
+请把未启动或失败样本…也纳入比较」。提示词同步：不要求样本全集的回合明说不必另起
+`compare_cases` 凑比较（省下的是只有 5 次的工具预算）。
+
+为什么这不是放水：
+- 词表刻意窄，不收「胜率」——它在真实提问里几乎总以否定形出现（第一题就是「不要把
+  相似程度当预测胜率」），收了会把警告读成请求。
+- 漏判有兜底：模型若声明 `claim_level=historical_comparison` 却没引 `compare_cases` 原件，
+  `history_missing_comparison` 仍直接 SUBSTANCE 拒收。本条只管「用户这一轮有没有要」。
+- 被钉住的意图没动：`test_partial_comparison_cannot_be_upgraded_by_omitting_optional_envelope`
+  直接构造 purpose=historical_comparison 的 intent，回落后仍 force_partial，原样通过。
+
+## 离线四题干跑（`tests/test_history_four_question_dry_run.py`）4 形状 × 2 循环
+让脚本化「满分模型」按四题形状把事做对，证明交付通路存在，用来把「模型没做对」与
+「系统不让它交」分开。四条分别对着四个真实失败点，均 `completed`、无 BLOCK。
+没走真模型、数据是合成的：**这不是业务验收**。
+
+沿途钉住的两条约束（易被忽略）：同一轮里 trace 的观察终点必须唯一
+（`history_window_observation_conflict`，否则可给每个实体各挑一个终点）；
+「completed」要求每个证据槽都有**本轮**原件，所以跨轮讨论同一段类比时要重做一次同口径
+检索，而不是拿别的算子充数。
 
 ## 下一步（接手先做）
 1. **真模型四题复验尚未做，需要你授权**（付费 provider）。做法：新隔离根、新 SHA、按原题
