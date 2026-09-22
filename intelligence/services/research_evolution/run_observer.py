@@ -139,14 +139,15 @@ class ObservingRunStore(RunStore):
         """自用测量的同意门（QC I11）。
 
         只认 owner 自己的 ``consent_changed`` 记录（``participant_id`` 为空或等于 owner），按
-        ``effective_at``（缺则 ``event_at``）排序折叠 grant / withdraw，得到 ``at`` 时刻生效的范围。
+        ``effective_at``（缺则 ``event_at``）折叠 grant / withdraw，得到 ``at`` 时刻生效的范围；
+        排序与折叠本身由 05 读侧共用的 ``product_value.consent.scopes_at`` 拿主，两侧不得各留一份。
         没有任何记录返回 True（自用默认，见模块说明）；有记录则必须覆盖 ``REQUIRED_MEASUREMENT_SCOPES``。
         台账读不出来按「未知」处理并留 stderr 痕迹（门本身放行）；但同一份坏台账会让随后的
         ``append_product_value_event`` 重读时再抛一次，净效果是**不写 + 两行 stderr**（第九轮复核 T12 实测）——
         同意门是测量的门，不是被测 run 的门，两处都不会阻断 run。
         """
         try:
-            from intelligence.services.product_value.contracts import REQUIRED_MEASUREMENT_SCOPES
+            from intelligence.services.product_value import consent as consent_fold
             from intelligence.services.product_value.events import parse_ts
 
             events = self._evolution_store.list_product_value_events()
@@ -166,16 +167,7 @@ class ObservingRunStore(RunStore):
             entries.append((effective, str(payload.get("action")), frozenset(str(s) for s in payload.get("scopes") or ())))
         if not entries:
             return True
-        entries.sort(key=lambda item: (item[0], item[1]))
-        active: set[str] = set()
-        for effective, action, scopes in entries:
-            if effective > at:
-                break
-            if action == "grant":
-                active |= scopes
-            elif action == "withdraw":
-                active -= scopes
-        return REQUIRED_MEASUREMENT_SCOPES <= active
+        return consent_fold.covers_measurement(consent_fold.scopes_at(entries, at))
 
     def _record(self, event_type: str, run: Run, payload: dict[str, Any]) -> None:
         """构造 + 05 校验 + 同 writer 落盘；任何失败只留 stderr 痕迹，不阻断 run 生命周期。"""
