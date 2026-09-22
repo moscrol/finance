@@ -383,6 +383,136 @@ def test_publish_snapshot_supersedes_same_day_generation_without_pooling_rows(st
     ).fetchone() == (4,)
 
 
+def _publication_state(con):
+    """同时观察公开视图与底层表，拒绝不能留下半个新池。"""
+    tables = (
+        "ops_sector_universe_snapshot_daily", "fact_sector_universe_daily",
+        "ops_sector_member_sync_daily", "dim_sector", "fact_sector_daily_generation",
+        "fact_sector_stock_daily_generation", "fact_sector_daily", "fact_sector_stock_daily",
+    )
+    return {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+
+
+@pytest.mark.parametrize("old_provider,new_provider", [
+    ("fupanhui", "hithink"), ("local:carry", "hithink"), ("hithink", "fupanhui"),
+])
+def test_cross_provider_publication_is_rejected_before_any_mutation(store_con, old_provider, new_provider):
+    store = SectorUniverseStore(store_con)
+    first = store.publish_snapshot(
+        trade_date="2026-07-28", provider_source=old_provider,
+        sectors=[SectorDescriptor("OLD.TI", "旧名单", 1)],
+        captured_at="2026-07-28T18:00:00+08:00",
+    )
+    store.replace_sector_daily(first.snapshot_id, [_daily_row("OLD.TI", 1)])
+    store.record_member_result(first.snapshot_id, "OLD.TI", MemberResult.success(
+        served_date="2026-07-28", stocks=[_stock("600000.SH")],
+    ))
+    before = _publication_state(store_con)
+    with pytest.raises(SectorUniverseValidationError, match="provider switch"):
+        store.publish_snapshot(
+            trade_date="2026-07-28", provider_source=new_provider,
+            sectors=[SectorDescriptor("NEW.TI", "新名单", 1)],
+            captured_at="2026-07-28T19:00:00+08:00",
+        )
+    assert _publication_state(store_con) == before
+    assert store.published_snapshot("2026-07-28").snapshot_id == first.snapshot_id
+    assert db.get_published_snapshot_id(store_con, "2026-07-28") == first.snapshot_id
+
+
+@pytest.mark.parametrize("replay", [False, True])
+def test_multi_provider_corruption_blocks_publication_and_idempotent_replay(store_con, replay):
+    store = SectorUniverseStore(store_con)
+    first = _publish(store_con)
+    # 旧实现可制造此状态。新发布不能悄悄修复或忽略跨 provider 的第二版。
+    store_con.execute(
+        "INSERT INTO ops_sector_universe_snapshot_daily VALUES "
+        "('2026-07-28', 'other-provider', 'hithink', 1, 1, 'published', now())"
+    )
+    before = _publication_state(store_con)
+    with pytest.raises(SectorUniverseValidationError, match="published snapshot"):
+        store.publish_snapshot(
+            trade_date="2026-07-28", provider_source="fupanhui",
+            sectors=first.sectors if replay else [SectorDescriptor("NEW.FP", "新池", 1)],
+            captured_at="2026-07-28T20:00:00+08:00",
+        )
+    assert _publication_state(store_con) == before
+
+
+def test_authorized_provider_switch_replaces_pool_and_retires_old_identities(store_con):
+    store = SectorUniverseStore(store_con)
+    store.publish_snapshot(
+        trade_date="2026-07-28", provider_source="local:carry",
+        sectors=[SectorDescriptor("OLD.TI", "旧名单", 1)],
+        captured_at="2026-07-28T18:00:00+08:00",
+    )
+    switched = store.publish_snapshot(
+        trade_date="2026-07-28", provider_source="hithink",
+        sectors=[SectorDescriptor("885001.TI", "新池", 1)],
+        captured_at="2026-07-28T19:00:00+08:00",
+        supersede_provider="local:carry",
+    )
+    assert store.published_snapshot("2026-07-28").snapshot_id == switched.snapshot_id
+    assert db.get_published_snapshot_id(store_con, "2026-07-28") == switched.snapshot_id
+    # 换源必须留痕：旧表头不删，只转 superseded，事后能查出「那天换过源」。
+    assert store_con.execute(
+        "SELECT provider_source, status FROM ops_sector_universe_snapshot_daily "
+        "WHERE trade_date='2026-07-28' ORDER BY captured_at"
+    ).fetchall() == [("local:carry", "superseded"), ("hithink", "published")]
+    assert store_con.execute(
+        "SELECT sector_ts_code FROM dim_sector WHERE is_active ORDER BY 1"
+    ).fetchall() == [("885001.TI",)]
+
+
+@pytest.mark.parametrize("claimed,expected", [
+    ("hithink", "but fupanhui is the published provider"),
+    ("已不存在的源", "but fupanhui is the published provider"),
+])
+def test_provider_switch_rejects_wrong_claim_about_who_is_published(store_con, claimed, expected):
+    _publish(store_con)
+    with pytest.raises(SectorUniverseValidationError, match=expected):
+        SectorUniverseStore(store_con).publish_snapshot(
+            trade_date="2026-07-28", provider_source="local:carry",
+            sectors=[SectorDescriptor("X.TI", "X", 1)],
+            captured_at="2026-07-28T19:00:00+08:00",
+            supersede_provider=claimed,
+        )
+
+
+def test_supersede_provider_rejected_when_nothing_is_published_that_day(store_con):
+    with pytest.raises(SectorUniverseValidationError, match="no published fupanhui snapshot"):
+        SectorUniverseStore(store_con).publish_snapshot(
+            trade_date="2026-07-28", provider_source="hithink",
+            sectors=[SectorDescriptor("885001.TI", "新池", 1)],
+            captured_at="2026-07-28T19:00:00+08:00",
+            supersede_provider="fupanhui",
+        )
+    assert store_con.execute(
+        "SELECT count(*) FROM ops_sector_universe_snapshot_daily"
+    ).fetchone() == (0,)
+
+
+def test_same_provider_republish_needs_no_switch_authorization(store_con):
+    """同 source 重采集是日常操作，不能被换源门禁误伤。"""
+    first = _publish(store_con, suffix="A")
+    second = _publish(store_con, captured_at="2026-07-29T10:05:00+08:00", suffix="B")
+    assert first.snapshot_id != second.snapshot_id
+    assert SectorUniverseStore(store_con).published_snapshot(
+        "2026-07-28"
+    ).snapshot_id == second.snapshot_id
+
+
+def test_different_days_can_use_different_providers(store_con):
+    first = _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    second = store.publish_snapshot(
+        trade_date="2026-07-29", provider_source="hithink",
+        sectors=[SectorDescriptor("885001.TI", "新池", 1)],
+        captured_at="2026-07-29T18:00:00+08:00",
+    )
+    assert store.published_snapshot("2026-07-28").snapshot_id == first.snapshot_id
+    assert store.published_snapshot("2026-07-29").snapshot_id == second.snapshot_id
+
+
 def test_publish_snapshot_replay_rejects_corrupted_persisted_universe(store_con):
     store = SectorUniverseStore(store_con)
     sectors = (
