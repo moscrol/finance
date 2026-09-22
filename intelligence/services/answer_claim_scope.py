@@ -105,7 +105,13 @@ _SCOPE_BOUNDED = re.compile(
 _FUND_FLOW_CLAIM = re.compile(
     r"(?:资金|主力|北向|游资|机构)"
     r"(?:[，、]?(?:大幅|明显|持续|集中|单日|当日|显著|加速|小幅)){0,3}"
-    r"(?:净)?(?:流入|流出|撤离|回流|抢筹)|净(?:流入|流出)"
+    r"(?:净)?(?:流入|流出|撤离|回流|抢筹)|净(?:流入|流出)|"
+    # 迁移类说法是 1347 run 召回探针抓出的漏报：「存量资金内部腾挪而非
+    # 增量进场」「存量资金从权重撤出」——同样是拿量能推资金方向，只是换了
+    # 动词。主语与动词间允许 6 字（「资金**内部**腾挪」）。不收「加仓/减仓」：
+    # 回测里那 31 句全是给用户的仓位建议，不是对市场资金方向的断言。
+    r"(?:资金|主力|北向|游资|机构|筹码)[^。；！？\n]{0,6}"
+    r"(?:腾挪|搬家|进场|入场|撤出|转移|涌入|出逃)"
 )
 # 免责词表是拿 1347 个历史 run 压出来的（见
 # docs/verification/2026-09-22-claim-scope-backtest）：原词表只认「未取/无资金流」，
@@ -114,9 +120,20 @@ _FUND_FLOW_CLAIM = re.compile(
 _FUND_FLOW_DISCLAIMER = re.compile(
     r"未(?:取|查|拉|验证)(?:得)?(?:到)?(?:资金|流向|净额)|无资金流(?:向|数据|证据)|"
     r"缺(?:少)?资金流|不能据此(?:判断|推断)|非资金流|"
-    r"未(?:查|取|获|返回|检索)得?|无法核验|未支持|不做断言|不做判断|"
-    r"需要?补充.{0,12}证据|本轮缺失|尚无.{0,6}数据"
+    r"未(?:查|取|获|返回|检索)得?|无法核验|未支持|无法区分|均不成立|"
+    r"不(?:做|作|能)(?:断言|判断|归因)|"
+    r"需要?补充.{0,12}证据|本轮缺失|尚无.{0,6}数据|"
+    # 反驳句：句子在论证「这个资金结论立不住」，比如「日线先后不足以说资金
+    # 转移」「『资金转移』不是唯一解释」——报它们等于反对说真话。
+    r"不足以|不构成|不能.{0,4}证明|不是唯一|未建立|待核验|"
+    r"不成立|撤回|不是典型|反证|竞争性?解释|也可解释为|方向相反"
 )
+# 引号里的是被**讨论**的口号，不是本句的断言：「『成交增加=新增资金入场』
+# 不成立」、「『存量资金腾挪放大换手』——撤回」。堆词表追不完这些写法，
+# 用结构判据：句中所有资金短语都落在引号内，就是提及而非断言。
+_QUOTED_SPAN = re.compile(r"[「『“\"][^」』”\"]*[」』”\"]")
+# 设问句不是断言：「成交增加能否证明新增资金入场？」是小标题，不是结论。
+_INTERROGATIVE = re.compile(r"[？?]\s*$|(?:能否|是否|可否|吗)[^。！\n]{0,20}[？?]")
 
 # R4：声称输入缺单位。币种（人民币/美元）与数量单位（亿元/万元）是两件事，
 # 只有当声明里带"单位"且输入确实给了单位时才算矛盾。
@@ -274,7 +291,14 @@ def _fund_flow_issue(sentence: str, context: ClaimEvidenceContext) -> ClaimIssue
         return None
     if not _FUND_FLOW_CLAIM.search(sentence):
         return None
-    if _FUND_FLOW_DISCLAIMER.search(sentence):
+    if _FUND_FLOW_DISCLAIMER.search(sentence) or _INTERROGATIVE.search(sentence):
+        return None
+    claims = list(_FUND_FLOW_CLAIM.finditer(sentence))
+    quoted = [m.span() for m in _QUOTED_SPAN.finditer(sentence)]
+    if claims and all(
+        any(start <= claim.start() and claim.end() <= end for start, end in quoted)
+        for claim in claims
+    ):
         return None
     return ClaimIssue(
         rule=RULE_FUND_FLOW,

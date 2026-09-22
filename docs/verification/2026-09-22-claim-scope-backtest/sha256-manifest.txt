@@ -1,5 +1,5 @@
-e9baee10f09ac914560cf7e402bf3282e633effd4b6f0761d793d7b4030177ac  docs/verification/2026-09-22-claim-scope-backtest/README.md
-2f7edaa50cc2ef0ce9f1344fb8702656d7ced8b61adfc6484a6dce455a98dae0  docs/verification/2026-09-22-claim-scope-backtest/evidence/backtest-1347-runs.json
-fbf943372dbb4e0ab92f6f6f8d637227ad0c0515998943f0014fb1f7b6933e63  docs/verification/2026-09-22-claim-scope-backtest/evidence/residual-hits.json
-0d601ce6eacfb7c6da091a5118fa7ff2324a7e27937d71fc01a881a8451a50d5  docs/verification/2026-09-22-claim-scope-backtest/evidence/test-receipt-targeted.json
-3e9b5fe6c08f9382183b161d0456964186cba3ad24edeabb335900384a198307  docs/verification/2026-09-22-claim-scope-backtest/sources.json
+77ba8bb24ac99dd9733341eb6b792e603ae694611f1a97f02c4d00eb5f18d124  docs/verification/2026-09-22-claim-scope-backtest/README.md
+77713837d4d52d363f89f21de18486e38f8d2ea105d4989f3f5c54d4d43d56bd  docs/verification/2026-09-22-claim-scope-backtest/evidence/backtest-1347-runs.json
+23c8c45ad9bf3876195184151a851f4a44be5fc192bfc71703cf77be0d32c383  docs/verification/2026-09-22-claim-scope-backtest/evidence/residual-hits.json
+d607899e5c7260f05e97c212ad5abcd19bdb92d6322295e2f159a11511bc4274  docs/verification/2026-09-22-claim-scope-backtest/evidence/test-receipt-targeted.json
+f7169b992c33472fe87e6bc0ab606c1db4495baef6bd2f690a89fa03596b5ea8  docs/verification/2026-09-22-claim-scope-backtest/sources.json

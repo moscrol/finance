@@ -176,6 +176,46 @@ class BacktestFalsePositiveTests(unittest.TestCase):
         self.assertEqual([RULE_LATEST_TRADING_DAY], _rules(answer, MARKET_CONTEXT))
 
 
+class RecallProbeTests(unittest.TestCase):
+    """宽探针扫 1347 个历史 run 抓出的**漏报**，以及补召回时抓错的那批。
+
+    迁移类说法（腾挪/进场/撤出）同样是拿量能推资金方向，只是换了动词。
+    但补上动词后又把反驳句/设问句/引号里的口号扫进来了——一并钉住。
+    """
+
+    def test_stock_rotation_claim_is_reported(self) -> None:
+        answer = (
+            "- 指数停滞（+0.07%）与涨停潮（93 家）、强势股放量共存："
+            "存量资金内部腾挪而非增量进场，总成交仍在缩。"
+        )
+        self.assertEqual([RULE_FUND_FLOW], _rules(answer, MARKET_CONTEXT))
+
+    def test_capital_migration_verdict_is_reported(self) -> None:
+        answer = "研判：存量资金继续向强势股腾挪，指数弱、结构强。"
+        self.assertEqual([RULE_FUND_FLOW], _rules(answer, MARKET_CONTEXT))
+
+    def test_quoted_slogan_being_refuted_is_clean(self) -> None:
+        answer = "「成交增加=新增资金入场」不成立（高置信）；"
+        self.assertEqual([], _rules(answer, MARKET_CONTEXT))
+
+    def test_retracted_claim_is_clean(self) -> None:
+        answer = "- **「存量资金腾挪放大换手」——撤回。"
+        self.assertEqual([], _rules(answer, MARKET_CONTEXT))
+
+    def test_interrogative_heading_is_clean(self) -> None:
+        answer = "**成交增加能否证明新增资金入场？**"
+        self.assertEqual([], _rules(answer, MARKET_CONTEXT))
+
+    def test_teaching_the_limitation_is_clean(self) -> None:
+        answer = "注意：**成交额增加不能单独证明新增资金入场**，同理也不能单独证明出逃。"
+        self.assertEqual([], _rules(answer, MARKET_CONTEXT))
+
+    def test_position_advice_is_not_a_flow_claim(self) -> None:
+        # 回测里 31 句「加仓/减仓」全是给用户的仓位建议，不是对市场资金的断言。
+        answer = "若站立日现价跌破你的止损条件，再讨论减仓；"
+        self.assertEqual([], _rules(answer, MARKET_CONTEXT))
+
+
 class RegistryFactTests(unittest.TestCase):
     """证据常量跟着 finance_query 注册表走，漂了就红。"""
 
