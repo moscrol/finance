@@ -82,19 +82,23 @@ def target_report_end_from_query(query: str) -> date | None:
     text = str(query or "")
     if not text.strip():
         return None
-    year_match = _FINANCIAL_YEAR_RE.search(text)
-    if not year_match:
-        return None
-    year = int(year_match.group(1))
+    # A cutoff/review/disclosure date's year is not a report year. Match the year
+    # next to its period, never the first year against a keyword elsewhere.
     for pattern, (month, day) in _REPORT_PERIOD_PATTERNS:
-        if re.search(pattern, text):
-            return date(year, month, day)
-    # 只有一个年份（「2024」「2024年」「FY2024」）：模型在 report_period 里就是这么写的，按年报。
-    if re.fullmatch(r"\s*(?:FY|fy)?\s*20\d{2}\s*年?\s*", text):
-        return date(year, 12, 31)
-    if _FINANCIAL_FIGURE_RE.search(text):
-        return date(year, 12, 31)
-    return None
+        match = re.search(rf"(?<!\d)(20\d{{2}})\s*(?:年\s*)?(?:{pattern})", text)
+        if match:
+            return date(int(match.group(1)), month, day)
+    fy = re.search(r"\bFY\s*(20\d{2})(?!\d)", text, re.IGNORECASE)
+    if fy:
+        return date(int(fy.group(1)), 12, 31)
+    bare = re.fullmatch(r"\s*(20\d{2})\s*年?\s*", text)
+    if bare:
+        return date(int(bare.group(1)), 12, 31)
+    annual = re.search(
+        rf"(?<!\d)(20\d{{2}})年(?!\s*\d{{1,2}}月)[^，,。；;\n\d]*?"
+        rf"(?:{_FINANCIAL_FIGURE_RE.pattern})", text,
+    )
+    return date(int(annual.group(1)), 12, 31) if annual else None
 
 
 def periods_to_cover(

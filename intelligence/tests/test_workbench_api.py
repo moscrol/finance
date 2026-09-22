@@ -3037,6 +3037,157 @@ def test_sse_rejects_negative_after(client: TestClient) -> None:
     )
 
 
+def _publication_run(status="completed"):
+    store = RunStore()
+    conversations = ConversationStore(user_id=store.user_id)
+    conversation = conversations.create_conversation("publication boundary")
+    run = store.create_run("publication boundary", "ask", session_id=conversation.conversation_id)
+    message = conversations.append_message(
+        conversation.conversation_id, "assistant", "终稿", run_id=run.run_id, status=status,
+    )
+    store.finish_run(run.run_id, status)
+    return store, run, message.message_id
+
+
+@pytest.mark.parametrize("status,event_type", [
+    ("completed", "message.complete"),
+    ("failed", "message.error"),
+    ("cancelled", "message.error"),
+])
+def test_run_publication_waits_for_exact_terminal_message_event(
+    client: TestClient, status: str, event_type: str,
+) -> None:
+    store, run, message_id = _publication_run(status)
+    route = f"/api/runs/{run.run_id}"
+    early = client.get(route).json()
+    assert early["status"] == status  # 终态归属不动，不能挪 claim 来消除窗口。
+    assert early["publication"] == {"status": "pending", "message_id": None}
+    message = {
+        "run_id": run.run_id, "conversation_id": run.session_id,
+        "message_id": message_id, "role": "assistant", "status": status,
+    }
+    # 错误会话、错误消息坐标、非助手、错误状态均不能授权收口。
+    for index, (envelope, payload) in enumerate([
+        ({"conversation_id": "other"}, message),
+        ({}, {**message, "message_id": "other"}),
+        ({}, {**message, "role": "user"}),
+        ({}, {**message, "status": "pending"}),
+        ({}, {**message, "run_id": "other"}),
+        ({}, {**message, "conversation_id": "other"}),
+        ({"message_id": "other"}, {**message, "message_id": "other"}),
+    ]):
+        store.append_stream_event(
+            run.run_id, event_id=f"bad-publication-{index}", event_type=event_type,
+            conversation_id=envelope.get("conversation_id", run.session_id),
+            message_id=envelope.get("message_id", message["message_id"]),
+            payload={"message": payload},
+        )
+        assert client.get(route).json()["publication"]["status"] == "pending"
+    if status == "completed":
+        store.add_artifact(run.run_id, "report.json", "{}", renderer="structured_report", title="报告")
+        assert client.get(route).json()["publication"]["status"] == "pending"
+    # 失败/取消无需 report.json：真正屏障是匹配的最后消息发布事件。
+    store.append_stream_event(
+        run.run_id, event_id="published", event_type=event_type,
+        conversation_id=run.session_id, message_id=message["message_id"],
+        payload={"message": message},
+    )
+    published = client.get(route).json()
+    assert published["publication"] == {"status": "published", "message_id": message_id}
+    assert next(r for r in client.get("/api/runs").json() if r["run_id"] == run.run_id)["publication"] == published["publication"]
+
+
+def test_publication_snapshot_reloads_artifacts_after_observing_commit_marker(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store, run, message_id = _publication_run()
+    original = RunStore.load_stream_events
+    published = False
+
+    def publish_between_reads(self, run_id, after=0):
+        nonlocal published
+        if run_id == run.run_id and not published:
+            published = True
+            store.add_artifact(run_id, "report.json", "{}", renderer="structured_report", title="报告")
+            store.append_stream_event(
+                run_id, event_id="published", event_type="message.complete",
+                conversation_id=run.session_id, message_id=message_id,
+                payload={"message": {"run_id": run_id, "conversation_id": run.session_id,
+                         "message_id": message_id, "role": "assistant", "status": "completed"}},
+            )
+        return original(self, run_id, after)
+
+    monkeypatch.setattr(RunStore, "load_stream_events", publish_between_reads)
+    payload = client.get(f"/api/runs/{run.run_id}").json()
+    assert payload["publication"]["status"] == "published"
+    assert [item["path"] for item in payload["artifacts"]] == ["report.json"]
+
+
+@pytest.mark.parametrize("session_id", [None, "legacy-cli-session"])
+def test_non_conversation_run_does_not_require_message_publication(client: TestClient, session_id) -> None:
+    store = RunStore()
+    run = store.create_run("legacy run", "ask", session_id=session_id)
+    store.finish_run(run.run_id, "completed")
+    assert client.get(f"/api/runs/{run.run_id}").json()["publication"] == {
+        "status": "not_applicable", "message_id": None,
+    }
+
+
+@pytest.mark.parametrize("publish", [True, False])
+def test_sse_waits_for_publication_or_times_out_without_faking_completion(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, publish: bool,
+) -> None:
+    store, run, message_id = _publication_run()
+    clock = [0.0]
+
+    def sleep(seconds):
+        clock[0] += seconds
+        if publish and clock[0] == 4:
+            store.add_artifact(run.run_id, "report.json", "{}", renderer="json", title="报告")
+            store.append_stream_event(
+                run.run_id, event_id="late", event_type="message.complete",
+                conversation_id=run.session_id, message_id=message_id,
+                payload={"message": {"run_id": run.run_id, "conversation_id": run.session_id,
+                         "message_id": message_id, "role": "assistant", "status": "completed"}},
+            )
+
+    monkeypatch.setattr(app_module, "time", SimpleNamespace(monotonic=lambda: clock[0], sleep=sleep))
+    monkeypatch.setattr(app_module, "_SSE_POLL_SECONDS", 1)
+    monkeypatch.setattr(app_module, "_SSE_MAX_SECONDS", 5)
+    body = client.get(f"/api/runs/{run.run_id}/events").text
+    if publish:
+        assert body.index("event: message.complete") < body.index("event: run")
+        final = json.loads(body.split("event: run\ndata: ")[1].strip())
+        assert final["publication"] == {"status": "published", "message_id": message_id}
+        assert final["artifacts"][0]["path"] == "report.json"
+    else:
+        assert "event: timeout" in body and "event: run" not in body
+
+
+def test_sse_drains_commit_event_observed_between_reads(client, monkeypatch):
+    store, run, message_id = _publication_run()
+    original = RunStore.load_stream_events
+    reads = 0
+
+    def publish_during_publication_check(self, run_id, after=0):
+        nonlocal reads
+        if run_id == run.run_id:
+            reads += 1
+            if reads == 2:  # Initial stream read was empty; publication read sees commit.
+                store.append_stream_event(
+                    run_id, event_id="between-reads", event_type="message.complete",
+                    conversation_id=run.session_id, message_id=message_id,
+                    payload={"message": {"run_id": run_id, "conversation_id": run.session_id,
+                             "message_id": message_id, "role": "assistant", "status": "completed"}},
+                )
+        return original(self, run_id, after)
+
+    monkeypatch.setattr(RunStore, "load_stream_events", publish_during_publication_check)
+    body = client.get(f"/api/runs/{run.run_id}/events").text
+    assert "event: message.complete" in body
+    assert body.index("event: message.complete") < body.index("event: run")
+
+
 def test_sse_initial_connection_keeps_polling_canonical_events(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
